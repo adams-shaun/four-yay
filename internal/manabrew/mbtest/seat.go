@@ -36,7 +36,7 @@ func NewCensus() *Census {
 	}
 }
 
-func (c *Census) addGame() {
+func (c *Census) AddGame() {
 	if c == nil {
 		return
 	}
@@ -154,6 +154,38 @@ func sumMap(m map[string]int) int {
 	return n
 }
 
+// Detail renders the whole census as a deterministic (sorted-key) block: the
+// Summary line, then one line per bucket -- "posed <promptType> <n>",
+// "enumerated <Kind:optkinds> <n>", "rejected <code> <n>", "unmapped <Kind>
+// <n>" -- in that fixed bucket order, keys sorted within a bucket. A
+// multi-game run (cmd/cardfuzz -manabrew) folds one shared Census across
+// every seat and prints this block once at the end.
+func (c *Census) Detail() string {
+	if c == nil {
+		return "census: <nil>\n"
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	var b strings.Builder
+	fmt.Fprintf(&b, "census: games=%d posed=%d enumerated=%d rejected=%d unmapped=%d\n",
+		c.Games, sumMap(c.Posed), sumMap(c.Enumerated), sumMap(c.Rejected), sumMap(c.Unmapped))
+	write := func(name string, m map[string]int) {
+		keys := make([]string, 0, len(m))
+		for k := range m {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			fmt.Fprintf(&b, "%s %s %d\n", name, k, m[k])
+		}
+	}
+	write("posed", c.Posed)
+	write("enumerated", c.Enumerated)
+	write("rejected", c.Rejected)
+	write("unmapped", c.Unmapped)
+	return b.String()
+}
+
 // optionKinds is a diagnostic helper: the distinct Option.Kind values a
 // decision carries, in first-occurrence order.
 func optionKinds(opts []decision.Option) []string {
@@ -241,8 +273,8 @@ func (s *TranslatingSeat) Decide(_ context.Context, v view.View, d decision.Deci
 	outcome := s.Translator.TranslateResponse(resp, pending, d.Player)
 	if outcome.Err != nil {
 		s.Census.addRejected(outcome.Err.Code)
-		return decision.Intent{}, fmt.Errorf("mbtest: %s prompt (seq %d) rejected: %s (%s)",
-			msg.Input.Value.PromptType(), d.Seq, outcome.Err.Code, outcome.Err.Message)
+		return decision.Intent{}, fmt.Errorf("mbtest: %s prompt (seq %d) rejected: %s (%s) [kind=%s resumeKind=%q opts=%v]",
+			msg.Input.Value.PromptType(), d.Seq, outcome.Err.Code, outcome.Err.Message, d.Kind, d.ResumeKind, optionKinds(d.Options))
 	}
 	if outcome.Undo != nil {
 		return decision.Intent{}, fmt.Errorf("mbtest: mock client triggered an undo, which it never sends")

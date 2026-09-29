@@ -33,6 +33,18 @@
 // forces the planner at every priority window to restore that counter at the
 // cost of runtime; it changes no game, intent, replay signature or failure
 // record. See autoPay.measureManualSeatPlans.
+//
+// -manabrew replaces every seat's bot policy with the ManaBrew wire:
+// each seat is an mbtest.TranslatingSeat answering a seeded-random
+// mbtest.MockClient, so every decision crosses internal/manabrew's
+// Translator as a wire prompt and back. A game fails on any unmapped
+// decision, rejected response, translator panic or replay divergence, and
+// its failure record carries "manabrew": true so -repro rebuilds the same
+// seats. One census (posed/enumerated/rejected/unmapped counts) is shared
+// across every game of the run and printed at the end. The bot-only knobs
+// -autopay and -explore-autopay are rejected (there is no bot policy to
+// wrap); -explore is ignored (-explore=false is honoured by the lane
+// wholesale). See the lane branch in playGame.
 package main
 
 import (
@@ -62,6 +74,7 @@ import (
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/host"
 	gbench "github.com/adams-shaun/gorge/internal/bench"
+	"github.com/adams-shaun/gorge/internal/manabrew/mbtest"
 	"github.com/adams-shaun/gorge/internal/paymirror"
 	"github.com/adams-shaun/gorge/replay"
 	"github.com/adams-shaun/gorge/rules"
@@ -342,10 +355,14 @@ type failure struct {
 	AutoPay        string `json:"autopay,omitempty"`
 	ExploreAutoPay bool   `json:"explore_autopay,omitempty"`
 	AutoPaySeats   []int  `json:"autopay_seats,omitempty"`
-	Turns          int32  `json:"turns"`
-	Intents        int    `json:"intents"`
-	Diag           string `json:"diag"`
-	Sig            string `json:"sig"`
+	// Manabrew records that the game was played through the ManaBrew wire
+	// lane (-manabrew): every seat was an mbtest.TranslatingSeat over a
+	// seeded-random MockClient, so -repro rebuilds exactly those seats.
+	Manabrew bool   `json:"manabrew,omitempty"`
+	Turns    int32  `json:"turns"`
+	Intents  int    `json:"intents"`
+	Diag     string `json:"diag"`
+	Sig      string `json:"sig"`
 }
 
 // stamp records the run's auto-pay configuration on a failure record.
@@ -439,6 +456,13 @@ type gameCov struct {
 var autopayMirror bool
 var autopayMirrorOptions = paymirror.Options{Control: true}
 
+// mbCensus arms the ManaBrew lane (-manabrew): when non-nil, playGame builds
+// every seat as an mbtest.TranslatingSeat over a per-seat seeded-random
+// mbtest.MockClient and every decision folds into this one shared census.
+// It is set once before workers start (main) and locally in runRepro for a
+// record that carries manabrew; nil means the native bot-policy lane.
+var mbCensus *mbtest.Census
+
 // botSeat is the production hosted bot, or with explore the opt-in
 // coverage-exploration policy (seat.NewExploreBot, botpolicy.ExploreDecide);
 // autoPay arms either with the payment-plan wrapper (seat.Bot.
@@ -529,10 +553,17 @@ func exploreIndex(seed uint64, explore bool) int {
 
 // playGame is playOne under an auto-pay configuration (-autopay).
 func playGame(reg *cards.Registry, decks []genDeck, seed uint64, maxTurns, maxIntents, maxObjects int, verify, explore bool, apc autoPay) (fail *failure, gc *gameCov) {
+	mbLane := mbCensus != nil
+	if mbLane {
+		// The ManaBrew lane has no bot policy, payment plan or exploration
+		// seat -- every seat is a TranslatingSeat -- so the bot-only knobs
+		// are inert here and a lane record never carries them.
+		explore = false
+	}
 	exploreIdx := exploreIndex(seed, explore)
 	ap := apc.seats(seed, len(decks), exploreIdx)
 	mk := func(kind, diag string, o gbench.Outcome) *failure {
-		return (&failure{Kind: kind, Seed: seed, Decks: decks, Explore: explore, Turns: o.Turns, Intents: o.Intents, Diag: diag, Sig: signature(kind, diag)}).stamp(apc, ap)
+		return (&failure{Kind: kind, Seed: seed, Decks: decks, Explore: explore, Manabrew: mbLane, Turns: o.Turns, Intents: o.Intents, Diag: diag, Sig: signature(kind, diag)}).stamp(apc, ap)
 	}
 	var dk [][]*cards.Card
 	for _, d := range decks {
@@ -546,6 +577,16 @@ func playGame(reg *cards.Registry, decks []genDeck, seed uint64, maxTurns, maxIn
 	seats := make([]seat.Seat, len(decks))
 	for i := range decks {
 		names[i] = fmt.Sprintf("%s-%d", decks[i].Colour, i)
+		if mbLane {
+			// The per-seat seed uses the same mixing botSeat does, so -repro
+			// rebuilds identical clients from the record alone. A client
+			// draws only inside its own seat's Decide calls, which the one
+			// drive goroutine orders deterministically, so the lane is
+			// reproducible from (seed, decks) like the bot lane is.
+			seats[i] = mbtest.NewTranslatingSeat("cardfuzz", int64(seed),
+				mbtest.NewSeededRandomClient(seed^(0x9e3779b97f4a7c15*uint64(i+1))), mbCensus)
+			continue
+		}
 		seats[i] = botSeat(seed^(0x9e3779b97f4a7c15*uint64(i+1)), i == exploreIdx, ap[i])
 	}
 	// The aborting game's own cfg arms the mid-resolution object cap (below).
@@ -1011,6 +1052,7 @@ func main() {
 	exploreAutoPay := flag.Bool("explore-autopay", false, "the -explore seat auto-pays too wherever -autopay would select its seat (off by default: the wrapper hides priority mana activations, cutting explore coverage)")
 	statsPath := flag.String("stats", "", "write the run's failure counts and auto-pay counters here as JSON")
 	measureManualSeatPlans := flag.Bool("measure-manual-seat-plans", false, "diagnostic: in -autopay off mode, force the payment planner on every priority window so manual_seat_priority_with_plan (the plans the eager publisher would have offered to manual seats) is populated. Rebuilds every seat's payment extension, so it costs runtime; it never changes game outcomes, intents, replay signatures or failure records, and it is ignored in all|mixed (which already measure)")
+	manabrewLane := flag.Bool("manabrew", false, "play every seat through the ManaBrew wire (mbtest.TranslatingSeat + seeded-random MockClient): one shared census printed at the end, failures record \"manabrew\": true and replay through -repro; -explore is ignored and -autopay/-explore-autopay are rejected")
 	journalPath := flag.String("journal", "", "append 'start <goroutine> <seed>' / 'end <seed>' around every game: a fatal runtime error (a stack overflow) kills the whole process past any recover, and the journal names the game the crashing goroutine was playing")
 	skipPath := flag.String("skip", "", "JSONL of games not to play ({seed, sig, diag} per line, from a -journal crash): each is recorded as a 'fatal' failure instead")
 	flag.Uint64Var(&dumpAt, "dump-at", 0, "with -repro: print the first pending decision whose Seq is at least this log index (options, payment actions, pool, battlefield)")
@@ -1023,6 +1065,13 @@ func main() {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "cardfuzz:", err)
 		os.Exit(1)
+	}
+	if *manabrewLane {
+		if apc.on() || *exploreAutoPay {
+			fmt.Fprintln(os.Stderr, "cardfuzz: -manabrew poses no bot policy and no payment plan; run it without -autopay and -explore-autopay")
+			os.Exit(1)
+		}
+		mbCensus = mbtest.NewCensus()
 	}
 	// Measurement-only opt-in: threaded into the guard, never stamped on a
 	// failure record nor rebuilt by autoPayOf, so -repro and replay are
@@ -1193,6 +1242,11 @@ func main() {
 				}
 				c.Games++
 				played++
+				if mbCensus != nil {
+					// The lane's own game count, folded at the same choke
+					// point as the coverage state's.
+					mbCensus.AddGame()
+				}
 				gameSecs += gr.secs
 				seen := map[string]bool{}
 				for _, nme := range gr.included {
@@ -1269,6 +1323,12 @@ func main() {
 				fmt.Fprintln(os.Stderr, "cardfuzz: stats:", err)
 			}
 		}
+	}
+	if mbCensus != nil {
+		// The ManaBrew lane's aggregate census: posed/enumerated/rejected/
+		// unmapped across every game of the run, one sorted line per bucket
+		// key. A clean run prints the header with no rejected/unmapped rows.
+		fmt.Printf("== manabrew census ==\n%s", mbCensus.Detail())
 	}
 	fmt.Println("== failure signatures this run ==")
 	keys := make([]string, 0, len(runFails))
@@ -1422,8 +1482,19 @@ func runRepro(reg *cards.Registry, path string, line, maxTurns, maxIntents, maxO
 		if rec.Kind == "mirror" {
 			autopayMirror = true
 		}
+		if rec.Manabrew {
+			// Rebuild the lane's seats exactly as the failing run built
+			// them; this census is local to the repro (printed below),
+			// never folded into a run-wide one.
+			mbCensus = mbtest.NewCensus()
+			defer func() { mbCensus = nil }()
+		}
 		fl, gc := playGame(reg, rec.Decks, rec.Seed, maxTurns, maxIntents, maxObjects, true, rec.Explore, apc)
 		autopayMirror = previousMirror
+		if rec.Manabrew {
+			mbCensus.AddGame()
+			fmt.Printf("REPRO manabrew census:\n%s", mbCensus.Detail())
+		}
 		if gc != nil && gc.ap != nil && apc.on() {
 			fmt.Printf("REPRO autopay %s seats %v: %s\n", apc.mode, rec.AutoPaySeats, gc.ap.String())
 		}

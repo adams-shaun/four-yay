@@ -28,7 +28,7 @@ func (t *Translator) promptMisc(d *decision.Decision, v *view.View) (mb.PromptMe
 				deny = o.Label
 			}
 		}
-		input = mb.ChooseBooleanInput{PromptBase: pres, ConfirmLabel: confirm, DenyLabel: deny}
+		input = booleanElection(pres, d, confirm, deny)
 	case decision.KReplacement:
 		kind := d.Options[0].Kind
 		switch kind {
@@ -42,17 +42,21 @@ func (t *Translator) promptMisc(d *decision.Decision, v *view.View) (mb.PromptMe
 				colors = append(colors, c)
 			}
 			input = mb.ChooseColorInput{PromptBase: pres, ValidColors: colors, Amount: 1}
-		case "apply", "decline":
+		case "apply", "decline", "madness_exile", "madness_graveyard":
+			// The madness ask (rules/altcast.go askMadnessReplacement) is the
+			// same two-sided election: exile the discarded card (madness)
+			// vs discard it normally. booleanOptionIndex reads the same two
+			// kinds on the response side, so the pair cannot drift.
 			confirm, deny := "Apply", "Decline"
 			for _, o := range d.Options {
-				if o.Kind == "apply" {
+				if o.Kind == "apply" || o.Kind == "madness_exile" {
 					confirm = o.Label
 				}
-				if o.Kind == "decline" {
+				if o.Kind == "decline" || o.Kind == "madness_graveyard" {
 					deny = o.Label
 				}
 			}
-			input = mb.ChooseBooleanInput{PromptBase: pres, ConfirmLabel: confirm, DenyLabel: deny}
+			input = booleanElection(pres, d, confirm, deny)
 		case "replacement":
 			opts := make([]mb.SelectionOption, 0, len(d.Options))
 			for _, o := range d.Options {

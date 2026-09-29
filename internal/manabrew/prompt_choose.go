@@ -91,10 +91,32 @@ func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.Prompt
 	}
 	kind := d.Options[0].Kind
 	mixedYesNo := kind == "yes" || kind == "no"
+	uniform := true
 	for _, o := range d.Options {
 		if o.Kind != kind && !(mixedYesNo && (o.Kind == "yes" || o.Kind == "no")) {
+			uniform = false
+			break
+		}
+	}
+	if !uniform {
+		// The labelled-alternatives fallback (MBX-6, found via seed-42
+		// cardfuzz lane game): a pick-one ask whose options are mixed-Kind
+		// legal ANSWERS themselves -- effects/taporuntap.go's tap-or-untap
+		// election ("tap"/"untap", order state-flipped, so KIND equality
+		// can never hold), and any future ask of the same shape. It maps
+		// onto chooseFromSelection like every other label-only ask (the
+		// chosen index IS the answer; the engine reads the option kind off
+		// the chosen option), and stays fail-closed for anything that is
+		// not a Min==Max==1 pick over plain labelled alternatives.
+		if !labelledAlternatives(d) {
 			return mb.PromptMessage{}, ErrUnmapped
 		}
+		options := make([]mb.SelectionOption, 0, len(d.Options))
+		for _, o := range d.Options {
+			options = append(options, mb.SelectionOption{Label: o.Label, Weight: 1})
+		}
+		in := mb.PromptInputData(mb.ChooseFromSelectionInput{PromptBase: pres, Options: options, MinTotal: d.Min, MaxTotal: d.Max})
+		return mb.PromptMessage{Kind: "prompt", AgentPrompt: mb.AgentPrompt{PromptID: promptID(d), DecidingPlayerID: playerID(d.Player), SourceCard: t.sourceCard(v, d.Source), Input: mb.PromptInput{Value: in}}}, nil
 	}
 	var in mb.PromptInputData
 	switch kind {
@@ -137,10 +159,6 @@ func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.Prompt
 			in = mb.ChooseFromSelectionInput{PromptBase: pres, Options: options, MinTotal: d.Min, MaxTotal: d.Max}
 		}
 	case "yes", "no", "asunblocked":
-		if d.ResumeKind == "look_ack" || (len(d.Options) == 1 && kind == "yes") {
-			in = mb.ChooseFromSelectionInput{PromptBase: pres, Options: []mb.SelectionOption{{Label: d.Options[0].Label, Weight: 1}}, MinTotal: 1, MaxTotal: 1}
-			break
-		}
 		confirm, deny := "Yes", "No"
 		for _, o := range d.Options {
 			if o.Kind == "yes" {
@@ -150,7 +168,7 @@ func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.Prompt
 				deny = o.Label
 			}
 		}
-		in = mb.ChooseBooleanInput{PromptBase: pres, ConfirmLabel: confirm, DenyLabel: deny}
+		in = booleanElection(pres, d, confirm, deny)
 	case "x", "number":
 		vals := make([]int, 0, len(d.Options))
 		for _, o := range d.Options {
@@ -324,10 +342,10 @@ func (t *Translator) parseChooseBoolean(out mb.PromptOutputValue, p *Pending) Ou
 // booleanOptionIndex mirrors the confirm/deny discovery every chooseBoolean
 // builder (promptChoose, promptModes, promptMisc) uses, so a boolean answer
 // resolves to exactly the option each builder's own label promised:
-//   - an explicit Kind "yes"/"command_zone"/"apply", or Option.Mode
-//     ModeUnlessPay, is the confirm (true) side;
-//   - an explicit Kind "no"/"leave"/"decline", or Option.Mode
-//     ModeUnlessDecline, is the deny (false) side;
+//   - an explicit Kind "yes"/"command_zone"/"apply"/"madness_exile", or
+//     Option.Mode ModeUnlessPay, is the confirm (true) side;
+//   - an explicit Kind "no"/"leave"/"decline"/"madness_graveyard", or
+//     Option.Mode ModeUnlessDecline, is the deny (false) side;
 //   - a plain two-option list that carries none of those (the KChoose
 //     "asunblocked" election, rules/combat.go's askNextCombatAsk, whose two
 //     options are both literally Kind "asunblocked" and carry no marker of
@@ -338,9 +356,9 @@ func booleanOptionIndex(d *decision.Decision, value bool) (int, error) {
 	confirm, deny := -1, -1
 	for _, o := range d.Options {
 		switch {
-		case o.Kind == "yes", o.Kind == "command_zone", o.Kind == "apply", o.Mode == decision.ModeUnlessPay:
+		case o.Kind == "yes", o.Kind == "command_zone", o.Kind == "apply", o.Kind == "madness_exile", o.Mode == decision.ModeUnlessPay:
 			confirm = o.Index
-		case o.Kind == "no", o.Kind == "leave", o.Kind == "decline", o.Mode == decision.ModeUnlessDecline:
+		case o.Kind == "no", o.Kind == "leave", o.Kind == "decline", o.Kind == "madness_graveyard", o.Mode == decision.ModeUnlessDecline:
 			deny = o.Index
 		}
 	}
@@ -379,6 +397,50 @@ func (t *Translator) parseChooseFromSelection(out mb.PromptOutputValue, p *Pendi
 		return Outcome{Err: errCode(mb.CodeInvalidShape, err.Error(), idPtr(cur))}
 	}
 	return Outcome{Intent: &in}
+}
+
+// labelledAlternatives reports whether d is a pick-one ask (Min == Max == 1,
+// not repeatable) whose options are plain labelled alternatives: every one
+// carries a label and no ManaSymbol. It is the gate for promptChoose's
+// labelled-alternatives fallback (see the !uniform branch there).
+func labelledAlternatives(d *decision.Decision) bool {
+	if d.Min != 1 || d.Max != 1 || d.Repeatable {
+		return false
+	}
+	for _, o := range d.Options {
+		if o.Label == "" || o.ManaSymbol != "" {
+			return false
+		}
+	}
+	return true
+}
+
+// booleanElection poses a two-sided election (yes/no, apply/decline, pay/
+// decline, madness cast/discard) as a chooseBoolean only when BOTH sides are
+// actually offered. rules/altcast.go's madness cast ask offers just the
+// decline side whenever casting is not legal (offerCastable fails), and any
+// future single-sided election would do the same; a boolean prompt that
+// advertises a confirm label the decision does not carry would invite a
+// client to answer true into a guaranteed rejection (booleanOptionIndex has
+// no confirm to map it to). A one-sided ask goes out as a one-option
+// chooseFromSelection instead (MinTotal=MaxTotal=1) -- the same shape the
+// single-option branches of prompt_choose and prompt_modes already use -- so
+// parseChooseFromSelection maps the only legal answer back by option index.
+// Builders discover the two labels the same way booleanOptionIndex discovers
+// the two option kinds, so prompt and parser cannot drift apart.
+func booleanElection(pres mb.PromptBase, d *decision.Decision, confirm, deny string) mb.PromptInputData {
+	if len(d.Options) < 2 {
+		opts := make([]mb.SelectionOption, 0, len(d.Options))
+		for _, o := range d.Options {
+			label := o.Label
+			if label == "" {
+				label = o.Kind
+			}
+			opts = append(opts, mb.SelectionOption{Label: label, Weight: 1})
+		}
+		return mb.ChooseFromSelectionInput{PromptBase: pres, Options: opts, MinTotal: 1, MaxTotal: 1}
+	}
+	return mb.ChooseBooleanInput{PromptBase: pres, ConfirmLabel: confirm, DenyLabel: deny}
 }
 
 func colorCode(symbol, label string) string {
