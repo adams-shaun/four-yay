@@ -3,9 +3,15 @@ import {
   applyPreset,
   defaultSettings,
   loadSettings,
+  noBreakpoints,
+  normaliseWatchName,
+  presetPatch,
   PRESETS,
   saveSettings,
+  validate,
   withChange,
+  withoutWatch,
+  withWatch,
   type PlaySettings,
   type StoppableStep,
   type StepStop,
@@ -41,7 +47,7 @@ describe('presets', () => {
 
   it('casual matches the settings table exactly', () => {
     const s = PRESETS.casual;
-    expect(s.version).toBe(2);
+    expect(s.version).toBe(3);
     expect(s.autoPass).toBe(true);
     expect(s.opponentSpell).toBe('if-respondable');
     expect(s.opponentAbility).toBe('if-respondable');
@@ -157,9 +163,9 @@ describe('persistence', () => {
     expect(loadSettings(st)).toEqual(defaultSettings());
   });
 
-  it('a wrong-version value falls back to defaults (2 is now the live version; a 3 is corrupt)', () => {
+  it('a wrong-version value falls back to defaults (3 is now the live version; a 4 is corrupt)', () => {
     const st = memStorage();
-    st.setItem('gorge.playsettings.v1', JSON.stringify({ ...PRESETS.casual, version: 3 }));
+    st.setItem('gorge.playsettings.v1', JSON.stringify({ ...PRESETS.casual, version: 4 }));
     expect(loadSettings(st)).toEqual(defaultSettings());
   });
 
@@ -232,13 +238,13 @@ describe('persistence migration — blob v1 to field-set v2 (fb-trigorder1)', ()
     expect(loadSettings(st)).toEqual(defaultSettings());
   });
 
-  it('saveSettings writes the version-2 blob to the SAME key (the key is not renamed — renaming would orphan every existing player)', () => {
+  it('saveSettings writes the live-version (3) blob to the SAME key (the key is not renamed — renaming would orphan every existing player)', () => {
     const st = memStorage();
     saveSettings(st, applyPreset('casual'));
     expect(st.getItem('gorge.playsettings.v1')).not.toBeNull();
     expect(st.getItem('gorge.playsettings.v2')).toBeNull();
     const written = JSON.parse(st.getItem('gorge.playsettings.v1') as string) as Record<string, unknown>;
-    expect(written.version).toBe(2);
+    expect(written.version).toBe(3);
     expect(written.autoOrderAllTriggers).toBe(true);
     // and it round-trips through loadSettings unchanged
     expect(loadSettings(st)).toEqual(PRESETS.casual);
@@ -251,5 +257,85 @@ describe('persistence migration — blob v1 to field-set v2 (fb-trigorder1)', ()
     expect(withChange(migrated, { opponentTrigger: 'always' }).preset).toBe('custom');
     expect(withChange(migrated, { opponentTrigger: 'always', opponentSpell: 'always', opponentAbility: 'always' }))
       .toEqual(PRESETS['no-tells']);
+  });
+});
+
+describe('breakpoints (settings v3)', () => {
+  it('every preset ships breakpoints all off', () => {
+    for (const p of Object.values(PRESETS)) expect(p.breakpoints).toEqual(noBreakpoints());
+    expect(noBreakpoints()).toEqual({ targetsMe: false, watchlist: [], attacked: false, stackDepth: 0 });
+  });
+
+  it('a v2 blob migrates: every field kept, breakpoints defaulted', () => {
+    const v2 = { ...PRESETS['no-tells'], version: 2 } as Record<string, unknown>;
+    delete v2.breakpoints;
+    const st = memStorage();
+    st.setItem('gorge.playsettings.v1', JSON.stringify(v2));
+    const got = loadSettings(st);
+    expect(got.version).toBe(3);
+    expect(got.opponentSpell).toBe(PRESETS['no-tells'].opponentSpell);
+    expect(got.breakpoints).toEqual(noBreakpoints());
+  });
+
+  it('a v3 blob round-trips its breakpoints', () => {
+    const s = withChange(defaultSettings(), { breakpoints: { targetsMe: true, watchlist: ["Thassa's Oracle"], attacked: true, stackDepth: 3 } });
+    const st = memStorage();
+    saveSettings(st, s);
+    expect(loadSettings(st).breakpoints).toEqual({ targetsMe: true, watchlist: ["Thassa's Oracle"], attacked: true, stackDepth: 3 });
+  });
+
+  it('a v3 blob with a bad breakpoints block is corrupt (defaults)', () => {
+    for (const bad of [
+      { targetsMe: 'yes', watchlist: [], attacked: false, stackDepth: 0 },
+      { targetsMe: false, watchlist: 'x', attacked: false, stackDepth: 0 },
+      { targetsMe: false, watchlist: [], attacked: false, stackDepth: 1 },
+      { targetsMe: false, watchlist: [], attacked: false, stackDepth: 99 },
+    ]) {
+      expect(validate({ ...PRESETS.casual, breakpoints: bad })).toBeNull();
+    }
+  });
+
+  it('validate normalises the watchlist: trims, drops empties, dedupes case-insensitively', () => {
+    const got = validate({ ...PRESETS.casual, breakpoints: { ...noBreakpoints(), watchlist: ['  Oracle ', 'oracle', '', 'Rift'] } });
+    expect(got?.breakpoints.watchlist).toEqual(['Oracle', 'Rift']);
+  });
+
+  it('preset relabel ignores breakpoints: a casual config with a watchlist still reads casual', () => {
+    const s = withChange(defaultSettings(), { breakpoints: { ...noBreakpoints(), watchlist: ['Oracle'] } });
+    expect(s.preset).toBe('casual');
+  });
+
+  it('applying a preset keeps the player’s breakpoints', () => {
+    const mine = withChange(defaultSettings(), { breakpoints: { ...noBreakpoints(), attacked: true } });
+    const next = withChange(mine, presetPatch('full-control'));
+    expect(next.preset).toBe('full-control');
+    expect(next.breakpoints.attacked).toBe(true);
+  });
+
+  it('watch helpers: add normalises and dedupes, remove is case-insensitive, cap is enforced', () => {
+    expect(normaliseWatchName('  Rhystic Study ')).toBe('Rhystic Study');
+    expect(normaliseWatchName('   ')).toBeNull();
+    expect(normaliseWatchName('x'.repeat(61))).toBeNull();
+    expect(withWatch(['Oracle'], 'oracle')).toEqual(['Oracle']);
+    expect(withWatch(['Oracle'], 'Rift')).toEqual(['Oracle', 'Rift']);
+    expect(withoutWatch(['Oracle', 'Rift'], 'ORACLE')).toEqual(['Rift']);
+    const full = Array.from({ length: 50 }, (_, i) => `c${i}`);
+    expect(withWatch(full, 'one more')).toEqual(full);
+  });
+});
+
+describe('withChange shares no arrays with its inputs (breakpoints.watchlist)', () => {
+  it('an untouched watchlist is copied, not shared with the caller’s settings', () => {
+    const s = withChange(defaultSettings(), { breakpoints: { ...noBreakpoints(), watchlist: ['Oracle'] } });
+    const next = withChange(s, { autoPass: false });
+    s.breakpoints.watchlist.push('Mutated');
+    expect(next.breakpoints.watchlist).toEqual(['Oracle']);
+  });
+
+  it('a patched watchlist is copied, not the patch’s own array', () => {
+    const list = ['Oracle'];
+    const next = withChange(defaultSettings(), { breakpoints: { ...noBreakpoints(), watchlist: list } });
+    list.push('Mutated');
+    expect(next.breakpoints.watchlist).toEqual(['Oracle']);
   });
 });

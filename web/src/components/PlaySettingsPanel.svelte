@@ -72,6 +72,10 @@
     OwnObjectRule,
   } from '../lib/playsettings';
   import type { SeatPanelState } from '../lib/seatpanel.svelte';
+  import BreakpointsSection from './BreakpointsSection.svelte';
+  import KeymapEditor from './KeymapEditor.svelte';
+  import { keymapStore } from '../lib/keymap.svelte';
+  import { downloadText } from '../lib/download';
 
   /**
    * The GAME OPTIONS editor for the whole play-settings model
@@ -188,6 +192,25 @@
   let renameName = $state('');
   let profileError = $state<string | null>(null);
 
+  // Export/import of the saved profiles as a file: the hidden picker and the
+  // last import's plain-words result.
+  let profileFile = $state<HTMLInputElement | null>(null);
+  let transferNote = $state<string | null>(null);
+
+  /** importProfilesFile reads the picked file, merges it in and reports the result. */
+  async function importProfilesFile(input: HTMLInputElement): Promise<void> {
+    const file = input.files?.[0];
+    if (file === undefined) return;
+    try {
+      transferNote = logic.importProfilesText(await file.text());
+    } catch {
+      transferNote = 'Could not read that file.';
+    } finally {
+      // cleared either way, so picking the same file again fires onchange
+      input.value = '';
+    }
+  }
+
   /** saveCurrentProfile is the Save button's handler: the typed name, or a default. */
   function saveCurrentProfile(): void {
     const name = profileName.trim();
@@ -284,7 +307,12 @@
           onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveCurrentProfile(); } }}
         />
         <button type="button" class="seg" data-profile-save onclick={saveCurrentProfile}>Save</button>
+        <button type="button" class="seg" data-profile-export onclick={() => downloadText('gorge-flow-profiles.json', logic.exportProfilesText())}>Export profiles…</button>
+        <button type="button" class="seg" data-profile-import onclick={() => profileFile?.click()}>Import profiles…</button>
+        <input type="file" accept="application/json" hidden bind:this={profileFile} onchange={(e) => importProfilesFile(e.currentTarget)} />
       </div>
+      <!-- Mounted empty so a screen reader is already watching it when the first result arrives. -->
+      <p class="blurb" data-profile-transfer role="status">{transferNote ?? ''}</p>
       {#if profileNote !== null}
         <p class="blurb" data-active-profile>{profileNote}</p>
       {/if}
@@ -394,6 +422,10 @@
       Covers your own spell or ability while it is on the stack. “Don’t stop” lets it resolve; “Stop if I can respond” pauses only when you have a response. Step stops resume after it resolves.
     </p>
   </section>
+
+  <BreakpointsSection state={logic} />
+
+  <KeymapEditor store={keymapStore} />
 
   <section class="sec">
     <h3>Step stops</h3>
@@ -744,6 +776,9 @@
     margin: var(--sp-1) 0 0;
     color: var(--ink-dim);
     font-size: var(--t-11);
+  }
+  .blurb:empty {
+    margin: 0;
   }
   .row {
     display: flex;

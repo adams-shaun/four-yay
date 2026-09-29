@@ -12,9 +12,8 @@ import {
   storeSave,
   storeSetActive,
   validateStore,
-  type ProfileStore,
 } from './profiles';
-import { PRESETS, defaultSettings, validate, type PlaySettings } from './playsettings';
+import { PRESETS, defaultSettings, noBreakpoints, validate, withChange, type PlaySettings } from './playsettings';
 
 /**
  * memStorage is the same in-memory Storage stub playsettings.test.ts uses,
@@ -157,7 +156,7 @@ describe('profiles — corrupt blob isolation', () => {
     delete v1.autoOrderAllTriggers;
     const store = validateStore({ version: 1, profiles: { Old: v1 }, order: ['Old'], lastActive: null });
     expect(listProfiles(store)).toEqual(['Old']);
-    expect(store.profiles.Old.version).toBe(2);
+    expect(store.profiles.Old.version).toBe(3);
     expect(validate(v1)).toEqual(store.profiles.Old);
   });
 });
@@ -230,5 +229,52 @@ describe('profiles — an active-profile settings edit is not auto-saved', () =>
     // Save rewrites it.
     expect(loadProfiles(storage).profiles.A.autoPass).toBe(false);
     expect(live.autoPass).toBe(true);
+  });
+});
+
+describe('profiles — breakpoints (settings v3)', () => {
+  it('a v2 profile store migrates: each saved profile gains default breakpoints', () => {
+    const v2 = { ...PRESETS.casual, version: 2 } as Record<string, unknown>;
+    delete v2.breakpoints;
+    const store = validateStore({ version: 1, profiles: { Mine: v2 }, order: ['Mine'], lastActive: 'Mine' });
+    expect(store.order).toEqual(['Mine']);
+    expect(store.profiles.Mine.breakpoints).toEqual(noBreakpoints());
+    expect(store.profiles.Mine.version).toBe(3);
+  });
+
+  it('a stored profile does not share its watchlist array with the caller', () => {
+    const s = withChange(defaultSettings(), { breakpoints: { ...noBreakpoints(), watchlist: ['Oracle'] } });
+    const store = storeSave(emptyStore(), 'W', s);
+    s.breakpoints.watchlist.push('Mutated');
+    expect(store.profiles.W.breakpoints.watchlist).toEqual(['Oracle']);
+  });
+});
+
+describe('profiles — prototype-key names are refused', () => {
+  it('normaliseName rejects __proto__, constructor and prototype', () => {
+    for (const n of ['__proto__', 'constructor', 'prototype', ' __proto__ ']) expect(normaliseName(n)).toBeNull();
+  });
+
+  it('a raw blob with an own "__proto__" profile loads clean, without re-prototyping the map', () => {
+    const blob = JSON.stringify({ version: 1, profiles: { A: defaultSettings() }, order: ['A'], lastActive: null }).replace(
+      '"profiles":{',
+      `"profiles":{"__proto__":${JSON.stringify(defaultSettings())},`,
+    );
+    const parsed = JSON.parse(blob.replace('"order":["A"]', '"order":["__proto__","A"]'));
+    expect(Object.hasOwn(parsed.profiles, '__proto__')).toBe(true); // precondition: the hostile own key is really there
+    const s = validateStore(parsed);
+    expect(s.order).toEqual(['A']);
+    expect(Object.keys(s.profiles)).toEqual(['A']);
+    expect(Object.getPrototypeOf(s.profiles)).toBeNull();
+    expect('steps' in s.profiles).toBe(false);
+  });
+
+  it('constructor reads as absent to apply, rename, delete and set-active', () => {
+    const s = storeSave(emptyStore(), 'A', defaultSettings());
+    expect(storeApply(s, 'constructor')).toBeNull();
+    expect(storeRename(s, 'constructor', 'B')).toBe(s);
+    expect(storeDelete(s, 'constructor')).toBe(s);
+    expect(storeSetActive(s, 'constructor').lastActive).toBeNull();
+    expect(storeSave(s, 'constructor', defaultSettings())).toBe(s);
   });
 });

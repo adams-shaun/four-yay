@@ -15,3 +15,16 @@ describe('name picker state', () => {
     expect(postIntentMock.mock.calls.at(-1)?.[2].choices).toEqual([1]);
   });
 });
+
+describe('pickHotkey on a name pick', () => {
+  // The name list is filtered and sorted A→Z, so option 1 on the wire (Zulu)
+  // is not the first name on screen (Alpha): the hotkey refuses.
+  it('refuses: returns false and posts nothing', async () => {
+    postIntentMock.mockClear();
+    const s = new SeatPanelState('t1', 1, { seat: 1, token: 'tok' }, null, null);
+    s.adoptView({ ...ask, seq: 42 });
+    expect(s.pickHotkey(1)).toBe(false);
+    for (let i = 0; i < 20; i++) await Promise.resolve();
+    expect(postIntentMock).not.toHaveBeenCalled();
+  });
+});

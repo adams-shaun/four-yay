@@ -102,7 +102,7 @@
         {/each}
         {#if restrictions.length > 0}
           <span class="restr" data-mana-restrictions>
-            {#each restrictions as r}
+            {#each restrictions as r, i (i)}
               <span class="restr-item" data-mana-restriction={r.color}>{r.amount} {NAMES[r.color] ?? r.color}: {r.text}</span>
             {/each}
           </span>

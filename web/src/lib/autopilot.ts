@@ -1,4 +1,5 @@
 import type { Decision, Option, View } from '../protocol';
+import { checkBreakpoints, targetsSeat, type BreakpointHit } from './breakpoints';
 import { castablesAfterTap, isResponseKind, respondableAfterTap } from './castable';
 import type { OpponentObjectRule, OpponentTriggerRule, PlaySettings, StoppableStep } from './playsettings';
 import { stackYieldKey } from './yields';
@@ -55,7 +56,7 @@ export interface Stops {
 
 export type AutoVerdict =
   | { act: 'pass'; index: number }
-  | { act: 'stop'; reason: StopReason };
+  | { act: 'stop'; reason: StopReason; hit?: BreakpointHit };
 
 export type StopReason =
   | 'disabled'
@@ -63,7 +64,8 @@ export type StopReason =
   | 'unexpected-shape'
   | 'opponent-object'
   | 'own-object'
-  | 'stop-set';
+  | 'stop-set'
+  | 'breakpoint';
 
 /** Client-side evidence captured alongside an automatic pass, not sent over the wire. */
 export function passDiagnostics(decision: Decision, view: View, seat: number, verdict: string, yields?: ReadonlySet<string>, autoPayMana = false) {
@@ -327,45 +329,6 @@ export function emptyPriorityWindow(decision: Decision, view: View, seat: number
 }
 
 /**
- * targetsMe reports whether any target of the given stack entry is this seat
- * (a player target) or an object this seat controls. The controller lookup
- * reads every public zone the View exposes plus the stack:
- *
- * - every CardView[] zone on view.players[*] — battlefield, graveyard,
- *   exile, and hand (present only for the viewer's own seat, a CR 400.2
- *   hidden zone) — found structurally by walking the player object's array
- *   fields and admitting only entries shaped like a CardView (numeric id +
- *   numeric controller), so a zone the view gains later is covered without
- *   this function changing, and a non-card array field can never contribute
- *   a bogus id. view/view.go's cardView() sets Controller for every zone,
- *   so graveyard/exile targets ("target card in a graveyard") count;
- * - view.stack, where a spell or ability object's controller is the seat
- *   that cast/activated it — a counterspell at MY spell on the stack must
- *   count as "targeting me", not just one at my creature.
- *
- * Every entry is the object's CURRENT controller, so an object that changed
- * zones or controllers resolves to whoever holds it now. The function stays
- * pure: it only reads the view it is given.
- */
-function targetsMe(view: View, seat: number, top: { targets: { obj?: number; player: number; is_player: boolean }[] }): boolean {
-  const controllers = new Map<number, number>();
-  for (const p of view.players ?? []) {
-    for (const zone of Object.values(p)) {
-      if (!Array.isArray(zone)) continue;
-      for (const c of zone) {
-        if (c !== null && typeof c === 'object' && typeof c.id === 'number' && typeof c.controller === 'number') {
-          controllers.set(c.id, c.controller);
-        }
-      }
-    }
-  }
-  for (const s of view.stack ?? []) controllers.set(s.id, s.controller);
-  return (top.targets ?? []).some((t) =>
-    t.is_player ? t.player === seat : t.obj !== undefined && controllers.get(t.obj) === seat
-  );
-}
-
-/**
  * opponentRuleFor maps a StackView.Kind (view/view.go sets exactly three:
  * "spell" for a spell object, "trigger" for one minted by TriggerPush,
  * "ability" for any other ability object) to the settings' matching rule.
@@ -446,8 +409,14 @@ export function decide(args: {
    * held for that reason alone (no blanket guard; see SeatPanelState.derivePass).
    */
   autoPayMana?: boolean;
+  /**
+   * breakpointsFired maps a breakpoint key to the decision seq it first
+   * stopped at (SeatPanelState owns it). A key fired at an earlier seq does
+   * not stop again; the same seq does, so re-deriving one window is stable.
+   */
+  breakpointsFired?: ReadonlyMap<string, number>;
 }): AutoVerdict {
-  const { decision, view, seat, settings, ffwd = false, yields = null, baselineStack = null, skipOwnTurnFloor = false, autoPayMana = false } = args;
+  const { decision, view, seat, settings, ffwd = false, yields = null, baselineStack = null, skipOwnTurnFloor = false, autoPayMana = false, breakpointsFired = new Map<string, number>() } = args;
 
   // Safety first: auto NEVER answers anything but a plain single-pick
   // priority decision with exactly one pass option. Target, blockers,
@@ -464,6 +433,15 @@ export function decide(args: {
   // even when persistent auto is off.
   if (!settings.autoPass && !ffwd) return { act: 'stop', reason: 'disabled' };
 
+  // 1b. Breakpoints: the player's pause-on-X rules (UI rework spec §1). They
+  // stop ffwd and the one-shot runs too — like a step stop, they are the
+  // player's own ask. The top-object rules respect a yield or a Resolve All
+  // baseline: those are explicit consent for that object.
+  const bpTop = view.stack.length > 0 ? view.stack[view.stack.length - 1] : null;
+  const skipTop = bpTop !== null && ((baselineStack?.has(bpTop.id) ?? false) || (yields?.has(stackYieldKey(bpTop)) ?? false));
+  const hit = checkBreakpoints({ view, seat, bp: settings.breakpoints, fired: breakpointsFired, seq: decision.seq, skipTop });
+  if (hit !== null) return { act: 'stop', reason: 'breakpoint', hit };
+
   // 2. Stack rules, on the TOP of the stack only (the object that resolves
   // next). ffwd passes through all of them (pressing FFWD is consent).
   // Resolve All's baseline passes through them too, but ONLY for the
@@ -479,7 +457,7 @@ export function decide(args: {
         const rule = opponentRuleFor(settings, top.kind);
         if (rule === 'always') return { act: 'stop', reason: 'opponent-object' };
         if (rule === 'if-respondable' && respondableFor(view, seat, decision)) return { act: 'stop', reason: 'opponent-object' };
-        if (rule === 'targets-me-if-respondable' && respondableFor(view, seat, decision) && targetsMe(view, seat, top)) {
+        if (rule === 'targets-me-if-respondable' && respondableFor(view, seat, decision) && targetsSeat(view, seat, top)) {
           return { act: 'stop', reason: 'opponent-object' };
         }
         // 'never' (and a rule the arms above did not meet) falls through.

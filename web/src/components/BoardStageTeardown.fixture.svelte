@@ -28,7 +28,7 @@
   const mulligan = $derived(mulliganPhase(panel.active));
   // Mirror Table's split: the same frame replaces view and ends liveness,
   // but the object feeding mounted child prop getters survives the teardown.
-  const controls = $derived({ state: panel, ctx, table: 't1', match: 1, showLog: true, onToggleLog: () => {} });
+  const controls = $derived({ state: panel, ctx, table: 't1', match: 1 });
   const controlsLive = $derived(mulligan === null && !view.over);
   const w = window as unknown as { __flip: () => void; __end: () => void; __viewChanged: () => boolean; __controlsPresent: () => boolean };
   w.__controlsPresent = () => controls !== null;

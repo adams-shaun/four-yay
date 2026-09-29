@@ -34,6 +34,9 @@
   import { buildCardOwnerColour } from '../lib/logrender';
   import { href, navigate } from '../lib/router';
   import { getSeat } from '../lib/seat';
+  import { clickedOutside } from '../lib/modals';
+  import { closesOptionsPanel } from '../lib/hotkeys';
+  import { keymapStore } from '../lib/keymap.svelte';
 
   // match (from the /t/:table/m/:match route) names a specific, already-played
   // match. Task 21's finished mode replays it end to end via loadFinished:
@@ -158,23 +161,32 @@
   // bubbled to the window as "outside" and closed it again.
   let optionsRoot = $state<HTMLDivElement | null>(null);
   let optionsButton = $state<HTMLButtonElement | null>(null);
-  function dismissOptions(): void {
+  // A keyboard close hands focus back to the Options button. A pointer close
+  // takes focus off it instead: a focused button owns Space and Enter
+  // (lib/hotkeys focusOwnsKey), so the next Space would reopen the panel
+  // rather than pass.
+  function dismissOptions(byPointer = false): void {
     if (!optionsOpen) return;
     optionsOpen = false;
-    void tick().then(() => optionsButton?.focus());
+    void tick().then(() => (byPointer ? optionsButton?.blur() : optionsButton?.focus()));
   }
-  function toggleOptions(): void {
-    if (optionsOpen) dismissOptions();
+  function toggleOptions(event?: MouseEvent): void {
+    // detail is 0 when Enter or Space activated the button; the hotkey
+    // strip calls this with no event.
+    if (optionsOpen) dismissOptions((event?.detail ?? 0) > 0);
     else optionsOpen = true;
   }
+  // Escape, or the toggle-options chord: the panel is a role=dialog, so the
+  // strip's hotkey is held by the modal guard while it is open and the same
+  // key closes it here instead (lib/hotkeys closesOptionsPanel).
   function closeOptions(event: KeyboardEvent): void {
-    if (event.key === 'Escape') {
+    if (event.key === 'Escape' || (optionsOpen && closesOptionsPanel(event, keymapStore.current, keymapStore.capturing))) {
       event.preventDefault();
       dismissOptions();
     }
   }
   function closeOptionsOutside(event: MouseEvent): void {
-    if (optionsOpen && optionsRoot && !optionsRoot.contains(event.target as Node)) dismissOptions();
+    if (optionsOpen && optionsRoot && clickedOutside(event, optionsRoot)) dismissOptions(true);
   }
   $effect(() => {
     if (optionsOpen) void tick().then(() => optionsPopover?.focus());
@@ -213,7 +225,7 @@
   // object stable during teardown: child prop getters may re-read it mid-flush.
   const controls = $derived(
     panel && seatCtx && m.match !== null && m.view !== null
-      ? { state: panel, ctx: seatCtx, table, match: m.match, showLog, onToggleLog: toggleLog, onToggleOptions: toggleOptions }
+      ? { state: panel, ctx: seatCtx, table, match: m.match, onToggleOptions: toggleOptions }
       : null,
   );
   const controlsLive = $derived(controls !== null && !finished && mulligan === null && !m.view?.over);
