@@ -147,11 +147,20 @@ func TestBotAdaptersAgreePerStep(t *testing.T) {
 // damage clock) is pinned with reflect.DeepEqual on every decision, the
 // way the casting Card census is pinned over the Constructed game above,
 // because those facts drive the commander cast rule and the combat clock.
-// The game is a two-seat Commander-format sample: each seat's first
-// vanilla creature is its commander, so the cast, the tax, and the clock
-// all genuinely happen over a whole game. The View additions this task
-// made (the projected command zone, roster + cast counts, and CmdDamage)
-// are exactly the wire facts this test's view-shaped half reads.
+// The game is a two-seat Commander-format game whose bespoke decks each
+// carry a legendary creature at the configured command index, so each seat
+// really seats a commander in its command zone (a precondition asserted
+// after genesis, so the test cannot drift back to comparing empty rosters).
+// Over the game the roster and cast counts on both halves are pinned on
+// every decision, and the fixture asserts that the CR 903.8 Casts tax fact
+// was genuinely exercised (the game casts a commander from its command
+// zone). The CR 903.10 damage clock is NOT asserted to move: the bot's
+// commanders never connect in combat before these 18-card decks deck out,
+// so CmdDamage stays zero — pinning the clock would be fake coverage. It is
+// an honest boundary of this fixture, not a bug. The View
+// additions this task made (the projected command zone, roster + cast
+// counts, and CmdDamage) are exactly the wire facts this test's view-shaped
+// half reads.
 func TestBotAdaptersAgreeOverCommanderGame(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -166,17 +175,33 @@ func TestBotAdaptersAgreeOverCommanderGame(t *testing.T) {
 
 func agreeOverCommanderGame(t testing.TB, newBot func(uint64) *Bot) {
 	t.Helper()
-	names, decks := testutil.SampleDecks(t, 2)
-	cmds := [][]int{{17}, {17}} // each seat's first vanilla creature leaves the deck for the command zone
+	names, decks := commanderSampleDecks(t)
+	cmds := [][]int{{17}, {17}} // each seat's legendary creature at index 17 leaves the deck for the command zone
 	cfg := rules.Config{Seed: 0, Names: names, Decks: decks,
 		Commanders: cmds, StartingLife: 20, Format: rules.FormatCommander}
 	eView := rules.New(cfg)
 	eGame := rules.New(cfg)
 	eView.Advance()
 	eGame.Advance()
+	// The precondition this whole test rests on: the configuration above
+	// must actually seat a commander in EVERY seat of BOTH engines. A
+	// legendary creature that the CR 903.4 gate rejects would leave the
+	// seat commander-less (`legalCommandersFor` returns nil and the
+	// rejection is only a Note on the log), and every commander assertion
+	// below would then compare empty to empty on every intent -- the
+	// vacuous pass this test was written to prevent. Assert it loudly
+	// rather than let it silently regress.
+	for _, e := range []*rules.Engine{eView, eGame} {
+		for p := range e.G.Players {
+			if len(e.G.Players[p].Commanders) != 1 {
+				t.Fatalf("precondition: seat %d has %d commanders in the command zone, want exactly 1 -- the commander configuration was rejected and this test would be vacuous", p, len(e.G.Players[p].Commanders))
+			}
+		}
+	}
 	botView := newBot(7)
 	botGame := newBot(7)
 	cmdPinned := 0
+	castN := 0
 	poolN := 0
 	stackN := 0
 	stepN := 0
@@ -237,7 +262,18 @@ func agreeOverCommanderGame(t testing.TB, newBot func(uint64) *Bot) {
 		if len(boardGame.Stack) > 0 {
 			stackN++
 		}
-		cmdPinned++
+		// Only intents that actually carried a commander fact count toward
+		// the pin below; an unconditional increment would make the
+		// cmdPinned == 0 guard unreachable even with an empty roster.
+		if len(boardGame.Commanders) > 0 {
+			cmdPinned++
+		}
+		for _, cm := range boardGame.Commanders {
+			if cm.Casts > 0 {
+				castN++
+				break
+			}
+		}
 		inGame, err := botGame.DecideBoard(context.Background(), boardGame, *eGame.Pending())
 		if err != nil {
 			t.Fatalf("intent %d: game-shaped DecideBoard: %v", n, err)
@@ -258,6 +294,9 @@ func agreeOverCommanderGame(t testing.TB, newBot func(uint64) *Bot) {
 	}
 	if cmdPinned == 0 {
 		t.Fatal("no decision ever carried a commander fact to pin — the game never projected one")
+	}
+	if castN == 0 {
+		t.Fatal("no decision ever carried a non-zero commander Casts count — the CR 903.8 tax fact was never exercised over the commander game")
 	}
 	if poolN == 0 {
 		t.Fatal("no decision ever carried a non-zero Pool -- the tap gate's pool fact was never exercised over the commander game")
@@ -616,6 +655,37 @@ Types:Artifact Equipment
 K:Equip:0
 Oracle:x
 `
+
+// commanderSampleDecks returns two names and two 18-card Commander decks
+// authored inline -- the file's own parseTestCard pattern, NOT
+// testutil.SampleDecks (whose exact 17-basic/7-vanilla-creature shape every
+// other package pins, Ruling P9). Each deck is 17 basics then ONE
+// legendary creature at index 17, the exact index the seat's Config
+// Commanders list names, so the seat really seats a legal single commander
+// (CR 903.4: a legendary creature) in its command zone. Seat 0 is a red
+// Mountain seat with a 2/2, seat 1 a green Forest seat with a 3/3, so the
+// seats are not mirror images of each other (SampleDecks' Ruling P9
+// intent). The single-pip mana cost keeps the commander within the bot's
+// own priority policy's castability, SampleDecks' Ruling T25-b fix — so the
+// commander is genuinely cast from the command zone and the CR 903.8 tax
+// fact arises over the game (the CR 903.10 clock does not; see the test's
+// doc comment).
+func commanderSampleDecks(t testing.TB) ([]string, [][]*cards.Card) {
+	t.Helper()
+	mountain := parseTestCard(t, "Name:Mountain\nTypes:Basic Land Mountain\nOracle:x\n")
+	forest := parseTestCard(t, "Name:Forest\nTypes:Basic Land Forest\nOracle:x\n")
+	redCmd := parseTestCard(t, "Name:Mountain Legend\nManaCost:R\nTypes:Legendary Creature Whelp\nPT:2/2\nOracle:x\n")
+	greenCmd := parseTestCard(t, "Name:Forest Legend\nManaCost:G\nTypes:Legendary Creature Whelp\nPT:3/3\nOracle:x\n")
+	d0 := make([]*cards.Card, 0, 18)
+	d1 := make([]*cards.Card, 0, 18)
+	for i := 0; i < 17; i++ {
+		d0 = append(d0, mountain)
+		d1 = append(d1, forest)
+	}
+	d0 = append(d0, redCmd)
+	d1 = append(d1, greenCmd)
+	return []string{"a", "b"}, [][]*cards.Card{d0, d1}
+}
 
 // parseTestCard is the seat package's re-authoring of testutil.parseCard
 // (which is unexported there): parse the inline card source, link its
