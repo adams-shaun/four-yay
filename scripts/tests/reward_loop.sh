@@ -17,6 +17,7 @@ run "reward.py --selftest" python3 "$ROOT/scripts/reward.py" --selftest
 run "reward_collect.py --selftest" python3 "$ROOT/scripts/reward_collect.py" --selftest
 run "seed_candidates.py --selftest" python3 "$ROOT/scripts/seed_candidates.py" --selftest
 run "broker_smoke.sh" bash "$ROOT/scripts/tests/broker_smoke.sh"
+run "park_branch_smoke.sh" bash "$ROOT/scripts/tests/park_branch_smoke.sh"
 run "seed_smoke.sh" bash "$ROOT/scripts/tests/seed_smoke.sh"
 printf '\n=== reward loop: %s\n' "$([ $rc = 0 ] && echo ALL GREEN || echo FAILURES ABOVE)"
 exit $rc
