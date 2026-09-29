@@ -431,9 +431,21 @@ func (e *Engine) presentClauseHolds(t cards.Trigger, source state.ObjID, you sta
 		// A printed trigger's Remembered group is the source's persistent
 		// remembered set. Delayed registrations additionally carry their
 		// own captured set in TriggerContext, already bound above.
-		sc.Remembered = append([]state.Target(nil), o.Remembered...)
+		remembered := append([]state.Target(nil), o.Remembered...)
+		if tc != nil && len(tc.DelayedRemembered) > 0 {
+			// A delayed registration owns its captured Remembered group; the
+			// source's persistent memory is unrelated to this trigger context.
+			remembered = append([]state.Target(nil), tc.DelayedRemembered...)
+		}
+		sc.Remembered = remembered
+		resolverContext := effects.TriggerContext{}
+		if tc != nil {
+			// Defined selectors resolve against the event captured by this
+			// trigger, not the source object's unrelated or persistent context.
+			resolverContext = *tc
+		}
 		ctx := &effects.Ctx{Source: source, Controller: you,
-			Remembered: sc.Remembered, TriggerContext: sc.TriggerContext}
+			Remembered: remembered, TriggerContext: resolverContext}
 		group := effects.Defined(e, ctx, &cards.SA{Params: map[string]string{"Defined": pd}})
 		n := 0
 		for _, target := range group {

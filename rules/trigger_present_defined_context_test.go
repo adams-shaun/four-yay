@@ -26,15 +26,23 @@ func TestTriggerPresentDefinedUsesTriggerContext(t *testing.T) {
 		t.Fatal("precondition: source persistent memory and trigger capture must be distinct")
 	}
 	trigger := cards.Trigger{Params: map[string]string{
-		"PresentDefined": "TriggeredSource",
+		"PresentDefined": "Remembered",
 		"IsPresent":      "Creature",
 		"PresentCompare": "EQ1",
 	}}
 	tc := effects.TriggerContext{
 		TriggerSource:     captured,
+		TriggerTarget:     state.Target{Obj: captured},
 		DelayedRemembered: []state.Target{{Obj: captured}},
 	}
 	if !e.presentClauseHolds(trigger, source, 0, &tc, "IsPresent", "PresentCompare", "PresentDefined", "PresentZone") {
-		t.Fatal("present clause did not count the creature in the trigger's TriggerSource context (EQ1)")
+		t.Fatal("present clause did not count the delayed registration's remembered creature instead of the source's persistent land (EQ1)")
+	}
+
+	// Defined-group resolution also needs the event roles themselves, not just
+	// the Remembered slice. This would resolve to the source if tc were dropped.
+	trigger.Params["PresentDefined"] = "TriggeredTarget"
+	if !e.presentClauseHolds(trigger, source, 0, &tc, "IsPresent", "PresentCompare", "PresentDefined", "PresentZone") {
+		t.Fatal("present clause did not resolve TriggeredTarget from the trigger context (EQ1)")
 	}
 }
