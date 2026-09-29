@@ -1936,9 +1936,6 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 	}
 	head, arg, _ := strings.Cut(body, " ")
 	arg = strings.TrimSpace(arg)
-	if head == "ValidSelf" {
-		return evalCountValidSelf(h, c, arg)
-	}
 	if head == "TotalDamageReceivedThisTurn" && arg == "" {
 		self := c.TriggerCard
 		if self == 0 {
@@ -2131,17 +2128,20 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 		// ValidSelf argument shapes -- Card.!IsPrepared (the prepared
 		// mechanic), Card.IsSuspected, and the unprefixed
 		// Creature.greatestPowerControlledByCardController -- are NOT this
-		// distinct-creature-type read, so they keep failing closed to the
-		// unresolvable verdict (0, false) rather than silently reading the
-		// wrong property as zero. Counted over the object's effective layer-4
-		// types (falling back to the printed face when no derived entry exists),
-		// with the SAME subtype vocabulary the sibling Count$Valid
-		// <spec>$CreatureType distinct-set read uses (creatureSubtypeWords).
-		// AffectedX P/T reads run in layer 7, after layer 4 establishes these
-		// characteristics. The seen set is read only through len, so no map
-		// ordering reaches an event or view.
+		// distinct-creature-type read, so they route to evalCountValidSelf
+		// below, which matches Self through the shared filter matcher and
+		// fails closed with an evaluated zero when that match cannot be read.
+		// Counted over the object's effective layer-4 types (falling back to
+		// the printed face when no derived entry exists), with the SAME
+		// subtype vocabulary the sibling Count$Valid <spec>$CreatureType
+		// distinct-set read uses (creatureSubtypeWords). AffectedX P/T reads
+		// run in layer 7, after layer 4 establishes these characteristics.
+		// The seen set is read only through len, so no map ordering reaches
+		// an event or view. Every OTHER argument is the event-anchored Self
+		// match (Kraven's greatest-power death gate); ONE home for the head so
+		// this AffectedX read cannot be preempted by an earlier dispatch.
 		if strings.TrimSpace(arg) != "Card$CreatureType" {
-			return 0, false
+			return evalCountValidSelf(h, c, arg)
 		}
 		o := g.Obj(c.Source)
 		if o == nil || o.Face() == nil {

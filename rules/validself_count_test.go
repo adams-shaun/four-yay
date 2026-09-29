@@ -85,14 +85,14 @@ func TestCountValidSelfUnreadableArgumentFailsClosed(t *testing.T) {
 	// read, and such an argument evaluates to 0 (an evaluated zero), never to
 	// an unresolvable body a CheckSVar gate would fail open on and never to a
 	// silent 1 that would make a negated predicate gate-true. IsPrepared is
-	// not a modelled filter predicate and Card$... is a count property, not a
-	// filter, so both are the unreadable class.
+	// not a modelled filter predicate, so `Card.!IsPrepared` is the unreadable
+	// class and its negation must not read as a match.
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := crAbortEngine(t, reg, "ur-delver", "Kraven the Hunter")
 	src := crAbortMove(t, e, 0, "Kraven the Hunter", state.ZBattlefield)
 	svars := e.G.Obj(src).Face().SVars
-	for _, arg := range []string{"Card.!IsPrepared", "Card$CreatureType/LimitMax.10"} {
+	for _, arg := range []string{"Card.!IsPrepared"} {
 		body := "Count$ValidSelf " + arg
 		if got, ok := effects.EvalCountOK(e, &effects.Ctx{Source: src, Controller: 0, SVars: svars}, body); !ok || got != 0 {
 			t.Fatalf("Count$ValidSelf %q = %d, resolved=%v; want 0, true (fail closed)", arg, got, ok)
@@ -102,6 +102,22 @@ func TestCountValidSelfUnreadableArgumentFailsClosed(t *testing.T) {
 	// same way, rather than panicking on a missing self binding.
 	if got, ok := effects.EvalCountOK(e, &effects.Ctx{}, "Count$ValidSelf"); !ok || got != 0 {
 		t.Fatalf("Count$ValidSelf with no argument = %d, resolved=%v; want 0, true", got, ok)
+	}
+	// The `Card$CreatureType` spelling is NOT unreadable: it is Diligent
+	// Zookeeper's AffectedX property read and must keep reaching its own
+	// property path, not the event-anchored matcher. Kraven's printed types
+	// include non-subtype words (Creature, Legendary), so the count is the
+	// number of CREATURE SUBTYPES among them; the important guard is that it is
+	// a non-zero property read, because a regression to the event matcher's
+	// fail-closed 0 here is the Zookeeper defect this assertion catches.
+	if got, ok := effects.EvalCountOK(e, &effects.Ctx{Source: src, Controller: 0, SVars: svars}, "Count$ValidSelf Card$CreatureType"); !ok || got <= 0 {
+		t.Fatalf("Count$ValidSelf Card$CreatureType = %d, resolved=%v; want > 0, true (the property read must not be preempted by the event-anchored matcher)", got, ok)
+	}
+	// `Card.IsSuspected` is a MODELLED predicate and routes through the
+	// event-anchored matcher: Suspected is not a status Kraven's source has,
+	// so the count is a real evaluated 0, not a fail-closed refusal.
+	if got, ok := effects.EvalCountOK(e, &effects.Ctx{Source: src, Controller: 0, SVars: svars}, "Count$ValidSelf Card.IsSuspected"); !ok || got != 0 {
+		t.Fatalf("Count$ValidSelf Card.IsSuspected = %d, resolved=%v; want 0, true", got, ok)
 	}
 }
 
