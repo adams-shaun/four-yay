@@ -191,7 +191,7 @@
        Both are pointer-transparent; only a face claims the pointer — and the
        resize stepper (ZoneStepper), which re-enables the pointer on itself. -->
   <div class="handtrack" bind:this={container}>
-  <div class="handfan" data-motion-anchor={`${player.seat}:hand`} style:width="{layout.rowWidth}px" style:--card-w="{faceW}px" style:--peek={peek} data-peek={peekMode} data-align="center">
+  <div class="handfan" class:overlap={layout.overlap > 0} data-motion-anchor={`${player.seat}:hand`} style:width="{layout.rowWidth}px" style:--card-w="{faceW}px" style:--overlap="{layout.overlap}px" style:--peek={peek} data-peek={peekMode} data-align="center">
     {#each hand as c, i (c.id)}
       <!-- A hand card is NOT a board permanent: no tapped/attacking/counters
            chrome, just the face plus the shared hover inspector. When the
@@ -359,7 +359,10 @@
   /* Cards are positioned by the layout's step. At rest their faces paint in
      DOM order: the later card covers the earlier face in the shared band.
      Keep the resting card free of stacking contexts (including transform and
-     filter), so its z-indexed controls can rise above neighbouring faces. */
+     filter), so its z-indexed controls can rise above neighbouring faces.
+     Those controls are then anchored clear of the neighbour's exposed left
+     edge (see .tile-actions below) — escaping alone would paint them over
+     the exact strip the raise hover reads. */
   .card {
     position: absolute;
     top: 0;
@@ -460,9 +463,9 @@
      tile, a bare face has no corner that already means something (no keyword
      marks, no state band), and the hand must OPEN UPWARD — it sits at the
      board's bottom, so a menu that opened down would leave the felt. The
-     later faces cover earlier faces in the shared band, but this z-indexed
-     affordance paints above every resting face, not inside its face's
-     stacking context. */
+     later faces cover earlier faces in the shared band; this z-indexed
+     affordance escapes its card's stacking context (the card is kept free of
+     one — see .card above) and so paints above every resting face. */
   .tile-actions {
     position: absolute;
     top: 1px;
@@ -473,6 +476,29 @@
     align-items: flex-end;
     gap: 2px;
     line-height: 1;
+  }
+  /* In an OVERLAPPING fan a card's own top-right corner lies UNDER the next
+     card's face, so the affordances are anchored to the card's VISIBLE right
+     edge instead: left = the next card's left edge (100% of a face minus the
+     fan's overlap) plus a small gap. Anchoring from the LEFT, not the right,
+     is load-bearing: a right-anchored box of any real width extends back
+     across the neighbour's exposed left strip and wins the hit-test there, so
+     the raise gesture — `.card:hover`, and Playwright's hover actionability —
+     landed on the affordance instead of the neighbour's face (the mirror of
+     the buried-button bug this ticket fixes). Starting the box a few px
+     inside the neighbour leaves its leftmost edge its own face, while the
+     affordance centre still sits over the neighbour's face (asserted in
+     HandFan.geometry.test.ts). The last card has no next face to clear, so it
+     keeps the corner anchor. */
+  .handfan.overlap .tile-actions,
+  .handfan.overlap .payment-shortcut {
+    right: auto;
+    left: calc(100% - var(--overlap) + 4px);
+  }
+  .handfan.overlap .card:last-child .tile-actions,
+  .handfan.overlap .card:last-child .payment-shortcut {
+    left: auto;
+    right: 1px;
   }
   .badge,
   .action-icon {
