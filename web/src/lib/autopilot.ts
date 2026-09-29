@@ -180,13 +180,37 @@ function plannedCasts(decision: Decision, autoPayMana: boolean): string[] {
 }
 
 /**
+ * announcedCasts is the plan-less sibling arm of plannedCasts (the ManaBrew
+ * autopilot stop-note ticket, agent-20260929T172335Z-dee96bba): with the
+ * seat's auto-pay preference ON, a payment action carrying no plan is
+ * announced-then-paid — the panel renders its "Cast — choose mana" announce
+ * button (PriorityOptions.svelte's plan-less branch, from the parent ticket
+ * agent-20260929T100942Z-1ec23e18), the select-mana window opens and the
+ * player pays by hand. Only ManaBrew produces a plan-less action
+ * (web/src/lib/manabrew/prompt.ts; the engine's paymentActionsForPriority
+ * appends an action only when it carries a plan), and this arm runs after
+ * plannedCasts', so a window offering both is still named by the plan-bearing
+ * arm. Labels use the action.label + parenthetical convention, "(announce)",
+ * matching the announce route the label names.
+ */
+function announcedCasts(decision: Decision, autoPayMana: boolean): string[] {
+  if (!autoPayMana || decision.kind !== 'priority') return [];
+  return (decision.payment_actions ?? [])
+    .filter((action) => action.plans.length === 0)
+    .map((action) => `${action.label} (announce)`);
+}
+
+/**
  * actionables is actionable()'s descriptive twin (fb-20260916T225211Z): the
  * SAME scan, returned as the human labels of what made the window actionable
  * — an action-kind option's own wire label ("Cast Deadly Rollick (alternative
  * cost)"), the costly mana activation's label ("Activate Lion's Eye Diamond
  * for mana", fb-20260917T192520Z), else — only while the seat's auto-pay
  * preference is on — plannedCasts()'s labels for the casts an offered plan
- * pays in one click ("Cast Opt (with suggested mana)"), else castablesAfterTap's
+ * pays in one click ("Cast Opt (with suggested mana)"), then — also only with
+ * the preference on — announcedCasts()'s labels for the plan-less ManaBrew
+ * casts the panel offers as announce-then-pay ("Cast Opt (announce)",
+ * agent-20260929T172335Z-dee96bba), else castablesAfterTap's
  * labels for the float-then-cast shape ("Cast Lava Spike (after tapping)").
  * actionable() below is this list's emptiness test, so a smart step stop and
  * the note that explains it read ONE predicate by construction: whatever made
@@ -206,6 +230,8 @@ export function actionables(view: View, seat: number, decision: Decision, autoPa
   if (labels.length > 0) return labels;
   const planned = plannedCasts(decision, autoPayMana);
   if (planned.length > 0) return planned;
+  const announced = announcedCasts(decision, autoPayMana);
+  if (announced.length > 0) return announced;
   return castablesAfterTap(view, seat, decision);
 }
 
