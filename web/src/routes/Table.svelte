@@ -21,6 +21,7 @@
   import PlaySettingsPanel from '../components/PlaySettingsPanel.svelte';
   import LayoutDrawer from '../components/LayoutDrawer.svelte';
   import ViewHotkeys from '../components/ViewHotkeys.svelte';
+  import HotkeyHint from '../components/HotkeyHint.svelte';
   import { layoutStore } from '../lib/layouts.svelte';
   import PromptDock from '../components/prompts/PromptDock.svelte';
   import { effectivePlacement, profilePlacement } from '../lib/prompts/dock';
@@ -634,6 +635,13 @@
         {/if}
       </aside>
       <ViewHotkeys view={m.view} onToggleLog={toggleLog} />
+      <!-- The hotkey-suppression cue for a view with no seat strip: a
+           spectator (and a seated player during the mulligan round or after
+           the game), who still presses Space on a focused control. The strip
+           owns its own cue while controlsLive, so the two never both mount. -->
+      {#if !controlsLive}
+        <HotkeyHint />
+      {/if}
       {#if layoutStore.drawerOpen}
         <LayoutDrawer />
       {/if}
