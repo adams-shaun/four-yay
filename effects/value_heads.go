@@ -153,6 +153,7 @@ var modelledValueHeads = []string{
 	"TopOfLibraryCMC",
 	"CommanderCastFromCommandZone",
 	"TotalCommanderCastFromCommandZone",
+	"TotalDamageReceivedThisTurn",
 	"TotalOppPoisonCounters",
 	"TotalTurns",
 	"TypesSharedWith",
