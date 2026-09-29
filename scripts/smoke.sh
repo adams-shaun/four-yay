@@ -36,6 +36,12 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
+# Declared up front, BEFORE any early exit: the EXIT trap below reads it, and
+# under `set -u` an undeclared array on a probe-mode/build-failure exit turns
+# the trap into `SERVER_PIDS: unbound variable`, whose failure status then
+# overrides the script's own exit status.
+SERVER_PIDS=()
+
 if [[ -v SMOKE_PORT_LO && ! -v SMOKE_PORT_HI ]] || [[ ! -v SMOKE_PORT_LO && -v SMOKE_PORT_HI ]]; then
   echo "smoke: set both SMOKE_PORT_LO and SMOKE_PORT_HI, or neither" >&2
   exit 1
@@ -163,10 +169,16 @@ teardown_farm() {
 }
 
 cleanup() {
-  # The selftest tears its own sleeper down and exits with SERVER_PIDS
-  # cleared; nothing to clean and nothing to re-report.
-  [ "${#SERVER_PIDS[@]}" -gt 0 ] || return 0
-  teardown_farm "the smoke run"
+  if [ "${#SERVER_PIDS[@]}" -gt 0 ]; then
+    teardown_farm "the smoke run"
+  else
+    # No servers were recorded (a probe mode, a build failure, an
+    # allocation-failure exit): nothing to kill and nothing to re-report —
+    # but the temp dirs the run created must STILL go. A teardown that
+    # leaks on a failure path is exactly the class this ticket closes.
+    # The selftest sets every dir to "" so this is a silent no-op there.
+    rm -rf "${PUBDIR:-}" "${OMNDIR:-}" "${SEATDIR:-}" "${FIXTUREDIR:-}" "${TALISDIR:-}" "${VITE_CACHE_DIR:-}"
+  fi
 }
 trap cleanup EXIT
 
@@ -194,11 +206,12 @@ if [[ "${SMOKE_TEARDOWN_SELFTEST:-}" == 1 ]]; then
   echo "== smoke: teardown selftest =="
   PUBDIR="" OMNDIR="" SEATDIR="" FIXTUREDIR="" TALISDIR="" VITE_CACHE_DIR=""
   SERVER_PIDS=()
-  ( trap '' TERM; sleep 30 ) &
+  ( trap '' TERM; exec sleep 30 ) &
   sleeper=$!
   SERVER_PIDS+=("$sleeper")
   if ! kill -0 "$sleeper" 2>/dev/null; then
     echo "smoke: SELFTEST FAIL: sleeper pid $sleeper was not alive before teardown (bad precondition)" >&2
+    SERVER_PIDS=()
     exit 1
   fi
   echo "smoke: selftest sleeper pid $sleeper recorded (ignores SIGTERM, dies to SIGKILL)"
