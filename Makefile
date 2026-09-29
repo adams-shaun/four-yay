@@ -51,7 +51,7 @@ help:
 	@echo "  make report         — print card coverage against implemented primitives"
 	@echo "  make sim            — build mtgsim and play 20 verified 4-seat games"
 	@echo "  make gorged         — run the M2a table server (browser client at the addr)"
-	@echo "  make deploy-demo    — rebuild and (re)serve the demo on :8080 public / :8081 omniscient"
+	@echo "  make deploy-demo    — rebuild and (re)serve the demo on :8080 (bot tables omniscient)"
 	@echo "                        (PACE=1.5s / TABLES / SEATS / FORMATS / SEED override the defaults)"
 	@echo "  make stop-demo      — stop every running gorged, start nothing"
 	@echo "  make gentypes       — regenerate web/src/protocol.ts from package protocol"
@@ -99,10 +99,11 @@ traindash:
 	go run ./cmd/traindash -root $(TRAIN_ROOT) -addr $(TRAINDASH_ADDR)
 
 .PHONY: deploy-demo stop-demo
-# deploy-demo refreshes the local demo: two servers on 127.0.0.1, public
-# spectator on :8080 and omniscient on :8081, each with two Commander and
-# two constructed tables so the overview's per-format sections are both
-# populated. Run BY HAND, by the operator, when the demo should pick up
+# deploy-demo refreshes the local demo: one server on 127.0.0.1:8080 whose
+# bot-only tables spectate omniscient (play-vs-bot tables stay public), with
+# two Commander and two constructed tables so the overview's per-format
+# sections are both populated; bots play lethal-pressure at a 50ms pace
+# (scripts/deploy-demo.sh; the :8081 omniscient server retired 2026-09-28). Run BY HAND, by the operator, when the demo should pick up
 # main: it stops the running servers, which aborts every in-flight vs-bot
 # game, so nothing runs it automatically any more (the post-merge hook and
 # the daemon's landing.deploy_cmd were removed on 2026-09-22).

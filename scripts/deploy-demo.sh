@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-# deploy-demo.sh — stop every running gorged, then serve the demo on
-# 127.0.0.1:8080 (public spectator) and 127.0.0.1:8081 (omniscient).
+# deploy-demo.sh — stop the running demo gorged, then serve the demo on
+# 127.0.0.1:8080: bot-only tables spectate omniscient (every hand shown),
+# on-demand play-vs-bot tables stay public so nobody watching a person's
+# game sees that person's hand. The separate :8081 omniscient server was
+# retired on 2026-09-28; set OMNI_PORT to run a second server again.
 #
 # Invoked by `make deploy-demo`, which builds the client and the binary
 # first. Run by hand by the operator only: stopping the servers aborts every
@@ -17,7 +20,18 @@ SEATS=${SEATS:-4}
 # the orchestrator's, not theirs. Kept the default in both places -- here and
 # `gorged -pace` -- so "the default pace" means one number. Override for a
 # single deploy with `PACE=1.5s make deploy-demo`.
-PACE=${PACE:-250ms}
+#
+# 2026-09-28: 50ms, the operator's call for the single omniscient demo.
+PACE=${PACE:-50ms}
+# Spectator visibility of the startup (bot-only) tables, and of on-demand
+# play-vs-bot tables (-vsbot-spectator). Omniscient never exposes library
+# order; it must never be used for a table with a person in it.
+SPECTATOR=${SPECTATOR:-omniscient}
+VSBOT_SPECTATOR=${VSBOT_SPECTATOR:-public}
+# Hosted bot policy (host/bot_policy.go's closed vocabulary) for every
+# startup table and for a play-vs-bot game that names none. 2026-09-28:
+# lethal-pressure (AR7), the operator's pick for the demo.
+BOT_POLICY=${BOT_POLICY:-lethal-pressure}
 # Two Commander tables and two constructed ones, so the overview's
 # per-format sections both have something in them. The list is cycled over
 # the tables, so this is exactly "half and half" at -tables 4.
@@ -34,7 +48,12 @@ SEED=${SEED:-1}
 DEMO_GOMEMLIMIT=${DEMO_GOMEMLIMIT:-8GiB}
 
 PUB_PORT=${PUB_PORT:-8080}
-OMNI_PORT=${OMNI_PORT:-8081}
+# OMNI_PORT empty (the default) runs no second server.
+OMNI_PORT=${OMNI_PORT-}
+# Ports a previous demo layout served on. The sweep stops a gorged still
+# listening there, so the first deploy after a layout change does not leave
+# the old server running forever; nothing is started on them.
+RETIRED_PORTS=${RETIRED_PORTS-8081}
 PUB_DIR=${PUB_DIR:-/tmp/gorge-demo-pub}
 OMNI_DIR=${OMNI_DIR:-/tmp/gorge-demo-omni}
 PUB_LOG=${PUB_LOG:-/tmp/gorge-demo-pub.log}
@@ -124,7 +143,9 @@ SWEEP=${SWEEP:-ports}
 gorged_pids() {
 	local filter='LISTEN'
 	if [ "$SWEEP" != "all" ]; then
-		filter="[[:space:]](127\\.0\\.0\\.1|0\\.0\\.0\\.0|\\*|\\[::\\]):($PUB_PORT|$OMNI_PORT)[[:space:]]"
+		local ports
+		ports=$(printf '%s\n' "$PUB_PORT" "$OMNI_PORT" $RETIRED_PORTS | grep -E '^[0-9]+$' | paste -sd'|')
+		filter="[[:space:]](127\\.0\\.0\\.1|0\\.0\\.0\\.0|\\*|\\[::\\]):($ports)[[:space:]]"
 	fi
 	# `|| true` is load-bearing, not defensive noise. grep exits 1 when it
 	# matches nothing, and with `set -o pipefail` that failure becomes the
@@ -167,7 +188,7 @@ stop_all() {
 }
 
 start_one() {
-	local port=$1 spectator=$2 dir=$3 log=$4
+	local port=$1 spectator=$2 dir=$3 log=$4 vsbot_spectator=$5
 	# A FRESH directory every deploy, on purpose. gorged resumes a table
 	# set from its persistence dir, and a config written by an older binary
 	# comes back with the fields that binary did not have set to their zero
@@ -187,6 +208,8 @@ start_one() {
 	setsid nohup env GOMEMLIMIT="$DEMO_GOMEMLIMIT" "$BIN" \
 		-addr "127.0.0.1:$port" \
 		-spectator "$spectator" \
+		-vsbot-spectator "$vsbot_spectator" \
+		-bot-policy "$BOT_POLICY" \
 		-dir "$dir" \
 		-decks "$DECKS" \
 		-tables "$TABLES" \
@@ -245,10 +268,10 @@ if [ "$art_rc" -ne 0 ]; then
 fi
 
 stop_all
-start_one "$PUB_PORT" public "$PUB_DIR" "$PUB_LOG"
-start_one "$OMNI_PORT" omniscient "$OMNI_DIR" "$OMNI_LOG"
+start_one "$PUB_PORT" "$SPECTATOR" "$PUB_DIR" "$PUB_LOG" "$VSBOT_SPECTATOR"
+if [ -n "$OMNI_PORT" ]; then start_one "$OMNI_PORT" omniscient "$OMNI_DIR" "$OMNI_LOG" public; fi
 wait_ready "$PUB_PORT"
-wait_ready "$OMNI_PORT"
+[ -z "$OMNI_PORT" ] || wait_ready "$OMNI_PORT"
 
 # Report what each table actually IS, not what the flags asked for. The
 # formats above are the request; this line is the server's own answer, and
@@ -256,4 +279,4 @@ wait_ready "$OMNI_PORT"
 say "$(curl -fsS "http://127.0.0.1:$PUB_PORT/api/tables" |
 	tr ',' '\n' | grep '"format"' | cut -d'"' -f4 | sort | uniq -c |
 	tr '\n' ' ')on :$PUB_PORT"
-say "ready — spectator http://localhost:$PUB_PORT/  ·  omniscient http://localhost:$OMNI_PORT/"
+say "ready — spectator ($SPECTATOR, bots $BOT_POLICY, pace $PACE) http://localhost:$PUB_PORT/${OMNI_PORT:+  ·  omniscient http://localhost:$OMNI_PORT/}"

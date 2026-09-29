@@ -1182,3 +1182,43 @@ func TestServeFlagAutoManaDefaultsOnAndFalseRestoresLegacyTables(t *testing.T) {
 		}
 	}
 }
+
+// TestServeFlagBotPolicyReachesStartupAndOnDemandTables pins -bot-policy:
+// the production bot by default, the named policy on every startup table,
+// and the on-demand default when a POST /api/games names none -- while an
+// explicit request still wins.
+func TestServeFlagBotPolicyReachesStartupAndOnDemandTables(t *testing.T) {
+	fs, c := serveFlags()
+	if err := fs.Parse(nil); err != nil {
+		t.Fatal(err)
+	}
+	if c.botPolicy != host.BotPolicy || c.vsbotSpectator != "public" {
+		t.Fatalf("defaults: -bot-policy %q -vsbot-spectator %q, want bot/public", c.botPolicy, c.vsbotSpectator)
+	}
+	if err := fs.Parse([]string{"-bot-policy", host.LethalPressurePolicy}); err != nil {
+		t.Fatal(err)
+	}
+	c.tables, c.seats = 2, 2
+	for _, cfg := range c.tableConfigs(nil, nil, view.Omniscient) {
+		if cfg.BotPolicy != host.LethalPressurePolicy {
+			t.Fatalf("startup table %s bot policy %q, want %q", cfg.ID, cfg.BotPolicy, host.LethalPressurePolicy)
+		}
+	}
+	r, gate := freshGameLock(t)
+	c.mulligans = 0
+	create := c.createGame(r, gate, []string{"a", "b"}, []string{"c", "d"}, view.Public)
+	resp, err := create(httpapi.CreateGameOptions{Format: host.FormatConstructed})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.BotPolicy != host.LethalPressurePolicy {
+		t.Fatalf("omitted policy served %q, want the server's %q", resp.BotPolicy, host.LethalPressurePolicy)
+	}
+	resp, err = create(httpapi.CreateGameOptions{Format: host.FormatConstructed, BotPolicy: host.BotPolicy})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.BotPolicy != host.BotPolicy {
+		t.Fatalf("explicit policy served %q, want %q", resp.BotPolicy, host.BotPolicy)
+	}
+}
