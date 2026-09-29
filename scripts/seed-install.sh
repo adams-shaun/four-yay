@@ -26,6 +26,17 @@ install)
 	done
 	systemctl --user daemon-reload
 	systemctl --user enable --now gorge-seed.timer
+	# Prove the unit actually runs rather than trusting that it will: the first
+	# install here failed at step STDOUT (209) because systemd does not create
+	# the parent of an append: log, and nothing noticed for twenty minutes.
+	say "running one cycle now to prove the unit works..."
+	if systemctl --user start gorge-seed.service; then
+		say "first cycle OK"
+	else
+		say "FIRST CYCLE FAILED -- the timer is enabled but the unit is broken:"
+		systemctl --user status gorge-seed.service --no-pager -n 15 2>&1 | tail -12
+		exit 1
+	fi
 	say "timer enabled; next firing:"
 	systemctl --user list-timers gorge-seed.timer --no-pager
 	;;

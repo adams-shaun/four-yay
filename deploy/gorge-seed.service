@@ -17,5 +17,10 @@ ExecStart=/home/sadams/projects/gorge/scripts/seed-agent.sh
 # the next timer firing gets a clean start rather than two overlapping cycles.
 TimeoutStartSec=300
 Nice=5
-StandardOutput=append:/home/sadams/projects/gorge/.ds4/reward/seed.log
-StandardError=append:/home/sadams/projects/gorge/.ds4/reward/seed.log
+# The journal, NOT append:<path>. An append: target's parent is not created by
+# systemd, and the redirect applies to every Exec* line, so a missing state dir
+# fails the unit at step STDOUT (209) before the script can create it -- which
+# is exactly how the first firing on 2026-09-29 failed. The script keeps its own
+# .ds4/reward/seed.log for the cycle history; this is the unit's own stream.
+StandardOutput=journal
+StandardError=journal
