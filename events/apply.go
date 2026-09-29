@@ -1390,6 +1390,34 @@ func Apply(g *state.Game, e Event) {
 		}
 
 	case StepChange:
+		// "Until end of combat, you don't lose this mana as steps and phases
+		// end" (CR 702.189a Firebending) expires as the combat phase ends. The
+		// step being LEFT is g.Step, read before the assignment below; the
+		// demotion subtracts each seat's CombatMana from its PersistentMana so
+		// the very same boundary's ManaClear (rules.setStep calls
+		// finishStepBoundary after emitting this event) empties the demoted
+		// units with the ordinary share. Doing it here, rather than in the
+		// later EndCombatReset, is what keeps the units in the pool through the
+		// end-of-combat STEP (a player may still spend them there) while
+		// emptying them when it ends. A game with no combat-persistent mana
+		// (every game before this keyword, and every legacy deck) has all-zero
+		// tallies, so this fold is inert and its event stream is unchanged.
+		if g.Step == state.StepEndCombat && e.Step != state.StepEndCombat {
+			for i := range g.Players {
+				p := &g.Players[i]
+				for j := range p.CombatMana {
+					if p.CombatMana[j] == 0 {
+						continue
+					}
+					d := p.CombatMana[j]
+					if p.PersistentMana[j] < d {
+						d = p.PersistentMana[j]
+					}
+					p.PersistentMana[j] -= d
+					p.CombatMana[j] = 0
+				}
+			}
+		}
 		g.Step = e.Step
 		// The per-turn combat-phase count (CR 500.6: a turn has exactly one
 		// combat phase -- except the additional ones an api:AddPhase grant
@@ -1527,6 +1555,11 @@ func Apply(g *state.Game, e Event) {
 		// the next boundary's ManaClear empties them with the batch.
 		for i := range g.Players {
 			g.Players[i].PersistentMana = state.Mana{}
+			// The combat-persistent subset can never outlive the turn either:
+			// it expires at end of combat, but a TurnChange that somehow
+			// arrived first (an extra turn boundary) must not leave the tally
+			// naming units the pool no longer holds.
+			g.Players[i].CombatMana = state.Mana{}
 			for j := range g.Players[i].RestrictedMana {
 				g.Players[i].RestrictedMana[j].Persistent = false
 			}
@@ -4344,10 +4377,17 @@ func manaClearKeepSlots(text string) [6]bool {
 // cutManaPersistent splits a ManaAdd event's Text encoding into the
 // restriction encoding it may also carry and whether the mana is persistent
 // (PersistentMana$ True — the trailing " pm" suffix ManaPersistentText
-// appends). Ordinary historical events never carry the suffix.
-func cutManaPersistent(text string) (string, bool) {
+// appends) and, for the shorter-lived CR 702.189a Firebending form, whether
+// it also expires at end of combat (the trailing " pmc" suffix
+// ManaCombatPersistentText appends). The combat suffix is checked FIRST
+// because it ends in neither the plain suffix nor the empty string it would
+// otherwise be mistaken for. Ordinary historical events never carry either.
+func cutManaPersistent(text string) (rest string, persistent, combat bool) {
+	if rest, ok := strings.CutSuffix(text, manaCombatPersistentSuffix); ok {
+		return rest, true, true
+	}
 	rest, ok := strings.CutSuffix(text, manaPersistentSuffix)
-	return rest, ok
+	return rest, ok, false
 }
 
 // clearNonPersistent drains n ordinary (non-persistent) units from slot i of
@@ -4584,7 +4624,7 @@ func applyManaAdd(g *state.Game, e Event) {
 		// PersistentMana$ True (task persistentmana): the suffix rides Text
 		// after every other encoding, so cut it before the restriction
 		// parse and mark the tally/batch below.
-		rest, persistent := cutManaPersistent(e.Text)
+		rest, persistent, combat := cutManaPersistent(e.Text)
 		// One event moves the pool and its parallel producer tally, so a
 		// tally can never drift from the pool it partitions. Three counter
 		// forms exist, and all three land in the colour's pool slot:
@@ -4604,6 +4644,9 @@ func applyManaAdd(g *state.Game, e Event) {
 		player.Pool[idx] += e.Amount
 		if e.Amount > 0 && persistent {
 			player.PersistentMana[idx] += e.Amount
+			if combat {
+				player.CombatMana[idx] += e.Amount
+			}
 		}
 		if len(e.Counter) == 2 && e.Counter[0] == 'S' {
 			player.Snow[idx] += e.Amount
@@ -4688,6 +4731,19 @@ func applyManaAdd(g *state.Game, e Event) {
 				d = player.PersistentMana[idx]
 			}
 			player.PersistentMana[idx] -= d
+			// The combat-persistent subset is consumed by the same attribution:
+			// the payment cannot distinguish a combat unit from an ordinary
+			// persistent one (they are interchangeable in the pool), so a spend
+			// that reduced the persistent tally reduces the combat tally too,
+			// bounded by what it still holds. The convention only decides WHICH
+			// surviving units are emptied at end of combat when both classes are
+			// simultaneously in the pool; the CR draws no such distinction.
+			if cd := player.CombatMana[idx]; cd > 0 {
+				if cd > d {
+					cd = d
+				}
+				player.CombatMana[idx] -= cd
+			}
 		}
 	}
 }

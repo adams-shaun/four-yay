@@ -66,6 +66,22 @@ type Player struct {
 	// pre-existing game reconstructs an all-zero tally byte-identically.
 	PersistentMana Mana
 
+	// CombatMana parallels Pool slot for slot: CombatMana[i] counts how many
+	// of the Pool[i] units were produced by a "until end of combat, you don't
+	// lose this mana as steps and phases end" ability — CR 702.189a
+	// Firebending, the one carrier family. Its units are ALSO counted in
+	// PersistentMana (that is what keeps them through the step boundaries
+	// WITHIN the combat phase, CR 500.4 with the card's exception); this tally
+	// is the subset whose exception ends when the combat phase ends rather
+	// than when the turn does. The StepChange fold demotes it — subtracting
+	// each seat's CombatMana from its PersistentMana and zeroing it — as the
+	// step leaves StepEndCombat, so the SAME boundary's ManaClear empties the
+	// demoted units with the ordinary share. CombatMana[i] <= PersistentMana[i]
+	// always holds and a replay derives both identically. No historical event
+	// ever carried the combat suffix, so every pre-existing game reconstructs
+	// an all-zero tally byte-identically.
+	CombatMana Mana
+
 	// Commanders lists this seat's commanders, in Config order, sized at
 	// genesis and never grown. CmdCasts runs parallel to it: entry k counts
 	// how many times Commanders[k] has been cast from the command zone.

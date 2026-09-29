@@ -88,7 +88,6 @@ func tlaCastByName(t *testing.T, e *Engine, name, mana string) (state.ObjID, boo
 // add N {R}. Until end of combat, you don't lose this mana as steps and phases
 // end." Fire Sages prints K:Firebending:1, so attacking must add one red mana.
 func TestSetAudit_tla_FireSages_FirebendingAddsManaOnAttack(t *testing.T) {
-	tlaSkip(t, "K:Firebending has no cards/kw_firebending.go expander and no rules handler, so the 21 tla Firebending cards are silent no-ops. Follow-up: tla-firebending-unimplemented")
 	reg := testutil.CorpusRegistry(t)
 	e, _, _ := newFixtureDeck(t, 17, "Name:Placeholder\nManaCost:0\nTypes:Creature Bear\nPT:1/1\nOracle:x\n")
 	fireSages := onBoardCard(t, e, 0, tlaCorpusCard(t, reg, "Fire Sages"))
@@ -103,7 +102,6 @@ func TestSetAudit_tla_FireSages_FirebendingAddsManaOnAttack(t *testing.T) {
 // SVar X:Count$CardPower): a 1/2 student attacking adds one red mana, not a
 // fixed amount. CR 702.189a.
 func TestSetAudit_tla_FirebendingStudent_DynamicPowerAddsMana(t *testing.T) {
-	tlaSkip(t, "K:Firebending has no expander, so the dynamic power count never adds mana. Follow-up: tla-firebending-unimplemented")
 	reg := testutil.CorpusRegistry(t)
 	e, _, _ := newFixtureDeck(t, 18, "Name:Placeholder\nManaCost:0\nTypes:Creature Bear\nPT:1/1\nOracle:x\n")
 	student := onBoardCard(t, e, 0, tlaCorpusCard(t, reg, "Firebending Student"))
