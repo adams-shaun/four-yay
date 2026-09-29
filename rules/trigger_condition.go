@@ -391,9 +391,8 @@ func (e *Engine) lifeConditionHoldsAs(t cards.Trigger, you state.PlayerID, amoun
 // the zone. Counts are taken relative to the trigger's source and the
 // caller's chosen "you".
 //
-//   - PresentDefined$ Self (Mana Vault's "if this artifact is tapped")
-//     counts the source object alone, and only while it is on the
-//     battlefield; any other defined set fails closed.
+//   - PresentDefined$ names a Defined$ group (including Self), and counts
+//     matching objects in that group using the trigger's captured context.
 //   - PresentZone$ (Jocasta, Automaton Avenger's "if this card is in your
 //     graveyard") counts the named zone in every living seat's copy of it,
 //     in deterministic seat/zone order; an unknown zone word fails closed.
@@ -416,17 +415,46 @@ func (e *Engine) presentClauseHolds(t cards.Trigger, source state.ObjID, you sta
 	cmp = e.presentCompareFor(cmp, source, you)
 	sc := e.specCtx(source, you)
 	if tc != nil {
-		sc.DelayedRemembered = tc.DelayedRemembered
+		sc.TriggerContext = *tc
 	}
 	if pd := strings.TrimSpace(t.Params[definedKey]); pd != "" {
-		if pd != "Self" {
-			return false
-		}
-		if o := e.G.Obj(source); o == nil || o.Zone != state.ZBattlefield ||
-			!e.matchesSpec(spec, source, sc) {
+		o := e.G.Obj(source)
+		if o == nil {
 			return comparePresent(0, cmp)
 		}
-		return comparePresent(1, cmp)
+		if pd == "Self" {
+			if o.Zone != state.ZBattlefield || !e.matchesSpec(spec, source, sc) {
+				return comparePresent(0, cmp)
+			}
+			return comparePresent(1, cmp)
+		}
+		// A printed trigger's Remembered group is the source's persistent
+		// remembered set. Delayed registrations additionally carry their
+		// own captured set in TriggerContext, already bound above.
+		remembered := append([]state.Target(nil), o.Remembered...)
+		if tc != nil && len(tc.DelayedRemembered) > 0 {
+			// A delayed registration owns its captured Remembered group; the
+			// source's persistent memory is unrelated to this trigger context.
+			remembered = append([]state.Target(nil), tc.DelayedRemembered...)
+		}
+		sc.Remembered = remembered
+		resolverContext := effects.TriggerContext{}
+		if tc != nil {
+			// Defined selectors resolve against the event captured by this
+			// trigger, not the source object's unrelated or persistent context.
+			resolverContext = *tc
+		}
+		ctx := &effects.Ctx{Source: source, Controller: you,
+			Remembered: remembered, TriggerContext: resolverContext}
+		group := effects.Defined(e, ctx, &cards.SA{Params: map[string]string{"Defined": pd}})
+		n := 0
+		for _, target := range group {
+			if !target.IsPlayer && target.Obj != 0 && e.G.Obj(target.Obj) != nil &&
+				e.matchesSpec(spec, target.Obj, sc) {
+				n++
+			}
+		}
+		return comparePresent(n, cmp)
 	}
 	if pz := strings.TrimSpace(t.Params[zoneKey]); pz != "" {
 		zone, known := effects.ParseZoneWord(pz)

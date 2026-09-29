@@ -531,12 +531,9 @@ func tlaTriggerPushes(e *Engine, id state.ObjID) int {
 // trigger's own TriggerPush -- a bare scry (effLookAndArrange) emits only its
 // own "looks at the top of the library" Note and no TriggerPush, so asserting
 // that Note (the earlier revision of this leaf) made the test vacuous. The
-// engine's trigger present-clause reader accepts only `PresentDefined$ Self`
-// and fails every other defined group closed (rules/trigger_condition.go
-// presentClauseHolds), so `PresentDefined$ Remembered` suppresses the trigger
-// and the whole card is a no-op: a finding.
+// trigger present-clause reader resolves its PresentDefined$ group through
+// the trigger's own context, so this pins Remembered's empty-set EQ0 gate.
 func TestSetAudit_tla_Planetarium_ScryTriggerLooksAtTop(t *testing.T) {
-	tlaSkip(t, "a trigger present clause with PresentDefined$ Remembered fails closed, so Planetarium's Mode$ Scry trigger never fires. Follow-up: tla-trigger-present-defined-remembered")
 	reg := testutil.CorpusRegistry(t)
 	e, _ := searchEngine(t, reg, "Planetarium of Wan Shi Tong")
 	p := searchMoveByName(t, e, "Planetarium of Wan Shi Tong", state.ZBattlefield)
@@ -596,6 +593,6 @@ func TestSetAudit_tla_Planetarium_ScryTriggerLooksAtTop(t *testing.T) {
 	// The trigger-only observable: the trigger must reach the stack. A bare
 	// scry never emits a TriggerPush for the activating permanent.
 	if n := tlaTriggerPushes(e, p); n == 0 {
-		t.Fatalf("Planetarium's Mode$ Scry trigger never fired after a real scry (TriggerPush count = 0; the scry's own Note is not proof): its PresentDefined$ Remembered condition fails closed (CR 603.4)")
+		t.Fatalf("Planetarium's Mode$ Scry trigger never fired after a real scry (TriggerPush count = 0; the scry's own Note is not proof)")
 	}
 }
