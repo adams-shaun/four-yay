@@ -173,6 +173,7 @@ var modelledValueHeads = []string{
 	"ValidHand",
 	"ValidHand,Graveyard",
 	"ValidLibrary",
+	"ValidSelf",
 	"ValidStack",
 	"Void",
 	"YouDescendedThisTurn",
