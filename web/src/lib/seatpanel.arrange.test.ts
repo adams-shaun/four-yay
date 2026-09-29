@@ -91,3 +91,17 @@ describe('setPicked — the arrange popup’s write path', () => {
     expect(p.picked).toEqual([]);
   });
 });
+
+describe('pickHotkey on an arrange ask', () => {
+  // A one-card reorder is min==max==1, where click() would post at once; the
+  // arrange row toggles instead, and so must the hotkey.
+  it('toggles into the keep pile and never posts, even on a one-card ask', async () => {
+    const p = new SeatPanelState('t1', 1, ctx, null);
+    p.adoptView({ ...reorder, seq: 8, min: 1, max: 1, options: [reorder.options[0]] });
+    postIntentMock.mockClear();
+    expect(p.pickHotkey(1)).toBe(true);
+    for (let i = 0; i < 20; i++) await Promise.resolve();
+    expect(postIntentMock).not.toHaveBeenCalled();
+    expect(p.picked).toEqual([0]);
+  });
+});

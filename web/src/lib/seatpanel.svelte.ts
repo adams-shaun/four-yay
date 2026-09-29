@@ -328,6 +328,19 @@ export function mulliganPhase(d: Decision | null): MulliganPhase {
 }
 
 /**
+ * answersByToggle reports whether the panel answers this decision's options
+ * by TOGGLING them into `picked` (committed with Submit) rather than through
+ * click(): the mulligan BOTTOM half and the arrange ask, SeatPanel.svelte's
+ * `mull.phase === 'bottom'` and `arrange !== null` branches. Both can be
+ * min==max==1, where click() would post the first pick irreversibly (see
+ * toggle()). Every non-panel answer path — the pick-N hotkeys — routes
+ * through this one predicate so it can never answer differently.
+ */
+export function answersByToggle(d: Decision | null): boolean {
+  return d !== null && (d.kind === 'arrange' || mulliganPhase(d)?.phase === 'bottom');
+}
+
+/**
  * AUTO_PASS_CAP bounds how many priority windows auto may pass in an
  * unbroken run before it switches itself off. A runaway autopasser is not a
  * cosmetic bug: it hammers the server and it passes the game away in
@@ -1182,15 +1195,19 @@ export class SeatPanelState {
 
   /**
    * pickHotkey answers option n (1-based) of a pending NON-priority decision,
-   * exactly as clicking it would (the pick-N hotkeys). Options are numbered in
-   * d.options order, which is the order the panel's option list renders them.
+   * exactly as clicking it in the panel would (the pick-N hotkeys): a toggle
+   * on the layouts that answer by toggle-then-Submit (answersByToggle), a
+   * click() everywhere else. Options are numbered in d.options order, which is
+   * the order every one of those layouts renders them (the mulligan-bottom
+   * and arrange rows both iterate d.options unchanged).
    */
   pickHotkey(n: number): boolean {
     const d = this.pending;
     if (d === null || d.kind === 'priority' || d.seq === this.postedSeq || this.busy) return false;
     const o = d.options[n - 1];
     if (o === undefined) return false;
-    this.click(o.index);
+    if (answersByToggle(d)) this.toggle(o.index);
+    else this.click(o.index);
     return true;
   }
 
