@@ -40,6 +40,10 @@ func sosCard(t *testing.T, name string) *cards.Card {
 }
 
 const sosBearSrc = "Name:Test Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
+const sosSpriteSrc = "Name:Test Sprite\nManaCost:1 U\nTypes:Creature Faerie\nPT:1/1\nK:Flying\nOracle:x\n"
+const sosElfSrc = "Name:Test Elf\nManaCost:G\nTypes:Creature Elf\nPT:1/1\nOracle:x\n"
+const sosOgreSrc = "Name:Test Ogre\nManaCost:2 R\nTypes:Creature Ogre\nPT:3/3\nOracle:x\n"
+const sosCubSrc = "Name:Test Cub\nManaCost:0\nTypes:Artifact\nOracle:x\n"
 const sosBoltSrc = "Name:Test Bolt\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1\nOracle:x\n"
 const sosHealSrc = "Name:Test Heal\nManaCost:G\nTypes:Instant\nA:SP$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:x\n"
 const sosBombSrc = "Name:Test Bomb\nManaCost:5\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1\nOracle:x\n"
@@ -797,4 +801,405 @@ func TestSetAudit_sos_CensusLevelGaps(t *testing.T) {
 			t.Errorf("%s still needs %v", name, m)
 		}
 	}
+}
+
+// ---------------------------------------------------------------------------
+// ===== Part 2: the 20 keywords part 1 did not touch, and passes B/C. =====
+//
+// Combat keywords below use the combat harness (combat_test.go helpers): the
+// sos carrier is placed on the battlefield as a real corpus card and the
+// assertion is the combat outcome (who is blockable, where damage lands, what
+// life moves), never a HasKeyword lookup. Eventless onBoardCard placement is
+// the file's fixture convention (onBoard's eventless note), so these tests do
+// not replayCheck — exactly like every test in combat_test.go itself.
+
+// sosBlockOptions returns the pending KBlockers options naming `want`.
+func sosBlockOptions(t *testing.T, e *Engine, want state.ObjID) []decision.Option {
+	t.Helper()
+	d := e.Pending()
+	if d == nil || d.Kind != decision.KBlockers {
+		t.Fatalf("expected a blockers decision, got %+v", d)
+	}
+	var out []decision.Option
+	for _, o := range d.Options {
+		if o.Obj == want {
+			out = append(out, o)
+		}
+	}
+	return out
+}
+
+// sosAttackOption reports whether the pending KAttackers decision offers an
+// attack option for the given attacker.
+func sosAttackOption(t *testing.T, e *Engine, id state.ObjID) *decision.Option {
+	t.Helper()
+	d := e.Pending()
+	if d == nil || d.Kind != decision.KAttackers {
+		t.Fatalf("expected an attackers decision, got %+v", d)
+	}
+	for _, o := range d.Options {
+		if o.Obj == id {
+			return &o
+		}
+	}
+	return nil
+}
+
+// (a) Deathtouch (CR 702.2b): "any amount of damage ... is enough to destroy
+// it." Noxious Newt (1/2 deathtouch) vs a 3/3: the ONE damage must kill the
+// 3/3, which would survive ordinary 1 damage. Also asserts deathtouch
+// damage follows the ordinary damage step (the ogre's 3 kills the 1/2 newt).
+func TestSetAudit_sos_NoxiousNewt_DeathtouchLethalDamage(t *testing.T) {
+	t.Parallel()
+	e := combatEngine(t)
+	newt := onBoardReadyCard(t, e, 0, sosCard(t, "Noxious Newt"))
+	ogre := onBoard(t, e, 1, sosOgreSrc)
+	if o := e.G.Obj(ogre); o == nil || o.Zone != state.ZBattlefield {
+		t.Fatal("precondition: Test Ogre not on the battlefield")
+	}
+	e.askAttackers()
+	submitAttackersOnly(t, e, newt)
+	drainCombatPriority(t, e)
+	submitBlockersOnly(t, e, ogre)
+	drainCombatPriority(t, e)
+	if o := e.G.Obj(ogre); o == nil || o.Zone != state.ZGraveyard {
+		t.Errorf("deathtouch: blocker zone = %+v, want the graveyard (1 deathtouch damage kills a 3/3, CR 702.2b)", o)
+	}
+	if o := e.G.Obj(newt); o == nil || o.Zone != state.ZGraveyard {
+		t.Errorf("deathtouch: the 1/2 Newt should have died to 3 damage, got %+v", o)
+	}
+}
+
+// (a) First strike (CR 702.7b): Honorbound Page (3/3 first strike) vs a 3/3.
+// Without first strike both die to simultaneous damage; with it, the ogre
+// dies in the first-strike step and never deals its 3.
+func TestSetAudit_sos_HonorboundPage_FirstStrikeDamageOrder(t *testing.T) {
+	t.Parallel()
+	e := combatEngine(t)
+	page := onBoardReadyCard(t, e, 0, sosCard(t, "Honorbound Page"))
+	ogre := onBoard(t, e, 1, sosOgreSrc)
+	e.askAttackers()
+	submitAttackersOnly(t, e, page)
+	drainCombatPriority(t, e)
+	submitBlockersOnly(t, e, ogre)
+	drainCombatPriority(t, e)
+	drainCombatDamagePriority(t, e)
+	if o := e.G.Obj(ogre); o == nil || o.Zone != state.ZGraveyard {
+		t.Errorf("first strike: blocker zone = %+v, want the graveyard", o)
+	}
+	nd := e.G.Obj(page)
+	if nd == nil || nd.Zone != state.ZBattlefield || nd.Damage != 0 {
+		t.Errorf("first strike: page zone/damage = %+v/%d, want battlefield/0 (the 3/3 must die in the first-strike step before its regular damage, CR 702.7b)", nd, pageDamage(nd))
+	}
+}
+
+// (a) Double strike (CR 702.4b): Quill-Blade Laureate (1/1 double strike) vs
+// a 2/2. The first-strike pass deals 1 (bear alive, damaged); the regular
+// pass deals the second 1 (bear dead). The 1/1 laureate necessarily dies to
+// the bear's regular-step 2, so the split is asserted on the blocker.
+func TestSetAudit_sos_QuillBladeLaureate_DoubleStrikeTwoSteps(t *testing.T) {
+	t.Parallel()
+	e := combatEngine(t)
+	laureate := onBoardReadyCard(t, e, 0, sosCard(t, "Quill-Blade Laureate"))
+	bear := onBoard(t, e, 1, sosBearSrc)
+	e.askAttackers()
+	submitAttackersOnly(t, e, laureate)
+	drainCombatPriority(t, e)
+	submitBlockersOnly(t, e, bear)
+	drainCombatPriority(t, e)
+	// Mid-boundary, at the CR 510.4 between-passes window: the first-strike
+	// pass has dealt 1 and the regular pass has not run yet.
+	if e.G.Step != state.StepCombatDamage || e.Pending() == nil || e.Pending().Kind != decision.KPriority {
+		t.Fatalf("expected the between-passes priority window in the combat damage step, got step %s pending %+v", e.G.Step, e.Pending())
+	}
+	if bo := e.G.Obj(bear); bo == nil || bo.Zone != state.ZBattlefield || bo.Damage != 1 {
+		t.Errorf("double strike: at the between-passes window the bear should be on the battlefield with 1 damage, got zone %+v damage %+v", bo, pageDamage(bo))
+	}
+	drainCombatDamagePriority(t, e)
+	if bo := e.G.Obj(bear); bo == nil || bo.Zone != state.ZGraveyard {
+		t.Errorf("double strike: the bear should die to the second (regular) strike, got %+v", bo)
+	}
+	if lo := e.G.Obj(laureate); lo == nil || lo.Zone != state.ZGraveyard {
+		t.Errorf("double strike: the 1/1 laureate should have died to the bear's regular-step 2, got %+v", lo)
+	}
+}
+
+// (a) Flying (CR 702.9b): Owlin Historian attacks. A ground creature is NOT
+// offered as a blocker; a flying creature IS.
+func TestSetAudit_sos_OwlinHistorian_FlyingBlocksGroundUnblockable(t *testing.T) {
+	t.Parallel()
+	e := combatEngine(t)
+	historian := onBoardReadyCard(t, e, 0, sosCard(t, "Owlin Historian"))
+	bear := onBoard(t, e, 1, sosBearSrc)     // no flying, no reach
+	sprite := onBoard(t, e, 1, sosSpriteSrc) // flying
+	e.askAttackers()
+	submitAttackersOnly(t, e, historian)
+	drainCombatPriority(t, e)
+	if opts := sosBlockOptions(t, e, bear); len(opts) != 0 {
+		t.Fatalf("flying: a ground creature was offered against a flying attacker: %+v (CR 702.9b)", opts)
+	}
+	if opts := sosBlockOptions(t, e, sprite); len(opts) == 0 {
+		t.Fatalf("flying: the flying blocker was not offered against the flying attacker: %+v", e.Pending().Options)
+	}
+	submitBlockersOnly(t, e, sprite)
+	drainCombatPriority(t, e)
+	if o := e.G.Obj(sprite); o == nil || o.Zone != state.ZGraveyard {
+		t.Errorf("flying: the 1/1 flying blocker should die to the 2/3 attacker, got %+v", o)
+	}
+	if o := e.G.Obj(historian); o == nil || o.Zone != state.ZBattlefield || o.Damage != 1 {
+		t.Errorf("flying: the historian should have taken the sprite's 1 damage on the battlefield, got %+v", o)
+	}
+}
+
+// (a) Reach (CR 702.11b): the reach creature's outcome lives on the BLOCK
+// side, so the flying Sprite attacks on seat 1's turn and seat 0 defends:
+// the Rearing Embermare (4/5 reach) blocks the flying attacker, the ground
+// bear's declaration is rejected.
+func TestSetAudit_sos_RearingEmbermare_ReachBlocksFlying(t *testing.T) {
+	t.Parallel()
+	e := combatEngine(t)
+	mare := onBoardCard(t, e, 0, sosCard(t, "Rearing Embermare"))
+	bear := onBoard(t, e, 0, sosBearSrc)
+	sprite := onBoard(t, e, 1, sosSpriteSrc)
+	driveToStepAll(t, e, 2, 1, state.StepDeclareAttackers)
+	e.askAttackers()
+	submitAttackersOnly(t, e, sprite)
+	drainCombatPriority(t, e)
+	// The blockers ask itself enforces CR 702.11b: the ground bear is NOT
+	// offered against the flying attacker; the reach embermare IS.
+	if opts := sosBlockOptions(t, e, bear); len(opts) != 0 {
+		t.Fatalf("reach: a ground creature was offered against a flying attacker (CR 702.11b)")
+	}
+	submitBlockersOnly(t, e, mare)
+	drainCombatPriority(t, e)
+	if o := e.G.Obj(sprite); o == nil || o.Zone != state.ZGraveyard {
+		t.Errorf("reach: the 1/1 flying attacker should die to the 4/5 reach blocker, got %+v", o)
+	}
+	if o := e.G.Obj(mare); o == nil || o.Zone != state.ZBattlefield || o.Damage != 1 {
+		t.Errorf("reach: the embermare should have taken the sprite's 1 damage, got %+v", o)
+	}
+}
+
+// (a) Trample (CR 702.19c): Quandrix, the Proof (6/6 trample, flying) blocked
+// by a 1/1 flying Sprite: 1 lethal damage to the blocker, the remaining 5 to
+// the defender.
+func TestSetAudit_sos_QuandrixTheProof_TrampleOverkillToPlayer(t *testing.T) {
+	t.Parallel()
+	e := combatEngine(t)
+	proof := onBoardReadyCard(t, e, 0, sosCard(t, "Quandrix, the Proof"))
+	// The Proof is also FLYING, so the trample-over blocker is the 1/1
+	// flying Sprite (the only legal blocker the foe owns here).
+	flyer := onBoard(t, e, 1, sosSpriteSrc)
+	e.askAttackers()
+	submitAttackersOnly(t, e, proof)
+	drainCombatPriority(t, e)
+	submitBlockersOnly(t, e, flyer)
+	drainCombatPriority(t, e)
+	if o := e.G.Obj(flyer); o == nil || o.Zone != state.ZGraveyard {
+		t.Errorf("trample: the 1/1 blocker should die, got %+v", o)
+	}
+	if life := e.G.Players[1].Life; life != 15 {
+		t.Errorf("trample: defender life = %d, want 15 (5 of 6 damage assigned past the 1/1 blocker, CR 702.19c)", life)
+	}
+	if o := e.G.Obj(proof); o == nil || o.Zone != state.ZBattlefield || o.Damage != 1 {
+		t.Errorf("trample: attacker should survive with 1 damage, got %+v", o)
+	}
+}
+
+// (a) Haste (CR 302.6 / 702.10a): Charging Strifeknight attacks the turn it
+// enters despite summoning sickness; a sick non-haste creature does not.
+func TestSetAudit_sos_ChargingStrifeknight_HasteAttacksWhileSick(t *testing.T) {
+	t.Parallel()
+	e := combatEngine(t)
+	knight := onBoardCard(t, e, 0, sosCard(t, "Charging Strifeknight"))
+	elf := onBoard(t, e, 0, sosElfSrc)
+	// The sickness preconditions are the point: both are freshly placed and
+	// summoning sick, and only the haste creature is offered an attack.
+	if !e.G.Obj(knight).SummonSick || !e.G.Obj(elf).SummonSick {
+		t.Fatal("precondition: both creatures must be summoning sick for this comparison")
+	}
+	e.askAttackers()
+	if sosAttackOption(t, e, knight) == nil {
+		t.Errorf("haste: the summoning-sick Strifeknight was not offered an attack (CR 702.10a)")
+	}
+	if sosAttackOption(t, e, elf) != nil {
+		t.Errorf("control: the summoning-sick non-haste elf WAS offered an attack (CR 302.6)")
+	}
+}
+
+// (a) Lifelink (CR 702.15a): Shattered Acolyte (2/2 lifelink) blocked by a
+// 1/1: the controller gains life equal to the damage dealt.
+func TestSetAudit_sos_ShatteredAcolyte_LifelinkGainsDamageDealt(t *testing.T) {
+	t.Parallel()
+	e := combatEngine(t)
+	acolyte := onBoardReadyCard(t, e, 0, sosCard(t, "Shattered Acolyte"))
+	elf := onBoard(t, e, 1, sosElfSrc)
+	if life := e.G.Players[0].Life; life != 20 {
+		t.Fatalf("precondition: seat 0 life = %d, want 20", life)
+	}
+	e.askAttackers()
+	submitAttackersOnly(t, e, acolyte)
+	drainCombatPriority(t, e)
+	submitBlockersOnly(t, e, elf)
+	drainCombatPriority(t, e)
+	if o := e.G.Obj(elf); o == nil || o.Zone != state.ZGraveyard {
+		t.Fatalf("precondition: the 1/1 blocker should have died to the 2/2, got %+v", o)
+	}
+	if life := e.G.Players[0].Life; life != 22 {
+		t.Errorf("lifelink: seat 0 life = %d, want 22 (gains life equal to the 2 damage dealt, CR 702.15a)", life)
+	}
+}
+
+// (a) Menace (CR 702.31b): Ulna Alley Shopkeep (2/3 menace) cannot be blocked
+// by one creature; two can. Blocked by two 2/2s, the shopkeep deals 1+1 to
+// the bears and dies to their 4; a single-blocker declaration is rejected.
+func TestSetAudit_sos_UlnaAlleyShopkeep_MenaceNeedsTwoBlockers(t *testing.T) {
+	t.Parallel()
+	e := combatEngine(t)
+	shopkeep := onBoardReadyCard(t, e, 0, sosCard(t, "Ulna Alley Shopkeep"))
+	bear1 := onBoard(t, e, 1, sosBearSrc)
+	bear2 := onBoard(t, e, 1, sosBearSrc)
+	e.askAttackers()
+	submitAttackersOnly(t, e, shopkeep)
+	drainCombatPriority(t, e)
+	// The single-blocker candidate is still listed (its option carries
+	// MinBlockers 2), so the CR-correct outcome is enforced at validation:
+	// the one-creature declaration is rejected, the two-creature one accepted.
+	if d := e.Pending(); d == nil || d.Kind != decision.KBlockers {
+		t.Fatalf("expected a blockers decision, got %+v", d)
+	}
+	d := e.Pending()
+	idx := -1
+	for _, o := range d.Options {
+		if o.Obj == bear1 {
+			idx = o.Index
+		}
+	}
+	if idx < 0 {
+		t.Fatalf("precondition: single-blocker option missing; options %+v", d.Options)
+	}
+	for _, o := range d.Options {
+		if o.Obj == bear1 && o.MinBlockers != 2 {
+			t.Errorf("menace: the single-blocker option does not carry the CR 702.31b two-blocker requirement (MinBlockers=%d)", o.MinBlockers)
+		}
+	}
+	if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{idx}}); err == nil {
+		t.Errorf("menace: a one-creature block of a menace attacker was ACCEPTED (CR 702.31b: cannot be blocked except by two or more)")
+	}
+	// The rejected whole-declaration sends the engine back to the CR 509.2
+	// priority window; pass it so the blockers ask is re-posed.
+	drainCombatPriority(t, e)
+	submitBlockersOnly(t, e, bear1, bear2)
+	drainCombatPriority(t, e)
+	// Two live blockers pose the attacker's controller a CR 510.1c
+	// damage-division decision; the only legal split here is 1+1.
+	submitDivision(t, e, []int32{1, 1})
+	drainCombatDamagePriority(t, e)
+	// The damage pass's SBA tail is deferred for the end-of-combat priority
+	// round; pass it so the lethal damage on the 1/1s resolves (the helper
+	// below is the declare-window drain, so settle by hand here).
+	sosPassPendingPriority(t, e)
+	so := e.G.Obj(shopkeep)
+	// events.Move clears Damage the instant something dies, so the lethal
+	// total is read off DamageReceivedThisTurn (the combat_test.go idiom).
+	if so == nil || so.Zone != state.ZGraveyard || so.DamageReceivedThisTurn != 4 {
+		t.Errorf("menace: shopkeep zone/total damage = %+v/%d, want graveyard/4 (the two 2/2s deal 4 to the 2/3)", so, soDamageTaken(so))
+	}
+	for _, id := range []state.ObjID{bear1, bear2} {
+		o := e.G.Obj(id)
+		if o == nil || o.Zone != state.ZBattlefield || o.Damage != 1 {
+			t.Errorf("menace: bear %d should have taken the shopkeep's 1 of its 2 damage on the battlefield, got %+v", id, o)
+		}
+	}
+}
+
+// (a) Vigilance (CR 702.3b): Transcendent Archaic attacks WITHOUT tapping; a
+// plain creature still taps when it attacks.
+func TestSetAudit_sos_TranscendentArchaic_VigilanceDoesNotTap(t *testing.T) {
+	t.Parallel()
+	e := combatEngine(t)
+	archaic := onBoardReadyCard(t, e, 0, sosCard(t, "Transcendent Archaic"))
+	bear := onBoardReady(t, e, 0, sosBearSrc)
+	elf := onBoard(t, e, 1, sosElfSrc)
+	e.askAttackers()
+	submitAttackersOnly(t, e, archaic, bear)
+	drainCombatPriority(t, e)
+	submitBlockersOnly(t, e, elf)
+	drainCombatPriority(t, e)
+	if ao := e.G.Obj(archaic); ao == nil || ao.Tapped {
+		t.Errorf("vigilance: the archaic zone/tapped = %+v/%v, want tapped false — it must attack without tapping (CR 702.3b)", ao, ao != nil && ao.Tapped)
+	}
+	if o := e.G.Obj(bear); o == nil || !o.Tapped {
+		t.Errorf("control: the plain bear must tap when it attacks (CR 702.3b contrast)")
+	}
+}
+
+// (a) Double ("then double the number of +1/+1 counters", CR-correct
+// arithmetic): a bear that ALREADY has 2 counters goes to 6 (put 1 → 3, then
+// double), not to 4 (double-then-put) or 5 (put only). Part 1 pinned 0→2;
+// this pins the doubling against a non-zero base.
+func TestSetAudit_sos_GrowthCurve_DoublesOnExistingCounters(t *testing.T) {
+	t.Parallel()
+	e, cfg, _ := altCostEngine(t, 920, []string{"Growth Curve", "Growth Curve"}, []string{sosBearSrc}, nil)
+	bear := putCreature(t, e, 0, sosBearSrc)
+	curve := findAndMoveToHand(t, e, 0, "Growth Curve")
+	// First cast: 0 → 1 → 2 (the part-1 shape).
+	addMana(t, e, 0, "GU")
+	submitChoices(t, e, castOptionFor(t, e, curve).Index)
+	answerTargetAsk(t, e, []state.ObjID{bear})
+	passUntilStackEmpty(t, e, 20)
+	if got := e.G.Obj(bear).Counter("P1P1"); got != 2 {
+		t.Fatalf("precondition: after the first cast the bear has %d counters, want 2", got)
+	}
+	// Second cast: 2 → 3 (put) → 6 (double).
+	curve = findAndMoveToHand(t, e, 0, "Growth Curve")
+	addMana(t, e, 0, "GU")
+	submitChoices(t, e, castOptionFor(t, e, curve).Index)
+	answerTargetAsk(t, e, []state.ObjID{bear})
+	passUntilStackEmpty(t, e, 20)
+	if got := e.G.Obj(bear).Counter("P1P1"); got != 6 {
+		t.Errorf("double: counters = %d, want 6 (2 existing, put 1 to 3, then doubled)", got)
+	}
+	replayCheck(t, e, cfg)
+}
+
+// pageDamage reports the damage field of an object or -1 if it is gone, for
+// zone-or-damage assertions that must not dereference nil.
+func pageDamage(o *state.Object) int32 {
+	if o == nil {
+		return -1
+	}
+	return o.Damage
+}
+
+// sosPassPendingPriority submits "pass" for whatever priority decision is
+// pending, wherever it is (end-of-combat SBA-tail windows live outside the
+// declare steps drainCombatPriority covers).
+func sosPassPendingPriority(t *testing.T, e *Engine) {
+	t.Helper()
+	d := e.Pending()
+	if d == nil || d.Kind != decision.KPriority {
+		return
+	}
+	idx := -1
+	for _, o := range d.Options {
+		if o.Kind == "pass" {
+			idx = o.Index
+		}
+	}
+	if idx < 0 {
+		t.Fatalf("priority decision with no pass option: %+v", d)
+	}
+	if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{idx}}); err != nil {
+		t.Fatalf("pass pending priority: %v", err)
+	}
+}
+
+// soDamageTaken reports an object's DamageReceivedThisTurn, or -1 if it is
+// gone, for dead-or-damaged assertions (Damage is cleared on death).
+func soDamageTaken(o *state.Object) int32 {
+	if o == nil {
+		return -1
+	}
+	return o.DamageReceivedThisTurn
 }
