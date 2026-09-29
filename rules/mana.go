@@ -1955,8 +1955,9 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 	}
 	if base.WaterbendX {
 		mods.waterbendX = true
+		mods.waterbendPartX++
 	}
-	mods = e.withWaterbendOfferCredit(p, id, mods)
+	mods = e.withWaterbendOfferCredit(p, id, base.XMin, mods)
 	tax := int32(0)
 	if scope.kind != "Ability" && scope.kind != "Foretell" && scope.kind != "Static" {
 		tax = e.commanderTaxAmount(p, id)
