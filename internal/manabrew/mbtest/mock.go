@@ -381,21 +381,24 @@ func (c *MockClient) answerChooseNumber(in mb.ChooseNumberInput) mb.PromptOutput
 // sentences -- the spec's G-4 fence made machine-readable; rules/cast.go's
 // tapcost asks pose that floor over Option.Value=power, which the
 // translator renders as the cards' power) is honoured from the cards'
-// power: strongest-first to reach the floor, weakest-first to stay under a
-// ceiling, at least Min and at most Max cards, ties broken by offered order.
-// The deterministic modes pick the same way -- a constraint-bound ask's
-// legal answer is near-forced. (A stat:TapPowerValue static that trades
-// power for toughness -- Tapestry Warden -- is invisible on the wire: the
-// prompt's power is the view's layer-derived power, so such an ask can
-// still be under-shot; that lossiness is spec gap G-4.)
+// power: the smallest count in [Min, Max] for which some subset's power sum
+// lies in [floor, ceiling], strongest cards first so a floor is reached with
+// as few cards as possible. Both bounds are honoured together -- a
+// strongest-first pick that clears the floor is rejected when it overshoots
+// the ceiling and the search backs off to a cheaper card. The deterministic
+// modes pick the same way -- a constraint-bound ask's legal answer is
+// near-forced. (A stat:TapPowerValue static that trades power for toughness
+// -- Tapestry Warden -- is invisible on the wire: the prompt's power is the
+// view's layer-derived power, so such an ask can still be under-shot; that
+// lossiness is spec gap G-4.)
 func (c *MockClient) answerChooseCards(in mb.ChooseCardsInput) mb.PromptOutputValue {
 	n := len(in.Cards)
 	if n == 0 {
 		return mb.ChooseCardsDecision{ChosenCardIDs: []string{}}
 	}
-	floor := constraintNumber(in.Presentation.Description, "Total value must be at least ")
-	ceiling := constraintNumber(in.Presentation.Description, "Total value must not exceed ")
-	if floor > 0 || ceiling > 0 {
+	floor, hasFloor := constraintNumber(in.Presentation.Description, "Total value must be at least ")
+	ceiling, hasCeiling := constraintNumber(in.Presentation.Description, "Total value must not exceed ")
+	if hasFloor || hasCeiling {
 		order := make([]int, n)
 		for i := range order {
 			order[i] = i
@@ -407,29 +410,35 @@ func (c *MockClient) answerChooseCards(in mb.ChooseCardsInput) mb.PromptOutputVa
 			p, _ := strconv.Atoi(*in.Cards[i].Power)
 			return p
 		}
+		// Strongest first: reaching a floor with the fewest cards, and the
+		// deterministic tie order the earlier policy used.
 		sort.SliceStable(order, func(a, b int) bool { return val(order[a]) > val(order[b]) })
-		if floor == 0 {
-			// A ceiling with no floor: weakest first stays under it.
-			for a, b := 0, n-1; a < b; a, b = a+1, b-1 {
-				order[a], order[b] = order[b], order[a]
+		lo, hi := in.Min, in.Max
+		if lo < 0 {
+			lo = 0
+		}
+		if hi > n {
+			hi = n
+		}
+		if lo > hi {
+			lo = hi
+		}
+		for k := lo; k <= hi; k++ {
+			if idxs := chooseValueSubset(order, val, k, floor, hasFloor, ceiling, hasCeiling); idxs != nil {
+				ids := make([]string, 0, len(idxs))
+				for _, i := range idxs {
+					ids = append(ids, in.Cards[i].ID)
+				}
+				return mb.ChooseCardsDecision{ChosenCardIDs: ids}
 			}
 		}
-		count := in.Min
+		// No subset at any legal count satisfies both bounds. The engine poses
+		// such an ask only when one exists; still answer the smallest legal
+		// count (strongest first) so the response is well formed and any
+		// rejection reads as the translator's own prompt/parser disagreement.
+		count := lo
 		if count > n {
 			count = n
-		}
-		if count > in.Max {
-			count = in.Max
-		}
-		if floor > 0 {
-			sum := 0
-			for _, i := range order[:count] {
-				sum += val(i)
-			}
-			for j := count; sum < floor && j < n && j < in.Max; j++ {
-				sum += val(order[j])
-				count++
-			}
 		}
 		ids := make([]string, 0, count)
 		for _, i := range order[:count] {
@@ -445,13 +454,58 @@ func (c *MockClient) answerChooseCards(in mb.ChooseCardsInput) mb.PromptOutputVa
 	return mb.ChooseCardsDecision{ChosenCardIDs: ids}
 }
 
+// chooseValueSubset returns exactly k of order's indices whose val sum lies
+// in [floor, ceiling] (a bound applies only when its has flag is set), or
+// nil when none does. order is expected strongest-first; the walk tries
+// indices in that order and returns the first legal subset, so a floor is
+// met with the strongest cards first. A budget bounds the worst case (a
+// large k over many cards); reaching it returns nil, exactly as an ask with
+// no legal subset does.
+func chooseValueSubset(order []int, val func(int) int, k, floor int, hasFloor bool, ceiling int, hasCeiling bool) []int {
+	if k < 0 || k > len(order) {
+		return nil
+	}
+	chosen := make([]int, 0, k)
+	budget := chooseCardsSearchBudget
+	var walk func(start, sum int) bool
+	walk = func(start, sum int) bool {
+		if len(chosen) == k {
+			return (!hasFloor || sum >= floor) && (!hasCeiling || sum <= ceiling)
+		}
+		if budget <= 0 || len(chosen)+(len(order)-start) < k {
+			return false
+		}
+		budget--
+		for i := start; i < len(order); i++ {
+			chosen = append(chosen, order[i])
+			if walk(i+1, sum+val(order[i])) {
+				return true
+			}
+			chosen = chosen[:len(chosen)-1]
+		}
+		return false
+	}
+	if walk(0, 0) {
+		return chosen
+	}
+	return nil
+}
+
+// chooseCardsSearchBudget caps the subset walk so a pathological ask cannot
+// stall the mock. It is far above the combinations any posed choose-cards
+// ask offers.
+const chooseCardsSearchBudget = 200000
+
 // constraintNumber reads the integer after the given constraint sentence
 // prefix in a prompt presentation description (chooseConstraint's exact
-// wording, see its doc) -- 0 when absent or unparseable.
-func constraintNumber(desc, prefix string) int {
+// wording, see its doc). ok is false when the sentence is absent or its
+// number unparseable; a PRESENT "...at least 0."/"...not exceed 0." reports
+// ok true, because a zero budget (Decision.Budgeted with MaxSum 0) is a real
+// bound the mock must honour, not an absent one.
+func constraintNumber(desc, prefix string) (int, bool) {
 	i := strings.Index(desc, prefix)
 	if i < 0 {
-		return 0
+		return 0, false
 	}
 	rest := desc[i+len(prefix):]
 	j := 0
@@ -463,10 +517,10 @@ func constraintNumber(desc, prefix string) int {
 		k++
 	}
 	if k == j {
-		return 0
+		return 0, false
 	}
 	n, _ := strconv.Atoi(rest[j:k])
-	return n
+	return n, true
 }
 
 // answerChooseColor spends Amount across ValidColors, repeating the first
