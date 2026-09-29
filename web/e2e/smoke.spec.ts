@@ -289,6 +289,104 @@ async function settleStartingPlayer(
   throw new Error(`settleStartingPlayer: ${table} seat ${seat} never resolved the toss`);
 }
 
+/**
+ * settleMulliganKeep answers the viewer's London mulligan ask over the HTTP
+ * API (the exact option the seated panel's keep button posts), before the
+ * test mounts a client. Since c7655f7c0 the Table passes the pending mulligan
+ * into the Board and the Board draws NO hand row during the round (ui26
+ * ruling, docs/superpowers/plans/2026-09-28-ui-layout.md): the opening hand
+ * lives in the seat panel instead. A layout test that mounts into the
+ * mulligan round therefore never sees `.handtrack .handfan`; keeping here
+ * leaves the game on the live board the layout assertions describe, and lets
+ * test 5 mount INTO the round deliberately (it asserts the opening-hand
+ * posture). The toss ask precedes the mulligan round, so this settles it
+ * first via settleStartingPlayer. The wire shape mirrors settleStartingPlayer
+ * and driveFixtureUntil's own mulligan handling: find the option whose
+ * `kind === 'keep'` and post its own index.
+ */
+async function settleMulliganKeep(
+  request: APIRequestContext,
+  base: string,
+  table: string,
+  match: number,
+  seat: number,
+  token: string,
+): Promise<void> {
+  await settleStartingPlayer(request, base, table, match, seat, token);
+  const deadline = Date.now() + STALL_MS;
+  const pendingURL = `${base}/api/tables/${table}/matches/${match}/pending?seat=${seat}&token=${encodeURIComponent(token)}`;
+  while (Date.now() < deadline) {
+    const p = await request.get(pendingURL);
+    // 409/404 are the same transients settleStartingPlayer waits out: the
+    // other seat still holds the first pending decision, or the match's first
+    // decision is not registered yet.
+    if (p.status() === 409 || p.status() === 404) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      continue;
+    }
+    expect(p.ok(), `mulligan pending ${table} seat ${seat} (status ${p.status()})`).toBe(true);
+    const d = await p.json() as WireDecision;
+    if (d.kind !== 'mulligan') return;
+    const keep = d.options.find((o) => o.kind === 'keep');
+    expect(keep, `mulligan ask ${table} seat ${seat} must offer a keep option`).toBeDefined();
+    const resp = await request.post(`${base}/api/tables/${table}/matches/${match}/intent`, {
+      headers: { Authorization: `Bearer ${token}` },
+      data: { seq: d.seq, player: seat, choices: [keep!.index] },
+    });
+    expect(resp.status(), `mulligan keep ${table} seat ${seat}`).toBe(204);
+    return;
+  }
+  throw new Error(`settleMulliganKeep: ${table} seat ${seat} never kept`);
+}
+
+/** matchOfTable resolves the most recent live match on a table -- the startup
+ *  table's match for the seat-1 join path, whose URL (unlike /api/games)
+ *  carries no match id. Mirrors driveFixtureUntil's own resolution. */
+async function matchOfTable(request: APIRequestContext, base: string, table: string): Promise<number> {
+  const deadline = Date.now() + STALL_MS;
+  while (Date.now() < deadline) {
+    const r = await request.get(`${base}/api/tables/${table}/matches`);
+    if (r.ok()) {
+      const ms = (await r.json()) as Array<{ match: number; events: number }>;
+      const live = ms.filter((m) => m.events > 0);
+      if (live.length > 0) return live[live.length - 1].match;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`matchOfTable: ${table} has no live match`);
+}
+
+/**
+ * dockPromptInRail moves the prompt dock out of the near-table placement and
+ * into the rail, so the board beneath it is clickable. The near-table dock is
+ * `position: fixed; z-index: 40` and grows up over the board (the default
+ * since the ui-promptdock merge); at the ui24 fixture's viewport it covers
+ * the board's own collapsed-creature badge, so Playwright's click on that
+ * badge never becomes actionable. A player repositions the prompt the same
+ * way, with the dock's own toggle button; this test asserts a board
+ * interaction, so it first asks for the board-first layout.
+ *
+ * (The dock also sat above the radial picker and card-menu popovers, which is
+ * now fixed at the source: OptionPicker's popovers are z-index 45/46, above
+ * the dock's 40. Only the board-badge overlap needs the dock moved.)
+ *
+ * The toggle cycles table -> rail -> floating -> table, so step to 'rail'
+ * (bounded) rather than assuming one press. A page with no prompt to answer
+ * has no dock to move, and returns.
+ */
+async function dockPromptInRail(page: Page, label: string): Promise<void> {
+  const dock = page.locator('[data-prompt-dock]');
+  const present = await dock.waitFor({ state: 'attached', timeout: 3_000 }).then(() => true, () => false);
+  if (!present) return;
+  for (let i = 0; i < 4; i++) {
+    const placement = await dock.getAttribute('data-placement');
+    if (placement === 'rail') return;
+    await page.locator('[data-dock-placement-toggle]').click({ timeout: WAIT_MS });
+    await page.waitForTimeout(30);
+  }
+  expect(await dock.getAttribute('data-placement'), `${label}: the prompt dock should reach the rail`).toBe('rail');
+}
+
 async function driveFixtureUntil(
   request: APIRequestContext,
   base: string,
@@ -622,7 +720,7 @@ for (const [mode, base] of [['seated', SEATED]] as const) {
 /** createVsBotJoin creates a real play-vs-bot game and returns the seated
  *  join path (seat 0 of a fresh table) — POST /api/games, exactly what the
  *  landing page does. */
-    async function createVsBotJoin(request: APIRequestContext, b: string): Promise<{ join: string; seat: number }> {
+    async function createVsBotJoin(request: APIRequestContext, b: string): Promise<{ join: string; seat: number; table: string; match: number; token: string }> {
       const resp = await request.post(`${b}/api/games`, { data: { format: 'constructed' } });
       expect(resp.ok(), `POST /api/games on ${b} should succeed`).toBe(true);
       const g = (await resp.json()) as { join: string; seat: number; table: string; match: number; token: string };
@@ -631,37 +729,51 @@ for (const [mode, base] of [['seated', SEATED]] as const) {
       // is in the mulligan round (controls null) and not still parked on the
       // CR 103.1 ask -- the round the rail's log toggle is drawn in.
       await settleStartingPlayer(request, b, g.table, g.match, g.seat, g.token);
-      return { join: g.join, seat: g.seat };
+      return { join: g.join, seat: g.seat, table: g.table, match: g.match, token: g.token };
     }
 
     /** assertSeatedJoins navigates to a seated join URL, waits for the real
      *  board + own hand to mount, then runs all four invariant groups for the
      *  given seat. */
-    async function assertSeatedJoin(b: string, page: Page, join: string, seat: number, label: string): Promise<void> {
+    async function assertSeatedJoin(b: string, page: Page, join: string, seat: number, label: string, phase: 'live-board' | 'opening-hand' = 'live-board'): Promise<void> {
       const c = watch(page, b);
       const url = `${b}${join}`;
       const res = await page.goto(url, { waitUntil: 'domcontentloaded' });
       expect(res?.status() ?? 0, `${label} GET ${join} should return 200`).toBe(200);
 
-      // The seated page must mount its board AND its own hand fan (a seated
-      // client that hangs on the seat-scoped view never gets here — this is
-      // the loading-state gate for the seated page).
-      await page.locator('.handtrack .handfan').waitFor({ state: 'visible', timeout: WAIT_MS });
+      // The seated page must mount its board and its own hand. Which surface
+      // holds the hand depends on the phase: on the live board it is the hand
+      // row (`.handtrack .handfan`); in the mulligan round the Board
+      // deliberately draws NO hand row (ui26 ruling) and the opening hand
+      // lives in the seat panel instead. Waiting on the wrong one is a
+      // guaranteed timeout, so the phase selects the right loading-state
+      // gate rather than assuming a single posture.
+      if (phase === 'live-board') {
+        await page.locator('.handtrack .handfan').waitFor({ state: 'visible', timeout: WAIT_MS });
+      } else {
+        await page.locator('.seat-panel [data-opening-hand]').waitFor({ state: 'visible', timeout: WAIT_MS });
+      }
       await page.locator('.quadrant').first().waitFor({ state: 'visible', timeout: WAIT_MS });
       // A beat for the SSE/snapshot to settle so the geometry and the console
       // judgement are against a steady page.
       await page.waitForTimeout(500);
 
-      // 1. own identity bar clear of own hand fan (ui19 identity-bar defect).
-      await assertOwnHandClearOfIdentity(page, seat, label);
+      // 1 and 2 are hand-row invariants: during the mulligan round there is no
+      // hand row to measure, so they run only on the live board.
+      if (phase === 'live-board') {
+        // 1. own identity bar clear of own hand fan (ui19 identity-bar defect).
+        await assertOwnHandClearOfIdentity(page, seat, label);
 
-      // 2. hand bounded by the board (ui19 self-sizing-fan defect).
-      await assertHandWithinBoard(page, label);
+        // 2. hand bounded by the board (ui19 self-sizing-fan defect).
+        await assertHandWithinBoard(page, label);
+      }
 
       // 3. 1v1 top-vs-bottom, relative to viewer: the seated player's own
       //    quadrant and identity sit BELOW the opponent's on screen. The seat
       //    numbering is fixed by the viewer, so this is exactly the check
       //    that would regress if the mapping stopped being viewer-relative.
+      //    The Board renders both quadrants in every phase, so this holds in
+      //    the mulligan round too.
       const opp = seat === 0 ? 1 : 0;
       const ownQ = await page.locator(`.quadrant[data-seat="${seat}"]`).boundingBox();
       const oppQ = await page.locator(`.quadrant[data-seat="${opp}"]`).boundingBox();
@@ -691,11 +803,12 @@ for (const [mode, base] of [['seated', SEATED]] as const) {
     test('seats a human vs a bot at seat 0 and asserts the seated 1v1 layout', async ({ browser, request }) => {
       const b = base as string;
       const label = `[seated]`;
-      const { join, seat } = await createVsBotJoin(request, b);
+      const { join, seat, table, match, token } = await createVsBotJoin(request, b);
+      await settleMulliganKeep(request, b, table, match, seat, token);
       const ctx = await browser.newContext();
       try {
         const page = await ctx.newPage();
-        await assertSeatedJoin(b, page, join, seat, label);
+        await assertSeatedJoin(b, page, join, seat, label, 'live-board');
         await page.close();
       } finally {
         await ctx.close();
@@ -721,11 +834,19 @@ for (const [mode, base] of [['seated', SEATED]] as const) {
         await bot.selectOption('uw-control');
         await page.getByRole('button', { name: 'Start game' }).click();
         await page.waitForURL(/\/t\/g\d+\?seat=0&token=/, { timeout: WAIT_MS });
+        // The lobby-created game seats the human at seat 0 of a fresh table
+        // and parks it on the pre-game toss + mulligan, which the Board draws
+        // with NO hand row (ui26 ruling). Settle both over the API (the join
+        // URL carries the table and token) so the page reaches the live board
+        // this test measures.
+        const joinURL = new URL(page.url());
+        const table = joinURL.pathname.split('/')[2]!;
+        const seatedMatch = await matchOfTable(request, b, table);
+        await settleMulliganKeep(request, b, table, seatedMatch, 0, joinURL.searchParams.get('token')!);
         await page.locator('.handtrack .handfan').waitFor({ state: 'visible', timeout: WAIT_MS });
 
         // The resulting real game exposes the selected deck identities both
         // in its match record and in the rendered rail's accessible labels.
-        const table = new URL(page.url()).pathname.split('/')[2];
         const mResp = await request.get(`${b}/api/tables/${table}/matches`);
         expect(mResp.ok()).toBe(true);
         const matches = await mResp.json() as Array<{ seats: Array<{ deck: string }> }>;
@@ -738,15 +859,18 @@ for (const [mode, base] of [['seated', SEATED]] as const) {
       }
     });
 
-    test('seats a human at seat 1 (startup table) and asserts the mirrored 1v1 layout', async ({ browser }) => {
+    test('seats a human at seat 1 (startup table) and asserts the mirrored 1v1 layout', async ({ browser, request }) => {
       const b = base as string;
       const label = `[seated]`;
       const ctx = await browser.newContext();
       try {
         const page = await ctx.newPage();
         // Seat 1 of the -humans 1 startup table t1; its token is fixed by
-        // smoke.sh's -seat-token ui19seat1.
-        await assertSeatedJoin(b, page, '/t/t1?seat=1&token=ui19seat1', 1, label);
+        // smoke.sh's -seat-token ui19seat1. Settle its toss and mulligan over
+        // the API first, so the page mounts on the live board.
+        const t1match = await matchOfTable(request, b, 't1');
+        await settleMulliganKeep(request, b, 't1', t1match, 1, 'ui19seat1');
+        await assertSeatedJoin(b, page, '/t/t1?seat=1&token=ui19seat1', 1, label, 'live-board');
         await page.close();
       } finally {
         await ctx.close();
@@ -768,11 +892,12 @@ for (const [mode, base] of [['seated', SEATED]] as const) {
     test('bounds a hand that exceeds a narrower board by tightening, not overflowing', async ({ browser, request }) => {
       const b = base as string;
       const label = `[seated]`;
-      const { join, seat } = await createVsBotJoin(request, b);
+      const { join, seat, table, match, token } = await createVsBotJoin(request, b);
+      await settleMulliganKeep(request, b, table, match, seat, token);
       const ctx = await browser.newContext({ viewport: { width: 1000, height: 900 } });
       try {
         const page = await ctx.newPage();
-        await assertSeatedJoin(b, page, join, seat, label);
+        await assertSeatedJoin(b, page, join, seat, label, 'live-board');
         await page.close();
       } finally {
         await ctx.close();
@@ -792,7 +917,12 @@ for (const [mode, base] of [['seated', SEATED]] as const) {
       const ctx = await browser.newContext();
       try {
         const page = await ctx.newPage();
-        await assertSeatedJoin(b, page, join, seat, label);
+        // This test's contract (the rail toggle) holds only in the mulligan
+        // round, so it deliberately mounts INTO that round: createVsBotJoin
+        // has already answered the CR 103.1 toss, and the viewer's mulligan
+        // is left pending. The Board draws no hand row during the round (ui26
+        // ruling), so assertSeatedJoin waits on the opening-hand posture.
+        await assertSeatedJoin(b, page, join, seat, label, 'opening-hand');
 
         // Watch the post-mount interactions (the toggle itself) so a console
         // error surfacing from flipping the log is caught here.
@@ -810,19 +940,21 @@ for (const [mode, base] of [['seated', SEATED]] as const) {
         // Table.svelte's optionsReachable ? null : toggleLog at line 420.
         expect(await page.locator('[data-toggle="show-game-log"]').count()).toBe(0);
         // The transcript footer is hidden (its grid row collapsed, so it has
-        // no display box).
+        // no display box). The ui layout rework moved the log from a
+        // `footer.transcript` grid row to a `section.transcript` in the rail,
+        // where hidden is `display: none` (Table.svelte .transcript.hidden).
         await page.waitForFunction(() => {
-          const el = document.querySelector('footer.transcript');
+          const el = document.querySelector('section.transcript');
           if (!el) return false;
           const r = el.getBoundingClientRect();
           return r.height === 0 || getComputedStyle(el).display === 'none';
         }, undefined, { timeout: WAIT_MS });
 
-        // Clicking the rail switch shows it, measured by the footer gaining a
+        // Clicking the rail switch shows it, measured by the section gaining a
         // nonzero box.
         await toggle.click();
         await page.waitForFunction(() => {
-          const el = document.querySelector('footer.transcript');
+          const el = document.querySelector('section.transcript');
           if (!el) return false;
           const r = el.getBoundingClientRect();
           return r.height > 0 && getComputedStyle(el).display !== 'none';
@@ -915,6 +1047,17 @@ for (const [mode, base] of [['seated', SEATED]] as const) {
         const playLand = cardLoc.locator(`[data-play-land="${pick.index}"]`);
         const single = cardLoc.locator('[data-single-action]');
         const badge = cardLoc.locator('button[aria-haspopup="menu"]');
+        // Raise the card before reaching for its action affordance. Every
+        // `.card` is absolutely positioned and carries `filter: brightness(...)`,
+        // which makes each its own stacking context: a LATER sibling in the
+        // fanned hand paints over an earlier card's top-right shortcut/badge,
+        // so Playwright's hit-test lands on the neighbour's face and the click
+        // can never settle. Hovering the card's exposed LEFT edge raises it
+        // (`.card:hover` -> translateY(-50%) and z-index:10), which is exactly
+        // the two-step a seated player performs when a fanned card's action is
+        // partly covered. The pointer then stays inside the raised card on the
+        // way to its button, so the hover holds.
+        await cardLoc.hover({ position: { x: 2, y: 8 } });
         if (await playLand.count() > 0) {
           await playLand.click({ timeout: WAIT_MS });
         } else if (await single.count() > 0) {
@@ -1188,6 +1331,7 @@ test.describe('gorged [ui24] constructed board fixture', () => {
     try {
       await page.goto(`${b}/t/t1?seat=0&token=${fixtureToken(0)}`, { waitUntil: 'domcontentloaded' });
       await page.locator('.quadrant[data-seat="0"] .card-tile[data-options]').first().waitFor({ state: 'visible', timeout: WAIT_MS });
+      await dockPromptInRail(page, '[ui24]');
 
       // The collapsed pile aggregates one attacker option per member. Pick a
       // NON-ZERO wire option from its seven-row menu; using the menu position
