@@ -172,6 +172,48 @@ splitting change that did it.
             )
         )
 
+    idle = latest(rows, "flow", "idle_unmerged_branches")
+    if idle and idle.value > 0 and idle.note:
+        out.append(
+            cand(
+                f"flow-idle-branches-{int(idle.value)}",
+                "flow",
+                f"{int(idle.value)} idle unmerged branches are holding files against every landing",
+                f"""# Idle unmerged branches are a standing merge tax
+
+Measured: `idle_unmerged_branches` = {int(idle.value)} ({idle.note}).
+
+An unmerged branch nobody is working on still holds its files: every ticket that
+lands afterwards rebases across it, and the ones that share a file pay a resolver
+round for work that is not progressing. This is the durable half of the hot-spot
+problem -- `conflict_hotspots` names the files, this names why they stay hot.
+
+## Goal
+
+For each branch above, decide and act: land it if it is finished, rebase and
+finish it if it is close, or park it explicitly (branch kept, worktree removed)
+if it is not being worked on. Removing the worktree is what releases the files.
+
+Check `git -C <worktree> status --short` FIRST -- seats often finish without
+committing, and a WIP commit by explicit path comes before anything else. Never
+`git checkout` inside another seat's worktree.
+
+## Out of scope
+
+Deleting a branch, and merging anything whose gates do not pass.
+
+## Done means
+
+`scripts/reward_collect.py flow --repo .` records a lower
+`idle_unmerged_branches`, `git worktree list` has no entry for a branch that was
+parked, and every decision is one line in the commit message.
+""",
+                est_delta=float(idle.value),
+                est_cost=COST_SEQUENCE,
+                evidence=idle.note,
+            )
+        )
+
     # ---- correct (1000x): validated cards with no oracle verdict.
     total, gaps, pgaps = rc.validated_set(repo)
     validated = max(0, total - gaps - pgaps)
