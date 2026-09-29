@@ -169,10 +169,10 @@ replace them.
     come with sub-projects 2 and 3.
 
   Binding rules:
-  - Pick 1–9 acts only where the on-screen order is the decision's order:
-    mulligan, arrange, discard, and generic lists that show every option.
-    Library search, name pick and the payment window refuse the digit until
-    sub-project 4 numbers options by rendered order.
+  - Pick 1–9 answers the Nth numbered row in on-screen order. Sub-project 4
+    numbers every renderer's rows by rendered order (`lib/prompts/order.ts`),
+    so library search, name pick and the payment window answer the digit
+    too; priority windows, which are not numbered, refuse it.
   - Numpad Enter counts as Enter, and Shift+Space also passes. Alt variants
     of the default Space/Enter chords are dropped, since they are OS and
     browser chords; Alt remains a usable modifier for bindings the player

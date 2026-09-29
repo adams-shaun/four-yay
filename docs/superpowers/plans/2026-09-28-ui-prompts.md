@@ -51,7 +51,7 @@
 - Ruling: `attack-with-all` selects one option per attacking creature (the first offered defender, required attackers always included, capped by `max`) and does not submit; the Confirm button (or the confirm key) commits. Selecting first is recoverable; a blind declaration is not.
 - Ruling: `no-blocks` submits the empty declaration immediately, and refuses when an option is required (a forced block) or `min > 0`, because the server would reject it.
 - Ruling: `auto-pay` presses the select-mana window's Auto-fill option; outside that window it is refused (the key is not consumed). The Auto-pay mana *setting* stays a switch, not a hotkey.
-- Ruling: default bindings — attack-with-all `A`, no-blocks `N`, auto-pay `P` (bare letters are unused by today's defaults; all rebindable).
+- Ruling: default bindings — attack-with-all `Shift+A`, no-blocks `Shift+N`, auto-pay `Shift+P` (all rebindable). Shifted rather than bare because `hotkeys.test.ts` pins "ordinary typing is never a hotkey", and Ctrl+Shift+A/N/P are browser chords (tab search, incognito, private window).
 - Ruling: pick 1-9 numbers the first nine rows in rendered order; a filtered list re-numbers as the filter changes, and the digit is refused while the filter input has focus (typing a digit filters). Rows past nine carry no number.
 - Ruling: the floating position is stored as the dock's top-left in viewport pixels, clamped into the viewport on load and on resize.
 - Ruling: the board highlight for a hovered chip is a `data-prompt-hover` attribute toggled on the existing `[data-obj]`/`.identity[data-seat]` anchor (the same anchors `Arrows.svelte` resolves), styled globally by the dock; the arrow is a solid verdigris `target-hover` arrow drawn by `Arrows.svelte` from the hover store.

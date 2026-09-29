@@ -279,6 +279,15 @@
         case 'show-keys':
           showKeys = !showKeys;
           break;
+        case 'attack-all':
+          if (!logic.attackWithAll()) return;
+          break;
+        case 'no-blocks':
+          if (!logic.noBlocks()) return;
+          break;
+        case 'auto-pay':
+          if (!logic.autoPay()) return;
+          break;
         default:
           if (action.startsWith('pick-')) {
             if (!logic.pickHotkey(Number(action.slice(5)))) return;
