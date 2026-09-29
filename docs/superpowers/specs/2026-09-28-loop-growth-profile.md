@@ -2,115 +2,245 @@
 
 ## Summary
 
-Profiling `TestLoopPrototypeMiner` at N=20 and N=100 confirms the measured growth locally: 2.653 ms/iteration at N=20 and 49.021 ms/iteration at N=100. The dominant profiled work is in the continuous-effect/characteristics path as the game accumulates objects and events. This profile is of the rules test binary, not a production-mode benchmark.
+`TestLoopPrototypeMiner`'s per-iteration cost grows with N, but most of the
+growth the ticket quoted is an artifact of the rules test binary's
+verification instrumentation, not engine behaviour. Two independent causes,
+measured:
 
-At N=100, `rules.(*Engine).matchesWithCharsPTSlow` accounts for 2.36 s flat / 13.48 s cumulative CPU (10.96% / 62.58% of samples). `rules.(*Engine).active` accounts for 1.73 GB flat / 3.01 GB cumulative allocated bytes; `rules.(*Engine).verifyInertActive` accounts for 1.21 GB flat / 2.94 GB cumulative. Treat these as instrumented-test numbers: `rules/layer4types_verify_test.go` enables `layer4PrecheckVerify`, which can call the otherwise production-unused slow matcher to verify the `Card.Self` early rejection (`rules/layers.go:2809-2816`, `2832-2835`); `rules/layercache_verify_test.go` enables `layerInertVerify`, and `verifyInertActive` deliberately rebuilds `active()` on cache reuse. In this workload, the CPU and allocation shares therefore include verification overhead and must not be quoted as production cost. The measured elapsed loop time is likewise from the test binary. A production-mode profile is needed before choosing an optimization.
+1. **Test instrumentation (dominant at the quoted numbers).** The rules test
+   binary runs every cache hit and fast path in verify mode
+   (`rules/*_verify_test.go`). Those re-derivations scale with the game's
+   accumulated state, so measured per-iteration time with verify on is
+   **2.65 ms at N=20 and 49.0 ms at N=100** (≈18×), matching the ticket.
+   With every verify flag off, the same loop is **0.466 ms at N=20 and
+   1.111 ms at N=100** (≈2.4×). Verification is ~6× the engine cost at N=20
+   and ~44× at N=100.
 
-## Method and measurements
+2. **A real engine growth mechanism.** Even verify-off, the per-priority
+   offer walk's cost grows with N because **`Rakdos, the Muscle` adds one
+   `UntilYourNextEndStep` `MayPlay` continuous effect per sacrifice**, and
+   the loop sacrifices once per iteration. Within a single turn `e.continuous`
+   grows to exactly N entries (measured: N=1→1, N=20→20, N=100→100), and the
+   exile zone grows with N too. Every priority decision walks *all* of
+   `e.active()`'s `MayPlay` effects and, for each, scans the graveyard/exile
+   zones (`mayPlayLandIds`/`mayPlaySpellIds` → `effectGrantMatches` →
+   `matchesSpec`), so per-decision cost is ≈ O(N effects × N exiled cards).
 
-The corpus was present at `.cards` (not skipped). No test knob or production code change was needed: Go's subtest selection chooses the existing N-specific cases.
+So the answer to "why does per-iteration cost grow with N" is: **mostly test
+verify-mode re-derivation, and underneath it a linear accumulation of
+`MayPlay` continuous effects (one per Rakdos sacrifice) that every priority
+offer walk rescans per effect.** The loop-shortcut path repeats these lines
+as ordinary intents, so at a live table the second cause is paid per
+decision; the first is not (live tables do not run verify mode).
 
-Commands were run with `GOMAXPROCS=3 GOMEMLIMIT=1GiB` and `-p 1`:
+## Method
+
+Corpus present at `.cards` (tests did not skip). Commands run with
+`GOMAXPROCS=3 GOMEMLIMIT=1GiB` and `-p 1`. All profile files and logs are
+under `.ds4/scratch/` (not committed).
+
+A test-only knob was added (`rules/loops_prototype_test.go`):
+
+- `GORGE_LOOP_MINER_N=<list>` selects the Miner subtest Ns (default
+  `1,20,100`, byte-for-byte unchanged).
+- `GORGE_LOOP_NO_VERIFY=1` turns the rules test binary's 20 verify flags off
+  for the selected run, restoring them via `t.Cleanup` (registered before
+  `loopBegin`'s cleanup so the fixture-boundary replay also runs verify-off).
+  Default unset → no behaviour change. This knob is what separates cause 1
+  from cause 2; without it, verify re-derivation dominates every profile.
+
+Profiles were captured at matched `-count=10` for both N (so the per-process
+setup, including corpus load, cancels in `pprof -diff_base`), and also at
+higher counts for the N=100 sample volume:
 
 ```sh
-GOMAXPROCS=3 GOMEMLIMIT=1GiB go test -p 1 -count=1 -run '^TestLoopPrototypeMiner/20$' -cpuprofile=.ds4/scratch/miner20.cpu -memprofile=.ds4/scratch/miner20.alloc ./rules/
-GOMAXPROCS=3 GOMEMLIMIT=1GiB go test -p 1 -count=1 -run '^TestLoopPrototypeMiner/100$' -cpuprofile=.ds4/scratch/miner100.cpu -memprofile=.ds4/scratch/miner100.alloc ./rules/
-GOMAXPROCS=3 GOMEMLIMIT=1GiB go test -p 1 -count=10 -run '^TestLoopPrototypeMiner/20$' -cpuprofile=.ds4/scratch/miner20x10.cpu -memprofile=.ds4/scratch/miner20x10.alloc ./rules/
-go tool pprof -top -nodecount=15 .ds4/scratch/miner20x10.cpu
-go tool pprof -top -alloc_space -nodecount=15 .ds4/scratch/miner20x10.alloc
-go tool pprof -top -nodecount=20 .ds4/scratch/miner100.cpu
-go tool pprof -top -alloc_space -nodecount=20 .ds4/scratch/miner100.alloc
-GOMAXPROCS=3 GOMEMLIMIT=1GiB go test -p 1 -count=1 -v -run '^TestLoopPrototypeMiner/(20|100)$' ./rules/
+GORGE_LOOP_NO_VERIFY=1 GOMAXPROCS=3 GOMEMLIMIT=1GiB go test -p 1 -count=10 \
+  -run '^TestLoopPrototypeMiner/20$'  -cpuprofile=.ds4/scratch/m20c10.cpu  -memprofile=.ds4/scratch/m20c10.alloc  ./rules/
+GORGE_LOOP_NO_VERIFY=1 GOMAXPROCS=3 GOMEMLIMIT=1GiB go test -p 1 -count=10 \
+  -run '^TestLoopPrototypeMiner/100$' -cpuprofile=.ds4/scratch/clean100.cpu -memprofile=.ds4/scratch/clean100.alloc ./rules/
+GORGE_LOOP_NO_VERIFY=1 GOMAXPROCS=3 GOMEMLIMIT=1GiB go test -p 1 -count=1 -v \
+  -run '^TestLoopPrototypeMiner/(1|20|100)$' ./rules/
+go tool pprof -top -diff_base=.ds4/scratch/m20c10.cpu -nodecount=22 .ds4/scratch/clean100.cpu
+go tool pprof -top -diff_base=.ds4/scratch/m20c10.alloc -alloc_space -nodecount=18 .ds4/scratch/clean100.alloc
 ```
 
-N=20 was profiled at count 10 to increase CPU sample volume; it reports cumulative allocations over ten test invocations. N=100 was count 1. Do not compare total allocation sizes across those two profile files without normalizing for invocation count. CPU/alloc profiles include initial corpus loading and test setup, particularly visible at N=20; the verbose timing run isolates the test's own loop timer after board setup.
+Each run executes the N-iteration mining pass **and** `loopBegin`'s
+fixture-boundary replay (a second full pass on a clone), so count is
+`N × 2` iterations per test invocation.
 
-### N=20
+### Per-iteration wall time
 
-Verbose timing: **2.653 ms/iteration**.
+Verify off (`GORGE_LOOP_NO_VERIFY=1`), one invocation per N:
 
-Ten-invocation CPU profile (4.00 s CPU samples): leading application/runtime entries included `matchesWithCharsPTSlow` 80 ms flat / 500 ms cumulative (2.00% / 12.50%); most flat cost was runtime/GC (`tryDeferToSpanScan` 270 ms, `scanSpanPackedAVX512` 150 ms, `memclrNoHeapPointers` 150 ms).
+| N | ms/iteration |
+|---|---:|
+| 1 | 0.402 |
+| 20 | 0.466 |
+| 100 | 1.111 |
 
-Ten-invocation alloc_space profile (1.97 GB total): `active` 0.62 GB flat / 1.09 GB cumulative; `verifyInertActive` 0.45 GB flat / 1.07 GB cumulative; `matchesWithCharsPTSlow` 0.07 GB flat / 0.07 GB cumulative. Corpus load contributes as well (`saferio.ReadData` 0.11 GB).
+Verify on (the ticket's numbers, from the pre-existing report): N=20 2.653,
+N=100 49.021.
 
-### N=100
+### Growth in the verify-off profiles
 
-Verbose timing: **49.021 ms/iteration**.
+`pprof -diff_base` (N=100 count=10 minus N=20 count=10; both have 10 setups,
+so setup cancels). Values are the *extra* cost at N=100 relative to N=20
+over the extra 800 iterations:
 
-CPU profile (21.54 s CPU samples):
-
-| Function | Flat | Cumulative |
+| Function | Flat Δ | Cum Δ |
 |---|---:|---:|
-| `rules.(*Engine).matchesWithCharsPTSlow` | 2.36 s (10.96%) | 13.48 s (62.58%) |
-| `rules.(*Engine).matchesWithCharsPT` | 0.34 s (1.58%) | 13.94 s (64.72%) |
-| `rules.(*Engine).abilityDependencyOrder` | 1.23 s (5.71%) | 1.23 s (5.71%) |
-| `effects.compiledPositive` | 1.15 s (5.34%) | 2.05 s (9.52%) |
-| `effects.compiledMatch` | 0.38 s (1.76%) | 2.76 s (12.81%) |
+| `rules.(*Engine).mayPlayLandIds.func1` | +50 ms | **+840 ms** |
+| `rules.(*Engine).effectGrantMatches` | +210 ms | **+720 ms** |
+| `rules.(*Engine).matchesSpec` | +90 ms | +490 ms |
+| `rules.(*Engine).mayPlaySpellIds` | +110 ms | +400 ms |
+| `rules.(*Engine).active` | +50 ms | +300 ms |
+| `effects.compiledMatch` | +60 ms | +300 ms |
+| `effects.compiledPositive` | +160 ms | +230 ms |
+| `rules.(*Engine).activationUsedCount` | +80 ms | +80 ms |
 
-alloc_space profile (5.73 GB total):
+Absolute cumulative CPU for the offer walk (both passes):
 
-| Function | Flat | Cumulative |
+| | N=20 (400 iters) | N=100 (2000 iters) |
 |---|---:|---:|
-| `rules.(*Engine).matchesWithCharsPTSlow` | 2,003.03 MB (34.96%) | 2,003.03 MB (34.96%) |
-| `rules.(*Engine).active` | 1,727.13 MB (30.14%) | 3,009.32 MB (52.52%) |
-| `rules.(*Engine).verifyInertActive` | 1,212.97 MB (21.17%) | 2,943.54 MB (51.37%) |
-| `rules.(*Engine).legalActionsWalkWithWindow` | 13.78 MB (0.24%) | 1,992.89 MB (34.78%) |
-| `rules.(*Engine).snapshotTriggerBoard` | 20.38 MB (0.36%) | 20.38 MB (0.36%) |
+| `legalActionsWalkWithWindow` cum | 0.16 s | 1.57 s |
+| per iteration | ≈0.40 ms | ≈0.79 ms |
+| `mayPlayLandIds` cum | (below cutoff) | 0.86 s |
+| `effectGrantMatches` cum | (below cutoff) | 0.72 s |
+| `mayPlaySpellIds` cum | (below cutoff) | 0.40 s |
 
-## Growth mechanism and code references
+`effectGrantMatches` is reached **only** through `mayPlayLandIds.func1` and
+`mayPlaySpellIds` (`-peek` shows 100% of its callers), so the growth is
+entirely the may-play offer walk.
 
-The prototype submits an ordinary activation and drains its resulting actions each iteration (`rules/loops_prototype_test.go:638-675`). These actions derive characteristics and evaluate legal options against the growing game state. The key CPU path is `rules/layers.go:2835`, `matchesWithCharsPTSlow`, reached through `matchesWithCharsPT`; the N=100 profile shows that effect/filter matching dominates CPU. The same walk obtains the continuous effects through `active()` (`rules/layers.go:2303`), which scans the active continuous effects, refreshes static effects and sorts the combined list.
+Allocations (`-alloc_space` diff, extra bytes at N=100 over N=20):
 
-Additionally, rules tests globally turn on `layerInertVerify` (`rules/layercache_verify_test.go:7`) and `layer4PrecheckVerify` (`rules/layer4types_verify_test.go:9`). When `active()` reuses its cached list on a layer-inert event, it invokes `verifyInertActive` (`rules/layers.go:2322`; implementation `rules/layercache.go:179`), which deliberately invalidates the cache and rebuilds it for comparison. This accounts for the large `verifyInertActive` and additional `active` allocations. Separately, `layer4PrecheckVerify` runs `matchesWithCharsPTSlow` to verify the `Card.Self` early rejection (`rules/layers.go:2809-2816`); its implementation documents that this slow path is production-unused (`rules/layers.go:2832-2835`). These are test verification overheads, not evidence production performs those extra rebuilds/full match checks. Profile attribution here describes instrumented tests only.
+| Function | Flat Δ | Cum Δ |
+|---|---:|---:|
+| `state.(*Game).CloneInto` | +957 MB | +958 MB |
+| `rules.(*Engine).active` | +558 MB | +562 MB |
+| `rules.(*Engine).snapshotTriggerBoard` | +208 MB | +1168 MB |
+| `rules.(*Engine).legalActionsWalkWithWindow` | +103 MB | +125 MB |
+| `events.growEvents` | +78 MB | +78 MB |
 
-The measured growth is consistent with repeated characteristics/effect evaluation as iterations add game objects and events: N=100 takes 5.9x the per-iteration time of N=20, and its profile has substantial cost in effect matching and ability dependency ordering. These data do not isolate board-size work from event-history work, nor production execution from test verification overhead. A separate production-mode profile is needed to measure those contributions. The current profiles identify where the instrumented test spends time, not a specific fix.
+`snapshotTriggerBoard` (`rules/trigger_match.go:869`) is a production path —
+SBA/trigger checks call it per event and it does `e.G.Clone()`. A larger
+game plus more events means bigger, more frequent clones.
+
+## Growth mechanism, with code references
+
+### 1. A `MayPlay` continuous effect accumulates per iteration
+
+The board is `Rakdos, the Muscle`, `Phyrexian Altar`, `Forsaken Miner`
+(`rules/loops_prototype_test.go:695`). Each iteration activates Phyrexian
+Altar (sacrificing a creature) and drains the Miner's return. Rakdos'
+sacrifice trigger (`.cards/cardsfolder/r/rakdos_the_muscle.txt`):
+
+```
+SVar:DBEffect:DB$ Effect | RememberObjects$ RememberedCard | StaticAbilities$ STPlay ... | Duration$ UntilYourNextEndStep
+SVar:STPlay:Mode$ Continuous | MayPlay$ True | ... | Affected$ Card.IsRemembered | AffectedZone$ Exile
+```
+
+So every sacrifice exiles cards and installs one `ContinuousEffect{
+MayPlay:true, Affects:"Card.IsRemembered", AffectedZone:"Exile",
+UntilEOT/UntilYourNextEndStep}`. Measured `len(e.continuous)` at loop end:
+
+| N | `e.continuous` | `objs` | `events` | `intents` | exile seat 1 | library seat 1 |
+|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 1 | 165 | 89 | 13 | 1 | 72 |
+| 20 | 20 | 203 | 887 | 184 | 20 | 53 |
+| 100 | 100 | 363 | 4220 | 904 | 73 | 0 |
+
+`e.continuous` is exactly N (one new MayPlay effect per sacrifice). It is
+`UntilYourNextEndStep`, so it would be pruned at the end of the turn, but the
+prototype loop never leaves the turn, so within one turn the list grows
+linearly with the number of repetitions.
+
+### 2. Every priority offer walk rescans all MayPlay effects and the zones
+
+`rules/legal.go:71` `mayPlayLandIds` and `rules/legal.go:308`
+`mayPlaySpellIds` both do:
+
+```go
+for _, ce := range e.active() {            // O(number of MayPlay effects)
+    if !ce.MayPlay || ce.Controller != p { continue }
+    ...
+    for _, z := range []state.Zone{ZGraveyard, ZExile} {
+        for _, q := range e.G.AliveFrom(0) {
+            for _, id := range e.G.Zone(z, q) {   // O(zone size)
+                ...
+                if !e.effectGrantMatches(ce, id) { continue }   // matchesSpec
+```
+
+`e.active()` (`rules/layers.go:2303`) returns the growing list; per effect
+the walk scans every graveyard/exile card and runs `effectGrantMatches`
+(`rules/mayplay.go:883`) → `matchesSpec` (`rules/statics.go:465`) per card.
+With N MayPlay effects and O(N) exiled cards, each priority decision is
+≈ O(N²). In the Miner loop a priority decision is asked on every drain, so
+this is the per-iteration cost.
+
+### 3. Larger game → larger per-event trigger snapshots
+
+`rules/trigger_match.go:869` `snapshotTriggerBoard` clones the whole game
+(`e.G.Clone()`), and SBA/trigger checks call it per event. More iterations →
+more events and a bigger object table → larger clone allocations (the
+`CloneInto` +957 MB and `snapshotTriggerBoard` +1168 MB cumulative deltas).
 
 ## Proposed follow-up ticket
 
-**Title:** Profile and reduce loop decision cost from repeated characteristics matching
+**Title:** Index `MayPlay` grants so the priority offer walk does not rescan every effect per zone card
 
 **Done means:**
-- Capture comparable N=20 and N=100 profiles without the rules-test-only `layerInertVerify` and `layer4PrecheckVerify` instrumentation, while preserving ordinary engine behavior.
-- Attribute the remaining growth to specific repeated object/effect walks with flat/cumulative CPU and allocation numbers; distinguish board-size work from accumulated-log work.
-- Implement only the measured redundant work reduction, with no change to event streams, legality, deterministic replay, or `TestHeads`.
-- Add a focused test or benchmark that exercises the Miner line at both N values and asserts deterministic event heads; demonstrate lower N=100 per-iteration cost and no regression at N=20.
+- Add an index from a player's may-play-eligible zones to the active
+  `MayPlay` continuous effects that can cover them (or an equivalent
+  pre-computed per-decision map), so `mayPlayLandIds`/`mayPlaySpellIds` visit
+  each candidate card once rather than once per `MayPlay` effect.
+- Prove equivalence: a digest/fixture test that the offer surfaces (option
+  sets and their keys) are byte-identical before and after on the repo decks
+  plus the Rakdos/Miner board, and no change to event streams, `TestHeads`,
+  or deterministic replay.
+- Measure the Miner line at N=20 and N=100 with `GORGE_LOOP_NO_VERIFY=1`:
+  per-iteration cost at N=100 should fall toward the N=20 figure; no
+  regression at N=20.
+- Separately (smaller): avoid cloning the whole game per trigger check in
+  the common "no trigger cares" case, or make `triggerSnapshot` copy-on-write
+  for the fields trigger matching reads.
 
-**Test:** targeted Miner line at N=20 and N=100 (including deterministic rerun/head equality), followed by the applicable rules behavioral goldens.
+**Test:** targeted `GORGE_LOOP_NO_VERIFY=1 go test -p 1 -run '^TestLoopPrototypeMiner/(20|100)$' ./rules/` for the timing, plus an offer-surface
+equivalence test and the rules behavioral goldens.
 
-## Commands and gate output
+## Gates
 
-The required prototype gate passed:
+Required prototype gate (verify flags at their default on):
 
 ```text
 $ GOMAXPROCS=3 GOMEMLIMIT=1GiB go test -p 1 -count=1 -run '^TestLoopPrototype' ./rules/
 EXIT=0
-ok   github.com/adams-shaun/gorge/rules 20.879s
+ok  	github.com/adams-shaun/gorge/rules	15.151s
 ```
 
-Verbose timing/profile confirmation passed:
-
-```text
-=== RUN   TestLoopPrototypeMiner/20
-    loops_prototype_test.go:660: ms/iteration=2.653
-=== RUN   TestLoopPrototypeMiner/100
-    loops_prototype_test.go:660: ms/iteration=49.021
-PASS
-ok   github.com/adams-shaun/gorge/rules 17.256s
-```
-
-Required behavior goldens passed:
+Behaviour goldens:
 
 ```text
 $ go test ./internal/archtest/
-(ok; cached)
+ok  	github.com/adams-shaun/gorge/internal/archtest	2.608s
 
 $ go test -run TestConstructedDefaultIsByteIdentical ./cmd/botbench/
-(ok; cached)
-
-$ go test -run TestConstructedDefaultIsByteIdentical ./cmd/botbench/ 2>&1 | tail -5
-ok   github.com/adams-shaun/gorge/cmd/botbench 0.824s
+ok  	github.com/adams-shaun/gorge/cmd/botbench	0.666s
 ```
 
 ## Issues
 
-No separate unfixed engine defect was discovered. The principal caveat is that the rules test binary enables `layerInertVerify` and `layer4PrecheckVerify`: these respectively inflate `active()` rebuild allocations and cause `matchesWithCharsPTSlow` to perform verification work that production skips. The proposed follow-up profiles without both test-only flags before deciding on a fix.
+- **Rakdos, the Muscle leaves one `UntilYourNextEndStep` `MayPlay`
+  `ContinuousEffect` per sacrifice in `e.continuous`** for the rest of the
+  turn. This is rules-correct (the duration is real), but nothing indexes it,
+  so the offer walk is O(N²) in repeated-activation turns. This is the
+  proposed follow-up ticket above; not fixed here (profile-only task).
+- **The rules test binary's verify modes dominate these profiles.** They are
+  the intended empirical checks, not defects, but any profiling of `rules`
+  tests must disable them (`GORGE_LOOP_NO_VERIFY=1` here) or the numbers
+  describe the verifier, not the engine.
+- `snapshotTriggerBoard` clones the entire game per event-check
+  (`rules/trigger_match.go:869`); on large boards this is a real allocation
+  growth with event count. Named for the follow-up, not fixed.
+- No head/ratchet files were changed; the test diff is additive and defaults
+  to the historical N set and verify flags.
