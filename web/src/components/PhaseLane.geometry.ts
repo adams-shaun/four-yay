@@ -10,6 +10,7 @@ import { PRESET_IDS, type PresetId } from '../lib/layoutprofile';
 
 const params = new URLSearchParams(location.search);
 const count = Math.min(8, Math.max(2, Number(params.get('seats') ?? '2') || 2));
+const pool: Record<string, number> = params.has('pool') ? { C: 1, W: 2 } : {};
 // Each page starts from the shipped layout (the shared browser keeps
 // localStorage between pages), then applies ?preset= when given.
 layoutStore.replace(emptyLibrary());
@@ -26,7 +27,7 @@ const players: PlayerView[] = Array.from({ length: count }, (_, seat) => {
   return {
     seat, name: `Player ${seat + 1}`, life: 40, lost: false, library_size: 90, hand_size: 7, graveyard_size: 0,
     completed_dungeons: 0,
-    hand: [], battlefield: [], graveyard: [], exile: [], pool: {}, command: [commander], commanders: [commander], commander_casts: [],
+    hand: [], battlefield: [], graveyard: [], exile: [], pool: seat === 0 ? pool : {}, command: [commander], commanders: [commander], commander_casts: [],
   };
 });
 const seats: SeatInfo[] = players.map((p, seat) => ({ name: p.name, deck: 'fixture', colour: colours[seat] }));
