@@ -316,15 +316,30 @@ func TestCostgateActivatedExhaustBoomScholar(t *testing.T) {
 // Serpent Specialist's power-up {3}{G} costs {G}; under an opponent's Hulk
 // (ValidCard$ Creature.Other+YouCtrl, You = the Hulk's controller) it does
 // not.
+//
+// CR 702.193b arms a SECOND reduction on the entry turn -- the permanent's
+// own mana cost -- and costgatePutCorpus's MoveZone emit sets
+// EnteredThisTurn, so it is live in every subtest below unless the board is
+// aged. CR 118.7 stacks reductions, so on the entry turn the charge is
+// {3}{G} - {3} - {G} = 0. The isolation subtests emit a TurnChange (the
+// per-turn reset that clears EnteredThisTurn, events/apply.go's TurnChange
+// case) so only Hulk's {3} applies; the stacking subtest keeps the entry
+// turn and floats NOTHING, so the offer can only be made at cost 0 -- any
+// reduction the engine misses (Hulk's {3}, the entry-turn {G}, or a
+// double-charge of either) refuses the ability at that pool.
 func TestCostgateActivatedPowerUpHulk(t *testing.T) {
 	t.Parallel()
-	setup := func(t *testing.T, hulkOwner state.PlayerID) (*Engine, state.ObjID) {
+	setup := func(t *testing.T, hulkOwner state.PlayerID, age bool) (*Engine, state.ObjID) {
 		e := handEngine(t)
 		costgatePutCorpus(t, e, hulkOwner, "Hulk, Gamma Goliath", state.ZBattlefield)
-		return e, costgatePutCorpus(t, e, 0, "Serpent Specialist", state.ZBattlefield)
+		serpent := costgatePutCorpus(t, e, 0, "Serpent Specialist", state.ZBattlefield)
+		if age {
+			e.emit(events.Event{Kind: events.TurnChange, Player: 0, Amount: e.G.Turn + 1})
+		}
+		return e, serpent
 	}
 	t.Run("own Hulk: {G}", func(t *testing.T) {
-		e, serpent := setup(t, 0)
+		e, serpent := setup(t, 0, true)
 		costgateSetPool(e, map[int]int32{state.MG: 1})
 		opt, ok := costgateOption(e, "ability", serpent)
 		if !ok {
@@ -333,11 +348,24 @@ func TestCostgateActivatedPowerUpHulk(t *testing.T) {
 		costgateTake(t, e, opt)
 	})
 	t.Run("opponent's Hulk: full price", func(t *testing.T) {
-		e, serpent := setup(t, 1)
+		e, serpent := setup(t, 1, true)
 		costgateSetPool(e, map[int]int32{state.MG: 1})
 		if _, ok := costgateOption(e, "ability", serpent); ok {
 			t.Fatalf("Serpent Specialist's power-up offered for {G} under an OPPONENT's Hulk")
 		}
+	})
+	t.Run("own Hulk on the entry turn: CR 702.193b stacks to 0", func(t *testing.T) {
+		e, serpent := setup(t, 0, false)
+		// Hulk's {3} plus the permanent's own mana cost {G} together exceed
+		// the printed {3}{G}, so the charge is exactly 0. Float an empty
+		// pool: the ability must be OFFERED at it, and costgateTake drains
+		// the whole pool.
+		costgateSetPool(e, map[int]int32{})
+		opt, ok := costgateOption(e, "ability", serpent)
+		if !ok {
+			t.Fatalf("Serpent Specialist's entry-turn power-up not offered for an empty pool (Hulk's {3} plus CR 702.193b's own-mana-cost {G} must reduce {3}{G} to 0)")
+		}
+		costgateTake(t, e, opt)
 	})
 }
 

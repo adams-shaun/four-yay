@@ -142,8 +142,6 @@ func TestSetAudit_msh_BraveBrawler_PowerUpCostReducedOnEntryTurn(t *testing.T) {
 		t.Fatalf("precondition: Power-up ability not offered with the full printed cost funded")
 	}
 	if got := opt.Cost; got != "3" {
-		setAuditGuard(t, "Brave Brawler's Power-up cost is unreduced ("+got+") when it entered this turn; it requires {4}{W} instead of {3}",
-			"Apply Power-up's entry-turn cost reduction (CR 702.193b)")
 		t.Fatalf("Power-up cost = %q, want %q (CR 702.193b)", got, "3")
 	}
 	replayCheck(t, e, cfg)

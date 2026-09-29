@@ -116,6 +116,7 @@ func (e *Engine) beginActivation(p state.PlayerID, opt decision.Option) {
 			cost.Generic = 0
 		}
 	}
+	cost = e.powerUpReducedCost(opt.Obj, ab, cost)
 	// A RaiseCost static's non-mana Cost$ (Soul Immolation's `Cost$ Blight<X>`,
 	// Brutal Suppression's "Sacrifice a land", Carth the Lion's extra [+1])
 	// rides mods.extra; fold it into the pending cost and drop it from mods so
