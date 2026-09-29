@@ -202,6 +202,14 @@ func (m *match) envData(p state.PlayerID, dc *decision.Decision, brd *botpolicy.
 	v := view.ProjectForControlled(m.e.G, m.e, p, view.Seat, controlledSeats(m.e.G, p), dc)
 	v.Round = view.RoundOf(m.e.G, m.e.L.Events)
 	b := botpolicy.BoardFromGameInto(m.e.G, m.e, p, brd)
+	// BP-10 (spec §7): a search table's Env decisions queue on the registry's
+	// FIFO search-slot gate. The flag rides parkedData (set here, under the
+	// match's exclusive lock, exactly where env above is set) so parkSeat
+	// takes the slot only for decisions that actually carry a search Env.
+	wantsSearchSlot := false
+	if e, ok := bots.Lookup(m.table.cfg.BotPolicy); ok && e.Search {
+		wantsSearchSlot = true
+	}
 	return &parkedData{
 		p:   p,
 		v:   v,
@@ -213,5 +221,6 @@ func (m *match) envData(p state.PlayerID, dc *decision.Decision, brd *botpolicy.
 			Search:      searchseat.Env{Setup: setup, Engine: root, Board: b, Feed: feed},
 			RootRefused: reason,
 		},
+		wantsSearchSlot: wantsSearchSlot,
 	}
 }

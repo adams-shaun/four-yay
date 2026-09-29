@@ -304,16 +304,23 @@ func (m *match) sidecar() sidecar {
 
 // defaultSeats is PL-14: one bot per seat, seeded from the match seed.
 func defaultSeats(policy string, names []string, seed uint64) []seat.Seat {
-	return defaultSeatsWithAutoPayMana(policy, false, names, seed)
+	return defaultSeatsWithAutoPayMana(policy, false, names, seed, 0)
 }
 
 // defaultSeatsWithAutoPayMana builds every table bot with the persisted
-// auto-payment setting. Keeping the legacy wrapper preserves embedders and
-// tests that intentionally exercise the historical manual-mana policy.
-func defaultSeatsWithAutoPayMana(policy string, autoPayMana bool, names []string, seed uint64) []seat.Seat {
+// auto-payment setting and the registry's search parallelism. Keeping the
+// legacy wrapper preserves embedders and tests that intentionally exercise
+// the historical manual-mana policy.
+func defaultSeatsWithAutoPayMana(policy string, autoPayMana bool, names []string, seed uint64, searchParallelism int) []seat.Seat {
 	out := make([]seat.Seat, len(names))
 	for i := range names {
-		bot, err := NewBotPolicySeatWithAutoPayMana(policy, seed^uint64(i+1), autoPayMana)
+		// BP-10: BotSearchParallelism rides bots.Options.SearchParallelism so a
+		// search entry folds its parallel worlds with the embedder's flag. The
+		// policy wrapper (bot_policy.go NewBotPolicySeatWithAutoPayMana) is
+		// exactly bots.New with Seed and AutoPayMana and stays untouched — its
+		// public signature is used by cmd/cardfuzz and the tests, and the
+		// caretaker below never seats a search policy.
+		bot, err := bots.New(policy, bots.Options{Seed: seed ^ uint64(i+1), AutoPayMana: autoPayMana, SearchParallelism: searchParallelism})
 		if err != nil {
 			panic(err) // policy was normalized before the table was registered.
 		}
@@ -333,6 +340,16 @@ type parkedDecision struct {
 	hs  *parking
 	in  decision.Intent
 	err error
+	// searchSlot (BP-10, spec §7) marks a decision that parked on the
+	// registry's FIFO search-slot gate. When such a decision's seat error
+	// surfaces while the table's context is cancelled — the slot wait
+	// unblocked by Close, or the search seat unwound by the same
+	// cancellation — the play loop records a clean abort: a table being
+	// closed is not a crash. Every OTHER seat keeps the historical crash
+	// contract (Ruling FL-17, TestCloseCancelsASeatBlockedInDecide): a
+	// cancelled plain seat crashes the match. Set only by parkSeat's gated
+	// Env branch.
+	searchSlot bool
 }
 
 // answer returns the parked decision's intent: immediately for a bot, after
@@ -369,6 +386,12 @@ type parkedData struct {
 	// DecideEnv call, outside it, and never read after the next decision
 	// refills brd (the same ownership contract the Board path states).
 	env *bots.Env
+	// wantsSearchSlot (BP-10, spec §7) is set by envData for a decision whose
+	// table-policy entry has Search set: parkSeat takes one of the registry's
+	// FIFO search slots around this DecideEnv call (and returns ctx.Err()
+	// instead of deciding when the wait is cancelled). Set only by the Env
+	// branch of projectNext, like env above.
+	wantsSearchSlot bool
 }
 
 // projectNext reads the engine's current pending decision and projects the
@@ -517,7 +540,7 @@ func controlledSeats(g *state.Game, viewer state.PlayerID) []state.PlayerID {
 // stays closed. The decision's owner seat is stable, so the BoardSeat/HumanSeat
 // assertions here match projectNext's, and exactly the field that was built is
 // consumed.
-func parkSeat(ctx context.Context, seats []seat.Seat, pd *parkedData, undo <-chan state.PlayerID) *parkedDecision {
+func parkSeat(ctx context.Context, seats []seat.Seat, pd *parkedData, undo <-chan state.PlayerID, gate *searchSlots) *parkedDecision {
 	if hs, ok := seats[pd.p].(*HumanSeat); ok {
 		return &parkedDecision{p: pd.p, hs: hs.park(ctx, pd.v, pd.dc, undo)}
 	}
@@ -530,6 +553,21 @@ func parkSeat(ctx context.Context, seats []seat.Seat, pd *parkedData, undo <-cha
 	// panicking, as the BoardSeat branch does.
 	if pd.env != nil {
 		if es, ok := seats[pd.p].(bots.EnvSeat); ok {
+			// BP-10 (spec §7): a searched decision queues on the registry's
+			// FIFO search-slot gate around DecideEnv — never under m.mu (the
+			// wait can last a whole search), never timed out and never
+			// degraded to another policy. On ctx cancellation the wait returns
+			// ctx.Err() and the play loop aborts the match rather than
+			// crashing (a table being closed is not a crash). defer releases
+			// the slot on every path, panics included.
+			if pd.wantsSearchSlot && gate != nil {
+				if aerr := gate.acquire(ctx); aerr != nil {
+					return &parkedDecision{p: pd.p, err: aerr, searchSlot: true}
+				}
+				defer gate.release()
+				in, err := es.DecideEnv(ctx, *pd.env, pd.dc)
+				return &parkedDecision{p: pd.p, in: in, err: err, searchSlot: true}
+			}
 			in, err := es.DecideEnv(ctx, *pd.env, pd.dc)
 			return &parkedDecision{p: pd.p, in: in, err: err}
 		}
@@ -573,7 +611,7 @@ func (r *Registry) play(ctx context.Context, t *table, m *match) (final string) 
 	// human's timeout caretaker; -bot-auto-mana only takes effect when the
 	// feature itself is enabled for the table.
 	autoPayMana := t.cfg.autoPayManaEnabled()
-	seats := defaultSeatsWithAutoPayMana(t.cfg.BotPolicy, autoPayMana, m.cfg.Names, m.seed)
+	seats := defaultSeatsWithAutoPayMana(t.cfg.BotPolicy, autoPayMana, m.cfg.Names, m.seed, r.opts.BotSearchParallelism)
 	if r.opts.Seats != nil {
 		seats = r.opts.Seats(m.cfg.Names, m.seed)
 	}
@@ -632,6 +670,12 @@ func (r *Registry) play(ctx context.Context, t *table, m *match) (final string) 
 	lastTurn := m.e.G.Turn
 	decisionsThisTurn := 0
 	perTurnLimit := r.opts.MaxDecisionsPerTurn
+	// BP-10 (spec §7): the registry's FIFO search-slot gate. Non-nil only
+	// when the registry bounds searched decisions (Options.SearchSlots) AND
+	// this table's policy entry has Search set; parkSeat takes it around
+	// DecideEnv only for decisions that carry a search Env (parkedData's
+	// wantsSearchSlot, set by envData).
+	gate := r.searchGateFor(t)
 	// parked is the decision currently awaiting its answer (nil before the
 	// first live iteration). It is parked — installed, accept-ready — before
 	// any fan-out that could publish it, so no decision is ever visible before
@@ -708,7 +752,7 @@ func (r *Registry) play(ctx context.Context, t *table, m *match) (final string) 
 			if data == nil {
 				return r.crash(t, m, fmt.Errorf("engine stalled: game not over and no decision pending"))
 			}
-			parked = parkSeat(ctx, seats, data, m.undo.signal)
+			parked = parkSeat(ctx, seats, data, m.undo.signal, gate)
 		}
 		// Await the answer to the parked decision (parked at the first live
 		// iteration or at the end of the previous one). A bot seat resolved
@@ -728,6 +772,16 @@ func (r *Registry) play(ctx context.Context, t *table, m *match) (final string) 
 				}
 				n, lastTurn, decisionsThisTurn = m.intents-1, m.e.G.Turn, 0
 				continue
+			}
+			// BP-10 (spec §7): a SEARCH decision (one that parked on the
+			// registry's FIFO search-slot gate) whose seat error surfaced while
+			// the table's context is cancelled — its slot wait unblocked by
+			// Close, or the search seat unwound by the same cancellation —
+			// aborts the match instead of crashing it: a table being closed is
+			// not a crash. Every other seat keeps the historical crash contract
+			// (Ruling FL-17): a cancelled plain seat crashes the match.
+			if ctx.Err() != nil && parked.searchSlot {
+				return r.abort(m)
 			}
 			return r.crash(t, m, fmt.Errorf("seat %d: %w", parked.p, err))
 		}
@@ -860,7 +914,7 @@ func (r *Registry) play(ctx context.Context, t *table, m *match) (final string) 
 		// match mutex must never be held across one. Publishing happens only
 		// after this, so the park-before-publish ordering still holds.
 		if nextData != nil {
-			next = parkSeat(ctx, seats, nextData, m.undo.signal)
+			next = parkSeat(ctx, seats, nextData, m.undo.signal, gate)
 		}
 		// Park the engine's NEXT decision BEFORE publishing it: the seat that
 		// owns it is now accept-ready, so the fan-out below cannot expose a

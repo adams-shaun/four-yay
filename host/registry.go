@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/adams-shaun/gorge/bots"
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
@@ -149,6 +150,36 @@ type Options struct {
 	// removes its config.
 	MaxOnDemandTables int
 
+	// SearchSlots bounds how many searched decisions run CONCURRENTLY across
+	// the whole registry (BP-10, spec 2026-09-28-hosted-bot-packages §7): a
+	// bot seat whose table-policy entry has Search set takes one slot around
+	// its DecideEnv call (host/match.go parkSeat), and a decision that arrives
+	// while every slot is held QUEUES — the host never degrades to another
+	// policy, never shortens a search and never times one out, so intents
+	// stay a pure function of the seed and the intent stream; only latency
+	// varies with load. The queue is FIFO (a mutex plus a slice of waiter
+	// channels — Go does not specify FIFO for a buffered-channel semaphore),
+	// and the wait selects on the table's context, so Close turns a queued
+	// decision into a match abort, not a crash. 0 — the zero value — means
+	// unbounded, so embedders and tests that never set the field keep exactly
+	// today's behaviour. gorged sets it from -bot-search-slots.
+	SearchSlots int
+	// MaxSearchTables bounds the LIVE on-demand tables whose policy entry has
+	// Search set: AddTable refuses a new on-demand search table when that
+	// many are already playing (live, not finished — a table that reached its
+	// end frees its capacity), with the explicit refusal "search bots are at
+	// capacity; choose a non-search policy". It mirrors the MaxOnDemandTables
+	// check above and bounds the second memory term of §7 — each concurrent
+	// search holds its honest root for the length of a decision. 0 means
+	// unbounded. gorged sets it from -max-search-tables.
+	MaxSearchTables int
+	// BotSearchParallelism is passed into bots.Options.SearchParallelism for
+	// every seat the registry builds from a table's named policy (§7): a
+	// search entry's inner worlds fold in sequential order either way, so the
+	// flag changes latency only, never intents. 0 leaves the entry's own
+	// default. gorged sets it from -bot-search-parallelism.
+	BotSearchParallelism int
+
 	// OnBurst, when non-nil, is invoked after every recorded burst of every
 	// match created by this registry, including the genesis burst, so an
 	// embedder sees the whole chain from its first event (Task M2c-1). It is
@@ -192,6 +223,12 @@ func defaultSleep(d time.Duration, stop <-chan struct{}) {
 type Registry struct {
 	opts Options
 
+	// searchGate is the registry-wide FIFO search-slot semaphore, non-nil
+	// only when opts.SearchSlots > 0. Every match goroutine of every table
+	// contends for it around its search seats' DecideEnv calls; see
+	// searchSlots and Options.SearchSlots.
+	searchGate *searchSlots
+
 	mu       sync.RWMutex
 	tables   map[TableID]*table
 	sessions map[string]*Session
@@ -216,7 +253,20 @@ func New(o Options) (*Registry, error) {
 	if o.MaxOnDemandTables < 0 {
 		return nil, fmt.Errorf("host: MaxOnDemandTables %d, want >= 0", o.MaxOnDemandTables)
 	}
-	r := &Registry{opts: o, tables: map[TableID]*table{}, sessions: map[string]*Session{}, done: make(chan struct{})}
+	if o.SearchSlots < 0 {
+		return nil, fmt.Errorf("host: SearchSlots %d, want >= 0", o.SearchSlots)
+	}
+	if o.MaxSearchTables < 0 {
+		return nil, fmt.Errorf("host: MaxSearchTables %d, want >= 0", o.MaxSearchTables)
+	}
+	if o.BotSearchParallelism < 0 {
+		return nil, fmt.Errorf("host: BotSearchParallelism %d, want >= 0", o.BotSearchParallelism)
+	}
+	var gate *searchSlots
+	if o.SearchSlots > 0 {
+		gate = newSearchSlots(o.SearchSlots)
+	}
+	r := &Registry{opts: o, searchGate: gate, tables: map[TableID]*table{}, sessions: map[string]*Session{}, done: make(chan struct{})}
 	if o.Dir != "" {
 		if err := r.load(); err != nil { // Task 12
 			return nil, err
@@ -251,8 +301,139 @@ func (r *Registry) AddTable(c TableConfig) error {
 			return fmt.Errorf("host: on-demand table limit %d reached", r.opts.MaxOnDemandTables)
 		}
 	}
+	// BP-10 (spec §7) admission: an on-demand table whose policy entry has
+	// Search set is refused while MaxSearchTables on-demand search tables are
+	// already live. "Live" means the table goroutine is running and its
+	// current match has not been retired — a finished single-shot table frees
+	// its capacity at retire, and a merely registered, never-started table
+	// is not yet playing a search. The refusal is explicit (the caller is
+	// told to choose a non-search policy), never a silent substitution. cfg
+	// is immutable once registered, so t.cfg is read without t.mu; the live
+	// test reads t.cur under t.mu (we hold r.mu, and nothing holds t.mu while
+	// acquiring r.mu, so this nesting cannot deadlock).
+	if c.OnDemand && r.opts.MaxSearchTables > 0 {
+		if e, ok := bots.Lookup(c.BotPolicy); ok && e.Search {
+			n := 0
+			for _, t := range r.tables {
+				if !t.cfg.OnDemand {
+					continue
+				}
+				if te, ok := bots.Lookup(t.cfg.BotPolicy); !ok || !te.Search {
+					continue
+				}
+				t.mu.RLock()
+				live := t.started && t.cur != nil
+				t.mu.RUnlock()
+				if live {
+					n++
+				}
+			}
+			if n >= r.opts.MaxSearchTables {
+				return fmt.Errorf("host: search bots are at capacity; choose a non-search policy")
+			}
+		}
+	}
 	r.tables[c.ID] = newTable(c)
 	return r.saveLocked() // Task 12; a no-op in memory mode
+}
+
+// searchGateFor returns the registry's search-slot gate for t's decisions, or
+// nil when this table's policy entry has no Search set or the registry is
+// unbounded (Options.SearchSlots 0). parkSeat takes the gate around DecideEnv
+// only when the projected decision actually carries a search Env (the
+// parkedData.wantsSearchSlot flag envData sets), so a non-search table never
+// touches the semaphore.
+func (r *Registry) searchGateFor(t *table) *searchSlots {
+	if r.searchGate == nil {
+		return nil
+	}
+	if e, ok := bots.Lookup(t.cfg.BotPolicy); ok && e.Search {
+		return r.searchGate
+	}
+	return nil
+}
+
+// searchSlots is the FIFO semaphore one Registry uses to bound concurrent
+// searched decisions (BP-10, spec §7). Go does not specify FIFO for a
+// buffered-channel semaphore, so the queue is explicit: a mutex plus a slice
+// of waiter channels, granted strictly in arrival order by release closing
+// the front waiter's channel (a handoff — held stays at the limit). The wait
+// selects on the caller's context, so a table being closed unblocks its
+// queued decision with ctx.Err() and the play loop aborts the match instead
+// of crashing (a table being closed is not a crash).
+type searchSlots struct {
+	mu      sync.Mutex
+	limit   int
+	held    int
+	waiters []chan struct{}
+}
+
+func newSearchSlots(limit int) *searchSlots { return &searchSlots{limit: limit} }
+
+// acquire takes one slot, or queues FIFO behind the holders until one is
+// released. It returns ctx.Err() when the context is done first — including
+// the races where the grant and the cancellation arrive together, in which
+// case this acquire hands the slot it just won to the next waiter before
+// returning, so a cancelled waiter never swallows a slot and never enters
+// DecideEnv on a dead context.
+func (s *searchSlots) acquire(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		// Already cancelled: never take a slot on a dead context.
+		return err
+	}
+	s.mu.Lock()
+	if s.held < s.limit {
+		s.held++
+		s.mu.Unlock()
+		return nil
+	}
+	ch := make(chan struct{})
+	s.waiters = append(s.waiters, ch)
+	s.mu.Unlock()
+	select {
+	case <-ch:
+		if err := ctx.Err(); err != nil {
+			// The grant and the cancellation arrived together: hand the slot
+			// just won on to the next waiter (or drop it) exactly as release
+			// would, and report the cancellation.
+			s.mu.Lock()
+			defer s.mu.Unlock()
+			s.releaseLocked()
+			return err
+		}
+		return nil
+	case <-ctx.Done():
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		for i, w := range s.waiters {
+			if w == ch {
+				s.waiters = append(s.waiters[:i], s.waiters[i+1:]...)
+				return ctx.Err()
+			}
+		}
+		// Not in the queue any more: release handed us the slot as the context
+		// fired. Hand it on (or drop it) exactly as release would.
+		s.releaseLocked()
+		return ctx.Err()
+	}
+}
+
+// release gives a held slot back: to the front waiter, FIFO, by closing its
+// channel (a handoff — held does not drop), or to the pool when nobody waits.
+func (s *searchSlots) release() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.releaseLocked()
+}
+
+func (s *searchSlots) releaseLocked() {
+	if n := len(s.waiters); n > 0 {
+		ch := s.waiters[0]
+		s.waiters = s.waiters[1:]
+		close(ch)
+		return
+	}
+	s.held--
 }
 
 // Start launches the table's goroutine; a second Start is a no-op.

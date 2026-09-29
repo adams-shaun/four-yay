@@ -305,7 +305,7 @@ func driveEnvStep(t *testing.T, m *match, seats []seat.Seat, brd *botpolicy.Boar
 	if data == nil {
 		return nil, nil
 	}
-	pd := parkSeat(context.Background(), seats, data, m.undo.signal)
+	pd := parkSeat(context.Background(), seats, data, m.undo.signal, nil)
 	if pd.err != nil {
 		t.Fatalf("seat %d: DecideEnv/Decide error: %v", pd.p, pd.err)
 	}
