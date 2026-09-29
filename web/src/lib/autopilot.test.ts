@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ruleFromAnswer } from './sticky';
 import { actionable, actionables, decide, emptyPriorityWindow, respondable, respondableFor, STEPS, STOPPABLE_STEPS, turnSide } from './autopilot';
 import { applyPreset, defaultSettings, type PlaySettings, type StoppableStep, type StepStop } from './playsettings';
 import type { CardView, Decision, Option, PaymentAction, PaymentPlan, PlayerView, PotentialAction, SeatInfo, View } from '../protocol';
@@ -1084,5 +1085,36 @@ describe('gaps audit probe 3: a playable plan-only cast prevents an empty-window
 
   it('§8: with the preference off the floor is the capability-less one and passes the same window', () => {
     expect(emptyPriorityWindow(plannedOnly, auditView(plannedOnly, [card(102, 'Opt')]), 1, false)).toBe(1);
+  });
+});
+
+describe('per-game sticky answers precede auto-pass', () => {
+  it.each(['target', 'choose', 'modes', 'trigger_optional', 'trigger_order'])('%s hits even with Auto off and forced stops', (kind) => {
+    const v = view(0, 'main1');
+    const d = priority([opt('pick', 8), opt('other', 3)], 1, 1, kind);
+    const chosen = kind === 'trigger_order' ? [3, 8] : [8];
+    if (kind === 'trigger_order') d.min = d.max = 2;
+    const rule = ruleFromAnswer(d, v, chosen)!;
+    const sticky = new Map([[rule.key, rule]]);
+    const settings = { ...withSteps('yours', { main1: 'forced' }), autoPass: false };
+    const next = { ...d, options: [{ ...d.options[0], index: 22 }, { ...d.options[1], index: 11 }] };
+    expect(decide({ decision: next, view: v, seat: 0, settings, sticky })).toEqual({
+      act: 'answer', choices: kind === 'trigger_order' ? [11, 22] : [22],
+    });
+    const miss = { ...next, options: [opt('unknown', 0)] };
+    expect(decide({ decision: miss, view: v, seat: 0, settings, sticky }))
+      .toEqual(decide({ decision: miss, view: v, seat: 0, settings }));
+  });
+
+  it('a sticky miss leaves priority pass, disabled and stop-set verdicts unchanged', () => {
+    const v = view(0, 'main1');
+    const answer = priority([opt('pick', 4)], 1, 1, 'choose');
+    const rule = ruleFromAnswer(answer, v, [4])!;
+    const sticky = new Map([[rule.key, rule]]);
+    const d = priority([opt('pass', 9)]);
+    for (const settings of [applyPreset('casual'), { ...defaultSettings(), autoPass: false }, withSteps('yours', { main1: 'forced' })]) {
+      expect(decide({ decision: d, view: v, seat: 0, settings, sticky }))
+        .toEqual(decide({ decision: d, view: v, seat: 0, settings }));
+    }
   });
 });

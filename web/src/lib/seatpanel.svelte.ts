@@ -17,6 +17,7 @@ import {
 } from './playsettings';
 import { autoPassLogText, pushAutoPassLog, type AutoPassKind, type AutoPassLog } from './autolog';
 import { loadYields, saveYields } from './yields';
+import { loadSticky } from './sticky';
 import {
   emptyStore,
   listProfiles,
@@ -814,6 +815,7 @@ export class SeatPanelState {
    * is never retried forever against a refusing server.
    */
   private rememberedSeq: number | null = null;
+  private stickySeq: number | null = null;
 
   /**
    * passWait is the pending PACED pass (prio5): the machine decided to pass
@@ -1436,6 +1438,8 @@ export class SeatPanelState {
     // (post() set busy synchronously). It runs after the busy/posted guards
     // above and before expireRun, so a run that would otherwise stop on this
     // non-priority decision is cancelled by the submit path itself.
+    // Per-game stickies outrank both global remembered answers and auto-order.
+    if (this.maybeSticky(view)) return;
     if (this.maybeAutoOrderTriggers()) return;
     // The remembered-answer auto-reply gets the same second chance (B5): a
     // decision adopted while a post was still in flight returned false at
@@ -1518,6 +1522,21 @@ export class SeatPanelState {
     }
 
     this.dispatchPass(view, verdict.index, verdict.kind, verdict.reason);
+  }
+
+  /** Explicit sticky answers use the ordinary click POST, before other automatic answers. */
+  private maybeSticky(view: View): boolean {
+    const d = this.pending;
+    if (!d || this.busy || d.seq === this.postedSeq || this.machinePaused || view.over) return false;
+    // A rejected answer must not retry, nor fall through to a different auto-answer.
+    if (d.seq === this.stickySeq) return true;
+    const sticky = loadSticky(this.table, this.match, this.yieldStorage);
+    if (sticky.size === 0) return false;
+    const verdict = decide({ decision: d, view, seat: this.ctx.seat, settings: this.settings, sticky });
+    if (verdict.act !== 'answer') return false;
+    this.stickySeq = d.seq;
+    void this.post(verdict.choices);
+    return true;
   }
 
   /**
@@ -1639,6 +1658,7 @@ export class SeatPanelState {
       autoPayMana: this.autoPayMana,
     });
     if (verdict.act === 'stop') return verdict;
+    if (verdict.act === 'answer') return null; // sticky answers post before pass classification
     const kind: Exclude<AutoPassKind, 'act'> = this.oneShot === 'end-turn'
       ? 'end-turn'
       : this.oneShot === 'hard-skip'
@@ -1898,6 +1918,7 @@ export class SeatPanelState {
     this.autoLog = [];
     this.autoOrderedSeq = null;
     this.rememberedSeq = null;
+    this.stickySeq = null;
     this.resolveAllIds = null;
     this.currentView = null;
     this.arrangeOpen = false;
@@ -2014,6 +2035,10 @@ export class SeatPanelState {
     // empty filter, so a narrowing typed for one library can never hide
     // cards of the next one.
     this.searchFilter = '';
+    // adopt has only a decision, not its fresh View. Defer competing automatic
+    // answers until considerAuto can resolve source names/controllers safely.
+    const stickies = loadSticky(this.table, this.match, this.yieldStorage);
+    if ([...stickies.values()].some((r) => r.kind === d.kind)) return;
     if (!this.maybeAutoOrderTriggers()) this.maybeRememberedTrigger();
   }
 

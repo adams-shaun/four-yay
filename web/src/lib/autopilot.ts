@@ -2,6 +2,7 @@ import type { Decision, Option, View } from '../protocol';
 import { castablesAfterTap, isResponseKind, respondableAfterTap } from './castable';
 import type { OpponentObjectRule, OpponentTriggerRule, PlaySettings, StoppableStep } from './playsettings';
 import { stackYieldKey } from './yields';
+import { stickyAnswer, type StickyRule } from './sticky';
 
 /**
  * autopilot is the "auto" decision logic for a seat: pass priority for the
@@ -39,10 +40,9 @@ import { stackYieldKey } from './yields';
  * plan-only cast has no cast option yet, and the projection may not list it.
  * With the preference off nothing here reads payment_actions at all.
  *
- * decide() can only ever return an index pointing at an option whose kind
- * is "pass". It is structurally incapable of returning a "concede": the
- * verdict's index is always taken from the pass-option ref found by the
- * shape check, never from a position or a default.
+ * Without an explicit sticky rule, decide() only returns a pass-option
+ * index. Sticky answers instead carry choices matched against the current
+ * non-priority decision; they never store or reuse a wire index.
  */
 
 export type TurnSide = 'yours' | 'opponents';
@@ -54,6 +54,7 @@ export interface Stops {
 }
 
 export type AutoVerdict =
+  | { act: 'answer'; choices: number[] }
   | { act: 'pass'; index: number }
   | { act: 'stop'; reason: StopReason };
 
@@ -406,6 +407,8 @@ export function decide(args: {
    * rules still apply: a yield is per ability, never per step.
    */
   yields?: ReadonlySet<string>;
+  /** Explicit per-game answers outrank auto-pass settings (including Auto off). */
+  sticky?: ReadonlyMap<string, StickyRule>;
   /**
    * baselineStack is the Resolve All run's arm-time stack (prio6): the ids
    * of the objects that were already on the stack when the run started.
@@ -449,11 +452,15 @@ export function decide(args: {
 }): AutoVerdict {
   const { decision, view, seat, settings, ffwd = false, yields = null, baselineStack = null, skipOwnTurnFloor = false, autoPayMana = false } = args;
 
-  // Safety first: auto NEVER answers anything but a plain single-pick
-  // priority decision with exactly one pass option. Target, blockers,
-  // attackers, mulligan, modes, trigger_order, trigger_optional and choose
-  // always stop, whatever the settings say — acting on a decision it does
-  // not fully understand is exactly how an autopasser loses a game silently.
+  // An explicit per-game sticky is independent of Auto and wins before any
+  // auto-pass rule. A miss leaves all existing classification unchanged.
+  if (args.sticky) {
+    const choices = stickyAnswer(decision, view, args.sticky);
+    if (choices !== null) return { act: 'answer', choices };
+  }
+
+  // Without a matching sticky, auto only answers plain single-pick priority
+  // with exactly one pass option. Every non-priority decision stops.
   if (decision.kind !== 'priority') return { act: 'stop', reason: 'not-priority' };
   if (decision.min !== 1 || decision.max !== 1) return { act: 'stop', reason: 'unexpected-shape' };
   const passOptions = decision.options.filter((o) => o.kind === 'pass');
