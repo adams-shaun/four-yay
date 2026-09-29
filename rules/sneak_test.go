@@ -177,6 +177,7 @@ func TestSneakCorpusCensusNamesEveryCarrier(t *testing.T) {
 		"Shredder, Unrelenting", "Shredder's Technique", "Splinter, Hamato Yoshi",
 		"Splinter's Technique", "The Last Ronin's Technique", "Turncoat Kunoichi",
 	}
+	sort.Strings(wantCarriers)
 	if len(carriers) != len(wantCarriers) {
 		t.Fatalf("kw:Sneak carriers = %d, want %d; got %v", len(carriers), len(wantCarriers), carriers)
 	}
