@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Decision, Option } from '../../protocol';
 import { AnswerError, bindPrompt, undoMessage } from './prompt';
 import { projectView } from './project';
+import { rememberable, rememberKey } from '../remembered';
 import { allRecords, promptOf, stateOf, type CaptureRecord } from './testdata/fixture';
 import type { AgentPrompt } from './wire';
 
@@ -98,6 +99,38 @@ describe('bindPrompt (captured from a real gorged -manabrew)', () => {
   });
 
   const synth = (input: AgentPrompt['input']): AgentPrompt => ({ promptId: 5, decidingPlayerId: 'player-0', input });
+  const optionalPrompts = [
+    'Put this optional triggered ability on the stack? — Bloodghast: Whenever a land enters, Bloodghast may return from the graveyard',
+    "Apply this triggered ability's effect? — Bloodghast: Whenever a land enters, Bloodghast may return from the graveyard",
+  ];
+
+  it.each(optionalPrompts)('reconstructs optional trigger prompt %s as rememberable', (title) => {
+    const prefixes = [
+      'Put this optional triggered ability on the stack? — ',
+      "Apply this triggered ability's effect? — ",
+    ];
+    expect(prefixes.some((prefix) => title.startsWith(prefix))).toBe(true);
+    const native = { kind: 'trigger_optional', prompt: title };
+    expect(native.kind).not.toBe('choose');
+    const b = bindPrompt(synth({ type: 'chooseBoolean', confirmLabel: 'Yes', denyLabel: 'No', presentation: { title } }), { view: null });
+    const d = b.decision!;
+    expect(d.kind).toBe(native.kind);
+    expect(d.options.map((o) => o.kind)).toEqual(['yes', 'no']);
+    expect([d.min, d.max]).toEqual([1, 1]);
+    expect(rememberable(d.kind)).toBe(true);
+    expect(rememberKey(d.kind, d.prompt)).toBe(rememberKey(native.kind, native.prompt));
+    expect(b.respond({ seq: 5, player: 0, choices: [0] })).toMatchObject({ action: { output: { type: 'decision', value: true } } });
+    expect(b.respond({ seq: 5, player: 0, choices: [1] })).toMatchObject({ action: { output: { type: 'decision', value: false } } });
+  });
+
+  it('keeps generic chooseBoolean prompts as choose', () => {
+    const title = 'Pay for this effect?';
+    expect(optionalPrompts.some((prompt) => prompt === title)).toBe(false);
+    const b = bindPrompt(synth({ type: 'chooseBoolean', confirmLabel: 'Pay', denyLabel: 'Decline', presentation: { title } }), { view: null });
+    expect(b.decision!.kind).toBe('choose');
+    expect(b.decision!.options.map((o) => [o.kind, o.label])).toEqual([['yes', 'Pay'], ['no', 'Decline']]);
+  });
+
   it('maps the prompts gorge does not pose in the capture', () => {
     const bool = bindPrompt(synth({ type: 'chooseBoolean', confirmLabel: 'Pay', denyLabel: 'Decline' }), { view: null });
     expect(bool.decision!.options.map((o) => [o.kind, o.label])).toEqual([['yes', 'Pay'], ['no', 'Decline']]);

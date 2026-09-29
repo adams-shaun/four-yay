@@ -76,6 +76,12 @@ function where(v: View | null, obj: number): { zone: string; controller: number 
   return null;
 }
 
+/** isOptionalTriggerPrompt infers the optional-trigger kind from its engine title (presentation only). */
+function isOptionalTriggerPrompt(title: string): boolean {
+  return title.startsWith('Put this optional triggered ability on the stack? — ') ||
+    title.startsWith("Apply this triggered ability's effect? — ");
+}
+
 /** pickVerb infers a card pick's option kind from its title (presentation only). */
 function pickVerb(title: string): string {
   const t = title.toLowerCase();
@@ -199,11 +205,13 @@ export function bindPrompt(p: AgentPrompt, ctx: PromptContext): PromptBinding {
       d = { ...base, kind: players ? 'starting_player' : 'choose', min: input.minTotal, max: input.maxTotal, options: opts, ...(repeat ? { repeatable: true } : {}) };
       break;
     }
-    case 'chooseBoolean':
+    case 'chooseBoolean': {
       add({ kind: 'yes', label: input.confirmLabel || 'Yes' }, { t: 'bool', value: true });
       add({ kind: 'no', label: input.denyLabel || 'No' }, { t: 'bool', value: false });
-      d = { ...base, kind: 'choose', min: 1, max: 1, options: opts };
+      const optionalTrigger = isOptionalTriggerPrompt(title);
+      d = { ...base, kind: optionalTrigger ? 'trigger_optional' : 'choose', min: 1, max: 1, options: opts };
       break;
+    }
     case 'chooseCards': {
       const verb = pickVerb(title);
       for (const c of input.cards) {
