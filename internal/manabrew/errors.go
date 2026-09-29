@@ -180,6 +180,61 @@ func (t *Translator) translateResponse(r mb.ClientResponse, p *Pending, seat sta
 				fmt.Sprintf("prompt mulliganPutBack does not take a %s response", out.OutputType()), idPtr(cur))}
 		}
 		return t.parseMulliganPutBack(out, p)
+	case "chooseNumber":
+		if _, ok := out.(mb.NumberDecision); !ok {
+			return Outcome{Err: errCode(mb.CodeWrongPromptType,
+				fmt.Sprintf("prompt chooseNumber does not take a %s response", out.OutputType()), idPtr(cur))}
+		}
+		return t.parseChooseNumber(out, p)
+	case "chooseCards":
+		if _, ok := out.(mb.ChooseCardsDecision); !ok {
+			return Outcome{Err: errCode(mb.CodeWrongPromptType,
+				fmt.Sprintf("prompt chooseCards does not take a %s response", out.OutputType()), idPtr(cur))}
+		}
+		return t.parseChooseCards(out, p)
+	case "chooseColor":
+		if _, ok := out.(mb.ColorDecision); !ok {
+			return Outcome{Err: errCode(mb.CodeWrongPromptType,
+				fmt.Sprintf("prompt chooseColor does not take a %s response", out.OutputType()), idPtr(cur))}
+		}
+		return t.parseChooseColor(out, p)
+	case "chooseBoolean":
+		if _, ok := out.(mb.BooleanDecision); !ok {
+			return Outcome{Err: errCode(mb.CodeWrongPromptType,
+				fmt.Sprintf("prompt chooseBoolean does not take a %s response", out.OutputType()), idPtr(cur))}
+		}
+		return t.parseChooseBoolean(out, p)
+	case "chooseFromSelection":
+		if _, ok := out.(mb.SelectionDecision); !ok {
+			return Outcome{Err: errCode(mb.CodeWrongPromptType,
+				fmt.Sprintf("prompt chooseFromSelection does not take a %s response", out.OutputType()), idPtr(cur))}
+		}
+		return t.parseChooseFromSelection(out, p)
+	case "scry":
+		if _, ok := out.(mb.ScryDecision); !ok {
+			return Outcome{Err: errCode(mb.CodeWrongPromptType,
+				fmt.Sprintf("prompt scry does not take a %s response", out.OutputType()), idPtr(cur))}
+		}
+		return t.parseArrangeScry(out, p)
+	case "reorder":
+		// "reorder" is shared by two decision Kinds (promptOrder's
+		// KTriggerOrder and promptArrange's KArrange single-list shape);
+		// only the pending decision's own Kind says which reversal applies
+		// (parseTriggerOrder's DIRECTION FLIP vs parseArrangeReorder's none).
+		if _, ok := out.(mb.ReorderDecision); !ok {
+			return Outcome{Err: errCode(mb.CodeWrongPromptType,
+				fmt.Sprintf("prompt reorder does not take a %s response", out.OutputType()), idPtr(cur))}
+		}
+		if p.Decision.Kind == decision.KTriggerOrder {
+			return t.parseTriggerOrder(out, p)
+		}
+		return t.parseArrangeReorder(out, p)
+	case "payManaCost":
+		// parsePayManaCost switches on the output type itself (act / pay /
+		// cancel all answer this one prompt type) and already ends every
+		// leg, including the mismatched-shape leg, in a CodeWrongPromptType
+		// Outcome, so no separate type check is needed here.
+		return t.parsePayManaCost(out, p)
 	case "gameOver":
 		return Outcome{Err: errCode(mb.CodeWrongPromptType, "gameOver carries no response", idPtr(cur))}
 	default:
@@ -206,8 +261,12 @@ func parsePlayerID(s string) (state.PlayerID, bool) {
 
 // findCard resolves an object id in a seat view, across every zone list the
 // view carries: the battlefield of each player, the deciding player's hand,
-// and the viewer's library top. It is a lookup for prompt builders only --
-// redaction already decided what the view shows.
+// the stack (a spell's own CardView, projected at the spell object's id --
+// view.stackViews sets StackView.Card.ID to the same id as the StackView
+// entry itself, so a card mid-cast, such as the source of an announced
+// CR 601.2g mana payment window, resolves here too), and the viewer's
+// library top. It is a lookup for prompt builders only -- redaction already
+// decided what the view shows.
 func findCard(v *view.View, id state.ObjID) *view.CardView {
 	if v == nil {
 		return nil
@@ -227,6 +286,11 @@ func findCard(v *view.View, id state.ObjID) *view.CardView {
 					return &p.Hand[i]
 				}
 			}
+		}
+	}
+	for i := range v.Stack {
+		if v.Stack[i].Card != nil && v.Stack[i].Card.ID == id {
+			return v.Stack[i].Card
 		}
 	}
 	return nil
