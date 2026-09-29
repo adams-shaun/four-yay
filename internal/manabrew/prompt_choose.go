@@ -492,12 +492,17 @@ func chooseConstraint(d *decision.Decision) string {
 }
 
 func (t *Translator) optionCard(v *view.View, o decision.Option) mb.CardDto {
+	name := strings.TrimPrefix(o.Label, "Discard ")
 	if c := findCard(v, o.Obj); c != nil {
 		if visible, ok := t.visibleCard(*c).Value.(mb.VisibleCard); ok {
-			return visible.CardDto
+			card := visible.CardDto
+			if card.Identity.Name == "" && name != "" {
+				card.Identity.Name = name
+			}
+			return card
 		}
 	}
-	return mb.CardDto{ID: cardID(o.Obj), Identity: mb.CardIdentity{}, Types: []string{}, Subtypes: []string{}, Supertypes: []string{}, Choices: []mb.CardChoiceDto{}, AttachmentIDs: []string{}, MergedCardIDs: []string{}, Color: []string{}, Counters: map[string]int{}}
+	return mb.CardDto{ID: cardID(o.Obj), Identity: mb.CardIdentity{Name: name}, Types: []string{}, Subtypes: []string{}, Supertypes: []string{}, Choices: []mb.CardChoiceDto{}, AttachmentIDs: []string{}, MergedCardIDs: []string{}, Color: []string{}, Counters: map[string]int{}}
 }
 
 // allPayPipOptions reports whether every option of a KChoose decision is one
