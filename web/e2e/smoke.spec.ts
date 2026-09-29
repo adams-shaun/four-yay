@@ -413,7 +413,8 @@ async function driveFixtureUntil(
   base: string,
   stop: (d: WireDecision) => boolean,
 ): Promise<WireDecision> {
-  const deadline = Date.now() + 20_000;
+  const startedAt = Date.now();
+  const deadline = startedAt + FIXTURE_DRIVE_MS;
   while (Date.now() < deadline) {
     for (const seat of [0, 1]) {
       const token = fixtureToken(seat);
@@ -441,7 +442,7 @@ async function driveFixtureUntil(
     }
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
-  throw new Error('ui24 fixture did not reach the requested decision');
+  throw new Error(`ui24 fixture did not reach the requested decision after ${Date.now() - startedAt}ms (server ${base})`);
 }
 
 // How long a page may sit in its loading state before we call it a hang.
@@ -472,6 +473,16 @@ const STALL_MS = 90_000;
 // not ride the browser's socket pool), so the bound is the client's own
 // stall time plus the paced walk. 90s was met once at 47.4s under load.
 const DRIVE_MS = 150_000;
+// ui24, wheel1 and talisman all poll the -pace 0 smoke fixtures from Node;
+// under box load a single request can stall for tens of seconds. Give each
+// walk a 90s cap rather than letting its old 20/30s deadline masquerade as a
+// fixture/product failure; this stays within the neighboring tests' 120s cap.
+const FIXTURE_DRIVE_MS = 90_000;
+// A quick Node-side readiness GET distinguishes a wedged fixture farm from a
+// starved browser. 30s is deliberately far above the measured <1ms healthy
+// response; the 35s transport cap also bounds a silent/wedged socket.
+const UI24_READINESS_BOUND_MS = 30_000;
+const UI24_READINESS_TIMEOUT_MS = 35_000;
 
 /** sameOrigin reports whether url is on the same origin as base — the only
  *  requests the gate forbids from failing (fonts and other third-party
@@ -1145,7 +1156,9 @@ test.describe('gorged [wheel1] Underground Sea fixture', () => {
     const endpoint = `${b}/api/tables/t1/matches/1`;
     let source: number | undefined;
     let played = false;
-    const deadline = Date.now() + 20_000;
+    // Ticket agent-20260929T075920Z-479ffd6e: share the load-tolerant
+    // fixture-drive budget with ui24 rather than an unexplained 20s cutoff.
+    const deadline = Date.now() + FIXTURE_DRIVE_MS;
 
     // Drive the real engine to seat 0's first post-land priority window before
     // mounting the client, so its skip-empty policy cannot race this setup.
@@ -1244,7 +1257,9 @@ test.describe('gorged [talisman] two-stage mana continuation fixture', () => {
     base: string,
     stop: (d: WireDecision) => boolean,
   ): Promise<WireDecision> {
-    const deadline = Date.now() + 30_000;
+    // Ticket agent-20260929T075920Z-479ffd6e: the -pace 0 fixture walk
+    // needs the same load-tolerant budget as ui24 and wheel1.
+    const deadline = Date.now() + FIXTURE_DRIVE_MS;
     while (Date.now() < deadline) {
       for (const seat of [0, 1]) {
         const p = await request.get(`${base}/api/tables/t1/matches/1/pending?seat=${seat}&token=${talismanToken(seat)}`);
@@ -1337,7 +1352,30 @@ test.describe('gorged [ui24] constructed board fixture', () => {
   test.describe.configure({ mode: 'serial' });
 
   test('a board tile posts its non-zero wire index and a long menu escapes the quadrant (R-E4-1)', async ({ browser, request }) => {
+    // Ticket agent-20260929T075920Z-479ffd6e: quiet-box runs are 3.9s
+    // isolated, but a retained trace measured starved Frame.goto at 72–82s;
+    // the global 120s ceiling can expire during cleanup. Budget 600s for two
+    // 90s fixture walks, two ~90s starved navigations, and assertion margin.
+    test.setTimeout(600_000);
     const b = FIXTURE as string;
+
+    // Probe the fixture before any drive-loop GET: a wedged farm should be
+    // named directly, not spend its full drive budget looking like a game bug.
+    const readinessStartedAt = Date.now();
+    let readinessResponse: Awaited<ReturnType<typeof request.get>> | undefined;
+    try {
+      readinessResponse = await request.get(`${b}/api/tables`, { timeout: UI24_READINESS_TIMEOUT_MS });
+    } catch (error) {
+      const ms = Date.now() - readinessStartedAt;
+      console.log(`UI24_READINESS ${JSON.stringify({ ms })}`);
+      throw new Error(`fixture server readiness GET took ${ms}ms — box starvation, rerun before treating this as a product bug (server ${b}): ${String(error)}`);
+    }
+    const readinessMs = Date.now() - readinessStartedAt;
+    console.log(`UI24_READINESS ${JSON.stringify({ ms: readinessMs })}`);
+    if (readinessMs > UI24_READINESS_BOUND_MS) {
+      throw new Error(`fixture server answered a readiness GET in ${readinessMs}ms — box starvation, rerun before treating this as a product bug (server ${b})`);
+    }
+    expect(readinessResponse.ok(), `fixture readiness GET ${b}/api/tables`).toBe(true);
 
     // Cast every zero-cost creature for both seats, declining early attack
     // declarations until seat 0 has the seven attackers this menu test needs.
