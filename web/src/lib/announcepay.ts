@@ -10,24 +10,31 @@ import { findCardAnywhere } from './board';
  * R-E4-2 (the client is rules-ignorant): castability is the engine's planner
  * verdict already on the wire (a payment action with at least one plan), and
  * every button posts an option the server offered, by its own index (R-E4-1).
+ * The one exception is ManaBrew, whose wire cannot carry payment plans: it
+ * offers a plan-less action that the announce route answers (see
+ * castableActions below).
  */
 
 const SLOTS = ['W', 'U', 'B', 'R', 'G', 'C'] as const;
 
-/** announceActions are the plan-payable casts a seat with Auto-pay OFF
- *  announces: a priority decision's payment actions that carry a plan and
- *  have no legacy cast option (the pool alone cannot pay yet). A cast the
- *  pool already pays keeps its legacy option, exactly as today. */
+/** announceActions are casts a seat with Auto-pay OFF may announce: priority
+ *  payment actions with no legacy cast option. Plan-less actions are used by
+ *  ManaBrew, whose wire cannot carry payment plans; announcing opens the
+ *  select-mana window. A cast the pool already pays keeps its legacy option. */
 export function announceActions(d: Decision | null, autoManaAvailable: boolean, autoPayMana: boolean): PaymentAction[] {
   if (d === null || d.kind !== 'priority' || !autoManaAvailable || autoPayMana) return [];
-  return (d.payment_actions ?? []).filter((a) => a.plans.length > 0 && (a.base_option_index === undefined || a.base_option_index === null));
+  return (d.payment_actions ?? []).filter((a) => a.base_option_index === undefined || a.base_option_index === null);
 }
 
-/** castableActions are every payment action CAST can reach from a hand card
- *  (a plan exists), whichever route the click takes. */
-export function castableActions(d: Decision | null, autoManaAvailable: boolean): PaymentAction[] {
+/** castableActions are every offered payment action CAST can reach from a hand
+ *  card. With Auto-pay OFF a plan-less ManaBrew action is reachable through
+ *  announce-then-pay (submitAnnounce); with Auto-pay ON castAction submits the
+ *  suggested plan and has no route for a plan-less action, so offering it
+ *  would render a dead CAST button. Exclude it there. */
+export function castableActions(d: Decision | null, autoManaAvailable: boolean, autoPayMana: boolean): PaymentAction[] {
   if (d === null || d.kind !== 'priority' || !autoManaAvailable) return [];
-  return (d.payment_actions ?? []).filter((a) => a.plans.length > 0);
+  const actions = d.payment_actions ?? [];
+  return autoPayMana ? actions.filter((a) => a.plans.length > 0) : actions;
 }
 
 /** manaWindow is the announced window, or null for any other decision. */

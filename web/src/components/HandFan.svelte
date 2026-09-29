@@ -200,7 +200,7 @@
            options badge + menu (each item posting its own index, R-E4-1),
            and the picked chip — adapted to the fan. -->
       {@const opt = options ? tileOptions(options, c.id) : null}
-      {@const payment = paymentActions.find((action) => action.cast.object === c.id && action.plans.length > 0)}
+      {@const payment = paymentActions.find((action) => action.cast.object === c.id)}
       {@const landPlay = opt?.list.find((action) => action.kind === 'play_land')}
       <!-- Auto Mana already supplies CAST for its matching base cast. Keep
            unrelated offers visible, but remove that exact legacy duplicate. -->

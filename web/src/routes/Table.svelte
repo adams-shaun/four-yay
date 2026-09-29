@@ -523,7 +523,7 @@
              card-options index the board does (one mechanism, one index, one
              post path). -->
         {#if ownPlayer}
-          <HandFan player={ownPlayer} {cardWidth} {visible} {raise} options={boardOptions} paymentActions={castableActions(panel?.active ?? null, panel?.autoManaAvailable ?? false)} autoPay={panel?.autoPayMana ?? false} onCastPayment={(action, holdPriority) => panel?.castAction(action, holdPriority)} />
+          <HandFan player={ownPlayer} {cardWidth} {visible} {raise} options={boardOptions} paymentActions={castableActions(panel?.active ?? null, panel?.autoManaAvailable ?? false, panel?.autoPayMana ?? false)} autoPay={panel?.autoPayMana ?? false} onCastPayment={(action, holdPriority) => panel?.castAction(action, holdPriority)} />
         {/if}
       {/snippet}
       <aside class="rail" data-rail-side={railSide}>
