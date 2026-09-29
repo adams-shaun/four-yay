@@ -10,6 +10,10 @@
          hotkeys fire around it and its buttons must not steal Space). -->
     <div id="centre" style="width: 900px"></div>
     <div id="layout" style="position: fixed; top: 40px; right: 20px"></div>
+    <!-- hotkey-focus-nonaction pin: a battlefield CardTile, the named first
+         instance of the defect — role=button + tabindex=0, exactly the
+         ACTIVATABLE control focusOwnsKey defers to. -->
+    <div id="tile" style="width: 120px"></div>
     <!-- F3's persistent half: a modes ListPrompt whose chips stay enabled
          after a click, so the focus-released assertion cannot pass vacuously
          through a busy-disable cycle. -->

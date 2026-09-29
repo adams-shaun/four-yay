@@ -127,6 +127,17 @@ mount(CentreStrip, {
 // F1: the drawer the layout pill opens (the same layoutStore singleton).
 mount(LayoutDrawer, { target: document.querySelector('#layout')!, props: {} });
 
+// hotkey-focus-nonaction pin: a battlefield CardTile — role=button,
+// tabindex=0, no onclick of its own. A pointer click on it does nothing BUT
+// park focus, which is exactly what made focusOwnsKey drop the next
+// Space/Enter before lib/pointer's pointerRelease landed here (the named
+// first instance of the defect, alongside the CentreStrip pills F1 above).
+// Production defaults (hover etc.) are used: this is a real browser mount.
+mount(CardTile, {
+  target: document.querySelector('#tile')!,
+  props: { card: player.battlefield[0] },
+});
+
 // F4: the mana-payment panel with a stubbed window: one Mountain source
 // offering R, plus the window's four control actions. onPick records.
 const mpDecision: Decision & { mana_payment: { card: number; cost: { generic: number; mana: [number, number, number, number, number, number] }; owed: { generic: number; mana: [number, number, number, number, number, number] }; pool: [number, number, number, number, number, number] } } = {
