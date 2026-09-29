@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CARD_H_MAX, CARD_H_MIN, CARD_RATIO, GAP, HAND_ROW_MIN, pileWidth, rowFit, seatCardHeight, seatSize, shareOpponentSize, splitHeights } from './cardsizing';
+import { HAND_SCALE_DEFAULT, HAND_SCALE_MAX, HAND_SCALE_MIN } from './layoutprofile';
 
 describe('splitHeights — the board is one split plus one row unit', () => {
   it('the opponents take their share of everything but the strip', () => {
@@ -12,16 +13,39 @@ describe('splitHeights — the board is one split plus one row unit', () => {
 
   it('hand scale changes card and hand heights within its bounded range without losing board height', () => {
     const baseInput = { boardH: 1000, stripH: 40, split: 0.4, ownRows: 2, hand: true, handVisible: 0.72 };
-    const minScale = splitHeights({ ...baseInput, handScale: 0.6 });
-    const base = splitHeights({ ...baseInput, handScale: 1 });
-    const maxScale = splitHeights({ ...baseInput, handScale: 1.6 });
+    const minScale = splitHeights({ ...baseInput, handScale: HAND_SCALE_MIN });
+    const base = splitHeights({ ...baseInput, handScale: HAND_SCALE_DEFAULT });
+    const larger = splitHeights({ ...baseInput, handScale: 1.4 });
+    const maxScale = splitHeights({ ...baseInput, handScale: HAND_SCALE_MAX });
     const rest = 1000 - 40 - 384;
 
+    // Precondition: the three scaled heights actually differ from the default.
     expect(minScale.handCardH).toBeLessThan(base.handCardH);
     expect(maxScale.handCardH).toBeGreaterThan(base.handCardH);
+    expect(larger.handCardH).toBeGreaterThan(base.handCardH);
     expect(minScale.handH).toBeLessThan(base.handH);
-    expect(maxScale.handH).toBeGreaterThan(base.handH);
-    for (const s of [minScale, base, maxScale]) expect(s.ownH + s.handH).toBe(rest);
+    expect(larger.handH).toBeGreaterThan(base.handH);
+    expect(maxScale.handH).toBeGreaterThan(larger.handH);
+    // A bigger hand steals from the viewer's own rows, exactly in proportion:
+    // the two boxes always fill `rest`, so no card can overflow the board.
+    for (const s of [minScale, base, larger, maxScale]) expect(s.ownH + s.handH).toBe(rest);
+    // The MAX bound really is the bound: the viewer's own board keeps room.
+    expect(maxScale.ownH).toBeGreaterThan(0);
+  });
+
+  it('a tiny hand scale is floored at a readable card, and the default is the pre-scale number', () => {
+    // Precondition: this board is cramped enough that the floor binds at the
+    // minimum scale, and does NOT bind at the default — otherwise the two
+    // assertions below would be vacuous.
+    const baseInput = { boardH: 480, stripH: 40, split: 0.4, ownRows: 3, hand: true, handVisible: 0.72 };
+    const atMin = splitHeights({ ...baseInput, handScale: HAND_SCALE_MIN });
+    const atDefault = splitHeights({ ...baseInput, handScale: HAND_SCALE_DEFAULT });
+    expect(atMin.handCardH).toBe(60);
+    expect(atDefault.handCardH).toBeGreaterThan(60);
+    // Absent handScale is the default: the many existing callers keep the old numbers.
+    const absent = splitHeights({ ...baseInput, ownRows: 2, boardH: 1000, handVisible: 0.72, stripH: 40, split: 0.4 });
+    const explicit = splitHeights({ ...baseInput, ownRows: 2, boardH: 1000, handVisible: 0.72, stripH: 40, split: 0.4, handScale: HAND_SCALE_DEFAULT });
+    expect(absent).toEqual(explicit);
   });
 
   it('no hand (a spectator) gives the viewer side all of the rest', () => {
