@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/deck"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/state"
@@ -56,9 +57,28 @@ type Collector struct {
 // legal-offer walk per frame, priced against the hypothetical tapped-out pool
 // -- and it is the single most expensive derived fact in a capture. A replay
 // that only COMPARES its frames does not need it: see captureScratch.
-type noPotentialChars struct{ view.Chars }
+//
+// It also suppresses OwnDeck. The seat's genesis manifest is constant setup
+// metadata: no frame compares it, no event carries it, and attaching it costs
+// a per-capture Clone (view.Chars.OwnDeck) on this hot path. A seat that needs
+// the manifest gets it from the ordinary view / botpolicy.Board path
+// (bots.Env, searchseat), never from the observation frame.
+type noPotentialChars struct {
+	view.Chars
+	// keepPotential is true when the caller asked for the full offer walk
+	// (SampleOptions.ComparePotentialActions); false is the production
+	// scratch reuse.
+	keepPotential bool
+}
 
-func (noPotentialChars) PotentialActions(state.PlayerID) []decision.PotentialAction { return nil }
+func (c noPotentialChars) PotentialActions(p state.PlayerID) []decision.PotentialAction {
+	if c.keepPotential {
+		return c.Chars.PotentialActions(p)
+	}
+	return nil
+}
+
+func (noPotentialChars) OwnDeck(state.PlayerID) *deck.Manifest { return nil }
 
 func NewCollector(actor state.PlayerID) *Collector {
 	return &Collector{actor: actor, known: make(map[state.ObjID]uint32), byRef: []state.ObjID{0}}
@@ -110,11 +130,12 @@ func (c *Collector) capture(e *rules.Engine, burst []events.Event, scratch, with
 		return Frame{}, fmt.Errorf("invalid observation seat or engine")
 	}
 	c.introduced = nil
-	var chars view.Chars = e
-	if !withPotential {
-		c.noPot.Chars = e
-		chars = &c.noPot
-	}
+	// The observation frame never carries the seat's genesis manifest (see
+	// noPotentialChars); one reusable wrapper for both the recorded and the
+	// scratch capture keeps them byte-identical.
+	c.noPot.Chars = e
+	c.noPot.keepPotential = withPotential
+	var chars view.Chars = &c.noPot
 	v := view.Project(e.G, chars, c.actor, e.Pending())
 	v.Round = view.RoundOf(e.G, e.L.Events)
 	// Introduce only cards explicitly displayed to this seat. Traversal order is

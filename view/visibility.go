@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/adams-shaun/gorge/decision"
-	"github.com/adams-shaun/gorge/deck"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -119,12 +118,8 @@ func ProjectForControlledFor(g *state.Game, ch Chars, viewer state.PlayerID, vis
 	default:
 		v := project(g, ch, viewer, d, false, visSet)
 		v.Visibility = Seat.String()
-		if vis == Seat && g != nil && int(viewer) < len(g.Players) {
-			if manifests, ok := ch.(interface {
-				OwnDeck(state.PlayerID) *deck.Manifest
-			}); ok {
-				v.OwnDeck = manifests.OwnDeck(viewer)
-			}
+		if vis == Seat && g != nil && int(viewer) < len(g.Players) && ch != nil {
+			v.OwnDeck = ch.OwnDeck(viewer)
 		}
 		return v
 	}

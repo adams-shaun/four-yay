@@ -82,3 +82,32 @@ func TestOwnDeckIsOnlyInItsSeatProjection(t *testing.T) {
 		t.Fatal("published manifest mutation reached engine storage")
 	}
 }
+
+// forwardingChars is a view.Chars wrapper that changes nothing. It exists to
+// pin that OwnDeck is a member of the view.Chars INTERFACE, not an optional
+// capability probed by type assertion: a wrapper embeds the interface, so it
+// forwards every declared method and can only drop one by overriding it
+// deliberately. The pre-fix shape (assertion against the concrete ch) saw
+// only the embedded interface's methods, so this wrapper silently dropped the
+// manifest, and searchprobe's recorded and scratch captures disagreed on
+// own_deck -- a whole-module gate failure.
+type forwardingChars struct{ view.Chars }
+
+func TestOwnDeckSurvivesACharsWrapper(t *testing.T) {
+	c, diags := cards.ParseBytes("own-deck-wrapper.txt", []byte("Name:Wrapper Probe\nTypes:Creature\nPT:1/1\n"))
+	if len(diags) != 0 {
+		t.Fatal(diags)
+	}
+	c.Link()
+	deck := []*cards.Card{c, c, c}
+	e := rules.New(rules.Config{Seed: 3, Names: []string{"wrapped"}, Decks: [][]*cards.Card{deck}})
+	// Precondition: the raw engine projection carries the manifest, so a nil
+	// result below is the wrapper dropping it, not an empty fixture.
+	if direct := view.ProjectFor(e.G, e, 0, view.Seat, nil); direct.OwnDeck == nil {
+		t.Fatal("precondition: raw engine seat projection has no manifest")
+	}
+	wrapped := view.ProjectFor(e.G, forwardingChars{e}, 0, view.Seat, nil)
+	if wrapped.OwnDeck == nil || wrapped.OwnDeck.Name != "wrapped" || len(wrapped.OwnDeck.Main) != 1 || wrapped.OwnDeck.Main[0].Count != 3 {
+		t.Fatalf("wrapper dropped the own-deck manifest: %#v", wrapped.OwnDeck)
+	}
+}
