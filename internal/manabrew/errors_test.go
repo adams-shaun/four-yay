@@ -145,12 +145,12 @@ func TestErrorCodesMapping(t *testing.T) {
 	if o := tr.TranslateResponse(respFor(pe, mb.ActOutput{ActionID: "pay-x"}), pe, 1); o.Err == nil || o.Err.Code != mb.CodeUnknownActionID {
 		t.Fatalf("payment action not offered at all: want unknownActionId, got %v", o)
 	}
-	// A response to a prompt kind whose mapper has not landed is
-	// wrongPromptType, not a panic.
-	km := newDec(3, 1, decision.KTriggerOrder, decision.Option{Index: 0, Kind: "trigger", Label: "Trigger A"})
+	// dispatch.go's default arm: an unrecognised Kind (every real Kind is
+	// mapped as of MB-6) is ErrUnmapped, not a panic.
+	km := newDec(3, 1, decision.Kind("not_a_real_kind"), decision.Option{Index: 0, Kind: "trigger", Label: "Trigger A"})
 	msg, err := tr.Prompt(km, &v)
 	if !errors.Is(err, ErrUnmapped) {
-		t.Fatalf("trigger-order stub: want ErrUnmapped, got %v", err)
+		t.Fatalf("unrecognised kind: want ErrUnmapped, got %v", err)
 	}
 	_ = msg
 }
@@ -162,16 +162,14 @@ func TestErrorCodesMapping(t *testing.T) {
 // and MB-6 empty it by deleting rows -- a new engine kind fails the test the
 // way a new option kind fails TestKindsListsEveryKindOnce.
 func TestEveryDecisionKindTranslates(t *testing.T) {
-	// The kinds not yet filled, with the MB ticket that will.
-	pendingKinds := map[decision.Kind]string{
-		decision.KTriggerOrder: "MB-6",
-		decision.KArrange:      "MB-6",
-	}
+	// Every kind is filled as of MB-6: pendingKinds is empty.
+	pendingKinds := map[decision.Kind]string{}
 	translated := map[decision.Kind]string{
 		decision.KPriority: "MB-4", decision.KTarget: "MB-4", decision.KAttackers: "MB-4",
 		decision.KBlockers: "MB-4", decision.KMulligan: "MB-4",
 		decision.KModes: "MB-5", decision.KTriggerOptional: "MB-5", decision.KCommanderZone: "MB-5",
 		decision.KChoose: "MB-5", decision.KReplacement: "MB-5", decision.KStartingPlayer: "MB-5",
+		decision.KTriggerOrder: "MB-6", decision.KArrange: "MB-6",
 	}
 	if len(translated)+len(pendingKinds) != len(decision.Kinds) {
 		t.Fatalf("kind universe moved: %d kinds, %d translated, %d pending",
