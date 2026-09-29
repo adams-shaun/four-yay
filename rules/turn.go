@@ -10,6 +10,11 @@ import (
 )
 
 func (e *Engine) beginTurn(active state.PlayerID, skipUntap ...bool) {
+	if e.G.SkipTurns[active] > 0 {
+		e.emit(events.Event{Kind: events.SkipTurn, Player: active, Amount: -1})
+		e.beginTurn(e.G.NextAlive(active))
+		return
+	}
 	e.emit(events.Event{Kind: events.TurnChange, Player: active, Amount: e.G.Turn + 1})
 	// CR 500.7 riders apply to the particular queued extra turn, not every
 	// later turn of its controller. The variadic form keeps ordinary callers
@@ -1000,6 +1005,11 @@ func (e *Engine) advanceStep() {
 			grant := e.G.ExtraTurnQueue[len(e.G.ExtraTurnQueue)-1]
 			seat := grant.Player
 			if !e.G.Players[seat].Lost {
+				if e.G.SkipTurns[seat] > 0 {
+					e.emit(events.Event{Kind: events.SkipTurn, Player: seat, Amount: -1})
+					e.emit(events.Event{Kind: events.ExtraTurn, Player: seat, Amount: -1, Text: events.ExtraTurnSkippedText})
+					continue
+				}
 				// R:Event$ BeginTurn | ExtraTurn$ True | Skip$ True (Trouble in
 				// Pairs, Stranglehold, Ugin's Nexus, Gerrard's Hourglass
 				// Pendant): the granted seat skips the turn instead. The

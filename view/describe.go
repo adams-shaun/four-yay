@@ -49,6 +49,16 @@ func Describe(g *state.Game, ev events.Event) string {
 			return player(g, ev.Player) + " takes an extra turn"
 		}
 		return player(g, ev.Player) + " takes " + itoa(int64(ev.Amount)) + " extra turns"
+	case events.SkipTurn:
+		// Mirrors ExtraTurn: the grant is narrated, the -1 consumption at the
+		// skipped turn's boundary is the turn structure's own bookkeeping.
+		if ev.Amount < 0 {
+			return ""
+		}
+		if ev.Amount == 1 {
+			return player(g, ev.Player) + " skips their next turn"
+		}
+		return player(g, ev.Player) + " skips their next " + itoa(int64(ev.Amount)) + " turns"
 	case events.ExtraPhase:
 		// Only the grant is narrated; the consume (-1) and complete (-2)
 		// messages are the turn structure's own bookkeeping, the same silence

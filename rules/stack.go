@@ -2398,6 +2398,7 @@ func (e *Engine) askCrossModeCharmTargets(p state.PlayerID, source state.ObjID, 
 	// one-per-mode answer; the read exists so the ask cannot silently ignore a
 	// cap a caller put on it.
 	candidates, powerCap, powerCapped := e.totalPowerCappedCandidates(candidates, p, source, sub, 0)
+	candidates, cmcCap, cmcCapped := e.totalCMCCappedCandidates(candidates, p, source, sub, 0)
 	if len(candidates) < k {
 		return false
 	}
@@ -2415,10 +2416,18 @@ func (e *Engine) askCrossModeCharmTargets(p state.PlayerID, source state.ObjID, 
 				o.Value = int(e.Power(candidate.obj))
 			}
 		}
+		if cmcCapped && candidate.kind != "player" {
+			if co := e.G.Obj(candidate.obj); co != nil && co.Face() != nil {
+				o.Value = int(co.Face().ManaValue())
+			}
+		}
 		d.Options = append(d.Options, o)
 	}
 	if powerCapped {
 		d.MaxSum, d.Budgeted = powerCap, true
+	}
+	if cmcCapped {
+		d.MaxSum, d.Budgeted = cmcCap, true
 	}
 	e.ask(d)
 	return true
@@ -2631,6 +2640,48 @@ func (e *Engine) narrowDifferentControllers(targets []state.Target) []state.Targ
 // token the grammar cannot resolve returns ok=false -- the cap is then
 // simply not enforced (today's behaviour; measured, no corpus carrier
 // reaches this arm unresolvable, both carriers are the literal 10).
+
+func (e *Engine) maxTotalTargetCMC(p state.PlayerID, source state.ObjID, sa *cards.SA, x int32) (int, bool) {
+	v, ok := sa.Params["MaxTotalTargetCMC"]
+	if !ok {
+		return 0, false
+	}
+	if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
+		return n, true
+	}
+	ctx, okc := e.targetBoundCtx(p, source)
+	if !okc {
+		return 0, false
+	}
+	ctx.X = x
+	if n, resolved := effects.NumResolved(e, ctx, sa, "MaxTotalTargetCMC", 0); resolved {
+		return int(n), true
+	}
+	return 0, false
+}
+
+// totalCMCCappedCandidates is the target-walk half of MaxTotalTargetCMC$.
+// Mana values are nonnegative, so an object over the cap can never join a
+// legal subset. The decision's Value/MaxSum carries the subset sum constraint.
+func (e *Engine) totalCMCCappedCandidates(candidates []targetCandidate, p state.PlayerID, source state.ObjID, sa *cards.SA, x int32) ([]targetCandidate, int, bool) {
+	capCMC, ok := e.maxTotalTargetCMC(p, source, sa, x)
+	if !ok {
+		return candidates, 0, false
+	}
+	out := make([]targetCandidate, 0, len(candidates))
+	for _, c := range candidates {
+		if c.kind == "player" {
+			out = append(out, c)
+			continue
+		}
+		o := e.G.Obj(c.obj)
+		if o == nil || o.Face() == nil || int(o.Face().ManaValue()) > capCMC {
+			continue
+		}
+		out = append(out, c)
+	}
+	return out, capCMC, true
+}
 
 func (e *Engine) maxTotalTargetPower(p state.PlayerID, source state.ObjID, sa *cards.SA, x int32) (int, bool) {
 	v, ok := sa.Params["MaxTotalTargetPower"]
@@ -2859,6 +2910,7 @@ func (e *Engine) AskCopyTargets() bool {
 	// decision as Decision.MaxSum over Option.Value (below), exactly as the
 	// cast ask attaches it.
 	candidates, powerCap, powerCapped := e.totalPowerCappedCandidates(candidates, controller, o.ID, sa, o.X)
+	candidates, cmcCap, cmcCapped := e.totalCMCCappedCandidates(candidates, controller, o.ID, sa, o.X)
 	// Keep the original declaration's targets, including ones that have since
 	// become illegal. The StackCopy emission inherits the cast's stage split;
 	// when no split exists, assign flat targets by declaration position, never
@@ -2935,10 +2987,18 @@ func (e *Engine) AskCopyTargets() bool {
 				opt.Value = int(e.Power(candidate.obj))
 			}
 		}
+		if cmcCapped && candidate.kind != "player" {
+			if co := e.G.Obj(candidate.obj); co != nil && co.Face() != nil {
+				opt.Value = int(co.Face().ManaValue())
+			}
+		}
 		d.Options = append(d.Options, opt)
 	}
 	if powerCapped {
 		d.MaxSum, d.Budgeted = powerCap, true
+	}
+	if cmcCapped {
+		d.MaxSum, d.Budgeted = cmcCap, true
 	}
 	// Record the stage BEFORE the ask is answered: the answer's TargetsChosen
 	// clears the one-shot flag, so the resolveTop re-entry learns from this
@@ -3571,6 +3631,7 @@ func (e *Engine) askTarget(p state.PlayerID, source state.ObjID, sa *cards.SA) {
 	// bounds so `distinct` counts only candidates a legal selection can
 	// still take.
 	candidates, powerCap, powerCapped := e.totalPowerCappedCandidates(candidates, p, source, sa, 0)
+	candidates, cmcCap, cmcCapped := e.totalCMCCappedCandidates(candidates, p, source, sa, 0)
 	min, max, exclusive, distinct := e.oneEachTargetBounds(sa, candidates, min, max)
 	min, max, sameCapacity, sameController := e.sameControllerTargetBounds(sa, candidates, min, max)
 	min, max, setCapacity, setMode, setKind := e.setPropTargetBounds(sa, candidates, min, max)
@@ -3605,10 +3666,18 @@ func (e *Engine) askTarget(p state.PlayerID, source state.ObjID, sa *cards.SA) {
 				o.Value = int(e.Power(candidate.obj))
 			}
 		}
+		if cmcCapped && candidate.kind != "player" {
+			if co := e.G.Obj(candidate.obj); co != nil && co.Face() != nil {
+				o.Value = int(co.Face().ManaValue())
+			}
+		}
 		d.Options = append(d.Options, o)
 	}
 	if powerCapped {
 		d.MaxSum, d.Budgeted = powerCap, true
+	}
+	if cmcCapped {
+		d.MaxSum, d.Budgeted = cmcCap, true
 	}
 	if min == 0 {
 		// Requirement N2 / totality: a target-hungry subject whose minimum
@@ -5050,6 +5119,24 @@ func (e *Engine) legalTargets(targets []state.Target, sa *cards.SA, zones []stat
 		legal = e.narrowSameController(legal)
 	}
 	legal = e.narrowSetProps(sa, legal)
+	x := int32(0)
+	if o := e.G.Obj(self); o != nil {
+		x = o.X
+	}
+	if capCMC, capped := e.maxTotalTargetCMC(you, source, sa, x); capped {
+		total := 0
+		for _, target := range legal {
+			if target.IsPlayer {
+				continue
+			}
+			if o := e.G.Obj(target.Obj); o != nil && o.Face() != nil {
+				total += int(o.Face().ManaValue())
+			}
+		}
+		if total > capCMC {
+			return nil
+		}
+	}
 	return legal
 }
 
@@ -6316,7 +6403,7 @@ func targetsPermanents(spec string) bool {
 // (unlessFoldDynamic / unlessEnergyAffordable), so the gate and the charge
 // can never disagree.
 func (e *Engine) payUnlessCost(p state.PlayerID, cost Cost, ctx *effects.Ctx, stackObj state.ObjID) bool {
-	if len(cost.Sac) != 0 || len(cost.Discard) != 0 || len(cost.Reveal) != 0 || len(cost.RevealOrChoose) != 0 || len(cost.RevealChosen) != 0 || len(cost.Return) != 0 || len(cost.Exile) != 0 {
+	if len(cost.Sac) != 0 || len(cost.Discard) != 0 || len(cost.Reveal) != 0 || len(cost.Behold) != 0 || len(cost.RevealOrChoose) != 0 || len(cost.RevealChosen) != 0 || len(cost.Return) != 0 || len(cost.Exile) != 0 {
 		return false
 	}
 	if int(p) < 0 || int(p) >= len(e.G.Players) {

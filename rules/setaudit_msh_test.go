@@ -142,8 +142,6 @@ func TestSetAudit_msh_BraveBrawler_PowerUpCostReducedOnEntryTurn(t *testing.T) {
 		t.Fatalf("precondition: Power-up ability not offered with the full printed cost funded")
 	}
 	if got := opt.Cost; got != "3" {
-		setAuditGuard(t, "Brave Brawler's Power-up cost is unreduced ("+got+") when it entered this turn; it requires {4}{W} instead of {3}",
-			"Apply Power-up's entry-turn cost reduction (CR 702.193b)")
 		t.Fatalf("Power-up cost = %q, want %q (CR 702.193b)", got, "3")
 	}
 	replayCheck(t, e, cfg)
@@ -293,15 +291,14 @@ func TestSetAudit_msh_BraveBrawler_PowerUpOnlyOnce(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// (b) Pump stat ops: NumAtt$/NumDef$ "Double" IS implemented.
+// (b) Pump stat ops: NumAtt$/NumDef$ "Double" is implemented.
 //
 // Wolverine, Claws Out: "Whenever a Mutant you control attacks, double its
 // power until end of turn." Forge: DB$ Pump | Defined$ ... | NumAtt$ Double.
-// A "Double" op reads the creature's CURRENT power and adds that much again
-// (CR 107.3 / the pump's own definition), resolved per affected object at
-// resolution time (effects.NumForObject). 36 corpus files carry NumAtt$/
-// NumDef$ Double (three in msh: Epic Fight, World War Hulk III, Wolverine
-// Claws Out).
+// A "Double" op reads the creature's CURRENT layer-derived power and adds
+// that much again (CR 107.3), resolved per affected object at resolution time
+// (effects.NumForObject). 36 corpus files carry NumAtt$/NumDef$ Double (three
+// in msh: Epic Fight, World War Hulk III, Wolverine Claws Out).
 // ---------------------------------------------------------------------------
 func TestSetAudit_msh_WolverineClawsOut_DoublePower(t *testing.T) {
 	reg := searchTestRegistry(t)

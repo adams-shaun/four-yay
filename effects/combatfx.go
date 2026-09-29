@@ -405,13 +405,12 @@ func effPump(h Host, c *Ctx, sa *cards.SA) {
 			c.Remembered = append(c.Remembered, t)
 			eventRemember(h, c, t.Obj)
 		}
-		// The amounts are resolved PER OBJECT: a `Double` amount means this
-		// object's own layer-derived power/toughness, so a multi-object
-		// `Defined$ Valid Creature.YouCtrl` must not apply one creature's stat
-		// to every creature (NumForObject is the token's one home).
+		// Resolve amounts PER OBJECT: Double reads this object's own
+		// layer-derived power/toughness, so a multi-object Defined$ must not
+		// apply one creature's stat to every creature.
 		att := NumForObject(h, c, sa, "NumAtt", 0, o.ID)
 		def := NumForObject(h, c, sa, "NumDef", 0, o.ID)
-		registerPumpEffects(h, c, o.ID, att, def, sa, zone, chosenKW)
+		registerPumpEffects(h, c, o.ID, att, def, false, false, sa, zone, chosenKW)
 		if atEOTInclude(h, c, sa, o.ID) {
 			ateotIDs = append(ateotIDs, o.ID)
 		}
@@ -493,7 +492,9 @@ func effPumpAll(h Host, c *Ctx, sa *cards.SA) {
 							c.Remembered = append(c.Remembered, state.Target{Obj: id})
 							eventRemember(h, c, id)
 						}
-						registerPumpEffects(h, c, id, NumForObject(h, c, sa, "NumAtt", 0, id), NumForObject(h, c, sa, "NumDef", 0, id), sa, zone, nil)
+						att := NumForObject(h, c, sa, "NumAtt", 0, id)
+						def := NumForObject(h, c, sa, "NumDef", 0, id)
+						registerPumpEffects(h, c, id, att, def, false, false, sa, zone, nil)
 						ateotIDs = append(ateotIDs, id)
 					}
 				}
@@ -506,7 +507,9 @@ func effPumpAll(h Host, c *Ctx, sa *cards.SA) {
 					c.Remembered = append(c.Remembered, state.Target{Obj: id})
 					eventRemember(h, c, id)
 				}
-				registerPumpEffects(h, c, id, NumForObject(h, c, sa, "NumAtt", 0, id), NumForObject(h, c, sa, "NumDef", 0, id), sa, "", nil)
+				att := NumForObject(h, c, sa, "NumAtt", 0, id)
+				def := NumForObject(h, c, sa, "NumDef", 0, id)
+				registerPumpEffects(h, c, id, att, def, false, false, sa, "", nil)
 				ateotIDs = append(ateotIDs, id)
 			}
 		}
@@ -550,7 +553,16 @@ func durationTiming(dur string) (permanent bool, untilEOT bool) {
 // move-driven lifetime rides BOTH halves below -- the one per-object
 // structural home, exactly as the Animate site registers through
 // registerAnimateEffects.
-func registerPumpEffects(h Host, c *Ctx, id state.ObjID, att, def int32, sa *cards.SA, zone string, chosenKW []string) {
+// pumpStatAmount keeps Double as an operation until layer 7c, where the
+// recipient's current characteristic at this effect's timestamp is available.
+func pumpStatAmount(h Host, c *Ctx, sa *cards.SA, key string) (int32, bool) {
+	if strings.EqualFold(strings.TrimSpace(sa.Params[key]), "Double") {
+		return 0, true
+	}
+	return Num(h, c, sa, key, 0), false
+}
+
+func registerPumpEffects(h Host, c *Ctx, id state.ObjID, att, def int32, doublePower, doubleToughness bool, sa *cards.SA, zone string, chosenKW []string) {
 	kws := cards.SplitKeywordList(sa.Params["KW"])
 	kws = append(kws, chosenKW...)
 	// Suspend is unusual among keyword grants: its target is commonly an
@@ -594,11 +606,12 @@ func registerPumpEffects(h Host, c *Ctx, id state.ObjID, att, def int32, sa *car
 			}
 		}
 	}
-	if att != 0 || def != 0 {
+	if att != 0 || def != 0 || doublePower || doubleToughness {
 		h.AddContinuous(state.ContinuousEffect{
 			Source: id, Affects: "Card.Self", Controller: c.Controller,
 			Layer: state.LPT, Sub: state.SubModify,
 			AddPower: att, AddToughness: def,
+			DoublePower: doublePower, DoubleToughness: doubleToughness,
 			Duration: sa.Params["Duration"], Permanent: permanent, UntilEOT: untilEOT,
 			ExileOnMoved: exileOn, Remembered: remembered,
 			AffectedZone: zone,

@@ -118,6 +118,8 @@ import (
 	"text/tabwriter"
 
 	"github.com/adams-shaun/gorge/botpolicy"
+	"github.com/adams-shaun/gorge/bots"
+	_ "github.com/adams-shaun/gorge/bots/all"
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/deck"
@@ -403,7 +405,7 @@ func setTacticalRegistry(reg *cards.Registry) {
 
 func hostedPolicy(name string) func(seed uint64) seat.Seat {
 	return func(seed uint64) seat.Seat {
-		s, err := host.NewBotPolicySeat(name, seed)
+		s, err := bots.New(name, bots.Options{Seed: seed})
 		if err != nil {
 			panic(err) // constants above are the closed hosted-policy vocabulary.
 		}

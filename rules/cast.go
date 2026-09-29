@@ -2834,6 +2834,11 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 			// fallback for stale options submitted after the designation changed.
 			cost = Cost{Generic: 2}
 		}
+	case "airbend_cast":
+		// CR 701.65a: the airbent card's recast pays {2} rather than its mana
+		// cost. Cost modifiers (CR 601.2f) apply later in manaToPay, exactly
+		// like the other alternative-cost recasts.
+		cost = Cost{Generic: 2}
 	case "flashback":
 		cost = e.flashbackCost(id)
 	case "mayplay":
@@ -8836,6 +8841,7 @@ func (e *Engine) targetAsk() bool {
 	// mirrors it. A candidate whose power alone fits but whose combination
 	// busts the cap stays offered: the wire contract rejects the combination.
 	candidates, powerCap, powerCapped := e.totalPowerCappedCandidates(candidates, pc.player, pc.card, sa, pc.x)
+	candidates, cmcCap, cmcCapped := e.totalCMCCappedCandidates(candidates, pc.player, pc.card, sa, pc.x)
 	// Forge's per-controller selection shapes (TargetsForEachPlayer$ one per
 	// player; TargetsWithDifferentControllers$ one per controller): the same
 	// bounds/group/capacity read the trigger-path askTarget uses, so a OneEach
@@ -8950,10 +8956,18 @@ func (e *Engine) targetAsk() bool {
 				o.Value = int(e.Power(candidate.obj))
 			}
 		}
+		if cmcCapped && candidate.kind != "player" {
+			if co := e.G.Obj(candidate.obj); co != nil && co.Face() != nil {
+				o.Value = int(co.Face().ManaValue())
+			}
+		}
 		d.Options = append(d.Options, o)
 	}
 	if powerCapped {
 		d.MaxSum, d.Budgeted = powerCap, true
+	}
+	if cmcCapped {
+		d.MaxSum, d.Budgeted = cmcCap, true
 	}
 	if pickOwed {
 		// The multi-opponent Opponent form (agent-20260925T085158Z-c861188d):
@@ -11570,6 +11584,14 @@ func init() {
 		// (the mandatory either-or additional cost choice).
 		"kw:Evoke", "kw:Dash", "kw:Overload", "kw:Warp", "kw:Madness",
 		"kw:Encore", "kw:AlternateAdditionalCost",
+		// kw:Mayhem (the Doom Prevails keyword): the graveyard recast and
+		// the bare parameterless land-play form are read directly off the
+		// K: line (rules/legal.go's offers, rules/cast.go's charge,
+		// rules/cast_provenance.go's Spell.Mayhem condition), so the census
+		// is told here exactly as the family above is. Proof tests:
+		// mayhem_test.go, mayhem_castsa_test.go, mayhem_land_play_test.go,
+		// mayhem_granted_test.go.
+		"kw:Mayhem",
 		// kw:Unearth (CR 702.84): the graveyard return is an ordinary
 		// activated ability cards/kw_unearth.go expands from the K: line,
 		// and its three riders are rules-layer (rules/unearth.go) -- the

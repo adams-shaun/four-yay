@@ -1023,6 +1023,15 @@ func (s *scan) scanRangeWhitelist(t *testing.T, fset *token.FileSet, fi *fnInfo,
 		if pkg == "effects" && fname == "saMentionsGoaded" {
 			return
 		}
+		// abilityReferencesX (effects/flipcoin.go) recognizes the standalone
+		// token "X" in any parameter value along an ability's Sub chain, so a
+		// NoCall$ True coin-flip outcome branch fires once with the total
+		// (Ral Zarek, Guest Lecturer's NumTurns$ X) instead of once per
+		// matching flip. Recognition only; it reads no key and consumes no SA
+		// parameter.
+		if pkg == "effects" && fname == "abilityReferencesX" {
+			return
+		}
 		// A copy loop (`for k, v := range src.Params { dst.Params[k] = v }`)
 		// is not a read: every use of the key sits in a write-position index.
 		if rangeKeyIsWriteOnly(rs, keyIdent.Name, writes) {
@@ -1899,6 +1908,12 @@ var handRoots = struct {
 		// shape mustAttackRequired has. Its reads are the shared
 		// EffectZone$/ValidCard$ static gate.
 		"CantBeCopied": {"Engine.SpellCopyAllowed"},
+		// tapPowerValue is the caller of the TapPowerValue literal root
+		// tapPowerValueStatics (activeStatics("TapPowerValue")): it reads the
+		// matched static's own ValidSA$/ValidCard$/Value$ from one shared
+		// helper, so a caller of the collector root is not reachable FROM
+		// that root and must be declared here -- the AttackRestrict shape.
+		"TapPowerValue": {"Engine.tapPowerValue"},
 	},
 	// The trigger-queue drain and the stack-resolution paths read trigger
 	// params (OptionalDecider$, TriggerDescription$, Static$, ValidCard$)

@@ -850,6 +850,48 @@ func (e *Engine) ownManaReduction(p state.PlayerID, id state.ObjID, ab *cards.SA
 	return red, true
 }
 
+// powerUpReducedCost applies CR 702.193b to an activated Power-up ability.
+// The reduction is computed from the permanent's own face mana cost and is
+// active only during the turn it entered. This helper is shared by the offer
+// and activation paths so the displayed/validated cost equals the charge.
+func (e *Engine) powerUpReducedCost(id state.ObjID, ab *cards.SA, cost Cost) Cost {
+	if ab == nil || !strings.EqualFold(strings.TrimSpace(ab.Params["PowerUp"]), "True") {
+		return cost
+	}
+	o := e.G.Obj(id)
+	if o == nil || !o.EnteredThisTurn || o.Face() == nil {
+		return cost
+	}
+	reduction := e.parseCost(o.Face().ManaCost)
+	// Generic mana reduces only generic mana. Each colored/colorless symbol
+	// reduces its matching symbol first; any excess of that symbol reduces
+	// generic mana (CR 118.7).
+	if reduction.Generic > 0 {
+		n := reduction.Generic
+		if n > cost.Generic {
+			n = cost.Generic
+		}
+		cost.Generic -= n
+	}
+	for i := range reduction.Colored {
+		n := reduction.Colored[i]
+		if n <= 0 {
+			continue
+		}
+		matched := n
+		if matched > cost.Colored[i] {
+			matched = cost.Colored[i]
+		}
+		cost.Colored[i] -= matched
+		left := n - matched
+		if left > cost.Generic {
+			left = cost.Generic
+		}
+		cost.Generic -= left
+	}
+	return cost
+}
+
 // ownReduceCostOffer is ownReduceCost's offer-time reading for a body that
 // reads a ROOT target ref (Targeted$CardPower, CR 702.6's equip target). The
 // ability's own targets do not exist until CR 601.2c, so a plain nil-target
@@ -1469,6 +1511,49 @@ func (e *Engine) targetSAAvailable(p state.PlayerID, id, excludeSelf state.ObjID
 		return true
 	}
 	if xPending && specNamesXBound(sa.Params["ValidTgts"]) {
+		return true
+	}
+	if capCMC, capped := e.maxTotalTargetCMC(p, id, sa, x); capped {
+		candidates := e.legalTargetCandidates(p, id, excludeSelf, sa)
+		candidates, _, _ = e.totalCMCCappedCandidates(candidates, p, id, sa, x)
+		if !e.targetChoiceFeasible(sa, candidates, min) {
+			return false
+		}
+		// A subset-sum cap binds even when enough individually legal
+		// candidates exist: the cheapest `min` of them is the minimal-sum
+		// subset of that size (mana values are nonnegative), so if it busts
+		// the cap no legal subset does. Every current corpus carrier has
+		// TargetMin$ 0, so this arm is prophylactic. Derive the effective
+		// minimum the same way targetChoiceFeasible does (the OneEach/
+		// same-controller/set-property bounds can lower min) so both readers
+		// reason about the same count.
+		eff := min
+		eff, _, _, _ = e.oneEachTargetBounds(sa, candidates, eff, 0)
+		eff, _, _, _ = e.sameControllerTargetBounds(sa, candidates, eff, 0)
+		eff, _, _, _, _ = e.setPropTargetBounds(sa, candidates, eff, 0)
+		if eff > 0 {
+			vms := make([]int, 0, len(candidates))
+			for _, c := range candidates {
+				if c.kind == "player" {
+					// Players are valid members of a target set and contribute
+					// zero to its total mana value.
+					vms = append(vms, 0)
+					continue
+				}
+				if o := e.G.Obj(c.obj); o != nil && o.Face() != nil {
+					vms = append(vms, int(o.Face().ManaValue()))
+				}
+			}
+			if len(vms) < eff {
+				return false
+			}
+			slices.Sort(vms)
+			total := 0
+			for _, mv := range vms[:eff] {
+				total += mv
+			}
+			return total <= capCMC
+		}
 		return true
 	}
 	if !targetCrossConstrained(sa) {
@@ -3486,6 +3571,24 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 					Label: "Cast " + f.Name + " (plotted)", Obj: id, Mode: "plot_cast"})
 			}
 		}
+		// Airbend recast (CR 701.65a): a card airbent into exile may be cast
+		// by its OWNER for {2} rather than its mana cost, for as long as it
+		// remains exiled. The provenance is log-derived (airbendCastAvailable:
+		// the exile move's effects.AirbendExileCounter marker), the same shape
+		// the warp and foretell offers in this walk take; the offer rides the
+		// card's own timing and targets exactly like warp_recast. The block
+		// sits BEFORE the warp gate's continue: a non-warp card (every airbent
+		// card) would otherwise never reach it.
+		if e.airbendCastAvailable(id) && !castRestricted(p, id) && !e.castSuppressed(p, id) {
+			instantSpeed := f.IsInstant() || e.hasKeywordH(id, kwhFlash)
+			if (instantSpeed || sorcery) && e.spellTimingOK(p, id, f, sorcery) &&
+				e.castTargetsAvailable(p, id, f.SpellAbility()) {
+				if offerCastable(p, id, Cost{Generic: 2}, spellScope("airbend_cast"), false) {
+					out = append(out, decision.Option{Index: len(out), Kind: "cast",
+						Label: "Cast " + f.Name + " (airbent)", Obj: id, Mode: "airbend_cast"})
+				}
+			}
+		}
 		_, ok := keywordAltCost(f, "Warp")
 		if !ok || !e.warpRecastAvailable(id) || castRestricted(p, id) || e.castSuppressed(p, id) {
 			continue
@@ -3773,6 +3876,7 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 						} else if n > 0 {
 							cost.Generic = 0
 						}
+						cost = e.powerUpReducedCost(id, ab, cost)
 						if activationTapCostUnavailable(o, cost) || e.tapCostSick(id, cost) {
 							continue
 						}
@@ -3898,6 +4002,7 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 						} else if n > 0 {
 							cost.Generic = 0
 						}
+						cost = e.powerUpReducedCost(id, ab, cost)
 						if !offerCastable(p, id, cost, abilityScope(ab), true) {
 							continue
 						}

@@ -175,8 +175,10 @@ func forEachPlayerFlippers(h Host, c *Ctx, spec string) ([]state.PlayerID, bool)
 // Parameters read:
 //   - WinSubAbility$ (heads) / LoseSubAbility$ (tails), and the NoCall$
 //     lines' spellings HeadsSubAbility$ / TailsSubAbility$ — same heads/tails
-//     mapping, NoCall$ itself is cosmetic (Forge uses it to suppress the
-//     "calls heads" announcement this build never makes).
+//     mapping. A NoCall$ True line defers its branches until the flip loop is
+//     complete. Branches that reference X run once with the total for their
+//     side; branches independent of X run once per matching flip (Urza
+//     Academy Headmaster's literal one-extra-turn grant per head).
 //   - Amount$ (default 1): that many independent flips, each running its own
 //     branch (TrigFlipCoins' "flip three coins" shape). An unresolvable value
 //     degrades to one flip, the RollDice convention — a flip that happened
@@ -208,6 +210,22 @@ func forEachPlayerFlippers(h Host, c *Ctx, spec string) ([]state.PlayerID, bool)
 //     the losing flip. A win branch that suspends on an ask does NOT abandon
 //     the loop: the remaining cursor rides SuspendFlipRest and the host
 //     re-enters this primitive once the answered ask's chain completes.
+func abilityReferencesX(sa *cards.SA) bool {
+	for cur := sa; cur != nil; cur = cur.Sub {
+		for _, value := range cur.Params {
+			for _, token := range strings.FieldsFunc(value, func(r rune) bool {
+				return !((r >= 'A' && r <= 'Z') || (r >= 'a' && r <= 'z') ||
+					(r >= '0' && r <= '9') || r == '_')
+			}) {
+				if token == "X" {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
 func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
 	untilLose := strings.EqualFold(sa.Params["FlipUntilYouLose"], "True")
@@ -246,6 +264,11 @@ func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 		players, playerIndex, iter = rest.Players, rest.PlayerIndex, rest.Iter
 		amount, untilLose = rest.Amount, rest.UntilLose
 	} else {
+		// X for a coin-flip resolution: the per-flip outcome branches see the
+		// heads tally so far (reset here, one win each). A NoCall$ True branch
+		// ignores this running tally — its deferred call below sets X to the
+		// side's final total before it fires.
+		c.X = 0
 		if spec := strings.TrimSpace(sa.Params["ForEachPlayer"]); forEach {
 			ps, ok := forEachPlayerFlippers(h, c, spec)
 			if !ok {
@@ -272,6 +295,8 @@ func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 
+	wins, losses := int32(0), int32(0)
+	noCall := strings.EqualFold(sa.Params["NoCall"], "True")
 	for pi := playerIndex; pi < len(players); pi++ {
 		p := players[pi]
 		if int(p) < 0 || int(p) >= len(g.Players) || g.Players[p].Lost {
@@ -285,6 +310,12 @@ func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 			win := h.Rand(2) == 0
 			h.Emit(FlipCoinNote(c.Source, p, win))
 			flipRecord(h, c, p, win, rememberResult, rememberKind)
+			if win {
+				c.X++
+				wins++
+			} else {
+				losses++
+			}
 			if forEach || rememberLoser {
 				// The per-player loop binds the current flipper for the chained
 				// sub; RememberLoser$ remembers only the losing flipper, so a win
@@ -297,7 +328,7 @@ func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 			if win {
 				name = winName
 			}
-			if name != "" && c.SVars != nil {
+			if !noCall && name != "" && c.SVars != nil {
 				Resolve(h, c, cards.ResolveSVar(c.SVars, name))
 				if h.Suspended() {
 					// Only a suspension with flips still owed needs a cursor. A
@@ -330,6 +361,41 @@ func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 			if untilLose && !win {
 				break
 			}
+		}
+	}
+	// NoCall$ True defers its outcome branches until all flips are known.
+	// X-dependent branches need one call with the final tally (e.g. Ral
+	// Zarek's NumTurns$ X); branches independent of X are still per-outcome
+	// effects (e.g. Urza Academy Headmaster grants one extra turn per head).
+	// A suspended branch resumes as an ordinary chained resolution: all flips
+	// already happened, so no FlipRest cursor is owed.
+	if noCall && c.SVars != nil {
+		resolveOutcome := func(name string, count int32) bool {
+			if name == "" || count == 0 {
+				return false
+			}
+			branch := cards.ResolveSVar(c.SVars, name)
+			if branch == nil {
+				return false
+			}
+			calls := count
+			if abilityReferencesX(branch) {
+				calls = 1
+				c.X = count
+			}
+			for i := int32(0); i < calls; i++ {
+				Resolve(h, c, branch)
+				if h.Suspended() {
+					return true
+				}
+			}
+			return false
+		}
+		if resolveOutcome(winName, wins) {
+			return
+		}
+		if resolveOutcome(loseName, losses) {
+			return
 		}
 	}
 }

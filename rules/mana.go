@@ -2140,6 +2140,7 @@ func (e *Engine) abilityOfferCost(p state.PlayerID, id state.ObjID, ab *cards.SA
 	} else if n > 0 {
 		cost.Generic = 0
 	}
+	cost = e.powerUpReducedCost(id, ab, cost)
 	return formatCost(e.offerCostFor(p, id, cost, abilityScope(ab)))
 }
 
@@ -3278,7 +3279,7 @@ func (c Cost) Pay(p state.Mana) (state.Mana, bool) {
 // Mandatory marker.
 // Anything else — an unfolded X/Y/Z (UnlessCostResolved folds an announced X
 // and resolvable SVar bodies first; an unbound X never prices here),
-// DamageYou<N> (the Sacrifice arm's own path), Behold<...>, tapXType<...>,
+// DamageYou<N> (the Sacrifice arm's own path), BeholdExile<...>, tapXType<...>,
 // CopyCost, or any prose —
 // reports ok=false, and the unless-pay arm treats that as a hard decline
 // (the conservative read: a payer who "pays" a cost the engine cannot price
@@ -3389,17 +3390,31 @@ func ParseUnlessCost(s string) (Cost, bool) {
 			// reveals N hand cards matching the spec. It parses like the other
 			// component heads and PAYS through the beginUnlessPayment
 			// continuation (payUnlessCost refuses it, exactly like Sac/Discard).
-			// The other choiceCost heads, Behold<...> and tapXType<...>, stay
-			// hard declines — no corpus UnlessCost$ carries either.
+			//
+			// Behold<N/Spec> (CR 702.176, Elven Passage's "you may behold an
+			// Elf") is the same shape one zone wider: the payer elects a
+			// permanent matching Spec they control OR a card matching Spec in
+			// their hand. It parses here and PAYS through the same continuation,
+			// with the candidate enumeration shared with the cast flow's Behold
+			// cost so the offer and the settlement cannot disagree.
+			//
+			// BeholdExile<N/...> and tapXType<...> stay hard declines: no corpus
+			// UnlessCost$ carries either, and BeholdExile's then-exile settlement
+			// is a distinct behaviour that must land with its own test.
 			if m := choiceCost.FindStringSubmatch(sym); m != nil {
-				if m[1] != "Reveal" {
+				if m[1] != "Reveal" && m[1] != "Behold" {
 					return Cost{}, false
 				}
 				n, err := strconv.ParseInt(m[2], 10, 64)
 				if err != nil || n <= 0 || n > int64(math.MaxInt32) {
 					return Cost{}, false
 				}
-				c.Reveal = append(c.Reveal, CostPart{N: int32(n), Spec: strings.ReplaceAll(m[3], ";", ","), Desc: m[4]})
+				part := CostPart{N: int32(n), Spec: strings.ReplaceAll(m[3], ";", ","), Desc: m[4]}
+				if m[1] == "Reveal" {
+					c.Reveal = append(c.Reveal, part)
+				} else {
+					c.Behold = append(c.Behold, part)
+				}
 				continue
 			}
 			// A fixed Mill<N> is the choice-free mill-keep cost (Deep Spawn's

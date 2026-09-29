@@ -63,6 +63,10 @@ so most of these hurt someone other than you.
   one: the ratchets fail both ways.
 - **Don't move `TestHeads` goldens without naming the first diverging event**
   in the commit body.
+- **Don't add a fuzz test to the default build.** A `Fuzz*` target or a
+  seed-sweep test starts with `//go:build fuzz` and runs via `make fuzz` or
+  `go test -tags fuzz`; the default suite and the pipeline gates skip it.
+  Regression tests pinning a fixed fuzz finding stay untagged.
 - **Don't raise a `budget_s`** without a `Test-Budget-Approved:` trailer.
 - **Don't grow `AGENTS.md` with detail.** It is loaded on every agent turn.
   Put the detail in `docs/agents/` or `docs/superpowers/` and link to it.
