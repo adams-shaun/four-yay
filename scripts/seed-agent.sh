@@ -235,11 +235,25 @@ if [ "${STORM_N:-0}" -ge 10 ] && [ "$STORM_LIVE" = 1 ]; then
 	if marker_new "storm-$STORM_P"; then
 		b=$(brief_file)
 		{
+			# The cause is NOT asserted here. Earlier this block named a
+			# remembered cause ("a vLLM model-id rename"); on 2026-09-29 that
+			# sent a whole round chasing a rename that did not exist while an
+			# upstream 503 that had ALREADY recovered was the real story. A
+			# storm is a symptom, and the seat's first job is to measure
+			# which cause is present -- so the brief names the signals to
+			# read, not a conclusion to assume.
 			printf '# The %s seat tier is failing every launch\n\n' "$STORM_P"
 			printf '%s provider_failure/endpoint_down entries in the last 30 minutes at head `%s`.\n\n' "$STORM_N" "$HEAD_SHA"
-			printf 'Known cause class (memory, 2026-09-26): a vLLM model-id rename makes every\n'
-			printf 'launch return no output while auth still reads ready. Check the served id\n'
-			printf 'first: `curl -s $endpoint/v1/models`, then compare with the TOML tier model.\n'
+			printf 'Measure the cause before changing anything; do not assume one. In order:\n\n'
+			printf '1. Is the endpoint answering NOW? `curl -s $endpoint/v1/models` (the baseUrl\n'
+			printf '   is in pi\x27s models.json and the TOML tier; a 5xx/`000` means the storm\n'
+			printf '   may already be over).\n'
+			printf '2. Does the SERVED model id equal the tier model? A vLLM/SGLang rename makes\n'
+			printf '   every launch return no output while auth still reads ready -- compare the\n'
+			printf '   id from step 1 against the TOML tier `model` and `~/.ds4/local-seat.env`.\n'
+			printf '3. What does the journal say the failures were, and when was the LAST one?\n'
+			printf '   `endpoint_down` with a recent 5xx transcript is an upstream outage, not a\n'
+			printf '   config error; a storm that stopped appending is HISTORY.\n'
 			printf '\n## Done means\n\nA launched seat produces an assistant turn with output, and the journal\n'
 			printf 'stops appending provider_failure for this provider.\n'
 		} >"$b"
