@@ -331,30 +331,22 @@
        machine pause outranks both: this is the only always-visible status in
        the live strip (its nested SeatPanel deliberately hides the autobar),
        so the chip also becomes the Auto switch that its text says resumes. -->
-  {#if logic.machinePaused}
-    <button
-      class="mode-chip paused"
-      type="button"
-      data-play-mode="paused"
-      data-auto-status
-      data-auto-note
-      aria-live="polite"
-      aria-label={autoStatus}
-      title={autoStatus}
-      onclick={() => logic.pressAuto()}
-    ><span aria-hidden="true">AUTO</span></button>
-  {:else}
-    <span
-      class="mode-chip"
-      class:run={runLive}
-      class:warning={logic.hardSkip}
-      data-play-mode={playMode}
-      data-auto-status
-      aria-live="polite"
-      aria-label={`Auto: ${autoStatus}`}
-      title={`Auto: ${autoStatus}`}
-    ><span aria-hidden="true">AUTO</span></span>
-  {/if}
+  <button
+    class="mode-chip"
+    class:paused={logic.machinePaused}
+    class:run={runLive}
+    class:warning={logic.hardSkip}
+    type="button"
+    role="switch"
+    aria-checked={logic.auto && !logic.machinePaused}
+    data-play-mode={logic.machinePaused ? 'paused' : playMode}
+    data-auto-status
+    data-auto-note={logic.machinePaused ? '' : undefined}
+    aria-live="polite"
+    aria-label={`Auto: ${autoStatus}`}
+    title={`Auto: ${autoStatus}`}
+    onclick={() => logic.pressAuto()}
+  ><span aria-hidden="true">AUTO</span></button>
   {#if logic.autoManaAvailable}
   <button
     class="mode-chip payment-toggle"
@@ -576,12 +568,10 @@
   }
   .compact { display: none; }
 
-  /* The status chip: the seat's mode, stated once, at the left edge of the
-     strip. Presets read as labels; a live run takes the run register — the
-     hard skip's warning colour is the danger variable, because passing
-     everything unseen is the one state that can lose the game in silence.
-     The undo pause uses the offered colour and a pointer because this chip is
-     also the always-visible resume control. */
+  /* The status chip is also the always-visible Auto switch. Presets read as
+     labels; a live run takes the run register — the hard skip's warning
+     colour is the danger variable, because passing everything unseen is the
+     one state that can lose the game in silence. */
   .mode-chip {
     box-sizing: border-box;
     justify-content: center;
@@ -599,6 +589,7 @@
     font-weight: 700;
     letter-spacing: 0.02em;
     white-space: nowrap;
+    cursor: pointer;
   }
   .mode-chip.run {
     color: var(--felt-sunk);
@@ -613,10 +604,9 @@
     color: var(--felt-sunk);
     background: var(--offered);
     border-color: var(--offered);
-    cursor: pointer;
   }
-  .mode-chip.paused:hover,
-  .mode-chip.paused:focus-visible {
+  .mode-chip:hover,
+  .mode-chip:focus-visible {
     box-shadow: 0 0 0 1px var(--offered), 0 0 12px var(--offered);
   }
 
