@@ -15,11 +15,8 @@ import (
 // and rules/cast.go's legacy manaWindowAsk). Both are a KChoose decision
 // whose Source is the card being paid for; they are told apart only by
 // ManaPayment being present (announce) or nil (legacy) -- and even that
-// distinction does not change how this function builds the prompt, because
-// every field it reads comes off Options and the view, not off ManaPayment
-// itself (ManaPayment.Cost/Owed/Pool have no PayManaCostInput field to land
-// in; CardID/CardName/ManaCost come from the view's own printed-card
-// projection, keeping one code path for both windows).
+// distinction selects the effective announced cost when available; legacy
+// windows retain the printed-cost fallback because they carry no readout.
 //
 // Actions lists only the per-step activation options ("mana" the announce
 // window's per-(source,ability,colour) offer, "activate" the legacy
@@ -46,6 +43,9 @@ func (t *Translator) promptPayment(d *decision.Decision, v *view.View) (mb.Promp
 	if card != nil {
 		name = card.Printing.Name
 		cost = card.ManaCost
+	}
+	if d.ManaPayment != nil {
+		cost = paymentCostString(d.ManaPayment.Cost)
 	}
 	actions := make([]mb.PaymentAction, 0, len(d.Options))
 	for _, opt := range d.Options {
@@ -81,6 +81,26 @@ func (t *Translator) promptPayment(d *decision.Decision, v *view.View) (mb.Promp
 // legacy pre-announce window (rules/cast.go's manaWindowAsk) never does, but
 // always offers exactly the pair "activate" (a per-source activation) and
 // "done" (finalise), the one shape that Kind combination can mean.
+//
+// paymentCostString renders the RESOLVED owed amount, not the printed pips: a
+// phyrexian/hybrid/snow/twobrid cast shows the mana chosen (e.g. {W/P} -> W),
+// because decision.PaymentCost is a Generic + ManaAmount total with no field
+// for the printed symbol. That is the correct value for a payment prompt
+// (what is owed now); preserving the printed spelling would need a new wire
+// field and is out of scope here.
+func paymentCostString(c decision.PaymentCost) string {
+	var parts []string
+	if c.Generic > 0 {
+		parts = append(parts, strconv.FormatUint(uint64(c.Generic), 10))
+	}
+	for i, symbol := range []string{"W", "U", "B", "R", "G", "C"} {
+		for n := uint32(0); n < c.Mana[i]; n++ {
+			parts = append(parts, symbol)
+		}
+	}
+	return strings.Join(parts, " ")
+}
+
 func isManaPaymentWindow(d *decision.Decision) bool {
 	if d.ManaPayment != nil {
 		return true
