@@ -1934,18 +1934,25 @@ type costMods struct {
 	// that can make it non-zero). While it is false extra is the zero Cost,
 	// which apply may then skip (see apply).
 	hasExtra bool
-	// waterbend / waterbendX / raiseX carry a RaiseCost Cost$ Waterbend<N>
-	// or Waterbend<X> (Water Whip, Crashing Wave; the keyword action "waterbend {N}":
-	// pay {N}, and each untapped artifact or creature you tap while paying
-	// it pays for {1}). The fixed {N} is already in raiseGen; waterbend is
-	// how much of the generic total those taps may cover. raiseX counts the
-	// Waterbend<X> parts: each adds an {X} to the pending cost (folded at the
-	// fold site, since xAsk reads pc.cost.X), and waterbendX lets the taps
-	// cover that announced X too. apply reads none of the three -- the {N}
-	// already rides raiseGen and an unannounced {X} prices at zero.
-	waterbend  int32
-	waterbendX bool
-	raiseX     int32
+	// waterbend / waterbendX / waterbendPartX / raiseX carry a RaiseCost
+	// Cost$ Waterbend<N> or Waterbend<X> (Water Whip, Crashing Wave) and a
+	// cost's OWN Waterbend<N>/<X> part (Giant Koi's ability, a self-spell
+	// OptionalCost; the keyword action "waterbend {N}": pay {N}, and each
+	// untapped artifact or creature you tap while paying it pays for {1}).
+	// The fixed {N} is in raiseGen or the cost itself; waterbend is how much
+	// of the generic total those taps may cover. raiseX counts the RaiseCost
+	// Waterbend<X> parts (each adds an {X} to the pending cost, folded at the
+	// fold site since xAsk reads pc.cost.X); waterbendPartX counts the
+	// Waterbend<X> parts carried by the COST itself, whose amount is the same
+	// announced X (foldRaiseExtra does not add those to raiseX, since
+	// ParseCost already counted them into cost.X). waterbendX lets the taps
+	// cover the announced X at all. apply reads none of them -- the {N}
+	// already rides raiseGen and an unannounced {X} prices at zero; every
+	// cap site reads the one waterbendCap helper.
+	waterbend      int32
+	waterbendX     bool
+	waterbendPartX int32
+	raiseX         int32
 }
 
 // empty reports whether the composition would change nothing, so a caller can

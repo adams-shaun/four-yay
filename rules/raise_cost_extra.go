@@ -499,6 +499,12 @@ func (e *Engine) foldRaiseExtra(p state.PlayerID, id state.ObjID, cost Cost, mod
 	mods.waterbend = addClampedGeneric(mods.waterbend, int64(cost.Waterbend))
 	if cost.WaterbendX {
 		mods.waterbendX = true
+		// The cost's own Waterbend<X> part: its amount is the announced X,
+		// which ParseCost already counted into cost.X (below only re-adds
+		// mods.raiseX, the RaiseCost parts). Count it so waterbendCap can
+		// bound the taps by that X without double-counting the RaiseCost
+		// parts, which the same `true` flag also covers.
+		mods.waterbendPartX++
 	}
 	cost.Waterbend, cost.WaterbendX = 0, false
 	// A Waterbend<X> raise adds an {X} the cast announces (xAsk reads
@@ -527,6 +533,19 @@ func waterbendTaps(pays []convokePayment) int32 {
 		}
 	}
 	return n
+}
+
+// waterbendCap is the greatest number of announced waterbend contributions a
+// cost may absorb at announced X (CR 701.67a): each tapped artifact or
+// creature pays for {1} of the WATERBEND amount and nothing else. The amount
+// is the fixed Waterbend<N> parts (mods.waterbend, already priced into the
+// generic total) plus the announced X for every X-form part -- a RaiseCost
+// Waterbend<X> (mods.raiseX) or a Waterbend<X> part on the cost itself
+// (mods.waterbendPartX). One home for the formula keeps every cap site (xAsk,
+// convokeAsk and validateCastContributions) in agreement, so a tap can never
+// be credited against an unrelated generic component.
+func waterbendCap(mods costMods, x int32) int32 {
+	return mods.waterbend + mods.raiseX*x + mods.waterbendPartX*x
 }
 
 // withWaterbendOfferCredit is the offer gate's credit for a RaiseCost

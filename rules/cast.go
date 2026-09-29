@@ -5347,10 +5347,14 @@ func (e *Engine) xAsk() bool {
 		if !e.convokeAbsorbs(pc, convMana, pc.convoke, false) {
 			continue
 		}
-		// Waterbend taps pay only the waterbend amount, which a Waterbend<X>
-		// raise or a Waterbend<X> cost part ties to this X (both fold into
-		// raiseX / waterbendX).
-		if !pc.mods.waterbendX && waterbendTaps(pc.convoke) > pc.mods.waterbend+pc.mods.raiseX*x {
+		// Waterbend taps pay only the waterbend amount, which the fixed
+		// Waterbend<N> parts plus every announced-X form (a RaiseCost
+		// Waterbend<X> and/or the cost's own Waterbend<X> part) bound at this
+		// candidate X. Reading the announced X here -- not skipping the check
+		// whenever the cost carries an X-form part -- is what stops an over-
+		// announced tap from being credited against an unrelated generic
+		// component (CR 701.67a).
+		if waterbendTaps(pc.convoke) > waterbendCap(pc.mods, x) {
 			continue
 		}
 		legal = append(legal, x)
@@ -5362,8 +5366,15 @@ func (e *Engine) xAsk() bool {
 		// audit does exactly that), or every payable X left an announced
 		// contribution a no-op. In both, the OLD offer stands and payCast's
 		// own payable check aborts as it always did (CR 733.2), rather
-		// than this ask wedging or moving the abort site.
+		// than this ask wedging or moving the abort site. Every restored X
+		// must still satisfy the waterbend cap: an X the loop rejected
+		// BECAUSE the announced taps exceed its waterbend amount cannot be
+		// resurrected here -- payCast would settle it by letting a tap pay
+		// a non-waterbend generic component, which CR 701.67a forbids.
 		for x := min; x <= maxOld; x++ {
+			if waterbendTaps(pc.convoke) > waterbendCap(pc.mods, x) {
+				continue
+			}
 			vals = append(vals, x)
 		}
 	}
@@ -7721,10 +7732,13 @@ func (e *Engine) validateCastContributions(d *decision.Decision, in decision.Int
 	if !e.convokeAbsorbs(pc, e.manaToPay(pc), all, pc.cost.X > 0) {
 		return fmt.Errorf("announcement reduces nothing: the outstanding cost cannot absorb every chosen contribution")
 	}
-	// Waterbend taps pay only the waterbend amount. A Waterbend<X> cap is
-	// not known until X is announced; xAsk offers only the X values whose
-	// cap covers the announced taps.
-	if !pc.mods.waterbendX && pc.mods.raiseX == 0 && waterbendTaps(all) > pc.mods.waterbend {
+	// Waterbend taps pay only the waterbend amount (CR 701.67a). A fixed
+	// Waterbend<N> part has a cap known here; a Waterbend<X> amount is the
+	// announced X, which does not exist yet at this pre-X announcement gate,
+	// so xAsk -- the one site that knows X -- enforces that cap through
+	// waterbendCap, and its last-resort fallback never resurrects an X the
+	// cap rejected.
+	if !pc.mods.waterbendX && pc.mods.raiseX == 0 && waterbendTaps(all) > waterbendCap(pc.mods, 0) {
 		return fmt.Errorf("more permanents tapped than the waterbend cost allows")
 	}
 	return nil
