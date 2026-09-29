@@ -1,7 +1,10 @@
 package effects
 
 import (
+	"fmt"
+
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -163,8 +166,98 @@ func effExchangeLifeVariant(h Host, c *Ctx, sa *cards.SA) {
 // amount is a loud degrade (a Note and no life change) rather than Num's
 // documented degrade-to-zero, because a set-to-zero would silently lose a
 // player the game. A zero delta emits nothing -- a life total that already
-// equals the target has neither gained nor lost life.
+// equals the target has neither gained nor lost life. Redistribute$ True
+// instead chooses a subset and a permutation of their original totals;
+// all receipts still go through the same LifeChange replacement boundary.
 func effSetLife(h Host, c *Ctx, sa *cards.SA) {
+	if sa.Params["Redistribute"] == "True" {
+		// The only corpus shape is PlayerChoices$ Player / ChoiceAmount$ Any.
+		// The first choice selects the recipients; subsequent choices consume
+		// one original total per recipient. Chosen carries the subset followed
+		// by the picked sources, and ChoiceTarget carries the assignment cursor.
+		if sa.Params["PlayerChoices"] != "Player" || sa.Params["ChoiceAmount"] != "Any" {
+			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "SetLife: unsupported redistribution choices"})
+			return
+		}
+		g := h.Game()
+		i := c.ChoiceTarget - 1
+		if c.ChoiceTarget == 0 {
+			if !c.ChoiceDone {
+				pool := g.AliveFrom(c.Controller)
+				d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Source: c.Source,
+					Min: 0, Max: len(pool), Prompt: sa.Params["ChoicePrompt"],
+					ResumeKind: "choice", ResumeSA: sa, ResumeTarget: 0}
+				for j, p := range pool {
+					d.Options = append(d.Options, decision.Option{Index: j, Kind: "player", Player: p, Label: g.Players[p].Name})
+				}
+				switch Ask(h, d) {
+				case AskAsked, AskNoHost:
+					// With no host, choose nobody: the identity permutation.
+					return
+				}
+			}
+			c.Chosen = nil // this effect owns the resumed choice list
+			choiceRecord(h, c, sa, c.Choice, false)
+			c.ChoiceDone, c.Choice = false, nil
+			i = 0
+		} else {
+			// Before recording the answered assignment, the accumulated list
+			// contains the subset and exactly i consumed sources.
+			if i < 0 || i > len(c.Chosen) {
+				return
+			}
+		}
+		subsetSize := len(c.Chosen) - i
+		if c.ChoiceTarget > 0 && c.ChoiceDone {
+			choiceRecord(h, c, sa, c.Choice, false)
+			c.ChoiceDone, c.Choice = false, nil
+			i++
+		}
+		for ; i < subsetSize; i++ {
+			recipient := c.Chosen[i].Player
+			d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Source: c.Source,
+				Min: 1, Max: 1, Prompt: fmt.Sprintf("Choose a life total for %s", g.Players[recipient].Name),
+				ResumeKind: "choice", ResumeSA: sa, ResumeTarget: 1 + i,
+				ResumeChoices: append([]state.Target(nil), c.Chosen...), ResumeChosenValid: c.ChosenValid}
+			for _, src := range c.Chosen[:subsetSize] {
+				used := false
+				for _, pick := range c.Chosen[subsetSize:] {
+					if pick.Player == src.Player {
+						used = true
+						break
+					}
+				}
+				if !used {
+					d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "player", Player: src.Player,
+						Label: fmt.Sprintf("%d life of %s", g.Players[src.Player].Life, g.Players[src.Player].Name)})
+				}
+			}
+			if Ask(h, d) == AskAsked {
+				return
+			}
+			// No host: keep the recipient's own total (identity). No
+			// assignment is applied until all answers have been collected.
+			c.Chosen = append(c.Chosen, state.Target{IsPlayer: true, Player: recipient})
+		}
+		// Nothing can change life between these consecutive choice asks;
+		// snapshot the chosen pool before the first LifeChange so a
+		// replacement on one receipt cannot alter a later source value.
+		totals := make([]int32, subsetSize)
+		for j, src := range c.Chosen[:subsetSize] {
+			totals[j] = g.Players[src.Player].Life
+		}
+		for j, recipient := range c.Chosen[:subsetSize] {
+			for k, src := range c.Chosen[:subsetSize] {
+				if src.Player == c.Chosen[subsetSize+j].Player {
+					if delta := totals[k] - g.Players[recipient.Player].Life; delta != 0 {
+						h.Emit(events.Event{Kind: events.LifeChange, Player: recipient.Player, Amount: delta})
+					}
+					break
+				}
+			}
+		}
+		return
+	}
 	target, ok := NumResolvedStrict(h, c, sa, "LifeAmount", 0)
 	if !ok {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "SetLife: unresolvable LifeAmount"})
