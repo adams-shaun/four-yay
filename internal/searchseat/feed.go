@@ -63,6 +63,20 @@ func RebuildFeed(cfg rules.Config, l *events.Log, n int, actor state.PlayerID) (
 		if i < len(l.Intents) && i < n {
 			d := e.Pending()
 			if d != nil && d.Player == actor {
+				// A recorded priority answer may carry a planned payment or an
+				// announcement. The live driver builds the payment extension
+				// (EnsurePaymentActions) before the seat answers; Submit does
+				// the same lazily. The walk's visit fires BEFORE its Submit,
+				// so at this boundary the pending decision has no offered
+				// payment actions yet and RecordAnswer's Validate would
+				// reject the planned witness ("payment action ... is not
+				// offered"). Build it here, exactly as Submit does: the build
+				// is a pure derived read (no event, no RNG), so the replay
+				// comparison cannot diverge, and it only runs where the
+				// recorded intent proves it is needed.
+				if in := l.Intents[i]; in.Payment != nil || in.Announce != nil {
+					e.EnsurePaymentActions()
+				}
 				if err := f.RecordAnswer(d, l.Intents[i]); err != nil {
 					return fmt.Errorf("searchseat: record answer at intent %d: %w", i, err)
 				}
