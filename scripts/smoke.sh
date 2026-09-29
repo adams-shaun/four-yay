@@ -3,7 +3,7 @@
 # scripts/smoke.sh — the browser smoke gate (Task SG1, extended by ui19).
 #
 # Builds the REAL client and the REAL binary, starts FIVE `gorged` servers on
-# smoke ports (8090-8099) — public and omniscient spectators, a SEATED 1v1,
+# smoke ports (8090-8099 by default) — public and omniscient spectators, a SEATED 1v1,
 # the shared ui24/wheel1 board fixture, and the fb-e079def5 Talisman two-stage
 # continuation fixture — then drives
 # the headless-browser smoke test in web/e2e against all five, and tears
@@ -36,6 +36,69 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO_ROOT"
 
+if [[ -v SMOKE_PORT_LO && ! -v SMOKE_PORT_HI ]] || [[ ! -v SMOKE_PORT_LO && -v SMOKE_PORT_HI ]]; then
+  echo "smoke: set both SMOKE_PORT_LO and SMOKE_PORT_HI, or neither" >&2
+  exit 1
+fi
+SMOKE_PORT_LO="${SMOKE_PORT_LO-8090}"
+SMOKE_PORT_HI="${SMOKE_PORT_HI-8099}"
+if [[ ! "$SMOKE_PORT_LO" =~ ^[0-9]{1,5}$ || ! "$SMOKE_PORT_HI" =~ ^[0-9]{1,5}$ ]]; then
+  echo "smoke: invalid port range '$SMOKE_PORT_LO'-'$SMOKE_PORT_HI' (need integer ports 1-65535, LO < HI, at least five ports)" >&2
+  exit 1
+fi
+# Canonical decimal avoids bash interpreting leading zeroes as octal.
+SMOKE_PORT_LO=$((10#$SMOKE_PORT_LO))
+SMOKE_PORT_HI=$((10#$SMOKE_PORT_HI))
+if (( SMOKE_PORT_LO < 1 || SMOKE_PORT_HI > 65535 || SMOKE_PORT_LO >= SMOKE_PORT_HI || SMOKE_PORT_HI - SMOKE_PORT_LO + 1 < 5 )); then
+  echo "smoke: invalid port range '$SMOKE_PORT_LO'-'$SMOKE_PORT_HI' (need integer ports 1-65535, LO < HI, at least five ports)" >&2
+  exit 1
+fi
+if (( SMOKE_PORT_LO <= 8081 && SMOKE_PORT_HI >= 8080 )); then
+  echo "smoke: port range $SMOKE_PORT_LO-$SMOKE_PORT_HI intersects reserved demo ports 8080-8081" >&2
+  exit 1
+fi
+
+allocate_ports() {
+  local taken p
+  taken=$(ss -lptn 2>/dev/null | grep -oE ':[0-9]{4,5}\b' | tr -d ':' | sort -u || true)
+  PORTS=()
+  for p in $(seq "$SMOKE_PORT_LO" "$SMOKE_PORT_HI"); do
+    if ! grep -qx "$p" <<<"$taken"; then PORTS+=("$p"); fi
+    if [ "${#PORTS[@]}" -ge 5 ]; then break; fi
+  done
+  [ "${#PORTS[@]}" -ge 5 ]
+}
+
+# Both probe and farm call this for each attempt in the SAME five-try budget.
+# A scan failure waits for a holder to leave; a bind race instead tears down
+# the farm and waits two seconds in the farm loop below.
+allocate_attempt() {
+  local attempt="$1"
+  if allocate_ports; then return 0; fi
+  if (( attempt < 5 )); then
+    echo "smoke: need five free ports in $SMOKE_PORT_LO-$SMOKE_PORT_HI (attempt $attempt/5); rescanning in 5s" >&2
+    sleep 5
+  fi
+  return 1
+}
+
+allocation_failed() {
+  echo "smoke: $SMOKE_PORT_LO-$SMOKE_PORT_HI stayed contended after 5 attempts — set SMOKE_PORT_LO/HI to another free range" >&2
+}
+
+if [[ "${SMOKE_ALLOC_PROBE:-}" == 1 ]]; then
+  for attempt in 1 2 3 4 5; do
+    if allocate_attempt "$attempt"; then
+      printf 'smoke: ports'
+      printf ' %s' "${PORTS[@]}"
+      printf '\n'
+      exit 0
+    fi
+  done
+  allocation_failed
+  exit 1
+fi
+
 # vitest/playwright need Node >=24 (the system node is v20). Prefix the v24
 # toolchain so the target works from a plain shell with no nvm shim loaded.
 export PATH="$HOME/.nvm/versions/node/v24.15.0/bin:$PATH"
@@ -61,18 +124,6 @@ CGO_ENABLED=0 go build -o bin/gorged ./cmd/gorged
 # WINNER's servers — wrong fixture decks, wrong seat tokens, intents from two
 # playwrights on one seeded game — which reads exactly like a product
 # failure). So allocation is a function and the whole farm is retried below.
-allocate_ports() {
-  local taken p
-  taken=$(ss -lptn 2>/dev/null | grep -oE ':[0-9]{4}\b' | tr -d ':' | sort -u)
-  PORTS=()
-  for p in $(seq 8090 8099); do
-    if ! grep -qx "$p" <<<"$taken"; then
-      PORTS+=("$p")
-    fi
-    if [ "${#PORTS[@]}" -ge 5 ]; then break; fi
-  done
-  [ "${#PORTS[@]}" -ge 5 ]
-}
 
 PUBDIR="$(mktemp -d /tmp/gorge-smoke-public-XXXXXX)"
 OMNDIR="$(mktemp -d /tmp/gorge-smoke-omni-XXXXXX)"
@@ -180,9 +231,8 @@ start_farm() {
 # other gate's own scan-to-bind, not its whole run.
 farm=false
 for attempt in 1 2 3 4 5; do
-  if ! allocate_ports; then
-    echo "smoke: need five free ports in 8090-8099" >&2
-    exit 1
+  if ! allocate_attempt "$attempt"; then
+    continue
   fi
   start_farm
   sleep 1
@@ -191,7 +241,7 @@ for attempt in 1 2 3 4 5; do
     kill -0 "$pid" 2>/dev/null || lost="$lost $pid"
   done
   if [ -z "$lost" ]; then farm=true; break; fi
-  echo "smoke: bind race on 8090-8099 (attempt $attempt, dead pids:$lost) — rescanning" >&2
+  echo "smoke: bind race on $SMOKE_PORT_LO-$SMOKE_PORT_HI (attempt $attempt, dead pids:$lost) — rescanning" >&2
   for pid in "${SERVER_PIDS[@]}"; do kill "$pid" 2>/dev/null || true; done
   sleep 2
   rm -rf "$PUBDIR" "$OMNDIR" "$SEATDIR" "$FIXTUREDIR" "$TALISDIR"
@@ -202,7 +252,7 @@ for attempt in 1 2 3 4 5; do
   TALISDIR="$(mktemp -d /tmp/gorge-smoke-talisman-XXXXXX)"
 done
 if [ "$farm" != true ]; then
-  echo "smoke: 8090-8099 stayed contended after 5 attempts — another gate holds the range" >&2
+  allocation_failed
   exit 1
 fi
 
