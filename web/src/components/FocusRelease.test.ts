@@ -260,4 +260,45 @@ describe('a pointer click on every focusable table family releases focus (hotkey
     expect(await posts(page)).toEqual([]);
     await page.close();
   });
+
+  // The battlefield CardTile is the one ACTIVATABLE control that is not a
+  // <button>: tabindex=0 + role=button (CardTile.svelte L210–L212) put it
+  // inside lib/hotkeys.ts's ACTIVATABLE set, so it is the first-named
+  // instance of the defect this suite pins. Regression pin for
+  // agent-20260929T101809Z-adba832d over dde071f91's wiring — no production
+  // change of its own.
+  it('F8: a pointer click on a battlefield CardTile releases focus so Space reaches the pass hotkey; keyboard focus still gives the tile Space', async () => {
+    const page = await browser.newPage();
+    await page.goto(`${url}src/components/FocusRelease.fixture.html`);
+    const tile = page.locator('#board [data-obj="41"]');
+    // The pointer click focuses the tile first (mousedown -> focus): record
+    // that focus so the precondition "the click really put the keyboard on
+    // the tile" is asserted, not assumed.
+    await tile.evaluate((el) => {
+      el.addEventListener('focus', () => {
+        (window as unknown as { __tileFocused: boolean }).__tileFocused = true;
+      }, { once: true });
+    });
+    // force: the bare-bones fixture page can overlap the tile with chrome;
+    // the test only needs the click delivered (same reason F1's flow pill).
+    await tile.click({ force: true });
+    // Precondition: the click DID focus the role="button" tile...
+    expect(await page.evaluate(() => (window as unknown as { __tileFocused: boolean }).__tileFocused)).toBe(true);
+    // ...and the release removed it, so Space belongs to the table hotkey.
+    expect(await activeIs(page, '[data-obj="41"]')).toBe(false);
+    await page.keyboard.press('Space');
+    const after = await nextPassPost(page, 0);
+    expect(after).toEqual([{ seq: 7, player: 0, choices: [9] }]);
+    // The keyboard-native half of the contract: FOCUS on the tile still
+    // gives it Space (hotkeys.focus.test.ts pins that for every activatable
+    // control), and keyboard activation keeps it there — the release is
+    // pointer-only (detail > 0), so no blur follows a keyboard press.
+    await tile.focus();
+    expect(await activeIs(page, '[data-obj="41"]')).toBe(true);
+    await page.keyboard.press('Space');
+    await page.waitForTimeout(150);
+    expect(await posts(page)).toEqual([{ seq: 7, player: 0, choices: [9] }]);
+    expect(await activeIs(page, '[data-obj="41"]')).toBe(true);
+    await page.close();
+  });
 });

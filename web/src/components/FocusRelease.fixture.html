@@ -27,6 +27,11 @@
     <div id="settings" style="width: 640px"></div>
     <!-- F6-class misc chrome: the wire notice dismiss. -->
     <div id="wire" style="width: 420px"></div>
+    <!-- F8: a battlefield CardTile — the one ACTIVATABLE control that is not
+         a <button>: tabindex=0 + role=button put it inside lib/hotkeys.ts's
+         ACTIVATABLE set, so a pointer click that parked focus there used to
+         hand Space to the tile until the player clicked the felt. -->
+    <div id="board" style="width: 300px"></div>
     <script type="module" src="/src/components/FocusRelease.fixture.ts"></script>
   </body>
 </html>
