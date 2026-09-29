@@ -1603,6 +1603,8 @@ func Apply(g *state.Game, e Event) {
 				// ids into a much later same-numbered turn).
 				g.Objs[i].CrewedVehicles = nil
 				g.Objs[i].CrewedTurn = 0
+				// CR 702.171b: Saddled is a per-turn designation.
+				g.Objs[i].SaddledTurn = 0
 				// Only default-duration goads expire at the goader's next turn.
 				g.Objs[i].Goads = expireTurnGoads(g.Objs[i].Goads, e.Player)
 				// ChoiceRestriction$ ThisTurn is the only per-turn scope. Keep
