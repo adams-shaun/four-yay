@@ -32,8 +32,15 @@ func TestDualTotalTargetCapsBothEnforced(t *testing.T) {
 					t.Fatalf("%s not in graveyard: %+v", name, o)
 				}
 			}
-			if o := e.G.Obj(src); o == nil || o.Zone != state.ZBattlefield {
-				e.emit(events.Event{Kind: events.MoveZone, Obj: src, From: o.Zone, To: state.ZBattlefield})
+			source := e.G.Obj(src)
+			if source == nil {
+				t.Fatal("source object is missing")
+			}
+			if source.Zone != state.ZBattlefield {
+				e.emit(events.Event{Kind: events.MoveZone, Obj: src, From: source.Zone, To: state.ZBattlefield})
+			}
+			if source = e.G.Obj(src); source == nil || source.Zone != state.ZBattlefield {
+				t.Fatalf("source is not on battlefield: %+v", source)
 			}
 			e.pending = nil
 			e.priorityRound()
