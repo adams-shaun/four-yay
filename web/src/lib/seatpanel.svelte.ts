@@ -2105,19 +2105,27 @@ export class SeatPanelState {
    * CAST shortcut, the panel's cast row): Auto-pay ON submits the suggested
    * plan, as before; OFF posts the legacy cast when the pool already pays
    * (base_option_index) and otherwise announces the cast so the player picks
-   * the mana (announce-then-pay spec §8). */
+   * the mana (announce-then-pay spec §8). A plan-less action (ManaBrew only —
+   * the native planner never publishes one, rules/payment_plan.go appends an
+   * action only with a plan) has no plan to submit in either mode, so it
+   * falls back to announce-then-pay under Auto-pay ON too. Never a
+   * synthesized plan. */
   castAction(action: PaymentAction, holdPriority = false) {
     if (this.autoPayMana) {
       const plan = action.plans[0];
-      if (plan !== undefined) this.submitPayment(action, plan, holdPriority);
+      if (plan !== undefined) {
+        this.submitPayment(action, plan, holdPriority);
+        return;
+      }
+      // ManaBrew carries no payment plan; announce is its supported route to
+      // the select-mana window, in both Auto-pay modes.
+      this.submitAnnounce(action, holdPriority);
       return;
     }
     if (action.base_option_index !== undefined && action.base_option_index !== null) {
       this.click(action.base_option_index, { holdPriority });
       return;
     }
-    // ManaBrew carries no payment plan; announce is its supported route to
-    // the select-mana window when Auto-pay is off.
     this.submitAnnounce(action, holdPriority);
   }
 
