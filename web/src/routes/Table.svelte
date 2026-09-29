@@ -3,6 +3,9 @@
   import { session } from '../lib/session.svelte';
   import { tables } from '../lib/tables.svelte';
   import { MatchState } from '../lib/match.svelte';
+  import { ManaBrewMatch } from '../lib/manabrew/source.svelte';
+  import { activeWire, loadProtocol } from '../lib/manabrew/pref';
+  import WireNotice from '../components/WireNotice.svelte';
   import BoardStage from '../components/BoardStage.svelte';
   import Arrows from '../components/Arrows.svelte';
   import MotionLayer from '../components/MotionLayer.svelte';
@@ -81,8 +84,22 @@
     saveLogShown(safeStorage(), table, logScope, logChoice);
   }
   const railSide = $derived(layoutStore.profile.panels.rail);
+  // The game wire (ManaBrew adapter plan): a live seat whose protocol
+  // setting is ManaBrew plays through ManaBrewMatch; everything else — and a
+  // ManaBrew probe that fails — is the native MatchState. Both expose the
+  // surface this route reads, so nothing below knows which wire is live.
   // svelte-ignore state_referenced_locally
-  const m = new MatchState(table, seatCtx ?? undefined);
+  const mb = liveSeated && seatCtx !== null && loadProtocol() === 'manabrew' ? new ManaBrewMatch(table, seatCtx) : null;
+  // svelte-ignore state_referenced_locally
+  let m = $state<MatchState | ManaBrewMatch>(mb ?? new MatchState(table, seatCtx ?? undefined));
+  // The seat panel answers through the ManaBrew adapter when it is live.
+  const panelCtx = $derived(m instanceof ManaBrewMatch ? m.ctx : seatCtx);
+  let wireFallback = $state<string | null>(null);
+  const wireNotice = $derived(wireFallback ?? (m instanceof ManaBrewMatch ? m.notice : null));
+  function dismissWireNotice() {
+    wireFallback = null;
+    if (m instanceof ManaBrewMatch) m.notice = null;
+  }
 
   // idle: the table has no live match and none imminent, so the match list
   // is the whole page rather than a strip under a "waiting" placeholder.
@@ -101,9 +118,9 @@
   let panelCache: { match: number; state: SeatPanelState } | null = null;
   const panel = $derived.by(() => {
     const mm = m.match;
-    if (!seated || seatCtx === null || mm === null || finished) return null;
+    if (!seated || panelCtx === null || mm === null || finished) return null;
     if (panelCache === null || panelCache.match !== mm) {
-      const state = new SeatPanelState(table, mm, seatCtx);
+      const state = new SeatPanelState(table, mm, panelCtx);
       state.onFollowUpArm = (arm) => {
         expectedCardFollowUp = arm;
       };
@@ -238,7 +255,7 @@
   // object stable during teardown: child prop getters may re-read it mid-flush.
   const controls = $derived(
     panel && seatCtx && m.match !== null && m.view !== null
-      ? { state: panel, ctx: seatCtx, table, match: m.match, onToggleOptions: toggleOptions }
+      ? { state: panel, ctx: panelCtx ?? seatCtx, table, match: m.match, onToggleOptions: toggleOptions }
       : null,
   );
   const controlsLive = $derived(controls !== null && !finished && mulligan === null && !m.view?.over);
@@ -386,23 +403,45 @@
 
   onMount(() => {
     if (match !== null) {
-      void m.loadFinished(match);
+      if (m instanceof MatchState) void m.loadFinished(match);
       return;
     }
-    const off = session.stream.onFrame((f) => {
-      // MatchState owns the board/DVR half of rewind; the panel owns pending
-      // posts and timers. A reconnect represents a rewind as a shorter
-      // snapshot, so use MatchState's classification rather than only the
-      // wire frame name. This all runs in one synchronous stream callback,
-      // before Svelte can expose the restored lower sequence to the panel.
-      if (m.apply(f)) panelCache?.state.rewind();
-    });
-    void session.focus(table);
-    const t = tables.list.find((x) => x.info.id === table);
-    if (t) m.seats = t.seats;
+    let closed = false;
+    let offNative: (() => void) | null = null;
+    const native = (nm: MatchState) => {
+      activeWire.current = 'native';
+      const off = session.stream.onFrame((f) => {
+        // MatchState owns the board/DVR half of rewind; the panel owns pending
+        // posts and timers. A reconnect represents a rewind as a shorter
+        // snapshot, so use MatchState's classification rather than only the
+        // wire frame name. This all runs in one synchronous stream callback,
+        // before Svelte can expose the restored lower sequence to the panel.
+        if (nm.apply(f)) panelCache?.state.rewind();
+      });
+      void session.focus(table);
+      const t = tables.list.find((x) => x.info.id === table);
+      if (t) nm.seats = t.seats;
+      offNative = () => {
+        off();
+        void session.unfocus(table);
+      };
+    };
+    if (mb) {
+      activeWire.current = 'manabrew';
+      mb.onRewind = () => panelCache?.state.rewind();
+      void mb.start().then((r) => {
+        if (r.ok || closed) return;
+        mb.close();
+        wireFallback = `${r.reason} — playing over Native.`;
+        const nm = new MatchState(table, seatCtx ?? undefined);
+        m = nm;
+        native(nm);
+      });
+    } else if (m instanceof MatchState) native(m);
     return () => {
-      off();
-      void session.unfocus(table);
+      closed = true;
+      mb?.close();
+      offNative?.();
     };
   });
   // The log visibility loads where storage exists (onMount, never SSR), the
@@ -425,8 +464,9 @@
     <!-- Motion overlay (spec sub-project 5): renders nothing here; it plays
          the client model's transitions in a fixed layer on <body>. Mounted
          outside the view guard so a match change does not remount it. -->
-    <MotionLayer source={m} viewerSeat={seated ? (seatCtx?.seat ?? null) : null} />
+    {#key m}<MotionLayer source={m} viewerSeat={seated ? (seatCtx?.seat ?? null) : null} />{/key}
     {#if m.halted}<div class="halted">Table halted: {m.halted}</div>{/if}
+    {#if wireNotice}<WireNotice text={wireNotice} onDismiss={dismissWireNotice} />{/if}
     {#if m.view}
       <section class="board">
         <!-- The table clock is the board's full-width centre lane, ringed by
@@ -463,7 +503,7 @@
              A seat acts only on the live table route. -->
         {#if seated && seatCtx && m.match !== null && !finished && (mulligan !== null || m.view.over)}
           {#key m.match}
-            <SeatPanel view={m.view} seats={m.seats} ctx={seatCtx} table={table} match={m.match} state={panel} />
+            <SeatPanel view={m.view} seats={m.seats} ctx={panelCtx ?? seatCtx} table={table} match={m.match} state={panel} />
           {/key}
         {/if}
       </section>
