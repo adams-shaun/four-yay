@@ -17,7 +17,7 @@ import {
 } from './playsettings';
 import { autoPassLogText, pushAutoPassLog, type AutoPassKind, type AutoPassLog } from './autolog';
 import { loadYields, saveYields } from './yields';
-import { loadSticky } from './sticky';
+import { clear as clearStickyStore, loadSticky, ruleFromAnswer, saveSticky, stickyKey, stickySourceNames, type StickyRule } from './sticky';
 import {
   emptyStore,
   listProfiles,
@@ -547,6 +547,7 @@ export class SeatPanelState {
     // (a reload of the same match), else empty. The scope is table + match,
     // so a new match on the same table reads empty — a yield granted in game
     // N never auto-passes in game N+1 (review r2).
+    this.stickyRules = [...loadSticky(table, match, yieldStorage).values()];
     this.yieldList = [...loadYields(table, match, yieldStorage)];
     clientBreadcrumbs.setPlay(this.settings, this.yieldList);
   }
@@ -795,6 +796,33 @@ export class SeatPanelState {
    * different ask.
    */
   rememberChoice = $state(false);
+
+  /** Reactive projection only; sticky.ts owns the game-scoped persistence. */
+  stickyRules = $state<StickyRule[]>([]);
+  stickyChoice = $state(false);
+  stickyAnswered = $state<{ seq: number; label: string } | null>(null);
+
+  get stickySourceNames(): string[] {
+    return stickySourceNames(this.stickyRules);
+  }
+
+  private reloadSticky(): ReadonlyMap<string, StickyRule> {
+    const rules = loadSticky(this.table, this.match, this.yieldStorage);
+    this.stickyRules = [...rules.values()];
+    return rules;
+  }
+
+  forgetSticky(key: string): void {
+    const rules = new Map(this.reloadSticky());
+    rules.delete(key);
+    saveSticky(this.table, this.match, rules, this.yieldStorage);
+    this.reloadSticky();
+  }
+
+  clearSticky(): void {
+    clearStickyStore(this.table, this.match, this.yieldStorage);
+    this.reloadSticky();
+  }
 
   /**
    * searchFilter is the library-search picker's display-only filter text
@@ -1530,7 +1558,7 @@ export class SeatPanelState {
     if (!d || this.busy || d.seq === this.postedSeq || this.machinePaused || view.over) return false;
     // A rejected answer must not retry, nor fall through to a different auto-answer.
     if (d.seq === this.stickySeq) return true;
-    const sticky = loadSticky(this.table, this.match, this.yieldStorage);
+    const sticky = this.reloadSticky();
     if (sticky.size === 0) return false;
     const verdict = decide({ decision: d, view, seat: this.ctx.seat, settings: this.settings, sticky });
     if (verdict.act !== 'answer') return false;
@@ -1919,6 +1947,8 @@ export class SeatPanelState {
     this.autoOrderedSeq = null;
     this.rememberedSeq = null;
     this.stickySeq = null;
+    this.stickyChoice = false;
+    this.stickyAnswered = null;
     this.resolveAllIds = null;
     this.currentView = null;
     this.arrangeOpen = false;
@@ -2008,6 +2038,8 @@ export class SeatPanelState {
     this.seqHigh = d.seq;
     this.cancelPassWait();
     this.pending = d;
+    this.stickyChoice = false;
+    this.stickyAnswered = null;
     this.postedSeq = null;
     this.picked = [];
     this.confirming = false;
@@ -2037,7 +2069,7 @@ export class SeatPanelState {
     this.searchFilter = '';
     // adopt has only a decision, not its fresh View. Defer competing automatic
     // answers until considerAuto can resolve source names/controllers safely.
-    const stickies = loadSticky(this.table, this.match, this.yieldStorage);
+    const stickies = this.reloadSticky();
     if ([...stickies.values()].some((r) => r.kind === d.kind)) return;
     if (!this.maybeAutoOrderTriggers()) this.maybeRememberedTrigger();
   }
@@ -2399,6 +2431,20 @@ export class SeatPanelState {
   private async post(choices: number[], holdPriority = false, rest?: number[], hand = false, payment?: Intent['payment'], announce?: Intent['announce']) {
     const d = this.pending;
     if (d === null || this.busy) return;
+    const view = this.currentView;
+    // All manual answer surfaces (single-click, multi-pick and card tiles)
+    // converge here. Persist before POST so a rapid next ask sees the rule.
+    if (hand && this.stickyChoice && view) {
+      const rule = ruleFromAnswer(d, view, choices);
+      if (rule) {
+        const rules = new Map(this.reloadSticky());
+        rules.set(rule.key, rule);
+        saveSticky(this.table, this.match, rules, this.yieldStorage);
+        this.reloadSticky();
+      }
+    }
+    const stickyRule = !hand && this.stickySeq === d.seq && view
+      ? this.stickyRules.find((r) => r.key === stickyKey(d, view)) : undefined;
     this.busy = true;
     this.error = null;
     const epoch = this.seqEpoch;
@@ -2414,6 +2460,9 @@ export class SeatPanelState {
       // panel (pending was cleared, the restored decision re-adopted).
       if (epoch !== this.seqEpoch) return;
       this.postedSeq = d.seq;
+      if (stickyRule && (!this.pending || this.pending.seq === d.seq)) {
+        this.stickyAnswered = { seq: d.seq, label: stickyRule.label };
+      }
       // The armed card-follow-up expectation (fb-20260923T050205Z) lives on
       // the ACCEPTED hand post: a card action can hand the server a follow-up
       // decision for the same object (a treasure's activate -> its colour

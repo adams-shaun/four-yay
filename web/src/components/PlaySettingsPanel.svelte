@@ -559,6 +559,15 @@
       <span>Clear yields{logic.yieldList.length > 0 ? ` (${logic.yieldList.length})` : ''}</span>
       <span class="state" aria-hidden="true">{logic.yieldList.length > 0 ? 'Clear' : 'None'}</span>
     </button>
+    {#each logic.stickyRules as rule (rule.key)}
+      <div class="row" data-sticky-rule>
+        <span>{rule.label}</span>
+        <button type="button" data-forget-sticky aria-label={`Forget sticky choice: ${rule.label}`} onclick={() => logic.forgetSticky(rule.key)}>Forget</button>
+      </div>
+    {/each}
+    <button type="button" class="row" data-clear-sticky disabled={logic.stickyRules.length === 0} onclick={() => logic.clearSticky()} title="Clear sticky choices (5)">
+      <span>Clear sticky choices</span><span class="state" aria-hidden="true">{logic.stickyRules.length || 'None'}</span>
+    </button>
     <button type="button" class="reset" data-reset-settings onclick={() => applyPreset('casual')}>Reset to Casual</button>
   </section>
 

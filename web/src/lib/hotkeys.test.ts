@@ -17,6 +17,14 @@ describe('hotkeys — the grammar', () => {
     expect(hotkeyAction(ev({ key: 'Enter', shiftKey: true }))).toBe('hard-skip');
   });
 
+  it('5 clears sticky choices with the ordinary focus, modal and modifier guards', () => {
+    expect(hotkeyAction(ev({ key: '5' }))).toBe('clear-sticky');
+    for (const extra of [{ target: inWidget }, { ctrlKey: true }, { shiftKey: true }, { metaKey: true }]) {
+      expect(hotkeyAction(ev({ key: '5', ...extra }))).toBeNull();
+    }
+    expect(hotkeyAction(ev({ key: '5' }), () => true)).toBeNull();
+  });
+
   it('Escape cancels the run — even with focus in an input (the panic key)', () => {
     expect(hotkeyAction(ev({ key: 'Escape' }))).toBe('cancel-run');
     expect(hotkeyAction(ev({ key: 'Escape', target: inWidget }))).toBe('cancel-run');

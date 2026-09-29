@@ -96,6 +96,13 @@ export function ruleFromAnswer(d: Decision, view: View, chosen: number[]): Stick
   return rule;
 }
 
+/** Names encoded by the key (or each trigger-order entry), never label substrings. */
+export function stickySourceNames(rules: readonly StickyRule[]): string[] {
+  return [...new Set(rules.flatMap((rule) => rule.kind === 'trigger_order'
+    ? (rule.order ?? []).map((entry) => entry.split('\u0000')[0])
+    : [rule.key.split('\u0000')[1] ?? '']).filter(Boolean))];
+}
+
 export function stickyStorageKey(table: string, match: number): string {
   return `gorge.sticky.${table}:${match}`;
 }

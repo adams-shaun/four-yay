@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
+  import { onMount, tick, setContext } from 'svelte';
+  import { STICKY_SOURCES, type StickySources } from '../lib/sticky-context';
   import { session } from '../lib/session.svelte';
   import { tables } from '../lib/tables.svelte';
   import { MatchState } from '../lib/match.svelte';
@@ -99,6 +100,9 @@
     }
     return panelCache.state;
   });
+
+  // A getter follows the reactive per-match panel even across a rematch.
+  setContext<StickySources>(STICKY_SOURCES, () => panel?.stickySourceNames ?? []);
 
   // The seated player's own player view — the one whose hand is never
   // redacted (view.go fills Hand for the viewer's seat under every

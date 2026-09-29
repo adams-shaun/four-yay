@@ -5,6 +5,8 @@
   import { SeatPanelState, autoNoteText, isConcede, mulliganPhase, paymentPlanSummary, toneOf } from '../lib/seatpanel.svelte';
   import { promptContext, promptContextText } from '../lib/prompt';
   import { arrangeCard } from '../lib/arrange';
+  import { stickyKey } from '../lib/sticky';
+  import StickyMarker from './StickyMarker.svelte';
   import { discardCard, isDiscardPick } from '../lib/discard';
   import { isSearchPick, searchCard, searchOptions } from '../lib/search';
   import { isNamePick, nameOptions, NAME_PICK_RENDER_LIMIT } from '../lib/name-pick';
@@ -459,12 +461,21 @@
       <p class="error" role="alert" data-error>{logic.error}</p>
     {/if}
 
+    {#if logic.stickyAnswered}
+      <p data-sticky-answered><StickyMarker label={`Answered by sticky choice: ${logic.stickyAnswered.label}`} /> {logic.stickyAnswered.label}</p>
+    {/if}
     {#if decision}
       <p class="prompt" data-prompt>{decision.prompt}</p>
       {#if ctxText !== null}
         <p class="ctx" data-prompt-ctx>{ctxText}</p>
       {/if}
 
+      {#if stickyKey(decision, view) !== null}
+        <label class="remember" data-sticky-choice>
+          <input type="checkbox" bind:checked={logic.stickyChoice} disabled={logic.busy} />
+          <span>Sticky</span>
+        </label>
+      {/if}
       {#if mull !== null && mull.phase === 'keep'}
         <div class="hand" data-opening-hand data-card-count={(mine?.hand ?? []).length} style={`--n:${Math.max(1, (mine?.hand ?? []).length)}`} aria-label="Your opening hand">
           {#each mine?.hand ?? [] as c (c.id)}<CardTile card={c} />{/each}

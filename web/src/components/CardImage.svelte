@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { getContext } from 'svelte';
+  import { STICKY_SOURCES, type StickySources } from '../lib/sticky-context';
+  import StickyMarker from './StickyMarker.svelte';
   import type { CardView } from '../protocol';
   import { images } from '../lib/images';
   import ManaSymbols from './ManaSymbols.svelte';
@@ -37,6 +40,9 @@
     onresolved?: (resolved: boolean) => void;
   } = $props();
 
+  const stickySources = getContext<StickySources | undefined>(STICKY_SOURCES);
+  const sticky = $derived(stickySources?.().includes(card.name) ?? false);
+
   let url = $state<string | null>(null);
   let offline = $state(false);
 
@@ -65,9 +71,11 @@
 {#if url}
   <div class="card-image card-image--{size}">
     <img src={url} alt={card.name} loading="lazy" />
+    {#if sticky}<StickyMarker label={`Sticky choices active for ${card.name}`} overlay />{/if}
   </div>
 {:else if fallback === 'text'}
   <div class="card-image card-image--{size}">
+    {#if sticky}<StickyMarker label={`Sticky choices active for ${card.name}`} overlay />{/if}
     <div class="blank">
       <div class="blank__title">
         <span class="blank__name">{card.name}</span>
@@ -86,6 +94,7 @@
 
 <style>
   .card-image {
+    position: relative;
     display: inline-flex;
     flex: none;
     aspect-ratio: 63 / 88;

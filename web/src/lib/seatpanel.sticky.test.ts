@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Decision, View } from '../protocol';
 import { SeatPanelState } from './seatpanel.svelte';
 import { rememberKey } from './remembered';
-import { clear, ruleFromAnswer, saveSticky } from './sticky';
+import { clear, loadSticky, ruleFromAnswer, saveSticky, stickySourceNames } from './sticky';
 
 const { postIntent } = vi.hoisted(() => ({ postIntent: vi.fn() }));
 vi.mock('./api', async (original) => ({
@@ -29,6 +29,41 @@ function panel(table: string, decision = d, choices = [1]): SeatPanelState {
 beforeEach(() => { postIntent.mockReset(); postIntent.mockResolvedValue(undefined); });
 
 describe('sticky answer post wiring', () => {
+  it('manual ordered submit stores the selected order, resets the checkbox, and marks the accepted automatic answer', async () => {
+    const order: Decision = { ...d, kind: 'trigger_order', min: 2, max: 2, options: [
+      { index: 4, kind: 'trigger', label: 'Miner: Return', obj: 20, player: 0 },
+      { index: 8, kind: 'trigger', label: 'Miner: Draw', obj: 20, player: 0 },
+    ] };
+    const p = new SeatPanelState('sticky-manual-order', 1, ctx, null, null);
+    p.settings = { ...p.settings, autoOrderAllTriggers: false };
+    p.adoptView(order);
+    p.considerAuto({ ...view, decision: order });
+    p.stickyChoice = true;
+    p.click(8);
+    p.click(4);
+    p.submit();
+    expect(loadSticky('sticky-manual-order', 1, null).size).toBe(1);
+    expect(p.stickySourceNames).toEqual(['Miner']);
+    await Promise.resolve();
+    const next = { ...order, seq: 11 };
+    p.adoptView(next);
+    expect(p.stickyChoice).toBe(false);
+    p.considerAuto({ ...view, decision: next });
+    await Promise.resolve();
+    expect(postIntent.mock.calls[1][2].choices).toEqual([8, 4]);
+    expect(p.stickyAnswered?.seq).toBe(11);
+    p.rewind();
+    expect(p.stickyAnswered).toBeNull();
+    expect(p.stickyRules).toHaveLength(1); // rewind does not forget preferences
+  });
+
+  it('source markers use exact encoded names, not target labels or prompt substrings', () => {
+    const r = ruleFromAnswer(d, view, [1])!;
+    expect(stickySourceNames([r, r])).toEqual(['Miner']);
+    const missing = ruleFromAnswer({ ...d, source: 999 }, view, [1])!;
+    expect(stickySourceNames([missing])).toEqual([]);
+  });
+
   it('wins over global remembered answers, posts once through the normal intent endpoint, and respects per-game scope', async () => {
     const p = panel('sticky-post');
     p.remembered = { version: 1, entries: [{ key: rememberKey(d.kind, d.prompt), choice: 0, label: d.prompt, savedAt: 1 }] };

@@ -31,7 +31,7 @@
  *    opens a private window on it.
  */
 
-export type HotkeyAction = 'pass' | 'end-turn' | 'hard-skip' | 'cancel-run' | 'toggle-full-control' | 'next-profile' | 'prev-profile' | 'toggle-options';
+export type HotkeyAction = 'pass' | 'end-turn' | 'hard-skip' | 'cancel-run' | 'toggle-full-control' | 'next-profile' | 'prev-profile' | 'toggle-options' | 'clear-sticky';
 
 /**
  * MODAL_PICKER_SELECTOR is structural first: every open ARIA menu, dialog or
@@ -91,6 +91,7 @@ export function hotkeyAction(
   if (e.ctrlKey && e.shiftKey && (e.code === 'BracketRight' || e.key === '}' || e.key === ']')) return 'next-profile';
   if (e.ctrlKey && e.shiftKey && (e.code === 'BracketLeft' || e.key === '{' || e.key === '[')) return 'prev-profile';
   if (e.ctrlKey) return null;
+  if (e.key === '5' && !e.shiftKey) return 'clear-sticky';
   if (e.key === ' ') return 'pass';
   if (e.key === 'Enter') return e.shiftKey ? 'hard-skip' : 'end-turn';
   return null;

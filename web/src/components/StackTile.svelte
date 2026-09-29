@@ -2,6 +2,9 @@
   import type { StackView, View, TargetView } from '../protocol';
   import { visibleHand } from '../lib/board';
   import { stackYieldKey } from '../lib/yields';
+  import { getContext } from 'svelte';
+  import { STICKY_SOURCES, type StickySources } from '../lib/sticky-context';
+  import StickyMarker from './StickyMarker.svelte';
   import CardImage from './CardImage.svelte';
   import CardDetail from './CardDetail.svelte';
   import { HoverCard, type AnchorRect } from '../lib/carddetail.svelte';
@@ -124,6 +127,8 @@
   // be asked about is visible as such. The key is the SAME three facts the
   // tile renders (controller, source name, text) — what was yielded is
   // exactly what was read.
+  const stickySources = getContext<StickySources | undefined>(STICKY_SOURCES);
+  const sticky = $derived(stickySources?.().includes(stack.name) ?? false);
   const yielded = $derived(yields !== null && yields.has(stackYieldKey(stack)));
   // canYield gates the menu to an opponent-owned entry: yielding is a stand
   // against an opponent's recurring ability; the own-object rules are a
@@ -138,6 +143,7 @@
 </script>
 
 <div class="stack-tile kind-{stack.kind}" class:emphasized class:dimmed data-obj={stack.id}>
+  {#if sticky && !stack.card}<StickyMarker label={`Sticky choices active for ${stack.name}`} />{/if}
   {#if yielded}<span class="yielding" data-yielding>yielding</span>{/if}
   {#if stack.card}
     {@const card = stack.card}

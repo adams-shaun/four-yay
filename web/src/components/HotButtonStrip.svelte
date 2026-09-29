@@ -11,6 +11,7 @@
   import { isPlainManualTap, manualManaHidden } from '../lib/manualmana';
   import { announceActions } from '../lib/announcepay';
   import SeatPanel from './SeatPanel.svelte';
+  import StickyMarker from './StickyMarker.svelte';
 
   /**
    * PRESET_CYCLE is the hotkey cycle's leading entries: the three shipped
@@ -232,6 +233,9 @@
         case 'cancel-run':
           logic.cancelRun();
           break;
+        case 'clear-sticky':
+          logic.clearSticky();
+          break;
         case 'toggle-full-control':
           logic.toggleFullControl();
           break;
@@ -282,6 +286,9 @@
       aria-label={`Auto: ${autoStatus}`}
       title={`Auto: ${autoStatus}`}
     ><span aria-hidden="true">AUTO</span></span>
+  {/if}
+  {#if logic.stickyAnswered}
+    <StickyMarker label={`Answered by sticky choice: ${logic.stickyAnswered.label}`} />
   {/if}
   {#if logic.autoManaAvailable}
   <button
