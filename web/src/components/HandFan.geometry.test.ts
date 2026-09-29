@@ -10,7 +10,7 @@ beforeAll(async () => {
   browser = await sharedBrowser();
 });
 
-// The stage is fixed 600x420 (see HandFan.geometry.html), smaller than every
+// The stage is fixed 560x420 (see HandFan.geometry.html), smaller than every
 // supported test viewport, so the geometry measured is the stage's clip, not
 // the viewport's.
 const VIEWPORTS = [
@@ -222,6 +222,122 @@ describe('HandFan — the hand-card peek (fb-20260916T024357Z-9005ad6a)', () => 
       expect(await hitAt(band.x, band.y)).toBe('1');
 
       await page.close();
+    }
+  });
+
+  it('at rest the fanned icon, badge and CAST shortcut hit their own buttons over the next face', async () => {
+    for (const { width, height } of VIEWPORTS) {
+      const page = await browser.newPage({ viewport: { width, height } });
+      try {
+        await page.goto(`${url}src/components/HandFan.geometry.html`);
+        await page.waitForSelector('[data-obj="3"] .payment-shortcut', { timeout: 5000 });
+        await page.waitForTimeout(120); // ResizeObserver layout has settled; no pointer/focus enters the fan.
+        const resting = await page.evaluate(() => ({
+          hovered: document.querySelector('.card:hover') !== null,
+          focused: document.querySelector('.card:has(:focus-visible)') !== null,
+        }));
+        expect(resting).toEqual({ hovered: false, focused: false });
+        const hitAt = (x: number, y: number) =>
+          page.evaluate(([px, py]) => {
+            const el = document.elementFromPoint(px, py);
+            const button = el?.closest('button'); // glyph spans inside buttons can receive the hit
+            return {
+              obj: el?.closest('[data-obj]')?.getAttribute('data-obj') ?? null,
+              button: !!button,
+              icon: button?.hasAttribute('data-single-action') ?? false,
+              badge: button?.matches('.badge') ?? false,
+              payment: button?.matches('.payment-shortcut') ?? false,
+            };
+          }, [x, y]);
+        for (const { obj, selector, kind } of [
+          { obj: '1', selector: '.action-icon', kind: 'icon' },
+          { obj: '2', selector: '.badge', kind: 'badge' },
+          { obj: '3', selector: '.payment-shortcut', kind: 'payment' },
+        ] as const) {
+          const geometry = await page.evaluate(({ obj, selector }) => {
+            const button = document.querySelector(`[data-obj="${obj}"] ${selector}`)!;
+            const next = document.querySelector(`[data-obj="${Number(obj) + 1}"] .face`)!;
+            const stage = document.querySelector('#stage')!;
+            const b = button.getBoundingClientRect();
+            const n = next.getBoundingClientRect();
+            const s = stage.getBoundingClientRect();
+            const x = b.left + b.width / 2;
+            const y = b.top + b.height / 2;
+            return { x, y, buttonWidth: b.width, overlap: n.left < x && x < n.right && n.top < y && y < n.bottom,
+              visible: s.left < x && x < s.right && s.top < y && y < s.bottom, nextLeft: n.left };
+          }, { obj, selector });
+          // Without real overlap this test would pass even with the stacking bug.
+          expect(geometry.buttonWidth).toBeGreaterThan(0);
+          expect(geometry.visible).toBe(true);
+          expect(geometry.overlap).toBe(true);
+          expect(geometry.x).toBeGreaterThan(geometry.nextLeft);
+          const hit = await hitAt(geometry.x, geometry.y);
+          expect(hit.obj).toBe(obj);
+          expect(hit.button, `${obj}: ${JSON.stringify(hit)}`).toBe(true);
+          expect(hit[kind]).toBe(true);
+        }
+      } finally {
+        await page.close();
+      }
+    }
+  });
+
+  it('at rest a card’s affordance leaves the next card’s exposed LEFT edge its own face', async () => {
+    // The mirror of the occlusion case above, and the regression the first
+    // escape-only fix introduced: once the affordances left their card’s
+    // stacking context they painted over EVERY sibling face, including the
+    // next card’s exposed left strip. That strip is the raise gesture
+    // (`.card:hover`, and Playwright’s actionability hit-test) — covering it
+    // sent the pointer to the neighbour’s control instead of raising the
+    // card, the same two-step complaint on the other side. The affordance
+    // must clear the neighbour’s left edge while its own centre still sits
+    // over the neighbour’s face (asserted above).
+    for (const { width, height } of VIEWPORTS) {
+      const page = await browser.newPage({ viewport: { width, height } });
+      try {
+        await page.goto(`${url}src/components/HandFan.geometry.html`);
+        await page.waitForSelector('[data-obj="3"] .payment-shortcut', { timeout: 5000 });
+        await page.waitForTimeout(120); // ResizeObserver layout has settled; no pointer/focus enters the fan.
+        for (const { obj, selector } of [
+          { obj: '1', selector: '.action-icon' },
+          { obj: '2', selector: '.badge' },
+          { obj: '3', selector: '.payment-shortcut' },
+        ] as const) {
+          const probe = await page.evaluate(({ o, s }) => {
+            const affordance = document.querySelector(`[data-obj="${o}"] ${s}`)!;
+            const next = document.querySelector(`[data-obj="${Number(o) + 1}"] .face`)!;
+            const a = affordance.getBoundingClientRect();
+            const n = next.getBoundingClientRect();
+            // The next card’s exposed left-edge point (its leftmost 2px, top
+            // 8px — the point a left-edge raise hover uses).
+            const x = n.left + 2;
+            const y = n.top + 8;
+            return {
+              x, y, nextLeft: n.left, affordanceLeft: a.left,
+              insideNext: n.left < x && x < n.right && n.top < y && y < n.bottom,
+              // Precondition: the fixture’s cards really overlap.
+              overlap: n.left < document.querySelector(`[data-obj="${o}"]`)!.getBoundingClientRect().right,
+            };
+          }, { o: obj, s: selector });
+          expect(probe.insideNext, `${obj}: probe point ${probe.x},${probe.y} must lie in card ${Number(obj) + 1}`).toBe(true);
+          expect(probe.overlap, `${obj}: the fixture must overlap`).toBe(true);
+          // Proven non-vacuous: with the fix reverted the affordance covers the
+          // point (see the report’s `Fails without the fix`); the shipped fix
+          // moves its left edge clear of it.
+          expect(probe.affordanceLeft, `${obj}: affordance left ${probe.affordanceLeft} must clear the neighbour left edge ${probe.nextLeft}`).toBeGreaterThan(probe.x);
+          const hit = await page.evaluate(([px, py]) => {
+            const el = document.elementFromPoint(px, py);
+            return {
+              obj: el?.closest('[data-obj]')?.getAttribute('data-obj') ?? null,
+              button: !!el?.closest('button'),
+            };
+          }, [probe.x, probe.y]);
+          expect(hit.obj, `${obj}: left edge ${probe.x},${probe.y} must hit card ${Number(obj) + 1}, got ${JSON.stringify(hit)}`).toBe(String(Number(obj) + 1));
+          expect(hit.button, `${obj}: the left edge must not land on a button`).toBe(false);
+        }
+      } finally {
+        await page.close();
+      }
     }
   });
 
