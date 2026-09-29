@@ -224,9 +224,10 @@
         </div>
         {#if opt && legacyActions.length > 0 && !(legacyActions.length === 1 && landPlay)}
           <!-- The options affordance sits OUTSIDE the role="button" face so a
-               real button is never nested inside one; it anchors to the card's
-               TOP EDGE (a bare face has no corner meaning to preserve, and the
-               icon/badge clears the card in front of it on the overlap fan). -->
+               real button is never nested inside one; it anchors near the
+               card's TOP EDGE (a bare face has no corner meaning to preserve).
+               In an overlap fan it sits above the later face but clears that
+               card's exposed left edge so the raise hover remains reachable. -->
           {@const scenario = tileScenario(opt)}
           <div class="tile-actions">
             {#if legacyActions.length === 1}
@@ -463,9 +464,10 @@
      tile, a bare face has no corner that already means something (no keyword
      marks, no state band), and the hand must OPEN UPWARD — it sits at the
      board's bottom, so a menu that opened down would leave the felt. The
-     later faces cover earlier faces in the shared band; this z-indexed
-     affordance escapes its card's stacking context (the card is kept free of
-     one — see .card above) and so paints above every resting face. */
+     later faces cover earlier faces in the shared band; because each face
+     carries its own dim filter while the card stays free of a stacking
+     context, this z-indexed affordance joins the handfan's shared stacking
+     context and paints above every resting face. */
   .tile-actions {
     position: absolute;
     top: 1px;
