@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"sort"
 	"strings"
 	"testing"
 
@@ -164,8 +165,25 @@ func TestSneakCorpusCensusNamesEveryCarrier(t *testing.T) {
 			}
 		}
 	}
-	if len(carriers) != 27 {
-		t.Fatalf("kw:Sneak carriers = %d, want 27; carriers=%v", len(carriers), carriers)
+	sort.Strings(carriers)
+	wantCarriers := []string{
+		"Dark Leo & Shredder", "Donatello, Gadget Master", "Donatello's Technique",
+		"Elektra, Daughter of the Hand", "Foot Ninjas", "Jennika's Technique",
+		"Karai, Future of the Foot", "Karai's Technique", "Kitsune's Technique",
+		"Leonardo, Big Brother", "Leonardo, Cutting Edge", "Leonardo, Leader in Blue",
+		"Leonardo, Sewer Samurai", "Leonardo's Technique", "Michelangelo, Improviser",
+		"Michelangelo's Technique", "New Generation's Technique", "Oroku Saki, Shredder Rising",
+		"Raphael, the Nightwatcher", "Raphael's Technique", "Shark Shredder, Killer Clone",
+		"Shredder, Unrelenting", "Shredder's Technique", "Splinter, Hamato Yoshi",
+		"Splinter's Technique", "The Last Ronin's Technique", "Turncoat Kunoichi",
+	}
+	if len(carriers) != len(wantCarriers) {
+		t.Fatalf("kw:Sneak carriers = %d, want %d; got %v", len(carriers), len(wantCarriers), carriers)
+	}
+	for i := range wantCarriers {
+		if carriers[i] != wantCarriers[i] {
+			t.Fatalf("kw:Sneak carrier[%d] = %q, want %q; carriers=%v", i, carriers[i], wantCarriers[i], carriers)
+		}
 	}
 	for _, name := range carriers {
 		c, ok := reg.Lookup(name)
