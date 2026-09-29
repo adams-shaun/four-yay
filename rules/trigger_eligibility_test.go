@@ -166,6 +166,12 @@ func TestTriggerEventInterestMapping(t *testing.T) {
 			// mask's reach, so the conservative catch-all is the honest
 			// mapping (the SearchedLibrary shape).
 			want = cards.TriggerInterestAny
+		case events.ElementalBend:
+			// agent-20260929T010346Z-ae55d89d: the completed-bend marker is
+			// trigger-relevant (trig:ElementalBend matches it through the full
+			// matcher) and past the mask's reach, so the conservative
+			// catch-all is the honest mapping (the Proliferate/Evolved shape).
+			want = cards.TriggerInterestAny
 		}
 		if got := eventTriggerInterest(kind); got != want {
 			t.Fatalf("kind %s interest = %x, want %x", kind, got, want)

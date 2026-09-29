@@ -455,6 +455,17 @@ func Describe(g *state.Game, ev events.Event) string {
 		// is its own CounterChange line, so this line names only the
 		// evolving permanent (Obj is the Evolve trigger's own source).
 		return obj(g, ev.Obj) + " evolves"
+	case events.ElementalBend:
+		// The elemental-bend record (task agent-20260929T010346Z-ae55d89d)
+		// is a replay-visible pure marker: one completed bend action, whose
+		// own state change (the airbend exile, earthbend animate, firebending
+		// mana or waterbend tap) is its own line. Player is the bending seat;
+		// Text carries the verb (water/earth/fire/air), absent only for a
+		// unset hostile field, in which case the line still names the seat.
+		if ev.Text == "" {
+			return player(g, ev.Player) + " elemental-bends"
+		}
+		return player(g, ev.Player) + " " + ev.Text + "bends"
 	case events.Exploit:
 		// The exploit record (CR 702.58a, task exploit1): Obj is the
 		// exploiting creature, IDs[0] the exploited (sacrificed) one. The
