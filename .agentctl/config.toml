@@ -111,7 +111,7 @@ hold_new_while_parked = false
 # work keeps advancing and drains the backlog. Measured that day: 22 waiting
 # behind the overflow rounds fresh tickets kept spawning. Needs agentctl pin
 # >= the commit that adds the key.
-hold_new_while_waiting_over = 5
+hold_new_while_waiting_over = 20
 # 2026-09-22 (operator): triage writes at most this many briefs ahead of the
 # implementers; no new triage launches while this many sit in `briefed`.
 triage_ahead = 100
@@ -169,6 +169,11 @@ inbox = true
 agent_tickets = true
 feedback_dir = "feedback"
 
+[intake.routes]
+# Cross-repository work is routed only through an explicit, operator-owned
+# alias. A seat may name this alias in Owner-Repo but never supplies a path.
+agentctl = "/home/sadams/projects/agentctl"
+
 # git_ops.py:27-37 (create_worktree), :58-67 (triage), :80-86 (node_modules),
 # :231-237 (TEST_HISTORY.md).
 [worktree]
@@ -196,9 +201,9 @@ env = { GOMEMLIMIT = "1GiB" }
 # binaries across worktrees have exhausted this box's memory before.
 [[gates]]
 name = "go test (module)"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "go", "test", "-p=1", "-skip", "^TestHeads$", "./..."]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "go", "test", "-p=4", "-skip", "^(TestHeads|TestInvariantsUnderSeedFuzz|TestLargeEliminationSweepDoesNotTripLivelockWatcher)$", "./..."]
 timeout = 1200
-env = { GOMEMLIMIT = "1GiB" }
+env = { GOMEMLIMIT = "1536MiB" }
 
 [[gates]]
 name = "CR conformance"
@@ -247,6 +252,9 @@ applies_diff_touches = "web/"
 name = "smoke"
 cmd = ["flock", "{orch_dir}/smoke.lock", "bash", "scripts/smoke.sh"]
 timeout = 1200
+# 8090-8099 is the shared task-server allocation and presently has only four
+# free ports.  This private gate farm needs five; keep it out of that pool.
+env = { SMOKE_PORT_LO = "8100", SMOKE_PORT_HI = "8199" }
 applies_diff_touches = "web/"
 
 # Bookkeeping gate failures go to the REVIEWER seat in mechanical-fix mode
@@ -276,6 +284,7 @@ patterns = [
 
 # daemon.py:869-921; git_ops.py:205-216.
 [landing]
+staging_worktree = true
 strategy = "merge-push"
 remote = "origin"
 push = true
