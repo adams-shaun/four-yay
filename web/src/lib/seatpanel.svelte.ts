@@ -48,7 +48,10 @@ import {
   type RememberedStore,
 } from './remembered';
 
-import { actedOption, actedPayment, answersByToggle, followUpArm, identicalTriggerOrder, isConcede, optionAt, paymentActionForBase, pickOption, pickableInOrder, primaryOf, triggerOrderPermutation, unpickOption } from './prompts/decision';
+import { actedOption, actedPayment, answersByToggle, followUpArm, identicalTriggerOrder, isConcede, optionAt, paymentActionForBase, pickOption, primaryOf, triggerOrderPermutation, unpickOption } from './prompts/decision';
+import { MAX_DIGIT, renderedOrder } from './prompts/order';
+import { attackAllPicks, noAttackAllowed, noBlocksAllowed } from './prompts/combat';
+import { manaWindow, windowAction } from './announcepay';
 import { AUTO_PASS_CAP, type AutoNote, type AutoOffReason, runStopNote } from './prompts/autonote';
 
 // The pure decision helpers and the Auto note vocabulary live in
@@ -383,6 +386,13 @@ export class SeatPanelState {
    * list (the same adopt-reset contract as rememberChoice).
    */
   searchFilter = $state('');
+  /**
+   * dockCount is how many prompt docks are mounted against this seat (UI
+   * rework spec §4). While one is, it is the answer surface for every
+   * non-priority decision: the ACTIONS strip points at it instead of drawing
+   * a second copy, and does not pop open for it. Display-only.
+   */
+  dockCount = $state(0);
 
   /**
    * rememberedSeq is the seq the remembered-answer auto-reply last posted
@@ -769,23 +779,73 @@ export class SeatPanelState {
 
   /**
    * pickHotkey answers option n (1-based) of a pending decision exactly as
-   * clicking it in the panel would (the pick-N hotkeys): a toggle on the
-   * layouts that answer by toggle-then-Submit (answersByToggle), a click()
-   * everywhere else. It acts only where pickableInOrder allows — layouts
-   * whose on-screen order is d.options with nothing drawn elsewhere — and
-   * refuses (returns false, so the key is not consumed) everywhere else:
-   * priority windows, library search, name pick, the mana-payment window, a
-   * generic list with a separately drawn pass/resolve or concede, and any
-   * layout not named there. Numbering the filtered/sorted layouts by their
-   * rendered order is deferred to a later sub-project.
+   * clicking the row numbered n would (the pick-N hotkeys): a toggle on the
+   * layouts that answer by toggle-then-commit (answersByToggle), a click()
+   * everywhere else. The row is resolved through renderedOrder
+   * (lib/prompts/order.ts) — the same list every renderer numbers its rows
+   * from — so the digit on screen and the key always name the same option,
+   * including the sorted/filtered library search, the name pick and the
+   * select-mana window. It refuses (returns false, so the key is not
+   * consumed) where nothing is numbered: priority windows, a digit past the
+   * rendered rows, a posted or in-flight answer.
    */
   pickHotkey(n: number): boolean {
     const d = this.pending;
-    if (d === null || !pickableInOrder(d) || d.seq === this.postedSeq || this.busy) return false;
-    const o = d.options[n - 1];
-    if (o === undefined) return false;
-    if (answersByToggle(d)) this.toggle(o.index);
-    else this.click(o.index);
+    if (d === null || d.seq === this.postedSeq || this.busy) return false;
+    const order = renderedOrder(d, { filter: this.searchFilter });
+    if (order === null || n < 1 || n > MAX_DIGIT) return false;
+    const index = order[n - 1];
+    if (index === undefined) return false;
+    if (answersByToggle(d)) this.toggle(index);
+    else this.click(index);
+    return true;
+  }
+
+  /**
+   * attackWithAll is the "attack with all" answer (keymap action and the
+   * attackers prompt's button): it SELECTS one pairing per creature that can
+   * attack (attackAllPicks) and leaves the commit to the player. False when
+   * the pending decision is not a declare-attackers ask.
+   */
+  attackWithAll(): boolean {
+    const d = this.pending;
+    if (d === null || d.kind !== 'attackers' || d.seq === this.postedSeq || this.busy) return false;
+    const picks = attackAllPicks(d);
+    if (picks.length === 0) return false;
+    this.setPicked(picks);
+    return true;
+  }
+
+  /**
+   * declareNone commits the empty combat declaration ("No blocks", "No
+   * attack") straight away. It refuses when the empty answer is not one the
+   * client may send: a forced block or attack, or a positive min.
+   */
+  declareNone(): boolean {
+    const d = this.pending;
+    if (d === null || d.seq === this.postedSeq || this.busy) return false;
+    if (!noBlocksAllowed(d) && !noAttackAllowed(d)) return false;
+    this.setPicked([]);
+    this.submit();
+    return true;
+  }
+
+  /** noBlocks is the keymap's "no blocks": declareNone on a declare-blockers ask only. */
+  noBlocks(): boolean {
+    return this.pending?.kind === 'blockers' && this.declareNone();
+  }
+
+  /**
+   * autoPay is the keymap's "auto-pay": the select-mana window's Auto-fill
+   * option (announce-then-pay §4), posted through the ordinary click path.
+   * False outside that window, so the key is not consumed.
+   */
+  autoPay(): boolean {
+    const d = this.pending;
+    if (d === null || d.seq === this.postedSeq || this.busy || manaWindow(d) === null) return false;
+    const fill = windowAction(d, 'autofill');
+    if (fill === null) return false;
+    this.click(fill.index);
     return true;
   }
 

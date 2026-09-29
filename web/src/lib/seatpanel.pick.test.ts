@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Decision, Option } from '../protocol';
-import { SeatPanelState, pickOption, pickableInOrder, unpickOption } from './seatpanel.svelte';
+import { SeatPanelState, pickOption, unpickOption } from './seatpanel.svelte';
 
 // Hermetic post stub: the pick-N tests below assert what is (not) posted.
 const { postIntentMock } = vi.hoisted(() => ({ postIntentMock: vi.fn() }));
@@ -190,34 +190,38 @@ describe('SeatPanelState — the pick-N hotkeys', () => {
   });
 });
 
-describe('pickableInOrder — the pick-N allowlist', () => {
+describe('pickHotkey — digit N is the Nth rendered row', () => {
   const settle = async () => { for (let i = 0; i < 20; i++) await Promise.resolve(); };
 
-  it('refuses a non-priority list whose pass/resolve option is drawn as its own button, and posts nothing', async () => {
+  it('numbers a non-priority list without its separately drawn pass/resolve button', async () => {
     postIntentMock.mockReset();
     postIntentMock.mockResolvedValue(undefined);
     const dec: Decision = { seq: 20, player: 0, kind: 'choose', prompt: 'Pay {1}?', min: 1, max: 1,
       options: [{ index: 0, kind: 'pass', label: 'Decline', player: 0 }, { index: 1, kind: 'choose', label: 'Pay', player: 0 }] };
-    expect(pickableInOrder(dec)).toBe(false);
     const p = new SeatPanelState('t', 1, ctx, null);
     p.adoptView(dec);
-    expect(p.pickHotkey(1)).toBe(false);
+    // The only row is "Pay" (Decline is the footer button): 2 names nothing.
     expect(p.pickHotkey(2)).toBe(false);
+    expect(p.pickHotkey(1)).toBe(true);
     await settle();
-    expect(postIntentMock).not.toHaveBeenCalled();
+    expect(postIntentMock).toHaveBeenCalledWith('t', 1, { seq: 20, player: 0, choices: [1] }, ctx);
   });
 
-  it('refuses the announced mana-payment window (its own panel, not the option list)', async () => {
+  it('numbers the announced mana-payment window as its panel draws it', async () => {
     postIntentMock.mockReset();
+    postIntentMock.mockResolvedValue(undefined);
     const dec: Decision = { seq: 21, player: 0, kind: 'choose', prompt: 'Pay for Bolt', min: 1, max: 1,
       mana_payment: { card: 9, cost: { generic: 0, mana: [0, 0, 0, 1, 0, 0] }, owed: { generic: 0, mana: [0, 0, 0, 1, 0, 0] }, pool: [0, 0, 0, 0, 0, 0] },
-      options: [{ index: 0, kind: 'activate', label: 'Mountain: add R', obj: 3, player: 0 }] };
-    expect(pickableInOrder(dec)).toBe(false);
+      options: [
+        { index: 0, kind: 'cancel_cast', label: 'Cancel', player: 0 },
+        { index: 1, kind: 'mana', label: 'Add R', obj: 3, player: 0 },
+      ] };
     const p = new SeatPanelState('t', 1, ctx, null);
     p.adoptView(dec);
-    expect(p.pickHotkey(1)).toBe(false);
+    // Row 1 is the Mountain's R; Cancel cast is the last button (row 2).
+    expect(p.pickHotkey(1)).toBe(true);
     await settle();
-    expect(postIntentMock).not.toHaveBeenCalled();
+    expect(postIntentMock).toHaveBeenCalledWith('t', 1, { seq: 21, player: 0, choices: [1] }, ctx);
   });
 
   it('still picks on a generic target list that lists every option', async () => {
@@ -225,7 +229,6 @@ describe('pickableInOrder — the pick-N allowlist', () => {
     postIntentMock.mockResolvedValue(undefined);
     const dec: Decision = { seq: 22, player: 0, kind: 'target', prompt: 'Choose a target', min: 1, max: 1,
       options: [{ index: 0, kind: 'player', label: 'Seat 1', player: 0 }, { index: 1, kind: 'obj', label: 'Grizzly Bears', obj: 7, player: 0 }] };
-    expect(pickableInOrder(dec)).toBe(true);
     const p = new SeatPanelState('t', 1, ctx, null);
     p.adoptView(dec);
     expect(p.pickHotkey(2)).toBe(true);
@@ -233,4 +236,3 @@ describe('pickableInOrder — the pick-N allowlist', () => {
     expect(postIntentMock).toHaveBeenCalledWith('t', 1, { seq: 22, player: 0, choices: [1] }, ctx);
   });
 });
-

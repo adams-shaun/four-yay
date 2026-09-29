@@ -1,8 +1,4 @@
 import type { Decision, Option, PaymentAction, PaymentPlan, PaymentSelection } from '../../protocol';
-import { isSearchPick } from '../search';
-import { isNamePick } from '../name-pick';
-import { isDiscardPick } from '../discard';
-import { manaWindow } from '../announcepay';
 import { isPlainManualTap } from '../manualmana';
 import { isActionKind } from '../autopilot';
 
@@ -283,8 +279,8 @@ export function mulliganPhase(d: Decision | null): MulliganPhase {
 /**
  * answersByToggle reports whether the panel answers this decision's options
  * by TOGGLING them into `picked` (committed with Submit) rather than through
- * click(): the mulligan BOTTOM half and the arrange ask, SeatPanel.svelte's
- * `mull.phase === 'bottom'` and `arrange !== null` branches. Both can be
+ * click(): the mulligan BOTTOM half and the arrange ask (MulliganPrompt's
+ * bottom row and ArrangePrompt, components/prompts/). Both can be
  * min==max==1, where click() would post the first pick irreversibly (see
  * toggle()). Every non-panel answer path — the pick-N hotkeys — routes
  * through this one predicate so it can never answer differently.
@@ -294,8 +290,9 @@ export function answersByToggle(d: Decision | null): boolean {
 }
 
 /**
- * genericListOptions is the generic option list's rows, in order: SeatPanel's
- * fallback layout draws exactly these as option buttons. It leaves out what
+ * genericListOptions is the generic option list's rows, in order: the
+ * priority list and the numbered rows of components/prompts/ draw exactly
+ * these as option buttons. It leaves out what
  * the panel draws elsewhere or hides — concede, the pass/resolve `primary`
  * (its own button), a cast whose payment action stands in for it
  * (`paymentBases`), and plain manual taps while Auto Mana hides them.
@@ -311,40 +308,4 @@ export function genericListOptions(
     && opt.index !== primary?.index
     && !paymentBases.has(opt.index)
     && !(hideManualMana && isPlainManualTap(opt)));
-}
-
-/** NO_PAYMENT_BASES is the empty paymentBases a non-priority decision always has. */
-const NO_PAYMENT_BASES: ReadonlySet<number> = new Set<number>();
-
-/**
- * pickableInOrder is the pick-N hotkeys' ALLOWLIST: true only when the
- * decision renders through a SeatPanel layout whose on-screen order is
- * exactly d.options with nothing drawn elsewhere, so digit N names the Nth
- * option the player sees. It mirrors the panel's layout chain, in the
- * panel's precedence order:
- *
- * - the mulligan keep and bottom rows (mulliganPhase non-null): both iterate
- *   d.options unchanged;
- * - the arrange row (kind 'arrange'): iterates d.options unchanged;
- * - the discard row (isDiscardPick): iterates d.options unchanged;
- * - the library-search grid (isSearchPick), the name pick (isNamePick) and
- *   the announced mana-payment window (manaWindow): REFUSED — the first two
- *   render a filtered, A→Z-sorted list and the third its own panel;
- * - the generic option list: allowed only when genericListOptions keeps
- *   EVERY option, i.e. no pass/resolve primary, concede or hidden option is
- *   drawn apart from the list. paymentBases and hideManualMana are the
- *   panel's priority-only inputs and are empty/false here, because a
- *   priority decision is refused outright (its pass, concede and payment
- *   actions all sit outside the list).
- *
- * Anything else is refused, so a layout added later fails safe until it is
- * named here.
- */
-export function pickableInOrder(d: Decision | null): boolean {
-  if (d === null || d.kind === 'priority') return false;
-  if (mulliganPhase(d) !== null) return true;
-  if (d.kind === 'arrange') return true;
-  if (isDiscardPick(d)) return true;
-  if (isSearchPick(d) || isNamePick(d) || manaWindow(d) !== null) return false;
-  return genericListOptions(d, primaryOf(d), NO_PAYMENT_BASES, false).length === d.options.length;
 }

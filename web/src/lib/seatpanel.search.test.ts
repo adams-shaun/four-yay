@@ -102,14 +102,24 @@ describe('SeatPanelState.searchFilter — the display-only filter text', () => {
 });
 
 describe('pickHotkey on a library search', () => {
-  // The grid renders a filtered, A→Z-sorted list, so a digit cannot name the
-  // card on screen; on a Min 1 / Max 1 tutor it would also fetch at once.
-  it('refuses: returns false, picks nothing and posts nothing', async () => {
+  // The grid renders a filtered, A→Z-sorted list, and its faces are
+  // numbered in that order: digit 1 is "an Island" (index 1), not the
+  // library's first card on the wire.
+  it('answers the Nth card in rendered (sorted, filtered) order', async () => {
     const s = state();
     s.adoptView({ ...searchAsk, seq: 14, min: 1, max: 1 });
-    expect(s.pickHotkey(1)).toBe(false);
+    expect(s.pickHotkey(1)).toBe(true);
     for (let i = 0; i < 20; i++) await Promise.resolve();
-    expect(s.picked).toEqual([]);
+    expect(postIntentMock.mock.calls.at(-1)?.[2].choices).toEqual([1]);
+  });
+
+  it('a Min 0 search toggles the numbered card and a filter re-numbers', () => {
+    const s = state();
+    s.adoptView({ ...searchAsk, seq: 15 });
+    s.searchFilter = 'plains';
+    expect(s.pickHotkey(2)).toBe(false);
+    expect(s.pickHotkey(1)).toBe(true);
+    expect(s.picked).toEqual([2]);
     expect(postIntentMock).not.toHaveBeenCalled();
   });
 });
