@@ -383,10 +383,11 @@ async function matchOfTable(request: APIRequestContext, base: string, table: str
  * toggle if the dock is STILL near-table — i.e. the fixture's geometry no
  * longer produces full coverage, or the latch was not yet applied. (A toggle
  * press would land the dock in the rail either way; the poll merely keeps
- * the fallback quiet when the latch wins the race.) The toggle cycles table -> rail -> rail-bottom ->
- * floating -> table (nextPlacement in web/src/lib/prompts/dock.ts), so step
- * to 'rail' (bounded) rather than assuming one press. A page with no
- * prompt to answer has no dock to move, and returns.
+ * the fallback quiet when the latch wins the race.) The toggle cycles
+ * table -> rail -> rail-bottom -> floating -> table (nextPlacement in
+ * web/src/lib/prompts/dock.ts), so step to 'rail' (bounded) rather than
+ * assuming one press. A page with no prompt to answer has no dock to move,
+ * and returns.
  */
 async function dockPromptInRail(page: Page, label: string): Promise<void> {
   const dock = page.locator('[data-prompt-dock]');
