@@ -116,6 +116,6 @@
   <HotButtonStrip {view} {seats} state={panel} {ctx} table="fixture" match={1} />
   {#if surface === 'hand'}
     <!-- Table.svelte's HandFan wiring, verbatim. -->
-    <HandFan player={view.players[0]} width={900} paymentActions={castableActions(panel?.active ?? null, panel?.autoManaAvailable ?? false)} autoPay={panel?.autoPayMana ?? false} onCastPayment={(action, holdPriority) => panel?.castAction(action, holdPriority)} />
+    <HandFan player={view.players[0]} width={900} paymentActions={castableActions(panel?.active ?? null, panel?.autoManaAvailable ?? false, panel?.autoPayMana ?? false)} autoPay={panel?.autoPayMana ?? false} onCastPayment={(action, holdPriority) => panel?.castAction(action, holdPriority)} />
   {/if}
 {/if}

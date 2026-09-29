@@ -10,6 +10,9 @@ import { findCardAnywhere } from './board';
  * R-E4-2 (the client is rules-ignorant): castability is the engine's planner
  * verdict already on the wire (a payment action with at least one plan), and
  * every button posts an option the server offered, by its own index (R-E4-1).
+ * The one exception is ManaBrew, whose wire cannot carry payment plans: it
+ * offers a plan-less action that the announce route answers (see
+ * castableActions below).
  */
 
 const SLOTS = ['W', 'U', 'B', 'R', 'G', 'C'] as const;
@@ -24,10 +27,14 @@ export function announceActions(d: Decision | null, autoManaAvailable: boolean, 
 }
 
 /** castableActions are every offered payment action CAST can reach from a hand
- *  card, including plan-less ManaBrew actions that use announce-then-pay. */
-export function castableActions(d: Decision | null, autoManaAvailable: boolean): PaymentAction[] {
+ *  card. With Auto-pay OFF a plan-less ManaBrew action is reachable through
+ *  announce-then-pay (submitAnnounce); with Auto-pay ON castAction submits the
+ *  suggested plan and has no route for a plan-less action, so offering it
+ *  would render a dead CAST button. Exclude it there. */
+export function castableActions(d: Decision | null, autoManaAvailable: boolean, autoPayMana: boolean): PaymentAction[] {
   if (d === null || d.kind !== 'priority' || !autoManaAvailable) return [];
-  return d.payment_actions ?? [];
+  const actions = d.payment_actions ?? [];
+  return autoPayMana ? actions.filter((a) => a.plans.length > 0) : actions;
 }
 
 /** manaWindow is the announced window, or null for any other decision. */

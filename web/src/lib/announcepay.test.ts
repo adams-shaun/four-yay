@@ -65,7 +65,11 @@ describe('announce-then-pay helpers', () => {
     expect(announceActions(d, true, false).map((a) => a.id)).toEqual(['plan-only', 'planless']);
     expect(announceActions(d, true, true)).toEqual([]);
     expect(announceActions(d, false, false)).toEqual([]);
-    expect(castableActions(d, true).map((a) => a.id)).toEqual(['plan-only', 'pooled', 'planless']);
+    expect(castableActions(d, true, false).map((a) => a.id)).toEqual(['plan-only', 'pooled', 'planless']);
+    // Auto-pay ON has no route for a plan-less action (castAction submits the
+    // suggested plan and returns when there is none), so it must not be offered
+    // as a CAST button — that would be an inert control.
+    expect(castableActions(d, true, true).map((a) => a.id)).toEqual(['plan-only', 'pooled']);
     expect(announceActions(windowDecision(), true, false)).toEqual([]);
   });
 
