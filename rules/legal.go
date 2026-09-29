@@ -32,12 +32,34 @@ func modalLandBack(o *state.Object) *cards.Face {
 	return o.Card.Faces[1]
 }
 
-// modalSpellBack identifies a Modal DFC's nonland back face when it is in hand.
+// modalSpellFacePair reports whether mode names an AlternateMode whose two
+// faces are each independently castable from hand as a modal double-faced card
+// (CR 712): the ordinary "Modal" MDFC and the Secrets of Strixhaven "Prepare"
+// pair (a permanent front -- which enters prepared and can cast a copy of its
+// back-face spell while prepared -- and a nonland spell back). Both faces
+// compose their own cost, timing, targets and restriction, and a resolved back
+// face goes to the graveyard exactly like a Modal DFC's nonland back (CR
+// 712.3a). The hand-zone modal-LAND action (modalLandBack) deliberately keeps
+// the narrower "Modal" gate: no Prepare card prints a land back, so widening
+// it there would only widen a land-play gate with no carrier.
+func modalSpellFacePair(mode string) bool {
+	return mode == "Modal" || mode == "Prepare"
+}
+
+// modalSpellBack identifies a modal DFC's nonland back face when it is in
+// hand. AlternateMode "Modal" and "Prepare" are both modal face pairs
+// (modalSpellFacePair). A "Prepare" pair may carry an unresolved
+// CopyFaceFrom stub as its back (cards/parse.go does not resolve that
+// directive), which parses to a nameless face with no types or cost;
+// offering it would put a free, empty-named cast on the stack, so a nameless
+// back is rejected here. Every real Modal back is named, so the guard changes
+// nothing for "Modal".
 func modalSpellBack(o *state.Object) *cards.Face {
 	if o == nil || o.Card == nil || o.FaceIdx != 0 ||
-		o.Card.AlternateMode != "Modal" || len(o.Card.Faces) != 2 ||
+		!modalSpellFacePair(o.Card.AlternateMode) || len(o.Card.Faces) != 2 ||
 		o.Card.Faces[0] == nil || o.Card.Faces[1] == nil ||
-		o.Zone != state.ZHand || o.Card.Faces[1].IsLand() {
+		o.Zone != state.ZHand || o.Card.Faces[1].IsLand() ||
+		o.Card.Faces[1].Name == "" {
 		return nil
 	}
 	return o.Card.Faces[1]
@@ -2720,6 +2742,28 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 			out = append(out, decision.Option{Index: len(out), Kind: "cast",
 				Label: "Cast " + f.Name + " (" + ka.mode + ")", Obj: id, Mode: ka.mode})
 		}
+		// Web-slinging (CR 702.186a-family, Marvel's Spider-Man): the printed
+		// (or granted) web-slinging cost replaces the mana cost, and the cast
+		// carries the mandatory additional cost of returning a tapped creature
+		// you control to its owner's hand -- the composed Cost the shared
+		// reader (webslinging.go's webSlingingCosts) prices for BOTH this offer
+		// and beginCast's charge, so the two stages cannot drift. The same
+		// timing/restriction gates the plain cast above ran apply unchanged
+		// (the keyword adds no timing rider), and offerCastable's shared tail
+		// (nonManaCastable) censuses the Return part's candidates: an option
+		// whose return cannot be paid must never be offered (the offerCastable
+		// ruling).
+		for _, wc := range e.webSlingingCosts(p, id) {
+			if !targetsAvailable() || !offerCastable(p, id, wc.cost, spellScope(wc.mode), false) {
+				continue
+			}
+			label := "web-slinging"
+			if wc.mode != "web-slinging" {
+				label = "web-slinging (granted)"
+			}
+			out = append(out, decision.Option{Index: len(out), Kind: "cast",
+				Label: "Cast " + f.Name + " (" + label + ")", Obj: id, Mode: wc.mode})
+		}
 		if blitzes := e.blitzCosts(p, id); len(blitzes) > 0 && targetsAvailable() {
 			for _, blitz := range blitzes {
 				if !offerCastable(p, id, blitz.cost, spellScope(blitz.mode), false) {
@@ -3361,6 +3405,26 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 		o := e.G.Obj(id)
 		f := o.Face()
 		if f == nil || o.IsToken {
+			continue
+		}
+		// CR 722.3c: the prepared designation's exile copy -- an IsCopy
+		// object whose PreparedSource names a battlefield permanent -- may be
+		// cast by that permanent's controller for as long as the permanent
+		// remains prepared. Its Face() is the prepare spell, so timing,
+		// targets and resolution all run the ordinary stages; the cast is
+		// free and the designation is removed at cast time (rules/cast.go's
+		// pushCast), not on resolution.
+		if o.IsCopy && o.PreparedSource != 0 {
+			if src := e.G.Obj(o.PreparedSource); src != nil && src.Zone == state.ZBattlefield &&
+				src.Prepared && src.Controller == p &&
+				!castRestricted(p, id) && !e.castSuppressed(p, id) &&
+				e.spellTimingOK(p, id, f, sorcery) &&
+				e.castTargetsAvailable(p, id, f.SpellAbility()) {
+				if offerCastable(p, id, Cost{}, spellScope("prepared_copy"), false) {
+					out = append(out, decision.Option{Index: len(out), Kind: "cast",
+						Label: "Cast " + f.Name + " (prepared)", Obj: id, Mode: "prepared_copy"})
+				}
+			}
 			continue
 		}
 		// CR 714.3a: the main face of an Adventure card resting in the

@@ -2704,6 +2704,13 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		// semantics for the rest of the cast pipeline.
 		opt.Mode = "blitzed"
 	}
+	if strings.HasPrefix(selectedMode, "webslinged_grant_") {
+		// Web-slinging (CR 702.186a-family): the same grant-cost convention as
+		// blitzed_grant_N above -- a unique offer mode per grant cost, canonical
+		// web-slinging semantics for the rest of the cast pipeline (the charge
+		// below and modeFlags' flag both key the canonical mode).
+		opt.Mode = "web-slinging"
+	}
 	switch opt.Mode {
 	case "kicked":
 		if kc, ok := kickerCost(f); ok {
@@ -2806,6 +2813,11 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 	case "plot_cast":
 		// CR 701.34d: the plotted card's later cast is free -- no mana cost,
 		// no raises; targets and resolution run the ordinary stages.
+		cost = Cost{}
+	case "prepared_copy":
+		// CR 722.3c: the prepared designation's exile copy is cast as a
+		// copy of the prepare spell -- free, with targets and resolution
+		// running the ordinary stages, exactly like a plotted card's cast.
 		cost = Cost{}
 	case "foretell":
 		// CR 702.126a: the Foretell ACTION pays {2} and exiles the card face
@@ -2927,6 +2939,23 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 			cost = ParseCost(mc)
 		} else {
 			cost = Cost{}
+		}
+	case "web-slinging":
+		// Web-slinging (CR 702.186a-family, Marvel's Spider-Man): the
+		// web-slinging cost replaces the mana cost AND the composed Cost
+		// carries the mandatory Return<1/Creature.YouCtrl+tapped> additional
+		// cost, settled by the ordinary Return machinery (returnAsk asks,
+		// payCast moves the chosen permanent to its owner's hand beside the
+		// other payments). webSlingingCosts is the ONE reader the offer and
+		// this charge call, so the two stages cannot drift; a stale option
+		// whose keyword is gone falls back to the empty cost like the keyword
+		// family above rather than charging the printed mana cost.
+		cost = Cost{}
+		for _, wc := range e.webSlingingCosts(p, id) {
+			if wc.mode == selectedMode {
+				cost = wc.cost
+				break
+			}
 		}
 	case "mayhem":
 		// Mayhem (the Doom Prevails keyword): a graveyard cast paying the
@@ -8534,6 +8563,14 @@ func modeFlags(mode string) string {
 	// what the cast records.
 	case "mayhem":
 		return events.FlagsString(state.FlagMayhem)
+	// Web-slinging (CR 702.186a-family, Marvel's Spider-Man): the flag is the
+	// provenance the Card.Self+webSlinged filter predicate reads -- Spiders-Man,
+	// Heroic Horde's ETB trigger and Scarlet Spider, Ben Reilly's Sensational
+	// Save replacement. It is a CastProvenanceFlag (state/object.go), so a
+	// stack copy does not inherit it. webslinged_grant_N modes are normalized
+	// to this canonical mode in beginCastWith before this switch is reached.
+	case "web-slinging":
+		return events.FlagsString(state.FlagWebSlinged)
 	// Bestow (CR 702.114a): the flag is the provenance the resolution
 	// reader (resolveTop) uses to substitute the synthesized Aura attach
 	// spell, and what keeps a bestowed cast distinguishable on the wire.
@@ -9561,6 +9598,17 @@ func (e *Engine) pushCast() bool {
 	}
 	e.emit(ev)
 	e.deferCastTrigger = false
+	// CR 722.3c: the prepared permanent loses its designation "at the time
+	// the spell becomes cast" (CR 601.2i) -- here, as the copy reaches the
+	// stack, never on resolution. Apply's fold clears Object.Prepared, so the
+	// copy is no longer offered; the orphaned exile copy is not re-offered
+	// because its source no longer answers Prepared.
+	if pc.mode == "prepared_copy" {
+		if cp := e.G.Obj(pc.card); cp != nil && cp.PreparedSource != 0 {
+			e.emit(events.Event{Kind: events.AlterAttribute, Obj: cp.PreparedSource,
+				Text: "Prepared", Amount: -1})
+		}
+	}
 	// CR 601.2a: the player who cast the spell is its controller. A card
 	// another seat controlled (Rashmi and Ragavan's exiled OPPONENT card,
 	// Gonti's stolen card, Intellect Devourer's may-play exile) comes under

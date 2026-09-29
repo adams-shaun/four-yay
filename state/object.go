@@ -376,6 +376,18 @@ const (
 	// It IS a CastProvenanceFlag: a stack copy was never cast (CR 707.10).
 	// Appended after main's FlagBlitzed to preserve its bit.
 	FlagAddsCounters
+	// FlagWebSlinged marks a cast paid for with the card's Web-slinging
+	// alternative cost (CR 702.186a-style, Marvel's Spider-Man: "You may cast
+	// this spell for <cost> if you also return a tapped creature you control
+	// to its owner's hand"). The flag is the provenance the
+	// Card.Self+webSlinged filter predicate reads (rules/cast_provenance.go's
+	// webSlingedAdmits): Spiders-Man, Heroic Horde's "if they were cast using
+	// web-slinging" ETB trigger and Scarlet Spider, Ben Reilly's Sensational
+	// Save replacement. It IS a CastProvenanceFlag: the rider is conditioned
+	// on the spell having been CAST for its web-slinging cost, so a stack
+	// copy -- put on the stack, never cast (CR 707.10) -- must not inherit
+	// it. Appended after main's FlagAddsCounters to preserve its bit.
+	FlagWebSlinged
 )
 
 // CastProvenanceFlags is the ONE home for the CastFlags bits whose reader
@@ -414,7 +426,10 @@ const (
 // cast your commander, it enters with ..."), so a copy -- put on the stack,
 // never cast -- must not inherit the grants. FlagBlitzed is likewise a
 // cast-cost-conditioned entry rider.
-const CastProvenanceFlags = FlagMayFlashSac | FlagMayhem | FlagMayPlay | FlagPromisedGift | FlagRebound | FlagBlitzed | FlagAddsCounters
+// FlagWebSlinged joins the set: "if it was cast using web-slinging" is a
+// statement about the cast (the web-slinging cost was paid), so a stack copy
+// -- put on the stack, never cast (CR 707.10) -- must not inherit it.
+const CastProvenanceFlags = FlagMayFlashSac | FlagMayhem | FlagMayPlay | FlagPromisedGift | FlagRebound | FlagBlitzed | FlagAddsCounters | FlagWebSlinged
 
 // ExilesLeavingStack reports whether a cast carrying these flags is a
 // keyword cast whose card is exiled as it leaves the stack, whichever way it
@@ -715,6 +730,22 @@ type Object struct {
 	// CloneDeep carries it, and only events.AlterAttribute (the primitive the
 	// api:AlterAttribute effect emits) may set it.
 	Suspected bool
+
+	// Prepared is CR 722.3a's prepared designation on a preparation card's
+	// permanent. A permanent can gain it only if it has a prepare spell
+	// (Card.AlternateMode == "Prepare" with an inset face); CR 722.3c mints
+	// the prepare-spell copy in exile (PreparedSource below) as it gains the
+	// designation, and the designation ends when the permanent leaves the
+	// battlefield (the Move clear in events.Apply) or an unprepare effect /
+	// the prepared copy's cast (rules/cast.go) removes it. It is a plain
+	// status field, exactly like Suspected.
+	Prepared bool
+
+	// PreparedSource, on an EXILE copy minted by CR 722.3c's prepared grant,
+	// names the battlefield permanent whose prepare spell it copies. Zero on
+	// every other object. The cast offer (rules/legal.go) and the cast-time
+	// unprepare (rules/cast.go) both read it to find the permanent.
+	PreparedSource ObjID
 
 	// Monstrous is CR 701.31b's monstrous designation (Giggling
 	// Skitterspike's `{5}: Monstrosity 5`): a creature becomes monstrous
@@ -1458,6 +1489,15 @@ func (o *Object) MergedFaceAt(i int) *cards.Face {
 func (o *Object) Ephemeral() bool {
 	return (o.IsCopy && o.Zone != ZStack && o.Zone != ZBattlefield) ||
 		(o.IsToken && o.Zone != ZBattlefield) || o.Card == nil
+}
+
+// HasPrepareSpell reports whether this object carries CR 722.2's prepare
+// spell: a preparation card (AlternateMode "Prepare") with an inset face.
+// The prepared designation can only be granted to such an object (CR
+// 722.3a), so the AlterAttribute grant gate reads this ONE definition.
+func (o *Object) HasPrepareSpell() bool {
+	return o != nil && o.Card != nil && o.Card.AlternateMode == "Prepare" &&
+		len(o.Card.Faces) >= 2 && o.Card.Faces[1] != nil
 }
 
 func (o *Object) Counter(kind string) int32 {

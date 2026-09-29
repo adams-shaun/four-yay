@@ -332,6 +332,21 @@ func Apply(g *state.Game, e Event) {
 			switch e.Text {
 			case "Suspected":
 				o.Suspected = e.Amount >= 1
+			case "Prepared":
+				// CR 722.3a: the prepared designation may only be granted to a
+				// permanent that has a prepare spell, and a permanent already
+				// prepared cannot gain it again; the false->true transition is
+				// what mints CR 722.3c's exile copy. Amount -1 removes it (an
+				// unprepare effect or the copy's cast). The copy is minted here,
+				// inside Apply, so a log-only replay mints the identical object.
+				if e.Amount >= 1 {
+					if !o.Prepared && o.HasPrepareSpell() {
+						o.Prepared = true
+						grantPreparedCopy(g, o)
+					}
+				} else {
+					o.Prepared = false
+				}
 			case "Monstrous":
 				// CR 701.31b's monstrous designation (Giggling Skitterspike's
 				// `{5}: Monstrosity 5`, task agent-20260919T190014Z): Amount is
@@ -1240,6 +1255,10 @@ func Apply(g *state.Game, e Event) {
 				o.Monstrous = false
 				o.Renowned = false
 				o.PlottedTurn = 0
+				// CR 722.3a: the prepared designation lives on a battlefield
+				// permanent; the exempted exile copy (CR 722.3c) ceases to be
+				// castable because its PreparedSource no longer answers true.
+				o.Prepared = false
 			}
 		}
 
@@ -3672,6 +3691,32 @@ func ringEmblemAbility(level int) *cards.SA {
 		}}
 	}
 	return nil
+}
+
+// grantPreparedCopy implements CR 722.3c's prepared grant: the battlefield
+// permanent o gains the prepared designation (folded by the AlterAttribute
+// case above) and its controller creates, in exile, a copy that carries only
+// its prepare-spell face's characteristics. The copy is minted here, inside
+// Apply, so a log-only replay mints the identical object from the same
+// event; it is IsCopy (a spell copy, never a card) and PreparedSource names
+// o so the cast offer and the cast-time unprepare can find the permanent.
+//
+// Any earlier copy still linked to o is invalidated (PreparedSource = 0)
+// before the new one is minted, so a permanent that becomes prepared a second
+// time never offers a stale copy. Every read from o is snapshotted BEFORE
+// AddObject, which may reallocate g.Objs under the pointer.
+func grantPreparedCopy(g *state.Game, o *state.Object) {
+	src, card, ctrl := o.ID, o.Card, o.Controller
+	for i := range g.Objs {
+		if cp := &g.Objs[i]; cp.PreparedSource == src {
+			cp.PreparedSource = 0
+		}
+	}
+	cp := g.AddObject(card, ctrl)
+	cp.IsCopy = true
+	cp.FaceIdx = 1
+	cp.PreparedSource = src
+	Move(g, cp.ID, state.ZLibrary, state.ZExile)
 }
 
 // Move relocates an object between zones, preserving zone order and the

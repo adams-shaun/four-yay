@@ -1652,6 +1652,11 @@ var flagNames = [...]struct {
 	// ride the same CastInfo's Text into Object.ManaAddsCounterGrants.
 	// Appended after main's blitzed entry to preserve its ordering.
 	{"addscounters", state.FlagAddsCounters},
+	// The kw:Web-slinging alternative-cost cast (CR 702.186a-family, Marvel's
+	// Spider-Man): the flag is the provenance the Card.Self+webSlinged filter
+	// predicate reads -- Spiders-Man, Heroic Horde's ETB trigger. Appended
+	// at the end per the table's own ordering rule.
+	{"webslinged", state.FlagWebSlinged},
 }
 
 // FlagsFrom parses a comma-separated flag list (CastInfo.Counter's shape)
