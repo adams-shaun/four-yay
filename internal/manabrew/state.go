@@ -37,34 +37,47 @@ func (t *Translator) gameView(v view.View) mb.GameViewDto {
 	return gv
 }
 
+// stepKind maps an engine step name (view.View.Step, i.e. state.Step.String())
+// onto the ManaBrew StepKind. The name is first parsed back to the engine's
+// step enum with state.ParseStep -- the ONE home of the name<->Step mapping --
+// so the switch below is over state.Step and a step the engine adds is a
+// missing case, not a string that silently passes through: an unknown name
+// yields the empty StepKind. TestStepMapTotal iterates every valid state.Step,
+// so a new engine step fails that test rather than shipping unmapped.
 func stepKind(s string) mb.StepKind {
-	switch s {
-	case "untap":
+	step, ok := state.ParseStep(s)
+	if !ok {
+		return mb.StepKind("")
+	}
+	switch step {
+	case state.StepUntap:
 		return mb.StepUntap
-	case "upkeep":
+	case state.StepUpkeep:
 		return mb.StepUpkeep
-	case "draw":
+	case state.StepDraw:
 		return mb.StepDraw
-	case "main1":
+	case state.StepMain1:
 		return mb.StepMain1
-	case "begin-combat":
+	case state.StepBeginCombat:
 		return mb.StepCombatBegin
-	case "declare-attackers":
+	case state.StepDeclareAttackers:
 		return mb.StepCombatDeclareAttackers
-	case "declare-blockers":
+	case state.StepDeclareBlockers:
 		return mb.StepCombatDeclareBlockers
-	case "combat-damage":
+	case state.StepCombatDamage:
 		return mb.StepCombatDamage
-	case "end-combat":
+	case state.StepEndCombat:
 		return mb.StepCombatEnd
-	case "main2":
+	case state.StepMain2:
 		return mb.StepMain2
-	case "end":
+	case state.StepEnd:
 		return mb.StepEndOfTurn
-	case "cleanup":
+	case state.StepCleanup:
 		return mb.StepCleanup
 	default:
-		return mb.StepKind(s)
+		// A state.Step the table above does not name: leave it empty rather
+		// than emit a bogus kind.
+		return mb.StepKind("")
 	}
 }
 
@@ -210,5 +223,10 @@ func stackObject(s view.StackView) mb.StackObjectDto {
 	if s.Card != nil {
 		name = s.Card.Printing.Name
 	}
+	// OwnerID is the controller: view.StackView (view/view.go) carries no
+	// owner, and for a spell whose controller differs from its owner the
+	// stack's owner is unknowable from the redacted view. This is the v1
+	// approximation -- the field is emitted as authoritative and would be
+	// wrong only for a stack object cast/created for another player.
 	return mb.StackObjectDto{ID: stackID(s.ID), SourceID: cardID(s.Source), ControllerID: playerID(s.Controller), OwnerID: playerID(s.Controller), Identity: mb.CardIdentity{Name: name}, Text: s.Text, IsPermanentSpell: s.Kind == "spell", IsCasting: s.Kind == "spell", FaceIndex: 0, Targets: []mb.TargetRef{}}
 }

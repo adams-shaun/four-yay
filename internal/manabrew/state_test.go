@@ -32,6 +32,13 @@ func TestStateProjectionGolden(t *testing.T) {
 	if fixture.Players[1].Battlefield[0].Owner == fixture.Players[1].Battlefield[0].Controller {
 		t.Fatal("fixture must distinguish battlefield controller from owner")
 	}
+	// The engine keys every battlefield membership list by CONTROLLER, not
+	// owner: events/apply.go's zoneOwner returns o.Controller for ZBattlefield,
+	// move (events/apply.go:3929) files a permanent with zoneOwner(o, to), and
+	// changeControl (events/apply.go:4328) moves a stolen permanent from its
+	// old controller's list to its new one. So view.PlayerView.Battlefield
+	// holds exactly the permanents that player controls, and the projection
+	// below must bucket by controller while preserving the owner id.
 	got, err := json.Marshal(New("table", 2, nil).gameView(fixture))
 	if err != nil {
 		t.Fatal(err)
@@ -70,6 +77,26 @@ func TestStateProjectionGolden(t *testing.T) {
 	card, ok := controllerBucket.Cards[0].Value.(mb.VisibleCard)
 	if !ok || card.ID != "o4" || card.OwnerID != "player-0" || card.ControllerID != "player-1" {
 		t.Fatalf("battlefield was not bucketed by controller while retaining owner: %#v", controllerBucket.Cards[0])
+	}
+	// The owner's bucket must NOT carry it: a permanent appears under exactly
+	// one controller, so an owner-grouped projection (the one this asserts
+	// against) would have to move o4 into player-0's bucket and empty
+	// player-1's -- both of which this test would catch.
+	var ownerBucket *mb.ZoneDto
+	for i := range dto.Zones {
+		z := &dto.Zones[i]
+		if z.Zone == mb.ZoneBattlefield && z.OwnerID == "player-0" {
+			ownerBucket = z
+			break
+		}
+	}
+	if ownerBucket == nil {
+		t.Fatal("player-0 battlefield bucket missing")
+	}
+	for _, entry := range ownerBucket.Cards {
+		if vc, ok := entry.Value.(mb.VisibleCard); ok && vc.ID == "o4" {
+			t.Fatalf("controlled-by-other permanent o4 leaked into its owner's battlefield bucket: %#v", vc)
+		}
 	}
 	var faceDown bool
 	for _, z := range dto.Zones {
@@ -115,12 +142,24 @@ func TestHiddenZonesNeverVisible(t *testing.T) {
 }
 
 func TestStepMapTotal(t *testing.T) {
-	steps := []string{"untap", "upkeep", "draw", "main1", "begin-combat", "declare-attackers", "declare-blockers", "combat-damage", "end-combat", "main2", "end", "cleanup"}
-	want := []mb.StepKind{mb.StepUntap, mb.StepUpkeep, mb.StepDraw, mb.StepMain1, mb.StepCombatBegin, mb.StepCombatDeclareAttackers, mb.StepCombatDeclareBlockers, mb.StepCombatDamage, mb.StepCombatEnd, mb.StepMain2, mb.StepEndOfTurn, mb.StepCleanup}
-	for i, s := range steps {
-		if got := stepKind(s); got != want[i] {
-			t.Errorf("stepKind(%q)=%q, want %q", s, got, want[i])
+	// Derived from the engine's OWN step set rather than a hand-copied list:
+	// every valid state.Step must map to a non-empty StepKind. A step the
+	// engine adds (a new state.Step constant) makes this fail until stepKind
+	// names it, so the map cannot silently fall through.
+	seen := 0
+	for step := state.Step(0); step.Valid(); step++ {
+		name := step.String()
+		if got := stepKind(name); got == "" {
+			t.Errorf("stepKind(%q) = empty; every engine step must map to a StepKind", name)
 		}
+		seen++
+	}
+	if seen != 12 {
+		t.Fatalf("engine exposes %d valid steps, expected 12", seen)
+	}
+	// An unknown (or malformed) name maps to the empty kind, not a pass-through.
+	if got := stepKind("not-a-step"); got != "" {
+		t.Errorf("stepKind(unknown) = %q, want empty", got)
 	}
 }
 
