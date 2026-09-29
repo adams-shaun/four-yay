@@ -347,6 +347,10 @@ type CardView struct {
 	// ManaCost is the printed cost in Forge's notation ("1 W", "R", "X G").
 	// Hand lists render it as symbols.
 	ManaCost string `json:"mana_cost,omitempty"`
+	// EffectiveManaCost is the offer-time cost to cast this card when the
+	// engine can determine a non-X own-cost composition that differs from
+	// the printed ManaCost. Empty means use ManaCost.
+	EffectiveManaCost string `json:"effective_mana_cost,omitempty"`
 	// SpellAPI is the API of the card's primary cast-shape ability (its
 	// SP$ line -- "Counter" for Counterspell, "DealDamage" for Lightning
 	// Bolt, "" for a card with no spell ability, which is every creature
@@ -926,6 +930,13 @@ func cardViews(g *state.Game, ch Chars, ids []state.ObjID, includeAbilityCosts b
 			continue
 		}
 		cv := cardView(g, ch, id)
+		if effective, ok := ch.(interface {
+			SpellEffectiveCost(state.PlayerID, state.ObjID) string
+		}); ok {
+			if cost := effective.SpellEffectiveCost(abilityPlayer, id); cost != "" && cost != cv.ManaCost {
+				cv.EffectiveManaCost = cost
+			}
+		}
 		// A face-down exiled card is public as a distinct object but its face is
 		// visible only to its controller (or an omniscient projection). Keep
 		// every printed field blank for other viewers; Secret on the original
