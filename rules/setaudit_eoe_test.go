@@ -213,15 +213,14 @@ func TestSetAudit_eoe_TheEndstone_EndStepSetsHalfStartingLife(t *testing.T) {
 // ---------------------------------------------------------------------------
 // (b) Scout for Survivors — "Return up to three target creature cards with
 // total mana value 3 or less from your graveyard to the battlefield." (CR
-// 601.2c's target legality, per CR 202.3's mana-value sum.) The engine reads
-// TargetMin$/TargetMax$/ValidTgts$ but never `MaxTotalTargetCMC$`, so three
-// mana-value-3 creatures (total 9) are all legal targets.
+// 601.2c's target legality, per CR 202.3's mana-value sum.) The engine now
+// reads TargetMin$/TargetMax$/ValidTgts$ and `MaxTotalTargetCMC$`, so a set
+// of three mana-value-3 creatures (total 9) is not a legal answer under the
+// MV-3 cap. This was the set-audit finding that the MaxTotalTargetCMC$ ticket
+// closed, so the test is unguarded and runs in every gate.
 // ---------------------------------------------------------------------------
 
 func TestSetAudit_eoe_ScoutForSurvivors_TotalManaValueCap(t *testing.T) {
-	eoeGuard(t, "ChangeZone never reads MaxTotalTargetCMC$, so Scout for Survivors returns "+
-		"three mana-value-3 creature cards (total 9) under a cap of 3",
-		"Enforce MaxTotalTargetCMC$ in the target walk (14 corpus carriers)")
 	reg := testutil.CorpusRegistry(t)
 	bear := card(t, "Name:Big Bear\nManaCost:2 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
 	e := handEngine(t, lookup(t, reg, "Scout for Survivors"), bear, bear, bear)
@@ -245,8 +244,15 @@ func TestSetAudit_eoe_ScoutForSurvivors_TotalManaValueCap(t *testing.T) {
 	if d == nil || d.Kind != decision.KTarget || len(d.Options) != 3 {
 		t.Fatalf("Scout for Survivors' target ask = %+v, want the three graveyard creatures", d)
 	}
-	// The CR-correct answer rejects (or clamps) a set whose total mana value
-	// exceeds 3. Today every subset is accepted.
+	if !d.HasBudget() || d.MaxSum != 3 {
+		t.Fatalf("target ask budget = (%v, %d), want a total mana-value cap of 3", d.HasBudget(), d.MaxSum)
+	}
+	botAnswer := newTestBot(1).answer(e, d)
+	if err := d.Validate(botAnswer); err != nil {
+		t.Fatalf("bot answer %v violates the target decision: %v", botAnswer.Choices, err)
+	}
+	// A set whose total mana value exceeds 3 is rejected by the same decision
+	// budget the bot policy observes above.
 	err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{0, 1, 2}})
 	if err != nil {
 		return // rejected: correct.
