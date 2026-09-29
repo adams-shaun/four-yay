@@ -1925,7 +1925,7 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 		if statics.validTarget {
 			potential, potentialOK = e.potentialCostModsUsing(statics, p, id, scope, e.costPotentialTargets(p, id, scope), 0, func(m costMods) bool {
 				return e.manaFeasiblePriced(p, id, ability, base, m, tax, delve, hyp) &&
-					e.nonManaCastable(p, id, e.composedOfferCost(p, id, base, m, scope), ability)
+					e.nonManaCastable(p, id, e.composedOfferCost(p, id, base, m, scope), ability, tapCostSAKind(scope.ab))
 			})
 		}
 		if potentialOK {
@@ -1956,7 +1956,7 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 	// of {W/U} free, while applying it before that half is chosen sees no W
 	// pip at all. The remaining cost parts are face-independent, so this
 	// shared tail preserves every Sac/Discard/counter/tap legality check.
-	return e.nonManaCastable(p, id, e.composedOfferCost(p, id, base, mods, scope), ability)
+	return e.nonManaCastable(p, id, e.composedOfferCost(p, id, base, mods, scope), ability, tapCostSAKind(scope.ab))
 }
 
 // offerSacXMods is the offer gate's announced-sacrifice-count affordability

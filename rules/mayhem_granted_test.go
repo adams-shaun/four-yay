@@ -96,7 +96,7 @@ func TestGrantedMayhemOfferIncludesSpellAbilityAdditionalCost(t *testing.T) {
 	}
 	addMana(t, e, 0, "B")
 	cost := withSpellAbilityExtras(e.G.Obj(spell).Face(), ParseCost("B"))
-	if e.nonManaCastable(0, spell, cost, false) {
+	if e.nonManaCastable(0, spell, cost, false, "") {
 		t.Fatalf("setup: non-mana gate accepted an unpayable cost: %+v", cost)
 	}
 	if e.offerCastable(0, spell, cost, spellScope("mayhem"), false) {

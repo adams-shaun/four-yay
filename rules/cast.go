@@ -1430,7 +1430,7 @@ func (e *Engine) castable(p state.PlayerID, id state.ObjID, cost Cost, ability b
 	if !e.costPayable(p, id, ability, mana) {
 		return false
 	}
-	return e.nonManaCastable(p, id, cost, ability)
+	return e.nonManaCastable(p, id, cost, ability, "")
 }
 
 // countCandPayable reports whether a repeatable-additional-cost count walk's
@@ -1453,7 +1453,7 @@ func (e *Engine) countCandPayable(pc *pendingCast, cand Cost) bool {
 	if !e.costPayable(pc.player, pc.card, false, mana) {
 		return false
 	}
-	return e.nonManaCastable(pc.player, pc.card, cand, false)
+	return e.nonManaCastable(pc.player, pc.card, cand, false, tapCostSAKind(e.pcAbility(pc)))
 }
 
 // countComposedCost is the CR 601.2f/903.8 composition of a count walk's
@@ -1487,7 +1487,7 @@ func (e *Engine) castablePriced(p state.PlayerID, id state.ObjID, cost Cost, abi
 	if !e.costPayablePool(p, id, ability, mana, pool, e.G.Players[p].ManaUnits()) {
 		return false
 	}
-	return e.nonManaCastable(p, id, cost, ability)
+	return e.nonManaCastable(p, id, cost, ability, "")
 }
 
 // chargeEnergyCost spends a cost's energy parts from the payer's pool, one
@@ -1532,7 +1532,7 @@ func exileFromTopCards(lib []state.ObjID, parts []CostPart) ([]state.ObjID, bool
 // announced face can legally make free. Keeping all non-mana checks in this
 // one helper means that specialized offer logic cannot bypass Sac/Discard/
 // counter/tap legality.
-func (e *Engine) nonManaCastable(p state.PlayerID, id state.ObjID, cost Cost, ability bool) bool {
+func (e *Engine) nonManaCastable(p state.PlayerID, id state.ObjID, cost Cost, ability bool, tapKind string) bool {
 	// A RaiseCost Cost$ part no payment stage can settle (Cost.Withheld):
 	// the additional cost cannot be paid, so neither can the whole cost.
 	if len(cost.Withheld) > 0 {
@@ -1732,7 +1732,7 @@ func (e *Engine) nonManaCastable(p state.PlayerID, id state.ObjID, cost Cost, ab
 						continue
 					}
 					avail++
-					floorSum += e.Power(oid)
+					floorSum += e.tapPowerValue(oid, tapKind)
 				}
 				if avail == 0 {
 					return false
@@ -1765,7 +1765,7 @@ func (e *Engine) nonManaCastable(p state.PlayerID, id state.ObjID, cost Cost, ab
 		// modelled for symmetry with the Any form): exactly N are tapped, so
 		// the most power a legal answer can tap is the N largest candidates.
 		// A shortfall withholds the cost.
-		if part.MinPower > 0 && e.tapTopPowerSum(avail, int(part.N)) < part.MinPower {
+		if part.MinPower > 0 && e.tapTopPowerSum(avail, int(part.N), tapKind) < part.MinPower {
 			return false
 		}
 		for i := 0; i < int(part.N); i++ {
@@ -3381,7 +3381,7 @@ func (e *Engine) beginPlay(p state.PlayerID, id state.ObjID, withoutManaCost boo
 		// offered cast's would be (the energy total, the discard
 		// candidates): a YES answer the payment cannot settle is declined
 		// with a Note, not begun and short-changed at the settle.
-		if !e.nonManaCastable(p, id, alt, false) {
+		if !e.nonManaCastable(p, id, alt, false, "") {
 			e.emit(events.Event{Kind: events.Note, Player: p,
 				Text: "The alternative cost cannot be paid (" + playCost + "); the play is declined"})
 			return
@@ -3967,6 +3967,12 @@ func (e *Engine) beholdCostAsk() bool {
 
 func (e *Engine) tapPermanentCostAsk() bool {
 	pc := e.cast
+	// The activated-action kind this cost belongs to (Crew/Saddle, or "" for
+	// a hand-written tapXType ability), read off the SA being activated, so
+	// the affordability gate, the tap election's Option.Values and the
+	// Decision.MinSum the client and bot enforce all read the ONE TapPowerValue
+	// value (a Pilot's power+2, Giant Ox's toughness).
+	tapKind := tapCostSAKind(e.pcAbility(pc))
 	for pc.tapPart < len(pc.cost.TapPermanent) {
 		part := pc.cost.TapPermanent[pc.tapPart]
 		candidates := e.costCandidates(pc.player, pc.card, state.ZBattlefield, part.Spec, false, true)
@@ -4046,7 +4052,7 @@ func (e *Engine) tapPermanentCostAsk() bool {
 				e.abortCast(pc, "tap cost no longer payable; cast aborted", true)
 				return true
 			}
-			if part.Dyn == "Any" && part.MinPower > 0 && e.tapPowerSum(candidates) < part.MinPower {
+			if part.Dyn == "Any" && part.MinPower > 0 && e.tapPowerSum(candidates, tapKind) < part.MinPower {
 				e.abortCast(pc, "tap cost no longer payable; cast aborted", true)
 				return true
 			}
@@ -4100,7 +4106,7 @@ func (e *Engine) tapPermanentCostAsk() bool {
 			for _, id := range candidates {
 				opt := decision.Option{Index: len(d.Options), Kind: "tapcost", Obj: id, Label: e.targetName(id)}
 				if part.MinPower > 0 {
-					opt.Value = int(e.Power(id))
+					opt.Value = int(e.tapPowerValue(id, tapKind))
 				}
 				d.Options = append(d.Options, opt)
 			}
@@ -4116,7 +4122,7 @@ func (e *Engine) tapPermanentCostAsk() bool {
 		// no longer satisfy aborts like the Any form above -- an auto-tap of
 		// the only N candidates (next branch) or an election with no legal
 		// answer would pay a floor the state no longer reaches.
-		if part.MinPower > 0 && e.tapTopPowerSum(candidates, int(part.N)) < part.MinPower {
+		if part.MinPower > 0 && e.tapTopPowerSum(candidates, int(part.N), tapKind) < part.MinPower {
 			e.abortCast(pc, "tap cost no longer payable; cast aborted", true)
 			return true
 		}
@@ -4130,7 +4136,7 @@ func (e *Engine) tapPermanentCostAsk() bool {
 		for _, id := range candidates {
 			opt := decision.Option{Index: len(d.Options), Kind: "tapcost", Obj: id, Label: e.targetName(id)}
 			if part.MinPower > 0 {
-				opt.Value = int(e.Power(id))
+				opt.Value = int(e.tapPowerValue(id, tapKind))
 			}
 			d.Options = append(d.Options, opt)
 		}
@@ -4145,10 +4151,10 @@ func (e *Engine) tapPermanentCostAsk() bool {
 // set-level read a withTotalPowerGE<N> group predicate (Crew, Mossbridge
 // Troll) constrains. "Any number" may tap the whole list, so the list's
 // total is the most power a payment can tap.
-func (e *Engine) tapPowerSum(ids []state.ObjID) int32 {
+func (e *Engine) tapPowerSum(ids []state.ObjID, saKind string) int32 {
 	sum := int32(0)
 	for _, id := range ids {
-		sum += e.Power(id)
+		sum += e.tapPowerValue(id, saKind)
 	}
 	return sum
 }
@@ -4157,16 +4163,16 @@ func (e *Engine) tapPowerSum(ids []state.ObjID) int32 {
 // group predicate: exactly N are tapped, so the most a payment can tap is
 // the power of the N largest candidates. A slice sort is fine here -- the
 // result is a sum, so the order equal powers sort in cannot reach an event.
-func (e *Engine) tapTopPowerSum(ids []state.ObjID, n int) int32 {
+func (e *Engine) tapTopPowerSum(ids []state.ObjID, n int, saKind string) int32 {
 	if n <= 0 {
 		return 0
 	}
 	if n >= len(ids) {
-		return e.tapPowerSum(ids)
+		return e.tapPowerSum(ids, saKind)
 	}
 	pw := make([]int32, 0, len(ids))
 	for _, id := range ids {
-		pw = append(pw, e.Power(id))
+		pw = append(pw, e.tapPowerValue(id, saKind))
 	}
 	sort.Slice(pw, func(a, b int) bool { return pw[a] > pw[b] })
 	sum := int32(0)
@@ -6947,7 +6953,7 @@ func (e *Engine) affordableTargetCandidates(pc *pendingCast, candidates []target
 		// Mana abilities cannot make a non-mana payment or a life shortage
 		// disappear, so preserve a candidate for the mana window only after
 		// those independent requirements pass.
-		if !e.nonManaCastable(pc.player, pc.card, cost, pc.isAbility()) {
+		if !e.nonManaCastable(pc.player, pc.card, cost, pc.isAbility(), tapCostSAKind(e.pcAbility(pc))) {
 			continue
 		}
 		// A life cost with a POSITIVE component needs that much life (CR
