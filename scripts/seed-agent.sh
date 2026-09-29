@@ -235,16 +235,25 @@ if [ "${STORM_N:-0}" -ge 10 ] && [ "$STORM_LIVE" = 1 ]; then
 	if marker_new "storm-$STORM_P"; then
 		b=$(brief_file)
 		{
+			# The cause is NOT asserted here. Earlier this block named a
+			# remembered cause ("a vLLM model-id rename"); on 2026-09-29 that
+			# sent a whole round chasing a rename that did not exist while an
+			# upstream 503 that had ALREADY recovered was the real story. A
+			# storm is a symptom, and the seat's first job is to measure
+			# which cause is present -- so the brief names the signals to
+			# read, not a conclusion to assume.
 			printf '# The %s seat tier is failing every launch\n\n' "$STORM_P"
 			printf '%s provider_failure/endpoint_down entries in the last 30 minutes at head `%s`.\n\n' "$STORM_N" "$HEAD_SHA"
-			printf "Measure the endpoint state FIRST with an HTTP code check, e.g.\n"
-			printf "\`curl -s -o /dev/null -w '%%{http_code}' \$endpoint/v1/models\` (\$endpoint is the\n"
-			printf "tier's base URL -- written as a placeholder here, not a variable this script defines).\n"
-			printf "A 5xx (or no response at all) means the engine is NOT serving at all: on 2026-09-29\n"
-			printf "the bm-llms-glm Deployment sat at \`replicas: 0\` and every request returned 503 while\n"
-			printf "auth still read ready -- restart or scale the serving Deployment before anything else.\n"
-			printf "Only a 2xx that still produces no output points at a model-id rename: \`curl -s\n"
-			printf "\$endpoint/v1/models\`, then compare with the TOML tier model.\n"
+			printf 'Measure the cause before changing anything; do not assume one. In order:\n\n'
+			printf '1. Is the endpoint answering NOW? `curl -s $endpoint/v1/models` (the baseUrl\n'
+			printf '   is in pi\x27s models.json and the TOML tier; a 5xx/`000` means the storm\n'
+			printf '   may already be over).\n'
+			printf '2. Does the SERVED model id equal the tier model? A vLLM/SGLang rename makes\n'
+			printf '   every launch return no output while auth still reads ready -- compare the\n'
+			printf '   id from step 1 against the TOML tier `model` and `~/.ds4/local-seat.env`.\n'
+			printf '3. What does the journal say the failures were, and when was the LAST one?\n'
+			printf '   `endpoint_down` with a recent 5xx transcript is an upstream outage, not a\n'
+			printf '   config error; a storm that stopped appending is HISTORY.\n'
 			printf '\n## Done means\n\nA launched seat produces an assistant turn with output, and the journal\n'
 			printf 'stops appending provider_failure for this provider.\n'
 		} >"$b"
