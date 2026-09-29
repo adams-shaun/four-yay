@@ -340,6 +340,16 @@ type parkedDecision struct {
 	hs  *parking
 	in  decision.Intent
 	err error
+	// searchSlot (BP-10, spec §7) marks a decision that parked on the
+	// registry's FIFO search-slot gate. When such a decision's seat error
+	// surfaces while the table's context is cancelled — the slot wait
+	// unblocked by Close, or the search seat unwound by the same
+	// cancellation — the play loop records a clean abort: a table being
+	// closed is not a crash. Every OTHER seat keeps the historical crash
+	// contract (Ruling FL-17, TestCloseCancelsASeatBlockedInDecide): a
+	// cancelled plain seat crashes the match. Set only by parkSeat's gated
+	// Env branch.
+	searchSlot bool
 }
 
 // answer returns the parked decision's intent: immediately for a bot, after
@@ -552,9 +562,11 @@ func parkSeat(ctx context.Context, seats []seat.Seat, pd *parkedData, undo <-cha
 			// the slot on every path, panics included.
 			if pd.wantsSearchSlot && gate != nil {
 				if aerr := gate.acquire(ctx); aerr != nil {
-					return &parkedDecision{p: pd.p, err: aerr}
+					return &parkedDecision{p: pd.p, err: aerr, searchSlot: true}
 				}
 				defer gate.release()
+				in, err := es.DecideEnv(ctx, *pd.env, pd.dc)
+				return &parkedDecision{p: pd.p, in: in, err: err, searchSlot: true}
 			}
 			in, err := es.DecideEnv(ctx, *pd.env, pd.dc)
 			return &parkedDecision{p: pd.p, in: in, err: err}
@@ -710,9 +722,6 @@ func (r *Registry) play(ctx context.Context, t *table, m *match) (final string) 
 			var err error
 			parked, err = r.serviceUndo(ctx, t, m, seats, &brd, req)
 			if err != nil {
-				if ctx.Err() != nil {
-					return r.abort(m) // BP-10: a cancelled search-slot wait aborts, not crashes
-				}
 				return r.crash(t, m, err)
 			}
 			// continue executes the for-loop post statement (n++), so seed n
@@ -759,19 +768,19 @@ func (r *Registry) play(ctx context.Context, t *table, m *match) (final string) 
 				var uerr error
 				parked, uerr = r.serviceUndo(ctx, t, m, seats, &brd, req)
 				if uerr != nil {
-					if ctx.Err() != nil {
-						return r.abort(m) // BP-10: a cancelled search-slot wait aborts, not crashes
-					}
 					return r.crash(t, m, uerr)
 				}
 				n, lastTurn, decisionsThisTurn = m.intents-1, m.e.G.Turn, 0
 				continue
 			}
-			// BP-10 (spec §7): a search decision whose slot wait saw the table's
-			// context cancelled (Close while queued) aborts the match instead of
-			// crashing it — a table being closed is not a crash. The same holds
-			// for any seat error surfacing while the table is closing.
-			if ctx.Err() != nil {
+			// BP-10 (spec §7): a SEARCH decision (one that parked on the
+			// registry's FIFO search-slot gate) whose seat error surfaced while
+			// the table's context is cancelled — its slot wait unblocked by
+			// Close, or the search seat unwound by the same cancellation —
+			// aborts the match instead of crashing it: a table being closed is
+			// not a crash. Every other seat keeps the historical crash contract
+			// (Ruling FL-17): a cancelled plain seat crashes the match.
+			if ctx.Err() != nil && parked.searchSlot {
 				return r.abort(m)
 			}
 			return r.crash(t, m, fmt.Errorf("seat %d: %w", parked.p, err))

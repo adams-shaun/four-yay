@@ -372,10 +372,15 @@ func newSearchSlots(limit int) *searchSlots { return &searchSlots{limit: limit} 
 
 // acquire takes one slot, or queues FIFO behind the holders until one is
 // released. It returns ctx.Err() when the context is done first — including
-// the race where the grant and the cancellation arrive together, in which
+// the races where the grant and the cancellation arrive together, in which
 // case this acquire hands the slot it just won to the next waiter before
-// returning, so a cancelled waiter never swallows a slot.
+// returning, so a cancelled waiter never swallows a slot and never enters
+// DecideEnv on a dead context.
 func (s *searchSlots) acquire(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		// Already cancelled: never take a slot on a dead context.
+		return err
+	}
 	s.mu.Lock()
 	if s.held < s.limit {
 		s.held++
@@ -387,6 +392,15 @@ func (s *searchSlots) acquire(ctx context.Context) error {
 	s.mu.Unlock()
 	select {
 	case <-ch:
+		if err := ctx.Err(); err != nil {
+			// The grant and the cancellation arrived together: hand the slot
+			// just won on to the next waiter (or drop it) exactly as release
+			// would, and report the cancellation.
+			s.mu.Lock()
+			defer s.mu.Unlock()
+			s.releaseLocked()
+			return err
+		}
 		return nil
 	case <-ctx.Done():
 		s.mu.Lock()

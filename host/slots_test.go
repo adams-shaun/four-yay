@@ -241,6 +241,33 @@ func awaitBP10(t *testing.T, ch <-chan string, what string) string {
 	}
 }
 
+// bp10WaitQueued waits until exactly want decisions are queued on the
+// registry's search-slot gate. It replaces a fixed sleep: a sleeper races
+// Close — under load the second table's goroutine can reach acquire only
+// after the Close-driven release freed the slot, so it walks straight in
+// and the "never queued" assertions fail spuriously. Being in the waiters
+// queue is the deterministic state the assertions below actually need.
+func bp10WaitQueued(t *testing.T, r *Registry, want int) {
+	t.Helper()
+	if r.searchGate == nil {
+		t.Fatal("the registry has no search-slot gate; the test's bounded setup is wrong")
+	}
+	deadline := time.After(10 * time.Second)
+	for {
+		r.searchGate.mu.Lock()
+		queued := len(r.searchGate.waiters)
+		r.searchGate.mu.Unlock()
+		if queued >= want {
+			return
+		}
+		select {
+		case <-deadline:
+			t.Fatalf("only %d of %d wanted decisions queued on the search-slot gate", queued, want)
+		case <-time.After(5 * time.Millisecond):
+		}
+	}
+}
+
 // bp10Tables is the two-table config every BP-10 slot test plays: 2 seats,
 // fixed seeds, fixed repo decks, the spy search policy.
 func bp10Tables(policy string) []TableConfig {
@@ -333,11 +360,11 @@ func TestSearchSlotsQueueFIFOAndNeverChangeIntents(t *testing.T) {
 				t.Fatalf("the second search table never reached WantsEnv (wants seen: %v)", h.enteredLabels())
 			}
 		}
-		// Give the second table's goroutine time to actually reach the wait,
-		// then prove it is QUEUED, not deciding: no second entry while the
-		// slot is held. A broken (or missing) gate enters here within
+		// Wait until the second table's goroutine is DETERMINISTICALLY queued
+		// on the gate, then prove it is QUEUED, not deciding: no second entry
+		// while the slot is held. A broken (or missing) gate enters here within
 		// microseconds of the want, so this assertion is what fails.
-		time.Sleep(250 * time.Millisecond)
+		bp10WaitQueued(t, r, 1)
 		select {
 		case l := <-h.enteredC:
 			t.Fatalf("a second search entered DecideEnv while the slot was held: %s", l)
@@ -440,7 +467,7 @@ func TestSearchSlotWaitAbortsOnClose(t *testing.T) {
 			t.Fatalf("table B never reached WantsEnv (entries: %v)", h.enteredLabels())
 		}
 	}
-	time.Sleep(250 * time.Millisecond) // let B's goroutine reach the wait
+	bp10WaitQueued(t, r, 1) // B is deterministically IN the gate's queue
 	select {
 	case l := <-h.enteredC:
 		t.Fatalf("table B entered DecideEnv while the slot was held: %s", l)
