@@ -249,3 +249,32 @@ describe('profiles — breakpoints (settings v3)', () => {
     expect(store.profiles.W.breakpoints.watchlist).toEqual(['Oracle']);
   });
 });
+
+describe('profiles — prototype-key names are refused', () => {
+  it('normaliseName rejects __proto__, constructor and prototype', () => {
+    for (const n of ['__proto__', 'constructor', 'prototype', ' __proto__ ']) expect(normaliseName(n)).toBeNull();
+  });
+
+  it('a raw blob with an own "__proto__" profile loads clean, without re-prototyping the map', () => {
+    const blob = JSON.stringify({ version: 1, profiles: { A: defaultSettings() }, order: ['A'], lastActive: null }).replace(
+      '"profiles":{',
+      `"profiles":{"__proto__":${JSON.stringify(defaultSettings())},`,
+    );
+    const parsed = JSON.parse(blob.replace('"order":["A"]', '"order":["__proto__","A"]'));
+    expect(Object.hasOwn(parsed.profiles, '__proto__')).toBe(true); // precondition: the hostile own key is really there
+    const s = validateStore(parsed);
+    expect(s.order).toEqual(['A']);
+    expect(Object.keys(s.profiles)).toEqual(['A']);
+    expect(Object.getPrototypeOf(s.profiles)).toBeNull();
+    expect('steps' in s.profiles).toBe(false);
+  });
+
+  it('constructor reads as absent to apply, rename, delete and set-active', () => {
+    const s = storeSave(emptyStore(), 'A', defaultSettings());
+    expect(storeApply(s, 'constructor')).toBeNull();
+    expect(storeRename(s, 'constructor', 'B')).toBe(s);
+    expect(storeDelete(s, 'constructor')).toBe(s);
+    expect(storeSetActive(s, 'constructor').lastActive).toBeNull();
+    expect(storeSave(s, 'constructor', defaultSettings())).toBe(s);
+  });
+});

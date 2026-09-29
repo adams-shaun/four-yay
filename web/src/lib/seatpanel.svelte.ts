@@ -25,6 +25,7 @@ import { autoPassLogText, pushAutoPassLog, type AutoPassKind, type AutoPassLog }
 import { loadYields, saveYields, stackYieldKey } from './yields';
 import {
   emptyStore,
+  hasProfile,
   listProfiles,
   loadProfiles,
   normaliseName,
@@ -1193,7 +1194,7 @@ export class SeatPanelState {
 
   /** deleteProfile removes a saved profile; deleting the active one clears the active identity. */
   deleteProfile(name: string): boolean {
-    if (!(name in this.profiles.profiles)) return false;
+    if (!hasProfile(this.profiles, name)) return false;
     this.persistProfiles(storeDelete(this.profiles, name));
     if (this.activeProfileName === name) this.activeProfileName = null;
     return true;

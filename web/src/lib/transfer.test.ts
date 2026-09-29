@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { exportFlow, exportKeymap, importFlow, importKeymap, uniqueName } from './transfer';
-import { emptyStore, storeSave } from './profiles';
+import { emptyStore, loadProfiles, saveProfiles, storeSave } from './profiles';
 import { defaultSettings, PRESETS } from './playsettings';
 import { defaultKeymap, withBinding } from './keymap';
 
@@ -45,6 +45,22 @@ describe('transfer', () => {
     if (!('store' in got)) throw new Error(got.error);
     expect(got.added).toEqual(['Good']);
     expect(got.skipped).toBe(2);
+  });
+
+  it('a "__proto__" profile in a file is skipped, and a save/reload stays clean', () => {
+    const text = `{"kind":"gorge-flow","version":1,"items":[{"name":"__proto__","settings":${JSON.stringify(defaultSettings())}},{"name":"Good","settings":${JSON.stringify(defaultSettings())}}]}`;
+    const got = importFlow(text, emptyStore());
+    if (!('store' in got)) throw new Error(got.error);
+    expect(got.added).toEqual(['Good']);
+    expect(got.skipped).toBe(1);
+    const mem = new Map<string, string>();
+    const storage = { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => void mem.set(k, v) } as unknown as Storage;
+    saveProfiles(storage, got.store);
+    const back = loadProfiles(storage);
+    expect(back.order).toEqual(['Good']);
+    expect([null, Object.prototype]).toContain(Object.getPrototypeOf(back.profiles));
+    expect('steps' in back.profiles).toBe(false);
+    expect(Object.hasOwn(back.profiles, '__proto__')).toBe(false);
   });
 
   it('keymap round-trips its overrides', () => {
