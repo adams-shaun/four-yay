@@ -70,15 +70,15 @@ func setAuditDeck(t *testing.T, seed uint64, s0, s1 []*cards.Card) (*Engine, Con
 // setAuditTMTNames() (setaudit_tmt_names_test.go): it resolves every one of the
 // set's 195 names in the corpus, and asserts that the cards still reported
 // unsupported by (*cards.Registry).Unsupported with effects.Supported() fall
-// into the single remaining mechanism class this audit left -- `kw:Sneak` (the
-// unimplemented named mechanic, 26 carriers). The second class the audit
-// found, the phantom `kw:CARDNAME must be blocked if able.` spelling
-// (Raphael's working CR 509.1c requirement), was a classification artefact and
-// is now closed: the sentence head is canonicalised to MustBlock at parse time
-// (cards/hiddenkeyword.go) and registered as supported (rules/statics.go), so
-// the census pins that closure instead. This is the accountability half of the
-// audit: names a class, not one card, and would fail if a new class appeared
-// (or if the closure silently regressed).
+// into no remaining mechanism class: the audit found two and both are closed.
+// `kw:Sneak` (the named mechanic, 26 carriers) is implemented
+// (rules/sneak.go registers it), and the phantom
+// `kw:CARDNAME must be blocked if able.` spelling (Raphael's working CR 509.1c
+// requirement) was a classification artefact: the sentence head is
+// canonicalised to MustBlock at parse time (cards/hiddenkeyword.go) and
+// registered as supported (rules/statics.go). This is the accountability half
+// of the audit: it names a class, not one card, and would fail if a class
+// reappeared (or if either closure silently regressed).
 func TestSetAudit_tmt_CensusMechanismClasses(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	if reg == nil {
@@ -99,10 +99,9 @@ func TestSetAudit_tmt_CensusMechanismClasses(t *testing.T) {
 			classes[m] = append(classes[m], n)
 		}
 	}
-	// The only class that still reports unsupported is kw:Sneak, with its
-	// carrier count.
-	if got := len(classes["kw:Sneak"]); got != 26 {
-		t.Errorf("kw:Sneak carriers = %d, want 26; carriers=%v", got, classes["kw:Sneak"])
+	// kw:Sneak is implemented now, so no TMT name may still be reported for it.
+	if got := len(classes["kw:Sneak"]); got != 0 {
+		t.Errorf("kw:Sneak carriers = %d, want 0 (the keyword is registered); carriers=%v", got, classes["kw:Sneak"])
 	}
 	// The must-be-blocked sentence is canonicalised to the MustBlock head at
 	// parse time (cards/hiddenkeyword.go) and registered as supported
@@ -112,9 +111,7 @@ func TestSetAudit_tmt_CensusMechanismClasses(t *testing.T) {
 		t.Errorf("phantom must-block spelling carriers = %d, want 0 (the spelling must stay canonicalised); carriers=%v", got, classes["kw:CARDNAME must be blocked if able."])
 	}
 	for m := range classes {
-		if m != "kw:Sneak" {
-			t.Errorf("an unexpected unsupported mechanism class appeared: %q (%v)", m, classes[m])
-		}
+		t.Errorf("an unsupported mechanism class reappeared: %q (%v)", m, classes[m])
 	}
 	// The named card of the closed must-block class is the TMT carrier the
 	// behavioural test above drives: it must now report nothing at all.
@@ -137,13 +134,13 @@ func TestSetAudit_tmt_CensusMechanismClasses(t *testing.T) {
 // you control to its owner's hand". Oroku Saki, Shredder Rising prints
 // Sneak {1}{B}.
 //
-// The engine expands no Sneak keyword at all (there is no cards/kw_sneak.go
-// and no kw:Sneak in effects.Supported()), so with an unblocked attacker and
-// {1}{B} in the pool the card in hand is offered no cast option in the
-// declare-blockers step.
+// Sneak is an alternative CAST (cards/kw files hold no expander for it; the
+// option lives in rules/legal.go's hand walk), offered only during the
+// caster's own declare-blockers step, and its mandatory additional cost is
+// returning an unblocked attacker (rules/sneak.go's sneakCosts). With an
+// unblocked attacker and {1}{B} in the pool the card in hand is offered the
+// "sneak" cast option here.
 func TestSetAudit_tmt_OrokuSaki_SneakIsCastableDeclareBlockers(t *testing.T) {
-	setAuditSkip(t, "Sneak is unimplemented: no declare-blockers cast option",
-		"tmt-sneak-unimplemented")
 	saki := setAuditRealCard(t, "Oroku Saki, Shredder Rising")
 	if !saki.Faces[0].HasKeyword("Sneak") {
 		t.Fatal("precondition: Oroku Saki does not print Sneak in the corpus")
@@ -170,25 +167,25 @@ func TestSetAudit_tmt_OrokuSaki_SneakIsCastableDeclareBlockers(t *testing.T) {
 	}
 }
 
-// TestSetAudit_tmt_Sneak_isNotReportedSupported is the honest half of the
-// Sneak finding: a card whose only unimplemented primitive is kw:Sneak is
-// still reported unsupported, so the coverage ratchet can see it. Unguarded
-// (passes today, must keep passing).
+// TestSetAudit_tmt_Sneak_isNotReportedSupported is the updated half of the
+// Sneak finding: kw:Sneak is now implemented (rules/sneak.go registers it),
+// so a card whose only formerly-unimplemented primitive was kw:Sneak must no
+// longer be reported unsupported for it. The assertion is inverted from the
+// pre-implementation pin to track the registration.
 func TestSetAudit_tmt_Sneak_isNotReportedSupported(t *testing.T) {
 	reg := searchTestRegistry(t)
 	supported := effects.Supported()
+	if !supported["kw:Sneak"] {
+		t.Fatal("kw:Sneak is not registered in effects.Supported()")
+	}
 	c := searchCorpusCard(t, reg, "Oroku Saki, Shredder Rising")
 	if !c.Faces[0].HasKeyword("Sneak") {
 		t.Fatal("precondition: Oroku Saki does not print Sneak")
 	}
-	found := false
 	for _, m := range reg.Unsupported(c, supported) {
 		if m == "kw:Sneak" {
-			found = true
+			t.Fatalf("Sneak is implemented but kw:Sneak is still reported missing for %s", c.Faces[0].Name)
 		}
-	}
-	if !found {
-		t.Fatalf("Sneak is unimplemented but kw:Sneak is not reported missing for %s", c.Faces[0].Name)
 	}
 }
 

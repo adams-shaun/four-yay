@@ -61,6 +61,7 @@ var (
 	kwhRetrace          = newKWHead("Retrace")
 	kwhShadow           = newKWHead("Shadow")
 	kwhSkulk            = newKWHead("Skulk")
+	kwhSneak            = newKWHead("Sneak")
 	kwhSplitSecond      = newKWHead("Split second")
 	kwhStartYourEngines = newKWHead("Start your engines")
 	kwhStation          = newKWHead("Station")

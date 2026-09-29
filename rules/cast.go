@@ -654,6 +654,20 @@ type pendingCast struct {
 	// Clone copies it.
 	ninjutsuDefender    state.PlayerID
 	ninjutsuHasDefender bool
+
+	// sneakDefender is the defender (CR 702.190b: the player, planeswalker or
+	// battle the returned creature was attacking) captured when a K:Sneak
+	// cast paid its Return cost. sneakHasDefender discriminates the capture
+	// (seat 0 is a legal defending player, so sneakDefender == 0 on its own
+	// cannot mean "not captured" -- the same hazard documented for
+	// ninjutsuDefender). It rides a Choose "remembered" event onto the
+	// spell's Remembered (events/apply.go), which the stack->battlefield move
+	// preserves, so rules/altcast.go's entry hook can place the permanent
+	// tapped and attacking that same defender. Plain data, so a Clone copies
+	// it.
+	sneakDefender       state.PlayerID
+	sneakDefenderObject state.ObjID
+	sneakHasDefender    bool
 }
 
 // subCounterPay is one counter removed to pay a SubCounter cost part: the
@@ -2711,6 +2725,14 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		// below and modeFlags' flag both key the canonical mode).
 		opt.Mode = "web-slinging"
 	}
+	if strings.HasPrefix(selectedMode, "sneaked_grant_") {
+		// Sneak (CR 702.190a): the same grant-cost convention as blitzed_grant_N
+		// above -- a unique offer mode per grant cost, canonical sneak
+		// semantics for the rest of the cast pipeline (the charge below,
+		// modeFlags' flag and the returncost defender capture all key the
+		// canonical mode).
+		opt.Mode = "sneak"
+	}
 	switch opt.Mode {
 	case "kicked":
 		if kc, ok := kickerCost(f); ok {
@@ -2959,6 +2981,23 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		for _, wc := range e.webSlingingCosts(p, id) {
 			if wc.mode == selectedMode {
 				cost = wc.cost
+				break
+			}
+		}
+	case "sneak":
+		// Sneak (CR 702.190a): the printed or granted sneak cost replaces the
+		// mana cost AND the composed Cost carries the mandatory
+		// Return<1/Creature.YouCtrl+attacking+unblocked> additional cost,
+		// settled by the ordinary Return machinery (returnAsk asks, payCast
+		// moves the chosen attacker to its owner's hand beside the other
+		// payments). sneakCosts is the ONE reader the offer and this charge
+		// call, so the two stages cannot drift; a stale option whose keyword
+		// is gone falls back to the empty cost rather than charging the
+		// printed mana cost.
+		cost = Cost{}
+		for _, sc := range e.sneakCosts(p, id) {
+			if sc.mode == selectedMode {
+				cost = sc.cost
 				break
 			}
 		}
@@ -8396,6 +8435,18 @@ func (e *Engine) castAnswer(d *decision.Decision, chosen []decision.Option) {
 					pc.ninjutsuHasDefender = true
 				}
 			}
+			// K:Sneak (CR 702.190b): the permanent the sneak cast puts onto
+			// the battlefield attacks the SAME defender the returned creature
+			// was attacking. Capture it while the chosen attacker is still a
+			// battlefield object; pushCast then folds it onto the spell's
+			// Remembered so the entry hook can bind it.
+			if pc.mode == "sneak" {
+				if o := e.G.Obj(o.Obj); o != nil {
+					pc.sneakDefender = o.Attacking
+					pc.sneakDefenderObject = o.AttackingBattle
+					pc.sneakHasDefender = true
+				}
+			}
 			pc.returns = append(pc.returns, o.Obj)
 		}
 		pc.returnPart++
@@ -8611,6 +8662,16 @@ func modeFlags(mode string) string {
 	// to this canonical mode in beginCastWith before this switch is reached.
 	case "web-slinging":
 		return events.FlagsString(state.FlagWebSlinged)
+	// Sneak (CR 702.190a): the flag is the provenance the `sneaked` filter
+	// predicate reads -- Karai, Future of the Foot, Leonardo, Leader in Blue,
+	// Turncoat Kunoichi and The Last Ronin's Technique -- and the marker
+	// rules/altcast.go's altCostEnter reads to place the permanent tapped and
+	// attacking CR 702.190b's defender. It is a CastProvenanceFlag
+	// (state/object.go), so a stack copy does not inherit it. sneaked_grant_N
+	// modes are normalized to this canonical mode in beginCastWith before
+	// this switch is reached.
+	case "sneak":
+		return events.FlagsString(state.FlagSneaked)
 	// Bestow (CR 702.114a): the flag is the provenance the resolution
 	// reader (resolveTop) uses to substitute the synthesized Aura attach
 	// spell, and what keeps a bestowed cast distinguishable on the wire.
@@ -9646,6 +9707,22 @@ func (e *Engine) pushCast() bool {
 		ev.Secret = true
 	}
 	e.emit(ev)
+	// CR 702.190b: a sneak cast captured the defender its returned attacker
+	// was attacking. Fold it onto the now-existing stack object's dedicated
+	// SneakDefender field (a Choose "sneak-defender" event, NOT the generic
+	// Remembered channel -- card memory can otherwise carry a stale player),
+	// and the stack->battlefield move preserves it, so altCostEnter's entry
+	// hook can place the permanent tapped and attacking that defender. Only a
+	// sneak cast that actually paid the Return cost emits; every unrelated
+	// cast stays byte-identical.
+	if pc.sneakHasDefender {
+		ids := []state.ObjID{state.PlayerRef(pc.sneakDefender)}
+		if pc.sneakDefenderObject != 0 {
+			ids = append(ids, pc.sneakDefenderObject)
+		}
+		e.emit(events.Event{Kind: events.Choose, Obj: pc.card, Player: pc.player,
+			Counter: "sneak-defender", IDs: ids})
+	}
 	e.deferCastTrigger = false
 	// CR 722.3c: the prepared permanent loses its designation "at the time
 	// the spell becomes cast" (CR 601.2i) -- here, as the copy reaches the

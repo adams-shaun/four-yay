@@ -130,6 +130,14 @@ func (e *Engine) altCostEnter(ev events.Event) {
 		// carries none and registers nothing.
 		e.mayFlashSacEnter(ev.Obj, o.Controller)
 	}
+	if o.CastFlags&state.FlagSneaked != 0 {
+		// K:Sneak (CR 702.190b): a permanent whose sneak cost was paid enters
+		// tapped and attacking the same defender the returned creature was
+		// attacking. The defender was captured when the Return cost was paid
+		// and rides the spell's Remembered (rules/cast.go's pushCast); the
+		// stack->battlefield move preserves it, so it is readable here.
+		e.sneakEnter(ev.Obj, o.Controller)
+	}
 }
 
 // escapeCost is id's Escape cost (CR 702.42a): the printed K:Escape

@@ -388,6 +388,22 @@ const (
 	// copy -- put on the stack, never cast (CR 707.10) -- must not inherit
 	// it. Appended after main's FlagAddsCounters to preserve its bit.
 	FlagWebSlinged
+	// FlagSneaked marks a permanent cast paid for with the card's K:Sneak
+	// alternative cost (CR 702.190a: "you may cast this spell by paying
+	// [cost] and returning an unblocked creature you control to its owner's
+	// hand during the declare blockers step"). The flag is the provenance the
+	// `sneaked` filter predicate reads (effects/filter.go, the `escaped`
+	// pattern): Karai, Future of the Foot's "if her sneak cost was paid this
+	// turn", Leonardo, Leader in Blue's Card.Self+sneaked ETB trigger,
+	// Turncoat Kunoichi's Card.sneaked condition and The Last Ronin's
+	// Technique's Count$ValidStack Card.Self+sneaked. It IS a
+	// CastProvenanceFlag: the riders are conditioned on the spell having been
+	// CAST for its sneak cost, so a stack copy -- put on the stack, never cast
+	// (CR 707.10) -- must not inherit it. It also drives the CR 702.190b
+	// "enters tapped and attacking the same defender" entry rider
+	// (rules/altcast.go's altCostEnter). Appended after main's FlagWebSlinged
+	// to preserve its bit.
+	FlagSneaked
 )
 
 // CastProvenanceFlags is the ONE home for the CastFlags bits whose reader
@@ -429,7 +445,7 @@ const (
 // FlagWebSlinged joins the set: "if it was cast using web-slinging" is a
 // statement about the cast (the web-slinging cost was paid), so a stack copy
 // -- put on the stack, never cast (CR 707.10) -- must not inherit it.
-const CastProvenanceFlags = FlagMayFlashSac | FlagMayhem | FlagMayPlay | FlagPromisedGift | FlagRebound | FlagBlitzed | FlagAddsCounters | FlagWebSlinged
+const CastProvenanceFlags = FlagMayFlashSac | FlagMayhem | FlagMayPlay | FlagPromisedGift | FlagRebound | FlagBlitzed | FlagAddsCounters | FlagWebSlinged | FlagSneaked
 
 // ExilesLeavingStack reports whether a cast carrying these flags is a
 // keyword cast whose card is exiled as it leaves the stack, whichever way it
@@ -1040,6 +1056,19 @@ type Object struct {
 	// is a legal opponent, so a zero Protector alone is ambiguous.
 	Protector      PlayerID
 	ProtectorValid bool
+	// SneakDefender is the defending player, and SneakDefenderObject is the
+	// planeswalker or battle (if any) the returned attacker of a K:Sneak cast
+	// was attacking. Both are captured when the Return cost is paid and
+	// carried to the permanent so the entry hook can place it tapped and
+	// attacking that same defender. They ride their OWN fields and Choose
+	// counter rather than the generic Remembered list: Remembered is card memory preserved across
+	// zone changes, so a card that already remembered a player (any
+	// Choose "remembered" PlayerRef) and is later sneak-cast would scan
+	// that stale player and enter attacking the wrong defender.
+	// SneakDefenderValid distinguishes the legal seat 0 from unset.
+	SneakDefender       PlayerID
+	SneakDefenderObject ObjID
+	SneakDefenderValid  bool
 	// LastNotedMana is the mana type the object's last RememberCostMana$
 	// activation paid with (Jeweled Amulet: "note the type of mana spent to
 	// pay this activation cost") — the colour letter(s) of the mana the

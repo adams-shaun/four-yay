@@ -498,9 +498,18 @@ func Apply(g *state.Game, e Event) {
 		// (a gone token, a fuzz event) is a no-op.
 		if o := g.Obj(e.Obj); o != nil && o.Zone == state.ZBattlefield &&
 			validPlayer(g, e.Player) && len(e.IDs) > 0 && validPlayer(g, state.PlayerID(e.IDs[0])) {
+			var battle state.ObjID
+			if len(e.IDs) > 1 {
+				b := g.Obj(e.IDs[1])
+				if b == nil || b.Zone != state.ZBattlefield {
+					break
+				}
+				battle = b.ID
+			}
 			o.Tapped = true
 			o.IsAttacking = true
 			o.Attacking = state.PlayerID(e.IDs[0])
+			o.AttackingBattle = battle
 		}
 
 	case Shuffle:
@@ -2317,6 +2326,23 @@ func Apply(g *state.Game, e Event) {
 				o.Chosen = rememberedFrom(e.IDs)
 			case "remembered":
 				o.Remembered = append(o.Remembered, rememberedFrom(e.IDs)...)
+			case "sneak-defender":
+				// CR 702.190b: the defender a K:Sneak cast captured when its
+				// Return cost was paid. It is a DEDICATED channel, never the
+				// generic Remembered list, so a stale remembered player on the
+				// card cannot masquerade as the sneak defender (rules/sneak.go
+				// sneakDefenderFrom). IDs[0] is the defender's PlayerRef;
+				// optional IDs[1] is the planeswalker/battle being attacked.
+				if len(e.IDs) > 0 {
+					if p, ok := e.IDs[0].PlayerRef(); ok {
+						o.SneakDefender = p
+						o.SneakDefenderObject = 0
+						if len(e.IDs) > 1 {
+							o.SneakDefenderObject = e.IDs[1]
+						}
+						o.SneakDefenderValid = true
+					}
+				}
 			case "forget-remembered":
 				// ForgetChanged$ True (Forge ChangeZoneEffect's
 				// host.removeRemembered on the moved card): the named cards leave
