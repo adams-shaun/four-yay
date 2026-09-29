@@ -24,8 +24,6 @@ type loopBenchmarkGame struct {
 	id                   TableID
 	m                    *match
 	altar, miner, rakdos state.ObjID
-	pilot                *HumanSeat
-	session              *Session
 	frames               atomic.Int64
 }
 
@@ -139,8 +137,10 @@ func newLoopBenchmarkGame(tb testing.TB) *loopBenchmarkGame {
 			rakdos = o.ID
 		}
 	}
-	// Move all three cards using normal event application. The opening
-	// priority is then answered once to force the engine to rebuild options.
+	// Move the three combo cards onto the battlefield through the ordinary
+	// event fold, exactly as rules/loops_prototype_test.go's loopBoard seeds
+	// its fixture. No starting mana is added: the Altar's own activation is
+	// the only source of the B the Miner's return trigger pays.
 	for _, name := range []string{"Rakdos, the Muscle", "Forsaken Miner", "Phyrexian Altar"} {
 		id := findOwnerCard(m.e.G, 0, name)
 		if id == 0 {
@@ -159,10 +159,15 @@ func newLoopBenchmarkGame(tb testing.TB) *loopBenchmarkGame {
 		ev := m.e.L.Append(events.Event{Kind: events.MoveZone, Obj: id, From: from, To: state.ZBattlefield})
 		events.Apply(m.e.G, ev)
 	}
-	m.e.L.Append(events.Event{Kind: events.ManaAdd, Player: 0, Counter: "B", Amount: 1})
-	events.Apply(m.e.G, m.e.L.Events[len(m.e.L.Events)-1])
+	// Seat 0 must be the HumanSeat the driver submits through; seats 1.. are
+	// the ordinary bot that answers its own windows.
+	if _, ok := m.slots[0].(*HumanSeat); !ok {
+		m.mu.Unlock()
+		r.Close()
+		tb.Fatalf("seat 0 is %T, want *HumanSeat", m.slots[0])
+	}
 	m.mu.Unlock()
-	g := &loopBenchmarkGame{r: r, id: cfg.ID, m: m, altar: altar, miner: miner, rakdos: rakdos, pilot: m.slots[0].(*HumanSeat), session: s}
+	g := &loopBenchmarkGame{r: r, id: cfg.ID, m: m, altar: altar, miner: miner, rakdos: rakdos}
 	go func() {
 		for range s.Out() {
 			g.frames.Add(1)
@@ -207,6 +212,18 @@ func findOwnerCard(g *state.Game, p state.PlayerID, name string) state.ObjID {
 	return 0
 }
 
+// comboReady reports whether the previous cycle has fully resolved: Forsaken
+// Miner is back on the battlefield AND nothing is left on the stack. The Altar
+// may only be activated again then, so the driver never starts a new cycle
+// while the previous cycle's Rakdos/return triggers are still resolving (the
+// Miner returns above the Rakdos trigger, so "Miner on the battlefield" alone
+// is not enough).
+func (g *loopBenchmarkGame) comboReady() bool {
+	g.m.mu.RLock()
+	defer g.m.mu.RUnlock()
+	return g.m.e.G.Obj(g.miner).Zone == state.ZBattlefield && len(g.m.e.G.Stack) == 0
+}
+
 func firstLegal(d *decision.Decision) decision.Intent {
 	n := d.Min
 	if n > len(d.Options) {
@@ -219,31 +236,37 @@ func firstLegal(d *decision.Decision) decision.Intent {
 	return decision.Intent{Seq: d.Seq, Player: d.Player, Choices: choices}
 }
 
-func (g *loopBenchmarkGame) runIterations(tb testing.TB, n int) (int, int, int) {
+// runIterations drives n complete Miner cycles through the host seat path.
+//
+// One cycle is one Phyrexian Altar activation that sacrifices Forsaken Miner;
+// its Rakdos trigger mills the opponent for one card and its own trigger
+// returns it to the battlefield. The driver stops only once n activations have
+// been submitted AND the last cycle has fully resolved (the opponent library
+// is down n and the pilot is back at a clean priority), so a driver that
+// merely plays out turns -- where natural draws also shrink the opponent
+// library -- cannot satisfy it. It returns the activation count, the decision
+// count, the starting library size and the measured shrink.
+func (g *loopBenchmarkGame) runIterations(tb testing.TB, n int) (acts, decisions, startLib, shrunk int) {
 	tb.Helper()
 	g.m.mu.RLock()
-	startLib := len(g.m.e.G.Zone(state.ZLibrary, 1))
+	startLib = len(g.m.e.G.Zone(state.ZLibrary, 1))
 	g.m.mu.RUnlock()
-	decisions := 0
+	target := min(n, startLib)
 	last := ^uint64(0)
-	// steps bounds the driven decision count so a stalled line fails loudly
-	// (via tb.Fatalf) instead of looping forever on an unchanged Seq. The
-	// Miner cycle takes a handful of decisions per iteration, so the cap is
-	// generous while still catching a broken driver.
-	steps := 0
 	stepCap := 40*n + 200
-	for {
-		if steps >= stepCap {
-			tb.Fatalf("loop line stalled: %d decisions without reaching %d library shrink", steps, min(n, startLib))
-		}
+	for steps := 0; ; steps++ {
 		g.m.mu.RLock()
-		remaining, over := len(g.m.e.G.Zone(state.ZLibrary, 1)), g.m.e.G.Over
+		lib := len(g.m.e.G.Zone(state.ZLibrary, 1))
+		over := g.m.e.G.Over
 		g.m.mu.RUnlock()
-		if remaining <= startLib-min(n, startLib) || over {
+		shrunk = startLib - lib
+		if acts >= n && shrunk >= target {
 			break
 		}
+		if over || steps >= stepCap {
+			tb.Fatalf("loop line stalled: %d activations, library shrank %d, want %d (over=%v, steps=%d)", acts, shrunk, target, over, steps)
+		}
 		d := waitLoopPending(tb, g.r, g.id)
-		steps++
 		if d.Seq == last {
 			time.Sleep(time.Millisecond)
 			continue
@@ -252,15 +275,15 @@ func (g *loopBenchmarkGame) runIterations(tb testing.TB, n int) (int, int, int) 
 		switch d.Kind {
 		case decision.KPriority:
 			idx := -1
-			for _, o := range d.Options {
-				if o.Obj == g.altar && o.Kind == "activate" {
-					idx = o.Index
-					break
-				}
-			}
-			if idx < 0 {
+			// Activate the Altar only at a cycle boundary: the previous
+			// iteration's Miner has returned, the stack is empty, and the
+			// opponent has milled exactly one card per activation so far.
+			// Without that gate the driver activates again while the
+			// previous cycle's Rakdos/return triggers are still resolving,
+			// which desynchronises the mana-colour ask and stalls the line.
+			if g.comboReady() && shrunk == acts {
 				for _, o := range d.Options {
-					if o.Kind == "pass" {
+					if o.Obj == g.altar && o.Kind == "activate" {
 						idx = o.Index
 						break
 					}
@@ -268,14 +291,32 @@ func (g *loopBenchmarkGame) runIterations(tb testing.TB, n int) (int, int, int) 
 			}
 			if idx >= 0 {
 				in.Choices = []int{idx}
+				acts++
 			} else {
+				for _, o := range d.Options {
+					if o.Kind == "pass" {
+						in.Choices = []int{o.Index}
+						break
+					}
+				}
+			}
+			if len(in.Choices) == 0 {
 				in = firstLegal(d)
 			}
 		case decision.KChoose:
-			for _, o := range d.Options {
-				if o.Obj == g.miner {
-					in.Choices = []int{o.Index}
-					break
+			switch {
+			case len(d.Options) > 0 && d.Options[0].Kind == "sacrifice":
+				for _, o := range d.Options {
+					if o.Obj == g.miner {
+						in.Choices = []int{o.Index}
+						break
+					}
+				}
+			case len(d.Options) > 0 && d.Options[0].Kind == "mana":
+				for _, o := range d.Options {
+					if (o.ManaSymbol == "B" || o.Label == "B") && len(in.Choices) < d.Min {
+						in.Choices = append(in.Choices, o.Index)
+					}
 				}
 			}
 			if len(in.Choices) == 0 {
@@ -294,17 +335,13 @@ func (g *loopBenchmarkGame) runIterations(tb testing.TB, n int) (int, int, int) 
 		default:
 			in = firstLegal(d)
 		}
-		tb.Logf("DBG kind=%s player=%d prompt=%q choices=%v altar=%d miner=%d", d.Kind, d.Player, d.Prompt, in.Choices, g.altar, g.miner)
 		if err := g.r.SubmitIntent(g.id, 1, 0, in); err != nil {
 			tb.Fatalf("submit %s: %v", d.Kind, err)
 		}
 		last = d.Seq
 		decisions++
 	}
-	g.m.mu.RLock()
-	shrunk := startLib - len(g.m.e.G.Zone(state.ZLibrary, 1))
-	g.m.mu.RUnlock()
-	return shrunk, decisions, startLib
+	return acts, decisions, startLib, shrunk
 }
 
 func TestHostLoopRepeat(t *testing.T) {
@@ -320,12 +357,26 @@ func TestHostLoopRepeat(t *testing.T) {
 			}
 			initial := len(g.m.e.G.Zone(state.ZLibrary, 1))
 			g.m.mu.RUnlock()
+			if initial < n {
+				t.Fatalf("opponent library %d cannot afford %d cycles", initial, n)
+			}
 			waitFanoutFrames(t, g, 1) // Subscribe's initial snapshot was delivered.
 			beforeFanout := g.frames.Load()
-			got, _, _ := g.runIterations(t, n)
-			want := min(n, initial)
-			if got != want {
-				t.Fatalf("opponent library shrank %d, want %d (bounded by initial library %d)", got, want, initial)
+			acts, _, _, shrunk := g.runIterations(t, n)
+			if acts != n {
+				t.Fatalf("drove %d altar activations, want %d", acts, n)
+			}
+			// Each activation mills exactly one card, and a driver that played
+			// out turns instead would show shrunk > acts from natural draws.
+			if shrunk != n {
+				t.Fatalf("opponent library shrank %d over %d activations, want exactly %d", shrunk, acts, n)
+			}
+			// The line is real only if the Miner ended back on the battlefield.
+			g.m.mu.RLock()
+			minerZone := g.m.e.G.Obj(g.miner).Zone
+			g.m.mu.RUnlock()
+			if minerZone != state.ZBattlefield {
+				t.Fatalf("Forsaken Miner ended in %v after %d cycles, want battlefield", minerZone, n)
 			}
 			waitFanoutFrames(t, g, beforeFanout+1)
 			if gotFrames := g.frames.Load(); gotFrames <= beforeFanout {
@@ -345,7 +396,7 @@ func BenchmarkHostLoopRepeat(b *testing.B) {
 				g := newLoopBenchmarkGame(b)
 				b.StartTimer()
 				start := time.Now()
-				_, d, _ := g.runIterations(b, n)
+				_, d, _, _ := g.runIterations(b, n)
 				measured += time.Since(start)
 				totalDecisions += d
 				b.StopTimer()
