@@ -154,10 +154,11 @@ export const fetchView = (t: string, k: number, seq?: number, ctx?: SeatCtx) => 
 export const fetchEvents = (t: string, k: number, since: number, ctx?: SeatCtx) => getJSON<EventBody[]>(eventsURL(t, k, since, ctx));
 
 /** fetchPending is the seat-scoped GET that names the decision currently asked of the seat — the full Decision, options included. A 409 conflict (nothing pending for this seat) rejects like any other server answer. */
-export const fetchPending = (t: string, k: number, ctx: SeatCtx) => getJSON<Decision>(pendingURL(t, k) + seatQuery(ctx));
+export const fetchPending = (t: string, k: number, ctx: SeatCtx) => (ctx.transport ? ctx.transport.fetchPending(t, k) : getJSON<Decision>(pendingURL(t, k) + seatQuery(ctx)));
 
 /** postIntent answers a decision. It takes no ?seat= (the claim is the fence, FL-99: Authorization: Bearer is the accepted second form), and the intent body's own seq/player/choices are validated server-side. */
 export async function postIntent(t: string, k: number, intent: Intent, ctx: SeatCtx): Promise<void> {
+  if (ctx.transport) return ctx.transport.postIntent(t, k, intent);
   const res = await fetchBounded(intentURL(t, k), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ctx.token}` },
@@ -171,6 +172,7 @@ export async function postIntent(t: string, k: number, intent: Intent, ctx: Seat
 
 /** postUndo requests an in-place rewind. The seat claim is the same bearer fence as an intent; the rewind frame confirms when it lands. */
 export async function postUndo(t: string, k: number, ctx: SeatCtx): Promise<void> {
+  if (ctx.transport) return ctx.transport.postUndo(t, k);
   const res = await fetchBounded(undoURL(t, k), {
     method: 'POST',
     headers: { Authorization: `Bearer ${ctx.token}` },

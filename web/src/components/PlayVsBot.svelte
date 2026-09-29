@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { fetchDecks, type DeckInfo } from '../lib/api';
+  import ProtocolSetting from './ProtocolSetting.svelte';
   import { VS_BOT_FORMATS, VS_BOT_MULLIGANS, startPlayVsBot, type VsBotFormat, type VsBotMulligans } from '../lib/playvsbot';
 
   // The landing-page entry point that sits the player down 1v1 against a bot.
@@ -94,6 +95,7 @@
       </select>
     </label>
   </div>
+  <ProtocolSetting />
   <button type="button" onclick={start} disabled={busy}>
     {busy ? 'Starting…' : 'Start game'}
   </button>
