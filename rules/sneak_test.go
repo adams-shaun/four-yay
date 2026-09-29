@@ -202,7 +202,7 @@ func TestSneakCorpusCensusNamesEveryCarrier(t *testing.T) {
 	if !ok {
 		t.Fatal("census: corpus is missing Ninja Teen")
 	}
-	grant := ""
+	var grant, permission string
 	for _, f := range ninja.Faces {
 		if f == nil {
 			continue
@@ -211,9 +211,15 @@ func TestSneakCorpusCensusNamesEveryCarrier(t *testing.T) {
 			if strings.Contains(body, "AddKeyword$ Sneak:") {
 				grant = body
 			}
+			if strings.Contains(body, "ValidSA$ Spell.Sneak") {
+				permission = body
+			}
 		}
 	}
-	if grant == "" {
-		t.Fatal("Ninja Teen's level-3 AddKeyword$ Sneak grant is gone from the corpus")
+	if grant == "" || !strings.Contains(grant, "AffectedZone$ Graveyard") {
+		t.Fatalf("Ninja Teen's level-3 graveyard AddKeyword$ Sneak grant missing: %q", grant)
+	}
+	if permission == "" || !strings.Contains(permission, "AffectedZone$ Graveyard") {
+		t.Fatalf("Ninja Teen's Spell.Sneak graveyard permission missing: %q", permission)
 	}
 }
