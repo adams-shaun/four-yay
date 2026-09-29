@@ -29,17 +29,16 @@
   let lines = $state<Line[]>([]);
 
   function anchorEl(end: End): Element | null {
-    // `[data-seat]` is not unique: Quadrant's whole board box carries it too
-    // (for its seat-colour rule), and querySelector returns whichever comes
-    // first in document order — a player arrow was landing on that huge box's
-    // corner instead of the player's own name plate. `.identity` is
-    // IdentityBar's own root and is the only element this arrow should ever
-    // point at.
     // A player end lands on the seat's header bar or seat box (their
-    // [data-seat-anchor] root); `.identity` is the retired identity bar's.
-    return 'obj' in end
-      ? document.querySelector(`[data-obj="${end.obj}"]`)
-      : document.querySelector(`[data-seat-anchor="${end.seat}"]`) ?? document.querySelector(`.identity[data-seat="${end.seat}"]`);
+    // [data-seat-anchor] root) -- never `[data-seat]`, which Quadrant's whole
+    // board box also carries (an arrow used to land on that box's corner).
+    // The first one that is laid out wins (a collapsed strip has no box).
+    if ('obj' in end) return document.querySelector(`[data-obj="${end.obj}"]`);
+    for (const el of document.querySelectorAll(`[data-seat-anchor="${end.seat}"]`)) {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) return el;
+    }
+    return null;
   }
 
   function centre(el: Element, base: DOMRect): { x: number; y: number } {
