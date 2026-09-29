@@ -94,7 +94,8 @@ func eventTriggerInterest(kind events.Kind) cards.TriggerInterest {
 		events.PlanarDeckShuffle, events.PlanarReveal, events.PlanarWalk,
 		events.ChaosEnsues, events.ManaUndo, events.EndTurn,
 		events.DungeonCreate, events.DungeonRoom, events.DungeonComplete,
-		events.DungeonRemove, events.InitiativeChange, events.SkipTurn:
+		events.DungeonRemove, events.InitiativeChange, events.SkipTurn,
+		events.Crew:
 		// ManaUndo is the announced payment window's CR 733.1 reversal of a
 		// mana activation: nothing triggers from an undone action, so it
 		// carries no interest bits.
@@ -237,6 +238,17 @@ func eventTriggerInterest(kind events.Kind) cards.TriggerInterest {
 		// the audit complete if the bound ever widens and keeps it out of the
 		// catch-all default that would otherwise claim the kind
 		// trigger-relevant.
+		//
+		// Crew (tmt-crewedthisturn) records one CR 702.122 crew action --
+		// which creature tapped to crew which Vehicle this turn. No trigger
+		// mode fires on it: the corpus reads the fact back through the
+		// `Creature.CrewedThisTurn` filter predicate (effects/filter.go),
+		// never through a T: line, exactly the Enlist/AlterAttribute shape.
+		// Its ordinal (118) sits past triggerMaskKindBits, so both
+		// classifiers fail open before this map is consulted; naming it here
+		// keeps the audit complete if the bound ever widens and keeps it out
+		// of the catch-all default that would otherwise run a full trigger
+		// scan on every crew action.
 		return 0
 	case events.Attach:
 		return cards.TriggerInterestAttach

@@ -18,7 +18,7 @@ import (
 // or misses its witness, the live-vs-clone control is equivalent, and each
 // named cast gets its root-caused verdict.
 //
-//   - 12468 seq 7211 (Homarid Spawning Bed), random4 state_differs on
+//   - 12468 seq 7227 (Homarid Spawning Bed), random4 state_differs on
 //     G.Objs[*].Remembered[*].Obj: Veiled Crocodile's CR 603.8 state trigger
 //     remembered the Island tapped in run A's CR 601.2g window but itself on
 //     the float route. A rules fix: a state trigger remembers its source
@@ -51,7 +51,10 @@ import (
 //
 // The speed-trigger fix (CR 702.179d) then moved 12603's Ogre cast to seq
 // 2298 and fixed the lifePaymentConsequences harness gap in paymirror.go;
-// the merged tree was re-measured to that seq, verdict equivalent.
+// the merged tree was re-measured to that seq, verdict equivalent. The
+// crew-tracking fix (tmt-crewedthisturn, CR 702.122) emits one Crew event per
+// crewing creature, so seed 12468's trajectory renumbers: the Homarid
+// Spawning Bed cast moves from seq 7211 to 7227, verdict unchanged.
 func TestRoundTenFindingsMirror(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
@@ -80,7 +83,7 @@ func TestRoundTenFindingsMirror(t *testing.T) {
 		t.Fatalf("testdata holds %d specs, want 4", len(specs))
 	}
 	want := map[uint64]map[uint64]string{ // seed -> seq -> verdict key ("" = equivalent)
-		12468: {7211: ""},
+		12468: {7227: ""},
 		11828: {},
 		12603: {2298: ""},
 		10877: {2834: ""},

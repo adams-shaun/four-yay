@@ -67,7 +67,10 @@ import (
 // production root cause stays pinned by
 // TestMatchProductionsRespectsAnyColourAmount.
 // lifeLost1's AFLifeLost publication moves the same Lagomos and Songs of the
-// Damned casts to seq 6111 and 3694; both retain their recorded verdicts.
+// Damned casts to seq 6111 and 3694; both retain their recorded verdicts. The
+// crew-tracking fix (tmt-crewedthisturn, CR 702.122) emits one Crew event per
+// crewing creature, so seed 10056's trajectory renumbers: the Lagomos cast
+// moves from seq 6111 to 6128, still equivalent.
 func TestRoundNineFindingsMirror(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
@@ -99,7 +102,7 @@ func TestRoundNineFindingsMirror(t *testing.T) {
 	want := map[uint64]map[uint64]string{ // seed -> seq -> verdict key ("" = equivalent)
 		10860: {3239: ""}, // Worldly Tutor; Three Visits no longer occurs after both command-zone fixes
 		11056: {},         // the Artisan finding is no longer reached; assert a clean, control-equivalent game
-		10056: {6111: ""},
+		10056: {6128: ""},
 		8175:  {3694: precedes},
 	}
 	for _, spec := range specs {
