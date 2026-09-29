@@ -56,11 +56,15 @@ function right(r: Rect): number { return r.x + r.width; }
 
 /** seatedIdentity returns the identity bar rect for a given seat number. */
 async function identityRect(page: Page, seat: number): Promise<Rect | null> {
-  // 7022042e6 replaced IdentityBar (`.identity[data-seat]`) with SeatPills;
-  // a seat's identity is now its `[data-player-pill]`.
-  const el = page.locator(`[data-player-pill="${seat}"]`);
-  if ((await el.count()) === 0) return null;
-  return await el.boundingBox();
+  // The UI rework replaced IdentityBar and SeatPills with the seat box (the
+  // viewer) and header bars (opponents); both carry `[data-seat-anchor]`.
+  // The first one laid out is the seat's identity.
+  const els = page.locator(`[data-seat-anchor="${seat}"]`);
+  for (let i = 0; i < (await els.count()); i++) {
+    const r = await els.nth(i).boundingBox();
+    if (r && r.width > 0 && r.height > 0) return r;
+  }
+  return null;
 }
 
 /** boardRect is the section.board felt box the hand must be bounded by. */
