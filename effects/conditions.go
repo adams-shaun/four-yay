@@ -507,6 +507,12 @@ func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 		return false, false
 	}
 	sc := c.SpecContext(c.Controller)
+	// A ConditionPresent$/IsPresent$ spec over a defined group
+	// (getaway_glamer's `ConditionDefined$ Targeted | ConditionPresent$
+	// Creature.greatestPower`) can carry a greatestPower comparison; bind the
+	// whole battlefield's layer-derived power so the member matcher below
+	// sizes the comparison set correctly. Nil for every other spec.
+	sc.DerivedPTs = append(sc.DerivedPTs, GreatestPowerDerivedPTs(g, present, h)...)
 	count := 0
 	group := rememberedWithSource(h, c)
 	if defined == "RememberedLKI" {
@@ -942,6 +948,7 @@ func conditionNotPresentMet(h Host, c *Ctx, defined, spec string) (met, resolved
 	}
 	g := h.Game()
 	sc := c.SpecContext(c.Controller)
+	sc.DerivedPTs = append(sc.DerivedPTs, GreatestPowerDerivedPTs(g, spec, h)...)
 	count := 0
 	switch defined {
 	case "":
