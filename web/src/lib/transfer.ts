@@ -8,9 +8,12 @@
 import { listProfiles, MAX_PROFILE_NAME, normaliseName, storeSave, type ProfileStore } from './profiles';
 import { validate } from './playsettings';
 import { overridesOf, readKeymap, type Keymap } from './keymap';
+import { addProfile, type LayoutLibrary } from './layoutlibrary';
+import { validate as validateLayout } from './layoutprofile';
 
-type Kind = 'gorge-flow' | 'gorge-keymap';
-const WHAT: Record<Kind, string> = { 'gorge-flow': 'flow profiles', 'gorge-keymap': 'keyboard shortcuts' };
+type Kind = 'gorge-flow' | 'gorge-layout' | 'gorge-keymap';
+const KINDS: readonly string[] = ['gorge-flow', 'gorge-layout', 'gorge-keymap'];
+const WHAT: Record<Kind, string> = { 'gorge-flow': 'flow profiles', 'gorge-layout': 'layout profiles', 'gorge-keymap': 'keyboard shortcuts' };
 
 function envelope(text: string, want: Kind): { items: unknown } | { error: string } {
   let v: unknown;
@@ -21,8 +24,8 @@ function envelope(text: string, want: Kind): { items: unknown } | { error: strin
   }
   if (typeof v !== 'object' || v === null) return { error: 'This file is not a gorge settings export.' };
   const o = v as Record<string, unknown>;
-  if (o.kind !== 'gorge-flow' && o.kind !== 'gorge-keymap') return { error: 'This file is not a gorge settings export.' };
-  if (o.kind !== want) return { error: `This file holds ${WHAT[o.kind]}, not ${WHAT[want]}.` };
+  if (typeof o.kind !== 'string' || !KINDS.includes(o.kind)) return { error: 'This file is not a gorge settings export.' };
+  if (o.kind !== want) return { error: `This file holds ${WHAT[o.kind as Kind]}, not ${WHAT[want]}.` };
   if (o.version !== 1) return { error: 'This export is from a newer version of gorge.' };
   return { items: o.items };
 }
@@ -89,4 +92,38 @@ export function importKeymap(text: string): { keymap: Keymap; note: string } | {
   if (Object.keys(items).length === 0) return { keymap: got.keymap, note: 'Keyboard shortcuts reset to defaults.' };
   const lost = got.dropped === 0 ? '' : ` ${got.dropped} ${got.dropped === 1 ? 'shortcut' : 'shortcuts'} could not be read.`;
   return { keymap: got.keymap, note: `Keyboard shortcuts imported.${lost}` };
+}
+
+/** exportLayouts is every saved layout profile, in order, as a gorge-layout file. */
+export function exportLayouts(lib: LayoutLibrary): string {
+  const items = lib.order.map((name) => ({ name, profile: lib.profiles[name] }));
+  return JSON.stringify({ kind: 'gorge-layout', version: 1, items }, null, 2);
+}
+
+/**
+ * importLayouts merges a gorge-layout file into the library through the
+ * profile model's own validate: clashes are renamed " (2)", bad entries are
+ * skipped and counted, and neither the working copy nor the active profile
+ * changes (addProfile).
+ */
+export function importLayouts(text: string, lib: LayoutLibrary): { lib: LayoutLibrary; added: string[]; skipped: number } | { error: string } {
+  const env = envelope(text, 'gorge-layout');
+  if ('error' in env) return env;
+  if (!Array.isArray(env.items)) return { error: 'This file is not a gorge settings export.' };
+  let next = lib;
+  const added: string[] = [];
+  let skipped = 0;
+  for (const it of env.items) {
+    const o = (typeof it === 'object' && it !== null ? it : {}) as Record<string, unknown>;
+    const name = normaliseName(typeof o.name === 'string' ? o.name : '');
+    const profile = validateLayout(o.profile);
+    if (name === null || profile === null) {
+      skipped++;
+      continue;
+    }
+    const final = uniqueName(name, next.order);
+    next = addProfile(next, final, profile);
+    added.push(final);
+  }
+  return { lib: next, added, skipped };
 }
