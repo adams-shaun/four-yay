@@ -468,7 +468,7 @@ func TestEncodeIsCanonical(t *testing.T) {
 	for _, pair := range [][2]string{
 		{`"AAA":3`, `"ZZZ":2`},
 		{`"AAA":3`, `"Loyalty":1`},
-		{`"U":2`, `"G":1`},
+		{`"G":1`, `"U":2`},
 		{`"p1":4`, `"p2":1`},
 	} {
 		i := strings.Index(s, pair[0])
