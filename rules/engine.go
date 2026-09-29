@@ -2339,10 +2339,11 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 		if i < len(cfg.Sideboards) {
 			sideboard = cfg.Sideboards[i]
 		}
-		var commanders []int
-		if i < len(cfg.Commanders) {
-			commanders = cfg.Commanders[i]
-		}
+		// Resolve commanders exactly as genesis does, so the manifest's
+		// commander identities match the command zone even when Config names an
+		// illegal set (legalCommandersFor rejects such a set whole). Outside
+		// FormatCommander this is the range-filtered Config order.
+		commanders := cfg.legalCommandersFor(i, len(main), main)
 		e.deckManifests[i] = deck.NewManifest(name, main, sideboard, commanders)
 	}
 	// The rest of a Spare: the memo tables start empty over the cleared

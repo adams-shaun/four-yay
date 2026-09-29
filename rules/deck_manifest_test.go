@@ -72,6 +72,53 @@ func TestEngineOwnDeckIsDetachedGenesisData(t *testing.T) {
 	}
 }
 
+// TestEngineOwnDeckCommandersMatchGenesis pins the single-source-of-truth rule:
+// the manifest's commander identities are resolved through the SAME legality
+// gate genesis seats command-zone objects through (legalCommandersFor), so an
+// illegal Config that leaves the command zone empty cannot still name those
+// cards as commanders in the manifest.
+func TestEngineOwnDeckCommandersMatchGenesis(t *testing.T) {
+	parse := func(name, types string) *cards.Card {
+		t.Helper()
+		c, diags := cards.ParseBytes("manifest-cmd.txt", []byte("Name:"+name+"\nTypes:"+types+"\nPT:1/1\n"))
+		if len(diags) != 0 {
+			t.Fatal(diags)
+		}
+		c.Link()
+		return c
+	}
+	cmdrA := parse("Cmd A", "Legendary Creature")
+	cmdrB := parse("Cmd B", "Legendary Creature")
+	filler := parse("Filler", "Creature")
+	deck := []*cards.Card{cmdrA, cmdrB, filler, filler}
+
+	// A legal single commander: the manifest lists it and genesis seats it in
+	// the command zone.
+	legal := New(Config{Names: []string{"legal"}, Decks: [][]*cards.Card{deck}, Commanders: [][]int{{0}}, Format: FormatCommander})
+	if got := legal.OwnDeck(0); got == nil || !reflect.DeepEqual(got.Commanders, []string{"Cmd A"}) {
+		t.Fatalf("legal commander manifest = %#v", got)
+	}
+	if n := len(legal.G.Players[0].Commanders); n != 1 {
+		t.Fatalf("precondition: genesis seated %d commanders, want 1", n)
+	}
+
+	// An illegal three-card set is rejected WHOLE: genesis seats none, so the
+	// manifest must name none either.
+	illegal := New(Config{Names: []string{"illegal"}, Decks: [][]*cards.Card{deck}, Commanders: [][]int{{0, 1, 2}}, Format: FormatCommander})
+	if n := len(illegal.G.Players[0].Commanders); n != 0 {
+		t.Fatalf("precondition: genesis seated %d commanders for an illegal set, want 0", n)
+	}
+	if got := illegal.OwnDeck(0); got == nil || len(got.Commanders) != 0 {
+		t.Fatalf("illegal commander set still named in the manifest: %#v", got)
+	}
+
+	// A non-legendary single commander is likewise rejected.
+	notLegend := New(Config{Names: []string{"plain"}, Decks: [][]*cards.Card{deck}, Commanders: [][]int{{2}}, Format: FormatCommander})
+	if got := notLegend.OwnDeck(0); got == nil || len(got.Commanders) != 0 {
+		t.Fatalf("non-legendary commander named in the manifest: %#v", got)
+	}
+}
+
 func gotRow(rows []deck.ManifestRow, name string) *deck.ManifestRow {
 	for i := range rows {
 		if rows[i].Name == name {
