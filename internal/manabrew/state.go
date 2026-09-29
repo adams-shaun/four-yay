@@ -181,7 +181,7 @@ func (t *Translator) visibleCard(c view.CardView) mb.CardView {
 	}
 	identity.IsToken = c.Token != ""
 	power, toughness := strconv.Itoa(int(c.Power)), strconv.Itoa(int(c.Toughness))
-	card := mb.CardDto{ID: cardID(c.ID), Identity: identity, Color: []string{}, ManaCost: c.ManaCost, Types: []string{}, Subtypes: []string{}, Supertypes: []string{}, Power: &power, Toughness: &toughness,
+	card := mb.CardDto{ID: cardID(c.ID), Identity: identity, Color: []string{}, ManaCost: c.ManaCost, EffectiveManaCost: c.EffectiveManaCost, Types: []string{}, Subtypes: []string{}, Supertypes: []string{}, Power: &power, Toughness: &toughness,
 		ClassLevels: []mb.ClassLevelDto{}, SagaChapters: []mb.SagaChapterDto{}, Text: text, Choices: []mb.CardChoiceDto{}, ControllerID: playerID(c.Controller), OwnerID: playerID(c.Owner), Tapped: c.Tapped,
 		IsAttacking: c.Attacking, Keywords: append([]string{}, c.Keywords...), Counters: make(map[string]int), Damage: int(c.Damage), SummoningSick: c.SummonSick, IsCopy: false, IsDoubleFaced: false, IsTransformed: false, IsFaceDown: c.FaceDown, IsBestowed: false, PhasedOut: false, Exerted: false, AttachmentIDs: []string{}, MergedCardIDs: []string{}}
 	for k, v := range c.Counters {
