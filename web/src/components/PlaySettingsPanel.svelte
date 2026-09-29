@@ -63,8 +63,7 @@
 <script lang="ts">
   import { STOPPABLE_STEPS } from '../lib/autopilot';
   import { stepFullName } from '../lib/phases';
-  import { LAYOUT_ZONES, ZONE_ALIGNS, HAND_PEEKS, ZONE_LABELS, ALIGN_LABELS, HAND_PEEK_LABELS, SCALE_STEP, type ZoneAlign } from '../lib/layoutsettings';
-  import { layoutStore } from '../lib/layoutsettings.svelte';
+  import { layoutStore } from '../lib/layouts.svelte';
   import { storageWritable } from '../lib/storage';
   import type {
     OpponentObjectRule,
@@ -594,44 +593,14 @@
     <button type="button" class="reset" data-reset-settings onclick={() => applyPreset('casual')}>Reset to Casual</button>
   </section>
 
-  <!-- Layout & display (fb-20260916T182801Z): per-zone card size and
-       alignment, and the hand's peek mode (the three readings of the
-       "slide up" ask). These are deliberately NOT play settings: they go
-       through the separate layoutsettings store — its own localStorage key,
-       its own model (lib/layoutsettings.ts) — never through
-       logic.editSettings, so the preset relabelling above is untouched and
-       a geometry change can never be mistaken for an auto-pass rule. The
-       on-board − / + steppers on the viewer's own rows edit the same store. -->
+  <!-- Layout: the board's appearance lives in the layout profile library
+       (lib/layouts.svelte.ts) and its drawer, never in play settings — the
+       preset relabelling above is untouched by it. The game log's
+       show/hide switch stays here (fb-20260917T231628Z); its state and write
+       path are Table.svelte's (per table + scope, or pinned by the layout
+       profile). -->
   <section class="sec" data-layout-section>
     <h3>Layout</h3>
-    <!-- fb-20260916T200925Z: the show/hide toggle for the ON-BOARD − / +
-         steppers (Quadrant rows + HandFan). Same role="switch" row pattern
-         as the auto-pass toggles, writing through the layout store, not
-         state.editSettings — it is a layout preference. Default OFF since
-         fb-20260917T004304Z (the board carries nothing but cards out of the
-         box); a pre-toggle saved blob also loads as off (the field is
-         optional in lib/layoutsettings.ts' validate). -->
-    <button
-      type="button"
-      role="switch"
-      class="row"
-      class:on={layoutStore.steppersOnBoard}
-      aria-checked={layoutStore.steppersOnBoard}
-      data-toggle="steppers-on-board"
-      data-layout-steppers-toggle
-      onclick={() => layoutStore.setSteppersOnBoard(!layoutStore.steppersOnBoard)}
-    >
-      <span>−/+ size controls on the board</span><span class="state" aria-hidden="true">{layoutStore.steppersOnBoard ? 'Shown' : 'Hidden'}</span>
-    </button>
-    <!-- fb-20260917T231628Z: the game log's show/hide switch moved here from
-         the rail's top row (the player's ask: the rail row was in the way).
-         Same role="switch" row pattern as the toggles above, but its state and
-         write path are the props — Table.svelte's showLog/toggleLog, persisted
-         per table + scope through logshown.ts — never the layout store and
-         never logic.editSettings. Rendered only when a toggle is supplied: the
-         hot strip is mounted only in ordinary seated play, and the other
-         states (spectator, mulligan, game over, finished replay) keep the
-         rail's own LOGS control instead. -->
     {#if onToggleLog}
       <button
         type="button"
@@ -645,47 +614,10 @@
         <span>Show game log</span><span class="state" aria-hidden="true">{showLog ? 'Shown' : 'Hidden'}</span>
       </button>
     {/if}
-    <!-- The panel's own per-zone steppers stay mounted regardless of the
-         toggle: they are already "in options" and are the only way back to
-         the board steppers once it is off. -->
-    {#each LAYOUT_ZONES as z (z)}
-      <div class="row sel" data-layout-zone={z}>
-        <span>{ZONE_LABELS[z]}</span>
-        <span class="layctl">
-          <span class="zstep" role="group" aria-label="Card size, {ZONE_LABELS[z]}">
-            <button type="button" class="zsbtn" data-layout-smaller={z} aria-label="Smaller {ZONE_LABELS[z]} cards" onclick={() => layoutStore.bump(z, -SCALE_STEP)}>−</button>
-            <span class="zsval" data-layout-scale={z}>{Math.round(layoutStore.scale(z) * 100)}%</span>
-            <button type="button" class="zsbtn" data-layout-larger={z} aria-label="Larger {ZONE_LABELS[z]} cards" onclick={() => layoutStore.bump(z, SCALE_STEP)}>+</button>
-          </span>
-          <select
-            data-layout-align={z}
-            aria-label="{ZONE_LABELS[z]} alignment"
-            onchange={(e) => layoutStore.setAlign(z, e.currentTarget.value as ZoneAlign)}
-          >
-            {#each ZONE_ALIGNS as a (a)}
-              <option value={a} selected={layoutStore.align(z) === a}>{ALIGN_LABELS[a]}</option>
-            {/each}
-          </select>
-        </span>
-      </div>
-    {/each}
-    <div class="row sel">
-      <span id="peek-label">Hand cards</span>
-      <div class="segments" role="group" aria-labelledby="peek-label" data-peek-picker>
-        {#each HAND_PEEKS as p (p)}
-          <button
-            type="button"
-            class="seg"
-            class:on={layoutStore.peek === p}
-            aria-pressed={layoutStore.peek === p}
-            data-peek={p}
-            onclick={() => layoutStore.setHandPeek(p)}
-          >{HAND_PEEK_LABELS[p]}</button>
-        {/each}
-      </div>
-    </div>
-    <p class="legend">Card size and alignment save in this browser and apply to your board. The − / + marks on your own battlefield rows are the same controls — while “−/+ size controls on the board” above is Shown.</p>
-    <button type="button" class="reset" data-layout-reset onclick={() => layoutStore.reset()}>Reset layout</button>
+    <button type="button" class="row" data-open-layout-drawer onclick={() => (layoutStore.drawerOpen = true)}>
+      <span>Board layout</span><span class="state">{layoutStore.label}</span>
+    </button>
+    <p class="legend">Arrangement, card sizes, stacking and the rail are layout profiles: they save in this browser and can be exported to a file.</p>
   </section>
 
   <!-- Remembered trigger answers (fb-20260914T062319Z-88b4069a B4): the
@@ -922,52 +854,6 @@
   .reset:hover {
     background: var(--offered);
     color: var(--felt-sunk);
-  }
-  /* Layout section (fb-20260916T182801Z): the per-zone size stepper and the
-     alignment select share one right-hand control cluster. The select
-     inherits .row.sel select's styling (descendant selector). */
-  .layctl {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-2);
-    flex: 1 1 auto;
-    min-width: 0;
-    justify-content: flex-end;
-  }
-  .zstep {
-    display: inline-flex;
-    align-items: center;
-    gap: 1px;
-    border: 1px solid var(--edge-inst);
-    background: var(--instrument-raised);
-  }
-  .zsbtn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.3rem;
-    height: 1.5rem;
-    padding: 0;
-    border: 0;
-    background: none;
-    color: var(--ink-inst);
-    font-family: var(--font-data);
-    font-size: var(--t-12);
-    line-height: 1;
-    cursor: pointer;
-  }
-  .zsbtn:hover,
-  .zsbtn:focus-visible {
-    color: var(--ink);
-    background: var(--offered);
-  }
-  .zsval {
-    min-width: 2.8em;
-    text-align: center;
-    font-family: var(--font-data);
-    font-variant-numeric: tabular-nums;
-    font-size: var(--t-11);
-    color: var(--ink);
   }
   ul.remlist {
     margin: 0;

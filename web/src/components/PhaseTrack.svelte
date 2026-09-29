@@ -27,8 +27,10 @@
    * colour. It is full-strength when that seat is yours and recedes when it
    * is not; the current-step fill keeps the existing initiative grammar.
    */
-  let { view, seats, seat = null, stops = null, onToggle = null }: {
+  let { view, seats, seat = null, stops = null, onToggle = null, clock = true }: {
     view: View;
+    /** clock draws the leading round segment; the centre strip names the turn itself and turns it off. */
+    clock?: boolean;
     seats: SeatInfo[];
     /** seat is the viewer's own seat, or null for a spectator / a finished replay. */
     seat?: number | null;
@@ -75,9 +77,11 @@
   <!-- Round survives only as a small leading segment in the cell row. Whose
        turn and the duplicated click instructions are gone: the active-seat
        perimeter/IdentityBar and each stoppable cell already carry them. -->
-  <div class="clock" data-clock aria-label={`Round ${view.round}`}>
-    <span class="tk">R</span><span class="tn">{view.round}</span>
-  </div>
+  {#if clock}
+    <div class="clock" data-clock aria-label={`Round ${view.round}`}>
+      <span class="tk">R</span><span class="tn">{view.round}</span>
+    </div>
+  {/if}
 
   <div class="groups">
     {#each PHASE_GROUPS as g (g.key)}
@@ -140,18 +144,14 @@
     width: 100%;
     height: var(--phase-track-row-h);
     min-width: 0;
-    background: color-mix(in srgb, var(--instrument) 94%, transparent);
     color: var(--ink-inst);
-    border: 1px solid color-mix(in srgb, var(--seat) 34%, var(--edge-inst));
-    border-radius: var(--radius);
-    backdrop-filter: blur(8px);
     overflow: hidden;
-    /* The one state colour on the track: warm when the initiative is yours. */
-    --now: var(--offered);
+    /* The current step is the one gilt fill on the track: full on your turn,
+       receded on someone else's. */
+    --now: color-mix(in srgb, var(--gilt) 55%, var(--instrument-raised));
   }
   .phase-track.yours {
-    --now: var(--initiative);
-    border: 2px solid var(--seat);
+    --now: var(--gilt);
   }
 
   .clock {
@@ -187,8 +187,7 @@
   }
   .group {
     display: flex;
-    padding: 2px var(--sp-1);
-    border-right: 1px solid var(--edge-inst);
+    padding: 2px 1px;
     flex: 1 1 0;
     min-width: 0;
   }
@@ -210,10 +209,9 @@
     flex: 1 1 auto;
     min-width: 0;
     padding: 1px var(--sp-1) var(--sp-1);
-    background: var(--instrument-raised);
+    background: transparent;
     border: 0;
-    border-bottom: 2px solid transparent;
-    border-radius: var(--radius);
+    border-radius: 4px;
     font-family: var(--font-ui);
     font-size: var(--t-12);
     line-height: 1.25;
@@ -224,7 +222,7 @@
     cursor: pointer;
   }
   button.cell:hover {
-    background: color-mix(in srgb, var(--ink) 8%, var(--instrument-raised));
+    background: color-mix(in srgb, var(--ink) 8%, transparent);
     color: var(--ink);
   }
   /* Passed steps recede; steps still to come are neutral. */
@@ -252,10 +250,8 @@
     font-size: 0.6875rem;
   }
 
-  /* A stop is a rule under the cell — the same "something is marked here"
-     grammar the rail and the identity bars use, not a decorative badge. */
+  /* Your stops are dotted: one gilt dot under the step's name. */
   .cell[aria-pressed='true'] {
-    border-bottom-color: var(--initiative);
     color: var(--ink);
   }
   .mark {
@@ -270,7 +266,7 @@
     width: 4px;
     height: 4px;
     border-radius: 50%;
-    background: var(--initiative);
+    background: var(--gilt);
   }
   .cell.now[aria-pressed='true'] .mark {
     background: var(--felt-sunk);

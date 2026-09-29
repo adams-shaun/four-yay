@@ -91,7 +91,7 @@ describe('SeatTable — priority geometry', () => {
           pick: rect('#seat-idle [data-seat-row="0"] .pick'),
           name: rect('#seat-idle [data-seat-row="0"] .name'),
           section: rect('#seat-idle .seats'),
-          identity: rect('#identity-idle .identity'),
+          identity: rect('#identity-idle .seat-header'),
           identityName: rect('#identity-idle .name'),
         },
         priority: {
@@ -99,7 +99,7 @@ describe('SeatTable — priority geometry', () => {
           pick: rect('#seat-priority [data-seat-row="0"] .pick'),
           name: rect('#seat-priority [data-seat-row="0"] .name'),
           section: rect('#seat-priority .seats'),
-          identity: rect('#identity-priority .identity'),
+          identity: rect('#identity-priority .seat-header'),
           identityName: rect('#identity-priority .name'),
         },
       };

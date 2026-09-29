@@ -3,7 +3,6 @@ import { render } from 'svelte/server';
 import type { CardView, PlayerView, SeatInfo, View } from '../protocol';
 import { HoverCard, type AnchorRect } from '../lib/carddetail.svelte';
 import { commandZoneOf } from '../lib/commander';
-import { layoutStore } from '../lib/layoutsettings.svelte';
 import CommandArea from './CommandArea.svelte';
 import CommanderTile from './CommanderTile.svelte';
 import Board from './Board.svelte';
@@ -134,51 +133,13 @@ describe('CommandArea — one seat"s commanders, on the board', () => {
     expect(html).toContain('>graveyard<');
   });
 
-  it('with a roster the tiles render inside the command pack, which carries the zone\'s OWN scale and align (fb-20260917T232202Z)', () => {
-    const store = layoutStore;
-    store.bump('command', 0.2);
-    store.setAlign('command', 'center');
-    try {
-      const c = card(1, 'Isamaru');
-      const p = player({ commanders: [c], command: [c] });
-      const { html } = render(CommandArea, { props: { player: p } });
-      const pack = elem(html, 'data-cmd-pack');
-      expect(pack).not.toBe('');
-      // the zone's OWN settings — not the creatures row's
-      expect(pack).toContain('data-align="center"');
-      expect(pack).toMatch(/style="[^"]*--cmd-scale:\s*1\.2/);
-      // and the tile lives INSIDE the pack
-      expect(pack).toContain('data-commander="0"');
-    } finally {
-      store.reset();
-      store.dispose();
-    }
-  });
-
-  it('the pack renders at the shipped defaults as one content-sized flex item at the creatures row\'s front (100% / left)', () => {
+  it('with a roster the tiles render inside the command pack', () => {
     const c = card(1, 'Isamaru');
     const p = player({ commanders: [c], command: [c] });
     const { html } = render(CommandArea, { props: { player: p } });
     const pack = elem(html, 'data-cmd-pack');
-    expect(pack).toContain('data-align="left"');
-    expect(pack).toMatch(/style="[^"]*--cmd-scale:\s*1($|[";.])/);
-    // no dotted outline at rest: the flash pulse is the only outline trigger
-    expect(pack).not.toContain('zone-outline');
-  });
-
-  it('the panel\'s Command zone steppers pulse the pack\'s dotted outline and NOT the creatures row\'s', () => {
-    const store = layoutStore;
-    const c = card(1, 'Isamaru');
-    const p = player({ commanders: [c], command: [c] });
-    store.bump('command', 0.1);
-    try {
-      const { html } = render(CommandArea, { props: { player: p } });
-      const pack = elem(html, 'data-cmd-pack');
-      expect(pack).toContain('zone-outline');
-    } finally {
-      store.reset();
-      store.dispose();
-    }
+    expect(pack).not.toBe('');
+    expect(pack).toContain('data-commander="0"');
   });
 
   it('the empty away box is STILL inspectable and still names its card', () => {
@@ -399,7 +360,9 @@ describe('the board draws one commander tile per roster commander, inline in eac
     // seat 0: one tile (in the zone). seat 1: NONE — its commander is on the
     // battlefield, so the real permanent is the one copy. seat 2: two tiles
     // (its roster order, both not in play). seat 3: none.
-    expect(bySeat).toEqual(['0', '2', '2']);
+    // (DOM order is the table's arrangement: the spectator's bottom seat, 0,
+    // is drawn after the opponents' area.)
+    expect([...bySeat].sort()).toEqual(['0', '2', '2']);
   });
 
   it('a constructed table draws no commander tiles anywhere on the board', () => {

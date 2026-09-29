@@ -91,12 +91,17 @@ describe('Table.svelte seat gating (R-E4-4 / R-E4-5)', () => {
     expect(html).toContain('data-seat-panel'); // the seat surface is mounted
     expect(html).toContain('data-phase-track'); // the clock remains, now inside the board shard
     expect(html.indexOf('data-phase-track')).toBeGreaterThan(html.indexOf('<section class="board">'));
-    expect(html.indexOf('data-phase-track')).toBeLessThan(html.indexOf('</section>'));
+    expect(html.indexOf('data-phase-track')).toBeLessThan(html.indexOf('<aside'));
     expect(html).toContain('data-hot-strip');
     expect(html).toContain('data-hot-tab="actions"');
-    expect(html).toContain('data-hot-tab="pass"');
-    expect(html).toContain('data-hot-tab="end-turn"');
     expect(html).toContain('data-hot-tab="done"');
+    // Pass, End turn and Undo moved from the strip's tabs to the one gilt
+    // action button and its secondaries (UI rework §3), in the hand row.
+    expect(html).not.toContain('data-hot-tab="pass"');
+    expect(html).toContain('data-action-cluster');
+    expect(html).toContain('data-pass-action');
+    expect(html).toContain('data-cluster-end-turn');
+    expect(html).toContain('data-seat-box="0"');
     expect(html).not.toContain('data-hot-tab="options"');
     // Options is a compact popover beside Feedback; the settings editor is
     // mounted only after opening it, so it cannot expand the whole rail.
@@ -109,7 +114,7 @@ describe('Table.svelte seat gating (R-E4-4 / R-E4-5)', () => {
     // pinned to the viewport corner — a fixed-to-viewport control only
     // avoided the log toggle by luck, and the wider "confirm" label already
     // overran that luck and ate the toggle's clicks.
-    expect(html.indexOf('data-concede-control')).toBeGreaterThan(html.indexOf('<aside class="rail">'));
+    expect(html.indexOf('data-concede-control')).toBeGreaterThan(html.indexOf('<aside'));
     expect(html.indexOf('data-concede-control')).toBeLessThan(html.indexOf('</aside>'));
     // Concede has one page-level control and is not duplicated as a flyout
     // option label beside Pass.
@@ -127,24 +132,25 @@ describe('Table.svelte seat gating (R-E4-4 / R-E4-5)', () => {
   });
 });
 
-describe('Table.svelte compact seat pills', () => {
-  it('uses the two established docks for a two-seat game', () => {
+describe('Table.svelte seat identity: header bars and the seat box', () => {
+  it('a spectator sees every seat named once: the opponents\' header bars and the bottom seat\'s own bar', () => {
     initSeatContext('');
     fakeMatch.shared.view = view();
     fakeMatch.shared.seats = seats;
     const { html } = render(Table, { props: { table: 't1' } });
-    expect(html).toContain('data-seat-pill-dock="seat-0"');
-    expect(html).toContain('data-seat-pill-dock="seat-1"');
-    expect(html).not.toContain('data-seat-pill-dock="all"');
+    expect(html).toContain('data-seat-header="0"');
+    expect(html).toContain('data-seat-header="1"');
+    expect(html).not.toContain('data-seat-box');
+    expect(html).not.toContain('data-action-cluster');
   });
 
-  it('keeps every player reachable in supported multi-seat games', () => {
+  it('every seat of a four-seat game is placed and named', () => {
     initSeatContext('');
     fakeMatch.shared.view = view({ players: [player(0), player(1), player(2), player(3)] });
     fakeMatch.shared.seats = [...seats, { name: 'Cy', deck: 'c', colour: '#f59e0b' }, { name: 'Di', deck: 'd', colour: '#a855f7' }];
     const { html } = render(Table, { props: { table: 't1' } });
-    expect(html).toContain('data-seat-pill-dock="all"');
-    for (const seat of [0, 1, 2, 3]) expect(html).toContain(`data-player-pill="${seat}"`);
+    for (const seat of [0, 1, 2, 3]) expect(html).toContain(`data-seat-header="${seat}"`);
+    expect(html).toContain('data-layout-pill');
   });
 });
 
@@ -199,8 +205,8 @@ describe('Table.svelte — opening hand owns the board', () => {
     expect(html).not.toContain('data-hot-strip');
     expect(html.match(/data-seat-panel/g)).toHaveLength(1);
     expect(html).toMatch(/class="seat-panel[^"]*wide/);
-    expect(html).toContain('data-seat-pill-dock="seat-0"');
-    expect(html).toContain('data-seat-pill-dock="seat-1"');
+    expect(html).toContain('data-seat-header="1"');
+    expect(html).not.toContain('data-action-cluster');
     initSeatContext('');
   });
 });

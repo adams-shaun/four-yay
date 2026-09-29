@@ -136,3 +136,18 @@ describe('keymap', () => {
   });
 });
 
+
+describe('the layout and view actions (UI rework §2/§3)', () => {
+  it('have defaults that collide with nothing shipped, and layout 1-9 start unbound', async () => {
+    const { defaultKeymap, conflictsFor, matchKeymap } = await import('./keymap');
+    const k = defaultKeymap();
+    for (const a of ['next-layout', 'prev-layout', 'toggle-log', 'toggle-stacking', 'zoom-card', 'open-grave', 'open-exile'] as const) {
+      expect(k[a].length, a).toBe(1);
+      expect(conflictsFor(k, a), a).toEqual([]);
+    }
+    for (let n = 1; n <= 9; n++) expect(k[`layout-${n}` as 'layout-1']).toEqual([]);
+    expect(matchKeymap(k, { key: 'z', code: 'KeyZ', ctrlKey: false, shiftKey: false, metaKey: false })).toBe('zoom-card');
+    expect(matchKeymap(k, { key: 'Z', code: 'KeyZ', ctrlKey: true, shiftKey: true, metaKey: false })).toBe('undo');
+    expect(matchKeymap(k, { key: '>', code: 'Period', ctrlKey: true, shiftKey: true, metaKey: false })).toBe('next-layout');
+  });
+});

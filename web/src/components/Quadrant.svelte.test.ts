@@ -2,13 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { render } from 'svelte/server';
 import type { CardView, PlayerView } from '../protocol';
 import Quadrant from './Quadrant.svelte';
-import { layoutStore } from '../lib/layoutsettings.svelte';
-
-/** elem returns one element with its content, matched by a data attribute ('' when absent). Same helper PlaySettingsPanel.svelte.test.ts uses. */
-function elem(html: string, attr: string): string {
-  const m = new RegExp(`<([a-z]+)[^>]*${attr.replace(/"/g, '\\"')}[^>]*>([\\s\\S]*?)</\\1>`).exec(html);
-  return m === null ? '' : m[0];
-}
+import { layoutStore } from '../lib/layouts.svelte';
 
 /**
  * CZ2: a commander is a creature, so its tile belongs in the creatures row,
@@ -44,8 +38,8 @@ describe('Quadrant — commanders share the creatures row at creature scale (CZ2
     const p = player({ commanders: [cmd], command: [cmd], battlefield: [creature] });
     const { html } = render(Quadrant, { props: { player: p, colour: '#e5484d' } });
 
-    const rowStart = html.indexOf('row creatures');
-    const rowOthersStart = html.indexOf('row others');
+    const rowStart = html.indexOf('data-zone-row="creatures"');
+    const rowOthersStart = html.indexOf('data-zone-row="lands"');
     expect(rowStart).toBeGreaterThanOrEqual(0);
     expect(rowOthersStart).toBeGreaterThan(rowStart);
 
@@ -79,8 +73,8 @@ describe('Quadrant — commanders share the creatures row at creature scale (CZ2
     const creature = card(2, 'Grizzly Bears');
     const p = player({ commanders: [cmd], command: [cmd], battlefield: [creature] });
     const { html } = render(Quadrant, { props: { player: p, colour: '#e5484d' } });
-    const rowStart = html.indexOf('row creatures');
-    const rowOthersStart = html.indexOf('row others');
+    const rowStart = html.indexOf('data-zone-row="creatures"');
+    const rowOthersStart = html.indexOf('data-zone-row="lands"');
     const packIdx = html.indexOf('data-cmd-pack');
     const creatureIdx = html.indexOf('data-obj="2"');
     // the pack renders inside the creatures row's markup, before the creatures
@@ -90,23 +84,6 @@ describe('Quadrant — commanders share the creatures row at creature scale (CZ2
     expect(packIdx).toBeLessThan(creatureIdx);
   });
 
-  it('the command pack and the creatures row carry SEPARATE scales and aligns (fb-20260917T232202Z)', () => {
-    const store = layoutStore;
-    const cmd = card(1, 'Isamaru', 'Legendary Creature');
-    const creature = card(2, 'Grizzly Bears');
-    const p = player({ commanders: [cmd], command: [cmd], battlefield: [creature] });
-    store.bump('command', 0.3);
-    try {
-      const { html } = render(Quadrant, { props: { player: p, colour: '#e5484d' } });
-      const creaturesRow = html.slice(html.indexOf('row creatures'), html.indexOf('row others'));
-      // the row keeps ITS OWN scale (1) while the pack carries the command scale (1.3)
-      expect(creaturesRow).toMatch(/--row-scale:\s*1/);
-      expect(creaturesRow).toMatch(/--cmd-scale:\s*1\.3/);
-    } finally {
-      store.reset();
-      store.dispose();
-    }
-  });
 });
 
 describe('Quadrant — an eliminated seat is greyed out on the board (Task 3)', () => {
@@ -155,83 +132,57 @@ describe('Quadrant — lands always stack, creatures keep the tapped split (fb-2
     const { html } = render(Quadrant, { props: { player: p, colour: '#e5484d' } });
     expect(html).toContain('data-stack-ready');
     expect(html).toContain('>1 ready<');
-    expect(html).toContain('>x3<');
+    expect(html).toContain('>×3<');
   });
 });
 
-describe('Quadrant — layout settings (fb-20260916T182801Z)', () => {
-  it('each battlefield row publishes its scale, alignment and zone key', () => {
-    const p = player({ battlefield: [card(2, 'Grizzly Bears')] });
+describe('Quadrant — the board template and sizes (UI rework §2)', () => {
+  const bear = (id: number): CardView => card(id, 'Grizzly Bears');
+  const forest = (id: number): CardView => ({ ...card(id, 'Forest', 'Basic Land Forest'), printing: { name: 'Forest', set: 'X', number: '1' } });
+
+  it('the Duel template: creatures on the first row, lands then others on the second', () => {
+    const p = player({ battlefield: [bear(1), forest(2)] });
     const { html } = render(Quadrant, { props: { player: p, colour: '#e5484d' } });
-    for (const zone of ['creatures', 'others', 'lands'] as const) {
-      const row = elem(html, `data-zone-row="${zone}"`);
-      expect(row).not.toBe('');
-      expect(row).toContain('--row-scale');
-      expect(row).toContain('data-align="left"'); // the shipped default
-    }
+    const rows = html.match(/data-board-row="(\d)"/g);
+    expect(rows).toEqual(['data-board-row="0"', 'data-board-row="1"']);
+    expect(html.indexOf('data-zone-row="creatures"')).toBeLessThan(html.indexOf('data-board-row="1"'));
+    expect(html.indexOf('data-zone-row="lands"')).toBeLessThan(html.indexOf('data-zone-row="others"'));
   });
 
-  it('the on-board resize stepper is mounted only on the viewer\'s own quadrant', () => {
-    const p = player({ battlefield: [card(2, 'Grizzly Bears')] });
-    // fb-20260917T004304Z: the shipped default is now HIDDEN, so the test
-    // opts the shared store in for the stepper-mount assertions.
-    layoutStore.setSteppersOnBoard(true);
+  it('the card size is the computed one, and a compact size renders art tiles', () => {
+    const p = player({ battlefield: [bear(1)] });
+    const size = { cardH: 60, cardW: 43, compact: true, pileW: 0, rowsW: 400 };
+    const { html } = render(Quadrant, { props: { player: p, colour: '#e5484d', size } });
+    expect(html).toMatch(/--card-w: 43px/);
+    expect(html).toMatch(/class="card-tile[^"]*\bart\b/);
+    expect(html).toContain('art-name');
+  });
+
+  it('an opponent panel carries its header bar and the mirrored row order', () => {
+    const p = player({ seat: 1, name: 'Mira', battlefield: [bear(1)] });
+    const { html } = render(Quadrant, { props: { player: p, colour: '#3b82f6', header: true, mirrored: true, active: true } });
+    expect(html).toContain('data-seat-header="1"');
+    expect(html).toContain('>Turn<');
+    expect(html).toMatch(/class="quadrant[^"]*\bmirrored\b/);
+  });
+
+  it('stacking off gives every identical permanent its own tile', () => {
+    const p = player({ battlefield: [forest(1), forest(2), forest(3)] });
+    expect(render(Quadrant, { props: { player: p, colour: '#e5484d' } }).html).toContain('data-obj-group="1,2,3"');
+    layoutStore.toggleStacking();
     try {
-      const spectator = render(Quadrant, { props: { player: p, colour: '#e5484d' } }).html;
-      expect(spectator).not.toContain('data-zone-stepper');
-      const own = render(Quadrant, { props: { player: p, colour: '#e5484d', own: true } }).html;
-      expect(own).toContain('data-zone-stepper="creatures"');
-      expect(own).toContain('data-zone-stepper="others"');
-      expect(own).toContain('data-zone-stepper="lands"');
-      // ...and never the hand's stepper, which HandFan owns
-      expect(own).not.toContain('data-zone-stepper="hand"');
+      const off = render(Quadrant, { props: { player: p, colour: '#e5484d' } }).html;
+      expect(off).not.toContain('data-obj-group');
+      for (const id of [1, 2, 3]) expect(off).toContain(`data-obj="${id}"`);
     } finally {
-      layoutStore.reset();
-      layoutStore.dispose();
+      layoutStore.toggleStacking();
     }
   });
 
-  it('the Game Options show/hide toggle hides EVERY on-board stepper, and showing it restores exactly the previous mounts (fb-20260916T200925Z)', () => {
-    const p = player({ battlefield: [card(2, 'Grizzly Bears')] });
-    const props = { props: { player: p, colour: '#e5484d', own: true } };
-    try {
-      // The toggle is the layout store's steppersOnBoard; this is the exact
-      // call the panel's switch onclick makes.
-      layoutStore.setSteppersOnBoard(false);
-      const hidden = render(Quadrant, props).html;
-      // conditional render, not display:none: no stepper markup anywhere
-      expect(hidden).not.toContain('data-zone-stepper');
-      // the rows themselves stay (scale/align/outline are untouched)
-      for (const zone of ['creatures', 'others', 'lands'] as const) {
-        const row = elem(hidden, `data-zone-row="${zone}"`);
-        expect(row).not.toBe('');
-        expect(row).toContain('--row-scale');
-      }
-
-      layoutStore.setSteppersOnBoard(true);
-      const shown = render(Quadrant, props).html;
-      expect(shown).toContain('data-zone-stepper="creatures"');
-      expect(shown).toContain('data-zone-stepper="others"');
-      expect(shown).toContain('data-zone-stepper="lands"');
-    } finally {
-      layoutStore.reset();
-      layoutStore.dispose();
-    }
-  });
-
-  it('the dotted outline is up on every quadrant\'s row while the store pulses that zone, and down once the flash clears', () => {
-    const p = player({ battlefield: [card(2, 'Grizzly Bears')] });
-    // The store is the module singleton components read; bumping from a
-    // "panel" pulse must be visible here, which is the whole point of the
-    // one shared store.
-    layoutStore.bump('lands', 0.1);
-    const flashed = render(Quadrant, { props: { player: p, colour: '#e5484d' } }).html;
-    expect(elem(flashed, 'data-zone-row="lands"')).toContain('zone-outline');
-    expect(elem(flashed, 'data-zone-row="creatures"')).not.toContain('zone-outline');
-    expect(layoutStore.scale('lands')).toBe(1.1);
-    layoutStore.reset();
-    layoutStore.dispose();
-    const calm = render(Quadrant, { props: { player: p, colour: '#e5484d' } }).html;
-    expect(elem(calm, 'data-zone-row="lands"')).not.toContain('zone-outline');
+  it('a focus side strip draws only the creatures', () => {
+    const p = player({ battlefield: [bear(1), forest(2)] });
+    const { html } = render(Quadrant, { props: { player: p, colour: '#e5484d', strip: true } });
+    expect(html).toContain('data-obj="1"');
+    expect(html).not.toContain('data-zone-row="lands"');
   });
 });
