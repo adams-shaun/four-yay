@@ -140,6 +140,24 @@ func NumResolved(h Host, c *Ctx, sa *cards.SA, key string, def int32) (int32, bo
 		n, ok := evalCountExprOK(h, c, raw, 0)
 		return sign * n, ok
 	}
+	if raw == "Double" {
+		// Forge's P/T amount token means the target's current characteristic
+		// as an additive amount (e.g. Pump adds its power to itself). Read it
+		// here, at resolution, through Host's layer-derived value rather than
+		// the printed face or a value captured when the ability was created.
+		for _, target := range Defined(h, c, sa) {
+			if target.IsPlayer || target.Obj == 0 {
+				continue
+			}
+			if key == "NumAtt" || key == "Power" {
+				return sign * h.Power(target.Obj), true
+			}
+			if key == "NumDef" || key == "Toughness" {
+				return sign * h.Toughness(target.Obj), true
+			}
+		}
+		return 0, false
+	}
 	if raw == "X" {
 		return sign * c.X, true
 	}
