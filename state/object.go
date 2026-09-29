@@ -731,6 +731,22 @@ type Object struct {
 	// api:AlterAttribute effect emits) may set it.
 	Suspected bool
 
+	// Prepared is CR 722.3a's prepared designation on a preparation card's
+	// permanent. A permanent can gain it only if it has a prepare spell
+	// (Card.AlternateMode == "Prepare" with an inset face); CR 722.3c mints
+	// the prepare-spell copy in exile (PreparedSource below) as it gains the
+	// designation, and the designation ends when the permanent leaves the
+	// battlefield (the Move clear in events.Apply) or an unprepare effect /
+	// the prepared copy's cast (rules/cast.go) removes it. It is a plain
+	// status field, exactly like Suspected.
+	Prepared bool
+
+	// PreparedSource, on an EXILE copy minted by CR 722.3c's prepared grant,
+	// names the battlefield permanent whose prepare spell it copies. Zero on
+	// every other object. The cast offer (rules/legal.go) and the cast-time
+	// unprepare (rules/cast.go) both read it to find the permanent.
+	PreparedSource ObjID
+
 	// Monstrous is CR 701.31b's monstrous designation (Giggling
 	// Skitterspike's `{5}: Monstrosity 5`): a creature becomes monstrous
 	// when a monstrosity ability resolves, and the designation lasts for
@@ -1473,6 +1489,15 @@ func (o *Object) MergedFaceAt(i int) *cards.Face {
 func (o *Object) Ephemeral() bool {
 	return (o.IsCopy && o.Zone != ZStack && o.Zone != ZBattlefield) ||
 		(o.IsToken && o.Zone != ZBattlefield) || o.Card == nil
+}
+
+// HasPrepareSpell reports whether this object carries CR 722.2's prepare
+// spell: a preparation card (AlternateMode "Prepare") with an inset face.
+// The prepared designation can only be granted to such an object (CR
+// 722.3a), so the AlterAttribute grant gate reads this ONE definition.
+func (o *Object) HasPrepareSpell() bool {
+	return o != nil && o.Card != nil && o.Card.AlternateMode == "Prepare" &&
+		len(o.Card.Faces) >= 2 && o.Card.Faces[1] != nil
 }
 
 func (o *Object) Counter(kind string) int32 {
