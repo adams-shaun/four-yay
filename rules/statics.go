@@ -1558,11 +1558,13 @@ type hiddenKeywordFlags struct {
 func parseHiddenKeyword(k string) hiddenKeywordFlags {
 	head := strings.TrimSpace(strings.TrimPrefix(cardsKeywordHead(k), "HIDDEN "))
 	switch {
-	case strings.EqualFold(head, "CARDNAME can't attack or block."):
+	case strings.EqualFold(head, "CARDNAME can't attack or block."),
+		strings.EqualFold(head, "CantAttackOrBlock"):
 		// The compound spelling imparts BOTH restrictions (Opportunistic
 		// Dragon, Extraction Specialist); it must satisfy the cant-block
 		// reader as well as the cant-attack one, so it is matched before
-		// either simple spelling.
+		// either simple spelling. Printed K: lines are canonicalised to the
+		// head; runtime KW$ grants retain the sentence spelling.
 		return hiddenKeywordFlags{cantAttack: true, cantBlock: true}
 	case strings.EqualFold(head, "CARDNAME can't attack."):
 		return hiddenKeywordFlags{cantAttack: true}
@@ -3748,7 +3750,7 @@ func init() {
 	// The obvious alternative spelling MustBeBlocked is already taken by an
 	// unrelated Forge AI-hint SVar name (rules/layers.go GrantedSVar, 41
 	// corpus files), so it is deliberately NOT used here.
-	effects.RegisterNonAPI("kw:MustBlock")
+	effects.RegisterNonAPI("kw:MustBlock", "kw:CantAttackOrBlock")
 }
 
 // asUnblockedStaticMatches reports whether any battlefield
