@@ -358,13 +358,17 @@ async function matchOfTable(request: APIRequestContext, base: string, table: str
 
 /**
  * dockPromptInRail moves the prompt dock out of the near-table placement and
- * into the rail, so the board and its menus are not covered. The near-table
- * dock is `position: fixed; z-index: 40` and grows up over the board (the
- * default since the ui-promptdock merge), which at the fixture tests'
- * viewports covers the board's own card badges and — sitting above the radial
- * picker's z-index 20 — the mana wheel itself. A player repositions the
- * prompt the same way, with the dock's own toggle button; these tests assert
- * board interactions, so they first ask for the board-first layout.
+ * into the rail, so the board beneath it is clickable. The near-table dock is
+ * `position: fixed; z-index: 40` and grows up over the board (the default
+ * since the ui-promptdock merge); at the ui24 fixture's viewport it covers
+ * the board's own collapsed-creature badge, so Playwright's click on that
+ * badge never becomes actionable. A player repositions the prompt the same
+ * way, with the dock's own toggle button; this test asserts a board
+ * interaction, so it first asks for the board-first layout.
+ *
+ * (The dock also sat above the radial picker and card-menu popovers, which is
+ * now fixed at the source: OptionPicker's popovers are z-index 45/46, above
+ * the dock's 40. Only the board-badge overlap needs the dock moved.)
  *
  * The toggle cycles table -> rail -> floating -> table, so step to 'rail'
  * (bounded) rather than assuming one press. A page with no prompt to answer
@@ -1161,7 +1165,6 @@ test.describe('gorged [wheel1] Underground Sea fixture', () => {
       await page.goto(`${b}/t/t1?seat=0&token=${tokens[0]}`, { waitUntil: 'domcontentloaded' });
       const tile = page.locator(`.quadrant[data-seat="0"] [data-obj="${source}"]`);
       await tile.waitFor({ state: 'visible', timeout: WAIT_MS });
-      await dockPromptInRail(page, '[wheel1]');
       const action = tile.locator('xpath=..').locator('[data-single-action]');
       await action.waitFor({ state: 'visible', timeout: WAIT_MS });
 
@@ -1172,10 +1175,6 @@ test.describe('gorged [wheel1] Underground Sea fixture', () => {
       await action.click();
       const wheel = page.locator('body > [data-radial-picker]');
       await expect(wheel).toBeVisible({ timeout: WAIT_MS });
-      // The wheel's decision also mounts the near-table prompt dock, which at
-      // z-index 40 sits above the picker (z-index 20); move it to the rail
-      // before reaching for the wheel's own buttons.
-      await dockPromptInRail(page, '[wheel1]');
       const blue = wheel.locator('[data-mana-option="U"]');
       await expect(blue).toBeVisible();
       await expect(wheel.locator('[data-mana-option="B"]')).toBeVisible();
@@ -1282,7 +1281,6 @@ test.describe('gorged [talisman] two-stage mana continuation fixture', () => {
       await page.goto(`${b}/t/t1?seat=0&token=${talismanToken(0)}`, { waitUntil: 'domcontentloaded' });
       const tile = page.locator(`.quadrant[data-seat="0"] [data-obj="${activation.obj}"]`);
       await tile.waitFor({ state: 'visible', timeout: WAIT_MS });
-      await dockPromptInRail(page, '[talisman]');
       const action = tile.locator('xpath=..').locator('[data-single-action]');
       await action.waitFor({ state: 'visible', timeout: WAIT_MS });
 
@@ -1293,10 +1291,6 @@ test.describe('gorged [talisman] two-stage mana continuation fixture', () => {
       await action.click();
       const stageOne = page.locator('body > [data-radial-picker]');
       await expect(stageOne).toBeVisible({ timeout: WAIT_MS });
-      // The ability-choose decision also mounts the near-table prompt dock
-      // (z-index 40), which sits above the picker (z-index 20): move it to the
-      // rail so the wheel's buttons are reachable.
-      await dockPromptInRail(page, '[talisman]');
       const black = stageOne.locator('button[aria-label="Add B"]');
       await expect(black).toBeVisible();
       await expect(stageOne.locator('button[aria-label="Add C"]')).toBeVisible();
