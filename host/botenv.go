@@ -1,9 +1,12 @@
 package host
 
 import (
+	"fmt"
+
 	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/bots"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/searchprobe"
 	"github.com/adams-shaun/gorge/internal/searchseat"
 	"github.com/adams-shaun/gorge/rules"
@@ -21,11 +24,11 @@ import (
 // path: observe and record return immediately without building anything.
 //
 // This is the Create/Observe/Record half of spec
-// 2026-09-28-hosted-bot-packages §5.2. The honest root and the undo rebuild
-// are separate tickets (BP-08, BP-09); this file only starts the feed,
-// captures a frame at every decision of every player, and records the
-// accepted intent, so that a live match's feed already equals what
-// RebuildFeed derives from its log.
+// 2026-09-28-hosted-bot-packages §5.2, plus the Undo rebuild (BP-09): this
+// file starts the feed, captures a frame at every decision of every player,
+// records the accepted intent, and replaces every live feed with a
+// RebuildFeed of the truncated log after an undo, so that a live match's
+// feed always equals what RebuildFeed derives from its log.
 type matchFeeds struct {
 	// bySlot is parallel to the match's []seat.Seat: one feed for each slot
 	// whose seat implements bots.EnvSeat, nil for every other slot. Feeds are
@@ -107,6 +110,39 @@ func (f *matchFeeds) record(d *decision.Decision, in decision.Intent) {
 	if err := fd.RecordAnswer(d, in); err != nil {
 		f.stopped[i] = true
 	}
+}
+
+// rebuild replaces every live feed with searchseat.RebuildFeed over the
+// first n intents of l — the undo half of §5.2: after the rewind swapped the
+// replayed engine in, the feeds' histories still describe the discarded tail
+// (they observed decisions past the rewind boundary), and only a rebuild
+// from the truncated log restores the invariant that a live feed equals what
+// RebuildFeed derives from the log. A feed that had already stopped (capture
+// or record failure) is left exactly as it is: its seat plays the fallback
+// from the stop onward and envData routes a stopped feed to HonestRoot as
+// nil, so its stale history is never read — and RebuildFeed over the log
+// would only replay a stream whose live capture already failed.
+//
+// The caller runs it under m.mu, after the swap and before projectNext (its
+// observe appends the rewound pending decision's frame to whatever feeds are
+// installed). A rebuild error is fatal for the match (D15): the feed and the
+// log must never disagree, and the rewindToLastIntent caller crashes on the
+// returned error.
+func (f *matchFeeds) rebuild(cfg rules.Config, l *events.Log, n int) error {
+	if f == nil {
+		return nil
+	}
+	for i, fd := range f.bySlot {
+		if fd == nil || f.stopped[i] || !fd.Live() {
+			continue
+		}
+		newFeed, err := searchseat.RebuildFeed(cfg, l, n, state.PlayerID(i))
+		if err != nil {
+			return fmt.Errorf("search seat %d: %w", i, err)
+		}
+		f.bySlot[i] = newFeed
+	}
+	return nil
 }
 
 // envData builds the parkedData of one bots.EnvSeat decision — BP-08's Env

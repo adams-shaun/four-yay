@@ -274,6 +274,16 @@ func (r *Registry) rewindToLastIntent(t *table, m *match, seats []seat.Seat, brd
 	m.bounds = append([]uint64(nil), m.bounds[:n+1]...)
 	m.turnStarts = turnStartsBefore(m.turnStarts, uint64(len(e.L.Events)))
 	m.snaps = snapsBefore(m.snaps, n)
+	// BP-09 (spec 2026-09-28-hosted-bot-packages §5.2 Undo): the feeds are
+	// derived from (config, log prefix, actor) and the swap just invalidated
+	// them — a pre-undo feed observed every decision of the discarded tail.
+	// Rebuild every live feed from the replayed log right here, under the
+	// same lock and before projectNext (its observe appends the rewound
+	// pending decision's frame to whatever feeds are installed). An error is
+	// fatal for the match (D15): a feed and its log must never disagree.
+	if err := m.feeds.rebuild(m.cfg, m.e.L, m.intents); err != nil {
+		return nil, fmt.Errorf("host: undo feed rebuild for match %d: %w", m.k, err)
+	}
 	if err := r.truncatePersisted(t, m); err != nil {
 		// The in-memory rewind has happened; a persistence failure at this
 		// point is a crash (D15) — the files, the hook and the memory must
@@ -281,7 +291,11 @@ func (r *Registry) rewindToLastIntent(t *table, m *match, seats []seat.Seat, brd
 		// building on a half-truncated match.
 		return nil, err
 	}
-	return projectNext(m, seats, brd), nil
+	// The feeds were rebuilt above, and their last frame is the rewound
+	// decision's boundary (RebuildFeed's visit at n). projectNextData — not
+	// projectNext — projects it: a second observe would capture the same
+	// boundary twice (§5.2, and BP-09's TestUndoRebuildsEnvSeatFeeds).
+	return projectNextData(m, seats, brd), nil
 }
 
 // abandon clears the parked decision's answerable slot, if one was ever
