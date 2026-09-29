@@ -70,12 +70,15 @@ func setAuditDeck(t *testing.T, seed uint64, s0, s1 []*cards.Card) (*Engine, Con
 // setAuditTMTNames() (setaudit_tmt_names_test.go): it resolves every one of the
 // set's 195 names in the corpus, and asserts that the cards still reported
 // unsupported by (*cards.Registry).Unsupported with effects.Supported() fall
-// into exactly the two mechanism classes this audit found -- `kw:Sneak` (the
-// unimplemented named mechanic, 26 carriers) and the phantom
-// `kw:CARDNAME must be blocked if able.` spelling (Raphael's working CR 509.1c
-// requirement, a classification artefact). This is the accountability half of
-// the audit: names a class, not one card, and would fail if a third class
-// appeared (or if one of these two silently regressed).
+// into the single remaining mechanism class this audit left -- `kw:Sneak` (the
+// unimplemented named mechanic, 26 carriers). The second class the audit
+// found, the phantom `kw:CARDNAME must be blocked if able.` spelling
+// (Raphael's working CR 509.1c requirement), was a classification artefact and
+// is now closed: the sentence head is canonicalised to MustBlock at parse time
+// (cards/hiddenkeyword.go) and registered as supported (rules/statics.go), so
+// the census pins that closure instead. This is the accountability half of the
+// audit: names a class, not one card, and would fail if a new class appeared
+// (or if the closure silently regressed).
 func TestSetAudit_tmt_CensusMechanismClasses(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	if reg == nil {
@@ -96,23 +99,31 @@ func TestSetAudit_tmt_CensusMechanismClasses(t *testing.T) {
 			classes[m] = append(classes[m], n)
 		}
 	}
-	// Exactly the two measured classes, with their carrier counts.
+	// The only class that still reports unsupported is kw:Sneak, with its
+	// carrier count.
 	if got := len(classes["kw:Sneak"]); got != 26 {
 		t.Errorf("kw:Sneak carriers = %d, want 26; carriers=%v", got, classes["kw:Sneak"])
 	}
-	if got := len(classes["kw:CARDNAME must be blocked if able."]); got != 1 {
-		t.Errorf("phantom must-block spelling carriers = %d, want 1; carriers=%v", got, classes["kw:CARDNAME must be blocked if able."])
+	// The must-be-blocked sentence is canonicalised to the MustBlock head at
+	// parse time (cards/hiddenkeyword.go) and registered as supported
+	// (rules/statics.go), so NO carrier reports the phantom spelling any
+	// more; this is the regression pin that the class stays closed.
+	if got := len(classes["kw:CARDNAME must be blocked if able."]); got != 0 {
+		t.Errorf("phantom must-block spelling carriers = %d, want 0 (the spelling must stay canonicalised); carriers=%v", got, classes["kw:CARDNAME must be blocked if able."])
 	}
 	for m := range classes {
-		if m != "kw:Sneak" && m != "kw:CARDNAME must be blocked if able." {
-			t.Errorf("a third unsupported mechanism class appeared: %q (%v)", m, classes[m])
+		if m != "kw:Sneak" {
+			t.Errorf("an unexpected unsupported mechanism class appeared: %q (%v)", m, classes[m])
 		}
 	}
-	// The named card of the must-block class is the TMT carrier the
-	// behavioural test above drives.
-	mine := classes["kw:CARDNAME must be blocked if able."]
-	if len(mine) != 1 || mine[0] != "Raphael, Ninja Destroyer" {
-		t.Errorf("must-block classification class should be exactly [Raphael, Ninja Destroyer], got %v", mine)
+	// The named card of the closed must-block class is the TMT carrier the
+	// behavioural test above drives: it must now report nothing at all.
+	raph, ok := reg.Lookup("Raphael, Ninja Destroyer")
+	if !ok {
+		t.Fatal("census: corpus is missing Raphael, Ninja Destroyer (the set/audit input drifted)")
+	}
+	if got := reg.Unsupported(raph, supported); len(got) != 0 {
+		t.Errorf("Raphael, Ninja Destroyer must be fully supported after the canonicalisation; got %v", got)
 	}
 }
 
@@ -287,22 +298,27 @@ func TestSetAudit_tmt_RaphaelNinjaDestroyer_MustBeBlockedBindsBehaviourally(t *t
 // honest remainder of the must-be-blocked audit: the requirement WORKS (the
 // behavioural test above proves it binds), but (*cards.Registry).Unsupported
 // reports the phantom primitive `kw:CARDNAME must be blocked if able.` rather
-// than a real keyword head, so the coverage census counts Raphael as
-// unsupported when the play behaviour is correct. This is a
-// coverage-classification artefact (Priority 4), captured here as the census's
-// own regression pin -- there is NO gameplay defect to guard. Unguarded.
-func TestSetAudit_tmt_RaphaelNinjaDestroyer_MustBlockSpellingIsClassified(t *testing.T) {
+// than a real keyword head, so the coverage census counted Raphael as
+// unsupported when the play behaviour was correct. That artefact is now
+// closed: the printed sentence head is canonicalised to the MustBlock head at
+// parse time (cards/hiddenkeyword.go) and the head is registered as supported
+// (rules/statics.go), so the census no longer counts the must-block class at
+// all. This test pins the closed classification: the printed face carries the
+// canonical head, and no phantom spelling is reported unsupported.
+func TestSetAudit_tmt_RaphaelNinjaDestroyer_MustBlockSpellingIsCanonicalised(t *testing.T) {
 	reg := searchTestRegistry(t)
 	raph := searchCorpusCard(t, reg, "Raphael, Ninja Destroyer")
-	supported := effects.Supported()
-	phantom := false
-	for _, m := range reg.Unsupported(raph, supported) {
-		if m == "kw:CARDNAME must be blocked if able." {
-			phantom = true
+	canonical := false
+	for _, k := range raph.Faces[0].Keywords {
+		if cards.KeywordHead(k) == "MustBlock" {
+			canonical = true
 		}
 	}
-	if !phantom {
-		t.Fatalf("the must-be-blocked line should be classified as the phantom literal head; got %v", reg.Unsupported(raph, supported))
+	if !canonical {
+		t.Fatalf("the must-be-blocked line should be canonicalised to the MustBlock head; keywords=%v", raph.Faces[0].Keywords)
+	}
+	if got := reg.Unsupported(raph, effects.Supported()); len(got) != 0 {
+		t.Fatalf("Raphael should be fully supported after the canonicalisation; got %v", got)
 	}
 }
 
