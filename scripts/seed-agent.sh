@@ -220,13 +220,48 @@ QUIET=0 # queue new work this cycle?
 # still read 87 failures from the previous half hour, suppressed new work and
 # filed a P1 about a tier that was already answering. One curl settles it.
 STORM_LIVE=1
-if [ "${STORM_N:-0}" -ge 10 ] && [ -n "$STORM_P" ]; then
-	PROBE_OUT=$("$ROOT/scripts/tier-probe.sh" "${STORM_P%%,*}" 2>&1)
-	PROBE_RC=$?
-	saw "tier probe: $PROBE_OUT"
-	if [ "$PROBE_RC" = 0 ]; then
-		STORM_LIVE=0
-		skipped "the storm on $STORM_P is historical -- its endpoint answers now, so work is NOT withheld for it"
+if [ "${STORM_N:-0}" -ge 10 ]; then
+	# Some failure rows carry no provider in their evidence, and the first
+	# version filed a ticket titled "Seat tier is failing every launch" that
+	# named no tier at all -- unactionable by construction. With no provider to
+	# probe, probe every tier the TOML configures instead: if they all answer,
+	# the storm is historical; if one is down, that is the tier to name.
+	PROBES=${STORM_P//,/ }
+	if [ -z "$PROBES" ]; then
+		PROBES=$(python3 - "$TARGET/.agentctl/config.toml" <<'PY' 2>/dev/null
+import sys, tomllib
+try:
+    cfg = tomllib.load(open(sys.argv[1], "rb"))
+except (OSError, ValueError):
+    sys.exit(0)
+seen = []
+for t in cfg.get("tiers") or []:
+    p = t.get("provider")
+    if p and p not in seen:
+        seen.append(p)
+print(" ".join(seen))
+PY
+		)
+		saw "the failure rows name no provider; probing every configured tier instead"
+	fi
+	STORM_LIVE=0
+	STORM_DOWN=""
+	for prov in $PROBES; do
+		PROBE_OUT=$("$ROOT/scripts/tier-probe.sh" "$prov" 2>&1)
+		PROBE_RC=$?
+		saw "tier probe: $PROBE_OUT"
+		# rc 1 = the endpoint is down. rc 2 = the provider could not even be
+		# resolved, so the probe knows NOTHING and the failure rows are the only
+		# evidence there is: stay cautious and keep withholding.
+		if [ "$PROBE_RC" != 0 ]; then
+			STORM_LIVE=1
+			STORM_DOWN=${STORM_DOWN:-$prov}
+		fi
+	done
+	if [ "$STORM_LIVE" = 0 ]; then
+		skipped "the storm on ${STORM_P:-an unnamed provider} is historical -- every probed tier answers now, so work is NOT withheld for it"
+	else
+		STORM_P=$STORM_DOWN
 	fi
 fi
 if [ "${STORM_N:-0}" -ge 10 ] && [ "$STORM_LIVE" = 1 ]; then
