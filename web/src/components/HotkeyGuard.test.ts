@@ -34,6 +34,93 @@ const undoPosts = (page: import('playwright').Page): Promise<UndoPosts> =>
   page.evaluate(() => (window as unknown as { __undos: UndoPosts }).__undos);
 
 describe('the hotkey guard against an open modal — mounted', () => {
+  it('Space passes after a pointer click on the real hot-strip PASS button', async () => {
+    const page = await browser.newPage();
+    await page.goto(`${url}src/components/HotkeyGuard.fixture.html`);
+    const pass = page.locator('#fixture [data-hot-tab="pass"]');
+    expect(await pass.isEnabled()).toBe(true);
+    await pass.click();
+    await page.waitForFunction(() => (window as unknown as { __posts: Posts }).__posts.length === 1);
+    expect(await posts(page)).toEqual([{ seq: 7, player: 0, choices: [9] }]);
+    await page.evaluate(() => (window as unknown as { __newDecision: () => void }).__newDecision());
+    await expect.poll(() => pass.isEnabled()).toBe(true);
+    await page.evaluate(() => {
+      const w = window as unknown as { __state: { passClick: () => void }; __restorePass: () => void };
+      const original = w.__state.passClick.bind(w.__state);
+      w.__state.passClick = () => {}; // preserve this fresh decision for the Space hotkey
+      w.__restorePass = () => { w.__state.passClick = original; };
+    });
+    await pass.evaluate((el) => {
+      el.addEventListener('click', () => {
+        (window as unknown as { __focusedAtPointerClick: boolean }).__focusedAtPointerClick = document.activeElement === el;
+      }, { capture: true, once: true });
+      // If focus was retained, suppress native Space activation to isolate
+      // whether the window hotkey ran.
+      el.addEventListener('click', (e) => {
+        if ((e as MouseEvent).detail === 0) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }
+      }, true);
+    });
+    await pass.click();
+    expect(await page.evaluate(() => (window as unknown as { __focusedAtPointerClick: boolean }).__focusedAtPointerClick)).toBe(true);
+    expect(await pass.evaluate((el) => document.activeElement === el)).toBe(false);
+    expect(await posts(page)).toEqual([{ seq: 7, player: 0, choices: [9] }]);
+    await page.evaluate(() => (window as unknown as { __restorePass: () => void }).__restorePass());
+    await page.keyboard.press('Space');
+    await page.waitForFunction(() => (window as unknown as { __posts: Posts }).__posts.length === 2, null, { timeout: 2000 });
+    const after = await posts(page);
+    expect(after.length).toBeGreaterThan(1);
+    expect(after).toEqual([
+      { seq: 7, player: 0, choices: [9] },
+      { seq: 8, player: 0, choices: [9] },
+    ]);
+    await page.close();
+  });
+
+  it('Space passes after a pointer click on the ACTIONS tab', async () => {
+    const page = await browser.newPage();
+    await page.goto(`${url}src/components/HotkeyGuard.fixture.html`);
+    const actions = page.locator('#fixture [data-hot-tab="actions"]');
+    await actions.evaluate((el) => el.addEventListener('click', () => {
+      (window as unknown as { __focusedAtClick: boolean }).__focusedAtClick = document.activeElement === el;
+    }, { capture: true, once: true }));
+    await actions.click();
+    expect(await page.evaluate(() => (window as unknown as { __focusedAtClick: boolean }).__focusedAtClick)).toBe(true);
+    const first = await posts(page);
+    expect(first).toEqual([]);
+    // The click opened the panel AND released focus (so the next Space is a
+    // pass, not a native re-activation). Releasing focus must not arm the
+    // wrapper's close timer: the pointer is still over the tab, so the panel
+    // stays open past HOT_STRIP_CLOSE_DELAY_MS (180ms).
+    expect(await actions.getAttribute('aria-expanded')).toBe('true');
+    await page.waitForTimeout(350);
+    expect(await actions.getAttribute('aria-expanded')).toBe('true');
+    await page.keyboard.press('Space');
+    await page.waitForFunction(() => (window as unknown as { __posts: Posts }).__posts.length === 1, null, { timeout: 2000 });
+    const after = await posts(page);
+    expect(after.length).toBeGreaterThan(first.length);
+    expect(after).toEqual([{ seq: 7, player: 0, choices: [9] }]);
+    await page.close();
+  });
+
+  it('keyboard Enter still natively activates a focused strip button without blurring it', async () => {
+    const page = await browser.newPage();
+    await page.goto(`${url}src/components/HotkeyGuard.fixture.html`);
+    const actions = page.locator('#fixture [data-hot-tab="actions"]');
+    await actions.focus();
+    expect(await actions.evaluate((el) => document.activeElement === el)).toBe(true);
+    await actions.evaluate((el) => el.addEventListener('click', (e) => {
+      (window as unknown as { __keyboardClickDetail: number }).__keyboardClickDetail = (e as MouseEvent).detail;
+    }, { once: true }));
+    await page.keyboard.press('Enter');
+    expect(await page.evaluate(() => (window as unknown as { __keyboardClickDetail: number }).__keyboardClickDetail)).toBe(0);
+    expect(await actions.getAttribute('aria-expanded')).toBe('true');
+    expect(await actions.evaluate((el) => document.activeElement === el)).toBe(true);
+    await page.close();
+  });
+
   it('the real UNDO button invokes postUndo, while the multi-human button cannot', async () => {
     const page = await browser.newPage();
     await page.goto(`${url}src/components/HotkeyGuard.fixture.html`);

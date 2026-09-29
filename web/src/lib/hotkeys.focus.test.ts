@@ -33,6 +33,8 @@ describe('hotkeys — the focus guard after the Options panel returns focus to i
     }
   });
 
+  // Pointer blur is handled by the action-button click sites; this pure guard
+  // intentionally keeps native Space/Enter activation for keyboard-focused controls.
   it('Space and Enter (NumpadEnter too) stay with a focused button or link: its own activation owns them', () => {
     for (const t of [focusedOn('button'), focusedOn('a')]) {
       expect(hotkeyAction(ev({ key: ' ', code: 'Space', target: t }))).toBeNull();
