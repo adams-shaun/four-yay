@@ -16,6 +16,9 @@ describe('KeymapEditor', () => {
     expect(h).toMatch(new RegExp(`data-key-action="pass"[\\s\\S]*?${KBD}Space</kbd>`));
     expect(h).toMatch(new RegExp(`data-key-action="toggle-full-control"[\\s\\S]*?${KBD}Ctrl\\+Shift\\+F</kbd>`));
     expect(h).toContain('Reset all keys');
+    expect(h).toContain('Export keys…');
+    expect(h).toContain('Import keys…');
+    expect(h).toMatch(/<input[^>]*type="file"[^>]*accept="application\/json"/);
   });
 
   it('warns on a conflict', () => {

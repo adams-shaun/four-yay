@@ -2,6 +2,8 @@
   import { onDestroy } from 'svelte';
   import type { KeymapStore } from '../lib/keymap.svelte';
   import { ACTION_GROUPS, ACTION_LABELS, bindingFromEvent, bindingLabel, conflictsFor, MAX_BINDINGS, type KeyAction } from '../lib/keymap';
+  import { exportKeymap, importKeymap } from '../lib/transfer';
+  import { downloadText } from '../lib/download';
 
   /**
    * The Keys section of GAME OPTIONS: every rebindable action by group, its
@@ -51,6 +53,23 @@
     window.addEventListener('keydown', onKey, true);
   }
 
+  // Export/import of the keymap as a file: the hidden picker and the last import's result.
+  let keyFile = $state<HTMLInputElement | null>(null);
+  let message = $state<string | null>(null);
+
+  /** importKeysFile reads the picked file and replaces the keymap with it, or says why not. */
+  async function importKeysFile(input: HTMLInputElement): Promise<void> {
+    const file = input.files?.[0];
+    if (file === undefined) return;
+    const r = importKeymap(await file.text());
+    if ('error' in r) message = r.error;
+    else {
+      store.replace(r.keymap);
+      message = 'Keyboard shortcuts imported.';
+    }
+    input.value = '';
+  }
+
   onDestroy(() => stop?.());
 </script>
 
@@ -81,6 +100,12 @@
     </ul>
   {/each}
   <button type="button" class="reset" onclick={() => store.reset()}>Reset all keys</button>
+  <button type="button" class="reset" data-keys-export onclick={() => downloadText('gorge-keys.json', exportKeymap(store.current))}>Export keys…</button>
+  <button type="button" class="reset" data-keys-import onclick={() => keyFile?.click()}>Import keys…</button>
+  <input type="file" accept="application/json" hidden bind:this={keyFile} onchange={(e) => importKeysFile(e.currentTarget)} />
+  {#if message !== null}
+    <p class="note" data-keys-transfer role="status">{message}</p>
+  {/if}
 </section>
 
 <style>
@@ -93,4 +118,5 @@
   kbd { font-family: var(--font-data); font-size: 11.5px; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--edge-inst); }
   .warn { grid-column: 1 / -1; color: var(--danger); font-size: 12px; }
   .wait { font-size: 12px; color: var(--ink-dim); }
+  .note { font-size: 12px; color: var(--ink-dim); margin: 6px 0 0; }
 </style>

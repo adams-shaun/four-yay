@@ -36,6 +36,7 @@ import {
   storeSetActive,
   type ProfileStore,
 } from './profiles';
+import { exportFlow, importFlow } from './transfer';
 import { clientBreadcrumbs } from './breadcrumbs';
 import {
   emptyRemembered,
@@ -1196,6 +1197,20 @@ export class SeatPanelState {
     this.persistProfiles(storeDelete(this.profiles, name));
     if (this.activeProfileName === name) this.activeProfileName = null;
     return true;
+  }
+
+  /** exportProfilesText is the Export button's payload: every saved flow profile, in order. */
+  exportProfilesText(): string {
+    return exportFlow(this.profiles);
+  }
+
+  /** importProfilesText merges a file's profiles in (never overwriting) and returns the result in plain words. */
+  importProfilesText(text: string): string {
+    const got = importFlow(text, this.profiles);
+    if ('error' in got) return got.error;
+    if (got.added.length > 0) this.persistProfiles(got.store);
+    const skipped = got.skipped > 0 ? ` ${got.skipped} could not be read and ${got.skipped === 1 ? 'was' : 'were'} skipped.` : '';
+    return got.added.length === 0 ? `Nothing imported.${skipped}` : `Imported ${got.added.join(', ')}.${skipped}`;
   }
 
   /**

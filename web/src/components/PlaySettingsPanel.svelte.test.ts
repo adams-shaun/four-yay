@@ -102,6 +102,29 @@ describe('PlaySettingsPanel — Remembered trigger answers (fb-20260914T062319Z-
   });
 });
 
+describe('PlaySettingsPanel — profile export/import', () => {
+  it('renders the Export and Import profile buttons beside Save', () => {
+    const html = panel(new SeatPanelState('t1', 1, ctx, null));
+    expect(elem(html, 'data-profile-export')).toContain('Export profiles…');
+    expect(elem(html, 'data-profile-import')).toContain('Import profiles…');
+    expect(html).toMatch(/<input[^>]*type="file"[^>]*accept="application\/json"/);
+  });
+
+  it('importProfilesText merges without switching the active profile and says what happened', () => {
+    const from = new SeatPanelState('t1', 1, ctx, null);
+    from.saveProfile('Mine');
+    const file = from.exportProfilesText();
+    const into = new SeatPanelState('t2', 1, ctx, null);
+    into.saveProfile('Mine');
+    into.saveProfile('Other');
+    expect(into.importProfilesText(file)).toBe('Imported Mine (2).');
+    expect(into.profileNames).toEqual(['Mine', 'Other', 'Mine (2)']);
+    expect(into.profiles.lastActive).toBe('Other');
+    expect(into.importProfilesText('{"kind":"gorge-flow","version":1,"items":[{"name":""}]}')).toBe('Nothing imported. 1 could not be read and was skipped.');
+    expect(into.importProfilesText('nope')).toBe('This file is not a gorge settings export.');
+  });
+});
+
 describe('PlaySettingsPanel — the OPTIONS editor (rendered)', () => {
   it('renders casual by default: preset pressed, its blurb shown, the opponent rules reflecting it', () => {
     const html = panel(new SeatPanelState('t1', 1, ctx, null));

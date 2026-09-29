@@ -75,6 +75,7 @@
   import BreakpointsSection from './BreakpointsSection.svelte';
   import KeymapEditor from './KeymapEditor.svelte';
   import { keymapStore } from '../lib/keymap.svelte';
+  import { downloadText } from '../lib/download';
 
   /**
    * The GAME OPTIONS editor for the whole play-settings model
@@ -191,6 +192,19 @@
   let renameName = $state('');
   let profileError = $state<string | null>(null);
 
+  // Export/import of the saved profiles as a file: the hidden picker and the
+  // last import's plain-words result.
+  let profileFile = $state<HTMLInputElement | null>(null);
+  let transferNote = $state<string | null>(null);
+
+  /** importProfilesFile reads the picked file, merges it in and reports the result. */
+  async function importProfilesFile(input: HTMLInputElement): Promise<void> {
+    const file = input.files?.[0];
+    if (file === undefined) return;
+    transferNote = logic.importProfilesText(await file.text());
+    input.value = '';
+  }
+
   /** saveCurrentProfile is the Save button's handler: the typed name, or a default. */
   function saveCurrentProfile(): void {
     const name = profileName.trim();
@@ -287,7 +301,13 @@
           onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveCurrentProfile(); } }}
         />
         <button type="button" class="seg" data-profile-save onclick={saveCurrentProfile}>Save</button>
+        <button type="button" class="seg" data-profile-export onclick={() => downloadText('gorge-flow-profiles.json', logic.exportProfilesText())}>Export profiles…</button>
+        <button type="button" class="seg" data-profile-import onclick={() => profileFile?.click()}>Import profiles…</button>
+        <input type="file" accept="application/json" hidden bind:this={profileFile} onchange={(e) => importProfilesFile(e.currentTarget)} />
       </div>
+      {#if transferNote !== null}
+        <p class="blurb" data-profile-transfer role="status">{transferNote}</p>
+      {/if}
       {#if profileNote !== null}
         <p class="blurb" data-active-profile>{profileNote}</p>
       {/if}
