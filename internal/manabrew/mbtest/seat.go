@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -14,9 +15,14 @@ import (
 )
 
 // Census is the conformance counter set §8 item 4 asks for: posed:<prompt>,
-// enumerated:<Kind>:<optkinds>, rejected:<code>, unmapped:<Kind>. It is safe
-// for concurrent use so a caller may share one Census across seats or games,
-// though the box rules run one game at a time regardless.
+// enumerated:<Kind>:<optkinds>, rejected:<code>, unmapped:<Kind>, and (MBX-7)
+// fallback:<Kind> -- a prompt that IS answerable (the generic
+// chooseFromSelection over the native option labels, answered by native
+// option index) because the ask had no specific mapping. The fallback and
+// unmapped counters are deliberately separate: a fallback pose is play, an
+// unmapped pose is a deadlock. It is safe for concurrent use so a caller may
+// share one Census across seats or games, though the box rules run one game
+// at a time regardless.
 type Census struct {
 	mu         sync.Mutex
 	Games      int
@@ -24,6 +30,7 @@ type Census struct {
 	Enumerated map[string]int
 	Rejected   map[string]int
 	Unmapped   map[string]int
+	Fallback   map[string]int
 }
 
 // NewCensus returns an empty Census.
@@ -33,6 +40,7 @@ func NewCensus() *Census {
 		Enumerated: map[string]int{},
 		Rejected:   map[string]int{},
 		Unmapped:   map[string]int{},
+		Fallback:   map[string]int{},
 	}
 }
 
@@ -91,6 +99,15 @@ func (c *Census) addUnmapped(kind decision.Kind) {
 	c.mu.Unlock()
 }
 
+func (c *Census) addFallback(kind decision.Kind) {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	c.Fallback[string(kind)]++
+	c.mu.Unlock()
+}
+
 // TotalUnmapped sums every unmapped:<Kind> count.
 func (c *Census) TotalUnmapped() int {
 	if c == nil {
@@ -100,6 +117,25 @@ func (c *Census) TotalUnmapped() int {
 	defer c.mu.Unlock()
 	n := 0
 	for _, v := range c.Unmapped {
+		n += v
+	}
+	return n
+}
+
+// TotalFallback sums every fallback:<Kind> count (MBX-7): prompts that were
+// answerable only through the generic chooseFromSelection fallback. A
+// non-zero count is not a failure -- it is the register that keeps the
+// class visible after promptChoose stopped erroring on an unmapped shape --
+// but a test that wants a card's specific prompt must assert it separately
+// (e.g. via Posed or Enumerated).
+func (c *Census) TotalFallback() int {
+	if c == nil {
+		return 0
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	n := 0
+	for _, v := range c.Fallback {
 		n += v
 	}
 	return n
@@ -142,8 +178,8 @@ func (c *Census) Summary() string {
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return fmt.Sprintf("games=%d posed=%d enumerated=%d rejected=%d unmapped=%d",
-		c.Games, sumMap(c.Posed), sumMap(c.Enumerated), sumMap(c.Rejected), sumMap(c.Unmapped))
+	return fmt.Sprintf("games=%d posed=%d enumerated=%d rejected=%d unmapped=%d fallback=%d",
+		c.Games, sumMap(c.Posed), sumMap(c.Enumerated), sumMap(c.Rejected), sumMap(c.Unmapped), sumMap(c.Fallback))
 }
 
 func sumMap(m map[string]int) int {
@@ -182,6 +218,8 @@ type TranslatingSeat struct {
 	Client     *MockClient
 	Table      string
 	Census     *Census
+	// Pick, when non-nil, is consulted before the client (see PickPolicy).
+	Pick PickPolicy
 }
 
 // NewTranslatingSeat builds a TranslatingSeat over a fresh Translator for
@@ -196,6 +234,21 @@ func NewTranslatingSeat(table string, match int64, client *MockClient, census *C
 	}
 }
 
+// PickPolicy is the optional seat-level answer policy a vote fixture needs
+// (MBX-7): it is consulted at each Decided decision BEFORE the mock client,
+// and returns the prompt output to answer (exactly the wire shape a client
+// response's PromptOutput carries -- an act on "opt-<i>", a pass output) or
+// ok=false to hand the decision to the client as usual. The policy sees the
+// view and the decision -- MORE than a real client sees (the decision is not
+// on the wire), which is why it is a fixture tool, not a client behaviour:
+// the census games that pin card behaviour need a seat that can build the
+// mana for a spell and cast it, which the wire-only mock cannot express (the
+// priority prompt carries no phase, so a client cannot tell a wasted upkeep
+// activation from a needed main-phase one). A pick is never the pass/concede
+// OPTION -- those are answered as the pass output/directive (§6.3), which the
+// policy reaches with a PassOutput pick, never with an act.
+type PickPolicy func(v view.View, d *decision.Decision) (mb.PromptOutputValue, bool)
+
 // Decide implements seat.Seat. It builds the ManaBrew prompt for d, hands it
 // to the mock client (which sees only the PromptMessage, exactly as a real
 // client would), and translates the answer back into an intent. A dispatch
@@ -204,13 +257,25 @@ func NewTranslatingSeat(table string, match int64, client *MockClient, census *C
 // the assertions that no such error occurs across a real game.
 func (s *TranslatingSeat) Decide(_ context.Context, v view.View, d decision.Decision) (decision.Intent, error) {
 	s.Census.addEnumerated(d.Kind, d.Options)
-	msg, err := s.Translator.Prompt(&d, &v)
+	msg, fellBack, err := s.Translator.PromptFlagged(&d, &v)
 	if err != nil {
 		s.Census.addUnmapped(d.Kind)
 		return decision.Intent{}, fmt.Errorf("mbtest: prompt for %s (seq %d, resumeKind=%q, nopts=%d, opts=%v): %w",
 			d.Kind, d.Seq, d.ResumeKind, len(d.Options), optionKinds(d.Options), err)
 	}
+	if fellBack {
+		// MBX-7: the ask had no specific mapping, so the prompt is the
+		// generic chooseFromSelection fallback. It is answerable (that is the
+		// point) -- count it as fallback, NOT as unmapped, so the census keeps
+		// showing the class without ever producing an unanswerable prompt.
+		s.Census.addFallback(d.Kind)
+	}
 	s.Census.addPosed(msg.Input.Value.PromptType())
+	if s.Pick != nil {
+		if out, ok := s.Pick(v, &d); ok {
+			return s.decidePick(v, d, msg, out)
+		}
+	}
 	resp, err := s.Client.Answer(msg)
 	if err != nil {
 		return decision.Intent{}, fmt.Errorf("mbtest: mock client could not answer %s prompt (seq %d): %w",
@@ -231,14 +296,48 @@ func (s *TranslatingSeat) Decide(_ context.Context, v view.View, d decision.Deci
 		return decision.Intent{}, fmt.Errorf("mbtest: wire-encoding the %s response (seq %d): %w",
 			msg.Input.Value.PromptType(), d.Seq, err)
 	}
+	return s.decodedIntent(msg, &d, v, raw)
+}
+
+// decidePick answers one decision with the policy's output, flowing through
+// exactly the path a client answer takes (the same mb.Encode/Decode
+// round-trip and TranslateResponse -- census pose already recorded by
+// Decide). A pass pick is the wire pass output, not an act on the pass
+// option (§6.3) -- the translator maps it itself; an act naming the
+// pass/concede option is a fixture bug, failed loudly here rather than
+// surfacing as a rejected answer.
+func (s *TranslatingSeat) decidePick(v view.View, d decision.Decision, msg mb.PromptMessage, out mb.PromptOutputValue) (decision.Intent, error) {
+	if act, isAct := out.(mb.ActOutput); isAct {
+		if rest, ok := strings.CutPrefix(act.ActionID, "opt-"); ok {
+			idx, aerr := strconv.Atoi(rest)
+			if aerr != nil || idx < 0 || idx >= len(d.Options) || d.Options[idx].Kind == "pass" || d.Options[idx].Kind == "concede" {
+				return decision.Intent{}, fmt.Errorf("mbtest: pick policy chose action %q, which is not an act option (kinds %v, seq %d)",
+					act.ActionID, optionKinds(d.Options), d.Seq)
+			}
+		}
+	}
+	resp := mb.ClientMessage{Value: mb.ClientResponse{
+		Kind:     "response",
+		PromptID: msg.PromptID,
+		Action:   mb.PromptOutput{Type: out.OutputType(), Output: mb.PromptOutputData{Value: out}},
+	}}
+	raw, err := mb.Encode(resp)
+	if err != nil {
+		return decision.Intent{}, fmt.Errorf("mbtest: wire-encoding the policy answer (seq %d): %w", d.Seq, err)
+	}
+	return s.decodedIntent(msg, &d, v, raw)
+}
+
+// decodedIntent is the shared tail of Decide and decideAct: mb.Decode the
+// raw wire bytes and hand them to TranslateResponse, rejecting on error.
+func (s *TranslatingSeat) decodedIntent(msg mb.PromptMessage, d *decision.Decision, v view.View, raw []byte) (decision.Intent, error) {
 	var wireResp mb.ClientMessage
 	if _, err := mb.Decode(raw, &wireResp); err != nil {
 		return decision.Intent{}, fmt.Errorf("mbtest: wire-decoding the %s response (seq %d): %w",
 			msg.Input.Value.PromptType(), d.Seq, err)
 	}
-	resp = wireResp
-	pending := &manabrew.Pending{Prompt: msg, Decision: &d, View: v}
-	outcome := s.Translator.TranslateResponse(resp, pending, d.Player)
+	pending := &manabrew.Pending{Prompt: msg, Decision: d, View: v}
+	outcome := s.Translator.TranslateResponse(wireResp, pending, d.Player)
 	if outcome.Err != nil {
 		s.Census.addRejected(outcome.Err.Code)
 		return decision.Intent{}, fmt.Errorf("mbtest: %s prompt (seq %d) rejected: %s (%s)",
