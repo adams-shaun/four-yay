@@ -66,6 +66,14 @@ describe('PromptDock', () => {
     expect(body).toContain('4/5');
   });
 
+  it('renders as a bottom-rail dock when selected', () => {
+    expect('rail-bottom').not.toBe('rail');
+    const logic = seatState(target);
+    const { body } = render(PromptDock, { props: { view: view(target), logic, seat: 0, placement: 'rail-bottom' } });
+    expect(body).toContain('data-placement="rail-bottom"');
+    expect(body).toContain('Float the prompt over the board');
+  });
+
   it('floats with a grip when placed floating', () => {
     const logic = seatState(target);
     const { body } = render(PromptDock, { props: { view: view(target), logic, seat: 0, placement: 'floating' } });

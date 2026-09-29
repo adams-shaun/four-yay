@@ -172,7 +172,7 @@
         : undefined,
   );
   const toggleTitle = $derived(
-    { table: 'Dock the prompt in the rail', rail: 'Float the prompt over the board', floating: 'Pin the prompt above the action button' }[placement],
+    { table: 'Dock the prompt at the top of the rail', rail: 'Dock the prompt at the bottom of the rail', 'rail-bottom': 'Float the prompt over the board', floating: 'Pin the prompt above the action button' }[placement],
   );
 </script>
 
@@ -212,7 +212,7 @@
           title={toggleTitle}
           aria-label={toggleTitle}
           onclick={() => setPlacement(nextPlacement(placement))}
-        >{placement === 'table' ? '⇥' : placement === 'rail' ? '⧉' : '⤓'}</button>
+        >{placement === 'table' ? '⇥' : placement === 'rail' ? '⇩' : placement === 'rail-bottom' ? '⧉' : '⤓'}</button>
       </div>
       {#if anatomy.source}<p class="src" data-prompt-source>{anatomy.source.line}</p>{/if}
       <h2 class="title" class:long={anatomy.title.length > 32} data-prompt-title>{anatomy.title}</h2>
@@ -261,21 +261,26 @@
     .prompt-dock { animation: none; }
   }
   /* Docked: the art is a banner across the top, the body overlaps its fade. */
-  .prompt-dock.rail {
+  .prompt-dock.rail,
+  .prompt-dock.rail-bottom {
     grid-template-rows: 5.5rem auto;
     padding: 0;
     border-bottom: 1px solid var(--edge-inst);
     max-height: 70vh;
     overflow-y: auto;
   }
-  .rail .art { position: relative; min-height: 0; }
-  .rail .art::after {
+  .prompt-dock.rail-bottom { border-top: 1px solid var(--edge-inst); border-bottom: 0; }
+  .rail .art,
+  .rail-bottom .art { position: relative; min-height: 0; }
+  .rail .art::after,
+  .rail-bottom .art::after {
     content: '';
     position: absolute;
     inset: 0;
     background: linear-gradient(180deg, rgba(29, 33, 41, 0.1) 30%, #1d2129);
   }
-  .rail .body { padding: 0 var(--sp-4) var(--sp-3); margin-top: -1.6rem; position: relative; min-width: 0; }
+  .rail .body,
+  .rail-bottom .body { padding: 0 var(--sp-4) var(--sp-3); margin-top: -1.6rem; position: relative; min-width: 0; }
   /* Floating: the art is a spine down the left edge. */
   .prompt-dock.floating {
     position: fixed;

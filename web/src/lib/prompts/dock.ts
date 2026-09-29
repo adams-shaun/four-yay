@@ -10,7 +10,7 @@
  * module only converts between the profile's viewport fractions and the
  * dock's pixels, and keeps a dragged dock reachable. Client-side only.
  */
-export type DockPlacement = 'table' | 'rail' | 'floating';
+export type DockPlacement = 'table' | 'rail' | 'rail-bottom' | 'floating';
 export interface DockPoint { x: number; y: number }
 export interface DockLayout {
   placement: DockPlacement;
@@ -22,7 +22,7 @@ export interface DockLayout {
 export interface Viewport { w: number; h: number }
 
 /** ProfilePrompt is the layout profile's `panels.prompt` (lib/layoutprofile.ts). */
-export interface ProfilePrompt { placement: 'table' | 'dock' | 'float'; x: number; y: number }
+export interface ProfilePrompt { placement: 'table' | 'dock' | 'dock-bottom' | 'float'; x: number; y: number }
 
 /**
  * dockFromProfile reads the dock's placement and floating position from the
@@ -31,19 +31,19 @@ export interface ProfilePrompt { placement: 'table' | 'dock' | 'float'; x: numbe
  */
 export function dockFromProfile(p: ProfilePrompt, vp: Viewport): DockLayout {
   return {
-    placement: p.placement === 'float' ? 'floating' : p.placement === 'table' ? 'table' : 'rail',
+    placement: p.placement === 'float' ? 'floating' : p.placement === 'table' ? 'table' : p.placement === 'dock-bottom' ? 'rail-bottom' : 'rail',
     position: { x: Math.round(p.x * vp.w), y: Math.round(p.y * vp.h) },
   };
 }
 
 /** profilePlacement is the profile's word for a dock placement. */
 export function profilePlacement(p: DockPlacement): ProfilePrompt['placement'] {
-  return p === 'floating' ? 'float' : p === 'table' ? 'table' : 'dock';
+  return p === 'floating' ? 'float' : p === 'table' ? 'table' : p === 'rail-bottom' ? 'dock-bottom' : 'dock';
 }
 
-/** nextPlacement is where the dock's placement toggle moves it: near the table, then the rail, then floating. */
+/** nextPlacement cycles through table, both rail slots, and floating. */
 export function nextPlacement(p: DockPlacement): DockPlacement {
-  return p === 'table' ? 'rail' : p === 'rail' ? 'floating' : 'table';
+  return p === 'table' ? 'rail' : p === 'rail' ? 'rail-bottom' : p === 'rail-bottom' ? 'floating' : 'table';
 }
 
 /** Box is the part of a DOMRect the anchor reads. */
