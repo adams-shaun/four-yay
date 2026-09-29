@@ -1368,7 +1368,7 @@ test.describe('gorged [ui24] constructed board fixture', () => {
     } catch (error) {
       const ms = Date.now() - readinessStartedAt;
       console.log(`UI24_READINESS ${JSON.stringify({ ms })}`);
-      throw new Error(`fixture server readiness GET took ${ms}ms — box starvation, rerun before treating this as a product bug (server ${b}): ${String(error)}`);
+      throw new Error(`fixture server readiness GET took ${ms}ms — box starvation, rerun before treating this as a product bug (server ${b})`, { cause: error });
     }
     const readinessMs = Date.now() - readinessStartedAt;
     console.log(`UI24_READINESS ${JSON.stringify({ ms: readinessMs })}`);
