@@ -22,6 +22,9 @@ func TestMindslaverControlPlayerPrintedAbility(t *testing.T) {
 	}
 	addMana(t, e, 0, "CCCC")
 	e.Advance()
+	if total := e.G.Players[0].Pool.Total(); total != 4 {
+		t.Fatalf("precondition: seat 0's pool held %d, want 4 before paying Mindslaver's {4}", total)
+	}
 
 	opt := abilityOption(t, e, id, 0)
 	submitChoices(t, e, opt.Index)
@@ -63,6 +66,12 @@ func TestMindslaverControlPlayerPrintedAbility(t *testing.T) {
 	if e.G.Obj(id).Zone != state.ZGraveyard {
 		t.Fatalf("Mindslaver sacrifice cost left it in %s", e.G.Obj(id).Zone)
 	}
+	// The printed cost's {4} half was actually paid: addMana put exactly four
+	// colorless mana in seat 0's pool and the activation spent all of it, so a
+	// leftover pool would mean the ability activated for free.
+	if total := e.G.Players[0].Pool.Total(); total != 0 {
+		t.Fatalf("Mindslaver's {4} cost left %d mana unspent in seat 0's pool", total)
+	}
 	sawTap := false
 	for _, ev := range e.L.Events {
 		if ev.Kind == events.Tap && ev.Obj == id {
@@ -77,6 +86,20 @@ func TestMindslaverControlPlayerPrintedAbility(t *testing.T) {
 
 	if ctl, ok := e.G.ControlledBy[1]; !ok || ctl != 0 {
 		t.Fatalf("after printed Mindslaver resolves ControlledBy = %+v, want seat 1 controlled by 0", e.G.ControlledBy)
+	}
+	// The grant reached state through the canonical event, not a stray field
+	// write: api:ControlPlayer emits exactly one +1 ControlPlayerChange naming
+	// the controller (Player) and the controlled seat (IDs[0]).
+	sawGrant := false
+	for _, ev := range e.L.Events {
+		if ev.Kind == events.ControlPlayerChange && ev.Player == 0 && ev.Amount == 1 &&
+			len(ev.IDs) == 1 && ev.IDs[0] == state.PlayerRef(1) {
+			sawGrant = true
+			break
+		}
+	}
+	if !sawGrant {
+		t.Fatalf("no ControlPlayerChange grant naming seat 1 controlled by seat 0 in %d events", len(e.L.Events))
 	}
 	driveToTurn(t, e, 2, 1)
 	if e.G.Active != 1 {
