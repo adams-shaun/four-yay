@@ -244,8 +244,15 @@ func TestSetAudit_eoe_ScoutForSurvivors_TotalManaValueCap(t *testing.T) {
 	if d == nil || d.Kind != decision.KTarget || len(d.Options) != 3 {
 		t.Fatalf("Scout for Survivors' target ask = %+v, want the three graveyard creatures", d)
 	}
-	// The CR-correct answer rejects (or clamps) a set whose total mana value
-	// exceeds 3. Today every subset is accepted.
+	if !d.HasBudget() || d.MaxSum != 3 {
+		t.Fatalf("target ask budget = (%v, %d), want a total mana-value cap of 3", d.HasBudget(), d.MaxSum)
+	}
+	botAnswer := newTestBot(1).answer(e, d)
+	if err := d.Validate(botAnswer); err != nil {
+		t.Fatalf("bot answer %v violates the target decision: %v", botAnswer.Choices, err)
+	}
+	// A set whose total mana value exceeds 3 is rejected by the same decision
+	// budget the bot policy observes above.
 	err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{0, 1, 2}})
 	if err != nil {
 		return // rejected: correct.
