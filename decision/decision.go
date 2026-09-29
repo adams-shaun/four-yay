@@ -473,6 +473,9 @@ type Option struct {
 	// decision with no budget) omits the field, so every existing option list
 	// serialises byte-identically.
 	Value int `json:"value,omitempty"`
+	// Value2 is the option's price under the decision's second cumulative
+	// budget (Decision.MaxSum2).
+	Value2 int `json:"value2,omitempty"`
 }
 
 // Grant describes the idempotent keyword grant of one "ability" option
@@ -614,6 +617,10 @@ type Decision struct {
 	// the one reader; false (the zero) omits the field, so every existing
 	// decision serialises byte-identically.
 	Budgeted bool `json:"budgeted,omitempty"`
+	// MaxSum2 and Budgeted2 are the independent second cumulative budget.
+	// Budgeted2 preserves a present zero or negative cap, just as Budgeted does.
+	MaxSum2   int  `json:"maxSum2,omitempty"`
+	Budgeted2 bool `json:"budgeted2,omitempty"`
 	// PayerLife is the acting player's life total, published as the bound on
 	// a combat option's combined non-mana LIFE charge: the sum of the chosen
 	// options' CostLife plus each CostPhyrexian pip (priced at two life,
@@ -904,6 +911,19 @@ func New(player state.PlayerID, kind Kind, prompt string, min, max int, options 
 // predicate, so what the engine enforces and what a client assembles cannot
 // disagree about whether a budget exists.
 func (d *Decision) HasBudget() bool { return d.MaxSum > 0 || d.Budgeted }
+
+// HasBudget2 reports whether the decision carries its second cumulative budget.
+func (d *Decision) HasBudget2() bool { return d.MaxSum2 > 0 || d.Budgeted2 }
+
+// BudgetsFit reports whether a running total of sum under the first budget and
+// sum2 under the second is within every budget the decision publishes. It is
+// the one home of the per-currency admission rule: Validate, FitRequired's
+// fold and the bot's Clamp top-up all read it, so a repaired answer can never
+// be one Validate rejects (the dual-budget livelock).
+func (d *Decision) BudgetsFit(sum, sum2 int) bool {
+	return (!d.HasBudget() || sum <= d.MaxSum) &&
+		(!d.HasBudget2() || sum2 <= d.MaxSum2)
+}
 
 // PayerLifeBound reports the decision's published non-mana charge bound: the
 // acting player's life total when a combat charge is on the wire, or -1 when
@@ -1288,6 +1308,15 @@ func (d *Decision) Validate(in Intent) error {
 		}
 		if sum > d.MaxSum {
 			return fmt.Errorf("choices total %d exceeds the budget %d", sum, d.MaxSum)
+		}
+	}
+	if d.HasBudget2() {
+		sum := 0
+		for _, c := range in.Choices {
+			sum += d.Options[c].Value2
+		}
+		if sum > d.MaxSum2 {
+			return fmt.Errorf("choices total %d exceeds the second budget %d", sum, d.MaxSum2)
 		}
 	}
 	// The cumulative-floor rule (Decision.MinSum): the chosen options'

@@ -246,14 +246,16 @@ func (d *Decision) FitRequired(choices []int) []int {
 		}
 		return core
 	}
-	sum := 0
+	sum, sum2 := 0, 0
 	for _, c := range choices {
 		if c >= 0 && c < len(d.Options) {
 			sum += d.Options[c].Value
+			sum2 += d.Options[c].Value2
 		}
 	}
 	if len(choices) <= d.maxChoices() &&
 		(!d.HasBudget() || sum <= d.MaxSum) &&
+		(!d.HasBudget2() || sum2 <= d.MaxSum2) &&
 		(d.MinSum <= 0 || sum >= d.MinSum) &&
 		d.RequiredChosen(choices) >= d.RequiredQuota() &&
 		d.ChargeOptionsFit(choices) &&
@@ -263,7 +265,7 @@ func (d *Decision) FitRequired(choices []int) []int {
 	}
 
 	out := d.requiredCore()
-	sum = 0
+	sum, sum2 = 0, 0
 	life := d.PayerLifeBound()
 	spentLife := int32(0)
 	slotOf := make(map[state.ObjID]int, len(out)) // Obj -> position in out.
@@ -278,6 +280,7 @@ func (d *Decision) FitRequired(choices []int) []int {
 	for i, c := range out {
 		objTaken[d.Options[c].Obj] = true
 		sum += d.Options[c].Value
+		sum2 += d.Options[c].Value2
 		spentLife += d.Options[c].chargeLifeCost()
 		slotOf[d.Options[c].Obj] = i
 		have[c] = true
@@ -295,7 +298,7 @@ func (d *Decision) FitRequired(choices []int) []int {
 	// SetPropAdmits/SetPropMerge rule Validate enforces), so the fold can
 	// never append an option the set constraint refuses.
 	setAcc := d.setPropAccumulator(out)
-	fits := func(delta int) bool { return !d.HasBudget() || sum+delta <= d.MaxSum }
+	fits := func(delta, delta2 int) bool { return d.BudgetsFit(sum+delta, sum2+delta2) }
 	// chargeFits reports whether folding option `add` in while removing
 	// `remove` (an option already in out, or -1 for an append) keeps the
 	// combined non-mana charge within the published bound -- the same rule
@@ -318,13 +321,14 @@ func (d *Decision) FitRequired(choices []int) []int {
 			if slot, ok := slotOf[o.Obj]; ok {
 				old := &d.Options[out[slot]]
 				if (o.Group != "" && o.Group != old.Group && groups[o.Group] >= d.GroupCapFor(o.Group)) ||
-					!fits(o.Value-old.Value) || !chargeFits(c, out[slot]) {
+					!fits(o.Value-old.Value, o.Value2-old.Value2) || !chargeFits(c, out[slot]) {
 					continue
 				}
 				costNew := o.chargeLifeCost()
 				costOld := old.chargeLifeCost()
 				spentLife += costNew - costOld
 				sum += o.Value - old.Value
+				sum2 += o.Value2 - old.Value2
 				delete(have, out[slot])
 				if old.Group != "" {
 					groups[old.Group]--
@@ -346,7 +350,7 @@ func (d *Decision) FitRequired(choices []int) []int {
 		if d.Kind == KAttackers && objTaken[o.Obj] {
 			continue
 		}
-		if (o.Group != "" && groups[o.Group] >= d.GroupCapFor(o.Group)) || !fits(o.Value) ||
+		if (o.Group != "" && groups[o.Group] >= d.GroupCapFor(o.Group)) || !fits(o.Value, o.Value2) ||
 			!chargeFits(c, -1) ||
 			!SetPropAdmits(d.SetPropMode, setAcc, o.SetProps) {
 			continue
@@ -355,6 +359,7 @@ func (d *Decision) FitRequired(choices []int) []int {
 			spentLife += cost
 		}
 		sum += o.Value
+		sum2 += o.Value2
 		setAcc = SetPropMerge(d.SetPropMode, setAcc, o.SetProps)
 		out = append(out, c)
 		have[c] = true
@@ -377,27 +382,36 @@ func (d *Decision) FitRequired(choices []int) []int {
 	// the whole census otherwise), so this reaches a valid answer whenever
 	// one exists. A positive budget never reaches this: the rebuild starts
 	// within it and the fold only appends what fits.
-	if d.HasBudget() && sum > d.MaxSum {
+	if (d.HasBudget() && sum > d.MaxSum) || (d.HasBudget2() && sum2 > d.MaxSum2) {
+		needFirst := d.HasBudget() && sum > d.MaxSum
 		var neg []int
 		for i := range d.Options {
-			if d.Options[i].Value < 0 && !have[i] {
+			o := &d.Options[i]
+			if !have[i] && ((needFirst && o.Value < 0) || (!needFirst && o.Value2 < 0)) {
 				neg = append(neg, i)
 			}
 		}
-		sort.SliceStable(neg, func(a, b int) bool { return d.Options[neg[a]].Value < d.Options[neg[b]].Value })
+		sort.SliceStable(neg, func(a, b int) bool {
+			if needFirst {
+				return d.Options[neg[a]].Value < d.Options[neg[b]].Value
+			}
+			return d.Options[neg[a]].Value2 < d.Options[neg[b]].Value2
+		})
 		for _, c := range neg {
-			if sum <= d.MaxSum || len(out) >= d.maxChoices() {
+			if ((!d.HasBudget() || sum <= d.MaxSum) && (!d.HasBudget2() || sum2 <= d.MaxSum2)) || len(out) >= d.maxChoices() {
 				break
 			}
 			o := &d.Options[c]
 			if (o.Group != "" && groups[o.Group] >= d.GroupCapFor(o.Group)) || (d.Kind == KAttackers && objTaken[o.Obj]) ||
-				!chargeFits(c, -1) {
+				!chargeFits(c, -1) || (!needFirst && d.HasBudget() && sum+o.Value > d.MaxSum) ||
+				(d.HasBudget2() && sum2+o.Value2 > d.MaxSum2 && sum2+o.Value2 >= sum2) {
 				continue
 			}
 			if cost := o.chargeLifeCost(); cost > 0 {
 				spentLife += cost
 			}
 			sum += o.Value
+			sum2 += o.Value2
 			out = append(out, c)
 			have[c] = true
 			objTaken[o.Obj] = true
@@ -430,13 +444,14 @@ func (d *Decision) FitRequired(choices []int) []int {
 			}
 			o := &d.Options[c]
 			if (o.Group != "" && groups[o.Group] >= d.GroupCapFor(o.Group)) || (d.Kind == KAttackers && objTaken[o.Obj]) ||
-				!chargeFits(c, -1) {
+				!chargeFits(c, -1) || !fits(o.Value, o.Value2) {
 				continue
 			}
 			if cost := o.chargeLifeCost(); cost > 0 {
 				spentLife += cost
 			}
 			sum += o.Value
+			sum2 += o.Value2
 			out = append(out, c)
 			have[c] = true
 			objTaken[o.Obj] = true

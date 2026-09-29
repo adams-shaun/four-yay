@@ -821,6 +821,11 @@ export interface Option {
    * serialises byte-identically.
    */
   value?: number;
+  /**
+   * Value2 is the option's price under the decision's second cumulative
+   * budget (Decision.MaxSum2).
+   */
+  value2?: number;
 }
 
   /**
@@ -1081,6 +1086,12 @@ export interface Decision {
    * decision serialises byte-identically.
    */
   budgeted?: boolean;
+  /**
+   * MaxSum2 and Budgeted2 are the independent second cumulative budget.
+   * Budgeted2 preserves a present zero or negative cap, just as Budgeted does.
+   */
+  maxSum2?: number;
+  budgeted2?: boolean;
   /**
    * PayerLife is the acting player's life total, published as the bound on
    * a combat option's combined non-mana LIFE charge: the sum of the chosen
