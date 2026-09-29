@@ -9,6 +9,7 @@ import (
 func init() {
 	Register("GainLife", effGainLife)
 	Register("LoseLife", effLoseLife)
+	Register("SetLife", effSetLife)
 	Register("ExchangeLife", effExchangeLife)
 	Register("ExchangeLifeVariant", effExchangeLifeVariant)
 }
@@ -131,6 +132,42 @@ func effExchangeLifeVariant(h Host, c *Ctx, sa *cards.SA) {
 		StaticSet: true,
 	}
 	h.AddContinuous(ce)
+}
+
+// effSetLife implements CR 119.5: "If an effect would cause a player's life
+// total to become a certain number, that player gains or loses the amount of
+// life necessary to make it that number. If the effect would lower the
+// player's life total below 0, that player loses the game." The SET is a
+// delta LifeChange -- a positive delta is a gain (CR 119.5's own words) and a
+// negative one a loss -- so the ordinary GainLife/LifeReduced replacement
+// machinery (a CantGainLife lock, a lifegain doubler) applies exactly as it
+// does to api:GainLife/api:LoseLife, with no separate set-the-field path that
+// could bypass it.
+//
+// `Defined$`/`ValidTgts$` select the affected players through the shared
+// actingPlayers grammar (default: the resolving ability's controller, i.e.
+// Forge's paramOrDefault("Defined", "You")). LifeAmount$ is resolved ONCE
+// through NumResolvedStrict, before any target is touched: an unresolvable
+// amount is a loud degrade (a Note and no life change) rather than Num's
+// documented degrade-to-zero, because a set-to-zero would silently lose a
+// player the game. A zero delta emits nothing -- a life total that already
+// equals the target has neither gained nor lost life.
+func effSetLife(h Host, c *Ctx, sa *cards.SA) {
+	target, ok := NumResolvedStrict(h, c, sa, "LifeAmount", 0)
+	if !ok {
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "SetLife: unresolvable LifeAmount"})
+		return
+	}
+	for _, t := range actingPlayers(h, c, sa) {
+		if int(t) >= len(h.Game().Players) {
+			continue
+		}
+		delta := target - h.Game().Players[t].Life
+		if delta == 0 {
+			continue
+		}
+		h.Emit(events.Event{Kind: events.LifeChange, Player: t, Amount: delta})
+	}
 }
 
 func effLoseLife(h Host, c *Ctx, sa *cards.SA) {

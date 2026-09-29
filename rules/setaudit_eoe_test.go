@@ -189,8 +189,6 @@ func TestSetAudit_eoe_MutinousMassacre_ChooseEvenOdd(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestSetAudit_eoe_TheEndstone_EndStepSetsHalfStartingLife(t *testing.T) {
-	eoeGuard(t, "api:SetLife is unregistered, so The Endstone's end-step life set is a no-op",
-		"Register api:SetLife (35 corpus carriers)")
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{lookup(t, reg, "The Endstone")}, nil)
 	moveByName(t, e, 0, "The Endstone", state.ZBattlefield)
