@@ -59,11 +59,13 @@ func TestControlPlayerSeesControlledSeatHand(t *testing.T) {
 	}
 }
 
-// TestControlPlayerPublicViewStillHidesEveryHand proves the CR 720.4 widening
-// cannot leak to a spectator: Public forces the NoSeat path, and no real seat
-// id can equal NoSeat (255), so g.ControlledBy can never name a spectator as
-// a controller. A populated ControlBy must not change Public's output.
-func TestControlPlayerPublicViewStillHidesEveryHand(t *testing.T) {
+// TestProjectForControlPlayerPublicStillHidesEveryHand proves the CR 720.4
+// widening cannot leak to a spectator: Public forces the NoSeat path, and no
+// real seat id can equal NoSeat (255), so g.ControlledBy can never name a
+// spectator as a controller. A populated ControlBy must not change Public's
+// output. Named with the TestProjectFor prefix so the review gate pattern
+// (TestControlPlayerSees|TestProjectFor|...) selects it.
+func TestProjectForControlPlayerPublicStillHidesEveryHand(t *testing.T) {
 	e := playSome(t, 7, 4)
 	g := e.G
 	g.ControlledBy = map[state.PlayerID]state.PlayerID{1: 0, 2: 0}
