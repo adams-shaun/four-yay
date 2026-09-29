@@ -103,6 +103,11 @@ type Stats struct {
 	PriorFallbacks int // network priors that fell back to uniform, at the root and at in-walk points (a discarded simulation's included)
 	FeedStopped    int // decisions the driver routed around the search (its observation feed stopped): the bot's answer was played
 	RedealRefused  int // decisions whose honest (redeal) world source refused to prepare: no world, the bot's answer was played
+	// DeadlineHits is the armed wall-clock bail-out (Search's ctx, the hosted
+	// seats' per-decision budget): the caller's context was done at the call
+	// or became done between simulations, the tree stopped where it was and
+	// the bot's answer was played. A live context never counts it.
+	DeadlineHits int
 
 	// KindSearched splits Searched by kind (KindNames order).
 	KindSearched [NumKinds]int
@@ -197,6 +202,7 @@ func (s *Stats) Add(o Stats) {
 	s.PriorFallbacks += o.PriorFallbacks
 	s.FeedStopped += o.FeedStopped
 	s.RedealRefused += o.RedealRefused
+	s.DeadlineHits += o.DeadlineHits
 	for k := range s.KindSearched {
 		s.KindSearched[k] += o.KindSearched[k]
 		for r := range s.KindSkipped[k] {

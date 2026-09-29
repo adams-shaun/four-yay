@@ -937,7 +937,7 @@ func (p *Policy) search(sh *Shadow, d *v1agent.Decision, fbPick int) (decision.I
 	opts.Seed = seed
 	obs := searchprobe.NewCollector(sh.Me)
 	src := &shadowWorlds{sh: sh, obs: obs, seed: seed, k: p.cfg.Worlds}
-	res, err := azmcts.Search(azmcts.Root{Engine: e, Decision: pd, Bot: botIn, Observer: obs}, src, nil, opts)
+	res, err := azmcts.Search(context.Background(), azmcts.Root{Engine: e, Decision: pd, Bot: botIn, Observer: obs}, src, nil, opts)
 	if err != nil {
 		return botIn, err
 	}

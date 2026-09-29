@@ -324,7 +324,7 @@ func defaultSeatsWithAutoPayMana(policy string, autoPayMana bool, names []string
 		// tests; the table path builds through bots.New with Seed,
 		// AutoPayMana, SearchParallelism and BotDeps, exactly what the
 		// wrapper would thread.
-		bot, err := bots.New(policy, bots.Options{Seed: seed ^ uint64(i+1), AutoPayMana: autoPayMana, SearchParallelism: searchParallelism, Deps: deps})
+		bot, err := bots.New(policy, bots.Options{Seed: seed ^ uint64(i+1), AutoPayMana: autoPayMana, SearchParallelism: searchParallelism, Deps: deps, DecisionDeadlineMS: hostedDecisionDeadlineMS})
 		if err != nil {
 			panic(err) // policy was normalized before the table was registered.
 		}
@@ -569,10 +569,14 @@ func parkSeat(ctx context.Context, seats []seat.Seat, pd *parkedData, undo <-cha
 					return &parkedDecision{p: pd.p, err: aerr, searchSlot: true}
 				}
 				defer gate.release()
-				in, err := es.DecideEnv(ctx, *pd.env, pd.dc)
+				cctx, cancel := decisionCtx(ctx, seats[pd.p])
+				in, err := es.DecideEnv(cctx, *pd.env, pd.dc)
+				cancel()
 				return &parkedDecision{p: pd.p, in: in, err: err, searchSlot: true}
 			}
-			in, err := es.DecideEnv(ctx, *pd.env, pd.dc)
+			cctx, cancel := decisionCtx(ctx, seats[pd.p])
+			in, err := es.DecideEnv(cctx, *pd.env, pd.dc)
+			cancel()
 			return &parkedDecision{p: pd.p, in: in, err: err}
 		}
 	}

@@ -164,7 +164,7 @@ func (s *Seat) DecideSearch(ctx context.Context, env searchseat.Env, d decision.
 		return decision.Intent{}, err
 	}
 	if s.cfg.PriorOnly && env.Engine != nil {
-		return s.decidePrior(env, d, botIn)
+		return s.decidePrior(ctx, env, d, botIn)
 	}
 	if s.cfg.Search.Sims <= 0 || env.Engine == nil {
 		return botIn, nil
@@ -196,7 +196,7 @@ func (s *Seat) DecideSearch(ctx context.Context, env searchseat.Env, d decision.
 		opts.Noise = !s.cfg.NoNoise
 		opts.Sample = env.Engine.G.Turn <= s.cfg.ExploreTurns
 	}
-	res, err := Search(Root{Engine: env.Engine, Decision: &d, Bot: botIn, Observer: obs}, src, s.net, opts)
+	res, err := Search(ctx, Root{Engine: env.Engine, Decision: &d, Bot: botIn, Observer: obs}, src, s.net, opts)
 	if err != nil {
 		return decision.Intent{}, err
 	}
@@ -226,12 +226,12 @@ func (s *Seat) DecideSearch(ctx context.Context, env searchseat.Env, d decision.
 // decidePrior is the PriorOnly seat's decision: the candidates Search would
 // build, answered by the argmax of the network prior (ties on the lowest
 // index). A decision Search would not search is the bot's.
-func (s *Seat) decidePrior(env searchseat.Env, d decision.Decision, botIn decision.Intent) (decision.Intent, error) {
+func (s *Seat) decidePrior(ctx context.Context, env searchseat.Env, d decision.Decision, botIn decision.Intent) (decision.Intent, error) {
 	obs := searchprobe.NewCollector(d.Player)
 	opts := s.cfg.Search
 	opts.Sims, opts.Noise, opts.Sample = 0, false, false
 	opts.Seed = DecisionSeed(s.seed, d.Seq)
-	res, err := Search(Root{Engine: env.Engine, Decision: &d, Bot: botIn, Observer: obs}, nil, s.net, opts)
+	res, err := Search(ctx, Root{Engine: env.Engine, Decision: &d, Bot: botIn, Observer: obs}, nil, s.net, opts)
 	if err != nil {
 		return decision.Intent{}, err
 	}
