@@ -93,9 +93,21 @@ review_local_thinking = "high"
 # ladder's LAST chance ran on its weakest seat and exhausted straight into
 # human_needed. An escalated round now waits for a paid slot instead.
 escalation_local_fallback = false
-# 2026-09-24 (operator): off while seats.local is DeepSeek -- the probe would
-# hit deepinfra with the local key and hold every implementer as DOWN.
-local_endpoint_probe = false
+# 2026-09-29: true. The 2026-09-24 `false` was written while seats.local was
+# DeepSeek -- the probe would then have hit deepinfra with the local key and
+# held every implementer as DOWN. That premise is gone: [[tiers]] derives
+# `local` as the first unpaid implement tier, which is now the glm tier
+# (tiered dispatch slice 2), so the probe hits the local glm engine it exists
+# to watch. With it off, agentctl (daemon.py:52) substitutes `probe = lambda p:
+# True` and context.py:219 stops gating free-pool launches, so a down engine is
+# never seen: every launch runs, produces nothing, and journals one
+# provider_failure -- 87 in 30 minutes on 2026-09-29T23:1xZ. The probe
+# classifies 503 as DOWN (outcome.py:311), so on it holds the free pool
+# instead. This also restores parity with agentctl's canonical copy
+# (consumers/gorge/config.toml:54, true) and its golden
+# (tests/test_consumer_parity.py:150, assertTrue -- "daemon.py:209 always
+# probes").
+local_endpoint_probe = true
 # 2026-09-20 (operator): "stop taking all new tickets into local or paid jobs
 # until needs-human or blocked jobs are resolved". While any ticket sits in
 # human_needed, no `new` or `briefed` ticket starts; in-flight work still
