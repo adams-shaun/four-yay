@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { clampPosition, dockFromProfile, fractionOf, profilePlacement } from './dock';
+import { clampPosition, dockFromProfile, fractionOf, nextPlacement, profilePlacement, tableAnchor } from './dock';
 
 describe('dock placement from the layout profile', () => {
   it('maps the profile placement and viewport fractions to the dock', () => {
     expect(dockFromProfile({ placement: 'dock', x: 0.6, y: 0.12 }, { w: 1000, h: 500 })).toEqual({ placement: 'rail', position: { x: 600, y: 60 } });
     expect(dockFromProfile({ placement: 'float', x: 0, y: 1 }, { w: 1000, h: 500 }).placement).toBe('floating');
+    expect(dockFromProfile({ placement: 'table', x: 0, y: 0 }, { w: 1000, h: 500 }).placement).toBe('table');
+    expect(profilePlacement('table')).toBe('table');
   });
 
   it('round-trips a dragged position through the profile fractions', () => {
@@ -22,5 +24,28 @@ describe('clampPosition', () => {
   it('keeps the grip row reachable after the window shrinks', () => {
     expect(clampPosition({ x: 1800, y: 1200 }, { w: 400, h: 300 }, { w: 1280, h: 800 })).toEqual({ x: 1136, y: 752 });
     expect(clampPosition({ x: -50, y: -20 }, { w: 400, h: 300 }, { w: 1280, h: 800 })).toEqual({ x: 0, y: 0 });
+  });
+});
+
+describe('the near-table placement', () => {
+  it('cycles table -> rail -> floating -> table from the dock toggle', () => {
+    expect(nextPlacement('table')).toBe('rail');
+    expect(nextPlacement('rail')).toBe('floating');
+    expect(nextPlacement('floating')).toBe('table');
+  });
+
+  it('sits right-aligned just above the action button and grows up to the board top', () => {
+    const a = tableAnchor({ left: 1000, right: 1240, top: 900, bottom: 1000 }, { left: 0, right: 1264, top: 0, bottom: 1000 }, { w: 1600, h: 1000 });
+    expect(a).toEqual({ right: 360, bottom: 108, maxHeight: 876 });
+  });
+
+  it('falls back to the board bottom-right corner when no action button is mounted', () => {
+    const a = tableAnchor(null, { left: 0, right: 1264, top: 40, bottom: 1000 }, { w: 1600, h: 1000 });
+    expect(a).toEqual({ right: 348, bottom: 12, maxHeight: 932 });
+  });
+
+  it('keeps a usable height on a very short board', () => {
+    const a = tableAnchor({ left: 100, right: 300, top: 60, bottom: 120 }, { left: 0, right: 400, top: 40, bottom: 120 }, { w: 400, h: 120 });
+    expect(a.maxHeight).toBe(160);
   });
 });

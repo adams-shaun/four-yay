@@ -5,7 +5,7 @@
   import { promptAnatomy } from '../../lib/prompts/anatomy';
   import { dockAnswers } from '../../lib/prompts/renderer';
   import { promptHover, type HoverEnd } from '../../lib/prompts/hover.svelte';
-  import { clampPosition, dockFromProfile, fractionOf, profilePlacement, type DockPlacement, type DockPoint } from '../../lib/prompts/dock';
+  import { clampPosition, dockFromProfile, fractionOf, nextPlacement, profilePlacement, tableAnchor, type DockPlacement, type DockPoint, type TableAnchor } from '../../lib/prompts/dock';
   import { layoutStore } from '../../lib/layouts.svelte';
   import ArtCrop from './ArtCrop.svelte';
   import PromptBody from './PromptBody.svelte';
@@ -16,9 +16,10 @@
    * serif title that asks the question, one plain-language line, the
    * decision's renderer (numbered options), and the renderer's footer.
    *
-   * Placement: docked at the top of the rail by default, next to the stack
-   * it concerns, so the board stays clear; floating is a setting, dragged by
-   * its grip. The layout profile owns both (`layoutStore.prompt`: the
+   * Placement: near the table by default -- pinned just above the gilt
+   * action button, growing up over the board, so answering never means a
+   * trip to the screen's top edge (operator feedback 2026-09-29). Docked at
+   * the top of the rail and floating (dragged by its grip) are settings. The layout profile owns both (`layoutStore.prompt`: the
    * placement, and the floating spot as viewport fractions, saved on drag);
    * the `placement`/`position` props override it for fixtures and tests.
    * Client-side only, never posted.
@@ -141,10 +142,42 @@
     setPosition(pos);
   }
 
-  const floatStyle = $derived(placement === 'floating' && pos !== null ? `left:${pos.x}px;top:${pos.y}px` : undefined);
+  // ---- near-table placement -------------------------------------------
+  // Pinned above the action button ([data-action-cluster]) inside the board;
+  // re-measured whenever either resizes or the window does.
+  let anchor = $state<TableAnchor | null>(null);
+  $effect(() => {
+    if (placement !== 'table' || decision === null || typeof document === 'undefined') return;
+    const measure = () => {
+      const board = document.querySelector('.board');
+      if (board === null) return;
+      const action = document.querySelector('[data-action-cluster]');
+      anchor = tableAnchor(action?.getBoundingClientRect() ?? null, board.getBoundingClientRect(), viewport());
+    };
+    measure();
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    for (const el of [document.querySelector('.board'), document.querySelector('[data-action-cluster]')]) if (el) ro?.observe(el);
+    window.addEventListener('resize', measure);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  });
+
+  const floatStyle = $derived(
+    placement === 'floating' && pos !== null
+      ? `left:${pos.x}px;top:${pos.y}px`
+      : placement === 'table' && anchor !== null
+        ? `right:${anchor.right}px;bottom:${anchor.bottom}px;max-height:${anchor.maxHeight}px`
+        : undefined,
+  );
+  const toggleTitle = $derived(
+    { table: 'Dock the prompt in the rail', rail: 'Float the prompt over the board', floating: 'Pin the prompt above the action button' }[placement],
+  );
 </script>
 
 {#if decision && anatomy}
+  {#key decision.seq}
   <section
     class="prompt-dock {placement}"
     bind:this={root}
@@ -176,10 +209,10 @@
           class="tool"
           type="button"
           data-dock-placement-toggle
-          title={placement === 'rail' ? 'Float the prompt over the board' : 'Dock the prompt in the rail'}
-          aria-label={placement === 'rail' ? 'Float the prompt' : 'Dock the prompt'}
-          onclick={() => setPlacement(placement === 'rail' ? 'floating' : 'rail')}
-        >{placement === 'rail' ? '⧉' : '⇥'}</button>
+          title={toggleTitle}
+          aria-label={toggleTitle}
+          onclick={() => setPlacement(nextPlacement(placement))}
+        >{placement === 'table' ? '⇥' : placement === 'rail' ? '⧉' : '⤓'}</button>
       </div>
       {#if anatomy.source}<p class="src" data-prompt-source>{anatomy.source.line}</p>{/if}
       <h2 class="title" class:long={anatomy.title.length > 32} data-prompt-title>{anatomy.title}</h2>
@@ -188,6 +221,7 @@
       <PromptBody {decision} {view} {logic} {seat} placement="dock" />
     </div>
   </section>
+  {/key}
 {/if}
 
 <style>
@@ -199,16 +233,32 @@
     font-family: var(--font-ui);
     min-width: 0;
   }
-  /* The gilt rule on the leading edge: this is YOUR move. */
+  /* The gilt rule on the leading edge and a gilt ring: this is YOUR move.
+     A new question announces itself with a short glow pulse (each decision
+     remounts the section), still under reduced motion. */
   .prompt-dock::before {
     content: '';
     position: absolute;
     left: 0;
     top: 0;
     bottom: 0;
-    width: 3px;
+    width: 4px;
     background: var(--gilt, #d4ad62);
     z-index: 2;
+  }
+  .prompt-dock {
+    outline: 2px solid color-mix(in srgb, var(--gilt, #d4ad62) 75%, transparent);
+    outline-offset: -2px;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 0 28px color-mix(in srgb, var(--gilt, #d4ad62) 35%, transparent);
+    animation: prompt-arrive 1.4s ease-out 1;
+  }
+  @keyframes prompt-arrive {
+    0% { box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 0 0 0 color-mix(in srgb, var(--gilt, #d4ad62) 80%, transparent); }
+    35% { box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 0 0 10px color-mix(in srgb, var(--gilt, #d4ad62) 30%, transparent); }
+    100% { box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 0 28px color-mix(in srgb, var(--gilt, #d4ad62) 35%, transparent); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .prompt-dock { animation: none; }
   }
   /* Docked: the art is a banner across the top, the body overlaps its fade. */
   .prompt-dock.rail {
@@ -238,8 +288,28 @@
     border: 1px solid #394150;
     border-radius: 14px;
     overflow: hidden;
-    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(212, 173, 98, 0.08) inset;
   }
+  /* Near the table: pinned above the action button (right/bottom/max-height
+     come from tableAnchor), the art a spine like floating. */
+  .prompt-dock.table {
+    position: fixed;
+    z-index: 40;
+    right: 1rem;
+    bottom: 6rem;
+    width: min(30rem, calc(100vw - 2rem));
+    max-height: 60vh;
+    grid-template-columns: 6rem 1fr;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .table .art { position: relative; }
+  .table .art::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent 55%, #1d2129);
+  }
+  .table .body { padding: var(--sp-3) var(--sp-4) var(--sp-3) var(--sp-3); min-width: 0; overflow-y: auto; }
   .floating .art { position: relative; }
   .floating .art::after {
     content: '';
