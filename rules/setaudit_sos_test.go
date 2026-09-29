@@ -393,9 +393,6 @@ func TestSetAudit_sos_InkshapeDemonstrator_WardPayOrCounter(t *testing.T) {
 // effAlterAttribute); Attributes$ Prepared emits a "not modelled" note and
 // the cast-a-copy rider has no implementation at all. CR 722.3a-c.
 func TestSetAudit_sos_EliteInterceptor_PreparedAttribute(t *testing.T) {
-	if os.Getenv("GORGE_SET_AUDIT") == "" {
-		t.Skip("set-audit finding (sos): AlterAttribute 'Prepared' is unmodelled. Follow-up: implement the Prepared mechanic")
-	}
 	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 909, []string{"Elite Interceptor"}, nil, nil)
 	intl := findAndMoveToHand(t, e, 0, "Elite Interceptor")
@@ -433,9 +430,6 @@ func TestSetAudit_sos_EliteInterceptor_PreparedAttribute(t *testing.T) {
 // unprepared at cast time, not when the spell resolves. This tests the
 // defining rider independently of the ETB attribute event above.
 func TestSetAudit_sos_EliteInterceptor_PreparedSpellCopyUnprepares(t *testing.T) {
-	if os.Getenv("GORGE_SET_AUDIT") == "" {
-		t.Skip("set-audit finding (sos): no prepare-spell copy or cast/unprepare option. Follow-up: implement the Prepared mechanic")
-	}
 	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 916, []string{"Elite Interceptor // Rejoinder"}, []string{sosBearSrc}, nil)
 	intl := findAndMoveToHand(t, e, 0, "Elite Interceptor")

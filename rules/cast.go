@@ -2807,6 +2807,11 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 		// CR 701.34d: the plotted card's later cast is free -- no mana cost,
 		// no raises; targets and resolution run the ordinary stages.
 		cost = Cost{}
+	case "prepared_copy":
+		// CR 722.3c: the prepared designation's exile copy is cast as a
+		// copy of the prepare spell -- free, with targets and resolution
+		// running the ordinary stages, exactly like a plotted card's cast.
+		cost = Cost{}
 	case "foretell":
 		// CR 702.126a: the Foretell ACTION pays {2} and exiles the card face
 		// down -- never the keyword's own colon parameter, which prices the
@@ -9561,6 +9566,17 @@ func (e *Engine) pushCast() bool {
 	}
 	e.emit(ev)
 	e.deferCastTrigger = false
+	// CR 722.3c: the prepared permanent loses its designation "at the time
+	// the spell becomes cast" (CR 601.2i) -- here, as the copy reaches the
+	// stack, never on resolution. Apply's fold clears Object.Prepared, so the
+	// copy is no longer offered; the orphaned exile copy is not re-offered
+	// because its source no longer answers Prepared.
+	if pc.mode == "prepared_copy" {
+		if cp := e.G.Obj(pc.card); cp != nil && cp.PreparedSource != 0 {
+			e.emit(events.Event{Kind: events.AlterAttribute, Obj: cp.PreparedSource,
+				Text: "Prepared", Amount: -1})
+		}
+	}
 	// CR 601.2a: the player who cast the spell is its controller. A card
 	// another seat controlled (Rashmi and Ragavan's exiled OPPONENT card,
 	// Gonti's stolen card, Intellect Devourer's may-play exile) comes under
