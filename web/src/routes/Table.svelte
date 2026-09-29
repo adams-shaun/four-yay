@@ -34,6 +34,9 @@
   import { buildCardOwnerColour } from '../lib/logrender';
   import { href, navigate } from '../lib/router';
   import { getSeat } from '../lib/seat';
+  import { clickedOutside } from '../lib/modals';
+  import { closesOptionsPanel } from '../lib/hotkeys';
+  import { keymapStore } from '../lib/keymap.svelte';
 
   // match (from the /t/:table/m/:match route) names a specific, already-played
   // match. Task 21's finished mode replays it end to end via loadFinished:
@@ -167,14 +170,17 @@
     if (optionsOpen) dismissOptions();
     else optionsOpen = true;
   }
+  // Escape, or the toggle-options chord: the panel is a role=dialog, so the
+  // strip's hotkey is held by the modal guard while it is open and the same
+  // key closes it here instead (lib/hotkeys closesOptionsPanel).
   function closeOptions(event: KeyboardEvent): void {
-    if (event.key === 'Escape') {
+    if (event.key === 'Escape' || (optionsOpen && closesOptionsPanel(event, keymapStore.current, keymapStore.capturing))) {
       event.preventDefault();
       dismissOptions();
     }
   }
   function closeOptionsOutside(event: MouseEvent): void {
-    if (optionsOpen && optionsRoot && !optionsRoot.contains(event.target as Node)) dismissOptions();
+    if (optionsOpen && optionsRoot && clickedOutside(event, optionsRoot)) dismissOptions();
   }
   $effect(() => {
     if (optionsOpen) void tick().then(() => optionsPopover?.focus());

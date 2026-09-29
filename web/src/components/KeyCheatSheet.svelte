@@ -1,22 +1,38 @@
 <script lang="ts">
-  import { ACTION_GROUPS, ACTION_LABELS, bindingLabel, type Keymap } from '../lib/keymap';
+  import { ACTION_GROUPS, ACTION_LABELS, bindingLabel, matchKeymap, type Keymap } from '../lib/keymap';
 
   /**
    * The `?` sheet: every bound action by group with its current chords. It
-   * takes focus when it opens so its own Escape/`?` handler receives the
-   * key; its dialog role also makes the table's modal guard hold every other
-   * hotkey while it is open.
+   * takes focus when it opens, and its dialog role makes the table's modal
+   * guard hold every other hotkey while it is open. It must therefore never
+   * need focus to close: the window listener closes it on Escape or on the
+   * show-keys chord (whatever it is bound to) wherever focus has gone, and a
+   * backdrop closes it on a click outside it, which would otherwise have
+   * acted on the board underneath while every hotkey stayed suppressed.
    */
   let { open, keymap, onClose }: { open: boolean; keymap: Keymap; onClose: () => void } = $props();
 
   function focusOnOpen(node: HTMLElement): void {
     node.focus();
   }
+
+  function onWindowKey(e: KeyboardEvent): void {
+    // defaultPrevented: the table's hotkey listener already acted on this
+    // press — the show-keys chord that OPENED the sheet — so it must not
+    // also close it.
+    if (!open || e.defaultPrevented || e.metaKey) return;
+    if (e.key === 'Escape' || matchKeymap(keymap, e) === 'show-keys') {
+      e.preventDefault();
+      onClose();
+    }
+  }
 </script>
 
+<svelte:window onkeydown={onWindowKey} />
+
 {#if open}
-  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="keys-title" tabindex="-1" use:focusOnOpen
-       onkeydown={(e) => { if (e.key === 'Escape' || e.key === '?') { e.preventDefault(); onClose(); } }}>
+  <div class="backdrop" data-keys-backdrop aria-hidden="true" onclick={onClose}></div>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="keys-title" tabindex="-1" use:focusOnOpen>
     <h2 id="keys-title">Keyboard shortcuts</h2>
     <div class="cols">
       {#each ACTION_GROUPS as g (g.title)}
@@ -36,6 +52,7 @@
 {/if}
 
 <style>
+  .backdrop { position: fixed; inset: 0; z-index: 99; background: rgba(0,0,0,.35); }
   .sheet { position: fixed; inset: 10% 15%; z-index: 100; overflow: auto; padding: 20px 24px; border-radius: 12px; background: var(--instrument-raised); border: 1px solid var(--edge-inst); box-shadow: 0 20px 60px rgba(0,0,0,.6); }
   .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
   dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; margin: 0; }

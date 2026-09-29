@@ -18,3 +18,17 @@ import { MODAL_PICKER_SELECTOR } from './hotkeys';
 export function modalPickerOpen(): boolean {
   return typeof document !== 'undefined' && document.querySelector(MODAL_PICKER_SELECTOR) !== null;
 }
+
+/**
+ * clickedOutside reports whether a click landed outside root (the Options
+ * control's outside-click test). It reads the event's composed path, which
+ * is fixed when dispatch starts, not root.contains(target): Svelte flushes a
+ * click handler's state change in a microtask that runs before the window
+ * listener, so a clicked control inside root ("Add key", "Rename") may
+ * already be detached by then, and contains() would call it outside. Nor is
+ * a detached target treated as inside: a genuinely outside target can vanish
+ * too (a hand card that gets played).
+ */
+export function clickedOutside(event: Event, root: Node): boolean {
+  return !event.composedPath().includes(root);
+}
