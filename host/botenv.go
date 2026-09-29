@@ -1,12 +1,15 @@
 package host
 
 import (
+	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/bots"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/internal/searchprobe"
 	"github.com/adams-shaun/gorge/internal/searchseat"
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/seat"
 	"github.com/adams-shaun/gorge/state"
+	"github.com/adams-shaun/gorge/view"
 )
 
 // matchFeeds owns one searchseat.Feed per non-human bots.EnvSeat of a match.
@@ -103,5 +106,76 @@ func (f *matchFeeds) record(d *decision.Decision, in decision.Intent) {
 	}
 	if err := fd.RecordAnswer(d, in); err != nil {
 		f.stopped[i] = true
+	}
+}
+
+// envData builds the parkedData of one bots.EnvSeat decision — BP-08's Env
+// dispatch (spec 2026-09-28-hosted-bot-packages §5.1). It runs inside
+// projectNext's exclusive m.mu section and is the ONLY place a match builds
+// a bots.Env:
+//
+//   - View: exactly what a plain Seat gets from projectNext (the same
+//     ProjectForControlled projection, Round filled), so an adapter that
+//     falls back to a View answer answers like a non-Env seat.
+//   - Board: the deciding seat's botpolicy.Board from the shared brd buffer,
+//     built the same way a BoardSeat's is — the fallback the adapters play
+//     when the root is refused (or WantsEnv was false, which parks on the
+//     BoardSeat branch instead of here).
+//   - Search: the actor's own feed (captured through THIS decision by the
+//     observe above), and the honest root built by searchseat.HonestRoot
+//     from that feed — the only engine an EnvSeat ever touches, its hidden
+//     cards redealt from the pool the seat's observation derives. The root
+//     seed is bots.RootSeed over this seat's per-seat seed (m.seed XOR the
+//     slot plus one, the same derivation seats use for their own RNG) and
+//     the decision's seq, so a root is a pure function of the feed, the seat
+//     and the decision index — never of the real hidden cards.
+//   - A refused or failed deal returns a nil engine; its fail-closed reason
+//     becomes env.RootRefused, m.rootRefusals counts one, and the seat
+//     answers from env.Board (or env.View) — never from the live engine
+//     (§5.3: a seat that cannot see an honest world does not get the real
+//     one). Delivering the Env even on a refusal keeps the adapters' fallback
+//     honest: sb-tactical wants to see planner-nil explicitly, and search or
+//     az-redeal play DecideBoard(env.Board), so the decision is still ASKED.
+//
+// The returned parkedData carries the whole Env; parkSeat hands it to
+// DecideEnv outside the lock and nothing reads it again afterwards.
+func (m *match) envData(p state.PlayerID, dc *decision.Decision, brd *botpolicy.Board) *parkedData {
+	slot := int(p)
+	seed := bots.RootSeed(m.seed^uint64(slot+1), dc.Seq)
+	setup := searchprobe.PublicGame{
+		Names: m.cfg.Names, Decks: m.cfg.Decks, Tokens: m.cfg.Tokens, StartingLife: m.cfg.StartingLife,
+	}
+	var feed *searchseat.Feed
+	if m.feeds != nil && slot >= 0 && slot < len(m.feeds.bySlot) {
+		feed = m.feeds.bySlot[slot]
+		if m.feeds.stopped[slot] {
+			// §5.2: a feed that failed its capture or its Record stops for the
+			// rest of the game and "the seat plays its fallback from then on".
+			// Handing HonestRoot nil instead of the stopped feed routes that
+			// refusal through its one refusal home ("no live observation
+			// feed") rather than building roots from a History that will miss
+			// every future recorded answer — a root like that would still be
+			// leak-free but would no longer keep what the seat knows.
+			feed = nil
+		}
+	}
+	root, reason := searchseat.HonestRoot(setup, feed, m.e, seed)
+	if root == nil {
+		m.rootRefusals++
+	}
+	v := view.ProjectForControlled(m.e.G, m.e, p, view.Seat, controlledSeats(m.e.G, p), dc)
+	v.Round = view.RoundOf(m.e.G, m.e.L.Events)
+	b := botpolicy.BoardFromGameInto(m.e.G, m.e, p, brd)
+	return &parkedData{
+		p:   p,
+		v:   v,
+		dc:  *dc,
+		brd: b,
+		env: &bots.Env{
+			View:        v,
+			Board:       b,
+			Search:      searchseat.Env{Setup: setup, Engine: root, Board: b, Feed: feed},
+			RootRefused: reason,
+		},
 	}
 }

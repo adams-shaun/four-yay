@@ -91,6 +91,14 @@ type match struct {
 	// answer, so they cannot change a replay. Guarded by m.mu.
 	refusals  int
 	fallbacks int
+	// rootRefusals is BP-08's honest-root diagnostic: how many bots.EnvSeat
+	// decisions this match wanted an Env for and got a REFUSED root (nil
+	// engine, RootRefused set) — a dead feed, an underivable pool, a failed
+	// deal. The seat still answers (its fallback), so this is a counter
+	// only, like refusals above; it reaches the crash report and the sidecar
+	// and never an event or an answer. Guarded by m.mu (incremented inside
+	// projectNext's exclusive section).
+	rootRefusals int
 	// undo queues accepted undo requests (Registry.Undo, host/undo.go) for the
 	// play loop. Its size-one signal channel is only a wakeup: undoQueue's
 	// pending count preserves every accepted click, rearming the wakeup after
@@ -291,7 +299,7 @@ func (m *match) sidecar() sidecar {
 		NameUniverse:      len(m.cfg.NameUniverse) > 0,
 		NameUniverseNames: append([]string(nil), m.e.G.NameUniverseNames...),
 		Format:            Format(m.cfg.Format), StartingLife: m.cfg.StartingLife, Commanders: m.cfg.Commanders, BotPolicy: m.table.cfg.BotPolicy,
-		Refusals: m.refusals, Fallbacks: m.fallbacks}
+		Refusals: m.refusals, Fallbacks: m.fallbacks, RootRefusals: m.rootRefusals}
 }
 
 // defaultSeats is PL-14: one bot per seat, seeded from the match seed.
@@ -341,15 +349,26 @@ func (pd *parkedDecision) answer() (decision.Intent, error) {
 // parkedData is the projected shape of one pending decision, split out of the
 // park step so the projection — which touches the live engine — can be held
 // under the match's exclusive lock while the seat step runs without it.
-// Exactly one of v (the projected View) and brd (the botpolicy.Board) is set:
-// a BoardSeat gets brd built from the engine under the same lock view.Project
-// would occupy, and no View is projected for it at all.
+// Which of the fields is set follows the dispatch order (see projectNext): a
+// plain Seat gets only v; a BoardSeat gets only brd, built from the engine
+// under the same lock view.Project would occupy, with no View projected at
+// all; an EnvSeat that wants the decision gets BOTH v and brd (env.View is
+// the plain Seat's projection, env.Board the BoardSeat's board) plus env,
+// the honest root the seat answers from.
 type parkedData struct {
 	p       state.PlayerID
 	v       view.View
 	dc      decision.Decision
 	brd     botpolicy.Board
 	isBoard bool
+	// env, when non-nil, is the host-built input for this decision's
+	// bots.EnvSeat actor (BP-08, spec §5.1): the projected View, the
+	// actor's board and the honest root (env.Search.Engine may be nil when
+	// the redeal refused; env.RootRefused says why). Set only by the Env
+	// branch of projectNext, under the lock; consumed by parkSeat's
+	// DecideEnv call, outside it, and never read after the next decision
+	// refills brd (the same ownership contract the Board path states).
+	env *bots.Env
 }
 
 // projectNext reads the engine's current pending decision and projects the
@@ -422,6 +441,20 @@ func projectNext(m *match, seats []seat.Seat, brd *botpolicy.Board) *parkedData 
 	// View, blanking a live player's board with nothing failing. Testing the
 	// same thing first in both places makes that unrepresentable rather than
 	// merely unlikely.
+	// BP-08 (spec §5.1): an EnvSeat that wants this decision is answered
+	// from a host-built bots.Env, built by m.envData (host/botenv.go) — the
+	// second entry in the dispatch order argued at the BoardSeat comment
+	// below and at parkSeat: HumanSeat, then EnvSeat && WantsEnv, then
+	// BoardSeat, then View. The honest root is built HERE, under the match's
+	// exclusive lock, from the feed this very projectNext just observed
+	// (f.History's last frame is this decision's boundary) and from m.seed
+	// and the decision's seq; DecideEnv runs outside it, in parkSeat. The
+	// !isHuman guard mirrors parkSeat's HumanSeat-first order: a HumanSeat
+	// never implements bots.EnvSeat today, but if one ever did, the human
+	// must still be parked on a View, not silently handed an Env.
+	if es, ok := seats[d.Player].(bots.EnvSeat); ok && !isHuman && es.WantsEnv(&dc) {
+		return m.envData(d.Player, &dc, brd)
+	}
 	if _, ok := seats[d.Player].(seat.BoardSeat); ok && !isHuman {
 		return &parkedData{
 			p:       d.Player,
@@ -475,6 +508,19 @@ func controlledSeats(g *state.Game, viewer state.PlayerID) []state.PlayerID {
 func parkSeat(ctx context.Context, seats []seat.Seat, pd *parkedData, undo <-chan state.PlayerID) *parkedDecision {
 	if hs, ok := seats[pd.p].(*HumanSeat); ok {
 		return &parkedDecision{p: pd.p, hs: hs.park(ctx, pd.v, pd.dc, undo)}
+	}
+	// BP-08 (spec §5.1): the EnvSeat answers from the host-built Env, OUTSIDE
+	// the match lock — DecideEnv may run a whole search, and a blocking seat
+	// must never hold m.mu across it. envData set pd.env exactly when the
+	// seat asserted as bots.EnvSeat here, so the assertions below agree the
+	// same way projectNext's and parkSeat's BoardSeat assertions do; a
+	// mismatched pair falls through to the plain Decide path rather than
+	// panicking, as the BoardSeat branch does.
+	if pd.env != nil {
+		if es, ok := seats[pd.p].(bots.EnvSeat); ok {
+			in, err := es.DecideEnv(ctx, *pd.env, pd.dc)
+			return &parkedDecision{p: pd.p, in: in, err: err}
+		}
 	}
 	if bs, ok := seats[pd.p].(seat.BoardSeat); ok && pd.isBoard {
 		in, err := bs.DecideBoard(ctx, pd.brd, pd.dc)
