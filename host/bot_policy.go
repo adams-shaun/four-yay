@@ -20,9 +20,11 @@ func NewBotPolicySeat(name string, seed uint64) (seat.Seat, error) {
 	return NewBotPolicySeatWithAutoPayMana(name, seed, false)
 }
 
-// newCaretakerSeat builds the timeout caretaker for a human seat.
-func newCaretakerSeat(name string, seed uint64, autoPayMana bool) (seat.Seat, error) {
-	s, err := NewBotPolicySeatWithAutoPayMana(name, seed, autoPayMana)
+// newCaretakerSeat builds the timeout caretaker for a human seat. deps is
+// the embedder's card dependency (host.Options.BotDeps), threaded so a
+// corpus-hungry policy can still build its caretaker on a served table.
+func newCaretakerSeat(name string, seed uint64, autoPayMana bool, deps bots.Deps) (seat.Seat, error) {
+	s, err := NewBotPolicySeatWithDeps(name, seed, autoPayMana, deps)
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +34,19 @@ func newCaretakerSeat(name string, seed uint64, autoPayMana bool) (seat.Seat, er
 	return s, nil
 }
 
-// NewBotPolicySeatWithAutoPayMana builds a named hosted bot.
+// NewBotPolicySeatWithAutoPayMana builds a named hosted bot. Its public
+// signature is load-bearing (cmd/cardfuzz and tests) and carries no card
+// dependency: policies whose factory needs one refuse here, and the host's
+// own paths build through NewBotPolicySeatWithDeps with host.Options.BotDeps.
 func NewBotPolicySeatWithAutoPayMana(name string, seed uint64, autoPayMana bool) (seat.Seat, error) {
-	return bots.New(name, bots.Options{Seed: seed, AutoPayMana: autoPayMana})
+	return NewBotPolicySeatWithDeps(name, seed, autoPayMana, bots.Deps{})
+}
+
+// NewBotPolicySeatWithDeps builds a named hosted bot with the embedder's
+// card dependency (BP-13): every bots.New the host makes carries
+// host.Options.BotDeps, so a policy whose factory reads card facts — the
+// sb-tactical heuristic (bots/sbtactical) — builds on a served table and
+// refuses, with its own error, when a caller builds it bare.
+func NewBotPolicySeatWithDeps(name string, seed uint64, autoPayMana bool, deps bots.Deps) (seat.Seat, error) {
+	return bots.New(name, bots.Options{Seed: seed, AutoPayMana: autoPayMana, Deps: deps})
 }

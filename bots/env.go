@@ -19,7 +19,14 @@ type EnvSeat interface {
 	// function of d; false costs the host no redeal.
 	WantsEnv(d *decision.Decision) bool
 	// DecideEnv answers from env. It must not retain env.Search.Engine or
-	// env.Search.Feed past its return.
+	// env.Search.Feed past its return. One documented exception: an adapter
+	// may install the honest root (env.Search.Engine — a hypothetical redeal,
+	// never the live engine) as its planner via SetPlanner and hold it past
+	// the return; every potentialPlan read in the builtins seat is gated on
+	// the KPriority decision (spec 2026-09-28-hosted-bot-packages §5.1's
+	// hybrid adapter rule), and DecideEnv replaces the planner at the next
+	// priority ask — so a stale root is never read, and the retention never
+	// exposes live hidden cards (the root is a redeal).
 	DecideEnv(ctx context.Context, env Env, d decision.Decision) (decision.Intent, error)
 }
 

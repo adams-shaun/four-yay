@@ -29,11 +29,16 @@ import (
 	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/bots"
 	_ "github.com/adams-shaun/gorge/bots/all"
+	"github.com/adams-shaun/gorge/bots/sbtactical"
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/azmcts"
+	"github.com/adams-shaun/gorge/internal/spellbench/builtins"
+	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/protocol"
 	"github.com/adams-shaun/gorge/replay"
+	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/seat"
 	"github.com/adams-shaun/gorge/state"
 	"github.com/adams-shaun/gorge/view"
@@ -91,6 +96,11 @@ func TestEveryHostedPolicyIsDeterministic(t *testing.T) {
 			run := func(tag string) (protocol.MatchInfo, *events.Log) {
 				opts := testOptions(t)
 				opts.MaxIntents = intents // 0 = play the whole game
+				// BP-13: every hosted policy is built with the same card
+				// dependency a served table gets, so the registry gate covers
+				// the corpus-hungry entries exactly as the host threads them
+				// (a policy whose factory needs one cannot dodge the gate).
+				opts.BotDeps = sampleBotDeps(t)
 				if e.Search {
 					// Parallelism changes latency only, never an answer
 					// (searchseat.Options.Parallelism); 4 keeps the run short.
@@ -234,6 +244,90 @@ func (s *envSpySeat) recorded(seq uint64) *envRecord {
 	return nil
 }
 
+func (s *envSpySeat) envCount() int        { return len(s.envs) }
+func (s *envSpySeat) innerSeat() seat.Seat { return s.inner }
+
+// envViewSpySeat is the View-path spy of the same recording contract: it
+// wraps a hosted EnvSeat that does NOT implement seat.BoardSeat (sb-tactical,
+// BP-13: its WantsEnv is priority-only and every other decision rides the
+// plain View path), so it deliberately carries no DecideBoard — implementing
+// one would send the host down the BoardSeat branch and hand the policy a
+// board it never sees in production. The Env half (WantsEnv/DecideEnv) is
+// recorded identically to envSpySeat; the View half delegates to the wrapped
+// seat's Decide, the exact call the host's plain branch makes. The optional
+// interfaces a hosted bot may carry — seat.PaymentPlanConsumer (the
+// payment-action offer the AutoPay tactical cast candidates read) and
+// bots.RefusalAnswerer (the ladder's rung 1) — are forwarded, so the host
+// treats the wrapper exactly as it treats the bare adapter.
+type envViewSpySeat struct {
+	inner seat.Seat // the built hosted policy
+	envs  []envRecord
+}
+
+func (s *envViewSpySeat) innerSeat() seat.Seat { return s.inner }
+
+func (s *envViewSpySeat) WantsEnv(d *decision.Decision) bool {
+	return s.inner.(bots.EnvSeat).WantsEnv(d)
+}
+
+func (s *envViewSpySeat) DecideEnv(ctx context.Context, env bots.Env, d decision.Decision) (decision.Intent, error) {
+	rec := envRecord{seq: d.Seq, rootRef: env.RootRefused}
+	if e := env.Search.Engine; e != nil {
+		rec.engine, rec.g = e, e.G
+		rec.actorHand = zoneNames(e.G.Zone(state.ZHand, 0), e)
+		rec.oppHand = zoneNames(e.G.Zone(state.ZHand, 1), e)
+		rec.actorLib = zoneNames(e.G.Zone(state.ZLibrary, 0), e)
+		rec.oppLib = zoneNames(e.G.Zone(state.ZLibrary, 1), e)
+	}
+	in, err := s.inner.(bots.EnvSeat).DecideEnv(ctx, env, d)
+	rec.in = in
+	s.envs = append(s.envs, rec)
+	return in, err
+}
+
+func (s *envViewSpySeat) Decide(ctx context.Context, v view.View, d decision.Decision) (decision.Intent, error) {
+	return s.inner.Decide(ctx, v, d)
+}
+
+func (s *envViewSpySeat) WantsPaymentActions() bool {
+	if pc, ok := s.inner.(seat.PaymentPlanConsumer); ok {
+		return pc.WantsPaymentActions()
+	}
+	return false
+}
+
+func (s *envViewSpySeat) AnswerRefused(v view.View, d decision.Decision, refused decision.Intent) decision.Intent {
+	return s.inner.(bots.RefusalAnswerer).AnswerRefused(v, d, refused)
+}
+
+func (s *envViewSpySeat) recorded(seq uint64) *envRecord {
+	for i := range s.envs {
+		if s.envs[i].seq == seq {
+			return &s.envs[i]
+		}
+	}
+	return nil
+}
+
+func (s *envViewSpySeat) envCount() int { return len(s.envs) }
+
+// sampleBotDeps is the card dependency the host tests thread: a cards
+// registry over the same sample deck pool testOptions deals, built without
+// the corpus so the gate runs everywhere. A policy whose factory reads card
+// facts (sb-tactical) resolves them from these cards, exactly what its own
+// package's tests resolve.
+func sampleBotDeps(t *testing.T) bots.Deps {
+	t.Helper()
+	_, decks := testutil.SampleDecks(t, 4)
+	reg := cards.NewRegistry()
+	for _, cs := range decks {
+		for _, c := range cs {
+			reg.Add(c)
+		}
+	}
+	return bots.Deps{Cards: reg}
+}
+
 // TestHostedEnvSeatsIgnoreTheRealHiddenCardsSearch is the search row of the
 // seat-level leak test (§5.3): the REAL search adapter at slot 0, through the
 // REAL host Env path (projectNext under the lock, parkSeat outside it), with
@@ -253,6 +347,52 @@ func TestHostedEnvSeatsIgnoreTheRealHiddenCardsSearch(t *testing.T) {
 		}
 		return s
 	}, nil)
+}
+
+// TestHostedEnvSeatsIgnoreTheRealHiddenCardsSBTactical is the sb-tactical row
+// of the same property (BP-13, §5.3): the REAL sb-tactical adapter at slot 0,
+// through the REAL host Env path, with the swap fixture applied to the second
+// match's live engine at the first decision the adapter wants an Env for — a
+// priority ask, the only kind sb-tactical's WantsEnv claims. The adapter's
+// whole world source is the honest root as its payment planner, so a root
+// that depended on the real hidden cards would price the plays differently
+// and could answer the swapped decision differently in the two matches.
+//
+// The spy is envViewSpySeat, not envSpySeat: sb-tactical implements no
+// DecideBoard (§5.1: a hybrid adapter leaves the plain View path in place),
+// so a BoardSeat spy would exercise a host branch the policy never takes.
+// The probe's target hook adds the routing assertion the §5.1 adapter rule
+// exists for: at the asserted boundary the adapter's planner is the honest
+// root the ENV carried — SetPlanner on the root, and never on the live
+// engine — in both matches. The spy row of the same property lives in
+// botenv_test.go.
+func TestHostedEnvSeatsIgnoreTheRealHiddenCardsSBTactical(t *testing.T) {
+	t.Parallel()
+	hostedEnvLeakRowSpy(t, sbtactical.Policy, func(actor uint64) seat.Seat {
+		s, err := bots.New(sbtactical.Policy, bots.Options{Seed: actor, Deps: sampleBotDeps(t)})
+		if err != nil {
+			t.Fatalf("the sb-tactical policy is not linked into this binary: %v", err)
+		}
+		return s
+	}, &leakProbe{
+		target: func(spy1, spy2 envSpy, boundary uint64) uint64 {
+			r1, r2 := spy1.recorded(boundary), spy2.recorded(boundary)
+			if r1 == nil || r2 == nil || r1.engine == nil || r2.engine == nil {
+				return 0
+			}
+			roots := [2]*rules.Engine{r1.engine, r2.engine}
+			for i, sp := range []envSpy{spy1, spy2} {
+				ad, ok := sp.innerSeat().(interface{ Seat() *builtins.Seat })
+				if !ok {
+					t.Fatalf("the sb-tactical adapter at slot %d does not expose its wrapped seat", i)
+				}
+				if ad.Seat().Planner() != roots[i] {
+					t.Fatalf("slot %d: the adapter's planner is not the Env's honest root: the SetPlanner routing did not run at the asserted boundary", i)
+				}
+			}
+			return boundary
+		},
+	}, func(s seat.Seat) envSpy { return &envViewSpySeat{inner: s} })
 }
 
 // TestHostedEnvSeatsIgnoreTheRealHiddenCardsAZRedeal is the az-redeal row of
@@ -325,7 +465,7 @@ func TestHostedEnvSeatsIgnoreTheRealHiddenCardsAZRedeal(t *testing.T) {
 		// search (and the last boundary before the swapped hand makes the
 		// two games legitimately diverge).
 		swapAt: func(d *decision.Decision) bool { return d.Seq == swapSeq },
-		target: func(spy1, spy2 *envSpySeat, boundary uint64) uint64 {
+		target: func(spy1, spy2 envSpy, boundary uint64) uint64 {
 			r1, r2 := spy1.recorded(boundary), spy2.recorded(boundary)
 			if r1 == nil || r2 == nil || r1.engine == nil || r2.engine == nil {
 				return 0
@@ -454,7 +594,18 @@ type leakProbe struct {
 	// full drive round once the swap is in place, it returns the seq to
 	// assert on (>0) or 0 to keep driving; the drive then fails loudly if a
 	// match ends or the step cap is reached without one.
-	target func(spy1, spy2 *envSpySeat, swapSeq uint64) uint64
+	target func(spy1, spy2 envSpy, swapSeq uint64) uint64
+}
+
+// envSpy is the recording-spy interface hostedEnvLeakRowSpy drives: one
+// wrapper per match. Every half (Decide / DecideEnv) delegates to the real
+// hosted policy while recording the Env inputs, so the leak rows assert on
+// what the REAL adapter was handed and answered.
+type envSpy interface {
+	seat.Seat
+	recorded(seq uint64) *envRecord
+	envCount() int
+	innerSeat() seat.Seat
 }
 
 // probeDiags is diagCount for a possibly nil probe.
@@ -475,6 +626,14 @@ func probeDiags(p *leakProbe) int {
 // search diagnostics to the parked decisions and may move the asserted
 // boundary off the swap boundary (see leakProbe).
 func hostedEnvLeakRow(t *testing.T, policy string, policyNew func(actor uint64) seat.Seat, probe *leakProbe) {
+	hostedEnvLeakRowSpy(t, policy, policyNew, probe, func(s seat.Seat) envSpy { return &envSpySeat{inner: s} })
+}
+
+// hostedEnvLeakRowSpy is hostedEnvLeakRow's body with the recording spy
+// chosen by the caller: the Board-path rows use envSpySeat (above), the
+// View-path rows (BP-13's sb-tactical row) use envViewSpySeat, whose spy
+// carries no DecideBoard so the host's plain branch is exercised exactly.
+func hostedEnvLeakRowSpy(t *testing.T, policy string, policyNew func(actor uint64) seat.Seat, probe *leakProbe, spyFor func(seat.Seat) envSpy) {
 	const seed = envLeakSeed
 	r, err := New(testOptions(t))
 	if err != nil {
@@ -488,14 +647,14 @@ func hostedEnvLeakRow(t *testing.T, policy string, policyNew func(actor uint64) 
 	tbl := r.tables["t1"]
 	r.mu.RUnlock()
 
-	inner := func(actor uint64) *envSpySeat {
+	inner := func(actor uint64) envSpy {
 		// A FRESH seat per match: a hosted bot carries its own RNG state, so
 		// sharing one seat between the two driven matches would couple them
 		// (the spy row builds a fresh seat.NewBot per match for the same
 		// reason).
-		return &envSpySeat{inner: policyNew(actor)}
+		return spyFor(policyNew(actor))
 	}
-	build := func(actor uint64) (*match, *envSpySeat, []seat.Seat) {
+	build := func(actor uint64) (*match, envSpy, []seat.Seat) {
 		spy := inner(actor)
 		seats := []seat.Seat{spy, seat.NewBot(actor)}
 		m, err := r.newMatch(tbl, 0)
@@ -582,7 +741,7 @@ func hostedEnvLeakRow(t *testing.T, policy string, policyNew func(actor uint64) 
 	rec1, rec2 := spy1.recorded(assertSeq), spy2.recorded(assertSeq)
 	if rec1 == nil || rec2 == nil {
 		t.Fatalf("the asserted decision (seq %d) was never parked on DecideEnv (records %d/%d)",
-			assertSeq, len(spy1.envs), len(spy2.envs))
+			assertSeq, spy1.envCount(), spy2.envCount())
 	}
 	if rec1.engine == nil || rec2.engine == nil {
 		t.Fatalf("an honest root was refused at the asserted boundary (%q / %q): the adapter was never handed a world",

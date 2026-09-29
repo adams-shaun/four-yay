@@ -179,6 +179,15 @@ type Options struct {
 	// flag changes latency only, never intents. 0 leaves the entry's own
 	// default. gorged sets it from -bot-search-parallelism.
 	BotSearchParallelism int
+	// BotDeps is the card dependency every hosted bot factory receives
+	// (BP-13, spec §3.2): it rides bots.Options.Deps into every bots.New the
+	// registry's table path makes — defaultSeatsWithAutoPayMana and the
+	// caretaker (bot_policy.go) — so a policy whose factory reads printed
+	// card facts (sb-tactical) can build. A zero Deps keeps every policy
+	// already hosted before BP-13 unchanged and makes sb-tactical refuse at
+	// seat-build time with its own error. gorged sets Cards to the opened
+	// corpus registry.
+	BotDeps bots.Deps
 
 	// OnBurst, when non-nil, is invoked after every recorded burst of every
 	// match created by this registry, including the genesis burst, so an

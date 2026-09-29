@@ -438,7 +438,15 @@ func TestSearchSlotsQueueFIFOAndNeverChangeIntents(t *testing.T) {
 
 // TestSearchSlotWaitAbortsOnClose is BP-10's second assertion: a decision
 // queued on a held slot unblocks with ctx.Err() when its table closes, and
-// the play loop records a clean ABORT (never a crash, never a halt).
+// the play loop records a clean ABORT (never a crash, never a halt). The
+// queued table's serialization while the slot is held is pinned by the
+// harness holder invariant, not by "the queued table never entered
+// DecideEnv": Close closes every table's stop at once, but each run()'s
+// watcher goroutine cancels its play context asynchronously, so the
+// holder's ctx-driven abort can release the slot and the grant can reach
+// the queued wait before that table's own cancellation is observed (a
+// granted waiter then decides with a still-live context and aborts at the
+// next t.stop poll — a clean abort either way).
 func TestSearchSlotWaitAbortsOnClose(t *testing.T) {
 	h := newBP10Harness(1)
 	registerBP10Spy(t, h)
@@ -508,12 +516,17 @@ func TestSearchSlotWaitAbortsOnClose(t *testing.T) {
 		_ = intents
 	}
 
-	// B never entered DecideEnv at all: it was queued the whole time, and the
-	// abort came from the WAIT, not from a deciding seat.
-	for _, l := range h.enteredLabels() {
-		if bp10Tag(l) == bp10Tag(other) {
-			t.Fatalf("table B entered DecideEnv (%s) despite the held slot; the wait never happened", l)
-		}
+	// The queued table must never have SHARED the gate with the holder: no
+	// two searches were ever inside DecideEnv at once, and the holder
+	// high-water mark stayed at one. This is the deterministic form of "the
+	// wait held": an entry that beat the queue would have had to enter while
+	// the slot was still held, and the holders counter sees exactly that,
+	// across the whole run including the Close window.
+	if h.violations != 0 {
+		t.Fatalf("two searches ran inside DecideEnv at once %d times during Close; the slot did not serialize the queued table", h.violations)
+	}
+	if h.maxHolders != 1 {
+		t.Fatalf("slot holder high-water mark %d after Close, want 1", h.maxHolders)
 	}
 }
 
