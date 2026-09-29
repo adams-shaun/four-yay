@@ -80,18 +80,13 @@ func TestManaBrewOnRequiresSeatGate(t *testing.T) {
 // specific pattern to intercept it.
 func TestManaBrewOffMountsNothing(t *testing.T) {
 	t.Parallel()
-	testutil.CorpusRegistry(t)
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	cfg := config{cards: "../../.cards", decks: "../../internal/testutil/decks", tables: 1, seats: 2, pace: 0,
-		cooldown: 0, dir: t.TempDir(), spectator: "omniscient", seed: 1, perpetual: false}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	done := make(chan error, 1)
-	go func() { done <- serve(ctx, cfg, ln) }()
-	url := "http://" + ln.Addr().String()
+	// startServe, not a hand-rolled serve goroutine: every serving test in
+	// the package must cancel and wait for serve to return before the test
+	// ends, because t.TempDir's RemoveAll cleanup races a still-running
+	// persistence writer (this test once failed the module gate with
+	// "TempDir RemoveAll cleanup: directory not empty" when the server was
+	// still shutting down as the cleanup scan ran).
+	url, cancel, done := startServe(t, config{tables: 1, seats: 2, pace: 0, perpetual: false})
 	waitForServer(t, url)
 
 	want := mustGet(t, url+"/api/definitely-not-a-route")
@@ -105,6 +100,10 @@ func TestManaBrewOffMountsNothing(t *testing.T) {
 	}
 	if !bytes.Equal(got.body, want.body) {
 		t.Fatalf("body: got %q, want %q", got.body, want.body)
+	}
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatalf("serve: %v", err)
 	}
 }
 

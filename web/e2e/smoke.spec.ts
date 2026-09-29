@@ -357,40 +357,48 @@ async function matchOfTable(request: APIRequestContext, base: string, table: str
 }
 
 /**
- * dockPromptInRail moves the prompt dock out of the near-table placement and
- * into the rail, so the board beneath it is clickable. The near-table dock is
- * `position: fixed; z-index: 40` and grows up over the board (the default
- * since the ui-promptdock merge); at the ui24 fixture's viewport it covers
- * the board's own collapsed-creature badge, so Playwright's click on that
- * badge never becomes actionable. A player repositions the prompt the same
- * way, with the dock's own toggle button; this test asserts a board
- * interaction, so it first asks for the board-first layout.
+ * dockPromptInRail waits for the prompt dock to reach the rail and, only if
+ * it is still near-table, presses the dock's own placement toggle until it
+ * does. The PRIMARY mechanism is the near-table auto-yield (promptdock2): a
+ * near-table dock that would FULLY cover a board option carrier with one of
+ * its interactive rows latches itself into the rail for that decision
+ * (dockYields in web/src/lib/prompts/dock.ts, latched per decision by
+ * PromptDock.svelte; partial overlap never yields). At the ui24 fixture's
+ * 1000x700 viewport with the seven-attacker ask, the seat-0 collapsed-pile
+ * badge (~28x22 px at ~430,307) lies entirely inside option row 3, so the
+ * dock reaches the rail on its own and the badge underneath is directly
+ * clickable; this test asserts a board interaction, so it asks for the
+ * board-first layout before clicking.
  *
- * (promptdock1 tightened what can intercept: the dock's CHROME — root frame,
- * art spine, title/plain text, body padding — is pointer-transparent while
- * `placement === 'table'` (PromptDock.svelte), so a badge under the padding
- * or the art spine is directly clickable, pinned by
- * src/components/PromptDock.geometry.test.ts. What still intercepts HERE is
- * the dock's own answer surface: the attackers option list, whose rows are
- * interactive by design. Measured at the fixture's 1000x700 viewport with
- * the seven-attacker ask, the seat-0 collapsed-pile badge (~28x22 px at
- * ~430,307) lies entirely inside option row 3 (376..732 x 295.6..332), so
- * the click has no visible part outside a row and the dock must still be
- * moved. A player answers such a prompt from the dock's rows instead —
- * board-first when the card is reachable, rows when it is not.)
+ * (promptdock1 history, still true: the dock's CHROME — root frame, art
+ * spine, title/plain text, body padding — is pointer-transparent while
+ * `placement === 'table'` (PromptDock.svelte), pinned by
+ * src/components/PromptDock.geometry.test.ts, and OptionPicker's popovers
+ * are z-index 45/46, above the dock's 40. Only a board carrier fully covered
+ * by an interactive dock row ever needs the dock moved.)
  *
- * (The dock also sat above the radial picker and card-menu popovers, which is
- * now fixed at the source: OptionPicker's popovers are z-index 45/46, above
- * the dock's 40. Only the board-badge overlap needs the dock moved.)
- *
- * The toggle cycles table -> rail -> floating -> table, so step to 'rail'
- * (bounded) rather than assuming one press. A page with no prompt to answer
- * has no dock to move, and returns.
+ * So the helper is a defensive fallback: the latch is decided one
+ * requestAnimationFrame after the dock mounts, so it first polls
+ * data-placement briefly (~300 ms) for the auto-yield, and only presses the
+ * toggle if the dock is STILL near-table — i.e. the fixture's geometry no
+ * longer produces full coverage, or the latch was not yet applied. (A toggle
+ * press would land the dock in the rail either way; the poll merely keeps
+ * the fallback quiet when the latch wins the race.) The toggle cycles
+ * table -> rail -> rail-bottom -> floating -> table (nextPlacement in
+ * web/src/lib/prompts/dock.ts), so step to 'rail' (bounded) rather than
+ * assuming one press. A page with no prompt to answer has no dock to move,
+ * and returns.
  */
 async function dockPromptInRail(page: Page, label: string): Promise<void> {
   const dock = page.locator('[data-prompt-dock]');
   const present = await dock.waitFor({ state: 'attached', timeout: 3_000 }).then(() => true, () => false);
   if (!present) return;
+  // The auto-yield latch is decided one requestAnimationFrame after the dock
+  // mounts; poll briefly for it before reaching for the toggle.
+  for (let i = 0; i < 6; i++) {
+    if ((await dock.getAttribute('data-placement')) === 'rail') return;
+    await page.waitForTimeout(50);
+  }
   for (let i = 0; i < 4; i++) {
     const placement = await dock.getAttribute('data-placement');
     if (placement === 'rail') return;
