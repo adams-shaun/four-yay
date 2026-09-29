@@ -59,8 +59,8 @@ Nine-Lives Familiar is the corpus lookup spelling (hyphenated).
 | 1 Sephiroth / Altar / Miner | Yes | 10 cycles pass, including fourth-resolution transformation |
 | 1 Rakdos / Soultrader / Miner | Yes, but life-bounded alone | 10 cycles pass; life 20 → 10 |
 | 1 Soultrader / Miner / Sephiroth, with or without Rakdos | Yes | Both combined variants run 10 cycles; pilot life conserved, opponent loses 10 |
-| 2 Rakdos / Ashnod / Thug, optionally Poxwalkers | Yes | **Blocked in first iteration**, top-library placement defect |
-| 2 Artist / Devil payoffs | No, those payoffs absent | Same earlier Thug blocker; not independently simulated |
+| 2 Rakdos / Ashnod / Thug, optionally Poxwalkers | Yes | N=1 and N=20 repeatable lines pass; 101/2,020 events, 23/384 intents |
+| 2 Artist / Devil payoffs | No, those payoffs absent | Thug base line passes; payoffs not independently simulated |
 | 3 Dualcaster / Molten or Saw | No | Each off-list reference line runs 20 loop-bearing copies |
 | 4 Monk / Offering / Saw | No, Saw absent | Off-list reference line runs 20 steady-state cycles |
 | 5 Nightmare / mana-creature pair | Yes for several pairs | Gix / Urabrask runs 1 and 20 full two-activation rounds |
@@ -392,7 +392,8 @@ shared-machine samples, not benchmark claims or a throughput SLA.
 | Soultrader / Rakdos 10 | 620 | 124 | life 10/20, seed B retained | — | `550d3b397c3433ff` |
 | Soultrader / Sephiroth 10 | 623 | 127 | life 20/10, seed B retained | — | `90468e935436dd6f` |
 | Soultrader / both 10 | 963 | 207 | life 20/10, redundant Miner triggers handled | — | `9e799eea0cdde2f8` |
-| Thug requested 1/20 | 43 | 13 | **0 completed**; Thug library, CC floated | — | `a5e80a06fee9e05b` |
+| Thug 1 | 101 | 23 | 1 completed; 2 colorless mana in pool | 1.5 (reported 2026-09-28) | — |
+| Thug 20 | 2,020 | 384 | 20 completed; 40 colorless mana in pool | 17.3 (reported 2026-09-28) | — |
 | Nightmare 1 round | 136 | 35 | 2B + 3R, energy 3 | 3.374 | `39c2118a3e4cb160` |
 | Nightmare 20 rounds | 2738 | 529 | B + 42R, energy 3 | 2.810 | `6ece1ee638ba73a8` |
 | Dualcaster / Molten 20 | 613 | 116 | 21 total Mages after stopping | 4.453 | `82be90d7f2b914ad` |
@@ -433,39 +434,20 @@ IDs are fixture-local, not reusable script identities.
 5. Repeat that same pilot instruction 20 times: **840 events**, Miner always
    restored. After 100, empty library does not end the game; the test asserts it.
 
-**Thug failure** (`thug-blocked.json`, complete counted span 48–90):
+**Thug placement defect — resolved.** The original captured trace (`thug-blocked.json`)
+showed the old object-target `ChangeZone` path moving Thug to the library without
+placing it on top. That defect was fixed in merge `9d2200501` (`effects/zone.go`);
+the repeatable prototype now passes normally and under strict mode. Its measured
+N=1 line is 101 events / 23 intents with 2 colorless mana remaining; N=20 is
+2,020 events / 384 intents with 40 colorless mana remaining. The old trace is
+historical baseline data, not the current result.
 
-```text
-52  move_zone       Thug 83: battlefield -> graveyard, sacrificed
-53  mana_add        CC
-55  decision_made   trigger_order [1 0] (Rakdos bottom, Thug top)
-56  trigger_push    Rakdos 81; target self at 59
-60  trigger_push    Thug 83; target Thug at 63
-71  stack_resolve   Thug trigger
-72  move_zone       Thug 83: graveyard -> library
-82  stack_resolve   Rakdos trigger
-83  move_zone       object 11: library -> exile
-84  move_zone       object 78: library -> exile
-90  decision_ask    pilot priority; Thug still in library
-```
-
-There is no library-order placement event between 72 and 82. This is not a
-livelock and not a missing trigger-order answer. Strict failing assertion:
-
-```sh
-GOMAXPROCS=4 GOMEMLIMIT=2GiB GORGE_LOOP_STRICT=1 go test -p 1 \
-  -run '^TestLoopPrototypeThug/1$' ./rules/ -count=1 -v
-```
-
-Measured exit 1: `Golgari Thug remains in library after Rakdos resolves:
-targeted ChangeZone omitted top placement`. Ordinary research mode logs
-**BLOCKED** and exits that line early, so the passing harness does not assert
-the broken behavior is correct. The strict switch is not a production guard.
 Five corpus files contain the candidate DB ChangeZone / Graveyard → Library /
 LibraryPosition 0 / ValidTgts shape: Golgari Thug, Flitting Guerrilla,
 Hag Hedge-Mage, Meldweb Curator, Boseiju Reaches Skyward // Branch of Boseiju.
 This is a **candidate-shape census**, not five separately verified defects.
-A follow-up CR 608.2c effect-instruction regression should cover placement.
+The original placement issue is covered by the Thug loop regression; no new
+engine change is part of this update.
 
 **Nightmare tutorial checkpoint:** choose X=3, sacrifice Gix, target Urabrask;
 Nightmare returns to hand and energy is spent as real costs. Urabrask enters,
@@ -530,7 +512,7 @@ for those cards at this baseline.
 | Flare of Duplication | Forsaken Miner |
 | Fury | Gamble |
 | Gleaming Barrier | Goblin Recruiter |
-| Golgari Thug (**behavior blocked**) | Greedy Freebooter |
+| Golgari Thug (**behavior measured: N=1/N=20 pass**) | Greedy Freebooter |
 | Grief | Grim Monolith |
 | Hexing Squelcher | Imperial Seal |
 | Impulsive Pilferer | Infernal Plunge |
