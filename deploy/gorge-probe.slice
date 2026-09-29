@@ -1,0 +1,12 @@
+[Unit]
+Description=gorge reward probes — preemptible, short
+Documentation=file:///home/sadams/projects/gorge/docs/superpowers/specs/2026-09-29-reward-loop-and-seed-agent-design.md
+
+[Slice]
+MemoryHigh=6G
+MemoryMax=8G
+MemorySwapMax=4G
+# Higher than heavy, lower than a gate: a probe should finish promptly so the
+# scoreboard stays fresh, but never at a gate's expense.
+CPUWeight=60
+IOWeight=60

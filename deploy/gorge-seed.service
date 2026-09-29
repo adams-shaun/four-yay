@@ -1,0 +1,21 @@
+[Unit]
+Description=gorge reward-loop seed agent (one cycle)
+Documentation=file:///home/sadams/projects/gorge/docs/agents/seed-rubric.md
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/sadams/projects/gorge
+# The seed reads the main checkout and writes only .ds4/reward plus agentctl's
+# ledger. It is deliberately not in a slice with a memory cap: it is shell and
+# Python and finishes in seconds, and the eff probe it may start takes its own
+# lease under gorge-probe.slice.
+Environment=GORGE_TARGET_REPO=/home/sadams/projects/gorge
+Environment=AGENTCTL_DIR=/home/sadams/projects/agentctl
+Environment=SEED_TICKET_CAP=3
+ExecStart=/home/sadams/projects/gorge/scripts/seed-agent.sh
+# A cycle that cannot finish in five minutes has hit something pathological;
+# the next timer firing gets a clean start rather than two overlapping cycles.
+TimeoutStartSec=300
+Nice=5
+StandardOutput=append:/home/sadams/projects/gorge/.ds4/reward/seed.log
+StandardError=append:/home/sadams/projects/gorge/.ds4/reward/seed.log

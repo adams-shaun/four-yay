@@ -1,0 +1,15 @@
+[Unit]
+Description=gorge heavy work (training, gauntlets, sweeps, cardfuzz) — preemptible
+Documentation=file:///home/sadams/projects/gorge/docs/superpowers/specs/2026-09-29-reward-loop-and-seed-agent-design.md
+
+[Slice]
+# A hard ceiling so heavy work CANNOT take the box: two OOMs here (2026-09-27)
+# came from a heavy job holding memory while a gate started. MemoryHigh throttles
+# before MemoryMax kills, which gives broker.sh's pause a chance to land first.
+MemoryHigh=8G
+MemoryMax=12G
+MemorySwapMax=8G
+# A gate's CPUWeight is the default 100; heavy work yields to it by weight, so a
+# paused-but-not-yet-checkpointed job still cannot starve a gate.
+CPUWeight=20
+IOWeight=20
