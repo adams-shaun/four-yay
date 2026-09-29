@@ -35,6 +35,7 @@ import (
 	"sync/atomic"
 
 	"github.com/adams-shaun/gorge/botpolicy"
+	"github.com/adams-shaun/gorge/bots"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/searchprobe"
@@ -101,6 +102,23 @@ func IsAbort(stallOn string) bool { return stallOn == "livelock" || stallOn == "
 // Decision return aborts the game at that decision (the trace-recording
 // failure path); Finish once after the loop.
 //
+// HonestRoot, when set, routes the search branch's DecideSearch call through
+// searchseat.HonestRoot: the seat answers against a redeal of the live
+// position, built from its own observation feed at this boundary, instead of
+// the live engine -- the hosted-bot contract (spec 2026-09-28
+// hosted-bot-packages §5.3). The deal seed is bots.RootSeed over the seat's
+// per-seat seed (the game seed XOR the seat index plus one) and the decision
+// sequence number, so a root is a pure function of the feed and the decision
+// index. A refused redeal (nil root) plays the wrapped bot at that decision
+// -- the same DecideBoard fallback the feed's own failure path uses -- and,
+// when RootRefused is also set, is counted. A refusal never falls back to the
+// live engine: a seat that cannot see an honest world does not get the real
+// one.
+//
+// RootRefused observes one refusal: the deciding seat's index, the decision
+// and the root builder's fail-closed reason. Nil (the zero value) is fine
+// when the caller does not need the count.
+//
 // NeedBoard forces the botpolicy.Board to be built for a View-only seat (a
 // seat that is not a seat.BoardSeat) even when the decision came from the
 // projected View -- the trace wants the board facts regardless. A BoardSeat
@@ -121,8 +139,10 @@ type Hooks struct {
 	// Setup, when non-nil, sees the engine once, right after rules.New and
 	// before the first Advance: the place a collector installs an engine-side
 	// observer (rules.Engine.ManaAbilityHook) that must be live from genesis.
-	Setup     func(e *rules.Engine)
-	NeedBoard bool
+	Setup       func(e *rules.Engine)
+	NeedBoard   bool
+	HonestRoot  bool
+	RootRefused func(seatIdx int, d *decision.Decision, reason string)
 }
 
 // PlayGame plays one game between the given per-seat seats to completion, or
@@ -228,12 +248,30 @@ func PlayGame(cfg rules.Config, seats []seat.Seat, maxTurns, maxIntents int, hoo
 				// The search branch: answer from the deciding seat's own
 				// feed. A feed that stopped observing (a capture error) or
 				// failed THIS capture plays the wrapped bot -- the teacher's
-				// own contract.
+				// own contract. Honest-root mode (Hooks.HonestRoot) narrows
+				// what the seat may READ: the DecideSearch call gets a redeal
+				// of the live position, built from the seat's feed at this
+				// boundary, instead of the live engine; a refused redeal
+				// plays the wrapped bot -- never a clairvoyant fallback.
 				b := botpolicy.BoardFromGameInto(e.G, e, d.Player, &board)
 				decisionBoard = &b
-				if fdFrame {
+				rootEngine := e
+				fdLive := fdFrame
+				if hooks.HonestRoot && fdLive {
+					hroot, reason := searchseat.HonestRoot(setup, fd, e,
+						bots.RootSeed(cfg.Seed^(uint64(d.Player)+1), d.Seq))
+					if hroot != nil {
+						rootEngine = hroot
+					} else {
+						if hooks.RootRefused != nil {
+							hooks.RootRefused(int(d.Player), d, reason)
+						}
+						fdLive = false
+					}
+				}
+				if fdLive {
 					in, err = seats[d.Player].(searchseat.SearchSeat).DecideSearch(context.Background(),
-						searchseat.Env{Setup: setup, Engine: e, Board: b, Feed: fd}, *d)
+						searchseat.Env{Setup: setup, Engine: rootEngine, Board: b, Feed: fd}, *d)
 					// The played intent is recorded back into the history
 					// exactly as the teacher's loop records it (the FINAL
 					// intent, post-override). A translation error means the
