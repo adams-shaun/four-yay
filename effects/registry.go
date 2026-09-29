@@ -2245,6 +2245,10 @@ type Ctx struct {
 	// by the effect (the fx42 scoping discipline), so a nested ChooseNumber
 	// deeper in the same chain poses its own fresh ask.
 	ETBNumberRecorded bool
+	// ETBEvenOddRecorded marks the ChooseEvenOdd body of an ETB replacement:
+	// the entry boundary already asked and recorded the answer on the entering
+	// permanent, so this invocation must not ask a second time.
+	ETBEvenOddRecorded bool
 	// ManaReflectedColor is the answered mid-resolution AB$ ManaReflected
 	// colour pick: the chosen option's structured ManaSymbol ("W"), set by
 	// rules' "manareflected" resume arm before the suspended sub-ability is
