@@ -1,3 +1,8 @@
+//go:build fuzz
+
+// Fuzz tests are opt-in: build tag `fuzz` (make fuzz). 60 seeded 4-seat games; minutes of CPU; they stay
+// out of the default `go test ./...` and every pipeline gate.
+
 package rules
 
 import (

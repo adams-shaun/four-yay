@@ -210,6 +210,13 @@ gc-gate:
 # budget, in each package's TEST_HISTORY.md (Task TT). The pre-commit hook
 # enforces the budget on changed packages.
 .PHONY: test-time
+# fuzz runs the opt-in fuzz tests (build tag `fuzz`): the rules seed-fuzz
+# acceptance sweep and the ManaBrew decoder fuzz target's seed corpus. They
+# are excluded from `make test` and the pipeline gates; run by hand or at night.
+.PHONY: fuzz
+fuzz:
+	go test $(GO_TEST_FLAGS) -tags fuzz -count=1 -run 'Fuzz' ./rules ./protocol/manabrew
+
 test-time:
 	go run ./cmd/testtime -all
 
