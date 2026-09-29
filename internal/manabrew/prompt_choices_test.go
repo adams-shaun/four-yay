@@ -70,6 +70,34 @@ func TestChooseKinds(t *testing.T) {
 	}
 }
 
+// TestChooseDamageSplitRealShape covers the actual DividedAsYouChoose$ ask
+// (effects/damage.go:97-166, Forked Bolt): Option.Kind there is "card" or
+// "player" -- freely mixed -- never the literal string "damage_split", and
+// the marker is Decision.ResumeKind. A translator keyed only on
+// Options[0].Kind would either fall to default (single-kind list) or reject
+// the mixed-kind list outright; both must map to chooseFromSelection with
+// Min==Max==the named total.
+func TestChooseDamageSplitRealShape(t *testing.T) {
+	d := newDec(8, 0, decision.KChoose, decision.Option{Index: 0, Kind: "card", Label: "Bear", Obj: 9}, decision.Option{Index: 1, Kind: "player", Label: "Bob", Player: 1})
+	d.ResumeKind = "damage_split"
+	d.Min, d.Max = 4, 4
+	d.Repeatable = true
+	p, err := New("t", 1, nil).Prompt(d, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	in, ok := p.Input.Value.(mb.ChooseFromSelectionInput)
+	if !ok {
+		t.Fatalf("got %T, want ChooseFromSelectionInput", p.Input.Value)
+	}
+	if in.MinTotal != 4 || in.MaxTotal != 4 {
+		t.Fatalf("min/max total = %d/%d, want 4/4", in.MinTotal, in.MaxTotal)
+	}
+	if len(in.Options) != 2 || !in.Options[0].CanRepeat || !in.Options[1].CanRepeat {
+		t.Fatalf("options = %+v, want 2 repeatable options", in.Options)
+	}
+}
+
 func TestModes(t *testing.T) {
 	d := newDec(2, 0, decision.KModes, decision.Option{Index: 0, Kind: "mode", Label: "Draw"}, decision.Option{Index: 1, Kind: "mode", Label: "Destroy"})
 	d.Min, d.Max = 1, 1

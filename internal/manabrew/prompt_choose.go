@@ -13,6 +13,21 @@ func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.Prompt
 	if len(d.Options) == 0 {
 		return mb.PromptMessage{}, ErrUnmapped
 	}
+	pres := mb.PromptBase{Presentation: mb.PromptPresentation{Title: d.Prompt, Description: chooseConstraint(d), Targets: []mb.TargetRef{}}}
+	// The DividedAsYouChoose$ ask (effects/damage.go:97-166, spec §6.3's
+	// "damage_split" row) is a real KChoose whose options name the chosen
+	// targets themselves -- Option.Kind is "card" or "player", freely mixed,
+	// never the literal string "damage_split". Its ResumeKind is the only
+	// marker, so it is recognised before the uniform-option-kind gate below
+	// (which a mixed card/player option list would otherwise fail).
+	if d.ResumeKind == "damage_split" {
+		options := make([]mb.SelectionOption, 0, len(d.Options))
+		for _, o := range d.Options {
+			options = append(options, mb.SelectionOption{Label: o.Label, Weight: 1, CanRepeat: d.Repeatable})
+		}
+		in := mb.PromptInputData(mb.ChooseFromSelectionInput{PromptBase: pres, Options: options, MinTotal: d.Min, MaxTotal: d.Max})
+		return mb.PromptMessage{Kind: "prompt", AgentPrompt: mb.AgentPrompt{PromptID: promptID(d), DecidingPlayerID: playerID(d.Player), SourceCard: t.sourceCard(v, d.Source), Input: mb.PromptInput{Value: in}}}, nil
+	}
 	kind := d.Options[0].Kind
 	mixedYesNo := kind == "yes" || kind == "no"
 	for _, o := range d.Options {
@@ -20,7 +35,6 @@ func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.Prompt
 			return mb.PromptMessage{}, ErrUnmapped
 		}
 	}
-	pres := mb.PromptBase{Presentation: mb.PromptPresentation{Title: d.Prompt, Description: chooseConstraint(d), Targets: []mb.TargetRef{}}}
 	var in mb.PromptInputData
 	switch kind {
 	case "color", "mana":
