@@ -1,3 +1,8 @@
+//go:build fuzz
+
+// Fuzz tests are opt-in: build tag `fuzz` (make fuzz). a native fuzz target; they stay
+// out of the default `go test ./...` and every pipeline gate.
+
 package manabrew
 
 import (
