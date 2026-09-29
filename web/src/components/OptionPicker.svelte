@@ -344,7 +344,7 @@
 
   /* The portal itself has no box: each 42px control is positioned around the
      badge centre by placeRadial, making the empty middle read as a wheel. */
-  .radial-pop { position: fixed; inset: 0; z-index: 20; pointer-events: none; }
+  .radial-pop { position: fixed; inset: 0; z-index: 45; pointer-events: none; }
   /* One slot per option: the button plus its help bubble. The slot is an
      unpositioned, zero-size grouping so the button's own fixed coordinates
      are untouched; :hover and :focus-within on the slot are what reveal the
@@ -354,7 +354,7 @@
   .wheel-slot { pointer-events: none; }
   .wheel-tip {
     position: fixed;
-    z-index: 21;
+    z-index: 46;
     box-sizing: border-box;
     width: max-content;
     max-width: 280px;
@@ -430,7 +430,7 @@
 
   .menu-pop {
     position: fixed;
-    z-index: 20;
+    z-index: 45;
     box-sizing: border-box;
     overflow-y: auto;
     background: var(--instrument);

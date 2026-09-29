@@ -99,9 +99,10 @@ func TestDeployStartsTheServersWhenTheArtFillFails(t *testing.T) {
 			cmd.Dir = tmp
 			cmd.Stdout, cmd.Stderr = outFile, outFile
 			cmd.Env = append(os.Environ(),
-				// RETIRED_PORTS= keeps the sweep off the live demo's retired
-				// :8081 -- its default would stop a real gorged there.
-				"BIN="+stub, "DECKS="+filepath.Join(tmp, "decks"), "ART_DIR="+artDir, "SWEEP=ports", "RETIRED_PORTS=",
+				// RETIRED_PORTS= and MB_PORT= keep the sweep and the start
+				// off the live demo's :8081 ManaBrew server -- MB_PORT's
+				// default would stop a real gorged there and bind the port.
+				"BIN="+stub, "DECKS="+filepath.Join(tmp, "decks"), "ART_DIR="+artDir, "SWEEP=ports", "RETIRED_PORTS=", "MB_PORT=",
 				fmt.Sprintf("PUB_PORT=%d", ports[0]), fmt.Sprintf("OMNI_PORT=%d", ports[1]),
 				"PUB_DIR="+filepath.Join(tmp, "pub"), "OMNI_DIR="+filepath.Join(tmp, "omni"),
 				"PUB_LOG="+filepath.Join(tmp, "pub.log"), "OMNI_LOG="+filepath.Join(tmp, "omni.log"))

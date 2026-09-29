@@ -10,9 +10,23 @@ import (
 	"github.com/adams-shaun/gorge/view"
 )
 
-func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.PromptMessage, error) {
+// promptChoose maps a KChoose ask onto its wire prompt. The bool it returns
+// is the MBX-7 fallback flag: true exactly when the ask had no specific
+// mapping (an option shape this package does not know) and the prompt is
+// fallbackChoose's generic, always-answerable selection over the native
+// option labels instead. The MB-8 census rejects a pose that ERRORS
+// (ErrUnmapped) -- that is the unanswerable prompt that deadlocked the ManaBrew
+// seat on Council's Judgment -- so no live KChoose returns one any more:
+// every miss falls back, and the census counts the fallback separately
+// (mbtest.Census.Fallback) so the unmapped counter stays the honest
+// "no prompt at all" register.
+func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.PromptMessage, bool, error) {
+	// An option-less KChoose (Min 0, e.g. an empty ballot) poses the generic
+	// selection with no options: a Min-0 client answer (an empty selection)
+	// is exactly the engine's own legal answer, so the prompt is answerable
+	// whenever the engine's ask is.
 	if len(d.Options) == 0 {
-		return mb.PromptMessage{}, ErrUnmapped
+		return t.fallbackChoose(d, v, true)
 	}
 	// The two mana-payment windows (rules/announce_pay.go's announced CR
 	// 601.2g window and rules/cast.go's legacy manaWindowAsk) are KChoose
@@ -24,7 +38,8 @@ func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.Prompt
 	// shape (prompt_payment.go's manaWindowAsk doc), an "activate" option
 	// alongside a "done" option.
 	if isManaPaymentWindow(d) {
-		return t.promptPayment(d, v)
+		msg, err := t.promptPayment(d, v)
+		return msg, false, err
 	}
 	pres := mb.PromptBase{Presentation: mb.PromptPresentation{Title: d.Prompt, Description: chooseConstraint(d), Targets: []mb.TargetRef{}}}
 	// The DividedAsYouChoose$ ask (effects/damage.go:97-166, spec §6.3's
@@ -39,7 +54,7 @@ func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.Prompt
 			options = append(options, mb.SelectionOption{Label: o.Label, Weight: 1, CanRepeat: d.Repeatable})
 		}
 		in := mb.PromptInputData(mb.ChooseFromSelectionInput{PromptBase: pres, Options: options, MinTotal: d.Min, MaxTotal: d.Max})
-		return mb.PromptMessage{Kind: "prompt", AgentPrompt: mb.AgentPrompt{PromptID: promptID(d), DecidingPlayerID: playerID(d.Player), SourceCard: t.sourceCard(v, d.Source), Input: mb.PromptInput{Value: in}}}, nil
+		return mb.PromptMessage{Kind: "prompt", AgentPrompt: mb.AgentPrompt{PromptID: promptID(d), DecidingPlayerID: playerID(d.Player), SourceCard: t.sourceCard(v, d.Source), Input: mb.PromptInput{Value: in}}}, false, nil
 	}
 	// A mid-resolution target/player pick (effects/targets_ask.go's
 	// poseTargetsAsk, resumed as "tgts" or "choice", and the many
@@ -57,7 +72,7 @@ func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.Prompt
 	if isTargetRefOptions(d.Options) {
 		intent, hostile := targetingIntent(d.TargetEffect)
 		in := boardTargetInput(d, intent, hostile)
-		return mb.PromptMessage{Kind: "prompt", AgentPrompt: mb.AgentPrompt{PromptID: promptID(d), DecidingPlayerID: playerID(d.Player), SourceCard: t.sourceCard(v, d.Source), Input: mb.PromptInput{Value: in}}}, nil
+		return mb.PromptMessage{Kind: "prompt", AgentPrompt: mb.AgentPrompt{PromptID: promptID(d), DecidingPlayerID: playerID(d.Player), SourceCard: t.sourceCard(v, d.Source), Input: mb.PromptInput{Value: in}}}, false, nil
 	}
 	// The flexible-pip announcement ask (rules/cumulative.go's pipAnnounceAsk,
 	// shared by cast-time hybrid/Phyrexian pips, Echo and cumulative upkeep):
@@ -84,7 +99,7 @@ func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.Prompt
 			options = append(options, mb.SelectionOption{Label: o.Label, Weight: 1})
 		}
 		in := mb.PromptInputData(mb.ChooseFromSelectionInput{PromptBase: pres, Options: options, MinTotal: d.Min, MaxTotal: d.Max})
-		return mb.PromptMessage{Kind: "prompt", AgentPrompt: mb.AgentPrompt{PromptID: promptID(d), DecidingPlayerID: playerID(d.Player), SourceCard: t.sourceCard(v, d.Source), Input: mb.PromptInput{Value: in}}}, nil
+		return mb.PromptMessage{Kind: "prompt", AgentPrompt: mb.AgentPrompt{PromptID: promptID(d), DecidingPlayerID: playerID(d.Player), SourceCard: t.sourceCard(v, d.Source), Input: mb.PromptInput{Value: in}}}, false, nil
 	}
 	if allPayPipOptions(d.Options) {
 		options := make([]mb.SelectionOption, 0, len(d.Options))
@@ -92,7 +107,7 @@ func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.Prompt
 			options = append(options, mb.SelectionOption{Label: o.Label, Weight: 1})
 		}
 		in := mb.PromptInputData(mb.ChooseFromSelectionInput{PromptBase: pres, Options: options, MinTotal: d.Min, MaxTotal: d.Max})
-		return mb.PromptMessage{Kind: "prompt", AgentPrompt: mb.AgentPrompt{PromptID: promptID(d), DecidingPlayerID: playerID(d.Player), SourceCard: t.sourceCard(v, d.Source), Input: mb.PromptInput{Value: in}}}, nil
+		return mb.PromptMessage{Kind: "prompt", AgentPrompt: mb.AgentPrompt{PromptID: promptID(d), DecidingPlayerID: playerID(d.Player), SourceCard: t.sourceCard(v, d.Source), Input: mb.PromptInput{Value: in}}}, false, nil
 	}
 	// The api:ChangeText word ask (effects/changetext.go effChangeText,
 	// ResumeKind "changetext"): one option per word candidate, Kind
@@ -111,7 +126,7 @@ func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.Prompt
 			options = append(options, mb.SelectionOption{Label: o.Label, Weight: 1})
 		}
 		in := mb.PromptInputData(mb.ChooseFromSelectionInput{PromptBase: pres, Options: options, MinTotal: d.Min, MaxTotal: d.Max})
-		return mb.PromptMessage{Kind: "prompt", AgentPrompt: mb.AgentPrompt{PromptID: promptID(d), DecidingPlayerID: playerID(d.Player), SourceCard: t.sourceCard(v, d.Source), Input: mb.PromptInput{Value: in}}}, nil
+		return mb.PromptMessage{Kind: "prompt", AgentPrompt: mb.AgentPrompt{PromptID: promptID(d), DecidingPlayerID: playerID(d.Player), SourceCard: t.sourceCard(v, d.Source), Input: mb.PromptInput{Value: in}}}, false, nil
 	}
 	kind := d.Options[0].Kind
 	election := electionKinds[kind]
@@ -123,24 +138,12 @@ func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.Prompt
 		}
 	}
 	if !uniform {
-		// The labelled-alternatives fallback (MBX-6, found via seed-42
-		// cardfuzz lane game): a pick-one ask whose options are mixed-Kind
-		// legal ANSWERS themselves -- effects/taporuntap.go's tap-or-untap
-		// election ("tap"/"untap", order state-flipped, so KIND equality
-		// can never hold), and any future ask of the same shape. It maps
-		// onto chooseFromSelection like every other label-only ask (the
-		// chosen index IS the answer; the engine reads the option kind off
-		// the chosen option), and stays fail-closed for anything that is
-		// not a Min==Max==1 pick over plain labelled alternatives.
-		if !labelledAlternatives(d) {
-			return mb.PromptMessage{}, ErrUnmapped
-		}
-		options := make([]mb.SelectionOption, 0, len(d.Options))
-		for _, o := range d.Options {
-			options = append(options, mb.SelectionOption{Label: o.Label, Weight: 1})
-		}
-		in := mb.PromptInputData(mb.ChooseFromSelectionInput{PromptBase: pres, Options: options, MinTotal: d.Min, MaxTotal: d.Max})
-		return mb.PromptMessage{Kind: "prompt", AgentPrompt: mb.AgentPrompt{PromptID: promptID(d), DecidingPlayerID: playerID(d.Player), SourceCard: t.sourceCard(v, d.Source), Input: mb.PromptInput{Value: in}}}, nil
+		// A mixed-Kind list none of the recognised mixed shapes above claims:
+		// MBX-7's class closure. Before this ticket such a list returned
+		// ErrUnmapped -- the unanswerable prompt that deadlocked a ManaBrew
+		// seat -- so any new option shape a card poses falls back to the
+		// generic label selection instead, answered by native option index.
+		return t.fallbackChoose(d, v, true)
 	}
 	var in mb.PromptInputData
 	switch kind {
@@ -230,7 +233,17 @@ func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.Prompt
 			in = mb.ChooseFromSelectionInput{PromptBase: pres, Options: options, MinTotal: d.Min, MaxTotal: d.Max}
 		}
 	case "exile", "sacrifice", "discard", "search", "dig", "keep",
-		"exilecost", "revealcost", "beholdcost", "returncost", "hand_move", "hidden_pick", "reveal":
+		"exilecost", "revealcost", "beholdcost", "returncost", "hand_move", "hidden_pick", "reveal", "vote_card":
+		// "vote_card" is api:Vote's candidate ballot (effects/misc.go's
+		// askCardVote, MBX-7): one option per ballot permanent, Obj the
+		// permanent's id, Label its name, Player its controller (CR 400.2,
+		// the fact the voter's own policy needs to prefer a foreign permanent
+		// over its own). It maps onto chooseCards like the other card-pick
+		// asks: distinct permanents have distinct ids, so every ballot entry
+		// is selectable and parseChooseCards maps each pick back to its
+		// option index. The controller is presentation-only here (a
+		// CardDto has no controller field); the prompt's Title carries the
+		// card's own VoteMessage ("for a nonland permanent you don't control").
 		cards := make([]mb.CardDto, 0, len(d.Options))
 		for _, o := range d.Options {
 			cards = append(cards, t.optionCard(v, o))
@@ -261,40 +274,68 @@ func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.Prompt
 			options = append(options, mb.SelectionOption{Label: o.Label, Weight: 1})
 		}
 		in = mb.ChooseFromSelectionInput{PromptBase: pres, Options: options, MinTotal: d.Min, MaxTotal: d.Max}
-	case "name", "type", "dungeon", "room", "roll", "look_ack", "choice":
+	case "name", "type", "dungeon", "room", "roll", "look_ack", "choice", "vote":
+		// "vote" is api:Vote's fixed-list ballot (effects/misc.go's
+		// askFixedVote, MBX-7): one option per named choice (the SVar names a
+		// card's Choices$ list holds, e.g. Expropriate's branches), with a
+		// SYNTHETIC Obj (index+1) that is not any view object -- which is why
+		// it must map onto the label-only selection, never chooseCards.
+		// parseChooseFromSelection maps ChosenIndices straight back to option
+		// indexes.
 		options := make([]mb.SelectionOption, 0, len(d.Options))
 		for _, o := range d.Options {
 			options = append(options, mb.SelectionOption{Label: o.Label, Weight: 1})
 		}
 		in = mb.ChooseFromSelectionInput{PromptBase: pres, Options: options, MinTotal: d.Min, MaxTotal: d.Max}
 	default:
-		// The labelled-pick fallback (MBX-6): a uniform-kind pick this
-		// switch has no kind-specific shape for. Options that all carry an
-		// object reference are a card-selection over those objects
+		// The object-pick fallback (MBX-6): a uniform-kind pick this switch
+		// has no kind-specific shape for whose options all carry an object
+		// reference is a card-selection over those objects
 		// (effects/counters.go putCounterChoose's "counter_pick": pick
 		// Min..Max battlefield objects, each takes the full CounterNum$) ->
 		// chooseCards, answered by object identity so same-named creatures
-		// stay distinct. Plain labelled alternatives with no object
-		// (rules/cast.go's additional-cost pick, kind "altaddcost") ->
-		// chooseFromSelection by index, the answer the engine reads off the
-		// chosen option itself. Anything else stays fail-closed.
+		// stay distinct. Every other unmapped shape -- plain labelled
+		// alternatives such as rules/cast.go's additional-cost pick (kind
+		// "altaddcost"), or any option shape this package does not know --
+		// falls back to MBX-7's generic label selection, which is
+		// always-answerable and cannot widen what Decision.Validate accepts.
 		if allOptionsHaveObjects(d.Options) {
 			cards := make([]mb.CardDto, 0, len(d.Options))
 			for _, o := range d.Options {
 				cards = append(cards, t.optionCard(v, o))
 			}
 			in = mb.ChooseCardsInput{PromptBase: pres, Cards: cards, Min: d.Min, Max: d.Max}
-		} else if labelledAlternatives(d) {
-			options := make([]mb.SelectionOption, 0, len(d.Options))
-			for _, o := range d.Options {
-				options = append(options, mb.SelectionOption{Label: o.Label, Weight: 1})
-			}
-			in = mb.ChooseFromSelectionInput{PromptBase: pres, Options: options, MinTotal: d.Min, MaxTotal: d.Max}
 		} else {
-			return mb.PromptMessage{}, fmt.Errorf("%w: choose option kind %q", ErrUnmapped, kind)
+			return t.fallbackChoose(d, v, true)
 		}
 	}
-	return mb.PromptMessage{Kind: "prompt", AgentPrompt: mb.AgentPrompt{PromptID: promptID(d), DecidingPlayerID: playerID(d.Player), SourceCard: t.sourceCard(v, d.Source), Input: mb.PromptInput{Value: in}}}, nil
+	return mb.PromptMessage{Kind: "prompt", AgentPrompt: mb.AgentPrompt{PromptID: promptID(d), DecidingPlayerID: playerID(d.Player), SourceCard: t.sourceCard(v, d.Source), Input: mb.PromptInput{Value: in}}}, false, nil
+}
+
+// fallbackChoose is the MBX-7 class closer: any KChoose this package has no
+// specific mapping for -- a mixed-Kind list no recognised shape claims, an
+// unknown single Kind, or (degenerately) an option-less ask -- still poses
+// an ANSWERABLE prompt instead of the ErrUnmapped error that left a ManaBrew
+// seat waiting forever: a generic chooseFromSelection over the native option
+// labels in option order. parseChooseFromSelection maps a selectionDecision's
+// ChosenIndices straight back to the native option indexes (no remapping),
+// and Decision.Validate is the one legality fence, so the fallback cannot
+// widen what the engine accepts -- it only makes every offered option
+// selectable. The returned bool is the fallback flag the census counts
+// (mbtest.Census.Fallback) so a fallback pose stays visible even though the
+// unmapped counter now stays at zero.
+func (t *Translator) fallbackChoose(d *decision.Decision, v *view.View, fallback bool) (mb.PromptMessage, bool, error) {
+	pres := mb.PromptBase{Presentation: mb.PromptPresentation{Title: d.Prompt, Description: chooseConstraint(d), Targets: []mb.TargetRef{}}}
+	options := make([]mb.SelectionOption, 0, len(d.Options))
+	for _, o := range d.Options {
+		label := o.Label
+		if label == "" {
+			label = fmt.Sprintf("option %d", o.Index)
+		}
+		options = append(options, mb.SelectionOption{Label: label, Weight: 1, CanRepeat: d.Repeatable})
+	}
+	in := mb.PromptInputData(mb.ChooseFromSelectionInput{PromptBase: pres, Options: options, MinTotal: d.Min, MaxTotal: d.Max})
+	return mb.PromptMessage{Kind: "prompt", AgentPrompt: mb.AgentPrompt{PromptID: promptID(d), DecidingPlayerID: playerID(d.Player), SourceCard: t.sourceCard(v, d.Source), Input: mb.PromptInput{Value: in}}}, fallback, nil
 }
 
 // parseChooseNumber maps chooseNumber's numberDecision (§6.4) for the two
@@ -631,12 +672,17 @@ func chooseConstraint(d *decision.Decision) string {
 }
 
 func (t *Translator) optionCard(v *view.View, o decision.Option) mb.CardDto {
+	name := strings.TrimPrefix(o.Label, "Discard ")
 	if c := findCard(v, o.Obj); c != nil {
 		if visible, ok := t.visibleCard(*c).Value.(mb.VisibleCard); ok {
-			return visible.CardDto
+			card := visible.CardDto
+			if card.Identity.Name == "" && name != "" {
+				card.Identity.Name = name
+			}
+			return card
 		}
 	}
-	return mb.CardDto{ID: cardID(o.Obj), Identity: mb.CardIdentity{}, Types: []string{}, Subtypes: []string{}, Supertypes: []string{}, Choices: []mb.CardChoiceDto{}, AttachmentIDs: []string{}, MergedCardIDs: []string{}, Color: []string{}, Counters: map[string]int{}}
+	return mb.CardDto{ID: cardID(o.Obj), Identity: mb.CardIdentity{Name: name}, Types: []string{}, Subtypes: []string{}, Supertypes: []string{}, Choices: []mb.CardChoiceDto{}, AttachmentIDs: []string{}, MergedCardIDs: []string{}, Color: []string{}, Counters: map[string]int{}}
 }
 
 // allPayPipOptions reports whether every option of a KChoose decision is one

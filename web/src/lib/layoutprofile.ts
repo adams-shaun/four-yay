@@ -26,7 +26,7 @@ export type RegionOrder = 'entry' | 'name' | 'power';
 export type Overflow = 'overlap' | 'scroll' | 'wrap';
 export type RailSide = 'left' | 'right' | 'hidden';
 export type LogMode = 'remember' | 'show' | 'hide';
-export type PromptPlacement = 'dock' | 'float';
+export type PromptPlacement = 'table' | 'dock' | 'dock-bottom' | 'float';
 
 export const ARRANGEMENTS: readonly Arrangement[] = ['columns', 'grid', 'focus'];
 export const ORIENTATIONS: readonly Orientation[] = ['mirrored', 'same'];
@@ -36,7 +36,7 @@ export const REGION_ORDERS: readonly RegionOrder[] = ['entry', 'name', 'power'];
 export const OVERFLOWS: readonly Overflow[] = ['overlap', 'scroll', 'wrap'];
 export const RAIL_SIDES: readonly RailSide[] = ['left', 'right', 'hidden'];
 export const LOG_MODES: readonly LogMode[] = ['remember', 'show', 'hide'];
-export const PROMPT_PLACEMENTS: readonly PromptPlacement[] = ['dock', 'float'];
+export const PROMPT_PLACEMENTS: readonly PromptPlacement[] = ['table', 'dock', 'dock-bottom', 'float'];
 
 export const ARRANGEMENT_LABELS: Record<Arrangement, string> = { columns: 'Columns', grid: 'Grid', focus: 'Focus' };
 export const ORIENTATION_LABELS: Record<Orientation, string> = { mirrored: 'Mirrored', same: 'Same as mine' };
@@ -46,7 +46,7 @@ export const ORDER_LABELS: Record<RegionOrder, string> = { entry: 'Entry order',
 export const OVERFLOW_LABELS: Record<Overflow, string> = { overlap: 'Overlap', scroll: 'Scroll', wrap: 'Wrap' };
 export const RAIL_LABELS: Record<RailSide, string> = { left: 'Left', right: 'Right', hidden: 'Hidden' };
 export const LOG_LABELS: Record<LogMode, string> = { remember: 'Per table', show: 'Show', hide: 'Hide' };
-export const PROMPT_LABELS: Record<PromptPlacement, string> = { dock: 'Rail dock', float: 'Floating' };
+export const PROMPT_LABELS: Record<PromptPlacement, string> = { table: 'Near table', dock: 'Rail top', 'dock-bottom': 'Rail bottom', float: 'Floating' };
 
 /** The width weights the drawer offers (S/M/L/XL). Any value in range validates. */
 export const WEIGHT_STEPS: readonly { value: number; label: string }[] = [
@@ -58,6 +58,8 @@ export const WEIGHT_STEPS: readonly { value: number; label: string }[] = [
 
 export const SPLIT_MIN = 0.18;
 export const SPLIT_MAX = 0.72;
+export const RAIL_MIN = 0.14;
+export const RAIL_MAX = 0.4;
 export const WEIGHT_MIN = 0.2;
 export const WEIGHT_MAX = 3;
 export const ART_MIN = 0;
@@ -104,6 +106,8 @@ export interface LayoutProfile {
   };
   panels: {
     rail: RailSide;
+    /** rail width as a fraction of the viewport */
+    railWidth: number;
     log: LogMode;
     /** where the decision prompt goes; x/y are the floating prompt's top-left as a fraction of the viewport */
     prompt: { placement: PromptPlacement; x: number; y: number };
@@ -155,6 +159,10 @@ const PRESET_SHAPES: Record<PresetId, PresetShape> = {
  * defaultSplit is the centre bar's reset position for a seat count (the
  * double-click reset): the split of the preset built for that many seats.
  */
+export function defaultRailWidth(_seats = 2): number {
+  return 0.21;
+}
+
 export function defaultSplit(seats: number): number {
   if (seats <= 2) return PRESET_SHAPES.duel.table.split;
   if (seats <= 4) return PRESET_SHAPES.cmd4.table.split;
@@ -171,7 +179,7 @@ export function defaultProfile(): LayoutProfile {
       regions: cloneRegions(PRESET_SHAPES.duel.regions),
       cards: { stacking: true, overflow: 'overlap', artBelow: 58, outlines: false },
       hand: { visible: 0.72, raise: true },
-      panels: { rail: 'right', log: 'remember', prompt: { placement: 'dock', x: 0.6, y: 0.12 } },
+      panels: { rail: 'right', railWidth: defaultRailWidth(), log: 'remember', prompt: { placement: 'dock', x: 0.6, y: 0.12 } },
     },
     'duel',
   );
@@ -232,7 +240,7 @@ function canonical(p: LayoutProfile): unknown {
     regions: Object.fromEntries(REGION_KEYS.map((k) => [k, { row: p.regions[k].row, weight: p.regions[k].weight, anchor: p.regions[k].anchor, order: p.regions[k].order }])),
     cards: { stacking: p.cards.stacking, overflow: p.cards.overflow, artBelow: p.cards.artBelow, outlines: p.cards.outlines },
     hand: { visible: p.hand.visible, raise: p.hand.raise },
-    panels: { rail: p.panels.rail, log: p.panels.log, prompt: { placement: p.panels.prompt.placement, x: p.panels.prompt.x, y: p.panels.prompt.y } },
+    panels: { rail: p.panels.rail, railWidth: p.panels.railWidth, log: p.panels.log, prompt: { placement: p.panels.prompt.placement, x: p.panels.prompt.x, y: p.panels.prompt.y } },
   };
 }
 
@@ -288,6 +296,8 @@ export function validate(v: unknown): LayoutProfile | null {
   if (!num(hand.visible, HAND_MIN, HAND_MAX) || typeof hand.raise !== 'boolean') return null;
   const prompt = panels.prompt;
   if (!oneOf(panels.rail, RAIL_SIDES) || !oneOf(panels.log, LOG_MODES) || !isObj(prompt)) return null;
+  const railWidth = panels.railWidth === undefined ? defaultRailWidth() : panels.railWidth;
+  if (!num(railWidth, RAIL_MIN, RAIL_MAX)) return null;
   if (!oneOf(prompt.placement, PROMPT_PLACEMENTS) || !num(prompt.x, 0, 1) || !num(prompt.y, 0, 1)) return null;
   return {
     version: 1,
@@ -295,7 +305,7 @@ export function validate(v: unknown): LayoutProfile | null {
     regions: compactRows(regs),
     cards: { stacking: cards.stacking, overflow: cards.overflow, artBelow: cards.artBelow, outlines: cards.outlines },
     hand: { visible: hand.visible, raise: hand.raise },
-    panels: { rail: panels.rail, log: panels.log, prompt: { placement: prompt.placement, x: prompt.x, y: prompt.y } },
+    panels: { rail: panels.rail, railWidth, log: panels.log, prompt: { placement: prompt.placement, x: prompt.x, y: prompt.y } },
   };
 }
 

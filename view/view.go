@@ -20,6 +20,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/deck"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -78,13 +79,21 @@ type Chars interface {
 	// the seat's own hidden zones, so the view attaches it to the viewer's
 	// own seat only.
 	PotentialActions(state.PlayerID) []decision.PotentialAction
+	// OwnDeck is the viewer's own genesis deck manifest, or nil when the
+	// implementation has none. It is a member of Chars (not an optional
+	// capability probed by type assertion) so that a Chars WRAPPER -- such
+	// as searchprobe's noPotentialChars -- forwards it to whatever it
+	// embeds; an assertion against the wrapper sees only the embedded
+	// interface's methods and would silently drop the manifest.
+	OwnDeck(state.PlayerID) *deck.Manifest
 }
 
 // View is one seat's complete picture of the game: everything public, plus
 // whatever is theirs alone (their hand, their mana pool, a decision asked of
 // them).
 type View struct {
-	Viewer state.PlayerID `json:"viewer"`
+	Viewer  state.PlayerID `json:"viewer"`
+	OwnDeck *deck.Manifest `json:"own_deck,omitempty"`
 	// Visibility names which rule set built this view: "seat", "public" or
 	// "omniscient" (see Visibility).
 	Visibility string `json:"visibility"`
@@ -347,6 +356,10 @@ type CardView struct {
 	// ManaCost is the printed cost in Forge's notation ("1 W", "R", "X G").
 	// Hand lists render it as symbols.
 	ManaCost string `json:"mana_cost,omitempty"`
+	// EffectiveManaCost is the offer-time cost to cast this card when the
+	// engine can determine a non-X own-cost composition that differs from
+	// the printed ManaCost. Empty means use ManaCost.
+	EffectiveManaCost string `json:"effective_mana_cost,omitempty"`
 	// SpellAPI is the API of the card's primary cast-shape ability (its
 	// SP$ line -- "Counter" for Counterspell, "DealDamage" for Lightning
 	// Bolt, "" for a card with no spell ability, which is every creature
@@ -926,6 +939,13 @@ func cardViews(g *state.Game, ch Chars, ids []state.ObjID, includeAbilityCosts b
 			continue
 		}
 		cv := cardView(g, ch, id)
+		if effective, ok := ch.(interface {
+			SpellEffectiveCost(state.PlayerID, state.ObjID) string
+		}); ok {
+			if cost := effective.SpellEffectiveCost(abilityPlayer, id); cost != "" && cost != cv.ManaCost {
+				cv.EffectiveManaCost = cost
+			}
+		}
 		// A face-down exiled card is public as a distinct object but its face is
 		// visible only to its controller (or an omniscient projection). Keep
 		// every printed field blank for other viewers; Secret on the original

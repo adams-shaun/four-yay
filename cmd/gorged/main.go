@@ -16,6 +16,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/adams-shaun/gorge/bots"
 	_ "github.com/adams-shaun/gorge/bots/all"
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/deck"
@@ -647,7 +648,11 @@ func (g config) hostOptions(reg *cards.Registry, load func(string) (host.Deck, e
 	// the engine and the bots themselves.
 	return host.Options{Dir: g.dir, LoadDeck: load, Tokens: reg.Tokens, NameUniverse: reg.Cards, Sync: true, Cooldown: g.cooldown,
 		MaxDecisionsPerTurn: host.DefaultMaxDecisionsPerTurn, DefaultBotAutoPayMana: g.botAutoPayMana,
-		MaxOnDemandTables: g.maxOnDemandTables, ThinkTimeout: g.manabrewThinkTimeout()}
+		MaxOnDemandTables: g.maxOnDemandTables, ThinkTimeout: g.manabrewThinkTimeout(),
+		// BP-13 (spec §3.2): every hosted bot factory receives the served card
+		// registry, so a policy that reads printed card facts (sb-tactical)
+		// builds with the same corpus the table deals.
+		BotDeps: bots.Deps{Cards: reg}}
 }
 
 // artCacheDir resolves where the card-art cache lives: -art-dir when set,

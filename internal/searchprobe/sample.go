@@ -437,7 +437,8 @@ func Sample(setup PublicGame, h History, opts SampleOptions) (out SampleResult, 
 	// attempt, so the attempts may run on several goroutines. Each writes its
 	// own SampleResult and the results are folded in ATTEMPT ORDER below, which
 	// makes the output byte-identical to the sequential loop whatever the
-	// scheduling (pinned by TestSampleParallelismIsInvisible).
+	// scheduling (pinned by the "Parallelism is wall clock only" check in
+	// TestSampleRealDeckGolden and by TestTeacherChoiceLeafIndependentOfParallelism).
 	type frozenOutcome struct {
 		res      SampleResult
 		world    World

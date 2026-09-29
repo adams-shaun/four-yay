@@ -54,6 +54,14 @@ func TestSearchReplaysWorldsAndFallsBackWithoutCoverage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if len(result.Worlds) == 0 {
+		// The sampler can legitimately accept zero worlds when every attempt
+		// is prefix-rejected (observed history disagrees with the replayed
+		// frame). Fail with the SampleResult diagnostics instead of panicking
+		// on the index below.
+		t.Fatalf("sample accepted no worlds: Attempts:%d Accepted:%d PrefixRejected:%d BudgetExhausted:%d FirstRejection:%q",
+			result.Attempts, result.Accepted, result.PrefixRejected, result.BudgetExhausted, result.FirstRejection)
+	}
 	d := result.Worlds[0].Engine.Pending()
 	a, err := result.Worlds[0].Observer.Actions(d, decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{0}})
 	if err != nil {

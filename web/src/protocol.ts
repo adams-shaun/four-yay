@@ -145,6 +145,25 @@ export interface MatchStart {
 }
 
   /**
+   * ManifestRow is one canonical card-name/count pair in an own-deck manifest.
+   */
+export interface ManifestRow {
+  name: string;
+  count: number;
+}
+
+  /**
+   * Manifest is the immutable, unordered genesis list assigned to one seat.
+   * Call Clone before publishing or retaining it outside its owner.
+   */
+export interface Manifest {
+  name: string;
+  main: ManifestRow[];
+  sideboard?: ManifestRow[];
+  commanders?: string[];
+}
+
+  /**
    * Printing is the identity a client resolves an image by: the exact face
    * name today. Set and Number stay empty until a printing table exists
    * (roadmap open question 1); the fields are here so the wire shape does
@@ -201,6 +220,12 @@ export interface CardView {
    * Hand lists render it as symbols.
    */
   mana_cost?: string;
+  /**
+   * EffectiveManaCost is the offer-time cost to cast this card when the
+   * engine can determine a non-X own-cost composition that differs from
+   * the printed ManaCost. Empty means use ManaCost.
+   */
+  effective_mana_cost?: string;
   /**
    * SpellAPI is the API of the card's primary cast-shape ability (its
    * SP$ line -- "Counter" for Counterspell, "DealDamage" for Lightning
@@ -1211,6 +1236,7 @@ export interface Decision {
    */
 export interface View {
   viewer: number;
+  own_deck?: Manifest | null;
   /**
    * Visibility names which rule set built this view: "seat", "public" or
    * "omniscient" (see Visibility).

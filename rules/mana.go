@@ -2165,6 +2165,51 @@ func (e *Engine) costAmountTargets(p state.PlayerID, id state.ObjID, scope costS
 	return targets[:max]
 }
 
+// SpellEffectiveCost returns id's non-X own spell cost after offer-time cost
+// modifiers, in Forge notation. It is scoped to the hand -- the only zone the
+// cast-offer walk (rules/legal.go) prices -- so a battlefield permanent or a
+// graveyard flashback card never carries an "effective cast cost" it cannot
+// use. It deliberately declines alternative/dynamic shapes rather than
+// presenting an incomplete amount.
+func (e *Engine) SpellEffectiveCost(p state.PlayerID, id state.ObjID) string {
+	o := e.G.Obj(id)
+	if o == nil || o.Face() == nil || o.Zone != state.ZHand {
+		return ""
+	}
+	f := o.Face()
+	if f.SpellAbility() == nil {
+		return ""
+	}
+	base := e.parseCost(f.ManaCost)
+	if base.X != 0 || base.XMin != 0 || base.WaterbendX {
+		return ""
+	}
+	// The own-cost projection does not price alternate cast faces or extra
+	// costs. The ordinary face spell shape is the only supported case here.
+	if f.SpellAbility().Params["AlternativeCost"] != "" || f.SpellAbility().Params["Cost"] != "" {
+		return ""
+	}
+	mods := e.costModifiersWithTargetsUsing(e.collectCostStatics(), p, id, spellScope(""), nil, false)
+	if mods.hasExtra || mods.setFloor != 0 || mods.raiseX != 0 {
+		return ""
+	}
+	cost := e.offerCostFor(p, id, base, spellScope(""))
+	if cost.X != 0 {
+		return ""
+	}
+	// Compare NORMALIZED costs on both sides: f.ManaCost is the raw printed
+	// string, whose colour order / pip spelling formatCost may re-render
+	// identically-in-meaning but differently in text ({2 G B} -> "2 B G").
+	// A raw-vs-normalized compare would then report a spurious "effective"
+	// cost for a card no static touches. Normalizing the base first makes an
+	// unchanged card read unchanged however its printed string is spelled,
+	// while a real RaiseCost/ReduceCost still differs after normalization.
+	if formatCost(cost) == formatCost(base) {
+		return ""
+	}
+	return formatCost(cost)
+}
+
 // AbilityCosts returns id's non-mana activated-ability costs after the same
 // offer-time RaiseCost/ReduceCost composition legalActions applies. The order
 // is the face's authored ability order. This is a projection helper: it emits

@@ -2,6 +2,7 @@ package host
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"sync"
@@ -179,6 +180,15 @@ type Options struct {
 	// flag changes latency only, never intents. 0 leaves the entry's own
 	// default. gorged sets it from -bot-search-parallelism.
 	BotSearchParallelism int
+	// BotDeps is the card dependency every hosted bot factory receives
+	// (BP-13, spec §3.2): it rides bots.Options.Deps into every bots.New the
+	// registry's table path makes — defaultSeatsWithAutoPayMana and the
+	// caretaker (bot_policy.go) — so a policy whose factory reads printed
+	// card facts (sb-tactical) can build. A zero Deps keeps every policy
+	// already hosted before BP-13 unchanged and makes sb-tactical refuse at
+	// seat-build time with its own error. gorged sets Cards to the opened
+	// corpus registry.
+	BotDeps bots.Deps
 
 	// OnBurst, when non-nil, is invoked after every recorded burst of every
 	// match created by this registry, including the genesis burst, so an
@@ -370,16 +380,35 @@ type searchSlots struct {
 
 func newSearchSlots(limit int) *searchSlots { return &searchSlots{limit: limit} }
 
+// errTableClosed is the distinct stop condition acquire reports when the
+// waiter's own table has been closed (its stop channel is closed) but the
+// play context derived from that stop has not yet been cancelled. The two
+// are not the same thing: Close closes every table's stop synchronously
+// under r.mu, while each run()'s bridging goroutine cancels the play ctx
+// asynchronously, so a waiter can be granted the slot with a still-live
+// ctx after its stop closed. Reporting ctx.Err() alone would miss that
+// window and let the waiter enter DecideEnv on a live context; a distinct
+// sentinel lets the play loop recognise the case and abort the match
+// rather than run one more searched decision.
+var errTableClosed = errors.New("host: table closed")
+
 // acquire takes one slot, or queues FIFO behind the holders until one is
 // released. It returns ctx.Err() when the context is done first — including
 // the races where the grant and the cancellation arrive together, in which
 // case this acquire hands the slot it just won to the next waiter before
 // returning, so a cancelled waiter never swallows a slot and never enters
-// DecideEnv on a dead context.
-func (s *searchSlots) acquire(ctx context.Context) error {
+// DecideEnv on a dead context. It returns errTableClosed when the waiter's
+// own stop channel closed instead (see that sentinel), which the caller
+// must treat exactly like a cancellation: the slot is handed on and the
+// match aborts, never runs another decision.
+func (s *searchSlots) acquire(ctx context.Context, stop <-chan struct{}) error {
 	if err := ctx.Err(); err != nil {
 		// Already cancelled: never take a slot on a dead context.
 		return err
+	}
+	if stopClosed(stop) {
+		// The table was closed before the wait even began: never take a slot.
+		return errTableClosed
 	}
 	s.mu.Lock()
 	if s.held < s.limit {
@@ -392,6 +421,16 @@ func (s *searchSlots) acquire(ctx context.Context) error {
 	s.mu.Unlock()
 	select {
 	case <-ch:
+		// The grant and a stop arrived together: a stop-closed table must not
+		// decide on a live context any more than a cancelled one may. Check
+		// stop FIRST and non-blockingly, then ctx, and hand the slot on either
+		// way — a stop or ctx race must never swallow the slot.
+		if stopClosed(stop) {
+			s.mu.Lock()
+			defer s.mu.Unlock()
+			s.releaseLocked()
+			return errTableClosed
+		}
 		if err := ctx.Err(); err != nil {
 			// The grant and the cancellation arrived together: hand the slot
 			// just won on to the next waiter (or drop it) exactly as release
@@ -402,6 +441,19 @@ func (s *searchSlots) acquire(ctx context.Context) error {
 			return err
 		}
 		return nil
+	case <-stop:
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		for i, w := range s.waiters {
+			if w == ch {
+				s.waiters = append(s.waiters[:i], s.waiters[i+1:]...)
+				return errTableClosed
+			}
+		}
+		// Not in the queue any more: release handed us the slot as the stop
+		// closed. Hand it on (or drop it) exactly as release would.
+		s.releaseLocked()
+		return errTableClosed
 	case <-ctx.Done():
 		s.mu.Lock()
 		defer s.mu.Unlock()
@@ -415,6 +467,18 @@ func (s *searchSlots) acquire(ctx context.Context) error {
 		// fired. Hand it on (or drop it) exactly as release would.
 		s.releaseLocked()
 		return ctx.Err()
+	}
+}
+
+// stopClosed performs the non-blocking "has this table's stop closed?"
+// check acquire uses before and after a grant. A nil stop (a gate-less or
+// test caller) is never closed.
+func stopClosed(stop <-chan struct{}) bool {
+	select {
+	case <-stop:
+		return true
+	default:
+		return false
 	}
 }
 

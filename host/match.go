@@ -2,6 +2,7 @@ package host
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"runtime/debug"
 	"sort"
@@ -304,23 +305,26 @@ func (m *match) sidecar() sidecar {
 
 // defaultSeats is PL-14: one bot per seat, seeded from the match seed.
 func defaultSeats(policy string, names []string, seed uint64) []seat.Seat {
-	return defaultSeatsWithAutoPayMana(policy, false, names, seed, 0)
+	return defaultSeatsWithAutoPayMana(policy, false, names, seed, 0, bots.Deps{})
 }
 
 // defaultSeatsWithAutoPayMana builds every table bot with the persisted
-// auto-payment setting and the registry's search parallelism. Keeping the
+// auto-payment setting, the registry's search parallelism and the embedder's
+// card dependency (BP-13: deps rides bots.Options.Deps into every factory,
+// so a policy that reads card facts builds on a served table). Keeping the
 // legacy wrapper preserves embedders and tests that intentionally exercise
 // the historical manual-mana policy.
-func defaultSeatsWithAutoPayMana(policy string, autoPayMana bool, names []string, seed uint64, searchParallelism int) []seat.Seat {
+func defaultSeatsWithAutoPayMana(policy string, autoPayMana bool, names []string, seed uint64, searchParallelism int, deps bots.Deps) []seat.Seat {
 	out := make([]seat.Seat, len(names))
 	for i := range names {
 		// BP-10: BotSearchParallelism rides bots.Options.SearchParallelism so a
 		// search entry folds its parallel worlds with the embedder's flag. The
-		// policy wrapper (bot_policy.go NewBotPolicySeatWithAutoPayMana) is
-		// exactly bots.New with Seed and AutoPayMana and stays untouched — its
-		// public signature is used by cmd/cardfuzz and the tests, and the
-		// caretaker below never seats a search policy.
-		bot, err := bots.New(policy, bots.Options{Seed: seed ^ uint64(i+1), AutoPayMana: autoPayMana, SearchParallelism: searchParallelism})
+		// policy wrapper (bot_policy.go NewBotPolicySeatWithAutoPayMana) stays
+		// untouched — its public signature is used by cmd/cardfuzz and the
+		// tests; the table path builds through bots.New with Seed,
+		// AutoPayMana, SearchParallelism and BotDeps, exactly what the
+		// wrapper would thread.
+		bot, err := bots.New(policy, bots.Options{Seed: seed ^ uint64(i+1), AutoPayMana: autoPayMana, SearchParallelism: searchParallelism, Deps: deps})
 		if err != nil {
 			panic(err) // policy was normalized before the table was registered.
 		}
@@ -540,7 +544,7 @@ func controlledSeats(g *state.Game, viewer state.PlayerID) []state.PlayerID {
 // stays closed. The decision's owner seat is stable, so the BoardSeat/HumanSeat
 // assertions here match projectNext's, and exactly the field that was built is
 // consumed.
-func parkSeat(ctx context.Context, seats []seat.Seat, pd *parkedData, undo <-chan state.PlayerID, gate *searchSlots) *parkedDecision {
+func parkSeat(ctx context.Context, seats []seat.Seat, pd *parkedData, undo <-chan state.PlayerID, gate *searchSlots, stop <-chan struct{}) *parkedDecision {
 	if hs, ok := seats[pd.p].(*HumanSeat); ok {
 		return &parkedDecision{p: pd.p, hs: hs.park(ctx, pd.v, pd.dc, undo)}
 	}
@@ -561,7 +565,7 @@ func parkSeat(ctx context.Context, seats []seat.Seat, pd *parkedData, undo <-cha
 			// crashing (a table being closed is not a crash). defer releases
 			// the slot on every path, panics included.
 			if pd.wantsSearchSlot && gate != nil {
-				if aerr := gate.acquire(ctx); aerr != nil {
+				if aerr := gate.acquire(ctx, stop); aerr != nil {
 					return &parkedDecision{p: pd.p, err: aerr, searchSlot: true}
 				}
 				defer gate.release()
@@ -611,7 +615,7 @@ func (r *Registry) play(ctx context.Context, t *table, m *match) (final string) 
 	// human's timeout caretaker; -bot-auto-mana only takes effect when the
 	// feature itself is enabled for the table.
 	autoPayMana := t.cfg.autoPayManaEnabled()
-	seats := defaultSeatsWithAutoPayMana(t.cfg.BotPolicy, autoPayMana, m.cfg.Names, m.seed, r.opts.BotSearchParallelism)
+	seats := defaultSeatsWithAutoPayMana(t.cfg.BotPolicy, autoPayMana, m.cfg.Names, m.seed, r.opts.BotSearchParallelism, r.opts.BotDeps)
 	if r.opts.Seats != nil {
 		seats = r.opts.Seats(m.cfg.Names, m.seed)
 	}
@@ -644,7 +648,7 @@ func (r *Registry) play(ctx context.Context, t *table, m *match) (final string) 
 	// never races a Decide.
 	for i, s := range seats {
 		if hs, ok := s.(*HumanSeat); ok {
-			caretaker, err := newCaretakerSeat(t.cfg.BotPolicy, m.seed^uint64(i+1), autoPayMana)
+			caretaker, err := newCaretakerSeat(t.cfg.BotPolicy, m.seed^uint64(i+1), autoPayMana, r.opts.BotDeps)
 			if err != nil {
 				return r.crash(t, m, err)
 			}
@@ -752,7 +756,7 @@ func (r *Registry) play(ctx context.Context, t *table, m *match) (final string) 
 			if data == nil {
 				return r.crash(t, m, fmt.Errorf("engine stalled: game not over and no decision pending"))
 			}
-			parked = parkSeat(ctx, seats, data, m.undo.signal, gate)
+			parked = parkSeat(ctx, seats, data, m.undo.signal, gate, t.stop)
 		}
 		// Await the answer to the parked decision (parked at the first live
 		// iteration or at the end of the previous one). A bot seat resolved
@@ -780,7 +784,7 @@ func (r *Registry) play(ctx context.Context, t *table, m *match) (final string) 
 			// aborts the match instead of crashing it: a table being closed is
 			// not a crash. Every other seat keeps the historical crash contract
 			// (Ruling FL-17): a cancelled plain seat crashes the match.
-			if ctx.Err() != nil && parked.searchSlot {
+			if parked.searchSlot && (ctx.Err() != nil || errors.Is(err, errTableClosed)) {
 				return r.abort(m)
 			}
 			return r.crash(t, m, fmt.Errorf("seat %d: %w", parked.p, err))
@@ -914,7 +918,7 @@ func (r *Registry) play(ctx context.Context, t *table, m *match) (final string) 
 		// match mutex must never be held across one. Publishing happens only
 		// after this, so the park-before-publish ordering still holds.
 		if nextData != nil {
-			next = parkSeat(ctx, seats, nextData, m.undo.signal, gate)
+			next = parkSeat(ctx, seats, nextData, m.undo.signal, gate, t.stop)
 		}
 		// Park the engine's NEXT decision BEFORE publishing it: the seat that
 		// owns it is now accept-ready, so the fan-out below cannot expose a

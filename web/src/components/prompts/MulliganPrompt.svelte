@@ -1,5 +1,9 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import type { CardView, Decision, Option, View } from '../../protocol';
+  import { hotkeyAction } from '../../lib/hotkeys';
+  import { keymapStore } from '../../lib/keymap.svelte';
+  import { modalPickerOpen } from '../../lib/modals';
   import type { SeatPanelState } from '../../lib/seatpanel.svelte';
   import { mulliganPhase } from '../../lib/prompts/decision';
   import { digitMap, renderedOrder } from '../../lib/prompts/order';
@@ -31,6 +35,28 @@
   function cardFor(o: Option): CardView | undefined {
     return o.obj === undefined ? undefined : handById.get(o.obj);
   }
+
+  // The digit badges are the pick-N hotkeys. Their usual listener lives in
+  // HotButtonStrip, which the mulligan round does not mount (controlsLive is
+  // false until turn 1), so the round wires pick-N and confirm itself --
+  // standing down whenever a strip IS mounted, so a key never acts twice.
+  onMount(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (keymapStore.capturing || document.querySelector('[data-hot-strip]') !== null) return;
+      const action = hotkeyAction(e, modalPickerOpen, keymapStore.current);
+      if (action === null) return;
+      if (e.repeat) return;
+      if (action.startsWith('pick-')) {
+        if (!logic.pickHotkey(Number(action.slice(5)))) return;
+      } else if (action === 'confirm' && mull?.phase === 'bottom') {
+        if (!logic.canSubmit || logic.busy) return;
+        logic.submit();
+      } else return;
+      e.preventDefault();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  });
 </script>
 
 {#if mull !== null && mull.phase === 'keep'}

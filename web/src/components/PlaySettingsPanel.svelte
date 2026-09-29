@@ -72,6 +72,7 @@
   } from '../lib/playsettings';
   import type { SeatPanelState } from '../lib/seatpanel.svelte';
   import BreakpointsSection from './BreakpointsSection.svelte';
+  import ProtocolSetting from './ProtocolSetting.svelte';
   import KeymapEditor from './KeymapEditor.svelte';
   import { keymapStore } from '../lib/keymap.svelte';
   import { downloadText } from '../lib/download';
@@ -619,6 +620,7 @@
     </button>
     <p class="legend">Arrangement, card sizes, stacking and the rail are layout profiles: they save in this browser and can be exported to a file.</p>
   </section>
+  <section class="sec"><h3>Connection</h3><ProtocolSetting /></section>
 
   <!-- Remembered trigger answers (fb-20260914T062319Z-88b4069a B4): the
        management list for the remember checkbox on optional-trigger prompts.
