@@ -1087,6 +1087,10 @@ type Ctx struct {
 	// resumePoint). Nil when the chain's targets were never spells.
 	TargetSpellLKI map[state.ObjID]bool
 	Remembered     []state.Target
+	// ExchangeLife publishes numeric riders to Count$RememberedNumber for
+	// the remainder of the resolution (not the source's remembered objects).
+	ExchangeNumber      int32
+	ExchangeNumberBound bool
 	// ForgetOtherSnapshot retains the pre-clear IsRemembered candidates across
 	// a multi-owner ChangeZone pick/search and its mid-resolution asks. It is
 	// resolution-local; only the actual remembered set is event-backed.

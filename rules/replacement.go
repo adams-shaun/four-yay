@@ -6014,13 +6014,19 @@ const (
 )
 
 type lifeExchangeTransaction struct {
-	source       state.ObjID
-	controller   state.PlayerID
-	oldLife      int32
-	player       state.PlayerID
-	lifeBefore   int32
-	setPower     bool
-	setToughness bool
+	source         state.ObjID
+	controller     state.PlayerID
+	oldLife        int32
+	player         state.PlayerID
+	lifeBefore     int32
+	setPower       bool
+	setToughness   bool
+	second         events.Event
+	stage          uint8
+	rememberLoss   bool
+	rememberCtx    *effects.Ctx
+	controllerLife int32
+	staged         []events.Event
 }
 
 type replChoice struct {
@@ -6672,9 +6678,17 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 		if next, consumed := e.applyLifeReplacement(rc.ev, m); !consumed {
 			applied := append(append([]replMatch(nil), rc.appliedRepls...), m)
 			e.continueLifeReplacements(next, applied)
+		} else {
+			e.consumeExchangeLifeSide(rc.ev)
 		}
-		if rc.exchange != nil && e.pending == nil && len(e.replChoices) == 0 {
-			e.finishLifeExchange(rc.exchange)
+		if rc.exchange != nil {
+			if e.pending == nil && len(e.replChoices) == 0 {
+				e.finishLifeExchange(rc.exchange)
+			} else {
+				// The chosen replacement's body itself suspended (a Dredge ask):
+				// park the transaction for the drain that answers it.
+				e.pendingLifeExchange = rc.exchange
+			}
 		}
 		e.lifeExchange = priorExchange
 		e.damaging, e.combatDamaging, e.dmgSrcOverride = damaging, combat, override
@@ -6958,6 +6972,12 @@ func (e *Engine) askNextReplacementChoice() {
 			e.askMadnessReplacement(o.Owner)
 		}
 	}
+	// No replacement-order decision remains outstanding: an exchange
+	// transaction parked by a suspension (a consumed GainLife→Draw body whose
+	// own draw parked a Dredge ask) has no other drain, so finish it here. A
+	// competition asked just above re-set e.pending, which makes this inert
+	// until that answer lands and calls this tail again.
+	e.settlePendingLifeExchange()
 }
 
 // handleDamageReplacementChoice returns false only when recomputation leaves
@@ -7199,6 +7219,7 @@ func (e *Engine) finishChosenDamage(rc replChoice) {
 // all "plus N", all prevention), where every order produces the same event.
 func (e *Engine) applyLifeReplacements(ev events.Event) (events.Event, bool) {
 	if ev.Kind == events.LifeChange && ev.Amount > 0 && e.lifeGainForbidden(ev.Player) {
+		e.consumeExchangeLifeSide(ev)
 		return e.emit(events.Event{Kind: events.Note, Player: ev.Player, Text: "prevented: cannot gain life"}), true
 	}
 	return e.continueLifeReplacements(ev, nil)
@@ -7211,6 +7232,9 @@ func (e *Engine) continueLifeReplacements(ev events.Event, applied []replMatch) 
 	for {
 		cands := e.lifeReplacementCandidates(ev, applied)
 		if len(cands) == 0 {
+			if e.lifeExchange != nil && e.lifeExchange.second.Kind != 0 {
+				return e.stageExchangeLife(ev), true
+			}
 			if len(applied) == 0 {
 				return ev, false
 			}
@@ -7222,6 +7246,7 @@ func (e *Engine) continueLifeReplacements(ev events.Event, applied []replMatch) 
 		m := cands[0]
 		next, consumed := e.applyLifeReplacement(ev, m)
 		if consumed {
+			e.consumeExchangeLifeSide(ev)
 			return ev, true
 		}
 		ev = next
@@ -7465,6 +7490,9 @@ func (e *Engine) lifeReplacementDraw(p state.PlayerID, n int32) {
 // replacement pass: every applicable replacement has had its one opportunity.
 // A gain reduced to nothing (LimitMax of zero) is no event at all.
 func (e *Engine) emitLifeReplacement(ev events.Event) (events.Event, bool) {
+	if e.lifeExchange != nil && e.lifeExchange.second.Kind != 0 {
+		return e.stageExchangeLife(ev), true
+	}
 	if ev.Kind == events.LifeChange && ev.Amount == 0 {
 		return ev, true
 	}
