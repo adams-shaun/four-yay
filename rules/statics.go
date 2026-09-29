@@ -2458,6 +2458,44 @@ func amountMayReadTargets(sv staticView) bool {
 // deterministic zone walk grantedCostStaticHosts takes.
 func (e *Engine) appendEffectCostStatics(out *costStaticViews) {
 	for _, ce := range e.active() {
+		// A GRANTED AddKeyword$ Affinity entry (CR 702.41a) prices here: a
+		// printed K:Affinity is expanded at keyword-expansion time into a face
+		// ReduceCost static (cards/kw_affinity.go) that the printed walk above
+		// collects, but a keyword GRANTED by a layer-6 Continuous static -- a
+		// printed S: line's AddKeyword$ (Witherbloom, the Balancer's
+		// "Instant and sorcery spells you cast have affinity for creatures",
+		// Mycosynth Golem) or the same body delivered by an api:Effect
+		// (effects' registerStaticEffectGrant) -- rides in
+		// ContinuousEffect.AddKeywords and has no face to carry that static,
+		// so the cost scan saw nothing. Synthesize the ReduceCost static the
+		// printed expander would have minted and bind it to the grant's
+		// recipients through appendGrantedCostStatic, the same machinery a
+		// granted cost static uses: Affected$ and AffectedZone$ come off the
+		// ContinuousEffect itself (Witherbloom's AffectedZone$ Stack keeps the
+		// reduction off a spell still in hand), Amount$ is the inline
+		// Count$Valid <spec><sep>YouCtrl (kwAffinity's separator rule: a
+		// dot-less spec joins ".", a dotted one "+"), and no Color$ --
+		// affinity reduces generic only. The count reads the battlefield, so a
+		// grantor that is itself a creature you control prices its own granted
+		// affinity.
+		//
+		// Fail closed: an AddKeywords entry that is not Affinity mints nothing
+		// (its grant still applies through the ordinary layer-6 walk), and an
+		// Affinity entry with an empty spec mints nothing. Condition gates
+		// (Condition$/CheckSVar$/IsPresent$/...) are NOT re-read here because
+		// registration already evaluated them before the effect went live --
+		// the layer walk's continuousGateHolds for a printed S: line,
+		// effects' effectStaticGrantReadable for an Effect-delivered body --
+		// so what reaches this walk is a live grant and a dead one is not in
+		// e.active() at all. A future grammar that prices other granted
+		// cost-reduction keywords (Delve, Improvise, Convoke -- none granted
+		// via AddKeyword$ in the corpus) registers alongside this arm.
+		if arms := affinityGrantCostStatics(&ce); len(arms) > 0 {
+			for _, arm := range arms {
+				e.appendGrantedCostStatic(&out.reduce, arm, state.ZStack)
+			}
+			continue
+		}
 		var dst *[]staticView
 		switch ce.CostStaticMode {
 		case "RaiseCost":
@@ -2470,7 +2508,7 @@ func (e *Engine) appendEffectCostStatics(out *costStaticViews) {
 			continue
 		}
 		if ce.CostStaticGranted {
-			e.appendGrantedCostStatic(dst, &ce)
+			e.appendGrantedCostStatic(dst, &ce, 0)
 			continue
 		}
 		*dst = append(*dst, staticView{Source: ce.Source, Controller: ce.Controller,
@@ -2486,7 +2524,14 @@ func (e *Engine) appendEffectCostStatics(out *costStaticViews) {
 // its Controller (Activator$ You/Opponent read the object that has the
 // ability), EffectZone$ gates on the host's zone (default the battlefield),
 // and the granting face's SVar table resolves Amount$/CheckSVar$ names.
-func (e *Engine) appendGrantedCostStatic(dst *[]staticView, ce *ContinuousEffect) {
+//
+// atStack is the cast-context zone override (derivedWith's shape): a spell
+// being PRICED is a stack spell for CR purposes even while it is still in
+// hand (CR 601.2i -- the convoke announcement uses the same override), so
+// when the caller sets it the AffectedZone$ gate and the host match read the
+// cast zone instead of each candidate's live one. Callers pricing objects
+// outside a cast pass 0 and keep the historical live-zone read.
+func (e *Engine) appendGrantedCostStatic(dst *[]staticView, ce *ContinuousEffect, atStack state.Zone) {
 	add := func(id state.ObjID) {
 		o := e.G.Obj(id)
 		if o == nil || (o.Zone == state.ZBattlefield && o.PhasedOut) ||
@@ -2506,16 +2551,38 @@ func (e *Engine) appendGrantedCostStatic(dst *[]staticView, ce *ContinuousEffect
 			if z == state.ZStack && pi > 0 {
 				continue
 			}
-			if !grantedHostZone(ce.AffectedZone, z) {
+			zone := z
+			if atStack != 0 {
+				zone = atStack
+			}
+			if !grantedHostZone(ce.AffectedZone, zone) {
 				continue
 			}
 			for _, id := range e.G.Zone(z, p) {
-				if e.matchesSpecFrom(affects, id, ce.Controller, ce.Source) {
+				if e.grantedCostHostMatches(ce, id, atStack) {
 					add(id)
 				}
 			}
 		}
 	}
+}
+
+// grantedCostHostMatches binds one spec-scoped grant to one candidate host.
+// atStack==0 is the historical log-only read (matchesSpecFrom). An
+// AffectedZone$ Stack cast-pricing context (atStack set) binds through the
+// layer walk's own matcher instead -- castProvenanceAdmitsWindow's pre-push
+// OFFER window (the object BEING CAST is still in hand at offer time; the
+// window's own doc names Witherbloom's and Mycosynth Golem's affinity grants
+// as its carriers) plus the filter's AsStack read -- exactly the binding
+// derivedWith/derivedCompute gives the layer walk for the same situation, so
+// a granted keyword and the cost static minted from it cannot disagree about
+// who is affected. The Card.Self early-out and the phased-out gate inside
+// matchesWithCharsPT are pure rejections, identical to the plain read.
+func (e *Engine) grantedCostHostMatches(ce *ContinuousEffect, id state.ObjID, atStack state.Zone) bool {
+	if atStack == 0 {
+		return e.matchesSpecFrom(strings.TrimSpace(ce.Affects), id, ce.Controller, ce.Source)
+	}
+	return e.matchesWithCharsPT(ce, id, nil, nil, atStack, 0, 0, 0, 0, false)
 }
 
 // grantedHostZone reports whether a spec-scoped grant reaches objects in z:
@@ -2526,6 +2593,53 @@ func grantedHostZone(affectedZone string, z state.Zone) bool {
 		return z == state.ZBattlefield
 	}
 	return affectedZoneOK(affectedZone, z)
+}
+
+// affinityGrantCostStatics turns one active continuous effect's granted
+// AddKeyword$ Affinity entries into the ReduceCost cost statics the cost scan
+// prices, one synthesized static per Affinity entry (see
+// appendEffectCostStatics). Returns nil when no entry in this grant produces
+// one.
+func affinityGrantCostStatics(ce *ContinuousEffect) []*ContinuousEffect {
+	if ce.CostStaticMode != "" || len(ce.AddKeywords) == 0 {
+		return nil
+	}
+	// Fail closed: a grant whose Affected$ is absent (Forge's Card.Self
+	// default) names the grantor itself -- a spell-cost static pointed at a
+	// permanent is not a readable grant, so mint nothing rather than bind the
+	// source through the short-circuit.
+	if a := strings.TrimSpace(ce.Affects); a == "" || a == "Card.Self" {
+		return nil
+	}
+	var arms []*ContinuousEffect
+	for _, k := range ce.AddKeywords {
+		head, param, _ := strings.Cut(k, ":")
+		if !strings.EqualFold(head, "Affinity") {
+			continue
+		}
+		// A second colon is a human description, exactly the trailing-field
+		// strip the printed expander does; only the first field is the spec.
+		spec, _, _ := strings.Cut(param, ":")
+		if strings.TrimSpace(spec) == "" {
+			continue
+		}
+		sep := "."
+		if strings.ContainsRune(spec, '.') {
+			sep = "+"
+		}
+		arm := *ce
+		arm.CostStaticGranted = true
+		arm.CostStaticParams = map[string]string{
+			"Mode":       "ReduceCost",
+			"ValidCard":  "Card.Self",
+			"Type":       "Spell",
+			"EffectZone": "All",
+			"Amount":     "Count$Valid " + spec + sep + "YouCtrl",
+		}
+		arm.CostStaticSVars = ce.SVars
+		arms = append(arms, &arm)
+	}
+	return arms
 }
 
 // modAmountX evaluates one cost-modifier static's Amount$: a plain literal

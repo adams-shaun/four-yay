@@ -46,6 +46,7 @@ const sosElfSrc = "Name:Test Elf\nManaCost:G\nTypes:Creature Elf\nPT:1/1\nOracle
 const sosOgreSrc = "Name:Test Ogre\nManaCost:2 R\nTypes:Creature Ogre\nPT:3/3\nOracle:x\n"
 const sosCubSrc = "Name:Test Cub\nManaCost:0\nTypes:Artifact\nOracle:x\n"
 const sosBoltSrc = "Name:Test Bolt\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1\nOracle:x\n"
+const sosHeavyBoltSrc = "Name:Test Heavy Bolt\nManaCost:2 R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 2\nOracle:x\n"
 const sosHealSrc = "Name:Test Heal\nManaCost:G\nTypes:Instant\nA:SP$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:x\n"
 const sosBombSrc = "Name:Test Bomb\nManaCost:5\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1\nOracle:x\n"
 const sosInsightSrc = "Name:Test Insight\nManaCost:2\nTypes:Instant\nA:SP$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:x\n"
@@ -1292,22 +1293,31 @@ func TestSetAudit_sos_WitherbloomBalancer_AffinitySelf(t *testing.T) {
 // (a) Affinity, GRANT half (CR 702.41a), Witherbloom, the Balancer: its
 // continuous static (Affected$ Instant.wasCastByYou,Sorcery.wasCastByYou |
 // AffectedZone$ Stack | AddKeyword$ Affinity:Creature) must give a bolt on
-// the stack the affinity reduction. FINDING: the grant never prices —
-// cards/kw_affinity.go mints the ReduceCost static on the FACE at expansion
-// time, and rules/statics.go scanCostStatics reads face statics and
-// Effect-delivered statics only, so a layer-6 keyword grant mints no cost
-// static (9 corpus files grant Affinity via AddKeyword$).
+// the stack the affinity reduction (the dragon's own printed K:Affinity
+// prices its own casts through the face static kwAffinity mints; this is
+// the GRANTED half, delivered by the layer-6 AddKeyword$ walk). Fixed in
+// rules/statics.go's appendEffectCostStatics, which synthesizes the
+// ReduceCost static the printed expander would have minted and binds it to
+// the grant's hosts. Pinned on the parity oracle (reduceOf) AND on the real
+// offer flow: {2}{R} is castable for {R} alone.
 func TestSetAudit_sos_WitherbloomBalancer_AffinityGrantStack(t *testing.T) {
-	setAuditSkip(t, "granted AddKeyword$ Affinity:Creature (Witherbloom, the Balancer's stack static) never produces the CR 702.41a cost reduction — kwAffinity mints the ReduceCost static on the face at expansion and rules/statics.go scanCostStatics never expands a granted keyword into one", "sos-affinity-grant-cost-static")
 	t.Parallel()
-	e, _, _ := altCostEngine(t, 942, []string{"Witherbloom, the Balancer"}, []string{sosElfSrc, sosBoltSrc}, nil)
+	e, cfg, _ := altCostEngine(t, 942, []string{"Witherbloom, the Balancer"}, []string{sosElfSrc, sosBoltSrc, sosHeavyBoltSrc}, nil)
 	toMain1(t, e)
 	bolt := findAndMoveToHand(t, e, 0, "Test Bolt")
 	if bolt == 0 {
 		t.Fatalf("precondition: bolt %d must open in hand", bolt)
 	}
+	heavy := findAndMoveToHand(t, e, 0, "Test Heavy Bolt")
+	if heavy == 0 {
+		t.Fatal("precondition: the heavy bolt must open in hand")
+	}
 	putCreature(t, e, 0, sosElfSrc)
-	searchMoveByName(t, e, "Witherbloom, the Balancer", state.ZBattlefield)
+	if balID := searchMoveByName(t, e, "Witherbloom, the Balancer", state.ZBattlefield); balID == 0 {
+		t.Fatal("precondition: the balancer was not found in the library")
+	} else if o := e.G.Obj(balID); o == nil || o.Zone != state.ZBattlefield {
+		t.Fatal("precondition: the balancer is not on the battlefield")
+	}
 	e.priorityRound()
 	if sosHandCardByName(e, 0, "Witherbloom, the Balancer") != 0 {
 		t.Fatal("precondition: the balancer is still in hand")
@@ -1315,6 +1325,20 @@ func TestSetAudit_sos_WitherbloomBalancer_AffinityGrantStack(t *testing.T) {
 	if got := reduceOf(t, e, 0, bolt); got != 2 {
 		t.Errorf("affinity grant: the bolt's reduction = %d, want 2 (elf + the dragon itself, CR 702.41a via the granted keyword)", got)
 	}
+	// The reduction is real money on the offer: {2}{R} castable for {R}
+	// alone (two creatures you control take {2} off), and no other mana in
+	// the pool.
+	addMana(t, e, 0, "R")
+	opt := castOptionFor(t, e, heavy)
+	submitChoices(t, e, opt.Index)
+	sosAnswerPlayerTarget(t, e, 1)
+	if o := e.G.Obj(heavy); o == nil || o.Zone != state.ZStack {
+		t.Fatalf("the heavy bolt is not on the stack after the cast")
+	}
+	if e.G.Players[0].Pool.Total() != 0 {
+		t.Fatalf("pool after the cast = %d, want 0 (the granted affinity took {2} off {2}{R})", e.G.Players[0].Pool.Total())
+	}
+	replayCheck(t, e, cfg)
 }
 
 // (a) Cascade granted on the stack (CR 702.85), Quandrix, the Proof. The
