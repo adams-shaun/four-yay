@@ -18,7 +18,11 @@ set -euo pipefail
 BIN=${BIN:-bin/gorged}
 DECKS=${DECKS:-internal/testutil/decks}
 TABLES=${TABLES:-4}
-SEATS=${SEATS:-4}
+# 2026-09-29: 2, tied to BOT_POLICY below. az-redeal's Info.MaxSeats is 2
+# (bots/azredeal/azredeal.go) -- it is only measured and only safe at 2
+# seats. Override both together (SEATS=4 BOT_POLICY=lethal-pressure) to get
+# the old 4-seat shape back with a commander/4-seat-capable policy.
+SEATS=${SEATS:-2}
 # Wall-clock delay gorged inserts per decision. This has walked 1.5s -> 250ms
 # -> 500ms -> 250ms; the user asked for 250ms back on 2026-09-07, so 250ms is
 # the ruling and the earlier "tighter than a person can follow" judgement was
@@ -34,13 +38,24 @@ PACE=${PACE:-50ms}
 SPECTATOR=${SPECTATOR:-omniscient}
 VSBOT_SPECTATOR=${VSBOT_SPECTATOR:-public}
 # Hosted bot policy (host/bot_policy.go's closed vocabulary) for every
-# startup table and for a play-vs-bot game that names none. 2026-09-28:
-# lethal-pressure (AR7), the operator's pick for the demo.
-BOT_POLICY=${BOT_POLICY:-lethal-pressure}
-# Two Commander tables and two constructed ones, so the overview's
-# per-format sections both have something in them. The list is cycled over
-# the tables, so this is exactly "half and half" at -tables 4.
-FORMATS=${FORMATS:-commander,commander,constructed,constructed}
+# startup table and for a play-vs-bot game that names none. 2026-09-29:
+# az-redeal (bots/azredeal), the strongest measured hosted policy: +20.5pp
+# vs the production bot (docs/superpowers/specs/2026-09-28-spellbench-agent-
+# design.md §12.5), a 100-simulation honest-redeal MCTS search at every
+# searched decision (attackers/blockers/targets/priority) that otherwise
+# plays the production bot. Smoke-tested in this exact shape (2 seats,
+# constructed, port 8095) on 2026-09-29: three matches, no panics or stalls.
+# It is Experimental tier and constructed-only/2-seat-only (bots.Info.
+# Formats/MaxSeats); those fields are metadata, not enforced by the host,
+# so FORMATS/SEATS below must stay inside that envelope by convention, not
+# by a runtime check. Previous pick (2026-09-28): lethal-pressure (AR7).
+BOT_POLICY=${BOT_POLICY:-az-redeal}
+# 2026-09-29: all four constructed, tied to BOT_POLICY above (commander and
+# 4+ seats are outside az-redeal's measured envelope). This drops the
+# commander half of the old "two commander, two constructed" split; restore
+# it with FORMATS=commander,commander,constructed,constructed alongside a
+# SEATS=4 BOT_POLICY=lethal-pressure override.
+FORMATS=${FORMATS:-constructed,constructed,constructed,constructed}
 # Deterministic across deploys: the same seed deals the same opening tables,
 # so a UI change is the only thing that differs between two screenshots.
 SEED=${SEED:-1}
