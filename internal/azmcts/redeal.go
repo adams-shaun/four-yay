@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/adams-shaun/gorge/internal/searchprobe"
+	"github.com/adams-shaun/gorge/internal/searchseat"
 	"github.com/adams-shaun/gorge/rules"
 )
 
@@ -161,42 +162,8 @@ func (s *RedealSource) World(sim int) (World, error) {
 	return World{Engine: w, Observer: s.obs.Clone(), Hypothetical: true}, nil
 }
 
-// KnownTracker is the incremental known-card projection a seat keeps across
-// one game: Update folds the frames a History gained since the last call (in
-// ProjectKnownCards' order: frame i, then the actor's answer to frame i,
-// then frame i+1), so a decision costs its new frames, not the whole game.
-// The answer to the newest frame is folded at the next Update, once the
-// driver has recorded it.
-type KnownTracker struct {
-	t    *searchprobe.KnownCardTracker
-	next int
-	err  error
-}
-
-// Update folds h's new frames and returns the projection as of h's last
-// frame. An error is sticky: the tracker is dead for the rest of the game.
-func (k *KnownTracker) Update(h searchprobe.History) (searchprobe.KnownCards, error) {
-	if k.err != nil {
-		return searchprobe.KnownCards{}, k.err
-	}
-	if k.t == nil {
-		k.t = searchprobe.NewKnownCardTracker(h.Actor)
-	}
-	if k.next > len(h.Frames) {
-		k.err = errors.New("azmcts: known-card history shrank")
-		return searchprobe.KnownCards{}, k.err
-	}
-	for k.next < len(h.Frames) {
-		if k.next > 0 {
-			if a, ok := h.Answers[k.next-1]; ok {
-				k.t.Answer(a)
-			}
-		}
-		if err := k.t.Observe(h.Frames[k.next]); err != nil {
-			k.err = err
-			return searchprobe.KnownCards{}, err
-		}
-		k.next++
-	}
-	return k.t.Known(), nil
-}
+// KnownTracker is the feed-owned incremental known-card projection
+// (searchseat.KnownTracker): it lives there because the Feed owns and rebuilds
+// it (Feed.Known). The alias keeps this package's callers and tests on the
+// same name without a second implementation that could drift.
+type KnownTracker = searchseat.KnownTracker

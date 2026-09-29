@@ -44,6 +44,11 @@ type Feed struct {
 	// wedge a game that can still play legally.
 	stopped bool
 	stopErr string
+	// known is the incremental known-card projection over this feed's frames:
+	// the fold semantics are KnownTracker.Update's (the answer to frame i is
+	// folded before frame i+1). It is derived state, like the rest of the feed;
+	// a fresh Feed (NewFeed, and so RebuildFeed) starts it empty.
+	known KnownTracker
 }
 
 // RebuildFeed reconstructs an actor's observation stream from the first n
@@ -130,6 +135,16 @@ func (f *Feed) HistoryRef() *searchprobe.History { return &f.h }
 
 // History is the history by value, the shape Choose takes.
 func (f *Feed) History() searchprobe.History { return f.h }
+
+// Known is the known-card projection over this feed's frames as of the last
+// captured frame, folded incrementally and cached in the feed. It is the one
+// owner of the tracker: every seat that needs the projection (azmcts's redeal
+// source, sbsearch's redealer) reads it here, so there is no per-seat copy
+// that could drift or survive a rebuild. An error is sticky and the feed's
+// projection is dead for the rest of the game, exactly as KnownTracker.Update.
+func (f *Feed) Known() (searchprobe.KnownCards, error) {
+	return f.known.Update(f.h)
+}
 
 // Collector is the feed's actor-scoped collector (Choose takes it as an
 // argument; it is never nil).

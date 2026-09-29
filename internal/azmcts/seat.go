@@ -100,9 +100,6 @@ type Seat struct {
 	// record, when set (SetRecorder), receives one visit-corpus record per
 	// decision this seat searched to completion. nil records nothing.
 	record func(policynet.VisitRecord)
-	// known is the redeal source's incremental known-card projection over
-	// this game's feed.
-	known KnownTracker
 }
 
 // SetRecorder installs the visit-corpus recorder (M1b; cmd/botbench
@@ -266,7 +263,7 @@ func (s *Seat) redealSource(env searchseat.Env, obs *searchprobe.Collector, seed
 	if env.Feed != nil && env.Feed.Live() && env.Feed.Frames() > 0 {
 		in.History = env.Feed.History()
 		in.Base = searchprobe.RedealBase{Engine: env.Engine, Observer: env.Feed.Collector()}
-		known, err := s.known.Update(in.History)
+		known, err := env.Feed.Known()
 		if err != nil {
 			// A dead projection: the redealer refuses without a base.
 			in.Base = searchprobe.RedealBase{}
