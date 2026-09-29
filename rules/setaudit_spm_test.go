@@ -82,14 +82,12 @@ func TestSetAudit_spm_WebSlinging_AlternativeCostOffered(t *testing.T) {
 // has its offer, charge, provenance flag and CastSa condition read
 // (rules/legal.go, rules/altcast.go, rules/mayhem_test.go) and
 // stat:IgnoreLegendRule is honoured by the CR 704.5j legend SBA
-// (rules/sba.go, rules/ignorelegendrule_test.go). Neither name is ever passed
-// to effects.RegisterNonAPI, so every carrier -- 12 Mayhem cards and
-// Spider-Verse in this set alone -- is reported unplayable and excluded from
-// fuzz/eligibility even though the engine plays it. The keyword behaviour
-// itself is pinned by the existing suites; the defect is the census bookkeeping.
+// (rules/sba.go, rules/ignorelegendrule_test.go). Both names are now passed to
+// effects.RegisterNonAPI (rules/cast.go's alt-cost family init and
+// rules/statics.go's stat init), so the census counts their carriers playable.
+// This is the permanent green guard: reverting either registration fails it.
 func TestSetAudit_spm_Coverage_ImplementedPrimsRegistered(t *testing.T) {
 	t.Parallel()
-	requireSetAudit(t, "set-audit finding (spm): kw:Mayhem and stat:IgnoreLegendRule are implemented but never registered with effects.RegisterNonAPI, so the census reports every carrier unplayable. Follow-up: register the implemented spm primitives with the coverage census")
 	sup := effects.Supported()
 	for _, p := range []string{"kw:Mayhem", "stat:IgnoreLegendRule"} {
 		if !sup[p] {
