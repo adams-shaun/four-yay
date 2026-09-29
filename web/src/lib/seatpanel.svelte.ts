@@ -1331,9 +1331,8 @@ export class SeatPanelState {
     // only as the seat PREFERENCE handed to the one shared actionable test
     // (spec §8): while it is on, a plan-bearing payment action is a real play,
     // so neither the floor nor decide() passes a window whose only play is a
-    // plan-only cast, and decide()'s own-object pass is keyed on it. The table
-    // capability (autoManaAvailable) never reaches here: with the preference
-    // off this is exactly the capability-less policy.
+    // plan-only cast. The table capability (autoManaAvailable) never reaches
+    // here: with the preference off this is exactly the capability-less policy.
     // The undo pause owns the whole classification: while it holds, neither
     // auto, nor the empty-window floor, nor a one-shot run passes anything.
     // It must gate HERE, before the autoOn split below, not only on the
