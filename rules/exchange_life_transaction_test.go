@@ -21,7 +21,7 @@ func TestExchangeLifeWaitsForReplacementBeforeApplyingEitherSide(t *testing.T) {
 	if e.G.Players[0].Life != 20 || e.G.Players[1].Life != 15 {
 		t.Fatalf("precondition: life totals = %d/%d, want distinct 20/15", e.G.Players[0].Life, e.G.Players[1].Life)
 	}
-	ctx := &effects.Ctx{Source: first, Controller: 0, ExchangeNumberBound: true}
+	ctx := &effects.Ctx{Source: first, Controller: 0, ExchangeMemory: &effects.ExchangeMemory{Bound: true}}
 	// This direct host-level transaction has no priority window to preserve.
 	e.pending = nil
 	e.ExchangeLife(events.Event{Kind: events.LifeChange, Player: 0, Amount: -5},
@@ -33,8 +33,8 @@ func TestExchangeLifeWaitsForReplacementBeforeApplyingEitherSide(t *testing.T) {
 	if e.G.Players[0].Life != 20 || e.G.Players[1].Life != 15 {
 		t.Fatalf("half-exchange while replacement is pending: lives %d/%d", e.G.Players[0].Life, e.G.Players[1].Life)
 	}
-	if ctx.ExchangeNumber != 0 {
-		t.Fatalf("RememberOwnLoss rider ran before exchange settled: %d", ctx.ExchangeNumber)
+	if ctx.ExchangeMemory.Number != 0 {
+		t.Fatalf("RememberOwnLoss rider ran before exchange settled: %d", ctx.ExchangeMemory.Number)
 	}
 	if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{optionFor(t, d, first)}}); err != nil {
 		t.Fatal(err)
@@ -42,7 +42,7 @@ func TestExchangeLifeWaitsForReplacementBeforeApplyingEitherSide(t *testing.T) {
 	if e.G.Players[0].Life != 15 || e.G.Players[1].Life != 26 {
 		t.Fatalf("settled exchange lives = %d/%d, want 15/26", e.G.Players[0].Life, e.G.Players[1].Life)
 	}
-	if ctx.ExchangeNumber != 5 {
-		t.Fatalf("RememberOwnLoss = %d, want actual 5 life lost", ctx.ExchangeNumber)
+	if ctx.ExchangeMemory.Number != 5 {
+		t.Fatalf("RememberOwnLoss = %d, want actual 5 life lost", ctx.ExchangeMemory.Number)
 	}
 }

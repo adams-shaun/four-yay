@@ -45,7 +45,7 @@ func TestExchangeLifeSettlesAfterLichDrawSuspendsOnDredge(t *testing.T) {
 		t.Fatalf("precondition: lives = %d/%d, want distinct 20/15", e.G.Players[0].Life, e.G.Players[1].Life)
 	}
 	handBefore := len(e.G.Zone(state.ZHand, 1))
-	ctx := &effects.Ctx{Source: lichID, Controller: 0, ExchangeNumberBound: true}
+	ctx := &effects.Ctx{Source: lichID, Controller: 0, ExchangeMemory: &effects.ExchangeMemory{Bound: true}}
 	e.pending = nil
 	e.ExchangeLife(events.Event{Kind: events.LifeChange, Player: 0, Amount: -5},
 		events.Event{Kind: events.LifeChange, Player: 1, Amount: 5}, 0, 20, ctx, true)
@@ -78,8 +78,8 @@ func TestExchangeLifeSettlesAfterLichDrawSuspendsOnDredge(t *testing.T) {
 	if got := len(e.G.Zone(state.ZHand, 1)) - handBefore; got != 5 {
 		t.Fatalf("Lich replacement drew %d cards, want 5", got)
 	}
-	if ctx.ExchangeNumber != 5 {
-		t.Fatalf("RememberOwnLoss = %d, want the 5 life seat 0 lost", ctx.ExchangeNumber)
+	if ctx.ExchangeMemory.Number != 5 {
+		t.Fatalf("RememberOwnLoss = %d, want the 5 life seat 0 lost", ctx.ExchangeMemory.Number)
 	}
 }
 
@@ -110,7 +110,7 @@ func TestExchangeLifeSettlesAfterFirstSideSuspendsOnDredge(t *testing.T) {
 		t.Fatalf("precondition: lives = %d/%d, want distinct 20/15", e.G.Players[0].Life, e.G.Players[1].Life)
 	}
 	handBefore := len(e.G.Zone(state.ZHand, 1))
-	ctx := &effects.Ctx{Source: lichID, Controller: 0, ExchangeNumberBound: true}
+	ctx := &effects.Ctx{Source: lichID, Controller: 0, ExchangeMemory: &effects.ExchangeMemory{Bound: true}}
 	e.pending = nil
 	// The GAIN is the first argument, so it is the synchronous emit that
 	// suspends; the loss (second) is only emitted by the parked continuation.
@@ -167,6 +167,7 @@ func TestMisterNegativeExchangeSettlesOnStackWhenGainReplaced(t *testing.T) {
 	if e.G.Players[0].Life != 20 || e.G.Players[1].Life != 15 {
 		t.Fatalf("precondition: lives = %d/%d, want distinct 20/15", e.G.Players[0].Life, e.G.Players[1].Life)
 	}
+	hand0Before := len(e.G.Zone(state.ZHand, 0))
 	id := searchMoveByName(t, e, "Mister Negative", state.ZBattlefield)
 	if e.G.Obj(id).Zone != state.ZBattlefield {
 		t.Fatal("precondition: Mister Negative not on battlefield")
@@ -232,10 +233,13 @@ func TestMisterNegativeExchangeSettlesOnStackWhenGainReplaced(t *testing.T) {
 	if got := len(e.G.Zone(state.ZHand, 1)) - 0; got == 0 {
 		t.Fatal("Lich replacement drew no cards for seat 1")
 	}
-	// The transaction settles, which is what this test is for. Mister
-	// Negative's RememberOwnLoss rider (SVar:X Count$RememberedNumber) is a
-	// SEPARATE, pre-existing defect when the exchange suspends: the resumed
-	// effect chain rebuilds a fresh Ctx, so ExchangeNumberBound is lost and X
-	// evaluates to 0. Filed as a follow-up; this test deliberately does not
-	// assert the rider value either way.
+	// The rider (agent-20260928T235256Z-127d875e): seat 0 lost 5 life in the
+	// exchange, so the RememberOwnLoss publication must read 5 on the resumed
+	// SubAbility$ DBDraw and draw exactly 5 cards for seat 0 -- the value has
+	// to survive BOTH the Ctx rebuild the Dredge suspension causes and the
+	// ordering (the transaction settles before the rider's continuation runs).
+	if got := len(e.G.Zone(state.ZHand, 0)) - hand0Before; got != 5 {
+		t.Fatalf("rider: seat 0 drew %d cards (hand %d -> %d), want 5 = the life it lost",
+			got, hand0Before, len(e.G.Zone(state.ZHand, 0)))
+	}
 }
