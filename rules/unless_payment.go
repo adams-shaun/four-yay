@@ -33,6 +33,12 @@ type unlessPayment struct {
 	// two parts — and the settled picks are announced with one public Note
 	// (the same event the cast flow's emitChoiceCosts emits).
 	reveals []state.ObjID
+	// beholds holds the Behold<N/Spec> picks (CR 702.176, Elven Passage's
+	// "you may behold an Elf"): an object the payer controls on the
+	// battlefield or a card revealed from their hand. The chosen object is
+	// not moved (a plain Behold, unlike BeholdExile), so like a reveal it
+	// needs the explicit dedup and one public Note.
+	beholds []state.ObjID
 	// returns holds the Return<N/Spec> picks (the cumulative-upkeep family's
 	// "return a non-Lair land"): a permanent matching the spec returned to
 	// its OWNER's hand (Forge CostReturn.moveToHand), one choice-bearing part
@@ -296,6 +302,7 @@ func (e *Engine) unlessChoiceComponentsPayable(p state.PlayerID, cost Cost, ctx 
 	add(state.ZBattlefield, "sacrifice", cost.Sac)
 	add(state.ZHand, "discard", cost.Discard)
 	add(state.ZHand, "revealcost", cost.Reveal)
+	add(state.ZBattlefield, "beholdcost", cost.Behold)
 	add(state.ZBattlefield, "returncost", cost.Return)
 	// Whole-zone Exile parts take the entire zone, so they are validated and
 	// marked used first; an ordinary Exile part then joins the bipartite
@@ -384,13 +391,14 @@ func (e *Engine) beginUnlessPayment(payer state.PlayerID, cost Cost, ctx *effect
 }
 
 // unlessPartAt returns the cost component at flat index i across the
-// unlessPayment's Sac, Discard, Reveal, Return and Exile lists, together with
-// the zone its candidates come from and the option kind the wire carries. The
+// unlessPayment's Sac, Discard, Reveal, Behold, Return and Exile lists,
+// together with the zone its candidates come from and the option kind the wire
+// carries. The
 // option kind "revealcost" is the cast flow's own reveal-cost string
 // (rules/cast.go), and "exilecost" its exile-cost string, so a client sees
 // the same vocabulary for both paths.
 func unlessPartAt(cost Cost, i int) (CostPart, state.Zone, string) {
-	nSac, nDisc, nRev := len(cost.Sac), len(cost.Discard), len(cost.Reveal)
+	nSac, nDisc, nRev, nBeh := len(cost.Sac), len(cost.Discard), len(cost.Reveal), len(cost.Behold)
 	nRet := len(cost.Return)
 	switch {
 	case i < nSac:
@@ -399,10 +407,15 @@ func unlessPartAt(cost Cost, i int) (CostPart, state.Zone, string) {
 		return cost.Discard[i-nSac], state.ZHand, "discard"
 	case i < nSac+nDisc+nRev:
 		return cost.Reveal[i-nSac-nDisc], state.ZHand, "revealcost"
-	case i < nSac+nDisc+nRev+nRet:
-		return cost.Return[i-nSac-nDisc-nRev], state.ZBattlefield, "returncost"
+	case i < nSac+nDisc+nRev+nBeh:
+		// The zone field is the primary (battlefield) scan; the candidate
+		// enumeration for a beholdcost part deliberately scans BOTH the
+		// battlefield and the hand (CR 702.176).
+		return cost.Behold[i-nSac-nDisc-nRev], state.ZBattlefield, "beholdcost"
+	case i < nSac+nDisc+nRev+nBeh+nRet:
+		return cost.Return[i-nSac-nDisc-nRev-nBeh], state.ZBattlefield, "returncost"
 	default:
-		part := cost.Exile[i-nSac-nDisc-nRev-nRet]
+		part := cost.Exile[i-nSac-nDisc-nRev-nBeh-nRet]
 		return part, unlessExileZone(part), "exilecost"
 	}
 }
@@ -419,10 +432,10 @@ func unlessExileZone(part CostPart) state.Zone {
 }
 
 // paymentPartCount is the flat count of the choice-bearing components
-// (Sac, Discard, Reveal, Return, Exile) the continuation walks before it
-// settles the synchronous ones.
+// (Sac, Discard, Reveal, Behold, Return, Exile) the continuation walks before
+// it settles the synchronous ones.
 func (u *unlessPayment) paymentPartCount() int {
-	return len(u.cost.Sac) + len(u.cost.Discard) + len(u.cost.Reveal) + len(u.cost.Return) + len(u.cost.Exile)
+	return len(u.cost.Sac) + len(u.cost.Discard) + len(u.cost.Reveal) + len(u.cost.Behold) + len(u.cost.Return) + len(u.cost.Exile)
 }
 
 func (e *Engine) advanceUnlessPayment() {
@@ -484,6 +497,9 @@ func (e *Engine) advanceUnlessPayment() {
 		}
 		if kind == "returncost" {
 			prompt = fmt.Sprintf("Return %d permanent(s) to their owner's hand to pay the cost", part.N)
+		}
+		if kind == "beholdcost" {
+			prompt = fmt.Sprintf("Choose %d permanent(s) you control or card(s) in your hand to behold to pay the cost", part.N)
 		}
 		if kind == "exilecost" {
 			zoneName := "hand"
@@ -559,6 +575,19 @@ func (e *Engine) advanceUnlessPayment() {
 		e.emit(events.Event{Kind: events.Note, Player: u.payer, Obj: u.ctx.Source,
 			IDs:  append([]state.ObjID(nil), u.reveals...),
 			Text: "revealed " + strings.Join(names, ", ") + " as a cost"})
+	}
+	// The settled Behold picks are announced exactly like the cast flow's
+	// emitChoiceCosts announces them: one public Note carrying the beheld ids
+	// (nothing is moved for a plain Behold; the ids let a `Remembered`/
+	// observer read the choice).
+	if len(u.beholds) > 0 {
+		names := make([]string, 0, len(u.beholds))
+		for _, id := range u.beholds {
+			names = append(names, e.targetName(id))
+		}
+		e.emit(events.Event{Kind: events.Note, Player: u.payer, Obj: u.ctx.Source,
+			IDs:  append([]state.ObjID(nil), u.beholds...),
+			Text: "beheld " + strings.Join(names, ", ") + " as a cost"})
 	}
 	for _, part := range u.cost.RevealChosen {
 		if text, ok := revealChosenText(e.G, e.G.Obj(u.ctx.Source), part.Spec); ok {
@@ -730,6 +759,31 @@ func (e *Engine) unlessCandidatesFor(payer state.PlayerID, ctx effects.Ctx, zone
 		seen[id] = true
 	}
 	sc := ctx.SpecContext(payer)
+	// A Behold<N/Spec> part (CR 702.176) draws its candidates from TWO zones:
+	// permanents the payer controls on the battlefield, then cards in their
+	// hand. This is exactly the enumeration the cast flow's beholdCostAsk
+	// builds (battlefield first, then hand, source not excluded), so an
+	// unless-cost Behold and a cast-cost Behold offer the same objects in
+	// the same order.
+	if kind == "beholdcost" {
+		var out []state.ObjID
+		for _, z := range [...]state.Zone{state.ZBattlefield, state.ZHand} {
+			for _, id := range e.G.Zone(z, payer) {
+				if seen[id] {
+					continue
+				}
+				if z == state.ZBattlefield {
+					if o := e.G.Obj(id); o == nil || !existsOnBattlefield(o) {
+						continue
+					}
+				}
+				if e.matchesSpec(part.Spec, id, sc) {
+					out = append(out, id)
+				}
+			}
+		}
+		return out
+	}
 	var out []state.ObjID
 	for _, id := range e.G.Zone(zone, payer) {
 		if kind == "sacrifice" && e.sacrificeBlockedForCost(id, costCauseResolution) {
@@ -772,13 +826,14 @@ func (e *Engine) unlessPaymentCandidates(u *unlessPayment, zone state.Zone, kind
 	// The dedup is over the union of every component's picks, not just this
 	// one's list: one card must not pay two parts, and a card already
 	// sacrificed has left its zone anyway, so the wider union only ever
-	// removes an already-impossible candidate. Revealed cards are NOT
-	// removed from the hand, which is exactly why they need the explicit
+	// removes an already-impossible candidate. Revealed and beheld cards are
+	// NOT removed from the hand, which is exactly why they need the explicit
 	// exclusion.
-	used := make([]state.ObjID, 0, len(u.sacs)+len(u.discards)+len(u.reveals)+len(u.returns)+len(u.exiles))
+	used := make([]state.ObjID, 0, len(u.sacs)+len(u.discards)+len(u.reveals)+len(u.beholds)+len(u.returns)+len(u.exiles))
 	used = append(used, u.sacs...)
 	used = append(used, u.discards...)
 	used = append(used, u.reveals...)
+	used = append(used, u.beholds...)
 	used = append(used, u.returns...)
 	used = append(used, u.exiles...)
 	return e.unlessCandidatesFor(u.payer, u.ctx, zone, kind, part, used)
@@ -790,6 +845,8 @@ func (e *Engine) recordUnlessPaymentPick(u *unlessPayment, kind string, ids []st
 		u.sacs = append(u.sacs, ids...)
 	case "revealcost":
 		u.reveals = append(u.reveals, ids...)
+	case "beholdcost":
+		u.beholds = append(u.beholds, ids...)
 	case "returncost":
 		u.returns = append(u.returns, ids...)
 	case "exilecost":
