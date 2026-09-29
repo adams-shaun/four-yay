@@ -3,6 +3,7 @@ package manabrew
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 )
 
 // Prompt inputs and outputs, one pair per prompt type
@@ -602,8 +603,24 @@ func (p *PromptInput) UnmarshalJSON(b []byte) error {
 	if err := json.Unmarshal(b, v); err != nil {
 		return err
 	}
-	*p = PromptInput{Value: v}
+	*p = PromptInput{Value: derefPromptInput(v)}
 	return nil
+}
+
+// derefPromptInput turns the pointer a promptInputCases entry allocates (so
+// json.Unmarshal has an addressable target) back into the value every
+// consumer type-switches on (mb.ChooseNumberInput, not *mb.ChooseNumberInput).
+// Every concrete type's isPromptInput/PromptType methods have value
+// receivers, so the dereferenced value still satisfies PromptInputData.
+func derefPromptInput(v PromptInputData) PromptInputData {
+	rv := reflect.ValueOf(v)
+	if rv.Kind() != reflect.Pointer || rv.IsNil() {
+		return v
+	}
+	if elem, ok := rv.Elem().Interface().(PromptInputData); ok {
+		return elem
+	}
+	return v
 }
 
 func (p PromptInput) MarshalJSON() ([]byte, error) {
@@ -628,8 +645,21 @@ func (p *PromptOutputData) UnmarshalJSON(b []byte) error {
 	if err := json.Unmarshal(b, v); err != nil {
 		return err
 	}
-	*p = PromptOutputData{Value: v}
+	*p = PromptOutputData{Value: derefPromptOutput(v)}
 	return nil
+}
+
+// derefPromptOutput is derefPromptInput's counterpart for PromptOutputValue;
+// see that function's doc.
+func derefPromptOutput(v PromptOutputValue) PromptOutputValue {
+	rv := reflect.ValueOf(v)
+	if rv.Kind() != reflect.Pointer || rv.IsNil() {
+		return v
+	}
+	if elem, ok := rv.Elem().Interface().(PromptOutputValue); ok {
+		return elem
+	}
+	return v
 }
 
 func (p PromptOutputData) MarshalJSON() ([]byte, error) {

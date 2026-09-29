@@ -50,8 +50,6 @@ func (h *handler) send(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "bad_request", "malformed ManaBrew message: "+err.Error())
 		return
 	}
-	msg = normalizeClientMessage(msg) // see normalize.go: pointer/value mismatch this ticket found
-
 	sc := h.connFor(connKey{table: t, match: k, seat: claim.Seat})
 	tr := manabrew.New(string(t), int64(k), h.opts.Text)
 

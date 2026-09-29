@@ -183,25 +183,25 @@ func TestEveryPromptTypeHasCodec(t *testing.T) {
 		input  PromptInputData
 		output PromptOutputValue
 	}{
-		{"chooseNumber", &ChooseNumberInput{PromptBase: base("N"), Min: 0, Max: 2}, &NumberDecision{ChosenNumber: ip(1)}},
-		{"chooseCards", &ChooseCardsInput{PromptBase: base("C"), Cards: []CardDto{card("c1")}, Min: 1, Max: 1}, &ChooseCardsDecision{ChosenCardIDs: []string{"c1"}}},
-		{"chooseColor", &ChooseColorInput{PromptBase: base("K"), ValidColors: []string{"W"}, Amount: 1}, &ColorDecision{ChosenColors: map[string]int{"W": 1}}},
-		{"chooseBoolean", &ChooseBooleanInput{PromptBase: base("B"), ConfirmLabel: "Yes", DenyLabel: "No"}, &BooleanDecision{Value: true}},
-		{"chooseFromSelection", &ChooseFromSelectionInput{PromptBase: base("S"), Options: []SelectionOption{{Label: "A", Weight: 1}}, MinTotal: 1, MaxTotal: 1}, &SelectionDecision{ChosenIndices: []int{0}}},
-		{"revealCards", &RevealCardsInput{PromptBase: base("R"), Cards: []CardDto{card("c1")}, Zone: ZoneHand, OwnerPlayerID: "p0"}, &RevealCardsAcknowledged{}},
-		{"scry", &ScryInput{PromptBase: base("Y"), Cards: []CardDto{card("c1")}, Zones: []ScryDestination{DestinationLibraryTop}}, &ScryDecision{ZoneCardIDs: [][]string{{"c1"}}}},
-		{"reorder", &ReorderInput{PromptBase: base("O"), Items: []ReorderItem{{ID: "t1"}}}, &ReorderDecision{OrderedIDs: []string{"t1"}}},
-		{"diceRolled", &DiceRolledInput{PromptBase: base("D"), Sides: 6, Rolls: []DiceRollEntry{{Round: 1, NaturalResults: []int{3}, FinalResults: []int{3}, IgnoredRolls: []int{}}}}, &DiceRolledAcknowledged{}},
-		{"chooseAction", &ChooseActionInput{Actions: []AvailableAction{{ID: "a1", Type: "pass"}}}, &PassOutput{ExhaustStack: true}},
-		{"payManaCost", &PayManaCostInput{PromptBase: base("P"), CardID: "c1", CardName: "Shock", ManaCost: "R", Actions: []PaymentAction{{ID: "p1", CardID: "c2", AbilityIndex: 0, IsManaAbility: true}}}, &PayOutput{Auto: true}},
-		{"mulligan", &MulliganInput{HandCardIDs: []string{"c1"}, MulliganCount: 1}, &MulliganDecision{Keep: false}},
-		{"mulliganPutBack", &MulliganPutBackInput{HandCardIDs: []string{"c1"}, Cards: []CardDto{card("c1")}, Count: 1}, &MulliganPutBackDecision{CardIDs: []string{"c1"}}},
-		{"chooseAttackers", &ChooseAttackersInput{Attackers: []AttackerOptionDto{{AttackerID: "a", ValidTargetIDs: []string{"p1"}}}, AttackTargets: []AttackTargetDto{{ID: "p1", Label: "P1", Kind: "player"}}}, &DeclareAttackersDecision{Assignments: []AttackerAssignment{{AttackerID: "a", TargetID: "p1"}}}},
-		{"chooseBlockers", &ChooseBlockersInput{Attackers: []BlockableAttackerDto{{AttackerID: "a", ValidBlockerIDs: []string{"b"}, MinBlockers: 0}}, AvailableBlockerIDs: []string{"b"}}, &DeclareBlockersDecision{Assignments: []BlockerAssignment{{BlockerID: "b", AttackerID: "a"}}}},
-		{"chooseDamageAssignmentOrder", &ChooseDamageAssignmentOrderInput{AttackerID: "a", BlockerIDs: []string{"b"}, BlockerCards: []CardDto{card("b")}}, &DamageAssignmentOrderDecision{OrderedBlockerIDs: []string{"b"}}},
-		{"chooseCombatDamageAssignment", &ChooseCombatDamageAssignmentInput{AttackerID: "a", BlockerIDs: []string{"b"}, TotalDamage: 2}, &DamageAssignmentDecision{Assignments: []DamageAssignment{{AssigneeID: "b", Damage: 2}}}},
-		{"chooseBoardTargets", &ChooseBoardTargetsInput{PromptBase: base("T"), Candidates: []TargetRef{{Kind: RefPlayer, ID: "p1"}}, Intent: IntentDamage, MinTargets: 1, MaxTargets: 1}, &BoardTargetsDecision{Chosen: []TargetRef{{Kind: RefPlayer, ID: "p1", Intent: IntentDamage}}}},
-		{"gameOver", &GameOverInput{}, nil},
+		{"chooseNumber", ChooseNumberInput{PromptBase: base("N"), Min: 0, Max: 2}, NumberDecision{ChosenNumber: ip(1)}},
+		{"chooseCards", ChooseCardsInput{PromptBase: base("C"), Cards: []CardDto{card("c1")}, Min: 1, Max: 1}, ChooseCardsDecision{ChosenCardIDs: []string{"c1"}}},
+		{"chooseColor", ChooseColorInput{PromptBase: base("K"), ValidColors: []string{"W"}, Amount: 1}, ColorDecision{ChosenColors: map[string]int{"W": 1}}},
+		{"chooseBoolean", ChooseBooleanInput{PromptBase: base("B"), ConfirmLabel: "Yes", DenyLabel: "No"}, BooleanDecision{Value: true}},
+		{"chooseFromSelection", ChooseFromSelectionInput{PromptBase: base("S"), Options: []SelectionOption{{Label: "A", Weight: 1}}, MinTotal: 1, MaxTotal: 1}, SelectionDecision{ChosenIndices: []int{0}}},
+		{"revealCards", RevealCardsInput{PromptBase: base("R"), Cards: []CardDto{card("c1")}, Zone: ZoneHand, OwnerPlayerID: "p0"}, RevealCardsAcknowledged{}},
+		{"scry", ScryInput{PromptBase: base("Y"), Cards: []CardDto{card("c1")}, Zones: []ScryDestination{DestinationLibraryTop}}, ScryDecision{ZoneCardIDs: [][]string{{"c1"}}}},
+		{"reorder", ReorderInput{PromptBase: base("O"), Items: []ReorderItem{{ID: "t1"}}}, ReorderDecision{OrderedIDs: []string{"t1"}}},
+		{"diceRolled", DiceRolledInput{PromptBase: base("D"), Sides: 6, Rolls: []DiceRollEntry{{Round: 1, NaturalResults: []int{3}, FinalResults: []int{3}, IgnoredRolls: []int{}}}}, DiceRolledAcknowledged{}},
+		{"chooseAction", ChooseActionInput{Actions: []AvailableAction{{ID: "a1", Type: "pass"}}}, PassOutput{ExhaustStack: true}},
+		{"payManaCost", PayManaCostInput{PromptBase: base("P"), CardID: "c1", CardName: "Shock", ManaCost: "R", Actions: []PaymentAction{{ID: "p1", CardID: "c2", AbilityIndex: 0, IsManaAbility: true}}}, PayOutput{Auto: true}},
+		{"mulligan", MulliganInput{HandCardIDs: []string{"c1"}, MulliganCount: 1}, MulliganDecision{Keep: false}},
+		{"mulliganPutBack", MulliganPutBackInput{HandCardIDs: []string{"c1"}, Cards: []CardDto{card("c1")}, Count: 1}, MulliganPutBackDecision{CardIDs: []string{"c1"}}},
+		{"chooseAttackers", ChooseAttackersInput{Attackers: []AttackerOptionDto{{AttackerID: "a", ValidTargetIDs: []string{"p1"}}}, AttackTargets: []AttackTargetDto{{ID: "p1", Label: "P1", Kind: "player"}}}, DeclareAttackersDecision{Assignments: []AttackerAssignment{{AttackerID: "a", TargetID: "p1"}}}},
+		{"chooseBlockers", ChooseBlockersInput{Attackers: []BlockableAttackerDto{{AttackerID: "a", ValidBlockerIDs: []string{"b"}, MinBlockers: 0}}, AvailableBlockerIDs: []string{"b"}}, DeclareBlockersDecision{Assignments: []BlockerAssignment{{BlockerID: "b", AttackerID: "a"}}}},
+		{"chooseDamageAssignmentOrder", ChooseDamageAssignmentOrderInput{AttackerID: "a", BlockerIDs: []string{"b"}, BlockerCards: []CardDto{card("b")}}, DamageAssignmentOrderDecision{OrderedBlockerIDs: []string{"b"}}},
+		{"chooseCombatDamageAssignment", ChooseCombatDamageAssignmentInput{AttackerID: "a", BlockerIDs: []string{"b"}, TotalDamage: 2}, DamageAssignmentDecision{Assignments: []DamageAssignment{{AssigneeID: "b", Damage: 2}}}},
+		{"chooseBoardTargets", ChooseBoardTargetsInput{PromptBase: base("T"), Candidates: []TargetRef{{Kind: RefPlayer, ID: "p1"}}, Intent: IntentDamage, MinTargets: 1, MaxTargets: 1}, BoardTargetsDecision{Chosen: []TargetRef{{Kind: RefPlayer, ID: "p1", Intent: IntentDamage}}}},
+		{"gameOver", GameOverInput{}, nil},
 	}
 	if len(rows) != 19 {
 		t.Fatalf("prompt type table has %d rows, want the protocol's 19", len(rows))
@@ -360,9 +360,9 @@ func TestLenientDecodeReportsUnknown(t *testing.T) {
 		if !ok {
 			t.Fatalf("decoded %T, want ClientResponse", m.Value)
 		}
-		num, ok := resp.Action.Output.Value.(*NumberDecision)
+		num, ok := resp.Action.Output.Value.(NumberDecision)
 		if !ok {
-			t.Fatalf("action output is %T, want *NumberDecision", resp.Action.Output)
+			t.Fatalf("action output is %T, want NumberDecision", resp.Action.Output)
 		}
 		if num.ChosenNumber == nil || *num.ChosenNumber != 2 {
 			t.Fatalf("chosenNumber = %v, want 2", num.ChosenNumber)
