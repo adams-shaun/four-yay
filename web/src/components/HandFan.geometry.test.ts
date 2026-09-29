@@ -232,6 +232,11 @@ describe('HandFan — the hand-card peek (fb-20260916T024357Z-9005ad6a)', () => 
         await page.goto(`${url}src/components/HandFan.geometry.html`);
         await page.waitForSelector('[data-obj="3"] .payment-shortcut', { timeout: 5000 });
         await page.waitForTimeout(120); // ResizeObserver layout has settled; no pointer/focus enters the fan.
+        const resting = await page.evaluate(() => ({
+          hovered: document.querySelector('.card:hover') !== null,
+          focused: document.querySelector('.card:has(:focus-visible)') !== null,
+        }));
+        expect(resting).toEqual({ hovered: false, focused: false });
         const hitAt = (x: number, y: number) =>
           page.evaluate(([px, py]) => {
             const el = document.elementFromPoint(px, py);
