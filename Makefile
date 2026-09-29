@@ -100,9 +100,11 @@ traindash:
 
 .PHONY: deploy-demo stop-demo
 # deploy-demo refreshes the local demo: one server on 127.0.0.1:8080 whose
-# bot-only tables spectate omniscient (play-vs-bot tables stay public), with
-# two Commander and two constructed tables so the overview's per-format
-# sections are both populated; bots play lethal-pressure at a 50ms pace
+# bot-only tables spectate omniscient (play-vs-bot tables stay public), four
+# 2-seat constructed tables at a 50ms pace, bots playing az-redeal (2026-09-29:
+# the strongest measured hosted policy, +20.5pp vs the production bot --
+# scripts/deploy-demo.sh has the full rationale and the override to restore
+# the previous 4-seat two-Commander-two-constructed/lethal-pressure shape)
 # (scripts/deploy-demo.sh; the :8081 omniscient server retired 2026-09-28). Run BY HAND, by the operator, when the demo should pick up
 # main: it stops the running servers, which aborts every in-flight vs-bot
 # game, so nothing runs it automatically any more (the post-merge hook and
