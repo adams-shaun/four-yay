@@ -5233,6 +5233,28 @@ func (e *Engine) replacementConditionHolds(r cards.Repl, source state.ObjID, you
 	if strings.EqualFold(r.Params["Delirium"], "True") && e.graveyardCardTypeCount(you) < 4 {
 		return false
 	}
+	// EnduringStory$ (Bombur, Gentle Dreamer) is the CR 702.175 "unless you
+	// have an enduring story" gate in the PARAMETER form, the sibling of
+	// Condition$ EnduringStory's continuous-static read. The value is a
+	// boolean literal compared against the seat's one-way latch: False holds
+	// only while the replacement's controller has NO enduring story (so the
+	// can't-untap replacement applies), True only while they do. Bombur is the
+	// corpus's sole carrier; an unrecognised value fails closed like every
+	// other condition gate here.
+	if raw, ok := r.Params["EnduringStory"]; ok {
+		switch strings.TrimSpace(raw) {
+		case "True", "true":
+			if !e.playerHasEnduringStory(you) {
+				return false
+			}
+		case "False", "false":
+			if e.playerHasEnduringStory(you) {
+				return false
+			}
+		default:
+			return false
+		}
+	}
 	if _, ok := r.Params["CheckDefinedPlayer"]; ok {
 		// The only corpus shape is You.isMonarch. Monarch state is not yet
 		// represented, so fail closed instead of preventing damage always.
