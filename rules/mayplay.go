@@ -116,6 +116,15 @@ func (e *Engine) mayPlayGrantScoped(p state.PlayerID, id state.ObjID, board bool
 			ok = true
 		}
 	}
+	// (a2) A Paradigm keyword is its own free-cast permission while the card
+	// sits in exile after resolving (rules/paradigm.go): at its owner's first
+	// main phase the may-play walk offers it as a free cast, and casting it
+	// moves it back to the stack, whose own spellRestZone returns it to exile.
+	// Board-independent, so it is read on both the scoped and full passes.
+	if e.paradigmMayPlay(p, o) {
+		free = true
+		ok = true
+	}
 	if !board {
 		return free, ok
 	}
@@ -861,6 +870,14 @@ func (e *Engine) mayPlayKinds(p state.PlayerID, id state.ObjID) (plain, mutate, 
 	// spell-shape predicate), so an effect grant is always the ORDINARY cast
 	// permission and can never be the mutate-only one.
 	if !plain && e.mayPlayEffectGrantsCast(p, o) {
+		plain = true
+	}
+	// The Paradigm keyword is the FOURTH source mayPlaySpellIds reads
+	// (rules/paradigm.go): its self-permission carries no ValidSA$, so it is
+	// always the ordinary cast permission, exactly like the effect arm above.
+	// Without this the classifier would VETO the Paradigm offer the grant
+	// walk just produced.
+	if !plain && e.paradigmMayPlay(p, o) {
 		plain = true
 	}
 	return plain, mutate, blitz

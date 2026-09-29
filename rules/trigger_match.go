@@ -2614,7 +2614,7 @@ func init() {
 		// effSetState's Mode$ TurnFaceUp arm emit; proved by
 		// rules/turnup_replacement_test.go's
 		// TestMasterOfPearlsTurnFaceUpSelfTriggerFiresOnce.
-		"trig:TurnFaceUp",
+		"trig:TurnFaceUp", "trig:Transformed",
 		"trig:ManaExpend",
 		"trig:Connives",
 		"trig:Discover", "trig:SeekAll",
@@ -2651,6 +2651,12 @@ func init() {
 		// dies-trigger shape, reading counters_EQ0_M1M1 off the LKI and
 		// returning the permanent with a -1/-1 counter.
 		"kw:Undying", "kw:Persist", "kw:Evolve", "kw:Exalted", "kw:Dethrone", "kw:Prowess", "kw:Riot", "kw:Hideaway", "kw:Extort", "kw:Myriad", "kw:Soulbond", "kw:Dredge",
+		// Increment (CR 702.XX, task kw:Increment): a SpellCast self-trigger
+		// (cards/kw_increment.go) whose event-relative "mana spent > power or
+		// toughness" condition is read by incrementAdmits. Registered here so
+		// the coverage walk stops naming kw:Increment as a gap now that the
+		// expansion supplies the whole rule.
+		"kw:Increment",
 		// CR 702.70 Training: an Attacks trigger (cards/kw_training.go) whose
 		// "with another creature with greater power" condition is read by
 		// attacksMatches (the Dethrone precedent), with a granted-keyword

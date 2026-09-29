@@ -1893,6 +1893,12 @@ var handRoots = struct {
 		// mustAttackRequired has. staticPresentHolds (its IsPresent$/
 		// PresentCompare$ gate) is reached through it.
 		"UntapOtherPlayer": {"Engine.untapOtherStaticsMatch"},
+		// SpellCopyAllowed scans CantBeCopied statics directly over the
+		// pile's Statics slice (the stack-copy enforcement walk in
+		// statics.go), with no activeStatics call -- the same direct-scan
+		// shape mustAttackRequired has. Its reads are the shared
+		// EffectZone$/ValidCard$ static gate.
+		"CantBeCopied": {"Engine.SpellCopyAllowed"},
 	},
 	// The trigger-queue drain and the stack-resolution paths read trigger
 	// params (OptionalDecider$, TriggerDescription$, Static$, ValidCard$)
@@ -2977,8 +2983,11 @@ var knownUnsupportedParams = map[string][]string{
 	// consulted by resolveTop) -- pinned end to end on the real corpus
 	// carrier Ugin's Mastery in rules/no_resolving_check_test.go, with a
 	// no-param control proving the recheck stays live for everyone else.)
-	"Methods of the Mighty":   {"param:api:Destroy.ValidTgtsDesc"},
-	"Mogis, God of Slaughter": {"param:stat:Continuous.RemoveType"},
+	// (Mogis, God of Slaughter's param:stat:Continuous.RemoveType row retired
+	// when the layer-4 type-static emission read RemoveType$: the devotion
+	// gods' "isn't a creature" gate is pinned end to end on the real corpus
+	// carrier Purphoros in rules/remove_type_static_test.go.)
+	"Methods of the Mighty": {"param:api:Destroy.ValidTgtsDesc"},
 	// Opposition Agent's and Rakdos, the Muscle's MayPlayIgnoreColor$/
 	// MayPlayIgnoreType$ keys are consumed by effects/mayPlayParams; their
 	// former labels were analyzer attribution gaps, not unsupported params.
@@ -2987,8 +2996,7 @@ var knownUnsupportedParams = map[string][]string{
 	// the PersistentMana$ read landed — the pm ManaAdd suffix, ManaClear's
 	// partial clear and the TurnChange expiry — pinned end to end on the real
 	// corpus carrier Rousing Refrain in rules/persistent_mana_test.go.)
-	"Purphoros, God of the Forge": {"param:stat:Continuous.RemoveType"},
-	"Rescue, Pepper Potts":        {"param:api:ChangeZone.ValidTgtsDesc"},
+	"Rescue, Pepper Potts": {"param:api:ChangeZone.ValidTgtsDesc"},
 	// Scarlet Witch, Chaotic Avenger's param:api:Dig.WithMayLook entry was
 	// deleted when effDig's shared face-down marker learned to read
 	// WithMayLook$ (ticket agent-20260919T181318Z-631ddc68): the exiling
@@ -3551,31 +3559,14 @@ func TestParamCensusScopesTheMayPlayStaticFamily(t *testing.T) {
 	// MayPlay static's recognition key is labelled under the family.
 	// Angelic Overseer/Static Orb/Auriok Steelshaper's IsPresent$ labels are
 	// GONE since the continuous-gate wave -- the formerly-labelled trio the
-	// split was first pinned with; Mogis/Purphoros's RemoveType$ (a distinct,
-	// still-unread grant param) is the surviving generic-bucket evidence,
-	// and Master of Etherium's CharacteristicDefining$ retired with the
-	// static-PT wave's genuine CDA read.
-	for card, label := range map[string]string{
-		"Mogis, God of Slaughter":     "param:stat:Continuous.RemoveType",
-		"Purphoros, God of the Forge": "param:stat:Continuous.RemoveType",
-	} {
-		found := false
+	// split was first pinned with; Master of Etherium's
+	// CharacteristicDefining$ retired with the static-PT wave's genuine CDA
+	// read; and Mogis/Purphoros's RemoveType$ retired when rules/layers.go's
+	// type-static emission read it (the devotion gods' "isn't a creature"
+	// gate, pinned end to end in rules/remove_type_static_test.go).
+	for _, card := range []string{"Angelic Overseer", "Auriok Steelshaper", "Static Orb", "Master of Etherium", "Mogis, God of Slaughter", "Purphoros, God of the Forge"} {
 		for _, l := range res.labels[card] {
-			if l == label {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("%s: expected %s in the census (labels %v)", card, label, res.labels[card])
-		}
-	}
-	// The former IsPresent labels must STAY gone: the generic gate read
-	// (continuousGateHolds) retired all three -- and so must Master of
-	// Etherium's CharacteristicDefining$ label since the CDA work read it.
-	for _, card := range []string{"Angelic Overseer", "Auriok Steelshaper", "Static Orb", "Master of Etherium"} {
-		for _, l := range res.labels[card] {
-			t.Errorf("%s: census labels %s but the IsPresent gate is genuinely evaluated now -- the shrink regressed", card, l)
+			t.Errorf("%s: census labels %s but that gate/read is genuinely evaluated now -- the shrink regressed", card, l)
 		}
 	}
 	for card, banned := range map[string]string{

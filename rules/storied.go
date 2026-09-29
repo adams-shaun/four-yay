@@ -72,6 +72,20 @@ func (e *Engine) checkEnduringStoryGrants() {
 	}
 }
 
+// playerHasEnduringStory reports whether seat p holds the CR 702.175
+// enduring-story latch. The ONE read of state.Player.EnduringStory for the
+// rules-side gates: layers.go's continuousConditionHolds (Condition$
+// EnduringStory) and replacement.go's replacementConditionHolds
+// (EnduringStory$ True/False, Bombur, Gentle Dreamer) both go through it, so
+// the bounds guard cannot drift between them. A seat index outside the
+// player slice reads false, the gates' documented deny direction.
+func (e *Engine) playerHasEnduringStory(p state.PlayerID) bool {
+	if int(p) < 0 || int(p) >= len(e.G.Players) {
+		return false
+	}
+	return e.G.Players[p].EnduringStory
+}
+
 // storiedPossible is checkEnduringStoryGrants' amortised pre-filter, the
 // exact shape of ascendPossible (rules/ascend.go): the scan reads every
 // permanent's DERIVED keywords, and the post-fold hook runs it on every

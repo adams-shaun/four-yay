@@ -362,7 +362,14 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 								out = append(out, n)
 							}
 						}
-						if st.HasParam(cards.PKAddType) || st.HasParam(cards.PKAddTypes) || st.HasParam(cards.PKAddAllCreatureTypes) {
+						// RemoveType$ (the layer-4 reverse grant, CR 613.1d: the named
+						// type words are removed from every object the static's Affected$
+						// matches, before this same effect's AddTypes apply -- CR 205.1b's
+						// "isn't a creature" family, the Theros god cycle) usually rides
+						// an AddType$ (Luxior's equipped walker stops being a planeswalker
+						// and becomes a creature) but STANDS ALONE on the devotion gods,
+						// so the emission cannot gate on the AddType family.
+						if st.HasParam(cards.PKAddType) || st.HasParam(cards.PKAddTypes) || st.HasParam(cards.PKAddAllCreatureTypes) || strings.TrimSpace(st.Params["RemoveType"]) != "" {
 							ty := base
 							ty.Layer = LType
 							ty.AddTypes = statList(st, "AddTypes")
@@ -416,11 +423,14 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 							// corpus S: line carrying RemoveCardTypes$/RemoveCreatureTypes$
 							// also carries AddType$): a strip-only static -- an AddType$
 							// ChosenType the host has not resolved -- must still emit so
-							// the strip is not silently dropped.
+							// the strip is not silently dropped. RemoveType$ is the one
+							// strip that DOES stand alone (the gods' devotion gate), so it
+							// enters the emission condition too.
 							ty.RemoveCardTypes = st.HasParam(cards.PKRemoveCardTypes)
 							ty.RemoveCreatureTypes = st.HasParam(cards.PKRemoveCreatureTypes)
+							ty.RemoveTypes = statList(st, "RemoveType")
 							ty.AffectedZone = strings.TrimSpace(st.ParamStr(cards.PKAffectedZone))
-							if len(ty.AddTypes) > 0 || ty.RemoveCardTypes || ty.RemoveCreatureTypes || ty.AddAllCreatureTypes {
+							if len(ty.AddTypes) > 0 || ty.RemoveCardTypes || ty.RemoveCreatureTypes || ty.AddAllCreatureTypes || len(ty.RemoveTypes) > 0 {
 								out = append(out, ty)
 							}
 						}
@@ -1196,10 +1206,7 @@ func (e *Engine) continuousConditionHolds(sv staticView) bool {
 		}
 		return e.G.Players[sv.Controller].Blessing
 	case "EnduringStory":
-		if int(sv.Controller) >= len(e.G.Players) {
-			return false
-		}
-		return e.G.Players[sv.Controller].EnduringStory
+		return e.playerHasEnduringStory(sv.Controller)
 	}
 	return false
 }

@@ -57,6 +57,17 @@ func (e *Engine) finalityReplacementApplies(id state.ObjID) bool {
 }
 
 func (e *Engine) applyReplacements(ev events.Event) (events.Event, bool) {
+	// A CantDraw static (CR 121.6: "If a player would draw a card and an
+	// effect says that player can't, the draw does not happen") is a "can't"
+	// replacement with no ReplaceWith$ body: the proposed Draw is swallowed
+	// whole, so no Draw event is logged and no Draw replacement (dredge,
+	// Notion Thief) may apply to it. Handled here, beside the positive-
+	// LifeChange CantGainLife gate in applyLifeReplacements below, so the two
+	// halves of a card like Mornsong Aria ("Players can't draw cards or gain
+	// life") take the same shape -- one static read, one prevented Note.
+	if ev.Kind == events.Draw && e.drawForbidden(ev.Player) {
+		return e.emit(events.Event{Kind: events.Note, Player: ev.Player, Text: "prevented: cannot draw cards"}), true
+	}
 	// Positive LifeChange is a gain; it never carries a repl:DamageDone
 	// match (that class names a Damage event only), so it routes straight
 	// to the life replacement machinery.
@@ -5222,6 +5233,28 @@ func (e *Engine) replacementConditionHolds(r cards.Repl, source state.ObjID, you
 	if strings.EqualFold(r.Params["Delirium"], "True") && e.graveyardCardTypeCount(you) < 4 {
 		return false
 	}
+	// EnduringStory$ (Bombur, Gentle Dreamer) is the CR 702.175 "unless you
+	// have an enduring story" gate in the PARAMETER form, the sibling of
+	// Condition$ EnduringStory's continuous-static read. The value is a
+	// boolean literal compared against the seat's one-way latch: False holds
+	// only while the replacement's controller has NO enduring story (so the
+	// can't-untap replacement applies), True only while they do. Bombur is the
+	// corpus's sole carrier; an unrecognised value fails closed like every
+	// other condition gate here.
+	if raw, ok := r.Params["EnduringStory"]; ok {
+		switch strings.TrimSpace(raw) {
+		case "True", "true":
+			if !e.playerHasEnduringStory(you) {
+				return false
+			}
+		case "False", "false":
+			if e.playerHasEnduringStory(you) {
+				return false
+			}
+		default:
+			return false
+		}
+	}
 	if _, ok := r.Params["CheckDefinedPlayer"]; ok {
 		// The only corpus shape is You.isMonarch. Monarch state is not yet
 		// represented, so fail closed instead of preventing damage always.
@@ -7536,6 +7569,34 @@ func (e *Engine) lifeGainForbidden(p state.PlayerID) bool {
 			effects.MatchesPlayerSpec(e.G, spec, p, sv.Controller) {
 			return true
 		}
+	}
+	return false
+}
+
+// drawForbidden checks active CantDraw statics against the player who would
+// draw a card (CR 121.6). It is lifeGainForbidden's sibling: the same
+// battlefield-static collector, the same ValidPlayer$ scope read in the
+// static's own parameter bucket, consulted by the same replacement pass.
+//
+// One parameter is deliberately not read: DrawLimit$ N ("each opponent can't
+// draw more than one card each turn", Leovold / Narset, Parter of Veils /
+// Spirit of the Labyrinth -- 3 of the class's 7 corpus carriers) is a per-turn
+// COUNT CAP, not a total prohibition: the draws at or below N still happen,
+// so enforcing it as "cannot draw at all" would over-block. The unread shape
+// is skipped in the permissive direction, matching every other unwhitelisted
+// static parameter in this file (see cantRestrictionParamsReadable): a
+// static carrying it prohibits nothing this build enforces, rather than
+// prohibiting everything.
+func (e *Engine) drawForbidden(p state.PlayerID) bool {
+	for _, sv := range e.activeStatics("CantDraw") {
+		if spec := sv.Params["ValidPlayer"]; spec != "" &&
+			!effects.MatchesPlayerSpec(e.G, spec, p, sv.Controller) {
+			continue
+		}
+		if _, hasLimit := sv.Params["DrawLimit"]; hasLimit {
+			continue
+		}
+		return true
 	}
 	return false
 }

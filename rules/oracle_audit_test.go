@@ -54,16 +54,10 @@ import (
 // file row naming a scenario of another family, fails the build. Rows here are
 // legacy and may be moved into the family files.
 var oracleKnownDivergent = map[string]string{
-	// Mogis's creature-removal instruction is not interpreted by the
-	// continuous-effect type layer (rules/layers.go); the gate at seven
-	// devotion is therefore stuck on the printed creature type.
-	"Mogis, God of Slaughter/devotion-two-not-creature":  "observed Creature at devotion two, expected no Creature type",
-	"Mogis, God of Slaughter/devotion-falls-below-seven": "observed Creature after devotion fell to six, expected no Creature type",
-	// Engine gap: stat:Continuous RemoveType$ is never read (layers.go reads
-	// only AddType$/RemoveCardTypes$/RemoveCreatureTypes$); paramcensus
-	// already lists it for Purphoros and Mogis. 29 corpus scripts carry it,
-	// the Theros god cycle among them, so every god is always a creature.
-	"Purphoros, God of the Forge/low-devotion-not-a-creature": "a devotion-1 Purphoros is a 6/5 creature (RemoveType$ unread)",
+	// (The Purphoros and Mogis rows retired when rules/layers.go's type-static
+	// emission read stat:Continuous RemoveType$ -- the devotion gods' "isn't
+	// a creature" gate, pinned in rules/remove_type_static_test.go; the
+	// paramcensus rows retired with it.)
 	// Engine bug (CR 603.10a): a granted "whenever a creature you control
 	// dies" trigger is checked AFTER a non-SBA departure, so the departure
 	// that ends the grant's IsPresent$ condition loses its own trigger. The

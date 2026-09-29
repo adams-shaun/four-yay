@@ -172,6 +172,20 @@ func (e *Engine) spellCastEval(t cards.Trigger, source state.ObjID, ev events.Ev
 			return false
 		}
 	}
+	// Increment (CR 702.XX, task kw:Increment): the keyword expansion's
+	// SpellCast marker (cards/kw_increment.go). "Whenever you cast a spell, if
+	// the amount of mana you spent is greater than this creature's power or
+	// toughness" is an event-relative comparison -- the mana paid for THIS
+	// cast against the trigger SOURCE's current power/toughness -- so it cannot
+	// ride the CheckSVar$/SVarCompare$ gate (literal RHS only) or ValidSA$ (a
+	// filter over the cast spell). It lives here beside the other event-relative
+	// SpellCast gates, the Dethrone/Training precedent read by their own
+	// matchers.
+	if v, ok := t.Params["Increment"]; ok && strings.EqualFold(strings.TrimSpace(v), "True") {
+		if !e.incrementAdmits(source, ev) {
+			return false
+		}
+	}
 	// The target-shape params (targetsvalid1): TargetsValid$ narrows the cast
 	// to spells whose targets all match the spec, IsSingleTarget$ to spells
 	// with exactly one target. A SpellCast trigger "that targets CARDNAME"
@@ -597,6 +611,29 @@ func (e *Engine) manaSpentForCast(p state.PlayerID, id state.ObjID) int32 {
 		}
 	}
 	return spent
+}
+
+// incrementAdmits implements the Increment keyword's event-relative condition:
+// the mana actually spent to cast the triggering spell is greater than the
+// trigger SOURCE's current power OR greater than its current toughness. The
+// oracle reminder's "power or toughness" is a disjunction (CR 702.XX), so one
+// of the two comparisons sufficing is the firing condition. Power and
+// toughness are the LAYER OUTPUT (Engine.Power/Engine.Toughness, the same
+// derived values Training reads for its power comparison), so a lord, a
+// counter or a pump moves the comparison exactly as it moves the creature.
+//
+// The spend comes from the SHARED manaSpentForCast log scan validSAMatches and
+// spellValidSAonCardMatches read, so the three SpellCast spend readers can
+// never disagree. A source that is no longer a creature on the battlefield
+// when the trigger fires (it left, or became a noncreature) has no P/T to
+// compare and fails closed, as every unreadable gate in this file does.
+func (e *Engine) incrementAdmits(source state.ObjID, ev events.Event) bool {
+	src := e.G.Obj(source)
+	if src == nil || src.Face() == nil {
+		return false
+	}
+	spent := e.manaSpentForCast(ev.Player, ev.Obj)
+	return spent > e.Power(source) || spent > e.Toughness(source)
 }
 
 // validSAMatches evaluates a SpellCast trigger's ValidSA$ clause. The

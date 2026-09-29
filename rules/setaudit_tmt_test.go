@@ -18,6 +18,8 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -61,6 +63,71 @@ func setAuditDeck(t *testing.T, seed uint64, s0, s1 []*cards.Card) (*Engine, Con
 }
 
 // ---------------------------------------------------------------------------
+// Census: the whole 195-card set against the coverage oracle
+// ---------------------------------------------------------------------------
+
+// TestSetAudit_tmt_CensusMechanismClasses is the committed census over
+// setAuditTMTNames() (setaudit_tmt_names_test.go): it resolves every one of the
+// set's 195 names in the corpus, and asserts that the cards still reported
+// unsupported by (*cards.Registry).Unsupported with effects.Supported() fall
+// into the single remaining mechanism class this audit left -- `kw:Sneak` (the
+// unimplemented named mechanic, 26 carriers). The second class the audit
+// found, the phantom `kw:CARDNAME must be blocked if able.` spelling
+// (Raphael's working CR 509.1c requirement), was a classification artefact and
+// is now closed: the sentence head is canonicalised to MustBlock at parse time
+// (cards/hiddenkeyword.go) and registered as supported (rules/statics.go), so
+// the census pins that closure instead. This is the accountability half of the
+// audit: names a class, not one card, and would fail if a new class appeared
+// (or if the closure silently regressed).
+func TestSetAudit_tmt_CensusMechanismClasses(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	if reg == nil {
+		t.Fatal("precondition: corpus registry missing (.cards not linked?)")
+	}
+	names := setAuditTMTNames()
+	if len(names) != 195 {
+		t.Fatalf("census is written for the 195-card set, found %d names", len(names))
+	}
+	supported := effects.Supported()
+	classes := map[string][]string{}
+	for _, n := range names {
+		c, ok := reg.Lookup(n)
+		if !ok {
+			t.Fatalf("census: corpus is missing %q (the set/audit input drifted)", n)
+		}
+		for _, m := range reg.Unsupported(c, supported) {
+			classes[m] = append(classes[m], n)
+		}
+	}
+	// The only class that still reports unsupported is kw:Sneak, with its
+	// carrier count.
+	if got := len(classes["kw:Sneak"]); got != 26 {
+		t.Errorf("kw:Sneak carriers = %d, want 26; carriers=%v", got, classes["kw:Sneak"])
+	}
+	// The must-be-blocked sentence is canonicalised to the MustBlock head at
+	// parse time (cards/hiddenkeyword.go) and registered as supported
+	// (rules/statics.go), so NO carrier reports the phantom spelling any
+	// more; this is the regression pin that the class stays closed.
+	if got := len(classes["kw:CARDNAME must be blocked if able."]); got != 0 {
+		t.Errorf("phantom must-block spelling carriers = %d, want 0 (the spelling must stay canonicalised); carriers=%v", got, classes["kw:CARDNAME must be blocked if able."])
+	}
+	for m := range classes {
+		if m != "kw:Sneak" {
+			t.Errorf("an unexpected unsupported mechanism class appeared: %q (%v)", m, classes[m])
+		}
+	}
+	// The named card of the closed must-block class is the TMT carrier the
+	// behavioural test above drives: it must now report nothing at all.
+	raph, ok := reg.Lookup("Raphael, Ninja Destroyer")
+	if !ok {
+		t.Fatal("census: corpus is missing Raphael, Ninja Destroyer (the set/audit input drifted)")
+	}
+	if got := reg.Unsupported(raph, supported); len(got) != 0 {
+		t.Errorf("Raphael, Ninja Destroyer must be fully supported after the canonicalisation; got %v", got)
+	}
+}
+
+// ---------------------------------------------------------------------------
 // (a) Sneak -- CR 702.190
 // ---------------------------------------------------------------------------
 
@@ -87,7 +154,11 @@ func TestSetAudit_tmt_OrokuSaki_SneakIsCastableDeclareBlockers(t *testing.T) {
 		t.Fatalf("precondition: Oroku Saki not in hand: %+v", o)
 	}
 	_ = attackWithBear(t, e) // unblocked attacker of seat 1, seat 0 declarer
-	fundPool(t, e, "B")      // Sneak {1}{B}
+	// Fund exactly the Sneak cost {1}{B} (C = one generic/colorless, B = black).
+	// This is the isolating amount: the normal cost {2}{B} needs 3 mana and is
+	// therefore unaffordable here, so a zero-option result can only be the
+	// missing sneak alternate cast -- not the card being unplayable anyway.
+	fundPool(t, e, "CB")
 
 	d := e.Pending()
 	if d == nil || d.Kind != decision.KPriority || d.Player != 0 {
@@ -163,31 +234,91 @@ func TestSetAudit_tmt_EastWindAvatar_AlliancePumpsOnAnotherCreature(t *testing.T
 // (b) Enrage / must-be-blocked -- Raphael, Ninja Destroyer
 // ---------------------------------------------------------------------------
 
-// TestSetAudit_tmt_RaphaelNinjaDestroyer_MustBeBlockedIsModelled pins the
-// "must be blocked if able" combat requirement (CR 509.1a). Raphael, Ninja
-// Destroyer prints exactly that line ("Raphael must be blocked if able."),
-// Forge-encoded as `K:CARDNAME must be blocked if able.`. The engine's
-// must-block machinery (rules/combat.go mustBlockCandidates) reads a
-// MustBlock continuous static or the printed keyword. Forge encodes the
-// attacker's requirement as a bare K: line whose head is the literal
-// sentence "CARDNAME must be blocked if able."; cards/parse.go canonicalises
-// that sentence to the MustBlock head (cards/hiddenkeyword.go), and
-// rules/statics.go's hasMustBeBlockedKeyword reads both the canonical head
-// and the runtime Pump-granted sentence form.
-func TestSetAudit_tmt_RaphaelNinjaDestroyer_MustBeBlockedIsModelled(t *testing.T) {
+// TestSetAudit_tmt_RaphaelNinjaDestroyer_MustBeBlockedBindsBehaviourally is the
+// correct form of the must-be-blocked audit. The engine does NOT model the
+// requirement as a `MustBlock` static (that would be the blocker-oriented Mode$
+// MustBlock); it reads the printed literal head `CARDNAME must be blocked if
+// able.` through rules/statics.go parseHiddenKeyword into
+// hiddenKeywordFlags{mustBlock:true}, and rules/combat.go askBlockers stamps
+// AttackMust on every offered block option against such an attacker (CR
+// 509.1c). The audit's job is to prove the requirement BINDS, so this test
+// drives a real declare-blockers ask over the real corpus Raphael and asserts
+// the option against him carries AttackMust and an empty declaration is
+// rejected. Regression pin (expected to pass).
+func TestSetAudit_tmt_RaphaelNinjaDestroyer_MustBeBlockedBindsBehaviourally(t *testing.T) {
 	raph := setAuditRealCard(t, "Raphael, Ninja Destroyer")
-	f := raph.Faces[0]
-	// The card text says it must be blocked if able. Either the expanded
-	// static or a recognised keyword head must carry that.
-	printed := false
-	for _, k := range f.Keywords {
-		if cards.KeywordHead(k) == "MustBlock" || cards.KeywordHead(k) == "MustBeBlocked" {
-			printed = true
+	e := threeSeatEngine(t)
+	att := onBoardCard(t, e, 1, raph)
+	blocker := onBoardCard(t, e, 0, card(t, "Name:Test Turtle Blocker\nManaCost:1\nTypes:Creature Turtle\nPT:0/4\nOracle:x\n"))
+	// Preconditions: both are live battlefield creatures, neither is summoning
+	// sick in a way that bars blocking, and the requirement really is present
+	// on the derived list (the reader, not an inert static).
+	if o := e.G.Obj(att); o == nil || o.Zone != state.ZBattlefield || o.Controller != 1 {
+		t.Fatalf("precondition: Raphael not on seat 1's battlefield: %+v", o)
+	}
+	if o := e.G.Obj(blocker); o == nil || o.Zone != state.ZBattlefield || o.Controller != 0 {
+		t.Fatalf("precondition: blocker not on seat 0's battlefield: %+v", o)
+	}
+	if !e.hasMustBeBlockedKeyword(att) {
+		t.Fatalf("CR 509.1a: the derived list does not carry must-be-blocked for %s; keywords=%v",
+			raph.Faces[0].Name, e.Derived(att).Keywords)
+	}
+	attackSeat0(t, e, att)
+	// The blocker must legally be able to block now that Raphael is declared
+	// attacking (canBlock reads IsAttacking), so the requirement has a pair.
+	if !e.canBlock(blocker, att) {
+		t.Fatal("precondition: the blocker cannot legally block Raphael, so no pair is offered")
+	}
+	d := askBlockersFresh(t, e)
+	if d == nil {
+		t.Fatal("no declare-blockers decision posed for a must-be-blocked attacker with a legal blocker")
+	}
+	opt := findBlockOption(d, blocker, att)
+	if opt == nil {
+		t.Fatalf("legal block pair not offered: %+v", d.Options)
+	}
+	if !opt.AttackMust {
+		t.Fatalf("CR 509.1c: the block option against Raphael is not flagged AttackMust: %+v", opt)
+	}
+	// The empty declaration is illegal: the requirement is unmet. This is the
+	// behavioural half -- the flag alone could be a label.
+	if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{}}); err == nil {
+		t.Fatal("an empty declaration satisfied Raphael's must-be-blocked requirement")
+	}
+	// The legal block commits.
+	if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{opt.Index}}); err != nil {
+		t.Fatalf("the legal blocking declaration was rejected: %v", err)
+	}
+	if !blockCommitted(t, e, att, blocker) {
+		t.Fatalf("block did not commit: BlockedBy=%v", e.G.Obj(att).BlockedBy)
+	}
+}
+
+// TestSetAudit_tmt_RaphaelNinjaDestroyer_MustBlockSpellingIsClassified is the
+// honest remainder of the must-be-blocked audit: the requirement WORKS (the
+// behavioural test above proves it binds), but (*cards.Registry).Unsupported
+// reports the phantom primitive `kw:CARDNAME must be blocked if able.` rather
+// than a real keyword head, so the coverage census counted Raphael as
+// unsupported when the play behaviour was correct. That artefact is now
+// closed: the printed sentence head is canonicalised to the MustBlock head at
+// parse time (cards/hiddenkeyword.go) and the head is registered as supported
+// (rules/statics.go), so the census no longer counts the must-block class at
+// all. This test pins the closed classification: the printed face carries the
+// canonical head, and no phantom spelling is reported unsupported.
+func TestSetAudit_tmt_RaphaelNinjaDestroyer_MustBlockSpellingIsCanonicalised(t *testing.T) {
+	reg := searchTestRegistry(t)
+	raph := searchCorpusCard(t, reg, "Raphael, Ninja Destroyer")
+	canonical := false
+	for _, k := range raph.Faces[0].Keywords {
+		if cards.KeywordHead(k) == "MustBlock" {
+			canonical = true
 		}
 	}
-	if !printed && !hasMustBlockStatic(f) {
-		t.Fatalf("CR 509.1a: %s says it must be blocked if able but the face carries no MustBlock static; keywords=%v statics=%v",
-			f.Name, f.Keywords, staticModes(f))
+	if !canonical {
+		t.Fatalf("the must-be-blocked line should be canonicalised to the MustBlock head; keywords=%v", raph.Faces[0].Keywords)
+	}
+	if got := reg.Unsupported(raph, effects.Supported()); len(got) != 0 {
+		t.Fatalf("Raphael should be fully supported after the canonicalisation; got %v", got)
 	}
 }
 
@@ -196,28 +327,47 @@ func TestSetAudit_tmt_RaphaelNinjaDestroyer_MustBeBlockedIsModelled(t *testing.T
 // ---------------------------------------------------------------------------
 
 // TestSetAudit_tmt_LeaderTalent_Level2LeavesTrigger pins a Class card's level
-// band: CR 716.2 says gaining a level adds the level bar's abilities. At
-// level 2 Leader's Talent gains "Whenever a creature you control leaves the
-// battlefield, if it had a counter on it, you gain 2 life." (AddTrigger$ on
-// the K:Class line). The card starts at level 1 and reaches level 2 by
-// activating its "{2}{W}: Level 2" ability.
+// band end to end: CR 716.2 says gaining a level adds the level bar's
+// abilities. At level 2 Leader's Talent gains "Whenever a creature you control
+// leaves the battlefield, if it had a counter on it, you gain 2 life." (its
+// K:Class:2 `AddTrigger$ TriggerLeaves`). The card starts at level 1 and
+// reaches level 2 by activating its "{2}{W}: Level 2" ability; this test drives
+// the real activation and then the trigger, so a broken band cannot pass.
 func TestSetAudit_tmt_LeaderTalent_Level2LeavesTrigger(t *testing.T) {
-	lt := setAuditRealCard(t, "Leader's Talent")
-	if len(lt.Faces[0].Keywords) == 0 {
-		t.Fatal("precondition: Leader's Talent prints no keywords")
+	reg := searchTestRegistry(t)
+	e, _ := classEngine(t, reg, "Leader's Talent", "Grizzly Bears")
+	lt := classMove(t, e, "Leader's Talent", state.ZBattlefield)
+	bear := classMove(t, e, "Grizzly Bears", state.ZBattlefield)
+	if got := e.G.Obj(lt).Counter("LEVEL"); got != 1 {
+		t.Fatalf("precondition: Leader's Talent at level %d, want 1", got)
 	}
-	// The level-2 trigger must exist somewhere on the face (either as an
-	// always-present hidden trigger gated by the level, or added at level 2).
-	found := false
-	for _, tr := range lt.Faces[0].Triggers {
-		if tr.Params["Mode"] == "ChangesZone" && tr.Params["Destination"] == "Any" {
-			found = true
-		}
+	// Preconditions the post-assertions depend on: the creature is a live
+	// battlefield permanent, and the level-2 band really carries the leaves
+	// trigger (a Class card without it would otherwise pass silently).
+	if o := e.G.Obj(bear); o == nil || o.Zone != state.ZBattlefield {
+		t.Fatalf("precondition: Grizzly Bears not on the battlefield: %+v", o)
 	}
-	if !found {
-		setAuditSkip(t, "K:Class level-2 AddTrigger$ is not expanded onto the face",
-			"tmt-class-level-addtrigger")
-		t.Fatalf("Leader's Talent has no level-2 ChangesZone trigger; triggers=%v", triggerModes(lt.Faces[0]))
+	if !classHasTriggerMode(e.G.Obj(lt).Face(), "ChangesZone") {
+		t.Fatalf("precondition: Leader's Talent face has no ChangesZone trigger; modes=%v", triggerModes(e.G.Obj(lt).Face()))
+	}
+
+	// Drive the real {2}{W}: Level 2 activation.
+	classLevelUp(t, e, lt, 0) // -> level 2
+	if got := e.G.Obj(lt).Counter("LEVEL"); got != 2 {
+		t.Fatalf("precondition: LEVEL=%d after the level-2 activation, want 2", got)
+	}
+	// The creature must have a counter for the trigger's rider to hold.
+	e.emit(events.Event{Kind: events.CounterChange, Obj: bear, Counter: "P1P1", Amount: 1})
+	if e.G.Obj(bear).Counter("P1P1") != 1 {
+		t.Fatal("precondition: the +1/+1 counter did not land on the creature")
+	}
+	lifeBefore := e.G.Players[0].Life
+	// The creature leaves the battlefield: the level-2 trigger must fire.
+	e.emit(events.Event{Kind: events.MoveZone, Obj: bear, From: state.ZBattlefield, To: state.ZGraveyard})
+	e.priorityRound()
+	passUntilStackEmpty(t, e, 40)
+	if got := e.G.Players[0].Life; got != lifeBefore+2 {
+		t.Fatalf("CR 716.2: level-2 leaves-the-battlefield trigger must gain 2 life: %d -> %d", lifeBefore, got)
 	}
 }
 
@@ -226,40 +376,113 @@ func TestSetAudit_tmt_LeaderTalent_Level2LeavesTrigger(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestSetAudit_tmt_CaseyJones_RestGoesToBottomInRandomOrder pins the Dig
-// rider RestRandomOrder$ True: "Put the rest on the bottom of your library in
-// a random order." (CR 701.20 shuffle semantics on the remainder). The test
-// asserts the library total is conserved (no card lost) and the engine did
-// not emit an unimplemented Note for the rider.
+// rider RestRandomOrder$ True: "look at the top four cards of your library. You
+// may reveal an artifact card from among them and put it into your hand. Put
+// the rest on the bottom of your library in a random order." The test pins a
+// top-4 of [Sol Ring, Mountain, Mountain, Mountain], takes the artifact, and
+// asserts the artifact went to hand and the three non-artifacts are the bottom
+// three (composition AND position changed, so a no-op Dig cannot pass).
 func TestSetAudit_tmt_CaseyJones_RestGoesToBottomInRandomOrder(t *testing.T) {
 	cj := setAuditRealCard(t, "Casey Jones, Jury-Rig Justiciar")
 	if !cj.Faces[0].HasKeyword("Haste") {
 		t.Fatal("precondition: Casey Jones should have Haste")
 	}
-	reg := searchTestRegistry(t)
-	artifact := searchCorpusCard(t, reg, "Sol Ring")
-	e, _ := setAuditDeck(t, 9441, []*cards.Card{cj, artifact, artifact, artifact, artifact},
-		[]*cards.Card{})
-	totalBefore := setAuditZoneTotal(e, 0)
-	searchMoveByName(t, e, "Casey Jones, Jury-Rig Justiciar", state.ZBattlefield)
-	// Precondition: the card really has an ETB Dig trigger (so the drain below
-	// is not passing with the feature absent).
+	// Precondition: the card really has a self-ETB Dig trigger with the random
+	// remainder rider (so a missing feature fails loudly, not silently).
 	digTrigger := false
 	for _, tr := range cj.Faces[0].Triggers {
 		sa := cards.ResolveSVar(cj.Faces[0].SVars, tr.Params["Execute"])
 		if tr.Params["Mode"] == "ChangesZone" && sa != nil && sa.API == "Dig" {
+			if sa.Params["RestRandomOrder"] != "True" {
+				t.Fatalf("precondition: Casey Jones' Dig no longer carries RestRandomOrder$: %+v", sa.Params)
+			}
 			digTrigger = true
 		}
 	}
 	if !digTrigger {
 		t.Fatal("precondition: Casey Jones has no self-ETB Dig trigger")
 	}
-	passUntilStackEmpty(t, e, 60)
+	reg := searchTestRegistry(t)
+	ring := searchCorpusCard(t, reg, "Sol Ring")
+	mountain := searchCorpusCard(t, reg, "Mountain")
+	// A deck that leads with the artifact and three lands guarantees the
+	// pinned window; the filler keeps the deck at 40.
+	filler := make([]*cards.Card, 0, 36)
+	for i := 0; i < 36; i++ {
+		filler = append(filler, mountain)
+	}
+	deck := append([]*cards.Card{cj, ring, mountain, mountain, mountain}, filler...)
+	opp := make([]*cards.Card, 40)
+	for i := range opp {
+		opp[i] = mountain
+	}
+	cfg := seatZeroStart(Config{Seed: 9441, Names: []string{"casey", "villain"},
+		Decks: [][]*cards.Card{deck, opp}, Tokens: map[string]*cards.Card{}})
+	e := New(cfg)
+	e.Advance()
+	toMain1(t, e)
+
+	libBefore := digReorder(t, e, "Sol Ring", "Mountain", "Mountain", "Mountain")
+	if len(libBefore) < 5 {
+		t.Fatalf("precondition: library %d cards, need a window plus a tail", len(libBefore))
+	}
+	ringID := libBefore[0]
+	if got := e.G.Obj(ringID).Face().Name; got != "Sol Ring" {
+		t.Fatalf("precondition: top card = %s, want Sol Ring", got)
+	}
+	untaken := append([]state.ObjID(nil), libBefore[1:4]...)
+	below := append([]state.ObjID(nil), libBefore[4:]...)
+
+	// Trigger the ETB by moving Casey Jones from hand/library to the
+	// battlefield through a logged event.
+	cjID := searchMoveByName(t, e, "Casey Jones, Jury-Rig Justiciar", state.ZBattlefield)
+	if o := e.G.Obj(cjID); o == nil || o.Zone != state.ZBattlefield {
+		t.Fatalf("precondition: Casey Jones not on the battlefield: %+v", o)
+	}
+	// Answer the optional take ask with the Sol Ring.
+	ask := passUntilNonPriority(t, e, 30)
+	if ask == nil || ask.Kind != decision.KChoose {
+		t.Fatalf("Dig take ask = %+v, want a KChoose", ask)
+	}
+	took := -1
+	for _, o := range ask.Options {
+		if o.Obj == ringID {
+			took = o.Index
+		}
+	}
+	if took < 0 {
+		t.Fatalf("the Sol Ring was not offered in the Dig window: %+v", ask.Options)
+	}
+	submitChoices(t, e, took)
+	passUntilStackEmpty(t, e, 40)
 	if hasNote(e, "unimplemented") {
 		t.Fatalf("Dig rider went unimplemented: %v", noteTexts(e))
 	}
-	totalAfter := setAuditZoneTotal(e, 0)
-	if totalAfter != totalBefore {
-		t.Fatalf("CR 701.20: the Dig must conserve every zone's card total, %d -> %d", totalBefore, totalAfter)
+
+	// The taken artifact is in hand.
+	if o := e.G.Obj(ringID); o == nil || o.Zone != state.ZHand {
+		t.Fatalf("CR 701.20: the taken artifact zone = %v, want Hand", o.Zone)
+	}
+	// The below-window tail is intact at the front, and the three untaken
+	// window cards are the bottom three (composition changed position).
+	libAfter := e.G.Zone(state.ZLibrary, 0)
+	if len(libAfter) != len(below)+3 {
+		t.Fatalf("library %d cards, want %d", len(libAfter), len(below)+3)
+	}
+	for i, oid := range below {
+		if libAfter[i] != oid {
+			t.Fatalf("library[%d] = %v, want the below-window card %v", i, libAfter[i], oid)
+		}
+	}
+	bottom := libAfter[len(libAfter)-3:]
+	seen := map[state.ObjID]bool{}
+	for _, oid := range bottom {
+		seen[oid] = true
+	}
+	for _, oid := range untaken {
+		if !seen[oid] {
+			t.Fatalf("CR 701.20: untaken window card %v is not among the bottom three %v", oid, bottom)
+		}
 	}
 }
 
@@ -328,14 +551,34 @@ func TestSetAudit_tmt_ChromeDome_CopyGainsHasteAndIsSacrificedAtNextEndStep(t *t
 	}
 	passUntilStackEmpty(t, e, 60)
 	copies := 0
+	var copyID state.ObjID
 	for _, id := range e.G.Zone(state.ZBattlefield, 0) {
 		o := e.G.Obj(id)
 		if o != nil && o.ID != cdID && o.ID != ringID && o.Face() != nil && o.Face().Name == "Sol Ring" {
 			copies++
+			copyID = id
 		}
 	}
 	if copies != 1 {
 		t.Fatalf("CR 707.2: the copy token should exist on the battlefield, found %d", copies)
+	}
+	// The copy must actually have haste (the PumpKeywords$ rider).
+	if !e.HasKeyword(copyID, "Haste") {
+		t.Fatalf("CR 707.2: the copy token must gain haste; keywords=%v", e.Derived(copyID).Keywords)
+	}
+	// The copy must be sacrificed at the beginning of the next end step
+	// (CR 513.2), while the original artifact survives.
+	driveToStepAll(t, e, e.G.Turn, 0, state.StepEnd)
+	for e.putTriggersOnStack() {
+		answerTriggerOrders(t, e)
+		passUntilStackEmpty(t, e, 40)
+	}
+	passUntilStackEmpty(t, e, 40)
+	if z := e.G.Obj(copyID).Zone; z == state.ZBattlefield {
+		t.Fatalf("CR 513.2: the copy token survived the next end step (zone %s)", z)
+	}
+	if z := e.G.Obj(ringID).Zone; z != state.ZBattlefield {
+		t.Fatalf("the ORIGINAL Sol Ring must survive its copy's delayed sacrifice (zone %s)", z)
 	}
 }
 
@@ -538,40 +781,12 @@ func TestSetAudit_tmt_TurtleVan_CrewedThisTurnTarget(t *testing.T) {
 // helpers
 // ---------------------------------------------------------------------------
 
-func hasMustBlockStatic(f *cards.Face) bool {
-	for _, s := range f.Statics {
-		if s.Mode == "MustBlock" || s.Params["Mode"] == "MustBlock" {
-			return true
-		}
-		if s.Params["MustBlock"] != "" {
-			return true
-		}
-	}
-	return false
-}
-
-func staticModes(f *cards.Face) []string {
-	out := make([]string, 0, len(f.Statics))
-	for _, s := range f.Statics {
-		out = append(out, s.Mode)
-	}
-	return out
-}
-
 func triggerModes(f *cards.Face) []string {
 	out := make([]string, 0, len(f.Triggers))
 	for _, tr := range f.Triggers {
 		out = append(out, tr.Params["Mode"])
 	}
 	return out
-}
-
-func setAuditZoneTotal(e *Engine, p state.PlayerID) int {
-	n := 0
-	for _, z := range []state.Zone{state.ZLibrary, state.ZHand, state.ZGraveyard, state.ZBattlefield, state.ZStack, state.ZExile} {
-		n += len(e.G.Zone(z, p))
-	}
-	return n
 }
 
 func noteTexts(e *Engine) []string {

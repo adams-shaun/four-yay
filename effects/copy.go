@@ -169,6 +169,21 @@ func effCopySpellAbility(h Host, c *Ctx, sa *cards.SA) {
 		if o := g.Obj(spell); o == nil || o.Zone != state.ZStack {
 			return
 		}
+		if !spellCopyAllowed(h, spell) {
+			return
+		}
+	}
+	if len(validStackSpells) > 0 {
+		allowed := validStackSpells[:0]
+		for _, id := range validStackSpells {
+			if spellCopyAllowed(h, id) {
+				allowed = append(allowed, id)
+			}
+		}
+		validStackSpells = allowed
+		if len(validStackSpells) == 0 {
+			return
+		}
 	}
 
 	// Controller$ (Chain Lightning's "If the player does, they may copy this
@@ -340,6 +355,14 @@ func effCopySpellAbility(h Host, c *Ctx, sa *cards.SA) {
 			}
 		}
 	}
+}
+
+// spellCopyAllowed asks the rules host whether the candidate spell's own
+// static permits copying. Effects test doubles without this optional rules
+// seam retain their established behavior.
+func spellCopyAllowed(h Host, id state.ObjID) bool {
+	checker, ok := h.(interface{ SpellCopyAllowed(state.ObjID) bool })
+	return !ok || checker.SpellCopyAllowed(id)
 }
 
 // emitCopy emits one StackCopy event. When remember is set it routes through

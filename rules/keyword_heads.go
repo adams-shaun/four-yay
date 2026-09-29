@@ -70,6 +70,7 @@ var (
 	kwhTypeCycling      = newKWHead("TypeCycling")
 	kwhUmbraArmor       = newKWHead("Umbra armor")
 	kwhUnleash          = newKWHead("Unleash")
+	kwhWebSlinging      = newKWHead("Web-slinging")
 	kwhVigilance        = newKWHead("Vigilance")
 	kwhWither           = newKWHead("Wither")
 )
