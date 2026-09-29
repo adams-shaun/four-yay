@@ -16,6 +16,7 @@ import (
 	"syscall"
 	"time"
 
+	_ "github.com/adams-shaun/gorge/bots/all"
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/deck"
 	"github.com/adams-shaun/gorge/host"

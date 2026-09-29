@@ -1,53 +1,26 @@
 package host
 
 import (
-	"fmt"
-
-	"github.com/adams-shaun/gorge/botpolicy"
+	"github.com/adams-shaun/gorge/bots"
+	_ "github.com/adams-shaun/gorge/bots/bot"
 	"github.com/adams-shaun/gorge/seat"
 )
 
 const (
-	// BotPolicy is the stable deterministic hosted bot policy.
-	BotPolicy = "bot"
-	// LethalPressurePolicy is the measured opt-in hosted experiment.
-	LethalPressurePolicy = "lethal-pressure"
-	// CastProfilePolicy plays the production bot with a learned cast profile
-	// (botpolicy.CastWeights) selected by name from the embedded profile set.
-	// With the embedded default profile it is intent-identical to BotPolicy;
-	// a tuned profile is how an experiment reaches a live table without a
-	// rebuild. cmd/botbench's -profile flag overrides the weights per run.
-	CastProfilePolicy = "cast-profile"
+	BotPolicy            = bots.BotPolicy
+	LethalPressurePolicy = bots.LethalPressurePolicy
+	CastProfilePolicy    = bots.CastProfilePolicy
 )
 
-// NormalizeBotPolicy returns a hosted policy's stable name. An omitted name
-// deliberately selects the production bot so tables saved before policy
-// selection existed retain their behavior. The hosted vocabulary is closed:
-// diagnostic policies such as legacy cannot silently become opponents.
-func NormalizeBotPolicy(name string) (string, error) {
-	if name == "" {
-		return BotPolicy, nil
-	}
-	switch name {
-	case BotPolicy, LethalPressurePolicy, CastProfilePolicy:
-		return name, nil
-	default:
-		return "", fmt.Errorf("host: unknown bot policy %q (known: bot, lethal-pressure, cast-profile)", name)
-	}
-}
+// NormalizeBotPolicy returns a hosted policy's stable name.
+func NormalizeBotPolicy(name string) (string, error) { return bots.Normalize(name) }
 
-// NewBotPolicySeat builds a fresh deterministic seat for a supported hosted
-// policy. The caller owns the per-seat seed derivation; the factory never
-// reaches ambient randomness or substitutes a policy on an unknown name.
+// NewBotPolicySeat builds a fresh deterministic seat for a supported hosted policy.
 func NewBotPolicySeat(name string, seed uint64) (seat.Seat, error) {
 	return NewBotPolicySeatWithAutoPayMana(name, seed, false)
 }
 
-// newCaretakerSeat builds the timeout caretaker for a human seat: the hosted
-// policy's bot for that slot, except that with auto-pay it never selects a
-// payment plan that pays life (spec §6: submitting a selector is consent, and
-// a caretaker cannot consent for the human it stands in for). Every hosted
-// policy constructor returns a *seat.Bot; anything else is returned as is.
+// newCaretakerSeat builds the timeout caretaker for a human seat.
 func newCaretakerSeat(name string, seed uint64, autoPayMana bool) (seat.Seat, error) {
 	s, err := NewBotPolicySeatWithAutoPayMana(name, seed, autoPayMana)
 	if err != nil {
@@ -59,41 +32,7 @@ func newCaretakerSeat(name string, seed uint64, autoPayMana bool) (seat.Seat, er
 	return s, nil
 }
 
-// NewBotPolicySeatWithAutoPayMana builds a named hosted bot. When autoPayMana
-// is set, the bot selects offered payment-plan witnesses instead of manually
-// tapping mana sources, and the default policy answers attacks and blocks with
-// the combat simulation (seat.NewAttackSimBot); the named experiment policies
-// keep their own decision rules.
+// NewBotPolicySeatWithAutoPayMana builds a named hosted bot.
 func NewBotPolicySeatWithAutoPayMana(name string, seed uint64, autoPayMana bool) (seat.Seat, error) {
-	name, err := NormalizeBotPolicy(name)
-	if err != nil {
-		return nil, err
-	}
-	if name == LethalPressurePolicy {
-		b := seat.NewLethalPressureBot(seed)
-		if autoPayMana {
-			b.EnableAutoPayMana()
-		}
-		return b, nil
-	}
-	if name == CastProfilePolicy {
-		b, err := seat.NewCastProfileBot(seed)
-		if err != nil {
-			return nil, err
-		}
-		if autoPayMana {
-			b.EnableAutoPayMana()
-		}
-		return b, nil
-	}
-	if autoPayMana {
-		// The hosted auto-pay bot plays the combat-simulation attacker and
-		// blocker (botpolicy.AttackSimDecide): it passed the held-out gate
-		// against the plain auto-pay bot (+3.17pp constructed, +3.69pp
-		// commander, no deck below -3pp; 2026-09-27) and was promoted by the
-		// operator. The manual bot (autoPayMana false) is unchanged, so
-		// TestHeads and every manual golden keep their decisions.
-		return seat.NewAttackSimBot(seed, botpolicy.DefaultAttackSimParams()).EnableAutoPayMana(), nil
-	}
-	return seat.NewBot(seed), nil
+	return bots.New(name, bots.Options{Seed: seed, AutoPayMana: autoPayMana})
 }
