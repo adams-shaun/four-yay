@@ -77,6 +77,10 @@ type sidecar struct {
 	// them (omitempty) loads byte-identically and replays unchanged.
 	Refusals  int `json:"refusals,omitempty"`
 	Fallbacks int `json:"fallbacks,omitempty"`
+	// RootRefusals is BP-08's honest-root diagnostic (spec §5.1): how many
+	// bots.EnvSeat decisions were answered from a REFUSED root (nil engine).
+	// Same counter-only contract as Refusals above.
+	RootRefusals int `json:"root_refusals,omitempty"`
 }
 
 func (sc sidecar) info() protocol.MatchInfo {
