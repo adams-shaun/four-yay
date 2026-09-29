@@ -336,7 +336,10 @@ func (r *Registry) serviceUndo(ctx context.Context, t *table, m *match, seats []
 	if err != nil {
 		return nil, err
 	}
-	parked := parkSeat(ctx, seats, data, m.undo.signal)
+	// BP-10: a rewound search decision queues on the registry's FIFO search
+	// slots exactly like a first park (searchGateFor returns nil for a
+	// non-search table or an unbounded registry).
+	parked := parkSeat(ctx, seats, data, m.undo.signal, r.searchGateFor(t))
 	r.pushRewind(t, m)
 	return parked, nil
 }
