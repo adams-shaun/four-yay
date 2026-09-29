@@ -67,17 +67,21 @@
 
 <style>
   .discard { display: flex; flex-direction: column; gap: var(--sp-2); width: 100%; }
+  /* One row while the faces stay readable; past that (eight cards in the
+     rail dock) the row wraps at a legible minimum rather than shrinking the
+     faces to slivers. */
   .row {
     display: flex;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     justify-content: center;
     align-items: flex-start;
     gap: var(--sp-2);
     padding: var(--sp-2) var(--sp-1);
     width: 100%;
-    overflow: hidden;
+    max-height: 22rem;
+    overflow-y: auto;
     container-type: inline-size;
-    --card-w: min(var(--play-card-w), calc((100cqw - (var(--n) - 1) * var(--sp-2)) / var(--n)));
+    --card-w: clamp(3.75rem, calc((100cqw - (var(--n) - 1) * var(--sp-2)) / var(--n)), var(--play-card-w));
   }
   @container (max-width: 26rem) {
     .row :global(.mana-symbols),
