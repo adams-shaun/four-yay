@@ -102,20 +102,35 @@ func New(o bots.Options, cfg sbsearch.Config) (seat.Seat, error) {
 	}
 	lookup := builtins.NewRegistryLookup(o.Deps.Cards)
 	inner := builtins.NewTactical(builtins.AutoPay, o.Seed, lookup, sbtactical.Hosted())
-	return &hostedSeat{bot: sbsearch.New(inner, o.Seed, cfg), inner: inner}, nil
+	return &hostedSeat{bot: sbsearch.New(inner, o.Seed, cfg), inner: inner, budgetMS: o.DecisionDeadlineMS}, nil
 }
+
+// DecisionBudgetMS is the factory's per-decision wall-clock budget
+// (bots.Options.DecisionDeadlineMS), for the host to arm as the DecideEnv
+// context's deadline. Only DecideEnv reaches the search here -- Decide
+// answers from the plain View path -- so the budget is declared on this
+// adapter and armed by the host (this package may not import time,
+// internal/archtest).
+func (s *hostedSeat) DecisionBudgetMS() int { return s.budgetMS }
 
 // hostedSeat is the adapter. bot is the wrapped search seat; inner is the
 // sb-tactical seat underneath it (bots' UnwrapSeat returns it), held
 // separately so the fallback and the nil-planner install reach it without a
-// type assertion per decision.
+// type assertion per decision. budgetMS is the factory's per-decision
+// wall-clock budget (bots.Options.DecisionDeadlineMS): the host arms it as
+// its DecideEnv context's deadline, and a search that outlives it stops
+// between worlds (sbsearch's ctx bail-out) and plays sb-tactical's pick --
+// this policy's non-searched fallback. Zero -- bench and training -- is
+// unbounded.
 type hostedSeat struct {
-	bot   *sbsearch.Seat
-	inner *builtins.Seat
+	bot      *sbsearch.Seat
+	inner    *builtins.Seat
+	budgetMS int
 }
 
 var (
 	_ bots.EnvSeat             = (*hostedSeat)(nil)
+	_ bots.BudgetedSeat        = (*hostedSeat)(nil)
 	_ bots.RefusalAnswerer     = (*hostedSeat)(nil)
 	_ seat.PaymentPlanConsumer = (*hostedSeat)(nil)
 	_ seat.Seat                = (*hostedSeat)(nil)

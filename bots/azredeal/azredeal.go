@@ -95,20 +95,36 @@ func New(o bots.Options, cfg azmcts.SeatConfig) (seat.Seat, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &hostedSeat{bot: s, cfg: cfg}, nil
+	return &hostedSeat{bot: s, cfg: cfg, budgetMS: o.DecisionDeadlineMS}, nil
 }
+
+// DecisionBudgetMS is the factory's per-decision wall-clock budget
+// (bots.Options.DecisionDeadlineMS), for the host to arm as the DecideEnv
+// context's deadline. Only DecideEnv reaches the search here -- Decide and
+// DecideBoard forward to the wrapped bot's plain halves, which never build a
+// tree -- so the budget is declared on this adapter and armed by the host
+// (this package may not import time, internal/archtest).
+func (s *hostedSeat) DecisionBudgetMS() int { return s.budgetMS }
 
 // hostedSeat is the adapter. bot is held behind the searchseat.SearchSeat
 // interface (which *azmcts.Seat satisfies) so the routing tests can observe
 // the forwarding with a recording delegate instead of running real searches.
+// budgetMS is the factory's per-decision wall-clock budget
+// (bots.Options.DecisionDeadlineMS): the host arms it as its DecideEnv
+// context's deadline, and a search that outlives it is aborted by azmcts
+// Search's ctx bail-out, which plays the wrapped bot's answer -- this
+// policy's non-searched fallback. Zero -- bench and training -- is
+// unbounded.
 type hostedSeat struct {
-	bot searchseat.SearchSeat
-	cfg azmcts.SeatConfig
+	bot      searchseat.SearchSeat
+	cfg      azmcts.SeatConfig
+	budgetMS int
 }
 
 var (
-	_ bots.EnvSeat   = (*hostedSeat)(nil)
-	_ seat.BoardSeat = (*hostedSeat)(nil)
+	_ bots.EnvSeat      = (*hostedSeat)(nil)
+	_ bots.BudgetedSeat = (*hostedSeat)(nil)
+	_ seat.BoardSeat    = (*hostedSeat)(nil)
 )
 
 // Decide is the plain Seat half: the wrapped bot. Decisions where WantsEnv is

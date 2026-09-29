@@ -33,7 +33,12 @@
 // the seat's seed and the decision's sequence number (azmcts.DecisionSeed);
 // candidates, worlds and seats are iterated in slice order. The package does
 // not read a clock: Millis, installed by the driving command, only times
-// decisions for Watch.
+// decisions for Watch. The one clock-adjacent input is the caller's context:
+// a HOST may arm it with a per-decision wall-clock budget (the escape hatch
+// against search pile-ups); a ctx that is done stops a search between worlds
+// and the decision is refused -- sb-tactical's pick is played, the usual
+// fallback. No deadline, the bench's and training's default, never stops a
+// search and leaves every answer a pure function of (seed, decision, config).
 package sbsearch
 
 import (
@@ -345,7 +350,7 @@ func (s *Seat) priority(ctx context.Context, e *rules.Engine, mk func() (dealer,
 	if len(roots) < 2 || (s.cfg.SkipGap > 0 && gap >= s.cfg.SkipGap && len(roots) == own) {
 		return s.inner.Decide(ctx, v, d)
 	}
-	choice := s.search(e, mk, d, "priority", roots, gap, false)
+	choice := s.search(ctx, e, mk, d, "priority", roots, gap, false)
 	if choice > 0 {
 		if choice >= own {
 			s.ProposalWins++
@@ -435,7 +440,7 @@ func (s *Seat) attackers(ctx context.Context, e *rules.Engine, mk func() (dealer
 	if len(roots) < 2 {
 		return own, nil
 	}
-	choice := s.search(e, mk, d, "attackers", roots, 0, s.cfg.AttackWide > 0 || first < len(roots))
+	choice := s.search(ctx, e, mk, d, "attackers", roots, 0, s.cfg.AttackWide > 0 || first < len(roots))
 	if choice >= first && first < len(roots) {
 		s.ProposalWins++
 	}
@@ -465,7 +470,7 @@ func (s *Seat) blockers(ctx context.Context, e *rules.Engine, mk func() (dealer,
 	if len(roots) < 2 {
 		return own, nil
 	}
-	choice := s.search(e, mk, d, "blockers", roots, 0, true)
+	choice := s.search(ctx, e, mk, d, "blockers", roots, 0, true)
 	if choice >= first && first < len(roots) {
 		s.ProposalWins++
 	}
@@ -496,17 +501,20 @@ func (s *Seat) target(ctx context.Context, e *rules.Engine, mk func() (dealer, s
 	if len(roots) < 2 {
 		return own, nil
 	}
-	choice := s.search(e, mk, d, "target", roots, 0, true)
+	choice := s.search(ctx, e, mk, d, "target", roots, 0, true)
 	return roots[choice].in, nil
 }
 
 // search values every root over the configured worlds and returns the
 // index to play: 0 (sb-tactical's own answer) on any failure or when no
-// other candidate beats it by the margin.
+// other candidate beats it by the margin. A caller context that is done --
+// the host's armed per-decision budget (package doc) -- is one of those
+// failures: the partial means are discarded and sb-tactical's pick is
+// played.
 //
 // perCand (whole-answer roots) drops a root the root decision refuses
 // instead of failing the world (evaluate).
-func (s *Seat) search(e *rules.Engine, mk func() (dealer, string), d decision.Decision, kind string, roots []root, gap float64, perCand bool) (choice int) {
+func (s *Seat) search(ctx context.Context, e *rules.Engine, mk func() (dealer, string), d decision.Decision, kind string, roots []root, gap float64, perCand bool) (choice int) {
 	var t0 float64
 	if Millis != nil {
 		t0 = Millis()
@@ -531,7 +539,7 @@ func (s *Seat) search(e *rules.Engine, mk func() (dealer, string), d decision.De
 		rec = &dg.Values
 	}
 	dg.Lead = math.NaN()
-	means, valid, failed, rollouts, refused := s.evaluate(e, mk, d, roots, perCand, rec)
+	means, valid, failed, rollouts, refused := s.evaluate(ctx, e, mk, d, roots, perCand, rec)
 	dg.Worlds, dg.Failed, dg.Rollouts, dg.Refused = valid, failed, rollouts, refused
 	if valid == 0 {
 		return 0
@@ -560,7 +568,7 @@ func (s *Seat) search(e *rules.Engine, mk func() (dealer, string), d decision.De
 // root other than sb-tactical's), a root refused at the root decision is
 // dropped for good (its mean is NaN) instead of failing the world. The
 // world count adapts (Config.MinWorlds / MaxWorlds) on the paired leads.
-func (s *Seat) evaluate(e *rules.Engine, mk func() (dealer, string), d decision.Decision, roots []root, perCand bool, rec *[][]float64) (means []float64, valid, failed, rollouts int, refused string) {
+func (s *Seat) evaluate(ctx context.Context, e *rules.Engine, mk func() (dealer, string), d decision.Decision, roots []root, perCand bool, rec *[][]float64) (means []float64, valid, failed, rollouts int, refused string) {
 	rd, reason := mk()
 	if reason != "" {
 		return nil, 0, s.cfg.Worlds, 0, reason
@@ -582,6 +590,18 @@ func (s *Seat) evaluate(e *rules.Engine, mk func() (dealer, string), d decision.
 		return l
 	}
 	for w := 0; w < maxW; w++ {
+		if err := ctx.Err(); err != nil {
+			// The armed wall-clock bail-out (package doc): the host's
+			// per-decision budget is spent. Stop BETWEEN worlds (never mid
+			// rollout), discard the partial means and refuse the decision:
+			// search plays sb-tactical's pick, the usual no-valid-world
+			// fallback. Not counted as a failed world: the budget, not the
+			// game, spent it.
+			if refused == "" {
+				refused = "context: " + err.Error()
+			}
+			return nil, 0, failed, rollouts, refused
+		}
 		if valid > 0 {
 			l := lead()
 			if math.IsInf(l, -1) {

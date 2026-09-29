@@ -1,6 +1,9 @@
 package host
 
 import (
+	"context"
+	"time"
+
 	"github.com/adams-shaun/gorge/bots"
 	_ "github.com/adams-shaun/gorge/bots/bot"
 	"github.com/adams-shaun/gorge/seat"
@@ -48,5 +51,35 @@ func NewBotPolicySeatWithAutoPayMana(name string, seed uint64, autoPayMana bool)
 // sb-tactical heuristic (bots/sbtactical) — builds on a served table and
 // refuses, with its own error, when a caller builds it bare.
 func NewBotPolicySeatWithDeps(name string, seed uint64, autoPayMana bool, deps bots.Deps) (seat.Seat, error) {
-	return bots.New(name, bots.Options{Seed: seed, AutoPayMana: autoPayMana, Deps: deps})
+	return bots.New(name, bots.Options{Seed: seed, AutoPayMana: autoPayMana, Deps: deps, DecisionDeadlineMS: hostedDecisionDeadlineMS})
+}
+
+// hostedDecisionDeadlineMS is the per-decision wall-clock budget the host
+// arms on every hosted search seat's DecideEnv context (bots.Options.
+// DecisionDeadlineMS, turned into the deadline by decisionCtx; bench and
+// training code build the same policies with a zero budget and stay
+// unbounded). 2000 is chosen from the seats' own measured costs, so it
+// almost never fires under normal load and only cuts a contention pile-up --
+// the live-demo freeze of several tables' searches landing at once at
+// match-end that this bail-out exists for: az-redeal measures 247 ms mean,
+// 465 ms p95 uncontended per searched decision at 100 sims (its Info.Cost),
+// so 2000 is ~4.3x that p95; sb-search-lite-atk measures 219 ms mean and a
+// p99 of 1,108 ms per searched decision ON A BOX AT LOAD 14-20 (its
+// Info.Cost), so 2000 is ~1.8x that loaded p99.
+const hostedDecisionDeadlineMS = 2000
+
+// decisionCtx arms s's per-decision wall-clock budget (bots.BudgetedSeat,
+// Options.DecisionDeadlineMS) on ctx: a context with the deadline when the
+// seat declares a positive budget, ctx itself with a no-op cancel otherwise
+// (bench-built seats, zero budget: unbounded, byte-identical behaviour). A
+// search that outlives the deadline is aborted by the search's own bail-out
+// and the policy's non-searched fallback answers; the deadline never fails a
+// decision.
+func decisionCtx(ctx context.Context, s seat.Seat) (context.Context, context.CancelFunc) {
+	if b, ok := s.(bots.BudgetedSeat); ok {
+		if ms := b.DecisionBudgetMS(); ms > 0 {
+			return context.WithTimeout(ctx, time.Duration(ms)*time.Millisecond)
+		}
+	}
+	return ctx, func() {}
 }

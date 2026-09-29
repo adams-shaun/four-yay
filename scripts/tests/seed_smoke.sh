@@ -177,5 +177,20 @@ PI_MODELS_JSON="$TMP/models.json" "$ROOT/scripts/tier-probe.sh" no-such-tier >/d
 [ $? = 2 ]
 check "tier-probe exits 2 on an unknown provider" $?
 
+# A 401 means the endpoint is UP and the probe lacked a key the server accepts.
+# Calling that an outage would withhold work for a probe limitation.
+stub_curl 401
+PATH="$TMP/curl-stub:$PATH" PI_MODELS_JSON="$TMP/models.json" GORGE_TARGET_REPO="$TMP/target" \
+	"$ROOT/scripts/tier-probe.sh" test-tier >"$TMP/probe401.txt" 2>&1
+check "tier-probe treats 401 as reachable, not an outage" $? "$(cat "$TMP/probe401.txt")"
+grep -q 'reachable' "$TMP/probe401.txt"
+check "tier-probe says the endpoint was reachable on 401" $?
+stub_curl 503
+if PATH="$TMP/curl-stub:$PATH" PI_MODELS_JSON="$TMP/models.json" "$ROOT/scripts/tier-probe.sh" test-tier >/dev/null 2>&1; then
+	check "tier-probe still fails a 503" 1 "it claimed healthy"
+else
+	check "tier-probe still fails a 503" 0
+fi
+
 printf '\n%s failure(s)\n' "$fails"
 [ "$fails" = 0 ]

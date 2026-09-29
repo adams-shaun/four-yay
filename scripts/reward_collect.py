@@ -115,6 +115,44 @@ def live_branch_files(repo: Path) -> dict[str, list[str]]:
     return files
 
 
+def idle_branches(repo: Path, hours: int = 12) -> list[tuple[str, int, float]]:
+    """Unmerged task branches whose worktree has not been touched in `hours`.
+
+    An idle unmerged branch is the durable half of a merge hot spot: it keeps
+    holding its files against every branch that lands after it, and each of
+    those pays a resolver round for work nobody is doing. Measured 2026-09-29:
+    three loops branches, idle over a day, held five files between them.
+
+    Returns (branch, commits ahead of main, hours idle).
+    """
+    out: list[tuple[str, int, float]] = []
+    now = datetime.now(timezone.utc).timestamp()
+    # Split on blank lines rather than tracking state line by line: the last
+    # record has no trailing blank line, and a state machine drops it.
+    for block in git(repo, "worktree", "list", "--porcelain").split("\n\n"):
+        fields = dict(
+            (l.split(None, 1) + [""])[:2] for l in block.splitlines() if l.strip()
+        )
+        ref, path = fields.get("branch", "").strip(), fields.get("worktree", "").strip()
+        if not ref or not path or ref == "refs/heads/main":
+            continue
+        # A branch already contained in main holds nothing.
+        if subprocess.run(
+            ["git", "-C", str(repo), "merge-base", "--is-ancestor", ref, "main"],
+            capture_output=True,
+        ).returncode == 0:
+            continue
+        ahead = git(repo, "rev-list", "--count", f"main..{ref}").strip() or "0"
+        try:
+            mtime = Path(path).stat().st_mtime
+        except OSError:
+            continue
+        idle_h = (now - mtime) / 3600.0
+        if idle_h >= hours:
+            out.append((ref.rsplit("/", 1)[-1], int(ahead), round(idle_h, 1)))
+    return sorted(out, key=lambda t: -t[2])
+
+
 def hotspots(repo: Path) -> list[tuple[str, list[str]]]:
     return sorted(
         ((f, bs) for f, bs in live_branch_files(repo).items() if len(bs) >= HOTSPOT_BRANCHES),
@@ -133,24 +171,56 @@ def collect_flow(repo: Path) -> list[str]:
             note="; ".join(f"{f}({len(bs)})" for f, bs in hs[:8]),
         )
     ]
+    # DISTINCT TICKETS, not transitions. One ticket in merge_fix emits several
+    # journal rows (queued, dispatched, each overflow retry), and counting rows
+    # made the rate read 0.769 when the true figure was 0.248 -- measured
+    # 2026-09-29, where 619 transitions belonged to 199 tickets and one ticket
+    # alone accounted for 48 of them.
     j = journal_rows(repo)
-    merge_fix = sum(
-        1 for d in j if (d.get("evidence") or {}).get("to") == "merge_fix"
-    )
-    merged = sum(
-        1
-        for d in j
-        if (d.get("evidence") or {}).get("to") == "merged"
-        or (d.get("evidence") or {}).get("final_status") == "merged"
-    )
-    rate = (merge_fix / merged) if merged else 0.0
+    merge_fix: set[str] = set()
+    merged: set[str] = set()
+    worst: collections.Counter[str] = collections.Counter()
+    for d in j:
+        iid = d.get("issue_id")
+        if not iid:
+            continue
+        ev = d.get("evidence") or {}
+        if ev.get("to") == "merge_fix":
+            merge_fix.add(str(iid))
+            worst[str(iid)] += 1
+        if ev.get("to") == "merged" or ev.get("final_status") == "merged":
+            merged.add(str(iid))
+    rate = (len(merge_fix) / len(merged)) if merged else 0.0
+    top = ", ".join(f"{i}({n})" for i, n in worst.most_common(3))
     rows.append(
         row(
             repo,
             "flow",
             "merge_fix_rate",
             round(rate, 4),
-            note=f"{merge_fix} merge_fix / {merged} merged in {WINDOW_DAYS}d",
+            note=f"{len(merge_fix)} tickets in merge_fix / {len(merged)} merged in {WINDOW_DAYS}d"
+            + (f"; most rounds: {top}" if top else ""),
+        )
+    )
+    idle = idle_branches(repo)
+    rows.append(
+        row(
+            repo,
+            "flow",
+            "idle_unmerged_branches",
+            len(idle),
+            note="; ".join(f"{b}(+{a}, {h}h idle)" for b, a, h in idle[:6]),
+        )
+    )
+    # The repeat offenders are the actionable half: a ticket that needed a dozen
+    # resolver rounds names a file the fleet cannot land in parallel.
+    rows.append(
+        row(
+            repo,
+            "flow",
+            "merge_fix_rounds_max",
+            max(worst.values()) if worst else 0,
+            note=top,
         )
     )
     return rows
@@ -462,17 +532,25 @@ def selftest() -> int:
         # A journal with two merge_fix transitions and four merges.
         j = repo / ".ds4" / "orchestrator" / "journal.jsonl"
         lines = []
-        for i in range(2):
-            lines.append(json.dumps({"ts": now_iso(), "kind": "transition", "evidence": {"to": "merge_fix"}}))
+        # Two DISTINCT tickets in merge_fix, but five transitions between them:
+        # the rate must read 2/4, not 5/4.
+        for iid, times in (("t-1", 4), ("t-2", 1)):
+            for _ in range(times):
+                lines.append(json.dumps({"ts": now_iso(), "kind": "transition",
+                                         "issue_id": iid, "evidence": {"to": "merge_fix"}}))
         for i in range(4):
-            lines.append(json.dumps({"ts": now_iso(), "kind": "transition", "evidence": {"to": "merged"}}))
+            lines.append(json.dumps({"ts": now_iso(), "kind": "transition",
+                                     "issue_id": f"m-{i}", "evidence": {"to": "merged"}}))
         lines.append(json.dumps({"ts": now_iso(), "kind": "gate_fail", "msg": "gate timeout after 900s"}))
         lines.append(json.dumps({"ts": "not-a-date", "kind": "transition", "evidence": {"to": "merged"}}))
         j.write_text("\n".join(lines) + "\n")
 
         flow = [json.loads(r) for r in collect_flow(repo)]
         rate = next(r for r in flow if r["metric"] == "merge_fix_rate")
-        check("merge_fix_rate is merge_fix/merged", abs(rate["value"] - 0.5) < 1e-9, rate)
+        check("merge_fix_rate counts DISTINCT tickets, not transitions",
+              abs(rate["value"] - 0.5) < 1e-9, rate)
+        rounds = next(r for r in flow if r["metric"] == "merge_fix_rounds_max")
+        check("the worst ticket's round count is reported", rounds["value"] == 4, rounds)
         check("a malformed journal ts is skipped, not fatal", True)
 
         st = repo / ".ds4" / "reward" / "stability.json"
@@ -564,6 +642,37 @@ def selftest() -> int:
               next(r for r in stw if r["metric"] == "agent_context_bytes")["value"] == 1000, stw)
         big = next(r for r in stw if r["metric"] == "oversized_files")
         check("oversized files counts only the big one", big["value"] == 1 and "big.go" in big["note"], big)
+
+        # idle_branches over a real git repo with a real worktree: an unmerged
+        # idle branch is listed, and one already contained in main is not.
+        import os
+
+        gr = Path(td) / "gitrepo"
+        gr.mkdir()
+        run = lambda *a: subprocess.run(  # noqa: E731
+            ["git", "-C", str(gr), *a], capture_output=True, text=True
+        )
+        subprocess.run(["git", "init", "-q", "-b", "main", str(gr)], capture_output=True)
+        run("config", "user.email", "t@t")
+        run("config", "user.name", "t")
+        (gr / "f.txt").write_text("a")
+        run("add", "f.txt")
+        run("commit", "-qm", "init")
+        wt = Path(td) / "wt-idle"
+        run("worktree", "add", "-q", "-b", "wt/idle", str(wt))
+        (wt / "g.txt").write_text("b")
+        subprocess.run(["git", "-C", str(wt), "add", "g.txt"], capture_output=True)
+        subprocess.run(
+            ["git", "-C", str(wt), "-c", "user.email=t@t", "-c", "user.name=t",
+             "commit", "-qm", "ahead"], capture_output=True)
+        os.utime(wt, (1000, 1000))  # long idle
+        idle = idle_branches(gr, hours=1)
+        check("an idle unmerged worktree is listed", [b for b, _, _ in idle] == ["idle"], idle)
+        check("its commits-ahead count is right", idle and idle[0][1] == 1, idle)
+        check("the fresh-worktree threshold is honoured", idle_branches(gr, hours=10**6) == [])
+        run("merge", "-q", "--no-ff", "-m", "land", "wt/idle")
+        check("a branch already in main is not listed", idle_branches(gr, hours=1) == [],
+              idle_branches(gr, hours=1))
 
         obs = [json.loads(r) for r in collect_obs(repo)]
         check("a missing checklist explains itself", "absent" in obs[0]["note"], obs)

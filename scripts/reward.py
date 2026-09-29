@@ -84,6 +84,8 @@ METRICS: tuple[MetricSpec, ...] = (
     # the fleet is otherwise burning.
     MetricSpec("flow", "conflict_hotspots", -1, 1.0),
     MetricSpec("flow", "merge_fix_rate", -1, 0.02),
+    MetricSpec("flow", "merge_fix_rounds_max", -1, 2.0),
+    MetricSpec("flow", "idle_unmerged_branches", -1, 1.0),
     # Stewardship: the recurring tax each landed change leaves on every future
     # iteration. Gate wall time is paid by every ticket that ever lands again;
     # the agent context is paid by every seat on every turn (it was 290 KB here

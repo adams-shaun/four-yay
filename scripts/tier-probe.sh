@@ -33,15 +33,60 @@ if [ -z "$base" ]; then
 	exit 2
 fi
 
-# A local vLLM/sglang endpoint answers /v1/models with or without a key; a
-# hosted one needs the key it is configured with. Try the configured key when
-# there is an env var for it, then bare.
+# The key. A timer-run probe has no interactive shell environment, so an env var
+# alone is not enough: the daemon resolves its key from a kubectl secret
+# (`[harness.env_from_cmd.<VAR>]` in .agentctl/config.toml) and the probe
+# resolves it the same way rather than keeping a second copy of the answer.
 key=${BM_LLMS_API_KEY:-}
+if [ -z "$key" ]; then
+	key=$(python3 - "${GORGE_TARGET_REPO:-/home/sadams/projects/gorge}/.agentctl/config.toml" <<'PY' 2>/dev/null
+import base64, shlex, subprocess, sys, tomllib
+try:
+    cfg = tomllib.load(open(sys.argv[1], "rb"))
+except (OSError, ValueError):
+    sys.exit(0)
+for var, spec in ((cfg.get("harness") or {}).get("env_from_cmd") or {}).items():
+    cmd = spec.get("cmd")
+    if not cmd:
+        continue
+    try:
+        out = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        continue
+    if out.returncode != 0:
+        continue
+    val = out.stdout.strip()
+    if spec.get("decode") == "base64":
+        try:
+            val = base64.b64decode(val).decode().strip()
+        except Exception:
+            continue
+    if val:
+        print(val)
+        break
+PY
+	)
+fi
+
 code=$(curl -s -o /dev/null -m "$TIMEOUT" -w '%{http_code}' \
 	${key:+-H "Authorization: Bearer $key"} "$base/models" 2>/dev/null)
 case $code in
 200)
 	printf 'tier-probe: %s healthy (%s/models 200)\n' "$PROVIDER" "$base"
+	exit 0
+	;;
+401 | 403)
+	# The endpoint IS up; this probe just could not present a key the server
+	# accepts. The daemon holds its own key, so calling the tier down here
+	# would withhold work for a probe limitation -- which is exactly the class
+	# of mistake this script exists to prevent.
+	if [ -n "$key" ]; then
+		printf 'tier-probe: %s reachable but REJECTED the resolved key (%s/models http %s) -- likely a stale key, not an outage\n' \
+			"$PROVIDER" "$base" "$code"
+	else
+		printf 'tier-probe: %s reachable, no key available to this probe (%s/models http %s)\n' \
+			"$PROVIDER" "$base" "$code"
+	fi
 	exit 0
 	;;
 000)
