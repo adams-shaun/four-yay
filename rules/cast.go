@@ -1607,7 +1607,8 @@ func (e *Engine) nonManaCastable(p state.PlayerID, id state.ObjID, cost Cost, ab
 			if zone == state.ZBattlefield && e.exileBlockedForCost(oid, costCauseForAbility(ability)) {
 				continue
 			}
-			if wholeZone || e.matchesSpecFrom(part.Spec, oid, p, id) {
+			if wholeZone || (part.Referent != 0 && oid == part.Referent) ||
+				(part.Referent == 0 && e.matchesSpecFrom(part.Spec, oid, p, id)) {
 				avail = append(avail, oid)
 			}
 		}
@@ -4268,8 +4269,9 @@ func (e *Engine) exAsk() bool {
 				continue
 			}
 			wholeZone := isWholeZoneExileSpec(part.Spec)
-			match := wholeZone || e.matchesSpecFrom(part.Spec, oid, pc.player, pc.card)
-			if sc != nil && !wholeZone {
+			match := wholeZone || (part.Referent != 0 && oid == part.Referent) ||
+				(part.Referent == 0 && e.matchesSpecFrom(part.Spec, oid, pc.player, pc.card))
+			if sc != nil && !wholeZone && part.Referent == 0 {
 				match = e.matchesSpec(part.Spec, oid, *sc)
 			}
 			if match {

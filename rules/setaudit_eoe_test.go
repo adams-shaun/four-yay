@@ -277,9 +277,6 @@ func TestSetAudit_eoe_ScoutForSurvivors_TotalManaValueCap(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestSetAudit_eoe_TheDominionBracelet_GrantedControlAbilityOffered(t *testing.T) {
-	eoeGuard(t, "The Dominion Bracelet's granted '{15}, Exile this Equipment: control target "+
-		"opponent' ability is never offered on the equipped creature",
-		"Offer granted AddAbility$ abilities whose cost is Exile<OriginalHost> (api:ControlPlayer)")
 	reg := testutil.CorpusRegistry(t)
 	e := corpusEngine(t, reg, []*cards.Card{
 		lookup(t, reg, "The Dominion Bracelet"),
@@ -304,8 +301,8 @@ func TestSetAudit_eoe_TheDominionBracelet_GrantedControlAbilityOffered(t *testin
 		t.Fatalf("no priority decision (got %+v)", d)
 	}
 	for _, o := range d.Options {
-		if o.Kind == "ability" && o.Obj == cr {
-			return // the granted ability is offered: correct.
+		if o.Kind == "ability" && o.Obj == cr && o.SVar == "DominionControlPlayer" && o.GrantSource == eq {
+			return // the equipment's specific granted ability is offered.
 		}
 	}
 	t.Fatalf("the equipped creature was never offered The Dominion Bracelet's granted "+
