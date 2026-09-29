@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"sort"
+	"strconv"
+	"strings"
 
 	mb "github.com/adams-shaun/gorge/protocol/manabrew"
 )
@@ -198,6 +200,15 @@ func (c *MockClient) answerChooseAction(in mb.ChooseActionInput) mb.PromptOutput
 	}
 	idx := 0
 	if c.mode == ModeSeededRandom {
+		// Sometimes pass even when actions are advertised: an always-act
+		// policy livelocks on a repeatable zero-cost ability (MBX-6 smoke,
+		// Ghost Town's "{0}: becomes a creature" with an empty hand -- the
+		// one advertised action, re-offered at every priority window).
+		// Passing priority is always legal (CR 117.3b), so the extra
+		// out-of-range draw meaning "pass" keeps the answer in-policy.
+		if c.rng.IntN(len(in.Actions)+1) == len(in.Actions) {
+			return mb.PassOutput{}
+		}
 		idx = c.rng.IntN(len(in.Actions))
 	}
 	return mb.ActOutput{ActionID: in.Actions[idx].ID}
@@ -294,13 +305,97 @@ func (c *MockClient) answerChooseNumber(in mb.ChooseNumberInput) mb.PromptOutput
 }
 
 // answerChooseCards picks the smallest legal number of offered cards (Min).
+// A value constraint the prompt carries (chooseConstraint's
+// "Total value must be at least N." / "Total value must not exceed N."
+// sentences -- the spec's G-4 fence made machine-readable; rules/cast.go's
+// tapcost asks pose that floor over Option.Value=power, which the
+// translator renders as the cards' power) is honoured from the cards'
+// power: strongest-first to reach the floor, weakest-first to stay under a
+// ceiling, at least Min and at most Max cards, ties broken by offered order.
+// The deterministic modes pick the same way -- a constraint-bound ask's
+// legal answer is near-forced. (A stat:TapPowerValue static that trades
+// power for toughness -- Tapestry Warden -- is invisible on the wire: the
+// prompt's power is the view's layer-derived power, so such an ask can
+// still be under-shot; that lossiness is spec gap G-4.)
 func (c *MockClient) answerChooseCards(in mb.ChooseCardsInput) mb.PromptOutputValue {
-	idxs := c.distinct(len(in.Cards), in.Min)
+	n := len(in.Cards)
+	if n == 0 {
+		return mb.ChooseCardsDecision{ChosenCardIDs: []string{}}
+	}
+	floor := constraintNumber(in.Presentation.Description, "Total value must be at least ")
+	ceiling := constraintNumber(in.Presentation.Description, "Total value must not exceed ")
+	if floor > 0 || ceiling > 0 {
+		order := make([]int, n)
+		for i := range order {
+			order[i] = i
+		}
+		val := func(i int) int {
+			if in.Cards[i].Power == nil {
+				return 0
+			}
+			p, _ := strconv.Atoi(*in.Cards[i].Power)
+			return p
+		}
+		sort.SliceStable(order, func(a, b int) bool { return val(order[a]) > val(order[b]) })
+		if floor == 0 {
+			// A ceiling with no floor: weakest first stays under it.
+			for a, b := 0, n-1; a < b; a, b = a+1, b-1 {
+				order[a], order[b] = order[b], order[a]
+			}
+		}
+		count := in.Min
+		if count > n {
+			count = n
+		}
+		if count > in.Max {
+			count = in.Max
+		}
+		if floor > 0 {
+			sum := 0
+			for _, i := range order[:count] {
+				sum += val(i)
+			}
+			for j := count; sum < floor && j < n && j < in.Max; j++ {
+				sum += val(order[j])
+				count++
+			}
+		}
+		ids := make([]string, 0, count)
+		for _, i := range order[:count] {
+			ids = append(ids, in.Cards[i].ID)
+		}
+		return mb.ChooseCardsDecision{ChosenCardIDs: ids}
+	}
+	idxs := c.distinct(n, in.Min)
 	ids := make([]string, 0, len(idxs))
 	for _, i := range idxs {
 		ids = append(ids, in.Cards[i].ID)
 	}
 	return mb.ChooseCardsDecision{ChosenCardIDs: ids}
+}
+
+// constraintNumber reads the integer after the given constraint sentence
+// prefix in a prompt presentation description (chooseConstraint's exact
+// wording, see its doc) -- 0 when absent or unparseable.
+func constraintNumber(desc, prefix string) int {
+	i := strings.Index(desc, prefix)
+	if i < 0 {
+		return 0
+	}
+	rest := desc[i+len(prefix):]
+	j := 0
+	for j < len(rest) && (rest[j] < '0' || rest[j] > '9') {
+		j++
+	}
+	k := j
+	for k < len(rest) && rest[k] >= '0' && rest[k] <= '9' {
+		k++
+	}
+	if k == j {
+		return 0
+	}
+	n, _ := strconv.Atoi(rest[j:k])
+	return n
 }
 
 // answerChooseColor spends Amount across ValidColors, repeating the first
