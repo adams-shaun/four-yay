@@ -6,15 +6,31 @@
  * the whole contract.
  *
  * The token is a bearer credential for a local fixture. It is held here and
- * built into request URLs in api.ts, and nowhere else: never logged, never
+ * built into request URLs in api.ts (and, for the ManaBrew wire,
+ * lib/manabrew/transport.ts), and nowhere else: never logged, never
  * put in the transcript, never rendered, never echoed in an error message.
  * The render path (routes/components) receives only SeatCtx via getSeat,
  * and no component string ever interpolates `token`.
  */
 
+import type { Decision, Intent } from '../protocol';
+
+/**
+ * SeatTransport is an alternative game channel for the seat's answers (the
+ * ManaBrew adapter, lib/manabrew). When a SeatCtx carries one, api.ts's
+ * seat calls (postIntent, fetchPending, postUndo) go through it instead of
+ * the native routes; the seat panel never knows which wire answered.
+ */
+export interface SeatTransport {
+  postIntent(t: string, k: number, intent: Intent): Promise<void>;
+  fetchPending(t: string, k: number): Promise<Decision>;
+  postUndo(t: string, k: number): Promise<void>;
+}
+
 export interface SeatCtx {
   seat: number;
   token: string;
+  transport?: SeatTransport;
 }
 
 const TOKEN_RE = /^[A-Za-z0-9._~+/-]+$/;
