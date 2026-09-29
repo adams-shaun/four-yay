@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Decision, Option } from '../../protocol';
 import { AnswerError, bindPrompt, undoMessage } from './prompt';
 import { projectView } from './project';
+import { isSearchPick } from '../search';
 import { allRecords, promptOf, stateOf, type CaptureRecord } from './testdata/fixture';
 import type { AgentPrompt } from './wire';
 
@@ -98,6 +99,28 @@ describe('bindPrompt (captured from a real gorged -manabrew)', () => {
   });
 
   const synth = (input: AgentPrompt['input']): AgentPrompt => ({ promptId: 5, decidingPlayerId: 'player-0', input });
+  it('uses CardDto identity names as search option labels', () => {
+    const prompt: AgentPrompt = {
+      promptId: 278,
+      decidingPlayerId: 'player-0',
+      input: {
+        type: 'chooseCards',
+        presentation: { title: 'Search a library: choose up to 1 card(s)' },
+        cards: [
+          { id: 'o5', identity: { name: 'Underground Sea' }, controllerId: 'player-0', ownerId: 'player-0' },
+          { id: 'o6', identity: { name: 'Island' }, controllerId: 'player-0', ownerId: 'player-0' },
+          { id: 'o1', identity: { name: 'Swamp' }, controllerId: 'player-0', ownerId: 'player-0' },
+          { id: 'o4', identity: { name: 'Volcanic Island' }, controllerId: 'player-0', ownerId: 'player-0' },
+        ],
+        min: 0,
+        max: 1,
+      },
+    };
+    const d = bindPrompt(prompt, { view: null }).decision!;
+    expect(d.options.map((o) => o.label)).toEqual(['Underground Sea', 'Island', 'Swamp', 'Volcanic Island']);
+    expect(isSearchPick(d)).toBe(true);
+  });
+
   it('maps the prompts gorge does not pose in the capture', () => {
     const bool = bindPrompt(synth({ type: 'chooseBoolean', confirmLabel: 'Pay', denyLabel: 'Decline' }), { view: null });
     expect(bool.decision!.options.map((o) => [o.kind, o.label])).toEqual([['yes', 'Pay'], ['no', 'Decline']]);
