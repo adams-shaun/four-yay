@@ -1050,23 +1050,8 @@ func (e *Engine) staticTimingGate(sv staticView) bool {
 	if spec, ok := sv.Params["IsPresent2"]; ok && !e.presentGate(sv, spec) {
 		return false
 	}
-	if name, ok := sv.Params["CheckSVar"]; ok {
-		o := e.G.Obj(sv.Source)
-		if o == nil || o.Face() == nil {
-			return false
-		}
-		svars := sv.SVars
-		if svars == nil {
-			svars = o.Face().SVars
-		}
-		body, ok := svars[name]
-		if !ok {
-			return false
-		}
-		cmp := sv.Params["SVarCompare"]
-		if cmp == "" || !comparePresent(int(effects.EvalCount(e, &effects.Ctx{Source: sv.Source, Controller: sv.Controller, SVars: svars}, body)), cmp) {
-			return false
-		}
+	if !e.checkSVarHolds(sv) {
+		return false
 	}
 	switch strings.TrimSpace(sv.Params["Condition"]) {
 	case "", "PlayerTurn":
