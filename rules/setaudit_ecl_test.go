@@ -165,21 +165,35 @@ func TestSetAudit_ecl_MornsongAria_CantDrawStopsDrawStep(t *testing.T) {
 	replayCheck(t, e, cfg)
 }
 
-// TestSetAudit_ecl_OptionalCostIsRegistered pins the coverage-report contract:
-// the optional self additional cost (stat:OptionalCost) IS implemented
-// (rules/optional_cost_test.go drives Burning Curiosity's Blight<1> and
-// Voltage Surge's Sac<1/Artifact> end to end), but the primitive is absent
-// from effects.Supported(), so the coverage ratchet counts five ecl cards --
-// Pyrrhic Strike, Requiting Hex, Cinder Strike, Celestial Reunion, Burning
-// Curiosity -- as needing a primitive the build already has.
+// TestSetAudit_ecl_OptionalCostIsRegistered pins coverage for the implemented
+// self-spell optional additional cost. The named ecl cards must not be counted
+// as missing stat:OptionalCost by the registry's Unsupported walk.
 func TestSetAudit_ecl_OptionalCostIsRegistered(t *testing.T) {
 	t.Parallel()
-	if effects.Supported()["stat:OptionalCost"] {
-		return
+	supported := effects.Supported()
+	if !supported["stat:OptionalCost"] {
+		t.Fatal("effects.Supported() lacks stat:OptionalCost even though the primitive is implemented")
 	}
-	eclGuard(t, "stat:OptionalCost is implemented but never registered, so the coverage ratchet under-reports support",
-		"Register stat:OptionalCost in effects.Supported() so the coverage ratchet stops counting it as missing")
-	t.Fatal("effects.Supported() lacks stat:OptionalCost even though the primitive is implemented")
+	reg := searchTestRegistry(t)
+	for _, name := range []string{"Pyrrhic Strike", "Requiting Hex", "Cinder Strike", "Celestial Reunion", "Burning Curiosity"} {
+		t.Run(name, func(t *testing.T) {
+			card := mustCorpusCard(t, reg, name)
+			found := false
+			for _, p := range card.Primitives() {
+				if p == "stat:OptionalCost" {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatal("precondition: card has no stat:OptionalCost primitive")
+			}
+			for _, missing := range reg.Unsupported(card, supported) {
+				if missing == "stat:OptionalCost" {
+					t.Fatal("Unsupported reports stat:OptionalCost as missing")
+				}
+			}
+		})
+	}
 }
 
 // TestSetAudit_ecl_VinebredBrawler_MustBeBlockedKeyword is regression coverage
