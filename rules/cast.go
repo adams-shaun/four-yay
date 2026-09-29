@@ -2834,6 +2834,11 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 			// fallback for stale options submitted after the designation changed.
 			cost = Cost{Generic: 2}
 		}
+	case "airbend_cast":
+		// CR 701.65a: the airbent card's recast pays {2} rather than its mana
+		// cost. Cost modifiers (CR 601.2f) apply later in manaToPay, exactly
+		// like the other alternative-cost recasts.
+		cost = Cost{Generic: 2}
 	case "flashback":
 		cost = e.flashbackCost(id)
 	case "mayplay":

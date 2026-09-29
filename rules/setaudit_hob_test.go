@@ -98,11 +98,10 @@ func hobSeekUnlessPay(t *testing.T, e *Engine, limit int) *decision.Decision {
 //
 // CR 702.176 (Behold) makes beholding a choice that may name a permanent you
 // control or a card in your hand; CR 608.2 applies the "if you do" body to
-// the chosen branch. The engine's ParseUnlessCost hard-declines
-// Behold<...> ("no corpus UnlessCost$ carries either"), so the untap body is
-// unreachable and the searched land stays tapped.
+// the chosen branch. The Forge script carries UnlessCost$ Behold<1/Elf>,
+// which ParseUnlessCost now prices (an Elf you control or an Elf card in
+// hand), so the switched Untap body runs when the payer beholds.
 func TestSetAudit_hob_ElvenPassage_BeholdUntapsSearchedLand(t *testing.T) {
-	hobGuard(t, "Elven Passage's UnlessCost$ Behold<1/Elf> is unpriceable, so the beholding branch never runs and the searched land stays tapped", "hob-elven-passage-behold")
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	elf := card(t, "Name:Elf Scout\nTypes:Creature Elf Scout\nPT:1/1\nOracle:x\n")
@@ -117,7 +116,7 @@ func TestSetAudit_hob_ElvenPassage_BeholdUntapsSearchedLand(t *testing.T) {
 	if o := e.G.Obj(elfID); o == nil || o.Zone != state.ZBattlefield || !hobHasType(o.Face(), "Creature") {
 		t.Fatalf("Elf precondition: %+v", e.G.Obj(elfID))
 	}
-	before := len(e.G.Zone(state.ZBattlefield, 0))
+	before := append([]state.ObjID(nil), e.G.Zone(state.ZBattlefield, 0)...)
 	opt := abilityOption(t, e, passage, 0)
 	submitChoices(t, e, opt.Index)
 
@@ -129,16 +128,23 @@ func TestSetAudit_hob_ElvenPassage_BeholdUntapsSearchedLand(t *testing.T) {
 		t.Fatalf("Behold pay branch not offered: options = %+v", ask.Options)
 	}
 	// Precondition: the search put a NEW permanent on the battlefield, so
-	// there is a land whose untap the beholding should cause.
+	// there is a land whose untap the beholding should cause. The activation
+	// sacrificed Elven Passage itself (its Sac<1/CARDNAME> cost), so the
+	// searched land is the one battlefield id that was not there before the
+	// activation.
 	after := e.G.Zone(state.ZBattlefield, 0)
-	if len(after) != before+1 {
-		t.Fatalf("searched land precondition: battlefield %d -> %d, want one new permanent", before, len(after))
+	wasThere := make(map[state.ObjID]bool, len(before))
+	for _, id := range before {
+		wasThere[id] = true
 	}
 	var searched state.ObjID
 	for _, id := range after {
-		if id != elfID && id != passage {
+		if !wasThere[id] {
 			searched = id
 		}
+	}
+	if searched == 0 {
+		t.Fatalf("searched land precondition: no new permanent entered (before %v, after %v)", before, after)
 	}
 	if o := e.G.Obj(searched); o == nil || !o.Tapped {
 		t.Fatalf("searched land precondition: %+v, want it on the battlefield tapped", e.G.Obj(searched))
