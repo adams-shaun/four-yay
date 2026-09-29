@@ -1936,6 +1936,23 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 	}
 	head, arg, _ := strings.Cut(body, " ")
 	arg = strings.TrimSpace(arg)
+	if head == "TotalDamageReceivedThisTurn" && arg == "" {
+		self := c.TriggerCard
+		if self == 0 {
+			self = c.Source
+		}
+		if self == 0 {
+			return 0, true
+		}
+		o := h.Game().Obj(self)
+		if c.LKI != nil && c.LKI.ID == self {
+			o = c.LKI
+		}
+		if o == nil {
+			return 0, true
+		}
+		return o.DamageReceivedThisTurn, true
+	}
 	if arg == "" {
 		// ONLY OptionalGenericCostPaid's space-less dotted <paid>.<unpaid>
 		// argument is split here. Every other dotted head (CardCounters.CHARGE,
@@ -2111,17 +2128,20 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 		// ValidSelf argument shapes -- Card.!IsPrepared (the prepared
 		// mechanic), Card.IsSuspected, and the unprefixed
 		// Creature.greatestPowerControlledByCardController -- are NOT this
-		// distinct-creature-type read, so they keep failing closed to the
-		// unresolvable verdict (0, false) rather than silently reading the
-		// wrong property as zero. Counted over the object's effective layer-4
-		// types (falling back to the printed face when no derived entry exists),
-		// with the SAME subtype vocabulary the sibling Count$Valid
-		// <spec>$CreatureType distinct-set read uses (creatureSubtypeWords).
-		// AffectedX P/T reads run in layer 7, after layer 4 establishes these
-		// characteristics. The seen set is read only through len, so no map
-		// ordering reaches an event or view.
+		// distinct-creature-type read, so they route to evalCountValidSelf
+		// below, which matches Self through the shared filter matcher and
+		// fails closed with an evaluated zero when that match cannot be read.
+		// Counted over the object's effective layer-4 types (falling back to
+		// the printed face when no derived entry exists), with the SAME
+		// subtype vocabulary the sibling Count$Valid <spec>$CreatureType
+		// distinct-set read uses (creatureSubtypeWords). AffectedX P/T reads
+		// run in layer 7, after layer 4 establishes these characteristics.
+		// The seen set is read only through len, so no map ordering reaches
+		// an event or view. Every OTHER argument is the event-anchored Self
+		// match (Kraven's greatest-power death gate); ONE home for the head so
+		// this AffectedX read cannot be preempted by an earlier dispatch.
 		if strings.TrimSpace(arg) != "Card$CreatureType" {
-			return 0, false
+			return evalCountValidSelf(h, c, arg)
 		}
 		o := g.Obj(c.Source)
 		if o == nil || o.Face() == nil {
@@ -3064,6 +3084,9 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 	// Forge's getValidCards applies to the zone list. Gravelighter's "draw a
 	// card if a creature died this turn" is the corpus carrier.
 	if rest, ok := strings.CutPrefix(head, "ThisTurnEntered"); ok && strings.HasPrefix(rest, "_") {
+		if arg != "" {
+			rest += " " + arg
+		}
 		return evalThisTurnEntered(g, c, rest[1:])
 	}
 
@@ -3607,6 +3630,51 @@ func evalCountBody(h Host, c *Ctx, body string, depth int) (int32, bool) {
 // head cannot safely treat an unknown field as a filter that matches nothing:
 // CheckSVar distinguishes that evaluated zero from an unresolvable Count$.
 // Keep this narrow until a corpus carrier establishes another spelling.
+//
+// evalCountValidSelf models Forge's `Count$ValidSelf <spec>` head: the count
+// of the "Self" card when it matches <spec>, 0 otherwise. Self is the card the
+// SVar is evaluated for -- the triggering event's card under
+// `CheckOnTriggeredCard$` (a dies trigger's dying creature), else the
+// resolving source (a `CheckSVar$` gate). It is a RECOGNISED head even when
+// <spec> is outside this build's filter grammar: an unreadable argument then
+// fails closed with an evaluated zero instead of falling through to the
+// unknown-head verdict, so a `GE1` gate reads a real false rather than an
+// unresolvable body a caller might fail open. A missing Self binding is the
+// same evaluated zero.
+//
+// The match runs over the shared filter matcher, so every predicate the
+// engine already reads -- including `greatestPower...` and its
+// `ControlledBy CardController` referent -- answers here without a second
+// implementation. CR 603.10: a card that left the battlefield is judged as it
+// last existed there, so the trigger's LKI snapshot is preferred when it
+// names Self (a dying creature's controller is reset to its owner by the
+// move, and its counters with it).
+func evalCountValidSelf(h Host, c *Ctx, arg string) (int32, bool) {
+	arg = strings.TrimSpace(arg)
+	if arg == "" {
+		return 0, true
+	}
+	g := h.Game()
+	self := c.TriggerCard
+	if self == 0 {
+		self = c.Source
+	}
+	if self == 0 {
+		return 0, true
+	}
+	o := g.Obj(self)
+	if c.LKI != nil && c.LKI.ID == self {
+		o = c.LKI
+	}
+	if o == nil {
+		return 0, true
+	}
+	if MatchesObjectCtx(g, arg, o, c.SpecContext(c.Controller)) {
+		return 1, true
+	}
+	return 0, true
+}
+
 func countersAddedThisTurnArgsKnown(kind, actor, object string) bool {
 	if !strings.EqualFold(kind, "Any") && !strings.EqualFold(kind, "P1P1") && !strings.EqualFold(kind, "LORE") {
 		return false
@@ -3732,6 +3800,23 @@ func countEnteredAs(g *state.Game, c *Ctx, you state.PlayerID, dest state.Zone, 
 	if valid == "" {
 		return 0, false
 	}
+	// The two CheckOnTriggeredCard carriers spell the event player's filter as
+	// `<base>.ControlledBy CardController`; peel that referent before the
+	// ordinary object matcher and constrain each historical entry by the
+	// entering object's controller. Unknown/unbound referents fail closed.
+	controlledByCardController := false
+	if base, ref, ok := strings.Cut(valid, ".ControlledBy "); ok && ref == "CardController" {
+		valid = base
+		controlledByCardController = true
+	}
+	var players []state.PlayerID
+	if controlledByCardController {
+		var ok bool
+		players, ok = controlReferentPlayers(g, c.SpecContext(you), "ControlledBy", "CardController")
+		if !ok {
+			return 0, true
+		}
+	}
 	var n int32
 	for _, e := range g.Entered {
 		if e.To != dest {
@@ -3749,6 +3834,21 @@ func countEnteredAs(g *state.Game, c *Ctx, you state.PlayerID, dest state.Zone, 
 		// Count$ThisTurnEntered_Graveyard_from_Battlefield_Permanent needs.
 		if !matchesZoneSpecCtx(g, valid, e.Obj, c.SpecContext(you), e.To) {
 			continue
+		}
+		if controlledByCardController {
+			o := g.Obj(e.Obj)
+			controlled := false
+			if o != nil {
+				for _, p := range players {
+					if o.Controller == p {
+						controlled = true
+						break
+					}
+				}
+			}
+			if !controlled {
+				continue
+			}
 		}
 		// The plain count form, and the $<Property> sum form's per-entry
 		// contribution (CardPower's printed face plus its +1/+1 counters, the

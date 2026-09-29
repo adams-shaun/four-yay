@@ -1409,6 +1409,7 @@ func Apply(g *state.Game, e Event) {
 			// as the engine's other per-turn state below.
 			if e.Amount > 0 {
 				o.WasDealtDamageThisTurn = true
+				o.DamageReceivedThisTurn += e.Amount
 			}
 		} else if validPlayer(g, e.Player) {
 			if infect && e.Amount > 0 {
@@ -1530,6 +1531,7 @@ func Apply(g *state.Game, e Event) {
 			for i := range g.Objs {
 				g.Objs[i].EnteredThisTurn = false
 				g.Objs[i].WasDealtDamageThisTurn = false
+				g.Objs[i].DamageReceivedThisTurn = 0
 				g.Objs[i].DamageTakenThisTurnBy = nil
 				g.Objs[i].ActivatedThisTurn = 0
 				g.Objs[i].AttacksThisTurn = 0
