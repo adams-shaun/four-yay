@@ -1908,6 +1908,12 @@ var handRoots = struct {
 		// shape mustAttackRequired has. Its reads are the shared
 		// EffectZone$/ValidCard$ static gate.
 		"CantBeCopied": {"Engine.SpellCopyAllowed"},
+		// tapPowerValue is the caller of the TapPowerValue literal root
+		// tapPowerValueStatics (activeStatics("TapPowerValue")): it reads the
+		// matched static's own ValidSA$/ValidCard$/Value$ from one shared
+		// helper, so a caller of the collector root is not reachable FROM
+		// that root and must be declared here -- the AttackRestrict shape.
+		"TapPowerValue": {"Engine.tapPowerValue"},
 	},
 	// The trigger-queue drain and the stack-resolution paths read trigger
 	// params (OptionalDecider$, TriggerDescription$, Static$, ValidCard$)

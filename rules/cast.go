@@ -8836,6 +8836,7 @@ func (e *Engine) targetAsk() bool {
 	// mirrors it. A candidate whose power alone fits but whose combination
 	// busts the cap stays offered: the wire contract rejects the combination.
 	candidates, powerCap, powerCapped := e.totalPowerCappedCandidates(candidates, pc.player, pc.card, sa, pc.x)
+	candidates, cmcCap, cmcCapped := e.totalCMCCappedCandidates(candidates, pc.player, pc.card, sa, pc.x)
 	// Forge's per-controller selection shapes (TargetsForEachPlayer$ one per
 	// player; TargetsWithDifferentControllers$ one per controller): the same
 	// bounds/group/capacity read the trigger-path askTarget uses, so a OneEach
@@ -8950,10 +8951,18 @@ func (e *Engine) targetAsk() bool {
 				o.Value = int(e.Power(candidate.obj))
 			}
 		}
+		if cmcCapped && candidate.kind != "player" {
+			if co := e.G.Obj(candidate.obj); co != nil && co.Face() != nil {
+				o.Value = int(co.Face().ManaValue())
+			}
+		}
 		d.Options = append(d.Options, o)
 	}
 	if powerCapped {
 		d.MaxSum, d.Budgeted = powerCap, true
+	}
+	if cmcCapped {
+		d.MaxSum, d.Budgeted = cmcCap, true
 	}
 	if pickOwed {
 		// The multi-opponent Opponent form (agent-20260925T085158Z-c861188d):

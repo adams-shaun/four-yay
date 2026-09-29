@@ -3899,6 +3899,89 @@ func (e *Engine) combatDamageAmount(id state.ObjID) int32 {
 	return e.Power(id)
 }
 
+// tapPowerValueStatics collects every printed TapPowerValue static on the
+// battlefield (the mode's carriers are all ordinary permanents), honouring
+// each static's own EffectZone$ through activeStatics exactly as the
+// continuous walk does. The assignment family's broader zone walk
+// (assignmentStatics) is not needed: no corpus TapPowerValue source
+// functions from outside the battlefield, and admitting one would be a new
+// ticket, not this read.
+func (e *Engine) tapPowerValueStatics() []staticView {
+	return e.activeStatics("TapPowerValue")
+}
+
+// tapPowerSAScopeMatches reports whether a TapPowerValue static's ValidSA$
+// admits the activated-action kind saKind ("Station", "Crew", "Saddle").
+// Forge spells the value as a comma-separated OR list of
+// "Activated.<kind>[+<qualifier>]" ("Activated.Station",
+// "Activated.Crew+Vehicle,Activated.Saddle+Mount"); the first
+// '+'-separated token after the "Activated." prefix is the action kind. An
+// empty ValidSA$ admits every activated action; any other shape (a Spell
+// scope, a kind this build cannot classify) fails closed, so a static the
+// engine cannot scope never silently replaces a value.
+func tapPowerSAScopeMatches(validSA, saKind string) bool {
+	v := strings.TrimSpace(validSA)
+	if v == "" {
+		return true
+	}
+	for alt := range strings.SplitSeq(v, ",") {
+		alt = strings.TrimSpace(alt)
+		kind, rest, ok := strings.Cut(alt, ".")
+		if !ok || kind != "Activated" {
+			continue
+		}
+		token, _, _ := strings.Cut(rest, "+")
+		if strings.TrimSpace(token) == saKind {
+			return true
+		}
+	}
+	return false
+}
+
+// tapPowerValue returns the value a creature id contributes when it is
+// tapped to pay an activated action's tap-power amount -- CR 702.150a's
+// Station ("charge counters equal to its power"), Crew's "total power N or
+// greater" and Saddle's count. It honours any stat:TapPowerValue static
+// whose ValidSA$ scopes that action kind and whose ValidCard$ matches the
+// candidate: Tapestry Warden makes the controller's toughness>power
+// creatures station using their TOUGHNESS, and the Pilot family makes its
+// bearer act as though its power were N greater (Value$ <N>). The default is
+// the creature's layer-derived power.
+//
+// This is the ONE read of that value, so the Station offer label, the
+// affordability sum and the effect amount cannot disagree (the repo rule
+// that a read rule has one home). It goes through the shared
+// restriction/condition/ClassLevel gates, so an unmodelled gate fails closed
+// to plain power rather than replacing the value blanket.
+func (e *Engine) tapPowerValue(id state.ObjID, saKind string) int32 {
+	for _, sv := range e.tapPowerValueStatics() {
+		if !e.restrictionGateHolds(sv, id) || !e.checkSVarHolds(sv) {
+			continue
+		}
+		if !e.classBandGateHolds(sv.Params, sv.Source) {
+			continue
+		}
+		if !tapPowerSAScopeMatches(sv.Params["ValidSA"], saKind) {
+			continue
+		}
+		if !e.matchesSpec(sv.Params["ValidCard"], id, e.staticSpecCtx(sv)) {
+			continue
+		}
+		switch v := strings.TrimSpace(sv.Params["Value"]); v {
+		case "Toughness":
+			return e.Toughness(id)
+		default:
+			// A numeric Value$ is Forge's additive "as though its power were
+			// N greater" (every numeric corpus carrier's Description says
+			// exactly that), not a replacement with the literal number.
+			if n, err := strconv.Atoi(v); err == nil {
+				return e.Power(id) + int32(n)
+			}
+		}
+	}
+	return e.Power(id)
+}
+
 // altCostLabel names the nth (0-indexed) alternative-cost option for a
 // spell, distinct from the base "Cast <name>" label and from each other when
 // a card somehow offers more than one alternative.

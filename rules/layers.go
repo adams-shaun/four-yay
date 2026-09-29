@@ -3118,6 +3118,12 @@ func (e *Engine) derivedScalarFrom(id state.ObjID, o *state.Object, f *cards.Fac
 				}
 				addToughness = e.staticAmountOn(*ce, ce.AddToughnessExpr, anchor)
 			}
+			if ce.DoublePower {
+				addPower = power
+			}
+			if ce.DoubleToughness {
+				addToughness = toughness
+			}
 			power = addPT(power, addPower)
 			toughness = addPT(toughness, addToughness)
 		}

@@ -1471,6 +1471,49 @@ func (e *Engine) targetSAAvailable(p state.PlayerID, id, excludeSelf state.ObjID
 	if xPending && specNamesXBound(sa.Params["ValidTgts"]) {
 		return true
 	}
+	if capCMC, capped := e.maxTotalTargetCMC(p, id, sa, x); capped {
+		candidates := e.legalTargetCandidates(p, id, excludeSelf, sa)
+		candidates, _, _ = e.totalCMCCappedCandidates(candidates, p, id, sa, x)
+		if !e.targetChoiceFeasible(sa, candidates, min) {
+			return false
+		}
+		// A subset-sum cap binds even when enough individually legal
+		// candidates exist: the cheapest `min` of them is the minimal-sum
+		// subset of that size (mana values are nonnegative), so if it busts
+		// the cap no legal subset does. Every current corpus carrier has
+		// TargetMin$ 0, so this arm is prophylactic. Derive the effective
+		// minimum the same way targetChoiceFeasible does (the OneEach/
+		// same-controller/set-property bounds can lower min) so both readers
+		// reason about the same count.
+		eff := min
+		eff, _, _, _ = e.oneEachTargetBounds(sa, candidates, eff, 0)
+		eff, _, _, _ = e.sameControllerTargetBounds(sa, candidates, eff, 0)
+		eff, _, _, _, _ = e.setPropTargetBounds(sa, candidates, eff, 0)
+		if eff > 0 {
+			vms := make([]int, 0, len(candidates))
+			for _, c := range candidates {
+				if c.kind == "player" {
+					// Players are valid members of a target set and contribute
+					// zero to its total mana value.
+					vms = append(vms, 0)
+					continue
+				}
+				if o := e.G.Obj(c.obj); o != nil && o.Face() != nil {
+					vms = append(vms, int(o.Face().ManaValue()))
+				}
+			}
+			if len(vms) < eff {
+				return false
+			}
+			slices.Sort(vms)
+			total := 0
+			for _, mv := range vms[:eff] {
+				total += mv
+			}
+			return total <= capCMC
+		}
+		return true
+	}
 	if !targetCrossConstrained(sa) {
 		// No cross-target constraint: targetChoiceFeasible reduces to
 		// len(candidates) >= min, which the limited census answers exactly
