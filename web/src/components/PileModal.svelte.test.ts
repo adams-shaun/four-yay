@@ -175,6 +175,26 @@ describe('PileModal — the card list\'s shared hover inspector', () => {
   });
 });
 
+describe('PileModal — float-gated actions', () => {
+  it('shows a later-only pile action as a counted badge and a disabled explanatory row', async () => {
+    const page = await browser.newPage();
+    await page.goto(`${url}src/components/PileModal.fixture.html?case=later`);
+    const precondition = await page.evaluate(() => (window as unknown as { __pileLaterPrecondition: { hasLater: boolean; hasLive: boolean } }).__pileLaterPrecondition);
+    expect(precondition).toEqual({ hasLater: true, hasLive: false });
+    const card = page.locator('[data-obj="300"]');
+    const badge = card.locator('[aria-haspopup="menu"]');
+    expect(await card.locator('.pile-card').getAttribute('data-tone')).toBe('offered');
+    expect(await badge.getAttribute('aria-label')).toBe('1 action for Archive Card 300');
+    expect(await card.locator('.badge__n').textContent()).toBe('1');
+    await badge.click();
+    const row = card.locator('[data-later-ability]');
+    expect(await row.isVisible()).toBe(true);
+    expect(await row.isDisabled()).toBe(true);
+    expect(await row.textContent()).toContain('(tap other mana first)');
+    await page.close();
+  });
+});
+
 describe('PileModal — the identity bar pile affordances (fb-20260916T225802Z)', () => {
   // The ?case=identity fixture mounts IdentityBar for two seats plus the
   // table's ONE shared PileHost, wired exactly as Table.svelte wires them,
