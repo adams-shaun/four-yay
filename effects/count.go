@@ -1470,8 +1470,10 @@ func evalRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 			n++
 		case prop == "Valid" || strings.HasPrefix(prop, "Valid "):
 			spec := strings.TrimSpace(strings.TrimPrefix(prop, "Valid"))
-			if (lki && MatchesObjectCtx(g, spec, o, c.SpecContext(c.Controller))) ||
-				(!lki && MatchesSpecCtx(g, spec, t.Obj, c.SpecContext(c.Controller))) {
+			sc := c.SpecContext(c.Controller)
+			sc.DerivedPTs = append(sc.DerivedPTs, GreatestPowerDerivedPTs(g, spec, h)...)
+			if (lki && MatchesObjectCtx(g, spec, o, sc)) ||
+				(!lki && MatchesSpecCtx(g, spec, t.Obj, sc)) {
 				n++
 			}
 		case prop == "Converge":
@@ -3674,7 +3676,9 @@ func evalCountValidSelf(h Host, c *Ctx, arg string) (int32, bool) {
 	if o == nil {
 		return 0, true
 	}
-	if MatchesObjectCtx(g, arg, o, c.SpecContext(c.Controller)) {
+	sc := c.SpecContext(c.Controller)
+	sc.DerivedPTs = append(sc.DerivedPTs, GreatestPowerDerivedPTs(g, arg, h)...)
+	if MatchesObjectCtx(g, arg, o, sc) {
 		return 1, true
 	}
 	return 0, true
@@ -4875,6 +4879,7 @@ func (f *zoneCountFold) visit(id state.ObjID, zone state.Zone, specCtx SpecConte
 			}
 		}
 	}
+	specCtx.DerivedPTs = append(specCtx.DerivedPTs, GreatestPowerDerivedPTs(f.g, matchSpec, f.h)...)
 	if !matchesZoneSpecCtx(f.g, matchSpec, id, specCtx, zone) {
 		return
 	}

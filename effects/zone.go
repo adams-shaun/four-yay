@@ -5859,6 +5859,15 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 			ids := append([]state.ObjID(nil), g.Zone(state.ZBattlefield, t.Player)...)
 			eligible := make([]state.ObjID, 0, len(ids))
 			sc := c.SpecContext(t.Player)
+			// SacValid$/ValidCard$ can carry a greatestPower comparison
+			// (Consume, Consumed by Greed), which must size the whole pool
+			// with layer-derived power, exactly as the Choices$ matcher does;
+			// the shared builder returns nil for every other spec. The two
+			// spellings never co-occur, so appending both cannot double-bind.
+			sc.DerivedPTs = append(sc.DerivedPTs, GreatestPowerDerivedPTs(g, spec, h)...)
+			if validCard != "" {
+				sc.DerivedPTs = append(sc.DerivedPTs, GreatestPowerDerivedPTs(g, validCard, h)...)
+			}
 			for _, id := range ids {
 				if h.SacrificeBlocked(id, false) {
 					// A CantSacrifice restriction (Call for Aid) or face static:

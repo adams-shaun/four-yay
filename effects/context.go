@@ -139,10 +139,12 @@ func Defined(h Host, c *Ctx, sa *cards.SA) []state.Target {
 // about what the battlefield form means.
 func battlefieldValidTargets(h Host, c *Ctx, filt string) []state.Target {
 	g := h.Game()
+	sc := c.SpecContext(c.Controller)
+	sc.DerivedPTs = append(sc.DerivedPTs, GreatestPowerDerivedPTs(g, filt, h)...)
 	var out []state.Target
 	for _, p := range g.AliveFrom(0) {
 		for _, id := range g.Zone(state.ZBattlefield, p) {
-			if MatchesSpecCtx(g, filt, id, c.SpecContext(c.Controller)) {
+			if MatchesSpecCtx(g, filt, id, sc) {
 				out = append(out, state.Target{Obj: id})
 			}
 		}
@@ -304,8 +306,10 @@ func attachedToDefinedSelector(h Host, c *Ctx, spec string) ([]state.Target, boo
 		}
 		if len(words) > 0 {
 			matched := false
+			wordsCtx := c.SpecContext(c.Controller)
+			wordsCtx.DerivedPTs = append(wordsCtx.DerivedPTs, GreatestPowerDerivedPTs(g, spec, h)...)
 			for _, w := range words {
-				if MatchesObjectCtx(g, w, o, c.SpecContext(c.Controller)) {
+				if MatchesObjectCtx(g, w, o, wordsCtx) {
 					matched = true
 					break
 				}
@@ -387,7 +391,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			if t.IsPlayer || t.Obj == 0 {
 				continue
 			}
-			if o := g.Obj(t.Obj); o != nil && definedCardQualifierMatches(g, c, qual, o) {
+			if o := g.Obj(t.Obj); o != nil && definedCardQualifierMatches(h, g, c, qual, o) {
 				out = append(out, t)
 			}
 		}
@@ -402,7 +406,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 		qual = strings.TrimSpace(qual)
 		var out []state.Target
 		for _, t := range exiledWithSet(g, c) {
-			if o := g.Obj(t.Obj); o != nil && definedCardQualifierMatches(g, c, qual, o) {
+			if o := g.Obj(t.Obj); o != nil && definedCardQualifierMatches(h, g, c, qual, o) {
 				out = append(out, t)
 			}
 		}
@@ -418,7 +422,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 		qual = strings.TrimSpace(qual)
 		var out []state.Target
 		for _, id := range c.ReplacedCards {
-			if o := g.Obj(id); o != nil && definedCardQualifierMatches(g, c, qual, o) {
+			if o := g.Obj(id); o != nil && definedCardQualifierMatches(h, g, c, qual, o) {
 				out = append(out, state.Target{Obj: id})
 			}
 		}
@@ -1250,9 +1254,12 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 	// INSIDE the filter (an empty set, ok=true), never a guessed fallback.
 	for _, zf := range zoneValidPrefixes {
 		if filt, ok := strings.CutPrefix(spec, zf.prefix); ok {
+			filt = strings.TrimSpace(filt)
+			sc := c.SpecContext(c.Controller)
+			sc.DerivedPTs = append(sc.DerivedPTs, GreatestPowerDerivedPTs(g, filt, h)...)
 			var out []state.Target
 			for _, id := range g.Zone(zf.zone, c.Controller) {
-				if MatchesSpecCtx(g, strings.TrimSpace(filt), id, c.SpecContext(c.Controller)) {
+				if MatchesSpecCtx(g, filt, id, sc) {
 					out = append(out, state.Target{Obj: id})
 				}
 			}
