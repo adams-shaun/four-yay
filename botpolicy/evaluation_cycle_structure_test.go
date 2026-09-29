@@ -66,10 +66,9 @@ type policyCallGraph struct {
 //
 // This can add false edges (sound, never misses a same-package call), which
 // is why the allowlist in the caller names the one real cycle. Indexed
-// function values, interface dispatch (including a promoted/embedded
-// interface method and a bound interface method value, both keyed on the
-// resolved declaration object), and factory-produced values fail closed to
-// signature-compatible local functions.
+// function values, interface dispatch (including resolved local declarations
+// and unresolved foreign interface selections), and factory-produced values
+// fail closed to signature-compatible local functions.
 func buildPolicyCallGraph(fset *token.FileSet, files []*ast.File, info *types.Info, pkgPath string) policyCallGraph {
 	g := policyCallGraph{edges: map[string]map[string]bool{}}
 	add := func(a, b string) {
@@ -385,6 +384,21 @@ func buildPolicyCallGraph(fset *token.FileSet, files []*ast.File, info *types.In
 						}
 					}
 				} else {
+					// A method selected from a foreign interface cannot resolve
+					// through calleeObj, but its receiver selection still identifies
+					// dynamic dispatch. Keep this complementary receiver-keyed arm
+					// only for unresolved calls; same-package interface declarations
+					// are handled above by their resolved object, including promoted
+					// methods whose expression receiver is concrete.
+					if selExpr, ok := x.Fun.(*ast.SelectorExpr); ok {
+						if sel := info.Selections[selExpr]; sel != nil && sel.Kind() == types.MethodVal {
+							if _, isInterface := sel.Recv().Underlying().(*types.Interface); isInterface {
+								if funType := info.TypeOf(x.Fun); funType != nil {
+									dynamicCalls[nodeName] = append(dynamicCalls[nodeName], funType)
+								}
+							}
+						}
+					}
 					// FAIL CLOSED on higher-order calls we cannot resolve: a
 					// named same-package function or method passed as an argument
 					// to an external or value callee may be invoked by it. (A
@@ -653,8 +667,8 @@ func typeCheckPolicy(t *testing.T, fset *token.FileSet, paths []string, pkgPath 
 // function values for any indirect call through a slot it could not fully
 // trace. It can add false edges but never miss a same-package name or a
 // value-mediated callback, including indexed map/slice values, interface
-// dispatch (a direct interface call, a promoted/embedded one, and a bound
-// interface method value are all keyed on the resolved method declaration),
+// dispatch (resolved local declarations are keyed on the method object;
+// unresolved foreign interface calls use the interface receiver selection),
 // and factory-returned values. It still does NOT follow a function value that
 // escapes through goroutines (botpolicy starts none) or reflection (botpolicy
 // uses none). The regression probes
