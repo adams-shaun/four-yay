@@ -771,25 +771,29 @@ func (b Board) chooseTargets(d *decision.Decision) []int {
 	// receiver scales with the creature's worth, so the weakest receiver
 	// loses the least.
 	//
-	// Group discipline (Decision.Validate's mutual-exclusion rule): two
-	// options sharing one non-empty Group are mutually exclusive -- the
+	// Group discipline (Decision.Validate's per-Group cap, decision.GroupAdmits
+	// -- the ONE home the clamp arms at policy.go already derive from): options
+	// sharing one non-empty Group are capped at Decision.GroupCapFor(g) together
+	// -- at the default cap 1 that is the mutual-exclusion rule of the
 	// TargetsForEachPlayer$ shape (one target per controller, rules/stack.go
 	// oneEachTargetGroup) and the cross-mode Charm ask (one mode per player,
-	// askCrossModeCharmTargets) both attach it. Choosing two same-group
-	// options would hand back an intent Validate rejects and clamp cannot
-	// repair -- the same wedging shape Clamp's own top-up skips (policy.go),
-	// so the pick loop skips a represented group the way a duplicate index
-	// is. A decision whose Min exceeds its distinct groups cannot be met by
-	// ANY answer; the ask builders never pose one (OneEach Min is the
-	// distinct-controller count, and a dynamic-max Min is 0).
-	chosen := make(map[string]bool)
+	// askCrossModeCharmTargets), both of which attach it; a raised cap (EACH's
+	// per-type ChangeNum) admits several members of one group. Choosing past a
+	// group's cap would hand back an intent Validate rejects and clamp cannot
+	// repair -- the same wedging shape Clamp's own top-up skips (policy.go), so
+	// the pick loop admits a group exactly as GroupAdmits does, the way a
+	// duplicate index is skipped. A decision whose Min exceeds what its groups'
+	// caps admit cannot be met by ANY answer; the ask builders never pose one
+	// (OneEach Min is the distinct-controller count, and a dynamic-max Min is
+	// 0).
+	chosenCounts := make(map[string]int)
 	var targetController state.PlayerID
 	haveTargetController := false
 	fits := func(o decision.Option) bool {
 		if d.TargetsWithSameController && haveTargetController && o.Controller != targetController {
 			return false
 		}
-		return o.Group == "" || !chosen[o.Group]
+		return d.GroupAdmits(chosenCounts, o.Group)
 	}
 	choices := make([]int, 0, pick)
 	pickFrom := func(s []targetRank) {
@@ -802,7 +806,7 @@ func (b Board) chooseTargets(d *decision.Decision) []int {
 				targetController, haveTargetController = o.Controller, true
 			}
 			if o.Group != "" {
-				chosen[o.Group] = true
+				chosenCounts[o.Group]++
 			}
 			choices = append(choices, s[i].idx)
 		}

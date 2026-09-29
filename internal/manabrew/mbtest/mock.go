@@ -246,11 +246,16 @@ func (c *MockClient) answerBoardTargets(in mb.ChooseBoardTargetsInput) mb.Prompt
 // prompt_target_set.go's targetSetSentences renders. The wording is a
 // CONTRACT between the translator and this client (and any real client that
 // reads the constraint the same way), like chooseConstraint's budget
-// sentences; rewording either side changes what the other can honour.
+// sentences; rewording either side changes what the other can honour. The
+// contract covers BOTH group wordings: the cap-1 exclusivity sentence and
+// the raised-cap sentences ("may be chosen together" appears in both), so a
+// cap-aware ask is still answered by the translator's ordered prefix rather
+// than a random distinct selection that can violate the cap.
 func setConstraintBound(desc string) bool {
 	return strings.Contains(desc, "must share one controller") ||
 		strings.Contains(desc, "must share a property") ||
 		strings.Contains(desc, "may share a property") ||
+		strings.Contains(desc, "may be chosen together") ||
 		strings.Contains(desc, "mutually exclusive")
 }
 

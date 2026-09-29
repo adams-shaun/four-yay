@@ -52,6 +52,11 @@ func TestMockConstraintSentencesAreTheTrigger(t *testing.T) {
 		"All chosen targets must share a property.",
 		"No two chosen targets may share a property.",
 		"Options that share a group are mutually exclusive.",
+		// The raised-cap group wordings (groupcap-wording): a cap-aware ask
+		// must ALSO be recognised, or the mock answers it with a random
+		// distinct selection that can violate the cap.
+		"At most 2 options of each group may be chosen together.",
+		"Options of a group may be chosen together up to the group's cap: at most 1 for some groups, at most 2 for others.",
 	} {
 		if !setConstraintBound(desc) {
 			t.Fatalf("sentence not recognised: %q", desc)

@@ -51,8 +51,13 @@ func TestConstrainedTargetPrefixGroupCapRaised(t *testing.T) {
 		t.Fatalf("the raised-cap decision refused the pair it must admit: %v", err)
 	}
 	in := targetPrefix(t, d)
-	if !strings.Contains(in.Presentation.Description, "Options that share a group are mutually exclusive.") {
-		t.Fatalf("group sentence missing from description: %q", in.Presentation.Description)
+	if !strings.Contains(in.Presentation.Description, "At most 2 options of each group may be chosen together.") {
+		t.Fatalf("raised-cap group sentence missing from description: %q", in.Presentation.Description)
+	}
+	// The wording promise, executable: the cap-1 twin of the same decision
+	// still renders the historical sentence byte-identically.
+	if got := targetSetSentences(cap1Twin(d)); got != "Options that share a group are mutually exclusive." {
+		t.Fatalf("cap-1 twin description = %q, want the historical sentence unchanged", got)
 	}
 	if got := prefixRefIDs(in, 2); got[0] != "o70" || got[1] != "o71" {
 		t.Fatalf("prefix candidates = %v, want the two group-g options first", got)
@@ -100,6 +105,11 @@ func TestConstrainedTargetPrefixGroupLimitsPerGroup(t *testing.T) {
 	in := targetPrefix(t, d)
 	if got := prefixRefIDs(in, 2); got[0] != "o74" || got[1] != "o75" {
 		t.Fatalf("prefix candidates = %v, want the two group-g options first", got)
+	}
+	// Render assertion: g is capped at 2, h stays at the default 1, so the
+	// description names the SPREAD, not uniform exclusivity nor a uniform cap.
+	if !strings.Contains(in.Presentation.Description, "at most 1 for some groups, at most 2 for others") {
+		t.Fatalf("mixed-cap spread sentence missing from description: %q", in.Presentation.Description)
 	}
 	p := pendingFor(d, battleView())
 	intent := mustIntent(t, New("table", 2, nil).TranslateResponse(
@@ -154,6 +164,11 @@ func TestConstrainedTargetPrefixGroupCapSearchFallback(t *testing.T) {
 	in := targetPrefix(t, d)
 	if got := prefixRefIDs(in, 3); got[0] != "o83" || got[1] != "o84" || got[2] != "o85" {
 		t.Fatalf("prefix candidates = %v, want the p0 distinct-group triple [o83 o84 o85]", got)
+	}
+	// Render assertion: same mixed-cap spread as the PerGroup test (g at 2,
+	// h/i/j at the default 1), alongside the controller sentence.
+	if !strings.Contains(in.Presentation.Description, "at most 1 for some groups, at most 2 for others") {
+		t.Fatalf("mixed-cap spread sentence missing from description: %q", in.Presentation.Description)
 	}
 	p := pendingFor(d, battleView())
 	intent := mustIntent(t, New("table", 2, nil).TranslateResponse(
