@@ -14,19 +14,17 @@ package rules
 // "prepared_copy", pinned by rules/prepared_test.go).
 //
 // The census below is the class-wide ledger for that shape. It pins the exact
-// set of Prepare cards in the corpus, in both directions, and it pins the two
-// sub-classes a hand-walk gate would otherwise have to distinguish:
+// set of Prepare cards in the corpus, in both directions, and it pins the
+// class-wide refusal a hand-walk gate would otherwise have to reproduce:
+// every one of the 54 backs must be refused by modalSpellBack (CR 722.3), so
+// none of them is castable from hand.
 //
-//   - inline backs: the ALTERNATE block names a real Instant/Sorcery face
-//     (33 corpus cards today);
-//   - `CopyFaceFrom` stubs: the ALTERNATE block is only a directive this
-//     parser does not resolve, so the back face parses nameless with no types
-//     or cost (21 corpus cards today; resolving CopyFaceFrom is a separate
-//     parser ticket).
-//
-// BOTH sub-classes must be refused by modalSpellBack (CR 722.3), so the
-// 33/21 split is a corpus measurement only -- it does not imply any inline
-// back is castable from hand.
+// 33 of the 54 cards name a real Instant/Sorcery face inline in their
+// ALTERNATE block. The other 21 encode their inset spell with a
+// `CopyFaceFrom:<Card>` directive, which cards/parse.go now resolves by
+// copying the referenced card's front-face characteristics onto the stub
+// (ticket agent-20260928T215303Z-ab37989c); after resolution every back is a
+// named face too, so the census compares all 54 as "Front // Back".
 //
 // A counted census is a ratchet: a Prepare card added to the corpus, an inline
 // back turning into a stub (or the reverse), or the helper's classification
@@ -42,64 +40,65 @@ import (
 )
 
 // prepareCensus is the measured corpus set of AlternateMode:Prepare cards, as
-// "Front // Back" for an inline back or bare "Front" for an unresolved
-// CopyFaceFrom stub. Sorted. Measured 2026-09-28 at FORGE_REF
-// 95f04e8a04c8925fa97cb226fc3341cabcc90a53.
+// "Front // Back". Sorted. Measured 2026-09-28 at FORGE_REF
+// 95f04e8a04c8925fa97cb226fc3341cabcc90a53; every back is now a resolved
+// named face (the 21 CopyFaceFrom stubs resolve as of
+// agent-20260928T215303Z-ab37989c).
 var prepareCensus = []string{
 	"Abigale, Poet Laureate // Heroic Stanza",
 	"Adventurous Eater // Have a Bite",
-	"Blazing Firesinger",
+	"Blazing Firesinger // Seething Song",
 	"Bloodline Recollector // Ancestral Craving",
 	"Campus Composer // Aqueous Aria",
-	"Cheerful Osteomancer",
-	"Crescendo Conductor",
+	"Cheerful Osteomancer // Raise Dead",
+	"Crescendo Conductor // Boltwave",
 	"Defacing Duskmage // Vandal's Edit",
-	"Dirgur Focusmage",
+	"Dirgur Focusmage // Braingeyser",
 	"Eccentric Pestfinder // Turn Stones",
-	"Eiganjo Dynastorian",
+	"Eiganjo Dynastorian // Replenish",
 	"Elite Interceptor // Rejoinder",
-	"Emeritus of Abundance",
-	"Emeritus of Conflict",
-	"Emeritus of Ideation",
-	"Emeritus of Truce",
-	"Emeritus of Woe",
-	"Encouraging Aviator",
+	"Emeritus of Abundance // Regrowth",
+	"Emeritus of Conflict // Lightning Bolt",
+	"Emeritus of Ideation // Ancestral Recall",
+	"Emeritus of Truce // Swords to Plowshares",
+	"Emeritus of Woe // Demonic Tutor",
+	"Encouraging Aviator // Jump",
 	"Galathul Galecaller // Corvid Squall",
 	"Goblin Glasswright // Craft with Pride",
-	"Grave Researcher",
-	"Harmonized Trio",
+	"Grave Researcher // Reanimate",
+	"Harmonized Trio // Brainstorm",
 	"Honorbound Page // Forum's Favor",
-	"Infirmary Healer",
+	"Infirmary Healer // Stream of Life",
 	"Inspired Skypainter // Maestro's Gift",
 	"Jadzi, Steward of Fate // Oracle's Gift",
-	"Joined Researchers",
+	"Joined Researchers // Secret Rendezvous",
 	"Kirol, History Buff // Pack a Punch",
 	"Landscape Painter // Vibrant Idea",
 	"Leech Collector // Bloodletting",
 	"Lluwen, Exchange Student // Pest Friend",
 	"Lorehold Archivist // Restore Relic",
 	"Maelstrom Artisan // Rocket Volley",
-	"Naktamun Lorespinner",
+	"Naktamun Lorespinner // Wheel of Fortune",
 	"Paradox Shaper // Omit Variables",
 	"Pigment Wrangler // Striking Palette",
 	"Prudent Fateseer // Peer Review",
 	"Quill-Blade Laureate // Twofold Intent",
 	"Sanar, Unfinished Genius // Wild Idea",
 	"Scathing Shadelock // Venomous Words",
-	"Scheming Silvertongue",
+	"Scheming Silvertongue // Sign in Blood",
 	"Skycoach Conductor // All Aboard",
-	"Spellbook Seeker",
+	"Spellbook Seeker // Careful Study",
 	"Spiritcall Enthusiast // Scrollboost",
-	"Stensian Sanguinist",
+	"Stensian Sanguinist // Exsanguinate",
 	"Stingerquill Voxmancer // Vicious Verse",
 	"Striding Shotcaller // Run the Play",
 	"Strife Scholar // Awaken the Ages",
-	"Studious First-Year",
+	"Studious First-Year // Rampant Growth",
 	"Tam, Observant Sequencer // Deep Sight",
 	"Vastlands Scavenger // Bind to Life",
 	"Vigorbloom Vanguard // Seed Suture",
 	"Woodwork Prodigy // Soul Tether",
-	"Yavimaya Bloomsage",
+	"Yavimaya Bloomsage // Channel",
 }
 
 // prepareLabel renders a Prepare card as the census compares it: the front
@@ -160,16 +159,18 @@ func TestPrepareCensusMatchesCorpus(t *testing.T) {
 
 // TestPrepareBackFaceHelperCensus pins modalSpellBack's classification over
 // every Prepare card: CR 722.3 makes the inset prepare spell uncasteable from
-// hand in BOTH sub-classes, so the helper must return nil for every inline
-// back (33) and every unresolved CopyFaceFrom stub (21). This is the
-// class-wide assertion behind
+// hand, so the helper must return nil for all 54 backs. It also pins the
+// parser resolution of the 21 `CopyFaceFrom` stub backs (ticket
+// agent-20260928T215303Z-ab37989c): after resolution every back is a real,
+// named Instant/Sorcery face, never a nameless stub. This is the class-wide
+// assertion behind
 // TestSetAudit_sos_TamObservantSequencer_PrepareSpellNotCastableFromHand; it
 // fails for any prepare spell the hand walk would wrongly offer, not just Tam.
 func TestPrepareBackFaceHelperCensus(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 
-	var inline, stubs int
+	var named int
 	for _, c := range reg.Cards {
 		if c == nil || c.AlternateMode != "Prepare" || len(c.Faces) != 2 || c.Faces[0] == nil || c.Faces[1] == nil {
 			continue
@@ -177,24 +178,23 @@ func TestPrepareBackFaceHelperCensus(t *testing.T) {
 		o := &state.Object{Card: c, Zone: state.ZHand, FaceIdx: 0}
 		got := modalSpellBack(o)
 		back := c.Faces[1]
+		// Every back must now be a named Instant/Sorcery: the 21 CopyFaceFrom
+		// stubs resolve to the referenced spell's characteristics. A nameless
+		// back means the resolution pass missed a reference.
 		if back.Name == "" {
-			// Unresolved CopyFaceFrom stub. If the helper returned it, the hand
-			// walk would offer "Cast " with a free cost.
-			stubs++
-		} else {
-			// Inline back: a real named Instant/Sorcery face. CR 722.3 still
-			// forbids casting it from hand.
-			inline++
-			if !back.IsInstant() && !back.IsSorcery() {
-				t.Errorf("prepare helper: %q inline back %q is neither Instant nor Sorcery", c.Faces[0].Name, back.Name)
-			}
+			t.Errorf("prepare helper: %q back parsed nameless, want a resolved CopyFaceFrom name", c.Faces[0].Name)
+			continue
+		}
+		named++
+		if !back.IsInstant() && !back.IsSorcery() {
+			t.Errorf("prepare helper: %q back %q is neither Instant nor Sorcery", c.Faces[0].Name, back.Name)
 		}
 		if got != nil {
 			t.Errorf("prepare helper: %q back %+v was returned by modalSpellBack, want nil (CR 722.3)",
 				c.Faces[0].Name, back)
 		}
 	}
-	if inline != 33 || stubs != 21 {
-		t.Errorf("prepare helper census: %d inline backs, %d CopyFaceFrom stubs, want 33/21", inline, stubs)
+	if named != 54 {
+		t.Errorf("prepare helper census: %d resolved named backs, want 54", named)
 	}
 }

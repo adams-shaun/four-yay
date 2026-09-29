@@ -279,6 +279,42 @@ const (
 // rules text. See deriveColourIdentity for exactly which fields contribute.
 func (f *Face) ColourIdentity() uint8 { return f.colourIdentity }
 
+// copyPrintedFrom overwrites f's printed IR with src's, deep-copying the
+// mutable containers so the two faces never alias a slice or a map. It is the
+// field copy behind Registry.resolveCopyFaces' handling of a
+// `CopyFaceFrom:<Card>` face. The linked IR containers (Abilities, Triggers,
+// Statics, Repls) are carried over as their already-linked entries: the source
+// face was linked by the time the registry resolves references (every card is
+// Add-ed first), so re-linking the copy walks the shared *SA trees without
+// mutating them. The SVars map is copied rather than aliased because link
+// appends to it (expandKeywords' __kw entries); sharing it would let two faces
+// race to add the same SVar name.
+func (f *Face) copyPrintedFrom(src *Face) {
+	f.SpecializeColor = src.SpecializeColor
+	f.Name = src.Name
+	f.ManaCost = src.ManaCost
+	f.Types = slices.Clone(src.Types)
+	f.PT = src.PT
+	f.Loyalty = src.Loyalty
+	f.Defense = src.Defense
+	f.Colors = src.Colors
+	f.Oracle = src.Oracle
+	f.Keywords = slices.Clone(src.Keywords)
+	f.Aliases = slices.Clone(src.Aliases)
+	f.Abilities = slices.Clone(src.Abilities)
+	f.Triggers = slices.Clone(src.Triggers)
+	f.Statics = slices.Clone(src.Statics)
+	f.Repls = slices.Clone(src.Repls)
+	if src.SVars == nil {
+		f.SVars = map[string]string{}
+	} else {
+		f.SVars = make(map[string]string, len(src.SVars))
+		for k, v := range src.SVars {
+			f.SVars[k] = v
+		}
+	}
+}
+
 // derive computes the derived fields from the printed text fields. It must
 // run after every path that constructs a Face values its printed fields from
 // text — after ParseBytes and after the gob decode path — so the two
