@@ -34,7 +34,13 @@ func (c config) createGame(r *host.Registry, gate *seatGate, cmdPool, conPool []
 	return func(req httpapi.CreateGameOptions) (httpapi.CreateGameResponse, error) {
 		mu.Lock()
 		defer mu.Unlock()
-		policy, err := host.NormalizeBotPolicy(req.BotPolicy)
+		// An omitted policy takes the server's -bot-policy, not the
+		// vocabulary's own default, so a demo can change who you play.
+		name := req.BotPolicy
+		if name == "" {
+			name = c.botPolicy
+		}
+		policy, err := host.NormalizeBotPolicy(name)
 		if err != nil {
 			return httpapi.CreateGameResponse{}, err
 		}

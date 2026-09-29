@@ -594,7 +594,7 @@ review risk is concurrency or silent direction errors.
 - **Depends-On:** none. **Seat:** deepseek.
 - **Done means:**
   - `GOMAXPROCS=3 GOMEMLIMIT=1GiB go test -p 1 -count=1 -run 'TestDocExamplesRoundTrip|TestLenientDecodeReportsUnknown|TestEveryPromptTypeHasCodec' ./protocol/manabrew/`
-  - `GOMAXPROCS=3 GOMEMLIMIT=1GiB go test -p 1 -count=1 -run '^$' -fuzz FuzzDecodeClientMessage -fuzztime 30s ./protocol/manabrew/`
+  - `GOMAXPROCS=3 GOMEMLIMIT=1GiB go test -p 1 -count=1 -tags fuzz -run '^$' -fuzz FuzzDecodeClientMessage -fuzztime 30s ./protocol/manabrew/`
   - `go list -deps ./protocol/manabrew/ | /usr/bin/grep adams-shaun` prints only the
     package itself.
 
@@ -681,7 +681,7 @@ review risk is concurrency or silent direction errors.
 - **Files:** `internal/manabrew/fuzz_test.go` and `testdata/fuzz/`.
 - **Depends-On:** MB-6. **Seat:** glm.
 - **Done means:**
-  - `GOMAXPROCS=3 GOMEMLIMIT=1GiB go test -p 1 -count=1 -run '^$' -fuzz FuzzTranslateResponse -fuzztime 60s ./internal/manabrew/`
+  - `GOMAXPROCS=3 GOMEMLIMIT=1GiB go test -p 1 -count=1 -tags fuzz -run '^$' -fuzz FuzzTranslateResponse -fuzztime 60s ./internal/manabrew/`
 
 **MB-8: mock peer, census, and replay equivalence**
 - **Goal:** `internal/manabrew/mbtest`, containing:

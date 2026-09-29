@@ -11597,6 +11597,14 @@ func init() {
 		// (the mandatory either-or additional cost choice).
 		"kw:Evoke", "kw:Dash", "kw:Overload", "kw:Warp", "kw:Madness",
 		"kw:Encore", "kw:AlternateAdditionalCost",
+		// kw:Mayhem (the Doom Prevails keyword): the graveyard recast and
+		// the bare parameterless land-play form are read directly off the
+		// K: line (rules/legal.go's offers, rules/cast.go's charge,
+		// rules/cast_provenance.go's Spell.Mayhem condition), so the census
+		// is told here exactly as the family above is. Proof tests:
+		// mayhem_test.go, mayhem_castsa_test.go, mayhem_land_play_test.go,
+		// mayhem_granted_test.go.
+		"kw:Mayhem",
 		// kw:Unearth (CR 702.84): the graveyard return is an ordinary
 		// activated ability cards/kw_unearth.go expands from the K: line,
 		// and its three riders are rules-layer (rules/unearth.go) -- the
