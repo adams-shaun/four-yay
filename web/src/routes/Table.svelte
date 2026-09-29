@@ -5,6 +5,7 @@
   import { MatchState } from '../lib/match.svelte';
   import BoardStage from '../components/BoardStage.svelte';
   import Arrows from '../components/Arrows.svelte';
+  import MotionLayer from '../components/MotionLayer.svelte';
   import Rail from '../components/Rail.svelte';
   import SeatPills from '../components/SeatPills.svelte';
   import PileHost from '../components/PileHost.svelte';
@@ -409,6 +410,10 @@
   </main>
 {:else}
   <main class="table" class:log-hidden={!showLog}>
+    <!-- Motion overlay (spec sub-project 5): renders nothing here; it plays
+         the client model's transitions in a fixed layer on <body>. Mounted
+         outside the view guard so a match change does not remount it. -->
+    <MotionLayer source={m} viewerSeat={seated ? (seatCtx?.seat ?? null) : null} />
     {#if m.halted}<div class="halted">Table halted: {m.halted}</div>{/if}
     {#if m.view}
       <section class="board">

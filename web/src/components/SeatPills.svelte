@@ -1,4 +1,5 @@
 <script lang="ts">
+  import TickNumber from './TickNumber.svelte';
   import type { PlayerView, SeatInfo, View } from '../protocol';
   import type { CardOptions, OptionTone } from '../lib/cardoptions';
   import { pileTone } from '../lib/cardoptions';
@@ -60,7 +61,7 @@
       <div class="pill-summary">
         <span class="priority-dot" aria-hidden="true"></span>
         <span class="who" data-player-name={who} title={who}>{displayName(who)}</span>
-        <span class="life" data-life title={`${player.life} life`}>{player.life}</span>
+        <span class="life" data-life title={`${player.life} life`}><TickNumber value={player.life} /></span>
         <span class="counts">
         <span title={`Library: ${player.library_size}`}>L{player.library_size}</span>
         <span title={`Hand: ${player.hand_size}`}>H{player.hand_size}</span>

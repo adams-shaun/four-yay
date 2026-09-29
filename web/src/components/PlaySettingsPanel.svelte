@@ -74,6 +74,7 @@
   import type { SeatPanelState } from '../lib/seatpanel.svelte';
   import BreakpointsSection from './BreakpointsSection.svelte';
   import KeymapEditor from './KeymapEditor.svelte';
+  import MotionSpeedControl from './MotionSpeedControl.svelte';
   import { keymapStore } from '../lib/keymap.svelte';
   import { downloadText } from '../lib/download';
 
@@ -684,6 +685,7 @@
         {/each}
       </div>
     </div>
+    <MotionSpeedControl />
     <p class="legend">Card size and alignment save in this browser and apply to your board. The − / + marks on your own battlefield rows are the same controls — while “−/+ size controls on the board” above is Shown.</p>
     <button type="button" class="reset" data-layout-reset onclick={() => layoutStore.reset()}>Reset layout</button>
   </section>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import TickNumber from './TickNumber.svelte';
   import type { PlayerView, SeatInfo } from '../protocol';
   import type { SeatCorner } from '../lib/seattable';
   import type { CardOptions, OptionTone, TileOptions } from '../lib/cardoptions';
@@ -126,7 +127,7 @@
       aria-hidden={priority ? undefined : 'true'}
     ></span>
     <span class="who" title={who} data-player-name={who}>{truncated}</span>
-    <span class="life" title={`${player.life} life`} data-life>{player.life}</span>
+    <span class="life" title={`${player.life} life`} data-life><TickNumber value={player.life} /></span>
   </div>
   <div class="counts">
     <span class="count">library {player.library_size}</span>
