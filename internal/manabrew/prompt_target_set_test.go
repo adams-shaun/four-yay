@@ -137,6 +137,87 @@ func TestConstrainedTargetPrefixDistinctProperty(t *testing.T) {
 	}
 }
 
+// TestConstrainedTargetPrefixControllerAndGroup pins the round-3 MINOR: a
+// TargetsWithSameController ask whose options ALSO carry Group exclusivity.
+// The controller hoist alone only guarantees the largest controller group;
+// inside it group exclusivity can consume the candidates the greedy walk
+// needs, so orderTargetOptions retries with each controller as the base. The
+// precondition is that the largest controller group does NOT fill Min (its
+// two options share one Group), while the smaller group does.
+func TestConstrainedTargetPrefixControllerAndGroup(t *testing.T) {
+	d := &decision.Decision{Seq: 9, Player: 1, Kind: decision.KTarget, Min: 2, Max: 2,
+		Prompt: "Choose two", TargetsWithSameController: true,
+		Options: []decision.Option{
+			// Largest controller group (p1) but both share "g": only one may
+			// be chosen, so the p1 controller cannot fill Min.
+			{Index: 0, Kind: "permanent", Label: "A", Obj: 50, Controller: 1, Group: "g"},
+			{Index: 1, Kind: "permanent", Label: "B", Obj: 51, Controller: 1, Group: "g"},
+			// Smaller controller group (p0) with distinct groups: it fills Min.
+			{Index: 2, Kind: "permanent", Label: "C", Obj: 52, Controller: 0, Group: "h"},
+			{Index: 3, Kind: "permanent", Label: "D", Obj: 53, Controller: 0, Group: "i"},
+		}}
+	in := targetPrefix(t, d)
+	if !strings.Contains(in.Presentation.Description, "All chosen targets must share one controller.") {
+		t.Fatalf("controller sentence missing from description: %q", in.Presentation.Description)
+	}
+	if !strings.Contains(in.Presentation.Description, "Options that share a group are mutually exclusive.") {
+		t.Fatalf("group sentence missing from description: %q", in.Presentation.Description)
+	}
+	// Precondition: the naive largest-controller hoist would put o50 and o51
+	// first, and the group exclusion makes that prefix illegal, so the
+	// assertion below genuinely depends on the retry.
+	if got := prefixRefIDs(in, 2); got[0] == "o50" && got[1] == "o51" {
+		t.Fatalf("prefix %v is the illegal same-group pair; the controller retry did not run", got)
+	}
+	got := prefixRefIDs(in, 2)
+	if got[0] != "o52" || got[1] != "o53" {
+		t.Fatalf("prefix candidates = %v, want the p0 distinct-group pair [o52 o53]", got)
+	}
+	// The prefix validates, and a same-controller same-group pair is fenced.
+	p := pendingFor(d, battleView())
+	intent := mustIntent(t, New("table", 2, nil).TranslateResponse(
+		respFor(p, mb.BoardTargetsDecision{Chosen: []mb.TargetRef{
+			{Kind: mb.RefCard, ID: "o52"}, {Kind: mb.RefCard, ID: "o53"},
+		}}), p, d.Player))
+	if err := d.Validate(*intent); err != nil {
+		t.Fatalf("prefix answer rejected by the decision's own validator: %v", err)
+	}
+	bad := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{0, 1}}
+	if err := d.Validate(bad); err == nil {
+		t.Fatal("expected the same-group pair to be rejected")
+	}
+}
+
+// TestParseBoardTargetsDistinguishesDuplicateRefs pins the round-3 MINOR:
+// two options that mint the SAME kind+id ref must resolve to two distinct
+// option indices, not the same one (which Validate rejects as a duplicate).
+// The positional matcher round 1 used distinguished them; the kind+id walk
+// must keep that ability by consuming each matching option at most once.
+func TestParseBoardTargetsDistinguishesDuplicateRefs(t *testing.T) {
+	// Two options for the same object ref (o90), distinguished only by Index.
+	d := &decision.Decision{Seq: 10, Player: 1, Kind: decision.KTarget, Min: 2, Max: 2,
+		Prompt: "Choose two", Repeatable: true,
+		Options: []decision.Option{
+			{Index: 0, Kind: "permanent", Label: "A", Obj: 90},
+			{Index: 1, Kind: "permanent", Label: "B", Obj: 90},
+		}}
+	// Precondition: the two options really do mint the same wire ref.
+	if targetRefID(d.Options[0]) != targetRefID(d.Options[1]) {
+		t.Fatal("fixture does not offer a duplicate ref")
+	}
+	p := pendingFor(d, battleView())
+	intent := mustIntent(t, New("table", 2, nil).TranslateResponse(
+		respFor(p, mb.BoardTargetsDecision{Chosen: []mb.TargetRef{
+			{Kind: mb.RefCard, ID: "o90"}, {Kind: mb.RefCard, ID: "o90"},
+		}}), p, d.Player))
+	if intent.Choices[0] == intent.Choices[1] {
+		t.Fatalf("duplicate refs collapsed to one index: %v", intent.Choices)
+	}
+	if intent.Choices[0] != 0 || intent.Choices[1] != 1 {
+		t.Fatalf("intent choices = %v, want the two distinct options [0 1]", intent.Choices)
+	}
+}
+
 func TestUnconstrainedTargetKeepsOfferedOrder(t *testing.T) {
 	d := &decision.Decision{Seq: 8, Player: 1, Kind: decision.KTarget, Min: 1, Max: 2,
 		Prompt: "Choose a target",

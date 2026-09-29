@@ -5,8 +5,8 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
-	mb "github.com/adams-shaun/gorge/protocol/manabrew"
 	"github.com/adams-shaun/gorge/events"
+	mb "github.com/adams-shaun/gorge/protocol/manabrew"
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/state"
 )

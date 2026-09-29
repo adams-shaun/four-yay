@@ -49,6 +49,25 @@ func TestMockMenaceAttackerGetsItsQuota(t *testing.T) {
 	}
 }
 
+func TestMockMustBeBlockedZeroMinGetsABlocker(t *testing.T) {
+	// prompt_combat.go publishes MinBlockers only when it is > 0, so
+	// MustBeBlocked=true with an omitted (zero) MinBlockers is a legal wire
+	// shape for an AttackMust attacker with no Min$ bound. CR 509.1c still
+	// requires it be assigned at least one blocker, so both modes must serve
+	// one -- this is the regression the MinBlockers-aware policy introduced.
+	in := blockersInputFor(mb.BlockableAttackerDto{
+		AttackerID: "a1", ValidBlockerIDs: []string{"b1", "b2"}, MustBeBlocked: true, MinBlockers: 0})
+	for name, client := range map[string]*MockClient{
+		"first-legal": NewFirstLegalClient(),
+		"random":      NewSeededRandomClient(7),
+	} {
+		dec := client.answerBlockers(in).(mb.DeclareBlockersDecision)
+		if got := countFor(dec, "a1"); got != 1 {
+			t.Fatalf("%s: must-be-blocked attacker got %d blockers, want 1 (assignments %v)", name, got, dec.Assignments)
+		}
+	}
+}
+
 func TestMockOptionalQuotaAttackerIsAllOrNothing(t *testing.T) {
 	// MinBlockers 2, NOT must-be-blocked, only two valid blockers, the
 	// mandatory attacker beside it takes b1: in first-legal mode the coin

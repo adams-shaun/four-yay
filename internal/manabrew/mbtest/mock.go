@@ -298,6 +298,14 @@ func (c *MockClient) answerBlockers(in mb.ChooseBlockersInput) mb.PromptOutputVa
 		if a.MaxBlockers != nil && want > *a.MaxBlockers {
 			want = *a.MaxBlockers
 		}
+		if a.MustBeBlocked && want < 1 {
+			// CR 509.1c: a required attacker needs at least one blocker even
+			// when the wire omitted MinBlockers (prompt_combat.go publishes it
+			// only above zero, so MustBeBlocked=true,MinBlockers=0 is a legal
+			// wire shape). The quota still caps the fill via MaxBlockers and
+			// the valid-blocker pool.
+			want = 1
+		}
 		if want < 1 {
 			return
 		}

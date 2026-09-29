@@ -161,6 +161,47 @@ func TestCastContributionMappingIsPinned(t *testing.T) {
 	}
 }
 
+// TestProliferateRecipientPickMapsToChooseFromSelection pins the MBX-6
+// round-3 MAJOR: effects/counters.go effProliferate's CR 701.27 any-number
+// recipient pick (ResumeKind "proliferate") is a uniform-Kind ("proliferate")
+// labelled multi-select whose options are NOT uniformly objects -- permanent
+// recipients carry Obj, player recipients carry only Player with Obj 0 and
+// Min is 0 -- so neither the object-pick fallback nor the Min==1 labelled
+// fallback reaches it. It maps onto chooseFromSelection by index; the empty
+// answer is the decline, and each chosen option's own Obj/Player is read by
+// rules/resolution.go's proliferate resume arm.
+func TestProliferateRecipientPickMapsToChooseFromSelection(t *testing.T) {
+	d := newDec(18, 0, decision.KChoose,
+		decision.Option{Index: 0, Kind: "proliferate", Label: "a player", Player: 1},
+		decision.Option{Index: 1, Kind: "proliferate", Label: "Bear", Obj: 80})
+	d.Min, d.Max = 0, 2
+	d.ResumeKind = "proliferate"
+	msg := pendingMustBuild(t, d, battleView())
+	in, ok := msg.Input.Value.(mb.ChooseFromSelectionInput)
+	if !ok {
+		t.Fatalf("prompt type = %s, want chooseFromSelection", msg.Input.Value.PromptType())
+	}
+	if in.MinTotal != 0 || in.MaxTotal != 2 || len(in.Options) != 2 {
+		t.Fatalf("min/max/options = %d/%d/%d, want 0/2/2", in.MinTotal, in.MaxTotal, len(in.Options))
+	}
+	p := pendingFor(d, battleView())
+	// Both recipients at once: a permanent and a player, freely mixed.
+	intent := mustIntent(t, New("table", 2, nil).TranslateResponse(
+		respFor(p, mb.SelectionDecision{ChosenIndices: []int{0, 1}}), p, d.Player))
+	if err := d.Validate(*intent); err != nil {
+		t.Fatalf("mixed permanent/player answer rejected by the decision's own validator: %v", err)
+	}
+	if intent.Choices[0] != 0 || intent.Choices[1] != 1 {
+		t.Fatalf("intent choices = %v, want [0 1]", intent.Choices)
+	}
+	// The empty answer is the legal decline (Min 0).
+	empty := mustIntent(t, New("table", 2, nil).TranslateResponse(
+		respFor(p, mb.SelectionDecision{ChosenIndices: []int{}}), p, d.Player))
+	if err := d.Validate(*empty); err != nil {
+		t.Fatalf("decline rejected by the decision's own validator: %v", err)
+	}
+}
+
 // TestEnlistElectionMapsToChooseFromSelection pins the enlist may-election
 // (rules/enlist.go askNextEnlist, CR 702.160a): Min 0..1, the decline option
 // carries no Obj, so it is neither an object pick nor a Min==1 labelled

@@ -76,6 +76,42 @@ func orderTargetOptions(d *decision.Decision) []decision.Option {
 	if d.TargetsWithSameController {
 		ordered = hoistByController(ordered)
 	}
+	chosen := greedyPrefix(ordered, d)
+	if chosen == nil && d.TargetsWithSameController && optionsHaveGroups(d.Options) {
+		// The controller hoist only guarantees the LARGEST controller group;
+		// inside it, group exclusivity (at most one option per Group) may
+		// consume the candidates a larger shared-property walk needs, so the
+		// greedy walk can miss Min even though another controller's group
+		// would fill it. The engine poses an ask only when some legal set of
+		// size Min exists (sameControllerTargetBounds), so retry with each
+		// distinct controller as the base, largest group first (the same
+		// deterministic order hoistByController uses). If no controller group
+		// reaches Min the ask is not one the engine poses; keep the offered
+		// order and let Validate stay the fence.
+		chosen = chooseControllerGroupPrefix(ordered, d)
+	}
+	if chosen == nil {
+		return nil
+	}
+	seen := make(map[int]bool, len(chosen))
+	for _, o := range chosen {
+		seen[o.Index] = true
+	}
+	out := chosen
+	for _, o := range d.Options {
+		if !seen[o.Index] {
+			out = append(out, o)
+		}
+	}
+	return out
+}
+
+// greedyPrefix walks ordered once, taking the first d.Min options that
+// satisfy every set-level constraint d carries (one controller, shared /
+// distinct property, at most one per group). It returns nil when it cannot
+// reach d.Min. The rule it walks is the same incremental rule
+// Decision.Validate walks (decision.SetPropAdmits/SetPropMerge).
+func greedyPrefix(ordered []decision.Option, d *decision.Decision) []decision.Option {
 	chosen := make([]decision.Option, 0, d.Min)
 	var acc []string
 	ctlSet := false
@@ -109,17 +145,45 @@ func orderTargetOptions(d *decision.Decision) []decision.Option {
 	if len(chosen) < d.Min {
 		return nil
 	}
-	seen := make(map[int]bool, len(chosen))
-	for _, o := range chosen {
-		seen[o.Index] = true
-	}
-	out := chosen
-	for _, o := range d.Options {
-		if !seen[o.Index] {
-			out = append(out, o)
+	return chosen
+}
+
+// chooseControllerGroupPrefix retries greedyPrefix with each distinct
+// controller as the fixed base, largest controller group first (ties broken
+// by first offered), so a controller whose options are not consumed by group
+// exclusivity can still fill Min. Deterministic: the controller list is
+// sorted, never a map range.
+func chooseControllerGroupPrefix(ordered []decision.Option, d *decision.Decision) []decision.Option {
+	counts := map[state.PlayerID]int{}
+	first := map[state.PlayerID]int{}
+	for i, o := range ordered {
+		counts[o.Controller]++
+		if _, ok := first[o.Controller]; !ok {
+			first[o.Controller] = i
 		}
 	}
-	return out
+	keys := make([]state.PlayerID, 0, len(counts))
+	for k := range counts {
+		keys = append(keys, k)
+	}
+	sort.Slice(keys, func(a, b int) bool {
+		if counts[keys[a]] != counts[keys[b]] {
+			return counts[keys[a]] > counts[keys[b]]
+		}
+		return first[keys[a]] < first[keys[b]]
+	})
+	for _, k := range keys {
+		base := make([]decision.Option, 0, len(ordered))
+		for _, o := range ordered {
+			if o.Controller == k {
+				base = append(base, o)
+			}
+		}
+		if chosen := greedyPrefix(base, d); chosen != nil {
+			return chosen
+		}
+	}
+	return nil
 }
 
 // hoistByController moves the options of the LARGEST controller group (ties:

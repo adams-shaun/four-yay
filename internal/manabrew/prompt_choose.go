@@ -242,15 +242,20 @@ func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.Prompt
 			options = append(options, mb.SelectionOption{Label: o.Label, Weight: 1, CanRepeat: d.Repeatable})
 		}
 		in = mb.ChooseFromSelectionInput{PromptBase: pres, Options: options, MinTotal: d.Min, MaxTotal: d.Max}
-	case "enlist":
+	case "enlist", "proliferate":
 		// rules/enlist.go askNextEnlist's CR 702.160a may-election (Min 0,
-		// Max 1): the decline option carries no Obj, so the ask is neither
-		// an object pick (the default arm's allOptionsHaveObjects) nor a
-		// Min==1 labelled alternative (labelledAlternatives). It is a plain
-		// labelled pick-0..1 over the decline and each candidate creature,
-		// mapped onto chooseFromSelection by index -- an empty answer IS
-		// the decline, which is exactly what the mock answers, and a chosen
-		// option's Obj is the enlisted creature.
+		// Max 1) and effects/counters.go effProliferate's CR 701.27
+		// any-number recipient pick (Min 0, Max len(eligible)): both are a
+		// labelled multi-select whose options are NOT uniformly objects
+		// (proliferate mixes permanent options carrying Obj with player
+		// options carrying only Player, and enlist's decline option carries
+		// no Obj), so neither the object pick (the default arm's
+		// allOptionsHaveObjects) nor the Min==1 labelled fallback
+		// (labelledAlternatives) reaches them. They map onto
+		// chooseFromSelection by index -- an empty answer IS the decline
+		// (Min is 0), which is exactly what the mock answers, and the
+		// engine's resume reads each chosen option's own Obj/Player. The
+		// legal-answer rule stays Decision.Validate, the one home.
 		options := make([]mb.SelectionOption, 0, len(d.Options))
 		for _, o := range d.Options {
 			options = append(options, mb.SelectionOption{Label: o.Label, Weight: 1})
