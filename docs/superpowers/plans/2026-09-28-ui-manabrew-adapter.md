@@ -53,7 +53,7 @@ sub-project 0; `docs/superpowers/specs/2026-09-28-manabrew-protocol-scope.md`
   recorded from `gorged -manabrew` by a capture script (native view+decision
   and ManaBrew state+prompt at the same instant). Every `text` field is
   blanked before commit (no Forge-derived text in fixtures).
-- Go changes only where the server blocks the client, minimal, tested.
+- No Go changes (the one blocking server gap was fixed on main).
 
 ## Rulings
 
@@ -142,58 +142,62 @@ a hang.
 - Concede before a priority prompt is queued by the server (G-2).
 - Undo only while a `chooseAction` prompt is open.
 - `trigger_order`/`arrange`/mana-window prompts: the client maps
-  `reorder`/`scry`/`payManaCost`, but this base's server does not pose them
-  (their MB-6 builders are not wired into `dispatch`); the server sends an
-  `error` instead, which the banner shows.
+  `reorder`/`scry`/`payManaCost` (unit-tested against synthetic prompts);
+  the vs-bot smoke did not reach them live. The mana window reconstructs
+  no `mana_payment` (cost/owed are not on the wire), so it renders as a
+  plain option list, not the payment panel.
 
-## Server bugs found
+## Server findings
 
-- Choice responses unmapped: `translateResponse` had no case for
-  `chooseFromSelection`/`chooseBoolean`/`chooseCards`/`chooseNumber`/`chooseColor`,
-  so the starting-player ask that opens every vs-bot game could not be
-  answered. Fixed minimally in `internal/manabrew/parse_choose.go` (+ test).
+- Choice responses (`chooseFromSelection`/`chooseBoolean`/`chooseCards`/
+  `chooseNumber`/`chooseColor`) were unmapped on this lane's original base,
+  so the starting-player ask blocked every ManaBrew vs-bot game. main fixed
+  it independently (a1c00def5, `prompt_choose.go` parseChoose*), and
+  a1c00def5 also wired MB-6's payment/order/arrange builders. This lane's
+  own Go fix was dropped at rebase.
 - `CardIdentity.isToken` is true for every card (`c.Token != ""`, but
-  `Token` is the `#<id>` disambiguator). Not blocking; the client ignores it.
-- MB-6's `promptPayment`/`parseTriggerOrder`/`parseArrange*` are not
-  reachable from `dispatch`/`translateResponse` (also on main).
+  `Token` is the `#<id>` disambiguator). Ticketed server-side; the client
+  ignores the field.
+- Battlefield zones are bucketed by controller and filtered on
+  `Controller == p.ID` over the player's own battlefield list; whether a
+  permanent controlled by another player can drop out of every bucket was
+  not checked.
+
+## Direction
+
+Not a cutover: Native and ManaBrew are both first-class wires. Native stays
+the default and the fallback; the wire boundary (`ClientModelSource` +
+`SeatTransport`) stays pluggable so a further wire is another adapter.
 
 ## Tasks
 
-### Task 1: server — choice responses (Go)
-- Files: `internal/manabrew/parse_choose.go`, `parse_choose_test.go`, `errors.go` (one case).
-- Test: `TestChoiceResponsesTranslate`, `TestChoiceResponsesRejectMisfits`.
-
-### Task 2: wire types, ids, projection
+### Task 1: wire types, ids, projection
 - Files: `lib/manabrew/wire.ts`, `ids.ts`, `project.ts`, `project.test.ts`,
-  `testdata/capture.json`, `scripts` note in `testdata/README.md`.
+  `testdata/capture.json`, `testdata/capture.py`, `testdata/README.md`.
 - Test: every captured record projects to a `View` equal to the native view
   on every carried field; diffs of successive projected views equal diffs of
   the native views.
 
-### Task 3: prompts and answers
+### Task 2: prompts and answers
 - Files: `lib/manabrew/prompt.ts`, `prompt.test.ts`.
 - Test: every captured prompt reconstructs the native decision's kind and
-  per-option identity (kind/obj/player/attacker); answering option i yields
-  the response the server's translator expects.
+  per-option identity; answering each option yields the response the
+  server's translator maps back to that option.
 
-### Task 4: patches
+### Task 3: patches
 - Files: `lib/manabrew/patch.ts`, `patch.test.ts`.
 
-### Task 5: transport and source
-- Files: `lib/manabrew/transport.ts`, `source.svelte.ts`, `source.test.ts`.
-- Test: a fake EventSource feeding captured messages drives view/decision,
-  emits `step` transitions, fills the log and ring, maps errors, detects
-  rewind, and a failed probe reports fallback.
+### Task 4: transport and source
+- Files: `lib/manabrew/transport.ts`, `source.svelte.ts`,
+  `source.svelte.test.ts`, `golden.svelte.test.ts` (replays the server's
+  MB-11 golden transcript).
 
-### Task 6: seat transport seam + route wiring + setting
-- Files: `lib/seat.ts` (optional `transport`), `lib/api.ts` (delegate),
-  `lib/manabrew/pref.ts`, `components/ProtocolSetting.svelte`,
-  `routes/Table.svelte` (source choice, banner), mount in
-  `PlaySettingsPanel.svelte` and `PlayVsBot.svelte`.
-- Test: `api` delegation test; pref load/save test.
+### Task 5: seat transport seam, route wiring, setting
+- Files: `lib/seat.ts`, `lib/api.ts`, `lib/manabrew/pref.ts`,
+  `components/ProtocolSetting.svelte`, `components/WireNotice.svelte`,
+  `routes/Table.svelte`, mounts in `PlaySettingsPanel.svelte` and
+  `PlayVsBot.svelte`.
 
-### Task 7: gates and smoke
-- `npx vitest run`, `svelte-check`, `eslint`, `vite build`; Go
-  `./host/manabrewhttp/ ./internal/manabrew/`; Playwright vs-bot game over
-  ManaBrew (mulligan, land, targeted spell, attack, block) and Native on the
-  same server.
+### Task 6: gates and smoke
+- Web gates; `go test ./host/manabrewhttp/ ./internal/manabrew/`;
+  Playwright vs-bot game over ManaBrew and over Native on one server.
