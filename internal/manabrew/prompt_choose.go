@@ -3,6 +3,7 @@ package manabrew
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/adams-shaun/gorge/decision"
 	mb "github.com/adams-shaun/gorge/protocol/manabrew"
@@ -40,6 +41,54 @@ func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.Prompt
 		in := mb.PromptInputData(mb.ChooseFromSelectionInput{PromptBase: pres, Options: options, MinTotal: d.Min, MaxTotal: d.Max})
 		return mb.PromptMessage{Kind: "prompt", AgentPrompt: mb.AgentPrompt{PromptID: promptID(d), DecidingPlayerID: playerID(d.Player), SourceCard: t.sourceCard(v, d.Source), Input: mb.PromptInput{Value: in}}}, nil
 	}
+	// A mid-resolution target/player pick (effects/targets_ask.go's
+	// poseTargetsAsk, resumed as "tgts" or "choice", and the many
+	// "choice"-resumed asks in effects/choose_control.go): a KChoose whose
+	// options are plain TARGET REFERENCES -- Option.Kind uniformly "player"
+	// (a player reference) or "card" (a permanent/card reference), freely
+	// mixed, distinct from damage_split's identical Kind vocabulary only by
+	// what the ask MEANS (damage_split is caught above by its own
+	// ResumeKind first). This is exactly promptTarget's own KTarget shape,
+	// reused here because these asks are modelled as KChoose rather than
+	// KTarget (an existing engine-side inconsistency, not something to
+	// change here) -- so it maps onto the identical chooseBoardTargets wire
+	// prompt (MB-8 census fb-20260929: found via real repo-deck games, seed
+	// 8004, ResumeKind "tgts").
+	if isTargetRefOptions(d.Options) {
+		intent, hostile := targetingIntent(d.TargetEffect)
+		cands := make([]mb.TargetRef, 0, len(d.Options))
+		for _, opt := range d.Options {
+			cands = append(cands, mb.TargetRef{Kind: targetRefKind(opt.Kind), ID: targetRefID(opt),
+				Intent: intent, Oracle: opt.Label})
+		}
+		in := mb.ChooseBoardTargetsInput{
+			PromptBase:    mb.PromptBase{Presentation: mb.PromptPresentation{Title: d.Prompt, Targets: cands}},
+			Candidates:    cands,
+			Hostile:       hostile,
+			Intent:        intent,
+			MinTargets:    d.Min,
+			MaxTargets:    d.Max,
+			ChosenTargets: []mb.TargetRef{},
+			Cancellable:   false,
+		}
+		return mb.PromptMessage{Kind: "prompt", AgentPrompt: mb.AgentPrompt{PromptID: promptID(d), DecidingPlayerID: playerID(d.Player), SourceCard: t.sourceCard(v, d.Source), Input: mb.PromptInput{Value: in}}}, nil
+	}
+	// The flexible-pip announcement ask (rules/cumulative.go's pipAnnounceAsk,
+	// shared by cast-time hybrid/Phyrexian pips, Echo and cumulative upkeep):
+	// "choose how to pay this mana symbol" offers one option per alternative
+	// FACE, each carrying its own Kind ("pay_W"/"pay_U"/.../"pay_generic"/
+	// "pay_life") -- a mixed-Kind list the uniform gate below would otherwise
+	// reject, even though it is always Min==Max==1 over plain labelled
+	// alternatives (never a card or player), so it maps onto
+	// chooseFromSelection exactly like the other label-only asks below.
+	if allPayPipOptions(d.Options) {
+		options := make([]mb.SelectionOption, 0, len(d.Options))
+		for _, o := range d.Options {
+			options = append(options, mb.SelectionOption{Label: o.Label, Weight: 1})
+		}
+		in := mb.PromptInputData(mb.ChooseFromSelectionInput{PromptBase: pres, Options: options, MinTotal: d.Min, MaxTotal: d.Max})
+		return mb.PromptMessage{Kind: "prompt", AgentPrompt: mb.AgentPrompt{PromptID: promptID(d), DecidingPlayerID: playerID(d.Player), SourceCard: t.sourceCard(v, d.Source), Input: mb.PromptInput{Value: in}}}, nil
+	}
 	kind := d.Options[0].Kind
 	mixedYesNo := kind == "yes" || kind == "no"
 	for _, o := range d.Options {
@@ -50,20 +99,43 @@ func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.Prompt
 	var in mb.PromptInputData
 	switch kind {
 	case "color", "mana":
+		// "mana" is shared by two different asks (rules/mana_activation.go):
+		// a genuine colour pick (a Produced$ Combo ability flattened into one
+		// option per colour, every option carrying a real ManaSymbol), and
+		// "choose a mana ability of <source>" when a permanent has several
+		// mana abilities that are not all flattenable colours (a plain
+		// activation pick whose Label is the ability's own description, e.g.
+		// "Tap: Add {C}", with no ManaSymbol at all). Only the FIRST shape
+		// maps onto chooseColor; every option must resolve a colour for that
+		// -- silently keeping only the options that happen to, and dropping
+		// the rest, would narrow what the client is offered below what the
+		// engine actually allows. The second shape is a plain labelled pick,
+		// -> chooseFromSelection, exactly like the other label-only asks
+		// below.
 		colors := make([]string, 0, 6)
 		seen := map[string]bool{}
+		allColor := true
 		for _, o := range d.Options {
 			c := colorCode(o.ManaSymbol, o.Label)
-			if c != "" && !seen[c] {
+			if c == "" {
+				allColor = false
+				break
+			}
+			if !seen[c] {
 				colors = append(colors, c)
 				seen[c] = true
 			}
 		}
-		if len(colors) == 0 {
-			return mb.PromptMessage{}, ErrUnmapped
+		if allColor && len(colors) > 0 {
+			sort.Strings(colors)
+			in = mb.ChooseColorInput{PromptBase: pres, ValidColors: colors, Amount: d.Min, RepeatAllowed: d.Repeatable}
+		} else {
+			options := make([]mb.SelectionOption, 0, len(d.Options))
+			for _, o := range d.Options {
+				options = append(options, mb.SelectionOption{Label: o.Label, Weight: 1})
+			}
+			in = mb.ChooseFromSelectionInput{PromptBase: pres, Options: options, MinTotal: d.Min, MaxTotal: d.Max}
 		}
-		sort.Strings(colors)
-		in = mb.ChooseColorInput{PromptBase: pres, ValidColors: colors, Amount: d.Min, RepeatAllowed: d.Repeatable}
 	case "yes", "no", "asunblocked":
 		if d.ResumeKind == "look_ack" || (len(d.Options) == 1 && kind == "yes") {
 			in = mb.ChooseFromSelectionInput{PromptBase: pres, Options: []mb.SelectionOption{{Label: d.Options[0].Label, Weight: 1}}, MinTotal: 1, MaxTotal: 1}
@@ -106,7 +178,8 @@ func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.Prompt
 			}
 			in = mb.ChooseFromSelectionInput{PromptBase: pres, Options: options, MinTotal: d.Min, MaxTotal: d.Max}
 		}
-	case "exile", "sacrifice", "discard", "search", "dig", "keep":
+	case "exile", "sacrifice", "discard", "search", "dig", "keep",
+		"exilecost", "revealcost", "beholdcost", "returncost", "hand_move", "hidden_pick", "reveal":
 		cards := make([]mb.CardDto, 0, len(d.Options))
 		for _, o := range d.Options {
 			cards = append(cards, t.optionCard(v, o))
@@ -357,4 +430,37 @@ func (t *Translator) optionCard(v *view.View, o decision.Option) mb.CardDto {
 		}
 	}
 	return mb.CardDto{ID: cardID(o.Obj), Identity: mb.CardIdentity{}, Types: []string{}, Subtypes: []string{}, Supertypes: []string{}, Choices: []mb.CardChoiceDto{}, AttachmentIDs: []string{}, MergedCardIDs: []string{}, Color: []string{}, Counters: map[string]int{}}
+}
+
+// allPayPipOptions reports whether every option of a KChoose decision is one
+// of pipAnnounceAsk's flexible-pip alternatives ("pay_W".."pay_C",
+// "pay_generic", "pay_life"): a mixed-Kind list that is still a plain
+// labelled pick, never a card or player reference.
+func allPayPipOptions(opts []decision.Option) bool {
+	if len(opts) == 0 {
+		return false
+	}
+	for _, o := range opts {
+		if !strings.HasPrefix(o.Kind, "pay_") {
+			return false
+		}
+	}
+	return true
+}
+
+// isTargetRefOptions reports whether every option of a KChoose decision is a
+// plain target reference: Option.Kind uniformly "player" or "card" (freely
+// mixed). It is checked ahead of the damage_split ResumeKind branch's own
+// identical Kind vocabulary (that check runs first and returns), so this
+// only ever catches an ordinary target/player pick.
+func isTargetRefOptions(opts []decision.Option) bool {
+	if len(opts) == 0 {
+		return false
+	}
+	for _, o := range opts {
+		if o.Kind != "player" && o.Kind != "card" {
+			return false
+		}
+	}
+	return true
 }

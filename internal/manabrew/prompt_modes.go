@@ -30,6 +30,18 @@ func (t *Translator) promptModes(d *decision.Decision, v *view.View) (mb.PromptM
 		} else {
 			input = mb.ChooseBooleanInput{PromptBase: pres, ConfirmLabel: confirm, DenyLabel: deny}
 		}
+	} else if d.Options[0].Kind == "discard" {
+		// effects/cardflow.go's discardAsk poses a card-selection ask under
+		// decision.KModes (not KChoose, unlike every other card-selection
+		// Kind this package maps -- an existing engine-side inconsistency,
+		// not something to change here): one option per eligible card, Obj
+		// set, Kind uniformly "discard". It is the same wire shape as
+		// promptChoose's "exile"/"sacrifice"/"discard"/... branch.
+		cards := make([]mb.CardDto, 0, len(d.Options))
+		for _, o := range d.Options {
+			cards = append(cards, t.optionCard(v, o))
+		}
+		input = mb.ChooseCardsInput{PromptBase: pres, Cards: cards, Min: d.Min, Max: d.Max}
 	} else {
 		opts := make([]mb.SelectionOption, 0, len(d.Options))
 		for _, o := range d.Options {

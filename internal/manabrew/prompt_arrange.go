@@ -41,8 +41,22 @@ func (t *Translator) promptArrange(d *decision.Decision, v *view.View) (mb.Promp
 // An empty option list (unreachable from a real ask; Min/Max would be 0)
 // defaults to reorder, the shape that degrades most gracefully (an ordinary
 // empty item list).
+//
+// Min == Max always means reorder, REGARDLESS of Kind: a mandatory total
+// move sends every offered card to the SAME single destination (only the
+// order is chosen), even when that destination happens to reuse a Kind
+// string a genuine split also uses -- effects/cardflow.go's NumCards$ "look
+// at N, put them all on the bottom in order" ask poses Min == Max == k with
+// Option.Kind "bottom", the identical string a Scry/Surveil pile-B
+// destination carries, but there is no second pile at all: unlike it,
+// Scry/Surveil always pose Min 0 (effects/cardflow.go's effLookAndArrange),
+// which is what actually signals "some subset may go elsewhere" (MB-8
+// census fb-20260929, found by playing real repo-deck games: this ask was
+// misrouted to promptArrangeScry, which does not carry the Min bound at all
+// on the wire, so a "put nothing on top" answer -- always legal for a real
+// Scry/Surveil -- came back invalidShape here for want 3..3).
 func arrangeIsSplit(d *decision.Decision) bool {
-	if len(d.Options) == 0 {
+	if len(d.Options) == 0 || d.Min == d.Max {
 		return false
 	}
 	switch d.Options[0].Kind {
