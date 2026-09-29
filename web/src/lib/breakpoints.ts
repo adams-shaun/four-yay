@@ -25,7 +25,25 @@ interface Known {
   name: string;
 }
 
-/** index maps every visible object id to its current controller and name (battlefield, hand, graveyard, exile, stack). */
+/**
+ * index maps every visible object id to its current controller and name. It
+ * reads every public zone the View exposes plus the stack:
+ *
+ * - every CardView[] zone on view.players[*] — battlefield, graveyard,
+ *   exile, and hand (present only for the viewer's own seat, a CR 400.2
+ *   hidden zone) — found structurally by walking the player object's array
+ *   fields and admitting only entries shaped like a CardView (numeric id +
+ *   numeric controller), so a zone the view gains later is covered without
+ *   this function changing, and a non-card array field can never contribute
+ *   a bogus id. view/view.go's cardView() sets Controller for every zone,
+ *   so graveyard/exile targets ("target card in a graveyard") count;
+ * - view.stack, where a spell or ability object's controller is the seat
+ *   that cast/activated it — a counterspell at MY spell on the stack must
+ *   count as "targeting me", not just one at my creature.
+ *
+ * Every entry is the object's CURRENT controller, so an object that changed
+ * zones or controllers resolves to whoever holds it now.
+ */
 function index(view: View): Map<number, Known> {
   const out = new Map<number, Known>();
   for (const p of view.players ?? []) {

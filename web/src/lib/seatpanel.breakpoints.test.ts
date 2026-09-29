@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Decision, Option, View } from '../protocol';
 import { SeatPanelState, autoNoteText } from './seatpanel.svelte';
-import { noBreakpoints } from './playsettings';
+import { applyPreset, noBreakpoints } from './playsettings';
 
 const { postIntentMock, fetchPendingMock } = vi.hoisted(() => ({ postIntentMock: vi.fn(), fetchPendingMock: vi.fn() }));
 vi.mock('./api', async (importOriginal) => ({
@@ -139,5 +139,52 @@ describe('SeatPanelState breakpoints', () => {
     p.considerAuto(deep());
     await settle(() => p.postedSeq === 1);
     expect(postIntentMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('toggling full control keeps the player\'s breakpoints both ways, edits made in full control included', () => {
+    const p = seat();
+    p.settings = { ...p.settings, breakpoints: { ...noBreakpoints(), targetsMe: true, watchlist: ['Counterspell'] } };
+    p.toggleFullControl();
+    expect(p.settings.preset).toBe('full-control');
+    expect(p.settings.breakpoints).toEqual({ ...noBreakpoints(), targetsMe: true, watchlist: ['Counterspell'] });
+    p.settings = { ...p.settings, breakpoints: { ...p.settings.breakpoints, watchlist: ['Counterspell', 'Force of Will'] } };
+    p.toggleFullControl();
+    expect(p.settings.preset).not.toBe('full-control');
+    expect(p.settings.breakpoints.watchlist).toEqual(['Counterspell', 'Force of Will']);
+    expect(p.settings.breakpoints.targetsMe).toBe(true);
+  });
+
+  it('toggling out of full control with no backup (after a reload) keeps the watchlist', () => {
+    const p = seat();
+    p.settings = { ...applyPreset('full-control'), breakpoints: { ...noBreakpoints(), watchlist: ['Counterspell'] } };
+    p.toggleFullControl();
+    expect(p.settings.preset).toBe('casual');
+    expect(p.settings.breakpoints.watchlist).toEqual(['Counterspell']);
+  });
+
+  it('arming End Turn on a window two pauses stopped passes it on the first press', async () => {
+    const p = seat();
+    p.settings = { ...p.settings, breakpoints: { ...noBreakpoints(), targetsMe: true, stackDepth: 2 } };
+    const targeted = (): View => {
+      const v = deep();
+      v.stack[1] = { ...v.stack[1], targets: [{ player: 0, is_player: true }] } as View['stack'][number];
+      return v;
+    };
+    p.adoptView(quiet(1));
+    p.considerAuto(targeted());
+    expect(autoNoteText(p.note)).toBe('Auto paused here: B targets you.');
+    p.startEndTurn(targeted());
+    p.considerAuto(targeted());
+    await settle(() => p.postedSeq === 1);
+    expect(postIntentMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('arming a run on a window no pause stopped does not acknowledge a pause that has yet to fire', () => {
+    const p = seat();
+    p.setAuto(false);
+    p.adoptView(quiet(1));
+    p.startEndTurn(deep());
+    p.considerAuto(deep());
+    expect(postIntentMock).not.toHaveBeenCalled();
   });
 });

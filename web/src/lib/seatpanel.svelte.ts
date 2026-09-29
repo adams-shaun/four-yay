@@ -11,6 +11,7 @@ import { checkBreakpoints, type BreakpointHit } from './breakpoints';
 import { STOPPABLE_STEPS, actionables, decide, emptyPriorityWindow, isActionKind, passDiagnostics, type StopReason, type Stops, type TurnSide } from './autopilot';
 import {
   applyPreset,
+  cloneBreakpoints,
   defaultSettings,
   loadSettings,
   presetPatch,
@@ -972,7 +973,8 @@ export class SeatPanelState {
    * first stopped at. decide() re-stops that same seq on every re-derive and
    * passes later windows for the same key. Session-scoped: begin() clears it.
    * Only the first live hit per window is recorded; a second matching key
-   * pauses the next window.
+   * pauses the next window, though arming a run on that window acknowledges
+   * every live key (acknowledgeBreakpoints).
    */
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- private loop bookkeeping decide() reads, never rendered; the note is the reactive surface
   private bpFired = new Map<string, number>();
@@ -1362,19 +1364,23 @@ export class SeatPanelState {
    * settings for the full-control preset, or — when full-control is already
    * the live preset — restore exactly what it replaced. The backup is
    * session-scoped and consumed by the restore; a second full-control press
-   * without a backup restores the defaults rather than guessing.
+   * without a backup restores the defaults rather than guessing. Both ways
+   * carry the CURRENT breakpoints: they are the player's, not the preset's
+   * (playsettings Breakpoints), so neither the preset nor a backup taken
+   * before an edit made in full control may replace them.
    */
   toggleFullControl() {
     this.cancelRun(false);
     this.autoRun = 0;
     this.autoActedSeq = null;
+    const breakpoints = cloneBreakpoints(this.settings.breakpoints);
     if (this.settings.preset === 'full-control') {
       const back = this.presetBackup;
       this.presetBackup = null;
-      this.applySettings(back ?? defaultSettings());
+      this.applySettings({ ...(back ?? defaultSettings()), breakpoints });
     } else {
       this.presetBackup = this.settings;
-      this.applySettings(applyPreset('full-control'));
+      this.applySettings({ ...applyPreset('full-control'), breakpoints });
     }
     this.note = this.auto ? { kind: 'armed' } : { kind: 'off' };
   }
@@ -1451,6 +1457,34 @@ export class SeatPanelState {
     this.startRun('resolve-all', view, new Set(view.stack.map((s) => s.id)));
   }
 
+  /**
+   * acknowledgeBreakpoints is arming a run on the window a breakpoint
+   * stopped: the player's acknowledgement of that pause. decide() keeps a
+   * hit live for the seq it fired at, so without this the run would stop
+   * again on the very window it was pressed on and the button would look
+   * dead. Only the FIRST live hit per window was recorded, so re-marking just
+   * the recorded keys is not enough: a second rule live on the same window
+   * (targets-me with stack-depth) would stop the run at once. So every hit
+   * live at the pending seq is marked as fired one seq earlier — decide()
+   * then reads each as already fired, and later windows stay passed too —
+   * with the same skipTop inputs decide() will use for the run (the Resolve
+   * All baseline or a yield). A window no breakpoint stopped acknowledges
+   * nothing: a pause the player has not seen yet still stops the run.
+   */
+  private acknowledgeBreakpoints(view: View, baseline: ReadonlySet<number> | null) {
+    const seq = this.pending?.seq;
+    if (seq === undefined || ![...this.bpFired.values()].includes(seq)) return;
+    for (const [key, at] of this.bpFired) if (at === seq) this.bpFired.set(key, seq - 1);
+    const top = view.stack.length > 0 ? view.stack[view.stack.length - 1] : null;
+    const skipTop = top !== null && ((baseline?.has(top.id) ?? false) || this.yields.has(stackYieldKey(top)));
+    // Each pass marks one more key not-live; there are at most four rules, so this ends.
+    for (;;) {
+      const hit = checkBreakpoints({ view, seat: this.ctx.seat, bp: this.settings.breakpoints, fired: this.bpFired, seq, skipTop });
+      if (hit === null) return;
+      this.bpFired.set(hit.key, seq - 1);
+    }
+  }
+
   private startRun(kind: 'end-turn' | 'hard-skip' | 'resolve-all', view: View, baseline: ReadonlySet<number> | null = null) {
     // While the undo pause holds, a run cannot arm: a run is the machine
     // passing on the player's behalf, and the pause exists precisely so the
@@ -1461,16 +1495,7 @@ export class SeatPanelState {
     // on screen: an armed run chip would overwrite it with a note claiming
     // the machine is passing when the pause holds it back.
     if (this.busy || this.machinePaused) return;
-    // Arming a run on the window a breakpoint stopped is the player's
-    // acknowledgement of that pause. decide() keeps a hit live for the seq
-    // it fired at, so without this the run would stop again on the very
-    // window it was pressed on and the button would look dead. Re-mark
-    // every hit fired at the pending seq as fired one seq earlier: decide()
-    // then reads it as already fired, and later windows stay passed too.
-    const seq = this.pending?.seq;
-    if (seq !== undefined) {
-      for (const [key, at] of this.bpFired) if (at === seq) this.bpFired.set(key, seq - 1);
-    }
+    this.acknowledgeBreakpoints(view, baseline);
     // Starting a run is the player taking the controls: any paced pass the
     // AUTO paths had pending dies here (r2 finding — the old auto wait used
     // to survive, post at its old deadline and count as autoPassed). The
@@ -1629,9 +1654,10 @@ export class SeatPanelState {
     if (verdict === null) return;
     if (verdict.act === 'stop') {
       // decide() remains the safety oracle. A one-shot run ENDS on every
-      // stop verdict — there is no acknowledgement machinery any more,
-      // because a run honours no step stops and the press itself moved
-      // the window it was pressed on. Persistent Auto stays armed: the
+      // stop verdict: a run honours no step stops, and the one pause it
+      // can meet on the window it was pressed on — a breakpoint — was
+      // acknowledged when the run was armed (acknowledgeBreakpoints), so the
+      // press itself moves that window. Persistent Auto stays armed: the
       // player answers this window and Auto resumes after it — and with
       // hand answers no longer disarming Auto (prio3), no exception
       // token is needed or minted.

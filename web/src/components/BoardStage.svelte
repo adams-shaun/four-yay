@@ -33,16 +33,12 @@
     onToggle?: ((step: string, side: TurnSide) => void) | null;
     mulligan?: boolean;
     controlsLive?: boolean;
-    /** A live seated route supplies the one seat state every tab delegates to.
-     *  showLog/onToggleLog (fb-20260917T231628Z) forward the log preference and
-     *  its write path into the OPTIONS drop's switch. */
+    /** A live seated route supplies the one seat state every tab delegates to. */
     controls?: {
       state: SeatPanelState;
       ctx: SeatCtx;
       table: string;
       match: number;
-      showLog: boolean;
-      onToggleLog: () => void;
       onToggleOptions?: () => void;
     } | null;
   } = $props();
@@ -54,7 +50,7 @@
     <div class="phase-instrument" data-centre-instrument>
       <PhaseTrack {view} {seats} {seat} {stops} {onToggle} />
       {#if controlsLive}
-        <HotButtonStrip {view} {seats} state={controls!.state} ctx={controls!.ctx} table={controls!.table} match={controls!.match} showLog={controls!.showLog} onToggleLog={controls!.onToggleLog} onToggleOptions={controls!.onToggleOptions} />
+        <HotButtonStrip {view} {seats} state={controls!.state} ctx={controls!.ctx} table={controls!.table} match={controls!.match} onToggleOptions={controls!.onToggleOptions} />
       {/if}
     </div>
   </div>

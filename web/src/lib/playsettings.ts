@@ -103,7 +103,8 @@ export function withoutWatch(list: readonly string[], name: string): string[] {
   return list.filter((n) => n.toLowerCase() !== name.toLowerCase());
 }
 
-function cloneBreakpoints(b: Breakpoints): Breakpoints {
+/** cloneBreakpoints is an independent copy: the watchlist array is never shared. */
+export function cloneBreakpoints(b: Breakpoints): Breakpoints {
   return { ...b, watchlist: [...b.watchlist] };
 }
 

@@ -25,16 +25,13 @@
   /** A short grace period keeps a diagonal tab-to-panel pointer path open. */
   const HOT_STRIP_CLOSE_DELAY_MS = 180;
 
-  let { view, seats, state: logic, ctx, table, match, showLog: _showLog = false, onToggleLog: _onToggleLog = null, onToggleOptions = null }: {
+  let { view, seats, state: logic, ctx, table, match, onToggleOptions = null }: {
     view: View;
     seats: SeatInfo[];
     state: SeatPanelState;
     ctx: SeatCtx;
     table: string;
     match: number;
-    /** Retained during the rail migration so existing callers stay compatible. */
-    showLog?: boolean;
-    onToggleLog?: (() => void) | null;
     /** Ctrl+Shift+O's write path. The Game Options popover is owned by the
      *  route (Table.svelte owns optionsOpen and its outside-click/Escape
      *  teardown), so the strip does NOT own that state: the route passes its
@@ -223,6 +220,15 @@
       if (keymapStore.capturing) return;
       const action = hotkeyAction(e, modalPickerOpen, keymapStore.current);
       if (action === null) return;
+      // A held key auto-repeats. Only pass (holding Space passes window after
+      // window, as before the keymap) and cancel-run act on a repeat: a held
+      // digit would answer the next prompt before the player has seen it, a
+      // held undo chord would rewind again and again, a held profile or
+      // options key would flicker. The repeat is still consumed.
+      if (e.repeat && action !== 'pass' && action !== 'cancel-run') {
+        e.preventDefault();
+        return;
+      }
       switch (action) {
         case 'pass':
           logic.passClick();
