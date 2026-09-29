@@ -63,22 +63,31 @@ func TestControllerSeesControlledHandNotThirdSeat(t *testing.T) {
 	}
 }
 
-// TestOrdinaryProjectionStillHidesAControlledSeat pins that the widening is
-// opt-in: ProjectFor/Project (the nil set) do not read ControlledBy on their
-// own, so no existing caller changed behaviour.
-func TestOrdinaryProjectionStillHidesAControlledSeat(t *testing.T) {
+// TestOrdinaryProjectionRevealsControlledSeatToItsController pins that the
+// CR 720.4 widening is keyed on state.Game.ControlledBy INSIDE the view
+// package, as this ticket's scope requires: it must reach every wire consumer
+// (host decision view, ViewAtSeat, EventsSeat, fan-out) with no host change,
+// so plain ProjectFor/Project -- not only the explicit alsoVisible entry
+// point -- read ControlledBy on their own. A seat that controls nobody keeps
+// today's redaction, and the viewer keeps its own hand.
+func TestOrdinaryProjectionRevealsControlledSeatToItsController(t *testing.T) {
 	g := fourSeatBoard(t)
 	g.ControlledBy = map[state.PlayerID]state.PlayerID{1: 0}
 	v := Project(g, flatChars{g}, 0, nil)
 	for _, pv := range v.Players {
-		if pv.ID == 0 {
+		switch pv.ID {
+		case 0:
 			if len(pv.Hand) != 3 {
 				t.Fatalf("viewer 0 cannot see own hand")
 			}
-			continue
-		}
-		if pv.Hand != nil {
-			t.Fatalf("plain Project revealed seat %d's hand: %+v", pv.ID, pv.Hand)
+		case 1:
+			if len(pv.Hand) != 3 {
+				t.Fatalf("plain Project hid controlled seat 1's hand: %+v", pv.Hand)
+			}
+		default:
+			if pv.Hand != nil {
+				t.Fatalf("plain Project revealed seat %d's hand: %+v", pv.ID, pv.Hand)
+			}
 		}
 	}
 }

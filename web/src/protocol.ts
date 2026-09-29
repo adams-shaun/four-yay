@@ -409,8 +409,10 @@ export interface PlayerView {
    * seat's HIDDEN one (the key simply missing either way), which is exactly
    * the ambiguity this type exists to avoid everywhere else (Winner's own
    * *PlayerID is the same shaped fix). null-vs-[] is what a client checks
-   * instead. Hand is a hidden zone under CR 400.2 and stays gated on "is
-   * this the viewer's own seat", unlike Pool (next field), which is public.
+   * instead. Hand is a hidden zone under CR 400.2 and is gated on "is this
+   * the viewer's own seat", widened by CR 720.4 to a seat the viewer
+   * controls (you may look at all cards that player could see), unlike Pool
+   * (next field), which is public.
    */
   hand: CardView[];
   battlefield: CardView[];

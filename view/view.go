@@ -205,8 +205,10 @@ type PlayerView struct {
 	// seat's HIDDEN one (the key simply missing either way), which is exactly
 	// the ambiguity this type exists to avoid everywhere else (Winner's own
 	// *PlayerID is the same shaped fix). null-vs-[] is what a client checks
-	// instead. Hand is a hidden zone under CR 400.2 and stays gated on "is
-	// this the viewer's own seat", unlike Pool (next field), which is public.
+	// instead. Hand is a hidden zone under CR 400.2 and is gated on "is this
+	// the viewer's own seat", widened by CR 720.4 to a seat the viewer
+	// controls (you may look at all cards that player could see), unlike Pool
+	// (next field), which is public.
 	Hand        []CardView `json:"hand"`
 	Battlefield []CardView `json:"battlefield"`
 	Graveyard   []CardView `json:"graveyard"`
@@ -636,11 +638,13 @@ func project(g *state.Game, ch Chars, viewer state.PlayerID, d *decision.Decisio
 		}
 		pv.Available = poolView(avail)
 		// The MayLookAt grant (Oracle of Mul Daya): the viewer's own seat sees
-		// the top card of their own library when a live grant covers it; every
-		// other seat sees nothing (the CR 400.2 hidden-zone rule the Hand
-		// field documents applies in full). A nil ch degrades to no reveal,
-		// the way it degrades every other derived fact.
-		if viewer == p.ID && ch != nil && ch.MayLookAtLibraryTop(p.ID) {
+		// the top card of their own library when a live grant covers it, and
+		// (CR 720.4) so does the controller of that seat -- the controller may
+		// look at all cards the controlled player could see. Every other seat
+		// sees nothing (the CR 400.2 hidden-zone rule the Hand field documents
+		// applies in full). A nil ch degrades to no reveal, the way it degrades
+		// every other derived fact.
+		if (viewer == p.ID || alsoVisible[p.ID] || controlsSeat(g, viewer, p.ID)) && ch != nil && ch.MayLookAtLibraryTop(p.ID) {
 			if lib := g.Zone(state.ZLibrary, p.ID); len(lib) > 0 {
 				if cvs := cardViews(g, ch, lib[:1], false, p.ID, viewer, false, alsoVisible); len(cvs) == 1 {
 					pv.LibraryTop = &cvs[0]
@@ -672,19 +676,21 @@ func project(g *state.Game, ch Chars, viewer state.PlayerID, d *decision.Decisio
 		// names hand as a hidden zone).
 		pv.Pool = poolView(p.Pool)
 		pv.PoolRestrictions = poolRestrictions(g, p.RestrictedMana)
-		if p.ID == viewer || alsoVisible[p.ID] {
+		if p.ID == viewer || alsoVisible[p.ID] || controlsSeat(g, viewer, p.ID) {
 			pv.Hand = cardViews(g, ch, g.Zone(state.ZHand, p.ID), true, p.ID, viewer, false, alsoVisible)
 		}
-		// PotentialActions is the viewer's own "what could I still do after
-		// tapping out" projection (rules.PotentialActions): the engine's own
-		// legal-offer walk priced against the hypothetical tapped-out pool. It
-		// is projected for the VIEWER'S OWN SEAT ONLY (CR 400.2): the walk
-		// reads that seat's hand, command zone and graveyard, so projecting
-		// another seat's would leak their hidden zones -- a seat the view does
+		// PotentialActions is the "what could I still do after tapping out"
+		// projection (rules.PotentialActions): the engine's own legal-offer
+		// walk priced against the hypothetical tapped-out pool. It is
+		// projected for the viewer's own seat AND (CR 720.4) for a seat the
+		// viewer controls -- the controller needs to know what the controlled
+		// player could still do, and the walk reads that seat's hidden zones,
+		// which the controller is entitled to see under the same rule. It is
+		// never projected for any other seat (CR 400.2): a seat the view does
 		// not belong to carries no field at all (nil), and a spectator
 		// (viewer naming no real seat) never matches the gate above. A nil
 		// ch degrades to an empty projection like every other derived fact.
-		if p.ID == viewer && ch != nil {
+		if (p.ID == viewer || alsoVisible[p.ID] || controlsSeat(g, viewer, p.ID)) && ch != nil {
 			pv.PotentialActions = ch.PotentialActions(p.ID)
 			for i := range pv.PotentialActions {
 				pv.PotentialActions[i].Label = optionLabelText(pv.PotentialActions[i].Label)
