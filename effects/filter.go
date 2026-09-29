@@ -228,6 +228,12 @@ var predicates = map[string]predFn{
 	"IsSuspected": func(_ *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
 		return o.Suspected
 	},
+	// IsSaddled is CR 702.171b's until-end-of-turn designation. The turn
+	// stamp makes it expire without a cleanup event and is preserved by
+	// controller changes.
+	"IsSaddled": func(g *state.Game, o *state.Object, _ state.PlayerID, _ state.ObjID) bool {
+		return o != nil && o.SaddledTurn == g.Turn
+	},
 	// IsMonstrous is CR 701.31b's monstrous designation (task
 	// agent-20260919T190014Z): the 8 corpus statics keyed on it
 	// (`Affected$ Card.Self+IsMonstrous` -- Domesticated Hydra's trample,

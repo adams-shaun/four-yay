@@ -327,7 +327,8 @@ func Apply(g *state.Game, e Event) {
 
 	case AlterAttribute:
 		// The AlterAttribute fold (task alterattr1): the engine models the
-		// "Suspected" (CR 702.157) and "Plotted" (CR 701.34, task kw-plot)
+		// "Saddled" (CR 702.171), "Suspected" (CR 702.157) and "Plotted"
+		// (CR 701.34, task kw-plot)
 		// attributes. Text names the attribute so a future modelled one
 		// extends this switch without an event-schema change; an unmodelled
 		// name never reaches Apply (the effect emits its loud
@@ -335,6 +336,14 @@ func Apply(g *state.Game, e Event) {
 		// through to no fold is replay-safe. Amount 1 grants, -1 removes.
 		if o := g.Obj(e.Obj); o != nil {
 			switch e.Text {
+			case "Saddled":
+				// CR 702.171b: the designation expires at end of turn. Read the
+				// turn from the game, never from the event, so replay derives it.
+				if e.Amount >= 1 {
+					o.SaddledTurn = g.Turn
+				} else {
+					o.SaddledTurn = 0
+				}
 			case "Suspected":
 				o.Suspected = e.Amount >= 1
 			case "Prepared":
@@ -1334,6 +1343,7 @@ func Apply(g *state.Game, e Event) {
 			// path).
 			if o := g.Obj(e.Obj); o != nil {
 				o.Suspected = false
+				o.SaddledTurn = 0
 				o.Monstrous = false
 				o.Renowned = false
 				o.PlottedTurn = 0
@@ -1593,6 +1603,8 @@ func Apply(g *state.Game, e Event) {
 				// ids into a much later same-numbered turn).
 				g.Objs[i].CrewedVehicles = nil
 				g.Objs[i].CrewedTurn = 0
+				// CR 702.171b: Saddled is a per-turn designation.
+				g.Objs[i].SaddledTurn = 0
 				// Only default-duration goads expire at the goader's next turn.
 				g.Objs[i].Goads = expireTurnGoads(g.Objs[i].Goads, e.Player)
 				// ChoiceRestriction$ ThisTurn is the only per-turn scope. Keep

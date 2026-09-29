@@ -784,6 +784,12 @@ type Object struct {
 	// unprepare (rules/cast.go) both read it to find the permanent.
 	PreparedSource ObjID
 
+	// SaddledTurn stamps CR 702.171b's saddled designation (0 = not saddled).
+	// It lasts through this turn, is not a copiable value, and survives a
+	// controller change; events.Apply clears it when the permanent leaves the
+	// battlefield. A plain value copy in CloneDeep carries the stamp.
+	SaddledTurn int32
+
 	// Monstrous is CR 701.31b's monstrous designation (Giggling
 	// Skitterspike's `{5}: Monstrosity 5`): a creature becomes monstrous
 	// when a monstrosity ability resolves, and the designation lasts for
