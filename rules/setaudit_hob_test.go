@@ -358,7 +358,6 @@ func TestSetAudit_hob_GoblinPlateMail_AmassesThenAttaches(t *testing.T) {
 // CR 702.175: without the enduring story the replacement must apply and the
 // untap cannot happen; with it, Bombur untaps.
 func TestSetAudit_hob_Bombur_DoesNotUntapWithoutEnduringStory(t *testing.T) {
-	hobGuard(t, "Bombur's Untap replacement with EnduringStory$ False is not read, so Bombur untaps regardless of the enduring story", "hob-bombur-storied-untap")
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
 	e := handEngine(t, hobCard(t, reg, "Bombur, Gentle Dreamer"))
@@ -375,6 +374,13 @@ func TestSetAudit_hob_Bombur_DoesNotUntapWithoutEnduringStory(t *testing.T) {
 	if !e.G.Obj(bombur).Tapped {
 		t.Fatal("precondition: Bombur did not tap")
 	}
+	if e.playerHasEnduringStory(0) {
+		t.Fatal("precondition: seat 0 already has an enduring story")
+	}
+	// The replacement scopes itself with ValidStepTurnToController$ You, so
+	// the scan must run inside seat 0's own untap step -- otherwise the
+	// replacement is not even consulted and the test would pass vacuously.
+	e.G.Step, e.G.Active = state.StepUntap, 0
 	e.finishUntapStep(0)
 	if !e.G.Obj(bombur).Tapped {
 		t.Fatal("Bombur untapped without an enduring story (CR 702.175)")

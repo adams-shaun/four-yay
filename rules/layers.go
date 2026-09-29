@@ -1206,10 +1206,7 @@ func (e *Engine) continuousConditionHolds(sv staticView) bool {
 		}
 		return e.G.Players[sv.Controller].Blessing
 	case "EnduringStory":
-		if int(sv.Controller) >= len(e.G.Players) {
-			return false
-		}
-		return e.G.Players[sv.Controller].EnduringStory
+		return e.playerHasEnduringStory(sv.Controller)
 	}
 	return false
 }
