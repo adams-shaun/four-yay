@@ -408,7 +408,8 @@ func (b *Bot) DecideBoard(_ context.Context, brd botpolicy.Board, d decision.Dec
 // two halves to the same facts over a whole game.
 func BoardFromView(v view.View) botpolicy.Board {
 	b := botpolicy.Board{
-		IsMain: v.Phase == "main1" || v.Phase == "main2",
+		OwnDeck: v.OwnDeck,
+		IsMain:  v.Phase == "main1" || v.Phase == "main2",
 		// The cast scorer's two board-half features (botpolicy/cast.go):
 		// FirstMain is the FIRST main phase (the Precombat feature), MyTurn
 		// whether the deciding seat is the active player (the

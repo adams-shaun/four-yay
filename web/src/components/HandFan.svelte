@@ -191,7 +191,7 @@
        Both are pointer-transparent; only a face claims the pointer — and the
        resize stepper (ZoneStepper), which re-enables the pointer on itself. -->
   <div class="handtrack" bind:this={container}>
-  <div class="handfan" data-motion-anchor={`${player.seat}:hand`} style:width="{layout.rowWidth}px" style:--card-w="{faceW}px" style:--peek={peek} data-peek={peekMode} data-align="center">
+  <div class="handfan" class:overlap={layout.overlap > 0} data-motion-anchor={`${player.seat}:hand`} style:width="{layout.rowWidth}px" style:--card-w="{faceW}px" style:--overlap="{layout.overlap}px" style:--peek={peek} data-peek={peekMode} data-align="center">
     {#each hand as c, i (c.id)}
       <!-- A hand card is NOT a board permanent: no tapped/attacking/counters
            chrome, just the face plus the shared hover inspector. When the
@@ -200,7 +200,7 @@
            options badge + menu (each item posting its own index, R-E4-1),
            and the picked chip — adapted to the fan. -->
       {@const opt = options ? tileOptions(options, c.id) : null}
-      {@const payment = paymentActions.find((action) => action.cast.object === c.id && action.plans.length > 0)}
+      {@const payment = paymentActions.find((action) => action.cast.object === c.id)}
       {@const landPlay = opt?.list.find((action) => action.kind === 'play_land')}
       <!-- Auto Mana already supplies CAST for its matching base cast. Keep
            unrelated offers visible, but remove that exact legacy duplicate. -->
@@ -224,9 +224,10 @@
         </div>
         {#if opt && legacyActions.length > 0 && !(legacyActions.length === 1 && landPlay)}
           <!-- The options affordance sits OUTSIDE the role="button" face so a
-               real button is never nested inside one; it anchors to the card's
-               TOP EDGE (a bare face has no corner meaning to preserve, and the
-               icon/badge clears the card in front of it on the overlap fan). -->
+               real button is never nested inside one; it anchors near the
+               card's TOP EDGE (a bare face has no corner meaning to preserve).
+               In an overlap fan it sits above the later face but clears that
+               card's exposed left edge so the raise hover remains reachable. -->
           {@const scenario = tileScenario(opt)}
           <div class="tile-actions">
             {#if legacyActions.length === 1}
@@ -356,10 +357,13 @@
   .handfan[data-peek='never'] .card:hover {
     transform: translateY(0);
   }
-  /* Each face is absolutely positioned by the layout's step, then that step
-     is also the negative margin so a face slides UNDER the one ahead of it
-     when the fan overlaps: the first card is front-most (highest stacking),
-     the last is behind it. Hovering raises the face. */
+  /* Cards are positioned by the layout's step. At rest their faces paint in
+     DOM order: the later card covers the earlier face in the shared band.
+     Keep the resting card free of stacking contexts (including transform and
+     filter), so its z-indexed controls can rise above neighbouring faces.
+     Those controls are then anchored clear of the neighbour's exposed left
+     edge (see .tile-actions below) — escaping alone would paint them over
+     the exact strip the raise hover reads. */
   .card {
     position: absolute;
     top: 0;
@@ -367,9 +371,7 @@
     aspect-ratio: 63 / 88;
     pointer-events: auto;
     cursor: pointer;
-    transition: transform 0.12s ease-out, filter 0.12s ease-out;
-    transform: translateY(0);
-    filter: brightness(0.92);
+    transition: transform 0.12s ease-out;
   }
   /* The hovered / focused face lifts off the row, the competitive raise, and
      the faces behind it go under rather than over it. The raise is the same
@@ -402,8 +404,11 @@
   .card:hover,
   .card:has(:focus-visible) {
     transform: translateY(calc(var(--peek, 0.5) * -100%));
-    filter: brightness(1);
     z-index: 10;
+  }
+  .card:hover .face,
+  .card:has(:focus-visible) .face {
+    filter: brightness(1);
   }
   .face:focus-visible {
     outline: 2px solid var(--initiative);
@@ -441,6 +446,8 @@
      HandFan.geometry.test.ts. */
   .face {
     scroll-margin-bottom: calc(var(--card-w) * -50 / 63);
+    filter: brightness(0.92);
+    transition: filter 0.12s ease-out;
   }
   .face[data-selected] {
     box-shadow: 0 0 0 2px var(--ink), 0 0 0 4px var(--felt-sunk);
@@ -457,9 +464,10 @@
      tile, a bare face has no corner that already means something (no keyword
      marks, no state band), and the hand must OPEN UPWARD — it sits at the
      board's bottom, so a menu that opened down would leave the felt. The
-     badge clears the card in front of it (the overlap fan's front-most card
-     is the lowest index; the cards ahead are behind it), so it is never
-     covered. */
+     later faces cover earlier faces in the shared band; because each face
+     carries its own dim filter while the card stays free of a stacking
+     context, this z-indexed affordance joins the handfan's shared stacking
+     context and paints above every resting face. */
   .tile-actions {
     position: absolute;
     top: 1px;
@@ -470,6 +478,29 @@
     align-items: flex-end;
     gap: 2px;
     line-height: 1;
+  }
+  /* In an OVERLAPPING fan a card's own top-right corner lies UNDER the next
+     card's face, so the affordances are anchored to the card's VISIBLE right
+     edge instead: left = the next card's left edge (100% of a face minus the
+     fan's overlap) plus a small gap. Anchoring from the LEFT, not the right,
+     is load-bearing: a right-anchored box of any real width extends back
+     across the neighbour's exposed left strip and wins the hit-test there, so
+     the raise gesture — `.card:hover`, and Playwright's hover actionability —
+     landed on the affordance instead of the neighbour's face (the mirror of
+     the buried-button bug this ticket fixes). Starting the box a few px
+     inside the neighbour leaves its leftmost edge its own face, while the
+     affordance centre still sits over the neighbour's face (asserted in
+     HandFan.geometry.test.ts). The last card has no next face to clear, so it
+     keeps the corner anchor. */
+  .handfan.overlap .tile-actions,
+  .handfan.overlap .payment-shortcut {
+    right: auto;
+    left: calc(100% - var(--overlap) + 4px);
+  }
+  .handfan.overlap .card:last-child .tile-actions,
+  .handfan.overlap .card:last-child .payment-shortcut {
+    left: auto;
+    right: 1px;
   }
   .badge,
   .action-icon {

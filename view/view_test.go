@@ -8,6 +8,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/deck"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/replay"
 	"github.com/adams-shaun/gorge/rules"
@@ -60,6 +61,12 @@ func (c flatChars) StackOptional(state.ObjID) (bool, state.PlayerID) { return fa
 // Chars instead (see availableProjection below).
 func (c flatChars) AvailableMana(state.PlayerID) state.Mana                    { return state.Mana{} }
 func (c flatChars) PotentialActions(state.PlayerID) []decision.PotentialAction { return nil }
+
+// OwnDeck is not exercised by flatChars-driven projection tests: they build
+// boards directly with no rules.Config, so there is no genesis deck to name.
+// The real engine's manifest is pinned by rules' TestEngineOwnDeck* and by
+// the view's own-seat tests, which drive a real *rules.Engine.
+func (c flatChars) OwnDeck(state.PlayerID) *deck.Manifest { return nil }
 func (c flatChars) AbilityCosts(_ state.PlayerID, id state.ObjID) []string {
 	if o := c.g.Obj(id); o != nil && o.Face() != nil {
 		return printedNonManaAbilityCosts(o.Face())

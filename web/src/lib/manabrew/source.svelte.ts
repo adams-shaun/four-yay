@@ -1,5 +1,5 @@
 import type { CardView, Decision, DecisionBody, EventBody, Intent, MatchInfo, SeatInfo, View } from '../../protocol';
-import { ApiError, fetchMatches } from '../api';
+import { ApiError, fetchMatches, postNativeUndo } from '../api';
 import { dvrReducer, initialDvr, type DvrAction, type DvrState } from '../dvr';
 import type { SeatCtx, SeatTransport } from '../seat';
 import { ModelBus } from '../clientmodel/gorge';
@@ -331,15 +331,12 @@ export class ManaBrewMatch implements ClientModelSource, SeatTransport {
   }
 
   async postUndo(): Promise<void> {
-    let msg: ClientMessage;
-    try {
-      msg = undoMessage(this.binding?.prompt ?? null);
-    } catch (e) {
-      const text = e instanceof Error ? e.message : String(e);
-      this.notice = `ManaBrew: ${text}`;
-      throw new ApiError(409, 'unsupported', text);
+    const prompt = this.binding?.prompt ?? null;
+    if (prompt?.input.type !== 'chooseAction') {
+      if (this.match === null) throw new ApiError(409, 'conflict', 'no match');
+      return postNativeUndo(this.table, this.match, this.seat);
     }
-    await this.sendMsg(msg);
+    await this.sendMsg(undoMessage(prompt));
   }
 
   private async sendMsg(msg: ClientMessage) {

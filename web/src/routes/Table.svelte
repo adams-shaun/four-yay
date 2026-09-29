@@ -23,6 +23,8 @@
   import ViewHotkeys from '../components/ViewHotkeys.svelte';
   import { layoutStore } from '../lib/layouts.svelte';
   import PromptDock from '../components/prompts/PromptDock.svelte';
+  import { effectivePlacement, profilePlacement } from '../lib/prompts/dock';
+  import RailResizer from '../components/RailResizer.svelte';
   import {
     SeatPanelState,
     mulliganPhase,
@@ -84,6 +86,10 @@
     saveLogShown(safeStorage(), table, logScope, logChoice);
   }
   const railSide = $derived(layoutStore.profile.panels.rail);
+  const railWidth = $derived(layoutStore.profile.panels.railWidth);
+  let railPreview = $state<number | null>(null);
+  const displayedRailWidth = $derived(railPreview ?? railWidth);
+  const tableStyle = $derived(`--rail-width:${displayedRailWidth * 100}%`);
   // The game wire (ManaBrew adapter plan): a live seat whose protocol
   // setting is ManaBrew plays through ManaBrewMatch; everything else — and a
   // ManaBrew probe that fails — is the native MatchState. Both expose the
@@ -132,6 +138,10 @@
     }
     return panelCache.state;
   });
+
+  // The slot and shell use the same effective placement: a payment with an
+  // older persisted near-table layout occupies the rail instead of the board.
+  const promptPlacement = $derived(profilePlacement(effectivePlacement(layoutStore.prompt, panel?.active ?? null)));
 
   // The seated player's own player view — the one whose hand is never
   // redacted (view.go fills Hand for the viewer's seat under every
@@ -460,7 +470,7 @@
     <MatchList {table} />
   </main>
 {:else}
-  <main class="table rail-{railSide}" class:log-hidden={!showLog} class:rail-peek={optionsOpen}>
+  <main class="table rail-{railSide}" style={tableStyle} class:log-hidden={!showLog} class:rail-peek={optionsOpen}>
     <!-- Motion overlay (spec sub-project 5): renders nothing here; it plays
          the client model's transitions in a fixed layer on <body>. Mounted
          outside the view guard so a match change does not remount it. -->
@@ -513,7 +523,7 @@
              card-options index the board does (one mechanism, one index, one
              post path). -->
         {#if ownPlayer}
-          <HandFan player={ownPlayer} {cardWidth} {visible} {raise} options={boardOptions} paymentActions={castableActions(panel?.active ?? null, panel?.autoManaAvailable ?? false)} autoPay={panel?.autoPayMana ?? false} onCastPayment={(action, holdPriority) => panel?.castAction(action, holdPriority)} />
+          <HandFan player={ownPlayer} {cardWidth} {visible} {raise} options={boardOptions} paymentActions={castableActions(panel?.active ?? null, panel?.autoManaAvailable ?? false, panel?.autoPayMana ?? false)} autoPay={panel?.autoPayMana ?? false} onCastPayment={(action, holdPriority) => panel?.castAction(action, holdPriority)} />
         {/if}
       {/snippet}
       <aside class="rail" data-rail-side={railSide}>
@@ -522,9 +532,11 @@
              it concerns, unless the layout profile floats it
              (layoutStore.prompt, which PromptDock reads). ONE dock: priority
              stays with the ACTIONS / gilt action button. -->
-        <div class="prompt-dock" data-prompt-dock-slot data-placement={layoutStore.prompt.placement}>
-          {#if panel && seatCtx && controlsLive && m.view}<PromptDock view={m.view} logic={panel} seat={seatCtx.seat} />{/if}
-        </div>
+        {#if promptPlacement !== 'dock-bottom'}
+          <div class="prompt-dock" data-prompt-dock-slot data-placement={promptPlacement}>
+            {#if panel && seatCtx && controlsLive && m.view}<PromptDock view={m.view} logic={panel} seat={seatCtx.seat} />{/if}
+          </div>
+        {/if}
         <div class="rail-main">
         <!-- The concede control (when a concede option is pending) is passed
              to Rail as a logbar snippet: it renders inside the rail's own
@@ -612,6 +624,14 @@
           {/if}
           <div class="log"><Transcript dvr={m.dvr} identities={logIdentities} cardColour={logCardColour} cards={logCards} notes={panel?.autoLog ?? []} onSeek={seated ? () => {} : (seq) => m.dispatch({ type: 'scrub', seq })} /></div>
         </section>
+        {#if promptPlacement === 'dock-bottom'}
+          <div class="prompt-dock bottom" data-prompt-dock-slot data-placement={promptPlacement}>
+            {#if panel && seatCtx && controlsLive && m.view}<PromptDock view={m.view} logic={panel} seat={seatCtx.seat} />{/if}
+          </div>
+        {/if}
+        {#if railSide !== 'hidden'}
+          <RailResizer side={railSide} width={railWidth} onDrag={(width) => (railPreview = width)} onWidth={(width) => layoutStore.setRailWidth(width)} onReset={() => layoutStore.resetRailWidth(m.seats.length)} />
+        {/if}
       </aside>
       <ViewHotkeys view={m.view} onToggleLog={toggleLog} />
       {#if layoutStore.drawerOpen}
@@ -674,17 +694,10 @@
        pill, the four one-line zone counts and the row's own chrome — measures
        ~141px (SeatTable.svelte.test.ts's geometry harness). That now sits
        just under the old binding constraint, the stack tile's 144px art
-       column, instead of well under it; both clear 176px. The "Concede —
-       confirm" control needs 138px in the logbar row it shares with the
-       LOGS toggle. 11rem (176px) leaves the ellipsized seat name ~16px at
-       the floor and ~56px at the 15% cap of a 1440px viewport — the name is
-       the one thing that flexes; the floor itself is unchanged by the
-       one-line redesign. The 15% cap matters more than the floor
-       on common viewports: with min 17rem the track was pinned to 17rem on
-       every window narrower than ~1510px (18% of the viewport fell below the
-       floor), so typical laptops saw the full 17rem whatever the content
-       needed. */
-    grid-template-columns: minmax(0, 1fr) minmax(15rem, 21%);
+       column, instead of well under it; both clear 176px. The rail's saved
+       viewport fraction drives the width, with a compact lower bound on
+       narrow screens so the splitter remains usable. */
+    grid-template-columns: minmax(0, 1fr) minmax(min(15rem, var(--rail-width)), var(--rail-width));
     grid-template-rows: minmax(0, 1fr);
     height: 100vh;
     background: radial-gradient(ellipse at 50% 50%, var(--felt-lit) 0%, var(--felt) 70%);
@@ -694,7 +707,7 @@
      hover or focus (and while the Options popover it hosts is open), so the
      stack, the Options control and concede are never out of reach. */
   .table.rail-left {
-    grid-template-columns: minmax(15rem, 21%) minmax(0, 1fr);
+    grid-template-columns: minmax(min(15rem, var(--rail-width)), var(--rail-width)) minmax(0, 1fr);
   }
   .table.rail-left .rail {
     grid-column: 1;
@@ -746,6 +759,7 @@
   .prompt-dock:empty {
     display: none;
   }
+  .prompt-dock.bottom { flex: 0 0 auto; max-height: 45%; overflow: auto; border-top: 1px solid var(--edge-inst); }
   .rail-main {
     flex: 1 1 0;
     min-height: 0;

@@ -203,9 +203,34 @@ describe('HotButtonStrip — the status chip', () => {
     const html = stripState(state, priority);
     expect(html).toMatch(/data-play-mode="casual"/);
     expect(html).toContain('title="Auto: Casual"');
-    expect(html).toContain('>AUTO</span>');
+    expect(html).toMatch(/<button[^>]*role="switch"[^>]*aria-checked="true"[^>]*data-play-mode="casual"[^>]*data-auto-status/);
+    expect(html).toContain('>AUTO</span></button>');
     expect(html).toContain('data-auto-pay-toggle');
     expect(html).toContain('AUTO MANA');
+  });
+
+  it('routes the always-visible switch through pressAuto in both live and paused states', () => {
+    const live = new SeatPanelState('t1', 1, ctx, null);
+    expect(live.machinePaused).toBe(false);
+    expect(live.auto).toBe(true);
+    const liveHtml = stripState(live, priority);
+    expect(liveHtml).toMatch(/<button[^>]*role="switch"[^>]*aria-checked="true"[^>]*data-play-mode="casual"[^>]*data-auto-status/);
+    expect(liveHtml).toContain('aria-label="Auto: Casual"');
+    expect(liveHtml).toContain('>AUTO</span></button>');
+    live.pressAuto();
+    expect(live.auto).toBe(false);
+    expect(live.machinePaused).toBe(false);
+
+    const paused = new SeatPanelState('t1', 1, ctx, null);
+    paused.rewind();
+    expect(paused.machinePaused).toBe(true);
+    expect(paused.auto).toBe(true);
+    const pausedHtml = stripState(paused, priority);
+    expect(pausedHtml).toMatch(/<button[^>]*role="switch"[^>]*aria-checked="false"[^>]*data-play-mode="paused"[^>]*data-auto-status[^>]*data-auto-note/);
+    expect(pausedHtml).toContain('>AUTO</span></button>');
+    paused.pressAuto();
+    expect(paused.machinePaused).toBe(false);
+    expect(paused.auto).toBe(true);
   });
 
   it('shows the undo pause and its resume control in the always-visible live-strip chip', () => {
@@ -219,7 +244,7 @@ describe('HotButtonStrip — the status chip', () => {
     const html = stripState(state, priority);
     expect(html).toMatch(/data-play-mode="paused"/);
     expect(html).toContain('data-auto-note');
-    expect(html).toContain('>AUTO</span>');
+    expect(html).toContain('>AUTO</span></button>');
     expect(html).toContain('Press the Auto switch (or apply a preset)');
     expect(html).not.toMatch(/data-play-mode="casual"/);
   });

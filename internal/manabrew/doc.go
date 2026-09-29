@@ -19,7 +19,9 @@
 //
 //	translator.go  the Translator: CardText seam, State, Prompt
 //	ids.go         the id mint (spec §6.1): players, cards, stack, hidden
-//	state.go       view.View → GameViewDto, the step map (spec §6.2)
+//	state.go       view.View → GameViewDto, the step map (spec §6.2),
+//	               the x_gorge_own_deck_v1 own-deck extension
+//	               (seat-deck-manifest spec, interface mapping item 4)
 //	dispatch.go    the full switch over decision.Kinds
 //	prompt_*.go    one per-kind stub file; each stub returns ErrUnmapped
 //	               until its own MB ticket fills it in. Later tickets edit

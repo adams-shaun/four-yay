@@ -173,6 +173,11 @@ export async function postIntent(t: string, k: number, intent: Intent, ctx: Seat
 /** postUndo requests an in-place rewind. The seat claim is the same bearer fence as an intent; the rewind frame confirms when it lands. */
 export async function postUndo(t: string, k: number, ctx: SeatCtx): Promise<void> {
   if (ctx.transport) return ctx.transport.postUndo(t, k);
+  return postNativeUndo(t, k, ctx);
+}
+
+/** Use the native endpoint directly when a transport needs rewind support beyond its wire protocol. */
+export async function postNativeUndo(t: string, k: number, ctx: SeatCtx): Promise<void> {
   const res = await fetchBounded(undoURL(t, k), {
     method: 'POST',
     headers: { Authorization: `Bearer ${ctx.token}` },

@@ -118,6 +118,9 @@ func ProjectForControlledFor(g *state.Game, ch Chars, viewer state.PlayerID, vis
 	default:
 		v := project(g, ch, viewer, d, false, visSet)
 		v.Visibility = Seat.String()
+		if vis == Seat && g != nil && int(viewer) < len(g.Players) && ch != nil {
+			v.OwnDeck = ch.OwnDeck(viewer)
+		}
 		return v
 	}
 }

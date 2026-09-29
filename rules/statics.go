@@ -180,14 +180,25 @@ type actionStaticSource struct {
 // first test, filtered once per walk instead of once per object.
 func (s *actionStaticSource) addAbilityContinuous() []staticView {
 	if !s.addAbilityReady {
-		for _, sv := range s.get().continuous {
-			if strings.TrimSpace(sv.Params["AddAbility"]) != "" {
-				s.addAbility = append(s.addAbility, sv)
-			}
-		}
+		s.addAbility = addAbilityCarriers(s.get().continuous)
 		s.addAbilityReady = true
 	}
 	return s.addAbility
+}
+
+// addAbilityCarriers returns, in order, the Continuous statics whose
+// AddAbility$ is non-blank. It is the one filter both mana-grant membership
+// sources share: the pass-scoped snapshot (addAbilityContinuous) and the
+// fresh direct walk in appendAvailableManaAbilitiesGate, so the offer walk
+// and the handler/guard walk cannot disagree on which grants exist.
+func addAbilityCarriers(continuous []staticView) []staticView {
+	var out []staticView
+	for _, sv := range continuous {
+		if strings.TrimSpace(sv.Params["AddAbility"]) != "" {
+			out = append(out, sv)
+		}
+	}
+	return out
 }
 
 func (s *actionStaticSource) get() actionStaticViews {
@@ -226,6 +237,14 @@ func (e *Engine) scanActionStatics() actionStaticViews {
 			for _, id := range e.staticSourceIDs(p, z) {
 				o := e.G.Obj(id)
 				if o == nil || o.Face() == nil || offBattlefieldStaticsInert(z, o) {
+					continue
+				}
+				// CR 702.25b/d: a phased-out permanent is treated as though it
+				// does not exist, so its statics do not function. Phase-out is
+				// only ever set on a battlefield permanent (events.Apply's
+				// PhaseOut fold, the Move fold clears it), so the same gate
+				// scanActiveStatics runs applies here to every arm at once.
+				if z == state.ZBattlefield && o.PhasedOut {
 					continue
 				}
 				// CR 708.8: a face-down permanent's printed statics do not
@@ -2332,6 +2351,15 @@ func (e *Engine) scanCostStatics() costStaticViews {
 	add := func(o *state.Object, id state.ObjID) {
 		f := o.Face()
 		if f == nil {
+			return
+		}
+		// CR 702.25b/d: a phased-out permanent is treated as though it does
+		// not exist, so its cost statics do not function -- the same
+		// object-level gate scanActiveStatics, scanActionStatics and the
+		// fused scanBoardStatics run. Without it this standalone scan
+		// diverges from the fused scan (verifyBoardStatics recomputes both)
+		// and from the memoised path, which serves the fused arm.
+		if o.Zone == state.ZBattlefield && o.PhasedOut {
 			return
 		}
 		// CR 708.8: a face-down permanent has no printed cost statics
