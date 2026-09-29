@@ -237,9 +237,14 @@ if [ "${STORM_N:-0}" -ge 10 ] && [ "$STORM_LIVE" = 1 ]; then
 		{
 			printf '# The %s seat tier is failing every launch\n\n' "$STORM_P"
 			printf '%s provider_failure/endpoint_down entries in the last 30 minutes at head `%s`.\n\n' "$STORM_N" "$HEAD_SHA"
-			printf 'Known cause class (memory, 2026-09-26): a vLLM model-id rename makes every\n'
-			printf 'launch return no output while auth still reads ready. Check the served id\n'
-			printf 'first: `curl -s $endpoint/v1/models`, then compare with the TOML tier model.\n'
+			printf "Measure the endpoint state FIRST with an HTTP code check, e.g.\n"
+			printf "\`curl -s -o /dev/null -w '%%{http_code}' \$endpoint/v1/models\` (\$endpoint is the\n"
+			printf "tier's base URL -- written as a placeholder here, not a variable this script defines).\n"
+			printf "A 5xx (or no response at all) means the engine is NOT serving at all: on 2026-09-29\n"
+			printf "the bm-llms-glm Deployment sat at \`replicas: 0\` and every request returned 503 while\n"
+			printf "auth still read ready -- restart or scale the serving Deployment before anything else.\n"
+			printf "Only a 2xx that still produces no output points at a model-id rename: \`curl -s\n"
+			printf "\$endpoint/v1/models\`, then compare with the TOML tier model.\n"
 			printf '\n## Done means\n\nA launched seat produces an assistant turn with output, and the journal\n'
 			printf 'stops appending provider_failure for this provider.\n'
 		} >"$b"
