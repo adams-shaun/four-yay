@@ -75,6 +75,19 @@ func (t *Translator) promptPayment(d *decision.Decision, v *view.View) (mb.Promp
 		Input:      mb.PromptInput{Value: in}}}, nil
 }
 
+// isManaPaymentWindow discriminates a mid-cast mana payment KChoose decision
+// (-> payManaCost) from every other KChoose shape promptChoose otherwise
+// handles: the announced CR 601.2g window always carries ManaPayment; the
+// legacy pre-announce window (rules/cast.go's manaWindowAsk) never does, but
+// always offers exactly the pair "activate" (a per-source activation) and
+// "done" (finalise), the one shape that Kind combination can mean.
+func isManaPaymentWindow(d *decision.Decision) bool {
+	if d.ManaPayment != nil {
+		return true
+	}
+	return hasOptionKind(d, "activate") && hasOptionKind(d, "done")
+}
+
 // hasOptionKind reports whether d offers an option of exactly this Kind.
 func hasOptionKind(d *decision.Decision, kind string) bool {
 	return optionIndexForKind(d, kind) >= 0

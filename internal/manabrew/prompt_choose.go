@@ -13,6 +13,18 @@ func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.Prompt
 	if len(d.Options) == 0 {
 		return mb.PromptMessage{}, ErrUnmapped
 	}
+	// The two mana-payment windows (rules/announce_pay.go's announced CR
+	// 601.2g window and rules/cast.go's legacy manaWindowAsk) are KChoose
+	// decisions whose option list mixes several Kinds ("mana"/"activate"
+	// alongside OptAutoFill/OptCancelCast/"done"), which the uniform-Kind
+	// gate below would otherwise reject outright as ErrUnmapped. Route them
+	// to promptPayment first: the announce window always carries
+	// ManaPayment, and the legacy window's discriminator is its own fixed
+	// shape (prompt_payment.go's manaWindowAsk doc), an "activate" option
+	// alongside a "done" option.
+	if isManaPaymentWindow(d) {
+		return t.promptPayment(d, v)
+	}
 	pres := mb.PromptBase{Presentation: mb.PromptPresentation{Title: d.Prompt, Description: chooseConstraint(d), Targets: []mb.TargetRef{}}}
 	// The DividedAsYouChoose$ ask (effects/damage.go:97-166, spec §6.3's
 	// "damage_split" row) is a real KChoose whose options name the chosen
@@ -116,6 +128,184 @@ func (t *Translator) promptChoose(d *decision.Decision, v *view.View) (mb.Prompt
 		return mb.PromptMessage{}, fmt.Errorf("%w: choose option kind %q", ErrUnmapped, kind)
 	}
 	return mb.PromptMessage{Kind: "prompt", AgentPrompt: mb.AgentPrompt{PromptID: promptID(d), DecidingPlayerID: playerID(d.Player), SourceCard: t.sourceCard(v, d.Source), Input: mb.PromptInput{Value: in}}}, nil
+}
+
+// parseChooseNumber maps chooseNumber's numberDecision (§6.4) for the two
+// promptChoose shapes that build it -- a contiguous "x"/"number" range --
+// back to the one option whose Amount equals the chosen value.
+func (t *Translator) parseChooseNumber(out mb.PromptOutputValue, p *Pending) Outcome {
+	d := p.Decision
+	cur := p.Prompt.PromptID
+	dec, ok := out.(mb.NumberDecision)
+	if !ok {
+		return Outcome{Err: errCode(mb.CodeWrongPromptType, "not a numberDecision answer", idPtr(cur))}
+	}
+	if dec.ChosenNumber == nil {
+		return Outcome{Err: errCode(mb.CodeInvalidShape, "chooseNumber requires a chosenNumber", idPtr(cur))}
+	}
+	idx := -1
+	for _, o := range d.Options {
+		if o.Amount == *dec.ChosenNumber {
+			idx = o.Index
+			break
+		}
+	}
+	if idx < 0 {
+		return Outcome{Err: errCode(mb.CodeInvalidShape,
+			fmt.Sprintf("%d is not an offered value", *dec.ChosenNumber), idPtr(cur))}
+	}
+	in := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{idx}}
+	if err := d.Validate(in); err != nil {
+		return Outcome{Err: errCode(mb.CodeInvalidShape, err.Error(), idPtr(cur))}
+	}
+	return Outcome{Intent: &in}
+}
+
+// parseChooseCards maps chooseCards's chosenCardIds (§6.4) back to the
+// offered options by the card each carries in Obj, reusing the same
+// card-id-keyed matcher the KArrange scry parser uses (matchCardIDs):
+// unlike an action-id list, a chooseCards prompt's Cards carry no separate
+// per-option display id, only the card itself.
+func (t *Translator) parseChooseCards(out mb.PromptOutputValue, p *Pending) Outcome {
+	d := p.Decision
+	cur := p.Prompt.PromptID
+	dec, ok := out.(mb.ChooseCardsDecision)
+	if !ok {
+		return Outcome{Err: errCode(mb.CodeWrongPromptType, "not a chooseCardsDecision answer", idPtr(cur))}
+	}
+	choices, err := matchCardIDs(d, dec.ChosenCardIDs)
+	if err != nil {
+		return Outcome{Err: errCode(mb.CodeInvalidShape, err.Error(), idPtr(cur))}
+	}
+	in := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: choices}
+	if err := d.Validate(in); err != nil {
+		return Outcome{Err: errCode(mb.CodeInvalidShape, err.Error(), idPtr(cur))}
+	}
+	return Outcome{Intent: &in}
+}
+
+// parseChooseColor maps chooseColor's colorDecision (§6.4): chosenColors is a
+// count per colour code, expanded into that many repeats of the matching
+// option's index. The map is walked in sorted key order -- never Go's own
+// map range order -- so the resulting Choices list, and therefore any event
+// it feeds, is deterministic (AGENTS.md's "no map range where iteration
+// order can reach an event").
+func (t *Translator) parseChooseColor(out mb.PromptOutputValue, p *Pending) Outcome {
+	d := p.Decision
+	cur := p.Prompt.PromptID
+	dec, ok := out.(mb.ColorDecision)
+	if !ok {
+		return Outcome{Err: errCode(mb.CodeWrongPromptType, "not a colorDecision answer", idPtr(cur))}
+	}
+	colors := make([]string, 0, len(dec.ChosenColors))
+	for c := range dec.ChosenColors {
+		colors = append(colors, c)
+	}
+	sort.Strings(colors)
+	choices := make([]int, 0, len(colors))
+	for _, c := range colors {
+		n := dec.ChosenColors[c]
+		idx := -1
+		for _, o := range d.Options {
+			if colorCode(o.ManaSymbol, o.Label) == c {
+				idx = o.Index
+				break
+			}
+		}
+		if idx < 0 {
+			return Outcome{Err: errCode(mb.CodeInvalidShape, fmt.Sprintf("color %q is not offered", c), idPtr(cur))}
+		}
+		for i := 0; i < n; i++ {
+			choices = append(choices, idx)
+		}
+	}
+	in := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: choices}
+	if err := d.Validate(in); err != nil {
+		return Outcome{Err: errCode(mb.CodeInvalidShape, err.Error(), idPtr(cur))}
+	}
+	return Outcome{Intent: &in}
+}
+
+// parseChooseBoolean maps chooseBoolean's decision{value} (§6.4) -- shared by
+// promptChoose's yes/no/asunblocked shape, promptModes' unless-pay shape and
+// promptMisc's trigger-optional/commander-zone/replacement-apply shapes --
+// back to whichever option is the confirm or deny side (booleanOptionIndex).
+func (t *Translator) parseChooseBoolean(out mb.PromptOutputValue, p *Pending) Outcome {
+	d := p.Decision
+	cur := p.Prompt.PromptID
+	dec, ok := out.(mb.BooleanDecision)
+	if !ok {
+		return Outcome{Err: errCode(mb.CodeWrongPromptType, "not a decision (chooseBoolean) answer", idPtr(cur))}
+	}
+	idx, err := booleanOptionIndex(d, dec.Value)
+	if err != nil {
+		return Outcome{Err: errCode(mb.CodeInvalidShape, err.Error(), idPtr(cur))}
+	}
+	in := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{idx}}
+	if err := d.Validate(in); err != nil {
+		return Outcome{Err: errCode(mb.CodeInvalidShape, err.Error(), idPtr(cur))}
+	}
+	return Outcome{Intent: &in}
+}
+
+// booleanOptionIndex mirrors the confirm/deny discovery every chooseBoolean
+// builder (promptChoose, promptModes, promptMisc) uses, so a boolean answer
+// resolves to exactly the option each builder's own label promised:
+//   - an explicit Kind "yes"/"command_zone"/"apply", or Option.Mode
+//     ModeUnlessPay, is the confirm (true) side;
+//   - an explicit Kind "no"/"leave"/"decline", or Option.Mode
+//     ModeUnlessDecline, is the deny (false) side;
+//   - a plain two-option list that carries none of those (the KChoose
+//     "asunblocked" election, rules/combat.go's askNextCombatAsk, whose two
+//     options are both literally Kind "asunblocked" and carry no marker of
+//     their own) falls back to that ask's fixed build order: index 0 is the
+//     declined election ("assign normally"), index 1 is the accepted one
+//     ("assign as though not blocked").
+func booleanOptionIndex(d *decision.Decision, value bool) (int, error) {
+	confirm, deny := -1, -1
+	for _, o := range d.Options {
+		switch {
+		case o.Kind == "yes", o.Kind == "command_zone", o.Kind == "apply", o.Mode == decision.ModeUnlessPay:
+			confirm = o.Index
+		case o.Kind == "no", o.Kind == "leave", o.Kind == "decline", o.Mode == decision.ModeUnlessDecline:
+			deny = o.Index
+		}
+	}
+	if confirm < 0 && deny < 0 && len(d.Options) == 2 {
+		deny, confirm = d.Options[0].Index, d.Options[1].Index
+	}
+	if value {
+		if confirm < 0 {
+			return 0, fmt.Errorf("no confirm option is offered")
+		}
+		return confirm, nil
+	}
+	if deny < 0 {
+		return 0, fmt.Errorf("no deny option is offered")
+	}
+	return deny, nil
+}
+
+// parseChooseFromSelection maps chooseFromSelection's selectionDecision
+// (§6.4) back to the offered options: every ChooseFromSelectionInput this
+// package builds (promptChoose's several kinds, promptModes, promptMisc's
+// replacement/starting-player shapes) lists its SelectionOptions in the same
+// order as d.Options, so ChosenIndices is Choices with no remapping --
+// Decision.Validate is what catches an out-of-range or duplicate index.
+func (t *Translator) parseChooseFromSelection(out mb.PromptOutputValue, p *Pending) Outcome {
+	d := p.Decision
+	cur := p.Prompt.PromptID
+	dec, ok := out.(mb.SelectionDecision)
+	if !ok {
+		return Outcome{Err: errCode(mb.CodeWrongPromptType, "not a selectionDecision answer", idPtr(cur))}
+	}
+	choices := make([]int, len(dec.ChosenIndices))
+	copy(choices, dec.ChosenIndices)
+	in := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: choices}
+	if err := d.Validate(in); err != nil {
+		return Outcome{Err: errCode(mb.CodeInvalidShape, err.Error(), idPtr(cur))}
+	}
+	return Outcome{Intent: &in}
 }
 
 func colorCode(symbol, label string) string {
