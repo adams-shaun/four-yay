@@ -2524,8 +2524,8 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 				// while never letting an empty pool satisfy it.
 				ctx.UnlessPay = "decline"
 			} else if chosePay && e.unlessCostPayable(payOption.Player, rawUnlessCost, ctx, rp.obj) {
-				if len(paid.Sac) > 0 || len(paid.Discard) > 0 || len(paid.Reveal) > 0 || len(paid.RevealChosen) > 0 || len(paid.Return) > 0 || len(paid.Exile) > 0 {
-					// Sacrifice, discard, reveal, return and exile are
+				if len(paid.Sac) > 0 || len(paid.Discard) > 0 || len(paid.Reveal) > 0 || len(paid.Behold) > 0 || len(paid.RevealChosen) > 0 || len(paid.Return) > 0 || len(paid.Exile) > 0 {
+					// Sacrifice, discard, reveal, behold, return and exile are
 					// choice-bearing costs.
 					// Park this resume before any mutation and let the payer
 					// select every component; finishUnlessPayment re-enters
