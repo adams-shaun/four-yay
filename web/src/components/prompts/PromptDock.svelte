@@ -177,7 +177,7 @@
         >{placement === 'rail' ? '⧉' : '⇥'}</button>
       </div>
       {#if anatomy.source}<p class="src" data-prompt-source>{anatomy.source.line}</p>{/if}
-      <h2 class="title" data-prompt-title>{anatomy.title}</h2>
+      <h2 class="title" class:long={anatomy.title.length > 32} data-prompt-title>{anatomy.title}</h2>
       {#if anatomy.plain}<p class="plain" data-prompt-plain>{anatomy.plain}</p>{/if}
       {#if logic.error}<p class="error" role="alert">{logic.error}</p>{/if}
       <PromptBody {decision} {view} {logic} {seat} placement="dock" />
@@ -272,6 +272,9 @@
     color: var(--ink);
     overflow-wrap: anywhere;
   }
+  /* A server-worded question (a `choose`) can run long; it stays the title
+     but steps down a size so it never pushes the options off the dock. */
+  .title.long { font-size: 1.15rem; line-height: 1.2; }
   .plain { margin: 0 0 var(--sp-2); font-size: var(--t-12); line-height: 1.45; color: var(--ink-dim); }
   .error {
     margin: 0 0 var(--sp-2);
