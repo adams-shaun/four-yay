@@ -202,12 +202,6 @@ export interface CardView {
    */
   mana_cost?: string;
   /**
-   * EffectiveManaCost is the offer-time cost to cast this card when the
-   * engine can determine a non-X own-cost composition that differs from
-   * the printed ManaCost. Empty means use ManaCost.
-   */
-  effective_mana_cost?: string;
-  /**
    * SpellAPI is the API of the card's primary cast-shape ability (its
    * SP$ line -- "Counter" for Counterspell, "DealDamage" for Lightning
    * Bolt, "" for a card with no spell ability, which is every creature
