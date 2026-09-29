@@ -276,11 +276,46 @@ func loopRecord(t *testing.T, e *Engine, label string, n, start int) {
 	}
 }
 
+// loopGuardStrict, while true, makes loopBlocked fail instead of logging.
+// The Scam.EXE coverage guard (loop_coverage_guard_test.go) sets it around
+// every prototype it runs: the ratchet treats a catalog line as executable
+// only when the prototype genuinely passes, and a blocked prototype returns
+// without reaching its assertion, so counting that return as a pass is the
+// exact false positive the guard exists to prevent. A standalone prototype
+// run leaves the flag false and keeps the research default (a known-blocked
+// reproducer logs and passes).
+//
+// It is a plain bool rather than a parameter because the prototype tests are
+// ordinary func(*testing.T) values; the guard writes it on the parent
+// goroutine before t.Run starts the subtest goroutine and reads no result
+// until that goroutine has ended, so there is no concurrent access.
+var loopGuardStrict bool
+
+// loopGuardBlocked records whether loopBlocked took the failure branch on
+// the last guard run. executeLoopPrototypes resets it before each t.Run and
+// reads it after the subtest goroutine has ended, so a blocked prototype is
+// distinguishable from a plain assertion failure. Same single-goroutine
+// happens-before argument as loopGuardStrict applies. It is only meaningful
+// while loopGuardStrict is set; the standalone logging path leaves it alone.
+var loopGuardBlocked bool
+
+// loopBlockedFails reports whether a blocked line must fail rather than log.
+// It is the single home of that decision: loopBlocked calls it, and the
+// coverage guard's demonstration asserts the strict mode it relies on
+// without running a real failing subtest (which would fail the
+// demonstration's own parent test).
+func loopBlockedFails() bool {
+	return loopGuardStrict || os.Getenv("GORGE_LOOP_STRICT") == "1"
+}
+
 // GORGE_LOOP_STRICT=1 exposes known failures in other prototype lines as red
 // regression reproducers; the Thug line is asserted directly in both modes.
+// loopGuardStrict adds a second, in-process mode the coverage guard uses so
+// a blocked line can never be mistaken for a passing one.
 func loopBlocked(t *testing.T, message string) {
 	t.Helper()
-	if os.Getenv("GORGE_LOOP_STRICT") == "1" {
+	if loopBlockedFails() {
+		loopGuardBlocked = true
 		t.Fatal(message)
 	}
 	t.Log("BLOCKED: " + message + " (GORGE_LOOP_STRICT=1 asserts the intended behavior)")

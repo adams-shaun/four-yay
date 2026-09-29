@@ -221,6 +221,12 @@ func TestEveryRepoDeckIsFullySupported(t *testing.T) {
 			t.Errorf("%s is fully supported now (was missing %v) -- delete it from knownUnsupported", card, want)
 		}
 	}
+	for _, name := range testutil.RepoDeckNames() {
+		if name == "rakdos-muscle-scam-exe" {
+			runScamLoopCoverageGuard(t)
+			break
+		}
+	}
 }
 
 // sameSet reports whether a and b hold the same strings, order-independent
