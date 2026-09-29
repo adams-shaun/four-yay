@@ -66,8 +66,10 @@ type policyCallGraph struct {
 //
 // This can add false edges (sound, never misses a same-package call), which
 // is why the allowlist in the caller names the one real cycle. Indexed
-// function values, interface dispatch, and factory-produced values fail
-// closed to signature-compatible local functions.
+// function values, interface dispatch (including a promoted/embedded
+// interface method and a bound interface method value, both keyed on the
+// resolved declaration object), and factory-produced values fail closed to
+// signature-compatible local functions.
 func buildPolicyCallGraph(fset *token.FileSet, files []*ast.File, info *types.Info, pkgPath string) policyCallGraph {
 	g := policyCallGraph{edges: map[string]map[string]bool{}}
 	add := func(a, b string) {
@@ -108,8 +110,30 @@ func buildPolicyCallGraph(fset *token.FileSet, files []*ast.File, info *types.In
 		}
 		return "", false
 	}
+	// isInterfaceMethod reports whether o declares an interface method: its
+	// signature has a receiver whose underlying type is an interface. A call
+	// to (or a bound value of) such a declaration is DYNAMIC -- it dispatches
+	// to whichever concrete method the dynamic receiver provides -- so it must
+	// never be treated as a direct call to the bodiless declaration node.
+	isInterfaceMethod := func(o types.Object) bool {
+		fn, ok := o.(*types.Func)
+		if !ok {
+			return false
+		}
+		sig, ok := fn.Type().(*types.Signature)
+		if !ok || sig.Recv() == nil {
+			return false
+		}
+		_, isIface := sig.Recv().Type().Underlying().(*types.Interface)
+		return isIface
+	}
 	// valueNode resolves a function-VALUE expression to a node name: a
 	// named same-package function/method (bare or method value) or a literal.
+	// A bound INTERFACE method value (i.run) is not a value that belongs to
+	// any one declaration, so it is deliberately not resolved here: returning
+	// false makes the caller treat the slot as untraceable and fail closed to
+	// the assignable implementations, rather than flowing the edge to the
+	// bodiless declaration node.
 	valueNode := func(e ast.Expr) (string, bool) {
 		switch v := e.(type) {
 		case *ast.Ident:
@@ -121,6 +145,9 @@ func buildPolicyCallGraph(fset *token.FileSet, files []*ast.File, info *types.In
 			}
 		case *ast.SelectorExpr:
 			if sel, ok := info.Selections[v]; ok && sel.Obj() != nil {
+				if isInterfaceMethod(sel.Obj()) {
+					return "", false
+				}
 				if n, ok := funcObjName(sel.Obj()); ok {
 					if t := info.TypeOf(v); t != nil {
 						valueTypes[n] = t
@@ -324,24 +351,21 @@ func buildPolicyCallGraph(fset *token.FileSet, files []*ast.File, info *types.In
 						}
 					}
 				}
-				// Interface dispatch is not represented by the interface method
-				// declaration edge alone: add compatible concrete methods.
-				if sel, ok := x.Fun.(*ast.SelectorExpr); ok {
-					if selection := info.Selections[sel]; selection != nil && selection.Kind() == types.MethodVal {
-						if _, isInterface := selection.Recv().Underlying().(*types.Interface); isInterface {
-							if funType := info.TypeOf(x.Fun); funType != nil {
-								if _, ok := funType.Underlying().(*types.Signature); ok {
-									dynamicCalls[nodeName] = append(dynamicCalls[nodeName], funType)
-								}
-							}
-						}
-					}
-				}
 				// The callee may be a direct same-package call, an indirect
 				// call through a function-typed value, or an external call.
 				if fn := calleeObj(x.Fun); fn != nil {
 					if vn, ok := funcObjName(fn); ok {
 						add(nodeName, vn)
+						// Interface dispatch is not represented by the edge to the
+						// bodiless interface-method declaration. This is keyed on the
+						// RESOLVED OBJECT, not the selection receiver: a promoted
+						// (embedded) interface method, or one reached through a
+						// pointer, has a concrete expression receiver while the
+						// declaration still dispatches dynamically. Add every
+						// signature-compatible concrete implementation.
+						if isInterfaceMethod(fn) {
+							dynamicCalls[nodeName] = append(dynamicCalls[nodeName], callableType(fn))
+						}
 						// Bind arguments to the callee's func-typed params. The
 						// callee invokes them only where its own body calls the
 						// param, which the indirect pass records -- so passing a
@@ -629,12 +653,15 @@ func typeCheckPolicy(t *testing.T, fset *token.FileSet, paths []string, pkgPath 
 // function values for any indirect call through a slot it could not fully
 // trace. It can add false edges but never miss a same-package name or a
 // value-mediated callback, including indexed map/slice values, interface
-// dispatch, and factory-returned values. It still does NOT follow a function
-// value that escapes through goroutines (botpolicy starts none) or reflection
-// (botpolicy uses none). The regression probes
-// TestPolicyCallGraphCatchesFunctionValueRecursion and
-// TestPolicyCallGraphCatchesIndirectEvaluatorRecursion pin the callback
-// holes this guard closes.
+// dispatch (a direct interface call, a promoted/embedded one, and a bound
+// interface method value are all keyed on the resolved method declaration),
+// and factory-returned values. It still does NOT follow a function value that
+// escapes through goroutines (botpolicy starts none) or reflection (botpolicy
+// uses none). The regression probes
+// TestPolicyCallGraphCatchesFunctionValueRecursion,
+// TestPolicyCallGraphCatchesIndirectEvaluatorRecursion and
+// TestPolicyCallGraphCatchesDynamicEvaluatorRecursion pin the callback and
+// dynamic-dispatch holes this guard closes.
 func TestNoUnguardedRecursionInPolicyCallGraph(t *testing.T) {
 	_, thisFile, _, ok := runtime.Caller(0)
 	if !ok {
