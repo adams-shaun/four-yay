@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { SeatPanelState } from '../lib/seatpanel.svelte';
+  import { pointerRelease } from '../lib/pointer';
   import { MAX_WATCHLIST, STACK_DEPTHS, withWatch, withoutWatch, type Breakpoints } from '../lib/playsettings';
 
   // The prop is `state` (the panel's own prop name) but binds locally as
@@ -46,14 +47,14 @@
         {#each bp.watchlist as name (name)}
           <li data-watch-item>
             {name}
-            <button type="button" aria-label={`Remove ${name} from watchlist`} data-watch-remove onclick={() => set({ watchlist: withoutWatch(bp.watchlist, name) })}>×</button>
+            <button type="button" aria-label={`Remove ${name} from watchlist`} data-watch-remove use:pointerRelease onclick={() => set({ watchlist: withoutWatch(bp.watchlist, name) })}>×</button>
           </li>
         {/each}
       </ul>
     {/if}
     <form class="add" onsubmit={(e) => { e.preventDefault(); add(); }}>
       <input type="text" data-watch-input aria-label="Card name to watch" placeholder="Card name" maxlength="60" bind:value={draft} disabled={bp.watchlist.length >= MAX_WATCHLIST} />
-      <button type="submit" data-watch-add disabled={draft.trim() === '' || bp.watchlist.length >= MAX_WATCHLIST}>Add</button>
+      <button type="submit" data-watch-add use:pointerRelease disabled={draft.trim() === '' || bp.watchlist.length >= MAX_WATCHLIST}>Add</button>
     </form>
   </div>
 </section>

@@ -6,6 +6,7 @@
   import { modalPickerOpen } from '../../lib/modals';
   import type { SeatPanelState } from '../../lib/seatpanel.svelte';
   import { mulliganPhase } from '../../lib/prompts/decision';
+  import { pointerRelease } from '../../lib/pointer';
   import { digitMap, renderedOrder } from '../../lib/prompts/order';
   import CardImage from '../CardImage.svelte';
   import CardTile from '../CardTile.svelte';
@@ -65,7 +66,7 @@
   </div>
   <div class="choices" data-options>
     {#each mull.choices as opt (opt.index)}
-      <button class="choice" class:keep={opt.kind === 'keep'} type="button" data-option={opt.index} onclick={() => logic.click(opt.index)} disabled={logic.busy}>
+      <button class="choice" class:keep={opt.kind === 'keep'} type="button" data-option={opt.index} use:pointerRelease onclick={() => logic.click(opt.index)} disabled={logic.busy}>
         <Digit n={digits.get(opt.index)} />{choiceLabel(opt)}
       </button>
     {/each}
@@ -75,7 +76,7 @@
     {#each mull.cards as opt (opt.index)}
       {@const card = cardFor(opt)}
       {@const at = logic.picked.indexOf(opt.index)}
-      <button class="pick" class:picked={at >= 0} type="button" data-option={opt.index} aria-pressed={at >= 0} aria-label={card ? card.name : opt.label} onclick={() => logic.toggle(opt.index)} disabled={logic.busy}>
+      <button class="pick" class:picked={at >= 0} type="button" data-option={opt.index} aria-pressed={at >= 0} aria-label={card ? card.name : opt.label} use:pointerRelease onclick={() => logic.toggle(opt.index)} disabled={logic.busy}>
         {#if card}<CardImage {card} />{:else}<span class="fallback">{opt.label}</span>{/if}
         <span class="key"><Digit n={digits.get(opt.index)} on={at >= 0} /></span>
         {#if at >= 0}<span class="order">{at + 1}</span>{/if}
@@ -83,7 +84,7 @@
     {/each}
   </div>
   <div class="choices">
-    <button class="choice keep" type="button" data-submit onclick={() => logic.submit()} disabled={!logic.canSubmit || logic.busy}>
+    <button class="choice keep" type="button" data-submit use:pointerRelease onclick={() => logic.submit()} disabled={!logic.canSubmit || logic.busy}>
       Bottom {bottomCount} {bottomCount === 1 ? 'card' : 'cards'}
     </button>
   </div>

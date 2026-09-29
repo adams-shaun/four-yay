@@ -6,6 +6,7 @@
   import { digitMap, orderedOptions } from '../../lib/prompts/order';
   import { selectionStatus, submitLabel } from '../../lib/prompts/anatomy';
   import { hoverLinkOf, promptHover } from '../../lib/prompts/hover.svelte';
+  import { pointerRelease } from '../../lib/pointer';
   import ArtCrop from './ArtCrop.svelte';
   import Digit from './Digit.svelte';
   import PromptFooter, { type FooterButton } from './PromptFooter.svelte';
@@ -59,6 +60,7 @@
         title={opt.label}
         aria-label={opt.label}
         aria-pressed={decision.max > 1 ? at >= 0 : undefined}
+        use:pointerRelease
         onclick={(e) => logic.click(opt.index, { holdPriority: e.ctrlKey })}
         onpointerenter={() => link && promptHover.set(link)}
         onpointerleave={() => promptHover.clear()}

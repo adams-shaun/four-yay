@@ -6,6 +6,7 @@
   import { primaryOf } from '../../lib/prompts/decision';
   import { selectionStatus, submitLabel } from '../../lib/prompts/anatomy';
   import { hoverLinkOf, promptHover } from '../../lib/prompts/hover.svelte';
+  import { pointerRelease } from '../../lib/pointer';
   import Digit from './Digit.svelte';
   import ManaSymbols from '../ManaSymbols.svelte';
   import { manaOptionPips } from '../../lib/announcepay';
@@ -81,7 +82,7 @@
     <div class="picked-chips" data-picked-modes>
       {#each logic.picked as pi, i (i)}
         {@const popt = decision.options.find((o) => o.index === pi)}
-        <button class="chip" type="button" data-picked-chip={i} onclick={() => logic.unpick(pi)} disabled={logic.busy}>{popt?.label} ✕</button>
+        <button class="chip" type="button" data-picked-chip={i} use:pointerRelease onclick={() => logic.unpick(pi)} disabled={logic.busy}>{popt?.label} ✕</button>
       {/each}
     </div>
   {/if}
@@ -98,6 +99,7 @@
         type="button"
         data-option={opt.index}
         aria-pressed={multi ? at >= 0 : undefined}
+        use:pointerRelease
         onclick={(e) => logic.click(opt.index, { holdPriority: e.ctrlKey })}
         onpointerenter={() => link && promptHover.set(link)}
         onpointerleave={() => promptHover.clear()}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { pointerRelease } from '../lib/pointer';
   /**
    * The seated player's page-level Restart control: the ARM-then-CONFIRM
    * two-step (the same R-E4-1 shape as ConcedeControl, because confirming
@@ -31,11 +32,11 @@
 
 <div class="restart-control">
   {#if confirming}
-    <button class="confirm" type="button" data-confirm-restart onclick={onConfirm} disabled={busy}>
+    <button class="confirm" type="button" data-confirm-restart use:pointerRelease onclick={onConfirm} disabled={busy}>
       Restart — confirm
     </button>
   {:else}
-    <button type="button" data-restart-control onclick={onArm} disabled={busy}>
+    <button type="button" data-restart-control use:pointerRelease onclick={onArm} disabled={busy}>
       Restart
     </button>
   {/if}

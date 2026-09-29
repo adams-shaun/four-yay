@@ -51,7 +51,7 @@
         case 'open-grave':
         case 'open-exile':
           if (hovered.seat === null) return;
-          pileOpener.open(hovered.seat, action === 'open-grave' ? 'graveyard' : 'exile', trigger());
+          pileOpener.open(hovered.seat, action === 'open-grave' ? 'graveyard' : 'exile', trigger(), false);
           break;
         case 'next-layout':
           layoutStore.cycle(1);

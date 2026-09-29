@@ -2,6 +2,7 @@
   import { MOTION_SPEEDS, MOTION_SPEED_LABELS } from '../lib/motion/settings';
   import { motionStore } from '../lib/motion/settings.svelte';
   import { layoutStore } from '../lib/layouts.svelte';
+  import { pointerRelease } from '../lib/pointer';
   import {
     ANCHOR_LABELS,
     ANCHORS,
@@ -91,7 +92,7 @@
     <span class="lbl" id="lay-{key}">{label}</span>
     <div class="seg" role="group" aria-labelledby="lay-{key}" data-layout-control={key}>
       {#each values as v (v)}
-        <button type="button" class:on={current === v} aria-pressed={current === v} data-value={v} onclick={() => set(v as never)}>{labels[v]}</button>
+        <button type="button" class:on={current === v} aria-pressed={current === v} data-value={v} use:pointerRelease onclick={() => set(v as never)}>{labels[v]}</button>
       {/each}
     </div>
   </div>
@@ -106,13 +107,13 @@
         <option value={n} selected={layoutStore.lib.active === n}>{n}</option>
       {/each}
     </select>
-    <button type="button" class="done" data-layout-done onclick={onClose}>Done</button>
+    <button type="button" class="done" data-layout-done use:pointerRelease onclick={onClose}>Done</button>
   </header>
   <div class="body">
     <h3>Presets</h3>
     <div class="presets">
       {#each PRESET_IDS as id (id)}
-        <button type="button" data-layout-preset={id} onclick={() => layoutStore.applyPreset(id)}>{PRESET_LABELS[id]}</button>
+        <button type="button" data-layout-preset={id} use:pointerRelease onclick={() => layoutStore.applyPreset(id)}>{PRESET_LABELS[id]}</button>
       {/each}
     </div>
 
@@ -196,16 +197,16 @@
       <label class="lbl" for="lay-name">Save as</label>
       <div class="row">
         <input id="lay-name" type="text" maxlength="24" placeholder={layoutStore.lib.active ?? 'Profile name'} bind:value={saveName} onkeydown={(e) => { if (e.key === 'Enter') save(); }} />
-        <button type="button" class="btn" data-layout-save onclick={save}>Save</button>
+        <button type="button" class="btn" data-layout-save use:pointerRelease onclick={save}>Save</button>
       </div>
     </div>
     {#if layoutStore.lib.active}
       {@const active = layoutStore.lib.active}
-      <button type="button" class="btn quiet" data-layout-delete onclick={() => { layoutStore.remove(active); note = `Deleted “${active}”.`; }}>Delete “{active}”</button>
+      <button type="button" class="btn quiet" data-layout-delete use:pointerRelease onclick={() => { layoutStore.remove(active); note = `Deleted “${active}”.`; }}>Delete “{active}”</button>
     {/if}
     <div class="row">
-      <button type="button" class="btn" data-layout-export onclick={exportFile}>Export file…</button>
-      <button type="button" class="btn" data-layout-import onclick={() => fileInput?.click()}>Import file…</button>
+      <button type="button" class="btn" data-layout-export use:pointerRelease onclick={exportFile}>Export file…</button>
+      <button type="button" class="btn" data-layout-import use:pointerRelease onclick={() => fileInput?.click()}>Import file…</button>
       <input type="file" accept="application/json,.json" hidden bind:this={fileInput} onchange={importFile} />
     </div>
     {#if note}<p class="note" role="status">{note}</p>{/if}

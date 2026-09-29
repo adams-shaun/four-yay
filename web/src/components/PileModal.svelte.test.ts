@@ -25,23 +25,37 @@ describe('PileModal', () => {
     await page.close();
   });
 
-  it('closes with Escape, backdrop, and the visible close control, returning focus every time', async () => {
+  it('closes with Escape, backdrop, and the visible close control; focus returns only for a keyboard-opened pile (hotkey-focus2)', async () => {
     const page = await browser.newPage();
     await page.goto(`${url}src/components/PileModal.fixture.html`);
     const trigger = page.locator('[data-pile="graveyard"]');
 
+    // POINTER-opened pile: focus must NOT come back to the opener on close —
+    // the opener released its focus at click time (lib/pointer.ts), and
+    // giving it back would re-steal Space/Enter from the table hotkeys.
     await trigger.click();
     await page.keyboard.press('Escape');
     expect(await page.getByRole('dialog').count()).toBe(0);
-    expect(await trigger.evaluate((node) => node === document.activeElement)).toBe(true);
+    expect(await trigger.evaluate((node) => node === document.activeElement)).toBe(false);
 
+    // The next close paths still close; the pointer-opened opener never gets
+    // focus back from any of them.
     await trigger.click();
     await page.getByRole('button', { name: "Close Alice's graveyard" }).click();
     expect(await page.getByRole('dialog').count()).toBe(0);
-    expect(await trigger.evaluate((node) => node === document.activeElement)).toBe(true);
+    expect(await trigger.evaluate((node) => node === document.activeElement)).toBe(false);
 
     await trigger.click();
     await page.locator('[data-pile-backdrop]').click({ position: { x: 2, y: 2 } });
+    expect(await page.getByRole('dialog').count()).toBe(0);
+    expect(await trigger.evaluate((node) => node === document.activeElement)).toBe(false);
+
+    // KEYBOARD-opened pile (Enter on a focused opener): the accessibility
+    // contract keeps the focus return.
+    await trigger.focus();
+    await page.keyboard.press('Enter');
+    expect(await page.getByRole('dialog').count()).toBe(1);
+    await page.keyboard.press('Escape');
     expect(await page.getByRole('dialog').count()).toBe(0);
     expect(await trigger.evaluate((node) => node === document.activeElement)).toBe(true);
     await page.close();

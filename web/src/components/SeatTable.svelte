@@ -4,6 +4,7 @@
   import type { CardOptions, OptionTone } from '../lib/cardoptions';
   import { pileTone } from '../lib/cardoptions';
   import { pileCards, pileLabel, pileOpener, type PileZone } from '../lib/pileopener.svelte';
+  import { pointerRelease } from '../lib/pointer';
   import { lossCauses, seatRows, stateLabel, type SeatState } from '../lib/seattable';
 
   /**
@@ -61,7 +62,7 @@
   }
 
   function showPile(seat: number, zone: PileZone, event: MouseEvent): void {
-    pileOpener.open(seat, zone, event.currentTarget as HTMLElement);
+    pileOpener.open(seat, zone, event.currentTarget as HTMLElement, event.detail > 0);
   }
 
   /** pileToneOf is this row's tone ring for one zone pile, off the shared
@@ -94,6 +95,7 @@
             aria-pressed={focus === r.seat}
             title={`${describe(r.name, r.deck, r.state, r.lostReason)} — press to focus this seat`}
             aria-label={describe(r.name, r.deck, r.state, r.lostReason)}
+            use:pointerRelease
             onclick={() => onFocus(r.seat)}
           >
             <span class="name" class:priority={r.priority}>{r.name}</span>
@@ -118,7 +120,7 @@
         <div class="zone-line">
           <span data-stat="hand" data-hand-hidden={r.handVisible ? undefined : ''} aria-label={`Hand: ${r.hand}`}>
             {#if r.hand > 0 && handCards.length > 0}
-              <button type="button" class="pile pill" data-pile="hand" data-tone={player ? pileToneOf(player, 'hand') : undefined} aria-label={pileLabel(r.name, 'hand', r.hand)} onclick={(e) => showPile(r.seat, 'hand', e)}>
+              <button type="button" class="pile pill" data-pile="hand" data-tone={player ? pileToneOf(player, 'hand') : undefined} aria-label={pileLabel(r.name, 'hand', r.hand)} use:pointerRelease onclick={(e) => showPile(r.seat, 'hand', e)}>
                 <svg data-icon="hand" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8V4.5a1 1 0 0 1 2 0V7 3.5a1 1 0 0 1 2 0V7 3a1 1 0 0 1 2 0v4-3a1 1 0 0 1 2 0v4.2l.7-.7a1.2 1.2 0 0 1 1.7 1.7L11 12.6A4 4 0 0 1 8 14H7a4 4 0 0 1-4-4V8Z"/></svg>
                 <span>{r.hand}</span><svg class="caret" viewBox="0 0 8 12" aria-hidden="true"><path d="m2 2 4 4-4 4"/></svg>
               </button>
@@ -131,7 +133,7 @@
           </span>
           <span data-stat="graveyard" aria-label={`Graveyard: ${r.graveyard}`}>
             {#if r.graveyard > 0 && graveyardCards.length > 0}
-              <button type="button" class="pile pill" data-pile="graveyard" data-tone={player ? pileToneOf(player, 'graveyard') : undefined} aria-label={pileLabel(r.name, 'graveyard', r.graveyard)} onclick={(e) => showPile(r.seat, 'graveyard', e)}>
+              <button type="button" class="pile pill" data-pile="graveyard" data-tone={player ? pileToneOf(player, 'graveyard') : undefined} aria-label={pileLabel(r.name, 'graveyard', r.graveyard)} use:pointerRelease onclick={(e) => showPile(r.seat, 'graveyard', e)}>
                 <svg data-icon="skull" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 7a5 5 0 1 1 10 0c0 2-1 3-2 3.8V14H5v-3.2C4 10 3 9 3 7Zm3-1.5a1 1 0 1 0 0 2 1 1 0 0 0 0-2Zm4 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2ZM7 9l1-1 1 1-1 1-1-1Z"/></svg>
                 <span>{r.graveyard}</span><svg class="caret" viewBox="0 0 8 12" aria-hidden="true"><path d="m2 2 4 4-4 4"/></svg>
               </button>
@@ -141,7 +143,7 @@
           </span>
           <span data-stat="exile" aria-label={`Exile: ${r.exile}`}>
             {#if r.exile > 0 && exileCards.length > 0}
-              <button type="button" class="pile pill" data-pile="exile" data-tone={player ? pileToneOf(player, 'exile') : undefined} aria-label={pileLabel(r.name, 'exile', r.exile)} onclick={(e) => showPile(r.seat, 'exile', e)}>
+              <button type="button" class="pile pill" data-pile="exile" data-tone={player ? pileToneOf(player, 'exile') : undefined} aria-label={pileLabel(r.name, 'exile', r.exile)} use:pointerRelease onclick={(e) => showPile(r.seat, 'exile', e)}>
                 <svg data-icon="exile" viewBox="0 0 16 16" aria-hidden="true"><path d="m3 3 10 10M13 3 3 13"/></svg>
                 <span>{r.exile}</span><svg class="caret" viewBox="0 0 8 12" aria-hidden="true"><path d="m2 2 4 4-4 4"/></svg>
               </button>

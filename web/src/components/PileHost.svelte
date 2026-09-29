@@ -39,6 +39,6 @@
   {title}
   {cards}
   {options}
-  returnFocus={open?.trigger ?? null}
+  returnFocus={open !== null && !open.byPointer ? open.trigger : null}
   onClose={() => pileOpener.close()}
 />

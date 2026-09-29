@@ -4,6 +4,7 @@
   import { ACTION_GROUPS, ACTION_LABELS, bindingFromEvent, bindingLabel, conflictsFor, isModifierOrLockCode, MAX_BINDINGS, type Binding, type KeyAction } from '../lib/keymap';
   import { exportKeymap, importKeymap } from '../lib/transfer';
   import { downloadText } from '../lib/download';
+  import { pointerRelease } from '../lib/pointer';
 
   /**
    * The Keys section of GAME OPTIONS: every rebindable action by group, its
@@ -96,13 +97,13 @@
               {#if alwaysOn(a, b)}
                 <span class="cap"><kbd>{bindingLabel(b)}</kbd><span class="always">(always)</span></span>
               {:else}
-                <span class="cap"><kbd>{bindingLabel(b)}</kbd><button type="button" aria-label={`Remove ${bindingLabel(b)} from ${ACTION_LABELS[a]}`} onclick={() => store.remove(a, i)}>×</button></span>
+                <span class="cap"><kbd>{bindingLabel(b)}</kbd><button type="button" aria-label={`Remove ${bindingLabel(b)} from ${ACTION_LABELS[a]}`} use:pointerRelease onclick={() => store.remove(a, i)}>×</button></span>
               {/if}
             {/each}
             {#if waiting === a}
               <span class="wait" aria-live="polite">{refused ? 'That chord is reserved or already bound here — try another, or Esc' : 'Press a key… (Esc cancels)'}</span>
             {:else if store.current[a].length < MAX_BINDINGS}
-              <button type="button" class="add" onclick={() => capture(a)}>Add key</button>
+              <button type="button" class="add" use:pointerRelease onclick={() => capture(a)}>Add key</button>
             {/if}
           </span>
           {#if clash.length > 0}
@@ -112,9 +113,9 @@
       {/each}
     </ul>
   {/each}
-  <button type="button" class="reset" onclick={() => store.reset()}>Reset all keys</button>
-  <button type="button" class="reset" data-keys-export onclick={() => downloadText('gorge-keys.json', exportKeymap(store.current))}>Export keys…</button>
-  <button type="button" class="reset" data-keys-import onclick={() => keyFile?.click()}>Import keys…</button>
+  <button type="button" class="reset" use:pointerRelease onclick={() => store.reset()}>Reset all keys</button>
+  <button type="button" class="reset" data-keys-export use:pointerRelease onclick={() => downloadText('gorge-keys.json', exportKeymap(store.current))}>Export keys…</button>
+  <button type="button" class="reset" data-keys-import use:pointerRelease onclick={() => keyFile?.click()}>Import keys…</button>
   <input type="file" accept="application/json" hidden bind:this={keyFile} onchange={(e) => importKeysFile(e.currentTarget)} />
   <!-- Mounted empty so a screen reader is already watching it when the first result arrives. -->
   <p class="note" data-keys-transfer role="status">{message ?? ''}</p>
