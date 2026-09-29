@@ -366,6 +366,19 @@ async function matchOfTable(request: APIRequestContext, base: string, table: str
  * way, with the dock's own toggle button; this test asserts a board
  * interaction, so it first asks for the board-first layout.
  *
+ * (promptdock1 tightened what can intercept: the dock's CHROME — root frame,
+ * art spine, title/plain text, body padding — is pointer-transparent while
+ * `placement === 'table'` (PromptDock.svelte), so a badge under the padding
+ * or the art spine is directly clickable, pinned by
+ * src/components/PromptDock.geometry.test.ts. What still intercepts HERE is
+ * the dock's own answer surface: the attackers option list, whose rows are
+ * interactive by design. Measured at the fixture's 1000x700 viewport with
+ * the seven-attacker ask, the seat-0 collapsed-pile badge (~28x22 px at
+ * ~430,307) lies entirely inside option row 3 (376..732 x 295.6..332), so
+ * the click has no visible part outside a row and the dock must still be
+ * moved. A player answers such a prompt from the dock's rows instead —
+ * board-first when the card is reachable, rows when it is not.)
+ *
  * (The dock also sat above the radial picker and card-menu popovers, which is
  * now fixed at the source: OptionPicker's popovers are z-index 45/46, above
  * the dock's 40. Only the board-badge overlap needs the dock moved.)

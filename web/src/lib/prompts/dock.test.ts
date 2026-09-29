@@ -7,6 +7,8 @@ describe('dock placement from the layout profile', () => {
     expect(dockFromProfile({ placement: 'float', x: 0, y: 1 }, { w: 1000, h: 500 }).placement).toBe('floating');
     expect(dockFromProfile({ placement: 'table', x: 0, y: 0 }, { w: 1000, h: 500 }).placement).toBe('table');
     expect(profilePlacement('table')).toBe('table');
+    expect(dockFromProfile({ placement: 'dock-bottom', x: 0, y: 0 }, { w: 1000, h: 500 }).placement).toBe('rail-bottom');
+    expect(profilePlacement('rail-bottom')).toBe('dock-bottom');
   });
 
   it('round-trips a dragged position through the profile fractions', () => {
@@ -28,10 +30,12 @@ describe('clampPosition', () => {
 });
 
 describe('the near-table placement', () => {
-  it('cycles table -> rail -> floating -> table from the dock toggle', () => {
+  it('cycles through table, both rail docks, and floating from the dock toggle', () => {
     expect(nextPlacement('table')).toBe('rail');
-    expect(nextPlacement('rail')).toBe('floating');
+    expect(nextPlacement('rail')).toBe('rail-bottom');
+    expect(nextPlacement('rail-bottom')).toBe('floating');
     expect(nextPlacement('floating')).toBe('table');
+    expect(nextPlacement('rail')).not.toBe('floating');
   });
 
   it('sits right-aligned just above the action button and grows up to the board top', () => {

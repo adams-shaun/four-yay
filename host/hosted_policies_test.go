@@ -400,6 +400,45 @@ func TestHostedEnvSeatsIgnoreTheRealHiddenCardsSBTactical(t *testing.T) {
 	}, func(s seat.Seat) envSpy { return &envViewSpySeat{inner: s} })
 }
 
+// TestHostedEnvSeatsIgnoreTheRealHiddenCardsSBPlainPolicies covers the three
+// lightweight SpellBench adapters through the host's real Env path. Each
+// decision is priority (their only Env kind), and the honest root is installed
+// as the wrapped builtin planner before it answers.
+func TestHostedEnvSeatsIgnoreTheRealHiddenCardsSBPlainPolicies(t *testing.T) {
+	t.Parallel()
+	for _, policy := range []string{"sb-heuristic", "sb-uniform", "sb-first"} {
+		policy := policy
+		t.Run(policy, func(t *testing.T) {
+			hostedEnvLeakRowSpy(t, policy, func(actor uint64) seat.Seat {
+				s, err := bots.New(policy, bots.Options{Seed: actor, AutoPayMana: true, Deps: sampleBotDeps(t)})
+				if err != nil {
+					t.Fatalf("the %s policy is not linked into this binary: %v", policy, err)
+				}
+				return s
+			}, &leakProbe{target: func(spy1, spy2 envSpy, boundary uint64) uint64 {
+				r1, r2 := spy1.recorded(boundary), spy2.recorded(boundary)
+				if r1 == nil || r2 == nil || r1.engine == nil || r2.engine == nil {
+					return 0
+				}
+				for i, sp := range []envSpy{spy1, spy2} {
+					ad, ok := sp.innerSeat().(interface{ Seat() *builtins.Seat })
+					if !ok {
+						t.Fatalf("%s adapter at slot %d does not expose its wrapped seat", policy, i)
+					}
+					root := r1.engine
+					if i == 1 {
+						root = r2.engine
+					}
+					if ad.Seat().Planner() != root {
+						t.Fatalf("%s slot %d planner is not the Env honest root", policy, i)
+					}
+				}
+				return boundary
+			}}, func(s seat.Seat) envSpy { return &envViewSpySeat{inner: s} })
+		})
+	}
+}
+
 // TestHostedEnvSeatsIgnoreTheRealHiddenCardsSBSearch is the
 // sb-search-lite-atk row of the same property (BP-14, §5.3): the REAL adapter
 // at slot 0, through the REAL host Env path, with the swap fixture applied to
