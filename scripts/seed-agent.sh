@@ -49,7 +49,16 @@ esac
 
 mkdir -p "$STATE" "$MARKERS"
 now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
-say() { printf '[seed %s] %s\n' "$(date -u +%H:%M:%SZ)" "$*"; }
+# The script owns its own log file rather than the unit owning it: systemd does
+# not create the parent of an `append:` target, and that failed the unit before
+# it ever ran (209/STDOUT, 2026-09-29). Here the directory exists by the time
+# anything is written.
+say() {
+	local line
+	line="[seed $(date -u +%H:%M:%SZ)] $*"
+	printf '%s\n' "$line"
+	printf '%s\n' "$line" >>"$STATE/seed.log" 2>/dev/null || true
+}
 
 HEAD_SHA=$(git -C "$TARGET" rev-parse --short HEAD 2>/dev/null || echo unknown)
 SAW=()   # facts, one string each
