@@ -482,6 +482,20 @@ func Project(g *state.Game, ch Chars, viewer state.PlayerID, d *decision.Decisio
 	return ProjectFor(g, ch, viewer, Seat, d)
 }
 
+// ProjectForControlled is ProjectFor with CR 723.4's "also visible" widening:
+// alsoVisible names seats whose hidden information the viewer may read because
+// the viewer currently controls them. A player-controlling effect (CR 723.1)
+// makes "information about an object ... visible to the player being
+// controlled ... visible to both that player and the controller", so the
+// viewer's own hand gate and the face-down face gate admit every seat in the
+// set, and no others. The set is deliberately narrow -- hands and face-down
+// faces only, exactly the CR 723.4 example; it is NOT the spectator
+// Omniscient mode and must not be reused as one. Project and ProjectFor are
+// this function with an empty set.
+func ProjectForControlled(g *state.Game, ch Chars, viewer state.PlayerID, vis Visibility, alsoVisible []state.PlayerID, d *decision.Decision) View {
+	return ProjectForControlledFor(g, ch, viewer, vis, alsoVisible, d)
+}
+
 func copyDecision(d *decision.Decision) *decision.Decision {
 	if d == nil {
 		return nil
@@ -518,8 +532,12 @@ func optionLabelText(label string) string {
 // revealFaceDown is the omniscient projection's face-down reveal flag: it
 // is the same flag cardViews' FaceDown redaction takes, so the two views
 // (a battlefield card and a face-down spell on the stack) cannot disagree
-// about who may look at a face-down card's printed face.
-func project(g *state.Game, ch Chars, viewer state.PlayerID, d *decision.Decision, revealFaceDown bool) View {
+// about who may look at a face-down card's printed face. alsoVisible is the
+// CR 723.4 widening set (see ProjectForControlled): seats whose hidden
+// information the viewer may read because they control them. It is nil for
+// every ordinary projection, so the pre-existing gates are unchanged unless a
+// caller explicitly widens.
+func project(g *state.Game, ch Chars, viewer state.PlayerID, d *decision.Decision, revealFaceDown bool, alsoVisible map[state.PlayerID]bool) View {
 	v := View{Viewer: viewer}
 	if g == nil {
 		return v
@@ -593,12 +611,12 @@ func project(g *state.Game, ch Chars, viewer state.PlayerID, d *decision.Decisio
 			ID: p.ID, Name: displayName(p), Life: p.Life, Lost: p.Lost,
 			LibrarySize:       len(g.Zone(state.ZLibrary, p.ID)),
 			HandSize:          len(g.Zone(state.ZHand, p.ID)),
-			PlanarDeck:        cardViews(g, ch, g.Zone(state.ZPlanarDeck, p.ID), false, p.ID, viewer, false),
+			PlanarDeck:        cardViews(g, ch, g.Zone(state.ZPlanarDeck, p.ID), false, p.ID, viewer, false, alsoVisible),
 			GraveyardSize:     len(g.Zone(state.ZGraveyard, p.ID)),
-			Battlefield:       cardViews(g, ch, g.Zone(state.ZBattlefield, p.ID), true, p.ID, viewer, false),
-			Graveyard:         cardViews(g, ch, g.Zone(state.ZGraveyard, p.ID), false, p.ID, viewer, false),
-			Exile:             cardViews(g, ch, g.Zone(state.ZExile, p.ID), false, p.ID, viewer, false),
-			Command:           cardViews(g, ch, g.Zone(state.ZCommand, p.ID), false, p.ID, viewer, false),
+			Battlefield:       cardViews(g, ch, g.Zone(state.ZBattlefield, p.ID), true, p.ID, viewer, false, alsoVisible),
+			Graveyard:         cardViews(g, ch, g.Zone(state.ZGraveyard, p.ID), false, p.ID, viewer, false, alsoVisible),
+			Exile:             cardViews(g, ch, g.Zone(state.ZExile, p.ID), false, p.ID, viewer, false, alsoVisible),
+			Command:           cardViews(g, ch, g.Zone(state.ZCommand, p.ID), false, p.ID, viewer, false, alsoVisible),
 			Commanders:        roster,
 			CompletedDungeons: p.CompletedDungeons,
 			HasInitiative:     g.IsInitiative(p.ID),
@@ -624,7 +642,7 @@ func project(g *state.Game, ch Chars, viewer state.PlayerID, d *decision.Decisio
 		// the way it degrades every other derived fact.
 		if viewer == p.ID && ch != nil && ch.MayLookAtLibraryTop(p.ID) {
 			if lib := g.Zone(state.ZLibrary, p.ID); len(lib) > 0 {
-				if cvs := cardViews(g, ch, lib[:1], false, p.ID, viewer, false); len(cvs) == 1 {
+				if cvs := cardViews(g, ch, lib[:1], false, p.ID, viewer, false, alsoVisible); len(cvs) == 1 {
 					pv.LibraryTop = &cvs[0]
 				}
 			}
@@ -654,8 +672,8 @@ func project(g *state.Game, ch Chars, viewer state.PlayerID, d *decision.Decisio
 		// names hand as a hidden zone).
 		pv.Pool = poolView(p.Pool)
 		pv.PoolRestrictions = poolRestrictions(g, p.RestrictedMana)
-		if p.ID == viewer {
-			pv.Hand = cardViews(g, ch, g.Zone(state.ZHand, p.ID), true, p.ID, viewer, false)
+		if p.ID == viewer || alsoVisible[p.ID] {
+			pv.Hand = cardViews(g, ch, g.Zone(state.ZHand, p.ID), true, p.ID, viewer, false, alsoVisible)
 		}
 		// PotentialActions is the viewer's own "what could I still do after
 		// tapping out" projection (rules.PotentialActions): the engine's own
@@ -884,7 +902,7 @@ func PhaseOf(s state.Step) string {
 // site -- and an ability object (Card == nil, so Face() == nil too) never
 // legitimately sits in a card zone at all. Both are parked in exile by the
 // engine and are skipped here (Task 4).
-func cardViews(g *state.Game, ch Chars, ids []state.ObjID, includeAbilityCosts bool, abilityPlayer, viewer state.PlayerID, revealFaceDown bool) []CardView {
+func cardViews(g *state.Game, ch Chars, ids []state.ObjID, includeAbilityCosts bool, abilityPlayer, viewer state.PlayerID, revealFaceDown bool, alsoVisible map[state.PlayerID]bool) []CardView {
 	out := make([]CardView, 0, len(ids))
 	for _, id := range ids {
 		o := g.Obj(id)
@@ -921,7 +939,7 @@ func cardViews(g *state.Game, ch Chars, ids []state.ObjID, includeAbilityCosts b
 			}
 			// A face-down planar-deck card is unknown to every seat, including
 			// its owner. Only the face-up current plane is public.
-			if o.Zone == state.ZPlanarDeck || (!revealFaceDown && viewer != looker) {
+			if o.Zone == state.ZPlanarDeck || (!revealFaceDown && viewer != looker && !alsoVisible[looker]) {
 				cv = CardView{ID: id, FaceDown: true, Token: "#" + strconv.FormatUint(uint64(id), 10),
 					Controller: o.Controller, Owner: o.Owner}
 			}
