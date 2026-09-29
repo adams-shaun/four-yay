@@ -34,7 +34,7 @@ func TestEntries(t *testing.T) {
 	// blocks below both move together with the built-in set; update this test
 	// deliberately on the next policy.
 	if len(entries) != 6 {
-		t.Fatalf("Entries() has %d entries, want 5", len(entries))
+		t.Fatalf("Entries() has %d entries, want 6", len(entries))
 	}
 	if entries[0].Name != "bot" || entries[0].Tier != bots.Production {
 		t.Fatalf("production entry is not first: %+v", entries[0])
