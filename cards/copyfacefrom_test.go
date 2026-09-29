@@ -83,10 +83,12 @@ func TestCompileDirResolvesCopyFaceFrom(t *testing.T) {
 	if sa == nil || sa.API != "DealDamage" || sa.Params["NumDmg"] != "3" {
 		t.Fatalf("back spell ability = %+v, want DealDamage NumDmg 3 (the referenced spell's)", sa)
 	}
-	// The referenced name is what Lookup resolves, and the back is reachable
-	// through the same card (the front face wins the name index).
-	if got, ok := r.Lookup("Zap"); !ok || got != host {
-		t.Fatalf("Lookup(Zap) = %v, %v; want the Stub Host card via its resolved back", got, ok)
+	// The referenced name must NOT shadow the real card: the front-name-priority
+	// rebuild (TestResolvedBackFaceDoesNotShadowRealCard) keeps Lookup(Zap)
+	// pointing at the actual Zap script, while the host's own back face still
+	// carries the name for display/CR 722.3c purposes.
+	if got, ok := r.Lookup("Zap"); !ok || got.Path == host.Path {
+		t.Fatalf("Lookup(Zap) = %v, %v; want the real Zap script, not the stub host's resolved back", got, ok)
 	}
 }
 
@@ -110,8 +112,19 @@ func TestCompileDirResolvesBothFacesOfASplitCopy(t *testing.T) {
 	if len(diags) != 0 {
 		t.Fatalf("diags = %+v, want none (both references resolve)", diags)
 	}
-	split, ok := r.Lookup("Zap")
+	split, ok := r.Lookup("Stub Split")
 	if !ok {
+		// The split card's faces are both CopyFaceFrom, so it has no front
+		// name of its own to look up; find it by its first resolved face name
+		// through the registry's Cards slice instead.
+		split = nil
+		for _, c := range r.Cards {
+			if len(c.Faces) == 2 && c.Faces[0].Name == "Zap" && c.Faces[1].Name == "Zing" {
+				split = c
+			}
+		}
+	}
+	if split == nil {
 		t.Fatal("resolved split card missing")
 	}
 	if split.Faces[0].Name != "Zap" || split.Faces[1].Name != "Zing" {
@@ -120,9 +133,51 @@ func TestCompileDirResolvesBothFacesOfASplitCopy(t *testing.T) {
 	if !split.Faces[0].IsInstant() || !split.Faces[1].IsSorcery() {
 		t.Fatalf("split face types = %v / %v, want Instant / Sorcery", split.Faces[0].Types, split.Faces[1].Types)
 	}
+	// The standalone scripts win their own names: a Split half must not
+	// shadow the real card it names.
+	if got, ok := r.Lookup("Zap"); !ok || got == split {
+		t.Fatalf("Lookup(Zap) = %v, %v; want the real Zap script", got, ok)
+	}
+	if got, ok := r.Lookup("Zing"); !ok || got == split {
+		t.Fatalf("Lookup(Zing) = %v, %v; want the real Zing script", got, ok)
+	}
 	cv := r.Coverage(map[string]bool{})
 	if cv.Cards != 3 {
 		t.Errorf("Coverage.Cards = %d, want 3 (the split card now has a named face)", cv.Cards)
+	}
+}
+
+// TestResolvedBackFaceDoesNotShadowRealCard is the regression guard for the
+// name-index change the resolution forced: a Prepare inset face carries the
+// REAL referenced spell's name, and the referring card can sort before the
+// referenced one, so a naive face-order byName rebuild made Lookup("Zap")
+// return the stub host and broke every decklist that names Zap. Front faces
+// must outrank any other card's back face.
+func TestResolvedBackFaceDoesNotShadowRealCard(t *testing.T) {
+	dir := t.TempDir()
+	// a_host sorts before z_zap, so the stub's resolved back is indexed first
+	// unless the rebuild prioritises front names.
+	writeCardFile(t, dir, "a_host.txt",
+		"Name:Stub Host\nManaCost:2 R\nTypes:Creature Wizard\nPT:2/2\nOracle:x\nALTERNATE\nCopyFaceFrom:Zap\n")
+	writeCardFile(t, dir, "z_zap.txt", zapSrc)
+
+	r, _, err := CompileDir(dir)
+	if err != nil {
+		t.Fatalf("CompileDir: %v", err)
+	}
+	host, ok := r.Lookup("Stub Host")
+	if !ok || len(host.Faces) != 2 || host.Faces[1].Name != "Zap" {
+		t.Fatalf("precondition: stub host back must be the resolved Zap, got %v ok=%v", host, ok)
+	}
+	zap, ok := r.Lookup("Zap")
+	if !ok {
+		t.Fatal("Lookup(Zap) missing")
+	}
+	if zap == host {
+		t.Fatalf("Lookup(Zap) returned the stub host %q instead of the real Zap script %q", host.Path, zap.Path)
+	}
+	if zap.Faces[0].Name != "Zap" || zap.Faces[0].SpellAbility() == nil {
+		t.Fatalf("Lookup(Zap) = %q (front %q), want the real Zap script", zap.Path, zap.Faces[0].Name)
 	}
 }
 

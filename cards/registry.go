@@ -90,26 +90,52 @@ func (r *Registry) Lookup(name string) (*Card, bool) {
 	return c, ok
 }
 
-// rebuildNameIndex rebuilds byName from Cards, preserving the first-wins rule
-// Add applies (canonical names before aliases, earlier cards before later).
-// resolveCopyFaces calls it after naming previously-stub faces so Lookup sees
-// the resolved names.
+// rebuildNameIndex rebuilds byName from Cards with natively-named faces taking
+// priority over derived and back faces. A card's identity is its own printed
+// front-face name (Forge names the file "Front // Back" and NormalizeName
+// already folds such a name to the front), so a face whose name came from a
+// CopyFaceFrom directive -- or a back face -- must never shadow the real card
+// that natively prints that name. That matters once CopyFaceFrom resolves: a
+// Prepare inset spell face carries the REAL referenced spell's name
+// ("Lightning Bolt"), a Split card's halves carry standalone cards' names
+// ("Bind", "Liberate"), and the referring card can sort before the referenced
+// one (e/emeritus_of_conflict before l/lightning_bolt), so a plain sorted-order
+// index would make Lookup return the stub and break every decklist naming the
+// real card.
+//
+// Tier 1 is every natively-named front face; tier 2 is every other face
+// (native or derived backs, and CopyFaceFrom-derived fronts, which a Split card
+// has). Within a tier the first card wins, Add's rule; back names are still
+// indexed when no native front claims them, preserving the pre-existing lookup
+// of a transforming or split back face.
 func (r *Registry) rebuildNameIndex() {
 	r.byName = map[string]*Card{}
-	for _, c := range r.Cards {
-		for _, f := range c.Faces {
-			if k := NormalizeName(f.Name); k != "" {
+	index := func(f *Face, c *Card) {
+		if k := NormalizeName(f.Name); k != "" {
+			if _, exists := r.byName[k]; !exists {
+				r.byName[k] = c
+			}
+		}
+		for _, a := range f.Aliases {
+			if k := NormalizeName(a); k != "" {
 				if _, exists := r.byName[k]; !exists {
 					r.byName[k] = c
 				}
 			}
-			for _, a := range f.Aliases {
-				if k := NormalizeName(a); k != "" {
-					if _, exists := r.byName[k]; !exists {
-						r.byName[k] = c
-					}
-				}
+		}
+	}
+	for _, c := range r.Cards {
+		if len(c.Faces) > 0 && c.Faces[0] != nil && c.Faces[0].CopyFaceFrom == "" {
+			index(c.Faces[0], c)
+		}
+	}
+	for _, c := range r.Cards {
+		for i := range c.Faces {
+			f := c.Faces[i]
+			if f == nil || (i == 0 && f.CopyFaceFrom == "") {
+				continue
 			}
+			index(f, c)
 		}
 	}
 }
@@ -167,7 +193,6 @@ func (r *Registry) resolveCopyFaces() {
 		resolveCard(c)
 	}
 	if changed {
-		r.rebuildNameIndex()
 		r.invalidateCatalog()
 	}
 }
@@ -327,6 +352,7 @@ func LoadRegistry(path string) (*Registry, error) {
 	// face already named (a cache saved after resolution) is skipped, so the
 	// pass is idempotent.
 	r.resolveCopyFaces()
+	r.rebuildNameIndex()
 	if cf.Tokens != nil {
 		r.Tokens = cf.Tokens
 		for _, c := range r.Tokens {
@@ -369,6 +395,11 @@ func CompileDir(dir string) (*Registry, []Diag, error) {
 	// diagnostic below runs afterward so a card whose only identity comes from
 	// a resolvable reference is not flagged as a defect.
 	r.resolveCopyFaces()
+	// Rebuild the name index with front faces taking priority over back faces
+	// (see rebuildNameIndex): a resolved CopyFaceFrom inset or a Split half
+	// must not shadow the real card it names. Unconditional, because a decoded
+	// cache may already carry resolved faces.
+	r.rebuildNameIndex()
 	for _, c := range parsed {
 		// A card with no named face parsed without error but carries no
 		// identity — e.g. a script whose only content is a directive the parser
