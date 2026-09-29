@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/adams-shaun/gorge/botpolicy"
+	"github.com/adams-shaun/gorge/bots"
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
@@ -84,6 +85,12 @@ type match struct {
 	winner     *uint8
 	head       string
 	reason     string // crash reason (Task 13)
+	// refusals and fallbacks are BP-06 diagnostics: how many Submits the
+	// engine refused and how many times the fallback rungs ran. They reach
+	// the crash report and the sidecar only; they never feed an event or an
+	// answer, so they cannot change a replay. Guarded by m.mu.
+	refusals  int
+	fallbacks int
 	// undo queues accepted undo requests (Registry.Undo, host/undo.go) for the
 	// play loop. Its size-one signal channel is only a wakeup: undoQueue's
 	// pending count preserves every accepted click, rearming the wakeup after
@@ -275,7 +282,8 @@ func (m *match) sidecar() sidecar {
 		Head: m.head, Events: events, Turns: m.e.G.Turn, Reason: m.reason, Mulligans: m.cfg.Mulligans,
 		NameUniverse:      len(m.cfg.NameUniverse) > 0,
 		NameUniverseNames: append([]string(nil), m.e.G.NameUniverseNames...),
-		Format:            Format(m.cfg.Format), StartingLife: m.cfg.StartingLife, Commanders: m.cfg.Commanders, BotPolicy: m.table.cfg.BotPolicy}
+		Format:            Format(m.cfg.Format), StartingLife: m.cfg.StartingLife, Commanders: m.cfg.Commanders, BotPolicy: m.table.cfg.BotPolicy,
+		Refusals: m.refusals, Fallbacks: m.fallbacks}
 }
 
 // defaultSeats is PL-14: one bot per seat, seeded from the match seed.
@@ -648,25 +656,94 @@ func (r *Registry) play(ctx context.Context, t *table, m *match) (final string) 
 		}
 		var next *parkedDecision
 		var nextData *parkedData
-		err = m.locked(func() error {
-			before = len(m.e.L.Events)
-			if err := m.e.Submit(in); err != nil {
-				return fmt.Errorf("intent %d rejected: %w", n, err)
+		// attempt runs one Submit attempt as its own exclusive section and
+		// reports whether the ENGINE refused it (a submission error) as
+		// opposed to a post-Submit failure (persistence). A refused Submit
+		// leaves the pending decision intact -- refusal is preserve-and-reject
+		// -- so attempt may be called again for the ladder's next rung; a
+		// post-Submit failure is fatal and must crash, never retry.
+		attempt := func(in decision.Intent) (refused bool, err error) {
+			err = m.locked(func() error {
+				before = len(m.e.L.Events)
+				if e := m.e.Submit(in); e != nil {
+					refused = true
+					return e
+				}
+				m.afterSubmit(before)
+				if e := r.afterBurst(t, m, before); e != nil { // Tasks 11, 12
+					return fmt.Errorf("persist: %w", e)
+				}
+				// Still exclusive: project the engine's NEXT decision (nil when the
+				// game just ended) so a focus subscriber, which also projects the live
+				// engine through projectLive's exclusive m.mu, can never run its own
+				// projection concurrently with this one (view.Project/view.ProjectFor
+				// write the Derived cache). The old loop got the same serialization
+				// because its projection immediately preceded this Submit; this keeps
+				// it now that the park happens after the Submit.
+				nextData = projectNext(m, seats, &brd)
+				return nil
+			})
+			return refused, err
+		}
+		refused, err := attempt(in)
+		if err != nil && !refused {
+			return r.crash(t, m, err)
+		}
+		if refused {
+			// BP-06 refusal ladder (spec §5.5). Only a seat that opts in with
+			// bots.RefusalAnswerer gets the ladder; every other seat keeps
+			// today's crash, unchanged.
+			ra, ok := seats[parked.p].(bots.RefusalAnswerer)
+			if !ok {
+				return r.crash(t, m, fmt.Errorf("intent %d rejected: %w", n, err))
 			}
-			m.afterSubmit(before)
-			if err := r.afterBurst(t, m, before); err != nil { // Tasks 11, 12
-				return fmt.Errorf("persist: %w", err)
+			m.mu.Lock()
+			m.refusals++
+			// Re-project the refused decision's View under the lock, exactly as
+			// projectNext would: AnswerRefused runs OUTSIDE it, after this block.
+			// The pending decision is where the seat answered, so its owner is
+			// parked.p's decision. board fills the reusable per-match botpolicy
+			// board the fallback rungs read; it is built under the same lock and
+			// consumed before the next decision refills it.
+			var dc decision.Decision
+			var v view.View
+			if d := m.e.Pending(); d != nil {
+				dc = *d.Clone()
+				v = view.Project(m.e.G, m.e, dc.Player, &dc)
+				v.Round = view.RoundOf(m.e.G, m.e.L.Events)
+				botpolicy.BoardFromGameInto(m.e.G, m.e, dc.Player, &brd)
 			}
-			// Still exclusive: project the engine's NEXT decision (nil when the
-			// game just ended) so a focus subscriber, which also projects the live
-			// engine through projectLive's exclusive m.mu, can never run its own
-			// projection concurrently with this one (view.Project/view.ProjectFor
-			// write the Derived cache). The old loop got the same serialization
-			// because its projection immediately preceded this Submit; this keeps
-			// it now that the park happens after the Submit.
-			nextData = projectNext(m, seats, &brd)
-			return nil
-		})
+			m.mu.Unlock()
+			// Rung 1: the seat's retry, outside the lock.
+			retry := ra.AnswerRefused(v, dc, in)
+			refused, err = attempt(retry)
+			if err != nil && !refused {
+				return r.crash(t, m, err)
+			}
+			if refused {
+				// Rung 2: the shared fallbacks, in order, each its own
+				// attempt. The first rung to submit wins. Their intents carry
+				// dc's Seq/Player, so each is Submit-ready.
+				m.mu.Lock()
+				m.fallbacks++
+				m.mu.Unlock()
+				lastErr := err
+				for _, fb := range bots.Fallbacks(&dc, brd, int(parked.p)) {
+					refused, err = attempt(fb)
+					if err != nil && !refused {
+						return r.crash(t, m, err)
+					}
+					if !refused {
+						break
+					}
+					lastErr = err
+				}
+				if refused {
+					// Rung 3: every rung refused, crash with the last error, as today.
+					return r.crash(t, m, fmt.Errorf("intent %d rejected: %w", n, lastErr))
+				}
+			}
+		}
 		if err != nil {
 			return r.crash(t, m, err)
 		}
