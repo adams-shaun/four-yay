@@ -370,7 +370,7 @@ def rank_candidates(path: Path, s: dict) -> list[dict]:
             continue
         try:
             c = json.loads(line)
-            if c.get("status") in ("queued", "done", "rejected"):
+            if c.get("status") in ("queued", "done", "rejected", "stale"):
                 continue
             axis = str(c.get("axis", ""))
             est_delta = float(c.get("est_delta", 0) or 0)

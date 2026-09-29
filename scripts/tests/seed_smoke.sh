@@ -220,5 +220,25 @@ printf '[policy]\nhold_new_while_parked = false\n' >"$TARGET/.agentctl/config.to
 grep -q 'NOT holding new work' "$TMP/cycle9.log"
 check "hold_new_while_parked=false does not hold new work" $? "$(tail -4 "$TMP/cycle9.log")"
 
+# --- 9. a candidate the generators no longer produce is retired, not filed
+# Inject a candidate whose id no generator will emit; the next cycle must mark
+# it stale and must not file it.
+printf '%s\n' '{"id":"flow-mergefix-rate-99","axis":"flow","title":"stale: rate is 99%","body":"# stale\n\n## Done means\n\nnothing\n","est_delta":99,"est_cost":0.1,"evidence":"old","status":"open"}' \
+	>>"$GORGE_REWARD_DIR/candidates.jsonl"
+rm -rf "$GORGE_REWARD_DIR/markers"
+before=$(wc -l <"$STUB/filed.txt")
+"$ROOT/scripts/seed-agent.sh" --no-probe --cap 2 >"$TMP/cycle10.log" 2>&1
+grep -q 'retired as stale' "$TMP/cycle10.log"
+check "the cycle reports retiring stale candidates" $? "$(grep 'candidate backlog' "$TMP/cycle10.log")"
+python3 -c "
+import json,sys
+rows=[json.loads(l) for l in open('$GORGE_REWARD_DIR/candidates.jsonl') if l.strip()]
+c=[r for r in rows if r['id']=='flow-mergefix-rate-99']
+assert c and c[0]['status']=='stale', c
+" 2>"$TMP/stale.err"
+check "the stale candidate is marked stale" $? "$(cat "$TMP/stale.err")"
+! grep -q 'stale: rate is 99' "$STUB/filed.txt"
+check "the stale candidate was never filed" $? "$(cat "$STUB/filed.txt" | tr '\n' '|')"
+
 printf '\n%s failure(s)\n' "$fails"
 [ "$fails" = 0 ]
