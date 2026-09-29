@@ -4,6 +4,9 @@ import type { CardView, Decision, Option, PlayerView, SeatInfo, StackView, View 
 import { SeatPanelState } from '../../lib/seatpanel.svelte';
 import PromptDock from './PromptDock.svelte';
 import SeatPanel from '../SeatPanel.svelte';
+import { layoutStore } from '../../lib/layouts.svelte';
+import { defaultProfile } from '../../lib/layoutprofile';
+import { LAYOUTS_KEY, loadLibrary } from '../../lib/layoutlibrary';
 
 // SSR via svelte/server (the repo's component-test pattern): onMount and
 // $effect never run, nothing reaches the network.
@@ -81,6 +84,38 @@ describe('PromptDock', () => {
     expect(body).toContain('Sacrifice a creature: Add B');
     expect(body).not.toMatch(/data-option="2"[^]*?mana-symbols/);
     expect(body).not.toMatch(/data-option="3"[^]*?mana-symbols/);
+  });
+
+  it('mounts a payment in the rail even with a persisted near-table preference', () => {
+    const old = layoutStore.lib;
+    const p = defaultProfile();
+    p.panels.prompt.placement = 'table';
+    delete (p.panels as { railWidth?: number }).railWidth;
+    const persisted = { version: 1, current: p, profiles: {}, order: [], active: null };
+    const loaded = loadLibrary({ getItem: (key: string) => key === LAYOUTS_KEY ? JSON.stringify(persisted) : null } as Storage);
+    const payment = {
+      seq: 20, player: 0, kind: 'choose', prompt: 'Pay mana', min: 1, max: 1,
+      options: [opt(0, 'mana', 'Add U', { obj: 10 })],
+      mana_payment: { card: 7, cost: { generic: 0, mana: [0, 1, 0, 0, 0, 0] }, owed: { generic: 0, mana: [0, 1, 0, 0, 0, 0] }, pool: [0, 0, 0, 0, 0, 0], autofill: [] },
+    } as Decision;
+    try {
+      layoutStore.lib = loaded;
+      expect(layoutStore.prompt.placement).toBe('table');
+      const { body } = render(PromptDock, { props: { view: view(payment), logic: seatState(payment), seat: 0 } });
+      expect(body).toContain('data-renderer="payment"'); // precondition: this is the mana window
+      expect(body).toContain('data-placement="rail"');
+      expect(body).toMatch(/class="mp-ability[^"]*"[^>]*>[\s\S]*?class="pip p-u/); // circular mana option is still reachable
+    } finally {
+      layoutStore.lib = old;
+    }
+  });
+
+  it('renders as a bottom-rail dock when selected', () => {
+    expect('rail-bottom').not.toBe('rail');
+    const logic = seatState(target);
+    const { body } = render(PromptDock, { props: { view: view(target), logic, seat: 0, placement: 'rail-bottom' } });
+    expect(body).toContain('data-placement="rail-bottom"');
+    expect(body).toContain('Float the prompt over the board');
   });
 
   it('floats with a grip when placed floating', () => {
