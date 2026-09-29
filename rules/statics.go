@@ -3735,7 +3735,34 @@ func init() {
 		// and skips exempt permanents before grouping; the static's
 		// ValidCard$/Condition$ are matched through the shared static walk).
 		// Proof test: rules/ignorelegendrule_test.go.
-		"stat:IgnoreLegendRule")
+		"stat:IgnoreLegendRule",
+		// TapPowerValue: the Station/Crew/Saddle value static, read by the
+		// ONE value helper Engine.tapPowerValue (rules/statics.go) through
+		// tapPowerValueStatics/activeStatics("TapPowerValue"). Proof tests:
+		// rules/tappowervalue_test.go (TestTapPowerValueStationMechanism),
+		// rules/tappowervalue_crew_test.go,
+		// rules/setaudit_eoe_test.go
+		// (TestSetAudit_eoe_TapestryWarden_StationUsesToughness).
+		"stat:TapPowerValue",
+		// CantExile: the CR 701.13 exile restriction, read by
+		// Engine.exileBlocked's face-static branch
+		// (rules/layers.go activeStatics("CantExile")); the Effect-
+		// registered continuous branch is effects/misc.go's effEffect
+		// case. Proof tests: rules/master_multiplied_restriction_test.go,
+		// rules/master_multiplied_exile_test.go.
+		"stat:CantExile",
+		// WitherDamage: CR 702.79's static that makes all damage wither
+		// (Everlasting Torment), read by Engine.witherDamageStaticActive
+		// (rules/wither.go activeStatics("WitherDamage")) and consumed by
+		// convertWitherDamage. Proof test:
+		// rules/witherdamage_static_test.go.
+		"stat:WitherDamage",
+		// Activations: the per-turn activation-count ceiling, read by
+		// Engine.additionalActivationLimit (rules/legal.go
+		// activeStatics("Activations")) and consumed by
+		// activationLimitBlocked. Proof test:
+		// rules/additional_activations_test.go.
+		"stat:Activations")
 	// kw:MustBlock -- CR 509.1a, the ATTACKER's requirement "CARDNAME must be
 	// blocked if able.", read by hasMustBeBlockedKeyword (derivedHiddenFlags /
 	// parseHiddenKeyword in this file) and enforced by rules/combat.go
