@@ -7,6 +7,7 @@ import { transitionLine } from '../clientmodel/log';
 import { diffViews } from '../clientmodel/snapshotdiff';
 import type { ClientModelSource, ModelListener, PendingDecision, Transition } from '../clientmodel/types';
 import { applyPatch, PatchError } from './patch';
+import { compatPass, loadCompat, nothingToDo } from './compat';
 import { AnswerError, bindPrompt, undoMessage, type PromptBinding } from './prompt';
 import { projectView, rememberCards } from './project';
 import { httpTransport, MbError, streamURL, type MbStream, type Transport } from './transport';
@@ -38,6 +39,8 @@ interface RingEntry { seq: number; view: View }
 interface Deps {
   transport: Transport;
   fetchMatches: (t: string) => Promise<MatchInfo[]>;
+  /** The compat auto-pass (compat.ts); read from the setting when not given. */
+  compat: boolean;
 }
 
 export class ManaBrewMatch implements ClientModelSource, SeatTransport {
@@ -68,9 +71,11 @@ export class ManaBrewMatch implements ClientModelSource, SeatTransport {
   private ring: RingEntry[] = [];
   private seq = 0;
   private closed = false;
+  /** How many prompts the compat rule answered with a pass (diagnostics). */
+  autoPassed = 0;
 
   constructor(readonly table: string, readonly seat: SeatCtx, deps: Partial<Deps> = {}) {
-    this.deps = { transport: deps.transport ?? httpTransport, fetchMatches: deps.fetchMatches ?? fetchMatches };
+    this.deps = { transport: deps.transport ?? httpTransport, fetchMatches: deps.fetchMatches ?? fetchMatches, compat: deps.compat ?? loadCompat() };
   }
 
   /** The seat context the panel answers through: this adapter is its transport. */
@@ -219,13 +224,25 @@ export class ManaBrewMatch implements ClientModelSource, SeatTransport {
   }
 
   private acceptPrompt(p: AgentPrompt) {
-    if (p.promptId < this.lastPromptId) {
+    const rewound = p.promptId < this.lastPromptId;
+    if (rewound) {
       // A restored, lower-seq ask: an undo landed. The board's history
       // stays in the ring; the panel re-bases its seq fences.
       this.onRewind?.();
       this.model.emit({ type: 'reset' });
     }
     this.lastPromptId = p.promptId;
+    // Compat: a priority ask with nothing to do but make mana is passed
+    // unseen, as ManaBrew's own engine never poses one. A rewound ask (an
+    // undo) is always shown, so the undo lands where the player can see it.
+    if (this.deps.compat && !rewound && nothingToDo(p)) {
+      this.autoPassed += 1;
+      if (this.binding !== null) this.withdraw();
+      this.sendMsg(compatPass(p)).catch(() => {
+        // sendMsg already put the failure on the notice banner.
+      });
+      return;
+    }
     this.binding = bindPrompt(p, { view: this.live });
     if (this.live === null) return;
     this.live = this.decorate(this.live);

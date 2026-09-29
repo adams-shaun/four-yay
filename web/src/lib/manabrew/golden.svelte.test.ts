@@ -60,7 +60,7 @@ describe('the server golden transcript through ManaBrewMatch', () => {
         return { close: () => {} };
       },
     };
-    const m = new ManaBrewMatch('t1', { seat: 0, token: 'x' }, { transport, fetchMatches: async () => [{ table: 't1', match: 1, seed: 1, seats: [], state: 'live', winner: null, events: 1, turns: 1, bot_policy: '' }] });
+    const m = new ManaBrewMatch('t1', { seat: 0, token: 'x' }, { transport, fetchMatches: async () => [{ table: 't1', match: 1, seed: 1, seats: [], state: 'live', winner: null, events: 1, turns: 1, bot_policy: '' }], compat: false }); // every prompt must bind, so no compat auto-pass
     const events: ModelEvent[] = [];
     m.onModel((e) => events.push(e));
     expect(await m.start()).toEqual({ ok: true });

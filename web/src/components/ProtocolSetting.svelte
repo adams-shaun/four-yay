@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { PROTOCOLS, activeWire, loadProtocol, saveProtocol, type WireProtocol } from '../lib/manabrew/pref';
+  import { loadCompat, saveCompat } from '../lib/manabrew/compat';
 
   // The client-side "Protocol" setting (ManaBrew adapter plan): which wire a
   // seated table plays over. It is read when a table loads, so inside a
@@ -8,9 +9,15 @@
   // the live game's wire underneath the seat panel.
   const active = activeWire.current;
   let chosen = $state<WireProtocol>('native');
+  let compat = $state(true);
   onMount(() => {
     chosen = loadProtocol();
+    compat = loadCompat();
   });
+  function setCompat(on: boolean) {
+    compat = on;
+    saveCompat(on);
+  }
   function choose(p: WireProtocol) {
     chosen = p;
     saveProtocol(p);
@@ -24,6 +31,12 @@
       <button type="button" role="radio" class="seg" class:on={chosen === p.value} aria-checked={chosen === p.value} data-protocol={p.value} onclick={() => choose(p.value)}>{p.label}</button>
     {/each}
   </div>
+  {#if chosen === 'manabrew'}
+    <label class="compat" title="ManaBrew's own engine never gives you priority when all you could do is make mana; this passes those for you. Applies when a table loads.">
+      <input type="checkbox" data-mb-compat checked={compat} onchange={(e) => setCompat(e.currentTarget.checked)} />
+      Auto-pass when all I could do is make mana
+    </label>
+  {/if}
   {#if active !== null && active !== chosen}
     <p class="note">This table is playing over {active === 'manabrew' ? 'ManaBrew' : 'Native'}. <button type="button" class="link" data-protocol-reconnect onclick={() => location.reload()}>Reconnect now</button></p>
   {:else}
@@ -61,6 +74,13 @@
   .seg.on {
     background: var(--offered);
     color: var(--felt-sunk);
+  }
+  .compat {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-1);
+    color: var(--ink-inst);
+    cursor: pointer;
   }
   .note {
     margin: 0;
