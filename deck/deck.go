@@ -114,6 +114,71 @@ type Entry struct {
 	Count int    `json:"count"`
 }
 
+// ManifestRow is one canonical card-name/count pair in an own-deck manifest.
+type ManifestRow struct {
+	Name  string `json:"name"`
+	Count int    `json:"count"`
+}
+
+// Manifest is the immutable, unordered genesis list assigned to one seat.
+// Call Clone before publishing or retaining it outside its owner.
+type Manifest struct {
+	Name       string        `json:"name"`
+	Main       []ManifestRow `json:"main"`
+	Sideboard  []ManifestRow `json:"sideboard,omitempty"`
+	Commanders []string      `json:"commanders,omitempty"`
+}
+
+// NewManifest canonicalizes the configured card lists without retaining their
+// slices. Commander identities preserve the declared index order.
+func NewManifest(name string, main, sideboard []*cards.Card, commanderIndices []int) Manifest {
+	m := Manifest{Name: name, Main: manifestRows(main)}
+	if len(sideboard) > 0 {
+		m.Sideboard = manifestRows(sideboard)
+	}
+	for _, index := range commanderIndices {
+		if index >= 0 && index < len(main) && main[index] != nil && len(main[index].Faces) > 0 {
+			m.Commanders = append(m.Commanders, main[index].Faces[0].Name)
+		}
+	}
+	return m
+}
+
+// Clone returns a manifest with independently-owned slices.
+func (m Manifest) Clone() Manifest {
+	m.Main = append([]ManifestRow{}, m.Main...)
+	if len(m.Sideboard) > 0 {
+		m.Sideboard = append([]ManifestRow{}, m.Sideboard...)
+	} else {
+		m.Sideboard = nil
+	}
+	if len(m.Commanders) > 0 {
+		m.Commanders = append([]string{}, m.Commanders...)
+	} else {
+		m.Commanders = nil
+	}
+	return m
+}
+
+func manifestRows(cardsIn []*cards.Card) []ManifestRow {
+	counts := make(map[string]int)
+	for _, c := range cardsIn {
+		if c != nil && len(c.Faces) > 0 && c.Faces[0].Name != "" {
+			counts[c.Faces[0].Name]++
+		}
+	}
+	names := make([]string, 0, len(counts))
+	for name := range counts {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	rows := make([]ManifestRow, 0, len(names))
+	for _, name := range names {
+		rows = append(rows, ManifestRow{Name: name, Count: counts[name]})
+	}
+	return rows
+}
+
 // commanderOraclePhrase is the only way the pinned corpus marks a card that
 // may be a commander despite not being a legendary creature: it appears as
 // prose in the Oracle text, never as a structured field or type. This is

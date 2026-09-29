@@ -3,10 +3,22 @@ package rules
 import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/deck"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
+
+func cloneDeckManifests(in []deck.Manifest) []deck.Manifest {
+	if in == nil {
+		return nil
+	}
+	out := make([]deck.Manifest, len(in))
+	for i := range in {
+		out[i] = in[i].Clone()
+	}
+	return out
+}
 
 func cloneTurnStartTurns(in [][]int32) [][]int32 {
 	if in == nil {
@@ -72,6 +84,7 @@ func (e *Engine) CloneInto(sp *Spare) *Engine {
 func (e *Engine) cloneWith(sp Spare) *Engine {
 	c := &Engine{
 		G:               e.G.CloneInto(sp.objs),
+		deckManifests:   cloneDeckManifests(e.deckManifests),
 		L:               e.L.CloneInto(sp.events, sp.intents),
 		compiledText:    e.compiledText,
 		landTypeWords:   e.landTypeWords,

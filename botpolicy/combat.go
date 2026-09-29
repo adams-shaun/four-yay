@@ -7,6 +7,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/deck"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -179,6 +180,13 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 			}
 		}
 		b.Stack = append(b.Stack, StackEntry{ID: id, Controller: o.Controller, IsSpell: o.Ability == nil, CMC: cmc, ManaCost: manaCost})
+	}
+	if manifests, ok := ch.(interface {
+		OwnDeck(state.PlayerID) *deck.Manifest
+	}); ok {
+		b.OwnDeck = manifests.OwnDeck(me)
+	} else {
+		b.OwnDeck = nil
 	}
 	b.IsMain = g.Step.IsMain()
 	// The cast scorer's two board-half features (cast.go): FirstMain is the

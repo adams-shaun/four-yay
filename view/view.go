@@ -20,6 +20,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/deck"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -84,7 +85,8 @@ type Chars interface {
 // whatever is theirs alone (their hand, their mana pool, a decision asked of
 // them).
 type View struct {
-	Viewer state.PlayerID `json:"viewer"`
+	Viewer  state.PlayerID `json:"viewer"`
+	OwnDeck *deck.Manifest `json:"own_deck,omitempty"`
 	// Visibility names which rule set built this view: "seat", "public" or
 	// "omniscient" (see Visibility).
 	Visibility string `json:"visibility"`

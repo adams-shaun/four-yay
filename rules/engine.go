@@ -127,6 +127,7 @@ type counterAddedThisTurn struct {
 
 type Engine struct {
 	G                *state.Game
+	deckManifests    []deck.Manifest
 	endTurnRequested bool
 	L                *events.Log
 	compiledText     *compiledText
@@ -2315,6 +2316,7 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 	}
 	e := &Engine{
 		G:                 state.NewGameInto(cfg.Names, life, initialObjects, spare.objs),
+		deckManifests:     make([]deck.Manifest, len(cfg.Names)),
 		L:                 events.NewLogInto(cfg.Seed, spare.events),
 		format:            cfg.Format,
 		rng:               random,
@@ -2328,6 +2330,20 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 		// The per-turn ManaExpend tally (rules/cast.go) starts empty; payCast
 		// stamps and resets it lazily on e.G.Turn.
 		manaExpended: make([]int32, len(cfg.Names)),
+	}
+	for i, name := range cfg.Names {
+		var main, sideboard []*cards.Card
+		if i < len(cfg.Decks) {
+			main = cfg.Decks[i]
+		}
+		if i < len(cfg.Sideboards) {
+			sideboard = cfg.Sideboards[i]
+		}
+		var commanders []int
+		if i < len(cfg.Commanders) {
+			commanders = cfg.Commanders[i]
+		}
+		e.deckManifests[i] = deck.NewManifest(name, main, sideboard, commanders)
 	}
 	// The rest of a Spare: the memo tables start empty over the cleared
 	// arrays (derivedMemoizedAt only reslices up into zeroed capacity), and
@@ -3498,6 +3514,16 @@ func cloneDamageSourceLKI(in map[state.ObjID]effects.DamageSourceLKI) map[state.
 }
 
 func (e *Engine) Pending() *decision.Decision { return e.pending }
+
+// OwnDeck returns a detached copy of p's genesis deck manifest, or nil when p
+// is not a configured seat. The manifest is observer data, not game state.
+func (e *Engine) OwnDeck(p state.PlayerID) *deck.Manifest {
+	if e == nil || int(p) >= len(e.deckManifests) {
+		return nil
+	}
+	m := e.deckManifests[p].Clone()
+	return &m
+}
 
 // EnsurePaymentActions lazily builds the payment extension for the current
 // priority decision. It is a pure derived read: it emits no event and does
