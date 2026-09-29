@@ -88,6 +88,11 @@ func (e *Engine) mayPlayLandIds(p state.PlayerID) []state.ObjID {
 	var out []state.ObjID
 	var seen []offered
 	limited := lazyMayPlays{e: e, p: p}
+	w := mayPlayIndexWalk{e: e}
+	// The walk's card test, shared by the indexed and scanned enumeration
+	// arms below (mayplay_index.go): a faceless object and a non-land are
+	// both refused, exactly as the nested scan's per-card gate did.
+	landKeep := func(o *state.Object) bool { return o.Face() != nil && o.Face().IsLand() }
 	for _, ce := range e.active() {
 		if !ce.MayPlay || ce.Controller != p {
 			continue
@@ -102,48 +107,26 @@ func (e *Engine) mayPlayLandIds(p state.PlayerID) []state.ObjID {
 		if !ok && !all {
 			continue
 		}
-		consider := func(z state.Zone) {
-			if z != state.ZGraveyard && z != state.ZExile {
-				return
-			}
-			// Exile and graveyard are public zones keyed by the card's OWNER,
-			// and a grant's cards can sit in another seat's slice (Opposition
-			// Agent exiles a card from an OPPONENT's searching library, then
-			// lets its controller play it), so every seat's slice is walked in
-			// deterministic seat order -- the same shape mayPlaySpellIds'
-			// walk already is. The Affects match decides ownership claims;
-			// walking the slices only enumerates candidates.
-			for _, q := range e.G.AliveFrom(0) {
-				for _, id := range e.G.Zone(z, q) {
-					o := e.G.Obj(id)
-					if o == nil || o.Face() == nil || !o.Face().IsLand() {
-						continue
-					}
-					if !e.effectGrantMatches(ce, id) {
-						continue
-					}
-					dup := false
-					for _, s := range seen {
-						if s.zone == z && s.id == id {
-							dup = true
-							break
-						}
-					}
-					if dup {
-						continue
-					}
-					seen = append(seen, offered{z, id})
-					out = append(out, id)
+		// Exile and graveyard are public zones keyed by the card's OWNER,
+		// and a grant's cards can sit in another seat's slice (Opposition
+		// Agent exiles a card from an OPPONENT's searching library, then
+		// lets its controller play it), so every seat's slice is walked in
+		// deterministic seat order -- the same shape mayPlaySpellIds'
+		// walk already is. The Affects match decides ownership claims;
+		// walking the slices only enumerates candidates.
+		for _, pr := range w.pairs(&ce, mayPlayWalkZones(zones, all), false, landKeep) {
+			dup := false
+			for _, s := range seen {
+				if s.zone == pr.zone && s.id == pr.id {
+					dup = true
+					break
 				}
 			}
-		}
-		if all {
-			consider(state.ZGraveyard)
-			consider(state.ZExile)
-		} else {
-			for _, z := range zones {
-				consider(z)
+			if dup {
+				continue
 			}
+			seen = append(seen, offered{pr.zone, pr.id})
+			out = append(out, pr.id)
 		}
 	}
 	// kw-mayplay: the card's OWN static (or a battlefield static naming it)
@@ -405,6 +388,11 @@ func (e *Engine) mayPlaySpellIds(p state.PlayerID) []mayPlaySpellOffer {
 			addCard(state.ZLibrary, lib[0])
 		}
 	}
+	w := mayPlayIndexWalk{e: e}
+	// The walk's card test, shared by the indexed and scanned enumeration
+	// arms below (mayplay_index.go): a faceless object and a land are both
+	// refused, exactly as the nested scan's per-card gate did.
+	spellKeep := func(o *state.Object) bool { return o.Face() != nil && !o.Face().IsLand() }
 	for _, ce := range e.active() {
 		if !ce.MayPlay || ce.Controller != p {
 			continue
@@ -425,27 +413,8 @@ func (e *Engine) mayPlaySpellIds(p state.PlayerID) []mayPlaySpellOffer {
 		// play it), so every seat's slice is walked in deterministic seat
 		// order -- never a map. The Affects match decides ownership claims;
 		// walking the slices only enumerates candidates.
-		for _, q := range e.G.AliveFrom(0) {
-			for _, z := range func() []state.Zone {
-				if all {
-					return []state.Zone{state.ZGraveyard, state.ZExile}
-				}
-				return zones
-			}() {
-				if z != state.ZGraveyard && z != state.ZExile {
-					continue
-				}
-				for _, id := range e.G.Zone(z, q) {
-					o := e.G.Obj(id)
-					if o == nil || o.Face() == nil || o.Face().IsLand() {
-						continue
-					}
-					if !e.effectGrantMatches(ce, id) {
-						continue
-					}
-					consider(z, id, "")
-				}
-			}
+		for _, pr := range w.pairs(&ce, mayPlayWalkZones(zones, all), true, spellKeep) {
+			consider(pr.zone, pr.id, "")
 		}
 	}
 	return out
