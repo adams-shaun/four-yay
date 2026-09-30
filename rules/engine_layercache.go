@@ -1,10 +1,11 @@
 package rules
 
-// engineLayerCaches groups the Engine's layer memoisation and arena-scan caches that a clone deliberately leaves zero. It is embedded by value in
+// engineLayerCaches groups the Engine's layer memoisation and arena-scan
+// caches that a clone deliberately leaves zero. It is embedded by value in
 // Engine (rules/engine_struct.go), so every field keeps its documented
 // contract comment and every existing e.<field> access keeps compiling
-// unchanged through Go's field promotion. Clone's per-field copy
-// classes (rules/clone.go) are unchanged by the move.
+// unchanged through Go's field promotion. Clone's per-field copy classes
+// (rules/clone.go) are unchanged by the move.
 type engineLayerCaches struct {
 	// ascend is checkBlessingGrants' incremental "could anything carry
 	// Ascend" arena scan (rules/ascend.go); a pure cache, zero = rescan.

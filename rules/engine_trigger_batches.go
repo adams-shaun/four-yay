@@ -5,11 +5,12 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// engineTriggerBatches groups the Engine's trigger-fire latches, simultaneous batch windows and zone-skip caches. It is embedded by value in
-// Engine (rules/engine_struct.go), so every field keeps its documented
+// engineTriggerBatches groups the Engine's trigger-fire latches,
+// simultaneous batch windows and zone-skip caches. It is embedded by value
+// in Engine (rules/engine_struct.go), so every field keeps its documented
 // contract comment and every existing e.<field> access keeps compiling
-// unchanged through Go's field promotion. Clone's per-field copy
-// classes (rules/clone.go) are unchanged by the move.
+// unchanged through Go's field promotion. Clone's per-field copy classes
+// (rules/clone.go) are unchanged by the move.
 type engineTriggerBatches struct {
 	// triggerFireCount and the damage-batch fields below are trigger_match.go's
 	// own bookkeeping (the cascade bound and the DamageDealtOnce/DamageDoneOnce

@@ -5,11 +5,12 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// engineParked groups the Engine's parked continuation windows (suspended casts, mana activations, commander zone, replacement choices). It is embedded by value in
-// Engine (rules/engine_struct.go), so every field keeps its documented
-// contract comment and every existing e.<field> access keeps compiling
-// unchanged through Go's field promotion. Clone's per-field copy
-// classes (rules/clone.go) are unchanged by the move.
+// engineParked groups the Engine's parked continuation windows (suspended
+// casts, mana activations, commander zone, replacement choices). It is
+// embedded by value in Engine (rules/engine_struct.go), so every field
+// keeps its documented contract comment and every existing e.<field>
+// access keeps compiling unchanged through Go's field promotion. Clone's
+// per-field copy classes (rules/clone.go) are unchanged by the move.
 type engineParked struct {
 	// suspendedCasts is the mandatory "cast it if able" trigger created when
 	// a real suspended card loses its final TIME counter. IDs are appended in

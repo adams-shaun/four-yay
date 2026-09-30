@@ -7,10 +7,11 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// engineResolution groups the Engine's in-flight resolution context, its LKI/answer-cursor maps and the replacement windows. It is embedded by value in
-// Engine (rules/engine_struct.go), so every field keeps its documented
-// contract comment and every existing e.<field> access keeps compiling
-// unchanged through Go's field promotion. Clone's per-field copy
+// engineResolution groups the Engine's in-flight resolution context, its
+// LKI/answer-cursor maps and the replacement windows. It is embedded by
+// value in Engine (rules/engine_struct.go), so every field keeps its
+// documented contract comment and every existing e.<field> access keeps
+// compiling unchanged through Go's field promotion. Clone's per-field copy
 // classes (rules/clone.go) are unchanged by the move.
 type engineResolution struct {
 	// fusedResolving is the target slice of the fused half whose resolution is

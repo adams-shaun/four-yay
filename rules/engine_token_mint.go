@@ -4,11 +4,12 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// engineTokenMint groups the Engine's parked-mint and token-emission collectors. It is embedded by value in
-// Engine (rules/engine_struct.go), so every field keeps its documented
-// contract comment and every existing e.<field> access keeps compiling
-// unchanged through Go's field promotion. Clone's per-field copy
-// classes (rules/clone.go) are unchanged by the move.
+// engineTokenMint groups the Engine's parked-mint and token-emission
+// collectors. It is embedded by value in Engine (rules/engine_struct.go),
+// so every field keeps its documented contract comment and every existing
+// e.<field> access keeps compiling unchanged through Go's field promotion.
+// Clone's per-field copy classes (rules/clone.go) are unchanged by the
+// move.
 type engineTokenMint struct {
 	// tokenMintSink, when non-nil, collects every object the TokenCreate or
 	// CardToken event currently being emitted actually created

@@ -1,10 +1,11 @@
 package rules
 
-// engineDrain groups the Engine's trigger-drain queue cursor and the replacement re-entrancy guards. It is embedded by value in
-// Engine (rules/engine_struct.go), so every field keeps its documented
-// contract comment and every existing e.<field> access keeps compiling
-// unchanged through Go's field promotion. Clone's per-field copy
-// classes (rules/clone.go) are unchanged by the move.
+// engineDrain groups the Engine's trigger-drain queue cursor and the
+// replacement re-entrancy guards. It is embedded by value in Engine
+// (rules/engine_struct.go), so every field keeps its documented contract
+// comment and every existing e.<field> access keeps compiling unchanged
+// through Go's field promotion. Clone's per-field copy classes
+// (rules/clone.go) are unchanged by the move.
 type engineDrain struct {
 	// pendingTriggers holds matched triggers not yet placed on the stack.
 	// checkTriggers appends; putTriggersOnStack drains. Task 20 (trigger.go).

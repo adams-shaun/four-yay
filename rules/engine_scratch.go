@@ -8,11 +8,12 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// engineScratch groups the Engine's per-walk and per-emit scratch state that a clone deliberately leaves zero. It is embedded by value in
-// Engine (rules/engine_struct.go), so every field keeps its documented
-// contract comment and every existing e.<field> access keeps compiling
-// unchanged through Go's field promotion. Clone's per-field copy
-// classes (rules/clone.go) are unchanged by the move.
+// engineScratch groups the Engine's per-walk and per-emit scratch state
+// that a clone deliberately leaves zero. It is embedded by value in Engine
+// (rules/engine_struct.go), so every field keeps its documented contract
+// comment and every existing e.<field> access keeps compiling unchanged
+// through Go's field promotion. Clone's per-field copy classes
+// (rules/clone.go) are unchanged by the move.
 type engineScratch struct {
 	// derivedKW / derivedTypes are Derived's scratch keyword and type buffers
 	// (rules/layers.go): the full Derived(struct) build rewrites them in place

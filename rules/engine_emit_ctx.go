@@ -4,11 +4,11 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// engineEmitCtx groups the Engine's synchronous emit context. It is embedded by value in
-// Engine (rules/engine_struct.go), so every field keeps its documented
-// contract comment and every existing e.<field> access keeps compiling
-// unchanged through Go's field promotion. Clone's per-field copy
-// classes (rules/clone.go) are unchanged by the move.
+// engineEmitCtx groups the Engine's synchronous emit context. It is
+// embedded by value in Engine (rules/engine_struct.go), so every field
+// keeps its documented contract comment and every existing e.<field>
+// access keeps compiling unchanged through Go's field promotion. Clone's
+// per-field copy classes (rules/clone.go) are unchanged by the move.
 type engineEmitCtx struct {
 	// costProvenanceSeen is the transient capture of the last cost-modifier
 	// pass (castprov3): true when that pass evaluated a cost static whose

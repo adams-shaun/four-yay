@@ -4,11 +4,12 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// engineRounds groups the Engine's the genesis, pregame and combat-continuation round state. It is embedded by value in
-// Engine (rules/engine_struct.go), so every field keeps its documented
-// contract comment and every existing e.<field> access keeps compiling
-// unchanged through Go's field promotion. Clone's per-field copy
-// classes (rules/clone.go) are unchanged by the move.
+// engineRounds groups the Engine's genesis, pregame and
+// combat-continuation round state. It is embedded by value in Engine
+// (rules/engine_struct.go), so every field keeps its documented contract
+// comment and every existing e.<field> access keeps compiling unchanged
+// through Go's field promotion. Clone's per-field copy classes
+// (rules/clone.go) are unchanged by the move.
 type engineRounds struct {
 	// pregame is true while the London mulligan round runs, between the
 	// opening deal and turn 1. startPostDealSetup sets it when

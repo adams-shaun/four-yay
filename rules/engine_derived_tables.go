@@ -5,11 +5,12 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// engineDerivedTables groups the Engine's the layer-3 rename and layer-4 derived-type tables and their keys. It is embedded by value in
-// Engine (rules/engine_struct.go), so every field keeps its documented
-// contract comment and every existing e.<field> access keeps compiling
-// unchanged through Go's field promotion. Clone's per-field copy
-// classes (rules/clone.go) are unchanged by the move.
+// engineDerivedTables groups the Engine's layer-3 rename and layer-4
+// derived-type tables and their keys. It is embedded by value in Engine
+// (rules/engine_struct.go), so every field keeps its documented contract
+// comment and every existing e.<field> access keeps compiling unchanged
+// through Go's field promotion. Clone's per-field copy classes
+// (rules/clone.go) are unchanged by the move.
 type engineDerivedTables struct {
 	// name filters read through SpecContext.EffectiveNames. It is refreshed
 	// after each emitted event, under active()'s own (epoch, version) key,

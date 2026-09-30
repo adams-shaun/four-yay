@@ -4,11 +4,11 @@ import (
 	"github.com/adams-shaun/gorge/effects"
 )
 
-// engineTurnLedger groups the Engine's per-turn ledger state. It is embedded by value in
-// Engine (rules/engine_struct.go), so every field keeps its documented
-// contract comment and every existing e.<field> access keeps compiling
-// unchanged through Go's field promotion. Clone's per-field copy
-// classes (rules/clone.go) are unchanged by the move.
+// engineTurnLedger groups the Engine's per-turn ledger state. It is
+// embedded by value in Engine (rules/engine_struct.go), so every field
+// keeps its documented contract comment and every existing e.<field>
+// access keeps compiling unchanged through Go's field promotion. Clone's
+// per-field copy classes (rules/clone.go) are unchanged by the move.
 type engineTurnLedger struct {
 	// turnsTaken caches the TurnChange census used by Count$TurnsThisGame.
 	// turnsTakenEpoch is the log length represented by the cache; emit advances
