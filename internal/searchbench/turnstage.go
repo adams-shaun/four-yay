@@ -12,15 +12,24 @@ import (
 // StageActions inserts the source row's land/cast actions at the next legal
 // priority windows for actor. Other asks are bridged by the redacted fallback;
 // Bridges is therefore a fidelity measurement, not a hidden default.
+// ActionObserver receives an owned native root immediately before a recorded
+// action is applied. It may retain the engine clone for search; mutations to
+// it cannot affect reconstruction.
+type ActionObserver func(root *rules.Engine, d *decision.Decision, recorded decision.Intent) error
+
 func StageActions(e *rules.Engine, bots [2]*seat.Bot, actor state.PlayerID, a ResolvedActions) (bridges int, err error) {
+	return stageActions(e, bots, actor, a, nil)
+}
+
+func stageActions(e *rules.Engine, bots [2]*seat.Bot, actor state.PlayerID, a ResolvedActions, observe ActionObserver) (bridges int, err error) {
 	for i, card := range a.Lands {
-		if bridges, err = stageOne(e, bots, actor, "Play ", card, bridges); err != nil {
+		if bridges, err = stageOne(e, bots, actor, "Play ", card, bridges, observe); err != nil {
 			return bridges, fmt.Errorf("land %d: %w", i, err)
 		}
 	}
 	for kind, cards := range [][]string{a.Creatures, a.NonCreatures, a.Instants} {
 		for i, card := range cards {
-			if bridges, err = stageOne(e, bots, actor, "Cast ", card, bridges); err != nil {
+			if bridges, err = stageOne(e, bots, actor, "Cast ", card, bridges, observe); err != nil {
 				return bridges, fmt.Errorf("cast group %d card %d: %w", kind, i, err)
 			}
 		}
@@ -32,6 +41,20 @@ func StageActions(e *rules.Engine, bots [2]*seat.Bot, actor state.PlayerID, a Re
 // order. It is intentionally strict about every named action; its caller can
 // retain only roots whose preceding history reaches the required fidelity.
 func StageGame(e *rules.Engine, bots [2]*seat.Bot, g ResolvedReplayGame) (bridges int, err error) {
+	return stageGame(e, bots, g, nil)
+}
+
+// StageGameObserve is StageGame with root capture for each recorded card
+// action. It leaves the source engine only with source actions and explicit
+// bridges; the observer sees a detached clone before each action.
+func StageGameObserve(e *rules.Engine, bots [2]*seat.Bot, g ResolvedReplayGame, observe ActionObserver) (bridges int, err error) {
+	if observe == nil {
+		return 0, fmt.Errorf("searchbench: nil action observer")
+	}
+	return stageGame(e, bots, g, observe)
+}
+
+func stageGame(e *rules.Engine, bots [2]*seat.Bot, g ResolvedReplayGame, observe ActionObserver) (bridges int, err error) {
 	for _, turn := range g.Turns {
 		order := []struct {
 			actor state.PlayerID
@@ -43,7 +66,7 @@ func StageGame(e *rules.Engine, bots [2]*seat.Bot, g ResolvedReplayGame) (bridge
 		}
 		for _, side := range order {
 			var n int
-			if n, err = StageActions(e, bots, side.actor, side.a); err != nil {
+			if n, err = stageActions(e, bots, side.actor, side.a, observe); err != nil {
 				return bridges + n, fmt.Errorf("turn %d %s: %w", turn.Number, side.name, err)
 			}
 			bridges += n
@@ -52,7 +75,7 @@ func StageGame(e *rules.Engine, bots [2]*seat.Bot, g ResolvedReplayGame) (bridge
 	return bridges, nil
 }
 
-func stageOne(e *rules.Engine, bots [2]*seat.Bot, actor state.PlayerID, verb, card string, bridges int) (int, error) {
+func stageOne(e *rules.Engine, bots [2]*seat.Bot, actor state.PlayerID, verb, card string, bridges int, observe ActionObserver) (int, error) {
 	lastUnavailable := ""
 	for steps := 0; steps < 128; steps++ {
 		if err := e.AdvanceHypothetical(); err != nil {
@@ -65,10 +88,20 @@ func stageOne(e *rules.Engine, bots [2]*seat.Bot, actor state.PlayerID, verb, ca
 		if d.Player == actor && d.Kind == decision.KPriority {
 			in, err := NamedOption(d, verb, card)
 			if err == nil {
+				if observe != nil {
+					if err := observe(e.Clone(), d.Clone(), decision.CloneIntent(in)); err != nil {
+						return bridges, err
+					}
+				}
 				return bridges, e.SubmitHypothetical(in)
 			}
 			if verb == "Cast " {
 				if in, paymentErr := NamedPayment(e, d, card); paymentErr == nil {
+					if observe != nil {
+						if err := observe(e.Clone(), d.Clone(), decision.CloneIntent(in)); err != nil {
+							return bridges, err
+						}
+					}
 					return bridges, e.SubmitHypothetical(in)
 				}
 			}
