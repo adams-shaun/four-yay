@@ -272,7 +272,13 @@ function renderCompare() {
   const runs = allRuns().filter(r => r.rounds.some(d => d.eval));
   if (!compareSel) {
     const exps = snap.experiments.slice().sort((a, b) => maxMod(b) - maxMod(a));
-    compareSel = new Set(exps.length ? exps[0].runs.map(r => r.id) : []);
+    // Default to the most recently modified experiment that actually charts:
+    // selecting one whose runs all fail the eval filter above left the panel
+    // empty behind data (2026-09-30 traindash re-scope). If no experiment has
+    // an eval round, select every eval-bearing run (there are none, so the
+    // set is empty and the panel still says "Select arms above.").
+    const first = exps.find(e => e.runs.some(r => runs.includes(r)));
+    compareSel = new Set(first ? first.runs.filter(r => runs.includes(r)).map(r => r.id) : runs.map(r => r.id));
   }
   let h = '<section class="panel"><h2>Eval win rate by round</h2><div class="picker">';
   for (const e of snap.experiments) {
