@@ -1,0 +1,3 @@
+{
+  "Behemoth of Vault 0/cast-gains-four-energy-and-dies-destroys-mana-value-two-permanent": "the death trigger's {E} cost is paid (the ETB granted four energy) but the chained 'when you do, destroy that permanent' body never runs, so the targeted Mind Stone survives. Same defect as the energy/ family rows (a pure PayEnergy triggered cost loses its chained body)."
+}

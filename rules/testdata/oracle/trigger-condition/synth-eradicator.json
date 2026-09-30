@@ -6,41 +6,142 @@
   "scenarios": [
     {
       "name": "declining-the-energy-may-play-the-exiled-card",
-      "cr": ["603.2", "701.17a", "118.2d"],
+      "cr": [
+        "603.2",
+        "701.17a",
+        "118.2d"
+      ],
       "why": "Attacking exiles the top card of the library; declining the two energy keeps the Lightning Bolt in exile with permission to play it this turn, so casting it deals 3 damage to the defending player.",
       "setup": {
-        "p0": {"battlefield": ["Synth Eradicator"], "library_top": ["Lightning Bolt"]},
+        "p0": {
+          "battlefield": [
+            "Synth Eradicator"
+          ],
+          "library_top": [
+            "Lightning Bolt"
+          ]
+        },
         "p1": {}
       },
       "steps": [
-        {"op": "attack", "seat": 0, "attackers": ["p0:Synth Eradicator"], "defender": "p1"},
-        {"op": "resolve", "answers": [{"kind": "choose", "pick": ["no"]}]},
-        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
-        {"op": "resolve"}
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Synth Eradicator"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "no"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Lightning Bolt",
+          "mana": "R",
+          "targets": [
+            "p1"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
       ],
       "expect": [
-        {"card": "p0:Lightning Bolt", "zone": "graveyard"},
-        {"life": {"p1": 17}}
+        {
+          "card": "p0:Lightning Bolt",
+          "zone": "graveyard"
+        },
+        {
+          "life": {
+            "p1": 17
+          }
+        }
       ]
     },
     {
       "name": "taken-energy-pays-the-tap-shock",
-      "cr": ["603.2", "118.2d", "602.2a"],
+      "cr": [
+        "603.2",
+        "118.2d",
+        "602.2a"
+      ],
       "why": "Accepting the two energy counters and casting an artifact (Dr. Madison Li's trigger) reaches three energy, which pays the '{T}, Pay {E}{E}{E}' shock for 3 damage.",
       "setup": {
-        "p0": {"battlefield": ["Synth Eradicator", "Dr. Madison Li"], "hand": ["Bonesplitter"]},
+        "p0": {
+          "battlefield": [
+            "Synth Eradicator",
+            "Dr. Madison Li"
+          ],
+          "hand": [
+            "Bonesplitter"
+          ]
+        },
         "p1": {}
       },
       "steps": [
-        {"op": "attack", "seat": 0, "attackers": ["p0:Synth Eradicator"], "defender": "p1"},
-        {"op": "resolve", "answers": [{"kind": "choose", "pick": ["yes"]}]},
-        {"op": "cast", "seat": 0, "card": "p0:Bonesplitter", "mana": "C"},
-        {"op": "resolve"},
-        {"op": "activate", "seat": 0, "card": "p0:Synth Eradicator", "ability": "deals 3 damage", "targets": ["p1"]},
-        {"op": "resolve"}
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Synth Eradicator"
+          ],
+          "defender": "p1",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "yes"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "pass_to",
+          "seat": 0,
+          "step": "main2",
+          "active": "p0"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Bonesplitter",
+          "mana": "C"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Synth Eradicator",
+          "ability": "deals 3 damage",
+          "targets": [
+            "p1"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
       ],
       "expect": [
-        {"life": {"p1": 17}}
+        {
+          "life": {
+            "p1": 17
+          }
+        }
       ]
     }
   ]

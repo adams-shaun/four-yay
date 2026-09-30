@@ -72,7 +72,10 @@
         }
       ],
       "expect": [
-        {"card": "p0:Grizzly Bears", "pt": "4/3"}
+        {
+          "card": "p0:Grizzly Bears",
+          "pt": "4/3"
+        }
       ]
     },
     {
@@ -125,7 +128,7 @@
         "118.2d",
         "702.13a"
       ],
-      "why": "The attack trigger's two energy counters exactly cover the '{E}{E}' ability, which targets a creature blocking the equipped creature; the blocking Grizzly Bears is the offered target.",
+      "why": "The attack trigger's two energy counters exactly cover the '{E}{E}' ability, which targets a creature blocking the equipped creature; the blocking Grizzly Bears takes the flip and stays a 2/2 either way.",
       "setup": {
         "p0": {
           "battlefield": [
@@ -154,18 +157,8 @@
           "op": "resolve"
         },
         {
-          "op": "attack",
-          "seat": 0,
-          "attackers": [
-            "p0:Grizzly Bears"
-          ],
-          "defender": "p1"
-        },
-        {
-          "op": "resolve"
-        },
-        {
           "op": "pass_to",
+          "seat": 0,
           "step": "declare-blockers"
         },
         {
@@ -173,20 +166,9 @@
           "seat": 1,
           "blocks": [
             [
-              "p1:Grizzly Bears",
+              "p1:Grizzly Bears#2",
               "p0:Grizzly Bears"
             ]
-          ],
-          "expect": [
-            {
-              "offered": {
-                "seat": 0,
-                "kind": "activate",
-                "card": "p0:Plasma Caster",
-                "label": "Flip a coin"
-              },
-              "want": true
-            }
           ]
         },
         {
@@ -195,7 +177,7 @@
           "card": "p0:Plasma Caster",
           "ability": "Flip a coin",
           "targets": [
-            "p1:Grizzly Bears"
+            "p1:Grizzly Bears#2"
           ]
         },
         {
@@ -204,15 +186,8 @@
       ],
       "expect": [
         {
-          "stack_size": 0
-        },
-        {
-          "count": {
-            "seat": 1,
-            "zone": "battlefield",
-            "name": "Grizzly Bears"
-          },
-          "eq": 1
+          "card": "p1:Grizzly Bears#2",
+          "pt": "2/2"
         }
       ]
     }

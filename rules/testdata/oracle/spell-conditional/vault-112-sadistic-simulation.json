@@ -25,7 +25,10 @@
         "p1": {}
       },
       "steps": [
-        {"op": "cast", "seat": 0, "card": "p0:Vault 112: Sadistic Simulation",
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Vault 112: Sadistic Simulation",
           "mana": "CCUR"
         },
         {
@@ -74,7 +77,8 @@
         {
           "op": "pass_to",
           "step": "draw",
-          "active": "p0"
+          "active": "p0",
+          "seat": 0
         },
         {
           "op": "resolve"
@@ -82,7 +86,8 @@
         {
           "op": "pass_to",
           "step": "draw",
-          "active": "p0"
+          "active": "p0",
+          "seat": 0
         },
         {
           "op": "activate",

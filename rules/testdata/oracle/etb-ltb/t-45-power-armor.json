@@ -38,7 +38,7 @@
         {"op": "resolve"},
         {"op": "attack", "seat": 0, "attackers": ["p0:Grizzly Bears"], "defender": "p1"},
         {"op": "pass_to", "step": "upkeep", "active": "p0"},
-        {"op": "resolve", "answers": [{"kind": "choose", "pick": ["Pay 2 energy"]}, {"kind": "choose", "pick": ["Trample"]}]}
+        {"op": "resolve", "answers": [{"kind": "choose", "pick": ["Pay 1 energy"]}, {"kind": "choose", "pick": ["Trample"]}]}
       ],
       "expect": [
         {"card": "p0:Grizzly Bears", "tapped": false, "counters": {"trample": 1}}
