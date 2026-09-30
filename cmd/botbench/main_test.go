@@ -762,9 +762,14 @@ func TestConstructedDefaultIsByteIdentical(t *testing.T) {
 	// Measured on the fix merged with main at a58faab6c: reverting ONLY the
 	// fix's effects/registry.go, effects/targets_ask.go, effects/zone.go and
 	// rules/stack.go restores 5/15; with them the split is 6/14.
-	const wantSeat0, wantSeat1 = 6, 14
+	// The Boros Moxite Burn Moxfield import (Pauper burn) sorts before
+	// cavalry-charge, so the sorted default pair becomes
+	// avengers-assemble:boros-moxite-burn, which measures 7/13. Removing only
+	// the deck fixture restores 6/14, attributing the movement to adding the
+	// deck to the default pool.
+	const wantSeat0, wantSeat1 = 7, 13
 	if seat0, seat1 := atoi(m[8]), atoi(m[9]); seat0 != wantSeat0 || seat1 != wantSeat1 {
-		t.Errorf("constructed default split = %d/%d, want %d/%d after Winter Soldier's remembered-target entry counter (%s vs %s at seed 0, games 20)", seat0, seat1, wantSeat0, wantSeat1, testutil.RepoDeckNames()[0], testutil.RepoDeckNames()[1])
+		t.Errorf("constructed default split = %d/%d, want %d/%d after the Boros Moxite Burn deck import (%s vs %s at seed 0, games 20)", seat0, seat1, wantSeat0, wantSeat1, testutil.RepoDeckNames()[0], testutil.RepoDeckNames()[1])
 	}
 	if strings.Contains(buf.String(), "STALLED") {
 		t.Errorf("constructed default (no stalls) must not print a stall line")
