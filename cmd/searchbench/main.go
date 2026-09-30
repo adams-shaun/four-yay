@@ -12,6 +12,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/internal/azmcts"
 	"github.com/adams-shaun/gorge/internal/searchbench"
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/seat"
@@ -61,11 +62,14 @@ func run(args []string, out io.Writer) error {
 	if args[0] == "source" && args[1] == "root-verify" {
 		return rootVerify(args[2:], out)
 	}
+	if args[0] == "source" && args[1] == "root-run" {
+		return rootRun(args[2:], out)
+	}
 	return usage()
 }
 
 func usage() error {
-	return fmt.Errorf("usage: searchbench manifest validate -in <manifest.json>\n       searchbench analyze -manifest <manifest.json> -results <results.jsonl>\n       searchbench source audit -in <17lands.csv[.gz]>\n       searchbench source candidates -in <17lands.csv[.gz]>\n       searchbench source replay-audit -in <17lands.csv[.gz]>\n       searchbench source resolution-audit -in <17lands.csv[.gz]> -cards <cards.csv>\n       searchbench source corpus-audit -in <17lands.csv[.gz]> -corpus <.cards>\n       searchbench source genesis-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source stage-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source root-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source root-verify -roots <roots.jsonl> -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>")
+	return fmt.Errorf("usage: searchbench manifest validate -in <manifest.json>\n       searchbench analyze -manifest <manifest.json> -results <results.jsonl>\n       searchbench source audit -in <17lands.csv[.gz]>\n       searchbench source candidates -in <17lands.csv[.gz]>\n       searchbench source replay-audit -in <17lands.csv[.gz]>\n       searchbench source resolution-audit -in <17lands.csv[.gz]> -cards <cards.csv>\n       searchbench source corpus-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source genesis-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source stage-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source root-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source root-verify -roots <roots.jsonl> -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source root-run -roots <roots.jsonl> -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards> -arm <clairvoyant-mcts|pimc-1|pimc-4|is-mcts>")
 }
 
 func validate(args []string, out io.Writer) error {
@@ -504,4 +508,97 @@ func rootVerify(args []string, out io.Writer) error {
 	}
 	_, err = fmt.Fprintf(out, "verified=%d sampled_worlds=%d indexed=%d\n", n, n*(*worlds), len(roots))
 	return err
+}
+
+// rootRun is the native four-arm search driver over independently verified
+// roots. Its JSONL is intentionally diagnostic-only for now: manifest sealing
+// remains the scoring boundary, so this command cannot accidentally present a
+// partial replay population as the published benchmark result.
+func rootRun(args []string, out io.Writer) error {
+	fs := flag.NewFlagSet("searchbench source root-run", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	in := fs.String("in", "", "17lands FDN replay CSV")
+	cardsPath := fs.String("cards", "", "17lands cards CSV")
+	corpus := fs.String("corpus", ".cards", "compiled Forge corpus")
+	rootsPath := fs.String("roots", "", "root JSONL index")
+	armText := fs.String("arm", "", "clairvoyant-mcts, pimc-1, pimc-4, or is-mcts")
+	limit := fs.Int("limit", 1, "roots to run")
+	sims := fs.Int("sims", 100, "simulations per root")
+	seed := fs.Uint64("seed", 1, "search policy seed")
+	if err := fs.Parse(args); err != nil || *in == "" || *cardsPath == "" || *rootsPath == "" || *limit < 1 || *sims < 1 || *seed == 0 || fs.NArg() != 0 {
+		return usage()
+	}
+	arm := searchbench.SearchArm(*armText)
+	if arm != searchbench.ArmClairvoyant && arm != searchbench.ArmPIMC1 && arm != searchbench.ArmPIMC4 && arm != searchbench.ArmISMCTS {
+		return fmt.Errorf("searchbench: unknown root-run arm %q", *armText)
+	}
+	reg, err := cards.OpenCorpus(*corpus)
+	if err != nil {
+		return err
+	}
+	names, err := searchbench.LoadCardNames(*cardsPath)
+	if err != nil {
+		return err
+	}
+	games, err := searchbench.ReplayGamesCSV(*in, searchbench.DefaultSourceFilter())
+	if err != nil {
+		return err
+	}
+	byID := make(map[string]searchbench.ReplayGame, len(games))
+	for _, game := range games {
+		byID[game.ID] = game
+	}
+	roots, err := searchbench.ReadRootRecords(*rootsPath)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(out)
+	n := *limit
+	if n > len(roots) {
+		n = len(roots)
+	}
+	for i := 0; i < n; i++ {
+		game, ok := byID[roots[i].GameID]
+		if !ok {
+			return fmt.Errorf("searchbench: root %d source game %q absent", i, roots[i].GameID)
+		}
+		root, err := searchbench.ReplayRoot(reg, names, game, roots[i])
+		if err != nil {
+			return fmt.Errorf("searchbench: root %d: %w", i, err)
+		}
+		worldCount := 1
+		if arm == searchbench.ArmPIMC4 || arm == searchbench.ArmISMCTS {
+			worldCount = 4
+		}
+		worlds := make([]searchbench.ReplayedRoot, 0, worldCount)
+		for w := 0; w < worldCount; w++ {
+			world, err := searchbench.ReplayRootWorld(reg, names, game, roots[i], uint64(i+1)<<32|uint64(w+1))
+			if err != nil {
+				return fmt.Errorf("searchbench: root %d world %d: %w", i, w, err)
+			}
+			if err := searchbench.ValidateRootWorld(roots[i], world); err != nil {
+				return fmt.Errorf("searchbench: root %d world %d: %w", i, w, err)
+			}
+			worlds = append(worlds, world)
+		}
+		opts := azmcts.DefaultOptions()
+		opts.Sims = *sims
+		result, err := searchbench.RunNativeSearch(root, worlds, arm, opts, *seed+uint64(i))
+		if err != nil {
+			return fmt.Errorf("searchbench: root %d %s: %w", i, arm, err)
+		}
+		if err := enc.Encode(struct {
+			GameID    string                `json:"game_id"`
+			Ordinal   int                   `json:"ordinal"`
+			Arm       searchbench.SearchArm `json:"arm"`
+			Choice    int                   `json:"choice"`
+			Intent    decision.Intent       `json:"intent"`
+			Sims      int                   `json:"sims"`
+			Completed int                   `json:"completed"`
+			Skipped   int                   `json:"skipped"`
+		}{roots[i].GameID, roots[i].Ordinal, arm, result.Choice, result.Intent, result.Stats.Simulations, result.Stats.Completed, result.Stats.Skipped}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
