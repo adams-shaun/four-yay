@@ -1,6 +1,7 @@
 package cards
 
 import (
+	"bufio"
 	"bytes"
 	"compress/flate"
 	"compress/gzip"
@@ -11,10 +12,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
-	"sync/atomic"
 )
 
 // The subset loader.
@@ -31,10 +32,9 @@ import (
 // message, all encoded by ONE encoder after a type prelude (the encoding of
 // an empty Card, which sends every type descriptor the Card tree needs), so
 // any card decodes from prelude+segment alone. It also holds every token in
-// one segment and the whole corpus's tiered name index (nameIndexOf) as
-// sorted (name, card ordinal) pairs. Decoded segments go through the same
-// finishDecoded pipeline LoadRegistry runs, so a subset card is the value the
-// full registry would hold.
+// one segment and the whole corpus's tiered name index (nameIndexOf). Decoded
+// segments go through the same finishDecoded pipeline LoadRegistry runs, so
+// a subset card is the value the full registry would hold.
 //
 // Why segments and not the alternatives (same measurement):
 //   - a streaming decode that skips unwanted cards still pays the gunzip
@@ -43,35 +43,37 @@ import (
 //   - lazy compilation from the .txt scripts (24 ms for the 172 FDN cards)
 //     needs a name->path index all the same, and would build cards by the
 //     parse route rather than the cache route every golden test runs on;
-//   - segments: 11 ms to decode the 172 FDN cards, and the values are
-//     bit-for-bit the ones the cache holds.
+//   - segments: the 172 FDN cards decode in 2 ms / 1.0 MB, and the values
+//     are bit-for-bit the ones the cache holds. A whole FDN subset open
+//     (index, cards, all tokens, finishDecoded) is ~9 ms / 7 MB allocated.
 
 // SegmentPath is the segment file that sits beside the gob cache at cache.
 func SegmentPath(cache string) string {
 	return strings.TrimSuffix(cache, ".gob.gz") + ".seg"
 }
 
+// Segment file layout (all integers little-endian):
+//
+//	header  magic "gorgeseg" | cacheVersion u32 | segVersion u32 |
+//	        nCards u32 | nNames u32 | preludeLen u32 | tokensLen u32 |
+//	        tokensOff u64 | cardBase u64 | tailOff u64        (segHeaderLen)
+//	prelude raw gob type prelude (the encoding of an empty Card)
+//	cards   card i's flate-compressed gob value message at
+//	        [cardBase+end(i-1), cardBase+end(i))
+//	tokens  one flate-compressed gob stream of segTokens
+//	tail    cardEnds [nCards]u32 | nameEnds [nNames]u32 | ords [nNames]u32 |
+//	        names blob
+//
+// The tail is read with ONE ReadAt into one buffer and used in place: the
+// name index (the whole corpus's tiered index, nameIndexOf, as sorted
+// normalised names concatenated in the blob, nameEnds[i] the end of name i
+// and ords[i] its card's ordinal) is searched without decoding it, so opening
+// a subset allocates the tail once instead of a string per corpus name.
 const (
-	segMagic   = "gorgeseg"
-	segVersion = 1
-	// segHeaderLen is magic(8) | cacheVersion u32 | segVersion u32 |
-	// indexOff u64 | indexLen u64.
-	segHeaderLen = 32
+	segMagic     = "gorgeseg"
+	segVersion   = 2
+	segHeaderLen = 56
 )
-
-type segSpan struct{ Off, Len int64 }
-
-// segIndex is the gob-encoded table at the end of a segment file.
-type segIndex struct {
-	Prelude segSpan   // raw (uncompressed) type prelude
-	Cards   []segSpan // flate-compressed value message per card, corpus order
-	Tokens  segSpan   // flate-compressed independent gob stream of segTokens
-	// Names are the normalised names of the whole corpus's tiered name index
-	// (the index LoadRegistry builds), sorted; Ords[i] is the ordinal in
-	// Cards of the card Names[i] resolves to.
-	Names []string
-	Ords  []int32
-}
 
 type segTokens struct {
 	Keys  []string
@@ -94,16 +96,15 @@ func writeSegments(path string, cs []*Card, tokens map[string]*Card) error {
 	if err := f.Chmod(0o644); err != nil {
 		return fail(err)
 	}
-	var idx segIndex
+	w := bufio.NewWriterSize(f, 1<<16)
 	off := int64(segHeaderLen)
-	if _, err := f.Write(make([]byte, segHeaderLen)); err != nil {
+	if _, err := w.Write(make([]byte, segHeaderLen)); err != nil {
 		return fail(err)
 	}
-	put := func(b []byte) (segSpan, error) {
-		sp := segSpan{Off: off, Len: int64(len(b))}
-		_, err := f.Write(b)
+	put := func(b []byte) error {
+		_, err := w.Write(b)
 		off += int64(len(b))
-		return sp, err
+		return err
 	}
 	var vb, zb bytes.Buffer
 	zw, err := flate.NewWriter(&zb, flate.BestSpeed)
@@ -125,16 +126,18 @@ func writeSegments(path string, cs []*Card, tokens map[string]*Card) error {
 	if err := enc.Encode(&Card{}); err != nil {
 		return fail(err)
 	}
-	if idx.Prelude, err = put(vb.Bytes()); err != nil {
+	preludeLen := vb.Len()
+	if err := put(vb.Bytes()); err != nil {
 		return fail(err)
 	}
-	ords := make(map[*Card]int32, len(cs))
-	idx.Cards = make([]segSpan, len(cs))
+	cardBase := off
+	ords := make(map[*Card]uint32, len(cs))
+	cardEnds := make([]byte, 0, 4*len(cs))
 	for i, c := range cs {
 		if c == nil {
 			return fail(fmt.Errorf("cards: segment file: nil card at %d", i))
 		}
-		ords[c] = int32(i)
+		ords[c] = uint32(i)
 		vb.Reset()
 		if err := enc.Encode(c); err != nil {
 			return fail(err)
@@ -143,9 +146,10 @@ func writeSegments(path string, cs []*Card, tokens map[string]*Card) error {
 		if err != nil {
 			return fail(err)
 		}
-		if idx.Cards[i], err = put(z); err != nil {
+		if err := put(z); err != nil {
 			return fail(err)
 		}
+		cardEnds = binary.LittleEndian.AppendUint32(cardEnds, uint32(off-cardBase))
 	}
 	var st segTokens
 	for k := range tokens {
@@ -163,32 +167,39 @@ func writeSegments(path string, cs []*Card, tokens map[string]*Card) error {
 	if err != nil {
 		return fail(err)
 	}
-	if idx.Tokens, err = put(z); err != nil {
+	tokensOff, tokensLen := off, len(z)
+	if err := put(z); err != nil {
 		return fail(err)
 	}
 	byName := nameIndexOf(cs)
+	names := make([]string, 0, len(byName))
 	for k := range byName {
-		idx.Names = append(idx.Names, k)
+		names = append(names, k)
 	}
-	sort.Strings(idx.Names)
-	idx.Ords = make([]int32, len(idx.Names))
-	for i, k := range idx.Names {
-		idx.Ords[i] = ords[byName[k]]
+	sort.Strings(names)
+	tailOff := off
+	var nameEnds, nameOrds, blob []byte
+	for _, k := range names {
+		blob = append(blob, k...)
+		nameEnds = binary.LittleEndian.AppendUint32(nameEnds, uint32(len(blob)))
+		nameOrds = binary.LittleEndian.AppendUint32(nameOrds, ords[byName[k]])
 	}
-	vb.Reset()
-	if err := gob.NewEncoder(&vb).Encode(idx); err != nil {
+	for _, b := range [][]byte{cardEnds, nameEnds, nameOrds, blob} {
+		if err := put(b); err != nil {
+			return fail(err)
+		}
+	}
+	if err := w.Flush(); err != nil {
 		return fail(err)
 	}
-	indexOff := off
-	if _, err := put(vb.Bytes()); err != nil {
-		return fail(err)
+	hdr := make([]byte, 0, segHeaderLen)
+	hdr = append(hdr, segMagic...)
+	for _, v := range []uint32{cacheVersion, segVersion, uint32(len(cs)), uint32(len(names)), uint32(preludeLen), uint32(tokensLen)} {
+		hdr = binary.LittleEndian.AppendUint32(hdr, v)
 	}
-	hdr := make([]byte, segHeaderLen)
-	copy(hdr, segMagic)
-	binary.LittleEndian.PutUint32(hdr[8:], cacheVersion)
-	binary.LittleEndian.PutUint32(hdr[12:], segVersion)
-	binary.LittleEndian.PutUint64(hdr[16:], uint64(indexOff))
-	binary.LittleEndian.PutUint64(hdr[24:], uint64(off-indexOff))
+	for _, v := range []int64{tokensOff, cardBase, tailOff} {
+		hdr = binary.LittleEndian.AppendUint64(hdr, uint64(v))
+	}
 	if _, err := f.WriteAt(hdr, 0); err != nil {
 		return fail(err)
 	}
@@ -205,83 +216,198 @@ func writeSegments(path string, cs []*Card, tokens map[string]*Card) error {
 
 var errSegFormat = errors.New("cards: segment file has a different format or cache version")
 
-func readSegIndex(f *os.File) (*segIndex, []byte, error) {
-	hdr := make([]byte, segHeaderLen)
-	if _, err := f.ReadAt(hdr, 0); err != nil {
-		return nil, nil, err
-	}
-	if string(hdr[:8]) != segMagic || binary.LittleEndian.Uint32(hdr[8:]) != cacheVersion ||
-		binary.LittleEndian.Uint32(hdr[12:]) != segVersion {
-		return nil, nil, errSegFormat
-	}
-	ioff, il := int64(binary.LittleEndian.Uint64(hdr[16:])), int64(binary.LittleEndian.Uint64(hdr[24:]))
-	raw := make([]byte, il)
-	if _, err := f.ReadAt(raw, ioff); err != nil {
-		return nil, nil, err
-	}
-	var idx segIndex
-	if err := gob.NewDecoder(bytes.NewReader(raw)).Decode(&idx); err != nil {
-		return nil, nil, err
-	}
-	if len(idx.Names) != len(idx.Ords) {
-		return nil, nil, errSegFormat
-	}
-	prelude := make([]byte, idx.Prelude.Len)
-	if _, err := f.ReadAt(prelude, idx.Prelude.Off); err != nil {
-		return nil, nil, err
-	}
-	return &idx, prelude, nil
+// segFile is an open segment file: its header fields, the prelude and the
+// tail (card ends, name index), each read once and used in place.
+type segFile struct {
+	f                  *os.File
+	nCards, nNames     int
+	prelude            []byte
+	tokensOff          int64
+	tokensLen          int64
+	cardBase           int64
+	cardEnds           []byte // [nCards]u32
+	nameEnds, nameOrds []byte // [nNames]u32
+	blob               []byte
 }
 
-// inflateSpan reads span sp of f and appends its decompressed bytes to dst.
-func inflateSpan(f *os.File, sp segSpan, zr io.ReadCloser, dst *bytes.Buffer) error {
-	z := make([]byte, sp.Len)
-	if _, err := f.ReadAt(z, sp.Off); err != nil {
-		return err
+func openSegFile(path string) (*segFile, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
 	}
-	if err := zr.(flate.Resetter).Reset(bytes.NewReader(z), nil); err != nil {
-		return err
+	sf, err := readSegFile(f)
+	if err != nil {
+		f.Close()
+		return nil, err
 	}
-	_, err := io.Copy(dst, zr)
-	return err
+	return sf, nil
 }
 
-// decodeCards decodes the raw (cache-shaped) cards at ords, in that order.
-func decodeCards(f *os.File, idx *segIndex, prelude []byte, ords []int32) ([]*Card, error) {
-	var stream bytes.Buffer
-	stream.Write(prelude)
-	zr := flate.NewReader(bytes.NewReader(nil))
-	for _, o := range ords {
-		if o < 0 || int(o) >= len(idx.Cards) {
+func readSegFile(f *os.File) (*segFile, error) {
+	var hdr [segHeaderLen]byte
+	if _, err := f.ReadAt(hdr[:], 0); err != nil {
+		return nil, err
+	}
+	le := binary.LittleEndian
+	if string(hdr[:8]) != segMagic || le.Uint32(hdr[8:]) != cacheVersion || le.Uint32(hdr[12:]) != segVersion {
+		return nil, errSegFormat
+	}
+	sf := &segFile{f: f, nCards: int(le.Uint32(hdr[16:])), nNames: int(le.Uint32(hdr[20:])),
+		tokensLen: int64(le.Uint32(hdr[28:])), tokensOff: int64(le.Uint64(hdr[32:])),
+		cardBase: int64(le.Uint64(hdr[40:]))}
+	tailOff := int64(le.Uint64(hdr[48:]))
+	info, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	fixed := int64(4*sf.nCards + 8*sf.nNames)
+	if tailOff < segHeaderLen || info.Size()-tailOff < fixed {
+		return nil, errSegFormat
+	}
+	// One read for the prelude (right after the header) and one for the
+	// tail; every slice below aliases one of these two buffers.
+	sf.prelude = make([]byte, le.Uint32(hdr[24:]))
+	if _, err := f.ReadAt(sf.prelude, segHeaderLen); err != nil {
+		return nil, err
+	}
+	tail := make([]byte, info.Size()-tailOff)
+	if _, err := f.ReadAt(tail, tailOff); err != nil {
+		return nil, err
+	}
+	sf.cardEnds, tail = tail[:4*sf.nCards], tail[4*sf.nCards:]
+	sf.nameEnds, tail = tail[:4*sf.nNames], tail[4*sf.nNames:]
+	sf.nameOrds, sf.blob = tail[:4*sf.nNames], tail[4*sf.nNames:]
+	if sf.nNames > 0 && int(le.Uint32(sf.nameEnds[4*(sf.nNames-1):])) != len(sf.blob) {
+		return nil, errSegFormat
+	}
+	return sf, nil
+}
+
+func (sf *segFile) name(i int) string {
+	start := uint32(0)
+	if i > 0 {
+		start = binary.LittleEndian.Uint32(sf.nameEnds[4*(i-1):])
+	}
+	return string(sf.blob[start:binary.LittleEndian.Uint32(sf.nameEnds[4*i:])])
+}
+
+// ordinal is the corpus ordinal of the card normalised name key resolves to.
+// The search compares blob bytes against key without allocating.
+func (sf *segFile) ordinal(key string) (int32, bool) {
+	le := binary.LittleEndian
+	nameAt := func(i int) []byte {
+		start := uint32(0)
+		if i > 0 {
+			start = le.Uint32(sf.nameEnds[4*(i-1):])
+		}
+		return sf.blob[start:le.Uint32(sf.nameEnds[4*i:])]
+	}
+	i := sort.Search(sf.nNames, func(i int) bool { return string(nameAt(i)) >= key })
+	if i >= sf.nNames || string(nameAt(i)) != key {
+		return 0, false
+	}
+	return int32(le.Uint32(sf.nameOrds[4*i:])), true
+}
+
+func (sf *segFile) cardSpan(ord int32) (off, n int64) {
+	le := binary.LittleEndian
+	start := int64(0)
+	if ord > 0 {
+		start = int64(le.Uint32(sf.cardEnds[4*(ord-1):]))
+	}
+	return sf.cardBase + start, int64(le.Uint32(sf.cardEnds[4*ord:])) - start
+}
+
+// spanStream is an io.Reader over a raw prefix followed by flate-compressed
+// file spans inflated one after another through one reused decompressor and
+// one reused compressed-bytes buffer, so a gob decoder reads the cards
+// straight off the file with no whole-stream buffer in between.
+type spanStream struct {
+	f      *os.File
+	spans  [][2]int64
+	next   int
+	z      []byte
+	zbr    bytes.Reader
+	zr     io.ReadCloser
+	pre    bytes.Reader
+	cur    io.Reader
+	hasPre bool
+}
+
+func newSpanStream(f *os.File, prefix []byte, spans [][2]int64) *spanStream {
+	s := &spanStream{f: f, spans: spans}
+	if len(prefix) > 0 {
+		s.pre.Reset(prefix)
+		s.cur, s.hasPre = &s.pre, true
+	}
+	return s
+}
+
+func (s *spanStream) Read(p []byte) (int, error) {
+	for {
+		if s.cur == nil {
+			if s.next >= len(s.spans) {
+				return 0, io.EOF
+			}
+			sp := s.spans[s.next]
+			s.next++
+			if int64(cap(s.z)) < sp[1] {
+				s.z = make([]byte, sp[1], 2*sp[1])
+			}
+			s.z = s.z[:sp[1]]
+			if _, err := s.f.ReadAt(s.z, sp[0]); err != nil {
+				return 0, err
+			}
+			s.zbr.Reset(s.z)
+			if s.zr == nil {
+				s.zr = flate.NewReader(&s.zbr)
+			} else if err := s.zr.(flate.Resetter).Reset(&s.zbr, nil); err != nil {
+				return 0, err
+			}
+			s.cur = s.zr
+		}
+		n, err := s.cur.Read(p)
+		if err == io.EOF {
+			s.cur = nil
+			if n > 0 {
+				return n, nil
+			}
+			continue
+		}
+		return n, err
+	}
+}
+
+// decodeCards decodes the raw (cache-shaped) cards at ords, in that order,
+// straight into one slab of Cards: the registry's final storage.
+func (sf *segFile) decodeCards(ords []int32) ([]*Card, error) {
+	spans := make([][2]int64, len(ords))
+	for i, o := range ords {
+		if o < 0 || int(o) >= sf.nCards {
 			return nil, errSegFormat
 		}
-		if err := inflateSpan(f, idx.Cards[o], zr, &stream); err != nil {
-			return nil, err
-		}
+		spans[i][0], spans[i][1] = sf.cardSpan(o)
 	}
-	dec := gob.NewDecoder(bytes.NewReader(stream.Bytes()))
+	dec := gob.NewDecoder(newSpanStream(sf.f, sf.prelude, spans))
 	var empty Card
 	if err := dec.Decode(&empty); err != nil {
 		return nil, err
 	}
+	slab := make([]Card, len(ords))
 	out := make([]*Card, len(ords))
-	for i := range ords {
-		c := new(Card)
-		if err := dec.Decode(c); err != nil {
+	for i := range slab {
+		if err := dec.Decode(&slab[i]); err != nil {
 			return nil, err
 		}
-		out[i] = c
+		out[i] = &slab[i]
 	}
 	return out, nil
 }
 
-func decodeTokens(f *os.File, idx *segIndex) (map[string]*Card, error) {
-	var stream bytes.Buffer
-	if err := inflateSpan(f, idx.Tokens, flate.NewReader(bytes.NewReader(nil)), &stream); err != nil {
-		return nil, err
-	}
+func (sf *segFile) decodeTokens() (map[string]*Card, error) {
 	var st segTokens
-	if err := gob.NewDecoder(&stream).Decode(&st); err != nil {
+	dec := gob.NewDecoder(newSpanStream(sf.f, nil, [][2]int64{{sf.tokensOff, sf.tokensLen}}))
+	if err := dec.Decode(&st); err != nil {
 		return nil, err
 	}
 	if len(st.Keys) != len(st.Cards) {
@@ -297,42 +423,36 @@ func decodeTokens(f *os.File, idx *segIndex) (map[string]*Card, error) {
 // subsetSource backs a subset registry's Lookup with the whole corpus: the
 // segment file stays open, and a name outside the subset decodes its card on
 // first use, so Lookup answers every name exactly as the full registry does.
+// ords/cards (the subset, sorted by ordinal) are immutable after open, so a
+// hit takes no lock; only a fault-in does.
 type subsetSource struct {
-	f       *os.File
-	idx     *segIndex
-	prelude []byte
+	sf      *segFile
 	dir     string
-	loaded  []atomic.Pointer[Card] // by corpus ordinal
-	mu      sync.Mutex             // serialises fault-ins
-}
-
-func (s *subsetSource) ordinal(key string) (int32, bool) {
-	i := sort.SearchStrings(s.idx.Names, key)
-	if i >= len(s.idx.Names) || s.idx.Names[i] != key {
-		return 0, false
-	}
-	return s.idx.Ords[i], true
+	ords    []int32
+	cards   []*Card
+	mu      sync.Mutex
+	faulted map[int32]*Card
 }
 
 func (s *subsetSource) lookup(key string) (*Card, bool) {
-	ord, ok := s.ordinal(key)
+	ord, ok := s.sf.ordinal(key)
 	if !ok {
 		return nil, false
 	}
-	if c := s.loaded[ord].Load(); c != nil {
-		return c, true
+	if i, ok := slices.BinarySearch(s.ords, ord); ok {
+		return s.cards[i], true
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if c := s.loaded[ord].Load(); c != nil {
+	if c, ok := s.faulted[ord]; ok {
 		return c, true
 	}
-	raw, err := decodeCards(s.f, s.idx, s.prelude, []int32{ord})
+	raw, err := s.sf.decodeCards([]int32{ord})
 	if err != nil {
 		// The file was readable at open; failing now is an I/O fault, and
 		// answering "no such card" would silently diverge from the full
 		// registry.
-		panic(fmt.Sprintf("cards: subset registry: decoding %q from %s: %v", key, s.f.Name(), err))
+		panic(fmt.Sprintf("cards: subset registry: decoding %q from %s: %v", key, s.sf.f.Name(), err))
 	}
 	// Its own one-card registry gives it a catalog binding; every compiled
 	// code and mask is a function of the face alone, so it is the value the
@@ -343,7 +463,10 @@ func (s *subsetSource) lookup(key string) (*Card, bool) {
 	}
 	rerootPaths(mini, s.dir)
 	c := mini.Cards[0]
-	s.loaded[ord].Store(c)
+	if s.faulted == nil {
+		s.faulted = map[int32]*Card{}
+	}
+	s.faulted[ord] = c
 	return c, true
 }
 
@@ -407,12 +530,15 @@ func decodeCacheFile(path string) (*cacheFile, error) {
 }
 
 // OpenCorpusSubset opens dir's corpus holding only the cards names resolve
-// to (by Lookup's rules against the WHOLE corpus), plus every token script:
-// tokens are small (839 scripts) and the engine names several token keys in
-// Go code (Clue, Treasure, Amass's Army, ...), so no closure over TokenScript$
-// is needed or attempted. A card whose face is an unresolved CopyFaceFrom
-// stub pulls in the card it names. A name that resolves to nothing is
-// skipped: Lookup reports it missing exactly as the full registry would.
+// to (by Lookup's rules against the WHOLE corpus), plus every token script.
+// Every token, not a closure over the cards' TokenScript$ values: the engine
+// also builds token keys in Go -- Investigate's Clue, Recruit's Soldier,
+// Incubate, venture's dungeons, and Amass's "b_0_0_<type>_army" from the
+// card's type word -- so a textual closure could miss one and change a game,
+// and all 839 cost 4 MB allocated / 5 ms (measured 2026-09-30). A card whose
+// face is an unresolved CopyFaceFrom stub pulls in the card it names. A name
+// that resolves to nothing is skipped: Lookup reports it missing exactly as
+// the full registry would.
 //
 // The returned registry's Cards is the subset, in corpus order, so a caller
 // that feeds Cards to rules.Config.NameUniverse gets a smaller universe --
@@ -431,70 +557,59 @@ func OpenCorpusSubset(dir string, names []string) (*Registry, error) {
 			return nil, err
 		}
 	}
-	f, err := os.Open(seg)
+	sf, err := openSegFile(seg)
 	if err != nil {
 		return nil, err
 	}
-	idx, prelude, err := readSegIndex(f)
-	if err != nil {
-		f.Close()
+	fail := func(err error) (*Registry, error) {
+		sf.f.Close()
 		return nil, err
 	}
-	abs, err := filepath.Abs(dir)
-	if err != nil {
-		abs = dir
-	}
-	s := &subsetSource{f: f, idx: idx, prelude: prelude, dir: abs, loaded: make([]atomic.Pointer[Card], len(idx.Cards))}
-	want := map[int32]bool{}
+	ords := make([]int32, 0, len(names))
 	for _, n := range names {
-		if o, ok := s.ordinal(NormalizeName(n)); ok {
-			want[o] = true
-		}
-	}
-	var ords []int32
-	var raw []*Card
-	for {
-		ords = ords[:0]
-		for o := range want {
+		if o, ok := sf.ordinal(NormalizeName(n)); ok {
 			ords = append(ords, o)
 		}
-		sort.Slice(ords, func(i, j int) bool { return ords[i] < ords[j] })
-		raw, err = decodeCards(f, idx, prelude, ords)
+	}
+	var raw []*Card
+	for {
+		slices.Sort(ords)
+		ords = slices.Compact(ords)
+		raw, err = sf.decodeCards(ords)
 		if err != nil {
-			f.Close()
-			return nil, err
+			return fail(err)
 		}
-		grew := false
+		n := len(ords)
 		for _, c := range raw {
 			for _, face := range c.Faces {
 				if face == nil || face.CopyFaceFrom == "" || face.Name != "" {
 					continue
 				}
-				if o, ok := s.ordinal(NormalizeName(face.CopyFaceFrom)); ok && !want[o] {
-					want[o] = true
-					grew = true
+				if o, ok := sf.ordinal(NormalizeName(face.CopyFaceFrom)); ok {
+					if _, have := slices.BinarySearch(ords[:n], o); !have {
+						ords = append(ords, o)
+					}
 				}
 			}
 		}
-		if !grew {
+		if len(ords) == n {
 			break
 		}
 	}
-	tokens, err := decodeTokens(f, idx)
+	tokens, err := sf.decodeTokens()
 	if err != nil {
-		f.Close()
-		return nil, err
+		return fail(err)
 	}
 	r, err := finishDecoded(raw, tokens)
 	if err != nil {
-		f.Close()
-		return nil, err
+		return fail(err)
 	}
 	rerootPaths(r, dir)
-	for i, o := range ords {
-		s.loaded[o].Store(r.Cards[i])
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		abs = dir
 	}
-	r.sub = s
+	r.sub = &subsetSource{sf: sf, dir: abs, ords: ords, cards: r.Cards[:len(r.Cards):len(r.Cards)]}
 	return r, nil
 }
 
@@ -532,7 +647,7 @@ func OpenCorpusFor(dir string, names []string) (*Registry, error) {
 	r, err := OpenCorpusSubset(dir, names)
 	if err != nil || NeedsFullNameUniverse(r.Cards, r.Tokens) {
 		if err == nil {
-			r.sub.f.Close()
+			r.sub.sf.f.Close()
 		}
 		if r, err = SharedCorpus(dir); err != nil {
 			return nil, err
