@@ -64,22 +64,39 @@ func TestTriggerReferentWithoutContextFailsClosed(t *testing.T) {
 func TestTriggerReferentGrammarScope(t *testing.T) {
 	g, ids := board(t)
 	sc := SpecContext{TriggerContext: TriggerContext{TriggerTarget: state.Target{IsPlayer: true, Player: 0}}}
-	// A raw Targeted word is not itself a predicate. Its recognised use is as
-	// the argument to ControlledBy/OwnedBy and is covered separately by the
-	// resolution-only Targeted* leaf below.
-	for _, ref := range []string{"Spawner>TriggeredTarget", "Targeted", "TriggeredTargetController"} {
-		for _, prefix := range []string{"", "ControlledBy ", "OwnedBy "} {
-			token := prefix + ref
-			if ref == "Targeted" && prefix != "" {
-				continue
-			}
-			spec := "Creature." + token
-			if MatchesSpecCtx(g, spec, ids["myBear"], sc) {
-				t.Errorf("out-of-scope %s matched", spec)
-			}
-			if got := UnknownPredicates(spec); !reflect.DeepEqual(got, []string{token}) {
-				t.Errorf("%s unknown=%v, want [%s]", spec, got, token)
-			}
+	// A bare Targeted or Spawner> word is not itself a predicate: its
+	// recognised use is as the argument to ControlledBy/OwnedBy. Bare, each
+	// stays unknown.
+	for _, ref := range []string{"Targeted", "Spawner>TriggeredTarget"} {
+		spec := "Creature." + ref
+		if MatchesSpecCtx(g, spec, ids["myBear"], sc) {
+			t.Errorf("out-of-scope %s matched", spec)
+		}
+		if got := UnknownPredicates(spec); !reflect.DeepEqual(got, []string{ref}) {
+			t.Errorf("%s unknown=%v, want [%s]", spec, got, ref)
+		}
+	}
+	// TriggeredTargetController is not an inner ref of any kind: unknown
+	// bare and as the ControlledBy/OwnedBy argument, Spawner> chain or not.
+	for _, prefix := range []string{"", "ControlledBy ", "OwnedBy ", "ControlledBy Spawner>", "OwnedBy Spawner>"} {
+		token := prefix + "TriggeredTargetController"
+		spec := "Creature." + token
+		if MatchesSpecCtx(g, spec, ids["myBear"], sc) {
+			t.Errorf("out-of-scope %s matched", spec)
+		}
+		if got := UnknownPredicates(spec); !reflect.DeepEqual(got, []string{token}) {
+			t.Errorf("%s unknown=%v, want [%s]", spec, got, token)
+		}
+	}
+	// spawnercontrol: a Spawner> chain over a KNOWN inner ref is recognised
+	// as the ControlledBy/OwnedBy argument (The Motherlode, Excavator's
+	// "ControlledBy Spawner>TriggeredDefendingPlayer" and its seven sibling
+	// corpus cards). The resolution itself is pinned by
+	// TestSpawnerChainControlReferent below.
+	for _, prefix := range []string{"ControlledBy ", "OwnedBy "} {
+		spec := "Creature." + prefix + "Spawner>TriggeredTarget"
+		if got := UnknownPredicates(spec); len(got) != 0 {
+			t.Errorf("recognised %s reported %v", spec, got)
 		}
 	}
 }
