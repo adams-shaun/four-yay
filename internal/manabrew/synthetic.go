@@ -62,18 +62,23 @@ const (
 )
 
 // SyntheticNamespaceShift is G-5's separate promptId namespace: a synthetic
-// promptId is (event.Seq << SyntheticNamespaceShift) | n, n counting the
-// synthetic prompts minted from that one event (always 0 today -- one event
-// mints at most one synthetic prompt -- the shift leaves room for more
-// without renumbering). An ordinary promptId is a bare decision.Seq
-// (ids.go's promptID); the scoping spec calls the two namespaces safe from
-// collision because a real decision.Seq never grows anywhere near
-// 1<<SyntheticNamespaceShift times an event Seq's own magnitude within one
-// match.
+// promptId is -((event.Seq << SyntheticNamespaceShift) | n) - 1, n counting
+// the synthetic prompts minted from that one event (always 0 today -- one
+// event mints at most one synthetic prompt -- the shift leaves room for more
+// without renumbering). The NEGATION is what makes the namespace truly
+// disjoint rather than merely "far apart": an ordinary promptId is a bare
+// decision.Seq (ids.go's promptID), which is always >= 0, while every
+// synthetic id is < 0 -- so a later ordinary prompt can never reuse an
+// earlier synthetic id (MBX-2), no matter how the two magnitudes grow.
+// Within the negative side the encoding is injective in (eventSeq, n) for
+// any eventSeq below 2^55, where the shift cannot overflow int64; a match
+// with 2^55 events is not a reachable magnitude. (gameover.go's terminal
+// GameOverPromptID takes math.MaxInt64, the one positive id beyond any real
+// decision.Seq, completing the three-way split.)
 const SyntheticNamespaceShift = 8
 
 func syntheticPromptID(eventSeq uint64, n int) int64 {
-	return int64(eventSeq)<<SyntheticNamespaceShift | int64(n)
+	return -(int64(eventSeq)<<SyntheticNamespaceShift | int64(n)) - 1
 }
 
 // dieRollNote decodes a per-die roll Note (effects/dice.go's DieRollNote):

@@ -92,6 +92,16 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
+// MBX-2's golden delta, up front: the transcript gains exactly ONE line, the
+// terminal gameOver prompt at the very end (see the report and commit
+// message). The file doc above still says the transcript "never contains a
+// gameOver prompt" -- that was true when MB-11 landed; MBX-2 closes exactly
+// that open question, and the last line of the committed fixture is now the
+// prompt the spec's Appendix A "end of match" row promises. The synthetic
+// ack-only prompts (reveal/dice) are wired through the same poll path but
+// mint nothing in this fixture: it never casts a spell, never attacks, so no
+// public-reveal or dice Note event ever exists for Synthetic to read.
+
 // goldenPath is gzipped (5.3 MB uncompressed; ~46 KB gzipped) so the fixture
 // is committable. The test always compares decompressed bytes; regenerating
 // writes gzip with a fixed header (no ModTime, no Name) via gzipDeterministic
@@ -244,29 +254,33 @@ func runGoldenGame(t *testing.T) [][]byte {
 	lastSeq := map[state.PlayerID]uint64{}
 	overallDeadline := time.Now().Add(30 * time.Second)
 	for {
-		// Poll for a fresh decision in short bursts, checking for gameOver
-		// between bursts: the match can also end with nobody left to ask
-		// anything (decking out is a state-based action, not a decision), so
-		// a blind wait for "some seat is pending" would otherwise burn the
-		// whole overall deadline on every ordinary game-over.
 		var seat state.PlayerID
 		var d *decision.Decision
 		var ok bool
 		for {
 			seat, d, ok = waitForFreshPending(ts, seats, lastSeq, time.Now().Add(200*time.Millisecond))
-			if ok {
-				break
-			}
-			if gameOverIn(t, pollSeat0Raw(t, ts)) {
-				msgs := pollSeat0Raw(t, ts) // re-poll: this snapshot is what actually gets recorded
-				for _, m := range msgs {
-					transcript = append(transcript, []byte(m))
+			if !ok {
+				// No seat has a fresh ask: the game may have ended with nobody
+				// left to ask anything (decking out is a state-based action,
+				// not a decision), so a blind wait for "some seat is pending"
+				// would otherwise burn the whole overall deadline on every
+				// ordinary game-over. Poll ONCE, and if it is over record THAT
+				// poll: the gameOver prompt is delivered exactly once per seat
+				// (MBX-2's seatConn latch), so the former second poll would
+				// have re-captured the state but not the terminal prompt.
+				msgs := pollSeat0Raw(t, ts)
+				if gameOverIn(t, msgs) {
+					for _, m := range msgs {
+						transcript = append(transcript, []byte(m))
+					}
+					return transcript
 				}
-				return transcript
+				if time.Now().After(overallDeadline) {
+					t.Fatal("golden game drive timed out: neither seat has a pending decision, and the match has not ended")
+				}
+				continue
 			}
-			if time.Now().After(overallDeadline) {
-				t.Fatal("golden game drive timed out: neither seat has a pending decision, and the match has not ended")
-			}
+			break
 		}
 
 		// The decision is settled (Pending just returned it): capture the
