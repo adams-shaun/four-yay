@@ -22,7 +22,8 @@
       "main": [
         {
           "name": "Mountain",
-          "count": 17
+          "count": 17,
+          "land": true
         },
         {
           "name": "Mountain Almsgiver 0",
@@ -1037,7 +1038,8 @@
       "main": [
         {
           "name": "Mountain",
-          "count": 17
+          "count": 17,
+          "land": true
         },
         {
           "name": "Mountain Almsgiver 0",
