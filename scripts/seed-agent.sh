@@ -362,6 +362,17 @@ for c in held:
     if c.get("status") in ("open", None) and cid not in fresh_by_id:
         c["status"] = "stale"
         stale += 1
+    elif c.get("status") in ("open", None) and cid in fresh_by_id:
+        # The id is stable across branch-set churn, but the measurement under
+        # it is not: an OPEN row whose id the fresh generation still produces
+        # gets its title/body/est_delta/evidence refreshed so ranking and the
+        # filed brief name the CURRENT holders, not the ones from the cycle
+        # the candidate was first minted. queued/done/stale rows are never
+        # rewritten -- their history is the point.
+        f = fresh_by_id[cid]
+        for k in ("title", "body", "est_delta", "est_cost", "evidence"):
+            if k in f:
+                c[k] = f[k]
     out.append(c)
 have = {c.get("id") for c in out}
 for cid, c in fresh_by_id.items():

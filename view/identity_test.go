@@ -85,17 +85,57 @@ func TestStackViewKindIsTriggerForATriggerPushObject(t *testing.T) {
 }
 
 func TestStackViewKindIsAbilityForANonTriggerAbilityObject(t *testing.T) {
+	g, id := twoSeatWith(t, boltSrc)
+	events.Apply(g, events.Event{Kind: events.MoveZone, Obj: id, From: state.ZHand, To: state.ZBattlefield})
+	if got := g.Obj(id); got.Zone != state.ZBattlefield || len(g.Obj(id).Face().Abilities) == 0 {
+		t.Fatalf("fixture: source not on the battlefield with an A: ability (zone %v)", got.Zone)
+	}
+	// An AbilityPush mint (events/apply.go): the engine stamps the object
+	// StackKindActivated from the face's flat ability index, so the view's
+	// StackKindOf classifier reads the stamp without needing a face T: line.
+	// (A hand-built unstamped object would fall through StackKindOf's
+	// DelayedPush branch and misclassify as a trigger.)
+	events.Apply(g, events.Event{Kind: events.AbilityPush, Obj: id, Player: 0, Amount: 0})
+	v := Project(g, flatChars{g}, 0, nil)
+	if len(v.Stack) != 1 || v.Stack[0].Kind != "ability" || v.Stack[0].Text != "Bolt deals 3 damage to any target." {
+		t.Fatalf("stack %+v", v.Stack)
+	}
+}
+
+// TestStackViewKindIsTriggerForADelayedPushObject: a delayed trigger (CR
+// 603.7) is stamped StackKindTriggered by Apply's DelayedPush mint but has
+// no T: line on its source face for the triggerLine lookup to find, so only
+// the stamp classifies it.
+func TestStackViewKindIsTriggerForADelayedPushObject(t *testing.T) {
 	g, id := twoSeatWith(t, watcherSrc)
 	events.Apply(g, events.Event{Kind: events.MoveZone, Obj: id, From: state.ZHand, To: state.ZBattlefield})
-	// An ability object whose SA is not one of the source's T: lines — the
-	// shape an activated ability will have once the engine enumerates them.
-	ab := g.AddObject(nil, 0)
-	events.Move(g, ab.ID, state.ZLibrary, state.ZStack)
-	ab.Ability = &cards.SA{Kind: "AB", API: "GainLife", Params: map[string]string{"SpellDescription": "Gain 1 life."}}
-	ab.Source = id
+	if got := g.Obj(id); got.Zone != state.ZBattlefield || got.Face() == nil {
+		t.Fatalf("fixture: source not on the battlefield (zone %v)", got.Zone)
+	}
+	// The CR 724.2a monarch draw is a delayed trigger whose ability is a
+	// synthetic Draw SA minted by events/apply.go's DelayedPush case — the
+	// event MUST carry Obj, or the monarch arm breaks out without minting.
+	events.Apply(g, events.Event{Kind: events.DelayedPush, Player: 0, Obj: id, Counter: "__monarch_draw"})
+	sids := g.Zone(state.ZStack, 0)
+	if len(sids) != 1 {
+		t.Fatalf("fixture: no minted ability object on the stack (%v)", sids)
+	}
+	stacked := g.Obj(sids[0])
+	if stacked == nil || stacked.Ability == nil || stacked.Source != id {
+		t.Fatalf("fixture: no minted ability object (%+v)", stacked)
+	}
+	// The discriminator the Kind test depends on: the triggerLine lookup
+	// (state.TriggerOf) genuinely finds nothing for this object.
+	if _, ok := state.TriggerOf(g, stacked); ok {
+		t.Fatal("fixture: TriggerOf found a T: line; this fixture no longer exercises the stamp path")
+	}
 	v := Project(g, flatChars{g}, 0, nil)
-	if len(v.Stack) != 1 || v.Stack[0].Kind != "ability" || v.Stack[0].Text != "Gain 1 life." {
+	if len(v.Stack) != 1 {
 		t.Fatalf("stack %+v", v.Stack)
+	}
+	sv := v.Stack[0]
+	if sv.Kind != "trigger" || sv.Name != "Watcher" || sv.Source != id {
+		t.Fatalf("stack view %+v", sv)
 	}
 }
 

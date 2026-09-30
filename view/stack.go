@@ -65,7 +65,11 @@ func stackViews(g *state.Game, ch Chars, ids []state.ObjID, viewer state.PlayerI
 			// object (an activated ability, once the engine enumerates
 			// them) so a client can render them differently.
 			kind := "ability"
-			if _, ok := triggerLine(g, o); ok {
+			// The stamped kind is the authority (state.StackKindOf falls
+			// back to the same triggerLine lookup the view used to make
+			// itself): a trigger whose T: line the lookup cannot find (a
+			// delayed or keyword-minted one) is still a trigger.
+			if state.StackKindOf(g, o) == state.StackKindTriggered {
 				kind = "trigger"
 			}
 			sv := StackView{
