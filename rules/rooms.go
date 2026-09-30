@@ -62,16 +62,10 @@ func isRoom(o *state.Object) bool {
 	return o != nil && o.Card != nil && len(o.Card.Faces) > 0 && o.Card.Faces[0].IsRoom()
 }
 
-// checkUnlockTriggers queues the unlocked face's T:Mode$ UnlockDoor triggers
-// (CR 309.5's "when you unlock this door"). Only the DoorUnlock event's own
-// room is scanned; ValidPlayer$ (You) is the room's controller, and
-// ThisDoor$ True holds by construction -- the trigger belongs to the face
-// whose door was just unlocked. A trigger that names no ValidPlayer$ still
-// fires (its room is its owner's business); one whose ValidPlayer$ is
-// anything but You degrades to no fire (fail-closed, the unhandled-qualifier
-// convention MatchesPlayerSpec applies). The queue entry is the delayed-shape
-// pendingTrigger (the ability is an SVar body reached through Execute$, which
-// TriggerPush cannot carry for an alternate face).
+// checkUnlockTriggers queues the newly unlocked face's T:Mode$ UnlockDoor
+// triggers (CR 309.5's "when you unlock this door"). Only the DoorUnlock
+// event's own room is scanned; after Apply, Unlocked is true and the face whose
+// trigger fires is the one other than the face the Room was cast as.
 func (e *Engine) checkUnlockTriggers(ev events.Event) {
 	o := e.G.Obj(ev.Obj)
 	if o == nil || o.Zone != state.ZBattlefield || !isRoom(o) || !o.Unlocked {
@@ -82,11 +76,46 @@ func (e *Engine) checkUnlockTriggers(ev events.Event) {
 	}
 	// DoorUnlock has already set Unlocked, so the face whose trigger fires is
 	// the one other than the face the Room was cast as.
-	alt := o.Card.Faces[1-int(o.FaceIdx)]
-	if !isRoomFace(alt) {
+	e.queueUnlockTriggers(o, o.Card.Faces[1-int(o.FaceIdx)])
+}
+
+// checkRoomEntryUnlockTriggers queues the CAST face's T:Mode$ UnlockDoor
+// triggers when a Room spell enters the battlefield (CR 709.5d/709.5h): the
+// door the Room was cast as is given the unlocked designation as it enters, so
+// its own "when you unlock this door" ability must fire on entry. The cast
+// face is the FaceIdx face; the ordinary per-face walk above cannot reach it
+// because the UnlockDoor matcher is gated to the DoorUnlock event. The entry
+// event itself is the MoveZone whose From is the stack -- the exact "a
+// resolving Room spell enters" gate (rules/resolution.go moveResolvedOffStack).
+// It fires once per entry, so it can never double-queue against the paid
+// unlock's DoorUnlock path (that hook gates on DoorUnlock).
+func (e *Engine) checkRoomEntryUnlockTriggers(ev events.Event) {
+	if ev.Kind != events.MoveZone || ev.To != state.ZBattlefield || ev.From != state.ZStack {
 		return
 	}
-	for _, t := range alt.Triggers {
+	o := e.G.Obj(ev.Obj)
+	// Unlocked is false here: it means "the alternate door has been unlocked",
+	// not "the cast face is live". Only the entry designation is at issue.
+	if o == nil || o.Zone != state.ZBattlefield || !isRoom(o) || o.Unlocked {
+		return
+	}
+	e.queueUnlockTriggers(o, o.Face())
+}
+
+// queueUnlockTriggers appends one pendingTrigger per T:Mode$ UnlockDoor trigger
+// on face. ValidPlayer$ (You) is the room's controller, and ThisDoor$ True
+// holds by construction -- the trigger belongs to the face whose door was
+// unlocked. A trigger that names no ValidPlayer$ still fires (its room is its
+// owner's business); one whose ValidPlayer$ is anything but You degrades to no
+// fire (fail-closed, the unhandled-qualifier convention MatchesPlayerSpec
+// applies). The queue entry is the delayed-shape pendingTrigger (the ability is
+// an SVar body reached through Execute$, which TriggerPush cannot carry for a
+// non-primary face).
+func (e *Engine) queueUnlockTriggers(o *state.Object, face *cards.Face) {
+	if o == nil || face == nil || !isRoomFace(face) {
+		return
+	}
+	for _, t := range face.Triggers {
 		if t.Mode != "UnlockDoor" {
 			continue
 		}
@@ -101,14 +130,14 @@ func (e *Engine) checkUnlockTriggers(ev events.Event) {
 			continue
 		}
 		e.pendingTriggers = append(e.pendingTriggers, pendingTrigger{
-			Source:     ev.Obj,
+			Source:     o.ID,
 			Controller: o.Controller,
 			Delayed:    true,
 			DelayedID:  ^uint32(0),
 			Execute:    exec,
 			SA:         t.Effect,
 			Ctx: effects.Ctx{
-				Source:     ev.Obj,
+				Source:     o.ID,
 				Controller: o.Controller,
 			},
 		})
