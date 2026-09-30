@@ -227,13 +227,23 @@ env = { GOMEMLIMIT = "1GiB" }
 
 # The whole module, not just ./effects ./rules ./cards: a merge that broke
 # internal/searchprobe and internal/archtest passed the old core-only gate
-# (2026-09-19, fixed in bd0f399e). -p=2 + GOMEMLIMIT: parallel package test
+# (2026-09-19, fixed in bd0f399e). -p=4 + GOMEMLIMIT: parallel package test
 # binaries across worktrees have exhausted this box's memory before.
+#
+# GOMEMLIMIT raised 1536MiB -> 4GiB (2026-09-30, cli-20260930T022327Z). The
+# limit sat BELOW one package's live heap: `host` peaks ~5.2G RSS, so the
+# limiter forced continuous GC instead of capping memory. Measured, forced
+# fresh (`go test -count=1 ./host/`, the module gate's critical package):
+#   GOMEMLIMIT=1536MiB -> 67.6s wall, 640s user CPU, 5.2G maxRSS
+#   GOMEMLIMIT=4GiB    -> 49.6s wall, 271s user CPU, 4.7G maxRSS
+# The higher limit is faster AND lower-RSS; `seat`, `rules` and
+# spellbench/v2engine sit under 1.2G RSS and are unaffected by either value,
+# so no package that previously fit the 8G MemoryMax scope grows into it.
 [[gates]]
 name = "go test (module)"
 cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "go", "test", "-p=4", "-skip", "^(TestHeads|TestInvariantsUnderSeedFuzz|TestLargeEliminationSweepDoesNotTripLivelockWatcher)$", "./..."]
 timeout = 1200
-env = { GOMEMLIMIT = "1536MiB" }
+env = { GOMEMLIMIT = "4GiB" }
 
 [[gates]]
 name = "CR conformance"
