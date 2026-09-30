@@ -26,5 +26,5 @@ func NamedOption(d *decision.Decision, verb, card string) (decision.Intent, erro
 	if match < 0 {
 		return decision.Intent{}, fmt.Errorf("searchbench: %q is not offered at %s", want, d.Kind)
 	}
-	return decision.Intent{Seq: d.Seq, Choices: []int{match}}, nil
+	return decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{match}}, nil
 }

@@ -23,17 +23,26 @@ func NewGenesis(reg *cards.Registry, game ReplayGame, cardNames map[string]strin
 	if err != nil {
 		return nil, err
 	}
-	want := make(map[string]int, len(hand))
-	for _, name := range hand {
-		want[name]++
+	opponentPlan, err := ObservedOpponentDrawPlan(game, cardNames)
+	if err != nil {
+		return nil, err
 	}
 	planner := func(ctx rules.ShuffleContext) ([]state.ObjID, error) {
-		if ctx.Player != 0 || ctx.Ordinal != 0 {
+		if ctx.Ordinal != 0 {
 			return nil, nil
 		}
-		out := make([]state.ObjID, 0, len(ctx.Library))
+		var want []string
+		switch ctx.Player {
+		case 0:
+			want = hand
+		case 1:
+			want = opponentPlan
+		default:
+			return nil, nil
+		}
+		picked := make([]state.ObjID, 0, len(want))
 		used := make([]bool, len(ctx.Library))
-		for _, name := range hand {
+		for _, name := range want {
 			found := -1
 			for i, card := range ctx.Library {
 				if !used[i] && card.Name == name {
@@ -45,8 +54,11 @@ func NewGenesis(reg *cards.Registry, game ReplayGame, cardNames map[string]strin
 				return nil, fmt.Errorf("searchbench: recorded opening card %q is not in deck", name)
 			}
 			used[found] = true
-			out = append(out, ctx.Library[found].ID)
+			picked = append(picked, ctx.Library[found].ID)
 		}
+		// The engine deals from the front of a library slice (pinned by the
+		// shuffle planner contract), so the recorded draw sequence is first.
+		out := append([]state.ObjID(nil), picked...)
 		for i, card := range ctx.Library {
 			if !used[i] {
 				out = append(out, card.ID)
@@ -57,7 +69,11 @@ func NewGenesis(reg *cards.Registry, game ReplayGame, cardNames map[string]strin
 		}
 		return out, nil
 	}
-	e, err := rules.NewHypotheticalPlanned(rules.Config{Seed: seed, Names: []string{"human", "belief"}, Decks: [][]*cards.Card{user, opponent}, Tokens: reg.Tokens}, nil, planner)
+	starter := 1
+	if game.OnPlay {
+		starter = 0
+	}
+	e, err := rules.NewHypotheticalPlanned(rules.Config{Seed: seed, Names: []string{"human", "belief"}, Decks: [][]*cards.Card{user, opponent}, Tokens: reg.Tokens}, []rules.ChanceDraw{{Bound: 2, Value: starter}}, planner)
 	if err != nil {
 		return nil, err
 	}

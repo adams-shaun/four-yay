@@ -60,3 +60,33 @@ func SubmitFallback(e *rules.Engine, b *seat.Bot, player state.PlayerID) error {
 	}
 	return e.SubmitHypothetical(in)
 }
+
+// SubmitBridge advances a source omission without inventing an additional
+// spell or land drop. Priority omissions are always a pass; non-priority
+// questions still need the redacted deterministic bot to supply an answer.
+func SubmitBridge(e *rules.Engine, b *seat.Bot, player state.PlayerID) error {
+	if e == nil || b == nil {
+		return fmt.Errorf("searchbench: nil bridge")
+	}
+	if err := e.AdvanceHypothetical(); err != nil {
+		return err
+	}
+	d := e.Pending()
+	if d == nil {
+		return fmt.Errorf("searchbench: game ended at bridge")
+	}
+	if d.Kind != decision.KPriority {
+		v := view.Project(e.G, e, player, d)
+		in, err := b.Decide(context.Background(), v, *d)
+		if err != nil {
+			return err
+		}
+		return e.SubmitHypothetical(in)
+	}
+	for _, option := range d.Options {
+		if option.Label == "Pass priority" {
+			return e.SubmitHypothetical(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{option.Index}})
+		}
+	}
+	return fmt.Errorf("searchbench: priority has no pass option")
+}

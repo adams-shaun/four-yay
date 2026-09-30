@@ -274,7 +274,14 @@ func stageAudit(args []string, out io.Writer) error {
 	good, bridges := 0, 0
 	firstFailure := ""
 	for i, game := range games {
-		opponent, e := searchbench.ResolveDeck(reg, game.Deck)
+		base, e := searchbench.ResolveDeck(reg, game.Deck)
+		if e != nil {
+			if firstFailure == "" {
+				firstFailure = e.Error()
+			}
+			continue
+		}
+		opponent, e := searchbench.ObservedOpponentDeck(reg, base, game, names)
 		if e != nil {
 			if firstFailure == "" {
 				firstFailure = e.Error()
@@ -295,12 +302,12 @@ func stageAudit(args []string, out io.Writer) error {
 			}
 			continue
 		}
-		b, e := searchbench.StageActions(engine, [2]*seat.Bot{seat.NewBot(uint64(i + 11)), seat.NewBot(uint64(i + 12))}, 0, resolved.Turns[0].User)
+		b, e := searchbench.StageGame(engine, [2]*seat.Bot{seat.NewBot(uint64(i + 11)), seat.NewBot(uint64(i + 12))}, resolved)
 		if e == nil {
 			good++
 			bridges += b
 		} else if firstFailure == "" {
-			firstFailure = e.Error()
+			firstFailure = fmt.Sprintf("game=%s on_play=%t: %v", game.ID, game.OnPlay, e)
 		}
 	}
 	_, err = fmt.Fprintf(out, "games=%d staged=%d refused=%d bridges=%d first_failure=%q\n", len(games), good, len(games)-good, bridges, firstFailure)
