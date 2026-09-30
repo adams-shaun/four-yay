@@ -17,6 +17,7 @@ means" names a real command is the difference between one round and five.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import json
 import re
@@ -65,6 +66,41 @@ def slug(s: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")[:60]
 
 
+# The daemon accepts an issue id as a single safe path component (ledger
+# issues.py ISSUE_ID_RE); replicating the shape here keeps a worktree branch
+# name from ever reaching a Depends-On line.
+_ISSUE_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$")
+
+
+def held_issue_ids(repo: Path, branches: tuple[str, ...]) -> list[str]:
+    """Branch names of a hot group that are REAL open tickets in the ledger.
+
+    A daemon-created branch is named after its issue id, so the name IS the
+    issue id. An id is emitted only when `.ds4/issues/<id>.md` exists: the
+    daemon reads a Depends-On value as an unmet dependency until it resolves,
+    so a name no issue file declares -- a hand-named branch like `loop-design`,
+    or a ticket from another repo's worktree -- would block the new ticket
+    FOREVER, which is a worse failure than the collision it prevents.
+    """
+    issues = repo / ".ds4" / "issues"
+    out: list[str] = []
+    for b in branches:
+        if _ISSUE_ID_RE.fullmatch(b) and (issues / f"{b}.md").is_file():
+            if b not in out:
+                out.append(b)
+    return out
+
+
+SEQUENCING_PARA = """\nSequencing: this ticket is filed with a `Depends-On:` line naming the tickets
+whose branches hold the group's files right now. The daemon holds a ticket with
+unmet dependencies out of dispatch until they close, so this work lands AFTER
+the holders instead of colliding with them in `merge_fix`. Only ids that
+resolve in `.ds4/issues/` are listed -- a dependency nobody can find blocks a
+ticket forever, so a hand-named branch with no ticket file is reported here
+instead of being trusted.
+"""
+
+
 def latest(ledger: list, axis: str, metric: str):
     vals = [r for r in ledger if r.axis == axis and r.metric == metric]
     return max(vals, key=lambda r: r.ts) if vals else None
@@ -102,11 +138,40 @@ def generate(repo: Path, state_dir: Path, ledger_path: Path) -> list[dict]:
         if len(live) < rc.HOTSPOT_BRANCHES:
             continue
         groups.setdefault(live, []).append(f)
+    # The candidate ID is keyed on the sorted FILE SET, not the branch set:
+    # the set of holders churns every time one lands or a new branch joins,
+    # and an id that moves with it mints a fresh marker and a fresh ticket for
+    # the same files and the same root cause (cli-20260930T004423Z-023bf8c8
+    # was exactly that duplicate). The id is hashed because the file list can
+    # be long and slug() truncates at 60 chars; count + hash stays readable in
+    # the marker name. The body still names the CURRENT branches at emit time.
     for branches, files in sorted(groups.items(), key=lambda kv: (-len(kv[1]), kv[0]))[:3]:
+        cid = f"flow-hotspot-{len(files)}-" + hashlib.sha256(
+            "\n".join(sorted(files)).encode()).hexdigest()[:12]
         flist = "\n".join(f"- `{f}`" for f in sorted(files))
+        holders = held_issue_ids(repo, branches)
+        unresolved = [b for b in branches if b not in holders]
+        if holders:
+            sequenced = SEQUENCING_PARA + "\nDepends-On: " + ", ".join(holders) + "\n"
+            if unresolved:
+                sequenced += (
+                    "\nSequencing note: branch(es) `"
+                    + "`, `".join(unresolved)
+                    + "` have NO ticket file in `.ds4/issues/` and so are not on the\n"
+                    "`Depends-On:` line (an unresolvable id blocks a ticket forever).\n"
+                    "Sequence them by hand against this ticket before landing.\n"
+                )
+        else:
+            sequenced = (
+                "\nSequencing note: branches `"
+                + "`, `".join(branches)
+                + "` have NO ticket file in `.ds4/issues/`, so none can be\n"
+                "named in a `Depends-On:` line (an unresolvable id blocks a ticket\n"
+                "forever). Sequence them by hand before landing this work.\n"
+            )
         out.append(
             cand(
-                "flow-hotspot-" + slug("-".join(branches)),
+                cid,
                 "flow",
                 f"{len(files)} file(s) contended by {len(branches)} live branches: {', '.join(branches)}",
                 f"""# {len(branches)} live branches are editing the same {len(files)} file(s)
@@ -120,7 +185,7 @@ Files they all touch:
 Measured by `scripts/reward_collect.py hotspots --repo .`, which lists every
 file two or more live branches change against `main`. Each such file is where
 the fleet loses whole paid rounds to `merge_fix` instead of to the work.
-
+{sequenced}
 ## Goal
 
 Remove the contention for the whole group, not one conflict. Either:
@@ -601,16 +666,69 @@ def selftest() -> int:
             ("e.go", ["sleepy1", "sleepy2"]),
         ]
         rc.idle_branches = lambda _r, hours=12: [("sleepy1", 1, 40.0), ("sleepy2", 1, 40.0)]
+        # Sequencing fixture: exactly ONE of the big group's branches resolves
+        # to an issue file, so the Depends-On line must name br1 only and the
+        # prose note must name br2; the (br3, br4) group resolves nothing.
+        issues_dir = repo / ".ds4" / "issues"
+        issues_dir.mkdir(parents=True)
+        (issues_dir / "br1.md").write_text("# br1\n")
+        assert (issues_dir / "br1.md").is_file() and not (issues_dir / "br2.md").is_file()
         try:
             grouped = [c for c in generate(repo, state, ledger) if c["id"].startswith("flow-hotspot-")]
+            # Churn probe 1: the SAME files (a.go, b.go, c.go) held by DIFFERENT
+            # live branches -- one holder landed (br1/br2 gone) and two new
+            # branches joined. The candidate id must NOT move with the branch
+            # set, or the same contention re-files as a brand-new ticket.
+            rc.hotspots = lambda _r: [
+                ("a.go", ["br9", "br10"]),
+                ("b.go", ["br9", "br10"]),
+                ("c.go", ["br9", "br10"]),
+                ("d.go", ["br3", "br4"]),
+            ]
+            regen = [c for c in generate(repo, state, ledger) if c["id"].startswith("flow-hotspot-")]
+            # Churn probe 2: a genuinely DIFFERENT measured group -- one file
+            # landed out of contention -- must still be able to file.
+            rc.hotspots = lambda _r: [
+                ("a.go", ["br1", "br2"]),
+                ("b.go", ["br1", "br2"]),
+            ]
+            shrunk = [c for c in generate(repo, state, ledger) if c["id"].startswith("flow-hotspot-")]
         finally:
             rc.hotspots, rc.idle_branches = real_hot, real_idle
         check("one ticket per contending branch SET, not per file", len(grouped) == 2, [c["id"] for c in grouped])
-        big = next((c for c in grouped if "br1" in c["id"]), None)
+        big = next((c for c in grouped if "`a.go`" in c["body"]), None)
         check("the group's ticket lists every file it holds",
               big and all(f in big["body"] for f in ("a.go", "b.go", "c.go")), big and big["id"])
         check("a group held by idle branches is left to the idle-branch candidate",
               not any("sleepy" in c["id"] for c in grouped), [c["id"] for c in grouped])
+        # Precondition for the id-stability probe: the two generations really
+        # measured different branch sets (the bodies name the CURRENT holders),
+        # so the id equality below is not vacuous.
+        big2 = next((c for c in regen if "`a.go`" in c["body"]), None)
+        check("the regen probe measured a DIFFERENT branch set for the same files",
+              big and big2 and "`br1`" in big["body"] and "`br9`" in big2["body"]
+              and "`br10`" in big2["body"], (big and big["id"], big2 and big2["id"]))
+        check("same file set under a changed branch set is the SAME candidate id",
+              big and big2 and big2["id"] == big["id"], (big and big["id"], big2 and big2["id"]))
+        big3 = next((c for c in shrunk if "`a.go`" in c["body"]), None)
+        check("the shrink probe really measured a different file set",
+              big and big3 and "c.go" not in big3["body"] and "a.go" in big3["body"],
+              (big and big["id"], big3 and big3["id"]))
+        check("a changed file set yields a DIFFERENT candidate id (a new measured group can still file)",
+              big and big3 and big3["id"] != big["id"], (big and big["id"], big3 and big3["id"]))
+        dep = next((ln for ln in (big["body"].splitlines() if big else [])
+                    if ln.startswith("Depends-On:")), None)
+        check("a key branch WITH a ticket file is on the group's Depends-On line",
+              dep == "Depends-On: br1", dep)
+        check("a key branch with NO ticket file is prose-noted, never depended on",
+              dep is not None and "br2" not in dep and "`br2`" in big["body"],
+              [ln for ln in big["body"].splitlines() if "br2" in ln][:2])
+        other = next((c for c in grouped if "`d.go`" in c["body"]), None)
+        check("a group with NO resolvable branch carries no Depends-On line, only the prose fallback",
+              other is not None
+              and not any(ln.startswith("Depends-On:") for ln in other["body"].splitlines())
+              and "Sequencing note:" in other["body"]
+              and "`br3`" in other["body"] and "`br4`" in other["body"], other and other["id"])
 
         cands = generate(repo, state, ledger)
         ids = [c["id"] for c in cands]
