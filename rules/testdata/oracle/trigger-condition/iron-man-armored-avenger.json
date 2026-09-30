@@ -1,0 +1,41 @@
+{
+  "card": "Iron Man, Armored Avenger",
+  "family": "trigger-condition",
+  "oracle_sha": "56673ffc500e",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "each-drawn-card-puts-a-counter-on-target-creature",
+      "cr": ["603.2", "121.2", "122.1"],
+      "why": "Drawing two cards with Divination triggers the once-per-draw ability twice, each time putting a +1/+1 counter on the targeted Grizzly Bears.",
+      "setup": {
+        "p0": {"battlefield": ["Iron Man, Armored Avenger", "Grizzly Bears"], "hand": ["Divination"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Divination", "mana": "CCU",
+         "targets": ["p0:Grizzly Bears", "p0:Grizzly Bears"]}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "counters": {"+1/+1": 2}, "pt": "4/4"}
+      ]
+    },
+    {
+      "name": "attacking-grants-flying-to-other-modified-attackers",
+      "cr": ["603.2", "509.1b", "613.4a"],
+      "why": "Bonesplitter attached to Grizzly Bears makes it modified; attacking with Iron Man grants flying to the other attacking modified creature until end of turn.",
+      "setup": {
+        "p0": {"battlefield": ["Iron Man, Armored Avenger", "Grizzly Bears", "Bonesplitter"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Bonesplitter", "ability": "Equip", "targets": ["p0:Grizzly Bears"], "mana": "C"},
+        {"op": "resolve"},
+        {"op": "attack", "seat": 0, "attackers": ["p0:Iron Man, Armored Avenger", "p0:Grizzly Bears"], "defender": "p1"}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "keywords": ["Flying"]}
+      ]
+    }
+  ]
+}

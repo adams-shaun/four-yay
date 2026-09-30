@@ -1,0 +1,40 @@
+{
+  "card": "War Machine, Avenging Arsenal",
+  "family": "trigger-condition",
+  "oracle_sha": "f4286bb97cb6",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "modified-attackers-gain-double-strike",
+      "cr": ["603.2", "509.1b", "702.7b"],
+      "why": "Grizzly Bears equipped with Bonesplitter is modified; attacking alongside War Machine grants it double strike until end of turn.",
+      "setup": {
+        "p0": {"battlefield": ["War Machine, Avenging Arsenal", "Grizzly Bears", "Bonesplitter"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Bonesplitter", "ability": "Equip", "targets": ["p0:Grizzly Bears"], "mana": "C"},
+        {"op": "resolve"},
+        {"op": "attack", "seat": 0, "attackers": ["p0:War Machine, Avenging Arsenal", "p0:Grizzly Bears"], "defender": "p1"}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "keywords": ["Double Strike"]}
+      ]
+    },
+    {
+      "name": "unmodified-attackers-strike-once",
+      "cr": ["603.2", "509.1b", "702.7b"],
+      "why": "Memnite carries no equipment, aura or counters, so attacking alongside War Machine grants it nothing.",
+      "setup": {
+        "p0": {"battlefield": ["War Machine, Avenging Arsenal", "Memnite"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:War Machine, Avenging Arsenal", "p0:Memnite"], "defender": "p1"}
+      ],
+      "expect": [
+        {"card": "p0:Memnite", "no_keywords": ["Double Strike"]}
+      ]
+    }
+  ]
+}

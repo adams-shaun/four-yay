@@ -1,0 +1,37 @@
+{
+  "card": "Veiled Ascension",
+  "family": "trigger-condition",
+  "oracle_sha": "31eab3f0e910",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "upkeep-cloaks-the-top-card-face-down",
+      "cr": ["603.2", "708.5", "701.61a"],
+      "why": "At the beginning of upkeep the may-trigger cloaks the top library card: the Grizzly Bears move onto the battlefield face down as a 2/2 creature.",
+      "setup": {
+        "p0": {"battlefield": ["Veiled Ascension"], "library_top": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "zone": "battlefield", "pt": "2/2", "types": ["Creature"]}
+      ]
+    },
+    {
+      "name": "face-down-creature-enters-with-a-flying-counter",
+      "cr": ["614.1c", "708.5"],
+      "why": "The enchantment's static makes face-down creatures the controller's control enter with a flying counter: the manifested Grizzly Bears arrive carrying one.",
+      "setup": {
+        "p0": {"battlefield": ["Ugin's Mastery", "Veiled Ascension"], "hand": ["Memnite"], "library_top": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Memnite", "mana": "C"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "zone": "battlefield", "pt": "2/2", "counters": {"flying": 1}}
+      ]
+    }
+  ]
+}

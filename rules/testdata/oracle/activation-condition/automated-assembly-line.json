@@ -1,0 +1,50 @@
+{
+  "card": "Automated Assembly Line",
+  "family": "activation-condition",
+  "oracle_sha": "2ffeb4da55c9",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "combat-damage-gives-one-energy-that-pumps",
+      "cr": ["603.2", "122.1", "118.2d"],
+      "why": "When the attacking artifact creature Memnite deals combat damage to the defending player, the Assembly Line gains one energy counter; Dr. Madison Li's one-energy pump is offered only after it.",
+      "setup": {
+        "p0": {"battlefield": ["Automated Assembly Line", "Memnite", "Dr. Madison Li", "Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "resolve",
+         "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Dr. Madison Li", "label": "gets +1/+0"}, "want": false}]},
+        {"op": "attack", "seat": 0, "attackers": ["p0:Memnite"], "defender": "p1",
+         "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Dr. Madison Li", "label": "gets +1/+0"}, "want": true}]},
+        {"op": "activate", "seat": 0, "card": "p0:Dr. Madison Li", "ability": "gets +1/+0", "targets": ["p0:Grizzly Bears"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "pt": "3/2"}
+      ]
+    },
+    {
+      "name": "three-energy-creates-a-tapped-robot-token",
+      "cr": ["602.2a", "118.2d", "701.17a"],
+      "why": "Paying {E}{E}{E} to the Assembly Line creates a tapped 3/3 artifact creature Robot token.",
+      "setup": {
+        "p0": {"battlefield": ["Automated Assembly Line", "Dr. Madison Li"], "hand": ["Bonesplitter", "Mind Stone", "Lightning Greaves"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Bonesplitter", "mana": "C"},
+        {"op": "resolve"},
+        {"op": "cast", "seat": 0, "card": "p0:Mind Stone", "mana": "CC"},
+        {"op": "resolve"},
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Greaves", "mana": ""},
+        {"op": "resolve"},
+        {"op": "activate", "seat": 0, "card": "p0:Automated Assembly Line", "ability": "Robot"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:token:Robot", "pt": "3/3", "tapped": true, "types": ["Artifact", "Creature"]}
+      ]
+    }
+  ]
+}

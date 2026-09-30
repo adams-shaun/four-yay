@@ -1,0 +1,58 @@
+{
+  "card": "Elder Owyn Lyons",
+  "family": "conditional-static",
+  "oracle_sha": "06b2ab4f25a7",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "artifacts-have-ward-one",
+      "cr": ["613.4a", "702.36b"],
+      "why": "While Elder Owyn Lyons is on the battlefield, the artifact Mind Stone carries ward {1}: Doom Blade targeting it is countered unless its controller pays {1}, which the empty pool cannot.",
+      "setup": {
+        "p0": {"battlefield": ["Elder Owyn Lyons", "Mind Stone"]},
+        "p1": {"hand": ["Doom Blade"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 1, "card": "p1:Doom Blade", "mana": "CB", "targets": ["p0:Mind Stone"],
+         "answers": [{"kind": "choose", "pick": ["no"]}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Mind Stone", "zone": "battlefield"},
+        {"card": "p1:Doom Blade", "zone": "graveyard"}
+      ]
+    },
+    {
+      "name": "creatures-do-not-get-the-ward",
+      "cr": ["613.4a", "702.36b"],
+      "why": "The ward is on artifacts only, so the same Doom Blade resolves on the Grizzly Bears and destroys them.",
+      "setup": {
+        "p0": {"battlefield": ["Elder Owyn Lyons", "Grizzly Bears"]},
+        "p1": {"hand": ["Doom Blade"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 1, "card": "p1:Doom Blade", "mana": "CB", "targets": ["p0:Grizzly Bears"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "zone": "graveyard"}
+      ]
+    },
+    {
+      "name": "dies-returns-an-artifact-card-from-the-graveyard",
+      "cr": ["603.2", "701.17a"],
+      "why": "The dies trigger returns the targeted artifact card (Mind Stone) from my graveyard to my hand.",
+      "setup": {
+        "p0": {"battlefield": ["Elder Owyn Lyons"], "graveyard": ["Mind Stone"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "move", "card": "p0:Elder Owyn Lyons", "to": "graveyard", "targets": ["p0:Mind Stone"]}
+      ],
+      "expect": [
+        {"card": "p0:Elder Owyn Lyons", "zone": "graveyard"},
+        {"card": "p0:Mind Stone", "zone": "hand"}
+      ]
+    }
+  ]
+}

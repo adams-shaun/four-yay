@@ -1,0 +1,67 @@
+{
+  "card": "Plasma Caster",
+  "family": "activation-condition",
+  "oracle_sha": "3365b44a8a34",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "equipping-buffs-and-attacking-gives-energy",
+      "cr": ["301.6a", "603.2", "122.1"],
+      "why": "Equipping gives Grizzly Bears +1/+1; when the equipped creature attacks, the caster gains two energy counters, which are enough for the one-energy Dr. Madison Li pump.",
+      "setup": {
+        "p0": {"battlefield": ["Plasma Caster", "Grizzly Bears", "Dr. Madison Li"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Plasma Caster", "ability": "Equip", "targets": ["p0:Grizzly Bears"], "mana": "CC"},
+        {"op": "resolve"},
+        {"op": "attack", "seat": 0, "attackers": ["p0:Grizzly Bears"], "defender": "p1",
+         "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Dr. Madison Li", "label": "gets +1/+0"}, "want": true}]},
+        {"op": "activate", "seat": 0, "card": "p0:Dr. Madison Li", "ability": "gets +1/+0", "targets": ["p0:Grizzly Bears"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "pt": "3/3"}
+      ]
+    },
+    {
+      "name": "flip-ability-not-offered-without-a-blocker",
+      "cr": ["602.2a", "702.1c"],
+      "why": "The '{E}{E}' ability targets a creature blocking the equipped creature; with no attacker and no blocker it is never offered.",
+      "setup": {
+        "p0": {"battlefield": ["Plasma Caster", "Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Plasma Caster", "ability": "Equip", "targets": ["p0:Grizzly Bears"], "mana": "CC"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"offered": {"seat": 0, "kind": "activate", "card": "p0:Plasma Caster", "label": "Flip a coin"}, "want": false}
+      ]
+    },
+    {
+      "name": "two-energy-exactly-activates-the-flip",
+      "cr": ["602.2a", "118.2d", "702.13a"],
+      "why": "The attack trigger's two energy counters exactly cover the '{E}{E}' ability, which targets a creature blocking the equipped creature; the blocking Grizzly Bears is the offered target.",
+      "setup": {
+        "p0": {"battlefield": ["Plasma Caster", "Grizzly Bears"]},
+        "p1": {"battlefield": ["Grizzly Bears"]}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Plasma Caster", "ability": "Equip", "targets": ["p0:Grizzly Bears"], "mana": "CC"},
+        {"op": "resolve"},
+        {"op": "attack", "seat": 0, "attackers": ["p0:Grizzly Bears"], "defender": "p1"},
+        {"op": "pass_to", "step": "declare-blockers"},
+        {"op": "block", "seat": 1, "blocks": [["p1:Grizzly Bears#2", "p0:Grizzly Bears"]],
+         "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Plasma Caster", "label": "Flip a coin"}, "want": true}]},
+        {"op": "activate", "seat": 0, "card": "p0:Plasma Caster", "ability": "Flip a coin", "targets": ["p1:Grizzly Bears#2"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"stack_size": 0},
+        {"count": {"seat": 1, "zone": "battlefield", "name": "Grizzly Bears", "eq": 1}}
+      ]
+    }
+  ]
+}
