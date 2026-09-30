@@ -376,6 +376,19 @@ type CardView struct {
 	// copies of one card apart in the stack, the log and an arrow.
 	Printing Printing `json:"printing"`
 	Token    string   `json:"token"`
+	// IsToken and IsCopy are the object's own state.Object flags projected
+	// for every visible card: a battlefield token (CR 111.7) and a copy
+	// (CR 707.10; a battlefield token copy carries BOTH) are public identity
+	// facts like the name they sit beside, and a client wire that mints its
+	// own identity DTO reads them rather than re-deriving one from Token --
+	// which is the display tag every card carries, never a token flag.
+	// cardViews' face-down replacement rebuilds the CardView from a fresh
+	// literal without them, so a card hidden behind its face reveals no more
+	// than that projection already did; and since a token exists only on the
+	// battlefield and a copy only on the stack or the battlefield, neither
+	// flag can name a card in a hidden zone.
+	IsToken bool `json:"is_token,omitempty"`
+	IsCopy  bool `json:"is_copy,omitempty"`
 	// AttackingPlayer is the seat this creature is attacking while
 	// Attacking is true, nil otherwise; BlockedBy lists the creatures
 	// blocking it. Both exist for the arrow overlay (PL-17) and come
@@ -1008,6 +1021,8 @@ func cardView(g *state.Game, ch Chars, id state.ObjID) CardView {
 		AttachedTo: o.AttachedTo, ActivatedThisTurn: o.ActivatedThisTurn,
 	}
 	cv.Token = "#" + strconv.FormatUint(uint64(id), 10)
+	cv.IsToken = o.IsToken
+	cv.IsCopy = o.IsCopy
 	if f := o.Face(); f != nil {
 		cv.Name = f.Name
 		// Name is a layer-3 characteristic. Keep the optional method so
