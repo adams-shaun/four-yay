@@ -58,11 +58,14 @@ func run(args []string, out io.Writer) error {
 	if args[0] == "source" && args[1] == "root-audit" {
 		return rootAudit(args[2:], out)
 	}
+	if args[0] == "source" && args[1] == "root-verify" {
+		return rootVerify(args[2:], out)
+	}
 	return usage()
 }
 
 func usage() error {
-	return fmt.Errorf("usage: searchbench manifest validate -in <manifest.json>\n       searchbench analyze -manifest <manifest.json> -results <results.jsonl>\n       searchbench source audit -in <17lands.csv[.gz]>\n       searchbench source candidates -in <17lands.csv[.gz]>\n       searchbench source replay-audit -in <17lands.csv[.gz]>\n       searchbench source resolution-audit -in <17lands.csv[.gz]> -cards <cards.csv>\n       searchbench source corpus-audit -in <17lands.csv[.gz]> -corpus <.cards>\n       searchbench source genesis-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source stage-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source root-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>")
+	return fmt.Errorf("usage: searchbench manifest validate -in <manifest.json>\n       searchbench analyze -manifest <manifest.json> -results <results.jsonl>\n       searchbench source audit -in <17lands.csv[.gz]>\n       searchbench source candidates -in <17lands.csv[.gz]>\n       searchbench source replay-audit -in <17lands.csv[.gz]>\n       searchbench source resolution-audit -in <17lands.csv[.gz]> -cards <cards.csv>\n       searchbench source corpus-audit -in <17lands.csv[.gz]> -corpus <.cards>\n       searchbench source genesis-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source stage-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source root-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source root-verify -roots <roots.jsonl> -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>")
 }
 
 func validate(args []string, out io.Writer) error {
@@ -381,7 +384,7 @@ func rootAudit(args []string, out io.Writer) error {
 		ordinal := 0
 		_, e = searchbench.StageGameObserve(engine, [2]*seat.Bot{seat.NewBot(uint64(i + 11)), seat.NewBot(uint64(i + 12))}, resolved, func(root *rules.Engine, d *decision.Decision, in decision.Intent) error {
 			if *output != "" {
-				record, err := searchbench.NewRootRecord(game.ID, ordinal, root, d, in)
+				record, err := searchbench.NewRootRecord(game.ID, uint64(i+1), ordinal, root, d, in)
 				if err != nil {
 					return err
 				}
@@ -436,5 +439,56 @@ func rootAudit(args []string, out io.Writer) error {
 		}
 	}
 	_, err = fmt.Fprintf(out, "games=%d roots=%d user_roots=%d lands=%d spells=%d completed=%d first_failure=%q\n", len(games), roots, userRoots, lands, spells, completed, firstFailure)
+	return err
+}
+
+// rootVerify independently reconstructs indexed roots. It is deliberately
+// bounded by -limit so operators can smoke-test a large index, or set zero to
+// audit the complete immutable selection.
+func rootVerify(args []string, out io.Writer) error {
+	fs := flag.NewFlagSet("searchbench source root-verify", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	in := fs.String("in", "", "17lands FDN replay CSV")
+	cardsPath := fs.String("cards", "", "17lands cards CSV")
+	corpus := fs.String("corpus", ".cards", "compiled Forge corpus")
+	rootsPath := fs.String("roots", "", "root JSONL index")
+	limit := fs.Int("limit", 1, "roots to independently replay; zero means all")
+	if err := fs.Parse(args); err != nil || *in == "" || *cardsPath == "" || *rootsPath == "" || *limit < 0 || fs.NArg() != 0 {
+		return usage()
+	}
+	reg, err := cards.OpenCorpus(*corpus)
+	if err != nil {
+		return err
+	}
+	names, err := searchbench.LoadCardNames(*cardsPath)
+	if err != nil {
+		return err
+	}
+	games, err := searchbench.ReplayGamesCSV(*in, searchbench.DefaultSourceFilter())
+	if err != nil {
+		return err
+	}
+	byID := make(map[string]searchbench.ReplayGame, len(games))
+	for _, game := range games {
+		byID[game.ID] = game
+	}
+	roots, err := searchbench.ReadRootRecords(*rootsPath)
+	if err != nil {
+		return err
+	}
+	n := len(roots)
+	if *limit != 0 && *limit < n {
+		n = *limit
+	}
+	for i := 0; i < n; i++ {
+		game, ok := byID[roots[i].GameID]
+		if !ok {
+			return fmt.Errorf("searchbench: root %d names source game %q not present in eligible input", i, roots[i].GameID)
+		}
+		if _, err := searchbench.ReplayRoot(reg, names, game, roots[i]); err != nil {
+			return fmt.Errorf("searchbench: root %d: %w", i, err)
+		}
+	}
+	_, err = fmt.Fprintf(out, "verified=%d indexed=%d\n", n, len(roots))
 	return err
 }
