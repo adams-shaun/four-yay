@@ -160,6 +160,22 @@ def closed_issue_ids(repo: Path) -> set[str]:
     return out
 
 
+def _ref_is_ancestor(repo: Path, ancestor: str, descendant: str) -> bool:
+    """True if `ancestor` is reachable from `descendant`.
+
+    `git()` cannot express this: `merge-base --is-ancestor` answers with its
+    exit code and an empty stdout, and `git()` collapses every non-zero exit
+    to `""`. So this calls git directly and reads `returncode == 0`.
+    """
+    p = subprocess.run(
+        ["git", "-C", str(repo), "merge-base", "--is-ancestor", ancestor, descendant],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    return p.returncode == 0
+
+
 def _tree_blobs(repo: Path, ref: str, paths: list[str]) -> dict[str, str]:
     """Blob sha per path in `ref`'s tree, one git call for the whole list."""
     out = git(repo, "ls-tree", "-r", ref, "--", *paths)
@@ -199,9 +215,21 @@ def live_branch_files(repo: Path) -> dict[str, list[str]]:
     two editors were both seats whose tickets had been superseded 18 minutes
     earlier -- a brief was minted to remove a contention between two dead
     branches (cli-20260930T000410Z-3208f470).
+
+    A STACKED branch is not a second editor. When a live branch's tip is an
+    ancestor of another live branch, landing the descendant lands the
+    ancestor's content with it, so the two cannot conflict: the ancestor's
+    blob is an intermediate state the descendant already contains, not a
+    competing content. Counting both minted briefs to split files in one
+    stack (measured 2026-09-30: `gorge-searchbench` and its own descendant
+    `sbrep-search` were the two "editors" of `internal/azmcts/search.go` and
+    four siblings -- five files nothing would ever merge against). So per
+    file a branch is kept only when it is not an ancestor of another branch
+    that also edits that file.
     """
     closed = closed_issue_ids(repo)
-    files: dict[str, list[str]] = collections.defaultdict(list)
+    # (name, ref) per path, deduped by blob as before.
+    editors: dict[str, list[tuple[str, str]]] = collections.defaultdict(list)
     seen_blob: dict[str, set[str]] = collections.defaultdict(set)
     for line in git(repo, "worktree", "list", "--porcelain").splitlines():
         if not line.startswith("branch "):
@@ -223,7 +251,20 @@ def live_branch_files(repo: Path) -> dict[str, list[str]]:
             if b in seen_blob[f]:
                 continue  # same content another live branch already contributes
             seen_blob[f].add(b)
-            files[f].append(name)
+            editors[f].append((name, ref))
+    files: dict[str, list[str]] = collections.defaultdict(list)
+    for f, eds in editors.items():
+        # Drop a branch whose tip another editor of the SAME file descends
+        # from: that ancestor's content will land as part of the descendant.
+        kept = [
+            (name, ref)
+            for name, ref in eds
+            if not any(
+                ref != oref and _ref_is_ancestor(repo, ref, oref)
+                for _, oref in eds
+            )
+        ]
+        files[f] = [name for name, _ in kept]
     return files
 
 
@@ -1115,6 +1156,35 @@ def selftest() -> int:
         check("the landed-identical branch is still excluded",
               "dup" not in two.get("shared.txt", []), two.get("shared.txt"))
         check("hotspots reports it", any(f == "shared.txt" for f, _ in hotspots(hr)), hotspots(hr))
+
+        # A STACKED branch is not a second editor: when one live tip is an
+        # ancestor of another, landing the descendant lands the ancestor's
+        # content too, so the two cannot conflict. `wt/stack-base` edits
+        # stacked.txt; `wt/stack-tip` descends from it and edits the SAME
+        # file again, giving two distinct blobs -- exactly the shape that
+        # minted the 2026-09-30 gorge-searchbench/sbrep-search brief. The
+        # file must NOT be hot: only the maximal tip is an editor.
+        wsb = Path(td) / "hot-stack-base"
+        hrun("worktree", "add", "-q", "-b", "wt/stack-base", str(wsb), base)
+        (wsb / "stacked.txt").write_text("base edit\n")
+        subprocess.run(["git", "-C", str(wsb), "add", "stacked.txt"], capture_output=True)
+        hcommit(wsb, "edit stacked")
+        wst = Path(td) / "hot-stack-tip"
+        hrun("worktree", "add", "-q", "-b", "wt/stack-tip", str(wst), "wt/stack-base")
+        (wst / "stacked.txt").write_text("tip edit\n")
+        subprocess.run(["git", "-C", str(wst), "add", "stacked.txt"], capture_output=True)
+        hcommit(wst, "edit stacked again")
+        check("precondition: the two stacked tips hold distinct stacked.txt blobs",
+              hrun("rev-parse", "wt/stack-base:stacked.txt").stdout.strip()
+              != hrun("rev-parse", "wt/stack-tip:stacked.txt").stdout.strip())
+        check("precondition: stack-tip descends from stack-base",
+              hrun("merge-base", "--is-ancestor", "wt/stack-base", "wt/stack-tip").returncode == 0)
+
+        stacked = live_branch_files(hr)
+        check("a stacked branch is not a second editor of its descendant's file",
+              stacked.get("stacked.txt") == ["stack-tip"], stacked.get("stacked.txt"))
+        check("a two-branch stack is not a hot spot",
+              not any(f == "stacked.txt" for f, _ in hotspots(hr)), hotspots(hr))
 
         obs = [json.loads(r) for r in collect_obs(repo)]
         check("a missing checklist explains itself", "absent" in obs[0]["note"], obs)
