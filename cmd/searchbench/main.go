@@ -31,11 +31,14 @@ func run(args []string, out io.Writer) error {
 	if args[0] == "source" && args[1] == "audit" {
 		return sourceAudit(args[2:], out)
 	}
+	if args[0] == "source" && args[1] == "candidates" {
+		return sourceCandidates(args[2:], out)
+	}
 	return usage()
 }
 
 func usage() error {
-	return fmt.Errorf("usage: searchbench manifest validate -in <manifest.json>\n       searchbench analyze -manifest <manifest.json> -results <results.jsonl>\n       searchbench source audit -in <17lands.csv[.gz]>")
+	return fmt.Errorf("usage: searchbench manifest validate -in <manifest.json>\n       searchbench analyze -manifest <manifest.json> -results <results.jsonl>\n       searchbench source audit -in <17lands.csv[.gz]>\n       searchbench source candidates -in <17lands.csv[.gz]>")
 }
 
 func validate(args []string, out io.Writer) error {
@@ -96,5 +99,21 @@ func sourceAudit(args []string, out io.Writer) error {
 		return err
 	}
 	_, err = fmt.Fprintf(out, "rows=%d fdn_premier=%d eligible=%d malformed_eligibility=%d\n", a.Rows, a.FDNPremierRows, a.EligibleRows, a.MalformedEligibilityRows)
+	return err
+}
+
+func sourceCandidates(args []string, out io.Writer) error {
+	fs := flag.NewFlagSet("searchbench source candidates", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	in := fs.String("in", "", "17lands FDN replay CSV")
+	max := fs.Int("max-per-game", 2, "pre-reconstruction candidates per game")
+	if err := fs.Parse(args); err != nil || *in == "" || fs.NArg() != 0 {
+		return usage()
+	}
+	_, a, err := searchbench.CandidatesCSV(*in, searchbench.DefaultSourceFilter(), *max)
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(out, "eligible_games=%d candidates=%d spell=%d hold=%d attack=%d block=%d\n", a.EligibleGames, a.Candidates, a.ByType[0], a.ByType[1], a.ByType[2], a.ByType[3])
 	return err
 }
