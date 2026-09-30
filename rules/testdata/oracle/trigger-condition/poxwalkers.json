@@ -1,0 +1,41 @@
+{
+  "card": "Poxwalkers",
+  "family": "trigger-condition",
+  "oracle_sha": "3b8db4f2a0d6",
+  "author": "cli-20260929T235020Z-c90601c7 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "flashback-cast-returns-it-tapped",
+      "cr": ["603.2", "702.34a"],
+      "why": "Casting a spell from the graveyard with flashback is a cast from a zone other than the hand, so Poxwalkers' ability returns it from the graveyard to the battlefield tapped.",
+      "setup": {
+        "p0": {"graveyard": ["Poxwalkers", "Faithless Looting"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Faithless Looting", "mana": "RRR", "cast_mode": "flashback"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Poxwalkers", "zone": "battlefield", "tapped": true}
+      ]
+    },
+    {
+      "name": "hand-cast-does-not-return-it",
+      "cr": ["603.2"],
+      "why": "A spell cast from the hand is not 'from anywhere other than your hand', so Poxwalkers stays in the graveyard.",
+      "setup": {
+        "p0": {"hand": ["Grizzly Bears"], "graveyard": ["Poxwalkers"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Grizzly Bears", "mana": "GG"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Poxwalkers", "zone": "graveyard"},
+        {"card": "p0:Grizzly Bears", "zone": "battlefield"}
+      ]
+    }
+  ]
+}

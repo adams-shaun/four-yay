@@ -1,0 +1,44 @@
+{
+  "card": "Insidious Fungus",
+  "family": "activation-condition",
+  "oracle_sha": "7df9be71578f",
+  "author": "cli-20260929T235020Z-c90601c7 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "mode-destroy-target-artifact",
+      "cr": ["601.2", "700.2", "701.7a"],
+      "why": "The activated ability is modal; choosing the first mode destroys target artifact, so sacrificing the Fungus destroys the opponent's Bonesplitter.",
+      "setup": {
+        "p0": {"battlefield": ["Insidious Fungus"]},
+        "p1": {"battlefield": ["Bonesplitter"]}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Insidious Fungus", "mana": "CC"},
+        {"op": "resolve", "targets": ["p1:Bonesplitter"],
+         "answers": [{"kind": "modes", "pick": ["Destroy target artifact"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Insidious Fungus", "zone": "graveyard"},
+        {"card": "p1:Bonesplitter", "zone": "graveyard"}
+      ]
+    },
+    {
+      "name": "mode-draw-a-card",
+      "cr": ["700.2", "121.1"],
+      "why": "Choosing the third mode draws a card; the extra land clause is optional and may be declined.",
+      "setup": {
+        "p0": {"battlefield": ["Insidious Fungus"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Insidious Fungus", "mana": "CC"},
+        {"op": "resolve",
+         "answers": [{"kind": "modes", "pick": ["Draw a card"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Insidious Fungus", "zone": "graveyard"},
+        {"hand_size": {"p0": 1}}
+      ]
+    }
+  ]
+}

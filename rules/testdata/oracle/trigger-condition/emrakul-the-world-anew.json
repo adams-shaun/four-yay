@@ -1,0 +1,28 @@
+{
+  "card": "Emrakul, the World Anew",
+  "family": "trigger-condition",
+  "oracle_sha": "4042d7e99738",
+  "author": "cli-20260929T235020Z-c90601c7 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "cast-trigger-gains-control-of-all-target-players-creatures",
+      "cr": ["601.2a", "603.2", "800.4a"],
+      "why": "Emrakul's cast trigger gives the caster control of all creatures the target player controls, so after it resolves all of seat 1's creatures are controlled by seat 0.",
+      "setup": {
+        "p0": {"hand": ["Emrakul, the World Anew"]},
+        "p1": {"battlefield": ["Grizzly Bears", "Savannah Lions", "Centaur Courser"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Emrakul, the World Anew", "mana": "CCCCCCCCCCCC", "targets": ["p1"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Grizzly Bears"}, "eq": 1},
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Savannah Lions"}, "eq": 1},
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Centaur Courser"}, "eq": 1},
+        {"count": {"seat": 1, "zone": "battlefield", "name": "Grizzly Bears"}, "eq": 0},
+        {"card": "p0:Emrakul, the World Anew", "zone": "battlefield"}
+      ]
+    }
+  ]
+}

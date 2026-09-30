@@ -1,0 +1,27 @@
+{
+  "card": "Ragavan, Nimble Pilferer",
+  "family": "trigger-condition",
+  "oracle_sha": "d033eb85f7d2",
+  "author": "cli-20260929T235020Z-c90601c7 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "combat-damage-makes-a-treasure-and-exiles-the-top-card",
+      "cr": ["510.2", "701.20a", "601.3"],
+      "why": "Ragavan's combat-damage trigger creates a Treasure token and exiles the top card of the damaged player's library; the exiled card may be cast until end of turn.",
+      "setup": {
+        "p0": {"battlefield": ["Ragavan, Nimble Pilferer"]},
+        "p1": {"life": 20, "library_top": ["Lightning Bolt"]}
+      },
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:Ragavan, Nimble Pilferer"], "defender": "p1"},
+        {"op": "pass_to", "seat": 0, "step": "end"}
+      ],
+      "expect": [
+        {"life": {"p1": 18}},
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Treasure", "token": true}, "eq": 1},
+        {"card": "p1:Lightning Bolt", "zone": "exile"},
+        {"card": "p0:token:Treasure", "types": ["Artifact"]}
+      ]
+    }
+  ]
+}

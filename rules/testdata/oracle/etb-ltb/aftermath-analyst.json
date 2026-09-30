@@ -1,0 +1,43 @@
+{
+  "card": "Aftermath Analyst",
+  "family": "etb-ltb",
+  "oracle_sha": "1662e2958184",
+  "author": "cli-20260929T235020Z-c90601c7 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "sacrifice-returns-all-land-cards-from-graveyard-tapped",
+      "cr": ["601.2", "608.2c", "701.17a"],
+      "why": "Activating '{3}{G}, Sacrifice Aftermath Analyst' returns all land cards from your graveyard to the battlefield tapped; the two land cards return tapped and the Analyst itself goes to the graveyard.",
+      "setup": {
+        "p0": {"battlefield": ["Aftermath Analyst"], "graveyard": ["Forest", "Mountain"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Aftermath Analyst", "ability": "Return all land cards", "mana": "GGGG"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Aftermath Analyst", "zone": "graveyard"},
+        {"card": "p0:Forest", "zone": "battlefield", "tapped": true},
+        {"card": "p0:Mountain", "zone": "battlefield", "tapped": true}
+      ]
+    },
+    {
+      "name": "nonland-cards-stay-in-graveyard",
+      "cr": ["608.2c"],
+      "why": "Only land cards are returned; a creature card in the same graveyard stays there.",
+      "setup": {
+        "p0": {"battlefield": ["Aftermath Analyst"], "graveyard": ["Forest", "Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Aftermath Analyst", "ability": "Return all land cards", "mana": "GGGG"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Forest", "zone": "battlefield", "tapped": true},
+        {"card": "p0:Grizzly Bears", "zone": "graveyard"}
+      ]
+    }
+  ]
+}

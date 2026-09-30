@@ -1,0 +1,31 @@
+{
+  "card": "Meathook Massacre II",
+  "family": "etb-ltb",
+  "oracle_sha": "881d4ad5eb54",
+  "author": "cli-20260929T235020Z-c90601c7 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enters-each-player-sacrifices-x-creatures",
+      "cr": ["603.6a", "701.17a"],
+      "why": "With X = 1 Meathook Massacre II's enter trigger makes each player sacrifice one creature; both players decline the later pay-3-life return, so the creature seat 0 sacrifices stays in its graveyard and the creature seat 1 sacrifices returns under seat 0's control with a finality counter.",
+      "setup": {
+        "p0": {"hand": ["Meathook Massacre II"], "battlefield": ["Grizzly Bears"]},
+        "p1": {"battlefield": ["Savannah Lions"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Meathook Massacre II", "mana": "BBBBBB",
+         "answers": [{"kind": "choose", "pick": ["1"]}]},
+        {"op": "resolve",
+         "answers": [
+           {"kind": "modes", "pick": ["no"]},
+           {"kind": "choose", "pick": ["no"]}
+         ]}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "zone": "graveyard"},
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Savannah Lions"}, "eq": 1},
+        {"life": {"p0": 20, "p1": 20}}
+      ]
+    }
+  ]
+}
