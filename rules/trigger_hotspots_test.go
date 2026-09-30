@@ -125,7 +125,8 @@ func TestGrantedStaticTriggerSnapshotQueuesMatchingTrigger(t *testing.T) {
 func grantedStaticTriggerBenchEngine(b testing.TB, watchers int) *Engine {
 	b.Helper()
 	g := state.NewGame([]string{"a", "b", "c", "d"})
-	e := &Engine{G: g, L: events.NewLog(1), activeEpoch: -1}
+	e := &Engine{G: g, L: events.NewLog(1)}
+	e.activeEpoch = -1
 	watcher := &cards.Card{Faces: []*cards.Face{{Name: "Watcher", Types: []string{"Creature"}}}}
 	var source state.ObjID
 	for i := range watchers {

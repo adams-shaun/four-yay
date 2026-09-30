@@ -148,16 +148,17 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 		format:            cfg.Format,
 		rng:               random,
 		loop:              newLivelockWatcherInto(cfg.LoopGuard, spare.loopSigs, spare.loopRecent),
-		turnsTaken:        make([]int32, len(cfg.Names)),
 		compiledText:      newCompiledText(cfg),
 		landTypeWords:     corpusLandTypeWords(cfg.NameUniverse),
 		mulligans:         cfg.Mulligans,
 		windowDiagnostics: cfg.WindowDiagnostics,
 		startingLife:      life,
-		// The per-turn ManaExpend tally (rules/cast.go) starts empty; payCast
-		// stamps and resets it lazily on e.G.Turn.
-		manaExpended: make([]int32, len(cfg.Names)),
 	}
+	// The embedded turn ledger's per-turn slices (engine_turnledger.go).
+	e.turnsTaken = make([]int32, len(cfg.Names))
+	// The per-turn ManaExpend tally (rules/cast.go) starts empty; payCast
+	// stamps and resets it lazily on e.G.Turn.
+	e.manaExpended = make([]int32, len(cfg.Names))
 	for i, name := range cfg.Names {
 		var main, sideboard []*cards.Card
 		if i < len(cfg.Decks) {

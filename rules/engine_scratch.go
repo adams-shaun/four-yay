@@ -1,0 +1,158 @@
+package rules
+
+import (
+	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/state"
+)
+
+// engineScratch groups the Engine's per-walk and per-emit scratch state that a clone deliberately leaves zero. It is embedded by value in
+// Engine (rules/engine_struct.go), so every field keeps its documented
+// contract comment and every existing e.<field> access keeps compiling
+// unchanged through Go's field promotion. Clone's per-field copy
+// classes (rules/clone.go) are unchanged by the move.
+type engineScratch struct {
+	// derivedKW / derivedTypes are Derived's scratch keyword and type buffers
+	// (rules/layers.go): the full Derived(struct) build rewrites them in place
+	// so repeated derived-characteristic reads do not allocate. They are pure
+	// per-call scratch, rebuilt from the face and active() every call, so they
+	// carry no cross-call state beyond capacity; Clone() copies none of them
+	// (see clone.go), so a cloned engine grows its own — never aliasing the
+	// original's mutable scratch, exactly the A2 buffer / C3 digest precedent.
+	// derivedDepth is the re-entry guard for the reuse (the A2/active()
+	// pattern): a nested Derived mid-build owns private buffers instead of
+	// clobbering the outer build's.
+	derivedKW    []string
+	derivedTypes []string
+	derivedDepth int
+	// derivedPTFrames are the in-progress layer-7 snapshots exposed to
+	// effects-side Count$Valid scans, including nested candidate derivations.
+	derivedPTFrames []derivedPTSnapshot
+
+	// derivedMemo / derivedMemoDepth / derivedMemoGen are Derived's per-object
+	// memo for ONE legal-actions walk (rules/derivedmemo.go): derivedMemoDepth
+	// is the scope counter legalActionsPriced raises, derivedMemoGen is bumped
+	// on every outermost scope entry so no entry outlives the walk that built
+	// it, and derivedMemo (keyed by ObjID) owns each cached result's slices.
+	// Pure per-walk scratch: Clone copies none of it (a clone starts with an
+	// empty memo and generation 0, which no entry ever matches).
+	derivedMemo      derivedMemoTable
+	derivedMemoStack derivedMemoTable
+	derivedMemoDepth int
+	derivedMemoGen   uint64
+	// derivedMemoTail / derivedMemoAlias* carry the priority walk's memo
+	// across the decision boundary into a BeginDerivedReads scope
+	// (rules/derivedmemo.go). Validated on every use; Clone copies none.
+	derivedMemoTail      derivedMemoTail
+	derivedMemoAliasFrom int
+	derivedMemoAliasTo   int
+	// manaConvCache is a walk-scoped cache keyed like the Derived memo
+	// (rules/walkcache.go). Pure per-walk scratch: Clone copies none of it.
+	boardStaticsCache  boardStaticsCache
+	activeStaticsCache []activeStaticsEntry
+	mayPlaysCache      []mayPlaysEntry
+	// paymentPlanQuery is the payment planner's per-query scratch (the
+	// zone-entry index and source census, rules/payment_plan_search.go),
+	// installed for one query and validated against the log on every read.
+	// Pure per-query scratch: Clone copies none of it.
+	paymentPlanQuery *paymentPlanQuery
+	// paymentPlanRelaxed is PotentialPaymentPlans' transient proof mode
+	// (rules/potential_plan.go paymentPlanRelaxProof): relaxed, never
+	// executed alternatives for the mana abilities the planner census does
+	// not price, appended to every search while it is set. Pure per-query
+	// scratch: Clone copies none of it.
+	paymentPlanRelaxed [][]plannedManaActivation
+	// paymentPlanRelaxedFee is the generic the relaxed proof charges on top
+	// of every planned cost for the paid relaxed abilities it admits.
+	paymentPlanRelaxedFee int32
+	// paymentPlanPotentialPool marks a PotentialPaymentPlans query
+	// (paymentPlanPoolAccepted). Pure per-query scratch: Clone copies none.
+	paymentPlanPotentialPool bool
+
+	// derivingColorsSet/ID/Colors: the finished layer-5 colour answer for the
+	// object whose Derived is mid-build (set by derivedWith before its layer-7
+	// P/T walk, restored on the way out). Colors serves it to a layer-7 pump
+	// expression that counts the object's own colours, instead of re-entering
+	// Derived and recursing forever. Pure per-call scratch exactly like
+	// derivedDepth — Clone copies none of it (clone.go's scratch precedent).
+	derivingColorsSet bool
+	derivingColorsID  state.ObjID
+	derivingColors    string
+
+	// secretVoteBallots is emission-scoped scratch, visible only while the
+	// public, ballot-free completion Note is scanned for Vote triggers.
+	// It is never stored on Game or in the event log.
+	secretVoteBallots []effects.VoteBallot
+	// triggerBefore is the immutable pre-departure board for an SBA death
+	// batch. Scoped to its emission/resumption, never carried as live state.
+	triggerBefore *triggerSnapshot
+	// A shallow read-only observer of a recurring Effect trigger overrides
+	// controllerOf for its creating source. The Effect's controller is the
+	// registration's owner, even when its source card belongs to another seat.
+	// Only the observer sets this; live Engine and Game state are unchanged.
+	effectMatchSource     state.ObjID
+	effectMatchController state.PlayerID
+	effectMatchRemembered []state.Target
+	effectMatchOverride   bool
+	// lifeLossBatch holds the events in one simultaneous life-loss operation.
+	// It is scoped to one synchronous effect/combat pass, so it is always nil
+	// at an intent boundary and does not need log encoding or Clone state.
+	lifeLossBatch          []events.Event
+	lifeLossBatchDepth     int
+	finishingLifeLossBatch bool
+
+	// foreachBuf is forEachObject's (trigger_match.go) scratch snapshot
+	// buffer. forEachObject copies each zone into it before walking it -- fn
+	// may move objects between zones (a trigger match putting something on
+	// the stack), so iterating the live, mutating zone slice would be a bug.
+	// append(buf[:0], zone...) grows it in place, so it settles at the size
+	// of the largest zone seen and then stops allocating -- a fresh zone
+	// copy per zone per event used to be forEachObject's 11.51 GB allocation
+	// footprint (Task A2), the single largest allocator in this package.
+	// Owned by this Engine alone: Clone leaves both fields zero, so a clone
+	// and the original share no snapshot mid-walk (the clone just lets it
+	// grow again). foreachDepth guards re-entry (see forEachObject): zero
+	// outside a walk, one inside the depth-0 walk, higher inside a
+	// re-entrant nested walk.
+	foreachBuf   []state.ObjID
+	foreachDepth int
+
+	// legalOptBuf is legalActionsPriced's scratch option list. The walk
+	// appends into it (so the doubling growth that used to reallocate the
+	// list several times per walk settles at the largest walk seen) and
+	// returns an exactly-sized COPY: the returned slice is owned by the
+	// caller -- it becomes a pending Decision's Options, which seats, views,
+	// traces and search forks retain -- so the scratch never escapes. The
+	// walk takes the buffer (leaving nil) for its duration, so a re-entrant
+	// walk allocates its own rather than clobbering the outer one. Owned by
+	// this Engine alone: Clone leaves it nil, like foreachBuf.
+	legalOptBuf []decision.Option
+	// legalActionWalks counts every legalActionsPriced call (test-visible
+	// only; unexported, bumped unconditionally, no event and no effect on
+	// determinism or chain heads -- a plain monotonic read-only diagnostic
+	// counter). It lets a test count legal-action walks directly now that
+	// paymentActionsForPriority opens ONE derived-memo scope around the whole
+	// offer build, which pins derivedMemoGen's delta at 1 regardless of how
+	// many walks run inside. Clone leaves it zero, like the scratch fields.
+	legalActionWalks uint64
+	// manaAbBuf is the offer walk's per-object mana-ability scratch list
+	// (legal.go), and manaLabels its "Activate <name> for mana" label cache
+	// (manaActivateLabel; a pure function of the name, only ever looked up,
+	// never ranged). Both are Engine-owned scratch: Clone leaves them nil.
+	manaAbBuf  []*cards.SA
+	manaLabels map[string]string
+	// activeSum is active()'s per-build digest for the mana walk and
+	// grantedAbilities (active_summary.go). Clone leaves it zero.
+	activeSum activeSummary
+	// faceScans memoises per-face text-scan verdicts (face_scan_memo.go).
+	// Clone leaves it nil.
+	faceScans map[*cards.Face]faceScan
+	// intentBuf is a recycled intent array from Config.Spare, installed as
+	// the log's Intents on the first Submit (see there). Not cloned.
+	intentBuf []decision.Intent
+	// sbaIDBuf is the battlefield-snapshot scratch attachmentSBAs and
+	// checkSagas range (taken for the walk, restored after). Not cloned.
+	sbaIDBuf []state.ObjID
+}
