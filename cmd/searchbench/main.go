@@ -37,11 +37,14 @@ func run(args []string, out io.Writer) error {
 	if args[0] == "source" && args[1] == "replay-audit" {
 		return replayAudit(args[2:], out)
 	}
+	if args[0] == "source" && args[1] == "resolution-audit" {
+		return resolutionAudit(args[2:], out)
+	}
 	return usage()
 }
 
 func usage() error {
-	return fmt.Errorf("usage: searchbench manifest validate -in <manifest.json>\n       searchbench analyze -manifest <manifest.json> -results <results.jsonl>\n       searchbench source audit -in <17lands.csv[.gz]>\n       searchbench source candidates -in <17lands.csv[.gz]>\n       searchbench source replay-audit -in <17lands.csv[.gz]>")
+	return fmt.Errorf("usage: searchbench manifest validate -in <manifest.json>\n       searchbench analyze -manifest <manifest.json> -results <results.jsonl>\n       searchbench source audit -in <17lands.csv[.gz]>\n       searchbench source candidates -in <17lands.csv[.gz]>\n       searchbench source replay-audit -in <17lands.csv[.gz]>\n       searchbench source resolution-audit -in <17lands.csv[.gz]> -cards <cards.csv>")
 }
 
 func validate(args []string, out io.Writer) error {
@@ -142,5 +145,31 @@ func replayAudit(args []string, out io.Writer) error {
 		}
 	}
 	_, err = fmt.Fprintf(out, "replay_games=%d deck_cards=%d action_ids=%d\n", len(games), deckCards, actions)
+	return err
+}
+
+func resolutionAudit(args []string, out io.Writer) error {
+	fs := flag.NewFlagSet("searchbench source resolution-audit", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	in := fs.String("in", "", "17lands FDN replay CSV")
+	cardsPath := fs.String("cards", "", "17lands cards CSV")
+	if err := fs.Parse(args); err != nil || *in == "" || *cardsPath == "" || fs.NArg() != 0 {
+		return usage()
+	}
+	cards, err := searchbench.LoadCardNames(*cardsPath)
+	if err != nil {
+		return err
+	}
+	games, err := searchbench.ReplayGamesCSV(*in, searchbench.DefaultSourceFilter())
+	if err != nil {
+		return err
+	}
+	good := 0
+	for _, game := range games {
+		if _, err := searchbench.ResolveReplayGame(game, cards); err == nil {
+			good++
+		}
+	}
+	_, err = fmt.Fprintf(out, "games=%d card_resolved=%d refused=%d\n", len(games), good, len(games)-good)
 	return err
 }
