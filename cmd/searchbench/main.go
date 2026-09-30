@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
@@ -34,6 +35,12 @@ func run(args []string, out io.Writer) error {
 	}
 	if args[0] == "analyze" {
 		return analyze(args[1:], out)
+	}
+	if args[0] == "compare" {
+		return compare(args[1:], out)
+	}
+	if args[0] == "baselines" {
+		return baselines(args[1:], out)
 	}
 	if args[0] == "source" && args[1] == "audit" {
 		return sourceAudit(args[2:], out)
@@ -72,7 +79,7 @@ func run(args []string, out io.Writer) error {
 }
 
 func usage() error {
-	return fmt.Errorf("usage: searchbench manifest validate -in <manifest.json>\n       searchbench analyze -manifest <manifest.json> -results <results.jsonl>\n       searchbench source audit -in <17lands.csv[.gz]>\n       searchbench source candidates -in <17lands.csv[.gz]>\n       searchbench source replay-audit -in <17lands.csv[.gz]>\n       searchbench source resolution-audit -in <17lands.csv[.gz]> -cards <cards.csv>\n       searchbench source corpus-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source genesis-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source stage-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source root-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source root-verify -roots <roots.jsonl> -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source root-run -roots <roots.jsonl> -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards> -arm <clairvoyant-mcts|pimc-1|pimc-4|is-mcts>\n       searchbench source root-summarize -results <root-run.jsonl>")
+	return fmt.Errorf("usage: searchbench manifest validate -in <manifest.json>\n       searchbench analyze -manifest <manifest.json> [-split test] [-boot 1000] [-seed 0] [-qscale 2] [-json <out.json>] -results <results.jsonl> [<results.jsonl>...]\n       searchbench compare -manifest <manifest.json> -a <results.jsonl> -b <results.jsonl> [-split test] [-boot 1000] [-seed 0] [-json <out.json>]\n       searchbench baselines -manifest <manifest.json> -out <dir> [-seed 1]\n       searchbench source audit -in <17lands.csv[.gz]>\n       searchbench source candidates -in <17lands.csv[.gz]>\n       searchbench source replay-audit -in <17lands.csv[.gz]>\n       searchbench source resolution-audit -in <17lands.csv[.gz]> -cards <cards.csv>\n       searchbench source corpus-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source genesis-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source stage-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source root-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source root-verify -roots <roots.jsonl> -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source root-run -roots <roots.jsonl> -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards> -arm <clairvoyant-mcts|pimc-1|pimc-4|is-mcts>\n       searchbench source root-summarize -results <root-run.jsonl>")
 }
 
 func validate(args []string, out io.Writer) error {
@@ -90,33 +97,168 @@ func validate(args []string, out io.Writer) error {
 	return err
 }
 
+// parseInterleaved parses flags that may follow positional arguments, so
+// "-results a.jsonl b.jsonl -json out.json" works; it returns the positionals.
+func parseInterleaved(fs *flag.FlagSet, args []string) ([]string, error) {
+	var rest []string
+	for {
+		if err := fs.Parse(args); err != nil {
+			return nil, err
+		}
+		args = fs.Args()
+		if len(args) == 0 {
+			return rest, nil
+		}
+		rest = append(rest, args[0])
+		args = args[1:]
+	}
+}
+
+type fileList []string
+
+func (f *fileList) String() string     { return fmt.Sprint(*f) }
+func (f *fileList) Set(v string) error { *f = append(*f, v); return nil }
+
+func analysisFlags(fs *flag.FlagSet) (*string, *string, *int, *uint64) {
+	manifest := fs.String("manifest", "", "sealed manifest path")
+	split := fs.String("split", string(searchbench.SplitTest), "split to score: test or dev")
+	boot := fs.Int("boot", searchbench.DefaultBootstrap.Resamples, "bootstrap resamples (0 disables CIs)")
+	seed := fs.Uint64("seed", searchbench.DefaultBootstrap.Seed, "bootstrap seed (CPython random.Random seed)")
+	return manifest, split, boot, seed
+}
+
+func bindFile(m searchbench.Manifest, split searchbench.Split, path string) (searchbench.Run, error) {
+	rows, err := searchbench.ReadResults(path)
+	if err != nil {
+		return searchbench.Run{}, err
+	}
+	run, err := searchbench.BindResults(m, split, rows)
+	if err != nil {
+		return searchbench.Run{}, fmt.Errorf("%s: %w", path, err)
+	}
+	return run, nil
+}
+
+func writeJSON(path string, v any) error {
+	b, err := json.MarshalIndent(v, "", " ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, append(b, '\n'), 0o644)
+}
+
+// analyze scores one or more result files over one manifest split: one row
+// per file, as markdown on stdout and optionally JSON.
 func analyze(args []string, out io.Writer) error {
 	fs := flag.NewFlagSet("searchbench analyze", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
-	manifest := fs.String("manifest", "", "sealed manifest path")
-	results := fs.String("results", "", "one-arm JSONL results path")
-	if err := fs.Parse(args); err != nil || *manifest == "" || *results == "" || fs.NArg() != 0 {
+	manifest, split, boot, seed := analysisFlags(fs)
+	var results fileList
+	fs.Var(&results, "results", "result JSONL (repeatable; further paths may follow)")
+	jsonOut := fs.String("json", "", "write the report JSON here")
+	qscale := fs.Float64("qscale", searchbench.DefaultQScale, "factor putting Q gaps on upstream's [-1,1] value scale")
+	rest, err := parseInterleaved(fs, args)
+	if err != nil || *manifest == "" || *boot < 0 {
+		return usage()
+	}
+	results = append(results, rest...)
+	if len(results) == 0 {
 		return usage()
 	}
 	m, err := searchbench.Read(*manifest)
 	if err != nil {
 		return err
 	}
-	rows, err := searchbench.ReadResults(*results)
+	opt := searchbench.AnalyzeOptions{Split: searchbench.Split(*split), Bootstrap: searchbench.Bootstrap{Resamples: *boot, Seed: *seed}, QScale: *qscale}
+	runs := make([]searchbench.Run, 0, len(results))
+	for _, p := range results {
+		run, err := bindFile(m, opt.Split, p)
+		if err != nil {
+			return err
+		}
+		runs = append(runs, run)
+	}
+	rep, err := searchbench.Analyze(m, runs, results, opt)
 	if err != nil {
 		return err
 	}
-	s, arm, err := searchbench.Analyze(m, rows)
+	if *jsonOut != "" {
+		if err := writeJSON(*jsonOut, rep); err != nil {
+			return err
+		}
+	}
+	return rep.WriteMarkdown(out)
+}
+
+// compare reports every metric's paired difference a − b over the same
+// resampled games, and the two runs' same-choice rate.
+func compare(args []string, out io.Writer) error {
+	fs := flag.NewFlagSet("searchbench compare", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	manifest, split, boot, seed := analysisFlags(fs)
+	a := fs.String("a", "", "result JSONL a")
+	b := fs.String("b", "", "result JSONL b")
+	jsonOut := fs.String("json", "", "write the comparison JSON here")
+	if err := fs.Parse(args); err != nil || *manifest == "" || *a == "" || *b == "" || *boot < 0 || fs.NArg() != 0 {
+		return usage()
+	}
+	m, err := searchbench.Read(*manifest)
 	if err != nil {
 		return err
 	}
-	macro, macroOK := s.MacroAgreement()
-	balanced, balancedOK := s.BalancedAgreement()
-	if !macroOK || !balancedOK {
-		return fmt.Errorf("searchbench: result lacks all four types or both action classes")
+	opt := searchbench.AnalyzeOptions{Split: searchbench.Split(*split), Bootstrap: searchbench.Bootstrap{Resamples: *boot, Seed: *seed}}
+	ra, err := bindFile(m, opt.Split, *a)
+	if err != nil {
+		return err
 	}
-	_, err = fmt.Fprintf(out, "arm=%s items=%d macro_agreement=%.6f balanced_agreement=%.6f\n", arm, len(rows), macro, balanced)
-	return err
+	rb, err := bindFile(m, opt.Split, *b)
+	if err != nil {
+		return err
+	}
+	rep, err := searchbench.Compare(m, ra, rb, opt)
+	if err != nil {
+		return err
+	}
+	if *jsonOut != "" {
+		if err := writeJSON(*jsonOut, rep); err != nil {
+			return err
+		}
+	}
+	return rep.WriteMarkdown(out)
+}
+
+// baselines writes the always-passive, always-active and uniform-random
+// result files for every manifest item.
+func baselines(args []string, out io.Writer) error {
+	fs := flag.NewFlagSet("searchbench baselines", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	manifest := fs.String("manifest", "", "sealed manifest path")
+	dir := fs.String("out", "", "output directory")
+	seed := fs.Uint64("seed", 1, "uniform-random baseline seed")
+	if err := fs.Parse(args); err != nil || *manifest == "" || *dir == "" || fs.NArg() != 0 {
+		return usage()
+	}
+	m, err := searchbench.Read(*manifest)
+	if err != nil {
+		return err
+	}
+	arms, err := searchbench.Baselines(m, *seed)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(*dir, 0o755); err != nil {
+		return err
+	}
+	for _, arm := range searchbench.BaselineArms() {
+		p := filepath.Join(*dir, arm+".jsonl")
+		if err := searchbench.WriteResults(p, arms[arm]); err != nil {
+			return err
+		}
+		if _, err := fmt.Fprintf(out, "wrote %s (%d rows)\n", p, len(arms[arm])); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func sourceAudit(args []string, out io.Writer) error {
