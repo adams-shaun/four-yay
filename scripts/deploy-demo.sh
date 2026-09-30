@@ -85,6 +85,22 @@ SEED=${SEED:-1}
 DEMO_GOMEMLIMIT=${DEMO_GOMEMLIMIT:-8GiB}
 
 PUB_PORT=${PUB_PORT:-8080}
+# Ports a previous demo layout served on. The sweep stops a gorged still
+# listening there, so the first deploy after a layout change does not leave
+# the old server running forever; nothing is started on them.
+# (OMNI_PORT/MB_PORT were retired outright by 72d86d5ba — no second server —
+# but the ports they bound stay swept: see demo-ports.sh below.)
+#
+# The set is COMPUTED, not listed: demo-ports.sh unions every port the demo has
+# ever bound (an append-only history) with the ones this run binds, so
+# emptying a *_PORT variable to retire a listener can never take a previous
+# layout's server off the sweep. That bug left the :8081 -manabrew gorged
+# standing after 2026-09-29 and tripped the standing_gorged_excess stability
+# veto (2026-09-30). RETIRED_PORTS stays as a caller override for a one-off
+# port a manual layout used; it is not the mechanism anymore.
+RETIRED_PORTS=${RETIRED_PORTS-}
+# shellcheck source=scripts/demo-ports.sh
+. "$(dirname "${BASH_SOURCE[0]}")/demo-ports.sh"
 PUB_DIR=${PUB_DIR:-/tmp/gorge-demo-pub}
 PUB_LOG=${PUB_LOG:-/tmp/gorge-demo-pub.log}
 
@@ -173,7 +189,7 @@ gorged_pids() {
 	local filter='LISTEN'
 	if [ "$SWEEP" != "all" ]; then
 		local ports
-		ports=$(printf '%s\n' "$PUB_PORT" | grep -E '^[0-9]+$' | paste -sd'|')
+		ports=$(demo_sweep_ports "$PUB_PORT" $RETIRED_PORTS | paste -sd'|')
 		filter="[[:space:]](127\\.0\\.0\\.1|0\\.0\\.0\\.0|\\*|\\[::\\]):($ports)[[:space:]]"
 	fi
 	# `|| true` is load-bearing, not defensive noise. grep exits 1 when it
