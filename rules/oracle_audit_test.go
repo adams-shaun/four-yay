@@ -501,6 +501,22 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 	return nil
 }
 
+// oracleActivateKind reports whether an option's Kind names an action the
+// `activate` scenario op may select. Besides the ordinary "ability" and the
+// engine's generic "activate" composite, the engine poses three special
+// actions under their own option kinds -- Station (rules/legal.go
+// "station"), Room unlock ("unlock") and morph-family turn face up
+// ("turn_face_up") -- each already offered and performed rules-side. A
+// scenario drives them through `activate` plus the option's label, exactly
+// as a named ability is driven; they are not a separate op.
+func oracleActivateKind(kind string) bool {
+	switch kind {
+	case "ability", "activate", "station", "unlock", "turn_face_up":
+		return true
+	}
+	return false
+}
+
 func oracleLabelMatches(label, want string) bool {
 	normalize := func(s string) string {
 		s = strings.ToLower(s)
@@ -828,7 +844,7 @@ func (r *oracleRun) do(st oracleStep) error {
 					fallback = o.Index
 				}
 			}
-			if st.Op == "activate" && (o.Kind == "ability" || o.Kind == "activate") {
+			if st.Op == "activate" && oracleActivateKind(o.Kind) {
 				if st.Ability == "" || oracleLabelMatches(o.Label, st.Ability) {
 					idx = o.Index
 					break
