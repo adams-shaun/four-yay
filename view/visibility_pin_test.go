@@ -19,8 +19,11 @@ package view
 //     incident where a snapshot endpoint returned a god view mid-game).
 //   - Graveyard and exile are fully public: every seat and every public
 //     spectator sees every card in every player's graveyard and exile.
-//   - Library is never listed, in ANY mode -- the omniscient spectator
-//     included (spec D12: library order spoils draws). Only LibrarySize.
+//   - Library contents are never listed except for a real seat's OWN library
+//     in Seat mode (own_library_list: the unordered list the reward-loop spec
+//     asks for), and the secret ORDER is never listed in ANY mode -- the
+//     omniscient spectator included (spec D12: library order spoils draws).
+//     Only LibrarySize, plus the canonicalised own list.
 //   - A mana pool is PUBLIC in every mode (CR 106.4a/106.4b): it is not one
 //     of the seven zones in CR 400.1 and holds no cards, so CR 400.2's
 //     hidden-zone framework has no purchase on it; instead 106.4a, 106.4b,
@@ -31,6 +34,7 @@ package view
 //     pool is now public in every mode and no longer needs the extra arm).
 
 import (
+	"sort"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -236,11 +240,21 @@ func TestOmniscientRevealsEveryHandAndPoolNeverTheLibrary(t *testing.T) {
 }
 
 // TestNoVisibilityEverListsTheLibrary is group 4's library half brought
-// together: in every mode (Seat, Public, Omniscient) and for every viewer, no
-// marshalled projection may leak any seat's library object id, and the
-// player's own hand id must remain findable (positive control proving the
-// walk reaches in, so a leak cannot be silently missed). This is the assertion
-// the library mutation (add a library list to Omniscient) must break.
+// together: no marshalled projection may leak any seat's library object id to
+// a viewer that seat does not belong to, and the player's own hand id must
+// remain findable (positive control proving the walk reaches in, so a leak
+// cannot be silently missed).
+//
+// The one deliberate exception is a real seat's OWN library in Seat mode:
+// `own_library_list` (reward-loop spec §6) exposes the viewer's own library as
+// an UNORDERED []CardView, gated on "is this the viewer's own seat" exactly
+// like Hand (CR 400.2). That is an amendment to D12's "library order is
+// hidden (count only)": the ORDER stays hidden (view.unorderedLibrary
+// canonicalises it by name then object id, so the emitted order is a pure
+// function of the CONTENTS), and every spectator mode -- Public and
+// Omniscient -- still list no library at all. The secret order is asserted
+// absent here too: the projection must match the canonical sort, never the
+// library's actual order.
 func TestNoVisibilityEverListsTheLibrary(t *testing.T) {
 	g := visibilityBoard(t)
 	ch := flatChars{g}
@@ -262,12 +276,50 @@ func TestNoVisibilityEverListsTheLibrary(t *testing.T) {
 						t.Fatalf("positive control: visibility %s viewer %d does not find seat %d's exile id %d — the walk proves nothing", vis, viewer, seat, id)
 					}
 				}
+				// Only a real seat's own library, and only in Seat mode, may be
+				// listed; every other (visibility, seat) pair must not.
+				ownSeat := vis == Seat && seat == viewer
 				for _, id := range libIDsOf(g, seat) {
-					if found[int(id)] {
+					if found[int(id)] && !ownSeat {
 						t.Fatalf("visibility %s viewer %d leaks seat %d's library object %d", vis, viewer, seat, id)
+					}
+					if ownSeat && !found[int(id)] {
+						t.Fatalf("seat visibility viewer %d does not list its own library object %d (own_library_list)", viewer, id)
+					}
+				}
+			}
+			// The own-seat list must never preserve the secret library order:
+			// it is the canonical name-then-id sort of the same contents.
+			if vis == Seat {
+				own := v.Players[viewer].Library
+				want := canonicalLibraryOrder(g, viewer)
+				if len(own) != len(want) {
+					t.Fatalf("seat viewer %d own library has %d cards, want %d", viewer, len(own), len(want))
+				}
+				for i := range want {
+					if own[i].ID != want[i] {
+						t.Fatalf("seat viewer %d own library[%d] = %d, want canonical %d (secret order must not leak)", viewer, i, own[i].ID, want[i])
 					}
 				}
 			}
 		}
 	}
+}
+
+// canonicalLibraryOrder is the name-then-id sort the library projection must
+// produce for a seat, derived independently here so the pin can catch a
+// projection that echoed the library's real order.
+func canonicalLibraryOrder(g *state.Game, seat state.PlayerID) []state.ObjID {
+	ids := libIDsOf(g, seat)
+	sort.SliceStable(ids, func(i, j int) bool {
+		a, b := g.Obj(ids[i]), g.Obj(ids[j])
+		if a == nil || b == nil || a.Face() == nil || b.Face() == nil {
+			return ids[i] < ids[j]
+		}
+		if a.Face().Name != b.Face().Name {
+			return a.Face().Name < b.Face().Name
+		}
+		return ids[i] < ids[j]
+	})
+	return ids
 }

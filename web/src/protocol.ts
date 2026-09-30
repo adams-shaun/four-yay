@@ -499,6 +499,20 @@ export interface PlayerView {
    */
   library_top?: CardView | null;
   /**
+   * Library is the viewer's own library as an UNORDERED list of cards:
+   * the contents a human knows about their own deck, without the secret
+   * order CR 400.2 hides from every player (including its owner, who may
+   * not reorder or inspect it). It is sorted into a canonical order (by
+   * card name, then object id) that is a pure function of the CONTENTS,
+   * so it never preserves and never leaks the library's actual order.
+   * Like Hand it is a CR 400.2 hidden zone and is filled only for the
+   * viewer's own seat (widened by CR 720.4 to a seat the viewer controls);
+   * for every other seat it is nil and omitted from the wire, and a
+   * spectator never matches the gate. LibrarySize (an int) and LibraryTop
+   * (one card, gated on a MayLookAt grant) are not it.
+   */
+  library?: CardView[];
+  /**
    * Hand is nil (marshalling to a literal JSON null, not an omitted key --
    * it deliberately carries no "omitempty" tag) for every seat but the
    * viewer's own, whose Hand is always non-nil even when empty ("[]").
