@@ -200,8 +200,14 @@ func TestPayMirrorDetectsPerturbation(t *testing.T) {
 }
 
 // TestExclusionTableNamesEngineFields keeps the documented exclusions honest:
-// every entry must name a real rules.Engine field, so a rename cannot
-// silently start (or stop) comparing a cache.
+// every entry must name a real rules.Engine field (found through promotion,
+// so a field living on an anonymous embedded cluster still counts), and it
+// must resolve to a field the differ's walk can actually reach — an entry
+// that resolves nowhere is silently compared again. That second check is
+// what the vacuous FieldByName lookup could not catch: after the engine_struct
+// embedding moved 85 of these fields onto cluster structs, every route pair
+// mismatched on engineScratch.derivedMemo / engineDerivedTables.types* before
+// excludedAt resolved the table through the embedding.
 func TestExclusionTableNamesEngineFields(t *testing.T) {
 	typ := reflect.TypeOf(rules.Engine{})
 	for key := range excluded {
@@ -212,6 +218,63 @@ func TestExclusionTableNamesEngineFields(t *testing.T) {
 		if _, ok := typ.FieldByName(key.field); !ok {
 			t.Errorf("exclusion %v names no rules.Engine field", key)
 		}
+	}
+	resolved := map[excludedField]bool{}
+	for _, fields := range engineExcludedByType {
+		for _, key := range fields {
+			resolved[key] = true
+		}
+	}
+	for key := range excluded {
+		if !resolved[key] {
+			t.Errorf("exclusion %v resolves to no field the walk reaches through Engine's embedding", key)
+		}
+	}
+}
+
+// TestExcludedAtResolvesThroughTheClusters pins the walk's resolution: an
+// Engine field that moved onto an anonymous embedded cluster is excluded
+// under the documented table key, a field the table does not name is still
+// compared, and a zero-value walk of the cluster records the hit. Fails if
+// the cluster layout changes without the exclusion table following, or if
+// the walk stops consulting the resolver.
+func TestExcludedAtResolvesThroughTheClusters(t *testing.T) {
+	eng := reflect.TypeOf(rules.Engine{})
+	f, ok := eng.FieldByName("engineScratch")
+	if !ok || !f.Anonymous || f.Type.Kind() != reflect.Struct {
+		t.Fatalf("rules.Engine has no anonymous engineScratch cluster to resolve through")
+	}
+	sf, ok := f.Type.FieldByName("derivedMemo")
+	if !ok {
+		t.Fatalf("engineScratch has no derivedMemo field to resolve")
+	}
+	key, ok := excludedAt(f.Type, sf)
+	if !ok || key != (excludedField{"rules.Engine", "derivedMemo"}) {
+		t.Errorf("excludedAt(engineScratch.derivedMemo) = (%v, %v), want the documented table key", key, ok)
+	}
+	sf, ok = f.Type.FieldByName("secretVoteBallots")
+	if !ok {
+		t.Fatalf("engineScratch has no secretVoteBallots field")
+	}
+	if key, ok := excludedAt(f.Type, sf); ok {
+		t.Errorf("excludedAt(engineScratch.secretVoteBallots) = %v, want compared", key)
+	}
+	// The walk itself must consult the resolver: a zero-value comparison of
+	// the cluster records the exclusion hits even though nothing differs.
+	df := newDiffer()
+	z := reflect.Zero(f.Type)
+	df.walk("", z, z)
+	for _, name := range []string{"derivedMemo", "legalOptBuf", "foreachBuf"} {
+		if df.excludedHits[excludedField{"rules.Engine", name}] == 0 {
+			t.Errorf("the walk did not exclude engineScratch.%s under the documented key", name)
+		}
+	}
+	// And the float route's path matchers read the promotion-flat spelling.
+	if got := engineFieldPath("engineResolution.damageSourceLKI{7}"); got != "damageSourceLKI{7}" {
+		t.Errorf("engineFieldPath(cluster-prefixed) = %q, want the flat spelling", got)
+	}
+	if got := engineFieldPath("G.Objs[3].Tapped"); got != "G.Objs[3].Tapped" {
+		t.Errorf("engineFieldPath(non-cluster path) = %q, want unchanged", got)
 	}
 }
 

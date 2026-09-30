@@ -396,8 +396,23 @@ func controlReferentPlayers(g *state.Game, sc SpecContext, op, ref string) ([]st
 		// would widen `ControlledBy Remembered` to the previous iteration's
 		// RememberChosen$ card's controller as well as the current subject
 		// (Summon: Valefor, Chaos Defiler).
+		//
+		// The RememberedPlayers channel is the CONSULTATION-time half:
+		// rules' block consultation (blockRestricted) binds a registered
+		// restriction's captured players on a static that never resolves, so
+		// without it a ValidBlocker$ Creature.RememberedPlayerCtrl clause
+		// (The Motherlode, Excavator) would fail closed. Every
+		// resolution-time caller leaves the field zero, so their read is
+		// untouched, and the fail-closed shape (no binding at all =>
+		// ok=false, even under '!') is unchanged.
+		for _, p := range sc.RememberedPlayers {
+			targets = append(targets, state.Target{IsPlayer: true, Player: p})
+		}
 		if !sc.Resolving {
-			return nil, false
+			if len(targets) == 0 {
+				return nil, false
+			}
+			break
 		}
 		for _, t := range sc.Remembered {
 			if t.IsPlayer {

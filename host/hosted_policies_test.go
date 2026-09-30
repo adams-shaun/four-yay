@@ -93,6 +93,11 @@ func TestEveryHostedPolicyIsDeterministic(t *testing.T) {
 		played = true
 		e := e
 		t.Run(e.Name, func(t *testing.T) {
+			// The per-policy rows are independent (each builds its own host
+			// and card dependency below) and together dominated the package's
+			// sequential phase, which is the module gate's critical path. They
+			// run concurrently; every assertion is unchanged.
+			t.Parallel()
 			const seed = uint64(20260928)
 			intents := 0
 			if e.Search {

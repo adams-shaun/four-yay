@@ -8,6 +8,7 @@ import (
 
 	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/internal/policynet"
 	"github.com/adams-shaun/gorge/internal/spellbench/v2agent"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -1169,8 +1170,8 @@ func (t *valueTr) candidates(b *obsBuild) ([]cand, error) {
 			sem = map[string]any{"kind": "choose_boolean", "source": refOrNil(src), "purpose": pur, "value": val}
 		case "type":
 			l := strings.ToLower(strings.TrimSpace(o.Label))
-			if _, ok := cardTypeWords[strings.TrimSpace(o.Label)]; ok {
-				sem = map[string]any{"kind": "choose_name", "source": refOrNil(src), "purpose": "card_type", "value": cardTypeWords[strings.TrimSpace(o.Label)]}
+			if w, ok := policynet.V2CardTypeWord(strings.TrimSpace(o.Label)); ok {
+				sem = map[string]any{"kind": "choose_name", "source": refOrNil(src), "purpose": "card_type", "value": w}
 			} else if s := snake(l); s != "" {
 				sem = map[string]any{"kind": "choose_name", "source": refOrNil(src), "purpose": "creature_type", "value": s}
 			}

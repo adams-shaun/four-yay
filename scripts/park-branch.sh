@@ -3,6 +3,19 @@
 #
 #   scripts/park-branch.sh <branch>...        # park these branches
 #   scripts/park-branch.sh --all-idle [h]     # every worktree idle >= h hours (default 12)
+#   scripts/park-branch.sh --registry-only <branch>...
+#                                             # deregister the worktree, LEAVE its
+#                                             # directory on disk for the host to
+#                                             # reclaim (make clean-worktrees)
+#
+# --registry-only is the seat-safe path: a seat's jail mounts every sibling
+# worktree read-only, so `git worktree remove` fails its final rm -rf on a
+# read-only file system and aborts the script -- even though the registry
+# entry (in the writable shared .git) is already gone and the branch is kept.
+# --registry-only removes <git-common-dir>/worktrees/<id> directly (the same
+# thing git does first) and prunes, leaving the directory for the host; it
+# additionally refuses a worktree with an in-progress rebase/merge, because
+# deregistering deletes the metadata dir where that state lives.
 #
 # DRY RUN unless APPLY=1. This is the unmerged counterpart to
 # `cleanup.sh worktrees`: cleanup only removes a worktree whose branch is
@@ -24,6 +37,8 @@ APPLY=${APPLY:-0}
 MIN_IDLE_H=${MIN_IDLE_H:-12}
 
 say() { if [ "$APPLY" = 1 ]; then echo "parked: $*"; else echo "would park: $*"; fi; }
+
+REGISTRY_ONLY=0
 
 root=$(git rev-parse --path-format=absolute --git-common-dir)
 root=${root%/.git}
@@ -68,14 +83,59 @@ park() {
 		echo "keep (process inside): $wt" >&2
 		return 1
 	fi
+	if [ "$REGISTRY_ONLY" = 1 ]; then
+		# A landed branch is cleanup.sh's business, never parking's.
+		if git -C "$root" merge-base --is-ancestor "refs/heads/$branch" main; then
+			echo "keep (already in main): $branch" >&2
+			return 1
+		fi
+		# Deregistering deletes the metadata dir, which is where an
+		# in-progress rebase/merge keeps its state (rebase-merge/,
+		# rebase-apply/, MERGE_HEAD). Refuse rather than destroy it.
+		md=$(sed -n 's/^gitdir: //p' "$wt/.git")
+		if [ -z "$md" ]; then
+			echo "keep (no worktree metadata dir): $wt" >&2
+			return 1
+		fi
+		if [ -e "$md/rebase-merge" ] || [ -e "$md/rebase-apply" ] || [ -e "$md/MERGE_HEAD" ]; then
+			echo "keep (rebase/merge in progress): $wt" >&2
+			return 1
+		fi
+	fi
 	ahead=$(git -C "$root" rev-list --count "main..refs/heads/$branch")
-	say "$branch [$wt] (+$ahead commits ahead of main, branch kept)"
+	if [ "$REGISTRY_ONLY" = 1 ]; then
+		say "(registry only; dir for host cleanup) $branch [$wt] (+$ahead commits ahead, branch kept)"
+	else
+		say "$branch [$wt] (+$ahead commits ahead of main, branch kept)"
+	fi
 	if [ "$APPLY" = 1 ]; then
-		git -C "$root" worktree remove "$wt"
+		if [ "$REGISTRY_ONLY" = 1 ]; then
+			# Remove the registry metadata directly (what `git worktree
+			# remove` does first anyway) and leave $wt on disk for the
+			# host's `make clean-worktrees` to reclaim as an orphaned dir;
+			# the prune below then drops any leftover entry. Deterministic
+			# and independent of how git orders the two halves.
+			rm -rf -- "$md"
+		else
+			git -C "$root" worktree remove "$wt"
+		fi
 	fi
 }
 
 targets=()
+args=()
+for a in "$@"; do
+	if [ "$a" = "--registry-only" ]; then
+		REGISTRY_ONLY=1
+	else
+		args+=("$a")
+	fi
+done
+if [ ${#args[@]} -gt 0 ]; then
+	set -- "${args[@]}"
+else
+	set --
+fi
 if [ "${1:-}" = "--all-idle" ]; then
 	hours=${2:-$MIN_IDLE_H}
 	now=$(date +%s)

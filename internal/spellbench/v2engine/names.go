@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/internal/policynet"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -62,15 +63,6 @@ func snake(s string) string {
 	return out
 }
 
-var supertypeWords = map[string]string{"Basic": "basic", "Legendary": "legendary", "Ongoing": "ongoing", "Snow": "snow", "World": "world"}
-
-var cardTypeWords = map[string]string{
-	"Artifact": "artifact", "Battle": "battle", "Conspiracy": "conspiracy", "Creature": "creature",
-	"Dungeon": "dungeon", "Enchantment": "enchantment", "Instant": "instant", "Kindred": "kindred",
-	"Tribal": "kindred", "Land": "land", "Phenomenon": "phenomenon", "Plane": "plane",
-	"Planeswalker": "planeswalker", "Scheme": "scheme", "Sorcery": "sorcery", "Vanguard": "vanguard",
-}
-
 // splitTypes splits gorge's type words into supertypes, card types and
 // subtypes, each normalized and deduplicated in first-seen order.
 func splitTypes(words []string) (supers, types, subs []string) {
@@ -88,9 +80,9 @@ func splitTypes(words []string) (supers, types, subs []string) {
 			if w == "-" || w == "—" {
 				continue
 			}
-			if s, ok := supertypeWords[w]; ok {
+			if s, ok := policynet.V2SupertypeWord(w); ok {
 				add(&supers, s)
-			} else if t, ok := cardTypeWords[w]; ok {
+			} else if t, ok := policynet.V2CardTypeWord(w); ok {
 				add(&types, t)
 			} else {
 				add(&subs, snake(w))

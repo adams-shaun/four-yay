@@ -180,6 +180,86 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "paymentStats"}:    true,
 }
 
+// The engine_struct embedding refactor (2026-09-30) moved most of the Engine
+// struct's fields onto anonymous embedded cluster structs (engineScratch,
+// engineResolution, ...). The differ's walk visits those clusters under their
+// own "rules.<Type>" keys, and a promoted field's reflective path grew a
+// cluster prefix -- so the table above, keyed {"rules.Engine", field} exactly
+// as doc.go's exclusion table documents it, stopped matching and every
+// excluded cache started being compared again (the module-gate failure this
+// resolution closed: all ten failing route pairs diverged on
+// engineScratch.derivedMemo / engineDerivedTables.types* /
+// engineLayerCaches.activeBuildSeq). The two tables below, built once by
+// reflect over rules.Engine, keep the documented spellings working however
+// the fields are clustered:
+//
+//   - engineExcludedByType maps each struct type reachable from Engine by
+//     anonymous embedding to its fields that carry an exclusion entry,
+//     valued by the table key the hit is credited to;
+//   - engineClusterPrefixes holds each cluster's "<name>." path prefix, so
+//     engineFieldPath can restore the promotion-flat spelling the float
+//     route's path matchers read.
+var (
+	engineExcludedByType, engineClusterPrefixes = buildEngineFieldMaps()
+)
+
+func buildEngineFieldMaps() (map[string]map[string]excludedField, []string) {
+	excl := map[string]map[string]excludedField{}
+	var prefixes []string
+	var walkType func(t reflect.Type)
+	walkType = func(t reflect.Type) {
+		owner := typeKey(t)
+		for i := 0; i < t.NumField(); i++ {
+			f := t.Field(i)
+			if f.Anonymous && f.Type.Kind() == reflect.Struct {
+				prefixes = append(prefixes, f.Name+".")
+				walkType(f.Type)
+				continue
+			}
+			key := excludedField{"rules.Engine", f.Name}
+			if excluded[key] {
+				if excl[owner] == nil {
+					excl[owner] = map[string]excludedField{}
+				}
+				excl[owner][f.Name] = key
+			}
+		}
+	}
+	walkType(reflect.TypeOf(rules.Engine{}))
+	return excl, prefixes
+}
+
+// excludedAt reports the exclusion table entry that leaves field f of the
+// struct type t the walk is visiting out of the comparison, with the table
+// key the hit is credited to (so TestExclusionTableNamesEngineFields keeps
+// proving every entry fires). The direct key covers Engine's own fields;
+// engineExcludedByType resolves the table through the anonymous embedded
+// clusters, whose fields the walk sees under the cluster type's own key.
+func excludedAt(t reflect.Type, f reflect.StructField) (excludedField, bool) {
+	key := excludedField{typeKey(t), f.Name}
+	if excluded[key] {
+		return key, true
+	}
+	if table, ok := engineExcludedByType[key.owner]; ok {
+		if flat, ok := table[f.Name]; ok {
+			return flat, true
+		}
+	}
+	return excludedField{}, false
+}
+
+// engineFieldPath strips the anonymous cluster prefix a promoted field's
+// reflective path grew when the Engine struct's clusters were embedded, so
+// the path matchers below keep spelling the field names as they read.
+func engineFieldPath(path string) string {
+	for _, p := range engineClusterPrefixes {
+		if rest, ok := strings.CutPrefix(path, p); ok {
+			return rest
+		}
+	}
+	return path
+}
+
 // differ walks two values of the same type in lockstep and records every
 // primitive-level difference. It reads unexported fields through reflect
 // (read-only), so the whole rules.Engine can be compared from outside the
@@ -291,8 +371,10 @@ func (r *floatReorder) skip(path string, a reflect.Value, f reflect.StructField)
 }
 
 // masksLKI reports whether damageSourceLKI is compared through walkDamageLKI.
+// The field lives on the engineResolution cluster (the engine_struct
+// embedding), so its path carries that prefix; engineFieldPath strips it.
 func (r *floatReorder) masksLKI(path string) bool {
-	return r != nil && r.enteredReordered && path == "damageSourceLKI"
+	return r != nil && r.enteredReordered && engineFieldPath(path) == "damageSourceLKI"
 }
 
 // walkDamageLKI is walkMap over damageSourceLKI with the planned spell's --
@@ -498,11 +580,9 @@ func (d *differ) walk(path string, a, b reflect.Value) {
 		d.walk(path, a.Elem(), b.Elem())
 	case reflect.Struct:
 		t := a.Type()
-		owner := typeKey(t)
 		for i := 0; i < t.NumField(); i++ {
 			f := t.Field(i)
-			key := excludedField{owner, f.Name}
-			if excluded[key] {
+			if key, ok := excludedAt(t, f); ok {
 				d.excludedHits[key]++
 				continue
 			}
@@ -514,7 +594,7 @@ func (d *differ) walk(path string, a, b reflect.Value) {
 				continue
 			}
 			if d.relax.masksLKI(sub) {
-				d.walkDamageLKI(sub, a.Field(i), b.Field(i))
+				d.walkDamageLKI(engineFieldPath(sub), a.Field(i), b.Field(i))
 				continue
 			}
 			d.walk(sub, a.Field(i), b.Field(i))
@@ -801,6 +881,7 @@ func floatTriggerOnly(a, b *rules.Engine, fork int, rep *Report) string {
 	// premise (a planned source's sacrifice before vs after the spell moved).
 	df.relax.enteredReordered = true
 	df.skipPath = func(path string) bool {
+		path = engineFieldPath(path) // a cluster-prefixed engine field path reads flat
 		switch path {
 		case "G.Stack", "G.Entered":
 			return true

@@ -1,0 +1,420 @@
+package rules
+
+import (
+	"math"
+	"strconv"
+	"strings"
+
+	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/state"
+)
+
+// modAmountX evaluates one cost-modifier static's Amount$: a plain literal
+// stands as itself; anything else is an SVar name on the source's face or an
+// inline Count$ expression, resolved through effects.EvalCount against the
+// source and its SVar table. An unresolvable value degrades to ZERO, never
+// to 1: the old fallback made Rakdos, Lord of Riots and Herald of War reduce
+// by exactly 1 whenever their SVar amount was genuinely 0, and a wrong
+// reduction is a wrong cost — 0 ("no reduction") is the honest read of an
+// amount the engine cannot evaluate.
+//
+// x is the cast's announced {X}, bound into the evaluation context so an
+// Amount$ chain that reads Count$xPaid (Dargo's SVar:X:Count$xPaid over
+// SVar:Y:SVar$X/Times.2) sees the announced value during the in-cast
+// recomputation manaToPay/manaToPayX run; x=0 is the offer-time read (an
+// unbound {X} prices as 0). targets is the cast's chosen targets (or the
+// offer gate's cost-potential candidate list) — the same list
+// costStaticApplies already gates ValidTarget$ against — bound onto
+// effects.Ctx.Targets so a target-conditional Amount$ head such as Not of
+// This World's TargetedByTarget$Valid Count$Compare chain reads what the
+// spell is being cast at. The raise and set sites pass targets too, so one
+// composition path cannot half-apply a static with an unbound read.
+func (e *Engine) modAmountX(sv staticView, sub costSubject, x int32, targets []state.Target) int32 {
+	raw := strings.TrimSpace(sv.Params["Amount"])
+	if n, err := strconv.ParseInt(raw, 10, 64); err == nil {
+		if n < 0 {
+			return 0
+		}
+		if n > int64(math.MaxInt32) {
+			return math.MaxInt32
+		}
+		return int32(n)
+	}
+	ctx, svars, ok := e.costAmountCtx(sv, sub, x, targets)
+	if !ok {
+		return 0
+	}
+	// An SVar NAME resolves through its body on the source's face; anything
+	// else is an inline Count$-class expression evaluated as written.
+	body := raw
+	if b, ok := svars[raw]; ok {
+		body = b
+	}
+	// A negative evaluation (Fireball's TargetedObjects$Amount/Minus.1 with
+	// no target announced yet) is no modification: a raise must never turn
+	// into a discount, nor a reduction into a tax.
+	if n := effects.EvalCount(e, ctx, body); n > 0 {
+		return n
+	}
+	return 0
+}
+
+// costSubject names what a cost-modifier static is pricing: the payer, the
+// priced object (the spell, or the activated ability's source) and, for an
+// activation, the ability itself.
+type costSubject struct {
+	p  state.PlayerID
+	id state.ObjID
+	ab *cards.SA
+}
+
+// costAmountCtx is the ONE evaluation context a cost-modifier static's
+// Amount$ reads (modAmountX, and relativeAmountResolves' verdict), so the
+// gate and the amount can never disagree. The source's SVar table (the
+// static's own, else the face's) with a pending cast's named announcement
+// bound; the static's controller as You -- except for a Relative$ static,
+// whose amount Forge computes relative to the spell being cast
+// (StaticAbilityCostChange evaluates it against the paid SpellAbility), so
+// You is the PAYER: Hum of the Radix's "each artifact its controller
+// controls" and Damping Sphere's "each other spell that player has cast this
+// turn" read the caster's board. The priced object rides AffectedObj
+// (Cemetery Prowler's AffectedX) and the activation AffectedAbility.
+func (e *Engine) costAmountCtx(sv staticView, sub costSubject, x int32, targets []state.Target) (*effects.Ctx, map[string]string, bool) {
+	o := e.G.Obj(sv.Source)
+	if o == nil || o.Face() == nil {
+		return nil, nil, false
+	}
+	svars := sv.SVars
+	if svars == nil {
+		svars = o.Face().SVars
+	}
+	// A pending cast's named announcement (the March cycle's Exiled,
+	// Explosive Singularity's Tapped) binds the SVar its name spells.
+	svars = e.namedAnnounceSVars(sv.Source, svars)
+	you := sv.Controller
+	if sv.Params["Relative"] == "True" && sub.id != 0 {
+		you = sub.p
+	}
+	// An Effect-delivered cost static carries its SetChosenNumber$ binding
+	// (chosenNumberBound): the Count$ChosenNumber head reads it rather than
+	// the source object's own logged choice.
+	return &effects.Ctx{Source: sv.Source, Controller: you, SVars: svars, X: x,
+		ChosenNumber: sv.ChosenNumber, ChosenNumberBound: sv.chosenNumberBound,
+		Targets: targets, AffectedObj: sub.id, AffectedAbility: sub.ab}, svars, true
+}
+
+// raiseFromCost parses a RaiseCost Cost$ into its mana and life raise. Only
+// the plain shapes apply: single colour letters, numeric tokens, and the
+// fixed PayLife<N> token. Anything else — hybrid pips (none in the corpus's
+// cost raises), X/T, or a <...> component (Sac<...>, BeholdExile,
+// Waterbend, AddCounter, tapXType, a named count) — reports false and is
+// priced by the additional-cost bridge instead (composeRaiseCost).
+func raiseFromCost(s string) (col state.Mana, gen, life int32, ok bool) {
+	for toks := (costTokenIter{s: s}); ; {
+		sym, more := toks.next()
+		if !more {
+			break
+		}
+		switch {
+		case len(sym) == 1 && strings.ContainsRune("WUBRGC", rune(sym[0])):
+			col[state.ManaIndex(sym[0])]++
+		case isDigitRun(sym):
+			n, err := strconv.ParseInt(sym, 10, 64)
+			if err != nil || n < 0 || n > int64(math.MaxInt32) {
+				return col, 0, 0, false
+			}
+			gen = addClampedGeneric(gen, n)
+		default:
+			if m := lifeCost.FindStringSubmatch(sym); m != nil {
+				n, err := strconv.ParseInt(m[1], 10, 64)
+				if err != nil || n < 0 || n > int64(math.MaxInt32) {
+					return col, 0, 0, false
+				}
+				life = addClampedGeneric(life, n)
+				continue
+			}
+			return col, 0, 0, false
+		}
+	}
+	return col, gen, life, true
+}
+
+// costActorMatches is the cost-modifier actor gate: a RaiseCost/ReduceCost
+// static with an Activator$ or Caster$ parameter scopes to whose cost it
+// modifies. With neither it applies regardless of actor.
+func (e *Engine) costActorMatches(sv staticView, actor state.PlayerID) bool {
+	if sv.HasParam(cards.PKActivator) {
+		return e.actorMatches(sv, "Activator", actor)
+	}
+	if sv.HasParam(cards.PKCaster) {
+		return e.actorMatches(sv, "Caster", actor)
+	}
+	return true
+}
+
+// costModifiers evaluates and orders the RaiseCost/ReduceCost/SetCost statics
+// that apply to a cast/activation of id by p, per CR 601.2f and Forge's
+// CostAdjustment. A static applies only when every gate it carries holds:
+// Type$ (the other kind is skipped, neither means both), Activator$/Caster$
+// (whose action), ValidCard$ (what is being paid for), ValidSpell$ (which
+// spell or ability — Auriok Steelshaper's Activated.Equip), ValidTarget$
+// (the announced target, repriced before payment), AffectedZone$ for an
+// ability modifier (which zone its source sits in) and IsPresent$
+// (an intervening-if, e.g. Trinisphere's untapped self). Amount$ is
+// evaluated through the SVar/Count$ machinery, and the modifiers are
+// returned in Forge's application order (increases, reductions in static
+// order, SetCost floor).
+func (e *Engine) costModifiers(p state.PlayerID, id state.ObjID, scope costScope) costMods {
+	return e.costModifiersWithTargets(p, id, scope, nil, false)
+}
+
+// costModifiersForTargets is costModifiers with the chosen cast-time targets
+// supplied. A nil target slice is the pre-announcement offer phase, where a
+// ValidTarget$ static cannot yet apply; target choice re-enters this helper
+// before payment with the actual targets.
+func (e *Engine) costModifiersForTargets(p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target) costMods {
+	return e.withCostCompositionEvent(id, func() costMods {
+		return e.costModifiersWithTargets(p, id, scope, targets, false)
+	})
+}
+
+// withCostCompositionEvent excludes only the current cast's latest push while
+// its payment modifiers are recomputed. Object identity alone is insufficient:
+// a spell may have been cast, returned to hand, and cast again this turn.
+func (e *Engine) withCostCompositionEvent(id state.ObjID, compose func() costMods) costMods {
+	previous := e.costCompositionEvent
+	if e.cast != nil && e.cast.card == id && !e.cast.isAbility() {
+		for i := len(e.L.Events) - 1; i >= 0; i-- {
+			ev := e.L.Events[i]
+			if ev.Kind == events.PutOnStack && ev.Obj == id {
+				e.costCompositionEvent = i + 1
+				break
+			}
+		}
+	}
+	if e.costCompositionEvent == previous {
+		return compose()
+	}
+	// costCompositionEvent hides the pending cast from Count$ThisTurnCast, a
+	// layer-7 input (CheckSVar$ statics) the cross-walk Derived memo cannot
+	// see: retire its entries on entry and exit so none built under the
+	// exclusion is served outside it, nor a live one inside it. active()'s
+	// two log-head-keyed lists evaluate the same CheckSVar$ gates at build,
+	// so they are invalidated on both edges too (the cascade.go
+	// stackGrantCast pattern). Without it a list built at the same log head
+	// OUTSIDE the exclusion was served inside it: Leapfrog ("flying as long
+	// as you've cast an instant or sorcery this turn") kept the flying Gust
+	// of Wind's own push gave it, so Gust's "costs {2} less if you control a
+	// creature with flying" was charged {1}{U} where the planner -- and CR
+	// 601.2i, the spell is not yet cast -- price {3}{U} (round-8 cardfuzz
+	// mirror seed 12687133153333408407, a_witness pool_after).
+	e.retireCrossWalkMemo()
+	e.activeEpoch, e.staticEpoch = -1, -1
+	mods := compose()
+	e.costCompositionEvent = previous
+	e.retireCrossWalkMemo()
+	e.activeEpoch, e.staticEpoch = -1, -1
+	return mods
+}
+
+// potentialCostModsUsing prices a COMPLETE composition for one legal target
+// assignment at a time, accepting only when an announcement satisfies the
+// caller's payment gate. A target-count amount must see at most TargetMax$
+// targets, while independent conditional statics must not combine reductions
+// from different, mutually exclusive single-target choices. Target-dependent
+// raises/floors remain excluded; chosen targets are repriced before payment.
+func (e *Engine) potentialCostModsUsing(statics costStaticViews, p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target, x int32, accept func(costMods) bool) (costMods, bool) {
+	max := len(e.costAmountTargets(p, id, scope, targets))
+	for i, target := range targets {
+		if max == 0 {
+			break
+		}
+		assignment := []state.Target{target}
+		for j, other := range targets {
+			if len(assignment) == max {
+				break
+			}
+			if i != j {
+				assignment = append(assignment, other)
+			}
+		}
+		var mods costMods
+		if x != 0 {
+			mods = e.costModifiersWithTargetsXUsing(statics, p, id, scope, assignment, true, x)
+		} else {
+			mods = e.costModifiersWithTargetsUsing(statics, p, id, scope, assignment, true)
+		}
+		if accept(mods) {
+			return mods, true
+		}
+	}
+	return costMods{}, false
+}
+
+// costModifiersForTargetsX is costModifiersForTargets with the cast's
+// announced {X} bound: the payment-side recomputation (manaToPay/manaToPayX)
+// uses it when the cost announces a variable sacrifice count (Sac<X/Spec>),
+// because the offer-time snapshot priced every Amount$ with X=0 and a
+// reduction reading Count$xPaid would otherwise never apply (Dargo's
+// "{2} less for each permanent sacrificed this way").
+func (e *Engine) costModifiersForTargetsX(p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target, x int32) costMods {
+	return e.withCostCompositionEvent(id, func() costMods {
+		return e.costModifiersWithTargetsX(p, id, scope, targets, false, x)
+	})
+}
+
+func (e *Engine) costModifiersWithTargetsX(p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target, potential bool, x int32) costMods {
+	return e.costModifiersWithTargetsXUsing(e.collectCostStatics(), p, id, scope, targets, potential, x)
+}
+
+func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target, potential bool, x int32) costMods {
+	// Each pass owns the provenance capture: cleared here, set by
+	// costStaticApplies when a ValidCard$ carries a cast-provenance token.
+	e.costProvenanceSeen = false
+	// The potential pass hands the whole candidate census to the gate chain
+	// (so ValidTarget$/ValidSpell$ can match ANY candidate) but a
+	// target-relative Amount$ reads only a complete legal assignment
+	// (costAmountTargets).
+	amountTargets := targets
+	if potential {
+		amountTargets = e.costAmountTargets(p, id, scope, targets)
+	}
+	sub := costSubject{p: p, id: id, ab: scope.ab}
+	var mods costMods
+	xBound := x != 0
+	// An activated ability's OWN mana-cost ReduceCost$ (Kami of Jealous
+	// Thirst's "costs {4}{B} less", Flying Drone's {1}{U}) is a reduction
+	// with coloured pips, composed here beside the statics' so every
+	// pricing site applies it; the numeric/SVar form stays ownReduceCost's.
+	if scope.kind == "Ability" && scope.ab != nil {
+		if red, ok := e.ownManaReduction(p, id, scope.ab, targets); ok {
+			mods.reduces = append(mods.reduces, red)
+		}
+	}
+	for _, group := range []struct {
+		mode  string
+		views []staticView
+	}{
+		{"RaiseCost", statics.raise},
+		{"ReduceCost", statics.reduce},
+	} {
+		mode := group.mode
+		for _, sv := range group.views {
+			if potential && mode == "RaiseCost" {
+				if _, targetConditional := sv.Params["ValidTarget"]; targetConditional {
+					continue
+				}
+			}
+			if !e.costStaticApplies(sv, mode, p, id, scope, targets, xBound) {
+				continue
+			}
+			if mode == "RaiseCost" {
+				// A Relative$ raise scales with the announcement (Fireball's
+				// "{1} more for each target beyond the first", Hinata's "for
+				// each target they have"). The potential pass is the offer's
+				// "does SOME legal announcement exist" relaxation, so it
+				// prices the raise at its least -- no announced target --
+				// exactly as it leaves every other target-conditional raise
+				// out; the chosen targets are repriced before payment.
+				raiseTargets := amountTargets
+				if potential && sv.Params["Relative"] == "True" {
+					raiseTargets = nil
+				}
+				// A RaiseCost Cost$ names the whole additional cost (Forge's
+				// CostAdjustment RaiseCost branch): a plain mana/life cost
+				// is raised as-is, and every other Cost$ is carried as an
+				// ADDITIONAL cost (composeRaiseCost, rules/raise_cost_extra.go)
+				// so the offer gate, the cast-flow stages and the settle all
+				// price the same parts. A Cost$ paired with an Amount$ is that
+				// cost paid Amount$ times (Officious Interrogation's "{W}{U}
+				// more for each target beyond the first").
+				amount := e.modAmountX(sv, sub, x, raiseTargets)
+				if e.composeRaiseCost(&mods, sv, id, scope, x, targets, amount) {
+					continue
+				}
+				mods.raises = append(mods.raises, amount)
+				continue
+			}
+			red := costMod{
+				ignoreGeneric: sv.Params["IgnoreGeneric"] == "True",
+				floor:         parseAmount(sv.Params["MinMana"], 0),
+			}
+			if col, ok := sv.Params["Color"]; ok && strings.TrimSpace(col) != "" {
+				// Each listed token is reduced by the Amount$: colour letters
+				// take their pip from the cost's coloured part, and a numeric
+				// token names that many generic pips.  Numeric is deliberately
+				// not limited to "1": Discontinuity's real `Color$ 2 U U`
+				// removes two generic and two blue pips.  Treating `2` as a
+				// colour letter would route it through ManaIndex and remove one
+				// colourless pip instead.  Amount$ applies to every token, so
+				// `Color$ 2 U | Amount$ X` means 2*X generic plus X blue.
+				red.hasColor = true
+				amount := e.modAmountX(sv, sub, x, amountTargets)
+				for tok := range strings.FieldsSeq(col) {
+					if isDigitRun(tok) {
+						n, err := strconv.ParseInt(tok, 10, 64)
+						if err != nil || n < 0 || n > int64(math.MaxInt32) {
+							continue // malformed Color$ token fails closed
+						}
+						red.generic = addClampedGeneric(red.generic, n*int64(amount))
+						continue
+					}
+					if len(tok) == 1 && strings.ContainsRune("WUBRGC", rune(tok[0])) {
+						red.colored[state.ManaIndex(tok[0])] = addClampedGeneric(
+							red.colored[state.ManaIndex(tok[0])], int64(amount))
+					}
+				}
+			} else {
+				red.generic = e.modAmountX(sv, sub, x, amountTargets)
+			}
+			mods.reduces = append(mods.reduces, red)
+		}
+	}
+	for _, sv := range statics.set {
+		if potential {
+			if _, targetConditional := sv.Params["ValidTarget"]; targetConditional {
+				continue
+			}
+		}
+		if !e.costStaticApplies(sv, "SetCost", p, id, scope, targets, xBound) {
+			continue
+		}
+		if n := e.modAmountX(sv, sub, x, amountTargets); n > mods.setFloor {
+			mods.setFloor = n
+		}
+	}
+	return mods
+}
+
+func (e *Engine) costModifiersWithTargets(p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target, potential bool) costMods {
+	return e.costModifiersWithTargetsUsing(e.collectCostStatics(), p, id, scope, targets, potential)
+}
+
+func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target, potential bool) costMods {
+	// The unannounced composition IS the announced-X one at X = 0 (the offer
+	// gate's and the option snapshot's reading): one body, so a gate or an
+	// amount rule added to either can never half-apply.
+	return e.costModifiersWithTargetsXUsing(statics, p, id, scope, targets, potential, 0)
+}
+
+// optionalCostViews returns self-spell OptionalCost statics in collector order.
+// These are deliberately narrower than the general cost-modifier grammar: the
+// supported corpus shape is an EffectZone$ All self static on the spell face.
+func (e *Engine) optionalCostViews(statics costStaticViews, p state.PlayerID, id state.ObjID) []Cost {
+	var out []Cost
+	for _, sv := range statics.optional {
+		if strings.TrimSpace(sv.Params["ValidSA"]) != "Spell" ||
+			strings.TrimSpace(sv.Params["EffectZone"]) != "All" ||
+			!strings.Contains(sv.Params["ValidCard"], "Card.Self") ||
+			sv.Source != id || !e.costStaticApplies(sv, "OptionalCost", p, id, spellScope(""), nil, false) {
+			continue
+		}
+		c := ParseCost(sv.Params["Cost"])
+		if len(c.Unknown) == 0 {
+			out = append(out, c)
+		}
+	}
+	return out
+}
