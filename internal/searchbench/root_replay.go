@@ -42,31 +42,9 @@ func ReplayRoot(reg *cards.Registry, names map[string]string, game ReplayGame, w
 	if err != nil {
 		return ReplayedRoot{}, err
 	}
-	e, err := NewGenesis(reg, game, names, base, want.GenesisSeed)
+	got, observed, err := rebuildRoot(reg, names, game, base, want, want.GenesisSeed)
 	if err != nil {
 		return ReplayedRoot{}, err
-	}
-	resolved, err := ResolveReplayGame(game, names)
-	if err != nil {
-		return ReplayedRoot{}, err
-	}
-	ordinal := 0
-	var got ReplayedRoot
-	var observed decision.Intent
-	_, err = StageGameObserve(e, [2]*seat.Bot{seat.NewBot(want.GenesisSeed + 10), seat.NewBot(want.GenesisSeed + 11)}, resolved, func(root *rules.Engine, d *decision.Decision, recorded decision.Intent) error {
-		if ordinal != want.Ordinal {
-			ordinal++
-			return nil
-		}
-		got = ReplayedRoot{Engine: root, Decision: d}
-		observed = decision.CloneIntent(recorded)
-		return errRootReached
-	})
-	if !errors.Is(err, errRootReached) {
-		if err != nil {
-			return ReplayedRoot{}, fmt.Errorf("searchbench: replaying root %s/%d: %w", game.ID, want.Ordinal, err)
-		}
-		return ReplayedRoot{}, fmt.Errorf("searchbench: replay did not reach root %s/%d", game.ID, want.Ordinal)
 	}
 	gotRecord, err := NewRootRecord(game.ID, want.GenesisSeed, want.Ordinal, got.Engine, got.Decision, observed)
 	if err != nil {
@@ -79,4 +57,63 @@ func ReplayRoot(reg *cards.Registry, names map[string]string, game ReplayGame, w
 		return ReplayedRoot{}, fmt.Errorf("searchbench: root action diverged for %s/%d", game.ID, want.Ordinal)
 	}
 	return got, nil
+}
+
+// ReplayRootWorld rebuilds the same recorded public action prefix under a
+// caller-selected hidden-world seed. The caller must compare its public root
+// to the verified real root before using it as a fair determinization; this
+// function intentionally does not require the event-chain digest to match,
+// because a different shuffle is the point of a sampled world.
+func ReplayRootWorld(reg *cards.Registry, names map[string]string, game ReplayGame, want RootRecord, worldSeed uint64) (ReplayedRoot, error) {
+	if worldSeed == 0 {
+		return ReplayedRoot{}, fmt.Errorf("searchbench: zero world seed")
+	}
+	if game.ID != want.GameID {
+		return ReplayedRoot{}, fmt.Errorf("searchbench: root game %q does not match source game %q", want.GameID, game.ID)
+	}
+	base, err := ResolveDeck(reg, game.Deck)
+	if err != nil {
+		return ReplayedRoot{}, err
+	}
+	base, err = ObservedOpponentDeck(reg, base, game, names)
+	if err != nil {
+		return ReplayedRoot{}, err
+	}
+	got, _, err := rebuildRoot(reg, names, game, base, want, worldSeed)
+	if err != nil {
+		return ReplayedRoot{}, err
+	}
+	return got, nil
+}
+
+func rebuildRoot(reg *cards.Registry, names map[string]string, game ReplayGame, opponent []*cards.Card, want RootRecord, worldSeed uint64) (ReplayedRoot, decision.Intent, error) {
+	e, err := NewGenesis(reg, game, names, opponent, worldSeed)
+	if err != nil {
+		return ReplayedRoot{}, decision.Intent{}, err
+	}
+	resolved, err := ResolveReplayGame(game, names)
+	if err != nil {
+		return ReplayedRoot{}, decision.Intent{}, err
+	}
+	ordinal := 0
+	var got ReplayedRoot
+	var observed decision.Intent
+	// Bridge policies replay the source prefix and must not vary across worlds:
+	// only the engine's hidden chance stream is a world dimension.
+	_, err = StageGameObserve(e, [2]*seat.Bot{seat.NewBot(want.GenesisSeed + 10), seat.NewBot(want.GenesisSeed + 11)}, resolved, func(root *rules.Engine, d *decision.Decision, recorded decision.Intent) error {
+		if ordinal != want.Ordinal {
+			ordinal++
+			return nil
+		}
+		got = ReplayedRoot{Engine: root, Decision: d}
+		observed = decision.CloneIntent(recorded)
+		return errRootReached
+	})
+	if !errors.Is(err, errRootReached) {
+		if err != nil {
+			return ReplayedRoot{}, decision.Intent{}, fmt.Errorf("searchbench: replaying root %s/%d: %w", game.ID, want.Ordinal, err)
+		}
+		return ReplayedRoot{}, decision.Intent{}, fmt.Errorf("searchbench: replay did not reach root %s/%d", game.ID, want.Ordinal)
+	}
+	return got, observed, nil
 }
