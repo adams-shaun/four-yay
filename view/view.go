@@ -15,6 +15,7 @@
 package view
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -205,6 +206,18 @@ type PlayerView struct {
 	// documents applies to it in full. nil (an omitted JSON key) for every
 	// other seat and whenever no grant is live.
 	LibraryTop *CardView `json:"library_top,omitempty"`
+	// Library is the viewer's own library as an UNORDERED list of cards:
+	// the contents a human knows about their own deck, without the secret
+	// order CR 400.2 hides from every player (including its owner, who may
+	// not reorder or inspect it). It is sorted into a canonical order (by
+	// card name, then object id) that is a pure function of the CONTENTS,
+	// so it never preserves and never leaks the library's actual order.
+	// Like Hand it is a CR 400.2 hidden zone and is filled only for the
+	// viewer's own seat (widened by CR 720.4 to a seat the viewer controls);
+	// for every other seat it is nil and omitted from the wire, and a
+	// spectator never matches the gate. LibrarySize (an int) and LibraryTop
+	// (one card, gated on a MayLookAt grant) are not it.
+	Library []CardView `json:"library,omitempty"`
 	// Hand is nil (marshalling to a literal JSON null, not an omitted key --
 	// it deliberately carries no "omitempty" tag) for every seat but the
 	// viewer's own, whose Hand is always non-nil even when empty ("[]").
@@ -416,6 +429,24 @@ func optionLabelText(label string) string {
 	return label[:i+2] + substitutePlaceholders(label[i+2:], label[:i])
 }
 
+// unorderedLibrary projects a seat's own library as a canonical, order-free
+// list of CardViews: the same multiset of cards the library holds, arranged
+// by card name then object id so the slice is a pure function of the
+// CONTENTS and never of the secret order CR 400.2 keeps hidden. It is called
+// only for a seat the viewer is entitled to read (their own, or one they
+// control under CR 720.4), mirroring the Hand gate; a nil ch degrades to an
+// empty projection like every other derived fact.
+func unorderedLibrary(g *state.Game, ch Chars, ids []state.ObjID, abilityPlayer, viewer state.PlayerID, alsoVisible map[state.PlayerID]bool) []CardView {
+	cvs := cardViews(g, ch, ids, false, abilityPlayer, viewer, false, alsoVisible)
+	sort.Slice(cvs, func(i, j int) bool {
+		if cvs[i].Name != cvs[j].Name {
+			return cvs[i].Name < cvs[j].Name
+		}
+		return cvs[i].ID < cvs[j].ID
+	})
+	return cvs
+}
+
 // project is Project's body, shared by every Visibility in ProjectFor.
 // revealFaceDown is the omniscient projection's face-down reveal flag: it
 // is the same flag cardViews' FaceDown redaction takes, so the two views
@@ -424,8 +455,11 @@ func optionLabelText(label string) string {
 // CR 723.4 widening set (see ProjectForControlled): seats whose hidden
 // information the viewer may read because they control them. It is nil for
 // every ordinary projection, so the pre-existing gates are unchanged unless a
-// caller explicitly widens.
-func project(g *state.Game, ch Chars, viewer state.PlayerID, d *decision.Decision, revealFaceDown bool, alsoVisible map[state.PlayerID]bool) View {
+// caller explicitly widens. ownLibrary admits the viewer's own (or
+// controlled) library CONTENTS into the projection (own_library_list); it is
+// true only for a real seat's Seat-mode view, so no spectator mode -- Public
+// or Omniscient -- ever lists a library (spec D12).
+func project(g *state.Game, ch Chars, viewer state.PlayerID, d *decision.Decision, revealFaceDown bool, alsoVisible map[state.PlayerID]bool, ownLibrary bool) View {
 	v := View{Viewer: viewer}
 	if g == nil {
 		return v
@@ -564,6 +598,15 @@ func project(g *state.Game, ch Chars, viewer state.PlayerID, d *decision.Decisio
 		pv.PoolRestrictions = poolRestrictions(g, p.RestrictedMana)
 		if p.ID == viewer || alsoVisible[p.ID] || controlsSeat(g, viewer, p.ID) {
 			pv.Hand = cardViews(g, ch, g.Zone(state.ZHand, p.ID), true, p.ID, viewer, false, alsoVisible)
+			// The library CONTENTS are the viewer's own seat only (CR 400.2),
+			// and only in a real seat's own projection (ownLibrary): a spectator
+			// mode -- Public or Omniscient -- never lists a library, preserving
+			// D12's "library order is hidden" for every spectator. unorderedLibrary
+			// canonicalises the order, so even the own seat learns the contents
+			// and never the secret draw order.
+			if ownLibrary {
+				pv.Library = unorderedLibrary(g, ch, g.Zone(state.ZLibrary, p.ID), p.ID, viewer, alsoVisible)
+			}
 		}
 		// PotentialActions is the "what could I still do after tapping out"
 		// projection (rules.PotentialActions): the engine's own legal-offer
