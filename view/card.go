@@ -23,10 +23,23 @@ type Printing struct {
 // the viewer owns it — cardViews is only ever called with a zone list the
 // caller has already decided is visible.
 type CardView struct {
-	ID       state.ObjID `json:"id"`
-	Name     string      `json:"name"`
-	FaceDown bool        `json:"face_down,omitempty"`
-	Types    string      `json:"types"`
+	ID   state.ObjID `json:"id"`
+	Name string      `json:"name"`
+	// CardName is the object's PRINTED card name -- its card's front face,
+	// the name its genesis deck list (deck.Manifest) records -- when that
+	// differs from Name: a transformed or back-face-played double-faced
+	// card, a split or adventure half on the stack, a permanent a copy
+	// effect (CopyFace) or a SetName$ renamed. Empty when it equals Name,
+	// and on every redacted face-down CardView (the redaction rebuilds the
+	// view from a fresh literal). The physical card's identity is exactly as
+	// visible as the object carrying it: a copy or a transformed permanent
+	// is a public card whose printed front every player can read. The
+	// honest own-library composition (view.OwnLibrary) keys on it, so a
+	// Clone copying one of the seat's own cards is counted as the Clone it
+	// is, not as a second copy of what it copies.
+	CardName string `json:"card_name,omitempty"`
+	FaceDown bool   `json:"face_down,omitempty"`
+	Types    string `json:"types"`
 	// ManaCost is the printed cost in Forge's notation ("1 W", "R", "X G").
 	// Hand lists render it as symbols.
 	ManaCost string `json:"mana_cost,omitempty"`
@@ -235,6 +248,11 @@ func cardView(g *state.Game, ch Chars, id state.ObjID) CardView {
 		if named, ok := ch.(interface{ Name(state.ObjID) string }); ok {
 			if name := named.Name(id); name != "" {
 				cv.Name = name
+			}
+		}
+		if o.Card != nil && len(o.Card.Faces) > 0 && o.Card.Faces[0] != nil {
+			if printed := o.Card.Faces[0].Name; printed != cv.Name {
+				cv.CardName = printed
 			}
 		}
 		cv.Types = strings.Join(f.Types, " ")

@@ -190,6 +190,20 @@ type Board struct {
 	// view half.
 	LibrarySize int32
 	HandSize    int32
+	// OwnLibrary is the deciding seat's HONEST remaining-library
+	// composition: which cards are left in its own library as a per-name
+	// multiset (Counts parallels OwnDeck.Main), plus its land/nonland split
+	// -- never their order, and never read from the library itself. It is
+	// OwnDeck minus every one of the seat's own cards visible outside the
+	// library, checked against LibrarySize, and Known is false (Counts empty)
+	// whenever that accounting does not close (deck.LibraryComposition
+	// documents the unknown cases). Both adapter halves fold it with the
+	// same rules (botpolicy/ownlibrary.go's fillOwnLibrary off state.Game,
+	// view.OwnLibrary off the projected View), pinned equal on every
+	// decision by seat/ownlibrary_test.go. RAW STATE ONLY: no policy branch
+	// reads it yet, so no decision depends on it. Counts reuses its backing
+	// array across BoardFromGameInto refills.
+	OwnLibrary deck.LibraryComposition
 
 	// explore is set only by ExploreDecide (the value copy it receives), so
 	// no adapter fills it and every production policy reads false.

@@ -208,6 +208,7 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 	b.PoolRestricted = RestrictedPool(g.Players[me].RestrictedMana)
 	b.LibrarySize = int32(len(g.Zone(state.ZLibrary, me)))
 	b.HandSize = int32(len(g.Zone(state.ZHand, me)))
+	fillOwnLibrary(g, me, b.OwnDeck, &b.OwnLibrary)
 	for i := range g.Players {
 		p := &g.Players[i]
 		b.Life[p.ID] = p.Life

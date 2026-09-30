@@ -245,6 +245,10 @@ func agreeOverCommanderGame(t testing.TB, newBot func(uint64) *Bot) {
 		if boardView.LibrarySize != boardGame.LibrarySize || boardView.HandSize != boardGame.HandSize {
 			t.Fatalf("intent %d: zone counts diverged: view lib %d hand %d vs game lib %d hand %d", n, boardView.LibrarySize, boardView.HandSize, boardGame.LibrarySize, boardGame.HandSize)
 		}
+		// The honest own-library composition folds the same on both halves.
+		if !boardView.OwnLibrary.Equal(boardGame.OwnLibrary) {
+			t.Fatalf("intent %d: own-library composition diverged: view %+v vs game %+v", n, boardView.OwnLibrary, boardGame.OwnLibrary)
+		}
 		if boardView.Pool != boardGame.Pool {
 			t.Fatalf("intent %d: pool diverged: view %v vs game %v (step %s)", n, boardView.Pool, boardGame.Pool, eGame.G.Step)
 		}

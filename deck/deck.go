@@ -115,9 +115,16 @@ type Entry struct {
 }
 
 // ManifestRow is one canonical card-name/count pair in an own-deck manifest.
+// Land is whether the card's FRONT face is a land: the face every card in a
+// library presents (CR 711.2/712.2 -- a double-faced card has only its front
+// face's characteristics outside the stack and battlefield), so it is the
+// land/nonland split of whatever copies remain in the library
+// (LibraryComposition). A printed card fact of the seat's own list, not
+// game state; omitted from the wire when false.
 type ManifestRow struct {
 	Name  string `json:"name"`
 	Count int    `json:"count"`
+	Land  bool   `json:"land,omitempty"`
 }
 
 // Manifest is the immutable, unordered genesis list assigned to one seat.
@@ -178,9 +185,13 @@ func (m Manifest) Clone() Manifest {
 
 func manifestRows(cardsIn []*cards.Card) []ManifestRow {
 	counts := make(map[string]int)
+	land := make(map[string]bool)
 	for _, c := range cardsIn {
 		if c != nil && len(c.Faces) > 0 && c.Faces[0].Name != "" {
 			counts[c.Faces[0].Name]++
+			if c.Faces[0].IsLand() {
+				land[c.Faces[0].Name] = true
+			}
 		}
 	}
 	names := make([]string, 0, len(counts))
@@ -190,7 +201,7 @@ func manifestRows(cardsIn []*cards.Card) []ManifestRow {
 	sort.Strings(names)
 	rows := make([]ManifestRow, 0, len(names))
 	for _, name := range names {
-		rows = append(rows, ManifestRow{Name: name, Count: counts[name]})
+		rows = append(rows, ManifestRow{Name: name, Count: counts[name], Land: land[name]})
 	}
 	return rows
 }

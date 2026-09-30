@@ -430,6 +430,10 @@ func BoardFromView(v view.View) botpolicy.Board {
 		Cards:      make(map[state.ObjID]botpolicy.Card, 16),
 		Commanders: make(map[state.ObjID]botpolicy.Commander, 8),
 	}
+	// The honest own-library composition (Board.OwnLibrary): folded off
+	// this View alone by view.OwnLibrary, the same per-card rules the game
+	// half's fillOwnLibrary applies to state.Game.
+	view.OwnLibrary(v, v.Viewer, &b.OwnLibrary)
 	// The public stack census (C8's facts): the projected StackView list is
 	// the stack's own bottom-to-top order, so the census slice is that same
 	// order and every read of it is deterministic. IsSpell mirrors the
