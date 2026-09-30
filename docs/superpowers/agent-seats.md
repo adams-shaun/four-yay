@@ -218,3 +218,12 @@ prints `ok` (in 2ms) and the agent, the pre-filter and the gate all read a green
 run that executed nothing. Four worktrees across both threads have been poisoned
 this way. The script links the corpus and then *proves* it is reachable before
 declaring the worktree ready.
+
+A seat parks an idle sibling worktree with
+`APPLY=1 scripts/park-branch.sh --registry-only <branch>`. The seat's jail
+mounts sibling worktrees read-only, so a plain park aborts on
+`git worktree remove`'s final `rm -rf` (EROFS); the `--registry-only` form
+deregisters the worktree, keeps the branch, and **leaves the directory on disk
+for the host** — `make clean-worktrees` (APPLY=1) reclaims it as an orphaned
+dir. This is the sanctioned seat-side park procedure, not a workaround; the
+plain (no flag) park remains the host path and still removes the directory.
