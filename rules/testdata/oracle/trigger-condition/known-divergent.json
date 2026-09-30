@@ -1,0 +1,4 @@
+{
+  "Toph, Earthbending Master/attack-with-no-experience-earthbends-zero": "the 0-experience earthbend makes the targeted Forest a 0/0 land creature, but the CR 704.5f zero-toughness state-based action does not put it into the graveyard (rules/sba.go tests the PRINTED face's creature-ness via Face().IsCreature() instead of the effective type set, so an animated land is skipped), and its earthbend return promise therefore never fires. Observed Forest still on the battlefield as a 0/0 Creature, untapped; expected graveyard then returned tapped.",
+  "Toph, Hardheaded Teacher/cast-a-spell-earthbends-one": "casting a non-Lesson spell applies the Lesson rider's additional +1/+1 counter anyway, giving two counters instead of one (the sub-ability's ConditionDefined$ TriggeredCardLKICopy plus ConditionPresent$ Lesson is not evaluated by effects' conditions evaluator, which runs the sub unconditionally -- the documented cast-provenance gap)."
+}

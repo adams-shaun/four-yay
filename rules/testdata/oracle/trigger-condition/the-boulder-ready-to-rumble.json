@@ -1,0 +1,44 @@
+{
+  "card": "The Boulder, Ready to Rumble",
+  "family": "trigger-condition",
+  "oracle_sha": "ee42652041a0",
+  "author": "cli-20260930T002325Z-7c2f8c50 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "attack-earthbends-for-each-power-4-or-greater-creature",
+      "cr": ["508.1", "603.2", "701.66a"],
+      "why": "Whenever The Boulder attacks, earthbend X where X is the number of creatures I control with power 4 or greater. The Boulder (4/4) and Craw Wurm (6/4) count; Grizzly Bears (2/2) does not, so X is 2.",
+      "setup": {
+        "p0": {"battlefield": ["The Boulder, Ready to Rumble", "Craw Wurm", "Grizzly Bears", "Forest"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:The Boulder, Ready to Rumble"], "defender": "p1",
+         "targets": ["p0:Forest"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Forest", "zone": "battlefield", "pt": "2/2", "counters": {"+1/+1": 2},
+         "keywords": ["Haste"], "types": ["Creature", "Land"]}
+      ]
+    },
+    {
+      "name": "attack-counts-only-power-4-or-greater",
+      "cr": ["508.1", "603.2", "701.66a"],
+      "why": "With The Boulder (4/4) the only creature of power 4 or greater, X counts just itself: earthbend 1 puts a single +1/+1 counter on the targeted land.",
+      "setup": {
+        "p0": {"battlefield": ["The Boulder, Ready to Rumble", "Grizzly Bears", "Forest"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:The Boulder, Ready to Rumble"], "defender": "p1",
+         "targets": ["p0:Forest"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Forest", "zone": "battlefield", "pt": "1/1", "counters": {"+1/+1": 1},
+         "keywords": ["Haste"], "types": ["Creature", "Land"]}
+      ]
+    }
+  ]
+}

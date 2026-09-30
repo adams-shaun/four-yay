@@ -1,0 +1,42 @@
+{
+  "card": "Firebolt",
+  "family": "spell-conditional",
+  "oracle_sha": "74151002b7e9",
+  "author": "cli-20260930T002325Z-7c2f8c50 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "deals-two-to-any-target",
+      "cr": ["120.3a", "608.2c"],
+      "why": "Firebolt deals 2 damage to its target; aimed at seat 1 that is 2 life lost.",
+      "setup": {
+        "p0": {"hand": ["Firebolt"]},
+        "p1": {"life": 20}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Firebolt", "mana": "R", "targets": ["p1"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p1": 18}},
+        {"card": "p0:Firebolt", "zone": "graveyard"}
+      ]
+    },
+    {
+      "name": "flashback-casts-from-graveyard-then-exiles",
+      "cr": ["702.34a", "400.7"],
+      "why": "Its flashback cost is {4}{R}. Cast from the graveyard for that cost the card still deals 2 damage, and instead of going to the graveyard it is exiled.",
+      "setup": {
+        "p0": {"graveyard": ["Firebolt"]},
+        "p1": {"life": 20}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Firebolt", "mana": "RRRRR", "cast_mode": "flashback", "targets": ["p1"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p1": 18}},
+        {"card": "p0:Firebolt", "zone": "exile"}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "card": "Reckless Charge",
+  "family": "spell-conditional",
+  "oracle_sha": "2ac9ffe1c028",
+  "author": "cli-20260930T002325Z-7c2f8c50 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "target-gets-three-zero-and-haste",
+      "cr": ["613.4", "613.1f", "611.3"],
+      "why": "Reckless Charge gives the target creature +3/+0 and haste until end of turn; Grizzly Bears becomes a 5/2 with haste.",
+      "setup": {
+        "p0": {"hand": ["Reckless Charge"], "battlefield": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Reckless Charge", "mana": "R", "targets": ["p0:Grizzly Bears"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "zone": "battlefield", "pt": "5/2", "keywords": ["Haste"]}
+      ]
+    },
+    {
+      "name": "flashback-repeats-the-buff-then-exiles",
+      "cr": ["702.34a"],
+      "why": "Flashback {2}{R} casts it again from the graveyard, giving a second creature +3/+0 and haste, and the card is exiled afterwards.",
+      "setup": {
+        "p0": {"graveyard": ["Reckless Charge"], "battlefield": ["Savannah Lions"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Reckless Charge", "mana": "RRR", "cast_mode": "flashback",
+         "targets": ["p0:Savannah Lions"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Savannah Lions", "zone": "battlefield", "pt": "5/1", "keywords": ["Haste"]},
+        {"card": "p0:Reckless Charge", "zone": "exile"}
+      ]
+    }
+  ]
+}

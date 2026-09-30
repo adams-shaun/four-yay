@@ -1,0 +1,27 @@
+{
+  "card": "Avengers Quinjet",
+  "family": "etb-ltb",
+  "oracle_sha": "1bb558f962d2",
+  "author": "cli-20260930T002325Z-7c2f8c50 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "crew-three-animates-the-vehicle",
+      "cr": ["702.151a", "301.7"],
+      "why": "Crew 3 taps creatures with total power 3 or greater; the Vehicle becomes an artifact creature until end of turn. Tapping a 2/2 and a 2/1 makes the 4/4 Quinjet a creature.",
+      "setup": {
+        "p0": {"battlefield": ["Avengers Quinjet", "Grizzly Bears", "Savannah Lions"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Avengers Quinjet", "ability": "Crew 3",
+         "answers": [{"kind": "choose", "pick": ["p0:Grizzly Bears", "p0:Savannah Lions"]}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Avengers Quinjet", "zone": "battlefield", "pt": "4/4", "keywords": ["Flying"], "types": ["Creature"]},
+        {"card": "p0:Grizzly Bears", "tapped": true},
+        {"card": "p0:Savannah Lions", "tapped": true}
+      ]
+    }
+  ]
+}

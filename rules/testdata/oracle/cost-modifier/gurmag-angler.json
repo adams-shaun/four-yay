@@ -1,0 +1,46 @@
+{
+  "card": "Gurmag Angler",
+  "family": "cost-modifier",
+  "oracle_sha": "ed3df00a735d",
+  "author": "cli-20260930T002325Z-7c2f8c50 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "delve-six-cards-pays-the-generic-cost",
+      "cr": ["601.2h", "702.65a"],
+      "why": "Delve lets each card exiled from my graveyard while casting pay {1}. Exiling six cards pays all six generic mana, so one black mana casts the 6B Angler; the exiled cards are no longer in the graveyard.",
+      "setup": {
+        "p0": {"hand": ["Gurmag Angler"],
+               "graveyard": ["Grizzly Bears", "Forest", "Island", "Mountain", "Swamp", "Plains"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Gurmag Angler", "mana": "B",
+         "answers": [{"kind": "choose", "pick": ["p0:Grizzly Bears", "p0:Forest", "p0:Island", "p0:Mountain", "p0:Swamp", "p0:Plains"]}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Gurmag Angler", "zone": "battlefield", "pt": "5/5"},
+        {"graveyard_size": {"p0": 0}},
+        {"pool": {"p0": ""}}
+      ]
+    },
+    {
+      "name": "cast-without-delve-keeps-the-graveyard",
+      "cr": ["601.2h", "702.65a"],
+      "why": "Declining to exile anything, the Angler is paid for with seven black mana and the graveyard is untouched.",
+      "setup": {
+        "p0": {"hand": ["Gurmag Angler"],
+               "graveyard": ["Grizzly Bears", "Forest", "Island", "Mountain", "Swamp", "Plains"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Gurmag Angler", "mana": "BBBBBBB"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Gurmag Angler", "zone": "battlefield"},
+        {"graveyard_size": {"p0": 6}}
+      ]
+    }
+  ]
+}
