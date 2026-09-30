@@ -396,6 +396,34 @@ def gorged_processes(proc: Path | None = None) -> list[dict]:
     return out
 
 
+def _proc_is_script_supervisor(proc: Path, ppid: int) -> bool:
+    """True when `ppid` is a LIVE, non-init process running a shell script
+    (`<something>.sh` in its argv), read from the SAME `proc` root as the
+    gorged it supervises -- never a hardcoded /proc, so a fake tree works.
+
+    This is the second ownership signal: a gorged whose parent is such a
+    process is supervised by a repo-side script that starts its farm with a
+    plain `&` and reaps it from an EXIT trap (the `scripts/smoke.sh` shape),
+    so it must not count as a standing instance. The check is deliberately
+    structural rather than a name list: ANY live non-init script parent means
+    the child is inside a supervised scope, so a future supervising script is
+    covered without editing this function.
+
+    Fails closed on every unknown (parent gone/reparented, cmdline
+    unreadable). Notably the demo's parent is `systemd --user`, whose argv
+    carries no `.sh` and whose cmdline may be unreadable -- either way this
+    returns False and the intended standing instance is still counted.
+    """
+    if ppid <= 1:
+        return False
+    try:
+        argv = proc.joinpath(str(ppid), "cmdline").read_bytes().split(b"\0")
+    except OSError:
+        return False
+    return any(a.decode(errors="replace").rsplit("/", 1)[-1].endswith(".sh")
+               for a in argv if a)
+
+
 def _live_agent_dirs(proc: Path | None = None) -> list[Path]:
     """The `--cwd` of every live pi-agent-shaped process, for telling a dev
     gorged a SEAT is actively using apart from a standing one nobody owns."""
@@ -446,18 +474,22 @@ def collect_gorged_hygiene(proc: Path | None = None) -> tuple[int, int, str]:
     procs = gorged_processes(proc)
     if not procs:
         return 0, 0, "no gorged process running"
+    proc_root = proc or Path(os.environ.get("GORGE_PROC_DIR", "/proc"))
     owners = _live_agent_dirs(proc)
 
-    def owned(gdir: str) -> bool:
-        if not gdir:
-            return False
-        try:
-            gp = Path(gdir).resolve()
-        except OSError:
-            return False
-        return any(gp == o or gp.is_relative_to(o) or o.is_relative_to(gp) for o in owners)
+    def owned(p: dict) -> bool:
+        gdir = p["dir"]
+        if gdir:
+            try:
+                gp = Path(gdir).resolve()
+            except OSError:
+                gp = None
+            if gp is not None and any(
+                    gp == o or gp.is_relative_to(o) or o.is_relative_to(gp) for o in owners):
+                return True
+        return _proc_is_script_supervisor(proc_root, p["ppid"])
 
-    standing = [p for p in procs if not owned(p["dir"])]
+    standing = [p for p in procs if not owned(p)]
     excess = max(0, len(standing) - 1)
     unsafe = sum(1 for p in procs if p["ppid"] == 1)
     note = "; ".join(f"pid={p['pid']} addr={p['addr']} dir={p['dir']}" for p in procs[:6])
@@ -1115,14 +1147,30 @@ def selftest() -> int:
         fake_pid(103, ["bin/gorged", "-addr", "127.0.0.1:8095", "-dir", "/tmp/gorge-dev-x",
                         "-tables", "1"], ppid=9001)
         fake_pid(9001, ["pi-agent", "--cwd", "/tmp/gorge-dev-x", "--name", "dev-x"], ppid=500)
+        # A FIFTH instance whose parent is a live non-init repo-side script
+        # (`scripts/smoke.sh` starts its farm with `&` and reaps it from an
+        # EXIT trap). It must NOT count as standing: its real supervisor is
+        # live and owns its cleanup, unlike the demo (whose parent systemd
+        # has no `.sh` and is not caught). Without the supervision signal the
+        # three standing instances 101/102/104 give an excess of 2.
+        fake_pid(104, ["bin/gorged", "-addr", "127.0.0.1:8100", "-dir", "/tmp/gorge-smoke-public-PxZf9S",
+                        "-tables", "1"], ppid=9002)
+        fake_pid(9002, ["bash", "scripts/smoke.sh"], ppid=500)
         procs = gorged_processes(fproc)
         check("gorged_processes finds every table server by flags, not comm",
-              {p["pid"] for p in procs} == {101, 102, 103}, procs)
+              {p["pid"] for p in procs} == {101, 102, 103, 104}, procs)
+        # Precondition: the supervised instance really has a live, non-init
+        # `.sh` parent in the fake tree -- otherwise the assertion below
+        # would pass for the wrong reason (a missing parent pid).
+        check("the smoke-supervised gorged's parent is a live non-init .sh script",
+              _proc_is_script_supervisor(fproc, _proc_ppid(fproc / "104")) is True)
         excess, unsafe, _ = collect_gorged_hygiene(fproc)
         check("two standing instances against the default of one is an excess of 1",
               excess == 1, excess)
         check("the agent-owned dev instance does not count as standing", excess == 1, excess)
-        check("both standing instances are reparented to init: two unsafe launches",
+        check("a gorged supervised by a live repo-side script does not count as standing",
+              excess == 1, excess)
+        check("both init-reparented instances are unsafe launches, the supervised one is not",
               unsafe == 2, unsafe)
 
         empty_proc = Path(td) / "proc-empty"

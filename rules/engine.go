@@ -52,6 +52,13 @@ type Config struct {
 	// PlanarDecks carries each seat's optional Planechase deck. It is genesis
 	// configuration, like Sideboards, and a zero value emits no new events.
 	PlanarDecks [][]*cards.Card
+	// Archetypes carries each seat's deck authoring archetype (deck.File.
+	// Archetype), parallel to Decks. It is genesis configuration like
+	// Sideboards: it never reaches an event, so a Config that leaves it nil
+	// (every Config before this field) produces byte-identical manifests with
+	// an empty Archetype. A short or nil slice leaves the extra seats' archetype
+	// empty.
+	Archetypes []string
 	// Format names the construction format. Zero means Constructed; the other
 	// tasks in the Commander milestone (the tax, CR 903.9, commander damage)
 	// read it. This task is plumbing: it reads Commanders and StartingLife
@@ -2344,7 +2351,11 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 		// illegal set (legalCommandersFor rejects such a set whole). Outside
 		// FormatCommander this is the range-filtered Config order.
 		commanders := cfg.legalCommandersFor(i, len(main), main)
-		e.deckManifests[i] = deck.NewManifest(name, main, sideboard, commanders)
+		archetype := ""
+		if i < len(cfg.Archetypes) {
+			archetype = cfg.Archetypes[i]
+		}
+		e.deckManifests[i] = deck.NewManifest(name, archetype, main, sideboard, commanders)
 	}
 	// The rest of a Spare: the memo tables start empty over the cleared
 	// arrays (derivedMemoizedAt only reslices up into zeroed capacity), and

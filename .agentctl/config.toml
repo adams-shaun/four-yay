@@ -213,17 +213,28 @@ timeout = 60
 # state dir is pinned to the main checkout where the leases actually live.
 env = { GORGE_REWARD_DIR = "/home/sadams/projects/gorge/.ds4/reward" }
 
+# 2026-09-30 (cli-20260930T021924Z-01e737bb): every go gate below now carries a
+# CPU ceiling alongside MemoryMax. Without one a single gate round burst to
+# 18-25 vCPU (go vet hit 766-1009%) on top of the training/sweep work on this
+# box. CPUQuota is the right knob: on go1.25+ the Go runtime reads the scope
+# cgroup's cpu.max at process start, so the quota caps GOMAXPROCS, go test/build
+# -p and the cgroup scheduler at once. AllowedCPUs does NOT (measured on this
+# box: CPUQuota=200% -> GOMAXPROCS 2, AllowedCPUs=0-3 -> GOMAXPROCS 32; both
+# exit 0 in a user scope). 400% matches the module gate's own -p=4; the serial
+# gates (CR conformance, TestHeads, make sim) get 200%, ample for -p=1.
+# GOMAXPROCS in env is the legible belt-and-braces for the parallel gates.
+
 [[gates]]
 name = "go build"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "go", "build", "./..."]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=400%", "go", "build", "./..."]
 timeout = 900
-env = { GOMEMLIMIT = "1GiB" }
+env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "4" }
 
 [[gates]]
 name = "go vet"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "go", "vet", "./..."]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=400%", "go", "vet", "./..."]
 timeout = 600
-env = { GOMEMLIMIT = "1GiB" }
+env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "4" }
 
 # The whole module, not just ./effects ./rules ./cards: a merge that broke
 # internal/searchprobe and internal/archtest passed the old core-only gate
@@ -241,27 +252,27 @@ env = { GOMEMLIMIT = "1GiB" }
 # so no package that previously fit the 8G MemoryMax scope grows into it.
 [[gates]]
 name = "go test (module)"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "go", "test", "-p=4", "-skip", "^(TestHeads|TestInvariantsUnderSeedFuzz|TestLargeEliminationSweepDoesNotTripLivelockWatcher)$", "./..."]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=400%", "go", "test", "-p=4", "-skip", "^(TestHeads|TestInvariantsUnderSeedFuzz|TestLargeEliminationSweepDoesNotTripLivelockWatcher)$", "./..."]
 timeout = 1200
-env = { GOMEMLIMIT = "4GiB" }
+env = { GOMEMLIMIT = "4GiB", GOMAXPROCS = "4" }
 
 [[gates]]
 name = "CR conformance"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "go", "test", "-p=1", "./rules", "-run", "TestCR", "-v"]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=200%", "go", "test", "-p=1", "./rules", "-run", "TestCR", "-v"]
 timeout = 300
 env = { GORGE_CR_CONFORMANCE = "1", GOMEMLIMIT = "1GiB" }
 accept = "orchestrator.hooks:cr_no_fail_lines"
 
 [[gates]]
 name = "TestHeads"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "go", "test", "./rules", "-run", "TestHeads", "-v"]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=200%", "go", "test", "./rules", "-run", "TestHeads", "-v"]
 timeout = 120
 env = { GOMEMLIMIT = "1GiB" }
 blocking = false          # the TestHeads policy (hooks.testheads_policy) decides
 
 [[gates]]
 name = "make sim"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "make", "sim"]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=200%", "make", "sim"]
 timeout = 600
 env = { GOMEMLIMIT = "1GiB" }
 accept = "orchestrator.hooks:sim_all_replayed"
