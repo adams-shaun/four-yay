@@ -6,55 +6,155 @@
   "scenarios": [
     {
       "name": "attacking-without-energy-sacrifices-it",
-      "cr": ["603.2", "118.2d"],
+      "cr": [
+        "603.2",
+        "118.2d"
+      ],
       "why": "With no energy counters the '{E}{E}' alternative cannot be paid, so attacking sacrifices Liberty Prime.",
       "setup": {
-        "p0": {"battlefield": ["Liberty Prime, Recharged"]},
+        "p0": {
+          "battlefield": [
+            "Liberty Prime, Recharged"
+          ]
+        },
         "p1": {}
       },
       "steps": [
-        {"op": "attack", "seat": 0, "attackers": ["p0:Liberty Prime, Recharged"], "defender": "p1",
-         "answers": [{"kind": "choose", "pick": ["no"]}]}
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Liberty Prime, Recharged"
+          ],
+          "defender": "p1",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "no"
+              ]
+            }
+          ]
+        }
       ],
       "expect": [
-        {"card": "p0:Liberty Prime, Recharged", "zone": "graveyard"}
+        {
+          "card": "p0:Liberty Prime, Recharged",
+          "zone": "graveyard"
+        }
       ]
     },
     {
       "name": "two-energy-counters-pay-and-it-stays",
-      "cr": ["603.2", "118.2d"],
+      "cr": [
+        "603.2",
+        "118.2d"
+      ],
       "why": "Casting two artifacts gives two energy counters (Dr. Madison Li's cast trigger), which pay the attack trigger so Liberty Prime stays on the battlefield.",
       "setup": {
-        "p0": {"battlefield": ["Dr. Madison Li", "Liberty Prime, Recharged"], "hand": ["Bonesplitter", "Mind Stone"]},
+        "p0": {
+          "battlefield": [
+            "Dr. Madison Li",
+            "Liberty Prime, Recharged"
+          ],
+          "hand": [
+            "Bonesplitter",
+            "Mind Stone"
+          ]
+        },
         "p1": {}
       },
       "steps": [
-        {"op": "cast", "seat": 0, "card": "p0:Bonesplitter", "mana": "C"},
-        {"op": "resolve"},
-        {"op": "cast", "seat": 0, "card": "p0:Mind Stone", "mana": "CC"},
-        {"op": "resolve"},
-        {"op": "attack", "seat": 0, "attackers": ["p0:Liberty Prime, Recharged"], "defender": "p1",
-         "answers": [{"kind": "choose", "pick": ["yes"]}]}
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Bonesplitter",
+          "mana": "C"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Mind Stone",
+          "mana": "CC"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Liberty Prime, Recharged"
+          ],
+          "defender": "p1",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "yes"
+              ]
+            }
+          ]
+        }
       ],
       "expect": [
-        {"card": "p0:Liberty Prime, Recharged", "zone": "battlefield", "tapped": true}
+        {
+          "card": "p0:Liberty Prime, Recharged",
+          "zone": "battlefield",
+          "tapped": true
+        }
       ]
     },
     {
       "name": "sacrificing-an-artifact-draws-and-gains-energy",
-      "cr": ["602.2a", "118.12", "121.2"],
+      "cr": [
+        "602.2a",
+        "118.12",
+        "121.2"
+      ],
       "why": "The '{2}, {T}, Sacrifice an artifact' ability costs two colorless mana and an artifact; resolving it draws a card and gains two energy counters.",
       "setup": {
-        "p0": {"battlefield": ["Liberty Prime, Recharged", "Memnite"]},
+        "p0": {
+          "battlefield": [
+            "Liberty Prime, Recharged",
+            "Memnite"
+          ]
+        },
         "p1": {}
       },
       "steps": [
-        {"op": "activate", "seat": 0, "card": "p0:Liberty Prime, Recharged", "ability": "draw a card", "mana": "CC",
-         "answers": [{"kind": "choose", "pick": ["p0:Memnite"]}]},
-        {"op": "resolve"}
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Liberty Prime, Recharged",
+          "ability": "draw a card",
+          "mana": "CC",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "p0:Memnite"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
       ],
       "expect": [
-        {"count": {"seat": 0, "zone": "graveyard", "name": "Memnite", "token": false, "eq": 1}}
+        {
+          "count": {
+            "seat": 0,
+            "zone": "graveyard",
+            "name": "Memnite",
+            "token": false
+          },
+          "eq": 1
+        }
       ]
     }
   ]
