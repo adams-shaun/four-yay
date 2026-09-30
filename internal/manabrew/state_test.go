@@ -34,8 +34,9 @@ func TestStateProjectionGolden(t *testing.T) {
 	}
 	// The engine keys every battlefield membership list by CONTROLLER, not
 	// owner: events/apply.go's zoneOwner returns o.Controller for ZBattlefield,
-	// move (events/apply.go:3929) files a permanent with zoneOwner(o, to), and
-	// changeControl (events/apply.go:4328) moves a stolen permanent from its
+	// move (events/apply_state_helpers.go's move) files a permanent with
+	// zoneOwner(o, to), and
+	// changeControl (events/apply_helpers.go) moves a stolen permanent from its
 	// old controller's list to its new one. So view.PlayerView.Battlefield
 	// holds exactly the permanents that player controls, and the projection
 	// below must bucket by controller while preserving the owner id.
