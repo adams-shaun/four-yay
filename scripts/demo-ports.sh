@@ -21,7 +21,10 @@
 # it, so retiring it later can never take a previous layout's server off the
 # sweep. Demo ports are, by construction, only ever PUB_PORT, OMNI_PORT and
 # MB_PORT values, so this set is the complete history.
-DEMO_PORT_HISTORY=${DEMO_PORT_HISTORY:-"8080 8081"}
+# An EXPLICITLY empty value clears the history (so a test deploy sweeping
+# only its own ports cannot stop the live demo's :8080/:8081 gorged); an
+# unset one takes the default. cmd/gorged/deploy_test.go relies on this.
+DEMO_PORT_HISTORY=${DEMO_PORT_HISTORY-"8080 8081"}
 
 # demo_sweep_ports <bind-port>... — every port the sweep must match, one per
 # line, deduped and sorted. Blank/empty arguments are ignored, so a retired
