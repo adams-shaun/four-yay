@@ -6,6 +6,7 @@ import (
 
 	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/deck"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/rules"
 )
@@ -76,5 +77,23 @@ func BenchmarkBoardFromGameIntoDecide(b *testing.B) {
 		e := snaps[i%len(snaps)]
 		d := e.Pending()
 		botpolicy.Decide(botpolicy.BoardFromGameInto(e.G, e, d.Player, &board), d, rng)
+	}
+}
+
+// BenchmarkFillOwnLibrary isolates the own-library fold's share of the
+// refill, over the same snapshots.
+func BenchmarkFillOwnLibrary(b *testing.B) {
+	snaps := boardBenchSnapshots(b)
+	ms := make([]*deck.Manifest, len(snaps))
+	for i, e := range snaps {
+		ms[i] = e.OwnDeck(e.Pending().Player)
+	}
+	var lc deck.LibraryComposition
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		k := i % len(snaps)
+		e := snaps[k]
+		botpolicy.FillOwnLibrary(e.G, e.Pending().Player, ms[k], &lc)
 	}
 }

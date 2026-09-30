@@ -30,52 +30,62 @@ func fillOwnLibrary(g *state.Game, me state.PlayerID, m *deck.Manifest, lc *deck
 		lc.Finish(0)
 		return
 	}
-	see := func(o *state.Object) {
-		if o.Owner != me || o.IsToken || o.IsCopy || o.Card == nil {
-			return
-		}
-		if o.FaceDown {
-			looker := o.Controller
-			if o.HasMayLook {
-				looker = o.MayLookPlayer
-			}
-			if o.Zone == state.ZPlanarDeck || looker != me {
-				lc.SeeHidden()
-				return
-			}
-		}
-		if len(o.Card.Faces) > 0 && o.Card.Faces[0] != nil {
-			lc.See(o.Card.Faces[0].Name)
-		}
-	}
-	visible := func(o *state.Object) bool {
-		return o != nil && o.Face() != nil && !o.Ephemeral() && !o.PhasedOut
-	}
 	for _, id := range g.Zone(state.ZHand, me) {
-		if o := g.Obj(id); visible(o) {
-			see(o)
-		}
+		seeOwnObject(g.Obj(id), me, lc)
 	}
 	for i := range g.Players {
 		p := g.Players[i].ID
 		for _, z := range ownLibraryZones {
 			for _, id := range g.Zone(z, p) {
-				if o := g.Obj(id); visible(o) {
-					see(o)
-				}
+				seeOwnObject(g.Obj(id), me, lc)
 			}
 		}
 	}
 	for _, id := range g.Stack {
 		o := g.Obj(id)
-		if o == nil || o.Ability != nil || o.Face() == nil {
+		// Only a spell projects its card; a face-down one another seat
+		// controls projects neither card nor owner. The stack projection
+		// keeps a copy's card too (IsCopy, which seeOwnObject skips) and
+		// never drops an Ephemeral stack object, so the zone rule's
+		// Ephemeral test is not applied here.
+		if o == nil || o.Owner != me || o.Ability != nil || o.Face() == nil || (o.FaceDown && o.Controller != me) {
 			continue
 		}
-		if o.FaceDown && o.Controller != me {
-			continue
-		}
-		// The stack projection shows a copy too (its Card), which see skips.
-		see(o)
+		seeOwnCard(o, me, lc)
 	}
 	lc.Finish(len(g.Zone(state.ZLibrary, me)))
+}
+
+// seeOwnObject folds one zone-list object: the zone projection drops an
+// object with no face, an Ephemeral one and a phased-out one, and the fold
+// then reads only a card the seat owns. The owner test runs first: most
+// objects on a multi-seat board are someone else's.
+func seeOwnObject(o *state.Object, me state.PlayerID, lc *deck.LibraryComposition) {
+	if o == nil || o.Owner != me || o.PhasedOut || o.Face() == nil || o.Ephemeral() {
+		return
+	}
+	seeOwnCard(o, me, lc)
+}
+
+// seeOwnCard applies view.OwnLibrary's per-card rules to an own object the
+// projection shows: tokens and copies are no deck card; a face-down card
+// whose looker is not me is the redacted CardView; otherwise the printed
+// front-face name.
+func seeOwnCard(o *state.Object, me state.PlayerID, lc *deck.LibraryComposition) {
+	if o.IsToken || o.IsCopy || o.Card == nil {
+		return
+	}
+	if o.FaceDown {
+		looker := o.Controller
+		if o.HasMayLook {
+			looker = o.MayLookPlayer
+		}
+		if o.Zone == state.ZPlanarDeck || looker != me {
+			lc.SeeHidden()
+			return
+		}
+	}
+	if len(o.Card.Faces) > 0 && o.Card.Faces[0] != nil {
+		lc.See(o.Card.Faces[0].Name)
+	}
 }
