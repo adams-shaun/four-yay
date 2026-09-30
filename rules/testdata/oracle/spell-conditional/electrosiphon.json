@@ -1,0 +1,169 @@
+{
+  "card": "Electrosiphon",
+  "family": "spell-conditional",
+  "oracle_sha": "e216b137bdd0",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "counter-target-spell-gains-energy-equal-its-mana-value",
+      "cr": [
+        "608.2c",
+        "701.5a",
+        "122.1",
+        "118.2d"
+      ],
+      "why": "Countering my own Grizzly Bears spell (mana value 2) gains exactly two energy counters, which pay Dr. Madison Li's {T}, Pay {E}{E} pump: Memnite becomes a 2/1.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Dr. Madison Li",
+            "Memnite"
+          ],
+          "hand": [
+            "Electrosiphon",
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Grizzly Bears",
+          "mana": "CG"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Electrosiphon",
+          "mana": "UUR",
+          "targets": [
+            "p0:Grizzly Bears"
+          ]
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Dr. Madison Li",
+          "ability": "gets +1/+0",
+          "targets": [
+            "p0:Memnite"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "graveyard"
+        },
+        {
+          "card": "p0:Electrosiphon",
+          "zone": "graveyard"
+        },
+        {
+          "card": "p0:Memnite",
+          "pt": "2/1"
+        }
+      ]
+    },
+    {
+      "name": "countering-a-zero-mana-value-spell-gains-no-energy",
+      "cr": [
+        "608.2c",
+        "701.5a",
+        "202.3",
+        "118.2d"
+      ],
+      "why": "A {0} spell has mana value 0, so countering the Ornithopter gains no energy counters. Assaultron Dominator's may-pay attack trigger is then asked with an empty energy pool: the engine offers and accepts 'Pay 1 energy' anyway and puts the counter. CR 118.2d makes the payment illegal, so this is a known divergence (see known-divergent.json).",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Island",
+            "Island",
+            "Mountain",
+            "Assaultron Dominator"
+          ],
+          "hand": [
+            "Electrosiphon",
+            "Ornithopter"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Ornithopter",
+          "mana": ""
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Electrosiphon",
+          "mana": "UUR",
+          "targets": [
+            "p0:Ornithopter"
+          ]
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Assaultron Dominator"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "pay"
+              ]
+            },
+            {
+              "kind": "any",
+              "pick": [
+                "P1P1"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Ornithopter",
+          "zone": "graveyard"
+        },
+        {
+          "card": "p0:Electrosiphon",
+          "zone": "graveyard"
+        },
+        {
+          "card": "p0:Assaultron Dominator",
+          "counters": {
+            "+1/+1": 0
+          }
+        }
+      ]
+    }
+  ]
+}
