@@ -1,0 +1,38 @@
+{
+  "card": "Priest of Titania",
+  "family": "activation-condition",
+  "oracle_sha": "7d8577cfdb92",
+  "author": "cli-20260929T235020Z-c90601c7 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "mana-equals-elf-count-on-battlefield",
+      "cr": ["605.1a", "605.3b"],
+      "why": "The mana ability adds {G} for each Elf on the battlefield; with the Priest plus two other Elves that is three green mana.",
+      "setup": {
+        "p0": {"battlefield": ["Priest of Titania", "Elvish Mystic", "Llanowar Elves"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Priest of Titania", "ability": "Add {G}"}
+      ],
+      "expect": [
+        {"pool": {"p0": "GGG"}}
+      ]
+    },
+    {
+      "name": "opponent-elves-count-too",
+      "cr": ["605.3b"],
+      "why": "The ability counts every Elf on the battlefield, not only yours: one Elf controlled by the opponent adds one green mana.",
+      "setup": {
+        "p0": {"battlefield": ["Priest of Titania"]},
+        "p1": {"battlefield": ["Elvish Mystic"]}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Priest of Titania", "ability": "Add {G}"}
+      ],
+      "expect": [
+        {"pool": {"p0": "GG"}}
+      ]
+    }
+  ]
+}

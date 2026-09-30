@@ -93,6 +93,53 @@ def journal_rows(repo: Path, days: int = WINDOW_DAYS) -> list[dict]:
 # flow: merge-conflict hot spots
 
 
+# A branch whose ticket is CLOSED is residue, not live work. The statuses are
+# agentctl's CLOSED_STATUSES (agentctl/ledger/issues.py) mirrored here: a
+# `merged` branch is an ancestor of main, and a `superseded` ticket's lingering
+# worktree is something the daemon's own audit already names as residue
+# (`closed_issue_worktree`). A human_needed, parked or waiting ticket still
+# holds real work, so it stays live.
+CLOSED_ISSUE_STATUSES = frozenset({"merged", "superseded"})
+
+
+def closed_issue_ids(repo: Path) -> set[str]:
+    """Issue ids whose ticket is closed (merged or superseded).
+
+    Read from the repo's issue store, `.ds4/issues/*.md` front matter. The
+    store is repo-level shared state that a task worktree deliberately does
+    not carry, so the shared checkout is resolved through the git common dir
+    first and `repo` itself is the fallback. Anything unreadable -- no store,
+    no front matter, no status line -- contributes nothing, so the caller then
+    sees every branch as live: the behaviour before this filter, and the safe
+    direction for a measurement that cannot read the tickets.
+    """
+    roots: list[Path] = []
+    common = git(repo, "rev-parse", "--path-format=absolute", "--git-common-dir").strip()
+    if common:
+        roots.append(Path(common).parent)
+    roots.append(repo)
+    store = next((r / ".ds4" / "issues" for r in roots if (r / ".ds4" / "issues").is_dir()), None)
+    if store is None:
+        return set()
+    out: set[str] = set()
+    for p in sorted(store.glob("*.md")):
+        status = ""
+        try:
+            with p.open() as fh:
+                for line in fh:
+                    if not line.strip():
+                        break  # the front matter ends at the first blank line
+                    m = re.match(r"status:\s*(\S+)", line)
+                    if m:
+                        status = m.group(1)
+                        break
+        except OSError:
+            continue
+        if status in CLOSED_ISSUE_STATUSES:
+            out.add(p.stem)
+    return out
+
+
 def live_branch_files(repo: Path) -> dict[str, list[str]]:
     """Files each live task branch changes against main, keyed by file.
 
@@ -100,14 +147,24 @@ def live_branch_files(repo: Path) -> dict[str, list[str]]:
     several in-flight branches are editing right now, before any of them
     reaches merge_fix. Acting on it (splitting the file, or sequencing the
     tickets) is what removes the hot spot.
+
+    "Live" means an OPEN ticket, or a hand branch with no ticket at all. The
+    worktree enumeration cannot tell a closed ticket's worktree from an open
+    one, so a superseded seat's branch kept counting as an editor and held a
+    file "contended" that nobody would ever land against. Measured
+    2026-09-30: scripts/reward_collect.py read as a two-branch hot spot whose
+    two editors were both seats whose tickets had been superseded 18 minutes
+    earlier -- a brief was minted to remove a contention between two dead
+    branches (cli-20260930T000410Z-3208f470).
     """
+    closed = closed_issue_ids(repo)
     files: dict[str, list[str]] = collections.defaultdict(list)
     for line in git(repo, "worktree", "list", "--porcelain").splitlines():
         if not line.startswith("branch "):
             continue
         ref = line.split(None, 1)[1].strip()
         name = ref.rsplit("/", 1)[-1]
-        if ref == "refs/heads/main":
+        if ref == "refs/heads/main" or name in closed:
             continue
         changed = git(repo, "diff", "--name-only", f"main...{ref}").split()
         for f in changed:
@@ -703,6 +760,54 @@ def selftest() -> int:
         run("merge", "-q", "--no-ff", "-m", "land", "wt/idle")
         check("a branch already in main is not listed", idle_branches(gr, hours=1) == [],
               idle_branches(gr, hours=1))
+
+        # live_branch_files over the same repo: a branch whose ticket is
+        # closed is residue, not a live editor. The real case (2026-09-30):
+        # two seats each fixed the same reward_collect.py bug; the operator
+        # superseded both tickets 18 minutes later, but both worktrees
+        # lingered on, so the file kept reading as a two-branch hot spot and a
+        # brief was minted to remove a contention between two dead branches.
+        check("with no issue store every branch is live (fail-open)",
+              closed_issue_ids(gr) == set(), closed_issue_ids(gr))
+        gone = Path(td) / "wt-gone"
+        run("worktree", "add", "-q", "-b", "wt/gone", str(gone))
+        (gone / "h.txt").write_text("residue")
+        subprocess.run(["git", "-C", str(gone), "add", "h.txt"], capture_output=True)
+        subprocess.run(
+            ["git", "-C", str(gone), "-c", "user.email=t@t", "-c", "user.name=t",
+             "commit", "-qm", "residue"], capture_output=True)
+        live = Path(td) / "wt-live"
+        run("worktree", "add", "-q", "-b", "wt/live", str(live))
+        live2 = Path(td) / "wt-live2"
+        run("worktree", "add", "-q", "-b", "wt/live2", str(live2))
+        for wt, txt in ((live, "active"), (live2, "active too")):
+            (wt / "g2.txt").write_text(txt)
+            subprocess.run(["git", "-C", str(wt), "add", "g2.txt"], capture_output=True)
+            subprocess.run(
+                ["git", "-C", str(wt), "-c", "user.email=t@t", "-c", "user.name=t",
+                 "commit", "-qm", f"active {txt}"], capture_output=True)
+        check("the residue branch really changes h.txt against main",
+              "h.txt" in git(gr, "diff", "--name-only", "main...wt/gone").split(),
+              git(gr, "diff", "--name-only", "main...wt/gone"))
+        check("both live branches really change g2.txt against main",
+              all("g2.txt" in git(gr, "diff", "--name-only", f"main...wt/{b}").split()
+                  for b in ("live", "live2")))
+        store = gr / ".ds4" / "issues"
+        store.mkdir(parents=True)
+        (store / "gone.md").write_text(
+            "---\nid: gone\ntitle: t\nstatus: superseded\n---\n\n## Report\n")
+        (store / "live.md").write_text(
+            "---\nid: live\ntitle: t\nstatus: dispatched\n---\n\n## Report\n")
+        (store / "live2.md").write_text(
+            "---\nid: live2\ntitle: t\nstatus: review\n---\n\n## Report\n")
+        check("the store marks gone closed and the live pair open",
+              closed_issue_ids(gr) == {"gone"}, closed_issue_ids(gr))
+        lb = live_branch_files(gr)
+        check("a closed ticket's branch is not a live editor",
+              sorted(lb.get("g2.txt", [])) == ["live", "live2"] and "h.txt" not in lb, lb)
+        hs = hotspots(gr)
+        check("the live pair is still a hot spot, the residue is not",
+              hs == [("g2.txt", sorted(["live", "live2"]))], hs)
 
         obs = [json.loads(r) for r in collect_obs(repo)]
         check("a missing checklist explains itself", "absent" in obs[0]["note"], obs)

@@ -1,0 +1,46 @@
+{
+  "card": "Chthonian Nightmare",
+  "family": "etb-ltb",
+  "oracle_sha": "94bd8fc37bc5",
+  "author": "cli-20260929T235020Z-c90601c7 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enters-triggers-for-three-energy",
+      "cr": ["603.6a", "122.1"],
+      "why": "Chthonian Nightmare's enter trigger gives its controller three energy counters; the trigger is put on the stack when it enters.",
+      "setup": {
+        "p0": {"hand": ["Chthonian Nightmare"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Chthonian Nightmare", "mana": "BB"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Chthonian Nightmare", "zone": "battlefield"}
+      ]
+    },
+    {
+      "name": "pay-energy-sacrifice-returns-a-creature-card",
+      "cr": ["601.2", "118.12", "701.17a"],
+      "why": "The activated ability pays X energy, sacrifices a creature and returns the enchantment to hand to return a creature card of mana value X from the graveyard to the battlefield; paying one energy (from the enter trigger) returns the one-mana-value Grizzly Bears.",
+      "setup": {
+        "p0": {"hand": ["Chthonian Nightmare"], "graveyard": ["Savannah Lions"], "battlefield": ["Elvish Mystic"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Chthonian Nightmare", "mana": "BB"},
+        {"op": "resolve"},
+        {"op": "activate", "seat": 0, "card": "p0:Chthonian Nightmare", "ability": "Return target creature card",
+         "targets": ["p0:Savannah Lions"],
+         "answers": [{"kind": "choose", "pick": ["1"]}, {"kind": "choose", "pick": ["p0:Elvish Mystic"]}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Savannah Lions", "zone": "battlefield"},
+        {"card": "p0:Elvish Mystic", "zone": "graveyard"},
+        {"card": "p0:Chthonian Nightmare", "zone": "hand"}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "card": "Mind Stone",
+  "family": "activation-condition",
+  "oracle_sha": "9322c003e14f",
+  "author": "cli-20260929T235020Z-c90601c7 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "sacrifice-draws-a-card",
+      "cr": ["601.2", "121.1"],
+      "why": "Activating '{1}, {T}, Sacrifice Mind Stone: Draw a card' sacrifices the Stone and draws one card.",
+      "setup": {
+        "p0": {"battlefield": ["Mind Stone"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Mind Stone", "ability": "Draw a card", "mana": "C"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Mind Stone", "zone": "graveyard"},
+        {"hand_size": {"p0": 1}}
+      ]
+    },
+    {
+      "name": "mana-ability-adds-colorless",
+      "cr": ["605.1a"],
+      "why": "The {T}: Add {C} ability is a mana ability that taps the Stone and adds one colorless mana.",
+      "setup": {
+        "p0": {"battlefield": ["Mind Stone"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Mind Stone", "ability": "Add {C}"}
+      ],
+      "expect": [
+        {"pool": {"p0": "C"}},
+        {"card": "p0:Mind Stone", "tapped": true}
+      ]
+    }
+  ]
+}

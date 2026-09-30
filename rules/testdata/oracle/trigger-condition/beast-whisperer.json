@@ -1,0 +1,44 @@
+{
+  "card": "Beast Whisperer",
+  "family": "trigger-condition",
+  "oracle_sha": "e3f02644e004",
+  "author": "cli-20260929T235020Z-c90601c7 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "creature-spell-draws-a-card",
+      "cr": ["603.2", "601.2i"],
+      "why": "Beast Whisperer's triggered ability fires whenever you cast a creature spell; casting Grizzly Bears puts both the spell and the draw trigger on the stack, and when they resolve the hand is one larger than after the cast.",
+      "setup": {
+        "p0": {"hand": ["Grizzly Bears"], "battlefield": ["Beast Whisperer"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Grizzly Bears", "mana": "GG",
+         "expect": [{"trigger_on_stack": "p0:Beast Whisperer", "want": true}, {"hand_size": {"p0": 0}}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "zone": "battlefield"},
+        {"hand_size": {"p0": 1}}
+      ]
+    },
+    {
+      "name": "noncreature-spell-does-not-trigger",
+      "cr": ["603.2"],
+      "why": "The trigger's condition is a creature spell; casting Lightning Bolt is not one, so nothing is drawn.",
+      "setup": {
+        "p0": {"hand": ["Lightning Bolt"], "battlefield": ["Beast Whisperer"]},
+        "p1": {"life": 20}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"],
+         "expect": [{"trigger_on_stack": "p0:Beast Whisperer", "want": false}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p1": 17}},
+        {"hand_size": {"p0": 0}}
+      ]
+    }
+  ]
+}
