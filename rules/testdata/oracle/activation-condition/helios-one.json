@@ -73,6 +73,142 @@
           "pt": "3/2"
         }
       ]
+    },
+    {
+      "name": "paying-two-energy-destroys-a-mana-value-two-permanent",
+      "cr": [
+        "602.2a",
+        "118.2d",
+        "701.7a",
+        "122.1"
+      ],
+      "why": "'{1}, {T}' charges one energy counter on two successive turns; on the third turn the sorcery-speed '{3}, {T}, Pay X {E}, Sacrifice' ability pays {3} from three tapped lands and X=2 (the two banked counters) to destroy the mana value 2 Mind Stone.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "HELIOS One",
+            "Mind Stone",
+            "Island",
+            "Mountain",
+            "Swamp",
+            "Forest"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Island",
+          "ability": "Add"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:HELIOS One",
+          "ability": "You get",
+          "mana": "U"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "pass_to",
+          "step": "upkeep",
+          "active": "p0",
+          "seat": 0
+        },
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p0",
+          "seat": 0
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Mountain",
+          "ability": "Add"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:HELIOS One",
+          "ability": "You get",
+          "mana": "R"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "pass_to",
+          "step": "upkeep",
+          "active": "p0",
+          "seat": 0
+        },
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p0",
+          "seat": 0
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Swamp",
+          "ability": "Add"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Forest",
+          "ability": "Add"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:HELIOS One",
+          "ability": "Destroy target nonland",
+          "mana": "UBG",
+          "targets": [
+            "p0:Mind Stone"
+          ],
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "2"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Mind Stone",
+          "zone": "graveyard"
+        },
+        {
+          "card": "p0:HELIOS One",
+          "zone": "graveyard"
+        }
+      ]
     }
   ]
 }
