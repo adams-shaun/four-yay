@@ -64,7 +64,7 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 # champions.txt); the default is the shared training mount.
 GDIR=${SB_GAUNTLET_DIR:-/mnt/sata/gorge-training/spellbench-work/gauntlet}
 LOCK=/mnt/sata/gorge-training/spellbench-work/heavy.lock
-SBPY=/mnt/sata/gorge-training/sbvenv/bin
+SBPY=${SB_GAUNTLET_SBPY:-/mnt/sata/gorge-training/sbvenv/bin}
 WORKERS=${SB_GAUNTLET_WORKERS:-8}
 POOL="Wildfire Rally Affinity Elves Spy Burn CawGates Faeries"
 
@@ -185,7 +185,13 @@ mkdir -p "$WORK/ratedref"
 sed 's/"game_id":"m/"game_id":"ref-m/g' "$CACHE/matches.jsonl" >"$WORK/ratedref/matches.jsonl"
 
 # Each candidate plays the matchups that include it, full-schedule seeds and
-# indices kept.
+# indices kept. The candidate's own ledger is written UNDER the gauntlet root
+# (not the scratch dir) so it survives the EXIT trap: cmd/traindash walks the
+# root for any matches.jsonl, so a kept candidate dir renders a per-deck chart
+# with no schema change and no new games. <git_head> keeps two heads' runs from
+# overwriting one another; the spec segment is sanitised in case it holds a
+# slash.
+git_head=$(git -C "$ROOT" rev-parse HEAD)
 RATEDIRS=("$WORK/ratedref")
 PLAYED=()
 for cand in "${CANDS[@]}"; do
@@ -195,7 +201,8 @@ for cand in "${CANDS[@]}"; do
 	fi
 	if [ -n "${PLAYED[$cand]+x}" ]; then continue; fi
 	PLAYED[$cand]=1
-	out="$WORK/cand${#PLAYED[@]}"
+	out="$GDIR/cand/${git_head:-unknown}/${cand//\//_}"
+	mkdir -p "$out"
 	echo "sb-gauntlet: playing $cand vs the references"
 	run_bench "$BOTLIST" "$out" -spellbench-with "$cand"
 	RATEDIRS+=("$out")
@@ -211,7 +218,6 @@ fi
 
 # The table and the results rows, from the leaderboard document and the
 # candidates' own games.
-git_head=$(git -C "$ROOT" rev-parse HEAD)
 ts=$(date -u +%FT%TZ)
 "$SBPY/python3" - "$WORK/rating" "$GDIR/results.jsonl" "$PAIRS" "${DECKS:-default-pool}" "$git_head" "$KEY" "$ts" "$REFLIST" "${CANDS[@]}" <<'PY'
 import json
@@ -221,7 +227,7 @@ from pathlib import Path
 rating, results_path, pairs, decks, git_head, key, ts, refs_arg = sys.argv[1:9]
 cands = sys.argv[9:]
 refs = set(refs_arg.split(","))
-parent = Path(rating).parent
+cand_root = Path(results_path).parent / "cand" / git_head
 doc = json.loads((Path(rating) / "leaderboard.json").read_text())
 rows = {r["name"]: r for r in doc["rows"]}
 
@@ -235,7 +241,7 @@ def fmt(milli, digits=1):
 # Head-to-head W-L per candidate, from the candidate's own games (natural
 # outcomes only; draws, truncations and halts are excluded from both sides).
 h2h = {}
-for d in sorted(parent.glob("cand*/games.jsonl")):
+for d in sorted(cand_root.glob("*/games.jsonl")):
     for line in d.read_text().splitlines():
         if not line.strip():
             continue
