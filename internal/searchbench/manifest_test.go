@@ -111,3 +111,9 @@ func TestSBV1QuotasMatchSelection(t *testing.T) {
 		}
 	}
 }
+
+func TestValidateSBV1RejectsOrdinaryManifest(t *testing.T) {
+	if err := testManifest().ValidateSBV1(); err == nil {
+		t.Fatal("ordinary partial manifest passed sb-v1 validation")
+	}
+}
