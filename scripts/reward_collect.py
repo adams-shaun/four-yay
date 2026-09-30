@@ -227,10 +227,14 @@ def live_branch_files(repo: Path) -> dict[str, list[str]]:
     second uncontrolled branch was editing). Each file keeps only its
     MAXIMAL editors -- those no other editor of that same file contains --
     so a third branch genuinely colliding with the ancestor still counts.
+    That maximal-editor pass runs BEFORE the identical-blob dedup: run the
+    other way round, a stacked ancestor sharing its descendant's blob is
+    chosen as the representative, then the ancestry pass discards it as
+    non-maximal and the descendant it contained is already gone -- losing a
+    real editor.
     """
     closed = closed_issue_ids(repo)
-    editors: dict[str, list[tuple[str, str]]] = collections.defaultdict(list)
-    seen_blob: dict[str, set[str]] = collections.defaultdict(set)
+    editors: dict[str, list[tuple[str, str, str]]] = collections.defaultdict(list)
     for line in git(repo, "worktree", "list", "--porcelain").splitlines():
         if not line.startswith("branch "):
             continue
@@ -247,18 +251,38 @@ def live_branch_files(repo: Path) -> dict[str, list[str]]:
             continue
         blobs = _tree_blobs(repo, ref, targets)
         for f in targets:
-            b = blobs.get(f, "")
-            if b in seen_blob[f]:
-                continue  # same content another live branch already contributes
-            seen_blob[f].add(b)
-            editors[f].append((name, ref))
+            editors[f].append((name, ref, blobs.get(f, "")))
     files: dict[str, list[str]] = {}
     for f, branch_set in editors.items():
-        kept = sorted(
-            name for name, ref in branch_set
+        # FIRST drop the branches another editor of this file contains: the
+        # descendant's merge takes the ancestor by construction, so the two
+        # cannot conflict whatever their blobs are. Doing this BEFORE the
+        # identical-blob dedup is the whole point: with the dedup first, a
+        # stacked ancestor that shares its descendant's blob is kept as the
+        # blob's representative and the ancestry pass then correctly discards
+        # it -- but the descendant it contained was already gone, so the file
+        # loses a real editor (another branch descending from the ancestor made
+        # the ancestor non-maximal), and a genuine two-branch collision goes
+        # unflagged. Measured 2026-09-30 against the real functions (scratch
+        # repos, A <= B with identical blobs, C descending from A): dedup-first
+        # reported no editor but C and no hot spot; maximal-editors-first
+        # reports B and C and the hot spot.
+        maximal = [
+            (name, ref, blob) for name, ref, blob in branch_set
             if not any(other != ref and _is_ancestor(repo, ref, other)
-                       for _, other in branch_set)
-        )
+                       for _, other, _ in branch_set)
+        ]
+        # THEN dedup distinct branches that contribute identical content: two
+        # unrelated branches with the same blob cannot conflict. They survive
+        # the ancestry pass, so the representative the dedup keeps is always a
+        # maximal editor and the file cannot lose it.
+        kept: list[str] = []
+        seen: set[str] = set()
+        for name, _ref, blob in sorted(maximal):
+            if blob in seen:
+                continue  # same content another live branch already contributes
+            seen.add(blob)
+            kept.append(name)
         if kept:
             files[f] = kept
     return files
@@ -1203,6 +1227,62 @@ def selftest() -> int:
         sib = live_branch_files(hr)
         check("a sibling editor still makes the file a hot spot",
               sorted(sib.get("chain.txt", [])) == ["chain-c", "chain-x"], sib.get("chain.txt"))
+
+        # An ancestor and its descendant that contribute the IDENTICAL blob,
+        # plus a branch that descends from the ancestor with a DIFFERENT blob:
+        # the shape where the dedup and the maximal-editor pass fight.
+        # wt/blob-a <= wt/blob-b share one blob for blob.txt; wt/blob-c descends
+        # from wt/blob-a carrying a different blob. So blob-a is NON-maximal
+        # (it contains both blob-b and blob-c), but blob-b and blob-c are
+        # unrelated and genuinely collide. The maximal-editor pass must run
+        # first so blob-b survives as its blob's representative (blob-a, its
+        # ancestor, is dropped) and the file reports two editors. With the
+        # dedup first the representative is blob-a, blob-b is discarded, the
+        # ancestry pass then drops blob-a as non-maximal, and the file reports a
+        # single editor and no hot spot -- the false negative this guards.
+        wba = Path(td) / "hot-blob-a"
+        hrun("worktree", "add", "-q", "-b", "wt/blob-a", str(wba), base)
+        (wba / "blob.txt").write_text("same\n")
+        subprocess.run(["git", "-C", str(wba), "add", "blob.txt"], capture_output=True)
+        hcommit(wba, "blob a")
+        wbb = Path(td) / "hot-blob-b"
+        hrun("worktree", "add", "-q", "-b", "wt/blob-b", str(wbb), "wt/blob-a")
+        # A real descendant commit that leaves blob.txt's blob UNCHANGED: it
+        # edits a different file, so blob-b is genuinely ahead of blob-a while
+        # contributing the identical blob for blob.txt (the dedup/ancestry
+        # collision this fixture exists for). Writing blob.txt again would
+        # stage nothing and the commit would fail, leaving the two branches on
+        # one commit -- which is NOT the shape under test.
+        (wbb / "marker.txt").write_text("b\n")
+        subprocess.run(["git", "-C", str(wbb), "add", "marker.txt"], capture_output=True)
+        hcommit(wbb, "blob b, identical blob, other file committed")
+        wbc = Path(td) / "hot-blob-c"
+        hrun("worktree", "add", "-q", "-b", "wt/blob-c", str(wbc), "wt/blob-a")
+        (wbc / "blob.txt").write_text("other\n")
+        subprocess.run(["git", "-C", str(wbc), "add", "blob.txt"], capture_output=True)
+        hcommit(wbc, "blob c, descends from blob-a")
+        check("precondition: blob-a is an ancestor of blob-b",
+              hrun("merge-base", "--is-ancestor", "wt/blob-a", "wt/blob-b").returncode == 0)
+        check("precondition: blob-a is an ancestor of blob-c",
+              hrun("merge-base", "--is-ancestor", "wt/blob-a", "wt/blob-c").returncode == 0)
+        check("precondition: blob-c is NOT an ancestor of blob-b",
+              hrun("merge-base", "--is-ancestor", "wt/blob-c", "wt/blob-b").returncode != 0)
+        a_blob = hrun("rev-parse", "wt/blob-a:blob.txt").stdout.strip()
+        b_blob = hrun("rev-parse", "wt/blob-b:blob.txt").stdout.strip()
+        c_blob = hrun("rev-parse", "wt/blob-c:blob.txt").stdout.strip()
+        check("precondition: blob-a and blob-b really share one blob",
+              a_blob == b_blob and a_blob, (a_blob, b_blob))
+        check("precondition: blob-c really differs",
+              c_blob != a_blob and c_blob, (c_blob, a_blob))
+        check("precondition: every blob branch really changes blob.txt",
+              all("blob.txt" in git(hr, "diff", "--name-only", "main...wt/blob-%s" % s).split()
+                  for s in "abc"))
+        deduped = live_branch_files(hr)
+        check("an identical-blob ancestor does not hide its descendant",
+              sorted(deduped.get("blob.txt", [])) == ["blob-b", "blob-c"],
+              deduped.get("blob.txt"))
+        check("the identical-blob ancestor plus descendant is a hot spot",
+              any(f == "blob.txt" for f, _ in hotspots(hr)), hotspots(hr))
 
         obs = [json.loads(r) for r in collect_obs(repo)]
         check("a missing checklist explains itself", "absent" in obs[0]["note"], obs)
