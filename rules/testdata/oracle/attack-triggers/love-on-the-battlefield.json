@@ -1,0 +1,60 @@
+{
+  "card": "Love on the Battlefield",
+  "family": "attack-triggers",
+  "oracle_sha": "0f5794f852a7",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "exactly-two-attackers-gain-first-strike-and-draw",
+      "cr": [
+        "508.1m",
+        "603.2"
+      ],
+      "why": "Exactly two attacking creatures trigger the enchantment, granting both first strike through combat and drawing a card.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Love on the Battlefield",
+            "Grizzly Bears",
+            "Savannah Lions"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Grizzly Bears",
+            "p0:Savannah Lions"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "battlefield",
+          "keywords": [
+            "First strike"
+          ]
+        },
+        {
+          "card": "p0:Savannah Lions",
+          "zone": "battlefield",
+          "keywords": [
+            "First strike"
+          ]
+        },
+        {
+          "hand_size": {
+            "p0": 1
+          }
+        }
+      ]
+    }
+  ]
+}

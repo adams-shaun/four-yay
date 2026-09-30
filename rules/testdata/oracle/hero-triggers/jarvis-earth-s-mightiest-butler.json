@@ -1,0 +1,48 @@
+{
+  "card": "Jarvis, Earth's Mightiest Butler",
+  "family": "hero-triggers",
+  "oracle_sha": "46578cfeccf4",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "hero-spell-draws",
+      "cr": [
+        "603.2",
+        "121.1"
+      ],
+      "why": "Casting a Hero spell while Jarvis is on the battlefield triggers a card draw, in addition to the Hero resolving.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Jarvis, Earth's Mightiest Butler"
+          ],
+          "hand": [
+            "Patriot, Shield Wielder"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Patriot, Shield Wielder",
+          "mana": "WW"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Patriot, Shield Wielder",
+          "zone": "battlefield"
+        },
+        {
+          "hand_size": {
+            "p0": 1
+          }
+        }
+      ]
+    }
+  ]
+}

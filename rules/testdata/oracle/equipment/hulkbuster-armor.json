@@ -1,0 +1,49 @@
+{
+  "card": "Hulkbuster Armor",
+  "family": "equipment",
+  "oracle_sha": "3e1700a81bba",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "equip-hero-sets-base-nine-nine",
+      "cr": [
+        "301.5",
+        "613.4b"
+      ],
+      "why": "The cheaper Equip Hero ability can attach Hulkbuster Armor to a Hero, setting its base power/toughness to 9/9 and granting flying.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Hulkbuster Armor",
+            "Patriot, Shield Wielder"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Hulkbuster Armor",
+          "ability": "Equip 3",
+          "mana": "CCC",
+          "targets": [
+            "p0:Patriot, Shield Wielder"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Patriot, Shield Wielder",
+          "zone": "battlefield",
+          "pt": "9/9",
+          "keywords": [
+            "Flying"
+          ]
+        }
+      ]
+    }
+  ]
+}

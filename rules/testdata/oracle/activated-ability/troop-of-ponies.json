@@ -1,0 +1,58 @@
+{
+  "card": "Troop of Ponies",
+  "family": "activated-ability",
+  "oracle_sha": "b9cf4b7834d3",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "sacrifice-to-find-two-basics",
+      "cr": [
+        "701.17a",
+        "608.2c"
+      ],
+      "why": "Sacrificing the Horse searches out two basics: one enters tapped and the other goes to hand.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Troop of Ponies"
+          ],
+          "library_top": [
+            "Forest",
+            "Island"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Troop of Ponies",
+          "mana": "CC"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {"kind": "choose", "pick": ["p0:Forest", "p0:Island"]},
+            {"kind": "choose", "pick": ["p0:Forest"]}
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Troop of Ponies",
+          "zone": "graveyard"
+        },
+        {
+          "card": "p0:Forest",
+          "zone": "battlefield",
+          "tapped": true
+        },
+        {
+          "hand_size": {
+            "p0": 1
+          }
+        }
+      ]
+    }
+  ]
+}

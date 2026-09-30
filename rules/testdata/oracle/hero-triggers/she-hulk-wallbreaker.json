@@ -1,0 +1,53 @@
+{
+  "card": "She-Hulk, Wallbreaker",
+  "family": "hero-triggers",
+  "oracle_sha": "81a15efdd8bf",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "other-heroes-have-trample",
+      "cr": [
+        "604.1",
+        "613.1f"
+      ],
+      "why": "She-Hulk continuously gives other Heroes controlled by the same player trample, not opposing creatures.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "She-Hulk, Wallbreaker",
+            "Patriot, Shield Wielder"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Speed, Young Avenger"
+          ]
+        }
+      },
+      "steps": [],
+      "expect": [
+        {
+          "card": "p0:Patriot, Shield Wielder",
+          "zone": "battlefield",
+          "keywords": [
+            "Trample"
+          ]
+        },
+        {
+          "card": "p1:Speed, Young Avenger",
+          "zone": "battlefield",
+          "no_keywords": [
+            "Trample"
+          ]
+        },
+        {
+          "card": "p0:She-Hulk, Wallbreaker",
+          "zone": "battlefield",
+          "keywords": [
+            "Trample"
+          ]
+        }
+      ]
+    }
+  ]
+}
