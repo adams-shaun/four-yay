@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
 # deploy-demo.sh — stop the running demo gorged, then serve the demo on
-# 127.0.0.1:8080 only: bot-only tables with an omniscient (clairvoyant) spectator view;
-# set HUMANS=0 (slot index) for a person at t1. On-demand play-vs-bot tables stay public so a
-# spectator never sees a person's hand.
+# 127.0.0.1:8080: bot-only tables spectate omniscient (every hand shown),
+# on-demand play-vs-bot tables stay public so nobody watching a person's
+# game sees that person's hand. The separate :8081 omniscient server was
+# retired on 2026-09-28; set OMNI_PORT to run a second server again.
+#
+# 2026-09-29: :8081 serves the same demo with the ManaBrew wire enabled
+# (gorged -manabrew, routes on the same origin), for the web client's
+# ManaBrew protocol setting (Settings -> Protocol). :8080 stays native-only.
+# MB_PORT= (empty) runs no ManaBrew server.
 #
 # Invoked by `make deploy-demo`, which builds the client and the binary
 # first. Run by hand by the operator only: stopping the servers aborts every
@@ -13,8 +19,12 @@ BIN=${BIN:-bin/gorged}
 DECKS=${DECKS:-internal/testutil/decks}
 # 2026-09-29 (later): 1, down from 4. az-redeal's 100-sim MCTS search runs on
 # EVERY table concurrently, and all of them restart fresh trees the instant
-# their match ends. One table keeps that work bounded. Override with TABLES=4
-# to get the old density back once search's per-decision cost is tuned down.
+# their match ends -- with 4 tables on :8080 plus 4 duplicated on :8081
+# (MB_PORT), that is 8 concurrent search trees that occasionally piled up
+# right at match-end and froze the box the operator was observing on
+# (load average 10.6 -> 6.9 just from dropping :8081; cutting :8080 to 1
+# table is the rest of that fix). Override with TABLES=4 to get the old
+# density back once az-redeal's per-decision cost is tuned down.
 TABLES=${TABLES:-1}
 # 2026-09-29: 2, tied to BOT_POLICY below. Both az-redeal and sb-search-lite-
 # atk have Info.MaxSeats 2 (bots/azredeal, bots/sbsearch) -- measured and
@@ -36,10 +46,6 @@ PACE=${PACE:-50ms}
 # order; it must never be used for a table with a person in it.
 SPECTATOR=${SPECTATOR:-omniscient}
 VSBOT_SPECTATOR=${VSBOT_SPECTATOR:-public}
-# -humans takes comma-separated SLOT INDICES of table t1 (e.g. 0 or 0,2), so
-# "0" means slot zero is a real person and the table waits for them. Empty
-# (the default) passes no slot: every startup table is bot-only.
-HUMANS=${HUMANS:-}
 # Hosted bot policy (host/bot_policy.go's closed vocabulary) for every
 # startup table and for a play-vs-bot game that names none.
 #
@@ -85,11 +91,17 @@ SEED=${SEED:-1}
 DEMO_GOMEMLIMIT=${DEMO_GOMEMLIMIT:-8GiB}
 
 PUB_PORT=${PUB_PORT:-8080}
+# OMNI_PORT empty (the default) runs no second server.
+OMNI_PORT=${OMNI_PORT-}
+# 2026-09-29 (later): off by default -- it duplicated every table's az-redeal
+# search load onto a second port, and that's the load that froze the box.
+# MB_PORT=8081 to bring the ManaBrew wire back once the search cost is tuned.
+MB_PORT=${MB_PORT-}
+MB_DIR=${MB_DIR:-/tmp/gorge-demo-mb}
+MB_LOG=${MB_LOG:-/tmp/gorge-demo-mb.log}
 # Ports a previous demo layout served on. The sweep stops a gorged still
 # listening there, so the first deploy after a layout change does not leave
 # the old server running forever; nothing is started on them.
-# (OMNI_PORT/MB_PORT were retired outright by 72d86d5ba — no second server —
-# but the ports they bound stay swept: see demo-ports.sh below.)
 #
 # The set is COMPUTED, not listed: demo-ports.sh unions every port the demo has
 # ever bound (an append-only history) with the ones this run binds, so
@@ -102,7 +114,9 @@ RETIRED_PORTS=${RETIRED_PORTS-}
 # shellcheck source=scripts/demo-ports.sh
 . "$(dirname "${BASH_SOURCE[0]}")/demo-ports.sh"
 PUB_DIR=${PUB_DIR:-/tmp/gorge-demo-pub}
+OMNI_DIR=${OMNI_DIR:-/tmp/gorge-demo-omni}
 PUB_LOG=${PUB_LOG:-/tmp/gorge-demo-pub.log}
+OMNI_LOG=${OMNI_LOG:-/tmp/gorge-demo-omni.log}
 
 # Durable card-art cache, OUTSIDE the wiped persistence dirs (task
 # fb-20260914T113850Z-682e875e). The `rm -rf` inside start_one stays: a stale
@@ -189,7 +203,7 @@ gorged_pids() {
 	local filter='LISTEN'
 	if [ "$SWEEP" != "all" ]; then
 		local ports
-		ports=$(demo_sweep_ports "$PUB_PORT" $RETIRED_PORTS | paste -sd'|')
+		ports=$(demo_sweep_ports "$PUB_PORT" "$OMNI_PORT" "$MB_PORT" $RETIRED_PORTS | paste -sd'|')
 		filter="[[:space:]](127\\.0\\.0\\.1|0\\.0\\.0\\.0|\\*|\\[::\\]):($ports)[[:space:]]"
 	fi
 	# `|| true` is load-bearing, not defensive noise. grep exits 1 when it
@@ -198,7 +212,7 @@ gorged_pids() {
 	# command substitution, so the script dies at `pids=$(gorged_pids)`
 	# BEFORE its first line of output: exit 1, no server, no message.
 	# "Nothing is listening" is the ordinary case for a free port, and it is
-	# invisible on 8080 precisely because something is always bound
+	# invisible on 8080/8081 precisely because something is always bound
 	# there. Found by the distill thread deploying a review server to 8082.
 	ss -lptn 2>/dev/null |
 		grep -E "$filter" |
@@ -255,7 +269,6 @@ start_one() {
 		-addr "127.0.0.1:$port" \
 		-spectator "$spectator" \
 		-vsbot-spectator "$vsbot_spectator" \
-		-humans "$HUMANS" \
 		-bot-policy "$BOT_POLICY" \
 		-dir "$dir" \
 		-decks "$DECKS" \
@@ -317,7 +330,11 @@ fi
 
 stop_all
 start_one "$PUB_PORT" "$SPECTATOR" "$PUB_DIR" "$PUB_LOG" "$VSBOT_SPECTATOR"
+if [ -n "$OMNI_PORT" ]; then start_one "$OMNI_PORT" omniscient "$OMNI_DIR" "$OMNI_LOG" public; fi
+if [ -n "$MB_PORT" ]; then start_one "$MB_PORT" "$SPECTATOR" "$MB_DIR" "$MB_LOG" "$VSBOT_SPECTATOR" -manabrew; fi
 wait_ready "$PUB_PORT"
+[ -z "$OMNI_PORT" ] || wait_ready "$OMNI_PORT"
+[ -z "$MB_PORT" ] || wait_ready "$MB_PORT"
 
 # Report what each table actually IS, not what the flags asked for. The
 # formats above are the request; this line is the server's own answer, and
@@ -325,4 +342,4 @@ wait_ready "$PUB_PORT"
 say "$(curl -fsS "http://127.0.0.1:$PUB_PORT/api/tables" |
 	tr ',' '\n' | grep '"format"' | cut -d'"' -f4 | sort | uniq -c |
 	tr '\n' ' ')on :$PUB_PORT"
-say "ready — omniscient spectator (bots $BOT_POLICY, pace $PACE) http://localhost:$PUB_PORT/"
+say "ready — spectator ($SPECTATOR, bots $BOT_POLICY, pace $PACE) http://localhost:$PUB_PORT/${OMNI_PORT:+  ·  omniscient http://localhost:$OMNI_PORT/}${MB_PORT:+  ·  manabrew wire http://localhost:$MB_PORT/}"
