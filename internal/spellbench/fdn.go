@@ -35,6 +35,7 @@ type Catalog struct {
 var Catalogs = []Catalog{
 	{ID: "pauper-kernel", Dir: PauperKernel, Pool: BenchmarkPool, Format: "pauper-bo1"},
 	{ID: "fdn-limited", Dir: FDNLimited, Pool: FDNPool, Format: "fdn-limited-bo1"},
+	{ID: "repo-constructed", Dir: RepoConstructed, Pool: RepoPool, Format: "repo-constructed-bo1"},
 }
 
 // CatalogByID finds a catalog by id; "fdn" is accepted for fdn-limited.

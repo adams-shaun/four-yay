@@ -111,7 +111,7 @@ func registerSpellbenchFlags(fs *flag.FlagSet) {
 	fs.StringVar(&sbFlags.bots, "spellbench", "", "SpellBench workup mode: comma list of policies to round-robin (e.g. sb-uniform,sb-heuristic,sb-first,bot,az) on the -spellbench-catalog decks as mirrors; writes a SpellBench match ledger to -spellbench-out")
 	fs.IntVar(&sbFlags.pairs, "spellbench-pairs", 4, "spellbench: seat-swapped pairs per deck per matchup (the benchmark's pairs_per_deck)")
 	fs.StringVar(&sbFlags.decks, "spellbench-decks", "", "spellbench: comma list of catalog deck ids (default: the catalog's benchmark pool)")
-	fs.StringVar(&sbFlags.catalog, "spellbench-catalog", "pauper-kernel", "spellbench: deck catalog, pauper-kernel or fdn-limited (alias fdn)")
+	fs.StringVar(&sbFlags.catalog, "spellbench-catalog", "pauper-kernel", "spellbench: deck catalog, pauper-kernel, fdn-limited (alias fdn) or repo-constructed")
 	fs.StringVar(&sbFlags.out, "spellbench-out", "", "spellbench: output directory (created; matches.jsonl, games.jsonl, run.json are written there)")
 	fs.Uint64Var(&sbFlags.baseSeed, "spellbench-base-seed", 20260926, "spellbench: tournament base seed (the benchmark's base_seed)")
 	fs.StringVar(&sbFlags.with, "spellbench-with", "", "spellbench: play only the matchups that include this policy (indices and seeds stay those of the full round robin)")

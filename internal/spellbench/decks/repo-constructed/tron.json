@@ -1,0 +1,43 @@
+{
+  "name": "tron",
+  "format": "custom",
+  "archetype": "ramp",
+  "notes": "Faithful 60-card Legacy Urza-Tron big-mana ramp. Assemble Urza's Tower/Mine/Power Plant for explosive mana into colorless bombs. ENGINE-RISK (faithful, no-compromise build): Karn Liberated & Karn, the Great Creator are planeswalkers; Ulamog, the Ceaseless Hunger is a 10-drop with a modal cast trigger; Oblivion Stone / Walking Ballista / Wurmcoil are complex artifacts. CP7 evaluates these poorly and the Tron-assembly mana ramp is hard for its minimax — expect weak play even where cards resolve.",
+  "sideboard": [
+    {"name": "Mycosynth Lattice", "count": 1},
+    {"name": "Liquimetal Coating", "count": 1},
+    {"name": "Ensnaring Bridge", "count": 1},
+    {"name": "Walking Ballista", "count": 1},
+    {"name": "Wurmcoil Engine", "count": 1},
+    {"name": "Sundering Titan", "count": 1},
+    {"name": "Tormod's Crypt", "count": 1},
+    {"name": "Grafdigger's Cage", "count": 1},
+    {"name": "Ratchet Bomb", "count": 1},
+    {"name": "Spatial Contortion", "count": 1},
+    {"name": "Nature's Claim", "count": 1},
+    {"name": "Warping Wail", "count": 1},
+    {"name": "Torpor Orb", "count": 1},
+    {"name": "Engineered Explosives", "count": 1},
+    {"name": "Pithing Needle", "count": 1}
+  ],
+  "cards": [
+    {"name": "Urza's Tower",                  "count": 4},
+    {"name": "Urza's Mine",                    "count": 4},
+    {"name": "Urza's Power Plant",             "count": 4},
+    {"name": "Forest",                         "count": 4},
+    {"name": "Ghost Quarter",                  "count": 2},
+    {"name": "Expedition Map",                 "count": 4},
+    {"name": "Chromatic Star",                 "count": 4},
+    {"name": "Sylvan Scrying",                 "count": 4},
+    {"name": "Ancient Stirrings",              "count": 4},
+    {"name": "Karn Liberated",                 "count": 4},
+    {"name": "Karn, the Great Creator",        "count": 2},
+    {"name": "Wurmcoil Engine",                "count": 4},
+    {"name": "Walking Ballista",               "count": 4},
+    {"name": "Ulamog, the Ceaseless Hunger",   "count": 2},
+    {"name": "Oblivion Stone",                 "count": 3},
+    {"name": "Relic of Progenitus",            "count": 2},
+    {"name": "Pithing Needle",                 "count": 3},
+    {"name": "World Breaker",                  "count": 2}
+  ]
+}

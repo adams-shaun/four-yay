@@ -1,0 +1,41 @@
+{
+  "name": "the-epic-storm",
+  "format": "custom",
+  "archetype": "combo",
+  "notes": "Faithful 60-card Legacy The Epic Storm (TES) ritual-combo. Fast mana (Dark/Cabal Ritual, LED, Lotus Petal) into Ad Nauseam / Burning Wish to kill with Tendrils or Empty the Warrens. ENGINE-RISK (faithful, no-compromise build): this is a storm combo — Lion's Eye Diamond, Infernal Tutor (hellbent), Ad Nauseam, Burning Wish (wish from outside the game), Tendrils/Empty the Warrens (storm count) are all things CP7 has no concept of. Expect it to NEVER assemble the combo and effectively durdle; included per no-compromise request.",
+  "sideboard": [
+    {"name": "Thoughtseize", "count": 3},
+    {"name": "Chain of Vapor", "count": 2},
+    {"name": "Echoing Truth", "count": 2},
+    {"name": "Surgical Extraction", "count": 2},
+    {"name": "Shenanigans", "count": 2},
+    {"name": "Massacre", "count": 1},
+    {"name": "Dread of Night", "count": 1},
+    {"name": "Empty the Warrens", "count": 1},
+    {"name": "Tendrils of Agony", "count": 1}
+  ],
+  "cards": [
+    {"name": "Swamp",             "count": 2},
+    {"name": "Volcanic Island",   "count": 2},
+    {"name": "Underground Sea",   "count": 1},
+    {"name": "Island",            "count": 1},
+    {"name": "Mountain",          "count": 1},
+    {"name": "Bloodstained Mire", "count": 4},
+    {"name": "Polluted Delta",    "count": 3},
+    {"name": "Scalding Tarn",     "count": 1},
+    {"name": "Dark Ritual",       "count": 4},
+    {"name": "Cabal Ritual",      "count": 4},
+    {"name": "Lotus Petal",       "count": 4},
+    {"name": "Lion's Eye Diamond", "count": 4},
+    {"name": "Burning Wish",      "count": 4},
+    {"name": "Infernal Tutor",    "count": 4},
+    {"name": "Ad Nauseam",        "count": 4},
+    {"name": "Brainstorm",        "count": 4},
+    {"name": "Ponder",            "count": 4},
+    {"name": "Duress",            "count": 3},
+    {"name": "Rite of Flame",     "count": 2},
+    {"name": "Defense Grid",      "count": 2},
+    {"name": "Empty the Warrens", "count": 1},
+    {"name": "Tendrils of Agony", "count": 1}
+  ]
+}
