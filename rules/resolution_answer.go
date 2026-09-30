@@ -14,10 +14,19 @@ import (
 )
 
 // resumeAnswerBinding binds the answer of the resume kinds whose arms live
-// here into the resumed Ctx. It returns true when the arm resolved further
-// engine work itself and the caller (resumeResolution) must return at once;
-// kinds this switch does not own fall through to resumeAnswerBindingRest.
-func (e *Engine) resumeAnswerBinding(rp *resumePoint, o *state.Object, ctx *effects.Ctx, chosen []decision.Option) bool {
+// here into the resumed Ctx. It reports TWO outcomes, mirroring the original
+// single switch's two continuations:
+//
+//   - handled=false: the kind belongs to resumeAnswerBindingRest (this
+//     switch's default arm); the CALLER invokes that helper exactly once.
+//   - handled=true, stop=true: the arm ended in a bare `return` in the
+//     original switch — it resolved further engine work itself (a nested
+//     ask, a parked payment) and the caller (resumeResolution) must return
+//     at once, without running the re-entry machinery.
+//   - handled=true, stop=false: the arm bound the answer and falls through,
+//     exactly as the original switch's `break`/fall-off arms did; the
+//     caller continues WITHOUT consulting resumeAnswerBindingRest.
+func (e *Engine) resumeAnswerBinding(rp *resumePoint, o *state.Object, ctx *effects.Ctx, chosen []decision.Option) (handled, stop bool) {
 	switch rp.kind {
 	case "dredge":
 		// CR 702.55 replaces exactly the one draw that asked. The enclosing
@@ -170,7 +179,7 @@ func (e *Engine) resumeAnswerBinding(rp *resumePoint, o *state.Object, ctx *effe
 			if chosePay {
 				paid, asked := e.beginWardPayment(rp, ctx)
 				if asked {
-					return true
+					return true, true
 				}
 				if paid {
 					ctx.UnlessPay = "pay"
@@ -263,7 +272,7 @@ func (e *Engine) resumeAnswerBinding(rp *resumePoint, o *state.Object, ctx *effe
 				// select every component; finishUnlessPayment re-enters
 				// with unlessPay set, so this arm never charges it twice.
 				e.beginUnlessPayment(payOption.Player, paid, ctx, rp.obj, rp)
-				return true
+				return true, true
 			}
 			// CR 601.2g: a mana-only unless cost gives the payer the same
 			// chance to activate mana abilities before the charge as a cast
@@ -274,7 +283,7 @@ func (e *Engine) resumeAnswerBinding(rp *resumePoint, o *state.Object, ctx *effe
 			// unchanged.
 			if e.unlessManaWindowNeeded(payOption.Player, paid, rp.obj) {
 				e.askUnlessWardMana(payOption.Player, paid, rp)
-				return true
+				return true, true
 			}
 			if e.payUnlessCost(payOption.Player, paid, ctx, rp.obj) {
 				ctx.UnlessPay = "pay"
@@ -285,7 +294,7 @@ func (e *Engine) resumeAnswerBinding(rp *resumePoint, o *state.Object, ctx *effe
 				// offer gate proved the budget reachable before Pay was
 				// offered, so sources remain while the charge is unmet.
 				e.beginUnlessPayment(payOption.Player, paid, ctx, rp.obj, rp)
-				return true
+				return true, true
 			} else {
 				ctx.UnlessPay = "decline"
 			}
@@ -328,11 +337,11 @@ func (e *Engine) resumeAnswerBinding(rp *resumePoint, o *state.Object, ctx *effe
 		ctx.SacTarget = rp.target
 	case "ward_mana":
 		if e.answerWardMana(rp, chosen, ctx) {
-			return true
+			return true, true
 		}
 	case "unless_mana":
 		if e.answerWardMana(rp, chosen, ctx) {
-			return true
+			return true, true
 		}
 	case "ward_alt":
 		// The Discard<...>:<mana> Ward alternative can choose its mana
@@ -346,7 +355,7 @@ func (e *Engine) resumeAnswerBinding(rp *resumePoint, o *state.Object, ctx *effe
 			} else if cost.hasManaPayment() && e.hasUntappedManaSource(chosen[0].Player) {
 				e.askWardMana(rp, &wardManaPayment{payer: chosen[0].Player, cost: cost,
 					resumeKind: "ward_mana", prompt: "Activate mana abilities to pay Ward"})
-				return true
+				return true, true
 			} else {
 				ctx.UnlessPay = "decline"
 			}
@@ -1062,8 +1071,16 @@ func (e *Engine) resumeAnswerBinding(rp *resumePoint, o *state.Object, ctx *effe
 		ctx.DigUntilAuraDone = true
 	default:
 		// Not one of this file's arms: the answer belongs to the rest of the
-		// switch (resolution_answer_rest.go).
-		e.resumeAnswerBindingRest(rp, o, ctx, chosen)
+		// switch (resolution_answer_rest.go). The caller forwards to that
+		// helper on handled=false — this arm must NOT forward itself, or a
+		// rest-owned arm would run twice (measured: a doubled Shuffle on the
+		// Ponder may-shuffle answer, a doubled extort pip, doubled Dismantle
+		// counters).
+		return false, false
 	}
-	return false
+	// An owned arm reached its end without a bare `return`: in the original
+	// single switch it fell through to resumeResolution's continuation, so
+	// the caller continues here — but must not run the rest helper (this
+	// kind is already bound; helper2's default would clobber Ctx.Modes).
+	return true, false
 }

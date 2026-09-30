@@ -662,10 +662,20 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 		return
 	}
 	if rp.sa != nil {
-		if e.resumeAnswerBinding(rp, o, ctx, chosen) {
+		handled, stop := e.resumeAnswerBinding(rp, o, ctx, chosen)
+		if stop {
+			// The arm resolved further engine work itself (a nested ask, a
+			// parked payment): resumeResolution stops here, as the original
+			// switch's bare `return` arms did.
 			return
 		}
-		e.resumeAnswerBindingRest(rp, o, ctx, chosen)
+		if !handled {
+			// The kind belongs to the rest of the switch; forward EXACTLY
+			// once — an owned-and-continuing kind must skip this, or its
+			// answer would be re-bound (rest-owned arms run their side
+			// effects twice) and helper2's default would clobber Ctx.Modes.
+			e.resumeAnswerBindingRest(rp, o, ctx, chosen)
+		}
 		src := rp.obj
 		if o.Ability != nil {
 			src = o.Source

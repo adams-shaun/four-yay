@@ -15,7 +15,10 @@ import (
 
 // resumeAnswerBindingRest binds the answer of the remaining resume kinds
 // into the resumed Ctx. It never stops the resolution itself; the caller
-// continues with its completion tail either way.
+// continues with its completion tail either way. It is invoked ONLY for a
+// kind resumeAnswerBinding does not own (its handled=false) — an owned kind
+// must never be re-bound here, or its arm would run twice and the default
+// arm below would clobber Ctx.Modes to [""] for SAs without Choices$.
 func (e *Engine) resumeAnswerBindingRest(rp *resumePoint, o *state.Object, ctx *effects.Ctx, chosen []decision.Option) {
 	switch rp.kind {
 	case "counter_dist":
