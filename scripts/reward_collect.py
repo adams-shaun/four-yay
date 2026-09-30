@@ -160,22 +160,6 @@ def closed_issue_ids(repo: Path) -> set[str]:
     return out
 
 
-def _ref_is_ancestor(repo: Path, ancestor: str, descendant: str) -> bool:
-    """True if `ancestor` is reachable from `descendant`.
-
-    `git()` cannot express this: `merge-base --is-ancestor` answers with its
-    exit code and an empty stdout, and `git()` collapses every non-zero exit
-    to `""`. So this calls git directly and reads `returncode == 0`.
-    """
-    p = subprocess.run(
-        ["git", "-C", str(repo), "merge-base", "--is-ancestor", ancestor, descendant],
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
-    return p.returncode == 0
-
-
 def _tree_blobs(repo: Path, ref: str, paths: list[str]) -> dict[str, str]:
     """Blob sha per path in `ref`'s tree, one git call for the whole list."""
     out = git(repo, "ls-tree", "-r", ref, "--", *paths)
@@ -186,6 +170,22 @@ def _tree_blobs(repo: Path, ref: str, paths: list[str]) -> dict[str, str]:
         if len(parts) >= 3:
             blobs[path] = parts[2]
     return blobs
+
+
+def _is_ancestor(repo: Path, ancestor: str, ref: str) -> bool:
+    """True when `ancestor` is already contained in `ref`'s history.
+
+    `git merge-base --is-ancestor` signals through its exit code, and the
+    `git()` helper folds a non-zero exit into an empty string, so it cannot
+    answer this. A subprocess run that reads the return code directly is the
+    one honest way, and it is cheap: the caller only asks it of branches that
+    already share a file.
+    """
+    p = subprocess.run(
+        ["git", "-C", str(repo), "merge-base", "--is-ancestor", ancestor, ref],
+        capture_output=True, text=True, timeout=120,
+    )
+    return p.returncode == 0
 
 
 def live_branch_files(repo: Path) -> dict[str, list[str]]:
@@ -216,21 +216,25 @@ def live_branch_files(repo: Path) -> dict[str, list[str]]:
     earlier -- a brief was minted to remove a contention between two dead
     branches (cli-20260930T000410Z-3208f470).
 
-    A STACKED branch is not a second editor. When a live branch's tip is an
-    ancestor of another live branch, landing the descendant lands the
-    ancestor's content with it, so the two cannot conflict: the ancestor's
-    blob is an intermediate state the descendant already contains, not a
-    competing content. Counting both minted briefs to split files in one
-    stack (measured 2026-09-30: `gorge-searchbench` and its own descendant
-    `sbrep-search` were the two "editors" of `internal/azmcts/search.go` and
-    four siblings -- five files nothing would ever merge against). So per
-    file a branch is kept only when it is not an ancestor of another branch
-    that also edits that file.
+    A branch already CONTAINED in another editor of the same file is not a
+    second editor of it: the descendant's merge takes the ancestor by
+    construction, so landing either one first is clean and there is no
+    resolver round to remove. Counting a stacked chain as contention minted
+    briefs for an already-sequenced workstream (measured 2026-09-30: the
+    searchbench replication -- `wt/gorge-searchbench` <= `wt/sbrep-search`
+    <= `wt/sbrep`, one linear chain -- read as two and three editors of the
+    same eleven files, so a `flow-hotspot` ticket asked to split files no
+    second uncontrolled branch was editing). Each file keeps only its
+    MAXIMAL editors -- those no other editor of that same file contains --
+    so a third branch genuinely colliding with the ancestor still counts.
+    That maximal-editor pass runs BEFORE the identical-blob dedup: run the
+    other way round, a stacked ancestor sharing its descendant's blob is
+    chosen as the representative, then the ancestry pass discards it as
+    non-maximal and the descendant it contained is already gone -- losing a
+    real editor.
     """
     closed = closed_issue_ids(repo)
-    # (name, ref) per path, deduped by blob as before.
-    editors: dict[str, list[tuple[str, str]]] = collections.defaultdict(list)
-    seen_blob: dict[str, set[str]] = collections.defaultdict(set)
+    editors: dict[str, list[tuple[str, str, str]]] = collections.defaultdict(list)
     for line in git(repo, "worktree", "list", "--porcelain").splitlines():
         if not line.startswith("branch "):
             continue
@@ -247,24 +251,40 @@ def live_branch_files(repo: Path) -> dict[str, list[str]]:
             continue
         blobs = _tree_blobs(repo, ref, targets)
         for f in targets:
-            b = blobs.get(f, "")
-            if b in seen_blob[f]:
-                continue  # same content another live branch already contributes
-            seen_blob[f].add(b)
-            editors[f].append((name, ref))
-    files: dict[str, list[str]] = collections.defaultdict(list)
-    for f, eds in editors.items():
-        # Drop a branch whose tip another editor of the SAME file descends
-        # from: that ancestor's content will land as part of the descendant.
-        kept = [
-            (name, ref)
-            for name, ref in eds
-            if not any(
-                ref != oref and _ref_is_ancestor(repo, ref, oref)
-                for _, oref in eds
-            )
+            editors[f].append((name, ref, blobs.get(f, "")))
+    files: dict[str, list[str]] = {}
+    for f, branch_set in editors.items():
+        # FIRST drop the branches another editor of this file contains: the
+        # descendant's merge takes the ancestor by construction, so the two
+        # cannot conflict whatever their blobs are. Doing this BEFORE the
+        # identical-blob dedup is the whole point: with the dedup first, a
+        # stacked ancestor that shares its descendant's blob is kept as the
+        # blob's representative and the ancestry pass then correctly discards
+        # it -- but the descendant it contained was already gone, so the file
+        # loses a real editor (another branch descending from the ancestor made
+        # the ancestor non-maximal), and a genuine two-branch collision goes
+        # unflagged. Measured 2026-09-30 against the real functions (scratch
+        # repos, A <= B with identical blobs, C descending from A): dedup-first
+        # reported no editor but C and no hot spot; maximal-editors-first
+        # reports B and C and the hot spot.
+        maximal = [
+            (name, ref, blob) for name, ref, blob in branch_set
+            if not any(other != ref and _is_ancestor(repo, ref, other)
+                       for _, other, _ in branch_set)
         ]
-        files[f] = [name for name, _ in kept]
+        # THEN dedup distinct branches that contribute identical content: two
+        # unrelated branches with the same blob cannot conflict. They survive
+        # the ancestry pass, so the representative the dedup keeps is always a
+        # maximal editor and the file cannot lose it.
+        kept: list[str] = []
+        seen: set[str] = set()
+        for name, _ref, blob in sorted(maximal):
+            if blob in seen:
+                continue  # same content another live branch already contributes
+            seen.add(blob)
+            kept.append(name)
+        if kept:
+            files[f] = kept
     return files
 
 
@@ -1157,34 +1177,112 @@ def selftest() -> int:
               "dup" not in two.get("shared.txt", []), two.get("shared.txt"))
         check("hotspots reports it", any(f == "shared.txt" for f, _ in hotspots(hr)), hotspots(hr))
 
-        # A STACKED branch is not a second editor: when one live tip is an
-        # ancestor of another, landing the descendant lands the ancestor's
-        # content too, so the two cannot conflict. `wt/stack-base` edits
-        # stacked.txt; `wt/stack-tip` descends from it and edits the SAME
-        # file again, giving two distinct blobs -- exactly the shape that
-        # minted the 2026-09-30 gorge-searchbench/sbrep-search brief. The
-        # file must NOT be hot: only the maximal tip is an editor.
-        wsb = Path(td) / "hot-stack-base"
-        hrun("worktree", "add", "-q", "-b", "wt/stack-base", str(wsb), base)
-        (wsb / "stacked.txt").write_text("base edit\n")
-        subprocess.run(["git", "-C", str(wsb), "add", "stacked.txt"], capture_output=True)
-        hcommit(wsb, "edit stacked")
-        wst = Path(td) / "hot-stack-tip"
-        hrun("worktree", "add", "-q", "-b", "wt/stack-tip", str(wst), "wt/stack-base")
-        (wst / "stacked.txt").write_text("tip edit\n")
-        subprocess.run(["git", "-C", str(wst), "add", "stacked.txt"], capture_output=True)
-        hcommit(wst, "edit stacked again")
-        check("precondition: the two stacked tips hold distinct stacked.txt blobs",
-              hrun("rev-parse", "wt/stack-base:stacked.txt").stdout.strip()
-              != hrun("rev-parse", "wt/stack-tip:stacked.txt").stdout.strip())
-        check("precondition: stack-tip descends from stack-base",
-              hrun("merge-base", "--is-ancestor", "wt/stack-base", "wt/stack-tip").returncode == 0)
+        # A STACKED chain is not contention: wt/chain-a <= wt/chain-b <=
+        # wt/chain-c each edit chain.txt, but every earlier branch is contained
+        # in the next, so the chain merges clean however it lands. The real
+        # case (2026-09-30): the searchbench replication is one such chain
+        # (`wt/gorge-searchbench` <= `wt/sbrep-search` <= `wt/sbrep`) and read
+        # as two and three editors of the same eleven files, minting a brief
+        # to split files no second uncontrolled branch was editing. Only the
+        # MAXIMAL editor of a file may count.
+        wca = Path(td) / "hot-chain-a"
+        hrun("worktree", "add", "-q", "-b", "wt/chain-a", str(wca), base)
+        (wca / "chain.txt").write_text("a\n")
+        subprocess.run(["git", "-C", str(wca), "add", "chain.txt"], capture_output=True)
+        hcommit(wca, "chain a")
+        wcb = Path(td) / "hot-chain-b"
+        hrun("worktree", "add", "-q", "-b", "wt/chain-b", str(wcb), "wt/chain-a")
+        (wcb / "chain.txt").write_text("b\n")
+        subprocess.run(["git", "-C", str(wcb), "add", "chain.txt"], capture_output=True)
+        hcommit(wcb, "chain b")
+        wcc = Path(td) / "hot-chain-c"
+        hrun("worktree", "add", "-q", "-b", "wt/chain-c", str(wcc), "wt/chain-b")
+        (wcc / "chain.txt").write_text("c\n")
+        subprocess.run(["git", "-C", str(wcc), "add", "chain.txt"], capture_output=True)
+        hcommit(wcc, "chain c")
+        check("precondition: the chain really stacks a <= b <= c",
+              all(hrun("merge-base", "--is-ancestor", a, b).returncode == 0
+                  for a, b in (("wt/chain-a", "wt/chain-b"),
+                               ("wt/chain-b", "wt/chain-c"),
+                               ("wt/chain-a", "wt/chain-c"))))
+        check("precondition: every chain branch really changes chain.txt",
+              all("chain.txt" in git(hr, "diff", "--name-only", "main...wt/chain-%s" % s).split()
+                  for s in "abc"))
+        chained = live_branch_files(hr)
+        check("a stacked chain counts only its maximal editor",
+              chained.get("chain.txt") == ["chain-c"], chained.get("chain.txt"))
+        check("the stacked chain is not a hot spot",
+              not any(f == "chain.txt" for f, _ in hotspots(hr)), hotspots(hr))
 
-        stacked = live_branch_files(hr)
-        check("a stacked branch is not a second editor of its descendant's file",
-              stacked.get("stacked.txt") == ["stack-tip"], stacked.get("stacked.txt"))
-        check("a two-branch stack is not a hot spot",
-              not any(f == "stacked.txt" for f, _ in hotspots(hr)), hotspots(hr))
+        # A sibling of the chain that also edits chain.txt is a REAL second
+        # editor -- the guard that the maximal-editor rule did not simply drop
+        # every non-first branch.
+        wcx = Path(td) / "hot-chain-x"
+        hrun("worktree", "add", "-q", "-b", "wt/chain-x", str(wcx), base)
+        (wcx / "chain.txt").write_text("x\n")
+        subprocess.run(["git", "-C", str(wcx), "add", "chain.txt"], capture_output=True)
+        hcommit(wcx, "chain x")
+        check("precondition: the sibling is NOT an ancestor of the chain",
+              hrun("merge-base", "--is-ancestor", "wt/chain-x", "wt/chain-c").returncode != 0)
+        sib = live_branch_files(hr)
+        check("a sibling editor still makes the file a hot spot",
+              sorted(sib.get("chain.txt", [])) == ["chain-c", "chain-x"], sib.get("chain.txt"))
+
+        # An ancestor and its descendant that contribute the IDENTICAL blob,
+        # plus a branch that descends from the ancestor with a DIFFERENT blob:
+        # the shape where the dedup and the maximal-editor pass fight.
+        # wt/blob-a <= wt/blob-b share one blob for blob.txt; wt/blob-c descends
+        # from wt/blob-a carrying a different blob. So blob-a is NON-maximal
+        # (it contains both blob-b and blob-c), but blob-b and blob-c are
+        # unrelated and genuinely collide. The maximal-editor pass must run
+        # first so blob-b survives as its blob's representative (blob-a, its
+        # ancestor, is dropped) and the file reports two editors. With the
+        # dedup first the representative is blob-a, blob-b is discarded, the
+        # ancestry pass then drops blob-a as non-maximal, and the file reports a
+        # single editor and no hot spot -- the false negative this guards.
+        wba = Path(td) / "hot-blob-a"
+        hrun("worktree", "add", "-q", "-b", "wt/blob-a", str(wba), base)
+        (wba / "blob.txt").write_text("same\n")
+        subprocess.run(["git", "-C", str(wba), "add", "blob.txt"], capture_output=True)
+        hcommit(wba, "blob a")
+        wbb = Path(td) / "hot-blob-b"
+        hrun("worktree", "add", "-q", "-b", "wt/blob-b", str(wbb), "wt/blob-a")
+        # A real descendant commit that leaves blob.txt's blob UNCHANGED: it
+        # edits a different file, so blob-b is genuinely ahead of blob-a while
+        # contributing the identical blob for blob.txt (the dedup/ancestry
+        # collision this fixture exists for). Writing blob.txt again would
+        # stage nothing and the commit would fail, leaving the two branches on
+        # one commit -- which is NOT the shape under test.
+        (wbb / "marker.txt").write_text("b\n")
+        subprocess.run(["git", "-C", str(wbb), "add", "marker.txt"], capture_output=True)
+        hcommit(wbb, "blob b, identical blob, other file committed")
+        wbc = Path(td) / "hot-blob-c"
+        hrun("worktree", "add", "-q", "-b", "wt/blob-c", str(wbc), "wt/blob-a")
+        (wbc / "blob.txt").write_text("other\n")
+        subprocess.run(["git", "-C", str(wbc), "add", "blob.txt"], capture_output=True)
+        hcommit(wbc, "blob c, descends from blob-a")
+        check("precondition: blob-a is an ancestor of blob-b",
+              hrun("merge-base", "--is-ancestor", "wt/blob-a", "wt/blob-b").returncode == 0)
+        check("precondition: blob-a is an ancestor of blob-c",
+              hrun("merge-base", "--is-ancestor", "wt/blob-a", "wt/blob-c").returncode == 0)
+        check("precondition: blob-c is NOT an ancestor of blob-b",
+              hrun("merge-base", "--is-ancestor", "wt/blob-c", "wt/blob-b").returncode != 0)
+        a_blob = hrun("rev-parse", "wt/blob-a:blob.txt").stdout.strip()
+        b_blob = hrun("rev-parse", "wt/blob-b:blob.txt").stdout.strip()
+        c_blob = hrun("rev-parse", "wt/blob-c:blob.txt").stdout.strip()
+        check("precondition: blob-a and blob-b really share one blob",
+              a_blob == b_blob and a_blob, (a_blob, b_blob))
+        check("precondition: blob-c really differs",
+              c_blob != a_blob and c_blob, (c_blob, a_blob))
+        check("precondition: every blob branch really changes blob.txt",
+              all("blob.txt" in git(hr, "diff", "--name-only", "main...wt/blob-%s" % s).split()
+                  for s in "abc"))
+        deduped = live_branch_files(hr)
+        check("an identical-blob ancestor does not hide its descendant",
+              sorted(deduped.get("blob.txt", [])) == ["blob-b", "blob-c"],
+              deduped.get("blob.txt"))
+        check("the identical-blob ancestor plus descendant is a hot spot",
+              any(f == "blob.txt" for f, _ in hotspots(hr)), hotspots(hr))
 
         obs = [json.loads(r) for r in collect_obs(repo)]
         check("a missing checklist explains itself", "absent" in obs[0]["note"], obs)
