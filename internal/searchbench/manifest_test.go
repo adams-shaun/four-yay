@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -115,5 +116,12 @@ func TestSBV1QuotasMatchSelection(t *testing.T) {
 func TestValidateSBV1RejectsOrdinaryManifest(t *testing.T) {
 	if err := testManifest().ValidateSBV1(); err == nil {
 		t.Fatal("ordinary partial manifest passed sb-v1 validation")
+	}
+}
+
+func TestSBV1WorldSeedsAreStableAndDistinct(t *testing.T) {
+	a, b := SBV1WorldSeeds(), SBV1WorldSeeds()
+	if len(a) != WorldCount || !uniqueSeeds(a) || !reflect.DeepEqual(a, b) {
+		t.Fatalf("world seeds %v", a)
 	}
 }

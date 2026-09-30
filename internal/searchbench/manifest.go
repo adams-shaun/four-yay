@@ -20,6 +20,25 @@ const (
 	WorldCount            = 8
 )
 
+// SBV1WorldSeeds is the deterministic nested belief-world schedule. The
+// first world is PIMC-1's world, the first four are PIMC-4's, and all eight
+// feed IS-MCTS; changing this order changes an experiment arm.
+func SBV1WorldSeeds() []uint64 {
+	const seed uint64 = 7
+	out := make([]uint64, WorldCount)
+	for i := range out {
+		out[i] = splitMix64(seed + uint64(i))
+	}
+	return out
+}
+
+func splitMix64(x uint64) uint64 {
+	x += 0x9e3779b97f4a7c15
+	x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9
+	x = (x ^ (x >> 27)) * 0x94d049bb133111eb
+	return x ^ (x >> 31)
+}
+
 // SBV1Selection is the published Draft Zero sb-v1 population: 1,000 test
 // items and 300 development items, with no game contributing more than two.
 // Builders must use these counts for a claim of protocol replication.
