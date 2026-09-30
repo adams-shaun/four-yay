@@ -99,6 +99,11 @@ func (c *Collector) Clone() *Collector {
 
 func (c *Collector) clone() *Collector { return c.Clone() }
 
+// Introduced is how many objects c has given references: references run
+// 1..Introduced() in introduction order, so an object whose reference
+// exceeds an earlier Introduced() count was first observed after it.
+func (c *Collector) Introduced() int { return len(c.byRef) - 1 }
+
 func (c *Collector) Capture(e *rules.Engine, burst []events.Event) (Frame, error) {
 	return c.capture(e, burst, false, true)
 }
