@@ -98,7 +98,11 @@
 //
 // Every excluded rules.Engine field, with why it may legitimately differ
 // between two equivalent engines (TestExclusionTableNamesEngineFields keeps
-// the table naming real fields):
+// the table naming real fields; since the engine_struct embedding refactor
+// the fields may live on Engine's anonymous embedded cluster structs —
+// engineScratch, engineDerivedTables, engineLayerCaches, ... — and the differ
+// resolves the table through that embedding, so the spellings below are the
+// Engine-level ones):
 //
 //	L                                  the event log: compared semantically (3.); Seq/decision
 //	                                   events shift by the manual route's extra decisions
