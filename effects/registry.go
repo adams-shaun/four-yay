@@ -3268,11 +3268,20 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 			// body's "Targeted"/TargetedController referents (The Motherlode,
 			// Excavator's Destroy sub feeding its RememberObjects$
 			// TargetedController DBEffect) read the answer. Seed Ctx.Targets
-			// ONLY when the chain carries none: the CLOBBER rule above keeps
-			// an outer root's targets authoritative (the root's own list is
-			// never overwritten), so this cannot repoint a sub's explicit
-			// Defined$ Targeted away from what it meant.
-			if len(c.Targets) == 0 {
+			// ONLY when the chain carries none AND the NEXT member names no
+			// targets of its own: an SA with its own ValidTgts$ never reads the
+			// inherited list (it asks or consumes its own answer), and a seed
+			// beside such a member would leak into TargetsAlreadyChosen's
+			// TargetUnique$ exclusion set -- a fresh resume Ctx carries an empty
+			// Ctx.Targets (the accumulator ride stamps TargetsUnique only), so
+			// Rider Suspension's middle rider's own answer would enter the set
+			// and its TargetUnique$ successor would be offered nobody (the ask
+			// silently skipped). The CLOBBER rule above keeps an outer root's
+			// targets authoritative (the root's own list is never overwritten),
+			// so this cannot repoint a sub's explicit Defined$ Targeted away
+			// from what it meant.
+			if next := sa.Sub; len(c.Targets) == 0 && next != nil &&
+				strings.TrimSpace(next.Params["ValidTgts"]) == "" {
 				c.Targets = append([]state.Target(nil), ts...)
 			}
 			fn(h, c, sa)
