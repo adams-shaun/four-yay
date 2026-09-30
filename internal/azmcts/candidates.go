@@ -54,6 +54,10 @@ func enumerate(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision
 // enumerateWhy is enumerate plus the reason a searched kind was skipped
 // (meaningful only when ok is false and kind is not "").
 func enumerateWhy(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, bot decision.Intent, kinds Kinds, limit int) ([]cand, string, SkipReason, bool) {
+	return enumerateWhyAutoPayment(obs, e, d, bot, kinds, limit, false)
+}
+
+func enumerateWhyAutoPayment(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, bot decision.Intent, kinds Kinds, limit int, autoPayment bool) ([]cand, string, SkipReason, bool) {
 	var kind string
 	switch {
 	case d == nil:
@@ -71,6 +75,31 @@ func enumerateWhy(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decis
 	}
 	if bot.Payment != nil {
 		return nil, kind, SkipPayment, false
+	}
+	// Payment actions are atomic engine-provided cast witnesses. They are not
+	// ordinary Decision.Options because paying may include several mana
+	// abilities, but they are nevertheless legal priority actions and must be
+	// searchable when an embedding exposes auto-pay. Keep the action ID as the
+	// cross-world key: the payment planner binds it to the offered cast rather
+	// than a presentation index, and Submit validates the accompanying plan.
+	if autoPayment && kind == "priority" && e != nil {
+		payments := e.EnsurePaymentActions()
+		if len(payments) > 0 {
+			ins := []cand{{in: bot}}
+			for _, payment := range payments {
+				if len(ins) >= limit {
+					break
+				}
+				if len(payment.Plans) == 0 {
+					continue
+				}
+				in := decision.Intent{Seq: d.Seq, Player: d.Player, Payment: &decision.PaymentSelection{ActionID: payment.ID, Plan: decision.ClonePaymentPlan(payment.Plans[0])}}
+				ins = append(ins, cand{key: Key("payment:" + payment.ID), in: in})
+			}
+			if len(ins) >= 2 {
+				return ins, kind, 0, true
+			}
+		}
 	}
 	od, err := obs.ObserveDecision(e, d)
 	if err != nil {
@@ -104,6 +133,11 @@ func enumerateWhy(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decis
 	}
 	out := make([]cand, 0, len(ins))
 	for _, in := range ins {
+		if in.Payment != nil {
+			// The payment action's key was built from its engine identity above;
+			// a Collector deliberately has no synthetic option for it.
+			continue
+		}
 		acts, err := obs.Actions(d, in)
 		if err != nil {
 			return nil, kind, SkipTranslate, false

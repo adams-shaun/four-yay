@@ -82,6 +82,7 @@ func RunNativeSearch(root ReplayedRoot, worlds []ReplayedRoot, arm SearchArm, op
 		return NativeSearchResult{}, err
 	}
 	opts.Seed = azmcts.DecisionSeed(seed, root.Decision.Seq)
+	opts.AutoPayment = true
 	search := func(source azmcts.WorldSource, local azmcts.Options) (azmcts.Result, error) {
 		return azmcts.Search(context.Background(), azmcts.Root{Engine: root.Engine, Decision: root.Decision, Bot: bot, Observer: observer}, source, nil, local)
 	}
@@ -153,8 +154,7 @@ func runPIMC4(search func(azmcts.WorldSource, azmcts.Options) (azmcts.Result, er
 			}
 			merged.Visits[at] += result.Visits[j]
 		}
-		merged.Stats.Simulations += result.Stats.Simulations
-		merged.Stats.Completed += result.Stats.Completed
+		merged.Stats.Add(result.Stats)
 	}
 	best := 0
 	for i := 1; i < len(merged.Visits); i++ {

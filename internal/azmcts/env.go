@@ -25,6 +25,7 @@ type walkConfig struct {
 	maxSteps      int
 	envSeed       uint64
 	actor         state.PlayerID
+	autoPayment   bool
 	root          *Point
 	rootCands     []cand
 	rootDec       *decision.Decision
@@ -137,7 +138,7 @@ func (e *engineEnv) advance() (*Point, error) {
 		b := botpolicy.BoardFromGameInto(g, e.e, pd.Player, &e.board)
 		in := botpolicy.Decide(b, pd, e.rngs[pd.Player])
 		if pd.Player == e.cfg.actor {
-			if cands, kind, ok := enumerate(e.obs, e.e, pd, in, e.cfg.kinds, e.cfg.limit); ok {
+			if cands, kind, _, ok := enumerateWhyAutoPayment(e.obs, e.e, pd, in, e.cfg.kinds, e.cfg.limit, e.cfg.autoPayment); ok {
 				e.cur, e.cands = pd, cands
 				prior, fell := priors(e.cfg.net, e.e, pd, in, kind, cands)
 				if fell {

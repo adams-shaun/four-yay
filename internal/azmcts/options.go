@@ -55,6 +55,10 @@ type Options struct {
 	MaxSteps int
 	// Kinds are the searched decision kinds.
 	Kinds Kinds
+	// AutoPayment lifts engine-provided automatic payment witnesses into
+	// priority candidates. It is off by default so ordinary seats retain the
+	// established manual-payment candidate vocabulary.
+	AutoPayment bool
 	// Seed is the per-decision seed (DecisionSeed): it seeds the root noise,
 	// the move sampling, and -- identically for every simulation -- the
 	// environment bots' streams.
