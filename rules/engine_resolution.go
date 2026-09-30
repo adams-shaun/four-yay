@@ -13,6 +13,7 @@ import (
 // unchanged through Go's field promotion. Clone's per-field copy
 // classes (rules/clone.go) are unchanged by the move.
 type engineResolution struct {
+	// fusedResolving is the target slice of the fused half whose resolution is
 	// CURRENTLY running (rules/split.go's runFusedHalves), set around the
 	// whole of that half's effects.Resolve -- the half's root SA and every
 	// sub-ability in its chain -- and restored afterwards. fusedResolvingSet

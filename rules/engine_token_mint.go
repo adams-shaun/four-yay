@@ -10,6 +10,7 @@ import (
 // unchanged through Go's field promotion. Clone's per-field copy
 // classes (rules/clone.go) are unchanged by the move.
 type engineTokenMint struct {
+	// tokenMintSink, when non-nil, collects every object the TokenCreate or
 	// CardToken event currently being emitted actually created
 	// (EmitTokenCreate, and a parked mint's answer through withMintSink). It is a
 	// stack discipline: a nested token creation saves and restores the outer

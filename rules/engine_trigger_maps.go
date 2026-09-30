@@ -13,6 +13,7 @@ import (
 // unchanged through Go's field promotion. Clone's per-field copy
 // classes (rules/clone.go) are unchanged by the move.
 type engineTriggerMaps struct {
+	// Per-stack-instance trigger provenance, derived while queuing/placing
 	// triggers, cloned at intent boundaries and removed when the stack object
 	// leaves. Never encoded in events or inferred from a resolving source.
 	triggerContexts map[state.ObjID]effects.TriggerContext
