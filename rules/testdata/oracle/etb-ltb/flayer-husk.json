@@ -1,0 +1,26 @@
+{
+  "card": "Flayer Husk",
+  "family": "etb-ltb",
+  "oracle_sha": "3dfdbb0530b6",
+  "author": "cli-20260930T002325Z-7c2f8c50 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "living-weapon-makes-and-equips-a-germ",
+      "cr": ["702.92a", "301.5", "613.4"],
+      "why": "Living weapon creates a 0/0 Germ and attaches Flayer Husk to it; the +1/+1 makes that Germ a 1/1.",
+      "setup": {
+        "p0": {"hand": ["Flayer Husk"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Flayer Husk", "mana": "CC"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Flayer Husk", "zone": "battlefield"},
+        {"card": "p0:token:Germ", "zone": "battlefield", "pt": "1/1"},
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Germ", "token": true}, "eq": 1}
+      ]
+    }
+  ]
+}

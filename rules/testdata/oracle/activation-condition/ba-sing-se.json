@@ -1,0 +1,57 @@
+{
+  "card": "Ba Sing Se",
+  "family": "activation-condition",
+  "oracle_sha": "f98a8356a791",
+  "author": "cli-20260930T002325Z-7c2f8c50 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enters-tapped-without-a-basic-land",
+      "cr": ["614.1", "614.5"],
+      "why": "The land's own enters-the-battlefield replacement makes it enter tapped unless its controller controls a basic land at that moment; played with no other land controlled, it enters tapped.",
+      "setup": {
+        "p0": {"hand": ["Ba Sing Se"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "play", "seat": 0, "card": "p0:Ba Sing Se"}
+      ],
+      "expect": [
+        {"card": "p0:Ba Sing Se", "zone": "battlefield", "tapped": true}
+      ]
+    },
+    {
+      "name": "enters-untapped-with-a-basic-land",
+      "cr": ["614.1", "614.5"],
+      "why": "Controlling a basic land (a Forest) at the moment the replacement applies, Ba Sing Se enters untapped.",
+      "setup": {
+        "p0": {"hand": ["Ba Sing Se"], "battlefield": ["Forest"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "play", "seat": 0, "card": "p0:Ba Sing Se"}
+      ],
+      "expect": [
+        {"card": "p0:Ba Sing Se", "zone": "battlefield", "tapped": false}
+      ]
+    },
+    {
+      "name": "earthbend-2-animates-a-land",
+      "cr": ["701.66a", "613.1d", "613.4"],
+      "why": "The {2}{G}, {T} ability earthbends 2: the targeted land I control becomes a 0/0 creature with haste that's still a land, and gets two +1/+1 counters, so it is a 2/2 land creature with haste.",
+      "setup": {
+        "p0": {"hand": ["Ba Sing Se"], "battlefield": ["Forest"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "play", "seat": 0, "card": "p0:Ba Sing Se"},
+        {"op": "activate", "seat": 0, "card": "p0:Ba Sing Se", "ability": "Earthbend", "mana": "GGG",
+         "targets": ["p0:Forest"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Forest", "zone": "battlefield", "pt": "2/2", "counters": {"+1/+1": 2},
+         "keywords": ["Haste"], "types": ["Creature", "Land"]}
+      ]
+    }
+  ]
+}

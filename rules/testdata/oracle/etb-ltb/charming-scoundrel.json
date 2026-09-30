@@ -1,0 +1,41 @@
+{
+  "card": "Charming Scoundrel",
+  "family": "etb-ltb",
+  "oracle_sha": "8b7cc1294ad3",
+  "author": "cli-20260930T002325Z-7c2f8c50 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "treasure-mode-creates-a-treasure",
+      "cr": ["603.6a", "700.2"],
+      "why": "The enters-the-battlefield ability is modal; choosing the Treasure mode creates one Treasure artifact token.",
+      "setup": {
+        "p0": {"hand": ["Charming Scoundrel"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Charming Scoundrel", "mana": "CR"},
+        {"op": "resolve", "answers": [{"kind": "modes", "pick": ["Create a Treasure"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Charming Scoundrel", "zone": "battlefield", "pt": "1/1", "keywords": ["Haste"]},
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Treasure", "token": true}, "eq": 1}
+      ]
+    },
+    {
+      "name": "wicked-role-mode-buffs-the-target",
+      "cr": ["603.6a", "303.4", "613.4"],
+      "why": "The Wicked Role mode creates an Aura Role token attached to the targeted creature I control; the Role gives +1/+1, so Grizzly Bears is a 3/3.",
+      "setup": {
+        "p0": {"hand": ["Charming Scoundrel"], "battlefield": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Charming Scoundrel", "mana": "CR"},
+        {"op": "resolve", "answers": [{"kind": "modes", "pick": ["Wicked Role"]}], "targets": ["p0:Grizzly Bears"]}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "zone": "battlefield", "pt": "3/3"}
+      ]
+    }
+  ]
+}

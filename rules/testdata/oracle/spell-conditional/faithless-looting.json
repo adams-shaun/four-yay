@@ -1,0 +1,44 @@
+{
+  "card": "Faithless Looting",
+  "family": "spell-conditional",
+  "oracle_sha": "4defe25e5e7b",
+  "author": "cli-20260930T002325Z-7c2f8c50 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "draw-two-then-discard-two",
+      "cr": ["121.1", "701.8a"],
+      "why": "Drawing two and discarding two leaves the hand empty and puts the two discarded cards, plus the resolved Faithless Looting itself, into the graveyard.",
+      "setup": {
+        "p0": {"hand": ["Faithless Looting"], "library_top": ["Grizzly Bears", "Forest"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Faithless Looting", "mana": "R"},
+        {"op": "resolve",
+         "answers": [{"kind": "choose", "pick": ["p0:Grizzly Bears", "p0:Forest"]}]}
+      ],
+      "expect": [
+        {"hand_size": {"p0": 0}},
+        {"graveyard_size": {"p0": 3}}
+      ]
+    },
+    {
+      "name": "flashback-casts-from-graveyard-then-exiles",
+      "cr": ["702.34a"],
+      "why": "Flashback {2}{R} casts it from the graveyard; after drawing and discarding, the card is exiled instead of returning to the graveyard.",
+      "setup": {
+        "p0": {"graveyard": ["Faithless Looting"], "library_top": ["Grizzly Bears", "Forest"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Faithless Looting", "mana": "RRR", "cast_mode": "flashback"},
+        {"op": "resolve",
+         "answers": [{"kind": "choose", "pick": ["p0:Grizzly Bears", "p0:Forest"]}]}
+      ],
+      "expect": [
+        {"hand_size": {"p0": 0}},
+        {"card": "p0:Faithless Looting", "zone": "exile"}
+      ]
+    }
+  ]
+}

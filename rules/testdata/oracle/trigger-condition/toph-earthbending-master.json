@@ -1,0 +1,44 @@
+{
+  "card": "Toph, Earthbending Master",
+  "family": "trigger-condition",
+  "oracle_sha": "bba89099e6b2",
+  "author": "cli-20260930T002325Z-7c2f8c50 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "landfall-experience-then-attack-earthbends",
+      "cr": ["603.6a", "508.1", "701.66a"],
+      "why": "Landfall gives an experience counter when a land I control enters; whenever I attack, earthbend X where X is my experience counters. With one landfall and one attack, earthbend 1 animates the targeted Forest into a 1/1 haste land creature with one +1/+1 counter.",
+      "setup": {
+        "p0": {"battlefield": ["Forest", "Toph, Earthbending Master"], "hand": ["Island"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "play", "seat": 0, "card": "p0:Island"},
+        {"op": "attack", "seat": 0, "attackers": ["p0:Toph, Earthbending Master"], "defender": "p1",
+         "targets": ["p0:Forest"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Forest", "zone": "battlefield", "pt": "1/1", "counters": {"+1/+1": 1},
+         "keywords": ["Haste"], "types": ["Creature", "Land"]}
+      ]
+    },
+    {
+      "name": "attack-with-no-experience-earthbends-zero",
+      "cr": ["508.1", "701.66a", "704.5f", "603.7"],
+      "why": "With no experience counters, X is 0: the targeted Forest becomes a 0/0 creature with no +1/+1 counters, so the state-based action puts it into the graveyard; its earthbend promise then returns it to the battlefield tapped as a plain land.",
+      "setup": {
+        "p0": {"battlefield": ["Forest", "Toph, Earthbending Master"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:Toph, Earthbending Master"], "defender": "p1",
+         "targets": ["p0:Forest"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Forest", "zone": "battlefield", "tapped": true, "pt": "0/0", "no_types": ["Creature"]}
+      ]
+    }
+  ]
+}
