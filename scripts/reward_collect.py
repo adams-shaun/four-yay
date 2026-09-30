@@ -159,13 +159,36 @@ def closed_issue_ids(repo: Path) -> set[str]:
     return out
 
 
+def _tree_blobs(repo: Path, ref: str, paths: list[str]) -> dict[str, str]:
+    """Blob sha per path in `ref`'s tree, one git call for the whole list."""
+    out = git(repo, "ls-tree", "-r", ref, "--", *paths)
+    blobs: dict[str, str] = {}
+    for line in out.splitlines():
+        meta, _, path = line.partition("\t")
+        parts = meta.split()
+        if len(parts) >= 3:
+            blobs[path] = parts[2]
+    return blobs
+
+
 def live_branch_files(repo: Path) -> dict[str, list[str]]:
-    """Files each live task branch changes against main, keyed by file.
+    """Files several live task branches change AWAY from main, keyed by file.
 
     This is the PREDICTIVE half of the flow axis: it names the files that
     several in-flight branches are editing right now, before any of them
     reaches merge_fix. Acting on it (splitting the file, or sequencing the
     tickets) is what removes the hot spot.
+
+    A file counts once per DISTINCT content a live branch would introduce.
+    `git diff main...ref` is the branch's own work since the fork, but it
+    lists a file the branch added even when main has since landed the
+    identical content -- and a branch that merely carries the same blob as
+    main, or the same blob as another live branch, cannot conflict with
+    either. Counting those produced briefs to split a file no second branch
+    was actually editing (measured 2026-09-29: two of three \"editors\" of
+    docs/superpowers/specs/2026-09-28-scam-exe-combo-lines.md held main's
+    exact blob; only one differed). So each branch is kept only for paths
+    where its blob differs from main's, and identical blobs are deduped.
 
     "Live" means an OPEN ticket, or a hand branch with no ticket at all. The
     worktree enumeration cannot tell a closed ticket's worktree from an open
@@ -178,6 +201,7 @@ def live_branch_files(repo: Path) -> dict[str, list[str]]:
     """
     closed = closed_issue_ids(repo)
     files: dict[str, list[str]] = collections.defaultdict(list)
+    seen_blob: dict[str, set[str]] = collections.defaultdict(set)
     for line in git(repo, "worktree", "list", "--porcelain").splitlines():
         if not line.startswith("branch "):
             continue
@@ -185,8 +209,19 @@ def live_branch_files(repo: Path) -> dict[str, list[str]]:
         name = ref.rsplit("/", 1)[-1]
         if ref == "refs/heads/main" or name in closed:
             continue
+        # Own work since the fork, intersected with paths whose content DIFFERS
+        # from main's tree now (a landed-elsewhere file is not a change).
         changed = git(repo, "diff", "--name-only", f"main...{ref}").split()
-        for f in changed:
+        differs = set(git(repo, "diff", "--name-only", "main", ref).split())
+        targets = sorted(f for f in changed if f in differs)
+        if not targets:
+            continue
+        blobs = _tree_blobs(repo, ref, targets)
+        for f in targets:
+            b = blobs.get(f, "")
+            if b in seen_blob[f]:
+                continue  # same content another live branch already contributes
+            seen_blob[f].add(b)
             files[f].append(name)
     return files
 
@@ -867,6 +902,71 @@ def selftest() -> int:
         check("with no .ds4 anywhere the readers fail open as before",
               journal_rows(empty) == [] and gate_wall_seconds(empty) == 0.0
               and ds4_dir(empty, "reward") is None)
+
+        # live_branch_files counts DISTINCT content a live branch would add, not
+        # branches that merely carry a file. A file main already holds (same
+        # blob) is not a change, and two branches contributing the same blob are
+        # not two editors -- otherwise a stacked worktree files briefs to split
+        # a file nobody is editing (the bug this test pins).
+        hr = Path(td) / "hotrepo"
+        hr.mkdir()
+        hrun = lambda *a: subprocess.run(  # noqa: E731
+            ["git", "-C", str(hr), *a], capture_output=True, text=True
+        )
+        hcommit = lambda wt, msg: subprocess.run(  # noqa: E731
+            ["git", "-C", str(wt), "-c", "user.email=t@t", "-c", "user.name=t",
+             "commit", "-qm", msg], capture_output=True
+        )
+        subprocess.run(["git", "init", "-q", "-b", "main", str(hr)], capture_output=True)
+        hrun("config", "user.email", "t@t")
+        hrun("config", "user.name", "t")
+        (hr / "base.txt").write_text("base\n")
+        hrun("add", "base.txt")
+        hrun("commit", "-qm", "init")
+        base = hrun("rev-parse", "HEAD").stdout.strip()
+
+        # wt/land adds shared.txt; main then LANDS the identical blob.
+        wtl = Path(td) / "hot-land"
+        hrun("worktree", "add", "-q", "-b", "wt/land", str(wtl), base)
+        (wtl / "shared.txt").write_text("same\n")
+        subprocess.run(["git", "-C", str(wtl), "add", "shared.txt"], capture_output=True)
+        hcommit(wtl, "add shared")
+        hrun("merge", "-q", "--no-ff", "-m", "land shared", "wt/land")
+        main_blob = hrun("rev-parse", "main:shared.txt").stdout.strip()
+        check("precondition: main landed the shared blob", len(main_blob) == 40, main_blob)
+
+        # wt/dup re-adds the SAME blob from the pre-main fork: not an editor.
+        wtd = Path(td) / "hot-dup"
+        hrun("worktree", "add", "-q", "-b", "wt/dup", str(wtd), base)
+        (wtd / "shared.txt").write_text("same\n")
+        subprocess.run(["git", "-C", str(wtd), "add", "shared.txt"], capture_output=True)
+        hcommit(wtd, "re-add shared")
+
+        one = live_branch_files(hr)
+        check("a branch holding main's own blob is not a second editor",
+              "shared.txt" not in one, one)
+
+        # wt/other adds a DIFFERENT blob: now exactly two distinct contents.
+        wto = Path(td) / "hot-other"
+        hrun("worktree", "add", "-q", "-b", "wt/other", str(wto), base)
+        (wto / "shared.txt").write_text("other\n")
+        subprocess.run(["git", "-C", str(wto), "add", "shared.txt"], capture_output=True)
+        hcommit(wto, "change shared")
+
+        # wt/other2 adds yet another distinct blob; only NOW are there two
+        # distinct contents beyond main's, so only now is the file hot.
+        wto2 = Path(td) / "hot-other2"
+        hrun("worktree", "add", "-q", "-b", "wt/other2", str(wto2), base)
+        (wto2 / "shared.txt").write_text("other2\n")
+        subprocess.run(["git", "-C", str(wto2), "add", "shared.txt"], capture_output=True)
+        hcommit(wto2, "change shared again")
+
+        two = live_branch_files(hr)
+        check("two distinct contents make the file a hot spot",
+              len(two.get("shared.txt", [])) == 2, two.get("shared.txt"))
+        check("the landed-identical branch is still excluded",
+              "dup" not in two.get("shared.txt", []), two.get("shared.txt"))
+        check("hotspots reports it", any(f == "shared.txt" for f, _ in hotspots(hr)), hotspots(hr))
 
         obs = [json.loads(r) for r in collect_obs(repo)]
         check("a missing checklist explains itself", "absent" in obs[0]["note"], obs)
