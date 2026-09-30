@@ -3,22 +3,10 @@ package rules
 import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
-	"github.com/adams-shaun/gorge/deck"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
-
-func cloneDeckManifests(in []deck.Manifest) []deck.Manifest {
-	if in == nil {
-		return nil
-	}
-	out := make([]deck.Manifest, len(in))
-	for i := range in {
-		out[i] = in[i].Clone()
-	}
-	return out
-}
 
 // cloneTurnLedger copies the per-turn ledger cluster wholesale
 // (engine_turnledger.go): every member is the fresh-slice copy class, so a
@@ -103,8 +91,12 @@ func (e *Engine) CloneInto(sp *Spare) *Engine {
 
 func (e *Engine) cloneWith(sp Spare) *Engine {
 	c := &Engine{
-		G:                 e.G.CloneInto(sp.objs),
-		deckManifests:     cloneDeckManifests(e.deckManifests),
+		G: e.G.CloneInto(sp.objs),
+		// The genesis manifests are immutable after New (nothing writes
+		// deckManifests; OwnDeck publishes copies, OwnDeckShared is read-only
+		// by contract), so a clone shares them instead of copying every
+		// seat's rows per clone -- the search clones a root per simulation.
+		deckManifests:     e.deckManifests,
 		L:                 e.L.CloneInto(sp.events, sp.intents),
 		compiledText:      e.compiledText,
 		landTypeWords:     e.landTypeWords,
