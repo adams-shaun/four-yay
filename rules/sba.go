@@ -1027,17 +1027,19 @@ func (e *Engine) destroyLethalDamage(tried *sbaAttempts) bool {
 			if f == nil || o.BestowedAttached() || o.ReconfiguredAttached() {
 				continue
 			}
-			// CR 708.5/708.8: a face-down permanent's printed face does not
-			// exist, so its creature-ness comes from its effective type set
-			// (the folded FaceDownSetType$, defaulting to Creature). A
-			// face-down Forest land (Yedora) is not a creature and must not be
-			// swept by the zero-toughness SBA even though its printed card is a
-			// 1/1 creature.
-			if e.faceDownPrintedHides(o) {
-				if !o.EffectiveIsCreature() {
-					continue
-				}
-			} else if !f.IsCreature() {
+			// Creature-ness for both sweeps below is the LAYER-DERIVED type
+			// list, not the printed face: CR 704.5f/g read the permanent's
+			// current types after all continuous effects. A non-creature
+			// permanent an animation effect made a creature (an earthbent land,
+			// a crewed Vehicle, an animated artifact) must be swept, or it is
+			// immortal to both zero toughness and lethal damage. A creature
+			// that LOST Creature to a layer effect is correctly not swept.
+			// This is the same predicate combat legality uses
+			// (rules/combat.go), and for a face-down permanent
+			// typeCharacteristics already bases the derived set on
+			// FaceDownTypeWords (CR 708.5/Yedora), so the previous face-down
+			// special case gave the same answer through it.
+			if !e.IsCreature(id) {
 				continue
 			}
 			if e.Toughness(id) <= 0 {

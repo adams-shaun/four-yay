@@ -99,9 +99,21 @@ func effImmediateTrigger(h Host, c *Ctx, sa *cards.SA) {
 	}
 	remember := strings.TrimSpace(sa.Params["RememberObjects"])
 	each := strings.EqualFold(strings.TrimSpace(sa.Params["RememberEach"]), "True")
+	// wholeSet is the set every non-RememberEach instance's Ctx.Remembered sees
+	// (the body reads it through DelayTriggerRememberedLKI / Remembered). It
+	// defaults to the capture-excluded parent set; an EXPLICIT RememberObjects$
+	// spec outside the Remembered* family REPLACES it with the objects that
+	// spec names -- Behemoth of Vault 0's `RememberObjects$ Targeted` hands its
+	// Destroy body the nonland permanent its own pre-asked target picked
+	// (PickedTargets), and Back for More / Curse of the Werefox / Novel Nunchaku
+	// feed a Fight the same way. effectRemembered's Targeted arm already prefers
+	// PickedTargets over Targets, and immediateRememberObjects mirrors that
+	// through the one shared fail-closed knownDefinedTargets resolver so the two
+	// readers cannot disagree about what the spelling means.
+	wholeSet := parent
 	// subjects is the per-instance index space; for a RememberEach loop it
 	// holds one entry per instance's remembered object, otherwise amount
-	// identical slots that all share the whole parent set.
+	// identical slots that all share wholeSet.
 	var subjects []state.Target
 	eachMode := false
 	switch {
@@ -117,8 +129,14 @@ func effImmediateTrigger(h Host, c *Ctx, sa *cards.SA) {
 			subjects = append(subjects, state.Target{})
 		}
 	default:
-		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-			Text: "ImmediateTrigger RememberObjects$ " + remember + " is not implemented; every instance sees the whole remembered set"})
+		if ts, ok := immediateRememberObjects(h, c, remember); ok {
+			wholeSet = ts
+		} else {
+			// A genuinely unknown spec: keep the loud Note and the whole
+			// parent set (never silence, never a guessed target).
+			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+				Text: "ImmediateTrigger RememberObjects$ " + remember + " is not implemented; every instance sees the whole remembered set"})
+		}
 		for i := int32(0); i < amount; i++ {
 			subjects = append(subjects, state.Target{})
 		}
@@ -141,7 +159,7 @@ func effImmediateTrigger(h Host, c *Ctx, sa *cards.SA) {
 			// DelayTriggerRememberedLKI names).
 			cc.Remembered = []state.Target{subjects[i]}
 		} else {
-			cc.Remembered = copyTargets(parent)
+			cc.Remembered = copyTargets(wholeSet)
 		}
 		Resolve(h, &cc, sub)
 		if h.Suspended() {
@@ -154,4 +172,30 @@ func effImmediateTrigger(h Host, c *Ctx, sa *cards.SA) {
 			return
 		}
 	}
+}
+
+// immediateRememberObjects resolves an explicit ImmediateTrigger
+// RememberObjects$ spec to the object set the body's DelayTriggerRememberedLKI
+// / Remembered reads should see. It is the ONE home for that spec, so the
+// Targeted preference for the body's own pre-asked target and the shared
+// knownDefinedTargets spelling coverage cannot drift apart.
+//
+// The bare Targeted / ThisTargetedCard spellings prefer Ctx.PickedTargets over
+// Ctx.Targets exactly as effectRemembered's Targeted arm does: an AB-form
+// ImmediateTrigger carrying its own ValidTgts$ has the answer delivered to
+// PickedTargets, and the resolution-level Targets list is either the outer
+// SA's or empty. Every other spelling -- TriggeredTarget, TargetedController,
+// TriggeredCard, the dotted and " & "-joined forms, ... -- goes through the
+// shared fail-closed knownDefinedTargets resolver, so an unknown spelling is
+// ok=false here and the caller keeps the loud Note.
+func immediateRememberObjects(h Host, c *Ctx, spec string) ([]state.Target, bool) {
+	switch spec {
+	case "Targeted", "ThisTargetedCard":
+		targets := c.Targets
+		if c.PickedTargets != nil {
+			targets = c.PickedTargets
+		}
+		return copyTargets(targets), true
+	}
+	return knownDefinedTargets(h, c, spec)
 }

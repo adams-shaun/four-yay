@@ -384,6 +384,16 @@ func (e *Engine) applyReplacementsDispatch(ev events.Event) (events.Event, bool)
 			return e.applyReplacement(ev, m)
 		}
 	}
+	// Every match is bodyless: for a Moved event a bodyless replacement's
+	// complete replacement is "the move does not happen" (CR 614.1a, the
+	// cantHappen shape Grafdigger's Cage / Kunoros, Hound of Athreos /
+	// Soulless Jailer / Weathered Runestone / Worms of the Earth carry), so
+	// stopping the event is the deterministic fallback for a controller who
+	// has left the game just as a With-bearing match would be. Any other
+	// event kind stays unhandled here.
+	if ev.Kind == events.MoveZone {
+		return ev, true
+	}
 	return ev, false
 }
 
@@ -1061,6 +1071,16 @@ func (e *Engine) resolveReplacementBody(ctx *effects.Ctx, with *cards.SA) {
 // (stored for Updated, ev for Replaced) and handled=true.
 func (e *Engine) applyReplacement(ev events.Event, m replMatch) (events.Event, bool) {
 	if m.repl.With == nil {
+		if ev.Kind == events.MoveZone {
+			// A bodyless Moved replacement's complete replacement is stopping
+			// the move, the Layer$ CantHappen shape Grafdigger's Cage,
+			// Kunoros, Hound of Athreos, Soulless Jailer, Weathered Runestone
+			// and Worms of the Earth all carry (CR 614.1a). The event must
+			// not reach the battlefield, so report it handled. Scoped to
+			// MoveZone deliberately: the bodyless R:Event$ Draw lines are a
+			// different defect and keep their old behaviour.
+			return ev, true
+		}
 		return ev, false
 	}
 	ctx := e.replCtx(m, ev)

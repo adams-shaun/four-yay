@@ -52,8 +52,18 @@ func (e *Engine) zoneChangeMatchesWithCapture(t cards.Trigger, source state.ObjI
 	if strings.EqualFold(strings.TrimSpace(t.Params["ResolvedOnly"]), "True") && ev.Text != "" {
 		return false
 	}
-	if o, ok := t.Params["Origin"]; ok && o != "Any" && effects.ParseZone(o) != ev.From {
-		return false
+	// Origin$ is a zone SET: either a single zone name or a comma list
+	// (Syr Konrad, the Grim's "a creature card is put into a graveyard from
+	// anywhere other than the battlefield" is
+	// Hand,Graveyard,Exile,Stack,Library,Command; Laelia, the Blade
+	// Reforged's ChangesZoneAll carrier is Library,Graveyard). ParseZones is
+	// the set reader -- Any/All are wildcards, and an unknown token fails
+	// closed rather than degrading to a graveyard origin.
+	if o, ok := t.Params["Origin"]; ok {
+		zones, all, listOK := effects.ParseZones(o)
+		if !listOK || (!all && !zoneIn(ev.From, zones)) {
+			return false
+		}
 	}
 	// ExcludedOrigins$ ("Name Sticker" Goblin's "enters from anywhere other
 	// than a graveyard or exile"): a comma-separated list of zones the move
@@ -381,7 +391,7 @@ func (e *Engine) tokenCreatedMatches(t cards.Trigger, source state.ObjID, ev eve
 }
 
 func init() {
-	// ChangesZoneAll shares the per-object matcher (batch-of-one).
+	// ChangesZoneAll shares the per-object matcher; the action brackets (RepeatEach ChangeZoneTable, api:Phases, api:Mill, api:Dig) collapse one action's moves to one queueing.
 	registerTrigMatcher((*Engine).zoneChangeMatches, "ChangesZone", "ChangesZoneAll")
 	registerTrigMatcher((*Engine).sacrificedMatches, "Sacrificed")
 	registerTrigMatcher(func(e *Engine, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
