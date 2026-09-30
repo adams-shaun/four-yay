@@ -80,6 +80,23 @@ func (c noPotentialChars) PotentialActions(p state.PlayerID) []decision.Potentia
 
 func (noPotentialChars) OwnDeck(state.PlayerID) *deck.Manifest { return nil }
 
+// SuppressOwnLibrary tells view.Project not to build the own-library CONTENTS
+// list at all. The observation frame must never carry it, exactly as it never
+// carries PotentialActions or OwnDeck: the sampler's whole purpose is to
+// search over the draws the seat has not seen, and the recorded engine and the
+// hypothetical engine allocate hidden library objects from different arenas,
+// so a raw library in the board can never compare equal (before this,
+// TestSampleRealDeckGolden reported every world rejected at frame 0 on "board
+// state"). The seat's own library CONTENTS are a view fact now
+// (own_library_list, view.PlayerView.Library), but the observation is the
+// deliberately limited knowledge model the search reasons from, not the
+// seat's full view -- the same split OwnDeck already makes. Suppressing it at
+// the projection also keeps the sampler's hottest path from allocating a list
+// it would discard (TestCollectorCaptureReusesRedactionStorageWithoutAliasingFrames).
+// LibraryTop is deliberately NOT suppressed: a live MayLookAt grant makes it
+// legitimately revealed information, and the capture introduces and remaps it.
+func (noPotentialChars) SuppressOwnLibrary() bool { return true }
+
 func NewCollector(actor state.PlayerID) *Collector {
 	return &Collector{actor: actor, known: make(map[state.ObjID]uint32), byRef: []state.ObjID{0}}
 }
@@ -148,6 +165,9 @@ func (c *Collector) capture(e *rules.Engine, burst []events.Event, scratch, with
 			for _, card := range zone {
 				c.introduce(e, card.ID)
 			}
+		}
+		if p.LibraryTop != nil {
+			c.introduce(e, p.LibraryTop.ID)
 		}
 	}
 	for _, s := range v.Stack {
@@ -227,6 +247,10 @@ func (c *Collector) capture(e *rules.Engine, burst []events.Event, scratch, with
 		p.Graveyard = c.cards(p.Graveyard)
 		p.Exile = c.cards(p.Exile)
 		p.Command = c.cards(p.Command)
+		if p.LibraryTop != nil {
+			card := c.card(*p.LibraryTop)
+			p.LibraryTop = &card
+		}
 		// PotentialActions (the viewer's own offer walk, view/view.go) names
 		// its objects by engine ObjID like every other board field; left raw,
 		// a sampled world whose hidden objects were allocated different IDs

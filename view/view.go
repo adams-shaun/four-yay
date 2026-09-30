@@ -429,6 +429,21 @@ func optionLabelText(label string) string {
 	return label[:i+2] + substitutePlaceholders(label[i+2:], label[:i])
 }
 
+// librarySuppressor is the optional Chars capability that lets a caller skip
+// paying for the own-library CONTENTS projection it does not use. The search
+// observation (internal/searchprobe) strips the library from every frame -- it
+// samples the unseen draws and the recorded/hypothetical engines allocate
+// hidden library objects from different arenas -- so it declares this and
+// unorderedLibrary is never built for it. A Chars that does not implement it
+// (every ordinary caller, including rules.Engine) keeps the field, so the
+// projection's allocation cost is paid only where the field is read.
+type librarySuppressor interface{ SuppressOwnLibrary() bool }
+
+func suppressesOwnLibrary(ch Chars) bool {
+	s, ok := ch.(librarySuppressor)
+	return ok && s.SuppressOwnLibrary()
+}
+
 // unorderedLibrary projects a seat's own library as a canonical, order-free
 // list of CardViews: the same multiset of cards the library holds, arranged
 // by card name then object id so the slice is a pure function of the
@@ -604,7 +619,7 @@ func project(g *state.Game, ch Chars, viewer state.PlayerID, d *decision.Decisio
 			// D12's "library order is hidden" for every spectator. unorderedLibrary
 			// canonicalises the order, so even the own seat learns the contents
 			// and never the secret draw order.
-			if ownLibrary {
+			if ownLibrary && !suppressesOwnLibrary(ch) {
 				pv.Library = unorderedLibrary(g, ch, g.Zone(state.ZLibrary, p.ID), p.ID, viewer, alsoVisible)
 			}
 		}
