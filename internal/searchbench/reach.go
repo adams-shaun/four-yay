@@ -71,7 +71,10 @@ type Reached struct {
 //     "Play <name>" priority option; refused as "preland" when not offered);
 //   - attack: the decision player's KAttackers decision in Turn (preLand
 //     played at its main-phase priority first);
-//   - block: the decision player's KBlockers decision in Turn.
+//   - block: the decision player's KBlockers decision in Turn. Blockers are
+//     declared as the declare-blockers step begins, so a priority in that
+//     step means none was asked ("reached PRIORITY at DECLARE_BLOCKERS", as
+//     upstream's bridge reports it).
 //
 // On the way, every priority is passed, every other attack or block
 // declaration is answered with none (upstream's puppet: it never attacks or
@@ -135,7 +138,7 @@ func Reach(e *rules.Engine, kind DecisionType, o ReachOptions) (*Reached, error)
 				}
 			}
 			if inTurn && (kind == DecisionAttack && e.G.Active == dp && e.G.Step > state.StepDeclareAttackers ||
-				kind == DecisionBlock && e.G.Step > state.StepDeclareBlockers) {
+				kind == DecisionBlock && e.G.Step >= state.StepDeclareBlockers) {
 				return r, refuse("reached", "%s at %s", strings.ToUpper(string(d.Kind)), StepName(e.G.Step))
 			}
 			in = passIntent(d)
