@@ -59,7 +59,7 @@ func SummarizeNativeRuns(rows []NativeRunResult) (NativeRunSummary, SearchArm, e
 	var arm SearchArm
 	for i := range rows {
 		r := rows[i]
-		if r.GameID == "" || r.Ordinal < 0 || r.Seat < 0 || r.Seat > 1 || r.SourceKind != "land" && r.SourceKind != "spell" || r.SourceCard == "" || r.Arm == "" || r.Sims < 0 || r.Completed < 0 || r.Skipped < 0 || r.Completed > r.Sims {
+		if r.GameID == "" || r.Ordinal < 0 || r.Seat < 0 || r.Seat > 1 || r.SourceKind != "land" && r.SourceKind != "spell" && r.SourceKind != "attack" || r.SourceKind != "attack" && r.SourceCard == "" || r.Arm == "" || r.Sims < 0 || r.Completed < 0 || r.Skipped < 0 || r.Completed > r.Sims {
 			return NativeRunSummary{}, "", fmt.Errorf("searchbench: native result %d is invalid", i)
 		}
 		if arm == "" {

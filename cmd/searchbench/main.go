@@ -530,7 +530,7 @@ func rootRun(args []string, out io.Writer) error {
 	sourceKind := fs.String("source-kind", "", "restrict to source action kind: land or spell")
 	sims := fs.Int("sims", 100, "simulations per root")
 	seed := fs.Uint64("seed", 1, "search policy seed")
-	if err := fs.Parse(args); err != nil || *in == "" || *cardsPath == "" || *rootsPath == "" || *limit < 1 || *sims < 1 || *seed == 0 || (*sourceKind != "" && *sourceKind != "land" && *sourceKind != "spell") || fs.NArg() != 0 {
+	if err := fs.Parse(args); err != nil || *in == "" || *cardsPath == "" || *rootsPath == "" || *limit < 1 || *sims < 1 || *seed == 0 || (*sourceKind != "" && *sourceKind != "land" && *sourceKind != "spell" && *sourceKind != "attack") || fs.NArg() != 0 {
 		return usage()
 	}
 	arm := searchbench.SearchArm(*armText)
