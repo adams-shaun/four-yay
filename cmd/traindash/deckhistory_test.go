@@ -33,14 +33,29 @@ func TestDeckHistoryOrdersCandidateRunsAndGroupsDecks(t *testing.T) {
 	root := t.TempDir()
 	newer := "2026-09-30T02:00:00Z"
 	older := "2026-09-29T02:00:00Z"
-	// Each run contains both decks, and candidate stamps deliberately order
-	// opposite the lexically-sorted short heads.
-	a := writeCandidate(t, root, "bbbbbbbbbbbbbbbb", "bot-a", newer,
+	// Each run contains both decks. The stamp order MUST be the reverse of the
+	// lexical (short-head) order, so a regression to the pre-fix plain lexical
+	// sort of findDeckLedgers' ids fails this test rather than passing it. The
+	// lexically-first head (aaaaaaaa) therefore carries the NEWER stamp.
+	a := writeCandidate(t, root, "bbbbbbbbbbbbbbbb", "bot-a", older,
 		mkRow("Wildfire", "bot-a", "opponent", "p0", "natural")+"\n"+
 			mkRow("Burn", "opponent", "bot-a", "p0", "natural")+"\n")
-	b := writeCandidate(t, root, "aaaaaaaaaaaaaaaa", "bot-b", older,
+	b := writeCandidate(t, root, "aaaaaaaaaaaaaaaa", "bot-b", newer,
 		mkRow("Wildfire", "bot-b", "opponent", "p1", "natural")+"\n"+
 			mkRow("Burn", "bot-b", "opponent", "p0", "natural")+"\n")
+	// Precondition: the fixture can actually discriminate stamp ordering from
+	// lexical ordering. Assert the two orders are exact reverses, so a later
+	// fixture edit cannot silently re-align them and make the test vacuous.
+	lexical := []string{"aaaaaaaa/bot-b", "bbbbbbbb/bot-a"}
+	byStamp := []string{"bbbbbbbb/bot-a", "aaaaaaaa/bot-b"}
+	for i := range lexical {
+		if lexical[i] == byStamp[i] {
+			t.Fatalf("fixture precondition: stamp order %v must not equal lexical %v", byStamp, lexical)
+		}
+	}
+	if !(older < newer) {
+		t.Fatal("fixture precondition: stamps must differ and be ordered")
+	}
 	if a == b || len(findDeckLedgers(root)) != 2 {
 		t.Fatalf("fixture precondition: candidate dirs=%q,%q ledgers=%d", a, b, len(findDeckLedgers(root)))
 	}
@@ -48,18 +63,20 @@ func TestDeckHistoryOrdersCandidateRunsAndGroupsDecks(t *testing.T) {
 	if len(got) != 2 || got[0].Deck != "Burn" || got[1].Deck != "Wildfire" {
 		t.Fatalf("decks = %+v, want both sorted decks", got)
 	}
-	wantOrder := []string{"aaaaaaaa/bot-b", "bbbbbbbb/bot-a"}
 	for _, deck := range got {
 		if len(deck.Points) != 2 {
 			t.Fatalf("%s points = %+v, want 2", deck.Deck, deck.Points)
 		}
 		for i, p := range deck.Points {
-			if p.Run != wantOrder[i] {
-				t.Fatalf("%s order[%d] = %q, want %q", deck.Deck, i, p.Run, wantOrder[i])
+			if p.Run != byStamp[i] {
+				t.Fatalf("%s order[%d] = %q, want %q", deck.Deck, i, p.Run, byStamp[i])
 			}
 		}
 	}
-	if got[0].Points[0].Wins != 1 || got[0].Points[1].Wins != 0 || got[1].Points[0].Wins != 0 || got[1].Points[1].Wins != 1 {
+	// Rates survive the reduction and distinguish the runs: order[0] is the
+	// older bbbbbbbb/bot-a run (Burn 0-1, Wildfire 1-0) and order[1] the newer
+	// aaaaaaaa/bot-b run (Burn 1-0, Wildfire 0-1).
+	if got[0].Points[0].Wins != 0 || got[0].Points[1].Wins != 1 || got[1].Points[0].Wins != 1 || got[1].Points[1].Wins != 0 {
 		t.Fatalf("rates did not preserve ledger outcomes: %+v", got)
 	}
 	s := NewScanner(nil)
@@ -76,10 +93,14 @@ func TestDeckHistoryFallsBackToMtimeAndEmptySnapshotNormalizes(t *testing.T) {
 	second := writeCandidate(t, root, "secondhead", "two", "", mkRow("Wildfire", "bot", "opp", "p1", "natural")+"\n")
 	older := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
 	newer := older.Add(time.Hour)
-	if err := os.Chtimes(filepath.Join(first, "matches.jsonl"), older, older); err != nil {
+	// The stamp-less runs fall back to mtime. As in the stamp test, the
+	// lexically-first head (firsthead) MUST carry the NEWER mtime so ascending
+	// mtime order is the reverse of lexical order and a lexical-sort regression
+	// fails here too.
+	if err := os.Chtimes(filepath.Join(second, "matches.jsonl"), older, older); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Chtimes(filepath.Join(second, "matches.jsonl"), newer, newer); err != nil {
+	if err := os.Chtimes(filepath.Join(first, "matches.jsonl"), newer, newer); err != nil {
 		t.Fatal(err)
 	}
 	if !older.Before(newer) {
@@ -89,7 +110,7 @@ func TestDeckHistoryFallsBackToMtimeAndEmptySnapshotNormalizes(t *testing.T) {
 	if len(got) != 1 || len(got[0].Points) != 2 {
 		t.Fatalf("history = %+v, want one deck in two runs", got)
 	}
-	if got[0].Points[0].Run != "firsthea/one" || !got[0].Points[0].Order.Equal(older) || !got[0].Points[1].Order.Equal(newer) {
+	if got[0].Points[0].Run != "secondhe/two" || !got[0].Points[0].Order.Equal(older) || got[0].Points[1].Run != "firsthea/one" || !got[0].Points[1].Order.Equal(newer) {
 		t.Fatalf("mtime ordering = %+v", got[0].Points)
 	}
 	snap := NewScanner(nil).Scan()
