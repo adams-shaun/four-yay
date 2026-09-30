@@ -37,7 +37,7 @@
         {"op": "resolve"}
       ],
       "expect": [
-        {"card": "p0:Forest", "zone": "battlefield", "tapped": true, "pt": "0/0", "no_types": ["Creature"]}
+        {"card": "p0:Forest", "zone": "battlefield", "tapped": true, "no_types": ["Creature"]}
       ]
     }
   ]

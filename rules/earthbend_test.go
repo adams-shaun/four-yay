@@ -352,10 +352,13 @@ func earthbendDepart(t *testing.T, e *Engine, id state.ObjID, dest state.Zone) {
 // layer-4 filter limitation): the animated Forest is a creature only through
 // the layer walk, so no `ValidTgts$ Creature` spell sees it. A `ValidTgts$
 // Land` destruction still reaches it, and the Destroy fires the same
-// departure. (Lethal combat/damage cannot kill the animated land either --
-// rules/sba.go's destroyLethalDamage gates on the printed face being a
-// creature, so an animated land is damage-immortal; a pre-existing
-// engine-wide gap, disclosed in the report's Issues, not introduced here.)
+// departure. (Lethal combat/damage now DOES kill the animated land: as of
+// ticket agent-20260930T003623Z-089d5c9e, rules/sba.go's destroyLethalDamage
+// gates creature-ness on the layer-derived type list (`e.IsCreature`), so an
+// animated land is mortal to both the CR 704.5f zero-toughness and the CR
+// 704.5g lethal-damage sweeps -- see rules/sba_animated_toughness_test.go.
+// Before that fix the printed-face gate left an animated land damage-immortal,
+// a pre-existing engine-wide gap.)
 func TestEarthbendBaSingSeRealDestroy(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
