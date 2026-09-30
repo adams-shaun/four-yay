@@ -481,7 +481,7 @@ func (e *Engine) stackKindAdmits(toks []targetTypeToken, k stackObjKind, o *stat
 			if tok.Colorless && e.Colors(o.ID) != "" {
 				continue
 			}
-			if tok.Legendary && !stackHasType(e.Derived(o.ID).Types, "Legendary") {
+			if tok.Legendary && !stackHasType(e.derivedTypesOf(o.ID), "Legendary") {
 				continue
 			}
 		}

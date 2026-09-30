@@ -516,7 +516,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 	// nothing the loop keeps: it is skipped, with its layer read.
 	if !faceDown && len(e.landTypeWords) > 0 && o.Zone == state.ZBattlefield && e.controllerOf(id) == p &&
 		e.activeSummaryOf(e.active()).hasLType {
-		for _, typ := range e.Derived(id).Types {
+		for _, typ := range e.derivedTypesOf(id) {
 			color, ok := cards.IntrinsicManaColor(typ)
 			if !ok || manaAbilitiesProduce(manaAbilities, color) {
 				continue
@@ -1267,7 +1267,7 @@ func (e *Engine) tapFlagsSick(source state.ObjID, tap, untap bool) bool {
 	if o == nil || (!tap && !untap) || o.Zone != state.ZBattlefield || !o.SummonSick {
 		return false
 	}
-	return slices.Contains(e.Derived(source).Types, "Creature") && !e.hasKeywordH(source, kwhHaste)
+	return slices.Contains(e.derivedTypesOf(source), "Creature") && !e.hasKeywordH(source, kwhHaste)
 }
 
 func activationTapCostUnavailable(o *state.Object, cost Cost) bool {

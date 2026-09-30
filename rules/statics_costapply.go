@@ -348,7 +348,7 @@ func (e *Engine) costConditionHolds(sv staticView, p state.PlayerID) bool {
 func (e *Engine) metalcraftHolds(p state.PlayerID) bool {
 	n := 0
 	for _, id := range e.G.Zone(state.ZBattlefield, p) {
-		if o := e.G.Obj(id); o != nil && slices.Contains(e.Derived(id).Types, "Artifact") {
+		if o := e.G.Obj(id); o != nil && slices.Contains(e.derivedTypesOf(id), "Artifact") {
 			n++
 		}
 	}

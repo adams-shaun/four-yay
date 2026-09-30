@@ -97,7 +97,7 @@ func (e *Engine) refreshRenames() {
 		if f == nil {
 			continue
 		}
-		name := e.Derived(o.ID).Name
+		name := e.derivedName(o.ID)
 		if name == "" || name == f.Name {
 			continue
 		}
@@ -124,8 +124,9 @@ func (e *Engine) continuousChanged() {
 // Without this gate every refresh would pay for a full battlefield Derived()
 // walk on a board whose SetName$ carrier is still in a library.
 func (e *Engine) anySetNameActive() bool {
-	for _, ce := range e.active() {
-		if ce.Layer == LText && ce.SetName != "" {
+	act := e.active()
+	for i := range act {
+		if ce := &act[i]; ce.Layer == LText && ce.SetName != "" {
 			return true
 		}
 	}
