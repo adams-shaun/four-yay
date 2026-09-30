@@ -333,7 +333,8 @@ func (e *Engine) resolveTop() {
 		// resolves, so the effect would silently apply to nothing. The SVar
 		// lookup two lines above already gets this right by reading from
 		// o.Source; this was a one-line inconsistency, not a second design.
-		ctx := &effects.Ctx{Source: o.Source, Controller: o.Controller,
+		ctx := e.arenaCtx()
+		*ctx = effects.Ctx{Source: o.Source, Controller: o.Controller,
 			Targets: targets, ModeTargets: charmModeTargets, Remembered: e.resolvingRemembered(o), Captured: o.Remembered, TriggerContext: e.triggerContexts[id],
 			// Forge's Count$ResolvedThisTurn reads the per-ability tally the
 			// Resolve event's Apply folded: the count INCLUDES this resolution,
@@ -680,7 +681,8 @@ func (e *Engine) resolveTop() {
 	}
 	if resolveSA != nil {
 		e.damaging = id
-		ctx := &effects.Ctx{Source: id, Controller: o.Controller, Targets: targets,
+		ctx := e.arenaCtx()
+		*ctx = effects.Ctx{Source: id, Controller: o.Controller, Targets: targets,
 			ModeTargets: charmModeTargets, ResolvingObj: id,
 			// alltargeted1: the cast flow's pre-asked SubAbility$ target
 			// answers, consumed line by line by chosenTargetsFor. Disjoint
@@ -1097,7 +1099,8 @@ func (e *Engine) resolveAbility(source state.ObjID, controller state.PlayerID,
 // this is the mana ability path's one home for it.
 func (e *Engine) resolveAbilitySacrificing(source state.ObjID, controller state.PlayerID,
 	targets []state.Target, sa *cards.SA, svars map[string]string, sacs []state.ObjID) {
-	ctx := &effects.Ctx{Source: source, Controller: controller, Targets: targets}
+	ctx := e.arenaCtx()
+	*ctx = effects.Ctx{Source: source, Controller: controller, Targets: targets}
 	for _, id := range sacs {
 		ctx.Sacrificed = append(ctx.Sacrificed, state.SacrificedInfoOf(e.G, id))
 	}

@@ -936,7 +936,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	// The spent engine's cleared decision-arena chunks, switched off: the
 	// clone's owner turns the arena on (SetDecisionArena) if its decisions
 	// die with it.
-	c.adoptArena(sp.arenaOpts, sp.arenaDecs)
+	c.adoptArena(sp.arena)
 	if sp.lookBack != nil {
 		c.lookBack, c.lookBackOwner = sp.lookBack, c
 	}

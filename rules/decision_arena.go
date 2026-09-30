@@ -1,6 +1,10 @@
 package rules
 
-import "github.com/adams-shaun/gorge/decision"
+import (
+	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/state"
+)
 
 // The decision arena: bump-allocated storage for the priority decisions a
 // SEARCH SIMULATION's engine poses.
@@ -22,34 +26,77 @@ import "github.com/adams-shaun/gorge/decision"
 // on. A by-value Engine copy (entryPreview's preview) never uses the owner's
 // arena (decisionArena.owner).
 
-// decisionArenaChunk is the Option slots per chunk (~200 KB); a larger
-// request, never seen in practice, is allocated on its own.
-const decisionArenaChunk = 512
+// Chunk sizes (slots): Options ~200 KB, Decisions ~47 KB, resolution Ctx
+// ~110 KB, look-back LKI objects ~64 KB. A request larger than a chunk,
+// never seen in practice, is allocated on its own.
+const (
+	arenaOptChunk = 512
+	arenaDecChunk = 64
+	arenaCtxChunk = 32
+	arenaObjChunk = 64
+)
 
-// decisionArenaDecChunk is the Decision slots per chunk.
-const decisionArenaDecChunk = 64
+// slab is one bump-allocated, chunked arena of T. Slots are handed out
+// zeroed (fresh chunks are zero, and reset clears every used slot), chunks
+// are never moved, so a pointer or slice handed out stays valid until reset.
+type slab[T any] struct {
+	chunks  [][]T
+	at, off int
+}
 
+// take returns n zeroed slots, length and capacity n.
+func (s *slab[T]) take(n, chunk int) []T {
+	if s.at < len(s.chunks) && s.off+n > chunk {
+		s.at, s.off = s.at+1, 0
+	}
+	if s.at == len(s.chunks) {
+		s.chunks = append(s.chunks, make([]T, chunk))
+		s.off = 0
+	}
+	c := s.chunks[s.at]
+	out := c[s.off : s.off+n : s.off+n]
+	s.off += n
+	return out
+}
+
+// one returns a pointer to one zeroed slot.
+func (s *slab[T]) one(chunk int) *T { return &s.take(1, chunk)[0] }
+
+// reset clears every slot handed out and rewinds, keeping the chunks.
+func (s *slab[T]) reset() {
+	for i := 0; i < len(s.chunks) && i <= s.at; i++ {
+		clear(s.chunks[i])
+	}
+	s.at, s.off = 0, 0
+}
+
+// decisionArena is one engine's simulation arena (see the file comment).
+// Besides the priority decisions it backs the other engine-scoped objects
+// a simulation builds per event or resolution: the resolution contexts
+// (effects.Ctx, ~3.5 KB, resolveTop / resolveAbilitySacrificing) and the
+// look-back LKI objects (emit's pre-event copy, checkTriggers' snapshot
+// copy). Each is referenced only by the resolution, pending triggers,
+// resume frames and parked state of the engine that built it, all of which
+// die at its Release.
 type decisionArena struct {
 	owner *Engine
 	on    bool
-	// opts / decs are the chunks, each full length; optAt / decAt index the
-	// chunk being carved and optOff / decOff the next free slot in it.
-	opts          [][]decision.Option
-	optAt, optOff int
-	decs          [][]decision.Decision
-	decAt, decOff int
+	opts  slab[decision.Option]
+	decs  slab[decision.Decision]
+	ctxs  slab[effects.Ctx]
+	objs  slab[state.Object]
 }
 
 // SetDecisionArena switches e's decision arena on or off. On, the priority
-// decisions e poses (their Decision and Options) live in storage that
-// e.Release recycles into the next engine CloneInto builds from that Spare,
-// so a caller that turns it on promises that nothing -- no decision, no
-// Options slice -- read from e is used after e.Release. The search's
-// per-simulation worlds are that shape (internal/azmcts's engine env).
-// Posed decisions are otherwise identical to the arena-off ones.
+// decisions e poses (their Decision and Options), its resolution contexts
+// and its LKI copies live in storage that e.Release recycles into the next
+// engine CloneInto builds from that Spare, so a caller that turns it on
+// promises that nothing read from e -- no decision, no Options slice -- is
+// used after e.Release. The search's per-simulation worlds are that shape
+// (internal/azmcts's engine env). Everything else is identical to the
+// arena-off engine.
 func (e *Engine) SetDecisionArena(on bool) {
-	a := e.ownArena()
-	a.on = on
+	e.ownArena().on = on
 }
 
 // ownArena is e's arena, created on first use and replaced if e carries a
@@ -71,65 +118,60 @@ func (e *Engine) activeArena() *decisionArena {
 
 // arenaOptions returns a zeroed Options slice of length and capacity n.
 func (e *Engine) arenaOptions(n int) []decision.Option {
-	a := e.activeArena()
-	if a == nil || n > decisionArenaChunk {
-		return make([]decision.Option, n)
+	if a := e.activeArena(); a != nil && n <= arenaOptChunk {
+		return a.opts.take(n, arenaOptChunk)
 	}
-	if a.optAt < len(a.opts) && a.optOff+n > decisionArenaChunk {
-		a.optAt, a.optOff = a.optAt+1, 0
-	}
-	if a.optAt == len(a.opts) {
-		a.opts = append(a.opts, make([]decision.Option, decisionArenaChunk))
-		a.optOff = 0
-	}
-	c := a.opts[a.optAt]
-	s := c[a.optOff : a.optOff+n : a.optOff+n]
-	a.optOff += n
-	return s
+	return make([]decision.Option, n)
 }
 
 // arenaDecision returns a zeroed Decision.
 func (e *Engine) arenaDecision() *decision.Decision {
-	a := e.activeArena()
-	if a == nil {
-		return &decision.Decision{}
+	if a := e.activeArena(); a != nil {
+		return a.decs.one(arenaDecChunk)
 	}
-	if a.decAt < len(a.decs) && a.decOff == decisionArenaDecChunk {
-		a.decAt, a.decOff = a.decAt+1, 0
+	return &decision.Decision{}
+}
+
+// arenaCtx returns a zeroed resolution Ctx.
+func (e *Engine) arenaCtx() *effects.Ctx {
+	if a := e.activeArena(); a != nil {
+		return a.ctxs.one(arenaCtxChunk)
 	}
-	if a.decAt == len(a.decs) {
-		a.decs = append(a.decs, make([]decision.Decision, decisionArenaDecChunk))
-		a.decOff = 0
+	return &effects.Ctx{}
+}
+
+// arenaObject returns a pointer to a copy of o (an LKI snapshot).
+func (e *Engine) arenaObject(o state.Object) *state.Object {
+	if a := e.activeArena(); a != nil {
+		p := a.objs.one(arenaObjChunk)
+		*p = o
+		return p
 	}
-	d := &a.decs[a.decAt][a.decOff]
-	a.decOff++
-	return d
+	return &o
 }
 
 // releaseArena clears the used part of e's arena (dropping every string,
-// Grant and slice the dead decisions referenced) and returns its chunks for
-// a Spare. Every slot handed out again is therefore zero, as a fresh
-// allocation is.
-func (e *Engine) releaseArena() (opts [][]decision.Option, decs [][]decision.Decision) {
+// Grant and slice the dead objects referenced) and detaches it for a Spare.
+// Every slot handed out again is therefore zero, as a fresh allocation is.
+func (e *Engine) releaseArena() *decisionArena {
 	a := e.decArena
-	if a == nil || a.owner != e {
-		return nil, nil
-	}
-	for i := 0; i < len(a.opts) && i <= a.optAt; i++ {
-		clear(a.opts[i])
-	}
-	for i := 0; i < len(a.decs) && i <= a.decAt; i++ {
-		clear(a.decs[i])
-	}
-	opts, decs = a.opts, a.decs
 	e.decArena = nil
-	return opts, decs
+	if a == nil || a.owner != e {
+		return nil
+	}
+	a.opts.reset()
+	a.decs.reset()
+	a.ctxs.reset()
+	a.objs.reset()
+	a.owner, a.on = nil, false
+	return a
 }
 
-// adoptArena seeds a new engine's (off) arena with a Spare's cleared chunks.
-func (e *Engine) adoptArena(opts [][]decision.Option, decs [][]decision.Decision) {
-	if len(opts) == 0 && len(decs) == 0 {
+// adoptArena makes a Spare's cleared arena e's own, switched off.
+func (e *Engine) adoptArena(a *decisionArena) {
+	if a == nil {
 		return
 	}
-	e.decArena = &decisionArena{owner: e, opts: opts, decs: decs}
+	a.owner, a.on = e, false
+	e.decArena = a
 }

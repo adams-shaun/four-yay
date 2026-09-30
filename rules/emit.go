@@ -240,8 +240,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 	switch ev.Kind {
 	case events.MoveZone, events.Draw, events.PutOnStack, events.ControlChange:
 		if o := e.G.Obj(ev.Obj); o != nil {
-			cp := o.CloneDeep()
-			lki = &cp
+			lki = e.arenaObject(o.CloneDeep())
 			if o.Zone == state.ZBattlefield && o.Face() != nil {
 				lkiPower, lkiToughness = e.Power(o.ID), e.Toughness(o.ID)
 				lkiPTValid = true
@@ -254,8 +253,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		// direct emit can). Apply flips Unlocked before this event's triggers
 		// are matched, so the pre-fold flag has to ride the LKI snapshot.
 		if o := e.G.Obj(ev.Obj); o != nil {
-			cp := o.CloneDeep()
-			lki = &cp
+			lki = e.arenaObject(o.CloneDeep())
 		}
 	case events.CounterChange:
 		// Vanishing's last-counter trigger must distinguish a real removal

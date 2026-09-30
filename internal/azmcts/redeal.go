@@ -162,6 +162,20 @@ func (s *RedealSource) World(sim int) (World, error) {
 	return World{Engine: w, Observer: s.obs.Clone(), Hypothetical: true}, nil
 }
 
+// reclaim ends the source's use once the Search that asked it for worlds
+// has returned: it releases the last world it handed out and returns the
+// recycled storage (rules.Spare), so the seat's next decision's source
+// starts from it instead of allocating its first world's arrays again.
+func (s *RedealSource) reclaim() rules.Spare {
+	if s.prev != nil {
+		s.spare = s.prev.Release()
+		s.prev = nil
+	}
+	sp := s.spare
+	s.spare = rules.Spare{}
+	return sp
+}
+
 // KnownTracker is the feed-owned incremental known-card projection
 // (searchseat.KnownTracker): it lives there because the Feed owns and rebuilds
 // it (Feed.Known). The alias keeps this package's callers and tests on the

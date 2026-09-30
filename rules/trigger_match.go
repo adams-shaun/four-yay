@@ -920,8 +920,7 @@ func (e *Engine) checkTriggers(ev events.Event, lki *state.Object,
 		// trigger outlives it. The copy is the same struct value, sharing
 		// the same never-mutated inner slices the snapshot object holds.
 		if obj != nil {
-			cp := *obj
-			obj = &cp
+			obj = e.arenaObject(*obj)
 		}
 		e.checkFaceTriggers(observer, ev, obj, power, toughness, valid, true, true)
 		// Released before the live walk below, whose emits may re-enter

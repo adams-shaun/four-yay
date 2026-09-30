@@ -67,12 +67,12 @@ func TestDecisionArenaIsInvisible(t *testing.T) {
 			t.Fatalf("decision %d's Options changed after it was answered", i)
 		}
 	}
-	first := unsafe.Pointer(&on.decArena.opts[0][0])
+	first := unsafe.Pointer(&on.decArena.opts.chunks[0][0])
 	sp := on.Release()
-	if len(sp.arenaOpts) == 0 || len(sp.arenaDecs) == 0 {
+	if sp.arena == nil || len(sp.arena.opts.chunks) == 0 || len(sp.arena.decs.chunks) == 0 {
 		t.Fatal("Release dropped the decision arena")
 	}
-	for _, c := range sp.arenaOpts {
+	for _, c := range sp.arena.opts.chunks {
 		for i := range c {
 			if !reflect.DeepEqual(c[i], decision.Option{}) {
 				t.Fatal("a released arena chunk was not cleared")
@@ -93,7 +93,7 @@ func TestDecisionArenaIsInvisible(t *testing.T) {
 	// Off (the default), a clone's decisions never come from its arena.
 	plain := root.CloneInto(&Spare{})
 	pds, _ := playArena(t, plain, 5)
-	if len(pds) > 0 && plain.decArena != nil && len(plain.decArena.opts) > 0 {
+	if len(pds) > 0 && plain.decArena != nil && len(plain.decArena.opts.chunks) > 0 {
 		t.Fatal("an arena-off engine carved decisions from an arena")
 	}
 }
