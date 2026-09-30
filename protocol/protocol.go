@@ -273,3 +273,21 @@ type Unsubscribe struct {
 
 // SeatColours are assigned by seat index and never change during a match.
 var SeatColours = [...]string{"#e5484d", "#3b82f6", "#22c55e", "#eab308", "#a855f7", "#f97316", "#14b8a6", "#ec4899"}
+
+// DeckRecord is one row of the public deck leaderboard (GET /api/stats/decks):
+// aggregate counts for a deck name over finished bot-vs-bot games.
+type DeckRecord struct {
+	Deck    string  `json:"deck"`
+	Games   int     `json:"games"`
+	Wins    int     `json:"wins"`
+	Losses  int     `json:"losses"`
+	Draws   int     `json:"draws"`
+	WinRate float64 `json:"win_rate"`
+}
+
+// DeckTally is the GET /api/stats/decks body.
+type DeckTally struct {
+	Decks          []DeckRecord `json:"decks"`
+	MinGames       int          `json:"min_games"`
+	MatchesCounted int          `json:"matches_counted"`
+}

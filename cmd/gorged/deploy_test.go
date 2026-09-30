@@ -44,13 +44,20 @@ exit 0
 // real script, driven with a stub binary, must start BOTH servers after a
 // fill that fails and after one that hangs past the hard ceiling, say so
 // loudly, pass the fill a budget the real flag set accepts, and keep that
-// budget and the ceiling at or under 240s.
+// budget and the ceiling at or under 240s. (72d86d5ba retired the second
+// server outright, and this test briefly pinned that retirement; main's
+// 8ad99ceb5 reverted 72d86d5ba, restoring the OMNI_PORT scaffolding — so the
+// OMNI_PORT the test supplies must be honoured by a second server again.)
 //
 // Safety: the listeners are this test's own, bound on free ports in
 // 8090-8099 (a successful bind proves no gorged is there for the script's
 // port sweep to stop), and every path the script writes — persistence dirs,
 // logs, art dir — is overridden into temp dirs, so the live demo on
-// 8080/8081 and its /tmp logs are never touched. A probe gorged (the test
+// 8080/8081 and its /tmp logs are never touched. The sweep is the union of
+// the demo's append-only port history (8080/8081, demo-ports.sh) with the
+// ports this run binds, so the test ALSO passes DEMO_PORT_HISTORY= (the
+// documented empty-clears-it override) — without that, a test deploy would
+// SIGTERM the live demo's :8080/:8081 gorged on the way past. A probe gorged (the test
 // binary re-exec'd from a copy literally named gorged, the reviewer's own
 // shape) listens on [::1] of the first port through every subtest: the
 // sweep must leave a gorged bound to ANOTHER address of a demo port alone.
@@ -99,10 +106,14 @@ func TestDeployStartsTheServersWhenTheArtFillFails(t *testing.T) {
 			cmd.Dir = tmp
 			cmd.Stdout, cmd.Stderr = outFile, outFile
 			cmd.Env = append(os.Environ(),
-				// RETIRED_PORTS= and MB_PORT= keep the sweep and the start
-				// off the live demo's :8081 ManaBrew server -- MB_PORT's
-				// default would stop a real gorged there and bind the port.
-				"BIN="+stub, "DECKS="+filepath.Join(tmp, "decks"), "ART_DIR="+artDir, "SWEEP=ports", "RETIRED_PORTS=", "MB_PORT=",
+				// DEMO_PORT_HISTORY= keeps the sweep (history-union, since
+				// the 2026-09-30 fix) off the live demo's :8080/:8081 gorged;
+				// RETIRED_PORTS= is the script's one-off caller override, empty
+				// here, and MB_PORT= stays empty (no ManaBrew server in the
+				// test). OMNI_PORT is SUPPLIED and the script must honour it
+				// with the second server: 8ad99ceb5 reverted 72d86d5ba's
+				// retirement, and the two-server assertion below pins that.
+				"BIN="+stub, "DECKS="+filepath.Join(tmp, "decks"), "ART_DIR="+artDir, "SWEEP=ports", "RETIRED_PORTS=", "DEMO_PORT_HISTORY=", "MB_PORT=",
 				fmt.Sprintf("PUB_PORT=%d", ports[0]), fmt.Sprintf("OMNI_PORT=%d", ports[1]),
 				"PUB_DIR="+filepath.Join(tmp, "pub"), "OMNI_DIR="+filepath.Join(tmp, "omni"),
 				"PUB_LOG="+filepath.Join(tmp, "pub.log"), "OMNI_LOG="+filepath.Join(tmp, "omni.log"))

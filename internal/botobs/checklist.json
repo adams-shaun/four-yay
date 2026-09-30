@@ -5,8 +5,8 @@
     {
       "id": "own_library_list",
       "description": "The viewer's own library as an unordered list of cards, without its secret order.",
-      "where": null,
-      "exposed": false
+      "where": "view.PlayerView.Library",
+      "exposed": true
     },
     {
       "id": "own_deck_archetype_prior",

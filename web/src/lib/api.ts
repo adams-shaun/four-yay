@@ -19,6 +19,7 @@ export const intentURL = (t: string, k: number) => withBase(`/api/tables/${enc(t
 export const undoURL = (t: string, k: number) => withBase(`/api/tables/${enc(t)}/matches/${k}/undo`);
 export const gamesURL = () => withBase('/api/games');
 export const decksURL = () => withBase('/api/decks');
+export const deckStatsURL = () => withBase('/api/stats/decks');
 
 // seatQuery is the seat/token query threading on the seat-scoped GETs
 // (M2e-3's FL-99: ?seat=N&token=…). The token is a bearer credential for
@@ -116,6 +117,24 @@ export interface DeckInfo {
 }
 
 export const fetchDecks = () => getJSON<DeckInfo[]>(decksURL());
+
+/** One row of the public deck leaderboard: finished bot-vs-bot games only. */
+export interface DeckRecord {
+  deck: string;
+  games: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  win_rate: number;
+}
+
+export interface DeckTally {
+  decks: DeckRecord[];
+  min_games: number;
+  matches_counted: number;
+}
+
+export const fetchDeckStats = () => getJSON<DeckTally>(deckStatsURL());
 
 /** A game a successful POST /api/games returns: the new table's identity, the human seat and its bearer token, and the join path that carries them (Task ui11). */
 export interface CreateGame {

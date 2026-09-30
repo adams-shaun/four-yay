@@ -26,7 +26,7 @@ The import direction is one-way. `internal/archtest`'s
 | `events` | The event union, `events.Apply` (the only state mutator), the log, the sha256 hash chain. `events.Kind` is append-only. |
 | `effects` | `api:` primitive implementations, filter/count/value evaluators. Talks to the engine only through the small `effects.Host` interface; never imports `rules`. |
 | `rules` | The engine: turn structure, priority, stack, combat, SBAs, layers, casting and payment, and the `kw:`/`trig:`/`stat:`/`repl:` primitives. `rules.New`, `Pending`, `Submit`, `Advance`, `Clone`. Also holds the coverage ratchets and golden heads (`rules/*_test.go`). |
-| `view` | Projects one seat's redacted `view.View` (`Project`, `ProjectFor`, `RedactEvents`). The only way a client reads state. |
+| `view` | Projects one seat's redacted `view.View` (`Project`, `ProjectFor`, `RedactEvents`). The only way a client reads state. `view/view.go` is the orchestration (`Project`/`project`, `View`, the shared text helpers); the card/battlefield projection family lives in `view/card.go` (`CardView`, `cardViews`, `cardView`) and the stack family in `view/stack.go` (`StackView`, `stackViews`). A projection change goes in the family file for its seam, not in `view/view.go` — the two families were interleaved in one file and two projection tickets collided on it (split out in `97655ff0b`). |
 | `seat` | Who answers decisions: `seat.Seat` (+ `BoardSeat`, `PaymentPlanConsumer`), `NewBot`, `NewAttackSimBot`, `NewPolicyNetBot`, explore bot. Handed a view, never an engine. |
 | `replay` | Re-executes `(Config, Log)` and names the first divergent event (`Replay`, `ReplayTo`). |
 | `protocol` | Versioned wire types for host↔client. Types only; never imports `rules`. |
@@ -110,3 +110,4 @@ The import direction is one-way. `internal/archtest`'s
 | Add a repo deck | `internal/testutil/decks/*.json` via `cmd/deckimport`; it must be fully supported (the acceptance ratchet). |
 | Turn a player report into a test | `go run ./cmd/repro -emit-test <pkg> <feedback-dir>`. |
 | Change the wire | `protocol/`, then `make gentypes`. |
+| Change a seat's projected view | The family file for the seam: a card/battlefield projection in `view/card.go`, a stack projection in `view/stack.go`. Only an assembler change (`Project`/`project`) belongs in `view/view.go`, which two projection tickets once collided on. |
