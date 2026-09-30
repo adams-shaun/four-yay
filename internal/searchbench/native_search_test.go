@@ -171,13 +171,13 @@ func TestMergeRootTablesIsAKeyUnion(t *testing.T) {
 	}
 	for i := range want {
 		g, w := got[i], want[i]
-		if g.Key != w.Key || g.Label != w.Label || g.Visits != w.Visits || g.Avail != w.Avail || !near(g.Q, w.Q) || !near(g.Prior, w.Prior) {
+		if g.Key != w.Key || g.Label != w.Label || g.Visits != w.Visits || g.Avail != w.Avail || !nearArm(g.Q, w.Q) || !nearArm(g.Prior, w.Prior) {
 			t.Fatalf("row %d: %+v, want %+v", i, g, w)
 		}
 	}
 }
 
-func near(a, b float64) bool { d := a - b; return d < 1e-9 && d > -1e-9 }
+func nearArm(a, b float64) bool { d := a - b; return d < 1e-9 && d > -1e-9 }
 
 // PIMC-4 on a real position: the budget splits 3/3/2/2, the merged table
 // is the per-world tables' union, and the choice is the most visited key.
