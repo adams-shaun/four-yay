@@ -2022,6 +2022,16 @@ type SpecContext struct {
 	// prefix's context referent (contextReferent): Eradicate's
 	// `ChangeType$ Remembered.sameName` shares names with the captured card.
 	Remembered []state.Target
+	// RememberedPlayers is the CONSULTATION-time binding for a registered
+	// restriction's captured players (state.ContinuousEffect
+	// .RememberedPlayers). Resolution-time callers leave it zero -- their
+	// remembered players ride the Remembered targets above -- so its
+	// presence never changes a resolution read. rules' block consultation
+	// (blockRestricted) binds it because a static consultation never has
+	// Resolving set: without the channel, the registered CantBlockBy body's
+	// ValidBlocker$ Creature.RememberedPlayerCtrl clause (The Motherlode,
+	// Excavator) would resolve nobody and fail closed.
+	RememberedPlayers []state.PlayerID
 	// Chosen is the current resolution's selected cards/players. It is used
 	// by Forge's ChosenCard/nonChosenCard predicates, not persisted game state.
 	Chosen      []state.Target

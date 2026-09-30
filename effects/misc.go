@@ -1178,7 +1178,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 				ExileOnMoved:  exileOn,
 				ForgetCounter: forgetCounter,
 			}
-			if mode == "CantAttack" || mode == "CantSacrifice" {
+			if mode == "CantAttack" || mode == "CantSacrifice" || mode == "CantBlockBy" {
 				// The player half of the remembered capture: Call for Aid's
 				// RememberObjects$ TargetedPlayer must reach the registered
 				// CantAttack, whose Target$ Player.IsRemembered ("you can't
@@ -1186,7 +1186,12 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 				// consultation time (rules/layers.go
 				// restrictionPlayerSpecMatches) — effectRemembered records
 				// objects only, so without this the remembered player would
-				// silently vanish.
+				// silently vanish. The Motherlode, Excavator is why CantBlockBy
+				// joins: its RememberObjects$ TargetedController captures the
+				// defending player, and its ValidBlocker$
+				// Creature.RememberedPlayerCtrl clause resolves against the
+				// same set at the block consultation (rules/statics.go
+				// blockRestricted, via SpecContext.RememberedPlayers).
 				ce.RememberedPlayers = effectRememberedPlayers(h, c, sa)
 			}
 			effectContinuous(h, ce)
