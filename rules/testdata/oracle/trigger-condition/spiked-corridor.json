@@ -1,0 +1,21 @@
+{
+  "card": "Spiked Corridor",
+  "family": "trigger-condition",
+  "author": "cli-20260930T004423Z-d42d9d4e (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "casting-the-front-door-unlocks-it-and-makes-devils",
+      "cr": ["309.4", "309.5", "603.6a"],
+      "why": "Casting a Room spell enters it with that door unlocked; Spiked Corridor's unlocked-door ability then creates three 1/1 red Devil creature tokens.",
+      "setup": {"p0": {"hand": ["Spiked Corridor"]}},
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Spiked Corridor", "mana": "CCCR"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Spiked Corridor", "zone": "battlefield"},
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Devil", "token": true}, "eq": 3}
+      ]
+    }
+  ]
+}

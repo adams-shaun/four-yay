@@ -1,1 +1,3 @@
-{}
+{
+  "Sundering Eruption/creatures-without-flying-cannot-block-this-turn": "The rider 'Creatures without flying can't block this turn' is a DB$ Effect with StaticAbilities$ KWPump (AddHiddenKeyword$ CARDNAME can't block.), and effEffect registers continuous effects only for CantTarget, CantRegenerate, the cost-modifier modes and BecomeMonarch -- every other Effect mode is a bare Note. Observed: a ground Savannah Lions can still block. This is the AGENTS.md Effect known-approximation row."
+}

@@ -1,0 +1,54 @@
+{
+  "card": "Experiment Twelve",
+  "family": "etb-ltb",
+  "author": "cli-20260930T004423Z-d42d9d4e (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "disguised-cast-enters-face-down-two-two",
+      "cr": [
+        "702.168a",
+        "708.2"
+      ],
+      "why": "Casting Experiment Twelve with disguise puts it onto the battlefield face down as a 2/2 creature; its trample belongs to the face-up side.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Experiment Twelve"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Experiment Twelve",
+          "cast_mode": "disguised",
+          "mana": "CCC"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "CCCCG"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Experiment Twelve",
+          "zone": "battlefield",
+          "pt": "2/2"
+        },
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "turn_face_up",
+            "card": "p0:Experiment Twelve"
+          },
+          "want": true
+        }
+      ]
+    }
+  ]
+}

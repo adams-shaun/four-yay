@@ -1,0 +1,99 @@
+{
+  "card": "Ransom Note",
+  "family": "activation-condition",
+  "author": "cli-20260930T004423Z-d42d9d4e (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "sacrifice-to-cloak-top-card",
+      "cr": [
+        "701.62a",
+        "708.2"
+      ],
+      "why": "The {2}, sacrifice mode 'Cloak the top card of your library' puts the library's top card onto the battlefield face down as a 2/2 creature with ward {2}.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Ransom Note"
+          ],
+          "library_top": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Ransom Note",
+          "mana": "CC"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "modes",
+              "pick": [
+                "Cloak"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "battlefield",
+          "pt": "2/2"
+        },
+        {
+          "card": "p0:Ransom Note",
+          "zone": "graveyard"
+        }
+      ]
+    },
+    {
+      "name": "sacrifice-to-draw-a-card",
+      "cr": [
+        "608.2c"
+      ],
+      "why": "The {2}, sacrifice mode 'Draw a card' draws one card and puts Ransom Note into the graveyard as the sacrifice cost.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Ransom Note"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Ransom Note",
+          "mana": "CC"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "modes",
+              "pick": [
+                "Draw a card"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Ransom Note",
+          "zone": "graveyard"
+        },
+        {
+          "hand_size": {
+            "p0": 1
+          }
+        }
+      ]
+    }
+  ]
+}
