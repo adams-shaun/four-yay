@@ -148,13 +148,20 @@ func TestSampleRealDeckGolden(t *testing.T) {
 		// player view. The fixture's captured frames seed the sampler, so
 		// their changed bytes move the digest; frames 122, attempts 64,
 		// accepted 3 and worlds 8 remain unchanged.
-		{"pre-optimisation sampler", true, "7ce6af07c48a4c4a9ff2131072ed8aef53c0977128b31446db77de16047881d3"},
+		// Re-measured for the opponent archetype posterior
+		// (agent-20260930T000950Z-25c1cb85): PlayerView now carries an
+		// Archetype posterior for every non-viewer seat, so the fixture's
+		// captured frames (which marshal the projected view) change bytes and
+		// the sampled worlds move. frames 122, attempts 64, worlds 8 and the
+		// accepted/ESS shape are unchanged.
+		{"pre-optimisation sampler", true, "7b3013813ad153f107c3dab184fd061112192e01ab60175d5729e52eb9230fdd"},
 		// With the declined-land-drop exclusion: different proposals (so
 		// different worlds for a seed), same target distribution -- see
 		// TestLandExclusionRemovesOnlyRejectedWorlds. Re-measured for the
 		// Mausoleum Wanderer unless-cost ask label (see the test comment) and
-		// again for the damage-provenance fact (see above).
-		{"land exclusion", false, "d1c2f4ed11556677e03e11d0e9495a25e26b59e653b414464171025d5b3cdd7f"},
+		// again for the damage-provenance fact (see above); see the
+		// pre-optimisation entry for the archetype-posterior re-measure.
+		{"land exclusion", false, "c018a86ab8844936dcd4f4f0063ce7abb1de1896f5dec9c2b6256cc35eaba838"},
 	} {
 		opts := benchSampleOptions()
 		opts.MinESS = 1 // resample worlds from the thin pool so the digest covers them
@@ -316,7 +323,12 @@ func TestTeacherChoiceRealDeckGolden(t *testing.T) {
 	// CR 309's public completed_dungeons field changes the captured-frame
 	// seed and hence the sampled worlds. Index, Values, Rollouts 32,
 	// Terminal 32, Capped 0 and wins 8/8/8/8 are unchanged; Submits is 3878.
-	const want = "10e73f43e4ff38969a590eec20e33795f1e6737186fbdf88a4e416b80ed83c8d"
+	// Re-measured for the opponent archetype posterior
+	// (agent-20260930T000950Z-25c1cb85), for the same reason: the captured
+	// frames now marshal PlayerView.Archetype, so the sampled worlds moved
+	// and only Submits moves, 3878 -> 2995. Index, Values (all 1), Rollouts
+	// 32, Terminal 32, Capped 0 and the 8/8/8/8 wins split are unchanged.
+	const want = "ca3b4ecfd657181548903a843777863a07eb0d08e89a30832787e7ae4a6c0694"
 	for _, parallelism := range []int{0, 4} {
 		res, err := TeacherChoice(worlds, cands, TeacherOptions{Seed: 99, MaxSubmits: 5000, Parallelism: parallelism})
 		if err != nil {

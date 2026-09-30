@@ -17,8 +17,8 @@
     {
       "id": "opp_archetype_posterior",
       "description": "A posterior over an opponent's archetype, inferred from the cards revealed about that opponent.",
-      "where": null,
-      "exposed": false
+      "where": "view.PlayerView.Archetype (*view.ArchetypePosterior), inferred in view/archetype.go from the seat's public battlefield/graveyard/exile/command lists",
+      "exposed": true
     },
     {
       "id": "own_curve",

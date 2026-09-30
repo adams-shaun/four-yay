@@ -427,6 +427,42 @@ export interface DungeonView {
 }
 
   /**
+   * ArchetypePosterior is a posterior over an opponent's deck archetype,
+   * inferred from the cards revealed about that seat. It is nil for the
+   * viewer's own seat and for a spectator: the fact is an OPPONENT archetype
+   * posterior, and a seat's own deck identity is already the manifest's
+   * job (deck.File.Archetype), not something to re-infer from its graveyard.
+   *
+   * Known is false when nothing classifiable has been revealed yet; Scores is
+   * then empty and Top is "". A Known posterior's Scores entries sum to 1 and
+   * carry only positive values, so an absent entry means a zero posterior.
+   */
+export interface ArchetypePosterior {
+  /**
+   * Known reports whether any revealed card carried a classifiable signal.
+   */
+  known: boolean;
+  /**
+   * Seen is how many distinct revealed cards were classified.
+   */
+  seen: number;
+  /**
+   * Top is the highest-probability archetype's name ("" when !Known).
+   */
+  top?: string;
+  /**
+   * TopScore is that archetype's posterior probability.
+   */
+  top_score?: number;
+  /**
+   * Scores is the full normalised posterior, keyed by archetype name. It is
+   * built with a fixed key order (dense index order) and only ever read by
+   * key, so no map-range order can reach the wire.
+   */
+  scores?: Record<string, number>;
+}
+
+  /**
    * PlayerView is one seat's own public state, plus (only when this is the
    * viewer's own seat) the private parts.
    *
@@ -593,6 +629,19 @@ export interface PlayerView {
    * Constructed game never pays for a per-player empty map.
    */
   cmd_damage?: Record<string, number>;
+  /**
+   * Archetype is a posterior over this seat's deck archetype, inferred
+   * from the cards REVEALED about it (its public battlefield, graveyard,
+   * exile and command-zone lists). It is filled for every seat EXCEPT the
+   * viewer's own -- the fact is an OPPONENT archetype posterior, and a
+   * seat's own deck identity is the manifest's job (deck.File.Archetype),
+   * not something to re-infer. It is nil when the viewer is a spectator
+   * or nothing classifiable has been revealed yet, and it never reads a
+   * hidden zone (a hidden hand is not a CardView at all) or a card name.
+   * Like Available it carries omitempty so a view with no posterior
+   * serialises byte-identically to before the field existed.
+   */
+  archetype?: ArchetypePosterior | null;
 }
 
   /**
