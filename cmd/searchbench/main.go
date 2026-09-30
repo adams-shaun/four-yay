@@ -453,7 +453,8 @@ func rootVerify(args []string, out io.Writer) error {
 	corpus := fs.String("corpus", ".cards", "compiled Forge corpus")
 	rootsPath := fs.String("roots", "", "root JSONL index")
 	limit := fs.Int("limit", 1, "roots to independently replay; zero means all")
-	if err := fs.Parse(args); err != nil || *in == "" || *cardsPath == "" || *rootsPath == "" || *limit < 0 || fs.NArg() != 0 {
+	worlds := fs.Int("worlds", 0, "sampled hidden worlds to validate per root")
+	if err := fs.Parse(args); err != nil || *in == "" || *cardsPath == "" || *rootsPath == "" || *limit < 0 || *worlds < 0 || fs.NArg() != 0 {
 		return usage()
 	}
 	reg, err := cards.OpenCorpus(*corpus)
@@ -488,7 +489,19 @@ func rootVerify(args []string, out io.Writer) error {
 		if _, err := searchbench.ReplayRoot(reg, names, game, roots[i]); err != nil {
 			return fmt.Errorf("searchbench: root %d: %w", i, err)
 		}
+		for world := 0; world < *worlds; world++ {
+			// This is an audit seed, not a benchmark world schedule. A future
+			// sealed manifest owns the actual per-item world seeds.
+			seed := uint64(i+1)<<32 | uint64(world+1)
+			sampled, err := searchbench.ReplayRootWorld(reg, names, game, roots[i], seed)
+			if err != nil {
+				return fmt.Errorf("searchbench: root %d world %d: %w", i, world, err)
+			}
+			if err := searchbench.ValidateRootWorld(roots[i], sampled); err != nil {
+				return fmt.Errorf("searchbench: root %d world %d: %w", i, world, err)
+			}
+		}
 	}
-	_, err = fmt.Fprintf(out, "verified=%d indexed=%d\n", n, len(roots))
+	_, err = fmt.Fprintf(out, "verified=%d sampled_worlds=%d indexed=%d\n", n, n*(*worlds), len(roots))
 	return err
 }

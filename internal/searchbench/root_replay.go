@@ -86,6 +86,23 @@ func ReplayRootWorld(reg *cards.Registry, names map[string]string, game ReplayGa
 	return got, nil
 }
 
+// ValidateRootWorld proves that a sampled hidden world exposes exactly the
+// same root decision to the searching seat. PrefixDigest is deliberately not
+// compared: it binds the original event history, including its chance stream.
+func ValidateRootWorld(want RootRecord, got ReplayedRoot) error {
+	if got.Engine == nil || got.Decision == nil {
+		return fmt.Errorf("searchbench: nil sampled root")
+	}
+	record, err := NewRootRecord(want.GameID, want.GenesisSeed, want.Ordinal, got.Engine, got.Decision, decision.Intent{})
+	if err != nil {
+		return err
+	}
+	if record.Seat != want.Seat || record.Turn != want.Turn || record.Sequence != want.Sequence || record.PublicStateDigest != want.PublicStateDigest || record.DecisionDigest != want.DecisionDigest {
+		return fmt.Errorf("searchbench: sampled world changes public root %s/%d", want.GameID, want.Ordinal)
+	}
+	return nil
+}
+
 func rebuildRoot(reg *cards.Registry, names map[string]string, game ReplayGame, opponent []*cards.Card, want RootRecord, worldSeed uint64) (ReplayedRoot, decision.Intent, error) {
 	e, err := NewGenesis(reg, game, names, opponent, worldSeed)
 	if err != nil {
