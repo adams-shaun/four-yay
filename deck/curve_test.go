@@ -68,7 +68,7 @@ func TestNewManifestCarriesCurveAndCloneOwnsIt(t *testing.T) {
 	land := parseCurveCard(t, "Island", "", 0)
 	main := []*cards.Card{bolt, bolt, land}
 	sideboard := []*cards.Card{bolt}
-	m := NewManifest("curve deck", main, sideboard, nil)
+	m := NewManifest("curve deck", "", main, sideboard, nil)
 	if len(m.Curve) != 2 || m.Curve[0].CMC != 0 || m.Curve[0].Count != 1 || m.Curve[1].CMC != 1 || m.Curve[1].Count != 2 {
 		t.Fatalf("manifest curve = %#v, want [{0 1} {1 2}] (sideboard must not be counted)", m.Curve)
 	}

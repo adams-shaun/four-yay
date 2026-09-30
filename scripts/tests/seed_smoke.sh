@@ -72,6 +72,13 @@ export GORGE_TARGET_REPO=$TARGET
 export GORGE_REWARD_DIR=$TMP/reward
 export AGENTCTL_DIR=$STUB
 export PROBE_START_FLOOR_MB=1 HEAVY_START_FLOOR_MB=1
+# The gorged-hygiene stability/steward checks scan /proc for real; pointed at
+# this box's real one, the smoke run would pick up whatever gorged processes
+# actually happen to be running and make ticket counts nondeterministic
+# (measured 2026-09-30: a live standing-instance anomaly on this exact box
+# tripped the storm-suppression assertion below). Point it at an empty tree.
+mkdir -p "$TMP/proc-empty"
+export GORGE_PROC_DIR=$TMP/proc-empty
 
 # --- 1. a cycle with no model anywhere still measures, journals and files
 "$ROOT/scripts/seed-agent.sh" --no-probe --cap 2 >"$TMP/cycle1.log" 2>&1

@@ -271,6 +271,7 @@ func (r *Registry) loadArchived(t *table, sc sidecar) (*match, error) {
 func (r *Registry) matchForLog(t *table, sc sidecar, l *events.Log) (*match, error) {
 	decks := make([][]*cards.Card, len(sc.Decks))
 	sideboards := make([][]*cards.Card, len(sc.Decks))
+	archetypes := make([]string, len(sc.Decks))
 	for i, dn := range sc.Decks {
 		d, err := r.opts.LoadDeck(dn)
 		if err != nil {
@@ -278,8 +279,9 @@ func (r *Registry) matchForLog(t *table, sc sidecar, l *events.Log) (*match, err
 		}
 		decks[i] = d.Cards
 		sideboards[i] = d.Sideboard
+		archetypes[i] = d.Archetype
 	}
-	cfg := rules.Config{Seed: sc.Seed, Names: sc.Names, PlayerNames: sc.PlayerNames, Decks: decks, Sideboards: sideboardConfig(sideboards), Tokens: r.opts.Tokens, Mulligans: sc.Mulligans, WindowDiagnostics: t.cfg.WindowDiagnostics}
+	cfg := rules.Config{Seed: sc.Seed, Names: sc.Names, PlayerNames: sc.PlayerNames, Decks: decks, Archetypes: archetypes, Sideboards: sideboardConfig(sideboards), Tokens: r.opts.Tokens, Mulligans: sc.Mulligans, WindowDiagnostics: t.cfg.WindowDiagnostics}
 	// NameUniverse is a match MODE, not just data, and NameUniverseNames pins
 	// the exact ordered labels it offered. A pre-feature sidecar (no field)
 	// gets neither and therefore takes the legacy no-universe path, so a log

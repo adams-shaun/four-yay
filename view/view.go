@@ -319,6 +319,17 @@ type PlayerView struct {
 	// taken no commander damage (omitempty: absence is zero), so a
 	// Constructed game never pays for a per-player empty map.
 	CmdDamage map[state.ObjID]int32 `json:"cmd_damage,omitempty"`
+	// Archetype is a posterior over this seat's deck archetype, inferred
+	// from the cards REVEALED about it (its public battlefield, graveyard,
+	// exile and command-zone lists). It is filled for every seat EXCEPT the
+	// viewer's own -- the fact is an OPPONENT archetype posterior, and a
+	// seat's own deck identity is the manifest's job (deck.File.Archetype),
+	// not something to re-infer. It is nil when the viewer is a spectator
+	// or nothing classifiable has been revealed yet, and it never reads a
+	// hidden zone (a hidden hand is not a CardView at all) or a card name.
+	// Like Available it carries omitempty so a view with no posterior
+	// serialises byte-identically to before the field existed.
+	Archetype *ArchetypePosterior `json:"archetype,omitempty"`
 }
 
 // PoolRestrictionView is one restricted floating-mana batch as the wire
@@ -570,6 +581,13 @@ func project(g *state.Game, ch Chars, viewer state.PlayerID, d *decision.Decisio
 			for i := range pv.PotentialActions {
 				pv.PotentialActions[i].Label = optionLabelText(pv.PotentialActions[i].Label)
 			}
+		}
+		// The opponent archetype posterior rides the public card lists this
+		// projection already decided the viewer may see; it is never computed
+		// for the viewer's own seat (whose archetype is the manifest's fact)
+		// nor for a spectator (whose viewer index matches no real seat).
+		if p.ID != viewer && !spectator {
+			pv.Archetype = inferArchetypePosterior(pv.Battlefield, pv.Graveyard, pv.Exile, pv.Command)
 		}
 		v.Players = append(v.Players, pv)
 	}

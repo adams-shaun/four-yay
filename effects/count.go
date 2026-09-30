@@ -925,7 +925,7 @@ func rememberedLKIGroup(h Host, c *Ctx) []state.Target {
 // which refs exist. An unknown ref returns false -- the caller fails closed,
 // exactly as evalRefProperty's default always did.
 func refTargets(h Host, c *Ctx, ref string) ([]state.Target, bool) {
-	if inner, ok := strings.CutPrefix(ref, "Spawner>"); ok {
+	if inner, ok := spawnerChain(ref); ok { // shared Spawner> strip (spawnercontrol)
 		// Forge's adjustTriggerContext (AbilityUtils): "Spawner>" re-anchors
 		// the rest of the chain on the resolving ability's TRIGGER's spawning
 		// ability. This build's stand-in for that context is the firing
@@ -944,7 +944,7 @@ func refTargets(h Host, c *Ctx, ref string) ([]state.Target, bool) {
 		// writes Spawner>TriggerRemembered; this keeps the composition correct
 		// structurally (the count head's one-home helper).
 		sc.Captured = nil
-		return refTargets(h, &sc, strings.TrimSpace(inner))
+		return refTargets(h, &sc, inner)
 	}
 	switch ref {
 	case "Targeted", "ParentTarget", "ParentTargeted", "ThisTargetedCard":

@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import collections
 import json
+import os
 import re
 import subprocess
 import sys
@@ -352,6 +353,117 @@ def vmstat(key: str) -> int:
     return 0
 
 
+def _proc_ppid(pid_dir: Path) -> int:
+    """The parent pid from /proc/<pid>/stat's `comm` field, robust to a comm
+    containing spaces or parens: split on the LAST `)`, which is the closing
+    paren of `(comm)` -- everything after it is `state ppid ...`."""
+    try:
+        after = pid_dir.joinpath("stat").read_text().rsplit(")", 1)[1].split()
+        return int(after[1])
+    except (OSError, ValueError, IndexError):
+        return -1
+
+
+def gorged_processes(proc: Path | None = None) -> list[dict]:
+    """Every live `gorged` table server on the box: pid, ppid, `-addr` and
+    `-dir`. Matched by cmdline FLAGS (`-addr` and `-tables` both present), not
+    argv[0]/comm -- AGENTS.md's own caveat is that a locally rebuilt binary's
+    comm need not be `gorged`, while a table server's own startup flags are
+    stable regardless of what the binary is named.
+
+    `proc` defaults to `$GORGE_PROC_DIR` or `/proc`, so a test harness can
+    scope this to a fake tree instead of picking up the real box's processes
+    (the same problem `PiHarness.running_seats`'s own `proc` param solves)."""
+    proc = proc or Path(os.environ.get("GORGE_PROC_DIR", "/proc"))
+    out = []
+    try:
+        entries = list(proc.iterdir())
+    except OSError:
+        return out
+    for d in entries:
+        if not d.name.isdigit():
+            continue
+        try:
+            argv = d.joinpath("cmdline").read_bytes().split(b"\0")
+        except OSError:
+            continue
+        args = [a.decode(errors="replace") for a in argv if a]
+        if "-addr" not in args or "-tables" not in args:
+            continue
+        addr = next((args[i + 1] for i, a in enumerate(args[:-1]) if a == "-addr"), "")
+        gdir = next((args[i + 1] for i, a in enumerate(args[:-1]) if a == "-dir"), "")
+        out.append({"pid": int(d.name), "ppid": _proc_ppid(d), "addr": addr, "dir": gdir})
+    return out
+
+
+def _live_agent_dirs(proc: Path | None = None) -> list[Path]:
+    """The `--cwd` of every live pi-agent-shaped process, for telling a dev
+    gorged a SEAT is actively using apart from a standing one nobody owns."""
+    proc = proc or Path(os.environ.get("GORGE_PROC_DIR", "/proc"))
+    dirs: list[Path] = []
+    try:
+        entries = list(proc.iterdir())
+    except OSError:
+        return dirs
+    for d in entries:
+        if not d.name.isdigit():
+            continue
+        try:
+            argv = d.joinpath("cmdline").read_bytes().split(b"\0")
+        except OSError:
+            continue
+        args = [a.decode(errors="replace") for a in argv if a]
+        if not any("pi-agent" in a for a in args):
+            continue
+        cwd = next((args[i + 1] for i, a in enumerate(args[:-1]) if a == "--cwd"), "")
+        if cwd:
+            try:
+                dirs.append(Path(cwd).resolve())
+            except OSError:
+                pass
+    return dirs
+
+
+def collect_gorged_hygiene(proc: Path | None = None) -> tuple[int, int, str]:
+    """(standing_excess, unsafe_launches, note): the two gorged-process
+    hygiene failing signals (operator ruling 2026-09-30).
+
+    standing_excess: gorged processes NOT inside any currently-live agent's
+    own worktree -- the box's standing/demo instances -- above the documented
+    default of exactly one (AGENTS.md: "8080-8081: the demo", singular). A
+    second such instance (observed: a `-manabrew` table server parked on
+    :8081 alongside the intended :8080 demo, 4 tables instead of the
+    configured 1) is the failing signal, at the ordinary stability weight.
+
+    unsafe_launches: gorged processes reparented to init (`ppid == 1`) --
+    detached from whatever process created them, so killing that process's
+    tree would never have reaped this one. That is a launch-TIME defect
+    (nothing wired a trap or a supervising scope) independent of whether the
+    box is harmed by it right now, which is why it is a stewardship cost
+    (100x) rather than a stability veto: allowing an agent to create a
+    gorged instance with no safeguard ensuring its own cleanup.
+    """
+    procs = gorged_processes(proc)
+    if not procs:
+        return 0, 0, "no gorged process running"
+    owners = _live_agent_dirs(proc)
+
+    def owned(gdir: str) -> bool:
+        if not gdir:
+            return False
+        try:
+            gp = Path(gdir).resolve()
+        except OSError:
+            return False
+        return any(gp == o or gp.is_relative_to(o) or o.is_relative_to(gp) for o in owners)
+
+    standing = [p for p in procs if not owned(p["dir"])]
+    excess = max(0, len(standing) - 1)
+    unsafe = sum(1 for p in procs if p["ppid"] == 1)
+    note = "; ".join(f"pid={p['pid']} addr={p['addr']} dir={p['dir']}" for p in procs[:6])
+    return excess, unsafe, note
+
+
 def collect_stability(repo: Path, state: Path | None = None) -> list[str]:
     """OOM kills and swap-ins are read as DELTAS against the last probe.
 
@@ -390,6 +502,8 @@ def collect_stability(repo: Path, state: Path | None = None) -> list[str]:
             sum(1 for d in j if d.get("kind") in ("provider_failure", "endpoint_down")),
         )
     )
+    excess, _, gorged_note = collect_gorged_hygiene()
+    rows.append(row(repo, "stability", "standing_gorged_excess", excess, note=gorged_note))
     if state:
         state.parent.mkdir(parents=True, exist_ok=True)
         state.write_text(json.dumps(cur))
@@ -599,6 +713,8 @@ def collect_steward(repo: Path, context_file: Path | None = None) -> list[str]:
             note="; ".join(f"{p}({n})" for n, p in big[:6]),
         )
     )
+    _, unsafe, gorged_note = collect_gorged_hygiene()
+    rows.append(row(repo, "steward", "unsafe_gorged_launches", unsafe, note=gorged_note))
     return rows
 
 
@@ -977,6 +1093,42 @@ def selftest() -> int:
         )
         obs = [json.loads(r) for r in collect_obs(repo)]
         check("checklist exposure is counted", obs[0]["value"] == 1 and obs[1]["value"] == 2, obs)
+
+        # gorged process hygiene (operator ruling 2026-09-30): a fake /proc
+        # with the two real processes observed that day (the intended :8080
+        # demo and a stray -manabrew instance parked on :8081), plus a live
+        # pi-agent seat so a THIRD, agent-owned dev instance is not counted
+        # as standing, and a fourth reparented-to-init instance for the
+        # unsafe-launch signal.
+        fproc = Path(td) / "proc"
+
+        def fake_pid(pid: int, args: list[str], ppid: int) -> None:
+            d = fproc / str(pid)
+            d.mkdir(parents=True)
+            d.joinpath("cmdline").write_bytes(b"\0".join(a.encode() for a in args) + b"\0")
+            d.joinpath("stat").write_text(f"{pid} (gorged) S {ppid} {pid} {pid} 0 -1\n")
+
+        fake_pid(101, ["bin/gorged", "-addr", "127.0.0.1:8080", "-dir", "/tmp/gorge-demo-pub",
+                        "-tables", "1"], ppid=1)
+        fake_pid(102, ["bin/gorged", "-addr", "127.0.0.1:8081", "-dir", "/tmp/gorge-demo-mb",
+                        "-tables", "4", "-manabrew"], ppid=1)
+        fake_pid(103, ["bin/gorged", "-addr", "127.0.0.1:8095", "-dir", "/tmp/gorge-dev-x",
+                        "-tables", "1"], ppid=9001)
+        fake_pid(9001, ["pi-agent", "--cwd", "/tmp/gorge-dev-x", "--name", "dev-x"], ppid=500)
+        procs = gorged_processes(fproc)
+        check("gorged_processes finds every table server by flags, not comm",
+              {p["pid"] for p in procs} == {101, 102, 103}, procs)
+        excess, unsafe, _ = collect_gorged_hygiene(fproc)
+        check("two standing instances against the default of one is an excess of 1",
+              excess == 1, excess)
+        check("the agent-owned dev instance does not count as standing", excess == 1, excess)
+        check("both standing instances are reparented to init: two unsafe launches",
+              unsafe == 2, unsafe)
+
+        empty_proc = Path(td) / "proc-empty"
+        empty_proc.mkdir()
+        check("no gorged process running is not a failure",
+              collect_gorged_hygiene(empty_proc) == (0, 0, "no gorged process running"))
 
     print(f"\n{len(fails)} failure(s)")
     return 1 if fails else 0

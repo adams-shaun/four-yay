@@ -546,10 +546,10 @@ func damageSourceSpecTargets(h Host, c *Ctx, spec string) ([]state.Target, bool)
 		}
 		return ts, true
 	}
-	if inner, ok := strings.CutPrefix(spec, "Spawner>"); ok {
+	if inner, ok := spawnerChain(spec); ok { // shared Spawner> strip (spawnercontrol)
 		sc := *c
 		sc.Remembered = copyTargets(c.Captured)
-		return definedSpec(h, &sc, strings.TrimSpace(inner))
+		return definedSpec(h, &sc, inner)
 	}
 	return nil, false
 }

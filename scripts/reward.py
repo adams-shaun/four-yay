@@ -95,6 +95,13 @@ METRICS: tuple[MetricSpec, ...] = (
     MetricSpec("steward", "gate_wall_s", -1, 5.0),
     MetricSpec("steward", "agent_context_bytes", -1, 512.0),
     MetricSpec("steward", "oversized_files", -1, 1.0),
+    # A gorged process reparented to init was launched detached from whatever
+    # created it -- no trap, no supervising scope -- so nothing was ever going
+    # to reap it. That is a launch-code defect, worth the stewardship weight
+    # regardless of whether the box is harmed by it right now (operator
+    # ruling 2026-09-30, after a `-manabrew` instance was found standing on
+    # :8081 with 4 tables against the documented default of 1).
+    MetricSpec("steward", "unsafe_gorged_launches", -1, 1.0),
     MetricSpec("win", "champion_elo", +1, 10.0),
     MetricSpec("eff", "elo_per_ms", +1, 0.05),
     MetricSpec("eff", "ms_per_searched_decision_p50", -1, 0.5),
@@ -111,6 +118,11 @@ STABILITY_METRICS = {
     "gate_timeouts": 1.0,
     "broker_kills": 0.5,
     "gate_starved_minutes": 0.05,
+    # More than one standing (agent-unowned) gorged process is already over
+    # the documented default of exactly one (AGENTS.md: "8080-8081: the
+    # demo", singular) -- a second one is silently doubling the box's
+    # resident table-server load, not a task any live agent asked for.
+    "standing_gorged_excess": 1.0,
 }
 
 
@@ -541,8 +553,24 @@ def selftest() -> int:
     )
     check("a small stability event is still a veto", starve["stability"]["penalty"] >= 1.0, starve)
 
+    # A second standing gorged instance is a veto too (operator ruling
+    # 2026-09-30: only one standing table server is the documented default).
+    gorged = score(
+        _rows(
+            ("aaa", "win", "champion_elo", 1000.0),
+            ("bbb", "win", "champion_elo", 1001.0),
+            ("bbb", "stability", "standing_gorged_excess", 1.0),
+        )
+    )
+    check("a standing gorged excess is a stability veto", gorged["blocked_by_stability"], gorged)
+
     # A clean window with no stability rows is not penalised.
     check("no stability rows means no penalty", win["stability"]["penalty"] == 0.0, win)
+
+    # unsafe_gorged_launches is a steward metric (100x), not a stability veto:
+    # a detached launch is a code-hygiene cost even when nothing is on fire.
+    check("unsafe_gorged_launches is registered on the steward axis",
+          any(m.axis == "steward" and m.metric == "unsafe_gorged_launches" for m in METRICS))
 
     # Ranking: eff beats win at equal delta/cost; stability sorts first.
     with tempfile.TemporaryDirectory() as td:

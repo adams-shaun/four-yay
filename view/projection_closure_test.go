@@ -162,6 +162,15 @@ func TestViewMarshalsClosed(t *testing.T) {
 		// list, so it joins the public facts class here, never the hidden-zone
 		// class this test guards.
 		"has_initiative": true,
+		// archetype (task agent-20260930T000950Z-25c1cb85) is the per-opponent
+		// archetype posterior the obs checklist's opp_archetype_posterior fact
+		// names. It is DERIVED from the public battlefield/graveyard/exile/
+		// command card lists this projection already sends for that seat (the
+		// inferer reads no hidden zone and no card name -- a hidden hand is not
+		// a CardView at all), so it is a public-facts carrier, not a hidden-
+		// zone one. It is filled for every seat except the viewer's own and is
+		// nil when nothing classifiable is revealed (omitempty drops it).
+		"archetype": true,
 	})
 	// StackView is public (R3) so it is a lesser leak surface, but the
 	// reflection is the same shape and cheap, so it is pinned too. The two

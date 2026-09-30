@@ -11,14 +11,14 @@
     {
       "id": "own_deck_archetype_prior",
       "description": "The viewer's own deck archetype, as a prior over what the deck is trying to do.",
-      "where": "deck.File.Archetype (parsed from the deck file; deck.Manifest does not carry it, so view.View.OwnDeck loses it)",
-      "exposed": false
+      "where": "deck.Manifest.Archetype (carried from deck.File.Archetype by deck.NewManifest through rules.Config.Archetypes), projected as view.View.OwnDeck",
+      "exposed": true
     },
     {
       "id": "opp_archetype_posterior",
       "description": "A posterior over an opponent's archetype, inferred from the cards revealed about that opponent.",
-      "where": null,
-      "exposed": false
+      "where": "view.PlayerView.Archetype (*view.ArchetypePosterior), inferred in view/archetype.go from the seat's public battlefield/graveyard/exile/command lists",
+      "exposed": true
     },
     {
       "id": "own_curve",

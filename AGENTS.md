@@ -243,9 +243,11 @@ not here.
 ## Trigger-relative filter arguments (pg2)
 
 `ControlledBy <ref>` and `OwnedBy <ref>` recognise exactly `TriggeredTarget`,
-`TriggeredDefendingPlayer`, `TriggeredPlayer` and `TriggeredCard`; an absent
-binding fails closed (also under `!`); `Targeted*` and `Spawner>...` chains
-stay unknown. `effects.TriggerContext` carries event roles separately from the
+`TriggeredDefendingPlayer`, `TriggeredPlayer` and `TriggeredCard`, plus a
+`Spawner> <known-inner-ref>` chain in that argument position (resolved
+against the same riding TriggerContext); an absent binding fails closed
+(also under `!`); the `Targeted*` family stays unknown, as does every
+`Spawner>` chain outside that argument position. `effects.TriggerContext` carries event roles separately from the
 resolving ability's source, targets and Remembered, survives suspension,
 cloning and stack copying, and is rebuilt by replay without new events. Not
 implemented: `TargetingPlayer$` (Magus of the Abyss asks the trigger
