@@ -167,6 +167,13 @@ export interface CurveRow {
    */
 export interface Manifest {
   name: string;
+  /**
+   * Archetype is the deck's authoring archetype (File.Archetype), carried so
+   * the seat's own prior survives into the projection the bot reads as
+   * view.View.OwnDeck. Empty for a deck file that declares none, which
+   * marshals away (omitempty) and preserves the pre-field wire shape.
+   */
+  archetype?: string;
   main: ManifestRow[];
   sideboard?: ManifestRow[];
   commanders?: string[];
