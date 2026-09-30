@@ -44,6 +44,16 @@
           "name": "Mountain Whelp 0",
           "count": 7
         }
+      ],
+      "curve": [
+        {
+          "cmc": 0,
+          "count": 17
+        },
+        {
+          "cmc": 1,
+          "count": 23
+        }
       ]
     },
     "visibility": "seat",
@@ -288,6 +298,16 @@
         {
           "name": "Mountain Whelp 0",
           "count": 7
+        }
+      ],
+      "curve": [
+        {
+          "cmc": 0,
+          "count": 17
+        },
+        {
+          "cmc": 1,
+          "count": 23
         }
       ]
     },

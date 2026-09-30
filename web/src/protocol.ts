@@ -153,6 +153,15 @@ export interface ManifestRow {
 }
 
   /**
+   * CurveRow is one bucket of a deck's mana curve: Count copies whose
+   * front-face converted mana cost is CMC.
+   */
+export interface CurveRow {
+  cmc: number;
+  count: number;
+}
+
+  /**
    * Manifest is the immutable, unordered genesis list assigned to one seat.
    * Call Clone before publishing or retaining it outside its owner.
    */
@@ -161,6 +170,12 @@ export interface Manifest {
   main: ManifestRow[];
   sideboard?: ManifestRow[];
   commanders?: string[];
+  /**
+   * Curve is the derived mana curve over Main (CurveOf): one row per
+   * front-face CMC in ascending order, each carrying the copies at that
+   * cost. Derived observation data like the rows themselves, not game state.
+   */
+  curve?: CurveRow[];
 }
 
   /**

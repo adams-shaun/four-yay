@@ -23,8 +23,8 @@
     {
       "id": "own_curve",
       "description": "The viewer's own mana curve over its decklist.",
-      "where": "derivable from view.View.OwnDeck.Main, but no accessor carries the derived curve",
-      "exposed": false
+      "where": "deck.Manifest.Curve (derived at genesis by CurveOf from Main's front-face CMCs; view.View.OwnDeck projects it)",
+      "exposed": true
     },
     {
       "id": "per_zone_counts",
