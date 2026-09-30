@@ -1,0 +1,42 @@
+{
+  "card": "The Motherlode, Excavator",
+  "family": "etb-ltb",
+  "oracle_sha": "49f98a42e919",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "entering-counts-the-chosen-opponents-nonbasic-lands",
+      "cr": ["603.6a", "122.1", "108.1"],
+      "why": "Casting The Motherlode with the chosen opponent controlling three nonbasic lands gains exactly three energy counters, which does not cover the four-energy attack rider.",
+      "setup": {
+        "p0": {"hand": ["The Motherlode, Excavator"], "battlefield": ["Automated Assembly Line"]},
+        "p1": {"battlefield": ["Mystic Gate", "Mystic Gate#2", "Mystic Gate#3"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:The Motherlode, Excavator", "mana": "CCRRR",
+         "answers": [{"kind": "choose", "pick": ["p1"]}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"offered": {"seat": 0, "kind": "activate", "card": "p0:Automated Assembly Line", "label": "Robot"}, "want": false}
+      ]
+    },
+    {
+      "name": "no-nonbasic-lands-gains-no-energy",
+      "cr": ["603.6a", "122.1"],
+      "why": "With only Wastes (basic lands) on the battlefield, the enter trigger gains no energy counters and Dr. Madison Li's one-energy pump is not offered.",
+      "setup": {
+        "p0": {"hand": ["The Motherlode, Excavator"], "battlefield": ["Dr. Madison Li"]},
+        "p1": {"battlefield": ["Wastes", "Wastes#2"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:The Motherlode, Excavator", "mana": "CCRRR",
+         "answers": [{"kind": "choose", "pick": ["p1"]}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"offered": {"seat": 0, "kind": "activate", "card": "p0:Dr. Madison Li", "label": "gets +1/+0"}, "want": false}
+      ]
+    }
+  ]
+}

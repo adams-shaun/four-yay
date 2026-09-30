@@ -1,0 +1,48 @@
+{
+  "card": "T-45 Power Armor",
+  "family": "etb-ltb",
+  "oracle_sha": "482012134d17",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "equipping-buffs-and-the-creature-stays-tapped",
+      "cr": ["301.6a", "702.92a", "704.5i"],
+      "why": "T-45 Power Armor enters (gaining two energy counters) and equips the attacking Grizzly Bears: +3/+3 makes it 5/5, and because equipped creatures don't untap in the untap step, it is still tapped at the next turn's upkeep.",
+      "setup": {
+        "p0": {"battlefield": ["Grizzly Bears"], "hand": ["T-45 Power Armor"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:T-45 Power Armor", "mana": "CC"},
+        {"op": "resolve"},
+        {"op": "activate", "seat": 0, "card": "p0:T-45 Power Armor", "ability": "Equip", "targets": ["p0:Grizzly Bears"], "mana": "CCC"},
+        {"op": "resolve"},
+        {"op": "attack", "seat": 0, "attackers": ["p0:Grizzly Bears"], "defender": "p1"}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "pt": "5/5", "tapped": true}
+      ]
+    },
+    {
+      "name": "upkeep-pays-energy-untaps-and-puts-a-trample-counter",
+      "cr": ["603.2", "118.2d", "701.28a"],
+      "why": "At the beginning of upkeep the may-pay untaps the equipped creature and puts the chosen trample counter on it; with only the enter-trigger's two energy counters the payment covers one upkeep.",
+      "setup": {
+        "p0": {"battlefield": ["Grizzly Bears"], "hand": ["T-45 Power Armor"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:T-45 Power Armor", "mana": "CC"},
+        {"op": "resolve"},
+        {"op": "activate", "seat": 0, "card": "p0:T-45 Power Armor", "ability": "Equip", "targets": ["p0:Grizzly Bears"], "mana": "CCC"},
+        {"op": "resolve"},
+        {"op": "attack", "seat": 0, "attackers": ["p0:Grizzly Bears"], "defender": "p1"},
+        {"op": "pass_to", "step": "upkeep", "active": "p0",
+         "answers": [{"kind": "choose", "pick": ["yes"]}, {"kind": "choose", "pick": ["trample"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "tapped": false, "counters": {"trample": 1}}
+      ]
+    }
+  ]
+}

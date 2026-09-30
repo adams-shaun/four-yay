@@ -1,0 +1,43 @@
+{
+  "card": "Commercial District",
+  "family": "etb-ltb",
+  "oracle_sha": "2bc6c7fc602c",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enters-tapped-surveils-top-card-into-graveyard",
+      "cr": ["305.8", "701.42a", "603.6a"],
+      "why": "Commercial District enters tapped and its enter trigger surveils 1: the player looks at the top card of their library and may put it into their graveyard. Choosing to bin the top card moves it there.",
+      "setup": {
+        "p0": {"hand": ["Commercial District"], "library_top": ["Lightning Bolt"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "play", "seat": 0, "card": "p0:Commercial District"}
+      ],
+      "expect": [
+        {"card": "p0:Commercial District", "zone": "battlefield", "tapped": true},
+        {"card": "p0:Lightning Bolt", "zone": "graveyard"}
+      ]
+    },
+    {
+      "name": "surveil-keeps-top-card-and-taps-for-red-or-green",
+      "cr": ["305.8", "701.42a", "104.3a"],
+      "why": "Declining to bin keeps the surveiled card on top of the library, and the land's mana ability taps for {R} or {G}.",
+      "setup": {
+        "p0": {"hand": ["Commercial District"], "library_top": ["Lightning Bolt"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "play", "seat": 0, "card": "p0:Commercial District",
+         "answers": [{"kind": "arrange", "pick": []}]},
+        {"op": "activate", "seat": 0, "card": "p0:Commercial District", "ability": "Add"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Lightning Bolt", "zone": "library"},
+        {"card": "p0:Commercial District", "tapped": true}
+      ]
+    }
+  ]
+}
