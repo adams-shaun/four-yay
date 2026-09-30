@@ -479,11 +479,13 @@ func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 		return combine(conditionMetBattlefield(h, c, present, compare))
 	}
 	if defined != "Remembered" && defined != "Self" && defined != "TriggeredCard" &&
+		defined != "TriggeredCardLKICopy" &&
 		defined != "Imprinted" && defined != "Discarded" && defined != "Targeted" &&
 		defined != "Returned" && defined != "ChosenCard" && defined != "TriggeredSourceLKICopy" &&
 		defined != "RememberedLKI" &&
 		defined != "TriggeredSpellAbility" {
-		// Only the Remembered, Self, TriggeredCard, Imprinted, Targeted,
+		// Only the Remembered, Self, TriggeredCard, TriggeredCardLKICopy,
+		// Imprinted, Targeted,
 		// Discarded, Returned and ChosenCard families are in scope among DEFINED groups:
 		// the objects a walk
 		// carries in Ctx.Remembered, the resolving source object alone (the
@@ -494,7 +496,9 @@ func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 		// castprov2, Amped Raptor's `ConditionDefined$ TriggeredCard |
 		// ConditionPresent$ Card.wasCastFromYourHandByYou`: the exile-until
 		// runs only when the entering permanent was cast from its
-		// controller's hand), the source card's persistent imprint list
+		// controller's hand; the same family in the LKI-copy spelling is
+		// Toph, Hardheaded Teacher's `ConditionDefined$ TriggeredCardLKICopy
+		// | ConditionPresent$ Lesson`), the source card's persistent imprint list
 		// (shape 5 above — Rashmi and Ragavan's `ConditionDefined$ Imprinted
 		// | ConditionPresent$ Card | ConditionCompare$ EQ0`: the MayPlay
 		// static registers only when the Play did NOT cast the card, the "if
@@ -502,8 +506,10 @@ func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 		// own chosen targets (Stalking Leonin's `ConditionDefined$ Targeted |
 		// ConditionPresent$ Card.ChosenCtrl`: the exile runs only when the
 		// targeted attacker is controlled by the secretly chosen player).
-		// The LKI-copy variants and the rest need Ctx state this gate does not
-		// model (and whose fail-closed skip would change unrelated cards).
+		// The REMAINING LKI-copy/new-object spellings (TriggeredNewCard*,
+		// TriggeredAttacker*, TriggeredSourceSA) and the rest need Ctx state
+		// this gate does not model (and whose fail-closed skip would change
+		// unrelated cards).
 		return false, false
 	}
 	sc := c.SpecContext(c.Controller)
@@ -618,10 +624,14 @@ func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 		}
 		group = []state.Target{{Obj: c.TriggerSource}}
 	}
-	if defined == "TriggeredCard" {
+	if defined == "TriggeredCard" || defined == "TriggeredCardLKICopy" {
 		// The card the triggering event moved — the TriggerContext.TriggerCard
 		// role rules' triggerReferents captures for every mode that names one
-		// (ChangesZone, SpellCast, Drawn, ...). An ABSENT binding (a synthetic
+		// (ChangesZone, SpellCast, Drawn, ...). BOTH spellings enumerate the
+		// SAME group: M1 does not model LKI copies, so the LKI-copy spelling
+		// reads the live object exactly as the Defined$ TriggeredCardLKICopy
+		// resolver does (effects/context.go), and gate and resolver cannot
+		// disagree. An ABSENT binding (a synthetic
 		// fixture, a hand-built context, a mode with no card role) leaves the
 		// gate UNSUPPORTED — the sub runs unconditionally, this file's
 		// documented convention — never a resolved-false, which would silently

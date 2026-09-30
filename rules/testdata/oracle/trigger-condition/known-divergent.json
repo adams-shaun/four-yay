@@ -1,3 +1,2 @@
 {
-  "Toph, Hardheaded Teacher/cast-a-spell-earthbends-one": "casting a non-Lesson spell applies the Lesson rider's additional +1/+1 counter anyway, giving two counters instead of one (the sub-ability's ConditionDefined$ TriggeredCardLKICopy plus ConditionPresent$ Lesson is not evaluated by effects' conditions evaluator, which runs the sub unconditionally -- the documented cast-provenance gap)."
 }
