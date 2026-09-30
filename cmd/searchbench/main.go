@@ -585,8 +585,9 @@ func rootRun(args []string, out io.Writer) error {
 			worldCount = 4
 		}
 		worlds := make([]searchbench.ReplayedRoot, 0, worldCount)
+		worldSeeds := searchbench.SBV1WorldSeeds()
 		for w := 0; w < worldCount; w++ {
-			world, err := searchbench.ReplayRootWorld(reg, names, game, roots[i], uint64(i+1)<<32|uint64(w+1))
+			world, err := searchbench.ReplayRootWorld(reg, names, game, roots[i], worldSeeds[w])
 			if err != nil {
 				return fmt.Errorf("searchbench: root %d world %d: %w", i, w, err)
 			}
