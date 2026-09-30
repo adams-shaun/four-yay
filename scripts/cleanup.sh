@@ -57,13 +57,36 @@ seat_cache() {
 }
 
 worktrees() {
-	local root wt branch busy n=0 kb=0 s
+	local root wt branch busy n=0 kb=0 s orphans=0 orphan_kb=0 gd
 	root=$(git rev-parse --path-format=absolute --git-common-dir)
 	root=${root%/.git}
 	busy=$(busy_paths)
 	for wt in "$root"/.worktrees/*/; do
 		wt=${wt%/}
 		[ -e "$wt/.git" ] || continue
+		# An orphan keeps its `.git` file, but that file's `gitdir:` target (the
+		# metadata dir `git worktree remove` deregistered) is gone, so `git -C`
+		# would fail and the dir is unreachable by every cleanup path. Reclaim it
+		# directly: its registration is already gone, so nothing is de-registered
+		# and no branch is deleted -- there is no checked-out branch here any more.
+		gd=$(sed -n 's/^gitdir: //p' "$wt/.git")
+		if [ -n "$gd" ] && [ ! -d "$gd" ]; then
+			if grep -qF -- "$wt" <<<"$busy"; then
+				echo "keep (process inside): $wt"
+				continue
+			fi
+			s=$(du -sk "$wt" | cut -f1)
+			orphans=$((orphans + 1)); orphan_kb=$((orphan_kb + s))
+			say "$wt [orphaned dir]"
+			if [ "$APPLY" = 1 ]; then
+				if rm -rf -- "$wt" 2>/dev/null; then
+					:
+				else
+					echo "keep (read-only, rm by hand): $wt" >&2
+				fi
+			fi
+			continue
+		fi
 		branch=$(git -C "$wt" symbolic-ref --quiet --short HEAD) || { echo "keep (detached): $wt"; continue; }
 		if ! git -C "$root" merge-base --is-ancestor "$branch" main; then
 			continue # unmerged: live work, not reported
@@ -86,6 +109,7 @@ worktrees() {
 	done
 	[ "$APPLY" = 1 ] && git -C "$root" worktree prune
 	echo "$n merged worktrees, $((kb / 1024)) MB$([ "$APPLY" = 1 ] || echo ' (dry run; APPLY=1 to remove)')"
+	echo "$orphans orphaned dirs, $((orphan_kb / 1024)) MB$([ "$APPLY" = 1 ] || echo ' (dry run; APPLY=1 to remove)')"
 }
 
 case ${1:-} in
