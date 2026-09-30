@@ -45,3 +45,17 @@ func TestUsageRejectsEverythingButManifestValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestSourceAudit(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "source.csv")
+	if err := os.WriteFile(path, []byte("expansion,event_type,user_game_win_rate_bucket,user_n_games_bucket\nFDN,PremierDraft,0.6,100\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	var out bytes.Buffer
+	if err := run([]string{"source", "audit", "-in", path}, &out); err != nil {
+		t.Fatal(err)
+	}
+	if got := out.String(); !strings.Contains(got, "eligible=1") || !strings.Contains(got, "fdn_premier=1") {
+		t.Fatalf("audit output %q", got)
+	}
+}

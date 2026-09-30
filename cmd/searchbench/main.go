@@ -28,11 +28,14 @@ func run(args []string, out io.Writer) error {
 	if args[0] == "analyze" {
 		return analyze(args[1:], out)
 	}
+	if args[0] == "source" && args[1] == "audit" {
+		return sourceAudit(args[2:], out)
+	}
 	return usage()
 }
 
 func usage() error {
-	return fmt.Errorf("usage: searchbench manifest validate -in <manifest.json>\n       searchbench analyze -manifest <manifest.json> -results <results.jsonl>")
+	return fmt.Errorf("usage: searchbench manifest validate -in <manifest.json>\n       searchbench analyze -manifest <manifest.json> -results <results.jsonl>\n       searchbench source audit -in <17lands.csv[.gz]>")
 }
 
 func validate(args []string, out io.Writer) error {
@@ -76,5 +79,22 @@ func analyze(args []string, out io.Writer) error {
 		return fmt.Errorf("searchbench: result lacks all four types or both action classes")
 	}
 	_, err = fmt.Fprintf(out, "arm=%s items=%d macro_agreement=%.6f balanced_agreement=%.6f\n", arm, len(rows), macro, balanced)
+	return err
+}
+
+func sourceAudit(args []string, out io.Writer) error {
+	fs := flag.NewFlagSet("searchbench source audit", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	in := fs.String("in", "", "17lands FDN replay CSV")
+	minWR := fs.Float64("min-win-rate", .60, "minimum user game win-rate bucket")
+	minGames := fs.Int("min-games", 100, "minimum user games bucket")
+	if err := fs.Parse(args); err != nil || *in == "" || fs.NArg() != 0 {
+		return usage()
+	}
+	a, err := searchbench.AuditCSV(*in, searchbench.SourceFilter{MinimumGameWinRate: *minWR, MinimumGames: *minGames})
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(out, "rows=%d fdn_premier=%d eligible=%d malformed_eligibility=%d\n", a.Rows, a.FDNPremierRows, a.EligibleRows, a.MalformedEligibilityRows)
 	return err
 }
