@@ -3,6 +3,8 @@
 package main
 
 import (
+	"bufio"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -329,6 +331,7 @@ func rootAudit(args []string, out io.Writer) error {
 	cardsPath := fs.String("cards", "", "17lands cards CSV")
 	corpus := fs.String("corpus", ".cards", "compiled Forge corpus")
 	limit := fs.Int("limit", 100, "games to stage")
+	output := fs.String("out", "", "optional root JSONL output")
 	if err := fs.Parse(args); err != nil || *in == "" || *cardsPath == "" || *limit < 1 || fs.NArg() != 0 {
 		return usage()
 	}
@@ -348,6 +351,7 @@ func rootAudit(args []string, out io.Writer) error {
 		games = games[:*limit]
 	}
 	var roots, userRoots, lands, spells, completed int
+	var records []searchbench.RootRecord
 	firstFailure := ""
 	for i, game := range games {
 		base, e := searchbench.ResolveDeck(reg, game.Deck)
@@ -374,7 +378,16 @@ func rootAudit(args []string, out io.Writer) error {
 			}
 			continue
 		}
-		_, e = searchbench.StageGameObserve(engine, [2]*seat.Bot{seat.NewBot(uint64(i + 11)), seat.NewBot(uint64(i + 12))}, resolved, func(_ *rules.Engine, d *decision.Decision, in decision.Intent) error {
+		ordinal := 0
+		_, e = searchbench.StageGameObserve(engine, [2]*seat.Bot{seat.NewBot(uint64(i + 11)), seat.NewBot(uint64(i + 12))}, resolved, func(root *rules.Engine, d *decision.Decision, in decision.Intent) error {
+			if *output != "" {
+				record, err := searchbench.NewRootRecord(game.ID, ordinal, root, d, in)
+				if err != nil {
+					return err
+				}
+				records = append(records, record)
+			}
+			ordinal++
 			roots++
 			if d.Player == 0 {
 				userRoots++
@@ -399,6 +412,27 @@ func rootAudit(args []string, out io.Writer) error {
 			completed++
 		} else if firstFailure == "" {
 			firstFailure = e.Error()
+		}
+	}
+	if *output != "" {
+		f, e := os.OpenFile(*output, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+		if e != nil {
+			return e
+		}
+		w := bufio.NewWriter(f)
+		enc := json.NewEncoder(w)
+		for _, record := range records {
+			if e := enc.Encode(record); e != nil {
+				_ = f.Close()
+				return e
+			}
+		}
+		if e := w.Flush(); e != nil {
+			_ = f.Close()
+			return e
+		}
+		if e := f.Close(); e != nil {
+			return e
 		}
 	}
 	_, err = fmt.Fprintf(out, "games=%d roots=%d user_roots=%d lands=%d spells=%d completed=%d first_failure=%q\n", len(games), roots, userRoots, lands, spells, completed, firstFailure)
