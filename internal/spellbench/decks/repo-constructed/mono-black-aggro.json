@@ -1,5 +1,5 @@
 {
-  "name": "Mono-Black Aggro",
+  "name": "mono-black-aggro",
   "format": "custom",
   "archetype": "aggro with removal",
   "notes": "60-card mono-black aggro. Cheap evasive threats + spot removal. Removal spells exercise the AI's targeting logic (which is its main weakness against goblins/stompy where no spot removal matters). All cards are XMage-supported.",

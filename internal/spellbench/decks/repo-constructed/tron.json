@@ -1,5 +1,5 @@
 {
-  "name": "Tron",
+  "name": "tron",
   "format": "custom",
   "archetype": "ramp",
   "notes": "Faithful 60-card Legacy Urza-Tron big-mana ramp. Assemble Urza's Tower/Mine/Power Plant for explosive mana into colorless bombs. ENGINE-RISK (faithful, no-compromise build): Karn Liberated & Karn, the Great Creator are planeswalkers; Ulamog, the Ceaseless Hunger is a 10-drop with a modal cast trigger; Oblivion Stone / Walking Ballista / Wurmcoil are complex artifacts. CP7 evaluates these poorly and the Tron-assembly mana ramp is hard for its minimax — expect weak play even where cards resolve.",

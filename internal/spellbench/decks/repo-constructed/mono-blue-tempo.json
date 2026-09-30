@@ -1,5 +1,5 @@
 {
-  "name": "Mono-Blue Tempo",
+  "name": "mono-blue-tempo",
   "format": "custom",
   "archetype": "reactive tempo",
   "notes": "60-card mono-blue tempo inspired by MageZero's Standard-MonoU deck. All-blue counterspell + flash-flier shell — leans hard on holding up mana, which CP7's minimax handles poorly (the value of an uncast counterspell is contextual). Card pool restricted to XMage-evergreen names resolvable via CardRepository — no modal spells, no DFC, no equipment, no planeswalkers.",

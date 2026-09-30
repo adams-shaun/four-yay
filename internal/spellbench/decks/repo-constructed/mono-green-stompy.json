@@ -1,5 +1,5 @@
 {
-  "name": "Mono-Green Stompy",
+  "name": "mono-green-stompy",
   "format": "custom",
   "archetype": "creature midrange",
   "notes": "60-card mono-green stompy. Vanilla creatures + pump effects, no stack-heavy interaction. ComputerPlayer7 handles this archetype well because combat math is the dominant decision and there's no priority window for the opponent to disrupt. Card pool is XMage-evergreen names that ship in Mage.Sets.",

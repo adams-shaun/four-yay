@@ -1,5 +1,5 @@
 {
-  "name": "Eldrazi Stompy",
+  "name": "eldrazi-stompy",
   "format": "custom",
   "archetype": "stompy",
   "notes": "Faithful 60-card Legacy colorless Eldrazi Stompy. Sol-land acceleration (Ancient Tomb/City of Traitors) into oversized Eldrazi + Chalice prison. ENGINE-RISK (faithful, no-compromise build): Thought-Knot Seer / Reality Smasher / Matter Reshaper have cast/death triggers; Eldrazi Mimic & Endless One are */* with ETB choices; Chalice of the Void uses X; Walking Ballista and Umezawa's Jitte are counter/equipment artifacts; Warping Wail is modal. CP7 mostly jams creatures, ignoring the Chalice-lock plan.",

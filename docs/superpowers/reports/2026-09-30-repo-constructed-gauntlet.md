@@ -8,11 +8,11 @@ there. `.cards` symlink was present.
 
 | file | change |
 |---|---|
-| `internal/spellbench/decks/repo-constructed/*.json` (new, 14 files) | **Byte copies** of the 14 supported 60-card constructed repo decks (`internal/testutil/decks`, `format: custom`, exactly 60 cards), mono-green-stompy included |
+| `internal/spellbench/decks/repo-constructed/*.json` (new, 14 files) | Copies of the 14 supported 60-card constructed repo decks (`internal/testutil/decks`, `format: custom`, exactly 60 cards), mono-green-stompy included. Byte-identical to their sources EXCEPT the top-level `name` field, which each copy replaces with its file stem (see the round-2 fix note below the table) |
 | `internal/spellbench/decks.go` | embed gains `decks/repo-constructed/*.json`; `RepoConstructed` dir const; `RepoPool` = the **13 fully supported** decks (all but mono-green-stompy, whose single Vines of Vastwood runs under the recorded `stat:CantTarget` approximation — the Terror precedent: in the dir, out of the pool) |
 | `internal/spellbench/fdn.go` | one `Catalogs` row `{ID: "repo-constructed", Pool: RepoPool, Format: "repo-constructed-bo1"}` — `CatalogByID` accepts the id through the existing loop, no special case |
 | `internal/spellbench/repoconstructed_test.go` (new) | `TestRepoConstructedCatalogDecks`: dir↔pool correspondence, 14 decks, 60 cards each, `custom` format, `CatalogByID` row (corpus-free) |
-| `cmd/botbench/repoconstructed_test.go` (new) | `TestSpellbenchRepoConstructedCatalogCopiesAreByteIdentical` (drift guard, both directions) and `TestSpellbenchRepoConstructedCatalogMirrors` (real round-robin on the catalog, FDNCatalogMirrors shape) |
+| `cmd/botbench/repoconstructed_test.go` (new) | `TestSpellbenchRepoConstructedCatalogCopiesMatchSource` (payload drift guard: format/archetype/commanders/main/sideboard vs the source, both directions) and `TestSpellbenchRepoConstructedCatalogMirrors` (real round-robin on the catalog, FDNCatalogMirrors shape) |
 | `scripts/sb-gauntlet.sh` | 4th positional arg / `SB_GAUNTLET_CATALOG` (default `pauper-kernel`, today's behaviour unchanged); `-spellbench-catalog` in `run_bench`; `$CATALOG` in the cache key; POOL normalization only on pauper-kernel |
 
 Byte-equality-guard placement deviation, deliberate: the brief suggested
@@ -22,6 +22,42 @@ reads both sides from disk (`../../internal/...`) because `spellbench.decksFS` a
 The in-package `CatalogIDs`/decksFS enumeration stayed in `internal/spellbench`'s
 own test (its `_test` file already imports `testutil` — `fdn_test.go` — so no new
 import edge either). `internal/archtest` passes unchanged.
+
+### Round-2 fix: the copies' `name` field is the file stem, not the display name
+
+Review finding cli-20260930T022010Z-2c2950fe r2: `CatalogIDs`
+(`internal/spellbench/decks.go:49-64`) returns each deck's `name` field as its
+id, while `Deck` resolves ids as lowercased FILE STEMS
+(`decks.go:68-74`). The display names ("Death & Taxes", "UW Tempo", …) are
+not case-variants of their stems, so the ids `CatalogIDs` returned for this
+catalog could not round-trip: `internal/spellbench/builtins`'s committed
+`TestReanimateValueTerminates` (which iterates ALL of `Catalogs`) failed with
+`deck "Death & Taxes": open decks/repo-constructed/death & taxes.json: file does
+not exist`.
+
+Fix (finding direction (b), the narrowest that makes the ids round-trip without
+touching pauper-kernel's capitalized id contract — its consumers at
+`kshadow/setup.go:158`, `v2engine/server.go:117`, `v2shadow/setup.go:218` and the
+derived cardfacts all key on display names like "Burn"):
+
+- each copy's top-level `name` is now its file stem; the card payload is
+  untouched;
+- the drift guard narrowed to the load-bearing payload (format, archetype,
+  commander, main deck, sideboard) and now also asserts `name == stem`, so it
+  still fails loudly on card drift — and on a re-copy that restores a display
+  name;
+- `TestSpellbenchRepoConstructedSourceNamesAreDisplayNames` pins the narrowing
+  itself: if a source deck's name ever becomes its stem, the test says the
+  copies can go back to byte-identical;
+- `internal/spellbench/repoconstructed_test.go` pins the round-trip in-package:
+  `CatalogIDs(RepoConstructed)` returns exactly the 14 stems and each resolves
+  through `File`.
+
+Probes (output under `## Fails without the fix` in the round report): with a
+display-name copy restored, `TestReanimateValueTerminates` and
+`TestRepoConstructedCatalogDecks` fail exactly as the finding measured; with a
+copy's first main entry set 4→5, the drift guard fails naming
+`(main entry 0: "Volcanic Island" copy 5, source 4)`.
 
 ## Ask 1 — the catalog (done)
 
@@ -225,7 +261,7 @@ at which point `EvalResult.Pairs` covers the new decks for free.
 - Games: **312** in the single sweep (1m10.8s wall at `-workers 2`, GOMEMLIMIT
   2GiB). No search arm. No second sweep.
 - Anchored Elo: seconds (sbvenv, cached).
-- Files touched: 14 new deck JSONs (byte copies), 2 one-line-ish edits in
+- Files touched: 14 new deck JSONs (copies, one `name` line each), 2 one-line-ish edits in
   `internal/spellbench`, 2 new test files, one 5-hunk diff in
   `scripts/sb-gauntlet.sh`, this report. No engine file touched; no hot file
   touched; no Known-approximations row touched (count unchanged).

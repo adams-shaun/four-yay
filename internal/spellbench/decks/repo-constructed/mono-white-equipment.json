@@ -1,5 +1,5 @@
 {
-  "name": "Mono-White Equipment",
+  "name": "mono-white-equipment",
   "format": "custom",
   "archetype": "equipment aggro",
   "notes": "60-card casual mono-white equipment: Stoneforge finds equipment, Steelshaper discounts equipping, and Apprentice/Shikari reward an equipped attacker. Flayer Husk supplies both a bearer and equipment through living weapon; cheap blades and Warhammer turn small creatures into threats. Swords clears blockers and Shelter protects a bearer. Authored for FL-110; actual Equip and Living Weapon use is measured by cmd/keywordbench, not inferred from this list. Not in the closed golden rotation.",

@@ -1,5 +1,5 @@
 {
-  "name": "UW Control",
+  "name": "uw-control",
   "format": "custom",
   "archetype": "control",
   "notes": "Faithful 60-card Legacy UW (Miracles-style) control. Cantrip, counter, exile, sweep, win with Jace / manlands / Entreat. ENGINE-RISK (faithful, no-compromise build): Jace, the Mind Sculptor is a planeswalker; Terminus / Entreat the Angels use Miracle; Snapcaster Mage flashbacks from graveyard; Council's Judgment uses voting. Holding up counters is exactly the tempo/value tradeoff CP7's online minimax handles badly — expect weak sequencing.",

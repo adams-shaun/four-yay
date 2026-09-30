@@ -1,5 +1,5 @@
 {
-  "name": "Mono-Red Goblins",
+  "name": "mono-red-goblins",
   "format": "custom",
   "archetype": "aggro",
   "notes": "60-card mono-red goblin aggro for AI-vs-AI smoke tests. Card pool restricted to evergreen names resolvable via CardRepository (Mage.Sets). No equipment, no double-faced cards, no modal spells — keeps ComputerPlayer7's simulator inside its node budget.",

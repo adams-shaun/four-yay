@@ -46,6 +46,26 @@ func TestRepoConstructedCatalogDecks(t *testing.T) {
 	if strings.Join(pool, ",") != strings.Join(want, ",") {
 		t.Fatalf("RepoPool %v != catalog minus mono-green-stompy %v", want, pool)
 	}
+	// CatalogIDs returns each deck's name as its id, and Deck resolves ids
+	// as lowercased file stems — so every copy's name MUST be its stem for
+	// the returned ids to round-trip (a display name like "Death & Taxes"
+	// would produce an id no Deck call can resolve). Pin both directions.
+	catIDs, err := CatalogIDs(RepoConstructed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(catIDs, ",") != strings.Join(ids, ",") {
+		t.Fatalf("CatalogIDs(repo-constructed) = %v; want the file stems %v", catIDs, ids)
+	}
+	for _, id := range ids {
+		f, err := File(RepoConstructed, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if f.Name != id {
+			t.Errorf("%s: name %q; want the file stem so CatalogIDs round-trips through Deck", id, f.Name)
+		}
+	}
 	for _, id := range ids {
 		f, err := File(RepoConstructed, id)
 		if err != nil {

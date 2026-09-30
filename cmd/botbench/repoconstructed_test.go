@@ -7,21 +7,45 @@ package main
 // docs/superpowers/reports/2026-09-30-repo-constructed-gauntlet.md.
 
 import (
+	"fmt"
 	"os"
+	"reflect"
 	"slices"
 	"testing"
 
+	"github.com/adams-shaun/gorge/deck"
 	"github.com/adams-shaun/gorge/internal/spellbench"
 	"github.com/adams-shaun/gorge/internal/testutil"
 )
 
-// TestSpellbenchRepoConstructedCatalogCopiesAreByteIdentical guards the
-// catalog copies against drift from internal/testutil/decks, their source of
-// truth. Both sides are read from disk (the embeds are the same bytes at
-// build time), and the test asserts the precondition — every copy exists and
-// the two sides actually differ in pathname — so an empty or misplaced
-// directory fails loudly.
-func TestSpellbenchRepoConstructedCatalogCopiesAreByteIdentical(t *testing.T) {
+// deckPayload is the load-bearing deck payload for the drift guard.
+type deckPayload struct {
+	Format     string
+	Archetype  string
+	Commander  string
+	Commanders []string
+	Cards      []deck.Entry
+	Sideboard  []deck.Entry
+}
+
+// payloadOf extracts the load-bearing deck payload for the drift guard.
+func payloadOf(f deck.File) deckPayload {
+	return deckPayload{f.Format, f.Archetype, f.Commander, f.Commanders, f.Cards, f.Sideboard}
+}
+
+// TestSpellbenchRepoConstructedCatalogCopiesMatchSource guards the catalog
+// copies against drift from internal/testutil/decks, their source of truth.
+// The copies are byte-identical to their sources EXCEPT the top-level
+// "name" field, which each copy replaces with its file stem: CatalogIDs
+// (internal/spellbench/decks.go) returns the deck's name as its id and
+// Deck resolves ids as lowercased file stems, so a display name like
+// "Death & Taxes" would produce an id no Deck call can resolve (found by
+// builtins' TestReanimateValueTerminates, which iterates every catalog).
+// The load-bearing payload — format, archetype, commanders, main deck and
+// sideboard — must match the source exactly. Both sides are read from disk,
+// and the test asserts the precondition — every copy exists — so an empty
+// or misplaced directory fails loudly.
+func TestSpellbenchRepoConstructedCatalogCopiesMatchSource(t *testing.T) {
 	ids := append([]string(nil), spellbench.RepoPool...)
 	ids = append(ids, "mono-green-stompy")
 	slices.Sort(ids)
@@ -34,21 +58,35 @@ func TestSpellbenchRepoConstructedCatalogCopiesAreByteIdentical(t *testing.T) {
 		if err != nil {
 			t.Fatalf("repo deck %s: %v", id, err)
 		}
-		if string(copyB) == string(srcB) {
-			continue
+		cf, err := deck.Parse(copyB)
+		if err != nil {
+			t.Fatalf("catalog copy %s: %v", id, err)
 		}
-		line := 1
-		for i := 0; i < len(copyB) && i < len(srcB); i++ {
-			if copyB[i] != srcB[i] {
-				t.Errorf("%s: catalog copy has drifted from internal/testutil/decks at byte %d (line %d); re-copy the file", id, i+1, line)
-				break
-			}
-			if copyB[i] == '\n' {
-				line++
-			}
+		sf, err := deck.Parse(srcB)
+		if err != nil {
+			t.Fatalf("repo deck %s: %v", id, err)
 		}
-		if len(copyB) != len(srcB) {
-			t.Errorf("%s: copy is %d bytes, source %d", id, len(copyB), len(srcB))
+		// The copies' name is the stem, so every id CatalogIDs returns
+		// round-trips through Deck.
+		if cf.Name != id {
+			t.Errorf("catalog copy %s: name %q; want the file stem (CatalogIDs returns the name as the id)", id, cf.Name)
+		}
+		cp, sp := payloadOf(cf), payloadOf(sf)
+		if !reflect.DeepEqual(cp, sp) {
+			msg := fmt.Sprintf(" (format %q vs %q, archetype %q vs %q, commander %q vs %q)", cp.Format, sp.Format, cp.Archetype, sp.Archetype, cp.Commander, sp.Commander)
+			for _, e := range []struct {
+				zone      string
+				got, want []deck.Entry
+			}{
+				{"main", cp.Cards, sp.Cards}, {"sideboard", cp.Sideboard, sp.Sideboard}} {
+				for i := 0; i < len(e.got) && i < len(e.want); i++ {
+					if e.got[i] != e.want[i] {
+						msg += fmt.Sprintf(" (%s entry %d: %q copy %d, source %d)", e.zone, i, e.want[i].Name, e.got[i].Count, e.want[i].Count)
+						break
+					}
+				}
+			}
+			t.Errorf("%s: catalog copy has drifted from internal/testutil/decks%s; re-copy the file", id, msg)
 		}
 	}
 	// The mirror image of the guard: every constructed repo deck is in the
@@ -68,6 +106,26 @@ func TestSpellbenchRepoConstructedCatalogCopiesAreByteIdentical(t *testing.T) {
 		}
 		if !slices.Contains(ids, name) {
 			t.Errorf("constructed repo deck %q is not copied into the repo-constructed catalog", name)
+		}
+	}
+}
+
+// The source's name differs from the stem only in that one field; assert it
+// so the narrowing stays justified — if the source name ever BECOMES the
+// stem, the copies can go back to byte-identical and this test's name-field
+// carve-out is stale.
+func TestSpellbenchRepoConstructedSourceNamesAreDisplayNames(t *testing.T) {
+	for _, id := range append(append([]string(nil), spellbench.RepoPool...), "mono-green-stompy") {
+		srcB, err := os.ReadFile("../../internal/testutil/decks/" + id + ".json")
+		if err != nil {
+			t.Fatalf("repo deck %s: %v", id, err)
+		}
+		sf, err := deck.Parse(srcB)
+		if err != nil {
+			t.Fatalf("repo deck %s: %v", id, err)
+		}
+		if sf.Name == id {
+			t.Errorf("repo deck %s: source name %q is now the stem; the catalog copies can be byte-identical again", id, sf.Name)
 		}
 	}
 }
