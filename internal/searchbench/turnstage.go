@@ -81,10 +81,12 @@ func stageGame(e *rules.Engine, bots [2]*seat.Bot, g ResolvedReplayGame, observe
 				return bridges + n, fmt.Errorf("turn %d %s: %w", turn.Number, side.name, err)
 			}
 			bridges += n
-			if n, err = stageAttackers(e, bots, side.actor, side.a.Attackers, observe); err != nil {
-				return bridges + n, fmt.Errorf("turn %d %s attackers: %w", turn.Number, side.name, err)
+			if len(side.a.Attackers) > 0 {
+				if n, err = stageAttackers(e, bots, side.actor, side.a.Attackers, observe); err != nil {
+					return bridges + n, fmt.Errorf("turn %d %s attackers: %w", turn.Number, side.name, err)
+				}
+				bridges += n
 			}
-			bridges += n
 		}
 	}
 	return bridges, nil
