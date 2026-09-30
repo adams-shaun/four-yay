@@ -51,6 +51,30 @@ def head(repo: Path) -> str:
     return git(repo, "rev-parse", "--short", "HEAD").strip() or "unknown"
 
 
+def ds4_dir(repo: Path, leaf: str) -> Path | None:
+    """Resolve a repo-level shared-state path under `.ds4/` from anywhere.
+
+    The measured repo may be a task worktree (a seat re-runs this script with
+    `--repo .`), and a worktree's own `.ds4/` is partial: the controller copies
+    only what the brief needs, while `orchestrator/` and `reward/` live only in
+    the shared checkout. So the shared state is resolved through the git common
+    dir first and `repo` itself is the fallback -- the same roots the issue
+    store in `closed_issue_ids` already walks -- and the FIRST root where
+    `<root>/.ds4/<leaf>` exists wins, so a copy the controller did place in the
+    worktree still wins over the shared one. None means the state is absent:
+    callers fail open exactly as they did when the plain `repo / ".ds4"` path
+    was missing. Path predicates swallow PermissionError, so a common-dir
+    parent the caller cannot stat (a jail binding only the worktree) falls
+    through to the fallback harmlessly.
+    """
+    roots: list[Path] = []
+    common = git(repo, "rev-parse", "--path-format=absolute", "--git-common-dir").strip()
+    if common:
+        roots.append(Path(common).parent)
+    roots.append(repo)
+    return next((r / ".ds4" / leaf for r in roots if (r / ".ds4" / leaf).exists()), None)
+
+
 def row(repo: Path, axis: str, metric: str, value, note: str = "", cost_s: float = 0.0) -> str:
     return json.dumps(
         {
@@ -67,8 +91,8 @@ def row(repo: Path, axis: str, metric: str, value, note: str = "", cost_s: float
 
 
 def journal_rows(repo: Path, days: int = WINDOW_DAYS) -> list[dict]:
-    p = repo / ".ds4" / "orchestrator" / "journal.jsonl"
-    if not p.exists():
+    p = ds4_dir(repo, "orchestrator/journal.jsonl")
+    if p is None:
         return []
     cutoff = datetime.now(timezone.utc) - timedelta(days=days)
     out = []
@@ -113,12 +137,7 @@ def closed_issue_ids(repo: Path) -> set[str]:
     sees every branch as live: the behaviour before this filter, and the safe
     direction for a measurement that cannot read the tickets.
     """
-    roots: list[Path] = []
-    common = git(repo, "rev-parse", "--path-format=absolute", "--git-common-dir").strip()
-    if common:
-        roots.append(Path(common).parent)
-    roots.append(repo)
-    store = next((r / ".ds4" / "issues" for r in roots if (r / ".ds4" / "issues").is_dir()), None)
+    store = ds4_dir(repo, "issues")
     if store is None:
         return set()
     out: set[str] = set()
@@ -472,8 +491,8 @@ def gate_wall_seconds(repo: Path, runs: int = 5) -> float:
     between the first and last log it wrote. No instrumentation needed, and it
     measures what a ticket actually waits for.
     """
-    root = repo / ".ds4" / "orchestrator" / "gates"
-    if not root.exists():
+    root = ds4_dir(repo, "orchestrator/gates")
+    if root is None:
         return 0.0
     tags = sorted(
         (d for d in root.glob("*/*") if d.is_dir()),
@@ -809,6 +828,46 @@ def selftest() -> int:
         check("the live pair is still a hot spot, the residue is not",
               hs == [("g2.txt", sorted(["live", "live2"]))], hs)
 
+        # The reward collectors must read repo-level shared state from inside
+        # a task worktree (2026-09-30): a seat re-runs this script with
+        # `--repo .` from its worktree, whose own .ds4 is PARTIAL -- the
+        # controller copies only what the brief needs, and orchestrator/ and
+        # reward/ exist only in the shared checkout -- so a plain
+        # `repo / ".ds4"` read returned [] and 0.0 vacuously and every
+        # flow/steward/correct metric scored perfect from any seat. The
+        # resolution goes through the git common dir first, exactly as the
+        # issue store above already does.
+        orch = gr / ".ds4" / "orchestrator"
+        orch.mkdir(parents=True)
+        jr = orch / "journal.jsonl"
+        jr.write_text(
+            json.dumps({"ts": now_iso(), "kind": "transition",
+                        "issue_id": "t-9", "evidence": {"to": "merge_fix"}}) + "\n")
+        tag = orch / "gates" / "iss-x" / "gate"
+        tag.mkdir(parents=True)
+        (tag / "a.log").write_text("x")
+        (tag / "b.log").write_text("y")
+        os.utime(tag / "a.log", (10**6, 10**6))
+        os.utime(tag / "b.log", (10**6 + 12, 10**6 + 12))
+        (gr / ".ds4" / "reward").mkdir(exist_ok=True)
+        (wt / ".ds4").mkdir(exist_ok=True)  # a seat's PARTIAL .ds4: briefs only
+        (wt / ".ds4" / "notes.txt").write_text("brief and report copies")
+        check("fixture: the worktree has a .ds4 without the shared state, the shared repo has it",
+              (wt / ".ds4").is_dir() and not (wt / ".ds4" / "orchestrator").exists()
+              and jr.is_file() and (gr / ".ds4" / "reward").is_dir()
+              and len(list((orch / "gates").glob("*/*"))) == 1)
+        check("journal_rows resolves the shared journal from the worktree",
+              [r.get("issue_id") for r in journal_rows(wt)] == ["t-9"], journal_rows(wt))
+        check("gate_wall_seconds resolves the shared gate logs from the worktree",
+              gate_wall_seconds(wt) == 12.0, gate_wall_seconds(wt))
+        check("the state-dir default resolves the shared reward dir from the worktree",
+              ds4_dir(wt, "reward") == gr / ".ds4" / "reward")
+        empty = Path(td) / "no-state"
+        empty.mkdir()
+        check("with no .ds4 anywhere the readers fail open as before",
+              journal_rows(empty) == [] and gate_wall_seconds(empty) == 0.0
+              and ds4_dir(empty, "reward") is None)
+
         obs = [json.loads(r) for r in collect_obs(repo)]
         check("a missing checklist explains itself", "absent" in obs[0]["note"], obs)
         cl = repo / "internal" / "botobs"
@@ -837,7 +896,7 @@ def main(argv: list[str]) -> int:
     if a.selftest:
         return selftest()
     repo = a.repo.resolve()
-    state_dir = a.state_dir or (repo / ".ds4" / "reward")
+    state_dir = a.state_dir or (ds4_dir(repo, "reward") or (repo / ".ds4" / "reward"))
 
     if a.axis == "hotspots":
         for f, bs in hotspots(repo):
