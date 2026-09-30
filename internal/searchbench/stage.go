@@ -1,10 +1,14 @@
 package searchbench
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/rules"
+	"github.com/adams-shaun/gorge/seat"
+	"github.com/adams-shaun/gorge/state"
+	"github.com/adams-shaun/gorge/view"
 )
 
 // SubmitRecordedPlay advances a hypothetical root to its next decision and
@@ -34,3 +38,25 @@ func SubmitRecordedPlay(e *rules.Engine, verb, card string) error {
 
 func PlayLand(e *rules.Engine, card string) error { return SubmitRecordedPlay(e, "Play ", card) }
 func CastCard(e *rules.Engine, card string) error { return SubmitRecordedPlay(e, "Cast ", card) }
+
+// SubmitFallback advances through one non-recorded decision with the ordinary
+// redacted bot. It bridges source omissions and is therefore diagnostic-only;
+// callers must count every use in their fidelity ledger.
+func SubmitFallback(e *rules.Engine, b *seat.Bot, player state.PlayerID) error {
+	if e == nil || b == nil {
+		return fmt.Errorf("searchbench: nil fallback")
+	}
+	if err := e.AdvanceHypothetical(); err != nil {
+		return err
+	}
+	d := e.Pending()
+	if d == nil {
+		return fmt.Errorf("searchbench: game ended at fallback")
+	}
+	v := view.Project(e.G, e, player, d)
+	in, err := b.Decide(context.Background(), v, *d)
+	if err != nil {
+		return err
+	}
+	return e.SubmitHypothetical(in)
+}
