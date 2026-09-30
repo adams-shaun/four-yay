@@ -46,6 +46,10 @@ printf '{"name":"D","cards":["Lightning Bolt","Mountain"]}\n' >"$TARGET/internal
 #     each call so the cap can be asserted.
 STUB=$TMP/agentctl
 mkdir -p "$STUB/agentctl"
+# __init__.py makes this a REGULAR package so it shadows the installed agentctl
+# pin, which is also on PYTHONPATH. Without it both are namespace portions and
+# `-m agentctl` resolves the pin's __main__ instead of this stub.
+: >"$STUB/agentctl/__init__.py"
 cat >"$STUB/agentctl/__main__.py" <<'PY'
 import sys, pathlib
 args = sys.argv[1:]
