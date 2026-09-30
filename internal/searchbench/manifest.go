@@ -20,6 +20,17 @@ const (
 	WorldCount            = 8
 )
 
+// SBV1Selection is the published Draft Zero sb-v1 population: 1,000 test
+// items and 300 development items, with no game contributing more than two.
+// Builders must use these counts for a claim of protocol replication.
+var SBV1Selection = Selection{Test: 1000, Dev: 300, MinimumGameWinRate: .60, MinimumGames: 100, MaximumItemsPerGame: 2}
+
+// SBV1Quotas is the exact split by decision type, in fixed report order.
+var SBV1Quotas = map[Split]map[DecisionType]int{
+	SplitTest: {DecisionSpell: 375, DecisionHold: 125, DecisionAttack: 300, DecisionBlock: 200},
+	SplitDev:  {DecisionSpell: 110, DecisionHold: 40, DecisionAttack: 90, DecisionBlock: 60},
+}
+
 type Split string
 
 const (

@@ -99,3 +99,15 @@ func TestAnalyzeRequiresCompleteOneArmResults(t *testing.T) {
 		}
 	}
 }
+
+func TestSBV1QuotasMatchSelection(t *testing.T) {
+	for split, want := range map[Split]int{SplitTest: SBV1Selection.Test, SplitDev: SBV1Selection.Dev} {
+		got := 0
+		for _, n := range SBV1Quotas[split] {
+			got += n
+		}
+		if got != want {
+			t.Fatalf("%s quotas=%d want %d", split, got, want)
+		}
+	}
+}
