@@ -45,7 +45,8 @@ compiler fingerprint. The manifest contains no Forge or token script text.
 - T0/T1 reconstruction classification;
 - SHA-256 digests of the replay prefix, redacted public state and canonical
   legal options;
-- the human action as canonical option positions and an act/wait bit; and
+- one or more acceptable human candidates as canonical option positions, plus
+  the independent human act/wait bit; and
 - eight fixed, distinct world seeds.
 
 The manifest is sorted by item ID, seals every field with SHA-256, forbids a
@@ -55,6 +56,17 @@ decoder. The current command proves an artifact is usable:
 
 ```sh
 go run ./cmd/searchbench manifest validate -in /mnt/sata/gorge-training/searchbench/sb-v1/manifest.json
+```
+
+One arm writes exactly one JSONL result per manifest item, each carrying the
+manifest digest, arm name, canonical selected candidate and act/wait bit. The
+read-only analyzer rejects missing, duplicate, unknown, mixed-arm and
+cross-manifest rows before calculating metrics:
+
+```sh
+go run ./cmd/searchbench analyze \
+  -manifest /mnt/sata/gorge-training/searchbench/sb-v1/manifest.json \
+  -results /mnt/sata/gorge-training/searchbench/sb-v1/pimc-1-300.jsonl
 ```
 
 The future item builder must replay all prior human actions through

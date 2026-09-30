@@ -18,8 +18,8 @@ func testManifest() Manifest {
 		Corpus:    Corpus{ForgeRef: ref, CompilerFingerprint: "unit-test"},
 		Selection: Selection{Dev: 1, Test: 1, MinimumGameWinRate: .6, MinimumGames: 100, MaximumItemsPerGame: 2},
 		Items: []Item{
-			{ID: "dev-0001", GameID: "g-dev", DraftID: "d-dev", Split: SplitDev, Type: DecisionHold, Seat: 0, Turn: 3, Sequence: 1, Fidelity: "T0", PrefixDigest: sha, PublicStateDigest: sha, LegalOptionsDigest: sha, WorldSeeds: append([]uint64(nil), seeds...)},
-			{ID: "test-0001", GameID: "g-test", DraftID: "d-test", Split: SplitTest, Type: DecisionSpell, Seat: 1, Turn: 4, Sequence: 2, Fidelity: "T1", PrefixDigest: sha, PublicStateDigest: sha, LegalOptionsDigest: sha, Label: Label{Choices: []int{1}, Act: true}, WorldSeeds: append([]uint64(nil), seeds...)},
+			{ID: "dev-0001", GameID: "g-dev", DraftID: "d-dev", Split: SplitDev, Type: DecisionHold, Seat: 0, Turn: 3, Sequence: 1, Fidelity: "T0", PrefixDigest: sha, PublicStateDigest: sha, LegalOptionsDigest: sha, Label: Label{Alternatives: [][]int{{1}}}, WorldSeeds: append([]uint64(nil), seeds...)},
+			{ID: "test-0001", GameID: "g-test", DraftID: "d-test", Split: SplitTest, Type: DecisionSpell, Seat: 1, Turn: 4, Sequence: 2, Fidelity: "T1", PrefixDigest: sha, PublicStateDigest: sha, LegalOptionsDigest: sha, Label: Label{Alternatives: [][]int{{1}, {3}}, Act: true}, WorldSeeds: append([]uint64(nil), seeds...)},
 		},
 	}
 	if err := m.Seal(); err != nil {
@@ -46,7 +46,7 @@ func TestManifestSealAndValidate(t *testing.T) {
 func TestManifestRejectsSplitLeakAndNonCanonicalLabels(t *testing.T) {
 	for name, change := range map[string]func(*Manifest){
 		"draft split":       func(m *Manifest) { m.Items[1].DraftID = m.Items[0].DraftID },
-		"unsorted choices":  func(m *Manifest) { m.Items[1].Label.Choices = []int{2, 1} },
+		"unsorted choices":  func(m *Manifest) { m.Items[1].Label.Alternatives = [][]int{{2, 1}} },
 		"too many per game": func(m *Manifest) { m.Items[1].GameID = m.Items[0].GameID; m.Selection.MaximumItemsPerGame = 1 },
 		"duplicate world":   func(m *Manifest) { m.Items[1].WorldSeeds[7] = 1 },
 	} {
@@ -80,5 +80,22 @@ func TestReadRejectsUnknownAndTrailingJSON(t *testing.T) {
 				t.Fatal("Read accepted malformed manifest")
 			}
 		})
+	}
+}
+
+func TestAnalyzeRequiresCompleteOneArmResults(t *testing.T) {
+	m := testManifest()
+	rows := []Result{
+		{ManifestDigest: m.Digest, Arm: "pimc-1", ItemID: "dev-0001", AgentChoices: []int{1}},
+		{ManifestDigest: m.Digest, Arm: "pimc-1", ItemID: "test-0001", AgentChoices: []int{3}, AgentAct: true},
+	}
+	s, arm, err := Analyze(m, rows)
+	if err != nil || arm != "pimc-1" || s.Matches != [4]int{1, 1, 0, 0} {
+		t.Fatalf("Analyze = %+v, %q, %v", s, arm, err)
+	}
+	for _, bad := range [][]Result{rows[:1], {rows[0], rows[0]}, {rows[0], {ManifestDigest: m.Digest, Arm: "other", ItemID: "test-0001", AgentChoices: []int{3}}}} {
+		if _, _, err := Analyze(m, bad); err == nil {
+			t.Fatal("Analyze accepted incomplete, duplicate, or mixed-arm output")
+		}
 	}
 }

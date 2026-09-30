@@ -39,7 +39,7 @@ func TestManifestValidate(t *testing.T) {
 }
 
 func TestUsageRejectsEverythingButManifestValidation(t *testing.T) {
-	for _, args := range [][]string{nil, {"manifest"}, {"manifest", "validate"}, {"run", "-in", "x"}, {"manifest", "validate", "-in", "x", "extra"}} {
+	for _, args := range [][]string{nil, {"manifest"}, {"manifest", "validate"}, {"run", "-in", "x"}, {"manifest", "validate", "-in", "x", "extra"}, {"analyze"}} {
 		if err := run(args, &bytes.Buffer{}); err == nil || !strings.Contains(err.Error(), "usage:") {
 			t.Fatalf("run(%q) = %v, want usage", args, err)
 		}

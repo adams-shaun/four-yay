@@ -56,12 +56,15 @@ type Selection struct {
 	MinimumGames, MaximumItemsPerGame int
 }
 
-// Label is the human action re-expressed as positions in the decision's
-// canonical option list. Choices are sorted so the same subset has one
-// representation. Act drives the balanced act-or-wait metric.
+// Label is the human action re-expressed as one or more acceptable candidates
+// in the decision's canonical option list. A spell item can have several
+// acceptable casts (and, under the documented timing convention, Pass), while
+// attacker/blocker candidates are subsets. Each candidate's choices and the
+// candidate list itself are canonical. Act drives the balanced act-or-wait
+// metric and is deliberately separate from the acceptable-match convention.
 type Label struct {
-	Choices []int
-	Act     bool
+	Alternatives [][]int
+	Act          bool
 }
 
 // Item is deliberately a provenance record, rather than an engine snapshot.
@@ -148,7 +151,7 @@ func (m Manifest) validate(checkDigest bool) error {
 		if it.Type == DecisionHold && it.Label.Act {
 			return fmt.Errorf("searchbench: hold item %q acts", it.ID)
 		}
-		if err := choices(it.Label.Choices); err != nil {
+		if err := alternatives(it.Label.Alternatives); err != nil {
 			return fmt.Errorf("searchbench: item %q label: %w", it.ID, err)
 		}
 		if len(it.WorldSeeds) != WorldCount || !uniqueSeeds(it.WorldSeeds) {
@@ -193,6 +196,39 @@ func choices(v []int) error {
 		}
 	}
 	return nil
+}
+
+func alternatives(v [][]int) error {
+	if len(v) == 0 {
+		return errors.New("label needs at least one candidate")
+	}
+	for i := range v {
+		if err := choices(v[i]); err != nil {
+			return err
+		}
+		if i > 0 && compareChoices(v[i-1], v[i]) >= 0 {
+			return errors.New("candidates must be unique and lexically sorted")
+		}
+	}
+	return nil
+}
+
+func compareChoices(a, b []int) int {
+	for i := 0; i < len(a) && i < len(b); i++ {
+		if a[i] < b[i] {
+			return -1
+		}
+		if a[i] > b[i] {
+			return 1
+		}
+	}
+	if len(a) < len(b) {
+		return -1
+	}
+	if len(a) > len(b) {
+		return 1
+	}
+	return 0
 }
 
 func decisionType(v DecisionType) bool {
