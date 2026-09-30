@@ -281,6 +281,11 @@ for d in sorted(cand_root.glob("*/games.jsonl")):
 print()
 print(f"{'spec':<32} {'Elo':>7} {'CI95':>19} {'W-L':>9}  head-to-head vs the references")
 for cand in cands:
+    candidate_dir = cand_root / cand.replace("/", "_")
+    if (candidate_dir / "matches.jsonl").is_file():
+        (candidate_dir / "meta.json").write_text(json.dumps({
+            "ts": ts, "git_head": git_head, "spec": cand, "key": key,
+        }, sort_keys=True) + "\n")
     r = rows.get(cand, {})
     ci = r.get("ci95_elo_milli") or [None, None]
     wl = f"{r.get('wins', 0)}-{r.get('losses', 0)}"
