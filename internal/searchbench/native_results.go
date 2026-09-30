@@ -8,9 +8,21 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"reflect"
 
 	"github.com/adams-shaun/gorge/decision"
 )
+
+// SameRecordedAction compares benchmark actions rather than payment
+// witnesses. Every plan under one PaymentAction casts the same card; treating
+// a different legal mana-tapping plan as a different player decision would
+// score resource routing, not the cast-or-hold decision the source records.
+func SameRecordedAction(got, want decision.Intent) bool {
+	if got.Payment != nil || want.Payment != nil {
+		return got.Payment != nil && want.Payment != nil && got.Payment.ActionID == want.Payment.ActionID
+	}
+	return reflect.DeepEqual(got, want)
+}
 
 // NativeRunResult is one replay-root outcome from root-run. Unlike Result it
 // is intentionally not a sealed benchmark score: source root selection and

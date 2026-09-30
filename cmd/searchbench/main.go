@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"reflect"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
@@ -602,7 +601,7 @@ func rootRun(args []string, out io.Writer) error {
 		if err != nil {
 			return fmt.Errorf("searchbench: root %d %s: %w", i, arm, err)
 		}
-		if err := enc.Encode(searchbench.NativeRunResult{GameID: roots[i].GameID, SourceKind: roots[i].SourceKind, SourceCard: roots[i].SourceCard, Ordinal: roots[i].Ordinal, Seat: int(roots[i].Seat), Arm: arm, Choice: result.Choice, Intent: result.Intent, Recorded: roots[i].Recorded, MatchRecorded: reflect.DeepEqual(result.Intent, roots[i].Recorded), Sims: result.Stats.Simulations, Completed: result.Stats.Completed, Skipped: result.Stats.Skipped}); err != nil {
+		if err := enc.Encode(searchbench.NativeRunResult{GameID: roots[i].GameID, SourceKind: roots[i].SourceKind, SourceCard: roots[i].SourceCard, Ordinal: roots[i].Ordinal, Seat: int(roots[i].Seat), Arm: arm, Choice: result.Choice, Intent: result.Intent, Recorded: roots[i].Recorded, MatchRecorded: searchbench.SameRecordedAction(result.Intent, roots[i].Recorded), Sims: result.Stats.Simulations, Completed: result.Stats.Completed, Skipped: result.Stats.Skipped}); err != nil {
 			return err
 		}
 	}
