@@ -1,0 +1,79 @@
+{
+  "card": "Planar Engineering",
+  "family": "spell-conditional",
+  "author": "cli-20260930T004423Z-d42d9d4e (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "sacrifice-two-lands-search-four-basics-tapped",
+      "cr": [
+        "601.2c",
+        "701.21a",
+        "608.2c"
+      ],
+      "why": "Planar Engineering's controller sacrifices two lands as an additional cost, then searches for four basic land cards and puts them onto the battlefield tapped.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Planar Engineering"
+          ],
+          "battlefield": [
+            "Forest",
+            "Forest"
+          ],
+          "library_top": [
+            "Forest",
+            "Forest",
+            "Forest",
+            "Forest"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Planar Engineering",
+          "mana": "CCCG",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "p0:Forest",
+                "p0:Forest#2"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "p0:Forest#3",
+                "p0:Forest#4",
+                "p0:Forest#5",
+                "p0:Forest#6"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "graveyard_size": {
+            "p0": 3
+          }
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Forest"
+          },
+          "eq": 4
+        }
+      ]
+    }
+  ]
+}

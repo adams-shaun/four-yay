@@ -1,0 +1,54 @@
+{
+  "card": "Nervous Gardener",
+  "family": "trigger-condition",
+  "author": "cli-20260930T004423Z-d42d9d4e (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "disguised-cast-enters-face-down-two-two",
+      "cr": [
+        "702.168a",
+        "708.2"
+      ],
+      "why": "Casting Nervous Gardener with disguise puts it onto the battlefield face down as a 2/2 creature, and its disguise turn-up is offered as a special action.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Nervous Gardener"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Nervous Gardener",
+          "cast_mode": "disguised",
+          "mana": "CCC"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "G"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Nervous Gardener",
+          "zone": "battlefield",
+          "pt": "2/2"
+        },
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "turn_face_up",
+            "card": "p0:Nervous Gardener"
+          },
+          "want": true
+        }
+      ]
+    }
+  ]
+}

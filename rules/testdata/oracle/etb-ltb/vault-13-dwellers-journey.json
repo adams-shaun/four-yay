@@ -1,0 +1,48 @@
+{
+  "card": "Vault 13: Dweller's Journey",
+  "family": "etb-ltb",
+  "author": "cli-20260930T004423Z-d42d9d4e (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "first-chapter-exiles-one-creature-per-player",
+      "cr": [
+        "714.2b",
+        "714.3",
+        "610.3"
+      ],
+      "why": "Chapter I exiles up to one other target creature each player controls until the Saga leaves the battlefield; the opposing Savannah Lions is exiled.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Vault 13: Dweller's Journey"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Savannah Lions"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Vault 13: Dweller's Journey",
+          "mana": "CCCW"
+        },
+        {
+          "op": "resolve",
+          "targets": [
+            "p1:Savannah Lions"
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p1:Savannah Lions",
+          "zone": "exile"
+        }
+      ]
+    }
+  ]
+}

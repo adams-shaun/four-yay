@@ -1,0 +1,54 @@
+{
+  "card": "Ainok Survivalist",
+  "family": "trigger-condition",
+  "author": "cli-20260930T004423Z-d42d9d4e (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "megamorph-cast-enters-face-down-two-two",
+      "cr": [
+        "702.37a",
+        "702.168a"
+      ],
+      "why": "Casting Ainok Survivalist face down with megamorph puts it onto the battlefield as a 2/2 creature, and its megamorph turn-up is offered.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Ainok Survivalist"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Ainok Survivalist",
+          "cast_mode": "megamorphed",
+          "mana": "CCC"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "CG"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Ainok Survivalist",
+          "zone": "battlefield",
+          "pt": "2/2"
+        },
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "turn_face_up",
+            "card": "p0:Ainok Survivalist"
+          },
+          "want": true
+        }
+      ]
+    }
+  ]
+}
