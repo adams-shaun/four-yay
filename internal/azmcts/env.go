@@ -107,7 +107,7 @@ func (e *engineEnv) Play(k Key) (pt *Point, err error) {
 		}
 	}
 	if i < 0 {
-		return nil, fmt.Errorf("%w: candidate %s is not offered here", ErrSubmit, k)
+		return nil, fmt.Errorf("%w: candidate %q is not offered here", ErrSubmit, k)
 	}
 	if err := e.submit(e.cur, e.cands[i].in); err != nil {
 		return nil, err
