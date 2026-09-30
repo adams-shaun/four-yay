@@ -21,19 +21,21 @@
       ]
     },
     {
-      "name": "manifested-card-is-never-offered-turn-face-up",
+      "name": "manifested-creature-card-can-turn-face-up-for-its-mana-cost",
       "cr": ["701.61a", "708.6"],
-      "why": "A manifested creature card may be turned face up any time for its mana cost; the engine's turn-face-up special action covers only the morph family, so no turn-face-up option is offered for the manifested Grizzly Bears.",
+      "why": "A manifested Grizzly Bears is a creature card. With {1}{G} available and priority, its controller can turn it face up for its mana cost as a special action (CR 708.6).",
       "setup": {
         "p0": {"battlefield": ["Ugin's Mastery"], "hand": ["Memnite"], "library_top": ["Grizzly Bears"]},
         "p1": {}
       },
       "steps": [
         {"op": "cast", "seat": 0, "card": "p0:Memnite", "mana": "C"},
-        {"op": "resolve"}
+        {"op": "resolve"},
+        {"op": "mana", "seat": 0, "mana": "CG"}
       ],
       "expect": [
-        {"offered": {"seat": 0, "kind": "turn_face_up", "card": "p0:Grizzly Bears"}, "want": false}
+        {"card": "p0:Grizzly Bears", "zone": "battlefield", "pt": "2/2"},
+        {"offered": {"seat": 0, "kind": "turn_face_up", "card": "p0:Grizzly Bears"}, "want": true}
       ]
     }
   ]

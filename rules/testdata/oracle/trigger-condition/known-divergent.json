@@ -1,1 +1,3 @@
-{}
+{
+  "Ugin's Mastery/manifested-creature-card-can-turn-face-up-for-its-mana-cost": "With {1}{G} available and priority, a manifested Grizzly Bears is a creature card and must have a turn-face-up special action (CR 708.6). Observed: no turn_face_up option. This is the AGENTS.md cloak1 known approximation (turn-face-up for manifested and cloaked cards remains unimplemented); its existing P1 Morph/Megamorph/Disguise shared-path ticket owns the fix."
+}
