@@ -1,0 +1,19 @@
+{
+  "name": "Mono-Blue Tempo",
+  "format": "custom",
+  "archetype": "reactive tempo",
+  "notes": "60-card mono-blue tempo inspired by MageZero's Standard-MonoU deck. All-blue counterspell + flash-flier shell — leans hard on holding up mana, which CP7's minimax handles poorly (the value of an uncast counterspell is contextual). Card pool restricted to XMage-evergreen names resolvable via CardRepository — no modal spells, no DFC, no equipment, no planeswalkers.",
+  "cards": [
+    {"name": "Island",              "count": 22},
+    {"name": "Spectral Sailor",     "count":  4},
+    {"name": "Mausoleum Wanderer",  "count":  4},
+    {"name": "Wind Drake",          "count":  4},
+    {"name": "Phantom Monster",     "count":  4},
+    {"name": "Mist Raven",          "count":  4},
+    {"name": "Counterspell",        "count":  4},
+    {"name": "Mana Leak",           "count":  4},
+    {"name": "Brainstorm",          "count":  4},
+    {"name": "Unsummon",            "count":  4},
+    {"name": "Cancel",              "count":  2}
+  ]
+}

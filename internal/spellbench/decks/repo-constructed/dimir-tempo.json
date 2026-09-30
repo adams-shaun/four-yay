@@ -1,0 +1,27 @@
+{
+  "name": "Dimir Tempo",
+  "format": "custom",
+  "archetype": "tempo",
+  "notes": "Faithful 60-card Legacy Dimir (UB) tempo. Delver + delve threats, disruption (Thoughtseize/Therapy), efficient removal, free counters. ENGINE-RISK (faithful, no-compromise build): Delver of Secrets is double-faced; Gurmag Angler / Tombstalker use Delve; Cabal Therapy has Flashback; Fatal Push has revolt. Graveyard-cost and discard-disruption decisions are weak spots for CP7.",
+  "cards": [
+    {"name": "Underground Sea",   "count": 4},
+    {"name": "Island",            "count": 3},
+    {"name": "Swamp",             "count": 2},
+    {"name": "Polluted Delta",    "count": 4},
+    {"name": "Misty Rainforest",  "count": 2},
+    {"name": "Wasteland",         "count": 3},
+    {"name": "Delver of Secrets", "count": 4},
+    {"name": "Baleful Strix",     "count": 3},
+    {"name": "Gurmag Angler",     "count": 3},
+    {"name": "Tombstalker",       "count": 2},
+    {"name": "Force of Will",     "count": 4},
+    {"name": "Daze",              "count": 4},
+    {"name": "Brainstorm",        "count": 4},
+    {"name": "Ponder",            "count": 4},
+    {"name": "Fatal Push",        "count": 4},
+    {"name": "Thoughtseize",      "count": 4},
+    {"name": "Cabal Therapy",     "count": 2},
+    {"name": "Dismember",         "count": 2},
+    {"name": "Spell Pierce",      "count": 2}
+  ]
+}

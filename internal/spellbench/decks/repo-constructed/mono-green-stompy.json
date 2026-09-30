@@ -1,0 +1,19 @@
+{
+  "name": "Mono-Green Stompy",
+  "format": "custom",
+  "archetype": "creature midrange",
+  "notes": "60-card mono-green stompy. Vanilla creatures + pump effects, no stack-heavy interaction. ComputerPlayer7 handles this archetype well because combat math is the dominant decision and there's no priority window for the opponent to disrupt. Card pool is XMage-evergreen names that ship in Mage.Sets.",
+  "cards": [
+    {"name": "Forest",              "count": 22},
+    {"name": "Llanowar Elves",      "count":  4},
+    {"name": "Elvish Mystic",       "count":  4},
+    {"name": "Experiment One",      "count":  4},
+    {"name": "Strangleroot Geist",  "count":  4},
+    {"name": "Garruk's Companion",  "count":  4},
+    {"name": "Steel Leaf Champion", "count":  4},
+    {"name": "Leatherback Baloth",  "count":  4},
+    {"name": "Aspect of Hydra",     "count":  4},
+    {"name": "Vines of Vastwood",   "count":  4},
+    {"name": "Rancor",              "count":  2}
+  ]
+}

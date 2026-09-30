@@ -1,0 +1,20 @@
+{
+  "name": "Mono-White Equipment",
+  "format": "custom",
+  "archetype": "equipment aggro",
+  "notes": "60-card casual mono-white equipment: Stoneforge finds equipment, Steelshaper discounts equipping, and Apprentice/Shikari reward an equipped attacker. Flayer Husk supplies both a bearer and equipment through living weapon; cheap blades and Warhammer turn small creatures into threats. Swords clears blockers and Shelter protects a bearer. Authored for FL-110; actual Equip and Living Weapon use is measured by cmd/keywordbench, not inferred from this list. Not in the closed golden rotation.",
+  "cards": [
+    {"name": "Plains", "count": 20},
+    {"name": "Kitesail Apprentice", "count": 4},
+    {"name": "Sunspear Shikari", "count": 4},
+    {"name": "Kor Outfitter", "count": 4},
+    {"name": "Stoneforge Mystic", "count": 4},
+    {"name": "Auriok Steelshaper", "count": 4},
+    {"name": "Bonesplitter", "count": 4},
+    {"name": "Flayer Husk", "count": 4},
+    {"name": "Leonin Scimitar", "count": 2},
+    {"name": "Loxodon Warhammer", "count": 2},
+    {"name": "Swords to Plowshares", "count": 4},
+    {"name": "Shelter", "count": 4}
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "name": "UW Control",
+  "format": "custom",
+  "archetype": "control",
+  "notes": "Faithful 60-card Legacy UW (Miracles-style) control. Cantrip, counter, exile, sweep, win with Jace / manlands / Entreat. ENGINE-RISK (faithful, no-compromise build): Jace, the Mind Sculptor is a planeswalker; Terminus / Entreat the Angels use Miracle; Snapcaster Mage flashbacks from graveyard; Council's Judgment uses voting. Holding up counters is exactly the tempo/value tradeoff CP7's online minimax handles badly — expect weak sequencing.",
+  "cards": [
+    {"name": "Plains",                    "count": 3},
+    {"name": "Island",                    "count": 4},
+    {"name": "Tundra",                    "count": 4},
+    {"name": "Flooded Strand",            "count": 4},
+    {"name": "Polluted Delta",            "count": 2},
+    {"name": "Hallowed Fountain",         "count": 1},
+    {"name": "Karakas",                   "count": 1},
+    {"name": "Mishra's Factory",          "count": 2},
+    {"name": "Celestial Colonnade",       "count": 2},
+    {"name": "Wasteland",                 "count": 3},
+    {"name": "Swords to Plowshares",      "count": 4},
+    {"name": "Brainstorm",                "count": 4},
+    {"name": "Counterspell",              "count": 4},
+    {"name": "Force of Will",             "count": 4},
+    {"name": "Terminus",                  "count": 3},
+    {"name": "Jace, the Mind Sculptor",   "count": 3},
+    {"name": "Council's Judgment",        "count": 2},
+    {"name": "Ponder",                    "count": 4},
+    {"name": "Snapcaster Mage",           "count": 4},
+    {"name": "Entreat the Angels",        "count": 2}
+  ]
+}

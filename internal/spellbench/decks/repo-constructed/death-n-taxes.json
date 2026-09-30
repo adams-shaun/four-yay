@@ -1,0 +1,28 @@
+{
+  "name": "Death & Taxes",
+  "format": "custom",
+  "archetype": "hatebears",
+  "notes": "Faithful 60-card Legacy Mono-White Death & Taxes. Disruptive creatures (Thalia, Mother of Runes), land denial (Rishadan Port, Wasteland), and a Stoneforge equipment package. ENGINE-RISK (faithful, no-compromise build): Aether Vial (counter cheat-in), Stoneforge Mystic (fetch+cheat equipment), Umezawa's Jitte / Batterskull / Sword of Fire and Ice (equipment), Flickerwisp/Palace Jailer (blink/monarch), Mother of Runes (activated protection), Karakas (legend bounce). The Vial + Stoneforge + equip lines are exactly the kind of multi-step value CP7 fumbles.",
+  "cards": [
+    {"name": "Plains",                       "count": 12},
+    {"name": "Rishadan Port",                "count": 4},
+    {"name": "Wasteland",                    "count": 4},
+    {"name": "Karakas",                      "count": 2},
+    {"name": "Cavern of Souls",              "count": 1},
+    {"name": "Mother of Runes",              "count": 4},
+    {"name": "Thalia, Guardian of Thraben",  "count": 4},
+    {"name": "Stoneforge Mystic",            "count": 4},
+    {"name": "Flickerwisp",                  "count": 4},
+    {"name": "Serra Avenger",                "count": 3},
+    {"name": "Sanctum Prelate",              "count": 2},
+    {"name": "Phyrexian Revoker",            "count": 2},
+    {"name": "Recruiter of the Guard",       "count": 1},
+    {"name": "Palace Jailer",                "count": 1},
+    {"name": "Swords to Plowshares",         "count": 4},
+    {"name": "Aether Vial",                  "count": 4},
+    {"name": "Umezawa's Jitte",              "count": 1},
+    {"name": "Batterskull",                  "count": 1},
+    {"name": "Sword of Fire and Ice",        "count": 1},
+    {"name": "Council's Judgment",           "count": 1}
+  ]
+}

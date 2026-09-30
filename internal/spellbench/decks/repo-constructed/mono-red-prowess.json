@@ -1,0 +1,19 @@
+{
+  "name": "Mono-Red Prowess",
+  "format": "custom",
+  "archetype": "spells aggro",
+  "notes": "60-card casual mono-red prowess: cheap threats grow from a dense burn and flashback package. Looting finds threats and stocks the graveyard; Lava Dart and Reckless Charge provide repeat spell triggers. Burst Lightning gives the burn plan a late-game kicker outlet. Authored for FL-110; primitive support is not proof of useful bot sequencing. Measured with cmd/keywordbench, not added to the closed golden rotation.",
+  "cards": [
+    {"name": "Mountain", "count": 20},
+    {"name": "Monastery Swiftspear", "count": 4},
+    {"name": "Abbot of Keral Keep", "count": 4},
+    {"name": "Kiln Fiend", "count": 4},
+    {"name": "Festival Crasher", "count": 4},
+    {"name": "Lightning Bolt", "count": 4},
+    {"name": "Burst Lightning", "count": 4},
+    {"name": "Lava Dart", "count": 4},
+    {"name": "Faithless Looting", "count": 4},
+    {"name": "Firebolt", "count": 4},
+    {"name": "Reckless Charge", "count": 4}
+  ]
+}

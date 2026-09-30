@@ -1,0 +1,20 @@
+{
+  "name": "UW Tempo",
+  "format": "custom",
+  "archetype": "tempo",
+  "notes": "60-card UW tempo inspired by MageZero's UWTempo deck. Evasive flash threats backed by cheap counters and exile removal. Tempo decks are punishing for CP7's online minimax because the value of holding mana for a counter is hard to evaluate without modeling opponent's future plays. Card pool restricted to XMage-evergreen names resolvable via CardRepository — no modal spells, no DFC, no equipment, no planeswalkers.",
+  "cards": [
+    {"name": "Plains",              "count": 11},
+    {"name": "Island",              "count": 11},
+    {"name": "Mausoleum Wanderer",  "count":  4},
+    {"name": "Spectral Sailor",     "count":  4},
+    {"name": "Wind Drake",          "count":  4},
+    {"name": "Phantom Monster",     "count":  4},
+    {"name": "Selfless Spirit",     "count":  4},
+    {"name": "Mana Leak",           "count":  4},
+    {"name": "Counterspell",        "count":  4},
+    {"name": "Path to Exile",       "count":  4},
+    {"name": "Brainstorm",          "count":  4},
+    {"name": "Vapor Snag",          "count":  2}
+  ]
+}

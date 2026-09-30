@@ -1,0 +1,19 @@
+{
+  "name": "Mono-Red Goblins",
+  "format": "custom",
+  "archetype": "aggro",
+  "notes": "60-card mono-red goblin aggro for AI-vs-AI smoke tests. Card pool restricted to evergreen names resolvable via CardRepository (Mage.Sets). No equipment, no double-faced cards, no modal spells — keeps ComputerPlayer7's simulator inside its node budget.",
+  "cards": [
+    {"name": "Mountain",              "count": 20},
+    {"name": "Goblin Guide",          "count":  4},
+    {"name": "Monastery Swiftspear",  "count":  4},
+    {"name": "Goblin Piledriver",     "count":  4},
+    {"name": "Goblin Chieftain",      "count":  4},
+    {"name": "Reckless Bushwhacker",  "count":  4},
+    {"name": "Goblin Bushwhacker",    "count":  4},
+    {"name": "Lightning Bolt",        "count":  4},
+    {"name": "Lava Spike",            "count":  4},
+    {"name": "Skirk Prospector",      "count":  4},
+    {"name": "Ember Hauler",          "count":  4}
+  ]
+}

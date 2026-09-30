@@ -1,0 +1,25 @@
+{
+  "name": "UR Delver",
+  "format": "custom",
+  "archetype": "tempo",
+  "notes": "Faithful 60-card Legacy UR Delver tempo. One-mana threats + burn backed by free counters (Daze/Force) and cantrips. ENGINE-RISK (faithful, no-compromise build): Delver of Secrets is a double-faced (transform) card; Young Pyromancer makes tokens off every noncreature spell; Gitaxian Probe / Daze have alternative costs. Delver's flip and the 'hold up Daze' tempo lines are poorly modeled by CP7.",
+  "cards": [
+    {"name": "Volcanic Island",        "count": 4},
+    {"name": "Island",                 "count": 3},
+    {"name": "Mountain",               "count": 1},
+    {"name": "Scalding Tarn",          "count": 4},
+    {"name": "Flooded Strand",         "count": 2},
+    {"name": "Wasteland",              "count": 4},
+    {"name": "Delver of Secrets",      "count": 4},
+    {"name": "Young Pyromancer",       "count": 4},
+    {"name": "Monastery Swiftspear",   "count": 4},
+    {"name": "Lightning Bolt",         "count": 4},
+    {"name": "Chain Lightning",        "count": 4},
+    {"name": "Daze",                   "count": 4},
+    {"name": "Force of Will",          "count": 4},
+    {"name": "Brainstorm",             "count": 4},
+    {"name": "Ponder",                 "count": 4},
+    {"name": "Gitaxian Probe",         "count": 4},
+    {"name": "Spell Pierce",           "count": 2}
+  ]
+}

@@ -14,7 +14,7 @@ import (
 	"github.com/adams-shaun/gorge/deck"
 )
 
-//go:embed decks/pauper-kernel/*.json decks/fdn-limited/*.json
+//go:embed decks/pauper-kernel/*.json decks/fdn-limited/*.json decks/repo-constructed/*.json
 var decksFS embed.FS
 
 // PauperKernel is the pauper-kernel catalog directory.
@@ -24,6 +24,27 @@ const PauperKernel = "decks/pauper-kernel"
 // its benchmark.json order. The catalog also carries Terror, which g115 and
 // a48 trained on but the benchmark does not play.
 var BenchmarkPool = []string{"Wildfire", "Rally", "Affinity", "Elves", "Spy", "Burn", "CawGates", "Faeries"}
+
+// RepoConstructed is the repo-constructed catalog directory: byte copies of
+// the 14 supported 60-card constructed repo decks from
+// internal/testutil/decks (format "custom", exactly 60 main-deck cards).
+// The copies are deliberate: internal/spellbench must never import
+// internal/testutil, and cmd/botbench's byte-equality guard pins the copies
+// against drift.
+const RepoConstructed = "decks/repo-constructed"
+
+// RepoPool is the repo-constructed rotating deck pool: the 13 fully
+// supported constructed decks (every one but mono-green-stompy, whose single
+// Vines of Vastwood runs under the recorded stat:CantTarget approximation).
+// mono-green-stompy stays IN the directory and OUT of the pool, exactly the
+// pauper-kernel catalog's Terror precedent, so a -spellbench-decks run can
+// still name it explicitly.
+var RepoPool = []string{
+	"death-n-taxes", "dimir-tempo", "eldrazi-stompy", "mono-black-aggro",
+	"mono-blue-tempo", "mono-red-goblins", "mono-red-prowess",
+	"mono-white-equipment", "the-epic-storm", "tron", "ur-delver",
+	"uw-control", "uw-tempo",
+}
 
 // CatalogIDs lists every deck in dir by its catalog id (the file's "name").
 func CatalogIDs(dir string) ([]string, error) {

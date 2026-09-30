@@ -2,7 +2,7 @@
 # sb-gauntlet.sh — rate candidate SpellBench policy specs against a fixed
 # reference set.
 #
-# usage: scripts/sb-gauntlet.sh <spec>[,<spec>...] [pairs] [decks]
+# usage: scripts/sb-gauntlet.sh <spec>[,<spec>...] [pairs] [decks] [catalog]
 #
 #   specs   comma list of candidate policy specs, each a registry spec
 #           (internal/spellbench/registry): "bot", "sb-heuristic",
@@ -14,6 +14,12 @@
 #   decks   comma list of catalog deck ids, case-insensitive against the
 #           benchmark pool (default: the benchmark's 8-deck pool). Example:
 #           `scripts/sb-gauntlet.sh bot+passguard 1 affinity,elves`.
+#   catalog the SpellBench deck catalog to play (default pauper-kernel;
+#           SB_GAUNTLET_CATALOG overrides). Outside pauper-kernel the decks
+#           argument is passed to botbench case-insensitively but is NOT
+#           normalized against the pauper pool -- deck ids are validated by
+#           the catalog itself. Example:
+#           `scripts/sb-gauntlet.sh bot 2 death-n-taxes,uw-tempo repo-constructed`.
 #
 # The references are `sb-uniform` (the Elo anchor), `sb-heuristic` and
 # `bot`, plus every spec listed in
@@ -67,8 +73,9 @@ LOCK=/mnt/sata/gorge-training/spellbench-work/heavy.lock
 SBPY=${SB_GAUNTLET_SBPY:-/mnt/sata/gorge-training/sbvenv/bin}
 WORKERS=${SB_GAUNTLET_WORKERS:-8}
 POOL="Wildfire Rally Affinity Elves Spy Burn CawGates Faeries"
+CATALOG=${SB_GAUNTLET_CATALOG:-${4:-pauper-kernel}}
 
-CANDS_RAW=${1:?usage: scripts/sb-gauntlet.sh <spec>[,<spec>...] [pairs] [decks]}
+CANDS_RAW=${1:?usage: scripts/sb-gauntlet.sh <spec>[,<spec>...] [pairs] [decks] [catalog]}
 PAIRS=${2:-4}
 DECKS_RAW=${3:-}
 
@@ -84,7 +91,10 @@ heavy() {
 }
 
 # normalize_decks maps each comma token case-insensitively onto the
-# benchmark pool, so `affinity,elves` means `Affinity,Elves`.
+# benchmark pool, so `affinity,elves` means `Affinity,Elves` -- but only on
+# the pauper-kernel catalog, whose ids ARE the pool's. On another catalog
+# the token passes through verbatim (still unspaced, still nonempty) and
+# botbench validates it against that catalog's deck directory.
 normalize_decks() {
 	local out="" tok match p
 	local -a toks
@@ -92,15 +102,18 @@ normalize_decks() {
 	for tok in "${toks[@]}"; do
 		tok="${tok//[[:space:]]/}"
 		[ -z "$tok" ] && continue
-		match=""
-		for p in $POOL; do
-			if [ "${p,,}" = "${tok,,}" ]; then match="$p"; fi
-		done
-		# No pool match: pass the token through verbatim and let botbench
-		# validate it against the catalog (the pool list is not the whole
-		# catalog).
-		[ -z "$match" ] && match="$tok"
-		out+="${out:+,}$match"
+		if [ "$CATALOG" = "pauper-kernel" ]; then
+			match=""
+			for p in $POOL; do
+				if [ "${p,,}" = "${tok,,}" ]; then match="$p"; fi
+			done
+			# No pool match: pass the token through verbatim and let botbench
+			# validate it against the catalog (the pool list is not the whole
+			# catalog).
+			[ -z "$match" ] && match="$tok"
+			tok="$match"
+		fi
+		out+="${out:+,}$tok"
 	done
 	printf '%s' "$out"
 }
@@ -157,13 +170,13 @@ for p in rules effects cards decision botpolicy internal/spellbench cmd/botbench
 done
 keysrc+="${CHAMPKEY-}
 "
-KEY=$(printf '%s|%s|%s|%s' "$keysrc" "$PAIRS" "$DECKS" | sha256sum | cut -c1-16)
+KEY=$(printf '%s|%s|%s|%s' "$keysrc" "$PAIRS" "$DECKS" "$CATALOG" | sha256sum | cut -c1-16)
 CACHE="$GDIR/ref/$KEY"
 
 run_bench() { # run_bench <botlist> <out> [extra -spellbench-* filters...]
 	local list=$1 out=$2
 	shift 2
-	local -a cmd=("$WORK/botbench" -spellbench "$list" -spellbench-pairs "$PAIRS")
+	local -a cmd=("$WORK/botbench" -spellbench "$list" -spellbench-catalog "$CATALOG" -spellbench-pairs "$PAIRS")
 	if [ -n "$DECKS" ]; then cmd+=(-spellbench-decks "$DECKS"); fi
 	cmd+=(-spellbench-out "$out" -workers "$WORKERS" "$@")
 	heavy "${cmd[@]}"
