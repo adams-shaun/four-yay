@@ -76,7 +76,7 @@ func NewRootRecord(gameID string, genesisSeed uint64, ordinal int, root *rules.E
 		return RootRecord{}, err
 	}
 	digest := func(b []byte) string { x := sha256.Sum256(b); return hex.EncodeToString(x[:]) }
-	if action.Kind != "land" && action.Kind != "spell" || action.Card == "" {
+	if action.Kind != "land" && action.Kind != "spell" && action.Kind != "attack" || (action.Kind != "attack" && action.Card == "") {
 		return RootRecord{}, fmt.Errorf("searchbench: invalid recorded root action")
 	}
 	return RootRecord{GameID: gameID, GenesisSeed: genesisSeed, Ordinal: ordinal, SourceKind: action.Kind, SourceCard: action.Card, Seat: d.Player, Turn: root.G.Turn, Sequence: d.Seq, PrefixDigest: root.L.Head(), PublicStateDigest: digest(pub), DecisionDigest: digest(db), Recorded: decision.CloneIntent(action.Intent)}, nil

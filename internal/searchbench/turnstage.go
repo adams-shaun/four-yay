@@ -2,6 +2,8 @@ package searchbench
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/rules"
@@ -79,9 +81,58 @@ func stageGame(e *rules.Engine, bots [2]*seat.Bot, g ResolvedReplayGame, observe
 				return bridges + n, fmt.Errorf("turn %d %s: %w", turn.Number, side.name, err)
 			}
 			bridges += n
+			if n, err = stageAttackers(e, bots, side.actor, side.a.Attackers, observe); err != nil {
+				return bridges + n, fmt.Errorf("turn %d %s attackers: %w", turn.Number, side.name, err)
+			}
+			bridges += n
 		}
 	}
 	return bridges, nil
+}
+
+func stageAttackers(e *rules.Engine, bots [2]*seat.Bot, actor state.PlayerID, names []string, observe ActionObserver) (int, error) {
+	for bridges := 0; bridges < 128; bridges++ {
+		if err := e.AdvanceHypothetical(); err != nil {
+			return bridges, err
+		}
+		d := e.Pending()
+		if d == nil {
+			return bridges, fmt.Errorf("game ended before attack declaration")
+		}
+		if d.Player == actor && d.Kind == decision.KAttackers {
+			used, picks := make([]bool, len(d.Options)), make([]int, 0, len(names))
+			for _, name := range names {
+				found := -1
+				for i, o := range d.Options {
+					if !used[i] && e.G.Obj(o.Obj) != nil && e.G.Obj(o.Obj).Face().Name == name {
+						found = i
+						break
+					}
+				}
+				if found < 0 {
+					return bridges, fmt.Errorf("attacker %q is not offered", name)
+				}
+				used[found] = true
+				picks = append(picks, d.Options[found].Index)
+			}
+			sort.Ints(picks)
+			in := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: picks}
+			if observe != nil {
+				if err := observe(e.Clone(), d.Clone(), RecordedAction{Kind: "attack", Card: strings.Join(names, "|"), Intent: in}); err != nil {
+					return bridges, err
+				}
+			}
+			return bridges, e.SubmitHypothetical(in)
+		}
+		p := d.Player
+		if int(p) >= len(bots) || bots[p] == nil {
+			return bridges, fmt.Errorf("no fallback for player %d", p)
+		}
+		if err := SubmitBridge(e, bots[p], p); err != nil {
+			return bridges, err
+		}
+	}
+	return 128, fmt.Errorf("no attack declaration")
 }
 
 func stageOne(e *rules.Engine, bots [2]*seat.Bot, actor state.PlayerID, verb, card string, bridges int, observe ActionObserver) (int, error) {
