@@ -162,7 +162,8 @@ func amountMayReadTargets(sv staticView) bool {
 // layer/timestamp order, then each spec-scoped grant's hosts in the
 // deterministic zone walk grantedCostStaticHosts takes.
 func (e *Engine) appendEffectCostStatics(out *costStaticViews) {
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		// A GRANTED AddKeyword$ Affinity entry (CR 702.41a) prices here: a
 		// printed K:Affinity is expanded at keyword-expansion time into a face
 		// ReduceCost static (cards/kw_affinity.go) that the printed walk above
@@ -195,7 +196,7 @@ func (e *Engine) appendEffectCostStatics(out *costStaticViews) {
 		// e.active() at all. A future grammar that prices other granted
 		// cost-reduction keywords (Delve, Improvise, Convoke -- none granted
 		// via AddKeyword$ in the corpus) registers alongside this arm.
-		if arms := affinityGrantCostStatics(&ce); len(arms) > 0 {
+		if arms := affinityGrantCostStatics(ce); len(arms) > 0 {
 			for _, arm := range arms {
 				e.appendGrantedCostStatic(&out.reduce, arm, state.ZStack)
 			}
@@ -213,7 +214,7 @@ func (e *Engine) appendEffectCostStatics(out *costStaticViews) {
 			continue
 		}
 		if ce.CostStaticGranted {
-			e.appendGrantedCostStatic(dst, &ce, 0)
+			e.appendGrantedCostStatic(dst, ce, 0)
 			continue
 		}
 		*dst = append(*dst, staticView{Source: ce.Source, Controller: ce.Controller,

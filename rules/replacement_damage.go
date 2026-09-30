@@ -438,7 +438,8 @@ func (e *Engine) remainingDamageReplacements(ev events.Event, used []replMatch) 
 		}
 		return false
 	}
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.ReplacementEvent == "" {
 			continue
 		}

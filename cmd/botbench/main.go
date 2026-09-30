@@ -2513,6 +2513,7 @@ func main() {
 	registerAZFlags(flag.CommandLine)
 	registerSpellbenchFlags(flag.CommandLine)
 	flag.Parse()
+	applyGCFlags()
 	startPprof()
 	flag.Visit(func(f *flag.Flag) {
 		if f.Name == "policynet-kinds" {

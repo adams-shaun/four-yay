@@ -52,7 +52,8 @@ import (
 // id may be 0 when no spell is known (the zero-argument wrapper outside a
 // cast); a ManaConvert static then reaches p only through its player scope.
 func (e *Engine) paymentPlanGlobalManaEffect(p state.PlayerID, id state.ObjID) (bool, string) {
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.ReplacementEvent != "ProduceMana" {
 			continue
 		}
@@ -97,7 +98,8 @@ func (e *Engine) paymentPlanManaConvertName(p state.PlayerID) string {
 	for _, src := range e.manaConvPrintedSources() {
 		views = append(views, src.sv)
 	}
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.CostStaticMode == "ManaConvert" {
 			views = append(views, staticView{Source: ce.Source, Controller: ce.Controller, Params: ce.CostStaticParams})
 		}

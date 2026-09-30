@@ -105,7 +105,8 @@ func (e *Engine) assignmentStatics(mode string) []staticView {
 	// the registration branch records; they do not participate in the printed
 	// EffectZone source-zone walk above. active() supplies lifetime and movement
 	// filtering, and its order is stable, so append in registry order.
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.AssignmentStaticMode != mode {
 			continue
 		}

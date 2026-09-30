@@ -181,7 +181,8 @@ func cardMentionsAscend(c *cards.Card) bool {
 // AddKeywords names kw (by keyword head) -- the only way derivedCompute adds
 // a keyword to an object beyond its base list (baseMayHaveKeyword).
 func (e *Engine) activeGrantsKeyword(kw string) bool {
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		for _, k := range ce.AddKeywords {
 			if strings.EqualFold(cardsKeywordHead(k), kw) {
 				return true
