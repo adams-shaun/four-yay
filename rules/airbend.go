@@ -20,7 +20,20 @@ import (
 // same log-scan shape warpRecastAvailable and foretellCastAvailable take, so a
 // replayed game derives the identical answer.
 func (e *Engine) airbendCastAvailable(id state.ObjID) bool {
-	log := e.L.Events
+	return buildAirbendExileIndex(e.L.Events).available(id)
+}
+
+// airbendIndexOff makes exileCastsWalk answer each exiled card with the
+// literal backward log scan (airbendScan) instead of the per-walk index,
+// for the offer-surface equivalence test's index-off arm. Default false --
+// production always indexes. Mirrors mayPlayCandIndexOff
+// (rules/mayplay_index.go).
+var airbendIndexOff bool
+
+// airbendScan is the original one-off backward log scan: the latest MoveZone
+// naming id decides the permission. It is the reference arm airbendIndexOff
+// selects and the shape buildAirbendExileIndex folds into a map.
+func airbendScan(log []events.Event, id state.ObjID) bool {
 	for i := len(log) - 1; i >= 0; i-- {
 		ev := log[i]
 		if ev.Kind != events.MoveZone || ev.Obj != id {
@@ -33,4 +46,35 @@ func (e *Engine) airbendCastAvailable(id state.ObjID) bool {
 		return ev.To == state.ZExile && ev.Counter == effects.AirbendExileCounter
 	}
 	return false
+}
+
+// airbendExileIndex answers airbendCastAvailable for every card an offer walk
+// asks about, from ONE backward pass over the log. The latest MoveZone naming
+// id decides: to exile with effects.AirbendExileCounter is the permission, any
+// other latest move withholds it. Built fresh per walk from the append-only
+// log, so it is replay-exact and cannot drift mid-walk (no Emit runs between
+// the exile loop's offer checks).
+type airbendExileIndex map[state.ObjID]bool
+
+// buildAirbendExileIndex folds the log's MoveZone events into one permission
+// per card id. The log is scanned FORWARD and every MoveZone overwrites the
+// id's entry, so the map holds the latest move's verdict for each id --
+// exactly what airbendScan returns for that id. Ids never seen keep no entry
+// and available reports false, matching the scan's `return false`.
+func buildAirbendExileIndex(log []events.Event) airbendExileIndex {
+	ix := make(airbendExileIndex)
+	for i := range log {
+		ev := log[i]
+		if ev.Kind != events.MoveZone {
+			continue
+		}
+		ix[ev.Obj] = ev.To == state.ZExile && ev.Counter == effects.AirbendExileCounter
+	}
+	return ix
+}
+
+// available reports whether the card id carries the airbend recast
+// permission. An id the index never saw is false, matching the scan.
+func (ix airbendExileIndex) available(id state.ObjID) bool {
+	return ix[id]
 }
