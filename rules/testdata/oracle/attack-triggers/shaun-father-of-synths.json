@@ -1,0 +1,136 @@
+{
+  "card": "Shaun, Father of Synths",
+  "family": "attack-triggers",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "oracle_sha": "6d218acb81fd",
+  "scenarios": [
+    {
+      "name": "attack-copies-another-attacking-legend",
+      "cr": [
+        "603.6a",
+        "706.2",
+        "111.10"
+      ],
+      "why": "The attack trigger may create a tapped and attacking token that copies another attacking legendary creature; the token is not legendary and is a Synth artifact creature in addition to its other types, and is a 2/2 like Isamaru.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Shaun, Father of Synths",
+            "Isamaru, Hound of Konda"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Shaun, Father of Synths",
+            "p0:Isamaru, Hound of Konda"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "yes"
+              ]
+            },
+            {
+              "kind": "any",
+              "pick": [
+                "p0:Isamaru, Hound of Konda"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Isamaru",
+            "token": true
+          },
+          "eq": 1
+        },
+        {
+          "card": "p0:token:Isamaru",
+          "pt": "2/2",
+          "tapped": true
+        }
+      ]
+    },
+    {
+      "name": "leaving-battlefield-exiles-synth-tokens",
+      "cr": [
+        "603.6c",
+        "603.6e"
+      ],
+      "why": "When Shaun leaves the battlefield every Synth token its controller controls is exiled; the copied Isamaru token is a Synth and is exiled with him.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Shaun, Father of Synths",
+            "Isamaru, Hound of Konda"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Shaun, Father of Synths",
+            "p0:Isamaru, Hound of Konda"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "yes"
+              ]
+            },
+            {
+              "kind": "any",
+              "pick": [
+                "p0:Isamaru, Hound of Konda"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "move",
+          "card": "p0:Shaun, Father of Synths",
+          "to": "graveyard"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Shaun, Father of Synths",
+          "zone": "graveyard"
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Isamaru",
+            "token": true
+          },
+          "eq": 0
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "card": "T-45 Power Armor",
+  "family": "equipment",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "oracle_sha": "482012134d17",
+  "scenarios": [
+    {
+      "name": "equipped-creature-gets-plus-three-plus-three",
+      "cr": [
+        "301.5",
+        "613.4"
+      ],
+      "why": "T-45 Power Armor gives the equipped creature +3/+3; equipping it to a 2/2 Bear makes it 5/5.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "T-45 Power Armor",
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:T-45 Power Armor",
+          "ability": "Equip",
+          "mana": "CCC",
+          "targets": [
+            "p0:Grizzly Bears"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "pt": "5/5"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "card": "Curie, Emergent Intelligence",
+  "family": "combat-damage",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "oracle_sha": "0540fad54708",
+  "scenarios": [
+    {
+      "name": "combat-damage-draws-equal-to-base-power",
+      "cr": [
+        "603.6a",
+        "208.4",
+        "121.2"
+      ],
+      "why": "Curie's base power is 1, so unblocked combat damage of 1 makes its controller draw one card.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Curie, Emergent Intelligence"
+          ]
+        },
+        "p1": {
+          "life": 20
+        }
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Curie, Emergent Intelligence"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "pass_to",
+          "seat": 0,
+          "step": "end"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p1": 19
+          }
+        },
+        {
+          "hand_size": {
+            "p0": 1
+          }
+        }
+      ]
+    }
+  ]
+}

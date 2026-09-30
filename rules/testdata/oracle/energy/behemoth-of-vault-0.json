@@ -1,0 +1,63 @@
+{
+  "card": "Behemoth of Vault 0",
+  "family": "energy",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "oracle_sha": "7a00b4cb1ee2",
+  "scenarios": [
+    {
+      "name": "dies-pays-energy-equal-to-mana-value-to-destroy",
+      "cr": [
+        "603.6c",
+        "608.2c",
+        "122.1"
+      ],
+      "why": "The enters trigger granted four energy. When Behemoth dies it may pay energy equal to a target nonland permanent's mana value; Solemn Simulacrum has mana value 4, exactly the four energy available, so it is destroyed.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Behemoth of Vault 0"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Solemn Simulacrum"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "move",
+          "card": "p0:Behemoth of Vault 0",
+          "to": "graveyard"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "yes"
+              ]
+            },
+            {
+              "kind": "any",
+              "pick": [
+                "p1:Solemn Simulacrum"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Behemoth of Vault 0",
+          "zone": "graveyard"
+        },
+        {
+          "card": "p1:Solemn Simulacrum",
+          "zone": "graveyard"
+        }
+      ]
+    }
+  ]
+}

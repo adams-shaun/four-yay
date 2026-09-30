@@ -1,0 +1,99 @@
+{
+  "card": "Captain America, Team Leader",
+  "family": "hero-triggers",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "oracle_sha": "de1faa0a3c05",
+  "scenarios": [
+    {
+      "name": "another-hero-enters-gets-counter-and-cap-gets-one",
+      "cr": [
+        "603.6a",
+        "608.2c"
+      ],
+      "why": "Another Hero entering is the trigger. The entering Hero gets a +1/+1 counter (and vigilance/haste), and Captain America gets a +1/+1 counter too. Black Widow is a Hero, so she is the trigger's subject.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Captain America, Team Leader"
+          ],
+          "hand": [
+            "Black Widow, Agile Avenger"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Black Widow, Agile Avenger",
+          "mana": "CCRW"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Black Widow, Agile Avenger",
+          "zone": "battlefield",
+          "counters": {
+            "+1/+1": 1
+          },
+          "keywords": [
+            "vigilance"
+          ]
+        },
+        {
+          "card": "p0:Captain America, Team Leader",
+          "counters": {
+            "+1/+1": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "non-hero-enters-does-not-trigger",
+      "cr": [
+        "603.6a",
+        "608.2c"
+      ],
+      "why": "A creature that is not a Hero does not satisfy 'another Hero you control enters', so neither the entering creature nor Captain America gets a counter.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Captain America, Team Leader"
+          ],
+          "hand": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Grizzly Bears",
+          "mana": "CG"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "battlefield",
+          "counters": {
+            "+1/+1": 0
+          }
+        },
+        {
+          "card": "p0:Captain America, Team Leader",
+          "counters": {
+            "+1/+1": 0
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "card": "Endurance Bobblehead",
+  "family": "activated-ability",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "oracle_sha": "703aef18a44d",
+  "scenarios": [
+    {
+      "name": "one-bobblehead-pumps-one-target",
+      "cr": [
+        "601.2c",
+        "608.2c",
+        "611.2a"
+      ],
+      "why": "X is the number of Bobbleheads you control at activation, which is one, so up to one target creature gets +1/+0 and indestructible until end of turn.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Endurance Bobblehead",
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Endurance Bobblehead",
+          "ability": "+1/+0",
+          "mana": "CCC",
+          "targets": [
+            "p0:Grizzly Bears"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "pt": "3/2",
+          "keywords": [
+            "indestructible"
+          ]
+        }
+      ]
+    }
+  ]
+}
