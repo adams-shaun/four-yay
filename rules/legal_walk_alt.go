@@ -574,6 +574,22 @@ func (w *legalWalk) exileCastsWalk() {
 	// after that exile -- the flag alone cannot say it (CastFlags reset when
 	// the permanent left the battlefield), but the log can. This later cast
 	// pays the normal mana cost and is not itself flagged warped.
+	//
+	// The airbend recast permission is log-derived too, so one pass over the
+	// append-only log per walk answers every exiled card in O(1). The log
+	// cannot change inside this read-only offer pass (legal.go builds the
+	// walk's options without an Emit), so the index is exact for the whole
+	// loop; airbendIndexOff (test-only) selects the literal scan.
+	var airbendIX airbendExileIndex
+	airbendAvailable := func(id state.ObjID) bool {
+		if airbendIndexOff {
+			return airbendScan(e.L.Events, id)
+		}
+		if airbendIX == nil {
+			airbendIX = buildAirbendExileIndex(e.L.Events)
+		}
+		return airbendIX.available(id)
+	}
 	for _, id := range e.G.Zone(state.ZExile, p) {
 		o := e.G.Obj(id)
 		f := o.Face()
@@ -680,7 +696,7 @@ func (w *legalWalk) exileCastsWalk() {
 		// card's own timing and targets exactly like warp_recast. The block
 		// sits BEFORE the warp gate's continue: a non-warp card (every airbent
 		// card) would otherwise never reach it.
-		if e.airbendCastAvailable(id) && !w.castRestricted(p, id) && !e.castSuppressed(p, id) {
+		if airbendAvailable(id) && !w.castRestricted(p, id) && !e.castSuppressed(p, id) {
 			instantSpeed := f.IsInstant() || e.hasKeywordH(id, kwhFlash)
 			if (instantSpeed || sorcery) && e.spellTimingOK(p, id, f, sorcery) &&
 				e.castTargetsAvailable(p, id, f.SpellAbility()) {
