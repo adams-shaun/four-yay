@@ -323,6 +323,25 @@ func (e *canonEncoder) encodeMap(v reflect.Value, p *canonPlan) error {
 			e.strKeys = keys[:0]
 			return nil
 		}
+		// So does the archetype posterior's map[string]float64.
+		if m, ok := v.Interface().(map[string]float64); ok {
+			keys := e.strKeys[:0]
+			for k := range m {
+				keys = append(keys, k)
+			}
+			slices.Sort(keys)
+			for _, k := range keys {
+				e.appendString(k)
+				f := m[k]
+				if math.IsInf(f, 0) || math.IsNaN(f) {
+					return fmt.Errorf("canonical encoding: unsupported value %v", f)
+				}
+				e.buf = binary.LittleEndian.AppendUint64(e.buf, math.Float64bits(f))
+			}
+			clear(keys)
+			e.strKeys = keys[:0]
+			return nil
+		}
 		keys := make([]reflect.Value, 0, v.Len())
 		it := v.MapRange()
 		for it.Next() {

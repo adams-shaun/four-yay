@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/adams-shaun/gorge/decision"
@@ -126,6 +127,12 @@ func (noPotentialChars) OwnDeck(state.PlayerID) *deck.Manifest { return nil }
 // LibraryTop is deliberately NOT suppressed: a live MayLookAt grant makes it
 // legitimately revealed information, and the capture introduces and remaps it.
 func (noPotentialChars) SuppressOwnLibrary() bool { return true }
+
+// SuppressCardTokens tells view.Project not to format CardView.Token: remap
+// blanks the token of every card it rewrites. The one CardView list remap
+// does not rewrite, a planar deck, gets its tokens back there, so no board
+// changes.
+func (noPotentialChars) SuppressCardTokens() bool { return true }
 
 func NewCollector(actor state.PlayerID) *Collector {
 	return &Collector{actor: actor, byRef: []state.ObjID{0}}
@@ -503,6 +510,11 @@ func (c *Collector) remap(v *view.View) {
 		c.cards(p.Command)
 		if p.LibraryTop != nil {
 			c.card(p.LibraryTop)
+		}
+		for j := range p.PlanarDeck {
+			// Not rewritten, so not blanked: the token the projection
+			// would have formatted (SuppressCardTokens).
+			p.PlanarDeck[j].Token = "#" + strconv.FormatUint(uint64(p.PlanarDeck[j].ID), 10)
 		}
 		// PotentialActions (the viewer's own offer walk, view/view.go) names
 		// its objects by engine ObjID like every other board field; left raw,

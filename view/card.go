@@ -183,7 +183,7 @@ func cardViews(g *state.Game, ch Chars, ids []state.ObjID, includeAbilityCosts b
 			// A face-down planar-deck card is unknown to every seat, including
 			// its owner. Only the face-up current plane is public.
 			if o.Zone == state.ZPlanarDeck || (!revealFaceDown && viewer != looker && !alsoVisible[looker]) {
-				cv = CardView{ID: id, FaceDown: true, Token: "#" + strconv.FormatUint(uint64(id), 10),
+				cv = CardView{ID: id, FaceDown: true, Token: cardToken(ch, id),
 					Controller: o.Controller, Owner: o.Owner}
 			}
 		}
@@ -197,6 +197,21 @@ func cardViews(g *state.Game, ch Chars, ids []state.ObjID, includeAbilityCosts b
 		out = append(out, cv)
 	}
 	return out
+}
+
+// tokenSuppressor is a Chars whose caller discards every CardView.Token it
+// projects (searchprobe's observation collector blanks them all before it
+// compares or hashes a board), so cardView leaves the field empty instead of
+// formatting a string per card. A Chars that does not implement it -- every
+// ordinary caller, rules.Engine included -- gets the token.
+type tokenSuppressor interface{ SuppressCardTokens() bool }
+
+// cardToken is id's display token ("#12"), or "" for a tokenSuppressor.
+func cardToken(ch Chars, id state.ObjID) string {
+	if s, ok := ch.(tokenSuppressor); ok && s.SuppressCardTokens() {
+		return ""
+	}
+	return "#" + strconv.FormatUint(uint64(id), 10)
 }
 
 // printedNonManaAbilityCosts is the no-rules fallback: it preserves the
@@ -224,7 +239,7 @@ func cardView(g *state.Game, ch Chars, id state.ObjID) CardView {
 		Controller: o.Controller, Owner: o.Owner, SummonSick: o.SummonSick,
 		AttachedTo: o.AttachedTo, ActivatedThisTurn: o.ActivatedThisTurn,
 	}
-	cv.Token = "#" + strconv.FormatUint(uint64(id), 10)
+	cv.Token = cardToken(ch, id)
 	cv.IsToken = o.IsToken
 	cv.IsCopy = o.IsCopy
 	if f := o.Face(); f != nil {
