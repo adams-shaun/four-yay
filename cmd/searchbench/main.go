@@ -44,11 +44,14 @@ func run(args []string, out io.Writer) error {
 	if args[0] == "source" && args[1] == "corpus-audit" {
 		return corpusAudit(args[2:], out)
 	}
+	if args[0] == "source" && args[1] == "genesis-audit" {
+		return genesisAudit(args[2:], out)
+	}
 	return usage()
 }
 
 func usage() error {
-	return fmt.Errorf("usage: searchbench manifest validate -in <manifest.json>\n       searchbench analyze -manifest <manifest.json> -results <results.jsonl>\n       searchbench source audit -in <17lands.csv[.gz]>\n       searchbench source candidates -in <17lands.csv[.gz]>\n       searchbench source replay-audit -in <17lands.csv[.gz]>\n       searchbench source resolution-audit -in <17lands.csv[.gz]> -cards <cards.csv>\n       searchbench source corpus-audit -in <17lands.csv[.gz]> -corpus <.cards>")
+	return fmt.Errorf("usage: searchbench manifest validate -in <manifest.json>\n       searchbench analyze -manifest <manifest.json> -results <results.jsonl>\n       searchbench source audit -in <17lands.csv[.gz]>\n       searchbench source candidates -in <17lands.csv[.gz]>\n       searchbench source replay-audit -in <17lands.csv[.gz]>\n       searchbench source resolution-audit -in <17lands.csv[.gz]> -cards <cards.csv>\n       searchbench source corpus-audit -in <17lands.csv[.gz]> -corpus <.cards>\n       searchbench source genesis-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>")
 }
 
 func validate(args []string, out io.Writer) error {
@@ -201,5 +204,40 @@ func corpusAudit(args []string, out io.Writer) error {
 		}
 	}
 	_, err = fmt.Fprintf(out, "games=%d decks_resolved=%d refused=%d\n", len(games), good, len(games)-good)
+	return err
+}
+
+func genesisAudit(args []string, out io.Writer) error {
+	fs := flag.NewFlagSet("searchbench source genesis-audit", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	in := fs.String("in", "", "17lands FDN replay CSV")
+	cardsPath := fs.String("cards", "", "17lands cards CSV")
+	corpus := fs.String("corpus", ".cards", "compiled Forge corpus")
+	if err := fs.Parse(args); err != nil || *in == "" || *cardsPath == "" || fs.NArg() != 0 {
+		return usage()
+	}
+	reg, err := cards.OpenCorpus(*corpus)
+	if err != nil {
+		return err
+	}
+	names, err := searchbench.LoadCardNames(*cardsPath)
+	if err != nil {
+		return err
+	}
+	games, err := searchbench.ReplayGamesCSV(*in, searchbench.DefaultSourceFilter())
+	if err != nil {
+		return err
+	}
+	good := 0
+	for i, game := range games {
+		opponent, e := searchbench.ResolveDeck(reg, game.Deck)
+		if e == nil {
+			_, e = searchbench.NewGenesis(reg, game, names, opponent, uint64(i+1))
+		}
+		if e == nil {
+			good++
+		}
+	}
+	_, err = fmt.Fprintf(out, "games=%d genesis=%d refused=%d\n", len(games), good, len(games)-good)
 	return err
 }
