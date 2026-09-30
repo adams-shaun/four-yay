@@ -363,6 +363,20 @@ func (f File) Resolve(r *cards.Registry) ([]*cards.Card, error) {
 	return resolveEntries(r, f.Name, f.Cards)
 }
 
+// CardNames lists every card name the file names -- main deck, sideboard
+// and commanders, in file order, duplicates kept -- the card set a run that
+// seats this deck needs from the corpus (cards.OpenCorpusFor).
+func (f File) CardNames() []string {
+	out := make([]string, 0, len(f.Cards)+len(f.Sideboard)+len(f.Commanders))
+	for _, e := range f.Cards {
+		out = append(out, e.Name)
+	}
+	for _, e := range f.Sideboard {
+		out = append(out, e.Name)
+	}
+	return append(out, f.Commanders...)
+}
+
 // ResolveSideboard resolves the optional sideboard list independently of the
 // main deck. A nil list remains nil, preserving the old genesis shape.
 func (f File) ResolveSideboard(r *cards.Registry) ([]*cards.Card, error) {

@@ -16,7 +16,7 @@ The import direction is one-way. `internal/archtest`'s
 
 | Package | What it owns |
 |---|---|
-| `cards` | Compiles Forge card scripts into the card IR; keyword expanders (`cards/kw_*.go`); `cards.Registry`, coverage. `cards.CompilerFingerprint` hashes every non-test `.go` file here, so **any edit in `cards/` invalidates every IR cache** and forces a recompile. |
+| `cards` | Compiles Forge card scripts into the card IR; keyword expanders (`cards/kw_*.go`); `cards.Registry`, coverage. `cards.OpenCorpusFor` (`cards/subset.go`) opens only a known card pool's cards from the per-card segment file, falling back to the whole corpus when the pool reads the name universe; botbench's deck and `-spellbench` modes use it. `cards.CompilerFingerprint` hashes every non-test `.go` file here, so **any edit in `cards/` invalidates every IR cache** and forces a recompile. |
 | `cards/oracletext` | Printed-card (Oracle) view for the Oracle audit. A subpackage on purpose so it does not move the fingerprint. |
 | `state` | Objects, zones, players, `state.Game`, the `ContinuousEffect` vocabulary. Plain data; mutated only by `events.Apply`. |
 | `decision` | `Decision` / `Option` / `Intent`, and the closed set of `decision.Kind`s (`decision.Kinds`). The whole engine↔seat contract. |
@@ -90,7 +90,7 @@ The import direction is one-way. `internal/archtest`'s
 
 | Path | Notes |
 |---|---|
-| `.cards/` | Forge corpus (`cardsfolder/`, `tokenscripts/`) and the IR cache `ir-<fingerprint>.gob.gz`. GPL-3.0 — never tracked. Without it, corpus tests **skip and read green**. |
+| `.cards/` | Forge corpus (`cardsfolder/`, `tokenscripts/`) and the IR cache `ir-<fingerprint>.gob.gz` with its per-card segment file `ir-<fingerprint>.seg` (written by `Registry.Save`, read by the subset loader). GPL-3.0 — never tracked. Without it, corpus tests **skip and read green**. |
 | `.ds4/` | Pipeline scratch (issues, briefs, `ledger.json`). `TestNothingUnderDS4IsTracked` keeps it out of git. |
 | `.superpowers/` | Orchestration records and seat prompt context. |
 | `.worktrees/` | Sibling task checkouts. Exclude from searches or you get duplicate hits. |

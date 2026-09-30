@@ -118,6 +118,18 @@ func openCorpus(dir, fingerprint string) (*Registry, error) {
 // best-effort housekeeping step on a directory shared by many processes, and
 // losing a race to another process's write/remove must never fail an open.
 func PruneCaches(dir, keepPath string) {
+	pruneCaches(dir, keepPath)
+	// A segment file (SegmentPath) lives and dies with its cache: drop every
+	// ir-*.seg whose ir-*.gob.gz sibling is gone.
+	segs, _ := filepath.Glob(filepath.Join(dir, "ir-*.seg"))
+	for _, s := range segs {
+		if _, err := os.Stat(strings.TrimSuffix(s, ".seg") + ".gob.gz"); os.IsNotExist(err) {
+			_ = os.Remove(s)
+		}
+	}
+}
+
+func pruneCaches(dir, keepPath string) {
 	paths, err := filepath.Glob(filepath.Join(dir, "ir-*.gob.gz"))
 	if err != nil || len(paths) <= maxSiblingCaches {
 		return

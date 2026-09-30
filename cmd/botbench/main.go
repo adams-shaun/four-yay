@@ -2011,7 +2011,24 @@ func runMatrixTraced(baseSeed uint64, games, seats int, aName, bName, dir, forma
 	// game starts, and its error names the deck and the policies that deck
 	// does declare -- strictly more validation than this check, not less.
 
-	reg, err := testutil.OpenCorpusRegistry(dir)
+	// The run seats exactly the pairs' decks, so the corpus opens just
+	// their cards (openCorpusForDecks).
+	var pairFiles []deck.File
+	seenFile := map[string]bool{}
+	for _, pd := range pairs {
+		for _, name := range []string{pd.a, pd.b} {
+			if seenFile[name] {
+				continue
+			}
+			seenFile[name] = true
+			df, err := testutil.LoadRepoDeckFile(name)
+			if err != nil {
+				return err
+			}
+			pairFiles = append(pairFiles, df)
+		}
+	}
+	reg, err := openCorpusForDecks(dir, pairFiles, nil)
 	if err != nil {
 		return fmt.Errorf("opening corpus at %s: %w (run `make fetch-cards compile-cards` first)", dir, err)
 	}
@@ -2244,12 +2261,6 @@ func run(baseSeed uint64, games, seats, rotate, workers int, aName, bName, dir s
 	// game starts, and its error names the deck and the policies that deck
 	// does declare -- strictly more validation than this check, not less.
 
-	reg, err := testutil.OpenCorpusRegistry(dir)
-	if err != nil {
-		return fmt.Errorf("opening corpus at %s: %w (run `make fetch-cards compile-cards` first)", dir, err)
-	}
-	setTacticalRegistry(reg)
-
 	// Decks are tied to seats for the whole run (seat 0 always holds the
 	// first deck of the pool), and seats trade policies every game, so each
 	// policy plays each deck-list the same number of times -- the deck can
@@ -2260,6 +2271,7 @@ func run(baseSeed uint64, games, seats, rotate, workers int, aName, bName, dir s
 	// defect this command fixes). Both lists stay sorted, so the assignment
 	// is identical on every machine.
 	var names []string
+	var err error
 	if commander {
 		names, err = commanderDeckNames()
 		if err != nil {
@@ -2277,6 +2289,21 @@ func run(baseSeed uint64, games, seats, rotate, workers int, aName, bName, dir s
 	// stays sorted (names is sorted); only which seat holds which entry
 	// changes.
 	seated := seatedDeckNames(names[:seats], rotate)
+	// The run seats exactly these decks, so the corpus opens just their
+	// cards (openCorpusForDecks).
+	seatedFiles := make([]deck.File, seats)
+	for s := range seated {
+		df, err := testutil.LoadRepoDeckFile(seated[s])
+		if err != nil {
+			return err
+		}
+		seatedFiles[s] = df
+	}
+	reg, err := openCorpusForDecks(dir, seatedFiles, nil)
+	if err != nil {
+		return fmt.Errorf("opening corpus at %s: %w (run `make fetch-cards compile-cards` first)", dir, err)
+	}
+	setTacticalRegistry(reg)
 	decks := make([][]*cards.Card, seats)
 	// seatCtor[s] is the constructor for the policy sitting at seat s,
 	// resolved against the deck seat s holds. Built per seat rather than per
