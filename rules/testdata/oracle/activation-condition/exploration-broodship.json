@@ -1,0 +1,27 @@
+{
+  "card": "Exploration Broodship",
+  "family": "activation-condition",
+  "oracle_sha": "f2caa1b6045e",
+  "author": "agent-20260930T005535Z-e82cd61a (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "station-puts-charge-counters-equal-to-tapped-creatures-power",
+      "cr": ["702.150", "702.150a", "116.2b"],
+      "why": "Station is a special action offered as its own option kind (\"station\"), not an ability activation. The scenario selects it through the activate op and asserts its effect: tapping a 2/2 puts two charge counters on the Spacecraft (CR 702.150a reads the tapped creature's power), and the tapped creature is tapped (the cost).",
+      "setup": {"p0": {"battlefield": ["Exploration Broodship", "Grizzly Bears"]}},
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Exploration Broodship",
+          "ability": "Station ",
+          "answers": [{"kind": "choose", "pick": ["Grizzly Bears"]}]
+        }
+      ],
+      "expect": [
+        {"card": "p0:Exploration Broodship", "counters": {"charge": 2}},
+        {"card": "p0:Grizzly Bears", "tapped": true}
+      ]
+    }
+  ]
+}
