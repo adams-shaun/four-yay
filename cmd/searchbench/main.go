@@ -525,9 +525,10 @@ func rootRun(args []string, out io.Writer) error {
 	armText := fs.String("arm", "", "clairvoyant-mcts, pimc-1, pimc-4, or is-mcts")
 	limit := fs.Int("limit", 1, "roots to run")
 	includeOpponent := fs.Bool("include-opponent", false, "also run opponent-seat roots (diagnostic only)")
+	sourceKind := fs.String("source-kind", "", "restrict to source action kind: land or spell")
 	sims := fs.Int("sims", 100, "simulations per root")
 	seed := fs.Uint64("seed", 1, "search policy seed")
-	if err := fs.Parse(args); err != nil || *in == "" || *cardsPath == "" || *rootsPath == "" || *limit < 1 || *sims < 1 || *seed == 0 || fs.NArg() != 0 {
+	if err := fs.Parse(args); err != nil || *in == "" || *cardsPath == "" || *rootsPath == "" || *limit < 1 || *sims < 1 || *seed == 0 || (*sourceKind != "" && *sourceKind != "land" && *sourceKind != "spell") || fs.NArg() != 0 {
 		return usage()
 	}
 	arm := searchbench.SearchArm(*armText)
@@ -558,6 +559,9 @@ func rootRun(args []string, out io.Writer) error {
 	selected := make([]int, 0, *limit)
 	for i := range roots {
 		if !*includeOpponent && roots[i].Seat != 0 {
+			continue
+		}
+		if *sourceKind != "" && roots[i].SourceKind != *sourceKind {
 			continue
 		}
 		selected = append(selected, i)
