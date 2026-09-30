@@ -153,6 +153,7 @@ func (r *Registry) newMatch(t *table, k int) (*match, error) {
 	// so a commander table's seats get a command zone from their own deck
 	// and a constructed table's seats never do.
 	cmds := make([][]int, c.Seats)
+	archetypes := make([]string, c.Seats)
 	infos := make([]protocol.SeatInfo, c.Seats)
 	for i := 0; i < c.Seats; i++ {
 		dn := c.Decks[(i+k)%len(c.Decks)]
@@ -164,6 +165,7 @@ func (r *Registry) newMatch(t *table, k int) (*match, error) {
 			d.Name = dn
 		}
 		names[i], decks[i], sideboards[i], deckNames[i], cmds[i] = d.Name, d.Cards, d.Sideboard, dn, d.Commanders
+		archetypes[i] = d.Archetype
 		infos[i] = protocol.SeatInfo{Name: playerNames[i], Deck: d.Name, Colour: protocol.SeatColours[i%len(protocol.SeatColours)], DeckID: deckNames[i]}
 		// Human marks the slots TableConfig.Humans seats with a real person:
 		// the wire signal a client's undo control reads (protocol.SeatInfo's
@@ -175,7 +177,7 @@ func (r *Registry) newMatch(t *table, k int) (*match, error) {
 			}
 		}
 	}
-	cfg := rules.Config{Seed: seed, Names: names, PlayerNames: playerNames, Decks: decks, Sideboards: sideboardConfig(sideboards), Tokens: r.opts.Tokens, NameUniverse: r.opts.NameUniverse, Mulligans: c.Mulligans, WindowDiagnostics: c.WindowDiagnostics}
+	cfg := rules.Config{Seed: seed, Names: names, PlayerNames: playerNames, Decks: decks, Archetypes: archetypes, Sideboards: sideboardConfig(sideboards), Tokens: r.opts.Tokens, NameUniverse: r.opts.NameUniverse, Mulligans: c.Mulligans, WindowDiagnostics: c.WindowDiagnostics}
 	// The engine's own livelock watcher (rules/livelock.go) is the same
 	// non-terminating-loop protection as this file's per-turn decision
 	// guard, one level down: an embedder that opted out of the host guard
