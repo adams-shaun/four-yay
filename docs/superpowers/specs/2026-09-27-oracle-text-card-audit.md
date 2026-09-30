@@ -185,6 +185,7 @@ The decoder rejects unknown fields.
   - `mana` (adds to the pool; this stands in for mana sources)
   - `resolve` (pass until the stack is empty)
   - `attack` / `block`
+  - `pass` (answers exactly one priority decision; the named seat must hold priority)
   - `pass_to` (`step`, `active`, or a `decision` kind)
   - `move` / `life` (stand-ins for an unspecified outside effect)
 - **Decisions:** targets come from `targets`; other asks come from `answers`
