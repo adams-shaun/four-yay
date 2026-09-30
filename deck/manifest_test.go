@@ -40,6 +40,7 @@ func TestManifestCanonicalizesWithoutAliasing(t *testing.T) {
 		Main:       []ManifestRow{{Name: "Alpha", Count: 2}, {Name: "Beta", Count: 1}, {Name: "Gamma", Count: 1}},
 		Sideboard:  []ManifestRow{{Name: "Beta", Count: 3}},
 		Commanders: []string{"Gamma", "Beta"},
+		Curve:      []CurveRow{{CMC: 0, Count: 4}},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("manifest = %#v, want %#v", got, want)

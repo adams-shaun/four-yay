@@ -45,6 +45,7 @@ func TestEngineOwnDeckIsDetachedGenesisData(t *testing.T) {
 		Main:       []deck.ManifestRow{{Name: "Manifest Alpha", Count: 2}, {Name: "Manifest Beta", Count: 1}, {Name: "Manifest Gamma", Count: 1}},
 		Sideboard:  []deck.ManifestRow{{Name: "Manifest Beta", Count: 2}},
 		Commanders: []string{"Manifest Beta", "Manifest Alpha"},
+		Curve:      []deck.CurveRow{{CMC: 0, Count: 4}},
 	}
 	if !reflect.DeepEqual(*got, *want) {
 		t.Fatalf("genesis manifest = %#v, want %#v", got, want)

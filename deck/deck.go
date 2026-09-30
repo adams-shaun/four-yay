@@ -127,12 +127,16 @@ type Manifest struct {
 	Main       []ManifestRow `json:"main"`
 	Sideboard  []ManifestRow `json:"sideboard,omitempty"`
 	Commanders []string      `json:"commanders,omitempty"`
+	// Curve is the derived mana curve over Main (CurveOf): one row per
+	// front-face CMC in ascending order, each carrying the copies at that
+	// cost. Derived observation data like the rows themselves, not game state.
+	Curve []CurveRow `json:"curve,omitempty"`
 }
 
 // NewManifest canonicalizes the configured card lists without retaining their
 // slices. Commander identities preserve the declared index order.
 func NewManifest(name string, main, sideboard []*cards.Card, commanderIndices []int) Manifest {
-	m := Manifest{Name: name, Main: manifestRows(main)}
+	m := Manifest{Name: name, Main: manifestRows(main), Curve: CurveOf(main)}
 	if len(sideboard) > 0 {
 		m.Sideboard = manifestRows(sideboard)
 	}
@@ -156,6 +160,11 @@ func (m Manifest) Clone() Manifest {
 		m.Commanders = append([]string{}, m.Commanders...)
 	} else {
 		m.Commanders = nil
+	}
+	if len(m.Curve) > 0 {
+		m.Curve = append([]CurveRow{}, m.Curve...)
+	} else {
+		m.Curve = nil
 	}
 	return m
 }
