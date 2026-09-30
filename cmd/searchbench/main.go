@@ -4,6 +4,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -12,7 +13,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
-	"github.com/adams-shaun/gorge/internal/azmcts"
+	"github.com/adams-shaun/gorge/internal/azmcts/clairvoyant"
 	"github.com/adams-shaun/gorge/internal/searchbench"
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/seat"
@@ -533,9 +534,13 @@ func rootRun(args []string, out io.Writer) error {
 	if err := fs.Parse(args); err != nil || *in == "" || *cardsPath == "" || *rootsPath == "" || *limit < 1 || *sims < 1 || *seed == 0 || (*sourceKind != "" && *sourceKind != "land" && *sourceKind != "spell" && *sourceKind != "attack") || fs.NArg() != 0 {
 		return usage()
 	}
-	arm := searchbench.SearchArm(*armText)
-	if arm != searchbench.ArmClairvoyant && arm != searchbench.ArmPIMC1 && arm != searchbench.ArmPIMC4 && arm != searchbench.ArmISMCTS {
-		return fmt.Errorf("searchbench: unknown root-run arm %q", *armText)
+	arm, err := searchbench.ParseArm(*armText)
+	if err != nil {
+		return err
+	}
+	if arm == searchbench.ArmClairvoyant {
+		// The measurement command's explicit opt-in (azmcts/clairvoyant).
+		clairvoyant.AllowClairvoyant()
 	}
 	reg, err := cards.OpenCorpus(*corpus)
 	if err != nil {
@@ -581,8 +586,11 @@ func rootRun(args []string, out io.Writer) error {
 			return fmt.Errorf("searchbench: root %d: %w", i, err)
 		}
 		worldCount := 1
-		if arm == searchbench.ArmPIMC4 || arm == searchbench.ArmISMCTS {
-			worldCount = 4
+		switch arm {
+		case searchbench.ArmPIMC4:
+			worldCount = searchbench.PIMCWorlds
+		case searchbench.ArmISMCTS:
+			worldCount = searchbench.WorldCount
 		}
 		worlds := make([]searchbench.ReplayedRoot, 0, worldCount)
 		worldSeeds := searchbench.SBV1WorldSeeds()
@@ -596,9 +604,11 @@ func rootRun(args []string, out io.Writer) error {
 			}
 			worlds = append(worlds, world)
 		}
-		opts := azmcts.DefaultOptions()
-		opts.Sims = *sims
-		result, err := searchbench.RunNativeSearch(root, worlds, arm, opts, *seed+uint64(outputOrdinal))
+		in := searchbench.ArmInput{Arm: arm, Options: searchbench.BenchOptions(*sims), Seed: *seed + uint64(outputOrdinal), Real: root.Engine}
+		for _, w := range worlds {
+			in.Worlds = append(in.Worlds, w.Engine)
+		}
+		result, err := searchbench.RunArm(context.Background(), in)
 		if err != nil {
 			return fmt.Errorf("searchbench: root %d %s: %w", i, arm, err)
 		}
