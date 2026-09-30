@@ -83,6 +83,7 @@ func newHandler(r *host.Registry, o Options) (*handler, http.Handler) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/tables", h.tables)
 	mux.HandleFunc("GET /api/decks", h.decks)
+	mux.HandleFunc("GET /api/stats/decks", h.deckStats)
 	mux.HandleFunc("GET /api/tables/{t}/matches", h.matches)
 	mux.HandleFunc("GET /api/tables/{t}/matches/{k}/view", h.view)
 	mux.HandleFunc("GET /api/tables/{t}/matches/{k}/events", h.events)
@@ -95,7 +96,7 @@ func newHandler(r *host.Registry, o Options) (*handler, http.Handler) {
 	// Method-less twins of every API pattern: the mux prefers the
 	// method-specific pattern, so these only ever see the wrong method and
 	// answer 405 in JSON rather than the mux's default text body.
-	for _, p := range []string{"/api/tables", "/api/decks", "/api/tables/{t}/matches", "/api/tables/{t}/matches/{k}/view",
+	for _, p := range []string{"/api/tables", "/api/decks", "/api/stats/decks", "/api/tables/{t}/matches", "/api/tables/{t}/matches/{k}/view",
 		"/api/tables/{t}/matches/{k}/events", "/api/tables/{t}/matches/{k}/pending", "/api/tables/{t}/matches/{k}/intent",
 		"/api/tables/{t}/matches/{k}/undo",
 		"/api/subscribe", "/api/unsubscribe", "/api/games", "/api/stream"} {
