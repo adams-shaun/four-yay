@@ -1,0 +1,103 @@
+{
+  "card": "Assaultron Dominator",
+  "family": "energy",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "oracle_sha": "2f8e87c6b263",
+  "scenarios": [
+    {
+      "name": "enters-grants-two-energy",
+      "cr": [
+        "603.6a",
+        "122.1"
+      ],
+      "why": "Assaultron Dominator's enters trigger gives its controller two energy counters; the counters can then be spent on its attack ability.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Assaultron Dominator"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Assaultron Dominator"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "pay"
+              ]
+            },
+            {
+              "kind": "any",
+              "pick": [
+                "P1P1"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Assaultron Dominator",
+          "zone": "battlefield",
+          "counters": {
+            "+1/+1": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "artifact-creature-attacks-without-energy-no-counter",
+      "cr": [
+        "603.6a",
+        "122.1"
+      ],
+      "why": "With no energy counters left unspent, the attack trigger cannot be paid, so no counter is put on the attacking artifact creature.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Memnite"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Memnite"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "do not pay"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Memnite",
+          "counters": {
+            "+1/+1": 0
+          }
+        }
+      ]
+    }
+  ]
+}

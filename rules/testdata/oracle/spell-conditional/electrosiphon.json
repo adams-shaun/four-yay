@@ -165,6 +165,95 @@
           "want": false
         }
       ]
+    },
+    {
+      "name": "countering-zero-mana-spell-does-not-fund-assaultron-may-pay",
+      "cr": [
+        "608.2c",
+        "701.5a",
+        "202.3",
+        "118.2d"
+      ],
+      "why": "Countering Ornithopter (mana value 0) gives no energy. Assaultron Dominator's attack trigger then offers a one-energy may-pay with an empty pool; accepting it incorrectly puts a +1/+1 counter. CR 118.2d makes a payment that cannot be paid an illegal action (see known-divergent.json).",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Island",
+            "Island",
+            "Mountain",
+            "Assaultron Dominator"
+          ],
+          "hand": [
+            "Electrosiphon",
+            "Ornithopter"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Ornithopter",
+          "mana": ""
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Electrosiphon",
+          "mana": "UUR",
+          "targets": [
+            "p0:Ornithopter"
+          ]
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Assaultron Dominator"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "pay"
+              ]
+            },
+            {
+              "kind": "any",
+              "pick": [
+                "P1P1"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Ornithopter",
+          "zone": "graveyard"
+        },
+        {
+          "card": "p0:Electrosiphon",
+          "zone": "graveyard"
+        },
+        {
+          "card": "p0:Assaultron Dominator",
+          "counters": {
+            "+1/+1": 0
+          }
+        }
+      ]
     }
   ]
 }

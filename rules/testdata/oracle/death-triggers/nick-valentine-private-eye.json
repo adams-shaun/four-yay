@@ -1,0 +1,94 @@
+{
+  "card": "Nick Valentine, Private Eye",
+  "family": "death-triggers",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "oracle_sha": "fcb77715964f",
+  "scenarios": [
+    {
+      "name": "artifact-creature-dying-lets-you-investigate",
+      "cr": [
+        "603.6c",
+        "701.36a"
+      ],
+      "why": "Another artifact creature you control dying triggers Nick Valentine's investigate permission; a Clue artifact token is created.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Nick Valentine, Private Eye",
+            "Memnite"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "move",
+          "card": "p0:Memnite",
+          "to": "graveyard"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "yes"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Memnite",
+          "zone": "graveyard"
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Clue",
+            "token": true
+          },
+          "eq": 1
+        }
+      ]
+    },
+    {
+      "name": "nonartifact-creature-dying-does-not-investigate",
+      "cr": [
+        "603.6c"
+      ],
+      "why": "The trigger cares about artifact creatures; a plain nonartifact creature dying does not let you investigate.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Nick Valentine, Private Eye",
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "move",
+          "card": "p0:Grizzly Bears",
+          "to": "graveyard"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "graveyard"
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Clue",
+            "token": true
+          },
+          "eq": 0
+        }
+      ]
+    }
+  ]
+}

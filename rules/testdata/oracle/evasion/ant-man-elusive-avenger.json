@@ -1,0 +1,109 @@
+{
+  "card": "Ant-Man, Elusive Avenger",
+  "family": "evasion",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "oracle_sha": "b2f3ce2278b6",
+  "scenarios": [
+    {
+      "name": "cannot-be-blocked-by-greater-power",
+      "cr": [
+        "509.1b",
+        "101.2"
+      ],
+      "why": "Ant-Man can't be blocked by creatures with greater power. A 2/2 Bear has greater power than Ant-Man's 1, so it cannot block; a 1/1 has power equal to (not greater than) Ant-Man's power, so it can.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Ant-Man, Elusive Avenger"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Grizzly Bears",
+            "Memnite"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Ant-Man, Elusive Avenger"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "pass_to",
+          "decision": "blockers"
+        }
+      ],
+      "expect": [
+        {
+          "can_block": {
+            "blocker": "p1:Grizzly Bears",
+            "attacker": "p0:Ant-Man, Elusive Avenger"
+          },
+          "want": false
+        },
+        {
+          "can_block": {
+            "blocker": "p1:Memnite",
+            "attacker": "p0:Ant-Man, Elusive Avenger"
+          },
+          "want": true
+        }
+      ]
+    },
+    {
+      "name": "combat-damage-makes-that-many-treasures",
+      "cr": [
+        "603.6a",
+        "608.2c",
+        "111.10"
+      ],
+      "why": "Ant-Man's combat-damage trigger creates one Treasure token per point of combat damage dealt. Unblocked, a 1/2 Ant-Man deals 1 damage to the player, so exactly one Treasure token is created.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Ant-Man, Elusive Avenger"
+          ]
+        },
+        "p1": {
+          "life": 20
+        }
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Ant-Man, Elusive Avenger"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "pass_to",
+          "seat": 0,
+          "step": "end"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p1": 19
+          }
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Treasure",
+            "token": true
+          },
+          "eq": 1
+        }
+      ]
+    }
+  ]
+}

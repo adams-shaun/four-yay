@@ -1,0 +1,61 @@
+{
+  "card": "Destroy Evil",
+  "family": "spell-conditional",
+  "oracle_sha": "374567dca877",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "destroy-tough-creature",
+      "cr": [
+        "700.2",
+        "701.7a"
+      ],
+      "why": "The first mode destroys a target creature with toughness at least four, but leaves a 2/2 untouched.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Destroy Evil"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Centaur Courser",
+            "Serra Angel"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Destroy Evil",
+          "mana": "WW",
+          "targets": [
+            "p1:Serra Angel"
+          ],
+          "answers": [
+            {
+              "kind": "modes",
+              "pick": [
+                "creature"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p1:Serra Angel",
+          "zone": "graveyard"
+        },
+        {
+          "card": "p1:Centaur Courser",
+          "zone": "battlefield"
+        }
+      ]
+    }
+  ]
+}

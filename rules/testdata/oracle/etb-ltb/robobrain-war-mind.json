@@ -1,0 +1,53 @@
+{
+  "card": "Robobrain War Mind",
+  "family": "etb-ltb",
+  "oracle_sha": "f89a4bf2b863",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "power-equals-cards-in-hand",
+      "cr": ["208.2", "613.2a"],
+      "why": "Robobrain War Mind's power is defined as the number of cards in its controller's hand: the three seeded hand cards plus the turn-1 draw make four.",
+      "setup": {
+        "p0": {"battlefield": ["Robobrain War Mind"], "hand": ["Bonesplitter", "Mind Stone", "Memnite"]},
+        "p1": {}
+      },
+      "steps": [],
+      "expect": [
+        {"card": "p0:Robobrain War Mind", "pt": "3/5"}
+      ]
+    },
+    {
+      "name": "entering-gains-two-energy-for-two-artifact-creatures",
+      "cr": ["603.6a", "122.1", "118.2d"],
+      "why": "Casting Robobrain War Mind with two artifact creatures on the battlefield gains exactly two energy counters: the three-energy Automated Assembly Line activation stays unaffordable.",
+      "setup": {
+        "p0": {"battlefield": ["Memnite", "Automated Assembly Line"], "hand": ["Robobrain War Mind"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Robobrain War Mind", "mana": "CCCU"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"offered": {"seat": 0, "kind": "activate", "card": "p0:Automated Assembly Line", "label": "Robot"}, "want": false}
+      ]
+    },
+    {
+      "name": "entering-gains-three-energy-for-three-artifact-creatures",
+      "cr": ["603.6a", "122.1", "118.2d"],
+      "why": "With three artifact creatures on the battlefield the enter trigger gains three energy counters, exactly covering the three-energy Automated Assembly Line activation.",
+      "setup": {
+        "p0": {"battlefield": ["Memnite", "Scrap Trawler", "Scrap Trawler", "Automated Assembly Line"], "hand": ["Robobrain War Mind"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Robobrain War Mind", "mana": "CCCU"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"offered": {"seat": 0, "kind": "activate", "card": "p0:Automated Assembly Line", "label": "Robot"}, "want": true}
+      ]
+    }
+  ]
+}

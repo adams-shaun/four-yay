@@ -1,0 +1,72 @@
+{
+  "card": "Behemoth of Vault 0",
+  "family": "etb-ltb",
+  "oracle_sha": "7a00b4cb1ee2",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "cast-gains-four-energy-and-dies-destroys-mana-value-two-permanent",
+      "cr": [
+        "603.6a",
+        "603.10",
+        "118.2d",
+        "701.7a"
+      ],
+      "why": "Entering gives four energy counters; when it dies, paying an amount of energy equal to the targeted Mind Stone's mana value (2) destroys it.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Behemoth of Vault 0"
+          ],
+          "battlefield": [
+            "Mind Stone"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Behemoth of Vault 0",
+          "mana": "CCCCCC"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "move",
+          "card": "p0:Behemoth of Vault 0",
+          "to": "graveyard"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "yes"
+              ]
+            },
+            {
+              "kind": "any",
+              "pick": [
+                "p0:Mind Stone"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Behemoth of Vault 0",
+          "zone": "graveyard"
+        },
+        {
+          "card": "p0:Mind Stone",
+          "zone": "graveyard"
+        }
+      ]
+    }
+  ]
+}

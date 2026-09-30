@@ -1,0 +1,44 @@
+{
+  "card": "Through the Forest Gate",
+  "family": "spell-conditional",
+  "oracle_sha": "46ae35cbb03c",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "gain-eight-life",
+      "cr": [
+        "608.2c"
+      ],
+      "why": "After looking at the top twenty cards and placing any chosen lands, the spell grants its controller eight life.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Through the Forest Gate"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Through the Forest Gate",
+          "mana": "GGGGGGGG"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Through the Forest Gate",
+          "zone": "graveyard"
+        },
+        {
+          "life": {
+            "p0": 28
+          }
+        }
+      ]
+    }
+  ]
+}

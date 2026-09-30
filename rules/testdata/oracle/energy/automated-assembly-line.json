@@ -1,0 +1,163 @@
+{
+  "card": "Automated Assembly Line",
+  "family": "energy",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "oracle_sha": "2ffeb4da55c9",
+  "scenarios": [
+    {
+      "name": "one-combat-damage-event-gives-one-energy-not-three",
+      "cr": [
+        "603.2c",
+        "122.1"
+      ],
+      "why": "The trigger fires once per combat-damage event even when several artifact creatures deal damage simultaneously, so three Memnites connecting together grant only one energy. The {E}{E}{E} ability is therefore not payable and is not offered.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Automated Assembly Line",
+            "Memnite",
+            "Memnite",
+            "Memnite"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Memnite",
+            "p0:Memnite#2",
+            "p0:Memnite#3"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "pass_to",
+          "seat": 0,
+          "step": "end"
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "activate",
+            "card": "p0:Automated Assembly Line",
+            "label": "Robot"
+          },
+          "want": false
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Robot",
+            "token": true
+          },
+          "eq": 0
+        }
+      ]
+    },
+    {
+      "name": "three-combat-events-then-pay-for-robot",
+      "cr": [
+        "122.1",
+        "608.2c"
+      ],
+      "why": "One artifact creature dealing combat damage on three separate turns accumulates three energy counters; the three energy then pay for the activated ability, creating one tapped 3/3 colorless Robot artifact creature token.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Automated Assembly Line",
+            "Memnite"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Memnite"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "pass_to",
+          "seat": 0,
+          "step": "end"
+        },
+        {
+          "op": "pass_to",
+          "seat": 0,
+          "step": "main1",
+          "active": "p0"
+        },
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Memnite"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "pass_to",
+          "seat": 0,
+          "step": "end"
+        },
+        {
+          "op": "pass_to",
+          "seat": 0,
+          "step": "main1",
+          "active": "p0"
+        },
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Memnite"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "pass_to",
+          "seat": 0,
+          "step": "end"
+        },
+        {
+          "op": "pass_to",
+          "seat": 0,
+          "step": "main1",
+          "active": "p0"
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Automated Assembly Line",
+          "ability": "Robot"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Robot",
+            "token": true
+          },
+          "eq": 1
+        },
+        {
+          "card": "p0:token:Robot",
+          "pt": "3/3",
+          "tapped": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,153 @@
+{
+  "card": "The Motherlode, Excavator",
+  "family": "energy",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "oracle_sha": "49f98a42e919",
+  "scenarios": [
+    {
+      "name": "attack-pays-four-energy-to-destroy-nonbasic-land",
+      "cr": [
+        "603.6a",
+        "608.2c",
+        "122.1"
+      ],
+      "why": "The enters trigger chose the opponent, granting one energy per nonbasic land they control; four Ancient Tombs give four energy. On attack, paying {E}{E}{E}{E} destroys a target nonbasic land that player controls.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "The Motherlode, Excavator"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Ancient Tomb",
+            "Ancient Tomb",
+            "Ancient Tomb",
+            "Ancient Tomb"
+          ]
+        }
+      },
+      "setup_answers": [
+        {
+          "kind": "any",
+          "pick": [
+            "p1"
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:The Motherlode, Excavator"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "pay"
+              ]
+            },
+            {
+              "kind": "any",
+              "pick": [
+                "p1:Ancient Tomb"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p1:Ancient Tomb",
+          "zone": "graveyard"
+        }
+      ]
+    },
+    {
+      "name": "creatures-without-flying-cannot-block-after-payment",
+      "cr": [
+        "608.2c",
+        "509.1b"
+      ],
+      "why": "After paying the attack cost, creatures the defending player controls without flying can't block this turn; a ground 2/2 cannot block but the flying Ornithopter can.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "The Motherlode, Excavator"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Ancient Tomb",
+            "Ancient Tomb",
+            "Ancient Tomb",
+            "Ancient Tomb",
+            "Grizzly Bears",
+            "Ornithopter"
+          ]
+        }
+      },
+      "setup_answers": [
+        {
+          "kind": "any",
+          "pick": [
+            "p1"
+          ]
+        }
+      ],
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:The Motherlode, Excavator"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "pay"
+              ]
+            },
+            {
+              "kind": "any",
+              "pick": [
+                "p1:Ancient Tomb"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "pass_to",
+          "decision": "blockers"
+        }
+      ],
+      "expect": [
+        {
+          "can_block": {
+            "blocker": "p1:Grizzly Bears",
+            "attacker": "p0:The Motherlode, Excavator"
+          },
+          "want": false
+        },
+        {
+          "can_block": {
+            "blocker": "p1:Ornithopter",
+            "attacker": "p0:The Motherlode, Excavator"
+          },
+          "want": true
+        }
+      ]
+    }
+  ]
+}

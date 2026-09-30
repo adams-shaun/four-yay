@@ -1,0 +1,57 @@
+{
+  "card": "Paladin Danse, Steel Maverick",
+  "family": "activated-ability",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "oracle_sha": "3fd09a4cfd95",
+  "scenarios": [
+    {
+      "name": "exile-source-grants-indestructible-to-artifact-and-human",
+      "cr": [
+        "602.1a",
+        "701.19a",
+        "702.12b"
+      ],
+      "why": "Exiling Paladin Danse is the ability's cost; the resolution grants indestructible until end of turn to each creature you control that is an artifact or a Human. Ornithopter is an artifact creature and so gains it; the nonartifact, non-Human Bear does not.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Paladin Danse, Steel Maverick",
+            "Ornithopter",
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Paladin Danse, Steel Maverick",
+          "ability": "gains indestructible"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Paladin Danse, Steel Maverick",
+          "zone": "exile"
+        },
+        {
+          "card": "p0:Ornithopter",
+          "zone": "battlefield",
+          "keywords": [
+            "indestructible"
+          ]
+        },
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "battlefield",
+          "no_keywords": [
+            "indestructible"
+          ]
+        }
+      ]
+    }
+  ]
+}

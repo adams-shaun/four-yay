@@ -1,0 +1,108 @@
+{
+  "card": "Nuka-Cola Vending Machine",
+  "family": "triggered-ability",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "oracle_sha": "631144606988",
+  "scenarios": [
+    {
+      "name": "creates-a-food-token",
+      "cr": [
+        "602.1a",
+        "111.10"
+      ],
+      "why": "The {1}, {T} ability creates a Food artifact token.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Nuka-Cola Vending Machine"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Nuka-Cola Vending Machine",
+          "ability": "Food",
+          "mana": "C"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Food",
+            "token": true
+          },
+          "eq": 1
+        }
+      ]
+    },
+    {
+      "name": "sacrificing-food-makes-a-treasure",
+      "cr": [
+        "603.6a",
+        "701.21a"
+      ],
+      "why": "Sacrificing a Food to its own ability triggers the Vending Machine's 'whenever you sacrifice a Food' trigger, creating a tapped Treasure token; the Food's life gain also resolves.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Nuka-Cola Vending Machine"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Nuka-Cola Vending Machine",
+          "ability": "Food",
+          "mana": "C"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:token:Food",
+          "ability": "gain 3 life",
+          "mana": "CC"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Food",
+            "token": true
+          },
+          "eq": 0
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Treasure",
+            "token": true
+          },
+          "eq": 1
+        },
+        {
+          "life": {
+            "p0": 23
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "card": "Falcon and Redwing",
+  "family": "hero-triggers",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "oracle_sha": "4659acbabe11",
+  "scenarios": [
+    {
+      "name": "combat-damage-makes-birds-and-grows-falcon",
+      "cr": [
+        "603.6a",
+        "608.2c",
+        "111.10"
+      ],
+      "why": "Unblocked, the 1/2 Falcon and Redwing deal 1 combat damage, so the trigger creates one 1/1 white Bird token with flying and then puts a +1/+1 counter on Falcon and Redwing itself.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Falcon and Redwing"
+          ]
+        },
+        "p1": {
+          "life": 20
+        }
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Falcon and Redwing"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "pass_to",
+          "seat": 0,
+          "step": "end"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p1": 19
+          }
+        },
+        {
+          "card": "p0:Falcon and Redwing",
+          "zone": "battlefield",
+          "pt": "2/3",
+          "counters": {
+            "+1/+1": 1
+          }
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Bird",
+            "token": true
+          },
+          "eq": 1
+        }
+      ]
+    }
+  ]
+}

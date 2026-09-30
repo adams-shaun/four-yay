@@ -1,0 +1,45 @@
+{
+  "card": "Winged Boots",
+  "family": "activation-condition",
+  "oracle_sha": "3ad23a240646",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "equipping-grants-flying-and-ward",
+      "cr": ["301.6a", "613.1f", "613.4a"],
+      "why": "Equipping Grizzly Bears grants it flying and ward {4} until it stops being equipped.",
+      "setup": {
+        "p0": {"battlefield": ["Grizzly Bears", "Winged Boots"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Winged Boots", "ability": "Equip", "targets": ["p0:Grizzly Bears"], "mana": "U"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "keywords": ["Flying", "Ward:4"]}
+      ]
+    },
+    {
+      "name": "ward-counters-the-opponents-spell-unless-paid",
+      "cr": ["702.36b", "701.5a"],
+      "why": "Doom Blade targeting the warded Grizzly Bears is countered unless its controller pays {4}; with an empty mana pool the ward trigger is declined and the spell is countered.",
+      "setup": {
+        "p0": {"battlefield": ["Grizzly Bears", "Winged Boots"]},
+        "p1": {"hand": ["Doom Blade"]}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Winged Boots", "ability": "Equip", "targets": ["p0:Grizzly Bears"], "mana": "U"},
+        {"op": "resolve"},
+        {"op": "pass_to", "seat": 1, "step": "main1", "active": "p1"},
+        {"op": "cast", "seat": 1, "card": "p1:Doom Blade", "mana": "CB", "targets": ["p0:Grizzly Bears"],
+         "answers": [{"kind": "choose", "pick": ["no"]}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "zone": "battlefield"},
+        {"card": "p1:Doom Blade", "zone": "graveyard"}
+      ]
+    }
+  ]
+}
