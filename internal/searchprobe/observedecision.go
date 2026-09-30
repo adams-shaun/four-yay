@@ -17,6 +17,9 @@ import (
 // refuse objects no frame has shown ("action references an unobserved
 // object").
 //
+// The result is c's reusable storage: it is valid until the next
+// ObserveDecision on c, and a caller that keeps it copies it.
+//
 // It mutates c: identities are assigned in introduction order. A caller that
 // still needs c's Capture stream -- a searchseat.Feed's collector -- must
 // Clone it first, or the feed's next frame would omit these identities.
@@ -32,9 +35,13 @@ func (c *Collector) ObserveDecision(e *rules.Engine, d *decision.Decision) (*Obs
 		return nil, fmt.Errorf("opponent private decision entered observation")
 	}
 	c.introduce(e, d.Source)
-	for _, o := range d.Options {
-		c.introduce(e, o.Obj)
-		c.introduce(e, o.Attacker)
+	for i := range d.Options {
+		c.introduce(e, d.Options[i].Obj)
+		c.introduce(e, d.Options[i].Attacker)
 	}
-	return c.observeDecision(d)
+	od, err := c.observeDecisionInto(&c.obsDec, c.obsOpts[:0], d)
+	if cap(c.obsDec.Options) > cap(c.obsOpts) {
+		c.obsOpts = c.obsDec.Options
+	}
+	return od, err
 }

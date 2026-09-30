@@ -39,11 +39,12 @@ func TestObservationStripsOwnLibraryFromFrames(t *testing.T) {
 	}
 
 	c := NewCollector(0)
+	c.retainJSON = true
 	frame, err := c.Capture(e, e.L.Events)
 	if err != nil {
 		t.Fatal(err)
 	}
-	board := frame.Board
+	board := frame.Board.raw
 	if !bytes.Contains(board, []byte(`"hand"`)) {
 		t.Fatal(`frame board has no "hand" member: the fixture board is empty and the library assertion proves nothing`)
 	}

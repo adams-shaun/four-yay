@@ -1,10 +1,7 @@
 package azmcts
 
 import (
-	"encoding/json"
-	"fmt"
 	"math"
-	"strconv"
 
 	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/decision"
@@ -131,7 +128,7 @@ func enumerateWhyInto(obs *searchprobe.Collector, e *rules.Engine, d *decision.D
 		if err != nil || len(base) != 1 {
 			return nil, kind, SkipTranslate, false
 		}
-		for _, a := range searchprobe.Candidates(worthOptionsInto(od, e, d, scratch), base[0], limit) {
+		for _, a := range obs.Candidates(worthOptionsInto(od, e, d, scratch), base[0], limit) {
 			in, err := obs.Match(d, []searchprobe.Action{a})
 			if err != nil {
 				return nil, kind, SkipTranslate, false
@@ -233,84 +230,12 @@ func priorityBase(d *decision.Decision, bot decision.Intent) BaseKind {
 	return BaseOther
 }
 
-// actionsKey is the canonical key of a semantic action list: its JSON
-// encoding (fixed field order, so equal lists give equal keys).
-//
-// It is hand-built rather than json.Marshal'd -- the key is taken per
-// candidate at every searched decision of every simulation, and reflection
-// was a measured heap-profile line of the search loop -- but it is
-// byte-identical to json.Marshal(acts) for every input
-// (TestActionsKeyMatchesJSON): the same field order and names, integers in
-// decimal, a nil list as "null", and every string that needs any escaping
-// at all is escaped by encoding/json itself (appendJSONString).
+// actionsKey is the canonical key of a semantic action list
+// (searchprobe.AppendActionsKey): equal exactly when the lists' JSON
+// encodings are, which is what the key was before it stopped being JSON.
 func actionsKey(acts []searchprobe.Action) Key {
-	if acts == nil {
-		return "null"
-	}
-	// A stack buffer the one Key conversion below copies out of: the common
-	// one- or two-action list costs a single allocation, the key itself.
-	var buf [512]byte
-	b := append(buf[:0], '[')
-	for i := range acts {
-		if i > 0 {
-			b = append(b, ',')
-		}
-		b = appendActionJSON(b, &acts[i])
-	}
-	b = append(b, ']')
-	return Key(b)
-}
-
-// appendActionJSON appends json.Marshal's encoding of one Action: its
-// exported fields in declaration order under their Go names (Action has no
-// struct tags).
-func appendActionJSON(b []byte, a *searchprobe.Action) []byte {
-	b = append(b, `{"Decision":`...)
-	b = appendJSONString(b, string(a.Decision))
-	b = append(b, `,"Source":`...)
-	b = strconv.AppendUint(b, uint64(a.Source), 10)
-	b = append(b, `,"Kind":`...)
-	b = appendJSONString(b, a.Kind)
-	b = append(b, `,"Obj":`...)
-	b = strconv.AppendUint(b, uint64(a.Obj), 10)
-	b = append(b, `,"Attacker":`...)
-	b = strconv.AppendUint(b, uint64(a.Attacker), 10)
-	b = append(b, `,"Player":`...)
-	b = strconv.AppendUint(b, uint64(a.Player), 10)
-	b = append(b, `,"Ability":`...)
-	b = strconv.AppendInt(b, int64(a.Ability), 10)
-	b = append(b, `,"AltCostIndex":`...)
-	b = strconv.AppendInt(b, int64(a.AltCostIndex), 10)
-	b = append(b, `,"Amount":`...)
-	b = strconv.AppendInt(b, int64(a.Amount), 10)
-	b = append(b, `,"Mode":`...)
-	b = appendJSONString(b, a.Mode)
-	b = append(b, `,"SVar":`...)
-	b = appendJSONString(b, a.SVar)
-	b = append(b, `,"Value":`...)
-	b = appendJSONString(b, a.Value)
-	return append(b, '}')
-}
-
-// appendJSONString appends s as encoding/json encodes a string. The fast
-// path is printable ASCII that json.Marshal writes verbatim (no quote,
-// backslash, or the HTML-escaped <, > and &); any other byte hands the whole
-// string to encoding/json, so control characters, non-ASCII, invalid UTF-8
-// and U+2028/U+2029 get exactly its escaping.
-func appendJSONString(b []byte, s string) []byte {
-	for i := 0; i < len(s); i++ {
-		if c := s[i]; c < 0x20 || c > 0x7e || c == '"' || c == '\\' || c == '<' || c == '>' || c == '&' {
-			enc, err := json.Marshal(s)
-			if err != nil {
-				// A Go string always encodes; Marshal cannot fail on one.
-				panic(fmt.Sprintf("azmcts: encoding a semantic action: %v", err))
-			}
-			return append(b, enc...)
-		}
-	}
-	b = append(b, '"')
-	b = append(b, s...)
-	return append(b, '"')
+	var buf [128]byte
+	return Key(searchprobe.AppendActionsKey(buf[:0], acts))
 }
 
 // priors is the candidates' prior (spec §2): uniform without a network;

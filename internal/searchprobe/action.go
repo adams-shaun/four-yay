@@ -136,15 +136,21 @@ func (c *Collector) action(d *decision.Decision, o decision.Option) (Action, err
 	return a, nil
 }
 
-func (c *Collector) observeDecision(d *decision.Decision) (*ObservedDecision, error) {
-	if d == nil {
-		return nil, nil
-	}
+// observeDecisionInto builds d's observed form in out, appending its options
+// to buf[:0] (growing it if it is short). Options stays nil
+// for a decision with no options, as an appended-from-nil slice would, so an
+// owned and a scratch observation of one decision are reflect.DeepEqual.
+// Groups are numbered 1, 2, ... in first-appearance order.
+func (c *Collector) observeDecisionInto(out *ObservedDecision, buf []ObservedOption, d *decision.Decision) (*ObservedDecision, error) {
 	if d.Player != c.actor {
 		return nil, fmt.Errorf("opponent private decision entered observation")
 	}
-	out := &ObservedDecision{Player: d.Player, Kind: d.Kind, Min: d.Min, Max: d.Max, Source: c.ref(d.Source)}
-	groups := make(map[string]int)
+	opts := buf[:0]
+	*out = ObservedDecision{Player: d.Player, Kind: d.Kind, Min: d.Min, Max: d.Max, Source: c.ref(d.Source)}
+	// groups[i] is group i+1's name. A decision has a handful of groups, so
+	// a linear scan over a stack array beats a map allocated per call.
+	var groupBuf [16]string
+	groups := groupBuf[:0]
 	for _, o := range d.Options {
 		a, err := c.action(d, o)
 		if err != nil {
@@ -152,13 +158,21 @@ func (c *Collector) observeDecision(d *decision.Decision) (*ObservedDecision, er
 		}
 		group := 0
 		if o.Group != "" {
-			group = groups[o.Group]
+			for i, name := range groups {
+				if name == o.Group {
+					group = i + 1
+					break
+				}
+			}
 			if group == 0 {
-				group = len(groups) + 1
-				groups[o.Group] = group
+				groups = append(groups, o.Group)
+				group = len(groups)
 			}
 		}
-		out.Options = append(out.Options, ObservedOption{Action: a, Group: group, Required: o.Required})
+		opts = append(opts, ObservedOption{Action: a, Group: group, Required: o.Required})
+	}
+	if len(opts) > 0 {
+		out.Options = opts
 	}
 	if d.TargetEffect != nil {
 		out.EffectAPI = d.TargetEffect.API

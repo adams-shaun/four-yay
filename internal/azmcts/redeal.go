@@ -72,6 +72,7 @@ type RedealSource struct {
 	refused  string
 	failed   string // the first Deal failure, "" when every deal landed
 	obs      *searchprobe.Collector
+	forks    *searchprobe.Forker // every simulation's observer (World)
 	seed     uint64
 	k        int
 	worlds   []*rules.Engine
@@ -159,7 +160,12 @@ func (s *RedealSource) World(sim int) (World, error) {
 		w = s.worlds[i].CloneHypotheticalInto(splitmix(s.seed^splitmix(uint64(sim)+0x51)), &s.spare)
 	}
 	s.prev = w
-	return World{Engine: w, Observer: s.obs.Clone(), Hypothetical: true}, nil
+	// The previous simulation's observer is spent too: one fork, rolled back
+	// to the root observer's boundary, serves every simulation.
+	if s.forks == nil {
+		s.forks = s.obs.Forker()
+	}
+	return World{Engine: w, Observer: s.forks.Fork(), Hypothetical: true}, nil
 }
 
 // KnownTracker is the feed-owned incremental known-card projection

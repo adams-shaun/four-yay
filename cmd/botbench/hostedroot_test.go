@@ -13,7 +13,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"reflect"
 	"testing"
 
@@ -223,11 +222,11 @@ func TestHostedRootRefusalPlaysTheBotAndIsCounted(t *testing.T) {
 			if seatIdx != 0 || poisoned || feedPtr == nil {
 				return nil
 			}
-			// Sabotage the history: one frame whose Board is not JSON. The
-			// tracker folds it at the next Known() call and the projection
-			// is dead for the rest of the game.
+			// Sabotage the history: one frame with no board. The tracker
+			// folds it at the next Known() call and the projection is dead
+			// for the rest of the game.
 			h := feedPtr.HistoryRef()
-			h.Frames = append(h.Frames, searchprobe.Frame{Board: json.RawMessage("{")})
+			h.Frames = append(h.Frames, searchprobe.Frame{})
 			poisoned = true
 			return nil
 		},
