@@ -1,6 +1,7 @@
 {
   "card": "Syr Konrad, the Grim",
   "family": "trigger-condition",
+  "oracle_sha": "3fe7c00aa658",
   "author": "cli-20260930T004423Z-d42d9d4e (Oracle + CR only)",
   "scenarios": [
     {
@@ -128,7 +129,7 @@
       "cr": [
         "603.6c"
       ],
-      "why": "A creature card leaving the controller's graveyard is one of Syr Konrad's three trigger events, so exiling a creature card from seat 0's graveyard makes each opponent lose 1 life.",
+      "why": "A creature card leaving the controller's graveyard is one of Syr Konrad's three trigger events. Seat 1 starts at 20: placing Grizzly Bears into seat 0's graveyard during setup is itself a library-to-graveyard move, so the 'from anywhere other than the battlefield' clause (now read as a zone set) drains 1 there, and exiling it from the graveyard drains 1 more -- 18 total.",
       "setup": {
         "p0": {
           "battlefield": [
@@ -157,7 +158,7 @@
         },
         {
           "life": {
-            "p1": 19
+            "p1": 18
           }
         }
       ]

@@ -1,4 +1,1 @@
-{
-  "Syr Konrad, the Grim/creature-card-milled-into-graveyard-drains": "Script T:Mode$ ChangesZone Origin$ Hand,Graveyard,Exile,Stack,Library,Command Destination$ Graveyard ValidCard$ Creature.Other never fires for a non-battlefield origin: a creature card milled from the library into the graveyard deals no damage. The battlefield->graveyard (dies) and graveyard->exile (leaves your graveyard) trigger faces DO fire, so the gap is specifically the non-battlefield-origin clause the script encodes with an Origin$ list.",
-  "Syr Konrad, the Grim/creature-card-discarded-into-graveyard-drains": "Same defect as the milled scenario: a creature card moved to the graveyard from the hand also fails to trigger the 'creature card put into a graveyard from anywhere other than the battlefield' clause (Origin$ list from a non-battlefield zone). Observed p1 at 20 life."
-}
+{}
