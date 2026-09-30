@@ -25,6 +25,11 @@ type Registry struct {
 	// or byName: a token is not a card a deck can contain, and Lookup must
 	// not resolve a token's printed name to one.
 	Tokens map[string]*Card
+
+	// sub is set on a registry OpenCorpusSubset built: Cards then holds only
+	// the requested cards, and Lookup answers from the whole corpus's name
+	// index, decoding a card outside the subset on first use (subset.go).
+	sub *subsetSource
 }
 
 func NewRegistry() *Registry {
@@ -86,6 +91,9 @@ func (r *Registry) Add(c *Card) {
 }
 
 func (r *Registry) Lookup(name string) (*Card, bool) {
+	if r.sub != nil {
+		return r.sub.lookup(NormalizeName(name))
+	}
 	c, ok := r.byName[NormalizeName(name)]
 	return c, ok
 }
@@ -108,28 +116,33 @@ func (r *Registry) Lookup(name string) (*Card, bool) {
 // has). Within a tier the first card wins, Add's rule; back names are still
 // indexed when no native front claims them, preserving the pre-existing lookup
 // of a transforming or split back face.
-func (r *Registry) rebuildNameIndex() {
-	r.byName = map[string]*Card{}
+func (r *Registry) rebuildNameIndex() { r.byName = nameIndexOf(r.Cards) }
+
+// nameIndexOf is rebuildNameIndex's tiered index over cs, as a pure function
+// so the segment file (subset.go) records exactly the index LoadRegistry
+// builds over the whole corpus.
+func nameIndexOf(cs []*Card) map[string]*Card {
+	byName := map[string]*Card{}
 	index := func(f *Face, c *Card) {
 		if k := NormalizeName(f.Name); k != "" {
-			if _, exists := r.byName[k]; !exists {
-				r.byName[k] = c
+			if _, exists := byName[k]; !exists {
+				byName[k] = c
 			}
 		}
 		for _, a := range f.Aliases {
 			if k := NormalizeName(a); k != "" {
-				if _, exists := r.byName[k]; !exists {
-					r.byName[k] = c
+				if _, exists := byName[k]; !exists {
+					byName[k] = c
 				}
 			}
 		}
 	}
-	for _, c := range r.Cards {
+	for _, c := range cs {
 		if len(c.Faces) > 0 && c.Faces[0] != nil && c.Faces[0].CopyFaceFrom == "" {
 			index(c.Faces[0], c)
 		}
 	}
-	for _, c := range r.Cards {
+	for _, c := range cs {
 		for i := range c.Faces {
 			f := c.Faces[i]
 			if f == nil || (i == 0 && f.CopyFaceFrom == "") {
@@ -138,6 +151,7 @@ func (r *Registry) rebuildNameIndex() {
 			index(f, c)
 		}
 	}
+	return byName
 }
 
 // resolveCopyFaces resolves every face carrying a `CopyFaceFrom:<Card>`
@@ -235,7 +249,19 @@ func (e *CacheVersionError) Error() string {
 	return fmt.Sprintf("IR cache version %d, want %d — run `make compile-cards`", e.Got, e.Want)
 }
 
+// Save writes the gob cache to path and, beside it, the per-card segment
+// file (SegmentPath) the subset loader reads. Both carry the same values.
 func (r *Registry) Save(path string) error {
+	if r.sub != nil {
+		return fmt.Errorf("cards: a subset registry cannot be saved as a corpus cache")
+	}
+	if err := r.saveGob(path); err != nil {
+		return err
+	}
+	return writeSegments(SegmentPath(path), r.Cards, r.Tokens)
+}
+
+func (r *Registry) saveGob(path string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
@@ -304,8 +330,19 @@ func LoadRegistry(path string) (*Registry, error) {
 	if cf.Version != cacheVersion {
 		return nil, &CacheVersionError{Got: cf.Version, Want: cacheVersion}
 	}
+	return finishDecoded(cf.Cards, cf.Tokens)
+}
+
+// finishDecoded is the post-decode half of LoadRegistry: it turns cards and
+// tokens exactly as the gob cache stores them into a usable registry. It is
+// shared by LoadRegistry and the subset loader (OpenCorpusSubset), so a card
+// decoded from the per-card segment file goes through the same repair,
+// derive, link, index and catalog steps as the same card decoded from the
+// whole cache -- the property that makes a subset registry play games
+// byte-identical to the full one.
+func finishDecoded(decoded []*Card, tokens map[string]*Card) (*Registry, error) {
 	r := NewRegistry()
-	for _, c := range cf.Cards {
+	for _, c := range decoded {
 		// The derived fields are unexported, so gob never encodes them and a
 		// stale cache decodes them as zero. derive recomputes them here — the
 		// gob construction route must end with the same derived values as the
@@ -353,8 +390,8 @@ func LoadRegistry(path string) (*Registry, error) {
 	// pass is idempotent.
 	r.resolveCopyFaces()
 	r.rebuildNameIndex()
-	if cf.Tokens != nil {
-		r.Tokens = cf.Tokens
+	if tokens != nil {
+		r.Tokens = tokens
 		for _, c := range r.Tokens {
 			for _, f := range c.Faces {
 				// The same derive-before-link order as the cards loop above:

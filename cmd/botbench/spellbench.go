@@ -69,13 +69,13 @@ import (
 	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/deck"
 	"github.com/adams-shaun/gorge/internal/azmcts"
 	gbench "github.com/adams-shaun/gorge/internal/bench"
 	"github.com/adams-shaun/gorge/internal/policynet"
 	"github.com/adams-shaun/gorge/internal/spellbench"
 	"github.com/adams-shaun/gorge/internal/spellbench/builtins"
 	"github.com/adams-shaun/gorge/internal/spellbench/registry"
-	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/seat"
 	"github.com/adams-shaun/gorge/view"
@@ -623,14 +623,22 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 	if o.decks != "" {
 		pool = sbSplit(o.decks)
 	}
-	reg, err := testutil.OpenCorpusRegistry(dir)
+	files := make([]deck.File, len(pool))
+	for i, id := range pool {
+		f, err := spellbench.File(cat.Dir, id)
+		if err != nil {
+			return fail(err)
+		}
+		files[i] = f
+	}
+	reg, err := openCorpusForDecks(dir, files, stderr)
 	if err != nil {
 		return fail(fmt.Errorf("opening corpus at %s: %w (run `make fetch-cards compile-cards` first)", dir, err))
 	}
 	setTacticalRegistry(reg)
 	decks := make(map[string][]*cards.Card, len(pool)) // lookup only
-	for _, id := range pool {
-		d, err := spellbench.Deck(reg, cat.Dir, id)
+	for i, id := range pool {
+		d, err := files[i].Resolve(reg)
 		if err != nil {
 			return fail(err)
 		}
