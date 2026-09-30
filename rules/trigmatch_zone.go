@@ -391,7 +391,7 @@ func (e *Engine) tokenCreatedMatches(t cards.Trigger, source state.ObjID, ev eve
 }
 
 func init() {
-	// ChangesZoneAll shares the per-object matcher (batch-of-one).
+	// ChangesZoneAll shares the per-object matcher; the action brackets (RepeatEach ChangeZoneTable, api:Phases, api:Mill, api:Dig) collapse one action's moves to one queueing.
 	registerTrigMatcher((*Engine).zoneChangeMatches, "ChangesZone", "ChangesZoneAll")
 	registerTrigMatcher((*Engine).sacrificedMatches, "Sacrificed")
 	registerTrigMatcher(func(e *Engine, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
