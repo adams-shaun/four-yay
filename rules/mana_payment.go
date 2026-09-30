@@ -1,3 +1,7 @@
+// mana_payment.go holds mana payment and the cost machinery: paying a cost
+// from the pool, what the pool can produce for a descriptor, the restriction
+// matching (RestrictValid$/adds-counter riders), and costPayable's checks.
+// Split out of stack.go by a pure move (no rename, no behaviour change).
 package rules
 
 import (

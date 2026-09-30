@@ -1,3 +1,14 @@
+// stack.go holds the stack resolution core: resolveTop (the resolution loop),
+// the spell zone/fizzle helpers, the post-resolution target recheck, and the
+// legalTargets/resolveAbility entry points.
+//
+// It was split out of one 6.5k-line file into a handful of focused units; the
+// rest lives in mana_payment.go (mana payment and cost machinery),
+// stack_helpers.go (Engine accessors, per-turn counters, unless-cost),
+// target_ask.go (asking a seat for targets), target_legal.go (target legality
+// and candidate construction) and target_modes.go (modal/charm target groups
+// and target bounds). The split is a pure move: no symbol was renamed and no
+// behaviour changed.
 package rules
 
 import (

@@ -1,3 +1,9 @@
+// stack_helpers.go holds the Engine accessor surface (Game, Emit, Rand,
+// Object*), the per-turn history counters a card's cost/effect reads from the
+// log (life lost/gained, cards drawn/discarded, spells cast, attackers,
+// counters added/removed, combat damage), the life-exchange transaction, the
+// planar/zoneswalk and library-shuffle helpers, and payUnlessCost.
+// Split out of stack.go by a pure move (no rename, no behaviour change).
 package rules
 
 import (

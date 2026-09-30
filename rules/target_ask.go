@@ -1,3 +1,8 @@
+// target_ask.go holds the target-choice surface: who chooses (targetChooserCore,
+// targetAskChooser, midChooserCore, ChooserFor), the opponent-picker asks, the
+// ask/handle for a target decision, and the charm target recheck that runs when
+// a copy resolves.
+// Split out of stack.go by a pure move (no rename, no behaviour change).
 package rules
 
 import (

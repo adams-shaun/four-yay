@@ -1,3 +1,8 @@
+// target_legal.go holds target legality and candidate construction: the target
+// bounds (fixed/dynamic/X and the gift promise), the zones a target lives in,
+// the stack-object kind tests, and the candidate walks plus their validity and
+// controller filters.
+// Split out of stack.go by a pure move (no rename, no behaviour change).
 package rules
 
 import (
