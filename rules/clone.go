@@ -929,6 +929,10 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	// tables start empty over Release-cleared capacity, the same zeroed state
 	// derivedMemoizedAt's growth relies on for a Config.Spare game.
 	c.derivedMemo, c.derivedMemoStack = sp.memo, sp.memoStack
+	// The spent engine's recycled snapshot arenas (trigger_snapshot_pool.go):
+	// cleared, owned by nobody else, so the clone's look-back windows reuse
+	// them; the original's own pool is never shared.
+	c.adoptSnapshotObjs(sp.snapObjs)
 	return c
 }
 

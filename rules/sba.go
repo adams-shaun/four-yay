@@ -723,8 +723,9 @@ func (e *Engine) worldRule() bool {
 	// it). The snapshot never receives mutations and the log retains ordinary
 	// MoveZone events.
 	before := e.triggerBefore
-	e.triggerBefore = e.snapshotTriggerBoard()
-	defer func() { e.triggerBefore = before }()
+	own := e.snapshotTriggerBoard()
+	e.triggerBefore = own
+	defer e.closeTriggerWindow(own, before)
 	changed := false
 	for _, id := range worlds {
 		if newestCount == 1 && id == newest {
@@ -906,8 +907,9 @@ func (e *Engine) ceaseDepartedObjects(p state.PlayerID) {
 	// quadratic in a large board (60,001 tokens in
 	// TestLargeEliminationSweepDoesNotTripLivelockWatcher took minutes).
 	if e.triggerBefore == nil && e.ceaseSweepLeavesBattlefield(p) {
-		e.triggerBefore = e.snapshotTriggerBoard()
-		defer func() { e.triggerBefore = nil }()
+		own := e.snapshotTriggerBoard()
+		e.triggerBefore = own
+		defer e.closeTriggerWindow(own, nil)
 	}
 	for i := range e.G.Objs {
 		o := &e.G.Objs[i]
@@ -1095,8 +1097,9 @@ func (e *Engine) destroyLethalDamage(tried *sbaAttempts) bool {
 	// actually occur; only those actual events are matched. The snapshot
 	// never receives mutations, and the log retains ordinary MoveZone events.
 	before := e.triggerBefore
-	e.triggerBefore = e.snapshotTriggerBoard()
-	defer func() { e.triggerBefore = before }()
+	own := e.snapshotTriggerBoard()
+	e.triggerBefore = own
+	defer e.closeTriggerWindow(own, before)
 	for _, c := range dead {
 		tried.objs[c.id] = true
 		if c.text == "lethal damage" && effects.ReplaceDestruction(e, c.id) {
@@ -1196,8 +1199,9 @@ func (e *Engine) planeswalkerZeroLoyalty(tried *sbaAttempts) bool {
 	// TestPlaneswalkerSBABatchUsesPreDepartureBoard pins it). The snapshot
 	// never receives mutations, and the log retains ordinary MoveZone events.
 	before := e.triggerBefore
-	e.triggerBefore = e.snapshotTriggerBoard()
-	defer func() { e.triggerBefore = before }()
+	own := e.snapshotTriggerBoard()
+	e.triggerBefore = own
+	defer e.closeTriggerWindow(own, before)
 	for _, c := range dead {
 		tried.objs[c.id] = true
 		e.emit(events.Event{Kind: events.MoveZone, Obj: c.id,
@@ -1258,8 +1262,9 @@ func (e *Engine) battleZeroDefense(tried *sbaAttempts) bool {
 		return false
 	}
 	before := e.triggerBefore
-	e.triggerBefore = e.snapshotTriggerBoard()
-	defer func() { e.triggerBefore = before }()
+	own := e.snapshotTriggerBoard()
+	e.triggerBefore = own
+	defer e.closeTriggerWindow(own, before)
 	for _, c := range dead {
 		tried.objs[c.id] = true
 		e.emit(events.Event{Kind: events.MoveZone, Obj: c.id,

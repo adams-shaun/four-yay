@@ -224,8 +224,9 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		ev.To != state.ZBattlefield && e.triggerBefore == nil {
 		if o := e.G.Obj(ev.Obj); o != nil && o.Zone == state.ZBattlefield {
 			saved := e.triggerBefore
-			e.triggerBefore = e.snapshotTriggerBoard()
-			defer func() { e.triggerBefore = saved }()
+			own := e.snapshotTriggerBoard()
+			e.triggerBefore = own
+			defer e.closeTriggerWindow(own, saved)
 		}
 	}
 	// LKI (CR 603.10 "look back in time") is captured HERE, before

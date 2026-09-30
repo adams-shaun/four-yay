@@ -162,7 +162,7 @@ func (e *Engine) parkCommanderZoneMove(ev events.Event) {
 			return
 		}
 	}
-	e.cmdZone = append(e.cmdZone, cmdZoneMove{ev: ev, obj: ev.Obj, before: e.triggerBefore})
+	e.cmdZone = append(e.cmdZone, cmdZoneMove{ev: ev, obj: ev.Obj, before: e.retainTriggerBefore()})
 	if e.pending == nil {
 		e.askCommandZone(owner)
 	}

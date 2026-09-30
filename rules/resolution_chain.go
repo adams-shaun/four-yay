@@ -86,7 +86,7 @@ func (e *Engine) buildContinuationChain(frames []contFrame, obj state.ObjID, tai
 		f := &resumePoint{obj: obj, sa: sa.Sub, replacement: e.applyingReplacement,
 			replaced: e.replReplaced, action: e.replAction, replacedPlayer: e.replReplacedPlayer,
 			redirect:  e.replRedirect,
-			before:    e.triggerBefore,
+			before:    e.retainTriggerBefore(),
 			loopBound: cf.bound, loopRemembered: cf.remembered, repeatSubject: cf.repeatSubject,
 			voteCounts: cloneVoteCounts(cf.voteCounts),
 			// Every continuation the loop of THIS re-entry reported belongs to

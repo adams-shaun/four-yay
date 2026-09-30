@@ -124,7 +124,7 @@ func (e *Engine) poseManaReplacementChoice(ev events.Event, candidates []replMat
 	e.replChoices = append(e.replChoices, replChoice{kind: replChoiceMana, ev: ev,
 		cands: candidates, applied: append([]bool(nil), applied...),
 		applicable: append([]int(nil), applicable...), changed: changed,
-		manaTapped: tapped, manaProducer: producer, before: e.triggerBefore})
+		manaTapped: tapped, manaProducer: producer, before: e.retainTriggerBefore()})
 	if e.pending == nil {
 		e.askReplacementChoice(ev.Player)
 	}
@@ -138,7 +138,7 @@ func (e *Engine) poseManaColorReplacementChoice(ev events.Event, candidates []re
 	applied []bool, selected int, changed, tapped bool, producer state.ObjID) {
 	e.replChoices = append(e.replChoices, replChoice{kind: replChoiceManaColor, ev: ev,
 		cands: candidates, applied: append([]bool(nil), applied...), selected: selected,
-		changed: changed, manaTapped: tapped, manaProducer: producer, before: e.triggerBefore})
+		changed: changed, manaTapped: tapped, manaProducer: producer, before: e.retainTriggerBefore()})
 	if e.pending == nil {
 		e.askReplacementChoice(ev.Player)
 	}

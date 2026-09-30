@@ -568,7 +568,7 @@ func (e *Engine) stageEntryCounterOrder(ev events.Event, preview *Engine, n0 int
 	}
 	e.replChoices = append(e.replChoices, replChoice{kind: replChoiceEntryOrder,
 		ev: posed.ev, cands: posed.cands, player: posed.player,
-		before: e.triggerBefore, inResolution: st.inRes,
+		before: e.retainTriggerBefore(), inResolution: st.inRes,
 		damaging: e.damaging, combatDamaging: e.combatDamaging, dmgSrcOverride: e.dmgSrcOverride,
 		stage: st})
 	if e.pending == nil {
@@ -671,7 +671,7 @@ func (e *Engine) resumeEntryCounterOrder(rc replChoice, idx int) {
 			st.counter, st.applied = rc2.ev, rc2.appliedRepls
 			e.replChoices = append(e.replChoices, replChoice{kind: replChoiceEntryOrder,
 				ev: rc2.ev, cands: rc2.cands, player: p,
-				before: e.triggerBefore, inResolution: st.inRes,
+				before: e.retainTriggerBefore(), inResolution: st.inRes,
 				damaging: e.damaging, combatDamaging: e.combatDamaging, dmgSrcOverride: e.dmgSrcOverride,
 				stage: st})
 			if e.pending == nil {

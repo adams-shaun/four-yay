@@ -882,7 +882,7 @@ func (e *Engine) controllerOf(id state.ObjID) state.PlayerID {
 }
 
 func (e *Engine) snapshotTriggerBoard() *triggerSnapshot {
-	return &triggerSnapshot{game: e.G.Clone(), continuous: append([]ContinuousEffect(nil), e.continuous...)}
+	return &triggerSnapshot{game: e.G.CloneInto(e.takeSnapshotObjs()), continuous: append([]ContinuousEffect(nil), e.continuous...)}
 }
 
 func (e *Engine) checkTriggers(ev events.Event, lki *state.Object,
@@ -892,7 +892,8 @@ func (e *Engine) checkTriggers(ev events.Event, lki *state.Object,
 	if batch {
 		// Only leaves-the-battlefield triggers look back. Always and other
 		// event modes continue to read the live board, not an obsolete state.
-		observer := &Engine{G: e.triggerBefore.game, L: e.L,
+		observer := e.lookBackObserver()
+		*observer = Engine{G: e.triggerBefore.game, L: e.L,
 			continuous: e.triggerBefore.continuous, continuousVersion: e.continuousVersion,
 			setNameInPool: e.setNameInPool, layer4InPool: e.layer4InPool}
 		// The observer reads the PRE-departure board from its own Game clone,
@@ -912,7 +913,22 @@ func (e *Engine) checkTriggers(ev events.Event, lki *state.Object,
 		if valid {
 			power, toughness = observer.Power(ev.Obj), observer.Toughness(ev.Obj)
 		}
+		// The look-back LKI a matched trigger keeps (its Ctx.LKI, then the
+		// stack's triggerLKI) is a copy of the snapshot's object, not a
+		// pointer into the snapshot's arena: a window's snapshot arena is
+		// recycled when the window closes (trigger_snapshot_pool.go), and a
+		// trigger outlives it. The copy is the same struct value, sharing
+		// the same never-mutated inner slices the snapshot object holds.
+		if obj != nil {
+			cp := *obj
+			obj = &cp
+		}
 		e.checkFaceTriggers(observer, ev, obj, power, toughness, valid, true, true)
+		// Released before the live walk below, whose emits may re-enter
+		// checkTriggers: a nested look-back then reuses the same struct. A
+		// panic skips the release and every later call allocates, exactly as
+		// before the reuse.
+		e.releaseLookBackObserver(observer)
 	}
 	e.checkFaceTriggers(e, ev, lki, lkiPower, lkiToughness, lkiPTValid, batch, false)
 	if ev.Kind == events.Damage {
