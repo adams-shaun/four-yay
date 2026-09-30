@@ -260,7 +260,8 @@ func (e *Engine) replacementOptionalDeciderOrController(m replMatch) state.Playe
 // offer (an effect-driven SetState turn-up).
 func (e *Engine) turnFaceUpCantHappen(id state.ObjID) bool {
 	ev := events.Event{Kind: events.TurnFaceUp, Obj: id}
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.ReplacementEvent != "TurnFaceUp" || ce.ReplacementBody != "" ||
 			!strings.EqualFold(strings.TrimSpace(ce.ReplacementParams["Layer"]), "CantHappen") {
 			continue

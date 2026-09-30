@@ -647,7 +647,8 @@ func (e *Engine) queueAttackerBlockedTrigger(t cards.Trigger, source state.ObjID
 // precedent). Stormsurge Kraken, Retaliation and Mirror Shield are the
 // corpus carriers.
 func (e *Engine) checkGrantedAttackerBlockedTriggers(ev events.Event) {
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.AddTrigger == nil {
 			continue
 		}
@@ -709,7 +710,8 @@ func (e *Engine) checkAttackerUnblockedTriggers() {
 // same per-attacker helper as a printed trigger, preserving its grantor so
 // GrantTriggerPush can rebuild the Execute$ body during replay.
 func (e *Engine) checkGrantedAttackerUnblockedTriggers(ev events.Event) {
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.AddTrigger == nil || ce.AddTrigger.Mode != "AttackerUnblocked" {
 			continue
 		}

@@ -139,7 +139,8 @@ func (e *Engine) lifeReplacementCandidates(ev events.Event, applied []replMatch)
 			}
 		}
 	})
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.ReplacementEvent != event || ce.ReplacementBody != "" ||
 			!strings.EqualFold(strings.TrimSpace(ce.ReplacementParams["Prevent"]), "True") {
 			continue

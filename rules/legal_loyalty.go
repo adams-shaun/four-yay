@@ -256,7 +256,8 @@ func (e *Engine) loyaltyAbilityLimit(id state.ObjID) int {
 	for _, sv := range e.activeStatics("NumLoyaltyAct") {
 		apply(sv.Params, sv.Source, sv.Controller, nil)
 	}
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.Restriction != "NumLoyaltyAct" {
 			continue
 		}

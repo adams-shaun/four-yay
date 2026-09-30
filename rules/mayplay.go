@@ -902,7 +902,7 @@ func (e *Engine) mayPlayKinds(p state.PlayerID, id state.ObjID) (plain, mutate, 
 // filter read the card's printed spell characteristics, the same way
 // mayPlayStatic evaluates a printed S: grant's ValidAfterStack$. An
 // unsupported value fails closed inside matchesSpec (no grant).
-func (e *Engine) effectGrantMatches(ce state.ContinuousEffect, id state.ObjID) bool {
+func (e *Engine) effectGrantMatches(ce *state.ContinuousEffect, id state.ObjID) bool {
 	sc := e.withNames(effects.SpecContext{You: ce.Controller, Source: ce.Source,
 		Remembered: rememberedTargets(ce.Remembered), Resolving: true})
 	if !e.matchesSpec(ce.Affects, id, sc) {
@@ -951,7 +951,7 @@ func (e *Engine) mayPlayEffectFree(p state.PlayerID, o *state.Object) (free, cov
 		if !all && !slices.Contains(zones, o.Zone) {
 			continue
 		}
-		if !e.effectGrantMatches(*ce, o.ID) {
+		if !e.effectGrantMatches(ce, o.ID) {
 			continue
 		}
 		return true, true
@@ -993,7 +993,7 @@ func (e *Engine) mayPlayEffectGrantsCast(p state.PlayerID, o *state.Object) bool
 		if !all && !slices.Contains(zones, o.Zone) {
 			continue
 		}
-		if e.effectGrantMatches(*ce, o.ID) {
+		if e.effectGrantMatches(ce, o.ID) {
 			return true
 		}
 	}
@@ -1065,7 +1065,7 @@ func (e *Engine) mayPlayGrantedBy(p state.PlayerID, id, host state.ObjID) bool {
 		if !all && !slices.Contains(zones, o.Zone) {
 			continue
 		}
-		if e.effectGrantMatches(*ce, o.ID) {
+		if e.effectGrantMatches(ce, o.ID) {
 			return true
 		}
 	}

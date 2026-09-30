@@ -71,7 +71,8 @@ type costRememberedEntry struct {
 // cost-modifier statics that hold card id right now, in e.active() order.
 func (e *Engine) costRememberedCapture(id state.ObjID) []costRememberedEntry {
 	var out []costRememberedEntry
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		switch ce.CostStaticMode {
 		case "RaiseCost", "ReduceCost", "SetCost":
 		default:

@@ -195,7 +195,8 @@ func (e *Engine) applyReplacementsDispatch(ev events.Event) (events.Event, bool)
 	// current zone. active() enforces the Effect duration; reconstruct the
 	// Forge R: body into the same replMatch path used by printed replacements
 	// so filters, ordering and replacement context cannot drift.
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.ReplacementEvent == "" || ce.ReplacementEvent != event {
 			continue
 		}

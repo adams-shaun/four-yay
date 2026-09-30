@@ -137,7 +137,8 @@ func (e *Engine) blockRestricted(blocker, attacker state.ObjID) bool {
 	// CantBlockByRestrictionParamsReadable whitelist) already excluded gated
 	// bodies, so
 	// no per-static condition gate runs here.
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.Restriction != "CantBlockBy" {
 			continue
 		}
@@ -219,7 +220,8 @@ func (e *Engine) blockRestricted(blocker, attacker state.ObjID) bool {
 	// (ValidBlockerRelative$, IsPresent$/PresentCompare$ gates), so the
 	// loop reads ValidAttacker$/ValidBlocker$ unconditionally and the only
 	// fail-closed direction is the ordinary matcher's empty-set read.
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.Restriction != "CantBlockBy" {
 			continue
 		}

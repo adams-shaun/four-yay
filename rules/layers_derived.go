@@ -178,13 +178,13 @@ func (e *Engine) derivedScalarFrom(id state.ObjID, o *state.Object, f *cards.Fac
 					if ce.SetPowerPresent {
 						power = ce.SetPower
 						if ce.SetPowerExpr != "" {
-							power = e.staticAmount(*ce, ce.SetPowerExpr)
+							power = e.staticAmount(ce, ce.SetPowerExpr)
 						}
 					}
 					if ce.SetToughnessPresent {
 						toughness = ce.SetToughness
 						if ce.SetToughnessExpr != "" {
-							toughness = e.staticAmount(*ce, ce.SetToughnessExpr)
+							toughness = e.staticAmount(ce, ce.SetToughnessExpr)
 						}
 					}
 				} else {
@@ -211,14 +211,14 @@ func (e *Engine) derivedScalarFrom(id state.ObjID, o *state.Object, f *cards.Fac
 				if ce.AddPowerAffected {
 					anchor = id
 				}
-				addPower = e.staticAmountOn(*ce, ce.AddPowerExpr, anchor)
+				addPower = e.staticAmountOn(ce, ce.AddPowerExpr, anchor)
 			}
 			if ce.AddToughnessExpr != "" {
 				anchor := ce.Source
 				if ce.AddToughnessAffected {
 					anchor = id
 				}
-				addToughness = e.staticAmountOn(*ce, ce.AddToughnessExpr, anchor)
+				addToughness = e.staticAmountOn(ce, ce.AddToughnessExpr, anchor)
 			}
 			if ce.DoublePower {
 				addPower = power

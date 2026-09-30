@@ -377,7 +377,8 @@ func (e *Engine) counterReplacementMatchesAll(target, cause state.ObjID) []replM
 	// same remembered-scoped matcher the general replacement scan uses, plus
 	// the shared ValidSA$ subset gate. Stopping the Counter event (the
 	// With-less form) is the complete replacement.
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.ReplacementEvent != "Counter" || ce.ReplacementBody != "" ||
 			!strings.EqualFold(strings.TrimSpace(ce.ReplacementParams["Layer"]), "CantHappen") {
 			continue

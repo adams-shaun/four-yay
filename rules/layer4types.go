@@ -541,7 +541,8 @@ func (e *Engine) anyLayer4Active() bool {
 		}
 		return false
 	}
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.Layer == LType {
 			return true
 		}
@@ -775,7 +776,8 @@ func (e *Engine) staticsProbeFull() {
 // it rebuilds active() and panics unless it agrees with the fast answer.
 func (e *Engine) verifyLayer4Active(want bool) {
 	got := false
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.Layer == LType {
 			got = true
 			break
