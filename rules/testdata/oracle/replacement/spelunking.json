@@ -1,0 +1,114 @@
+{
+  "card": "Spelunking",
+  "family": "replacement",
+  "author": "cli-20260930T004423Z-d42d9d4e (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "lands-enter-untapped-with-spelunking",
+      "cr": [
+        "614.1a",
+        "614.6"
+      ],
+      "why": "Spelunking's continuous effect makes lands the controller's enter untapped, replacing Dismal Backwater's enters-tapped replacement.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Spelunking"
+          ],
+          "hand": [
+            "Dismal Backwater"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "play",
+          "seat": 0,
+          "card": "p0:Dismal Backwater"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Dismal Backwater",
+          "zone": "battlefield",
+          "tapped": false
+        }
+      ]
+    },
+    {
+      "name": "land-enters-tapped-without-spelunking",
+      "cr": [
+        "614.1a"
+      ],
+      "why": "Without Spelunking, Dismal Backwater enters tapped as printed.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Dismal Backwater"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "play",
+          "seat": 0,
+          "card": "p0:Dismal Backwater"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Dismal Backwater",
+          "zone": "battlefield",
+          "tapped": true
+        }
+      ]
+    },
+    {
+      "name": "enters-draws-then-puts-a-land-from-hand",
+      "cr": [
+        "603.6a",
+        "608.2c"
+      ],
+      "why": "When Spelunking enters it draws a card, then its controller may put a land card from hand onto the battlefield; the Dismal Backwater leaves the hand for the battlefield.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Spelunking",
+            "Dismal Backwater"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Spelunking",
+          "mana": "CCG"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "yes"
+              ]
+            },
+            {
+              "kind": "any",
+              "pick": [
+                "p0:Dismal Backwater"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Dismal Backwater",
+          "zone": "battlefield"
+        }
+      ]
+    }
+  ]
+}

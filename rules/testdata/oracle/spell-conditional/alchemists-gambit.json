@@ -1,0 +1,45 @@
+{
+  "card": "Alchemist's Gambit",
+  "family": "spell-conditional",
+  "author": "cli-20260930T004423Z-d42d9d4e (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "plain-cast-exiles-itself",
+      "cr": [
+        "608.2c",
+        "500.7"
+      ],
+      "why": "Alchemist's Gambit takes an extra turn after this one and then exiles itself; on resolution the card leaves the stack for exile.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Alchemist's Gambit"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Alchemist's Gambit",
+          "mana": "CRR"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Alchemist's Gambit",
+          "zone": "exile"
+        },
+        {
+          "life": {
+            "p0": 20,
+            "p1": 20
+          }
+        }
+      ]
+    }
+  ]
+}

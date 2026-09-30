@@ -1,0 +1,106 @@
+{
+  "card": "Sundering Eruption",
+  "family": "spell-conditional",
+  "author": "cli-20260930T004423Z-d42d9d4e (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "destroys-target-land",
+      "cr": [
+        "608.2c",
+        "701.7a"
+      ],
+      "why": "Sundering Eruption destroys the targeted land; its controller may search for a basic land, but the destroyed land itself goes to the graveyard.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Sundering Eruption"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Forest"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Sundering Eruption",
+          "mana": "CCR",
+          "targets": [
+            "p1:Forest"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p1:Forest",
+          "zone": "graveyard"
+        }
+      ]
+    },
+    {
+      "name": "creatures-without-flying-cannot-block-this-turn",
+      "cr": [
+        "608.2c",
+        "509.1b"
+      ],
+      "why": "Sundering Eruption also stops creatures without flying from blocking this turn; a ground 2/1 therefore cannot block the attacker.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Sundering Eruption"
+          ],
+          "battlefield": [
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Forest",
+            "Savannah Lions"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Sundering Eruption",
+          "mana": "CCR",
+          "targets": [
+            "p1:Forest"
+          ]
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Grizzly Bears"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "pass_to",
+          "decision": "blockers"
+        }
+      ],
+      "expect": [
+        {
+          "can_block": {
+            "blocker": "p1:Savannah Lions",
+            "attacker": "p0:Grizzly Bears"
+          },
+          "want": false
+        }
+      ]
+    }
+  ]
+}

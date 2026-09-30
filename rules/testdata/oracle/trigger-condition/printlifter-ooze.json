@@ -1,0 +1,54 @@
+{
+  "card": "Printlifter Ooze",
+  "family": "trigger-condition",
+  "author": "cli-20260930T004423Z-d42d9d4e (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "disguised-cast-enters-face-down-two-two",
+      "cr": [
+        "702.168a",
+        "708.2"
+      ],
+      "why": "Casting Printlifter Ooze with disguise puts it onto the battlefield face down as a 2/2 creature; its deathtouch is a printed ability of the face-up side only.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Printlifter Ooze"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Printlifter Ooze",
+          "cast_mode": "disguised",
+          "mana": "CCC"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "CCCG"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Printlifter Ooze",
+          "zone": "battlefield",
+          "pt": "2/2"
+        },
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "turn_face_up",
+            "card": "p0:Printlifter Ooze"
+          },
+          "want": true
+        }
+      ]
+    }
+  ]
+}
