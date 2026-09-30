@@ -1,0 +1,45 @@
+{
+  "card": "Murderous Cut",
+  "family": "cost-modifier",
+  "oracle_sha": "109ae7b4cf05",
+  "author": "cli-20260930T002325Z-7c2f8c50 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "delve-pays-the-generic-then-destroys",
+      "cr": ["601.2h", "702.65a", "701.7a"],
+      "why": "Exiling four cards pays the four generic mana of 4B, leaving the black mana to pay {B}; the spell then destroys its target creature.",
+      "setup": {
+        "p0": {"hand": ["Murderous Cut"],
+               "graveyard": ["Forest", "Island", "Mountain", "Swamp", "Plains"]},
+        "p1": {"battlefield": ["Grizzly Bears"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Murderous Cut", "mana": "B", "targets": ["p1:Grizzly Bears"],
+         "answers": [{"kind": "choose", "pick": ["p0:Forest", "p0:Island", "p0:Mountain", "p0:Swamp"]}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Grizzly Bears", "zone": "graveyard"},
+        {"card": "p0:Murderous Cut", "zone": "graveyard"}
+      ]
+    },
+    {
+      "name": "partial-delve-still-requires-black",
+      "cr": ["601.2h", "702.65a"],
+      "why": "Exiling three cards pays three of the four generic mana; the remaining {1}{B} must come from the pool, which is why two black mana casts it.",
+      "setup": {
+        "p0": {"hand": ["Murderous Cut"],
+               "graveyard": ["Forest", "Island", "Mountain"]},
+        "p1": {"battlefield": ["Grizzly Bears"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Murderous Cut", "mana": "BB", "targets": ["p1:Grizzly Bears"],
+         "answers": [{"kind": "choose", "pick": ["p0:Forest", "p0:Island", "p0:Mountain"]}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Grizzly Bears", "zone": "graveyard"}
+      ]
+    }
+  ]
+}

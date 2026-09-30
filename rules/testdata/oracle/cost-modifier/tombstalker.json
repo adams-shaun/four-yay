@@ -1,0 +1,44 @@
+{
+  "card": "Tombstalker",
+  "family": "cost-modifier",
+  "oracle_sha": "3c9890fe456d",
+  "author": "cli-20260930T002325Z-7c2f8c50 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "delve-six-leaves-only-two-black",
+      "cr": ["601.2h", "702.65a"],
+      "why": "Tombstalker costs 6BB; exiling six cards with delve pays the six generic mana, so two black mana is enough and the 5/5 flier enters.",
+      "setup": {
+        "p0": {"hand": ["Tombstalker"],
+               "graveyard": ["Grizzly Bears", "Forest", "Island", "Mountain", "Swamp", "Plains"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Tombstalker", "mana": "BB",
+         "answers": [{"kind": "choose", "pick": ["p0:Grizzly Bears", "p0:Forest", "p0:Island", "p0:Mountain", "p0:Swamp", "p0:Plains"]}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Tombstalker", "zone": "battlefield", "pt": "5/5", "keywords": ["Flying"]}
+      ]
+    },
+    {
+      "name": "cast-without-delve-costs-eight",
+      "cr": ["601.2h", "702.65a"],
+      "why": "With no cards exiled the full 6BB must be paid; eight black mana casts the Demon and the graveyard is untouched.",
+      "setup": {
+        "p0": {"hand": ["Tombstalker"],
+               "graveyard": ["Grizzly Bears", "Forest", "Island", "Mountain", "Swamp", "Plains"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Tombstalker", "mana": "BBBBBBBB"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Tombstalker", "zone": "battlefield"},
+        {"graveyard_size": {"p0": 6}}
+      ]
+    }
+  ]
+}

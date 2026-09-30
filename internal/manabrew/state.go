@@ -213,11 +213,18 @@ func (t *Translator) visibleCard(c view.CardView) mb.CardView {
 			text = s
 		}
 	}
-	identity.IsToken = c.Token != ""
+	// IsToken is the view's projected state.Object flag, NOT the Token
+	// display tag ("#12"), which every card carries. A FaceDown card keeps
+	// its zeroed identity: the view's face-down projection never sets the
+	// flag, and the guard keeps this from re-popping it onto a cleared
+	// identity if one ever does.
+	if !c.FaceDown {
+		identity.IsToken = c.IsToken
+	}
 	power, toughness := strconv.Itoa(int(c.Power)), strconv.Itoa(int(c.Toughness))
 	card := mb.CardDto{ID: cardID(c.ID), Identity: identity, Color: []string{}, ManaCost: c.ManaCost, EffectiveManaCost: c.EffectiveManaCost, Types: []string{}, Subtypes: []string{}, Supertypes: []string{}, Power: &power, Toughness: &toughness,
 		ClassLevels: []mb.ClassLevelDto{}, SagaChapters: []mb.SagaChapterDto{}, Text: text, Choices: []mb.CardChoiceDto{}, ControllerID: playerID(c.Controller), OwnerID: playerID(c.Owner), Tapped: c.Tapped,
-		IsAttacking: c.Attacking, Keywords: append([]string{}, c.Keywords...), Counters: make(map[string]int), Damage: int(c.Damage), SummoningSick: c.SummonSick, IsCopy: false, IsDoubleFaced: false, IsTransformed: false, IsFaceDown: c.FaceDown, IsBestowed: false, PhasedOut: false, Exerted: false, AttachmentIDs: []string{}, MergedCardIDs: []string{}}
+		IsAttacking: c.Attacking, Keywords: append([]string{}, c.Keywords...), Counters: make(map[string]int), Damage: int(c.Damage), SummoningSick: c.SummonSick, IsCopy: c.IsCopy && !c.FaceDown, IsDoubleFaced: false, IsTransformed: false, IsFaceDown: c.FaceDown, IsBestowed: false, PhasedOut: false, Exerted: false, AttachmentIDs: []string{}, MergedCardIDs: []string{}}
 	for k, v := range c.Counters {
 		card.Counters[k] = int(v)
 	}

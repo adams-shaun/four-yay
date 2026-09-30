@@ -1,0 +1,25 @@
+{
+  "card": "Monastery Swiftspear",
+  "family": "trigger-condition",
+  "oracle_sha": "24c6fe546073",
+  "author": "cli-20260930T002325Z-7c2f8c50 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "prowess-triggers-on-a-noncreature-spell",
+      "cr": ["702.108a", "613.4"],
+      "why": "Prowess gives the creature +1/+1 until end of turn whenever I cast a noncreature spell; casting Lightning Bolt makes the 1/2 Swiftspear a 2/3.",
+      "setup": {
+        "p0": {"battlefield": ["Monastery Swiftspear"], "hand": ["Lightning Bolt"]},
+        "p1": {"life": 20}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p1": 17}},
+        {"card": "p0:Monastery Swiftspear", "zone": "battlefield", "pt": "2/3"}
+      ]
+    }
+  ]
+}

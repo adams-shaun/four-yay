@@ -1,0 +1,43 @@
+{
+  "card": "Beifong's Bounty Hunters",
+  "family": "trigger-condition",
+  "oracle_sha": "ca18af3f5cb1",
+  "author": "cli-20260930T002325Z-7c2f8c50 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "nonland-creature-death-earthbends-for-its-power",
+      "cr": ["603.6c", "603.10a", "701.66a"],
+      "why": "Whenever a nonland creature I control dies, earthbend X where X is that creature's power. Grizzly Bears (2/2) dying earthbends 2 on the targeted land: a 2/2 land creature with haste and two +1/+1 counters.",
+      "setup": {
+        "p0": {"battlefield": ["Beifong's Bounty Hunters", "Grizzly Bears", "Forest"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "move", "seat": 0, "card": "p0:Grizzly Bears", "to": "graveyard", "targets": ["p0:Forest"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "zone": "graveyard"},
+        {"card": "p0:Forest", "zone": "battlefield", "pt": "2/2", "counters": {"+1/+1": 2},
+         "keywords": ["Haste"], "types": ["Creature", "Land"]}
+      ]
+    },
+    {
+      "name": "land-leaving-does-not-earthbend",
+      "cr": ["603.6c", "700.4"],
+      "why": "The trigger watches a NONLAND creature dying; a land put into the graveyard changes zones without dying and does not trigger the earthbend.",
+      "setup": {
+        "p0": {"battlefield": ["Beifong's Bounty Hunters", "Forest", "Island"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "move", "seat": 0, "card": "p0:Island", "to": "graveyard", "targets": ["p0:Forest"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Island", "zone": "graveyard"},
+        {"card": "p0:Forest", "zone": "battlefield", "no_types": ["Creature"]}
+      ]
+    }
+  ]
+}

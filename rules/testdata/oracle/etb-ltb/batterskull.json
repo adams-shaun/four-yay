@@ -1,0 +1,45 @@
+{
+  "card": "Batterskull",
+  "family": "etb-ltb",
+  "oracle_sha": "9258472a4257",
+  "author": "cli-20260930T002325Z-7c2f8c50 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "living-weapon-makes-and-equips-a-germ",
+      "cr": ["702.92a", "301.5", "613.4"],
+      "why": "Living weapon makes a 0/0 black Phyrexian Germ token when the Equipment enters and attaches Batterskull to it; the +4/+4 makes the Germ a 4/4 with vigilance and lifelink.",
+      "setup": {
+        "p0": {"hand": ["Batterskull"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Batterskull", "mana": "CCCCC"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Batterskull", "zone": "battlefield"},
+        {"card": "p0:token:Germ", "zone": "battlefield", "pt": "4/4",
+         "keywords": ["Vigilance", "Lifelink"]},
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Germ", "token": true}, "eq": 1}
+      ]
+    },
+    {
+      "name": "only-one-germ-is-created",
+      "cr": ["702.92a"],
+      "why": "Living weapon triggers exactly once per Equipment: casting both Batterskulls creates exactly two Germs, one per Equipment.",
+      "setup": {
+        "p0": {"hand": ["Batterskull", "Batterskull"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Batterskull", "mana": "CCCCC"},
+        {"op": "resolve"},
+        {"op": "cast", "seat": 0, "card": "p0:Batterskull#2", "mana": "CCCCC"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Germ", "token": true}, "eq": 2}
+      ]
+    }
+  ]
+}

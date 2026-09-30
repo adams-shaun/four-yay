@@ -247,6 +247,21 @@ export interface CardView {
   printing: Printing;
   token: string;
   /**
+   * IsToken and IsCopy are the object's own state.Object flags projected
+   * for every visible card: a battlefield token (CR 111.7) and a copy
+   * (CR 707.10; a battlefield token copy carries BOTH) are public identity
+   * facts like the name they sit beside, and a client wire that mints its
+   * own identity DTO reads them rather than re-deriving one from Token --
+   * which is the display tag every card carries, never a token flag.
+   * cardViews' face-down replacement rebuilds the CardView from a fresh
+   * literal without them, so a card hidden behind its face reveals no more
+   * than that projection already did; and since a token exists only on the
+   * battlefield and a copy only on the stack or the battlefield, neither
+   * flag can name a card in a hidden zone.
+   */
+  is_token?: boolean;
+  is_copy?: boolean;
+  /**
    * AttackingPlayer is the seat this creature is attacking while
    * Attacking is true, nil otherwise; BlockedBy lists the creatures
    * blocking it. Both exist for the arrow overlay (PL-17) and come
