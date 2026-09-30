@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"strconv"
 
 	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/decision"
@@ -11,6 +12,7 @@ import (
 	"github.com/adams-shaun/gorge/internal/searchprobe"
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/seat"
+	"github.com/adams-shaun/gorge/state"
 	"github.com/adams-shaun/gorge/view"
 )
 
@@ -47,13 +49,51 @@ type cand struct {
 // translated). obs must be a collector for d.Player; ObserveDecision runs on
 // it first. e is read only by the blockers arm.
 func enumerate(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, bot decision.Intent, kinds Kinds, limit int) ([]cand, string, bool) {
-	cands, kind, _, ok := enumerateWhy(obs, e, d, bot, kinds, limit)
+	cands, kind, _, ok := enumerateWhyInto(obs, e, d, bot, kinds, limit, nil)
+	return cands, kind, ok
+}
+
+// enumerateInto is enumerate building its boards into scratch
+// (botpolicy.BoardFromGameInto) instead of allocating one per call; nil
+// allocates. The boards are read only inside the call, so a caller may
+// hand the same scratch to every call it makes.
+func enumerateInto(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, bot decision.Intent, kinds Kinds, limit int, scratch *boardScratch) ([]cand, string, bool) {
+	cands, kind, _, ok := enumerateWhyInto(obs, e, d, bot, kinds, limit, scratch)
 	return cands, kind, ok
 }
 
 // enumerateWhy is enumerate plus the reason a searched kind was skipped
 // (meaningful only when ok is false and kind is not "").
 func enumerateWhy(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, bot decision.Intent, kinds Kinds, limit int) ([]cand, string, SkipReason, bool) {
+	return enumerateWhyInto(obs, e, d, bot, kinds, limit, nil)
+}
+
+// boardScratch is one reusable Board, allocated on first use
+// (botpolicy.NewBoard) and refilled by every later use, so a caller that
+// never needs a board never pays for one.
+type boardScratch struct {
+	b     botpolicy.Board
+	built bool
+}
+
+// board is the scratch Board, allocated on first use.
+func (s *boardScratch) board(players int) *botpolicy.Board {
+	if !s.built {
+		s.b, s.built = botpolicy.NewBoard(players), true
+	}
+	return &s.b
+}
+
+// boardInto is BoardFromGame, filled into scratch when one is given.
+func boardInto(e *rules.Engine, p state.PlayerID, scratch *boardScratch) botpolicy.Board {
+	if scratch == nil {
+		return botpolicy.BoardFromGame(e.G, e, p)
+	}
+	return botpolicy.BoardFromGameInto(e.G, e, p, scratch.board(len(e.G.Players)))
+}
+
+// enumerateWhyInto is enumerateWhy over a board scratch (enumerateInto).
+func enumerateWhyInto(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, bot decision.Intent, kinds Kinds, limit int, scratch *boardScratch) ([]cand, string, SkipReason, bool) {
 	var kind string
 	switch {
 	case d == nil:
@@ -81,7 +121,7 @@ func enumerateWhy(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decis
 	case "attackers":
 		ins = searchprobe.AttackCandidates(d, bot, limit)
 	case "blockers":
-		b := botpolicy.BoardFromGame(e.G, e, d.Player)
+		b := boardInto(e, d.Player, scratch)
 		legal := func(choices []int) []int { return botpolicy.LegalBlockChoices(b, d, choices) }
 		ins = searchprobe.BlockCandidates(d, bot, limit, legal)
 	case "target":
@@ -91,7 +131,7 @@ func enumerateWhy(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decis
 		if err != nil || len(base) != 1 {
 			return nil, kind, SkipTranslate, false
 		}
-		for _, a := range searchprobe.Candidates(worthOptions(od, e, d), base[0], limit) {
+		for _, a := range searchprobe.Candidates(worthOptionsInto(od, e, d, scratch), base[0], limit) {
 			in, err := obs.Match(d, []searchprobe.Action{a})
 			if err != nil {
 				return nil, kind, SkipTranslate, false
@@ -130,6 +170,12 @@ func enumerateWhy(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decis
 // no creature, no activation census, exactly what such a decision shows the
 // bot. od is returned unchanged when nothing is dropped.
 func worthOptions(od *searchprobe.ObservedDecision, e *rules.Engine, d *decision.Decision) *searchprobe.ObservedDecision {
+	return worthOptionsInto(od, e, d, nil)
+}
+
+// worthOptionsInto is worthOptions building its board into scratch (nil
+// allocates).
+func worthOptionsInto(od *searchprobe.ObservedDecision, e *rules.Engine, d *decision.Decision, scratch *boardScratch) *searchprobe.ObservedDecision {
 	if od == nil || len(od.Options) != len(d.Options) {
 		return od
 	}
@@ -140,7 +186,7 @@ func worthOptions(od *searchprobe.ObservedDecision, e *rules.Engine, d *decision
 		if o.Kind == "ability" {
 			if !built {
 				if e != nil {
-					b = botpolicy.BoardFromGame(e.G, e, d.Player)
+					b = boardInto(e, d.Player, scratch)
 				}
 				built = true
 			}
@@ -189,13 +235,82 @@ func priorityBase(d *decision.Decision, bot decision.Intent) BaseKind {
 
 // actionsKey is the canonical key of a semantic action list: its JSON
 // encoding (fixed field order, so equal lists give equal keys).
+//
+// It is hand-built rather than json.Marshal'd -- the key is taken per
+// candidate at every searched decision of every simulation, and reflection
+// was a measured heap-profile line of the search loop -- but it is
+// byte-identical to json.Marshal(acts) for every input
+// (TestActionsKeyMatchesJSON): the same field order and names, integers in
+// decimal, a nil list as "null", and every string that needs any escaping
+// at all is escaped by encoding/json itself (appendJSONString).
 func actionsKey(acts []searchprobe.Action) Key {
-	b, err := json.Marshal(acts)
-	if err != nil {
-		// Action holds only integers and strings; Marshal cannot fail.
-		panic(fmt.Sprintf("azmcts: encoding a semantic action: %v", err))
+	if acts == nil {
+		return "null"
 	}
+	// A stack buffer the one Key conversion below copies out of: the common
+	// one- or two-action list costs a single allocation, the key itself.
+	var buf [512]byte
+	b := append(buf[:0], '[')
+	for i := range acts {
+		if i > 0 {
+			b = append(b, ',')
+		}
+		b = appendActionJSON(b, &acts[i])
+	}
+	b = append(b, ']')
 	return Key(b)
+}
+
+// appendActionJSON appends json.Marshal's encoding of one Action: its
+// exported fields in declaration order under their Go names (Action has no
+// struct tags).
+func appendActionJSON(b []byte, a *searchprobe.Action) []byte {
+	b = append(b, `{"Decision":`...)
+	b = appendJSONString(b, string(a.Decision))
+	b = append(b, `,"Source":`...)
+	b = strconv.AppendUint(b, uint64(a.Source), 10)
+	b = append(b, `,"Kind":`...)
+	b = appendJSONString(b, a.Kind)
+	b = append(b, `,"Obj":`...)
+	b = strconv.AppendUint(b, uint64(a.Obj), 10)
+	b = append(b, `,"Attacker":`...)
+	b = strconv.AppendUint(b, uint64(a.Attacker), 10)
+	b = append(b, `,"Player":`...)
+	b = strconv.AppendUint(b, uint64(a.Player), 10)
+	b = append(b, `,"Ability":`...)
+	b = strconv.AppendInt(b, int64(a.Ability), 10)
+	b = append(b, `,"AltCostIndex":`...)
+	b = strconv.AppendInt(b, int64(a.AltCostIndex), 10)
+	b = append(b, `,"Amount":`...)
+	b = strconv.AppendInt(b, int64(a.Amount), 10)
+	b = append(b, `,"Mode":`...)
+	b = appendJSONString(b, a.Mode)
+	b = append(b, `,"SVar":`...)
+	b = appendJSONString(b, a.SVar)
+	b = append(b, `,"Value":`...)
+	b = appendJSONString(b, a.Value)
+	return append(b, '}')
+}
+
+// appendJSONString appends s as encoding/json encodes a string. The fast
+// path is printable ASCII that json.Marshal writes verbatim (no quote,
+// backslash, or the HTML-escaped <, > and &); any other byte hands the whole
+// string to encoding/json, so control characters, non-ASCII, invalid UTF-8
+// and U+2028/U+2029 get exactly its escaping.
+func appendJSONString(b []byte, s string) []byte {
+	for i := 0; i < len(s); i++ {
+		if c := s[i]; c < 0x20 || c > 0x7e || c == '"' || c == '\\' || c == '<' || c == '>' || c == '&' {
+			enc, err := json.Marshal(s)
+			if err != nil {
+				// A Go string always encodes; Marshal cannot fail on one.
+				panic(fmt.Sprintf("azmcts: encoding a semantic action: %v", err))
+			}
+			return append(b, enc...)
+		}
+	}
+	b = append(b, '"')
+	b = append(b, s...)
+	return append(b, '"')
 }
 
 // priors is the candidates' prior (spec §2): uniform without a network;

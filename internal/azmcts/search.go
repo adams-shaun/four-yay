@@ -102,7 +102,8 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 	if root.Engine == nil || root.Decision == nil || root.Observer == nil {
 		return res, errors.New("azmcts: Search needs the root engine, decision and observer")
 	}
-	cands, kind, why, ok := enumerateWhy(root.Observer, root.Engine, root.Decision, root.Bot, opts.Kinds, opts.Limit)
+	var envBoard, enumBoard boardScratch
+	cands, kind, why, ok := enumerateWhyInto(root.Observer, root.Engine, root.Decision, root.Bot, opts.Kinds, opts.Limit, &enumBoard)
 	res.Kind = kind
 	if !ok {
 		if k := kindIndex(kind); k >= 0 {
@@ -142,6 +143,7 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 		net: net, heuristicLeaf: opts.HeuristicLeaf, kinds: opts.Kinds, limit: opts.Limit, maxSteps: opts.MaxSteps,
 		envSeed: splitmix(opts.Seed ^ 0x656e762d73656564), actor: root.Decision.Player,
 		root: rootPt, rootCands: cands, rootDec: root.Decision, stats: &res.Stats,
+		envBoard: &envBoard, enumBoard: &enumBoard,
 	}
 	tr, err := RunTree(ctx, rootPt, &worldEnvs{src: src, cfg: cfg}, opts, &res.Stats)
 	if err != nil {

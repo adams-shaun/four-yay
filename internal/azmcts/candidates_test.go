@@ -1,6 +1,7 @@
 package azmcts
 
 import (
+	"encoding/json"
 	"math"
 	"reflect"
 	"testing"
@@ -174,5 +175,30 @@ func TestEnumerateDropsAbilitiesTheBotDeclines(t *testing.T) {
 	}
 	if got := choicesOf(cands); !reflect.DeepEqual(got, [][]int{{0}, {3}}) {
 		t.Fatalf("candidates %v, want pass then the draw only", got)
+	}
+}
+
+// TestActionsKeyMatchesJSON pins the hand-built key to json.Marshal byte for
+// byte: the tree compares keys for equality, so any drift would re-identify
+// candidates and change search results.
+func TestActionsKeyMatchesJSON(t *testing.T) {
+	strs := []string{"", "cast", "attack", "a<b>&c", `q"uo\te`, "tab\there", "nl\n", "\x00\x1f\x7f", "café", "  ", "bad\xffutf8", "Ω // Ψ", "{X}"}
+	lists := [][]searchprobe.Action{nil, {}}
+	for i, s := range strs {
+		lists = append(lists, []searchprobe.Action{{
+			Decision: decision.Kind(s), Source: uint32(i) * 977, Kind: strs[(i+1)%len(strs)],
+			Obj: ^uint32(0) - uint32(i), Attacker: uint32(i), Player: state.PlayerID(255 - i),
+			Ability: -i, AltCostIndex: i * 1000003, Amount: -1 << 30,
+			Mode: strs[(i+2)%len(strs)], SVar: strs[(i+3)%len(strs)], Value: s,
+		}, {Kind: s}})
+	}
+	for _, acts := range lists {
+		want, err := json.Marshal(acts)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := actionsKey(acts); string(got) != string(want) {
+			t.Fatalf("actionsKey(%#v)\n got %s\nwant %s", acts, got, want)
+		}
 	}
 }
