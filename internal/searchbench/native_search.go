@@ -139,6 +139,9 @@ func runPIMC4(search func(azmcts.WorldSource, azmcts.Options) (azmcts.Result, er
 			merged = pack(result)
 			merged.Arm = ArmPIMC4
 			merged.Visits = make([]int, len(result.Visits))
+			// The first result supplies the shared root vocabulary only. All
+			// counters below are accumulated across every independent tree.
+			merged.Stats = azmcts.Stats{}
 			for j, key := range result.Keys {
 				byKey[key] = j
 			}
