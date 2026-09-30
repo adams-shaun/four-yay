@@ -2,7 +2,7 @@
   "card": "HELIOS One",
   "family": "activation-condition",
   "oracle_sha": "d6fb7fb19d16",
-  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only), re-authored by agent-20260930T014527Z-3ff957d6 for the pass op",
   "scenarios": [
     {
       "name": "tap-for-colorless-then-charge-energy-across-turns",
@@ -79,19 +79,14 @@
       "cr": [
         "602.2a",
         "118.2d",
-        "701.7a",
-        "122.1"
+        "701.7a"
       ],
-      "why": "'{1}, {T}' charges one energy counter on two successive turns; on the third turn the sorcery-speed '{3}, {T}, Pay X {E}, Sacrifice' ability pays {3} from three tapped lands and X=2 (the two banked counters) to destroy the mana value 2 Mind Stone.",
+      "why": "Three turns of '{1}, {T}' charge two energy counters by the third; the sorcery-speed third ability sacrifices HELIOS One, pays two {E} as X and destroys the mana value 2 Mind Stone.",
       "setup": {
         "p0": {
           "battlefield": [
             "HELIOS One",
-            "Mind Stone",
-            "Island",
-            "Mountain",
-            "Swamp",
-            "Forest"
+            "Mind Stone"
           ]
         },
         "p1": {}
@@ -100,18 +95,9 @@
         {
           "op": "activate",
           "seat": 0,
-          "card": "p0:Island",
-          "ability": "Add"
-        },
-        {
-          "op": "resolve"
-        },
-        {
-          "op": "activate",
-          "seat": 0,
           "card": "p0:HELIOS One",
           "ability": "You get",
-          "mana": "U"
+          "mana": "C"
         },
         {
           "op": "resolve"
@@ -131,26 +117,17 @@
         {
           "op": "activate",
           "seat": 0,
-          "card": "p0:Mountain",
-          "ability": "Add"
-        },
-        {
-          "op": "resolve"
-        },
-        {
-          "op": "activate",
-          "seat": 0,
           "card": "p0:HELIOS One",
           "ability": "You get",
-          "mana": "R"
+          "mana": "C"
         },
         {
           "op": "resolve"
         },
         {
           "op": "pass_to",
-          "step": "upkeep",
-          "active": "p0",
+          "step": "main1",
+          "active": "p1",
           "seat": 0
         },
         {
@@ -158,39 +135,21 @@
           "step": "main1",
           "active": "p0",
           "seat": 0
-        },
-        {
-          "op": "activate",
-          "seat": 0,
-          "card": "p0:Swamp",
-          "ability": "Add"
-        },
-        {
-          "op": "resolve"
-        },
-        {
-          "op": "activate",
-          "seat": 0,
-          "card": "p0:Forest",
-          "ability": "Add"
-        },
-        {
-          "op": "resolve"
         },
         {
           "op": "activate",
           "seat": 0,
           "card": "p0:HELIOS One",
           "ability": "Destroy target nonland",
-          "mana": "UBG",
+          "mana": "CCC",
           "targets": [
             "p0:Mind Stone"
           ],
           "answers": [
             {
-              "kind": "any",
+              "kind": "choose",
               "pick": [
-                "2"
+                "X = 2"
               ]
             }
           ]

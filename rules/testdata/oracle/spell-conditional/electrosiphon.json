@@ -2,36 +2,48 @@
   "card": "Electrosiphon",
   "family": "spell-conditional",
   "oracle_sha": "e216b137bdd0",
-  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only), re-authored by agent-20260930T014527Z-3ff957d6 for the pass op",
   "scenarios": [
     {
       "name": "counter-target-spell-gains-energy-equal-its-mana-value",
       "cr": [
         "608.2c",
         "701.5a",
-        "122.1",
-        "118.2d"
+        "122.1"
       ],
-      "why": "Countering my own Grizzly Bears spell (mana value 2) gains exactly two energy counters, which pay Dr. Madison Li's {T}, Pay {E}{E} pump: Memnite becomes a 2/1.",
+      "why": "Countering Savannah Lions (mana value 1) gains one energy counter; spending it on Dr. Madison Li's '{T}, Pay {E}' pump turns Grizzly Bears 2/2 into a 3/2 with trample and haste.",
       "setup": {
         "p0": {
           "battlefield": [
             "Dr. Madison Li",
-            "Memnite"
+            "Grizzly Bears"
           ],
           "hand": [
-            "Electrosiphon",
-            "Grizzly Bears"
+            "Electrosiphon"
           ]
         },
-        "p1": {}
+        "p1": {
+          "hand": [
+            "Savannah Lions"
+          ]
+        }
       },
       "steps": [
         {
+          "op": "pass_to",
+          "seat": 1,
+          "step": "main1",
+          "active": "p1"
+        },
+        {
           "op": "cast",
-          "seat": 0,
-          "card": "p0:Grizzly Bears",
-          "mana": "CG"
+          "seat": 1,
+          "card": "p1:Savannah Lions",
+          "mana": "W"
+        },
+        {
+          "op": "pass",
+          "seat": 1
         },
         {
           "op": "cast",
@@ -39,14 +51,15 @@
           "card": "p0:Electrosiphon",
           "mana": "UUR",
           "targets": [
-            "p0:Grizzly Bears"
+            "p1:Savannah Lions"
           ]
         },
         {
           "op": "resolve"
         },
         {
-          "op": "resolve"
+          "op": "pass",
+          "seat": 1
         },
         {
           "op": "activate",
@@ -54,7 +67,7 @@
           "card": "p0:Dr. Madison Li",
           "ability": "gets +1/+0",
           "targets": [
-            "p0:Memnite"
+            "p0:Grizzly Bears"
           ]
         },
         {
@@ -63,16 +76,20 @@
       ],
       "expect": [
         {
-          "card": "p0:Grizzly Bears",
+          "card": "p1:Savannah Lions",
           "zone": "graveyard"
+        },
+        {
+          "card": "p0:Grizzly Bears",
+          "pt": "3/2",
+          "keywords": [
+            "Trample",
+            "Haste"
+          ]
         },
         {
           "card": "p0:Electrosiphon",
           "zone": "graveyard"
-        },
-        {
-          "card": "p0:Memnite",
-          "pt": "2/1"
         }
       ]
     },
@@ -80,11 +97,84 @@
       "name": "countering-a-zero-mana-value-spell-gains-no-energy",
       "cr": [
         "608.2c",
+        "701.5a"
+      ],
+      "why": "Memnite's mana value is 0, so countering it gains no energy counters and Dr. Madison Li's {E} pump is not offered.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Dr. Madison Li",
+            "Grizzly Bears"
+          ],
+          "hand": [
+            "Electrosiphon"
+          ]
+        },
+        "p1": {
+          "hand": [
+            "Memnite"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "pass_to",
+          "seat": 1,
+          "step": "main1",
+          "active": "p1"
+        },
+        {
+          "op": "cast",
+          "seat": 1,
+          "card": "p1:Memnite",
+          "mana": ""
+        },
+        {
+          "op": "pass",
+          "seat": 1
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Electrosiphon",
+          "mana": "UUR",
+          "targets": [
+            "p1:Memnite"
+          ]
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "pass",
+          "seat": 1
+        }
+      ],
+      "expect": [
+        {
+          "card": "p1:Memnite",
+          "zone": "graveyard"
+        },
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "activate",
+            "card": "p0:Dr. Madison Li",
+            "label": "gets +1/+0"
+          },
+          "want": false
+        }
+      ]
+    },
+    {
+      "name": "countering-zero-mana-spell-does-not-fund-assaultron-may-pay",
+      "cr": [
+        "608.2c",
         "701.5a",
         "202.3",
         "118.2d"
       ],
-      "why": "A {0} spell has mana value 0, so countering the Ornithopter gains no energy counters. Assaultron Dominator's may-pay attack trigger is then asked with an empty energy pool: the engine offers and accepts 'Pay 1 energy' anyway and puts the counter. CR 118.2d makes the payment illegal, so this is a known divergence (see known-divergent.json).",
+      "why": "Countering Ornithopter (mana value 0) gives no energy. Assaultron Dominator's attack trigger then offers a one-energy may-pay with an empty pool; accepting it incorrectly puts a +1/+1 counter. CR 118.2d makes a payment that cannot be paid an illegal action (see known-divergent.json).",
       "setup": {
         "p0": {
           "battlefield": [

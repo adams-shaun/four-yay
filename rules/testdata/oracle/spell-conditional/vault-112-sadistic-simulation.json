@@ -2,7 +2,7 @@
   "card": "Vault 112: Sadistic Simulation",
   "family": "spell-conditional",
   "oracle_sha": "4f58da7e1a03",
-  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only), re-authored by agent-20260930T014527Z-3ff957d6 for the pass op",
   "scenarios": [
     {
       "name": "chapter-i-taps-stuns-and-gains-energy",
@@ -36,6 +36,18 @@
           "targets": [
             "p0:Grizzly Bears"
           ]
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Dr. Madison Li",
+          "ability": "gets +1/+0",
+          "targets": [
+            "p0:Grizzly Bears"
+          ]
+        },
+        {
+          "op": "resolve"
         }
       ],
       "expect": [
@@ -45,6 +57,98 @@
           "counters": {
             "stun": 1
           }
+        },
+        {
+          "card": "p0:Grizzly Bears",
+          "pt": "3/2"
+        }
+      ]
+    },
+    {
+      "name": "chapter-iii-pays-energy-and-exiles-from-the-shuffled-library",
+      "cr": [
+        "608.2e",
+        "118.2d",
+        "701.17a"
+      ],
+      "why": "Chapters I and II give two energy each; at chapter III paying two shuffles the library and exiles two cards from the top, and the saga is sacrificed after its third chapter.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Vault 112: Sadistic Simulation"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Vault 112: Sadistic Simulation",
+          "mana": "CCUR"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p1",
+          "seat": 0
+        },
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p0",
+          "seat": 0
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p1",
+          "seat": 0
+        },
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p0",
+          "seat": 0,
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "2"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "2"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "exile",
+            "name": ""
+          },
+          "eq": 2
+        },
+        {
+          "card": "p0:Vault 112: Sadistic Simulation",
+          "zone": "graveyard"
         }
       ]
     }

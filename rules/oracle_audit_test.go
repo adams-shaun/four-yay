@@ -1038,6 +1038,15 @@ func (r *oracleRun) do(st oracleStep) error {
 			return err
 		}
 		return r.untilPriority("block")
+	case "pass":
+		// `pass` answers exactly one priority decision: the named seat must
+		// hold priority right now, or this fails loudly rather than silently
+		// passing someone else's priority (which `pass_to` does not check).
+		d, err := r.priorityFor(seat, st.Op)
+		if err != nil {
+			return err
+		}
+		return r.submit(d, []int{pickPass(d)}, "pass")
 	case "pass_to":
 		var want state.Step
 		if st.Step != "" {
@@ -1439,7 +1448,7 @@ func loadOracleFiles(t *testing.T) map[string]oracleFile {
 // holds every scenario file to it.
 var oracleOps = map[string]bool{
 	"mana": true, "cast": true, "activate": true, "play": true, "resolve": true,
-	"attack": true, "block": true, "pass_to": true, "move": true, "life": true,
+	"attack": true, "block": true, "pass": true, "pass_to": true, "move": true, "life": true,
 }
 
 // TestOracleScenarioFilesWellFormed needs no corpus, so it runs where the
