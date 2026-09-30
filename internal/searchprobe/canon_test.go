@@ -46,7 +46,7 @@ func canonGameViews(t *testing.T, frames int) []view.View {
 	var out []view.View
 	pos := 0
 	for i := 0; i < frames; i++ {
-		v, _, err := c.observe(e, e.L.Events[pos:], true, true)
+		v, _, err := c.observe(e, e.L.Events[pos:], true, new(frameArena))
 		if err != nil {
 			t.Fatal(err)
 		}

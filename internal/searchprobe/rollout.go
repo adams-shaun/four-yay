@@ -5,7 +5,7 @@ import (
 	"cmp"
 	"fmt"
 	"math/rand/v2"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -18,29 +18,49 @@ import (
 )
 
 func Candidates(d *ObservedDecision, baseline Action, limit int) []Action {
-	if d == nil || d.Kind != decision.KPriority || limit < 2 || !candidateKind(baseline.Kind) {
-		return nil
+	out, _ := appendCandidates(nil, nil, d, baseline, limit)
+	return out
+}
+
+// Candidates is the package's Candidates written into c's reusable storage:
+// the result is valid until the next Candidates call on c (azmcts reads it
+// once per searched priority decision, inside its simulations).
+func (c *Collector) Candidates(d *ObservedDecision, baseline Action, limit int) []Action {
+	out, pool := appendCandidates(c.candOut[:0], c.candPool[:0], d, baseline, limit)
+	c.candPool = pool
+	if cap(out) > cap(c.candOut) {
+		c.candOut = out
 	}
-	var pool []Action
+	return out
+}
+
+// appendCandidates is Candidates into out[:0], with pool as sorting scratch;
+// it returns the candidates (nil when there are none to compare) and pool.
+func appendCandidates(out, pool []Action, d *ObservedDecision, baseline Action, limit int) ([]Action, []Action) {
+	if d == nil || d.Kind != decision.KPriority || limit < 2 || !candidateKind(baseline.Kind) {
+		return nil, pool
+	}
+	pool = pool[:0]
 	var pass Action
 	hasPass, hasBaseline := false, false
-	for _, o := range d.Options {
-		if candidateKind(o.Action.Kind) {
-			pool = append(pool, o.Action)
+	for i := range d.Options {
+		a := &d.Options[i].Action
+		if candidateKind(a.Kind) {
+			pool = append(pool, *a)
 		}
-		if o.Action.Kind == "pass" {
-			pass = o.Action
+		if a.Kind == "pass" {
+			pass = *a
 			hasPass = true
 		}
-		if o.Action == baseline {
+		if *a == baseline {
 			hasBaseline = true
 		}
 	}
 	if len(pool) < 2 || !hasPass || !hasBaseline {
-		return nil
+		return nil, pool
 	}
 	sortActionsByEncoding(pool)
-	out := []Action{baseline}
+	out = append(out[:0], baseline)
 	if baseline != pass {
 		out = append(out, pass)
 	}
@@ -52,13 +72,14 @@ func Candidates(d *ObservedDecision, baseline Action, limit int) []Action {
 			out = append(out, a)
 		}
 	}
-	return out
+	return out, pool
 }
+
 // sortActionsByEncoding stably sorts actions by their JSON encodings' byte
 // order -- the frozen candidate order -- comparing them field by field
 // (actionJSONCompare) without encoding either.
 func sortActionsByEncoding(actions []Action) {
-	sort.SliceStable(actions, func(i, j int) bool { return actionJSONCompare(&actions[i], &actions[j]) < 0 })
+	slices.SortStableFunc(actions, func(a, b Action) int { return actionJSONCompare(&a, &b) })
 }
 
 // actionJSONCompare is bytes.Compare(json.Marshal(*a), json.Marshal(*b)).

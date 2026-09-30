@@ -119,8 +119,11 @@ func TestActionsKeyIsCanonical(t *testing.T) {
 	if actionsKey(a) != actionsKey(b) || actionsKey(a) == actionsKey(c) {
 		t.Fatal("keys do not follow action equality")
 	}
-	if got := actionsKey([]searchprobe.Action{}); got != "[]" {
-		t.Fatalf("empty declaration key %q, want []", got)
+	// An empty declaration (a no-attack answer) is its own key: equal to
+	// every other empty one, distinct from any non-empty list and from nil,
+	// exactly as the JSON "[]" it replaced was.
+	if actionsKey([]searchprobe.Action{}) != actionsKey(make([]searchprobe.Action, 0, 4)) || actionsKey([]searchprobe.Action{}) == actionsKey(nil) || actionsKey([]searchprobe.Action{}) == actionsKey(a) {
+		t.Fatal("the empty declaration's key is not its own")
 	}
 }
 

@@ -136,24 +136,14 @@ func (c *Collector) action(d *decision.Decision, o decision.Option) (Action, err
 	return a, nil
 }
 
-func (c *Collector) observeDecision(d *decision.Decision) (*ObservedDecision, error) {
-	if d == nil {
-		return nil, nil
-	}
-	return c.observeDecisionInto(new(ObservedDecision), nil, d)
-}
-
 // observeDecisionInto builds d's observed form in out, appending its options
-// to buf[:0] (a nil buf allocates exactly len(d.Options)). Options stays nil
+// to buf[:0] (growing it if it is short). Options stays nil
 // for a decision with no options, as an appended-from-nil slice would, so an
 // owned and a scratch observation of one decision are reflect.DeepEqual.
 // Groups are numbered 1, 2, ... in first-appearance order.
 func (c *Collector) observeDecisionInto(out *ObservedDecision, buf []ObservedOption, d *decision.Decision) (*ObservedDecision, error) {
 	if d.Player != c.actor {
 		return nil, fmt.Errorf("opponent private decision entered observation")
-	}
-	if buf == nil && len(d.Options) > 0 {
-		buf = make([]ObservedOption, 0, len(d.Options))
 	}
 	opts := buf[:0]
 	*out = ObservedDecision{Player: d.Player, Kind: d.Kind, Min: d.Min, Max: d.Max, Source: c.ref(d.Source)}

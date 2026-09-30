@@ -61,7 +61,7 @@ type BoardPlayer struct {
 type BoardCard struct {
 	ID uint32
 	// PowerToughness is Power+Toughness in the view's int32 arithmetic.
-	PowerToughness   int32
+	PowerToughness int32
 	Land, Creature bool
 }
 
@@ -75,37 +75,30 @@ type BoardStack struct {
 // material is rollout.go's frozen material score of c.
 func (c BoardCard) material() float64 { return materialScore(c.Land, c.Creature, c.PowerToughness) }
 
-// boardFacts copies the facts Board documents out of a remapped view. Every
-// card and every target list shares one backing array each, sliced with a
-// capacity limit, so a board is a handful of allocations however many cards
-// it shows.
-func boardFacts(v *view.View) Board {
-	cards, targets := 0, 0
-	for i := range v.Players {
-		p := &v.Players[i]
-		cards += len(p.Hand) + len(p.Battlefield) + len(p.Graveyard) + len(p.Exile) + len(p.Command)
-	}
-	for i := range v.Stack {
-		targets += len(v.Stack[i].Targets)
-	}
-	cardBuf := make([]BoardCard, 0, cards)
+// boardFacts copies the facts Board documents out of a remapped view into
+// a's recording slabs: the board owns them, and a whole game's boards share
+// a handful of chunk allocations.
+func boardFacts(v *view.View, a *frameArena) Board {
+	b := Board{Step: v.Step, Players: a.players.take(len(v.Players))}
 	zone := func(src []view.CardView) []BoardCard {
 		if src == nil {
 			return nil
 		}
-		lo := len(cardBuf)
+		if len(src) == 0 {
+			return []BoardCard{}
+		}
+		out := a.cards.take(len(src))
 		for i := range src {
 			c := &src[i]
-			cardBuf = append(cardBuf, BoardCard{
+			out[i] = BoardCard{
 				ID:             uint32(c.ID),
 				PowerToughness: c.Power + c.Toughness,
 				Land:           strings.Contains(c.Types, "Land"),
 				Creature:       strings.Contains(c.Types, "Creature"),
-			})
+			}
 		}
-		return cardBuf[lo:len(cardBuf):len(cardBuf)]
+		return out
 	}
-	b := Board{Step: v.Step, Players: make([]BoardPlayer, len(v.Players))}
 	for i := range v.Players {
 		p := &v.Players[i]
 		b.Players[i] = BoardPlayer{
@@ -114,20 +107,12 @@ func boardFacts(v *view.View) Board {
 			Exile: zone(p.Exile), Command: zone(p.Command),
 		}
 	}
-	if len(v.Stack) > 0 {
-		targetBuf := make([]uint32, 0, targets)
-		b.Stack = make([]BoardStack, len(v.Stack))
-		for i := range v.Stack {
-			s := &v.Stack[i]
-			var ts []uint32
-			if len(s.Targets) > 0 {
-				lo := len(targetBuf)
-				for _, t := range s.Targets {
-					targetBuf = append(targetBuf, uint32(t.Obj))
-				}
-				ts = targetBuf[lo:len(targetBuf):len(targetBuf)]
-			}
-			b.Stack[i] = BoardStack{ID: uint32(s.ID), Source: uint32(s.Source), Targets: ts}
+	b.Stack = a.stack.take(len(v.Stack))
+	for i := range v.Stack {
+		s := &v.Stack[i]
+		b.Stack[i] = BoardStack{ID: uint32(s.ID), Source: uint32(s.Source), Targets: a.refs.take(len(s.Targets))}
+		for j := range s.Targets {
+			b.Stack[i].Targets[j] = uint32(s.Targets[j].Obj)
 		}
 	}
 	return b
@@ -172,7 +157,7 @@ type hashState interface {
 
 // extendChain hashes one frame's legacy encoding onto the collector's chain
 // and returns the new link.
-func (c *Collector) extendChain(frameJSON []byte) (*historyLink, error) {
+func (c *Collector) extendChain(frameJSON []byte, a *frameArena) (*historyLink, error) {
 	if c.hasher == nil {
 		c.hasher = sha256.New().(hashState)
 	}
@@ -190,7 +175,8 @@ func (c *Collector) extendChain(frameJSON []byte) (*historyLink, error) {
 		h.Write([]byte{','})
 	}
 	h.Write(frameJSON)
-	link := &historyLink{actor: c.actor, prev: c.chain}
+	link := &a.links.take(1)[0]
+	*link = historyLink{actor: c.actor, prev: c.chain}
 	st, err := h.AppendBinary(link.buf[:0])
 	if err != nil {
 		return nil, err

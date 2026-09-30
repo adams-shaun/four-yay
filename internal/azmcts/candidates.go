@@ -89,7 +89,7 @@ func enumerateWhy(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decis
 		if err != nil || len(base) != 1 {
 			return nil, kind, SkipTranslate, false
 		}
-		for _, a := range searchprobe.Candidates(worthOptions(od, e, d), base[0], limit) {
+		for _, a := range obs.Candidates(worthOptions(od, e, d), base[0], limit) {
 			in, err := obs.Match(d, []searchprobe.Action{a})
 			if err != nil {
 				return nil, kind, SkipTranslate, false

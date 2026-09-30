@@ -40,7 +40,7 @@ func TestLeafAndStaticScoresUseVisibleMaterial(t *testing.T) {
 	v.Over = false
 	v.Players[0].Hand = []view.CardView{{ID: 1, Types: "Creature", Power: 2, Toughness: 3}, {ID: 2, Types: "Instant"}}
 	candidates := []Action{{Kind: "pass"}, {Kind: "cast", Obj: 2}, {Kind: "cast", Obj: 1}}
-	choice, err := StaticChoice(Frame{Board: boardFacts(&v)}, candidates)
+	choice, err := StaticChoice(Frame{Board: boardFacts(&v, new(frameArena))}, candidates)
 	if err != nil || choice != 2 {
 		t.Fatalf("static choice %d %v", choice, err)
 	}

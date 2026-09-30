@@ -230,7 +230,7 @@ func (p *proposalState) plan(ctx rules.ShuffleContext) ([]state.ObjID, error) {
 		// Known is judged on this attempt's own observer at shuffle time: a
 		// card it already introduced is a known duplicate, one it has not seen
 		// yet can still serve as a first introduction in the replay.
-		cards[i] = proposalCard{ID: card.ID, Name: card.Name, Known: p.observer.known[card.ID] != 0}
+		cards[i] = proposalCard{ID: card.ID, Name: card.Name, Known: p.observer.ref(card.ID) != 0}
 		byID[card.ID] = card.Name
 	}
 	positions := make([]positionConstraint, len(ep.Positions))

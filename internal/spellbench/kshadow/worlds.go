@@ -18,6 +18,7 @@ import (
 type shadowWorlds struct {
 	sh     *Shadow
 	obs    *searchprobe.Collector
+	forks  *searchprobe.Forker
 	seed   uint64
 	k      int
 	worlds []*rules.Engine
@@ -37,7 +38,12 @@ func (s *shadowWorlds) World(sim int) (azmcts.World, error) {
 		}
 		w = s.worlds[i].CloneHypothetical(mix(s.seed ^ mix(uint64(sim)+0x51)))
 	}
-	return azmcts.World{Engine: w, Observer: s.obs.Clone(), Hypothetical: true}, nil
+	// Simulations run one at a time, so one fork of the root observer,
+	// rolled back per simulation, stands in for a fresh clone each.
+	if s.forks == nil {
+		s.forks = s.obs.Forker()
+	}
+	return azmcts.World{Engine: w, Observer: s.forks.Fork(), Hypothetical: true}, nil
 }
 
 // deal clones the shadow and re-deals its hidden zones.
