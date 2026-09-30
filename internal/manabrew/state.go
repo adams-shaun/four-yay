@@ -32,8 +32,9 @@ func (t *Translator) gameView(v view.View) mb.GameViewDto {
 		gv.Zones = append(gv.Zones, t.playerZones(v.Viewer, p)...)
 	}
 	gv.Zones = append(gv.Zones, t.battlefieldZones(v)...)
+	stackIDs := stackIDSet(v.Stack)
 	for _, s := range v.Stack {
-		gv.Stack = append(gv.Stack, stackObject(s))
+		gv.Stack = append(gv.Stack, stackObject(s, stackIDs))
 	}
 	// The x_gorge_own_deck_v1 extension (seat-deck-manifest spec, interface
 	// mapping item 4) rides the seat's own state: v is a seat-redacted view,
@@ -259,7 +260,7 @@ func combatAssignments(v view.View) []mb.CombatAssignmentDto {
 	}
 	return out
 }
-func stackObject(s view.StackView) mb.StackObjectDto {
+func stackObject(s view.StackView, stackIDs map[state.ObjID]bool) mb.StackObjectDto {
 	name := s.Name
 	if s.Card != nil {
 		name = s.Card.Printing.Name
@@ -269,5 +270,42 @@ func stackObject(s view.StackView) mb.StackObjectDto {
 	// stack's owner is unknowable from the redacted view. This is the v1
 	// approximation -- the field is emitted as authoritative and would be
 	// wrong only for a stack object cast/created for another player.
-	return mb.StackObjectDto{ID: stackID(s.ID), SourceID: cardID(s.Source), ControllerID: playerID(s.Controller), OwnerID: playerID(s.Controller), Identity: mb.CardIdentity{Name: name}, Text: s.Text, IsPermanentSpell: s.Kind == "spell", IsCasting: s.Kind == "spell", FaceIndex: 0, Targets: []mb.TargetRef{}}
+	return mb.StackObjectDto{ID: stackID(s.ID), SourceID: cardID(s.Source), ControllerID: playerID(s.Controller), OwnerID: playerID(s.Controller), Identity: mb.CardIdentity{Name: name}, Text: s.Text, IsPermanentSpell: s.Kind == "spell", IsCasting: s.Kind == "spell", FaceIndex: 0, Targets: stackTargets(s.Targets, stackIDs)}
+}
+
+// stackIDSet is the set of object ids currently on the stack, so a stack
+// object's chosen target that is itself a stack object can be ref'd as a spell
+// (s<id>) rather than a card (o<id>).
+func stackIDSet(stack []view.StackView) map[state.ObjID]bool {
+	if len(stack) == 0 {
+		return nil
+	}
+	out := make(map[state.ObjID]bool, len(stack))
+	for _, s := range stack {
+		out[s.ID] = true
+	}
+	return out
+}
+
+// stackTargets maps a stack object's chosen targets into the wire TargetRef
+// shape. view.TargetView records only whether the target is a player and the
+// target object id, so the kind is re-derived: a player target is RefPlayer, an
+// object target still on the stack is RefSpell (s<id>), and anything else is
+// RefCard (o<id>) -- the same split prompt_target.go's targetRefKind mints for
+// a target option. Dropping the list entirely left a client unable to draw a
+// single target arrow.
+func stackTargets(ts []view.TargetView, stackIDs map[state.ObjID]bool) []mb.TargetRef {
+	out := make([]mb.TargetRef, 0, len(ts))
+	for _, t := range ts {
+		if t.IsPlayer {
+			out = append(out, mb.TargetRef{Kind: mb.RefPlayer, ID: playerID(t.Player)})
+			continue
+		}
+		if stackIDs[t.Obj] {
+			out = append(out, mb.TargetRef{Kind: mb.RefSpell, ID: stackID(t.Obj)})
+			continue
+		}
+		out = append(out, mb.TargetRef{Kind: mb.RefCard, ID: cardID(t.Obj)})
+	}
+	return out
 }
