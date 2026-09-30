@@ -130,6 +130,30 @@ func (m Manifest) computedDigest() (string, error) {
 
 func (m Manifest) Validate() error { return m.validate(true) }
 
+// ValidateSBV1 adds the published sb-v1 population contract to ordinary
+// manifest validation. It is intentionally separate so exploratory native
+// manifests remain possible but cannot be confused with a reproduction.
+func (m Manifest) ValidateSBV1() error {
+	if err := m.Validate(); err != nil {
+		return err
+	}
+	if m.Selection != SBV1Selection {
+		return errors.New("searchbench: manifest does not use sb-v1 selection")
+	}
+	got := map[Split]map[DecisionType]int{SplitDev: {}, SplitTest: {}}
+	for _, item := range m.Items {
+		got[item.Split][item.Type]++
+	}
+	for split, want := range SBV1Quotas {
+		for typ, n := range want {
+			if got[split][typ] != n {
+				return fmt.Errorf("searchbench: sb-v1 %s %s=%d, want %d", split, typ, got[split][typ], n)
+			}
+		}
+	}
+	return nil
+}
+
 func (m Manifest) validate(checkDigest bool) error {
 	if m.Kind != ManifestKind || m.SchemaVersion != ManifestSchemaVersion {
 		return fmt.Errorf("searchbench: want kind %q schema %d, got kind %q schema %d", ManifestKind, ManifestSchemaVersion, m.Kind, m.SchemaVersion)
