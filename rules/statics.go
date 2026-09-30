@@ -1698,6 +1698,12 @@ func (e *Engine) blockRestricted(blocker, attacker state.ObjID) bool {
 		for _, r := range ce.Remembered {
 			sc.Remembered = append(sc.Remembered, state.Target{Obj: r})
 		}
+		// The registration's captured PLAYERS ride the consultation-time
+		// channel: a static consultation never has Resolving set, so the
+		// RememberedPlayer referent resolves them only through this field
+		// (The Motherlode, Excavator's RememberObjects$ TargetedController
+		// -- the defender of the destroyed land).
+		sc.RememberedPlayers = ce.RememberedPlayers
 		if !e.matchesSpec(atkSpec, attacker, sc) {
 			continue
 		}
@@ -1774,6 +1780,8 @@ func (e *Engine) blockRestricted(blocker, attacker state.ObjID) bool {
 		for _, r := range ce.Remembered {
 			sc.Remembered = append(sc.Remembered, state.Target{Obj: r})
 		}
+		// Same consultation-time player channel as the first walk above.
+		sc.RememberedPlayers = ce.RememberedPlayers
 		if attackerSpec == "" {
 			// A spec-less restriction names exactly its remembered set (the
 			// restrictionApplies convention, evaluated per-pair here because

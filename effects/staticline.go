@@ -554,7 +554,10 @@ func appendEffectRememberedObjects(h Host, out []state.ObjID, ts []state.Target)
 // "TargetedPlayer"/"Targeted" (the chosen player targets — Call for Aid's
 // "target opponent" and The Brothers' War's "choose two target players",
 // whose remembered selves the registered restrictions then resolve) and
-// "RememberedPlayer"/"RememberedPlayers"/"Remembered" (the resolution's
+// "TargetedController" (the controller of each captured target — The
+// Motherlode, Excavator's DBEffect remembers the defending player of the
+// land it destroyed) and "RememberedPlayer"/"RememberedPlayers"/
+// "Remembered" (the resolution's
 // remembered players — the per-opponent token-then-effect carriers For Each
 // of You a Gift, Furygale Flocking, City of the Daleks and Rotted Ones Lay
 // Siege bind the RepeatEach loop's current player into Ctx.Remembered, which
@@ -600,6 +603,33 @@ func effectRememberedPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 					add(t.Player)
 				} else if o := h.Game().Obj(t.Obj); o != nil {
 					add(o.Controller)
+				}
+			}
+		case "TargetedController":
+			// The Motherlode, Excavator's DBEffect remembers the controller of
+			// its targeted land -- the defending player its registered
+			// CantBlockBy restriction's ValidBlocker$
+			// Creature.RememberedPlayerCtrl clause reads. A PLAYER target
+			// contributes itself; an OBJECT target contributes its controller
+			// (the same object-tail read TargetedOrController makes).
+			targets := c.Targets
+			if c.PickedTargets != nil {
+				targets = c.PickedTargets
+			}
+			for _, t := range targets {
+				if t.IsPlayer {
+					add(t.Player)
+				} else if o := h.Game().Obj(t.Obj); o != nil {
+					add(o.Controller)
+				}
+			}
+		case "ChosenPlayer":
+			// The Black Gate's DBEffect remembers its ChoosePlayer answer
+			// beside its targeted player: the same current-resolution set
+			// every other ChosenPlayer consumer reads through ChosenTargets.
+			for _, t := range ChosenTargets(h.Game(), c) {
+				if t.IsPlayer {
+					add(t.Player)
 				}
 			}
 		case "RememberedPlayer", "RememberedPlayers", "Remembered":

@@ -3263,6 +3263,18 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 				return
 			}
 			c.PickedTargets = ts
+			// Forge's sub-ability inheritance: a chain body that names no
+			// targets of its own shares the chain's target list, so a later
+			// body's "Targeted"/TargetedController referents (The Motherlode,
+			// Excavator's Destroy sub feeding its RememberObjects$
+			// TargetedController DBEffect) read the answer. Seed Ctx.Targets
+			// ONLY when the chain carries none: the CLOBBER rule above keeps
+			// an outer root's targets authoritative (the root's own list is
+			// never overwritten), so this cannot repoint a sub's explicit
+			// Defined$ Targeted away from what it meant.
+			if len(c.Targets) == 0 {
+				c.Targets = append([]state.Target(nil), ts...)
+			}
 			fn(h, c, sa)
 			c.PickedTargets = nil
 		} else {
