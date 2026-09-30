@@ -16,9 +16,6 @@ func (w *legalWalk) battlefieldWalk() {
 	e, p := w.e, w.p
 	sorcery := w.sorcery
 	actionStatics := &w.actionStatics
-	abilityRestricted := w.abilityRestricted
-	offerCastable := w.offerCastable
-	add := w.add
 	out := &w.out
 	castsOnly := w.castsOnly
 	hyp := w.hyp
@@ -244,7 +241,7 @@ func (w *legalWalk) battlefieldWalk() {
 								continue
 							}
 						}
-						if abilityRestricted(p, id, ab) {
+						if w.abilityRestricted(p, id, ab) {
 							continue
 						}
 						// Activation$ (Sea Gate Wreckage's "Activate only if you have
@@ -313,8 +310,8 @@ func (w *legalWalk) battlefieldWalk() {
 						// offered, and the ability is withheld only when NEITHER cost is
 						// payable.
 						altCost, hasAlt := e.abilityAlternateCost(ab)
-						printedOK := offerCastable(p, id, cost, abilityScope(ab), true)
-						altOK := hasAlt && offerCastable(p, id, altCost, abilityScope(ab), true)
+						printedOK := w.offerCastable(p, id, cost, abilityScope(ab), true)
+						altOK := hasAlt && w.offerCastable(p, id, altCost, abilityScope(ab), true)
 						if !printedOK && !altOK {
 							continue
 						}
@@ -409,7 +406,7 @@ func (w *legalWalk) battlefieldWalk() {
 						if !e.activationPhasesOK(p, ab) {
 							continue
 						}
-						if abilityRestricted(p, id, ab) || e.castSuppressed(p, id) {
+						if w.abilityRestricted(p, id, ab) || e.castSuppressed(p, id) {
 							continue
 						}
 						if !e.activationConditionOK(p, ab) {
@@ -428,7 +425,7 @@ func (w *legalWalk) battlefieldWalk() {
 						if activationTapCostUnavailable(o, cost) || e.tapCostSick(id, cost) {
 							continue
 						}
-						if !offerCastable(p, id, cost, abilityScope(ab), true) {
+						if !w.offerCastable(p, id, cost, abilityScope(ab), true) {
 							continue
 						}
 						if !e.abilityTargetsAvailable(p, id, ab) {
@@ -522,7 +519,7 @@ func (w *legalWalk) battlefieldWalk() {
 					// activation whose transaction aborts (no legal target, an
 					// unpayable cost) was re-offered inside one priority window
 					// forever (cardfuzz batch5 line 1: Trazyn's gained Equip).
-					if abilityRestricted(p, id, ab) || e.castSuppressed(p, id) {
+					if w.abilityRestricted(p, id, ab) || e.castSuppressed(p, id) {
 						continue
 					}
 					cost := e.parseCost(ab.Params["Cost"])
@@ -536,7 +533,7 @@ func (w *legalWalk) battlefieldWalk() {
 					if activationTapCostUnavailable(o, cost) || e.tapCostSick(id, cost) {
 						continue
 					}
-					if !offerCastable(p, id, cost, abilityScope(ab), true) {
+					if !w.offerCastable(p, id, cost, abilityScope(ab), true) {
 						continue
 					}
 					if !e.abilityTargetsAvailable(p, id, ab) {
@@ -630,7 +627,7 @@ func (w *legalWalk) battlefieldWalk() {
 				if len(e.stationCandidates(p, id)) == 0 {
 					continue
 				}
-				add("station", "Station "+o.Face().Name, id)
+				w.add("station", "Station "+o.Face().Name, id)
 			}
 			// Room unlock (CR 309.5, rules/rooms.go): a room whose second door is
 			// still locked may be unlocked as a sorcery by paying that half's own
@@ -655,8 +652,8 @@ func (w *legalWalk) battlefieldWalk() {
 				if !ok {
 					continue
 				}
-				if _, ok := e.unlockMods(p, id); ok && offerCastable(p, id, cost, specialActionScope("unlock"), true) {
-					add("unlock", "Unlock "+roomLockedFace(o).Name, id)
+				if _, ok := e.unlockMods(p, id); ok && w.offerCastable(p, id, cost, specialActionScope("unlock"), true) {
+					w.add("unlock", "Unlock "+roomLockedFace(o).Name, id)
 				}
 			}
 		}
@@ -684,14 +681,14 @@ func (w *legalWalk) battlefieldWalk() {
 				// castSuppressed: the F05-2 no-progress hold-out every other
 				// activation offer reads (an aborted activation is keyed on its
 				// source).
-				if abilityRestricted(p, id, ab) || e.castSuppressed(p, id) {
+				if w.abilityRestricted(p, id, ab) || e.castSuppressed(p, id) {
 					continue
 				}
 				cost := e.parseCost(ab.Params["Cost"])
 				if activationTapCostUnavailable(o, cost) || e.tapCostSick(id, cost) {
 					continue
 				}
-				if !offerCastable(p, id, cost, abilityScope(ab), true) {
+				if !w.offerCastable(p, id, cost, abilityScope(ab), true) {
 					continue
 				}
 				if !e.abilityTargetsAvailable(p, id, ab) {
@@ -756,7 +753,7 @@ func (w *legalWalk) battlefieldWalk() {
 				// the same helper.
 				continue
 			}
-			add("turn_face_up", "Turn face up ("+costPhrase(mf.cost)+")", id)
+			w.add("turn_face_up", "Turn face up ("+costPhrase(mf.cost)+")", id)
 		}
 
 		// Specialize is a no-stack special action and may be taken only as a
@@ -775,7 +772,7 @@ func (w *legalWalk) battlefieldWalk() {
 					if !ok {
 						continue
 					}
-					add("specialize", "Specialize as "+o.Card.Faces[i].Name+" ("+costPhrase(cost)+")", id)
+					w.add("specialize", "Specialize as "+o.Card.Faces[i].Name+" ("+costPhrase(cost)+")", id)
 					(*out)[len(*out)-1].Mode = strconv.Itoa(i)
 				}
 			}
