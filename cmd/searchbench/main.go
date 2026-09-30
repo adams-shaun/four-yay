@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"reflect"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
@@ -523,6 +524,7 @@ func rootRun(args []string, out io.Writer) error {
 	rootsPath := fs.String("roots", "", "root JSONL index")
 	armText := fs.String("arm", "", "clairvoyant-mcts, pimc-1, pimc-4, or is-mcts")
 	limit := fs.Int("limit", 1, "roots to run")
+	includeOpponent := fs.Bool("include-opponent", false, "also run opponent-seat roots (diagnostic only)")
 	sims := fs.Int("sims", 100, "simulations per root")
 	seed := fs.Uint64("seed", 1, "search policy seed")
 	if err := fs.Parse(args); err != nil || *in == "" || *cardsPath == "" || *rootsPath == "" || *limit < 1 || *sims < 1 || *seed == 0 || fs.NArg() != 0 {
@@ -553,11 +555,17 @@ func rootRun(args []string, out io.Writer) error {
 		return err
 	}
 	enc := json.NewEncoder(out)
-	n := *limit
-	if n > len(roots) {
-		n = len(roots)
+	selected := make([]int, 0, *limit)
+	for i := range roots {
+		if !*includeOpponent && roots[i].Seat != 0 {
+			continue
+		}
+		selected = append(selected, i)
+		if len(selected) == *limit {
+			break
+		}
 	}
-	for i := 0; i < n; i++ {
+	for outputOrdinal, i := range selected {
 		game, ok := byID[roots[i].GameID]
 		if !ok {
 			return fmt.Errorf("searchbench: root %d source game %q absent", i, roots[i].GameID)
@@ -583,20 +591,23 @@ func rootRun(args []string, out io.Writer) error {
 		}
 		opts := azmcts.DefaultOptions()
 		opts.Sims = *sims
-		result, err := searchbench.RunNativeSearch(root, worlds, arm, opts, *seed+uint64(i))
+		result, err := searchbench.RunNativeSearch(root, worlds, arm, opts, *seed+uint64(outputOrdinal))
 		if err != nil {
 			return fmt.Errorf("searchbench: root %d %s: %w", i, arm, err)
 		}
 		if err := enc.Encode(struct {
 			GameID    string                `json:"game_id"`
 			Ordinal   int                   `json:"ordinal"`
+			Seat      int                   `json:"seat"`
 			Arm       searchbench.SearchArm `json:"arm"`
 			Choice    int                   `json:"choice"`
 			Intent    decision.Intent       `json:"intent"`
+			Recorded  decision.Intent       `json:"recorded"`
+			Match     bool                  `json:"match_recorded"`
 			Sims      int                   `json:"sims"`
 			Completed int                   `json:"completed"`
 			Skipped   int                   `json:"skipped"`
-		}{roots[i].GameID, roots[i].Ordinal, arm, result.Choice, result.Intent, result.Stats.Simulations, result.Stats.Completed, result.Stats.Skipped}); err != nil {
+		}{roots[i].GameID, roots[i].Ordinal, int(roots[i].Seat), arm, result.Choice, result.Intent, roots[i].Recorded, reflect.DeepEqual(result.Intent, roots[i].Recorded), result.Stats.Simulations, result.Stats.Completed, result.Stats.Skipped}); err != nil {
 			return err
 		}
 	}
