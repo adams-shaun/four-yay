@@ -51,6 +51,8 @@ func main() {
 	var roots rootList
 	flag.Var(&roots, "root", "training root to scan (repeatable or comma list; default /mnt/sata/gorge-training)")
 	addr := flag.String("addr", "127.0.0.1:8086", "listen address (never 8080/8081: the demo)")
+	var deckFocus rootList
+	flag.Var(&deckFocus, "deck-focus", "policy name(s) whose per-deck win rate the matches.jsonl ledgers report (repeatable or comma list; default: each ledger's dominant policy)")
 	flag.Parse()
 	if len(roots) == 0 {
 		roots = rootList{"/mnt/sata/gorge-training"}
@@ -61,6 +63,7 @@ func main() {
 		}
 	}
 	s := NewScanner(roots)
+	s.DeckFocus = deckFocus
 	log.Printf("traindash: serving %s on http://%s/", roots.String(), *addr)
 	log.Fatal(http.ListenAndServe(*addr, newMux(s)))
 }
