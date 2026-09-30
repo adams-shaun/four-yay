@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"sort"
+	"strings"
 
 	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/decision"
@@ -11,6 +13,7 @@ import (
 	"github.com/adams-shaun/gorge/internal/searchprobe"
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/seat"
+	"github.com/adams-shaun/gorge/state"
 	"github.com/adams-shaun/gorge/view"
 )
 
@@ -21,6 +24,21 @@ type cand struct {
 	acts []searchprobe.Action
 	key  Key
 	in   decision.Intent
+	// score is the option-index list a network prior scores the candidate
+	// by: in.Choices, or a payment action's legacy cast option (nil when
+	// the payment has none, which makes a network prior fall back).
+	score []int
+	// scoreSet marks score as set (a payment candidate); otherwise
+	// in.Choices is scored.
+	scoreSet bool
+}
+
+// scoreChoices is the option-index list a network prior scores c by.
+func (c cand) scoreChoices() ([]int, bool) {
+	if c.scoreSet {
+		return c.score, c.score != nil
+	}
+	return c.in.Choices, true
 }
 
 // enumerate builds the candidates of the searching seat's decision d, the
@@ -58,6 +76,30 @@ func enumerateWhy(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decis
 }
 
 func enumerateWhyAutoPayment(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, bot decision.Intent, kinds Kinds, limit int, autoPayment bool) ([]cand, string, SkipReason, bool) {
+	cands, kind, why, ok, _ := enumerateCut(obs, e, d, bot, kinds, limit, autoPayment)
+	return cands, kind, why, ok
+}
+
+// enumerateCut is enumerateWhyAutoPayment that also reports whether limit
+// cut a candidate: it enumerates one past limit (every enumerator is
+// prefix-stable: its first limit candidates do not depend on the cap) and
+// drops the extra. A translation failure of that probe falls back to the
+// capped enumeration, so the candidates are exactly the capped
+// enumerator's whenever that one succeeds.
+func enumerateCut(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, bot decision.Intent, kinds Kinds, limit int, autoPayment bool) ([]cand, string, SkipReason, bool, bool) {
+	cands, kind, why, ok := enumerateLimit(obs, e, d, bot, kinds, limit+1, autoPayment)
+	if ok && len(cands) > limit {
+		return cands[:limit], kind, why, ok, true
+	}
+	if !ok && why == SkipTranslate {
+		// The probe past the cap could not be translated: the capped list
+		// may still be, exactly as before the probe existed.
+		cands, kind, why, ok = enumerateLimit(obs, e, d, bot, kinds, limit, autoPayment)
+	}
+	return cands, kind, why, ok, false
+}
+
+func enumerateLimit(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, bot decision.Intent, kinds Kinds, limit int, autoPayment bool) ([]cand, string, SkipReason, bool) {
 	var kind string
 	switch {
 	case d == nil:
@@ -73,33 +115,16 @@ func enumerateWhyAutoPayment(obs *searchprobe.Collector, e *rules.Engine, d *dec
 	default:
 		return nil, "", 0, false
 	}
-	if bot.Payment != nil {
-		return nil, kind, SkipPayment, false
-	}
 	// Payment actions are atomic engine-provided cast witnesses. They are not
 	// ordinary Decision.Options because paying may include several mana
 	// abilities, but they are nevertheless legal priority actions and must be
-	// searchable when an embedding exposes auto-pay. Keep the action ID as the
-	// cross-world key: the payment planner binds it to the offered cast rather
-	// than a presentation index, and Submit validates the accompanying plan.
+	// searchable when an embedding exposes auto-pay (paymentPriorityCands).
 	if autoPayment && kind == "priority" && e != nil {
-		payments := e.EnsurePaymentActions()
-		if len(payments) > 0 {
-			ins := []cand{{in: bot}}
-			for _, payment := range payments {
-				if len(ins) >= limit {
-					break
-				}
-				if len(payment.Plans) == 0 {
-					continue
-				}
-				in := decision.Intent{Seq: d.Seq, Player: d.Player, Payment: &decision.PaymentSelection{ActionID: payment.ID, Plan: decision.ClonePaymentPlan(payment.Plans[0])}}
-				ins = append(ins, cand{key: Key("payment:" + payment.ID), in: in})
-			}
-			if len(ins) >= 2 {
-				return ins, kind, 0, true
-			}
-		}
+		cands, why, ok := paymentPriorityCands(obs, e, d, bot, limit)
+		return cands, kind, why, ok
+	}
+	if bot.Payment != nil {
+		return nil, kind, SkipPayment, false
 	}
 	od, err := obs.ObserveDecision(e, d)
 	if err != nil {
@@ -133,11 +158,6 @@ func enumerateWhyAutoPayment(obs *searchprobe.Collector, e *rules.Engine, d *dec
 	}
 	out := make([]cand, 0, len(ins))
 	for _, in := range ins {
-		if in.Payment != nil {
-			// The payment action's key was built from its engine identity above;
-			// a Collector deliberately has no synthetic option for it.
-			continue
-		}
 		acts, err := obs.Actions(d, in)
 		if err != nil {
 			return nil, kind, SkipTranslate, false
@@ -145,6 +165,323 @@ func enumerateWhyAutoPayment(obs *searchprobe.Collector, e *rules.Engine, d *dec
 		out = append(out, cand{acts: acts, key: actionsKey(acts), in: in})
 	}
 	return out, kind, 0, true
+}
+
+// payKeyPrefix marks a payment candidate's key: "pay:" then the semantic
+// key of a plain cast of the payment's object (paymentActs), so the same
+// planned cast has the same key in every world however the engine numbered
+// its objects or its action.
+const payKeyPrefix = "pay:"
+
+// paymentActs is the semantic identity of payment action a on d: the
+// observed action of a plain cast of its object, built on a one-option copy
+// of d (a payment action is not a Decision.Option, so the collector has no
+// option for it).
+func paymentActs(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, a decision.PaymentAction) ([]searchprobe.Action, error) {
+	one := *d
+	one.Min, one.Max = 1, 1
+	one.Options = []decision.Option{{Index: 0, Kind: "cast", Obj: a.Cast.Object, Player: d.Player, Label: a.Label}}
+	one.PaymentActions = nil
+	// The cast's object is a hand card no legacy option may name yet (no
+	// mana floats): introduce it, as ObserveDecision does for d's own.
+	if _, err := obs.ObserveDecision(e, &one); err != nil {
+		return nil, err
+	}
+	return obs.Actions(&one, decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{0}})
+}
+
+// nameKeys is Options.NameKeys at an in-walk point: every candidate key's
+// object references past rootRefs (objects the root observation did not
+// show) become the object's card name, and candidates whose keys then
+// coincide keep the first. Only keys change; the intents are this world's.
+func nameKeys(e *rules.Engine, d *decision.Decision, cands []cand, rootRefs int) []cand {
+	name := func(id state.ObjID) string {
+		o := e.G.Obj(id)
+		switch {
+		case o == nil:
+			return "?"
+		case o.FaceDown && o.Owner != d.Player:
+			return "face-down"
+		case o.Card == nil || len(o.Card.Faces) == 0:
+			return "?"
+		}
+		return o.Card.Faces[0].Name
+	}
+	late := func(ref uint32, id state.ObjID) bool {
+		if _, player := id.PlayerRef(); player || id == 0 {
+			return false
+		}
+		return int(ref) > rootRefs
+	}
+	out := cands[:0:0]
+	seen := make(map[Key]bool, len(cands)) // membership only -- never ranged.
+	for _, c := range cands {
+		acts := append([]searchprobe.Action(nil), c.acts...)
+		changed := false
+		for k := range acts {
+			src, obj, atk := d.Source, state.ObjID(0), state.ObjID(0)
+			switch {
+			case c.in.Payment != nil:
+				for _, a := range d.PaymentActions {
+					if a.ID == c.in.Payment.ActionID {
+						obj = a.Cast.Object
+					}
+				}
+			case k < len(c.in.Choices) && c.in.Choices[k] >= 0 && c.in.Choices[k] < len(d.Options):
+				o := d.Options[c.in.Choices[k]]
+				obj, atk = o.Obj, o.Attacker
+			}
+			a := &acts[k]
+			if late(a.Source, src) {
+				a.Source, a.Value, changed = 0, a.Value+"|source="+name(src), true
+			}
+			if late(a.Obj, obj) {
+				a.Obj, a.Value, changed = 0, a.Value+"|object="+name(obj), true
+			}
+			if late(a.Attacker, atk) {
+				a.Attacker, a.Value, changed = 0, a.Value+"|attacker="+name(atk), true
+			}
+		}
+		if changed {
+			k := actionsKey(acts)
+			if c.in.Payment != nil {
+				k = Key(payKeyPrefix + string(k))
+			}
+			c.key = k
+		}
+		if seen[c.key] {
+			continue
+		}
+		seen[c.key] = true
+		out = append(out, c)
+	}
+	return out
+}
+
+// paymentPriorityCands is the auto-payment priority vocabulary, the search
+// benchmark's root and in-walk candidate set: Pass; every engine payment
+// action (a plain cast with its first offered plan, EnsurePaymentActions);
+// and every other cast or ability option -- an alternative-cost or
+// non-hand cast, a legacy cast whose object has no plan, an ability the
+// bot's own guards would take (worthOptions' rule). A legacy plain cast of
+// an object that has a payment action is the same cast and is not offered
+// twice. Land plays and mana activations are never candidates.
+//
+// The bot's answer comes first (the tie-winner): a Payment selection maps
+// to its action's candidate, a choice to its option's. A bot answer outside
+// the vocabulary -- a land play, a mana activation (the auto-pay bot floats
+// mana only for a cast its plans cannot make) -- is not searched: the bot's
+// answer is played (SkipFewCandidates, the ordinary path's rule). Then
+// Pass, the payment casts in engine order, and the rest by key; capped at
+// limit.
+func paymentPriorityCands(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, bot decision.Intent, limit int) ([]cand, SkipReason, bool) {
+	if _, err := obs.ObserveDecision(e, d); err != nil {
+		return nil, SkipTranslate, false
+	}
+	payments := e.EnsurePaymentActions()
+	var pays, rest []cand
+	var pass *cand
+	covered := make(map[state.ObjID]bool, len(payments)) // membership only -- never ranged.
+	payAt := make(map[state.ObjID]int, len(payments))    // lookup only -- never ranged.
+	for _, a := range payments {
+		if len(a.Plans) == 0 || covered[a.Cast.Object] {
+			continue
+		}
+		acts, err := paymentActs(obs, e, d, a)
+		if err != nil {
+			return nil, SkipTranslate, false
+		}
+		c := cand{acts: acts, key: Key(payKeyPrefix + string(actionsKey(acts))), scoreSet: true,
+			in: decision.Intent{Seq: d.Seq, Player: d.Player, Payment: &decision.PaymentSelection{ActionID: a.ID, Plan: decision.ClonePaymentPlan(a.Plans[0])}}}
+		if a.BaseOptionIndex != nil {
+			c.score = []int{*a.BaseOptionIndex}
+		}
+		covered[a.Cast.Object] = true
+		payAt[a.Cast.Object] = len(pays)
+		pays = append(pays, c)
+	}
+	var b botpolicy.Board
+	built := false
+	for i, o := range d.Options {
+		switch o.Kind {
+		case "pass", "cast", "ability":
+		default:
+			continue
+		}
+		if o.Kind == "ability" {
+			if !built {
+				b = botpolicy.BoardFromGame(e.G, e, d.Player)
+				built = true
+			}
+			if !b.AbilityWorthTaking(o, d.Player) {
+				continue
+			}
+		}
+		if o.Kind == "cast" && o.Mode == "" && o.AltCostIndex == 0 && covered[o.Obj] {
+			continue
+		}
+		in := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{i}}
+		acts, err := obs.Actions(d, in)
+		if err != nil {
+			return nil, SkipTranslate, false
+		}
+		c := cand{acts: acts, key: actionsKey(acts), in: in}
+		if o.Kind == "pass" {
+			if pass == nil {
+				pass = &c
+			}
+			continue
+		}
+		rest = append(rest, c)
+	}
+	sort.SliceStable(rest, func(i, j int) bool { return rest[i].key < rest[j].key })
+	var all []cand
+	if pass != nil {
+		all = append(all, *pass)
+	}
+	all = append(append(all, pays...), rest...)
+	botAt := -1
+	for i, c := range all {
+		switch {
+		case bot.Payment != nil:
+			if c.in.Payment != nil && c.in.Payment.ActionID == bot.Payment.ActionID {
+				botAt = i
+			}
+		case len(bot.Choices) == 1 && c.in.Payment == nil:
+			if c.in.Choices[0] == bot.Choices[0] {
+				botAt = i
+			}
+		}
+		if botAt >= 0 {
+			break
+		}
+	}
+	if botAt < 0 && bot.Payment == nil && len(bot.Choices) == 1 && bot.Choices[0] >= 0 && bot.Choices[0] < len(d.Options) {
+		// A manual bot's plain cast of an object that has a payment action
+		// is that payment candidate.
+		if o := d.Options[bot.Choices[0]]; o.Kind == "cast" && o.Mode == "" && o.AltCostIndex == 0 {
+			if at, ok := payAt[o.Obj]; ok {
+				botAt = at
+				if pass != nil {
+					botAt++ // all is pass, then the payments
+				}
+			}
+		}
+	}
+	if botAt < 0 {
+		return nil, SkipFewCandidates, false
+	}
+	out := []cand{all[botAt]}
+	for i, c := range all {
+		if len(out) >= limit {
+			break
+		}
+		if i != botAt {
+			out = append(out, c)
+		}
+	}
+	if len(out) < 2 {
+		return nil, SkipFewCandidates, false
+	}
+	return out, 0, true
+}
+
+// IntentForKey is the intent that plays candidate key k on decision d of
+// engine e, through obs -- a collector for d's player that has captured e
+// at d. A key names the same semantic action in every world, so this is
+// how a choice made on one world is played on another (the benchmark's
+// honest arms answer on the item's own engine; RootPerWorld maps every
+// root key into each simulation's world). An error means d does not offer
+// k.
+func IntentForKey(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, k Key) (decision.Intent, error) {
+	m, err := newKeyMatcher(obs, e, d)
+	if err != nil {
+		return decision.Intent{}, err
+	}
+	return m.intent(k)
+}
+
+// keyMatcher maps keys onto one decision (IntentForKey), observing it and
+// building its payment keys once.
+type keyMatcher struct {
+	obs  *searchprobe.Collector
+	d    *decision.Decision
+	pays []cand
+}
+
+func newKeyMatcher(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision) (*keyMatcher, error) {
+	if obs == nil || e == nil || d == nil {
+		return nil, fmt.Errorf("azmcts: matching a key needs an observer, an engine and a decision")
+	}
+	if _, err := obs.ObserveDecision(e, d); err != nil {
+		return nil, err
+	}
+	m := &keyMatcher{obs: obs, d: d}
+	if d.Kind == decision.KPriority {
+		for _, a := range e.EnsurePaymentActions() {
+			if len(a.Plans) == 0 {
+				continue
+			}
+			acts, err := paymentActs(obs, e, d, a)
+			if err != nil {
+				return nil, err
+			}
+			m.pays = append(m.pays, cand{key: Key(payKeyPrefix + string(actionsKey(acts))),
+				in: decision.Intent{Seq: d.Seq, Player: d.Player, Payment: &decision.PaymentSelection{ActionID: a.ID, Plan: decision.ClonePaymentPlan(a.Plans[0])}}})
+		}
+	}
+	return m, nil
+}
+
+func (m *keyMatcher) intent(k Key) (decision.Intent, error) {
+	if strings.HasPrefix(string(k), payKeyPrefix) {
+		for _, c := range m.pays {
+			if c.key == k {
+				in := c.in
+				in.Payment = &decision.PaymentSelection{ActionID: c.in.Payment.ActionID, Plan: decision.ClonePaymentPlan(c.in.Payment.Plan)}
+				return in, nil
+			}
+		}
+		return decision.Intent{}, fmt.Errorf("azmcts: payment candidate %s is not offered here", k)
+	}
+	var acts []searchprobe.Action
+	if err := json.Unmarshal([]byte(k), &acts); err != nil {
+		return decision.Intent{}, fmt.Errorf("azmcts: key %q is not a semantic action list: %v", k, err)
+	}
+	return m.obs.Match(m.d, acts)
+}
+
+// CandidateLabel is a human-readable label for candidate intent in on
+// decision d: the chosen options' labels joined by " + " ("no attack" or
+// "no block" for an empty declaration), or a payment action's cast label.
+func CandidateLabel(d *decision.Decision, in decision.Intent) string {
+	if d == nil {
+		return ""
+	}
+	if in.Payment != nil {
+		for _, a := range d.PaymentActions {
+			if a.ID == in.Payment.ActionID {
+				return a.Label + " (auto-pay)"
+			}
+		}
+		return "payment " + in.Payment.ActionID
+	}
+	if len(in.Choices) == 0 {
+		switch d.Kind {
+		case decision.KAttackers:
+			return "no attack"
+		case decision.KBlockers:
+			return "no block"
+		}
+		return "none"
+	}
+	parts := make([]string, 0, len(in.Choices))
+	for _, c := range in.Choices {
+		if c >= 0 && c < len(d.Options) {
+			parts = append(parts, d.Options[c].Label)
+		}
+	}
+	return strings.Join(parts, " + ")
 }
 
 // worthOptions is od without the "ability" options the bot's own activation
@@ -254,7 +591,12 @@ func priors(net *policynet.Model, e *rules.Engine, d *decision.Decision, bot dec
 	subset := kind == "attackers" || kind == "blockers"
 	logits := make([]float64, len(cands))
 	for i, c := range cands {
-		logits[i] = policynet.CandidateScore(subset, scores, c.in.Choices)
+		choices, ok := c.scoreChoices()
+		if !ok {
+			// A payment cast with no legacy option has no option score.
+			return uniform(len(cands)), true
+		}
+		logits[i] = policynet.CandidateScore(subset, scores, choices)
 	}
 	p, ok := softmax(logits)
 	if !ok {
