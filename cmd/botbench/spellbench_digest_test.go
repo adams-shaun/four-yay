@@ -41,7 +41,13 @@ import (
 // sources outside its census, the seat decides any other unpriced play with
 // the exact search (rules.Engine.PotentialPlayScript), and builtins.Stats,
 // which games.jsonl records per seat, gained the script counters.
-const smokeDigestGolden = "8936bd7c7999398717193009fc6425213496b6e3d0223e5c348891ba3e260897"
+//
+// Re-pinned at the -spellbench-mulligans knob (cli-20260929T235514Z-d23dd19b):
+// every games.jsonl row gained a "mulligans" tally field (per-seat keep/mull
+// asks and taken answers), the mechanism evidence a mulligan policy A/B
+// reads. The field is the only mover: dropping the key from the canonical
+// rows reproduces the sb-pursuit golden byte for byte.
+const smokeDigestGolden = "e304d5fcf291be8931d03c5b2db2b1ae0ac05ddeec0649c4bf0a31e126d849e4"
 
 // TestSpellbenchSmokeDigestIsStable plays the smoke run and compares its
 // games.jsonl digest against the golden above.
