@@ -161,17 +161,19 @@ func TestSubsetRegistryMatchesFull(t *testing.T) {
 		sameCard(t, "token "+k, sub.Tokens[k], w)
 	}
 	// The segment file's index is the full registry's tiered index.
-	idx := sub.sub.idx
-	if len(idx.Names) != len(loaded.byName) {
-		t.Fatalf("segment index has %d names, full index %d", len(idx.Names), len(loaded.byName))
+	sf := sub.sub.sf
+	if sf.nNames != len(loaded.byName) {
+		t.Fatalf("segment index has %d names, full index %d", sf.nNames, len(loaded.byName))
 	}
 	ord := map[*Card]int32{}
 	for i, c := range loaded.Cards {
 		ord[c] = int32(i)
 	}
-	for i, k := range idx.Names {
-		if c := loaded.byName[k]; c == nil || ord[c] != idx.Ords[i] {
-			t.Fatalf("segment index %q -> %d, full index disagrees", k, idx.Ords[i])
+	for i := 0; i < sf.nNames; i++ {
+		k := sf.name(i)
+		o, ok := sf.ordinal(k)
+		if c := loaded.byName[k]; !ok || c == nil || ord[c] != o {
+			t.Fatalf("segment index %q -> %d, full index disagrees", k, o)
 		}
 	}
 }
