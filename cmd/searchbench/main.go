@@ -10,6 +10,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/internal/searchbench"
+	"github.com/adams-shaun/gorge/seat"
 )
 
 func main() {
@@ -47,11 +48,14 @@ func run(args []string, out io.Writer) error {
 	if args[0] == "source" && args[1] == "genesis-audit" {
 		return genesisAudit(args[2:], out)
 	}
+	if args[0] == "source" && args[1] == "stage-audit" {
+		return stageAudit(args[2:], out)
+	}
 	return usage()
 }
 
 func usage() error {
-	return fmt.Errorf("usage: searchbench manifest validate -in <manifest.json>\n       searchbench analyze -manifest <manifest.json> -results <results.jsonl>\n       searchbench source audit -in <17lands.csv[.gz]>\n       searchbench source candidates -in <17lands.csv[.gz]>\n       searchbench source replay-audit -in <17lands.csv[.gz]>\n       searchbench source resolution-audit -in <17lands.csv[.gz]> -cards <cards.csv>\n       searchbench source corpus-audit -in <17lands.csv[.gz]> -corpus <.cards>\n       searchbench source genesis-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>")
+	return fmt.Errorf("usage: searchbench manifest validate -in <manifest.json>\n       searchbench analyze -manifest <manifest.json> -results <results.jsonl>\n       searchbench source audit -in <17lands.csv[.gz]>\n       searchbench source candidates -in <17lands.csv[.gz]>\n       searchbench source replay-audit -in <17lands.csv[.gz]>\n       searchbench source resolution-audit -in <17lands.csv[.gz]> -cards <cards.csv>\n       searchbench source corpus-audit -in <17lands.csv[.gz]> -corpus <.cards>\n       searchbench source genesis-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source stage-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>")
 }
 
 func validate(args []string, out io.Writer) error {
@@ -239,5 +243,66 @@ func genesisAudit(args []string, out io.Writer) error {
 		}
 	}
 	_, err = fmt.Fprintf(out, "games=%d genesis=%d refused=%d\n", len(games), good, len(games)-good)
+	return err
+}
+
+func stageAudit(args []string, out io.Writer) error {
+	fs := flag.NewFlagSet("searchbench source stage-audit", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	in := fs.String("in", "", "17lands FDN replay CSV")
+	cardsPath := fs.String("cards", "", "17lands cards CSV")
+	corpus := fs.String("corpus", ".cards", "compiled Forge corpus")
+	limit := fs.Int("limit", 100, "games to stage")
+	if err := fs.Parse(args); err != nil || *in == "" || *cardsPath == "" || *limit < 1 || fs.NArg() != 0 {
+		return usage()
+	}
+	reg, err := cards.OpenCorpus(*corpus)
+	if err != nil {
+		return err
+	}
+	names, err := searchbench.LoadCardNames(*cardsPath)
+	if err != nil {
+		return err
+	}
+	games, err := searchbench.ReplayGamesCSV(*in, searchbench.DefaultSourceFilter())
+	if err != nil {
+		return err
+	}
+	if len(games) > *limit {
+		games = games[:*limit]
+	}
+	good, bridges := 0, 0
+	firstFailure := ""
+	for i, game := range games {
+		opponent, e := searchbench.ResolveDeck(reg, game.Deck)
+		if e != nil {
+			if firstFailure == "" {
+				firstFailure = e.Error()
+			}
+			continue
+		}
+		engine, e := searchbench.NewGenesis(reg, game, names, opponent, uint64(i+1))
+		if e != nil {
+			if firstFailure == "" {
+				firstFailure = e.Error()
+			}
+			continue
+		}
+		resolved, e := searchbench.ResolveReplayGame(game, names)
+		if e != nil || len(resolved.Turns) == 0 {
+			if firstFailure == "" && e != nil {
+				firstFailure = e.Error()
+			}
+			continue
+		}
+		b, e := searchbench.StageActions(engine, [2]*seat.Bot{seat.NewBot(uint64(i + 11)), seat.NewBot(uint64(i + 12))}, 0, resolved.Turns[0].User)
+		if e == nil {
+			good++
+			bridges += b
+		} else if firstFailure == "" {
+			firstFailure = e.Error()
+		}
+	}
+	_, err = fmt.Fprintf(out, "games=%d staged=%d refused=%d bridges=%d first_failure=%q\n", len(games), good, len(games)-good, bridges, firstFailure)
 	return err
 }
