@@ -100,7 +100,7 @@ func (e *Engine) composeUpdatedReplacements(ev events.Event, matches []replMatch
 	}
 	if p, ok := e.moveAffectedPlayer(ev); ok && len(cands) > 1 && !updatedReplacementsCommute(cands) {
 		e.replChoices = append(e.replChoices, replChoice{kind: replChoiceUpdated,
-			ev: ev, cands: cands, before: e.triggerBefore,
+			ev: ev, cands: cands, before: e.retainTriggerBefore(),
 			damaging: e.damaging, combatDamaging: e.combatDamaging, dmgSrcOverride: e.dmgSrcOverride,
 			inResolution: e.resolvingObj != 0 || e.answerInResolution})
 		if e.pending == nil {

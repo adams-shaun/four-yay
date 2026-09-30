@@ -29,6 +29,14 @@ type walkConfig struct {
 	rootCands     []cand
 	rootDec       *decision.Decision
 	stats         *Stats
+	// envBoard and enumBoard are the Search's board scratch
+	// (botpolicy.BoardFromGameInto): simulations run one at a time, and
+	// every board is read only until the decision it was built for is
+	// answered, so one pair serves every simulation of the Search instead
+	// of a fresh map set per simulation and per enumerated decision.
+	// envBoard backs the bot's answers (engineEnv.advance), enumBoard the
+	// candidate enumeration, so neither refill clobbers a board still read.
+	envBoard, enumBoard *boardScratch
 }
 
 // worldEnvs adapts a WorldSource to the tree's EnvSource.
@@ -60,7 +68,7 @@ type engineEnv struct {
 	hyp    bool
 	cfg    *walkConfig
 	rngs   []*rand.Rand
-	board  botpolicy.Board
+	board  *botpolicy.Board
 	cur    *decision.Decision
 	cands  []cand
 	steps  int
@@ -76,9 +84,16 @@ func newEngineEnv(w World, cfg *walkConfig) (*engineEnv, error) {
 		return nil, fmt.Errorf("%w (root seq %d)", ErrBadWorld, rd.Seq)
 	}
 	n := len(w.Engine.G.Players)
+	var board *botpolicy.Board
+	if cfg.envBoard != nil {
+		board = cfg.envBoard.board(n)
+	} else {
+		b := botpolicy.NewBoard(n)
+		board = &b
+	}
 	return &engineEnv{
 		e: w.Engine, obs: w.Observer, hyp: w.Hypothetical, cfg: cfg,
-		rngs: searchprobe.BotRandoms(cfg.envSeed, n), board: botpolicy.NewBoard(n),
+		rngs: searchprobe.BotRandoms(cfg.envSeed, n), board: board,
 		cur: pd, cands: cfg.rootCands,
 	}, nil
 }
@@ -134,10 +149,10 @@ func (e *engineEnv) advance() (*Point, error) {
 		if pd == nil {
 			return nil, fmt.Errorf("%w: no pending decision and the game is not over", ErrSubmit)
 		}
-		b := botpolicy.BoardFromGameInto(g, e.e, pd.Player, &e.board)
+		b := botpolicy.BoardFromGameInto(g, e.e, pd.Player, e.board)
 		in := botpolicy.Decide(b, pd, e.rngs[pd.Player])
 		if pd.Player == e.cfg.actor {
-			if cands, kind, ok := enumerate(e.obs, e.e, pd, in, e.cfg.kinds, e.cfg.limit); ok {
+			if cands, kind, ok := enumerateInto(e.obs, e.e, pd, in, e.cfg.kinds, e.cfg.limit, e.cfg.enumBoard); ok {
 				e.cur, e.cands = pd, cands
 				prior, fell := priors(e.cfg.net, e.e, pd, in, kind, cands)
 				if fell {

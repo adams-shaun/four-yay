@@ -778,6 +778,12 @@ func spellCastLeadingPermanentToCard(alt string) string {
 type triggerSnapshot struct {
 	game       *state.Game
 	continuous []ContinuousEffect
+	// retained marks a snapshot a parked record holds (retainTriggerBefore):
+	// it outlives the window that took it, so its window never recycles its
+	// arena (trigger_snapshot_pool.go). Set only while the snapshot is still
+	// private to the engine that took it, so a snapshot Clone shares is
+	// never written.
+	retained bool
 }
 
 // triggerCastAlternatives splits a Mode$ SpellCast trigger's ValidCard$ into

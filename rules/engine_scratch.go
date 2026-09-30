@@ -89,6 +89,21 @@ type engineScratch struct {
 	// triggerBefore is the immutable pre-departure board for an SBA death
 	// batch. Scoped to its emission/resumption, never carried as live state.
 	triggerBefore *triggerSnapshot
+	// snapPool recycles the object arenas of trigger-window snapshots no
+	// record retained (trigger_snapshot_pool.go). Owned by exactly one
+	// engine (snapshotPool.owner): a by-value Engine copy (entryPreview's
+	// preview) carries the pointer but never uses it, and Clone leaves it
+	// nil for the clone to build its own.
+	snapPool *snapshotPool
+	// lookBack is checkTriggers' reusable look-back observer Engine: the
+	// observer lives for one checkTriggers call and never emits, so one
+	// struct serves every call, rebuilt from zero each time (a fresh
+	// observer's exact state, minus the allocation). lookBackOwner is the
+	// engine that allocated it, so a by-value Engine copy never reuses the
+	// original's; lookBackBusy guards against a nested use.
+	lookBack      *Engine
+	lookBackOwner *Engine
+	lookBackBusy  bool
 	// A shallow read-only observer of a recurring Effect trigger overrides
 	// controllerOf for its creating source. The Effect's controller is the
 	// registration's owner, even when its source card belongs to another seat.

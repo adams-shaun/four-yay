@@ -101,7 +101,7 @@ func (e *Engine) poseAddCounterOrderChoice(ev events.Event, cands []replMatch, p
 		adderPlusOne = a + 1
 	}
 	e.replChoices = append(e.replChoices, replChoice{kind: replChoiceAddCounter,
-		ev: ev, cands: cands, before: e.triggerBefore, player: p,
+		ev: ev, cands: cands, before: e.retainTriggerBefore(), player: p,
 		damaging: e.damaging, combatDamaging: e.combatDamaging, dmgSrcOverride: e.dmgSrcOverride,
 		inResolution: e.resolvingObj != 0 || e.answerInResolution, counterAdderPlusOne: adderPlusOne})
 	if e.pending == nil {
@@ -357,7 +357,7 @@ func (e *Engine) CounterAllowed(target, cause state.ObjID) bool {
 		}
 		e.replChoices = append(e.replChoices, replChoice{
 			kind: replChoiceCounter,
-			ev:   events.Event{Obj: target}, cands: matches, before: e.triggerBefore,
+			ev:   events.Event{Obj: target}, cands: matches, before: e.retainTriggerBefore(),
 			player: t.Controller, cause: cause,
 		})
 		if e.pending == nil {
