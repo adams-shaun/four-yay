@@ -387,9 +387,9 @@ func rootAudit(args []string, out io.Writer) error {
 			continue
 		}
 		ordinal := 0
-		_, e = searchbench.StageGameObserve(engine, [2]*seat.Bot{seat.NewBot(uint64(i + 11)), seat.NewBot(uint64(i + 12))}, resolved, func(root *rules.Engine, d *decision.Decision, in decision.Intent) error {
+		_, e = searchbench.StageGameObserve(engine, [2]*seat.Bot{seat.NewBot(uint64(i + 11)), seat.NewBot(uint64(i + 12))}, resolved, func(root *rules.Engine, d *decision.Decision, action searchbench.RecordedAction) error {
 			if *output != "" {
-				record, err := searchbench.NewRootRecord(game.ID, uint64(i+1), ordinal, root, d, in)
+				record, err := searchbench.NewRootRecord(game.ID, uint64(i+1), ordinal, root, d, action)
 				if err != nil {
 					return err
 				}
@@ -400,12 +400,12 @@ func rootAudit(args []string, out io.Writer) error {
 			if d.Player == 0 {
 				userRoots++
 			}
-			if in.Payment != nil {
+			if action.Intent.Payment != nil {
 				spells++
 				return nil
 			}
 			for _, option := range d.Options {
-				if len(in.Choices) == 1 && option.Index == in.Choices[0] {
+				if len(action.Intent.Choices) == 1 && option.Index == action.Intent.Choices[0] {
 					switch option.Kind {
 					case "play_land":
 						lands++

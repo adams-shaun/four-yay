@@ -93,7 +93,7 @@ func ValidateRootWorld(want RootRecord, got ReplayedRoot) error {
 	if got.Engine == nil || got.Decision == nil {
 		return fmt.Errorf("searchbench: nil sampled root")
 	}
-	record, err := NewRootRecord(want.GameID, want.GenesisSeed, want.Ordinal, got.Engine, got.Decision, decision.Intent{})
+	record, err := NewRootRecord(want.GameID, want.GenesisSeed, want.Ordinal, got.Engine, got.Decision, RecordedAction{Kind: want.SourceKind, Card: want.SourceCard})
 	if err != nil {
 		return err
 	}
@@ -103,34 +103,34 @@ func ValidateRootWorld(want RootRecord, got ReplayedRoot) error {
 	return nil
 }
 
-func rebuildRoot(reg *cards.Registry, names map[string]string, game ReplayGame, opponent []*cards.Card, want RootRecord, worldSeed uint64) (ReplayedRoot, decision.Intent, error) {
+func rebuildRoot(reg *cards.Registry, names map[string]string, game ReplayGame, opponent []*cards.Card, want RootRecord, worldSeed uint64) (ReplayedRoot, RecordedAction, error) {
 	e, err := NewGenesis(reg, game, names, opponent, worldSeed)
 	if err != nil {
-		return ReplayedRoot{}, decision.Intent{}, err
+		return ReplayedRoot{}, RecordedAction{}, err
 	}
 	resolved, err := ResolveReplayGame(game, names)
 	if err != nil {
-		return ReplayedRoot{}, decision.Intent{}, err
+		return ReplayedRoot{}, RecordedAction{}, err
 	}
 	ordinal := 0
 	var got ReplayedRoot
-	var observed decision.Intent
+	var observed RecordedAction
 	// Bridge policies replay the source prefix and must not vary across worlds:
 	// only the engine's hidden chance stream is a world dimension.
-	_, err = StageGameObserve(e, [2]*seat.Bot{seat.NewBot(want.GenesisSeed + 10), seat.NewBot(want.GenesisSeed + 11)}, resolved, func(root *rules.Engine, d *decision.Decision, recorded decision.Intent) error {
+	_, err = StageGameObserve(e, [2]*seat.Bot{seat.NewBot(want.GenesisSeed + 10), seat.NewBot(want.GenesisSeed + 11)}, resolved, func(root *rules.Engine, d *decision.Decision, action RecordedAction) error {
 		if ordinal != want.Ordinal {
 			ordinal++
 			return nil
 		}
 		got = ReplayedRoot{Engine: root, Decision: d}
-		observed = decision.CloneIntent(recorded)
+		observed = RecordedAction{Kind: action.Kind, Card: action.Card, Intent: decision.CloneIntent(action.Intent)}
 		return errRootReached
 	})
 	if !errors.Is(err, errRootReached) {
 		if err != nil {
-			return ReplayedRoot{}, decision.Intent{}, fmt.Errorf("searchbench: replaying root %s/%d: %w", game.ID, want.Ordinal, err)
+			return ReplayedRoot{}, RecordedAction{}, fmt.Errorf("searchbench: replaying root %s/%d: %w", game.ID, want.Ordinal, err)
 		}
-		return ReplayedRoot{}, decision.Intent{}, fmt.Errorf("searchbench: replay did not reach root %s/%d", game.ID, want.Ordinal)
+		return ReplayedRoot{}, RecordedAction{}, fmt.Errorf("searchbench: replay did not reach root %s/%d", game.ID, want.Ordinal)
 	}
 	return got, observed, nil
 }

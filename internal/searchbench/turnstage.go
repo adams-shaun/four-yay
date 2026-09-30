@@ -12,10 +12,19 @@ import (
 // StageActions inserts the source row's land/cast actions at the next legal
 // priority windows for actor. Other asks are bridged by the redacted fallback;
 // Bridges is therefore a fidelity measurement, not a hidden default.
+// RecordedAction retains the source classification alongside the native
+// intent. Aggregate 17lands rows do not carry an exact decision timeline, so
+// this is the only lossless place to retain which staged source action made a
+// root exist.
+type RecordedAction struct {
+	Kind, Card string
+	Intent     decision.Intent
+}
+
 // ActionObserver receives an owned native root immediately before a recorded
 // action is applied. It may retain the engine clone for search; mutations to
 // it cannot affect reconstruction.
-type ActionObserver func(root *rules.Engine, d *decision.Decision, recorded decision.Intent) error
+type ActionObserver func(root *rules.Engine, d *decision.Decision, action RecordedAction) error
 
 func StageActions(e *rules.Engine, bots [2]*seat.Bot, actor state.PlayerID, a ResolvedActions) (bridges int, err error) {
 	return stageActions(e, bots, actor, a, nil)
@@ -89,7 +98,7 @@ func stageOne(e *rules.Engine, bots [2]*seat.Bot, actor state.PlayerID, verb, ca
 			in, err := NamedOption(d, verb, card)
 			if err == nil {
 				if observe != nil {
-					if err := observe(e.Clone(), d.Clone(), decision.CloneIntent(in)); err != nil {
+					if err := observe(e.Clone(), d.Clone(), RecordedAction{Kind: actionKind(verb), Card: card, Intent: decision.CloneIntent(in)}); err != nil {
 						return bridges, err
 					}
 				}
@@ -98,7 +107,7 @@ func stageOne(e *rules.Engine, bots [2]*seat.Bot, actor state.PlayerID, verb, ca
 			if verb == "Cast " {
 				if in, paymentErr := NamedPayment(e, d, card); paymentErr == nil {
 					if observe != nil {
-						if err := observe(e.Clone(), d.Clone(), decision.CloneIntent(in)); err != nil {
+						if err := observe(e.Clone(), d.Clone(), RecordedAction{Kind: actionKind(verb), Card: card, Intent: decision.CloneIntent(in)}); err != nil {
 							return bridges, err
 						}
 					}
@@ -120,4 +129,11 @@ func stageOne(e *rules.Engine, bots [2]*seat.Bot, actor state.PlayerID, verb, ca
 		return bridges, fmt.Errorf("searchbench: %s", lastUnavailable)
 	}
 	return bridges, fmt.Errorf("searchbench: no priority window for %s%s", verb, card)
+}
+
+func actionKind(verb string) string {
+	if verb == "Play " {
+		return "land"
+	}
+	return "spell"
 }
