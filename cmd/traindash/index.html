@@ -268,7 +268,8 @@ const fmtBytes = n => n >= 1 << 30 ? (n / (1 << 30)).toFixed(1) + "G" : n >= 1 <
 const jsonlSummary = r => (r.jsonl || []).map(j => `${j.name} ${j.records != null ? j.records + " records, " : ""}${fmtBytes(j.bytes)}`).join("; ") || "no jsonl";
 const maxMod = e => Math.max(0, ...e.runs.map(r => +new Date(r.last_modified)));
 
-function renderCompare() {  const runs = allRuns().filter(r => r.rounds.some(d => d.eval));
+function renderCompare() {
+  const runs = allRuns().filter(r => r.rounds.some(d => d.eval));
   if (!compareSel) {
     const exps = snap.experiments.slice().sort((a, b) => maxMod(b) - maxMod(a));
     compareSel = new Set(exps.length ? exps[0].runs.map(r => r.id) : []);

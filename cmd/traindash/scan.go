@@ -176,6 +176,15 @@ type Scanner struct {
 	// seats of each ledger (ties broken lexically).
 	DeckFocus []string
 
+	// DeckRoots are the directories scanned for matches.jsonl per-deck
+	// ledgers, separate from Roots. A training root (the default
+	// /mnt/sata/gorge-training) holds hundreds of matches.jsonl files in
+	// scratch dirs; walking every one of them to build per-deck charts both
+	// costs seconds on a cold scan and floods the page with unrelated
+	// ledgers. Deck ledgers therefore have their own narrow root, defaulting
+	// to the gauntlet cache. Empty disables the per-deck panel.
+	DeckRoots []string
+
 	mu    sync.Mutex
 	cache map[string]cacheEntry
 }
@@ -292,7 +301,10 @@ func (s *Scanner) Scan() *Snapshot {
 			exp.Runs = append(exp.Runs, r)
 		}
 		snap.Artifacts = append(snap.Artifacts, findArtifacts(root, multi)...)
-		for _, dl := range s.scanDeckLedgers(root, multi) {
+	}
+	for _, droot := range s.DeckRoots {
+		dmulti := len(s.DeckRoots) > 1
+		for _, dl := range s.scanDeckLedgers(droot, dmulti) {
 			snap.DeckLedgers = append(snap.DeckLedgers, dl)
 		}
 	}

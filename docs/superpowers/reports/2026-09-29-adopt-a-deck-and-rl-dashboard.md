@@ -30,6 +30,38 @@ for `sb-search-lite-atk` vs `bot`).
 
 ---
 
+## 0b. Round-2 review findings, answered
+
+A prior review of this branch raised one MAJOR and four MINORs. All are
+addressed in this round:
+
+- **MAJOR — unbounded deck-ledger discovery over the default `-root`.**
+  `findDeckLedgers` walked every `-root`, and the default
+  `/mnt/sata/gorge-training` holds 362 `matches.jsonl` / 145 MB, so a cold
+  `/api/runs` took 15.5–16.5 s and rendered 199 charts from unrelated scratch
+dirs. **Fixed**: deck ledgers now have their own `-deck-root` flag
+  (`cmd/traindash/main.go`), defaulting to the narrow gauntlet tree
+  `/mnt/sata/gorge-training/spellbench-work/gauntlet`; the training roots are
+  walked only for runs. Measured: default cold scan 10.45 s, 3 ledgers
+  (baseline was 10.1 s); warm 0.22 s. `TestScanDeckRootsAreSeparate` pins it.
+- **MINOR — report §5 mislabeled the per-deck table's provenance.** §5 now
+  states the 51-13 numbers come from an ad-hoc `opponent == bot` filter, not
+  the landed reader, which pools all opponents (and reports 213-43 (83.2 %)
+  for `sb-tactical` on the same file).
+- **MINOR — `index.html` whitespace collapse.** `renderCompare()` is restored
+  to its original two-line form.
+- **MINOR — seat attribution by array index.** `parseDeckLedger` now reads
+  `seats[].seat` and selects the focus seat's deck from the matching `decks[]`
+  position, so a reordered `seats` array or a future non-mirror ledger is
+  attributed correctly. `TestParseDeckLedgerSeatsNonMirror` and the reordered
+  row in `TestParseDeckLedgerPerDeck` cover it.
+- **MINOR — `TestParseDeckLedgerPerDeck` did not exercise the p0-win-in-p1
+  branch.** The fixture now carries that row (and a reordered-seats row), so
+  collapsing either win arm fails this test, not only
+  `TestScanIncludesDeckLedgers`.
+
+---
+
 ## 1. What exists today (file:line), and what is missing
 
 ### 1a. A live, read-only dashboard that already plots win rate by iteration
@@ -252,14 +284,22 @@ static file would be a second, staler copy of the same read.
   `$GDIR/cand/<git_head>/<spec>/matches.jsonl`) instead of the scratch dir.
   That is the *only* writer change; `results.jsonl` keeps its schema and the
   reward loop is untouched.
-- **How `traindash` discovers it:** `scanDeckLedgers(root, multi)` walks each
-  `-root` for `matches.jsonl` (skipping the dirs the scan already skips —
-  `skipDirs`, `scan.go:28`), parses each into a `*DeckLedger`, and attaches it
-  to `Snapshot.DeckLedgers`. Because it re-scans on every `GET /api/runs` poll
-  (10s, `main.go:76`) and caches on mtime+size (`scan.go:194-224`), a new or
-  updated ledger appears on the next poll with no restart. The focus policy is
-  set by `-deck-focus` (`main.go`, new flag); with no flag each ledger reports
-  its dominant policy (the seat name appearing most often).
+- **How `traindash` discovers it:** `scanDeckLedgers(dir, multi)` walks each
+  configured **`-deck-root`** (new flag, default
+  `/mnt/sata/gorge-training/spellbench-work/gauntlet`) for `matches.jsonl`,
+  parses each into a `*DeckLedger`, and attaches it to `Snapshot.DeckLedgers`.
+  Deck roots are deliberately **separate from `-root`**: the default training
+  root `/mnt/sata/gorge-training` holds 362 `matches.jsonl` files / 145 MB
+  across unrelated scratch dirs (`spellbench-work/w1/`, `w4/`, `v1b/`, …), and
+  walking all of them made a cold `/api/runs` take 15.5–16.5 s and render 199
+  charts. With the bounded deck root the same cold scan takes ~10.5 s (the
+  pre-panel baseline) and renders the 3 real gauntlet ledgers. Discovery still
+  skips the dirs the scan already skips (`skipDirs`, `scan.go:28`). Because it
+  re-scans on every `GET /api/runs` poll (10s, `main.go:76`) and caches on
+  mtime+size (`scan.go:194-224`), a new or updated ledger appears on the next
+  poll with no restart. The focus policy is set by `-deck-focus` (`main.go`,
+  new flag); with no flag each ledger reports its dominant policy (the seat
+  name appearing most often).
 
 This is deliberately **new files next to the hot `scan.go`**, per the brief's
 hot-file guidance: the reader lives in `cmd/traindash/deckledger.go` and its
@@ -279,8 +319,11 @@ existing harness reused, not games replayed. Both are satisfied the same way:
 so the CI is extracted, not re-run.
 
 `ref/4bf6638277783ca4/matches.jsonl` contains 640 rows = 10 policy pairs × 8
-decks × 8 seat-swapped games. Computing `sb-search-lite-atk` vs `bot` per deck
-with a Wilson 95 interval (the reader in `deckledger.go`):
+decks × 8 seat-swapped games. Computing `sb-search-lite-atk` **vs `bot`** per
+deck (an ad-hoc `opponent == bot` filter, **not** the landed reader — the
+landed `parseDeckLedger` has no opponent filter and pools all opponents, so
+against this same file it reports `sb-tactical` = 213-43 (83.2 %) including
+non-`bot` matchups), with a Wilson 95 interval:
 
 ```
 === sb-search-lite-atk vs bot (seat-swapped, cached ref games, zero new cost) ===
@@ -349,7 +392,7 @@ not a paste-ready command).
 | Step | What | Cost | Status |
 |---|---|---|---|
 | 1 | Per-deck reader (`deckledger.go`) + tests | 0 games | **Landed this ticket** |
-| 2 | `traindash` "Decks" panel + `-deck-focus` | 0 games | **Landed this ticket** |
+| 2 | `traindash` "Decks" panel + `-deck-focus` + `-deck-root` (bounded discovery) | 0 games | **Landed this ticket** |
 | 3 | On the *existing* cached refs, the per-deck chart already renders real numbers | 0 games | **Landed, shown in §5** |
 | 4 | Keep the gauntlet's per-candidate `matches.jsonl` (write under `$GDIR` instead of `mktemp`) | ~1 file, ~5 lines in `sb-gauntlet.sh` | **Follow-up** — see below |
 | 5 | Optional: read `results.jsonl` (pooled Elo by `ts`) into the same panel | 0 games, ~1 reader | **Follow-up** |
@@ -368,12 +411,13 @@ on its own.
 - wall time: unit tests run in ~0.01 s; the manual live check served
   `/api/runs` in <2 s; total code-writing + verification well under a minute of
   compute;
-- files touched: 4 changed/new —
-  `cmd/traindash/deckledger.go` (new, 229 lines),
-  `cmd/traindash/deckledger_test.go` (new, 160 lines),
+- files touched: 5 changed/new —
+  `cmd/traindash/deckledger.go` (new, ~250 lines),
+  `cmd/traindash/deckledger_test.go` (new, ~230 lines),
   `cmd/traindash/index.html` (+~30 lines: nav, `renderDecks`, `xticks`),
-  `cmd/traindash/main.go` (+3: the `-deck-focus` flag),
-  `cmd/traindash/scan.go` (+~60: `DeckLedgers`, `cachedAs`, `scanDeckLedgers`).
+  `cmd/traindash/main.go` (+~20: the `-deck-focus` and `-deck-root` flags),
+  `cmd/traindash/scan.go` (+~70: `DeckLedgers`, `DeckRoots`, `cachedAs`,
+  `scanDeckLedgers`).
 
 ---
 
@@ -386,50 +430,56 @@ $ [ -e .cards ] && echo present
 present
 ```
 
-Targeted traindash gate (Done-means command):
+Targeted traindash gate (Done-means command, round 2 with the bounded-root
+and seat-attribution fixes):
 
 ```
-$ go test -run 'TestDiscovery|TestHTTP|TestReadOnly|TestAlerts|TestParseDeckLedger|TestWilson95|TestFindDeckLedgers|TestScanIncludesDeckLedgers' ./cmd/traindash/ 2>&1 | tail -30
-ok  	github.com/adams-shaun/gorge/cmd/traindash	0.009s
+$ go test -run 'TestDiscovery|TestHTTP|TestReadOnly|TestAlerts|TestParseDeckLedger|TestWilson95|TestFindDeckLedgers|TestScanIncludesDeckLedgers|TestScanDeckRootsAreSeparate' ./cmd/traindash/ 2>&1 | tail -30
+ok  	github.com/adams-shaun/gorge/cmd/traindash	0.008s
 ```
 
 Format + generated-types gates:
 
 ```
-$ gofmt -l cmd/traindash/          # empty
-$ go run ./cmd/gentypes -check     # (no output = clean)
+$ gofmt -l cmd/traindash/          # empty (rc=0)
+$ go run ./cmd/gentypes -check     # (no output = clean, rc=0)
 ```
 
 Live end-to-end check of the real reader against real cached games (`/api/runs`
-payload):
+payload), **with the default flags** (training root default + new deck-root
+default):
 
 ```
-$ .ds4/scratch/traindash -root /mnt/sata/gorge-training/spellbench-work/gauntlet -addr 127.0.0.1:8097 &
-$ curl -s http://127.0.0.1:8097/api/runs | ...
-deck_ledgers: 3
- id=ref/4bf6638277783ca4 focus=bot games=256 rows=8
-   Affinity   14-18 d=0  0.438 ci=['0.282', '0.607']
-   Burn       21-11 d=0  0.656 ci=['0.483', '0.796']
-   CawGates   19-13 d=0  0.594 ci=['0.423', '0.745']
- id=ref/b862bb30d6201d0a focus=bot games=192 rows=8
- ...
+$ .ds4/scratch/traindash-fixed -addr 127.0.0.1:8093 &   # no -root, no -deck-root
+$ time curl -s http://127.0.0.1:8093/api/runs -o snap.json
+cold: 10.45s
+$ python3 -c "import json;d=json.load(open('snap.json'));print('deck_ledgers',len(d['deck_ledgers']))"
+deck_ledgers 3
+['ref/4bf6638277783ca4', 'ref/b862bb30d6201d0a', 'ref/c6d42369f8f636e0']
+warm: 0.22s
 ```
+
+This is the finding's measured regression, fixed: before the fix the same
+default-root cold scan returned **199** deck ledgers in 15.5–16.5 s; after it
+returns the **3** real gauntlet ledgers in 10.45 s (the pre-panel baseline was
+10.1 s), warm 0.22 s.
 
 The JS half of the embedded page parses:
 
 ```
-$ node --check /tmp/dash.js && echo "JS OK"
+$ sed -n '/<script>/,/<\/script>/p' cmd/traindash/index.html | sed '1d;$d' > .ds4/scratch/dash.js
+$ node --check .ds4/scratch/dash.js && echo "JS OK"
 JS OK
 ```
 
 Behaviour goldens outside `rules/` (see `system-t0.md`):
 
 ```
-$ go test ./internal/archtest/ 2>&1 | tail -15
-ok  	github.com/adams-shaun/gorge/internal/archtest	8.345s
+$ go test -count=1 -p 1 ./internal/archtest/ 2>&1 | tail -15
+ok  	github.com/adams-shaun/gorge/internal/archtest	4.077s
 
-$ go test -run TestConstructedDefaultIsByteIdentical ./cmd/botbench/ 2>&1 | tail -5
-ok  	github.com/adams-shaun/gorge/cmd/botbench	0.679s
+$ go test -count=1 -p 1 -run TestConstructedDefaultIsByteIdentical ./cmd/botbench/ 2>&1 | tail -5
+ok  	github.com/adams-shaun/gorge/cmd/botbench	0.711s
 ```
 
 Whole-tree build is clean (`go build ./...`, rc=0) and the botbench pinned
@@ -437,30 +487,59 @@ split did **not** move (this ticket changed no engine behaviour).
 
 ## Fails without the fix
 
-The new reader test asserts a precondition and is shown to fail when the
-reader's core semantics are reverted. Mutation applied to
-`cmd/traindash/deckledger.go` (flip the seat-win attribution in the `p0`
-branch), then reverted byte-identically via `cmp`:
+Three distinct hunks are each reverted in a scratch copy of the real file,
+the one covering test is run, and the file is restored byte-identically (cmp).
+
+**(a) The bounded deck-root split** (`scan.go`): put `scanDeckLedgers` back
+inside the training-root loop (the finding's regression) and
+`TestScanDeckRootsAreSeparate` fails:
 
 ```
-$ go test -run 'TestParseDeckLedgerPerDeck' ./cmd/traindash/
+$ go test -run 'TestScanDeckRootsAreSeparate' ./cmd/traindash/
+--- FAIL: TestScanDeckRootsAreSeparate (0.00s)
+    deckledger_test.go:226: deck ledger id = "spellbench-work/w1", want ref/key (training-root ledger must not leak in)
+FAIL
+FAIL	github.com/adams-shaun/gorge/cmd/traindash	0.002s
+
+$ cp .ds4/scratch/scan.go.bak cmd/traindash/scan.go
+$ cmp cmd/traindash/scan.go .ds4/scratch/scan.go.bak && echo "restored byte-identical"
+restored byte-identical
+```
+
+**(b) The seat-attribution fix** (`deckledger.go`): trust the seats array
+position instead of the seat ordinal (collapse `focusSeat == "p0"/"p1"` to
+`seat == 0/1`) and `TestParseDeckLedgerPerDeck` fails on its reordered-seat row:
+
+```
+$ go test -run 'TestParseDeckLedgerPerDeck|TestParseDeckLedgerSeatsNonMirror' ./cmd/traindash/
 --- FAIL: TestParseDeckLedgerPerDeck (0.00s)
-    deckledger_test.go:60: Elves rate = {Deck:Elves Wins:0 Losses:1 Draws:1 Games:1 WinRate:0 CI:[0 0.7934506856227626]}, want 1-0 with 1 draw
+    deckledger_test.go:105: Spy rate = {Deck:Spy Wins:1 Losses:0 Draws:0 Games:1 WinRate:1 CI:[0.20654931437723745 1]}, want 0-1 (p0 won against the p1 focus; order must not matter)
 FAIL
 FAIL	github.com/adams-shaun/gorge/cmd/traindash	0.002s
 
 $ cp .ds4/scratch/deckledger.go.bak cmd/traindash/deckledger.go
 $ cmp cmd/traindash/deckledger.go .ds4/scratch/deckledger.go.bak && echo "restored byte-identical"
 restored byte-identical
-$ go test -run 'TestParseDeckLedgerPerDeck' ./cmd/traindash/
-ok  	github.com/adams-shaun/gorge/cmd/traindash	0.001s
 ```
 
-`TestParseDeckLedgerPerDeck` also asserts its own precondition: the fixture
-carries at least one win *and* one loss per deck for the focus policy, so a
-rate of exactly 0 or 1 (a collapsed reader) fails rather than passing silently;
-and `TestScanIncludesDeckLedgers` asserts `dl.Rows[0].WinRate == 0.5`, i.e.
-both a win and a loss were seen.
+**(c) The non-mirror deck attribution**: revert `deckAt(r.Decks, seat)` to
+"first non-empty deck" and `TestParseDeckLedgerSeatsNonMirror` fails:
+
+```
+$ go test -run 'TestParseDeckLedgerSeatsNonMirror|TestParseDeckLedgerPerDeck' ./cmd/traindash/
+--- FAIL: TestParseDeckLedgerSeatsNonMirror (0.00s)
+    deckledger_test.go:228: focus deck = "Burn", want Elves (the seat the focus policy sat in), not the first deck
+FAIL
+FAIL	github.com/adams-shaun/gorge/cmd/traindash	0.002s
+```
+
+All three tests assert their own preconditions: `TestParseDeckLedgerPerDeck`
+carries at least one win *and* one loss per deck with the focus in **both** seat
+ordinals (so a rate of exactly 0 or 1 fails); `TestParseDeckLedgerSeatsNonMirror`
+uses a non-mirror row (different deck each seat) so the "first deck" shortcut
+cannot pass; `TestScanDeckRootsAreSeparate` asserts that the training root
+holds a real `matches.jsonl` before asserting it does not leak in.
+
 
 ## Issues
 

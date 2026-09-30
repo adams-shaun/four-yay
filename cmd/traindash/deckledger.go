@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -48,15 +49,22 @@ type DeckLedger struct {
 // deckLedgerRow is the subset of a spellbench-match-ledger/v1 row the per-deck
 // reader needs. Unknown fields (engine, step_count, ...) are ignored.
 type deckLedgerRow struct {
-	Schema string `json:"schema"`
-	Decks  []struct {
-		CatalogID string `json:"catalog_id"`
-	} `json:"decks"`
-	Seats []struct {
-		Name string `json:"name"`
-	} `json:"seats"`
-	Winner  string `json:"winner"`
-	Outcome string `json:"outcome"`
+	Schema  string           `json:"schema"`
+	Decks   []deckLedgerDeck `json:"decks"`
+	Seats   []deckLedgerSeat `json:"seats"`
+	Winner  string           `json:"winner"`
+	Outcome string           `json:"outcome"`
+}
+
+// deckLedgerDeck is one entry of a row's decks array, indexed by seat.
+type deckLedgerDeck struct {
+	CatalogID string `json:"catalog_id"`
+}
+
+// deckLedgerSeat is one entry of a row's seats array.
+type deckLedgerSeat struct {
+	Name string `json:"name"`
+	Seat string `json:"seat"`
 }
 
 // parseDeckLedger reads matches.jsonl content and returns per-deck rates for
@@ -90,24 +98,31 @@ func parseDeckLedger(id, source string, b []byte, focus string) *DeckLedger {
 	}
 	byDeck := map[string]*DeckRate{}
 	for _, r := range rows {
-		deck := ""
-		for _, d := range r.Decks {
-			if d.CatalogID != "" {
-				deck = d.CatalogID
-				break
-			}
-		}
-		if deck == "" {
-			continue
-		}
+		// The writer emits seats[s] with seat "p<s>" and decks[s] as that
+		// seat's deck, so a seat's ordinal selects both its win side and its
+		// deck. Prefer the explicit seats[].seat ordinal, falling back to the
+		// array position for a ledger that predates the field, so a reordered
+		// seats array still attributes to the right player.
 		seat := -1
+		focusSeat := ""
 		for i, s := range r.Seats {
 			if s.Name == focus {
 				seat = i
+				switch s.Seat {
+				case "p0", "p1":
+					focusSeat = s.Seat
+				default:
+					focusSeat = "p" + strconv.Itoa(i)
+				}
 				break
 			}
 		}
 		if seat < 0 {
+			continue
+		}
+		// The deck the focus policy played is the deck at the focus seat.
+		deck := deckAt(r.Decks, seat)
+		if deck == "" {
 			continue
 		}
 		dr := byDeck[deck]
@@ -117,13 +132,13 @@ func parseDeckLedger(id, source string, b []byte, focus string) *DeckLedger {
 		}
 		switch {
 		case r.Winner == "p0" && (r.Outcome == "natural" || r.Outcome == "p0_win"):
-			if seat == 0 {
+			if focusSeat == "p0" {
 				dr.Wins++
 			} else {
 				dr.Losses++
 			}
 		case r.Winner == "p1" && (r.Outcome == "natural" || r.Outcome == "p1_win"):
-			if seat == 1 {
+			if focusSeat == "p1" {
 				dr.Wins++
 			} else {
 				dr.Losses++
@@ -146,6 +161,15 @@ func parseDeckLedger(id, source string, b []byte, focus string) *DeckLedger {
 	}
 	sort.Slice(led.Rows, func(i, j int) bool { return led.Rows[i].Deck < led.Rows[j].Deck })
 	return led
+}
+
+// deckAt returns the catalog id of the deck in seat position i (decks is
+// indexed by seat), or "" if absent.
+func deckAt(decks []deckLedgerDeck, i int) string {
+	if i < 0 || i >= len(decks) {
+		return ""
+	}
+	return decks[i].CatalogID
 }
 
 // dominantPolicy returns the seat name that appears in the most rows (ties
