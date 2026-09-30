@@ -1,0 +1,31 @@
+{
+  "card": "Toph, Hardheaded Teacher",
+  "family": "trigger-condition",
+  "author": "agent-20260930T003623Z-97c7643c",
+  "scenarios": [
+    {
+      "name": "cast-a-spell-earthbends-one",
+      "cr": ["603.2", "603.3c", "702.164"],
+      "why": "Any spell you cast matches Toph's SpellCast trigger, so earthbend 1 targets a land you control and puts one +1/+1 counter on it. Lightning Bolt is not a Lesson, so the chained rider (ConditionDefined$ TriggeredCardLKICopy | ConditionPresent$ Lesson) does not add an extra counter.",
+      "setup": {"p0": {"battlefield": ["Toph, Hardheaded Teacher", "Forest"], "hand": ["Lightning Bolt"]}, "p1": {}},
+      "setup_answers": [{"kind": "TriggerOptional", "pick": ["no"]}],
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"], "expect": [{"trigger_on_stack": "p0:Toph, Hardheaded Teacher", "want": true}]},
+        {"op": "resolve", "answers": [{"kind": "target", "pick": ["p0:Forest"]}]}
+      ],
+      "expect": [{"card": "p0:Forest", "counters": {"+1/+1": 1}}]
+    },
+    {
+      "name": "casting-a-lesson-adds-an-extra-counter",
+      "cr": ["603.2", "603.3c", "702.164"],
+      "why": "The Art of Tea is an Instant Lesson, so the Lesson rider's condition is met: after earthbend 1 puts the first counter, the chained PutCounter sub adds one additional +1/+1 counter to the same land.",
+      "setup": {"p0": {"battlefield": ["Toph, Hardheaded Teacher", "Forest"], "hand": ["The Art of Tea"]}, "p1": {}},
+      "setup_answers": [{"kind": "TriggerOptional", "pick": ["no"]}],
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:The Art of Tea", "mana": "GG", "expect": [{"trigger_on_stack": "p0:Toph, Hardheaded Teacher", "want": true}]},
+        {"op": "resolve", "answers": [{"kind": "target", "pick": ["p0:Forest"]}]}
+      ],
+      "expect": [{"card": "p0:Forest", "counters": {"+1/+1": 2}}]
+    }
+  ]
+}
