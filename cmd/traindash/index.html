@@ -82,6 +82,7 @@ select { font: inherit; background: var(--panel); color: var(--ink); border: 1px
   <nav id="nav">
     <a href="#overview" data-v="overview">Overview</a>
     <a href="#compare" data-v="compare">Compare</a>
+    <a href="#decks" data-v="decks">Decks</a>
     <a href="#run" data-v="run">Run</a>
     <a href="#reports" data-v="reports">Reports</a>
   </nav>
@@ -110,7 +111,7 @@ const ago = t => { const s = Math.round((Date.now() - new Date(t)) / 1000); if (
 
 function parseHash() {
   const h = location.hash.slice(1), [v, q] = h.split("?");
-  view = ["overview", "compare", "run", "reports"].includes(v) ? v : "overview";
+  view = ["overview", "compare", "decks", "run", "reports"].includes(v) ? v : "overview";
   const p = new URLSearchParams(q || "");
   if (p.get("id")) { if (view === "run") runSel = p.get("id"); if (view === "reports") artSel = p.get("id"); }
 }
@@ -156,8 +157,15 @@ function lineChart(o) {
   const ticks = o.ylog ? logTicks(y0, y1) : niceTicks(y0, y1, 5);
   for (const t of ticks) { const y = o.ylog ? ty(Math.pow(10, t)) : ty(t);
     g += `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="var(--grid)"/><text x="${L - 4}" y="${y + 4}" text-anchor="end">${esc(fmt(o.ylog ? Math.pow(10, t) : t))}</text>`; }
-  const step = Math.max(1, Math.ceil((x1 - x0) / 12));
-  for (let x = Math.ceil(x0); x <= x1; x += step) g += `<text x="${tx(x)}" y="${H - 8}" text-anchor="middle">${o.xprefix ?? "r"}${x}</text>`;
+  if (o.xticks) {
+    // Categorical x axis: one label per series point (the deck ledgers name
+    // their decks). Points are placed at x = 1..n, so xticks[i] labels x=i+1.
+    const n = o.xticks.length, step = Math.max(1, Math.ceil(n / 8));
+    for (let i = 0; i < n; i += step) g += `<text x="${tx(i + 1)}" y="${H - 8}" text-anchor="middle">${esc(String(o.xticks[i]).slice(0, 9))}</text>`;
+  } else {
+    const step = Math.max(1, Math.ceil((x1 - x0) / 12));
+    for (let x = Math.ceil(x0); x <= x1; x += step) g += `<text x="${tx(x)}" y="${H - 8}" text-anchor="middle">${o.xprefix ?? "r"}${x}</text>`;
+  }
   for (const h of o.hlines || []) { if (o.ylog && h.y <= 0) continue; const y = ty(h.y);
     g += `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" stroke="${h.color}" stroke-dasharray="${h.dash || "5 4"}" stroke-width="1.2" opacity="0.9"/>`;
     if (h.label) g += `<text x="${W - R - 2}" y="${y - 3}" text-anchor="end" style="fill:${h.color}">${esc(h.label)}</text>`; }
@@ -292,6 +300,29 @@ function bindCompare() {
   });
 }
 
+// renderDecks draws one chart per matches.jsonl ledger in the snapshot: the
+// per-deck win rate of the ledger's focus policy, with a 95% Wilson interval.
+// Every number comes from snap.deck_ledgers, which the scanner reads out of
+// each ledger's matches.jsonl rows -- no game is played to draw this.
+function renderDecks() {
+  const ls = (snap && snap.deck_ledgers) || [];
+  if (!ls.length) return '<section class="panel empty">No matches.jsonl ledgers found under the root. Point -root at the gauntlet work tree (its ref/&lt;key&gt; dirs hold one) or a botbench -spellbench-out directory.</section>';
+  let h = '<section class="panel"><h2>Per-deck win rate by ledger</h2>' +
+    '<div class="muted" style="font-size:12px;margin-bottom:6px">Each chart: the focus policy\'s win rate on each deck in that ledger, with the 95% Wilson interval. Source: <code>matches.jsonl</code> rows (<code>decks[].catalog_id</code>, <code>seats[].name</code>, <code>winner</code>). Focus is set by <code>-deck-focus</code> (default: the ledger\'s dominant policy).</div>';
+  for (const l of ls) {
+    h += `<div style="margin:10px 0 2px"><b>${esc(l.id)}</b> <span class="muted">focus ${esc(l.focus)} · ${l.games} games</span></div>`;
+    const series = [{name: l.focus, color: PALETTE[0],
+      pts: l.rows.map((r, i) => [i + 1, r.win_rate]),
+      band: l.rows.map((r, i) => (r.ci && r.ci.length === 2) ? [i + 1, r.ci[0], r.ci[1]] : null).filter(Boolean)}];
+    const labels = l.rows.map(r => r.deck);
+    h += lineChart({series, hlines: [{y: 0.5, color: "var(--muted)", label: "even", legend: "even"}], h: 260,
+      xticks: labels, ymin: 0, ymax: 1, yfmt: v => (v * 100).toFixed(0) + "%"});
+    h += `<table><tr><th>deck</th><th>W-L</th><th>draw</th><th>win rate</th><th>95% CI</th></tr>` +
+      l.rows.map(r => `<tr><td>${esc(r.deck)}</td><td>${r.wins}-${r.losses}</td><td>${r.draws}</td><td>${(r.win_rate * 100).toFixed(1)}%</td><td>${r.ci ? (r.ci[0] * 100).toFixed(1) + "–" + (r.ci[1] * 100).toFixed(1) + "%" : "–"}</td></tr>`).join("") + "</table>";
+  }
+  return h + "</section>";
+}
+
 function kindSeries(r, field) {
   const kinds = [...new Set(r.rounds.flatMap(d => d.stats && d.stats.kinds ? d.stats.kinds.map(k => k.kind) : []))];
   return kinds.map((k, i) => ({name: k, color: PALETTE[i % PALETTE.length],
@@ -411,6 +442,7 @@ async function render() {
   const y = window.scrollY;
   if (view === "overview") v.innerHTML = renderOverview();
   else if (view === "compare") { v.innerHTML = renderCompare(); bindCompare(); }
+  else if (view === "decks") v.innerHTML = renderDecks();
   else if (view === "run") { v.innerHTML = renderRun(); $("#runPick") && ($("#runPick").onchange = e => { location.hash = "run?id=" + encodeURIComponent(e.target.value); }); }
   else if (view === "reports") { v.innerHTML = await renderReports(); loadArtifact(); }
   window.scrollTo(0, y);
