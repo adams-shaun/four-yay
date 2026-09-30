@@ -1,0 +1,22 @@
+{
+  "card": "Walk-In Closet",
+  "family": "activation-condition",
+  "author": "cli-20260930T004423Z-d42d9d4e (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "play-land-from-graveyard",
+      "cr": ["305.2", "604.1"],
+      "why": "Walk-In Closet lets its controller play lands from their graveyard, so the Forest in the graveyard may be played as the turn's land drop and enters untapped.",
+      "setup": {"p0": {"battlefield": ["Walk-In Closet"], "graveyard": ["Forest"]}},
+      "steps": [{"op": "play", "seat": 0, "card": "p0:Forest"}],
+      "expect": [{"card": "p0:Forest", "zone": "battlefield", "tapped": false}]
+    },
+    {
+      "name": "no-permission-no-graveyard-land-play",
+      "cr": ["305.1"],
+      "why": "A land card in the graveyard is not playable without a permission-granting effect.",
+      "setup": {"p0": {"graveyard": ["Forest"]}},
+      "expect": [{"offered": {"seat": 0, "kind": "play_land", "card": "p0:Forest"}, "want": false}]
+    }
+  ]
+}

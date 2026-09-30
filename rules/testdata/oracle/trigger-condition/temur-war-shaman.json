@@ -1,0 +1,21 @@
+{
+  "card": "Temur War Shaman",
+  "family": "trigger-condition",
+  "author": "cli-20260930T004423Z-d42d9d4e (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enters-manifests-top-card",
+      "cr": ["603.6a", "701.34a"],
+      "why": "When Temur War Shaman enters it manifests the top card of the library as a face-down 2/2 creature.",
+      "setup": {"p0": {"hand": ["Temur War Shaman"], "library_top": ["Grizzly Bears"]}},
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Temur War Shaman", "mana": "CCCCGG"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Temur War Shaman", "zone": "battlefield"},
+        {"card": "p0:Grizzly Bears", "zone": "battlefield", "pt": "2/2"}
+      ]
+    }
+  ]
+}

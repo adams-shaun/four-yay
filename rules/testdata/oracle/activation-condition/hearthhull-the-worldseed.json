@@ -1,0 +1,21 @@
+{
+  "card": "Hearthhull, the Worldseed",
+  "family": "activation-condition",
+  "author": "cli-20260930T004423Z-d42d9d4e (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "station-offered-with-another-creature",
+      "cr": ["702.150a", "602.2a"],
+      "why": "Station taps another creature; with a creature available it can be stationed as a sorcery in turn 1's first main phase.",
+      "setup": {"p0": {"battlefield": ["Hearthhull, the Worldseed", "Grizzly Bears"]}},
+      "expect": [{"offered": {"seat": 0, "kind": "station", "card": "p0:Hearthhull, the Worldseed", "label": "Station"}, "want": true}]
+    },
+    {
+      "name": "station-not-offered-without-another-creature",
+      "cr": ["702.150a"],
+      "why": "Station needs another creature to tap; alone the legendary Spacecraft cannot be stationed.",
+      "setup": {"p0": {"battlefield": ["Hearthhull, the Worldseed"]}},
+      "expect": [{"offered": {"seat": 0, "kind": "station", "card": "p0:Hearthhull, the Worldseed"}, "want": false}]
+    }
+  ]
+}

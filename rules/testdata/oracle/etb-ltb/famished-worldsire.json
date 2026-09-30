@@ -1,0 +1,58 @@
+{
+  "card": "Famished Worldsire",
+  "family": "etb-ltb",
+  "author": "cli-20260930T004423Z-d42d9d4e (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "devour-three-lands-enters-with-nine-counters",
+      "cr": [
+        "702.82a",
+        "614.1c"
+      ],
+      "why": "Devour land 3 lets the controller sacrifice any number of lands as it enters, with three +1/+1 counters per land; sacrificing three lands gives a 9/9.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Famished Worldsire"
+          ],
+          "battlefield": [
+            "Forest",
+            "Forest",
+            "Forest"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Famished Worldsire",
+          "mana": "CCCCCGGG"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "p0:Forest",
+                "p0:Forest#2",
+                "p0:Forest#3"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Famished Worldsire",
+          "zone": "battlefield",
+          "pt": "9/9",
+          "counters": {
+            "+1/+1": 9
+          }
+        }
+      ]
+    }
+  ]
+}

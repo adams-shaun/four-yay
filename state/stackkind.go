@@ -8,7 +8,7 @@ import (
 // StackObjKind classifies one stack object for stack-spec legality (the
 // TargetType$ grammar and Defined$ ValidStack's kind tokens): a card object
 // (Face != nil) is a spell; an ability object is the triggered/activated
-// split both the CR (603.1/602.1) and the view's StackView.Kind make. The
+// split both the CR (603.1/602.1) and the view's StackView.Kind serve. The
 // split is TriggerOf -- membership in the source face's T: lines is a
 // TriggerPush mint (a triggered ability); membership in its AB$ list is an
 // AbilityPush mint (an activated ability); anything else is a DelayedPush
@@ -28,9 +28,12 @@ import (
 // The classifier lives in state -- not rules, where its first consumer (the
 // target census) sat -- because a second consumer exists at a LOWER package
 // level: effects' Defined$ ValidStack arm must admit exactly the objects
-// target legality admits, and effects cannot import rules. One classifier,
-// both consumers (rules delegates to this function). The view's StackView.Kind
-// keeps its own TriggerOf call.
+// target legality admits, and effects cannot import rules. Three consumers
+// share this one classifier: rules (which delegates to it,
+// rules/target_legal.go), effects' Defined$ ValidStack arm
+// (effects/context.go, effects/misc.go), and the view's StackView.Kind
+// (view/stack.go), which reads this verdict -- its stamped-kind authority --
+// instead of keeping its own TriggerOf call.
 func StackKindOf(g *Game, o *Object) StackObjKind {
 	if o == nil {
 		return StackKindActivated

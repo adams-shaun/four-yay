@@ -32,8 +32,15 @@ const fortifySBABear = "Name:Fortstone Bear\nManaCost:1 G\nTypes:Creature Bear\n
 const fortifySBALandStripper = "Name:TypeStripper\nManaCost:2 U\nTypes:Enchantment\n" +
 	"S:Mode$ Continuous | Affected$ Land.YouCtrl | AddTypes$ Construct | RemoveCardTypes$ True | Description$ x\nOracle:x\n"
 
+// The manland shape: adds Creature AND sets a real P/T. A bare
+// `AddTypes$ Creature` leaves the land a 0/0, which the CR 704.5f SBA now
+// (correctly) destroys -- that would detach the Fortification because the
+// bearer left the battlefield, not because it stopped being a land, and the
+// point of the test below is the latter. The SetPower/SetToughness pair keeps
+// the animated bearer alive so the Fortification SBA is the only thing under
+// test.
 const fortifySBAAnimator = "Name:LandAnimator\nManaCost:2 R\nTypes:Enchantment\n" +
-	"S:Mode$ Continuous | Affected$ Land.YouCtrl | AddTypes$ Creature | Description$ x\nOracle:x\n"
+	"S:Mode$ Continuous | Affected$ Land.YouCtrl | AddTypes$ Creature | SetPower$ 3 | SetToughness$ 3 | Description$ x\nOracle:x\n"
 
 func TestFortificationDetachesWhenBearerStopsBeingALand(t *testing.T) {
 	t.Parallel()
@@ -141,7 +148,16 @@ func TestFortifiedLandThatGainsATypeStaysAttached(t *testing.T) {
 	if !hasCreature || !hasLand {
 		t.Fatalf("precondition: derived types after the grant = %v, want Creature and Land", derived)
 	}
+	// Precondition for the SBA assertion below: the animated bearer must be
+	// alive (a real 3/3), otherwise it dies to CR 704.5f and the Fortification
+	// detaches for the wrong reason.
+	if d := e.Derived(land); d.Power != 3 || d.Toughness != 3 {
+		t.Fatalf("precondition: animated bearer = %d/%d, want 3/3", d.Power, d.Toughness)
+	}
 	e.checkStateBased()
+	if e.G.Obj(land).Zone != state.ZBattlefield {
+		t.Fatalf("the animated 3/3 bearer left the battlefield for %s; the 704.5f sweep must not run", e.G.Obj(land).Zone)
+	}
 	if e.G.Obj(fort).AttachedTo != land || e.G.Obj(fort).Zone != state.ZBattlefield {
 		t.Fatalf("Fortstone after an animated bearer: attached %d in %s, want still attached to %d",
 			e.G.Obj(fort).AttachedTo, e.G.Obj(fort).Zone, land)
