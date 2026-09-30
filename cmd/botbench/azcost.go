@@ -48,7 +48,7 @@ func registerAZFlags(fs *flag.FlagSet) {
 	fs.IntVar(&azExploreTurns, "az-explore-turns", 4, "az policy with -az-explore: the last turn whose moves are sampled")
 	fs.BoolVar(&azCfg.NoNoise, "az-no-noise", false, "az policy with -az-explore: no root Dirichlet noise (the recorded visits are the search's own)")
 	fs.StringVar(&azCorpusPath, "az-corpus", "", "M1b, -spellbench mode only: write every decision an az seat searched (redacted mz state, the candidates' options, visits, prior, Q, root value, outcome) as a gzip visit corpus (policynet.VisitRecord) to this new file. Observational: the games are unchanged")
-	fs.StringVar(&azRecordArg, "az-corpus-features", azRecordArg, "M1b: the checkpointable feature set -az-corpus records encode under (mz or entity)")
+	fs.StringVar(&azRecordArg, "az-corpus-features", azRecordArg, "M1b: the checkpointable feature set -az-corpus records encode under (mz, entity or mz-ownlib)")
 	fs.BoolVar(&azCfg.Search.HeuristicLeaf, "az-heuristic-leaf", false, "az policy with -checkpoint: use the network only as the prior; the leaf stays the frozen heuristic")
 	fs.StringVar(&azLabel, "az-label", "", "the az policy's ledger display name (default az-clairvoyant-simsN, or az-prior)")
 	fs.IntVar(&azCfg.Worlds, "az-worlds", 0, "az policy, redeal world only: K distinct deals per searched decision, simulation i walking deal i mod K (0 = a fresh deal per simulation)")
@@ -75,7 +75,7 @@ func azFrontDoor(aName, bName string, m *policynet.Model) error {
 	azCfg.ExploreTurns = int32(azExploreTurns)
 	fsRec, err := policynet.ParseFeatureSet(azRecordArg)
 	if err != nil || fsRec.Diagnostic() || fsRec == policynet.FeaturesV1 {
-		return fmt.Errorf("-az-corpus-features %q: want mz or entity", azRecordArg)
+		return fmt.Errorf("-az-corpus-features %q: want mz, entity or mz-ownlib", azRecordArg)
 	}
 	azCfg.RecordFeatures = fsRec
 	azCfg.PriorOnly = false

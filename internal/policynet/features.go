@@ -37,6 +37,14 @@ import (
 //     carries a per-card encoder, a pooled projection into the state trunk
 //     and 2·EntK extra hidden inputs per option (Model.EntK > 0). Read from
 //     the redacted view only: checkpointable (schema version 4) and playable.
+//   - FeaturesMZOwnLib ("mz-ownlib"): FeaturesMZ plus the seat's HONEST
+//     remaining own-library composition (ownlib.go): one
+//     "mz|ownlibleft|<name>" row per card name still in the library, valued
+//     copies/library size, and "mz|ownlib|land" = the land fraction; when the
+//     composition is not derivable from the view, one "mz|ownlib|unknown"
+//     row instead. Folded by view.OwnLibrary off the seat's own deck list and
+//     what it sees -- never the view's own Library list -- so it is
+//     checkpointable and playable. Same geometry as mz (sparse rows only).
 type FeatureSet uint8
 
 const (
@@ -45,9 +53,12 @@ const (
 	FeaturesMZOppHand
 	FeaturesMZOracle
 	FeaturesEntity
+	// FeaturesMZOwnLib is appended after every earlier set: the ordinals are
+	// part of what a checkpoint's feature set names, never renumbered.
+	FeaturesMZOwnLib
 )
 
-var featureSetNames = [...]string{"v1", "mz", "mz-opphand", "mz-oracle", "entity"}
+var featureSetNames = [...]string{"v1", "mz", "mz-opphand", "mz-oracle", "entity", "mz-ownlib"}
 
 // String is the flag spelling.
 func (fs FeatureSet) String() string {
@@ -124,6 +135,9 @@ func EncoderHashFor(fs FeatureSet) uint64 {
 	if fs == FeaturesEntity {
 		s += entityHashSuffix()
 	}
+	if fs == FeaturesMZOwnLib {
+		s += ownLibHashSuffix()
+	}
 	h := uint64(14695981039346656037)
 	for i := 0; i < len(s); i++ {
 		h ^= uint64(s[i])
@@ -135,7 +149,7 @@ func EncoderHashFor(fs FeatureSet) uint64 {
 // FeaturesForHash maps a checkpoint's encoder hash back to the non-diagnostic
 // feature set it was written under.
 func FeaturesForHash(h uint64) (FeatureSet, bool) {
-	for _, fs := range []FeatureSet{FeaturesV1, FeaturesMZ, FeaturesEntity} {
+	for _, fs := range []FeatureSet{FeaturesV1, FeaturesMZ, FeaturesEntity, FeaturesMZOwnLib} {
 		if EncoderHashFor(fs) == h {
 			return fs, true
 		}
@@ -157,6 +171,9 @@ func EncodeStateWith(fs FeatureSet, v view.View, seat state.PlayerID, diag *Diag
 	var extra []Feature
 	push := func(s string, val float32) { extra = append(extra, Feature{Row: hashID(s), Value: val}) }
 	mzState(v, seat, push)
+	if fs == FeaturesMZOwnLib {
+		ownLibState(v, seat, push)
+	}
 	if fs.Diagnostic() && diag != nil {
 		mzDiag(v, seat, fs, diag, push)
 	}
