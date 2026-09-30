@@ -261,7 +261,13 @@ func simulate(top *node, env Env, opts Options, st *Stats) error {
 		}
 		sel := selectEdge(nd, pt, opts)
 		nodes, path = append(nodes, nd), append(path, sel)
+		replay, steps0 := sel.next != nil || sel.n > 0, st.EnvSteps
 		next, err := env.Play(sel.key)
+		st.Plays++
+		if replay {
+			st.ReplayPlays++
+			st.ReplaySteps += st.EnvSteps - steps0
+		}
 		if err != nil {
 			return err
 		}

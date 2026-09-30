@@ -109,6 +109,16 @@ type Stats struct {
 	// the bot's answer was played. A live context never counts it.
 	DeadlineHits int
 
+	// The walk's cost counters. They count work, not outcomes: the node
+	// cache (Options.NodeCache) changes them, and EnvSteps and PriorFallbacks
+	// above, and nothing else in Stats.
+	Plays       int // searched submits (Env.Play), a discarded simulation's included
+	ReplayPlays int // Plays along an edge the tree already held (expanded, or ended there before)
+	ReplaySteps int // the EnvSteps spent inside those ReplayPlays: re-walking known tree edges
+	NodeSaves   int // node states the cache stored
+	NodeResumes int // simulations that resumed from a stored node state below the root
+	NodeEvicts  int // stored node states dropped for a more-visited node (the cache was full)
+
 	// KindSearched splits Searched by kind (KindNames order).
 	KindSearched [NumKinds]int
 	// KindSkipped splits Skipped by kind and reason: every skip is counted
@@ -203,6 +213,12 @@ func (s *Stats) Add(o Stats) {
 	s.FeedStopped += o.FeedStopped
 	s.RedealRefused += o.RedealRefused
 	s.DeadlineHits += o.DeadlineHits
+	s.Plays += o.Plays
+	s.ReplayPlays += o.ReplayPlays
+	s.ReplaySteps += o.ReplaySteps
+	s.NodeSaves += o.NodeSaves
+	s.NodeResumes += o.NodeResumes
+	s.NodeEvicts += o.NodeEvicts
 	for k := range s.KindSearched {
 		s.KindSearched[k] += o.KindSearched[k]
 		for r := range s.KindSkipped[k] {
