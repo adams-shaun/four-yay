@@ -318,3 +318,47 @@ func (c *Canon) Project(e *rules.Engine, in decision.Intent) (int, bool, error) 
 	}
 	return -1, false, fmt.Errorf("searchbench: unknown item kind %q", c.Kind)
 }
+
+// ProjectAt is Project for a spell/hold item's intent at a later priority
+// decision d of engine e (a clone of the root engine on which some mana was
+// already activated): the action is named by its semantic key on e, so it
+// matches the root's canonical option for the same card, mode or ability.
+func (c *Canon) ProjectAt(e *rules.Engine, d *decision.Decision, in decision.Intent) (int, bool, error) {
+	if c.Kind != DecisionSpell && c.Kind != DecisionHold {
+		return -1, false, fmt.Errorf("searchbench: ProjectAt is for priority items, not %s", c.Kind)
+	}
+	var key string
+	switch {
+	case in.Payment != nil || in.Announce != nil:
+		id := ""
+		if in.Payment != nil {
+			id = in.Payment.ActionID
+		} else {
+			id = in.Announce.ActionID
+		}
+		for _, pa := range e.EnsurePaymentActions() {
+			if pa.ID == id {
+				key, _ = priorityKey(e, "cast", pa.Cast.Object, "", "")
+				break
+			}
+		}
+	case len(in.Choices) == 1 && in.Choices[0] >= 0 && in.Choices[0] < len(d.Options):
+		o := d.Options[in.Choices[0]]
+		key, _ = priorityKey(e, o.Kind, o.Obj, o.Mode, o.Label)
+	}
+	if key == "" {
+		return -1, false, fmt.Errorf("searchbench: intent %v has no canonical action", in.Choices)
+	}
+	i, ok := c.byKey[key]
+	if !ok || i < 0 {
+		return -1, false, fmt.Errorf("searchbench: action %q is not canonical here", key)
+	}
+	return i, c.Options[i].Act, nil
+}
+
+// IsManaActivation reports whether in is a single-option answer choosing a
+// mana ability activation at d.
+func IsManaActivation(d *decision.Decision, in decision.Intent) bool {
+	return d != nil && d.Kind == decision.KPriority && in.Payment == nil && in.Announce == nil &&
+		len(in.Choices) == 1 && in.Choices[0] >= 0 && in.Choices[0] < len(d.Options) && d.Options[in.Choices[0]].Kind == "activate"
+}

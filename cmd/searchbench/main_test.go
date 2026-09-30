@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/adams-shaun/gorge/internal/azmcts"
 	"github.com/adams-shaun/gorge/internal/searchbench"
 )
 
@@ -57,5 +58,29 @@ func TestSourceAudit(t *testing.T) {
 	}
 	if got := out.String(); !strings.Contains(got, "eligible=1") || !strings.Contains(got, "fdn_premier=1") {
 		t.Fatalf("audit output %q", got)
+	}
+}
+
+func TestRunName(t *testing.T) {
+	for _, c := range []struct {
+		arm  searchbench.SearchArm
+		sims int
+		d    float64
+		u    azmcts.DiscountUnit
+		leaf string
+		seed uint64
+		want string
+	}{
+		{searchbench.ArmNoSearch, 0, 1, azmcts.DiscountPly, "heuristic", 0, "no-search"},
+		{searchbench.ArmPIMC4, 1000, 1, azmcts.DiscountPly, "heuristic", 0, "pimc-4-b1000"},
+		{searchbench.ArmClairvoyant, 1000, 0.99, azmcts.DiscountPly, "heuristic", 0, "clairvoyant-mcts-b1000-d0.99"},
+		{searchbench.ArmISMCTS, 300, 0.9, azmcts.DiscountAction, "x.ckpt", 2, "is-mcts-b300-d0.9-action-net-s2"},
+	} {
+		if got := runName(c.arm, c.sims, c.d, c.u, c.leaf, c.seed); got != c.want {
+			t.Errorf("runName = %q, want %q", got, c.want)
+		}
+	}
+	if searchbench.ItemSeed(0, "a") == searchbench.ItemSeed(0, "b") || searchbench.ItemSeed(0, "a") == searchbench.ItemSeed(1, "a") {
+		t.Error("ItemSeed collides")
 	}
 }
