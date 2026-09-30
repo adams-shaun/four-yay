@@ -1,8 +1,6 @@
 package azmcts
 
 import (
-	"encoding/json"
-	"fmt"
 	"math"
 
 	"github.com/adams-shaun/gorge/botpolicy"
@@ -187,15 +185,12 @@ func priorityBase(d *decision.Decision, bot decision.Intent) BaseKind {
 	return BaseOther
 }
 
-// actionsKey is the canonical key of a semantic action list: its JSON
-// encoding (fixed field order, so equal lists give equal keys).
+// actionsKey is the canonical key of a semantic action list
+// (searchprobe.AppendActionsKey): equal exactly when the lists' JSON
+// encodings are, which is what the key was before it stopped being JSON.
 func actionsKey(acts []searchprobe.Action) Key {
-	b, err := json.Marshal(acts)
-	if err != nil {
-		// Action holds only integers and strings; Marshal cannot fail.
-		panic(fmt.Sprintf("azmcts: encoding a semantic action: %v", err))
-	}
-	return Key(b)
+	var buf [128]byte
+	return Key(searchprobe.AppendActionsKey(buf[:0], acts))
 }
 
 // priors is the candidates' prior (spec §2): uniform without a network;

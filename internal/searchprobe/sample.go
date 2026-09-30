@@ -1,8 +1,6 @@
 package searchprobe
 
 import (
-	"crypto/sha256"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand/v2"
@@ -179,11 +177,10 @@ func Sample(setup PublicGame, h History, opts SampleOptions) (out SampleResult, 
 			}
 		}
 	}
-	encoded, err := json.Marshal(h)
+	digest, err := historyDigest(h)
 	if err != nil {
 		return result, err
 	}
-	digest := sha256.Sum256(encoded)
 	epochs, err := compileEpochs(h)
 	if err != nil {
 		return result, err
@@ -193,14 +190,15 @@ func Sample(setup PublicGame, h History, opts SampleOptions) (out SampleResult, 
 	}
 	// The replay compares against the observed frames with potential_actions
 	// stripped, because captureScratch does not spend the walk that produces
-	// it. The digest above was taken from the UNstripped history, so the
-	// sampler's seeds -- and every label they reach -- are untouched.
+	// it: each compared frame's board digest is its Stripped one. The digest
+	// above was taken from the UNstripped history, so the sampler's seeds --
+	// and every label they reach -- are untouched.
 	compare := h.Frames
 	if !opts.ComparePotentialActions {
 		compare = make([]Frame, len(h.Frames))
 		for i, frame := range h.Frames {
 			compare[i] = frame
-			compare[i].Board = stripPotentialActions(frame.Board)
+			compare[i].Board.Sum = frame.Board.Stripped
 		}
 	}
 	stackConstraints := stackConstraintContexts(h, epochs)
@@ -289,7 +287,7 @@ func Sample(setup PublicGame, h History, opts SampleOptions) (out SampleResult, 
 			for _, identity := range want.Identities {
 				knownWant[identity.ID] = identity
 			}
-			if !reflect.DeepEqual(got, want) {
+			if !sameFrame(got, want) {
 				res.PrefixRejected++
 				bucket := rejectionBucket(i, got, want)
 				addRejection(res, bucket)
@@ -308,7 +306,7 @@ func Sample(setup PublicGame, h History, opts SampleOptions) (out SampleResult, 
 						res.CompetitionUnguided++
 					}
 				}
-				if opts.ComparePotentialActions && bucket.Component == "board" && string(stripPotentialActions(got.Board)) == string(stripPotentialActions(want.Board)) {
+				if opts.ComparePotentialActions && bucket.Component == "board" && got.Board.Stripped == want.Board.Stripped {
 					res.BoardPotentialActionsOnly++
 				}
 				if bucket.Component == "identities" && bucket.Shape == "hand_to_battlefield" {
@@ -844,11 +842,8 @@ func stackRejectionContext(got, want Frame, knownGot, knownWant map[uint32]Ident
 		}
 	}
 	step := "unknown"
-	var board struct {
-		Step string `json:"step"`
-	}
-	if json.Unmarshal(want.Board, &board) == nil && board.Step != "" {
-		step = board.Step
+	if want.Board.Step != "" {
+		step = want.Board.Step
 	}
 	return StackRejectionContext{Cause: causeName, Step: step, ExpectedAction: frameActionShape(want), Constraint: constraint, Count: 1}
 }
@@ -964,6 +959,14 @@ func addRejection(result *SampleResult, bucket RejectionBucket) {
 	})
 }
 
+// sameFrame is the replay's frame equality: reflect.DeepEqual over the
+// identities, events and decision, and the board by its Sum digest (the
+// caller puts the digest to compare there; see Sample's compare frames).
+// The history link is bookkeeping, not observation, and is not compared.
+func sameFrame(got, want Frame) bool {
+	return got.Board.Sum == want.Board.Sum && reflect.DeepEqual(got.Identities, want.Identities) && reflect.DeepEqual(got.Events, want.Events) && reflect.DeepEqual(got.Decision, want.Decision)
+}
+
 func rejectionBucket(frame int, got, want Frame) RejectionBucket {
 	if !reflect.DeepEqual(got.Identities, want.Identities) {
 		return RejectionBucket{Frame: frame, Component: "identities", Shape: identityDifferenceShape(got, want)}
@@ -980,7 +983,7 @@ func rejectionBucket(frame int, got, want Frame) RejectionBucket {
 		}
 		return RejectionBucket{Frame: frame, Component: "events", Shape: "count"}
 	}
-	if string(got.Board) != string(want.Board) {
+	if got.Board.Sum != want.Board.Sum {
 		return RejectionBucket{Frame: frame, Component: "board", Shape: "state"}
 	}
 	return RejectionBucket{Frame: frame, Component: "decision", Shape: "fields"}
@@ -1025,7 +1028,7 @@ func frameDifference(i int, got, want Frame) string {
 		part = "identities"
 	} else if !reflect.DeepEqual(got.Events, want.Events) {
 		part = "events"
-	} else if string(got.Board) != string(want.Board) {
+	} else if got.Board.Sum != want.Board.Sum {
 		part = "board"
 	}
 	return fmt.Sprintf("frame %d %s", i, part)

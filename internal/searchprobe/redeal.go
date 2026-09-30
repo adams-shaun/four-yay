@@ -1,7 +1,8 @@
 package searchprobe
 
 import (
-	"encoding/json"
+	"bytes"
+	"crypto/sha256"
 	"fmt"
 	"math/rand/v2"
 	"reflect"
@@ -40,23 +41,6 @@ import (
 type RedealBase struct {
 	Engine   *rules.Engine
 	Observer *Collector
-}
-
-type redealBoard struct {
-	Players []struct {
-		ID          state.PlayerID `json:"seat"`
-		Battlefield []knownCardID  `json:"battlefield"`
-		Graveyard   []knownCardID  `json:"graveyard"`
-		Exile       []knownCardID  `json:"exile"`
-		Command     []knownCardID  `json:"command"`
-	} `json:"players"`
-	Stack []struct {
-		ID      uint32 `json:"id"`
-		Source  uint32 `json:"source"`
-		Targets []struct {
-			Obj uint32 `json:"obj"`
-		} `json:"targets"`
-	} `json:"stack"`
 }
 
 // redealPlan is one player's fixed facts: which cards stay put and which are
@@ -105,9 +89,15 @@ type Redealer struct {
 	e     *rules.Engine
 	known KnownCards
 	obs   *Collector
+	// probe is a clone of obs that every Deal probes its world through and
+	// rolls back (Collector.probeBoundary), so each deal observes the world
+	// exactly as a fresh clone of obs would.
 	probe *Collector
-	now   Frame
-	plans []redealPlan
+	// nowBoard and nowDecision are the base boundary as probe observes it:
+	// the encoded board and the observed decision every world must match.
+	nowBoard    []byte
+	nowDecision *ObservedDecision
+	plans       []redealPlan
 }
 
 // NewRedealer prepares the redeal of base.Engine for the seat whose History
@@ -124,11 +114,18 @@ func NewRedealer(setup PublicGame, h History, known KnownCards, base RedealBase)
 	}
 	e := base.Engine
 	last := h.Frames[len(h.Frames)-1]
-	now, err := base.Observer.Clone().Capture(e, nil)
+	probe := base.Observer.Clone()
+	nowRaw, nowDec, err := probe.probeBoundary(e)
 	if err != nil {
 		return nil, "base capture: " + err.Error()
 	}
-	if string(now.Board) != string(last.Board) || !reflect.DeepEqual(now.Decision, last.Decision) {
+	nowBoard := bytes.Clone(nowRaw)
+	if nowDec != nil {
+		owned := *nowDec
+		owned.Options = slices.Clone(nowDec.Options)
+		nowDec = &owned
+	}
+	if sha256.Sum256(nowBoard) != last.Board.Sum || !reflect.DeepEqual(nowDec, last.Decision) {
 		return nil, "base engine is not at the observed boundary"
 	}
 	if err := known.holds(e, base.Observer); err != nil {
@@ -140,10 +137,7 @@ func NewRedealer(setup PublicGame, h History, known KnownCards, base RedealBase)
 			names[identity.ID] = identity
 		}
 	}
-	var board redealBoard
-	if err := json.Unmarshal(last.Board, &board); err != nil {
-		return nil, "board: " + err.Error()
-	}
+	board := &last.Board
 	// Every object the observed frame still refers to must be public, the
 	// actor's own, or pinned: re-dealing one would change what the decision
 	// or the stack means.
@@ -161,9 +155,7 @@ func NewRedealer(setup PublicGame, h History, known KnownCards, base RedealBase)
 	var referenced []uint32
 	for _, s := range board.Stack {
 		referenced = append(referenced, s.ID, s.Source)
-		for _, target := range s.Targets {
-			referenced = append(referenced, target.Obj)
-		}
+		referenced = append(referenced, s.Targets...)
 	}
 	if d := last.Decision; d != nil {
 		referenced = append(referenced, d.Source)
@@ -199,7 +191,7 @@ func NewRedealer(setup PublicGame, h History, known KnownCards, base RedealBase)
 		return o != nil && (o.IsToken || o.IsCopy)
 	}
 	for _, p := range board.Players {
-		for _, zone := range [][]knownCardID{p.Battlefield, p.Graveyard, p.Exile, p.Command} {
+		for _, zone := range [][]BoardCard{p.Battlefield, p.Graveyard, p.Exile, p.Command} {
 			for _, c := range zone {
 				if identity, ok := names[c.ID]; ok && !minted(c.ID) {
 					take(identity.Owner, identity.Name)
@@ -295,7 +287,7 @@ func NewRedealer(setup PublicGame, h History, known KnownCards, base RedealBase)
 		}
 		plans = append(plans, plan)
 	}
-	return &Redealer{e: e, known: known, obs: base.Observer, probe: base.Observer.Clone(), now: now, plans: plans}, ""
+	return &Redealer{e: e, known: known, obs: base.Observer, probe: probe, nowBoard: nowBoard, nowDecision: nowDec, plans: plans}, ""
 }
 
 // Deal builds one redealt world from seed: a hypothetical clone of the base
@@ -318,8 +310,8 @@ func (r *Redealer) Deal(seed [2]uint64, sp *rules.Spare) (*rules.Engine, string)
 	if err := r.known.holds(w, r.obs); err != nil {
 		return nil, "redealt world breaks the projection: " + err.Error()
 	}
-	frame, err := r.probe.Clone().Capture(w, nil)
-	if err != nil || string(frame.Board) != string(r.now.Board) || !reflect.DeepEqual(frame.Decision, r.now.Decision) {
+	board, dec, err := r.probe.probeBoundary(w)
+	if err != nil || !bytes.Equal(board, r.nowBoard) || !reflect.DeepEqual(dec, r.nowDecision) {
 		return nil, "redealt world changes the observation"
 	}
 	return w, ""

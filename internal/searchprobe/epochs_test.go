@@ -236,7 +236,7 @@ func TestCompileEpochsOnlyPreservesSupportedAnsweredArrange(t *testing.T) {
 			b := Action{Decision: decision.KArrange, Kind: "bottom", Obj: 2}
 			h := History{Actor: 0, Answers: map[int][]Action{1: {a}}, Frames: []Frame{
 				{Events: []ObservedEvent{{Kind: events.Shuffle, Player: 0}}},
-				{Board: []byte(`{"players":[{"seat":0,"library_size":4}]}`), Identities: []Identity{{ID: 1, Name: "A"}, {ID: 2, Name: "B"}}, Decision: &ObservedDecision{Player: 0, Kind: decision.KArrange, Max: 2, Options: []ObservedOption{{Action: a}, {Action: b}}}},
+				{Board: Board{Players: []BoardPlayer{{Seat: 0, LibrarySize: 4}}}, Identities: []Identity{{ID: 1, Name: "A"}, {ID: 2, Name: "B"}}, Decision: &ObservedDecision{Player: 0, Kind: decision.KArrange, Max: 2, Options: []ObservedOption{{Action: a}, {Action: b}}}},
 				{Identities: []Identity{{ID: 3, Name: "C"}}, Events: []ObservedEvent{{Kind: events.LibraryOrder, Player: 0}, {Kind: events.Draw, Player: 0, Obj: 1}, {Kind: events.Draw, Player: 0, Obj: 3}}},
 			}}
 			switch shape {

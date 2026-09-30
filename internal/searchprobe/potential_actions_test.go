@@ -32,6 +32,7 @@ func TestStripPotentialActionsMatchesASkippedCapture(t *testing.T) {
 	// Two collectors in lockstep on the one engine: identical observation
 	// refs, so the only difference their boards may carry is the field.
 	full, skipped := NewCollector(0), NewCollector(0)
+	full.retainJSON, skipped.retainJSON = true, true
 	rngs := BotRandoms(7, len(names))
 	board := botpolicy.NewBoard(len(names))
 	pos, carried, frames := 0, 0, 0
@@ -46,11 +47,15 @@ func TestStripPotentialActionsMatchesASkippedCapture(t *testing.T) {
 			t.Fatal(err)
 		}
 		frames++
-		if bytes.Contains(want.Board, []byte(`"potential_actions":`)) {
+		if bytes.Contains(want.Board.raw, []byte(`"potential_actions":`)) {
 			carried++
 		}
-		if stripped := stripPotentialActions(want.Board); !bytes.Equal(stripped, got.Board) {
-			t.Fatalf("frame %d: stripped observed board differs from the skipped capture\n stripped: %s\n  skipped: %s", i, stripped, got.Board)
+		if stripped := stripPotentialActions(want.Board.raw); !bytes.Equal(stripped, got.Board.raw) {
+			t.Fatalf("frame %d: stripped observed board differs from the skipped capture\n stripped: %s\n  skipped: %s", i, stripped, got.Board.raw)
+		}
+		// The digests the replay compares say the same thing as the bytes.
+		if want.Board.Stripped != got.Board.Sum || got.Board.Stripped != got.Board.Sum {
+			t.Fatalf("frame %d: board digests disagree with the stripped bytes", i)
 		}
 		d := e.Pending()
 		if d == nil {
