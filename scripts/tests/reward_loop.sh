@@ -20,5 +20,6 @@ run "broker_smoke.sh" bash "$ROOT/scripts/tests/broker_smoke.sh"
 run "park_branch_smoke.sh" bash "$ROOT/scripts/tests/park_branch_smoke.sh"
 run "cleanup_orphan_smoke.sh" bash "$ROOT/scripts/tests/cleanup_orphan_smoke.sh"
 run "seed_smoke.sh" bash "$ROOT/scripts/tests/seed_smoke.sh"
+run "sb_gauntlet_retain_smoke.sh" bash "$ROOT/scripts/tests/sb_gauntlet_retain_smoke.sh"
 printf '\n=== reward loop: %s\n' "$([ $rc = 0 ] && echo ALL GREEN || echo FAILURES ABOVE)"
 exit $rc
