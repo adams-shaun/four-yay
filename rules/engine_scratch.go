@@ -102,6 +102,10 @@ type engineScratch struct {
 	// engine that allocated it, so a by-value Engine copy never reuses the
 	// original's; lookBackBusy guards against a nested use.
 	lookBack      *Engine
+	// decArena backs posed priority decisions for an engine whose decisions
+	// all die with it (SetDecisionArena, decision_arena.go); nil or off
+	// everywhere else.
+	decArena *decisionArena
 	lookBackOwner *Engine
 	lookBackBusy  bool
 	// A shallow read-only observer of a recurring Effect trigger overrides

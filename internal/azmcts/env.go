@@ -83,6 +83,12 @@ func newEngineEnv(w World, cfg *walkConfig) (*engineEnv, error) {
 	if w.Engine.G.Over || pd == nil || pd.Seq != rd.Seq || pd.Player != rd.Player || pd.Kind != rd.Kind {
 		return nil, fmt.Errorf("%w (root seq %d)", ErrBadWorld, rd.Seq)
 	}
+	// A simulation's world and every decision it poses die together: the
+	// env reads a posed decision only until it answers it, and the sources
+	// Release a world only when the next simulation asks for its own. So
+	// the world's priority decisions come from its recyclable decision arena
+	// (rules.Engine.SetDecisionArena) instead of fresh allocations.
+	w.Engine.SetDecisionArena(true)
 	n := len(w.Engine.G.Players)
 	var board *botpolicy.Board
 	if cfg.envBoard != nil {
