@@ -3,6 +3,7 @@ package searchbench
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/rules"
@@ -38,6 +39,22 @@ func SubmitRecordedPlay(e *rules.Engine, verb, card string) error {
 
 func PlayLand(e *rules.Engine, card string) error { return SubmitRecordedPlay(e, "Play ", card) }
 func CastCard(e *rules.Engine, card string) error { return SubmitRecordedPlay(e, "Cast ", card) }
+
+// NamedPayment selects the first exact engine-provided automatic payment
+// witness for a recorded cast. A source action names the spell but has no
+// mana-tapping transcript, so this avoids inventing manual mana actions.
+func NamedPayment(e *rules.Engine, d *decision.Decision, card string) (decision.Intent, error) {
+	if e == nil || d == nil || d.Kind != decision.KPriority {
+		return decision.Intent{}, fmt.Errorf("searchbench: no priority for payment")
+	}
+	want := "Cast " + card
+	for _, action := range e.EnsurePaymentActions() {
+		if strings.HasPrefix(action.Label, want) && len(action.Plans) != 0 {
+			return decision.Intent{Seq: d.Seq, Player: d.Player, Payment: &decision.PaymentSelection{ActionID: action.ID, Plan: action.Plans[0]}}, nil
+		}
+	}
+	return decision.Intent{}, fmt.Errorf("searchbench: %q has no automatic payment witness", want)
+}
 
 // SubmitFallback advances through one non-recorded decision with the ordinary
 // redacted bot. It bridges source omissions and is therefore diagnostic-only;

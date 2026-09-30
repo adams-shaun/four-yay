@@ -67,6 +67,11 @@ func stageOne(e *rules.Engine, bots [2]*seat.Bot, actor state.PlayerID, verb, ca
 			if err == nil {
 				return bridges, e.SubmitHypothetical(in)
 			}
+			if verb == "Cast " {
+				if in, paymentErr := NamedPayment(e, d, card); paymentErr == nil {
+					return bridges, e.SubmitHypothetical(in)
+				}
+			}
 			lastUnavailable = err.Error()
 		}
 		p := d.Player

@@ -65,3 +65,35 @@ func ObservedOpponentDrawPlan(g ReplayGame, names map[string]string) ([]string, 
 	}
 	return out, nil
 }
+
+// ObservedUserDrawPlan preserves the recorded opening hand and then orders
+// only the additional publicly revealed user cards. A card already in the
+// opening hand is consumed from that multiset rather than duplicated in the
+// draw plan.
+func ObservedUserDrawPlan(g ReplayGame, names map[string]string) ([]string, error) {
+	hand, err := ResolveEvidence(g.OpeningHand, names)
+	if err != nil {
+		return nil, err
+	}
+	out := append([]string(nil), hand...)
+	inHand := make(map[string]int, len(hand))
+	for _, name := range hand {
+		inHand[name]++
+	}
+	for _, turn := range g.Turns {
+		for _, ids := range [][]string{turn.User.Lands, turn.User.Creatures, turn.User.NonCreatures, turn.User.Instants} {
+			for _, id := range ids {
+				name, ok := names[id]
+				if !ok || name == "" {
+					return nil, fmt.Errorf("searchbench: user card id %q has no printed name", id)
+				}
+				if inHand[name] > 0 {
+					inHand[name]--
+					continue
+				}
+				out = append(out, name)
+			}
+		}
+	}
+	return out, nil
+}

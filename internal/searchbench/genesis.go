@@ -19,10 +19,6 @@ func NewGenesis(reg *cards.Registry, game ReplayGame, cardNames map[string]strin
 	if len(opponent) < 40 {
 		return nil, fmt.Errorf("searchbench: opponent belief deck has %d cards", len(opponent))
 	}
-	hand, err := ResolveEvidence(game.OpeningHand, cardNames)
-	if err != nil {
-		return nil, err
-	}
 	opponentPlan, err := ObservedOpponentDrawPlan(game, cardNames)
 	if err != nil {
 		return nil, err
@@ -34,7 +30,10 @@ func NewGenesis(reg *cards.Registry, game ReplayGame, cardNames map[string]strin
 		var want []string
 		switch ctx.Player {
 		case 0:
-			want = hand
+			want, err = ObservedUserDrawPlan(game, cardNames)
+			if err != nil {
+				return nil, err
+			}
 		case 1:
 			want = opponentPlan
 		default:
