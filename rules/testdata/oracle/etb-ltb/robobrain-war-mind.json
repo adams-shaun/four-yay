@@ -14,7 +14,7 @@
       },
       "steps": [],
       "expect": [
-        {"card": "p0:Robobrain War Mind", "pt": "4/5"}
+        {"card": "p0:Robobrain War Mind", "pt": "3/5"}
       ]
     },
     {
@@ -22,7 +22,7 @@
       "cr": ["603.6a", "122.1", "118.2d"],
       "why": "Casting Robobrain War Mind with two artifact creatures on the battlefield gains exactly two energy counters: the three-energy Automated Assembly Line activation stays unaffordable.",
       "setup": {
-        "p0": {"battlefield": ["Memnite", "Scrap Trawler", "Automated Assembly Line"], "hand": ["Robobrain War Mind"]},
+        "p0": {"battlefield": ["Memnite", "Automated Assembly Line"], "hand": ["Robobrain War Mind"]},
         "p1": {}
       },
       "steps": [
@@ -38,7 +38,7 @@
       "cr": ["603.6a", "122.1", "118.2d"],
       "why": "With three artifact creatures on the battlefield the enter trigger gains three energy counters, exactly covering the three-energy Automated Assembly Line activation.",
       "setup": {
-        "p0": {"battlefield": ["Memnite", "Scrap Trawler", "Scrap Trawler#2", "Automated Assembly Line"], "hand": ["Robobrain War Mind"]},
+        "p0": {"battlefield": ["Memnite", "Scrap Trawler", "Scrap Trawler", "Automated Assembly Line"], "hand": ["Robobrain War Mind"]},
         "p1": {}
       },
       "steps": [

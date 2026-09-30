@@ -1,7 +1,7 @@
 {
   "card": "Plasma Caster",
   "family": "activation-condition",
-  "oracle_sha": "3365b44a8a34",
+  "oracle_sha": "13f6b2f68a25",
   "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
   "scenarios": [
     {
@@ -42,7 +42,10 @@
           "attackers": [
             "p0:Grizzly Bears"
           ],
-          "defender": "p1",
+          "defender": "p1"
+        },
+        {
+          "op": "resolve",
           "expect": [
             {
               "offered": {
@@ -69,10 +72,7 @@
         }
       ],
       "expect": [
-        {
-          "card": "p0:Grizzly Bears",
-          "pt": "3/3"
-        }
+        {"card": "p0:Grizzly Bears", "pt": "4/3"}
       ]
     },
     {
@@ -162,6 +162,9 @@
           "defender": "p1"
         },
         {
+          "op": "resolve"
+        },
+        {
           "op": "pass_to",
           "step": "declare-blockers"
         },
@@ -170,7 +173,7 @@
           "seat": 1,
           "blocks": [
             [
-              "p1:Grizzly Bears#2",
+              "p1:Grizzly Bears",
               "p0:Grizzly Bears"
             ]
           ],
@@ -192,7 +195,7 @@
           "card": "p0:Plasma Caster",
           "ability": "Flip a coin",
           "targets": [
-            "p1:Grizzly Bears#2"
+            "p1:Grizzly Bears"
           ]
         },
         {

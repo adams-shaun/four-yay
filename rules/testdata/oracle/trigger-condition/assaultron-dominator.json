@@ -17,8 +17,8 @@
         {"op": "resolve"},
         {"op": "cast", "seat": 0, "card": "p0:Mind Stone", "mana": "CC"},
         {"op": "resolve"},
-        {"op": "attack", "seat": 0, "attackers": ["p0:Assaultron Dominator"], "defender": "p1",
-         "answers": [{"kind": "choose", "pick": ["+1/+1"]}]}
+        {"op": "attack", "seat": 0, "attackers": ["p0:Assaultron Dominator"], "defender": "p1"},
+        {"op": "resolve", "answers": [{"kind": "choose", "pick": ["Pay 1 energy"]}, {"kind": "choose", "pick": ["P1P1"]}]}
       ],
       "expect": [
         {"card": "p0:Assaultron Dominator", "counters": {"+1/+1": 1}, "pt": "3/3"}

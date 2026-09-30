@@ -15,7 +15,8 @@
       "steps": [
         {"op": "activate", "seat": 0, "card": "p0:Bonesplitter", "ability": "Equip", "targets": ["p0:Grizzly Bears"], "mana": "C"},
         {"op": "resolve"},
-        {"op": "attack", "seat": 0, "attackers": ["p0:War Machine, Avenging Arsenal", "p0:Grizzly Bears"], "defender": "p1"}
+        {"op": "attack", "seat": 0, "attackers": ["p0:War Machine, Avenging Arsenal", "p0:Grizzly Bears"], "defender": "p1"},
+        {"op": "resolve"}
       ],
       "expect": [
         {"card": "p0:Grizzly Bears", "keywords": ["Double Strike"]}

@@ -25,17 +25,14 @@
         "p1": {}
       },
       "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Vault 112: Sadistic Simulation",
+          "mana": "CCUR"
+        },
         {
-          "op": "cast",
-          "seat": 0,
-          "card": "p0:Vault 112: Sadistic Simulation",
-          "mana": "CUR",
+          "op": "resolve",
           "targets": [
             "p0:Grizzly Bears"
           ]
-        },
-        {
-          "op": "resolve"
         }
       ],
       "expect": [
@@ -69,7 +66,7 @@
           "op": "cast",
           "seat": 0,
           "card": "p0:Vault 112: Sadistic Simulation",
-          "mana": "CUR"
+          "mana": "CCUR"
         },
         {
           "op": "resolve"

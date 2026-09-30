@@ -13,8 +13,8 @@
         "p1": {}
       },
       "steps": [
-        {"op": "attack", "seat": 0, "attackers": ["p0:Synth Eradicator"], "defender": "p1",
-         "answers": [{"kind": "choose", "pick": ["no"]}]},
+        {"op": "attack", "seat": 0, "attackers": ["p0:Synth Eradicator"], "defender": "p1"},
+        {"op": "resolve", "answers": [{"kind": "choose", "pick": ["no"]}]},
         {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
         {"op": "resolve"}
       ],
@@ -32,8 +32,8 @@
         "p1": {}
       },
       "steps": [
-        {"op": "attack", "seat": 0, "attackers": ["p0:Synth Eradicator"], "defender": "p1",
-         "answers": [{"kind": "choose", "pick": ["yes"]}]},
+        {"op": "attack", "seat": 0, "attackers": ["p0:Synth Eradicator"], "defender": "p1"},
+        {"op": "resolve", "answers": [{"kind": "choose", "pick": ["yes"]}]},
         {"op": "cast", "seat": 0, "card": "p0:Bonesplitter", "mana": "C"},
         {"op": "resolve"},
         {"op": "activate", "seat": 0, "card": "p0:Synth Eradicator", "ability": "deals 3 damage", "targets": ["p1"]},

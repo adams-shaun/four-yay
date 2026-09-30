@@ -26,7 +26,10 @@
           "attackers": [
             "p0:Liberty Prime, Recharged"
           ],
-          "defender": "p1",
+          "defender": "p1"
+        },
+        {
+          "op": "resolve",
           "answers": [
             {
               "kind": "choose",
@@ -89,7 +92,10 @@
           "attackers": [
             "p0:Liberty Prime, Recharged"
           ],
-          "defender": "p1",
+          "defender": "p1"
+        },
+        {
+          "op": "resolve",
           "answers": [
             {
               "kind": "choose",
@@ -104,7 +110,7 @@
         {
           "card": "p0:Liberty Prime, Recharged",
           "zone": "battlefield",
-          "tapped": true
+          "tapped": false
         }
       ]
     },

@@ -13,7 +13,8 @@
         "p1": {"hand": ["Savannah Lions"]}
       },
       "steps": [
-        {"op": "cast", "seat": 1, "card": "p1:Savannah Lions", "mana": "C"},
+        {"op": "pass_to", "seat": 1, "step": "main1", "active": "p1"},
+        {"op": "cast", "seat": 1, "card": "p1:Savannah Lions", "mana": "W"},
         {"op": "cast", "seat": 0, "card": "p0:Electrosiphon", "mana": "UUR", "targets": ["p1:Savannah Lions"]},
         {"op": "resolve"},
         {"op": "activate", "seat": 0, "card": "p0:Dr. Madison Li", "ability": "gets +1/+0", "targets": ["p0:Grizzly Bears"]},
@@ -34,6 +35,7 @@
         "p1": {"hand": ["Memnite"]}
       },
       "steps": [
+        {"op": "pass_to", "seat": 1, "step": "main1", "active": "p1"},
         {"op": "cast", "seat": 1, "card": "p1:Memnite", "mana": ""},
         {"op": "cast", "seat": 0, "card": "p0:Electrosiphon", "mana": "UUR", "targets": ["p1:Memnite"]},
         {"op": "resolve"}

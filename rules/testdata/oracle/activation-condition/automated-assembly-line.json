@@ -15,7 +15,8 @@
       "steps": [
         {"op": "resolve",
          "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Dr. Madison Li", "label": "gets +1/+0"}, "want": false}]},
-        {"op": "attack", "seat": 0, "attackers": ["p0:Memnite"], "defender": "p1",
+        {"op": "attack", "seat": 0, "attackers": ["p0:Memnite"], "defender": "p1"},
+        {"op": "pass_to", "seat": 0, "step": "end",
          "expect": [{"offered": {"seat": 0, "kind": "activate", "card": "p0:Dr. Madison Li", "label": "gets +1/+0"}, "want": true}]},
         {"op": "activate", "seat": 0, "card": "p0:Dr. Madison Li", "ability": "gets +1/+0", "targets": ["p0:Grizzly Bears"]},
         {"op": "resolve"}
@@ -37,7 +38,7 @@
         {"op": "resolve"},
         {"op": "cast", "seat": 0, "card": "p0:Mind Stone", "mana": "CC"},
         {"op": "resolve"},
-        {"op": "cast", "seat": 0, "card": "p0:Lightning Greaves", "mana": ""},
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Greaves", "mana": "CC"},
         {"op": "resolve"},
         {"op": "activate", "seat": 0, "card": "p0:Automated Assembly Line", "ability": "Robot"},
         {"op": "resolve"}

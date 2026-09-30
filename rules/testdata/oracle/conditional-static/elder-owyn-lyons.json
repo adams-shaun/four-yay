@@ -9,16 +9,17 @@
       "cr": ["613.4a", "702.36b"],
       "why": "While Elder Owyn Lyons is on the battlefield, the artifact Mind Stone carries ward {1}: Doom Blade targeting it is countered unless its controller pays {1}, which the empty pool cannot.",
       "setup": {
-        "p0": {"battlefield": ["Elder Owyn Lyons", "Mind Stone"]},
+        "p0": {"battlefield": ["Elder Owyn Lyons", "Memnite"]},
         "p1": {"hand": ["Doom Blade"]}
       },
       "steps": [
-        {"op": "cast", "seat": 1, "card": "p1:Doom Blade", "mana": "CB", "targets": ["p0:Mind Stone"],
+        {"op": "pass_to", "seat": 1, "step": "main1", "active": "p1"},
+        {"op": "cast", "seat": 1, "card": "p1:Doom Blade", "mana": "CB", "targets": ["p0:Memnite"],
          "answers": [{"kind": "choose", "pick": ["no"]}]},
         {"op": "resolve"}
       ],
       "expect": [
-        {"card": "p0:Mind Stone", "zone": "battlefield"},
+        {"card": "p0:Memnite", "zone": "battlefield"},
         {"card": "p1:Doom Blade", "zone": "graveyard"}
       ]
     },
@@ -31,6 +32,7 @@
         "p1": {"hand": ["Doom Blade"]}
       },
       "steps": [
+        {"op": "pass_to", "seat": 1, "step": "main1", "active": "p1"},
         {"op": "cast", "seat": 1, "card": "p1:Doom Blade", "mana": "CB", "targets": ["p0:Grizzly Bears"]},
         {"op": "resolve"}
       ],

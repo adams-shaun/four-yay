@@ -13,7 +13,8 @@
         "p1": {}
       },
       "steps": [
-        {"op": "attack", "seat": 0, "attackers": ["p0:Rex, Cyber-Hound"], "defender": "p1"}
+        {"op": "attack", "seat": 0, "attackers": ["p0:Rex, Cyber-Hound"], "defender": "p1"},
+        {"op": "pass_to", "seat": 0, "step": "end"}
       ],
       "expect": [
         {"graveyard_size": {"p1": 2}}

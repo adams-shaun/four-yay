@@ -13,8 +13,8 @@
         "p1": {}
       },
       "steps": [
-        {"op": "cast", "seat": 0, "card": "p0:Divination", "mana": "CCU",
-         "targets": ["p0:Grizzly Bears", "p0:Grizzly Bears"]}
+        {"op": "cast", "seat": 0, "card": "p0:Divination", "mana": "CCU"},
+        {"op": "resolve", "targets": ["p0:Grizzly Bears", "p0:Grizzly Bears"]}
       ],
       "expect": [
         {"card": "p0:Grizzly Bears", "counters": {"+1/+1": 2}, "pt": "4/4"}
@@ -31,7 +31,8 @@
       "steps": [
         {"op": "activate", "seat": 0, "card": "p0:Bonesplitter", "ability": "Equip", "targets": ["p0:Grizzly Bears"], "mana": "C"},
         {"op": "resolve"},
-        {"op": "attack", "seat": 0, "attackers": ["p0:Iron Man, Armored Avenger", "p0:Grizzly Bears"], "defender": "p1"}
+        {"op": "attack", "seat": 0, "attackers": ["p0:Iron Man, Armored Avenger", "p0:Grizzly Bears"], "defender": "p1"},
+        {"op": "resolve"}
       ],
       "expect": [
         {"card": "p0:Grizzly Bears", "keywords": ["Flying"]}

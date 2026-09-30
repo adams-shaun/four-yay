@@ -13,7 +13,8 @@
         "p1": {}
       },
       "steps": [
-        {"op": "play", "seat": 0, "card": "p0:Commercial District"}
+        {"op": "play", "seat": 0, "card": "p0:Commercial District"},
+      {"op": "resolve", "answers": [{"kind": "arrange", "pick": []}]}
       ],
       "expect": [
         {"card": "p0:Commercial District", "zone": "battlefield", "tapped": true},
@@ -29,10 +30,8 @@
         "p1": {}
       },
       "steps": [
-        {"op": "play", "seat": 0, "card": "p0:Commercial District",
-         "answers": [{"kind": "arrange", "pick": []}]},
-        {"op": "activate", "seat": 0, "card": "p0:Commercial District", "ability": "Add"},
-        {"op": "resolve"}
+        {"op": "play", "seat": 0, "card": "p0:Commercial District"},
+        {"op": "resolve", "answers": [{"kind": "arrange", "pick": ["Lightning Bolt"]}]}
       ],
       "expect": [
         {"card": "p0:Lightning Bolt", "zone": "library"},

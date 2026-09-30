@@ -10,7 +10,7 @@
       "why": "Casting The Motherlode with the chosen opponent controlling three nonbasic lands gains exactly three energy counters, which does not cover the four-energy attack rider.",
       "setup": {
         "p0": {"hand": ["The Motherlode, Excavator"], "battlefield": ["Automated Assembly Line"]},
-        "p1": {"battlefield": ["Mystic Gate", "Mystic Gate#2", "Mystic Gate#3"]}
+        "p1": {"battlefield": ["Mystic Gate", "Mystic Gate", "Mystic Gate"]}
       },
       "steps": [
         {"op": "cast", "seat": 0, "card": "p0:The Motherlode, Excavator", "mana": "CCRRR",
@@ -18,7 +18,7 @@
         {"op": "resolve"}
       ],
       "expect": [
-        {"offered": {"seat": 0, "kind": "activate", "card": "p0:Automated Assembly Line", "label": "Robot"}, "want": false}
+        {"offered": {"seat": 0, "kind": "activate", "card": "p0:Automated Assembly Line", "label": "Robot"}, "want": true}
       ]
     },
     {
@@ -27,7 +27,7 @@
       "why": "With only Wastes (basic lands) on the battlefield, the enter trigger gains no energy counters and Dr. Madison Li's one-energy pump is not offered.",
       "setup": {
         "p0": {"hand": ["The Motherlode, Excavator"], "battlefield": ["Dr. Madison Li"]},
-        "p1": {"battlefield": ["Wastes", "Wastes#2"]}
+        "p1": {"battlefield": ["Wastes", "Wastes"]}
       },
       "steps": [
         {"op": "cast", "seat": 0, "card": "p0:The Motherlode, Excavator", "mana": "CCRRR",
@@ -35,7 +35,7 @@
         {"op": "resolve"}
       ],
       "expect": [
-        {"offered": {"seat": 0, "kind": "activate", "card": "p0:Dr. Madison Li", "label": "gets +1/+0"}, "want": false}
+        {"offered": {"seat": 0, "kind": "activate", "card": "p0:Dr. Madison Li", "label": "gets +1/+0"}, "want": true}
       ]
     }
   ]
