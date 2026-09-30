@@ -681,9 +681,10 @@ def selftest() -> int:
               dep is not None and "br2" not in dep and "`br2`" in big["body"],
               [ln for ln in big["body"].splitlines() if "br2" in ln][:2])
         other = next((c for c in grouped if "br3" in c["id"]), None)
-        check("a group with NO resolvable branch carries no Depends-On line",
+        check("a group with NO resolvable branch carries no Depends-On line, only the prose fallback",
               other is not None
               and not any(ln.startswith("Depends-On:") for ln in other["body"].splitlines())
+              and "Sequencing note:" in other["body"]
               and "`br3`" in other["body"] and "`br4`" in other["body"], other and other["id"])
 
         cands = generate(repo, state, ledger)
