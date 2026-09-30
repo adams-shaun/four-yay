@@ -187,8 +187,15 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 				return false
 			}
 		}
-		if o, ok := r.Param(cards.PKOrigin); ok && o != "Any" && effects.ParseZone(o) != ev.From {
-			return false
+		// Origin$ is a zone SET: a single zone name or a comma list (the
+		// trigger matcher reads it the same way). ParseZones bails closed on
+		// an unknown token rather than degrading to graveyard, and Any/All is
+		// a wildcard.
+		if o, ok := r.Param(cards.PKOrigin); ok {
+			zones, all, listOK := effects.ParseZones(o)
+			if !listOK || (!all && !zoneIn(ev.From, zones)) {
+				return false
+			}
 		}
 		// A creature's "would die" replacement is about a permanent moving
 		// from the battlefield to the graveyard (CR 700.4), not a creature
