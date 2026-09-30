@@ -66,11 +66,14 @@ func run(args []string, out io.Writer) error {
 	if args[0] == "source" && args[1] == "root-run" {
 		return rootRun(args[2:], out)
 	}
+	if args[0] == "source" && args[1] == "root-summarize" {
+		return rootSummarize(args[2:], out)
+	}
 	return usage()
 }
 
 func usage() error {
-	return fmt.Errorf("usage: searchbench manifest validate -in <manifest.json>\n       searchbench analyze -manifest <manifest.json> -results <results.jsonl>\n       searchbench source audit -in <17lands.csv[.gz]>\n       searchbench source candidates -in <17lands.csv[.gz]>\n       searchbench source replay-audit -in <17lands.csv[.gz]>\n       searchbench source resolution-audit -in <17lands.csv[.gz]> -cards <cards.csv>\n       searchbench source corpus-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source genesis-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source stage-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source root-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source root-verify -roots <roots.jsonl> -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source root-run -roots <roots.jsonl> -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards> -arm <clairvoyant-mcts|pimc-1|pimc-4|is-mcts>")
+	return fmt.Errorf("usage: searchbench manifest validate -in <manifest.json>\n       searchbench analyze -manifest <manifest.json> -results <results.jsonl>\n       searchbench source audit -in <17lands.csv[.gz]>\n       searchbench source candidates -in <17lands.csv[.gz]>\n       searchbench source replay-audit -in <17lands.csv[.gz]>\n       searchbench source resolution-audit -in <17lands.csv[.gz]> -cards <cards.csv>\n       searchbench source corpus-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source genesis-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source stage-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source root-audit -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source root-verify -roots <roots.jsonl> -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards>\n       searchbench source root-run -roots <roots.jsonl> -in <17lands.csv[.gz]> -cards <cards.csv> -corpus <.cards> -arm <clairvoyant-mcts|pimc-1|pimc-4|is-mcts>\n       searchbench source root-summarize -results <root-run.jsonl>")
 }
 
 func validate(args []string, out io.Writer) error {
@@ -599,21 +602,33 @@ func rootRun(args []string, out io.Writer) error {
 		if err != nil {
 			return fmt.Errorf("searchbench: root %d %s: %w", i, arm, err)
 		}
-		if err := enc.Encode(struct {
-			GameID    string                `json:"game_id"`
-			Ordinal   int                   `json:"ordinal"`
-			Seat      int                   `json:"seat"`
-			Arm       searchbench.SearchArm `json:"arm"`
-			Choice    int                   `json:"choice"`
-			Intent    decision.Intent       `json:"intent"`
-			Recorded  decision.Intent       `json:"recorded"`
-			Match     bool                  `json:"match_recorded"`
-			Sims      int                   `json:"sims"`
-			Completed int                   `json:"completed"`
-			Skipped   int                   `json:"skipped"`
-		}{roots[i].GameID, roots[i].Ordinal, int(roots[i].Seat), arm, result.Choice, result.Intent, roots[i].Recorded, reflect.DeepEqual(result.Intent, roots[i].Recorded), result.Stats.Simulations, result.Stats.Completed, result.Stats.Skipped}); err != nil {
+		if err := enc.Encode(searchbench.NativeRunResult{GameID: roots[i].GameID, SourceKind: roots[i].SourceKind, SourceCard: roots[i].SourceCard, Ordinal: roots[i].Ordinal, Seat: int(roots[i].Seat), Arm: arm, Choice: result.Choice, Intent: result.Intent, Recorded: roots[i].Recorded, MatchRecorded: reflect.DeepEqual(result.Intent, roots[i].Recorded), Sims: result.Stats.Simulations, Completed: result.Stats.Completed, Skipped: result.Stats.Skipped}); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func rootSummarize(args []string, out io.Writer) error {
+	fs := flag.NewFlagSet("searchbench source root-summarize", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	results := fs.String("results", "", "root-run JSONL")
+	if err := fs.Parse(args); err != nil || *results == "" || fs.NArg() != 0 {
+		return usage()
+	}
+	rows, err := searchbench.ReadNativeRunResults(*results)
+	if err != nil {
+		return err
+	}
+	summary, arm, err := searchbench.SummarizeNativeRuns(rows)
+	if err != nil {
+		return err
+	}
+	agreement, ok := summary.Agreement()
+	if !ok {
+		_, err = fmt.Fprintf(out, "arm=%s rows=%d searched=0 skipped=%d sims=%d completed=%d agreement=unavailable\n", arm, summary.Rows, summary.Skipped, summary.Simulations, summary.Completed)
+		return err
+	}
+	_, err = fmt.Fprintf(out, "arm=%s rows=%d searched=%d skipped=%d sims=%d completed=%d matches=%d agreement=%.6f\n", arm, summary.Rows, summary.Searched, summary.Skipped, summary.Simulations, summary.Completed, summary.Matched, agreement)
+	return err
 }
