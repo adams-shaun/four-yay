@@ -1,4 +1,3 @@
 {
-  "The Motherlode, Excavator/attack-pays-four-energy-to-destroy-nonbasic-land": "the {E}{E}{E}{E} cost is paid but the chained 'when you do, destroy target nonbasic land' body never runs, so the land survives",
-  "The Motherlode, Excavator/creatures-without-flying-cannot-block-after-payment": "the {E}{E}{E}{E} cost is paid but the chained 'creatures that player controls without flying can't block this turn' body never runs, so a ground creature can still block"
+  "The Motherlode, Excavator/creatures-without-flying-cannot-block-after-payment": "payment and land destruction now succeed, but Grizzly Bears is still offered as a blocker despite lacking flying (observed can_block=true, expected false)"
 }
