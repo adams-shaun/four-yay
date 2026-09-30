@@ -19,8 +19,8 @@ func testManifest() Manifest {
 		Corpus:    Corpus{ForgeRef: ref, CompilerFingerprint: "unit-test"},
 		Selection: Selection{Dev: 1, Test: 1, MinimumGameWinRate: .6, MinimumGames: 100, MaximumItemsPerGame: 2},
 		Items: []Item{
-			{ID: "dev-0001", GameID: "g-dev", DraftID: "d-dev", Split: SplitDev, Type: DecisionHold, Seat: 0, Turn: 3, Sequence: 1, Fidelity: "T0", PrefixDigest: sha, PublicStateDigest: sha, LegalOptionsDigest: sha, Label: Label{Alternatives: [][]int{{1}}}, WorldSeeds: append([]uint64(nil), seeds...)},
-			{ID: "test-0001", GameID: "g-test", DraftID: "d-test", Split: SplitTest, Type: DecisionSpell, Seat: 1, Turn: 4, Sequence: 2, Fidelity: "T1", PrefixDigest: sha, PublicStateDigest: sha, LegalOptionsDigest: sha, Label: Label{Alternatives: [][]int{{1}, {3}}, Act: true}, WorldSeeds: append([]uint64(nil), seeds...)},
+			{ID: "dev-0001", GameID: "g-dev", DraftID: "d-dev", Row: 17, Split: SplitDev, Type: DecisionHold, Seat: 0, Turn: 3, Sequence: 1, Tier: "T0", Options: []string{"Pass", "Cast Llanowar Elves"}, PrefixDigest: sha, PublicStateDigest: sha, LegalOptionsDigest: sha, Label: Label{Alternatives: [][]int{{0}}, Strict: [][]int{{0}}}, WorldSeeds: append([]uint64(nil), seeds...)},
+			{ID: "test-0001", GameID: "g-test", DraftID: "d-test", Row: 53, Split: SplitTest, Type: DecisionSpell, Seat: 1, Turn: 4, Sequence: 2, Tier: "T1", OnPlay: true, Options: []string{"Pass", "Cast A", "Cast B", "Cast C"}, PrefixDigest: sha, PublicStateDigest: sha, LegalOptionsDigest: sha, Label: Label{Alternatives: [][]int{{0}, {1}, {3}}, Strict: [][]int{{1}, {3}}, Act: true}, WorldSeeds: append([]uint64(nil), seeds...)},
 		},
 	}
 	if err := m.Seal(); err != nil {
@@ -38,7 +38,7 @@ func TestManifestSealAndValidate(t *testing.T) {
 	if err := m.Seal(); err != nil || m.Digest != first {
 		t.Fatalf("reseal: digest=%q err=%v, want %q", m.Digest, err, first)
 	}
-	m.Items[1].Label.Act = false
+	m.Items[1].Turn++
 	if err := m.Validate(); err == nil || !strings.Contains(err.Error(), "does not match") {
 		t.Fatalf("tampered manifest error = %v", err)
 	}
@@ -46,10 +46,39 @@ func TestManifestSealAndValidate(t *testing.T) {
 
 func TestManifestRejectsSplitLeakAndNonCanonicalLabels(t *testing.T) {
 	for name, change := range map[string]func(*Manifest){
-		"draft split":       func(m *Manifest) { m.Items[1].DraftID = m.Items[0].DraftID },
-		"unsorted choices":  func(m *Manifest) { m.Items[1].Label.Alternatives = [][]int{{2, 1}} },
-		"too many per game": func(m *Manifest) { m.Items[1].GameID = m.Items[0].GameID; m.Selection.MaximumItemsPerGame = 1 },
-		"duplicate world":   func(m *Manifest) { m.Items[1].WorldSeeds[7] = 1 },
+		"draft split":           func(m *Manifest) { m.Items[1].DraftID = m.Items[0].DraftID },
+		"unsorted alternatives": func(m *Manifest) { m.Items[1].Label.Alternatives = [][]int{{3}, {1}} },
+		"multi-index alternative": func(m *Manifest) {
+			m.Items[1].Label.Alternatives = [][]int{{1, 3}}
+			m.Items[1].Label.Strict = [][]int{{1, 3}}
+		},
+		"alternative out of range": func(m *Manifest) {
+			m.Items[1].Label.Alternatives = [][]int{{1}, {4}}
+			m.Items[1].Label.Strict = [][]int{{1}, {4}}
+		},
+		"spell strict keeps pass": func(m *Manifest) { m.Items[1].Label.Strict = [][]int{{0}, {1}, {3}} },
+		"spell strict not subset": func(m *Manifest) { m.Items[1].Label.Strict = [][]int{{2}} },
+		"spell act false":         func(m *Manifest) { m.Items[1].Label.Act = false },
+		"hold acts":               func(m *Manifest) { m.Items[0].Label.Act = true },
+		"hold casts": func(m *Manifest) {
+			m.Items[0].Label = Label{Alternatives: [][]int{{1}}, Strict: [][]int{{1}}, Act: true}
+		},
+		"hold without strict": func(m *Manifest) { m.Items[0].Label.Strict = nil },
+		"one option":          func(m *Manifest) { m.Items[0].Options = []string{"Pass"} },
+		"duplicate option":    func(m *Manifest) { m.Items[1].Options[2] = "Cast A" },
+		"focus on a spell":    func(m *Manifest) { m.Items[1].Focus = "Grizzly Bears" },
+		"bad tier":            func(m *Manifest) { m.Items[1].Tier = "T2" },
+		"negative row":        func(m *Manifest) { m.Items[1].Row = -1 },
+		"game spans two rows": func(m *Manifest) {
+			m.Items[1].GameID = m.Items[0].GameID
+			m.Items[1].DraftID = m.Items[0].DraftID
+			m.Items[1].Split = SplitDev
+			m.Selection = Selection{Dev: 2, MinimumGameWinRate: .6, MinimumGames: 100, MaximumItemsPerGame: 2}
+		},
+		"row names two games": func(m *Manifest) { m.Items[1].Row = m.Items[0].Row },
+		"too many per game":   func(m *Manifest) { m.Items[1].GameID = m.Items[0].GameID; m.Selection.MaximumItemsPerGame = 1 },
+		"duplicate world":     func(m *Manifest) { m.Items[1].WorldSeeds[7] = 1 },
+		"old schema":          func(m *Manifest) { m.SchemaVersion = 1 },
 	} {
 		t.Run(name, func(t *testing.T) {
 			m := testManifest()
@@ -57,6 +86,33 @@ func TestManifestRejectsSplitLeakAndNonCanonicalLabels(t *testing.T) {
 			m.Digest = ""
 			if err := m.Seal(); err == nil {
 				t.Fatal("Seal accepted invalid manifest")
+			}
+		})
+	}
+}
+
+func TestManifestAttackAndBlockLabels(t *testing.T) {
+	base := testManifest().Items[1]
+	for name, tc := range map[string]struct {
+		it Item
+		ok bool
+	}{
+		"attack yes":             {Item{Type: DecisionAttack, Focus: "Bear", Options: []string{"no", "yes"}, Label: Label{Alternatives: [][]int{{1}}, Strict: [][]int{{1}}, Act: true}}, true},
+		"attack no":              {Item{Type: DecisionAttack, Focus: "Bear", Options: []string{"no", "yes"}, Label: Label{Alternatives: [][]int{{0}}, Strict: [][]int{{0}}}}, true},
+		"attack no but act":      {Item{Type: DecisionAttack, Focus: "Bear", Options: []string{"no", "yes"}, Label: Label{Alternatives: [][]int{{0}}, Strict: [][]int{{0}}, Act: true}}, false},
+		"attack lenient":         {Item{Type: DecisionAttack, Focus: "Bear", Options: []string{"no", "yes"}, Label: Label{Alternatives: [][]int{{0}, {1}}, Strict: [][]int{{1}}, Act: true}}, false},
+		"attack without focus":   {Item{Type: DecisionAttack, Options: []string{"no", "yes"}, Label: Label{Alternatives: [][]int{{1}}, Strict: [][]int{{1}}, Act: true}}, false},
+		"block an attacker":      {Item{Type: DecisionBlock, Focus: "Wall", Options: []string{"no block", "Ogre", "Goblin"}, Label: Label{Alternatives: [][]int{{2}}, Strict: [][]int{{2}}, Act: true}}, true},
+		"block mixes no and yes": {Item{Type: DecisionBlock, Focus: "Wall", Options: []string{"no block", "Ogre", "Goblin"}, Label: Label{Alternatives: [][]int{{0}, {2}}, Strict: [][]int{{0}, {2}}}}, false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			m := testManifest()
+			it := base
+			it.Type, it.Focus, it.Options, it.Label = tc.it.Type, tc.it.Focus, tc.it.Options, tc.it.Label
+			m.Items[1] = it
+			m.Digest = ""
+			if err := m.Seal(); (err == nil) != tc.ok {
+				t.Fatalf("Seal error = %v, want ok=%v", err, tc.ok)
 			}
 		})
 	}
@@ -81,23 +137,6 @@ func TestReadRejectsUnknownAndTrailingJSON(t *testing.T) {
 				t.Fatal("Read accepted malformed manifest")
 			}
 		})
-	}
-}
-
-func TestAnalyzeRequiresCompleteOneArmResults(t *testing.T) {
-	m := testManifest()
-	rows := []Result{
-		{ManifestDigest: m.Digest, Arm: "pimc-1", ItemID: "dev-0001", AgentChoices: []int{1}},
-		{ManifestDigest: m.Digest, Arm: "pimc-1", ItemID: "test-0001", AgentChoices: []int{3}, AgentAct: true},
-	}
-	s, arm, err := Analyze(m, rows)
-	if err != nil || arm != "pimc-1" || s.Matches != [4]int{1, 1, 0, 0} {
-		t.Fatalf("Analyze = %+v, %q, %v", s, arm, err)
-	}
-	for _, bad := range [][]Result{rows[:1], {rows[0], rows[0]}, {rows[0], {ManifestDigest: m.Digest, Arm: "other", ItemID: "test-0001", AgentChoices: []int{3}}}} {
-		if _, _, err := Analyze(m, bad); err == nil {
-			t.Fatal("Analyze accepted incomplete, duplicate, or mixed-arm output")
-		}
 	}
 }
 
