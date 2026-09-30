@@ -232,13 +232,20 @@ fi
 # The table and the results rows, from the leaderboard document and the
 # candidates' own games.
 ts=$(date -u +%FT%TZ)
-"$SBPY/python3" - "$WORK/rating" "$GDIR/results.jsonl" "$PAIRS" "${DECKS:-default-pool}" "$git_head" "$KEY" "$ts" "$REFLIST" "${CANDS[@]}" <<'PY'
+"$SBPY/python3" - "$WORK/rating" "$GDIR/results.jsonl" "$PAIRS" "${DECKS:-default-pool}" "$CATALOG" "$git_head" "$KEY" "$ts" "$REFLIST" "${CANDS[@]}" <<'PY'
 import json
 import sys
 from pathlib import Path
 
-rating, results_path, pairs, decks, git_head, key, ts, refs_arg = sys.argv[1:9]
-cands = sys.argv[9:]
+rating, results_path, pairs, decks, catalog, git_head, key, ts, refs_arg = sys.argv[1:10]
+cands = sys.argv[10:]
+# The row's label names the catalog's pool. Only the default-pool fallback is
+# ambiguous across catalogs, so it carries the raw catalog id as a suffix; an
+# explicit decks argument already names real deck ids. "pauper-kernel" stays
+# bare so historical rows keep reading exactly "default-pool".
+label = decks
+if decks == "default-pool" and catalog != "pauper-kernel":
+    label = f"default-pool:{catalog}"
 refs = set(refs_arg.split(","))
 cand_root = Path(results_path).parent / "cand" / git_head
 doc = json.loads((Path(rating) / "leaderboard.json").read_text())
@@ -297,7 +304,7 @@ with Path(results_path).open("a") as f:
             "ci_lo": None if ci[0] is None else ci[0] / 1000,
             "ci_hi": None if ci[1] is None else ci[1] / 1000,
             "wins": r.get("wins", 0), "losses": r.get("losses", 0),
-            "pairs": int(pairs), "decks": decks,
+            "pairs": int(pairs), "decks": label,
             "git_head": git_head, "key": key, "ts": ts,
         }) + "\n")
 PY

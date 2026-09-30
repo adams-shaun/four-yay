@@ -124,18 +124,37 @@ exec /usr/bin/python3 "\$@"
 EOF
 chmod +x "$SBPY/python3"
 
-# --- a throwaway gauntlet root; candidate dir must be absent beforehand
-GDIR=$TMP/gauntlet
-mkdir -p "$GDIR"
+# --- a throwaway gauntlet root per run. HEAD is shared; the root is not.
 HEAD=$(git -C "$ROOT" rev-parse HEAD)
+
+# run_gauntlet <gdir> <catalog> [args...] -- one full gauntlet run against a
+# fresh root. A nonempty catalog sets SB_GAUNTLET_CATALOG; an empty one runs
+# under `env -u` so an inherited value cannot leak in and the pauper-kernel
+# default is what actually executes. Returns the gauntlet's exit code.
+run_gauntlet() {
+	local gdir=$1 catalog=$2
+	shift 2
+	mkdir -p "$gdir"
+	if [ -n "$catalog" ]; then
+		PATH="$BIN:$PATH" SB_GAUNTLET_DIR="$gdir" SB_GAUNTLET_SBPY="$SBPY" \
+			SB_GAUNTLET_CATALOG="$catalog" SB_GAUNTLET_WORKERS=2 \
+			bash "$GAUNTLET" "$@" >"$gdir/run.log" 2>&1
+	else
+		env -u SB_GAUNTLET_CATALOG PATH="$BIN:$PATH" SB_GAUNTLET_DIR="$gdir" \
+			SB_GAUNTLET_SBPY="$SBPY" SB_GAUNTLET_WORKERS=2 \
+			bash "$GAUNTLET" "$@" >"$gdir/run.log" 2>&1
+	fi
+}
+
+# --- run 0: an explicit decks argument, catalog unset (pauper-kernel default)
+GDIR=$TMP/gauntlet
 CAND_DIR=$GDIR/cand/$HEAD/$SPEC
 [ ! -e "$CAND_DIR" ]
 check "candidate dir is absent before the run" $? "$CAND_DIR"
 
-PATH="$BIN:$PATH" SB_GAUNTLET_DIR="$GDIR" SB_GAUNTLET_SBPY="$SBPY" \
-	SB_GAUNTLET_WORKERS=2 bash "$GAUNTLET" "$SPEC" 1 Wildfire >"$TMP/run.log" 2>&1
+run_gauntlet "$GDIR" "" "$SPEC" 1 Wildfire
 rc=$?
-check "gauntlet exits 0" "$rc" "$(tail -5 "$TMP/run.log")"
+check "gauntlet exits 0" "$rc" "$(tail -5 "$GDIR/run.log")"
 
 # --- 1. the ledger is KEPT under the root (the defect)
 [ -s "$CAND_DIR/matches.jsonl" ]
@@ -157,8 +176,8 @@ check "kept matches.jsonl parses as a spellbench-match-ledger/v1 with a deck and
 	$? "$(cat "$TMP/parse.err")"
 
 # --- 3. the h2h column still finds the candidate dir (regression guard)
-grep -q "$REF 1-0" "$TMP/run.log"
-check "head-to-head column is non-empty ($REF 1-0)" $? "$(grep -A2 'spec' "$TMP/run.log")"
+grep -q "$REF 1-0" "$GDIR/run.log"
+check "head-to-head column is non-empty ($REF 1-0)" $? "$(grep -A2 'spec' "$GDIR/run.log")"
 
 # --- 4. the results row is still appended with its schema intact
 ROWS=$(wc -l <"$GDIR/results.jsonl" 2>/dev/null || echo 0)
@@ -172,8 +191,48 @@ r = json.loads(open(sys.argv[1]).readline())
 for k in ("spec", "elo", "ci_lo", "ci_hi", "wins", "losses", "pairs", "decks", "git_head", "key", "ts"):
     assert k in r, (k, r)
 assert r["spec"] == "bot+passguard", r
+# An explicit decks argument already names real deck ids, so it is recorded
+# unchanged -- the catalog suffix is only for the ambiguous default-pool
+# fallback.
+assert r["decks"] == "Wildfire", ("explicit decks must be unchanged", r)
 PY
-check "results row carries the unchanged schema" $? "$(cat "$TMP/row.err")"
+check "results row carries the unchanged schema and an unchanged explicit decks label" \
+	$? "$(cat "$TMP/row.err")"
+
+# --- 5. the row's decks label names the catalog's pool for the default-pool
+# fallback: bare for pauper-kernel (historical rows stay comparable), suffixed
+# for any other catalog. A nonempty catalog must really be in force -- the
+# second label only appears if SB_GAUNTLET_CATALOG reached the script.
+assert_row_decks() { # <gdir> <expected-label>
+	python3 - "$1/results.jsonl" "$2" <<'PY' >"$TMP/row-label.err" 2>&1
+import json, sys
+
+path, want = sys.argv[1], sys.argv[2]
+rows = [json.loads(l) for l in open(path) if l.strip()]
+assert rows, ("no results.jsonl row to read", path)
+assert rows[-1]["decks"] == want, ("decks label", want, rows[-1])
+PY
+}
+
+GDIR_PAU=$TMP/gauntlet-pauper
+run_gauntlet "$GDIR_PAU" "" "$SPEC" 1
+rc=$?
+check "pauper-kernel run exits 0" "$rc" "$(tail -5 "$GDIR_PAU/run.log")"
+assert_row_decks "$GDIR_PAU" "default-pool"
+check "pauper-kernel default-pool label stays bare" $? "$(cat "$TMP/row-label.err")"
+
+GDIR_REPO=$TMP/gauntlet-repo
+run_gauntlet "$GDIR_REPO" repo-constructed "$SPEC" 1
+rc=$?
+check "repo-constructed run exits 0" "$rc" "$(tail -5 "$GDIR_REPO/run.log")"
+assert_row_decks "$GDIR_REPO" "default-pool:repo-constructed"
+check "repo-constructed default-pool label carries the catalog suffix" $? "$(cat "$TMP/row-label.err")"
+
+# The two labels must differ, or the catalog never reached the row writer.
+[ "$(python3 -c 'import json,sys; print(json.loads(open(sys.argv[1]).readline())["decks"])' "$GDIR_PAU/results.jsonl")" \
+	!= "$(python3 -c 'import json,sys; print(json.loads(open(sys.argv[1]).readline())["decks"])' "$GDIR_REPO/results.jsonl")" ]
+check "the two catalog settings really produce different decks labels" $? \
+	"pauper=$(python3 -c 'import json,sys; print(json.loads(open(sys.argv[1]).readline())["decks"])' "$GDIR_PAU/results.jsonl") repo=$(python3 -c 'import json,sys; print(json.loads(open(sys.argv[1]).readline())["decks"])' "$GDIR_REPO/results.jsonl")"
 
 printf '\n%s failure(s)\n' "$fails"
 [ "$fails" = 0 ]
