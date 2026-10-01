@@ -65,8 +65,12 @@ type walkFaceFacts struct {
 	// trigZones is faceTriggerZones' answer (computeFaceTriggerZones),
 	// guarded by trigFirst/trigLen like the abilities.
 	trigZones uint8
-	trigFirst *cards.Trigger
-	trigLen   int
+	// trigSig / trigLookBack are computeFaceTrigSig's and
+	// computeFaceLookBack's answers (trigger_kinds.go), under the same guard.
+	trigSig      trigSig
+	trigLookBack bool
+	trigFirst    *cards.Trigger
+	trigLen      int
 }
 
 // keywordsCurrent reports whether the facts' keyword half was computed over
@@ -86,6 +90,7 @@ func computeWalkFaceFacts(f *cards.Face) walkFaceFacts {
 	}
 	ff.scan = computeFaceScan(f)
 	ff.trigZones, ff.trigLen = computeFaceTriggerZones(f, phaseSpecValid), len(f.Triggers)
+	ff.trigSig, ff.trigLookBack = computeFaceTrigSig(f, phaseSpecValid), computeFaceLookBack(f)
 	if len(f.Triggers) > 0 {
 		ff.trigFirst = &f.Triggers[0]
 	}

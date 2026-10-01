@@ -168,6 +168,10 @@ type engineScratch struct {
 	trigZeroNoopEp   int
 	trigZeroNoopObjs int
 	trigZeroNoopVer  int
+	// trigZeroNoopKinds is the set of event kinds the memo holds: the walk
+	// is narrowed per kind (trigger_kinds.go), so an empty walk for one
+	// zero-interest kind says nothing about another.
+	trigZeroNoopKinds trigKinds
 
 	// legalOptBuf is legalActionsPriced's scratch option list. The walk
 	// appends into it (so the doubling growth that used to reallocate the

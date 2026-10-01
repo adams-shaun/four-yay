@@ -17,7 +17,7 @@ import (
 func TestFaceTriggerZonesIsZoneGatesSpec(t *testing.T) {
 	t.Parallel()
 	e := layerEngine(t)
-	const lib, hand, bf, gy, ex = 1 << 0, 1 << 1, 1 << 2, 1 << 3, 1 << 4
+	const lib, hand, bf, gy, ex, stack, cmd = 1 << 0, 1 << 1, 1 << 2, 1 << 3, 1 << 4, 1 << 5, 1 << 6
 	for _, tc := range []struct {
 		trig string
 		want uint8
@@ -27,11 +27,12 @@ func TestFaceTriggerZonesIsZoneGatesSpec(t *testing.T) {
 		{"Mode$ Phase | Phase$ Upkeep | TriggerZones$ Library,Exile | Execute$ X", lib | ex},
 		{"Mode$ Phase | Phase$ Upkeep | ActiveZones$ Hand | Execute$ X", hand},
 		{"Mode$ Phase | Phase$ Upkeep | TriggerZones$ Battlefield, | Execute$ X", bf | gy}, // the literal Battlefield plus a phantom empty part that parses to the graveyard, as in zoneGate
-		{"Mode$ Phase | Phase$ NoSuchStep | Execute$ X", lib | hand | bf | gy | ex},
+		{"Mode$ Phase | Phase$ Upkeep | TriggerZones$ Command | Execute$ X", cmd},
+		{"Mode$ Phase | Phase$ NoSuchStep | Execute$ X", lib | hand | bf | gy | ex | stack | cmd},
 	} {
 		c := card(t, "Name:Probe\nManaCost:B\nTypes:Creature\nPT:1/1\nT:"+tc.trig+"\nSVar:X:DB$ GainLife | LifeAmount$ 1\nOracle:x\n")
 		if got := e.faceTriggerZones(c.Faces[0]); got != tc.want {
-			t.Errorf("%q: zones = %05b, want %05b", tc.trig, got, tc.want)
+			t.Errorf("%q: zones = %07b, want %07b", tc.trig, got, tc.want)
 		}
 	}
 }

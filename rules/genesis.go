@@ -131,7 +131,7 @@ func (e *Engine) Release() Spare {
 	sp.probe, e.typesProbe, e.typesProbeReady = e.typesProbe[:0], nil, false
 	for i := range e.trigZones {
 		z := &e.trigZones[i]
-		*z = trigZoneSummary{ids: z.ids[:0], hotIDs: z.hotIDs[:0], anyIDs: z.anyIDs[:0]}
+		z.resetSummary()
 	}
 	for i := range e.replZones {
 		z := &e.replZones[i]
