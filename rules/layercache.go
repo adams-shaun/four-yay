@@ -157,6 +157,12 @@ func (e *Engine) staticSafeSince(epoch, oldObjs int, gatesRechecked bool) static
 			if !quiet || !e.staticLibraryOrderCold(ev) {
 				return staticRun{}
 			}
+		case events.Imprint, events.Choose:
+			// Object-local folds (static_memo_admit.go): admitted when the
+			// object cannot contribute to the scan where it sits.
+			if !quiet || !e.staticMoveCold(ev.Obj) {
+				return staticRun{}
+			}
 		default:
 			if !quiet || !staticQuietKinds.has(k) {
 				return staticRun{}
@@ -173,7 +179,7 @@ func (e *Engine) staticSafeSince(epoch, oldObjs int, gatesRechecked bool) static
 		if o.Face() == nil {
 			continue
 		}
-		if o.Zone != state.ZBattlefield || objectStaticHotOn(o) {
+		if o.Zone != state.ZBattlefield || objectContinuousHot(o, state.ZBattlefield) {
 			return staticRun{}
 		}
 	}
@@ -204,8 +210,11 @@ func (e *Engine) staticMemoQuiet() bool { return !e.staticMemoGated && !e.static
 // scratch -- so it is kept; any other build (or one whose flags are not yet
 // known) is dropped exactly as before. Callers that also need the
 // cross-walk Derived memo retired still call retireCrossWalkMemo.
+//
+// A gated build whose every gate has a known read set (staticGatesScratchProof:
+// the active player, a life total) is kept too: no scratch reaches those.
 func (e *Engine) invalidateScratchLayerLists() {
-	if e.staticEpoch <= 0 || !e.staticMemoQuiet() {
+	if e.staticEpoch <= 0 || !e.staticMemoQuiet() && !e.staticGatesScratchProof() {
 		e.activeEpoch, e.staticEpoch = -1, -1
 	}
 }
@@ -213,18 +222,18 @@ func (e *Engine) invalidateScratchLayerLists() {
 // staticMoveCold reports whether a zone move of id cannot change a quiet
 // (gate-free, state-read-free) static scan: the object contributed no effect
 // to the memo where it was (no entry names it as Source) and can contribute
-// none where it is now (objectStaticHot for its current zone: on the
+// none where it is now (objectContinuousHot for its current zone: on the
 // battlefield no face, copied face or merged card it can resolve to carries
-// any static; elsewhere none carries one that can function off the
-// battlefield -- the static zone skip's own per-zone test, a superset of the
-// scan's off-battlefield gate, the stack included). A quiet
+// a Continuous static; elsewhere none carries one that can function off the
+// battlefield -- the scan's own off-battlefield gate, the stack included).
+// A quiet
 // scan reads nothing else a move writes: the move's other folds (the
 // departing permanent's own battlefield state, soulbond and crew links,
 // zone lists) feed only gates, spec matches and the static zone summaries,
 // and the summaries are re-checked by the next real rescan.
 func (e *Engine) staticMoveCold(id state.ObjID) bool {
 	o := e.G.Obj(id)
-	if o == nil || objectStaticHot(o, o.Zone) {
+	if o == nil || objectContinuousHot(o, o.Zone) {
 		return false
 	}
 	for i := range e.staticContinuous {
@@ -240,14 +249,14 @@ func (e *Engine) staticMoveCold(id state.ObjID) bool {
 // quiet static scan. The scan reads the list only to visit its objects in
 // order, so the list's order and membership matter only through an object
 // that contributes, or could contribute, an effect from the library: none
-// of the listed objects may be static-hot there (objectStaticHot), and no
+// of the listed objects may be hot there (objectContinuousHot), and no
 // memo entry may come from a library object -- a source that a reorder
 // dropped from the list would otherwise vanish from the rescan. (An admitted
 // later move never relocates a memo source: staticMoveCold refuses it, so a
 // source in a library at the reorder is still there at this check.)
 func (e *Engine) staticLibraryOrderCold(ev *events.Event) bool {
 	for _, id := range ev.IDs {
-		if o := e.G.Obj(id); o == nil || objectStaticHot(o, state.ZLibrary) {
+		if o := e.G.Obj(id); o == nil || objectContinuousHot(o, state.ZLibrary) {
 			return false
 		}
 	}
