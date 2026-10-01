@@ -148,10 +148,19 @@ func (e *Engine) boardStaticsWalk() (boardStatics, bool) {
 		}
 		c.key = now
 	default:
-		// Fresh backing on every rebuild, so no slice a caller may still be
-		// ranging is ever rewritten.
+		// A rebuild inside the scope that built the entry takes fresh
+		// backing, so no slice a caller of this scope may still be ranging
+		// is ever rewritten. An entry from an EARLIER outermost scope is
+		// dead -- the memo generation moves only on an outermost entry, so
+		// that scope has returned, and every holder of these views (the
+		// walk's costStaticSource/actionStaticSource, the readers it called)
+		// lived inside it -- so its arrays are refilled instead of regrown.
 		seq := e.walkBuildSeq()
-		c.v = e.scanBoardStatics()
+		var into boardStatics
+		if c.key.gen != 0 && c.key.gen != now.gen {
+			into = boardStaticsArrays(c.v)
+		}
+		c.v = e.scanBoardStaticsInto(into)
 		if e.activeBuildSeq != seq {
 			seq = 0 // active() rebuilt mid-scan: never reuse across walks
 		}
@@ -177,7 +186,26 @@ func clipBoardStatics(v boardStatics) boardStatics {
 // a face-down battlefield permanent (CR 708.8). The Effect-delivered cost statics are
 // appended after the printed walk, exactly as scanCostStatics does.
 func (e *Engine) scanBoardStatics() boardStatics {
-	var out boardStatics
+	return e.scanBoardStaticsInto(boardStatics{})
+}
+
+// boardStaticsArrays is v's slices emptied (cleared, so the dead views pin
+// nothing) for scanBoardStaticsInto to refill; every other field is zero.
+func boardStaticsArrays(v boardStatics) boardStatics {
+	empty := func(s []staticView) []staticView { clear(s); return s[:0] }
+	clear(v.manaConv)
+	return boardStatics{
+		cost: costStaticViews{raise: empty(v.cost.raise), reduce: empty(v.cost.reduce),
+			set: empty(v.cost.set), optional: empty(v.cost.optional)},
+		action: actionStaticViews{cantCast: empty(v.action.cantCast),
+			cantActivate: empty(v.action.cantActivate), continuous: empty(v.action.continuous)},
+		manaConv: v.manaConv[:0],
+	}
+}
+
+// scanBoardStaticsInto is scanBoardStatics appending into out's (empty)
+// slices.
+func (e *Engine) scanBoardStaticsInto(out boardStatics) boardStatics {
 	for pi, p := range e.G.AliveFrom(0) {
 		for _, z := range staticSourceZones {
 			if z == state.ZStack && pi > 0 {
