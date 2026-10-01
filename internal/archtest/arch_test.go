@@ -109,8 +109,10 @@ func set(s string) map[string]bool {
 // only at the command boundary: a run's per-item CoreSeconds and progress
 // lines, a build's stage seconds (build.json, never the manifest); every
 // answer and every manifest byte is a pure function of the items, seeds and
-// corpus. host/manabrewhttp uses
-// time only for SSE keep-alive and write deadlines. No game, event, view or
+// corpus. cmd/enginebench (the docs/015 engine-speed rows) reads it only to
+// report each row's elapsed wall time beside its CPU time; every game and
+// seed is fixed by its flags. host/manabrewhttp uses time only for SSE
+// keep-alive and write deadlines. No game, event, view or
 // replay reads the clock, and intents reach the engine only through
 // SubmitIntent.
 func TestTimeIsImportedOnlyByTheHost(t *testing.T) {
@@ -133,6 +135,7 @@ func TestTimeIsImportedOnlyByTheHost(t *testing.T) {
 		module + "/cmd/sbagent":       true,
 		module + "/cmd/sbv2local":     true,
 		module + "/cmd/searchbench":   true,
+		module + "/cmd/enginebench":   true,
 		module + "/host/manabrewhttp": true,
 	}
 	for path, p := range packages(t) {
