@@ -108,21 +108,26 @@ type gateSpec struct {
 	ctrMin                          int32
 }
 
-// charsSummaryOf returns the digest of ces, which must be active()'s
-// current list.
-func (e *Engine) charsSummaryOf(ces []ContinuousEffect) *charsSummary {
+// hit reports whether the digest is current for ces, which must be active()'s
+// current list (false in verify mode, so every read is
+// checked against a rescan).
+func (s *charsSummary) hit(e *Engine, ces []ContinuousEffect) bool {
+	return s.valid && s.seq == e.activeBuildSeq && s.n == len(ces) && (len(ces) == 0 || s.base == &ces[0]) && !printedCharsVerify
+}
+
+// charsSummaryBuild is the digest past its hit test: a rebuild, or in
+// verify mode a hit checked against a rescan.
+func (e *Engine) charsSummaryBuild(ces []ContinuousEffect) *charsSummary {
 	var base *ContinuousEffect
 	if len(ces) > 0 {
 		base = &ces[0]
 	}
 	s := &e.charsSum
 	if s.valid && s.seq == e.activeBuildSeq && s.base == base && s.n == len(ces) {
-		if printedCharsVerify {
-			var fresh charsSummary
-			fresh.summarize(ces)
-			if !slices.Equal(fresh.gates, s.gates) || fresh.open != s.open || fresh.ptOpen != s.ptOpen || fresh.renames != s.renames {
-				panic(fmt.Sprintf("rules: chars summary at build %d disagrees with a rescan", s.seq))
-			}
+		var fresh charsSummary
+		fresh.summarize(ces)
+		if !slices.Equal(fresh.gates, s.gates) || fresh.open != s.open || fresh.ptOpen != s.ptOpen || fresh.renames != s.renames {
+			panic(fmt.Sprintf("rules: chars summary at build %d disagrees with a rescan", s.seq))
 		}
 		return s
 	}
@@ -317,7 +322,11 @@ func (e *Engine) printedReach(id state.ObjID) (*state.Object, *cards.Face) {
 	if f == nil || (o.FaceDown && o.Zone == state.ZBattlefield) {
 		return nil, nil
 	}
-	if e.charsSummaryOf(e.activeBuf).reached(e.G, o, false) || faceHasCDAStatic(o) {
+	s := &e.charsSum
+	if !s.hit(e, e.activeBuf) {
+		s = e.charsSummaryBuild(e.activeBuf)
+	}
+	if s.reached(e.G, o, false) || faceHasCDAStatic(o) {
 		return nil, nil
 	}
 	return o, f
@@ -388,7 +397,11 @@ func (e *Engine) printedPT(o *state.Object, f *cards.Face, active []ContinuousEf
 	if !e.derivedMemoUsable() || (o.FaceDown && o.Zone == state.ZBattlefield) {
 		return 0, 0, false
 	}
-	if e.charsSummaryOf(active).reached(e.G, o, true) || faceHasCDAStatic(o) {
+	s := &e.charsSum
+	if !s.hit(e, active) {
+		s = e.charsSummaryBuild(active)
+	}
+	if s.reached(e.G, o, true) || faceHasCDAStatic(o) {
 		return 0, 0, false
 	}
 	dp, dt := o.CounterPTTotals()
