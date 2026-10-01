@@ -65,6 +65,33 @@ func (s trigSig) or(o trigSig) trigSig {
 
 func zoneMaskHas(m uint32, z state.Zone) bool { return z >= 32 || m&(1<<z) != 0 }
 
+// touchFreeKinds are the event kinds whose events.Apply fold never writes an
+// EXISTING object's Card, CopyFace, FaceIdx, Unlocked, MergedCards or Zone
+// (and never moves one between zone lists): the fields the trigger and
+// replacement zone summaries classify by. Their referents need no catch-up
+// touch (trigZonesCatchUp, replZonesCatchUp); a fold that mints a NEW object
+// changes a zone list, which the summaries' list comparison sees. Audited
+// against the folds (events/apply*.go): every write to those fields is in
+// the zone-move, copy/clone/mutate/token, door-unlock, myriad, end-turn and
+// control-change folds, none of which is listed. Note is deliberately NOT
+// listed although it has no fold: naming an object in a Note is the
+// documented way to announce an in-place write made outside Apply
+// (TestTrigZoneSkipSeesInPlaceChangeThroughReferent). trigZoneSkipVerify
+// touches the listed kinds anyway and panics if a summary changes.
+var touchFreeKinds = func() trigKinds {
+	var m trigKinds
+	for _, k := range []events.Kind{events.Tap, events.Untap, events.Damage, events.CounterChange,
+		events.LifeChange, events.Priority, events.DecisionAsk, events.DecisionMade,
+		events.StepChange, events.TurnChange, events.ManaAdd, events.ManaClear,
+		events.ClockTick, events.TargetsChosen, events.DeclareAttackers, events.DeclareBlockers,
+		events.DamageProvenance, events.EndCombatReset, events.Imprint, events.StoreSVar,
+		events.Choose, events.ModeChosen, events.CastInfo, events.Goad, events.Exert,
+		events.PlayerCounterChange, events.NoteNumber, events.CardNoted} {
+		m[k>>6] |= 1 << (k & 63)
+	}
+	return m
+}()
+
 // zoneChangeKind: the kinds zoneChangeMatchesWithCapture accepts.
 func zoneChangeKind(k events.Kind) bool {
 	return k == events.MoveZone || k == events.Draw || k == events.PutOnStack
@@ -199,15 +226,59 @@ func modeRejectsHighKinds(mode string) bool {
 	return false
 }
 
-// computeFaceTrigSig is a face's exact signature, the union of its lines';
-// valid reports whether a Phase$ spec parses (phaseSpecValid, or the
-// engine's memo of it). The Phase$ read is the walk's own (ParamStr(PKPhase)).
-func computeFaceTrigSig(f *cards.Face, valid func(string) bool) trigSig {
-	var m trigSig
+// computeFaceTrigSigs is a face's exact signature, the union of its lines'
+// (all), and the same union over only the lines that can act for a source
+// that is not one of the event's referents (other): a referent-only line
+// (lineReferentOnly) contributes to all alone. valid reports whether a Phase$
+// spec parses (phaseSpecValid, or the engine's memo of it). The Phase$ read is
+// the walk's own (ParamStr(PKPhase)).
+func computeFaceTrigSigs(f *cards.Face, valid func(string) bool) (all, other trigSig) {
 	for i := range f.Triggers {
-		m = m.or(lineTrigSig(&f.Triggers[i], valid))
+		t := &f.Triggers[i]
+		sig := lineTrigSig(t, valid)
+		all = all.or(sig)
+		if sig != allTrigSig && lineReferentOnly(t) {
+			continue
+		}
+		other = other.or(sig)
 	}
-	return m
+	return all, other
+}
+
+// lineReferentOnly reports whether t can match only when its source is the
+// event's own object, so a walk may leave it to the referent's in-place
+// visit: a Mode$ ChangesZone/ChangesZoneAll line whose card filter
+// (ValidCards$, else ValidCard$ -- zoneChangeMatchesWithCapture's read) is
+// "<Type>.Self", optionally with further "+"-joined properties. The filter is
+// matched against ev.Obj (or its LKI, the same id) under a spec context whose
+// Source is the trigger's source, and the Self predicate is o.ID == Source.
+func lineReferentOnly(t *cards.Trigger) bool {
+	if t.Mode != "ChangesZone" && t.Mode != "ChangesZoneAll" {
+		return false
+	}
+	v, ok := t.Params["ValidCards"]
+	if !ok {
+		v, ok = t.Params["ValidCard"]
+	}
+	return ok && selfOnlySpec(v)
+}
+
+// selfOnlySpec reports whether spec is a single filter alternative whose
+// property list starts with Self: "<Type>.Self" or "<Type>.Self+...", with no
+// "," alternative and no white space.
+func selfOnlySpec(spec string) bool {
+	dot := strings.IndexByte(spec, '.')
+	if dot <= 0 || strings.ContainsAny(spec, ", \t\n\r!") {
+		return false
+	}
+	for i := 0; i < dot; i++ {
+		c := spec[i]
+		if !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z') {
+			return false
+		}
+	}
+	rest := spec[dot+1:]
+	return rest == "Self" || strings.HasPrefix(rest, "Self+")
 }
 
 // computeFaceLookBackZones is the bit set (by trigZoneSlot) of the zones from
@@ -250,18 +321,34 @@ func (e *Engine) faceTrigSig(f *cards.Face) trigSig {
 	if ff := e.walkFaceFactsOf(f); ff != nil && ff.triggersCurrent(f) {
 		return ff.trigSig
 	}
+	return e.faceTrigCached(f).sig
+}
+
+// faceTrigSigOther is faceTrigSig's non-referent half (computeFaceTrigSigs).
+func (e *Engine) faceTrigSigOther(f *cards.Face) trigSig {
+	if f == nil || len(f.Triggers) == 0 {
+		return trigSig{}
+	}
+	if ff := e.walkFaceFactsOf(f); ff != nil && ff.triggersCurrent(f) {
+		return ff.trigSigOther
+	}
+	return e.faceTrigCached(f).other
+}
+
+// faceTrigCached is the per-engine cache entry for a face outside the
+// compiled face table.
+func (e *Engine) faceTrigCached(f *cards.Face) faceTrigCache {
 	if c, ok := e.trigFaceKinds[f]; ok {
-		return c.sig
+		return c
 	}
-	c := faceTrigCache{
-		sig:      computeFaceTrigSig(f, func(spec string) bool { return e.parsedPhaseSpec(spec).valid }),
-		lookBack: computeFaceLookBackZones(f),
-	}
+	var c faceTrigCache
+	c.sig, c.other = computeFaceTrigSigs(f, func(spec string) bool { return e.parsedPhaseSpec(spec).valid })
+	c.lookBack = computeFaceLookBackZones(f)
 	if e.trigFaceKinds == nil {
 		e.trigFaceKinds = make(map[*cards.Face]faceTrigCache)
 	}
 	e.trigFaceKinds[f] = c
-	return c.sig
+	return c
 }
 
 // faceLookBackZones is computeFaceLookBackZones served like faceTrigSig.
@@ -272,30 +359,31 @@ func (e *Engine) faceLookBackZones(f *cards.Face) uint8 {
 	if ff := e.walkFaceFactsOf(f); ff != nil && ff.triggersCurrent(f) {
 		return ff.trigLookBack
 	}
-	e.faceTrigSig(f)
-	return e.trigFaceKinds[f].lookBack
+	return e.faceTrigCached(f).lookBack
 }
 
 type faceTrigCache struct {
-	sig      trigSig
-	lookBack uint8
+	sig, other trigSig
+	lookBack   uint8
 }
 
-// objectTrigSig is the union of the signatures of every face o could walk:
-// each face of its card and its CopyFace (so a face flip in place changes
-// nothing), or everything for an unlocked Room or a merged pile, whose
-// walked faces are not only the current one.
+// objectTrigSig is the union of the non-referent signatures
+// (faceTrigSigOther) of every face o could walk: each face of its card and
+// its CopyFace (so a face flip in place changes nothing), or everything for
+// an unlocked Room or a merged pile, whose walked faces are not only the
+// current one. It answers for o as a NON-referent: a referent is always
+// visited in place.
 func (e *Engine) objectTrigSig(o *state.Object) trigSig {
 	if o.Unlocked || len(o.MergedCards) > 0 {
 		return allTrigSig
 	}
 	var m trigSig
 	if o.CopyFace != nil {
-		m = e.faceTrigSig(o.CopyFace)
+		m = e.faceTrigSigOther(o.CopyFace)
 	}
 	if o.Card != nil {
 		for _, f := range o.Card.Faces {
-			m = m.or(e.faceTrigSig(f))
+			m = m.or(e.faceTrigSigOther(f))
 		}
 	}
 	return m

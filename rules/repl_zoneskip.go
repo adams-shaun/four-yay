@@ -191,6 +191,11 @@ func (e *Engine) replZonesCatchUp() {
 	}
 	for i := e.replZonesEp; i < n; i++ {
 		ev := &e.L.Events[i]
+		if touchFreeKinds.has(ev.Kind) {
+			// No in-place write to a summarized field (touchFreeKinds); verify
+			// mode recomputes every summary on use (verifyReplZoneSkip).
+			continue
+		}
 		e.replZoneTouch(ev.Obj)
 		for _, id := range ev.IDs {
 			e.replZoneTouch(id)

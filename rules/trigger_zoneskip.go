@@ -247,10 +247,10 @@ func (e *Engine) trigZoneInvalidateAll() {
 // (hotSigs); an in-place write can change only the touched object's own
 // classification. So a summary stays exact while the object's current
 // classification is the one it records -- hot exactly when it is listed in
-// hotIDs, with exactly the recorded kind mask -- whether or not the object is
-// in that seat's list at all (a non-hot object outside hotIDs is recorded
-// correctly either way, and a list change is caught by the list comparison).
-// Anything else drops the summary, as every touch used to.
+// hotIDs, with exactly the recorded signature -- and a summary whose list
+// does not hold the object at all (another seat's) does not describe it (a
+// list change is caught by the list comparison). Anything else drops the
+// summary.
 func (e *Engine) trigZoneTouch(id state.ObjID) {
 	o := e.G.Obj(id)
 	if o == nil {
@@ -275,6 +275,11 @@ func (e *Engine) trigZoneTouch(id state.ObjID) {
 			classified = true
 		}
 		at := slices.Index(z.hotIDs, id)
+		if hot && at < 0 && !slices.Contains(z.ids, id) {
+			// Another seat's list (a hot object is listed in hotIDs exactly
+			// when it is in ids): this summary does not describe the object.
+			continue
+		}
 		if hot != (at >= 0) || (hot && z.hotSigs[at] != sig) {
 			z.valid = false
 			e.trigZoneGen++
@@ -300,6 +305,11 @@ func (e *Engine) trigZonesCatchUp() {
 	}
 	for i := e.trigZonesEp; i < n; i++ {
 		ev := &e.L.Events[i]
+		free := touchFreeKinds.has(ev.Kind)
+		if free && !trigZoneSkipVerify {
+			continue
+		}
+		gen := e.trigZoneGen
 		e.trigZoneTouch(ev.Obj)
 		for _, id := range ev.IDs {
 			e.trigZoneTouch(id)
@@ -307,6 +317,9 @@ func (e *Engine) trigZonesCatchUp() {
 		for _, pr := range ev.Pairs {
 			e.trigZoneTouch(pr[0])
 			e.trigZoneTouch(pr[1])
+		}
+		if free && e.trigZoneGen != gen {
+			panic(fmt.Sprintf("rules: touch-free %v event changed a trigger zone summary", ev.Kind))
 		}
 	}
 	e.trigZonesEp = n
