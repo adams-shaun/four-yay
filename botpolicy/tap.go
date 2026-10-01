@@ -87,11 +87,12 @@ func hasFlash(kws []string) bool {
 // taps: the policy cannot read those facts, and its old behaviour did
 // worse (it tapped regardless of the hand at all).
 func (b Board) tapWants() bool {
-	for id, c := range b.Cards.All() {
-		if !c.Castable || c.CMC <= 0 {
+	keys, cs := b.Cards.Keys(), b.Cards.Values()
+	for i := range cs {
+		if c := &cs[i]; !c.Castable || c.CMC <= 0 {
 			continue
 		}
-		if !b.poolPays(id, c) {
+		if !b.poolPays(keys[i], cs[i]) {
 			return true
 		}
 	}
@@ -132,6 +133,45 @@ func (b Board) poolPays(id state.ObjID, c Card) bool {
 // pays it. This is the shared pip count behind both poolPays and the
 // colour-aware tap gate's need map, so the two always agree.
 func colourPips(mc string) [5]int32 {
+	if pips, ok := colourPipsASCII(mc); ok {
+		return pips
+	}
+	return colourPipsSlow(mc)
+}
+
+// colourPipsASCII is colourPips' allocation-free path for a pure-ASCII cost:
+// braceForm turns each brace into a space and strings.FieldsSeq splits on
+// unicode.IsSpace, which over ASCII is exactly asciiSpace, so splitting on
+// asciiSpace or a brace yields the same symbols in the same order
+// (TestColourPipsASCIIMatchesSlow). ok is false for any other cost.
+func colourPipsASCII(mc string) (pips [5]int32, ok bool) {
+	for i := 0; i < len(mc); i++ {
+		if mc[i] >= 0x80 {
+			return pips, false
+		}
+	}
+	for i := 0; i < len(mc); {
+		for i < len(mc) && pipSeparator(mc[i]) {
+			i++
+		}
+		j := i
+		for j < len(mc) && !pipSeparator(mc[j]) {
+			j++
+		}
+		if j == i+1 {
+			if si := state.ManaIndex(mc[i]); si <= state.MG {
+				pips[si]++
+			}
+		}
+		i = j
+	}
+	return pips, true
+}
+
+func pipSeparator(c byte) bool { return c == '{' || c == '}' || asciiSpace(c) }
+
+// colourPipsSlow is colourPips' general path.
+func colourPipsSlow(mc string) [5]int32 {
 	var pips [5]int32
 	for sym := range strings.FieldsSeq(braceForm.Replace(mc)) {
 		if len(sym) != 1 {
@@ -195,10 +235,12 @@ func (b Board) bestUnpayable(offered [5]bool) (state.ObjID, Card, bool) {
 	var best Card
 	var bestScore int32 = -1
 	found := false
-	for id, c := range b.Cards.All() {
-		if !c.Castable || c.CMC <= 0 {
+	keys, cs := b.Cards.Keys(), b.Cards.Values()
+	for i := range cs {
+		if c := &cs[i]; !c.Castable || c.CMC <= 0 {
 			continue
 		}
+		id, c := keys[i], cs[i]
 		if b.poolPays(id, c) {
 			continue
 		}
@@ -492,8 +534,9 @@ func (b Board) castableNowCard(player state.PlayerID, id state.ObjID) bool {
 // falls back to the pre-float-waste reading (timing and C8 only); a board of
 // known production keeps the affordability refusal.
 func (b Board) indeterminateSourceUntapped() bool {
-	for _, c := range b.Cards.All() {
-		if c.OnBattlefield && !c.Tapped && c.Produces.Indeterminate {
+	cs := b.Cards.Values()
+	for i := range cs {
+		if c := &cs[i]; c.OnBattlefield && !c.Tapped && c.Produces.Indeterminate {
 			return true
 		}
 	}

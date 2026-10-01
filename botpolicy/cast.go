@@ -907,7 +907,9 @@ type castContext struct {
 // count), so no map iteration order reaches it.
 func (b Board) castContextFor(d *decision.Decision) castContext {
 	ctx := castContext{poolTotal: b.Pool.Total(), producible: b.producibleMana()}
-	for _, cr := range b.Creatures.All() {
+	crs := b.Creatures.Values()
+	for i := range crs {
+		cr := &crs[i]
 		if cr.Controller == d.Player {
 			ctx.ownCreatures++
 		} else {
@@ -935,7 +937,9 @@ func (b Board) castContextFor(d *decision.Decision) castContext {
 // CurveFit feature's "mana the seat can produce" side).
 func (b Board) producibleMana() int32 {
 	total := b.Pool.Total()
-	for _, c := range b.Cards.All() {
+	cs := b.Cards.Values()
+	for i := range cs {
+		c := &cs[i]
 		if !c.OnBattlefield || c.Tapped {
 			continue
 		}
@@ -955,7 +959,9 @@ func (b Board) producibleMana() int32 {
 // enable it. A land (CMC 0) contributes nothing -- it has no pips.
 func (b Board) colourNeed() [5]int32 {
 	var need [5]int32
-	for _, c := range b.Cards.All() {
+	cs := b.Cards.Values()
+	for i := range cs {
+		c := &cs[i]
 		if !c.Castable || c.CMC <= 0 {
 			continue
 		}
@@ -982,7 +988,9 @@ func (b Board) availableColours() [5]int32 {
 	for i := 0; i < 5; i++ {
 		avail[i] = b.Pool[i]
 	}
-	for _, c := range b.Cards.All() {
+	cs := b.Cards.Values()
+	for i := range cs {
+		c := &cs[i]
 		if !c.OnBattlefield {
 			continue
 		}
@@ -1008,7 +1016,9 @@ func (b Board) availableColours() [5]int32 {
 // commander) is still made even if it spends that reserve.
 func (b Board) reserve() int32 {
 	var min int32 = -1
-	for _, c := range b.Cards.All() {
+	cs := b.Cards.Values()
+	for i := range cs {
+		c := &cs[i]
 		if !c.Castable || !c.InstantSpeed || c.CMC <= 0 {
 			continue
 		}
