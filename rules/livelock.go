@@ -208,11 +208,14 @@ type livelockWatcher struct {
 	// never read as a stuck period (see mintingKinds).
 	mints uint64
 	// The candidate index: every position in the window is chained to the
-	// previous one whose BIGRAM (its signature and its predecessor's) shares
-	// its slot (bigramSlot, livelockCandSlots), so detect walks exactly the
-	// earlier positions that can end the same two signatures as the newest
-	// one -- every period p >= 2 needs both -- newest first, instead of every
-	// position of the window. total counts
+	// previous one whose 4-GRAM (its signature and its three predecessors')
+	// shares its slot (gramSlot, livelockCandSlots), so detect walks exactly
+	// the earlier positions that can end the same four signatures as the
+	// newest one -- every period p >= 4 needs all four; p < 4 is tested
+	// directly -- newest first, instead of every position of the window.
+	// (A bigram index admitted every earlier priority pass: the
+	// Priority/DecisionAsk/DecisionMade rhythm repeats its bigrams dozens of
+	// times per window.) total counts
 	// the signatures ever appended (position t is the t-th, from 0, and sits
 	// at physical slot t % len(sigs) once the ring wraps, t before);
 	// prevPos[slot of t] is 1 + the position of the previous same-slot
@@ -223,9 +226,10 @@ type livelockWatcher struct {
 	total    uint32
 	prevPos  []uint32
 	slotHead []uint32
-	// lastSig is the newest signature pushed (0 before the first): the
-	// predecessor half of the next position's bigram.
-	lastSig uint64
+	// lastSig, last2 and last3 are the three newest signatures pushed,
+	// newest first (0 before there are that many): the predecessor part of
+	// the next position's 4-gram.
+	lastSig, last2, last3 uint64
 	// The rolling-hash precheck (periodHoldsHashed): hs[slot of t] is H(t+1),
 	// the polynomial hash (base livelockHashBase, mod 2^64) of every signature
 	// ever appended up to and including position t; hcur is H(total) and hbase
@@ -425,8 +429,8 @@ func (w *livelockWatcher) pushSig(sig uint64) {
 	if w.slotHead == nil {
 		w.slotHead = make([]uint32, livelockCandSlots)
 	}
-	slot := bigramSlot(w.lastSig, sig)
-	w.lastSig = sig
+	slot := gramSlot(w.last3, w.last2, w.lastSig, sig)
+	w.last3, w.last2, w.lastSig = w.last2, w.lastSig, sig
 	link := w.slotHead[slot]
 	w.slotHead[slot] = w.total + 1
 	w.total++
@@ -447,10 +451,11 @@ func (w *livelockWatcher) pushSig(sig uint64) {
 	}
 }
 
-// bigramSlot is the candidate-index slot of a position whose signature is
-// sig and whose predecessor's is prev.
-func bigramSlot(prev, sig uint64) uint64 {
-	return (sig ^ prev*livelockHashBase) % livelockCandSlots
+// gramSlot is the candidate-index slot of a position whose signature is
+// sig and whose three predecessors' are p1 (nearest), p2 and p3.
+func gramSlot(p3, p2, p1, sig uint64) uint64 {
+	h := ((p3*livelockHashBase+p2)*livelockHashBase+p1)*livelockHashBase + sig
+	return (h ^ h>>29) % livelockCandSlots
 }
 
 func (w *livelockWatcher) sigAt(i int) uint64 {
@@ -472,12 +477,12 @@ func (w *livelockWatcher) recentAt(i int) events.Event {
 // detect scans for the shortest period p whose trailing 2p signatures are
 // two identical halves, and if one is found, opens a run on it.
 //
-// A period p needs sig(n-1) == sig(n-1-p) before anything else, so only the
-// earlier positions holding the newest signature are candidates: the
-// same-slot chain (prevPos) yields every position that can, newest first --
-// increasing p -- and a candidate pays the full two-halves comparison only
-// after its second signature matches (sig(n-2) == sig(n-2-p), inline; p ==
-// 1 needs none). Same p order, same verdict as testing every p in turn
+// Periods 1-3 are tested directly. A period p >= 4 needs the newest four
+// signatures to recur p positions earlier, so only the earlier positions
+// ending the same 4-gram are candidates: the same-slot chain (prevPos)
+// yields every position that can, newest first -- increasing p -- and a
+// candidate pays the two-halves comparison only after its four signatures
+// match inline. Same p order, same verdict as testing every p in turn
 // (detectScan, which verify mode re-runs on every call).
 func (w *livelockWatcher) detect() {
 	got := w.detectIndexed()
@@ -523,13 +528,24 @@ func (w *livelockWatcher) detectIndexed() int {
 		if prev == last {
 			return 1 // periodHolds(n, 1) is exactly this compare
 		}
+		// p = 2 and 3 precede every chained candidate (p >= 4) in p order.
+		for p := 2; p <= 3 && p <= maxP; p++ {
+			if sigs[(t-uint32(p))&mask] == last && w.periodHoldsHashed(n, p, mask) {
+				return p
+			}
+		}
+		if maxP < 4 {
+			return 0
+		}
+		g2, g3 := sigs[(t-2)&mask], sigs[(t-3)&mask]
 		for link := prevPos[t&mask]; link != 0; {
 			pos := link - 1
 			p := int(t - pos)
 			if p > maxP {
 				break
 			}
-			if sigs[pos&mask] == last && sigs[(pos-1)&mask] == prev && w.periodHoldsHashed(n, p, mask) {
+			if p >= 4 && sigs[pos&mask] == last && sigs[(pos-1)&mask] == prev &&
+				sigs[(pos-2)&mask] == g2 && sigs[(pos-3)&mask] == g3 && w.periodHoldsHashed(n, p, mask) {
 				return p
 			}
 			link = prevPos[pos&mask]
@@ -550,13 +566,23 @@ func (w *livelockWatcher) detectIndexed() int {
 	if prev == last {
 		return 1 // periodHolds(n, 1) is exactly this compare
 	}
+	for p := 2; p <= 3 && p <= maxP; p++ {
+		if w.sigs[phys(t-uint32(p))] == last && w.periodHoldsHashed(n, p, 0) {
+			return p
+		}
+	}
+	if maxP < 4 {
+		return 0
+	}
+	g2, g3 := w.sigs[phys(t-2)], w.sigs[phys(t-3)]
 	for link := w.prevPos[phys(t)]; link != 0; {
 		pos := link - 1
 		p := int(t - pos)
 		if p > maxP {
 			break
 		}
-		if w.sigs[phys(pos)] == last && w.sigs[phys(pos-1)] == prev && w.periodHoldsHashed(n, p, 0) {
+		if p >= 4 && w.sigs[phys(pos)] == last && w.sigs[phys(pos-1)] == prev &&
+			w.sigs[phys(pos-2)] == g2 && w.sigs[phys(pos-3)] == g3 && w.periodHoldsHashed(n, p, 0) {
 			return p
 		}
 		link = w.prevPos[phys(pos)]
