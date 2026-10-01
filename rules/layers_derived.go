@@ -312,7 +312,7 @@ func (e *Engine) FilterDerivedPT(id state.ObjID) (power, toughness, basePower, b
 // pass. Keywords aliases Engine scratch storage exactly as Derived does; a
 // caller that keeps it across another characteristics query must copy it.
 func (e *Engine) Characteristics(id state.ObjID) (power, toughness int32, keywords []string) {
-	if p, t, kw, ok := e.printedCharacteristics(id); ok {
+	if p, t, kw, ok := e.printedCharacteristics(id, true); ok {
 		return p, t, kw
 	}
 	// Derived(id), read in place: the memo entry by pointer when derivedWith
@@ -1105,4 +1105,11 @@ func (e *Engine) objColors(o *state.Object) string {
 // an interface expecting a slice. This is that method; Derived(id).Keywords
 // remains the field other engine-internal code should read when it also
 // wants Power/Toughness/Types in the same call.
-func (e *Engine) Keywords(id state.ObjID) []string { return e.Derived(id).Keywords }
+func (e *Engine) Keywords(id state.ObjID) []string {
+	// The printed fast path (derived_printed.go) answers with the face's own
+	// list, which no later derivation rewrites.
+	if kw, ok := e.printedKeywordsOnly(id); ok {
+		return kw
+	}
+	return e.Derived(id).Keywords
+}

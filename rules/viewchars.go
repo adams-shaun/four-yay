@@ -12,6 +12,9 @@ import "github.com/adams-shaun/gorge/state"
 // scratch storage exactly as Derived does: copy it before the next
 // characteristics query.
 func (e *Engine) ViewCharacteristics(id state.ObjID) (name string, keywords []string, power, toughness int32) {
+	if name, keywords, power, toughness, ok := e.printedViewCharacteristics(id); ok {
+		return name, keywords, power, toughness
+	}
 	d := e.Derived(id)
 	return d.Name, d.Keywords, d.Power, d.Toughness
 }

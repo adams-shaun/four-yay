@@ -19,7 +19,7 @@ func init() { printedCharsVerify = true }
 // build's first derivation does).
 func printedFast(e *Engine, id state.ObjID) bool {
 	e.active()
-	_, _, _, ok := e.printedCharacteristics(id)
+	_, _, _, ok := e.printedCharacteristics(id, true)
 	return ok
 }
 
@@ -61,6 +61,26 @@ func TestPrintedCharacteristicsFastPath(t *testing.T) {
 	if !printedFast(e, inHand) || hp != 0 || ht != 0 {
 		t.Fatalf("hand land: fast %v, P/T %d/%d", printedFast(e, inHand), hp, ht)
 	}
+
+	// Keywords and ViewCharacteristics share the fast path; the keyword list
+	// then aliases the face, never the derivation scratch.
+	if kw, ok := e.printedKeywordsOnly(bear); !ok || !slices.Equal(kw, []string{"Trample"}) {
+		t.Fatalf("Keywords fast path: %v %v", kw, ok)
+	}
+	if name, kw, p, tough := e.ViewCharacteristics(bear); name != "Bear" || p != 4 || tough != 4 || !slices.Equal(kw, []string{"Trample"}) {
+		t.Fatalf("ViewCharacteristics = %q %v %d/%d", name, kw, p, tough)
+	}
+	// A layer-3 rename anywhere sends ViewCharacteristics (not
+	// Characteristics) to the full derivation.
+	e.AddContinuous(ContinuousEffect{Source: elk, Controller: 0, Affects: "Card.Self", Layer: LText, SetName: "Moose"})
+	e.active()
+	if _, _, _, _, ok := e.printedViewCharacteristics(bear); ok {
+		t.Fatal("view fast path taken with a rename in play")
+	}
+	if name, _, _, _ := e.ViewCharacteristics(elk); name != "Moose" {
+		t.Fatalf("renamed elk = %q", name)
+	}
+	check(bear, true, 4, 4, []string{"Trample"})
 
 	// The elk gains flying through its own Card.Self effect: it leaves the
 	// fast path, the bear keeps it.
