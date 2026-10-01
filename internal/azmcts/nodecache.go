@@ -30,11 +30,15 @@ package azmcts
 //   - an edge whose walk ended (game over, the step cap): its leaf, so the
 //     next simulation down it touches no engine at all.
 //
-// Options.NodeCache caps the stored node states (the root's included); an
-// engine state is roughly one engine clone (TestNodeCacheMeasure reports
-// the peak RSS). Eviction drops the state for the garbage collector and
-// never releases its arrays for reuse: a stored state's descendants may
-// share its event-log prefix (rules.Engine.Release's contract).
+// Options.NodeCache caps the stored node states (the root's included). A
+// stored state owns its whole event log and object arena, so it is larger
+// than a plain Clone (which shares the log): measured 2026-09-30 on
+// mid-game 60-card roots, 300-450 KB each (log ~45%, arena ~35%), so the
+// default 256 holds at most ~100 MB live, and only while a search with more
+// than 256 expanded nodes runs. Eviction drops the state for the garbage
+// collector and never releases its arrays for reuse: a stored state's
+// descendants may share its event-log prefix (rules.Engine.Release's
+// contract).
 
 import (
 	"errors"

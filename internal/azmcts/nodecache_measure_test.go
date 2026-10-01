@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -95,6 +96,7 @@ func TestNodeCacheMeasure(t *testing.T) {
 	rssBase := vmHWM()
 	var tot Stats
 	var elapsed time.Duration
+	cpu0 := cpuTime()
 	for i, r := range roots {
 		opts := DefaultOptions()
 		opts.Sims, opts.Seed = sims, uint64(i)+1
@@ -109,9 +111,11 @@ func TestNodeCacheMeasure(t *testing.T) {
 		}
 		tot.Add(res.Stats)
 	}
+	cpu := cpuTime() - cpu0
 	s := float64(max(tot.Simulations, 1))
 	t.Logf("source=%s sims=%d cache=%d roots=%d searched=%d", kind, sims, cache, len(roots), tot.Searched)
-	t.Logf("sims/s=%.0f  us/sim=%.1f", float64(tot.Simulations)/elapsed.Seconds(), float64(elapsed.Microseconds())/s)
+	t.Logf("sims/s=%.0f  us/sim=%.1f  cpu sims/s=%.0f (process user+sys, GC included)", float64(tot.Simulations)/elapsed.Seconds(),
+		float64(elapsed.Microseconds())/s, float64(tot.Simulations)/cpu.Seconds())
 	t.Logf("per sim: envSteps=%.2f replaySteps=%.2f (%.1f%%) plays=%.2f replayPlays=%.2f expanded=%.3f terminal=%.3f capped=%.3f",
 		float64(tot.EnvSteps)/s, float64(tot.ReplaySteps)/s, 100*float64(tot.ReplaySteps)/float64(max(tot.EnvSteps, 1)),
 		float64(tot.Plays)/s, float64(tot.ReplayPlays)/s, float64(tot.Expanded)/s, float64(tot.Terminal)/s, float64(tot.StepCapped)/s)
@@ -122,3 +126,13 @@ func TestNodeCacheMeasure(t *testing.T) {
 }
 
 func setNodeCache(o *Options, n int) { o.NodeCache = n }
+
+// cpuTime is the process's user+sys CPU time: with GOMAXPROCS=1 it is the
+// search's own cost, GC included, whatever else the machine runs.
+func cpuTime() time.Duration {
+	var ru syscall.Rusage
+	if err := syscall.Getrusage(syscall.RUSAGE_SELF, &ru); err != nil {
+		return 0
+	}
+	return time.Duration(ru.Utime.Nano() + ru.Stime.Nano())
+}
