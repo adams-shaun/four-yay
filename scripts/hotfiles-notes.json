@@ -84,5 +84,30 @@
       "internal/searchprobe/observation.go"
     ],
     "note": "the observation capture path: the CPU-perf workstream rewrites `NewCollector`/`Capture`/`capture` wholesale, while the searchbench workstream's whole footprint there is one 5-line accessor (`Introduced()`) inserted at the stable `clone()`/`Capture` anchor \u2014 adjacent, line-disjoint (measured 2026-10-01); only the per-file hotspot granularity flags it. Keep searchbench additions to self-contained accessors at stable anchors and the pair merges clean on rebase"
+  },
+  {
+    "files": [
+      "botpolicy/combat.go",
+      "botpolicy/policy.go"
+    ],
+    "note": "the Board refill: combat.go's BoardFromGameInto fills the fields policy.go's Board declares, so every own-state exposure ticket extends one function and one struct and the edits are adjacent by construction \u2014 no file split can separate them. The 2026-10-01 pair (cpu-redeal's shared-manifest read, OwnDeckShared, at combat.go lines 187-194 vs libcomp's fillOwnLibrary insert and its OwnLibrary field) is line-disjoint and merges clean on rebase; only the per-file hotspot granularity flags it. Keep each exposure to its own field + fill lines"
+  },
+  {
+    "files": [
+      "cmd/botbench/azcost.go"
+    ],
+    "note": "the az policy flag block: every az workstream ticket registers a flag in registerAZFlags or rewords one in azFrontDoor \u2014 one function, so edits are adjacent by construction. The 2026-10-01 pair (cpu-redeal adds -az-node-cache; libcomp rewords -az-corpus-features' help and error) is line-disjoint and merges clean on rebase. Append new flags to the registration list; no split is honest inside one flag block"
+  },
+  {
+    "files": [
+      "deck/deck.go"
+    ],
+    "note": "carries two genuinely unrelated concerns: File (parse/resolve/commander eligibility, the corpus side) and Manifest (ManifestRow/manifestRows, the own-deck side). The 2026-10-01 collision (cpu-redeal's File.CardNames vs libcomp's ManifestRow land flag) is fully line-disjoint and merges clean \u2014 only the per-file hotspot granularity flags it. A deck/manifest.go split is the real seam but was deliberately NOT made while either branch is live: a main-side split cannot change a live branch's measured footprint (git diff main...ref is merge-base..ref) and would move exactly the lines libcomp is about to rebase onto, manufacturing the resolver round it is meant to avoid. Split only after both branches land, if manifest work recurs"
+  },
+  {
+    "files": [
+      "view/card.go"
+    ],
+    "note": "the card projection: every projection-perf ticket and every exposed-card-fact ticket edits cardViews/cardView. The 2026-10-01 pair is a GENUINE intra-function collision \u2014 cpu-redeal rewrites cardViews/cardView into a pooled projector method while libcomp inserts the printed CardName assignment inside the old cardView body (main line 250) \u2014 so the second branch to rebase re-applies its hunk in the new shape; no file split can separate edits inside one function. Land libcomp first (its other four files merge clean on rebase); cpu-redeal's rewrite folds the 5-line assignment in as it goes"
   }
 ]
