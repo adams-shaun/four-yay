@@ -54,8 +54,12 @@ func (e *Engine) offerAsSpellOnStack(id state.ObjID, fn func() bool) bool {
 	e.G.Stack = append(slices.Clip(prevStack), id)
 	o.Zone = state.ZStack
 	e.derivedMemoDepth = 0
+	// The object classes (walk_objclass.go) cache nothing read under the
+	// move, whose fingerprint would outlive it.
+	e.offerProbeDepth++
 	e.retireCrossWalkMemo()
 	defer func() {
+		e.offerProbeDepth--
 		o.Zone = prevZone
 		e.G.Stack = prevStack
 		e.G.SetZone(state.ZHand, o.Owner, hand)

@@ -210,6 +210,9 @@ type engineTriggerBatches struct {
 	// walkClsOwner is the engine walkObjCls belongs to: a by-value Engine
 	// copy sees another owner and starts its own (ownWalkClasses).
 	walkClsOwner *Engine
+	// offerProbeDepth counts the open face and cast probes (faceprobe.go,
+	// castprobe.go), whose no-event writes the class cache must not record.
+	offerProbeDepth int
 	// staticTouchGen counts the catch-up's touches of objects that are, or
 	// were, static-hot (walk_objclass.go: walkClassTouch): the static scans'
 	// cross-walk reuse keys on it (walkcache.go). Never cloned.

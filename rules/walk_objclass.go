@@ -276,6 +276,13 @@ func (e *Engine) walkClassOfSlow(id state.ObjID) *walkObjClass {
 	}
 	c := &e.walkObjCls[i]
 	if !c.set {
+		if e.offerProbeDepth > 0 {
+			// Inside a face or cast probe: answer from the probed state but
+			// cache nothing (its fingerprint names a no-event write the
+			// catch-up never undoes).
+			fresh := e.computeWalkObjClass(&e.G.Objs[i])
+			return &fresh
+		}
 		*c = e.computeWalkObjClass(&e.G.Objs[i])
 	} else if walkSkipVerify {
 		// The fingerprint is compared by the catch-up's touches, not here:
@@ -304,6 +311,13 @@ func (e *Engine) walkClassTouch(o *state.Object) (staticSame bool) {
 	e.ownWalkClasses()
 	i := int(o.ID) - 1
 	if i < 0 || i >= len(e.walkObjCls) || !e.walkObjCls[i].set {
+		e.staticTouchGen++
+		return false
+	}
+	if e.offerProbeDepth > 0 {
+		// A catch-up run inside a face or cast probe reads probed fields:
+		// drop the class instead of refreshing it, conservatively.
+		e.walkObjCls[i].set = false
 		e.staticTouchGen++
 		return false
 	}
