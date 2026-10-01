@@ -31,5 +31,12 @@ export default defineConfig({
     // whole suite rather than threading a timeout through every `it`.
     testTimeout: 20_000,
     globalSetup: './src/test/browser.global.ts',
+    // One shared Chromium (src/test/browser.global.ts) serves all 32
+    // browser-backed test files. With Vitest's default fileParallelism (all
+    // files at once, maxWorkers = CPUs) those files queue behind that one
+    // browser and blow the 5000ms default it() budget -- an unrelated branch
+    // then fails npm test nondeterministically. Serialise the files so the
+    // shared browser is never starved. Measured: 174/174 green.
+    fileParallelism: false,
   },
 });
