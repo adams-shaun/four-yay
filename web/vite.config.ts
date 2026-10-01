@@ -22,6 +22,14 @@ export default defineConfig({
       : resolve('node_modules', '.vitest-cache'),
     environment: 'node',
     include: ['src/**/*.test.ts'],
+    // The ~30 browser-mode geometry tests share ONE Vite dev server and ONE
+    // chromium for the whole invocation; under full-suite parallelism a
+    // page.goto plus first transform can legitimately exceed the 5s default
+    // (measured: SeatTable / FocusReleaseCardTile / HandFan.geometry /
+    // HotkeyGuard each failed at exactly 5000ms in full `npm test` runs while
+    // passing in seconds when focused). Raise the per-test watchdog for the
+    // whole suite rather than threading a timeout through every `it`.
+    testTimeout: 20_000,
     globalSetup: './src/test/browser.global.ts',
   },
 });
