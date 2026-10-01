@@ -56,6 +56,9 @@ type engineScratch struct {
 	// activeStaticsScan records the lists the last fused activeStatics scan
 	// walked (static_scan_reuse.go). Pure scratch: Clone copies none.
 	activeStaticsScan staticScanRec
+	// actIndex is the incremental activation-count folds
+	// (activation_count_index.go). Pure scratch: Clone copies none.
+	actIndex activationIndex
 	// boardScanBuf is the printed board scan's gathered zone lists
 	// (static_scan_reuse.go: gatherBoardScan). Pure scratch.
 	boardScanBuf  []boardScanList

@@ -64,6 +64,7 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "activeStaticsCache"}:   true,
 	{"rules.Engine", "activeStaticsScan"}:    true,
 	{"rules.Engine", "boardScanBuf"}:         true,
+	{"rules.Engine", "actIndex"}:             true,
 	{"rules.Engine", "mayPlaysCache"}:        true,
 	// The posed decision's shared potential walk (potential_walk_cache.go):
 	// keyed by an ask serial and the log; Clone copies none.
