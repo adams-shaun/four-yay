@@ -113,7 +113,7 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 // whose result becomes a posed priority decision's Options (askPriority),
 // which is the one result the decision arena (decision_arena.go) may back.
 func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, castsOnly bool, window *windowCollector, forAsk bool) []decision.Option {
-	return e.legalActionsWalkBody(p, hyp, castsOnly, window, forAsk, nil, false)
+	return e.legalActionsWalkAsk(p, hyp, castsOnly, window, forAsk, nil, false)
 }
 
 // legalActionsWalkTemp is legalActionsWalk for a caller that only reads the
@@ -122,10 +122,13 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 // caller hands it back with e.optRelease once it, and every value it took
 // a pointer into, is done; the options' contents are the walk's own.
 func (e *Engine) legalActionsWalkTemp(p state.PlayerID, hyp *state.Mana, castsOnly bool) []decision.Option {
-	return e.legalActionsWalkBody(p, hyp, castsOnly, nil, false, e.optBorrow(), true)
+	return e.legalActionsWalkAsk(p, hyp, castsOnly, nil, false, e.optBorrow(), true)
 }
 
-func (e *Engine) legalActionsWalkBody(p state.PlayerID, hyp *state.Mana, castsOnly bool, window *windowCollector, forAsk bool, dst []decision.Option, temp bool) []decision.Option {
+// legalActionsWalkAsk is the walk's shared entry body (every entry above
+// delegates here; TestPotentialActionsProjectsEveryPlayKind reads its add
+// calls). dst/temp select legalActionsWalkTemp's borrowed result list.
+func (e *Engine) legalActionsWalkAsk(p state.PlayerID, hyp *state.Mana, castsOnly bool, window *windowCollector, forAsk bool, dst []decision.Option, temp bool) []decision.Option {
 	// Count the walk before anything can early-return. A test-visible
 	// diagnostic only: no event, no state mutation, no effect on replay or
 	// chain heads (legalActionWalks is not copied by Clone and never reaches
