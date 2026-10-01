@@ -577,6 +577,8 @@ func projectInto(dst *View, g *state.Game, ch Chars, viewer state.PlayerID, d *d
 		pr.effective = nil
 	}
 	seatCosts := m.omit&OmitAbilityCosts == 0
+	noLists := m.omit&OmitCardLists != 0
+	pr.noDerived = m.omit&OmitDerivedChars != 0
 	v.Stack = pr.stackViews(stack, g.Stack, m.revealFaceDown)
 	// Non-nil even when empty (Ruling T23-u), whether or not ch is nil.
 	var pts []state.PendingTrigger
@@ -601,17 +603,21 @@ func projectInto(dst *View, g *state.Game, ch Chars, viewer state.PlayerID, d *d
 		players = players[:i+1]
 		pv := &players[i]
 		prev := *pv // the slot's previous storage
-		roster, casts := pr.commanderViews(prev.Commanders, prev.CommanderCasts, p.Commanders, p.CmdCasts)
+		var roster []CardView
+		var casts []int32
+		if !noLists {
+			roster, casts = pr.commanderViews(prev.Commanders, prev.CommanderCasts, p.Commanders, p.CmdCasts)
+		}
 		*pv = PlayerView{
 			ID: p.ID, Name: displayName(p), Life: p.Life, Lost: p.Lost,
 			LibrarySize:       len(g.Zone(state.ZLibrary, p.ID)),
 			HandSize:          len(g.Zone(state.ZHand, p.ID)),
-			PlanarDeck:        pr.cardViews(prev.PlanarDeck, g.Zone(state.ZPlanarDeck, p.ID), false, p.ID, false, &m.alsoVisible),
+			PlanarDeck:        pr.listViews(noLists, prev.PlanarDeck, g.Zone(state.ZPlanarDeck, p.ID), false, p.ID, &m.alsoVisible),
 			GraveyardSize:     len(g.Zone(state.ZGraveyard, p.ID)),
-			Battlefield:       pr.cardViews(prev.Battlefield, g.Zone(state.ZBattlefield, p.ID), seatCosts, p.ID, false, &m.alsoVisible),
-			Graveyard:         pr.cardViews(prev.Graveyard, g.Zone(state.ZGraveyard, p.ID), false, p.ID, false, &m.alsoVisible),
-			Exile:             pr.cardViews(prev.Exile, g.Zone(state.ZExile, p.ID), false, p.ID, false, &m.alsoVisible),
-			Command:           pr.cardViews(prev.Command, g.Zone(state.ZCommand, p.ID), false, p.ID, false, &m.alsoVisible),
+			Battlefield:       pr.listViews(noLists && p.ID != viewer, prev.Battlefield, g.Zone(state.ZBattlefield, p.ID), seatCosts, p.ID, &m.alsoVisible),
+			Graveyard:         pr.listViews(noLists, prev.Graveyard, g.Zone(state.ZGraveyard, p.ID), false, p.ID, &m.alsoVisible),
+			Exile:             pr.listViews(noLists, prev.Exile, g.Zone(state.ZExile, p.ID), false, p.ID, &m.alsoVisible),
+			Command:           pr.listViews(noLists, prev.Command, g.Zone(state.ZCommand, p.ID), false, p.ID, &m.alsoVisible),
 			Commanders:        roster,
 			CompletedDungeons: p.CompletedDungeons,
 			HasInitiative:     g.IsInitiative(p.ID),
@@ -684,7 +690,7 @@ func projectInto(dst *View, g *state.Game, ch Chars, viewer state.PlayerID, d *d
 			// The omniscient spectator sees every hand, face-down cards
 			// included, without the seat-only ability costs.
 			pv.Hand = pr.cardViews(prev.Hand, g.Zone(state.ZHand, p.ID), false, p.ID, true, &noSeats)
-		case ownSeat:
+		case ownSeat && !noLists:
 			pv.Hand = pr.cardViews(prev.Hand, g.Zone(state.ZHand, p.ID), seatCosts, p.ID, false, &m.alsoVisible)
 		}
 		// The library CONTENTS are the viewer's own seat only (CR 400.2),

@@ -31,6 +31,13 @@ const (
 	OmitOwnDeck
 	// OmitPotential skips PlayerView.PotentialActions.
 	OmitPotential
+	// OmitCardLists skips every CardView list but the viewer's own
+	// Battlefield: hands, graveyards, exiles, command zones, planar decks,
+	// commander rosters, and every other seat's battlefield.
+	OmitCardLists
+	// OmitDerivedChars projects every CardView without its Chars-derived
+	// facts: the printed name, no keywords, zero power and toughness.
+	OmitDerivedChars
 )
 
 // LeanReader is the optional seat capability a driver loop probes before it
