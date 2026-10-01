@@ -89,6 +89,14 @@ func NewLogInto(seed uint64, spare []Event) *Log {
 // Append assigns the next sequence number, folds the event into the chain and
 // stores it. It returns the stored event so callers see the assigned Seq.
 func (l *Log) Append(e Event) Event {
+	l.AppendPtr(&e)
+	return e
+}
+
+// AppendPtr is Append in place: it assigns e.Seq, detaches e.IDs/e.Pairs and
+// stores a copy, so on return *e equals the stored event. e must not point
+// into l.Events (the store may reallocate it).
+func (l *Log) AppendPtr(e *Event) {
 	// Check NoHash immutability: must not change after the log is started
 	if l.started {
 		if l.noHashSet != l.NoHash {
@@ -111,12 +119,11 @@ func (l *Log) Append(e Event) Event {
 	e.Pairs = append([][2]state.ObjID(nil), e.Pairs...)
 
 	l.Events = growEvents(l.Events, len(l.Events)+1, l.forked)
-	l.Events[len(l.Events)-1] = e
+	l.Events[len(l.Events)-1] = *e
 	if l.NoHash {
-		return e
+		return
 	}
 	l.unhashed++
-	return e
 }
 
 // catchUp folds every stored-but-unfolded event (see unhashed) into chain,

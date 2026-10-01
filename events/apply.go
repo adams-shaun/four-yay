@@ -9,9 +9,17 @@ import (
 // state. Replay calls Apply directly with logged events, so post-replay state
 // equals post-play state by construction.
 func Emit(g *state.Game, l *Log, e Event) Event {
-	stored := l.Append(e)
-	Apply(g, stored)
-	return stored
+	EmitPtr(g, l, &e)
+	return e
+}
+
+// EmitPtr is Emit without the by-value copies: it appends *e to the log --
+// assigning e.Seq and detaching e.IDs/e.Pairs exactly as Append does, so on
+// return *e IS the stored event -- and folds it. e must not point into l's own
+// Events (Append may reallocate it).
+func EmitPtr(g *state.Game, l *Log, e *Event) {
+	l.AppendPtr(e)
+	ApplyPtr(g, e)
 }
 
 // Apply folds one event into state. It must stay a pure function of (g, e):
@@ -129,7 +137,10 @@ func resetCombat(g *state.Game, only state.ObjID) {
 	}
 }
 
-func Apply(g *state.Game, e Event) {
+func Apply(g *state.Game, e Event) { ApplyPtr(g, &e) }
+
+// ApplyPtr is Apply on a pointer: the fold reads *e and never writes it.
+func ApplyPtr(g *state.Game, e *Event) {
 	switch e.Kind {
 	// RollDice is the proposal-only roll-action Kind (task rolldice-repl): it
 	// is held out to replacement matching, never emitted, so it folds nothing

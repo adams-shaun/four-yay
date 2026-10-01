@@ -11,7 +11,7 @@ import (
 )
 
 // foldEndTurn folds Kind EndTurn into state.
-func foldEndTurn(g *state.Game, e Event) {
+func foldEndTurn(g *state.Game, e *Event) {
 	// CR 723.1a/c: all spells and abilities on the stack cease to exist,
 	// and every creature/planeswalker is removed from combat. IDs is a
 	// snapshot of the stack taken by the effect before this fold.
@@ -27,7 +27,7 @@ func foldEndTurn(g *state.Game, e Event) {
 }
 
 // foldSkipTurn folds Kind SkipTurn into state.
-func foldSkipTurn(g *state.Game, e Event) {
+func foldSkipTurn(g *state.Game, e *Event) {
 	if validPlayer(g, e.Player) && e.Amount != 0 {
 		if g.SkipTurns == nil {
 			g.SkipTurns = map[state.PlayerID]int{}
@@ -37,7 +37,7 @@ func foldSkipTurn(g *state.Game, e Event) {
 }
 
 // foldStepChange folds Kind StepChange into state.
-func foldStepChange(g *state.Game, e Event) {
+func foldStepChange(g *state.Game, e *Event) {
 	// "Until end of combat, you don't lose this mana as steps and phases
 	// end" (CR 702.189a Firebending) expires as the combat phase ends. The
 	// step being LEFT is g.Step, read before the assignment below; the
@@ -112,7 +112,7 @@ func foldStepChange(g *state.Game, e Event) {
 }
 
 // foldTurnChange folds Kind TurnChange into state.
-func foldTurnChange(g *state.Game, e Event) {
+func foldTurnChange(g *state.Game, e *Event) {
 	if validPlayer(g, e.Player) {
 		g.Turn = e.Amount
 		g.Active = e.Player
@@ -227,7 +227,7 @@ func foldTurnChange(g *state.Game, e Event) {
 }
 
 // foldExtraTurn folds Kind ExtraTurn into state.
-func foldExtraTurn(g *state.Game, e Event) {
+func foldExtraTurn(g *state.Game, e *Event) {
 	// One grant or consumption of an extra turn (CR 500.7). The count and
 	// the ordered pending queue are game state folded here so a log-only
 	// reconstruction holds the same pending extras the live game did; the
@@ -309,7 +309,7 @@ func foldExtraTurn(g *state.Game, e Event) {
 }
 
 // foldExtraPhase folds Kind ExtraPhase into state.
-func foldExtraPhase(g *state.Game, e Event) {
+func foldExtraPhase(g *state.Game, e *Event) {
 	// One Forge AddPhaseEffect message (DB$ AddPhase). Three forms split
 	// on Amount (the ExtraTurn precedent one level up): +1 appends one
 	// queue entry per granted phase (NumPhases$ is the emitter's count),
@@ -405,12 +405,12 @@ func foldExtraPhase(g *state.Game, e Event) {
 }
 
 // foldClockTick folds Kind ClockTick into state.
-func foldClockTick(g *state.Game, e Event) {
+func foldClockTick(g *state.Game, e *Event) {
 	g.Clock++
 }
 
 // foldStartingPlayerChange folds Kind StartingPlayerChange into state.
-func foldStartingPlayerChange(g *state.Game, e Event) {
+func foldStartingPlayerChange(g *state.Game, e *Event) {
 	if validPlayer(g, e.Player) {
 		g.StartingPlayer, g.HasStartingPlayer = e.Player, true
 	}

@@ -39,8 +39,8 @@ func (e *Engine) continueManaReplacements(ev events.Event, candidates []replMatc
 				return ev, false
 			}
 			stored := events.Emit(e.G, e.L, ev)
-			e.loop.observeFrom(stored, e.damaging, len(e.G.Objs))
-			e.checkTriggers(stored, nil, 0, 0, false)
+			e.loop.observeFrom(&stored, e.damaging, len(e.G.Objs))
+			e.checkTriggers(&stored, nil, 0, 0, false)
 			return stored, true
 		}
 		if len(applicable) > 1 && int(ev.Player) < len(e.G.Players) && !e.G.Players[ev.Player].Lost {

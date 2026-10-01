@@ -463,7 +463,7 @@ func trigMustVisit(ev events.Event, id state.ObjID) bool {
 // can admit for ev, so its visit reaches nothing a cold object's would not --
 // the granted walks it can still reach are the referent-gated ones the
 // cold-zone skip already relies on.
-func (e *Engine) forEachTriggerObject(ev events.Event, skip, kindOnly bool, fn func(id state.ObjID), verify func(id state.ObjID)) {
+func (e *Engine) forEachTriggerObject(ev *events.Event, skip, kindOnly bool, fn func(id state.ObjID), verify func(id state.ObjID)) {
 	e.trigWalkUnionOK = false
 	if !skip {
 		e.forEachObject(fn)
@@ -473,7 +473,7 @@ func (e *Engine) forEachTriggerObject(ev events.Event, skip, kindOnly bool, fn f
 	planHeld := kindOnly && e.trigPlanHolds()
 	if planHeld {
 		e.trigWalkUnion, e.trigWalkUnionOK = e.trigPlan.union, true
-		if trigNoReferent(&ev) && !e.trigPlan.union.admits(&ev, e.G.Step) &&
+		if trigNoReferent(ev) && !e.trigPlan.union.admits(ev, e.G.Step) &&
 			!(ev.Kind == events.StepChange && e.stepWalksBattlefield()) {
 			if verify == nil {
 				return
@@ -563,7 +563,7 @@ func (e *Engine) forEachTriggerObject(ev events.Event, skip, kindOnly bool, fn f
 				if verify != nil {
 					buf = append(buf[:0], cur...)
 					for _, id := range buf {
-						if trigMustVisit(ev, id) {
+						if trigMustVisit(*ev, id) {
 							fn(id)
 						} else {
 							verify(id)
@@ -576,7 +576,7 @@ func (e *Engine) forEachTriggerObject(ev events.Event, skip, kindOnly bool, fn f
 					continue
 				}
 				for _, id := range cur {
-					if trigMustVisit(ev, id) {
+					if trigMustVisit(*ev, id) {
 						buf = append(buf, id)
 					}
 				}
@@ -593,7 +593,7 @@ func (e *Engine) forEachTriggerObject(ev events.Event, skip, kindOnly bool, fn f
 				hotIDs, hotSigs := e.trigZoneHotIDs(p, slot)
 				if verify == nil {
 					for i, id := range hotIDs {
-						if !kindOnly || hotSigs[i].admits(&ev, e.G.Step) {
+						if !kindOnly || hotSigs[i].admits(ev, e.G.Step) {
 							fn(id)
 						}
 					}
@@ -638,7 +638,7 @@ func (e *Engine) forEachTriggerObject(ev events.Event, skip, kindOnly bool, fn f
 // list order: every referent, every hot object selected by kindOnly, and
 // (step) every object stepGrantMay admits. In verify mode it instead walks
 // the list itself, visiting the selected ids and verifying the rest.
-func (e *Engine) trigHotMerge(buf []state.ObjID, ev events.Event, cur, hotIDs []state.ObjID, hotSigs []trigSig,
+func (e *Engine) trigHotMerge(buf []state.ObjID, ev *events.Event, cur, hotIDs []state.ObjID, hotSigs []trigSig,
 	kindOnly, step bool, p state.PlayerID, slot int, fn, verify func(id state.ObjID)) []state.ObjID {
 	if verify != nil {
 		buf = append(buf[:0], cur...)
@@ -646,10 +646,10 @@ func (e *Engine) trigHotMerge(buf []state.ObjID, ev events.Event, cur, hotIDs []
 		for _, id := range buf {
 			sel := false
 			if j < len(hotIDs) && hotIDs[j] == id {
-				sel = !kindOnly || hotSigs[j].admits(&ev, e.G.Step)
+				sel = !kindOnly || hotSigs[j].admits(ev, e.G.Step)
 				j++
 			}
-			if sel || trigMustVisit(ev, id) || (step && e.stepGrantMay(id)) {
+			if sel || trigMustVisit(*ev, id) || (step && e.stepGrantMay(id)) {
 				fn(id)
 			} else {
 				verify(id)
@@ -661,11 +661,11 @@ func (e *Engine) trigHotMerge(buf []state.ObjID, ev events.Event, cur, hotIDs []
 	j := 0
 	for _, id := range cur {
 		if j < len(hotIDs) && hotIDs[j] == id {
-			if !kindOnly || hotSigs[j].admits(&ev, e.G.Step) || trigMustVisit(ev, id) || (step && e.stepGrantMay(id)) {
+			if !kindOnly || hotSigs[j].admits(ev, e.G.Step) || trigMustVisit(*ev, id) || (step && e.stepGrantMay(id)) {
 				buf = append(buf, id)
 			}
 			j++
-		} else if trigMustVisit(ev, id) || (step && e.stepGrantMay(id)) {
+		} else if trigMustVisit(*ev, id) || (step && e.stepGrantMay(id)) {
 			buf = append(buf, id)
 		}
 	}

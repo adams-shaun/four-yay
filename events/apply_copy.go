@@ -11,7 +11,7 @@ import (
 )
 
 // foldMutate folds Kind Mutate into state.
-func foldMutate(g *state.Game, e Event) {
+func foldMutate(g *state.Game, e *Event) {
 	// CR 702.140d: a mutate-spell resolution merges the mutating card's
 	// card into the target permanent. Obj is the surviving target, IDs[0]
 	// the mutating card's object (the resolving spell), Text "top"/"under"
@@ -68,7 +68,7 @@ func foldMutate(g *state.Game, e Event) {
 }
 
 // foldStackCopy folds Kind StackCopy into state.
-func foldStackCopy(g *state.Game, e Event) {
+func foldStackCopy(g *state.Game, e *Event) {
 	if !validPlayer(g, e.Player) {
 		return
 	}
@@ -201,7 +201,7 @@ func foldStackCopy(g *state.Game, e Event) {
 }
 
 // foldPair folds Kind Pair into state.
-func foldPair(g *state.Game, e Event) {
+func foldPair(g *state.Game, e *Event) {
 	// CR 702.103: a Soulbond pairing. Obj is the pairing permanent and
 	// IDs[0] its chosen partner; both fields are set reciprocally when
 	// both are battlefield permanents. Neither half is written when a
@@ -213,7 +213,7 @@ func foldPair(g *state.Game, e Event) {
 }
 
 // foldCopyToken folds Kind CopyToken into state.
-func foldCopyToken(g *state.Game, e Event) {
+func foldCopyToken(g *state.Game, e *Event) {
 	// DB$ CopyPermanent's mint (task copyp1: Flamerush Rider, Molten
 	// Echoes, the populate family). Mirrors MyriadCopy's discipline: the
 	// copy is the SOURCE CARD + face snapshot taken BEFORE AddObject
@@ -263,7 +263,7 @@ func foldCopyToken(g *state.Game, e Event) {
 }
 
 // foldCardToken folds Kind CardToken into state.
-func foldCardToken(g *state.Game, e Event) {
+func foldCardToken(g *state.Game, e *Event) {
 	// A battlefield token that is a copy of the CARD object Obj names
 	// (encore's "create a token copy" per opponent). Mirrors StackCopy's
 	// snapshot discipline: every read from src is taken into a local
@@ -297,7 +297,7 @@ func foldCardToken(g *state.Game, e Event) {
 }
 
 // foldTokenCreate folds Kind TokenCreate into state.
-func foldTokenCreate(g *state.Game, e Event) {
+func foldTokenCreate(g *state.Game, e *Event) {
 	if !validPlayer(g, e.Player) {
 		return
 	}
@@ -312,7 +312,7 @@ func foldTokenCreate(g *state.Game, e Event) {
 }
 
 // foldCloneStatic folds Kind CloneStatic into state.
-func foldCloneStatic(g *state.Game, e Event) {
+func foldCloneStatic(g *state.Game, e *Event) {
 	if o := g.Obj(e.Obj); o != nil && o.CopyFace != nil {
 		if statics, ok := cards.ParseStaticLines(e.Text); ok {
 			face := *o.CopyFace
@@ -323,7 +323,7 @@ func foldCloneStatic(g *state.Game, e Event) {
 }
 
 // foldClonePermanent folds Kind ClonePermanent into state.
-func foldClonePermanent(g *state.Game, e Event) {
+func foldClonePermanent(g *state.Game, e *Event) {
 	// CR 613.1a's layer-1 copy basis (DB$ Clone, api:Clone). Obj is the
 	// object that becomes the copy and IDs[0] the object copied from; an
 	// empty or zero id CLEARS the basis. The synthetic face is a value
@@ -406,7 +406,7 @@ func foldClonePermanent(g *state.Game, e Event) {
 }
 
 // foldFlipFace folds Kinds FlipFace, Specialize into state.
-func foldFlipFace(g *state.Game, e Event) {
+func foldFlipFace(g *state.Game, e *Event) {
 	if o := g.Obj(e.Obj); o != nil && o.Card != nil &&
 		e.Amount >= 0 && int(e.Amount) < len(o.Card.Faces) {
 		o.SetFaceIdx(uint8(e.Amount))
@@ -414,7 +414,7 @@ func foldFlipFace(g *state.Game, e Event) {
 }
 
 // foldTurnFaceDown folds Kind TurnFaceDown into state.
-func foldTurnFaceDown(g *state.Game, e Event) {
+func foldTurnFaceDown(g *state.Game, e *Event) {
 	if o := g.Obj(e.Obj); o != nil && o.Zone == state.ZBattlefield && !o.FaceDown {
 		setType, power, toughness, hasPT, _ := FaceDownEntryFields(e.Counter)
 		o.FaceDown = true
@@ -425,7 +425,7 @@ func foldTurnFaceDown(g *state.Game, e Event) {
 }
 
 // foldTurnFaceUp folds Kind TurnFaceUp into state.
-func foldTurnFaceUp(g *state.Game, e Event) {
+func foldTurnFaceUp(g *state.Game, e *Event) {
 	// CR 708.6: turning a face-down permanent face up reveals the face it
 	// already had -- no FaceIdx change -- and retires the CR 708.5
 	// face-down characteristic set (the folded FaceDownSetType/Power/

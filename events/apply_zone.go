@@ -12,7 +12,7 @@ import (
 )
 
 // foldMoveZone folds Kinds MoveZone, Draw, PutOnStack into state.
-func foldMoveZone(g *state.Game, e Event) {
+func foldMoveZone(g *state.Game, e *Event) {
 	// CR 733.1 reverses a proposed cast with a real logged stack->origin
 	// move. Preserve the entry history that preceded its stack proposal in
 	// transient object state: a log-only replay sees the same PutOnStack,
@@ -75,7 +75,7 @@ func foldMoveZone(g *state.Game, e Event) {
 		}
 	}
 	var sacrificer state.PlayerID
-	sacrificed := IsSacrifice(e)
+	sacrificed := IsSacrifice(*e)
 	if sacrificed {
 		if o := g.Obj(e.Obj); o != nil {
 			sacrificer = o.Controller
@@ -258,7 +258,7 @@ func foldMoveZone(g *state.Game, e Event) {
 }
 
 // foldLibraryOrder folds Kind LibraryOrder into state.
-func foldLibraryOrder(g *state.Game, e Event) {
+func foldLibraryOrder(g *state.Game, e *Event) {
 	// A library-arranging effect (Ponder, later Scry/Surveil) set a
 	// complete new order on a player's library. Mechanically identical to
 	// Shuffle's SetZone (see the same defensive copy below -- never alias
@@ -274,14 +274,14 @@ func foldLibraryOrder(g *state.Game, e Event) {
 }
 
 // foldShuffle folds Kind Shuffle into state.
-func foldShuffle(g *state.Game, e Event) {
+func foldShuffle(g *state.Game, e *Event) {
 	if validPlayer(g, e.Player) {
 		g.SetZone(state.ZLibrary, e.Player, append([]state.ObjID(nil), e.IDs...))
 	}
 }
 
 // foldAttach folds Kind Attach into state.
-func foldAttach(g *state.Game, e Event) {
+func foldAttach(g *state.Game, e *Event) {
 	if o := g.Obj(e.Obj); o != nil {
 		switch {
 		case e.Text == "attach to player" && validPlayer(g, e.Player):
@@ -301,7 +301,7 @@ func foldAttach(g *state.Game, e Event) {
 }
 
 // foldUnattached folds Kind Unattached into state.
-func foldUnattached(g *state.Game, e Event) {
+func foldUnattached(g *state.Game, e *Event) {
 	// CR 701.3b: Obj became unattached from the bearer on a path where Obj
 	// itself stays on the battlefield (the attachmentSBAs detach arms and
 	// the bestowed type switch). The fold is the same AttachedTo clear an
@@ -324,7 +324,7 @@ func foldUnattached(g *state.Game, e Event) {
 }
 
 // foldLandPlayed folds Kind LandPlayed into state.
-func foldLandPlayed(g *state.Game, e Event) {
+func foldLandPlayed(g *state.Game, e *Event) {
 	if validPlayer(g, e.Player) {
 		g.Players[e.Player].LandsPlayed++
 	}

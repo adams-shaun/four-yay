@@ -32,7 +32,8 @@ func TestStateTriggerRemembersItsSourceNotTheCheckingEvent(t *testing.T) {
 				"T:Mode$ Always | LifeTotal$ You | LifeAmount$ GE1 | Execute$ Gain\n"+
 				"SVar:Gain:DB$ GainLife | LifeAmount$ 1 | Defined$ You\nOracle:x\n")
 			land := onBoard(t, e, 0, "Name:Plains\nTypes:Basic Land Plains\nOracle:x\n")
-			e.checkFaceTriggers(e, tc.ev(land), nil, 0, 0, false, false, false)
+			ev := tc.ev(land)
+			e.checkFaceTriggers(e, &ev, nil, 0, 0, false, false, false)
 			if len(e.pendingTriggers) != 1 || e.pendingTriggers[0].Source != watcher {
 				t.Fatalf("Always queue = %+v, want one instance from %d", e.pendingTriggers, watcher)
 			}

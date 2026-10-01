@@ -230,7 +230,7 @@ func applyPair(g *state.Game, srcID, partnerID state.ObjID) {
 // un-consumed grants (a consume marks), consumed=true only consumed ones (a
 // complete removes). ok=false when no entry matches -- a malformed or
 // stale message, a no-op by the case's totality stance.
-func matchExtraPhase(g *state.Game, e Event, consumed bool) (int, bool) {
+func matchExtraPhase(g *state.Game, e *Event, consumed bool) (int, bool) {
 	wantEntry := state.Step(0)
 	wantEntryOK := false
 	if len(e.IDs) > 0 {
@@ -264,7 +264,7 @@ func countActivation(g *state.Game, id state.ObjID) {
 // applyManaAdd folds one ManaAdd event (the ManaAdd case of Apply); the
 // ManaUndo case reuses it with the amount negated so a reversal walks the
 // identical slot and snow/typed tally arithmetic.
-func applyManaAdd(g *state.Game, e Event) {
+func applyManaAdd(g *state.Game, e *Event) {
 	if validPlayer(g, e.Player) {
 		player := &g.Players[e.Player]
 		// PersistentMana$ True (task persistentmana): the suffix rides Text

@@ -310,7 +310,7 @@ func newLivelockWatcherFromGuard(g LoopGuard, sigs []uint64, recent []events.Eve
 // game byte-identical to an un-watched one. A Disabled guard observes
 // nothing at all -- an explicitly opted-out game is supervised by whoever
 // set the flag, exactly as the host stall-guard opt-out intends.
-func (w *livelockWatcher) observe(ev events.Event) { w.observeFrom(ev, 0, 0) }
+func (w *livelockWatcher) observe(ev events.Event) { w.observeFrom(&ev, 0, 0) }
 
 // observeFrom is observe with the engine's current damage source (the
 // e.damaging scratch the emit ran under) and the engine's current object
@@ -322,7 +322,7 @@ func (w *livelockWatcher) observe(ev events.Event) { w.observeFrom(ev, 0, 0) }
 // source into a Damage event's signature keeps those distinct, while a real
 // loop -- one source damaging the same recipient again and again -- still
 // repeats its signature exactly.
-func (w *livelockWatcher) observeFrom(ev events.Event, damageSource state.ObjID, nObjs int) {
+func (w *livelockWatcher) observeFrom(ev *events.Event, damageSource state.ObjID, nObjs int) {
 	if w.guard.Disabled {
 		return
 	}
@@ -386,7 +386,7 @@ func (w *livelockWatcher) observeFrom(ev events.Event, damageSource state.ObjID,
 	if w.shared {
 		w.unshare()
 	}
-	sig := eventSignature(&ev)
+	sig := eventSignature(ev)
 	if ev.Kind == events.Damage && damageSource != 0 {
 		sig = fnvU32(sig, uint32(damageSource))
 	}
@@ -396,9 +396,9 @@ func (w *livelockWatcher) observeFrom(ev events.Event, damageSource state.ObjID,
 	}
 	w.pushSig(sig)
 	if len(w.recent) < w.guard.MaxPeriod {
-		w.recent = append(w.recent, ev)
+		w.recent = append(w.recent, *ev)
 	} else {
-		w.recent[w.recentHead] = ev
+		w.recent[w.recentHead] = *ev
 		if w.recentHead++; w.recentHead == w.guard.MaxPeriod {
 			w.recentHead = 0
 		}

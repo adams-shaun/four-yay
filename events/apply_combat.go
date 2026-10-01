@@ -8,7 +8,7 @@ package events
 import "github.com/adams-shaun/gorge/state"
 
 // foldDeclareAttackers folds Kind DeclareAttackers into state.
-func foldDeclareAttackers(g *state.Game, e Event) {
+func foldDeclareAttackers(g *state.Game, e *Event) {
 	// e.Player names the attacking player for every ID in this event, so
 	// it is validated once, like TurnChange/Priority above, rather than
 	// per object. Nothing reads Object.Attacking yet, so an unvalidated
@@ -34,7 +34,7 @@ func foldDeclareAttackers(g *state.Game, e Event) {
 }
 
 // foldDeclareBlockers folds Kind DeclareBlockers into state.
-func foldDeclareBlockers(g *state.Game, e Event) {
+func foldDeclareBlockers(g *state.Game, e *Event) {
 	for _, pr := range e.Pairs {
 		a := g.Obj(pr[0])
 		if a == nil || g.Obj(pr[1]) == nil {
@@ -46,7 +46,7 @@ func foldDeclareBlockers(g *state.Game, e Event) {
 }
 
 // foldCombatRetarget folds Kind CombatRetarget into state.
-func foldCombatRetarget(g *state.Game, e Event) {
+func foldCombatRetarget(g *state.Game, e *Event) {
 	// api:ChangeCombatants's reselect (Misleading Signpost, Portal Mage,
 	// Windshaper Planetar): the attack moves, nothing else. Obj is the
 	// attacker, Player the NEW defender. Deliberately narrower than
@@ -66,7 +66,7 @@ func foldCombatRetarget(g *state.Game, e Event) {
 }
 
 // foldDamage folds Kind Damage into state.
-func foldDamage(g *state.Game, e Event) {
+func foldDamage(g *state.Game, e *Event) {
 	// CR 702.90b: damage a source with INFECT dealt is dealt in a
 	// different FORM, decided by the recipient -- to a creature, as that
 	// many -1/-1 counters, not marked damage; to a player, as that many
@@ -182,14 +182,14 @@ func foldDamage(g *state.Game, e Event) {
 }
 
 // foldEndCombatReset folds Kind EndCombatReset into state.
-func foldEndCombatReset(g *state.Game, e Event) {
+func foldEndCombatReset(g *state.Game, e *Event) {
 	// Obj zero retains the original whole-combat reset. A nonzero Obj
 	// removes only that permanent (regeneration).
 	resetCombat(g, e.Obj)
 }
 
 // foldCmdDamage folds Kind CmdDamage into state.
-func foldCmdDamage(g *state.Game, e Event) {
+func foldCmdDamage(g *state.Game, e *Event) {
 	// Commander combat damage to a player (CR 903.10, Task m33): fold
 	// Amount into Player's cumulative tally at the source commander's
 	// match-wide dense index, exactly the slot m30's genesis sizes and
@@ -212,7 +212,7 @@ func foldCmdDamage(g *state.Game, e Event) {
 }
 
 // foldDamageProvenance folds Kind DamageProvenance into state.
-func foldDamageProvenance(g *state.Game, e Event) {
+func foldDamageProvenance(g *state.Game, e *Event) {
 	// Game-long damage-by-source provenance (the_fallen, diseased_vermin):
 	// append the SOURCE to the recipient's record so the
 	// wasDealtDamageThisGameBy / wasDealtDamageByThisGame filters can ask
@@ -249,7 +249,7 @@ func foldDamageProvenance(g *state.Game, e Event) {
 }
 
 // foldTokenAttacks folds Kind TokenAttacks into state.
-func foldTokenAttacks(g *state.Game, e Event) {
+func foldTokenAttacks(g *state.Game, e *Event) {
 	// A permanent that entered tapped and attacking (TokenAttacking$ or a
 	// move body's Attacking$ True rider). Unlike MyriadCopy -- which MINTS
 	// a copy of the source card and flags IsMyriad, which MyriadCleanup
@@ -276,7 +276,7 @@ func foldTokenAttacks(g *state.Game, e Event) {
 }
 
 // foldMyriadCopy folds Kind MyriadCopy into state.
-func foldMyriadCopy(g *state.Game, e Event) {
+func foldMyriadCopy(g *state.Game, e *Event) {
 	// CR 702.109: a Myriad attacker token. Mint a copy of the source
 	// attack-creature (same face/power/toughness, marked IsToken and
 	// IsCopy) tapped and attacking the opponent named by Player. If the
@@ -311,7 +311,7 @@ func foldMyriadCopy(g *state.Game, e Event) {
 }
 
 // foldMyriadCleanup folds Kind MyriadCleanup into state.
-func foldMyriadCleanup(g *state.Game, e Event) {
+func foldMyriadCleanup(g *state.Game, e *Event) {
 	// CR 702.109a: every token created by Myriad is exiled at end of
 	// combat. Move is called only from this event fold, so replay performs
 	// the same deterministic arena-order cleanup without synthetic events.
@@ -324,7 +324,7 @@ func foldMyriadCleanup(g *state.Game, e Event) {
 }
 
 // foldEnlist folds Kind Enlist into state.
-func foldEnlist(g *state.Game, e Event) {
+func foldEnlist(g *state.Game, e *Event) {
 	// CR 702.160's enlist action (the `K:Enlist` keyword, task enlist1):
 	// Obj is the ATTACKING creature that enlisted (the Mode$ Enlisted
 	// trigger's source) and IDs[0] the nonattacking creature it tapped
@@ -344,7 +344,7 @@ func foldEnlist(g *state.Game, e Event) {
 }
 
 // foldCrew folds Kind Crew into state.
-func foldCrew(g *state.Game, e Event) {
+func foldCrew(g *state.Game, e *Event) {
 	// CR 702.122's crew action (the `K:Crew` keyword): Obj is the CREWING
 	// creature and IDs[0] the Vehicle it crewed. The fold records the
 	// source-relative pairing the Creature.CrewedThisTurn filter reads:
@@ -374,7 +374,7 @@ func foldCrew(g *state.Game, e Event) {
 }
 
 // foldExert folds Kind Exert into state.
-func foldExert(g *state.Game, e Event) {
+func foldExert(g *state.Game, e *Event) {
 	// CR 702.100's fold (task exert1). Amount >= 0 is the exert itself:
 	// both lifetimes stamp here -- ExertedThisTurn (the per-turn fact the
 	// notExertedThisTurn offer gate and the "as it attacks" walkers
@@ -395,7 +395,7 @@ func foldExert(g *state.Game, e Event) {
 }
 
 // foldGoad folds Kind Goad into state.
-func foldGoad(g *state.Game, e Event) {
+func foldGoad(g *state.Game, e *Event) {
 	if o := g.Obj(e.Obj); o != nil {
 		if e.Amount == -1 {
 			o.Goads = nil
@@ -429,7 +429,7 @@ func foldGoad(g *state.Game, e Event) {
 }
 
 // foldPhaseOut folds Kind PhaseOut into state.
-func foldPhaseOut(g *state.Game, e Event) {
+func foldPhaseOut(g *state.Game, e *Event) {
 	// CR 702.25's phased-out status (api:Phases): Amount 1 phases the
 	// permanent OUT, -1 phases it IN. Gated on the battlefield, the same
 	// way TurnFaceUp's face-down clear is -- a marker stranded on a card
