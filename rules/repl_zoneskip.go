@@ -133,7 +133,7 @@ func (e *Engine) replZonesCatchUp() {
 func (e *Engine) replZoneHot(p state.PlayerID, z state.Zone, cur []state.ObjID) []state.ObjID {
 	i := int(p)*replZoneCount + int(z)
 	if i >= len(e.replZones) {
-		e.replZones = append(e.replZones, make([]replZoneSummary, i+1-len(e.replZones))...)
+		e.replZones = growZoneSummaries(e.replZones, max(i+1, len(e.G.Players)*replZoneCount))
 	}
 	s := &e.replZones[i]
 	n := len(e.L.Events)
@@ -258,4 +258,8 @@ func (e *Engine) verifyReplZoneSkip(cur, hot []state.ObjID) {
 	if !slices.Equal(want, hot) {
 		panic(fmt.Sprintf("rules: replacement zone summary %v, recomputed %v (zone %v)", hot, want, cur))
 	}
+}
+
+func (s *replZoneSummary) resetSummary() {
+	*s = replZoneSummary{ids: s.ids[:0], hotIDs: s.hotIDs[:0]}
 }

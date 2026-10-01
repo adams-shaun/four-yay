@@ -424,9 +424,17 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 			c.continuous[i] = ce
 		}
 	}
-	if e.pendingTriggers != nil {
+	if len(e.pendingTriggers) > 0 {
 		c.pendingTriggers = clonePendingTriggers(e.pendingTriggers)
+	} else if e.pendingTriggers != nil || sp.pending != nil {
+		// An empty queue (a drained one keeps its array, putTriggersOnStack)
+		// takes the recycled array instead of allocating its first batch.
+		c.pendingTriggers = sp.pending
 	}
+	// The emit path's working storage, recycled from a spent engine (genesis
+	// Release): zone summaries arrive all invalid, the list arrays empty.
+	c.trigZones, c.replZones = sp.trigZones, sp.replZones
+	c.activeBuf, c.activeBufAlt = sp.activeBuf, sp.activeBufAlt
 	if e.triggerContexts != nil {
 		c.triggerContexts = make(map[state.ObjID]effects.TriggerContext, len(e.triggerContexts))
 		for id, tc := range e.triggerContexts {

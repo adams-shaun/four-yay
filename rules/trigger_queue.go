@@ -109,7 +109,12 @@ func (e *Engine) putTriggersOnStack() bool {
 		}
 		e.dropDepartedTriggers()
 		if len(e.pendingTriggers) == 0 {
-			e.pendingTriggers, e.orderedTriggers = nil, 0
+			// Keep the drained queue's array for the next batch, zeroed so
+			// the shifted-out tail pins nothing (removeTriggerAt shifts in
+			// place; nothing holds a view of the queue across a drain).
+			e.pendingTriggers = e.pendingTriggers[:cap(e.pendingTriggers)]
+			clear(e.pendingTriggers)
+			e.pendingTriggers, e.orderedTriggers = e.pendingTriggers[:0], 0
 			return false
 		}
 		if e.orderedTriggers == 0 {

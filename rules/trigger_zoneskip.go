@@ -324,7 +324,7 @@ func sameZoneList(rec, cur []state.ObjID) bool {
 func (e *Engine) trigZoneCold(p state.PlayerID, slot int, cur []state.ObjID) bool {
 	i := int(p)*trigZoneSlots + slot
 	if i >= len(e.trigZones) {
-		e.trigZones = append(e.trigZones, make([]trigZoneSummary, i+1-len(e.trigZones))...)
+		e.trigZones = growZoneSummaries(e.trigZones, max(i+1, len(e.G.Players)*trigZoneSlots))
 	}
 	s := &e.trigZones[i]
 	if s.valid && sameZoneList(s.live, cur) {
@@ -609,4 +609,29 @@ func (e *Engine) trigSkipVerifier(ev events.Event, visit func(id state.ObjID), n
 			panic(fmt.Sprintf("rules: trigger zone skip passed over obj %d (zone %v) that acts on %v event", id, e.G.Obj(id).Zone, ev.Kind))
 		}
 	}
+}
+
+// growZoneSummaries extends a zone-summary table to n entries: within its
+// capacity (a recycled table, rules.Spare) the new entries are reset to an
+// invalid summary that keeps its id lists' arrays, otherwise it allocates
+// the whole range at once. A new entry is always invalid.
+func growZoneSummaries[S any, PS interface {
+	*S
+	resetSummary()
+}](t []S, n int) []S {
+	if n <= cap(t) {
+		old := len(t)
+		t = t[:n]
+		for i := old; i < n; i++ {
+			PS(&t[i]).resetSummary()
+		}
+		return t
+	}
+	out := make([]S, n)
+	copy(out, t)
+	return out
+}
+
+func (s *trigZoneSummary) resetSummary() {
+	*s = trigZoneSummary{ids: s.ids[:0], hotIDs: s.hotIDs[:0], anyIDs: s.anyIDs[:0]}
 }

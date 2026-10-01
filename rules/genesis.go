@@ -64,6 +64,14 @@ type Spare struct {
 	// probe is a spent engine's layer-4 statics probe cells
 	// (Engine.typesProbe), copied into by the next clone.
 	probe []uint8
+	// The emit path's per-engine working storage, recycled cleared: the
+	// trigger and replacement zone summaries (every summary invalid, its id
+	// lists emptied), active()'s two list arrays and the pending-trigger
+	// queue's array. Each is overwritten before it is read.
+	trigZones               []trigZoneSummary
+	replZones               []replZoneSummary
+	activeBuf, activeBufAlt []ContinuousEffect
+	pending                 []pendingTrigger
 }
 
 // Release returns e's log and object-arena arrays as a Spare for the next
@@ -117,6 +125,20 @@ func (e *Engine) Release() Spare {
 	sp.static = sp.static[:0]
 	e.staticContinuous = nil
 	sp.probe, e.typesProbe, e.typesProbeReady = e.typesProbe[:0], nil, false
+	for i := range e.trigZones {
+		z := &e.trigZones[i]
+		*z = trigZoneSummary{ids: z.ids[:0], hotIDs: z.hotIDs[:0], anyIDs: z.anyIDs[:0]}
+	}
+	for i := range e.replZones {
+		z := &e.replZones[i]
+		*z = replZoneSummary{ids: z.ids[:0], hotIDs: z.hotIDs[:0]}
+	}
+	sp.trigZones, sp.replZones, e.trigZones, e.replZones = e.trigZones[:0], e.replZones[:0], nil, nil
+	sp.activeBuf, sp.activeBufAlt = clearedEffects(e.activeBuf), clearedEffects(e.activeBufAlt)
+	e.activeBuf, e.activeBufAlt = nil, nil
+	sp.pending = e.pendingTriggers[:cap(e.pendingTriggers)]
+	clear(sp.pending)
+	sp.pending, e.pendingTriggers = sp.pending[:0], nil
 	if e.lookBackOwner == e && !e.lookBackBusy {
 		sp.lookBack = e.lookBack
 	}
@@ -130,6 +152,14 @@ func (e *Engine) Release() Spare {
 	e.L.Events, e.G.Objs, e.L.Intents = nil, nil, nil
 	e.derivedMemo, e.derivedMemoStack, e.intentBuf = derivedMemoTable{}, derivedMemoTable{}, nil
 	return sp
+}
+
+// clearedEffects zeroes a spent effect array to its capacity (so it pins
+// none of the effects' slices and maps) and returns it empty.
+func clearedEffects(b []ContinuousEffect) []ContinuousEffect {
+	b = b[:cap(b)]
+	clear(b)
+	return b[:0]
 }
 
 // objectHeadroom is the extra Objs capacity newWithRNG reserves beyond the
