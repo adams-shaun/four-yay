@@ -360,12 +360,59 @@ func (e *Engine) activeStaticsCached(mode string) []staticView {
 		}
 		return slices.Clip(m.sv)
 	}
-	if m.key.gen == now.gen {
-		m.sv = nil // same walk, moved key: never rewrite a slice a caller may range
-	}
-	m.sv = e.scanActiveStatics(mode, m.sv[:0])
-	m.key = now
+	// A miss refreshes EVERY mode this engine has been asked for in one
+	// battlefield pass (scanActiveStaticsFused), so the walk's other modes
+	// are hits instead of one full battlefield walk each.
+	e.scanActiveStaticsFused(now)
 	return slices.Clip(m.sv)
+}
+
+// scanActiveStaticsFused refreshes every activeStaticsCache entry at key now
+// from ONE battlefield pile-static walk: each entry's list is the walk's
+// statics of its mode, in walk order -- exactly scanActiveStatics(mode) for
+// each, since that scan is this same walk filtered by Mode$. An entry built
+// earlier in this same scope gets fresh backing (a caller may still be
+// ranging its old slice); an entry from an earlier scope reuses its array.
+func (e *Engine) scanActiveStaticsFused(now walkKey) {
+	c := e.activeStaticsCache
+	for i := range c {
+		if c[i].key.gen == now.gen {
+			c[i].sv = nil
+		} else {
+			c[i].sv = c[i].sv[:0]
+		}
+		c[i].key = now
+	}
+	for _, p := range e.G.AliveFrom(0) {
+		for _, id := range e.G.Zone(state.ZBattlefield, p) {
+			o := e.G.Obj(id)
+			if o == nil {
+				continue
+			}
+			f := o.Face()
+			if f == nil || e.faceDownPrintedHides(o) || o.PhasedOut {
+				// The scan's face-down (CR 708.8) and phased-out (CR
+				// 702.25b/d) object gates.
+				continue
+			}
+			for si, sn := 0, o.PileStaticCount(); si < sn; si++ {
+				pst, ok := o.PileStaticAt(si)
+				if !ok {
+					continue
+				}
+				st := pst.Static
+				for i := range c {
+					if c[i].mode != st.Mode {
+						continue
+					}
+					if effectZoneOK(st.Params["EffectZone"], o.Zone) {
+						c[i].sv = append(c[i].sv, staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf(), SVars: pst.Face.SVars})
+					}
+					break
+				}
+			}
+		}
+	}
 }
 
 func (e *Engine) verifyActiveStatics(mode string, got []staticView) {
