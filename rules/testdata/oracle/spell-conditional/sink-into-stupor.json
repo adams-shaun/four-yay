@@ -33,6 +33,26 @@
       "expect": [
         {"offered": {"seat": 0, "kind": "cast", "card": "p0:Sink into Stupor", "label": "Sink into Stupor"}, "want": false}
       ]
+    },
+    {
+      "name": "returns-a-target-spell-to-its-owners-hand",
+      "cr": ["608.2b", "701.8a"],
+      "why": "The spell can target a spell an opponent controls; responding to p1's Grizzly Bears removes it from the stack and puts the card into p1's hand instead of resolving it.",
+      "setup": {
+        "p0": {"hand": ["Sink into Stupor"]},
+        "p1": {"hand": ["Grizzly Bears"]}
+      },
+      "steps": [
+        {"op": "pass_to", "step": "main1", "active": "p1"},
+        {"op": "cast", "seat": 1, "card": "p1:Grizzly Bears", "mana": "GG"},
+        {"op": "pass", "seat": 1},
+        {"op": "cast", "seat": 0, "card": "p0:Sink into Stupor", "mana": "UUC", "targets": ["p1:Grizzly Bears"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Grizzly Bears", "zone": "hand"},
+        {"card": "p0:Sink into Stupor", "zone": "graveyard"}
+      ]
     }
   ]
 }

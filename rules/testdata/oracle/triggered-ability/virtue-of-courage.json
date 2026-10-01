@@ -39,6 +39,23 @@
         {"life": {"p1": 17}},
         {"count": {"seat": 0, "zone": "exile", "name": "Forest"}, "eq": 0}
       ]
+    },
+    {
+      "name": "exiled-cards-may-be-played-this-turn",
+      "cr": ["608.2d", "305.1"],
+      "why": "After exiling the top three, the trigger's 'you may play those cards this turn' permission lets me play the exiled Forest as a land this turn.",
+      "setup": {
+        "p0": {"battlefield": ["Virtue of Courage"], "hand": ["Lightning Bolt"], "library_top": ["Forest", "Island", "Mountain"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["yes"]}]},
+        {"op": "play", "seat": 0, "card": "p0:Forest"}
+      ],
+      "expect": [
+        {"card": "p0:Forest", "zone": "battlefield"}
+      ]
     }
   ]
 }

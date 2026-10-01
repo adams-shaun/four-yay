@@ -37,6 +37,23 @@
         {"life": {"p1": 15}},
         {"hand_size": {"p0": 0}}
       ]
+    },
+    {
+      "name": "noncombat-damage-from-a-creature-ability-draws",
+      "cr": ["603.2", "120.3", "121.1"],
+      "why": "The trigger watches any source I control, not just spells: Prodigal Sorcerer's {T}: 1 damage to an opponent is noncombat damage from a source I control, so Niv-Mizzet draws one card.",
+      "setup": {
+        "p0": {"battlefield": ["Niv-Mizzet, Visionary", "Prodigal Sorcerer"], "library_top": ["Forest"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Prodigal Sorcerer", "targets": ["p1"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p1": 19}},
+        {"hand_size": {"p0": 1}}
+      ]
     }
   ]
 }

@@ -37,6 +37,26 @@
       "expect": [
         {"card": "p0:Hercules, Olympian Hero", "zone": "battlefield", "pt": "7/7", "damage": 3, "counters": {"+1/+1": 4}}
       ]
+    },
+    {
+      "name": "second-damage-same-turn-adds-no-more-counters",
+      "cr": ["603.2", "120.3", "122.1"],
+      "why": "The damage clause triggers only the first time Hercules is dealt damage each turn. After the attack counter and the first Bolt (three more counters, a 7/7), a second Bolt in the same turn deals 3 more damage but adds no counters, so Hercules is still 7/7 with 6 damage and four +1/+1 counters.",
+      "setup": {
+        "p0": {"battlefield": ["Hercules, Olympian Hero"], "hand": ["Lightning Bolt", "Lightning Bolt"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:Hercules, Olympian Hero"], "defender": "p1"},
+        {"op": "resolve"},
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p0:Hercules, Olympian Hero"]},
+        {"op": "resolve"},
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt#2", "mana": "R", "targets": ["p0:Hercules, Olympian Hero"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Hercules, Olympian Hero", "zone": "battlefield", "pt": "7/7", "damage": 6, "counters": {"+1/+1": 4}}
+      ]
     }
   ]
 }
