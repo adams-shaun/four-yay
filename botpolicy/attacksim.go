@@ -130,17 +130,17 @@ type simWorld struct {
 // newSimWorld is the starting world: every battlefield creature of the two
 // players, sorted by id, valued once.
 func newSimWorld(b Board, me, opp state.PlayerID) *simWorld {
-	w := &simWorld{me: me, opp: opp, life: map[state.PlayerID]int32{me: b.Life[me], opp: b.Life[opp]}}
-	ids := make([]state.ObjID, 0, len(b.Creatures))
-	for id, c := range b.Creatures {
+	w := &simWorld{me: me, opp: opp, life: map[state.PlayerID]int32{me: b.Life.Get(me), opp: b.Life.Get(opp)}}
+	ids := make([]state.ObjID, 0, b.Creatures.Len())
+	for id, c := range b.Creatures.All() {
 		if c.Controller == me || c.Controller == opp {
 			ids = append(ids, id)
 		}
 	}
 	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
 	for _, id := range ids {
-		c := b.Creatures[id]
-		w.units = append(w.units, simUnit{id: id, c: c, value: creatureSimValue(c, b.Cards[id].CMC)})
+		c := b.Creatures.Get(id)
+		w.units = append(w.units, simUnit{id: id, c: c, value: creatureSimValue(c, b.Cards.Get(id).CMC)})
 	}
 	return w
 }
@@ -156,18 +156,19 @@ func (w *simWorld) clone() *simWorld {
 // (Creatures, Life, Commanders -- nothing else is consulted by
 // chooseBlockers/chooseAttackersMode).
 func (w *simWorld) board(base Board) Board {
-	cr := make(map[state.ObjID]Creature, len(w.units))
-	for _, u := range w.units {
-		if !u.dead {
-			cr[u.id] = u.c
-		}
-	}
-	return Board{
-		Creatures:  cr,
-		Life:       map[state.PlayerID]int32{w.me: w.life[w.me], w.opp: w.life[w.opp]},
+	b := Board{
+		Creatures:  makeTable[state.ObjID, Creature](len(w.units)),
 		Commanders: base.Commanders,
 		Cards:      base.Cards,
 	}
+	for _, u := range w.units {
+		if !u.dead {
+			b.Creatures.Set(u.id, u.c)
+		}
+	}
+	b.Life.Set(w.me, w.life[w.me])
+	b.Life.Set(w.opp, w.life[w.opp])
+	return b
 }
 
 func (w *simWorld) index(id state.ObjID) int {
@@ -544,10 +545,10 @@ func (b Board) chooseAttackersSim(d *decision.Decision, p *AttackSimParams) []in
 			return base
 		}
 	}
-	if _, ok := b.Life[defender]; !ok {
+	if _, ok := b.Life.Lookup(defender); !ok {
 		return base
 	}
-	if _, ok := b.Life[me]; !ok {
+	if _, ok := b.Life.Lookup(me); !ok {
 		return base
 	}
 	// One option per attacker (two-player, player defender).
@@ -563,7 +564,7 @@ func (b Board) chooseAttackersSim(d *decision.Decision, p *AttackSimParams) []in
 			return base
 		}
 		optOf[o.Obj] = i
-		c, ok := b.Creatures[o.Obj]
+		c, ok := b.Creatures.Lookup(o.Obj)
 		if !ok {
 			return base
 		}

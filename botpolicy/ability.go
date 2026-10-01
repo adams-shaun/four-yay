@@ -87,7 +87,7 @@ func (b Board) abilityScore(o decision.Option, me state.PlayerID) (score int32, 
 	if b.boonHasNoOwnTarget(o, me) {
 		return 0, false // A1c: a one-way boon with no sensible own creature to receive it.
 	}
-	if b.Cards[o.Obj].Activated >= maxActivationsPerTurn {
+	if b.Cards.Get(o.Obj).Activated >= maxActivationsPerTurn {
 		return 0, false // A5: the repeatability budget is spent.
 	}
 	// A2: cheaper ranks higher (only among worth-taking abilities; A1 above
@@ -127,7 +127,7 @@ func (b Board) boonHasNoOwnTarget(o decision.Option, me state.PlayerID) bool {
 	}
 	// Existential fold: order-independent, so no map iteration order can
 	// reach a choice.
-	for id, c := range b.Creatures {
+	for id, c := range b.Creatures.All() {
 		if id != o.Obj && c.Controller == me {
 			return false
 		}
@@ -195,7 +195,7 @@ func (b Board) equipNoOp(o decision.Option, me state.PlayerID) bool {
 		// and fizzles unchanged.
 		return true
 	}
-	return b.Cards[o.Obj].AttachedTo != 0
+	return b.Cards.Get(o.Obj).AttachedTo != 0
 }
 
 // grantNoOp is A1's other provable no-op: an activation whose whole effect
@@ -227,7 +227,7 @@ func (b Board) grantNoOp(o decision.Option) bool {
 // is read, so a plain boolean is the honest shape (a map range here cannot
 // leak order into a choice: the fold's result is the same for any order).
 func (b Board) hasOwnCreature(me state.PlayerID) bool {
-	for _, c := range b.Creatures {
+	for _, c := range b.Creatures.All() {
 		if c.Controller == me {
 			return true
 		}

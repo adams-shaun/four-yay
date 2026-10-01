@@ -38,8 +38,8 @@ func TestA1NoOpEquipNotChosen(t *testing.T) {
 	// Perilous Myr (22) is the controller's only creature; the equipment whose
 	// ability is offered (41) is already attached to it.
 	b := Board{IsMain: true,
-		Creatures: map[state.ObjID]Creature{22: {Power: 2, Toughness: 2, Controller: 0}},
-		Cards:     map[state.ObjID]Card{41: {AttachedTo: 22}},
+		Creatures: TableOf(map[state.ObjID]Creature{22: {Power: 2, Toughness: 2, Controller: 0}}),
+		Cards:     TableOf(map[state.ObjID]Card{41: {AttachedTo: 22}}),
 	}
 	d := abilityPriority(41, "Lightning Greaves: Equip 0")
 	in := Decide(b, d, rng(1))
@@ -67,8 +67,8 @@ func TestA1NoOpEquipNotChosen(t *testing.T) {
 func TestA1NoLegalTargetEquipNotChosen(t *testing.T) {
 	// No creatures at all; the equipment sits unattached on an empty board.
 	b := Board{IsMain: true,
-		Creatures: map[state.ObjID]Creature{},
-		Cards:     map[state.ObjID]Card{41: {AttachedTo: 0}},
+		Creatures: TableOf(map[state.ObjID]Creature{}),
+		Cards:     TableOf(map[state.ObjID]Card{41: {AttachedTo: 0}}),
 	}
 	d := abilityPriority(41, "Lightning Greaves: Equip 0")
 	in := Decide(b, d, rng(1))
@@ -100,11 +100,11 @@ func TestA1AlreadyAttachedEquipDeclined(t *testing.T) {
 	// 22 carries the equipment; 99 is a more threatening own creature the
 	// old projection would have elected as the equip target.
 	b := Board{IsMain: true,
-		Creatures: map[state.ObjID]Creature{
+		Creatures: TableOf(map[state.ObjID]Creature{
 			22: {Power: 2, Toughness: 2, Controller: 0},
 			99: {Power: 4, Toughness: 4, Controller: 0},
-		},
-		Cards: map[state.ObjID]Card{41: {AttachedTo: 22}},
+		}),
+		Cards: TableOf(map[state.ObjID]Card{41: {AttachedTo: 22}}),
 	}
 	d := abilityPriority(41, "Lightning Greaves: Equip 0")
 	in := Decide(b, d, rng(1))
@@ -130,10 +130,10 @@ func TestA1AlreadyAttachedEquipDeclined(t *testing.T) {
 // equipping.
 func TestA1FirstAttachChosen(t *testing.T) {
 	b := Board{IsMain: true,
-		Creatures: map[state.ObjID]Creature{
+		Creatures: TableOf(map[state.ObjID]Creature{
 			22: {Power: 2, Toughness: 2, Controller: 0},
-		},
-		Cards: map[state.ObjID]Card{41: {AttachedTo: 0}},
+		}),
+		Cards: TableOf(map[state.ObjID]Card{41: {AttachedTo: 0}}),
 	}
 	d := abilityPriority(41, "Lightning Greaves: Equip 0")
 	in := Decide(b, d, rng(1))
@@ -158,10 +158,10 @@ func TestA1FirstAttachChosen(t *testing.T) {
 // instead and this test fails.
 func TestA2CheaperAbilityChosen(t *testing.T) {
 	b := Board{IsMain: true,
-		Creatures: map[state.ObjID]Creature{
+		Creatures: TableOf(map[state.ObjID]Creature{
 			70: {Power: 3, Toughness: 3, Controller: 0},
-		},
-		Cards: map[state.ObjID]Card{5: {}, 6: {}}, // both unattached: no A1 no-op
+		}),
+		Cards: TableOf(map[state.ObjID]Card{5: {}, 6: {}}), // both unattached: no A1 no-op
 	}
 	d := &decision.Decision{Seq: 1, Player: 0, Kind: decision.KPriority, Min: 1, Max: 1,
 		Options: []decision.Option{
@@ -186,10 +186,10 @@ func TestA2CheaperAbilityChosen(t *testing.T) {
 // and demands the same choice each time.
 func TestA3TieBreaksOnIndex(t *testing.T) {
 	b := Board{IsMain: true,
-		Creatures: map[state.ObjID]Creature{
+		Creatures: TableOf(map[state.ObjID]Creature{
 			70: {Power: 3, Toughness: 3, Controller: 0},
-		},
-		Cards: map[state.ObjID]Card{5: {}, 6: {}},
+		}),
+		Cards: TableOf(map[state.ObjID]Card{5: {}, 6: {}}),
 	}
 	d := &decision.Decision{Seq: 1, Player: 0, Kind: decision.KPriority, Min: 1, Max: 1,
 		Options: []decision.Option{
@@ -220,8 +220,8 @@ func TestA3TieBreaksOnIndex(t *testing.T) {
 // exactly the I-1(b) defect fix rounds 1 and 2 fought.
 func TestA4NoWorthtakingFallsThroughToPass(t *testing.T) {
 	b := Board{IsMain: true,
-		Creatures: map[state.ObjID]Creature{22: {Power: 2, Toughness: 2, Controller: 0}},
-		Cards:     map[state.ObjID]Card{41: {AttachedTo: 22}},
+		Creatures: TableOf(map[state.ObjID]Creature{22: {Power: 2, Toughness: 2, Controller: 0}}),
+		Cards:     TableOf(map[state.ObjID]Card{41: {AttachedTo: 22}}),
 	}
 	d := abilityPriority(41, "Lightning Greaves: Equip 0")
 	in := Decide(b, d, rng(1))
@@ -251,12 +251,12 @@ func TestA1ScopedToAttachAbilities(t *testing.T) {
 		fn   func(Board, *decision.Decision, *rand.Rand) decision.Intent
 	}{{"Decide", Decide}, {"ExploreDecide", ExploreDecide}}
 	attached := Board{IsMain: true,
-		Creatures: map[state.ObjID]Creature{22: {Power: 2, Toughness: 2, Controller: 0}},
-		Cards:     map[state.ObjID]Card{41: {AttachedTo: 22}},
+		Creatures: TableOf(map[state.ObjID]Creature{22: {Power: 2, Toughness: 2, Controller: 0}}),
+		Cards:     TableOf(map[state.ObjID]Card{41: {AttachedTo: 22}}),
 	}
 	creatureless := Board{IsMain: true,
-		Creatures: map[state.ObjID]Creature{},
-		Cards:     map[state.ObjID]Card{41: {}},
+		Creatures: TableOf(map[state.ObjID]Creature{}),
+		Cards:     TableOf(map[state.ObjID]Card{41: {}}),
 	}
 	cases := []struct {
 		name   string

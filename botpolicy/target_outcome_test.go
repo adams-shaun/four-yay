@@ -28,7 +28,8 @@ func TestTargetEffectDamageAPIControlsTargetRanking(t *testing.T) {
 	}
 	amount := 3
 	b := boardOf(def(1, 6, 6))
-	b.Life[0], b.Life[1] = 20, 2
+	b.Life.Set(0, 20)
+	b.Life.Set(1, 2)
 	d := &decision.Decision{Seq: 1, Player: 0, Kind: decision.KTarget, Min: 1, Max: 1,
 		TargetEffect: &decision.TargetEffect{API: drawSA.API, Damage: &decision.DamageEffect{Amount: &amount}},
 		Options:      []decision.Option{{Index: 0, Kind: "player", Player: 1}, {Index: 1, Kind: "permanent", Obj: 201, Player: 1}}}
@@ -51,11 +52,11 @@ func TestTargetRemovalRanksNoncreatureValueFromCorpus(t *testing.T) {
 	if sa == nil || sa.API != "Destroy" {
 		t.Fatalf("Doom Blade spell API = %v, want Destroy", sa)
 	}
-	b := Board{Cards: map[state.ObjID]Card{
+	b := Board{Cards: TableOf(map[state.ObjID]Card{
 		301: {CMC: 1},
 		302: {CMC: 5},
-	}}
-	if b.Cards[301].CMC == b.Cards[302].CMC {
+	})}
+	if b.Cards.Get(301).CMC == b.Cards.Get(302).CMC {
 		t.Fatal("fixture target values must differ")
 	}
 	d := &decision.Decision{Seq: 1, Player: 0, Kind: decision.KTarget, Min: 1, Max: 1,
@@ -100,27 +101,27 @@ func TestTargetCounterRanksOpponentSpellByValueFromCorpus(t *testing.T) {
 }
 
 func TestTargetSpareManaRequiresUsableSurplus(t *testing.T) {
-	b := Board{Cards: map[state.ObjID]Card{
+	b := Board{Cards: TableOf(map[state.ObjID]Card{
 		1: {OnBattlefield: true, Basic: true, Produces: manaProductionForTest()},
 		2: {Castable: true, InstantSpeed: true, CMC: 2},
-	}}
+	})}
 	if b.hasSpareMana() {
 		t.Fatal("one source is not surplus to the two-mana instant reserve")
 	}
-	b.Cards[3] = Card{OnBattlefield: true, Basic: true, Produces: manaProductionForTest()}
-	b.Cards[4] = Card{OnBattlefield: true, Basic: true, Produces: manaProductionForTest()}
+	b.Cards.Set(3, Card{OnBattlefield: true, Basic: true, Produces: manaProductionForTest()})
+	b.Cards.Set(4, Card{OnBattlefield: true, Basic: true, Produces: manaProductionForTest()})
 	if !b.hasSpareMana() {
 		t.Fatal("three usable mana sources exceed the two-mana reserve")
 	}
-	c := b.Cards[4]
+	c := b.Cards.Get(4)
 	c.Tapped = true
-	b.Cards[4] = c
+	b.Cards.Set(4, c)
 	if b.hasSpareMana() {
 		t.Fatal("tapped source must not count toward surplus")
 	}
 	c.Tapped = false
 	c.Produces.Any = true
-	b.Cards[4] = c
+	b.Cards.Set(4, c)
 	if b.hasSpareMana() {
 		t.Fatal("conditional any-colour source is not guaranteed usable surplus")
 	}

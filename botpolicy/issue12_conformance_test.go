@@ -42,8 +42,8 @@ func TestIssue12UnknownLifeIsNotLethal(t *testing.T) {
 	requireCR601Audit(t, "I-12: unknown life is not zero")
 	_, dmg := issue12Corpus(t)
 	b := boardOf(def(1, 6, 6))
-	b.Life[0] = 20
-	delete(b.Life, 1)
+	b.Life.Set(0, 20)
+	b.Life.Delete(1)
 	got, d := effectTargetDecision(b, &dmg, []tgt{face(), opp(201)}, 1, 1)
 	if len(got) != 1 || d.Options[got[0]].Kind == "player" {
 		t.Fatalf("I-12 unknown-is-no contract: missing life selected as lethal face: %v", got)
@@ -54,9 +54,9 @@ func TestIssue12DeadFaceDoesNotDisplaceLivingLethal(t *testing.T) {
 	requireCR601Audit(t, "I-12: nonpositive life is not a useful lethal target")
 	_, dmg := issue12Corpus(t)
 	b := boardOf()
-	b.Life[0] = 20
-	b.Life[1] = -4
-	b.Life[2] = 3
+	b.Life.Set(0, 20)
+	b.Life.Set(1, -4)
+	b.Life.Set(2, 3)
 	d := &decision.Decision{Seq: 1, Player: 0, Kind: decision.KTarget, Min: 1, Max: 1,
 		TargetEffect: &decision.TargetEffect{API: "DealDamage", Damage: &decision.DamageEffect{Amount: &dmg}},
 		Options:      []decision.Option{{Index: 0, Kind: "player", Player: 1}, {Index: 1, Kind: "player", Player: 2}}}
@@ -79,12 +79,12 @@ func TestIssue12CombinedAttackThreatBeatsUnkillableTappedCreature(t *testing.T) 
 	}
 	c, big := courser.Faces[0], dreadmaw.Faces[0]
 	b := boardOf(def(1, int32(c.Power()), int32(c.Toughness())), def(2, int32(c.Power()), int32(c.Toughness())), def(3, int32(big.Power()), int32(big.Toughness())))
-	tapped := b.Creatures[203]
+	tapped := b.Creatures.Get(203)
 	tapped.Tapped = true
-	b.Creatures[203] = tapped
-	b.Life[0] = 5
-	b.Life[1] = 20
-	if c.Power()*2 < int(b.Life[0]) || c.Power() >= int(b.Life[0]) || c.Toughness() > dmg || big.Toughness() <= dmg {
+	b.Creatures.Set(203, tapped)
+	b.Life.Set(0, 5)
+	b.Life.Set(1, 20)
+	if c.Power()*2 < int(b.Life.Get(0)) || c.Power() >= int(b.Life.Get(0)) || c.Toughness() > dmg || big.Toughness() <= dmg {
 		t.Fatal("I-12 fixture does not distinguish combined lethal from a single attacker")
 	}
 	got, d := effectTargetDecision(b, &dmg, []tgt{opp(201), opp(202), opp(203)}, 1, 1)

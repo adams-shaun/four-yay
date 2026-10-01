@@ -34,8 +34,8 @@ func TestA1RedundantKeywordGrantAlreadyNotChosen(t *testing.T) {
 	// Goblin Balloon Brigade (7) is the seat's own 1/1 already carrying
 	// Flying from an earlier resolution this turn.
 	b := Board{IsMain: true,
-		Creatures: map[state.ObjID]Creature{7: {Power: 1, Toughness: 1, Keywords: []string{"Flying"}, Controller: 0}},
-		Cards:     map[state.ObjID]Card{7: {}},
+		Creatures: TableOf(map[state.ObjID]Creature{7: {Power: 1, Toughness: 1, Keywords: []string{"Flying"}, Controller: 0}}),
+		Cards:     TableOf(map[state.ObjID]Card{7: {}}),
 	}
 	d := grantAbility(7, "Goblin Balloon Brigade: CARDNAME gains flying until end of turn.",
 		&decision.Grant{Keywords: []string{"Flying"}, Already: true})
@@ -64,8 +64,8 @@ func TestA1RedundantKeywordGrantDuplicatePendingNotChosen(t *testing.T) {
 	// The brigade is a 1/1 with NO flying yet, but an identical activation
 	// from it is already pending on the stack (the reported failure shape).
 	b := Board{IsMain: true,
-		Creatures: map[state.ObjID]Creature{7: {Power: 1, Toughness: 1, Controller: 0}},
-		Cards:     map[state.ObjID]Card{7: {}},
+		Creatures: TableOf(map[state.ObjID]Creature{7: {Power: 1, Toughness: 1, Controller: 0}}),
+		Cards:     TableOf(map[state.ObjID]Card{7: {}}),
 	}
 	d := grantAbility(7, "Goblin Balloon Brigade: CARDNAME gains flying until end of turn.",
 		&decision.Grant{Keywords: []string{"Flying"}, Duplicate: true})
@@ -90,8 +90,8 @@ func TestA1RedundantKeywordGrantDuplicatePendingNotChosen(t *testing.T) {
 // passes instead of giving the brigade flying.
 func TestA1KeywordGrantNotRedundantChosen(t *testing.T) {
 	b := Board{IsMain: true,
-		Creatures: map[state.ObjID]Creature{7: {Power: 1, Toughness: 1, Controller: 0}},
-		Cards:     map[state.ObjID]Card{7: {}},
+		Creatures: TableOf(map[state.ObjID]Creature{7: {Power: 1, Toughness: 1, Controller: 0}}),
+		Cards:     TableOf(map[state.ObjID]Card{7: {}}),
 	}
 	d := grantAbility(7, "Goblin Balloon Brigade: CARDNAME gains flying until end of turn.",
 		&decision.Grant{Keywords: []string{"Flying"}})
@@ -120,8 +120,8 @@ func TestA1AdditiveKeywordGrantStacks(t *testing.T) {
 	// no-op even though the keyword half is redundant. The engine gives such
 	// an activation a nil Grant (it is not a pure keyword grant).
 	b := Board{IsMain: true,
-		Creatures: map[state.ObjID]Creature{7: {Power: 1, Toughness: 1, Keywords: []string{"Flying"}, Controller: 0}},
-		Cards:     map[state.ObjID]Card{7: {}},
+		Creatures: TableOf(map[state.ObjID]Creature{7: {Power: 1, Toughness: 1, Keywords: []string{"Flying"}, Controller: 0}}),
+		Cards:     TableOf(map[state.ObjID]Card{7: {}}),
 	}
 	d := grantAbility(7, "Berserk: CARDNAME gains flying and gets +1/+1 until end of turn.", nil)
 	in := Decide(b, d, rng(1))

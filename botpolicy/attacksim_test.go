@@ -27,7 +27,8 @@ func simAttack(b Board, ids ...int) (def, sim []int) {
 // above standing still.
 func TestAttackSimSwingsPastALoneBlocker(t *testing.T) {
 	b := boardOf(atk(1, 2, 2), atk(2, 2, 2), atk(3, 2, 2), def(1, 3, 3))
-	b.Life[0], b.Life[1] = 20, 5
+	b.Life.Set(0, 20)
+	b.Life.Set(1, 5)
 	d, s := simAttack(b, 1, 2, 3)
 	if len(d) != 0 {
 		t.Fatalf("default attacker = %v, want none (the premise)", d)
@@ -42,7 +43,8 @@ func TestAttackSimSwingsPastALoneBlocker(t *testing.T) {
 // best, and the incumbent is returned unchanged.
 func TestAttackSimKeepsDefaultWhenIndifferent(t *testing.T) {
 	b := boardOf(atk(1, 3, 3))
-	b.Life[0], b.Life[1] = 20, 20
+	b.Life.Set(0, 20)
+	b.Life.Set(1, 20)
 	d, s := simAttack(b, 1)
 	if !reflect.DeepEqual(d, s) || len(s) != 1 {
 		t.Fatalf("default %v, attack-sim %v: want both [0]", d, s)
@@ -56,10 +58,11 @@ func TestAttackSimKeepsDefaultWhenIndifferent(t *testing.T) {
 // unless the 2/2 stays home to chump; the simulated crack-back sees it.
 func TestAttackSimHoldsBackAgainstLethalCrackBack(t *testing.T) {
 	b := boardOf(atk(1, 2, 2), def(1, 3, 3))
-	c := b.Creatures[201]
+	c := b.Creatures.Get(201)
 	c.Tapped = true
-	b.Creatures[201] = c
-	b.Life[0], b.Life[1] = 3, 20
+	b.Creatures.Set(201, c)
+	b.Life.Set(0, 3)
+	b.Life.Set(1, 20)
 	d, s := simAttack(b, 1)
 	if len(d) != 1 {
 		t.Fatalf("default attacker = %v, want the swing (the premise)", d)
@@ -75,7 +78,8 @@ func TestAttackSimHoldsBackAgainstLethalCrackBack(t *testing.T) {
 func TestAttackSimIsDeterministic(t *testing.T) {
 	b := boardOf(atk(1, 2, 2), atk(2, 3, 1), atk(3, 1, 4, "Flying"), atk(4, 4, 4, "Trample"),
 		def(1, 3, 3), def(2, 2, 2, "Deathtouch"), def(3, 1, 1, "Reach"))
-	b.Life[0], b.Life[1] = 11, 9
+	b.Life.Set(0, 11)
+	b.Life.Set(1, 9)
 	_, first := simAttack(b, 1, 2, 3, 4)
 	for i := 0; i < 50; i++ {
 		if _, s := simAttack(b, 1, 2, 3, 4); !reflect.DeepEqual(s, first) {
@@ -89,9 +93,9 @@ func TestAttackSimIsDeterministic(t *testing.T) {
 		}
 	}
 	for _, a := range []state.ObjID{101, 102, 104} {
-		c := b.Creatures[a]
+		c := b.Creatures.Get(a)
 		c.Tapped = true
-		b.Creatures[a] = c
+		b.Creatures.Set(a, c)
 	}
 	bFirst := AttackSimDecide(b, &blk, rng(1), DefaultAttackSimParams()).Choices
 	for i := 0; i < 50; i++ {
@@ -105,8 +109,10 @@ func TestAttackSimIsDeterministic(t *testing.T) {
 // decision naming two defending seats is the default attacker's.
 func TestAttackSimFallsBackOnSeveralDefenders(t *testing.T) {
 	b := boardOf(atk(1, 2, 2), atk(2, 2, 2), atk(3, 2, 2), def(1, 3, 3))
-	b.Creatures[301] = Creature{Power: 1, Toughness: 1, Controller: 2}
-	b.Life[0], b.Life[1], b.Life[2] = 20, 5, 20
+	b.Creatures.Set(301, Creature{Power: 1, Toughness: 1, Controller: 2})
+	b.Life.Set(0, 20)
+	b.Life.Set(1, 5)
+	b.Life.Set(2, 20)
 	d := decision.Decision{Seq: 1, Player: 0, Kind: decision.KAttackers, Max: 6}
 	for _, id := range []state.ObjID{101, 102, 103} {
 		for _, p := range []state.PlayerID{1, 2} {
@@ -123,7 +129,8 @@ func TestAttackSimFallsBackOnSeveralDefenders(t *testing.T) {
 // the default policy byte for byte.
 func TestAttackSimLeavesOtherKindsAlone(t *testing.T) {
 	b := boardOf(atk(1, 2, 2))
-	b.Life[0], b.Life[1] = 20, 20
+	b.Life.Set(0, 20)
+	b.Life.Set(1, 20)
 	d := decision.Decision{Seq: 3, Player: 0, Kind: decision.KPriority,
 		Options: []decision.Option{{Index: 0, Kind: "pass"}}}
 	if got, want := AttackSimDecide(b, &d, rng(7), DefaultAttackSimParams()), Decide(b, &d, rng(7)); !reflect.DeepEqual(got, want) {

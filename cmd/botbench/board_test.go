@@ -124,9 +124,9 @@ func TestBotAutoPayPolicyIsBenchable(t *testing.T) {
 		Options:        []decision.Option{{Index: 0, Kind: "activate"}, {Index: 1, Kind: "pass"}},
 		PaymentActions: []decision.PaymentAction{{ID: "action", Cast: decision.PlannedCast{Object: 9, Origin: "hand"}, Plans: []decision.PaymentPlan{{ID: "plan", Version: decision.PaymentPlanV1}}}},
 	}
-	in, err := b.DecideBoard(context.Background(), botpolicy.Board{IsMain: true, Cards: map[state.ObjID]botpolicy.Card{
+	in, err := b.DecideBoard(context.Background(), botpolicy.Board{IsMain: true, Cards: botpolicy.TableOf(map[state.ObjID]botpolicy.Card{
 		9: {Creature: true, Power: 3, CMC: 3, Castable: true},
-	}}, d)
+	})}, d)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,9 +151,9 @@ func TestCastProfileAutoPayPolicyIsBenchable(t *testing.T) {
 		Options:        []decision.Option{{Index: 0, Kind: "activate"}, {Index: 1, Kind: "pass"}},
 		PaymentActions: []decision.PaymentAction{{ID: "action", Cast: decision.PlannedCast{Object: 9, Origin: "hand"}, Plans: []decision.PaymentPlan{{ID: "plan", Version: decision.PaymentPlanV1}}}},
 	}
-	in, err := b.DecideBoard(context.Background(), botpolicy.Board{IsMain: true, Cards: map[state.ObjID]botpolicy.Card{
+	in, err := b.DecideBoard(context.Background(), botpolicy.Board{IsMain: true, Cards: botpolicy.TableOf(map[state.ObjID]botpolicy.Card{
 		9: {Creature: true, Power: 3, CMC: 3, Castable: true},
-	}}, d)
+	})}, d)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,9 +194,9 @@ func TestAttackSimPoliciesAreBenchOnly(t *testing.T) {
 		Options:        []decision.Option{{Index: 0, Kind: "activate"}, {Index: 1, Kind: "pass"}},
 		PaymentActions: []decision.PaymentAction{{ID: "action", Cast: decision.PlannedCast{Object: 9, Origin: "hand"}, Plans: []decision.PaymentPlan{{ID: "plan", Version: decision.PaymentPlanV1}}}},
 	}
-	in, err := b.DecideBoard(context.Background(), botpolicy.Board{IsMain: true, Cards: map[state.ObjID]botpolicy.Card{
+	in, err := b.DecideBoard(context.Background(), botpolicy.Board{IsMain: true, Cards: botpolicy.TableOf(map[state.ObjID]botpolicy.Card{
 		9: {Creature: true, Power: 3, CMC: 3, Castable: true},
-	}}, d)
+	})}, d)
 	if err != nil {
 		t.Fatal(err)
 	}

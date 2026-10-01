@@ -219,7 +219,7 @@ func curveFactsFromBoard(b botpolicy.Board) curveFacts {
 		ourTurn:    b.MyTurn,
 		byObj:      map[state.ObjID]curveSpell{},
 	}
-	for id, c := range b.Cards {
+	for id, c := range b.Cards.All() {
 		if c.OnBattlefield {
 			if c.Produces.IsZero() {
 				continue

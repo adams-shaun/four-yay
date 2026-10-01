@@ -46,7 +46,7 @@ func TestLegacyBlockAnswerPassesTheBlockValidator(t *testing.T) {
 			}
 			board := botpolicy.BoardFromGame(e.G, e, 1)
 			hasMenace := false
-			for _, keyword := range board.Creatures[attacker].Keywords {
+			for _, keyword := range board.Creatures.Get(attacker).Keywords {
 				if keyword == "Menace" {
 					hasMenace = true
 				}

@@ -25,7 +25,7 @@ func timingBoard(step state.Step, myTurn bool) Board {
 	return Board{
 		Step:   step,
 		MyTurn: myTurn,
-		Cards:  map[state.ObjID]Card{1: {CMC: 2, InstantSpeed: true}},
+		Cards:  TableOf(map[state.ObjID]Card{1: {CMC: 2, InstantSpeed: true}}),
 	}
 }
 
@@ -57,7 +57,7 @@ func TestCastWeightInstantOwnPreMain(t *testing.T) {
 	// A non-instant card in the window earns nothing: the negative weight
 	// cannot reach it, so it is still cast.
 	plain := timingBoard(state.StepUpkeep, true)
-	plain.Cards = map[state.ObjID]Card{1: {CMC: 2}}
+	plain.Cards = TableOf(map[state.ObjID]Card{1: {CMC: 2}})
 	if got := withTuned(plain, func(w *CastWeights) { w.InstantOwnPreMain = -1000; w.CastThreshold = 0 }).chooseCast(d); got != 0 {
 		t.Fatalf("upkeep non-instant: InstantOwnPreMain=-1000 = option %d, want 0 — the term is InstantSpeed-gated", got)
 	}

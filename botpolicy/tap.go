@@ -87,7 +87,7 @@ func hasFlash(kws []string) bool {
 // taps: the policy cannot read those facts, and its old behaviour did
 // worse (it tapped regardless of the hand at all).
 func (b Board) tapWants() bool {
-	for id, c := range b.Cards {
+	for id, c := range b.Cards.All() {
 		if !c.Castable || c.CMC <= 0 {
 			continue
 		}
@@ -104,7 +104,7 @@ func (b Board) tapWants() bool {
 // engine's CanPay, at the CmcOf granularity the Board carries.
 func (b Board) poolPays(id state.ObjID, c Card) bool {
 	cost := c.CMC
-	if cmdr, ok := b.Commanders[id]; ok && cmdr.InCommandZone {
+	if cmdr, ok := b.Commanders.Lookup(id); ok && cmdr.InCommandZone {
 		cost += 2 * cmdr.Casts
 	}
 	if b.Pool.Total() < cost {
@@ -195,7 +195,7 @@ func (b Board) bestUnpayable(offered [5]bool) (state.ObjID, Card, bool) {
 	var best Card
 	var bestScore int32 = -1
 	found := false
-	for id, c := range b.Cards {
+	for id, c := range b.Cards.All() {
 		if !c.Castable || c.CMC <= 0 {
 			continue
 		}
@@ -311,11 +311,11 @@ func (b Board) chooseTap(d *decision.Decision) int {
 		if conv, spend := converterCost(o.Cost); conv {
 			// T3: a converter (see converterCost) is taken only when it
 			// provably moves the intended card closer to castable.
-			if castOffered || !b.conversionProgresses(c, spend, b.Cards[o.Obj].Produces) {
+			if castOffered || !b.conversionProgresses(c, spend, b.Cards.Get(o.Obj).Produces) {
 				continue
 			}
 		}
-		prod := b.Cards[o.Obj].Produces
+		prod := b.Cards.Get(o.Obj).Produces
 		matches := false
 		for i := 0; i < 5; i++ {
 			if need[i] && (prod.ProducesColour(i) || prod.Reflected || prod.Any) {
@@ -353,7 +353,7 @@ func (b Board) offeredColours(d *decision.Decision) [5]bool {
 		if o.Kind != "activate" {
 			continue
 		}
-		card, known := b.Cards[o.Obj]
+		card, known := b.Cards.Lookup(o.Obj)
 		if !known {
 			// Fail closed: an option the Board carries no facts for claims
 			// no colour (see bestUnpayable's doc for why the earlier
@@ -441,7 +441,7 @@ func (b Board) CastableNow(player state.PlayerID, d *decision.Decision) (state.O
 // order cannot reach it. It consumes no rng.
 func (b Board) AnyCastableNow(player state.PlayerID, d *decision.Decision) bool {
 	offered := b.offeredColours(d)
-	for id, c := range b.Cards {
+	for id, c := range b.Cards.All() {
 		if !c.Castable || c.CMC <= 0 {
 			continue
 		}
@@ -464,7 +464,7 @@ func (b Board) AnyCastableNow(player state.PlayerID, d *decision.Decision) bool 
 // AnyCastableNow read, so the two can never disagree about what "castable
 // now" means.
 func (b Board) castableNowCard(player state.PlayerID, id state.ObjID) bool {
-	c := b.Cards[id]
+	c := b.Cards.Get(id)
 	if !c.InstantSpeed && !(b.MyTurn && b.IsMain && len(b.Stack) == 0) {
 		return false
 	}
@@ -492,7 +492,7 @@ func (b Board) castableNowCard(player state.PlayerID, id state.ObjID) bool {
 // falls back to the pre-float-waste reading (timing and C8 only); a board of
 // known production keeps the affordability refusal.
 func (b Board) indeterminateSourceUntapped() bool {
-	for _, c := range b.Cards {
+	for _, c := range b.Cards.All() {
 		if c.OnBattlefield && !c.Tapped && c.Produces.Indeterminate {
 			return true
 		}

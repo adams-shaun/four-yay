@@ -32,11 +32,11 @@ func nowIsland() Card {
 // seat's producible mana.
 func TestCastableNowCommandTaxAffordability(t *testing.T) {
 	brd := Board{IsMain: true, FirstMain: true, MyTurn: true,
-		Cards: map[state.ObjID]Card{
+		Cards: TableOf(map[state.ObjID]Card{
 			1: nowForest(), 2: nowForest(), 3: nowForest(), 4: nowForest(), 5: nowForest(),
 			50: {Creature: true, Power: 5, Toughness: 5, CMC: 5, Castable: true, ManaCost: "4 G"},
-		},
-		Commanders: map[state.ObjID]Commander{50: {InCommandZone: true, Casts: 1}},
+		}),
+		Commanders: TableOf(map[state.ObjID]Commander{50: {InCommandZone: true, Casts: 1}}),
 	}
 	d := &decision.Decision{Seq: 1, Player: 0, Kind: decision.KPriority,
 		Options: []decision.Option{{Index: 0, Kind: "activate", Obj: 1}, {Index: 1, Kind: "pass"}}}
@@ -46,7 +46,7 @@ func TestCastableNowCommandTaxAffordability(t *testing.T) {
 	if got := brd.producibleMana(); got != 5 {
 		t.Fatalf("precondition: producibleMana = %d, want 5", got)
 	}
-	if got := brd.castCost(50, brd.Cards[50]); got != 7 {
+	if got := brd.castCost(50, brd.Cards.Get(50)); got != 7 {
 		t.Fatalf("precondition: castCost = %d, want 7 (5 printed + 2 command tax)", got)
 	}
 	if _, ok := brd.CastableNow(d.Player, d); ok {
@@ -55,7 +55,7 @@ func TestCastableNowCommandTaxAffordability(t *testing.T) {
 
 	// With the tax paid off (no prior command-zone cast) the printed 5 fits
 	// in the producible 5, so the same board is castable now.
-	brd.Commanders[50] = Commander{InCommandZone: true, Casts: 0}
+	brd.Commanders.Set(50, Commander{InCommandZone: true, Casts: 0})
 	if _, ok := brd.CastableNow(d.Player, d); !ok {
 		t.Fatalf("CastableNow = false for a tax-free commander whose printed cost fits producible mana")
 	}
@@ -67,14 +67,14 @@ func TestCastableNowCommandTaxAffordability(t *testing.T) {
 // says no; AnyCastableNow (the no-plan reading) says yes.
 func TestCastableNowAnyBroadReading(t *testing.T) {
 	brd := Board{IsMain: true, FirstMain: true, MyTurn: true,
-		Cards: map[state.ObjID]Card{
+		Cards: TableOf(map[state.ObjID]Card{
 			1: nowIsland(), 2: nowIsland(),
 			// 50: the higher-CMC intent, a dead counter (own spell on the
 			// stack, so no foreign spell).
 			50: {CMC: 4, Castable: true, ManaCost: "3 U", Counter: true, InstantSpeed: true},
 			// 60: a cheaper instant the manual policy could pay by hand.
 			60: {CMC: 1, Castable: true, ManaCost: "U", InstantSpeed: true},
-		},
+		}),
 		Stack: []StackEntry{{ID: 90, Controller: 0, IsSpell: true, CMC: 4}},
 	}
 	d := &decision.Decision{Seq: 1, Player: 0, Kind: decision.KPriority,
@@ -88,7 +88,7 @@ func TestCastableNowAnyBroadReading(t *testing.T) {
 	if !brd.CounterIsDead(d.Player, 50) {
 		t.Fatalf("precondition: CounterIsDead(50) = false, want it dead")
 	}
-	if !brd.Cards[60].InstantSpeed {
+	if !brd.Cards.Get(60).InstantSpeed {
 		t.Fatalf("precondition: card 60 must be instant speed")
 	}
 
@@ -107,17 +107,17 @@ func TestCastableNowAnyBroadReading(t *testing.T) {
 // cannot supply).
 func TestAnyCastableNowSkipsUnproducibleColour(t *testing.T) {
 	brd := Board{IsMain: true, FirstMain: true, MyTurn: true,
-		Cards: map[state.ObjID]Card{
+		Cards: TableOf(map[state.ObjID]Card{
 			1: nowIsland(), 2: nowIsland(),
 			50: {Creature: true, Power: 2, Toughness: 2, CMC: 2, Castable: true, ManaCost: "1 G"},
-		},
+		}),
 	}
 	d := &decision.Decision{Seq: 1, Player: 0, Kind: decision.KPriority,
 		Options: []decision.Option{{Index: 0, Kind: "activate", Obj: 1}, {Index: 1, Kind: "activate", Obj: 2}, {Index: 2, Kind: "pass"}}}
 
 	// Precondition: the card really is unpayable, and the offered sources
 	// really can supply no green (only islands).
-	if brd.poolPays(50, brd.Cards[50]) {
+	if brd.poolPays(50, brd.Cards.Get(50)) {
 		t.Fatalf("precondition: card 50 must be unpayable")
 	}
 	offered := brd.offeredColours(d)
@@ -157,11 +157,11 @@ func nowUrzaLand() Card {
 // two basic Forests is still refused.
 func TestCastableNowIndeterminateSourceIsNotZero(t *testing.T) {
 	brd := Board{IsMain: true, FirstMain: true, MyTurn: true,
-		Cards: map[state.ObjID]Card{
+		Cards: TableOf(map[state.ObjID]Card{
 			1: nowUrzaLand(), 2: nowUrzaLand(),
 			// 50: Expedition Map, {1} artifact.
 			50: {CMC: 1, Castable: true, ManaCost: "1"},
-		},
+		}),
 	}
 	d := &decision.Decision{Seq: 1, Player: 0, Kind: decision.KPriority,
 		Options: []decision.Option{
@@ -188,10 +188,10 @@ func TestCastableNowIndeterminateSourceIsNotZero(t *testing.T) {
 	// Control: with only known production (two Forests), a 7-drop is still
 	// refuted by the affordability read.
 	known := Board{IsMain: true, FirstMain: true, MyTurn: true,
-		Cards: map[state.ObjID]Card{
+		Cards: TableOf(map[state.ObjID]Card{
 			1: nowForest(), 2: nowForest(),
 			50: {Creature: true, Power: 7, Toughness: 7, CMC: 7, Castable: true, ManaCost: "6 G"},
-		},
+		}),
 	}
 	if _, ok := known.CastableNow(d.Player, d); ok {
 		t.Fatalf("control: CastableNow = true for a 7-drop on two Forests")
@@ -203,11 +203,11 @@ func TestCastableNowIndeterminateSourceIsNotZero(t *testing.T) {
 	// A TAPPED Indeterminate source produces nothing this turn, so it cannot
 	// keep a cast open: the same Map with both Urza lands tapped is refused.
 	tapped := brd
-	tapped.Cards = map[state.ObjID]Card{50: brd.Cards[50]}
+	tapped.Cards = TableOf(map[state.ObjID]Card{50: brd.Cards.Get(50)})
 	for _, id := range []state.ObjID{1, 2} {
-		c := brd.Cards[id]
+		c := brd.Cards.Get(id)
 		c.Tapped = true
-		tapped.Cards[id] = c
+		tapped.Cards.Set(id, c)
 	}
 	if tapped.AnyCastableNow(d.Player, d) {
 		t.Fatalf("AnyCastableNow = true with every Indeterminate source tapped")

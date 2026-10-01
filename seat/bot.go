@@ -424,11 +424,7 @@ func BoardFromView(v view.View) botpolicy.Board {
 		// it back names the same state.Step the game half reads off g.Step
 		// directly. An unrecognised string (never produced by the projector)
 		// leaves the zero step, StepUntap, exactly the game half's zero.
-		Step:       parsedStep(v.Step),
-		Creatures:  make(map[state.ObjID]botpolicy.Creature, 32),
-		Life:       make(map[state.PlayerID]int32, len(v.Players)),
-		Cards:      make(map[state.ObjID]botpolicy.Card, 16),
-		Commanders: make(map[state.ObjID]botpolicy.Commander, 8),
+		Step: parsedStep(v.Step),
 	}
 	// The public stack census (C8's facts): the projected StackView list is
 	// the stack's own bottom-to-top order, so the census slice is that same
@@ -451,7 +447,7 @@ func BoardFromView(v view.View) botpolicy.Board {
 		b.Stack = append(b.Stack, botpolicy.StackEntry{ID: sv.ID, Controller: sv.Controller, IsSpell: sv.Kind == "spell", CMC: cmc, ManaCost: manaCost})
 	}
 	for _, p := range v.Players {
-		b.Life[p.ID] = p.Life
+		b.Life.Set(p.ID, p.Life)
 		if p.ID == v.Viewer {
 			b.LibrarySize = int32(p.LibrarySize)
 			b.HandSize = int32(p.HandSize)
@@ -475,14 +471,14 @@ func BoardFromView(v view.View) botpolicy.Board {
 			if !isCreatureView(cv) {
 				continue
 			}
-			b.Creatures[cv.ID] = botpolicy.Creature{
+			b.Creatures.Set(cv.ID, botpolicy.Creature{
 				Power:      cv.Power,
 				Toughness:  cv.Toughness,
 				Damage:     cv.Damage,
 				Keywords:   cv.Keywords,
 				Tapped:     cv.Tapped,
 				Controller: cv.Controller,
-			}
+			})
 		}
 		// The commander bookkeeping: the projected roster (p.Commanders,
 		// never shrunk as commanders are cast) carries identity and the CR
@@ -503,7 +499,7 @@ func BoardFromView(v view.View) botpolicy.Board {
 					break
 				}
 			}
-			b.Commanders[cv.ID] = cmdr
+			b.Commanders.Set(cv.ID, cmdr)
 		}
 	}
 	// The CR 903.10 clock, filled from every player's damage keys. The map
@@ -515,12 +511,12 @@ func BoardFromView(v view.View) botpolicy.Board {
 	// the nil-map read would be a zero entry otherwise, never a crash.
 	for _, q := range v.Players {
 		for id, tally := range q.CmdDamage {
-			cmdr := b.Commanders[id]
+			cmdr := b.Commanders.Get(id)
 			if cmdr.Damage == nil {
 				cmdr.Damage = make(map[state.PlayerID]int32, 2)
 			}
 			cmdr.Damage[q.ID] = tally
-			b.Commanders[id] = cmdr
+			b.Commanders.Set(id, cmdr)
 		}
 	}
 	// The casting Card census: the viewer's own hand, graveyard, battlefield
@@ -558,7 +554,7 @@ func BoardFromView(v view.View) botpolicy.Board {
 			if cv.Produces != nil {
 				produces = *cv.Produces
 			}
-			b.Cards[cv.ID] = botpolicy.Card{
+			b.Cards.Set(cv.ID, botpolicy.Card{
 				Creature:      isCreatureView(cv),
 				Power:         cv.Power,
 				Toughness:     cv.Toughness,
@@ -574,7 +570,7 @@ func BoardFromView(v view.View) botpolicy.Board {
 				Produces:      produces,
 				InstantSpeed:  instantSpeedView(cv),
 				Counter:       cv.SpellAPI == "Counter",
-			}
+			})
 		}
 	}
 	aCastable := func(view.CardView) bool { return true }
@@ -582,14 +578,14 @@ func BoardFromView(v view.View) botpolicy.Board {
 	for _, p := range v.Players {
 		if p.ID != v.Viewer {
 			for _, cv := range p.Battlefield {
-				b.Cards[cv.ID] = botpolicy.Card{
+				b.Cards.Set(cv.ID, botpolicy.Card{
 					Creature:  isCreatureView(cv),
 					Power:     cv.Power,
 					Toughness: cv.Toughness,
 					CMC:       botpolicy.CmcOf(cv.ManaCost),
 					Basic:     hasBasicView(cv),
 					ManaCost:  cv.ManaCost,
-				}
+				})
 			}
 			continue
 		}

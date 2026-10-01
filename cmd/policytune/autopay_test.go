@@ -21,10 +21,10 @@ func autoPayProbe() (botpolicy.Board, decision.Decision) {
 		PaymentActions: []decision.PaymentAction{{ID: "action", Cast: decision.PlannedCast{Object: 9, Origin: "hand"},
 			Plans: []decision.PaymentPlan{{ID: "plan", Version: decision.PaymentPlanV1}}}},
 	}
-	b := botpolicy.Board{IsMain: true, Cards: map[state.ObjID]botpolicy.Card{
+	b := botpolicy.Board{IsMain: true, Cards: botpolicy.TableOf(map[state.ObjID]botpolicy.Card{
 		7: {OnBattlefield: true},
 		9: {Creature: true, Power: 3, CMC: 3, Castable: true},
-	}}
+	})}
 	return b, d
 }
 

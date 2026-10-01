@@ -23,10 +23,10 @@ import (
 // replacement whose source permanent has the higher cardWorth, not the option
 // that happens to be offered first.
 func TestBotReplacementOrderRanksBySourceWorth(t *testing.T) {
-	b := Board{Cards: map[state.ObjID]Card{
+	b := Board{Cards: TableOf(map[state.ObjID]Card{
 		10: {Creature: true, Power: 5}, // worth 30 + 4*5 = 50
 		20: {Creature: true, Power: 1}, // worth 30 + 4*1 = 34
-	}}
+	})}
 	// Precondition: the arm has a real ranking to make.
 	hi, lo := b.cardWorth(10), b.cardWorth(20)
 	if hi == lo {
@@ -49,7 +49,7 @@ func TestBotReplacementOrderRanksBySourceWorth(t *testing.T) {
 // TestBotReplacementOrderBypassesSkip is (a)'s opt-out half: a
 // "skip_replacement" option never wins while a real replacement is offered.
 func TestBotReplacementOrderBypassesSkip(t *testing.T) {
-	b := Board{Cards: map[state.ObjID]Card{10: {Creature: true, Power: 3}}}
+	b := Board{Cards: TableOf(map[state.ObjID]Card{10: {Creature: true, Power: 3}})}
 	d := &decision.Decision{Player: 0, Kind: decision.KReplacement, Min: 1, Max: 1,
 		Options: []decision.Option{
 			{Index: 0, Kind: "skip_replacement", Label: "Do not apply an optional replacement"},

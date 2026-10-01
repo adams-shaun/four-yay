@@ -386,10 +386,10 @@ func burnFactsFromView(v view.View, d decision.Decision) (burnFacts, bool) {
 // (see the package comment's controller-identity note).
 func burnFactsFromBoard(b botpolicy.Board, d decision.Decision) burnFacts {
 	f := burnFacts{life: map[state.PlayerID]int32{}, cre: map[state.ObjID]burnCre{}}
-	for id, life := range b.Life {
+	for id, life := range b.Life.All() {
 		f.life[id] = life
 	}
-	for id, c := range b.Creatures {
+	for id, c := range b.Creatures.All() {
 		f.cre[id] = burnCre{
 			ctl: c.Controller, power: c.Power, toughness: c.Toughness,
 			dmg: c.Damage, tapped: c.Tapped,

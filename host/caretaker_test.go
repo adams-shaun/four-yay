@@ -61,9 +61,9 @@ func TestHumanCaretakerUsesConfiguredPolicy(t *testing.T) {
 		t.Fatalf("caretaker %T does not expose the board adapter", caretaker)
 	}
 	board := botpolicy.NewBoard(2)
-	board.Life[1] = 10
-	board.Creatures[1] = botpolicy.Creature{Power: 10, Toughness: 1, Controller: 0}
-	board.Creatures[2] = botpolicy.Creature{Power: 1, Toughness: 1, Controller: 1}
+	board.Life.Set(1, 10)
+	board.Creatures.Set(1, botpolicy.Creature{Power: 10, Toughness: 1, Controller: 0})
+	board.Creatures.Set(2, botpolicy.Creature{Power: 1, Toughness: 1, Controller: 1})
 	d := decision.Decision{Seq: 1, Player: 0, Kind: decision.KAttackers, Max: 1,
 		Options: []decision.Option{{Index: 0, Obj: state.ObjID(1), Player: 1}}}
 	in, err := bot.DecideBoard(context.Background(), board, d)

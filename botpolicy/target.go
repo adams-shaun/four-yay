@@ -149,7 +149,7 @@ func (b Board) mayKillMe(me state.PlayerID, c Creature) bool {
 	if c.Power <= 0 || c.Tapped {
 		return false
 	}
-	life, ok := b.Life[me]
+	life, ok := b.Life.Lookup(me)
 	if !ok {
 		return false
 	}
@@ -197,7 +197,7 @@ func (b Board) hasSpareMana() bool { return b.hasSpareManaAfter("") }
 func (b Board) hasSpareManaAfter(pendingCost string) bool {
 	available := b.Pool
 	var sources []state.Mana
-	for _, c := range b.Cards {
+	for _, c := range b.Cards.All() {
 		if !c.OnBattlefield || !c.Basic || c.Tapped || c.Produces.Any || c.Produces.Indeterminate {
 			continue
 		}
@@ -223,7 +223,7 @@ func (b Board) hasSpareManaAfter(pendingCost string) bool {
 	// No instant-speed reserve: any dependable mana is spare.
 	minCost := int32(-1)
 	var reserves []Card
-	for id, c := range b.Cards {
+	for id, c := range b.Cards.All() {
 		if !c.Castable || !c.InstantSpeed || c.CMC <= 0 {
 			continue
 		}
@@ -482,7 +482,7 @@ func (b Board) removalRanker(me state.PlayerID, effect *decision.TargetEffect) f
 			return r
 		}
 		value := r.score
-		if c, ok := b.Cards[o.Obj]; ok && value == 0 {
+		if c, ok := b.Cards.Lookup(o.Obj); ok && value == 0 {
 			value = c.CMC * 3
 		}
 		if value == 0 {
@@ -542,7 +542,7 @@ func (b Board) effectRankerAfter(me state.PlayerID, dmg int32, pendingCost strin
 			if o.Player == me {
 				return targetRank{score: 0, idx: o.Index, ours: true}
 			}
-			if b.Life[o.Player] <= dmg {
+			if b.Life.Get(o.Player) <= dmg {
 				return targetRank{score: tierFaceLethal, idx: o.Index}
 			}
 			// A face the known damage does not reach is not a good value
@@ -551,12 +551,12 @@ func (b Board) effectRankerAfter(me state.PlayerID, dmg int32, pendingCost strin
 		}
 		if o.Player == me {
 			sc := int32(0)
-			if c, ok := b.Creatures[o.Obj]; ok {
+			if c, ok := b.Creatures.Lookup(o.Obj); ok {
 				sc = c.threat()
 			}
 			return targetRank{score: sc, idx: o.Index, ours: true}
 		}
-		c, ok := b.Creatures[o.Obj]
+		c, ok := b.Creatures.Lookup(o.Obj)
 		if !ok {
 			return targetRank{score: 0, idx: o.Index}
 		}
@@ -595,12 +595,12 @@ func (b Board) rankOption(o decision.Option, me state.PlayerID) targetRank {
 		// threat so a forced all-own decision still ranks its own
 		// permanents rather than falling back to position order.
 		sc := int32(0)
-		if c, ok := b.Creatures[o.Obj]; ok {
+		if c, ok := b.Creatures.Lookup(o.Obj); ok {
 			sc = c.threat()
 		}
 		return targetRank{score: sc, idx: o.Index, ours: true}
 	}
-	if c, ok := b.Creatures[o.Obj]; ok {
+	if c, ok := b.Creatures.Lookup(o.Obj); ok {
 		return targetRank{score: c.threat(), idx: o.Index}
 	}
 	return targetRank{score: 0, idx: o.Index}

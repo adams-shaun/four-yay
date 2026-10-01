@@ -38,7 +38,7 @@ func TestAutoPayReserveUsesProducibleMana(t *testing.T) {
 	// Precondition: the manual bot (four mana floated, both casts offered as
 	// legacy options) keeps the reserve and casts 42. If this ever stops
 	// holding the auto-pay assertion below is meaningless.
-	manualBrd := botpolicy.Board{IsMain: true, MyTurn: true, Cards: cardsMap}
+	manualBrd := botpolicy.Board{IsMain: true, MyTurn: true, Cards: botpolicy.TableOf(cardsMap)}
 	manualBrd.Pool[state.MG] = 4
 	md := decision.Decision{Seq: 7, Player: 0, Kind: decision.KPriority, Min: 1, Max: 1,
 		Options: []decision.Option{{Index: 0, Kind: "cast", Obj: 43}, {Index: 1, Kind: "cast", Obj: 42}, {Index: 2, Kind: "pass"}}}
@@ -50,7 +50,7 @@ func TestAutoPayReserveUsesProducibleMana(t *testing.T) {
 	// The auto-pay board: an EMPTY pool (the plan path's precondition) but
 	// four untapped Forests, so producible mana is 4 -- which is what C7 must
 	// read for a plan-backed candidate.
-	autoBrd := botpolicy.Board{IsMain: true, MyTurn: true, Cards: cardsMap}
+	autoBrd := botpolicy.Board{IsMain: true, MyTurn: true, Cards: botpolicy.TableOf(cardsMap)}
 	if got := autoBrd.Pool.Total(); got != 0 {
 		t.Fatalf("precondition: the auto-pay pool must be empty (a V1 plan is offered only then), got %d", got)
 	}
@@ -101,7 +101,7 @@ func TestAutoPayReserveStaysInertWithoutReserve(t *testing.T) {
 		43: {Creature: true, Power: 2, Toughness: 2, CMC: 4, Castable: true, ManaCost: "3 G"},
 		42: {Creature: true, Power: 2, Toughness: 2, CMC: 2, Castable: true, ManaCost: "1 G"},
 	}
-	autoBrd := botpolicy.Board{IsMain: true, MyTurn: true, Cards: cardsMap}
+	autoBrd := botpolicy.Board{IsMain: true, MyTurn: true, Cards: botpolicy.TableOf(cardsMap)}
 	var reserve int32
 	for _, c := range cardsMap {
 		if !c.Castable || !c.InstantSpeed || c.CMC <= 0 {

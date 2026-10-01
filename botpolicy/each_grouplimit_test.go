@@ -23,7 +23,7 @@ import (
 // takes the first two of EACH group and Validate accepts it; the pre-fix
 // blind fill ([0,1,2,3]) is rejected by the cap the engine enforces.
 func TestBotFillHonoursPerGroupCapOnSearch(t *testing.T) {
-	b := Board{Cards: map[state.ObjID]Card{}}
+	b := Board{Cards: TableOf(map[state.ObjID]Card{})}
 	d := decision.Decision{
 		Kind:       decision.KChoose,
 		ResumeKind: "search",
@@ -54,7 +54,7 @@ func TestBotFillHonoursPerGroupCapOnSearch(t *testing.T) {
 // hidden_pick arm's group-aware fill on the same shape (an EACH public-origin
 // pick routes through it, not the search arm).
 func TestBotFillHonoursPerGroupCapOnHiddenPick(t *testing.T) {
-	b := Board{Cards: map[state.ObjID]Card{}}
+	b := Board{Cards: TableOf(map[state.ObjID]Card{})}
 	d := decision.Decision{
 		Kind:       decision.KChoose,
 		ResumeKind: "hidden_pick",
@@ -82,7 +82,7 @@ func TestBotFillHonoursPerGroupCapOnHiddenPick(t *testing.T) {
 // group-aware fill on an ungrouped decision is the historical first-Max take,
 // byte-identical, so no existing ask's bot answer moved.
 func TestBotFillUngroupedOptionsUnchanged(t *testing.T) {
-	b := Board{Cards: map[state.ObjID]Card{}}
+	b := Board{Cards: TableOf(map[state.ObjID]Card{})}
 	d := decision.Decision{
 		Kind:       decision.KChoose,
 		ResumeKind: "hidden_pick",

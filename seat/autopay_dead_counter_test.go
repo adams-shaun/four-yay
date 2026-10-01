@@ -29,7 +29,7 @@ import (
 func TestAutoPayDeadCounterDoesNotBlockManualPath(t *testing.T) {
 	brd := botpolicy.Board{
 		IsMain: true, FirstMain: true, MyTurn: true,
-		Cards: map[state.ObjID]botpolicy.Card{
+		Cards: botpolicy.TableOf(map[state.ObjID]botpolicy.Card{
 			1: islandCard(), 2: islandCard(), 3: islandCard(),
 			// 50: the planned counter -- dead, because the only stack spell
 			// is the deciding seat's own. Its higher CMC makes it the tap
@@ -41,7 +41,7 @@ func TestAutoPayDeadCounterDoesNotBlockManualPath(t *testing.T) {
 			// 60: the unplanned instant the manual policy could pay by hand
 			// (lower CMC, so it is not the tap gate's intent).
 			60: {CMC: 2, Castable: true, ManaCost: "1 U", InstantSpeed: true},
-		},
+		}),
 		// The bot's OWN spell: Controller 0 == the deciding seat, IsSpell
 		// true, so ForeignSpell(0) is false and the counter is dead.
 		Stack: []botpolicy.StackEntry{{ID: 90, Controller: 0, IsSpell: true, CMC: 4}},
@@ -88,11 +88,11 @@ func TestAutoPayDeadCounterDoesNotBlockManualPath(t *testing.T) {
 func TestAutoPayKeepsPlanForLiveCounter(t *testing.T) {
 	brd := botpolicy.Board{
 		IsMain: true, FirstMain: true, MyTurn: true,
-		Cards: map[state.ObjID]botpolicy.Card{
+		Cards: botpolicy.TableOf(map[state.ObjID]botpolicy.Card{
 			1: islandCard(), 2: islandCard(), 3: islandCard(),
 			50: {CMC: 4, Castable: true, ManaCost: "3 U", Counter: true, InstantSpeed: true},
 			60: {CMC: 1, Castable: true, ManaCost: "U", InstantSpeed: true},
-		},
+		}),
 		// A FOREIGN spell (Controller 1) makes the counter live.
 		Stack: []botpolicy.StackEntry{{ID: 91, Controller: 1, IsSpell: true, CMC: 4}},
 	}

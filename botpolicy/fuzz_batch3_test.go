@@ -38,8 +38,8 @@ func TestLegalBlockChoicesDropsALoneMenaceBlocker(t *testing.T) {
 					{Index: 0, Kind: "block", Obj: 10, Attacker: 20, MinBlockers: tc.published},
 					{Index: 1, Kind: "block", Obj: 11, Attacker: 20, MinBlockers: tc.published, CostTaps: 1},
 				}}
-			b := Board{Creatures: map[state.ObjID]Creature{20: {Power: 3, Toughness: 2, Keywords: tc.keywords}},
-				Life: map[state.PlayerID]int32{0: 20}}
+			b := Board{Creatures: TableOf(map[state.ObjID]Creature{20: {Power: 3, Toughness: 2, Keywords: tc.keywords}}),
+				Life: TableOf(map[state.PlayerID]int32{0: 20})}
 			if got := legalBlockChoices(b, d, []int{0, 1}); len(got) != 0 {
 				t.Fatalf("legalBlockChoices = %v, want the lone Menace block dropped", got)
 			}

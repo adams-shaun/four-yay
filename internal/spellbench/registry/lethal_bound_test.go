@@ -112,12 +112,12 @@ func TestLethalCombinedPumpStillTakesTheKill(t *testing.T) {
 func fsTramplerBoard(atkKeywords []string) botpolicy.Board {
 	return botpolicy.Board{
 		IsMain: true, FirstMain: true, MyTurn: true,
-		Creatures: map[state.ObjID]botpolicy.Creature{
+		Creatures: botpolicy.TableOf(map[state.ObjID]botpolicy.Creature{
 			10: {Power: 4, Toughness: 3, Controller: 0, Keywords: atkKeywords},
 			20: {Power: 3, Toughness: 3, Controller: 1, Keywords: []string{"First Strike"}},
-		},
-		Life:  map[state.PlayerID]int32{0: 20, 1: 1},
-		Cards: map[state.ObjID]botpolicy.Card{10: {Sick: false}},
+		}),
+		Life:  botpolicy.TableOf(map[state.PlayerID]int32{0: 20, 1: 1}),
+		Cards: botpolicy.TableOf(map[state.ObjID]botpolicy.Card{10: {Sick: false}}),
 	}
 }
 
@@ -128,7 +128,7 @@ func fsTramplerBoard(atkKeywords []string) botpolicy.Board {
 // suicide attack.
 func TestLethalFirstStrikeBlockerDeniesTheTrampler(t *testing.T) {
 	board := fsTramplerBoard([]string{"Trample"})
-	if board.Creatures[20].Keywords[0] != "First Strike" {
+	if board.Creatures.Get(20).Keywords[0] != "First Strike" {
 		t.Fatal("fixture: blocker must have first strike")
 	}
 	d := attackerDecision(0, 10)
@@ -166,14 +166,14 @@ func TestLethalFirstStrikeAttackerPunchesThrough(t *testing.T) {
 func TestLethalBlockedDoubleStrikerIsPricedSingleStep(t *testing.T) {
 	board := botpolicy.Board{
 		IsMain: true, FirstMain: true, MyTurn: true,
-		Creatures: map[state.ObjID]botpolicy.Creature{
+		Creatures: botpolicy.TableOf(map[state.ObjID]botpolicy.Creature{
 			10: {Power: 5, Toughness: 5, Controller: 0, Keywords: []string{"Double Strike", "Trample"}},
 			20: {Power: 5, Toughness: 5, Controller: 1, Keywords: []string{"First Strike"}},
-		},
-		Life:  map[state.PlayerID]int32{0: 20, 1: 5},
-		Cards: map[state.ObjID]botpolicy.Card{10: {Sick: false}},
+		}),
+		Life:  botpolicy.TableOf(map[state.PlayerID]int32{0: 20, 1: 5}),
+		Cards: botpolicy.TableOf(map[state.ObjID]botpolicy.Card{10: {Sick: false}}),
 	}
-	if board.Life[1] != 5 {
+	if board.Life.Get(1) != 5 {
 		t.Fatal("fixture: opponent life not 5")
 	}
 	d := attackerDecision(0, 10)
@@ -193,12 +193,12 @@ func TestLethalBlockedDoubleStrikerIsPricedSingleStep(t *testing.T) {
 func TestLethalUnblockedDoubleStrikerStillCountsBothSteps(t *testing.T) {
 	board := botpolicy.Board{
 		IsMain: true, FirstMain: true, MyTurn: true,
-		Creatures: map[state.ObjID]botpolicy.Creature{
+		Creatures: botpolicy.TableOf(map[state.ObjID]botpolicy.Creature{
 			10: {Power: 3, Toughness: 3, Controller: 0, Keywords: []string{"Double Strike", "Flying"}},
 			20: {Power: 2, Toughness: 2, Controller: 1},
-		},
-		Life:  map[state.PlayerID]int32{0: 20, 1: 6},
-		Cards: map[state.ObjID]botpolicy.Card{10: {Sick: false}},
+		}),
+		Life:  botpolicy.TableOf(map[state.PlayerID]int32{0: 20, 1: 6}),
+		Cards: botpolicy.TableOf(map[state.ObjID]botpolicy.Card{10: {Sick: false}}),
 	}
 	d := attackerDecision(0, 10)
 	inner := &stubSeat{answer: decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{}}}

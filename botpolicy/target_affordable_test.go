@@ -15,7 +15,7 @@ import (
 // Setessan Tactics). The engine now carries the largest affordable count on
 // the ask (Decision.AffordableTargets); the bot must stay within it.
 func TestTargetStaysWithinAffordableCount(t *testing.T) {
-	b := Board{Cards: map[state.ObjID]Card{}}
+	b := Board{Cards: TableOf(map[state.ObjID]Card{})}
 	opts := []decision.Option{
 		{Index: 0, Kind: "permanent", Obj: 1},
 		{Index: 1, Kind: "permanent", Obj: 2},

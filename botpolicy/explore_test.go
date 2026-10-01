@@ -13,8 +13,8 @@ import (
 // taken for some seed, and a seed always answers the same.
 func TestExploreX2ReachesEverySiblingAbility(t *testing.T) {
 	b := Board{IsMain: true,
-		Creatures: map[state.ObjID]Creature{7: {Power: 3, Toughness: 3, Controller: 0}},
-		Cards:     map[state.ObjID]Card{7: {}},
+		Creatures: TableOf(map[state.ObjID]Creature{7: {Power: 3, Toughness: 3, Controller: 0}}),
+		Cards:     TableOf(map[state.ObjID]Card{7: {}}),
 	}
 	d := &decision.Decision{Seq: 1, Player: 0, Kind: decision.KPriority, Min: 1, Max: 1,
 		Options: []decision.Option{

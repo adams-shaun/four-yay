@@ -6,6 +6,7 @@ import (
 	"math/rand/v2"
 	"reflect"
 	"testing"
+	"unsafe"
 
 	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/cards"
@@ -52,17 +53,27 @@ func TestRejectionBucketClassifiesObservedShapeWithoutIdentity(t *testing.T) {
 func TestOpponentBoardsReusePerPlayerMaps(t *testing.T) {
 	e := &rules.Engine{G: state.NewGame([]string{"a", "b"})}
 	boards := newOpponentBoards(2)
-	wantCards := reflect.ValueOf(boards[1].Cards).Pointer()
-	wantLife := reflect.ValueOf(boards[1].Life).Pointer()
+	wantCards := tableStorage(boards[1].Cards.Values())
+	wantLife := tableStorage(boards[1].Life.Values())
+	if wantCards == 0 || wantLife == 0 {
+		t.Fatal("precondition: the opponent boards were built without table storage")
+	}
 
 	first := opponentBoard(e, 1, boards)
 	second := opponentBoard(e, 1, boards)
-	if reflect.ValueOf(first.Cards).Pointer() != wantCards || reflect.ValueOf(second.Cards).Pointer() != wantCards {
-		t.Fatal("opponent board card map was reallocated")
+	if tableStorage(first.Cards.Values()) != wantCards || tableStorage(second.Cards.Values()) != wantCards {
+		t.Fatal("opponent board card table was reallocated")
 	}
-	if reflect.ValueOf(first.Life).Pointer() != wantLife || reflect.ValueOf(second.Life).Pointer() != wantLife {
-		t.Fatal("opponent board life map was reallocated")
+	if tableStorage(first.Life.Values()) != wantLife || tableStorage(second.Life.Values()) != wantLife {
+		t.Fatal("opponent board life table was reallocated")
 	}
+}
+
+// tableStorage is the address of a Board table's value storage (its whole
+// capacity), so a test can tell a refill that reused it from one that
+// reallocated.
+func tableStorage[V any](vals []V) uintptr {
+	return uintptr(unsafe.Pointer(unsafe.SliceData(vals[:cap(vals)])))
 }
 
 func TestReserveObservedPrefixChangesOnlyLogCapacity(t *testing.T) {

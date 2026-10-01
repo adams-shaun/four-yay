@@ -20,7 +20,7 @@ func TestLegalAttackChoicesTrimsCombinedPhyrexianTax(t *testing.T) {
 		{Index: 1, Kind: "attacker", Obj: 2, CostPhyrexian: 1},
 		{Index: 2, Kind: "attacker", Obj: 3, CostPhyrexian: 1},
 	}}
-	b := Board{Life: map[state.PlayerID]int32{0: 4}}
+	b := Board{Life: TableOf(map[state.PlayerID]int32{0: 4})}
 	if got := LegalAttackChoices(b, d, []int{0, 1, 2}); !reflect.DeepEqual(got, []int{0, 1}) {
 		t.Fatalf("choices = %v, want [0 1] (third pip exceeds 4 life)", got)
 	}

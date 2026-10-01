@@ -22,24 +22,24 @@ func TestTargetSpareManaPreservesColouredInstant(t *testing.T) {
 	blue.Colour[state.MU] = 1
 	green := cards.ManaProduction{}
 	green.Colour[state.MG] = 1
-	b := Board{Cards: map[state.ObjID]Card{
+	b := Board{Cards: TableOf(map[state.ObjID]Card{
 		1: {OnBattlefield: true, Basic: true, Produces: blue},
 		2: {OnBattlefield: true, Basic: true, Produces: green},
 		3: {Castable: true, InstantSpeed: true, ManaCost: cost, CMC: CmcOf(cost)},
-	}}
-	if !b.Cards[1].OnBattlefield || !b.Cards[2].OnBattlefield || !b.Cards[3].Castable || b.Cards[1].Produces == b.Cards[2].Produces {
+	})}
+	if !b.Cards.Get(1).OnBattlefield || !b.Cards.Get(2).OnBattlefield || !b.Cards.Get(3).Castable || b.Cards.Get(1).Produces == b.Cards.Get(2).Produces {
 		t.Fatal("test needs distinct live blue and green sources and a castable instant")
 	}
 	if b.hasSpareMana() {
 		t.Fatal("one blue plus green cannot guarantee the blue instant after spending a source")
 	}
-	b.Cards[4] = Card{OnBattlefield: true, Basic: true, Produces: blue}
+	b.Cards.Set(4, Card{OnBattlefield: true, Basic: true, Produces: blue})
 	if !b.hasSpareMana() {
 		t.Fatal("two blue basics plus green should preserve the instant after any one source is spent")
 	}
 	// A source with a conditional activation is not guaranteed by a printed
 	// production summary; the basic-land flag is the conservative boundary.
-	b.Cards[4] = Card{OnBattlefield: true, Produces: blue}
+	b.Cards.Set(4, Card{OnBattlefield: true, Produces: blue})
 	if b.hasSpareMana() {
 		t.Fatal("a nonbasic mana ability cannot be assumed freely activatable")
 	}

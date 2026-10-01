@@ -14,8 +14,8 @@ func TestUnlessPayPolicyUsesSemanticMarkersAfterReordering(t *testing.T) {
 		{Index: 0, Kind: "mode", Label: "Don't pay", Mode: decision.ModeUnlessDecline},
 		{Index: 1, Kind: "mode", Label: "Pay 3", Mode: decision.ModeUnlessPay},
 	}
-	b := Board{Life: map[state.PlayerID]int32{0: 4},
-		Creatures: map[state.ObjID]Creature{1: {Power: 5, Toughness: 5, Controller: 1}}}
+	b := Board{Life: TableOf(map[state.PlayerID]int32{0: 4}),
+		Creatures: TableOf(map[state.ObjID]Creature{1: {Power: 5, Toughness: 5, Controller: 1}})}
 	if !b.facingLethal(0) || len(d.Options) != 2 || d.Options[0].Mode == d.Options[1].Mode {
 		t.Fatal("precondition: lethal threat and distinct pay/decline options required")
 	}
@@ -43,8 +43,8 @@ func TestUnlessDamagePolicyUsesSemanticMarkersAfterReordering(t *testing.T) {
 		{Index: 0, Kind: "mode", Label: "Refuse — it stays", Obj: obj, Player: 1, Mode: decision.ModeUnlessDecline},
 		{Index: 1, Kind: "mode", Label: "Take 4 damage", Obj: obj, Player: 1, Mode: decision.ModeUnlessPay},
 	}
-	b := Board{Cards: map[state.ObjID]Card{obj: {Creature: true, Power: 4, CMC: 1}}, Life: map[state.PlayerID]int32{1: 20}}
-	if b.cardWorth(obj) < 4 || b.Life[1] <= 4 || d.Options[0].Mode == d.Options[1].Mode {
+	b := Board{Cards: TableOf(map[state.ObjID]Card{obj: {Creature: true, Power: 4, CMC: 1}}), Life: TableOf(map[state.PlayerID]int32{1: 20})}
+	if b.cardWorth(obj) < 4 || b.Life.Get(1) <= 4 || d.Options[0].Mode == d.Options[1].Mode {
 		t.Fatal("precondition: creature is worth the nonlethal damage and offers differ")
 	}
 	in := Decide(b, &d, rng(1))

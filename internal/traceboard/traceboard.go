@@ -98,23 +98,23 @@ func Project(b *botpolicy.Board) Board {
 	r := Board{SchemaVersion: SchemaVersion, IsMain: b.IsMain, Mana: b.Pool}
 	cardIDs := sortedObjIDs(b.Cards)
 	for _, id := range cardIDs {
-		c := b.Cards[id]
+		c := b.Cards.Get(id)
 		r.Cards = append(r.Cards, Card{CardID: id, Creature: c.Creature, Power: c.Power, ManaValue: c.CMC, Basic: c.Basic, AttachedTo: c.AttachedTo, Activated: c.Activated, ManaCost: c.ManaCost, Castable: c.Castable, OnBattlefield: c.OnBattlefield, InstantSpeed: c.InstantSpeed, Produces: c.Produces.Colour, ProducesAny: c.Produces.Any, Indeterminate: c.Produces.Indeterminate, Counter: c.Counter})
 	}
-	players := make([]int, 0, len(b.Life))
-	for p := range b.Life {
+	players := make([]int, 0, b.Life.Len())
+	for p := range b.Life.All() {
 		players = append(players, int(p))
 	}
 	sort.Ints(players)
 	for _, p := range players {
-		r.Life = append(r.Life, Life{Player: state.PlayerID(p), Life: b.Life[state.PlayerID(p)]})
+		r.Life = append(r.Life, Life{Player: state.PlayerID(p), Life: b.Life.Get(state.PlayerID(p))})
 	}
 	for _, id := range sortedObjIDs(b.Creatures) {
-		c := b.Creatures[id]
+		c := b.Creatures.Get(id)
 		r.Creatures = append(r.Creatures, Creature{Object: id, Controller: c.Controller, Power: c.Power, Toughness: c.Toughness, Damage: c.Damage, Tapped: c.Tapped, Keywords: append([]string(nil), c.Keywords...)})
 	}
 	for _, id := range sortedObjIDs(b.Commanders) {
-		c := b.Commanders[id]
+		c := b.Commanders.Get(id)
 		v := Commander{Object: id, Casts: c.Casts, InCommandZone: c.InCommandZone}
 		ps := make([]int, 0, len(c.Damage))
 		for p := range c.Damage {
@@ -132,11 +132,8 @@ func Project(b *botpolicy.Board) Board {
 	return r
 }
 
-func sortedObjIDs[V any](m map[state.ObjID]V) []state.ObjID {
-	ids := make([]state.ObjID, 0, len(m))
-	for id := range m {
-		ids = append(ids, id)
-	}
+func sortedObjIDs[V any](t botpolicy.IDTable[state.ObjID, V]) []state.ObjID {
+	ids := append([]state.ObjID(nil), t.Keys()...)
 	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
 	return ids
 }

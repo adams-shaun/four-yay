@@ -15,18 +15,18 @@ import (
 // instant-speed (InstantSpeed). The gate makes reserve() a fixed constant
 // (or reads the expensive card) and this test fails.
 func TestB2ReserveIsCheapestInstantSpeedCard(t *testing.T) {
-	b := Board{Cards: map[state.ObjID]Card{
+	b := Board{Cards: TableOf(map[state.ObjID]Card{
 		1: {CMC: 3, Castable: true, InstantSpeed: true}, // a 3-cost instant
 		2: {CMC: 1, Castable: true, InstantSpeed: true}, // a 1-cost flash creature
 		3: {CMC: 2, Castable: true},                     // a sorcery: not instant speed
 		4: {CMC: 4, InstantSpeed: true},                 // a battlefield permanent: not castable
 		5: {CMC: 2, Castable: true, InstantSpeed: true}, // a graveyard flashback, castable
-	}}
+	})}
 	if got := b.reserve(); got != 1 {
 		t.Fatalf("reserve() = %d, want the cheapest instant-speed castable card (1, the flash creature)", got)
 	}
 	// No instant-speed castable card: reserve 0, so C7 is inert.
-	b = Board{Cards: map[state.ObjID]Card{3: {CMC: 2, Castable: true}}}
+	b = Board{Cards: TableOf(map[state.ObjID]Card{3: {CMC: 2, Castable: true}})}
 	if got := b.reserve(); got != 0 {
 		t.Fatalf("reserve() with no instant-speed card = %d, want 0", got)
 	}
@@ -44,11 +44,11 @@ func TestB2ReserveIsCheapestInstantSpeedCard(t *testing.T) {
 func TestB2ReservePrefersKeepingCast(t *testing.T) {
 	b := Board{IsMain: true,
 		Pool: state.Mana{state.MC: 3},
-		Cards: map[state.ObjID]Card{
+		Cards: TableOf(map[state.ObjID]Card{
 			1: {CMC: 1, Castable: true},                     // a 1-cost spell: leaves pool 2 >= reserve 1
 			3: {CMC: 3, Castable: true},                     // a 3-cost spell: empties the pool
 			2: {CMC: 1, Castable: true, InstantSpeed: true}, // the reserve (a 1-cost instant)
-		},
+		}),
 	}
 	d := &decision.Decision{Seq: 1, Player: 0, Kind: decision.KPriority, Min: 1, Max: 1,
 		Options: []decision.Option{
@@ -70,10 +70,10 @@ func TestB2ReservePrefersKeepingCast(t *testing.T) {
 func TestB2ReserveNeverSuppressesBestPlay(t *testing.T) {
 	b := Board{IsMain: true,
 		Pool: state.Mana{state.MC: 4},
-		Cards: map[state.ObjID]Card{
+		Cards: TableOf(map[state.ObjID]Card{
 			1: {CMC: 4, Creature: true, Power: 4, Castable: true}, // a real threat, empties the pool
 			2: {CMC: 1, Castable: true, InstantSpeed: true},       // the reserve
-		},
+		}),
 	}
 	d := &decision.Decision{Seq: 1, Player: 0, Kind: decision.KPriority, Min: 1, Max: 1,
 		Options: []decision.Option{
@@ -94,10 +94,10 @@ func TestB2ReserveNeverSuppressesBestPlay(t *testing.T) {
 func TestB2ReserveAllowsCastWithSurplus(t *testing.T) {
 	b := Board{IsMain: true,
 		Pool: state.Mana{state.MC: 4},
-		Cards: map[state.ObjID]Card{
+		Cards: TableOf(map[state.ObjID]Card{
 			1: {CMC: 3, Creature: true, Power: 2, Castable: true},
 			2: {CMC: 1, Castable: true, InstantSpeed: true},
-		},
+		}),
 	}
 	d := &decision.Decision{Seq: 1, Player: 0, Kind: decision.KPriority, Min: 1, Max: 1,
 		Options: []decision.Option{
@@ -118,9 +118,9 @@ func TestB2ReserveAllowsCastWithSurplus(t *testing.T) {
 func TestB2ReserveInertWithoutInstant(t *testing.T) {
 	b := Board{IsMain: true,
 		Pool: state.Mana{state.MC: 3},
-		Cards: map[state.ObjID]Card{
+		Cards: TableOf(map[state.ObjID]Card{
 			1: {CMC: 3, Creature: true, Power: 2, Castable: true},
-		},
+		}),
 	}
 	d := &decision.Decision{Seq: 1, Player: 0, Kind: decision.KPriority, Min: 1, Max: 1,
 		Options: []decision.Option{
@@ -141,11 +141,11 @@ func TestB2ReserveInertWithoutInstant(t *testing.T) {
 func TestB2ReserveKeepsBestCastableExemptForCommander(t *testing.T) {
 	b := Board{IsMain: true,
 		Pool:       state.Mana{state.MC: 3},
-		Commanders: map[state.ObjID]Commander{9: {Casts: 0, InCommandZone: true}},
-		Cards: map[state.ObjID]Card{
+		Commanders: TableOf(map[state.ObjID]Commander{9: {Casts: 0, InCommandZone: true}}),
+		Cards: TableOf(map[state.ObjID]Card{
 			9: {CMC: 3, Creature: true, Power: 3, Castable: true}, // the commander, from the command zone
 			2: {CMC: 1, Castable: true, InstantSpeed: true},       // the reserve (a 1-cost instant in hand)
-		},
+		}),
 	}
 	d := &decision.Decision{Seq: 1, Player: 0, Kind: decision.KPriority, Min: 1, Max: 1,
 		Options: []decision.Option{

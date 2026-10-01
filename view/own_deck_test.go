@@ -111,3 +111,53 @@ func TestOwnDeckSurvivesACharsWrapper(t *testing.T) {
 		t.Fatalf("wrapper dropped the own-deck manifest: %#v", wrapped.OwnDeck)
 	}
 }
+
+// TestOwnDeckProjectIntoCopiesIntoTheView pins the reuse form of the seat
+// manifest: ProjectInto copies the engine's read-only manifest
+// (OwnDeckShared) into the destination View's own storage -- the same
+// storage on every refill, so a per-decision View allocates no manifest --
+// and the copy is exactly what OwnDeck's Clone returns, never the engine's
+// storage itself.
+func TestOwnDeckProjectIntoCopiesIntoTheView(t *testing.T) {
+	parse := func(name string) *cards.Card {
+		t.Helper()
+		c, diags := cards.ParseBytes("own-deck-into.txt", []byte("Name:"+name+"\nTypes:Creature\nPT:1/1\n"))
+		if len(diags) != 0 {
+			t.Fatal(diags)
+		}
+		c.Link()
+		return c
+	}
+	a, b := parse("Into Alpha"), parse("Into Beta")
+	e := rules.New(rules.Config{Seed: 5, Names: []string{"alpha", "beta"},
+		Decks: [][]*cards.Card{{a, a, b, a, a, a, a, a}, {b, b, b, b, b, b, b, b}}})
+	e.Advance()
+	var v view.View
+	view.ProjectInto(&v, e.G, e, 0, nil)
+	first := v.OwnDeck
+	if !reflect.DeepEqual(first, e.OwnDeck(0)) {
+		t.Fatalf("projected manifest = %#v, want %#v", first, e.OwnDeck(0))
+	}
+	if first == e.OwnDeckShared(0) {
+		t.Fatal("the view published the engine's own manifest storage")
+	}
+	view.ProjectInto(&v, e.G, e, 0, nil)
+	if v.OwnDeck != first || !reflect.DeepEqual(v.OwnDeck, e.OwnDeck(0)) {
+		t.Fatalf("refill did not reuse the view's manifest storage (%p -> %p) or changed it: %#v", first, v.OwnDeck, v.OwnDeck)
+	}
+	// The other seat's manifest refilled into the same View replaces it
+	// whole (a different row count), still in the view's storage.
+	view.ProjectInto(&v, e.G, e, 1, nil)
+	if !reflect.DeepEqual(v.OwnDeck, e.OwnDeck(1)) {
+		t.Fatalf("seat 1 refill = %#v, want %#v", v.OwnDeck, e.OwnDeck(1))
+	}
+	v.OwnDeck.Main[0].Name = "changed"
+	v.OwnDeck.Name = "changed"
+	if got := e.OwnDeckShared(1); got.Main[0].Name != "Into Beta" || got.Name != "beta" {
+		t.Fatalf("a write through the view's manifest reached engine storage: %#v", got)
+	}
+	// The value form (ProjectFor) carries the same manifest.
+	if got := view.ProjectFor(e.G, e, 0, view.Seat, nil).OwnDeck; !reflect.DeepEqual(got, e.OwnDeck(0)) {
+		t.Fatalf("ProjectFor manifest = %#v, want %#v", got, e.OwnDeck(0))
+	}
+}

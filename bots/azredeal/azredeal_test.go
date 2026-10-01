@@ -244,7 +244,7 @@ func TestHostedAZSeatRoutesTheEnv(t *testing.T) {
 	// receives is checked through it, because Board holds maps (not
 	// comparable) and its value is copied through the Env.
 	board := botpolicy.NewBoard(2)
-	board.Life[0] = 42
+	board.Life.Set(0, 42)
 	setup := searchprobe.PublicGame{Names: []string{"a", "b"}, StartingLife: 20}
 	d := decision.Decision{Kind: decision.KPriority, Seq: 3}
 	intent := decision.Intent{}
@@ -263,7 +263,7 @@ func TestHostedAZSeatRoutesTheEnv(t *testing.T) {
 		if len(f.calls) != 1 || f.calls[0] != "DecideSearch" {
 			t.Fatalf("calls = %v, want exactly one DecideSearch", f.calls)
 		}
-		if f.env == nil || f.env.Engine != root || f.env.Feed != feed || f.env.Board.Life[0] != 42 || !reflect.DeepEqual(f.env.Setup, setup) {
+		if f.env == nil || f.env.Engine != root || f.env.Feed != feed || f.env.Board.Life.Get(0) != 42 || !reflect.DeepEqual(f.env.Setup, setup) {
 			t.Fatalf("DecideSearch got env %+v, want the forwarded env.Search unchanged", f.env)
 		}
 		if f.d == nil || f.d.Seq != d.Seq || f.d.Kind != d.Kind {
@@ -285,7 +285,7 @@ func TestHostedAZSeatRoutesTheEnv(t *testing.T) {
 		if len(f.calls) != 1 || f.calls[0] != "DecideBoard" {
 			t.Fatalf("calls = %v, want exactly one DecideBoard", f.calls)
 		}
-		if f.board.Life[0] != 42 {
+		if f.board.Life.Get(0) != 42 {
 			t.Fatalf("DecideBoard got %v, want env.Board (the marker fact is missing)", f.board)
 		}
 		if !reflect.DeepEqual(in, intent) {
@@ -303,7 +303,7 @@ func TestHostedAZSeatRoutesTheEnv(t *testing.T) {
 		if len(f.calls) != 1 || f.calls[0] != "DecideBoard" {
 			t.Fatalf("calls = %v, want exactly one DecideBoard (a nil feed is a stopped feed)", f.calls)
 		}
-		if f.board.Life[0] != 42 {
+		if f.board.Life.Get(0) != 42 {
 			t.Fatalf("DecideBoard got %v, want env.Board (the marker fact is missing)", f.board)
 		}
 	})

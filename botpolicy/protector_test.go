@@ -18,8 +18,8 @@ func TestChooseProtectorBotPrefersLowestLife(t *testing.T) {
 			{Index: 0, Kind: "protector", Player: 1},
 			{Index: 1, Kind: "protector", Player: 2},
 		}}
-	b := Board{Life: map[state.PlayerID]int32{1: 12, 2: 4}}
-	if b.Life[1] == b.Life[2] {
+	b := Board{Life: TableOf(map[state.PlayerID]int32{1: 12, 2: 4})}
+	if b.Life.Get(1) == b.Life.Get(2) {
 		t.Fatal("precondition: offered life totals must differ")
 	}
 	got := Decide(b, d, rand.New(rand.NewPCG(1, 2)))
@@ -45,13 +45,13 @@ func TestChooseProtectorBotArmReadsBoardFromGame(t *testing.T) {
 	g.Players[2].Life = 3
 
 	b := BoardFromGame(g, stubChars{}, 0)
-	if got := b.Life[1]; got != 20 {
+	if got := b.Life.Get(1); got != 20 {
 		t.Fatalf("precondition: BoardFromGame life for seat 1 = %d, want 20 (Life must be populated)", got)
 	}
-	if got := b.Life[2]; got != 3 {
+	if got := b.Life.Get(2); got != 3 {
 		t.Fatalf("precondition: BoardFromGame life for seat 2 = %d, want 3 (Life must be populated)", got)
 	}
-	if b.Life[1] == b.Life[2] {
+	if b.Life.Get(1) == b.Life.Get(2) {
 		t.Fatal("precondition: the two offered opponents must have different life")
 	}
 
