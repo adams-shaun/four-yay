@@ -308,14 +308,24 @@ func (w *legalWalk) commandZoneWalk() {
 // flashback, aftermath, warp, escape, retrace, jump-start, mayhem), over the
 // graveyard cards that can open any of those routes (graveyardCandidates).
 func (w *legalWalk) graveyardCastsWalk() {
-	zone := w.e.G.Zone(state.ZGraveyard, w.p)
-	var buf [32]state.ObjID
-	grave := w.graveyardCandidates(zone, buf[:0])
-	if walkSkipVerify && len(grave) != len(zone) {
-		w.verifyGraveyardCandidates(zone, grave)
+	e := w.e
+	zone := e.G.Zone(state.ZGraveyard, w.p)
+	// The candidate list is built in the engine's scratch, taken for the
+	// section (a re-entrant walk builds its own) and handed back after.
+	buf := e.graveCandBuf
+	e.graveCandBuf = nil
+	grave, filtered := w.graveyardCandidates(zone, buf[:0])
+	switch {
+	case !filtered:
+		w.graveyardCastsOver(zone)
+		e.graveCandBuf = buf[:0]
 		return
+	case walkSkipVerify && len(grave) != len(zone):
+		w.verifyGraveyardCandidates(zone, grave)
+	default:
+		w.graveyardCastsOver(grave)
 	}
-	w.graveyardCastsOver(grave)
+	e.graveCandBuf = grave[:0]
 }
 
 // graveyardCastsOver is graveyardCastsWalk's body over the graveyard ids

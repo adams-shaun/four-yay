@@ -90,6 +90,13 @@ type engineScratch struct {
 	// the potential readers use while PotentialMana adds nothing to the pool
 	// (potential_walk_cache.go). Clone copies none.
 	priorityWalk priorityWalkTail
+	// graveCandBuf is the offer walk's graveyard-candidate scratch
+	// (legal_walk_grave_skip.go), taken for the section. Not cloned.
+	graveCandBuf []state.ObjID
+	// walkResultDst, when set, is the buffer the next non-ask offer walk
+	// returns its options in (taken at the walk's entry); the potential walk
+	// cache hands it its own retired result buffer. Not cloned.
+	walkResultDst []decision.Option
 
 	// derivingColorsSet/ID/Colors: the finished layer-5 colour answer for the
 	// object whose Derived is mid-build (set by derivedWith before its layer-7

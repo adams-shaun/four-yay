@@ -127,6 +127,10 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 	// reusable buffer, never on the returned, retained Options.
 	out := e.legalOptBuf[:0]
 	e.legalOptBuf = nil
+	// A caller-owned result buffer (walkResultDst, the potential walk
+	// cache's), taken at entry so a nested walk never writes it.
+	dst := e.walkResultDst
+	e.walkResultDst = nil
 	add := func(kind, label string, obj state.ObjID) {
 		out = append(out, decision.Option{Index: len(out), Kind: kind, Label: label, Obj: obj})
 	}
@@ -186,9 +190,14 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 	// extra guard is needed here.
 	add("concede", "Concede", 0)
 	var res []decision.Option
-	if forAsk {
+	switch {
+	case forAsk:
 		res = e.arenaOptions(len(out))
-	} else {
+	case cap(dst) >= len(out):
+		res = dst[:len(out)]
+		// Drop the previous result's string/Grant references past the end.
+		clear(dst[len(out):cap(dst)])
+	default:
 		res = make([]decision.Option, len(out))
 	}
 	copy(res, out)

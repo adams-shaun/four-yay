@@ -73,6 +73,11 @@ type potentialWalkCache struct {
 	// plans memoises the cast planner's verdicts at this entry's state
 	// (planCastPaymentMemo); it lives and dies with the entry.
 	plans []castPlanMemo
+	// spare is the cache's own walk-result buffer: the next computed walk
+	// is returned in it (walkResultDst), so a replaced entry's array is
+	// reused instead of reallocated. opts aliases it when the entry's walk
+	// was computed here (never when it is the decision's own Options).
+	spare []decision.Option
 }
 
 // potentialStamp is a cache entry's validity key: the posed decision (the
@@ -164,6 +169,7 @@ func (e *Engine) potentialWalkOf(p state.PlayerID, full bool) (state.Mana, []dec
 	walkFull := full || e.potentialFullDemand
 	var mana state.Mana
 	var opts []decision.Option
+	servedTail := false
 	if tail := e.priorityWalkTailFor(p); tail != nil {
 		// The decision's own offer walk is the potential walk whenever
 		// PotentialMana adds nothing to the floating pool (see
@@ -172,7 +178,7 @@ func (e *Engine) potentialWalkOf(p state.PlayerID, full bool) (state.Mana, []dec
 		mana = e.PotentialMana(p)
 		e.potentialWalkDepth--
 		if mana == e.G.Players[p].Pool {
-			opts, walkFull = tail, true
+			opts, walkFull, servedTail = tail, true, true
 			if walkCacheVerify {
 				e.potentialWalkDepth++
 				want := e.legalActionsWalk(p, &mana, false)
@@ -183,16 +189,27 @@ func (e *Engine) potentialWalkOf(p state.PlayerID, full bool) (state.Mana, []dec
 			}
 		} else {
 			e.potentialWalkDepth++
+			e.walkResultDst = e.potentialWalk.spare
 			opts = e.legalActionsWalk(p, &mana, !walkFull)
+			e.walkResultDst = nil
 			e.potentialWalkDepth--
 		}
 	} else {
-		mana, opts = e.potentialWalkCompute(p, walkFull)
+		// The replaced entry's own array is reused for the new walk: no
+		// reader holds it (each reader ranges its opts only within its own
+		// call, and no reader runs inside another on one engine).
+		mana, opts = e.potentialWalkComputeInto(p, walkFull, e.potentialWalk.spare)
+	}
+	spare := e.potentialWalk.spare
+	if !servedTail {
+		// The walk returned in spare when it fit, else in a fresh array
+		// that now becomes the cache's own.
+		spare = opts[:0]
 	}
 	plans := e.potentialWalk.plans
 	clear(plans)
 	e.potentialWalk = potentialWalkCache{
-		plans: plans[:0], stamp: e.potentialStampNow(p), full: walkFull, mana: mana, opts: opts,
+		plans: plans[:0], stamp: e.potentialStampNow(p), full: walkFull, mana: mana, opts: opts, spare: spare,
 	}
 	if walkFull && !full && castsOnlyWalkVerify {
 		e.potentialWalkDepth++
@@ -213,10 +230,19 @@ func (e *Engine) potentialRebuilds() uint64 {
 }
 
 func (e *Engine) potentialWalkCompute(p state.PlayerID, full bool) (state.Mana, []decision.Option) {
+	return e.potentialWalkComputeInto(p, full, nil)
+}
+
+// potentialWalkComputeInto is potentialWalkCompute returning the walk's
+// options in dst when they fit (walkResultDst).
+func (e *Engine) potentialWalkComputeInto(p state.PlayerID, full bool, dst []decision.Option) (state.Mana, []decision.Option) {
 	e.potentialWalkDepth++
 	defer func() { e.potentialWalkDepth-- }()
 	mana := e.PotentialMana(p)
-	return mana, e.legalActionsWalk(p, &mana, !full)
+	e.walkResultDst = dst
+	opts := e.legalActionsWalk(p, &mana, !full)
+	e.walkResultDst = nil
+	return mana, opts
 }
 
 func (e *Engine) verifyPotentialWalk(p state.PlayerID, full bool, mana state.Mana, opts []decision.Option) {

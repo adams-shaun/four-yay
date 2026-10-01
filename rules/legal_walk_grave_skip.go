@@ -49,18 +49,19 @@ var (
 )
 
 // graveyardCandidates appends to buf the ids of zone that can pass some
-// graveyard route's first gate, in zone order, or returns zone itself when
-// the board cannot be filtered.
-func (w *legalWalk) graveyardCandidates(zone []state.ObjID, buf []state.ObjID) []state.ObjID {
+// graveyard route's first gate, in zone order (filtered true), or reports
+// filtered false when the board cannot be filtered (the whole zone is the
+// candidate list).
+func (w *legalWalk) graveyardCandidates(zone []state.ObjID, buf []state.ObjID) ([]state.ObjID, bool) {
 	e := w.e
 	if len(zone) == 0 || e.activeDepth != 0 {
-		return zone
+		return buf, false
 	}
 	e.active()
 	for _, h := range e.activeKWHeads {
 		for _, hd := range graveyardDerivedHeads {
 			if strings.EqualFold(h, hd.s) {
-				return zone
+				return buf, false
 			}
 		}
 	}
@@ -69,7 +70,7 @@ func (w *legalWalk) graveyardCandidates(zone []state.ObjID, buf []state.ObjID) [
 			buf = append(buf, id)
 		}
 	}
-	return buf
+	return buf, true
 }
 
 // graveyardCandidate is the per-card half of graveyardCandidates.
