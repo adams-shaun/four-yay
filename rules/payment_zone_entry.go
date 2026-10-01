@@ -92,10 +92,16 @@ func (e *Engine) zoneEntrySync() []zoneEntryRec {
 	return recs
 }
 
-// growZoneEntry extends recs (zeroed) to at least n entries, doubling.
+// growZoneEntry extends recs to at least n entries, doubling; every entry
+// past the old length is zero. Within capacity the extension is cleared
+// explicitly: the array is the pool's recycled buffer, whose tail still
+// holds an earlier index's records (a previous game's, through a Spare).
 func growZoneEntry(recs []zoneEntryRec, n, hint int) []zoneEntryRec {
 	if n <= cap(recs) {
-		return recs[:n]
+		old := len(recs)
+		recs = recs[:n]
+		clear(recs[old:])
+		return recs
 	}
 	c := max(n, hint, 2*cap(recs))
 	out := make([]zoneEntryRec, n, c)
