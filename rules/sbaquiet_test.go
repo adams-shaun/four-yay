@@ -32,9 +32,23 @@ func TestSBAQuietKey(t *testing.T) {
 	if !e.sbaQuietNow() {
 		t.Fatal("a quiet pass loop after the elimination should arm the key")
 	}
+	// LifeChange is a quiet kind (sbaQuietEvent): sbaQuietNow re-reads every
+	// player's life on every call, so a non-lethal change keeps the key and
+	// a lethal one is never skipped past.
 	e.emit(events.Event{Kind: events.LifeChange, Player: 0, Amount: -1})
+	if !e.sbaQuietNow() {
+		t.Fatal("a non-lethal LifeChange event should keep the quiet key")
+	}
+	e.emit(events.Event{Kind: events.LifeChange, Player: 0, Amount: -e.G.Players[0].Life})
 	if e.sbaQuietNow() {
-		t.Fatal("a LifeChange event must drop the quiet key")
+		t.Fatal("a LifeChange to 0 life must drop the quiet key")
+	}
+	// A non-quiet kind drops it.
+	e.checkStateBased()
+	e.checkStateBased()
+	e.emit(events.Event{Kind: events.PlayerCounterChange, Player: 2, Counter: "EXPERIENCE", Amount: 1})
+	if e.sbaQuietNow() {
+		t.Fatal("a non-quiet event must drop the quiet key")
 	}
 }
 
