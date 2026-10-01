@@ -56,10 +56,11 @@ type LeanReader interface {
 // is a Seat-visibility projection: omit == 0 makes it exactly ProjectInto.
 func ProjectLeanInto(dst *View, g *state.Game, ch Chars, viewer state.PlayerID, d *decision.Decision, omit Omit) {
 	m := projectMode{ownLibrary: omit&OmitLibrary == 0, omit: omit}
+	prevDeck := dst.OwnDeck
 	projectInto(dst, g, ch, viewer, d, &m)
 	dst.Visibility = Seat.String()
 	if omit&OmitOwnDeck == 0 && g != nil && int(viewer) < len(g.Players) && ch != nil {
-		dst.OwnDeck = ch.OwnDeck(viewer)
+		dst.OwnDeck = ownDeckInto(prevDeck, ch, viewer)
 	}
 }
 

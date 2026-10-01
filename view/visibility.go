@@ -108,8 +108,11 @@ func ProjectForControlledFor(g *state.Game, ch Chars, viewer state.PlayerID, vis
 // it keeps), must not hand dst to two projections at once, and must not
 // plant storage in dst that anything else still references. A field the
 // caller sets to nil simply gives up its storage. Slices that come from Chars
-// (AbilityCosts, PotentialActions) and OwnDeck are the Chars' own, as in
-// Project, and are never reused.
+// (AbilityCosts, PotentialActions) are the Chars' own, as in Project, and
+// are never reused. OwnDeck is dst's own storage too when ch offers the
+// engine's read-only manifest (OwnDeckShared, as rules.Engine does): the
+// manifest is copied into the previous OwnDeck's storage (ownDeckInto);
+// otherwise it is ch.OwnDeck's own copy.
 func ProjectInto(dst *View, g *state.Game, ch Chars, viewer state.PlayerID, d *decision.Decision) {
 	ProjectForControlledInto(dst, g, ch, viewer, Seat, nil, d)
 }
@@ -124,6 +127,7 @@ func ProjectForInto(dst *View, g *state.Game, ch Chars, viewer state.PlayerID, v
 // ProjectInto's reuse contract; every other projection entry point is this
 // function.
 func ProjectForControlledInto(dst *View, g *state.Game, ch Chars, viewer state.PlayerID, vis Visibility, alsoVisible []state.PlayerID, d *decision.Decision) {
+	prevDeck := dst.OwnDeck
 	switch vis {
 	case Public:
 		projectInto(dst, g, ch, NoSeat, nil, &projectMode{})
@@ -144,7 +148,7 @@ func ProjectForControlledInto(dst *View, g *state.Game, ch Chars, viewer state.P
 		projectInto(dst, g, ch, viewer, d, &m)
 		dst.Visibility = Seat.String()
 		if vis == Seat && g != nil && int(viewer) < len(g.Players) && ch != nil {
-			dst.OwnDeck = ch.OwnDeck(viewer)
+			dst.OwnDeck = ownDeckInto(prevDeck, ch, viewer)
 		}
 	}
 }
