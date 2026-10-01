@@ -289,7 +289,8 @@ func (e *Engine) trigZonesCatchUp() {
 		e.trigZonesEp = n
 		return
 	}
-	for _, ev := range e.L.Events[e.trigZonesEp:] {
+	for i := e.trigZonesEp; i < n; i++ {
+		ev := &e.L.Events[i]
 		e.trigZoneTouch(ev.Obj)
 		for _, id := range ev.IDs {
 			e.trigZoneTouch(id)
@@ -488,7 +489,7 @@ func (e *Engine) forEachTriggerObject(ev events.Event, skip, anyOnly bool, fn fu
 			// gated on the object being an event referent. Hidden-ish zones
 			// keep their skip -- cumulative upkeep functions only from the
 			// battlefield, so no grant can reach them.
-			stepFull := slot == trigZoneSlot(state.ZBattlefield) && ev.Kind == events.StepChange
+			stepFull := slot == trigZoneSlot(state.ZBattlefield) && ev.Kind == events.StepChange && e.stepWalksBattlefield()
 			if slot >= 0 && !stepFull && e.trigZoneCold(p, slot, cur) {
 				if verify != nil {
 					buf = append(buf[:0], cur...)
@@ -584,6 +585,17 @@ func (e *Engine) forEachTriggerObject(ev events.Event, skip, anyOnly bool, fn fu
 	if e.foreachDepth <= 1 {
 		e.foreachBuf = buf
 	}
+}
+
+// stepWalksBattlefield reports whether a StepChange into the current step
+// must walk the whole battlefield: only the two synthesized step triggers the
+// face hot test cannot see read a step change from a battlefield object, and
+// each is gated on its own Phase$ before anything else (the cumulative-upkeep
+// grant on Upkeep, checkGrantedCumulativeUpkeepTriggers; the AtEOT body on its
+// end-of-turn phase, checkGrantedAtEOTTriggers). On every other step both
+// return before any work, so the battlefield keeps its ordinary skip.
+func (e *Engine) stepWalksBattlefield() bool {
+	return cumulativeUpkeepSteps.Has(e.G.Step) || atEOTTrigSteps.Has(e.G.Step)
 }
 
 // trigSkipVerifier returns the verify callback checkFaceTriggers hands

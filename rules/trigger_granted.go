@@ -1083,6 +1083,24 @@ type triggerCastAlt struct {
 // step" (which is the AtEOT$ DELAYED rider's family, not this copiable one).
 const atEOTTrigPhase = "End of Turn"
 
+// atEOTTrigSteps and cumulativeUpkeepSteps are the two synthesized step
+// triggers' Phase$ values parsed once (state.ParsePhases is pure syntax, the
+// same parse parsedPhaseSpec caches per engine), so their early step gates
+// and the trigger walk's battlefield test read a bitset instead of a
+// string-keyed map per object per step change.
+var (
+	atEOTTrigSteps        = mustParseSteps(atEOTTrigPhase)
+	cumulativeUpkeepSteps = mustParseSteps(cumulativeUpkeepPhase)
+)
+
+func mustParseSteps(spec string) state.StepSet {
+	set, unknown := state.ParsePhases(spec)
+	if len(unknown) != 0 {
+		panic("rules: synthesized trigger phase " + spec + " does not parse")
+	}
+	return set
+}
+
 // checkGrantedAtEOTTriggers synthesizes the "At the beginning of the end
 // step, sacrifice/exile this token" triggered ability a DB$ CopyPermanent |
 // AtEOTTrig$ put on the object as a copiable value (Object.AtEOTTrigBody,
@@ -1112,7 +1130,7 @@ func (e *Engine) checkGrantedAtEOTTriggers(observer *Engine, id state.ObjID, o *
 	// same parsed spec on the same observer) hoisted above the match: on any
 	// other step the trigger cannot match, and the body lookup below is a
 	// pure read, so skipping it there queues nothing less.
-	if p := observer.parsedPhaseSpec(atEOTTrigPhase); !p.valid || !p.set.Has(observer.G.Step) {
+	if !atEOTTrigSteps.Has(observer.G.Step) {
 		return
 	}
 	body := o.AtEOTTrigBody
@@ -1163,7 +1181,7 @@ func (e *Engine) checkGrantedCumulativeUpkeepTriggers(observer *Engine, id state
 	// derived-keyword read: on every other step change the trigger cannot
 	// match, and grantedCumulativeCosts is a pure read, so skipping it there
 	// queues nothing less.
-	if p := observer.parsedPhaseSpec(cumulativeUpkeepPhase); !p.valid || !p.set.Has(observer.G.Step) {
+	if !cumulativeUpkeepSteps.Has(observer.G.Step) {
 		return
 	}
 	costs := observer.grantedCumulativeCosts(id, f)
