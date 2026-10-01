@@ -1345,11 +1345,11 @@ type Object struct {
 	// events.Apply writes it, so a replay rebuilds it.
 	Unlocked bool
 
-	// _ pads the Object to 960 bytes, a whole number of 64-byte cache
-	// lines, so in the page-aligned Objs arena every object's hot head (the
-	// fields declared first) starts on a line of its own. Purely layout: it
-	// is never read or written.
-	_ [8]byte
+	// _ pads the Object to 1088 bytes (17 64-byte cache lines), so in the
+	// page-aligned Objs arena every object's hot head (the fields declared
+	// first) starts on a line of its own. Purely layout: it is never read or
+	// written. A field added above must re-pad it (TestObjectCacheLinePadded).
+	_ [48]byte
 }
 
 // MergedCard is one card stacked beneath a mutated permanent's top card
