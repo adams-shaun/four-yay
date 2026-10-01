@@ -122,7 +122,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		// written -- where the watcher holds no in-flight run or quiet count
 		// worth carrying, so a fresh watcher over the same thresholds is a
 		// faithful copy.
-		loop:          newLivelockWatcherFromGuard(e.loop.guard, sp.loopSigs, sp.loopRecent, sp.loopPrev, sp.loopHeads),
+		loop:          newLivelockWatcherFromGuard(e.loop.guard, sp.loopSigs, sp.loopRecent, sp.loopPrev, sp.loopHeads, sp.loopHash),
 		setNameInPool: e.setNameInPool,
 		layer4InPool:  e.layer4InPool,
 	}
@@ -449,6 +449,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	// their catch-up positions: same board, same log, same obligations.
 	c.trigZones, c.trigZonesEp = copyTrigZones(sp.trigZones, e.trigZones), e.trigZonesEp
 	c.replZones, c.replZonesEp = copyReplZones(sp.replZones, e.replZones), e.replZonesEp
+	c.replArena = e.replArena
 	c.activeBuf, c.activeBufAlt = sp.activeBuf, sp.activeBufAlt
 	c.activeSrc = sp.activeSrc
 	if e.triggerContexts != nil {

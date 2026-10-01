@@ -170,6 +170,12 @@ func (e *Engine) replZoneTouch(id state.ObjID) {
 			}
 		}
 		inHot := slices.Contains(z.hotIDs, id)
+		if !inHot && !hot {
+			// A cold object the summary does not list as hot is already
+			// classified correctly wherever it sits (mask is 0): nothing to
+			// drop, and no need to search the full id list for it.
+			continue
+		}
 		if !inHot && !slices.Contains(z.ids, id) {
 			// Another seat's list: this summary does not describe the
 			// object (a list change is caught by the list comparison).
@@ -306,6 +312,19 @@ func (e *Engine) forEachReplacementSource(fn func(id state.ObjID)) {
 // are still brought up to date, in the same order. The command zone is
 // always visited.
 func (e *Engine) forEachReplacementSourceFor(bit uint32, fn func(id state.ObjID)) {
+	if bit != 0 && !e.replArenaMaskFor(bit) {
+		// No arena object carries a line for bit (repl_arena_mask.go): only
+		// the command zone can be visited.
+		if replZoneSkipVerify {
+			e.verifyReplArenaSkip(bit)
+		}
+		for _, p := range e.G.AliveFrom(0) {
+			for _, id := range e.G.Zone(state.ZCommand, p) {
+				fn(id)
+			}
+		}
+		return
+	}
 	e.replZonesCatchUp()
 	e.foreachDepth++
 	defer func() { e.foreachDepth-- }()

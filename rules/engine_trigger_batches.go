@@ -198,6 +198,9 @@ type engineTriggerBatches struct {
 	// every use, so Clone copies neither.
 	replZones   []replZoneSummary
 	replZonesEp int
+	// replArena is the whole arena's replacement event-bit union
+	// (rules/repl_arena_mask.go); Clone carries it with the board.
+	replArena replArenaMask
 	// staticZones / staticZonesEp are the off-battlefield static-source
 	// walks' per-seat zone summaries (rules/static_zoneskip.go): pure scratch
 	// validated on every use, so Clone copies neither.

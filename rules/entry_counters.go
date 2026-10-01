@@ -504,6 +504,7 @@ func (e *Engine) entryPreview(ev events.Event) (*Engine, state.ObjID) {
 	// Season) reads that cause. Live engines never carry a pin.
 	preview.causePin = e.actionCause()
 	events.Apply(preview.G, ev)
+	preview.replArenaNoteApplied(ev)
 	return &preview, entrant
 }
 
