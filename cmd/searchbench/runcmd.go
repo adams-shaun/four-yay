@@ -24,7 +24,9 @@ import (
 	"io"
 	"math"
 	"os"
+	"runtime/debug"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -74,12 +76,25 @@ func runArm(args []string, out io.Writer) error {
 	corpus := fs.String("corpus", ".cards", "compiled Forge corpus")
 	limit := fs.Int("limit", 0, "answer only the first N items of the split (0: all)")
 	outPath := fs.String("out", "", "result JSONL (appended; items already in it are skipped)")
+	gcPercent := fs.Int("gc-percent", 0, "runtime GC percent (0: leave GOGC as the environment set it; negative: off)")
+	memLimit := fs.String("mem-limit", "", "runtime soft memory limit, e.g. 1500MiB or 2GiB (empty: leave GOMEMLIMIT)")
+	fullCorpus := fs.Bool("corpus-full", false, "open the whole compiled corpus instead of the items' cards (cards.OpenCorpusFor)")
 	if err := fs.Parse(args); err != nil || *manifestPath == "" || *storePath == "" || *armText == "" || *outPath == "" || *workers < 1 || *sims < 0 || *limit < 0 || *discount < 0 || *discount > 1 || fs.NArg() != 0 {
 		return usage()
 	}
 	arm, err := searchbench.ParseArm(*armText)
 	if err != nil {
 		return err
+	}
+	if *gcPercent != 0 {
+		debug.SetGCPercent(*gcPercent)
+	}
+	if *memLimit != "" {
+		n, err := parseBytes(*memLimit)
+		if err != nil {
+			return err
+		}
+		debug.SetMemoryLimit(n)
 	}
 	if arm != searchbench.ArmNoSearch && *sims < 1 {
 		return fmt.Errorf("searchbench: %s needs -sims >= 1", arm)
@@ -136,7 +151,20 @@ func runArm(args []string, out io.Writer) error {
 		_, err := fmt.Fprintf(out, "%s: %d %s items done already\n", label, len(items), *split)
 		return err
 	}
-	reg, err := cards.OpenCorpus(*corpus)
+	pool := make([]*searchbench.StoreItem, len(todo))
+	for i, it := range todo {
+		pool[i] = store[it.ID]
+	}
+	store = nil // the run reads only pool from here on
+	var reg *cards.Registry
+	if *fullCorpus {
+		reg, err = cards.OpenCorpus(*corpus)
+	} else {
+		var names []string
+		if names, err = searchbench.CardNames(pool); err == nil {
+			reg, err = cards.OpenCorpusFor(*corpus, names)
+		}
+	}
 	if err != nil {
 		return err
 	}
@@ -168,7 +196,7 @@ func runArm(args []string, out io.Writer) error {
 			for i := range jobs {
 				it := todo[i]
 				ts := time.Now()
-				r, err := runGuarded(ctx, reg, it, store[it.ID], cfg)
+				r, err := runGuarded(ctx, reg, it, pool[i], cfg)
 				r.CoreSeconds = math.Round(time.Since(ts).Seconds()*1e4) / 1e4
 				results[i] <- slot{r, err}
 			}
@@ -217,8 +245,8 @@ func runArm(args []string, out io.Writer) error {
 		return firstErr
 	}
 	el := time.Since(tRun).Seconds()
-	_, err = fmt.Fprintf(out, "%s: %d %s items (%d skipped as done) in %.1fs, load %.1fs, %.1f items/min, %.3f core-s/decision, workers %d, fallbacks %v\n",
-		label, len(todo), *split, len(items)-len(todo), el, tLoad.Seconds(), float64(len(todo))/el*60, core/float64(len(todo)), *workers, fallbacks)
+	_, err = fmt.Fprintf(out, "%s: %d %s items (%d skipped as done) in %.1fs, load %.1fs, %.1f items/min, %.3f core-s/decision, workers %d, corpus subset %v, fallbacks %v\n",
+		label, len(todo), *split, len(items)-len(todo), el, tLoad.Seconds(), float64(len(todo))/el*60, core/float64(len(todo)), *workers, reg.IsSubset(), fallbacks)
 	return err
 }
 
@@ -230,6 +258,28 @@ func runGuarded(ctx context.Context, reg *cards.Registry, it searchbench.Item, s
 		}
 	}()
 	return searchbench.RunItem(ctx, reg, it, s, cfg)
+}
+
+// parseBytes parses a byte count with an optional B, KiB, MiB, GiB, KB,
+// MB or GB suffix (GOMEMLIMIT's units).
+func parseBytes(s string) (int64, error) {
+	units := []struct {
+		suffix string
+		mult   float64
+	}{{"GiB", 1 << 30}, {"MiB", 1 << 20}, {"KiB", 1 << 10}, {"GB", 1e9}, {"MB", 1e6}, {"KB", 1e3}, {"B", 1}}
+	t := strings.TrimSpace(s)
+	mult := 1.0
+	for _, u := range units {
+		if strings.HasSuffix(t, u.suffix) {
+			t, mult = strings.TrimSpace(strings.TrimSuffix(t, u.suffix)), u.mult
+			break
+		}
+	}
+	v, err := strconv.ParseFloat(t, 64)
+	if err != nil || v <= 0 || math.IsInf(v, 0) {
+		return 0, fmt.Errorf("searchbench: bad byte count %q", s)
+	}
+	return int64(v * mult), nil
 }
 
 // resumeSet reads an existing result file: the item IDs it answers. Every

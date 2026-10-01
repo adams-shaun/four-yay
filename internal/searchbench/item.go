@@ -500,6 +500,51 @@ func ReadStore(path string) (map[string]*StoreItem, error) {
 	}
 }
 
+// CardNames lists, sorted and distinct, every card name the items' real
+// and belief specs seat (each seat's decklist and every named card in a
+// zone, plus a split/DFC name's front face, which LookupCard falls back
+// to): the pool a subset registry (cards.OpenCorpusFor) must hold to
+// rebuild them. Tokens are not listed; a subset registry keeps them all.
+func CardNames(items []*StoreItem) ([]string, error) {
+	seen := map[string]bool{} // membership only; the output is sorted
+	add := func(n string) {
+		if n == "" {
+			return
+		}
+		seen[n] = true
+		if i := strings.Index(n, " // "); i > 0 {
+			seen[n[:i]] = true
+		}
+	}
+	for _, it := range items {
+		for _, raw := range append([]json.RawMessage{it.Real}, it.Worlds...) {
+			spec, err := statespec.Parse(raw)
+			if err != nil {
+				return nil, fmt.Errorf("searchbench: %s: %w", it.ID, err)
+			}
+			for _, p := range spec.Players {
+				for _, list := range [][]string{p.Decklist, p.Hand, p.Graveyard, p.Exile, p.LibraryTop} {
+					for _, n := range list {
+						add(n)
+					}
+				}
+				for _, perm := range p.Battlefield {
+					add(perm.Name)
+				}
+			}
+			for _, st := range spec.Stack {
+				add(st.Card)
+			}
+		}
+	}
+	out := make([]string, 0, len(seen))
+	for n := range seen {
+		out = append(out, n)
+	}
+	slices.Sort(out)
+	return out, nil
+}
+
 // CheckRoots checks every world is at the real engine's root decision and
 // observes exactly what the real engine does: the precondition RunArm
 // checks for its worlds.
