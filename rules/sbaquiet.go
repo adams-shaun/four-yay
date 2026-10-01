@@ -63,6 +63,9 @@ type sbaQuietKey struct {
 	// before it was a quiet kind rather than layer-inert.
 	scanned  int
 	sawQuiet bool
+	// pushes counts the TriggerPush/AbilityPush events before scanned: the
+	// arena may have grown by exactly that many face-less ability objects.
+	pushes int
 }
 
 // sbaQuietVerifyFlag turns verify mode on in a non-test binary:
@@ -73,9 +76,9 @@ var sbaQuietVerify = sbaQuietVerifyFlag != ""
 
 // sbaQuietNow reports whether the pass loop would provably apply nothing.
 func (e *Engine) sbaQuietNow() bool {
-	q := e.sbaQuiet
-	if q.ep <= 0 || e.legendBatch != nil || q.ver != e.continuousVersion || q.objs != len(e.G.Objs) ||
-		!e.sbaInputsQuietSince(&e.sbaQuiet) {
+	q := &e.sbaQuiet
+	if q.ep <= 0 || e.legendBatch != nil || q.ver != e.continuousVersion || q.objs > len(e.G.Objs) ||
+		!e.sbaInputsQuietSince(q) || !e.facelessAppended(q.objs, q.pushes) {
 		return false
 	}
 	// The player-level losses (CR 704.5a/b, 903.10) are re-read on every
@@ -145,6 +148,9 @@ func (e *Engine) sbaInputsQuietSince(q *sbaQuietKey) bool {
 				return false
 			}
 			q.sawQuiet = true
+			if ev.Kind == events.TriggerPush || ev.Kind == events.AbilityPush {
+				q.pushes++
+			}
 		}
 		q.scanned = i + 1
 	}
@@ -190,8 +196,23 @@ func (e *Engine) sbaInputsQuietSince(q *sbaQuietKey) bool {
 //     Dead family) -- and a Saga's or dungeon's "busy" test, whose deferral
 //     never records a quiet key. Damage to an object is NOT quiet: lethal
 //     damage reads marked damage.
+//   - the keyword-action markers (pureMarkerKind): Apply writes nothing;
+//   - TriggerPush and AbilityPush by a player still in the game: each mints
+//     one face-less ability object on the stack (sbaQuietNow holds the arena
+//     growth to exactly their count, every appended object face-less). The
+//     pass loop reads a non-battlefield object only to cease a token, to
+//     sweep a DEPARTED player's objects (this controller has not departed:
+//     PlayerLost is not quiet) and in the Saga/dungeon "busy" tests, whose
+//     deferral never records a quiet key -- a push can make a recorded
+//     board busier, never complete a Saga or dungeon. AbilityPush's
+//     ActivatedThisTurn tally on its source is read by no SBA.
 func (e *Engine) sbaQuietEvent(ev *events.Event) bool {
+	if pureMarkerKind(ev.Kind) {
+		return true
+	}
 	switch ev.Kind {
+	case events.TriggerPush, events.AbilityPush:
+		return int(ev.Player) < len(e.G.Players) && !e.G.Players[ev.Player].Lost
 	case events.Note, events.ModeChosen, events.ManaActivate, events.Resolve,
 		events.DeclareAttackers, events.DeclareBlockers, events.EndCombatReset,
 		events.TargetsChosen, events.LandPlayed, events.LifeChange, events.ClockTick,

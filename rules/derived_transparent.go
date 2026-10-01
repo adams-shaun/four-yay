@@ -90,10 +90,14 @@ func derivedQuietKind(k events.Kind) bool {
 //   - LibraryOrder, Shuffle: a player's library list, nothing else -- no
 //     object field (a derivation reads its object's own fields, never its
 //     position in a zone list), and only a non-local spec (TopLibrary and
-//     the like are not local predicates) could read the order.
+//     the like are not local predicates) could read the order;
+//   - the keyword-action markers (pureMarkerKind): Apply writes nothing.
 //
 // It is NOT safe for the SBA skip: lethal damage reads marked damage.
 func (e *Engine) derivedQuietEvent(ev *events.Event) bool {
+	if pureMarkerKind(ev.Kind) {
+		return true
+	}
 	switch ev.Kind {
 	case events.Note, events.ModeChosen, events.ManaActivate, events.Resolve,
 		events.DeclareAttackers, events.DeclareBlockers, events.EndCombatReset,
@@ -114,21 +118,66 @@ func (e *Engine) derivedQuietEvent(ev *events.Event) bool {
 	return derivedQuietKind(ev.Kind)
 }
 
+// pureMarkerKind reports whether k is a keyword-action record whose Apply
+// writes nothing at all (events/apply.go: each case is a documented no-op
+// marker matched only by its trigger mode).
+func pureMarkerKind(k events.Kind) bool {
+	switch k {
+	case events.SearchedLibrary, events.Explore, events.Investigate, events.Discover, events.Seek,
+		events.Surveil, events.Scry, events.Proliferate, events.GiveGift, events.Evolved, events.Clash:
+		return true
+	}
+	return false
+}
+
+// derivedObjectLocalKind reports whether k's Apply writes only fields of the
+// event's own object (Obj): CounterChange its counters, Choose its Chosen*
+// answers / Remembered / mode picks, Imprint its imprint and exile-link
+// lists, StoreSVar its runtime SVars. Another object's derivation reads
+// those fields only through an effect whose source is the object (a local
+// IsRemembered / ChosenCard / ChosenColor predicate, a source-relative
+// amount) -- refused by the caller's source check -- or through a non-local
+// spec or amount, which no transparent list holds. So, like an
+// off-battlefield move, such an event changes only its own object's
+// derivation, and that object is retired instead.
+func derivedObjectLocalKind(k events.Kind) bool {
+	switch k {
+	case events.CounterChange, events.Choose, events.Imprint, events.StoreSVar:
+		return true
+	}
+	return false
+}
+
 // derivedRebuildTransparent reports whether the list just built (fresh) can
 // keep derivedSeq, given prev the list the previous build returned.
+//
+// Beyond the conditions above, the run may also hold:
+//
+//   - an object-local event (derivedObjectLocalKind) on a real object, which
+//     is retired like a moved one;
+//   - TriggerPush and AbilityPush, each minting one face-less ability object
+//     onto the stack (events.foldTriggerPush/foldAbilityPush): the arena
+//     may grow by exactly their count, every appended object face-less. A
+//     face-less object derives to nothing and no local predicate or literal
+//     amount of another object's derivation reads it or the stack list;
+//     AbilityPush's ActivatedThisTurn tally on the source is read only by
+//     the Count$ThisTurnActivated head, never a local amount.
 func (e *Engine) derivedRebuildTransparent(prev, fresh []ContinuousEffect) bool {
 	if e.derivedSeq == 0 || e.derivedPrevEpoch <= 0 || e.derivedPrevEpoch > len(e.L.Events) ||
-		e.derivedPrevVersion != e.continuousVersion || e.derivedPrevObjs != len(e.G.Objs) ||
+		e.derivedPrevVersion != e.continuousVersion || e.derivedPrevObjs > len(e.G.Objs) ||
 		len(prev) != len(fresh) {
 		return false
 	}
 	touched := e.derivedTouched[:0]
+	pushes := 0
 	evs := e.L.Events[e.derivedPrevEpoch:]
 	for i := range evs {
-		switch evs[i].Kind {
+		switch k := evs[i].Kind; k {
 		case events.DecisionAsk, events.DecisionMade, events.Priority:
+		case events.TriggerPush, events.AbilityPush:
+			pushes++
 		default:
-			if offBattlefieldMove(&evs[i]) {
+			if offBattlefieldMove(&evs[i]) || derivedObjectLocalKind(k) && evs[i].Obj != 0 {
 				touched = append(touched, evs[i].Obj)
 				continue
 			}
@@ -139,6 +188,9 @@ func (e *Engine) derivedRebuildTransparent(prev, fresh []ContinuousEffect) bool 
 		}
 	}
 	e.derivedTouched = touched
+	if !e.facelessAppended(e.derivedPrevObjs, pushes) {
+		return false
+	}
 	for i := range fresh {
 		ce := &fresh[i]
 		if !derivedEffectEqual(&prev[i], ce) || !derivedEffectLocal(ce) {
@@ -156,6 +208,21 @@ func (e *Engine) derivedRebuildTransparent(prev, fresh []ContinuousEffect) bool 
 		}
 		if m := e.derivedMemoStack.at(id); m != nil {
 			m.seq = 0
+		}
+	}
+	return true
+}
+
+// facelessAppended reports whether the object arena grew from oldObjs by
+// exactly n objects, every one of them face-less (no card, no copied face):
+// the ability objects TriggerPush/AbilityPush mint.
+func (e *Engine) facelessAppended(oldObjs, n int) bool {
+	if len(e.G.Objs)-oldObjs != n {
+		return false
+	}
+	for i := oldObjs; i < len(e.G.Objs); i++ {
+		if o := &e.G.Objs[i]; o.Card != nil || o.CopyFace != nil {
+			return false
 		}
 	}
 	return true
