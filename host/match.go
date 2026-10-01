@@ -307,7 +307,7 @@ func (m *match) sidecar() sidecar {
 
 // defaultSeats is PL-14: one bot per seat, seeded from the match seed.
 func defaultSeats(policy string, names []string, seed uint64) []seat.Seat {
-	return defaultSeatsWithAutoPayMana(policy, false, names, seed, 0, bots.Deps{})
+	return defaultSeatsWithAutoPayMana(policy, false, names, seed, 0, bots.Deps{}, hostedDecisionDeadlineMS)
 }
 
 // defaultSeatsWithAutoPayMana builds every table bot with the persisted
@@ -316,7 +316,7 @@ func defaultSeats(policy string, names []string, seed uint64) []seat.Seat {
 // so a policy that reads card facts builds on a served table). Keeping the
 // legacy wrapper preserves embedders and tests that intentionally exercise
 // the historical manual-mana policy.
-func defaultSeatsWithAutoPayMana(policy string, autoPayMana bool, names []string, seed uint64, searchParallelism int, deps bots.Deps) []seat.Seat {
+func defaultSeatsWithAutoPayMana(policy string, autoPayMana bool, names []string, seed uint64, searchParallelism int, deps bots.Deps, deadlineMS int) []seat.Seat {
 	out := make([]seat.Seat, len(names))
 	for i := range names {
 		// BP-10: BotSearchParallelism rides bots.Options.SearchParallelism so a
@@ -326,7 +326,7 @@ func defaultSeatsWithAutoPayMana(policy string, autoPayMana bool, names []string
 		// tests; the table path builds through bots.New with Seed,
 		// AutoPayMana, SearchParallelism and BotDeps, exactly what the
 		// wrapper would thread.
-		bot, err := bots.New(policy, bots.Options{Seed: seed ^ uint64(i+1), AutoPayMana: autoPayMana, SearchParallelism: searchParallelism, Deps: deps, DecisionDeadlineMS: hostedDecisionDeadlineMS})
+		bot, err := bots.New(policy, bots.Options{Seed: seed ^ uint64(i+1), AutoPayMana: autoPayMana, SearchParallelism: searchParallelism, Deps: deps, DecisionDeadlineMS: deadlineMS})
 		if err != nil {
 			panic(err) // policy was normalized before the table was registered.
 		}
@@ -621,7 +621,15 @@ func (r *Registry) play(ctx context.Context, t *table, m *match) (final string) 
 	// human's timeout caretaker; -bot-auto-mana only takes effect when the
 	// feature itself is enabled for the table.
 	autoPayMana := t.cfg.autoPayManaEnabled()
-	seats := defaultSeatsWithAutoPayMana(t.cfg.BotPolicy, autoPayMana, m.cfg.Names, m.seed, r.opts.BotSearchParallelism, r.opts.BotDeps)
+	// agent-20261001T041445Z: a determinism harness comparing two runs of one
+	// seed must never arm the hosted wall-clock budget — a deadline bail-out
+	// answers from the non-searched fallback, so the two runs diverge under
+	// load (BP-07 §7). Served tables keep hostedDecisionDeadlineMS unchanged.
+	budget := hostedDecisionDeadlineMS
+	if r.opts.BotUnboundedDecisions {
+		budget = 0
+	}
+	seats := defaultSeatsWithAutoPayMana(t.cfg.BotPolicy, autoPayMana, m.cfg.Names, m.seed, r.opts.BotSearchParallelism, r.opts.BotDeps, budget)
 	if r.opts.Seats != nil {
 		seats = r.opts.Seats(m.cfg.Names, m.seed)
 	}
