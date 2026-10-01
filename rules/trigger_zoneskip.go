@@ -95,6 +95,10 @@ var trigZoneSlotZones = [trigZoneSlots]state.Zone{state.ZLibrary, state.ZHand, s
 
 type trigZoneSummary struct {
 	ids []state.ObjID
+	// live is the zone's list HEADER as it was read when the summary was
+	// last confirmed (not a copy): see sameZoneList. Holding it keeps that
+	// backing array alive, so its address cannot be reused for another list.
+	live []state.ObjID
 	// hotIDs is the subset of ids whose objects can act on some event from
 	// this zone, in ids order (see objectTriggerHotIn). The live walk visits
 	// only these when the zone is hot and no event referent sits in it, so a
@@ -239,6 +243,16 @@ func (e *Engine) trigZoneInvalidateAll() {
 	}
 }
 
+// trigZoneTouch re-checks one event referent against the summaries of the
+// zone slot it now sits in. A summary describes its list's ids, which
+// objects among them are hot (hotIDs) and which of those are any-hot
+// (anyIDs); an in-place write can change only the touched object's own
+// classification. So a summary stays exact while the object's current
+// classification is the one it records -- hot exactly when it is listed in
+// hotIDs, any-hot exactly when listed in anyIDs -- whether or not the
+// object is in that seat's list at all (a non-hot object outside hotIDs is
+// recorded correctly either way, and a list change is caught by the list
+// comparison). Anything else drops the summary, as every touch used to.
 func (e *Engine) trigZoneTouch(id state.ObjID) {
 	o := e.G.Obj(id)
 	if o == nil {
@@ -248,8 +262,20 @@ func (e *Engine) trigZoneTouch(id state.ObjID) {
 	if s < 0 {
 		return
 	}
+	hot, anyHot, classified := false, false, false
 	for i := s; i < len(e.trigZones); i += trigZoneSlots {
-		e.trigZones[i].valid = false
+		z := &e.trigZones[i]
+		if !z.valid {
+			continue
+		}
+		if !classified {
+			hot = e.objectTriggerHotIn(o, s)
+			anyHot = hot && objectTriggerAnyHot(o)
+			classified = true
+		}
+		if hot != slices.Contains(z.hotIDs, id) || (hot && anyHot != slices.Contains(z.anyIDs, id)) {
+			z.valid = false
+		}
 	}
 }
 
@@ -276,6 +302,22 @@ func (e *Engine) trigZonesCatchUp() {
 	e.trigZonesEp = n
 }
 
+// sameZoneList reports whether cur is the very list header a summary
+// recorded: same length over the same backing array. A zone list is written
+// only by state.Game.SetZone, and every writer installs either a FRESH array
+// (events' remove, a shuffle, Clone, genesis) or an append onto the current
+// header, which writes past its length and so changes the length; no writer
+// stores into a live list below its length. So an identical header holds
+// identical ids, and the O(len) compare is needed only when the header moved.
+// The recorded header pins its array (trigZoneSummary.live), so the address
+// cannot be recycled for a different list while the summary holds it.
+func sameZoneList(rec, cur []state.ObjID) bool {
+	if len(rec) != len(cur) {
+		return false
+	}
+	return len(cur) == 0 || &rec[0] == &cur[0]
+}
+
 // trigZoneCold reports whether zone (p, z) -- whose live list is cur -- holds
 // no hot object, refreshing its summary as needed.
 func (e *Engine) trigZoneCold(p state.PlayerID, slot int, cur []state.ObjID) bool {
@@ -284,9 +326,17 @@ func (e *Engine) trigZoneCold(p state.PlayerID, slot int, cur []state.ObjID) boo
 		e.trigZones = append(e.trigZones, make([]trigZoneSummary, i+1-len(e.trigZones))...)
 	}
 	s := &e.trigZones[i]
-	if s.valid && slices.Equal(s.ids, cur) {
+	if s.valid && sameZoneList(s.live, cur) {
+		if trigZoneSkipVerify && !slices.Equal(s.ids, cur) {
+			panic(fmt.Sprintf("rules: trigger zone summary (seat %d, slot %d) kept its header but the list changed in place", p, slot))
+		}
 		return !s.hot
 	}
+	if s.valid && slices.Equal(s.ids, cur) {
+		s.live = cur
+		return !s.hot
+	}
+	s.live = cur
 	// Append-only fast path: the live list is the recorded one with ids
 	// appended at the end. This is the mass-token-creation shape -- the token
 	// is appended to the battlefield list and no recorded index moves -- and
@@ -488,6 +538,41 @@ func (e *Engine) forEachTriggerObject(ev events.Event, skip, anyOnly bool, fn fu
 					}
 				}
 				continue
+			} else if slot >= 0 && !stepFull {
+				// Hot summarized zone WITH an event referent in it: the
+				// referents are walked in place and, of everything else, only
+				// the classified hot objects can act -- the two skips above
+				// combined. The visit set is snapshotted first, in list order
+				// (hotIDs is a subsequence of cur, so one merge pass keeps the
+				// order), exactly as the full walk snapshots the list.
+				hotIDs := e.trigZoneHotIDs(p, slot)
+				if anyOnly {
+					hotIDs = e.trigZoneAnyIDs(p, slot)
+				}
+				if verify != nil {
+					buf = append(buf[:0], cur...)
+					for _, id := range buf {
+						if trigMustVisit(ev, id) || slices.Contains(hotIDs, id) {
+							fn(id)
+						} else {
+							verify(id)
+						}
+					}
+					continue
+				}
+				buf = buf[:0]
+				j := 0
+				for _, id := range cur {
+					if j < len(hotIDs) && hotIDs[j] == id {
+						j++
+						buf = append(buf, id)
+					} else if trigMustVisit(ev, id) {
+						buf = append(buf, id)
+					}
+				}
+				if j != len(hotIDs) {
+					panic(fmt.Sprintf("rules: trigger zone summary (seat %d, slot %d) hot list is not a subsequence of the zone list", p, slot))
+				}
 			} else {
 				buf = append(buf[:0], cur...)
 			}
