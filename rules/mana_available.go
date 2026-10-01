@@ -249,6 +249,9 @@ func (e *Engine) windowManaUnitsWith(p state.PlayerID, only []state.ObjID, pre [
 	e.beginDerivedMemo()
 	defer e.endDerivedMemo()
 	var out []windowManaUnit
+	var flat []windowManaAlt
+	var boundsBuf [64]int32
+	bounds := boundsBuf[:0] // each unit's first alt in flat
 	ids := e.appendBattlefieldManaSourceIDs(e.idsBorrow(), p)
 	defer e.idsRelease(ids)
 	for k, id := range ids {
@@ -265,18 +268,22 @@ func (e *Engine) windowManaUnitsWith(p state.PlayerID, only []state.ObjID, pre [
 		} else {
 			mas = e.availableManaAbilitiesForWindow(p, id, false)
 		}
-		var free []*cards.SA
+		// One pass: each free ability counts toward freeCount and, when its
+		// production prices deterministically, becomes the next alt (the
+		// same alts, in the same order, as filtering the free list first).
+		// The alts of every unit share one backing array, cut into capped
+		// spans once the walk is done (a later append to one unit's alts
+		// reallocates instead of writing into the next unit's).
+		start, free := len(flat), 0
 		for _, ma := range mas {
 			if strings.TrimSpace(ma.Params["RestrictValid"]) != "" {
 				continue
 			}
 			cost := e.parseCost(ma.Params["Cost"])
-			if manaFreeCost(cost) && !activationTapCostUnavailable(o, cost) {
-				free = append(free, ma)
+			if !manaFreeCost(cost) || activationTapCostUnavailable(o, cost) {
+				continue
 			}
-		}
-		var alts []windowManaAlt
-		for _, ma := range free {
+			free++
 			amt := availableAmount(ma)
 			if amt <= 0 {
 				continue
@@ -294,12 +301,18 @@ func (e *Engine) windowManaUnitsWith(p state.PlayerID, only []state.ObjID, pre [
 			} else if total <= 0 {
 				continue
 			}
-			alts = append(alts, windowManaAlt{ma: ma, counts: counts, amt: amt, any: any})
+			flat = append(flat, windowManaAlt{ma: ma, counts: counts, amt: amt, any: any})
 		}
-		if len(alts) == 0 {
+		if len(flat) == start {
 			continue
 		}
-		out = append(out, windowManaUnit{id: id, freeCount: len(free), alts: alts})
+		out = append(out, windowManaUnit{id: id, freeCount: free})
+		bounds = append(bounds, int32(start))
+	}
+	bounds = append(bounds, int32(len(flat)))
+	for i := range out {
+		s, t := bounds[i], bounds[i+1]
+		out[i].alts = flat[s:t:t]
 	}
 	return out
 }

@@ -399,15 +399,17 @@ func (p PaymentPlan) validateShape() error {
 	if err := p.PoolAfter.validate(); err != nil {
 		return fmt.Errorf("payment pool after: %w", err)
 	}
-	seen := make(map[state.ObjID]struct{}, len(p.Activations))
 	for i, a := range p.Activations {
 		if a.Source == 0 {
 			return fmt.Errorf("payment activation %d has no source", i)
 		}
-		if _, ok := seen[a.Source]; ok {
-			return fmt.Errorf("payment activation %d reuses source %d", i, a.Source)
+		// At most MaxPaymentActivations steps: a scan of the earlier ones
+		// replaces a set.
+		for _, prev := range p.Activations[:i] {
+			if prev.Source == a.Source {
+				return fmt.Errorf("payment activation %d reuses source %d", i, a.Source)
+			}
 		}
-		seen[a.Source] = struct{}{}
 		if err := a.Ability.validate(); err != nil {
 			return fmt.Errorf("payment activation %d: %w", i, err)
 		}

@@ -1490,11 +1490,16 @@ func (e *Engine) paymentPlanParadiseRider(id state.ObjID, mana *cards.SA) bool {
 // represent.
 func (e *Engine) paymentPlanUnitAlternatives(u windowManaUnit) []plannedManaActivation {
 	var out []plannedManaActivation
+	// The source's payer, zone-entry sequence and creature bit are read once
+	// for all its alternatives (each a pure read of the source).
+	payer := state.PlayerID(0)
+	if source := e.G.Obj(u.id); source != nil {
+		payer = source.Controller
+	}
+	sourceRead := false
+	var zoneSeq uint64
+	var creature bool
 	for _, alt := range u.alts {
-		payer := state.PlayerID(0)
-		if source := e.G.Obj(u.id); source != nil {
-			payer = source.Controller
-		}
 		tier, consequence, _ := e.paymentPlanAbilityTier(payer, u.id, alt.ma)
 		switch tier {
 		case paymentTierNormal:
@@ -1512,11 +1517,18 @@ func (e *Engine) paymentPlanUnitAlternatives(u windowManaUnit) []plannedManaActi
 		if !ok {
 			continue
 		}
+		if !sourceRead {
+			sourceRead = true
+			zoneSeq, creature = e.paymentSourceZoneSeq(u.id), e.IsCreature(u.id)
+		}
 		if paymentPlanAltOK(alt) {
 			m := alt.mana()
+			if out == nil {
+				out = make([]plannedManaActivation, 0, len(u.alts))
+			}
 			out = append(out, plannedManaActivation{activation: decision.PaymentActivation{
-				Source: u.id, SourceZoneSeq: e.paymentSourceZoneSeq(u.id), Ability: ab, Produces: paymentManaAmount(m)},
-				mana: m, creature: e.IsCreature(u.id), ma: alt.ma, exec: alt.ma, tier: tier, consequence: consequence})
+				Source: u.id, SourceZoneSeq: zoneSeq, Ability: ab, Produces: paymentManaAmount(m)},
+				mana: m, creature: creature, ma: alt.ma, exec: alt.ma, tier: tier, consequence: consequence})
 			continue
 		}
 		if !alt.any || alt.amt <= 0 {
@@ -1529,9 +1541,12 @@ func (e *Engine) paymentPlanUnitAlternatives(u windowManaUnit) []plannedManaActi
 			}
 			var m state.Mana
 			m[i] = alt.amt
+			if out == nil {
+				out = make([]plannedManaActivation, 0, len(u.alts))
+			}
 			out = append(out, plannedManaActivation{activation: decision.PaymentActivation{
-				Source: u.id, SourceZoneSeq: e.paymentSourceZoneSeq(u.id), Ability: ab, Produces: paymentManaAmount(m)},
-				mana: m, creature: e.IsCreature(u.id), ma: alt.ma, exec: withProduced(alt.ma, alt.ma, col), tier: tier, consequence: consequence})
+				Source: u.id, SourceZoneSeq: zoneSeq, Ability: ab, Produces: paymentManaAmount(m)},
+				mana: m, creature: creature, ma: alt.ma, exec: withProduced(alt.ma, alt.ma, col), tier: tier, consequence: consequence})
 		}
 	}
 	// Preserve flexible sources: rank each selected source by every eligible
