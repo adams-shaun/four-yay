@@ -76,6 +76,9 @@ type Collector struct {
 	probeDec, obsDec   ObservedDecision
 	probeOpts, obsOpts []ObservedOption
 	candPool, candOut  []Action
+	// keyActs and keyBuf are IntentKey's reusable action list and key.
+	keyActs []Action
+	keyBuf  []byte
 	// retainJSON makes every capture keep a copy of its encoded board in
 	// Board.raw (in-package tests that inspect the bytes).
 	retainJSON bool
