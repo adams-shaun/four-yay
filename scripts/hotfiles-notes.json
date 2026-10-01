@@ -109,5 +109,20 @@
       "view/card.go"
     ],
     "note": "the card projection: every projection-perf ticket and every exposed-card-fact ticket edits cardViews/cardView. The 2026-10-01 pair is a GENUINE intra-function collision \u2014 cpu-redeal rewrites cardViews/cardView into a pooled projector method while libcomp inserts the printed CardName assignment inside the old cardView body (main line 250) \u2014 so the second branch to rebase re-applies its hunk in the new shape; no file split can separate edits inside one function. Land libcomp first (its other four files merge clean on rebase); cpu-redeal's rewrite folds the 5-line assignment in as it goes"
+  },
+  {
+    "files": [
+      "internal/azmcts/nodecache.go",
+      "internal/azmcts/nodecache_test.go",
+      "internal/searchprobe/redeal.go"
+    ],
+    "note": "measured ONE-SIDED against the pair's true merge-base wt/perf-tip (e43cde989; tips 65ec357ee cpu-redeal / 7ce4e10a4 sbrep-fast, 2026-10-01), so the main...ref hotspot measure over-counts this pair: cpu-redeal carries perf-tip's nodecache.go/nodecache_test.go blob byte-identically (blob hashes equal; its only live editor is sbrep-fast's fixed-chance PIMC resume, commit 7ce4e10a4), and sbrep-fast carries perf-tip's redeal.go byte-identically (its only live editor is cpu-redeal's Spare-pooled Deal/NewRedealer rewrite). A branch that only carries an ancestor's blob cannot conflict with the file's editor, so both files merge clean in EITHER landing order; the tool's ancestry pass cannot drop the carrier because perf-tip itself has no worktree. Land cpu-redeal first (perf-tip + three perf commits) so sbrep-fast's rebase replays only its own searchbench changes"
+  },
+  {
+    "files": [
+      "internal/searchprobe/canon.go",
+      "internal/searchprobe/canon_test.go"
+    ],
+    "note": "the canonical encoder: the only genuinely two-sided files the cpu-redeal / sbrep-fast pair still edits against wt/perf-tip (their true merge-base), and the hunks are line-disjoint (measured 2026-10-01, tips 65ec357ee / 7ce4e10a4): cpu-redeal adds the stdlib unsafe import, widens canonPlan/buildCanonPlan (p.size) and appends the in-place encodeAt reader block after canonEncoder.encode, while sbrep-fast adds two module imports and appends CompareActionsJSON/ParseActionsKey/keyReader after AppendActionsKey plus its tests at canon_test.go's EOF (cpu's test edit is inside canonGameViews). Only adjacency is the import block; merges clean on rebase. Keep each side's additions to its own appended block. If canon work recurs after both branches land, the durable seam is a canon_key.go split for the action-key comparison half"
   }
 ]
