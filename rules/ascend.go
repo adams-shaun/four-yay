@@ -124,7 +124,7 @@ func (e *Engine) ascendPossible() bool {
 		*s = ascendScan{game: e.G}
 	}
 	for ; !s.seen && s.scanned < len(e.G.Objs); s.scanned++ {
-		if cardMentionsAscend(e.G.Objs[s.scanned].Card) {
+		if a, _ := cardMentions(e.G.Objs[s.scanned].Card); a {
 			s.seen = true
 		}
 	}
