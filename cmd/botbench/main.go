@@ -432,7 +432,7 @@ func init() {
 		return s
 	}
 	policies[hostedsbsearch.Policy] = func(seed uint64) seat.Seat {
-		s, err := hostedsbsearch.New(benchBotOptions(seed), sbSearchOverlay(hostedsbsearch.LiteAtk()))
+		s, err := hostedsbsearch.NewBench(benchBotOptions(seed), sbSearchOverlay(hostedsbsearch.LiteAtk()))
 		if err != nil {
 			panic("botbench: " + err.Error())
 		}
