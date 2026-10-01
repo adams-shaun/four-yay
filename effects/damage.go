@@ -1001,6 +1001,7 @@ func effDamageAll(h Host, c *Ctx, sa *cards.SA) {
 		defer b.EndLifeLossBatch()
 	}
 	spec := strings.TrimSpace(sa.Params["ValidCards"])
+	remember := strings.TrimSpace(sa.Params["RememberDamaged"]) != ""
 	g := h.Game()
 	rider := newDamageRider(h, c, sa, n)
 	prev := h.SetDamageSource(rider.source)
@@ -1008,20 +1009,31 @@ func effDamageAll(h Host, c *Ctx, sa *cards.SA) {
 	// One DamageAll call is ONE damage batch, exactly like DealDamage's
 	// (see effDealDamage): every creature and player it hits latches
 	// together.
+	var damaged []state.Target
 	h.BeginDamageBatch()
 	if spec != "" {
 		for _, p := range g.AliveFrom(0) {
 			for _, id := range g.Zone(state.ZBattlefield, p) {
 				if MatchesSpecCtx(g, spec, id, c.SpecContext(c.Controller)) {
 					emitObjectDamage(rider, id)
+					damaged = append(damaged, state.Target{Obj: id})
+					if remember {
+						c.Remembered = append(c.Remembered, state.Target{Obj: id})
+						eventRemember(h, c, id)
+					}
 				}
 			}
 		}
 	}
 	for _, p := range validPlayers(h, c, sa.Params["ValidPlayers"]) {
 		emitPlayerDamage(rider, p)
+		damaged = append(damaged, state.Target{Player: p, IsPlayer: true})
+		if remember {
+			rememberPlayerBothHalves(h, c, p)
+		}
 	}
 	h.EndDamageBatch()
+	registerReplaceDying(h, c, sa, damaged)
 }
 
 // validPlayers resolves a DamageAll ValidPlayers$ spec to the players the
