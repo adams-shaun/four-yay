@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"sort"
 	"sync"
+	"unsafe"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
@@ -285,6 +286,13 @@ func buildCardText(c *cards.Card) *cardText {
 		if f.ManaCost != "" {
 			costTexts[f.ManaCost] = struct{}{}
 		}
+		// The AlternateAdditionalCost keyword's parts, which the offer walk
+		// prices per hand card per walk (parseCost(part)): a configured text
+		// is a map read instead of a parse. A part missing here (a face
+		// edited since) still parses to the same cost.
+		for _, part := range altAddCostParts(f) {
+			costTexts[part] = struct{}{}
+		}
 		for _, sa := range f.Abilities {
 			addAbility(sa)
 		}
@@ -382,7 +390,11 @@ func buildCompiledText(cfg Config) *compiledText {
 	saFacts := make(map[*cards.SA]*manaSAFacts)
 	for sa := range seen {
 		if sa.Kind == "AB" {
-			saFacts[sa] = buildManaSAFacts(sa, costOf)
+			f := buildManaSAFacts(sa, costOf)
+			saFacts[sa] = f
+			// Published on the ability (cards.ExtSlot) for a pointer read;
+			// the first configuration to publish wins.
+			sa.ExtSlot().Store(unsafe.Pointer(f))
 		}
 	}
 	return &compiledText{predicates: effects.CompilePredicatePrograms(preds), costs: costs, saFacts: saFacts,

@@ -95,6 +95,9 @@ type Spare struct {
 	activeBuf, activeBufAlt []ContinuousEffect
 	activeSrc               []*ContinuousEffect
 	pending                 []pendingTrigger
+	// walkCls is a spent engine's object-class array (walk_objclass.go),
+	// copied into by the next clone.
+	walkCls []walkObjClass
 }
 
 // Release returns e's log and object-arena arrays as a Spare for the next
@@ -147,6 +150,10 @@ func (e *Engine) Release() Spare {
 	// legal_walk_battlefield.go), so they hold no reference to recycle away.
 	sp.legalOpts, sp.manaAb = e.legalOptBuf[:0], e.manaAbBuf[:0]
 	e.legalOptBuf, e.manaAbBuf = nil, nil
+	if e.walkClsOwner == e {
+		sp.walkCls = e.walkObjCls[:0]
+	}
+	e.walkObjCls, e.walkClsOwner = nil, nil
 	// The static memo's outer storage is always this engine's own (a build
 	// writes into it, and a clone copies into its own), so it is recycled
 	// cleared: the nested slices it held are never reached again.

@@ -330,6 +330,9 @@ func (f *Face) derive() {
 	if f.manaCostSlot == nil {
 		f.manaCostSlot = &Slot{}
 	}
+	if f.extSlot == nil {
+		f.extSlot = &ExtSlot{}
+	}
 	f.manaProduction = ManaProduction{}
 	for _, a := range f.ManaAbilities() {
 		f.manaProduction.add(a)

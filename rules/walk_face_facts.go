@@ -53,6 +53,8 @@ type walkFaceFacts struct {
 	kwGranted bool
 	kwFirst   *string
 	kwLen     int
+	// ph is printedHeadsOf(f), under the same keyword guard.
+	ph printedHeads
 	// name and the option labels the walk offers for this face, built once
 	// so a walk shares them instead of concatenating per option (Go strings
 	// are immutable; a shared label is the same value the concatenation
@@ -75,6 +77,64 @@ type walkFaceFacts struct {
 	grantsTrig bool
 	trigFirst  *cards.Trigger
 	trigLen    int
+	// statFirst/statLen, replFirst/replLen and svars/svarsLen record the
+	// face's static, replacement and SVar lists the facts were computed
+	// over: with the guards above they make the facts fully current
+	// (fullyCurrent), the bar an entry published on the face must clear.
+	statFirst *cards.Static
+	statLen   int
+	replFirst *cards.Repl
+	replLen   int
+	svars     unsafe.Pointer
+	svarsLen  int
+	// staticOn / staticOff / mayPlay are the face's object-class bits
+	// (walk_objclass.go): faceStaticHotOn, faceStaticHotOff and
+	// faceMayPlayHot, read only while the facts are fullyCurrent.
+	staticOn, staticOff, mayPlay bool
+}
+
+// verifyFresh panics when a field of ff a reader may use differs from a
+// recompute over f: the keyword, trigger and label halves are compared only
+// while their own guards (keywordsCurrent, triggersCurrent, the name test)
+// pass, since every reader of a guarded half checks its guard first, and
+// the list-identity guards themselves are not facts.
+func (ff *walkFaceFacts) verifyFresh(f *cards.Face) {
+	fresh := computeWalkFaceFacts(f)
+	got := *ff
+	if !ff.keywordsCurrent(f) {
+		got.kwGranted, got.kwFirst, got.kwLen, got.ph = fresh.kwGranted, fresh.kwFirst, fresh.kwLen, fresh.ph
+	}
+	if !ff.triggersCurrent(f) {
+		got.trigZones, got.trigSig, got.trigSigOther, got.trigLookBack = fresh.trigZones, fresh.trigSig, fresh.trigSigOther, fresh.trigLookBack
+		got.grantsTrig, got.trigFirst, got.trigLen = fresh.grantsTrig, fresh.trigFirst, fresh.trigLen
+	}
+	if ff.name != f.Name {
+		got.name, got.castLabel, got.playLabel, got.manaLabel = fresh.name, fresh.castLabel, fresh.playLabel, fresh.manaLabel
+	}
+	if !ff.fullyCurrent(f) {
+		got.scan, got.staticOn, got.staticOff, got.mayPlay = fresh.scan, fresh.staticOn, fresh.staticOff, fresh.mayPlay
+	}
+	got.statFirst, got.statLen, got.replFirst, got.replLen = fresh.statFirst, fresh.statLen, fresh.replFirst, fresh.replLen
+	got.svars, got.svarsLen = fresh.svars, fresh.svarsLen
+	if got != fresh {
+		panic(fmt.Sprintf("rules: walk face facts for %q are stale (%+v vs %+v)", f.Name, *ff, fresh))
+	}
+}
+
+// svarsIdentity is the identity of f's SVar map (its runtime header).
+func svarsIdentity(f *cards.Face) unsafe.Pointer {
+	return *(*unsafe.Pointer)(unsafe.Pointer(&f.SVars))
+}
+
+// fullyCurrent reports whether ff was computed for f over every list f
+// holds now (and its name): an entry published on a face by any
+// configuration's table is served only then, so a face edited after another
+// configuration published it reads as absent.
+func (ff *walkFaceFacts) fullyCurrent(f *cards.Face) bool {
+	return ff.currentFor(f) && ff.keywordsCurrent(f) && ff.triggersCurrent(f) &&
+		ff.statLen == len(f.Statics) && (ff.statLen == 0 || ff.statFirst == &f.Statics[0]) &&
+		ff.replLen == len(f.Repls) && (ff.replLen == 0 || ff.replFirst == &f.Repls[0]) &&
+		ff.svarsLen == len(f.SVars) && ff.svars == svarsIdentity(f) && ff.name == f.Name
 }
 
 // keywordsCurrent reports whether the facts' keyword half was computed over
@@ -100,6 +160,15 @@ func computeWalkFaceFacts(f *cards.Face) walkFaceFacts {
 	if len(f.Triggers) > 0 {
 		ff.trigFirst = &f.Triggers[0]
 	}
+	ff.statLen, ff.replLen, ff.svarsLen, ff.svars = len(f.Statics), len(f.Repls), len(f.SVars), svarsIdentity(f)
+	ff.staticOn, ff.staticOff, ff.mayPlay = faceStaticHotOn(f), faceStaticHotOff(f), faceMayPlayHot(f)
+	if len(f.Statics) > 0 {
+		ff.statFirst = &f.Statics[0]
+	}
+	if len(f.Repls) > 0 {
+		ff.replFirst = &f.Repls[0]
+	}
+	ff.ph = printedHeadsOf(f)
 	if len(f.Keywords) > 0 {
 		ff.kwFirst = &f.Keywords[0]
 		for _, h := range grantedKWHeads {
@@ -218,7 +287,23 @@ func buildWalkFaceTable(faces []*cards.Face) walkFaceTable {
 			t.slots[i] = computeWalkFaceFacts(f)
 		}
 	}
+	// Publish each entry on its face (cards.ExtSlot), so a read follows the
+	// face's pointer instead of hashing it. The table is never resized, so
+	// every published pointer stays valid; the first table to publish a
+	// face wins, and every table's entry for it is the same pure function of
+	// the face.
+	for i := range t.slots {
+		if f := t.slots[i].face; f != nil {
+			f.ExtSlot().Store(unsafe.Pointer(&t.slots[i]))
+		}
+	}
 	return t
+}
+
+// currentFor reports whether ff holds f's facts over f's current ability
+// list (the table lookup's guard).
+func (ff *walkFaceFacts) currentFor(f *cards.Face) bool {
+	return ff.face == f && ff.abLen == len(f.Abilities) && (ff.abLen == 0 || ff.abFirst == &f.Abilities[0])
 }
 
 // lookup returns f's facts, or nil when the table does not hold a current
@@ -235,9 +320,7 @@ func (t *walkFaceTable) lookup(f *cards.Face) *walkFaceFacts {
 				return nil
 			}
 			if walkSkipVerify {
-				if fresh := computeWalkFaceFacts(f); fresh != *s {
-					panic(fmt.Sprintf("rules: walk face facts for %q are stale (%+v vs %+v)", f.Name, *s, fresh))
-				}
+				s.verifyFresh(f)
 			}
 			return s
 		}
@@ -254,12 +337,36 @@ func (ff *walkFaceFacts) triggersCurrent(f *cards.Face) bool {
 	return ff.trigLen == len(f.Triggers) && (ff.trigLen == 0 || ff.trigFirst == &f.Triggers[0])
 }
 
-// walkFaceFactsOf is the engine's table lookup (nil without a compiledText).
+// walkFaceFactsOf returns f's facts (nil without a compiledText): the
+// entry published on the face itself when it is f's own and current over
+// f's ability list (a by-value face copy shares its original's slot and
+// fails the identity test), else the engine's table lookup -- the table's
+// own guard. Every other half of the facts is read under its own guard
+// (keywordsCurrent, triggersCurrent, the name test, fullyCurrent for the
+// text scan and the object-class bits), so an entry another configuration
+// published before a face was edited is never read stale.
 func (e *Engine) walkFaceFactsOf(f *cards.Face) *walkFaceFacts {
-	if e == nil || e.compiledText == nil {
+	if e == nil || e.compiledText == nil || f == nil {
 		return nil
 	}
+	if p := f.ExtSlot().Load(); p != nil {
+		if ff := (*walkFaceFacts)(p); ff.currentFor(f) {
+			if walkSkipVerify {
+				ff.verifyFresh(f)
+			}
+			return ff
+		}
+	}
 	return e.compiledText.faces.lookup(f)
+}
+
+// printedHeads is printedHeadsOf(f), read from the face facts when their
+// keyword half is current.
+func (w *legalWalk) printedHeads(f *cards.Face) printedHeads {
+	if ff := w.e.walkFaceFactsOf(f); ff != nil && ff.keywordsCurrent(f) {
+		return ff.ph
+	}
+	return printedHeadsOf(f)
 }
 
 // castLabel is "Cast " + f.Name, shared from the face facts when current.

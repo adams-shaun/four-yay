@@ -206,6 +206,20 @@ type engineTriggerBatches struct {
 	// validated on every use, so Clone copies neither.
 	staticZones   []staticZoneSummary
 	staticZonesEp int
+	// walkObjCls is the offer walk's per-object class cache
+	// (rules/walk_objclass.go), indexed by ObjID-1 and kept exact by the
+	// staticZones catch-up: pure scratch, so Clone copies none.
+	walkObjCls []walkObjClass
+	// walkClsOwner is the engine walkObjCls belongs to: a by-value Engine
+	// copy sees another owner and starts its own (ownWalkClasses).
+	walkClsOwner *Engine
+	// offerProbeDepth counts the open face and cast probes (faceprobe.go,
+	// castprobe.go), whose no-event writes the class cache must not record.
+	offerProbeDepth int
+	// staticTouchGen counts the catch-up's touches of objects that are, or
+	// were, static-hot (walk_objclass.go: walkClassTouch): the static scans'
+	// cross-walk reuse keys on it (walkcache.go). Never cloned.
+	staticTouchGen uint64
 	// staticZoneVerified is verify-mode scratch (static_zoneskip.go's
 	// staticZoneSkipVerifyOnce): the (cur, hot) slices each summary slot was
 	// verified against inside the current verifyBoardStatics call

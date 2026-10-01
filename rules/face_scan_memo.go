@@ -73,7 +73,7 @@ func (e *Engine) faceScanHas(f *cards.Face, bit faceScan) bool {
 	// A configured face's verdicts were computed once with the shared
 	// compiled text (walkFaceFacts.scan), so a fresh clone does not rescan
 	// every face it meets.
-	if ff := e.walkFaceFactsOf(f); ff != nil {
+	if ff := e.walkFaceFactsOf(f); ff != nil && ff.fullyCurrent(f) {
 		if faceScanVerify {
 			if fresh := computeFaceScan(f); fresh != ff.scan {
 				panic(fmt.Sprintf("rules: compiled face scan for %q is stale (%b vs %b)", f.Name, ff.scan, fresh))

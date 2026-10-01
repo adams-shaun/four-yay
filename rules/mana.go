@@ -2777,7 +2777,15 @@ func manaCostBeyondTap(c Cost) bool {
 // copies it; only a marked ability's cost is formatted.
 func (e *Engine) manaActivationCostMarker(abilities []*cards.SA) string {
 	for _, ma := range abilities {
-		if cc := e.compiledCostOf(ma.Params["Cost"]); cc.beyondTap {
+		// A configured ability's facts carry the same compiled cost
+		// (mana_safacts.go), read through its pointer.
+		var cc *compiledCost
+		if mf := e.manaFactsOf(ma); mf != nil {
+			cc = mf.cost
+		} else {
+			cc = e.compiledCostOf(ma.Params["Cost"])
+		}
+		if cc.beyondTap {
 			return formatCost(cc.Cost)
 		}
 	}

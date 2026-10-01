@@ -96,6 +96,12 @@ func (w *legalWalk) manaWalkEmpty(b walkBoardFacts, o *state.Object, id state.Ob
 	return false
 }
 
+// manaLTypeBlockMay reports whether manaWalkEmpty's CR 305.6 granted
+// land-type intrinsic arm can apply on board b to some battlefield object.
+func (w *legalWalk) manaLTypeBlockMay(b walkBoardFacts) bool {
+	return b.hasLType && len(w.e.landTypeWords) > 0
+}
+
 // pileAbilitiesEmpty reports that the activated-ability offer loop can offer
 // nothing from o's printed abilities in zone z: o is a single-face object
 // and no ability of its face survives the loop's kind/zone/mana-ness skips in

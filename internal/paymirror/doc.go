@@ -141,6 +141,7 @@
 //	replZones/Ep, replArena            replacement-walk zone summaries, validated on every use,
 //	                                   and the arena's replacement event-bit superset cache
 //	staticZones/Ep                     static-source-walk zone summaries, validated on every use
+//	walkObjCls                         the offer walk's object classes, kept by the same catch-up
 //	paymentPlanCarriers/Objs/Events/   payment-plan interference carrier memo keyed by the
 //	Valid                              object-arena size and log length; Clone copies none
 //	paymentPlanQueryKept/KeptStamp/    the payment planner's kept and recycled query scopes and

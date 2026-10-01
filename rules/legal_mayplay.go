@@ -341,9 +341,25 @@ func (e *Engine) mayPlaySpellIds(p state.PlayerID) []mayPlaySpellOffer {
 			}
 		}
 	}
+	// With no board-side grant open, a card whose every face lacks both
+	// permissions addCard reads is a no-op there (walk_objclass.go's
+	// mayPlayHot); verify mode visits it anyway, and addCard's own skip
+	// verifies it.
+	useCls := !board
+	if useCls {
+		e.walkClassesCatchUp()
+	}
 	for _, z := range []state.Zone{state.ZGraveyard, state.ZExile} {
 		for _, q := range e.G.AliveFrom(0) {
 			for _, id := range e.G.Zone(z, q) {
+				if useCls && !e.walkClassOf(id).mayPlayHot {
+					if !derivedMemoVerify {
+						continue
+					}
+					if o := e.G.Obj(id); faceHasContinuousStatic(o) || e.paradigmMayPlay(p, o) {
+						panic(fmt.Sprintf("rules: may-play-cold obj %d carries a permission addCard reads", id))
+					}
+				}
 				o := e.G.Obj(id)
 				if o == nil || o.Controller != p || o.Face() == nil || o.Face().IsLand() {
 					continue

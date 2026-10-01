@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -122,11 +123,26 @@ func (e *Engine) loyaltyActivationsThisTurn(id state.ObjID) int {
 	if o == nil || o.Card == nil || len(o.Card.Faces) == 0 {
 		return 0
 	}
+	// The count resets at the current turn's TurnChange, so only this turn's
+	// events can count; the stint and face they start from is the kept
+	// prefix fold (activation_count_index.go).
+	start := e.turnStart()
+	onBattlefield, faceIdx := e.loyaltyStintAt(o, start)
+	used := e.loyaltyActivationsFrom(o, start, onBattlefield, faceIdx)
+	if walkCacheVerify {
+		if want := e.loyaltyActivationsFrom(o, 0, false, 0); want != used {
+			panic(fmt.Sprintf("rules: loyalty activations of obj %d from the turn start %d, the whole-log fold %d", id, used, want))
+		}
+	}
+	return used
+}
 
+// loyaltyActivationsFrom is loyaltyActivationsThisTurn's fold over the log
+// from index from, starting at the given stint and face.
+func (e *Engine) loyaltyActivationsFrom(o *state.Object, from int, onBattlefield bool, faceIdx int) int {
+	id := o.ID
 	used := 0
-	onBattlefield := false
-	faceIdx := 0
-	for _, ev := range e.L.Events {
+	for _, ev := range e.L.Events[from:] {
 		switch ev.Kind {
 		case events.TurnChange:
 			// CR 606.3's window is a turn, not a player's own turn.
@@ -290,6 +306,11 @@ func (e *Engine) loyaltyAbilityLimit(id state.ObjID) int {
 // departure, so a permanent that leaves and returns has still spent its
 // once-per-game activation.
 func (e *Engine) activationUsedCount(id state.ObjID, ability int, svar string, thisTurn bool) int {
+	if !thisTurn {
+		// The whole game's count, folded on incrementally
+		// (activation_count_index.go).
+		return e.gameActivationsUsed(id, ability, svar)
+	}
 	used := 0
 	for i := len(e.L.Events) - 1; i >= 0; i-- {
 		ev := e.L.Events[i]

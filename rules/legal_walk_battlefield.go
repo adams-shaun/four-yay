@@ -36,6 +36,9 @@ func (w *legalWalk) battlefieldWalk() {
 		if w.rec != nil {
 			w.rec.board = board
 		}
+		// The object classes below are exact only once the log's touches
+		// are caught up (walk_objclass.go).
+		e.walkClassesCatchUp()
 		// The mana section reads no pricing pool: a potential walk at the
 		// recorded priority walk's state serves its options
 		// (walk_block_reuse.go).
@@ -51,11 +54,22 @@ func (w *legalWalk) battlefieldWalk() {
 						zonePlayers[seat] = state.PlayerID(seat)
 					}
 				}
+				// A mana-cold object offers nothing on this board
+				// (walk_objclass.go); verify mode visits it and checks its skip.
+				manaCls := board.ready && !board.addAbility && !board.hasGrants
+				lTypeBlock := w.manaLTypeBlockMay(board)
 				for _, zonePlayer := range zonePlayers {
 					// The seat's own battlefield membership is recorded for
 					// PotentialMana (walk_block_reuse.go: recordMembers).
 					own := w.rec != nil && z == state.ZBattlefield && zonePlayer == p
+					useCls := manaCls && !own && !(z == state.ZBattlefield && lTypeBlock)
 					for zi, id := range e.G.Zone(z, zonePlayer) {
+						if useCls && !e.walkClassOf(id).manaHot {
+							if !walkSkipVerify {
+								continue
+							}
+							w.verifyManaCold(board, e.G.Obj(id), id, z)
+						}
 						o := e.G.Obj(id)
 						if z == state.ZBattlefield && !existsOnBattlefield(o) {
 							// CR 702.25b: a phased-out permanent is treated as though it
@@ -137,8 +151,19 @@ func (w *legalWalk) battlefieldWalk() {
 					zonePlayers[seat] = state.PlayerID(seat)
 				}
 			}
+			// An ability-cold object's block is empty on a board with no
+			// granted-head AddKeywords (walk_objclass.go); the stack, walked
+			// once, is visited whole. Verify mode visits every object and
+			// checks each cold one.
+			useCls := board.kwOK && !board.kwMaybe && z != state.ZStack
 			for _, zonePlayer := range zonePlayers {
 				for _, id := range e.G.Zone(z, zonePlayer) {
+					if useCls && !e.walkClassOf(id).abHot(z) {
+						if !walkSkipVerify {
+							continue
+						}
+						w.verifyAbilityCold(board, e.G.Obj(id), id, z, zonePlayer)
+					}
 					o := e.G.Obj(id)
 					if z == state.ZBattlefield && !existsOnBattlefield(o) {
 						// CR 702.25b: a phased-out permanent is treated as though it
