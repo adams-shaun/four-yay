@@ -543,6 +543,37 @@ func CantPutCounterParamsReadable(params map[string]string) bool {
 	return true
 }
 
+// CantGainLifeParamsReadable is the parameter whitelist a CantGainLife static
+// must pass before effEffect's registration case enforces it -- used BOTH by
+// effEffect's registration case and (beside it, through
+// restrictionPlayerSpecMatches) by rules/replacement_life.go's
+// lifeGainForbidden registered-restriction walk, so the two paths cannot
+// disagree about what is readable. The readable parameters are the mode, the
+// player scope (ValidPlayer$, the only scoping every corpus body names --
+// measured spellings You, Player, Player.Opponent and Player.IsRemembered,
+// all through the shared player grammar) and display text. Duration$ is NOT
+// listed: the lock's own lifetime is consumed by effEffect's
+// absentDurationMeansThisTurn gate and effectUntilEOT read, exactly as the
+// sibling restriction cases consume it, so an explicit Duration$ never needs
+// the whitelist's vouch. A static carrying any other parameter (IsPresent$,
+// CheckSVar$, CantBePrevented$, ...) names a condition or scoping this build
+// does not evaluate; enforcing it blanket would OVER-restrict -- a gated
+// "can't gain life" would become an unconditional one -- so it is
+// skipped/reported, which is the pre-registration behaviour and the
+// permissive direction for a restriction. Secondary$ is allowed: it marks a
+// Forge-side duplicate for modifier composition, and a boolean restriction
+// cannot be applied twice.
+func CantGainLifeParamsReadable(params map[string]string) bool {
+	for k := range params {
+		switch k {
+		case "Mode", "ValidPlayer", "Description", "Secondary":
+		default:
+			return false
+		}
+	}
+	return true
+}
+
 // UnspentManaParamsReadable is the parameter whitelist an UnspentMana static
 // must pass before this build enforces it -- used BOTH by the face-static
 // reader (rules/statics.go's unspentManaKeep activeStatics walk) and by
@@ -712,18 +743,29 @@ func CanAttackDefenderParamsReadable(params map[string]string) bool {
 //     counter trigger; 108 activated carriers), while the "for as long as"
 //     shapes spell Duration$ UntilHostLeavesPlayOrEOT out explicitly and the
 //     forever shapes spell Duration$ Permanent (cbb1, joined from main).
+//   - CantGainLife: the corpus's ABSENT-Duration population is uniformly
+//     this-turn -- measured, the four no-Duration bodies all read "this turn"
+//     in their own Description$/oracle text (Skullcrack and Call In a
+//     Professional's "players can't gain life this turn"; Atarka's Command
+//     and Roiling Vortex's "your opponents can't gain life this turn", the
+//     last an activated ability on a battlefield enchantment, so a
+//     source-leaves read would over-restrict the rest of the game).
+//     Meanwhile the three explicit Duration$ Permanent bodies (Screaming
+//     Nemesis, Stigma Lasher, Welcome the Darkness) are unaffected: an
+//     EXPLICIT Duration$ always takes precedence over this list.
 //
 // DELIBERATELY ABSENT: CantAttack (42 bodies -- "Creatures can't attack you"
 // and the "during your next turn" shapes are not this-turn), CantTarget (5 --
 // "Players and Permanents can't be the targets" is a permanent lock),
 // CantPreventDamage (14 -- "Damage can't be prevented" is a permanent lock),
 // and CantSacrifice (5 -- "This permanent can't be sacrificed" is a static).
-// A mode joins this list only when EVERY corpus Effect body of it is this-turn;
-// adding one on a mixed population would expire a genuinely permanent
-// restriction a turn early, the wrong-wide direction.
+// A mode joins this list only when its ABSENT-Duration population is uniformly
+// this-turn (the precise rule: every corpus Effect body that writes NO
+// Duration$ names a this-turn lifetime; a body WITH an explicit Duration$ is
+// never touched by this list, so a mixed population is safe).
 func absentDurationMeansThisTurn(mode string) bool {
 	switch mode {
-	case "CantPutCounter", "CantBlockBy", "CanAttackDefender", "NumLoyaltyAct", "CombatDamageToughness":
+	case "CantPutCounter", "CantBlockBy", "CanAttackDefender", "NumLoyaltyAct", "CombatDamageToughness", "CantGainLife":
 		return true
 	}
 	return false
