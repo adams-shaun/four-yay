@@ -1,0 +1,70 @@
+{
+  "card": "Yavimaya Elder",
+  "family": "etb-ltb",
+  "oracle_sha": "4bc47ecb1030",
+  "author": "cli-20261001T012353Z-c0654344 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "dies-searches-two-basic-lands",
+      "cr": ["603.6c"],
+      "why": "Its dies trigger lets its controller search for up to two basic land cards and put them into hand; the two Forests are taken.",
+      "setup": {
+        "p0": {
+          "battlefield": ["Yavimaya Elder"],
+          "library": ["Forest", "Forest", "Island"]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {"op": "move", "seat": 0, "card": "p0:Yavimaya Elder", "to": "graveyard"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["yes"]}, {"kind": "choose", "pick": ["Forest", "Forest"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Yavimaya Elder", "zone": "graveyard"},
+        {"hand_size": {"p0": 2}}
+      ]
+    },
+    {
+      "name": "declines-search-keeps-graveyard",
+      "cr": ["603.6c"],
+      "why": "The dies trigger is optional (\"you may\"); declining leaves both Forests in the library and the Elder in the graveyard.",
+      "setup": {
+        "p0": {
+          "battlefield": ["Yavimaya Elder"],
+          "library": ["Forest", "Forest"]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {"op": "move", "seat": 0, "card": "p0:Yavimaya Elder", "to": "graveyard"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["no"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Yavimaya Elder", "zone": "graveyard"},
+        {"hand_size": {"p0": 0}}
+      ]
+    },
+    {
+      "name": "sacrifice-ability-draws-a-card",
+      "cr": ["602.2a"],
+      "why": "Its activated ability ({2}, Sacrifice Yavimaya Elder: Draw a card) sacrifices it as a cost and draws one card; the dies trigger's search is declined here.",
+      "setup": {
+        "p0": {
+          "battlefield": ["Yavimaya Elder"],
+          "library": ["Forest", "Forest", "Island"],
+          "life": 20
+        },
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Yavimaya Elder", "ability": "Draw a card", "mana": "CC"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["no"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Yavimaya Elder", "zone": "graveyard"},
+        {"hand_size": {"p0": 1}},
+        {"pool": {"p0": ""}}
+      ]
+    }
+  ]
+}

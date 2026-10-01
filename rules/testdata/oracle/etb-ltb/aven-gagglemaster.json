@@ -1,0 +1,41 @@
+{
+  "card": "Aven Gagglemaster",
+  "family": "etb-ltb",
+  "oracle_sha": "487a76f98cfe",
+  "author": "cli-20261001T012353Z-c0654344 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "counts-fliers-including-itself",
+      "cr": ["603.6a"],
+      "why": "Its enter trigger counts creatures you control with flying. It has flying itself, and so does the second Gagglemaster-like flier: gain 2 life per flier. Here one other flier plus itself = 2 fliers = 4 life.",
+      "setup": {
+        "p0": {"hand": ["Aven Gagglemaster"], "battlefield": ["Serra Angel"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Aven Gagglemaster", "mana": "WWWWW"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 24}},
+        {"card": "p0:Aven Gagglemaster", "zone": "battlefield", "keywords": ["Flying"]}
+      ]
+    },
+    {
+      "name": "no-other-fliers-only-itself",
+      "cr": ["603.6a"],
+      "why": "Only the Gagglemaster itself has flying, so the trigger gains 2 life once, not more.",
+      "setup": {
+        "p0": {"hand": ["Aven Gagglemaster"], "battlefield": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Aven Gagglemaster", "mana": "WWWWW"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 22}}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "card": "Falkenrath Noble",
+  "family": "death-triggers",
+  "oracle_sha": "b3984370f1fe",
+  "author": "cli-20261001T012353Z-c0654344 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "creature-dies-drains-target-opponent",
+      "cr": ["603.6c"],
+      "why": "A creature dying triggers the Noble; the targeted opponent loses 1 and the Noble's controller gains 1.",
+      "setup": {
+        "p0": {"battlefield": ["Falkenrath Noble", "Grizzly Bears"]},
+        "p1": {"battlefield": ["Savannah Lions"]}
+      },
+      "steps": [
+        {"op": "move", "seat": 0, "card": "p0:Grizzly Bears", "to": "graveyard", "targets": ["p1"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 21, "p1": 19}},
+        {"card": "p0:Falkenrath Noble", "keywords": ["Flying"]}
+      ]
+    },
+    {
+      "name": "opponent-creature-dies-also-drains",
+      "cr": ["603.6c"],
+      "why": "The trigger is any creature dying, not just one you control; the opponent's own creature dying drains them.",
+      "setup": {
+        "p0": {"battlefield": ["Falkenrath Noble"]},
+        "p1": {"battlefield": ["Savannah Lions"]}
+      },
+      "steps": [
+        {"op": "move", "seat": 1, "card": "p1:Savannah Lions", "to": "graveyard", "targets": ["p1"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 21, "p1": 19}}
+      ]
+    }
+  ]
+}

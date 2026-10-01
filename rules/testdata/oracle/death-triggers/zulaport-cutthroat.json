@@ -1,0 +1,59 @@
+{
+  "card": "Zulaport Cutthroat",
+  "family": "death-triggers",
+  "oracle_sha": "8f9a50927e11",
+  "author": "cli-20261001T012353Z-c0654344 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "another-creature-you-control-dies-drains",
+      "cr": ["603.6c", "700.4"],
+      "why": "Another creature seat 0 controls dying triggers the Cutthroat: each opponent loses 1 life and seat 0 gains 1 life.",
+      "setup": {
+        "p0": {"battlefield": ["Zulaport Cutthroat", "Grizzly Bears"]},
+        "p1": {"battlefield": ["Savannah Lions"]}
+      },
+      "steps": [
+        {"op": "move", "seat": 0, "card": "p0:Grizzly Bears", "to": "graveyard"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "zone": "graveyard"},
+        {"life": {"p0": 21, "p1": 19}},
+        {"card": "p0:Zulaport Cutthroat", "zone": "battlefield"}
+      ]
+    },
+    {
+      "name": "cutthroat-itself-dying-still-drains",
+      "cr": ["603.6c", "603.10a"],
+      "why": "The Cutthroat's own death is an event it triggers on (\"Zulaport Cutthroat or another creature\"); it uses last-known information even though it is no longer on the battlefield.",
+      "setup": {
+        "p0": {"battlefield": ["Zulaport Cutthroat"]},
+        "p1": {"battlefield": ["Savannah Lions"]}
+      },
+      "steps": [
+        {"op": "move", "seat": 0, "card": "p0:Zulaport Cutthroat", "to": "graveyard"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Zulaport Cutthroat", "zone": "graveyard"},
+        {"life": {"p0": 21, "p1": 19}}
+      ]
+    },
+    {
+      "name": "opponent-creature-dying-does-nothing",
+      "cr": ["603.6c"],
+      "why": "It triggers only on creatures YOU control dying; an opponent's creature dying drains nobody.",
+      "setup": {
+        "p0": {"battlefield": ["Zulaport Cutthroat"]},
+        "p1": {"battlefield": ["Savannah Lions"]}
+      },
+      "steps": [
+        {"op": "move", "seat": 1, "card": "p1:Savannah Lions", "to": "graveyard"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 20, "p1": 20}}
+      ]
+    }
+  ]
+}

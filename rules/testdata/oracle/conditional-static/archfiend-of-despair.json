@@ -1,0 +1,41 @@
+{
+  "card": "Archfiend of Despair",
+  "family": "conditional-static",
+  "oracle_sha": "33151d34b732",
+  "author": "cli-20261001T012353Z-c0654344 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "opponent-cannot-gain-life",
+      "cr": ["101.2", "614.1"],
+      "why": "Your opponents can't gain life; an opponent's Revitalize (\"You gain 3 life\") is replaced by nothing, so p1 stays at 20.",
+      "setup": {
+        "p0": {"battlefield": ["Archfiend of Despair"]},
+        "p1": {"hand": ["Revitalize"]}
+      },
+      "steps": [
+        {"op": "pass_to", "step": "main1", "active": "p1"},
+        {"op": "cast", "seat": 1, "card": "p1:Revitalize", "mana": "CW"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 20, "p1": 20}}
+      ]
+    },
+    {
+      "name": "controller-can-still-gain-life",
+      "cr": ["101.2"],
+      "why": "\"Your opponents\" excludes the Archfiend's controller, so seat 0's own Revitalize gains 3 life.",
+      "setup": {
+        "p0": {"battlefield": ["Archfiend of Despair"], "hand": ["Revitalize"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Revitalize", "mana": "CW"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 23}}
+      ]
+    }
+  ]
+}

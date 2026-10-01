@@ -1,0 +1,41 @@
+{
+  "card": "Sheoldred, the Apocalypse",
+  "family": "triggered-ability",
+  "oracle_sha": "9b94bf655673",
+  "author": "cli-20261001T012353Z-c0654344 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "you-draw-gain-two",
+      "cr": ["603.2"],
+      "why": "Whenever you draw a card, you gain 2 life; casting Elvish Visionary draws one card, so p0 gains 2.",
+      "setup": {
+        "p0": {"battlefield": ["Sheoldred, the Apocalypse"], "hand": ["Elvish Visionary"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Elvish Visionary", "mana": "CG"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 22, "p1": 20}}
+      ]
+    },
+    {
+      "name": "opponent-draws-loses-two",
+      "cr": ["603.2"],
+      "why": "Whenever an opponent draws a card, they lose 2 life; p1's turn-2 draw step costs p1 2 life.",
+      "setup": {
+        "p0": {"battlefield": ["Sheoldred, the Apocalypse"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "pass_to", "step": "draw", "active": "p1"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Sheoldred, the Apocalypse", "keywords": ["Deathtouch"]},
+        {"life": {"p1": 18}}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "card": "Death Baron",
+  "family": "conditional-static",
+  "oracle_sha": "75d06dbf9b97",
+  "author": "cli-20261001T012353Z-c0654344 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "zombie-gets-plus-one-and-deathtouch",
+      "cr": ["613.1f", "613.1g"],
+      "why": "Other Zombies you control get +1/+1 and have deathtouch; a 2/2 Diregraf Ghoul is 3/3 with deathtouch.",
+      "setup": {
+        "p0": {"battlefield": ["Death Baron", "Diregraf Ghoul"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "pass"}
+      ],
+      "expect": [
+        {"card": "p0:Diregraf Ghoul", "pt": "3/3", "keywords": ["Deathtouch"]},
+        {"card": "p0:Death Baron", "pt": "2/2"}
+      ]
+    },
+    {
+      "name": "non-zombie-unaffected",
+      "cr": ["613.1f"],
+      "why": "A Cat is neither a Skeleton nor a Zombie, so it is unaffected; a 2/1 Savannah Lions stays 2/1 without deathtouch.",
+      "setup": {
+        "p0": {"battlefield": ["Death Baron", "Savannah Lions"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "pass"}
+      ],
+      "expect": [
+        {"card": "p0:Savannah Lions", "pt": "2/1", "no_keywords": ["Deathtouch"]}
+      ]
+    }
+  ]
+}
