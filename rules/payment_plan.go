@@ -840,7 +840,7 @@ func (e *Engine) planPaymentCostWithout(p state.PlayerID, cast decision.PlannedC
 	life := e.G.Players[p].Life
 	phase1 := paymentPlanPhaseChoices(choices, paymentTierNormal)
 	rankCtx := newPaymentPlanRankContext(choices, e.paymentPlanHandDemand(p, cast.Object))
-	search := searchPaymentPlan(cost, e.G.Players[p].Pool, life, rankCtx,
+	search := searchPaymentPlanInto(&e.hypPool().planSearch, cost, e.G.Players[p].Pool, life, rankCtx,
 		phase1, queryClasses(p, paymentTierNormal, phase1))
 	nodes := search.nodes
 	// Phase 2 runs only when phase 1 PROVES no plan exists (insufficient,
@@ -850,7 +850,7 @@ func (e *Engine) planPaymentCostWithout(p state.PlayerID, cast decision.PlannedC
 	// and 7 read the untapped normal remainder in both phases.
 	if search.best == nil && !search.limited {
 		if phase2 := paymentPlanLastResortChoices(choices, life); phase2 != nil {
-			search = searchPaymentPlan(cost, e.G.Players[p].Pool, life, rankCtx,
+			search = searchPaymentPlanInto(&e.hypPool().planSearch, cost, e.G.Players[p].Pool, life, rankCtx,
 				phase2, queryClasses(p, paymentTierLastResort, phase2))
 			nodes += search.nodes
 		}

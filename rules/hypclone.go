@@ -1,6 +1,9 @@
 package rules
 
-import "github.com/adams-shaun/gorge/decision"
+import (
+	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/events"
+)
 
 // Hypothetical clones: the throwaway engines a pure read builds to try a
 // line of play (potentialWitnessReaches, PotentialPlayScript's search). Each
@@ -20,6 +23,11 @@ type hypSparePool struct {
 	// opts is a stack of cleared option lists the temporary offer walks
 	// (legalActionsWalkTemp) build into.
 	opts [][]decision.Option
+	// pm is PotentialMana's working storage (potential_scratch.go).
+	pm pmScratch
+	// planSearch is the payment-plan search's working storage
+	// (payment_plan_search.go).
+	planSearch paymentPlanSearchScratch
 }
 
 // hypPool is e's own pool, created on first use.
@@ -35,8 +43,22 @@ func (e *Engine) hypPool() *hypSparePool {
 // clone made from it, is dead.
 func (e *Engine) hypClone(c *Engine) *Engine {
 	sp := e.hypTake()
+	// A pooled log array sized for an earlier, shorter history would be
+	// skipped by CloneInto (it needs the history plus its fork slack) and
+	// the clone would regrow a fresh one at only an eighth of slack; the
+	// live log keeps growing all game, so that regrow would recur every few
+	// decisions. Replace a short array once with half the history again of
+	// headroom. Capacity only: CloneInto overwrites every slot it hands out.
+	if need := len(c.L.Events) + hypLogSlack; cap(sp.events) < need {
+		sp.events = make([]events.Event, 0, need+len(c.L.Events)/2)
+	}
 	return c.CloneInto(&sp)
 }
+
+// hypLogSlack is the appends a hypothetical clone's log array holds past its
+// parent's history; it is at least events' fork slack (256), so CloneInto
+// always takes the array.
+const hypLogSlack = 512
 
 // hypTake pops a Spare from e's pool (the zero Spare when it is empty).
 func (e *Engine) hypTake() Spare {

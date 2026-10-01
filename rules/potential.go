@@ -88,17 +88,17 @@ func (e *Engine) PotentialMana(p state.PlayerID) state.Mana {
 	// could miss a colour only the paid ability makes (a sound upper bound
 	// may count both of a source's abilities; it already did when both were
 	// payable on the same pass).
-	var admitted [][]bool
+	//
 	// Each object's membership list (below) reads the board only, never the
 	// accumulated pool, and the fixpoint changes no state, so it is computed
 	// once per object on the first pass and reused by every later pass; only
 	// the pool-priced payability filter reruns. Indexed by zone position: the
-	// zone does not move while the fixpoint runs.
+	// zone does not move while the fixpoint runs. The lists live in one
+	// engine-owned scratch (potentialManaScratch), reused call to call.
 	zone := e.G.Zone(state.ZBattlefield, p)
-	members := make([][]*cards.SA, len(zone))
-	walked := make([]bool, len(zone))
-	admitted = make([][]bool, len(zone))
-	own := make([]state.Mana, len(zone)) // each source's counted production
+	sc := e.potentialManaScratch(len(zone))
+	defer sc.done()
+	members, walked, admitted, own := sc.members, sc.walked, sc.admitted, sc.own
 	for {
 		progressed := false
 		for zi, id := range zone {
@@ -111,7 +111,7 @@ func (e *Engine) PotentialMana(p state.PlayerID) state.Mana {
 			// accumulated hypothetical pool below. That shared walk includes
 			// granted CR 305.6 intrinsics and all current eligibility gates.
 			if !walked[zi] {
-				members[zi] = e.appendAvailableManaAbilitiesGate(nil, nil, p, id, true)
+				members[zi] = sc.take(e.appendAvailableManaAbilitiesGate(sc.spill(), nil, p, id, true))
 				walked[zi] = true
 			} else if potentialMembersVerify {
 				if fresh := e.appendAvailableManaAbilitiesGate(nil, nil, p, id, true); !slices.EqualFunc(fresh, members[zi], sameManaAbility) {
@@ -122,7 +122,7 @@ func (e *Engine) PotentialMana(p state.PlayerID) state.Mana {
 				continue
 			}
 			if admitted[zi] == nil {
-				admitted[zi] = make([]bool, len(members[zi]))
+				admitted[zi] = sc.flags(len(members[zi]))
 			}
 			// Price every not-yet-admitted member against the pool built
 			// from OTHER sources (a source's own production never funds its
@@ -132,13 +132,14 @@ func (e *Engine) PotentialMana(p state.PlayerID) state.Mana {
 			for c := range others {
 				others[c] -= own[zi][c]
 			}
-			var ses []*cards.SA
+			ses := sc.ses[:0]
 			for k, ma := range members[zi] {
 				if !admitted[zi][k] && e.manaAbilityPayablePool(p, id, ma, &others) {
 					admitted[zi][k] = true
 					ses = append(ses, ma)
 				}
 			}
+			sc.ses = ses
 			if len(ses) == 0 {
 				continue
 			}

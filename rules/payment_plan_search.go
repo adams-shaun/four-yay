@@ -240,13 +240,49 @@ type paymentPlanSearch struct {
 // exactly as the exhaustive order does. The node budget is the only source
 // of inexactness: a search that reaches it returns the best plan found.
 func searchPaymentPlan(cost Cost, pool state.Mana, life int32, ctx paymentPlanRankContext, choices [][]plannedManaActivation, classes []paymentPlanClass) *paymentPlanSearch {
-	s := &paymentPlanSearch{cost: cost, pool: pool, life: life, ctx: ctx, choices: choices, classes: classes}
-	s.order()
-	s.counts = make([][]int32, len(s.classes))
-	for k := range s.classes {
-		s.counts[k] = make([]int32, len(s.classes[k].alts))
+	return searchPaymentPlanInto(nil, cost, pool, life, ctx, choices, classes)
+}
+
+// paymentPlanSearchScratch is a search's reusable working storage: the
+// level order and its suffix statistics, the reordered classes and the
+// unit counters. A search is a pure function of its arguments that calls
+// back into nothing, so one engine-owned scratch serves every search the
+// engine runs; the returned search's best plan never points into it.
+type paymentPlanSearchScratch struct {
+	classes    []paymentPlanClass
+	levels     []paymentPlanLevel
+	levelStats []paymentPlanBoundStats
+	laterStats []paymentPlanBoundStats
+	laterCap   [][64]int32
+	counts     [][]int32
+	countsFlat []int32
+	used       []int32
+}
+
+// searchPaymentPlanInto is searchPaymentPlan with its working storage drawn
+// from sc (nil allocates it). The search reads only slots it wrote first:
+// every array is cleared or fully assigned before the walk.
+func searchPaymentPlanInto(sc *paymentPlanSearchScratch, cost Cost, pool state.Mana, life int32, ctx paymentPlanRankContext, choices [][]plannedManaActivation, classes []paymentPlanClass) *paymentPlanSearch {
+	if sc == nil {
+		sc = &paymentPlanSearchScratch{}
 	}
-	s.used = make([]int32, len(s.classes))
+	s := &paymentPlanSearch{cost: cost, pool: pool, life: life, ctx: ctx, choices: choices, classes: classes}
+	s.order(sc)
+	total := 0
+	for k := range s.classes {
+		total += len(s.classes[k].alts)
+	}
+	sc.countsFlat = resizeCleared(sc.countsFlat, total)
+	sc.counts = resizeCleared(sc.counts, len(s.classes))
+	s.counts = sc.counts
+	at := 0
+	for k := range s.classes {
+		n := len(s.classes[k].alts)
+		s.counts[k] = sc.countsFlat[at : at+n : at+n]
+		at += n
+	}
+	sc.used = resizeCleared(sc.used, len(s.classes))
+	s.used = sc.used
 	s.walk(0)
 	return s
 }
@@ -257,7 +293,7 @@ func searchPaymentPlan(cost Cost, pool state.Mana, life int32, ctx paymentPlanRa
 // the least flexible class first, then battlefield order. Inside a class the
 // alternatives producing a short colour come first. The order only steers
 // how early a good plan is found; exactness never depends on it.
-func (s *paymentPlanSearch) order() {
+func (s *paymentPlanSearch) order(sc *paymentPlanSearchScratch) {
 	short, _ := s.deficit()
 	shortMask := 0
 	for i, n := range short {
@@ -304,11 +340,12 @@ func (s *paymentPlanSearch) order() {
 		return cmp.Or(cmp.Compare(a.irr, b.irr), cmp.Compare(flag(a.creature), flag(b.creature)),
 			cmp.Compare(flag(b.pips), flag(a.pips)), cmp.Compare(a.flex, b.flex), cmp.Compare(a.first, b.first))
 	})
-	classes := make([]paymentPlanClass, len(idx))
+	classes := resizeCleared(sc.classes, len(idx))
 	for k, from := range idx {
 		classes[k] = s.classes[from]
 	}
-	s.classes = classes
+	s.classes, sc.classes = classes, classes
+	s.levels = sc.levels[:0]
 
 	var classStart []int
 	for k := range s.classes {
@@ -327,9 +364,11 @@ func (s *paymentPlanSearch) order() {
 	}
 	// Suffix statistics. levelStats runs backwards inside each class;
 	// laterStats/laterCap accumulate whole classes from the end.
-	s.levelStats = make([]paymentPlanBoundStats, len(s.levels))
-	s.laterStats = make([]paymentPlanBoundStats, len(s.levels))
-	s.laterCap = make([][64]int32, len(s.levels))
+	sc.levels = s.levels
+	sc.levelStats = resizeCleared(sc.levelStats, len(s.levels))
+	sc.laterStats = resizeCleared(sc.laterStats, len(s.levels))
+	sc.laterCap = resizeCleared(sc.laterCap, len(s.levels))
+	s.levelStats, s.laterStats, s.laterCap = sc.levelStats, sc.laterStats, sc.laterCap
 	var later paymentPlanBoundStats
 	var laterCap [64]int32
 	for k := len(s.classes) - 1; k >= 0; k-- {
