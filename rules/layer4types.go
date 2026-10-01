@@ -113,11 +113,12 @@ func poolHasLayer4Static(cfg Config) bool {
 // forces a full rebuild instead, and
 // the source list is re-derived fresh from e.continuous every refresh, so a
 // liveness flip (a source leaving the battlefield, a DurationSource moving,
-// an UntilEndOfCombat/UntilTurn boundary) either changes the source list
-// against its stamp -- full rebuild -- or changes nothing the table reads.
-// Every uncertainty falls back to the whole-board rebuild: a
-// continuousVersion bump, a negative or rewound epoch (onBoard's eventless
-// staleness, a fresh engine), or the source stamp moving. The fallback is
+// an UntilEndOfCombat/UntilTurn boundary) is read by the very build it
+// affects: the candidates are always the CURRENT sources plus mayDiffer.
+// Every uncertainty falls back to the whole-board rebuild: a negative or
+// rewound epoch (onBoard's eventless staleness, a fresh engine) or an
+// unbounded non-self effect. A continuousVersion bump or a moved source list
+// does not: the build re-derives both from the current registry. The fallback is
 // the pre-incremental behaviour, so the fast path can only ever get MORE
 // conservative, never less.
 //
@@ -163,7 +164,14 @@ func (e *Engine) refreshDerivedTypes() {
 	}
 	// The incremental rebuild. Everything it cannot prove locally falls
 	// through to the whole-board rebuild below.
-	if e.typesIncrReady && e.typesVersion == e.continuousVersion && e.typesEpoch >= 0 && n >= e.typesEpoch &&
+	//
+	// A continuousVersion bump does not by itself leave the incremental
+	// state: the candidate slice is a function of object fields alone
+	// (caught up from the log), and each build re-derives the live source
+	// list (self-only) or the bounded reach from the CURRENT registry and
+	// active(), so the build is the whole-board walk's table under the
+	// current effects whatever the registry held at the last build.
+	if e.typesIncrReady && e.typesEpoch >= 0 && n >= e.typesEpoch &&
 		e.refreshDerivedTypesIncremental(n) {
 		return
 	}
@@ -212,11 +220,10 @@ func (e *Engine) refreshDerivedTypesIncremental(n int) bool {
 		// incremental only while every one has a bounded reach.
 		return e.refreshDerivedTypesBounded(n)
 	}
-	if !slices.Equal(srcs, e.typesSrcs) {
-		// The source list moved: only the whole-board walk can say which
-		// objects the effects reach.
-		return false
-	}
+	// A moved source list needs no whole-board walk: a Card.Self effect
+	// reaches exactly its own source, so the candidates are the fresh srcs
+	// plus the maintained mayDiffer slice -- the self-only walk's own
+	// candidate set (buildDerivedTypesWalk), whatever the previous list was.
 	e.stampTypes(n, srcs, selfOnly)
 	e.typesIncrBuilds++
 	if len(srcs) == 0 {
@@ -809,7 +816,12 @@ func (e *Engine) staticsMayChangeTypes() bool {
 // self-invalidates when its Statics list grows) plus every object appended
 // since, and re-stamps.
 func (e *Engine) staticsProbeCatchUp(n int) {
-	if !e.typesProbeReady || e.typesProbeEpoch < 0 || n < e.typesProbeEpoch || e.typesProbeVersion != e.continuousVersion {
+	// A continuousVersion bump alone re-probes nothing: the per-object
+	// answer reads only the object's own Zone/Card/FaceIdx/CopyFace/
+	// Unlocked/MergedCards and its faces' Statics, never the continuous
+	// registry, and every write to those fields is an event the loop below
+	// visits. layer4PrecheckVerify holds every "no" to the zone walk.
+	if !e.typesProbeReady || e.typesProbeEpoch < 0 || n < e.typesProbeEpoch {
 		e.staticsProbeFull()
 		return
 	}

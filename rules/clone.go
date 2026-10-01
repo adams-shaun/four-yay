@@ -295,12 +295,12 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	// same identical board, so a table built under the current registry
 	// carries them too (engine_derived_tables.go): the clone's next refresh
 	// goes incremental instead of re-deriving and re-probing the whole board.
-	if e.typesVersion == e.continuousVersion && e.typesIncrReady {
+	if e.typesIncrReady {
 		c.typesIncrReady, c.typesSelfOnly = true, e.typesSelfOnly
 		c.typesSrcs = append([]state.ObjID(nil), e.typesSrcs...)
 		c.typesMayDiffer = append([]state.ObjID(nil), e.typesMayDiffer...)
 	}
-	if e.typesProbeReady && e.typesProbeVersion == e.continuousVersion {
+	if e.typesProbeReady {
 		c.typesProbe = append(sp.probe[:0], e.typesProbe...)
 		c.typesProbeReady, c.typesProbeTrue = true, e.typesProbeTrue
 		c.typesProbeEpoch, c.typesProbeObjs = e.typesProbeEpoch, e.typesProbeObjs
