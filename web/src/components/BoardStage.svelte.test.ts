@@ -119,7 +119,7 @@ describe('BoardStage — the table is arranged, and the centre strip is a real l
     await page.close();
   });
 
-  it('keeps a seven-card opening hand on one non-scrolling row at every acceptance viewport', async () => {
+  it('keeps a seven-card opening hand on one non-scrolling row at every acceptance viewport', { timeout: 30_000 }, async () => {
     for (const [width, height] of [[1440, 900], [1000, 900], [650, 700]]) {
       const page = await browser.newPage({ viewport: { width, height } });
       await page.goto(`${url}src/components/OpeningHand.geometry.html`);

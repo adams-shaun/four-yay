@@ -138,6 +138,68 @@ BLOCKED=$(read_score blocked_by_stability)
 SCORE=$(read_score score)
 saw "reward score ${SCORE:-n/a} (stability veto: ${BLOCKED:-n/a})"
 
+# The standing-gorged stability metric measures orphaned gorged table servers
+# (reward_collect's standing_gorged_excess) but until 2026-10-01 nothing in the
+# pipeline removed one: a fixture gorged orphaned on :8095 vetoed two
+# scoreboards for ~25 minutes until it exited on its own. The seed cycle is the
+# tick that both measures (the free probe above appends the metric) and acts,
+# so it runs the reaper (scripts/gorged_reap.py via cleanup.sh) once the metric
+# has been nonzero on TWO consecutive probes: one nonzero probe must not fire,
+# because a launch window can put a live seat's own gorged in front of the
+# collector for a single cycle and the ownership rule claims it a moment later.
+# The veto is NOT re-read after reaping -- the reaped instance only leaves the
+# NEXT probe's window, so this cycle still pauses and files as today. The
+# action is recorded as an UNREGISTERED stability metric (gorged_reaped):
+# reward.py's stability_penalty sums only STABILITY_METRICS, so the row is
+# visible on the scoreboard and scored nowhere -- registering it would make
+# the cure veto like the disease. GORGE_PROC_DIR is deliberately NOT set here:
+# in production the reaper must scan the real process table, and a test scopes
+# the listing by exporting the variable (inheritance is the only channel).
+GORGED_FIRE=$(python3 - "$STATE/scoreboard.jsonl" <<'PY'
+import json, sys
+vals = []
+try:
+    for line in open(sys.argv[1]):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            d = json.loads(line)
+        except ValueError:
+            continue
+        if d.get("axis") == "stability" and d.get("metric") == "standing_gorged_excess":
+            vals.append(d.get("value", 0))
+except FileNotFoundError:
+    pass
+fire = len(vals) >= 2 and vals[-1] > 0 and vals[-2] > 0
+print("fire" if fire else "no")
+PY
+)
+if [ "$GORGED_FIRE" = "fire" ]; then
+	GORGE_REAP_OUT=$(APPLY=1 "$ROOT/scripts/cleanup.sh" gorged 2>&1)
+	GORGE_REAP_RC=$?
+	case $GORGE_REAP_RC in
+	0)
+		GORGE_REAP_N=$(printf '%s\n' "$GORGE_REAP_OUT" | sed -n 's/^reaped \([0-9]*\) standing instance(s)/\1/p')
+		if [ -n "$GORGE_REAP_N" ]; then
+			GORGE_REAP_NOTE=$(printf '%s\n' "$GORGE_REAP_OUT" | grep '^pid=' | grep 'STANDING' |
+				sed 's/ dir=[^ ]*//; s/ ppid=[^ ]*//; s/: STANDING.*//' | paste -sd ';' -)
+			printf '{"ts":"%s","git_head":"%s","axis":"stability","metric":"gorged_reaped","value":%s,"cost_s":0,"cmd":"seed-agent.sh","note":"%s"}\n' \
+				"$(now)" "$HEAD_SHA" "$GORGE_REAP_N" "$GORGE_REAP_NOTE" >>"$STATE/scoreboard.jsonl"
+			did "reaped $GORGE_REAP_N standing gorged instance(s) ($GORGE_REAP_NOTE) -- recorded as the unscored gorged_reaped metric, not a penalty"
+		else
+			saw "gorged reaper found nothing reapable this cycle: $(printf '%s\n' "$GORGE_REAP_OUT" | tail -1)"
+		fi
+		;;
+	1)
+		saw "gorged reaper FAILED (rc 1; a survivor stays vetoed by the metric and is not retried this cycle): $(printf '%s\n' "$GORGE_REAP_OUT" | tail -1)"
+		;;
+	*)
+		saw "gorged reaper usage error (rc $GORGE_REAP_RC): $(printf '%s\n' "$GORGE_REAP_OUT" | tail -1)"
+		;;
+	esac
+fi
+
 if [ "$BLOCKED" = "True" ]; then
 	"$ROOT/scripts/broker.sh" pause-all heavy >/dev/null 2>&1
 	did "paused every heavy lease (stability veto active)"
