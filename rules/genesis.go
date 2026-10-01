@@ -54,6 +54,9 @@ type Spare struct {
 	// into grown arrays instead of regrowing them from nil.
 	legalOpts []decision.Option
 	manaAb    []*cards.SA
+	// static is a spent engine's cleared staticEffects memo storage, which
+	// the next clone copies its parent's memo into (clone.go).
+	static []ContinuousEffect
 }
 
 // Release returns e's log and object-arena arrays as a Spare for the next
@@ -97,6 +100,13 @@ func (e *Engine) Release() Spare {
 	// legal_walk_battlefield.go), so they hold no reference to recycle away.
 	sp.legalOpts, sp.manaAb = e.legalOptBuf[:0], e.manaAbBuf[:0]
 	e.legalOptBuf, e.manaAbBuf = nil, nil
+	// The static memo's outer storage is always this engine's own (a build
+	// writes into it, and a clone copies into its own), so it is recycled
+	// cleared: the nested slices it held are never reached again.
+	sp.static = e.staticContinuous[:cap(e.staticContinuous)]
+	clear(sp.static)
+	sp.static = sp.static[:0]
+	e.staticContinuous = nil
 	if e.lookBackOwner == e && !e.lookBackBusy {
 		sp.lookBack = e.lookBack
 	}

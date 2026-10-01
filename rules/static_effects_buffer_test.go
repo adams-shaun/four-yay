@@ -113,12 +113,15 @@ func TestStaticEffectsCloneOwnsBacking(t *testing.T) {
 	e.active()
 	parentEffects := slices.Clone(e.staticContinuous)
 	c := e.Clone()
-	if c.staticContinuous != nil || c.staticEpoch != 0 {
-		t.Fatal("clone retained the parent's static scratch or cache key")
+	// The clone carries the parent's memo (same board, same log head) in its
+	// OWN outer storage, keyed to its own registry version.
+	if c.staticEpoch != e.staticEpoch || c.staticVersion != c.continuousVersion ||
+		len(c.staticContinuous) != 3 || &c.staticContinuous[0] == &e.staticContinuous[0] {
+		t.Fatal("clone did not carry the parent's static memo in its own storage")
 	}
 	c.active()
 	if len(c.staticContinuous) != 3 || !reflect.DeepEqual(c.staticContinuous, parentEffects) {
-		t.Fatal("clone did not rebuild the same three static effects")
+		t.Fatal("clone did not keep the same three static effects")
 	}
 	if &c.staticContinuous[0] == &e.staticContinuous[0] || &c.activeBuf[0] == &c.staticContinuous[0] {
 		t.Fatal("clone shares writable static storage with its parent or active list")
@@ -215,5 +218,26 @@ func TestStaticMemoRestampsAcrossQuietEvents(t *testing.T) {
 				t.Fatalf("re-stamped = %v, want %v (gated %v, state-read %v)", restamped, tc.restamp, e.staticMemoGated, e.staticMemoStateRead)
 			}
 		})
+	}
+}
+
+// TestStaticMemoMoveAdmission pins staticMoveCold: on a quiet board a
+// static-free creature's zone move re-stamps the memo, while moving the
+// static's own source rescans (and drops its effects).
+func TestStaticMemoMoveAdmission(t *testing.T) {
+	e := layerEngine(t)
+	lord := onBoardGrant(t, e, 0, staticBufferGrantSrc)
+	bear := onBoardGrant(t, e, 0, creatureSrc("Moving bear"))
+	e.active()
+	seq := e.staticBuildSeq
+	e.emit(events.Event{Kind: events.MoveZone, Obj: bear, From: state.ZBattlefield, To: state.ZGraveyard})
+	e.active()
+	if e.staticBuildSeq != seq || len(e.staticContinuous) != 3 {
+		t.Fatalf("static-free move: rebuilt %v, %d effects; want a re-stamp keeping 3", e.staticBuildSeq != seq, len(e.staticContinuous))
+	}
+	e.emit(events.Event{Kind: events.MoveZone, Obj: lord, From: state.ZBattlefield, To: state.ZGraveyard})
+	e.active()
+	if e.staticBuildSeq == seq || len(e.staticContinuous) != 0 {
+		t.Fatalf("source move: rebuilt %v, %d effects; want a rescan leaving none", e.staticBuildSeq != seq, len(e.staticContinuous))
 	}
 }

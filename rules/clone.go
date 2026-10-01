@@ -223,6 +223,16 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	// original would not. Same map-of-scalars class, so re-allocated, not
 	// shared.
 	c.castAborts = cloneAbortCounts(e.castAborts)
+	// The staticEffects memo (layercache.go), copied into recycled storage;
+	// see the staticContinuous note further down.
+	if e.staticEpoch > 0 && e.staticVersion == e.continuousVersion {
+		c.staticContinuous = append(sp.static[:0], e.staticContinuous...)
+		c.staticEpoch, c.staticObjs = e.staticEpoch, e.staticObjs
+		c.staticVersion = c.continuousVersion
+		c.staticMemoGated, c.staticMemoStateRead = e.staticMemoGated, e.staticMemoStateRead
+	} else if sp.static != nil {
+		c.staticContinuous = sp.static[:0]
+	}
 	c.suspendedCasts = append([]state.ObjID(nil), e.suspendedCasts...)
 	c.defeatedCasts = append([]state.ObjID(nil), e.defeatedCasts...)
 	// setname.go's layer-3 rename table and its genesis-time gate. The
@@ -663,10 +673,15 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	// mid-range. Leaving both zero lets each engine grow its own buffer on
 	// its next depth-0 forEachObject call.
 	//
-	// staticContinuous / staticEpoch are likewise deliberately NOT copied:
-	// staticEffects rebuilds into the memo's reusable outer storage, so each
-	// branch must own its backing array. The zero epoch forces a fresh scan
-	// of the cloned board on its first active() rebuild. The static-control
+	// staticContinuous / staticEpoch are COPIED into the clone's own outer
+	// storage (below, after the struct literal): staticEffects rebuilds into
+	// the memo's reusable outer storage, so each branch must own its backing
+	// array, while the nested keyword/type slices are read-only once built
+	// and are shared. The clone's board and log are the parent's at the clone
+	// boundary, so the memo describes the clone exactly; it is carried only
+	// when it was built under the current registry (staticVersion ==
+	// continuousVersion), re-keyed to the clone's own zero continuousVersion.
+	// Otherwise the zero epoch forces a fresh scan. The static-control
 	// reconcile (rules/control_static.go) derives its wanted set fresh from
 	// the same memo under the same epoch key, so it needs no copied cache
 	// either; reconcilingControlStatics (engine.go) is a transient re-entry
