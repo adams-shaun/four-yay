@@ -210,17 +210,34 @@ func computeFaceTrigSig(f *cards.Face, valid func(string) bool) trigSig {
 	return m
 }
 
-// computeFaceLookBack reports whether some trigger line of f survives the
-// leaves-the-battlefield look-back walk's split gate: Mode$ ChangesZone with
-// Origin$ exactly Battlefield (checkFaceTriggers' leaving test).
-func computeFaceLookBack(f *cards.Face) bool {
+// computeFaceLookBackZones is the bit set (by trigZoneSlot) of the zones from
+// which some trigger line of f survives the leaves-the-battlefield look-back
+// walk's split gate -- Mode$ ChangesZone with Origin$ exactly Battlefield
+// (checkFaceTriggers' leaving test) -- for a source that is not the event's
+// own object: zoneGate's spec for it (TriggerZones$, then ActiveZones$, then
+// Battlefield) must contain the source's zone. Phase$ diagnostics do not run
+// in the look-back walk, so they add nothing.
+func computeFaceLookBackZones(f *cards.Face) uint8 {
+	var m uint8
 	for i := range f.Triggers {
 		t := &f.Triggers[i]
-		if t.Mode == "ChangesZone" && t.ParamStr(cards.PKOrigin) == "Battlefield" {
-			return true
+		if t.Mode != "ChangesZone" || t.ParamStr(cards.PKOrigin) != "Battlefield" {
+			continue
+		}
+		spec := t.ParamStr(cards.PKTriggerZones)
+		if spec == "" {
+			spec = t.ParamStr(cards.PKActiveZones)
+		}
+		if spec == "" {
+			spec = "Battlefield"
+		}
+		for s, z := range trigZoneSlotZones {
+			if zoneSpecContains(spec, z) {
+				m |= 1 << s
+			}
 		}
 	}
-	return false
+	return m
 }
 
 // faceTrigSig is f's exact signature: from the shared compiled face facts
@@ -238,7 +255,7 @@ func (e *Engine) faceTrigSig(f *cards.Face) trigSig {
 	}
 	c := faceTrigCache{
 		sig:      computeFaceTrigSig(f, func(spec string) bool { return e.parsedPhaseSpec(spec).valid }),
-		lookBack: computeFaceLookBack(f),
+		lookBack: computeFaceLookBackZones(f),
 	}
 	if e.trigFaceKinds == nil {
 		e.trigFaceKinds = make(map[*cards.Face]faceTrigCache)
@@ -247,10 +264,10 @@ func (e *Engine) faceTrigSig(f *cards.Face) trigSig {
 	return c.sig
 }
 
-// faceLookBack is computeFaceLookBack served like faceTrigKinds.
-func (e *Engine) faceLookBack(f *cards.Face) bool {
+// faceLookBackZones is computeFaceLookBackZones served like faceTrigSig.
+func (e *Engine) faceLookBackZones(f *cards.Face) uint8 {
 	if f == nil || len(f.Triggers) == 0 {
-		return false
+		return 0
 	}
 	if ff := e.walkFaceFactsOf(f); ff != nil && ff.triggersCurrent(f) {
 		return ff.trigLookBack
@@ -261,7 +278,7 @@ func (e *Engine) faceLookBack(f *cards.Face) bool {
 
 type faceTrigCache struct {
 	sig      trigSig
-	lookBack bool
+	lookBack uint8
 }
 
 // objectTrigSig is the union of the signatures of every face o could walk:
@@ -286,10 +303,12 @@ func (e *Engine) objectTrigSig(o *state.Object) trigSig {
 
 // objectLookBackHot reports whether the leaves-the-battlefield look-back walk
 // might do anything for o other than as an event referent: o's visit can
-// reach triggerMatches only through a look-back-shaped printed line (see
-// computeFaceLookBack) of a face it could walk, or as an unlocked Room or a
-// merged pile. Granted walks are referent-gated, and the caller disables the
-// filter whenever a static-granted trigger observes the event.
+// reach a match only through a look-back-shaped printed line of a face it
+// could walk whose zone spec holds o's zone (computeFaceLookBackZones;
+// zoneGate admits a non-referent source by exactly that test), or as an
+// unlocked Room or a merged pile. Granted walks are referent-gated, and the
+// caller disables the filter whenever a static-granted trigger observes the
+// event.
 func (e *Engine) objectLookBackHot(o *state.Object) bool {
 	if o == nil || o.PhasedOut || o.Face() == nil {
 		return false
@@ -297,12 +316,17 @@ func (e *Engine) objectLookBackHot(o *state.Object) bool {
 	if o.Unlocked || len(o.MergedCards) > 0 {
 		return true
 	}
-	if o.CopyFace != nil && e.faceLookBack(o.CopyFace) {
+	slot := trigZoneSlot(o.Zone)
+	if slot < 0 {
+		return true
+	}
+	bit := uint8(1) << slot
+	if o.CopyFace != nil && e.faceLookBackZones(o.CopyFace)&bit != 0 {
 		return true
 	}
 	if o.Card != nil {
 		for _, f := range o.Card.Faces {
-			if e.faceLookBack(f) {
+			if e.faceLookBackZones(f)&bit != 0 {
 				return true
 			}
 		}
