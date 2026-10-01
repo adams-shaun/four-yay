@@ -41,7 +41,7 @@ describe('layout library storage', () => {
     expect(HAND_SCALE_MIN).toBe(0.6);
     expect(HAND_SCALE_MAX).toBe(1.6);
     expect(HAND_SCALE_DEFAULT).toBe(1);
-    const old = structuredClone(profile) as Record<string, any>;
+    const old = JSON.parse(JSON.stringify(profile));
     delete old.hand.scale;
     expect(validate(old)?.hand.scale).toBe(HAND_SCALE_DEFAULT);
     expect(validate({ ...profile, hand: { ...profile.hand, scale: HAND_SCALE_MIN } })?.hand.scale).toBe(HAND_SCALE_MIN);
