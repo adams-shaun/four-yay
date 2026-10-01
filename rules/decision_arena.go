@@ -62,9 +62,15 @@ func (s *slab[T]) take(n, chunk int) []T {
 // one returns a pointer to one zeroed slot.
 func (s *slab[T]) one(chunk int) *T { return &s.take(1, chunk)[0] }
 
-// reset clears every slot handed out and rewinds, keeping the chunks.
+// reset clears every slot handed out and rewinds, keeping the chunks. The
+// current chunk was handed out only below off (its tail is still zero), so
+// only that prefix is cleared; an earlier chunk is cleared whole.
 func (s *slab[T]) reset() {
 	for i := 0; i < len(s.chunks) && i <= s.at; i++ {
+		if i == s.at {
+			clear(s.chunks[i][:s.off])
+			break
+		}
 		clear(s.chunks[i])
 	}
 	s.at, s.off = 0, 0
