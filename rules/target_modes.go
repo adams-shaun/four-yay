@@ -40,6 +40,25 @@ func charmTargetSlots(svars map[string]string, root *cards.SA, modes []string) [
 	return slots
 }
 
+// charmBoundX is the {X} a Charm sub-ability's dynamic TargetMin$/TargetMax$
+// bound resolves against: the pending cast's settled x when the ask IS the
+// cast's announcement (the X announce runs at cast_begin before the mode and
+// target asks, but payCast only stamps X onto the stack object after the
+// targets are recorded), else the stack object's own X (a triggered modal
+// ability was never paid an X and reads zero; a copy retargets through the
+// copy-site reader that already passes o.X). The non-modal asks thread the
+// same value at their own sites (rules/cast_targets.go's pc.x, the copy
+// retarget below), so only the charm asks need this shared derivation.
+func (e *Engine) charmBoundX(source state.ObjID) int32 {
+	if pc := e.cast; pc != nil && pc.card == source {
+		return pc.x
+	}
+	if o := e.G.Obj(source); o != nil {
+		return o.X
+	}
+	return 0
+}
+
 // askCharmModeTargets is the ordinary distinct-mode target ask (CR 601.2c).
 // Every target-bearing chosen mode declares its own targets, so one option
 // group per mode is allocated with each mode's OWN bounds. When every mode is
@@ -79,7 +98,7 @@ func (e *Engine) askCharmModeTargets(p state.PlayerID, source state.ObjID, svars
 	allSimple := true
 	for _, name := range slots {
 		sa := cards.ResolveSVar(svars, name)
-		min, max := e.resolvedTargetBounds(p, source, sa, 0)
+		min, max := e.resolvedTargetBounds(p, source, sa, e.charmBoundX(source))
 		if min != 1 || max != 1 {
 			allSimple = false
 		}
@@ -141,10 +160,19 @@ func (e *Engine) askCharmSeqSlot(p state.PlayerID, source state.ObjID, svars map
 			out = append(out, nil)
 			continue
 		}
-		min, max := e.resolvedTargetBounds(p, source, sa, 0)
+		min, max := e.resolvedTargetBounds(p, source, sa, e.charmBoundX(source))
 		cs := e.legalTargetCandidates(p, source, source, sa)
 		if len(cs) < min {
 			return out, false, true
+		}
+		if max == 0 {
+			// A RESOLVED zero bound -- the cast announced X = 0 against an
+			// "up to X" mode -- takes no ask, exactly like resolveTop's N2
+			// zero-target path: resolvedTargetBounds honours a resolved zero
+			// as written (rules/target_legal.go), so the empty group records
+			// the skipped slot and the announcement finishes silently.
+			out = append(out, nil)
+			continue
 		}
 		if len(cs) == 0 {
 			out = append(out, nil)
