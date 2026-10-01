@@ -181,9 +181,12 @@ func TestGallifreyFallsFuseCastsBothHalves(t *testing.T) {
 		t.Fatal("api:Phases is unregistered (fallback Note present)")
 	}
 	// The Falls half's 4 damage on the 2/2 opposing bear is the first half's
-	// observable effect.
-	if z := e.G.Obj(bearID).Zone; z != state.ZGraveyard {
-		t.Fatalf("fused Falls left the opposing bear at zone=%s, want graveyard (4 damage on a 2/2)", z)
+	// observable effect. Falls also carries ReplaceDyingDefined$ Remembered,
+	// so the bear that would die to the damage is exiled instead of buried
+	// ("If a creature dealt damage this way would die this turn, exile it
+	// instead.").
+	if z := e.G.Obj(bearID).Zone; z != state.ZExile {
+		t.Fatalf("fused Falls left the opposing bear at zone=%s, want exile (4 damage on a 2/2, ReplaceDyingDefined$ Remembered)", z)
 	}
 	if z := e.G.Obj(id).Zone; z != state.ZGraveyard {
 		t.Fatalf("resolved fused spell zone=%s, want graveyard", z)
