@@ -104,6 +104,7 @@ func NewBoard(numPlayers int) Board {
 		Cards:      makeTable[state.ObjID, Card](16),
 		Commanders: makeTable[state.ObjID, Commander](8),
 		Stack:      make([]StackEntry, 0, 8),
+		inc:        new(boardInc),
 	}
 }
 
@@ -217,6 +218,13 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 	b.PoolRestricted = RestrictedPool(g.Players[me].RestrictedMana)
 	b.LibrarySize = int32(len(g.Zone(state.ZLibrary, me)))
 	b.HandSize = int32(len(g.Zone(state.ZHand, me)))
+	if b.fillTablesInc(g, ch, me) {
+		fillCommanders(g, b)
+		if boardIncVerify {
+			verifyIncBoard(g, ch, me, b)
+		}
+		return *b
+	}
 	for i := range g.Players {
 		p := &g.Players[i]
 		b.Life.Set(p.ID, p.Life)
@@ -255,44 +263,7 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 			}
 		}
 	}
-	// The commander bookkeeping: every commander in the match, in the
-	// dense order rules.New assigns at genesis (player order, then each
-	// player's CmdCasts-parallel Commanders order) — the same index every
-	// player's CmdDamage slice is keyed by, transposed here to the
-	// per-commander, per-damaged-player shape the clock rules read
-	// (closesClock). InCommandZone is zone-LIST membership, the exact
-	// mirror of the view half's p.Command membership, so a cast commander
-	// (moved out of the zone list) reads false on both halves.
-	dense := 0
-	for i := range g.Players {
-		p := &g.Players[i]
-		for k, id := range p.Commanders {
-			var casts int32
-			if k < len(p.CmdCasts) {
-				casts = p.CmdCasts[k]
-			}
-			cmdr := Commander{Casts: casts}
-			for _, zid := range g.Zone(state.ZCommand, p.ID) {
-				if zid == id {
-					cmdr.InCommandZone = true
-					break
-				}
-			}
-			for q := range g.Players {
-				// Guarded to totality: a game whose CmdDamage was never
-				// sized (a non-Commander game, or a hand-built state) reads
-				// nothing here, never a panic.
-				if dense < len(g.Players[q].CmdDamage) && g.Players[q].CmdDamage[dense] != 0 {
-					if cmdr.Damage == nil {
-						cmdr.Damage = make(map[state.PlayerID]int32, len(g.Players))
-					}
-					cmdr.Damage[g.Players[q].ID] = g.Players[q].CmdDamage[dense]
-				}
-			}
-			b.Commanders.Set(id, cmdr)
-			dense++
-		}
-	}
+	fillCommanders(g, b)
 	// The casting Card census: every object in the deciding seat's own hand,
 	// graveyard, battlefield and command zone — exactly the zones
 	// BoardFromView fills from the viewer's own Hand/Graveyard/Battlefield/
@@ -422,6 +393,47 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 		}
 	}
 	return *b
+}
+
+// The commander bookkeeping: every commander in the match, in the
+// dense order rules.New assigns at genesis (player order, then each
+// player's CmdCasts-parallel Commanders order) — the same index every
+// player's CmdDamage slice is keyed by, transposed here to the
+// per-commander, per-damaged-player shape the clock rules read
+// (closesClock). InCommandZone is zone-LIST membership, the exact
+// mirror of the view half's p.Command membership, so a cast commander
+// (moved out of the zone list) reads false on both halves.
+func fillCommanders(g *state.Game, b *Board) {
+	dense := 0
+	for i := range g.Players {
+		p := &g.Players[i]
+		for k, id := range p.Commanders {
+			var casts int32
+			if k < len(p.CmdCasts) {
+				casts = p.CmdCasts[k]
+			}
+			cmdr := Commander{Casts: casts}
+			for _, zid := range g.Zone(state.ZCommand, p.ID) {
+				if zid == id {
+					cmdr.InCommandZone = true
+					break
+				}
+			}
+			for q := range g.Players {
+				// Guarded to totality: a game whose CmdDamage was never
+				// sized (a non-Commander game, or a hand-built state) reads
+				// nothing here, never a panic.
+				if dense < len(g.Players[q].CmdDamage) && g.Players[q].CmdDamage[dense] != 0 {
+					if cmdr.Damage == nil {
+						cmdr.Damage = make(map[state.PlayerID]int32, len(g.Players))
+					}
+					cmdr.Damage[g.Players[q].ID] = g.Players[q].CmdDamage[dense]
+				}
+			}
+			b.Commanders.Set(id, cmdr)
+			dense++
+		}
+	}
 }
 
 // isCounterSpell reports whether f's spell ability is a Counter (one
