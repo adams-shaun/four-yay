@@ -135,12 +135,20 @@ func (m costMods) reduceTotal() int32 {
 // the SetCost floor raised to last (Trinisphere: total mana below 3 becomes
 // 3). Generic never dips below zero at any point.
 func (m costMods) apply(c Cost) Cost {
+	m.applyTo(&c)
+	return c
+}
+
+// applyTo is apply composing *c in place: the one body, so the offer gate's
+// pointer path (composeFeasibleP) and every value caller compose alike
+// without copying the ~800-byte Cost and ~900-byte costMods per call.
+func (m *costMods) applyTo(c *Cost) {
 	// Plus with the zero Cost is the identity on every field except the
 	// three it clamps or maxes at zero (Life, Snow, XMin), so the two
 	// 744-byte copies are skipped only when extra is provably zero and none
 	// of those three is negative.
 	if m.hasExtra || c.Life < 0 || c.Snow < 0 || c.XMin < 0 {
-		c = plusRaiseExtra(c, m.extra)
+		*c = plusRaiseExtra(*c, m.extra)
 	}
 	for _, r := range m.raises {
 		c.Generic = addClampedGeneric(c.Generic, int64(r))
@@ -169,17 +177,16 @@ func (m costMods) apply(c Cost) Cost {
 			}
 		}
 		if red.floor > 0 {
-			if total := totalMana(c); total < red.floor {
+			if total := totalMana(*c); total < red.floor {
 				c.Generic = addClampedGeneric(c.Generic, int64(red.floor-total))
 			}
 		}
 	}
 	if m.setFloor > 0 {
-		if total := totalMana(c); total < m.setFloor {
+		if total := totalMana(*c); total < m.setFloor {
 			c.Generic = addClampedGeneric(c.Generic, int64(m.setFloor-total))
 		}
 	}
-	return c
 }
 
 // totalMana counts the mana a cost demands, pip by pip — every symbol CR
@@ -197,7 +204,10 @@ func totalMana(c Cost) int32 {
 // whose result depends on the not-yet-announced pip faces; raises and
 // reductions are face-independent, so only a composition with a floor needs
 // the per-face enumeration feasibleAny performs.
-func (m costMods) hasFloor() bool {
+func (m costMods) hasFloor() bool { return m.hasFloorP() }
+
+// hasFloorP is hasFloor without the receiver copy.
+func (m *costMods) hasFloorP() bool {
 	if m.setFloor > 0 {
 		return true
 	}
@@ -213,6 +223,12 @@ func (m costMods) hasFloor() bool {
 // the XMin announcement floor, the modifiers, the commander tax and the delve
 // credit, in that order.
 func (m costMods) composeFeasible(c Cost, taxGeneric, delve int32) Cost {
+	return composeFeasibleP(&m, &c, taxGeneric, delve)
+}
+
+// composeFeasibleP is composeFeasible over pointers (the offer gate's hot
+// path): *c and *m are only read.
+func composeFeasibleP(m *costMods, c *Cost, taxGeneric, delve int32) Cost {
 	// A cost carrying an XMin<N> lower bound is priced at its smallest
 	// LEGAL announcement: "X can't be 0" means the offer must be able
 	// to pay {X}=XMin, never {X}=0 (Thieving Skydiver's kicked Kicker).
@@ -220,10 +236,13 @@ func (m costMods) composeFeasible(c Cost, taxGeneric, delve int32) Cost {
 	// announced-X marker (set from the raw cost's own Cost.X by
 	// paymentFor) still reports CostContainsX. WithX clears XMin, so
 	// an already-announced cost (XMin==0) is untouched here.
+	var cc Cost
 	if c.XMin > 0 {
-		c = c.WithX(c.XMin)
+		cc = c.WithX(c.XMin)
+	} else {
+		cc = *c
 	}
-	cc := m.apply(c)
+	m.applyTo(&cc)
 	cc.Generic = addClampedGeneric(cc.Generic, int64(taxGeneric))
 	if cc.Generic > delve {
 		cc.Generic -= delve
@@ -377,16 +396,22 @@ func (e *Engine) manaFeasibleGrant(p state.PlayerID, id state.ObjID, ability boo
 // modes, so a potential action and the offer the walk mirrors can never
 // disagree about what the pool may satisfy.
 func (e *Engine) manaFeasiblePool(p state.PlayerID, id state.ObjID, ability bool, c Cost, mods costMods, taxGeneric, delve int32, pool state.Mana, typed [7]state.Mana) bool {
+	return e.manaFeasiblePoolP(p, id, ability, &c, &mods, taxGeneric, delve, pool, typed)
+}
+
+// manaFeasiblePoolP is manaFeasiblePool over pointers: *c and *mods are only
+// read, and the common pool-floor refusal never copies either.
+func (e *Engine) manaFeasiblePoolP(p state.PlayerID, id state.ObjID, ability bool, c *Cost, mods *costMods, taxGeneric, delve int32, pool state.Mana, typed [7]state.Mana) bool {
 	// Without an announcement walk feasibleAny is exactly its composed leaf,
 	// whose first answer is the pool-unit floor (poolUnitsFloor): decide that
 	// here, before the payer's grant and conversion reads the search needs.
-	if !mods.hasFloor() || c.annPipCount() == 0 {
-		if cc := mods.composeFeasible(c, taxGeneric, delve); int64(pool.Total()) < cc.poolUnitsFloor() {
+	if !mods.hasFloorP() || c.annPipCountP() == 0 {
+		if cc := composeFeasibleP(mods, c, taxGeneric, delve); int64(pool.Total()) < cc.poolUnitsFloor() {
 			return false
 		}
 	}
-	pl := e.G.Players[p]
-	return mods.feasibleAny(c, pool, pl.Snow, typed, pl.Life, taxGeneric, delve,
+	pl := &e.G.Players[p]
+	return mods.feasibleAny(*c, pool, pl.Snow, typed, pl.Life, taxGeneric, delve,
 		e.payerGrantsPayLifeInsteadOfB(p),
 		pipRider{anyColor: e.payerGrantsIgnoreColor(p, id), anyType: e.payerGrantsIgnoreType(p, id)},
 		e.paymentConv(p, id, ability))
@@ -396,15 +421,30 @@ func (e *Engine) manaFeasiblePool(p state.PlayerID, id state.ObjID, ability bool
 // ordinary real-pool gate, hyp non-nil prices the feasibility against the
 // potential walk's hypothetical bound (rules/legal.go legalActionsPriced).
 func (e *Engine) manaFeasiblePriced(p state.PlayerID, id state.ObjID, ability bool, c Cost, mods costMods, taxGeneric, delve int32, hyp *state.Mana) bool {
-	av := e.manaAvailableFor(p, paymentFor(id, ability, c))
-	pool, typed := av.pool, av.typed
-	if hyp != nil {
-		pool = *hyp
+	return e.manaFeasiblePricedP(p, id, ability, &c, &mods, taxGeneric, delve, hyp)
+}
+
+// manaFeasiblePricedP is manaFeasiblePriced over pointers (*c and *mods are
+// only read). The priced pool is manaAvailableFor's, whose descriptor matters
+// only to a RestrictedMana batch: without one it is the floating pool and the
+// raw tally verbatim, and under hyp both are replaced outright, so neither
+// case builds the descriptor (a Cost copy).
+func (e *Engine) manaFeasiblePricedP(p state.PlayerID, id state.ObjID, ability bool, c *Cost, mods *costMods, taxGeneric, delve int32, hyp *state.Mana) bool {
+	pl := &e.G.Players[p]
+	var pool state.Mana
+	var typed [7]state.Mana
+	switch {
+	case hyp != nil:
 		// A hypothetical bound is a pure mana bound (see costPayablePool),
 		// so its typed partition is the raw tally.
-		typed = e.G.Players[p].ManaUnits()
+		pool, typed = *hyp, pl.ManaUnits()
+	case len(pl.RestrictedMana) == 0:
+		pool, typed = pl.Pool, pl.ManaUnits()
+	default:
+		av := e.manaAvailableFor(p, paymentFor(id, ability, *c))
+		pool, typed = av.pool, av.typed
 	}
-	return e.manaFeasiblePool(p, id, ability, c, mods, taxGeneric, delve, pool, typed)
+	return e.manaFeasiblePoolP(p, id, ability, c, mods, taxGeneric, delve, pool, typed)
 }
 
 // effectZoneOK reports whether a static whose EffectZone$ reads v applies

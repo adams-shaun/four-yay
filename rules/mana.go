@@ -1928,9 +1928,12 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 	// body is present but unresolvable is WITHHELD here -- the fail-closed
 	// direction the rest of the cost grammar takes -- rather than offered with
 	// an arbitrary announcement.
-	base, ok := e.fixLifeXCost(p, id, base)
-	if !ok {
-		return false
+	// fixLifeXCost is the identity on a cost with no PayLife<X> part.
+	if len(base.LifeX) > 0 {
+		var ok bool
+		if base, ok = e.fixLifeXCost(p, id, base); !ok {
+			return false
+		}
 	}
 	// The activated ability's own XMin$ parameter (task cost:xmin-param): the
 	// same announcement floor xAsk folds from the ability being activated,
@@ -1962,7 +1965,11 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 		mods.waterbendX = true
 		mods.waterbendPartX++
 	}
-	mods = e.withWaterbendOfferCredit(p, id, base.XMin, mods)
+	// withWaterbendOfferCredit returns mods unchanged unless some waterbend
+	// credit is wanted (its want is 0 when both counts are).
+	if mods.waterbend != 0 || mods.waterbendPartX != 0 {
+		mods = e.withWaterbendOfferCredit(p, id, base.XMin, mods)
+	}
 	tax := int32(0)
 	if scope.kind != "Ability" && scope.kind != "Foretell" && scope.kind != "Static" {
 		tax = e.commanderTaxAmount(p, id)
@@ -1971,7 +1978,7 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 	if e.hasKeywordH(id, kwhDelve) {
 		delve = int32(len(e.G.Zone(state.ZGraveyard, p)))
 	}
-	if !e.manaFeasiblePriced(p, id, ability, base, mods, tax, delve, hyp) {
+	if !e.manaFeasiblePricedP(p, id, ability, &base, &mods, tax, delve, hyp) {
 		// A target-dependent reducer cannot be in the ordinary pre-target
 		// snapshot, but it may make one legal target choice payable. Retry with
 		// exactly those potential reductions; target-dependent raises/floors
@@ -1997,7 +2004,7 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 		}
 		if potentialOK {
 			mods = potential
-		} else if accepted, ok := e.offerSacXMods(p, id, ability, base, statics, scope, tax, delve, hyp); ok {
+		} else if accepted, ok := e.offerSacXModsGated(p, id, ability, &base, statics, scope, tax, delve, hyp); ok {
 			// The cost announces a Sac<X/Spec> count whose resulting X-dependent
 			// reduction (Dargo's "{2} less for each permanent sacrificed this
 			// way", read through Count$xPaid) can make the cast payable at a
@@ -2006,7 +2013,7 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 			// recomputation manaToPay makes after the announcement, applied at
 			// the gate so the offer and the charge agree.
 			mods = accepted
-		} else if accepted, ok := e.offerNamedMods(p, id, ability, base, mods, statics, scope, tax, delve, hyp); ok {
+		} else if accepted, ok := e.offerNamedModsGated(p, id, ability, &base, &mods, statics, scope, tax, delve, hyp); ok {
 			// A RaiseCost part counted by a named announcement (Explosive
 			// Singularity's "tap any number of untapped creatures ... costs
 			// {1} less for each creature tapped this way") can make the cast
@@ -3704,4 +3711,41 @@ func costModsZero(m costMods) bool {
 	return len(m.raises) == 0 && !m.hasExtra && m.raiseCol == (state.Mana{}) && m.raiseGen == 0 &&
 		m.raiseLife == 0 && len(m.reduces) == 0 && m.setFloor == 0 && m.waterbend == 0 &&
 		!m.waterbendX && m.waterbendPartX == 0 && m.raiseX == 0
+}
+
+// offerSacXModsGated is offerSacXMods behind its own first test
+// (costAnnouncesSacX), read through the pointer so the common no-Sac<X> cost
+// is refused without copying the cost and the statics into the call.
+func (e *Engine) offerSacXModsGated(p state.PlayerID, id state.ObjID, ability bool, base *Cost, statics costStaticViews, scope costScope, tax, delve int32, hyp *state.Mana) (costMods, bool) {
+	announced := false
+	for i := range base.Sac {
+		if base.Sac[i].Announced {
+			announced = true
+			break
+		}
+	}
+	if !announced {
+		return costMods{}, false
+	}
+	return e.offerSacXMods(p, id, ability, *base, statics, scope, tax, delve, hyp)
+}
+
+// offerNamedModsGated is offerNamedMods behind its own first test
+// (costHasNamedCount over the composition's extra cost), read through the
+// pointers for the same reason.
+func (e *Engine) offerNamedModsGated(p state.PlayerID, id state.ObjID, ability bool, base *Cost, mods *costMods, statics costStaticViews, scope costScope, tax, delve int32, hyp *state.Mana) (costMods, bool) {
+	named := false
+	for i := range mods.extra.Exile {
+		if isNamedCountPart(mods.extra.Exile[i]) {
+			named = true
+			break
+		}
+	}
+	for i := 0; !named && i < len(mods.extra.TapPermanent); i++ {
+		named = isNamedCountPart(mods.extra.TapPermanent[i])
+	}
+	if !named {
+		return costMods{}, false
+	}
+	return e.offerNamedMods(p, id, ability, *base, *mods, statics, scope, tax, delve, hyp)
 }
