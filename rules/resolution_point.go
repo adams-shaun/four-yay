@@ -190,6 +190,12 @@ type resumePoint struct {
 	genericChooserIndex int
 	genericRemembered   []state.Target
 	genericChoice       string
+	// numberPicks rides a multi-chooser secret ChooseNumber election's
+	// accumulated answers (Decision.ResumeNumberPicks) across its per-chooser
+	// mid-resolution asks; target carries the asked chooser's index. The
+	// resumed Ctx re-binds both so the answered pick is appended and the next
+	// chooser is asked. Nil for every other ask.
+	numberPicks []int32
 	// flipCursor is the DB$ FlipCoin loop position a kind "flip_rest" frame
 	// re-enters with (the remaining flips a per-flip sub-ability's nested ask
 	// left unrun).

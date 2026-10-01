@@ -1,6 +1,7 @@
 package effects
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -290,6 +291,19 @@ func effChooseNumber(h Host, c *Ctx, sa *cards.SA) {
 		h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "number", Amount: n})
 		return
 	}
+	// The multi-chooser SECRET election (api:ChooseNumber's
+	// MatchedAbility$/UnmatchedAbility$ shape, Expert-Level Safe): a Defined$
+	// selector naming SEVERAL players (TargetedAndYou) asks each one secretly,
+	// then compares the picks and runs one of two SVar bodies. The three
+	// parameters are read HERE, on the registered head, so the parameter
+	// census attributes them to api:ChooseNumber.
+	matchedAbility := strings.TrimSpace(sa.Params["MatchedAbility"])
+	unmatchedAbility := strings.TrimSpace(sa.Params["UnmatchedAbility"])
+	if matchedAbility != "" || unmatchedAbility != "" {
+		effChooseNumberElection(h, c, sa, matchedAbility, unmatchedAbility,
+			strings.EqualFold(strings.TrimSpace(sa.Params["Secretly"]), "True"))
+		return
+	}
 	chooser := c.Controller
 	if ts := Defined(h, c, sa); len(ts) > 0 && ts[0].IsPlayer {
 		chooser = ts[0].Player
@@ -334,6 +348,140 @@ func effChooseNumber(h Host, c *Ctx, sa *cards.SA) {
 		fallback = int32(opts[0].Amount)
 	}
 	h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "number", Amount: fallback})
+}
+
+// effChooseNumberElection implements api:ChooseNumber's multi-chooser SECRET
+// election: a Defined$ selector naming several players each secretly pick a
+// number from the ordinary bounded list (chooseNumberAsk), and the picks are
+// then compared. All equal runs MatchedAbility$; otherwise UnmatchedAbility$.
+// Expert-Level Safe ("You and target opponent each secretly choose 1, 2, or
+// 3. Then those choices are revealed. If they match, ..." ) is the only corpus
+// carrier and spells the pair as `Defined$ TargetedAndYou` + `Secretly$ True`
+// + `MatchedAbility$ DBSacrifice` + `UnmatchedAbility$ DBFillSafe`.
+//
+// The chooser set is resolved through repeatPlayers -- the ONE home for the
+// Defined$ player-selector grammar, which already understands TargetedAndYou
+// (controller plus the resolution's targets), so this path adds no second
+// Defined$ resolution. The choosers are asked in that deterministic APNAP
+// order and the answers accumulated exactly as effPlayerVote rides its ballot:
+// the answered pick is appended on each re-entry and the next chooser asked; a
+// host that cannot ask (R-9) takes the deterministic first legal value so the
+// election still completes. The accumulated numbers ride the decision's
+// ResumeNumberPicks (the numeric sibling of ResumeChoices) and the asked
+// chooser's index its ResumeTarget.
+//
+// SECRECY: no per-chooser event is emitted while the asks are posed, so a
+// Secretly$ election exposes no individual pick before the reveal. On the last
+// answer the choices are revealed (one Note naming every pick) and the matching
+// SVar body is resolved through the same cards.ResolveSVar + Resolve chain the
+// rest of the effects package uses for a named body. A missing or unparseable
+// body is one loud Note and no branch, never a silent nothing.
+func effChooseNumberElection(h Host, c *Ctx, sa *cards.SA, matched, unmatched string, secretly bool) {
+	choosers, ok := repeatPlayers(h, c, strings.TrimSpace(sa.Params["Defined"]))
+	if !ok || len(choosers) == 0 {
+		// The Defined$ selector is one this build cannot resolve to players;
+		// fall back to the resolving controller alone rather than guessing a
+		// second seat. A Note records the degrade.
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+			Text: "ChooseNumber election could not resolve Defined$ " + strings.TrimSpace(sa.Params["Defined"]) + "; asking the controller"})
+		choosers = []state.PlayerID{c.Controller}
+	}
+	opts, prompt, boundOK := chooseNumberAsk(h, c, sa)
+	if !boundOK || len(opts) == 0 {
+		// A bound this context cannot honour (chooseNumberAsk's doc): keep the
+		// loud fail-closed fallback, then run the UNMATCHED body -- a secret
+		// election that could not be held did not match.
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+			Text: "ChooseNumber election bound cannot be resolved in this context; the election did not match"})
+		c.ChooseNumberPicks, c.ChooseNumberAnswer, c.ChooseNumberDone, c.ChooseNumberIndex = nil, 0, false, 0
+		effChooseNumberElectionBranch(h, c, unmatched)
+		return
+	}
+	picks := append([]int32(nil), c.ChooseNumberPicks...)
+	i := c.ChooseNumberIndex
+	if c.ChooseNumberDone {
+		// The answer to chooser i's ask: its option's Amount (a legitimate
+		// ZERO is carried by the separate Done marker). Consume and clear.
+		picks = append(picks, c.ChooseNumberAnswer)
+		c.ChooseNumberAnswer, c.ChooseNumberDone = 0, false
+		i++
+	}
+	for ; i < len(choosers); i++ {
+		d := &decision.Decision{Player: choosers[i], Kind: decision.KChoose, Min: 1, Max: 1,
+			ResumeKind: "choosenumbermulti", ResumeSA: sa, ResumeTarget: i,
+			ResumeNumberPicks: append([]int32(nil), picks...),
+			Prompt:            prompt, Source: c.Source}
+		d.Options = opts
+		if Ask(h, d) == AskAsked {
+			return
+		}
+		// R-9 no-ask host: take the deterministic first legal value for this
+		// chooser and continue to the next.
+		picks = append(picks, int32(opts[0].Amount))
+	}
+	c.ChooseNumberPicks, c.ChooseNumberAnswer, c.ChooseNumberDone, c.ChooseNumberIndex = nil, 0, false, 0
+	// The reveal: after every chooser has answered, name the chosen numbers so
+	// the secret picks become public at exactly the Oracle's "then those
+	// choices are revealed" point (never before). The controller's pick is also
+	// recorded on the source through the ordinary Choose event every other
+	// ChooseNumber path emits, so a downstream Card.ChosenNumber reader keeps
+	// its meaning.
+	controllerPick := picks[0]
+	if idx := indexOfPlayer(choosers, c.Controller); idx >= 0 {
+		controllerPick = picks[idx]
+	}
+	h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "number", Amount: controllerPick})
+	if secretly {
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "ChooseNumber election revealed: " + formatNumberPicks(picks)})
+	}
+	allEqual := true
+	for _, p := range picks[1:] {
+		if p != picks[0] {
+			allEqual = false
+			break
+		}
+	}
+	if allEqual {
+		effChooseNumberElectionBranch(h, c, matched)
+		return
+	}
+	effChooseNumberElectionBranch(h, c, unmatched)
+}
+
+// effChooseNumberElectionBranch resolves one named branch body of a
+// ChooseNumber election (MatchedAbility$/UnmatchedAbility$). A missing or
+// unparseable body is one loud Note and no branch -- never a silent nothing.
+func effChooseNumberElectionBranch(h Host, c *Ctx, name string) {
+	if name == "" {
+		return
+	}
+	sub := cards.ResolveSVar(c.SVars, name)
+	if sub == nil {
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+			Text: "ChooseNumber election branch " + name + " is not a body this build can resolve"})
+		return
+	}
+	Resolve(h, c, sub)
+}
+
+// indexOfPlayer returns p's position in ps, or -1.
+func indexOfPlayer(ps []state.PlayerID, p state.PlayerID) int {
+	for i, q := range ps {
+		if q == p {
+			return i
+		}
+	}
+	return -1
+}
+
+// formatNumberPicks renders an election's picks as a comma-separated list for
+// the reveal Note.
+func formatNumberPicks(picks []int32) string {
+	parts := make([]string, len(picks))
+	for i, p := range picks {
+		parts[i] = strconv.Itoa(int(p))
+	}
+	return strings.Join(parts, ", ")
 }
 
 // effChooseType records a type choice. With the source already carrying a

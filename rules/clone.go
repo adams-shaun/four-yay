@@ -1192,6 +1192,7 @@ func cloneResume(rp *resumePoint) *resumePoint {
 	// the resumed Ctx re-binds; the clone owns its own copy.
 	cp.genericChoosers = append([]state.Target(nil), rp.genericChoosers...)
 	cp.genericRemembered = append([]state.Target(nil), rp.genericRemembered...)
+	cp.numberPicks = append([]int32(nil), rp.numberPicks...)
 	cp.tokenRest = rp.tokenRest.Clone()
 	if rp.repeat != nil {
 		cur := *rp.repeat
@@ -1226,6 +1227,7 @@ func cloneDecision(p *decision.Decision) *decision.Decision {
 	d.ResumeVillainousIndex = p.ResumeVillainousIndex
 	d.ResumeGenericChoosers = append([]state.Target(nil), p.ResumeGenericChoosers...)
 	d.ResumeGenericChooserIndex = p.ResumeGenericChooserIndex
+	d.ResumeNumberPicks = append([]int32(nil), p.ResumeNumberPicks...)
 	d.ResumeTargetsUnique = append([]state.Target(nil), p.ResumeTargetsUnique...)
 	d.ResumeDigPrimary = append([]state.ObjID(nil), p.ResumeDigPrimary...)
 	return &d

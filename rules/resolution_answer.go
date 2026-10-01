@@ -490,6 +490,29 @@ func (e *Engine) resumeAnswerBinding(rp *resumePoint, o *state.Object, ctx *effe
 			// option list never offered.
 			ctx.ChosenNumberPick = 0
 		}
+	case "choosenumbermulti":
+		// One chooser's answer in a multi-chooser secret ChooseNumber
+		// election (api:ChooseNumber's MatchedAbility$/UnmatchedAbility$
+		// shape, Expert-Level Safe) was recorded. The accumulated answers
+		// ride the decision's ResumeNumberPicks (rp.numberPicks) and the
+		// asked chooser's index its ResumeTarget (rp.target);
+		// effChooseNumber's election branch consumes both, appends this
+		// answer, and asks the next chooser -- or, once every chooser has
+		// answered, compares the picks and runs the matched or unmatched
+		// SVar body. The transport is decision-scoped (never the sibling
+		// "choosenumber" single-answer fields), so a nested ChooseNumber
+		// cannot inherit an outer election's picks.
+		ctx.ChooseNumberPicks = append([]int32(nil), rp.numberPicks...)
+		ctx.ChooseNumberIndex = rp.target
+		ctx.ChooseNumberDone = true
+		if len(chosen) > 0 {
+			ctx.ChooseNumberAnswer = int32(chosen[0].Amount)
+		} else {
+			// A malformed empty answer (the ask is Min 1/Max 1): keep the
+			// deterministic fallback 0 rather than inventing a number the
+			// option list never offered.
+			ctx.ChooseNumberAnswer = 0
+		}
 	case "manareflected":
 		// A standalone AB$ ManaReflected colour ask (the mid-resolution
 		// choice effManaReflected poses when a DB$/SP$ body reflecting
