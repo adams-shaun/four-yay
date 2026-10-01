@@ -221,6 +221,22 @@ type livelockWatcher struct {
 	total    uint32
 	prevPos  []uint32
 	slotHead []uint32
+	// shared marks a watcher copied by value from a live engine's (the entry
+	// preview's scratch engine, entry_counters.go): its arrays are still the
+	// live watcher's, so its first write copies them (unshare) and the live
+	// watcher's window and index stay its own.
+	shared bool
+}
+
+// unshare gives a shared watcher private copies of its arrays.
+func (w *livelockWatcher) unshare() {
+	w.shared = false
+	w.sigs = append(make([]uint64, 0, cap(w.sigs)), w.sigs...)
+	w.prevPos = append(make([]uint32, 0, cap(w.prevPos)), w.prevPos...)
+	w.recent = append(make([]events.Event, 0, cap(w.recent)), w.recent...)
+	if w.slotHead != nil {
+		w.slotHead = append([]uint32(nil), w.slotHead...)
+	}
 }
 
 // livelockCandSlots is the size of the watcher's candidate index.
@@ -348,6 +364,9 @@ func (w *livelockWatcher) observeFrom(ev events.Event, damageSource state.ObjID,
 	// loop that does nothing BUT register effects is still caught.
 	if ev.Kind == events.ClockTick {
 		return
+	}
+	if w.shared {
+		w.unshare()
 	}
 	sig := eventSignature(&ev)
 	if ev.Kind == events.Damage && damageSource != 0 {
