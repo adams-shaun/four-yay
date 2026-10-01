@@ -54,6 +54,9 @@ type Spare struct {
 	// into grown arrays instead of regrowing them from nil.
 	legalOpts []decision.Option
 	manaAb    []*cards.SA
+	// hyp is the spent engine's hypothetical-clone and read scratch pool
+	// (hypclone.go), adopted by the next engine.
+	hyp *hypSparePool
 }
 
 // Release returns e's log and object-arena arrays as a Spare for the next
@@ -93,6 +96,7 @@ func (e *Engine) Release() Spare {
 		snapObjs:   e.releaseSnapshotObjs(),
 	}
 	sp.arena = e.releaseArena()
+	sp.hyp = e.releaseHypPool()
 	// The walk scratch lists are cleared at the end of every walk (legal.go,
 	// legal_walk_battlefield.go), so they hold no reference to recycle away.
 	sp.legalOpts, sp.manaAb = e.legalOptBuf[:0], e.manaAbBuf[:0]
@@ -210,6 +214,7 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 	e.derivedMemo, e.derivedMemoStack = spare.memo, spare.memoStack
 	e.adoptSnapshotObjs(spare.snapObjs)
 	e.adoptArena(spare.arena)
+	e.adoptHypPool(spare.hyp)
 	e.legalOptBuf, e.manaAbBuf = spare.legalOpts, spare.manaAb
 	if cap(spare.intents) > 0 {
 		e.intentBuf = spare.intents[:0]

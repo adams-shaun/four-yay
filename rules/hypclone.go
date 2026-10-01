@@ -105,3 +105,24 @@ func (e *Engine) optRelease(b []decision.Option) {
 	pl := e.hypPool()
 	pl.opts = append(pl.opts, b[:0])
 }
+
+// releaseHypPool detaches e's own pool for a Spare (nil when e has none).
+// Its Spares and scratch hold only cleared or call-local storage.
+func (e *Engine) releaseHypPool() *hypSparePool {
+	pl := e.hypSpares
+	e.hypSpares = nil
+	if pl == nil || pl.owner != e || pl.pm.busy {
+		return nil
+	}
+	pl.owner = nil
+	return pl
+}
+
+// adoptHypPool makes a Spare's pool e's own.
+func (e *Engine) adoptHypPool(pl *hypSparePool) {
+	if pl == nil {
+		return
+	}
+	pl.owner = e
+	e.hypSpares = pl
+}

@@ -249,6 +249,7 @@ func searchPaymentPlan(cost Cost, pool state.Mana, life int32, ctx paymentPlanRa
 // back into nothing, so one engine-owned scratch serves every search the
 // engine runs; the returned search's best plan never points into it.
 type paymentPlanSearchScratch struct {
+	search     paymentPlanSearch
 	classes    []paymentPlanClass
 	levels     []paymentPlanLevel
 	levelStats []paymentPlanBoundStats
@@ -266,7 +267,10 @@ func searchPaymentPlanInto(sc *paymentPlanSearchScratch, cost Cost, pool state.M
 	if sc == nil {
 		sc = &paymentPlanSearchScratch{}
 	}
-	s := &paymentPlanSearch{cost: cost, pool: pool, life: life, ctx: ctx, choices: choices, classes: classes}
+	// The search struct itself is the scratch's too: the caller reads only
+	// its result fields before the next search starts.
+	s := &sc.search
+	*s = paymentPlanSearch{cost: cost, pool: pool, life: life, ctx: ctx, choices: choices, classes: classes}
 	s.order(sc)
 	total := 0
 	for k := range s.classes {
