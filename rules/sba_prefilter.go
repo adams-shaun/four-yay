@@ -61,8 +61,11 @@ func (e *Engine) sbaTypeFast(o *state.Object, t string, anyLType bool) bool {
 	if t == "Aura" && (o.BestowedAttached() || o.BestowedAuraSpell()) {
 		return true
 	}
-	if t == "Legendary" && o.CopyNonLegendary {
-		return false
+	switch t {
+	case "World":
+		return f.IsWorld()
+	case "Legendary":
+		return !o.CopyNonLegendary && f.IsLegendary()
 	}
 	return faceHasTypeFold(f, t)
 }
