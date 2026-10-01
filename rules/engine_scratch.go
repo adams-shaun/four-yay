@@ -149,6 +149,9 @@ type engineScratch struct {
 	// walk allocates its own rather than clobbering the outer one. Owned by
 	// this Engine alone: Clone leaves it nil, like foreachBuf.
 	legalOptBuf []decision.Option
+	// legalScratch is the offer walk's own per-engine scratch and log-scan
+	// watermarks (legal_walk_scratch.go). Clone leaves it zero.
+	legalScratch legalWalkScratch
 	// legalActionWalks counts every legalActionsPriced call (test-visible
 	// only; unexported, bumped unconditionally, no event and no effect on
 	// determinism or chain heads -- a plain monotonic read-only diagnostic
