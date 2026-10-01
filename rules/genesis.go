@@ -30,6 +30,16 @@ type Spare struct {
 	events  []events.Event
 	objs    []state.Object
 	intents []decision.Intent
+	// Release recycles events and objs lazily: their first evDirty /
+	// objDirty slots may still hold the spent engine's history (every slot
+	// past them is zero), and the consumer zeroes whatever it does not
+	// overwrite (events.Log.CloneIntoFrom, state.Game.CloneIntoDirty,
+	// clearDirty). events[:evN] are the evN events of the array at evFrom
+	// (the spent log's Provenance), so a clone of that same history copies
+	// only what it lacks.
+	evFrom            *events.Event
+	evN               int
+	evDirty, objDirty int
 	// The Derived memo tables (derivedmemo.go): an ObjID index grown to the
 	// arena's size plus the slots; cleared by Release, which is exactly the
 	// zeroed never-written state derivedMemoTable.slot's growth relies on.
@@ -83,7 +93,11 @@ type Spare struct {
 // LAST use of e and of anything sharing its arrays -- a Clone's log shares
 // the Events prefix (events.Log.Clone) -- which is why only a batch runner
 // that owns the finished engine outright calls it. The arrays are cleared so
-// the Spare does not pin the finished game's cards, strings and slices.
+// the Spare does not pin the finished game's cards, strings and slices --
+// lazily for the event and object arrays, which the next consumer zeroes
+// past what it overwrites (see Spare): a search recycles them once per
+// simulation, and clearing a mid-game log and arena only for the next clone
+// to copy over them again was most of Release's cost.
 //
 // A clone (Clone, CloneInto) may be released too -- that is the search loop
 // CloneInto documents. A clone's Events and Intents start as its parent's
@@ -107,6 +121,7 @@ func (e *Engine) Release() Spare {
 		events:     evs,
 		objs:       e.G.Objs[:cap(e.G.Objs)],
 		intents:    ints,
+		objDirty:   len(e.G.Objs),
 		memo:       e.derivedMemo.release(),
 		memoStack:  e.derivedMemoStack.release(),
 		loopSigs:   e.loop.sigs[:0],
@@ -150,12 +165,26 @@ func (e *Engine) Release() Spare {
 	clear(sp.loopRecent)
 	sp.loopRecent = sp.loopRecent[:0]
 	e.loop.sigs, e.loop.recent, e.loop.prevPos, e.loop.slotHead = nil, nil, nil, nil
-	clear(sp.events)
-	clear(sp.objs)
+	// The event and object arrays are not cleared here: the next consumer
+	// overwrites their live prefix anyway and zeroes the rest (see Spare).
+	if evs != nil {
+		sp.evFrom, sp.evN = e.L.Provenance()
+		sp.evDirty = len(e.L.Events)
+	}
 	clear(sp.intents)
 	e.L.Events, e.G.Objs, e.L.Intents = nil, nil, nil
 	e.derivedMemo, e.derivedMemoStack, e.intentBuf = derivedMemoTable{}, derivedMemoTable{}, nil
 	return sp
+}
+
+// clearDirty zeroes the spent history a lazily released Spare still holds
+// in its event and object arrays, for a consumer that fills them from empty
+// (genesis): afterwards both are zero throughout, as Release used to leave
+// them.
+func (sp *Spare) clearDirty() {
+	clear(sp.events[:sp.evDirty])
+	clear(sp.objs[:sp.objDirty])
+	sp.evFrom, sp.evN, sp.evDirty, sp.objDirty = nil, 0, 0, 0
 }
 
 // clearedEffects zeroes a spent effect array to its capacity (so it pins
@@ -219,6 +248,7 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 	var spare Spare
 	if cfg.Spare != nil {
 		spare, *cfg.Spare = *cfg.Spare, Spare{}
+		spare.clearDirty()
 	}
 	e := &Engine{
 		G:                 state.NewGameInto(cfg.Names, life, initialObjects, spare.objs),

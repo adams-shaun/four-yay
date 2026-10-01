@@ -82,6 +82,26 @@ func TestCloneIntoIsInvisible(t *testing.T) {
 			t.Fatalf("sim %d: releasing a clone disturbed the root", i)
 		}
 	}
+	// The root plays on: a spare whose history is the root's shorter prefix
+	// (same array, append-only) copies only the new tail, and must still
+	// match a plain Clone exactly.
+	for k := 0; k < 3; k++ {
+		for s := 0; s < 4 && !root.G.Over && root.Pending() != nil; s++ {
+			if err := root.Submit(bot.answer(root, root.Pending())); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if root.G.Over || root.Pending() == nil {
+			break
+		}
+		rootHead, rootEvents, rootIntents = root.L.Head(), len(root.L.Events), len(root.L.Intents)
+		want := sim(root.Clone(), 100+k, 60)
+		c := root.CloneInto(spare)
+		if got := sim(c, 100+k, 60); got != want {
+			t.Fatalf("advanced root %d: CloneInto %+v, Clone %+v", k, got, want)
+		}
+		*spare = c.Release()
+	}
 	// The hypothetical form draws from the spare the same way.
 	h := root.CloneHypotheticalInto(5, spare)
 	want := root.CloneHypothetical(5)

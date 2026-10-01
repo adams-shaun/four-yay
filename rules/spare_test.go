@@ -63,9 +63,24 @@ func TestSpareReuseIsInvisible(t *testing.T) {
 			if e.L.Events != nil || e.G.Objs != nil || e.L.Intents != nil {
 				t.Fatalf("seed %d: Release left the engine's arrays in place", s)
 			}
-			for i := range spare.events {
+			// Release recycles the event array lazily: past evDirty it is
+			// zero, and the consumer's clearDirty zeroes the spent history
+			// (New's, below) so nothing of the finished game stays pinned.
+			for i := spare.evDirty; i < len(spare.events); i++ {
 				if spare.events[i].Text != "" || spare.events[i].IDs != nil {
-					t.Fatalf("seed %d: Release did not clear event %d", s, i)
+					t.Fatalf("seed %d: event %d past the spent history is not zero", s, i)
+				}
+			}
+			cleared := *spare
+			cleared.clearDirty()
+			for i := range cleared.events {
+				if cleared.events[i].Text != "" || cleared.events[i].IDs != nil {
+					t.Fatalf("seed %d: clearDirty did not clear event %d", s, i)
+				}
+			}
+			for i := range cleared.objs {
+				if cleared.objs[i].Card != nil || cleared.objs[i].ID != 0 {
+					t.Fatalf("seed %d: clearDirty did not clear object %d", s, i)
 				}
 			}
 		}
