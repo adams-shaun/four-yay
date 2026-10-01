@@ -1719,7 +1719,17 @@ func (o *Object) AddCounter(kind string, n int32) {
 // map field added to Object needs updating in exactly one place to stay
 // deep.
 func (o *Object) CloneDeep() Object {
-	c := *o
+	var c Object
+	o.CloneDeepInto(&c)
+	return c
+}
+
+// CloneDeepInto is CloneDeep written straight into *c (which must not be o):
+// one copy of the ~1 KB object instead of CloneDeep's copy out and the
+// caller's copy in. Game.CloneInto clones the whole arena this way, once per
+// search simulation.
+func (o *Object) CloneDeepInto(c *Object) {
+	*c = *o
 	c.Counters = append([]Counter(nil), o.Counters...)
 	c.Targets = append([]Target(nil), o.Targets...)
 	c.Remembered = append([]Target(nil), o.Remembered...)
@@ -1740,7 +1750,6 @@ func (o *Object) CloneDeep() Object {
 	c.ExileReturn = append([]ExileReturnEntry(nil), o.ExileReturn...)
 	c.MergedCards = append([]MergedCard(nil), o.MergedCards...)
 	c.RuntimeSVars = cloneRuntimeSVars(o.RuntimeSVars)
-	return c
 }
 
 // cloneRuntimeSVars deep-copies a runtime SVar table so a cloned game never

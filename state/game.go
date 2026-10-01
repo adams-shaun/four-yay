@@ -727,7 +727,7 @@ func (g *Game) CloneIntoDirty(objs []Object, dirty int) *Game {
 		c.Objs = make([]Object, len(g.Objs), len(g.Objs)+cloneObjectHeadroom)
 	}
 	for i := range g.Objs {
-		c.Objs[i] = g.Objs[i].CloneDeep()
+		g.Objs[i].CloneDeepInto(&c.Objs[i])
 	}
 	if dirty > len(g.Objs) && cap(objs) >= len(g.Objs)+cloneObjectHeadroom {
 		clear(objs[len(g.Objs):dirty])
