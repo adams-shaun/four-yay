@@ -49,11 +49,17 @@ type redealPlan struct {
 	player   state.PlayerID
 	hand     []state.ObjID // base hand, base order
 	libLen   int
-	pinHand  map[state.ObjID]bool
+	pins     []state.ObjID // the pinned hand cards, by ObjID
 	top, bot []state.ObjID
 	loose    []state.ObjID // known library members with no known position
 	unknown  []state.ObjID // sorted by name, then ObjID
 	handFree int
+	// canon is unknown and loose together in (name, ObjID) order, and
+	// unknownAt[i] is unknown[i]'s index in it: the library deal's
+	// canonical order, fixed per boundary, so a Deal filters it instead of
+	// sorting by name (redealPlayer).
+	canon     []state.ObjID
+	unknownAt []int32
 }
 
 func redealWorlds(setup PublicGame, h History, known KnownCards, base *RedealBase, n int, seed func(int) [2]uint64) ([]World, string) {
@@ -98,6 +104,7 @@ type Redealer struct {
 	nowBoard    []byte
 	nowDecision *ObservedDecision
 	plans       []redealPlan
+	scratch     dealScratch
 }
 
 // NewRedealer prepares the redeal of base.Engine for the seat whose History
@@ -209,14 +216,15 @@ func NewRedealer(setup PublicGame, h History, known KnownCards, base RedealBase)
 	var plans []redealPlan
 	for pi := range e.G.Players {
 		p := state.PlayerID(pi)
-		plan := redealPlan{player: p, hand: append([]state.ObjID(nil), e.G.Zone(state.ZHand, p)...), pinHand: make(map[state.ObjID]bool)}
+		plan := redealPlan{player: p, hand: append([]state.ObjID(nil), e.G.Zone(state.ZHand, p)...)}
+		pinHand := make(map[state.ObjID]bool)
 		lib := e.G.Zone(state.ZLibrary, p)
 		plan.libLen = len(lib)
 		pinLib := make(map[state.ObjID]bool)
 		for _, hand := range known.Hands {
 			if hand.Player == p {
 				for _, c := range hand.Cards {
-					plan.pinHand[base.Observer.object(c.ID)] = true
+					pinHand[base.Observer.object(c.ID)] = true
 					take(p, c.Name)
 				}
 			}
@@ -244,12 +252,17 @@ func NewRedealer(setup PublicGame, h History, known KnownCards, base RedealBase)
 			}
 		}
 		for _, id := range append(append([]state.ObjID(nil), plan.hand...), lib...) {
-			if !plan.pinHand[id] && !pinLib[id] {
+			if !pinHand[id] && !pinLib[id] {
 				plan.unknown = append(plan.unknown, id)
 			}
 		}
 		sortByName(e, plan.unknown)
-		plan.handFree = len(plan.hand) - len(plan.pinHand)
+		plan.handFree = len(plan.hand) - len(pinHand)
+		for id := range pinHand {
+			plan.pins = append(plan.pins, id)
+		}
+		slices.Sort(plan.pins)
+		plan.index(e)
 		if pi >= len(setup.Decks) {
 			return nil, "seat outside the public deck lists"
 		}
@@ -302,8 +315,8 @@ func NewRedealer(setup PublicGame, h History, known KnownCards, base RedealBase)
 func (r *Redealer) Deal(seed [2]uint64, sp *rules.Spare) (*rules.Engine, string) {
 	rng := rand.New(rand.NewPCG(seed[0], seed[1]))
 	w := r.e.CloneHypotheticalInto(seed[1], sp)
-	for _, plan := range r.plans {
-		if reason := redealPlayer(w, plan, rng); reason != "" {
+	for i := range r.plans {
+		if reason := redealPlayer(w, &r.plans[i], rng, &r.scratch); reason != "" {
 			return nil, reason
 		}
 	}
@@ -317,24 +330,67 @@ func (r *Redealer) Deal(seed [2]uint64, sp *rules.Spare) (*rules.Engine, string)
 	return w, ""
 }
 
+// index builds the plan's canonical library order (canon, unknownAt) from
+// its unknown and loose cards.
+func (plan *redealPlan) index(e *rules.Engine) {
+	plan.canon = append(append([]state.ObjID(nil), plan.unknown...), plan.loose...)
+	sortByName(e, plan.canon)
+	at := make(map[state.ObjID]int32, len(plan.canon))
+	for i, id := range plan.canon {
+		at[id] = int32(i)
+	}
+	plan.unknownAt = make([]int32, len(plan.unknown))
+	for i, id := range plan.unknown {
+		plan.unknownAt[i] = at[id]
+	}
+}
+
 // redealPlayer deals one player's unknown hidden cards uniformly: into the
 // hand's free slots, then with the position-less known members across the
 // library's free positions. Every change is a Secret event through
-// events.Emit on the world's own log.
-func redealPlayer(w *rules.Engine, plan redealPlan, r *rand.Rand) string {
+// events.Emit on the world's own log. sc is the caller's scratch, reused
+// across deals (nothing it holds survives the call).
+func redealPlayer(w *rules.Engine, plan *redealPlan, r *rand.Rand, sc *dealScratch) string {
 	// Both deals start from a canonical (name, object) order, so the names
 	// dealt are a function of the name multiset and the seed alone -- not of
 	// which same-named copy the real game happened to leave hidden.
-	deal := append([]state.ObjID(nil), plan.unknown...)
-	r.Shuffle(len(deal), func(i, j int) { deal[i], deal[j] = deal[j], deal[i] })
-	if plan.handFree < 0 || plan.handFree > len(deal) {
+	//
+	// The hand deal shuffles unknown's indices: Shuffle's draws depend on
+	// the length alone, so deal[k] = unknown[idx[k]] is exactly the shuffled
+	// copy of unknown.
+	n := len(plan.unknown)
+	idx := sc.idx[:0]
+	for i := 0; i < n; i++ {
+		idx = append(idx, int32(i))
+	}
+	sc.idx = idx
+	r.Shuffle(n, func(i, j int) { idx[i], idx[j] = idx[j], idx[i] })
+	if plan.handFree < 0 || plan.handFree > n {
 		return fmt.Sprintf("player %d hand does not fit its pool", plan.player)
 	}
-	newHand := deal[:plan.handFree]
-	free := append(append([]state.ObjID(nil), deal[plan.handFree:]...), plan.loose...)
-	sortByName(w, free)
+	// The library's pool -- every unknown card the hand did not take, plus
+	// the position-less known members -- in (name, object) order is canon
+	// minus the dealt hand.
+	dealt := sc.dealt[:0]
+	dealt = append(dealt, make([]bool, len(plan.canon))...)
+	sc.dealt = dealt
+	for _, k := range idx[:plan.handFree] {
+		dealt[plan.unknownAt[k]] = true
+	}
+	free := sc.free[:0]
+	for i, id := range plan.canon {
+		if !dealt[i] {
+			free = append(free, id)
+		}
+	}
+	sc.free = free
 	r.Shuffle(len(free), func(i, j int) { free[i], free[j] = free[j], free[i] })
-	lib := make([]state.ObjID, plan.libLen)
+	// lib is scratch too: Log.Append copies an event's IDs and the
+	// LibraryOrder fold copies them again into the zone, so no world keeps
+	// it.
+	lib := sc.lib[:0]
+	lib = append(lib, make([]state.ObjID, plan.libLen)...)
+	sc.lib = lib
 	for i, id := range plan.top {
 		lib[i] = id
 	}
@@ -366,13 +422,11 @@ func redealPlayer(w *rules.Engine, plan redealPlan, r *rand.Rand) string {
 		for _, id := range plan.hand {
 			events.Emit(w.G, w.L, events.Event{Kind: events.MoveZone, Player: plan.player, Obj: id, From: state.ZHand, To: state.ZLibrary, Secret: true})
 		}
-		var pins []state.ObjID
-		for id := range plan.pinHand {
-			pins = append(pins, id)
-		}
-		sort.Slice(pins, func(i, j int) bool { return pins[i] < pins[j] })
-		for _, id := range append(pins, newHand...) {
+		for _, id := range plan.pins {
 			events.Emit(w.G, w.L, events.Event{Kind: events.MoveZone, Player: plan.player, Obj: id, From: state.ZLibrary, To: state.ZHand, Secret: true})
+		}
+		for _, k := range idx[:plan.handFree] {
+			events.Emit(w.G, w.L, events.Event{Kind: events.MoveZone, Player: plan.player, Obj: plan.unknown[k], From: state.ZLibrary, To: state.ZHand, Secret: true})
 		}
 	}
 	events.Emit(w.G, w.L, events.Event{Kind: events.LibraryOrder, Player: plan.player, IDs: lib, Secret: true})
@@ -380,9 +434,16 @@ func redealPlayer(w *rules.Engine, plan redealPlan, r *rand.Rand) string {
 		// slices.Equal, not reflect.DeepEqual: an empty library is a nil
 		// zone and a zero-length lib, which DeepEqual calls different.
 		gl := w.G.Zone(state.ZLibrary, plan.player)
-		return fmt.Sprintf("player %d redeal did not land (hand %d want %d, library %d want %d, pinned hand %d)", plan.player, len(got), len(plan.hand), len(gl), len(lib), len(plan.pinHand))
+		return fmt.Sprintf("player %d redeal did not land (hand %d want %d, library %d want %d, pinned hand %d)", plan.player, len(got), len(plan.hand), len(gl), len(lib), len(plan.pins))
 	}
 	return ""
+}
+
+// dealScratch is redealPlayer's reusable storage.
+type dealScratch struct {
+	idx       []int32
+	dealt     []bool
+	free, lib []state.ObjID
 }
 
 func deckHas(deck []*cards.Card, name string) bool {

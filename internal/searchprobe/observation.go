@@ -5,9 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"strconv"
 	"strings"
+	"unsafe"
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/deck"
@@ -76,6 +76,9 @@ type Collector struct {
 	probeDec, obsDec   ObservedDecision
 	probeOpts, obsOpts []ObservedOption
 	candPool, candOut  []Action
+	// keyActs and keyBuf are IntentKey's reusable action list and key.
+	keyActs []Action
+	keyBuf  []byte
 	// retainJSON makes every capture keep a copy of its encoded board in
 	// Board.raw (in-package tests that inspect the bytes).
 	retainJSON bool
@@ -324,7 +327,7 @@ func (c *Collector) rollback(mark int) {
 // canonBoard appends v's canonical encoding into c's reusable buffer.
 func (c *Collector) canonBoard(v *view.View) ([]byte, error) {
 	c.canon.buf = c.canon.buf[:0]
-	err := c.canon.encode(reflect.ValueOf(v).Elem(), viewPlan())
+	err := c.canon.encodeAt(unsafe.Pointer(v), viewPlan())
 	return c.canon.buf, err
 }
 

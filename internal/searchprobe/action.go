@@ -71,6 +71,52 @@ func (c *Collector) IntentActions(d *decision.Decision, in decision.Intent) (cho
 	return choices, rest, err
 }
 
+// AppendIntentActions is Actions appending the choices' actions to dst: it
+// fails exactly when Actions does (the Rest pile is translated and checked,
+// not kept), and on success dst[len(dst):] gains exactly Actions' list.
+func (c *Collector) AppendIntentActions(dst []Action, d *decision.Decision, in decision.Intent) ([]Action, error) {
+	if d == nil || d.Player != c.actor {
+		return dst, fmt.Errorf("may only capture the acting seat's own answer")
+	}
+	if err := d.Validate(in); err != nil {
+		return dst, err
+	}
+	for _, i := range in.Choices {
+		a, err := c.action(d, d.Options[i])
+		if err != nil {
+			return dst, err
+		}
+		dst = append(dst, a)
+	}
+	for _, i := range in.Rest {
+		if _, err := c.action(d, d.Options[i]); err != nil {
+			return dst, err
+		}
+	}
+	return dst, nil
+}
+
+// IntentKey is AppendActionsKey of Actions(d, in), failing exactly when
+// Actions does, without building the action list: the key is built in c's
+// reusable storage and is valid until the next IntentKey on c (a caller
+// that keeps it copies it, as a string conversion does).
+func (c *Collector) IntentKey(d *decision.Decision, in decision.Intent) ([]byte, error) {
+	// Actions' list is never nil (it is made, not appended from nil), so
+	// neither is this one: AppendActionsKey tells a nil list apart.
+	if c.keyActs == nil {
+		c.keyActs = make([]Action, 0, 4)
+	}
+	acts, err := c.AppendIntentActions(c.keyActs[:0], d, in)
+	if cap(acts) > cap(c.keyActs) {
+		c.keyActs = acts[:0]
+	}
+	if err != nil {
+		return nil, err
+	}
+	c.keyBuf = AppendActionsKey(c.keyBuf[:0], acts)
+	return c.keyBuf, nil
+}
+
 // Match must use the target world's collector after Capture has validated its
 // observed prefix. Never reuse the source world's raw-ID dictionary.
 func (c *Collector) Match(d *decision.Decision, actions []Action) (decision.Intent, error) {

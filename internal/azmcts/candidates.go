@@ -13,13 +13,12 @@ import (
 	"github.com/adams-shaun/gorge/view"
 )
 
-// cand is one candidate answer at a searched decision: its semantic actions
-// (the tree identity), their key, and the intent that plays it on THIS
-// decision of THIS engine.
+// cand is one candidate answer at a searched decision: the key of its
+// semantic actions (the tree identity, actionsKey) and the intent that plays
+// it on THIS decision of THIS engine.
 type cand struct {
-	acts []searchprobe.Action
-	key  Key
-	in   decision.Intent
+	key Key
+	in  decision.Intent
 }
 
 // enumerate builds the candidates of the searching seat's decision d, the
@@ -124,7 +123,8 @@ func enumerateWhyInto(obs *searchprobe.Collector, e *rules.Engine, d *decision.D
 	case "target":
 		ins = searchprobe.TargetCandidates(d, bot, limit)
 	case "priority":
-		base, err := obs.Actions(d, bot)
+		var one [1]searchprobe.Action
+		base, err := obs.AppendIntentActions(one[:0], d, bot)
 		if err != nil || len(base) != 1 {
 			return nil, kind, SkipTranslate, false
 		}
@@ -141,11 +141,11 @@ func enumerateWhyInto(obs *searchprobe.Collector, e *rules.Engine, d *decision.D
 	}
 	out := make([]cand, 0, len(ins))
 	for _, in := range ins {
-		acts, err := obs.Actions(d, in)
+		key, err := obs.IntentKey(d, in)
 		if err != nil {
 			return nil, kind, SkipTranslate, false
 		}
-		out = append(out, cand{acts: acts, key: actionsKey(acts), in: in})
+		out = append(out, cand{key: Key(key), in: in})
 	}
 	return out, kind, 0, true
 }
