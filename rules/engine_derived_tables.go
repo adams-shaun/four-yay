@@ -52,6 +52,12 @@ type engineDerivedTables struct {
 	// whole board once per clone.
 	typesIncrReady bool
 	typesSelfOnly  bool
+	// typesDSeq is derivedSeq right after the last bounded build (active()
+	// current there), typesDSeqOK marks it set; the derived-quiet reuse
+	// (typesQuietReuse) compares it. Never cloned: a clone's derivedSeq is
+	// its own.
+	typesDSeq      uint64
+	typesDSeqOK    bool
 	typesSrcs      []state.ObjID
 	typesMayDiffer []state.ObjID
 	typesTouch     []state.ObjID

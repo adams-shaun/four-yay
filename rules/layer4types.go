@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -153,6 +154,15 @@ func (e *Engine) refreshDerivedTypes() {
 		}
 		return
 	}
+	// Derived-quiet reuse: see typesQuietReuse.
+	if e.typesIncrReady && e.typesVersion == e.continuousVersion && e.typesObjs == len(e.G.Objs) &&
+		e.typesQuietReuse(n) {
+		e.typesEpoch = n
+		if layerInertVerify {
+			e.verifyInertDerivedTypes()
+		}
+		return
+	}
 	// A direct test-helper AddObject with no logged event invalidates the
 	// object-count guard. Rebuild the entire board rather than treating an
 	// eventless arena change as an ordinary emitted change. When an event
@@ -178,6 +188,63 @@ func (e *Engine) refreshDerivedTypes() {
 	e.refreshDerivedTypesFull(n)
 }
 
+// typesQuietReuse reports whether the table (and the incremental state
+// behind it) still describes the board when every event since it was built
+// is layer-inert or a derivedQuietEvent (derived_transparent.go: Tap, Untap,
+// the mana pool, the step, the combat and life kinds, damage short of a
+// walker's or battle's counters, the markers) and the registry and the arena
+// are unchanged (the caller's key). Those kinds write none of the fields the
+// candidate slice and the statics probe read (Zone, Card, FaceIdx, CopyFace,
+// Unlocked, MergedCards, FaceDown, CopyNonLegendary, AttachedTo), so the
+// catch-ups would change nothing; what remains is each candidate's derived
+// list:
+//
+//   - stamped self-only (no static can change a type, every live LType
+//     effect a registered Card.Self one): a list reads the object's own base
+//     fields and the live registered LType effects, whose liveness reads
+//     source zones and incarnations, the turn and -- for an
+//     until-end-of-combat duration -- the step. So the table holds unless a
+//     StepChange passed while such an LType effect is registered;
+//   - otherwise (the bounded build): the table holds when derivedSeq, current
+//     right after that build, has not moved -- every derivation is then
+//     unchanged (derived_transparent.go, held by derivedMemoVerify).
+//
+// layerInertVerify rebuilds the table on every reuse and compares.
+func (e *Engine) typesQuietReuse(n int) bool {
+	if e.typesEpoch <= 0 || e.typesEpoch > n {
+		return false
+	}
+	step := false
+	for i := e.typesEpoch; i < n; i++ {
+		ev := &e.L.Events[i]
+		switch ev.Kind {
+		case events.DecisionAsk, events.DecisionMade, events.Priority:
+			continue
+		case events.StepChange:
+			step = true
+		}
+		if !e.derivedQuietEvent(ev) {
+			return false
+		}
+	}
+	if e.typesSelfOnly {
+		if step {
+			for i := range e.continuous {
+				ce := &e.continuous[i]
+				if ce.Layer == LType && strings.EqualFold(strings.TrimSpace(ce.Duration), "untilendofcombat") {
+					return false
+				}
+			}
+		}
+		return true
+	}
+	if !e.typesDSeqOK {
+		return false
+	}
+	e.active()
+	return e.derivedSeq == e.typesDSeq
+}
+
 // refreshDerivedTypesFull is the whole-board rebuild (the pre-incremental
 // behaviour), plus the incremental state it repopulates: the mayDiffer
 // candidate slice and the stamps the next incremental attempt needs.
@@ -201,6 +268,7 @@ func (e *Engine) refreshDerivedTypesFull(n int) {
 // against this stamp and forces the whole-board rebuild.
 func (e *Engine) stampTypes(n int, srcs []state.ObjID, selfOnly bool) {
 	e.typesEpoch, e.typesVersion, e.typesObjs = n, e.continuousVersion, len(e.G.Objs)
+	e.typesDSeqOK = false
 	e.typesSelfOnly = selfOnly
 	e.typesSrcs = append(e.typesSrcs[:0], srcs...)
 }
@@ -270,6 +338,10 @@ func (e *Engine) refreshDerivedTypesBounded(n int) bool {
 	} else {
 		e.layer4Types = e.buildDerivedTypesCands(e.active(), e.typesSrcs)
 	}
+	// active() is current here (layer4BoundedReach built it at this log
+	// head), so derivedSeq keys the derived-quiet reuse.
+	e.active()
+	e.typesDSeq, e.typesDSeqOK = e.derivedSeq, true
 	if layer4PrecheckVerify {
 		e.verifySelfOnlyDerivedTypes(e.layer4Types)
 	}

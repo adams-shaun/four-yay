@@ -106,6 +106,8 @@ var excluded = map[excludedField]bool{
 	// game.
 	{"rules.Engine", "typesIncrReady"}:    true,
 	{"rules.Engine", "typesSelfOnly"}:     true,
+	{"rules.Engine", "typesDSeq"}:         true,
+	{"rules.Engine", "typesDSeqOK"}:       true,
 	{"rules.Engine", "typesSrcs"}:         true,
 	{"rules.Engine", "typesMayDiffer"}:    true,
 	{"rules.Engine", "typesTouch"}:        true,

@@ -32,7 +32,7 @@ func TestLayer4EventlessObjectCountForcesFullRefresh(t *testing.T) {
 		t.Fatalf("eventless refresh table %v, want full table %v with car %d", got, want, car)
 	}
 	before := e.typesIncrBuilds
-	e.emit(events.Event{Kind: events.Tap, Obj: tap})
+	emitRefresh(e, tap, 1)
 	if e.typesIncrBuilds != before+1 || e.typesVisited >= len(e.G.Objs) {
 		t.Fatalf("after reseeding, emitted event did not use incremental refresh (builds %d -> %d, visited %d of %d)", before, e.typesIncrBuilds, e.typesVisited, len(e.G.Objs))
 	}
@@ -75,14 +75,14 @@ func TestLayer4CloneCarriesIncrementalState(t *testing.T) {
 		t.Fatal("clone shares the parent's probe cells")
 	}
 	before := c.typesIncrBuilds
-	c.emit(events.Event{Kind: events.Tap, Obj: tap})
+	emitRefresh(c, tap, 1)
 	if c.typesIncrBuilds != before+1 || c.typesVisited >= len(c.G.Objs) {
 		t.Fatalf("clone's first refresh was not incremental (builds %d -> %d, visited %d of %d)", before, c.typesIncrBuilds, c.typesVisited, len(c.G.Objs))
 	}
 	if got, want := c.EffectiveTypes(), c.buildDerivedTypesFull(nil); !reflect.DeepEqual(got, want) {
 		t.Fatalf("clone table %v, want full table %v", got, want)
 	}
-	if e.G.Obj(tap).Tapped {
+	if e.G.Obj(tap).Counter("P1P1") != 0 {
 		t.Fatal("the clone's event reached the parent")
 	}
 }
