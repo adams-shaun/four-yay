@@ -263,8 +263,20 @@ func (e *Engine) derivedMemoized(id state.ObjID) Derived {
 // card). Each has its own table: the override is a different question about
 // the same object, with the same walk-fixed inputs.
 func (e *Engine) derivedMemoizedAt(id state.ObjID, atStack state.Zone) Derived {
+	if d := e.derivedMemoRef(id, atStack); d != nil {
+		return *d
+	}
+	return e.derivedCompute(id, atStack)
+}
+
+// derivedMemoRef is derivedMemoizedAt answering by pointer into the memo
+// entry (nil for an id outside the arena, which the caller derives without
+// the memo), so a caller reading a few fields does not copy the whole
+// Derived. The pointer is valid until the next memo slot is created; the
+// caller reads it at once.
+func (e *Engine) derivedMemoRef(id state.ObjID, atStack state.Zone) *Derived {
 	if id == 0 || int(id) > len(e.G.Objs) {
-		return e.derivedCompute(id, atStack)
+		return nil
 	}
 	table := &e.derivedMemo
 	if atStack != 0 {
@@ -277,7 +289,7 @@ func (e *Engine) derivedMemoizedAt(id state.ObjID, atStack state.Zone) Derived {
 		if derivedMemoVerify {
 			e.verifyDerivedMemo(id, atStack, m.d)
 		}
-		return m.d
+		return &m.d
 	}
 	// Cross-walk reuse: an entry an EARLIER scope computed is still exact when
 	// active() has not been rebuilt since (activeBuildSeq unchanged after
@@ -302,7 +314,7 @@ func (e *Engine) derivedMemoizedAt(id state.ObjID, atStack state.Zone) Derived {
 				e.verifyDerivedMemo(id, atStack, m.d)
 			}
 			m.gen, m.ep = e.derivedMemoGen, ep
-			return m.d
+			return &m.d
 		}
 	}
 	if m.gen == e.derivedMemoGen {
@@ -327,7 +339,7 @@ func (e *Engine) derivedMemoizedAt(id state.ObjID, atStack state.Zone) Derived {
 	d.Types = memoOwned(&m.ty, d.Types)
 	m.d = d
 	m.gen, m.ep, m.ver, m.objs, m.seq = e.derivedMemoGen, ep, ver, objs, seq
-	return d
+	return &m.d
 }
 
 // memoOwned copies src into the entry's reusable backing array *buf and

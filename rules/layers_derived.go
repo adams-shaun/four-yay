@@ -312,7 +312,17 @@ func (e *Engine) FilterDerivedPT(id state.ObjID) (power, toughness, basePower, b
 // pass. Keywords aliases Engine scratch storage exactly as Derived does; a
 // caller that keeps it across another characteristics query must copy it.
 func (e *Engine) Characteristics(id state.ObjID) (power, toughness int32, keywords []string) {
-	d := e.Derived(id)
+	if p, t, kw, ok := e.printedCharacteristics(id); ok {
+		return p, t, kw
+	}
+	// Derived(id), read in place: the memo entry by pointer when derivedWith
+	// would serve the memo, else one uncached build.
+	if e.derivedMemoDepth > 0 && e.derivedMemoUsable() {
+		if d := e.derivedMemoRef(id, 0); d != nil {
+			return d.Power, d.Toughness, d.Keywords
+		}
+	}
+	d := e.derivedCompute(id, 0)
 	return d.Power, d.Toughness, d.Keywords
 }
 

@@ -178,6 +178,9 @@ type engineScratch struct {
 	// activeSum is active()'s per-build digest for the mana walk and
 	// grantedAbilities (active_summary.go). Clone leaves it zero.
 	activeSum activeSummary
+	// charsSum is active()'s per-build digest for Characteristics' printed
+	// fast path (derived_printed.go). Clone leaves it zero.
+	charsSum charsSummary
 	// faceScans memoises per-face text-scan verdicts (face_scan_memo.go).
 	// Clone leaves it nil.
 	faceScans map[*cards.Face]faceScan
