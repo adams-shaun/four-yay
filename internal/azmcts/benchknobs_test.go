@@ -258,8 +258,9 @@ func TestNameKeysNameLateObjects(t *testing.T) {
 		if c.acts[0].Obj == 0 {
 			continue // pass names no object
 		}
-		if !strings.Contains(string(c.key), "|object=") || !strings.Contains(string(c.key), `"Obj":0,`) {
-			t.Fatalf("object candidate key %s is not in the name form", c.key)
+		acts, err := searchprobe.ParseActionsKey([]byte(c.key))
+		if err != nil || len(acts) != 1 || acts[0].Obj != 0 || !strings.Contains(acts[0].Value, "|object=") {
+			t.Fatalf("object candidate key %+v (%v) is not in the name form", acts, err)
 		}
 		renamed++
 	}
