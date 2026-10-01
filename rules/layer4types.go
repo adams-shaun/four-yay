@@ -155,9 +155,9 @@ func (e *Engine) refreshDerivedTypes() {
 		return
 	}
 	// Derived-quiet reuse: see typesQuietReuse.
-	if e.typesIncrReady && e.typesVersion == e.continuousVersion && e.typesObjs == len(e.G.Objs) &&
+	if e.typesIncrReady && e.typesVersion == e.continuousVersion && e.typesObjs <= len(e.G.Objs) &&
 		e.typesQuietReuse(n) {
-		e.typesEpoch = n
+		e.typesEpoch, e.typesObjs = n, len(e.G.Objs)
 		if layerInertVerify {
 			e.verifyInertDerivedTypes()
 		}
@@ -193,7 +193,10 @@ func (e *Engine) refreshDerivedTypes() {
 // is layer-inert or a derivedQuietEvent (derived_transparent.go: Tap, Untap,
 // the mana pool, the step, the combat and life kinds, damage short of a
 // walker's or battle's counters, the markers) and the registry and the arena
-// are unchanged (the caller's key). Those kinds write none of the fields the
+// are unchanged (the caller's key) -- save that a TriggerPush or AbilityPush
+// may each have appended one face-less ability object (facelessAppended):
+// such an object is never a candidate (no face) and its push writes no
+// other object's candidacy field. Those kinds write none of the fields the
 // candidate slice and the statics probe read (Zone, Card, FaceIdx, CopyFace,
 // Unlocked, MergedCards, FaceDown, CopyNonLegendary, AttachedTo), so the
 // catch-ups would change nothing; what remains is each candidate's derived
@@ -214,11 +217,14 @@ func (e *Engine) typesQuietReuse(n int) bool {
 	if e.typesEpoch <= 0 || e.typesEpoch > n {
 		return false
 	}
-	step := false
+	step, pushes := false, 0
 	for i := e.typesEpoch; i < n; i++ {
 		ev := &e.L.Events[i]
 		switch ev.Kind {
 		case events.DecisionAsk, events.DecisionMade, events.Priority:
+			continue
+		case events.TriggerPush, events.AbilityPush:
+			pushes++
 			continue
 		case events.StepChange:
 			step = true
@@ -226,6 +232,9 @@ func (e *Engine) typesQuietReuse(n int) bool {
 		if !e.derivedQuietEvent(ev) {
 			return false
 		}
+	}
+	if !e.facelessAppended(e.typesObjs, pushes) {
+		return false
 	}
 	if e.typesSelfOnly {
 		if step {
