@@ -21,7 +21,10 @@ func TestTriggerEligibilityEventMatrix(t *testing.T) {
 		mode  string
 		kinds []events.Kind // nil means conservatively retain every event
 	}{
-		{"ChangesZone", []events.Kind{events.MoveZone, events.Draw, events.PutOnStack}},
+		// A token mint (TokenCreate/CardToken) is a battlefield entry the
+		// ChangesZone/ChangesZoneAll matchers must see (token-entry ticket:
+		// trigmatch_zone.go models the mint as Library -> Battlefield).
+		{"ChangesZone", []events.Kind{events.MoveZone, events.Draw, events.PutOnStack, events.TokenCreate, events.CardToken}},
 		{"SpellCast", []events.Kind{events.PutOnStack}},
 		{"AbilityCast", []events.Kind{events.AbilityPush}},
 		{"SpellAbilityCast", []events.Kind{events.AbilityPush, events.PutOnStack}},
@@ -172,6 +175,12 @@ func TestTriggerEventInterestMapping(t *testing.T) {
 			// matcher) and past the mask's reach, so the conservative
 			// catch-all is the honest mapping (the Proliferate/Evolved shape).
 			want = cards.TriggerInterestAny
+		case events.TokenCreate, events.CardToken:
+			// A token mint folds straight onto the battlefield (events/
+			// apply_copy.go), so its entry is a zone change the ChangesZone/
+			// ChangesZoneAll matchers see (token-entry ticket). CopyToken stays
+			// zero-mapped: its entry is the separate MoveZone that follows.
+			want = cards.TriggerInterestZoneChange
 		case events.SkipTurn, events.ControlPlayerChange:
 			// CR 500.9 and CR 720 bookkeeping: both are grants/consumption
 			// read back through state (SkipTurns, and ControlledBy/

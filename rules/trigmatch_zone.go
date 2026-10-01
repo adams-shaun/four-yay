@@ -35,8 +35,25 @@ func (e *Engine) zoneChangeMatchesWithCapture(t cards.Trigger, source state.ObjI
 		sc.DelayedRemembered = remembered
 		return sc
 	}
-	if ev.Kind != events.MoveZone && ev.Kind != events.Draw && ev.Kind != events.PutOnStack {
+	if ev.Kind != events.MoveZone && ev.Kind != events.Draw && ev.Kind != events.PutOnStack &&
+		ev.Kind != events.TokenCreate && ev.Kind != events.CardToken {
 		return false
+	}
+	// A token is minted straight onto the battlefield by the TokenCreate/
+	// CardToken fold (events/apply_copy.go's foldTokenCreate/foldCardToken
+	// call Move inside Apply), so the mint event carries no move zones of its
+	// own: From/To are the zero value (both ZLibrary). Model the mint as
+	// Library -> Battlefield for the Origin$/ExcludedOrigins$/Destination$
+	// reads below. This is what makes a token's entry fire an ETB trigger
+	// (CR 110.5a/603.6a). Zero Origin$ Library | Destination$ Battlefield
+	// lines exist in the corpus, so the override cannot over-match an explicit
+	// Origin$ Library ETB carrier (re-measure before relying on that: if such
+	// a shape appears, a mint must match only Origin$ Any). The minted object
+	// id is set on the event copy emit hands the trigger walk, so ev.Obj and
+	// the ValidCard$ block below already read the entering token.
+	from, to := ev.From, ev.To
+	if ev.Kind == events.TokenCreate || ev.Kind == events.CardToken {
+		from, to = state.ZLibrary, state.ZBattlefield
 	}
 	// ResolvedOnly$ True: a trigger fires only on the spell's own RESOLUTION
 	// move off the stack, not on any other stack exit. No corpus card prints
@@ -61,7 +78,7 @@ func (e *Engine) zoneChangeMatchesWithCapture(t cards.Trigger, source state.ObjI
 	// closed rather than degrading to a graveyard origin.
 	if o, ok := t.Params["Origin"]; ok {
 		zones, all, listOK := effects.ParseZones(o)
-		if !listOK || (!all && !zoneIn(ev.From, zones)) {
+		if !listOK || (!all && !zoneIn(from, zones)) {
 			return false
 		}
 	}
@@ -70,12 +87,12 @@ func (e *Engine) zoneChangeMatchesWithCapture(t cards.Trigger, source state.ObjI
 	// must NOT originate in. Absent means unrestricted, exactly as before.
 	if excl, ok := t.Params["ExcludedOrigins"]; ok {
 		for z := range strings.SplitSeq(excl, ",") {
-			if zz := strings.TrimSpace(z); zz != "" && effects.ParseZone(zz) == ev.From {
+			if zz := strings.TrimSpace(z); zz != "" && effects.ParseZone(zz) == from {
 				return false
 			}
 		}
 	}
-	if d, ok := t.Params["Destination"]; ok && d != "Any" && effects.ParseZone(d) != ev.To {
+	if d, ok := t.Params["Destination"]; ok && d != "Any" && effects.ParseZone(d) != to {
 		return false
 	}
 	// ValidCards$ is the PLURAL key the ChangesZoneAll corpus uses (124 of
