@@ -765,16 +765,27 @@ type plannedManaActivation struct {
 	// alternative (paymentPlanStepAlternative), and execution activates
 	// that alternative's own ability.
 	ma *cards.SA
-	// exec is the exact ability to activate to realise this alternative: the
-	// ORIGINAL for fixed production, and a withProduced copy of it for a
-	// choice-shaped production (Any/Combo/Chosen/ColorIdentity) whose selected
-	// colour is recorded in the witness's Produces. The executor resolves
-	// step.exec and hands step.ma to the ordinary mana path as the original
-	// (for activation limits and replay identity), so no colour prompt is ever
-	// posed at execution.
-	exec        *cards.SA
-	tier        paymentAbilityTier
-	consequence paymentConsequence
+	// execProduced names the exact ability to activate to realise this
+	// alternative: "" for fixed production (ma itself), and the selected
+	// colour of a choice-shaped production (Any/Combo/Chosen/ColorIdentity),
+	// recorded in the witness's Produces, whose withProduced copy of ma the
+	// executor activates (alternativeExec). The executor hands ma to the
+	// ordinary mana path as the original (for activation limits and replay
+	// identity), so no colour prompt is ever posed at execution. The copy is
+	// built only for the step that runs, never for the planner's census.
+	execProduced string
+	tier         paymentAbilityTier
+	consequence  paymentConsequence
+}
+
+// alternativeExec is the ability the executor activates for a: ma itself
+// for fixed production, else ma with its Produced$ rewritten to the
+// selected colour.
+func alternativeExec(a plannedManaActivation) *cards.SA {
+	if a.execProduced == "" {
+		return a.ma
+	}
+	return withProduced(a.ma, a.ma, a.execProduced)
 }
 
 func (e *Engine) planPaymentCost(p state.PlayerID, cast decision.PlannedCast, cost Cost) PaymentPlanOutcome {
@@ -1489,7 +1500,16 @@ func (e *Engine) paymentPlanParadiseRider(id state.ObjID, mana *cards.SA) bool {
 // manual because they need a shape or source-state read the witness cannot
 // represent.
 func (e *Engine) paymentPlanUnitAlternatives(u windowManaUnit) []plannedManaActivation {
-	var out []plannedManaActivation
+	_, alts := e.appendUnitAlternatives(nil, u)
+	return alts
+}
+
+// appendUnitAlternatives is paymentPlanUnitAlternatives appending into dst
+// (a query scope's alternative arena): it returns the grown dst and u's
+// alternatives as a capped span of it, or nil when u has none.
+func (e *Engine) appendUnitAlternatives(dst []plannedManaActivation, u windowManaUnit) (grown, alts []plannedManaActivation) {
+	start := len(dst)
+	out := dst
 	// The source's payer, zone-entry sequence and creature bit are read once
 	// for all its alternatives (each a pure read of the source).
 	payer := state.PlayerID(0)
@@ -1528,7 +1548,7 @@ func (e *Engine) paymentPlanUnitAlternatives(u windowManaUnit) []plannedManaActi
 			}
 			out = append(out, plannedManaActivation{activation: decision.PaymentActivation{
 				Source: u.id, SourceZoneSeq: zoneSeq, Ability: ab, Produces: paymentManaAmount(m)},
-				mana: m, creature: creature, ma: alt.ma, exec: alt.ma, tier: tier, consequence: consequence})
+				mana: m, creature: creature, ma: alt.ma, tier: tier, consequence: consequence})
 			continue
 		}
 		if !alt.any || alt.amt <= 0 {
@@ -1546,7 +1566,7 @@ func (e *Engine) paymentPlanUnitAlternatives(u windowManaUnit) []plannedManaActi
 			}
 			out = append(out, plannedManaActivation{activation: decision.PaymentActivation{
 				Source: u.id, SourceZoneSeq: zoneSeq, Ability: ab, Produces: paymentManaAmount(m)},
-				mana: m, creature: creature, ma: alt.ma, exec: withProduced(alt.ma, alt.ma, col), tier: tier, consequence: consequence})
+				mana: m, creature: creature, ma: alt.ma, execProduced: col, tier: tier, consequence: consequence})
 		}
 	}
 	// Preserve flexible sources: rank each selected source by every eligible
@@ -1554,6 +1574,11 @@ func (e *Engine) paymentPlanUnitAlternatives(u windowManaUnit) []plannedManaActi
 	// search happened to choose. Flexibility is the number of DISTINCT mana
 	// types those outcomes produce (spec 5 key 5), so a Produced$ Any source
 	// counts 5, a typed dual 2, and two abilities that both add {U} count 1.
+	if len(out) == start {
+		return out, nil
+	}
+	grown = out
+	out = out[start:len(out):len(out)]
 	var types, all uint8 // bit i = mana index i (W/U/B/R/G/C)
 	for _, a := range out {
 		for i, n := range a.mana {
@@ -1572,7 +1597,7 @@ func (e *Engine) paymentPlanUnitAlternatives(u windowManaUnit) []plannedManaActi
 		out[i].flexAll = flexAll
 		out[i].colours = colours
 	}
-	return out
+	return grown, out
 }
 
 // paymentPlanLastResortChoices is phase 2's alternative table (spec 5): every

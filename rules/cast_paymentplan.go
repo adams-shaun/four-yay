@@ -253,7 +253,7 @@ func (e *Engine) executePlannedManaActivationUnits(pc *pendingCast, units []wind
 	// for Any/Combo/Chosen/ColorIdentity. Resolve step.exec while retaining
 	// step.ma as the compiled original for activation limits and replay, so no
 	// colour prompt is posed at execution.
-	exec := step.exec
+	exec := alternativeExec(step)
 	mark := len(e.L.Events)
 	// This is a spell's CR 601.2g payment window: the call the manual
 	// "activate" answer makes (activateManaPayment), never the distinct
@@ -287,13 +287,13 @@ func (e *Engine) executePlannedManaActivationUnits(pc *pendingCast, units []wind
 }
 
 // paymentPlanSameStep compares two resolutions of one witness step at one
-// state: every field, the abilities up to the identity of an ability built
-// per call (a CR 305.6 intrinsic) and the exec copy up to its content.
+// state: every field, the ability up to the identity of an ability built
+// per call (a CR 305.6 intrinsic).
 func paymentPlanSameStep(a, b plannedManaActivation) bool {
-	if !sameManaAbility(a.ma, b.ma) || !sameManaAbility(a.exec, b.exec) {
+	if !sameManaAbility(a.ma, b.ma) {
 		return false
 	}
-	a.ma, b.ma, a.exec, b.exec = nil, nil, nil, nil
+	a.ma, b.ma = nil, nil
 	return a == b
 }
 

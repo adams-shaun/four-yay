@@ -1645,7 +1645,7 @@ var apiSpecificRulesSA = map[string][]string{
 	// replayable tap witness.  These reads cannot make those parameters appear
 	// implemented on unrelated resolving APIs such as Sacrifice or DealDamage.
 	"Engine.paymentPlanManaUnitsOnlyCompute": {"Mana"},
-	"Engine.paymentPlanUnitAlternatives":     {"Mana"},
+	"Engine.appendUnitAlternatives":          {"Mana"},
 	"Engine.paymentPlanChoiceColours":        {"Mana"},
 	// The payment-plan source-interference check (ticket
 	// aph-interference-scope, rules/payment_plan_interference.go) is reached

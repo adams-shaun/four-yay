@@ -619,7 +619,7 @@ func srchPhaseTwoChoices(t *testing.T, e *Engine, p state.PlayerID) [][]plannedM
 				continue
 			}
 			base := plannedManaActivation{activation: decision.PaymentActivation{Source: u.id, SourceZoneSeq: e.paymentSourceZoneSeq(u.id), Ability: ab},
-				creature: e.IsCreature(u.id), ma: alt.ma, exec: alt.ma, tier: tier, consequence: consequence}
+				creature: e.IsCreature(u.id), ma: alt.ma, tier: tier, consequence: consequence}
 			if paymentPlanAltOK(alt) {
 				base.mana = alt.mana()
 				base.activation.Produces = paymentManaAmount(base.mana)
@@ -634,7 +634,7 @@ func srchPhaseTwoChoices(t *testing.T, e *Engine, p state.PlayerID) [][]plannedM
 				a.mana = state.Mana{}
 				a.mana[strings.IndexByte("WUBRG", col[0])] = alt.amt
 				a.activation.Produces = paymentManaAmount(a.mana)
-				a.exec = withProduced(alt.ma, alt.ma, col)
+				a.execProduced = col
 				out = append(out, a)
 			}
 		}

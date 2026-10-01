@@ -748,6 +748,11 @@ type paymentPlanQuery struct {
 	units   map[state.PlayerID][]windowManaUnit
 	alts    map[state.ObjID][]plannedManaActivation
 	classes map[paymentPlanClassesKey][]paymentPlanClass
+	// altArena backs alts' lists.
+	altArena []plannedManaActivation
+	// installs counts the scope's current installations (Begin, Resume);
+	// only an uninstalled scope is recycled.
+	installs int
 	// spendReaderOut caches paymentPlanBoardSpendReaderOut: 0 unread, 1
 	// false, 2 true.
 	spendReaderOut uint8
@@ -791,11 +796,10 @@ func (q *paymentPlanQuery) valid(e *Engine) bool {
 
 // paymentQueryTok is one paymentPlanQueryBegin's undo: the scope it
 // installed (nil when an enclosing valid scope was reused) and the one it
-// replaced. recycle marks a scope Begin made, which End hands back to the
-// engine's free slot unless it was kept.
+// replaced. End hands a scope installed nowhere else and not kept back to
+// the engine's free slot (paymentPlanQueryRecycle).
 type paymentQueryTok struct {
 	q, prev *paymentPlanQuery
-	recycle bool
 }
 
 // paymentPlanQueryBegin installs a query scope -- a still-valid enclosing
@@ -814,11 +818,12 @@ func (e *Engine) paymentPlanQueryBegin() paymentQueryTok {
 	q := e.paymentPlanQueryFree
 	if q != nil && q.owner == e {
 		e.paymentPlanQueryFree = nil
-		units, alts, classes := q.units, q.alts, q.classes
+		units, alts, classes, arena := q.units, q.alts, q.classes, q.altArena
 		clear(units)
 		clear(alts)
 		clear(classes)
-		*q = paymentPlanQuery{owner: e, units: units, alts: alts, classes: classes}
+		clear(arena)
+		*q = paymentPlanQuery{owner: e, units: units, alts: alts, classes: classes, altArena: arena[:0]}
 	} else {
 		q = &paymentPlanQuery{owner: e}
 	}
@@ -826,7 +831,8 @@ func (e *Engine) paymentPlanQueryBegin() paymentQueryTok {
 	if q.logLen > 0 {
 		q.logBase = &e.L.Events[0]
 	}
-	t := paymentQueryTok{q: q, prev: e.paymentPlanQuery, recycle: true}
+	q.installs = 1
+	t := paymentQueryTok{q: q, prev: e.paymentPlanQuery}
 	e.paymentPlanQuery = q
 	return t
 }
@@ -838,8 +844,17 @@ func (e *Engine) paymentPlanQueryEnd(t paymentQueryTok) {
 		return
 	}
 	e.paymentPlanQuery = t.prev
-	if t.recycle && t.q != e.paymentPlanQueryKept && t.q.owner == e {
-		e.paymentPlanQueryFree = t.q
+	t.q.installs--
+	if t.q != e.paymentPlanQueryKept {
+		e.paymentPlanQueryRecycle(t.q)
+	}
+}
+
+// paymentPlanQueryRecycle hands a finished scope to the free slot: one this
+// engine made, installed nowhere (installs 0) and not kept.
+func (e *Engine) paymentPlanQueryRecycle(q *paymentPlanQuery) {
+	if q != nil && q.owner == e && q.installs == 0 && q != e.paymentPlanQueryKept {
+		e.paymentPlanQueryFree = q
 	}
 }
 
@@ -863,6 +878,7 @@ func (e *Engine) paymentPlanQueryResumeBegin(p state.PlayerID) paymentQueryTok {
 	if k == nil || k.payer != p || !e.potentialWalkUsable() || !k.valid(e) || e.paymentPlanQueryKeptStamp != e.potentialStampNow(p) {
 		return e.paymentPlanQueryBegin()
 	}
+	k.installs++
 	t := paymentQueryTok{q: k, prev: e.paymentPlanQuery}
 	e.paymentPlanQuery = k
 	return t
@@ -877,8 +893,13 @@ func (e *Engine) paymentPlanQueryKeep(p state.PlayerID) {
 		return
 	}
 	q.payer = p
+	old := e.paymentPlanQueryKept
 	e.paymentPlanQueryKept = q
 	e.paymentPlanQueryKeptStamp = e.potentialStampNow(p)
+	// The replaced kept scope is finished unless it is still installed.
+	if old != q {
+		e.paymentPlanQueryRecycle(old)
+	}
 }
 
 // paymentPlanQueryUnits is paymentPlanManaUnits, computed once per query
@@ -916,7 +937,10 @@ func (e *Engine) paymentPlanQueryAlternatives(u windowManaUnit) []plannedManaAct
 		}
 		return alts
 	}
-	alts := e.paymentPlanUnitAlternatives(u)
+	// The scope's alternatives share one arena, reset when the scope is
+	// recycled (paymentPlanQueryBegin): no alternative outlives its scope.
+	var alts []plannedManaActivation
+	q.altArena, alts = e.appendUnitAlternatives(q.altArena, u)
 	if q.alts == nil {
 		q.alts = map[state.ObjID][]plannedManaActivation{}
 	}
@@ -959,14 +983,7 @@ func paymentPlanClassMembers(classes []paymentPlanClass) [][]int {
 }
 
 // paymentPlanSameAlternative compares two computations of one alternative.
-// A choice-shaped exec is a fresh withProduced copy per computation, derived
-// from ma and the recorded production (both compared), so exec itself is
-// compared only for presence.
 func paymentPlanSameAlternative(a, b plannedManaActivation) bool {
-	if (a.exec == nil) != (b.exec == nil) {
-		return false
-	}
-	a.exec, b.exec = nil, nil
 	return a == b
 }
 
