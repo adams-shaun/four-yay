@@ -1,0 +1,42 @@
+{
+  "card": "Adaptive Automaton",
+  "family": "etb-ltb",
+  "oracle_sha": "87b336b1f706",
+  "author": "cli-20260930T002325Z-7c2f8c50 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "chosen-type-lords-other-creatures-of-that-type",
+      "cr": ["614.12", "613.4"],
+      "why": "As Adaptive Automaton enters I choose a creature type; it becomes that type and gives each other creature I control of the chosen type +1/+1. Choosing Bear makes Grizzly Bears a 3/3 while the Automaton stays 2/2.",
+      "setup": {
+        "p0": {"hand": ["Adaptive Automaton"], "battlefield": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Adaptive Automaton", "mana": "CCC"},
+        {"op": "resolve", "answers": [{"kind": "choose", "pick": ["Bear"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "zone": "battlefield", "pt": "3/3"},
+        {"card": "p0:Adaptive Automaton", "zone": "battlefield", "pt": "2/2", "types": ["Bear"]}
+      ]
+    },
+    {
+      "name": "creatures-of-another-type-are-unaffected",
+      "cr": ["613.4"],
+      "why": "With two creatures of different types and the chosen type Cat, only the Cat gets the bonus: Savannah Lions becomes 3/2 while Grizzly Bears stays 2/2.",
+      "setup": {
+        "p0": {"hand": ["Adaptive Automaton"], "battlefield": ["Grizzly Bears", "Savannah Lions"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Adaptive Automaton", "mana": "CCC"},
+        {"op": "resolve", "answers": [{"kind": "choose", "pick": ["Cat"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Savannah Lions", "zone": "battlefield", "pt": "3/2"},
+        {"card": "p0:Grizzly Bears", "zone": "battlefield", "pt": "2/2"}
+      ]
+    }
+  ]
+}

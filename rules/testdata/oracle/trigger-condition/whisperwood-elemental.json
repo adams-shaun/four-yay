@@ -1,0 +1,18 @@
+{
+  "card": "Whisperwood Elemental",
+  "family": "trigger-condition",
+  "author": "cli-20260930T004423Z-d42d9d4e (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "end-step-manifests-top-card",
+      "cr": ["603.7", "701.34a"],
+      "why": "At the beginning of the controller's end step Whisperwood Elemental manifests the top card of the library as a face-down 2/2 creature.",
+      "setup": {"p0": {"battlefield": ["Whisperwood Elemental"], "library_top": ["Grizzly Bears"]}},
+      "steps": [
+        {"op": "pass_to", "seat": 0, "step": "end"},
+        {"op": "resolve"}
+      ],
+      "expect": [{"card": "p0:Grizzly Bears", "zone": "battlefield", "pt": "2/2"}]
+    }
+  ]
+}

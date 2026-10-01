@@ -1,0 +1,85 @@
+{
+  "card": "Firebird, Blazing Ranger",
+  "family": "attack-pump",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "oracle_sha": "fba152e10665",
+  "scenarios": [
+    {
+      "name": "attack-pumps-other-attackers-by-its-power",
+      "cr": [
+        "603.6a",
+        "608.2c",
+        "611.2a"
+      ],
+      "why": "Firebird's power is 1, so when it attacks every other attacking creature gets +1/+0 until end of turn. The 2/2 Bear attacking alongside becomes 3/2; Firebird itself is not an 'other' attacking creature and keeps its 1/3.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Firebird, Blazing Ranger",
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Firebird, Blazing Ranger",
+            "p0:Grizzly Bears"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "resolve",
+          "expect": [
+            {
+              "card": "p0:Grizzly Bears",
+              "pt": "3/2"
+            },
+            {
+              "card": "p0:Firebird, Blazing Ranger",
+              "pt": "1/3"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "attacking-alone-pumps-nobody",
+      "cr": [
+        "603.6a",
+        "608.2c"
+      ],
+      "why": "With no other attacking creature the trigger's pump applies to nobody, and Firebird's own P/T is unchanged.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Firebird, Blazing Ranger",
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Firebird, Blazing Ranger"
+          ],
+          "defender": "p1"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "pt": "2/2"
+        },
+        {
+          "card": "p0:Firebird, Blazing Ranger",
+          "pt": "1/3"
+        }
+      ]
+    }
+  ]
+}

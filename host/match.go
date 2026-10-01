@@ -153,6 +153,7 @@ func (r *Registry) newMatch(t *table, k int) (*match, error) {
 	// so a commander table's seats get a command zone from their own deck
 	// and a constructed table's seats never do.
 	cmds := make([][]int, c.Seats)
+	archetypes := make([]string, c.Seats)
 	infos := make([]protocol.SeatInfo, c.Seats)
 	for i := 0; i < c.Seats; i++ {
 		dn := c.Decks[(i+k)%len(c.Decks)]
@@ -164,6 +165,7 @@ func (r *Registry) newMatch(t *table, k int) (*match, error) {
 			d.Name = dn
 		}
 		names[i], decks[i], sideboards[i], deckNames[i], cmds[i] = d.Name, d.Cards, d.Sideboard, dn, d.Commanders
+		archetypes[i] = d.Archetype
 		infos[i] = protocol.SeatInfo{Name: playerNames[i], Deck: d.Name, Colour: protocol.SeatColours[i%len(protocol.SeatColours)], DeckID: deckNames[i]}
 		// Human marks the slots TableConfig.Humans seats with a real person:
 		// the wire signal a client's undo control reads (protocol.SeatInfo's
@@ -175,7 +177,7 @@ func (r *Registry) newMatch(t *table, k int) (*match, error) {
 			}
 		}
 	}
-	cfg := rules.Config{Seed: seed, Names: names, PlayerNames: playerNames, Decks: decks, Sideboards: sideboardConfig(sideboards), Tokens: r.opts.Tokens, NameUniverse: r.opts.NameUniverse, Mulligans: c.Mulligans, WindowDiagnostics: c.WindowDiagnostics}
+	cfg := rules.Config{Seed: seed, Names: names, PlayerNames: playerNames, Decks: decks, Archetypes: archetypes, Sideboards: sideboardConfig(sideboards), Tokens: r.opts.Tokens, NameUniverse: r.opts.NameUniverse, Mulligans: c.Mulligans, WindowDiagnostics: c.WindowDiagnostics}
 	// The engine's own livelock watcher (rules/livelock.go) is the same
 	// non-terminating-loop protection as this file's per-turn decision
 	// guard, one level down: an embedder that opted out of the host guard
@@ -305,7 +307,7 @@ func (m *match) sidecar() sidecar {
 
 // defaultSeats is PL-14: one bot per seat, seeded from the match seed.
 func defaultSeats(policy string, names []string, seed uint64) []seat.Seat {
-	return defaultSeatsWithAutoPayMana(policy, false, names, seed, 0, bots.Deps{})
+	return defaultSeatsWithAutoPayMana(policy, false, names, seed, 0, bots.Deps{}, hostedDecisionDeadlineMS)
 }
 
 // defaultSeatsWithAutoPayMana builds every table bot with the persisted
@@ -314,7 +316,7 @@ func defaultSeats(policy string, names []string, seed uint64) []seat.Seat {
 // so a policy that reads card facts builds on a served table). Keeping the
 // legacy wrapper preserves embedders and tests that intentionally exercise
 // the historical manual-mana policy.
-func defaultSeatsWithAutoPayMana(policy string, autoPayMana bool, names []string, seed uint64, searchParallelism int, deps bots.Deps) []seat.Seat {
+func defaultSeatsWithAutoPayMana(policy string, autoPayMana bool, names []string, seed uint64, searchParallelism int, deps bots.Deps, deadlineMS int) []seat.Seat {
 	out := make([]seat.Seat, len(names))
 	for i := range names {
 		// BP-10: BotSearchParallelism rides bots.Options.SearchParallelism so a
@@ -324,7 +326,7 @@ func defaultSeatsWithAutoPayMana(policy string, autoPayMana bool, names []string
 		// tests; the table path builds through bots.New with Seed,
 		// AutoPayMana, SearchParallelism and BotDeps, exactly what the
 		// wrapper would thread.
-		bot, err := bots.New(policy, bots.Options{Seed: seed ^ uint64(i+1), AutoPayMana: autoPayMana, SearchParallelism: searchParallelism, Deps: deps})
+		bot, err := bots.New(policy, bots.Options{Seed: seed ^ uint64(i+1), AutoPayMana: autoPayMana, SearchParallelism: searchParallelism, Deps: deps, DecisionDeadlineMS: deadlineMS})
 		if err != nil {
 			panic(err) // policy was normalized before the table was registered.
 		}
@@ -569,10 +571,14 @@ func parkSeat(ctx context.Context, seats []seat.Seat, pd *parkedData, undo <-cha
 					return &parkedDecision{p: pd.p, err: aerr, searchSlot: true}
 				}
 				defer gate.release()
-				in, err := es.DecideEnv(ctx, *pd.env, pd.dc)
+				cctx, cancel := decisionCtx(ctx, seats[pd.p])
+				in, err := es.DecideEnv(cctx, *pd.env, pd.dc)
+				cancel()
 				return &parkedDecision{p: pd.p, in: in, err: err, searchSlot: true}
 			}
-			in, err := es.DecideEnv(ctx, *pd.env, pd.dc)
+			cctx, cancel := decisionCtx(ctx, seats[pd.p])
+			in, err := es.DecideEnv(cctx, *pd.env, pd.dc)
+			cancel()
 			return &parkedDecision{p: pd.p, in: in, err: err}
 		}
 	}
@@ -615,7 +621,15 @@ func (r *Registry) play(ctx context.Context, t *table, m *match) (final string) 
 	// human's timeout caretaker; -bot-auto-mana only takes effect when the
 	// feature itself is enabled for the table.
 	autoPayMana := t.cfg.autoPayManaEnabled()
-	seats := defaultSeatsWithAutoPayMana(t.cfg.BotPolicy, autoPayMana, m.cfg.Names, m.seed, r.opts.BotSearchParallelism, r.opts.BotDeps)
+	// agent-20261001T041445Z: a determinism harness comparing two runs of one
+	// seed must never arm the hosted wall-clock budget — a deadline bail-out
+	// answers from the non-searched fallback, so the two runs diverge under
+	// load (BP-07 §7). Served tables keep hostedDecisionDeadlineMS unchanged.
+	budget := hostedDecisionDeadlineMS
+	if r.opts.BotUnboundedDecisions {
+		budget = 0
+	}
+	seats := defaultSeatsWithAutoPayMana(t.cfg.BotPolicy, autoPayMana, m.cfg.Names, m.seed, r.opts.BotSearchParallelism, r.opts.BotDeps, budget)
 	if r.opts.Seats != nil {
 		seats = r.opts.Seats(m.cfg.Names, m.seed)
 	}

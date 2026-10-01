@@ -1,0 +1,40 @@
+{
+  "card": "Vengeful Dead",
+  "family": "death-triggers",
+  "oracle_sha": "eb17799c2eba",
+  "author": "cli-20261001T012353Z-c0654344 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "another-zombie-dies-opponent-loses",
+      "cr": ["603.6c"],
+      "why": "Another Zombie seat 0 controls dying triggers each opponent losing 1 life; no target is chosen.",
+      "setup": {
+        "p0": {"battlefield": ["Vengeful Dead", "Diregraf Ghoul"]},
+        "p1": {"battlefield": ["Savannah Lions"]}
+      },
+      "steps": [
+        {"op": "move", "seat": 0, "card": "p0:Diregraf Ghoul", "to": "graveyard"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 20, "p1": 19}}
+      ]
+    },
+    {
+      "name": "non-zombie-dies-no-drain",
+      "cr": ["603.6c"],
+      "why": "It triggers only on a Zombie dying; a non-Zombie creature dying drains nobody.",
+      "setup": {
+        "p0": {"battlefield": ["Vengeful Dead", "Grizzly Bears"]},
+        "p1": {"battlefield": ["Savannah Lions"]}
+      },
+      "steps": [
+        {"op": "move", "seat": 0, "card": "p0:Grizzly Bears", "to": "graveyard"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 20, "p1": 20}}
+      ]
+    }
+  ]
+}

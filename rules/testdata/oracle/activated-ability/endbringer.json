@@ -1,0 +1,79 @@
+{
+  "card": "Endbringer",
+  "family": "activated-ability",
+  "oracle_sha": "55467b0072ae",
+  "author": "cli-20260930T220416Z-ed59db28 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "pings-any-target",
+      "cr": [
+        "118.1",
+        "117.3a",
+        "121.1"
+      ],
+      "why": "The {T} ability deals 1 damage to any target; here p1.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Endbringer"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Endbringer",
+          "ability": "1 damage",
+          "targets": [
+            "p1"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p1": 19
+          }
+        }
+      ]
+    },
+    {
+      "name": "cc-t-draws-a-card",
+      "cr": [
+        "117.3a",
+        "121.1"
+      ],
+      "why": "The {C}{C},{T} ability draws a card.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Endbringer"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Endbringer",
+          "ability": "Draw a card",
+          "mana": "CC"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "hand_size": {
+            "p0": 1
+          }
+        }
+      ]
+    }
+  ]
+}

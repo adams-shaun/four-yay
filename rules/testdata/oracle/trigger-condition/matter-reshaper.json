@@ -1,0 +1,43 @@
+{
+  "card": "Matter Reshaper",
+  "family": "trigger-condition",
+  "oracle_sha": "291da2d200fb",
+  "author": "cli-20260929T235020Z-c90601c7 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "dies-reveals-permanent-mv3-put-onto-battlefield",
+      "cr": ["603.6c", "701.17a", "ii.1"],
+      "why": "When Matter Reshaper dies it reveals the top card; Grizzly Bears is a permanent card with mana value 2 (3 or less), so it may be put onto the battlefield.",
+      "setup": {
+        "p0": {"battlefield": ["Matter Reshaper"], "library_top": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "move", "seat": 0, "card": "p0:Matter Reshaper", "to": "graveyard",
+         "expect": [{"trigger_on_stack": "p0:Matter Reshaper", "want": true}]},
+        {"op": "resolve",
+         "answers": [{"kind": "choose", "pick": ["p0:Grizzly Bears"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Matter Reshaper", "zone": "graveyard"},
+        {"card": "p0:Grizzly Bears", "zone": "battlefield"}
+      ]
+    },
+    {
+      "name": "dies-reveals-nonpermanent-put-into-hand",
+      "cr": ["603.6c"],
+      "why": "Lightning Bolt is an instant, not a permanent card, so it cannot be put onto the battlefield and instead goes into the hand.",
+      "setup": {
+        "p0": {"battlefield": ["Matter Reshaper"], "library_top": ["Lightning Bolt"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "move", "seat": 0, "card": "p0:Matter Reshaper", "to": "graveyard"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Lightning Bolt", "zone": "hand"}
+      ]
+    }
+  ]
+}

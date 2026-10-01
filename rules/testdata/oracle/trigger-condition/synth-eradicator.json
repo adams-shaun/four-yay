@@ -1,0 +1,72 @@
+{
+  "card": "Synth Eradicator",
+  "family": "trigger-condition",
+  "oracle_sha": "df8cf9b44060",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "declining-the-energy-may-play-the-exiled-card",
+      "cr": [
+        "603.2",
+        "701.17a",
+        "118.2d"
+      ],
+      "why": "Attacking exiles the top card of the library; declining the two energy keeps the Lightning Bolt in exile with permission to play it this turn, so casting it deals 3 damage to the defending player.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Synth Eradicator"
+          ],
+          "library_top": [
+            "Lightning Bolt"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Synth Eradicator"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "no"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Lightning Bolt",
+          "mana": "R",
+          "targets": [
+            "p1"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Lightning Bolt",
+          "zone": "graveyard"
+        },
+        {
+          "life": {
+            "p1": 17
+          }
+        }
+      ]
+    }
+  ]
+}

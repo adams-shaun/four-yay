@@ -4,6 +4,7 @@
   import { pileTone } from '../lib/cardoptions';
   import { pileLabel, pileOpener } from '../lib/pileopener.svelte';
   import { zonesFor, type ZoneSummary } from '../lib/zones';
+  import { pointerRelease } from '../lib/pointer';
 
   /**
    * SeatCounts is the one line of public counts a seat's header bar and seat
@@ -34,7 +35,8 @@
         data-tone={tone(z)}
         aria-label={pileLabel(who, z.zone, z.count)}
         title={pileLabel(who, z.zone, z.count)}
-        onclick={(e) => pileOpener.open(player.seat, z.zone, e.currentTarget as HTMLElement)}
+        use:pointerRelease
+        onclick={(e) => pileOpener.open(player.seat, z.zone, e.currentTarget as HTMLElement, e.detail > 0)}
       >{LABEL[z.zone]} <b>{z.count}</b></button>
     {:else if z.zone === 'graveyard' || z.count > 0}
       <span title={`${LABEL[z.zone]}: ${z.count}`} data-motion-anchor={`${player.seat}:${z.zone}`}>{LABEL[z.zone]} <b>{z.count}</b></span>

@@ -965,6 +965,14 @@ func (e *Engine) checkTriggers(ev events.Event, lki *state.Object,
 	if ev.Kind == events.DoorUnlock {
 		e.checkUnlockTriggers(ev)
 	}
+	// Rooms (CR 709.5d/709.5h): the CAST face is given the unlocked
+	// designation as it enters, so its own "when you unlock this door"
+	// trigger fires on the entry MoveZone. That face (FaceIdx) is the room's
+	// primary face, which the ordinary per-face walk above cannot reach --
+	// the UnlockDoor matcher is gated to DoorUnlock, not MoveZone.
+	if ev.Kind == events.MoveZone && ev.From == state.ZStack && ev.To == state.ZBattlefield {
+		e.checkRoomEntryUnlockTriggers(ev)
+	}
 	// Dungeon rooms (CR 309.4c, the dungeon chain's slice 3): the room
 	// ability of the room a player just entered. The dungeon object lives in
 	// the command zone, which the per-face walk above never visits, and the

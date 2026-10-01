@@ -19,6 +19,7 @@ export const intentURL = (t: string, k: number) => withBase(`/api/tables/${enc(t
 export const undoURL = (t: string, k: number) => withBase(`/api/tables/${enc(t)}/matches/${k}/undo`);
 export const gamesURL = () => withBase('/api/games');
 export const decksURL = () => withBase('/api/decks');
+export const deckStatsURL = () => withBase('/api/stats/decks');
 
 // seatQuery is the seat/token query threading on the seat-scoped GETs
 // (M2e-3's FL-99: ?seat=N&token=…). The token is a bearer credential for
@@ -117,6 +118,24 @@ export interface DeckInfo {
 
 export const fetchDecks = () => getJSON<DeckInfo[]>(decksURL());
 
+/** One row of the public deck leaderboard: finished bot-vs-bot games only. */
+export interface DeckRecord {
+  deck: string;
+  games: number;
+  wins: number;
+  losses: number;
+  draws: number;
+  win_rate: number;
+}
+
+export interface DeckTally {
+  decks: DeckRecord[];
+  min_games: number;
+  matches_counted: number;
+}
+
+export const fetchDeckStats = () => getJSON<DeckTally>(deckStatsURL());
+
 /** A game a successful POST /api/games returns: the new table's identity, the human seat and its bearer token, and the join path that carries them (Task ui11). */
 export interface CreateGame {
   table: string;
@@ -173,6 +192,11 @@ export async function postIntent(t: string, k: number, intent: Intent, ctx: Seat
 /** postUndo requests an in-place rewind. The seat claim is the same bearer fence as an intent; the rewind frame confirms when it lands. */
 export async function postUndo(t: string, k: number, ctx: SeatCtx): Promise<void> {
   if (ctx.transport) return ctx.transport.postUndo(t, k);
+  return postNativeUndo(t, k, ctx);
+}
+
+/** Use the native endpoint directly when a transport needs rewind support beyond its wire protocol. */
+export async function postNativeUndo(t: string, k: number, ctx: SeatCtx): Promise<void> {
   const res = await fetchBounded(undoURL(t, k), {
     method: 'POST',
     headers: { Authorization: `Bearer ${ctx.token}` },

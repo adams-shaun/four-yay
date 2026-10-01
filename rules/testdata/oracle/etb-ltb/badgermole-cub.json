@@ -1,0 +1,26 @@
+{
+  "card": "Badgermole Cub",
+  "family": "etb-ltb",
+  "oracle_sha": "1897d1fcad18",
+  "author": "cli-20260930T002325Z-7c2f8c50 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "etb-earthbends-a-land-for-one",
+      "cr": ["603.6a", "701.66a", "613.1d"],
+      "why": "When Badgermole Cub enters, earthbend 1: the targeted land I control becomes a 0/0 creature with haste that's still a land and gets one +1/+1 counter, so it is a 1/1 land creature with haste.",
+      "setup": {
+        "p0": {"hand": ["Badgermole Cub"], "battlefield": ["Forest"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Badgermole Cub", "mana": "GG"},
+        {"op": "resolve", "targets": ["p0:Forest"]}
+      ],
+      "expect": [
+        {"card": "p0:Badgermole Cub", "zone": "battlefield", "pt": "2/2"},
+        {"card": "p0:Forest", "zone": "battlefield", "pt": "1/1", "counters": {"+1/+1": 1},
+         "keywords": ["Haste"], "types": ["Creature", "Land"]}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "card": "Curiosity",
+  "family": "triggered-ability",
+  "oracle_sha": "6dca504f892d",
+  "author": "cli-20261001T014438Z-51ea329c (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enchanted-creature-damaging-an-opponent-draws-a-card",
+      "cr": ["603.2", "120.3", "121.1"],
+      "why": "Curiosity enchants Grizzly Bears; when the Bears deal combat damage to the opponent the aura's may-draw trigger fires, drawing one card.",
+      "setup": {
+        "p0": {"hand": ["Curiosity"], "battlefield": ["Grizzly Bears"], "library_top": ["Forest"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Curiosity", "mana": "U", "targets": ["p0:Grizzly Bears"]},
+        {"op": "resolve"},
+        {"op": "attack", "seat": 0, "attackers": ["p0:Grizzly Bears"], "defender": "p1"},
+        {"op": "pass_to", "step": "end"}
+      ],
+      "expect": [
+        {"life": {"p1": 18}},
+        {"hand_size": {"p0": 1}}
+      ]
+    },
+    {
+      "name": "no-damage-no-draw",
+      "cr": ["603.2", "120.3"],
+      "why": "If the enchanted creature deals no damage to an opponent this turn, the aura's trigger never fires and no card is drawn.",
+      "setup": {
+        "p0": {"hand": ["Curiosity"], "battlefield": ["Grizzly Bears"], "library_top": ["Forest"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Curiosity", "mana": "U", "targets": ["p0:Grizzly Bears"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"hand_size": {"p0": 0}},
+        {"card": "p0:Grizzly Bears", "zone": "battlefield"}
+      ]
+    }
+  ]
+}

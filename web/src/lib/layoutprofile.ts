@@ -8,8 +8,8 @@
  * It absorbs the old per-zone `layoutsettings.ts` model: `migrateLegacy`
  * reads a `gorge.layoutsettings.v1` blob into a profile (the library does
  * that once, on first load). Per-zone card scale is gone — the sizing rules
- * in cardsizing.ts replace it — so only the alignments and the hand peek
- * survive the migration.
+ * in cardsizing.ts replace battlefield sizing; the hand's legacy scale is
+ * retained as a hand-card size multiplier alongside alignments and hand peek.
  *
  * Pure TypeScript, the playsettings/profiles house pattern: a version field
  * and a strict validate (corrupt means null, never a partial merge), with
@@ -66,6 +66,9 @@ export const ART_MIN = 0;
 export const ART_MAX = 120;
 export const HAND_MIN = 0.3;
 export const HAND_MAX = 1;
+export const HAND_SCALE_MIN = 0.6;
+export const HAND_SCALE_MAX = 1.6;
+export const HAND_SCALE_DEFAULT = 1;
 export const MAX_ROWS = 3;
 
 export interface Region {
@@ -101,6 +104,8 @@ export interface LayoutProfile {
   hand: {
     /** fraction of a hand card visible at rest */
     visible: number;
+    /** full hand-card size multiplier */
+    scale: number;
     /** whether a hand card rises to full height on hover/focus */
     raise: boolean;
   };
@@ -178,7 +183,7 @@ export function defaultProfile(): LayoutProfile {
       table: { ...PRESET_SHAPES.duel.table },
       regions: cloneRegions(PRESET_SHAPES.duel.regions),
       cards: { stacking: true, overflow: 'overlap', artBelow: 58, outlines: false },
-      hand: { visible: 0.72, raise: true },
+      hand: { visible: 0.72, scale: HAND_SCALE_DEFAULT, raise: true },
       panels: { rail: 'right', railWidth: defaultRailWidth(), log: 'remember', prompt: { placement: 'dock', x: 0.6, y: 0.12 } },
     },
     'duel',
@@ -239,7 +244,7 @@ function canonical(p: LayoutProfile): unknown {
     table: { split: p.table.split, arrangement: p.table.arrangement, orientation: p.table.orientation },
     regions: Object.fromEntries(REGION_KEYS.map((k) => [k, { row: p.regions[k].row, weight: p.regions[k].weight, anchor: p.regions[k].anchor, order: p.regions[k].order }])),
     cards: { stacking: p.cards.stacking, overflow: p.cards.overflow, artBelow: p.cards.artBelow, outlines: p.cards.outlines },
-    hand: { visible: p.hand.visible, raise: p.hand.raise },
+    hand: { visible: p.hand.visible, scale: p.hand.scale, raise: p.hand.raise },
     panels: { rail: p.panels.rail, railWidth: p.panels.railWidth, log: p.panels.log, prompt: { placement: p.panels.prompt.placement, x: p.panels.prompt.x, y: p.panels.prompt.y } },
   };
 }
@@ -293,7 +298,8 @@ export function validate(v: unknown): LayoutProfile | null {
     regs[k] = { row: r.row, weight: r.weight, anchor: r.anchor, order: r.order };
   }
   if (typeof cards.stacking !== 'boolean' || !oneOf(cards.overflow, OVERFLOWS) || !num(cards.artBelow, ART_MIN, ART_MAX) || typeof cards.outlines !== 'boolean') return null;
-  if (!num(hand.visible, HAND_MIN, HAND_MAX) || typeof hand.raise !== 'boolean') return null;
+  const handScale = hand.scale === undefined ? HAND_SCALE_DEFAULT : hand.scale;
+  if (!num(hand.visible, HAND_MIN, HAND_MAX) || !num(handScale, HAND_SCALE_MIN, HAND_SCALE_MAX) || typeof hand.raise !== 'boolean') return null;
   const prompt = panels.prompt;
   if (!oneOf(panels.rail, RAIL_SIDES) || !oneOf(panels.log, LOG_MODES) || !isObj(prompt)) return null;
   const railWidth = panels.railWidth === undefined ? defaultRailWidth() : panels.railWidth;
@@ -304,7 +310,7 @@ export function validate(v: unknown): LayoutProfile | null {
     table: { split: table.split, arrangement: table.arrangement, orientation: table.orientation },
     regions: compactRows(regs),
     cards: { stacking: cards.stacking, overflow: cards.overflow, artBelow: cards.artBelow, outlines: cards.outlines },
-    hand: { visible: hand.visible, raise: hand.raise },
+    hand: { visible: hand.visible, scale: handScale, raise: hand.raise },
     panels: { rail: panels.rail, railWidth, log: panels.log, prompt: { placement: prompt.placement, x: prompt.x, y: prompt.y } },
   };
 }
@@ -320,27 +326,30 @@ const LEGACY_ANCHOR: Record<string, Anchor> = { left: 'start', center: 'center',
  * migration ruling): each battlefield row's alignment becomes its region's
  * anchor, and the hand peek becomes the hand's visible fraction and raise.
  * Per-zone scale, the command/hand alignment and the on-board steppers are
- * dropped — the sizing rules replace per-zone scale. A field that is absent
- * or unreadable keeps the default rather than failing the whole migration:
+ * dropped except for the hand scale, which is retained as its new bounded
+ * hand-card size control. A field that is absent or unreadable keeps the
+ * default rather than failing the whole migration:
  * the point is to keep what the player chose, not to judge the old blob.
  */
 export function migrateLegacy(v: unknown): LayoutProfile | null {
   if (!isObj(v) || v.version !== 1) return null;
   const p = defaultProfile();
   const align = isObj(v.align) ? v.align : {};
+  const scale = isObj(v.scale) ? v.scale : {};
+  if (num(scale.hand, HAND_SCALE_MIN, HAND_SCALE_MAX)) p.hand.scale = scale.hand;
   for (const k of REGION_KEYS) {
     const a = align[k];
     if (typeof a === 'string' && a in LEGACY_ANCHOR) p.regions[k].anchor = LEGACY_ANCHOR[a];
   }
   switch (v.handPeek) {
     case 'hover':
-      p.hand = { visible: 0.5, raise: true };
+      p.hand = { ...p.hand, visible: 0.5, raise: true };
       break;
     case 'always':
-      p.hand = { visible: 1, raise: true };
+      p.hand = { ...p.hand, visible: 1, raise: true };
       break;
     case 'never':
-      p.hand = { visible: 0.5, raise: false };
+      p.hand = { ...p.hand, visible: 0.5, raise: false };
       break;
   }
   return p;

@@ -1,0 +1,42 @@
+{
+  "card": "Glint Hawk",
+  "family": "etb-ltb",
+  "oracle_sha": "3d7f90dc70c2",
+  "author": "cli-20261001T014438Z-51ea329c (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "returning-an-artifact-keeps-the-hawk",
+      "cr": ["603.6a", "118.12a", "701.8a"],
+      "why": "The enters trigger sacrifices the Hawk unless I return an artifact I control to my hand. Returning Sol Ring satisfies it, so the Hawk stays and the Ring is back in hand.",
+      "setup": {
+        "p0": {"hand": ["Glint Hawk"], "battlefield": ["Sol Ring"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Glint Hawk", "mana": "W"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["Pay the cost"]}, {"kind": "any", "pick": ["p0:Sol Ring"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Glint Hawk", "zone": "battlefield", "pt": "2/2", "keywords": ["Flying"]},
+        {"card": "p0:Sol Ring", "zone": "hand"}
+      ]
+    },
+    {
+      "name": "no-artifact-sacrifices-itself",
+      "cr": ["603.6a", "701.8a"],
+      "why": "With no artifact to return, the exception cannot be satisfied, so the Hawk is sacrificed on resolution of its own trigger.",
+      "setup": {
+        "p0": {"hand": ["Glint Hawk"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Glint Hawk", "mana": "W"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Glint Hawk", "zone": "graveyard"},
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Glint Hawk"}, "eq": 0}
+      ]
+    }
+  ]
+}

@@ -3,8 +3,8 @@ import { browserURL, sharedBrowser } from '../test/browser';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { render } from 'svelte/server';
 import { SeatPanelState } from '../lib/seatpanel.svelte';
-import { presetPatch, type StoppableStep } from '../lib/playsettings';
-import PlaySettingsPanel, { clampMs, nextStop, stopPatch, stopWord } from './PlaySettingsPanel.svelte';
+import { clampMs, nextStop, presetPatch, stopPatch, stopWord, type StoppableStep } from '../lib/playsettings';
+import PlaySettingsPanel from './PlaySettingsPanel.svelte';
 import { layoutStore } from '../lib/layouts.svelte';
 
 // Two layers, because the editor has two halves to defend:

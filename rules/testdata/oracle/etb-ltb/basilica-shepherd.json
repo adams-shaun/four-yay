@@ -1,0 +1,26 @@
+{
+  "card": "Basilica Shepherd",
+  "family": "etb-ltb",
+  "oracle_sha": "432182c353bc",
+  "author": "cli-20261001T012353Z-c0654344 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enters-creates-two-mite-tokens",
+      "cr": ["603.6a", "111.2"],
+      "why": "Its enter trigger creates two 1/1 colorless Phyrexian Mite artifact creature tokens with toxic 1 and \"This creature can't block.\"",
+      "setup": {
+        "p0": {"hand": ["Basilica Shepherd"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Basilica Shepherd", "mana": "WWWWW"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Mite", "token": true}, "eq": 2},
+        {"card": "p0:token:Mite", "pt": "1/1", "keywords": ["Toxic:1"]},
+        {"card": "p0:Basilica Shepherd", "keywords": ["Flying"]}
+      ]
+    }
+  ]
+}

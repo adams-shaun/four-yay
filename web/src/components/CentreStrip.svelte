@@ -4,6 +4,7 @@
   import type { SeatCtx } from '../lib/seat';
   import type { SeatPanelState } from '../lib/seatpanel.svelte';
   import { layoutStore } from '../lib/layouts.svelte';
+  import { pointerRelease } from '../lib/pointer';
   import { SPLIT_MAX, SPLIT_MIN } from '../lib/layoutprofile';
   import HotButtonStrip from './HotButtonStrip.svelte';
   import PhaseTrack from './PhaseTrack.svelte';
@@ -127,9 +128,9 @@
   {/if}
   <span class="pills">
     {#if flowLabel !== null && onOpenFlow}
-      <button type="button" class="pill flow" data-flow-pill title="Flow profile: open game options" onclick={() => onOpenFlow?.()}>{flowLabel}</button>
+      <button type="button" class="pill flow" data-flow-pill use:pointerRelease title="Flow profile: open game options" onclick={() => onOpenFlow?.()}>{flowLabel}</button>
     {/if}
-    <button type="button" class="pill" data-layout-pill aria-expanded={layoutStore.drawerOpen} title="Layout profile: open the Layout drawer" onclick={() => (layoutStore.drawerOpen = !layoutStore.drawerOpen)}>Layout: {layoutStore.label}</button>
+    <button type="button" class="pill" data-layout-pill use:pointerRelease aria-expanded={layoutStore.drawerOpen} title="Layout profile: open the Layout drawer" onclick={() => (layoutStore.drawerOpen = !layoutStore.drawerOpen)}>Layout: {layoutStore.label}</button>
   </span>
 </div>
 

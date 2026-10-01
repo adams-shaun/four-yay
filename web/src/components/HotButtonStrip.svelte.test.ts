@@ -203,9 +203,34 @@ describe('HotButtonStrip — the status chip', () => {
     const html = stripState(state, priority);
     expect(html).toMatch(/data-play-mode="casual"/);
     expect(html).toContain('title="Auto: Casual"');
-    expect(html).toContain('>AUTO</span>');
+    expect(html).toMatch(/<button[^>]*role="switch"[^>]*aria-checked="true"[^>]*data-play-mode="casual"[^>]*data-auto-status/);
+    expect(html).toContain('>AUTO</span></button>');
     expect(html).toContain('data-auto-pay-toggle');
     expect(html).toContain('AUTO MANA');
+  });
+
+  it('routes the always-visible switch through pressAuto in both live and paused states', () => {
+    const live = new SeatPanelState('t1', 1, ctx, null);
+    expect(live.machinePaused).toBe(false);
+    expect(live.auto).toBe(true);
+    const liveHtml = stripState(live, priority);
+    expect(liveHtml).toMatch(/<button[^>]*role="switch"[^>]*aria-checked="true"[^>]*data-play-mode="casual"[^>]*data-auto-status/);
+    expect(liveHtml).toContain('aria-label="Auto: Casual"');
+    expect(liveHtml).toContain('>AUTO</span></button>');
+    live.pressAuto();
+    expect(live.auto).toBe(false);
+    expect(live.machinePaused).toBe(false);
+
+    const paused = new SeatPanelState('t1', 1, ctx, null);
+    paused.rewind();
+    expect(paused.machinePaused).toBe(true);
+    expect(paused.auto).toBe(true);
+    const pausedHtml = stripState(paused, priority);
+    expect(pausedHtml).toMatch(/<button[^>]*role="switch"[^>]*aria-checked="false"[^>]*data-play-mode="paused"[^>]*data-auto-status[^>]*data-auto-note/);
+    expect(pausedHtml).toContain('>AUTO</span></button>');
+    paused.pressAuto();
+    expect(paused.machinePaused).toBe(false);
+    expect(paused.auto).toBe(true);
   });
 
   it('shows the undo pause and its resume control in the always-visible live-strip chip', () => {
@@ -219,7 +244,7 @@ describe('HotButtonStrip — the status chip', () => {
     const html = stripState(state, priority);
     expect(html).toMatch(/data-play-mode="paused"/);
     expect(html).toContain('data-auto-note');
-    expect(html).toContain('>AUTO</span>');
+    expect(html).toContain('>AUTO</span></button>');
     expect(html).toContain('Press the Auto switch (or apply a preset)');
     expect(html).not.toMatch(/data-play-mode="casual"/);
   });
@@ -328,6 +353,65 @@ describe('HotButtonStrip — Resolve All (prio6)', () => {
       },
     }).html;
     expect(nonPriority).toMatch(/data-resolve-all[^>]*aria-disabled="true"/);
+  });
+});
+
+// The Aether Vial shape: a payment action the server offers with no suggested
+// mana plan. Under Auto-pay ON the nested panel renders its announce button
+// (PriorityOptions' plan-less branch, announce-then-pay §8), so the strip's
+// ACTIONS count must include it -- a priority window whose only play is this
+// cast is not an empty window.
+describe('HotButtonStrip — plan-less payment action under Auto-pay ON', () => {
+  const planless: Decision = {
+    seq: 109, player: 0, kind: 'priority', prompt: 'Priority', min: 1, max: 1,
+    options: [option(42, 'pass', 'Pass priority')],
+    payment_actions: [{
+      id: 'pay-4ad785b7', cast: { object: 54, face: 0, origin: 'hand' },
+      label: 'Cast Aether Vial', plans: [],
+    }],
+  };
+
+  function planlessStrip(): string {
+    const state = new SeatPanelState('t1', 1, ctx, null);
+    state.setAutoManaAvailable(true);
+    state.setAutoPayMana(true);
+    state.adoptView(planless);
+    return stripState(state, planless);
+  }
+
+  it('counts a lone plan-less cast and offers its announce button', () => {
+    const html = planlessStrip();
+    // Precondition: the action truly is plan-less, so the pre-fix filter
+    // dropped it and the tab was disabled.
+    expect(planless.payment_actions?.[0].plans).toEqual([]);
+    expect(html).toContain('data-payment-action="pay-4ad785b7"');
+    // The fix: the tab is enabled, no empty-window paragraph, and the nested
+    // panel really offers the cast the badge counted.
+    expect(html).toMatch(/data-hot-tab="actions"[^>]*aria-disabled="false"/);
+    expect(html).not.toContain('No action is offered by this decision.');
+    expect(html).toContain('data-announce="pay-4ad785b7"');
+  });
+
+  it('still counts a plan-bearing action once, via its plan button', () => {
+    const state = new SeatPanelState('t1', 1, ctx, null);
+    state.setAutoManaAvailable(true);
+    state.setAutoPayMana(true);
+    const priority: Decision = {
+      seq: 91, player: 0, kind: 'priority', prompt: 'Priority', min: 1, max: 1,
+      options: [option(7, 'cast', 'Cast Test Spell'), option(42, 'pass', 'Pass priority')],
+      payment_actions: [{
+        id: 'pay-test', cast: { object: 8, face: 0, origin: 'hand' }, base_option_index: 7,
+        label: 'Cast Test Spell', plans: [{ id: 'plan', version: 1, cost: { generic: 0, mana: [0, 1, 0, 0, 0, 0] }, activations: [], pool_spend: [0, 0, 0, 0, 0, 0], pool_after: [0, 0, 0, 0, 0, 0] }],
+      }],
+    };
+    state.adoptView(priority);
+    const html = stripState(state, priority);
+    expect(html).toMatch(/data-hot-tab="actions"[^>]*aria-disabled="false"/);
+    expect(html).not.toContain('No action is offered by this decision.');
+    expect(html).toContain('data-payment-plan="plan"');
+    // Counted once: the base cast option stays suppressed from the generic
+    // list even though the payment action is now unconditionally visible.
+    expect(html).not.toMatch(/data-option="7"/);
   });
 });
 

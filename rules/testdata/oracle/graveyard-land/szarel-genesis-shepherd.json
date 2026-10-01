@@ -1,0 +1,48 @@
+{
+  "card": "Szarel, Genesis Shepherd",
+  "family": "graveyard-land",
+  "oracle_sha": "ea1de450b8f6",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "land-from-graveyard-offered",
+      "cr": [
+        "305.1",
+        "611.3"
+      ],
+      "why": "While Szarel is on the battlefield, its controller can play a land from their graveyard during their main phase.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Szarel, Genesis Shepherd"
+          ],
+          "graveyard": [
+            "Forest"
+          ]
+        }
+      },
+      "steps": [],
+      "expect": [
+        {
+          "card": "p0:Szarel, Genesis Shepherd",
+          "zone": "battlefield",
+          "keywords": [
+            "Flying"
+          ]
+        },
+        {
+          "card": "p0:Forest",
+          "zone": "graveyard"
+        },
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "play_land",
+            "card": "p0:Forest"
+          },
+          "want": true
+        }
+      ]
+    }
+  ]
+}

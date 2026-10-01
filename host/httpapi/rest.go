@@ -36,6 +36,25 @@ func (h *handler) decks(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, decks)
 }
 
+// defaultMinGames is the leaderboard's floor when ?min_games is absent.
+const defaultMinGames = 10
+
+// deckStats serves the public deck leaderboard. It is computed on read from
+// the registry's finished bot-vs-bot matches and exposes only deck names and
+// aggregate counts: no seat, table, seed or hidden information.
+func (h *handler) deckStats(w http.ResponseWriter, r *http.Request) {
+	min := defaultMinGames
+	if raw := r.URL.Query().Get("min_games"); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n < 0 {
+			writeError(w, http.StatusBadRequest, "bad_request", "min_games must be a non-negative integer")
+			return
+		}
+		min = n
+	}
+	writeJSON(w, http.StatusOK, host.TallyDecks(h.reg.AllMatches(), min))
+}
+
 func (h *handler) matches(w http.ResponseWriter, r *http.Request) {
 	ms, err := h.reg.Matches(host.TableID(r.PathValue("t")))
 	if err != nil {

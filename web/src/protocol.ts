@@ -153,14 +153,36 @@ export interface ManifestRow {
 }
 
   /**
+   * CurveRow is one bucket of a deck's mana curve: Count copies whose
+   * front-face converted mana cost is CMC.
+   */
+export interface CurveRow {
+  cmc: number;
+  count: number;
+}
+
+  /**
    * Manifest is the immutable, unordered genesis list assigned to one seat.
    * Call Clone before publishing or retaining it outside its owner.
    */
 export interface Manifest {
   name: string;
+  /**
+   * Archetype is the deck's authoring archetype (File.Archetype), carried so
+   * the seat's own prior survives into the projection the bot reads as
+   * view.View.OwnDeck. Empty for a deck file that declares none, which
+   * marshals away (omitempty) and preserves the pre-field wire shape.
+   */
+  archetype?: string;
   main: ManifestRow[];
   sideboard?: ManifestRow[];
   commanders?: string[];
+  /**
+   * Curve is the derived mana curve over Main (CurveOf): one row per
+   * front-face CMC in ascending order, each carrying the copies at that
+   * cost. Derived observation data like the rows themselves, not game state.
+   */
+  curve?: CurveRow[];
 }
 
   /**
@@ -246,6 +268,21 @@ export interface CardView {
    */
   printing: Printing;
   token: string;
+  /**
+   * IsToken and IsCopy are the object's own state.Object flags projected
+   * for every visible card: a battlefield token (CR 111.7) and a copy
+   * (CR 707.10; a battlefield token copy carries BOTH) are public identity
+   * facts like the name they sit beside, and a client wire that mints its
+   * own identity DTO reads them rather than re-deriving one from Token --
+   * which is the display tag every card carries, never a token flag.
+   * cardViews' face-down replacement rebuilds the CardView from a fresh
+   * literal without them, so a card hidden behind its face reveals no more
+   * than that projection already did; and since a token exists only on the
+   * battlefield and a copy only on the stack or the battlefield, neither
+   * flag can name a card in a hidden zone.
+   */
+  is_token?: boolean;
+  is_copy?: boolean;
   /**
    * AttackingPlayer is the seat this creature is attacking while
    * Attacking is true, nil otherwise; BlockedBy lists the creatures
@@ -397,6 +434,42 @@ export interface DungeonView {
 }
 
   /**
+   * ArchetypePosterior is a posterior over an opponent's deck archetype,
+   * inferred from the cards revealed about that seat. It is nil for the
+   * viewer's own seat and for a spectator: the fact is an OPPONENT archetype
+   * posterior, and a seat's own deck identity is already the manifest's
+   * job (deck.File.Archetype), not something to re-infer from its graveyard.
+   *
+   * Known is false when nothing classifiable has been revealed yet; Scores is
+   * then empty and Top is "". A Known posterior's Scores entries sum to 1 and
+   * carry only positive values, so an absent entry means a zero posterior.
+   */
+export interface ArchetypePosterior {
+  /**
+   * Known reports whether any revealed card carried a classifiable signal.
+   */
+  known: boolean;
+  /**
+   * Seen is how many distinct revealed cards were classified.
+   */
+  seen: number;
+  /**
+   * Top is the highest-probability archetype's name ("" when !Known).
+   */
+  top?: string;
+  /**
+   * TopScore is that archetype's posterior probability.
+   */
+  top_score?: number;
+  /**
+   * Scores is the full normalised posterior, keyed by archetype name. It is
+   * built with a fixed key order (dense index order) and only ever read by
+   * key, so no map-range order can reach the wire.
+   */
+  scores?: Record<string, number>;
+}
+
+  /**
    * PlayerView is one seat's own public state, plus (only when this is the
    * viewer's own seat) the private parts.
    *
@@ -425,6 +498,20 @@ export interface PlayerView {
    * other seat and whenever no grant is live.
    */
   library_top?: CardView | null;
+  /**
+   * Library is the viewer's own library as an UNORDERED list of cards:
+   * the contents a human knows about their own deck, without the secret
+   * order CR 400.2 hides from every player (including its owner, who may
+   * not reorder or inspect it). It is sorted into a canonical order (by
+   * card name, then object id) that is a pure function of the CONTENTS,
+   * so it never preserves and never leaks the library's actual order.
+   * Like Hand it is a CR 400.2 hidden zone and is filled only for the
+   * viewer's own seat (widened by CR 720.4 to a seat the viewer controls);
+   * for every other seat it is nil and omitted from the wire, and a
+   * spectator never matches the gate. LibrarySize (an int) and LibraryTop
+   * (one card, gated on a MayLookAt grant) are not it.
+   */
+  library?: CardView[];
   /**
    * Hand is nil (marshalling to a literal JSON null, not an omitted key --
    * it deliberately carries no "omitempty" tag) for every seat but the
@@ -563,6 +650,19 @@ export interface PlayerView {
    * Constructed game never pays for a per-player empty map.
    */
   cmd_damage?: Record<string, number>;
+  /**
+   * Archetype is a posterior over this seat's deck archetype, inferred
+   * from the cards REVEALED about it (its public battlefield, graveyard,
+   * exile and command-zone lists). It is filled for every seat EXCEPT the
+   * viewer's own -- the fact is an OPPONENT archetype posterior, and a
+   * seat's own deck identity is the manifest's job (deck.File.Archetype),
+   * not something to re-infer. It is nil when the viewer is a spectator
+   * or nothing classifiable has been revealed yet, and it never reads a
+   * hidden zone (a hidden hand is not a CardView at all) or a card name.
+   * Like Available it carries omitempty so a view with no posterior
+   * serialises byte-identically to before the field existed.
+   */
+  archetype?: ArchetypePosterior | null;
 }
 
   /**

@@ -6,6 +6,7 @@
   import OptionPicker from './OptionPicker.svelte';
   import { ACTION_GLYPHS, tileOptions as tileOptionsOf, type CardOptions } from '../lib/cardoptions';
   import { SICK_TAP_REASON, sickUntappableManaSource } from '../lib/sicktap';
+  import { pointerRelease } from '../lib/pointer';
 
   /**
    * CardTile is the battlefield/stack/strip face of one object. It has no
@@ -209,6 +210,7 @@
   bind:this={root}
   tabindex="0"
   role="button"
+  use:pointerRelease
   onpointerenter={() => hover.arm(card.id, capture)}
   onpointerleave={() => hover.close()}
   onfocus={() => hover.open(card.id, capture)}

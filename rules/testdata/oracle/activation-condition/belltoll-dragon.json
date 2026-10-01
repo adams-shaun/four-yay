@@ -1,0 +1,26 @@
+{
+  "card": "Belltoll Dragon",
+  "family": "activation-condition",
+  "oracle_sha": "994290487ef3",
+  "author": "agent-20260930T005535Z-e82cd61a (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "megamorph-turn-face-up-puts-a-counter-and-fires-the-turn-up-trigger",
+      "cr": ["702.37a", "708.6", "702.168a", "116.2b"],
+      "why": "Turn face up is a special action offered as its own option kind (\"turn_face_up\"), not an ability activation. The scenario casts the Dragon face down for its megamorph cost, resolves it, selects the turn-face-up option through the activate op, and asserts its effects: the megamorph +1/+1 counter on the Dragon itself (CR 702.168a) and the turn-up trigger's +1/+1 on each other Dragon (CR 708.6).",
+      "setup": {"p0": {"hand": ["Belltoll Dragon"], "battlefield": ["Shivan Dragon"]}},
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Belltoll Dragon", "mana": "UUU", "cast_mode": "megamorphed"},
+        {"op": "resolve", "seat": 0,
+          "expect": [{"card": "p0:Belltoll Dragon", "zone": "battlefield", "tapped": false, "counters": {"p1p1": 0}},
+                     {"card": "p0:Shivan Dragon", "counters": {"p1p1": 0}}]},
+        {"op": "activate", "seat": 0, "card": "p0:Belltoll Dragon", "ability": "Turn face up", "mana": "UUUUUUU"},
+        {"op": "resolve", "seat": 0}
+      ],
+      "expect": [
+        {"card": "p0:Belltoll Dragon", "counters": {"p1p1": 1}},
+        {"card": "p0:Shivan Dragon", "counters": {"p1p1": 1}}
+      ]
+    }
+  ]
+}

@@ -395,25 +395,21 @@ describe('decide', () => {
 
   // --- stack rules: own objects ---
   //
-  // Own-spell auto-resolution is keyed on the SEAT's auto-pay preference
-  // (decide()'s autoPayMana), never on the table's auto_mana capability (spec
-  // §8, aph-web-autopass): decide() is not even told the capability, so "the
-  // table offers auto-pay but this player never turned it on" is exactly the
-  // preference-off call below. The panel-level wiring (capability on,
-  // preference off) is pinned in seatpanel.payment.test.ts.
+  // Own-spell resolution is governed by the player's ownObjects setting,
+  // never by the auto-pay preference or table capability. The panel-level
+  // wiring is pinned in seatpanel.payment.test.ts.
 
-  it('auto-pay preference on: my own spell on top resolves through the Main 1 smart stop (ownObjects never)', () => {
+  it('ownObjects never resolves my own spell through a Main 1 smart stop with either auto-pay preference', () => {
     const d = priority(RESPONDABLE);
-    expect(decide({ decision: d, view: view(0, 'main1', [stackEntry(9, 0, 'spell')]), seat: 0, settings: defaultSettings(), autoPayMana: true }))
-      .toEqual({ act: 'pass', index: 0 });
-  });
-
-  it('auto-pay preference off: an own spell keeps the capability-less smart-step stop', () => {
-    const d = priority(RESPONDABLE);
+    const s = defaultSettings();
     const v = view(0, 'main1', [stackEntry(9, 0, 'spell')]);
-    expect(run(d, v)).toEqual({ act: 'stop', reason: 'stop-set' });
-    expect(decide({ decision: d, view: v, seat: 0, settings: defaultSettings(), autoPayMana: false }))
-      .toEqual({ act: 'stop', reason: 'stop-set' });
+    expect(v.stack.at(-1)).toMatchObject({ id: 9, controller: 0, kind: 'spell' });
+    expect(s.ownObjects).toBe('never');
+    expect(s.steps.yours.main1).toBe('smart');
+    for (const autoPayMana of [false, true]) {
+      expect(decide({ decision: d, view: v, seat: 0, settings: s, autoPayMana }))
+        .toEqual({ act: 'pass', index: 0 });
+    }
   });
 
   it('full-control: my own spell on top + respondable stops (ownObjects if-respondable)', () => {
@@ -426,20 +422,28 @@ describe('decide', () => {
     expect(run(d, view(0, 'draw', [stackEntry(9, 0, 'spell')]), s)).toEqual({ act: 'stop', reason: 'own-object' });
   });
 
-  it('auto-pay preference on: own object on top with nothing to respond with passes even through a forced step (ownObjects if-respondable)', () => {
+  it('ownObjects if-respondable passes without a response through a forced step, regardless of auto-pay preference', () => {
     const d = priority(ONLY_MANA);
-    // With the preference on, the own-object setting decides the whole
-    // window. With no response, "Stop if I can respond" passes; a forced step
-    // must not turn it into an unexpected second own-object stop.
     const s = withSteps('yours', { draw: 'forced' });
     s.ownObjects = 'if-respondable';
     const v = view(0, 'draw', [stackEntry(9, 0, 'ability')]);
-    expect(decide({ decision: d, view: v, seat: 0, settings: s, autoPayMana: true }))
-      .toEqual({ act: 'pass', index: 1 });
-    // Preference off: the capability-less policy, where the forced step rule
-    // still owns the window.
+    expect(v.stack.at(-1)).toMatchObject({ id: 9, controller: 0, kind: 'ability' });
+    expect(respondableFor(v, 0, d)).toBe(false);
+    for (const autoPayMana of [false, true]) {
+      expect(decide({ decision: d, view: v, seat: 0, settings: s, autoPayMana }))
+        .toEqual({ act: 'pass', index: 1 });
+    }
+  });
+
+  it('ownObjects if-respondable still stops on an own spell when a response is available', () => {
+    const d = priority(RESPONDABLE);
+    const s = defaultSettings();
+    s.ownObjects = 'if-respondable';
+    const v = view(0, 'main1', [stackEntry(9, 0, 'spell')]);
+    expect(v.stack.at(-1)).toMatchObject({ id: 9, controller: 0, kind: 'spell' });
+    expect(respondableFor(v, 0, d)).toBe(true);
     expect(decide({ decision: d, view: v, seat: 0, settings: s, autoPayMana: false }))
-      .toEqual({ act: 'stop', reason: 'stop-set' });
+      .toEqual({ act: 'stop', reason: 'own-object' });
   });
 
   // --- step rules ---
@@ -633,9 +637,9 @@ describe('decide', () => {
               // Both modes must hold the structural invariant: a pass verdict
               // always points at a pass option. On the ffwd path the stack
               // rules are skipped, so the stack branch is reachable as a pass.
-              // The auto-pay preference adds the own-object pass branch and
-              // the planned-cast arm (the decision carries a plan when the
-              // preference is on), so it is a dimension of the property too.
+              // The auto-pay preference affects the planned-cast arm (the
+              // decision carries a plan when it is on), so it is a dimension
+              // of the property too.
               for (const ffwd of [false, true]) {
                 for (const autoPayMana of [false, true]) {
                   const d = autoPayMana ? { ...priority(list), payment_actions: [PLANNED_ACTION] } : priority(list);
@@ -1009,12 +1013,44 @@ describe('auto-pay: a plan-bearing payment action is a real play only while the 
       .toEqual({ act: 'pass', index: 1 });
   });
 
-  it('a payment action with no plan is not a play (the panel offers nothing to click for it)', () => {
+  it('a plan-less payment action under Auto-pay ON is an announce-then-pay play (the panel offers the Cast — choose mana button)', () => {
     const d = plannedWindow(plannedAction([]));
-    expect(emptyPriorityWindow(d, ownMain, 0, true)).toBe(1);
-    expect(actionables(ownMain, 0, d, true)).toEqual([]);
+    // Precondition: the action really carries no plan, and the view carries
+    // no seat projection, so the only arm that could name the window is the
+    // plan-less one.
+    expect(d.payment_actions![0].plans).toEqual([]);
+    expect(ownMain.players).toEqual([]); // no seat projection anywhere, so only the plan-less arm can name the window
+    expect(emptyPriorityWindow(d, ownMain, 0, true)).toBeNull();
+    expect(actionables(ownMain, 0, d, true)).toEqual(['Cast Opt (announce)']);
+    expect(actionable(d, ownMain, 0, true)).toBe(true);
     expect(decide({ decision: d, view: ownMain, seat: 0, settings: withSteps('yours', { main1: 'smart' }), autoPayMana: true }))
+      .toEqual({ act: 'stop', reason: 'stop-set' });
+    // With the preference OFF the old capability-less behaviour still holds.
+    expect(emptyPriorityWindow(d, ownMain, 0, false)).toBe(1);
+    expect(actionables(ownMain, 0, d, false)).toEqual([]);
+    expect(decide({ decision: d, view: ownMain, seat: 0, settings: withSteps('yours', { main1: 'smart' }), autoPayMana: false }))
       .toEqual({ act: 'pass', index: 1 });
+  });
+
+  it('a plan-less ManaBrew cast is labelled "(announce)", not "(after tapping)" — the decorated view names the announce route', () => {
+    // The ManaBrew shape (ManaBrewMatch.decorate): the plan-less action is
+    // also injected into the seat's potential_actions as a bare cast, so the
+    // after-tapping arm has a projection to name — the announce arm must win.
+    const d = plannedWindow(plannedAction([]));
+    const decorated = withHand(ownMain, 0, { potential_actions: [{ ...pot('cast', 102), label: 'Cast Opt' }] });
+    // Precondition: the decoration really carries the same cast label, so the
+    // after-tapping arm is a live (wrong) alternative.
+    expect(decorated.players[0].potential_actions).toEqual([{ kind: 'cast', obj: 102, label: 'Cast Opt' }]);
+    expect(d.payment_actions![0].plans).toEqual([]);
+    expect(actionables(decorated, 0, d, true)).toEqual(['Cast Opt (announce)']);
+    expect(emptyPriorityWindow(d, decorated, 0, true)).toBeNull();
+    expect(decide({ decision: d, view: decorated, seat: 0, settings: withSteps('yours', { main1: 'smart' }), autoPayMana: true }))
+      .toEqual({ act: 'stop', reason: 'stop-set' });
+    // Preference OFF: the after-tapping projection arm still names the window
+    // (the capability-less policy is unchanged; the window is a real play in
+    // both policies because the projection is a play).
+    expect(actionables(decorated, 0, d, false)).toEqual(['Cast Opt (after tapping)']);
+    expect(actionables(decorated, 0, d, true)).not.toEqual(actionables(decorated, 0, d, false));
   });
 
   it('the planned arm reads priority decisions only', () => {

@@ -311,12 +311,13 @@ func TestEarthbendBeifongDynamicCountsDyingCreaturePower(t *testing.T) {
 // enters, earthbend 1" runs the SVar-resolved DB$ Earthbend body (the
 // Execute$ chain the parser normalises exactly like a printed A: line).
 // Badgermole Cub is used instead of Toph, Hardheaded Teacher -- the corpus's
-// only SpellCast carrier -- because Toph's chained SubAbility DBPutCounter
-// gates on ConditionDefined$ TriggeredCardLKICopy, the LKI-copy condition
-// group this build leaves fail-closed (run-anyway), so its Lesson rider
-// would double the count on any spell; that card stays a behavioural
-// divergence (see the report's Issues) even though the census reads it as
-// supported.
+// only SpellCast carrier -- so this leaf stays about the Earthbend body alone:
+// Toph's chained SubAbility DBPutCounter gates on ConditionDefined$
+// TriggeredCardLKICopy | ConditionPresent$ Lesson (put an EXTRA counter only
+// when the cast spell is a Lesson), which is pinned on Toph itself in
+// toph_lesson_gate_test.go (task agent-20260930T003623Z-97c7643c) and in the
+// trigger-condition oracle fixture; using Toph here would fold the rider's
+// second counter into every leaf's count.
 func TestEarthbendBadgermoleCubETBOne(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
@@ -352,10 +353,13 @@ func earthbendDepart(t *testing.T, e *Engine, id state.ObjID, dest state.Zone) {
 // layer-4 filter limitation): the animated Forest is a creature only through
 // the layer walk, so no `ValidTgts$ Creature` spell sees it. A `ValidTgts$
 // Land` destruction still reaches it, and the Destroy fires the same
-// departure. (Lethal combat/damage cannot kill the animated land either --
-// rules/sba.go's destroyLethalDamage gates on the printed face being a
-// creature, so an animated land is damage-immortal; a pre-existing
-// engine-wide gap, disclosed in the report's Issues, not introduced here.)
+// departure. (Lethal combat/damage now DOES kill the animated land: as of
+// ticket agent-20260930T003623Z-089d5c9e, rules/sba.go's destroyLethalDamage
+// gates creature-ness on the layer-derived type list (`e.IsCreature`), so an
+// animated land is mortal to both the CR 704.5f zero-toughness and the CR
+// 704.5g lethal-damage sweeps -- see rules/sba_animated_toughness_test.go.
+// Before that fix the printed-face gate left an animated land damage-immortal,
+// a pre-existing engine-wide gap.)
 func TestEarthbendBaSingSeRealDestroy(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)

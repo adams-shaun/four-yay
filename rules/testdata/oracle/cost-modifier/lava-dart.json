@@ -1,0 +1,44 @@
+{
+  "card": "Lava Dart",
+  "family": "cost-modifier",
+  "oracle_sha": "370f1096b631",
+  "author": "cli-20260930T002325Z-7c2f8c50 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "deals-one-to-any-target",
+      "cr": ["120.3a", "608.2c"],
+      "why": "Lava Dart deals 1 damage to its target; aimed at seat 1 that is 1 life lost.",
+      "setup": {
+        "p0": {"hand": ["Lava Dart"]},
+        "p1": {"life": 20}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lava Dart", "mana": "R", "targets": ["p1"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p1": 19}},
+        {"card": "p0:Lava Dart", "zone": "graveyard"}
+      ]
+    },
+    {
+      "name": "flashback-sacrifices-a-mountain-then-exiles",
+      "cr": ["702.34a", "701.19a"],
+      "why": "Lava Dart's flashback cost is sacrificing a Mountain. Cast from the graveyard by sacrificing one, it deals 1 damage and is exiled rather than returned to the graveyard.",
+      "setup": {
+        "p0": {"graveyard": ["Lava Dart"], "battlefield": ["Mountain"]},
+        "p1": {"life": 20}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lava Dart", "cast_mode": "flashback", "targets": ["p1"],
+         "answers": [{"kind": "choose", "pick": ["p0:Mountain"]}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p1": 19}},
+        {"card": "p0:Mountain", "zone": "graveyard"},
+        {"card": "p0:Lava Dart", "zone": "exile"}
+      ]
+    }
+  ]
+}

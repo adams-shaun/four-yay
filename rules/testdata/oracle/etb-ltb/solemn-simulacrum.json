@@ -1,0 +1,44 @@
+{
+  "card": "Solemn Simulacrum",
+  "family": "etb-ltb",
+  "oracle_sha": "eaedf03a7ba3",
+  "author": "cli-20260929T235020Z-c90601c7 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enters-fetches-a-basic-land-tapped",
+      "cr": ["603.6a", "701.19a"],
+      "why": "Solemn Simulacrum's enter trigger may search for a basic land and put it onto the battlefield tapped; choosing the Forest puts it out tapped.",
+      "setup": {
+        "p0": {"hand": ["Solemn Simulacrum"], "library_top": ["Forest"]},
+        "p1": {"library_top": ["Forest"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Solemn Simulacrum", "mana": "CCCC"},
+        {"op": "resolve",
+         "answers": [{"kind": "choose", "pick": ["p0:Forest"]}],
+         "expect": [{"card": "p0:Forest", "zone": "battlefield", "tapped": true}]}
+      ],
+      "expect": [
+        {"card": "p0:Solemn Simulacrum", "zone": "battlefield"}
+      ]
+    },
+    {
+      "name": "dies-may-draw-a-card",
+      "cr": ["603.6c"],
+      "why": "When Solemn Simulacrum dies, its controller may draw a card; accepting the optional trigger draws one.",
+      "setup": {
+        "p0": {"battlefield": ["Solemn Simulacrum"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "move", "seat": 0, "card": "p0:Solemn Simulacrum", "to": "graveyard",
+         "expect": [{"trigger_on_stack": "p0:Solemn Simulacrum", "want": true}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Solemn Simulacrum", "zone": "graveyard"},
+        {"hand_size": {"p0": 1}}
+      ]
+    }
+  ]
+}

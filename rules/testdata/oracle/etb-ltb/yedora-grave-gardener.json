@@ -1,0 +1,55 @@
+{
+  "card": "Yedora, Grave Gardener",
+  "family": "etb-ltb",
+  "author": "cli-20260930T004423Z-d42d9d4e (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "dead-nontoken-creature-returns-face-down-as-forest-land",
+      "cr": [
+        "603.6c",
+        "708.2",
+        "305.6"
+      ],
+      "why": "Whenever another nontoken creature its controller controls dies, Yedora may return it to the battlefield face down as a Forest land with no other types or abilities.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Yedora, Grave Gardener",
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "move",
+          "seat": 0,
+          "card": "p0:Grizzly Bears",
+          "to": "graveyard",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "yes"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "battlefield",
+          "types": [
+            "Land"
+          ],
+          "no_types": [
+            "Creature"
+          ]
+        }
+      ]
+    }
+  ]
+}

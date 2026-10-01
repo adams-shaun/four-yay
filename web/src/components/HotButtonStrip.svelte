@@ -2,7 +2,9 @@
   import { onDestroy, onMount } from 'svelte';
   import type { SeatInfo, View } from '../protocol';
   import type { SeatCtx } from '../lib/seat';
-  import { hotkeyAction } from '../lib/hotkeys';
+  import { hotkeyAction, focusOwnership } from '../lib/hotkeys';
+  import { eventCode } from '../lib/keymap';
+  import { hotkeyHinter } from '../lib/hotkeyhint.svelte';
   import { keymapStore } from '../lib/keymap.svelte';
   import { modalPickerOpen } from '../lib/modals';
   import { postUndo } from '../lib/api';
@@ -11,9 +13,11 @@
   import { autoNoteText, isConcede, toneOf, type SeatPanelState } from '../lib/seatpanel.svelte';
   import { isPlainManualTap, manualManaHidden } from '../lib/manualmana';
   import { announceActions } from '../lib/announcepay';
+  import { blurAfterPointer } from '../lib/pointer';
   import SeatPanel from './SeatPanel.svelte';
   import { dockAnswers } from '../lib/prompts/renderer';
   import KeyCheatSheet from './KeyCheatSheet.svelte';
+  import HotkeyHint from './HotkeyHint.svelte';
 
   /**
    * PRESET_CYCLE is the hotkey cycle's leading entries: the three shipped
@@ -88,12 +92,14 @@
       if (open === 'actions') open = null;
     }
   });
-  // Suggested payment plans replace their ordinary cast affordance while
-  // Auto Mana is enabled. They are still real actionable choices: a priority
-  // window containing only a payable spell must not make ACTIONS look disabled.
+  // While Auto Mana is enabled the nested seat panel offers every payment
+  // action the wire sent, plan-bearing or plan-less (a plan-less cast reaches
+  // its announce-then-pay button in PriorityOptions). They are all real
+  // actionable choices: a priority window containing only a payable spell
+  // must not make ACTIONS look disabled.
   const visiblePaymentActions = $derived(
     logic.autoManaAvailable && logic.autoPayMana && decision?.kind === 'priority'
-      ? (decision.payment_actions ?? []).filter((action) => action.plans.length > 0)
+      ? (decision.payment_actions ?? [])
       : [],
   );
   const paymentBaseIndexes = $derived(new Set(visiblePaymentActions.flatMap((action) =>
@@ -165,6 +171,16 @@
     clearClose();
     open = tab;
   }
+  function closeOnFocusOut(e: FocusEvent): void {
+    // A pointer click releases focus with a null relatedTarget (see
+    // blurAfterPointer) but leaves the pointer inside the wrapper, where
+    // onpointerenter already ran and only onpointerleave may close. Arming the
+    // timer here would shut the panel under a stationary mouse, so a blur is
+    // not a departure. A Tab or click to another control names it, though, and
+    // that is a real leave.
+    if (e.relatedTarget === null) return;
+    scheduleClose();
+  }
   function scheduleClose(): void {
     // A decision the game is waiting on must remain attached to ACTIONS.
     // Hover is only a convenience for offered priority windows; it must never
@@ -204,6 +220,7 @@
     if (e.shiftKey) logic.startHardSkip(view);
     else logic.startEndTurn(view);
     logic.considerAuto(view);
+    blurAfterPointer(e);
   }
 
   /**
@@ -241,7 +258,19 @@
       // The Keys editor is recording a chord: that chord must not also fire.
       if (keymapStore.capturing) return;
       const action = hotkeyAction(e, modalPickerOpen, keymapStore.current);
-      if (action === null) return;
+      if (action === null) {
+        // The key was suppressed because a focused activatable control owns
+        // Space/Enter (fb-20260929T080219Z). Say why — but only for that
+        // reason: a keystroke that correctly went into a text field is no
+        // surprise, and noting it would flood the 50-entry breadcrumb ring
+        // while typing. A held key must not spam either.
+        const owned = focusOwnership(e);
+        if (owned === 'activatable-space-enter' && !e.repeat) {
+          hotkeyHinter.note(owned);
+          clientBreadcrumbs.record('hotkey-suppressed', { key: e.key, code: eventCode(e), reason: owned });
+        }
+        return;
+      }
       // A held key auto-repeats. Only pass (holding Space passes window after
       // window, as before the keymap) and cancel-run act on a repeat: a held
       // digit would answer the next prompt before the player has seen it, a
@@ -317,6 +346,7 @@
           break;
       }
       e.preventDefault();
+      hotkeyHinter.clear();
       clientBreadcrumbs.record('hotkey', { key: e.key, action });
     };
     window.addEventListener('keydown', onKey, true);
@@ -331,30 +361,22 @@
        machine pause outranks both: this is the only always-visible status in
        the live strip (its nested SeatPanel deliberately hides the autobar),
        so the chip also becomes the Auto switch that its text says resumes. -->
-  {#if logic.machinePaused}
-    <button
-      class="mode-chip paused"
-      type="button"
-      data-play-mode="paused"
-      data-auto-status
-      data-auto-note
-      aria-live="polite"
-      aria-label={autoStatus}
-      title={autoStatus}
-      onclick={() => logic.pressAuto()}
-    ><span aria-hidden="true">AUTO</span></button>
-  {:else}
-    <span
-      class="mode-chip"
-      class:run={runLive}
-      class:warning={logic.hardSkip}
-      data-play-mode={playMode}
-      data-auto-status
-      aria-live="polite"
-      aria-label={`Auto: ${autoStatus}`}
-      title={`Auto: ${autoStatus}`}
-    ><span aria-hidden="true">AUTO</span></span>
-  {/if}
+  <button
+    class="mode-chip"
+    class:paused={logic.machinePaused}
+    class:run={runLive}
+    class:warning={logic.hardSkip}
+    type="button"
+    role="switch"
+    aria-checked={logic.auto && !logic.machinePaused}
+    data-play-mode={logic.machinePaused ? 'paused' : playMode}
+    data-auto-status
+    data-auto-note={logic.machinePaused ? '' : undefined}
+    aria-live="polite"
+    aria-label={`Auto: ${autoStatus}`}
+    title={`Auto: ${autoStatus}`}
+    onclick={(e) => { logic.pressAuto(); blurAfterPointer(e); }}
+  ><span aria-hidden="true">AUTO</span></button>
   {#if logic.autoManaAvailable}
   <button
     class="mode-chip payment-toggle"
@@ -365,11 +387,17 @@
     aria-label="Auto-pay mana"
     title="Use a suggested mana plan when casting"
     data-auto-pay-toggle
-    onclick={() => logic.setAutoPayMana(!logic.autoPayMana)}
+    onclick={(e) => { logic.setAutoPayMana(!logic.autoPayMana); blurAfterPointer(e); }}
   >AUTO MANA</button>
   {/if}
-  <div class="hot-tab" role="presentation" onpointerenter={() => show('actions')} onpointerleave={scheduleClose} onfocusin={() => show('actions')} onfocusout={scheduleClose}>
-    <button class="tab" type="button" data-hot-tab="actions" data-awaiting={awaiting} aria-label="Actions" aria-haspopup="true" aria-expanded={open === 'actions'} aria-controls="hot-panel-actions" aria-disabled={actionCount === 0} onclick={() => show('actions')}>
+  <!-- The suppression cue: visible only while the last keystroke was
+       suppressed by a focused control. It sits in the strip row beside the
+       mode chips and is deliberately non-interactive (a <span>, never a
+       button) so it can never itself become the focused activatable whose
+       Space it is explaining. -->
+  <HotkeyHint />
+  <div class="hot-tab" role="presentation" onpointerenter={() => show('actions')} onpointerleave={scheduleClose} onfocusin={() => show('actions')} onfocusout={closeOnFocusOut}>
+    <button class="tab" type="button" data-hot-tab="actions" data-awaiting={awaiting} aria-label="Actions" aria-haspopup="true" aria-expanded={open === 'actions'} aria-controls="hot-panel-actions" aria-disabled={actionCount === 0} onclick={(e) => { show('actions'); blurAfterPointer(e); }}>
       <span class="full">ACTIONS</span><span class="compact" aria-hidden="true">A</span>
     </button>
     <div class="drop actions" class:open={open === 'actions'} id="hot-panel-actions" data-hot-panel="actions" role="group" aria-label="Available actions">
@@ -398,7 +426,7 @@
       aria-disabled={!passAvailable}
       disabled={!passAvailable}
       title={logic.passOption?.label ?? 'Pass is not offered by this decision'}
-      onclick={() => logic.passClick()}
+      onclick={(e) => { logic.passClick(); blurAfterPointer(e); }}
     >
       <span class="full">PASS</span><span class="compact" aria-hidden="true">&gt;</span>
     </button>
@@ -438,10 +466,11 @@
         title={resolveAllAvailable
           ? 'Resolve All: pass until the stack is empty — a new opponent play or a decision that needs you stops it'
           : 'Resolve All needs a pass option'}
-        onclick={() => {
+        onclick={(e) => {
           if (!resolveAllAvailable) return;
           logic.startResolveAll(view);
           logic.considerAuto(view);
+          blurAfterPointer(e);
         }}
       >
         <span class="full">RESOLVE ALL</span><span class="compact" aria-hidden="true">RA</span>
@@ -458,7 +487,7 @@
       aria-disabled={!undoAllowed}
       disabled={!undoAllowed}
       title={undoAllowed ? 'Undo my last action' : 'Undo is available only when you are the table’s sole human player'}
-      onclick={() => void undo()}
+      onclick={(e) => { void undo(); blurAfterPointer(e); }}
     >
       <span class="full">UNDO</span><span class="compact" aria-hidden="true">↶</span>
     </button>
@@ -479,7 +508,7 @@
       aria-disabled={!doneAvailable}
       disabled={!doneAvailable}
       title={doneShown ? doneFull : 'This decision does not need a separate selection submit'}
-      onclick={(e) => logic.submit(e.ctrlKey)}
+      onclick={(e) => { logic.submit(e.ctrlKey); blurAfterPointer(e); }}
     >
       <span>DONE</span>
     </button>
@@ -576,12 +605,10 @@
   }
   .compact { display: none; }
 
-  /* The status chip: the seat's mode, stated once, at the left edge of the
-     strip. Presets read as labels; a live run takes the run register — the
-     hard skip's warning colour is the danger variable, because passing
-     everything unseen is the one state that can lose the game in silence.
-     The undo pause uses the offered colour and a pointer because this chip is
-     also the always-visible resume control. */
+  /* The status chip is also the always-visible Auto switch. Presets read as
+     labels; a live run takes the run register — the hard skip's warning
+     colour is the danger variable, because passing everything unseen is the
+     one state that can lose the game in silence. */
   .mode-chip {
     box-sizing: border-box;
     justify-content: center;
@@ -599,6 +626,7 @@
     font-weight: 700;
     letter-spacing: 0.02em;
     white-space: nowrap;
+    cursor: pointer;
   }
   .mode-chip.run {
     color: var(--felt-sunk);
@@ -613,10 +641,9 @@
     color: var(--felt-sunk);
     background: var(--offered);
     border-color: var(--offered);
-    cursor: pointer;
   }
-  .mode-chip.paused:hover,
-  .mode-chip.paused:focus-visible {
+  .mode-chip:hover,
+  .mode-chip:focus-visible {
     box-shadow: 0 0 0 1px var(--offered), 0 0 12px var(--offered);
   }
 

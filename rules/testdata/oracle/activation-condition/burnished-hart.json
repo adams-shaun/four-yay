@@ -1,0 +1,27 @@
+{
+  "card": "Burnished Hart",
+  "family": "activation-condition",
+  "oracle_sha": "168f96e7bb00",
+  "author": "cli-20260929T235020Z-c90601c7 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "sacrifice-fetches-two-basics-tapped",
+      "cr": ["601.2", "701.19a"],
+      "why": "Activating '{3}, Sacrifice Burnished Hart' searches for up to two basic land cards and puts them onto the battlefield tapped; the Hart goes to the graveyard.",
+      "setup": {
+        "p0": {"battlefield": ["Burnished Hart"], "library_top": ["Forest", "Mountain"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Burnished Hart", "ability": "Search your library", "mana": "CCC"},
+        {"op": "resolve",
+         "answers": [{"kind": "choose", "pick": ["p0:Forest", "p0:Mountain"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Burnished Hart", "zone": "graveyard"},
+        {"card": "p0:Forest", "zone": "battlefield", "tapped": true},
+        {"card": "p0:Mountain", "zone": "battlefield", "tapped": true}
+      ]
+    }
+  ]
+}

@@ -55,6 +55,7 @@ help:
 	@echo "                        (PACE=1.5s / TABLES / SEATS / FORMATS / SEED override the defaults)"
 	@echo "  make stop-demo      — stop every running gorged, start nothing"
 	@echo "  make gentypes       — regenerate web/src/protocol.ts from package protocol"
+	@echo "  make seed-ask PROMPT=\"...\" — queue a one-off research/planning ask into the pipeline (PRIORITY, KIND override)"
 	@echo "  make web            — npm ci and build the spectator client into cmd/gorged/webdist"
 	@echo "  make web-dev        — run the Vite dev server for web/"
 	@echo "  make test-web       — run web/'s Vitest suite"
@@ -100,9 +101,11 @@ traindash:
 
 .PHONY: deploy-demo stop-demo
 # deploy-demo refreshes the local demo: one server on 127.0.0.1:8080 whose
-# bot-only tables spectate omniscient (play-vs-bot tables stay public), with
-# two Commander and two constructed tables so the overview's per-format
-# sections are both populated; bots play lethal-pressure at a 50ms pace
+# bot-only tables spectate omniscient (play-vs-bot tables stay public), four
+# 2-seat constructed tables at a 50ms pace, bots playing az-redeal (2026-09-29:
+# the strongest measured hosted policy, +20.5pp vs the production bot --
+# scripts/deploy-demo.sh has the full rationale and the override to restore
+# the previous 4-seat two-Commander-two-constructed/lethal-pressure shape)
 # (scripts/deploy-demo.sh; the :8081 omniscient server retired 2026-09-28). Run BY HAND, by the operator, when the demo should pick up
 # main: it stops the running servers, which aborts every in-flight vs-bot
 # game, so nothing runs it automatically any more (the post-merge hook and
@@ -159,6 +162,18 @@ report: $(BIN_DIR)/forgec
 .PHONY: gentypes
 gentypes:
 	go run ./cmd/gentypes -o web/src/protocol.ts
+
+# seed-ask queues a one-off research/planning ask through the same agentctl
+# pipeline the reward-loop seed agent and the operator both use -- see
+# scripts/seed-ask.sh for what the brief wraps around the raw prompt. The seed
+# agent itself (scripts/seed-agent.sh, the 20-minute timer) is deterministic
+# and takes no prompt; this is the door for an ad-hoc ask.
+PRIORITY ?= 2
+KIND     ?= research
+.PHONY: seed-ask
+seed-ask:
+	@test -n "$(PROMPT)" || { echo 'usage: make seed-ask PROMPT="<your question>" [PRIORITY=2] [KIND=research]' >&2; exit 1; }
+	scripts/seed-ask.sh "$(PROMPT)" --priority "$(PRIORITY)" --kind "$(KIND)"
 
 .PHONY: test
 # GOGC=200: rules.test measured 104 s vs 112 s CPU (28.3 s vs 30.4 s wall) for 1.2-1.4 GB vs 0.9 GB RSS.

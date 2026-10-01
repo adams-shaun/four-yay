@@ -47,20 +47,44 @@ func (r *rootList) Set(v string) error {
 	return nil
 }
 
+// defaultDeckRoot is where sb-gauntlet.sh keeps its per-candidate-run
+// matches.jsonl ledgers (gauntlet/ref/<key>/), the narrow tree the per-deck
+// panel reads. It is deliberately not the training root: that holds hundreds
+// of unrelated scratch ledgers.
+const defaultDeckRoot = "/mnt/sata/gorge-training/spellbench-work/gauntlet"
+
 func main() {
 	var roots rootList
 	flag.Var(&roots, "root", "training root to scan (repeatable or comma list; default /mnt/sata/gorge-training)")
 	addr := flag.String("addr", "127.0.0.1:8086", "listen address (never 8080/8081: the demo)")
+	var deckFocus rootList
+	flag.Var(&deckFocus, "deck-focus", "policy name(s) whose per-deck win rate the matches.jsonl ledgers report (repeatable or comma list; default: each ledger's dominant policy)")
+	var deckRoots rootList
+	flag.Var(&deckRoots, "deck-root", "directory scanned for matches.jsonl per-deck ledgers, separate from -root (repeatable or comma list; default /mnt/sata/gorge-training/spellbench-work/gauntlet)")
 	flag.Parse()
 	if len(roots) == 0 {
 		roots = rootList{"/mnt/sata/gorge-training"}
+	}
+	if len(deckRoots) == 0 {
+		deckRoots = rootList{defaultDeckRoot}
 	}
 	for _, r := range roots {
 		if fi, err := os.Stat(r); err != nil || !fi.IsDir() {
 			log.Fatalf("traindash: root %q is not a directory", r)
 		}
 	}
+	// A missing deck root is not fatal: the per-deck panel simply stays
+	// empty, and the rest of the dashboard still works. Only the training
+	// roots are required.
+	var presentDeckRoots rootList
+	for _, r := range deckRoots {
+		if fi, err := os.Stat(r); err == nil && fi.IsDir() {
+			presentDeckRoots = append(presentDeckRoots, r)
+		}
+	}
 	s := NewScanner(roots)
+	s.DeckFocus = deckFocus
+	s.DeckRoots = presentDeckRoots
 	log.Printf("traindash: serving %s on http://%s/", roots.String(), *addr)
 	log.Fatal(http.ListenAndServe(*addr, newMux(s)))
 }

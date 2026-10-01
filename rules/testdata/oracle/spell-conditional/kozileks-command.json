@@ -1,0 +1,79 @@
+{
+  "card": "Kozilek's Command",
+  "family": "spell-conditional",
+  "oracle_sha": "f3ffcc7e3cfb",
+  "author": "agent-20261001T003812Z-b6e8e6aa (charm sub-ability dynamic TargetMax$ X reads the paid X) + cli-20260930T220416Z-ed59db28 (Oracle + CR only), merged",
+  "scenarios": [
+    {
+      "name": "x-two-exiles-bear-and-makes-two-spawn",
+      "cr": ["700.2e", "601.2b", "601.3b"],
+      "why": "Cast with X=2 choosing 'exile target creature with mana value X or less' and 'target player creates X 0/1 Eldrazi Spawn': the MV-2 Grizzly Bears is exiled and p1 gets two Spawn tokens. The mode pair avoids the 'exile up to X target cards from graveyards' clause, which the sibling scenario token-plus-exile-graveyard-at-x2 covers now that the charm sub-ability's TargetMax$ X reads the paid X.",
+      "setup": {
+        "p0": {
+          "hand": ["Kozilek's Command"]
+        },
+        "p1": {
+          "battlefield": ["Grizzly Bears"]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Kozilek's Command",
+          "mana": "CCCCCC",
+          "answers": [
+            {"kind": "any", "pick": ["2"]},
+            {"kind": "any", "pick": ["mana value", "creates X"]}
+          ],
+          "targets": ["p1:Grizzly Bears", "p1"]
+        },
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Grizzly Bears", "zone": "exile"},
+        {
+          "count": {
+            "seat": 1,
+            "zone": "battlefield",
+            "name": "Eldrazi Spawn",
+            "token": true
+          },
+          "eq": 2
+        }
+      ]
+    },
+    {
+      "name": "token-plus-exile-graveyard-at-x2",
+      "cr": ["107.3i", "601.2b", "601.2c"],
+      "why": "Announcing X = 2 and choosing Token + Exile-up-to-X bounds the graveyard mode's target ask to the PAID X (CR 107.3i: X is 2): both graveyard cards are offered and both are exiled, and the token mode makes X tokens for its targeted player.",
+      "setup": {
+        "p0": {
+          "hand": ["Kozilek's Command"],
+          "graveyard": ["Grizzly Bears", "Centaur Courser"]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Kozilek's Command",
+          "mana": "CCCCCC",
+          "answers": [
+            {"kind": "choose", "pick": ["X = 2"]},
+            {"kind": "modes", "pick": ["creates X 0/1", "Exile up to X target cards"]}
+          ],
+          "targets": ["p1", "p0:Grizzly Bears", "p0:Centaur Courser"]
+        },
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Kozilek's Command", "zone": "graveyard"},
+        {"card": "p0:Grizzly Bears", "zone": "exile"},
+        {"card": "p0:Centaur Courser", "zone": "exile"},
+        {"card": "p1:token:Eldrazi Spawn#1", "zone": "battlefield"},
+        {"card": "p1:token:Eldrazi Spawn#2", "zone": "battlefield"}
+      ]
+    }
+  ]
+}

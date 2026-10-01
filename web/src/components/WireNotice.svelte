@@ -4,11 +4,12 @@
   // could not translate. Small and dismissable; it never covers the hand or
   // the action strip.
   let { text, onDismiss }: { text: string; onDismiss: () => void } = $props();
+  import { pointerRelease } from '../lib/pointer';
 </script>
 
 <div class="wire-notice" role="status" data-wire-notice>
   <span>{text}</span>
-  <button type="button" aria-label="Dismiss" onclick={onDismiss}>×</button>
+  <button type="button" aria-label="Dismiss" use:pointerRelease onclick={onDismiss}>×</button>
 </div>
 
 <style>

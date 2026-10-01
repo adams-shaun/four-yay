@@ -2,7 +2,7 @@
 # sb-gauntlet.sh — rate candidate SpellBench policy specs against a fixed
 # reference set.
 #
-# usage: scripts/sb-gauntlet.sh <spec>[,<spec>...] [pairs] [decks]
+# usage: scripts/sb-gauntlet.sh <spec>[,<spec>...] [pairs] [decks] [catalog]
 #
 #   specs   comma list of candidate policy specs, each a registry spec
 #           (internal/spellbench/registry): "bot", "sb-heuristic",
@@ -14,6 +14,12 @@
 #   decks   comma list of catalog deck ids, case-insensitive against the
 #           benchmark pool (default: the benchmark's 8-deck pool). Example:
 #           `scripts/sb-gauntlet.sh bot+passguard 1 affinity,elves`.
+#   catalog the SpellBench deck catalog to play (default pauper-kernel;
+#           SB_GAUNTLET_CATALOG overrides). Outside pauper-kernel the decks
+#           argument is passed to botbench case-insensitively but is NOT
+#           normalized against the pauper pool -- deck ids are validated by
+#           the catalog itself. Example:
+#           `scripts/sb-gauntlet.sh bot 2 death-n-taxes,uw-tempo repo-constructed`.
 #
 # The references are `sb-uniform` (the Elo anchor), `sb-heuristic` and
 # `bot`, plus every spec listed in
@@ -64,11 +70,12 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 # champions.txt); the default is the shared training mount.
 GDIR=${SB_GAUNTLET_DIR:-/mnt/sata/gorge-training/spellbench-work/gauntlet}
 LOCK=/mnt/sata/gorge-training/spellbench-work/heavy.lock
-SBPY=/mnt/sata/gorge-training/sbvenv/bin
+SBPY=${SB_GAUNTLET_SBPY:-/mnt/sata/gorge-training/sbvenv/bin}
 WORKERS=${SB_GAUNTLET_WORKERS:-8}
 POOL="Wildfire Rally Affinity Elves Spy Burn CawGates Faeries"
+CATALOG=${SB_GAUNTLET_CATALOG:-${4:-pauper-kernel}}
 
-CANDS_RAW=${1:?usage: scripts/sb-gauntlet.sh <spec>[,<spec>...] [pairs] [decks]}
+CANDS_RAW=${1:?usage: scripts/sb-gauntlet.sh <spec>[,<spec>...] [pairs] [decks] [catalog]}
 PAIRS=${2:-4}
 DECKS_RAW=${3:-}
 
@@ -84,7 +91,10 @@ heavy() {
 }
 
 # normalize_decks maps each comma token case-insensitively onto the
-# benchmark pool, so `affinity,elves` means `Affinity,Elves`.
+# benchmark pool, so `affinity,elves` means `Affinity,Elves` -- but only on
+# the pauper-kernel catalog, whose ids ARE the pool's. On another catalog
+# the token passes through verbatim (still unspaced, still nonempty) and
+# botbench validates it against that catalog's deck directory.
 normalize_decks() {
 	local out="" tok match p
 	local -a toks
@@ -92,15 +102,18 @@ normalize_decks() {
 	for tok in "${toks[@]}"; do
 		tok="${tok//[[:space:]]/}"
 		[ -z "$tok" ] && continue
-		match=""
-		for p in $POOL; do
-			if [ "${p,,}" = "${tok,,}" ]; then match="$p"; fi
-		done
-		# No pool match: pass the token through verbatim and let botbench
-		# validate it against the catalog (the pool list is not the whole
-		# catalog).
-		[ -z "$match" ] && match="$tok"
-		out+="${out:+,}$match"
+		if [ "$CATALOG" = "pauper-kernel" ]; then
+			match=""
+			for p in $POOL; do
+				if [ "${p,,}" = "${tok,,}" ]; then match="$p"; fi
+			done
+			# No pool match: pass the token through verbatim and let botbench
+			# validate it against the catalog (the pool list is not the whole
+			# catalog).
+			[ -z "$match" ] && match="$tok"
+			tok="$match"
+		fi
+		out+="${out:+,}$tok"
 	done
 	printf '%s' "$out"
 }
@@ -157,13 +170,13 @@ for p in rules effects cards decision botpolicy internal/spellbench cmd/botbench
 done
 keysrc+="${CHAMPKEY-}
 "
-KEY=$(printf '%s|%s|%s|%s' "$keysrc" "$PAIRS" "$DECKS" | sha256sum | cut -c1-16)
+KEY=$(printf '%s|%s|%s|%s' "$keysrc" "$PAIRS" "$DECKS" "$CATALOG" | sha256sum | cut -c1-16)
 CACHE="$GDIR/ref/$KEY"
 
 run_bench() { # run_bench <botlist> <out> [extra -spellbench-* filters...]
 	local list=$1 out=$2
 	shift 2
-	local -a cmd=("$WORK/botbench" -spellbench "$list" -spellbench-pairs "$PAIRS")
+	local -a cmd=("$WORK/botbench" -spellbench "$list" -spellbench-catalog "$CATALOG" -spellbench-pairs "$PAIRS")
 	if [ -n "$DECKS" ]; then cmd+=(-spellbench-decks "$DECKS"); fi
 	cmd+=(-spellbench-out "$out" -workers "$WORKERS" "$@")
 	heavy "${cmd[@]}"
@@ -185,7 +198,13 @@ mkdir -p "$WORK/ratedref"
 sed 's/"game_id":"m/"game_id":"ref-m/g' "$CACHE/matches.jsonl" >"$WORK/ratedref/matches.jsonl"
 
 # Each candidate plays the matchups that include it, full-schedule seeds and
-# indices kept.
+# indices kept. The candidate's own ledger is written UNDER the gauntlet root
+# (not the scratch dir) so it survives the EXIT trap: cmd/traindash walks the
+# root for any matches.jsonl, so a kept candidate dir renders a per-deck chart
+# with no schema change and no new games. <git_head> keeps two heads' runs from
+# overwriting one another; the spec segment is sanitised in case it holds a
+# slash.
+git_head=$(git -C "$ROOT" rev-parse HEAD)
 RATEDIRS=("$WORK/ratedref")
 PLAYED=()
 for cand in "${CANDS[@]}"; do
@@ -195,7 +214,8 @@ for cand in "${CANDS[@]}"; do
 	fi
 	if [ -n "${PLAYED[$cand]+x}" ]; then continue; fi
 	PLAYED[$cand]=1
-	out="$WORK/cand${#PLAYED[@]}"
+	out="$GDIR/cand/${git_head:-unknown}/${cand//\//_}"
+	mkdir -p "$out"
 	echo "sb-gauntlet: playing $cand vs the references"
 	run_bench "$BOTLIST" "$out" -spellbench-with "$cand"
 	RATEDIRS+=("$out")
@@ -211,17 +231,23 @@ fi
 
 # The table and the results rows, from the leaderboard document and the
 # candidates' own games.
-git_head=$(git -C "$ROOT" rev-parse HEAD)
 ts=$(date -u +%FT%TZ)
-"$SBPY/python3" - "$WORK/rating" "$GDIR/results.jsonl" "$PAIRS" "${DECKS:-default-pool}" "$git_head" "$KEY" "$ts" "$REFLIST" "${CANDS[@]}" <<'PY'
+"$SBPY/python3" - "$WORK/rating" "$GDIR/results.jsonl" "$PAIRS" "${DECKS:-default-pool}" "$CATALOG" "$git_head" "$KEY" "$ts" "$REFLIST" "${CANDS[@]}" <<'PY'
 import json
 import sys
 from pathlib import Path
 
-rating, results_path, pairs, decks, git_head, key, ts, refs_arg = sys.argv[1:9]
-cands = sys.argv[9:]
+rating, results_path, pairs, decks, catalog, git_head, key, ts, refs_arg = sys.argv[1:10]
+cands = sys.argv[10:]
+# The row's label names the catalog's pool. Only the default-pool fallback is
+# ambiguous across catalogs, so it carries the raw catalog id as a suffix; an
+# explicit decks argument already names real deck ids. "pauper-kernel" stays
+# bare so historical rows keep reading exactly "default-pool".
+label = decks
+if decks == "default-pool" and catalog != "pauper-kernel":
+    label = f"default-pool:{catalog}"
 refs = set(refs_arg.split(","))
-parent = Path(rating).parent
+cand_root = Path(results_path).parent / "cand" / git_head
 doc = json.loads((Path(rating) / "leaderboard.json").read_text())
 rows = {r["name"]: r for r in doc["rows"]}
 
@@ -235,7 +261,7 @@ def fmt(milli, digits=1):
 # Head-to-head W-L per candidate, from the candidate's own games (natural
 # outcomes only; draws, truncations and halts are excluded from both sides).
 h2h = {}
-for d in sorted(parent.glob("cand*/games.jsonl")):
+for d in sorted(cand_root.glob("*/games.jsonl")):
     for line in d.read_text().splitlines():
         if not line.strip():
             continue
@@ -255,6 +281,11 @@ for d in sorted(parent.glob("cand*/games.jsonl")):
 print()
 print(f"{'spec':<32} {'Elo':>7} {'CI95':>19} {'W-L':>9}  head-to-head vs the references")
 for cand in cands:
+    candidate_dir = cand_root / cand.replace("/", "_")
+    if (candidate_dir / "matches.jsonl").is_file():
+        (candidate_dir / "meta.json").write_text(json.dumps({
+            "ts": ts, "git_head": git_head, "spec": cand, "key": key,
+        }, sort_keys=True) + "\n")
     r = rows.get(cand, {})
     ci = r.get("ci95_elo_milli") or [None, None]
     wl = f"{r.get('wins', 0)}-{r.get('losses', 0)}"
@@ -278,7 +309,7 @@ with Path(results_path).open("a") as f:
             "ci_lo": None if ci[0] is None else ci[0] / 1000,
             "ci_hi": None if ci[1] is None else ci[1] / 1000,
             "wins": r.get("wins", 0), "losses": r.get("losses", 0),
-            "pairs": int(pairs), "decks": decks,
+            "pairs": int(pairs), "decks": label,
             "git_head": git_head, "key": key, "ts": ts,
         }) + "\n")
 PY

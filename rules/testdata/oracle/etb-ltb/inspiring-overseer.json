@@ -1,0 +1,26 @@
+{
+  "card": "Inspiring Overseer",
+  "family": "etb-ltb",
+  "oracle_sha": "d29581ecbf6a",
+  "author": "cli-20261001T012353Z-c0654344 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enters-gains-one-and-draws",
+      "cr": ["603.6a"],
+      "why": "Its enter trigger gains 1 life and draws a card for its controller.",
+      "setup": {
+        "p0": {"hand": ["Inspiring Overseer"], "library": ["Island"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Inspiring Overseer", "mana": "CWW"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 21}},
+        {"hand_size": {"p0": 1}},
+        {"card": "p0:Inspiring Overseer", "keywords": ["Flying"], "pt": "2/1"}
+      ]
+    }
+  ]
+}

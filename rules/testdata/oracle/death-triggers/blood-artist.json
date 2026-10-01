@@ -1,0 +1,56 @@
+{
+  "card": "Blood Artist",
+  "family": "death-triggers",
+  "oracle_sha": "688f2a533367",
+  "author": "cli-20261001T012353Z-c0654344 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "creature-dies-target-opponent-loses-you-gain",
+      "cr": ["603.6c"],
+      "why": "A creature dying triggers the Artist: target player (seat 1) loses 1 life and its controller gains 1.",
+      "setup": {
+        "p0": {"battlefield": ["Blood Artist", "Grizzly Bears"]},
+        "p1": {"battlefield": ["Savannah Lions"]}
+      },
+      "steps": [
+        {"op": "move", "seat": 0, "card": "p0:Grizzly Bears", "to": "graveyard", "targets": ["p1"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 21, "p1": 19}}
+      ]
+    },
+    {
+      "name": "artist-itself-dies-still-drains",
+      "cr": ["603.6c", "603.10a"],
+      "why": "\"Blood Artist or another creature\" includes its own death; the target is chosen even though the Artist already left.",
+      "setup": {
+        "p0": {"battlefield": ["Blood Artist"]},
+        "p1": {"battlefield": ["Savannah Lions"]}
+      },
+      "steps": [
+        {"op": "move", "seat": 0, "card": "p0:Blood Artist", "to": "graveyard", "targets": ["p1"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Blood Artist", "zone": "graveyard"},
+        {"life": {"p0": 21, "p1": 19}}
+      ]
+    },
+    {
+      "name": "nothing-dies-no-drain",
+      "cr": ["603.6c"],
+      "why": "No creature died, so the trigger never fires and no player's life changes.",
+      "setup": {
+        "p0": {"battlefield": ["Blood Artist"]},
+        "p1": {"battlefield": ["Savannah Lions"]}
+      },
+      "steps": [
+        {"op": "pass"}
+      ],
+      "expect": [
+        {"life": {"p0": 20, "p1": 20}}
+      ]
+    }
+  ]
+}

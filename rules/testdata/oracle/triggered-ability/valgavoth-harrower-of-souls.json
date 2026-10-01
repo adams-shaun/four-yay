@@ -1,0 +1,47 @@
+{
+  "card": "Valgavoth, Harrower of Souls",
+  "family": "triggered-ability",
+  "oracle_sha": "d40bac0edbaf",
+  "author": "cli-20261001T012353Z-c0654344 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "first-life-loss-on-opponents-turn-adds-counter",
+      "cr": ["603.2", "700.4"],
+      "why": "On p1's own turn, the FIRST life loss p1 suffers puts a +1/+1 counter on Valgavoth and draws its controller a card; the second loss that turn does not. p1 bolts itself twice for 3 each.",
+      "setup": {
+        "p0": {"battlefield": ["Valgavoth, Harrower of Souls"], "library": ["Island", "Island"]},
+        "p1": {"hand": ["Lightning Bolt", "Lightning Bolt"]}
+      },
+      "steps": [
+        {"op": "pass_to", "step": "main1", "active": "p1"},
+        {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "R", "targets": ["p1"]},
+        {"op": "resolve"},
+        {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt#2", "mana": "R", "targets": ["p1"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Valgavoth, Harrower of Souls", "counters": {"+1/+1": 1}, "pt": "5/5"},
+        {"hand_size": {"p0": 1}},
+        {"life": {"p1": 14}}
+      ]
+    },
+    {
+      "name": "controllers-own-life-loss-does-not-trigger",
+      "cr": ["603.2"],
+      "why": "It watches OPPONENTS losing life; seat 0 losing 3 life to its own Lightning Bolt on its own turn is not an opponent of Valgavoth's controller, so no counter and no draw.",
+      "setup": {
+        "p0": {"battlefield": ["Valgavoth, Harrower of Souls"], "hand": ["Lightning Bolt"], "library": ["Island", "Island"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p0"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Valgavoth, Harrower of Souls", "counters": {"+1/+1": 0}, "pt": "4/4"},
+        {"hand_size": {"p0": 0}},
+        {"life": {"p0": 17}}
+      ]
+    }
+  ]
+}

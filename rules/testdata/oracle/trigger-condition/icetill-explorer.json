@@ -1,0 +1,25 @@
+{
+  "card": "Icetill Explorer",
+  "family": "trigger-condition",
+  "oracle_sha": "718c290cfe04",
+  "author": "cli-20260930T002325Z-7c2f8c50 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "landfall-mills-a-card",
+      "cr": ["603.6a", "701.13a"],
+      "why": "Landfall mills a card whenever a land enters under my control; playing a Forest puts the top library card into my graveyard.",
+      "setup": {
+        "p0": {"battlefield": ["Icetill Explorer"], "hand": ["Forest"], "library_top": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "play", "seat": 0, "card": "p0:Forest"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "zone": "graveyard"},
+        {"card": "p0:Forest", "zone": "battlefield"}
+      ]
+    }
+  ]
+}

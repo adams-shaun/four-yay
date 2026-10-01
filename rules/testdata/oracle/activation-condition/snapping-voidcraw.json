@@ -1,0 +1,41 @@
+{
+  "card": "Snapping Voidcraw",
+  "family": "activation-condition",
+  "oracle_sha": "bc145391339a",
+  "author": "cli-20260930T002325Z-7c2f8c50 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "taps-for-two-colorless",
+      "cr": ["605.1a", "106.1b"],
+      "why": "Snapping Voidcraw is a Devoid creature but its mana ability is the printed {T}: Add {C}{C}, which adds two colorless mana to the pool.",
+      "setup": {
+        "p0": {"battlefield": ["Snapping Voidcraw"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Snapping Voidcraw", "ability": "Add {C}{C}"}
+      ],
+      "expect": [
+        {"card": "p0:Snapping Voidcraw", "zone": "battlefield", "tapped": true},
+        {"pool": {"p0": "CC"}}
+      ]
+    },
+    {
+      "name": "three-colorless-taps-to-draw-one",
+      "cr": ["118.1", "121.1"],
+      "why": "Paying {3}{C} and tapping the Voidcraw draws a card, so the hand grows by one.",
+      "setup": {
+        "p0": {"battlefield": ["Snapping Voidcraw"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Snapping Voidcraw", "ability": "Draw a card", "mana": "CCCC"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Snapping Voidcraw", "zone": "battlefield", "tapped": true},
+        {"hand_size": {"p0": 1}}
+      ]
+    }
+  ]
+}

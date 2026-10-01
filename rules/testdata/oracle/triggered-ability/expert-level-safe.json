@@ -1,0 +1,211 @@
+{
+  "card": "Expert-Level Safe",
+  "family": "triggered-ability",
+  "oracle_sha": "26cc70175bef",
+  "author": "cli-20261001T022457Z-f0c31bb6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enters-exiling-top-two-face-down",
+      "cr": [
+        "603.2",
+        "708.5",
+        "701.15"
+      ],
+      "why": "When it enters, exile the top two cards of your library face down: the library shrinks by exactly two (the runner seeds a 37-card library; see the sibling scenarios for the relative counts).",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Expert-Level Safe"
+          ],
+          "library_top": [
+            "Forest",
+            "Island",
+            "Mountain"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Expert-Level Safe",
+          "mana": "CC"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Expert-Level Safe",
+          "zone": "battlefield"
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "library"
+          },
+          "eq": 35
+        }
+      ]
+    },
+    {
+      "name": "matched-secret-choices-sacrifice-and-return",
+      "cr": [
+        "602.2",
+        "701.6"
+      ],
+      "why": "Both players secretly choose 2, the choices match: the Safe is sacrificed and the two cards exiled with it (Forest, Island) return to hand, leaving the rest of the seeded library untouched.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Expert-Level Safe"
+          ],
+          "library_top": [
+            "Forest",
+            "Island",
+            "Mountain"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Expert-Level Safe",
+          "mana": "CC"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "C"
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Expert-Level Safe",
+          "ability": "secretly",
+          "targets": [
+            "p1"
+          ]
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "2"
+              ]
+            },
+            {
+              "kind": "any",
+              "pick": [
+                "2"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Expert-Level Safe",
+          "zone": "graveyard"
+        },
+        {
+          "hand_size": {
+            "p0": 2
+          }
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "library"
+          },
+          "eq": 35
+        }
+      ]
+    },
+    {
+      "name": "mismatched-secret-choices-exile-top-card",
+      "cr": [
+        "602.2",
+        "701.15"
+      ],
+      "why": "The choices do not match (1 vs 2): the Safe stays on the battlefield and the top card of the library (Mountain, the ETB already exiled Forest and Island; this is the third card) is exiled face down.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Expert-Level Safe"
+          ],
+          "library_top": [
+            "Forest",
+            "Island",
+            "Mountain"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Expert-Level Safe",
+          "mana": "CC"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "C"
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Expert-Level Safe",
+          "ability": "secretly",
+          "targets": [
+            "p1"
+          ]
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "1"
+              ]
+            },
+            {
+              "kind": "any",
+              "pick": [
+                "2"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Expert-Level Safe",
+          "zone": "battlefield"
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "library"
+          },
+          "eq": 34
+        }
+      ]
+    }
+  ]
+}

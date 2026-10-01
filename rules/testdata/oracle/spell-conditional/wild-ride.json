@@ -1,0 +1,21 @@
+{
+  "card": "Wild Ride",
+  "family": "spell-conditional",
+  "author": "cli-20260930T004423Z-d42d9d4e (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "harmonize-cast-from-graveyard-pumps-and-exiles",
+      "cr": ["702.46a", "118.9", "608.2c"],
+      "why": "Wild Ride's harmonize lets it be cast from the graveyard for {4}{R}; it gives the target +3/+0 and haste, then exiles itself instead of going anywhere else.",
+      "setup": {"p0": {"graveyard": ["Wild Ride"], "battlefield": ["Savannah Lions"]}},
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Wild Ride", "cast_mode": "harmonize", "mana": "CCCCR", "targets": ["p0:Savannah Lions"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Savannah Lions", "pt": "5/1", "keywords": ["Haste"]},
+        {"card": "p0:Wild Ride", "zone": "exile"}
+      ]
+    }
+  ]
+}

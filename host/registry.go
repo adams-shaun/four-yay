@@ -189,6 +189,16 @@ type Options struct {
 	// seat-build time with its own error. gorged sets Cards to the opened
 	// corpus registry.
 	BotDeps bots.Deps
+	// BotUnboundedDecisions, when true, builds every table bot with a zero
+	// per-decision budget (bots.Options.DecisionDeadlineMS 0 = unbounded, the
+	// bench/training posture) instead of the served default
+	// hostedDecisionDeadlineMS. A determinism harness that compares two runs
+	// of one seed must never arm a wall clock: a deadline bail-out answers
+	// from the non-searched fallback and the two runs diverge (BP-07 §7
+	// rejected a wall-clock budget for exactly this reason). False — every
+	// existing caller, gorged included — leaves served behaviour
+	// byte-identical.
+	BotUnboundedDecisions bool
 
 	// OnBurst, when non-nil, is invoked after every recorded burst of every
 	// match created by this registry, including the genesis burst, so an

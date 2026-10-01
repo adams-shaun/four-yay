@@ -47,10 +47,30 @@ type Options struct {
 	AutoPayMana       bool
 	SearchParallelism int
 	Deps              Deps
+	// DecisionDeadlineMS is the per-decision wall-clock budget a HOSTED
+	// search seat declares (host/bot_policy.go's hostedDecisionDeadlineMS;
+	// bench and training factories leave it zero and stay unbounded for
+	// reproducible measurement). The host arms it as the deadline of the
+	// context it hands DecideEnv (host.decisionCtx -- this package may not
+	// import time, internal/archtest), so a search that outlives the budget
+	// is aborted by the search's own bail-out and the policy's non-searched
+	// fallback answers. See bots.BudgetedSeat.
+	DecisionDeadlineMS int
 }
 
 type Deps struct{ Cards *cards.Registry }
 type Factory func(Options) (seat.Seat, error)
+
+// BudgetedSeat is a seat carrying a per-decision wall-clock budget
+// (Options.DecisionDeadlineMS). The host arms it on the context it hands
+// DecideEnv; this package may not import time (internal/archtest), so the
+// budget is plain milliseconds and the host -- the only tier that may read
+// the clock -- turns it into the context deadline. A search aborted by it
+// plays the policy's own non-searched fallback (azmcts Search's and
+// sbsearch's bail-outs); it never fails the decision.
+type BudgetedSeat interface {
+	DecisionBudgetMS() int
+}
 type Entry struct {
 	Info
 	New Factory

@@ -180,13 +180,37 @@ function plannedCasts(decision: Decision, autoPayMana: boolean): string[] {
 }
 
 /**
+ * announcedCasts is the plan-less sibling arm of plannedCasts (the ManaBrew
+ * autopilot stop-note ticket, agent-20260929T172335Z-dee96bba): with the
+ * seat's auto-pay preference ON, a payment action carrying no plan is
+ * announced-then-paid — the panel renders its "Cast — choose mana" announce
+ * button (PriorityOptions.svelte's plan-less branch, from the parent ticket
+ * agent-20260929T100942Z-1ec23e18), the select-mana window opens and the
+ * player pays by hand. Only ManaBrew produces a plan-less action
+ * (web/src/lib/manabrew/prompt.ts; the engine's paymentActionsForPriority
+ * appends an action only when it carries a plan), and this arm runs after
+ * plannedCasts', so a window offering both is still named by the plan-bearing
+ * arm. Labels use the action.label + parenthetical convention, "(announce)",
+ * matching the announce route the label names.
+ */
+function announcedCasts(decision: Decision, autoPayMana: boolean): string[] {
+  if (!autoPayMana || decision.kind !== 'priority') return [];
+  return (decision.payment_actions ?? [])
+    .filter((action) => action.plans.length === 0)
+    .map((action) => `${action.label} (announce)`);
+}
+
+/**
  * actionables is actionable()'s descriptive twin (fb-20260916T225211Z): the
  * SAME scan, returned as the human labels of what made the window actionable
  * — an action-kind option's own wire label ("Cast Deadly Rollick (alternative
  * cost)"), the costly mana activation's label ("Activate Lion's Eye Diamond
  * for mana", fb-20260917T192520Z), else — only while the seat's auto-pay
  * preference is on — plannedCasts()'s labels for the casts an offered plan
- * pays in one click ("Cast Opt (with suggested mana)"), else castablesAfterTap's
+ * pays in one click ("Cast Opt (with suggested mana)"), then — also only with
+ * the preference on — announcedCasts()'s labels for the plan-less ManaBrew
+ * casts the panel offers as announce-then-pay ("Cast Opt (announce)",
+ * agent-20260929T172335Z-dee96bba), else castablesAfterTap's
  * labels for the float-then-cast shape ("Cast Lava Spike (after tapping)").
  * actionable() below is this list's emptiness test, so a smart step stop and
  * the note that explains it read ONE predicate by construction: whatever made
@@ -206,6 +230,8 @@ export function actionables(view: View, seat: number, decision: Decision, autoPa
   if (labels.length > 0) return labels;
   const planned = plannedCasts(decision, autoPayMana);
   if (planned.length > 0) return planned;
+  const announced = announcedCasts(decision, autoPayMana);
+  if (announced.length > 0) return announced;
   return castablesAfterTap(view, seat, decision);
 }
 
@@ -396,15 +422,11 @@ export function decide(args: {
    * autoPayMana is the SEAT's auto-pay preference (SeatPanelState.autoPayMana),
    * never the table's auto_mana capability: the capability only makes the
    * switch available, and a player who never turns it on gets exactly the
-   * capability-less policy (spec §8 as amended 2026-09-26). While it is on it
-   * reaches this classification in two places, and nowhere else:
-   *  - the actionable test (actionables()' planned arm): a payment action
-   *    carrying a plan is a real play, so the 'smart' step rule and the
-   *    own-turn main-phase floor stop for a plan-only cast exactly as they
-   *    stop for an offered cast option;
-   *  - the own-object branch of the stack rules: normal Auto resolves the
-   *    seat's own object unless the player holds priority there (ownObjects
-   *    'if-respondable').
+   * capability-less policy (spec §8 as amended 2026-09-26). It reaches this
+   * classification only through actionables()' planned arm: a payment action
+   * carrying a plan is a real play, so the 'smart' step rule and the own-turn
+   * main-phase floor stop for a plan-only cast exactly as they stop for an
+   * offered cast option.
    * It is not a pass policy of its own: a window merely CARRYING a plan is not
    * held for that reason alone (no blanket guard; see SeatPanelState.derivePass).
    */
@@ -463,18 +485,13 @@ export function decide(args: {
         // 'never' (and a rule the arms above did not meet) falls through.
       }
     } else if (baselineStack === null) {
-      // The seat's own object on top. Holding priority there ("Stop if I can
-      // respond", ownObjects 'if-respondable') wins whatever the auto-pay
-      // preference says. Otherwise, with the seat's auto-pay preference ON,
-      // normal Auto resolves the own object instead of consulting the step
-      // rules below. The PREFERENCE keys this, not the table's auto_mana
-      // capability (spec §8): with it off -- including on a capability table
-      // whose player never turned auto-pay on -- the historical own-stack and
-      // step stops apply exactly as on a table without the capability.
+      // The seat's own object on top is governed by ownObjects, independent
+      // of the auto-pay preference: stop only when 'if-respondable' has a
+      // response; otherwise pass so the object resolves before step stops.
       if (settings.ownObjects === 'if-respondable' && respondableFor(view, seat, decision)) {
         return { act: 'stop', reason: 'own-object' };
       }
-      if (autoPayMana) return { act: 'pass', index: pass.index };
+      return { act: 'pass', index: pass.index };
     }
   }
 

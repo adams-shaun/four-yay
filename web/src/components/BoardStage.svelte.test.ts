@@ -48,6 +48,16 @@ async function measure(width: number, height: number, query: string) {
 }
 
 describe('BoardStage — the table is arranged, and the centre strip is a real lane', () => {
+  it('renders the seated viewer’s floating pool visibly in the live board seat box', async () => {
+    const page = await table(1200, 900, 'pool=1');
+    const readout = page.locator('[data-seat-box="0"] [data-mana-pool]');
+    expect(await readout.isVisible()).toBe(true);
+    expect(await readout.textContent()).toContain('pool');
+    expect(await readout.locator('[data-mana="W"]').textContent()).toContain('2');
+    expect(await readout.locator('[data-mana="C"]').textContent()).toContain('1');
+    await page.close();
+  });
+
   it('every seat is placed at 2, 4, 6 and 8 seats, and no card crosses the centre strip', { timeout: 120_000 }, async () => {
     // [width, height, seats, query, commander tiles drawn]: a focus side
     // strip draws no command zone (its header stands in), so 8-seat focus

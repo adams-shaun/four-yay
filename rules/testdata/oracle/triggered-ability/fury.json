@@ -1,0 +1,129 @@
+{
+  "card": "Fury",
+  "family": "triggered-ability",
+  "oracle_sha": "eb8887d25e79",
+  "author": "cli-20260930T220416Z-ed59db28 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "evoked-deals-4-to-target-creature",
+      "cr": [
+        "702.74a",
+        "107.1c",
+        "603.3d"
+      ],
+      "why": "Evoked with Lightning Bolt exiled from hand, Fury's enters trigger puts all 4 damage on the single targeted Grizzly Bears, killing it, and the evoke sacrifice trigger then sends Fury to the graveyard.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Fury",
+            "Lightning Bolt"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Fury",
+          "cast_mode": "evoked",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "Lightning Bolt"
+              ]
+            }
+          ],
+          "targets": []
+        },
+        {
+          "op": "resolve",
+          "targets": [
+            "p1:Grizzly Bears"
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p1:Grizzly Bears",
+          "zone": "graveyard"
+        },
+        {
+          "card": "p0:Fury",
+          "zone": "graveyard"
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "exile",
+            "name": "Lightning Bolt"
+          },
+          "eq": 1
+        }
+      ]
+    },
+    {
+      "name": "evoked-fury-sacrificed-at-next-end-step",
+      "cr": [
+        "702.74a",
+        "514.1"
+      ],
+      "why": "The evoke sacrifice trigger fires at the next end step, sending the evoked Fury to its owner's graveyard.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Fury",
+            "Lightning Bolt"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Fury",
+          "cast_mode": "evoked",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "Lightning Bolt"
+              ]
+            }
+          ],
+          "targets": []
+        },
+        {
+          "op": "resolve",
+          "targets": [
+            "p1:Grizzly Bears"
+          ]
+        },
+        {
+          "op": "pass_to",
+          "step": "end",
+          "active": "p0"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Fury",
+          "zone": "graveyard"
+        }
+      ]
+    }
+  ]
+}

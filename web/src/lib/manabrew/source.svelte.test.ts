@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { MatchInfo } from '../../protocol';
 import { ApiError, fetchPending, postIntent, postUndo } from '../api';
 import type { ModelEvent } from '../clientmodel/types';
@@ -164,9 +164,38 @@ describe('ManaBrewMatch', () => {
 
   it('undo is restoreSnapshot at the open priority prompt', async () => {
     const { m, f } = await started('cast');
+    expect(m.openPrompt?.input.type).toBe('chooseAction');
     await postUndo('g1', 1, m.ctx);
     const p = m.openPrompt!;
     expect(f.sent.at(-1)).toEqual({ kind: 'response', promptId: p.promptId, action: { type: 'chooseAction', output: { type: 'restoreSnapshot', checkpointId: p.promptId } } });
+  });
+
+  it('undo at chooseBoolean uses native rewind and observes the lower ManaBrew prompt', async () => {
+    const { m, f } = await started('cast');
+    const priority = m.openPrompt!;
+    expect(priority.input.type).toBe('chooseAction');
+    const boolPrompt = { ...priority, promptId: priority.promptId + 100, input: { type: 'chooseBoolean' as const, confirmLabel: 'Yes', denyLabel: 'No' } };
+    f.emit({ kind: 'prompt', ...boolPrompt });
+    expect(m.openPrompt?.promptId).toBe(boolPrompt.promptId);
+    expect(m.openPrompt?.input.type).toBe('chooseBoolean');
+
+    const fetchMock = vi.fn(async (..._args: Parameters<typeof fetch>) => new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      await expect(postUndo('g1', 1, m.ctx)).resolves.toBeUndefined();
+      expect(fetchMock).toHaveBeenCalledOnce();
+      expect(fetchMock.mock.calls[0][0]).toBe('/api/tables/g1/matches/1/undo');
+      expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'POST', headers: { Authorization: 'Bearer tok' } });
+      expect(f.sent).toHaveLength(0);
+
+      let rewound = 0;
+      m.onRewind = () => rewound++;
+      f.emit({ kind: 'prompt', ...priority });
+      expect(rewound).toBe(1);
+      expect(m.openPrompt?.promptId).toBe(priority.promptId);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('applies a stateDelta onto the last full state', async () => {

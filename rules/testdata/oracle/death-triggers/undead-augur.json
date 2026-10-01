@@ -1,0 +1,42 @@
+{
+  "card": "Undead Augur",
+  "family": "death-triggers",
+  "oracle_sha": "1fc8ea1f3685",
+  "author": "cli-20261001T012353Z-c0654344 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "zombie-you-control-dies-draw-and-lose",
+      "cr": ["603.6c"],
+      "why": "Another Zombie seat 0 controls dying makes the Augur's controller draw a card and lose 1 life.",
+      "setup": {
+        "p0": {"battlefield": ["Undead Augur", "Diregraf Ghoul"], "library": ["Island"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "move", "seat": 0, "card": "p0:Diregraf Ghoul", "to": "graveyard"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 19}},
+        {"hand_size": {"p0": 1}}
+      ]
+    },
+    {
+      "name": "non-zombie-death-does-not-trigger",
+      "cr": ["603.6c"],
+      "why": "The trigger's condition is a Zombie you control dying; a Cat dying draws nothing and loses no life.",
+      "setup": {
+        "p0": {"battlefield": ["Undead Augur", "Grizzly Bears"], "library": ["Island"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "move", "seat": 0, "card": "p0:Grizzly Bears", "to": "graveyard"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 20}},
+        {"hand_size": {"p0": 0}}
+      ]
+    }
+  ]
+}

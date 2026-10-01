@@ -1,0 +1,112 @@
+{
+  "card": "Duskana, the Rage Mother",
+  "family": "etb-ltb",
+  "oracle_sha": "cf5dfacb34fc",
+  "author": "cli-20261001T022457Z-f0c31bb6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enters-drawing-per-base-two-two-creature",
+      "cr": [
+        "603.2",
+        "108.1"
+      ],
+      "why": "When it enters, draw a card for each creature you control with base power and toughness 2/2: Grizzly Bears (printed 2/2) draws one card; Savannah Lions (printed 2/1) and Duskana itself (5/5) draw none.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Grizzly Bears",
+            "Savannah Lions"
+          ],
+          "hand": [
+            "Duskana, the Rage Mother"
+          ],
+          "library_top": [
+            "Forest",
+            "Island",
+            "Mountain"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Duskana, the Rage Mother",
+          "mana": "CCRGW"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Duskana, the Rage Mother",
+          "zone": "battlefield",
+          "pt": "5/5"
+        },
+        {
+          "hand_size": {
+            "p0": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "base-two-two-attacker-gets-plus-three-plus-three",
+      "cr": [
+        "603.2",
+        "510.2"
+      ],
+      "why": "A creature you control with base power and toughness 2/2 that attacks gets +3/+3 until end of turn: Grizzly Bears attacks as a 5/5 and deals 5 to the defender; Savannah Lions (base 2/1) attacking would not grow.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Duskana, the Rage Mother",
+            "Grizzly Bears",
+            "Savannah Lions"
+          ]
+        },
+        "p1": {
+          "life": 20
+        }
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Grizzly Bears",
+            "p0:Savannah Lions"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "pass_to",
+          "step": "end",
+          "active": "p0"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "battlefield",
+          "pt": "5/5"
+        },
+        {
+          "card": "p0:Savannah Lions",
+          "zone": "battlefield",
+          "pt": "2/1"
+        },
+        {
+          "life": {
+            "p1": 13
+          }
+        }
+      ]
+    }
+  ]
+}

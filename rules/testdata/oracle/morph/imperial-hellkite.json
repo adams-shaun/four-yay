@@ -1,0 +1,51 @@
+{
+  "card": "Imperial Hellkite",
+  "family": "morph",
+  "oracle_sha": "a73c99d7e76c",
+  "author": "cli-20261001T022457Z-f0c31bb6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "turning-face-up-searches-a-dragon",
+      "cr": ["702.37a", "603.2", "701.19"],
+      "why": "Morph {6}{R}{R}: turning face up triggers 'you may search your library for a Dragon card, reveal it, put it into your hand, then shuffle', fetching Dragon Hatchling.",
+      "setup": {
+        "p0": {"hand": ["Imperial Hellkite"], "library_top": ["Dragon Hatchling", "Forest"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Imperial Hellkite", "cast_mode": "morphed", "mana": "CCC"},
+        {"op": "resolve"},
+        {"op": "mana", "seat": 0, "mana": "CCCCCCRR"},
+        {"op": "activate", "seat": 0, "card": "p0:Imperial Hellkite", "ability": "Turn face up"},
+        {"op": "resolve", "answers": [
+          {"kind": "any", "pick": ["yes"]},
+          {"kind": "any", "pick": ["Dragon Hatchling"]}
+        ]}
+      ],
+      "expect": [
+        {"card": "p0:Imperial Hellkite", "zone": "battlefield", "pt": "6/6", "keywords": ["Flying"]},
+        {"hand_size": {"p0": 1}}
+      ]
+    },
+    {
+      "name": "declining-the-search-fetches-nothing",
+      "cr": ["702.37a", "603.2"],
+      "why": "The search is optional; declining it leaves the library untouched and the Hellkite still a 6/6 flyer on the battlefield.",
+      "setup": {
+        "p0": {"hand": ["Imperial Hellkite"], "library_top": ["Dragon Hatchling", "Forest"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Imperial Hellkite", "cast_mode": "morphed", "mana": "CCC"},
+        {"op": "resolve"},
+        {"op": "mana", "seat": 0, "mana": "CCCCCCRR"},
+        {"op": "activate", "seat": 0, "card": "p0:Imperial Hellkite", "ability": "Turn face up"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["no"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Imperial Hellkite", "zone": "battlefield", "pt": "6/6"},
+        {"hand_size": {"p0": 0}}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "card": "Sower of Discord",
+  "family": "replacement",
+  "oracle_sha": "29d601c0ef28",
+  "author": "cli-20261001T012353Z-c0654344 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "damage-to-one-chosen-player-hits-the-other",
+      "cr": ["614.1"],
+      "why": "As Sower of Discord enters, its controller chooses two players; whenever damage is dealt to one chosen player, the other chosen player loses that much life. With both players chosen, a Lightning Bolt dealing 3 to p1 makes p0 also lose 3.",
+      "setup": {
+        "p0": {"battlefield": ["Sower of Discord"], "hand": ["Lightning Bolt"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 17, "p1": 17}},
+        {"card": "p0:Sower of Discord", "keywords": ["Flying"]}
+      ]
+    }
+  ]
+}

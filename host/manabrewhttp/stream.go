@@ -113,8 +113,30 @@ func (h *handler) stream(w http.ResponseWriter, r *http.Request) {
 			return err
 		}
 
+		// Synthetic ack-only prompts (MBX-2): every match event this seat has
+		// not yet been shown mints at most one, in event order, between the
+		// state and the seat's own open prompt. They are additive -- none of
+		// the prompt bookkeeping below (havePrompt/lastPromptID) is consulted
+		// for them, so an unanswered synthetic can never suppress or delay
+		// the next real prompt, and a /send ack of one never reaches the
+		// engine (send.go routes it through AcknowledgeSynthetic).
+		for _, syn := range h.drainSynthetic(t, k, claim.Seat, tr, v) {
+			if err := write(syn); err != nil {
+				return err
+			}
+		}
+
 		if d == nil {
 			havePrompt = false
+			if v.Over && sc.markGameOver() {
+				// The terminal gameOver prompt, exactly once per seat, after
+				// the final state (scoping spec Appendix A's "end of match"
+				// row). The stream stays open; closing it at rollover is
+				// cmd/gorged's (MB-9's) concern.
+				if err := write(mb.EngineMessage{Value: tr.GameOver(&v)}); err != nil {
+					return err
+				}
+			}
 			return nil
 		}
 		if havePrompt && lastPromptID == int64(d.Seq) {
@@ -135,6 +157,14 @@ func (h *handler) stream(w http.ResponseWriter, r *http.Request) {
 			return err
 		}
 		havePrompt, lastPromptID = true, pm.PromptID
+		if v.Over && sc.markGameOver() {
+			// Even with a decision still parked (the losing seat's last ask,
+			// already answered elsewhere), the terminal prompt goes out after
+			// the seat's own open prompt -- still after the final state.
+			if err := write(mb.EngineMessage{Value: tr.GameOver(&v)}); err != nil {
+				return err
+			}
+		}
 		return nil
 	}
 

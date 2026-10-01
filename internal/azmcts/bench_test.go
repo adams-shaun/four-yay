@@ -1,6 +1,7 @@
 package azmcts
 
 import (
+	"context"
 	"testing"
 
 	"github.com/adams-shaun/gorge/decision"
@@ -39,7 +40,7 @@ func benchSearch(b *testing.B, minTurn int32) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		res, err := Search(Root{Engine: e, Decision: d, Bot: bot, Observer: obs}, src, nil, opts)
+		res, err := Search(context.Background(), Root{Engine: e, Decision: d, Bot: bot, Observer: obs}, src, nil, opts)
 		if err != nil {
 			b.Fatal(err)
 		}

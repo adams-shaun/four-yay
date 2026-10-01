@@ -3,7 +3,10 @@
   import type { View } from '../protocol';
   import { everyVisibleCard } from '../lib/board';
   import { cardById } from '../lib/board';
-  import { hotkeyAction } from '../lib/hotkeys';
+  import { hotkeyAction, focusOwnership } from '../lib/hotkeys';
+  import { eventCode } from '../lib/keymap';
+  import { hotkeyHinter } from '../lib/hotkeyhint.svelte';
+  import { clientBreadcrumbs } from '../lib/breadcrumbs';
   import { hovered } from '../lib/hovered.svelte';
   import { keymapStore } from '../lib/keymap.svelte';
   import { layoutStore } from '../lib/layouts.svelte';
@@ -35,7 +38,21 @@
     const onKey = (e: KeyboardEvent): void => {
       if (keymapStore.capturing || e.repeat) return;
       const action = hotkeyAction(e, modalPickerOpen, keymapStore.current);
-      if (action === null) return;
+      if (action === null) {
+        // Space/Enter on a focused activatable control was suppressed as a
+        // table hotkey because the control's native activation owns it. Say
+        // so — this route is mounted for spectators too, who have no seat
+        // strip, so the cue would otherwise never reach them
+        // (fb-20260929T080219Z). Text-entry suppression stays silent: every
+        // keystroke while typing would flood the breadcrumb ring, and a
+        // keystroke landing in a textbox is no surprise.
+        const owned = focusOwnership(e);
+        if (owned === 'activatable-space-enter') {
+          hotkeyHinter.note(owned);
+          clientBreadcrumbs.record('hotkey-suppressed', { key: e.key, code: eventCode(e), reason: owned });
+        }
+        return;
+      }
       switch (action) {
         case 'toggle-log':
           if (onToggleLog === null) return;
@@ -51,7 +68,7 @@
         case 'open-grave':
         case 'open-exile':
           if (hovered.seat === null) return;
-          pileOpener.open(hovered.seat, action === 'open-grave' ? 'graveyard' : 'exile', trigger());
+          pileOpener.open(hovered.seat, action === 'open-grave' ? 'graveyard' : 'exile', trigger(), false);
           break;
         case 'next-layout':
           layoutStore.cycle(1);
@@ -64,6 +81,7 @@
           break;
       }
       e.preventDefault();
+      hotkeyHinter.clear();
     };
     window.addEventListener('keydown', onKey, true);
     return () => {

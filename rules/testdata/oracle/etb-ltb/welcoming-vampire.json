@@ -1,0 +1,106 @@
+{
+  "card": "Welcoming Vampire",
+  "family": "etb-ltb",
+  "oracle_sha": "61fd9ea1c41f",
+  "author": "cli-20261001T022457Z-f0c31bb6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "first-small-creature-draws-second-does-not",
+      "cr": [
+        "603.2",
+        "603.2c"
+      ],
+      "why": "Whenever one or more other creatures you control with power 2 or less enter, draw a card, but only once each turn: Savannah Lions entering draws one; Grizzly Bears entering later the same turn draws nothing more.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Welcoming Vampire"
+          ],
+          "hand": [
+            "Savannah Lions",
+            "Grizzly Bears"
+          ],
+          "library_top": [
+            "Forest",
+            "Island"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Savannah Lions",
+          "mana": "W"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Grizzly Bears",
+          "mana": "CG"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "hand_size": {
+            "p0": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "vampire-itself-entering-does-not-draw",
+      "cr": [
+        "603.2"
+      ],
+      "why": "'other creatures you control' excludes the Vampire: casting it first draws nothing, while Savannah Lions entering after it draws one.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Welcoming Vampire",
+            "Savannah Lions"
+          ],
+          "library_top": [
+            "Forest",
+            "Island"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Welcoming Vampire",
+          "mana": "CCW"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Savannah Lions",
+          "mana": "W"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "hand_size": {
+            "p0": 1
+          }
+        }
+      ]
+    }
+  ]
+}

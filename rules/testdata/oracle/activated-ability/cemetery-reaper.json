@@ -1,0 +1,42 @@
+{
+  "card": "Cemetery Reaper",
+  "family": "activated-ability",
+  "oracle_sha": "49314bc266c5",
+  "author": "cli-20261001T012353Z-c0654344 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "other-zombies-get-plus-one",
+      "cr": ["613.1f"],
+      "why": "Other Zombie creatures you control get +1/+1; a 2/2 Diregraf Ghoul is 3/3 while the Reaper itself stays 2/2.",
+      "setup": {
+        "p0": {"battlefield": ["Cemetery Reaper", "Diregraf Ghoul"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "pass"}
+      ],
+      "expect": [
+        {"card": "p0:Diregraf Ghoul", "pt": "3/3"},
+        {"card": "p0:Cemetery Reaper", "pt": "2/2"}
+      ]
+    },
+    {
+      "name": "exile-graveyard-creature-makes-zombie-token",
+      "cr": ["602.2a", "111.2"],
+      "why": "Its {2}{B}, {T} ability exiles a creature card from a graveyard and creates a 2/2 black Zombie token; the Reaper itself then makes the token 3/3.",
+      "setup": {
+        "p0": {"battlefield": ["Cemetery Reaper"]},
+        "p1": {"graveyard": ["Savannah Lions"]}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Cemetery Reaper", "ability": "Zombie", "mana": "BCC", "targets": ["p1:Savannah Lions"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Savannah Lions", "zone": "exile"},
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Zombie", "token": true}, "eq": 1},
+        {"card": "p0:token:Zombie", "pt": "3/3"}
+      ]
+    }
+  ]
+}

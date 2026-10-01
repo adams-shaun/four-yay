@@ -1,0 +1,24 @@
+{
+  "card": "Meat Locker",
+  "family": "activation-condition",
+  "oracle_sha": "23dcee101a60",
+  "author": "agent-20260930T005535Z-e82cd61a (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "unlock-the-locked-door-pays-its-cost-and-fires-the-unlock-trigger",
+      "cr": ["309.5", "309.4c", "116.2b"],
+      "why": "Unlocking a Room's locked door is a special action offered as its own option kind (\"unlock\"), not an ability activation. The scenario checks the precondition that the locked door is offered (the back face is locked), selects it through the activate op, and asserts the unlock trigger's effect: Drowned Diner's \"draw three cards, then discard a card\" leaves two cards in hand (3 drawn - 1 discarded), proving the door actually unlocked and its text became live.",
+      "setup": {"p0": {"battlefield": ["Meat Locker"]}},
+      "steps": [
+        {"op": "mana", "seat": 0, "mana": "UUUUU",
+          "expect": [{"offered": {"seat": 0, "kind": "unlock", "card": "p0:Meat Locker", "label": "Unlock Drowned Diner"}, "want": true},
+                     {"hand_size": {"p0": 0}}]},
+        {"op": "activate", "seat": 0, "card": "p0:Meat Locker", "ability": "Unlock Drowned Diner"},
+        {"op": "resolve", "seat": 0}
+      ],
+      "expect": [
+        {"hand_size": {"p0": 2}}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "card": "Master of Pearls",
+  "family": "morph",
+  "oracle_sha": "9a5df35e759d",
+  "author": "cli-20261001T022457Z-f0c31bb6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "face-down-cast-is-a-plain-2-2",
+      "cr": ["702.37a", "708.4"],
+      "why": "Cast face down for {3}: a 2/2 creature with no abilities -- its printed text (the +2/+2 trigger) does not exist while face down.",
+      "setup": {
+        "p0": {"hand": ["Master of Pearls"], "battlefield": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Master of Pearls", "cast_mode": "morphed", "mana": "CCC"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Master of Pearls", "zone": "battlefield", "pt": "2/2"},
+        {"card": "p0:Grizzly Bears", "zone": "battlefield", "pt": "2/2"}
+      ]
+    },
+    {
+      "name": "turning-face-up-pumps-your-creatures",
+      "cr": ["702.37a", "708.6", "603.2"],
+      "why": "Turning it face up for its morph cost {3}{W}{W} triggers 'When Master of Pearls is turned face up, creatures you control get +2/+2 until end of turn': both it and the Bears become 4/4.",
+      "setup": {
+        "p0": {"hand": ["Master of Pearls"], "battlefield": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Master of Pearls", "cast_mode": "morphed", "mana": "CCC"},
+        {"op": "resolve"},
+        {"op": "mana", "seat": 0, "mana": "CCCWW"},
+        {"op": "activate", "seat": 0, "card": "p0:Master of Pearls", "ability": "Turn face up"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Master of Pearls", "zone": "battlefield", "pt": "4/4"},
+        {"card": "p0:Grizzly Bears", "zone": "battlefield", "pt": "4/4"}
+      ]
+    }
+  ]
+}

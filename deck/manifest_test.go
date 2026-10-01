@@ -34,12 +34,14 @@ func TestManifestCanonicalizesWithoutAliasing(t *testing.T) {
 	// Declared commander order is Gamma then Beta: index 0 first, index 2
 	// second. This differs from canonical alphabetical order and proves the
 	// field preserves the declared order rather than sorting identities.
-	got := NewManifest("deck", main, sideboard, []int{0, 2})
+	got := NewManifest("deck", "aggro", main, sideboard, []int{0, 2})
 	want := Manifest{
 		Name:       "deck",
+		Archetype:  "aggro",
 		Main:       []ManifestRow{{Name: "Alpha", Count: 2}, {Name: "Beta", Count: 1}, {Name: "Gamma", Count: 1}},
 		Sideboard:  []ManifestRow{{Name: "Beta", Count: 3}},
 		Commanders: []string{"Gamma", "Beta"},
+		Curve:      []CurveRow{{CMC: 0, Count: 4}},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("manifest = %#v, want %#v", got, want)
@@ -69,7 +71,7 @@ func TestManifestCanonicalizesWithoutAliasing(t *testing.T) {
 // index is skipped exactly as genesis skips it.
 func TestManifestZeroShape(t *testing.T) {
 	one := parseManifestCard(t, "One")
-	empty := NewManifest("empty", nil, nil, nil)
+	empty := NewManifest("empty", "", nil, nil, nil)
 	if empty.Main == nil {
 		t.Fatal("empty main is nil; JSON would be null, not []")
 	}
@@ -81,7 +83,7 @@ func TestManifestZeroShape(t *testing.T) {
 		t.Fatalf("empty manifest JSON = %s", b)
 	}
 	// -1 and past-the-end indices are skipped, not panicked on.
-	bad := NewManifest("bad", []*cards.Card{one}, nil, []int{-1, 5})
+	bad := NewManifest("bad", "", []*cards.Card{one}, nil, []int{-1, 5})
 	if len(bad.Commanders) != 0 {
 		t.Fatalf("out-of-range commander indices survived: %#v", bad.Commanders)
 	}

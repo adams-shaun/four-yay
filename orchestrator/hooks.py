@@ -9,6 +9,7 @@ snapshot of orchestrator/gates.py, git_ops.py and daemon.py.
 """
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -70,6 +71,28 @@ def _commit_all(wt: Path, message: str) -> bool:
                           capture_output=True, text=True).returncode == 0
 
 
+def _broker(repo: Path, verb: str) -> None:
+    """Tell the resource broker a gate run has ended.
+
+    The matching gate-begin is the FIRST entry in `[[gates]]`, so the whole
+    suite runs with heavy work paused. This is the release half. It is
+    best-effort on purpose: a broker that is missing or failing must never be
+    the reason a passing gate run does not land, and the broker's own stale-flag
+    TTL resumes heavy work if this call never happens at all.
+    """
+    script = Path(repo) / "scripts" / "broker.sh"
+    if not script.exists():
+        return
+    try:
+        # The leases live under the MAIN checkout's .ds4/reward, the same path
+        # the gate-begin gate pins, not under whichever worktree is landing.
+        env = {"GORGE_REWARD_DIR": str(Path(repo) / ".ds4" / "reward"), "PATH": "/usr/bin:/bin"}
+        subprocess.run([str(script), verb], cwd=str(repo), capture_output=True, text=True,
+                       timeout=60, env={**os.environ, **env})
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+
 def testheads_policy(repo: Path, wt: Path, issue, passed: bool, results) -> bool:
     """daemon.py:756-773 as a post_gates hook: returns the gates' final verdict.
 
@@ -77,6 +100,7 @@ def testheads_policy(repo: Path, wt: Path, issue, passed: bool, results) -> bool
     is on and CR conformance and `make sim` both passed: the moved heads are
     rewritten, TestHeads re-run, and the goldens committed. Anything else
     fails the gates."""
+    _broker(repo, "gate-end")
     heads = next((r for r in results if r.name == "TestHeads"), None)
     if heads is None or heads.ok:
         return passed

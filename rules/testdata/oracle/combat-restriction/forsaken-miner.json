@@ -1,0 +1,29 @@
+{
+  "card": "Forsaken Miner",
+  "family": "combat-restriction",
+  "oracle_sha": "9f0a09d88976",
+  "author": "cli-20260929T235020Z-c90601c7 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "cant-block-so-block-not-offered",
+      "cr": ["509.1a", "702.86a"],
+      "why": "Forsaken Miner can't block, so when seat 0 attacks, seat 1's Miner is not offered as a blocker even though its other creature can block.",
+      "setup": {
+        "p0": {"battlefield": ["Grizzly Bears"]},
+        "p1": {"battlefield": ["Forsaken Miner", "Grizzly Bears"]}
+      },
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:Grizzly Bears"], "defender": "p1"},
+        {"op": "pass_to", "seat": 1, "decision": "blockers",
+         "expect": [
+           {"can_block": {"blocker": "p1:Forsaken Miner", "attacker": "p0:Grizzly Bears"}, "want": false},
+           {"can_block": {"blocker": "p1:Grizzly Bears", "attacker": "p0:Grizzly Bears"}, "want": true}
+         ]},
+        {"op": "pass_to", "seat": 0, "step": "end"}
+      ],
+      "expect": [
+        {"life": {"p1": 18}}
+      ]
+    }
+  ]
+}

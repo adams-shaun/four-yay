@@ -1,0 +1,44 @@
+{
+  "card": "It That Betrays",
+  "family": "trigger-condition",
+  "oracle_sha": "3447883ad04f",
+  "author": "cli-20260929T235020Z-c90601c7 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "annihilator-sacrifices-and-steals-two-permanents",
+      "cr": ["702.86a", "701.17a", "603.6c"],
+      "why": "Annihilator 2 makes the defending player sacrifice two permanents when It That Betrays attacks; its second ability then puts each nontoken permanent sacrificed by an opponent onto the battlefield under seat 0's control.",
+      "setup": {
+        "p0": {"battlefield": ["It That Betrays"]},
+        "p1": {"battlefield": ["Grizzly Bears", "Savannah Lions", "Centaur Courser"]}
+      },
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:It That Betrays"], "defender": "p1",
+         "answers": [{"kind": "choose", "pick": ["p1:Grizzly Bears", "p1:Savannah Lions"]}]},
+        {"op": "pass_to", "seat": 0, "step": "end"}
+      ],
+      "expect": [
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Grizzly Bears"}, "eq": 1},
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Savannah Lions"}, "eq": 1},
+        {"card": "p1:Centaur Courser", "zone": "battlefield"},
+        {"life": {"p1": 9}}
+      ]
+    },
+    {
+      "name": "no-attack-no-sacrifice",
+      "cr": ["702.86a"],
+      "why": "Annihilator triggers only when It That Betrays attacks; without an attack the defending player sacrifices nothing.",
+      "setup": {
+        "p0": {"battlefield": ["It That Betrays"]},
+        "p1": {"battlefield": ["Grizzly Bears", "Savannah Lions"]}
+      },
+      "steps": [
+        {"op": "pass_to", "seat": 0, "step": "end"}
+      ],
+      "expect": [
+        {"card": "p1:Grizzly Bears", "zone": "battlefield"},
+        {"card": "p1:Savannah Lions", "zone": "battlefield"}
+      ]
+    }
+  ]
+}

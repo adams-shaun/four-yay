@@ -102,36 +102,41 @@ func (t *Translator) attackTarget(opt decision.Option, v *view.View) mb.AttackTa
 // server-side (Option.AttackMust), the blockers valid against that
 // attacker, and every blocker id offered. A MaxBlockers of 0 (the omitempty
 // zero) means "no ceiling", so the pointer is set only above zero.
+//
+// The engine's blocker options are blocker-major (one creature's candidate
+// attackers contiguous, then the next creature's), NOT attacker-major, so
+// a repeated attacker's options are scattered through the option list.
+// Each option must therefore join ITS OWN attacker's group via a
+// first-occurrence position map (the same shape promptAttackers uses) --
+// the earlier "append to the last group" shortcut silently moved a
+// blocker's later attackers onto whichever attacker happened to be last
+// (MBX-4 seed 2004: option [4: 82->36] landed in o39's ValidBlockerIDs, so
+// a real client could never block o82 against o36).
 func (t *Translator) promptBlockers(d *decision.Decision, v *view.View) (mb.PromptMessage, error) {
 	attackers := make([]mb.BlockableAttackerDto, 0, len(d.Options))
 	blockers := make([]string, 0, len(d.Options))
-	seenAttacker := make(map[string]bool)
+	seenAttacker := make(map[string]int) // attacker ref -> first-occurrence position in attackers
 	seenBlocker := make(map[state.ObjID]bool)
 	for _, opt := range d.Options {
 		aid := cardID(opt.Attacker)
-		if !seenAttacker[aid] {
-			seenAttacker[aid] = true
-			b := mb.BlockableAttackerDto{
+		if pos, ok := seenAttacker[aid]; ok {
+			last := &attackers[pos]
+			last.MustBeBlocked = last.MustBeBlocked || opt.AttackMust
+			last.ValidBlockerIDs = append(last.ValidBlockerIDs, cardID(opt.Obj))
+		} else {
+			seenAttacker[aid] = len(attackers)
+			attackers = append(attackers, mb.BlockableAttackerDto{
 				AttackerID:      aid,
 				ValidBlockerIDs: []string{cardID(opt.Obj)},
 				MustBeBlocked:   opt.AttackMust,
-			}
+			})
 			if opt.MinBlockers > 0 {
-				b.MinBlockers = opt.MinBlockers
+				attackers[len(attackers)-1].MinBlockers = opt.MinBlockers
 			}
 			if opt.MaxBlockers > 0 {
-				b.MaxBlockers = &opt.MaxBlockers
+				attackers[len(attackers)-1].MaxBlockers = &opt.MaxBlockers
 			}
-			attackers = append(attackers, b)
-			if !seenBlocker[opt.Obj] {
-				seenBlocker[opt.Obj] = true
-				blockers = append(blockers, cardID(opt.Obj))
-			}
-			continue
 		}
-		last := &attackers[len(attackers)-1]
-		last.MustBeBlocked = last.MustBeBlocked || opt.AttackMust
-		last.ValidBlockerIDs = append(last.ValidBlockerIDs, cardID(opt.Obj))
 		if !seenBlocker[opt.Obj] {
 			seenBlocker[opt.Obj] = true
 			blockers = append(blockers, cardID(opt.Obj))

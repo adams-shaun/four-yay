@@ -1,0 +1,45 @@
+{
+  "card": "Fiery Temper",
+  "family": "keywords",
+  "oracle_sha": "12b537aefd59",
+  "author": "cli-20261001T014438Z-51ea329c (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "cast-normally-deals-three",
+      "cr": ["120.3"],
+      "why": "Cast for its mana cost, Fiery Temper deals 3 damage to the targeted opponent.",
+      "setup": {
+        "p0": {"hand": ["Fiery Temper"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Fiery Temper", "mana": "RRR", "targets": ["p1"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p1": 17}}
+      ]
+    },
+    {
+      "name": "madness-casts-from-exile-for-r",
+      "cr": ["702.35a", "702.35b", "614.11"],
+      "why": "Discarding Fiery Temper to Faithless Looting offers madness; accepting exiles it instead of discarding it, and the madness trigger then lets me cast it for {R}, still dealing 3 damage.",
+      "setup": {
+        "p0": {"hand": ["Fiery Temper", "Faithless Looting", "Grizzly Bears"], "library_top": ["Forest", "Island"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Faithless Looting", "mana": "RR"},
+        {"op": "resolve", "targets": ["p1"], "answers": [
+          {"kind": "any", "pick": ["Discard Fiery Temper", "Discard Grizzly Bears"]},
+          {"kind": "replacement", "pick": ["Exile it"]},
+          {"kind": "any", "pick": ["yes"]}
+        ]}
+      ],
+      "expect": [
+        {"life": {"p1": 17}},
+        {"card": "p0:Fiery Temper", "zone": "graveyard"}
+      ]
+    }
+  ]
+}

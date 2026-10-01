@@ -20,6 +20,26 @@ func cloneDeckManifests(in []deck.Manifest) []deck.Manifest {
 	return out
 }
 
+// cloneTurnLedger copies the per-turn ledger cluster wholesale
+// (engine_turnledger.go): every member is the fresh-slice copy class, so a
+// clone never shares backing state with the original. turnStartTurns (the
+// next-turn boundary cache) is copied like turnsTaken so a clone never
+// shares the backing slice; combatHitsThisTurn (the per-turn combat-damage
+// ledger) is a plain value slice, copied like turnsTaken so an undo/DVR
+// clone owns its own ledger; crimeSeatsThisTurn and bendSeatsThisTurn are
+// plain scalars, carried by the struct copy.
+func cloneTurnLedger(t engineTurnLedger) engineTurnLedger {
+	out := t
+	out.turnsTaken = append([]int32(nil), t.turnsTaken...)
+	out.turnsTakenEpoch = t.turnsTakenEpoch
+	out.turnStartTurns = cloneTurnStartTurns(t.turnStartTurns)
+	out.turnStartEpoch = t.turnStartEpoch
+	out.combatHitsThisTurn = append([]effects.CombatDamageHit(nil), t.combatHitsThisTurn...)
+	out.counterAddsThisTurn = cloneCounterAddsThisTurn(t.counterAddsThisTurn)
+	out.activationsThisTurn = cloneActivationsThisTurn(t.activationsThisTurn)
+	return out
+}
+
 func cloneTurnStartTurns(in [][]int32) [][]int32 {
 	if in == nil {
 		return nil
@@ -83,168 +103,149 @@ func (e *Engine) CloneInto(sp *Spare) *Engine {
 
 func (e *Engine) cloneWith(sp Spare) *Engine {
 	c := &Engine{
-		G:               e.G.CloneInto(sp.objs),
-		deckManifests:   cloneDeckManifests(e.deckManifests),
-		L:               e.L.CloneInto(sp.events, sp.intents),
-		compiledText:    e.compiledText,
-		landTypeWords:   e.landTypeWords,
-		turnsTaken:      append([]int32(nil), e.turnsTaken...),
-		turnsTakenEpoch: e.turnsTakenEpoch,
-		// turnStartTurns (the next-turn boundary cache) is copied like
-		// turnsTaken so a clone never shares the backing slice.
-		turnStartTurns: cloneTurnStartTurns(e.turnStartTurns),
-		turnStartEpoch: e.turnStartEpoch,
-		// combatHitsThisTurn (the per-turn combat-damage ledger): a plain
-		// value slice, copied like turnsTaken so an undo/DVR clone owns its
-		// own ledger.
-		combatHitsThisTurn:  append([]effects.CombatDamageHit(nil), e.combatHitsThisTurn...),
-		counterAddsThisTurn: cloneCounterAddsThisTurn(e.counterAddsThisTurn),
-		activationsThisTurn: cloneActivationsThisTurn(e.activationsThisTurn),
-		crimeSeatsThisTurn:  e.crimeSeatsThisTurn,
-		bendSeatsThisTurn:   e.bendSeatsThisTurn,
-		format:              e.format,
-		rng:                 e.rng.clone(),
-		orderedTriggers:     e.orderedTriggers,
-		applyingReplacement: e.applyingReplacement,
-		choosing:            e.choosing,
-		untapChoiceObj:      e.untapChoiceObj,
-		drainAwaitsTarget:   e.drainAwaitsTarget,
-		drainAwaitsModes:    e.drainAwaitsModes,
-		deferCastTrigger:    e.deferCastTrigger,
-		// blockerRound (combat.go, Task m34): the declare-blockers round's
-		// defender list and cursor, plain-value state like the mulligan round.
-		// The order slice itself is never mutated (askBlockers only advances
-		// the cursor), so sharing it between a clone and its original is safe,
-		// the same reference-sharing Clone already practises for
-		// orderedTriggers.
-		blockerRound: e.blockerRound,
-		// unblockedRoundChecked (engine.go): the plain-value per-combat latch
-		// of the declare-blockers round-complete trigger walk.
-		unblockedRoundChecked: e.unblockedRoundChecked,
-		// exertAskState (combat.go, task exert1): the exert election's offer
-		// list and cursor, the same plain-value class as blockerRound -- the
-		// offers slice is never mutated, so sharing the reference is safe.
-		exertAskState: e.exertAskState,
-		// enlistAskState (enlist.go, task enlist1): the enlist election's
-		// declaration, offer list and cursor, the same plain-value class as
-		// exertAskState -- the slices are never mutated, so sharing the
-		// references is safe.
-		enlistAskState: e.enlistAskState,
-		// stationing (station.go): the plain-value spacecraft a pending
-		// Station tap pick belongs to; zero whenever none is outstanding.
-		stationing: e.stationing,
-		// combatRound (combat.go, Task jj-cmb): the combat damage step's
-		// pass/division continuation state. The queue, answered divisions
-		// and the pending ask's option-split table are all written in place
-		// as a pass progresses (handleDamageDivision, askNextDivision), so a
-		// clone must own its own copies -- the cast/pendingTriggers class,
-		// not the blockerRound share class.
-		combatRound: cloneCombatRound(e.combatRound),
-		// pregame / mulligan (rules/mulligan.go, engine.go): the London
-		// round's own state. Both are documented on the Engine as fields
-		// Clone copies, and neither was here — so a clone taken between the
-		// opening deal and turn 1 came back with the round not running and a
-		// zero mulliganRound, and re-submitting the recorded mulligan intent
-		// found no seat in mulligan.seats and indexed kept[-1]. That is the
-		// exact path host.viewAt takes (clone a snapshot, re-Submit the
-		// intents), so every view?seq= inside the mulligan window 500'd.
-		// The three slices are re-allocated, not shared: kept and taken are
-		// written in place, so this is the cast/pendingTriggers class, not
-		// the blockerRound class above.
-		pregame:  e.pregame,
-		mulligan: cloneMulligan(e.mulligan),
-		opening:  cloneOpening(e.opening),
-		// coloring / colorRound / mulligans (rules/commander_color.go): the
-		// CR 903.4b pregame colour round's state and the carried Mulligans
-		// limit. colorRound.asks is never mutated (only the cursor advances),
-		// so sharing the reference is safe -- the blockerRound class.
-		coloring:   e.coloring,
-		colorRound: e.colorRound,
-		// tossChoice (rules/starting_player_choice.go) is CR 103.1's pending
-		// winner-chooses ask: a plain value (no slices, no closure), so the
-		// blockerRound share class -- Clone copies it directly, and a clone
-		// taken while the ask is outstanding re-poses the same decision for
-		// the same winner. host.viewAt clones a snapshot and re-Submits the
-		// intents, so the choice must survive like the mulligan round does.
-		tossChoice: e.tossChoice,
-		// oppSel (rules/stack.go) is the TargetingPlayer$ Opponent selection
-		// ask's flow record -- plain scalars like tossChoice, so it is copied
-		// the same way: a clone taken while the which-opponent ask is
-		// outstanding re-poses the same selection.
-		oppSel: e.oppSel,
-		// oppPicksMid (rules/stack.go) is the effects-tier answered-selection
-		// store, keyed by SA line. Re-allocated (not shared) so the two
-		// engines' next reads cannot collide.
-		oppPicksMid: cloneOppPicksMid(e.oppPicksMid),
-		// tpCtlChooser (rules/stack.go) is the TargetingPlayerControls$
-		// answered-ask record, keyed by the resolving stack object. Plain
-		// struct values, re-allocated like oppPicksMid so a clone taken
-		// between the answer and the CR 608.2b recheck still sees the seat
-		// that answered.
-		tpCtlChooser:      cloneTpCtlChooser(e.tpCtlChooser),
+		G:                 e.G.CloneInto(sp.objs),
+		deckManifests:     cloneDeckManifests(e.deckManifests),
+		L:                 e.L.CloneInto(sp.events, sp.intents),
+		compiledText:      e.compiledText,
+		landTypeWords:     e.landTypeWords,
+		format:            e.format,
+		rng:               e.rng.clone(),
 		mulligans:         e.mulligans,
 		windowDiagnostics: e.windowDiagnostics,
 		startingLife:      e.startingLife,
-		// E2 held-out cast suppression (cast.go): the set of card ids whose
-		// cast option is held out of the current window after an unpayable
-		// decline. A clone taken at any intent boundary carries it forward so
-		// a cloned engine offers exactly the same cast options the original
-		// would (a declined card stays held out until a state change
-		// re-enables it, in both engines alike). It is a plain map of object
-		// ids, so it must be re-allocated, not shared.
-		suppressedCast: cloneSuppressed(e.suppressedCast),
-		// The inert backstop's held-out priority options
-		// (rules/priority_guard.go): the suppressedCast class and lifetime,
-		// so a clone offers exactly the window the original would.
-		inertHeldOut: cloneInertHeldOut(e.inertHeldOut),
-		// F05-2 per-card no-progress count (engine.go), carried alongside the
-		// held-out set for the same reason: a clone taken at an intent
-		// boundary must count a card's no-progress aborts exactly as the
-		// live engine does, or a clone would offer (or hold out) a cast the
-		// original would not. Same map-of-scalars class, so re-allocated, not
-		// shared.
-		castAborts:     cloneAbortCounts(e.castAborts),
-		suspendedCasts: append([]state.ObjID(nil), e.suspendedCasts...),
-		defeatedCasts:  append([]state.ObjID(nil), e.defeatedCasts...),
 		// The livelock watcher (rules/livelock.go): carry the Config-given
 		// guard thresholds, reset the observation state. A clone only happens
 		// at an intent boundary -- the only moment these fields are not being
 		// written -- where the watcher holds no in-flight run or quiet count
 		// worth carrying, so a fresh watcher over the same thresholds is a
 		// faithful copy.
-		loop: newLivelockWatcherFromGuard(e.loop.guard, sp.loopSigs, sp.loopRecent),
-		// setname.go's layer-3 rename table and its genesis-time gate. The
-		// clone's board is identical at the clone boundary, so the table is
-		// carried with its (epoch, version) key rather than rebuilt -- but as
-		// a fresh slice, never the original's backing array, so the two
-		// engines' next refreshes cannot write over each other. This is what
-		// keeps a clone's name filters reading the CLONE's board once the two
-		// diverge (setname_filter_scope_test.go).
-		renames:       append([]effects.ObjectName(nil), e.renames...),
-		renameEpoch:   e.renameEpoch,
-		renameVersion: e.renameVersion,
+		loop:          newLivelockWatcherFromGuard(e.loop.guard, sp.loopSigs, sp.loopRecent),
 		setNameInPool: e.setNameInPool,
-		// layer4types.go's layer-4 derived-type table and its genesis-time
-		// gate, carried with its (epoch, version) key for the same reason: the
-		// clone's board is identical at the clone boundary, and a fresh slice
-		// (never the original's backing array) keeps the two engines' next
-		// refreshes from writing over each other, so a clone's type filters
-		// read the CLONE's board once the two diverge.
-		layer4Types:  append([]effects.ObjectTypes(nil), e.layer4Types...),
-		typesEpoch:   e.typesEpoch,
-		typesVersion: e.typesVersion,
-		typesObjs:    e.typesObjs,
-		layer4InPool: e.layer4InPool,
-		// layer4types.go's INCREMENTAL state (typesIncrReady/typesSelfOnly/
-		// typesSrcs/typesMayDiffer/typesTouch/typesAct/typesVisited and the
-		// staticsProbe* cache) is deliberately NOT copied, with the
-		// activeEpoch precedent: all of it is zero in the fresh struct, so
-		// the clone's first real rebuild takes the whole-board path and
-		// repopulates the incremental state from the clone's own board, and
-		// the probe cache re-probes it. The carried table + key above stays
-		// valid for the key hits in between (the clone's board is identical
-		// at the boundary).
+		layer4InPool:  e.layer4InPool,
 	}
+	// The per-turn ledger cluster (engine_turnledger.go) is one clone
+	// class: every member is copied as a fresh slice so a clone owns its
+	// own ledgers; the detail lives on cloneTurnLedger.
+	c.engineTurnLedger = cloneTurnLedger(e.engineTurnLedger)
+	c.orderedTriggers = e.orderedTriggers
+	c.applyingReplacement = e.applyingReplacement
+	c.choosing = e.choosing
+	c.untapChoiceObj = e.untapChoiceObj
+	c.drainAwaitsTarget = e.drainAwaitsTarget
+	c.drainAwaitsModes = e.drainAwaitsModes
+	c.deferCastTrigger = e.deferCastTrigger
+	// blockerRound (combat.go, Task m34): the declare-blockers round's
+	// defender list and cursor, plain-value state like the mulligan round.
+	// The order slice itself is never mutated (askBlockers only advances
+	// the cursor), so sharing it between a clone and its original is safe,
+	// the same reference-sharing Clone already practises for
+	// orderedTriggers.
+	c.blockerRound = e.blockerRound
+	// unblockedRoundChecked (engine.go): the plain-value per-combat latch
+	// of the declare-blockers round-complete trigger walk.
+	c.unblockedRoundChecked = e.unblockedRoundChecked
+	// exertAskState (combat.go, task exert1): the exert election's offer
+	// list and cursor, the same plain-value class as blockerRound -- the
+	// offers slice is never mutated, so sharing the reference is safe.
+	c.exertAskState = e.exertAskState
+	// enlistAskState (enlist.go, task enlist1): the enlist election's
+	// declaration, offer list and cursor, the same plain-value class as
+	// exertAskState -- the slices are never mutated, so sharing the
+	// references is safe.
+	c.enlistAskState = e.enlistAskState
+	// stationing (station.go): the plain-value spacecraft a pending
+	// Station tap pick belongs to; zero whenever none is outstanding.
+	c.stationing = e.stationing
+	// combatRound (combat.go, Task jj-cmb): the combat damage step's
+	// pass/division continuation state. The queue, answered divisions
+	// and the pending ask's option-split table are all written in place
+	// as a pass progresses (handleDamageDivision, askNextDivision), so a
+	// clone must own its own copies -- the cast/pendingTriggers class,
+	// not the blockerRound share class.
+	c.combatRound = cloneCombatRound(e.combatRound)
+	// pregame / mulligan (rules/mulligan.go, engine.go): the London
+	// round's own state. Both are documented on the Engine as fields
+	// Clone copies, and neither was here — so a clone taken between the
+	// opening deal and turn 1 came back with the round not running and a
+	// zero mulliganRound, and re-submitting the recorded mulligan intent
+	// found no seat in mulligan.seats and indexed kept[-1]. That is the
+	// exact path host.viewAt takes (clone a snapshot, re-Submit the
+	// intents), so every view?seq= inside the mulligan window 500'd.
+	// The three slices are re-allocated, not shared: kept and taken are
+	// written in place, so this is the cast/pendingTriggers class, not
+	// the blockerRound class above.
+	c.pregame = e.pregame
+	c.mulligan = cloneMulligan(e.mulligan)
+	c.opening = cloneOpening(e.opening)
+	// coloring / colorRound / mulligans (rules/commander_color.go): the
+	// CR 903.4b pregame colour round's state and the carried Mulligans
+	// limit. colorRound.asks is never mutated (only the cursor advances),
+	// so sharing the reference is safe -- the blockerRound class.
+	c.coloring = e.coloring
+	c.colorRound = e.colorRound
+	// tossChoice (rules/starting_player_choice.go) is CR 103.1's pending
+	// winner-chooses ask: a plain value (no slices, no closure), so the
+	// blockerRound share class -- Clone copies it directly, and a clone
+	// taken while the ask is outstanding re-poses the same decision for
+	// the same winner. host.viewAt clones a snapshot and re-Submits the
+	// intents, so the choice must survive like the mulligan round does.
+	c.tossChoice = e.tossChoice
+	// oppSel (rules/stack.go) is the TargetingPlayer$ Opponent selection
+	// ask's flow record -- plain scalars like tossChoice, so it is copied
+	// the same way: a clone taken while the which-opponent ask is
+	// outstanding re-poses the same selection.
+	c.oppSel = e.oppSel
+	// oppPicksMid (rules/stack.go) is the effects-tier answered-selection
+	// store, keyed by SA line. Re-allocated (not shared) so the two
+	// engines' next reads cannot collide.
+	c.oppPicksMid = cloneOppPicksMid(e.oppPicksMid)
+	// tpCtlChooser (rules/stack.go) is the TargetingPlayerControls$
+	// answered-ask record, keyed by the resolving stack object. Plain
+	// struct values, re-allocated like oppPicksMid so a clone taken
+	// between the answer and the CR 608.2b recheck still sees the seat
+	// that answered.
+	c.tpCtlChooser = cloneTpCtlChooser(e.tpCtlChooser)
+	// E2 held-out cast suppression (cast.go): the set of card ids whose
+	// cast option is held out of the current window after an unpayable
+	// decline. A clone taken at any intent boundary carries it forward so
+	// a cloned engine offers exactly the same cast options the original
+	// would (a declined card stays held out until a state change
+	// re-enables it, in both engines alike). It is a plain map of object
+	// ids, so it must be re-allocated, not shared.
+	c.suppressedCast = cloneSuppressed(e.suppressedCast)
+	// The inert backstop's held-out priority options
+	// (rules/priority_guard.go): the suppressedCast class and lifetime,
+	// so a clone offers exactly the window the original would.
+	c.inertHeldOut = cloneInertHeldOut(e.inertHeldOut)
+	// F05-2 per-card no-progress count (engine.go), carried alongside the
+	// held-out set for the same reason: a clone taken at an intent
+	// boundary must count a card's no-progress aborts exactly as the
+	// live engine does, or a clone would offer (or hold out) a cast the
+	// original would not. Same map-of-scalars class, so re-allocated, not
+	// shared.
+	c.castAborts = cloneAbortCounts(e.castAborts)
+	c.suspendedCasts = append([]state.ObjID(nil), e.suspendedCasts...)
+	c.defeatedCasts = append([]state.ObjID(nil), e.defeatedCasts...)
+	// setname.go's layer-3 rename table and its genesis-time gate. The
+	// clone's board is identical at the clone boundary, so the table is
+	// carried with its (epoch, version) key rather than rebuilt -- but as
+	// a fresh slice, never the original's backing array, so the two
+	// engines' next refreshes cannot write over each other. This is what
+	// keeps a clone's name filters reading the CLONE's board once the two
+	// diverge (setname_filter_scope_test.go).
+	c.renames = append([]effects.ObjectName(nil), e.renames...)
+	c.renameEpoch = e.renameEpoch
+	c.renameVersion = e.renameVersion
+	// layer4types.go's layer-4 derived-type table and its genesis-time
+	// gate, carried with its (epoch, version) key for the same reason: the
+	// clone's board is identical at the clone boundary, and a fresh slice
+	// (never the original's backing array) keeps the two engines' next
+	// refreshes from writing over each other, so a clone's type filters
+	// read the CLONE's board once the two diverge.
+	c.layer4Types = append([]effects.ObjectTypes(nil), e.layer4Types...)
+	c.typesEpoch = e.typesEpoch
+	c.typesVersion = e.typesVersion
+	c.typesObjs = e.typesObjs
 	if e.etbMove != nil {
 		ev := *e.etbMove
 		c.etbMove = &ev
@@ -1191,6 +1192,7 @@ func cloneResume(rp *resumePoint) *resumePoint {
 	// the resumed Ctx re-binds; the clone owns its own copy.
 	cp.genericChoosers = append([]state.Target(nil), rp.genericChoosers...)
 	cp.genericRemembered = append([]state.Target(nil), rp.genericRemembered...)
+	cp.numberPicks = append([]int32(nil), rp.numberPicks...)
 	cp.tokenRest = rp.tokenRest.Clone()
 	if rp.repeat != nil {
 		cur := *rp.repeat
@@ -1225,6 +1227,7 @@ func cloneDecision(p *decision.Decision) *decision.Decision {
 	d.ResumeVillainousIndex = p.ResumeVillainousIndex
 	d.ResumeGenericChoosers = append([]state.Target(nil), p.ResumeGenericChoosers...)
 	d.ResumeGenericChooserIndex = p.ResumeGenericChooserIndex
+	d.ResumeNumberPicks = append([]int32(nil), p.ResumeNumberPicks...)
 	d.ResumeTargetsUnique = append([]state.Target(nil), p.ResumeTargetsUnique...)
 	d.ResumeDigPrimary = append([]state.ObjID(nil), p.ResumeDigPrimary...)
 	return &d

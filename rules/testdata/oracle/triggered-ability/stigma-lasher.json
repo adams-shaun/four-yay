@@ -1,0 +1,27 @@
+{
+  "card": "Stigma Lasher",
+  "family": "triggered-ability",
+  "oracle_sha": "07bd20d3ec9f",
+  "author": "agent-20261001T015343Z-568c6ced (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "combat-damage-locks-the-damaged-player-out-of-lifegain",
+      "cr": ["603.2", "121.6", "614.1"],
+      "why": "Stigma Lasher's combat damage to p1 fires its DamageDone ability, whose Effect carries RememberObjects$ TriggeredTarget -- the damaged player (CR 121.6: the remembered player rides the trigger into the Effect). The registered CantGainLife static's Player.IsRemembered clause then replaces p1's Revitalize gain (CR 614.1) with nothing, so p1 stays at 18; the only life movement is Lasher's 2 combat damage.",
+      "setup": {
+        "p0": {"battlefield": ["Stigma Lasher"]},
+        "p1": {"hand": ["Revitalize"]}
+      },
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:Stigma Lasher"], "defender": "p1"},
+        {"op": "pass_to", "step": "main2", "active": "p0"},
+        {"op": "pass_to", "step": "main1", "active": "p1"},
+        {"op": "cast", "seat": 1, "card": "p1:Revitalize", "mana": "CW"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 20, "p1": 18}}
+      ]
+    }
+  ]
+}

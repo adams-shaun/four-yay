@@ -1,0 +1,39 @@
+{
+  "card": "Elvish Archdruid",
+  "family": "conditional-static",
+  "oracle_sha": "46dc22c90f73",
+  "author": "cli-20261001T012353Z-c0654344 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "other-elf-gets-plus-one",
+      "cr": ["613.1f"],
+      "why": "Other Elf creatures you control get +1/+1; a 1/1 Llanowar Elves is 2/2, but the Archdruid (itself an Elf) is excluded by \"other\" and stays 2/2.",
+      "setup": {
+        "p0": {"battlefield": ["Elvish Archdruid", "Llanowar Elves"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "pass"}
+      ],
+      "expect": [
+        {"card": "p0:Llanowar Elves", "pt": "2/2"},
+        {"card": "p0:Elvish Archdruid", "pt": "2/2"}
+      ]
+    },
+    {
+      "name": "non-elf-unaffected",
+      "cr": ["613.1f"],
+      "why": "A non-Elf creature gets no bonus from the Archdruid.",
+      "setup": {
+        "p0": {"battlefield": ["Elvish Archdruid", "Savannah Lions"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "pass"}
+      ],
+      "expect": [
+        {"card": "p0:Savannah Lions", "pt": "2/1"}
+      ]
+    }
+  ]
+}

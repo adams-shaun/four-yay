@@ -1,0 +1,48 @@
+{
+  "card": "Gift of Immortality",
+  "family": "etb-ltb",
+  "oracle_sha": "4f020c56cfd0",
+  "author": "cli-20260929T235020Z-c90601c7 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enchanted-creature-dies-returns",
+      "cr": ["603.6a", "610.3"],
+      "why": "When the enchanted creature dies, Gift of Immortality's trigger returns that card to the battlefield under its owner's control, so the creature does not stay in the graveyard.",
+      "setup": {
+        "p0": {"hand": ["Gift of Immortality"], "battlefield": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Gift of Immortality", "mana": "WWW", "targets": ["p0:Grizzly Bears"]},
+        {"op": "resolve"},
+        {"op": "move", "seat": 0, "card": "p0:Grizzly Bears", "to": "graveyard",
+         "expect": [{"trigger_on_stack": "p0:Gift of Immortality", "want": true}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "zone": "battlefield"}
+      ]
+    },
+    {
+      "name": "aura-returns-attached-at-end-step",
+      "cr": ["603.6a", "610.3", "513.1"],
+      "why": "After the creature returns, the delayed trigger returns Gift of Immortality to the battlefield attached to that creature at the beginning of the next end step.",
+      "setup": {
+        "p0": {"hand": ["Gift of Immortality"], "battlefield": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Gift of Immortality", "mana": "WWW", "targets": ["p0:Grizzly Bears"]},
+        {"op": "resolve"},
+        {"op": "move", "seat": 0, "card": "p0:Grizzly Bears", "to": "graveyard"},
+        {"op": "resolve"},
+        {"op": "pass_to", "step": "end"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Gift of Immortality", "zone": "battlefield"},
+        {"card": "p0:Grizzly Bears", "zone": "battlefield"}
+      ]
+    }
+  ]
+}

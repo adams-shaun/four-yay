@@ -501,6 +501,22 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 	return nil
 }
 
+// oracleActivateKind reports whether an option's Kind names an action the
+// `activate` scenario op may select. Besides the ordinary "ability" and the
+// engine's generic "activate" composite, the engine poses three special
+// actions under their own option kinds -- Station (rules/legal.go
+// "station"), Room unlock ("unlock") and morph-family turn face up
+// ("turn_face_up") -- each already offered and performed rules-side. A
+// scenario drives them through `activate` plus the option's label, exactly
+// as a named ability is driven; they are not a separate op.
+func oracleActivateKind(kind string) bool {
+	switch kind {
+	case "ability", "activate", "station", "unlock", "turn_face_up":
+		return true
+	}
+	return false
+}
+
 func oracleLabelMatches(label, want string) bool {
 	normalize := func(s string) string {
 		s = strings.ToLower(s)
@@ -828,7 +844,7 @@ func (r *oracleRun) do(st oracleStep) error {
 					fallback = o.Index
 				}
 			}
-			if st.Op == "activate" && (o.Kind == "ability" || o.Kind == "activate") {
+			if st.Op == "activate" && oracleActivateKind(o.Kind) {
 				if st.Ability == "" || oracleLabelMatches(o.Label, st.Ability) {
 					idx = o.Index
 					break
@@ -1022,6 +1038,15 @@ func (r *oracleRun) do(st oracleStep) error {
 			return err
 		}
 		return r.untilPriority("block")
+	case "pass":
+		// `pass` answers exactly one priority decision: the named seat must
+		// hold priority right now, or this fails loudly rather than silently
+		// passing someone else's priority (which `pass_to` does not check).
+		d, err := r.priorityFor(seat, st.Op)
+		if err != nil {
+			return err
+		}
+		return r.submit(d, []int{pickPass(d)}, "pass")
 	case "pass_to":
 		var want state.Step
 		if st.Step != "" {
@@ -1423,7 +1448,7 @@ func loadOracleFiles(t *testing.T) map[string]oracleFile {
 // holds every scenario file to it.
 var oracleOps = map[string]bool{
 	"mana": true, "cast": true, "activate": true, "play": true, "resolve": true,
-	"attack": true, "block": true, "pass_to": true, "move": true, "life": true,
+	"attack": true, "block": true, "pass": true, "pass_to": true, "move": true, "life": true,
 }
 
 // TestOracleScenarioFilesWellFormed needs no corpus, so it runs where the

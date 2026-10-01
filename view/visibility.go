@@ -98,12 +98,12 @@ func ProjectForControlledFor(g *state.Game, ch Chars, viewer state.PlayerID, vis
 	}
 	switch vis {
 	case Public:
-		v := project(g, ch, NoSeat, nil, false, nil)
+		v := project(g, ch, NoSeat, nil, false, nil, false)
 		v.Viewer = viewer
 		v.Visibility = vis.String()
 		return v
 	case Omniscient:
-		v := project(g, ch, viewer, nil, true, nil)
+		v := project(g, ch, viewer, nil, true, nil, false)
 		if g != nil {
 			for i := range v.Players {
 				p := &g.Players[i]
@@ -116,7 +116,7 @@ func ProjectForControlledFor(g *state.Game, ch Chars, viewer state.PlayerID, vis
 		v.Visibility = vis.String()
 		return v
 	default:
-		v := project(g, ch, viewer, d, false, visSet)
+		v := project(g, ch, viewer, d, false, visSet, true)
 		v.Visibility = Seat.String()
 		if vis == Seat && g != nil && int(viewer) < len(g.Players) && ch != nil {
 			v.OwnDeck = ch.OwnDeck(viewer)

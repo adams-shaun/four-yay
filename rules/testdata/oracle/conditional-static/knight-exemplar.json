@@ -1,0 +1,41 @@
+{
+  "card": "Knight Exemplar",
+  "family": "conditional-static",
+  "oracle_sha": "6aed6a335f5e",
+  "author": "cli-20261001T022457Z-f0c31bb6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "other-knights-get-plus-one-and-indestructible",
+      "cr": ["611.1", "702.12b"],
+      "why": "Other Knight creatures you control get +1/+1 and have indestructible: Black Knight (2/2 with first strike) is 3/3 and survives Lightning Bolt's 3 damage with 3 marked damage; the Exemplar itself is not affected (still 2/2).",
+      "setup": {
+        "p0": {"battlefield": ["Knight Exemplar", "Black Knight"], "hand": ["Lightning Bolt"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p0:Black Knight"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Black Knight", "zone": "battlefield", "pt": "3/3", "damage": 3},
+        {"card": "p0:Knight Exemplar", "zone": "battlefield", "pt": "2/2"}
+      ]
+    },
+    {
+      "name": "without-the-exemplar-the-bolt-kills",
+      "cr": ["611.1", "702.12b"],
+      "why": "Control: with no Knight Exemplar in play, Black Knight is a plain 2/2 with no indestructible, so the same Lightning Bolt destroys it.",
+      "setup": {
+        "p0": {"battlefield": ["Black Knight"], "hand": ["Lightning Bolt"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p0:Black Knight"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Black Knight", "zone": "graveyard"}
+      ]
+    }
+  ]
+}

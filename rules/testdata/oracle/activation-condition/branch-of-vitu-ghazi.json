@@ -1,0 +1,22 @@
+{
+  "card": "Branch of Vitu-Ghazi",
+  "family": "activation-condition",
+  "author": "cli-20260930T004423Z-d42d9d4e (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "disguise-cast-offered-with-three-mana",
+      "cr": ["702.168a", "601.2"],
+      "why": "A land printed with disguise may be cast face down for {3} as a 2/2 creature with ward {2}; with three mana available the cast is offered.",
+      "setup": {"p0": {"hand": ["Branch of Vitu-Ghazi"], "battlefield": ["Forest", "Forest", "Forest"]}},
+      "steps": [{"op": "mana", "seat": 0, "mana": "CCC"}],
+      "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Branch of Vitu-Ghazi"}, "want": true}]
+    },
+    {
+      "name": "disguise-not-offered-without-mana",
+      "cr": ["601.2h"],
+      "why": "The face-down cast costs {3}; without mana the cast is not offered.",
+      "setup": {"p0": {"hand": ["Branch of Vitu-Ghazi"]}},
+      "expect": [{"offered": {"seat": 0, "kind": "cast", "card": "p0:Branch of Vitu-Ghazi"}, "want": false}]
+    }
+  ]
+}

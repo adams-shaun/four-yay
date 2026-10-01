@@ -4,9 +4,11 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -38,30 +40,58 @@ var measuredLegalActionKinds = []string{
 	"specialize", "station", "turn_face_up", "unlock",
 }
 
-// legalActionsPricedKinds parses rules/legal.go and returns every option Kind
-// the shared legalActionsWalkWithWindow body can emit: a `Kind: "<lit>"` field
-// of a composite literal, the literal first argument of the walk's local
-// add(kind, ...) closure, and any `<x>.Kind = "<lit>"` assignment. A Kind the
-// walk computes (anything but the add closure's own `kind` parameter) fails
-// the test: the ratchet only works while every emitted kind is a literal it can read.
+// legalActionsPricedKinds parses the legal.go walk family -- the entry body
+// in legal.go (the one (*Engine) method that constructs the legalWalk
+// walker) plus every (*legalWalk) *Walk section method in legal_walk*.go,
+// which the entry calls in order -- and returns every option Kind the walk
+// can emit: a `Kind: "<lit>"` field of a composite literal, the literal first
+// argument of the walk's add(kind, ...) closure (the entry's local one and
+// the sections' legalWalk.add binding), and any `<x>.Kind = "<lit>"`
+// assignment. A Kind the walk computes (anything but the add closure's own
+// `kind` parameter) fails the test: the ratchet only works while every
+// emitted kind is a literal it can read.
 func legalActionsPricedKinds(t *testing.T) []string {
 	t.Helper()
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "legal.go", nil, 0)
-	if err != nil {
-		t.Fatalf("parse rules/legal.go: %v", err)
+	files, err := filepath.Glob("legal*.go")
+	if err != nil || len(files) == 0 {
+		t.Fatalf("glob rules/legal*.go: %v (%d files)", err, len(files))
 	}
-	var body *ast.BlockStmt
-	for _, d := range f.Decls {
-		// legalActionsPriced delegates through legalActionsWalk to this
-		// shared body, which owns every emitted option kind.
-		if fn, ok := d.(*ast.FuncDecl); ok && fn.Recv != nil &&
-			fn.Name.Name == "legalActionsWalkWithWindow" {
-			body = fn.Body
+	fset := token.NewFileSet()
+	var bodies []*ast.BlockStmt
+	haveEntry := false
+	for _, name := range files {
+		f, perr := parser.ParseFile(fset, name, nil, 0)
+		if perr != nil {
+			t.Fatalf("parse rules/%s: %v", name, perr)
+		}
+		for _, d := range f.Decls {
+			fn, ok := d.(*ast.FuncDecl)
+			if !ok || fn.Body == nil || fn.Recv == nil {
+				continue
+			}
+			// legalActionsPriced delegates (legalActionsPriced ->
+			// legalActionsWalk -> the entry) to the method that constructs the
+			// legalWalk walker; its sections are the (*legalWalk) *Walk methods
+			// the entry calls (legal_walk*.go). The entry is found by that
+			// construction, never by name, so a rename of any walk method
+			// leaves this ratchet untouched.
+			recvName := ""
+			if star, ok := fn.Recv.List[0].Type.(*ast.StarExpr); ok {
+				if id, ok := star.X.(*ast.Ident); ok {
+					recvName = id.Name
+				}
+			}
+			if recvName == "Engine" && constructsLegalWalk(fn.Body) {
+				bodies = append(bodies, fn.Body)
+				haveEntry = true
+			}
+			if recvName == "legalWalk" && strings.HasSuffix(fn.Name.Name, "Walk") {
+				bodies = append(bodies, fn.Body)
+			}
 		}
 	}
-	if body == nil {
-		t.Fatal("rules/legal.go has no (*Engine).legalActionsWalkWithWindow")
+	if !haveEntry {
+		t.Fatal("rules/legal*.go has no (*Engine) method constructing legalWalk; the shared walk entry moved or was restructured -- update legalActionsPricedKinds' entry detection")
 	}
 	seen := map[string]bool{}
 	lit := func(n ast.Expr, where string) {
@@ -82,31 +112,58 @@ func legalActionsPricedKinds(t *testing.T) []string {
 		}
 		t.Errorf("%s: legalActionsPriced emits a non-literal Kind at %s; classify it by hand", where, fset.Position(n.Pos()))
 	}
-	ast.Inspect(body, func(n ast.Node) bool {
-		switch x := n.(type) {
-		case *ast.KeyValueExpr:
-			if id, ok := x.Key.(*ast.Ident); ok && id.Name == "Kind" {
-				lit(x.Value, "Kind field")
-			}
-		case *ast.CallExpr:
-			if id, ok := x.Fun.(*ast.Ident); ok && id.Name == "add" && len(x.Args) > 0 {
-				lit(x.Args[0], "add(kind, ...)")
-			}
-		case *ast.AssignStmt:
-			for i, l := range x.Lhs {
-				if sel, ok := l.(*ast.SelectorExpr); ok && sel.Sel.Name == "Kind" && i < len(x.Rhs) {
-					lit(x.Rhs[i], "Kind assignment")
+	for _, body := range bodies {
+		ast.Inspect(body, func(n ast.Node) bool {
+			switch x := n.(type) {
+			case *ast.KeyValueExpr:
+				if id, ok := x.Key.(*ast.Ident); ok && id.Name == "Kind" {
+					lit(x.Value, "Kind field")
+				}
+			case *ast.CallExpr:
+				var fname string
+				switch id := x.Fun.(type) {
+				case *ast.Ident:
+					fname = id.Name // the entry's local add closure
+				case *ast.SelectorExpr:
+					fname = id.Sel.Name // the sections' legalWalk.add method
+				}
+				if fname == "add" && len(x.Args) > 0 {
+					lit(x.Args[0], "add(kind, ...)")
+				}
+			case *ast.AssignStmt:
+				for i, l := range x.Lhs {
+					if sel, ok := l.(*ast.SelectorExpr); ok && sel.Sel.Name == "Kind" && i < len(x.Rhs) {
+						lit(x.Rhs[i], "Kind assignment")
+					}
 				}
 			}
-		}
-		return true
-	})
+			return true
+		})
+	}
 	out := make([]string, 0, len(seen))
 	for k := range seen {
 		out = append(out, k)
 	}
 	sort.Strings(out)
 	return out
+}
+
+// constructsLegalWalk reports whether body contains a CompositeLit of type
+// legalWalk -- the shape of the ONE place the engine builds the shared walk
+// walker (rules/legal.go, the body legalActionsPriced delegates to). Matching
+// the construction, not a method name, is what keeps this ratchet silent
+// across renames of the walk entry.
+func constructsLegalWalk(body *ast.BlockStmt) bool {
+	found := false
+	ast.Inspect(body, func(n ast.Node) bool {
+		if cl, ok := n.(*ast.CompositeLit); ok {
+			if id, ok := cl.Type.(*ast.Ident); ok && id.Name == "legalWalk" {
+				found = true
+			}
+		}
+		return true
+	})
+	return found
 }
 
 // TestPotentialActionsProjectsEveryPlayKind is the vocabulary ratchet: the

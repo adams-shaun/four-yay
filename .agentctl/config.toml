@@ -93,9 +93,21 @@ review_local_thinking = "high"
 # ladder's LAST chance ran on its weakest seat and exhausted straight into
 # human_needed. An escalated round now waits for a paid slot instead.
 escalation_local_fallback = false
-# 2026-09-24 (operator): off while seats.local is DeepSeek -- the probe would
-# hit deepinfra with the local key and hold every implementer as DOWN.
-local_endpoint_probe = false
+# 2026-09-29: true. The 2026-09-24 `false` was written while seats.local was
+# DeepSeek -- the probe would then have hit deepinfra with the local key and
+# held every implementer as DOWN. That premise is gone: [[tiers]] derives
+# `local` as the first unpaid implement tier, which is now the glm tier
+# (tiered dispatch slice 2), so the probe hits the local glm engine it exists
+# to watch. With it off, agentctl (daemon.py:52) substitutes `probe = lambda p:
+# True` and context.py:219 stops gating free-pool launches, so a down engine is
+# never seen: every launch runs, produces nothing, and journals one
+# provider_failure -- 87 in 30 minutes on 2026-09-29T23:1xZ. The probe
+# classifies 503 as DOWN (outcome.py:311), so on it holds the free pool
+# instead. This also restores parity with agentctl's canonical copy
+# (consumers/gorge/config.toml:54, true) and its golden
+# (tests/test_consumer_parity.py:150, assertTrue -- "daemon.py:209 always
+# probes").
+local_endpoint_probe = true
 # 2026-09-20 (operator): "stop taking all new tickets into local or paid jobs
 # until needs-human or blocked jobs are resolved". While any ticket sits in
 # human_needed, no `new` or `briefed` ticket starts; in-flight work still
@@ -111,7 +123,7 @@ hold_new_while_parked = false
 # work keeps advancing and drains the backlog. Measured that day: 22 waiting
 # behind the overflow rounds fresh tickets kept spawning. Needs agentctl pin
 # >= the commit that adds the key.
-hold_new_while_waiting_over = 5
+hold_new_while_waiting_over = 20
 # 2026-09-22 (operator): triage writes at most this many briefs ahead of the
 # implementers; no new triage launches while this many sit in `briefed`.
 triage_ahead = 100
@@ -169,6 +181,11 @@ inbox = true
 agent_tickets = true
 feedback_dir = "feedback"
 
+[intake.routes]
+# Cross-repository work is routed only through an explicit, operator-owned
+# alias. A seat may name this alias in Owner-Repo but never supplies a path.
+agentctl = "/home/sadams/projects/agentctl"
+
 # git_ops.py:27-37 (create_worktree), :58-67 (triage), :80-86 (node_modules),
 # :231-237 (TEST_HISTORY.md).
 [worktree]
@@ -178,45 +195,84 @@ hardlink = ["web/node_modules"]
 ignore_uncommitted = ["TEST_HISTORY.md"]
 
 # gates.py:114-148, in order; each gate's argv/timeout/env/cwd is gates.py:34-103.
+
+# 2026-09-29: the resource broker's gate bracket (design
+# docs/superpowers/specs/2026-09-29-reward-loop-and-seed-agent-design.md §3.2).
+# This gate runs FIRST and pauses every heavy and probe lease, so the whole
+# suite below runs without a training run or a sweep competing for memory --
+# two OOMs on 2026-09-27 were exactly that collision. The release half is
+# orchestrator.hooks:testheads_policy's gate-end call, and broker.sh expires an
+# abandoned flag after GATE_FLAG_TTL_S so a crashed tick cannot strand heavy
+# work paused. It cannot fail a landing: the script exits 0 whether or not any
+# lease exists.
+[[gates]]
+name = "broker gate-begin"
+cmd = ["scripts/broker.sh", "gate-begin"]
+timeout = 60
+# A gate runs in the seat's WORKTREE, whose own .ds4/reward is empty, so the
+# state dir is pinned to the main checkout where the leases actually live.
+env = { GORGE_REWARD_DIR = "/home/sadams/projects/gorge/.ds4/reward" }
+
+# 2026-09-30 (cli-20260930T021924Z-01e737bb): every go gate below now carries a
+# CPU ceiling alongside MemoryMax. Without one a single gate round burst to
+# 18-25 vCPU (go vet hit 766-1009%) on top of the training/sweep work on this
+# box. CPUQuota is the right knob: on go1.25+ the Go runtime reads the scope
+# cgroup's cpu.max at process start, so the quota caps GOMAXPROCS, go test/build
+# -p and the cgroup scheduler at once. AllowedCPUs does NOT (measured on this
+# box: CPUQuota=200% -> GOMAXPROCS 2, AllowedCPUs=0-3 -> GOMAXPROCS 32; both
+# exit 0 in a user scope). 400% matches the module gate's own -p=4; the serial
+# gates (CR conformance, TestHeads, make sim) get 200%, ample for -p=1.
+# GOMAXPROCS in env is the legible belt-and-braces for the parallel gates.
+
 [[gates]]
 name = "go build"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "go", "build", "./..."]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=400%", "go", "build", "./..."]
 timeout = 900
-env = { GOMEMLIMIT = "1GiB" }
+env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "4" }
 
 [[gates]]
 name = "go vet"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "go", "vet", "./..."]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=400%", "go", "vet", "./..."]
 timeout = 600
-env = { GOMEMLIMIT = "1GiB" }
+env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "4" }
 
 # The whole module, not just ./effects ./rules ./cards: a merge that broke
 # internal/searchprobe and internal/archtest passed the old core-only gate
-# (2026-09-19, fixed in bd0f399e). -p=2 + GOMEMLIMIT: parallel package test
+# (2026-09-19, fixed in bd0f399e). -p=4 + GOMEMLIMIT: parallel package test
 # binaries across worktrees have exhausted this box's memory before.
+#
+# GOMEMLIMIT raised 1536MiB -> 4GiB (2026-09-30, cli-20260930T022327Z). The
+# limit sat BELOW one package's live heap: `host` peaks ~5.2G RSS, so the
+# limiter forced continuous GC instead of capping memory. Measured, forced
+# fresh (`go test -count=1 ./host/`, the module gate's critical package):
+#   GOMEMLIMIT=1536MiB -> 67.6s wall, 640s user CPU, 5.2G maxRSS
+#   GOMEMLIMIT=4GiB    -> 49.6s wall, 271s user CPU, 4.7G maxRSS
+# The higher limit is faster AND lower-RSS; `seat`, `rules` and
+# spellbench/v2engine sit under 1.2G RSS and are unaffected by either value,
+# so no package that previously fit the 8G MemoryMax scope grows into it.
 [[gates]]
 name = "go test (module)"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "go", "test", "-p=1", "-skip", "^TestHeads$", "./..."]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=400%", "go", "test", "-p=4", "-skip", "^(TestHeads|TestInvariantsUnderSeedFuzz|TestLargeEliminationSweepDoesNotTripLivelockWatcher)$", "./..."]
 timeout = 1200
-env = { GOMEMLIMIT = "1GiB" }
+env = { GOMEMLIMIT = "4GiB", GOMAXPROCS = "4" }
 
 [[gates]]
 name = "CR conformance"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "go", "test", "-p=1", "./rules", "-run", "TestCR", "-v"]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=200%", "go", "test", "-p=1", "./rules", "-run", "TestCR", "-v"]
 timeout = 300
 env = { GORGE_CR_CONFORMANCE = "1", GOMEMLIMIT = "1GiB" }
 accept = "orchestrator.hooks:cr_no_fail_lines"
 
 [[gates]]
 name = "TestHeads"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "go", "test", "./rules", "-run", "TestHeads", "-v"]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=200%", "go", "test", "./rules", "-run", "TestHeads", "-v"]
 timeout = 120
 env = { GOMEMLIMIT = "1GiB" }
 blocking = false          # the TestHeads policy (hooks.testheads_policy) decides
 
 [[gates]]
 name = "make sim"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "make", "sim"]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=200%", "make", "sim"]
 timeout = 600
 env = { GOMEMLIMIT = "1GiB" }
 accept = "orchestrator.hooks:sim_all_replayed"
@@ -247,6 +303,9 @@ applies_diff_touches = "web/"
 name = "smoke"
 cmd = ["flock", "{orch_dir}/smoke.lock", "bash", "scripts/smoke.sh"]
 timeout = 1200
+# 8090-8099 is the shared task-server allocation and presently has only four
+# free ports.  This private gate farm needs five; keep it out of that pool.
+env = { SMOKE_PORT_LO = "8100", SMOKE_PORT_HI = "8199" }
 applies_diff_touches = "web/"
 
 # Bookkeeping gate failures go to the REVIEWER seat in mechanical-fix mode
@@ -276,6 +335,7 @@ patterns = [
 
 # daemon.py:869-921; git_ops.py:205-216.
 [landing]
+staging_worktree = true
 strategy = "merge-push"
 remote = "origin"
 push = true

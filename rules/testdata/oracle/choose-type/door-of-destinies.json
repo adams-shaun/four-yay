@@ -1,0 +1,47 @@
+{
+  "card": "Door of Destinies",
+  "family": "choose-type",
+  "oracle_sha": "1caf4f8b7c66",
+  "author": "cli-20261001T014438Z-51ea329c (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "chosen-goblin-pump-applies-to-goblins-only",
+      "cr": ["614.12", "603.6a", "613.4c"],
+      "why": "Choosing Goblin as it enters: casting Goblin Guide adds a charge counter, and creatures I control of the chosen type get +1/+1 per charge counter, so Goblin Guide is 3/3 while Grizzly Bears stays 2/2.",
+      "setup": {
+        "p0": {"hand": ["Door of Destinies", "Goblin Guide"], "battlefield": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Door of Destinies", "mana": "CCCC"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["Goblin"]}]},
+        {"op": "cast", "seat": 0, "card": "p0:Goblin Guide", "mana": "R"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Door of Destinies", "zone": "battlefield", "counters": {"charge": 1}},
+        {"card": "p0:Goblin Guide", "pt": "3/3"},
+        {"card": "p0:Grizzly Bears", "pt": "2/2"}
+      ]
+    },
+    {
+      "name": "no-spell-of-chosen-type-keeps-the-door-empty",
+      "cr": ["614.12", "603.6a"],
+      "why": "With Bear chosen, casting Goblin Guide is not a spell of the chosen type, so no charge counter is added and Goblin Guide stays 2/2 while the Door still pumps Bears it controls",
+      "setup": {
+        "p0": {"hand": ["Door of Destinies", "Goblin Guide"], "battlefield": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Door of Destinies", "mana": "CCCC"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["Bear"]}]},
+        {"op": "cast", "seat": 0, "card": "p0:Goblin Guide", "mana": "R"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Door of Destinies", "zone": "battlefield", "counters": {"charge": 0}},
+        {"card": "p0:Goblin Guide", "pt": "2/2"}
+      ]
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { afterEach } from 'vitest';
-import { decksURL, eventsURL, matchesURL, pendingURL, seatQuery, tablesURL, undoURL, viewURL, fetchView, fetchEvents, fetchPending, fetchDecks, postIntent, postUndo, subscribe, createGame } from './api';
+import { deckStatsURL, fetchDeckStats, decksURL, eventsURL, matchesURL, pendingURL, seatQuery, tablesURL, undoURL, viewURL, fetchView, fetchEvents, fetchPending, fetchDecks, postIntent, postUndo, subscribe, createGame } from './api';
 import { setBasePathForTests, withBase } from './basepath';
 import type { Intent } from '../protocol';
 
@@ -15,6 +15,7 @@ describe('api urls', () => {
   it('builds the documented paths', () => {
     expect(tablesURL()).toBe('/api/tables');
     expect(decksURL()).toBe('/api/decks');
+    expect(deckStatsURL()).toBe('/api/stats/decks');
     expect(matchesURL('t1')).toBe('/api/tables/t1/matches');
     expect(viewURL('t1', 3)).toBe('/api/tables/t1/matches/3/view');
     expect(viewURL('t1', 3, 0)).toBe('/api/tables/t1/matches/3/view?seq=0');
@@ -196,5 +197,15 @@ describe('state-channel request deadline', () => {
     const pending = { seq: 4, player: 2, kind: 'priority', prompt: 'p', min: 1, max: 1, options: [] };
     fetchMock.mockResolvedValueOnce({ ok: true, json: async () => pending });
     await expect(fetchPending('t1', 3, ctx)).resolves.toEqual(pending);
+  });
+});
+
+describe('fetchDeckStats', () => {
+  it('GETs the public deck leaderboard', async () => {
+    fetchMock.mockReset();
+    const tally = { decks: [{ deck: 'A', games: 10, wins: 6, losses: 4, draws: 0, win_rate: 0.6 }], min_games: 10, matches_counted: 5 };
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => tally });
+    await expect(fetchDeckStats()).resolves.toEqual(tally);
+    expect(fetchMock).toHaveBeenLastCalledWith('/api/stats/decks', expect.objectContaining({ headers: expect.objectContaining({ Accept: 'application/json' }) }));
   });
 });

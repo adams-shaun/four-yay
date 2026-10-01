@@ -1,0 +1,42 @@
+{
+  "card": "Ragged Short Spear",
+  "family": "equipment",
+  "oracle_sha": "d142e5d712f5",
+  "author": "cli-20261001T014438Z-51ea329c (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "equip-gives-plus-two-plus-zero",
+      "cr": ["301.5a", "613.4c"],
+      "why": "The equip ability attaches the Spear to Grizzly Bears, which gets +2/+0 and becomes 4/2.",
+      "setup": {
+        "p0": {"battlefield": ["Ragged Short Spear", "Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Ragged Short Spear", "mana": "CCC", "ability": "Equip", "targets": ["p0:Grizzly Bears"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "pt": "4/2"}
+      ]
+    },
+    {
+      "name": "enters-discard-draws-two",
+      "cr": ["603.6a", "701.8a", "121.1"],
+      "why": "Discarding a card to the optional enters trigger draws two cards, so the hand keeps the one card that was not discarded plus the two drawn.",
+      "setup": {
+        "p0": {"hand": ["Ragged Short Spear", "Grizzly Bears", "Forest"], "library_top": ["Island", "Mountain"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Ragged Short Spear", "mana": "CR"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["Discard 1 card"]}, {"kind": "any", "pick": ["p0:Grizzly Bears"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Ragged Short Spear", "zone": "battlefield"},
+        {"card": "p0:Grizzly Bears", "zone": "graveyard"},
+        {"hand_size": {"p0": 3}}
+      ]
+    }
+  ]
+}

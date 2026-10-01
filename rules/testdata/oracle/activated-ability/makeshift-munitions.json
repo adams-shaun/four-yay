@@ -1,0 +1,39 @@
+{
+  "card": "Makeshift Munitions",
+  "family": "activated-ability",
+  "oracle_sha": "9ac7d1522d4a",
+  "author": "cli-20261001T014438Z-51ea329c (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "sacrificing-a-creature-deals-one",
+      "cr": ["602.2", "701.16a", "120.3"],
+      "why": "The {1}, Sacrifice an artifact or creature ability sacrifices the Grizzly Bears as a cost and deals 1 damage to the chosen target (p1), so p1 drops to 19 and the Bears are in the graveyard.",
+      "setup": {
+        "p0": {"battlefield": ["Makeshift Munitions", "Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Makeshift Munitions", "mana": "C", "targets": ["p1"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "zone": "graveyard"},
+        {"card": "p0:Makeshift Munitions", "zone": "battlefield"},
+        {"life": {"p1": 19}}
+      ]
+    },
+    {
+      "name": "with-no-other-permanent-the-ability-is-not-offered",
+      "cr": ["602.2", "601.2h"],
+      "why": "The ability's additional cost sacrifices an artifact or creature, and with only the Munitions (an enchantment) on the battlefield the cost cannot be paid, so the activation is not offered.",
+      "setup": {
+        "p0": {"battlefield": ["Makeshift Munitions"]},
+        "p1": {}
+      },
+      "steps": [],
+      "expect": [
+        {"offered": {"seat": 0, "kind": "activate", "card": "p0:Makeshift Munitions", "label": "deals 1 damage"}, "want": false}
+      ]
+    }
+  ]
+}

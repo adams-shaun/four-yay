@@ -1,0 +1,44 @@
+{
+  "card": "Scavenging Ooze",
+  "family": "activated-ability",
+  "oracle_sha": "7f83c6a85820",
+  "author": "cli-20261001T012353Z-c0654344 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "exiling-a-creature-card-adds-counter-and-gains-life",
+      "cr": ["602.2a", "701.18a"],
+      "why": "Its {G} ability exiles a creature card from a graveyard, puts a +1/+1 counter on it and gains 1 life when the exiled card was a creature card.",
+      "setup": {
+        "p0": {"battlefield": ["Scavenging Ooze"]},
+        "p1": {"graveyard": ["Savannah Lions"]}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Scavenging Ooze", "ability": "Exile", "mana": "G", "targets": ["p1:Savannah Lions"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Savannah Lions", "zone": "exile"},
+        {"card": "p0:Scavenging Ooze", "counters": {"+1/+1": 1}, "pt": "3/3"},
+        {"life": {"p0": 21}}
+      ]
+    },
+    {
+      "name": "exiling-a-noncreature-no-counter-no-life",
+      "cr": ["602.2a"],
+      "why": "The counter and the 1 life are conditioned on the exiled card having been a creature card; exiling a land adds neither.",
+      "setup": {
+        "p0": {"battlefield": ["Scavenging Ooze"]},
+        "p1": {"graveyard": ["Forest"]}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Scavenging Ooze", "ability": "Exile", "mana": "G", "targets": ["p1:Forest"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Forest", "zone": "exile"},
+        {"card": "p0:Scavenging Ooze", "counters": {"+1/+1": 0}, "pt": "2/2"},
+        {"life": {"p0": 20}}
+      ]
+    }
+  ]
+}

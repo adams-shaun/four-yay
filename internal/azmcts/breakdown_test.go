@@ -1,6 +1,7 @@
 package azmcts
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -79,7 +80,7 @@ func TestSearchRecordsTheBreakdown(t *testing.T) {
 	bot := decision.Intent{Seq: 7, Player: 0, Choices: []int{0}}
 	cfg := testConfig(t, "mono-red-prowess", "mono-blue-tempo", testSeed)
 	e, _, _ := botPosition(t, cfg, decision.KPriority, 0, 2000)
-	res, err := Search(Root{Engine: e, Decision: d, Bot: bot, Observer: searchprobe.NewCollector(0)}, nil, nil, DefaultOptions())
+	res, err := Search(context.Background(), Root{Engine: e, Decision: d, Bot: bot, Observer: searchprobe.NewCollector(0)}, nil, nil, DefaultOptions())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +122,7 @@ func TestLeafErrorDiscardsTheSimulation(t *testing.T) {
 	root := &Point{Keys: []Key{"a", "b"}, Prior: []float64{0.5, 0.5}}
 	for _, failFrom := range []int{1, 2} {
 		var st Stats
-		res, err := RunTree(root, leafSource{env: &leafEnv{failFrom: failFrom}}, treeOpts(3), &st)
+		res, err := RunTree(context.Background(), root, leafSource{env: &leafEnv{failFrom: failFrom}}, treeOpts(3), &st)
 		if err != nil {
 			t.Fatal(err)
 		}

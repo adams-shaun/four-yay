@@ -29,6 +29,11 @@ type Deck struct {
 	Name      string
 	Cards     []*cards.Card
 	Sideboard []*cards.Card
+	// Archetype is the deck file's authoring archetype (deck.File.Archetype),
+	// "" when it declares none. The loader carries it so a seat's own prior
+	// rides rules.Config.Archetypes into deck.Manifest and reaches
+	// view.View.OwnDeck. It never reaches an event.
+	Archetype string
 
 	Commanders []int
 }

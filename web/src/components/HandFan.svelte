@@ -7,6 +7,7 @@
   import CardImage from './CardImage.svelte';
   import CardDetail from './CardDetail.svelte';
   import { HoverCard, type AnchorRect } from '../lib/carddetail.svelte';
+  import { pointerRelease } from '../lib/pointer';
 
   /**
    * HandFan is the SEATED PLAYER'S OWN hand, drawn as real card faces along
@@ -200,7 +201,7 @@
            options badge + menu (each item posting its own index, R-E4-1),
            and the picked chip — adapted to the fan. -->
       {@const opt = options ? tileOptions(options, c.id) : null}
-      {@const payment = paymentActions.find((action) => action.cast.object === c.id && action.plans.length > 0)}
+      {@const payment = paymentActions.find((action) => action.cast.object === c.id)}
       {@const landPlay = opt?.list.find((action) => action.kind === 'play_land')}
       <!-- Auto Mana already supplies CAST for its matching base cast. Keep
            unrelated offers visible, but remove that exact legacy duplicate. -->
@@ -213,6 +214,7 @@
           data-selected={opt && opt.pickedOrder.length > 0 ? opt.pickedOrder.join(',') : undefined}
           tabindex="0"
           role="button"
+          use:pointerRelease
           onpointerenter={(e) => armFor(c, e.currentTarget)}
           onpointerleave={() => hover.close()}
           onfocus={(e) => openFor(c, e.currentTarget)}
@@ -238,6 +240,7 @@
                 class:selected={opt.pickedOrder.length > 0}
                 type="button"
                 data-single-action
+                use:pointerRelease
                 data-action-icon={icon}
                 aria-label={actionAccessibleLabel(action)}
                 title={actionAccessibleLabel(action)}
@@ -257,6 +260,7 @@
                   : `${legacyActions.length} actions for ${c.name}`}
                 title="Options for {c.name}"
                 data-action-icon={scenario?.icon}
+                use:pointerRelease
                 onclick={() => toggleCard(c.id)}
               >
                 {#if scenario}
@@ -272,7 +276,7 @@
               <ul class="menu" role="menu" aria-label="Options for {c.name}">
                 {#each legacyActions as o (o.index)}
                   <li role="none">
-                    <button class="menu__item" type="button" role="menuitem" onclick={(event) => opt.post(o.index, false, event.ctrlKey)}>
+                    <button class="menu__item" type="button" role="menuitem" use:pointerRelease onclick={(event) => opt.post(o.index, false, event.ctrlKey)}>
                       {o.label}
                     </button>
                   </li>
@@ -291,9 +295,9 @@
           <CardDetail card={c} anchor={anchor} />
         {/if}
         {#if payment}
-          <button class="payment-shortcut" type="button" data-payment-card={payment.id} aria-label={autoPay ? `Cast ${c.name} with suggested mana` : `Cast ${c.name}, then choose mana`} title={autoPay ? 'Cast with suggested mana' : 'Cast, then choose the mana to pay with'} onclick={(event) => onCastPayment?.(payment, event.ctrlKey)}>CAST</button>
+          <button class="payment-shortcut" type="button" data-payment-card={payment.id} use:pointerRelease aria-label={autoPay ? `Cast ${c.name} with suggested mana` : `Cast ${c.name}, then choose mana`} title={autoPay ? 'Cast with suggested mana' : 'Cast, then choose the mana to pay with'} onclick={(event) => onCastPayment?.(payment, event.ctrlKey)}>CAST</button>
         {:else if landPlay && opt}
-          <button class="payment-shortcut" type="button" data-play-land={landPlay.index} aria-label={landPlay.label} title={landPlay.label} onclick={(event) => opt.post(landPlay.index, false, event.ctrlKey)}>PLAY</button>
+          <button class="payment-shortcut" type="button" data-play-land={landPlay.index} use:pointerRelease aria-label={landPlay.label} title={landPlay.label} onclick={(event) => opt.post(landPlay.index, false, event.ctrlKey)}>PLAY</button>
         {/if}
       </div>
     {/each}

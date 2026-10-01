@@ -5,6 +5,7 @@
   import CardDetail from './CardDetail.svelte';
   import { HoverCard, type AnchorRect } from '../lib/carddetail.svelte';
   import OptionPicker from './OptionPicker.svelte';
+  import { pointerRelease } from '../lib/pointer';
 
   /**
    * One commander, drawn as a card in its seat's CREATURES row (CZ2) — a
@@ -170,6 +171,7 @@
   bind:this={root}
   tabindex="0"
   role="button"
+  use:pointerRelease
   title={description}
   aria-label={description}
   onpointerenter={() => hover.arm(card.id, capture)}

@@ -1,0 +1,29 @@
+{
+  "card": "Glimmer of Genius",
+  "family": "spell-conditional",
+  "oracle_sha": "5c9dca41090e",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "scry-two-then-draw-two-and-gain-two-energy",
+      "cr": ["701.18c", "701.18a", "122.1"],
+      "why": "Scrying 2 with no bins keeps both cards on top in their order, so drawing two puts exactly those cards in hand; the two gained energy counters then cover one of Dr. Madison Li's {E} pumps and, with an artifact cast, reach the three-energy Assembly Line activation.",
+      "setup": {
+        "p0": {"battlefield": ["Automated Assembly Line", "Dr. Madison Li"], "hand": ["Glimmer of Genius", "Bonesplitter"], "library_top": ["Lightning Bolt", "Mountain"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Glimmer of Genius", "mana": "CCCU",
+         "answers": [{"kind": "arrange", "pick": []}]},
+        {"op": "resolve"},
+        {"op": "cast", "seat": 0, "card": "p0:Bonesplitter", "mana": "C"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Lightning Bolt", "zone": "hand"},
+        {"card": "p0:Mountain", "zone": "hand"},
+        {"offered": {"seat": 0, "kind": "activate", "card": "p0:Automated Assembly Line", "label": "Robot"}, "want": true}
+      ]
+    }
+  ]
+}

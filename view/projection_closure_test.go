@@ -132,6 +132,18 @@ func TestViewMarshalsClosed(t *testing.T) {
 		// seat. The grant-gated reveal rules/static_grants_test.go pins the
 		// seat scoping end to end.
 		"library_top": true,
+		// library (own_library_list) IS a hidden-zone carrier — exactly the
+		// class this allowlist gates — admitted deliberately: it is the
+		// viewer's OWN library as an UNORDERED list, gated in project() on
+		// "is this the viewer's own seat" (widened by CR 720.4 to a seat the
+		// viewer controls), the same gate Hand takes. view.unorderedLibrary
+		// canonicalises it by name then object id, so the emitted order is a
+		// pure function of the CONTENTS and never preserves the secret library
+		// order; nil (omitempty) for every other seat and for a spectator, so
+		// the omniscient half below still carries no library key. The
+		// order-free projection is pinned end to end by
+		// view/own_library_test.go.
+		"library": true,
 		// potential_actions (rv2c) is DERIVED from the seat's own hidden zones
 		// (the legal-offer walk reads the seat's hand, command zone and
 		// graveyard), which is exactly why it is gated on "is this the
@@ -162,6 +174,15 @@ func TestViewMarshalsClosed(t *testing.T) {
 		// list, so it joins the public facts class here, never the hidden-zone
 		// class this test guards.
 		"has_initiative": true,
+		// archetype (task agent-20260930T000950Z-25c1cb85) is the per-opponent
+		// archetype posterior the obs checklist's opp_archetype_posterior fact
+		// names. It is DERIVED from the public battlefield/graveyard/exile/
+		// command card lists this projection already sends for that seat (the
+		// inferer reads no hidden zone and no card name -- a hidden hand is not
+		// a CardView at all), so it is a public-facts carrier, not a hidden-
+		// zone one. It is filled for every seat except the viewer's own and is
+		// nil when nothing classifiable is revealed (omitempty drops it).
+		"archetype": true,
 	})
 	// StackView is public (R3) so it is a lesser leak surface, but the
 	// reflection is the same shape and cheap, so it is pinned too. The two

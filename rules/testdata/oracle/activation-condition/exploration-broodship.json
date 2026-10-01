@@ -1,0 +1,41 @@
+{
+  "card": "Exploration Broodship",
+  "family": "activation-condition",
+  "oracle_sha": "f2caa1b6045e",
+  "author": "agent-20260930T005535Z-e82cd61a + cli-20260930T004423Z-d42d9d4e (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "station-puts-charge-counters-equal-to-tapped-creatures-power",
+      "cr": ["702.150", "702.150a", "116.2b"],
+      "why": "Station is a special action offered as its own option kind (\"station\"), not an ability activation. The scenario selects it through the activate op and asserts its effect: tapping a 2/2 puts two charge counters on the Spacecraft (CR 702.150a reads the tapped creature's power), and the tapped creature is tapped (the cost).",
+      "setup": {"p0": {"battlefield": ["Exploration Broodship", "Grizzly Bears"]}},
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Exploration Broodship",
+          "ability": "Station ",
+          "answers": [{"kind": "choose", "pick": ["Grizzly Bears"]}]
+        }
+      ],
+      "expect": [
+        {"card": "p0:Exploration Broodship", "counters": {"charge": 2}},
+        {"card": "p0:Grizzly Bears", "tapped": true}
+      ]
+    },
+    {
+      "name": "station-offered-with-another-creature",
+      "cr": ["702.150a", "602.2a"],
+      "why": "Station is an activated ability that taps another creature; with an untapped creature available it is offered as a sorcery during turn 1's first main phase.",
+      "setup": {"p0": {"battlefield": ["Exploration Broodship", "Grizzly Bears"]}},
+      "expect": [{"offered": {"seat": 0, "kind": "station", "card": "p0:Exploration Broodship", "label": "Station"}, "want": true}]
+    },
+    {
+      "name": "station-not-offered-without-another-creature",
+      "cr": ["702.150a"],
+      "why": "Station requires tapping ANOTHER creature; the Spacecraft alone (not a creature below 8 charge counters) has no legal tap candidate, so it is not offered.",
+      "setup": {"p0": {"battlefield": ["Exploration Broodship"]}},
+      "expect": [{"offered": {"seat": 0, "kind": "station", "card": "p0:Exploration Broodship"}, "want": false}]
+    }
+  ]
+}

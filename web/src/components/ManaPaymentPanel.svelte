@@ -5,6 +5,7 @@
   import {
     manaAmountText, manaOptionAccessibleName, manaOptionPips, manaSourceRows, owesNothing, paymentCostText, windowAction,
   } from '../lib/announcepay';
+  import { pointerRelease } from '../lib/pointer';
 
   /**
    * ManaPaymentPanel is the "select mana" prompt: the announced CR 601.2g
@@ -70,6 +71,7 @@
                 class:text={pips === null}
                 type="button"
                 data-option={o.index}
+                use:pointerRelease
                 aria-label={manaOptionAccessibleName(row.name, o)}
                 title={o.label}
                 disabled={busy}
@@ -86,16 +88,16 @@
 
   <div class="mp-actions">
     {#if autofill}
-      <button class="mp-act mp-fill" type="button" data-mp-autofill={autofill.index} title={autofill.label} disabled={busy} onclick={() => onPick(autofill.index)}><Digit n={digits?.get(autofill.index)} />{autofill.label}</button>
+      <button class="mp-act mp-fill" type="button" data-mp-autofill={autofill.index} use:pointerRelease title={autofill.label} disabled={busy} onclick={() => onPick(autofill.index)}><Digit n={digits?.get(autofill.index)} />{autofill.label}</button>
     {/if}
     {#if pay}
-      <button class="mp-act mp-fill" type="button" data-mp-pay={pay.index} disabled={busy} onclick={() => onPick(pay.index)}><Digit n={digits?.get(pay.index)} />{pay.label}</button>
+      <button class="mp-act mp-fill" type="button" data-mp-pay={pay.index} use:pointerRelease disabled={busy} onclick={() => onPick(pay.index)}><Digit n={digits?.get(pay.index)} />{pay.label}</button>
     {/if}
     {#if undo}
-      <button class="mp-act" type="button" data-mp-undo={undo.index} title={undo.label} disabled={busy} onclick={() => onPick(undo.index)}><Digit n={digits?.get(undo.index)} />Undo last tap</button>
+      <button class="mp-act" type="button" data-mp-undo={undo.index} use:pointerRelease title={undo.label} disabled={busy} onclick={() => onPick(undo.index)}><Digit n={digits?.get(undo.index)} />Undo last tap</button>
     {/if}
     {#if cancel}
-      <button class="mp-act mp-cancel" type="button" data-mp-cancel={cancel.index} disabled={busy} onclick={() => onPick(cancel.index)}><Digit n={digits?.get(cancel.index)} />Cancel cast</button>
+      <button class="mp-act mp-cancel" type="button" data-mp-cancel={cancel.index} use:pointerRelease disabled={busy} onclick={() => onPick(cancel.index)}><Digit n={digits?.get(cancel.index)} />Cancel cast</button>
     {/if}
   </div>
   {#if decision.payment_fallback}

@@ -1,0 +1,49 @@
+{
+  "card": "Hooded Hydra",
+  "family": "morph",
+  "oracle_sha": "11d04d21f330",
+  "author": "cli-20261001T022457Z-f0c31bb6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "turning-face-up-puts-five-counters",
+      "cr": ["702.37a", "708.2"],
+      "why": "Face-down cast is a plain 2/2 for {3}; 'As Hooded Hydra is turned face up, put five +1/+1 counters on it' -- the 0/0 hydra becomes a 5/5 with five counters.",
+      "setup": {
+        "p0": {"hand": ["Hooded Hydra"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Hooded Hydra", "cast_mode": "morphed", "mana": "CCC"},
+        {"op": "resolve"},
+        {"op": "mana", "seat": 0, "mana": "CCCGG"},
+        {"op": "activate", "seat": 0, "card": "p0:Hooded Hydra", "ability": "Turn face up"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Hooded Hydra", "zone": "battlefield", "pt": "5/5", "counters": {"+1/+1": 5}}
+      ]
+    },
+    {
+      "name": "dies-creates-a-snake-token-per-counter",
+      "cr": ["603.2", "700.6"],
+      "why": "When the 5/5 hydra dies it creates a 1/1 green Snake token for each of its five +1/+1 counters: five tokens on the battlefield, hydra in the graveyard.",
+      "setup": {
+        "p0": {"hand": ["Hooded Hydra", "Murder"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Hooded Hydra", "cast_mode": "morphed", "mana": "CCC"},
+        {"op": "resolve"},
+        {"op": "mana", "seat": 0, "mana": "CCCGG"},
+        {"op": "activate", "seat": 0, "card": "p0:Hooded Hydra", "ability": "Turn face up"},
+        {"op": "resolve"},
+        {"op": "cast", "seat": 0, "card": "p0:Murder", "mana": "CBB", "targets": ["p0:Hooded Hydra"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Hooded Hydra", "zone": "graveyard"},
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Snake", "token": true}, "eq": 5}
+      ]
+    }
+  ]
+}

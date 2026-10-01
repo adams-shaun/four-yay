@@ -92,18 +92,38 @@ const ACTIVATABLE = 'button, a[href], summary, [role="button"]';
 
 type Closest = { closest?: (sel: string) => { matches?: unknown } | null };
 
-/** focusOwnsKey reports whether the focused element, not the table, owns this key. */
-function focusOwnsKey(e: HotkeyEvent): boolean {
+/**
+ * FocusOwnership names WHY the focused element, not the table, owns a key:
+ * 'text-entry' is every key while typing; 'activatable-space-enter' is only
+ * Space and Enter on a button/link/summary/role=button, whose native
+ * activation owns them. It is exported so the suppression cue
+ * (lib/hotkeyhint.svelte) can tell a Space the player expected to pass from a
+ * keystroke that correctly went into a textbox — only the former is
+ * confusing and worth a hint. null means the table owns the key.
+ */
+export type FocusOwnership = 'text-entry' | 'activatable-space-enter';
+
+/**
+ * focusOwnership classifies why the target owns this key, or null when the
+ * table does. focusOwnsKey is derived from it, so the guard the grammar
+ * applies and the reason its callers report can never drift apart.
+ */
+export function focusOwnership(e: HotkeyEvent): FocusOwnership | null {
   const t = e.target as Closest | null | undefined;
-  if (!t || typeof t.closest !== 'function') return false;
-  if (t.closest(TEXT_ENTRY)) return true;
+  if (!t || typeof t.closest !== 'function') return null;
+  if (t.closest(TEXT_ENTRY)) return 'text-entry';
   const control = t.closest(ACTIVATABLE);
-  if (!control) return false;
+  if (!control) return null;
   // Something that answers closest() but is not an Element cannot say what
   // it is; treat it as a text field, the direction that never fires.
-  if (typeof control.matches !== 'function') return true;
+  if (typeof control.matches !== 'function') return 'text-entry';
   const code = eventCode(e);
-  return code === 'Space' || code === 'Enter';
+  return code === 'Space' || code === 'Enter' ? 'activatable-space-enter' : null;
+}
+
+/** focusOwnsKey reports whether the focused element, not the table, owns this key. */
+function focusOwnsKey(e: HotkeyEvent): boolean {
+  return focusOwnership(e) !== null;
 }
 
 export function hotkeyAction(

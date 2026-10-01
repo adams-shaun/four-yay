@@ -1,0 +1,60 @@
+{
+  "card": "Arcade Gannon",
+  "family": "activated-ability",
+  "oracle_sha": "a4a06375fce5",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "tap-draw-discard-and-gain-quest-counter",
+      "cr": [
+        "602.2",
+        "121.1",
+        "701.8a"
+      ],
+      "why": "The tap ability draws one card, discards one card, then places a quest counter on Arcade; the discard cannot remove the quest counter.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Arcade Gannon"
+          ],
+          "hand": [
+            "Forest"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Arcade Gannon"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "p0:Forest"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Arcade Gannon",
+          "zone": "battlefield",
+          "tapped": true,
+          "counters": {
+            "quest": 1
+          }
+        },
+        {
+          "hand_size": {
+            "p0": 1
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -4,6 +4,7 @@
   import type { CardOptions, TileOptions } from '../lib/cardoptions';
   import { tileOptions, tileOptionsMany } from '../lib/cardoptions';
   import CardTile from './CardTile.svelte';
+  import { pointerRelease } from '../lib/pointer';
 
   /**
    * CardStack renders one stackIdentical group: a bare CardTile for a group
@@ -120,6 +121,7 @@
     data-obj-group={memberIds}
     aria-expanded={expanded}
     aria-label={accessibleLabel}
+    use:pointerRelease
     onclick={() => (expanded = !expanded)}
   >
     {#if !expanded}

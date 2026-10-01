@@ -1,0 +1,25 @@
+{
+  "card": "Springheart Nantuko",
+  "family": "trigger-condition",
+  "oracle_sha": "5182c45bf8aa",
+  "author": "cli-20260930T002325Z-7c2f8c50 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "unattached-landfall-makes-an-insect",
+      "cr": ["603.6a", "701.47"],
+      "why": "With Springheart Nantuko not attached to a creature, its landfall ability cannot create a copy, so it creates a 1/1 green Insect creature token instead.",
+      "setup": {
+        "p0": {"battlefield": ["Springheart Nantuko"], "hand": ["Forest"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "play", "seat": 0, "card": "p0:Forest"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Insect", "token": true}, "eq": 1},
+        {"card": "p0:token:Insect", "zone": "battlefield", "pt": "1/1"}
+      ]
+    }
+  ]
+}

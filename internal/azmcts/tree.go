@@ -22,6 +22,7 @@
 package azmcts
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -162,7 +163,12 @@ func selectEdge(nd *node, pt *Point, opts Options) *edge {
 }
 
 // RunTree runs opts.Sims simulations from root over src and returns the
-// root's statistics. Each simulation takes a fresh Env, walks the tree by
+// root's statistics. A ctx that is done -- checked between simulations --
+// stops the loop where it is and increments st.DeadlineHits; Search then
+// plays the bot's answer (Search's doc). A live context runs every
+// simulation, unchanged.
+//
+// Each simulation takes a fresh Env, walks the tree by
 // PUCT, expands exactly one new node (or stops where the walk ended),
 // evaluates that position once and backs the value up the path: no rollouts
 // (spec §2). A simulation whose Env or Play fails is discarded and counted in
@@ -172,12 +178,20 @@ func selectEdge(nd *node, pt *Point, opts Options) *edge {
 //
 // Children are kept in root order and ties go to the lower index, so
 // root.Keys[0] -- the bot's answer -- wins every tie. No map is ranged.
-func RunTree(root *Point, src EnvSource, opts Options, st *Stats) (TreeResult, error) {
+func RunTree(ctx context.Context, root *Point, src EnvSource, opts Options, st *Stats) (TreeResult, error) {
 	if root == nil || len(root.Keys) == 0 || len(root.Prior) != len(root.Keys) {
 		return TreeResult{}, fmt.Errorf("azmcts: a root point needs keys and a parallel prior")
 	}
 	top := newNode(root)
 	for i := 0; i < opts.Sims; i++ {
+		if ctx != nil {
+			if err := ctx.Err(); err != nil {
+				// The armed wall-clock bail-out (Search's doc): stop
+				// between simulations; Search plays the bot's answer.
+				st.DeadlineHits++
+				break
+			}
+		}
 		st.Simulations++
 		env, err := src.Env(i)
 		if err != nil {

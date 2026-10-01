@@ -1,0 +1,135 @@
+{
+  "card": "Salt Road Ambushers",
+  "family": "morph",
+  "oracle_sha": "28205ff26889",
+  "author": "cli-20261001T022457Z-f0c31bb6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "land-turned-face-up-gets-no-counters",
+      "cr": [
+        "603.2",
+        "708.6"
+      ],
+      "why": "'Whenever another permanent you control is turned face up, if it's a creature' -- Zoetic Cavern turned face up is a land at both trigger and resolution, so no +1/+1 counters are placed anywhere.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Salt Road Ambushers"
+          ],
+          "hand": [
+            "Zoetic Cavern"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Zoetic Cavern",
+          "cast_mode": "morphed",
+          "mana": "CCC"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "CC"
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Zoetic Cavern",
+          "ability": "Turn face up"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Salt Road Ambushers",
+          "zone": "battlefield",
+          "pt": "3/3"
+        },
+        {
+          "card": "p0:Zoetic Cavern",
+          "zone": "battlefield",
+          "types": [
+            "Land"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "creature-turned-face-up-gets-two-counters",
+      "cr": [
+        "603.2",
+        "702.168a"
+      ],
+      "why": "Den Protector turned face up for its megamorph cost is a creature, so the Ambushers put two +1/+1 counters on it: the 2/1 warrior is 5/3 (megamorph counter plus the two), and its own face-up trigger returned Forest to hand.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Salt Road Ambushers"
+          ],
+          "hand": [
+            "Den Protector"
+          ],
+          "graveyard": [
+            "Forest"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Den Protector",
+          "cast_mode": "megamorphed",
+          "mana": "CCC"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "CG"
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Den Protector",
+          "ability": "Turn face up"
+        },
+        {
+          "op": "resolve",
+          "targets": [
+            "p0:Forest"
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Den Protector",
+          "zone": "battlefield",
+          "pt": "5/4"
+        },
+        {
+          "card": "p0:Salt Road Ambushers",
+          "zone": "battlefield",
+          "pt": "3/3"
+        },
+        {
+          "hand_size": {
+            "p0": 1
+          }
+        }
+      ]
+    }
+  ]
+}

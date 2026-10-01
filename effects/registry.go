@@ -2249,6 +2249,24 @@ type Ctx struct {
 	// by the effect (the fx42 scoping discipline), so a nested ChooseNumber
 	// deeper in the same chain poses its own fresh ask.
 	ETBNumberRecorded bool
+	// ChooseNumberPicks/ChooseNumberAnswer/ChooseNumberDone/ChooseNumberIndex
+	// carry a multi-chooser SECRET ChooseNumber election (api:ChooseNumber's
+	// MatchedAbility$/UnmatchedAbility$ shape, Expert-Level Safe) across its
+	// per-chooser mid-resolution asks. ChooseNumberPicks accumulates each
+	// chooser's answered number in chooser order; ChooseNumberIndex is the
+	// chooser whose answer has just arrived (the resume re-entry appends the
+	// answer and advances past it); ChooseNumberAnswer is that answered number
+	// and ChooseNumberDone its marker -- ZERO is a legal answer, so a bare
+	// int32 cannot tell "answered 0" from "never asked". rules'
+	// "choosenumbermulti" resume arm rebuilds all four from the decision's
+	// ResumeTarget/ResumeNumberPicks, and effChooseNumber's election branch
+	// consumes and clears them once the last chooser has answered (the fx42
+	// scoping discipline), so a nested ChooseNumber cannot inherit the outer
+	// election's picks.
+	ChooseNumberPicks  []int32
+	ChooseNumberAnswer int32
+	ChooseNumberDone   bool
+	ChooseNumberIndex  int
 	// ETBEvenOddRecorded marks the ChooseEvenOdd body of an ETB replacement:
 	// the entry boundary already asked and recorded the answer on the entering
 	// permanent, so this invocation must not ask a second time.
@@ -3263,6 +3281,27 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 				return
 			}
 			c.PickedTargets = ts
+			// Forge's sub-ability inheritance: a chain body that names no
+			// targets of its own shares the chain's target list, so a later
+			// body's "Targeted"/TargetedController referents (The Motherlode,
+			// Excavator's Destroy sub feeding its RememberObjects$
+			// TargetedController DBEffect) read the answer. Seed Ctx.Targets
+			// ONLY when the chain carries none AND the NEXT member names no
+			// targets of its own: an SA with its own ValidTgts$ never reads the
+			// inherited list (it asks or consumes its own answer), and a seed
+			// beside such a member would leak into TargetsAlreadyChosen's
+			// TargetUnique$ exclusion set -- a fresh resume Ctx carries an empty
+			// Ctx.Targets (the accumulator ride stamps TargetsUnique only), so
+			// Rider Suspension's middle rider's own answer would enter the set
+			// and its TargetUnique$ successor would be offered nobody (the ask
+			// silently skipped). The CLOBBER rule above keeps an outer root's
+			// targets authoritative (the root's own list is never overwritten),
+			// so this cannot repoint a sub's explicit Defined$ Targeted away
+			// from what it meant.
+			if next := sa.Sub; len(c.Targets) == 0 && next != nil &&
+				strings.TrimSpace(next.Params["ValidTgts"]) == "" {
+				c.Targets = append([]state.Target(nil), ts...)
+			}
 			fn(h, c, sa)
 			c.PickedTargets = nil
 		} else {

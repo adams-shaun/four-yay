@@ -6,6 +6,7 @@
   import { promptContext, promptContextText } from '../lib/prompt';
   import { modalPickerOpen } from '../lib/modals';
   import ManaPool from './ManaPool.svelte';
+  import { pointerRelease } from '../lib/pointer';
   import PromptBody from './prompts/PromptBody.svelte';
   import { dockAnswers } from '../lib/prompts/renderer';
 
@@ -226,6 +227,7 @@
             role="switch"
             aria-checked={logic.auto}
             data-auto-toggle
+            use:pointerRelease
             onclick={() => logic.pressAuto()}
           >
             <span class="dot" aria-hidden="true"></span>
@@ -241,6 +243,7 @@
             aria-label="Auto-pay mana"
             title="Use a suggested mana plan when casting"
             data-auto-pay-toggle
+            use:pointerRelease
             onclick={() => logic.setAutoPayMana(!logic.autoPayMana)}
           >
             <span class="dot" aria-hidden="true"></span>
@@ -262,6 +265,7 @@
             aria-label="Skip priority windows where you have no action"
             title="Skip priority windows where you have no action"
             data-skip-toggle
+            use:pointerRelease
             onclick={() => logic.setSkipEmpty(!logic.skipEmpty)}
           >
             <span class="dot" aria-hidden="true"></span>

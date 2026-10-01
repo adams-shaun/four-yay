@@ -8,6 +8,7 @@
   import { bindingLabel } from '../lib/keymap';
   import { keymapStore } from '../lib/keymap.svelte';
   import { passLabel } from '../lib/passlabel';
+  import { blurAfterPointer } from '../lib/pointer';
 
   /**
    * ActionCluster is the ONE action button (UI rework spec §3): gilt, in the
@@ -66,14 +67,14 @@
 
 <div class="cluster" data-action-cluster>
   <div class="secondary">
-    <button type="button" data-cluster-undo disabled={!undoAllowed} title={undoAllowed ? 'Undo my last action' : 'Undo is available only when you are the table’s sole human player'} onclick={() => void undo()}>Undo</button>
+    <button type="button" data-cluster-undo disabled={!undoAllowed} title={undoAllowed ? 'Undo my last action' : 'Undo is available only when you are the table’s sole human player'} onclick={(e) => { void undo(); blurAfterPointer(e); }}>Undo</button>
     {#if resolveAllAvailable}
-      <button type="button" data-cluster-resolve-all class:on={logic.resolveAll} onclick={() => { logic.startResolveAll(view); logic.considerAuto(view); }}>Resolve all</button>
+      <button type="button" data-cluster-resolve-all class:on={logic.resolveAll} onclick={(e) => { logic.startResolveAll(view); logic.considerAuto(view); blurAfterPointer(e); }}>Resolve all</button>
     {/if}
     {#if yours}
-      <button type="button" data-cluster-end-turn class:on={runLive && !logic.hardSkip} disabled={!endTurnAvailable} title="Pass the rest of this turn; Esc stops" onclick={() => { logic.startEndTurn(view); logic.considerAuto(view); }}>End turn</button>
+      <button type="button" data-cluster-end-turn class:on={runLive && !logic.hardSkip} disabled={!endTurnAvailable} title="Pass the rest of this turn; Esc stops" onclick={(e) => { logic.startEndTurn(view); logic.considerAuto(view); blurAfterPointer(e); }}>End turn</button>
     {:else}
-      <button type="button" data-cluster-skip class:on={logic.hardSkip} disabled={!skipAvailable} title="Pass everything for the rest of this turn; Esc stops" onclick={() => { logic.startHardSkip(view); logic.considerAuto(view); }}>{skipLabel}</button>
+      <button type="button" data-cluster-skip class:on={logic.hardSkip} disabled={!skipAvailable} title="Pass everything for the rest of this turn; Esc stops" onclick={(e) => { logic.startHardSkip(view); logic.considerAuto(view); blurAfterPointer(e); }}>{skipLabel}</button>
     {/if}
   </div>
   <button
@@ -85,7 +86,7 @@
     disabled={!label.passes}
     aria-label={label.passes ? `${label.title}: ${label.sub}` : `${label.title} ${label.sub}`}
     title={logic.passOption?.label ?? label.sub}
-    onclick={() => logic.passClick()}
+    onclick={(e) => { logic.passClick(); blurAfterPointer(e); }}
   >
     <span class="words">
       <span class="title">{label.title}</span>

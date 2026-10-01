@@ -2980,8 +2980,7 @@ var knownUnsupportedParams = map[string][]string{
 	// Haakon, Stromgald Scourge's param:stat:Continuous.MayPlay.ValidAfterStack
 	// entry was deleted when mayPlayStatic began consuming ValidAfterStack$ as
 	// a derived spell filter (task mayplay-validafterstack).
-	"Hercules, Olympian Hero": {"param:trig:DamageDoneOnce.FirstTime"},
-	"Heroic Return":           {"param:api:ChangeZone.ValidTgtsDesc"},
+	"Heroic Return": {"param:api:ChangeZone.ValidTgtsDesc"},
 	// Heroic Sacrifice's param:api:PutCounter.EachFromSource entry was deleted
 	// when the CounterType$ EachFromSource copy-each-kind shape was read
 	// (task eachfromsource, effects/counters.go effPutCounter's dispatch) --
@@ -3055,15 +3054,13 @@ var knownUnsupportedParams = map[string][]string{
 	"Natural Order":         {"param:api:ChangeZone.AISearchGoal"},
 	// The Science! (pip) Commander precon import (2026-09-26,
 	// internal/testutil/decks/science-pip.json). Its 90 distinct cards expose
-	// exactly two parameter gaps, both measured by the first ratchet run; the
-	// deck added no primitive gap (C.A.M.P.'s kw:Fortify was already
-	// implemented). Overencumbered's cost token Y is the {Y} Phyrexian-style
-	// generic payment ParseCost does not model; Expert-Level Safe's
-	// ChooseNumber Secretly/MatchedAbility/UnmatchedAbility shape is a
-	// face-down guessed-number ask this build never poses (the card is
-	// otherwise fully registered).
-	"Expert-Level Safe": {"param:api:ChooseNumber.MatchedAbility", "param:api:ChooseNumber.Secretly", "param:api:ChooseNumber.UnmatchedAbility"},
-	"Overencumbered":    {"cost:Y"},
+	// exactly one parameter gap, measured by the first ratchet run; the deck
+	// added no primitive gap (C.A.M.P.'s kw:Fortify was already implemented).
+	// Overencumbered's cost token Y is the {Y} Phyrexian-style generic payment
+	// ParseCost does not model. Expert-Level Safe's ChooseNumber
+	// Secretly/MatchedAbility/UnmatchedAbility shape is now read by the
+	// multi-chooser secret election, so its row was deleted (task els-secret).
+	"Overencumbered": {"cost:Y"},
 }
 
 // TestEveryRepoDeckParamsAreRead is the parameter ratchet: every card across

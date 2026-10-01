@@ -1,0 +1,42 @@
+{
+  "card": "Dazzling Angel",
+  "family": "trigger-condition",
+  "oracle_sha": "bba930700b6b",
+  "author": "cli-20261001T012353Z-c0654344 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "another-creature-enters-gains-one",
+      "cr": ["603.6a"],
+      "why": "Whenever ANOTHER creature you control enters, you gain 1 life; casting a Grizzly Bears while the Angel is out gains exactly 1.",
+      "setup": {
+        "p0": {"battlefield": ["Dazzling Angel"], "hand": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Grizzly Bears", "mana": "CG"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 21}},
+        {"card": "p0:Dazzling Angel", "keywords": ["Flying"]}
+      ]
+    },
+    {
+      "name": "angel-itself-entering-is-not-another",
+      "cr": ["603.6a"],
+      "why": "The trigger reads \"another creature\", so the Angel's own entry does not gain life.",
+      "setup": {
+        "p0": {"hand": ["Dazzling Angel"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Dazzling Angel", "mana": "CWW"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 20}},
+        {"card": "p0:Dazzling Angel", "zone": "battlefield"}
+      ]
+    }
+  ]
+}

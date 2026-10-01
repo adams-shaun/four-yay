@@ -1,0 +1,143 @@
+{
+  "card": "Root Elemental",
+  "family": "morph",
+  "oracle_sha": "4a0bc17f2356",
+  "author": "cli-20261001T022457Z-f0c31bb6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "turning-face-up-puts-a-hand-creature-onto-the-battlefield",
+      "cr": [
+        "702.37a",
+        "603.2"
+      ],
+      "why": "Morph {5}{G}{G}: turning face up triggers 'you may put a creature card from your hand onto the battlefield'; accepting puts Grizzly Bears in play and empties the hand.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Root Elemental",
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Root Elemental",
+          "cast_mode": "morphed",
+          "mana": "CCC"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "CCCCCGG"
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Root Elemental",
+          "ability": "Turn face up"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "Grizzly Bears"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Root Elemental",
+          "zone": "battlefield",
+          "pt": "6/5"
+        },
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "battlefield",
+          "pt": "2/2"
+        },
+        {
+          "hand_size": {
+            "p0": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "declining-leaves-the-hand-creature-in-hand",
+      "cr": [
+        "702.37a",
+        "603.2"
+      ],
+      "why": "The put-onto-the-battlefield is optional; declining it leaves Grizzly Bears in hand and the Elemental a 6/5.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Root Elemental",
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Root Elemental",
+          "cast_mode": "morphed",
+          "mana": "CCC"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "CCCCCGG"
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Root Elemental",
+          "ability": "Turn face up"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "no"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Root Elemental",
+          "zone": "battlefield",
+          "pt": "6/5"
+        },
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "hand"
+        },
+        {
+          "hand_size": {
+            "p0": 1
+          }
+        }
+      ]
+    }
+  ]
+}

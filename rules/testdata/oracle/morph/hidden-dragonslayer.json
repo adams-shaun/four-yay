@@ -1,0 +1,48 @@
+{
+  "card": "Hidden Dragonslayer",
+  "family": "morph",
+  "oracle_sha": "4f286534ee81",
+  "author": "cli-20261001T022457Z-f0c31bb6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "megamorph-turn-up-destroys-power-four-or-greater",
+      "cr": ["702.168a", "603.2", "702.2b"],
+      "why": "Megamorph {2}{W}: turning face up puts a +1/+1 counter on the 2/1 (3/2 with lifelink) and its face-up trigger destroys the opponent's Vastwood Gorger (power 5).",
+      "setup": {
+        "p0": {"hand": ["Hidden Dragonslayer"]},
+        "p1": {"battlefield": ["Vastwood Gorger"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Hidden Dragonslayer", "cast_mode": "megamorphed", "mana": "CCC"},
+        {"op": "resolve"},
+        {"op": "mana", "seat": 0, "mana": "CCW"},
+        {"op": "activate", "seat": 0, "card": "p0:Hidden Dragonslayer", "ability": "Turn face up"},
+        {"op": "resolve", "targets": ["p1:Vastwood Gorger"]}
+      ],
+      "expect": [
+        {"card": "p0:Hidden Dragonslayer", "zone": "battlefield", "pt": "3/2", "keywords": ["Lifelink"]},
+        {"card": "p1:Vastwood Gorger", "zone": "graveyard"}
+      ]
+    },
+    {
+      "name": "power-three-creature-is-no-legal-target",
+      "cr": ["603.2", "603.3c"],
+      "why": "The trigger targets only a creature with power 4 or greater an opponent controls; against Centaur Courser (power 3) there is no legal target, so the ability is not put on the stack and nothing dies.",
+      "setup": {
+        "p0": {"hand": ["Hidden Dragonslayer"]},
+        "p1": {"battlefield": ["Centaur Courser"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Hidden Dragonslayer", "cast_mode": "megamorphed", "mana": "CCC"},
+        {"op": "resolve"},
+        {"op": "mana", "seat": 0, "mana": "CCW"},
+        {"op": "activate", "seat": 0, "card": "p0:Hidden Dragonslayer", "ability": "Turn face up"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Centaur Courser", "zone": "battlefield", "pt": "3/3"},
+        {"card": "p0:Hidden Dragonslayer", "zone": "battlefield", "pt": "3/2"}
+      ]
+    }
+  ]
+}

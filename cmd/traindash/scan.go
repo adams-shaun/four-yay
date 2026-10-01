@@ -34,11 +34,13 @@ var roundDirRe = regexp.MustCompile(`^(round|gen)(\d+)$`)
 
 // Snapshot is the whole /api/runs payload.
 type Snapshot struct {
-	Generated   time.Time    `json:"generated"`
-	Roots       []string     `json:"roots"`
-	Experiments []Experiment `json:"experiments"`
-	Alerts      []Alert      `json:"alerts"`
-	Artifacts   []Artifact   `json:"artifacts"`
+	Generated   time.Time     `json:"generated"`
+	Roots       []string      `json:"roots"`
+	Experiments []Experiment  `json:"experiments"`
+	Alerts      []Alert       `json:"alerts"`
+	Artifacts   []Artifact    `json:"artifacts"`
+	DeckLedgers []*DeckLedger `json:"deck_ledgers,omitempty"`
+	DeckHistory []DeckHistory `json:"deck_history,omitempty"`
 }
 
 // Experiment groups the run dirs under one top-level directory of a root.
@@ -170,6 +172,20 @@ type Scanner struct {
 	Roots []string
 	Now   func() time.Time
 
+	// DeckFocus is the comma list of policy names whose per-deck win rate the
+	// deck ledgers report. Empty means auto: the policy appearing in the most
+	// seats of each ledger (ties broken lexically).
+	DeckFocus []string
+
+	// DeckRoots are the directories scanned for matches.jsonl per-deck
+	// ledgers, separate from Roots. A training root (the default
+	// /mnt/sata/gorge-training) holds hundreds of matches.jsonl files in
+	// scratch dirs; walking every one of them to build per-deck charts both
+	// costs seconds on a cold scan and floods the page with unrelated
+	// ledgers. Deck ledgers therefore have their own narrow root, defaulting
+	// to the gauntlet cache. Empty disables the per-deck panel.
+	DeckRoots []string
+
 	mu    sync.Mutex
 	cache map[string]cacheEntry
 }
@@ -188,12 +204,21 @@ func NewScanner(roots []string) *Scanner {
 // cached returns parse(path) memoised on the file's mtime and size. A missing
 // file yields (nil, false).
 func (s *Scanner) cached(path string, parse func([]byte) any) (any, bool) {
+	return s.cachedAs(path, "", parse)
+}
+
+// cachedAs is cached with a discriminator in the key. Two readers of the SAME
+// file (parseAdhoc counts matches.jsonl lines as an int; the deck ledger parses
+// the same file into a *DeckLedger) must not overwrite each other's cache
+// entry, so tag names the reader. With an empty tag it is cached().
+func (s *Scanner) cachedAs(path, tag string, parse func([]byte) any) (any, bool) {
+	key := path + "\x00" + tag
 	fi, err := os.Stat(path)
 	if err != nil || fi.IsDir() {
 		return nil, false
 	}
 	s.mu.Lock()
-	e, ok := s.cache[path]
+	e, ok := s.cache[key]
 	s.mu.Unlock()
 	if ok && e.mod.Equal(fi.ModTime()) && e.size == fi.Size() {
 		return e.val, true
@@ -204,7 +229,7 @@ func (s *Scanner) cached(path string, parse func([]byte) any) (any, bool) {
 	}
 	v := parse(b)
 	s.mu.Lock()
-	s.cache[path] = cacheEntry{mod: fi.ModTime(), size: fi.Size(), val: v}
+	s.cache[key] = cacheEntry{mod: fi.ModTime(), size: fi.Size(), val: v}
 	s.mu.Unlock()
 	return v, true
 }
@@ -278,6 +303,13 @@ func (s *Scanner) Scan() *Snapshot {
 		}
 		snap.Artifacts = append(snap.Artifacts, findArtifacts(root, multi)...)
 	}
+	for _, droot := range s.DeckRoots {
+		dmulti := len(s.DeckRoots) > 1
+		for _, dl := range s.scanDeckLedgers(droot, dmulti) {
+			snap.DeckLedgers = append(snap.DeckLedgers, dl)
+		}
+		snap.DeckHistory = append(snap.DeckHistory, scanDeckHistory(droot)...)
+	}
 	sort.Strings(order)
 	for _, name := range order {
 		exp := byExp[name]
@@ -296,7 +328,42 @@ func (s *Scanner) Scan() *Snapshot {
 	if snap.Artifacts == nil {
 		snap.Artifacts = []Artifact{}
 	}
+	if snap.DeckLedgers == nil {
+		snap.DeckLedgers = []*DeckLedger{}
+	}
+	if snap.DeckHistory == nil {
+		snap.DeckHistory = []DeckHistory{}
+	}
 	return snap
+}
+
+// scanDeckLedgers parses every matches.jsonl under root into a per-deck
+// ledger, cached on the file's mtime and size like every other scan read. One
+// DeckLedger is produced per configured focus policy; with no focus it is the
+// auto-detected dominant policy.
+func (s *Scanner) scanDeckLedgers(root string, multi bool) []*DeckLedger {
+	focuses := s.DeckFocus
+	if len(focuses) == 0 {
+		focuses = []string{""}
+	}
+	var out []*DeckLedger
+	for _, f := range findDeckLedgers(root) {
+		id := f.id
+		if multi {
+			id = filepath.Base(root) + "/" + id
+		}
+		for _, focus := range focuses {
+			fc := focus
+			v, ok := s.cachedAs(f.source, "deckledger:"+fc, func(b []byte) any { return parseDeckLedger(id, f.source, b, fc) })
+			if !ok {
+				continue
+			}
+			if dl, _ := v.(*DeckLedger); dl != nil {
+				out = append(out, dl)
+			}
+		}
+	}
+	return out
 }
 
 // isRunDir reports whether a directory's entries mark it as an exitloop run:
@@ -565,7 +632,7 @@ func (s *Scanner) parseAdhoc(path string, pair bool, now time.Time) *Run {
 			case strings.HasSuffix(e.Name(), ".jsonl"):
 				jf := JSONLFile{Name: e.Name(), Bytes: fi.Size()}
 				if fi.Size() <= maxCountBytes {
-					if v, ok := s.cached(p, func(b []byte) any { return bytes.Count(b, []byte{'\n'}) }); ok {
+					if v, ok := s.cachedAs(p, "jsonlcount", func(b []byte) any { return bytes.Count(b, []byte{'\n'}) }); ok {
 						n := v.(int)
 						jf.Records = &n
 					}

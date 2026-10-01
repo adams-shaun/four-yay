@@ -1,0 +1,46 @@
+{
+  "card": "Voldaren Epicure",
+  "family": "etb-ltb",
+  "oracle_sha": "f14dafa32fac",
+  "author": "cli-20261001T014438Z-51ea329c (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enters-drains-one-and-creates-a-blood-token",
+      "cr": ["603.6a", "120.3", "111.1"],
+      "why": "The enters trigger deals 1 damage to each opponent (only p1 in a two-seat game) and creates one Blood artifact token under my control.",
+      "setup": {
+        "p0": {"hand": ["Voldaren Epicure"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Voldaren Epicure", "mana": "R"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Voldaren Epicure", "zone": "battlefield", "pt": "1/1"},
+        {"life": {"p0": 20, "p1": 19}},
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Blood", "token": true}, "eq": 1}
+      ]
+    },
+    {
+      "name": "blood-token-cracks-for-a-card",
+      "cr": ["111.1", "118.12a"],
+      "why": "The Blood token's own ability ({1}, {T}, Discard a card, Sacrifice this token: Draw a card) is a real artifact activation: discarding a card and sacrificing the token draws one card.",
+      "setup": {
+        "p0": {"hand": ["Voldaren Epicure", "Island"], "library_top": ["Forest"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Voldaren Epicure", "mana": "R"},
+        {"op": "resolve"},
+        {"op": "activate", "seat": 0, "card": "p0:token:Blood", "mana": "C", "ability": "Draw a card", "answers": [{"kind": "any", "pick": ["p0:Island"]}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Island", "zone": "graveyard"},
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Blood", "token": true}, "eq": 0},
+        {"hand_size": {"p0": 1}}
+      ]
+    }
+  ]
+}

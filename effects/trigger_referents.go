@@ -239,14 +239,33 @@ func TriggeredCardController(g *state.Game, tc TriggerContext, remembered []stat
 	return 0, false
 }
 
+// spawnerChain strips Forge's "Spawner>" chain prefix from one ref argument,
+// reporting whether the prefix was present, with the inner ref trimmed.
+// Shared by the control/ownership referent grammar (controlReferent and
+// controlReferentPlayers), the count-head reader (refTargets) and the
+// damage-source reader (damageSourceSpecTargets) so the three cannot drift
+// about what the chain spelling is.
+func spawnerChain(spec string) (string, bool) {
+	inner, ok := strings.CutPrefix(spec, "Spawner>")
+	if !ok {
+		return "", false
+	}
+	return strings.TrimSpace(inner), true
+}
+
 // controlReferent is the single classifier for the two-token ownership and
 // control grammar. The Triggered* arms read event provenance; the Targeted*
-// arms read only the targets of the resolving object. A provenance chain (>)
-// remains unknown: state.Object has no spawner identity to dereference.
+// arms read only the targets of the resolving object. A "Spawner>" chain is
+// recognised when its INNER ref is (Forge's adjustTriggerContext re-anchor,
+// resolved against the same riding TriggerContext); every other provenance
+// chain and every unknown inner ref stays unknown, failing closed.
 func controlReferent(p string) (op, ref string, ok bool) {
 	op, ref, ok = strings.Cut(p, " ")
 	if !ok || (op != "ControlledBy" && op != "OwnedBy") {
 		return "", "", false
+	}
+	if inner, isChain := spawnerChain(ref); isChain {
+		ref = inner
 	}
 	switch ref {
 	case "TriggeredTarget", "TriggeredDefendingPlayer", "TriggeredPlayer", "TriggeredCard",
@@ -298,6 +317,21 @@ func targetReferent(p string) bool { return p == "TargetedPlayerCtrl" }
 func controlReferentPlayers(g *state.Game, sc SpecContext, op, ref string) ([]state.PlayerID, bool) {
 	if g == nil {
 		return nil, false
+	}
+	// spawnercontrol: Forge's adjustTriggerContext re-anchor. "Spawner>"
+	// re-anchors the rest of the chain on the firing trigger's own event
+	// roles, and the TriggerContext rides the resolving ability's stack
+	// context into the body (rules binds ctx.TriggerContext from the stack
+	// object) and into the offer census (e.targetSpecContext binds it again
+	// for the CR 608.2b recheck), so stripping the prefix and resolving the
+	// inner ref against the SAME SpecContext is the whole arm: the control
+	// referents read event ROLES, not Remembered, and the roles ride
+	// untouched through effImmediateTrigger's capture-excluded instance
+	// copy. No Ctx.Captured substitution here -- that stand-in belongs to
+	// the count/damage readers, whose refs read Remembered. An inner ref
+	// this grammar does not know stays unbound; fail closed.
+	if inner, isChain := spawnerChain(ref); isChain {
+		return controlReferentPlayers(g, sc, op, inner)
 	}
 	var targets []state.Target
 	switch ref {
@@ -362,8 +396,23 @@ func controlReferentPlayers(g *state.Game, sc SpecContext, op, ref string) ([]st
 		// would widen `ControlledBy Remembered` to the previous iteration's
 		// RememberChosen$ card's controller as well as the current subject
 		// (Summon: Valefor, Chaos Defiler).
+		//
+		// The RememberedPlayers channel is the CONSULTATION-time half:
+		// rules' block consultation (blockRestricted) binds a registered
+		// restriction's captured players on a static that never resolves, so
+		// without it a ValidBlocker$ Creature.RememberedPlayerCtrl clause
+		// (The Motherlode, Excavator) would fail closed. Every
+		// resolution-time caller leaves the field zero, so their read is
+		// untouched, and the fail-closed shape (no binding at all =>
+		// ok=false, even under '!') is unchanged.
+		for _, p := range sc.RememberedPlayers {
+			targets = append(targets, state.Target{IsPlayer: true, Player: p})
+		}
 		if !sc.Resolving {
-			return nil, false
+			if len(targets) == 0 {
+				return nil, false
+			}
+			break
 		}
 		for _, t := range sc.Remembered {
 			if t.IsPlayer {

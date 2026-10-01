@@ -1,0 +1,113 @@
+{
+  "card": "Pithing Needle",
+  "family": "choose-type",
+  "oracle_sha": "182ffd780645",
+  "author": "cli-20260930T220416Z-ed59db28 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "named-source-abilities-not-activated",
+      "cr": [
+        "201.3",
+        "601.3a",
+        "701.14"
+      ],
+      "why": "Naming Lightning Greaves with Pithing Needle means the Greaves' equip ability cannot be activated, even for {0}.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Pithing Needle"
+          ],
+          "battlefield": [
+            "Lightning Greaves",
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Pithing Needle",
+          "mana": "C",
+          "answers": []
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "Lightning Greaves"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Pithing Needle",
+          "zone": "battlefield"
+        },
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "activate",
+            "card": "p0:Lightning Greaves",
+            "label": "equip"
+          },
+          "want": false
+        }
+      ]
+    },
+    {
+      "name": "other-name-leaves-equip-activatable",
+      "cr": [
+        "201.3",
+        "701.14"
+      ],
+      "why": "Naming an unrelated object (Grizzly Bears, the harness's legacy name universe offers visible objects) leaves Lightning Greaves untouched: its equip {0} ability is offered.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Pithing Needle"
+          ],
+          "battlefield": [
+            "Lightning Greaves",
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Pithing Needle",
+          "mana": "C",
+          "answers": []
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "Grizzly Bears"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "activate",
+            "card": "p0:Lightning Greaves",
+            "label": "equip"
+          },
+          "want": true
+        }
+      ]
+    }
+  ]
+}

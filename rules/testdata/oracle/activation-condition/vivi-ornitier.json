@@ -1,0 +1,146 @@
+{
+  "card": "Vivi Ornitier",
+  "family": "activation-condition",
+  "oracle_sha": "2a79571481aa",
+  "author": "cli-20260930T220416Z-ed59db28 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "noncreature-cast-counter-and-ping-then-once-per-turn-mana",
+      "cr": [
+        "702.139a",
+        "605.3a",
+        "117.1",
+        "606.2"
+      ],
+      "why": "Casting Shock (a noncreature spell) puts a +1/+1 counter on Vivi and deals 1 damage to each opponent. Vivi's {0} ability then adds mana equal to its power; having been activated once this turn it is not offered again this turn, is not offered on the opponent's turn, and is offered again on my next turn.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Vivi Ornitier",
+            "Shock"
+          ]
+        },
+        "p1": {
+          "hand": [
+            "Island"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Vivi Ornitier",
+          "mana": "CUR"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Shock",
+          "targets": [
+            "p1"
+          ],
+          "mana": "R"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Vivi Ornitier",
+          "ability": "add",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "R"
+              ]
+            }
+          ],
+          "expect": [
+            {
+              "card": "p0:Vivi Ornitier",
+              "zone": "battlefield",
+              "pt": "1/4",
+              "counters": {
+                "+1/+1": 1
+              }
+            },
+            {
+              "life": {
+                "p1": 17
+              }
+            },
+            {
+              "pool": {
+                "p0": "U"
+              }
+            },
+            {
+              "offered": {
+                "seat": 0,
+                "kind": "activate",
+                "card": "p0:Vivi Ornitier",
+                "label": "add"
+              },
+              "want": false
+            }
+          ]
+        },
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p1"
+        },
+        {
+          "op": "play",
+          "seat": 1,
+          "card": "p1:Island"
+        },
+        {
+          "op": "pass",
+          "seat": 1,
+          "expect": [
+            {
+              "offered": {
+                "seat": 0,
+                "kind": "activate",
+                "card": "p0:Vivi Ornitier",
+                "label": "add"
+              },
+              "want": false
+            }
+          ]
+        },
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p0"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Vivi Ornitier",
+          "zone": "battlefield",
+          "pt": "1/4",
+          "counters": {
+            "+1/+1": 1
+          }
+        },
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "activate",
+            "card": "p0:Vivi Ornitier",
+            "label": "add"
+          },
+          "want": true
+        }
+      ]
+    }
+  ]
+}

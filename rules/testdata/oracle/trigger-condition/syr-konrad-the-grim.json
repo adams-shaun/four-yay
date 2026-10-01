@@ -1,0 +1,206 @@
+{
+  "card": "Syr Konrad, the Grim",
+  "family": "trigger-condition",
+  "oracle_sha": "3fe7c00aa658",
+  "author": "cli-20260930T004423Z-d42d9d4e (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "another-creature-dying-drains-each-opponent",
+      "cr": [
+        "603.6c",
+        "603.10a"
+      ],
+      "why": "Whenever another creature dies, Syr Konrad deals 1 damage to each opponent; a creature controlled by seat 0 dies, so seat 1 loses 1 life.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Syr Konrad, the Grim",
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "move",
+          "seat": 0,
+          "card": "p0:Grizzly Bears",
+          "to": "graveyard"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "graveyard"
+        },
+        {
+          "life": {
+            "p0": 20,
+            "p1": 19
+          }
+        }
+      ]
+    },
+    {
+      "name": "mill-ability-mills-each-player-one-card",
+      "cr": [
+        "602.2a",
+        "701.13a"
+      ],
+      "why": "The {1}{B} activation makes each player mill a card; both seats put their library top card into their graveyard.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Syr Konrad, the Grim"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Syr Konrad, the Grim",
+          "ability": "mills a card",
+          "mana": "BC"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "graveyard_size": {
+            "p0": 1,
+            "p1": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "creature-card-milled-into-graveyard-drains",
+      "cr": [
+        "603.6c",
+        "701.13a"
+      ],
+      "why": "The {1}{B} ability makes each player mill a card; a creature card put into a graveyard from the library is a creature card put into a graveyard from anywhere other than the battlefield, so each opponent loses 1 life.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Syr Konrad, the Grim"
+          ],
+          "library_top": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Syr Konrad, the Grim",
+          "ability": "mills a card",
+          "mana": "BC"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "graveyard"
+        },
+        {
+          "life": {
+            "p1": 19
+          }
+        },
+        {
+          "graveyard_size": {
+            "p0": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "creature-card-leaves-graveyard-drains",
+      "cr": [
+        "603.6c"
+      ],
+      "why": "A creature card leaving the controller's graveyard is one of Syr Konrad's three trigger events. Seat 1 starts at 20: placing Grizzly Bears into seat 0's graveyard during setup is itself a library-to-graveyard move, so the 'from anywhere other than the battlefield' clause (now read as a zone set) drains 1 there, and exiling it from the graveyard drains 1 more -- 18 total.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Syr Konrad, the Grim"
+          ],
+          "graveyard": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "move",
+          "seat": 0,
+          "card": "p0:Grizzly Bears",
+          "to": "exile"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "exile"
+        },
+        {
+          "life": {
+            "p1": 18
+          }
+        }
+      ]
+    },
+    {
+      "name": "creature-card-discarded-into-graveyard-drains",
+      "cr": [
+        "603.6c"
+      ],
+      "why": "A creature card put into a graveyard from the hand is a creature card put into a graveyard from anywhere other than the battlefield, so the trigger deals 1 to each opponent; this localizes the Library-origin clause.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Syr Konrad, the Grim"
+          ],
+          "hand": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "move",
+          "seat": 0,
+          "card": "p0:Grizzly Bears",
+          "to": "graveyard"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "graveyard"
+        },
+        {
+          "life": {
+            "p1": 19
+          }
+        }
+      ]
+    }
+  ]
+}

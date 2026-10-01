@@ -308,6 +308,9 @@ func effDealDamage(h Host, c *Ctx, sa *cards.SA) {
 				continue
 			}
 			emitPlayerDamage(r, t.player)
+			if remember {
+				rememberPlayerBothHalves(h, c, t.player)
+			}
 		}
 		h.EndDamageBatch()
 		return
@@ -315,6 +318,9 @@ func effDealDamage(h Host, c *Ctx, sa *cards.SA) {
 	for _, t := range Defined(h, c, sa) {
 		if t.IsPlayer {
 			emitPlayerDamage(rider, t.Player)
+			if remember {
+				rememberPlayerBothHalves(h, c, t.Player)
+			}
 			continue
 		}
 		if o := h.Game().Obj(t.Obj); o != nil && o.Zone == state.ZBattlefield {
@@ -397,6 +403,9 @@ func emitFromEachSource(h Host, c *Ctx, sa *cards.SA, sources []state.ObjID, n i
 		for _, t := range recips {
 			if t.IsPlayer {
 				emitPlayerDamage(rider, t.Player)
+				if remember {
+					rememberPlayerBothHalves(h, c, t.Player)
+				}
 				emittedAny = true
 				continue
 			}
@@ -546,10 +555,10 @@ func damageSourceSpecTargets(h Host, c *Ctx, spec string) ([]state.Target, bool)
 		}
 		return ts, true
 	}
-	if inner, ok := strings.CutPrefix(spec, "Spawner>"); ok {
+	if inner, ok := spawnerChain(spec); ok { // shared Spawner> strip (spawnercontrol)
 		sc := *c
 		sc.Remembered = copyTargets(c.Captured)
-		return definedSpec(h, &sc, strings.TrimSpace(inner))
+		return definedSpec(h, &sc, inner)
 	}
 	return nil, false
 }
@@ -992,6 +1001,26 @@ func effDamageAll(h Host, c *Ctx, sa *cards.SA) {
 		defer b.EndLifeLossBatch()
 	}
 	spec := strings.TrimSpace(sa.Params["ValidCards"])
+	remember := strings.TrimSpace(sa.Params["RememberDamaged"]) != ""
+	// A player-kind ValidTgts$ scopes the object sweep to that target
+	// player's permanents ("each creature target player controls"): the
+	// restriction is carried by ValidTgts$, never by ValidCards$, so the
+	// plain spellings (Aggravate, Simoon, Chandra, Bold Pyromancer) would
+	// otherwise sweep every seat. Resolve it through the same referent the
+	// TargetedPlayerCtrl filter predicate uses so the two cannot drift. A
+	// non-nil scope that resolves to no player fails CLOSED, matching the
+	// Defined/TargetedPlayerCtrl direction. ValidTgts$ Creature (a
+	// non-player spec) leaves scope nil, so the filter-only sweep stands.
+	var scope map[state.PlayerID]bool
+	if tg := strings.TrimSpace(sa.Params["ValidTgts"]); tg != "" && playerSpecBaseKnown(tg) {
+		sc := c.SpecContext(c.Controller)
+		sc.ResolutionTargets = targetedGroup(c)
+		players, _ := controlReferentPlayers(h.Game(), sc, "ControlledBy", "TargetedPlayer")
+		scope = make(map[state.PlayerID]bool, len(players))
+		for _, p := range players {
+			scope[p] = true
+		}
+	}
 	g := h.Game()
 	rider := newDamageRider(h, c, sa, n)
 	prev := h.SetDamageSource(rider.source)
@@ -999,20 +1028,36 @@ func effDamageAll(h Host, c *Ctx, sa *cards.SA) {
 	// One DamageAll call is ONE damage batch, exactly like DealDamage's
 	// (see effDealDamage): every creature and player it hits latches
 	// together.
+	var damaged []state.Target
 	h.BeginDamageBatch()
 	if spec != "" {
 		for _, p := range g.AliveFrom(0) {
 			for _, id := range g.Zone(state.ZBattlefield, p) {
 				if MatchesSpecCtx(g, spec, id, c.SpecContext(c.Controller)) {
+					if scope != nil {
+						if o := g.Obj(id); o == nil || !scope[o.Controller] {
+							continue
+						}
+					}
 					emitObjectDamage(rider, id)
+					damaged = append(damaged, state.Target{Obj: id})
+					if remember {
+						c.Remembered = append(c.Remembered, state.Target{Obj: id})
+						eventRemember(h, c, id)
+					}
 				}
 			}
 		}
 	}
 	for _, p := range validPlayers(h, c, sa.Params["ValidPlayers"]) {
 		emitPlayerDamage(rider, p)
+		damaged = append(damaged, state.Target{Player: p, IsPlayer: true})
+		if remember {
+			rememberPlayerBothHalves(h, c, p)
+		}
 	}
 	h.EndDamageBatch()
+	registerReplaceDying(h, c, sa, damaged)
 }
 
 // validPlayers resolves a DamageAll ValidPlayers$ spec to the players the
@@ -1512,6 +1557,7 @@ func effDamageResolve(h Host, c *Ctx, sa *cards.SA) {
 		prev := h.SetDamageSource(m.rider.source)
 		if m.target.IsPlayer {
 			emitPlayerDamage(m.rider, m.target.Player)
+			damaged = append(damaged, state.Target{Player: m.target.Player, IsPlayer: true})
 		} else if o := h.Game().Obj(m.target.Obj); o != nil && o.Zone == state.ZBattlefield {
 			emitObjectDamage(m.rider, m.target.Obj)
 			damaged = append(damaged, state.Target{Obj: m.target.Obj})
@@ -1525,7 +1571,14 @@ func effDamageResolve(h Host, c *Ctx, sa *cards.SA) {
 	if strings.TrimSpace(sa.Params["RememberDamaged"]) != "" {
 		for _, t := range damaged {
 			c.Remembered = append(c.Remembered, t)
-			eventRemember(h, c, t.Obj)
+			// A player entry's Obj is zero and would emit a garbage Choose
+			// event; encode the player through PlayerRef, the same encoding
+			// rememberPlayerBothHalves' persistent half uses.
+			id := t.Obj
+			if t.IsPlayer {
+				id = state.PlayerRef(t.Player)
+			}
+			eventRemember(h, c, id)
 		}
 	}
 	registerReplaceDying(h, c, sa, damaged)

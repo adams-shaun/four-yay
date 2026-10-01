@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="UTF-8" /><title>Focus release fixture</title></head>
+  <body>
+    <!-- The real hot wiring: HotButtonStrip + SeatPanelState. Every
+         "Space reaches the table hotkey" assertion runs against it. -->
+    <div id="strip" style="width: 900px"></div>
+    <!-- F1: the chrome pills (CentreStrip) over the Layout drawer they
+         open (the drawer is role=region, NOT a modal-picker surface, so
+         hotkeys fire around it and its buttons must not steal Space). -->
+    <div id="centre" style="width: 900px"></div>
+    <div id="layout" style="position: fixed; top: 40px; right: 20px"></div>
+    <!-- hotkey-focus-nonaction pin: a battlefield CardTile, the named first
+         instance of the defect — role=button + tabindex=0, exactly the
+         ACTIVATABLE control focusOwnsKey defers to. -->
+    <div id="tile" style="width: 120px"></div>
+    <!-- F3's persistent half: a modes ListPrompt whose chips stay enabled
+         after a click, so the focus-released assertion cannot pass vacuously
+         through a busy-disable cycle. -->
+    <div id="listmount" style="width: 420px"></div>
+    <!-- F4: the mana-payment window's buttons, mounted directly with a
+         stubbed decision and onPick recorder. -->
+    <div id="mp" style="width: 420px"></div>
+    <!-- F5: the pile opener (ZonePiles) plus the one PileModal host, so the
+         byPointer focus-return pair runs its real path. -->
+    <div id="zones" style="width: 260px"></div>
+    <div id="pilehost"></div>
+    <!-- F6: the DVR bar's transport buttons. -->
+    <div id="dvr" style="width: 420px"></div>
+    <!-- F7: the settings panel's buttons (options-popover class of surface). -->
+    <div id="settings" style="width: 640px"></div>
+    <!-- F6-class misc chrome: the wire notice dismiss. -->
+    <div id="wire" style="width: 420px"></div>
+    <!-- F8: a battlefield CardTile — the one ACTIVATABLE control that is not
+         a <button>: tabindex=0 + role=button put it inside lib/hotkeys.ts's
+         ACTIVATABLE set, so a pointer click that parked focus there used to
+         hand Space to the tile until the player clicked the felt. -->
+    <div id="board" style="width: 300px"></div>
+    <script type="module" src="/src/components/FocusRelease.fixture.ts"></script>
+  </body>
+</html>

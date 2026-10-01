@@ -7,6 +7,7 @@
   import TableCell from '../components/TableCell.svelte';
   import Feed from '../components/Feed.svelte';
   import PlayVsBot from '../components/PlayVsBot.svelte';
+  import DeckLeaderboard from '../components/DeckLeaderboard.svelte';
   import type { Widget } from '../protocol';
 
   let feed = $state<FeedLine[]>([]);
@@ -49,6 +50,7 @@
          path. The server decides whether the flow is enabled; a server that
          did not arm -vsbot answers 404 and the panel renders it. -->
     <div class="playstrip"><PlayVsBot /></div>
+    <div class="playstrip"><DeckLeaderboard /></div>
     <div class="sections">
       {#each sections as s (s.format)}
         <section class="section" style:--grow={s.tables.length}>

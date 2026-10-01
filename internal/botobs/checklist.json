@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "note": "One entry per fact a human player has access to, in the sense of the reward loop's obs axis (docs/superpowers/specs/2026-09-29-reward-loop-and-seed-agent-design.md §6). `where` names the engine-side accessor a bot could read the fact from, or null when no accessor exists. `exposed` records whether a bot view actually carries it today; the ratchet in checklist_test.go MEASURES each flag from the observation path and fails on any disagreement in either direction. Adding a fact carrier without recording it here fails; a recorded true fact regressing to false fails. This ticket measures only -- it exposes nothing new.",
+  "facts": [
+    {
+      "id": "own_library_list",
+      "description": "The viewer's own library as an unordered list of cards, without its secret order.",
+      "where": "view.PlayerView.Library",
+      "exposed": true
+    },
+    {
+      "id": "own_deck_archetype_prior",
+      "description": "The viewer's own deck archetype, as a prior over what the deck is trying to do.",
+      "where": "deck.Manifest.Archetype (carried from deck.File.Archetype by deck.NewManifest through rules.Config.Archetypes), projected as view.View.OwnDeck",
+      "exposed": true
+    },
+    {
+      "id": "opp_archetype_posterior",
+      "description": "A posterior over an opponent's archetype, inferred from the cards revealed about that opponent.",
+      "where": "view.PlayerView.Archetype (*view.ArchetypePosterior), inferred in view/archetype.go from the seat's public battlefield/graveyard/exile/command lists",
+      "exposed": true
+    },
+    {
+      "id": "own_curve",
+      "description": "The viewer's own mana curve over its decklist.",
+      "where": "deck.Manifest.Curve (derived at genesis by CurveOf from Main's front-face CMCs; view.View.OwnDeck projects it)",
+      "exposed": true
+    },
+    {
+      "id": "per_zone_counts",
+      "description": "Per-player counts for each zone: library, hand, graveyard, battlefield and exile.",
+      "where": "view.PlayerView (LibrarySize/HandSize/GraveyardSize ints plus the Battlefield/Exile/Graveyard card slices)",
+      "exposed": true
+    },
+    {
+      "id": "decision_routing_arms",
+      "description": "The bot router answers every decision kind the engine can pose (a human answers them all).",
+      "where": "botpolicy/policy.go decide(): a routing site per decision.Kinds entry",
+      "exposed": true
+    },
+    {
+      "id": "own_hand_contents",
+      "description": "The viewer's own hand as a list of cards.",
+      "where": "view.PlayerView.Hand",
+      "exposed": true
+    },
+    {
+      "id": "own_decklist",
+      "description": "The viewer's own genesis decklist (card names and counts), known before the first draw.",
+      "where": "view.View.OwnDeck (*deck.Manifest)",
+      "exposed": true
+    },
+    {
+      "id": "public_life_totals",
+      "description": "Every player's life total.",
+      "where": "view.PlayerView.Life",
+      "exposed": true
+    },
+    {
+      "id": "mana_pool",
+      "description": "Floating mana in every player's pool (public under CR 106.4a/106.4b/117.3d/118.3a).",
+      "where": "view.PlayerView.Pool",
+      "exposed": true
+    }
+  ]
+}

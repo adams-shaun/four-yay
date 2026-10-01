@@ -1,0 +1,56 @@
+{
+  "card": "Tiller Engine",
+  "family": "trigger-condition",
+  "oracle_sha": "4f9d942391f5",
+  "author": "cli-20261001T014438Z-51ea329c (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "tapland-entering-untaps-itself",
+      "cr": ["603.2", "700.2"],
+      "why": "Boros Guildgate enters tapped, so Tiller Engine's 'whenever a land you control enters tapped' trigger fires; choosing the first mode untaps that land, leaving it untapped.",
+      "setup": {
+        "p0": {"hand": ["Boros Guildgate"], "battlefield": ["Tiller Engine"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "play", "seat": 0, "card": "p0:Boros Guildgate", "answers": [{"kind": "modes", "pick": ["Untap that land"]}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Boros Guildgate", "zone": "battlefield", "tapped": false}
+      ]
+    },
+    {
+      "name": "tapland-entering-taps-an-opposing-nonland",
+      "cr": ["603.2", "700.2"],
+      "why": "The second mode taps a target nonland permanent an opponent controls, so p1's Grizzly Bears becomes tapped while the Guildgate stays tapped.",
+      "setup": {
+        "p0": {"hand": ["Boros Guildgate"], "battlefield": ["Tiller Engine"]},
+        "p1": {"battlefield": ["Grizzly Bears"]}
+      },
+      "steps": [
+        {"op": "play", "seat": 0, "card": "p0:Boros Guildgate", "answers": [{"kind": "modes", "pick": ["Tap target nonland permanent"]}], "targets": ["p1:Grizzly Bears"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Grizzly Bears", "tapped": true},
+        {"card": "p0:Boros Guildgate", "tapped": true}
+      ]
+    },
+    {
+      "name": "land-entering-untapped-does-not-trigger",
+      "cr": ["603.2"],
+      "why": "A Forest enters untapped, so the 'enters tapped' condition is false and Tiller Engine's trigger never fires; the Forest stays untapped and no mode is posed.",
+      "setup": {
+        "p0": {"hand": ["Forest"], "battlefield": ["Tiller Engine"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "play", "seat": 0, "card": "p0:Forest"}
+      ],
+      "expect": [
+        {"card": "p0:Forest", "zone": "battlefield", "tapped": false}
+      ]
+    }
+  ]
+}

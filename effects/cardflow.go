@@ -1385,6 +1385,41 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 		arrangeThrough = c.ArrangeTarget
 		c.ArrangeTarget = 0
 	}
+	// Zone-batch bracket (Mode$ ChangesZoneAll/PhaseOutAll): ONE api:Dig
+	// resolution is ONE zone-change action even when it moves several cards
+	// (Wild Wasteland's "exile the top two cards of your library"), so the
+	// "one or more" batch trigger observes the whole resolution as one batch
+	// instead of queueing once per moved card. The shape is effDiscard's
+	// suspension-safe variant: api:Dig suspends mid-action for take asks
+	// (ChangeNum$ Any, Optional$, a WithTotalCMC$ budget) and ordered-bottom
+	// arrange asks, so the bracket opens on the FIRST pass only -- a resumed
+	// pass is the SAME action, which digAns/digDone/arrangeThrough are exactly
+	// the markers for (they are set only when a previous pass asked) -- and
+	// the close-defer is registered on EVERY pass, skipped while suspended,
+	// so the completing pass closes it exactly once. A stray close is a no-op
+	// in closeZoneBatch's depth guard, zoneBatchDepth is reentrant (a Dig
+	// inside a RepeatEach ChangeZoneTable$ loop nests inside that loop's own
+	// bracket), and a host double without the bracket interface simply queues
+	// per move (the batch-of-one pre-fix reading, the mill bracket's shape).
+	// The bracket is engine memory folded identically on replay -- no event
+	// schema change; the first trigger's queueing position does not move,
+	// later matching events stop queueing, so the event stream shrinks by
+	// N-1 trigger resolutions for an N-card Dig.
+	firstPass := digAns == nil && !digDone && arrangeThrough < 0
+	suspended := false
+	if b, ok := h.(interface {
+		BeginZoneBatch()
+		EndZoneBatch()
+	}); ok {
+		if firstPass {
+			b.BeginZoneBatch()
+		}
+		defer func() {
+			if !suspended {
+				b.EndZoneBatch()
+			}
+		}()
+	}
 	g := h.Game()
 	players := definedPlayers(h, c, sa)
 	selection := *c // IsRemembered in ChangeValid reads the pre-clear set.
@@ -1537,6 +1572,7 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 					d.Options = append(d.Options, decision.Option{Index: i, Kind: "dig_bottom", Label: name, Obj: id, Player: p})
 				}
 				if Ask(h, d) == AskAsked {
+					suspended = true // resolution suspended; the arrange re-enters.
 					return true
 				}
 				// R-9 no-host stand-in: the OFFERED order is the bottom order --
@@ -1751,7 +1787,8 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 				d.Options = append(d.Options, opt)
 			}
 			if Ask(h, d) == AskAsked {
-				return // resolution suspended; the answer re-enters with Ctx.Dig set.
+				suspended = true // resolution suspended; the answer re-enters with Ctx.Dig set.
+				return
 			}
 			// Fuzz/no-engine host: the deterministic stand-in (R-9) takes the
 			// greedy affordable set -- the exact mirror of the budget-aware bot

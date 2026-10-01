@@ -1,6 +1,7 @@
 package azmcts
 
 import (
+	"context"
 	"reflect"
 	"sort"
 	"testing"
@@ -325,7 +326,7 @@ func TestSearchOnRedealtWorlds(t *testing.T) {
 			}
 			opts := DefaultOptions()
 			opts.Sims, opts.Seed = 12, 11
-			res, err := Search(Root{Engine: p.e, Decision: p.d, Bot: p.bot, Observer: obs}, src, nil, opts)
+			res, err := Search(context.Background(), Root{Engine: p.e, Decision: p.d, Bot: p.bot, Observer: obs}, src, nil, opts)
 			if err != nil {
 				t.Fatal(err)
 			}

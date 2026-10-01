@@ -1,0 +1,51 @@
+{
+  "card": "Den Protector",
+  "family": "morph",
+  "oracle_sha": "471fcd7d1b92",
+  "author": "cli-20261001T022457Z-f0c31bb6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "megamorph-turn-up-adds-counter-and-fetches",
+      "cr": ["702.168a", "603.2"],
+      "why": "Megamorph {1}{G}: turning face up for its megamorph cost puts a +1/+1 counter on it (3/2) and its 'When turned face up' trigger returns a graveyard card to hand.",
+      "setup": {
+        "p0": {"hand": ["Den Protector"], "graveyard": ["Forest"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Den Protector", "cast_mode": "megamorphed", "mana": "CCC"},
+        {"op": "resolve"},
+        {"op": "mana", "seat": 0, "mana": "CG"},
+        {"op": "activate", "seat": 0, "card": "p0:Den Protector", "ability": "Turn face up"},
+        {"op": "resolve", "targets": ["p0:Forest"]}
+      ],
+      "expect": [
+        {"card": "p0:Den Protector", "zone": "battlefield", "pt": "3/2"},
+        {"hand_size": {"p0": 1}}
+      ]
+    },
+    {
+      "name": "power-less-cant-block-power-three-can",
+      "cr": ["702.168a", "509.1b"],
+      "why": "Face up with the megamorph counter its power is 3: creatures with power less than 3 (Grizzly Bears, 2) cannot block it, while Centaur Courser (power 3) can.",
+      "setup": {
+        "p0": {"hand": ["Den Protector"], "graveyard": ["Forest"]},
+        "p1": {"battlefield": ["Grizzly Bears", "Centaur Courser"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Den Protector", "cast_mode": "megamorphed", "mana": "CCC"},
+        {"op": "resolve"},
+        {"op": "mana", "seat": 0, "mana": "CG"},
+        {"op": "activate", "seat": 0, "card": "p0:Den Protector", "ability": "Turn face up"},
+        {"op": "resolve", "targets": ["p0:Forest"]},
+        {"op": "pass_to", "step": "upkeep", "active": "p0"},
+        {"op": "attack", "seat": 0, "attackers": ["p0:Den Protector"], "defender": "p1"},
+        {"op": "pass_to", "decision": "blockers"}
+      ],
+      "expect": [
+        {"can_block": {"blocker": "p1:Grizzly Bears", "attacker": "p0:Den Protector"}, "want": false},
+        {"can_block": {"blocker": "p1:Centaur Courser", "attacker": "p0:Den Protector"}, "want": true}
+      ]
+    }
+  ]
+}

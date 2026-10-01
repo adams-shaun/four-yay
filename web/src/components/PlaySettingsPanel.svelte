@@ -1,6 +1,5 @@
 <script module lang="ts">
-  import { type PlaySettings, type PresetName, type StepStop, type StoppableStep } from '../lib/playsettings';
-  import type { TurnSide } from '../lib/autopilot';
+  import { type PlaySettings, type PresetName, type StepStop } from '../lib/playsettings';
 
   /**
    * PRESET_LIST is the three clickable presets in picker order, each with
@@ -26,44 +25,19 @@
     },
   ];
 
-  /** nextStop is one step-stop cell's three-state cycle: Off → Smart → Always → Off. */
-  export function nextStop(rule: StepStop): StepStop {
-    return rule === 'off' ? 'smart' : rule === 'smart' ? 'forced' : 'off';
-  }
-
-  /** stopPatch is one cell's change as a withChange patch (deep-merged into steps field-wise). */
-  export function stopPatch(step: StoppableStep, side: TurnSide, rule: StepStop): Partial<PlaySettings> {
-    return { steps: { [side]: { [step]: rule } } } as unknown as Partial<PlaySettings>;
-  }
-
-  /** stopWord names each cell state in plain words — the state is text, never colour alone. */
-  export function stopWord(rule: StepStop): string {
-    return rule === 'off' ? 'Off' : rule === 'smart' ? 'Smart' : 'Always';
-  }
-
   /** stopGlyph marks each cell state with a shape beside its word. */
   export function stopGlyph(rule: StepStop): string {
     return rule === 'off' ? '·' : rule === 'smart' ? '◐' : '●';
   }
 
-  /**
-   * clampMs parses one pacing input as an integer clamped to [0, 10000]
-   * (fb-20260917T004341Z: 0 keeps the instant-post path; above 10s a
-   * wedged-looking client is a footgun we don't ship). Returns null for a
-   * non-numeric/empty input — the caller then leaves the current value
-   * unchanged. Exported for tests; the Custom inputs' change handlers use it.
-   */
-  export function clampMs(raw: string): number | null {
-    const n = Number.parseInt(raw, 10);
-    if (Number.isNaN(n)) return null;
-    return Math.min(10000, Math.max(0, n));
-  }
 </script>
 
 <script lang="ts">
-  import { STOPPABLE_STEPS } from '../lib/autopilot';
+  import { STOPPABLE_STEPS, type TurnSide } from '../lib/autopilot';
+  import { clampMs, nextStop, stopPatch, stopWord, type StoppableStep } from '../lib/playsettings';
   import { stepFullName } from '../lib/phases';
   import { layoutStore } from '../lib/layouts.svelte';
+  import { pointerRelease } from '../lib/pointer';
   import { storageWritable } from '../lib/storage';
   import type {
     OpponentObjectRule,
@@ -285,7 +259,8 @@
           class:on={s.preset === p.id}
           aria-pressed={s.preset === p.id}
           data-preset={p.id}
-          onclick={() => applyPreset(p.id)}
+          use:pointerRelease
+onclick={() => applyPreset(p.id)}
         >{p.label}</button>
       {/each}
       {#if s.preset === 'custom'}
@@ -306,9 +281,9 @@
           bind:value={profileName}
           onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); saveCurrentProfile(); } }}
         />
-        <button type="button" class="seg" data-profile-save onclick={saveCurrentProfile}>Save</button>
-        <button type="button" class="seg" data-profile-export onclick={() => downloadText('gorge-flow-profiles.json', logic.exportProfilesText())}>Export profiles…</button>
-        <button type="button" class="seg" data-profile-import onclick={() => profileFile?.click()}>Import profiles…</button>
+        <button type="button" class="seg" data-profile-save use:pointerRelease onclick={saveCurrentProfile}>Save</button>
+        <button type="button" class="seg" data-profile-export use:pointerRelease onclick={() => downloadText('gorge-flow-profiles.json', logic.exportProfilesText())}>Export profiles…</button>
+        <button type="button" class="seg" data-profile-import use:pointerRelease onclick={() => profileFile?.click()}>Import profiles…</button>
         <input type="file" accept="application/json" hidden bind:this={profileFile} onchange={(e) => importProfilesFile(e.currentTarget)} />
       </div>
       <!-- Mounted empty so a screen reader is already watching it when the first result arrives. -->
@@ -329,8 +304,8 @@
                   bind:value={renameName}
                   onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commitRename(); } if (e.key === 'Escape') cancelRename(); }}
                 />
-                <button type="button" class="seg" data-profile-rename-commit={name} onclick={commitRename}>OK</button>
-                <button type="button" class="seg" data-profile-rename-cancel={name} onclick={cancelRename}>Cancel</button>
+                <button type="button" class="seg" data-profile-rename-commit={name} use:pointerRelease onclick={commitRename}>OK</button>
+                <button type="button" class="seg" data-profile-rename-cancel={name} use:pointerRelease onclick={cancelRename}>Cancel</button>
               {:else}
                 <button
                   type="button"
@@ -338,10 +313,11 @@
                   class:on={activeProfile === name}
                   aria-pressed={activeProfile === name}
                   data-profile-apply={name}
-                  onclick={() => applyOne(name)}
+                  use:pointerRelease
+onclick={() => applyOne(name)}
                 >{name}{activeProfile === name && logic.profileModified ? ' *' : ''}</button>
-                <button type="button" class="seg" data-profile-rename={name} onclick={() => startRename(name)}>Rename</button>
-                <button type="button" class="seg" data-profile-delete={name} onclick={() => deleteOne(name)}>Delete</button>
+                <button type="button" class="seg" data-profile-rename={name} use:pointerRelease onclick={() => startRename(name)}>Rename</button>
+                <button type="button" class="seg" data-profile-delete={name} use:pointerRelease onclick={() => deleteOne(name)}>Delete</button>
               {/if}
             </li>
           {/each}
@@ -361,7 +337,8 @@
       class:on={s.autoPass}
       aria-checked={s.autoPass}
       data-toggle="auto-pass"
-      onclick={() => logic.pressAuto()}
+      use:pointerRelease
+onclick={() => logic.pressAuto()}
     >
       <span>Auto pass</span><span class="state" aria-hidden="true">{logic.machinePaused ? 'Paused' : s.autoPass ? 'On' : 'Off'}</span>
     </button>
@@ -414,7 +391,8 @@
           class:on={s.ownObjects === o.value}
           aria-pressed={s.ownObjects === o.value}
           data-own={o.value}
-          onclick={() => setOwn(o.value)}
+          use:pointerRelease
+onclick={() => setOwn(o.value)}
         >{o.label}</button>
       {/each}
     </div>
@@ -448,7 +426,8 @@
                 data-step-cell={`${r.step}:yours`}
                 data-stop-value={r.yours}
                 aria-label={`${r.name}, my turn: ${stopWord(r.yours).toLowerCase()}`}
-                onclick={() => cycleCell(r.step, 'yours')}
+                use:pointerRelease
+onclick={() => cycleCell(r.step, 'yours')}
               ><span class="glyph" aria-hidden="true">{stopGlyph(r.yours)}</span>{stopWord(r.yours)}</button>
             </td>
             <td>
@@ -458,7 +437,8 @@
                 data-step-cell={`${r.step}:opponents`}
                 data-stop-value={r.opponents}
                 aria-label={`${r.name}, opponent’s turn: ${stopWord(r.opponents).toLowerCase()}`}
-                onclick={() => cycleCell(r.step, 'opponents')}
+                use:pointerRelease
+onclick={() => cycleCell(r.step, 'opponents')}
               ><span class="glyph" aria-hidden="true">{stopGlyph(r.opponents)}</span>{stopWord(r.opponents)}</button>
             </td>
           </tr>
@@ -482,7 +462,8 @@
       aria-checked={s.passAfterAct}
       data-toggle="pass-after-cast"
       data-actpass-toggle
-      onclick={() => logic.setActPass(!s.passAfterAct)}
+      use:pointerRelease
+onclick={() => logic.setActPass(!s.passAfterAct)}
     >
       <span>Pass after I cast</span><span class="state" aria-hidden="true">{s.passAfterAct ? 'On' : 'Off'}</span>
     </button>
@@ -493,7 +474,8 @@
       class:on={s.autoOrderIdenticalTriggers}
       aria-checked={s.autoOrderIdenticalTriggers}
       data-toggle="auto-order-triggers"
-      onclick={() => logic.editSettings({ autoOrderIdenticalTriggers: !s.autoOrderIdenticalTriggers })}
+      use:pointerRelease
+onclick={() => logic.editSettings({ autoOrderIdenticalTriggers: !s.autoOrderIdenticalTriggers })}
     >
       <span>Auto-order identical triggers</span><span class="state" aria-hidden="true">{s.autoOrderIdenticalTriggers ? 'On' : 'Off'}</span>
     </button>
@@ -504,7 +486,8 @@
       class:on={s.autoOrderAllTriggers}
       aria-checked={s.autoOrderAllTriggers}
       data-toggle="auto-order-all-triggers"
-      onclick={() => logic.editSettings({ autoOrderAllTriggers: !s.autoOrderAllTriggers })}
+      use:pointerRelease
+onclick={() => logic.editSettings({ autoOrderAllTriggers: !s.autoOrderAllTriggers })}
     >
       <span>Auto-order all triggers</span><span class="state" aria-hidden="true">{s.autoOrderAllTriggers ? 'On' : 'Off'}</span>
     </button>
@@ -523,7 +506,8 @@
             class:on={pacingId === p.id}
             aria-pressed={pacingId === p.id}
             data-pacing={p.id}
-            onclick={() => logic.editSettings({ pacing: { stepMs: p.stepMs, resolveMs: p.resolveMs } })}
+            use:pointerRelease
+onclick={() => logic.editSettings({ pacing: { stepMs: p.stepMs, resolveMs: p.resolveMs } })}
           >{p.label}</button>
         {/each}
         <button
@@ -533,7 +517,8 @@
           aria-pressed={pacingId === null}
           aria-expanded={showCustomInputs}
           data-pacing="custom"
-          onclick={() => (customOpen = true)}
+          use:pointerRelease
+onclick={() => (customOpen = true)}
         >Custom</button>
       </div>
     </div>
@@ -573,7 +558,8 @@
       class:on={s.logAutoPasses}
       aria-checked={s.logAutoPasses}
       data-toggle="log-auto-passes"
-      onclick={() => logic.editSettings({ logAutoPasses: !s.logAutoPasses })}
+      use:pointerRelease
+onclick={() => logic.editSettings({ logAutoPasses: !s.logAutoPasses })}
     >
       <span>Log auto-passes</span><span class="state" aria-hidden="true">{s.logAutoPasses ? 'On' : 'Off'}</span>
     </button>
@@ -586,12 +572,13 @@
       class="row"
       data-clear-yields
       disabled={logic.yieldList.length === 0}
-      onclick={() => logic.clearYields()}
+      use:pointerRelease
+onclick={() => logic.clearYields()}
     >
       <span>Clear yields{logic.yieldList.length > 0 ? ` (${logic.yieldList.length})` : ''}</span>
       <span class="state" aria-hidden="true">{logic.yieldList.length > 0 ? 'Clear' : 'None'}</span>
     </button>
-    <button type="button" class="reset" data-reset-settings onclick={() => applyPreset('casual')}>Reset to Casual</button>
+    <button type="button" class="reset" data-reset-settings use:pointerRelease onclick={() => applyPreset('casual')}>Reset to Casual</button>
   </section>
 
   <!-- Layout: the board's appearance lives in the layout profile library
@@ -610,12 +597,13 @@
         class:on={showLog}
         aria-checked={showLog}
         data-toggle="show-game-log"
-        onclick={() => onToggleLog?.()}
+        use:pointerRelease
+onclick={() => onToggleLog?.()}
       >
         <span>Show game log</span><span class="state" aria-hidden="true">{showLog ? 'Shown' : 'Hidden'}</span>
       </button>
     {/if}
-    <button type="button" class="row" data-open-layout-drawer onclick={() => (layoutStore.drawerOpen = true)}>
+    <button type="button" class="row" data-open-layout-drawer use:pointerRelease onclick={() => (layoutStore.drawerOpen = true)}>
       <span>Board layout</span><span class="state">{layoutStore.label}</span>
     </button>
     <p class="legend">Arrangement, card sizes, stacking and the rail are layout profiles: they save in this browser and can be exported to a file.</p>
@@ -643,12 +631,13 @@
               class="remforget"
               data-remembered-delete={i}
               aria-label={`Forget ${e.label}`}
-              onclick={() => logic.removeRemembered(logic.remembered.entries[i]?.key ?? '')}
+              use:pointerRelease
+onclick={() => logic.removeRemembered(logic.remembered.entries[i]?.key ?? '')}
             >Forget</button>
           </li>
         {/each}
       </ul>
-      <button type="button" class="row" data-remembered-clear onclick={() => logic.clearRemembered()}>
+      <button type="button" class="row" data-remembered-clear use:pointerRelease onclick={() => logic.clearRemembered()}>
         <span>Forget all remembered answers ({logic.remembered.entries.length})</span>
         <span class="state" aria-hidden="true">Clear</span>
       </button>

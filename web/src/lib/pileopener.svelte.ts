@@ -20,19 +20,27 @@ import { zonesFor, type ZoneName } from './zones';
 export type PileZone = ZoneName | 'hand';
 
 /** OpenPile is the one pile currently open, with the button that opened it
- *  (PileModal returns focus to it on close). */
+ *  (PileModal returns focus to it on close — but only when the pile was
+ *  opened from the KEYBOARD: a pointer click releases the opener's focus
+ *  (lib/pointer.ts pointerRelease), and giving focus back to a control the
+ *  pointer never meant to park the keyboard on would re-steal Space/Enter
+ *  from the table hotkeys the moment the modal closes. hotkey-focus2.
+ *  byPointer is the open click's e.detail > 0; a keyboard opener (Enter on
+ *  a focused pile pill, or ViewHotkeys' open-grave/open-exile chords) keeps
+ *  the accessibility focus return. */
 export interface OpenPile {
   seat: number;
   zone: PileZone;
   trigger: HTMLElement;
+  byPointer: boolean;
 }
 
 export class PileOpener {
   /** current is the open pile, or null when none is. */
   current = $state<OpenPile | null>(null);
 
-  open(seat: number, zone: PileZone, trigger: HTMLElement): void {
-    this.current = { seat, zone, trigger };
+  open(seat: number, zone: PileZone, trigger: HTMLElement, byPointer: boolean): void {
+    this.current = { seat, zone, trigger, byPointer };
   }
 
   close(): void {

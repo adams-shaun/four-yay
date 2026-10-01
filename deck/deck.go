@@ -123,16 +123,27 @@ type ManifestRow struct {
 // Manifest is the immutable, unordered genesis list assigned to one seat.
 // Call Clone before publishing or retaining it outside its owner.
 type Manifest struct {
-	Name       string        `json:"name"`
+	Name string `json:"name"`
+	// Archetype is the deck's authoring archetype (File.Archetype), carried so
+	// the seat's own prior survives into the projection the bot reads as
+	// view.View.OwnDeck. Empty for a deck file that declares none, which
+	// marshals away (omitempty) and preserves the pre-field wire shape.
+	Archetype  string        `json:"archetype,omitempty"`
 	Main       []ManifestRow `json:"main"`
 	Sideboard  []ManifestRow `json:"sideboard,omitempty"`
 	Commanders []string      `json:"commanders,omitempty"`
+	// Curve is the derived mana curve over Main (CurveOf): one row per
+	// front-face CMC in ascending order, each carrying the copies at that
+	// cost. Derived observation data like the rows themselves, not game state.
+	Curve []CurveRow `json:"curve,omitempty"`
 }
 
 // NewManifest canonicalizes the configured card lists without retaining their
 // slices. Commander identities preserve the declared index order.
-func NewManifest(name string, main, sideboard []*cards.Card, commanderIndices []int) Manifest {
-	m := Manifest{Name: name, Main: manifestRows(main)}
+// archetype is the deck file's authoring archetype ("" when it declares
+// none).
+func NewManifest(name, archetype string, main, sideboard []*cards.Card, commanderIndices []int) Manifest {
+	m := Manifest{Name: name, Archetype: archetype, Main: manifestRows(main), Curve: CurveOf(main)}
 	if len(sideboard) > 0 {
 		m.Sideboard = manifestRows(sideboard)
 	}
@@ -156,6 +167,11 @@ func (m Manifest) Clone() Manifest {
 		m.Commanders = append([]string{}, m.Commanders...)
 	} else {
 		m.Commanders = nil
+	}
+	if len(m.Curve) > 0 {
+		m.Curve = append([]CurveRow{}, m.Curve...)
+	} else {
+		m.Curve = nil
 	}
 	return m
 }

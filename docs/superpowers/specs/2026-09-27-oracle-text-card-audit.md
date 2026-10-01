@@ -185,8 +185,15 @@ The decoder rejects unknown fields.
   - `mana` (adds to the pool; this stands in for mana sources)
   - `resolve` (pass until the stack is empty)
   - `attack` / `block`
+  - `pass` (answers exactly one priority decision; the named seat must hold priority)
   - `pass_to` (`step`, `active`, or a `decision` kind)
-  - `move` / `life` (stand-ins for an unspecified outside effect)
+  - `move` / `life` (stand-ins for an unspecified outside effect). These
+    emit **real** logged events (`MoveZone` / `LifeChange`), so any triggered
+    ability they cause is queued on the stack and the scenario must
+    `resolve` (or `pass`) before asserting what it did — the same reason a
+    `move` that causes a death trigger needs a `resolve`. A `life` op with a
+    negative amount reaches the `Mode$ LifeLost` matcher exactly like damage
+    does.
 - **Decisions:** targets come from `targets`; other asks come from `answers`
   by decision kind. `yes`/`no` are abstract accept/decline and map onto
   whatever the engine poses (yes/no, "unless" modes, …). Anything unanswered

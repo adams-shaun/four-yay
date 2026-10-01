@@ -32,6 +32,16 @@ describe('LayoutStore', () => {
     expect(s.getItem(LAYOUTS_KEY)).not.toBeNull();
   });
 
+  it('the hand card size writes through edit and survives a reload', () => {
+    const s = memStorage();
+    const a = new LayoutStore(s);
+    expect(a.profile.hand.scale).toBe(1);
+    a.edit((q) => (q.hand.scale = 1.35));
+    expect(a.profile.hand.scale).toBe(1.35);
+    const b = new LayoutStore(s);
+    expect(b.profile.hand.scale).toBe(1.35);
+  });
+
   it('the splitter clamps and resets by seat count', () => {
     const st = new LayoutStore(memStorage());
     st.setSplit(5);

@@ -1,0 +1,42 @@
+{
+  "card": "Sneaky Snacker",
+  "family": "trigger-condition",
+  "oracle_sha": "71b609182caa",
+  "author": "cli-20261001T014438Z-51ea329c (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "third-draw-of-the-turn-returns-it-tapped",
+      "cr": ["603.2", "121.1"],
+      "why": "Concentrate draws three cards in one turn; the third draw triggers the Snacker's ability, returning it from the graveyard to the battlefield tapped.",
+      "setup": {
+        "p0": {"graveyard": ["Sneaky Snacker"], "hand": ["Concentrate"], "library_top": ["Forest", "Island", "Mountain"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Concentrate", "mana": "UUUU"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Sneaky Snacker", "zone": "battlefield", "tapped": true, "pt": "2/1"},
+        {"hand_size": {"p0": 3}}
+      ]
+    },
+    {
+      "name": "only-two-draws-no-return",
+      "cr": ["603.2", "121.1"],
+      "why": "Drawing only two cards in the turn never reaches the third-draw trigger, so the Snacker stays in the graveyard.",
+      "setup": {
+        "p0": {"graveyard": ["Sneaky Snacker"], "hand": ["Divination"], "library_top": ["Forest", "Island"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Divination", "mana": "UUC"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Sneaky Snacker", "zone": "graveyard"},
+        {"hand_size": {"p0": 2}}
+      ]
+    }
+  ]
+}

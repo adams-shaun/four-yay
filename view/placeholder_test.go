@@ -116,15 +116,26 @@ func TestStackViewAbilityTextSubstitutesNickname(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestStackViewAbilityCardFilledFromSource pins the defect-3 fix: an ability
-// object (here a non-trigger shape) on the stack gets its Card from the
-// SOURCE permanent's cardView, without changing Kind.
+// object on the stack gets its Card from the SOURCE permanent's cardView,
+// without changing Kind.
 func TestStackViewAbilityCardFilledFromSource(t *testing.T) {
-	g, id := twoSeatWith(t, watcherSrc)
+	g, id := twoSeatWith(t, boltSrc)
 	events.Apply(g, events.Event{Kind: events.MoveZone, Obj: id, From: state.ZHand, To: state.ZBattlefield})
-	ab := g.AddObject(nil, 0)
-	events.Move(g, ab.ID, state.ZLibrary, state.ZStack)
-	ab.Ability = &cards.SA{Kind: "AB", API: "GainLife", Params: map[string]string{"SpellDescription": "Gain 1 life."}}
-	ab.Source = id
+	if got := g.Obj(id); got.Zone != state.ZBattlefield || len(g.Obj(id).Face().Abilities) == 0 {
+		t.Fatalf("fixture: source not on the battlefield with an A: ability (zone %v)", got.Zone)
+	}
+	// An AbilityPush mint (events/apply.go), not a hand-built object: under
+	// the StackKindOf classifier an unstamped fixture whose SA matches no
+	// face list falls through the DelayedPush branch and misreads as a
+	// trigger, while every engine mint is stamped StackKindActivated.
+	events.Apply(g, events.Event{Kind: events.AbilityPush, Obj: id, Player: 0, Amount: 0})
+	sids := g.Zone(state.ZStack, 0)
+	if len(sids) != 1 || g.Obj(sids[0]).Ability == nil || g.Obj(sids[0]).Source != id {
+		t.Fatalf("fixture: no minted ability object on the stack (%v)", sids)
+	}
+	if ab := g.Obj(sids[0]); !ab.StackKindKnown || ab.StackKind != state.StackKindActivated {
+		t.Fatalf("fixture: minted object unstamped (%+v); the Kind assertion needs the stamp", ab)
+	}
 	v := Project(g, flatChars{g}, 0, nil)
 	if len(v.Stack) != 1 {
 		t.Fatalf("stack %+v", v.Stack)
@@ -133,7 +144,7 @@ func TestStackViewAbilityCardFilledFromSource(t *testing.T) {
 	if sv.Kind != "ability" {
 		t.Fatalf("Kind = %q, want \"ability\" (the Kind must not change)", sv.Kind)
 	}
-	if sv.Card == nil || sv.Card.Name != "Watcher" || sv.Card.ID != id {
+	if sv.Card == nil || sv.Card.Name != "Bolt" || sv.Card.ID != id {
 		t.Fatalf("Card = %+v, want the source permanent's CardView", sv.Card)
 	}
 }

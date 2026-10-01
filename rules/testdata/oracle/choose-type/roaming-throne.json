@@ -1,0 +1,74 @@
+{
+  "card": "Roaming Throne",
+  "family": "choose-type",
+  "oracle_sha": "e2684ed4ed12",
+  "author": "cli-20260930T220416Z-ed59db28 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "chosen-eldrazi-doubles-glaring-fleshraker-trigger",
+      "cr": [
+        "707.10",
+        "603.2c",
+        "614.12"
+      ],
+      "why": "Choosing Eldrazi makes the Throne an Eldrazi and doubles triggered abilities of another Eldrazi creature I control: casting one colorless spell makes Glaring Fleshraker's create-a-Spawn trigger happen twice (the Throne's own ETB colourless-spell trigger counts the Throne's own cast as the first, so the Fleshraker sees only the Chromatic Star and its trigger doubles once), so three Spawn tokens appear.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Glaring Fleshraker"
+          ],
+          "hand": [
+            "Roaming Throne",
+            "Chromatic Star"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Roaming Throne",
+          "mana": "CCCCC",
+          "answers": []
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "Eldrazi"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Chromatic Star",
+          "mana": "C"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Eldrazi Spawn"
+          },
+          "eq": 3
+        },
+        {
+          "card": "p0:Roaming Throne",
+          "zone": "battlefield",
+          "types": [
+            "Eldrazi"
+          ]
+        }
+      ]
+    }
+  ]
+}

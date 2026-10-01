@@ -1,0 +1,28 @@
+{
+  "card": "Oblivion Sower",
+  "family": "etb-ltb",
+  "oracle_sha": "840cdf25c6d4",
+  "author": "cli-20260929T235020Z-c90601c7 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "cast-trigger-exiles-four-and-takes-the-lands",
+      "cr": ["601.2a", "701.13a", "610.3"],
+      "why": "Oblivion Sower's cast trigger makes the target opponent exile the top four cards of their library; the caster may then put any land cards among those that the opponent owns onto the battlefield under the caster's control.",
+      "setup": {
+        "p0": {"hand": ["Oblivion Sower"]},
+        "p1": {"library_top": ["Forest", "Forest", "Lightning Bolt", "Mountain"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Oblivion Sower", "mana": "CCCCCC", "targets": ["p1"]},
+        {"op": "resolve",
+         "answers": [{"kind": "choose", "pick": ["p1:Forest", "p1:Forest#2", "p1:Mountain"]}]}
+      ],
+      "expect": [
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Forest"}, "eq": 2},
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Mountain"}, "eq": 1},
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Oblivion Sower"}, "eq": 1},
+        {"card": "p1:Lightning Bolt", "zone": "exile"}
+      ]
+    }
+  ]
+}

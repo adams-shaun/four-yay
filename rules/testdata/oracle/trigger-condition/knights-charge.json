@@ -1,0 +1,42 @@
+{
+  "card": "Knights' Charge",
+  "family": "trigger-condition",
+  "oracle_sha": "7f7dece9998a",
+  "author": "cli-20260929T235020Z-c90601c7 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "knight-attack-drains-each-opponent",
+      "cr": ["508.1", "603.2"],
+      "why": "Whenever a Knight you control attacks, each opponent loses 1 life and you gain 1 life; attacking with Knight of the Ebon Legion drains the single opponent.",
+      "setup": {
+        "p0": {"battlefield": ["Knights' Charge", "Knight of the Ebon Legion"]},
+        "p1": {"life": 20}
+      },
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:Knight of the Ebon Legion"], "defender": "p1",
+         "expect": [{"trigger_on_stack": "p0:Knights' Charge", "want": true}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 21, "p1": 19}}
+      ]
+    },
+    {
+      "name": "nonknight-attack-does-not-drain",
+      "cr": ["603.2"],
+      "why": "Grizzly Bears is a Bear, not a Knight, so attacking with it triggers nothing.",
+      "setup": {
+        "p0": {"battlefield": ["Knights' Charge", "Grizzly Bears"]},
+        "p1": {"life": 20}
+      },
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:Grizzly Bears"], "defender": "p1",
+         "expect": [{"trigger_on_stack": "p0:Knights' Charge", "want": false}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 20, "p1": 20}}
+      ]
+    }
+  ]
+}

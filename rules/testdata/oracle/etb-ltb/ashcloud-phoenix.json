@@ -1,0 +1,25 @@
+{
+  "card": "Ashcloud Phoenix",
+  "family": "etb-ltb",
+  "oracle_sha": "4f921d8c2a31",
+  "author": "cli-20260929T235020Z-c90601c7 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "dies-returns-face-down",
+      "cr": ["603.6c", "708.2", "708.3"],
+      "why": "When Ashcloud Phoenix dies it returns to the battlefield face down under its owner's control as a 2/2 creature with no name or types; its death trigger is put on the stack.",
+      "setup": {
+        "p0": {"battlefield": ["Ashcloud Phoenix"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "move", "seat": 0, "card": "p0:Ashcloud Phoenix", "to": "graveyard",
+         "expect": [{"trigger_on_stack": "p0:Ashcloud Phoenix", "want": true}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Ashcloud Phoenix", "zone": "battlefield", "pt": "2/2", "no_keywords": ["Flying"]}
+      ]
+    }
+  ]
+}

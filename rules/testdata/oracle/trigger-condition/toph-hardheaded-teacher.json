@@ -1,0 +1,44 @@
+{
+  "card": "Toph, Hardheaded Teacher",
+  "family": "trigger-condition",
+  "oracle_sha": "003cad4eb7d4",
+  "author": "cli-20260930T002325Z-7c2f8c50 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "cast-a-spell-earthbends-one",
+      "cr": ["603.2", "701.66a"],
+      "why": "Whenever I cast a spell, earthbend 1. Casting Lightning Bolt (not a Lesson) animates the targeted Forest into a 1/1 haste land creature with one +1/+1 counter.",
+      "setup": {
+        "p0": {"battlefield": ["Toph, Hardheaded Teacher", "Forest"], "hand": ["Lightning Bolt"]},
+        "p1": {"life": 20}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
+        {"op": "resolve", "targets": ["p0:Forest"]}
+      ],
+      "expect": [
+        {"life": {"p1": 17}},
+        {"card": "p0:Forest", "zone": "battlefield", "pt": "1/1", "counters": {"+1/+1": 1},
+         "keywords": ["Haste"], "types": ["Creature", "Land"]}
+      ]
+    },
+    {
+      "name": "casting-a-lesson-adds-an-extra-counter",
+      "cr": ["603.2", "205.3g", "701.66a"],
+      "why": "The cast trigger earthbends 1, and because the cast spell is a Lesson an additional +1/+1 counter is put on that land: two counters total, a 2/2 haste land creature.",
+      "setup": {
+        "p0": {"battlefield": ["Toph, Hardheaded Teacher", "Forest"], "hand": ["Boomerang Basics"]},
+        "p1": {"battlefield": ["Grizzly Bears"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Boomerang Basics", "mana": "U", "targets": ["p1:Grizzly Bears"]},
+        {"op": "resolve", "targets": ["p0:Forest"]}
+      ],
+      "expect": [
+        {"card": "p1:Grizzly Bears", "zone": "hand"},
+        {"card": "p0:Forest", "zone": "battlefield", "pt": "2/2", "counters": {"+1/+1": 2},
+         "keywords": ["Haste"], "types": ["Creature", "Land"]}
+      ]
+    }
+  ]
+}

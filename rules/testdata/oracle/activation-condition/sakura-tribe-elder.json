@@ -1,0 +1,26 @@
+{
+  "card": "Sakura-Tribe Elder",
+  "family": "activation-condition",
+  "oracle_sha": "c3112d2ce60e",
+  "author": "cli-20260929T235020Z-c90601c7 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "sacrifice-fetches-a-basic-tapped",
+      "cr": ["601.2", "701.19a"],
+      "why": "Sacrificing Sakura-Tribe Elder searches for a basic land card and puts it onto the battlefield tapped; the Elder is in the graveyard and the land untaps on a later turn.",
+      "setup": {
+        "p0": {"battlefield": ["Sakura-Tribe Elder"], "library_top": ["Forest"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Sakura-Tribe Elder", "ability": "Search your library"},
+        {"op": "resolve",
+         "answers": [{"kind": "choose", "pick": ["p0:Forest"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Sakura-Tribe Elder", "zone": "graveyard"},
+        {"card": "p0:Forest", "zone": "battlefield", "tapped": true}
+      ]
+    }
+  ]
+}

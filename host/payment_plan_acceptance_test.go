@@ -237,16 +237,24 @@ func runPaymentPlanHumanSeat(t *testing.T, seats int, decks []string, seed uint6
 }
 
 func TestPaymentPlanHumanSeatSelectsAnOfferedPlanAndReplays(t *testing.T) {
+	// Each row builds its own registry and human seat, so the rows are
+	// independent; running them concurrently shortens the package's
+	// sequential phase (the module gate's critical path) with no assertion
+	// change.
 	t.Run("two_seats", func(t *testing.T) {
+		t.Parallel()
 		runPaymentPlanHumanSeat(t, 2, []string{"a", "b"}, 20260924)
 	})
 	t.Run("four_seats", func(t *testing.T) {
+		t.Parallel()
 		runPaymentPlanHumanSeat(t, 4, []string{"a", "b", "c", "d"}, 20260925)
 	})
 	t.Run("dual_land_two_seats", func(t *testing.T) {
+		t.Parallel()
 		runPaymentPlanHumanSeat(t, 2, []string{"ur-delver", "uw-control"}, 20260926)
 	})
 	t.Run("dual_only_two_seats", func(t *testing.T) {
+		t.Parallel()
 		// Match 1 rotates Decks, so seat 0 (the human) plays decks[1]: put the
 		// authored dual-only mana base there.
 		runPaymentPlanHumanSeat(t, 2, []string{"mono-red-goblins", "pp-dual"}, 20260927)

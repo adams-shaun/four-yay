@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { PendingView } from '../protocol';
+  import { pointerRelease } from '../lib/pointer';
 
   /**
    * PendingTray lists the triggers/replacement effects waiting on a decision, each labelled and, when optional, saying who decides.
@@ -33,7 +34,7 @@
       <li class="stuck" data-stuck>
         <span class="label">{stuck.prompt}</span>
         {#if stuck.answerable && onContinue}
-          <button class="continue" type="button" data-continue onclick={onContinue}>Continue</button>
+          <button class="continue" type="button" data-continue use:pointerRelease onclick={onContinue}>Continue</button>
         {:else}
           <span class="who">This decision offers no choices</span>
         {/if}

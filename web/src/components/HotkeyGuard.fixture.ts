@@ -5,6 +5,7 @@ import { modalPickerOpen } from '../lib/modals';
 import { optionsByObj, optionsByPlayer, type CardOptions } from '../lib/cardoptions';
 import '../app.css';
 import HotButtonStrip from './HotButtonStrip.svelte';
+import ActionCluster from './ActionCluster.svelte';
 import PileModal from './PileModal.svelte';
 import CardTile from './CardTile.svelte';
 import HandFan from './HandFan.svelte';
@@ -134,6 +135,11 @@ mount(HotButtonStrip, {
     table: 'fx',
     match: 1,
   },
+});
+
+mount(ActionCluster, {
+  target: document.querySelector('#cluster')!,
+  props: { view, seats, state, ctx: { seat: 0, token: 'tok' }, table: 'fx', match: 1 },
 });
 
 // The pile modal is mounted imperatively so the fixture starts closed and a

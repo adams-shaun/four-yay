@@ -2121,7 +2121,11 @@ func (e *Engine) emitManaTap(p state.PlayerID, source state.ObjID, sa *cards.SA)
 	// Produced). Scanning the log rather than reading sa.Params["Produced"]
 	// makes the read the mana ACTUALLY produced, so a Produced$ Any colour
 	// choice and a ProduceMana replacement are both reflected faithfully.
-	e.manaTapMark = len(e.L.Events)
+	// The pending boundary records WHICH triggers this tap queued for the
+	// same stamp: only the CR 605.3b immediate batch is returned here, and
+	// an ordinary TapsForMana trigger (C.A.M.P.'s targeted one) stays in
+	// e.pendingTriggers for its later placement.
+	e.manaTapMark, e.manaTapPendingFrom, e.manaTapSource = len(e.L.Events), before, source
 
 	// CR 605.3b: a triggered mana ability resolves immediately after the mana
 	// ability that caused it, without using the stack. Separate only newly
@@ -2234,12 +2238,35 @@ func (e *Engine) stampTriggeredManaProduced(triggers []pendingTrigger) {
 		return
 	}
 	produced := e.manaProducedSince(e.manaTapMark)
-	e.manaTapMark = 0
+	tapped := e.manaTapSource
+	from := e.manaTapPendingFrom
+	e.manaTapMark, e.manaTapPendingFrom, e.manaTapSource = 0, 0, 0
 	if produced == "" {
 		return
 	}
 	for i := range triggers {
 		triggers[i].Ctx.TriggerMana = produced
+	}
+	// The ordinary (non-immediate) TapsForMana triggers the same tap queued
+	// stay in e.pendingTriggers for their later placement, outside the
+	// immediate batch this call stamps above. Bind the produced set onto
+	// exactly the ones THIS tap queued: from the boundary emitManaTap
+	// recorded, a TapsForMana trigger whose fold bound TriggerCard to the
+	// tapped permanent (rules/trigger_referents.go's TapsForMana roles). An
+	// unrelated trigger the activation's other events queued (a sacrifice,
+	// a cost tap's reaction) keeps an unbound referent -- sharesColorWith's
+	// TriggeredProduced reads the EMPTY set as shares-nothing, resolved.
+	if from > len(e.pendingTriggers) {
+		from = len(e.pendingTriggers)
+	}
+	for i := from; i < len(e.pendingTriggers); i++ {
+		pt := &e.pendingTriggers[i]
+		if tapped == 0 || pt.Ctx.TriggerCard != tapped {
+			continue
+		}
+		if t, ok := e.triggerOf(*pt); ok && t.Mode == "TapsForMana" {
+			pt.Ctx.TriggerMana = produced
+		}
 	}
 }
 

@@ -1,0 +1,25 @@
+{
+  "card": "Umbral Collar Zealot",
+  "family": "activation-condition",
+  "oracle_sha": "367bd5406fed",
+  "author": "cli-20260930T002325Z-7c2f8c50 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "sacrifice-a-creature-to-surveil",
+      "cr": ["602.2a", "701.19a", "701.23a"],
+      "why": "Sacrificing another creature pays the ability's cost, then Surveil 1 looks at the top card of my library and lets me put it into the graveyard. Choosing to bin the top card moves it there.",
+      "setup": {
+        "p0": {"battlefield": ["Umbral Collar Zealot", "Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Umbral Collar Zealot", "ability": "Surveil",
+         "answers": [{"kind": "choose", "pick": ["p0:Grizzly Bears"]}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "zone": "graveyard"}
+      ]
+    }
+  ]
+}
