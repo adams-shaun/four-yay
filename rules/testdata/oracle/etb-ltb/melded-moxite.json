@@ -1,0 +1,61 @@
+{
+  "card": "Melded Moxite",
+  "family": "etb-ltb",
+  "oracle_sha": "3a71ee83d618",
+  "author": "cli-20261001T014438Z-51ea329c (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enters-discard-a-card-draws-two",
+      "cr": ["603.6a", "701.8a", "121.1"],
+      "why": "The enters trigger is an optional discard; discarding one card means drawing two, so the hand ends with the one card that was never discarded plus the two drawn.",
+      "setup": {
+        "p0": {"hand": ["Melded Moxite", "Grizzly Bears", "Forest"], "library_top": ["Island", "Mountain"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Melded Moxite", "mana": "CR"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["Discard 1 card"]}, {"kind": "any", "pick": ["p0:Grizzly Bears"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Melded Moxite", "zone": "battlefield"},
+        {"card": "p0:Grizzly Bears", "zone": "graveyard"},
+        {"hand_size": {"p0": 3}}
+      ]
+    },
+    {
+      "name": "declining-the-discard-draws-nothing",
+      "cr": ["603.6a", "701.8a"],
+      "why": "Declining the optional discard draws no cards, so the hand keeps the two cards it had and the graveyard stays empty.",
+      "setup": {
+        "p0": {"hand": ["Melded Moxite", "Grizzly Bears"], "library_top": ["Island", "Mountain"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Melded Moxite", "mana": "CR"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["no"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Melded Moxite", "zone": "battlefield"},
+        {"hand_size": {"p0": 1}},
+        {"graveyard_size": {"p0": 0}}
+      ]
+    },
+    {
+      "name": "sacrifice-for-a-tapped-robot-token",
+      "cr": ["602.2", "111.1"],
+      "why": "The {3}, Sacrifice ability makes a tapped 2/2 colorless Robot artifact creature token; the Moxite itself leaves the battlefield.",
+      "setup": {
+        "p0": {"battlefield": ["Melded Moxite"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Melded Moxite", "mana": "CCC", "ability": "Create a tapped"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Melded Moxite", "zone": "graveyard"},
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Robot", "token": true}, "eq": 1}
+      ]
+    }
+  ]
+}

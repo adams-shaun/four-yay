@@ -1,0 +1,45 @@
+{
+  "card": "Formidable Speaker",
+  "family": "etb-ltb",
+  "oracle_sha": "f8fda61d169d",
+  "author": "cli-20261001T014438Z-51ea329c (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "discarding-tutors-a-creature-card",
+      "cr": ["603.6a", "701.8a", "701.19a"],
+      "why": "Discarding a card to the optional enters trigger lets me search my library for a creature card and put it into hand; the discarded Forest goes to the graveyard.",
+      "setup": {
+        "p0": {"hand": ["Formidable Speaker", "Forest"], "library": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Formidable Speaker", "mana": "GGG"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["Discard 1 card"]}, {"kind": "any", "pick": ["Grizzly Bears"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Formidable Speaker", "zone": "battlefield", "pt": "2/4"},
+        {"card": "p0:Forest", "zone": "graveyard"},
+        {"card": "p0:Grizzly Bears", "zone": "hand"},
+        {"hand_size": {"p0": 1}}
+      ]
+    },
+    {
+      "name": "declining-the-discard-tutors-nothing",
+      "cr": ["603.6a", "701.19a"],
+      "why": "Declining the optional discard means the search never happens, so the library's creature card stays in the library and the hand is empty.",
+      "setup": {
+        "p0": {"hand": ["Formidable Speaker"], "library": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Formidable Speaker", "mana": "GGG"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["Do not pay"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Formidable Speaker", "zone": "battlefield"},
+        {"card": "p0:Grizzly Bears", "zone": "library"},
+        {"hand_size": {"p0": 0}}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "card": "Sink into Stupor",
+  "family": "spell-conditional",
+  "oracle_sha": "2114dea8385a",
+  "author": "cli-20261001T014438Z-51ea329c (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "bounces-a-nonland-permanent",
+      "cr": ["608.2b", "701.8a"],
+      "why": "The spell returns a target nonland permanent an opponent controls to its owner's hand, so p1's Grizzly Bears leaves the battlefield for p1's hand.",
+      "setup": {
+        "p0": {"hand": ["Sink into Stupor"]},
+        "p1": {"battlefield": ["Grizzly Bears"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Sink into Stupor", "mana": "UUC", "targets": ["p1:Grizzly Bears"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Grizzly Bears", "zone": "hand"},
+        {"hand_size": {"p1": 1}}
+      ]
+    },
+    {
+      "name": "cannot-target-a-land",
+      "cr": ["608.2b", "115.1"],
+      "why": "The spell's target must be a spell or a nonland permanent; a land is not a legal target, so with only a land on the opponent's battlefield the cast is not offered.",
+      "setup": {
+        "p0": {"hand": ["Sink into Stupor"]},
+        "p1": {"battlefield": ["Forest"]}
+      },
+      "steps": [],
+      "expect": [
+        {"offered": {"seat": 0, "kind": "cast", "card": "p0:Sink into Stupor", "label": "Sink into Stupor"}, "want": false}
+      ]
+    }
+  ]
+}

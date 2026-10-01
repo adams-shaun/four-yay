@@ -1,0 +1,38 @@
+{
+  "card": "Plaza of Heroes",
+  "family": "activated-ability",
+  "oracle_sha": "7ee95d1c0722",
+  "author": "cli-20261001T014438Z-51ea329c (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "exile-to-protect-a-legendary-creature",
+      "cr": ["602.2", "702.11a", "702.12a"],
+      "why": "The {3}, {T}, Exile Plaza of Heroes ability targets a legendary creature I control; Giada gains hexproof and indestructible until end of turn, and the Plaza exiles itself as a cost.",
+      "setup": {
+        "p0": {"battlefield": ["Plaza of Heroes", "Giada, Font of Hope"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Plaza of Heroes", "mana": "CCC", "ability": "gains hexproof and indestructible", "targets": ["p0:Giada, Font of Hope"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Plaza of Heroes", "zone": "exile"},
+        {"card": "p0:Giada, Font of Hope", "keywords": ["Hexproof", "Indestructible"]}
+      ]
+    },
+    {
+      "name": "cannot-target-a-nonlegendary-creature",
+      "cr": ["602.2", "115.1"],
+      "why": "The ability's target must be a legendary creature; Grizzly Bears is not, so with only a nonlegendary creature the activation has no legal target and is not offered.",
+      "setup": {
+        "p0": {"battlefield": ["Plaza of Heroes", "Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [],
+      "expect": [
+        {"offered": {"seat": 0, "kind": "activate", "card": "p0:Plaza of Heroes", "label": "hexproof and indestructible"}, "want": false}
+      ]
+    }
+  ]
+}

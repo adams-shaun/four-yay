@@ -1,0 +1,57 @@
+{
+  "card": "Jolted Awake",
+  "family": "energy",
+  "oracle_sha": "6d067b6b15d5",
+  "author": "cli-20261001T014438Z-51ea329c (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "paying-two-energy-returns-a-two-mana-card",
+      "cr": ["608.2d", "122.1", "118.12a"],
+      "why": "The spell gives two {E} and then lets me pay {E} equal to the targeted graveyard card's mana value; Grizzly Bears has mana value 2, so paying the two fresh energy returns it to the battlefield.",
+      "setup": {
+        "p0": {"hand": ["Jolted Awake"], "graveyard": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Jolted Awake", "mana": "W", "targets": ["p0:Grizzly Bears"]},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["pay"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "zone": "battlefield", "pt": "2/2"}
+      ]
+    },
+    {
+      "name": "declining-the-energy-payment-leaves-it-in-the-graveyard",
+      "cr": ["608.2d", "122.1"],
+      "why": "The energy payment is optional; declining it (even though the two energy are available) leaves the targeted card in the graveyard.",
+      "setup": {
+        "p0": {"hand": ["Jolted Awake"], "graveyard": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Jolted Awake", "mana": "W", "targets": ["p0:Grizzly Bears"]},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["no"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "zone": "graveyard"}
+      ]
+    },
+    {
+      "name": "cycling-discards-and-draws",
+      "cr": ["702.29a", "121.1"],
+      "why": "Cycling {2} is an activated ability from hand: paying {2} discards Jolted Awake and draws a card.",
+      "setup": {
+        "p0": {"hand": ["Jolted Awake"], "library_top": ["Forest"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Jolted Awake", "mana": "CC", "ability": "Cycling"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Jolted Awake", "zone": "graveyard"},
+        {"hand_size": {"p0": 1}}
+      ]
+    }
+  ]
+}

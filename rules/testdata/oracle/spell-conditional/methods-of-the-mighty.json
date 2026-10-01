@@ -1,0 +1,43 @@
+{
+  "card": "Methods of the Mighty",
+  "family": "spell-conditional",
+  "oracle_sha": "63e69ae20076",
+  "author": "cli-20261001T014438Z-51ea329c (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "two-modes-destroy-artifact-and-pump-team",
+      "cr": ["601.2b", "700.2", "608.2d"],
+      "why": "Choose one or more lets me pick both the 'destroy target artifact' mode (p1's Sol Ring) and the 'put a +1/+1 counter on each creature you control' mode (Grizzly Bears becomes 3/3).",
+      "setup": {
+        "p0": {"hand": ["Methods of the Mighty"], "battlefield": ["Grizzly Bears"]},
+        "p1": {"battlefield": ["Sol Ring"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Methods of the Mighty", "mana": "WCCC", "targets": ["p1:Sol Ring"], "answers": [{"kind": "modes", "pick": ["Destroy target artifact", "counter on each creature"]}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Sol Ring", "zone": "graveyard"},
+        {"card": "p0:Grizzly Bears", "pt": "3/3", "counters": {"+1/+1": 1}}
+      ]
+    },
+    {
+      "name": "single-mode-pump-leaves-the-artifact-alone",
+      "cr": ["601.2b", "700.2"],
+      "why": "Choosing only the counter mode puts a +1/+1 counter on each creature I control and destroys nothing, so p1's Sol Ring remains on the battlefield.",
+      "setup": {
+        "p0": {"hand": ["Methods of the Mighty"], "battlefield": ["Grizzly Bears", "Savannah Lions"]},
+        "p1": {"battlefield": ["Sol Ring"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Methods of the Mighty", "mana": "WCCC", "answers": [{"kind": "modes", "pick": ["counter on each creature"]}]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "pt": "3/3"},
+        {"card": "p0:Savannah Lions", "pt": "3/2"},
+        {"card": "p1:Sol Ring", "zone": "battlefield"}
+      ]
+    }
+  ]
+}

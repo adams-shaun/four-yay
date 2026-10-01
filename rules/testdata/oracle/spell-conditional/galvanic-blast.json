@@ -1,0 +1,40 @@
+{
+  "card": "Galvanic Blast",
+  "family": "spell-conditional",
+  "oracle_sha": "ff7ab1f271a2",
+  "author": "cli-20261001T014438Z-51ea329c (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "metalcraft-four-damage-kills-a-3-3",
+      "cr": ["603.4", "120.3", "704.5g"],
+      "why": "With three artifacts under my control metalcraft is on, so Galvanic Blast deals 4 damage to the 3/3 Centaur Courser and lethally damages it.",
+      "setup": {
+        "p0": {"hand": ["Galvanic Blast"], "battlefield": ["Sol Ring", "Sol Ring", "Sol Ring"]},
+        "p1": {"battlefield": ["Centaur Courser"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Galvanic Blast", "mana": "R", "targets": ["p1:Centaur Courser"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Centaur Courser", "zone": "graveyard"}
+      ]
+    },
+    {
+      "name": "no-metalcraft-two-damage-leaves-a-3-3-alive",
+      "cr": ["603.4", "120.3"],
+      "why": "With only two artifacts metalcraft is off, so Galvanic Blast deals 2 damage; the 3/3 Centaur Courser survives with 2 damage marked.",
+      "setup": {
+        "p0": {"hand": ["Galvanic Blast"], "battlefield": ["Sol Ring", "Sol Ring"]},
+        "p1": {"battlefield": ["Centaur Courser"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Galvanic Blast", "mana": "R", "targets": ["p1:Centaur Courser"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Centaur Courser", "zone": "battlefield", "damage": 2}
+      ]
+    }
+  ]
+}

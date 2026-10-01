@@ -1,0 +1,42 @@
+{
+  "card": "Niv-Mizzet, Visionary",
+  "family": "triggered-ability",
+  "oracle_sha": "4c6604ef0746",
+  "author": "cli-20261001T014438Z-51ea329c (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "noncombat-damage-to-an-opponent-draws-that-many",
+      "cr": ["603.2", "120.3", "121.1"],
+      "why": "Lightning Bolt is a source I control dealing 3 noncombat damage to an opponent, so the trigger draws three cards.",
+      "setup": {
+        "p0": {"battlefield": ["Niv-Mizzet, Visionary"], "hand": ["Lightning Bolt"], "library_top": ["Forest", "Island", "Mountain"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p1": 17}},
+        {"hand_size": {"p0": 3}}
+      ]
+    },
+    {
+      "name": "combat-damage-to-an-opponent-does-not-draw",
+      "cr": ["603.2", "120.3"],
+      "why": "The trigger watches noncombat damage only; Niv-Mizzet's own 5 combat damage to the opponent draws nothing.",
+      "setup": {
+        "p0": {"battlefield": ["Niv-Mizzet, Visionary"], "library_top": ["Forest"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:Niv-Mizzet, Visionary"], "defender": "p1"},
+        {"op": "pass_to", "step": "end"}
+      ],
+      "expect": [
+        {"life": {"p1": 15}},
+        {"hand_size": {"p0": 0}}
+      ]
+    }
+  ]
+}

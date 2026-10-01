@@ -1,0 +1,48 @@
+{
+  "card": "Speed, Young Avenger",
+  "family": "triggered-ability",
+  "oracle_sha": "2e9223e808b8",
+  "author": "cli-20261001T014438Z-51ea329c (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "paying-one-makes-a-hasty-creature-unblockable-except-by-haste",
+      "cr": ["603.2", "509.1b", "118.12a"],
+      "why": "Casting a noncreature spell (Lightning Bolt) triggers the may-pay-{1}; paying it and targeting Speed (which has haste) means it can't be blocked this turn except by creatures with haste, so Grizzly Bears cannot block but Goblin Guide (haste) can.",
+      "setup": {
+        "p0": {"battlefield": ["Speed, Young Avenger"], "hand": ["Lightning Bolt"]},
+        "p1": {"battlefield": ["Grizzly Bears", "Goblin Guide"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "RC", "targets": ["p1"]},
+        {"op": "resolve", "targets": ["p0:Speed, Young Avenger"], "answers": [{"kind": "any", "pick": ["Pay 1"]}]},
+        {"op": "attack", "seat": 0, "attackers": ["p0:Speed, Young Avenger"], "defender": "p1"},
+        {"op": "pass_to", "decision": "blockers"}
+      ],
+      "expect": [
+        {"life": {"p1": 17}},
+        {"can_block": {"blocker": "p1:Grizzly Bears", "attacker": "p0:Speed, Young Avenger"}, "want": false},
+        {"can_block": {"blocker": "p1:Goblin Guide", "attacker": "p0:Speed, Young Avenger"}, "want": true}
+      ]
+    },
+    {
+      "name": "declining-the-pay-leaves-normal-blocking",
+      "cr": ["603.2", "509.1b"],
+      "why": "Declining the optional {1} payment means the can't-be-blocked rider never applies, so a hasty blocker and a non-hasty blocker are both able to block.",
+      "setup": {
+        "p0": {"battlefield": ["Speed, Young Avenger"], "hand": ["Lightning Bolt"]},
+        "p1": {"battlefield": ["Grizzly Bears", "Goblin Guide"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["Do not pay"]}]},
+        {"op": "attack", "seat": 0, "attackers": ["p0:Speed, Young Avenger"], "defender": "p1"},
+        {"op": "pass_to", "decision": "blockers"}
+      ],
+      "expect": [
+        {"life": {"p1": 17}},
+        {"can_block": {"blocker": "p1:Grizzly Bears", "attacker": "p0:Speed, Young Avenger"}, "want": true},
+        {"can_block": {"blocker": "p1:Goblin Guide", "attacker": "p0:Speed, Young Avenger"}, "want": true}
+      ]
+    }
+  ]
+}
