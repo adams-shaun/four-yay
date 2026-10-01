@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"maps"
 	"math/bits"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -789,7 +790,77 @@ func alternativeExec(a plannedManaActivation) *cards.SA {
 }
 
 func (e *Engine) planPaymentCost(p state.PlayerID, cast decision.PlannedCast, cost Cost) PaymentPlanOutcome {
-	return e.planPaymentCostExcluding(p, cast, cost, nil)
+	q := e.paymentPlanQuery
+	if !q.valid(e) || e.paymentPlanRelaxed != nil || e.paymentPlanRelaxedFee != 0 || !plainManaCost(cost) {
+		return e.planPaymentCostExcluding(p, cast, cost, nil)
+	}
+	// Within one query scope (one state), the planner's outcome for a plain
+	// mana cost reads the cast only through the hand demand that excludes
+	// it (planPaymentCostWithout's rank context): two casts with the same
+	// payer, cost and demand -- two copies of a card in hand -- plan
+	// identically, so the scope serves the first one's outcome, with its
+	// own copy of the witness.
+	demand := e.paymentPlanHandDemand(p, cast.Object)
+	key := paymentPlanCostKey{payer: p, colored: cost.Colored, generic: cost.Generic, demand: demand}
+	for i := range q.plans {
+		if q.plans[i].key == key {
+			out := q.plans[i].out
+			if walkCacheVerify {
+				if want := e.planPaymentCostWithDemand(p, demand, cost, nil, nil, nil); !reflect.DeepEqual(want, out) {
+					panic(fmt.Sprintf("payment plan query: cost memo for %+v served %+v, planned %+v", key, out, want))
+				}
+			}
+			if out.Plan != nil {
+				plan := decision.ClonePaymentPlan(*out.Plan)
+				out.Plan = &plan
+			}
+			return out
+		}
+	}
+	out := e.planPaymentCostWithDemand(p, demand, cost, nil, nil, nil)
+	stored := out
+	if out.Plan != nil {
+		plan := decision.ClonePaymentPlan(*out.Plan)
+		stored.Plan = &plan
+	}
+	q.plans = append(q.plans, paymentPlanCostMemo{key: key, out: stored})
+	return out
+}
+
+// paymentPlanCostKey is a query scope's planner memo key: everything a
+// plain mana cost's plan reads besides the scope's state.
+type paymentPlanCostKey struct {
+	payer   state.PlayerID
+	colored state.Mana
+	generic int32
+	demand  [5]int
+}
+
+// paymentPlanCostMemo is one memoised planner outcome (its own plan copy).
+type paymentPlanCostMemo struct {
+	key paymentPlanCostKey
+	out PaymentPlanOutcome
+}
+
+// plainManaCost reports whether c is only coloured and generic mana -- the
+// costs whose plan the query scope memoises. Verify mode checks the field
+// walk against the whole struct, so a Cost field added later cannot slip
+// past it.
+func plainManaCost(c Cost) bool {
+	ok := c.Life == 0 && c.X == 0 && c.XMin == 0 && c.Snow == 0 && c.Waterbend == 0 && !c.WaterbendX &&
+		!c.Tap && !c.Untap && !c.Forage && !c.LifeHalfUp &&
+		len(c.Hybrid) == 0 && len(c.Phyrexian) == 0 && len(c.Twobrid) == 0 && len(c.HybridPhyrexian) == 0 &&
+		len(c.Sac) == 0 && len(c.Discard) == 0 && len(c.SubCounter) == 0 && len(c.AddCounter) == 0 &&
+		len(c.Exile) == 0 && len(c.ExileFromTop) == 0 && len(c.Reveal) == 0 && len(c.RevealOrChoose) == 0 &&
+		len(c.RevealChosen) == 0 && len(c.Behold) == 0 && len(c.TapPermanent) == 0 && len(c.UntapPermanent) == 0 &&
+		len(c.Blight) == 0 && len(c.Exert) == 0 && len(c.LifeX) == 0 && len(c.Draw) == 0 && len(c.Energy) == 0 &&
+		len(c.DamageYou) == 0 && len(c.GainLife) == 0 && len(c.Return) == 0 && len(c.PutToLib) == 0 &&
+		len(c.MoveToGrave) == 0 && len(c.Mill) == 0 && len(c.Evidence) == 0 && len(c.RollDice) == 0 &&
+		len(c.Unknown) == 0 && len(c.Withheld) == 0
+	if walkCacheVerify && ok != reflect.DeepEqual(c, Cost{Colored: c.Colored, Generic: c.Generic}) {
+		panic(fmt.Sprintf("payment plan: plainManaCost(%+v) = %v disagrees with the struct", c, ok))
+	}
+	return ok
 }
 
 // planPaymentCostExcluding is planPaymentCost over the census with the
@@ -809,6 +880,13 @@ func (e *Engine) planPaymentCostExcluding(p state.PlayerID, cast decision.Planne
 // groups its own classes, because the query cache's classes are keyed by
 // payer and phase only.
 func (e *Engine) planPaymentCostWithout(p state.PlayerID, cast decision.PlannedCast, cost Cost, tapped, gone, kept []state.ObjID) PaymentPlanOutcome {
+	return e.planPaymentCostWithDemand(p, e.paymentPlanHandDemand(p, cast.Object), cost, tapped, gone, kept)
+}
+
+// planPaymentCostWithDemand is planPaymentCostWithout over the hand demand
+// that excludes the cast (paymentPlanHandDemand), the one place the cast
+// enters the plan.
+func (e *Engine) planPaymentCostWithDemand(p state.PlayerID, demand [5]int, cost Cost, tapped, gone, kept []state.ObjID) PaymentPlanOutcome {
 	defer e.paymentPlanQueryEnd(e.paymentPlanQueryBegin())
 	units := e.paymentPlanQueryUnits(p)
 	queryClasses := e.paymentPlanQueryClasses
@@ -875,7 +953,7 @@ func (e *Engine) planPaymentCostWithout(p state.PlayerID, cast decision.PlannedC
 	// that is the offer and last-resort sources are never considered.
 	life := e.G.Players[p].Life
 	phase1 := paymentPlanPhaseChoices(choices, paymentTierNormal)
-	rankCtx := newPaymentPlanRankContext(choices, e.paymentPlanHandDemand(p, cast.Object))
+	rankCtx := newPaymentPlanRankContext(choices, demand)
 	search := searchPaymentPlanInto(&e.hypPool().planSearch, cost, e.G.Players[p].Pool, life, rankCtx,
 		phase1, queryClasses(p, paymentTierNormal, phase1))
 	nodes := search.nodes

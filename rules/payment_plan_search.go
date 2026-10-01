@@ -750,6 +750,8 @@ type paymentPlanQuery struct {
 	classes map[paymentPlanClassesKey][]paymentPlanClass
 	// altArena backs alts' lists.
 	altArena []plannedManaActivation
+	// plans memoises plain-cost planner outcomes (planPaymentCost).
+	plans []paymentPlanCostMemo
 	// installs counts the scope's current installations (Begin, Resume);
 	// only an uninstalled scope is recycled.
 	installs int
@@ -818,12 +820,13 @@ func (e *Engine) paymentPlanQueryBegin() paymentQueryTok {
 	q := e.paymentPlanQueryFree
 	if q != nil && q.owner == e {
 		e.paymentPlanQueryFree = nil
-		units, alts, classes, arena := q.units, q.alts, q.classes, q.altArena
+		units, alts, classes, arena, plans := q.units, q.alts, q.classes, q.altArena, q.plans
 		clear(units)
 		clear(alts)
 		clear(classes)
 		clear(arena)
-		*q = paymentPlanQuery{owner: e, units: units, alts: alts, classes: classes, altArena: arena[:0]}
+		clear(plans)
+		*q = paymentPlanQuery{owner: e, units: units, alts: alts, classes: classes, altArena: arena[:0], plans: plans[:0]}
 	} else {
 		q = &paymentPlanQuery{owner: e}
 	}
