@@ -335,7 +335,10 @@ func AttackCandidates(d *decision.Decision, bot decision.Intent, limit int) []de
 	chosen, none, all, t := bits[:w], bits[w:2*w], bits[2*w:3*w], bits[3*w:]
 	markIndicesIn(d, chosen, bot.Choices)
 	var choiceBuf [32]int
-	var out []decision.Intent
+	// At most limit candidates out of bot + none + all + one toggle per
+	// option; kept choice lists share one capped arena.
+	out := make([]decision.Intent, 0, min(limit, len(d.Options)+3))
+	var arena []int
 	add := func(set []uint64) {
 		if len(out) >= limit {
 			return
@@ -362,7 +365,7 @@ func AttackCandidates(d *decision.Decision, bot decision.Intent, limit int) []de
 		}
 		in := decision.Intent{Seq: d.Seq, Player: d.Player}
 		if len(choices) > 0 { // an empty declaration stays nil, as it always was
-			in.Choices = append([]int(nil), choices...)
+			in.Choices, arena = keepChoices(arena, choices, len(d.Options))
 		}
 		out = append(out, in)
 	}
@@ -434,6 +437,18 @@ func firstOfObj(d *decision.Decision, i int) bool {
 	return true
 }
 
+// keepChoices copies choices into arena and returns the copy, capped at its
+// length so a caller's append can never write into a neighbour, with the
+// grown arena. A fresh arena is sized for a few candidates of n options.
+func keepChoices(arena, choices []int, n int) ([]int, []int) {
+	if cap(arena)-len(arena) < len(choices) {
+		arena = make([]int, 0, max(4*n, 2*len(choices), 16))
+	}
+	start := len(arena)
+	arena = append(arena, choices...)
+	return arena[start:len(arena):len(arena)], arena
+}
+
 func bitSet(b []uint64, i int)      { b[i>>6] |= 1 << (uint(i) & 63) }
 func bitHas(b []uint64, i int) bool { return b[i>>6]&(1<<(uint(i)&63)) != 0 }
 
@@ -468,7 +483,8 @@ func BlockCandidates(d *decision.Decision, bot decision.Intent, limit int, legal
 	if d == nil || d.Kind != decision.KBlockers || limit < 2 {
 		return nil
 	}
-	var out []decision.Intent
+	out := make([]decision.Intent, 0, min(limit, len(d.Options)+len(bot.Choices)+2))
+	var arena []int
 	var sortBuf, keyBuf [64]int
 	var endBuf [16]int
 	keys, ends := keyBuf[:0], endBuf[:0] // kept candidates' sorted lists, flat
@@ -502,8 +518,10 @@ func BlockCandidates(d *decision.Decision, bot decision.Intent, limit int, legal
 		keys = append(keys, sorted...)
 		ends = append(ends, len(keys))
 		in := decision.Intent{Seq: d.Seq, Player: d.Player}
-		if len(choices) > 0 || !nilIfEmpty {
-			in.Choices = append(make([]int, 0, len(choices)), choices...)
+		if len(choices) > 0 {
+			in.Choices, arena = keepChoices(arena, choices, len(d.Options))
+		} else if !nilIfEmpty {
+			in.Choices = []int{}
 		}
 		out = append(out, in)
 		return true
