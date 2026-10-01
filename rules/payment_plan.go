@@ -482,8 +482,8 @@ func (e *Engine) paymentActionsForPriority(p state.PlayerID, seq uint64, options
 	defer e.endDerivedMemo()
 	// One query scope (source census, alternatives) serves every
 	// candidate's planner query, and is kept for the decision's other pure
-	// payment readers (paymentPlanQueryResume).
-	defer e.paymentPlanQueryScope()()
+	// payment readers (paymentPlanQueryResumeBegin).
+	defer e.paymentPlanQueryEnd(e.paymentPlanQueryBegin())
 	defer e.paymentPlanQueryKeep(p)
 	// legalActionsPriced is the authoritative candidate walk.  Its hypothetical
 	// pool is only a superset gate; every admission below still has an exact
@@ -579,7 +579,7 @@ func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast
 	// serves the planner's census to the rebuild.
 	e.beginDerivedMemo()
 	defer e.endDerivedMemo()
-	defer e.paymentPlanQueryResume(p)()
+	defer e.paymentPlanQueryEnd(e.paymentPlanQueryResumeBegin(p))
 	got := e.planCastPaymentAtDecision(p, cast)
 	// PP-14: a Sac-bearing additional cost is answered by the ordinary in-flow
 	// ask AFTER this validation, so the distinct-candidate assignment must
@@ -798,7 +798,7 @@ func (e *Engine) planPaymentCostExcluding(p state.PlayerID, cast decision.Planne
 // groups its own classes, because the query cache's classes are keyed by
 // payer and phase only.
 func (e *Engine) planPaymentCostWithout(p state.PlayerID, cast decision.PlannedCast, cost Cost, tapped, gone, kept []state.ObjID) PaymentPlanOutcome {
-	defer e.paymentPlanQueryScope()()
+	defer e.paymentPlanQueryEnd(e.paymentPlanQueryBegin())
 	units := e.paymentPlanQueryUnits(p)
 	queryClasses := e.paymentPlanQueryClasses
 	ownClasses := func(_ state.PlayerID, _ paymentAbilityTier, choices [][]plannedManaActivation) []paymentPlanClass {

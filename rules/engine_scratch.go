@@ -61,10 +61,13 @@ type engineScratch struct {
 	paymentPlanQuery *paymentPlanQuery
 	// paymentPlanQueryKept / paymentPlanQueryKeptStamp are the offer
 	// builder's query scope kept at its posed decision for the decision's
-	// other pure payment readers (paymentPlanQueryResume). Pure scratch:
+	// other pure payment readers (paymentPlanQueryResumeBegin). Pure scratch:
 	// Clone copies none of it.
 	paymentPlanQueryKept      *paymentPlanQuery
 	paymentPlanQueryKeptStamp potentialStamp
+	// paymentPlanQueryFree is the last finished query scope, reset and
+	// reused by the next (paymentPlanQueryBegin). Clone copies none.
+	paymentPlanQueryFree *paymentPlanQuery
 	// zoneEntry is the incremental zone-entry index paymentSourceZoneSeq
 	// reads (payment_zone_entry.go), validated against the log on every
 	// read. Pure scratch over the log: Clone copies none of it.

@@ -133,7 +133,7 @@ func (sr *scriptSearch) offered(o *decision.Option) bool {
 // is neither a witness nor a proof marks the search unproven.
 func (sr *scriptSearch) priced(c *Engine) bool {
 	c.paymentPlanPotentialPool = true
-	defer c.paymentPlanQueryScope()()
+	defer c.paymentPlanQueryEnd(c.paymentPlanQueryBegin())
 	o := decision.Option{Kind: sr.play.Kind, Obj: sr.play.Obj, Ability: sr.play.Ability, Mode: sr.play.Mode, AltCostIndex: max(sr.altCost, 0)}
 	got, _ := c.potentialPlayVerdict(sr.p, o)
 	// Only a search that leans on these verdicts for its proof (nodePlans)
@@ -270,7 +270,7 @@ func (sr *scriptSearch) visit(c *Engine, funded int, gapUsed bool) bool {
 func (e *Engine) scriptNodeGaps(p state.PlayerID) []state.ObjID {
 	e.beginDerivedMemo()
 	defer e.endDerivedMemo()
-	defer e.paymentPlanQueryScope()()
+	defer e.paymentPlanQueryEnd(e.paymentPlanQueryBegin())
 	e.paymentPlanPotentialPool = true
 	hyp := e.PotentialMana(p)
 	return e.paymentPlanCensusOf(p, &hyp).gaps
@@ -508,7 +508,7 @@ func (e *Engine) PotentialPlayScript(p state.PlayerID, a decision.PotentialActio
 	func() {
 		e.beginDerivedMemo()
 		defer e.endDerivedMemo()
-		defer e.paymentPlanQueryScope()()
+		defer e.paymentPlanQueryEnd(e.paymentPlanQueryBegin())
 		prev := e.paymentPlanPotentialPool
 		e.paymentPlanPotentialPool = true
 		defer func() { e.paymentPlanPotentialPool = prev }()

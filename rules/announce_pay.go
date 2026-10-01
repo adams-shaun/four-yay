@@ -64,7 +64,7 @@ func cloneWindowTaps(in []windowTap) []windowTap {
 func (e *Engine) ValidateCastAnnounce(p state.PlayerID, cast decision.PlannedCast) error {
 	e.beginDerivedMemo()
 	defer e.endDerivedMemo()
-	defer e.paymentPlanQueryScope()()
+	defer e.paymentPlanQueryEnd(e.paymentPlanQueryBegin())
 	if o := e.G.Obj(cast.Object); o != nil && o.Face() != nil && o.Zone == state.ZHand {
 		composed := e.offerCostFor(p, cast.Object, withSpellAbilityExtras(o.Face(), e.rawBaseCost(p, cast.Object)), spellScope(""))
 		if len(composed.Sac) != 0 && !e.nonManaCastable(p, cast.Object, composed, false, "") {
