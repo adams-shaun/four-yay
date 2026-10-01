@@ -321,6 +321,7 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 	e.G.Tokens = cfg.Tokens
 	e.setNameInPool = poolHasSetNameStatic(cfg)
 	e.layer4InPool = poolHasLayer4Static(cfg)
+	e.controlStaticInPool = poolHasControlStatic(cfg)
 	e.trigGrant.free = true // held per object as they appear (trigger_grantfree.go)
 	e.G.NameUniverse = cfg.NameUniverse
 	e.G.NameUniverseNames = append([]string(nil), cfg.NameUniverseNames...)

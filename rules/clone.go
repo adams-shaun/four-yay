@@ -122,9 +122,10 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		// written -- where the watcher holds no in-flight run or quiet count
 		// worth carrying, so a fresh watcher over the same thresholds is a
 		// faithful copy.
-		loop:          newLivelockWatcherFromGuard(e.loop.guard, sp.loopSigs, sp.loopRecent, sp.loopPrev, sp.loopHeads, sp.loopHash),
-		setNameInPool: e.setNameInPool,
-		layer4InPool:  e.layer4InPool,
+		loop:                newLivelockWatcherFromGuard(e.loop.guard, sp.loopSigs, sp.loopRecent, sp.loopPrev, sp.loopHeads, sp.loopHash),
+		setNameInPool:       e.setNameInPool,
+		layer4InPool:        e.layer4InPool,
+		controlStaticInPool: e.controlStaticInPool,
 	}
 	c.trigGrant = e.trigGrant.forClone()
 	// The per-turn ledger cluster (engine_turnledger.go) is one clone

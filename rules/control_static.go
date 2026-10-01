@@ -92,6 +92,25 @@ func (e *Engine) staticControlWants() []staticWant {
 	return w
 }
 
+// poolHasControlStatic reports whether any card this match can put into play
+// may carry a GainControl$ static (cards.MayCarryControlStatic over the decks
+// and the token table), the genesis-time gate of reconcileControlStatics.
+func poolHasControlStatic(cfg Config) bool {
+	for _, deck := range cfg.Decks {
+		for _, c := range deck {
+			if c.MayCarryControlStatic() {
+				return true
+			}
+		}
+	}
+	for _, c := range cfg.Tokens {
+		if c.MayCarryControlStatic() {
+			return true
+		}
+	}
+	return false
+}
+
 // staticGainControlController resolves a GainControl$ static VALUE to the
 // player who takes the affected objects. "You" is the static's controller
 // (ce.Controller -- the Aura's controller, live every re-derivation). Any
@@ -160,7 +179,11 @@ func (e *Engine) staticGrantTracked(w staticWant) bool {
 // re-enter the emit tail (whose expireControl and reconcile both early-
 // return on the flags) and the deferred clears restore the ordinary path.
 func (e *Engine) reconcileControlStatics() {
-	if e.expiringControl || e.reconcilingControlStatics {
+	if e.expiringControl || e.reconcilingControlStatics || !e.controlStaticInPool {
+		// No card this match can put into play carries a GainControl$
+		// static (poolHasControlStatic), so the wanted set is empty on every
+		// board and the scan -- which refreshes the whole static memo first
+		// -- would register nothing.
 		return
 	}
 	e.reconcilingControlStatics = true
