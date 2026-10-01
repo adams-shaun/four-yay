@@ -125,7 +125,9 @@ func redistributeHidden(g *Game, p PlayerID, rng *rand.Rand) {
 	order = append(order, hand...)
 	rng.Shuffle(total, func(i, j int) { order[i], order[j] = order[j], order[i] })
 
-	g.SetZone(ZLibrary, p, order[:nLib])
+	// Cap the library at nLib: its spare capacity would otherwise run into
+	// the hand window, so an append to the library would overwrite a hand id.
+	g.SetZone(ZLibrary, p, order[:nLib:nLib])
 	g.SetZone(ZHand, p, order[nLib:])
 	for _, id := range order[:nLib] {
 		if o := g.Obj(id); o != nil {
