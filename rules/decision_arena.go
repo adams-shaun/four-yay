@@ -140,14 +140,17 @@ func (e *Engine) arenaCtx() *effects.Ctx {
 	return &effects.Ctx{}
 }
 
-// arenaObject returns a pointer to a copy of o (an LKI snapshot).
-func (e *Engine) arenaObject(o state.Object) *state.Object {
+// arenaObject returns a pointer to a copy of *o (an LKI snapshot). o is
+// only read, so a caller's local stays on its stack; only the off-arena
+// copy is heap-allocated.
+func (e *Engine) arenaObject(o *state.Object) *state.Object {
 	if a := e.activeArena(); a != nil {
 		p := a.objs.one(arenaObjChunk)
-		*p = o
+		*p = *o
 		return p
 	}
-	return &o
+	cp := *o
+	return &cp
 }
 
 // releaseArena clears the used part of e's arena (dropping every string,
