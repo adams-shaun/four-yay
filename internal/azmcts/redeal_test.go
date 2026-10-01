@@ -36,7 +36,7 @@ type fedPosition struct {
 // feedPosition plays until seat 0 faces a searchable decision at turn >=
 // minTurn while seat 1 holds at least minOppHand cards. check, when non-nil,
 // runs at every seat-0 decision on the way (after the capture).
-func feedPosition(t *testing.T, cfg rules.Config, minTurn int32, minOppHand int, check func(*searchseat.Feed)) fedPosition {
+func feedPosition(t testing.TB, cfg rules.Config, minTurn int32, minOppHand int, check func(*searchseat.Feed)) fedPosition {
 	t.Helper()
 	e := rules.New(cfg)
 	e.Advance()
@@ -74,7 +74,7 @@ func feedPosition(t *testing.T, cfg rules.Config, minTurn int32, minOppHand int,
 	return fedPosition{}
 }
 
-func (p fedPosition) input(t *testing.T, base *rules.Engine) RedealInput {
+func (p fedPosition) input(t testing.TB, base *rules.Engine) RedealInput {
 	t.Helper()
 	h := p.feed.History()
 	known, err := searchprobe.ProjectKnownCards(h)
