@@ -771,6 +771,19 @@ func ParseCost(s string) Cost {
 		case isHybridPhyrexian(sym):
 			c.HybridPhyrexian = append(c.HybridPhyrexian, hybridPhyrexianPair(sym))
 		default:
+			// A generic amount ("2"): every head regexp below is anchored on a
+			// letter, so a token opening with a digit or a sign matches none
+			// of them and lands on the numeric parse at the end of this
+			// branch. Go straight there instead of trying ~30 patterns.
+			if c0 := sym[0]; c0 >= '0' && c0 <= '9' || c0 == '-' || c0 == '+' {
+				if n, err := strconv.ParseInt(sym, 10, 64); err == nil && n >= 0 && n <= int64(math.MaxInt32) {
+					c.Generic = addClampedGeneric(c.Generic, n)
+					continue
+				}
+				c.reportUnknown(sym)
+				c.Generic = addClampedGeneric(c.Generic, 1)
+				continue
+			}
 			if m := waterbendCost.FindStringSubmatch(sym); m != nil {
 				// Waterbend<N> / Waterbend<X> (the keyword action "waterbend
 				// {N}": pay {N}; while paying it, each untapped artifact or
