@@ -24,8 +24,9 @@ type hypSparePool struct {
 	// opts is a stack of cleared option lists the temporary offer walks
 	// (legalActionsWalkTemp) build into.
 	opts [][]decision.Option
-	// pm is PotentialMana's working storage (potential_scratch.go).
-	pm pmScratch
+	// pm is PotentialMana's working storage (potential.go), taken for each
+	// call (empty while one runs).
+	pm potentialManaScratch
 	// planSearch is the payment-plan search's working storage
 	// (payment_plan_search.go).
 	planSearch paymentPlanSearchScratch
@@ -127,7 +128,7 @@ func (e *Engine) optRelease(b []decision.Option) {
 func (e *Engine) releaseHypPool() *hypSparePool {
 	pl := e.hypSpares
 	e.hypSpares = nil
-	if pl == nil || pl.owner != e || pl.pm.busy {
+	if pl == nil || pl.owner != e {
 		return nil
 	}
 	pl.owner = nil

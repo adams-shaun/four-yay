@@ -79,8 +79,7 @@ func (e *Engine) PotentialMana(p state.PlayerID) state.Mana {
 	e.beginDerivedMemo()
 	defer e.endDerivedMemo()
 	out := e.G.Players[p].Pool
-	// admitted[zi][k] marks member k of source zi counted into out. A
-	// source's abilities are admitted independently: one whose paid
+	// A source's abilities are admitted independently: one whose paid
 	// activation the pool could not cover yet (Heap Gate's "{1}, {T}: Add
 	// one mana of any color" before any other source floated mana) is
 	// admitted on a later pass, even when the same source's free ability
@@ -93,12 +92,26 @@ func (e *Engine) PotentialMana(p state.PlayerID) state.Mana {
 	// accumulated pool, and the fixpoint changes no state, so it is computed
 	// once per object on the first pass and reused by every later pass; only
 	// the pool-priced payability filter reruns. Indexed by zone position: the
-	// zone does not move while the fixpoint runs. The lists live in one
-	// engine-owned scratch (potentialManaScratch), reused call to call.
+	// zone does not move while the fixpoint runs. The lists live in one flat
+	// scratch array kept in e's hypothetical pool (hypclone.go: so a recycled
+	// clone inherits it), taken for the call so a nested call builds its
+	// own; each object owns a span of it, and admitted parallels it.
 	zone := e.G.Zone(state.ZBattlefield, p)
-	sc := e.potentialManaScratch(len(zone))
-	defer sc.done()
-	members, walked, admitted, own := sc.members, sc.walked, sc.admitted, sc.own
+	pl := e.hypPool()
+	sc := pl.pm
+	pl.pm = potentialManaScratch{}
+	flat, admitted := sc.members[:0], sc.admitted[:0]
+	spans := slices.Grow(sc.spans[:0], len(zone))[:len(zone)]
+	clear(spans)
+	own := slices.Grow(sc.own[:0], len(zone))[:len(zone)]
+	clear(own) // each source's counted production
+	// An object the offer walk's mana section provably skips (manaWalkEmpty:
+	// no mana ability reaches p, or a tapped source whose every mana ability
+	// costs {T}, which manaAbilityPayablePool never admits) contributes
+	// nothing on any pass, so its membership walk is skipped too. The board
+	// facts are read once, outside every face probe.
+	lw := legalWalk{e: e, p: p, actionStatics: actionStaticSource{e: e}}
+	board := lw.boardFacts()
 	for {
 		progressed := false
 		for zi, id := range zone {
@@ -106,48 +119,56 @@ func (e *Engine) PotentialMana(p state.PlayerID) state.Mana {
 			if o == nil || o.Face() == nil {
 				continue
 			}
+			sp := &spans[zi]
 			// Use the payment-window membership walk, but defer its live-pool
 			// payability gate: this fixpoint prices activation costs against the
 			// accumulated hypothetical pool below. That shared walk includes
 			// granted CR 305.6 intrinsics and all current eligibility gates.
-			if !walked[zi] {
-				members[zi] = sc.take(e.appendAvailableManaAbilitiesGate(sc.spill(), nil, p, id, true))
-				walked[zi] = true
-			} else if potentialMembersVerify {
-				if fresh := e.appendAvailableManaAbilitiesGate(nil, nil, p, id, true); !slices.EqualFunc(fresh, members[zi], sameManaAbility) {
+			if !sp.walked {
+				sp.walked = true
+				sp.start = int32(len(flat))
+				if lw.manaWalkEmpty(board, o, id, o.Face()) {
+					if potentialMembersVerify {
+						e.verifyPotentialSkip(p, o, id)
+					}
+				} else {
+					flat = e.appendAvailableManaAbilitiesGate(flat, nil, p, id, true)
+				}
+				sp.end = int32(len(flat))
+				for range sp.end - sp.start {
+					admitted = append(admitted, false)
+				}
+			} else if potentialMembersVerify && sp.end > sp.start {
+				if fresh := e.appendAvailableManaAbilitiesGate(nil, nil, p, id, true); !slices.EqualFunc(fresh, flat[sp.start:sp.end], sameManaAbility) {
 					panic(fmt.Sprintf("rules: PotentialMana membership for %d moved inside the fixpoint", id))
 				}
 			}
-			if len(members[zi]) == 0 {
+			if sp.end == sp.start {
 				continue
-			}
-			if admitted[zi] == nil {
-				admitted[zi] = sc.flags(len(members[zi]))
 			}
 			// Price every not-yet-admitted member against the pool built
 			// from OTHER sources (a source's own production never funds its
 			// own paid activation: one tap cannot do both), then add the
-			// admitted ones together.
+			// admitted ones together. others is a copy taken before any of
+			// this pass's admissions, so adding each admitted member at once
+			// is the same sum as adding them after the pricing loop.
 			others := out
 			for c := range others {
 				others[c] -= own[zi][c]
 			}
-			ses := sc.ses[:0]
-			for k, ma := range members[zi] {
-				if !admitted[zi][k] && e.manaAbilityPayablePool(p, id, ma, &others) {
-					admitted[zi][k] = true
-					ses = append(ses, ma)
+			before := out
+			admittedAny := false
+			for k := sp.start; k < sp.end; k++ {
+				if ma := flat[k]; !admitted[k] && e.manaAbilityPayablePool(p, id, ma, &others) {
+					admitted[k] = true
+					admittedAny = true
+					addPotentialMana(&out, ma)
 				}
 			}
-			sc.ses = ses
-			if len(ses) == 0 {
+			if !admittedAny {
 				continue
 			}
 			progressed = true
-			before := out
-			for _, ma := range ses {
-				addPotentialMana(&out, ma)
-			}
 			for c := range out {
 				own[zi][c] += out[c] - before[c]
 			}
@@ -156,7 +177,37 @@ func (e *Engine) PotentialMana(p state.PlayerID) state.Mana {
 			break
 		}
 	}
+	clear(flat)
+	e.hypPool().pm = potentialManaScratch{members: flat[:0], admitted: admitted[:0], spans: spans[:0], own: own[:0]}
 	return out
+}
+
+// potentialManaScratch is PotentialMana's reusable fixpoint storage (see
+// there), kept in the engine's hypSparePool. Clone copies none.
+type potentialManaScratch struct {
+	members  []*cards.SA
+	admitted []bool
+	spans    []potentialManaSpan
+	own      []state.Mana
+}
+
+// potentialManaSpan is one zone position's membership span in the flat
+// member array, and whether it was walked yet.
+type potentialManaSpan struct {
+	start, end int32
+	walked     bool
+}
+
+// verifyPotentialSkip panics when an object PotentialMana skipped
+// (manaWalkEmpty) could have contributed: some member of its membership
+// walk is payable against an unbounded pool.
+func (e *Engine) verifyPotentialSkip(p state.PlayerID, o *state.Object, id state.ObjID) {
+	huge := state.Mana{1 << 28, 1 << 28, 1 << 28, 1 << 28, 1 << 28, 1 << 28}
+	for _, ma := range e.appendAvailableManaAbilitiesGate(nil, nil, p, id, true) {
+		if e.manaAbilityPayablePool(p, id, ma, &huge) {
+			panic(fmt.Sprintf("rules: PotentialMana skipped obj %d (tapped %v) but one of its mana abilities is payable", id, o.Tapped))
+		}
+	}
 }
 
 // potentialMembersVerify makes PotentialMana recompute every reused
@@ -282,9 +333,8 @@ func (e *Engine) PotentialActions(p state.PlayerID) []decision.PotentialAction {
 	if e.G.Over {
 		return nil
 	}
-	pool := e.PotentialMana(p)
+	_, opts := e.potentialWalkOf(p, true)
 	var out []decision.PotentialAction
-	opts := e.legalActionsWalkTemp(p, &pool, false)
 	for _, o := range opts {
 		if potentialPlayKind(o.Kind) {
 			out = append(out, decision.PotentialAction{
@@ -292,7 +342,8 @@ func (e *Engine) PotentialActions(p state.PlayerID) []decision.PotentialAction {
 			})
 		}
 	}
-	e.optRelease(opts)
+	// opts belongs to the decision's potential walk cache (or is the
+	// decision's own Options): never released here.
 	return out
 }
 

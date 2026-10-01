@@ -110,6 +110,12 @@
 //	derivedMemo*, derivedKW/Types/     per-walk Derived memo and scratch, keyed by an epoch
 //	Depth/PTFrames, boardStaticsCache, that advances with every ask; Clone copies none
 //	activeStaticsCache, mayPlaysCache
+//	potentialWalk, potentialAskSerial, a posed decision's shared potential walk, keyed by
+//	potentialWalkDepth/FullDemand      an ask serial and the log; Clone copies none
+//	crossWalkRetires                   retireCrossWalkMemo's call count (a cache key); Clone
+//	                                   copies none
+//	priorityWalk                       the posed decision's own offer walk, re-served to its
+//	                                   potential readers; Clone copies none
 //	staticContinuous/Epoch/Version/    layer/static rebuild caches keyed by log length and
 //	Objs/BuildSeq/QueueBuf, activeBuf/   continuousVersion; build sequence counters and
 //	Epoch/Version/Depth/Objs/         their snapshots are local cache keys (Clone rebuilds)
@@ -134,7 +140,7 @@
 //	Valid                              object-arena size and log length; Clone copies none
 //	legalOptBuf, manaAbBuf, manaLabels, reused scratch buffers
 //	intentBuf, sbaIDBuf, foreachBuf,
-//	hypSpares
+//	graveCandBuf, hypSpares
 //	discardAllFirstTime                the DiscardedAll matcher's FirstTime$ scratch: written on
 //	                                   every match and read only right after it; Clone copies none
 //	loop, askCount                    intent-stream watchdog and ask counter: they count the

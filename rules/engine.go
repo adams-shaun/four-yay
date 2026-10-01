@@ -231,6 +231,11 @@ func (e *Engine) Submit(in decision.Intent) error {
 			}
 		}
 	}
+	// Everything above is validation, a pure read (a rejected intent leaves
+	// the decision posed and the engine untouched); from here the Submit
+	// commits, which ends the posed decision's rest window
+	// (potential_walk_cache.go).
+	e.potentialAskSerial++
 	if e.L.Intents == nil && e.intentBuf != nil {
 		// A recycled intent array (Config.Spare) backs the log from its first
 		// intent on; Log.Clone caps Intents, so no clone ever shares its

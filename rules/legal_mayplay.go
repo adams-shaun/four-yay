@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/adams-shaun/gorge/effects"
@@ -295,6 +296,22 @@ func (e *Engine) mayPlaySpellIds(p state.PlayerID) []mayPlaySpellOffer {
 	// aggregate mayPlayGrant/mayPlayRaiseCost helpers.
 	board := e.mayPlayBoardGrantsOpen(p)
 	addCard := func(z state.Zone, id state.ObjID) {
+		// With no board-side grant open, a card's only permissions are its
+		// own Continuous statics and a Paradigm exile grant (the
+		// mayPlayPermissions and mayPlayGrantScoped reads at board false),
+		// so a card carrying neither yields no offer: skip both reads (and
+		// the permission scan's per-call map). Verify mode runs them anyway.
+		if !board && !faceHasContinuousStatic(e.G.Obj(id)) && !e.paradigmMayPlay(p, e.G.Obj(id)) {
+			if derivedMemoVerify {
+				if perms := e.mayPlayPermissions(p, id, false); len(perms) != 0 {
+					panic(fmt.Sprintf("rules: may-play skip ruled out obj %d with permissions %+v", id, perms))
+				}
+				if _, ok := e.mayPlayGrantScoped(p, id, false); ok {
+					panic(fmt.Sprintf("rules: may-play skip ruled out obj %d with a grant", id))
+				}
+			}
+			return
+		}
 		perms := e.mayPlayPermissions(p, id, board)
 		hasUntyped := false
 		for _, off := range perms {
@@ -402,4 +419,18 @@ func (e *Engine) adjustLandPlays(p state.PlayerID) int {
 		total += int(ce.AdjustLandPlays)
 	}
 	return total
+}
+
+// faceHasContinuousStatic reports whether o's current face prints a
+// Continuous-mode static (the only self-grant shape a may-play read takes).
+func faceHasContinuousStatic(o *state.Object) bool {
+	if o == nil || o.Face() == nil {
+		return false
+	}
+	for _, st := range o.Face().Statics {
+		if st.Mode == "Continuous" {
+			return true
+		}
+	}
+	return false
 }

@@ -958,6 +958,7 @@ func (e *Engine) askPriority(p state.PlayerID) {
 		window = newWindowCollector(p)
 	}
 	d := e.arenaDecision()
+	ep, ver, objs := len(e.L.Events), e.continuousVersion, len(e.G.Objs)
 	*d = decision.Decision{
 		Player: p, Kind: decision.KPriority, Min: 1, Max: 1,
 		// Byte-identical to fmt.Sprintf("turn %d, %s — %s has priority",
@@ -970,6 +971,7 @@ func (e *Engine) askPriority(p state.PlayerID) {
 		d.WindowReasons = window.finish(d.Options)
 	}
 	e.ask(d)
+	e.notePriorityWalk(p, d, ep, ver, objs)
 }
 
 // finishEndTurn applies CR 723.1d/e after the EndTurn event has removed the

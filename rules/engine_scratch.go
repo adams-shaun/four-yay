@@ -71,6 +71,28 @@ type engineScratch struct {
 	// paymentPlanPotentialPool marks a PotentialPaymentPlans query
 	// (paymentPlanPoolAccepted). Pure per-query scratch: Clone copies none.
 	paymentPlanPotentialPool bool
+	// potentialWalk is one posed priority decision's PotentialMana and the
+	// legal-offer walk priced against it, shared by the offer builder, the
+	// PotentialActions projection and PotentialPaymentPlans
+	// (potential_walk_cache.go). potentialAskSerial (bumped by every ask and
+	// every Submit) keys it to the decision; potentialWalkDepth bypasses it
+	// inside its own computation; potentialFullDemand records that a
+	// full-walk reader asked on this engine. Pure scratch: Clone copies none.
+	potentialWalk       potentialWalkCache
+	potentialAskSerial  uint64
+	potentialWalkDepth  int
+	potentialFullDemand bool
+	// crossWalkRetires counts retireCrossWalkMemo calls (derivedmemo.go), so
+	// activeBuildSeq minus it counts active()'s real rebuilds. Clone copies
+	// none (a clone's activeBuildSeq restarts too).
+	crossWalkRetires uint64
+	// priorityWalk is the posed priority decision's own offer walk, which
+	// the potential readers use while PotentialMana adds nothing to the pool
+	// (potential_walk_cache.go). Clone copies none.
+	priorityWalk priorityWalkTail
+	// graveCandBuf is the offer walk's graveyard-candidate scratch
+	// (legal_walk_grave_skip.go), taken for the section. Not cloned.
+	graveCandBuf []state.ObjID
 
 	// derivingColorsSet/ID/Colors: the finished layer-5 colour answer for the
 	// object whose Derived is mid-build (set by derivedWith before its layer-7
