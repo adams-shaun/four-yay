@@ -671,6 +671,12 @@ func (w *legalWalk) battlefieldWalk() {
 					// not exist, so it cannot be unlocked.
 					continue
 				}
+				// unlockRoomCost is ok exactly when the room has a locked
+				// face; test that first so a non-room permanent never builds
+				// (and returns) a zero Cost.
+				if roomLockedFace(o) == nil {
+					continue
+				}
 				cost, ok := e.unlockRoomCost(o)
 				if !ok {
 					continue

@@ -31,7 +31,7 @@ func TestNameUniverseReadersAreKnown(t *testing.T) {
 		"rules/engine_struct.go",    // landTypeWords field
 		"rules/genesis.go",          // derives landTypeWords and the name snapshot
 		"rules/layers_types.go",     // AllNonBasicLandType
-		"rules/legal_walk_skip.go",  // same CR 305.6 gate as mana_activation.go
+		"rules/legal_walk_skip.go",  // the mana-walk skip mirrors the CR 305.6 gate
 		"rules/mana_activation.go",  // CR 305.6 gate: len(landTypeWords) > 0
 		"state/game.go",             // Game fields
 	}

@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"fmt"
 	"math"
 	"slices"
 	"strconv"
@@ -31,6 +32,28 @@ func (e *Engine) costStaticApplies(sv staticView, mode string, p state.PlayerID,
 // composition retried with potential targets is denied it too. A denial by
 // ValidSpell$, CheckSVar$, ValidTarget$ or Relative$ reports false.
 func (e *Engine) costStaticGate(sv staticView, mode string, p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target, xBound bool) (ok, indepFail bool) {
+	// ValidCard$ Card.Self -- the corpus's self-cost-reduction shape ("this
+	// spell costs {1} less ...") -- matches only the static's own source
+	// (the Self predicate is o.ID == Source on both the compiled and the
+	// text matcher path), and every gate before it is a pure,
+	// target-independent read, so for any other priced object the verdict
+	// is the ValidCard$ denial whatever those gates say. It is the one
+	// static every other card in the zone is otherwise priced against.
+	if id != sv.Source {
+		if spec, has := sv.Param(cards.PKValidCard); has && spec == "Card.Self" {
+			if walkSkipVerify {
+				if full, _ := e.costStaticGateFull(sv, mode, p, id, scope, targets, xBound); full {
+					panic(fmt.Sprintf("rules: Card.Self cost static of %d applied to obj %d", sv.Source, id))
+				}
+			}
+			return false, true
+		}
+	}
+	return e.costStaticGateFull(sv, mode, p, id, scope, targets, xBound)
+}
+
+// costStaticGateFull is costStaticGate's full gate chain.
+func (e *Engine) costStaticGateFull(sv staticView, mode string, p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target, xBound bool) (ok, indepFail bool) {
 	if !e.classBandGateHolds(sv.Params, sv.Source) {
 		return false, true
 	}
@@ -711,9 +734,31 @@ func saFlagProperty(ab *cards.SA, property string) bool {
 // value to be anywhere near a real int32 overflow at the mana-cost level:
 // the bug is entirely in this parse, not in anything cost-shaped.
 func parseAmount(s string, def int32) int32 {
-	v, err := strconv.ParseInt(strings.TrimSpace(s), 10, 64)
-	if err != nil || v < 0 || v > int64(math.MaxInt32) {
+	v, ok := parseInt10(strings.TrimSpace(s))
+	if !ok || v < 0 || v > int64(math.MaxInt32) {
 		return def
 	}
 	return int32(v)
+}
+
+// parseInt10 is strconv.ParseInt(s, 10, 64) reporting success as a bool. A
+// string that is not an optionally signed run of ASCII digits -- the only
+// shape ParseInt accepts in base 10 -- is refused before ParseInt is asked,
+// because ParseInt's refusal allocates a *NumError, and the cost-modifier
+// readers parse an absent (empty) or non-literal parameter on every pass.
+func parseInt10(s string) (int64, bool) {
+	i := 0
+	if i < len(s) && (s[i] == '+' || s[i] == '-') {
+		i++
+	}
+	if i == len(s) {
+		return 0, false
+	}
+	for ; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
+			return 0, false
+		}
+	}
+	v, err := strconv.ParseInt(s, 10, 64)
+	return v, err == nil
 }

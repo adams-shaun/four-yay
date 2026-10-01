@@ -33,7 +33,7 @@ import (
 // composition path cannot half-apply a static with an unbound read.
 func (e *Engine) modAmountX(sv staticView, sub costSubject, x int32, targets []state.Target) int32 {
 	raw := strings.TrimSpace(sv.Params["Amount"])
-	if n, err := strconv.ParseInt(raw, 10, 64); err == nil {
+	if n, ok := parseInt10(raw); ok {
 		if n < 0 {
 			return 0
 		}
