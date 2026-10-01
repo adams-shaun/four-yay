@@ -20,7 +20,7 @@ func (w *legalWalk) handWalk() {
 		}
 		// The printed keyword-cost heads this face can answer
 		// (printed_heads.go): a clear bit skips that head's reader below.
-		ph := printedHeadsOf(f)
+		ph := w.printedHeads(f)
 		if derivedMemoVerify {
 			verifyPrintedHeads(f, ph)
 		}

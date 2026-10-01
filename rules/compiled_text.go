@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"sort"
 	"sync"
+	"unsafe"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
@@ -382,7 +383,11 @@ func buildCompiledText(cfg Config) *compiledText {
 	saFacts := make(map[*cards.SA]*manaSAFacts)
 	for sa := range seen {
 		if sa.Kind == "AB" {
-			saFacts[sa] = buildManaSAFacts(sa, costOf)
+			f := buildManaSAFacts(sa, costOf)
+			saFacts[sa] = f
+			// Published on the ability (cards.ExtSlot) for a pointer read;
+			// the first configuration to publish wins.
+			sa.ExtSlot().Store(unsafe.Pointer(f))
 		}
 	}
 	return &compiledText{predicates: effects.CompilePredicatePrograms(preds), costs: costs, saFacts: saFacts,

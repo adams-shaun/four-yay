@@ -18,6 +18,9 @@ type SA struct {
 	// ps is Params compiled against the ParamKey vocabulary (params.go),
 	// bound at load; not serialized.
 	ps *ParamSet
+	// extSlot holds a downstream package's compiled facts about this
+	// ability (slot.go), allocated at load. Not serialized.
+	extSlot *ExtSlot
 }
 
 // Trigger is a T: line. Execute$ names an SVar holding the effect.
@@ -147,6 +150,9 @@ type Face struct {
 	// manaCostSlot holds a downstream compiled form of ManaCost (slot.go),
 	// allocated at load. Not serialized.
 	manaCostSlot *Slot
+	// extSlot holds a downstream package's compiled facts about this face
+	// (slot.go), allocated at load. Not serialized.
+	extSlot *ExtSlot
 }
 
 // typeStaticParams are the static parameter keys whose presence can make

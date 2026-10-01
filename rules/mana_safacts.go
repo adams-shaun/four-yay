@@ -2,6 +2,7 @@ package rules
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -20,6 +21,10 @@ import (
 // recomputes the facts on every hit and panics on a difference (the
 // "configured text is immutable" argument, checked).
 type manaSAFacts struct {
+	// sa is the ability the facts were computed for: a by-value SA copy
+	// shares its original's published slot (cards.ExtSlot) and must not
+	// read these.
+	sa *cards.SA
 	// zoneOK is abilityZoneOK(ab, z) for every z < 32 (bit z).
 	zoneOK uint32
 	// loyalty is isLoyaltyAbility(ab).
@@ -111,7 +116,7 @@ func buildManaSAFacts(ab *cards.SA, costOf func(string) *compiledCost) *manaSAFa
 // buildManaSAFactsValue is buildManaSAFacts without the heap copy: the
 // verify-mode recompute in manaFactsOf only compares it.
 func buildManaSAFactsValue(ab *cards.SA, costOf func(string) *compiledCost) manaSAFacts {
-	f := manaSAFacts{cost: costOf(ab.Params["Cost"])}
+	f := manaSAFacts{sa: ab, cost: costOf(ab.Params["Cost"])}
 	f.zoneOK = abilityZoneMask(ab)
 	raw := ab.Params["Cost"]
 	if containsLoyaltyFold(raw) {
@@ -150,13 +155,22 @@ func buildManaSAFactsValue(ab *cards.SA, costOf func(string) *compiledCost) mana
 // manaFactsOf returns ab's configured facts, or nil for an ability outside
 // the configured set.
 func (e *Engine) manaFactsOf(ab *cards.SA) *manaSAFacts {
-	if e == nil || e.compiledText == nil {
+	if e == nil || e.compiledText == nil || ab == nil {
 		return nil
 	}
-	f := e.compiledText.saFacts[ab]
+	// The facts published on the ability itself (compiled_text.go) when
+	// they are its own, else the engine's table. A published entry may come
+	// from another configuration's compiledText, whose compiled cost is the
+	// same frozen parse of the same text at a different address.
+	var f *manaSAFacts
+	if p := ab.ExtSlot().Load(); p != nil && (*manaSAFacts)(p).sa == ab {
+		f = (*manaSAFacts)(p)
+	} else {
+		f = e.compiledText.saFacts[ab]
+	}
 	if f != nil && manaSAFactsVerify {
 		fresh := buildManaSAFactsValue(ab, e.compiledCostOf)
-		if fresh.cost != f.cost || !sameFactsIgnoringCost(fresh, *f) {
+		if (fresh.cost != f.cost && !reflect.DeepEqual(*fresh.cost, *f.cost)) || !sameFactsIgnoringCost(fresh, *f) {
 			panic(fmt.Sprintf("rules: configured mana facts for %q disagree with a recompute (%+v vs %+v)", ab.Line, *f, fresh))
 		}
 	}

@@ -322,6 +322,9 @@ func (f *Face) deriveParamSets() {
 	bindSA := func(sa *SA) {
 		for d := 0; sa != nil && d <= maxSVarDepth+1; d++ {
 			sa.ps = newParamSet(sa.Params)
+			if sa.extSlot == nil {
+				sa.extSlot = &ExtSlot{}
+			}
 			sa = sa.Sub
 		}
 	}

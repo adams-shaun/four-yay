@@ -53,6 +53,8 @@ type walkFaceFacts struct {
 	kwGranted bool
 	kwFirst   *string
 	kwLen     int
+	// ph is printedHeadsOf(f), under the same keyword guard.
+	ph printedHeads
 	// name and the option labels the walk offers for this face, built once
 	// so a walk shares them instead of concatenating per option (Go strings
 	// are immutable; a shared label is the same value the concatenation
@@ -100,6 +102,7 @@ func computeWalkFaceFacts(f *cards.Face) walkFaceFacts {
 	if len(f.Triggers) > 0 {
 		ff.trigFirst = &f.Triggers[0]
 	}
+	ff.ph = printedHeadsOf(f)
 	if len(f.Keywords) > 0 {
 		ff.kwFirst = &f.Keywords[0]
 		for _, h := range grantedKWHeads {
@@ -218,7 +221,23 @@ func buildWalkFaceTable(faces []*cards.Face) walkFaceTable {
 			t.slots[i] = computeWalkFaceFacts(f)
 		}
 	}
+	// Publish each entry on its face (cards.ExtSlot), so a read follows the
+	// face's pointer instead of hashing it. The table is never resized, so
+	// every published pointer stays valid; the first table to publish a
+	// face wins, and every table's entry for it is the same pure function of
+	// the face.
+	for i := range t.slots {
+		if f := t.slots[i].face; f != nil {
+			f.ExtSlot().Store(unsafe.Pointer(&t.slots[i]))
+		}
+	}
 	return t
+}
+
+// currentFor reports whether ff holds f's facts over f's current ability
+// list (the table lookup's guard).
+func (ff *walkFaceFacts) currentFor(f *cards.Face) bool {
+	return ff.face == f && ff.abLen == len(f.Abilities) && (ff.abLen == 0 || ff.abFirst == &f.Abilities[0])
 }
 
 // lookup returns f's facts, or nil when the table does not hold a current
@@ -254,12 +273,34 @@ func (ff *walkFaceFacts) triggersCurrent(f *cards.Face) bool {
 	return ff.trigLen == len(f.Triggers) && (ff.trigLen == 0 || ff.trigFirst == &f.Triggers[0])
 }
 
-// walkFaceFactsOf is the engine's table lookup (nil without a compiledText).
+// walkFaceFactsOf returns f's facts (nil without a compiledText): the
+// entry published on the face itself when it is f's own and current (a
+// by-value face copy shares its original's slot, and fails the identity
+// test), else the engine's table lookup.
 func (e *Engine) walkFaceFactsOf(f *cards.Face) *walkFaceFacts {
-	if e == nil || e.compiledText == nil {
+	if e == nil || e.compiledText == nil || f == nil {
 		return nil
 	}
+	if p := f.ExtSlot().Load(); p != nil {
+		if ff := (*walkFaceFacts)(p); ff.currentFor(f) {
+			if walkSkipVerify {
+				if fresh := computeWalkFaceFacts(f); fresh != *ff {
+					panic(fmt.Sprintf("rules: published walk face facts for %q are stale (%+v vs %+v)", f.Name, *ff, fresh))
+				}
+			}
+			return ff
+		}
+	}
 	return e.compiledText.faces.lookup(f)
+}
+
+// printedHeads is printedHeadsOf(f), read from the face facts when their
+// keyword half is current.
+func (w *legalWalk) printedHeads(f *cards.Face) printedHeads {
+	if ff := w.e.walkFaceFactsOf(f); ff != nil && ff.keywordsCurrent(f) {
+		return ff.ph
+	}
+	return printedHeadsOf(f)
 }
 
 // castLabel is "Cast " + f.Name, shared from the face facts when current.
