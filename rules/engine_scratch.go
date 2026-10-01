@@ -59,6 +59,16 @@ type engineScratch struct {
 	// installed for one query and validated against the log on every read.
 	// Pure per-query scratch: Clone copies none of it.
 	paymentPlanQuery *paymentPlanQuery
+	// paymentPlanQueryKept / paymentPlanQueryKeptStamp are the offer
+	// builder's query scope kept at its posed decision for the decision's
+	// other pure payment readers (paymentPlanQueryResume). Pure scratch:
+	// Clone copies none of it.
+	paymentPlanQueryKept      *paymentPlanQuery
+	paymentPlanQueryKeptStamp potentialStamp
+	// zoneEntry is the incremental zone-entry index paymentSourceZoneSeq
+	// reads (payment_zone_entry.go), validated against the log on every
+	// read. Pure scratch over the log: Clone copies none of it.
+	zoneEntry zoneEntryIndex
 	// paymentPlanRelaxed is PotentialPaymentPlans' transient proof mode
 	// (rules/potential_plan.go paymentPlanRelaxProof): relaxed, never
 	// executed alternatives for the mana abilities the planner census does

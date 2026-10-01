@@ -91,7 +91,7 @@ func (e *Engine) PotentialPaymentPlans(p state.PlayerID) []PotentialPlan {
 	}
 	e.beginDerivedMemo()
 	defer e.endDerivedMemo()
-	defer e.paymentPlanQueryScope()()
+	defer e.paymentPlanQueryResume(p)()
 	prevPool := e.paymentPlanPotentialPool
 	e.paymentPlanPotentialPool = true
 	defer func() { e.paymentPlanPotentialPool = prevPool }()

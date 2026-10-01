@@ -30,10 +30,8 @@ type hypSparePool struct {
 	// planSearch is the payment-plan search's working storage
 	// (payment_plan_search.go).
 	planSearch paymentPlanSearchScratch
-	// zoneSeqAns / zoneSeqResolved back the payment query's zone-entry
-	// index (paymentZoneSeqIndex.build).
-	zoneSeqAns      []paymentZoneSeqAnswer
-	zoneSeqResolved []bool
+	// zoneEntry backs the engine's zone-entry index (payment_zone_entry.go).
+	zoneEntry []zoneEntryRec
 	// ids is a stack of id lists read-only walks borrow (idsBorrow).
 	ids [][]state.ObjID
 }

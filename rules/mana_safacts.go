@@ -47,6 +47,13 @@ type manaSAFacts struct {
 	// adding plainAmt of the one symbol plainSym; plainSym 0 otherwise.
 	plainSym byte
 	plainAmt int32
+	// shapeKnown: the ability carries no SubAbility$, so its payment-plan
+	// shape verdict (paymentPlanShapeTierOf) reads only its own Params and
+	// cost and is shapeTier/shapeCons/shapeDetail.
+	shapeKnown  bool
+	shapeTier   paymentAbilityTier
+	shapeCons   paymentConsequence
+	shapeDetail string
 }
 
 // manaSAFactsVerify: see derivedMemoVerify. Set by the rules test binary.
@@ -88,6 +95,9 @@ func buildManaSAFactsValue(ab *cards.SA, costOf func(string) *compiledCost) mana
 	_, limited := ab.Params["ActivationLimit"]
 	f.noLimit = !limited && ab.Params["GameActivationLimit"] == ""
 	f.plainSym, f.plainAmt = plainManaShape(ab)
+	if tier, c, detail, rider := paymentPlanShapeTierOf(ab, f.cost.Cost); !rider {
+		f.shapeKnown, f.shapeTier, f.shapeCons, f.shapeDetail = true, tier, c, detail
+	}
 	return f
 }
 

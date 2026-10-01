@@ -480,9 +480,11 @@ func (e *Engine) paymentActionsForPriority(p state.PlayerID, seq uint64, options
 	// legality reads) share one generation and one board-static scan.
 	e.beginDerivedMemo()
 	defer e.endDerivedMemo()
-	// One query scope (zone-entry index, source census) serves every
-	// candidate's planner query.
+	// One query scope (source census, alternatives) serves every
+	// candidate's planner query, and is kept for the decision's other pure
+	// payment readers (paymentPlanQueryResume).
 	defer e.paymentPlanQueryScope()()
+	defer e.paymentPlanQueryKeep(p)
 	// legalActionsPriced is the authoritative candidate walk.  Its hypothetical
 	// pool is only a superset gate; every admission below still has an exact
 	// source-exclusive witness.
@@ -577,7 +579,7 @@ func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast
 	// serves the planner's census to the rebuild.
 	e.beginDerivedMemo()
 	defer e.endDerivedMemo()
-	defer e.paymentPlanQueryScope()()
+	defer e.paymentPlanQueryResume(p)()
 	got := e.planCastPaymentAtDecision(p, cast)
 	// PP-14: a Sac-bearing additional cost is answered by the ordinary in-flow
 	// ask AFTER this validation, so the distinct-candidate assignment must
@@ -1152,9 +1154,57 @@ func (e *Engine) paymentPlanAbilityTier(p state.PlayerID, id state.ObjID, ma *ca
 
 // paymentPlanAbilityShapeTier classifies the ability's own cost, production,
 // parameters and SubAbility$ chain.
+//
+// Without a SubAbility$ the verdict reads only the ability's own Params and
+// its compiled cost (paymentPlanShapeTierOf), so a configured ability's
+// verdict is computed once with its configured facts (manaSAFacts.shape*)
+// instead of walking its parameter map on every census; verify mode
+// (manaSAFactsVerify) recomputes the facts on every hit.
 func (e *Engine) paymentPlanAbilityShapeTier(p state.PlayerID, id state.ObjID, ma *cards.SA) (paymentAbilityTier, paymentConsequence, string) {
+	if ma != nil {
+		if f := e.manaFactsOf(ma); f != nil && f.shapeKnown {
+			if manaSAFactsVerify {
+				tier, c, detail, rider := paymentPlanShapeTierOf(ma, e.parseCost(ma.Params["Cost"]))
+				if rider || tier != f.shapeTier || c != f.shapeCons || detail != f.shapeDetail {
+					panic(fmt.Sprintf("rules: configured payment shape for %q disagrees with a recompute", ma.Line))
+				}
+			}
+			return f.shapeTier, f.shapeCons, f.shapeDetail
+		}
+	}
+	var cost Cost
+	if ma != nil {
+		cost = e.parseCost(ma.Params["Cost"])
+	}
+	tier, c, detail, rider := paymentPlanShapeTierOf(ma, cost)
+	if !rider {
+		return tier, c, detail
+	}
 	deferred := func(detail string) (paymentAbilityTier, paymentConsequence, string) {
 		return paymentTierDeferred, paymentConsequence{}, detail
+	}
+	if e.paymentPlanRiderHasTarget(id, ma) {
+		return deferred("source:target")
+	}
+	if !paymentPlanTapOnlyCost(cost) {
+		return deferred("source:last_resort")
+	}
+	if d, ok := e.paymentPlanDamageRider(id, ma); ok {
+		return paymentTierLastResort, paymentConsequence{damage: d}, "source:last_resort"
+	}
+	if e.paymentPlanParadiseRider(id, ma) {
+		return paymentTierLastResort, paymentConsequence{returnToHand: true}, "source:last_resort"
+	}
+	return deferred("source:rider")
+}
+
+// paymentPlanShapeTierOf is paymentPlanAbilityShapeTier's source-independent
+// part over ma's Params and its parsed cost: the verdict, or rider true when
+// ma carries a SubAbility$ whose chain (read off the source's face) decides
+// it.
+func paymentPlanShapeTierOf(ma *cards.SA, cost Cost) (tier paymentAbilityTier, c paymentConsequence, detail string, rider bool) {
+	deferred := func(detail string) (paymentAbilityTier, paymentConsequence, string, bool) {
+		return paymentTierDeferred, paymentConsequence{}, detail, false
 	}
 	if ma == nil || ma.API != "Mana" {
 		return deferred("source:special_production")
@@ -1190,24 +1240,11 @@ func (e *Engine) paymentPlanAbilityShapeTier(p state.PlayerID, id state.ObjID, m
 	if paymentPlanHasSpecialProductionParam(ma) {
 		return deferred("source:special_production")
 	}
-	cost := e.parseCost(ma.Params["Cost"])
 	if cost.XMin != 0 || cost.X != 0 || cost.Generic != 0 || cost.Colored.Total() != 0 || len(cost.Discard)+len(cost.SubCounter)+len(cost.Exile)+len(cost.ExileFromTop)+len(cost.TapPermanent)+len(cost.Energy)+len(cost.LifeX) != 0 {
 		return deferred("source:last_resort")
 	}
 	if strings.TrimSpace(ma.Params["SubAbility"]) != "" {
-		if e.paymentPlanRiderHasTarget(id, ma) {
-			return deferred("source:target")
-		}
-		if !paymentPlanTapOnlyCost(cost) {
-			return deferred("source:last_resort")
-		}
-		if d, ok := e.paymentPlanDamageRider(id, ma); ok {
-			return paymentTierLastResort, paymentConsequence{damage: d}, "source:last_resort"
-		}
-		if e.paymentPlanParadiseRider(id, ma) {
-			return paymentTierLastResort, paymentConsequence{returnToHand: true}, "source:last_resort"
-		}
-		return deferred("source:rider")
+		return paymentTierDeferred, paymentConsequence{}, "", true
 	}
 	if cost.Sac != nil || cost.Life != 0 || cost.Return != nil {
 		// Every other cost part must be absent: the witness discloses only
@@ -1215,8 +1252,7 @@ func (e *Engine) paymentPlanAbilityShapeTier(p state.PlayerID, id state.ObjID, m
 		if !paymentPlanLastResortCostOK(cost) {
 			return deferred("source:last_resort")
 		}
-		c := paymentConsequence{}
-		if len(cost.Sac) > 0 && len(cost.Sac) == 1 && paymentPlanSelfCost(cost.Sac[0], id) {
+		if len(cost.Sac) > 0 && len(cost.Sac) == 1 && paymentPlanSelfCost(cost.Sac[0], 0) {
 			c.sacrifice = true
 		} else if len(cost.Sac) > 0 {
 			return deferred("source:last_resort")
@@ -1224,17 +1260,17 @@ func (e *Engine) paymentPlanAbilityShapeTier(p state.PlayerID, id state.ObjID, m
 		if cost.Life > 0 {
 			c.life = uint32(cost.Life)
 		}
-		if len(cost.Return) > 0 && len(cost.Return) == 1 && paymentPlanSelfCost(cost.Return[0], id) {
+		if len(cost.Return) > 0 && len(cost.Return) == 1 && paymentPlanSelfCost(cost.Return[0], 0) {
 			c.returnToHand = true
 		} else if len(cost.Return) > 0 {
 			return deferred("source:last_resort")
 		}
-		return paymentTierLastResort, c, "source:last_resort"
+		return paymentTierLastResort, c, "source:last_resort", false
 	}
 	if !paymentPlanTapOnlyCost(cost) {
 		return deferred("source:last_resort")
 	}
-	return paymentTierNormal, paymentConsequence{}, ""
+	return paymentTierNormal, paymentConsequence{}, "", false
 }
 
 // paymentPlanLastResortCostOK reports whether a last-resort activation cost
@@ -1665,21 +1701,17 @@ func (e *Engine) paymentAbility(id state.ObjID, ma *cards.SA) (decision.PaymentA
 
 // paymentSourceZoneSeq is the existing log sequence of this object's current
 // zone entry. Genesis objects have no entry event and use the contract's zero
-// sentinel. Inside a planner query it reads the query's zone-entry index
-// (paymentPlanQuery's paymentZoneSeqIndex, built by one backward pass);
-// otherwise, and for any object the index does not cover, it scans
-// (paymentSourceZoneSeqScan).
+// sentinel. It reads the engine's incremental zone-entry index
+// (payment_zone_entry.go), which answers exactly as the backward scan
+// (paymentSourceZoneSeqScan) does.
 func (e *Engine) paymentSourceZoneSeq(id state.ObjID) uint64 {
-	if q := e.paymentPlanQuery; q.valid(e) {
-		got := q.zoneSeqs.lookup(e, id)
-		if walkCacheVerify {
-			if want := e.paymentSourceZoneSeqScan(id); got != want {
-				panic(fmt.Sprintf("payment zone-entry index: object %d seq %d, log scan %d", id, got, want))
-			}
+	got := e.zoneEntrySeq(id)
+	if walkCacheVerify {
+		if want := e.paymentSourceZoneSeqScan(id); got != want {
+			panic(fmt.Sprintf("payment zone-entry index: object %d seq %d, log scan %d", id, got, want))
 		}
-		return got
 	}
-	return e.paymentSourceZoneSeqScan(id)
+	return got
 }
 
 // paymentSourceZoneSeqScan is the reference answer: it deliberately scans

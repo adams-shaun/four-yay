@@ -418,7 +418,6 @@ func TestPaymentPlanSearchPoolAlonePays(t *testing.T) {
 // re-entered objects it checked.
 func srchIndexAgrees(t *testing.T, e *Engine, where string) (tokens, reentered, checked int) {
 	t.Helper()
-	idx := e.buildPaymentZoneSeqIndex()
 	entries := map[state.ObjID]int{}
 	for _, ev := range e.L.Events {
 		if ev.Kind == events.MoveZone && ev.To == state.ZBattlefield {
@@ -428,7 +427,7 @@ func srchIndexAgrees(t *testing.T, e *Engine, where string) (tokens, reentered, 
 	for _, pl := range e.G.Players {
 		for _, id := range e.G.Zone(state.ZBattlefield, pl.ID) {
 			want := e.paymentSourceZoneSeqScan(id)
-			if got := idx.lookup(e, id); got != want {
+			if got := e.zoneEntrySeq(id); got != want {
 				t.Fatalf("%s: object %d index seq %d, log scan %d", where, id, got, want)
 			}
 			if got := e.paymentSourceZoneSeq(id); got != want {
