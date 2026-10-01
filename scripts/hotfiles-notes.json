@@ -65,7 +65,7 @@
     "files": [
       "internal/searchprobe/action.go"
     ],
-    "note": "the Collector's action-to-key mapping: CPU-perf rewrites of the observation path and searchbench action-key work land in ADJACENT NON-OVERLAPPING functions (`observeDecision` vs `action`, measured 2026-10-01); the per-file hotspot granularity flags it, but keep each change to its own function so it stays that way"
+    "note": "the Collector's action-to-key mapping: CPU-perf rewrites of the observation path and searchbench action-key work land in ADJACENT NON-OVERLAPPING functions (cpu-maps extends `IntentActions` at line 71, sbrep-fast extends `action` at line 133); the hunks stay line-disjoint and auto-merge clean, so the per-file hotspot granularity flags a resolver round that the merge does not cost. Keep each change to its own function so it stays that way. The cpu head's name rotates (cpu-redeal / cpu-emit / cpu-maps); the note is keyed by FILE and covers whichever cpu head is live. Re-briefed as cli-20261001T030655Z-da1dccdc after commit a76c669c8 recorded the same pair; dedupe against that id."
   },
   {
     "files": [
@@ -77,13 +77,13 @@
     "files": [
       "internal/azmcts/candidates.go"
     ],
-    "note": "candidate enumeration plumbing: the CPU-perf workstream threads a reusable board scratch (`boardScratch`/`enumerateWhyInto`/`worthOptionsInto`) and the searchbench workstream threads payment candidates (`enumerateWhyAutoPayment`/`enumerateCut`/`enumerateLimit`) through the SAME function \u2014 both rewrite `enumerateWhy`'s head in place with a different wrapper chain and both edit its body (measured 2026-10-01), an intra-function collision no file split can separate. Land the branches in sequence; do not restructure the enumeration head while either is live"
+    "note": "candidate enumeration plumbing: the CPU-perf workstream threads a reusable board scratch (`boardScratch`/`enumerateWhyInto`/`worthOptionsInto`) and the searchbench workstream threads payment candidates (`enumerateWhyAutoPayment`/`enumerateCut`/`enumerateLimit`) through the SAME function \u2014 both rewrite `enumerateWhyInto`'s head in place with a different wrapper chain and both edit its body (sbrep-fast's block inside the function has grown to ~358 lines at 707711116), an intra-function collision no file split can separate; it is the only file of the pair that conflicts in the tips' in-memory merge. SEQUENCE, and land cpu-maps FIRST: it contains cpu-redeal and wt/perf-tip, so sbrep-fast's rebase replays only its own searchbench changes and resolves inside enumerateWhyInto once; do not restructure the enumeration head while either is live. Re-measured 2026-10-01 at the current live tips (cpu-maps 0b3d8bbfc, sbrep-fast 707711116, merge-base wt/perf-tip e43cde989): an in-memory `git merge-tree --write-tree` of the two tips CONFLICTS ONLY in internal/azmcts/candidates.go; the other four of the pair's five files auto-merge clean. The cpu head's name rotates (cpu-redeal / cpu-emit / cpu-maps; cpu-maps CONTAINS cpu-redeal 65ec357ee, so this is the same workstream, not a new collision); the note is keyed by FILE and applies to whichever cpu head is the live representative. Re-briefed as cli-20261001T030655Z-da1dccdc after the cpu-redeal / sbrep-fast notes (commit a76c669c8) recorded the same pair; dedupe against that id."
   },
   {
     "files": [
       "internal/searchprobe/observation.go"
     ],
-    "note": "the observation capture path: the CPU-perf workstream rewrites `NewCollector`/`Capture`/`capture` wholesale, while the searchbench workstream's whole footprint there is one 5-line accessor (`Introduced()`) inserted at the stable `clone()`/`Capture` anchor \u2014 adjacent, line-disjoint (measured 2026-10-01); only the per-file hotspot granularity flags it. Keep searchbench additions to self-contained accessors at stable anchors and the pair merges clean on rebase"
+    "note": "the observation capture path: the CPU-perf workstream edits the import block, the `Collector` struct (line 76) and `rollback` (line 324), while the searchbench workstream's footprint is `Clone` (line 161) and `Capture` (line 236) \u2014 adjacent, line-disjoint, auto-merges clean; only the per-file hotspot granularity flags it. Keep searchbench additions to self-contained accessors at stable anchors so it stays that way. The cpu head's name rotates (cpu-redeal / cpu-emit / cpu-maps); the note is keyed by FILE and covers whichever cpu head is live. Re-briefed as cli-20261001T030655Z-da1dccdc after commit a76c669c8 recorded the same pair; dedupe against that id."
   },
   {
     "files": [
@@ -123,7 +123,7 @@
       "internal/searchprobe/canon.go",
       "internal/searchprobe/canon_test.go"
     ],
-    "note": "the canonical encoder: the only genuinely two-sided files the cpu-redeal / sbrep-fast pair still edits against wt/perf-tip (their true merge-base), and the hunks are line-disjoint (measured 2026-10-01, tips 65ec357ee / 7ce4e10a4): cpu-redeal adds the stdlib unsafe import, widens canonPlan/buildCanonPlan (p.size) and appends the in-place encodeAt reader block after canonEncoder.encode, while sbrep-fast adds two module imports and appends CompareActionsJSON/ParseActionsKey/keyReader after AppendActionsKey plus its tests at canon_test.go's EOF (cpu's test edit is inside canonGameViews). Only adjacency is the import block; merges clean on rebase. Keep each side's additions to its own appended block. If canon work recurs after both branches land, the durable seam is a canon_key.go split for the action-key comparison half"
+    "note": "the canonical encoder: NEITHER FILE IS IN MAIN YET \u2014 both were added inside the workstream after main forked, so a main-side split (the durable canon_key.go seam for the action-key comparison half) is impossible until the workstream lands; defer it as agent-20261001T020717Z-6650338b defers the deck/manifest.go split. At the current tips cpu adds the stdlib unsafe import, widens canonPlan/buildCanonPlan (p.size) and appends the in-place encodeAt reader block after canonEncoder.encode, while sbrep adds module imports and appends CompareActionsJSON/ParseActionsKey/keyReader after AppendActionsKey plus its tests at canon_test.go's EOF (cpu's test edit is inside canonGameViews); both files auto-merge clean, the only adjacency is the import block. Keep each side's additions to its own appended block; after both branches land, split canon_key.go if canon work recurs. The cpu head's name rotates (cpu-redeal / cpu-emit / cpu-maps); the note is keyed by FILE and covers whichever cpu head is live. Re-briefed as cli-20261001T030655Z-da1dccdc after commit a76c669c8 recorded the same pair; dedupe against that id."
   },
   {
     "files": [
