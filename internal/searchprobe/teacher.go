@@ -40,7 +40,9 @@ type TeacherOptions struct {
 	// value. With Parallelism > 1 it is called from several goroutines at once,
 	// so it must be safe for concurrent use (policynet.Model.Value is), and it
 	// must be a pure function of its arguments or the result stops being
-	// independent of Parallelism.
+	// independent of Parallelism. v is a rollout worker's reusable
+	// projection (view.ProjectInto): it is valid only for the call, and Leaf
+	// must not retain it or anything in it.
 	Leaf func(v view.View, actor state.PlayerID) float64
 	// LeafOmniscient (ticket pn17-a1) hands Leaf the OMNISCIENT projection of
 	// a non-terminal leaf (view.ProjectFor with view.Omniscient, viewer =
@@ -175,7 +177,9 @@ func TeacherIntentChoice(worlds []World, candidates []SemanticIntent, opts Teach
 		done      bool
 	}
 	outs := make([]rollout, len(worlds)*len(candidates))
-	run := func(k int, e *rules.Engine) {
+	// lv is the worker's reusable leaf projection (view.ProjectInto): the
+	// sequential loop owns one, and every parallel worker its own.
+	run := func(k int, e *rules.Engine, lv *view.View) {
 		o := &outs[k]
 		defer func() {
 			if p := recover(); p != nil {
@@ -225,7 +229,8 @@ func TeacherIntentChoice(worlds []World, candidates []SemanticIntent, opts Teach
 		if opts.LeafOmniscient {
 			vis = view.Omniscient
 		}
-		o.value = leafValue(opts.Leaf, view.ProjectFor(e.G, e, actor, vis, e.Pending()), actor)
+		view.ProjectForInto(lv, e.G, e, actor, vis, e.Pending())
+		o.value = leafValue(opts.Leaf, *lv, actor)
 	}
 	if workers := min(opts.Parallelism, len(outs)); workers > 1 {
 		engines := make([]*rules.Engine, len(outs))
@@ -238,20 +243,22 @@ func TeacherIntentChoice(worlds []World, candidates []SemanticIntent, opts Teach
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
+				var lv view.View
 				for {
 					k := int(next.Add(1)) - 1
 					if k >= len(outs) {
 						return
 					}
-					run(k, engines[k])
+					run(k, engines[k], &lv)
 					engines[k] = nil
 				}
 			}()
 		}
 		wg.Wait()
 	} else {
+		var lv view.View
 		for k := range outs {
-			run(k, worlds[k/len(candidates)].Engine.Clone())
+			run(k, worlds[k/len(candidates)].Engine.Clone(), &lv)
 			if outs[k].err != nil || outs[k].panicked != nil {
 				break
 			}

@@ -300,6 +300,7 @@ func SearchChoice(worlds []World, candidates []Action, seed uint64, maxSubmits i
 		result.Fallback = "insufficient sampled worlds/ESS"
 		return result, nil
 	}
+	var lv view.View // the leaf projection, refilled per rollout (view.ProjectInto)
 	for wi, w := range worlds {
 		if err := VerifyWorld(w); err != nil {
 			return result, err
@@ -334,7 +335,8 @@ func SearchChoice(worlds []World, candidates []Action, seed uint64, maxSubmits i
 				result.Fallback = "turn-end submit budget exhausted"
 				return result, nil
 			}
-			result.Scores[i] += LeafScore(view.Project(e.G, e, actor, e.Pending()), actor) / float64(len(worlds))
+			view.ProjectInto(&lv, e.G, e, actor, e.Pending())
+			result.Scores[i] += LeafScore(lv, actor) / float64(len(worlds))
 		}
 	}
 	for i := 1; i < len(result.Scores); i++ {
