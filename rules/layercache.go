@@ -109,12 +109,14 @@ func (e *Engine) staticSafeSince(epoch, oldObjs int) bool {
 	}
 	creates := 0
 	for i := epoch; i < n; i++ {
-		switch e.L.Events[i].Kind {
+		switch k := e.L.Events[i].Kind; k {
 		case events.DecisionAsk, events.DecisionMade, events.Priority:
 		case events.TokenCreate:
 			creates++
 		default:
-			return false
+			if e.staticMemoStateRead || !staticQuietKinds.has(k) {
+				return false
+			}
 		}
 	}
 	if len(e.G.Objs)-oldObjs != creates {
@@ -128,6 +130,37 @@ func (e *Engine) staticSafeSince(epoch, oldObjs int) bool {
 	}
 	return true
 }
+
+// staticQuietKinds are the event kinds whose Apply writes nothing a
+// gate-free, state-read-free staticEffects scan reads. That scan's whole input
+// is the seat list (AliveFrom), the static source zones' id lists, and per
+// object its Card/FaceIdx/CopyFace (Face), FaceDown, PhasedOut, Unlocked,
+// MergedCards, Zone, Controller, Timestamp, Chosen* fields and Imprinted.
+// Every other read it can make -- a continuous gate, a GainsAbilitiesOf$ or
+// AddStaticAbility$ spec match, a CDA count, an imprinted card's type line --
+// sets staticMemoGated or staticMemoStateRead in the build, which refuses
+// this admission. Each kind below folds only fields outside that input:
+//
+//   - Tap/Untap: o.Tapped.
+//   - ManaAdd/ManaClear: a seat's mana pool and restriction batches.
+//   - LifeChange: a seat's life. LandPlayed: a seat's land count.
+//   - Damage: marked damage, damage-this-turn bookkeeping, loyalty/defense
+//     counters, life, commander damage. DamageProvenance: a seat's or
+//     object's damaged-by record.
+//   - StepChange: g.Step, the combat-phase count, combat-persistent mana,
+//     the YourLastCombat mode picks and combat stamps, LastUpkeepTurn.
+//   - ClockTick: g.Clock (the scan reads an object's own Timestamp).
+//   - DeclareAttackers/DeclareBlockers/EndCombatReset: attack and block
+//     state. TargetsChosen: an object's Targets and copy-target bit.
+//   - Note: a marker; Apply writes nothing.
+//
+// None of them adds an object, moves a zone list or changes a seat's Lost
+// bit. layerInertVerify rescans on every re-stamp and panics on a
+// difference, so the rules suite holds this list to the scan empirically.
+var staticQuietKinds = newKindSet(events.Tap, events.Untap, events.ManaAdd, events.ManaClear,
+	events.LifeChange, events.LandPlayed, events.Damage, events.DamageProvenance,
+	events.StepChange, events.ClockTick, events.DeclareAttackers, events.DeclareBlockers,
+	events.EndCombatReset, events.TargetsChosen, events.Note)
 
 // refreshStaticContinuous brings the staticEffects memo up to the current log
 // head: a no-op on an exact hit, a re-stamp across a layer-safe run, a full

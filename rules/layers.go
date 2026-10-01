@@ -77,6 +77,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 	// (see its doc), so reset/set ordering is safe. A verify-only second walk
 	// (staticZoneSkipVerify) resets it again below and sets it identically.
 	e.staticMemoGated = false
+	e.staticMemoStateRead = false
 	out := dst[:0]
 	for pi, p := range e.G.AliveFrom(0) {
 		// staticSourceZones (below) walks the battlefield FIRST so every
@@ -321,6 +322,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						// event, so a card exiled later is gained on the next rescan
 						// and a card that leaves the scoped zones loses its grant.
 						if st.MayHaveAnyParam(gainsAbilitiesKeys) && gainsAbilitiesOf(st) {
+							e.staticMemoStateRead = true
 							// The two parameters are resolved SEPARATELY and carried on
 							// separate face lists: GainsAbilitiesOf$ means ACTIVATED
 							// abilities only and GainsTriggerAbsOf$ TRIGGERED only (a
@@ -399,6 +401,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 								if word != "ImprintedCreatureType" {
 									continue
 								}
+								e.staticMemoStateRead = true
 								ty.AddTypes = append(ty.AddTypes[:i], ty.AddTypes[i+1:]...)
 								for j := len(o.Imprinted) - 1; j >= 0; j-- {
 									im := e.G.Obj(o.Imprinted[j])
@@ -504,6 +507,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						if st.HasParam(cards.PKSetPower) || st.HasParam(cards.PKSetToughness) {
 							skip := false
 							if strings.TrimSpace(st.ParamStr(cards.PKCharacteristicDefining)) != "" {
+								e.staticMemoStateRead = true
 								if _, _, hp, ht := e.cdaPTStatic(st, &effects.Ctx{Source: id, Controller: o.Controller, SVars: fc.SVars}); hp || ht {
 									skip = true
 								}
@@ -600,6 +604,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						// parser refuses, one whose mode is not Continuous, or a host
 						// the outer spec no longer matches, grants nothing.
 						if name := strings.TrimSpace(st.ParamStr(cards.PKAddStaticAbility)); name != "" && w.depth == 0 {
+							e.staticMemoStateRead = true
 							if inners, ok := cards.ParseStaticLines(fc.SVars[name]); ok {
 								for _, inner := range inners {
 									if inner.Mode == "Continuous" &&

@@ -35,10 +35,14 @@ func TestStaticEffectsReusesBackingAcrossEvents(t *testing.T) {
 		t.Fatal("active sorting must use distinct storage and leave static scan order untouched")
 	}
 	epoch := e.staticEpoch
-	e.emit(events.Event{Kind: events.ClockTick})
+	// A static-quiet kind (layercache.go's staticQuietKinds, ClockTick among
+	// them) only re-stamps a gate-free memo, so force a real rebuild with a
+	// kind outside that set whose fold cannot change the scan.
+	seq := e.staticBuildSeq
+	e.emit(events.Event{Kind: events.PlayerCounterChange, Player: 1, Counter: "BUFFER", Amount: 0})
 	e.active()
-	if e.staticEpoch <= epoch || e.staticEpoch != len(e.L.Events) {
-		t.Fatal("ClockTick did not refresh the static memo")
+	if e.staticEpoch <= epoch || e.staticEpoch != len(e.L.Events) || e.staticBuildSeq == seq {
+		t.Fatal("a non-quiet event did not rebuild the static memo")
 	}
 	if &e.staticContinuous[0] != backing {
 		t.Error("event-backed rebuild allocated new static effect storage")
@@ -170,12 +174,46 @@ func TestStaticEffectsWarmRebuildAllocationBudget(t *testing.T) {
 		e.EndOfTurnCleanup()
 		// Force a genuine static rebuild without charging this measurement
 		// for event creation, hashing, trigger checks or log growth. The
-		// separate ClockTick test exercises real event-driven invalidation.
+		// event-driven test above exercises real invalidation.
 		e.staticEpoch = -1
 		staticEffectsBufferSink = e.active()
 	})
 	t.Logf("version-only rebuild = %.0f allocations; static rescan = %.0f", versionOnly, withStaticScan)
 	if extra := withStaticScan - versionOnly; extra > 1 {
 		t.Fatalf("warm static rescan added %.0f allocations, want at most 1 for unchanged seat traversal", extra)
+	}
+}
+
+// TestStaticMemoRestampsAcrossQuietEvents pins staticQuietKinds' admission:
+// on a gate-free, state-read-free board a quiet event (a tap, a step change)
+// re-stamps the static memo instead of rescanning, while the same events on a
+// board whose scan saw a continuous gate rescan as before. layerInertVerify
+// (on in this binary) re-checks every re-stamp against a fresh scan.
+func TestStaticMemoRestampsAcrossQuietEvents(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		src     string
+		restamp bool
+	}{
+		{"gate-free", staticBufferGrantSrc, true},
+		{"gated", "Name:Gated grant\nTypes:Enchantment\n" +
+			"S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | IsPresent$ Creature.YouCtrl\nOracle:x\n", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e := layerEngine(t)
+			onBoardGrant(t, e, 0, tc.src)
+			bear := onBoardGrant(t, e, 0, creatureSrc("Quiet bear"))
+			e.active()
+			seq := e.staticBuildSeq
+			e.emit(events.Event{Kind: events.Tap, Obj: bear})
+			e.emit(events.Event{Kind: events.StepChange, Step: state.StepDraw})
+			e.active()
+			if e.staticEpoch != len(e.L.Events) {
+				t.Fatal("static memo not brought up to the log head")
+			}
+			if restamped := e.staticBuildSeq == seq; restamped != tc.restamp {
+				t.Fatalf("re-stamped = %v, want %v (gated %v, state-read %v)", restamped, tc.restamp, e.staticMemoGated, e.staticMemoStateRead)
+			}
+		})
 	}
 }
