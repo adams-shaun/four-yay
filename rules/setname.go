@@ -92,12 +92,29 @@ func (e *Engine) refreshRenames() {
 		}
 		return
 	}
+	// Derived-transparent reuse (derived_transparent.go): a table built at
+	// the derivedSeq active() still holds read names that no derivation has
+	// changed since -- the only quiet events a transparent rebuild spans move
+	// no zone, face or object count, so the battlefield membership and every
+	// printed name the table compares against are unchanged too.
+	if e.renameVersion == e.continuousVersion && e.renameObjs == len(e.G.Objs) && e.renameDSeq != 0 {
+		e.active()
+		if e.renameDSeq == e.derivedSeq {
+			e.renameEpoch = len(e.L.Events)
+			if layerInertVerify {
+				e.verifyInertRenames()
+			}
+			return
+		}
+	}
 	e.renameEpoch, e.renameVersion, e.renameObjs = len(e.L.Events), e.continuousVersion, len(e.G.Objs)
 	buf := e.renames[:0]
 	if !e.anySetNameActive() {
 		e.renames = buf[:0]
+		e.renameDSeq = e.derivedSeq
 		return
 	}
+	e.renameDSeq = e.derivedSeq
 	e.renameBuilding = true
 	defer func() { e.renameBuilding = false }()
 	// e.G.Objs is append-ordered, so this walk is deterministic; only the
@@ -125,7 +142,7 @@ func (e *Engine) refreshRenames() {
 func (e *Engine) verifyInertRenames() {
 	cached := append([]effects.ObjectName(nil), e.renames...)
 	e.renames = nil
-	e.renameEpoch = -1
+	e.renameEpoch, e.renameDSeq = -1, 0
 	e.refreshRenames()
 	fresh := e.renames
 	if !slices.Equal(cached, fresh) {

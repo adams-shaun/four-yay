@@ -24,6 +24,7 @@ type engineDerivedTables struct {
 	renameEpoch    int
 	renameVersion  int
 	renameObjs     int
+	renameDSeq     uint64 // derivedSeq at the build; never cloned (0 = none)
 	renameBuilding bool
 	// derivedTypes is the layer-4 derived type table (layer4types.go) the
 	// effects tier's ordinary type filters read through SpecContext.

@@ -1,6 +1,12 @@
 package rules
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/state"
+)
 
 // Skipping a state-based-action pass loop that provably applies nothing.
 //
@@ -45,6 +51,13 @@ type sbaQuietKey struct {
 	ep   int
 	ver  int
 	objs int
+	// dseq is derivedSeq at the record. quiet caches whether the recorded
+	// board admits the quiet-kind extension (sbaQuietKindsSafe): 0 not yet
+	// asked, 1 yes, 2 no. It is computed on first need -- the quiet kinds
+	// change none of its inputs, so the answer at the record and at the
+	// first quiet-kind skip are the same.
+	dseq  uint64
+	quiet uint8
 }
 
 // sbaQuietVerifyFlag turns verify mode on in a non-test binary:
@@ -57,7 +70,7 @@ var sbaQuietVerify = sbaQuietVerifyFlag != ""
 func (e *Engine) sbaQuietNow() bool {
 	q := e.sbaQuiet
 	if q.ep <= 0 || e.legendBatch != nil || q.ver != e.continuousVersion || q.objs != len(e.G.Objs) ||
-		!e.layerInertSince(q.ep) {
+		!e.sbaInputsQuietSince(&e.sbaQuiet) {
 		return false
 	}
 	// The player-level losses (CR 704.5a/b, 903.10) are re-read on every
@@ -89,7 +102,94 @@ func (e *Engine) sbaRecordQuiet(ep0 int) {
 		e.sbaQuiet = sbaQuietKey{}
 		return
 	}
-	e.sbaQuiet = sbaQuietKey{ep: ep0, ver: e.continuousVersion, objs: len(e.G.Objs)}
+	e.active()
+	e.sbaQuiet = sbaQuietKey{ep: ep0, ver: e.continuousVersion, objs: len(e.G.Objs), dseq: e.derivedSeq}
+}
+
+// sbaInputsQuietSince reports whether nothing the pass loop reads has moved
+// since the quiet record q: every event since is layer-inert (the original
+// argument above), or -- the quiet-kind extension -- every event since is
+// layer-inert or a derivedQuietKind (Tap, Untap, ManaAdd, ManaClear,
+// StepChange), the recorded board admits the extension (q.quiet), and
+// derivedSeq has not moved (derived_transparent.go: every layer-derived
+// characteristic the loop reads -- toughness, types, keywords, names,
+// protection -- is unchanged). Those kinds write a permanent's Tapped flag, a
+// pool, the step and the combat-mana tallies; the pass loop's direct reads
+// (damage, counters, zones, attachments, timestamps, life and poison, the
+// Saga and dungeon bookkeeping) are none of them. Its remaining indirect
+// reads are what sbaQuietKindsSafe excludes.
+func (e *Engine) sbaInputsQuietSince(q *sbaQuietKey) bool {
+	n := len(e.L.Events)
+	if q.ep > n {
+		return false
+	}
+	quiet := false
+	for _, ev := range e.L.Events[q.ep:] {
+		switch ev.Kind {
+		case events.DecisionAsk, events.DecisionMade, events.Priority:
+		default:
+			if q.quiet == 2 || !derivedQuietKind(ev.Kind) {
+				return false
+			}
+			quiet = true
+		}
+	}
+	if !quiet {
+		return true
+	}
+	if q.quiet == 0 {
+		q.quiet = 2
+		if e.sbaQuietKindsSafe() {
+			q.quiet = 1
+		}
+	}
+	if q.quiet != 1 {
+		return false
+	}
+	e.active()
+	return e.derivedSeq == q.dseq
+}
+
+// sbaQuietKindsSafe reports whether the pass loop's reads that do not go
+// through the layer walk are provably blind to the quiet kinds on this board:
+//
+//   - no battlefield object prints a characteristic-defining static (its
+//     P/T is an arbitrary count, which derivedSeq does not cover -- a
+//     "number of untapped lands" toughness can reach zero on a Tap);
+//   - no IgnoreLegendRule static is live (its "as long as" gate is an
+//     arbitrary condition, read by legendGroups);
+//   - no Aura is attached to a player, and every Aura attached to an object
+//     has a local derived Enchant spec (specLocal: attachmentSBAs matches it
+//     against the bearer, and a non-local spec -- tapped, a count -- could
+//     flip on a quiet event).
+func (e *Engine) sbaQuietKindsSafe() bool {
+	if len(e.activeStatics("IgnoreLegendRule")) > 0 {
+		return false
+	}
+	for _, p := range e.G.AliveFrom(0) {
+		for _, id := range e.G.Zone(state.ZBattlefield, p) {
+			o := e.G.Obj(id)
+			if o == nil {
+				continue
+			}
+			if faceHasCDAStatic(o) {
+				return false
+			}
+			if o.HasAttachedPlayer {
+				return false
+			}
+			if o.AttachedTo == 0 || !e.isAura(o) {
+				continue
+			}
+			if param, ok := e.derivedKeywordParamH(o.ID, kwhEnchant); ok {
+				spec, _, _ := strings.Cut(param, ":")
+				if !specLocal(strings.TrimSpace(spec)) {
+					return false
+				}
+			}
+		}
+	}
+	return true
 }
 
 func (e *Engine) verifySBAQuiet(ep0 int) {
