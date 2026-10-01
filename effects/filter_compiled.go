@@ -95,7 +95,17 @@ type compiledAlt struct {
 	spellTargetingOK   bool
 	spellTargetingNeg  bool
 	spellTargetingSpec string
-	preds              []compiledPred
+	// sharesColor marks Forge's base-qualified `SharesColorWith Valid <spec>`
+	// unit form (sharesColorShape, the IsTargeting precedent): the
+	// alternative is ONE unit whose whole argument is the colour-share spec,
+	// so its '+' conjunctions are the INNER spec's, never a '+' token split.
+	// sharesColorOK is false for an argument this grammar cannot answer
+	// whole, which fails the whole alternative closed. There is no negated
+	// unit spelling (the '!'-form stays an unknown predicate).
+	sharesColor     bool
+	sharesColorOK   bool
+	sharesColorSpec string
+	preds           []compiledPred
 }
 
 type compiledStage uint8
@@ -153,6 +163,15 @@ func specialPositiveToken(p string) bool {
 		"IsGoaded",
 		"IsRemembered", "IsTriggerRemembered":
 		return true
+	}
+	if arg, has := strings.CutPrefix(p, "SharesColorWith "); has {
+		// The one bare referent token matchSharesColorWith binds (C.A.M.P.'s
+		// TriggeredProduced), by the same classifier
+		// positiveRecognised takes. The `SharesColorWith Valid <spec>` spelling
+		// is an ALTERNATIVE-level unit (sharesColorShape/compileSpec), so a
+		// token carrying it classifies csUnknown here and fails closed -- only
+		// reachable for a shape the alt-level unit did not claim.
+		return sharesColorBareReferent(arg)
 	}
 	// Forge's base-qualified `Spell.IsTargeting <target-spec>` form is handled
 	// at the alternative level (compileSpec/compiledMatch), never as a bare
@@ -341,6 +360,11 @@ func compileSpec(spec string) *compiledSpec {
 				spec, _ := spellIsTargetingInner(arg)
 				a.spellTargetingSpec, a.spellTargetingOK = spec, true
 			}
+		} else if arg, shape := sharesColorShape(rest); shape {
+			a.sharesColor = true
+			if sharesColorArgRecognised(arg) {
+				a.sharesColorSpec, a.sharesColorOK = arg, true
+			}
 		} else {
 			for p := range strings.SplitSeq(rest, "+") {
 				if p == "" {
@@ -467,6 +491,15 @@ func compiledMatch(cs *compiledSpec, g *state.Game, o *state.Object, sc *SpecCon
 			}
 			continue
 		}
+		if a.sharesColor {
+			// The `SharesColorWith Valid <spec>` unit: the '+'-free inner spec
+			// is matched whole by sharesColorUnitMatches; an unanswerable
+			// argument fails the whole alternative closed.
+			if a.sharesColorOK && sharesColorUnitMatches(g, a.sharesColorSpec, o, *asc) {
+				return true
+			}
+			continue
+		}
 		all := true
 		for j := range a.preds {
 			p := &a.preds[j]
@@ -511,6 +544,15 @@ func compiledMatchZone(cs *compiledSpec, g *state.Game, o *state.Object, sc *Spe
 				if met {
 					return true
 				}
+			}
+			continue
+		}
+		if a.sharesColor {
+			// The `SharesColorWith Valid <spec>` unit, exactly as in
+			// compiledMatch: the referent scan runs over the battlefield, so
+			// this zone path keeps the two compiled matchers equal.
+			if a.sharesColorOK && sharesColorUnitMatches(g, a.sharesColorSpec, o, *sc) {
+				return true
 			}
 			continue
 		}

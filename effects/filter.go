@@ -793,6 +793,114 @@ func spellIsTargetingMatchesPtr(g *state.Game, spec string, o *state.Object, sc 
 	return false
 }
 
+// sharesColorBareReferent reports whether a `SharesColorWith ` argument is
+// the one bare one-word referent the token grammar binds. It is the one
+// recognition point positiveRecognised (the census) and specialPositiveToken
+// (the compiled dispatch) share, so a bare referent is either recognised by
+// both or unknown to both. ChosenCard (Guard Dogs' referent) is deliberately
+// NOT bound: its carrier's ConditionDefined$ Targeted gate is evaluated by
+// effects.conditionMet BEFORE the DB sub's own mid-resolution target ask is
+// posed, so on an empty group the recognised predicate resolves the gate
+// false and the whole sub -- target ask included -- is skipped. Measured
+// driving the real card (task brief's stop rule): at main the unknown
+// predicate failed the gate open and the ask was posed; recognising
+// ChosenCard half-wires the card, so it stays unrecognised until the
+// sub-target-before-gate ordering lands (agent-20260920T104356Z-c898602e's
+// alltargeted1 scope).
+func sharesColorBareReferent(arg string) bool {
+	return arg == "TriggeredProduced"
+}
+
+// sharesColorShape reports whether an alternative's rest is Forge's
+// base-qualified `SharesColorWith Valid <spec>` unit form: the whole
+// argument after `Valid ` is a colour-share spec, so the alternative is ONE
+// unit and the argument's '+' conjunctions belong to the INNER spec, never
+// the candidate predicates (the Spell.IsTargeting precedent -- the corpus's
+// `Card.SharesColorWith Valid Creature.Legendary+YouCtrl` would otherwise be
+// torn into a recognised head and an orphaned YouCtrl). The bare one-word
+// referent (TriggeredProduced) is a predicate token, not this unit. The '!'-negated spelling is NOT part of the unit form: it stays an
+// unknown predicate, exactly today's fail-closed read (Invoke Prejudice).
+func sharesColorShape(rest string) (arg string, ok bool) {
+	arg, ok = strings.CutPrefix(rest, "SharesColorWith Valid ")
+	if !ok || strings.TrimSpace(arg) == "" {
+		return "", false
+	}
+	return strings.TrimSpace(arg), true
+}
+
+// sharesColorArgRecognised reports whether a `SharesColorWith Valid <spec>`
+// unit argument is a COMPLETE form this build can answer: its inner spec
+// carries no unknown predicate. Recognition is reached by the same path the
+// evaluator takes -- the alternative-level matcher uses this same check -- so
+// an inner spec the ordinary matcher would fail closed on stays unknown to
+// UnknownPredicates, never recognised-but-false.
+func sharesColorArgRecognised(arg string) bool {
+	return len(UnknownPredicates(arg)) == 0
+}
+
+// sharesColorUnitMatches evaluates one `SharesColorWith Valid <spec>`
+// alternative's unit: met when the candidate object's colours (ColorMaskOf,
+// the same read every colour predicate takes) intersect the colours of at
+// least one BATTLEFIELD object the inner spec admits, matched from the
+// resolving context's own perspective (sc.You/sc.Source bound, so YouCtrl and
+// Self resolve as the rest of the spec would). An empty match set is "shares
+// with nothing", a resolved non-match, never an unresolved gate.
+func sharesColorUnitMatches(g *state.Game, spec string, o *state.Object, sc SpecContext) bool {
+	if o == nil {
+		return false
+	}
+	cand := ColorMaskOf(o)
+	for i := range g.Objs {
+		m := &g.Objs[i]
+		if m.Zone != state.ZBattlefield || !MatchesSpecCtx(g, spec, m.ID, sc) {
+			continue
+		}
+		if ColorMaskOf(m)&cand != 0 {
+			return true
+		}
+	}
+	return false
+}
+
+// triggerManaColorMask maps the fixed-order WUBRGC TriggerMana set-string
+// (rules/mana_activation.go's manaProducedSince stamp) to a colour mask. C
+// (colourless) is not a colour and contributes nothing -- colorless mana
+// shares no colour with anything.
+func triggerManaColorMask(mana string) ColorMask {
+	var m ColorMask
+	for i := 0; i < len(mana); i++ {
+		m |= colorBit(mana[i])
+	}
+	return m
+}
+
+// matchSharesColorWith evaluates one bare-referent `SharesColorWith
+// <referent>` predicate token against the candidate o. Two referent forms
+// are bound:
+//
+//	TriggeredProduced -- C.A.M.P.'s "If that creature shares a color with the
+//	mana that land produced": the candidate's colours intersect the
+//	fixed-order WUBRGC TriggerMana set the TapsForMana trigger captured
+//	(effects/trigger_referents.go), on the resolving context's SpecContext
+//	through (*Ctx).SpecContext. Colourless (C) is not a colour, so it
+//	contributes nothing; an EMPTY set -- the window produced no coloured
+//	mana, or the referent is read outside a stamped trigger context -- is
+//	"shares nothing", a resolved false, never an unresolved gate.
+//
+//	Every other spelling -- MostProminentColor, Imprinted, ChosenCard
+//	(deliberately unrecognised, sharesColorBareReferent), Equipped,
+//	TopOfLibrary, Sacrificed, LastCastThisTurn, the bare form,
+//	SharesColorWithOther, and the `Valid <spec>` unit (alternative-level,
+//	sharesColorShape) -- returns ok=false here, so a token carrying one fails
+//	closed exactly as it did before these referents were bound.
+func matchSharesColorWith(g *state.Game, p string, o *state.Object, sc SpecContext) (result, ok bool) {
+	arg, has := strings.CutPrefix(p, "SharesColorWith ")
+	if !has || !sharesColorBareReferent(arg) {
+		return false, false
+	}
+	return ColorMaskOf(o)&triggerManaColorMask(sc.TriggerMana) != 0, true
+}
+
 // positiveRecognised reports whether a predicate token p is a recognised
 // positive-evaluation shape: an entry in the `predicates` map, a numeric
 // <field><CMP><n> predicate, a generic non<X> negation whose <X> is a
@@ -826,6 +934,17 @@ func positiveRecognised(p string) bool {
 	}
 	if p == "TriggeredNewCard" || p == "TriggeredCard" || strings.HasPrefix(p, "ChosenMode") && len(p) > len("ChosenMode") {
 		return true
+	}
+	// Forge's base-qualified `SharesColorWith <referent>` predicate (C.A.M.P.'s
+	// TriggeredProduced; Guard Dogs' ChosenCard stays UNRECOGNISED -- the
+	// stop rule sharesColorBareReferent documents; the `SharesColorWith Valid <spec>` spelling is
+	// recognised at the ALTERNATIVE level, sharesColorShape, the IsTargeting
+	// precedent). Every other spelling (MostProminentColor, Imprinted,
+	// Equipped, TopOfLibrary, Sacrificed, LastCastThisTurn, the bare form,
+	// SharesColorWithOther) stays unrecognised: those carriers keep today's
+	// fail-open/closed behaviour, and UnknownPredicates keeps reporting them.
+	if arg, has := strings.CutPrefix(p, "SharesColorWith "); has {
+		return sharesColorBareReferent(arg)
 	}
 	if hasAbilityToken(p) {
 		return true
@@ -1483,6 +1602,14 @@ func matchPositive(g *state.Game, p string, o *state.Object, sc SpecContext) (re
 			chosen = !chosen
 		}
 		return chosen, true
+	}
+	if _, has := strings.CutPrefix(p, "SharesColorWith "); has {
+		// Forge's base-qualified `SharesColorWith <referent>` predicate (C.A.M.P.,
+		// Guard Dogs). The `Valid <spec>` spelling is an ALTERNATIVE-level unit
+		// (sharesColorShape), so a token carrying it is unknown here by
+		// construction; matchSharesColorWith binds the two bare referents and
+		// carries their fail-closed conventions.
+		return matchSharesColorWith(g, p, o, sc)
 	}
 	if p == "RememberedPlayerCtrl" {
 		// Forge's RememberedPlayerCtrl: controlled by a player this
@@ -2410,6 +2537,24 @@ func matchesObjectText(g *state.Game, spec string, o *state.Object, sc SpecConte
 			}
 			continue
 		}
+		// Forge's base-qualified `SharesColorWith Valid <spec>` form: the WHOLE
+		// argument after `Valid ` is the colour-share spec, so this alternative
+		// is ONE unit -- its '+' conjunctions, if any, belong to the INNER spec
+		// (jaded_response's `Spell.SharesColorWith Valid Creature.YouCtrl`; a
+		// corpus '+' spelling like `Card.SharesColorWith Valid
+		// Creature.Legendary+YouCtrl`) and are never torn into candidate
+		// predicates. An argument this grammar cannot answer whole (an empty
+		// inner spec, an unknown inner predicate) fails the whole alternative
+		// closed: the token-level path recognises only the bare one-word
+		// referents, so a truncated head is an unknown predicate, never a
+		// partial match. An empty match set is "shares with nothing", a
+		// resolved non-match.
+		if arg, shape := sharesColorShape(rest); shape {
+			if sharesColorArgRecognised(arg) && sharesColorUnitMatches(g, arg, o, sc) {
+				return true
+			}
+			continue
+		}
 		all := true
 		for p := range strings.SplitSeq(rest, "+") {
 			if p == "" {
@@ -2517,6 +2662,16 @@ func matchesZoneSpecText(g *state.Game, spec string, o *state.Object, sc SpecCon
 				if met {
 					return true
 				}
+			}
+			continue
+		}
+		// The base-qualified `SharesColorWith Valid <spec>` form is one unit,
+		// exactly as in matchesObjectText (sharesColorShape): the zone-aware
+		// base already fails the non-land candidates closed off the
+		// battlefield, so this only keeps the two paths textually equal.
+		if arg, shape := sharesColorShape(rest); shape {
+			if sharesColorArgRecognised(arg) && sharesColorUnitMatches(g, arg, o, sc) {
+				return true
 			}
 			continue
 		}
@@ -2728,6 +2883,19 @@ func UnknownPredicates(spec string) []string {
 				continue
 			}
 			out = append(out, strings.TrimSpace(body))
+			continue
+		}
+		// Forge's base-qualified `SharesColorWith Valid <spec>` form is ONE
+		// unit (sharesColorShape): when the argument is complete and
+		// answerable whole it is recognised; every other shape of the form (an
+		// empty inner spec, an unknown inner predicate) is ONE unknown token --
+		// the whole form, never its truncated '+' head, so the matcher and
+		// this census stay in agreement.
+		if arg, shape := sharesColorShape(rest); shape {
+			if sharesColorArgRecognised(arg) {
+				continue
+			}
+			out = append(out, strings.TrimSpace(rest))
 			continue
 		}
 		for p := range strings.SplitSeq(rest, "+") {
