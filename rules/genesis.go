@@ -49,6 +49,11 @@ type Spare struct {
 	// lookBack is the spent engine's zeroed look-back observer struct
 	// (trigger_snapshot_pool.go), reused by the next engine.
 	lookBack *Engine
+	// legalOpts / manaAb are the offer walk's cleared scratch lists
+	// (legalOptBuf, manaAbBuf), so the next engine's first walks append
+	// into grown arrays instead of regrowing them from nil.
+	legalOpts []decision.Option
+	manaAb    []*cards.SA
 }
 
 // Release returns e's log and object-arena arrays as a Spare for the next
@@ -88,6 +93,10 @@ func (e *Engine) Release() Spare {
 		snapObjs:   e.releaseSnapshotObjs(),
 	}
 	sp.arena = e.releaseArena()
+	// The walk scratch lists are cleared at the end of every walk (legal.go,
+	// legal_walk_battlefield.go), so they hold no reference to recycle away.
+	sp.legalOpts, sp.manaAb = e.legalOptBuf[:0], e.manaAbBuf[:0]
+	e.legalOptBuf, e.manaAbBuf = nil, nil
 	if e.lookBackOwner == e && !e.lookBackBusy {
 		sp.lookBack = e.lookBack
 	}
@@ -201,6 +210,7 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 	e.derivedMemo, e.derivedMemoStack = spare.memo, spare.memoStack
 	e.adoptSnapshotObjs(spare.snapObjs)
 	e.adoptArena(spare.arena)
+	e.legalOptBuf, e.manaAbBuf = spare.legalOpts, spare.manaAb
 	if cap(spare.intents) > 0 {
 		e.intentBuf = spare.intents[:0]
 	}

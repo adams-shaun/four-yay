@@ -123,6 +123,9 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	// clone's log is a copy of this one, so each watermark still names the
 	// same prefix and the clone resumes the fold instead of redoing it.
 	c.legalScratch = cloneLegalWalkScratch(e.legalScratch)
+	// The offer walk's scratch lists come from the Spare (a spent engine's,
+	// cleared); a zero Spare leaves them nil, as Clone always has.
+	c.legalOptBuf, c.manaAbBuf = sp.legalOpts, sp.manaAb
 	c.orderedTriggers = e.orderedTriggers
 	c.applyingReplacement = e.applyingReplacement
 	c.choosing = e.choosing

@@ -72,7 +72,7 @@ func (w *legalWalk) battlefieldWalk() {
 					if len(mas) == 0 {
 						continue
 					}
-					opt := decision.Option{Index: len(*out), Kind: "activate", Label: e.manaActivateLabel(f.Name), Obj: id}
+					opt := decision.Option{Index: len(*out), Kind: "activate", Label: w.manaLabel(f), Obj: id}
 					// fb-led1: a mana ability that costs more than a bare tap is the
 					// play the window exists for — carry its cost so the client's
 					// empty-priority-window floor stops instead of passing it away.

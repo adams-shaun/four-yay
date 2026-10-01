@@ -53,6 +53,12 @@ type walkFaceFacts struct {
 	kwGranted bool
 	kwFirst   *string
 	kwLen     int
+	// name and the option labels the walk offers for this face, built once
+	// so a walk shares them instead of concatenating per option (Go strings
+	// are immutable; a shared label is the same value the concatenation
+	// produces). A label is served only while f.Name still equals name.
+	name                             string
+	castLabel, playLabel, manaLabel string
 }
 
 // keywordsCurrent reports whether the facts' keyword half was computed over
@@ -65,7 +71,8 @@ func (ff *walkFaceFacts) keywordsCurrent(f *cards.Face) bool {
 var walkSkipVerify = derivedMemoVerifyFlag != ""
 
 func computeWalkFaceFacts(f *cards.Face) walkFaceFacts {
-	ff := walkFaceFacts{face: f, abLen: len(f.Abilities), kwLen: len(f.Keywords)}
+	ff := walkFaceFacts{face: f, abLen: len(f.Abilities), kwLen: len(f.Keywords), name: f.Name,
+		castLabel: "Cast " + f.Name, playLabel: "Play " + f.Name, manaLabel: "Activate " + f.Name + " for mana"}
 	if len(f.Abilities) > 0 {
 		ff.abFirst = &f.Abilities[0]
 	}
@@ -223,4 +230,29 @@ func (e *Engine) walkFaceFactsOf(f *cards.Face) *walkFaceFacts {
 		return nil
 	}
 	return e.compiledText.faces.lookup(f)
+}
+
+// castLabel is "Cast " + f.Name, shared from the face facts when current.
+func (w *legalWalk) castLabel(f *cards.Face) string {
+	if ff := w.e.walkFaceFactsOf(f); ff != nil && ff.name == f.Name {
+		return ff.castLabel
+	}
+	return "Cast " + f.Name
+}
+
+// playLabel is "Play " + f.Name, shared from the face facts when current.
+func (w *legalWalk) playLabel(f *cards.Face) string {
+	if ff := w.e.walkFaceFactsOf(f); ff != nil && ff.name == f.Name {
+		return ff.playLabel
+	}
+	return "Play " + f.Name
+}
+
+// manaLabel is manaActivateLabel(f.Name), shared from the face facts when
+// current.
+func (w *legalWalk) manaLabel(f *cards.Face) string {
+	if ff := w.e.walkFaceFactsOf(f); ff != nil && ff.name == f.Name {
+		return ff.manaLabel
+	}
+	return w.e.manaActivateLabel(f.Name)
 }
