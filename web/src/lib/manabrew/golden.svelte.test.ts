@@ -66,14 +66,28 @@ describe('the server golden transcript through ManaBrewMatch', () => {
     expect(await m.start()).toEqual({ ok: true });
     const dups: string[] = [];
     let prompts = 0;
+    let gameOverPrompts = 0;
     for (const msg of messages.slice(1)) {
       push!(msg);
       if (msg.kind === 'prompt') {
         prompts++;
-        expect(m.view?.decision?.seq).toBe(msg.promptId);
+        if (msg.input.type === 'gameOver') {
+          // MBX-2 appends exactly one terminal gameOver prompt per seat, and
+          // web prompt.ts deliberately binds it to NO decision (prompt.test.ts
+          // pins that: it takes no answer). It is the one prompt whose
+          // view.decision stays null; assert delivery, not binding.
+          gameOverPrompts++;
+        } else {
+          expect(m.view?.decision?.seq).toBe(msg.promptId);
+        }
       }
       dups.push(...duplicates(m.view!));
     }
+    expect(gameOverPrompts).toBe(1);
+    // ...and it is the transcript's very last message (after the final state)
+    const last = messages[messages.length - 1];
+    expect(last.kind).toBe('prompt');
+    expect((last as Extract<EngineMessage, { kind: 'prompt' }>).input.type).toBe('gameOver');
     expect(dups).toEqual([]);
     expect(prompts).toBeGreaterThan(50);
     expect(events.filter((e) => e.type === 'step').length).toBeGreaterThan(50);
