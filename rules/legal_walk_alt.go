@@ -239,7 +239,7 @@ func (w *legalWalk) commandZoneWalk() {
 		}
 		targetsAvailable := e.castTargetsAvailable(p, id, f.SpellAbility())
 		if targetsAvailable && w.offerCastable(p, id, e.rawBaseCost(p, id), spellScope(""), false) {
-			w.add("cast", "Cast "+f.Name, id)
+			w.add("cast", w.castLabel(f), id)
 		}
 		if targetsAvailable {
 			for i, extra := range e.optionalCostViews(costStatics.get(), p, id) {

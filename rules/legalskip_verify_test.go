@@ -4,3 +4,6 @@ package rules
 // run the skipped work anyway in the rules test binary and panic on any
 // option it would have produced.
 func init() { walkSkipVerify = true }
+
+// Every airbendCastAvailable answer is checked against the literal scan.
+func init() { airbendIndexVerify = true }
