@@ -22,12 +22,13 @@ import (
 //     retires the entries of an object an off-battlefield move touched while
 //     keeping derivedSeq; naming every logged Obj is a superset of that).
 //
-// ok is false when the memo is not usable here (a read inside a derivation)
-// or no build has stamped a key yet; the caller then derives everything.
+// ok is false when the memo is not usable here (a read inside a derivation),
+// the engine has no log (a hand-built test engine) or no build has stamped a
+// key yet; the caller then derives everything.
 // It emits nothing and changes no game state: active() is the same cache
 // refresh the first Characteristics call of a board build performs anyway.
 func (e *Engine) BoardReadKey() (lineage *events.Log, seq uint64, version, objs int, ok bool) {
-	if !e.derivedMemoUsable() {
+	if e.L == nil || e.G == nil || !e.derivedMemoUsable() {
 		return e.L, 0, 0, 0, false
 	}
 	e.active()
