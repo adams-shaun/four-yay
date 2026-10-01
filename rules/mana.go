@@ -2282,61 +2282,73 @@ func (e *Engine) abilityOfferCost(p state.PlayerID, id state.ObjID, ab *cards.SA
 // and every recognised non-mana component remains visible so a client that
 // cannot price it can still fail closed.
 func formatCost(c Cost) string {
-	var parts []string
+	// The tokens are written straight into one buffer, joined by single
+	// spaces exactly as strings.Join(tokens, " ") joins them (an empty token
+	// still takes its separator).
+	var buf [64]byte
+	b := buf[:0]
+	nTok := 0
+	add := func(tok string) {
+		if nTok > 0 {
+			b = append(b, ' ')
+		}
+		nTok++
+		b = append(b, tok...)
+	}
 	if c.Generic > 0 {
-		parts = append(parts, strconv.FormatInt(int64(c.Generic), 10))
+		add(strconv.FormatInt(int64(c.Generic), 10))
 	}
 	const faces = "WUBRGC"
 	for i, face := range []byte(faces) {
 		for n := int32(0); n < c.Colored[i]; n++ {
-			parts = append(parts, string(face))
+			add(string(face))
 		}
 	}
 	for range c.X {
-		parts = append(parts, "X")
+		add("X")
 	}
 	for _, h := range c.Hybrid {
-		parts = append(parts, string([]byte{h.A, '/', h.B}))
+		add(string([]byte{h.A, '/', h.B}))
 	}
 	for _, t := range c.Twobrid {
-		parts = append(parts, strconv.FormatInt(int64(t.Generic), 10)+"/"+string(t.Col))
+		add(strconv.FormatInt(int64(t.Generic), 10)+"/"+string(t.Col))
 	}
 	for _, p := range c.Phyrexian {
-		parts = append(parts, string([]byte{p, 'P'}))
+		add(string([]byte{p, 'P'}))
 	}
 	for _, hp := range c.HybridPhyrexian {
-		parts = append(parts, string([]byte{hp.A, '/', hp.B, '/', 'P'}))
+		add(string([]byte{hp.A, '/', hp.B, '/', 'P'}))
 	}
 	for n := c.Snow; n > 0; n-- {
-		parts = append(parts, "S")
+		add("S")
 	}
 	if c.Life > 0 {
-		parts = append(parts, "PayLife<"+strconv.FormatInt(int64(c.Life), 10)+">")
+		add("PayLife<"+strconv.FormatInt(int64(c.Life), 10)+">")
 	}
 	for range c.LifeX {
-		parts = append(parts, "PayLife<X>")
+		add("PayLife<X>")
 	}
 	for _, part := range c.DamageYou {
-		parts = append(parts, "DamageYou<"+strconv.FormatInt(int64(part.N), 10)+">")
+		add("DamageYou<"+strconv.FormatInt(int64(part.N), 10)+">")
 	}
 	for _, part := range c.GainLife {
 		tok := "GainLife<" + strconv.FormatInt(int64(part.N), 10) + "/" + part.Spec
 		if part.Each {
 			tok += "/*"
 		}
-		parts = append(parts, tok+">")
+		add(tok+">")
 	}
 	if c.Tap {
-		parts = append(parts, "T")
+		add("T")
 	}
 	if c.Untap {
-		parts = append(parts, "Q")
+		add("Q")
 	}
 	for _, part := range c.Energy {
 		if part.Spec == "X" {
-			parts = append(parts, "PayEnergy<X>")
+			add("PayEnergy<X>")
 		} else {
-			parts = append(parts, "PayEnergy<"+strconv.FormatInt(int64(part.N), 10)+">")
+			add("PayEnergy<"+strconv.FormatInt(int64(part.N), 10)+">")
 		}
 	}
 	appendCostParts := func(kind string, costs []CostPart) {
@@ -2345,7 +2357,7 @@ func formatCost(c Cost) string {
 			if part.Dyn != "" {
 				n = part.Dyn
 			}
-			parts = append(parts, kind+"<"+n+"/"+part.Spec+">")
+			add(kind+"<"+n+"/"+part.Spec+">")
 		}
 	}
 	appendCostParts("Sac", c.Sac)
@@ -2367,10 +2379,10 @@ func formatCost(c Cost) string {
 		if part.Announced {
 			n = "X"
 		}
-		parts = append(parts, head+"<"+n+"/"+part.Spec+">")
+		add(head+"<"+n+"/"+part.Spec+">")
 	}
 	for _, part := range c.ExileFromTop {
-		parts = append(parts, "ExileFromTop<"+strconv.FormatInt(int64(part.N), 10)+"/"+part.Spec+">")
+		add("ExileFromTop<"+strconv.FormatInt(int64(part.N), 10)+"/"+part.Spec+">")
 	}
 	appendCostParts("Reveal", c.Reveal)
 	// RevealOrChoose prints its own head so Compile/Decompile round-trips back
@@ -2383,36 +2395,36 @@ func formatCost(c Cost) string {
 		if part.Desc != "" {
 			head += "/" + part.Desc
 		}
-		parts = append(parts, head+">")
+		add(head+">")
 	}
 	for _, part := range c.RevealChosen {
 		// RevealChosen<Player> has no trailing field; RevealChosen<Type/...>
 		// prints its description. Both are re-parseable by revealChosenCost.
 		if part.Desc == "" {
-			parts = append(parts, "RevealChosen<"+part.Spec+">")
+			add("RevealChosen<"+part.Spec+">")
 		} else {
-			parts = append(parts, "RevealChosen<"+part.Spec+"/"+part.Desc+">")
+			add("RevealChosen<"+part.Spec+"/"+part.Desc+">")
 		}
 	}
 	appendCostParts("Behold", c.Behold)
 	appendCostParts("ExiledMoveToGrave", c.MoveToGrave)
 	for _, part := range c.Mill {
-		parts = append(parts, "Mill<"+strconv.FormatInt(int64(part.N), 10)+">")
+		add("Mill<"+strconv.FormatInt(int64(part.N), 10)+">")
 	}
 	appendCostParts("tapXType", c.TapPermanent)
 	for _, part := range c.Blight {
 		if part.Announced {
-			parts = append(parts, "Blight<X>")
+			add("Blight<X>")
 			continue
 		}
-		parts = append(parts, "Blight<"+strconv.FormatInt(int64(part.N), 10)+">")
+		add("Blight<"+strconv.FormatInt(int64(part.N), 10)+">")
 	}
 	appendCostParts("Return", c.Return)
 	for range c.Exert {
-		parts = append(parts, "Exert<1/CARDNAME>")
+		add("Exert<1/CARDNAME>")
 	}
 	if c.Forage {
-		parts = append(parts, "Forage")
+		add("Forage")
 	}
 	appendCostParts("PayEnergy", c.Energy)
 	for _, part := range c.PutToLib {
@@ -2423,10 +2435,10 @@ func formatCost(c Cost) string {
 		case state.ZGraveyard:
 			zone = "Grave"
 		}
-		parts = append(parts, "PutCardToLibFrom"+zone+"<"+strconv.FormatInt(int64(part.N), 10)+"/"+
+		add("PutCardToLibFrom"+zone+"<"+strconv.FormatInt(int64(part.N), 10)+"/"+
 			strconv.FormatInt(int64(part.LibraryPos), 10)+"/"+part.Spec+">")
 	}
-	return strings.Join(parts, " ")
+	return string(b)
 }
 
 // costPhrase renders a parsed cost for a PLAYER-FACING prompt or option
@@ -2786,7 +2798,7 @@ func (e *Engine) manaActivationCostMarker(abilities []*cards.SA) string {
 			cc = e.compiledCostOf(ma.Params["Cost"])
 		}
 		if cc.beyondTap {
-			return formatCost(cc.Cost)
+			return cc.formatted()
 		}
 	}
 	return ""

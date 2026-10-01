@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"unsafe"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -39,6 +40,19 @@ type compiledCost struct {
 	bareTap bool
 	// beyondTap caches manaCostBeyondTap(Cost) (the fb-led1 marker test).
 	beyondTap bool
+	// text memoizes formatCost(Cost) (manaActivationCostMarker): the Cost
+	// is frozen, so its text never changes; set once, read by any engine.
+	text atomic.Pointer[string]
+}
+
+// formatted is formatCost(cc.Cost), memoized on the frozen cost.
+func (cc *compiledCost) formatted() string {
+	if t := cc.text.Load(); t != nil {
+		return *t
+	}
+	t := formatCost(cc.Cost)
+	cc.text.Store(&t)
+	return t
 }
 
 func newCompiledCost(text string) *compiledCost {

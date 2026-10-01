@@ -170,7 +170,7 @@ func (e *Engine) manaFactsOf(ab *cards.SA) *manaSAFacts {
 	}
 	if f != nil && manaSAFactsVerify {
 		fresh := buildManaSAFactsValue(ab, e.compiledCostOf)
-		if (fresh.cost != f.cost && !reflect.DeepEqual(*fresh.cost, *f.cost)) || !sameFactsIgnoringCost(fresh, *f) {
+		if (fresh.cost != f.cost && !sameCompiledCost(fresh.cost, f.cost)) || !sameFactsIgnoringCost(fresh, *f) {
 			panic(fmt.Sprintf("rules: configured mana facts for %q disagree with a recompute (%+v vs %+v)", ab.Line, *f, fresh))
 		}
 	}
@@ -190,4 +190,10 @@ func (f *manaSAFacts) zoneOKFact(ab *cards.SA, z state.Zone) bool {
 		return f.zoneOK&(1<<z) != 0
 	}
 	return abilityZoneOK(ab, z)
+}
+
+// sameCompiledCost compares two compiled costs' facts (not the memoized text,
+// which only one of them may have built yet).
+func sameCompiledCost(a, b *compiledCost) bool {
+	return reflect.DeepEqual(a.Cost, b.Cost) && a.bareTap == b.bareTap && a.beyondTap == b.beyondTap
 }

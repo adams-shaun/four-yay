@@ -122,7 +122,7 @@ func walkObjFPOf(o *state.Object) walkObjFP {
 }
 
 // staticHot is objectStaticHot(o, z) from the class.
-func (c walkObjClass) staticHot(z state.Zone) bool {
+func (c *walkObjClass) staticHot(z state.Zone) bool {
 	if z == state.ZBattlefield {
 		return c.staticOn
 	}
@@ -130,7 +130,7 @@ func (c walkObjClass) staticHot(z state.Zone) bool {
 }
 
 // abHot reports whether the class admits an ability-loop offer in zone z.
-func (c walkObjClass) abHot(z state.Zone) bool {
+func (c *walkObjClass) abHot(z state.Zone) bool {
 	return c.abAlways || zoneBit(c.abMask, z)
 }
 
