@@ -148,7 +148,12 @@ func (e *Engine) lookBackObserver() *Engine {
 // references so the scratch struct pins no snapshot between calls.
 func (e *Engine) releaseLookBackObserver(o *Engine) {
 	if o == e.lookBack && e.lookBackOwner == e {
+		// The static memo's outer array is kept for the next observer's
+		// build or seed (both overwrite it from index 0); its entries are
+		// shallow effect values over shared card tables.
+		buf := o.staticContinuous[:0]
 		*o = Engine{}
+		o.staticContinuous = buf
 		e.lookBackBusy = false
 	}
 }
@@ -166,4 +171,13 @@ var noLookBackSnapshot = &triggerSnapshot{retained: true, noLookBack: true}
 func (e *Engine) lookBackProvenNoop() bool {
 	s := e.triggerBefore
 	return s != nil && s.noLookBack
+}
+
+// lookBackStaticSnap reports the current window snapshot's recorded static
+// memo owner and build (lookback_static.go); nil when there is none.
+func (e *Engine) lookBackStaticSnap() (*Engine, uint64) {
+	if s := e.triggerBefore; s != nil {
+		return s.staticOwner, s.staticSeq
+	}
+	return nil, 0
 }
