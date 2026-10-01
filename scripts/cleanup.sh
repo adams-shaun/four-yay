@@ -112,11 +112,25 @@ worktrees() {
 	echo "$orphans orphaned dirs, $((orphan_kb / 1024)) MB$([ "$APPLY" = 1 ] || echo ' (dry run; APPLY=1 to remove)')"
 }
 
+# gorged — stop the standing (agent-unowned) gorged table servers the
+# stability veto is counting. The demo is protected by its documented ports
+# (demo-ports.sh), never by a name list; everything reapable is decided by
+# the same ownership rule reward_collect.py feeds the veto, so the reaper
+# cannot disagree with the metric. Dry run unless APPLY=1.
+gorged() {
+	local here
+	here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+	# shellcheck source=scripts/demo-ports.sh
+	source "$here/demo-ports.sh"
+	DEMO_PORT_HISTORY="$DEMO_PORT_HISTORY" python3 "$here/gorged_reap.py" ${APPLY:+--apply}
+}
+
 case ${1:-} in
 seat-cache) seat_cache ;;
 worktrees) worktrees ;;
+gorged) gorged ;;
 *)
-	echo "usage: [APPLY=1] $0 seat-cache|worktrees" >&2
+	echo "usage: [APPLY=1] $0 seat-cache|worktrees|gorged" >&2
 	exit 2
 	;;
 esac
