@@ -11,7 +11,7 @@
         "613.4",
         "614.13"
       ],
-      "why": "Ashaya's static makes every nontoken creature I control a Forest in addition to its types, and its own P/T equals the number of lands I control (the Forest plus the now-Forest bear), so 2/2.",
+      "why": "Ashaya's static makes every nontoken creature I control a Forest in addition to its types, and its own P/T equals the number of lands I control. Ashaya is itself a nontoken creature I control, so it is a Forest land too: Forest + the now-Forest bear + Ashaya = 3 lands, so 3/3 (CR 613.1f: the CDA reads the derived characteristics).",
       "setup": {
         "p0": {
           "hand": [
@@ -45,7 +45,7 @@
         {
           "card": "p0:Ashaya, Soul of the Wild",
           "zone": "battlefield",
-          "pt": "2/2"
+          "pt": "3/3"
         }
       ]
     }
