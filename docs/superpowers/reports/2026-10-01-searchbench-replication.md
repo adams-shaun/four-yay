@@ -9,10 +9,6 @@ its **offline** (heuristic-leaf) arms throughout: we have no network arm. Plan a
 `docs/superpowers/plans/2026-09-30-searchbench-replication.md` (branch `wt/sbrep`). Code:
 `wt/sbrep-fast` at `408fb9dcc`.*
 
-> **Placeholders.** `is-mcts-b10000` (IS-MCTS at 10,000 simulations) was still running when this
-> was written. Its cells read **TODO(is-mcts-b10000)**. `scripts/searchbench/report_tables.py`
-> picks the file up when it lands and fills its analysis rows and contrasts.
-
 ## The question
 
 Docs/016 asks how much tree search helps a Magic limited agent and which kind works best, and
@@ -61,8 +57,8 @@ Against upstream's offline results:
    option was 0.043. Ours is 0.08–0.16 (0.150 for PIMC-1 at 3,000), and a third to a half of our
    gaps exceed 0.15. Our search is confident when it disagrees.
 8. **Compute.** A decision costs us roughly a tenth of upstream's worker-seconds at every budget
-   (§1.4). E2 and E2b together took about 2.3 hours of wall time on 8 workers, before IS-MCTS at
-   10,000. The engine and search got 2–4× faster during the replication, with byte-identical game
+   (§1.4). E2 and E2b together took about 3.8 hours of wall time on 8 workers, 1.5 h of it
+   IS-MCTS at 10,000. The engine and search got 2.5–5× faster during the replication, with byte-identical game
    records.
 
 Not replicated, because we have no FDN value network free of leaks: everything about #2a's and
@@ -95,7 +91,7 @@ Balanced score, ours (upstream offline), heuristic leaf, discount 0.99 per ply:
 | Clairvoyant MCTS (fails E1) | 0.609 (0.567) | 0.607 (0.591) | 0.602 (0.613) | 0.602 (0.627) | — |
 | PIMC, 1 world | 0.630 (0.578) | 0.614 (0.589) | 0.617 (0.597) | 0.631 (0.620) | 0.633 (0.631) |
 | PIMC, 4 worlds | **0.645** (0.576) | 0.630 (0.602) | 0.629 (0.603) | 0.615 (0.622) | — |
-| IS-MCTS | 0.618 (0.591) | 0.621 (0.585) | 0.616 (0.614) | 0.622 (0.623) | TODO(is-mcts-b10000) (0.636) |
+| IS-MCTS | 0.618 (0.591) | 0.621 (0.585) | 0.616 (0.614) | 0.622 (0.623) | 0.637 (0.636) |
 
 No search: gorge's bot scores 0.607 (upstream's rule heuristic: 0.557).
 
@@ -112,7 +108,7 @@ same place, 0.60–0.63.
 | Engine | XMage via MageZero's bridge | gorge, Forge corpus at `95f04e8a` |
 | Positions | sb-v1: 1,000 test + 300 dev, four types | sb-v1-gorge: the same protocol and quotas (§1.1) |
 | Methods | clairvoyant MCTS; PIMC-1, PIMC-4; IS-MCTS | the same, in `azmcts` (§1.2) |
-| Budgets | 100, 300, 1,000, 3,000; 10,000 for PIMC-1 and IS-MCTS | the same (IS-MCTS 10,000: TODO) |
+| Budgets | 100, 300, 1,000, 3,000; 10,000 for PIMC-1 and IS-MCTS | the same |
 | Leaf | `GameStateEvaluator3`, and #2a's network | `searchprobe.LeafValue` heuristic only. **No network arm** |
 | Leak test (E1) | six pairs, 16 seeds per world, 3,000 simulations | the same pairs, seeds and budget (§3) |
 | Discount sweep (E2b) | 1.0, 0.95, 0.9 per ply; matched per action and per turn | the same arms, matched to gorge's own trees (§5) |
@@ -220,14 +216,15 @@ gorge's model. Every arm is offline.
 | Clairvoyant MCTS | 0.089 (0.81) | 0.230 (2.4) | 1.00 (10.2) | 4.11 (42.6) | |
 | PIMC, 1 world | 0.079 (0.78) | 0.216 (2.4) | 1.01 (10.2) | 4.40 (38.1) | 18.9 (196) |
 | PIMC, 4 worlds | 0.102 (0.69) | 0.234 (2.1) | 0.85 (9.6) | 3.08 (35.4) | |
-| IS-MCTS | 0.256 (2.7) | 0.775 (8.4) | 2.95 (31.2) | 12.2 (108) | TODO(is-mcts-b10000) (443) |
+| IS-MCTS | 0.256 (2.7) | 0.775 (8.4) | 2.95 (31.2) | 12.2 (108) | 43.5 (443) |
 
 - **Per simulation our engine does more work.** Tree methods step the engine 15–33 decisions per
   simulation, because the bot plays the path out to the next searched decision. Upstream's tree
   methods step about 1.02. IS-MCTS steps 50–89 against upstream's 6.3–13.7. Per decision we are
   still about 10× cheaper.
 - **IS-MCTS costs 2.8–3.6× PIMC-1** at 100–3,000 simulations (upstream 2.8–3.3×).
-- **Totals.** The E2 grid without IS-MCTS at 10,000 took 1.8 h wall and 15.0 user core-hours. E2b
+- **Totals.** The E2 grid without IS-MCTS at 10,000 took 1.8 h wall and 15.0 user core-hours;
+  IS-MCTS at 10,000 took another 1.5 h and 11.9 core-hours (43.5 core-s per decision, 2.3× PIMC-1). E2b
   took 0.6 h and 4.6 core-hours. E1 ran 768 searches at 3,000 simulations on 4 workers.
 - **Perf work during the replication** (ledger: `/mnt/sata/gorge-training/perf-sb/RESULTS.md`).
   Merged engine and search optimisations, gated byte-identical on game records, made engine-only
@@ -307,7 +304,7 @@ contrasts are tighter.
 | Clairvoyant MCTS (fails E1) | 53.8% (46.9%) | 53.9% (50.5%) | 51.8% (52.7%) | 51.6% (53.5%) | — |
 | PIMC, 1 world | 56.7% (48.1%) | 54.9% (50.9%) | 54.6% (52.7%) | 55.5% (54.2%) | 54.1% (55.3%) |
 | PIMC, 4 worlds | 56.2% (50.3%) | 56.9% (50.4%) | 56.9% (50.2%) | 54.3% (52.9%) | — |
-| IS-MCTS | 56.6% (49.5%) | 57.0% (49.1%) | 55.6% (52.1%) | 55.6% (54.2%) | TODO(is-mcts-b10000) (55.4%) |
+| IS-MCTS | 56.6% (49.5%) | 57.0% (49.1%) | 55.6% (52.1%) | 55.6% (54.2%) | 56.6% (55.4%) |
 
 Balanced: see *The results at a glance*.
 
@@ -325,14 +322,14 @@ Paired differences (A − B, points, 95% CI over games; **bold** = CI excludes z
 | PIMC-4 − PIMC-1, 3,000 | −1.3 (−4.2, +1.5) | −1.6 (−4.6, +1.4) | 77.6% | −1.2 (−4.0, +1.5) |
 | IS-MCTS − PIMC-1, 1,000 | +1.0 (−1.8, +3.7) | −0.1 (−3.1, +3.0) | 74.2% | −0.6 (−3.1, +2.0) |
 | IS-MCTS − PIMC-1, 3,000 | +0.1 (−2.8, +2.9) | −0.9 (−4.1, +2.1) | 72.9% | 0.0 (−3.0, +3.0) |
-| IS-MCTS − PIMC-1, 10,000 | TODO(is-mcts-b10000) | | | +0.1 (−3.1, +2.9) |
+| IS-MCTS − PIMC-1, 10,000 | +2.6 (−0.7, +5.6) | +0.4 (−2.8, +3.7) | 70.1% | +0.1 (−3.1, +2.9) |
 | PIMC-1: 1,000 − 100 | −2.1 (−4.9, +0.6) | −1.3 (−4.0, +1.4) | 80.5% | |
 | PIMC-1: 3,000 − 100 | −1.2 (−4.3, +2.0) | +0.0 (−3.1, +3.1) | 75.2% | **+6.1 (+2.3, +9.6)** |
 | PIMC-1: 3,000 − 1,000 | +0.9 (−0.8, +2.7) | +1.3 (−0.1, +2.9) | 92.0% | +1.4 (−1.1, +4.2) |
 | PIMC-1: 10,000 − 3,000 | −1.5 (−3.2, +0.1) | +0.2 (−1.5, +1.7) | 90.9% | +1.1 (−1.2, +3.6) |
 | Clairvoyant: 3,000 − 100 | −2.3 (−5.3, +0.7) | −0.7 (−3.5, +2.2) | 74.5% | **+6.7 (+3.1, +10.6)** |
 | IS-MCTS: 3,000 − 1,000 | −0.0 (−1.6, +1.5) | +0.5 (−1.0, +2.1) | 91.5% | +2.0 (0.0, +4.1) |
-| IS-MCTS: 10,000 − 3,000 | TODO(is-mcts-b10000) | | | +1.2 (−0.6, +3.2) |
+| IS-MCTS: 10,000 − 3,000 | +1.0 (−0.7, +2.7) | +1.5 (−0.1, +3.1) | 92.5% | +1.2 (−0.6, +3.2) |
 
 - **Search against no search.** Search wins on whether to cast (cast-or-hold +7.7 to +10.5,
   detectable) and on holds (+35 to +40 points of A_set). It loses on whether to attack
@@ -356,7 +353,7 @@ A_set by type, ours. Upstream's offline ranges are in the last row.
 | Clairvoyant 100 / 300 / 1,000 / 3,000 | 66.7 / 67.2 / 64.8 / 63.5% | 34.4 / 33.6 / 29.6 / 30.4% | 61.3 / 61.0 / 60.0 / 61.3% | 53.0 / 54.0 / 53.0 / 51.0% |
 | PIMC-1 100 / 300 / 1,000 / 3,000 / 10,000 | 68.3 / 68.5 / 67.2 / 65.6 / 62.1% | 42.4 / 37.6 / 38.4 / 40.8 / 36.8% | 63.7 / 61.3 / 60.3 / 61.7 / 62.3% | 52.5 / 52.0 / 52.5 / 54.0 / 55.0% |
 | PIMC-4 100 / 300 / 1,000 / 3,000 | 64.8 / 70.4 / 72.0 / 69.9% | 39.2 / 39.2 / 38.4 / 31.2% | 64.7 / 64.3 / 64.3 / 62.0% | 56.0 / 53.5 / 53.0 / 54.0% |
-| IS-MCTS 100 / 300 / 1,000 / 3,000 | 65.9 / 69.9 / 69.3 / 69.3% | 47.2 / 40.8 / 38.4 / 36.0% | 59.7 / 61.7 / 60.3 / 61.7% | 53.5 / 55.5 / 54.5 / 55.5% |
+| IS-MCTS 100 / 300 / 1,000 / 3,000 / 10,000 | 65.9 / 69.9 / 69.3 / 69.3 / 68.3% | 47.2 / 40.8 / 38.4 / 36.0 / 36.8% | 59.7 / 61.7 / 60.3 / 61.7 / 65.0% | 53.5 / 55.5 / 54.5 / 55.5 / 56.5% |
 | No search | 60.5% | 0.8% | 71.3% | 52.5% |
 | Chance | 48.5% | 32.3% | 50.0% | 44.1% |
 | *Upstream, offline* | *64–69%, flat* | *14–29% at 100, rising to 34–41% at 3,000 (PIMC-4 19–32%)* | *53–64%, flat* | *46–62%, mostly 50–55%* |
@@ -445,8 +442,9 @@ What moves with the arm (1,000 simulations):
 ## 7. Follow-ups
 
 Upstream's §7 is about its networks: #2b's human policy as priors, #2a's policy as priors, and
-IS-MCTS and PIMC-1 at 10,000 simulations. We ran only the 10,000-simulation arms, reported in §4
-(IS-MCTS: TODO(is-mcts-b10000)).
+IS-MCTS and PIMC-1 at 10,000 simulations. We ran only the 10,000-simulation arms, reported in §4.
+IS-MCTS at 10,000 scores 56.6% A_set and 0.637 balanced, within noise of 3,000 and of PIMC-1 at
+10,000, at 2.3× PIMC-1's cost.
 
 ## 8. Why agreement is only about 55%
 
@@ -489,6 +487,7 @@ block more (60% against about 50%).
 | PIMC-1, 3,000 | 0.599 (0.63) | 65.9% (66.4%) | 0.633 (0.64) | 0.662 (0.59) | 76.0% (81%) |
 | PIMC-1, 10,000 | 0.596 | 62.1% | 0.639 | 0.664 | 75.5% |
 | IS-MCTS, 3,000 | 0.580 (0.64) | 70.3% (66.4%) | 0.628 (0.65) | 0.657 (0.58) | 81.6% (84%) |
+| IS-MCTS, 10,000 | 0.588 | 70.0% | 0.662 | 0.661 | 83.7% |
 | Clairvoyant, 3,000 | 0.536 (0.64) | 62.2% (64.3%) | 0.623 (0.63) | 0.647 (0.61) | 72.0% (78%) |
 | #2b human policy (upstream only) | (0.66) | (67.5%) | (0.73) | (0.54) | (74%) |
 
