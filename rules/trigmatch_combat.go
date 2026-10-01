@@ -1201,6 +1201,12 @@ func (e *Engine) damageMatchesWithCapture(t cards.Trigger, source state.ObjID, e
 // carry nonzero Obj, player recipients Obj == 0 plus a Player) in the current
 // turn, stopping at TurnChange. Same replay-stable log scan -- no new event
 // kind, no engine field, survives Clone.
+//
+// Non-positive Amounts are NOT damage and are skipped, exactly as
+// lifeLoss requires Amount > 0 and the DamageDoneOnce batch latch
+// (trigger_match.go) states: the cleanup/regeneration repair path emits a
+// zero-or-negative Damage event to clear marked damage, and a 0-power
+// combat assignment emits Amount == 0. Neither is a hit for FirstTime$.
 func (e *Engine) firstDamageToThisTurn(ev events.Event) bool {
 	seenCurrent := false
 	for i := len(e.L.Events) - 1; i >= 0; i-- {
@@ -1208,7 +1214,7 @@ func (e *Engine) firstDamageToThisTurn(ev events.Event) bool {
 		if le.Kind == events.TurnChange {
 			return seenCurrent
 		}
-		if le.Kind != events.Damage || le.Obj != ev.Obj || le.Player != ev.Player {
+		if le.Kind != events.Damage || le.Amount <= 0 || le.Obj != ev.Obj || le.Player != ev.Player {
 			continue
 		}
 		if seenCurrent {
