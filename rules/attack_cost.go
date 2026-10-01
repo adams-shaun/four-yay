@@ -1486,6 +1486,11 @@ func (e *Engine) attackOffers() []attackOffer {
 			reqs[id] = e.attackRequirements(id)
 		}
 	}
+	// Each (creature able to attack, defending player) pair is at most one
+	// offer; planeswalker and battle pairs, rarer, grow past it.
+	if n := len(reqs) * len(defenders); n > 0 {
+		out = make([]attackOffer, 0, n)
+	}
 	for _, d := range defenders {
 		var walkerTargets []state.ObjID
 		for _, wid := range e.G.Zone(state.ZBattlefield, d) {

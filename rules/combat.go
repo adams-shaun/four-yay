@@ -670,7 +670,9 @@ func (e *Engine) askAttackers() {
 	if pool, costs, ok := e.attackTapPool(p, offers); ok {
 		tapPool, tapCosts = pool, costs
 	}
-	var opts []decision.Option
+	// Every offer becomes exactly one option: size the list once instead of
+	// regrowing a 392-byte element slice through every doubling.
+	opts := make([]decision.Option, 0, len(offers))
 	// groupLimits carries a raised per-defender attacker cap to the wire
 	// (Decision.GroupLimits): a scoped AttackRestrict ceiling above one
 	// (Crawlspace's "no more than two creatures can attack you") cannot be
@@ -1886,7 +1888,11 @@ func (e *Engine) askBlockers() {
 		// requirement matcher runs over the SAME scope, so its maximum is
 		// counted on exactly the pairs the offer below makes declarable.
 		scope := e.blockPairScopeFor(defender)
-		var opts []decision.Option
+		// The options are collected in a stack buffer and copied once into an
+		// exact-size list below, instead of regrowing a 392-byte element
+		// slice through every doubling.
+		var optBuf [16]decision.Option
+		built := optBuf[:0]
 		requiredBlockers := e.mustBlockCandidates(defender)
 		// The attacker-oriented CR 509.1c requirements: every attacker the
 		// defender is being asked about that carries "CARDNAME must be blocked
@@ -1924,7 +1930,7 @@ func (e *Engine) askBlockers() {
 				// (one creature blocks one attacker) without knowing what a
 				// blocker is. The value is internal only -- a blocker:<id>
 				// prefix plus the object id -- never a display string.
-				opt := decision.Option{Index: len(opts), Kind: "block",
+				opt := decision.Option{Index: len(built), Kind: "block",
 					Label: e.G.Obj(bid).Face().Name + " blocks " + e.G.Obj(aid).Face().Name,
 					Obj:   bid, Attacker: aid, Player: defender,
 					Group: "blocker:" + strconv.FormatUint(uint64(bid), 10), Required: requiredBlockers[bid], BlockMust: requiredBlockers[bid],
@@ -1959,13 +1965,14 @@ func (e *Engine) askBlockers() {
 				if (opt.Required || opt.AttackMust) && e.hasKeywordH(aid, kwhMenace) && opt.MinBlockers < 2 {
 					opt.MinBlockers = 2
 				}
-				opts = append(opts, opt)
+				built = append(built, opt)
 			}
 		}
-		if len(opts) == 0 {
+		if len(built) == 0 {
 			br.cursor++
 			continue
 		}
+		opts := append(make([]decision.Option, 0, len(built)), built...)
 		maxSum := 0
 		for _, opt := range opts {
 			if opt.Value > 0 {
