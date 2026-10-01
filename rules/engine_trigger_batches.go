@@ -185,6 +185,10 @@ type engineTriggerBatches struct {
 	// keyed to it (trigger_plan.go). Scratch: a clone starts with no plan.
 	trigZoneGen uint64
 	trigPlan    trigPlan
+	// trigGrant proves that no active() entry can carry a granted trigger
+	// (trigger_grantfree.go), so the trigger walk's granted-static list is
+	// empty without building active().
+	trigGrant trigGrantProof
 	// trigWalkUnion is the last live walk's whole-board signature union,
 	// valid when trigWalkUnionOK (the zero-interest memo widens with it).
 	trigWalkUnion   trigSig

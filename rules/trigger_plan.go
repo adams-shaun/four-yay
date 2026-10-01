@@ -84,38 +84,6 @@ func (e *Engine) trigPlanHolds() bool {
 	return i == pl.n
 }
 
-// trigPlanBuild records the plan after a fully validated live walk.
-func (e *Engine) trigPlanBuild() {
-	pl := &e.trigPlan
-	pl.ok = false
-	var union trigSig
-	i, first := 0, true
-	for si := range e.G.Players {
-		p := state.PlayerID(si)
-		if e.G.Players[p].Lost {
-			continue
-		}
-		for _, z := range objectWalkZones {
-			if z == state.ZStack && !first {
-				continue
-			}
-			if i >= trigPlanSlots {
-				return
-			}
-			cur := e.G.Zone(z, p)
-			k := int(p)*trigZoneSlots + trigZoneSlot(z)
-			if k >= len(e.trigZones) || !e.trigZones[k].valid || !sameZoneList(e.trigZones[k].live, cur) {
-				return
-			}
-			union = union.or(e.trigZones[k].union)
-			pl.heads[i] = trigHeadOf(p, cur)
-			i++
-		}
-		first = false
-	}
-	pl.n, pl.union, pl.gen, pl.ok = i, union, e.trigZoneGen, true
-}
-
 // trigNoReferent reports whether ev names no object.
 func trigNoReferent(ev *events.Event) bool {
 	return ev.Obj == 0 && len(ev.IDs) == 0 && len(ev.Pairs) == 0

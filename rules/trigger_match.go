@@ -1186,7 +1186,14 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state
 	// checkGrantedStaticTriggersUsing), so the per-object walk never runs an
 	// Affected$ spec match for a grant that cannot fire on this event.
 	var grantedBuf [8]*ContinuousEffect
-	grantedStatics := grantedTriggerStaticsFor(observer.active(), ev.Kind, grantedBuf[:0])
+	var grantedStatics []*ContinuousEffect
+	if e.trigGrantsPossible() {
+		grantedStatics = grantedTriggerStaticsFor(observer.active(), ev.Kind, grantedBuf[:0])
+	} else if trigZoneSkipVerify {
+		if g := grantedTriggerStaticsFor(observer.active(), ev.Kind, grantedBuf[:0]); len(g) != 0 {
+			panic(fmt.Sprintf("rules: trigGrantFree engine has %d active trigger grant(s) observing %v", len(g), ev.Kind))
+		}
+	}
 	// The event's compiled-interest test, hoisted out of the per-object walk:
 	// compiledTriggerInterestAllows(interests, ev.Kind) is exactly
 	// evAll || interests&evMask != 0 (see objectFaceMayTriggerHoisted).

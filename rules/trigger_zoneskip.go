@@ -497,6 +497,16 @@ func (e *Engine) forEachTriggerObject(ev events.Event, skip, kindOnly bool, fn f
 	if e.foreachDepth > 1 {
 		buf = nil
 	}
+	// A walk the plan did not answer records the next plan as it validates
+	// each slot (trigger_plan.go): the slot's confirmed header and its
+	// summary's signature union.
+	pl := &e.trigPlan
+	rec := kindOnly && !planHeld && e.foreachDepth == 1 // a nested walk never records
+	recN := 0
+	var recUnion trigSig
+	if rec {
+		pl.ok = false
+	}
 	for si, p := range e.G.AliveFrom(0) {
 		for _, z := range objectWalkZones {
 			if z == state.ZStack && si != 0 {
@@ -504,6 +514,16 @@ func (e *Engine) forEachTriggerObject(ev events.Event, skip, kindOnly bool, fn f
 			}
 			cur := e.G.Zone(z, p)
 			slot := trigZoneSlot(z)
+			cold := slot >= 0 && e.trigZoneCold(p, slot, cur)
+			if rec {
+				if slot < 0 || recN >= trigPlanSlots {
+					rec = false
+				} else {
+					recUnion = recUnion.or(e.trigZones[int(p)*trigZoneSlots+slot].union)
+					pl.heads[recN] = trigHeadOf(p, cur)
+					recN++
+				}
+			}
 			// A StepChange into an upkeep or end step cannot use the plain
 			// battlefield skip: checkGrantedCumulativeUpkeepTriggers and
 			// checkGrantedAtEOTTriggers synthesize a battlefield trigger from
@@ -521,13 +541,12 @@ func (e *Engine) forEachTriggerObject(ev events.Event, skip, kindOnly bool, fn f
 				// checkGrantedCumulativeUpkeepTriggers and
 				// checkGrantedAtEOTTriggers returns before any work for an
 				// object stepGrantMay rules out (StepChange has no referent).
-				e.trigZoneCold(p, slot, cur)
 				hotIDs, hotSigs := e.trigZoneHotIDs(p, slot)
 				buf = e.trigHotMerge(buf, ev, cur, hotIDs, hotSigs, true, true, p, slot, fn, verify)
 				if verify != nil {
 					continue
 				}
-			} else if slot >= 0 && !stepFull && e.trigZoneCold(p, slot, cur) {
+			} else if slot >= 0 && !stepFull && cold {
 				if verify != nil {
 					buf = append(buf[:0], cur...)
 					for _, id := range buf {
@@ -592,16 +611,13 @@ func (e *Engine) forEachTriggerObject(ev events.Event, skip, kindOnly bool, fn f
 	if e.foreachDepth <= 1 {
 		e.foreachBuf = buf
 	}
-	if kindOnly {
+	if rec {
 		// Every living seat's walked zones went through trigZoneCold above,
-		// so the summaries describe the whole board; a plan that held at the
-		// start still does (the walk changed no summary).
-		if !planHeld || e.trigPlan.gen != e.trigZoneGen {
-			e.trigPlanBuild()
-		}
-		if e.trigPlan.ok {
-			e.trigWalkUnion, e.trigWalkUnionOK = e.trigPlan.union, true
-		}
+		// so the recorded headers and unions describe the whole board.
+		pl.n, pl.union, pl.gen, pl.ok = recN, recUnion, e.trigZoneGen, true
+	}
+	if kindOnly && pl.ok && pl.gen == e.trigZoneGen {
+		e.trigWalkUnion, e.trigWalkUnionOK = pl.union, true
 	}
 }
 
