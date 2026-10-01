@@ -1,5 +1,5 @@
 <script module lang="ts">
-  import { type PlaySettings, type PresetName, type StepStop } from '../lib/playsettings';
+  import { type PresetName, type StepStop } from '../lib/playsettings';
 
   /**
    * PRESET_LIST is the three clickable presets in picker order, each with

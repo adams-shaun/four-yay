@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Decision, PaymentAction, PlayerView, SeatInfo, View } from '../../protocol';
+  import type { Decision, PaymentAction, PlayerView, View } from '../../protocol';
   import { SeatPanelState } from '../../lib/seatpanel.svelte';
   import PriorityOptions from './PriorityOptions.svelte';
 
@@ -63,7 +63,6 @@
     hand: [], battlefield: [card(15, 'Rishadan Port', 'Land')], graveyard: [], exile: [], pool: {},
     command: [], commanders: [], commander_casts: [],
   };
-  const seats: SeatInfo[] = [{ name: 'Ari', deck: 'fixture', colour: '#e5484d', human: true }];
   const view: View = {
     viewer: 0, visibility: 'seat', turn: 1, round: 1, step: 'main1', phase: 'main1', active: 0, priority: 0,
     over: false, draw: false, winner: null, players: [me], stack: [], pending: [], decision,
