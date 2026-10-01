@@ -55,7 +55,7 @@ func (e *Engine) legalActions(p state.PlayerID) []decision.Option {
 }
 
 func (e *Engine) legalActionsWithWindow(p state.PlayerID, w *windowCollector) []decision.Option {
-	return e.legalActionsWalkWithWindow(p, nil, false, w, true)
+	return e.legalActionsWalkWithWindow(p, nil, false, w, true, nil, false)
 }
 
 // aftermathAlternateFace returns the Aftermath alternate face (face 1 --
@@ -106,13 +106,23 @@ func (e *Engine) legalActionsPriced(p state.PlayerID, hyp *state.Mana) []decisio
 // on its own. The payment offer builder, which reads only plain casts, uses
 // it to avoid pricing every battlefield ability it would discard.
 func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly bool) []decision.Option {
-	return e.legalActionsWalkWithWindow(p, hyp, castsOnly, nil, false)
+	return e.legalActionsWalkWithWindow(p, hyp, castsOnly, nil, false, nil, false)
+}
+
+// legalActionsWalkTemp is legalActionsWalk for a caller that only reads the
+// result before it returns: the options are built into a scratch list
+// borrowed from e (hypclone.go) instead of a fresh exactly-sized array. The
+// caller hands it back with e.optRelease once it, and every value it took
+// a pointer into, is done; the options' contents are the walk's own.
+func (e *Engine) legalActionsWalkTemp(p state.PlayerID, hyp *state.Mana, castsOnly bool) []decision.Option {
+	return e.legalActionsWalkWithWindow(p, hyp, castsOnly, nil, false, e.optBorrow(), true)
 }
 
 // legalActionsWalkWithWindow is the walk's body. forAsk marks the walk
 // whose result becomes a posed priority decision's Options (askPriority),
-// which is the one result the decision arena (decision_arena.go) may back.
-func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, castsOnly bool, window *windowCollector, forAsk bool) []decision.Option {
+// which is the one result the decision arena (decision_arena.go) may back;
+// temp builds the result into dst (legalActionsWalkTemp's borrowed list).
+func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, castsOnly bool, window *windowCollector, forAsk bool, dst []decision.Option, temp bool) []decision.Option {
 	// Count the walk before anything can early-return. A test-visible
 	// diagnostic only: no event, no state mutation, no effect on replay or
 	// chain heads (legalActionWalks is not copied by Clone and never reaches
@@ -186,12 +196,16 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 	// extra guard is needed here.
 	add("concede", "Concede", 0)
 	var res []decision.Option
-	if forAsk {
+	switch {
+	case forAsk:
 		res = e.arenaOptions(len(out))
-	} else {
+		copy(res, out)
+	case temp:
+		res = append(dst[:0], out...)
+	default:
 		res = make([]decision.Option, len(out))
+		copy(res, out)
 	}
-	copy(res, out)
 	if window != nil {
 		// Classify each of p's own visible candidates the walk did not
 		// offer, keeping the first gate in walk order that withheld it. The

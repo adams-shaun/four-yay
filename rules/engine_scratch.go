@@ -187,4 +187,7 @@ type engineScratch struct {
 	// sbaIDBuf is the battlefield-snapshot scratch attachmentSBAs and
 	// checkSagas range (taken for the walk, restored after). Not cloned.
 	sbaIDBuf []state.ObjID
+	// hypSpares recycles the hypothetical clones' storage (hypclone.go).
+	// Owner-guarded like decArena; Clone leaves it nil.
+	hypSpares *hypSparePool
 }

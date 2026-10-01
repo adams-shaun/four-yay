@@ -96,7 +96,8 @@ func (e *Engine) PotentialPaymentPlans(p state.PlayerID) []PotentialPlan {
 	e.paymentPlanPotentialPool = true
 	defer func() { e.paymentPlanPotentialPool = prevPool }()
 	hyp := e.PotentialMana(p)
-	opts := e.legalActionsPriced(p, &hyp)
+	opts := e.legalActionsWalkTemp(p, &hyp, false)
+	defer e.optRelease(opts)
 	type key struct {
 		kind    string
 		obj     state.ObjID
@@ -421,7 +422,9 @@ func (e *Engine) potentialWitnessOffers(p state.PlayerID, o decision.Option, pla
 			pool[c] += int32(n)
 		}
 	}
-	for _, opt := range e.legalActionsPriced(p, &pool) {
+	opts := e.legalActionsWalkTemp(p, &pool, false)
+	defer e.optRelease(opts)
+	for _, opt := range opts {
 		if opt.Kind == o.Kind && opt.Obj == o.Obj && opt.Ability == o.Ability && opt.Mode == o.Mode && opt.AltCostIndex == o.AltCostIndex {
 			return true
 		}

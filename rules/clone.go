@@ -945,6 +945,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	// clone's owner turns the arena on (SetDecisionArena) if its decisions
 	// die with it.
 	c.adoptArena(sp.arena)
+	c.adoptHypPool(sp.hyp)
 	if sp.lookBack != nil {
 		c.lookBack, c.lookBackOwner = sp.lookBack, c
 	}

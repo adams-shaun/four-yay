@@ -682,41 +682,48 @@ func (e *Engine) staticsProbeTouch(id state.ObjID) {
 	e.staticsProbeStore(id)
 }
 
-// The typesProbe cache's per-object states; the zero value is "never
-// probed".
-const (
-	probeFalse uint8 = 1
-	probeTrue  uint8 = 2
-)
-
-func probeState(ans bool) uint8 {
-	if ans {
-		return probeTrue
+// staticsProbeStore recomputes one object's probe answer and keeps the count
+// of true answers in step. Objects absent from the map (never probed) count
+// from zero.
+func (e *Engine) staticsProbeStore(id state.ObjID) {
+	now := e.objectStaticsMayChangeTypes(e.G.Obj(id))
+	if old, ok := e.typesProbe.get(id); ok {
+		if old == now {
+			return
+		}
+		if now {
+			e.typesProbeTrue++
+		} else {
+			e.typesProbeTrue--
+		}
+	} else if now {
+		e.typesProbeTrue++
 	}
-	return probeFalse
+	e.typesProbe.set(id, now)
 }
 
-// staticsProbeStore recomputes one object's probe answer and keeps the count
-// of true answers in step. Objects never probed count from zero. id is a
-// live arena id (1..len(e.G.Objs)); the dense cache grows to cover it, and
-// never shrinks here, so an entry past a shrunken arena keeps counting
-// exactly as a map entry would.
-func (e *Engine) staticsProbeStore(id state.ObjID) {
-	now := probeState(e.objectStaticsMayChangeTypes(e.G.Obj(id)))
-	i := int(id) - 1
-	for len(e.typesProbe) <= i {
-		e.typesProbe = append(e.typesProbe, 0)
+// typesProbeTable is the probe cache's per-object answers, dense by ObjID
+// (0 never probed, 1 false, 2 true). It is held by pointer, exactly as the
+// map it replaces was a reference: an Engine copied by value shares the
+// table, and a whole-board re-probe installs a fresh one on the engine that
+// ran it.
+type typesProbeTable struct{ v []uint8 }
+
+func (t *typesProbeTable) get(id state.ObjID) (bool, bool) {
+	if int(id) >= len(t.v) || t.v[id] == 0 {
+		return false, false
 	}
-	old := e.typesProbe[i]
-	if old == now {
-		return
+	return t.v[id] == 2, true
+}
+
+func (t *typesProbeTable) set(id state.ObjID, ans bool) {
+	if int(id) >= len(t.v) {
+		t.v = append(t.v, make([]uint8, int(id)+1-len(t.v)+16)...)
 	}
-	if now == probeTrue {
-		e.typesProbeTrue++
-	} else if old == probeTrue {
-		e.typesProbeTrue--
+	t.v[id] = 1
+	if ans {
+		t.v[id] = 2
 	}
-	e.typesProbe[i] = now
 }
 
 // staticsMayChangeTypesWalk is the uncached zone-list walk the probe cache
@@ -773,20 +780,11 @@ func (e *Engine) objectStaticsMayChangeTypes(o *state.Object) bool {
 // staticsProbeFull re-probes the whole board (the pre-incremental walk,
 // once, populating the cache).
 func (e *Engine) staticsProbeFull() {
-	// Reuse the dense cache's capacity: every entry is rewritten below and
-	// any past the arena dropped, exactly a fresh map's contents.
-	m := e.typesProbe[:0]
-	if m == nil {
-		m = make([]uint8, 0, len(e.G.Objs))
-	}
+	m := &typesProbeTable{v: make([]uint8, len(e.G.Objs)+1)}
 	count := 0
 	for i := range e.G.Objs {
 		ans := e.objectStaticsMayChangeTypes(&e.G.Objs[i])
-		at := int(e.G.Objs[i].ID) - 1
-		for len(m) <= at {
-			m = append(m, 0)
-		}
-		m[at] = probeState(ans)
+		m.set(e.G.Objs[i].ID, ans)
 		if ans {
 			count++
 		}
