@@ -2563,7 +2563,8 @@ func (e *Engine) resolveManaAbilityRefOriginal(p state.PlayerID, source state.Ob
 			e.emit(events.Event{Kind: events.ManaActivate, Player: p, Obj: source, Amount: int32(idx)})
 		}
 	}
-	cost := e.parseCost(ma.Params["Cost"])
+	cc := e.compiledCostOf(ma.Params["Cost"])
+	cost := cc.Cost
 	sacs, _ := e.manaSacrifices(p, source, cost)
 	// The continuation owns EVERY non-mana cost part, so it must be entered
 	// whenever one exists -- a caller that cannot ask (interactive == false:
@@ -2591,7 +2592,7 @@ func (e *Engine) resolveManaAbilityRefOriginal(p state.PlayerID, source state.Ob
 		e.continueManaDiscard()
 		return
 	}
-	if !e.payManaConvFor(p, source, true, cost, e.paymentConv(p, source, true)) {
+	if !e.payManaAbilityMana(p, source, cc) {
 		return
 	}
 	e.payMillCost(p, cost.Mill)

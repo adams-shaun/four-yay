@@ -165,3 +165,25 @@ func (e *Engine) verifyPlainMana(want events.Event, n0 int) {
 		panic(fmt.Sprintf("rules: plain mana fast path would emit %+v; the general path emitted %+v", want, got))
 	}
 }
+
+// payManaAbilityMana pays the mana part of a mana ability's cost. A bare
+// {T} cost (compiledCost.bareTap: every component but Tap zero) has no mana
+// or life to pay: the general payment resolves the empty cost against the
+// pool, spends nothing and emits nothing, and its one lasting effect is
+// emitRestrictedManaSpend's reset of the per-payment spend capture -- which
+// is all the fast path does. Verify mode runs the general payment instead and
+// panics if it emitted or failed.
+func (e *Engine) payManaAbilityMana(p state.PlayerID, source state.ObjID, cc *compiledCost) bool {
+	if cc.bareTap && !manaPlainVerify {
+		e.noCounterSpend = 0
+		e.manaSpentSources = nil
+		e.manaSpentAddsCounters = nil
+		return true
+	}
+	n0 := len(e.L.Events)
+	ok := e.payManaConvFor(p, source, true, cc.Cost, e.paymentConv(p, source, true))
+	if cc.bareTap && (!ok || len(e.L.Events) != n0 || e.noCounterSpend != 0 || e.manaSpentSources != nil || e.manaSpentAddsCounters != nil) {
+		panic(fmt.Sprintf("rules: bare-tap mana payment for %d was not a no-op (ok=%v, %d events)", source, ok, len(e.L.Events)-n0))
+	}
+	return ok
+}
