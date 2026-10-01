@@ -39,7 +39,8 @@ func TestStaticEffectsReusesBackingAcrossEvents(t *testing.T) {
 	// them) only re-stamps a gate-free memo, so force a real rebuild with a
 	// kind outside that set whose fold cannot change the scan.
 	seq := e.staticBuildSeq
-	e.emit(events.Event{Kind: events.PlayerCounterChange, Player: 1, Counter: "BUFFER", Amount: 0})
+	lib := append([]state.ObjID(nil), e.G.Zone(state.ZLibrary, 1)...)
+	e.emit(events.Event{Kind: events.Shuffle, Player: 1, IDs: lib})
 	e.active()
 	if e.staticEpoch <= epoch || e.staticEpoch != len(e.L.Events) || e.staticBuildSeq == seq {
 		t.Fatal("a non-quiet event did not rebuild the static memo")

@@ -182,15 +182,18 @@ func (e *Engine) invalidateScratchLayerLists() {
 // staticMoveCold reports whether a zone move of id cannot change a quiet
 // (gate-free, state-read-free) static scan: the object contributed no effect
 // to the memo where it was (no entry names it as Source) and can contribute
-// none where it is now (no face, copied face or merged card it can resolve
-// to carries any static at all, the coarse objectStaticHotOn probe). A quiet
+// none where it is now (objectStaticHot for its current zone: on the
+// battlefield no face, copied face or merged card it can resolve to carries
+// any static; elsewhere none carries one that can function off the
+// battlefield -- the static zone skip's own per-zone test, a superset of the
+// scan's off-battlefield gate, the stack included). A quiet
 // scan reads nothing else a move writes: the move's other folds (the
 // departing permanent's own battlefield state, soulbond and crew links,
 // zone lists) feed only gates, spec matches and the static zone summaries,
 // and the summaries are re-checked by the next real rescan.
 func (e *Engine) staticMoveCold(id state.ObjID) bool {
 	o := e.G.Obj(id)
-	if o == nil || objectStaticHotOn(o) {
+	if o == nil || objectStaticHot(o, o.Zone) {
 		return false
 	}
 	for i := range e.staticContinuous {
@@ -226,7 +229,13 @@ func (e *Engine) staticMoveCold(id state.ObjID) bool {
 //     bookkeeping (summoning sickness, this-turn tallies, goads, this-turn
 //     mode picks), the turn's Entered list and persistent-mana flags.
 //   - Resolve: the per-ability ResolvedThisTurn tally.
-//   - Note: a marker; Apply writes nothing.
+//   - CounterChange/PlayerCounterChange: an object's or seat's counters
+//     (read only by gates and CDA counts). StoreSVar: an object's runtime
+//     SVars (read only by a CDA count). NoteNumber: an object's noted
+//     number.
+//   - Note, ModeChosen, ManaActivate, SearchedLibrary, Explore, Investigate,
+//     Discover, Seek, Surveil, Scry, Proliferate, Evolved, GiveGift, Clash:
+//     markers; Apply writes nothing.
 //
 // Zone moves (MoveZone/Draw/PutOnStack) and the two ability pushes are
 // admitted separately in staticSafeSince: a move only of an object that is
@@ -240,7 +249,11 @@ var staticQuietKinds = newKindSet(events.Tap, events.Untap, events.ManaAdd, even
 	events.LifeChange, events.LandPlayed, events.Damage, events.DamageProvenance,
 	events.StepChange, events.TurnChange, events.Resolve, events.ClockTick,
 	events.DeclareAttackers, events.DeclareBlockers, events.EndCombatReset,
-	events.TargetsChosen, events.Note)
+	events.TargetsChosen, events.Note,
+	events.CounterChange, events.PlayerCounterChange, events.StoreSVar, events.NoteNumber,
+	events.ModeChosen, events.ManaActivate, events.SearchedLibrary, events.Explore,
+	events.Investigate, events.Discover, events.Seek, events.Surveil, events.Scry,
+	events.Proliferate, events.Evolved, events.GiveGift, events.Clash)
 
 // refreshStaticContinuous brings the staticEffects memo up to the current log
 // head: a no-op on an exact hit, a re-stamp across a layer-safe run, a full
