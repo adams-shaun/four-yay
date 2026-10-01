@@ -151,7 +151,7 @@ func (w *legalWalk) battlefieldWalk() {
 					// index. abFace is the face that carries the ability -- an
 					// under-card's label and SVar table must be its own, never the
 					// pile top's.
-					pileSkip := w.pileAbilitiesEmpty(o, id, f, z)
+					pileSkip, faceFacts := w.pileAbilitiesEmpty(o, id, f, z)
 					pileMark := len(*out)
 					for i, pn := 0, o.PileAbilityCount(); i < pn && (!pileSkip || walkSkipVerify); i++ {
 						pa, okAb := o.PileAbilityAt(i)
@@ -410,7 +410,7 @@ func (w *legalWalk) battlefieldWalk() {
 					if pileSkip && len(*out) != pileMark {
 						panic(fmt.Sprintf("rules: pile-ability skip dropped %d options of obj %d in zone %d", len(*out)-pileMark, id, z))
 					}
-					for _, line := range w.grantedKeywordLines(board, o, id, f) {
+					for _, line := range w.grantedKeywordLines(board, o, id, f, faceFacts) {
 						ab := cards.GrantedKeywordAbility(line)
 						if ab == nil || !abilityZoneOK(ab, z) {
 							continue

@@ -62,24 +62,38 @@ func (w *legalWalk) boardFacts() walkBoardFacts {
 
 // manaWalkEmpty reports, without running it, that the mana walk
 // (appendAvailableManaAbilitiesGate) returns nothing for o: a single-face,
-// face-up object whose face prints no mana ability (walkFaceFacts.mana),
-// on a board with no AddAbility$ carrier and no ability grant, and outside
-// the CR 305.6 granted-intrinsic block's reach. Those are exactly the walk's
-// sources: printed abilities, granted land-type intrinsics, printed
-// ManaReflected, AddAbility$ statics and grantedAbilities.
+// face-up object on a board with no AddAbility$ carrier and no ability
+// grant, outside the CR 305.6 granted-intrinsic block's reach, whose face
+// prints no mana ability (walkFaceFacts.mana) -- or only ones p cannot
+// activate (another seat's controller-only source) or cannot pay (a tapped
+// source of {T}-cost abilities). Those are exactly the walk's sources:
+// printed abilities, granted land-type intrinsics, printed ManaReflected,
+// AddAbility$ statics and grantedAbilities.
 func (w *legalWalk) manaWalkEmpty(b walkBoardFacts, o *state.Object, id state.ObjID, f *cards.Face) bool {
 	e := w.e
 	if !b.ready || b.addAbility || b.hasGrants || len(o.MergedCards) != 0 {
 		return false
 	}
 	ff := e.walkFaceFactsOf(f)
-	if ff == nil || ff.mana || e.faceDownPrintedHides(o) {
+	if ff == nil || e.faceDownPrintedHides(o) {
 		return false
 	}
-	if b.hasLType && len(e.landTypeWords) > 0 && o.Zone == state.ZBattlefield && e.controllerOf(id) == w.p {
+	ctl := e.controllerOf(id)
+	if b.hasLType && len(e.landTypeWords) > 0 && o.Zone == state.ZBattlefield && ctl == w.p {
 		return false
 	}
-	return true
+	switch {
+	case !ff.mana:
+		return true
+	case ff.manaControllerOnly && ctl != w.p:
+		// Another seat's source whose every mana ability admits only its
+		// controller (the gate's blank-Activator$ arm).
+		return true
+	case ff.manaAllTap && !ff.manaReflected && o.Tapped:
+		// A tapped source whose every mana ability costs {T}.
+		return true
+	}
+	return false
 }
 
 // pileAbilitiesEmpty reports that the activated-ability offer loop can offer
@@ -87,27 +101,30 @@ func (w *legalWalk) manaWalkEmpty(b walkBoardFacts, o *state.Object, id state.Ob
 // and no ability of its face survives the loop's kind/zone/mana-ness skips in
 // z -- counting, when p does not control o, only abilities with an
 // Activator$ (a blank one admits the controller alone).
-func (w *legalWalk) pileAbilitiesEmpty(o *state.Object, id state.ObjID, f *cards.Face, z state.Zone) bool {
+//
+// It also returns the face's facts (nil for a merged pile or a face the table
+// does not hold), which the granted-keyword precheck reuses.
+func (w *legalWalk) pileAbilitiesEmpty(o *state.Object, id state.ObjID, f *cards.Face, z state.Zone) (bool, *walkFaceFacts) {
 	if len(o.MergedCards) != 0 {
-		return false
+		return false, nil
 	}
 	ff := w.e.walkFaceFactsOf(f)
 	if ff == nil {
-		return false
+		return false, nil
 	}
 	mask := ff.abZones
 	if mask != 0 && w.e.controllerOf(id) != w.p {
 		mask = ff.abZonesActivator
 	}
-	return !zoneBit(mask, z)
+	return !zoneBit(mask, z), ff
 }
 
 // grantedKeywordLines is Engine.grantedKeywordLines with its precheck's
 // board half (activeKWHeads) answered once per walk: when neither the board
 // nor the object can carry one of the four heads the answer is nil.
-func (w *legalWalk) grantedKeywordLines(b walkBoardFacts, o *state.Object, id state.ObjID, f *cards.Face) []string {
+func (w *legalWalk) grantedKeywordLines(b walkBoardFacts, o *state.Object, id state.ObjID, f *cards.Face, ff *walkFaceFacts) []string {
 	e := w.e
-	if b.kwOK && !b.kwMaybe && !objectGrantedKWMaybe(o, f) {
+	if b.kwOK && !b.kwMaybe && !objectGrantedKWMaybe(o, f, ff) {
 		if walkSkipVerify {
 			if got := e.grantedKeywordLines(id); len(got) != 0 {
 				panic(fmt.Sprintf("rules: granted-keyword skip dropped %q on obj %d", got, id))
@@ -119,13 +136,18 @@ func (w *legalWalk) grantedKeywordLines(b walkBoardFacts, o *state.Object, id st
 }
 
 // objectGrantedKWMaybe is mayHaveDerivedKeywordAnyH's per-object half over
-// grantedKWHeads: the status flags, the printed keyword lines, the intrinsic
-// keywords and the keyword counters.
-func objectGrantedKWMaybe(o *state.Object, f *cards.Face) bool {
+// grantedKWHeads: the status flags, the printed keyword lines (from the face
+// facts when ff is current for f), the intrinsic keywords and the keyword
+// counters.
+func objectGrantedKWMaybe(o *state.Object, f *cards.Face, ff *walkFaceFacts) bool {
 	if o.Cloaked || o.Suspected || o.SuspendGranted {
 		return true
 	}
-	if len(f.Keywords) > 0 {
+	if ff != nil && ff.keywordsCurrent(f) {
+		if ff.kwGranted {
+			return true
+		}
+	} else if len(f.Keywords) > 0 {
 		for _, h := range grantedKWHeads {
 			if f.KeywordLinesHaveHead(h.s, h.id) {
 				return true

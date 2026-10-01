@@ -42,15 +42,40 @@ type walkFaceFacts struct {
 	mana bool
 	// manaReflected: some ability's API is ManaReflected.
 	manaReflected bool
+	// manaAllTap: every printed mana ability's Cost$ includes {T}, so none
+	// is payable from a tapped source (activationTapCostUnavailable).
+	manaAllTap bool
+	// manaControllerOnly: every printed mana and ManaReflected ability has a
+	// blank Activator$, so only the source's controller can activate one.
+	manaControllerOnly bool
+	// kwGranted: some printed keyword line's head is one of grantedKWHeads
+	// (KeywordLinesHaveHead), guarded by kwFirst/kwLen like the abilities.
+	kwGranted bool
+	kwFirst   *string
+	kwLen     int
+}
+
+// keywordsCurrent reports whether the facts' keyword half was computed over
+// f's current keyword list.
+func (ff *walkFaceFacts) keywordsCurrent(f *cards.Face) bool {
+	return ff.kwLen == len(f.Keywords) && (ff.kwLen == 0 || ff.kwFirst == &f.Keywords[0])
 }
 
 // walkSkipVerify: see derivedMemoVerify. Set by the rules test binary.
 var walkSkipVerify = derivedMemoVerifyFlag != ""
 
 func computeWalkFaceFacts(f *cards.Face) walkFaceFacts {
-	ff := walkFaceFacts{face: f, abLen: len(f.Abilities)}
+	ff := walkFaceFacts{face: f, abLen: len(f.Abilities), kwLen: len(f.Keywords)}
 	if len(f.Abilities) > 0 {
 		ff.abFirst = &f.Abilities[0]
+	}
+	if len(f.Keywords) > 0 {
+		ff.kwFirst = &f.Keywords[0]
+		for _, h := range grantedKWHeads {
+			if f.KeywordLinesHaveHead(h.s, h.id) {
+				ff.kwGranted = true
+			}
+		}
 	}
 	for _, ab := range f.Abilities {
 		if ab == nil {
@@ -71,7 +96,26 @@ func computeWalkFaceFacts(f *cards.Face) walkFaceFacts {
 			ff.abZonesActivator |= m
 		}
 	}
-	ff.mana = ff.manaReflected || len(f.ManaAbilities()) > 0
+	mas := f.ManaAbilities()
+	ff.mana = ff.manaReflected || len(mas) > 0
+	ff.manaAllTap, ff.manaControllerOnly = true, true
+	for _, ma := range mas {
+		if ma == nil {
+			ff.manaAllTap, ff.manaControllerOnly = false, false
+			break
+		}
+		if !ParseCost(ma.Params["Cost"]).Tap {
+			ff.manaAllTap = false
+		}
+		if !blankActivator(ma) {
+			ff.manaControllerOnly = false
+		}
+	}
+	for _, ab := range f.Abilities {
+		if ab != nil && ab.API == "ManaReflected" && !blankActivator(ab) {
+			ff.manaControllerOnly = false
+		}
+	}
 	return ff
 }
 
