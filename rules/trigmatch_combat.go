@@ -1177,7 +1177,52 @@ func (e *Engine) damageMatchesWithCapture(t cards.Trigger, source state.ObjID, e
 			return false
 		}
 	}
+	// FirstTime$ True on DamageDoneOnce (task agent-20261001T020044Z; only
+	// Hercules, Olympian Hero carries the combination corpus-wide) admits
+	// exactly the first Damage event on that recipient this turn, mirroring
+	// the life-gain/life-loss gates in trigmatch_life.go. Scoped to
+	// DamageDoneOnce's own mode -- no DamageDone, DamageDealtOnce or DamageAll
+	// trigger in the corpus carries FirstTime$, so the other three modes are
+	// byte-identical. The per-batch once-latch in trigger_match.go already
+	// deduplicates within one batch; this gate kills the LATER batches, whose
+	// events the latch never sees. emit logs and folds the event into state
+	// before checkTriggers runs, so a state field cannot distinguish the
+	// first hit -- the replay-stable log scan below can, counting the current
+	// event as one.
+	if t.Mode == "DamageDoneOnce" && strings.EqualFold(t.Params["FirstTime"], "True") && !e.firstDamageToThisTurn(ev) {
+		return false
+	}
 	return true
+}
+
+// firstDamageToThisTurn is the damage mirror of firstLifeLossThisTurn
+// (trigmatch_life.go): scanning the log backwards, true only for the newest
+// Damage event on this recipient (same Obj/Player pair: object recipients
+// carry nonzero Obj, player recipients Obj == 0 plus a Player) in the current
+// turn, stopping at TurnChange. Same replay-stable log scan -- no new event
+// kind, no engine field, survives Clone.
+//
+// Non-positive Amounts are NOT damage and are skipped, exactly as
+// lifeLoss requires Amount > 0 and the DamageDoneOnce batch latch
+// (trigger_match.go) states: the cleanup/regeneration repair path emits a
+// zero-or-negative Damage event to clear marked damage, and a 0-power
+// combat assignment emits Amount == 0. Neither is a hit for FirstTime$.
+func (e *Engine) firstDamageToThisTurn(ev events.Event) bool {
+	seenCurrent := false
+	for i := len(e.L.Events) - 1; i >= 0; i-- {
+		le := e.L.Events[i]
+		if le.Kind == events.TurnChange {
+			return seenCurrent
+		}
+		if le.Kind != events.Damage || le.Amount <= 0 || le.Obj != ev.Obj || le.Player != ev.Player {
+			continue
+		}
+		if seenCurrent {
+			return false
+		}
+		seenCurrent = true
+	}
+	return seenCurrent
 }
 
 // damageDefendingPlayer binds the combat defending-player role only during
