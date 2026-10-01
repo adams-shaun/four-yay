@@ -47,7 +47,59 @@ func (w *legalWalk) abilityRestricted(p state.PlayerID, id state.ObjID, ab *card
 }
 
 func (w *legalWalk) offerCastable(p state.PlayerID, id state.ObjID, base Cost, scope costScope, ability bool) bool {
-	return w.e.offerCastableUsing(w.costStatics.get(), p, id, base, scope, ability, w.hyp)
+	statics := w.costStatics.get()
+	if w.offerFloorRefuses(&statics, p, &base, scope) {
+		if walkSkipVerify && w.e.offerCastableUsing(statics, p, id, base, scope, ability, w.hyp) {
+			panic(fmt.Sprintf("rules: offer floor refusal for obj %d (%+v) disagrees with offerCastableUsing", id, base))
+		}
+		// The skipped composition is the empty one, which clears the
+		// provenance capture and sets nothing else.
+		w.e.costProvenanceSeen = false
+		return false
+	}
+	return w.e.offerCastableUsing(statics, p, id, base, scope, ability, w.hyp)
+}
+
+// offerFloorRefuses reports, without composing a modifier set, that
+// offerCastableUsing refuses base on its first mana test: the pool-unit
+// floor manaFeasiblePoolP checks before any payer read.
+//
+// It answers only where that composition is provably the zero one and
+// every later chance is closed:
+//
+//   - the floating pool prices the offer (hyp nil, no RestrictedMana), so
+//     the priced pool is p's Pool;
+//   - no RaiseCost/ReduceCost/SetCost static is in the walk's snapshot (so
+//     no ValidTarget$ member either), and the scope is a spell or special
+//     action (an ability's own ReduceCost$ composes too): costModifiersCompose
+//     returns costMods{}, which has no floor (hasFloorP), so the floor test
+//     runs, and the potential-target retry, the Sac<X> sweep (no announced
+//     Sac part) and the named-count sweep (no extra cost) all decline;
+//   - no PayLife<X>, Waterbend or XMin part, and no negative Life/Snow, so
+//     the cost the floor reads is base and composedPoolFloor takes its
+//     zero-composition branch: max(0, Generic+tax-delve) plus the coloured
+//     pips. That is non-decreasing in the commander tax (>= 0) and
+//     non-increasing in delve (0, or the graveyard's size with Delve), so
+//     pricing tax 0 against the whole graveyard bounds the floor from below.
+//
+// walkSkipVerify runs offerCastableUsing on every refusal.
+func (w *legalWalk) offerFloorRefuses(statics *costStaticViews, p state.PlayerID, base *Cost, scope costScope) bool {
+	if w.hyp != nil || scope.ab != nil || scope.kind == "Ability" ||
+		len(statics.raise) != 0 || len(statics.reduce) != 0 || len(statics.set) != 0 || statics.validTarget ||
+		len(base.LifeX) != 0 || base.Waterbend != 0 || base.WaterbendX || base.XMin != 0 || base.Life < 0 || base.Snow < 0 {
+		return false
+	}
+	for i := range base.Sac {
+		if base.Sac[i].Announced {
+			return false
+		}
+	}
+	pl := &w.e.G.Players[p]
+	if len(pl.RestrictedMana) != 0 {
+		return false
+	}
+	var zero costMods
+	return int64(pl.Pool.Total()) < composedPoolFloor(&zero, base, 0, int32(len(w.e.G.Zone(state.ZGraveyard, p))))
 }
 
 // offerCastableAsFace is offerCastable for an alternate-face cast route
