@@ -1,5 +1,7 @@
 package rules
 
+import "github.com/adams-shaun/gorge/state"
+
 // engineLayerCaches groups the Engine's layer memoisation and arena-scan
 // caches that a clone deliberately leaves zero. It is embedded by value in
 // Engine (rules/engine_struct.go), so every field keeps its documented
@@ -113,6 +115,7 @@ type engineLayerCaches struct {
 	derivedPrevEpoch   int
 	derivedPrevVersion int
 	derivedPrevObjs    int
+	derivedTouched     []state.ObjID
 	activeEpoch        int
 	activeVersion      int
 	activeDepth        int

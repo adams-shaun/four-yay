@@ -372,3 +372,61 @@ func TestSpecLocalWhitelist(t *testing.T) {
 		}
 	}
 }
+
+// TestDerivedQuietEventDamage pins derivedQuietEvent's one conditional
+// kind: damage to a creature or a player is quiet for derivations, damage to
+// a planeswalker (folded into LOYALTY counters a local counters_ predicate
+// reads) is not.
+func TestDerivedQuietEventDamage(t *testing.T) {
+	t.Parallel()
+	e := layerEngine(t)
+	bear := onBoard(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
+	walker := onBoard(t, e, 0, "Name:Walker\nManaCost:3\nTypes:Legendary Planeswalker Test\nLoyalty:3\nOracle:x\n")
+	for _, c := range []struct {
+		ev   events.Event
+		want bool
+	}{
+		{events.Event{Kind: events.Damage, Obj: bear, Amount: 1}, true},
+		{events.Event{Kind: events.Damage, Player: 1, Amount: 1}, true},
+		{events.Event{Kind: events.Damage, Obj: walker, Amount: 1}, false},
+		{events.Event{Kind: events.CounterChange, Obj: bear, Counter: "P1P1", Amount: 1}, false},
+		{events.Event{Kind: events.MoveZone, Obj: bear}, false},
+		{events.Event{Kind: events.DeclareAttackers, IDs: []state.ObjID{bear}}, true},
+	} {
+		if got := e.derivedQuietEvent(&c.ev); got != c.want {
+			t.Errorf("derivedQuietEvent(%v) = %v, want %v", c.ev.Kind, got, c.want)
+		}
+	}
+}
+
+// TestDerivedSeqRetiresOnlyAnOffBattlefieldMover pins offBattlefieldMove: a
+// card leaving the hand for the graveyard keeps derivedSeq under local
+// effects, but its own memo entry is retired, so the next walk derives it
+// again from its new zone while the battlefield entry is still served.
+func TestDerivedSeqRetiresOnlyAnOffBattlefieldMover(t *testing.T) {
+	t.Parallel()
+	e := layerEngine(t)
+	bear := onBoard(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
+	co := e.G.AddObject(card(t, "Name:Cub\nManaCost:G\nTypes:Creature Bear\nPT:1/1\nOracle:x\n"), 0)
+	co.Zone = state.ZHand
+	cub := co.ID
+	e.G.SetZone(state.ZHand, 0, append(e.G.Zone(state.ZHand, 0), cub))
+	e.staticEpoch, e.activeEpoch = -1, -1
+	e.emit(events.Event{Kind: events.Note, Text: "settle"})
+	e.beginDerivedMemo()
+	_ = e.Derived(bear)
+	_ = e.Derived(cub)
+	e.endDerivedMemo()
+	seq := e.derivedSeq
+	e.emit(events.Event{Kind: events.MoveZone, Obj: cub, From: state.ZHand, To: state.ZGraveyard})
+	e.beginDerivedMemo()
+	_ = e.Derived(bear)
+	_ = e.Derived(cub)
+	e.endDerivedMemo()
+	if e.derivedSeq != seq {
+		t.Fatalf("an off-battlefield move under local effects moved derivedSeq %d -> %d", seq, e.derivedSeq)
+	}
+	if m := e.derivedMemo.at(bear); m == nil || m.seq != seq {
+		t.Fatalf("the battlefield entry was not kept across the move")
+	}
+}

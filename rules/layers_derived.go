@@ -740,8 +740,8 @@ func (e *Engine) abilityDependencyOrder(active []ContinuousEffect, id state.ObjI
 	// The layer-6 effects are contiguous in active()'s (layer, timestamp)
 	// sort; only they can act on the walk's keyword list.
 	start := -1
-	for i, ce := range active {
-		if ce.Layer == LAbilities {
+	for i := range active {
+		if active[i].Layer == LAbilities {
 			start = i
 			break
 		}

@@ -139,6 +139,14 @@ type engineScratch struct {
 	foreachBuf   []state.ObjID
 	foreachDepth int
 
+	// trigZeroNoopEp/Objs/Ver key checkFaceTriggers' zero-interest no-op
+	// memo: the log length, arena size and registry version after the last
+	// zero-interest walk that visited no object (0: none). Clone leaves it
+	// zero.
+	trigZeroNoopEp   int
+	trigZeroNoopObjs int
+	trigZeroNoopVer  int
+
 	// legalOptBuf is legalActionsPriced's scratch option list. The walk
 	// appends into it (so the doubling growth that used to reallocate the
 	// list several times per walk settles at the largest walk seen) and

@@ -93,10 +93,12 @@ func (e *Engine) refreshRenames() {
 		return
 	}
 	// Derived-transparent reuse (derived_transparent.go): a table built at
-	// the derivedSeq active() still holds read names that no derivation has
-	// changed since -- the only quiet events a transparent rebuild spans move
-	// no zone, face or object count, so the battlefield membership and every
-	// printed name the table compares against are unchanged too.
+	// the derivedSeq active() still holds read names that no battlefield
+	// derivation has changed since -- a transparent rebuild spans no event
+	// that moves an object onto or off the battlefield, flips a face or
+	// appends an object, so the battlefield membership and every printed name
+	// the table compares against are unchanged too (an off-battlefield move's
+	// own object is never on the battlefield).
 	if e.renameVersion == e.continuousVersion && e.renameObjs == len(e.G.Objs) && e.renameDSeq != 0 {
 		e.active()
 		if e.renameDSeq == e.derivedSeq {

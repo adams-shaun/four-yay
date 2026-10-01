@@ -59,7 +59,8 @@ type staticWant struct {
 func (e *Engine) staticControlWants() []staticWant {
 	e.refreshStaticContinuous()
 	var w []staticWant
-	for _, ce := range e.staticContinuous {
+	for ceI, ceL := 0, e.staticContinuous; ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.GainControl == "" {
 			continue
 		}

@@ -24,11 +24,16 @@ import (
 // EXCEPT one that is provably transparent to every derivation:
 //
 //  1. every event logged since the previous build (or layer-inert re-stamp)
-//     is a layer-inert kind (layercache.go) or one of derivedQuietKinds --
+//     is a layer-inert kind (layercache.go) or a derivedQuietEvent --
 //     Tap and Untap (they write o.Tapped and nothing else), ManaAdd and
 //     ManaClear (they write a player's mana pool), StepChange (it writes
-//     g.Step and the combat-mana bookkeeping);
+//     g.Step and the combat-mana bookkeeping), and the markers, combat,
+//     life, clock and non-counter damage kinds derivedQuietEvent lists;
 //  2. the continuous registry version and the object arena are unchanged;
+//     An off-battlefield zone move (offBattlefieldMove) is admitted too: it
+//     changes only the moved object's own derivation, so that object's memo
+//     entries are retired instead (and the rebuild is not transparent if it
+//     is a live effect's source);
 //  3. the rebuilt list is equal to the previous one in every field a
 //     derivation reads (derivedEffectEqual), in the same order -- so a
 //     duration expiring at a step boundary, a static gate the event flipped,
@@ -54,14 +59,55 @@ import (
 // binary derivedMemoVerify recomputes every cross-walk hit and panics on a
 // difference, which checks this argument over the whole suite.
 
-// derivedQuietKinds are the non-layer-inert event kinds a transparent
-// rebuild may span (condition 1 above).
+// derivedQuietKind is the set of non-layer-inert event kinds whose Apply
+// writes only state no local derivation reads (condition 1 above). The SBA
+// quiet skip shares it (sbaquiet.go): its pass loop reads none of it either.
 func derivedQuietKind(k events.Kind) bool {
 	switch k {
 	case events.Tap, events.Untap, events.ManaAdd, events.ManaClear, events.StepChange:
 		return true
 	}
 	return false
+}
+
+// derivedQuietEvent widens derivedQuietKind for the Derived memo alone. Each
+// kind's Apply writes only fields the layer walk never reads and no local
+// predicate tests:
+//
+//   - Note, ModeChosen, ManaActivate: pure markers, Apply writes nothing;
+//   - Resolve: the per-turn resolved-ability tally;
+//   - DeclareAttackers, DeclareBlockers, EndCombatReset: the combat fields
+//     (IsAttacking, Attacking, AttackingBattle, AttacksThisTurn, BlockedBy)
+//     and the blocker census -- no local predicate reads combat;
+//   - TargetsChosen: a stack object's chosen targets;
+//   - LandPlayed, LifeChange: a player's land count and life total;
+//   - ClockTick: the game clock (timestamps already stamped are unchanged);
+//   - DamageProvenance: the damage-provenance records;
+//   - Damage to a player, or to an object whose printed face is neither a
+//     planeswalker nor a battle: marked damage and the per-turn damage
+//     tallies (foldDamage converts a walker's or battle's damage into
+//     LOYALTY/DEFENSE counters, which a local counters_ predicate reads).
+//
+// It is NOT safe for the SBA skip: lethal damage reads marked damage.
+func (e *Engine) derivedQuietEvent(ev *events.Event) bool {
+	switch ev.Kind {
+	case events.Note, events.ModeChosen, events.ManaActivate, events.Resolve,
+		events.DeclareAttackers, events.DeclareBlockers, events.EndCombatReset,
+		events.TargetsChosen, events.LandPlayed, events.LifeChange, events.ClockTick,
+		events.DamageProvenance:
+		return true
+	case events.Damage:
+		if ev.Obj == 0 {
+			return true
+		}
+		o := e.G.Obj(ev.Obj)
+		if o == nil {
+			return false
+		}
+		f := o.Face()
+		return f != nil && !f.IsPlaneswalker() && !f.IsBattle()
+	}
+	return derivedQuietKind(ev.Kind)
 }
 
 // derivedRebuildTransparent reports whether the list just built (fresh) can
@@ -72,21 +118,64 @@ func (e *Engine) derivedRebuildTransparent(prev, fresh []ContinuousEffect) bool 
 		len(prev) != len(fresh) {
 		return false
 	}
-	for _, ev := range e.L.Events[e.derivedPrevEpoch:] {
-		switch ev.Kind {
+	touched := e.derivedTouched[:0]
+	evs := e.L.Events[e.derivedPrevEpoch:]
+	for i := range evs {
+		switch evs[i].Kind {
 		case events.DecisionAsk, events.DecisionMade, events.Priority:
 		default:
-			if !derivedQuietKind(ev.Kind) {
+			if offBattlefieldMove(&evs[i]) {
+				touched = append(touched, evs[i].Obj)
+				continue
+			}
+			if !e.derivedQuietEvent(&evs[i]) {
+				e.derivedTouched = touched[:0]
 				return false
 			}
 		}
 	}
+	e.derivedTouched = touched
 	for i := range fresh {
-		if !derivedEffectEqual(&prev[i], &fresh[i]) || !derivedEffectLocal(&fresh[i]) {
+		ce := &fresh[i]
+		if !derivedEffectEqual(&prev[i], ce) || !derivedEffectLocal(ce) {
+			return false
+		}
+		if len(touched) > 0 && slices.Contains(touched, ce.Source) {
 			return false
 		}
 	}
+	// A moved object's own derivation changed (its zone, and the per-zone
+	// resets its move folded): retire its memo entries from cross-walk reuse.
+	for _, id := range touched {
+		if m := e.derivedMemo.at(id); m != nil {
+			m.seq = 0
+		}
+		if m := e.derivedMemoStack.at(id); m != nil {
+			m.seq = 0
+		}
+	}
 	return true
+}
+
+// offBattlefieldMove reports whether ev is a zone move (MoveZone, Draw,
+// PutOnStack) between the library, hand, graveyard and stack, or from one of
+// them into exile. events.Apply's move fold writes only the moved object's
+// own fields there, its zone lists and the entry ledger: every write to
+// ANOTHER object (the exile-link lists, a departed blocker, a merged pile, a
+// soulbond partner, crewed vehicles) sits on a battlefield or from-exile arm.
+// So the moved object is the only derivation such a move can change -- it is
+// never on the battlefield before or after, so no battlefield-only reader
+// (the rename table) sees it either -- provided it is no live effect's source
+// (checked by the caller).
+func offBattlefieldMove(ev *events.Event) bool {
+	switch ev.Kind {
+	case events.MoveZone, events.Draw, events.PutOnStack:
+	default:
+		return false
+	}
+	from := ev.From == state.ZLibrary || ev.From == state.ZHand || ev.From == state.ZGraveyard || ev.From == state.ZStack
+	to := ev.To == state.ZLibrary || ev.To == state.ZHand || ev.To == state.ZGraveyard || ev.To == state.ZStack || ev.To == state.ZExile
+	return ev.Obj != 0 && from && to
 }
 
 // derivedNoteBuild records the key the build or re-stamp that produced the
