@@ -42,6 +42,10 @@ type Frame struct {
 	// link is this frame's place in its collector's history chain
 	// (historyDigest); nil for a scratch capture or a hand-built frame.
 	link *historyLink
+	// unchained marks a frame recorded by an Unchain'ed collector: it has
+	// no link, and historyDigest refuses a history that holds one rather
+	// than root Sample's seeds in a different digest.
+	unchained bool
 }
 
 // Collector alone can read a source engine. History frames contain owned values,
@@ -82,6 +86,8 @@ type Collector struct {
 	// retainJSON makes every capture keep a copy of its encoded board in
 	// Board.raw (in-package tests that inspect the bytes).
 	retainJSON bool
+	// unchained skips the JSON history chain (Unchain).
+	unchained bool
 	// noPot is capture's reusable Chars wrapper; see there.
 	noPot noPotentialChars
 	// view is observe's reusable projection (view.ProjectInto): every
@@ -122,6 +128,32 @@ func (c noPotentialChars) PotentialActions(p state.PlayerID) []decision.Potentia
 
 func (noPotentialChars) OwnDeck(state.PlayerID) *deck.Manifest { return nil }
 
+// viewCharacteristics is view's optional one-call characteristics read
+// (rules.Engine.ViewCharacteristics).
+type viewCharacteristics interface {
+	ViewCharacteristics(state.ObjID) (string, []string, int32, int32)
+}
+
+// ViewCharacteristics forwards the projection's one-call read of a card's
+// keywords, power and toughness (one Derived instead of the Power, Toughness
+// and Keywords walks the projector makes without it) -- every capture and
+// every redeal probe projects each visible card through it. The wrapper
+// embeds the view.Chars INTERFACE, so the projector's assertion sees only
+// what is declared here: without this method the engine's own
+// ViewCharacteristics was silently dropped.
+//
+// The name is withheld (""), so the projector keeps the printed name: this
+// wrapper has never forwarded the engine's Name either (the observation
+// projects printed names, and every frame and probe compares under that
+// rule).
+func (c noPotentialChars) ViewCharacteristics(id state.ObjID) (string, []string, int32, int32) {
+	if vc, ok := c.Chars.(viewCharacteristics); ok {
+		_, kw, p, t := vc.ViewCharacteristics(id)
+		return "", kw, p, t
+	}
+	return "", c.Chars.Keywords(id), c.Chars.Power(id), c.Chars.Toughness(id)
+}
+
 // SuppressOwnLibrary tells view.Project not to build the own-library CONTENTS
 // list at all. The observation frame must never carry it, exactly as it never
 // carries PotentialActions or OwnDeck: the sampler's whole purpose is to
@@ -159,8 +191,18 @@ func (c *Collector) Clone() *Collector {
 	out.introduced = append([]Identity(nil), c.introduced...)
 	out.chain = c.chain
 	out.retainJSON = c.retainJSON
+	out.unchained = c.unchained
 	return out
 }
+
+// Unchain stops c's recorded captures from extending the history chain --
+// the per-frame JSON encoding and hash that only historyDigest (Sample's
+// seed root) reads. A seat whose world source never calls Sample (azmcts:
+// the clairvoyant and redeal sources) skips that work on every real
+// decision. Every frame captured from here on is marked unchained, and
+// historyDigest -- so Sample -- refuses a history holding one, so an
+// unchained stream can never silently seed a sampler differently.
+func (c *Collector) Unchain() { c.unchained = true }
 
 func (c *Collector) clone() *Collector { return c.Clone() }
 
@@ -209,6 +251,21 @@ func (c *Collector) Capture(e *rules.Engine, burst []events.Event) (Frame, error
 	v, frame, err := c.observe(e, burst, true, &c.rec)
 	if err != nil {
 		return Frame{}, err
+	}
+	if c.unchained {
+		frame.Board = boardFacts(&v, &c.rec)
+		if c.retainJSON {
+			raw, err := c.encodeBoardJSON(&v)
+			if err != nil {
+				return Frame{}, err
+			}
+			frame.Board.raw = bytes.Clone(raw)
+		}
+		if frame.Board.Sum, frame.Board.Stripped, err = c.boardSums(&v, true); err != nil {
+			return Frame{}, err
+		}
+		frame.unchained = true
+		return frame, nil
 	}
 	raw, err := c.encodeBoardJSON(&v)
 	if err != nil {

@@ -100,6 +100,10 @@ type engineLayerCaches struct {
 	// Clone() copies none of these fields (see clone.go); a cloned engine
 	// starts with a zero key and rebuilds identically on its first Derived.
 	activeBuf []ContinuousEffect
+	// activeSrc is active()'s build scratch: pointers to the effects a build
+	// assembles, sorted before they are copied (layers.go). Cleared after
+	// every build; recycled through a Spare, never cloned.
+	activeSrc []*ContinuousEffect
 	// activeKWHeads is the deduplicated KeywordHead of every AddKeywords
 	// entry across activeBuf, rebuilt with it (layers.go's active()) and read
 	// by keywordmay.go's exact Derived-keyword precheck. Never cloned, like

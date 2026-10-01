@@ -59,11 +59,13 @@ func (e *Engine) hypClone(c *Engine) *Engine {
 	// headroom. Capacity only: CloneInto overwrites every slot it hands out.
 	if need := len(c.L.Events) + hypLogSlack; cap(sp.events) < need {
 		sp.events = make([]events.Event, 0, need+len(c.L.Events)/2)
+		sp.evFrom, sp.evN, sp.evDirty = nil, 0, 0
 	}
 	// Likewise the object arena (Game.CloneInto needs the objects plus its
 	// small minting headroom; a fresh array is zero, as a released one is).
 	if need := len(c.G.Objs) + hypObjSlack; cap(sp.objs) < need {
 		sp.objs = make([]state.Object, 0, need+len(c.G.Objs)/2)
+		sp.objDirty = 0
 	}
 	return c.CloneInto(&sp)
 }

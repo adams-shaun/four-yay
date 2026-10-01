@@ -818,9 +818,20 @@ func (e *Engine) activeBuild() []ContinuousEffect {
 	// moment play moves past end combat. These take precedence over the
 	// UntilEOT/source-leaves rules below, which model the other two
 	// lifetimes.
+	//
+	// The list is assembled as pointers to its sources first (src), sorted
+	// there when it is not already in order, and copied into buf once:
+	// sorting the ~1 KB ContinuousEffect values themselves copied two of them
+	// per comparison. A stable sort of the same sequence under the same order
+	// is the same permutation, so buf is exactly what sorting it in place
+	// produced. A re-entrant build owns a private src, as it owns buf.
+	var src []*ContinuousEffect
+	if e.activeDepth <= 1 {
+		src = e.activeSrc[:0]
+	}
 	for i := range e.continuous {
 		if e.continuousLive(&e.continuous[i]) {
-			buf = append(buf, e.continuous[i])
+			src = append(src, &e.continuous[i])
 		}
 	}
 	// The static-derived effects come from the memoized scan (see
@@ -835,13 +846,21 @@ func (e *Engine) activeBuild() []ContinuousEffect {
 	// refresh: the hit paths above require it, so an out-of-band refresh
 	// (staticControlWants) invalidates this buffer on the next active() call.
 	e.activeStaticSeq = e.staticBuildSeq
-	buf = append(buf, e.staticContinuous...)
+	for i := range e.staticContinuous {
+		src = append(src, &e.staticContinuous[i])
+	}
 	// A rebuild's list is usually already in CR 613 order (registration and
 	// the static scan both run in timestamp order), and a stable sort of a
-	// sorted list is the identity, so test that first by pointer instead of
-	// paying the sort's by-value comparator on 1 KB elements.
-	if !continuousSorted(buf) {
-		slices.SortStableFunc(buf, compareContinuous)
+	// sorted list is the identity, so test that first.
+	if !continuousPtrsSorted(src) {
+		slices.SortStableFunc(src, compareContinuousPtr)
+	}
+	for _, p := range src {
+		buf = append(buf, *p)
+	}
+	if e.activeDepth <= 1 {
+		clear(src)
+		e.activeSrc = src[:0]
 	}
 	if e.activeDepth <= 1 {
 		// Keep the grown, sorted buffer on the Engine for the next build or
@@ -858,18 +877,16 @@ func (e *Engine) activeBuild() []ContinuousEffect {
 	return buf
 }
 
-// continuousSorted reports whether buf is already non-decreasing under
-// compareContinuous.
-func continuousSorted(buf []ContinuousEffect) bool {
-	for i := 1; i < len(buf); i++ {
-		if compareContinuousPtr(&buf[i-1], &buf[i]) > 0 {
+// continuousPtrsSorted reports whether active()'s source pointers are
+// already non-decreasing under compareContinuousPtr.
+func continuousPtrsSorted(src []*ContinuousEffect) bool {
+	for i := 1; i < len(src); i++ {
+		if compareContinuousPtr(src[i-1], src[i]) > 0 {
 			return false
 		}
 	}
 	return true
 }
-
-func compareContinuous(a, b ContinuousEffect) int { return compareContinuousPtr(&a, &b) }
 
 // compareContinuousPtr is active()'s CR 613 order: layer, then sublayer,
 // then timestamp, then the layer-6 removal-before-grant tie-break below.

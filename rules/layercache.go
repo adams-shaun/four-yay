@@ -102,8 +102,9 @@ func (e *Engine) layerInertSince(epoch int) bool {
 //
 // A build that was also state-read-free (staticMemoStateRead false) admits
 // more: the static-quiet kinds (staticQuietKinds), zone moves of objects that
-// are static-cold on both sides (staticMoveCold) and the TriggerPush /
-// AbilityPush mints, whose new objects are face-less (the appended-object
+// are static-cold on both sides (staticMoveCold), library reorders of
+// libraries no effect can come from (staticLibraryOrderCold) and the
+// TriggerPush / AbilityPush mints, whose new objects are face-less (the appended-object
 // loop skips a face-less object; the scan skips it in every zone). A
 // layer-inert run is admitted even on a gated build, exactly as
 // layerInertSince admits it for active().
@@ -135,6 +136,10 @@ func (e *Engine) staticSafeSince(epoch, oldObjs int) bool {
 			creates++
 		case events.MoveZone, events.Draw, events.PutOnStack:
 			if !quiet || !e.staticMoveCold(ev.Obj) {
+				return false
+			}
+		case events.LibraryOrder, events.Shuffle:
+			if !quiet || !e.staticLibraryOrderCold(ev) {
 				return false
 			}
 		default:
@@ -198,6 +203,30 @@ func (e *Engine) staticMoveCold(id state.ObjID) bool {
 	}
 	for i := range e.staticContinuous {
 		if e.staticContinuous[i].Source == id {
+			return false
+		}
+	}
+	return true
+}
+
+// staticLibraryOrderCold reports whether a library reorder (LibraryOrder or
+// Shuffle: Apply writes only the player's library list) cannot change a
+// quiet static scan. The scan reads the list only to visit its objects in
+// order, so the list's order and membership matter only through an object
+// that contributes, or could contribute, an effect from the library: none
+// of the listed objects may be static-hot there (objectStaticHot), and no
+// memo entry may come from a library object -- a source that a reorder
+// dropped from the list would otherwise vanish from the rescan. (An admitted
+// later move never relocates a memo source: staticMoveCold refuses it, so a
+// source in a library at the reorder is still there at this check.)
+func (e *Engine) staticLibraryOrderCold(ev *events.Event) bool {
+	for _, id := range ev.IDs {
+		if o := e.G.Obj(id); o == nil || objectStaticHot(o, state.ZLibrary) {
+			return false
+		}
+	}
+	for i := range e.staticContinuous {
+		if o := e.G.Obj(e.staticContinuous[i].Source); o != nil && o.Zone == state.ZLibrary {
 			return false
 		}
 	}

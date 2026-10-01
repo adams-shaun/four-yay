@@ -233,6 +233,13 @@ func (s *Seat) DecideSearch(ctx context.Context, env searchseat.Env, d decision.
 	return res.Intent, nil
 }
 
+// DigestFree reports that the seat never samples from its feed's history
+// (searchseat.DigestFree): both world sources -- the injected clairvoyant
+// clone and the honest redeal -- read the frames and the known-card
+// projection, never searchprobe.Sample, so a driver may skip the history
+// digest chain on every real decision.
+func (s *Seat) DigestFree() bool { return true }
+
 // decidePrior is the PriorOnly seat's decision: the candidates Search would
 // build, answered by the argmax of the network prior (ties on the lowest
 // index). A decision Search would not search is the bot's.

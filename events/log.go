@@ -48,6 +48,16 @@ type Log struct {
 	// copied prefix (see forkGrowth). Capacity only: no reader of Events can
 	// observe it.
 	forked bool
+	// prefixFrom/prefixLen are Events' provenance (Clone, CloneInto): the
+	// first prefixLen events are the prefixLen events of the array starting
+	// at prefixFrom -- the parent's history, shared or copied. Stored events
+	// are append-only history and growEvents copies them on regrowth, so the
+	// claim holds for the log's whole life; a recycled array that still
+	// carries it skips re-copying that history from the same parent
+	// (CloneIntoFrom). The pointer keeps the parent's array alive, so its
+	// address cannot be reused by another array while the claim is held.
+	prefixFrom *Event
+	prefixLen  int
 }
 
 const expectedEventsPerGame = 4096
@@ -201,8 +211,17 @@ func (l *Log) Clone() *Log {
 	// it names the same shared, immutable events in both logs, so each folds
 	// it to the same chain whenever it is first read.
 	c.headHash = nil
+	c.prefixFrom, c.prefixLen = nil, len(l.Events)
+	if len(l.Events) > 0 {
+		c.prefixFrom = &l.Events[0]
+	}
 	return &c
 }
+
+// Provenance reports what l's history was cloned from (Clone, CloneInto):
+// its first n events are the n events of the array starting at from. A log
+// not made by a clone reports nil.
+func (l *Log) Provenance() (from *Event, n int) { return l.prefixFrom, l.prefixLen }
 
 // CloneInto is Clone with the copy's Events and Intents copied into the
 // caller's recycled arrays (a spent clone's, handed back through the rules
@@ -215,9 +234,29 @@ func (l *Log) Clone() *Log {
 // no other reference into them. Everything a reader can observe -- Events,
 // Intents, Seed, the chain -- is identical to Clone's.
 func (l *Log) CloneInto(events []Event, intents []decision.Intent) *Log {
+	return l.CloneIntoFrom(events, nil, 0, 0, intents)
+}
+
+// CloneIntoFrom is CloneInto for a recycled array that may still hold a
+// spent clone's history: events[:dirty] may hold stale events (every slot
+// past dirty is zero), and events[:n] are the n events of the array starting
+// at from (the spent clone's Provenance). When from is l's own array and
+// n <= len(l.Events), those n events are still exactly l's -- stored events
+// are append-only history, never rewritten in place -- so only l.Events[n:]
+// are copied. Every stale slot past the copied history is zeroed, so the
+// copy's array is zero past its length, as a fresh one is. Everything a
+// reader can observe is identical to Clone's.
+func (l *Log) CloneIntoFrom(events []Event, from *Event, n, dirty int, intents []decision.Intent) *Log {
 	c := l.Clone()
-	if cap(events) >= len(l.Events)+forkMinSlack {
-		c.Events = append(events[:0], l.Events...)
+	if L := len(l.Events); cap(events) >= L+forkMinSlack {
+		k := 0
+		if L > 0 && from == &l.Events[0] && n <= L && n <= dirty {
+			k = n
+		}
+		c.Events = append(events[:k], l.Events[k:]...)
+		if dirty > L {
+			clear(events[L:dirty])
+		}
 	}
 	if len(l.Intents) > 0 && cap(intents) > len(l.Intents) {
 		c.Intents = append(intents[:0], l.Intents...)

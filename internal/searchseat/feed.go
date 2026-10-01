@@ -98,6 +98,19 @@ func NewFeed(actor state.PlayerID) *Feed {
 	}
 }
 
+// Unchain stops the feed's captures from extending the history digest chain
+// (searchprobe.Collector.Unchain): for a seat that never samples
+// (DigestFree), every real decision skips the chain's JSON encoding and
+// hash. Call it before the first Observe; Sample refuses the resulting
+// history.
+func (f *Feed) Unchain() { f.collector.Unchain() }
+
+// DigestFree is a search seat that never roots a sampler in its feed's
+// history digest (searchprobe.Sample): a driver may Unchain its feed.
+type DigestFree interface {
+	DigestFree() bool
+}
+
 // Observe captures one frame at the driver's current decision -- at EVERY
 // decision of every player, not only the actor's, because the sampler's epoch
 // constraints need the whole burst stream. The returned Frame is the one just

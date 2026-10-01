@@ -695,7 +695,14 @@ func (g *Game) Clone() *Game { return g.CloneInto(nil) }
 // Clone does. Every slot up to len is overwritten here and AddObject
 // overwrites a slot before it is read, so objs' contents are never observed;
 // the caller must hold no other reference into it.
-func (g *Game) CloneInto(objs []Object) *Game {
+func (g *Game) CloneInto(objs []Object) *Game { return g.CloneIntoDirty(objs, 0) }
+
+// CloneIntoDirty is CloneInto for a recycled arena that may still hold a
+// spent game's objects: objs[:dirty] may be stale (every slot past dirty is
+// zero), the rest of the contract is CloneInto's. The stale slots past this
+// game's objects are zeroed, so the copy's arena is zero past its length, as
+// a fresh one is; the slots it copies over need no clearing first.
+func (g *Game) CloneIntoDirty(objs []Object, dirty int) *Game {
 	c := *g
 	c.Players = make([]Player, len(g.Players))
 	for i := range g.Players {
@@ -720,7 +727,10 @@ func (g *Game) CloneInto(objs []Object) *Game {
 		c.Objs = make([]Object, len(g.Objs), len(g.Objs)+cloneObjectHeadroom)
 	}
 	for i := range g.Objs {
-		c.Objs[i] = g.Objs[i].CloneDeep()
+		g.Objs[i].CloneDeepInto(&c.Objs[i])
+	}
+	if dirty > len(g.Objs) && cap(objs) >= len(g.Objs)+cloneObjectHeadroom {
+		clear(objs[len(g.Objs):dirty])
 	}
 	c.Stack = append([]ObjID(nil), g.Stack...)
 	// Entered is appended to in place by every Move (one entry per zone

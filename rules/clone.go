@@ -102,13 +102,13 @@ func rekeyVersion(stamp, current int) int {
 
 func (e *Engine) cloneWith(sp Spare) *Engine {
 	c := &Engine{
-		G: e.G.CloneInto(sp.objs),
+		G: e.G.CloneIntoDirty(sp.objs, sp.objDirty),
 		// The genesis manifests are immutable after New (nothing writes
 		// deckManifests; OwnDeck publishes copies, OwnDeckShared is read-only
 		// by contract), so a clone shares them instead of copying every
 		// seat's rows per clone -- the search clones a root per simulation.
 		deckManifests:     e.deckManifests,
-		L:                 e.L.CloneInto(sp.events, sp.intents),
+		L:                 e.L.CloneIntoFrom(sp.events, sp.evFrom, sp.evN, sp.evDirty, sp.intents),
 		compiledText:      e.compiledText,
 		landTypeWords:     e.landTypeWords,
 		format:            e.format,
@@ -438,6 +438,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	c.trigZones, c.trigZonesEp = copyTrigZones(sp.trigZones, e.trigZones), e.trigZonesEp
 	c.replZones, c.replZonesEp = copyReplZones(sp.replZones, e.replZones), e.replZonesEp
 	c.activeBuf, c.activeBufAlt = sp.activeBuf, sp.activeBufAlt
+	c.activeSrc = sp.activeSrc
 	if e.triggerContexts != nil {
 		c.triggerContexts = make(map[state.ObjID]effects.TriggerContext, len(e.triggerContexts))
 		for id, tc := range e.triggerContexts {
