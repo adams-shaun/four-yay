@@ -122,6 +122,32 @@ func (c noPotentialChars) PotentialActions(p state.PlayerID) []decision.Potentia
 
 func (noPotentialChars) OwnDeck(state.PlayerID) *deck.Manifest { return nil }
 
+// viewCharacteristics is view's optional one-call characteristics read
+// (rules.Engine.ViewCharacteristics).
+type viewCharacteristics interface {
+	ViewCharacteristics(state.ObjID) (string, []string, int32, int32)
+}
+
+// ViewCharacteristics forwards the projection's one-call read of a card's
+// keywords, power and toughness (one Derived instead of the Power, Toughness
+// and Keywords walks the projector makes without it) -- every capture and
+// every redeal probe projects each visible card through it. The wrapper
+// embeds the view.Chars INTERFACE, so the projector's assertion sees only
+// what is declared here: without this method the engine's own
+// ViewCharacteristics was silently dropped.
+//
+// The name is withheld (""), so the projector keeps the printed name: this
+// wrapper has never forwarded the engine's Name either (the observation
+// projects printed names, and every frame and probe compares under that
+// rule).
+func (c noPotentialChars) ViewCharacteristics(id state.ObjID) (string, []string, int32, int32) {
+	if vc, ok := c.Chars.(viewCharacteristics); ok {
+		_, kw, p, t := vc.ViewCharacteristics(id)
+		return "", kw, p, t
+	}
+	return "", c.Chars.Keywords(id), c.Chars.Power(id), c.Chars.Toughness(id)
+}
+
 // SuppressOwnLibrary tells view.Project not to build the own-library CONTENTS
 // list at all. The observation frame must never carry it, exactly as it never
 // carries PotentialActions or OwnDeck: the sampler's whole purpose is to
