@@ -336,7 +336,8 @@ func (b Board) chooseTap(d *decision.Decision) int {
 		return -1
 	}
 	castOffered := false
-	for _, o := range d.Options {
+	for oi := range d.Options {
+		o := &d.Options[oi]
 		if o.Kind == "cast" {
 			castOffered = true
 			break
@@ -346,7 +347,8 @@ func (b Board) chooseTap(d *decision.Decision) int {
 	best := -1
 	bestTier := 3
 	bestFlex := 0
-	for _, o := range d.Options {
+	for oi := range d.Options {
+		o := &d.Options[oi]
 		if o.Kind != "activate" {
 			continue
 		}
@@ -391,7 +393,8 @@ func (b Board) chooseTap(d *decision.Decision) int {
 // reads (see its doc).
 func (b Board) offeredColours(d *decision.Decision) [5]bool {
 	var offered [5]bool
-	for _, o := range d.Options {
+	for oi := range d.Options {
+		o := &d.Options[oi]
 		if o.Kind != "activate" {
 			continue
 		}
@@ -746,7 +749,8 @@ func conversionDeficit(c Card, pips [5]int32, pool state.Mana) int32 {
 // no "activate" option is not a payment window and is left to the caller.
 func chooseManaWindow(d *decision.Decision) (int, bool) {
 	isWindow := false
-	for _, o := range d.Options {
+	for oi := range d.Options {
+		o := &d.Options[oi]
 		if o.Kind != "activate" {
 			continue
 		}
@@ -759,7 +763,8 @@ func chooseManaWindow(d *decision.Decision) (int, bool) {
 	if !isWindow {
 		return 0, false
 	}
-	for _, o := range d.Options {
+	for oi := range d.Options {
+		o := &d.Options[oi]
 		if o.Kind == "done" {
 			return o.Index, true
 		}

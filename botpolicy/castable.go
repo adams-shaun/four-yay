@@ -18,7 +18,8 @@ import (
 // Pure over the decision's options; the set is only probed, never ranged.
 func CastableObjects(d *decision.Decision) int {
 	seen := map[state.ObjID]bool{}
-	for _, o := range d.Options {
+	for oi := range d.Options {
+		o := &d.Options[oi]
 		if o.Kind == "cast" {
 			seen[o.Obj] = true
 		}

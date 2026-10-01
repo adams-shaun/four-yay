@@ -280,11 +280,12 @@ func (b Board) chooseAbility(d *decision.Decision) int {
 	best := -1
 	var bestScore int32 = -1
 	me := d.Player
-	for _, o := range d.Options {
+	for oi := range d.Options {
+		o := &d.Options[oi]
 		if o.Kind != "ability" {
 			continue
 		}
-		s, worth := b.abilityScore(o, me)
+		s, worth := b.abilityScore(*o, me)
 		if !worth {
 			continue // A1: a provable no-op is never worth an activation.
 		}

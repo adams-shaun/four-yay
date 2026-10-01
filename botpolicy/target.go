@@ -714,8 +714,9 @@ func (b Board) chooseTargets(d *decision.Decision) []int {
 	}
 
 	var own, foreign []targetRank
-	for _, o := range d.Options {
-		r := rank(o)
+	for oi := range d.Options {
+		o := &d.Options[oi]
+		r := rank(*o)
 		if r.ours {
 			own = append(own, r)
 		} else {

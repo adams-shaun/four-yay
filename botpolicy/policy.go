@@ -451,7 +451,8 @@ func decide(b Board, d *decision.Decision, r *rand.Rand, lethalPressure, combine
 			// legality predicate (face, activation riders and payment). Take
 			// the offered face deterministically before ordinary main-phase
 			// development actions.
-			for _, o := range d.Options {
+			for oi := range d.Options {
+				o := &d.Options[oi]
 				if o.Kind == "specialize" {
 					in.Choices = []int{o.Index}
 					return Clamp(d, in)
@@ -535,7 +536,8 @@ func decide(b Board, d *decision.Decision, r *rand.Rand, lethalPressure, combine
 				return Clamp(d, in)
 			}
 		}
-		for _, o := range d.Options {
+		for oi := range d.Options {
+			o := &d.Options[oi]
 			if o.Kind == "pass" {
 				in.Choices = []int{o.Index}
 				return Clamp(d, in)

@@ -747,7 +747,8 @@ func (b Board) chooseCast(d *decision.Decision) int {
 	if w.SetValue != 0 {
 		entries = b.castEntries(d, foreignSpell)
 	}
-	for _, o := range d.Options {
+	for oi := range d.Options {
+		o := &d.Options[oi]
 		if o.Kind != "cast" {
 			continue
 		}
@@ -767,7 +768,7 @@ func (b Board) chooseCast(d *decision.Decision) int {
 		// also never held for the reserve's sake (the deck must be able to
 		// cast its commander), so it is priced by value alone.
 		inCmd := b.Commanders.Get(o.Obj).InCommandZone
-		s := b.castScore(o)
+		s := b.castScore(*o)
 		// The context features, dotted with their weights. With the default
 		// profile every weight here is 0, so the default bot's pick is the
 		// pre-refactor arithmetic to the digit (pinned by cast_weights_test.go).
@@ -834,7 +835,7 @@ func (b Board) chooseCast(d *decision.Decision) int {
 		// weight reads on the same scale as the other features.
 		if w.SetValue != 0 {
 			eff := b.setEfficiency(entries,
-				castEntry{obj: o.Obj, cost: cost, score: b.castScore(o)}, ctx.producible-cost)
+				castEntry{obj: o.Obj, cost: cost, score: b.castScore(*o)}, ctx.producible-cost)
 			s += w.SetValue * eff / 8
 		}
 		// C10's interaction features: the card's class conjuncted with the
@@ -1092,7 +1093,8 @@ func (b Board) CounterIsDead(player state.PlayerID, id state.ObjID) bool {
 // map iteration order reaches a score.
 func (b Board) castEntries(d *decision.Decision, foreignSpell bool) []castEntry {
 	byObj := make(map[state.ObjID]castEntry)
-	for _, o := range d.Options {
+	for oi := range d.Options {
+		o := &d.Options[oi]
 		if o.Kind != "cast" {
 			continue
 		}
@@ -1102,7 +1104,7 @@ func (b Board) castEntries(d *decision.Decision, foreignSpell bool) []castEntry 
 		e := byObj[o.Obj]
 		e.obj = o.Obj
 		e.cost = b.castCost(o.Obj, b.Cards.Get(o.Obj))
-		if sc := b.castScore(o); sc > e.score {
+		if sc := b.castScore(*o); sc > e.score {
 			e.score = sc
 		}
 		byObj[o.Obj] = e
@@ -1216,7 +1218,8 @@ func (b Board) chooseLand(d *decision.Decision) int {
 	bestCover := int32(-1)
 	bestBasic := false
 	bestFlex := 0
-	for _, o := range d.Options {
+	for oi := range d.Options {
+		o := &d.Options[oi]
 		if o.Kind != "play_land" {
 			continue
 		}

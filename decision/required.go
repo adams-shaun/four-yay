@@ -1,7 +1,6 @@
 package decision
 
 import (
-	"slices"
 	"sort"
 
 	"github.com/adams-shaun/gorge/state"
@@ -49,7 +48,7 @@ import (
 func (d *Decision) requiredCore() []int {
 	// No Required option: both the greedy and the knapsack below pick
 	// nothing and return nil, so skip building their tables.
-	if !slices.ContainsFunc(d.Options, func(o Option) bool { return o.Required }) {
+	if !d.anyRequired() {
 		return nil
 	}
 	type pick struct{ idx, pos int }
@@ -501,4 +500,15 @@ func (d *Decision) maxChoices() int {
 		return 0
 	}
 	return d.Max
+}
+
+// anyRequired reports whether some option is Required, reading each option
+// in place (an Option is large, so a by-value scan copied every one).
+func (d *Decision) anyRequired() bool {
+	for i := range d.Options {
+		if d.Options[i].Required {
+			return true
+		}
+	}
+	return false
 }
