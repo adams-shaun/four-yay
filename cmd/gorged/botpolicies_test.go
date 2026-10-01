@@ -244,6 +244,43 @@ func TestCreateGameRefusesAFormatThePolicyLacks(t *testing.T) {
 	}
 }
 
+// TestBotSearchFlagsValidateAtStartup pins the §9.4 numeric floors and that
+// the values serveFlags registers by default satisfy them: -bot-search-slots
+// and -bot-search-parallelism are >= 1, -max-search-tables >= 0. The default
+// config is the same object main parses into, so a regression in a flag
+// default is caught here too.
+func TestBotSearchFlagsValidateAtStartup(t *testing.T) {
+	_, def := serveFlags()
+	if err := def.validateBotFlagNumbers(); err != nil {
+		t.Fatalf("serveFlags defaults are invalid: %v", err)
+	}
+	if def.botSearchSlots < 1 || def.botSearchParallelism < 1 || def.maxSearchTables != 8 {
+		t.Fatalf("flag defaults = slots %d parallelism %d max-tables %d, want >= 1, >= 1, 8",
+			def.botSearchSlots, def.botSearchParallelism, def.maxSearchTables)
+	}
+	for _, tc := range []struct {
+		name    string
+		mutate  func(*config)
+		wantErr string
+	}{
+		{"zero slots", func(c *config) { c.botSearchSlots = 0 }, "-bot-search-slots 0"},
+		{"zero parallelism", func(c *config) { c.botSearchParallelism = 0 }, "-bot-search-parallelism 0"},
+		{"negative max tables", func(c *config) { c.maxSearchTables = -1 }, "-max-search-tables -1"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := *def
+			tc.mutate(&c)
+			err := c.validateBotFlagNumbers()
+			if err == nil {
+				t.Fatalf("validateBotFlagNumbers() = nil, want an error containing %q", tc.wantErr)
+			}
+			if !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("error %q does not contain %q", err, tc.wantErr)
+			}
+		})
+	}
+}
+
 func contains(haystack []string, needle string) bool {
 	for _, s := range haystack {
 		if s == needle {

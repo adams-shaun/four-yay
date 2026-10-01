@@ -182,6 +182,15 @@ func main() {
 		fmt.Fprintln(os.Stderr, "gorged:", err)
 		os.Exit(2)
 	}
+	// The search-CPU flags are validated here, on the PARSED flag values,
+	// rather than in serve: a hand-built config{} (every test) carries zeros
+	// meaning "the host's own default", which are legitimate, while an
+	// operator who passes -bot-search-slots 0 has made a typo. serve leaves
+	// the numbers alone and host.New enforces its own >= 0 floor.
+	if err := c.validateBotFlagNumbers(); err != nil {
+		fmt.Fprintln(os.Stderr, "gorged:", err)
+		os.Exit(2)
+	}
 	// The one-shot art fill needs no listener, no corpus and no tables — it
 	// reads deck JSON and writes the cache — so it dispatches before the
 	// bind. A non-zero exit means the cache is not complete; the deploy
@@ -213,6 +222,23 @@ func defaultBotSearchSlots() int {
 		return 1
 	}
 	return n
+}
+
+// validateBotFlagNumbers enforces the §9.4 numeric floors on the PARSED flag
+// values. It is called from main, not serve, because a hand-built config in a
+// test carries zero-valued fields (0 = the host's own default) that must stay
+// legal; only a value an operator typed should be rejected as a typo.
+func (c config) validateBotFlagNumbers() error {
+	if c.botSearchSlots < 1 {
+		return fmt.Errorf("-bot-search-slots %d, want >= 1", c.botSearchSlots)
+	}
+	if c.botSearchParallelism < 1 {
+		return fmt.Errorf("-bot-search-parallelism %d, want >= 1", c.botSearchParallelism)
+	}
+	if c.maxSearchTables < 0 {
+		return fmt.Errorf("-max-search-tables %d, want >= 0", c.maxSearchTables)
+	}
+	return nil
 }
 
 // serveFlags registers every gorged flag on a fresh FlagSet and returns it
@@ -300,15 +326,6 @@ func serve(ctx context.Context, c config, ln net.Listener) error {
 		return err
 	}
 	c.botPolicy, c.botPolicies = def, offered
-	if c.botSearchSlots < 1 {
-		return fmt.Errorf("-bot-search-slots %d, want >= 1", c.botSearchSlots)
-	}
-	if c.botSearchParallelism < 1 {
-		return fmt.Errorf("-bot-search-parallelism %d, want >= 1", c.botSearchParallelism)
-	}
-	if c.maxSearchTables < 0 {
-		return fmt.Errorf("-max-search-tables %d, want >= 0", c.maxSearchTables)
-	}
 	reg, err := cards.SharedCorpus(c.cards)
 	if err != nil {
 		return fmt.Errorf("opening corpus at %s: %w (run make fetch-cards compile-cards)", c.cards, err)
