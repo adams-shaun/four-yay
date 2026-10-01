@@ -6,6 +6,7 @@ import (
 	"math"
 	"reflect"
 	"testing"
+	"unsafe"
 
 	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/cards"
@@ -63,13 +64,82 @@ func canonGameViews(t *testing.T, frames int) []view.View {
 	return out
 }
 
+// canonOf is v's canonical encoding through encode, which every equality
+// test here holds to JSON; it also requires encodeAt (the production path)
+// to append the very same bytes, so each of those tests checks it too.
 func canonOf(t *testing.T, v *view.View) []byte {
 	t.Helper()
-	var e canonEncoder
+	var e, at canonEncoder
 	if err := e.encode(reflect.ValueOf(v).Elem(), viewPlan()); err != nil {
 		t.Fatal(err)
 	}
+	if err := at.encodeAt(unsafe.Pointer(v), viewPlan()); err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(e.buf, at.buf) {
+		t.Fatal("encodeAt and encode disagree on a view")
+	}
 	return e.buf
+}
+
+// canonKinds reaches every kind and width the plan models, including the
+// ones view.View does not use today.
+type canonKinds struct {
+	B    bool
+	I8   int8
+	I16  int16 `json:",omitempty"`
+	I32  int32
+	I    int `json:",omitempty"`
+	U8   uint8
+	U16  uint16 `json:",omitempty"`
+	U    uint
+	Up   uintptr `json:",omitempty"`
+	F32  float32
+	F64  float64 `json:",omitempty"`
+	S    string  `json:",omitempty"`
+	A    [3]int16
+	A0   [0]int `json:",omitempty"`
+	Sl   []canonKinds
+	SlE  []string `json:",omitempty"`
+	P    *canonKinds
+	PE   *int `json:",omitempty"`
+	M    map[string]int32
+	MI   map[int8][]string `json:",omitempty"`
+	MU   map[uint16]bool
+	N    struct{ X, y int } `json:",omitempty"`
+	Skip int                `json:"-"`
+}
+
+// TestCanonEncodeAtIsEncode: on values covering every modelled kind and
+// width, nil against empty and omitempty zeros, encodeAt appends exactly
+// encode's bytes.
+func TestCanonEncodeAtIsEncode(t *testing.T) {
+	plan := canonPlanOf(reflect.TypeFor[canonKinds]())
+	if u := plan.unsupported(); len(u) != 0 {
+		t.Fatal(u)
+	}
+	one := 1
+	values := []canonKinds{
+		{},
+		{B: true, I8: -3, I16: 300, I32: -70000, I: 1 << 40, U8: 200, U16: 65000, U: 1 << 33, Up: 9, F32: -0.5, F64: math.Copysign(0, -1), S: "x\xff", A: [3]int16{1, -2, 3}},
+		{Sl: []canonKinds{}, SlE: []string{}, M: map[string]int32{}, MI: map[int8][]string{}, MU: map[uint16]bool{}},
+		{Sl: []canonKinds{{I8: 1}, {S: "é", P: &canonKinds{B: true}}}, SlE: []string{"", "a"}, PE: &one, M: map[string]int32{"b": 2, "a": 1}, MI: map[int8][]string{-1: nil, 2: {"z"}}, MU: map[uint16]bool{7: true, 3: false}},
+		{N: struct{ X, y int }{X: 4}, Skip: 9, P: &canonKinds{Sl: []canonKinds{{}}}},
+	}
+	for i := range values {
+		var e, at canonEncoder
+		errE := e.encode(reflect.ValueOf(&values[i]).Elem(), plan)
+		errAt := at.encodeAt(unsafe.Pointer(&values[i]), plan)
+		if (errE == nil) != (errAt == nil) || !bytes.Equal(e.buf, at.buf) {
+			t.Fatalf("value %d: encode %x (%v), encodeAt %x (%v)", i, e.buf, errE, at.buf, errAt)
+		}
+	}
+	// A NaN is refused by both.
+	bad := canonKinds{F32: float32(math.NaN())}
+	var e, at canonEncoder
+	if e.encode(reflect.ValueOf(&bad).Elem(), plan) == nil || at.encodeAt(unsafe.Pointer(&bad), plan) == nil {
+		t.Fatal("a NaN encoded")
+	}
 }
 
 func jsonOf(t *testing.T, v any) []byte {

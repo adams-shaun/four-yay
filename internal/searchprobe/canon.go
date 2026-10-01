@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"unicode/utf8"
+	"unsafe"
 
 	"github.com/adams-shaun/gorge/view"
 )
@@ -74,10 +75,16 @@ type canonPlan struct {
 	key    canonKind  // map: canonString or canonInt/canonUint
 	fields []canonField
 	why    string // unsupported: the reason
+	// size is the width in bytes of a bool, integer or float (typ.Size());
+	// for a slice or array it is the element's size, and n an array's
+	// length. encodeAt reads values through them.
+	size uintptr
+	n    int
 }
 
 type canonField struct {
 	index     int
+	offset    uintptr // the field's offset in its struct (encodeAt)
 	omitEmpty bool
 	plan      *canonPlan
 }
@@ -114,6 +121,7 @@ func buildCanonPlan(t reflect.Type, building map[reflect.Type]*canonPlan) *canon
 		p.why = "implements encoding.TextMarshaler"
 		return p
 	}
+	p.size = t.Size()
 	switch t.Kind() {
 	case reflect.Bool:
 		p.kind = canonBool
@@ -126,9 +134,9 @@ func buildCanonPlan(t reflect.Type, building map[reflect.Type]*canonPlan) *canon
 	case reflect.String:
 		p.kind = canonString
 	case reflect.Slice:
-		p.kind, p.elem = canonSlice, buildCanonPlan(t.Elem(), building)
+		p.kind, p.elem, p.size = canonSlice, buildCanonPlan(t.Elem(), building), t.Elem().Size()
 	case reflect.Array:
-		p.kind, p.elem = canonArray, buildCanonPlan(t.Elem(), building)
+		p.kind, p.elem, p.size, p.n = canonArray, buildCanonPlan(t.Elem(), building), t.Elem().Size(), t.Len()
 	case reflect.Pointer:
 		p.kind, p.elem = canonPointer, buildCanonPlan(t.Elem(), building)
 	case reflect.Map:
@@ -182,7 +190,7 @@ func buildCanonPlan(t reflect.Type, building map[reflect.Type]*canonPlan) *canon
 					return p
 				}
 			}
-			p.fields = append(p.fields, canonField{index: i, omitEmpty: omit, plan: buildCanonPlan(f.Type, building)})
+			p.fields = append(p.fields, canonField{index: i, offset: f.Offset, omitEmpty: omit, plan: buildCanonPlan(f.Type, building)})
 		}
 		p.kind = canonStruct
 	default:
@@ -296,6 +304,143 @@ func (e *canonEncoder) encode(v reflect.Value, p *canonPlan) error {
 		return fmt.Errorf("canonical encoding: %s: %s", p.typ, p.why)
 	}
 	return nil
+}
+
+// encodeAt is encode of the value of p's type at ptr, read in place: the
+// plan's offsets and widths stand in for reflect's per-field Value walk on
+// the hot path (every observed board is encoded once per probe or capture).
+// It appends exactly the bytes encode appends -- TestCanonEncodeAtIsEncode
+// holds the two together on real boards -- and defers to encode for a map
+// and for anything unsupported, so every error is encode's own.
+func (e *canonEncoder) encodeAt(ptr unsafe.Pointer, p *canonPlan) error {
+	switch p.kind {
+	case canonBool:
+		if *(*bool)(ptr) {
+			e.buf = append(e.buf, 1)
+		} else {
+			e.buf = append(e.buf, 0)
+		}
+	case canonInt:
+		e.buf = binary.AppendVarint(e.buf, canonIntAt(ptr, p.size))
+	case canonUint:
+		e.buf = binary.AppendUvarint(e.buf, canonUintAt(ptr, p.size))
+	case canonFloat:
+		f := canonFloatAt(ptr, p.size)
+		if math.IsInf(f, 0) || math.IsNaN(f) {
+			return fmt.Errorf("canonical encoding: unsupported value %v", f)
+		}
+		e.buf = binary.LittleEndian.AppendUint64(e.buf, math.Float64bits(f))
+	case canonString:
+		e.appendString(*(*string)(ptr))
+	case canonSlice:
+		h := (*canonSliceHeader)(ptr)
+		if h.data == nil {
+			e.buf = append(e.buf, 0)
+			return nil
+		}
+		e.buf = append(e.buf, 1)
+		e.buf = binary.AppendUvarint(e.buf, uint64(h.len))
+		for i := 0; i < h.len; i++ {
+			if err := e.encodeAt(unsafe.Add(h.data, uintptr(i)*p.size), p.elem); err != nil {
+				return err
+			}
+		}
+	case canonArray:
+		e.buf = binary.AppendUvarint(e.buf, uint64(p.n))
+		for i := 0; i < p.n; i++ {
+			if err := e.encodeAt(unsafe.Add(ptr, uintptr(i)*p.size), p.elem); err != nil {
+				return err
+			}
+		}
+	case canonPointer:
+		q := *(*unsafe.Pointer)(ptr)
+		if q == nil {
+			e.buf = append(e.buf, 0)
+			return nil
+		}
+		e.buf = append(e.buf, 1)
+		return e.encodeAt(q, p.elem)
+	case canonStruct:
+		for i := range p.fields {
+			f := &p.fields[i]
+			fp := unsafe.Add(ptr, f.offset)
+			if f.omitEmpty {
+				if canonEmptyAt(fp, f.plan) {
+					e.buf = append(e.buf, 0)
+					continue
+				}
+				e.buf = append(e.buf, 1)
+			}
+			if err := e.encodeAt(fp, f.plan); err != nil {
+				return err
+			}
+		}
+	default: // canonMap, canonUnsupported
+		return e.encode(reflect.NewAt(p.typ, ptr).Elem(), p)
+	}
+	return nil
+}
+
+// canonSliceHeader is a slice's runtime layout (data, len, cap).
+type canonSliceHeader struct {
+	data     unsafe.Pointer
+	len, cap int
+}
+
+func canonIntAt(ptr unsafe.Pointer, size uintptr) int64 {
+	switch size {
+	case 1:
+		return int64(*(*int8)(ptr))
+	case 2:
+		return int64(*(*int16)(ptr))
+	case 4:
+		return int64(*(*int32)(ptr))
+	}
+	return *(*int64)(ptr)
+}
+
+func canonUintAt(ptr unsafe.Pointer, size uintptr) uint64 {
+	switch size {
+	case 1:
+		return uint64(*(*uint8)(ptr))
+	case 2:
+		return uint64(*(*uint16)(ptr))
+	case 4:
+		return uint64(*(*uint32)(ptr))
+	}
+	return *(*uint64)(ptr)
+}
+
+func canonFloatAt(ptr unsafe.Pointer, size uintptr) float64 {
+	if size == 4 {
+		return float64(*(*float32)(ptr))
+	}
+	return *(*float64)(ptr)
+}
+
+// canonEmptyAt is canonEmpty of the value of p's type at ptr.
+func canonEmptyAt(ptr unsafe.Pointer, p *canonPlan) bool {
+	switch p.kind {
+	case canonBool:
+		return !*(*bool)(ptr)
+	case canonInt:
+		return canonIntAt(ptr, p.size) == 0
+	case canonUint:
+		return canonUintAt(ptr, p.size) == 0
+	case canonFloat:
+		return canonFloatAt(ptr, p.size) == 0
+	case canonString:
+		return len(*(*string)(ptr)) == 0
+	case canonSlice:
+		return (*canonSliceHeader)(ptr).len == 0
+	case canonArray:
+		return p.n == 0
+	case canonPointer:
+		return *(*unsafe.Pointer)(ptr) == nil
+	case canonStruct:
+		return false
+	}
+	return canonEmpty(reflect.NewAt(p.typ, ptr).Elem())
 }
 
 func (e *canonEncoder) encodeMap(v reflect.Value, p *canonPlan) error {

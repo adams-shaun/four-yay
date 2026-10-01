@@ -5,9 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"strconv"
 	"strings"
+	"unsafe"
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/deck"
@@ -327,7 +327,7 @@ func (c *Collector) rollback(mark int) {
 // canonBoard appends v's canonical encoding into c's reusable buffer.
 func (c *Collector) canonBoard(v *view.View) ([]byte, error) {
 	c.canon.buf = c.canon.buf[:0]
-	err := c.canon.encode(reflect.ValueOf(v).Elem(), viewPlan())
+	err := c.canon.encodeAt(unsafe.Pointer(v), viewPlan())
 	return c.canon.buf, err
 }
 
