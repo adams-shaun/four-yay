@@ -41,9 +41,14 @@ func (e *Engine) activeHasLType() bool {
 	return false
 }
 
+// faceHasTypeFold reports whether f prints t (case-folded). t is one of the
+// SBA prefilters' ASCII type words ("Aura", "World", "Legendary",
+// "Creature"), none holding a letter (k, s) that a multi-byte rune
+// case-folds to, so a word of another byte length cannot fold-equal it and
+// the length test only skips calls that would answer false.
 func faceHasTypeFold(f *cards.Face, t string) bool {
 	for _, x := range f.Types {
-		if strings.EqualFold(x, t) {
+		if len(x) == len(t) && strings.EqualFold(x, t) {
 			return true
 		}
 	}
