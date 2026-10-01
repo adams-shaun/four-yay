@@ -787,6 +787,11 @@ type triggerSnapshot struct {
 	// noLookBack: the board was proven inert for the look-back walk when the
 	// window opened (lookBackNoopBoard); see noLookBackSnapshot.
 	noLookBack bool
+	// staticOwner/staticSeq record the taking engine's static memo when it
+	// was current and quiet for exactly this board (lookback_static.go):
+	// the observer adopts that engine's memo while it is still that build.
+	staticOwner *Engine
+	staticSeq   uint64
 }
 
 // triggerCastAlternatives splits a Mode$ SpellCast trigger's ValidCard$ into

@@ -6,6 +6,8 @@
 package rules
 
 import (
+	"fmt"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
@@ -257,6 +259,12 @@ func (e *Engine) applyReplacementsDispatch(ev events.Event) (events.Event, bool)
 			// later ManaAmount$ gate newly applicable.
 			if ev.Kind == events.ManaAdd {
 				manaCandidates = append(manaCandidates, m)
+			}
+			if ev.Kind == events.MoveZone && movedLineRejects(&f.Repls[i], id, ev) {
+				if replZoneSkipVerify && e.replacementMatches(f.Repls[i], id, ev) {
+					panic(fmt.Sprintf("rules: Moved prefilter rejected obj %d's matching line for a move of obj %d", id, ev.Obj))
+				}
+				continue
 			}
 			if e.replacementMatches(f.Repls[i], id, ev) {
 				matches = append(matches, m)

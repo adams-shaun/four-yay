@@ -207,20 +207,33 @@ type livelockWatcher struct {
 	// one's signature folds in its ordinal, so a batch of identical mints is
 	// never read as a stuck period (see mintingKinds).
 	mints uint64
-	// The candidate index: every signature in the window is chained to the
-	// previous one sharing its low bits (livelockCandSlots), so detect walks
-	// exactly the earlier positions that can equal the newest signature,
-	// newest first, instead of every position of the window. total counts
+	// The candidate index: every position in the window is chained to the
+	// previous one whose BIGRAM (its signature and its predecessor's) shares
+	// its slot (bigramSlot, livelockCandSlots), so detect walks exactly the
+	// earlier positions that can end the same two signatures as the newest
+	// one -- every period p >= 2 needs both -- newest first, instead of every
+	// position of the window. total counts
 	// the signatures ever appended (position t is the t-th, from 0, and sits
 	// at physical slot t % len(sigs) once the ring wraps, t before);
 	// prevPos[slot of t] is 1 + the position of the previous same-slot
-	// signature (0: none), and slotHead[low bits] is 1 + the newest such
+	// bigram (0: none), and slotHead[slot] is 1 + the newest such
 	// position. A stale link can only name a position older than the
 	// window, which the walk's bound stops at before reading its slot.
 	// Positions are uint32: no engine logs 2^32 events.
 	total    uint32
 	prevPos  []uint32
 	slotHead []uint32
+	// lastSig is the newest signature pushed (0 before the first): the
+	// predecessor half of the next position's bigram.
+	lastSig uint64
+	// The rolling-hash precheck (periodHoldsHashed): hs[slot of t] is H(t+1),
+	// the polynomial hash (base livelockHashBase, mod 2^64) of every signature
+	// ever appended up to and including position t; hcur is H(total) and hbase
+	// is H(oldest), the prefix hash just before the window's oldest position
+	// (0 until the ring wraps). Two equal signature runs always hash equal, so
+	// unequal hashes refute a period in O(1) without the half-by-half compare.
+	hs          []uint64
+	hcur, hbase uint64
 	// shared marks a watcher copied by value from a live engine's (the entry
 	// preview's scratch engine, entry_counters.go): its arrays are still the
 	// live watcher's, so its first write copies them (unshare) and the live
@@ -233,6 +246,7 @@ func (w *livelockWatcher) unshare() {
 	w.shared = false
 	w.sigs = append(make([]uint64, 0, cap(w.sigs)), w.sigs...)
 	w.prevPos = append(make([]uint32, 0, cap(w.prevPos)), w.prevPos...)
+	w.hs = append(make([]uint64, 0, cap(w.hs)), w.hs...)
 	w.recent = append(make([]events.Event, 0, cap(w.recent)), w.recent...)
 	if w.slotHead != nil {
 		w.slotHead = append([]uint32(nil), w.slotHead...)
@@ -260,13 +274,13 @@ var livelockCandVerify = derivedMemoVerifyFlag != ""
 var mintingKinds = newKindSet(events.TokenCreate, events.CardToken, events.StackCopy)
 
 func newLivelockWatcher(g *LoopGuard) livelockWatcher {
-	return newLivelockWatcherInto(g, nil, nil, nil, nil)
+	return newLivelockWatcherInto(g, nil, nil, nil, nil, nil)
 }
 
 // newLivelockWatcherInto is newLivelockWatcher over recycled window arrays
 // (Config.Spare); see newLivelockWatcherFromGuard.
-func newLivelockWatcherInto(g *LoopGuard, sigs []uint64, recent []events.Event, prev, heads []uint32) livelockWatcher {
-	return newLivelockWatcherFromGuard(g.filled(), sigs, recent, prev, heads)
+func newLivelockWatcherInto(g *LoopGuard, sigs []uint64, recent []events.Event, prev, heads []uint32, hs []uint64) livelockWatcher {
+	return newLivelockWatcherFromGuard(g.filled(), sigs, recent, prev, heads, hs)
 }
 
 // newLivelockWatcherFromGuard is Clone's constructor: a fresh watcher over
@@ -275,7 +289,7 @@ func newLivelockWatcherInto(g *LoopGuard, sigs []uint64, recent []events.Event, 
 // reads only their length, which starts at zero, so a recycled array's
 // capacity and old contents are invisible -- it only saves the regrowth
 // from nil every clone otherwise pays as its windows fill.
-func newLivelockWatcherFromGuard(g LoopGuard, sigs []uint64, recent []events.Event, prev, heads []uint32) livelockWatcher {
+func newLivelockWatcherFromGuard(g LoopGuard, sigs []uint64, recent []events.Event, prev, heads []uint32, hs []uint64) livelockWatcher {
 	// prev is read only below its length (which starts at zero) and heads
 	// is zeroed here, so a recycled pair is invisible like sigs/recent.
 	if cap(heads) >= livelockCandSlots {
@@ -284,7 +298,7 @@ func newLivelockWatcherFromGuard(g LoopGuard, sigs []uint64, recent []events.Eve
 	} else {
 		heads = nil
 	}
-	return livelockWatcher{guard: g, sigs: sigs[:0], recent: recent[:0], prevPos: prev[:0], slotHead: heads}
+	return livelockWatcher{guard: g, sigs: sigs[:0], recent: recent[:0], prevPos: prev[:0], slotHead: heads, hs: hs[:0]}
 }
 
 // observe feeds one just-logged event to the watcher. It panics with a
@@ -411,20 +425,32 @@ func (w *livelockWatcher) pushSig(sig uint64) {
 	if w.slotHead == nil {
 		w.slotHead = make([]uint32, livelockCandSlots)
 	}
-	slot := sig % livelockCandSlots
+	slot := bigramSlot(w.lastSig, sig)
+	w.lastSig = sig
 	link := w.slotHead[slot]
 	w.slotHead[slot] = w.total + 1
 	w.total++
+	w.hcur = w.hcur*livelockHashBase + sig
 	if len(w.sigs) < sigCap {
 		w.sigs = append(w.sigs, sig)
 		w.prevPos = append(w.prevPos, link)
+		w.hs = append(w.hs, w.hcur)
 	} else {
 		w.sigs[w.sigHead] = sig
 		w.prevPos[w.sigHead] = link
+		// The evicted position's H(t+1) is the new oldest position's prefix.
+		w.hbase = w.hs[w.sigHead]
+		w.hs[w.sigHead] = w.hcur
 		if w.sigHead++; w.sigHead == sigCap {
 			w.sigHead = 0
 		}
 	}
+}
+
+// bigramSlot is the candidate-index slot of a position whose signature is
+// sig and whose predecessor's is prev.
+func bigramSlot(prev, sig uint64) uint64 {
+	return (sig ^ prev*livelockHashBase) % livelockCandSlots
 }
 
 func (w *livelockWatcher) sigAt(i int) uint64 {
@@ -486,41 +512,104 @@ func (w *livelockWatcher) detectIndexed() int {
 		return 0
 	}
 	t := w.total - 1 // the newest position
-	// pos % n without a division on the two common shapes: before the ring
-	// wraps every position is its own slot, and the default window (2 *
-	// MaxPeriod = 256) is a power of two.
-	var mask uint32
-	mode := 0
-	if w.total > uint32(n) {
-		if n&(n-1) == 0 {
-			mode, mask = 1, uint32(n-1)
-		} else {
-			mode = 2
+	// Position pos sits at slot pos % sigCap once the ring wraps and at slot
+	// pos before; when sigCap is a power of two (the default 2 * MaxPeriod =
+	// 256) both are pos & (sigCap-1), since an unwrapped pos < n <= sigCap.
+	if sigCap := 2 * w.guard.MaxPeriod; sigCap&(sigCap-1) == 0 {
+		mask := uint32(sigCap - 1)
+		sigs, prevPos := w.sigs, w.prevPos
+		last := sigs[t&mask]
+		prev := sigs[(t-1)&mask]
+		if prev == last {
+			return 1 // periodHolds(n, 1) is exactly this compare
 		}
+		for link := prevPos[t&mask]; link != 0; {
+			pos := link - 1
+			p := int(t - pos)
+			if p > maxP {
+				break
+			}
+			if sigs[pos&mask] == last && sigs[(pos-1)&mask] == prev && w.periodHoldsHashed(n, p, mask) {
+				return p
+			}
+			link = prevPos[pos&mask]
+		}
+		return 0
 	}
+	// pos % n without a division before the ring wraps (every position is
+	// its own slot).
+	wrapped := w.total > uint32(n)
 	phys := func(pos uint32) int {
-		switch mode {
-		case 0:
+		if !wrapped {
 			return int(pos)
-		case 1:
-			return int(pos & mask)
 		}
 		return int(pos % uint32(n))
 	}
 	last := w.sigs[phys(t)]
 	prev := w.sigs[phys(t-1)]
+	if prev == last {
+		return 1 // periodHolds(n, 1) is exactly this compare
+	}
 	for link := w.prevPos[phys(t)]; link != 0; {
 		pos := link - 1
 		p := int(t - pos)
 		if p > maxP {
 			break
 		}
-		if w.sigs[phys(pos)] == last && (p == 1 || w.sigs[phys(pos-1)] == prev && w.periodHolds(n, p)) {
+		if w.sigs[phys(pos)] == last && w.sigs[phys(pos-1)] == prev && w.periodHoldsHashed(n, p, 0) {
 			return p
 		}
 		link = w.prevPos[phys(pos)]
 	}
 	return 0
+}
+
+// livelockHashBase is the rolling hash's multiplier (odd, so every power is
+// a unit mod 2^64).
+const livelockHashBase = 0x9E3779B97F4A7C15
+
+// livelockPow[k] is livelockHashBase^k mod 2^64, for the default period range.
+var livelockPow = func() (t [defaultMaxPeriod + 1]uint64) {
+	t[0] = 1
+	for i := 1; i < len(t); i++ {
+		t[i] = t[i-1] * livelockHashBase
+	}
+	return t
+}()
+
+// prefixHash is H(k) for a window position k in [oldest, total]: the hash
+// of every signature before position k. mask is the power-of-two slot mask
+// (0: the general modulo).
+func (w *livelockWatcher) prefixHash(k, mask uint32) uint64 {
+	n := uint32(len(w.sigs))
+	if k == w.total-n {
+		return w.hbase
+	}
+	pos := k - 1
+	if mask != 0 {
+		return w.hs[pos&mask]
+	}
+	if w.total > n {
+		pos %= n
+	}
+	return w.hs[pos]
+}
+
+// periodHoldsHashed is periodHolds behind the rolling-hash precheck: the two
+// trailing p-long halves hash as H(total) - H(total-p)*B^p and
+// H(total-p) - H(total-2p)*B^p, and equal halves always hash equal, so a
+// hash mismatch is an exact refutation. A hash match (or a period beyond
+// the power table) still runs the exact half-by-half compare.
+func (w *livelockWatcher) periodHoldsHashed(n, p int, mask uint32) bool {
+	if p < len(livelockPow) {
+		bp := livelockPow[p]
+		hMid := w.prefixHash(w.total-uint32(p), mask)
+		hLo := w.prefixHash(w.total-uint32(2*p), mask)
+		if w.hcur-hMid*bp != hMid-hLo*bp {
+			return false
+		}
+	}
+	return w.periodHolds(n, p)
 }
 
 // detectScan is the reference window scan: every position, newest first.

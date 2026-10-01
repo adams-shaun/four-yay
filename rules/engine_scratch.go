@@ -162,6 +162,13 @@ type engineScratch struct {
 	decArena      *decisionArena
 	lookBackOwner *Engine
 	lookBackBusy  bool
+	// preview is entryPreview's reusable preview Engine struct, owned and
+	// guarded exactly like lookBack (previewOwner, previewBusy): a preview
+	// lives for one entry's plan and is zeroed when released
+	// (releaseEntryPreview).
+	preview      *Engine
+	previewOwner *Engine
+	previewBusy  bool
 	// A shallow read-only observer of a recurring Effect trigger overrides
 	// controllerOf for its creating source. The Effect's controller is the
 	// registration's owner, even when its source card belongs to another seat.

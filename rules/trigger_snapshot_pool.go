@@ -148,7 +148,12 @@ func (e *Engine) lookBackObserver() *Engine {
 // references so the scratch struct pins no snapshot between calls.
 func (e *Engine) releaseLookBackObserver(o *Engine) {
 	if o == e.lookBack && e.lookBackOwner == e {
+		// The static memo's outer array is kept for the next observer's
+		// build or seed (both overwrite it from index 0); its entries are
+		// shallow effect values over shared card tables.
+		buf := o.staticContinuous[:0]
 		*o = Engine{}
+		o.staticContinuous = buf
 		e.lookBackBusy = false
 	}
 }
@@ -166,4 +171,62 @@ var noLookBackSnapshot = &triggerSnapshot{retained: true, noLookBack: true}
 func (e *Engine) lookBackProvenNoop() bool {
 	s := e.triggerBefore
 	return s != nil && s.noLookBack
+}
+
+// lookBackStaticSnap reports the current window snapshot's recorded static
+// memo owner and build (lookback_static.go); nil when there is none.
+func (e *Engine) lookBackStaticSnap() (*Engine, uint64) {
+	if s := e.triggerBefore; s != nil {
+		return s.staticOwner, s.staticSeq
+	}
+	return nil, 0
+}
+
+// releaseEntryPreview ends an entry preview's use (entry_counters.go): its
+// cloned object arena, taken from e's pool by entryPreview, is cleared (or
+// poisoned under triggerSnapshotPoison) and pooled for the next snapshot or
+// preview. A preview is private to the one call that built it: it is never
+// stored, and nothing it produced points into its arena (matches name faces
+// and repl lines of the shared card tables, choices carry event values).
+func (e *Engine) releaseEntryPreview(preview *Engine) {
+	if preview == nil || preview.G == nil {
+		return
+	}
+	defer e.releasePreviewStruct(preview)
+	p := e.pool()
+	if p == nil || len(p.objs) >= snapshotPoolKeep {
+		return
+	}
+	n := len(preview.G.Objs)
+	objs := preview.G.Objs[:cap(preview.G.Objs)]
+	preview.G.Objs = nil
+	if triggerSnapshotPoison {
+		poisonObjects(objs)
+	} else {
+		clear(objs[:n])
+	}
+	p.objs = append(p.objs, objs)
+}
+
+// previewStruct hands entryPreview the Engine struct its preview is built
+// in: e's own reusable one when it is free, else a fresh one. The caller
+// overwrites the whole struct.
+func (e *Engine) previewStruct() *Engine {
+	if e.previewOwner != e || e.preview == nil {
+		e.preview, e.previewOwner, e.previewBusy = &Engine{}, e, false
+	}
+	if e.previewBusy {
+		return &Engine{}
+	}
+	e.previewBusy = true
+	return e.preview
+}
+
+// releasePreviewStruct zeroes e's reusable preview struct when p is it, so
+// it pins nothing between entries, and frees it for the next preview.
+func (e *Engine) releasePreviewStruct(p *Engine) {
+	if p == e.preview && e.previewOwner == e {
+		*p = Engine{}
+		e.previewBusy = false
+	}
 }

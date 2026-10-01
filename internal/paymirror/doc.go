@@ -138,7 +138,8 @@
 //	trigGrant, trigZeroNoopKinds       and the zero-interest memo's kind set
 //	activeSum                          active()'s per-build digest keyed by activeBuildSeq
 //	charsSum                           the printed fast path's digest, keyed the same way
-//	replZones/Ep                       replacement-walk zone summaries, validated on every use
+//	replZones/Ep, replArena            replacement-walk zone summaries, validated on every use,
+//	                                   and the arena's replacement event-bit superset cache
 //	staticZones/Ep                     static-source-walk zone summaries, validated on every use
 //	paymentPlanCarriers/Objs/Events/   payment-plan interference carrier memo keyed by the
 //	Valid                              object-arena size and log length; Clone copies none
@@ -172,7 +173,8 @@
 //	renameBFSeq
 //	trigZeroNoopEp/Objs/Ver            checkFaceTriggers' zero-interest no-op memo key
 //	snapPool, lookBack, lookBackOwner, recycled storage one engine owns (snapshot arenas, the
-//	lookBackBusy, decArena             look-back observer Engine, the decision arena): capacity,
+//	lookBackBusy, decArena,            look-back observer Engine, the decision arena, the entry
+//	preview, previewOwner/Busy         preview Engine): capacity,
 //	                                   never game state; Clone leaves them nil or adopts a
 //	                                   Spare's cleared ones
 //	legalScratch                       the offer walk's log-derived indexes: a pure function of

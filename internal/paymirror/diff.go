@@ -158,6 +158,9 @@ var excluded = map[excludedField]bool{
 	// trigZones shape: scratch validated on every use; Clone copies none.
 	{"rules.Engine", "replZones"}:   true,
 	{"rules.Engine", "replZonesEp"}: true,
+	// The whole-arena replacement event mask (repl_arena_mask.go): a
+	// superset cache with its catch-up watermarks, rebuilt on first use.
+	{"rules.Engine", "replArena"}: true,
 	// The off-battlefield static-source walks' zone summaries
 	// (static_zoneskip.go), the same shape.
 	{"rules.Engine", "staticZones"}:   true,
@@ -264,6 +267,9 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "lookBack"}:      true,
 	{"rules.Engine", "lookBackOwner"}: true,
 	{"rules.Engine", "lookBackBusy"}:  true,
+	{"rules.Engine", "preview"}:       true,
+	{"rules.Engine", "previewOwner"}:  true,
+	{"rules.Engine", "previewBusy"}:   true,
 	{"rules.Engine", "decArena"}:      true,
 	// The offer walk's incremental log-derived indexes (legal_walk_scratch.go):
 	// each is a pure function of the log prefix its watermark names, and the

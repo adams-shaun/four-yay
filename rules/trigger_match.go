@@ -891,7 +891,9 @@ func (e *Engine) snapshotTriggerBoard() *triggerSnapshot {
 	if noop && !trigZoneSkipVerify {
 		return noLookBackSnapshot
 	}
-	return &triggerSnapshot{game: e.G.CloneInto(e.takeSnapshotObjs()), continuous: append([]ContinuousEffect(nil), e.continuous...), noLookBack: noop}
+	snap := &triggerSnapshot{game: e.G.CloneInto(e.takeSnapshotObjs()), continuous: append([]ContinuousEffect(nil), e.continuous...), noLookBack: noop}
+	e.noteLookBackStatic(snap)
+	return snap
 }
 
 func (e *Engine) checkTriggers(ev events.Event, lki *state.Object,
@@ -904,9 +906,14 @@ func (e *Engine) checkTriggers(ev events.Event, lki *state.Object,
 		// Only leaves-the-battlefield triggers look back. Always and other
 		// event modes continue to read the live board, not an obsolete state.
 		observer := e.lookBackObserver()
+		staticBuf := observer.staticContinuous[:0]
 		*observer = Engine{G: e.triggerBefore.game, L: e.L,
 			continuous: e.triggerBefore.continuous, continuousVersion: e.continuousVersion,
 			setNameInPool: e.setNameInPool, layer4InPool: e.layer4InPool}
+		// The reused observer's static memo storage, and the live memo when
+		// it is still the snapshot board's (lookback_static.go).
+		observer.staticContinuous = staticBuf
+		e.seedLookBackStatic(observer)
 		// The observer reads the PRE-departure board from its own Game clone,
 		// so it derives its own layer-3 rename and layer-4 derived-type tables
 		// (setname.go, layer4types.go) rather than inheriting the live

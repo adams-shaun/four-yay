@@ -53,6 +53,9 @@ type Spare struct {
 	// (prevPos, slotHead), recycled like the windows: prevPos is read only
 	// below its length and slotHead is zeroed by the next watcher.
 	loopPrev, loopHeads []uint32
+	// loopHash is the watcher's rolling-hash prefix array (hs), parallel to
+	// loopSigs and likewise read only below its length.
+	loopHash []uint64
 	// snapObjs are the engine's recycled trigger-window snapshot arenas
 	// (trigger_snapshot_pool.go), cleared when they were pooled; the next
 	// engine's first look-back windows reuse them.
@@ -63,6 +66,9 @@ type Spare struct {
 	// lookBack is the spent engine's zeroed look-back observer struct
 	// (trigger_snapshot_pool.go), reused by the next engine.
 	lookBack *Engine
+	// preview is the spent engine's zeroed entry-preview struct
+	// (entry_counters.go), reused by the next engine.
+	preview *Engine
 	// legalOpts / manaAb are the offer walk's cleared scratch lists
 	// (legalOptBuf, manaAbBuf), so the next engine's first walks append
 	// into grown arrays instead of regrowing them from nil.
@@ -132,6 +138,7 @@ func (e *Engine) Release() Spare {
 		loopRecent: e.loop.recent[:cap(e.loop.recent)],
 		loopPrev:   e.loop.prevPos[:0],
 		loopHeads:  e.loop.slotHead,
+		loopHash:   e.loop.hs[:0],
 		snapObjs:   e.releaseSnapshotObjs(),
 	}
 	sp.arena = e.releaseArena()
@@ -170,9 +177,13 @@ func (e *Engine) Release() Spare {
 		sp.lookBack = e.lookBack
 	}
 	e.lookBack, e.lookBackOwner = nil, nil
+	if e.previewOwner == e && !e.previewBusy {
+		sp.preview = e.preview
+	}
+	e.preview, e.previewOwner = nil, nil
 	clear(sp.loopRecent)
 	sp.loopRecent = sp.loopRecent[:0]
-	e.loop.sigs, e.loop.recent, e.loop.prevPos, e.loop.slotHead = nil, nil, nil, nil
+	e.loop.sigs, e.loop.recent, e.loop.prevPos, e.loop.slotHead, e.loop.hs = nil, nil, nil, nil, nil
 	// The event and object arrays are not cleared here: the next consumer
 	// overwrites their live prefix anyway and zeroes the rest (see Spare).
 	if evs != nil {
@@ -264,7 +275,7 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 		L:                 events.NewLogInto(cfg.Seed, spare.events),
 		format:            cfg.Format,
 		rng:               random,
-		loop:              newLivelockWatcherInto(cfg.LoopGuard, spare.loopSigs, spare.loopRecent, spare.loopPrev, spare.loopHeads),
+		loop:              newLivelockWatcherInto(cfg.LoopGuard, spare.loopSigs, spare.loopRecent, spare.loopPrev, spare.loopHeads, spare.loopHash),
 		compiledText:      newCompiledText(cfg),
 		landTypeWords:     corpusLandTypeWords(cfg.NameUniverse),
 		mulligans:         cfg.Mulligans,

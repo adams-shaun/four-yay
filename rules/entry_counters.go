@@ -472,8 +472,13 @@ func bodyAbsorbed(absorbed []string, m replMatch) bool {
 // into the real chain. The returned entrant is the object ID the entry will
 // carry on the battlefield (a token mint's deterministic next ID).
 func (e *Engine) entryPreview(ev events.Event) (*Engine, state.ObjID) {
-	preview := *e
-	preview.G = e.G.Clone()
+	// The struct is e's reusable preview when it is free, and the object
+	// arena comes from e's snapshot-arena pool; both go back when the caller
+	// is done with the preview (releaseEntryPreview).
+	pp := e.previewStruct()
+	*pp = *e
+	preview := pp
+	preview.G = e.G.CloneInto(e.takeSnapshotObjs())
 	// The livelock watcher's window and candidate index are slices: the
 	// preview copies them on its first observed event rather than writing
 	// into the live engine's.
@@ -504,7 +509,8 @@ func (e *Engine) entryPreview(ev events.Event) (*Engine, state.ObjID) {
 	// Season) reads that cause. Live engines never carry a pin.
 	preview.causePin = e.actionCause()
 	events.Apply(preview.G, ev)
-	return &preview, entrant
+	preview.replArenaNoteApplied(ev)
+	return preview, entrant
 }
 
 // settleEntryGrants walks the entry's grants in order against the previewed
@@ -627,6 +633,7 @@ func (e *Engine) entryCounterOrderParks(ev events.Event) bool {
 		return false
 	}
 	preview, entrant := e.entryPreview(ev)
+	defer e.releaseEntryPreview(preview)
 	if o := preview.G.Obj(entrant); o == nil || o.Zone != state.ZBattlefield {
 		return false
 	}
@@ -651,6 +658,7 @@ func (e *Engine) entryCounterOrderParks(ev events.Event) bool {
 func (e *Engine) resumeEntryCounterOrder(rc replChoice, idx int) {
 	st := rc.stage
 	preview, entrant := e.entryPreview(st.move)
+	defer e.releaseEntryPreview(preview)
 	if o := preview.G.Obj(entrant); o == nil || o.Zone != state.ZBattlefield {
 		// The entry cannot happen; the competition is moot. Re-emit the move
 		// so the ordinary path records whatever the move actually does (the
@@ -763,10 +771,12 @@ func (e *Engine) foldEntryMove(ev events.Event) (events.Event, []string) {
 	}
 	preview, entrant := e.entryPreview(ev)
 	if o := preview.G.Obj(entrant); o == nil || o.Zone != state.ZBattlefield {
+		e.releaseEntryPreview(preview)
 		return events.Emit(e.G, e.L, ev), nil
 	}
 	grants, bodyIDs := e.entryGrantPlan(ev, preview, entrant)
 	placed, park := preview.settleEntryGrants(entrant, grants)
+	e.releaseEntryPreview(preview)
 	if park >= 0 {
 		// Residual: only reachable where the emit pre-pass does not run --
 		// an entry emitted inside a replacement body, or a TokenCreate/
