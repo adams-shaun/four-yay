@@ -194,6 +194,46 @@ def _is_ancestor(repo: Path, ancestor: str, ref: str) -> bool:
     return p.returncode == 0
 
 
+def _integrates(repo: Path, a: str, b: str) -> bool:
+    """True when branch `a` has merged branch `b`'s work into itself.
+
+    The signal is the deliberate merge commit: some merge in `main..a` (a
+    commit with two parents, i.e. an integration rather than a fast-forward)
+    has a parent `p` that lies in `b`'s history but NOT in main's. A plain
+    feature branch that forked from `b` shares `b`'s commits without ever
+    merging them, but its `b`-only ancestors are ordinary single-parent
+    commits, not merge parents, so it is not mistaken for an integration.
+
+    `a` and `b` are the two ends of a MUTUAL merge when each integrates the
+    other (see `live_branch_files`); that pair is one workstream, not two
+    racing editors.
+    """
+    for m in git(repo, "log", "--merges", "--format=%H", f"main..{a}").split():
+        # `rev-list --parents -n1 <merge>` lists the commit then its parents.
+        parents = git(repo, "rev-list", "--parents", "-n1", m).split()[1:]
+        for p in parents:
+            if _is_ancestor(repo, p, b) and not _is_ancestor(repo, p, "main"):
+                return True
+    return False
+
+
+def _mutual_merge_head(
+    repo: Path,
+    group: list[tuple[str, str, str]],
+) -> tuple[str, str, str]:
+    """The one representative of a mutually-merged editor group.
+
+    Every member integrates every other, so any of them carries the whole
+    workstream and landing one first makes the rest merge clean. Pick the
+    head deterministically: most commits ahead of main, then branch name, so
+    the answer does not depend on iteration order.
+    """
+    def ahead(ref: str) -> int:
+        return int(git(repo, "rev-list", "--count", f"main..{ref}").strip() or "0")
+
+    return max(group, key=lambda e: (ahead(e[1]), e[0]))
+
+
 def live_branch_files(repo: Path) -> dict[str, list[str]]:
     """Files several live task branches change AWAY from main, keyed by file.
 
@@ -238,6 +278,20 @@ def live_branch_files(repo: Path) -> dict[str, list[str]]:
     chosen as the representative, then the ancestry pass discards it as
     non-maximal and the descendant it contained is already gone -- losing a
     real editor.
+
+    Two branches that have MUTUALLY MERGED are ONE workstream, not two
+    editors: a long-lived workstream forks into heads that integrate each
+    other by hand (`Merge branch 'wt/cpu-legal' into HEAD` on one, `Merge
+    branch 'wt/cpu-derived' into HEAD` on the other), so landing either first
+    is clean and there is no resolver round to remove. The maximal-editor
+    pass only drops an ANCESTOR, and neither head of such a fork contains the
+    other, so both survived and each shared file read as contended (measured
+    2026-10-01: `wt/cpu-derived` and `wt/cpu-legal` are two heads of one perf
+    workstream and shared thirteen files, minting a brief to split files no
+    second uncontrolled branch was editing). A group whose members each
+    integrate the other is collapsed to one representative first, computed
+    from the merge commits (`_integrates`); a third branch that genuinely
+    collided with the pair is in neither group and stays a second editor.
     """
     closed = closed_issue_ids(repo)
     editors: dict[str, list[tuple[str, str, str]]] = collections.defaultdict(list)
@@ -260,7 +314,34 @@ def live_branch_files(repo: Path) -> dict[str, list[str]]:
             editors[f].append((name, ref, blobs.get(f, "")))
     files: dict[str, list[str]] = {}
     for f, branch_set in editors.items():
-        # FIRST drop the branches another editor of this file contains: the
+        # FIRST collapse a mutually-merging group to ONE representative: its
+        # members each integrate the other, so they are one workstream, not
+        # independent editors. Union by the `_integrates` relation (checked
+        # both ways) so a fork of three heads that all merged each other is
+        # one group too. A third branch that genuinely raced the pair is in
+        # neither group and survives this pass.
+        n = len(branch_set)
+        parent = list(range(n))
+
+        def find(i: int) -> int:
+            while parent[i] != i:
+                parent[i] = parent[parent[i]]
+                i = parent[i]
+            return i
+
+        for i in range(n):
+            for j in range(i + 1, n):
+                ri, rj = branch_set[i][1], branch_set[j][1]
+                if _integrates(repo, ri, rj) and _integrates(repo, rj, ri):
+                    parent[find(i)] = find(j)
+        groups: dict[int, list[tuple[str, str, str]]] = collections.defaultdict(list)
+        for i, e in enumerate(branch_set):
+            groups[find(i)].append(e)
+        collapsed = [
+            _mutual_merge_head(repo, g) if len(g) > 1 else g[0]
+            for g in groups.values()
+        ]
+        # THEN drop the branches another editor of this file contains: the
         # descendant's merge takes the ancestor by construction, so the two
         # cannot conflict whatever their blobs are. Doing this BEFORE the
         # identical-blob dedup is the whole point: with the dedup first, a
@@ -274,9 +355,9 @@ def live_branch_files(repo: Path) -> dict[str, list[str]]:
         # reported no editor but C and no hot spot; maximal-editors-first
         # reports B and C and the hot spot.
         maximal = [
-            (name, ref, blob) for name, ref, blob in branch_set
+            (name, ref, blob) for name, ref, blob in collapsed
             if not any(other != ref and _is_ancestor(repo, ref, other)
-                       for _, other, _ in branch_set)
+                       for _, other, _ in collapsed)
         ]
         # THEN dedup distinct branches that contribute identical content: two
         # unrelated branches with the same blob cannot conflict. They survive
@@ -1366,6 +1447,81 @@ def selftest() -> int:
         sib = live_branch_files(hr)
         check("a sibling editor still makes the file a hot spot",
               sorted(sib.get("chain.txt", [])) == ["chain-c", "chain-x"], sib.get("chain.txt"))
+
+        # MUTUALLY-MERGING heads are ONE workstream, not two editors. A
+        # long-lived perf workstream forks into wt/mutual-a and wt/mutual-b on
+        # mm.txt, then each MERGES THE OTHER by hand (the real shape measured
+        # 2026-10-01: wt/cpu-derived <-> wt/cpu-legal, thirteen shared files).
+        # Neither head contains the other, so the maximal-editor pass alone
+        # kept both and every file read as contended -- a brief to split files
+        # no second uncontrolled branch was editing. Their own merge commits
+        # are the signal that they are one workstream.
+        # mm.txt lives on main so the two appends merge CLEAN (a prepend vs an
+        # append): a conflicting merge would abort, leave neither head
+        # integrating the other, and test nothing.
+        (hr / "mm.txt").write_text("m\n")
+        hrun("add", "mm.txt")
+        hrun("commit", "-qm", "mm base")
+        mmbase = hrun("rev-parse", "HEAD").stdout.strip()
+        wma = Path(td) / "hot-mutual-a"
+        hrun("worktree", "add", "-q", "-b", "wt/mutual-a", str(wma), mmbase)
+        (wma / "mm.txt").write_text("a\nm\n")
+        subprocess.run(["git", "-C", str(wma), "add", "mm.txt"], capture_output=True)
+        hcommit(wma, "mutual a")
+        wmb = Path(td) / "hot-mutual-b"
+        hrun("worktree", "add", "-q", "-b", "wt/mutual-b", str(wmb), mmbase)
+        (wmb / "mm.txt").write_text("m\nb\n")
+        subprocess.run(["git", "-C", str(wmb), "add", "mm.txt"], capture_output=True)
+        hcommit(wmb, "mutual b")
+        # a merges b, b merges a -- the mutual pair.
+        subprocess.run(["git", "-C", str(wma), "merge", "-q", "--no-ff", "-m",
+                        "merge b into a", "wt/mutual-b"], capture_output=True)
+        subprocess.run(["git", "-C", str(wmb), "merge", "-q", "--no-ff", "-m",
+                        "merge a into b", "wt/mutual-a"], capture_output=True)
+        # Each head then makes one more commit, so neither is an ANCESTOR of
+        # the other while each still integrates the other's pre-merge tip -- the
+        # real diverged-fork shape (cpu-derived/cpu-legal), not two aliases of
+        # one commit graph. Each also lands a DIFFERENT further edit of mm.txt,
+        # so the pair contributes two DISTINCT blobs and the identical-blob
+        # dedup cannot remove them: only the mutual-merge collapse can, which is
+        # what makes this test fail without it.
+        (wma / "mm.txt").write_text("a\nm\nb\na2\n")
+        (wma / "a-only.txt").write_text("a\n")
+        subprocess.run(["git", "-C", str(wma), "add", "mm.txt", "a-only.txt"], capture_output=True)
+        hcommit(wma, "mutual a head")
+        (wmb / "mm.txt").write_text("a\nm\nb\nb2\n")
+        (wmb / "b-only.txt").write_text("b\n")
+        subprocess.run(["git", "-C", str(wmb), "add", "mm.txt", "b-only.txt"], capture_output=True)
+        hcommit(wmb, "mutual b head")
+        check("precondition: neither mutual head contains the other",
+              hrun("merge-base", "--is-ancestor", "wt/mutual-a", "wt/mutual-b").returncode != 0
+              and hrun("merge-base", "--is-ancestor", "wt/mutual-b", "wt/mutual-a").returncode != 0)
+        check("precondition: each mutual head really integrates the other",
+              _integrates(hr, "wt/mutual-a", "wt/mutual-b")
+              and _integrates(hr, "wt/mutual-b", "wt/mutual-a"))
+        a_mm = hrun("rev-parse", "wt/mutual-a:mm.txt").stdout.strip()
+        b_mm = hrun("rev-parse", "wt/mutual-b:mm.txt").stdout.strip()
+        check("precondition: the mutual heads contribute DISTINCT blobs "
+              "(the dedup must not be what removes them)",
+              a_mm and b_mm and a_mm != b_mm, (a_mm, b_mm))
+        mm = live_branch_files(hr)
+        check("a mutually-merging pair counts as ONE editor",
+              len(mm.get("mm.txt", [])) == 1, mm.get("mm.txt"))
+        check("the mutual pair is not a hot spot",
+              not any(f == "mm.txt" for f, _ in hotspots(hr)), hotspots(hr))
+        # A third branch that genuinely collides with the pair is still a
+        # second editor: the collapse must not swallow an uncontrolled branch.
+        wmx = Path(td) / "hot-mutual-x"
+        hrun("worktree", "add", "-q", "-b", "wt/mutual-x", str(wmx), mmbase)
+        (wmx / "mm.txt").write_text("x\nm\n")
+        subprocess.run(["git", "-C", str(wmx), "add", "mm.txt"], capture_output=True)
+        hcommit(wmx, "mutual x")
+        check("precondition: the third branch merges neither mutual head",
+              hrun("merge-base", "--is-ancestor", "wt/mutual-a", "wt/mutual-x").returncode != 0
+              and hrun("merge-base", "--is-ancestor", "wt/mutual-b", "wt/mutual-x").returncode != 0)
+        mmx = live_branch_files(hr)
+        check("a third colliding branch makes the file hot again",
+              len(mmx.get("mm.txt", [])) == 2, mmx.get("mm.txt"))
 
         # An ancestor and its descendant that contribute the IDENTICAL blob,
         # plus a branch that descends from the ancestor with a DIFFERENT blob:
