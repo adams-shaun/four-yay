@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"encoding/binary"
 	"fmt"
 	"strings"
 
@@ -350,17 +349,13 @@ func (w *livelockWatcher) observeFrom(ev events.Event, damageSource state.ObjID,
 	if ev.Kind == events.ClockTick {
 		return
 	}
-	sig := eventSignature(ev)
+	sig := eventSignature(&ev)
 	if ev.Kind == events.Damage && damageSource != 0 {
-		var u4 [4]byte
-		binary.LittleEndian.PutUint32(u4[:], uint32(damageSource))
-		sigBytes(&sig, u4[:])
+		sig = fnvU32(sig, uint32(damageSource))
 	}
 	if mintingKinds.has(ev.Kind) {
 		w.mints++
-		var u8 [8]byte
-		binary.LittleEndian.PutUint64(u8[:], w.mints)
-		sigBytes(&sig, u8[:])
+		sig = fnvU64(sig, w.mints)
 	}
 	w.pushSig(sig)
 	if len(w.recent) < w.guard.MaxPeriod {
@@ -541,59 +536,54 @@ func (w *livelockWatcher) abort() {
 // Seq (every event has a fresh one), Amount and Text (a stuck loop whose
 // payload drifts must still be caught). Length-prefixing keeps adjacent
 // fields unambiguous.
-func eventSignature(ev events.Event) uint64 {
-	h := uint64(14695981039346656037)
-	var b [5]byte
-	b[0] = byte(ev.Kind)
-	b[1] = byte(ev.Player)
-	b[2] = byte(ev.From)
-	b[3] = byte(ev.To)
-	b[4] = byte(ev.Step)
-	sigBytes(&h, b[:])
+func eventSignature(ev *events.Event) uint64 {
+	h := uint64(fnvOffset)
+	h = fnvByte(h, byte(ev.Kind))
+	h = fnvByte(h, byte(ev.Player))
+	h = fnvByte(h, byte(ev.From))
+	h = fnvByte(h, byte(ev.To))
+	h = fnvByte(h, byte(ev.Step))
 	if ev.Secret {
-		sigByte(&h, 1)
+		h = fnvByte(h, 1)
 	} else {
-		sigByte(&h, 0)
+		h = fnvByte(h, 0)
 	}
-	var u4 [4]byte
-	binary.LittleEndian.PutUint32(u4[:], uint32(ev.Obj))
-	sigBytes(&h, u4[:])
-	sigStr(&h, ev.Counter)
-	binary.LittleEndian.PutUint32(u4[:], uint32(len(ev.IDs)))
-	sigBytes(&h, u4[:])
+	h = fnvU32(h, uint32(ev.Obj))
+	h = fnvU32(h, uint32(len(ev.Counter)))
+	for i := 0; i < len(ev.Counter); i++ {
+		h = fnvByte(h, ev.Counter[i])
+	}
+	h = fnvU32(h, uint32(len(ev.IDs)))
 	for _, id := range ev.IDs {
-		binary.LittleEndian.PutUint32(u4[:], uint32(id))
-		sigBytes(&h, u4[:])
+		h = fnvU32(h, uint32(id))
 	}
-	binary.LittleEndian.PutUint32(u4[:], uint32(len(ev.Pairs)))
-	sigBytes(&h, u4[:])
+	h = fnvU32(h, uint32(len(ev.Pairs)))
 	for _, pr := range ev.Pairs {
-		binary.LittleEndian.PutUint32(u4[:], uint32(pr[0]))
-		sigBytes(&h, u4[:])
-		binary.LittleEndian.PutUint32(u4[:], uint32(pr[1]))
-		sigBytes(&h, u4[:])
+		h = fnvU32(h, uint32(pr[0]))
+		h = fnvU32(h, uint32(pr[1]))
 	}
 	return h
 }
 
-func sigByte(h *uint64, b byte) {
-	*h ^= uint64(b)
-	*h *= 1099511628211
+// The signature's FNV-1a parameters. The fold is byte-wise, little-endian
+// for integers (fnvU32 is four fnvByte steps in that order), so the value
+// is the one the byte-slice formulation produced.
+const (
+	fnvOffset = 14695981039346656037
+	fnvPrime  = 1099511628211
+)
+
+func fnvByte(h uint64, b byte) uint64 { return (h ^ uint64(b)) * fnvPrime }
+
+func fnvU32(h uint64, v uint32) uint64 {
+	h = fnvByte(h, byte(v))
+	h = fnvByte(h, byte(v>>8))
+	h = fnvByte(h, byte(v>>16))
+	return fnvByte(h, byte(v>>24))
 }
 
-func sigBytes(h *uint64, b []byte) {
-	for _, c := range b {
-		sigByte(h, c)
-	}
-}
-
-func sigStr(h *uint64, s string) {
-	var u4 [4]byte
-	binary.LittleEndian.PutUint32(u4[:], uint32(len(s)))
-	sigBytes(h, u4[:])
-	for i := 0; i < len(s); i++ {
-		sigByte(h, s[i])
-	}
+func fnvU64(h uint64, v uint64) uint64 {
+	return fnvU32(fnvU32(h, uint32(v)), uint32(v>>32))
 }
 
 // describeEvent renders one event for the diagnostic: compact, stable, and
