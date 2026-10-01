@@ -957,7 +957,8 @@ func (e *Engine) askPriority(p state.PlayerID) {
 	if e.windowDiagnostics {
 		window = newWindowCollector(p)
 	}
-	d := &decision.Decision{
+	d := e.arenaDecision()
+	*d = decision.Decision{
 		Player: p, Kind: decision.KPriority, Min: 1, Max: 1,
 		// Byte-identical to fmt.Sprintf("turn %d, %s — %s has priority",
 		// ...) without fmt's boxing: every priority walk builds it.

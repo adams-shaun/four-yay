@@ -933,6 +933,13 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	// cleared, owned by nobody else, so the clone's look-back windows reuse
 	// them; the original's own pool is never shared.
 	c.adoptSnapshotObjs(sp.snapObjs)
+	// The spent engine's cleared decision-arena chunks, switched off: the
+	// clone's owner turns the arena on (SetDecisionArena) if its decisions
+	// die with it.
+	c.adoptArena(sp.arena)
+	if sp.lookBack != nil {
+		c.lookBack, c.lookBackOwner = sp.lookBack, c
+	}
 	return c
 }
 
