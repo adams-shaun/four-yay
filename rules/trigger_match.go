@@ -1854,7 +1854,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state
 	if skip && trigZoneSkipVerify {
 		verify = e.trigSkipVerifier(ev, visit, func() int { return len(phaseNotes) })
 	}
-	observer.forEachTriggerObject(ev, skip, visit, verify)
+	observer.forEachTriggerObject(ev, skip, skip && zeroInterestEvent(ev.Kind, evAll, evMask), visit, verify)
 	for _, n := range phaseNotes {
 		e.emit(events.Event{Kind: events.Note, Obj: n.id,
 			Text: "Phase$ " + n.spec + " names no engine step; the trigger never fires"})

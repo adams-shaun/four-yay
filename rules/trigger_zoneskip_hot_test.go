@@ -55,7 +55,7 @@ func TestTriggerWalkVisitsOnlyHotObjects(t *testing.T) {
 
 	var visited int
 	e.pendingTriggers = e.pendingTriggers[:0]
-	e.forEachTriggerObject(events.Event{Kind: events.Note}, true, func(state.ObjID) { visited++ }, nil)
+	e.forEachTriggerObject(events.Event{Kind: events.Note}, true, false, func(state.ObjID) { visited++ }, nil)
 
 	if visited >= board {
 		t.Fatalf("the walk visited %d of %d battlefield objects; want only the hot subset", visited, board)

@@ -102,6 +102,10 @@ type trigZoneSummary struct {
 	// source costs the sources, not the tokens. nil while the zone is cold or
 	// unclassified.
 	hotIDs []state.ObjID
+	// anyIDs is the subset of hotIDs that can act on an event with no
+	// trigger interest at all (Priority, DecisionAsk, DecisionMade): see
+	// objectTriggerAnyHot. In hotIDs order.
+	anyIDs []state.ObjID
 	hot    bool
 	valid  bool
 }
@@ -185,6 +189,50 @@ func (e *Engine) objectTriggerHotIn(o *state.Object, slot int) bool {
 	return false
 }
 
+// objectTriggerAnyHot reports whether a hot object may act on an event whose
+// kind carries no trigger interest bit (eventTriggerInterest == 0, e.g.
+// Priority): such an event reaches the per-face walk only through a face whose
+// compiled interests include TriggerInterestAny (an Always, CounterAdded,
+// LifeLostAll, unknown-mode or Phase$-bearing trigger), a face with no
+// compiled row (its own mask may allow anything), or an unlocked or merged
+// object (checkFaceTriggers' visit). Every face of the card and CopyFace
+// count, like objectTriggerHotIn, so a face flip in place changes nothing.
+func objectTriggerAnyHot(o *state.Object) bool {
+	if o == nil {
+		return false
+	}
+	if o.Unlocked || len(o.MergedCards) > 0 {
+		return true
+	}
+	if faceAnyInterest(o.CopyFace) {
+		return true
+	}
+	if o.Card != nil {
+		for _, f := range o.Card.Faces {
+			if faceAnyInterest(f) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func faceAnyInterest(f *cards.Face) bool {
+	if f == nil || len(f.Triggers) == 0 {
+		return false
+	}
+	interests, ok := f.CompiledTriggerInterests()
+	return !ok || interests&cards.TriggerInterestAny != 0
+}
+
+// zeroInterestEvent reports whether a trigger walk over ev can use the
+// summaries' anyIDs (forEachTriggerObject's anyOnly): ev's kind carries no
+// trigger interest, and no granted keyword walk observes it.
+func zeroInterestEvent(kind events.Kind, evAll bool, evMask cards.TriggerInterest) bool {
+	return !evAll && evMask == cards.TriggerInterestAny && !grantedKeywordTriggerEvent(kind) &&
+		kind != events.TargetsChosen && kind != events.StepChange
+}
+
 func (e *Engine) trigZoneInvalidateAll() {
 	for i := range e.trigZones {
 		e.trigZones[i].valid = false
@@ -249,9 +297,12 @@ func (e *Engine) trigZoneCold(p state.PlayerID, slot int, cur []state.ObjID) boo
 		// The recorded prefix (and therefore its hot subset) is unchanged;
 		// classify only the appended tail.
 		for _, id := range cur[len(s.ids):] {
-			if e.objectTriggerHotIn(e.G.Obj(id), slot) {
+			if o := e.G.Obj(id); e.objectTriggerHotIn(o, slot) {
 				s.hot = true
 				s.hotIDs = append(s.hotIDs, id)
+				if objectTriggerAnyHot(o) {
+					s.anyIDs = append(s.anyIDs, id)
+				}
 			}
 		}
 		s.ids = append(s.ids[:0], cur...)
@@ -278,16 +329,29 @@ func (e *Engine) trigZoneCold(p state.PlayerID, slot int, cur []state.ObjID) boo
 	// the hot subset is the tail's. A previously-hot list must be rebuilt
 	// whole (from == 0).
 	hotIDs := s.hotIDs[:0]
+	anyIDs := s.anyIDs[:0]
 	hot := false
 	for _, id := range cur[from:] {
-		if e.objectTriggerHotIn(e.G.Obj(id), slot) {
+		if o := e.G.Obj(id); e.objectTriggerHotIn(o, slot) {
 			hot = true
 			hotIDs = append(hotIDs, id)
+			if objectTriggerAnyHot(o) {
+				anyIDs = append(anyIDs, id)
+			}
 		}
 	}
 	s.ids = append(s.ids[:0], cur...)
-	s.hotIDs, s.hot, s.valid = hotIDs, hot, true
+	s.hotIDs, s.anyIDs, s.hot, s.valid = hotIDs, anyIDs, hot, true
 	return !hot
+}
+
+// trigZoneAnyIDs is trigZoneHotIDs' zero-interest subset (anyIDs).
+func (e *Engine) trigZoneAnyIDs(p state.PlayerID, slot int) []state.ObjID {
+	i := int(p)*trigZoneSlots + slot
+	if i < 0 || i >= len(e.trigZones) {
+		return nil
+	}
+	return e.trigZones[i].anyIDs
 }
 
 // trigZoneHotIDs returns the classified hot subset of zone (p, slot)'s list.
@@ -323,7 +387,11 @@ func trigMustVisit(ev events.Event, id state.ObjID) bool {
 // summarized zone reduced to its must-visit ids. skip false walks everything
 // (forEachObject's exact behaviour). verify, when non-nil, is called for
 // every skipped id in its list position.
-func (e *Engine) forEachTriggerObject(ev events.Event, skip bool, fn func(id state.ObjID), verify func(id state.ObjID)) {
+//
+// anyOnly (zeroInterestEvent) narrows a hot zone with no referent further, to
+// its anyIDs: for an event no printed trigger interest names, a hot object
+// outside that subset reaches only checkFaceTriggers' early return.
+func (e *Engine) forEachTriggerObject(ev events.Event, skip, anyOnly bool, fn func(id state.ObjID), verify func(id state.ObjID)) {
 	if !skip {
 		e.forEachObject(fn)
 		return
@@ -402,6 +470,9 @@ func (e *Engine) forEachTriggerObject(ev events.Event, skip bool, fn func(id sta
 				// referent would have to be walked in place, so its slot falls
 				// through to the full list below.
 				hotIDs := e.trigZoneHotIDs(p, slot)
+				if anyOnly {
+					hotIDs = e.trigZoneAnyIDs(p, slot)
+				}
 				if verify == nil {
 					for _, id := range hotIDs {
 						fn(id)
