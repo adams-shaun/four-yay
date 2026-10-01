@@ -366,3 +366,38 @@ with no `.cards`, stop and say so rather than reporting a green suite.
 
 Which agent seats exist, what they cost and when to escalate between them is
 recorded in `docs/superpowers/agent-seats.md`.
+
+## Hot files: a branch that touches one of these is sequenced, not parallel
+
+Measured by `scripts/reward_collect.py hotspots --repo .`: one merge in four
+(199 of 802 tickets, 7d) needed a resolver round, and one ticket burned 48 of
+them. The cause is always the same shape — two or three live branches editing
+the same file, each rebasing onto the other's landing. If your brief touches a
+file below, keep the change as small as the brief allows; prefer adding a new
+file next to it over growing it.
+
+**This table is generated; do not hand-edit it.** Regenerate with:
+`python3 scripts/reward_collect.py hotspots --repo . --format md` (add
+`--max-rows N` for this embedded cut). The durable "why it collides" prose
+lives in `scripts/hotfiles-notes.json` (tracked): a seat filing a new
+contended pair adds one note entry there in its own commit and re-renders.
+Rendered 2026-10-01 at head 6791d0c4c, with `--max-rows 5`:
+
+| file | why it collides |
+|---|---|
+| `internal/azmcts/env.go` | 5 live branches: az-nodecache, cpu-derived, cpu-legal, sbrep-fix, view-into |
+| `internal/azmcts/search.go` | 4 live branches: az-nodecache, cpu-derived, cpu-legal, sbrep-fix |
+| `docs/agents/repo-map.md` | 3 live branches: cpu-derived, enginecmp, sbrep-fix |
+| `internal/azmcts/candidates.go` | 3 live branches: cpu-derived, cpu-legal, sbrep-fix |
+| `internal/searchprobe/observation.go` | 3 live branches: cpu-derived, cpu-legal, sbrep-fix |
+… and 23 more; run the command for the live list
+
+Durable notes for files not shown above:
+- `rules/cast.go` — 12515 lines and the entry point for every cast-side ticket
+- `rules/layers.go`, `rules/statics.go` — every continuous-effect and keyword ticket lands here
+- `view/view.go` — every projection change; two ManaBrew/UI tickets collided on it
+- `rules/loops_prototype_test.go`, `rules/testdata/loop-combos.json`, `rules/testdata/scam-exe.json` — the loops/shortcuts workstream has three branches in them at once
+- `AGENTS.md`, `.superpowers/ds4/gorge-context.md` — every ticket wants to add a paragraph; the Known-approximations table is append-only-by-deletion and a rebase resurrects deleted rows
+- `rules/acceptance_test.go`, `rules/paramcensus_test.go`, `rules/heads_test.go`, `rules/count_head_ratchet_test.go` — the ratchet tables: a merge with main newly enforces them, so edit only the entries your own change moves
+- `scripts/deploy-demo.sh` — the operator demo's one deploy procedure: every layout ticket (bot policy, ports, tables, pace, humans) and every deploy-mechanics fix (port sweep, art fill, health wait) lands here, and a layout change spans knobs and start/stop lines, so the knob/mechanics seam cannot separate two editors; 9 commits in the 3 days to 2026-09-30, and 2 live branches held it the same day (measured by `scripts/reward_collect.py hotspots`)
+- `internal/botobs/checklist.json`, `web/src/protocol.ts` — the obs-axis fact-exposure workstream: every "expose a view fact" ticket flips one entry in the checklist and regenerates the wire twin. Neither can be split — `protocol.ts` is single generated output (`cmd/gentypes -o`, byte-identical or `make lint`/`cmd/gentypes` tests fail), and `checklist.json` is one authoritative `facts` list that `scripts/reward_collect.py:collect_obs` sums and the ratchet checks probe-for-fact, so per-fact files would fragment the obs denominator and rewire the reward axis. A fact ticket edits only its own entry's `where`/`exposed` and never reorders or reformats the array

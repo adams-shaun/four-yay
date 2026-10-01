@@ -14,6 +14,12 @@ reward-probe.sh behind a broker lease.
 
     scripts/reward_collect.py flow|stability|win|correct|audit|obs|all [--repo R]
     scripts/reward_collect.py hotspots --repo R      # the contended-file table
+    scripts/reward_collect.py hotspots --repo R --format md [--max-rows N]
+                                                     # the same table as
+                                                     # markdown, with the durable
+                                                     # "why it collides" notes
+                                                     # from scripts/hotfiles-notes.json
+                                                     # merged into each row
     scripts/reward_collect.py --selftest
 """
 
@@ -331,6 +337,84 @@ def hotspots(repo: Path) -> list[tuple[str, list[str]]]:
         ((f, bs) for f, bs in live_branch_files(repo).items() if len(bs) >= HOTSPOT_BRANCHES),
         key=lambda kv: (-len(kv[1]), kv[0]),
     )
+
+
+def load_hotfiles_notes(repo: Path) -> list[dict]:
+    """The durable half of the hot-file table, from the TRACKED notes file.
+
+    The live half (which files are contended RIGHT NOW, by which branches)
+    is `hotspots()`; the durable half ("why it collides" -- the workstream
+    knowledge that does not expire with a branch) lives in
+    `<repo>/scripts/hotfiles-notes.json`, one entry
+    `{"files": [...], "note": "..."}` per collider or collider group. A seat
+    filing a new contended pair edits that file in its own commit and
+    re-renders; the prose is never hand-copied into a report again.
+
+    A missing or malformed file means no notes, not a failure: the renderer
+    then emits the mechanical default for every row. Fail open, like the
+    other readers here.
+    """
+    p = repo / "scripts" / "hotfiles-notes.json"
+    try:
+        entries = json.loads(p.read_text())
+    except (OSError, ValueError):
+        return []
+    if not isinstance(entries, list):
+        return []
+    return [
+        e
+        for e in entries
+        if isinstance(e, dict)
+        and isinstance(e.get("files"), list)
+        and isinstance(e.get("note"), str)
+        and e["files"]
+        and e["note"]
+    ]
+
+
+def render_hotspots_md(
+    hs: list[tuple[str, list[str]]],
+    notes: list[dict],
+    max_rows: int | None = None,
+) -> str:
+    """The hot-file table as markdown: one row per `hotspots()` entry, ALL
+    rows (no truncation unless `max_rows` is given, which the AGENTS.md embed
+    uses to keep its section small), each row's `why` cell taken from the
+    first notes entry whose `files` list contains the file, else the
+    mechanical default naming the live branches. Notes entries whose files
+    are not in the rendered rows are appended after the table so the durable
+    knowledge stays visible even when its file is quiet today.
+    """
+
+    def cell(text: str) -> str:
+        return text.replace("|", "\\|")
+
+    def note_for(f: str) -> str | None:
+        hits = [e["note"] for e in notes if f in e["files"]]
+        return hits[0] if hits else None
+
+    lines = ["| file | why it collides |", "|---|---|"]
+    shown = hs if max_rows is None else hs[:max_rows]
+    for f, bs in shown:
+        note = note_for(f)
+        why = cell(note) if note else f"{len(bs)} live branches: {', '.join(bs)}"
+        lines.append(f"| `{f}` | {why} |")
+    rest = len(hs) - len(shown)
+    if rest:
+        lines.append(f"… and {rest} more; run the command for the live list")
+    shown_files = {f for f, _ in shown}
+    quiet = [e for e in notes if not any(f in shown_files for f in e["files"])]
+    if quiet:
+        lines.append("")
+        lines.append("Durable notes for files not shown above:")
+        for e in quiet:
+            files = ", ".join(f"`{f}`" for f in e["files"])
+            lines.append(f"- {files} — {cell(e['note'])}")
+    return "\n".join(lines)
+
+
+def hotspots_md(repo: Path, max_rows: int | None = None) -> str:
+    return render_hotspots_md(hotspots(repo), load_hotfiles_notes(repo), max_rows)
 
 
 def collect_flow(repo: Path) -> list[str]:
@@ -1177,6 +1261,61 @@ def selftest() -> int:
               "dup" not in two.get("shared.txt", []), two.get("shared.txt"))
         check("hotspots reports it", any(f == "shared.txt" for f, _ in hotspots(hr)), hotspots(hr))
 
+        # The hot-file table as a GENERATED artifact (agent-20261001T011159Z-
+        # 80a8b059): `--format md` renders one markdown row per hotspots()
+        # entry -- ALL rows, never the 8-row truncation the journal note
+        # suffers -- with the durable "why it collides" note from the tracked
+        # scripts/hotfiles-notes.json merged into each row. The prose copies
+        # this replaces were hand-maintained in two places (AGENTS.md and the
+        # gitignored gorge-context.md) and already drifted from the tool.
+        # Precondition: shared.txt really is a TWO-branch hot spot here,
+        # naming exactly the two live editors.
+        hs_hr = hotspots(hr)
+        check("fixture: shared.txt is a two-branch hot spot with both editors",
+              hs_hr == [("shared.txt", sorted(["other", "other2"]))], hs_hr)
+        md_plain = render_hotspots_md(hs_hr, [])
+        check("the two-branch row names BOTH branches, not one",
+              "| `shared.txt` | 2 live branches: other, other2 |" in md_plain.splitlines(),
+              md_plain)
+        check("no notes file means every row is the mechanical default",
+              "live branches" in md_plain and "why it collides" in md_plain, md_plain)
+        notes_hr = [
+            {"files": ["shared.txt"], "note": "the shared editor seam"},
+            {"files": ["quiet.go"], "note": "a quiet seam today"},
+        ]
+        md_noted = render_hotspots_md(hs_hr, notes_hr)
+        check("a row covered by a notes entry shows the note, not the default",
+              "| `shared.txt` | the shared editor seam |" in md_noted.splitlines(),
+              md_noted)
+        check("the branch names yield to the note on a noted row",
+              "live branches" not in md_noted, md_noted)
+        md_mixed = render_hotspots_md(
+            [("a.go", ["x"]), ("b.go", ["y", "z"])],
+            [{"files": ["a.go"], "note": "why a"}])
+        check("a noted row shows the note", "| `a.go` | why a |" in md_mixed.splitlines(), md_mixed)
+        check("an unnoted row shows the default",
+              "| `b.go` | 2 live branches: y, z |" in md_mixed.splitlines(), md_mixed)
+        check("a quiet notes entry is appended so the durable knowledge survives",
+              "- `quiet.go` — a quiet seam today" in md_noted.splitlines(), md_noted)
+        wide = [(f"f{i}.go", ["b1", "b2"]) for i in range(12)]
+        md_wide = render_hotspots_md(wide, [])
+        check("ALL rows render -- no 8-row truncation",
+              sum(1 for l in md_wide.splitlines() if l.startswith("| `f")) == 12,
+              md_wide)
+        check("a --max-rows cut keeps the remainder count",
+              render_hotspots_md(wide, [], max_rows=3).splitlines()[-1]
+              == "… and 9 more; run the command for the live list",
+              render_hotspots_md(wide, [], max_rows=3))
+        (hr / "scripts").mkdir()
+        (hr / "scripts" / "hotfiles-notes.json").write_text(json.dumps(notes_hr))
+        md_repo = hotspots_md(hr)
+        check("the full repo path loads the notes file and merges it",
+              "| `shared.txt` | the shared editor seam |" in md_repo.splitlines(), md_repo)
+        (hr / "scripts" / "hotfiles-notes.json").write_text("{not json")
+        check("a malformed notes file fails open to the defaults",
+              "| `shared.txt` | 2 live branches: other, other2 |" in hotspots_md(hr).splitlines(),
+              hotspots_md(hr))
+
         # A STACKED chain is not contention: wt/chain-a <= wt/chain-b <=
         # wt/chain-c each edit chain.txt, but every earlier branch is contained
         # in the next, so the chain merges clean however it lands. The real
@@ -1359,6 +1498,12 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--state-dir", type=Path, default=None)
     ap.add_argument("--gauntlet", type=Path,
                     default=Path("/mnt/sata/gorge-training/spellbench-work/gauntlet"))
+    ap.add_argument("--format", choices=["plain", "md"], default="plain",
+                    help="hotspots only: plain text (default) or a markdown "
+                         "table merged with hotfiles-notes.json")
+    ap.add_argument("--max-rows", type=int, default=None,
+                    help="hotspots --format md: render at most this many live "
+                         "rows plus a remainder count (AGENTS.md embed)")
     ap.add_argument("--selftest", action="store_true")
     a = ap.parse_args(argv)
     if a.selftest:
@@ -1367,8 +1512,11 @@ def main(argv: list[str]) -> int:
     state_dir = a.state_dir or (ds4_dir(repo, "reward") or (repo / ".ds4" / "reward"))
 
     if a.axis == "hotspots":
-        for f, bs in hotspots(repo):
-            print(f"{len(bs):3d}  {f}  <- {', '.join(bs)}")
+        if a.format == "md":
+            print(hotspots_md(repo, a.max_rows))
+        else:
+            for f, bs in hotspots(repo):
+                print(f"{len(bs):3d}  {f}  <- {', '.join(bs)}")
         return 0
 
     out: list[str] = []
