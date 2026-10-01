@@ -21,16 +21,16 @@ func TestAZFrontDoorRefusesCheckpointOnHostedRedeal(t *testing.T) {
 	azWorldArg = azmcts.WorldRedeal
 	azCorpusPath = ""
 	m := &policynet.Model{ValueHidden: 1, Features: policynet.FeaturesMZ}
-	if err := azFrontDoor("az-redeal", "bot", m); err == nil || !strings.Contains(err.Error(), "generation 0") {
+	if err := azFrontDoor("az-redeal", "bot", m, azSeatsFromHosted); err == nil || !strings.Contains(err.Error(), "generation 0") {
 		t.Fatalf("checkpoint with hosted az-redeal: err = %v, want the generation-0 refusal", err)
 	}
 	// The refusal is the checkpoint's, not the world's: the same lineup
 	// without a model is accepted, and the checkpointed honest-world shape
 	// (policy az with -az-world redeal) stays available.
-	if err := azFrontDoor("az-redeal", "bot", nil); err != nil {
+	if err := azFrontDoor("az-redeal", "bot", nil, azSeatsFromHosted); err != nil {
 		t.Fatalf("az-redeal without -checkpoint: err = %v, want nil", err)
 	}
-	if err := azFrontDoor("az", "bot", m); err != nil {
+	if err := azFrontDoor("az", "bot", m, azSeatsFromHosted); err != nil {
 		t.Fatalf("az with -az-world redeal and -checkpoint: err = %v, want nil", err)
 	}
 }

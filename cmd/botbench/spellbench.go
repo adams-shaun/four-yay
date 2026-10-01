@@ -588,7 +588,10 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 	if azBases["az-redeal"] {
 		azB = "az-redeal"
 	}
-	if err := azFrontDoor(azA, azB, ckModel); err != nil {
+	// The -spellbench az-redeal registry entry passes azNet, so a
+	// -checkpoint is applied here and the front door must not refuse it
+	// (azSeatsFromSpellbench); the -pairs path is azSeatsFromHosted.
+	if err := azFrontDoor(azA, azB, ckModel, azSeatsFromSpellbench); err != nil {
 		return fail(err)
 	}
 	if azSide {

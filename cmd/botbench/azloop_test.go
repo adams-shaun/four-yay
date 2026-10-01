@@ -32,7 +32,7 @@ func TestAZSeatDoesNotReEquipForever(t *testing.T) {
 	saveAZ(t)
 	azWorldArg = "clairvoyant"
 	azCfg.Search.Sims = 25
-	if err := azFrontDoor("bot", "az", nil); err != nil {
+	if err := azFrontDoor("bot", "az", nil, azSeatsFromHosted); err != nil {
 		t.Fatalf("azFrontDoor: %v", err)
 	}
 	reg, err := testutil.OpenCorpusRegistry(dir)

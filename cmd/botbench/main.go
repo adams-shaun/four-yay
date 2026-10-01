@@ -122,8 +122,11 @@ import (
 	"github.com/adams-shaun/gorge/bots"
 	_ "github.com/adams-shaun/gorge/bots/all"
 	"github.com/adams-shaun/gorge/bots/azredeal"
+	"github.com/adams-shaun/gorge/bots/sbfirst"
+	"github.com/adams-shaun/gorge/bots/sbheuristic"
 	hostedsbsearch "github.com/adams-shaun/gorge/bots/sbsearch"
 	"github.com/adams-shaun/gorge/bots/sbtactical"
+	"github.com/adams-shaun/gorge/bots/sbuniform"
 	"github.com/adams-shaun/gorge/bots/search"
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
@@ -374,11 +377,27 @@ func setTacticalRegistry(reg *cards.Registry) {
 	}
 }
 
+// benchAutoPayHosted are the hosted bench names whose -pairs arms predate
+// BP-16 and played builtins.AutoPay (spec 2026-09-28-hosted-bot-packages §4's
+// hosted-config table); bots.New chooses Manual unless Options.AutoPayMana is
+// set, so hostedPolicy sets it for exactly these names. The explicit Manual
+// arms stay available as the separate sb-*-manual registry entries.
+var benchAutoPayHosted = map[string]bool{
+	sbuniform.Policy:   true,
+	sbfirst.Policy:     true,
+	sbheuristic.Policy: true,
+}
+
+// hostedPolicy resolves a hosted name through bots.New, preserving the bench
+// arm where the hosted factory defaults to the table's mana setting: see
+// benchAutoPayHosted. Every other flag stays the hosted default.
 func hostedPolicy(name string) func(seed uint64) seat.Seat {
 	return func(seed uint64) seat.Seat {
-		s, err := bots.New(name, benchBotOptions(seed))
+		o := benchBotOptions(seed)
+		o.AutoPayMana = benchAutoPayHosted[name]
+		s, err := bots.New(name, o)
 		if err != nil {
-			panic(err) // constants above are the closed hosted-policy vocabulary.
+			panic(err) // bots.Names() is the hosted vocabulary this closure is built for.
 		}
 		return s
 	}
@@ -390,6 +409,12 @@ func benchBotOptions(seed uint64) bots.Options {
 
 // These overlays begin at the registry's hosted configuration; the bench's
 // parsed tuning values replace it only where the corresponding flags apply.
+// searchOverlay ignores base by construction: searchKnobs is the complete
+// config materialised from the -search-* flags, whose defaults are
+// searchseat.Defaults() (== search.Hosted()), so every field base could carry
+// is already represented and flag-set values win. It is kept a parameter so
+// the call site reads like its siblings and a future hosted base change is a
+// conscious edit here.
 func searchOverlay(base searchseat.Options) searchseat.Options { return searchKnobs }
 
 func tacticalOverlay(_ builtins.TacticalWeights) builtins.TacticalWeights { return tacticalWeights }
@@ -2644,7 +2669,7 @@ func mainExit(aName, bName string, games int, seed uint64, seats, rotate int, pa
 	if checkpoint != "" {
 		ckModel = policynetModel
 	}
-	if err := azFrontDoor(aName, bName, ckModel); err != nil {
+	if err := azFrontDoor(aName, bName, ckModel, azSeatsFromHosted); err != nil {
 		return fail(err)
 	}
 	oracleKnobs, err := withSearchOracle(searchOracleCheckpoint, aName, bName, searchKnobs)
