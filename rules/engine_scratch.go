@@ -100,6 +100,14 @@ type engineScratch struct {
 	// the potential readers use while PotentialMana adds nothing to the pool
 	// (potential_walk_cache.go). Clone copies none.
 	priorityWalk priorityWalkTail
+	// walkRec is the priority walk's pool-independent block record and
+	// walkReuse the record armed for the next potential walk
+	// (walk_block_reuse.go). Clone copies none.
+	walkRec   walkBlockRec
+	walkReuse *walkBlockRec
+	// walkBlocksServed counts the blocks a potential walk served from the
+	// record (a test-visible diagnostic, like legalActionWalks).
+	walkBlocksServed uint64
 	// graveCandBuf is the offer walk's graveyard-candidate scratch
 	// (legal_walk_grave_skip.go), taken for the section. Not cloned.
 	graveCandBuf []state.ObjID

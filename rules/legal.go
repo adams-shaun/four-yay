@@ -154,6 +154,17 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 		costStatics:   costStaticSource{e: e},
 		actionStatics: actionStaticSource{e: e},
 	}
+	// Pool-independent block reuse (walk_block_reuse.go): a potential walk
+	// takes the reuse its caller armed (nested walks never see it); the
+	// priority walk records on an engine with full potential demand.
+	if reuse := e.walkReuse; reuse != nil {
+		e.walkReuse = nil
+		if hyp != nil && !castsOnly {
+			w.reuse = reuse
+		}
+	} else if forAsk && hyp == nil && !castsOnly && e.potentialFullDemand {
+		w.rec = e.walkBlockRecorder(p)
+	}
 	w.handWalk()
 	w.mayPlayLandWalk()
 	w.mayhemLandWalk()
@@ -163,6 +174,9 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 	w.exileCastsWalk()
 	w.battlefieldWalk()
 	out = w.out
+	if w.rec != nil {
+		w.rec.finish(out)
+	}
 
 	// K:Split second (CR 702.62, rules/split_second.go): while a split-second
 	// spell is on the stack, players can't cast spells or activate abilities

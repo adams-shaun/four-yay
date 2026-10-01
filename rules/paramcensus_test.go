@@ -1603,7 +1603,7 @@ var apiSpecificRulesSA = map[string][]string{
 	// (availableManaAbilitiesForWindow), so its Reads belong to api:Mana
 	// alone -- left in the generic union they would mask every other
 	// API's unread Produced$ (measured: api:Sacrifice/api:DealDamage).
-	"Engine.windowManaUnits": {"Mana"},
+	"Engine.windowManaUnitsWith": {"Mana"},
 	// The attack-prop payment window's choice-shaped membership
 	// (rules/attack_cost.go attackChoiceManaSources): it walks the payer's
 	// battlefield and reads each window-usable mana ability's Produced$ (plus
@@ -1644,9 +1644,9 @@ var apiSpecificRulesSA = map[string][]string{
 	// reads Produced$/RestrictValid$/Cost$ (and the Amount$ helper) to build a
 	// replayable tap witness.  These reads cannot make those parameters appear
 	// implemented on unrelated resolving APIs such as Sacrifice or DealDamage.
-	"Engine.paymentPlanManaUnits":        {"Mana"},
-	"Engine.paymentPlanUnitAlternatives": {"Mana"},
-	"Engine.paymentPlanChoiceColours":    {"Mana"},
+	"Engine.paymentPlanManaUnitsOnlyCompute": {"Mana"},
+	"Engine.paymentPlanUnitAlternatives":     {"Mana"},
+	"Engine.paymentPlanChoiceColours":        {"Mana"},
 	// The payment-plan source-interference check (ticket
 	// aph-interference-scope, rules/payment_plan_interference.go) is reached
 	// only from paymentPlanAbilityTier, i.e. for an AB$ Mana candidate: it
