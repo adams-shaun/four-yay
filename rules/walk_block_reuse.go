@@ -2,6 +2,9 @@ package rules
 
 import (
 	"fmt"
+	"slices"
+
+	"github.com/adams-shaun/gorge/cards"
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/state"
@@ -55,6 +58,12 @@ type walkBlockRec struct {
 	blocks             []walkBlock
 	// raw is the recorded walk's options before the post-walk filters.
 	raw []decision.Option
+	// members / memberSpans: the seat's own battlefield objects' mana
+	// membership with the payability gate deferred (the list PotentialMana
+	// walks), by zone position, recorded by the mana section
+	// (ownManaMembers) for the decision's PotentialMana (potentialMembers).
+	members     []*cards.SA
+	memberSpans []potentialManaSpan
 }
 
 // walkBlock is one object's ability block: its span of raw, and whether it
@@ -75,9 +84,61 @@ func (e *Engine) walkBlockRecorder(p state.PlayerID) *walkBlockRec {
 		*r = walkBlockRec{owner: e}
 	}
 	clear(r.raw)
+	clear(r.members)
 	r.p, r.done, r.manaOK = p, false, false
-	r.blocks, r.raw = r.blocks[:0], r.raw[:0]
+	r.blocks, r.raw, r.members = r.blocks[:0], r.raw[:0], r.members[:0]
+	r.memberSpans = resizeCleared(r.memberSpans, len(e.G.Zone(state.ZBattlefield, p)))
 	return r
+}
+
+// recordMembers records the deferred-payability mana membership of the
+// seat's battlefield object at zone position zi (nil: provably none).
+func (r *walkBlockRec) recordMembers(zi int, all []*cards.SA) {
+	if zi >= len(r.memberSpans) {
+		return
+	}
+	start := len(r.members)
+	r.members = append(r.members, all...)
+	r.memberSpans[zi] = potentialManaSpan{start: int32(start), end: int32(len(r.members)), walked: true}
+}
+
+// ownManaMembers is the mana section's membership walk for the seat's own
+// battlefield object id (zone position zi) in a recording walk: the
+// membership with the payability gate deferred -- PotentialMana's list,
+// recorded for it -- then that gate applied, which is exactly the walk's
+// own list (appendAvailableManaAbilitiesGate applies payability as one more
+// conjunct of each ability's pure gates). Built into dst.
+func (w *legalWalk) ownManaMembers(dst []*cards.SA, zi int, o *state.Object, id state.ObjID) []*cards.SA {
+	e, p := w.e, w.p
+	all := e.appendAvailableManaAbilitiesGate(dst, &w.actionStatics, p, id, true)
+	w.rec.recordMembers(zi, all)
+	out := all[:0]
+	for _, ma := range all {
+		cc := e.compiledCostOf(ma.Params["Cost"])
+		if mf := e.manaFactsOf(ma); mf != nil {
+			cc = mf.cost
+		}
+		if e.manaCostPayable(p, o, id, cc, nil) {
+			out = append(out, ma)
+		}
+	}
+	if walkCacheVerify {
+		if want := e.appendAvailableManaAbilities(nil, &w.actionStatics, p, id); !slices.EqualFunc(want, out, sameManaAbility) {
+			panic(fmt.Sprintf("rules: recorded mana membership of %d filtered to %d abilities, the walk's has %d", id, len(out), len(want)))
+		}
+	}
+	return out
+}
+
+// potentialMembers serves PotentialMana's membership walk for p's
+// battlefield object at zone position zi from the decision's recorded
+// priority walk r (ok false: none recorded, walk it).
+func (r *walkBlockRec) potentialMembers(p state.PlayerID, zi int) ([]*cards.SA, bool) {
+	if r == nil || r.p != p || zi >= len(r.memberSpans) || !r.memberSpans[zi].walked {
+		return nil, false
+	}
+	sp := r.memberSpans[zi]
+	return r.members[sp.start:sp.end], true
 }
 
 // finishWalkRecord completes a recording with the walk's raw options.

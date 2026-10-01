@@ -78,6 +78,11 @@ const potentialUnbounded int32 = math.MaxInt32
 func (e *Engine) PotentialMana(p state.PlayerID) state.Mana {
 	e.beginDerivedMemo()
 	defer e.endDerivedMemo()
+	// The decision's recorded priority walk, when its caller armed it
+	// (potentialWalkOf), serves each object's membership list
+	// (walk_block_reuse.go); a nested call never sees it.
+	rec := e.potentialManaRec
+	e.potentialManaRec = nil
 	out := e.G.Players[p].Pool
 	// A source's abilities are admitted independently: one whose paid
 	// activation the pool could not cover yet (Heap Gate's "{1}, {T}: Add
@@ -127,7 +132,19 @@ func (e *Engine) PotentialMana(p state.PlayerID) state.Mana {
 			if !sp.walked {
 				sp.walked = true
 				sp.start = int32(len(flat))
-				if lw.manaWalkEmpty(board, o, id, o.Face()) {
+				if mem, ok := rec.potentialMembers(p, zi); ok {
+					if walkCacheVerify {
+						var fresh []*cards.SA
+						if !lw.manaWalkEmpty(board, o, id, o.Face()) {
+							fresh = e.appendAvailableManaAbilitiesGate(nil, nil, p, id, true)
+						}
+						if !slices.EqualFunc(fresh, mem, sameManaAbility) {
+							panic(fmt.Sprintf("rules: PotentialMana membership for %d served from the priority walk differs", id))
+						}
+					}
+					flat = append(flat, mem...)
+					e.walkMembersServed++
+				} else if lw.manaWalkEmpty(board, o, id, o.Face()) {
 					if potentialMembersVerify {
 						e.verifyPotentialSkip(p, o, id)
 					}

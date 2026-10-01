@@ -20,7 +20,7 @@ func TestWalkBlockReuseInGames(t *testing.T) {
 	}
 	reg := testutil.CorpusRegistry(t)
 	all := testutil.LegacyDeckNames()
-	var served uint64
+	var served, members uint64
 	for _, seed := range []uint64{3, 8} {
 		names := make([]string, 2)
 		decks := make([][]*cards.Card, 2)
@@ -42,9 +42,13 @@ func TestWalkBlockReuseInGames(t *testing.T) {
 			}
 		}
 		served += e.walkBlocksServed
+		members += e.walkMembersServed
 	}
 	if served == 0 {
 		t.Fatal("no potential walk served a recorded block: the reuse path went unexercised")
 	}
-	t.Logf("%d blocks served", served)
+	if members == 0 {
+		t.Fatal("no PotentialMana membership list was served from the record")
+	}
+	t.Logf("%d blocks and %d membership lists served", served, members)
 }

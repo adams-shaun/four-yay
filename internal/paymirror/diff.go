@@ -162,9 +162,11 @@ var excluded = map[excludedField]bool{
 	// The priority walk's pool-independent block record for the potential
 	// walk (rules/walk_block_reuse.go) and its served-block counter: a walk
 	// cache keyed like priorityWalk, and a diagnostic; Clone copies none.
-	{"rules.Engine", "walkRec"}:          true,
-	{"rules.Engine", "walkReuse"}:        true,
-	{"rules.Engine", "walkBlocksServed"}: true,
+	{"rules.Engine", "walkRec"}:           true,
+	{"rules.Engine", "walkReuse"}:         true,
+	{"rules.Engine", "walkBlocksServed"}:  true,
+	{"rules.Engine", "walkMembersServed"}: true,
+	{"rules.Engine", "potentialManaRec"}:  true,
 	// Scratch buffers reused across calls (contents after use are garbage).
 	{"rules.Engine", "legalOptBuf"}:  true,
 	{"rules.Engine", "manaAbBuf"}:    true,

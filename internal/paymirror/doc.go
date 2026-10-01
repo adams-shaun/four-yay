@@ -142,8 +142,9 @@
 //	Free, zoneEntry                    the incremental zone-entry index: caches of G and the
 //	                                   log, validated on every use; Clone copies none
 //	walkRec, walkReuse,                the priority walk's pool-independent block record for the
-//	walkBlocksServed                   potential walk (keyed like priorityWalk) and its served-
-//	                                   block diagnostic counter; Clone copies none
+//	potentialManaRec, walkBlocks/      potential walk and PotentialMana (keyed like
+//	MembersServed                      priorityWalk) and its served diagnostic counters; Clone
+//	                                   copies none
 //	legalOptBuf, manaAbBuf, manaLabels, reused scratch buffers
 //	intentBuf, sbaIDBuf, foreachBuf,
 //	graveCandBuf, hypSpares

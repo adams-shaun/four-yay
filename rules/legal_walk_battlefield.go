@@ -49,7 +49,10 @@ func (w *legalWalk) battlefieldWalk() {
 					}
 				}
 				for _, zonePlayer := range zonePlayers {
-					for _, id := range e.G.Zone(z, zonePlayer) {
+					// The seat's own battlefield membership is recorded for
+					// PotentialMana (walk_block_reuse.go: recordMembers).
+					own := w.rec != nil && z == state.ZBattlefield && zonePlayer == p
+					for zi, id := range e.G.Zone(z, zonePlayer) {
 						o := e.G.Obj(id)
 						if z == state.ZBattlefield && !existsOnBattlefield(o) {
 							// CR 702.25b: a phased-out permanent is treated as though it
@@ -69,9 +72,17 @@ func (w *legalWalk) battlefieldWalk() {
 									panic(fmt.Sprintf("rules: mana walk skip dropped %d abilities of obj %d", len(got), id))
 								}
 							}
+							if own {
+								w.rec.recordMembers(zi, nil)
+							}
 							continue
 						}
-						mas := e.appendAvailableManaAbilities(masBuf[:0], actionStatics, p, id)
+						var mas []*cards.SA
+						if own {
+							mas = w.ownManaMembers(masBuf[:0], zi, o, id)
+						} else {
+							mas = e.appendAvailableManaAbilities(masBuf[:0], actionStatics, p, id)
+						}
 						masBuf = mas
 						if len(mas) == 0 {
 							continue

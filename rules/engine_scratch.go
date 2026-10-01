@@ -108,9 +108,16 @@ type engineScratch struct {
 	// (walk_block_reuse.go). Clone copies none.
 	walkRec   walkBlockRec
 	walkReuse *walkBlockRec
+	// potentialManaRec is the record armed for the next PotentialMana's
+	// membership walk (walk_block_reuse.go potentialMembers). Clone copies
+	// none.
+	potentialManaRec *walkBlockRec
 	// walkBlocksServed counts the blocks a potential walk served from the
 	// record (a test-visible diagnostic, like legalActionWalks).
 	walkBlocksServed uint64
+	// walkMembersServed counts PotentialMana membership lists served from
+	// the record (the same kind of diagnostic).
+	walkMembersServed uint64
 	// graveCandBuf is the offer walk's graveyard-candidate scratch
 	// (legal_walk_grave_skip.go), taken for the section. Not cloned.
 	graveCandBuf []state.ObjID

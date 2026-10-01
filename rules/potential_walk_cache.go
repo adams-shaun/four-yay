@@ -175,7 +175,13 @@ func (e *Engine) potentialWalkOf(p state.PlayerID, full bool) (state.Mana, []dec
 		// PotentialMana adds nothing to the floating pool (see
 		// priorityWalkTail): only the bound needs computing.
 		e.potentialWalkDepth++
+		if e.priorityWalk.blocks {
+			// The recorded priority walk's own-battlefield membership
+			// lists serve PotentialMana's (walk_block_reuse.go).
+			e.potentialManaRec = &e.walkRec
+		}
 		mana = e.PotentialMana(p)
+		e.potentialManaRec = nil
 		e.potentialWalkDepth--
 		if mana == e.G.Players[p].Pool {
 			opts, walkFull, servedTail = tail, true, true
