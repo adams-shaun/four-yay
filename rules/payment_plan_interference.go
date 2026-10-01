@@ -399,12 +399,27 @@ func (e *Engine) paymentPlanProductionReplaced(id state.ObjID, activator state.P
 	if amount <= 0 {
 		amount = 1
 	}
+	active := e.active()
+	carriers := e.paymentPlanInterferenceCarriers()
+	// With no effect-created ProduceMana replacement and no carrier object
+	// both walks below find nothing for any symbol: answer without parsing
+	// the production.
+	if len(carriers) == 0 {
+		produceMana := false
+		for i := range active {
+			if active[i].ReplacementEvent == "ProduceMana" {
+				produceMana = true
+				break
+			}
+		}
+		if !produceMana {
+			return 0, false
+		}
+	}
 	counts, _ := cards.ProducedCounts(produced)
 	savedTap, savedProducer := e.manaFromTap, e.manaProducer
 	e.manaFromTap, e.manaProducer = fromTap, id
 	defer func() { e.manaFromTap, e.manaProducer = savedTap, savedProducer }()
-	active := e.active()
-	carriers := e.paymentPlanInterferenceCarriers()
 	for i, n := range counts {
 		if n <= 0 {
 			continue
