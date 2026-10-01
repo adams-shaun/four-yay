@@ -785,7 +785,7 @@ func (g *Game) CloneIntoDirty(objs []Object, dirty int) *Game {
 	zb := make([]ObjID, nz)
 	for i, z := range g.zones {
 		if n := len(z); n > 0 {
-			w := zb[:n:n+cloneZoneSlack]
+			w := zb[: n : n+cloneZoneSlack]
 			copy(w, z)
 			c.zones[i] = w
 			zb = zb[n+cloneZoneSlack:]

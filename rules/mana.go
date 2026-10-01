@@ -2311,7 +2311,7 @@ func formatCost(c Cost) string {
 		add(string([]byte{h.A, '/', h.B}))
 	}
 	for _, t := range c.Twobrid {
-		add(strconv.FormatInt(int64(t.Generic), 10)+"/"+string(t.Col))
+		add(strconv.FormatInt(int64(t.Generic), 10) + "/" + string(t.Col))
 	}
 	for _, p := range c.Phyrexian {
 		add(string([]byte{p, 'P'}))
@@ -2323,20 +2323,20 @@ func formatCost(c Cost) string {
 		add("S")
 	}
 	if c.Life > 0 {
-		add("PayLife<"+strconv.FormatInt(int64(c.Life), 10)+">")
+		add("PayLife<" + strconv.FormatInt(int64(c.Life), 10) + ">")
 	}
 	for range c.LifeX {
 		add("PayLife<X>")
 	}
 	for _, part := range c.DamageYou {
-		add("DamageYou<"+strconv.FormatInt(int64(part.N), 10)+">")
+		add("DamageYou<" + strconv.FormatInt(int64(part.N), 10) + ">")
 	}
 	for _, part := range c.GainLife {
 		tok := "GainLife<" + strconv.FormatInt(int64(part.N), 10) + "/" + part.Spec
 		if part.Each {
 			tok += "/*"
 		}
-		add(tok+">")
+		add(tok + ">")
 	}
 	if c.Tap {
 		add("T")
@@ -2348,7 +2348,7 @@ func formatCost(c Cost) string {
 		if part.Spec == "X" {
 			add("PayEnergy<X>")
 		} else {
-			add("PayEnergy<"+strconv.FormatInt(int64(part.N), 10)+">")
+			add("PayEnergy<" + strconv.FormatInt(int64(part.N), 10) + ">")
 		}
 	}
 	appendCostParts := func(kind string, costs []CostPart) {
@@ -2357,7 +2357,7 @@ func formatCost(c Cost) string {
 			if part.Dyn != "" {
 				n = part.Dyn
 			}
-			add(kind+"<"+n+"/"+part.Spec+">")
+			add(kind + "<" + n + "/" + part.Spec + ">")
 		}
 	}
 	appendCostParts("Sac", c.Sac)
@@ -2379,10 +2379,10 @@ func formatCost(c Cost) string {
 		if part.Announced {
 			n = "X"
 		}
-		add(head+"<"+n+"/"+part.Spec+">")
+		add(head + "<" + n + "/" + part.Spec + ">")
 	}
 	for _, part := range c.ExileFromTop {
-		add("ExileFromTop<"+strconv.FormatInt(int64(part.N), 10)+"/"+part.Spec+">")
+		add("ExileFromTop<" + strconv.FormatInt(int64(part.N), 10) + "/" + part.Spec + ">")
 	}
 	appendCostParts("Reveal", c.Reveal)
 	// RevealOrChoose prints its own head so Compile/Decompile round-trips back
@@ -2395,21 +2395,21 @@ func formatCost(c Cost) string {
 		if part.Desc != "" {
 			head += "/" + part.Desc
 		}
-		add(head+">")
+		add(head + ">")
 	}
 	for _, part := range c.RevealChosen {
 		// RevealChosen<Player> has no trailing field; RevealChosen<Type/...>
 		// prints its description. Both are re-parseable by revealChosenCost.
 		if part.Desc == "" {
-			add("RevealChosen<"+part.Spec+">")
+			add("RevealChosen<" + part.Spec + ">")
 		} else {
-			add("RevealChosen<"+part.Spec+"/"+part.Desc+">")
+			add("RevealChosen<" + part.Spec + "/" + part.Desc + ">")
 		}
 	}
 	appendCostParts("Behold", c.Behold)
 	appendCostParts("ExiledMoveToGrave", c.MoveToGrave)
 	for _, part := range c.Mill {
-		add("Mill<"+strconv.FormatInt(int64(part.N), 10)+">")
+		add("Mill<" + strconv.FormatInt(int64(part.N), 10) + ">")
 	}
 	appendCostParts("tapXType", c.TapPermanent)
 	for _, part := range c.Blight {
@@ -2417,7 +2417,7 @@ func formatCost(c Cost) string {
 			add("Blight<X>")
 			continue
 		}
-		add("Blight<"+strconv.FormatInt(int64(part.N), 10)+">")
+		add("Blight<" + strconv.FormatInt(int64(part.N), 10) + ">")
 	}
 	appendCostParts("Return", c.Return)
 	for range c.Exert {
@@ -2435,8 +2435,8 @@ func formatCost(c Cost) string {
 		case state.ZGraveyard:
 			zone = "Grave"
 		}
-		add("PutCardToLibFrom"+zone+"<"+strconv.FormatInt(int64(part.N), 10)+"/"+
-			strconv.FormatInt(int64(part.LibraryPos), 10)+"/"+part.Spec+">")
+		add("PutCardToLibFrom" + zone + "<" + strconv.FormatInt(int64(part.N), 10) + "/" +
+			strconv.FormatInt(int64(part.LibraryPos), 10) + "/" + part.Spec + ">")
 	}
 	return string(b)
 }
