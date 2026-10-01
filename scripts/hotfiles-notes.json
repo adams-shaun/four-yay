@@ -1,0 +1,43 @@
+[
+  {
+    "files": ["rules/cast.go"],
+    "note": "12515 lines and the entry point for every cast-side ticket"
+  },
+  {
+    "files": ["rules/layers.go", "rules/statics.go"],
+    "note": "every continuous-effect and keyword ticket lands here"
+  },
+  {
+    "files": ["view/view.go"],
+    "note": "every projection change; two ManaBrew/UI tickets collided on it"
+  },
+  {
+    "files": [
+      "rules/loops_prototype_test.go",
+      "rules/testdata/loop-combos.json",
+      "rules/testdata/scam-exe.json"
+    ],
+    "note": "the loops/shortcuts workstream has three branches in them at once"
+  },
+  {
+    "files": ["AGENTS.md", ".superpowers/ds4/gorge-context.md"],
+    "note": "every ticket wants to add a paragraph; the Known-approximations table is append-only-by-deletion and a rebase resurrects deleted rows"
+  },
+  {
+    "files": [
+      "rules/acceptance_test.go",
+      "rules/paramcensus_test.go",
+      "rules/heads_test.go",
+      "rules/count_head_ratchet_test.go"
+    ],
+    "note": "the ratchet tables: a merge with main newly enforces them, so edit only the entries your own change moves"
+  },
+  {
+    "files": ["scripts/deploy-demo.sh"],
+    "note": "the operator demo's one deploy procedure: every layout ticket (bot policy, ports, tables, pace, humans) and every deploy-mechanics fix (port sweep, art fill, health wait) lands here, and a layout change spans knobs and start/stop lines, so the knob/mechanics seam cannot separate two editors; 9 commits in the 3 days to 2026-09-30, and 2 live branches held it the same day (measured by `scripts/reward_collect.py hotspots`)"
+  },
+  {
+    "files": ["internal/botobs/checklist.json", "web/src/protocol.ts"],
+    "note": "the obs-axis fact-exposure workstream: every \"expose a view fact\" ticket flips one entry in the checklist and regenerates the wire twin. Neither can be split — `protocol.ts` is single generated output (`cmd/gentypes -o`, byte-identical or `make lint`/`cmd/gentypes` tests fail), and `checklist.json` is one authoritative `facts` list that `scripts/reward_collect.py:collect_obs` sums and the ratchet checks probe-for-fact, so per-fact files would fragment the obs denominator and rewire the reward axis. A fact ticket edits only its own entry's `where`/`exposed` and never reorders or reformats the array"
+  }
+]
