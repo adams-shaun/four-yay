@@ -1018,6 +1018,9 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	if sp.lookBack != nil {
 		c.lookBack, c.lookBackOwner = sp.lookBack, c
 	}
+	if sp.preview != nil {
+		c.preview, c.previewOwner = sp.preview, c
+	}
 	return c
 }
 
