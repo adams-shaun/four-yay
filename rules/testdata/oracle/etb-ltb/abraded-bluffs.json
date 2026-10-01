@@ -1,0 +1,43 @@
+{
+  "card": "Abraded Bluffs",
+  "family": "etb-ltb",
+  "oracle_sha": "8656d487b79a",
+  "author": "cli-20261001T022457Z-f0c31bb6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enters-tapped-dealing-one-to-opponent",
+      "cr": ["603.2", "305.7"],
+      "why": "Abraded Bluffs enters tapped, and its enters trigger deals 1 damage to target opponent.",
+      "setup": {
+        "p0": {"hand": ["Abraded Bluffs"]},
+        "p1": {"life": 20}
+      },
+      "steps": [
+        {"op": "play", "seat": 0, "card": "p0:Abraded Bluffs"},
+        {"op": "resolve", "targets": ["p1"]}
+      ],
+      "expect": [
+        {"card": "p0:Abraded Bluffs", "zone": "battlefield", "tapped": true},
+        {"life": {"p1": 19}}
+      ]
+    },
+    {
+      "name": "taps-for-red-and-fuels-a-bolt",
+      "cr": ["104.3", "305.5"],
+      "why": "{T}: Add {R} or {W} -- the mana ability pays for Lightning Bolt aimed at the same opponent, who has already taken the ETB's 1.",
+      "setup": {
+        "p0": {"hand": ["Abraded Bluffs", "Lightning Bolt"]},
+        "p1": {"life": 20}
+      },
+      "steps": [
+        {"op": "play", "seat": 0, "card": "p0:Abraded Bluffs"},
+        {"op": "resolve", "targets": ["p1"]},
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p1": 16}}
+      ]
+    }
+  ]
+}

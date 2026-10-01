@@ -1,0 +1,40 @@
+{
+  "card": "Panharmonicon",
+  "family": "triggered-ability",
+  "oracle_sha": "d6b545031266",
+  "author": "cli-20261001T022457Z-f0c31bb6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "creature-entry-trigger-fires-an-additional-time",
+      "cr": ["603.2", "614.5"],
+      "why": "If an artifact or creature entering causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time: Savannah Lions entering causes Welcoming Vampire's draw trigger twice, drawing two cards.",
+      "setup": {
+        "p0": {"battlefield": ["Panharmonicon", "Welcoming Vampire"], "hand": ["Savannah Lions"], "library_top": ["Forest", "Island", "Mountain"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Savannah Lions", "mana": "W"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"hand_size": {"p0": 2}}
+      ]
+    },
+    {
+      "name": "without-it-the-trigger-fires-once",
+      "cr": ["603.2"],
+      "why": "Control: with no Panharmonicon in play the same entering creature draws only one card.",
+      "setup": {
+        "p0": {"battlefield": ["Welcoming Vampire"], "hand": ["Savannah Lions"], "library_top": ["Forest", "Island"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Savannah Lions", "mana": "W"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"hand_size": {"p0": 1}}
+      ]
+    }
+  ]
+}

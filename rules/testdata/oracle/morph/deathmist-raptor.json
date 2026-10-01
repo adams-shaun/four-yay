@@ -1,0 +1,49 @@
+{
+  "card": "Deathmist Raptor",
+  "family": "morph",
+  "oracle_sha": "36e8fe33293a",
+  "author": "cli-20261001T022457Z-f0c31bb6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "megamorph-turn-up-adds-counter-and-deathtouch",
+      "cr": ["702.168a", "702.2b"],
+      "why": "Megamorph {4}{G}: turning face up puts a +1/+1 counter on the 3/3 deathtouch dinosaur, making it 4/4 with deathtouch.",
+      "setup": {
+        "p0": {"hand": ["Deathmist Raptor"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Deathmist Raptor", "cast_mode": "megamorphed", "mana": "CCC"},
+        {"op": "resolve"},
+        {"op": "mana", "seat": 0, "mana": "CCCCG"},
+        {"op": "activate", "seat": 0, "card": "p0:Deathmist Raptor", "ability": "Turn face up"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Deathmist Raptor", "zone": "battlefield", "pt": "4/4", "keywords": ["Deathtouch"]}
+      ]
+    },
+    {
+      "name": "any-face-up-permanent-returns-it-from-the-graveyard",
+      "cr": ["603.2", "708.6"],
+      "why": "'Whenever a permanent you control is turned face up' does not name the Raptor: turning Zoetic Cavern face up (a permanent, though it becomes a land) lets the Raptor return from the graveyard face up.",
+      "setup": {
+        "p0": {"hand": ["Zoetic Cavern"], "graveyard": ["Deathmist Raptor"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Zoetic Cavern", "cast_mode": "morphed", "mana": "CCC"},
+        {"op": "resolve"},
+        {"op": "mana", "seat": 0, "mana": "CC"},
+        {"op": "activate", "seat": 0, "card": "p0:Zoetic Cavern", "ability": "Turn face up"},
+        {"op": "resolve", "answers": [
+          {"kind": "any", "pick": ["yes"]},
+          {"kind": "any", "pick": ["Face Up"]}
+        ]}
+      ],
+      "expect": [
+        {"card": "p0:Deathmist Raptor", "zone": "battlefield", "pt": "3/3", "keywords": ["Deathtouch"]}
+      ]
+    }
+  ]
+}

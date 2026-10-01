@@ -1,0 +1,100 @@
+{
+  "card": "Kaust, Eyes of the Glade",
+  "family": "morph",
+  "oracle_sha": "a1654d64bdc8",
+  "author": "cli-20261001T022457Z-f0c31bb6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "tap-turns-the-attacker-face-up-and-its-damage-draws",
+      "cr": [
+        "602.2",
+        "708.6",
+        "603.2",
+        "510.2"
+      ],
+      "why": "{T}: Turn target face-down attacking creature you control face up -- Master of Pearls, attacking face down, is turned up without paying its morph cost, its +2/+2 trigger makes it 4/4 before combat damage, it deals 4 to the defender and the 'deals combat damage to a player' half draws a card.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Kaust, Eyes of the Glade"
+          ],
+          "hand": [
+            "Master of Pearls"
+          ],
+          "library_top": [
+            "Forest",
+            "Island"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Master of Pearls",
+          "cast_mode": "morphed",
+          "mana": "CCC"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "pass_to",
+          "step": "upkeep",
+          "active": "p0"
+        },
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Master of Pearls"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Kaust, Eyes of the Glade",
+          "ability": "Turn target face-down",
+          "targets": [
+            "p0:Master of Pearls"
+          ]
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "pass_to",
+          "step": "end",
+          "active": "p0"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Master of Pearls",
+          "zone": "battlefield",
+          "pt": "4/4"
+        },
+        {
+          "card": "p0:Kaust, Eyes of the Glade",
+          "zone": "battlefield",
+          "tapped": true
+        },
+        {
+          "life": {
+            "p1": 16
+          }
+        },
+        {
+          "hand_size": {
+            "p0": 1
+          }
+        }
+      ]
+    }
+  ]
+}
