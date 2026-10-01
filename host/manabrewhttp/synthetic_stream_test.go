@@ -431,13 +431,20 @@ func TestSyntheticPromptsOverStream(t *testing.T) {
 			}
 		}
 
-		// The ack ritual (assertion 2): only while a decision is parked, so
-		// the single engine goroutine is provably idle and the head cannot
-		// move for any other reason.
+		// The ack ritual (assertion 2): only while a decision is parked whose
+		// answer this driver has NOT already submitted. A submitted-but-not-yet-
+		// consumed answer leaves the seat's slot installed (HumanSeat clears it
+		// only when the match goroutine returns from await), so Pending still
+		// reports that decision while the match goroutine is awake mid-burst --
+		// its burst commits during the ack POST's round trip and would move the
+		// head between the two reads. A decision nobody has answered yet proves
+		// the goroutine is blocked in await, so the head is frozen around the
+		// ack. Nothing here submits an ordinary intent, so the fresh decision
+		// stays fresh for the whole ritual.
 		if ackPicked && !ackDone {
 			parked := false
 			for seat := state.PlayerID(0); seat <= 1; seat++ {
-				if d, perr := ts.reg.Pending("t1", 1, seat); perr == nil && d != nil {
+				if d, perr := ts.reg.Pending("t1", 1, seat); perr == nil && d != nil && d.Seq != answered[seat] {
 					parked = true
 				}
 			}
