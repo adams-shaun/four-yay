@@ -118,3 +118,76 @@ func (e *Engine) mayHaveLegendPair() bool {
 	}
 	return false
 }
+
+// sbaBoardFacts is one fused battlefield scan answering, for the pass loop's
+// per-permanent actions, whether any permanent could be acted on at all. It
+// is re-taken whenever the log has moved since (at), so a pass that applied
+// something re-reads the board; a quiet pass -- nearly every pass -- scans it
+// once instead of once per action. Each flag is the union of exactly the
+// per-object guard its action applies before it reads anything else, so a
+// false flag means that action's walk would find nothing and return false
+// with no side effect:
+//
+//   - pw: planeswalkerZeroLoyalty's phased-in printed planeswalker;
+//   - battle: battleZeroDefense's phased-in face-up printed battle;
+//   - saga: checkSagas' face with a chapter count;
+//   - counterPair: annihilateOppositeCounters' phased-in P1P1+M1M1 holder;
+//   - attach: attachmentSBAs' phased-in permanent that is attached (to an
+//     object or a player) or is an Aura (sbaIsAura);
+//   - world: mayHaveWorldPair's answer (a layer-4 effect, or two World
+//     permanents by the face test).
+type sbaBoardFacts struct {
+	at                                    int
+	pw, battle, saga, counterPair, attach bool
+	world                                 bool
+}
+
+// sbaFacts refreshes f when the log has moved since it was taken.
+func (e *Engine) sbaFacts(f *sbaBoardFacts) *sbaBoardFacts {
+	if n := len(e.L.Events); f.at != n {
+		*f = sbaBoardFacts{at: n}
+		anyLType := e.activeHasLType()
+		f.world = anyLType
+		worlds := 0
+		for _, p := range e.G.AliveFrom(0) {
+			for _, id := range e.G.Zone(state.ZBattlefield, p) {
+				o := e.G.Obj(id)
+				if o == nil {
+					continue
+				}
+				face := o.Face()
+				if face != nil {
+					if n, _ := chapterSpec(face); n > 0 {
+						f.saga = true
+					}
+					if !anyLType && e.sbaTypeFast(o, "World", false) {
+						if worlds++; worlds >= 2 {
+							f.world = true
+						}
+					}
+				}
+				if o.PhasedOut {
+					continue
+				}
+				if face != nil {
+					if face.IsPlaneswalker() {
+						f.pw = true
+					}
+					if !o.FaceDown && face.IsBattle() {
+						f.battle = true
+					}
+				}
+				if !f.counterPair && o.Counter("P1P1") > 0 && o.Counter("M1M1") > 0 {
+					f.counterPair = true
+				}
+				if !f.attach && (o.HasAttachedPlayer || o.AttachedTo != 0 || e.sbaIsAura(o, anyLType)) {
+					f.attach = true
+				}
+			}
+		}
+		if sbaQuietVerify && !f.world && len(e.worldPermanents()) >= 2 {
+			panic("rules: SBA world prefilter missed a world pair")
+		}
+	}
+	return f
+}

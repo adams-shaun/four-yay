@@ -281,9 +281,12 @@ func (e *Engine) checkStateBased() {
 	}
 	e.sbaQuiet = sbaQuietKey{}
 	e.sbaUnquiet = false
+	// The fused per-permanent prefilter (rules/sba_prefilter.go): an action
+	// whose flag is down would find nothing on the board.
+	facts := &sbaBoardFacts{at: -1}
 	for pass := 0; pass < maxSBAPasses; pass++ {
 		changed := e.checkLoseConditions(tried)
-		if e.annihilateOppositeCounters() {
+		if e.sbaFacts(facts).counterPair && e.annihilateOppositeCounters() {
 			changed = true
 		}
 		if e.destroyLethalDamage(tried) {
@@ -305,22 +308,22 @@ func (e *Engine) checkStateBased() {
 		// batch channel the legend rule uses. It runs only once no legend
 		// batch is parked (the halt above), so a pass that parks a legend ask
 		// settles it before applying the world rule on the answer's next pass.
-		if e.worldRule() {
+		if e.sbaFacts(facts).world && e.worldRule() {
 			changed = true
 		}
-		if e.planeswalkerZeroLoyalty(tried) {
+		if e.sbaFacts(facts).pw && e.planeswalkerZeroLoyalty(tried) {
 			changed = true
 		}
-		if e.battleZeroDefense(tried) {
+		if e.sbaFacts(facts).battle && e.battleZeroDefense(tried) {
 			changed = true
 		}
 		if e.ceaseDeadTokens(tried) {
 			changed = true
 		}
-		if e.attachmentSBAs() {
+		if e.sbaFacts(facts).attach && e.attachmentSBAs() {
 			changed = true
 		}
-		if e.checkSagas(tried) {
+		if e.sbaFacts(facts).saga && e.checkSagas(tried) {
 			changed = true
 		}
 		// CR 704.5t: a dungeon whose marker sits on its bottommost room and
