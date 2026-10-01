@@ -102,13 +102,22 @@ func (e *Engine) paymentPlanCheckUnits(pc *pendingCast) (string, []windowManaUni
 	if pain := paymentPlanRemainingPain(plan, next); pain > 0 && pain >= int64(e.G.Players[pc.player].Life) {
 		return paymentFallbackCostChanged, nil, plannedManaActivation{}, false
 	}
-	if next == 0 && !paymentPlanPoolOK(e.G.Players[pc.player]) {
+	if next == 0 && !paymentPlanPoolOK(&e.G.Players[pc.player]) {
 		return paymentFallbackProductionChanged, nil, plannedManaActivation{}, false
 	}
 	if next > 0 && next < len(plan.Activations) && e.paymentPlanManaInterference() {
 		return paymentFallbackProductionChanged, nil, plannedManaActivation{}, false
 	}
-	units := e.paymentPlanManaUnits(pc.player)
+	// Only the remaining steps' sources are resolved below (and the
+	// executor resolves the next of them), so the census is taken for those
+	// sources alone (paymentPlanManaUnitsOnly: exactly the full census's
+	// units for them).
+	var srcBuf [16]state.ObjID
+	only := srcBuf[:0]
+	for _, pa := range plan.Activations[min(next, len(plan.Activations)):] {
+		only = append(only, pa.Source)
+	}
+	units := e.paymentPlanManaUnitsOnly(pc.player, only)
 	pool := e.G.Players[pc.player].Pool
 	var first plannedManaActivation
 	for i, pa := range plan.Activations {
@@ -214,8 +223,6 @@ func (e *Engine) executePlannedManaActivationUnits(pc *pendingCast, units []wind
 	if units == nil {
 		units = e.paymentPlanManaUnits(pc.player)
 		ready = false
-	} else if walkCacheVerify && !paymentPlanSameUnits(units, e.paymentPlanManaUnits(pc.player)) {
-		panic("payment plan executor: the checked source census is stale")
 	}
 	step := checked
 	if !ready {
@@ -225,9 +232,12 @@ func (e *Engine) executePlannedManaActivationUnits(pc *pendingCast, units []wind
 			e.paymentPlanFallback(pc, reason)
 			return false
 		}
-	} else if walkCacheVerify {
-		fresh, reason := e.paymentPlanStepReady(pc.player, units, pa)
-		if reason != "" || !paymentPlanSameAlternative(fresh, step) {
+	}
+	if walkCacheVerify {
+		// The checked census (restricted to the plan's sources) and step
+		// must be exactly what a fresh full census resolves here.
+		fresh, reason := e.paymentPlanStepReady(pc.player, e.paymentPlanManaUnits(pc.player), pa)
+		if reason != "" || !paymentPlanSameStep(fresh, step) {
 			panic("payment plan executor: the checked step is stale")
 		}
 	}
@@ -274,6 +284,17 @@ func (e *Engine) executePlannedManaActivationUnits(pc *pendingCast, units []wind
 	// the manual window after a fallback.
 	e.continueCast()
 	return true
+}
+
+// paymentPlanSameStep compares two resolutions of one witness step at one
+// state: every field, the abilities up to the identity of an ability built
+// per call (a CR 305.6 intrinsic) and the exec copy up to its content.
+func paymentPlanSameStep(a, b plannedManaActivation) bool {
+	if !sameManaAbility(a.ma, b.ma) || !sameManaAbility(a.exec, b.exec) {
+		return false
+	}
+	a.ma, b.ma, a.exec, b.exec = nil, nil, nil, nil
+	return a == b
 }
 
 // manaWindowAsk implements CR 601.2g: if the total cost includes a mana

@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
@@ -226,18 +227,46 @@ type windowManaUnit struct {
 // permanent -- O(permanents^2) per call on a token board otherwise (cardfuzz
 // seed 6181111140895991800).
 func (e *Engine) windowManaUnits(p state.PlayerID) []windowManaUnit {
+	return e.windowManaUnitsOnly(p, nil)
+}
+
+// windowManaUnitsOnly is windowManaUnits restricted to the sources in only
+// (nil: every source): each source's unit is computed from that source
+// alone, so the restricted census is exactly the full census's units for
+// those sources, in the same order.
+func (e *Engine) windowManaUnitsOnly(p state.PlayerID, only []state.ObjID) []windowManaUnit {
+	return e.windowManaUnitsWith(p, only, nil)
+}
+
+// windowManaUnitsWith is windowManaUnitsOnly with p's own battlefield
+// sources' payment-window abilities already read: pre[k] is
+// availableManaAbilitiesForWindow(p, id, false) for the k-th object of p's
+// battlefield zone (the first ids the walk visits, appendBattlefieldManaSourceIDs),
+// read at this state by a caller that needs the same lists (the payment
+// planner's census). The list is a pure read of the board, so it is the
+// one this walk would read.
+func (e *Engine) windowManaUnitsWith(p state.PlayerID, only []state.ObjID, pre [][]*cards.SA) []windowManaUnit {
 	e.beginDerivedMemo()
 	defer e.endDerivedMemo()
 	var out []windowManaUnit
 	ids := e.appendBattlefieldManaSourceIDs(e.idsBorrow(), p)
 	defer e.idsRelease(ids)
-	for _, id := range ids {
+	for k, id := range ids {
+		if only != nil && !slices.Contains(only, id) {
+			continue
+		}
 		o := e.G.Obj(id)
 		if o == nil || o.Face() == nil {
 			continue
 		}
+		var mas []*cards.SA
+		if k < len(pre) {
+			mas = pre[k]
+		} else {
+			mas = e.availableManaAbilitiesForWindow(p, id, false)
+		}
 		var free []*cards.SA
-		for _, ma := range e.availableManaAbilitiesForWindow(p, id, false) {
+		for _, ma := range mas {
 			if strings.TrimSpace(ma.Params["RestrictValid"]) != "" {
 				continue
 			}

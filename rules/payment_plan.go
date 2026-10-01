@@ -470,7 +470,7 @@ func (e *Engine) paymentActionsForPriority(p state.PlayerID, seq uint64, options
 	// Every candidate's plan is declined on a pool the planner cannot
 	// account for (planCastPaymentChecked), and that verdict reads only the
 	// player, so no walk can change the empty result.
-	if !paymentPlanPoolOK(e.G.Players[p]) {
+	if !paymentPlanPoolOK(&e.G.Players[p]) {
 		e.paymentStats.recordBuild(true)
 		return nil
 	}
@@ -690,19 +690,35 @@ func paymentPlanCostOK(c Cost) bool {
 // mana) are ordinary mana of their colour. Restricted mana, which only some
 // spells may spend, is still declined.
 func (e *Engine) paymentPlanPoolAccepted(p state.PlayerID) bool {
-	pl := e.G.Players[p]
+	pl := &e.G.Players[p]
 	if e.paymentPlanPotentialPool {
 		return len(pl.RestrictedMana) == 0
 	}
 	return paymentPlanPoolOK(pl)
 }
 
-func paymentPlanPoolOK(p state.Player) bool {
+// paymentPlanPoolOK reports whether p's floating mana is plain: no snow,
+// persistent or restricted mana and every producer-typed unit
+// (state.Player.ManaUnits) empty. It reads the player in place; the units
+// are formed exactly as ManaUnits forms them, without its two copies of
+// the player.
+func paymentPlanPoolOK(p *state.Player) bool {
 	if p.Snow.Total() != 0 || p.PersistentMana.Total() != 0 || len(p.RestrictedMana) != 0 {
 		return false
 	}
-	for _, m := range p.ManaUnits() {
+	for t := range p.TypedMana {
+		m := p.TypedMana[t]
+		if t < len(p.ArtifactTyped) {
+			for i := range m {
+				m[i] -= p.ArtifactTyped[t][i]
+			}
+		}
 		if m.Total() != 0 {
+			return false
+		}
+	}
+	for t := range p.ArtifactTyped {
+		if p.ArtifactTyped[t].Total() != 0 {
 			return false
 		}
 	}
@@ -920,12 +936,52 @@ func (e *Engine) planPaymentCostWithout(p state.PlayerID, cast decision.PlannedC
 // the same payment-window membership, which reads the board only, so the
 // first layer's list is kept (by zone position) for the second.
 func (e *Engine) paymentPlanManaUnits(p state.PlayerID) []windowManaUnit {
+	return e.paymentPlanManaUnitsOnly(p, nil)
+}
+
+// paymentPlanManaUnitsOnly is paymentPlanManaUnits restricted to the
+// sources in only (nil: every source). Every layer below computes a
+// source's unit from that source alone (the evaluated-amount probe is the
+// whole board tapped, whichever source asks), so the restricted census is
+// exactly the full census's units for those sources, in the same order;
+// verify mode (walkCacheVerify) compares the two.
+func (e *Engine) paymentPlanManaUnitsOnly(p state.PlayerID, only []state.ObjID) []windowManaUnit {
+	units := e.paymentPlanManaUnitsOnlyCompute(p, only)
+	if walkCacheVerify && only != nil {
+		var want []windowManaUnit
+		for _, u := range e.paymentPlanManaUnitsOnlyCompute(p, nil) {
+			if slices.Contains(only, u.id) {
+				want = append(want, u)
+			}
+		}
+		if !paymentPlanSameUnits(units, want) {
+			panic(fmt.Sprintf("payment plan census: restricted census for %v is not the full census's", only))
+		}
+	}
+	return units
+}
+
+func (e *Engine) paymentPlanManaUnitsOnlyCompute(p state.PlayerID, only []state.ObjID) []windowManaUnit {
 	e.beginDerivedMemo()
 	defer e.endDerivedMemo()
-	units := e.windowManaUnits(p)
 	zone := e.G.Zone(state.ZBattlefield, p)
+	// Each of p's sources' payment-window abilities, read once here for
+	// both the shared census (windowManaUnitsWith) and the layers below:
+	// the shared census reads every source with a face, tapped or not.
 	windowMas := make([][]*cards.SA, len(zone))
 	for zi, id := range zone {
+		if only != nil && !slices.Contains(only, id) {
+			continue
+		}
+		if o := e.G.Obj(id); o != nil && o.Face() != nil {
+			windowMas[zi] = e.availableManaAbilitiesForWindow(p, id, false)
+		}
+	}
+	units := e.windowManaUnitsWith(p, only, windowMas)
+	for zi, id := range zone {
+		if only != nil && !slices.Contains(only, id) {
+			continue
+		}
 		o := e.G.Obj(id)
 		if o == nil || o.Tapped || o.Face() == nil {
 			continue
@@ -937,7 +993,6 @@ func (e *Engine) paymentPlanManaUnits(p state.PlayerID) []windowManaUnit {
 				break
 			}
 		}
-		windowMas[zi] = e.availableManaAbilitiesForWindow(p, id, false)
 		for _, ma := range windowMas[zi] {
 			raw := strings.TrimSpace(ma.Params["Produced"])
 			amt := availableAmount(ma)
@@ -996,6 +1051,9 @@ func (e *Engine) paymentPlanManaUnits(p state.PlayerID) []windowManaUnit {
 	// source (the overwhelming majority) pays no clone at all.
 	var probe *Engine
 	for zi, id := range zone {
+		if only != nil && !slices.Contains(only, id) {
+			continue
+		}
 		o := e.G.Obj(id)
 		if o == nil || o.Tapped || o.Face() == nil {
 			continue
