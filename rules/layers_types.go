@@ -484,7 +484,7 @@ func (e *Engine) matchesWithCharsPTSlow(ce *ContinuousEffect, id state.ObjID, ty
 	// A face-down candidate's colour-bearing programs still take the textual
 	// fallback inside evaluate (CR 708.5), so no new printed-colour claim is
 	// introduced for a context whose characteristics do not exist.
-	return effects.MatchesSpecCtx(e.G, affects, id, sc)
+	return effects.MatchesSpecCtxPtr(e.G, affects, id, &sc)
 }
 
 // cardTypeWords are the card types; supertypeWords the supertypes. Every

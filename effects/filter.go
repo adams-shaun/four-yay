@@ -2456,6 +2456,17 @@ func MatchesSpecCtx(g *state.Game, spec string, id state.ObjID, sc SpecContext) 
 	return matchesObjectPtr(g, spec, o, &sc)
 }
 
+// MatchesSpecCtxPtr is MatchesSpecCtx reading the caller's context in place
+// (no copy of the large SpecContext); the match may write scratch fields of
+// *sc, so the caller must not reuse it.
+func MatchesSpecCtxPtr(g *state.Game, spec string, id state.ObjID, sc *SpecContext) bool {
+	o := g.Obj(id)
+	if o == nil {
+		return false
+	}
+	return matchesObjectPtr(g, spec, o, sc)
+}
+
 // matchesZoneSpecCtx matches a filter over a known zone. Forge's Permanent
 // base names a permanent card when a count already scoped the candidates to a
 // non-battlefield zone; it must not re-check the object's current zone and

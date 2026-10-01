@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -403,6 +404,7 @@ func (e *Engine) verifyInertActive() {
 	cached := append([]ContinuousEffect(nil), e.activeBuf...)
 	savedEpoch, savedBuf := e.activeEpoch, e.activeBuf
 	savedHeads, savedSeq := e.activeKWHeads, e.activeBuildSeq
+	savedHeadSet, savedHeadSetOK := e.activeKWHeadSet, e.activeKWHeadSetOK
 	savedStaticSeq := e.activeStaticSeq
 	savedDerivedSeq, savedAlt := e.derivedSeq, e.activeBufAlt
 	savedPrevEpoch, savedPrevVersion, savedPrevObjs := e.derivedPrevEpoch, e.derivedPrevVersion, e.derivedPrevObjs
@@ -413,6 +415,7 @@ func (e *Engine) verifyInertActive() {
 	// nor the transparency baseline: give it fresh storage.
 	e.activeBufAlt = nil
 	e.activeEpoch, e.activeBuf, e.activeKWHeads = -1, nil, nil
+	e.activeKWHeadSet, e.activeKWHeadSetOK = cards.KeywordHeadSet{}, false
 	// A nested call would take the re-entrant private-buffer path; drop to
 	// depth 0 so the forced rebuild is an ordinary outermost build.
 	depth := e.activeDepth
@@ -424,6 +427,7 @@ func (e *Engine) verifyInertActive() {
 	// cross-walk reuse keys on the count).
 	e.activeEpoch, e.activeBuf = savedEpoch, savedBuf
 	e.activeKWHeads, e.activeBuildSeq = savedHeads, savedSeq
+	e.activeKWHeadSet, e.activeKWHeadSetOK = savedHeadSet, savedHeadSetOK
 	e.activeStaticSeq = savedStaticSeq
 	e.derivedSeq, e.activeBufAlt = savedDerivedSeq, savedAlt
 	e.derivedPrevEpoch, e.derivedPrevVersion, e.derivedPrevObjs = savedPrevEpoch, savedPrevVersion, savedPrevObjs

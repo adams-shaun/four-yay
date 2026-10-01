@@ -470,7 +470,7 @@ func (e *Engine) matchesSpec(spec string, id state.ObjID, sc effects.SpecContext
 			return e.verifySpecDerivedSkip(spec, id, sc)
 		}
 	}
-	return effects.MatchesSpecCtx(e.G, spec, id, sc)
+	return effects.MatchesSpecCtxPtr(e.G, spec, id, &sc)
 }
 
 // verifySpecDerivedSkip is matchesSpec's verify-mode tail for a spec

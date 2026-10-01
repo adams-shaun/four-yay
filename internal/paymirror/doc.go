@@ -119,7 +119,8 @@
 //	staticContinuous/Epoch/Version/    layer/static rebuild caches keyed by log length and
 //	Objs/BuildSeq/QueueBuf, activeBuf/   continuousVersion; build sequence counters and
 //	Epoch/Version/Depth/Objs/         their snapshots are local cache keys (Clone rebuilds)
-//	BuildSeq/StaticSeq, renames/*,
+//	BuildSeq/StaticSeq/KWHeadSet(OK),
+//	renames/*,
 //	layer4Types/types*, sbaQuiet/Unquiet
 //	typesIncrReady/SelfOnly/Srcs/      layer-4 table incremental state and statics-probe
 //	MayDiffer/Touch/Act/Visited/       cache keyed by log length, continuousVersion and object
@@ -153,7 +154,9 @@
 //	                                   copies none
 //	legalOptBuf, manaAbBuf, manaLabels, reused scratch buffers
 //	intentBuf, sbaIDBuf, foreachBuf,
-//	graveCandBuf, hypSpares
+//	graveCandBuf, hypSpares,
+//	targetCensusBuf, manaAbScratch,
+//	offStackSlots, offStackDepth
 //	discardAllFirstTime                the DiscardedAll matcher's FirstTime$ scratch: written on
 //	                                   every match and read only right after it; Clone copies none
 //	loop, askCount                    intent-stream watchdog and ask counter: they count the

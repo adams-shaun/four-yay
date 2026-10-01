@@ -889,6 +889,7 @@ func (e *Engine) activeBuild() []ContinuousEffect {
 		e.derivedNoteBuild()
 		e.activeBufAlt, e.activeBuf = e.activeBuf, buf
 		e.activeKWHeads = appendKWHeads(e.activeKWHeads[:0], buf)
+		e.activeKWHeadSet, e.activeKWHeadSetOK = kwHeadSetOf(e.activeKWHeads)
 		e.activeList = activeListKey{ok: true, version: e.continuousVersion, staticSeq: e.staticBuildSeq,
 			liveN: liveN, live: live, allLocal: allLocal}
 	} else {

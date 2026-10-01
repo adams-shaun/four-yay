@@ -1,6 +1,9 @@
 package rules
 
-import "github.com/adams-shaun/gorge/state"
+import (
+	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/state"
+)
 
 // engineLayerCaches groups the Engine's layer memoisation and arena-scan
 // caches that a clone deliberately leaves zero. It is embedded by value in
@@ -117,6 +120,11 @@ type engineLayerCaches struct {
 	// by keywordmay.go's exact Derived-keyword precheck. Never cloned, like
 	// activeBuf: a clone's zero key rebuilds both together.
 	activeKWHeads []string
+	// activeKWHeadSet is activeKWHeads as interned keyword-head ordinals,
+	// valid (activeKWHeadSetOK) only when every head interned; set with
+	// activeKWHeads at each assignment (kwHeadSetOf).
+	activeKWHeadSet   cards.KeywordHeadSet
+	activeKWHeadSetOK bool
 	// activeBuildSeq counts active()'s REBUILDS (never its exact or
 	// layer-inert hits). derivedmemo.go's cross-walk reuse keys on it: an
 	// unchanged count means no non-inert event, continuous-registry write,
