@@ -42,10 +42,13 @@ import (
 // walk (potentialFullDemand), and is promoted to usable only when
 // notePriorityWalk records that walk as the decision's tail. A potential
 // walk uses it only when the tail is still exact for its seat
-// (priorityWalkTailFor) and the walk is full. Blocks are matched by walk
-// order and checked by zone, zone owner and object; any mismatch stops the
-// reuse for the rest of the walk. Verify mode (walkCacheVerify) recomputes
-// every reusing walk without reuse and panics unless the two are identical.
+// (priorityWalkTailFor) and the walk is full. Both walks visit the same
+// objects in the same order (the same state); only the ability blocks that
+// read the pricing pool or offered something are recorded, in that order,
+// and matched by zone, zone owner and object -- an object with no record
+// read no pricing pool and offered nothing. Verify mode (walkCacheVerify)
+// recomputes every reusing walk without reuse and panics unless the two are
+// identical.
 type walkBlockRec struct {
 	owner *Engine
 	p     state.PlayerID
@@ -171,6 +174,12 @@ func (w *legalWalk) recordManaSection(start int) {
 // reuseAbilityBlock serves object id's ability block from the recording
 // when that block read no pricing pool; false walks it (and a gated block
 // is walked).
+//
+// Only a block that read the pricing pool or offered something is
+// recorded (recordAbilityBlock): an unrecorded object's block, which read
+// no pricing pool and offered nothing, is served as empty. The recorded
+// blocks are a subsequence of the walk's, in walk order, matched by zone,
+// zone owner and object.
 func (w *legalWalk) reuseAbilityBlock(z state.Zone, zp state.PlayerID, id state.ObjID) bool {
 	r := w.reuse
 	if r == nil {
@@ -178,11 +187,7 @@ func (w *legalWalk) reuseAbilityBlock(z state.Zone, zp state.PlayerID, id state.
 	}
 	k := w.reuseCursor
 	if k >= len(r.blocks) || r.blocks[k].id != id || r.blocks[k].zone != z || r.blocks[k].zp != zp {
-		if walkCacheVerify {
-			panic(fmt.Sprintf("rules: walk block %d (obj %d zone %d) does not match the recorded walk", k, id, z))
-		}
-		w.reuse = nil
-		return false
+		return true // unrecorded: provably empty
 	}
 	w.reuseCursor++
 	b := r.blocks[k]
@@ -194,11 +199,15 @@ func (w *legalWalk) reuseAbilityBlock(z state.Zone, zp state.PlayerID, id state.
 }
 
 // recordAbilityBlock records object id's ability block, which began at
-// output length start with gates pricing reads.
+// output length start with gates pricing reads, when it read the pricing
+// pool or offered something (an empty pool-independent block is implied by
+// its absence).
 func (w *legalWalk) recordAbilityBlock(z state.Zone, zp state.PlayerID, id state.ObjID, start, gates int) {
 	if r := w.rec; r != nil {
-		r.blocks = append(r.blocks, walkBlock{id: id, zone: z, zp: zp,
-			start: int32(start), end: int32(len(w.out)), priced: w.gates != gates})
+		if priced := w.gates != gates; priced || len(w.out) > start {
+			r.blocks = append(r.blocks, walkBlock{id: id, zone: z, zp: zp,
+				start: int32(start), end: int32(len(w.out)), priced: priced})
+		}
 	}
 }
 
