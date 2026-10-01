@@ -1,0 +1,85 @@
+{
+  "card": "Army of the Damned",
+  "family": "cost-modifier",
+  "oracle_sha": "a66fb2f68ec7",
+  "author": "cli-20260930T220416Z-ed59db28 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "cast-creates-thirteen-tapped-zombies",
+      "cr": [
+        "701.24a",
+        "111.8a"
+      ],
+      "why": "Casting it creates thirteen tapped 2/2 black Zombie creature tokens.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Army of the Damned"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Army of the Damned",
+          "mana": "BBBBBBBB"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Zombie"
+          },
+          "eq": 13
+        }
+      ]
+    },
+    {
+      "name": "flashback-from-graveyard-then-exiles",
+      "cr": [
+        "702.79",
+        "601.2i"
+      ],
+      "why": "Casting it from the graveyard for its flashback cost again creates thirteen Zombies, and the card is then exiled.",
+      "setup": {
+        "p0": {
+          "graveyard": [
+            "Army of the Damned"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Army of the Damned",
+          "cast_mode": "flashback",
+          "mana": "BBBBBBBBBB"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Zombie"
+          },
+          "eq": 13
+        },
+        {
+          "card": "p0:Army of the Damned",
+          "zone": "exile"
+        }
+      ]
+    }
+  ]
+}

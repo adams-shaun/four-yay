@@ -1,0 +1,94 @@
+{
+  "card": "Mosswort Bridge",
+  "family": "activated-ability",
+  "oracle_sha": "d321414d26c8",
+  "author": "cli-20260930T220416Z-ed59db28 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "hideaway-exiles-one-of-top-four-face-down",
+      "cr": [
+        "702.35",
+        "614.13"
+      ],
+      "why": "When it enters, hideaway 4 looks at the top four cards and exiles one of my choice face down; the Bridge itself enters tapped.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Mosswort Bridge"
+          ],
+          "library_top": [
+            "Lightning Bolt"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "play",
+          "seat": 0,
+          "card": "p0:Mosswort Bridge",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "Lightning Bolt"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Lightning Bolt",
+          "zone": "exile"
+        },
+        {
+          "card": "p0:Mosswort Bridge",
+          "zone": "battlefield",
+          "tapped": true
+        }
+      ]
+    },
+    {
+      "name": "power-ten-offers-the-play-ability",
+      "cr": [
+        "702.35",
+        "602.2",
+        "606.2"
+      ],
+      "why": "With creatures of total power 10 or greater (Craterhoof 8 + Endbringer 2) the Bridge's {G},{T} 'you may play the exiled card' ability is a legal activation: the condition gate is met, so activating it pays {G} and taps the Bridge. The harness cannot pre-set ExiledWith, so a card is not actually played; that the activation is offered and its cost paid is the observable claim.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Mosswort Bridge",
+            "Craterhoof Behemoth",
+            "Endbringer"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Mosswort Bridge",
+          "ability": "play the exiled card",
+          "mana": "G"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Mosswort Bridge",
+          "zone": "battlefield",
+          "tapped": true
+        },
+        {
+          "pool": {
+            "p0": ""
+          }
+        }
+      ]
+    }
+  ]
+}

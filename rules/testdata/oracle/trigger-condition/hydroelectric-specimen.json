@@ -1,0 +1,148 @@
+{
+  "card": "Hydroelectric Specimen",
+  "family": "trigger-condition",
+  "oracle_sha": "8848179e45db",
+  "author": "cli-20260930T220416Z-ed59db28 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "flash-retargets-single-target-spell-to-itself",
+      "cr": [
+        "702.55a",
+        "603.3d",
+        "115.6a"
+      ],
+      "why": "I cast the flash Weird while the opponent's Shock (a spell with a single target) is on the stack; its enters trigger changes Shock's target to itself. The 1/4 survives the 1 damage and my Grizzly Bears are untouched.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Grizzly Bears"
+          ],
+          "hand": [
+            "Hydroelectric Specimen"
+          ]
+        },
+        "p1": {
+          "hand": [
+            "Shock"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "pass",
+          "seat": 0
+        },
+        {
+          "op": "cast",
+          "seat": 1,
+          "card": "p1:Shock",
+          "targets": [
+            "p0:Grizzly Bears"
+          ],
+          "mana": "R"
+        },
+        {
+          "op": "pass",
+          "seat": 1
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Hydroelectric Specimen",
+          "mana": "CCU"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Hydroelectric Specimen",
+          "zone": "battlefield",
+          "damage": 2
+        },
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "battlefield",
+          "damage": 0
+        },
+        {
+          "card": "p1:Shock",
+          "zone": "graveyard"
+        }
+      ]
+    },
+    {
+      "name": "laboratory-face-pays-three-life-or-enters-tapped",
+      "cr": [
+        "709.4",
+        "709.2"
+      ],
+      "why": "The back face Hydroelectric Laboratory has an 'as it enters' choice: paying 3 life lets it enter untapped, and untapped it taps for {U}.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Hydroelectric Specimen"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "play",
+          "seat": 0,
+          "card": "p0:Hydroelectric Specimen",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "life"
+              ]
+            }
+          ],
+          "expect": [
+            {
+              "card": "p0:Hydroelectric Specimen",
+              "zone": "battlefield",
+              "tapped": false
+            },
+            {
+              "life": {
+                "p0": 17
+              }
+            }
+          ]
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Hydroelectric Specimen",
+          "ability": "add",
+          "expect": [
+            {
+              "card": "p0:Hydroelectric Specimen",
+              "zone": "battlefield",
+              "tapped": true
+            },
+            {
+              "pool": {
+                "p0": "U"
+              }
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Hydroelectric Specimen",
+          "zone": "battlefield",
+          "tapped": true
+        },
+        {
+          "life": {
+            "p0": 17
+          }
+        }
+      ]
+    }
+  ]
+}

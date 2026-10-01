@@ -1,0 +1,97 @@
+{
+  "card": "Hullbreaker Horror",
+  "family": "triggered-ability",
+  "oracle_sha": "740c218017e0",
+  "author": "cli-20260930T220416Z-ed59db28 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "flash-cast-bounces-nonland-permanent-when-spell-cast",
+      "cr": [
+        "702.8",
+        "700.7",
+        "601.2i"
+      ],
+      "why": "Hullbreaker has flash, so p0 casts it during p1's main phase; when p0 later casts Lightning Bolt, the Horror's 'choose up to one' trigger returns a target nonland permanent \u2014 p1's Grizzly Bears \u2014 to its owner's hand, while the Bolt resolves for 3.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Hullbreaker Horror",
+            "Lightning Bolt"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p1"
+        },
+        {
+          "op": "pass",
+          "seat": 1
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Hullbreaker Horror",
+          "mana": "UUUUUUUUU"
+        },
+        {
+          "op": "pass",
+          "seat": 0
+        },
+        {
+          "op": "pass",
+          "seat": 1
+        },
+        {
+          "op": "pass",
+          "seat": 1
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Lightning Bolt",
+          "mana": "R",
+          "targets": [
+            "p1",
+            "p1:Grizzly Bears"
+          ],
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "nonland permanent"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Hullbreaker Horror",
+          "zone": "battlefield",
+          "pt": "7/8"
+        },
+        {
+          "hand_size": {
+            "p1": 2
+          }
+        },
+        {
+          "life": {
+            "p1": 17
+          }
+        }
+      ]
+    }
+  ]
+}

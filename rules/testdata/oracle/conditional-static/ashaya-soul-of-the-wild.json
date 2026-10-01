@@ -1,0 +1,53 @@
+{
+  "card": "Ashaya, Soul of the Wild",
+  "family": "conditional-static",
+  "oracle_sha": "a9dd5edc4621",
+  "author": "cli-20260930T220416Z-ed59db28 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "nontoken-creatures-are-forests-and-pt-counts-lands",
+      "cr": [
+        "613.1f",
+        "613.4",
+        "614.13"
+      ],
+      "why": "Ashaya's static makes every nontoken creature I control a Forest in addition to its types, and its own P/T equals the number of lands I control (the Forest plus the now-Forest bear), so 2/2.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Ashaya, Soul of the Wild"
+          ],
+          "battlefield": [
+            "Forest",
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Ashaya, Soul of the Wild",
+          "mana": "GGGGGG"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "types": [
+            "Forest"
+          ],
+          "zone": "battlefield"
+        },
+        {
+          "card": "p0:Ashaya, Soul of the Wild",
+          "zone": "battlefield",
+          "pt": "2/2"
+        }
+      ]
+    }
+  ]
+}
