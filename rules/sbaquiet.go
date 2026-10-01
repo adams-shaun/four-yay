@@ -63,6 +63,9 @@ type sbaQuietKey struct {
 	// before it was a quiet kind rather than layer-inert.
 	scanned  int
 	sawQuiet bool
+	// pushes counts the TriggerPush/AbilityPush events before scanned: the
+	// arena may have grown by exactly that many face-less ability objects.
+	pushes int
 }
 
 // sbaQuietVerifyFlag turns verify mode on in a non-test binary:
@@ -73,9 +76,9 @@ var sbaQuietVerify = sbaQuietVerifyFlag != ""
 
 // sbaQuietNow reports whether the pass loop would provably apply nothing.
 func (e *Engine) sbaQuietNow() bool {
-	q := e.sbaQuiet
-	if q.ep <= 0 || e.legendBatch != nil || q.ver != e.continuousVersion || q.objs != len(e.G.Objs) ||
-		!e.sbaInputsQuietSince(&e.sbaQuiet) {
+	q := &e.sbaQuiet
+	if q.ep <= 0 || e.legendBatch != nil || q.ver != e.continuousVersion || q.objs > len(e.G.Objs) ||
+		!e.sbaInputsQuietSince(q) || !e.facelessAppended(q.objs, q.pushes) {
 		return false
 	}
 	// The player-level losses (CR 704.5a/b, 903.10) are re-read on every
@@ -145,6 +148,9 @@ func (e *Engine) sbaInputsQuietSince(q *sbaQuietKey) bool {
 				return false
 			}
 			q.sawQuiet = true
+			if ev.Kind == events.TriggerPush || ev.Kind == events.AbilityPush {
+				q.pushes++
+			}
 		}
 		q.scanned = i + 1
 	}
@@ -190,8 +196,28 @@ func (e *Engine) sbaInputsQuietSince(q *sbaQuietKey) bool {
 //     Dead family) -- and a Saga's or dungeon's "busy" test, whose deferral
 //     never records a quiet key. Damage to an object is NOT quiet: lethal
 //     damage reads marked damage.
+//   - the keyword-action markers (pureMarkerKind): Apply writes nothing;
+//   - TriggerPush and AbilityPush by a player still in the game: each mints
+//     one face-less ability object on the stack (sbaQuietNow holds the arena
+//     growth to exactly their count, every appended object face-less). The
+//     pass loop reads a non-battlefield object only to cease a token, to
+//     sweep a DEPARTED player's objects (this controller has not departed:
+//     PlayerLost is not quiet) and in the Saga/dungeon "busy" tests, whose
+//     deferral never records a quiet key -- a push can make a recorded
+//     board busier, never complete a Saga or dungeon. AbilityPush's
+//     ActivatedThisTurn tally on its source is read by no SBA;
+//   - a battlefield entry the pass loop provably finds nothing to do with
+//     (sbaQuietEntry).
 func (e *Engine) sbaQuietEvent(ev *events.Event) bool {
+	if pureMarkerKind(ev.Kind) {
+		return true
+	}
+	if ev.Kind == events.MoveZone && ev.To == state.ZBattlefield {
+		return e.sbaQuietEntry(ev.Obj)
+	}
 	switch ev.Kind {
+	case events.TriggerPush, events.AbilityPush:
+		return int(ev.Player) < len(e.G.Players) && !e.G.Players[ev.Player].Lost
 	case events.Note, events.ModeChosen, events.ManaActivate, events.Resolve,
 		events.DeclareAttackers, events.DeclareBlockers, events.EndCombatReset,
 		events.TargetsChosen, events.LandPlayed, events.LifeChange, events.ClockTick,
@@ -270,4 +296,50 @@ func (e *Engine) verifySBAQuiet(ep0 int) {
 	if e.legendBatch != nil {
 		panic(fmt.Sprintf("rules: SBA quiet skip at log %d disagrees with a full pass (legend batch parked)", ep0))
 	}
+}
+
+// sbaQuietEntry reports whether a permanent's battlefield entry leaves the
+// pass loop with nothing to do. An entry writes the entering object and its
+// zone lists (and, through the move fold, other objects' combat, soulbond,
+// crew and exile-link fields no SBA reads); every other object's derived
+// characteristics are covered by the unmoved derivedSeq sbaInputsQuietSince
+// already requires (derived_transparent.go retires only the mover, and only
+// when it is no live effect's source). So only the entering object itself
+// can be new work, and it is not when it is, at the classification:
+//
+//   - still on the battlefield, phased in, face up, controlled by a player
+//     still in the game, with no static on any face (objectStaticHotOn: so
+//     no CDA, no IgnoreLegendRule and no other static the loop consults --
+//     sbaQuietKindsSafe's board facts hold with it too) and no merged pile;
+//   - carrying no counters (no planeswalker loyalty, Saga lore, battle
+//     defense, +1/+1 and -1/-1 pair, deathtouch marker) and no damage;
+//   - attached to nothing (attachmentSBAs) and not an Aura (the derived
+//     read: an unattached Aura is binned);
+//   - not printed Legendary, World, planeswalker, battle or Saga (the legend
+//     and world rules and the loyalty/defense/chapter walks read the printed
+//     face, or the derived World with a layer-4 effect live -- hasType);
+//   - not a creature, or a creature whose toughness is above zero.
+//
+// No later quiet event can change any of these (each would need a counter,
+// damage, attach, control, phase or zone event, none of them quiet), so the
+// verdict holds for the rest of the key's life.
+func (e *Engine) sbaQuietEntry(id state.ObjID) bool {
+	o := e.G.Obj(id)
+	if o == nil || o.Zone != state.ZBattlefield || o.Card == nil || o.PhasedOut || o.FaceDown ||
+		len(o.MergedCards) > 0 || objectStaticHotOn(o) || len(o.Counters) > 0 || o.Damage != 0 ||
+		o.AttachedTo != 0 || o.HasAttachedPlayer ||
+		int(o.Controller) >= len(e.G.Players) || e.G.Players[o.Controller].Lost {
+		return false
+	}
+	f := o.Face()
+	if f == nil || f.IsLegendary() || f.IsWorld() || f.IsPlaneswalker() || f.IsBattle() {
+		return false
+	}
+	if n, _ := chapterSpec(f); n != 0 {
+		return false
+	}
+	if e.isAura(o) || e.hasType(o, "World") {
+		return false
+	}
+	return !e.IsCreature(id) || e.Toughness(id) > 0
 }

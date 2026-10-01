@@ -108,59 +108,91 @@ func (e *Engine) layerInertSince(epoch int) bool {
 // loop skips a face-less object; the scan skips it in every zone). A
 // layer-inert run is admitted even on a gated build, exactly as
 // layerInertSince admits it for active().
-func (e *Engine) staticSafeSince(epoch, oldObjs int) bool {
+//
+// gatesRechecked is the gated build's admission (static_gatememo.go): the
+// caller re-evaluates the recorded gates before re-stamping, so a gated but
+// otherwise state-read-free build is held to the quiet rules alone -- the
+// gates are the only input the quiet kinds, a cold move or a static-cold
+// token's arrival can reach, and the re-check covers them.
+//
+// The result also says whether the run was layer-inert throughout (the
+// re-stamp a gated build admits without any re-check) and which kinds it
+// held (the gate re-check's dependency filter).
+func (e *Engine) staticSafeSince(epoch, oldObjs int, gatesRechecked bool) staticRun {
 	n := len(e.L.Events)
 	if epoch <= 0 || epoch > n || oldObjs < 0 || oldObjs > len(e.G.Objs) {
-		return false
+		return staticRun{}
 	}
 	// quiet: the build read nothing outside the static-quiet input (see
-	// staticQuietKinds), so the wider admissions below apply.
-	quiet := e.staticMemoQuiet()
+	// staticQuietKinds) -- or read it only through gates the caller
+	// re-checks -- so the wider admissions below apply.
+	quiet := e.staticMemoQuiet() || (gatesRechecked && !e.staticMemoStateRead)
+	gateOpen := e.staticMemoGated && !gatesRechecked
+	run := staticRun{inert: true}
 	creates := 0
 	for i := epoch; i < n; i++ {
 		ev := &e.L.Events[i]
-		switch k := ev.Kind; k {
+		k := ev.Kind
+		switch k {
 		case events.DecisionAsk, events.DecisionMade, events.Priority:
 			// Layer-inert (layerInertSince): no gate reads them either.
+			continue
 		case events.TokenCreate:
-			if e.staticMemoGated {
-				return false
+			if gateOpen {
+				return staticRun{}
 			}
 			creates++
 		case events.TriggerPush, events.AbilityPush:
 			// Each mints one face-less ability object onto the stack (checked
 			// below); the scan skips a face-less object in every zone.
 			if !quiet {
-				return false
+				return staticRun{}
 			}
 			creates++
 		case events.MoveZone, events.Draw, events.PutOnStack:
 			if !quiet || !e.staticMoveCold(ev.Obj) {
-				return false
+				return staticRun{}
 			}
 		case events.LibraryOrder, events.Shuffle:
 			if !quiet || !e.staticLibraryOrderCold(ev) {
-				return false
+				return staticRun{}
+			}
+		case events.Imprint, events.Choose:
+			// Object-local folds (static_memo_admit.go): admitted when the
+			// object cannot contribute to the scan where it sits.
+			if !quiet || !e.staticMoveCold(ev.Obj) {
+				return staticRun{}
 			}
 		default:
 			if !quiet || !staticQuietKinds.has(k) {
-				return false
+				return staticRun{}
 			}
 		}
+		run.inert = false
+		run.seen[k>>6] |= 1 << (k & 63)
 	}
 	if len(e.G.Objs)-oldObjs != creates {
-		return false
+		return staticRun{}
 	}
 	for i := oldObjs; i < len(e.G.Objs); i++ {
 		o := &e.G.Objs[i]
 		if o.Face() == nil {
 			continue
 		}
-		if o.Zone != state.ZBattlefield || objectStaticHotOn(o) {
-			return false
+		if o.Zone != state.ZBattlefield || objectContinuousHot(o, state.ZBattlefield) {
+			return staticRun{}
 		}
 	}
-	return true
+	run.ok = true
+	return run
+}
+
+// staticRun is staticSafeSince's verdict on the event run since the memo's
+// last stamp: ok when the admission holds, inert when every event in it was
+// layer-inert, and seen the set of the other kinds it held.
+type staticRun struct {
+	ok, inert bool
+	seen      kindSet
 }
 
 // staticMemoQuiet reports whether the memo's last full build made no read
@@ -178,8 +210,11 @@ func (e *Engine) staticMemoQuiet() bool { return !e.staticMemoGated && !e.static
 // scratch -- so it is kept; any other build (or one whose flags are not yet
 // known) is dropped exactly as before. Callers that also need the
 // cross-walk Derived memo retired still call retireCrossWalkMemo.
+//
+// A gated build whose every gate has a known read set (staticGatesScratchProof:
+// the active player, a life total) is kept too: no scratch reaches those.
 func (e *Engine) invalidateScratchLayerLists() {
-	if e.staticEpoch <= 0 || !e.staticMemoQuiet() {
+	if e.staticEpoch <= 0 || !e.staticMemoQuiet() && !e.staticGatesScratchProof() {
 		e.activeEpoch, e.staticEpoch = -1, -1
 	}
 }
@@ -187,18 +222,18 @@ func (e *Engine) invalidateScratchLayerLists() {
 // staticMoveCold reports whether a zone move of id cannot change a quiet
 // (gate-free, state-read-free) static scan: the object contributed no effect
 // to the memo where it was (no entry names it as Source) and can contribute
-// none where it is now (objectStaticHot for its current zone: on the
+// none where it is now (objectContinuousHot for its current zone: on the
 // battlefield no face, copied face or merged card it can resolve to carries
-// any static; elsewhere none carries one that can function off the
-// battlefield -- the static zone skip's own per-zone test, a superset of the
-// scan's off-battlefield gate, the stack included). A quiet
+// a Continuous static; elsewhere none carries one that can function off the
+// battlefield -- the scan's own off-battlefield gate, the stack included).
+// A quiet
 // scan reads nothing else a move writes: the move's other folds (the
 // departing permanent's own battlefield state, soulbond and crew links,
 // zone lists) feed only gates, spec matches and the static zone summaries,
 // and the summaries are re-checked by the next real rescan.
 func (e *Engine) staticMoveCold(id state.ObjID) bool {
 	o := e.G.Obj(id)
-	if o == nil || objectStaticHot(o, o.Zone) {
+	if o == nil || objectContinuousHot(o, o.Zone) {
 		return false
 	}
 	for i := range e.staticContinuous {
@@ -214,14 +249,14 @@ func (e *Engine) staticMoveCold(id state.ObjID) bool {
 // quiet static scan. The scan reads the list only to visit its objects in
 // order, so the list's order and membership matter only through an object
 // that contributes, or could contribute, an effect from the library: none
-// of the listed objects may be static-hot there (objectStaticHot), and no
+// of the listed objects may be hot there (objectContinuousHot), and no
 // memo entry may come from a library object -- a source that a reorder
 // dropped from the list would otherwise vanish from the rescan. (An admitted
 // later move never relocates a memo source: staticMoveCold refuses it, so a
 // source in a library at the reorder is still there at this check.)
 func (e *Engine) staticLibraryOrderCold(ev *events.Event) bool {
 	for _, id := range ev.IDs {
-		if o := e.G.Obj(id); o == nil || objectStaticHot(o, state.ZLibrary) {
+		if o := e.G.Obj(id); o == nil || objectContinuousHot(o, state.ZLibrary) {
 			return false
 		}
 	}
@@ -302,19 +337,33 @@ func (e *Engine) refreshStaticContinuous() {
 	// e.continuous -- so for it a registry move alone (an EndOfTurnCleanup
 	// dropping a pump, an AddContinuous's ClockTick) does not stale the
 	// memo either.
-	if (e.staticVersion == e.continuousVersion || e.staticMemoQuiet()) && e.staticSafeSince(e.staticEpoch, e.staticObjs) {
-		e.staticEpoch = n
-		e.staticVersion, e.staticObjs = e.continuousVersion, len(e.G.Objs)
-		if layerInertVerify {
-			if fresh := e.staticEffects(nil); !reflect.DeepEqual(fresh, e.staticContinuous[:len(e.staticContinuous):len(e.staticContinuous)]) && !(len(fresh) == 0 && len(e.staticContinuous) == 0) {
-				panic(fmt.Sprintf("rules: layer-inert static memo reuse at log %d disagrees with a rescan (%d vs %d effects)", n, len(e.staticContinuous), len(fresh)))
-			}
-		}
+	//
+	// A gated build whose only state reads are its gates (gatedQuiet,
+	// static_gatememo.go) is held to the quiet rules instead: across a run
+	// they admit it is current iff every recorded gate re-evaluates
+	// unchanged. A layer-inert run still re-stamps it with no re-check, as
+	// before. The gates read the registry only through Derived, so a
+	// registry move is covered by the re-check as well.
+	gatedQuiet := e.staticMemoGated && !e.staticMemoStateRead
+	run := e.staticSafeSince(e.staticEpoch, e.staticObjs, gatedQuiet)
+	if run.ok && (gatedQuiet && run.inert && e.staticVersion == e.continuousVersion ||
+		!gatedQuiet && (e.staticVersion == e.continuousVersion || e.staticMemoQuiet())) {
+		e.restampStatic(n)
 		return
+	}
+	builds := e.activeBuildSeq
+	if gatedQuiet && run.ok {
+		// The epoch is stamped first, exactly as the rescan below stamps it
+		// before its walk, so a gate's nested read sees the same memo
+		// either way.
+		e.staticEpoch = n
+		if e.staticGatesUnchanged(&run.seen) {
+			e.restampStatic(n)
+			return
+		}
 	}
 	e.staticEpoch = n
 	e.staticVersion, e.staticObjs = e.continuousVersion, len(e.G.Objs)
-	builds := e.activeBuildSeq
 	e.staticContinuous = e.staticEffects(e.staticContinuous)
 	// A content change: any activeBuf built from the previous list is stale,
 	// even at an unmoved log head and continuousVersion (staticControlWants
@@ -335,6 +384,19 @@ func (e *Engine) refreshStaticContinuous() {
 	}
 }
 
+// restampStatic re-keys the static memo at log head n without rescanning
+// (the caller proved the rescan would reproduce it); layerInertVerify
+// rescans and panics on a difference.
+func (e *Engine) restampStatic(n int) {
+	e.staticEpoch = n
+	e.staticVersion, e.staticObjs = e.continuousVersion, len(e.G.Objs)
+	if layerInertVerify {
+		if fresh := e.staticEffects(nil); !reflect.DeepEqual(fresh, e.staticContinuous[:len(e.staticContinuous):len(e.staticContinuous)]) && !(len(fresh) == 0 && len(e.staticContinuous) == 0) {
+			panic(fmt.Sprintf("rules: layer-inert static memo reuse at log %d disagrees with a rescan (%d vs %d effects)", n, len(e.staticContinuous), len(fresh)))
+		}
+	}
+}
+
 // verifyInertActive is active()'s layer-inert reuse check: it rebuilds the
 // list from scratch under a forced miss and compares.
 func (e *Engine) verifyInertActive() {
@@ -344,6 +406,9 @@ func (e *Engine) verifyInertActive() {
 	savedStaticSeq := e.activeStaticSeq
 	savedDerivedSeq, savedAlt := e.derivedSeq, e.activeBufAlt
 	savedPrevEpoch, savedPrevVersion, savedPrevObjs := e.derivedPrevEpoch, e.derivedPrevVersion, e.derivedPrevObjs
+	savedPrevEntered, savedBFSeq := e.derivedPrevEntered, e.derivedBFSeq
+	savedList := e.activeList
+	e.activeList = activeListKey{}
 	// The forced rebuild must not write the served list's array (activeBuf)
 	// nor the transparency baseline: give it fresh storage.
 	e.activeBufAlt = nil
@@ -362,6 +427,8 @@ func (e *Engine) verifyInertActive() {
 	e.activeStaticSeq = savedStaticSeq
 	e.derivedSeq, e.activeBufAlt = savedDerivedSeq, savedAlt
 	e.derivedPrevEpoch, e.derivedPrevVersion, e.derivedPrevObjs = savedPrevEpoch, savedPrevVersion, savedPrevObjs
+	e.derivedPrevEntered, e.derivedBFSeq = savedPrevEntered, savedBFSeq
+	e.activeList = savedList
 	if len(cached) != len(fresh) || (len(cached) > 0 && !reflect.DeepEqual(cached, fresh)) {
 		panic(fmt.Sprintf("rules: layer-inert active() reuse at log %d disagrees with a rebuild (%d vs %d effects)", len(e.L.Events), len(cached), len(fresh)))
 	}

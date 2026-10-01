@@ -242,8 +242,19 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		c.staticEpoch, c.staticObjs = e.staticEpoch, e.staticObjs
 		c.staticVersion = c.continuousVersion
 		c.staticMemoGated, c.staticMemoStateRead = e.staticMemoGated, e.staticMemoStateRead
-	} else if sp.static != nil {
-		c.staticContinuous = sp.static[:0]
+		// The memo's gate records (static_gatememo.go) travel with it, into
+		// recycled storage: they are immutable values naming the shared
+		// card tables and the (arena-index) source ids both boards agree on.
+		if e.staticGatesKnown {
+			c.staticGates, c.staticGatesKnown = append(sp.gates[:0], e.staticGates...), true
+		} else {
+			c.staticGates = sp.gates[:0]
+		}
+	} else {
+		if sp.static != nil {
+			c.staticContinuous = sp.static[:0]
+		}
+		c.staticGates = sp.gates[:0]
 	}
 	c.suspendedCasts = append([]state.ObjID(nil), e.suspendedCasts...)
 	c.defeatedCasts = append([]state.ObjID(nil), e.defeatedCasts...)

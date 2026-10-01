@@ -307,9 +307,15 @@ func (e *Engine) derivedMemoRef(id state.ObjID, atStack state.Zone) *Derived {
 	// takes the fresh-arrays path below. Measured: the priority walk and the
 	// bot's board build re-derived the same objects across every priority
 	// pass of an unchanged board. Verify mode recomputes every such hit.
-	if m.seq != 0 && m.gen != e.derivedMemoGen && m.ver == ver && m.objs == objs {
+	// The arena may have grown since the entry was stamped: an unmoved
+	// derivedSeq proves every growth up to the last build was a transparent
+	// rebuild's face-less ability mint (derived_transparent.go), which no
+	// other object's derivation reads -- and the arena must still be the
+	// one that build saw (derivedPrevObjs), so an eventless append since
+	// (a test's direct AddObject) still misses.
+	if m.seq != 0 && m.gen != e.derivedMemoGen && m.ver == ver && m.objs <= objs {
 		e.active()
-		if m.seq == e.derivedSeq {
+		if m.seq == e.derivedSeq && (m.objs == objs || objs == e.derivedPrevObjs) {
 			if derivedMemoVerify {
 				e.verifyDerivedMemo(id, atStack, m.d)
 			}

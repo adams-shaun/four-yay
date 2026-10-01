@@ -78,6 +78,10 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "staticObjs"}:       true,
 	{"rules.Engine", "staticBuildSeq"}:   true,
 	{"rules.Engine", "staticQueueBuf"}:   true,
+	// The static memo's gate records (static_gatememo.go): carried only
+	// with a copied memo, otherwise empty in a clone.
+	{"rules.Engine", "staticGates"}:      true,
+	{"rules.Engine", "staticGatesKnown"}: true,
 	{"rules.Engine", "activeBuf"}:        true,
 	{"rules.Engine", "activeEpoch"}:      true,
 	{"rules.Engine", "activeVersion"}:    true,
@@ -234,10 +238,17 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "derivedPrevVersion"}: true,
 	{"rules.Engine", "derivedPrevObjs"}:    true,
 	{"rules.Engine", "derivedTouched"}:     true,
+	// The battlefield-membership half of that key and the zone-ledger
+	// length it was taken at, and what active()'s list was assembled from
+	// (active_same.go); never cloned either.
+	{"rules.Engine", "derivedBFSeq"}:       true,
+	{"rules.Engine", "derivedPrevEntered"}: true,
+	{"rules.Engine", "activeList"}:         true,
 	// The rename table's arena-size key and its derivedSeq stamp
 	// (setname.go), the renames/* cache keys.
-	{"rules.Engine", "renameObjs"}: true,
-	{"rules.Engine", "renameDSeq"}: true,
+	{"rules.Engine", "renameObjs"}:  true,
+	{"rules.Engine", "renameDSeq"}:  true,
+	{"rules.Engine", "renameBFSeq"}: true,
 	// checkFaceTriggers' zero-interest no-op memo key (log length, arena
 	// size, registry version); Clone leaves it zero.
 	{"rules.Engine", "trigZeroNoopEp"}:    true,

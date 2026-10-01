@@ -189,10 +189,12 @@ func TestStaticEffectsWarmRebuildAllocationBudget(t *testing.T) {
 }
 
 // TestStaticMemoRestampsAcrossQuietEvents pins staticQuietKinds' admission:
-// on a gate-free, state-read-free board a quiet event (a tap, a step change)
-// re-stamps the static memo instead of rescanning, while the same events on a
-// board whose scan saw a continuous gate rescan as before. layerInertVerify
-// (on in this binary) re-checks every re-stamp against a fresh scan.
+// on a state-read-free board a quiet event (a tap, a step change) re-stamps
+// the static memo instead of rescanning -- on a gated board too, once every
+// recorded gate re-evaluates unchanged (static_gatememo.go) -- while a quiet
+// event that flips a gate (the untapped-creature count below) rescans.
+// layerInertVerify (on in this binary) re-checks every re-stamp against a
+// fresh scan.
 func TestStaticMemoRestampsAcrossQuietEvents(t *testing.T) {
 	for _, tc := range []struct {
 		name    string
@@ -201,7 +203,9 @@ func TestStaticMemoRestampsAcrossQuietEvents(t *testing.T) {
 	}{
 		{"gate-free", staticBufferGrantSrc, true},
 		{"gated", "Name:Gated grant\nTypes:Enchantment\n" +
-			"S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | IsPresent$ Creature.YouCtrl\nOracle:x\n", false},
+			"S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | IsPresent$ Creature.YouCtrl\nOracle:x\n", true},
+		{"gate-flipped", "Name:Gated grant\nTypes:Enchantment\n" +
+			"S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | IsPresent$ Creature.YouCtrl+untapped\nOracle:x\n", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			e := layerEngine(t)

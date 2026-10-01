@@ -55,6 +55,14 @@ type engineLayerCaches struct {
 	// state a quiet event writes, so staticSafeSince admits quiet events only
 	// when it is false. Reset and set exactly like staticMemoGated.
 	staticMemoStateRead bool
+	// staticGates is every continuous gate the last full staticEffects build
+	// evaluated, in scan order, with its outcome (static_gatememo.go): a
+	// gated, state-read-free build is re-stamped across a quiet run when
+	// every one of them re-evaluates unchanged. staticGatesKnown says the
+	// list belongs to the current memo (a clone that did not carry it, or a
+	// fresh engine, has none). Reset at the top of each full walk.
+	staticGates      []staticGateRec
+	staticGatesKnown bool
 	// staticBuildSeq counts staticEffects REBUILDS (never a layer-inert
 	// re-stamp or an exact hit). The memo is refreshable OUTSIDE active() --
 	// staticControlWants (control_static.go) calls refreshStaticContinuous
@@ -127,10 +135,21 @@ type engineLayerCaches struct {
 	derivedPrevEpoch   int
 	derivedPrevVersion int
 	derivedPrevObjs    int
-	derivedTouched     []state.ObjID
-	activeEpoch        int
-	activeVersion      int
-	activeDepth        int
+	// derivedPrevEntered is len(e.G.Entered) at the same point (the zone
+	// ledger check of a battlefield-crossing transparent rebuild), and
+	// derivedBFSeq counts the transparent rebuilds whose run moved an object
+	// across the battlefield boundary or out of exile: derivedSeq alone no
+	// longer proves the battlefield's membership unchanged (setname.go's
+	// rename table keys on both). Never cloned.
+	derivedPrevEntered int
+	derivedBFSeq       uint64
+	// activeList records what activeBuf was assembled from (active_same.go);
+	// never cloned, so a clone's first build is a full one.
+	activeList     activeListKey
+	derivedTouched []state.ObjID
+	activeEpoch    int
+	activeVersion  int
+	activeDepth    int
 	// activeObjs is len(e.G.Objs) at the last active() build, read only by
 	// the layer-inert reuse (layercache.go).
 	activeObjs int

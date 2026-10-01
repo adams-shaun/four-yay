@@ -98,10 +98,12 @@ func (e *Engine) refreshRenames() {
 	// that moves an object onto or off the battlefield, flips a face or
 	// appends an object, so the battlefield membership and every printed name
 	// the table compares against are unchanged too (an off-battlefield move's
-	// own object is never on the battlefield).
+	// own object is never on the battlefield). A transparent rebuild that DID
+	// move an object across the battlefield boundary (or out of exile) moves
+	// derivedBFSeq instead, which the table keys on as well.
 	if e.renameVersion == e.continuousVersion && e.renameObjs == len(e.G.Objs) && e.renameDSeq != 0 {
 		e.active()
-		if e.renameDSeq == e.derivedSeq {
+		if e.renameDSeq == e.derivedSeq && e.renameBFSeq == e.derivedBFSeq {
 			e.renameEpoch = len(e.L.Events)
 			if layerInertVerify {
 				e.verifyInertRenames()
@@ -113,10 +115,10 @@ func (e *Engine) refreshRenames() {
 	buf := e.renames[:0]
 	if !e.anySetNameActive() {
 		e.renames = buf[:0]
-		e.renameDSeq = e.derivedSeq
+		e.renameDSeq, e.renameBFSeq = e.derivedSeq, e.derivedBFSeq
 		return
 	}
-	e.renameDSeq = e.derivedSeq
+	e.renameDSeq, e.renameBFSeq = e.derivedSeq, e.derivedBFSeq
 	e.renameBuilding = true
 	defer func() { e.renameBuilding = false }()
 	// e.G.Objs is append-ordered, so this walk is deterministic; only the
