@@ -146,6 +146,8 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		c.walkObjCls, c.walkClsOwner = append(sp.walkCls[:0], e.walkObjCls...), c
 		c.staticZonesEp = e.staticZonesEp
 	}
+	// A spent engine's zeroed pendingCast storage (cast_pool.go).
+	c.castFree = sp.cast
 	c.orderedTriggers = e.orderedTriggers
 	c.applyingReplacement = e.applyingReplacement
 	c.choosing = e.choosing
@@ -302,12 +304,12 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	// same identical board, so a table built under the current registry
 	// carries them too (engine_derived_tables.go): the clone's next refresh
 	// goes incremental instead of re-deriving and re-probing the whole board.
-	if e.typesVersion == e.continuousVersion && e.typesIncrReady {
+	if e.typesIncrReady {
 		c.typesIncrReady, c.typesSelfOnly = true, e.typesSelfOnly
 		c.typesSrcs = append([]state.ObjID(nil), e.typesSrcs...)
 		c.typesMayDiffer = append([]state.ObjID(nil), e.typesMayDiffer...)
 	}
-	if e.typesProbeReady && e.typesProbeVersion == e.continuousVersion {
+	if e.typesProbeReady {
 		c.typesProbe = append(sp.probe[:0], e.typesProbe...)
 		c.typesProbeReady, c.typesProbeTrue = true, e.typesProbeTrue
 		c.typesProbeEpoch, c.typesProbeObjs = e.typesProbeEpoch, e.typesProbeObjs
@@ -1039,6 +1041,12 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	}
 	if sp.preview != nil {
 		c.preview, c.previewOwner = sp.preview, c
+	}
+	// The SBA quiet key (sbaquiet.go), when the original is provably quiet
+	// without a layer read: see sbaQuietCarry.
+	if k, ok := e.sbaQuietCarry(); ok {
+		k.ver = c.continuousVersion
+		c.sbaQuiet = k
 	}
 	return c
 }

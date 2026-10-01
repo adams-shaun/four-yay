@@ -66,6 +66,11 @@ type sbaAttempts struct {
 	sagas    map[state.ObjID]bool
 	dungeons map[state.ObjID]bool
 	alive    int
+	// skips counts, for the current pass, the candidates an attempt memory
+	// above made the pass skip. A stable final pass with none skipped is
+	// exactly what a fresh call's first pass would see, so the run is quiet
+	// even if earlier passes emitted (sbaRecordQuiet).
+	skips int
 }
 
 // rearm forgets every memory when the alive-player set has shrunk since it
@@ -285,11 +290,12 @@ func (e *Engine) checkStateBased() {
 	// whose flag is down would find nothing on the board.
 	facts := &sbaBoardFacts{at: -1}
 	for pass := 0; pass < maxSBAPasses; pass++ {
+		tried.skips = 0
 		changed := e.checkLoseConditions(tried)
 		if e.sbaFacts(facts).counterPair && e.annihilateOppositeCounters() {
 			changed = true
 		}
-		if e.destroyLethalDamage(tried) {
+		if e.destroyLethalDamage(tried, facts) {
 			changed = true
 		}
 		if e.legendBatch != nil {
@@ -345,7 +351,7 @@ func (e *Engine) checkStateBased() {
 		e.emit(events.Event{Kind: events.Note,
 			Text: "state-based actions did not reach a fixed point within the pass budget"})
 	} else {
-		e.sbaRecordQuiet(ep0)
+		e.sbaRecordQuiet(ep0, tried.skips == 0)
 	}
 	e.checkGameOver()
 	e.releasePendingDecisionOfDepartedPlayer()
@@ -391,13 +397,14 @@ type legendBatch struct {
 // The scan is deterministic (AliveFrom(0) seat order, each battlefield zone a
 // slice, seen keyed on the current derived name), so the event stream is
 // reproducible run to run; membership maps are never iterated.
-func (e *Engine) legendGroups() []legendGroup {
+func (e *Engine) legendGroups(mayPair bool) []legendGroup {
 	// The exemption statics are collected once, in activeStatics' canonical
 	// deterministic order, and reused for every candidate; each candidate is
 	// matched with the static's own source/controller context so
 	// `Creature.YouCtrl` is scoped to the static's controller, not the
-	// duplicate set's.
-	if !e.mayHaveLegendPair() {
+	// duplicate set's. mayPair is mayHaveLegendPair's answer, which the
+	// caller's fused board scan (sbaBoardFacts.legend) already holds.
+	if !mayPair {
 		return nil
 	}
 	exempt := e.activeStatics("IgnoreLegendRule")
@@ -880,7 +887,11 @@ func (e *Engine) checkLoseConditions(tried *sbaAttempts) bool {
 	tried.rearm(e.G.AliveCount())
 	for i := range e.G.Players {
 		p := &e.G.Players[i]
-		if !p.Lost || tried.players[p.ID] {
+		if !p.Lost {
+			continue
+		}
+		if tried.players[p.ID] {
+			tried.skips++
 			continue
 		}
 		markTried(&tried.players, p.ID)
@@ -1017,12 +1028,14 @@ type casualty struct {
 // reason for the rearm call below (an elimination during THIS function's
 // own emits, from a substitute effect that decks a player out, is picked up
 // by the next pass's rearm rather than mid-loop).
-func (e *Engine) destroyLethalDamage(tried *sbaAttempts) bool {
+func (e *Engine) destroyLethalDamage(tried *sbaAttempts, facts *sbaBoardFacts) bool {
 	tried.rearm(e.G.AliveCount())
 	var dead []casualty
+	anyLType := e.activeHasLType()
 	for _, p := range e.G.AliveFrom(0) {
 		for _, id := range e.G.Zone(state.ZBattlefield, p) {
 			if tried.objs[id] {
+				tried.skips++
 				continue
 			}
 			o := e.G.Obj(id)
@@ -1054,7 +1067,7 @@ func (e *Engine) destroyLethalDamage(tried *sbaAttempts) bool {
 			// typeCharacteristics already bases the derived set on
 			// FaceDownTypeWords (CR 708.5/Yedora), so the previous face-down
 			// special case gave the same answer through it.
-			if !e.IsCreature(id) {
+			if !e.sbaIsCreature(o, f, anyLType) {
 				continue
 			}
 			if e.Toughness(id) <= 0 {
@@ -1091,7 +1104,7 @@ func (e *Engine) destroyLethalDamage(tried *sbaAttempts) bool {
 	// after another SBA parked its own ask), the legends are left un-binned
 	// AND the lethal batch is left unapplied: no board change happens under
 	// an outstanding ask, and the pass after the answer re-scans everything.
-	if groups := e.legendGroups(); len(groups) > 0 {
+	if groups := e.legendGroups(e.sbaFacts(facts).legend); len(groups) > 0 {
 		if e.pending == nil && e.choosing == chooseNone && e.legendBatch == nil {
 			e.parkLegendChoice(groups[0], dead)
 			return true
@@ -1173,6 +1186,7 @@ func (e *Engine) planeswalkerZeroLoyalty(tried *sbaAttempts) bool {
 	for _, p := range e.G.AliveFrom(0) {
 		for _, id := range e.G.Zone(state.ZBattlefield, p) {
 			if tried.objs[id] {
+				tried.skips++
 				continue
 			}
 			o := e.G.Obj(id)
@@ -1240,6 +1254,7 @@ func (e *Engine) battleZeroDefense(tried *sbaAttempts) bool {
 	for _, p := range e.G.AliveFrom(0) {
 		for _, id := range e.G.Zone(state.ZBattlefield, p) {
 			if tried.objs[id] {
+				tried.skips++
 				continue
 			}
 			o := e.G.Obj(id)
@@ -1326,7 +1341,11 @@ func (e *Engine) ceaseDeadTokens(tried *sbaAttempts) bool {
 		o := &e.G.Objs[i]
 		// The field test first: the attempt memory is only consulted for a
 		// token that would otherwise be ceased (the same set as before).
-		if o.IsToken && o.Zone != state.ZBattlefield && o.Zone != state.ZStack && o.Zone != state.ZCeased && !tried.tokens[o.ID] {
+		if o.IsToken && o.Zone != state.ZBattlefield && o.Zone != state.ZStack && o.Zone != state.ZCeased {
+			if tried.tokens[o.ID] {
+				tried.skips++
+				continue
+			}
 			dead = append(dead, tokenCasualty{o.ID, o.Zone})
 		}
 	}

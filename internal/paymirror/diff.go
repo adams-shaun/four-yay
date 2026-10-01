@@ -111,6 +111,8 @@ var excluded = map[excludedField]bool{
 	// game.
 	{"rules.Engine", "typesIncrReady"}:    true,
 	{"rules.Engine", "typesSelfOnly"}:     true,
+	{"rules.Engine", "typesDSeq"}:         true,
+	{"rules.Engine", "typesDSeqOK"}:       true,
 	{"rules.Engine", "typesSrcs"}:         true,
 	{"rules.Engine", "typesMayDiffer"}:    true,
 	{"rules.Engine", "typesTouch"}:        true,
@@ -298,6 +300,11 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "previewOwner"}:  true,
 	{"rules.Engine", "previewBusy"}:   true,
 	{"rules.Engine", "decArena"}:      true,
+	// The pendingCast recycling pair (cast_pool.go): the last issued cast
+	// storage and a zeroed spare -- capacity, never game state (the cast in
+	// flight is e.cast, compared as usual).
+	{"rules.Engine", "castIssued"}: true,
+	{"rules.Engine", "castFree"}:   true,
 	// The offer walk's incremental log-derived indexes (legal_walk_scratch.go):
 	// each is a pure function of the log prefix its watermark names, and the
 	// log itself is compared semantically. The manual route answers more

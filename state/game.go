@@ -831,6 +831,8 @@ func (g *Game) CloneIntoDirty(objs []Object, dirty int) *Game {
 }
 
 // AliveFrom lists surviving seats in APNAP order starting at start.
+// The seat index advances by one and wraps by a compare, not a per-seat
+// modulo: this is inlined into dozens of per-event scans.
 func (g *Game) AliveFrom(start PlayerID) []PlayerID {
 	n := PlayerID(len(g.Players))
 	out := make([]PlayerID, 0, n)

@@ -135,7 +135,7 @@ func TestLegendRuleDistinctDerivedNames(t *testing.T) {
 	if d := e.Pending(); d != nil && d.Kind == decision.KChoose && d.Prompt == "Choose which Isamaru, Hound of Konda to keep; the rest are put into their owners' graveyards" {
 		t.Fatalf("different-derived-name legends incorrectly posed a duplicate choice: %+v", d)
 	}
-	if groups := e.legendGroups(); len(groups) != 0 {
+	if groups := e.legendGroups(e.mayHaveLegendPair()); len(groups) != 0 {
 		t.Fatalf("different-derived-name legends grouped: %+v", groups)
 	}
 	if e.G.Obj(target).Zone != state.ZBattlefield || e.G.Obj(other).Zone != state.ZBattlefield {

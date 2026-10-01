@@ -184,6 +184,7 @@
 //	preview, previewOwner/Busy         preview Engine): capacity,
 //	                                   never game state; Clone leaves them nil or adopts a
 //	                                   Spare's cleared ones
+//	castIssued, castFree               the pendingCast recycling pair: capacity, never game state
 //	legalScratch                       the offer walk's log-derived indexes: a pure function of
 //	                                   the log prefix their watermark names; the manual route's
 //	                                   longer log moves the watermark

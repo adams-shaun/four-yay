@@ -118,4 +118,7 @@ func TestSBAQuietEventClasses(t *testing.T) {
 	if !e.sbaQuietEvent(&events.Event{Kind: events.Damage, Player: 1, Amount: 1}) {
 		t.Fatal("damage to a player should be quiet")
 	}
+	if !e.sbaQuietEvent(&events.Event{Kind: events.Damage, Obj: land, Amount: -2}) {
+		t.Fatal("cleanup's marked-damage removal should be quiet")
+	}
 }

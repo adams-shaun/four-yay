@@ -190,7 +190,11 @@ func (e *Engine) checkSagas(tried *sbaAttempts) bool {
 				// quiet key (rules/sbaquiet.go) does not cover.
 				e.sbaUnquiet = true
 			}
-			if busy || tried.sagas[id] {
+			if busy {
+				continue
+			}
+			if tried.sagas[id] {
+				tried.skips++
 				continue
 			}
 			markTried(&tried.sagas, id)

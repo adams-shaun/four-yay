@@ -149,6 +149,9 @@ func (e *Engine) Submit(in decision.Intent) error {
 	if e.derivedMemoDepth != 0 {
 		panic("rules: Submit inside a Derived memo scope (BeginDerivedReads promises a pure read)")
 	}
+	// No engine frame is live here, so the last issued cast storage is free
+	// unless it is still the cast in flight (cast_pool.go).
+	e.recycleCast()
 	if e.G.Over {
 		return fmt.Errorf("game is over")
 	}
