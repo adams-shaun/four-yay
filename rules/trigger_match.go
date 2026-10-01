@@ -881,6 +881,20 @@ func (e *Engine) controllerOf(id state.ObjID) state.PlayerID {
 	return 0
 }
 
+// lookbackObserver returns the scratch Engine checkTriggers' leaves-the-
+// battlefield look-back walk runs on at the current nesting depth: one
+// struct per depth, owned by this engine and overwritten whole (to a fresh
+// observer's value) before every use, instead of allocating ~6.7 KB per
+// departure. The observer is read-only and nothing retains it past its walk;
+// a panic out of the walk leaves lookbackDepth raised, which only costs the
+// next walk a fresh struct.
+func (e *Engine) lookbackObserver() *Engine {
+	for len(e.lookbackObs) <= e.lookbackDepth {
+		e.lookbackObs = append(e.lookbackObs, new(Engine))
+	}
+	return e.lookbackObs[e.lookbackDepth]
+}
+
 func (e *Engine) snapshotTriggerBoard() *triggerSnapshot {
 	return &triggerSnapshot{game: e.G.Clone(), continuous: append([]ContinuousEffect(nil), e.continuous...)}
 }
@@ -892,9 +906,11 @@ func (e *Engine) checkTriggers(ev events.Event, lki *state.Object,
 	if batch {
 		// Only leaves-the-battlefield triggers look back. Always and other
 		// event modes continue to read the live board, not an obsolete state.
-		observer := &Engine{G: e.triggerBefore.game, L: e.L,
+		observer := e.lookbackObserver()
+		*observer = Engine{G: e.triggerBefore.game, L: e.L,
 			continuous: e.triggerBefore.continuous, continuousVersion: e.continuousVersion,
 			setNameInPool: e.setNameInPool, layer4InPool: e.layer4InPool}
+		e.lookbackDepth++
 		// The observer reads the PRE-departure board from its own Game clone,
 		// so it derives its own layer-3 rename and layer-4 derived-type tables
 		// (setname.go, layer4types.go) rather than inheriting the live
@@ -913,6 +929,7 @@ func (e *Engine) checkTriggers(ev events.Event, lki *state.Object,
 			power, toughness = observer.Power(ev.Obj), observer.Toughness(ev.Obj)
 		}
 		e.checkFaceTriggers(observer, ev, obj, power, toughness, valid, true, true)
+		e.lookbackDepth--
 	}
 	e.checkFaceTriggers(e, ev, lki, lkiPower, lkiToughness, lkiPTValid, batch, false)
 	if ev.Kind == events.Damage {

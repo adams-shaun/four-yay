@@ -120,6 +120,12 @@ type engineScratch struct {
 	foreachBuf   []state.ObjID
 	foreachDepth int
 
+	// lookbackObs / lookbackDepth are checkTriggers' reusable look-back
+	// observer Engines, one per nesting depth (lookbackObserver). Clone
+	// leaves both zero: a clone grows its own.
+	lookbackObs   []*Engine
+	lookbackDepth int
+
 	// legalOptBuf is legalActionsPriced's scratch option list. The walk
 	// appends into it (so the doubling growth that used to reallocate the
 	// list several times per walk settles at the largest walk seen) and
