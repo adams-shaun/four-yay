@@ -718,10 +718,10 @@ type paymentPlanQuery struct {
 	logBase *events.Event
 	// payer is the player a kept scope was built for
 	// (paymentPlanQueryKeep).
-	payer state.PlayerID
-	units    map[state.PlayerID][]windowManaUnit
-	alts     map[state.ObjID][]plannedManaActivation
-	classes  map[paymentPlanClassesKey][]paymentPlanClass
+	payer   state.PlayerID
+	units   map[state.PlayerID][]windowManaUnit
+	alts    map[state.ObjID][]plannedManaActivation
+	classes map[paymentPlanClassesKey][]paymentPlanClass
 	// spendReaderOut caches paymentPlanBoardSpendReaderOut: 0 unread, 1
 	// false, 2 true.
 	spendReaderOut uint8
