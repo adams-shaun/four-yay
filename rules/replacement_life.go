@@ -329,12 +329,33 @@ func (e *Engine) emitLifeReplacement(ev events.Event) (events.Event, bool) {
 // would gain life. R:Event$ GainLife Prevent$ True lines are replacement
 // effects and compete in the CR 616.1 order choice instead. The static's
 // ValidPlayer$ scope is read here, in the static's own parameter bucket.
+//
+// Beside the printed battlefield statics, the walk reads the REGISTERED
+// CantGainLife restrictions the Effect-delivered route creates (effEffect's
+// StaticAbilities$ case: Screaming Nemesis, Stigma Lasher, Welcome the
+// Darkness, Skullcrack, Atarka's Command, Call In a Professional, Roiling
+// Vortex). The scope read goes through restrictionPlayerSpecMatches -- the
+// one choke point PutCounterBlocked's ValidPlayer$ read already uses -- so an
+// IsRemembered clause (Player.IsRemembered, the two damage-trigger carriers)
+// resolves against the registered effect's captured player set exactly as
+// CantAttack/CantPutCounter do, and the two reader paths cannot drift. An
+// empty spec means all players, the printed loop's own convention.
 func (e *Engine) lifeGainForbidden(p state.PlayerID) bool {
 	for _, sv := range e.activeStatics("CantGainLife") {
 		if spec := sv.Params["ValidPlayer"]; spec == "" ||
 			effects.MatchesPlayerSpec(e.G, spec, p, sv.Controller) {
 			return true
 		}
+	}
+	for _, ce := range e.active() {
+		if ce.Restriction != "CantGainLife" {
+			continue
+		}
+		if spec := strings.TrimSpace(ce.RestrictParams["ValidPlayer"]); spec != "" &&
+			!restrictionPlayerSpecMatches(e.G, spec, p, ce.Controller, ce.Source, ce.RememberedPlayers) {
+			continue
+		}
+		return true
 	}
 	return false
 }

@@ -1033,7 +1033,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 					Text: "continuous effect " + mode + " unimplemented (" + what + ")"})
 				registered = true
 			}
-		case "CantTarget", "CantRegenerate", "CantPreventDamage", "CantAttack", "CantSacrifice", "CantExile", "CantPutCounter", "CantBlockBy", "CanAttackDefender", "UnspentMana", "CantBlockUnless", "CantAttackUnless", "MustBlock", "NumLoyaltyAct":
+		case "CantTarget", "CantRegenerate", "CantPreventDamage", "CantAttack", "CantSacrifice", "CantExile", "CantPutCounter", "CantBlockBy", "CanAttackDefender", "UnspentMana", "CantBlockUnless", "CantAttackUnless", "MustBlock", "NumLoyaltyAct", "CantGainLife":
 			// A COMPOUND IsRemembered spec (Card.IsRemembered+Creature) resolves
 			// faithfully through the general filter now that it implements
 			// IsRemembered (rules/layers.go restrictionApplies consults the
@@ -1126,6 +1126,22 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 				registered = true
 				break
 			}
+			if mode == "CantGainLife" && !CantGainLifeParamsReadable(params) {
+				// An Effect-delivered CantGainLife body (the CR 614.1 lock:
+				// Screaming Nemesis, Stigma Lasher, Welcome the Darkness,
+				// Skullcrack, Atarka's Command, Call In a Professional, Roiling
+				// Vortex) registers as a continuous restriction rules'
+				// lifeGainForbidden registered walk reads beside the printed S:
+				// route. A body carrying a scoping term this build does not
+				// evaluate must not register blanket -- it reports unimplemented
+				// instead (the permissive direction for a restriction; the
+				// whitelist is CantGainLifeParamsReadable, shared with the
+				// rules-side read so the two paths cannot disagree).
+				h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+					Text: "continuous effect " + mode + " unimplemented (" + what + ")"})
+				registered = true
+				break
+			}
 			ceUntilEOT := effectUntilEOT(h, c.Source, rawDur)
 			if absentDurationMeansThisTurn(mode) && sa.Params["Duration"] == "" {
 				// A restriction body whose oracle lifetime is THIS TURN but whose
@@ -1178,7 +1194,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 				ExileOnMoved:  exileOn,
 				ForgetCounter: forgetCounter,
 			}
-			if mode == "CantAttack" || mode == "CantSacrifice" || mode == "CantBlockBy" {
+			if mode == "CantAttack" || mode == "CantSacrifice" || mode == "CantBlockBy" || mode == "CantGainLife" {
 				// The player half of the remembered capture: Call for Aid's
 				// RememberObjects$ TargetedPlayer must reach the registered
 				// CantAttack, whose Target$ Player.IsRemembered ("you can't
@@ -1192,7 +1208,31 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 				// Creature.RememberedPlayerCtrl clause resolves against the
 				// same set at the block consultation (rules/statics.go
 				// blockRestricted, via SpecContext.RememberedPlayers).
+				//
+				// CantGainLife joins for the damage-trigger carriers: Screaming
+				// Nemesis's RememberObjects$ Player.IsRemembered (the damaged
+				// player, captured from the live Ctx.Remembered by the DealDamage
+				// RememberDamaged$ read) and its ValidPlayer$ Player.IsRemembered
+				// resolve against the same set at consultation time
+				// (rules/replacement_life.go lifeGainForbidden).
 				ce.RememberedPlayers = effectRememberedPlayers(h, c, sa)
+			}
+			if mode == "CantGainLife" && strings.EqualFold(strings.TrimSpace(rawDur), "Permanent") {
+				// CR 611.2a: an explicit Duration$ Permanent restriction lasts
+				// until end of game REGARDLESS of its source ("for the rest of
+				// the game" -- Screaming Nemesis, Stigma Lasher, Welcome the
+				// Darkness). effectUntilEOT alone cannot express this: for a
+				// battlefield creature source it gives the source-leaves
+				// lifetime (the lock would die with the Nemesis), and for a
+				// one-shot spell source (Welcome the Darkness's instant) it
+				// returns UntilEOT outright, expiring the rest-of-game lock at
+				// the turn's cleanup. The Permanent flag is the one
+				// registration state continuousLive reads that outlives both,
+				// the same read the Continuous case makes for Finale of
+				// Revelation; guarded to this mode so no sibling's lifetime
+				// changes with it.
+				ce.Permanent = true
+				ce.UntilEOT = false
 			}
 			effectContinuous(h, ce)
 			registered = true
