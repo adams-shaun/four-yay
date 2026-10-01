@@ -286,6 +286,13 @@ func buildCardText(c *cards.Card) *cardText {
 		if f.ManaCost != "" {
 			costTexts[f.ManaCost] = struct{}{}
 		}
+		// The AlternateAdditionalCost keyword's parts, which the offer walk
+		// prices per hand card per walk (parseCost(part)): a configured text
+		// is a map read instead of a parse. A part missing here (a face
+		// edited since) still parses to the same cost.
+		for _, part := range altAddCostParts(f) {
+			costTexts[part] = struct{}{}
+		}
 		for _, sa := range f.Abilities {
 			addAbility(sa)
 		}
