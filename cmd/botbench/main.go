@@ -121,10 +121,16 @@ import (
 	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/bots"
 	_ "github.com/adams-shaun/gorge/bots/all"
+	"github.com/adams-shaun/gorge/bots/azredeal"
+	"github.com/adams-shaun/gorge/bots/sbfirst"
+	"github.com/adams-shaun/gorge/bots/sbheuristic"
+	hostedsbsearch "github.com/adams-shaun/gorge/bots/sbsearch"
+	"github.com/adams-shaun/gorge/bots/sbtactical"
+	"github.com/adams-shaun/gorge/bots/sbuniform"
+	"github.com/adams-shaun/gorge/bots/search"
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/deck"
-	"github.com/adams-shaun/gorge/host"
 	"github.com/adams-shaun/gorge/internal/azmcts"
 	gbench "github.com/adams-shaun/gorge/internal/bench"
 	"github.com/adams-shaun/gorge/internal/paymirror"
@@ -145,12 +151,13 @@ import (
 // pure function of (base seed, game index, seat) and nothing else. The map
 // is read by name only, never ranged over in the reporting path, so its
 // iteration order can never reach the output.
+//
+// The hosted registry's names are NOT here: init() below adds every name in
+// bots.Names() (resolved through bots.New, spec BP-16), overlaying the
+// bench's tuning flags on the four search-family entries. This literal holds
+// only the bench-native policies -- including cast-profile, whose -profile
+// overlay has no hosted surface.
 var policies = map[string]func(seed uint64) seat.Seat{
-	// seat.NewBot's *Bot result is wrapped because Go has no return-type
-	// covariance: a func returning *Bot is not assignable to one returning
-	// seat.Seat, and the wrapper keeps a future policy free to return any
-	// Seat implementation.
-	"bot": hostedPolicy(host.BotPolicy),
 	// bot-auto-pay is the hosted default policy with the payment-plan
 	// adapter enabled.  It is deliberately a separate bench name: comparing
 	// it with "bot" measures the distribution change from atomic mana
@@ -158,7 +165,6 @@ var policies = map[string]func(seed uint64) seat.Seat{
 	"bot-auto-pay": func(seed uint64) seat.Seat {
 		return seat.NewBot(seed).EnableAutoPayMana()
 	},
-	"lethal-pressure": hostedPolicy(host.LethalPressurePolicy),
 	// attack-sim / attack-sim-auto-pay are the opt-in combat-simulation
 	// attacker (botpolicy.AttackSimDecide): the default policy with
 	// KAttackers answered by a whole-attacking-set search -- predicted
@@ -249,22 +255,6 @@ var policies = map[string]func(seed uint64) seat.Seat{
 	"explore": func(seed uint64) seat.Seat {
 		return seat.NewExploreBot(seed)
 	},
-	// search is the PIMC search teacher as a playable seat
-	// (searchseat.SearchBot): the default bot wrapped with the teacher
-	// answering the covered kinds (attackers, priority cast with >=2 distinct
-	// castable objects) and delegating everything else -- Choose returns the
-	// bot's own intent on every failure path, so an unsearchable decision is
-	// the bot's decision, never a dropped one. The knobs are the -search-*
-	// flags over searchseat.Defaults() (the teacher's measured values); the
-	// observation feed the teacher's sampler needs is maintained by the
-	// driver (internal/bench.PlayGame's search-seat branch, the seat.
-	// BoardSeat idiom one level up) and the seat never reads hidden state
-	// beyond what the actor-scoped Collector exposes. Deliberately NOT a
-	// hosted policy, like policynet before it: a live table has no driver
-	// to feed the seat a history yet.
-	"search": func(seed uint64) seat.Seat {
-		return searchseat.NewSearchBot(seed, searchKnobs)
-	},
 	// az is the AlphaZero-style MCTS seat (internal/azmcts, spec
 	// 2026-09-27): a PUCT tree over the seat's own searched decisions whose
 	// leaf is the -checkpoint value head (no checkpoint = generation 0: a
@@ -284,48 +274,15 @@ var policies = map[string]func(seed uint64) seat.Seat{
 		}
 		return s
 	},
-	// az-redeal is az on the honest world source (azmcts.RedealSource,
-	// SpellBench M1): every simulation walks a world that keeps what the
-	// seat sees and re-deals the hidden cards it cannot. It takes every
-	// -az-* knob but -az-world, so one run can seat it beside a
-	// clairvoyant az.
-	"az-redeal": func(seed uint64) seat.Seat {
-		s, err := azmcts.NewSeat(seed, azNet, azSeatConfig("az-redeal"))
-		if err != nil {
-			panic("botbench: " + err.Error()) // validated by azFrontDoor before any game
-		}
-		return s
-	},
-	// sb-search-lite-atk is spellbench_registry's honest determinized-search
-	// arm (W4, 2-turn horizon, attack search), made bench-seatable for BP-05's
-	// hosted-root parity smoke over a repo-deck pair (the -spellbench mode
-	// has no -pairs, and the registry package has no Lookup). The wiring
-	// mirrors that registry's entry exactly; its tactical weights and card
-	// lookup are this package's (setTacticalRegistry wires them before any
-	// game starts, as for the sb-tactical arms above).
-	"sb-search-lite-atk": func(seed uint64) seat.Seat {
-		c := sbsearch.DefaultConfig()
-		c.Worlds, c.Horizon, c.Attack = 4, 2, true
-		c.Name = "sb-search-lite-atk"
-		return sbsearch.New(builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, tacticalWeights), seed, c)
-	},
-	// sb-* are SpellBench's three builtin bots (uniform, heuristic, first)
-	// ported onto gorge's decision model (internal/spellbench/builtins, whose
-	// package doc records every mapping choice). The plain names hide mana
-	// abilities and pay casts through gorge's planner (v2 "engine_autopay");
-	// the -manual arms offer every mana ability as a priority candidate, the
-	// literal surface SpellBench's own engine adapters expose. sb-uniform
-	// XORs in the benchmark's uniform seed (11). Bench-only: the
+	// sb-*-manual/-planned are the SpellBench builtin bots' other mana
+	// surfaces (internal/spellbench/builtins; the package doc records every
+	// mapping choice). The -manual arms offer every mana ability as a priority
+	// candidate, the literal surface SpellBench's own engine adapters expose;
+	// the -planned arms play that surface with the auto-pay choice logic: a
+	// chosen cast's payment plan is lowered into manual taps by
+	// internal/spellbench/payexec (builtins.Planned). The plain names resolve
+	// through bots.New in init() (BP-15 hosted the builtins verbatim). The
 	// -spellbench mode (spellbench.go) round-robins them.
-	"sb-uniform": func(seed uint64) seat.Seat {
-		return builtins.New(builtins.Uniform, builtins.AutoPay, seed^builtins.UniformSeed)
-	},
-	"sb-heuristic": func(seed uint64) seat.Seat {
-		return builtins.New(builtins.Heuristic, builtins.AutoPay, seed)
-	},
-	"sb-first": func(seed uint64) seat.Seat {
-		return builtins.New(builtins.First, builtins.AutoPay, seed)
-	},
 	"sb-uniform-manual": func(seed uint64) seat.Seat {
 		return builtins.New(builtins.Uniform, builtins.Manual, seed^builtins.UniformSeed)
 	},
@@ -341,15 +298,13 @@ var policies = map[string]func(seed uint64) seat.Seat{
 	"sb-heuristic-planned": func(seed uint64) seat.Seat {
 		return builtins.New(builtins.Heuristic, builtins.Planned, seed)
 	},
-	// sb-tactical is the scored seat-visible heuristic (internal/spellbench/
-	// builtins/tactical.go) on the auto-pay surface; -planned plays the
-	// manual surface through payexec. The -no<group> arms switch one of
-	// its three idea groups off (the ablation), and sb-tactical-alt plays
-	// -spellbench-tactical-alt-weights (weight tuning A/B). Card names
-	// resolve through the corpus registry the run opened (tacticalLookup).
-	"sb-tactical": func(seed uint64) seat.Seat {
-		return builtins.NewTactical(builtins.AutoPay, seed, tacticalLookup, tacticalWeights)
-	},
+	// sb-tactical-planned plays the manual surface of the scored seat-visible
+	// heuristic (internal/spellbench/builtins/tactical.go) through payexec.
+	// The -no<group> arms switch one of its three idea groups off (the
+	// ablation), and sb-tactical-alt plays -spellbench-tactical-alt-weights
+	// (weight tuning A/B). Card names resolve through the corpus registry the
+	// run opened (tacticalLookup); the plain sb-tactical name resolves through
+	// bots/sbtactical in init() (BP-13).
 	"sb-tactical-planned": func(seed uint64) seat.Seat {
 		return builtins.NewTactical(builtins.Planned, seed, tacticalLookup, tacticalWeights)
 	},
@@ -395,6 +350,7 @@ func tacticalAlt(i int) func(seed uint64) seat.Seat {
 // -spellbench-tactical-alt-weights name a JSON file.
 var (
 	tacticalLookup     builtins.CardLookup
+	tacticalCards      *cards.Registry
 	tacticalWeights    = builtins.DefaultTacticalWeights()
 	tacticalArchW      = builtins.DefaultTacticalWeights()
 	tacticalAltWeights = [8]builtins.TacticalWeights{builtins.DefaultTacticalWeights(), builtins.DefaultTacticalWeights(),
@@ -410,6 +366,7 @@ func init() {
 }
 
 func setTacticalRegistry(reg *cards.Registry) {
+	tacticalCards = reg
 	if tacticalLookup == nil {
 		tacticalLookup = builtins.NewRegistryLookup(reg)
 		// The registry's card-fact decorators (lethal) read printed IR from
@@ -420,11 +377,89 @@ func setTacticalRegistry(reg *cards.Registry) {
 	}
 }
 
+// benchAutoPayHosted are the hosted bench names whose -pairs arms predate
+// BP-16 and played builtins.AutoPay (spec 2026-09-28-hosted-bot-packages §4's
+// hosted-config table); bots.New chooses Manual unless Options.AutoPayMana is
+// set, so hostedPolicy sets it for exactly these names. The explicit Manual
+// arms stay available as the separate sb-*-manual registry entries.
+var benchAutoPayHosted = map[string]bool{
+	sbuniform.Policy:   true,
+	sbfirst.Policy:     true,
+	sbheuristic.Policy: true,
+}
+
+// hostedPolicy resolves a hosted name through bots.New, preserving the bench
+// arm where the hosted factory defaults to the table's mana setting: see
+// benchAutoPayHosted. Every other flag stays the hosted default.
 func hostedPolicy(name string) func(seed uint64) seat.Seat {
 	return func(seed uint64) seat.Seat {
-		s, err := bots.New(name, bots.Options{Seed: seed})
+		o := benchBotOptions(seed)
+		o.AutoPayMana = benchAutoPayHosted[name]
+		s, err := bots.New(name, o)
 		if err != nil {
-			panic(err) // constants above are the closed hosted-policy vocabulary.
+			panic(err) // bots.Names() is the hosted vocabulary this closure is built for.
+		}
+		return s
+	}
+}
+
+func benchBotOptions(seed uint64) bots.Options {
+	return bots.Options{Seed: seed, Deps: bots.Deps{Cards: tacticalCards}}
+}
+
+// These overlays begin at the registry's hosted configuration; the bench's
+// parsed tuning values replace it only where the corresponding flags apply.
+// searchOverlay ignores base by construction: searchKnobs is the complete
+// config materialised from the -search-* flags, whose defaults are
+// searchseat.Defaults() (== search.Hosted()), so every field base could carry
+// is already represented and flag-set values win. It is kept a parameter so
+// the call site reads like its siblings and a future hosted base change is a
+// conscious edit here.
+func searchOverlay(base searchseat.Options) searchseat.Options { return searchKnobs }
+
+func tacticalOverlay(_ builtins.TacticalWeights) builtins.TacticalWeights { return tacticalWeights }
+
+func sbSearchOverlay(base sbsearch.Config) sbsearch.Config { return base }
+
+func init() {
+	// BP-16 (spec §11): every hosted name resolves through bots.New. The four
+	// search-family entries are re-bound below to their <pkg>.New overlays so
+	// the -search-*, -az-* and tactical-weights flags keep working.
+	// cast-profile is the one hosted name left bench-native: -profile swaps
+	// its cast weights for a candidate file, and the hosted registry has no
+	// profile surface (bots/castprofile.New builds the embedded default only),
+	// so the loop must not clobber the literal above.
+	for _, name := range bots.Names() {
+		if name == bots.CastProfilePolicy {
+			continue
+		}
+		policies[name] = hostedPolicy(name)
+	}
+	policies[search.Policy] = func(seed uint64) seat.Seat {
+		s, err := search.New(benchBotOptions(seed), searchOverlay(search.Hosted()))
+		if err != nil {
+			panic("botbench: " + err.Error())
+		}
+		return s
+	}
+	policies[azredeal.Policy] = func(seed uint64) seat.Seat {
+		s, err := azredeal.New(benchBotOptions(seed), azRedealOverlay())
+		if err != nil {
+			panic("botbench: " + err.Error())
+		}
+		return s
+	}
+	policies[sbtactical.Policy] = func(seed uint64) seat.Seat {
+		s, err := sbtactical.New(benchBotOptions(seed), tacticalOverlay(sbtactical.Hosted()))
+		if err != nil {
+			panic("botbench: " + err.Error())
+		}
+		return s
+	}
+	policies[hostedsbsearch.Policy] = func(seed uint64) seat.Seat {
+		s, err := hostedsbsearch.NewBench(benchBotOptions(seed), sbSearchOverlay(hostedsbsearch.LiteAtk()))
+		if err != nil {
+			panic("botbench: " + err.Error())
 		}
 		return s
 	}
@@ -2634,7 +2669,7 @@ func mainExit(aName, bName string, games int, seed uint64, seats, rotate int, pa
 	if checkpoint != "" {
 		ckModel = policynetModel
 	}
-	if err := azFrontDoor(aName, bName, ckModel); err != nil {
+	if err := azFrontDoor(aName, bName, ckModel, azSeatsFromHosted); err != nil {
 		return fail(err)
 	}
 	oracleKnobs, err := withSearchOracle(searchOracleCheckpoint, aName, bName, searchKnobs)

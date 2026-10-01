@@ -151,6 +151,10 @@ func (s *hostedSeat) Decide(ctx context.Context, v view.View, d decision.Decisio
 // WantsPaymentActions is the wrapped seat's (AutoPay: yes).
 func (s *hostedSeat) WantsPaymentActions() bool { return s.bot.WantsPaymentActions() }
 
+// UnwrapSeat lets botbench's existing SpellBench planner and refusal hooks
+// reach the builtin seat this adapter hosts.
+func (s *hostedSeat) UnwrapSeat() seat.Seat { return s.bot }
+
 // AnswerRefused is the refusal ladder's rung 1: the wrapped seat's own
 // refusal answer, unchanged. builtins.Seat.Refused already has exactly the
 // RefusalAnswerer shape, so the delegation is verbatim.

@@ -25,6 +25,7 @@ import (
 	"github.com/adams-shaun/gorge/bots"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/internal/azmcts"
+	"github.com/adams-shaun/gorge/internal/policynet"
 	"github.com/adams-shaun/gorge/internal/searchseat"
 	"github.com/adams-shaun/gorge/seat"
 	"github.com/adams-shaun/gorge/view"
@@ -122,9 +123,10 @@ type hostedSeat struct {
 }
 
 var (
-	_ bots.EnvSeat      = (*hostedSeat)(nil)
-	_ bots.BudgetedSeat = (*hostedSeat)(nil)
-	_ seat.BoardSeat    = (*hostedSeat)(nil)
+	_ bots.EnvSeat          = (*hostedSeat)(nil)
+	_ bots.BudgetedSeat     = (*hostedSeat)(nil)
+	_ seat.BoardSeat        = (*hostedSeat)(nil)
+	_ searchseat.SearchSeat = (*hostedSeat)(nil)
 )
 
 // Decide is the plain Seat half: the wrapped bot. Decisions where WantsEnv is
@@ -132,6 +134,23 @@ var (
 // a caller holding the seat only as a Seat goes here.
 func (s *hostedSeat) Decide(ctx context.Context, v view.View, d decision.Decision) (decision.Intent, error) {
 	return s.bot.Decide(ctx, v, d)
+}
+
+// UnwrapSeat lets botbench attach its visit recorder to the underlying az seat.
+func (s *hostedSeat) UnwrapSeat() seat.Seat { return s.bot }
+
+// SetRecorder preserves botbench's per-seat az corpus hook through the hosted adapter.
+func (s *hostedSeat) SetRecorder(fn func(policynet.VisitRecord)) {
+	if recorder, ok := s.bot.(interface {
+		SetRecorder(func(policynet.VisitRecord))
+	}); ok {
+		recorder.SetRecorder(fn)
+	}
+}
+
+// DecideSearch keeps this adapter usable by botbench's engine-owning driver.
+func (s *hostedSeat) DecideSearch(ctx context.Context, env searchseat.Env, d decision.Decision) (decision.Intent, error) {
+	return s.bot.DecideSearch(ctx, env, d)
 }
 
 // DecideBoard is the game-shaped half: the wrapped bot. It is the fallback

@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/adams-shaun/gorge/bots/azredeal"
 	"github.com/adams-shaun/gorge/internal/azmcts"
 	"github.com/adams-shaun/gorge/internal/azmcts/clairvoyant"
 	"github.com/adams-shaun/gorge/internal/policynet"
@@ -59,12 +60,31 @@ func registerAZFlags(fs *flag.FlagSet) {
 	fs.StringVar(&azKindsArg, "az-kinds", azKindsArg, "az policy: comma list of searched decision kinds (priority, attackers, blockers, target)")
 }
 
+// azSeatMode names which construction path this run's az-redeal seats take,
+// so azFrontDoor can tell whether -checkpoint actually reaches them. botbench
+// builds az-redeal two ways and only one passes azNet.
+type azSeatMode int
+
+const (
+	// azSeatsFromHosted: az-redeal resolves through bots/azredeal.New, the
+	// -pairs policies map (cmd/botbench/main.go's policies[azredeal.Policy]).
+	// That constructor builds the az seat with a nil net -- generation 0 by
+	// construction ("New: net is always nil") -- so a -checkpoint can no
+	// longer drive it.
+	azSeatsFromHosted azSeatMode = iota
+	// azSeatsFromSpellbench: az-redeal resolves through the -spellbench
+	// registry entry (cmd/botbench/spellbench_registry.go), which passes
+	// azNet (the loaded checkpoint). Here -checkpoint is applied.
+	azSeatsFromSpellbench
+)
+
 // azFrontDoor validates the az configuration before any game starts. It is a
 // no-op without an az side, except that -az-* flags then are an error. m is
-// the -checkpoint model, nil when none was given. On success it stores the
-// validated config and opens the clairvoyant source for this process -- the
-// only clairvoyant.AllowClairvoyant call outside tests.
-func azFrontDoor(aName, bName string, m *policynet.Model) error {
+// the -checkpoint model, nil when none was given; mode is the construction
+// path the run's az-redeal seats take. On success it stores the validated
+// config and opens the clairvoyant source for this process -- the only
+// clairvoyant.AllowClairvoyant call outside tests.
+func azFrontDoor(aName, bName string, m *policynet.Model, mode azSeatMode) error {
 	if !isAZPolicy(aName) && !isAZPolicy(bName) {
 		if azFlagsGiven {
 			return fmt.Errorf("-az-* flags were given but neither side is az")
@@ -72,6 +92,16 @@ func azFrontDoor(aName, bName string, m *policynet.Model) error {
 		return nil
 	}
 	plainAZ := aName == "az" || bName == "az"
+	// A -checkpoint drives the search's leaf and prior, and only the
+	// -spellbench az-redeal entry passes azNet to the seat. The -pairs path
+	// (bots/azredeal.New) builds the seat with a nil net by construction, so a
+	// checkpoint there would be silently dropped -- refuse it, whether or not
+	// a plain az side is also present, rather than benching a different bot
+	// than -checkpoint names. Policy az with -az-world redeal is the
+	// checkpointed honest-world shape.
+	if m != nil && mode == azSeatsFromHosted && (aName == "az-redeal" || bName == "az-redeal") {
+		return fmt.Errorf("-checkpoint with az-redeal: the hosted az-redeal seat is generation 0 (bots/azredeal); use policy az with -az-world redeal for a checkpointed honest-world search")
+	}
 	azCfg.ExploreTurns = int32(azExploreTurns)
 	fsRec, err := policynet.ParseFeatureSet(azRecordArg)
 	if err != nil || fsRec.Diagnostic() || fsRec == policynet.FeaturesV1 {
@@ -123,6 +153,18 @@ func azFrontDoor(aName, bName string, m *policynet.Model) error {
 func isAZPolicy(name string) bool { return name == "az" || name == "az-redeal" }
 
 // azSeatConfig is the configuration the named az policy's seat runs with.
+func azRedealOverlay() azmcts.SeatConfig {
+	cfg := azredeal.Hosted()
+	// Preserve the bench's -az-* search tuning while keeping the hosted
+	// entry's honest world and generation-0 policy invariants.
+	cfg.Search = azCfg.Search
+	cfg.ExploreTurns = azCfg.ExploreTurns
+	cfg.Explore, cfg.NoNoise, cfg.PriorOnly = azCfg.Explore, azCfg.NoNoise, false
+	cfg.Worlds = azCfg.Worlds
+	cfg.RecordFeatures = azCfg.RecordFeatures
+	return cfg
+}
+
 func azSeatConfig(policy string) azmcts.SeatConfig {
 	cfg := azCfg
 	if policy == "az-redeal" {

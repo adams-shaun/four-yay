@@ -28,11 +28,11 @@ func saveAZ(t *testing.T) {
 func TestAZFrontDoor(t *testing.T) {
 	saveAZ(t)
 	azWorldArg, azFlagsGiven = "", false
-	if err := azFrontDoor("bot", "bot", nil); err != nil {
+	if err := azFrontDoor("bot", "bot", nil, azSeatsFromHosted); err != nil {
 		t.Fatalf("no az side, no az flags: %v", err)
 	}
 	azFlagsGiven = true
-	if err := azFrontDoor("bot", "bot", nil); err == nil || !strings.Contains(err.Error(), "neither side is az") {
+	if err := azFrontDoor("bot", "bot", nil, azSeatsFromHosted); err == nil || !strings.Contains(err.Error(), "neither side is az") {
 		t.Fatalf("az flags without an az side: %v", err)
 	}
 	azFlagsGiven = false
@@ -42,23 +42,23 @@ func TestAZFrontDoor(t *testing.T) {
 		{"oracle", "want clairvoyant, redeal or sampled"},
 	} {
 		azWorldArg = tc.world
-		if err := azFrontDoor("az", "bot", nil); err == nil || !strings.Contains(err.Error(), tc.want) {
+		if err := azFrontDoor("az", "bot", nil, azSeatsFromHosted); err == nil || !strings.Contains(err.Error(), tc.want) {
 			t.Errorf("-az-world %q: %v, want %q", tc.world, err, tc.want)
 		}
 	}
 	azWorldArg = "clairvoyant"
 	azKindsArg = "priority,bogus"
-	if err := azFrontDoor("az", "bot", nil); err == nil || !strings.Contains(err.Error(), "-az-kinds") {
+	if err := azFrontDoor("az", "bot", nil, azSeatsFromHosted); err == nil || !strings.Contains(err.Error(), "-az-kinds") {
 		t.Fatalf("bad -az-kinds: %v", err)
 	}
 	azKindsArg = "attackers"
-	if err := azFrontDoor("bot", "az", &policynet.Model{}); err == nil || !strings.Contains(err.Error(), "no value head") {
+	if err := azFrontDoor("bot", "az", &policynet.Model{}, azSeatsFromHosted); err == nil || !strings.Contains(err.Error(), "no value head") {
 		t.Fatalf("policy-only checkpoint: %v", err)
 	}
-	if err := azFrontDoor("bot", "az", &policynet.Model{ValueHidden: 1, Features: policynet.FeaturesMZOppHand}); err == nil || !strings.Contains(err.Error(), "hidden information") {
+	if err := azFrontDoor("bot", "az", &policynet.Model{ValueHidden: 1, Features: policynet.FeaturesMZOppHand}, azSeatsFromHosted); err == nil || !strings.Contains(err.Error(), "hidden information") {
 		t.Fatalf("oracle checkpoint: %v", err)
 	}
-	if err := azFrontDoor("az", "bot", nil); err != nil {
+	if err := azFrontDoor("az", "bot", nil, azSeatsFromHosted); err != nil {
 		t.Fatalf("valid az side: %v", err)
 	}
 	if azCfg.Search.Kinds != (azmcts.Kinds{Attackers: true}) || azNet != nil {
@@ -71,7 +71,7 @@ func TestAZFrontDoor(t *testing.T) {
 func TestAZRedealFrontDoor(t *testing.T) {
 	saveAZ(t)
 	azWorldArg, azFlagsGiven, azKindsArg = "", false, "priority,attackers,blockers,target"
-	if err := azFrontDoor("az-redeal", "bot", nil); err != nil {
+	if err := azFrontDoor("az-redeal", "bot", nil, azSeatsFromHosted); err != nil {
 		t.Fatalf("az-redeal without -az-world: %v", err)
 	}
 	if got := azSeatConfig("az-redeal").World; got != azmcts.WorldRedeal {
@@ -86,7 +86,7 @@ func TestAZRedealFrontDoor(t *testing.T) {
 		t.Fatalf("display name %q", got)
 	}
 	azWorldArg = "redeal"
-	if err := azFrontDoor("az", "bot", nil); err != nil {
+	if err := azFrontDoor("az", "bot", nil, azSeatsFromHosted); err != nil {
 		t.Fatalf("az -az-world redeal: %v", err)
 	}
 	if got := azSeatConfig("az").World; got != azmcts.WorldRedeal {
@@ -94,7 +94,7 @@ func TestAZRedealFrontDoor(t *testing.T) {
 	}
 	azCfg.Worlds = 0
 	azWorldArg = "clairvoyant"
-	if err := azFrontDoor("az", "az-redeal", nil); err != nil {
+	if err := azFrontDoor("az", "az-redeal", nil, azSeatsFromHosted); err != nil {
 		t.Fatal(err)
 	}
 	if sbDisplayName("az") != "az-clairvoyant-sims25" || sbDisplayName("az-redeal") != "az-redeal-sims25" {

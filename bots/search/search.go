@@ -83,6 +83,13 @@ type hostedSeat struct {
 var (
 	_ bots.EnvSeat   = (*hostedSeat)(nil)
 	_ seat.BoardSeat = (*hostedSeat)(nil)
+	// The bench driver's SearchSeat contract (BP-16): internal/bench.PlayGame
+	// builds an observation feed for a SearchSeat and hands the decision's Env
+	// to it — the live engine with -hosted-root off (the bench keeps the real
+	// engine), the honest root with it on. The host never calls it; its Env
+	// dispatch routes the same wrapped call through DecideEnv, gated on
+	// WantsEnv.
+	_ searchseat.SearchSeat = (*hostedSeat)(nil)
 )
 
 // Decide is the plain Seat half: the wrapped bot. Decisions where WantsEnv is
@@ -97,6 +104,11 @@ func (s *hostedSeat) Decide(ctx context.Context, v view.View, d decision.Decisio
 // every non-Env decision.
 func (s *hostedSeat) DecideBoard(ctx context.Context, b botpolicy.Board, d decision.Decision) (decision.Intent, error) {
 	return s.bot.DecideBoard(ctx, b, d)
+}
+
+// DecideSearch keeps the hosted adapter usable by botbench's engine-owning driver.
+func (s *hostedSeat) DecideSearch(ctx context.Context, env searchseat.Env, d decision.Decision) (decision.Intent, error) {
+	return s.bot.DecideSearch(ctx, env, d)
 }
 
 // WantsEnv reports whether this decision is one the teacher would attempt:

@@ -31,9 +31,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/bots"
 	"github.com/adams-shaun/gorge/bots/sbtactical"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/internal/searchseat"
 	"github.com/adams-shaun/gorge/internal/spellbench/builtins"
 	"github.com/adams-shaun/gorge/internal/spellbench/sbsearch"
 	"github.com/adams-shaun/gorge/seat"
@@ -88,15 +90,40 @@ func newSBSearch(o bots.Options) (seat.Seat, error) {
 	return New(o, Hosted())
 }
 
-// New builds the adapter over an explicit config overlay. It is botbench's
-// entry point (spec §4.3): botbench overlays its -search-* flags on Hosted()
-// and calls this; the host goes through the registry factory above.
+// New builds the host adapter over an explicit config overlay. The host goes
+// through the registry factory above; botbench builds its bench drive through
+// NewBench, which wraps this seat with the driver-facing SearchSeat half.
 //
 // The inner sb-tactical seat is built with the hosted sb-tactical weights
 // (bots/sbtactical.Hosted()) and this entry's per-seat seed, exactly as
 // sbsearch.New's own callers build it. With no card registry the tactical
 // heuristic cannot resolve printed card facts, so the factory refuses.
 func New(o bots.Options, cfg sbsearch.Config) (seat.Seat, error) {
+	s, err := newHostedSeat(o, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
+// NewBench builds the bench-facing adapter: New's hostedSeat wrapped in the
+// bench-only searchseat.SearchSeat half (spec §5.1 / BP-16). It is botbench's
+// entry point (spec §4.3): botbench overlays its -search-* flags on Hosted()
+// and calls this; the driver's feed branch type-asserts the returned seat for
+// searchseat.SearchSeat. The host never calls it -- bots.New returns the bare
+// hostedSeat from New above, which deliberately does not satisfy either
+// searchseat.SearchSeat or seat.BoardSeat (§5.1's plain-View contract).
+func NewBench(o bots.Options, cfg sbsearch.Config) (seat.Seat, error) {
+	s, err := newHostedSeat(o, cfg)
+	if err != nil {
+		return nil, err
+	}
+	return &benchSearchSeat{hostedSeat: s}, nil
+}
+
+// newHostedSeat is the shared construction New and NewBench warm their
+// per-seat adapter from.
+func newHostedSeat(o bots.Options, cfg sbsearch.Config) (*hostedSeat, error) {
 	if o.Deps.Cards == nil {
 		return nil, fmt.Errorf("%s: Deps.Cards is nil: the sb-search inner sb-tactical reads printed card facts from the served card registry", Policy)
 	}
@@ -193,3 +220,68 @@ func (s *hostedSeat) AnswerRefused(v view.View, d decision.Decision, refused dec
 	}
 	return inner.Refused(v, d, refused)
 }
+
+// benchSearchSeat is the bench-only view of hostedSeat: the driver-facing
+// searchseat.SearchSeat half (spec §5.1 / BP-16). It exists so hostedSeat
+// itself never satisfies seat.BoardSeat -- DecideBoard's signature is
+// byte-identical to seat.BoardSeat's only method, so a hostedSeat carrying it
+// would be type-asserted by any host code looking for a BoardSeat and routed
+// through DecideBoard instead of the intended Decide/DecideEnv path. The host
+// therefore only ever receives the plain hostedSeat from bots.New; the bench
+// driver, whose SearchSeat branch REQUIRES DecideBoard for a stopped feed,
+// gets this wrapper.
+//
+// It embeds *hostedSeat, so every host-facing method (WantsEnv, DecideEnv,
+// Decide, DecisionBudgetMS, WantsPaymentActions, AnswerRefused) is promoted
+// unchanged; only the two bench methods and UnwrapSeat are declared here.
+type benchSearchSeat struct {
+	*hostedSeat
+}
+
+var (
+	_ bots.EnvSeat             = (*benchSearchSeat)(nil)
+	_ bots.BudgetedSeat        = (*benchSearchSeat)(nil)
+	_ bots.RefusalAnswerer     = (*benchSearchSeat)(nil)
+	_ seat.PaymentPlanConsumer = (*benchSearchSeat)(nil)
+	_ seat.Seat                = (*benchSearchSeat)(nil)
+	// The bench driver's SearchSeat contract (BP-16): internal/bench.PlayGame
+	// builds an observation feed for a SearchSeat and answers its own
+	// decisions from DecideSearch — the live engine with -hosted-root off
+	// (the bench keeps the real engine), the honest root with it on. The host
+	// never calls it; its Env dispatch routes the same wrapped call through
+	// DecideEnv, gated on WantsEnv. Only the bench wrapper satisfies this: the
+	// host's hostedSeat deliberately does not, since DecideBoard is also
+	// seat.BoardSeat's method.
+	_ searchseat.SearchSeat = (*benchSearchSeat)(nil)
+)
+
+// DecideSearch is the bench driver's SearchSeat contract (BP-16):
+// internal/bench.PlayGame answers the adapter's own decisions from its
+// observation feed — the live engine with -hosted-root off (the bench keeps
+// the real engine), the honest root with it on. The host never calls it; its
+// Env dispatch routes the same wrapped call through DecideEnv, gated on
+// WantsEnv.
+func (s *benchSearchSeat) DecideSearch(ctx context.Context, env searchseat.Env, d decision.Decision) (decision.Intent, error) {
+	return s.bot.DecideSearch(ctx, env, d)
+}
+
+// DecideBoard is the bench driver's other SearchSeat half: the wrapped search
+// seat's own board fallback, exactly as the bare *sbsearch.Seat answered a
+// non-live feed before BP-16. The host never calls this (its Env dispatch
+// plays the inner sb-tactical on env.View with a nil planner through
+// DecideEnv); this method exists so botbench's existing SearchSeat branch
+// drives the same wrapped seat with the real engine the bench keeps.
+// Deliberately declared on benchSearchSeat and NOT on hostedSeat: the latter
+// would then structurally satisfy seat.BoardSeat.
+func (s *benchSearchSeat) DecideBoard(ctx context.Context, b botpolicy.Board, d decision.Decision) (decision.Intent, error) {
+	return s.bot.DecideBoard(ctx, b, d)
+}
+
+// UnwrapSeat exposes the wrapped search seat: botbench's existing SpellBench
+// hooks (the planner hand-off, the fallback's sb-tactical assertion, the
+// stats read) reach the inner seat through registry.UnwrapSeat's chain,
+// exactly as they reached the bare *sbsearch.Seat the bench registered
+// before BP-16. Without it the bench's SetPlanner(e) silently misses the
+// inner seat and its decisions change under it. Like the two bench methods,
+// it belongs to the bench wrapper, not to the hostedSeat robots.New returns.
+func (s *benchSearchSeat) UnwrapSeat() seat.Seat { return s.bot }
