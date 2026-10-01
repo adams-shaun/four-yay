@@ -1035,6 +1035,12 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	if sp.preview != nil {
 		c.preview, c.previewOwner = sp.preview, c
 	}
+	// The SBA quiet key (sbaquiet.go), when the original is provably quiet
+	// without a layer read: see sbaQuietCarry.
+	if k, ok := e.sbaQuietCarry(); ok {
+		k.ver = c.continuousVersion
+		c.sbaQuiet = k
+	}
 	return c
 }
 

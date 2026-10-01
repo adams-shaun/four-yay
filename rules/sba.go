@@ -66,6 +66,11 @@ type sbaAttempts struct {
 	sagas    map[state.ObjID]bool
 	dungeons map[state.ObjID]bool
 	alive    int
+	// skips counts, for the current pass, the candidates an attempt memory
+	// above made the pass skip. A stable final pass with none skipped is
+	// exactly what a fresh call's first pass would see, so the run is quiet
+	// even if earlier passes emitted (sbaRecordQuiet).
+	skips int
 }
 
 // rearm forgets every memory when the alive-player set has shrunk since it
@@ -285,6 +290,7 @@ func (e *Engine) checkStateBased() {
 	// whose flag is down would find nothing on the board.
 	facts := &sbaBoardFacts{at: -1}
 	for pass := 0; pass < maxSBAPasses; pass++ {
+		tried.skips = 0
 		changed := e.checkLoseConditions(tried)
 		if e.sbaFacts(facts).counterPair && e.annihilateOppositeCounters() {
 			changed = true
@@ -345,7 +351,7 @@ func (e *Engine) checkStateBased() {
 		e.emit(events.Event{Kind: events.Note,
 			Text: "state-based actions did not reach a fixed point within the pass budget"})
 	} else {
-		e.sbaRecordQuiet(ep0)
+		e.sbaRecordQuiet(ep0, tried.skips == 0)
 	}
 	e.checkGameOver()
 	e.releasePendingDecisionOfDepartedPlayer()
@@ -880,7 +886,11 @@ func (e *Engine) checkLoseConditions(tried *sbaAttempts) bool {
 	tried.rearm(e.G.AliveCount())
 	for i := range e.G.Players {
 		p := &e.G.Players[i]
-		if !p.Lost || tried.players[p.ID] {
+		if !p.Lost {
+			continue
+		}
+		if tried.players[p.ID] {
+			tried.skips++
 			continue
 		}
 		markTried(&tried.players, p.ID)
@@ -1023,6 +1033,7 @@ func (e *Engine) destroyLethalDamage(tried *sbaAttempts) bool {
 	for _, p := range e.G.AliveFrom(0) {
 		for _, id := range e.G.Zone(state.ZBattlefield, p) {
 			if tried.objs[id] {
+				tried.skips++
 				continue
 			}
 			o := e.G.Obj(id)
@@ -1173,6 +1184,7 @@ func (e *Engine) planeswalkerZeroLoyalty(tried *sbaAttempts) bool {
 	for _, p := range e.G.AliveFrom(0) {
 		for _, id := range e.G.Zone(state.ZBattlefield, p) {
 			if tried.objs[id] {
+				tried.skips++
 				continue
 			}
 			o := e.G.Obj(id)
@@ -1240,6 +1252,7 @@ func (e *Engine) battleZeroDefense(tried *sbaAttempts) bool {
 	for _, p := range e.G.AliveFrom(0) {
 		for _, id := range e.G.Zone(state.ZBattlefield, p) {
 			if tried.objs[id] {
+				tried.skips++
 				continue
 			}
 			o := e.G.Obj(id)
@@ -1326,7 +1339,11 @@ func (e *Engine) ceaseDeadTokens(tried *sbaAttempts) bool {
 		o := &e.G.Objs[i]
 		// The field test first: the attempt memory is only consulted for a
 		// token that would otherwise be ceased (the same set as before).
-		if o.IsToken && o.Zone != state.ZBattlefield && o.Zone != state.ZStack && o.Zone != state.ZCeased && !tried.tokens[o.ID] {
+		if o.IsToken && o.Zone != state.ZBattlefield && o.Zone != state.ZStack && o.Zone != state.ZCeased {
+			if tried.tokens[o.ID] {
+				tried.skips++
+				continue
+			}
 			dead = append(dead, tokenCasualty{o.ID, o.Zone})
 		}
 	}

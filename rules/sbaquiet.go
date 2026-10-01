@@ -42,8 +42,9 @@ import (
 //
 // Only the pass loop is skipped: the legend re-pose guard, expireControl,
 // reconcileControlStatics, checkGameOver and the departed-decision release
-// around it still run on every call. Clone() leaves sbaQuiet zero (ep 0
-// never matches), and a direct e.G write in a test with no event is the one
+// around it still run on every call. Clone() carries the key only in the
+// layer-inert-only form sbaQuietCarry derives (else zero: ep 0 never
+// matches), and a direct e.G write in a test with no event is the one
 // input the key cannot see -- sbaQuietVerify, on in the rules test binary,
 // runs the loop anyway on every would-be skip and panics if it emits.
 
@@ -103,15 +104,19 @@ func (e *Engine) sbaQuietNow() bool {
 }
 
 // sbaRecordQuiet records the key after a pass loop that started at log
-// length ep0 and reached its fixed point; only a run that emitted nothing
-// and deferred nothing on a runtime input is quiet.
-func (e *Engine) sbaRecordQuiet(ep0 int) {
-	if len(e.L.Events) != ep0 || e.sbaUnquiet || e.legendBatch != nil {
+// length ep0 and reached its fixed point. A run that deferred on a runtime
+// input is never quiet. A run that emitted is quiet at its END when its final
+// pass -- the one that found nothing -- skipped no candidate on the call's
+// attempt memory (fresh): that pass then read exactly what a fresh call's
+// first pass reads from the current state, and found nothing.
+func (e *Engine) sbaRecordQuiet(ep0 int, fresh bool) {
+	if (len(e.L.Events) != ep0 && !fresh) || e.sbaUnquiet || e.legendBatch != nil {
 		e.sbaQuiet = sbaQuietKey{}
 		return
 	}
 	e.active()
-	e.sbaQuiet = sbaQuietKey{ep: ep0, ver: e.continuousVersion, objs: len(e.G.Objs), dseq: e.derivedSeq}
+	n := len(e.L.Events)
+	e.sbaQuiet = sbaQuietKey{ep: n, ver: e.continuousVersion, objs: len(e.G.Objs), dseq: e.derivedSeq}
 }
 
 // sbaInputsQuietSince reports whether nothing the pass loop reads has moved
@@ -194,8 +199,8 @@ func (e *Engine) sbaInputsQuietSince(q *sbaQuietKey) bool {
 //     a token (CR 704.5d), to sweep a departed player and to judge an Aura
 //     whose bearer left the battlefield (auraEnchantZoneAdmits, the Animate
 //     Dead family) -- and a Saga's or dungeon's "busy" test, whose deferral
-//     never records a quiet key. Damage to an object is NOT quiet: lethal
-//     damage reads marked damage.
+//     never records a quiet key. Positive damage to an object is NOT
+//     quiet: lethal damage reads marked damage (its removal is: see below).
 //   - the keyword-action markers (pureMarkerKind): Apply writes nothing;
 //   - TriggerPush and AbilityPush by a player still in the game: each mints
 //     one face-less ability object on the stack (sbaQuietNow holds the arena
@@ -224,7 +229,12 @@ func (e *Engine) sbaQuietEvent(ev *events.Event) bool {
 		events.DamageProvenance, events.LibraryOrder, events.Shuffle:
 		return true
 	case events.Damage:
-		return ev.Obj == 0
+		// Damage to a player, or a non-positive amount to an object
+		// (cleanup's marked-damage removal): foldDamage then only lowers
+		// o.Damage (floored at zero) -- or, on a non-creature planeswalker
+		// or battle, writes nothing -- and the pass loop reads marked damage
+		// only to find lethal damage, which less of it cannot newly meet.
+		return ev.Obj == 0 || ev.Amount <= 0
 	}
 	if derivedQuietKind(ev.Kind) {
 		return true
@@ -286,6 +296,32 @@ func (e *Engine) sbaQuietKindsSafe() bool {
 		}
 	}
 	return true
+}
+
+// sbaQuietCarry returns the quiet key a clone of e may start with. A clone
+// shares e's board and log but not its layer caches, so its derivedSeq means
+// nothing against e's: the carried key is re-recorded at the current log head
+// with quiet = 2, which admits only layer-inert events after it -- exactly
+// the original skip argument, needing no derivedSeq. It is carried only when
+// e's own key would skip now on that same argument alone: every event since
+// the record is layer-inert (none of the quiet kinds), the registry version
+// and the arena are unchanged, and no legend batch is parked. No layer read
+// is made, so Clone stays a pure copy.
+func (e *Engine) sbaQuietCarry() (sbaQuietKey, bool) {
+	q := &e.sbaQuiet
+	n := len(e.L.Events)
+	if q.ep <= 0 || q.ep > n || q.scanned > n || q.sawQuiet || e.legendBatch != nil ||
+		q.ver != e.continuousVersion || q.objs != len(e.G.Objs) {
+		return sbaQuietKey{}, false
+	}
+	for i := max(q.ep, q.scanned); i < n; i++ {
+		switch e.L.Events[i].Kind {
+		case events.DecisionAsk, events.DecisionMade, events.Priority:
+		default:
+			return sbaQuietKey{}, false
+		}
+	}
+	return sbaQuietKey{ep: n, objs: len(e.G.Objs), quiet: 2, scanned: n}, true
 }
 
 func (e *Engine) verifySBAQuiet(ep0 int) {

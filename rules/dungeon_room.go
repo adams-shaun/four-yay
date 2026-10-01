@@ -135,6 +135,7 @@ func (e *Engine) dungeonCompletion(tried *sbaAttempts) bool {
 			continue
 		}
 		if tried.dungeons[id] {
+			tried.skips++
 			continue
 		}
 		markTried(&tried.dungeons, id)
