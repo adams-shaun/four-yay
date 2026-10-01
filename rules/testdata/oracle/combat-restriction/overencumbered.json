@@ -1,0 +1,158 @@
+{
+  "card": "Overencumbered",
+  "family": "combat-restriction",
+  "oracle_sha": "3d83dd2126bf",
+  "author": "cli-20261001T022457Z-f0c31bb6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enters-creating-clue-food-and-junk",
+      "cr": [
+        "603.2"
+      ],
+      "why": "When Overencumbered enters, the enchanted opponent creates a Clue token, a Food token, and a Junk token -- three artifact tokens for p1.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Overencumbered"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Overencumbered",
+          "mana": "CW",
+          "targets": [
+            "p1"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "count": {
+            "seat": 1,
+            "zone": "battlefield",
+            "name": "Clue",
+            "token": true
+          },
+          "eq": 1
+        },
+        {
+          "count": {
+            "seat": 1,
+            "zone": "battlefield",
+            "name": "Food",
+            "token": true
+          },
+          "eq": 1
+        },
+        {
+          "count": {
+            "seat": 1,
+            "zone": "battlefield",
+            "name": "Junk",
+            "token": true
+          },
+          "eq": 1
+        }
+      ]
+    },
+    {
+      "name": "paying-per-artifact-permits-attacking",
+      "cr": [
+        "603.2",
+        "508.1"
+      ],
+      "why": "At the beginning of combat on p1's turn, p1 controls 6 artifacts (the three tokens plus three Sol Rings), so paying {6} permits attacking: Centaur Courser deals 3 to p0.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Overencumbered"
+          ],
+          "life": 20
+        },
+        "p1": {
+          "battlefield": [
+            "Centaur Courser",
+            "Sol Ring",
+            "Sol Ring",
+            "Sol Ring"
+          ],
+          "life": 20
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Overencumbered",
+          "mana": "CW",
+          "targets": [
+            "p1"
+          ]
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "pass_to",
+          "step": "upkeep",
+          "active": "p1"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "pass_to",
+          "step": "begin-combat",
+          "active": "p1"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "Pay"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "attack",
+          "seat": 1,
+          "attackers": [
+            "p1:Centaur Courser"
+          ],
+          "defender": "p0"
+        },
+        {
+          "op": "pass_to",
+          "step": "end",
+          "active": "p1"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p0": 17
+          }
+        }
+      ]
+    }
+  ]
+}

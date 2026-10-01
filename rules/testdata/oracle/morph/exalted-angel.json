@@ -1,0 +1,158 @@
+{
+  "card": "Exalted Angel",
+  "family": "morph",
+  "oracle_sha": "1b4f180169d0",
+  "author": "cli-20261001T022457Z-f0c31bb6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "face-down-attack-deals-two-without-lifegain",
+      "cr": [
+        "708.4",
+        "702.37a",
+        "510.2"
+      ],
+      "why": "The face-down angel is a plain 2/2 creature with no abilities (CR 708.4): attacking unblocked deals 2 damage but its 'Whenever Exalted Angel deals damage, you gain that much life' does not exist while face down, so no life is gained.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Exalted Angel"
+          ],
+          "life": 20
+        },
+        "p1": {
+          "life": 20
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Exalted Angel",
+          "cast_mode": "morphed",
+          "mana": "CCC"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "pass_to",
+          "step": "upkeep",
+          "active": "p0"
+        },
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Exalted Angel"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "pass_to",
+          "step": "end",
+          "active": "p0"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p1": 18,
+            "p0": 20
+          }
+        },
+        {
+          "card": "p0:Exalted Angel",
+          "zone": "battlefield",
+          "pt": "2/2"
+        }
+      ]
+    },
+    {
+      "name": "face-up-attack-deals-four-and-gains-four",
+      "cr": [
+        "702.37a",
+        "708.6",
+        "603.2",
+        "119.3"
+      ],
+      "why": "Turned up for its morph cost {2}{W}{W} it is its printed 4/5 flyer; attacking unblocked deals 4 to the defender and its damage trigger gains that much life: 24.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Exalted Angel"
+          ],
+          "life": 20
+        },
+        "p1": {
+          "life": 20
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Exalted Angel",
+          "cast_mode": "morphed",
+          "mana": "CCC"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "CCWW"
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Exalted Angel",
+          "ability": "Turn face up"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "pass_to",
+          "step": "upkeep",
+          "active": "p0"
+        },
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Exalted Angel"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "pass_to",
+          "step": "end",
+          "active": "p0"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p1": 16,
+            "p0": 24
+          }
+        },
+        {
+          "card": "p0:Exalted Angel",
+          "zone": "battlefield",
+          "pt": "4/5",
+          "keywords": [
+            "Flying"
+          ]
+        }
+      ]
+    }
+  ]
+}

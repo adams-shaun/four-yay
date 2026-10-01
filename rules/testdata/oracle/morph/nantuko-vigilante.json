@@ -1,0 +1,48 @@
+{
+  "card": "Nantuko Vigilante",
+  "family": "morph",
+  "oracle_sha": "e2e790c6c357",
+  "author": "cli-20261001T022457Z-f0c31bb6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "turning-face-up-destroys-an-artifact",
+      "cr": ["702.37a", "603.2"],
+      "why": "Morph {1}{G}: turning face up triggers 'destroy target artifact or enchantment'; the opponent's Mind Stone is destroyed and the Vigilante is its printed 3/2.",
+      "setup": {
+        "p0": {"hand": ["Nantuko Vigilante"]},
+        "p1": {"battlefield": ["Mind Stone"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Nantuko Vigilante", "cast_mode": "morphed", "mana": "CCC"},
+        {"op": "resolve"},
+        {"op": "mana", "seat": 0, "mana": "CG"},
+        {"op": "activate", "seat": 0, "card": "p0:Nantuko Vigilante", "ability": "Turn face up"},
+        {"op": "resolve", "targets": ["p1:Mind Stone"]}
+      ],
+      "expect": [
+        {"card": "p0:Nantuko Vigilante", "zone": "battlefield", "pt": "3/2"},
+        {"card": "p1:Mind Stone", "zone": "graveyard"}
+      ]
+    },
+    {
+      "name": "turning-face-up-destroys-an-enchantment",
+      "cr": ["702.37a", "603.2"],
+      "why": "The same face-up trigger may target an enchantment instead: the opponent's Trail of Mystery is destroyed.",
+      "setup": {
+        "p0": {"hand": ["Nantuko Vigilante"]},
+        "p1": {"battlefield": ["Trail of Mystery"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Nantuko Vigilante", "cast_mode": "morphed", "mana": "CCC"},
+        {"op": "resolve"},
+        {"op": "mana", "seat": 0, "mana": "CG"},
+        {"op": "activate", "seat": 0, "card": "p0:Nantuko Vigilante", "ability": "Turn face up"},
+        {"op": "resolve", "targets": ["p1:Trail of Mystery"]}
+      ],
+      "expect": [
+        {"card": "p0:Nantuko Vigilante", "zone": "battlefield", "pt": "3/2"},
+        {"card": "p1:Trail of Mystery", "zone": "graveyard"}
+      ]
+    }
+  ]
+}

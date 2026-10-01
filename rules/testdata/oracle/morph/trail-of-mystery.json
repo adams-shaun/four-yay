@@ -1,0 +1,48 @@
+{
+  "card": "Trail of Mystery",
+  "family": "morph",
+  "oracle_sha": "ec4ebeecf7c4",
+  "author": "cli-20261001T022457Z-f0c31bb6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "face-down-creature-enters-and-searches-a-basic",
+      "cr": ["603.2", "701.19"],
+      "why": "Whenever a face-down creature you control enters, you may search your library for a basic land: Zoetic Cavern cast face down triggers the search, fetching Mountain to hand.",
+      "setup": {
+        "p0": {"battlefield": ["Trail of Mystery"], "hand": ["Zoetic Cavern"], "library_top": ["Mountain", "Forest"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Zoetic Cavern", "cast_mode": "morphed", "mana": "CCC"},
+        {"op": "resolve", "answers": [
+          {"kind": "any", "pick": ["yes"]},
+          {"kind": "any", "pick": ["Mountain"]}
+        ]}
+      ],
+      "expect": [
+        {"card": "p0:Zoetic Cavern", "zone": "battlefield", "pt": "2/2"},
+        {"hand_size": {"p0": 1}}
+      ]
+    },
+    {
+      "name": "creature-turned-face-up-gets-plus-two-plus-two",
+      "cr": ["603.2", "708.6"],
+      "why": "Whenever a permanent you control is turned face up, if it's a creature, it gets +2/+2 until end of turn: Master of Pearls turned up is 2/2 +2 (Trail) +2 (its own trigger) = 6/6.",
+      "setup": {
+        "p0": {"battlefield": ["Trail of Mystery"], "hand": ["Master of Pearls"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Master of Pearls", "cast_mode": "morphed", "mana": "CCC"},
+        {"op": "resolve"},
+        {"op": "mana", "seat": 0, "mana": "CCCWW"},
+        {"op": "activate", "seat": 0, "card": "p0:Master of Pearls", "ability": "Turn face up"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Master of Pearls", "zone": "battlefield", "pt": "6/6"},
+        {"card": "p0:Trail of Mystery", "zone": "battlefield"}
+      ]
+    }
+  ]
+}

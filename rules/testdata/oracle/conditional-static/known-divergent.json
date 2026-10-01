@@ -1,1 +1,3 @@
-{}
+{
+  "Wintermoor Commander/attacking-grants-indestructible-to-another-knight": "Whenever Wintermoor Commander attacks, another target Knight you control gains indestructible until end of turn: the attack trigger never fires -- no target ask and no ability lands (the harness's activate step finds only Pass/Concede after the attack). Observed: the Lightning Bolt after combat destroys the 2/2 Black Knight instead of leaving 3 damage marked (CR 603.2, 702.12b). The CDA toughness half is correct and pinned by the passing sibling scenario."
+}

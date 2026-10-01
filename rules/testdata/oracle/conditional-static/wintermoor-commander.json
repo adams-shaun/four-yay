@@ -1,0 +1,45 @@
+{
+  "card": "Wintermoor Commander",
+  "family": "conditional-static",
+  "oracle_sha": "83797f858452",
+  "author": "cli-20261001T022457Z-f0c31bb6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "toughness-equals-the-number-of-knights-you-control",
+      "cr": ["604.3", "208.1"],
+      "why": "The toughness characteristic-defining ability counts Knights you control: with Black Knight in play, entering makes it the second Knight, so it is a 2/2 -- the opponent's Knights would not count.",
+      "setup": {
+        "p0": {"battlefield": ["Black Knight"], "hand": ["Wintermoor Commander"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Wintermoor Commander", "mana": "WB"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Wintermoor Commander", "zone": "battlefield", "pt": "2/2", "keywords": ["Deathtouch"]}
+      ]
+    },
+    {
+      "name": "attacking-grants-indestructible-to-another-knight",
+      "cr": ["603.2", "702.12b"],
+      "why": "Whenever Wintermoor Commander attacks, another target Knight you control (Black Knight) gains indestructible until end of turn: Lightning Bolt's 3 damage is then merely marked on the 2/2 instead of destroying it.",
+      "setup": {
+        "p0": {"battlefield": ["Wintermoor Commander", "Black Knight"], "hand": ["Lightning Bolt"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:Wintermoor Commander"], "defender": "p1"},
+        {"op": "activate", "seat": 0, "card": "p0:Wintermoor Commander", "ability": "gains indestructible", "targets": ["p0:Black Knight"]},
+        {"op": "resolve"},
+        {"op": "pass_to", "step": "end"},
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p0:Black Knight"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Black Knight", "zone": "battlefield", "damage": 3},
+        {"card": "p0:Wintermoor Commander", "zone": "battlefield", "pt": "2/2"}
+      ]
+    }
+  ]
+}

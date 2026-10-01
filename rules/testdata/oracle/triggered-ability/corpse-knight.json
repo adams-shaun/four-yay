@@ -1,0 +1,97 @@
+{
+  "card": "Corpse Knight",
+  "family": "triggered-ability",
+  "oracle_sha": "b5c6d4b2782c",
+  "author": "cli-20261001T022457Z-f0c31bb6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "each-creature-entry-drains-one",
+      "cr": [
+        "603.2",
+        "118.3"
+      ],
+      "why": "Whenever another creature you control enters, each opponent loses 1 life: casting Savannah Lions then Grizzly Bears drains 2 total (20 -> 18).",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Corpse Knight"
+          ],
+          "hand": [
+            "Savannah Lions",
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {
+          "life": 20
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Savannah Lions",
+          "mana": "W"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Grizzly Bears",
+          "mana": "CG"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p1": 18
+          }
+        }
+      ]
+    },
+    {
+      "name": "two-knights-each-drain-for-the-same-entry",
+      "cr": [
+        "603.2",
+        "603.6"
+      ],
+      "why": "Each permanent with the trigger triggers separately: with two Corpse Knights in play, Grizzly Bears entering has both triggers fire, draining 2 (20 -> 18).",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Corpse Knight",
+            "Corpse Knight"
+          ],
+          "hand": [
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {
+          "life": 20
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Grizzly Bears",
+          "mana": "CG"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p1": 18
+          }
+        }
+      ]
+    }
+  ]
+}
