@@ -1,4 +1,4 @@
-import { test, expect, type Page, type APIRequestContext } from '@playwright/test';
+import { test, expect, type Locator, type Page, type APIRequestContext } from '@playwright/test';
 
 /**
  * Task SG1 — a browser smoke gate.
@@ -391,8 +391,15 @@ async function matchOfTable(request: APIRequestContext, base: string, table: str
  */
 async function dockPromptInRail(page: Page, label: string): Promise<void> {
   const dock = page.locator('[data-prompt-dock]');
-  const present = await dock.waitFor({ state: 'attached', timeout: 3_000 }).then(() => true, () => false);
-  if (!present) return;
+  // ui24 (ticket agent-20260929T124737Z-fda041b7) tightened the old silent
+  // return: this helper's ONLY caller arrives with a decision pending — the
+  // dock answers every kind except priority and mulligan — and its board
+  // interactions are only safe once the dock is out of the board's way, so a
+  // missing dock is a named failure. A future no-prompt caller must pass a
+  // requirement of its own rather than resurrecting the silent return here.
+  await dock.waitFor({ state: 'attached', timeout: 3_000 }).catch(() => {
+    throw new Error(`${label}: no prompt dock attached within 3s — the caller should have a decision pending, so the dock must exist`);
+  });
   // The auto-yield latch is decided one requestAnimationFrame after the dock
   // mounts; poll briefly for it before reaching for the toggle.
   for (let i = 0; i < 6; i++) {
@@ -406,6 +413,62 @@ async function dockPromptInRail(page: Page, label: string): Promise<void> {
     await page.waitForTimeout(30);
   }
   expect(await dock.getAttribute('data-placement'), `${label}: the prompt dock should reach the rail`).toBe('rail');
+}
+
+/**
+ * clickWithInterceptDiagnostics (ticket agent-20260929T124737Z-fda041b7)
+ * keeps the REAL user-path click primary — Playwright's actionability walk
+ * is the thing under test's premise — but bounds it at WAIT_MS and, on
+ * timeout, (a) captures the overlay geometry ONCE into the failure output
+ * (the badge's rect, what elementFromPoint hits at its centre, the dock's
+ * placement and rect, the rail's rect) so a retained run names the
+ * interceptor instead of dying inside ctx.close() as a stale-DOM error, and
+ * (b) falls back to the seat-1 precedent `evaluate(el => el.click())` (the
+ * escape this file already accepts at the seat-1 badge for a target an
+ * overlay can cover). The R-E4-1 assertions this click serves are the
+ * non-zero wire index and the menu escaping the quadrant, NOT the click's
+ * own hit path, so the fallback does not weaken them. Chosen shape:
+ * diagnostics + fallback (not an explicit interception assertion) because a
+ * quiet-box run must keep passing through the real hit path unchanged.
+ */
+async function clickWithInterceptDiagnostics(badge: Locator): Promise<void> {
+  try {
+    await badge.click({ timeout: WAIT_MS });
+    return;
+  } catch {
+    // fall through to diagnostics + fallback below.
+  }
+  const geo = await badge.evaluate((el: HTMLElement) => {
+    const describe = (n: Element | null) => {
+      if (!n) return null;
+      const h = n as HTMLElement;
+      const r = h.getBoundingClientRect();
+      const option = h.getAttribute('data-option');
+      return {
+        tag: n.tagName,
+        cls: String(h.className).slice(0, 100),
+        dataOption: option === null ? undefined : option,
+        rect: { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) },
+        text: (h.textContent ?? '').trim().slice(0, 40),
+      };
+    };
+    const r = el.getBoundingClientRect();
+    const cx = r.left + r.width / 2;
+    const cy = r.top + r.height / 2;
+    const at = document.elementFromPoint(cx, cy);
+    const dock = document.querySelector('[data-prompt-dock]') as HTMLElement | null;
+    const rail = document.querySelector('aside[data-rail-side]') as HTMLElement | null;
+    return {
+      badge: describe(el),
+      center: { x: Math.round(cx), y: Math.round(cy) },
+      hitIsBadgeOrInside: at !== null && (at === el || el.contains(at)),
+      hit: describe(at),
+      dock: dock ? { placement: dock.getAttribute('data-placement'), ...describe(dock) } : null,
+      rail: describe(rail),
+    };
+  });
+  console.log(`UI24_BADGE_INTERCEPT ${JSON.stringify(geo)}`);
+  await badge.evaluate((el) => (el as HTMLElement).click());
 }
 
 async function driveFixtureUntil(
@@ -1397,7 +1460,7 @@ test.describe('gorged [ui24] constructed board fixture', () => {
     const ctx = await browser.newContext({ viewport: { width: 1000, height: 700 } });
     const page = await ctx.newPage();
     try {
-      await page.goto(`${b}/t/t1?seat=0&token=${fixtureToken(0)}`, { waitUntil: 'domcontentloaded' });
+      await page.goto(`${b}/t/t1?seat=0&token=${fixtureToken(0)}`, { waitUntil: 'domcontentloaded', timeout: WAIT_MS });
       await page.locator('.quadrant[data-seat="0"] .card-tile[data-options]').first().waitFor({ state: 'visible', timeout: WAIT_MS });
       await dockPromptInRail(page, '[ui24]');
 
@@ -1412,11 +1475,11 @@ test.describe('gorged [ui24] constructed board fixture', () => {
       const tile = stack.locator('.card-tile[data-options]');
       await tile.waitFor({ state: 'visible', timeout: WAIT_MS });
 
-      await stack.locator('button[aria-haspopup="menu"]').click();
+      await clickWithInterceptDiagnostics(stack.locator('button[aria-haspopup="menu"]'));
       const menuItem = page.locator('body > .menu-pop button[role="menuitem"]').nth(pickAt);
       await menuItem.waitFor({ state: 'visible', timeout: WAIT_MS });
-      await menuItem.click();
-      await expect(tile).toHaveAttribute('data-selected', '1');
+      await menuItem.click({ timeout: WAIT_MS });
+      await expect(tile).toHaveAttribute('data-selected', '1', { timeout: WAIT_MS });
 
       // Commit every attacker through the API. The browser click above only
       // changes local selection because attackers is a Min=0 multi-pick ask.
@@ -1430,12 +1493,12 @@ test.describe('gorged [ui24] constructed board fixture', () => {
       expect(blocks.options.length, 'fixture must produce a long blocking menu').toBeGreaterThanOrEqual(7);
 
       await page.setViewportSize({ width: 650, height: 700 });
-      await page.goto(`${b}/t/t1?seat=1&token=${fixtureToken(1)}`, { waitUntil: 'domcontentloaded' });
+      await page.goto(`${b}/t/t1?seat=1&token=${fixtureToken(1)}`, { waitUntil: 'domcontentloaded', timeout: WAIT_MS });
       const blockerStack = page.locator('.quadrant[data-seat="1"] button.stacked[data-obj-group]').first();
       await blockerStack.evaluate((el) => (el as HTMLElement).click());
       const badge = page.locator('.quadrant[data-seat="1"] button[aria-haspopup="menu"]').last();
       await badge.waitFor({ state: 'visible', timeout: WAIT_MS });
-      await badge.click();
+      await badge.click({ timeout: WAIT_MS });
       const menu = page.locator('body > .menu-pop');
       await menu.waitFor({ state: 'visible', timeout: WAIT_MS });
       const measurement = await page.evaluate(() => {
