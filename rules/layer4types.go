@@ -651,7 +651,7 @@ func (e *Engine) staticsMayChangeTypes() bool {
 // self-invalidates when its Statics list grows) plus every object appended
 // since, and re-stamps.
 func (e *Engine) staticsProbeCatchUp(n int) {
-	if e.typesProbe == nil || e.typesProbeEpoch < 0 || n < e.typesProbeEpoch || e.typesProbeVersion != e.continuousVersion {
+	if !e.typesProbeReady || e.typesProbeEpoch < 0 || n < e.typesProbeEpoch || e.typesProbeVersion != e.continuousVersion {
 		e.staticsProbeFull()
 		return
 	}
@@ -687,44 +687,31 @@ func (e *Engine) staticsProbeTouch(id state.ObjID) {
 // from zero.
 func (e *Engine) staticsProbeStore(id state.ObjID) {
 	now := e.objectStaticsMayChangeTypes(e.G.Obj(id))
-	if old, ok := e.typesProbe.get(id); ok {
-		if old == now {
-			return
-		}
-		if now {
-			e.typesProbeTrue++
-		} else {
-			e.typesProbeTrue--
-		}
-	} else if now {
+	i := int(id) - 1
+	for len(e.typesProbe) <= i {
+		e.typesProbe = append(e.typesProbe, probeUnset)
+	}
+	ans := probeNo
+	if now {
+		ans = probeYes
+	}
+	switch old := e.typesProbe[i]; {
+	case old == ans:
+		return
+	case old == probeYes:
+		e.typesProbeTrue--
+	case now:
 		e.typesProbeTrue++
 	}
-	e.typesProbe.set(id, now)
+	e.typesProbe[i] = ans
 }
 
-// typesProbeTable is the probe cache's per-object answers, dense by ObjID
-// (0 never probed, 1 false, 2 true). It is held by pointer, exactly as the
-// map it replaces was a reference: an Engine copied by value shares the
-// table, and a whole-board re-probe installs a fresh one on the engine that
-// ran it.
-type typesProbeTable struct{ v []uint8 }
-
-func (t *typesProbeTable) get(id state.ObjID) (bool, bool) {
-	if int(id) >= len(t.v) || t.v[id] == 0 {
-		return false, false
-	}
-	return t.v[id] == 2, true
-}
-
-func (t *typesProbeTable) set(id state.ObjID, ans bool) {
-	if int(id) >= len(t.v) {
-		t.v = append(t.v, make([]uint8, int(id)+1-len(t.v)+16)...)
-	}
-	t.v[id] = 1
-	if ans {
-		t.v[id] = 2
-	}
-}
+// The typesProbe cell values.
+const (
+	probeUnset uint8 = iota
+	probeNo
+	probeYes
+)
 
 // staticsMayChangeTypesWalk is the uncached zone-list walk the probe cache
 // replaces: layer4PrecheckVerify holds the cached answer to it (a "yes" here
@@ -777,19 +764,29 @@ func (e *Engine) objectStaticsMayChangeTypes(o *state.Object) bool {
 	return false
 }
 
+// cloneObjectHeadroomProbe is the spare probe capacity a full re-probe
+// allocates, so the objects a game mints next extend it in place.
+const cloneObjectHeadroomProbe = 64
+
 // staticsProbeFull re-probes the whole board (the pre-incremental walk,
 // once, populating the cache).
 func (e *Engine) staticsProbeFull() {
-	m := &typesProbeTable{v: make([]uint8, len(e.G.Objs)+1)}
+	m := e.typesProbe[:0]
+	if cap(m) < len(e.G.Objs) {
+		m = make([]uint8, 0, len(e.G.Objs)+cloneObjectHeadroomProbe)
+	}
+	m = m[:len(e.G.Objs)]
 	count := 0
 	for i := range e.G.Objs {
-		ans := e.objectStaticsMayChangeTypes(&e.G.Objs[i])
-		m.set(e.G.Objs[i].ID, ans)
-		if ans {
+		// Objs is the dense arena: Objs[i].ID == i+1, the cell's index.
+		if e.objectStaticsMayChangeTypes(&e.G.Objs[i]) {
+			m[i] = probeYes
 			count++
+		} else {
+			m[i] = probeNo
 		}
 	}
-	e.typesProbe = m
+	e.typesProbe, e.typesProbeReady = m, true
 	e.typesProbeTrue = count
 	e.typesProbeEpoch = len(e.L.Events)
 	e.typesProbeVersion = e.continuousVersion

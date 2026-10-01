@@ -588,3 +588,50 @@ func TestGrowEventsTaperKeepsTheLengthAndChain(t *testing.T) {
 		t.Fatalf("chain desynced after taper growth: HeadAt=%s Head=%s", l.HeadAt(n), l.Head())
 	}
 }
+
+// TestDeferredFoldMatchesEagerChain pins the deferred chain fold (unhashed):
+// a head read at any point -- before or after a Clone that carries an
+// unfolded tail, interleaved with appends on both logs -- equals the
+// from-scratch HeadAt, i.e. the chain an eager per-Append fold produces.
+func TestDeferredFoldMatchesEagerChain(t *testing.T) {
+	l := NewLog(11)
+	for i := 0; i < 5; i++ {
+		l.Append(Event{Kind: Note, Amount: int32(i), IDs: []state.ObjID{state.ObjID(i)}})
+	}
+	if l.unhashed != 5 {
+		t.Fatalf("unhashed = %d, want 5 (fold deferred)", l.unhashed)
+	}
+	c := l.Clone() // carries the five unfolded events
+	l.Append(Event{Kind: Tap, Obj: 3})
+	c.Append(Event{Kind: Untap, Obj: 4})
+	if got, want := c.Head(), c.HeadAt(len(c.Events)); got != want {
+		t.Fatalf("clone head %s, HeadAt %s", got, want)
+	}
+	if got, want := l.Head(), l.HeadAt(len(l.Events)); got != want {
+		t.Fatalf("parent head %s, HeadAt %s", got, want)
+	}
+	h := l.Head()
+	if l.Head() != h || l.unhashed != 0 {
+		t.Fatal("a second Head read moved the chain")
+	}
+	l.Append(Event{Kind: Draw, Player: 1})
+	if got, want := l.Head(), l.HeadAt(len(l.Events)); got != want {
+		t.Fatalf("head after fold+append %s, HeadAt %s", got, want)
+	}
+}
+
+// BenchmarkLogAppend prices one Append on the search path: no hash, and no
+// allocation once the backing array has room (the IDs/Pairs copies of a
+// payload-free event are nil).
+func BenchmarkLogAppend(b *testing.B) {
+	l := NewLog(1)
+	ev := Event{Kind: Priority, Player: 1}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if len(l.Events) == cap(l.Events) {
+			l.Events, l.unhashed = l.Events[:0], 0
+		}
+		l.Append(ev)
+	}
+}

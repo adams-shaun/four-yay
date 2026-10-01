@@ -39,6 +39,10 @@ type Spare struct {
 	// regrowth; the watcher reads only their length.
 	loopSigs   []uint64
 	loopRecent []events.Event
+	// loopPrev / loopHeads are the watcher's candidate-index arrays
+	// (prevPos, slotHead), recycled like the windows: prevPos is read only
+	// below its length and slotHead is zeroed by the next watcher.
+	loopPrev, loopHeads []uint32
 	// snapObjs are the engine's recycled trigger-window snapshot arenas
 	// (trigger_snapshot_pool.go), cleared when they were pooled; the next
 	// engine's first look-back windows reuse them.
@@ -57,6 +61,20 @@ type Spare struct {
 	// hyp is the spent engine's hypothetical-clone and read scratch pool
 	// (hypclone.go), adopted by the next engine.
 	hyp *hypSparePool
+	// static is a spent engine's cleared staticEffects memo storage, which
+	// the next clone copies its parent's memo into (clone.go).
+	static []ContinuousEffect
+	// probe is a spent engine's layer-4 statics probe cells
+	// (Engine.typesProbe), copied into by the next clone.
+	probe []uint8
+	// The emit path's per-engine working storage, recycled cleared: the
+	// trigger and replacement zone summaries (every summary invalid, its id
+	// lists emptied), active()'s two list arrays and the pending-trigger
+	// queue's array. Each is overwritten before it is read.
+	trigZones               []trigZoneSummary
+	replZones               []replZoneSummary
+	activeBuf, activeBufAlt []ContinuousEffect
+	pending                 []pendingTrigger
 }
 
 // Release returns e's log and object-arena arrays as a Spare for the next
@@ -93,6 +111,8 @@ func (e *Engine) Release() Spare {
 		memoStack:  e.derivedMemoStack.release(),
 		loopSigs:   e.loop.sigs[:0],
 		loopRecent: e.loop.recent[:cap(e.loop.recent)],
+		loopPrev:   e.loop.prevPos[:0],
+		loopHeads:  e.loop.slotHead,
 		snapObjs:   e.releaseSnapshotObjs(),
 	}
 	sp.arena = e.releaseArena()
@@ -101,19 +121,49 @@ func (e *Engine) Release() Spare {
 	// legal_walk_battlefield.go), so they hold no reference to recycle away.
 	sp.legalOpts, sp.manaAb = e.legalOptBuf[:0], e.manaAbBuf[:0]
 	e.legalOptBuf, e.manaAbBuf = nil, nil
+	// The static memo's outer storage is always this engine's own (a build
+	// writes into it, and a clone copies into its own), so it is recycled
+	// cleared: the nested slices it held are never reached again.
+	sp.static = e.staticContinuous[:cap(e.staticContinuous)]
+	clear(sp.static)
+	sp.static = sp.static[:0]
+	e.staticContinuous = nil
+	sp.probe, e.typesProbe, e.typesProbeReady = e.typesProbe[:0], nil, false
+	for i := range e.trigZones {
+		z := &e.trigZones[i]
+		*z = trigZoneSummary{ids: z.ids[:0], hotIDs: z.hotIDs[:0], anyIDs: z.anyIDs[:0]}
+	}
+	for i := range e.replZones {
+		z := &e.replZones[i]
+		*z = replZoneSummary{ids: z.ids[:0], hotIDs: z.hotIDs[:0]}
+	}
+	sp.trigZones, sp.replZones, e.trigZones, e.replZones = e.trigZones[:0], e.replZones[:0], nil, nil
+	sp.activeBuf, sp.activeBufAlt = clearedEffects(e.activeBuf), clearedEffects(e.activeBufAlt)
+	e.activeBuf, e.activeBufAlt = nil, nil
+	sp.pending = e.pendingTriggers[:cap(e.pendingTriggers)]
+	clear(sp.pending)
+	sp.pending, e.pendingTriggers = sp.pending[:0], nil
 	if e.lookBackOwner == e && !e.lookBackBusy {
 		sp.lookBack = e.lookBack
 	}
 	e.lookBack, e.lookBackOwner = nil, nil
 	clear(sp.loopRecent)
 	sp.loopRecent = sp.loopRecent[:0]
-	e.loop.sigs, e.loop.recent = nil, nil
+	e.loop.sigs, e.loop.recent, e.loop.prevPos, e.loop.slotHead = nil, nil, nil, nil
 	clear(sp.events)
 	clear(sp.objs)
 	clear(sp.intents)
 	e.L.Events, e.G.Objs, e.L.Intents = nil, nil, nil
 	e.derivedMemo, e.derivedMemoStack, e.intentBuf = derivedMemoTable{}, derivedMemoTable{}, nil
 	return sp
+}
+
+// clearedEffects zeroes a spent effect array to its capacity (so it pins
+// none of the effects' slices and maps) and returns it empty.
+func clearedEffects(b []ContinuousEffect) []ContinuousEffect {
+	b = b[:cap(b)]
+	clear(b)
+	return b[:0]
 }
 
 // objectHeadroom is the extra Objs capacity newWithRNG reserves beyond the
@@ -176,7 +226,7 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 		L:                 events.NewLogInto(cfg.Seed, spare.events),
 		format:            cfg.Format,
 		rng:               random,
-		loop:              newLivelockWatcherInto(cfg.LoopGuard, spare.loopSigs, spare.loopRecent),
+		loop:              newLivelockWatcherInto(cfg.LoopGuard, spare.loopSigs, spare.loopRecent, spare.loopPrev, spare.loopHeads),
 		compiledText:      newCompiledText(cfg),
 		landTypeWords:     corpusLandTypeWords(cfg.NameUniverse),
 		mulligans:         cfg.Mulligans,

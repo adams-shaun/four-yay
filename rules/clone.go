@@ -89,6 +89,17 @@ func (e *Engine) CloneInto(sp *Spare) *Engine {
 	return e.cloneWith(spare)
 }
 
+// rekeyVersion maps a cache's continuousVersion stamp onto a clone, whose
+// continuousVersion starts at zero: a cache built under the parent's current
+// registry is current in the clone too (same registry, same board), and any
+// other stamp must never match the clone's.
+func rekeyVersion(stamp, current int) int {
+	if stamp == current {
+		return 0
+	}
+	return -1
+}
+
 func (e *Engine) cloneWith(sp Spare) *Engine {
 	c := &Engine{
 		G: e.G.CloneInto(sp.objs),
@@ -111,7 +122,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		// written -- where the watcher holds no in-flight run or quiet count
 		// worth carrying, so a fresh watcher over the same thresholds is a
 		// faithful copy.
-		loop:          newLivelockWatcherFromGuard(e.loop.guard, sp.loopSigs, sp.loopRecent),
+		loop:          newLivelockWatcherFromGuard(e.loop.guard, sp.loopSigs, sp.loopRecent, sp.loopPrev, sp.loopHeads),
 		setNameInPool: e.setNameInPool,
 		layer4InPool:  e.layer4InPool,
 	}
@@ -223,6 +234,16 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	// original would not. Same map-of-scalars class, so re-allocated, not
 	// shared.
 	c.castAborts = cloneAbortCounts(e.castAborts)
+	// The staticEffects memo (layercache.go), copied into recycled storage;
+	// see the staticContinuous note further down.
+	if e.staticEpoch > 0 && (e.staticVersion == e.continuousVersion || e.staticMemoQuiet()) {
+		c.staticContinuous = append(sp.static[:0], e.staticContinuous...)
+		c.staticEpoch, c.staticObjs = e.staticEpoch, e.staticObjs
+		c.staticVersion = c.continuousVersion
+		c.staticMemoGated, c.staticMemoStateRead = e.staticMemoGated, e.staticMemoStateRead
+	} else if sp.static != nil {
+		c.staticContinuous = sp.static[:0]
+	}
 	c.suspendedCasts = append([]state.ObjID(nil), e.suspendedCasts...)
 	c.defeatedCasts = append([]state.ObjID(nil), e.defeatedCasts...)
 	// setname.go's layer-3 rename table and its genesis-time gate. The
@@ -234,7 +255,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	// diverge (setname_filter_scope_test.go).
 	c.renames = append([]effects.ObjectName(nil), e.renames...)
 	c.renameEpoch = e.renameEpoch
-	c.renameVersion = e.renameVersion
+	c.renameVersion = rekeyVersion(e.renameVersion, e.continuousVersion)
 	c.renameObjs = e.renameObjs
 	// layer4types.go's layer-4 derived-type table and its genesis-time
 	// gate, carried with its (epoch, version) key for the same reason: the
@@ -244,8 +265,25 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	// read the CLONE's board once the two diverge.
 	c.layer4Types = append([]effects.ObjectTypes(nil), e.layer4Types...)
 	c.typesEpoch = e.typesEpoch
-	c.typesVersion = e.typesVersion
+	c.typesVersion = rekeyVersion(e.typesVersion, e.continuousVersion)
 	c.typesObjs = e.typesObjs
+	// The incremental layer-4 state and the statics probe cache describe the
+	// same identical board, so a table built under the current registry
+	// carries them too (engine_derived_tables.go): the clone's next refresh
+	// goes incremental instead of re-deriving and re-probing the whole board.
+	if e.typesVersion == e.continuousVersion && e.typesIncrReady {
+		c.typesIncrReady, c.typesSelfOnly = true, e.typesSelfOnly
+		c.typesSrcs = append([]state.ObjID(nil), e.typesSrcs...)
+		c.typesMayDiffer = append([]state.ObjID(nil), e.typesMayDiffer...)
+	}
+	if e.typesProbeReady && e.typesProbeVersion == e.continuousVersion {
+		c.typesProbe = append(sp.probe[:0], e.typesProbe...)
+		c.typesProbeReady, c.typesProbeTrue = true, e.typesProbeTrue
+		c.typesProbeEpoch, c.typesProbeObjs = e.typesProbeEpoch, e.typesProbeObjs
+		c.typesProbeVersion = c.continuousVersion
+	} else {
+		c.typesProbe = sp.probe[:0]
+	}
 	if e.etbMove != nil {
 		ev := *e.etbMove
 		c.etbMove = &ev
@@ -386,9 +424,20 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 			c.continuous[i] = ce
 		}
 	}
-	if e.pendingTriggers != nil {
+	if len(e.pendingTriggers) > 0 {
 		c.pendingTriggers = clonePendingTriggers(e.pendingTriggers)
+	} else if e.pendingTriggers != nil || sp.pending != nil {
+		// An empty queue (a drained one keeps its array, putTriggersOnStack)
+		// takes the recycled array instead of allocating its first batch.
+		c.pendingTriggers = sp.pending
 	}
+	// The emit path's working storage, recycled from a spent engine (genesis
+	// Release): zone summaries arrive all invalid, the list arrays empty.
+	// The zone summaries are carried (copied into the recycled tables) with
+	// their catch-up positions: same board, same log, same obligations.
+	c.trigZones, c.trigZonesEp = copyTrigZones(sp.trigZones, e.trigZones), e.trigZonesEp
+	c.replZones, c.replZonesEp = copyReplZones(sp.replZones, e.replZones), e.replZonesEp
+	c.activeBuf, c.activeBufAlt = sp.activeBuf, sp.activeBufAlt
 	if e.triggerContexts != nil {
 		c.triggerContexts = make(map[state.ObjID]effects.TriggerContext, len(e.triggerContexts))
 		for id, tc := range e.triggerContexts {
@@ -663,10 +712,16 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	// mid-range. Leaving both zero lets each engine grow its own buffer on
 	// its next depth-0 forEachObject call.
 	//
-	// staticContinuous / staticEpoch are likewise deliberately NOT copied:
-	// staticEffects rebuilds into the memo's reusable outer storage, so each
-	// branch must own its backing array. The zero epoch forces a fresh scan
-	// of the cloned board on its first active() rebuild. The static-control
+	// staticContinuous / staticEpoch are COPIED into the clone's own outer
+	// storage (below, after the struct literal): staticEffects rebuilds into
+	// the memo's reusable outer storage, so each branch must own its backing
+	// array, while the nested keyword/type slices are read-only once built
+	// and are shared. The clone's board and log are the parent's at the clone
+	// boundary, so the memo describes the clone exactly; it is carried only
+	// when it was built under the current registry (staticVersion ==
+	// continuousVersion) or read no registry state at all (staticMemoQuiet),
+	// re-keyed to the clone's own zero continuousVersion.
+	// Otherwise the zero epoch forces a fresh scan. The static-control
 	// reconcile (rules/control_static.go) derives its wanted set fresh from
 	// the same memo under the same epoch key, so it needs no copied cache
 	// either; reconcilingControlStatics (engine.go) is a transient re-entry

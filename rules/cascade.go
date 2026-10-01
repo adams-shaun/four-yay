@@ -41,10 +41,10 @@ func (e *Engine) queueCascadeTriggers(stackObj state.ObjID, p state.PlayerID) {
 	// invalidated around the walk; the post-walk state (scratch cleared)
 	// invalidates again so the memo never serves a scratch-built list.
 	e.stackGrantCast = stackObj
-	e.activeEpoch, e.staticEpoch = -1, -1
+	e.invalidateScratchLayerLists()
 	n := e.cascadeInstances(stackObj)
 	e.stackGrantCast = 0
-	e.activeEpoch, e.staticEpoch = -1, -1
+	e.invalidateScratchLayerLists()
 	if n == 0 {
 		return
 	}

@@ -100,6 +100,7 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "typesAct"}:          true,
 	{"rules.Engine", "typesVisited"}:      true,
 	{"rules.Engine", "typesProbe"}:        true,
+	{"rules.Engine", "typesProbeReady"}:   true,
 	{"rules.Engine", "typesProbeTrue"}:    true,
 	{"rules.Engine", "typesProbeEpoch"}:   true,
 	{"rules.Engine", "typesProbeVersion"}: true,

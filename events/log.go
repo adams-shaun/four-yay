@@ -27,6 +27,18 @@ type Log struct {
 	buf      []byte
 	headHash hash.Hash
 	started  bool
+	// unhashed counts the trailing Events that Append stored but has not yet
+	// folded into chain: the fold is deferred to the first chain reader
+	// (Head, Clone's copy of the chain state via catchUp), so a search clone
+	// that plays a simulation and is discarded without its head ever being
+	// read never pays a SHA-256 per event. Stored events are append-only
+	// history (Append copies IDs/Pairs; nothing writes a logged event in
+	// place), so folding Events[len-unhashed:] later reads exactly the bytes
+	// an eager fold would have read at Append time, in the same order, and
+	// chain ends identical. A log built any other way (a JSON decode, a
+	// struct literal) has unhashed == 0 and its chain is untouched, exactly
+	// as before.
+	unhashed int
 	// noHashSet records NoHash's value on the first Append to pin it from
 	// changing (see the check in Append).
 	noHashSet bool
@@ -56,13 +68,11 @@ func NewLogInto(seed uint64, spare []Event) *Log {
 	} else {
 		events = make([]Event, 0, expectedEventsPerGame)
 	}
-	l := &Log{Seed: seed, Events: events, buf: make([]byte, 0, 128), headHash: sha256.New()}
+	l := &Log{Seed: seed, Events: events}
 	// Seed the chain with the seed value
 	var b [8]byte
 	binary.LittleEndian.PutUint64(b[:], seed)
-	h := sha256.New()
-	h.Write(b[:])
-	h.Sum(l.chain[:0])
+	l.chain = sha256.Sum256(b[:])
 	return l
 }
 
@@ -95,16 +105,39 @@ func (l *Log) Append(e Event) Event {
 	if l.NoHash {
 		return e
 	}
-	l.buf = e.Append(l.buf[:0])
-	// Reuse one digest instead of sha256.New() per event — a fresh hasher per
-	// append was a measurable per-event allocation on a long log. Reset
-	// restores the initial (empty) state, so the fold into the chain is
-	// byte-identical to a fresh hasher's: sha256(chain || encode(e)).
-	l.headHash.Reset()
-	l.headHash.Write(l.chain[:])
-	l.headHash.Write(l.buf)
-	l.headHash.Sum(l.chain[:0])
+	l.unhashed++
 	return e
+}
+
+// catchUp folds every stored-but-unfolded event (see unhashed) into chain,
+// oldest first: sha256(chain || encode(e)) per event, the fold Append used to
+// run eagerly. A log whose Events were cut below its unfolded tail by a
+// direct field write (no engine path does that to a live log) folds what is
+// left of the tail.
+func (l *Log) catchUp() {
+	if l.unhashed == 0 {
+		return
+	}
+	n := len(l.Events)
+	from := n - l.unhashed
+	if from < 0 {
+		from = 0
+	}
+	l.unhashed = 0
+	if l.headHash == nil {
+		l.headHash = sha256.New()
+	}
+	for i := from; i < n; i++ {
+		l.buf = l.Events[i].Append(l.buf[:0])
+		// Reuse one digest instead of sha256.New() per event — a fresh hasher
+		// per append was a measurable per-event allocation on a long log.
+		// Reset restores the initial (empty) state, so the fold into the
+		// chain is byte-identical to a fresh hasher's.
+		l.headHash.Reset()
+		l.headHash.Write(l.chain[:])
+		l.headHash.Write(l.buf)
+		l.headHash.Sum(l.chain[:0])
+	}
 }
 
 // Head is the chain head over every event so far.
@@ -112,6 +145,7 @@ func (l *Log) Head() string {
 	if l.NoHash {
 		return ""
 	}
+	l.catchUp()
 	return hex.EncodeToString(l.chain[:8])
 }
 
@@ -161,9 +195,12 @@ func (l *Log) Clone() *Log {
 	c.Intents = l.Intents[:len(l.Intents):len(l.Intents)]
 	c.buf = nil
 	c.forked = true
-	// headHash is mutable scratch Append reuses; two appended-to logs must not
-	// share it, exactly as they must not share buf. A clone gets its own.
-	c.headHash = sha256.New()
+	// headHash is mutable scratch catchUp reuses; two logs must not share it,
+	// exactly as they must not share buf. A clone allocates its own on its
+	// first fold. The unfolded tail (unhashed) travels with the struct copy:
+	// it names the same shared, immutable events in both logs, so each folds
+	// it to the same chain whenever it is first read.
+	c.headHash = nil
 	return &c
 }
 
