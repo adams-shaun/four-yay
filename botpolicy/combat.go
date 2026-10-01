@@ -104,7 +104,6 @@ func NewBoard(numPlayers int) Board {
 		Cards:      makeTable[state.ObjID, Card](16),
 		Commanders: makeTable[state.ObjID, Commander](8),
 		Stack:      make([]StackEntry, 0, 8),
-		inc:        new(boardInc),
 	}
 }
 

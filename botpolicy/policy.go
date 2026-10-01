@@ -205,9 +205,11 @@ type Board struct {
 	// keyword lists without a per-creature allocation (valid, like the
 	// tables, until the next refill).
 	kwArena []string
-	// inc is the incremental build's row cache (board_inc.go); NewBoard
-	// allocates it, and a Board without one is always filled from scratch.
-	inc *boardInc
+	// inc is the incremental build's row cache (board_inc.go), allocated on
+	// a Board's second refill (incArmed marks the first), so a Board built
+	// for one decision never pays for it.
+	inc      *boardInc
+	incArmed bool
 }
 
 // Commander is the Board's per-commander commander-format bookkeeping,

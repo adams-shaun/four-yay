@@ -58,8 +58,8 @@ type boardReadKeyer interface {
 	CharacteristicsReusable(id state.ObjID) bool
 }
 
-// boardInc is one Board's row cache (see above). Board copies share it,
-// like they share the tables.
+// boardInc is one Board's row cache (see above). Board copies made after
+// it exists share it, like they share the tables.
 type boardInc struct {
 	lineage   *events.Log
 	g         *state.Game
@@ -200,10 +200,6 @@ func (r *boardRow) keywords() []string {
 // cache, reporting false -- having written nothing -- when ch cannot key it.
 // The tables were Reset by the caller.
 func (b *Board) fillTablesInc(g *state.Game, ch Chars, me state.PlayerID) bool {
-	inc := b.inc
-	if inc == nil {
-		return false
-	}
 	k, ok := ch.(boardReadKeyer)
 	if !ok {
 		return false
@@ -211,6 +207,17 @@ func (b *Board) fillTablesInc(g *state.Game, ch Chars, me state.PlayerID) bool {
 	combined, ok := ch.(combinedChars)
 	if !ok {
 		return false
+	}
+	inc := b.inc
+	if inc == nil {
+		// A Board's first refill is a scratch fill; the cache starts with
+		// its second, so a Board built per decision never allocates one.
+		if !b.incArmed {
+			b.incArmed = true
+			return false
+		}
+		inc = new(boardInc)
+		b.inc = inc
 	}
 	lineage, seq, ver, objs, ok := k.BoardReadKey()
 	if !ok {
@@ -313,8 +320,7 @@ func (b *Board) fillTablesInc(g *state.Game, ch Chars, me state.PlayerID) bool {
 // must equal a from-scratch fill of the same seat at the same state, every
 // table in the same entry order.
 func verifyIncBoard(g *state.Game, ch Chars, me state.PlayerID, b *Board) {
-	ref := NewBoard(len(g.Players))
-	ref.inc = nil
+	ref := NewBoard(len(g.Players)) // a fresh Board's one refill is a scratch fill
 	BoardFromGameInto(g, ch, me, &ref)
 	if d := boardsDiffer(*b, ref); d != "" {
 		panic(fmt.Sprintf("botpolicy: incremental board for seat %d at log %d differs from a scratch fill: %s", me, b.inc.seen, d))
