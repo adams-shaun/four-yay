@@ -165,7 +165,17 @@ type offStackManaFrame struct {
 // offStackManaFrame and reports whether a routed ask suspended it.
 func (e *Engine) withOffStackMana(act manaColorActivation, run func()) bool {
 	saved := e.offStackMana
-	f := &offStackManaFrame{act: act, baseResume: e.resume, baseUnless: e.unlessPayment != nil,
+	// The frame lives in the engine's own slots while the nesting fits them
+	// (it is never read after this call returns: askOffStackMana copies what
+	// it keeps), else on the heap.
+	var f *offStackManaFrame
+	if d := e.offStackDepth; d < len(e.offStackSlots) {
+		f = &e.offStackSlots[d]
+	} else {
+		f = new(offStackManaFrame)
+	}
+	e.offStackDepth++
+	*f = offStackManaFrame{act: act, baseResume: e.resume, baseUnless: e.unlessPayment != nil,
 		baseCumulative: e.cumulative != nil, baseTriggerCost: e.triggerCost != nil}
 	e.offStackMana = f
 	// A mana ability's own chain is not a contChain-draining pass: an ask it
@@ -185,7 +195,10 @@ func (e *Engine) withOffStackMana(act manaColorActivation, run func()) bool {
 	e.SetCounterAdder(prevAdder)
 	e.contChainOwners = savedOwners
 	e.offStackMana = saved
-	return f.asked
+	asked := f.asked
+	*f = offStackManaFrame{}
+	e.offStackDepth--
+	return asked
 }
 
 // askOffStackMana routes every resumable ask from an off-stack mana chain
@@ -917,6 +930,18 @@ func (e *Engine) instantSpeedOnly(ma *cards.SA) bool {
 // availableManaAbilitiesForWindow is the member set for one window: the
 // ordinary priority set, or the payment-window set with the InstantSpeed$
 // timing-restricted abilities withheld.
+// priorityManaAbilityCount is len(availableManaAbilitiesForWindow(p, id,
+// true)), counted in the engine's scratch list.
+func (e *Engine) priorityManaAbilityCount(p state.PlayerID, id state.ObjID) int {
+	buf := e.manaAbScratch
+	e.manaAbScratch = nil
+	all := e.appendAvailableManaAbilities(buf[:0], nil, p, id)
+	n := len(all)
+	clear(all)
+	e.manaAbScratch = all[:0]
+	return n
+}
+
 func (e *Engine) availableManaAbilitiesForWindow(p state.PlayerID, id state.ObjID, atPriority bool) []*cards.SA {
 	all := e.availableManaAbilities(p, id)
 	if atPriority {
@@ -933,7 +958,35 @@ func (e *Engine) availableManaAbilitiesForWindow(p state.PlayerID, id state.ObjI
 }
 
 func (e *Engine) activateManaFor(p state.PlayerID, source state.ObjID, cast, cumulative, atPriority bool) {
-	abilities := e.availableManaAbilitiesForWindow(p, source, atPriority)
+	var abilities []*cards.SA
+	if atPriority {
+		// The priority member set is built in the engine's scratch list:
+		// the common single-ability source resolves from it and keeps
+		// nothing; a choice among several keeps an owned copy below.
+		buf := e.manaAbScratch
+		e.manaAbScratch = nil
+		abilities = e.appendAvailableManaAbilities(buf[:0], nil, p, source)
+		if len(abilities) <= 1 {
+			var only *cards.SA
+			if len(abilities) == 1 {
+				only = abilities[0]
+			}
+			clear(abilities)
+			e.manaAbScratch = abilities[:0]
+			if only == nil {
+				return
+			}
+			e.resolveManaAbilityInteractive(p, source, only, cast, cumulative)
+			e.continueManaPaymentWindow(cumulative)
+			return
+		}
+		owned := slices.Clone(abilities)
+		clear(abilities)
+		e.manaAbScratch = abilities[:0]
+		abilities = owned
+	} else {
+		abilities = e.availableManaAbilitiesForWindow(p, source, atPriority)
+	}
 	if len(abilities) == 0 {
 		return
 	}

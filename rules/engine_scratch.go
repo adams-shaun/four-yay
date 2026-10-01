@@ -240,6 +240,13 @@ type engineScratch struct {
 	// walk allocates its own rather than clobbering the outer one. Owned by
 	// this Engine alone: Clone leaves it nil, like foreachBuf.
 	legalOptBuf []decision.Option
+	// targetCensusBuf is candidatesCountForLimit's scratch list (taken for
+	// the call; Clone leaves it nil).
+	targetCensusBuf []targetCandidate
+	// manaAbScratch is the priority mana member-set scratch list
+	// (activateManaFor, priorityManaAbilityCount; taken for the call,
+	// Clone leaves it nil).
+	manaAbScratch []*cards.SA
 	// legalScratch is the offer walk's incremental log-derived indexes and
 	// their watermarks (legal_walk_scratch.go). Clone carries it
 	// (cloneLegalWalkScratch): copy-on-write, so nothing is shared mutably.

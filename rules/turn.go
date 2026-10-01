@@ -540,10 +540,10 @@ func (e *Engine) defeatedCastAnswer(chosen []decision.Option) {
 
 func (e *Engine) setStep(s state.Step) {
 	leaving := e.G.Step
-	previous := e.stepLeaving
-	e.stepLeaving = &leaving
+	previous, previousSet := e.stepLeaving, e.stepLeavingSet
+	e.stepLeaving, e.stepLeavingSet = leaving, true
 	e.emit(events.Event{Kind: events.StepChange, Step: s})
-	e.stepLeaving = previous
+	e.stepLeaving, e.stepLeavingSet = previous, previousSet
 	if e.pending != nil {
 		// Optional BeginPhase parked the transition. Boundary cleanup belongs
 		// after that choice and is resumed by handleReplacement; emitting it

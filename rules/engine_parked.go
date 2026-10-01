@@ -37,6 +37,10 @@ type engineParked struct {
 	// currently running synchronously (rules/mana_activation.go's
 	// offStackManaFrame). It is nil between Submits, so Clone never sees it.
 	offStackMana *offStackManaFrame
+	// offStackSlots back the innermost offStackManaFrames (withOffStackMana)
+	// so a mana resolution allocates no frame; offStackDepth is the nesting.
+	offStackSlots [2]offStackManaFrame
+	offStackDepth int
 	// manaAfterCost is a mana ability whose cost is fully paid but whose
 	// payment posed a decision -- a sacrificed or discarded commander's
 	// CR 903.9 command-zone choice parks the move and asks its owner. The

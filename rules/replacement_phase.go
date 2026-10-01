@@ -313,9 +313,9 @@ func phaseStep(ph string) (state.Step, bool) {
 func (e *Engine) phaseChoice(ev events.Event, candidates []replMatch, used []bool) replChoice {
 	rc := replChoice{ev: ev, cands: candidates, applied: append([]bool(nil), used...),
 		before: e.retainTriggerBefore()}
-	if e.stepLeaving != nil {
+	if e.stepLeavingSet {
 		rc.boundary = true
-		rc.leaving = *e.stepLeaving
+		rc.leaving = e.stepLeaving
 	}
 	return rc
 }

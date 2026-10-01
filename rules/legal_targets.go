@@ -128,7 +128,7 @@ func (e *Engine) targetSAAvailable(p state.PlayerID, id, excludeSelf state.ObjID
 		// (candidatesForLimit stops at min only when no post-filter can drop
 		// a candidate) without matching the rest of the population -- an
 		// any-target spell stops at the player seats.
-		ok := len(e.candidatesForLimit(p, id, excludeSelf, sa, true, min)) >= min
+		ok := e.candidatesCountForLimit(p, id, excludeSelf, sa, true, min) >= min
 		if walkCacheVerify && ok != e.targetChoiceFeasible(sa, e.legalTargetCandidates(p, id, excludeSelf, sa), min) {
 			panic("rules: limited target census disagrees with the full census")
 		}

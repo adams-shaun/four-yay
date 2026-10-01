@@ -1729,24 +1729,72 @@ func (o *Object) CloneDeep() Object {
 // caller's copy in. Game.CloneInto clones the whole arena this way, once per
 // search simulation.
 func (o *Object) CloneDeepInto(c *Object) {
+	o.cloneDeepIntoArena(c, nil)
+}
+
+// cloneArena is one backing array per common slice element type that a
+// whole-arena clone (Game.CloneIntoDirty) carves its objects' copies from:
+// one allocation per type per clone instead of one per non-empty slice. Each
+// carved window is capped at its length, so an append on the copy
+// reallocates exactly as a full-capacity copy would at its end, and no two
+// windows ever share an element.
+type cloneArena struct {
+	ids []ObjID
+	tgs []Target
+	ctr []Counter
+}
+
+// carveClone is append([]T(nil), src...) carved from *buf when it has room:
+// nil for an empty src (as that append returns), else a capped window
+// holding src's elements.
+func carveClone[T any](buf *[]T, src []T) []T {
+	n := len(src)
+	if n == 0 {
+		return nil
+	}
+	b := *buf
+	if len(b) < n {
+		return append([]T(nil), src...)
+	}
+	out := b[:n:n]
+	copy(out, src)
+	*buf = b[n:]
+	return out
+}
+
+// cloneArenaNeed adds the element counts o's carved slices need to a.
+func (o *Object) cloneArenaNeed(ids, tgs, ctr *int) {
+	*ids += len(o.BlockedBy) + len(o.CrewedVehicles) + len(o.Imprinted) + len(o.DamageTakenByGame) +
+		len(o.DamageTakenThisTurnBy) + len(o.ImprintTokens) + len(o.EncodedCards) + len(o.SeekFound) + len(o.ExiledCards)
+	*tgs += len(o.Targets) + len(o.Remembered) + len(o.Chosen)
+	*ctr += len(o.Counters)
+}
+
+// cloneDeepIntoArena is CloneDeepInto carving the common slice copies from a
+// (nil: each copied on its own). The copy's contents are identical either way.
+func (o *Object) cloneDeepIntoArena(c *Object, a *cloneArena) {
+	var none cloneArena
+	if a == nil {
+		a = &none
+	}
 	*c = *o
-	c.Counters = append([]Counter(nil), o.Counters...)
-	c.Targets = append([]Target(nil), o.Targets...)
-	c.Remembered = append([]Target(nil), o.Remembered...)
-	c.BlockedBy = append([]ObjID(nil), o.BlockedBy...)
-	c.CrewedVehicles = append([]ObjID(nil), o.CrewedVehicles...)
-	c.Chosen = append([]Target(nil), o.Chosen...)
+	c.Counters = carveClone(&a.ctr, o.Counters)
+	c.Targets = carveClone(&a.tgs, o.Targets)
+	c.Remembered = carveClone(&a.tgs, o.Remembered)
+	c.BlockedBy = carveClone(&a.ids, o.BlockedBy)
+	c.CrewedVehicles = carveClone(&a.ids, o.CrewedVehicles)
+	c.Chosen = carveClone(&a.tgs, o.Chosen)
 	c.Goads = append([]GoadEffect(nil), o.Goads...)
 	c.ChosenModes = CloneChosenModes(o.ChosenModes)
 	c.IntrinsicKeywords = append([]string(nil), o.IntrinsicKeywords...)
-	c.Imprinted = append([]ObjID(nil), o.Imprinted...)
-	c.DamageTakenByGame = append([]ObjID(nil), o.DamageTakenByGame...)
-	c.DamageTakenThisTurnBy = append([]ObjID(nil), o.DamageTakenThisTurnBy...)
-	c.ImprintTokens = append([]ObjID(nil), o.ImprintTokens...)
-	c.EncodedCards = append([]ObjID(nil), o.EncodedCards...)
-	c.SeekFound = append([]ObjID(nil), o.SeekFound...)
+	c.Imprinted = carveClone(&a.ids, o.Imprinted)
+	c.DamageTakenByGame = carveClone(&a.ids, o.DamageTakenByGame)
+	c.DamageTakenThisTurnBy = carveClone(&a.ids, o.DamageTakenThisTurnBy)
+	c.ImprintTokens = carveClone(&a.ids, o.ImprintTokens)
+	c.EncodedCards = carveClone(&a.ids, o.EncodedCards)
+	c.SeekFound = carveClone(&a.ids, o.SeekFound)
 	c.Notes = append([]string(nil), o.Notes...)
-	c.ExiledCards = append([]ObjID(nil), o.ExiledCards...)
+	c.ExiledCards = carveClone(&a.ids, o.ExiledCards)
 	c.ExileReturn = append([]ExileReturnEntry(nil), o.ExileReturn...)
 	c.MergedCards = append([]MergedCard(nil), o.MergedCards...)
 	c.RuntimeSVars = cloneRuntimeSVars(o.RuntimeSVars)

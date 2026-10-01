@@ -46,5 +46,24 @@ func DecideBoardFree(d *decision.Decision, isMain bool) (decision.Intent, bool) 
 	if pass < 0 {
 		return decision.Intent{}, false
 	}
-	return Clamp(d, decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{pass}}), true
+	return Clamp(d, decision.Intent{Seq: d.Seq, Player: d.Player, Choices: passChoice(pass)}), true
+}
+
+// passChoices backs passChoice: element v is v.
+var passChoices = func() (a [256]int) {
+	for i := range a {
+		a[i] = i
+	}
+	return a
+}()
+
+// passChoice is []int{v} as a capped read-only window of passChoices (a
+// fresh slice past its range): the free answer is posed per priority window
+// of every simulation, and nothing writes an intent's Choices in place (an
+// append reallocates, the window being capped).
+func passChoice(v int) []int {
+	if v >= 0 && v < len(passChoices) {
+		return passChoices[v : v+1 : v+1]
+	}
+	return []int{v}
 }

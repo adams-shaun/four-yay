@@ -244,7 +244,7 @@ func (e *Engine) Submit(in decision.Intent) error {
 	}
 	// The caller owns its intent. Keep a private witness before it becomes
 	// replay history, so a client-side mutation after Submit cannot alter it.
-	in = decision.CloneIntent(in)
+	in = cloneIntentForLog(in)
 	e.L.Intents = append(e.L.Intents, in)
 	made := decisionMadePaymentText(d.Kind, in.Choices, in.Payment)
 	if in.Announce != nil {

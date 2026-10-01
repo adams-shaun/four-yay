@@ -697,6 +697,10 @@ func (g *Game) Clone() *Game { return g.CloneInto(nil) }
 // the caller must hold no other reference into it.
 func (g *Game) CloneInto(objs []Object) *Game { return g.CloneIntoDirty(objs, 0) }
 
+// cloneZoneSlack is the spare capacity CloneIntoDirty leaves past each
+// copied zone list.
+const cloneZoneSlack = 4
+
 // CloneIntoDirty is CloneInto for a recycled arena that may still hold a
 // spent game's objects: objs[:dirty] may be stale (every slot past dirty is
 // zero), the rest of the contract is CloneInto's. The stale slots past this
@@ -726,8 +730,24 @@ func (g *Game) CloneIntoDirty(objs []Object, dirty int) *Game {
 	} else {
 		c.Objs = make([]Object, len(g.Objs), len(g.Objs)+cloneObjectHeadroom)
 	}
+	// The objects' common slice copies come from one backing array per
+	// element type (cloneArena), and the zone lists from one more below.
+	var nIDs, nTgs, nCtr int
 	for i := range g.Objs {
-		g.Objs[i].CloneDeepInto(&c.Objs[i])
+		g.Objs[i].cloneArenaNeed(&nIDs, &nTgs, &nCtr)
+	}
+	var arena cloneArena
+	if nIDs > 0 {
+		arena.ids = make([]ObjID, nIDs)
+	}
+	if nTgs > 0 {
+		arena.tgs = make([]Target, nTgs)
+	}
+	if nCtr > 0 {
+		arena.ctr = make([]Counter, nCtr)
+	}
+	for i := range g.Objs {
+		g.Objs[i].cloneDeepIntoArena(&c.Objs[i], &arena)
 	}
 	if dirty > len(g.Objs) && cap(objs) >= len(g.Objs)+cloneObjectHeadroom {
 		clear(objs[len(g.Objs):dirty])
@@ -752,9 +772,23 @@ func (g *Game) CloneIntoDirty(objs []Object, dirty int) *Game {
 		}
 	}
 	c.zones = make([][]ObjID, len(g.zones))
+	// Every non-empty zone list is copied into its own window of one
+	// backing array, with cloneZoneSlack spare slots past it so the copy's
+	// next few appends (a draw, a land drop) stay in place, as a rounded-up
+	// copy's did; an empty list stays nil (append([]ObjID(nil)) of nothing).
+	nz := 0
+	for _, z := range g.zones {
+		if len(z) > 0 {
+			nz += len(z) + cloneZoneSlack
+		}
+	}
+	zb := make([]ObjID, nz)
 	for i, z := range g.zones {
-		if z != nil {
-			c.zones[i] = append([]ObjID(nil), z...)
+		if n := len(z); n > 0 {
+			w := zb[:n:n+cloneZoneSlack]
+			copy(w, z)
+			c.zones[i] = w
+			zb = zb[n+cloneZoneSlack:]
 		}
 	}
 	if g.SkipTurns != nil {
@@ -801,7 +835,11 @@ func (g *Game) AliveFrom(start PlayerID) []PlayerID {
 	n := PlayerID(len(g.Players))
 	out := make([]PlayerID, 0, n)
 	for i := PlayerID(0); i < n; i++ {
-		p := (start + i) % n
+		// (start+i)%n, dividing only once the sum has passed n.
+		p := start + i
+		if p >= n {
+			p %= n
+		}
 		if !g.Players[p].Lost {
 			out = append(out, p)
 		}

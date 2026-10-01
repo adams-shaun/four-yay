@@ -932,6 +932,24 @@ func (e *Engine) candidatesFor(p state.PlayerID, source, excludeSelf state.ObjID
 // append-only and its first limit entries are exactly the full list's. The
 // feasibility gate (targetSAAvailable) needs a count, never the list.
 func (e *Engine) candidatesForLimit(p state.PlayerID, source, excludeSelf state.ObjID, sa *cards.SA, targeting bool, limit int) []targetCandidate {
+	return e.candidatesForLimitInto(nil, p, source, excludeSelf, sa, targeting, limit)
+}
+
+// candidatesCountForLimit is len(candidatesForLimit(...)), built in the
+// engine's census scratch list (taken for the call, so a nested census
+// allocates its own) instead of a fresh one.
+func (e *Engine) candidatesCountForLimit(p state.PlayerID, source, excludeSelf state.ObjID, sa *cards.SA, targeting bool, limit int) int {
+	buf := e.targetCensusBuf
+	e.targetCensusBuf = nil
+	out := e.candidatesForLimitInto(buf[:0], p, source, excludeSelf, sa, targeting, limit)
+	n := len(out)
+	clear(out)
+	e.targetCensusBuf = out[:0]
+	return n
+}
+
+// candidatesForLimitInto is candidatesForLimit appending into dst[:0].
+func (e *Engine) candidatesForLimitInto(dst []targetCandidate, p state.PlayerID, source, excludeSelf state.ObjID, sa *cards.SA, targeting bool, limit int) []targetCandidate {
 	if limit > 0 && (strings.TrimSpace(sa.ParamStr(cards.PKTargetsWithDefinedController)) != "" ||
 		strings.TrimSpace(sa.ParamStr(cards.PKTargetValidTargeting)) != "" ||
 		strings.TrimSpace(sa.ParamStr(cards.PKTargetsWithControllerProperty)) != "" ||
@@ -962,7 +980,7 @@ func (e *Engine) candidatesForLimit(p state.PlayerID, source, excludeSelf state.
 	sc := e.targetSpecContext(specSrc, excludeSelf, p)
 	defer e.releaseSpecEnv()
 	zones := targetZones(sa)
-	var out []targetCandidate
+	out := dst[:0]
 	// Resolve the source ONCE for the whole census -- for an ability this is
 	// the Source permanent, not the Face-less stack object. Every protection
 	// test below is guarded on the candidate's zone, because a permanent's
