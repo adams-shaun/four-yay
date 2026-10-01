@@ -236,7 +236,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	c.castAborts = cloneAbortCounts(e.castAborts)
 	// The staticEffects memo (layercache.go), copied into recycled storage;
 	// see the staticContinuous note further down.
-	if e.staticEpoch > 0 && e.staticVersion == e.continuousVersion {
+	if e.staticEpoch > 0 && (e.staticVersion == e.continuousVersion || e.staticMemoQuiet()) {
 		c.staticContinuous = append(sp.static[:0], e.staticContinuous...)
 		c.staticEpoch, c.staticObjs = e.staticEpoch, e.staticObjs
 		c.staticVersion = c.continuousVersion
@@ -708,7 +708,8 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	// and are shared. The clone's board and log are the parent's at the clone
 	// boundary, so the memo describes the clone exactly; it is carried only
 	// when it was built under the current registry (staticVersion ==
-	// continuousVersion), re-keyed to the clone's own zero continuousVersion.
+	// continuousVersion) or read no registry state at all (staticMemoQuiet),
+	// re-keyed to the clone's own zero continuousVersion.
 	// Otherwise the zero epoch forces a fresh scan. The static-control
 	// reconcile (rules/control_static.go) derives its wanted set fresh from
 	// the same memo under the same epoch key, so it needs no copied cache

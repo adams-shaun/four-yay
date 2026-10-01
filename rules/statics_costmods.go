@@ -211,11 +211,11 @@ func (e *Engine) withCostCompositionEvent(id state.ObjID, compose func() costMod
 	// 601.2i, the spell is not yet cast -- price {3}{U} (round-8 cardfuzz
 	// mirror seed 12687133153333408407, a_witness pool_after).
 	e.retireCrossWalkMemo()
-	e.activeEpoch, e.staticEpoch = -1, -1
+	e.invalidateScratchLayerLists()
 	mods := compose()
 	e.costCompositionEvent = previous
 	e.retireCrossWalkMemo()
-	e.activeEpoch, e.staticEpoch = -1, -1
+	e.invalidateScratchLayerLists()
 	return mods
 }
 

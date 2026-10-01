@@ -114,7 +114,7 @@ func (e *Engine) staticSafeSince(epoch, oldObjs int) bool {
 	}
 	// quiet: the build read nothing outside the static-quiet input (see
 	// staticQuietKinds), so the wider admissions below apply.
-	quiet := !e.staticMemoGated && !e.staticMemoStateRead
+	quiet := e.staticMemoQuiet()
 	creates := 0
 	for i := epoch; i < n; i++ {
 		ev := &e.L.Events[i]
@@ -156,6 +156,27 @@ func (e *Engine) staticSafeSince(epoch, oldObjs int) bool {
 		}
 	}
 	return true
+}
+
+// staticMemoQuiet reports whether the memo's last full build made no read
+// outside the static-quiet input (see staticQuietKinds): no continuous gate,
+// no spec match, CDA count or imprint lookup.
+func (e *Engine) staticMemoQuiet() bool { return !e.staticMemoGated && !e.staticMemoStateRead }
+
+// invalidateScratchLayerLists drops active()'s two log-head-keyed lists
+// around a read under an exclusion scratch (costCompositionEvent,
+// stackGrantCast, an expired casualty grant): those scratches change only
+// what a continuous gate (a CheckSVar$ cast count, an EQ0 grant) evaluates,
+// and the static memo is the one active() input that evaluates gates at
+// build. A quiet build evaluated none -- its list, and the active list built
+// from it plus the gate-free registered effects, is the same under every
+// scratch -- so it is kept; any other build (or one whose flags are not yet
+// known) is dropped exactly as before. Callers that also need the
+// cross-walk Derived memo retired still call retireCrossWalkMemo.
+func (e *Engine) invalidateScratchLayerLists() {
+	if e.staticEpoch <= 0 || !e.staticMemoQuiet() {
+		e.activeEpoch, e.staticEpoch = -1, -1
+	}
 }
 
 // staticMoveCold reports whether a zone move of id cannot change a quiet
@@ -233,9 +254,15 @@ func (e *Engine) refreshStaticContinuous() {
 	// (staticSafeSince's staticMemoGated check): a gate-carrying build's
 	// output can be changed by a token's arrival, so it always rescans. See
 	// staticSafeSince.
-	if e.staticVersion == e.continuousVersion && e.staticSafeSince(e.staticEpoch, e.staticObjs) {
+	//
+	// A quiet build (staticMemoQuiet) reads nothing of the continuous
+	// registry -- only a gate or a spec/count read reaches Derived and so
+	// e.continuous -- so for it a registry move alone (an EndOfTurnCleanup
+	// dropping a pump, an AddContinuous's ClockTick) does not stale the
+	// memo either.
+	if (e.staticVersion == e.continuousVersion || e.staticMemoQuiet()) && e.staticSafeSince(e.staticEpoch, e.staticObjs) {
 		e.staticEpoch = n
-		e.staticObjs = len(e.G.Objs)
+		e.staticVersion, e.staticObjs = e.continuousVersion, len(e.G.Objs)
 		if layerInertVerify {
 			if fresh := e.staticEffects(nil); !reflect.DeepEqual(fresh, e.staticContinuous[:len(e.staticContinuous):len(e.staticContinuous)]) && !(len(fresh) == 0 && len(e.staticContinuous) == 0) {
 				panic(fmt.Sprintf("rules: layer-inert static memo reuse at log %d disagrees with a rescan (%d vs %d effects)", n, len(e.staticContinuous), len(fresh)))

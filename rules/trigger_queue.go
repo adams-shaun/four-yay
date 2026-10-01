@@ -1880,7 +1880,7 @@ func (e *Engine) askTriggerOrder(p state.PlayerID, n int) {
 		if e.pendingTriggers[i].Casualty {
 			// Ashad's EQ0 stack grant has expired on this cast. Invalidate
 			// the pre-payment layer snapshot before the ordering decision.
-			e.activeEpoch, e.staticEpoch = -1, -1
+			e.invalidateScratchLayerLists()
 			break
 		}
 	}
