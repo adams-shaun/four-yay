@@ -797,19 +797,34 @@ func (g *Game) CloneIntoDirty(objs []Object, dirty int) *Game {
 }
 
 // AliveFrom lists surviving seats in APNAP order starting at start.
+// The seat index advances by one and wraps by a compare, not a per-seat
+// modulo: this is inlined into dozens of per-event scans.
 func (g *Game) AliveFrom(start PlayerID) []PlayerID {
 	n := PlayerID(len(g.Players))
 	out := make([]PlayerID, 0, n)
+	p := start
 	for i := PlayerID(0); i < n; i++ {
-		p := (start + i) % n
+		if p >= n {
+			p %= n
+		}
 		if !g.Players[p].Lost {
 			out = append(out, p)
 		}
+		p++
 	}
 	return out
 }
 
-func (g *Game) AliveCount() int { return len(g.AliveFrom(0)) }
+// AliveCount is len(AliveFrom(0)), counted without building the list.
+func (g *Game) AliveCount() int {
+	c := 0
+	for i := range g.Players {
+		if !g.Players[i].Lost {
+			c++
+		}
+	}
+	return c
+}
 
 // IsMonarch reports whether p currently holds the monarch designation.
 func (g *Game) IsMonarch(p PlayerID) bool { return g.HasMonarch && g.Monarch == p }
