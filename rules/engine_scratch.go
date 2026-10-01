@@ -97,6 +97,9 @@ type engineScratch struct {
 	// returns its options in (taken at the walk's entry); the potential walk
 	// cache hands it its own retired result buffer. Not cloned.
 	walkResultDst []decision.Option
+	// potManaScratch is PotentialMana's fixpoint storage (potential.go),
+	// taken for the call. Not cloned.
+	potManaScratch potentialManaScratch
 
 	// derivingColorsSet/ID/Colors: the finished layer-5 colour answer for the
 	// object whose Derived is mid-build (set by derivedWith before its layer-7

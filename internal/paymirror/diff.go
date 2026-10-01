@@ -151,13 +151,15 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "paymentPlanCarriersEvents"}: true,
 	{"rules.Engine", "paymentPlanCarriersValid"}:  true,
 	// Scratch buffers reused across calls (contents after use are garbage).
-	{"rules.Engine", "legalOptBuf"}:  true,
-	{"rules.Engine", "manaAbBuf"}:    true,
-	{"rules.Engine", "manaLabels"}:   true,
-	{"rules.Engine", "intentBuf"}:    true,
-	{"rules.Engine", "sbaIDBuf"}:     true,
-	{"rules.Engine", "graveCandBuf"}: true,
-	{"rules.Engine", "foreachBuf"}:   true,
+	{"rules.Engine", "legalOptBuf"}:    true,
+	{"rules.Engine", "manaAbBuf"}:      true,
+	{"rules.Engine", "manaLabels"}:     true,
+	{"rules.Engine", "intentBuf"}:      true,
+	{"rules.Engine", "sbaIDBuf"}:       true,
+	{"rules.Engine", "graveCandBuf"}:   true,
+	{"rules.Engine", "walkResultDst"}:  true,
+	{"rules.Engine", "potManaScratch"}: true,
+	{"rules.Engine", "foreachBuf"}:     true,
 	// targetSpecContext's reusable Resolve records (trigger_referents.go),
 	// a stack that is free at every intent boundary; Clone starts a fresh
 	// one, so the recycled records a live engine keeps are not game state.

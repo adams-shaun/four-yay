@@ -140,7 +140,8 @@
 //	Valid                              object-arena size and log length; Clone copies none
 //	legalOptBuf, manaAbBuf, manaLabels, reused scratch buffers
 //	intentBuf, sbaIDBuf, foreachBuf,
-//	graveCandBuf
+//	graveCandBuf, walkResultDst,
+//	potManaScratch
 //	discardAllFirstTime                the DiscardedAll matcher's FirstTime$ scratch: written on
 //	                                   every match and read only right after it; Clone copies none
 //	loop, askCount                    intent-stream watchdog and ask counter: they count the
