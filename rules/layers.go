@@ -794,7 +794,10 @@ func (e *Engine) activeBuild() []ContinuousEffect {
 	e.activeVersion = e.continuousVersion
 	e.activeObjs = len(e.G.Objs)
 	e.activeBuildSeq++
-	buf := e.activeBuf[:0]
+	// Double-buffered (derived_transparent.go): the build writes the other
+	// array, so the previous list survives intact for the transparency
+	// comparison below.
+	buf := e.activeBufAlt[:0]
 	if e.activeDepth > 1 {
 		// Re-entrant (a nested Derived mid-rebuild): own a private list rather
 		// than overwrite the outer call's result mid-range. Same guard Task A2
@@ -838,8 +841,14 @@ func (e *Engine) activeBuild() []ContinuousEffect {
 	if e.activeDepth <= 1 {
 		// Keep the grown, sorted buffer on the Engine for the next build or
 		// cache hit; a re-entrant build's private buffer is discarded on return.
-		e.activeBuf = buf
+		if !e.derivedRebuildTransparent(e.activeBuf, buf) {
+			e.derivedSeq++
+		}
+		e.derivedNoteBuild()
+		e.activeBufAlt, e.activeBuf = e.activeBuf, buf
 		e.activeKWHeads = appendKWHeads(e.activeKWHeads[:0], buf)
+	} else {
+		e.derivedSeq++
 	}
 	return buf
 }

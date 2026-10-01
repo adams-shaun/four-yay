@@ -181,6 +181,11 @@ func (e *Engine) verifyInertActive() {
 	savedEpoch, savedBuf := e.activeEpoch, e.activeBuf
 	savedHeads, savedSeq := e.activeKWHeads, e.activeBuildSeq
 	savedStaticSeq := e.activeStaticSeq
+	savedDerivedSeq, savedAlt := e.derivedSeq, e.activeBufAlt
+	savedPrevEpoch, savedPrevVersion, savedPrevObjs := e.derivedPrevEpoch, e.derivedPrevVersion, e.derivedPrevObjs
+	// The forced rebuild must not write the served list's array (activeBuf)
+	// nor the transparency baseline: give it fresh storage.
+	e.activeBufAlt = nil
 	e.activeEpoch, e.activeBuf, e.activeKWHeads = -1, nil, nil
 	// A nested call would take the re-entrant private-buffer path; drop to
 	// depth 0 so the forced rebuild is an ordinary outermost build.
@@ -194,6 +199,8 @@ func (e *Engine) verifyInertActive() {
 	e.activeEpoch, e.activeBuf = savedEpoch, savedBuf
 	e.activeKWHeads, e.activeBuildSeq = savedHeads, savedSeq
 	e.activeStaticSeq = savedStaticSeq
+	e.derivedSeq, e.activeBufAlt = savedDerivedSeq, savedAlt
+	e.derivedPrevEpoch, e.derivedPrevVersion, e.derivedPrevObjs = savedPrevEpoch, savedPrevVersion, savedPrevObjs
 	if len(cached) != len(fresh) || (len(cached) > 0 && !reflect.DeepEqual(cached, fresh)) {
 		panic(fmt.Sprintf("rules: layer-inert active() reuse at log %d disagrees with a rebuild (%d vs %d effects)", len(e.L.Events), len(cached), len(fresh)))
 	}
