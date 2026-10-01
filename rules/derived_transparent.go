@@ -30,6 +30,10 @@ import (
 //     g.Step and the combat-mana bookkeeping), and the markers, combat,
 //     life, clock and non-counter damage kinds derivedQuietEvent lists;
 //  2. the continuous registry version and the object arena are unchanged;
+//     An off-battlefield zone move (offBattlefieldMove) is admitted too: it
+//     changes only the moved object's own derivation, so that object's memo
+//     entries are retired instead (and the rebuild is not transparent if it
+//     is a live effect's source);
 //  3. the rebuilt list is equal to the previous one in every field a
 //     derivation reads (derivedEffectEqual), in the same order -- so a
 //     duration expiring at a step boundary, a static gate the event flipped,
@@ -114,22 +118,64 @@ func (e *Engine) derivedRebuildTransparent(prev, fresh []ContinuousEffect) bool 
 		len(prev) != len(fresh) {
 		return false
 	}
+	touched := e.derivedTouched[:0]
 	evs := e.L.Events[e.derivedPrevEpoch:]
 	for i := range evs {
 		switch evs[i].Kind {
 		case events.DecisionAsk, events.DecisionMade, events.Priority:
 		default:
+			if offBattlefieldMove(&evs[i]) {
+				touched = append(touched, evs[i].Obj)
+				continue
+			}
 			if !e.derivedQuietEvent(&evs[i]) {
+				e.derivedTouched = touched[:0]
 				return false
 			}
 		}
 	}
+	e.derivedTouched = touched
 	for i := range fresh {
-		if !derivedEffectEqual(&prev[i], &fresh[i]) || !derivedEffectLocal(&fresh[i]) {
+		ce := &fresh[i]
+		if !derivedEffectEqual(&prev[i], ce) || !derivedEffectLocal(ce) {
+			return false
+		}
+		if len(touched) > 0 && slices.Contains(touched, ce.Source) {
 			return false
 		}
 	}
+	// A moved object's own derivation changed (its zone, and the per-zone
+	// resets its move folded): retire its memo entries from cross-walk reuse.
+	for _, id := range touched {
+		if m := e.derivedMemo.at(id); m != nil {
+			m.seq = 0
+		}
+		if m := e.derivedMemoStack.at(id); m != nil {
+			m.seq = 0
+		}
+	}
 	return true
+}
+
+// offBattlefieldMove reports whether ev is a zone move (MoveZone, Draw,
+// PutOnStack) between the library, hand, graveyard and stack, or from one of
+// them into exile. events.Apply's move fold writes only the moved object's
+// own fields there, its zone lists and the entry ledger: every write to
+// ANOTHER object (the exile-link lists, a departed blocker, a merged pile, a
+// soulbond partner, crewed vehicles) sits on a battlefield or from-exile arm.
+// So the moved object is the only derivation such a move can change -- it is
+// never on the battlefield before or after, so no battlefield-only reader
+// (the rename table) sees it either -- provided it is no live effect's source
+// (checked by the caller).
+func offBattlefieldMove(ev *events.Event) bool {
+	switch ev.Kind {
+	case events.MoveZone, events.Draw, events.PutOnStack:
+	default:
+		return false
+	}
+	from := ev.From == state.ZLibrary || ev.From == state.ZHand || ev.From == state.ZGraveyard || ev.From == state.ZStack
+	to := ev.To == state.ZLibrary || ev.To == state.ZHand || ev.To == state.ZGraveyard || ev.To == state.ZStack || ev.To == state.ZExile
+	return ev.Obj != 0 && from && to
 }
 
 // derivedNoteBuild records the key the build or re-stamp that produced the
