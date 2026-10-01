@@ -95,6 +95,10 @@ var trigZoneSlotZones = [trigZoneSlots]state.Zone{state.ZLibrary, state.ZHand, s
 
 type trigZoneSummary struct {
 	ids []state.ObjID
+	// live is the zone's list HEADER as it was read when the summary was
+	// last confirmed (not a copy): see sameZoneList. Holding it keeps that
+	// backing array alive, so its address cannot be reused for another list.
+	live []state.ObjID
 	// hotIDs is the subset of ids whose objects can act on some event from
 	// this zone, in ids order (see objectTriggerHotIn). The live walk visits
 	// only these when the zone is hot and no event referent sits in it, so a
@@ -113,18 +117,35 @@ type trigZoneSummary struct {
 // faceTriggerZones is the bit set (by trigZoneSlot) of the summarized zones
 // from which at least one of f's printed triggers can function, or every bit
 // for a face carrying an unresolvable Phase$ (its diagnostic is emitted from
-// any zone). Pure syntax, cached per engine like triggerEventMasks.
+// any zone). Pure syntax: a configured face's answer is computed once with
+// the shared compiled text (walkFaceFacts.trigZones); any other face's is
+// cached per engine like triggerEventMasks.
 func (e *Engine) faceTriggerZones(f *cards.Face) uint8 {
 	if f == nil || len(f.Triggers) == 0 {
 		return 0
 	}
+	if ff := e.walkFaceFactsOf(f); ff != nil && ff.triggersCurrent(f) {
+		return ff.trigZones
+	}
 	if m, ok := e.trigFaceZones[f]; ok {
 		return m
 	}
+	m := computeFaceTriggerZones(f, func(spec string) bool { return e.parsedPhaseSpec(spec).valid })
+	if e.trigFaceZones == nil {
+		e.trigFaceZones = make(map[*cards.Face]uint8)
+	}
+	e.trigFaceZones[f] = m
+	return m
+}
+
+// computeFaceTriggerZones is faceTriggerZones' pure computation; valid
+// reports whether a Phase$ spec parses (phaseSpecValid, or the engine's
+// memoised parse of the same function).
+func computeFaceTriggerZones(f *cards.Face, valid func(string) bool) uint8 {
 	var m uint8
 	for i := range f.Triggers {
 		t := &f.Triggers[i]
-		if spec := t.Params["Phase"]; strings.TrimSpace(spec) != "" && !e.parsedPhaseSpec(spec).valid {
+		if spec := t.Params["Phase"]; strings.TrimSpace(spec) != "" && !valid(spec) {
 			m = 1<<trigZoneSlots - 1
 			break
 		}
@@ -143,12 +164,11 @@ func (e *Engine) faceTriggerZones(f *cards.Face) uint8 {
 			}
 		}
 	}
-	if e.trigFaceZones == nil {
-		e.trigFaceZones = make(map[*cards.Face]uint8)
-	}
-	e.trigFaceZones[f] = m
 	return m
 }
+
+// phaseSpecValid is parsedPhaseSpec's validity bit without an engine memo.
+func phaseSpecValid(spec string) bool { return parsePhaseSpec(spec).valid }
 
 // objectTriggerHot reports whether the trigger walk might do anything for o
 // (other than as an event referent) where it sits now. Conservative: true
@@ -239,6 +259,16 @@ func (e *Engine) trigZoneInvalidateAll() {
 	}
 }
 
+// trigZoneTouch re-checks one event referent against the summaries of the
+// zone slot it now sits in. A summary describes its list's ids, which
+// objects among them are hot (hotIDs) and which of those are any-hot
+// (anyIDs); an in-place write can change only the touched object's own
+// classification. So a summary stays exact while the object's current
+// classification is the one it records -- hot exactly when it is listed in
+// hotIDs, any-hot exactly when listed in anyIDs -- whether or not the
+// object is in that seat's list at all (a non-hot object outside hotIDs is
+// recorded correctly either way, and a list change is caught by the list
+// comparison). Anything else drops the summary, as every touch used to.
 func (e *Engine) trigZoneTouch(id state.ObjID) {
 	o := e.G.Obj(id)
 	if o == nil {
@@ -248,8 +278,20 @@ func (e *Engine) trigZoneTouch(id state.ObjID) {
 	if s < 0 {
 		return
 	}
+	hot, anyHot, classified := false, false, false
 	for i := s; i < len(e.trigZones); i += trigZoneSlots {
-		e.trigZones[i].valid = false
+		z := &e.trigZones[i]
+		if !z.valid {
+			continue
+		}
+		if !classified {
+			hot = e.objectTriggerHotIn(o, s)
+			anyHot = hot && objectTriggerAnyHot(o)
+			classified = true
+		}
+		if hot != slices.Contains(z.hotIDs, id) || (hot && anyHot != slices.Contains(z.anyIDs, id)) {
+			z.valid = false
+		}
 	}
 }
 
@@ -263,7 +305,14 @@ func (e *Engine) trigZonesCatchUp() {
 		e.trigZonesEp = n
 		return
 	}
-	for _, ev := range e.L.Events[e.trigZonesEp:] {
+	if len(e.trigZones) == 0 {
+		// Nothing summarized yet (a fresh engine, or a clone of one that
+		// had no summaries): nothing to drop, so skip the whole history.
+		e.trigZonesEp = n
+		return
+	}
+	for i := e.trigZonesEp; i < n; i++ {
+		ev := &e.L.Events[i]
 		e.trigZoneTouch(ev.Obj)
 		for _, id := range ev.IDs {
 			e.trigZoneTouch(id)
@@ -276,17 +325,41 @@ func (e *Engine) trigZonesCatchUp() {
 	e.trigZonesEp = n
 }
 
+// sameZoneList reports whether cur is the very list header a summary
+// recorded: same length over the same backing array. A zone list is written
+// only by state.Game.SetZone, and every writer installs either a FRESH array
+// (events' remove, a shuffle, Clone, genesis) or an append onto the current
+// header, which writes past its length and so changes the length; no writer
+// stores into a live list below its length. So an identical header holds
+// identical ids, and the O(len) compare is needed only when the header moved.
+// The recorded header pins its array (trigZoneSummary.live), so the address
+// cannot be recycled for a different list while the summary holds it.
+func sameZoneList(rec, cur []state.ObjID) bool {
+	if len(rec) != len(cur) {
+		return false
+	}
+	return len(cur) == 0 || &rec[0] == &cur[0]
+}
+
 // trigZoneCold reports whether zone (p, z) -- whose live list is cur -- holds
 // no hot object, refreshing its summary as needed.
 func (e *Engine) trigZoneCold(p state.PlayerID, slot int, cur []state.ObjID) bool {
 	i := int(p)*trigZoneSlots + slot
 	if i >= len(e.trigZones) {
-		e.trigZones = append(e.trigZones, make([]trigZoneSummary, i+1-len(e.trigZones))...)
+		e.trigZones = growZoneSummaries(e.trigZones, max(i+1, len(e.G.Players)*trigZoneSlots))
 	}
 	s := &e.trigZones[i]
-	if s.valid && slices.Equal(s.ids, cur) {
+	if s.valid && sameZoneList(s.live, cur) {
+		if trigZoneSkipVerify && !slices.Equal(s.ids, cur) {
+			panic(fmt.Sprintf("rules: trigger zone summary (seat %d, slot %d) kept its header but the list changed in place", p, slot))
+		}
 		return !s.hot
 	}
+	if s.valid && slices.Equal(s.ids, cur) {
+		s.live = cur
+		return !s.hot
+	}
+	s.live = cur
 	// Append-only fast path: the live list is the recorded one with ids
 	// appended at the end. This is the mass-token-creation shape -- the token
 	// is appended to the battlefield list and no recorded index moves -- and
@@ -438,7 +511,7 @@ func (e *Engine) forEachTriggerObject(ev events.Event, skip, anyOnly bool, fn fu
 			// gated on the object being an event referent. Hidden-ish zones
 			// keep their skip -- cumulative upkeep functions only from the
 			// battlefield, so no grant can reach them.
-			stepFull := slot == trigZoneSlot(state.ZBattlefield) && ev.Kind == events.StepChange
+			stepFull := slot == trigZoneSlot(state.ZBattlefield) && ev.Kind == events.StepChange && e.stepWalksBattlefield()
 			if slot >= 0 && !stepFull && e.trigZoneCold(p, slot, cur) {
 				if verify != nil {
 					buf = append(buf[:0], cur...)
@@ -488,6 +561,41 @@ func (e *Engine) forEachTriggerObject(ev events.Event, skip, anyOnly bool, fn fu
 					}
 				}
 				continue
+			} else if slot >= 0 && !stepFull {
+				// Hot summarized zone WITH an event referent in it: the
+				// referents are walked in place and, of everything else, only
+				// the classified hot objects can act -- the two skips above
+				// combined. The visit set is snapshotted first, in list order
+				// (hotIDs is a subsequence of cur, so one merge pass keeps the
+				// order), exactly as the full walk snapshots the list.
+				hotIDs := e.trigZoneHotIDs(p, slot)
+				if anyOnly {
+					hotIDs = e.trigZoneAnyIDs(p, slot)
+				}
+				if verify != nil {
+					buf = append(buf[:0], cur...)
+					for _, id := range buf {
+						if trigMustVisit(ev, id) || slices.Contains(hotIDs, id) {
+							fn(id)
+						} else {
+							verify(id)
+						}
+					}
+					continue
+				}
+				buf = buf[:0]
+				j := 0
+				for _, id := range cur {
+					if j < len(hotIDs) && hotIDs[j] == id {
+						j++
+						buf = append(buf, id)
+					} else if trigMustVisit(ev, id) {
+						buf = append(buf, id)
+					}
+				}
+				if j != len(hotIDs) {
+					panic(fmt.Sprintf("rules: trigger zone summary (seat %d, slot %d) hot list is not a subsequence of the zone list", p, slot))
+				}
 			} else {
 				buf = append(buf[:0], cur...)
 			}
@@ -501,6 +609,17 @@ func (e *Engine) forEachTriggerObject(ev events.Event, skip, anyOnly bool, fn fu
 	}
 }
 
+// stepWalksBattlefield reports whether a StepChange into the current step
+// must walk the whole battlefield: only the two synthesized step triggers the
+// face hot test cannot see read a step change from a battlefield object, and
+// each is gated on its own Phase$ before anything else (the cumulative-upkeep
+// grant on Upkeep, checkGrantedCumulativeUpkeepTriggers; the AtEOT body on its
+// end-of-turn phase, checkGrantedAtEOTTriggers). On every other step both
+// return before any work, so the battlefield keeps its ordinary skip.
+func (e *Engine) stepWalksBattlefield() bool {
+	return cumulativeUpkeepSteps.Has(e.G.Step) || atEOTTrigSteps.Has(e.G.Step)
+}
+
 // trigSkipVerifier returns the verify callback checkFaceTriggers hands
 // forEachTriggerObject in verify mode: it runs the real visit and panics if
 // it queued anything.
@@ -512,4 +631,47 @@ func (e *Engine) trigSkipVerifier(ev events.Event, visit func(id state.ObjID), n
 			panic(fmt.Sprintf("rules: trigger zone skip passed over obj %d (zone %v) that acts on %v event", id, e.G.Obj(id).Zone, ev.Kind))
 		}
 	}
+}
+
+// growZoneSummaries extends a zone-summary table to n entries: within its
+// capacity (a recycled table, rules.Spare) the new entries are reset to an
+// invalid summary that keeps its id lists' arrays, otherwise it allocates
+// the whole range at once. A new entry is always invalid.
+func growZoneSummaries[S any, PS interface {
+	*S
+	resetSummary()
+}](t []S, n int) []S {
+	if n <= cap(t) {
+		old := len(t)
+		t = t[:n]
+		for i := old; i < n; i++ {
+			PS(&t[i]).resetSummary()
+		}
+		return t
+	}
+	out := make([]S, n)
+	copy(out, t)
+	return out
+}
+
+func (s *trigZoneSummary) resetSummary() {
+	*s = trigZoneSummary{ids: s.ids[:0], hotIDs: s.hotIDs[:0], anyIDs: s.anyIDs[:0]}
+}
+
+// copyTrigZones copies a parent engine's summaries into a clone's
+// (recycled) table: the clone's board and log are the parent's at the clone
+// boundary, so each summary describes the clone's same-content list. Its
+// recorded header is the copy's own id array, which no zone list shares, so
+// the clone's first look compares contents (an empty list matches an empty
+// summary, correctly) and then records its own header.
+func copyTrigZones(dst, src []trigZoneSummary) []trigZoneSummary {
+	dst = growZoneSummaries(dst[:0], len(src))
+	for i := range src {
+		d, s := &dst[i], &src[i]
+		d.ids = append(d.ids[:0], s.ids...)
+		d.hotIDs = append(d.hotIDs[:0], s.hotIDs...)
+		d.anyIDs = append(d.anyIDs[:0], s.anyIDs...)
+		d.live, d.hot, d.valid = d.ids, s.hot, s.valid
+	}
+	return dst
 }

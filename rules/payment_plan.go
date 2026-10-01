@@ -188,11 +188,13 @@ func (c *paymentCastCandidates) has(id state.ObjID) bool {
 		hyp := state.Mana{1 << 28, 1 << 28, 1 << 28, 1 << 28, 1 << 28, 1 << 28}
 		// Only plain casts are read, so the walk skips the non-cast
 		// sections (legalActionsWalk's castsOnly).
-		for _, opt := range c.e.legalActionsWalk(c.p, &hyp, true) {
+		opts := c.e.legalActionsWalkTemp(c.p, &hyp, true)
+		for _, opt := range opts {
 			if opt.Kind == "cast" && opt.Mode == "" && opt.AltCostIndex == 0 {
 				c.ids = append(c.ids, opt.Obj)
 			}
 		}
+		c.e.optRelease(opts)
 		c.ready = true
 	}
 	in := slices.Contains(c.ids, id)
@@ -845,7 +847,7 @@ func (e *Engine) planPaymentCostWithout(p state.PlayerID, cast decision.PlannedC
 	life := e.G.Players[p].Life
 	phase1 := paymentPlanPhaseChoices(choices, paymentTierNormal)
 	rankCtx := newPaymentPlanRankContext(choices, e.paymentPlanHandDemand(p, cast.Object))
-	search := searchPaymentPlan(cost, e.G.Players[p].Pool, life, rankCtx,
+	search := searchPaymentPlanInto(&e.hypPool().planSearch, cost, e.G.Players[p].Pool, life, rankCtx,
 		phase1, queryClasses(p, paymentTierNormal, phase1))
 	nodes := search.nodes
 	// Phase 2 runs only when phase 1 PROVES no plan exists (insufficient,
@@ -855,7 +857,7 @@ func (e *Engine) planPaymentCostWithout(p state.PlayerID, cast decision.PlannedC
 	// and 7 read the untapped normal remainder in both phases.
 	if search.best == nil && !search.limited {
 		if phase2 := paymentPlanLastResortChoices(choices, life); phase2 != nil {
-			search = searchPaymentPlan(cost, e.G.Players[p].Pool, life, rankCtx,
+			search = searchPaymentPlanInto(&e.hypPool().planSearch, cost, e.G.Players[p].Pool, life, rankCtx,
 				phase2, queryClasses(p, paymentTierLastResort, phase2))
 			nodes += search.nodes
 		}

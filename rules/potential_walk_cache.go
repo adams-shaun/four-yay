@@ -74,7 +74,7 @@ type potentialWalkCache struct {
 	// (planCastPaymentMemo); it lives and dies with the entry.
 	plans []castPlanMemo
 	// spare is the cache's own walk-result buffer: the next computed walk
-	// is returned in it (walkResultDst), so a replaced entry's array is
+	// is built into it (the walk's temp mode), so a replaced entry's array is
 	// reused instead of reallocated. opts aliases it when the entry's walk
 	// was computed here (never when it is the decision's own Options).
 	spare []decision.Option
@@ -189,9 +189,7 @@ func (e *Engine) potentialWalkOf(p state.PlayerID, full bool) (state.Mana, []dec
 			}
 		} else {
 			e.potentialWalkDepth++
-			e.walkResultDst = e.potentialWalk.spare
-			opts = e.legalActionsWalk(p, &mana, !walkFull)
-			e.walkResultDst = nil
+			opts = e.legalActionsWalkWithWindow(p, &mana, !walkFull, nil, false, e.potentialWalk.spare, true)
 			e.potentialWalkDepth--
 		}
 	} else {
@@ -234,15 +232,16 @@ func (e *Engine) potentialWalkCompute(p state.PlayerID, full bool) (state.Mana, 
 }
 
 // potentialWalkComputeInto is potentialWalkCompute returning the walk's
-// options in dst when they fit (walkResultDst).
+// options built into dst (legalActionsWalkWithWindow's temp mode); nil dst
+// returns a fresh exactly-sized list.
 func (e *Engine) potentialWalkComputeInto(p state.PlayerID, full bool, dst []decision.Option) (state.Mana, []decision.Option) {
 	e.potentialWalkDepth++
 	defer func() { e.potentialWalkDepth-- }()
 	mana := e.PotentialMana(p)
-	e.walkResultDst = dst
-	opts := e.legalActionsWalk(p, &mana, !full)
-	e.walkResultDst = nil
-	return mana, opts
+	if dst == nil {
+		return mana, e.legalActionsWalk(p, &mana, !full)
+	}
+	return mana, e.legalActionsWalkWithWindow(p, &mana, !full, nil, false, dst, true)
 }
 
 func (e *Engine) verifyPotentialWalk(p state.PlayerID, full bool, mana state.Mana, opts []decision.Option) {

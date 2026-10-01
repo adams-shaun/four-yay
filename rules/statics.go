@@ -222,6 +222,24 @@ func (e *Engine) collectActionStatics() actionStaticViews {
 }
 
 func (e *Engine) scanActionStatics() actionStaticViews {
+	return e.scanActionStaticsMode(false)
+}
+
+// collectAddAbilityCarriers is addAbilityCarriers(collectActionStatics()
+// .continuous) without building the other lists: outside a walk the scan
+// keeps only the Continuous statics carrying AddAbility$, in the same seat,
+// zone and static order, so a board with no grantor allocates nothing (the
+// mana path asks it once per object).
+func (e *Engine) collectAddAbilityCarriers() []staticView {
+	if v, ok := e.boardStaticsWalk(); ok {
+		return addAbilityCarriers(v.action.continuous)
+	}
+	return e.scanActionStaticsMode(true).continuous
+}
+
+// scanActionStaticsMode is scanActionStatics' walk; carriersOnly keeps only
+// the Continuous statics addAbilityCarriers would keep.
+func (e *Engine) scanActionStaticsMode(carriersOnly bool) actionStaticViews {
 	var out actionStaticViews
 	for pi, p := range e.G.AliveFrom(0) {
 		// Continuous statics are zone-scoped by their EffectZone$, so the
@@ -268,12 +286,12 @@ func (e *Engine) scanActionStatics() actionStaticViews {
 					var dst *[]staticView
 					switch st.Mode {
 					case "CantBeCast":
-						if z != state.ZBattlefield {
+						if carriersOnly || z != state.ZBattlefield {
 							continue
 						}
 						dst = &out.cantCast
 					case "CantBeActivated":
-						if z != state.ZBattlefield {
+						if carriersOnly || z != state.ZBattlefield {
 							continue
 						}
 						dst = &out.cantActivate
@@ -284,6 +302,9 @@ func (e *Engine) scanActionStatics() actionStaticViews {
 						// collected from THAT zone here and denied from the
 						// battlefield, the same gate staticEffects runs.
 						if !effectZoneOK(st.Params["EffectZone"], o.Zone) {
+							continue
+						}
+						if carriersOnly && strings.TrimSpace(st.Params["AddAbility"]) == "" {
 							continue
 						}
 						dst = &out.continuous

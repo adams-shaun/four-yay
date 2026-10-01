@@ -140,8 +140,7 @@
 //	Valid                              object-arena size and log length; Clone copies none
 //	legalOptBuf, manaAbBuf, manaLabels, reused scratch buffers
 //	intentBuf, sbaIDBuf, foreachBuf,
-//	graveCandBuf, walkResultDst,
-//	potManaScratch
+//	graveCandBuf, hypSpares
 //	discardAllFirstTime                the DiscardedAll matcher's FirstTime$ scratch: written on
 //	                                   every match and read only right after it; Clone copies none
 //	loop, askCount                    intent-stream watchdog and ask counter: they count the
@@ -153,6 +152,18 @@
 //	ManaAbilityHook, paymentStats      harness-only observers (rules/clone.go): Clone copies
 //	                                   neither, and cmd/cardfuzz installs the hook on its live
 //	                                   run A, so the control would read "<func> vs nil"
+//	derivedSeq, derivedPrev*,          the Derived memo's cross-walk key and active()'s double
+//	derivedTouched, activeBufAlt       buffer: rebuild counters and the previous build's key;
+//	                                   never cloned, so a clone restarts them at zero
+//	renameObjs, renameDSeq             the rename table's cache keys (the renames/* class)
+//	trigZeroNoopEp/Objs/Ver            checkFaceTriggers' zero-interest no-op memo key
+//	snapPool, lookBack, lookBackOwner, recycled storage one engine owns (snapshot arenas, the
+//	lookBackBusy, decArena             look-back observer Engine, the decision arena): capacity,
+//	                                   never game state; Clone leaves them nil or adopts a
+//	                                   Spare's cleared ones
+//	legalScratch                       the offer walk's log-derived indexes: a pure function of
+//	                                   the log prefix their watermark names; the manual route's
+//	                                   longer log moves the watermark
 //
 // A route is Unmirrorable when the manual route cannot be driven at all. It
 // is Expected (RouteResult.Expected) when the reason is a known limit of the

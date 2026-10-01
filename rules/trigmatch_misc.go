@@ -409,6 +409,12 @@ type parsedPhase struct {
 	valid bool
 }
 
+// parsePhaseSpec is parsedPhaseSpec's pure parse.
+func parsePhaseSpec(spec string) parsedPhase {
+	set, unknown := state.ParsePhases(spec)
+	return parsedPhase{set: set, valid: len(unknown) == 0}
+}
+
 // parsedPhaseSpec caches syntax only, never whether the current step matches.
 // Diagnostic scans and live/look-back matchers use the same parse semantics;
 // only the live scan emits Notes, tracked separately in phaseUnknownNoted.
@@ -416,8 +422,7 @@ func (e *Engine) parsedPhaseSpec(spec string) parsedPhase {
 	if p, ok := e.phaseSpecs[spec]; ok {
 		return p
 	}
-	set, unknown := state.ParsePhases(spec)
-	p := parsedPhase{set: set, valid: len(unknown) == 0}
+	p := parsePhaseSpec(spec)
 	if e.phaseSpecs == nil {
 		e.phaseSpecs = make(map[string]parsedPhase)
 	}

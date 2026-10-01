@@ -474,6 +474,10 @@ func bodyAbsorbed(absorbed []string, m replMatch) bool {
 func (e *Engine) entryPreview(ev events.Event) (*Engine, state.ObjID) {
 	preview := *e
 	preview.G = e.G.Clone()
+	// The livelock watcher's window and candidate index are slices: the
+	// preview copies them on its first observed event rather than writing
+	// into the live engine's.
+	preview.loop.shared = true
 	// A competing AddCounter choice can log an ask during the preview. Keep
 	// both its log and its queue private; no speculative event may leak into
 	// the real chain. Preserve prior events for log-backed counter predicates.

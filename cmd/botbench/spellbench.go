@@ -73,6 +73,7 @@ import (
 	"github.com/adams-shaun/gorge/internal/azmcts"
 	gbench "github.com/adams-shaun/gorge/internal/bench"
 	"github.com/adams-shaun/gorge/internal/policynet"
+	"github.com/adams-shaun/gorge/internal/searchseat"
 	"github.com/adams-shaun/gorge/internal/spellbench"
 	"github.com/adams-shaun/gorge/internal/spellbench/builtins"
 	"github.com/adams-shaun/gorge/internal/spellbench/registry"
@@ -332,6 +333,29 @@ func sbPlay(g sbGame, deck []*cards.Card, reg *cards.Registry, maxTurns, maxInte
 		Seed: g.seed, Names: []string{"p0", "p1"}, Decks: [][]*cards.Card{deck, deck},
 		Tokens: reg.Tokens, NameUniverse: reg.Cards, Mulligans: sbFlags.mulligans,
 	}
+	// A finished game's storage backs the next game this worker plays
+	// (rules.Spare; reuse never changes a game -- the same contract
+	// playMatch's sparePool relies on).
+	spare, _ := sbSparePool.Get().(*rules.Spare)
+	if spare == nil {
+		spare = new(rules.Spare)
+	}
+	cfg.Spare = spare
+	// The decision arena backs the game's priority decisions, resolution
+	// contexts and LKI copies with chunks the Spare recycles. It is sound
+	// only when nothing read from the engine outlives its Release below: a
+	// non-search seat answers each decision before the next is posed and the
+	// seats die with this call. A search seat reads the live engine as its
+	// root, so a game with one keeps the arena off (decision_arena.go).
+	arena := true
+	for s := 0; s < 2; s++ {
+		if _, ok := seats[s].(searchseat.SearchSeat); ok {
+			arena = false
+		}
+		if _, ok := registry.UnwrapSeat(seats[s]).(searchseat.SearchSeat); ok {
+			arena = false
+		}
+	}
 	var recs []policynet.VisitRecord
 	if azCorpusPath != "" {
 		for s := 0; s < 2; s++ {
@@ -357,6 +381,9 @@ func sbPlay(g sbGame, deck []*cards.Card, reg *cards.Registry, maxTurns, maxInte
 			}
 			return nil
 		}, Setup: func(e *rules.Engine) {
+			if arena {
+				e.SetDecisionArena(true)
+			}
 			for _, st := range seats {
 				if b, ok := registry.UnwrapSeat(st).(*builtins.Seat); ok {
 					b.SetPlanner(e)
@@ -367,7 +394,7 @@ func sbPlay(g sbGame, deck []*cards.Card, reg *cards.Registry, maxTurns, maxInte
 		hooks.Guard = turnIntentGuard(maxTurnIntents)
 	}
 	t0 := time.Now()
-	o, _, err := gbench.PlayGame(cfg, seats, maxTurns, maxIntents, hooks)
+	o, e, err := gbench.PlayGame(cfg, seats, maxTurns, maxIntents, hooks)
 	res.wall = time.Since(t0)
 	res.outcome, res.err = o, err
 	if len(recs) > 0 {
@@ -378,8 +405,19 @@ func sbPlay(g sbGame, deck []*cards.Card, reg *cards.Registry, maxTurns, maxInte
 			res.stats[s] = b.Stats
 		}
 	}
+	if err == nil && e != nil && !gbench.IsAbort(o.StallOn) {
+		// The engine's last use: the outcome, corpus and stats above are
+		// plain values, and the seats that held it die with this call.
+		*spare = e.Release()
+		sbSparePool.Put(spare)
+	}
 	return res
 }
+
+// sbSparePool recycles finished spellbench games' storage (rules.Spare)
+// between the games a worker plays back to back. Which spare a game draws is
+// scheduling-dependent but invisible (rules.Spare's contract).
+var sbSparePool sync.Pool
 
 // sbCorpusMember stamps each record with the recording seat's outcome and
 // encodes the game's records as one gzip member. A halted or truncated game's

@@ -47,6 +47,14 @@ type engineLayerCaches struct {
 	// invariant under a static-cold token entry. Reset at the top of each
 	// full staticEffectsWalk and set at the one gate site.
 	staticMemoGated bool
+	// staticMemoStateRead records whether the last full staticEffects build
+	// made a read outside the static-quiet input (layercache.go's
+	// staticQuietKinds): a GainsAbilitiesOf$/GainsAbilitiesOfDefined$/
+	// GainsTriggerAbsOf$ spec, an AddStaticAbility$ Affected$ match, a CDA
+	// P/T count, or an ImprintedCreatureType lookup. Any of them can read
+	// state a quiet event writes, so staticSafeSince admits quiet events only
+	// when it is false. Reset and set exactly like staticMemoGated.
+	staticMemoStateRead bool
 	// staticBuildSeq counts staticEffects REBUILDS (never a layer-inert
 	// re-stamp or an exact hit). The memo is refreshable OUTSIDE active() --
 	// staticControlWants (control_static.go) calls refreshStaticContinuous

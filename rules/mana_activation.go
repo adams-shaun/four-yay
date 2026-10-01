@@ -738,7 +738,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 	// included) that one walk sees and the other does not.
 	var continuous []staticView
 	if statics == nil {
-		continuous = addAbilityCarriers(e.collectActionStatics().continuous)
+		continuous = e.collectAddAbilityCarriers()
 	} else {
 		// The walk's snapshot pre-filtered to AddAbility$ carriers: every
 		// other static fails the name test below, so the order and the

@@ -93,13 +93,6 @@ type engineScratch struct {
 	// graveCandBuf is the offer walk's graveyard-candidate scratch
 	// (legal_walk_grave_skip.go), taken for the section. Not cloned.
 	graveCandBuf []state.ObjID
-	// walkResultDst, when set, is the buffer the next non-ask offer walk
-	// returns its options in (taken at the walk's entry); the potential walk
-	// cache hands it its own retired result buffer. Not cloned.
-	walkResultDst []decision.Option
-	// potManaScratch is PotentialMana's fixpoint storage (potential.go),
-	// taken for the call. Not cloned.
-	potManaScratch potentialManaScratch
 
 	// derivingColorsSet/ID/Colors: the finished layer-5 colour answer for the
 	// object whose Derived is mid-build (set by derivedWith before its layer-7
@@ -216,4 +209,7 @@ type engineScratch struct {
 	// sbaIDBuf is the battlefield-snapshot scratch attachmentSBAs and
 	// checkSagas range (taken for the walk, restored after). Not cloned.
 	sbaIDBuf []state.ObjID
+	// hypSpares recycles the hypothetical clones' storage (hypclone.go).
+	// Owner-guarded like decArena; Clone leaves it nil.
+	hypSpares *hypSparePool
 }

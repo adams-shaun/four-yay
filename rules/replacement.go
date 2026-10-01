@@ -228,7 +228,7 @@ func (e *Engine) applyReplacementsDispatch(ev events.Event) (events.Event, bool)
 			}
 		}
 	}
-	e.forEachReplacementSource(func(id state.ObjID) {
+	e.forEachReplacementSourceFor(replEventBit(event), func(id state.ObjID) {
 		f := e.replacementFace(id, ev)
 		if f == nil {
 			return

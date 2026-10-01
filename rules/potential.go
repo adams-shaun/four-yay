@@ -93,12 +93,13 @@ func (e *Engine) PotentialMana(p state.PlayerID) state.Mana {
 	// once per object on the first pass and reused by every later pass; only
 	// the pool-priced payability filter reruns. Indexed by zone position: the
 	// zone does not move while the fixpoint runs. The lists live in one flat
-	// engine scratch array (potentialManaScratch, taken for the call so a
-	// nested call builds its own), each object owning a span of it, and
-	// admitted parallels it.
+	// scratch array kept in e's hypothetical pool (hypclone.go: so a recycled
+	// clone inherits it), taken for the call so a nested call builds its
+	// own; each object owns a span of it, and admitted parallels it.
 	zone := e.G.Zone(state.ZBattlefield, p)
-	sc := e.potManaScratch
-	e.potManaScratch = potentialManaScratch{}
+	pl := e.hypPool()
+	sc := pl.pm
+	pl.pm = potentialManaScratch{}
 	flat, admitted := sc.members[:0], sc.admitted[:0]
 	spans := slices.Grow(sc.spans[:0], len(zone))[:len(zone)]
 	clear(spans)
@@ -177,12 +178,12 @@ func (e *Engine) PotentialMana(p state.PlayerID) state.Mana {
 		}
 	}
 	clear(flat)
-	e.potManaScratch = potentialManaScratch{members: flat[:0], admitted: admitted[:0], spans: spans[:0], own: own[:0]}
+	e.hypPool().pm = potentialManaScratch{members: flat[:0], admitted: admitted[:0], spans: spans[:0], own: own[:0]}
 	return out
 }
 
 // potentialManaScratch is PotentialMana's reusable fixpoint storage (see
-// there). Engine-owned scratch: Clone copies none.
+// there), kept in the engine's hypSparePool. Clone copies none.
 type potentialManaScratch struct {
 	members  []*cards.SA
 	admitted []bool
@@ -341,6 +342,8 @@ func (e *Engine) PotentialActions(p state.PlayerID) []decision.PotentialAction {
 			})
 		}
 	}
+	// opts belongs to the decision's potential walk cache (or is the
+	// decision's own Options): never released here.
 	return out
 }
 

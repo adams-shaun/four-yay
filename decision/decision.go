@@ -967,7 +967,55 @@ func (d *Decision) GroupCapFor(group string) int {
 // (and the validator cannot drift from the walk). An empty g (an option
 // with no Group) always admits.
 func (d *Decision) GroupAdmits(used map[string]int, g string) bool {
-	return g == "" || used[g] < d.GroupCapFor(g)
+	return g == "" || d.groupAdmitsCount(g, used[g])
+}
+
+// groupAdmitsCount is GroupAdmits over a count the caller already holds:
+// adding one more option of the non-empty Group g, with n of them chosen,
+// is legal when n < GroupCapFor(g). Validate and groupCapExceeded keep their
+// per-Group counts in a groupTally rather than a map.
+func (d *Decision) groupAdmitsCount(g string, n int) bool {
+	return n < d.GroupCapFor(g)
+}
+
+// groupTally is a map-free per-Group count for one answer: the distinct
+// non-empty Groups seen so far, each with its count and the first choice
+// that selected it. Answers name a handful of groups, so a linear scan over
+// a stack-backed slice beats hashing every Group string into a fresh map.
+type groupTally struct {
+	g            string
+	first, count int
+}
+
+// groupTallyAt returns the index of g in t, or -1.
+func groupTallyAt(t []groupTally, g string) int {
+	for i := range t {
+		if t[i].g == g {
+			return i
+		}
+	}
+	return -1
+}
+
+// choiceBits returns a zeroed map-free membership set over option indices
+// [0, n), backed by buf for every decision up to 512 options (the caller's
+// stack array), so Validate's duplicate and partition checks allocate
+// nothing.
+func choiceBits(buf *[8]uint64, n int) []uint64 {
+	w := (n + 63) >> 6
+	if w <= len(buf) {
+		return buf[:w]
+	}
+	return make([]uint64, w)
+}
+
+// choiceBitTestAndSet reports whether i was already in bits, then adds it.
+// i must be in [0, n) for the n bits was made for.
+func choiceBitTestAndSet(bits []uint64, i int) bool {
+	w, m := i>>6, uint64(1)<<(uint(i)&63)
+	had := bits[w]&m != 0
+	bits[w] |= m
+	return had
 }
 
 // SetPropMode selects one of Forge's target-SET property constraints, read
@@ -1177,7 +1225,8 @@ func (d *Decision) SetPropsOf(choices []int) []string {
 // group branch tests against the count BEFORE this choice is folded in): a
 // set holding exactly GroupCapFor(g) options of one group is legal.
 func (d *Decision) groupCapExceeded(choices []int) bool {
-	counts := make(map[string]int, len(choices))
+	var buf [8]groupTally
+	tally := buf[:0]
 	for _, c := range choices {
 		if c < 0 || c >= len(d.Options) {
 			continue
@@ -1186,10 +1235,15 @@ func (d *Decision) groupCapExceeded(choices []int) bool {
 		if g == "" {
 			continue
 		}
-		if !d.GroupAdmits(counts, g) {
+		i := groupTallyAt(tally, g)
+		if i < 0 {
+			i = len(tally)
+			tally = append(tally, groupTally{g: g})
+		}
+		if !d.groupAdmitsCount(g, tally[i].count) {
 			return true
 		}
-		counts[g]++
+		tally[i].count++
 	}
 	return false
 }
@@ -1241,9 +1295,16 @@ func (d *Decision) Validate(in Intent) error {
 	if len(in.Choices) < d.Min || len(in.Choices) > d.Max {
 		return fmt.Errorf("expected %d..%d choices, got %d", d.Min, d.Max, len(in.Choices))
 	}
-	seen := make(map[int]bool, len(in.Choices))
-	seenGroups := make(map[string]int, len(in.Choices))
-	groupCount := make(map[string]int, len(in.Choices))
+	// Map-free bookkeeping (Validate runs per candidate answer in search):
+	// a stack bitset for duplicate choices and a stack-backed groupTally for
+	// the per-Group counts and each Group's first choice.
+	var seenBuf [8]uint64
+	var seen []uint64
+	if !d.Repeatable {
+		seen = choiceBits(&seenBuf, len(d.Options))
+	}
+	var tallyBuf [8]groupTally
+	tally := tallyBuf[:0]
 	var controller state.PlayerID
 	haveController := false
 	if d.TargetsWithSameController {
@@ -1284,10 +1345,9 @@ func (d *Decision) Validate(in Intent) error {
 		if c < 0 || c >= len(d.Options) {
 			return fmt.Errorf("choice %d out of range (%d options)", c, len(d.Options))
 		}
-		if seen[c] && !d.Repeatable {
+		if !d.Repeatable && choiceBitTestAndSet(seen, c) {
 			return fmt.Errorf("duplicate choice %d", c)
 		}
-		seen[c] = true
 		// The exclusivity rule: two options sharing one non-empty Group are
 		// mutually exclusive, so an intent must not select both. This is a
 		// general wire contract, not a combat rule -- the group field says
@@ -1300,17 +1360,19 @@ func (d *Decision) Validate(in Intent) error {
 			// incremental admission test is decision.GroupAdmits, the same rule
 			// orderTargetOptions' prefix walks apply, so the offered prefix and
 			// this fence cannot drift.
-			if !d.GroupAdmits(groupCount, g) {
+			i := groupTallyAt(tally, g)
+			if i < 0 {
+				i = len(tally)
+				tally = append(tally, groupTally{g: g, first: c})
+			}
+			if !d.groupAdmitsCount(g, tally[i].count) {
 				limit := d.GroupCapFor(g)
 				if limit == 1 {
-					return fmt.Errorf("choices %d and %d are mutually exclusive (group %q)", seenGroups[g], c, g)
+					return fmt.Errorf("choices %d and %d are mutually exclusive (group %q)", tally[i].first, c, g)
 				}
 				return fmt.Errorf("choice %d exceeds the per-group limit of %d (group %q)", c, limit, g)
 			}
-			if groupCount[g] == 0 {
-				seenGroups[g] = c
-			}
-			groupCount[g]++
+			tally[i].count++
 		}
 	}
 	// The cumulative-budget rule (Decision.MaxSum): the chosen options'
@@ -1386,18 +1448,22 @@ func (d *Decision) validateRest(choices, rest []int) error {
 	if len(rest) != len(d.Options)-len(choices) {
 		return fmt.Errorf("rest names %d of the %d unchosen options", len(rest), len(d.Options)-len(choices))
 	}
-	seen := make(map[int]bool, len(choices)+len(rest))
+	var seenBuf [8]uint64
+	seen := choiceBits(&seenBuf, len(d.Options))
 	for _, c := range choices {
-		seen[c] = true
+		// An out-of-range choice can never collide with an in-range rest
+		// index, so it needs no bit (Validate has rejected it already).
+		if c >= 0 && c < len(d.Options) {
+			choiceBitTestAndSet(seen, c)
+		}
 	}
 	for _, r := range rest {
 		if r < 0 || r >= len(d.Options) {
 			return fmt.Errorf("rest choice %d out of range (%d options)", r, len(d.Options))
 		}
-		if seen[r] {
+		if choiceBitTestAndSet(seen, r) {
 			return fmt.Errorf("rest choice %d is also chosen or repeated", r)
 		}
-		seen[r] = true
 	}
 	return nil
 }

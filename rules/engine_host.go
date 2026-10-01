@@ -63,7 +63,19 @@ func (e *Engine) EnsurePaymentActions() []decision.PaymentAction {
 		e.BeginDerivedReads()
 		actions := e.paymentActionsForPriority(d.Player, d.Seq, d.Options)
 		e.EndDerivedReads()
-		d.PaymentActions = (&decision.Decision{PaymentActions: actions}).Clone().PaymentActions
+		// The builder's actions are this decision's own: every Plans,
+		// Activations, Consequence and BaseOptionIndex it returns is built
+		// for this decision (paymentWitness, searchPaymentPlan), so they are
+		// kept as built rather than deep-copied. The one other holder is the
+		// decision's cast-plan memo (planCastPaymentMemo), which shares a
+		// plan's Activations read-only for the same decision and dies with
+		// it; a reader that needs its own copy clones (PotentialPaymentPlans,
+		// PaymentActionsForPriority). The built list is never nil, exactly as
+		// Decision.Clone's copy was.
+		if actions == nil {
+			actions = []decision.PaymentAction{}
+		}
+		d.PaymentActions = actions
 		d.PaymentActionsBuilt = true
 		// A builder walk performs derived reads in its own memo generation.
 		// Make that completed read the resumable tail so a later BoardSeat

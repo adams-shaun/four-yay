@@ -145,3 +145,31 @@ func TestTrigZoneSkipVerifyCatchesUnreferencedWrite(t *testing.T) {
 	}()
 	e.emit(events.Event{Kind: events.StepChange, Step: state.StepUpkeep})
 }
+
+// TestTrigZoneSummariesCarryAcrossClone: a clone starts with the parent's
+// summaries in its own arrays and catch-up position, keeps them valid
+// through its first walk (a content match against its own lists), and the
+// parent's are untouched by the clone's.
+func TestTrigZoneSummariesCarryAcrossClone(t *testing.T) {
+	t.Parallel()
+	e := layerEngine(t)
+	e.emit(events.Event{Kind: events.StepChange, Step: state.StepDraw})
+	lib := trigZoneSlot(state.ZLibrary)
+	if !e.trigZones[lib].valid {
+		t.Fatal("parent library summary not built")
+	}
+	c := e.Clone()
+	if len(c.trigZones) != len(e.trigZones) || c.trigZonesEp != e.trigZonesEp || !c.trigZones[lib].valid {
+		t.Fatal("clone did not carry the summaries")
+	}
+	if len(c.trigZones[lib].ids) > 0 && &c.trigZones[lib].ids[0] == &e.trigZones[lib].ids[0] {
+		t.Fatal("clone shares the parent's summary ids")
+	}
+	c.emit(events.Event{Kind: events.StepChange, Step: state.StepMain1})
+	if s := c.trigZones[lib]; !s.valid || !sameZoneList(s.live, c.G.Zone(state.ZLibrary, 0)) {
+		t.Fatal("clone's walk did not confirm the carried library summary against its own list")
+	}
+	if sameZoneList(e.trigZones[lib].live, c.G.Zone(state.ZLibrary, 0)) {
+		t.Fatal("the clone's walk wrote the parent's summary")
+	}
+}
