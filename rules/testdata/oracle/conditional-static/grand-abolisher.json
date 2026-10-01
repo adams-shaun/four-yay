@@ -1,0 +1,40 @@
+{
+  "card": "Grand Abolisher",
+  "family": "conditional-static",
+  "oracle_sha": "3d2737d202cf",
+  "author": "cli-20261001T012353Z-c0654344 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "opponent-cannot-cast-during-your-turn",
+      "cr": ["117.1a", "101.2"],
+      "why": "During your turn, your opponents can't cast spells; with p0 active on turn 1, p1 holding priority is not offered its Lightning Bolt.",
+      "setup": {
+        "p0": {"battlefield": ["Grand Abolisher"]},
+        "p1": {"hand": ["Lightning Bolt"]}
+      },
+      "steps": [
+        {"op": "pass"}
+      ],
+      "expect": [
+        {"card": "p0:Grand Abolisher", "zone": "battlefield"},
+        {"offered": {"seat": 1, "kind": "cast", "card": "p1:Lightning Bolt", "label": "Lightning Bolt"}, "want": false}
+      ]
+    },
+    {
+      "name": "controller-may-still-cast",
+      "cr": ["117.1a"],
+      "why": "The restriction binds only opponents; seat 0 can cast its own Lightning Bolt on its turn.",
+      "setup": {
+        "p0": {"battlefield": ["Grand Abolisher"], "hand": ["Lightning Bolt"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p1": 17}}
+      ]
+    }
+  ]
+}

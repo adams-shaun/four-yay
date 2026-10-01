@@ -1,0 +1,27 @@
+{
+  "card": "Fleshbag Marauder",
+  "family": "etb-ltb",
+  "oracle_sha": "dc1a4f5ac3e3",
+  "author": "cli-20261001T012353Z-c0654344 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "each-player-sacrifices-a-creature",
+      "cr": ["603.6a", "701.17a"],
+      "why": "Its enter trigger makes each player sacrifice a creature; seat 0 sacrifices a Grizzly Bears and seat 1 sacrifices its Savannah Lions.",
+      "setup": {
+        "p0": {"hand": ["Fleshbag Marauder"], "battlefield": ["Grizzly Bears"]},
+        "p1": {"battlefield": ["Savannah Lions"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Fleshbag Marauder", "mana": "BBC"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "zone": "graveyard"},
+        {"card": "p1:Savannah Lions", "zone": "graveyard"},
+        {"card": "p0:Fleshbag Marauder", "zone": "battlefield"},
+        {"life": {"p0": 20, "p1": 20}}
+      ]
+    }
+  ]
+}

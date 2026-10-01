@@ -1,0 +1,44 @@
+{
+  "card": "Screaming Nemesis",
+  "family": "triggered-ability",
+  "oracle_sha": "42ebd537cefb",
+  "author": "cli-20261001T012353Z-c0654344 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "dealt-damage-reflects-and-locks-out-lifegain",
+      "cr": ["603.2", "614.1"],
+      "why": "Being dealt 3 damage triggers the Nemesis to deal 3 to another target (p1). A player dealt damage this way can't gain life for the rest of the game, so p1's Revitalize gains nothing. The 3 damage also destroys the 3/3.",
+      "setup": {
+        "p0": {"battlefield": ["Screaming Nemesis"], "hand": ["Lightning Bolt"]},
+        "p1": {"hand": ["Revitalize"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p0:Screaming Nemesis"]},
+        {"op": "resolve", "targets": ["p1"]},
+        {"op": "pass_to", "step": "main1", "active": "p1"},
+        {"op": "cast", "seat": 1, "card": "p1:Revitalize", "mana": "CW"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Screaming Nemesis", "zone": "graveyard"},
+        {"life": {"p0": 20, "p1": 17}}
+      ]
+    },
+    {
+      "name": "haste-and-untouched-no-trigger",
+      "cr": ["702.10a"],
+      "why": "It has haste and, when no damage is dealt to it, its damage trigger never fires and no player is locked out of life gain.",
+      "setup": {
+        "p0": {"battlefield": ["Screaming Nemesis"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "pass"}
+      ],
+      "expect": [
+        {"card": "p0:Screaming Nemesis", "keywords": ["Haste"], "pt": "3/3"},
+        {"life": {"p0": 20, "p1": 20}}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "card": "Managorger Hydra",
+  "family": "trigger-condition",
+  "oracle_sha": "8e6b842ce64e",
+  "author": "cli-20261001T012353Z-c0654344 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "any-player-casts-a-spell-adds-counter",
+      "cr": ["603.2"],
+      "why": "Whenever a player casts a spell, put a +1/+1 counter on the Hydra; seat 1 casting a spell also triggers it.",
+      "setup": {
+        "p0": {"battlefield": ["Managorger Hydra"]},
+        "p1": {"hand": ["Lightning Bolt"], "battlefield": ["Mountain"]}
+      },
+      "steps": [
+        {"op": "pass_to", "step": "main1", "active": "p1"},
+        {"op": "cast", "seat": 1, "card": "p1:Lightning Bolt", "mana": "R", "targets": ["p0"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Managorger Hydra", "counters": {"+1/+1": 1}, "pt": "2/2"},
+        {"life": {"p0": 17}}
+      ]
+    },
+    {
+      "name": "two-spells-two-counters",
+      "cr": ["603.2"],
+      "why": "Two spells cast this turn put two +1/+1 counters on the Hydra.",
+      "setup": {
+        "p0": {"battlefield": ["Managorger Hydra"], "hand": ["Lightning Bolt", "Lightning Bolt"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
+        {"op": "resolve"},
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt#2", "mana": "R", "targets": ["p1"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Managorger Hydra", "counters": {"+1/+1": 2}, "pt": "3/3"}
+      ]
+    }
+  ]
+}

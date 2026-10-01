@@ -1,0 +1,45 @@
+{
+  "card": "The Lord of Pain",
+  "family": "triggered-ability",
+  "oracle_sha": "001ca460c0e5",
+  "author": "cli-20261001T012353Z-c0654344 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "first-spell-damages-chosen-player",
+      "cr": ["603.2"],
+      "why": "Whenever a player casts their first spell each turn, The Lord of Pain's controller chooses another target player and deals damage equal to that spell's mana value. Seat 0 casts a 2-mana Grizzly Bears and chooses p1, who takes 2.",
+      "setup": {
+        "p0": {"battlefield": ["The Lord of Pain"], "hand": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Grizzly Bears", "mana": "CG",
+         "answers": [{"kind": "choose", "pick": ["p1"]}]},
+        {"op": "resolve", "answers": [{"kind": "choose", "pick": ["p1"]}]}
+      ],
+      "expect": [
+        {"life": {"p0": 20, "p1": 18}},
+        {"card": "p0:The Lord of Pain", "zone": "battlefield"}
+      ]
+    },
+    {
+      "name": "second-spell-same-turn-does-not-trigger",
+      "cr": ["603.2"],
+      "why": "Only the FIRST spell each player casts each turn triggers it; a second Lightning Bolt that turn deals no extra Lord-of-Pain damage.",
+      "setup": {
+        "p0": {"battlefield": ["The Lord of Pain"], "hand": ["Grizzly Bears", "Lightning Bolt"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Grizzly Bears", "mana": "CG",
+         "answers": [{"kind": "choose", "pick": ["p1"]}]},
+        {"op": "resolve", "answers": [{"kind": "choose", "pick": ["p1"]}]},
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"life": {"p0": 20, "p1": 15}}
+      ]
+    }
+  ]
+}

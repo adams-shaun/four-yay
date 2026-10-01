@@ -1,0 +1,3 @@
+{
+  "Screaming Nemesis/dealt-damage-reflects-and-locks-out-lifegain": "p1 was dealt 3 by the Nemesis trigger but its Revitalize still gained 3 (p1 life 20, want 17): DealDamage RememberDamaged$ True never remembers a damaged PLAYER (effects/damage.go effDealDamage, effects/damage.go the t.IsPlayer arm emits damage then continues without appending to c.Remembered), so the script's Effect | RememberObjects$ Player.IsRemembered | StaticAbilities$ CantGainLife has no remembered player and the lock is never applied"
+}
