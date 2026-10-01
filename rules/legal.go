@@ -55,7 +55,7 @@ func (e *Engine) legalActions(p state.PlayerID) []decision.Option {
 }
 
 func (e *Engine) legalActionsWithWindow(p state.PlayerID, w *windowCollector) []decision.Option {
-	return e.legalActionsWalkAsk(p, nil, false, w, true)
+	return e.legalActionsWalkWithWindow(p, nil, false, w, true)
 }
 
 // aftermathAlternateFace returns the Aftermath alternate face (face 1 --
@@ -106,17 +106,13 @@ func (e *Engine) legalActionsPriced(p state.PlayerID, hyp *state.Mana) []decisio
 // on its own. The payment offer builder, which reads only plain casts, uses
 // it to avoid pricing every battlefield ability it would discard.
 func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly bool) []decision.Option {
-	return e.legalActionsWalkWithWindow(p, hyp, castsOnly, nil)
+	return e.legalActionsWalkWithWindow(p, hyp, castsOnly, nil, false)
 }
 
-func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, castsOnly bool, window *windowCollector) []decision.Option {
-	return e.legalActionsWalkAsk(p, hyp, castsOnly, window, false)
-}
-
-// legalActionsWalkAsk is legalActionsWalkWithWindow; forAsk marks the walk
+// legalActionsWalkWithWindow is the walk's body. forAsk marks the walk
 // whose result becomes a posed priority decision's Options (askPriority),
 // which is the one result the decision arena (decision_arena.go) may back.
-func (e *Engine) legalActionsWalkAsk(p state.PlayerID, hyp *state.Mana, castsOnly bool, window *windowCollector, forAsk bool) []decision.Option {
+func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, castsOnly bool, window *windowCollector, forAsk bool) []decision.Option {
 	// Count the walk before anything can early-return. A test-visible
 	// diagnostic only: no event, no state mutation, no effect on replay or
 	// chain heads (legalActionWalks is not copied by Clone and never reaches
