@@ -2966,6 +2966,18 @@ func (e *Engine) resolveManaEffectColor(p state.PlayerID, source state.ObjID, ma
 	if o == nil || o.Face() == nil {
 		return
 	}
+	// A plain printed "{T}: Add {G}" emits its one ManaAdd directly
+	// (rules/mana_plain.go); the verify build checks it against the general
+	// path below.
+	plain, plainTap, isPlain := e.plainManaAdd(p, source, ma, produced, gained, sacs)
+	if isPlain && !manaPlainVerify {
+		savedTap, savedProducer := e.manaFromTap, e.manaProducer
+		e.manaFromTap, e.manaProducer = plainTap, source
+		e.emit(plain)
+		e.manaFromTap, e.manaProducer = savedTap, savedProducer
+		return
+	}
+	n0 := len(e.L.Events)
 	copy := *ma
 	copy.Params = make(map[string]string, len(ma.Params)+1)
 	for k, v := range ma.Params {
@@ -2985,6 +2997,9 @@ func (e *Engine) resolveManaEffectColor(p state.PlayerID, source state.ObjID, ma
 	// the FOREIGN face it was compiled on, never the recipient's.
 	e.resolveAbilitySacrificing(source, p, nil, &copy, gained.svars(o.Face().SVars), sacs)
 	e.manaFromTap, e.manaProducer = savedTap, savedProducer
+	if isPlain {
+		e.verifyPlainMana(plain, n0)
+	}
 }
 
 // answerManaColor completes a Produced$ Any choice after the activation cost
