@@ -4,8 +4,10 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"fmt"
+	"strings"
 	"sync"
 
+	"github.com/adams-shaun/gorge/bots"
 	"github.com/adams-shaun/gorge/host"
 	"github.com/adams-shaun/gorge/host/httpapi"
 	"github.com/adams-shaun/gorge/view"
@@ -43,6 +45,29 @@ func (c config) createGame(r *host.Registry, gate *seatGate, cmdPool, conPool []
 		policy, err := host.NormalizeBotPolicy(name)
 		if err != nil {
 			return httpapi.CreateGameResponse{}, err
+		}
+		// The offered set gates BOTH the default and the client's explicit
+		// pick (BP-18, spec §9.3): -bot-policies is the listing this server
+		// advertises, so a name it omits must be refused here too, or a
+		// client could create a game it would never have been offered. An
+		// empty set means every registered entry (the flag's own default and
+		// a hand-built config), so this check is a no-op for a test that
+		// never set the field.
+		if len(c.botPolicies) > 0 && !containsString(c.botPolicies, policy) {
+			return httpapi.CreateGameResponse{}, fmt.Errorf("bot policy %q is not offered on this server (offered: %s)", policy, strings.Join(c.botPolicies, ", "))
+		}
+		entry, _ := bots.Lookup(policy)
+		// A vs-bot table is always two seats, so a policy that cannot seat
+		// two could never play the game the request asked for: name the gap
+		// rather than building a table the host would then refuse.
+		if entry.MaxSeats > 0 && entry.MaxSeats < 2 {
+			return httpapi.CreateGameResponse{}, fmt.Errorf("bot policy %q seats at most %d, want >= 2", policy, entry.MaxSeats)
+		}
+		// The policy must play the requested format: offering a constructed-
+		// only search entry on a commander request would compile a seat that
+		// cannot answer the game.
+		if !containsString(entry.Formats, req.Format.String()) {
+			return httpapi.CreateGameResponse{}, fmt.Errorf("bot policy %q does not support the %s format (formats: %s)", policy, req.Format, strings.Join(entry.Formats, ", "))
 		}
 		pool, otherPool := conPool, cmdPool
 		otherFormat := host.FormatCommander

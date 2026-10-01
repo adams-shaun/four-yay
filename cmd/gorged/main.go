@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -68,11 +69,37 @@ type config struct {
 	botAutoPayMana bool
 	// autoMana enables payment-plan publication and controls for human seats.
 	autoMana bool
-	// botPolicy is the -bot-policy flag: the hosted policy every startup
-	// table's bots play, and the on-demand default when a POST /api/games
-	// names none. Validated by host.NormalizeBotPolicy before listening, so
-	// only the closed hosted vocabulary can ever reach a table.
+	// botPolicy is the -bot-policy flag: the default policy a vs-bot request
+	// gets when it omits bot_policy, and the policy the numbered startup
+	// tables are built with (tableConfigs). Validated at startup by
+	// validateBotPolicyFlags: it must be registered, offered and support both
+	// formats and at least 2 seats, so an omitted-field request can never
+	// reach a policy that then refuses it. NOTE: spec Q4 recommends startup
+	// tables keep policy `bot` and -bot-policy drive only on-demand games;
+	// the code (and TestServeFlagBotPolicyReachesStartupAndOnDemandTables)
+	// has long had a single flag for both. This ticket does not change that.
 	botPolicy string
+	// botPoliciesRaw is the -bot-policies flag: the comma-separated OFFERED
+	// set -- what GET /api/bot-policies lists and what POST /api/games
+	// accepts. Empty means every registered entry. Validated at startup so a
+	// typo fails before listening.
+	botPoliciesRaw string
+	// botPolicies is the parsed offered set, in registry order (production
+	// first, then name), resolved by validateBotPolicyFlags at serve time.
+	botPolicies []string
+	// botSearchSlots is the -bot-search-slots flag: how many searched
+	// decisions run concurrently registry-wide (host.Options.SearchSlots; 0
+	// is unbounded at the host, but the flag's default is
+	// max(1, GOMAXPROCS/2)). A decision over the bound queues, never degrades.
+	botSearchSlots int
+	// botSearchParallelism is the -bot-search-parallelism flag: goroutines
+	// within ONE searched decision (host.Options.BotSearchParallelism). It
+	// changes latency only, never an answer.
+	botSearchParallelism int
+	// maxSearchTables is the -max-search-tables flag: how many live on-demand
+	// tables whose policy entry has Search set may exist (host.Options.
+	// MaxSearchTables; 0 = unbounded). AddTable refuses past the bound.
+	maxSearchTables int
 	// vsbotSpectator is the -vsbot-spectator flag: the spectator visibility
 	// of on-demand play-vs-bot tables, split from -spectator so one server
 	// can show its bot-only tables omniscient while a table with a human in
@@ -155,6 +182,15 @@ func main() {
 		fmt.Fprintln(os.Stderr, "gorged:", err)
 		os.Exit(2)
 	}
+	// The search-CPU flags are validated here, on the PARSED flag values,
+	// rather than in serve: a hand-built config{} (every test) carries zeros
+	// meaning "the host's own default", which are legitimate, while an
+	// operator who passes -bot-search-slots 0 has made a typo. serve leaves
+	// the numbers alone and host.New enforces its own >= 0 floor.
+	if err := c.validateBotFlagNumbers(); err != nil {
+		fmt.Fprintln(os.Stderr, "gorged:", err)
+		os.Exit(2)
+	}
 	// The one-shot art fill needs no listener, no corpus and no tables — it
 	// reads deck JSON and writes the cache — so it dispatches before the
 	// bind. A non-zero exit means the cache is not complete; the deploy
@@ -175,6 +211,34 @@ func main() {
 		fmt.Fprintln(os.Stderr, "gorged:", err)
 		os.Exit(1)
 	}
+}
+
+// defaultBotSearchSlots is -bot-search-slots' default: half the machine's
+// GOMAXPROCS, floored at 1 so a single-core box still runs one search. It is
+// a function, not a var, because GOMAXPROCS can be changed before Parse.
+func defaultBotSearchSlots() int {
+	n := runtime.GOMAXPROCS(0) / 2
+	if n < 1 {
+		return 1
+	}
+	return n
+}
+
+// validateBotFlagNumbers enforces the §9.4 numeric floors on the PARSED flag
+// values. It is called from main, not serve, because a hand-built config in a
+// test carries zero-valued fields (0 = the host's own default) that must stay
+// legal; only a value an operator typed should be rejected as a typo.
+func (c config) validateBotFlagNumbers() error {
+	if c.botSearchSlots < 1 {
+		return fmt.Errorf("-bot-search-slots %d, want >= 1", c.botSearchSlots)
+	}
+	if c.botSearchParallelism < 1 {
+		return fmt.Errorf("-bot-search-parallelism %d, want >= 1", c.botSearchParallelism)
+	}
+	if c.maxSearchTables < 0 {
+		return fmt.Errorf("-max-search-tables %d, want >= 0", c.maxSearchTables)
+	}
+	return nil
 }
 
 // serveFlags registers every gorged flag on a fresh FlagSet and returns it
@@ -211,7 +275,11 @@ func serveFlags() (*flag.FlagSet, *config) {
 	fs.BoolVar(&c.vsbot, "vsbot", false, "arm the on-demand play-vs-bot flow (landing page seats a human against a bot via POST /api/games)")
 	fs.BoolVar(&c.botAutoPayMana, "bot-auto-mana", true, "have hosted bots and human-seat caretakers cast through offered automatic mana payment plans")
 	fs.BoolVar(&c.autoMana, "auto-mana", true, "enable automatic mana payment plans and controls for human seats (disable with -auto-mana=false for the legacy manual path)")
-	fs.StringVar(&c.botPolicy, "bot-policy", host.BotPolicy, "hosted bot policy for startup tables and the default for on-demand vs-bot games (bot, lethal-pressure, cast-profile)")
+	fs.StringVar(&c.botPolicy, "bot-policy", host.BotPolicy, "default hosted bot policy for a vs-bot request that omits bot_policy; must be registered, offered, and support both formats (bot, lethal-pressure, cast-profile)")
+	fs.StringVar(&c.botPoliciesRaw, "bot-policies", defaultBotPoliciesRaw, "comma-separated set of bot policies this server OFFERS (the /api/bot-policies listing and accepted POST /api/games names); empty offers every registered entry")
+	fs.IntVar(&c.botSearchSlots, "bot-search-slots", defaultBotSearchSlots(), "maximum concurrent searched bot decisions across the process; decisions queue, never degrade (>= 1; default max(1, GOMAXPROCS/2))")
+	fs.IntVar(&c.botSearchParallelism, "bot-search-parallelism", 1, "goroutines within one searched decision (latency only, never an answer; >= 1)")
+	fs.IntVar(&c.maxSearchTables, "max-search-tables", 8, "maximum live on-demand tables whose policy is a search entry (0 = unlimited)")
 	fs.StringVar(&c.vsbotSpectator, "vsbot-spectator", "public", "spectator visibility of on-demand play-vs-bot tables: public or omniscient")
 	fs.IntVar(&c.maxOnDemandTables, "max-on-demand-tables", 32, "maximum retained private play-vs-bot tables per process (0 = unlimited)")
 	// The prewarm default is TRUE, deliberately, and lives here — the flag
@@ -250,9 +318,14 @@ func serve(ctx context.Context, c config, ln net.Listener) error {
 	if vsbotVis == view.Seat {
 		return fmt.Errorf("-vsbot-spectator must be public or omniscient")
 	}
-	if c.botPolicy, err = host.NormalizeBotPolicy(c.botPolicy); err != nil {
+	// -bot-policy and -bot-policies are validated together (BP-18, spec
+	// §9.4): a default that is not offered, or an offered set missing a
+	// registered name, must fail before any listener opens.
+	def, offered, err := validateBotPolicyFlags(c.botPolicy, c.botPoliciesRaw)
+	if err != nil {
 		return err
 	}
+	c.botPolicy, c.botPolicies = def, offered
 	reg, err := cards.SharedCorpus(c.cards)
 	if err != nil {
 		return fmt.Errorf("opening corpus at %s: %w (run make fetch-cards compile-cards)", c.cards, err)
@@ -317,7 +390,7 @@ func serve(ctx context.Context, c config, ln net.Listener) error {
 	if err := r.StartAll(); err != nil {
 		return err
 	}
-	opts := httpapi.Options{Web: webFS(), Decks: deckCatalogue}
+	opts := httpapi.Options{Web: webFS(), Decks: deckCatalogue, BotPolicies: buildBotPolicyList(c.botPolicy, c.botPolicies)}
 	var gate *seatGate
 	if len(c.humans) > 0 {
 		// R-E3-3: arm Options.Seat with a real token check — one opaque
@@ -649,6 +722,12 @@ func (g config) hostOptions(reg *cards.Registry, load func(string) (host.Deck, e
 	return host.Options{Dir: g.dir, LoadDeck: load, Tokens: reg.Tokens, NameUniverse: reg.Cards, Sync: true, Cooldown: g.cooldown,
 		MaxDecisionsPerTurn: host.DefaultMaxDecisionsPerTurn, DefaultBotAutoPayMana: g.botAutoPayMana,
 		MaxOnDemandTables: g.maxOnDemandTables, ThinkTimeout: g.manabrewThinkTimeout(),
+		// BP-18 (spec §7): the §9.4 search-CPU flags reach the host here.
+		// SearchSlots bounds concurrent searched decisions registry-wide
+		// (0 would be unbounded, but gorged validates >= 1); MaxSearchTables
+		// bounds live on-demand search tables; BotSearchParallelism is the
+		// within-one-decision goroutine count (latency only).
+		SearchSlots: g.botSearchSlots, MaxSearchTables: g.maxSearchTables, BotSearchParallelism: g.botSearchParallelism,
 		// BP-13 (spec §3.2): every hosted bot factory receives the served card
 		// registry, so a policy that reads printed card facts (sb-tactical)
 		// builds with the same corpus the table deals.
