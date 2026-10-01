@@ -784,6 +784,9 @@ type triggerSnapshot struct {
 	// private to the engine that took it, so a snapshot Clone shares is
 	// never written.
 	retained bool
+	// noLookBack: the board was proven inert for the look-back walk when the
+	// window opened (lookBackNoopBoard); see noLookBackSnapshot.
+	noLookBack bool
 }
 
 // triggerCastAlternatives splits a Mode$ SpellCast trigger's ValidCard$ into

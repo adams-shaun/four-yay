@@ -439,3 +439,33 @@ func (e *Engine) objectLookBackHot(o *state.Object) bool {
 	}
 	return false
 }
+
+// lookBackNoopBoard reports whether no leaves-the-battlefield look-back walk
+// over the current board can act: no trigger grant is possible
+// (trigGrantsPossible), and no object the walk visits is look-back-hot
+// (objectLookBackHot, which for a departing referent is exactly its own
+// look-back lines from the battlefield it sits on in the snapshot). A
+// referent's visit can then reach only the granted keyword walks, and the
+// only ones a MoveZone event reaches (Exploit, Offspring) return for any
+// destination but the battlefield. The board is the one a window opened now
+// would snapshot, so the answer holds for every departure of that window.
+func (e *Engine) lookBackNoopBoard() bool {
+	if e.trigGrantsPossible() {
+		return false
+	}
+	for si, p := range e.G.AliveFrom(0) {
+		// The battlefield first: it holds nearly every look-back source.
+		for _, z := range [...]state.Zone{state.ZBattlefield, state.ZLibrary, state.ZHand,
+			state.ZGraveyard, state.ZExile, state.ZStack, state.ZCommand} {
+			if z == state.ZStack && si != 0 {
+				continue
+			}
+			for _, id := range e.G.Zone(z, p) {
+				if e.objectLookBackHot(e.G.Obj(id)) {
+					return false
+				}
+			}
+		}
+	}
+	return true
+}

@@ -883,14 +883,24 @@ func (e *Engine) controllerOf(id state.ObjID) state.PlayerID {
 }
 
 func (e *Engine) snapshotTriggerBoard() *triggerSnapshot {
-	return &triggerSnapshot{game: e.G.CloneInto(e.takeSnapshotObjs()), continuous: append([]ContinuousEffect(nil), e.continuous...)}
+	// A board no look-back walk can act on needs no copy (lookBackNoopBoard):
+	// the window's departures take the shared empty snapshot, whose look-back
+	// checkTriggers skips. Verify mode copies the board anyway and runs the
+	// walk, which must then queue nothing.
+	noop := e.lookBackNoopBoard()
+	if noop && !trigZoneSkipVerify {
+		return noLookBackSnapshot
+	}
+	return &triggerSnapshot{game: e.G.CloneInto(e.takeSnapshotObjs()), continuous: append([]ContinuousEffect(nil), e.continuous...), noLookBack: noop}
 }
 
 func (e *Engine) checkTriggers(ev events.Event, lki *state.Object,
 	lkiPower, lkiToughness int32, lkiPTValid bool) {
 	batch := e.triggerBefore != nil && ev.Kind == events.MoveZone &&
 		ev.From == state.ZBattlefield && ev.To != state.ZBattlefield
-	if batch {
+	noop := batch && e.lookBackProvenNoop()
+	if batch && (!noop || trigZoneSkipVerify) {
+		np := len(e.pendingTriggers)
 		// Only leaves-the-battlefield triggers look back. Always and other
 		// event modes continue to read the live board, not an obsolete state.
 		observer := e.lookBackObserver()
@@ -929,6 +939,9 @@ func (e *Engine) checkTriggers(ev events.Event, lki *state.Object,
 		// panic skips the release and every later call allocates, exactly as
 		// before the reuse.
 		e.releaseLookBackObserver(observer)
+		if noop && len(e.pendingTriggers) != np {
+			panic(fmt.Sprintf("rules: look-back walk on a board proven inert queued %d trigger(s) for a %v event", len(e.pendingTriggers)-np, ev.Kind))
+		}
 	}
 	e.checkFaceTriggers(e, ev, lki, lkiPower, lkiToughness, lkiPTValid, batch, false)
 	if ev.Kind == events.Damage {
