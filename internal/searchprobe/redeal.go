@@ -105,6 +105,9 @@ type Redealer struct {
 	nowDecision *ObservedDecision
 	plans       []redealPlan
 	scratch     dealScratch
+	// blind is observationBlind at the base boundary: no world can change
+	// the seat's observation, so Deal skips the probe (redeal_blind.go).
+	blind bool
 }
 
 // NewRedealer prepares the redeal of base.Engine for the seat whose History
@@ -300,7 +303,8 @@ func NewRedealer(setup PublicGame, h History, known KnownCards, base RedealBase)
 		}
 		plans = append(plans, plan)
 	}
-	return &Redealer{e: e, known: known, obs: base.Observer, probe: probe, nowBoard: nowBoard, nowDecision: nowDec, plans: plans}, ""
+	return &Redealer{e: e, known: known, obs: base.Observer, probe: probe, nowBoard: nowBoard, nowDecision: nowDec, plans: plans,
+		blind: observationBlind(e, h.Actor, plans)}, ""
 }
 
 // Deal builds one redealt world from seed: a hypothetical clone of the base
@@ -323,8 +327,15 @@ func (r *Redealer) Deal(seed [2]uint64, sp *rules.Spare) (*rules.Engine, string)
 	if err := r.known.holds(w, r.obs); err != nil {
 		return nil, "redealt world breaks the projection: " + err.Error()
 	}
+	if r.blind && !redealProbeVerify {
+		// No world can change the observation (observationBlind).
+		return w, ""
+	}
 	board, dec, err := r.probe.probeBoundary(w)
 	if err != nil || !bytes.Equal(board, r.nowBoard) || !reflect.DeepEqual(dec, r.nowDecision) {
+		if r.blind {
+			panic(fmt.Sprintf("searchprobe: a hidden-blind redeal (seed %v) changed the observation (err %v)", seed, err))
+		}
 		return nil, "redealt world changes the observation"
 	}
 	return w, ""
