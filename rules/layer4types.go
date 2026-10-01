@@ -214,9 +214,10 @@ func (e *Engine) refreshDerivedTypes() {
 //     and -- for an until-end-of-combat duration -- the step. So the table
 //     holds unless a StepChange passed while such an LType effect is
 //     registered;
-//   - otherwise (the bounded build): the table holds when derivedSeq, current
-//     right after that build, has not moved -- every derivation is then
-//     unchanged (derived_transparent.go, held by derivedMemoVerify).
+//   - otherwise (a bounded or whole-board build): the table holds when
+//     derivedSeq, current right after that build, has not moved -- every
+//     derivation is then unchanged (derived_transparent.go, held by
+//     derivedMemoVerify).
 //
 // layerInertVerify rebuilds the table on every reuse and compares.
 func (e *Engine) typesQuietReuse(n int) bool {
@@ -271,6 +272,13 @@ func (e *Engine) refreshDerivedTypesFull(n int) {
 	e.typesVisited = len(e.G.Objs)
 	e.typesMayDifferScan()
 	e.typesIncrReady = true
+	if !selfOnly {
+		// The walk read active() at this log head (a bounded or whole-board
+		// build), so derivedSeq keys the derived-quiet reuse exactly as it
+		// does after refreshDerivedTypesBounded.
+		e.active()
+		e.typesDSeq, e.typesDSeqOK = e.derivedSeq, true
+	}
 }
 
 // stampTypes records the key and the self-only source stamp under which the
