@@ -546,6 +546,11 @@ func (s *pimcSource) World(sim int) (azmcts.World, error) {
 	return azmcts.World{Engine: s.prev, Observer: s.obs.Clone(), Hypothetical: true}, nil
 }
 
+// FixedWorld is true unless fresh: one base and one chance seed per tree is
+// one world, so the tree's node cache applies (azmcts.FixedWorldSource,
+// exactly as azmcts.FixedChance). A fresh seed per simulation is not.
+func (s *pimcSource) FixedWorld() bool { return !s.fresh }
+
 // isSource is IS-MCTS's world source. Simulation sim draws, from its own
 // PCG stream (the search's, seeded by (seed, sim)), a world index i and a
 // deal seed, and re-deals world i: every card its searching seat cannot see

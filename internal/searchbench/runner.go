@@ -24,9 +24,12 @@ type RunConfig struct {
 	Sims         int
 	Discount     float64
 	DiscountUnit azmcts.DiscountUnit
-	Net          *policynet.Model
-	Seed         uint64
-	Digest       string // the manifest's
+	// NodeCache is Options.NodeCache: the fixed-world trees' node state
+	// cap (0 off). It changes only EnvSteps, never an answer or a table.
+	NodeCache int
+	Net       *policynet.Model
+	Seed      uint64
+	Digest    string // the manifest's
 }
 
 // WorldsFor is how many belief worlds an arm reads.
@@ -69,6 +72,7 @@ func RunItem(ctx context.Context, reg *cards.Registry, it Item, s *StoreItem, cf
 	real := pos.Real.M.Engine
 	opts := BenchOptions(cfg.Sims)
 	opts.Discount, opts.DiscountUnit = cfg.Discount, cfg.DiscountUnit
+	opts.NodeCache = cfg.NodeCache
 	r.Seed = ItemSeed(cfg.Seed, it.ID)
 	in := ArmInput{Arm: cfg.Arm, Options: opts, Seed: r.Seed, Real: real, Worlds: pos.WorldEngines(), Net: cfg.Net}
 	res, err := RunArm(ctx, in)

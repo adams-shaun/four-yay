@@ -79,7 +79,8 @@ func runArm(args []string, out io.Writer) error {
 	gcPercent := fs.Int("gc-percent", 0, "runtime GC percent (0: leave GOGC as the environment set it; negative: off)")
 	memLimit := fs.String("mem-limit", "", "runtime soft memory limit, e.g. 1500MiB or 2GiB (empty: leave GOMEMLIMIT)")
 	fullCorpus := fs.Bool("corpus-full", false, "open the whole compiled corpus instead of the items' cards (cards.OpenCorpusFor)")
-	if err := fs.Parse(args); err != nil || *manifestPath == "" || *storePath == "" || *armText == "" || *outPath == "" || *workers < 1 || *sims < 0 || *limit < 0 || *discount < 0 || *discount > 1 || fs.NArg() != 0 {
+	nodeCache := fs.Int("node-cache", azmcts.DefaultNodeCache, "tree nodes whose engine state a fixed-world tree (clairvoyant, pimc without fresh chance) stores so a simulation resumes there (0: off); results are identical either way, only EnvSteps changes")
+	if err := fs.Parse(args); err != nil || *manifestPath == "" || *storePath == "" || *armText == "" || *outPath == "" || *workers < 1 || *sims < 0 || *limit < 0 || *nodeCache < 0 || *discount < 0 || *discount > 1 || fs.NArg() != 0 {
 		return usage()
 	}
 	arm, err := searchbench.ParseArm(*armText)
@@ -131,7 +132,7 @@ func runArm(args []string, out io.Writer) error {
 	if label == "" {
 		label = runName(arm, *sims, *discount, unit, *leaf, *seed)
 	}
-	cfg := searchbench.RunConfig{Arm: arm, Name: label, Sims: *sims, Discount: *discount, DiscountUnit: unit, Seed: *seed, Digest: m.Digest}
+	cfg := searchbench.RunConfig{Arm: arm, Name: label, Sims: *sims, Discount: *discount, DiscountUnit: unit, NodeCache: *nodeCache, Seed: *seed, Digest: m.Digest}
 	if *leaf != "heuristic" {
 		if cfg.Net, err = searchbench.LoadLeafNet(*leaf); err != nil {
 			return err
