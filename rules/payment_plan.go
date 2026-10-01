@@ -1083,12 +1083,13 @@ func (e *Engine) paymentPlanManaUnitsOnlyCompute(p state.PlayerID, only []state.
 			}
 		}
 		for _, ma := range windowMas[zi] {
-			raw := strings.TrimSpace(ma.Params["Produced"])
-			amt := availableAmount(ma)
+			mf := e.manaStaticOf(ma)
+			raw := mf.produced
+			amt := mf.amount
 			if amt <= 0 {
 				continue
 			}
-			counts, any := cards.ProducedCounts(ma.Params["Produced"])
+			counts, any := mf.counts, mf.any
 			if !any {
 				// Fixed production whose cost is not a bare tap (Eldrazi
 				// Spawn's Sac<1/CARDNAME>: Add {C}) is outside the shared
@@ -1096,8 +1097,7 @@ func (e *Engine) paymentPlanManaUnitsOnlyCompute(p state.PlayerID, only []state.
 				// ability is never normal (paymentPlanTapOnlyCost); the tier
 				// gate in paymentPlanUnitAlternatives keeps it only when it is
 				// a last-resort shape.
-				cost := e.parseCost(ma.Params["Cost"])
-				if manaFreeCost(cost) || strings.TrimSpace(ma.Params["RestrictValid"]) != "" {
+				if mf.freeCost || mf.restrictValid {
 					continue
 				}
 				total := int32(0)
@@ -1153,13 +1153,14 @@ func (e *Engine) paymentPlanManaUnitsOnlyCompute(p state.PlayerID, only []state.
 			}
 		}
 		for _, ma := range windowMas[zi] {
-			if availableAmount(ma) > 0 {
+			mf := e.manaStaticOf(ma)
+			if mf.amount > 0 {
 				continue // windowManaUnits' static path already priced it.
 			}
 			// Only a V1 source contract (a bare tap) can be executed from a
 			// witness, so never build the probe for an ability the plan could
 			// not activate anyway.
-			if !paymentPlanTapOnlyCost(e.parseCost(ma.Params["Cost"])) {
+			if !mf.tapOnly {
 				continue
 			}
 			if probe == nil {
@@ -1601,7 +1602,7 @@ func (e *Engine) appendUnitAlternatives(dst []plannedManaActivation, u windowMan
 		tier, consequence, _ := e.paymentPlanAbilityTier(payer, u.id, alt.ma)
 		switch tier {
 		case paymentTierNormal:
-			if !paymentPlanTapOnlyCost(e.parseCost(alt.ma.Params["Cost"])) {
+			if !e.manaStaticOf(alt.ma).tapOnly {
 				continue
 			}
 		case paymentTierLastResort:

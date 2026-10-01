@@ -276,19 +276,21 @@ func (e *Engine) windowManaUnitsWith(p state.PlayerID, only []state.ObjID, pre [
 		// reallocates instead of writing into the next unit's).
 		start, free := len(flat), 0
 		for _, ma := range mas {
-			if strings.TrimSpace(ma.Params["RestrictValid"]) != "" {
+			// The ability's own text reads come from its configured facts
+			// (manaStaticOf).
+			mf := e.manaStaticOf(ma)
+			if mf.restrictValid {
 				continue
 			}
-			cost := e.parseCost(ma.Params["Cost"])
-			if !manaFreeCost(cost) || activationTapCostUnavailable(o, cost) {
-				continue
+			if !mf.freeCost || (mf.tap && o.Tapped) || (mf.untap && !o.Tapped) {
+				continue // activationTapCostUnavailable
 			}
 			free++
-			amt := availableAmount(ma)
+			amt := mf.amount
 			if amt <= 0 {
 				continue
 			}
-			counts, any := cards.ProducedCounts(ma.Params["Produced"])
+			counts, any := mf.counts, mf.any
 			total := int32(0)
 			for _, n := range counts {
 				total += n

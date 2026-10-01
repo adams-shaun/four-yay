@@ -54,6 +54,47 @@ type manaSAFacts struct {
 	shapeTier   paymentAbilityTier
 	shapeCons   paymentConsequence
 	shapeDetail string
+	// static is the payment census's per-ability text reads
+	// (manaStaticOf).
+	static manaStaticFacts
+}
+
+// manaStaticFacts is the payment census's reads of a mana ability's own
+// text (windowManaUnits, paymentPlanManaUnits, the planner's alternatives):
+// pure functions of its Params and compiled cost.
+type manaStaticFacts struct {
+	produced      string // TrimSpace(Produced$)
+	counts        [6]int32
+	any           bool // cards.ProducedCounts(Produced$)
+	amount        int32 // availableAmount
+	restrictValid bool  // a non-blank RestrictValid$
+	freeCost      bool  // manaFreeCost(cost)
+	tapOnly       bool  // paymentPlanTapOnlyCost(cost)
+	tap, untap    bool  // cost.Tap, cost.Untap
+}
+
+func computeManaStaticFacts(ab *cards.SA, cost *Cost) manaStaticFacts {
+	f := manaStaticFacts{produced: strings.TrimSpace(ab.Params["Produced"]), amount: availableAmount(ab),
+		restrictValid: strings.TrimSpace(ab.Params["RestrictValid"]) != "",
+		freeCost:      manaFreeCost(*cost), tapOnly: paymentPlanTapOnlyCost(*cost), tap: cost.Tap, untap: cost.Untap}
+	f.counts, f.any = cards.ProducedCounts(ab.Params["Produced"])
+	return f
+}
+
+// manaStaticOf is ab's census text reads: its configured facts', or read
+// now for an ability outside the configured set.
+func (e *Engine) manaStaticOf(ab *cards.SA) manaStaticFacts {
+	if f := e.manaFactsOf(ab); f != nil {
+		if manaSAFactsVerify {
+			c := e.parseCost(ab.Params["Cost"])
+			if fresh := computeManaStaticFacts(ab, &c); fresh != f.static {
+				panic(fmt.Sprintf("rules: configured census facts for %q disagree with a recompute", ab.Line))
+			}
+		}
+		return f.static
+	}
+	c := e.parseCost(ab.Params["Cost"])
+	return computeManaStaticFacts(ab, &c)
 }
 
 // manaSAFactsVerify: see derivedMemoVerify. Set by the rules test binary.
@@ -95,6 +136,7 @@ func buildManaSAFactsValue(ab *cards.SA, costOf func(string) *compiledCost) mana
 	_, limited := ab.Params["ActivationLimit"]
 	f.noLimit = !limited && ab.Params["GameActivationLimit"] == ""
 	f.plainSym, f.plainAmt = plainManaShape(ab)
+	f.static = computeManaStaticFacts(ab, &f.cost.Cost)
 	if tier, c, detail, rider := paymentPlanShapeTierOf(ab, f.cost.Cost); !rider {
 		f.shapeKnown, f.shapeTier, f.shapeCons, f.shapeDetail = true, tier, c, detail
 	}
