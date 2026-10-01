@@ -220,8 +220,15 @@ func (e *engineEnv) advance() (*Point, error) {
 		if pd == nil {
 			return nil, fmt.Errorf("%w: no pending decision and the game is not over", ErrSubmit)
 		}
-		b := botpolicy.BoardFromGameInto(g, e.e, pd.Player, e.board)
-		in := botpolicy.Decide(b, pd, e.rngs[pd.Player])
+		// A decision whose bot answer reads no board (a priority window
+		// offering nothing but pass, or only mana activations outside a main
+		// phase) skips the board build: botpolicy.DecideBoardFree is Decide's
+		// own answer there and, like it, draws no rng.
+		in, free := botpolicy.DecideBoardFree(pd, g.Step.IsMain())
+		if !free {
+			b := botpolicy.BoardFromGameInto(g, e.e, pd.Player, e.board)
+			in = botpolicy.Decide(b, pd, e.rngs[pd.Player])
+		}
 		if pd.Player == e.cfg.actor {
 			if cands, kind, ok := enumerateInto(e.obs, e.e, pd, in, e.cfg.kinds, e.cfg.limit, e.cfg.enumBoard); ok {
 				e.cur, e.cands = pd, cands
