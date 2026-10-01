@@ -18,7 +18,7 @@ func TestMultiWordSubtypePredicate(t *testing.T) {
 		faceCopy := *o.Card.Faces[0]
 		faceCopy.Types = types
 		cardCopy.Faces = []*cards.Face{&faceCopy}
-		o.Card = &cardCopy
+		o.SetCard(&cardCopy, o.FaceIdx)
 		if o.Zone != state.ZBattlefield || o.Controller != 0 {
 			t.Fatal("predicate fixture must be controlled on the battlefield")
 		}

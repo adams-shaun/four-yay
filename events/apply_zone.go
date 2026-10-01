@@ -492,7 +492,7 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 			}
 		}
 		if !room {
-			o.FaceIdx = 0
+			o.SetFaceIdx(0)
 		}
 	}
 	// CR 712.4d: a Modal DFC is front-face up in every non-battlefield
@@ -502,7 +502,7 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 	if wasBattlefield && to != state.ZBattlefield && o.Card != nil &&
 		o.Card.AlternateMode == "Modal" && len(o.Card.Faces) == 2 &&
 		o.Card.Faces[0] != nil && o.Card.Faces[1] != nil {
-		o.FaceIdx = 0
+		o.SetFaceIdx(0)
 	}
 	// The incarnation stamp is used by promises tied to a particular
 	// permanent (evoke/dash/warp), so only crossing the battlefield
@@ -680,7 +680,7 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 		// is battlefield-only state and is cleared here (its continuous-effect
 		// bookkeeping is dropped by active()/cleanup, since the effect's
 		// source -- this same object -- is no longer on the battlefield).
-		o.CopyFace = nil
+		o.SetCopyFace(nil)
 		o.CopyGainThisAbility = false
 		o.Paired = 0
 		o.Targets = nil

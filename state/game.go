@@ -671,6 +671,7 @@ func (g *Game) BlockersLive() bool { return g.blockersLive }
 
 func (g *Game) AddObject(card *cards.Card, owner PlayerID) *Object {
 	o := Object{ID: g.NextID, Card: card, Owner: owner, Controller: owner, Zone: ZLibrary}
+	o.SyncFace()
 	g.NextID++
 	g.Objs = append(g.Objs, o)
 	return &g.Objs[len(g.Objs)-1]

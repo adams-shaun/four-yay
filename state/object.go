@@ -1,6 +1,7 @@
 package state
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -519,7 +520,17 @@ type Object struct {
 	// CopyFace/FaceIdx, zone, controller, the tapped/face-down/phased-out/
 	// token status) are declared first so they share the object's first
 	// cache line; the Object is ~1KB and walks touch hundreds per pass.
-	ID   ObjID
+	ID ObjID
+	// face caches Face()'s answer (CopyFace, else Card.Faces[FaceIdx]) so the
+	// hot read is one load instead of a Card -> Faces -> Face pointer chase.
+	// nil means "not cached": Face() then derives it the long way, so an
+	// Object built by a composite literal (or zeroed) is always correct. Every
+	// write of Card/CopyFace/FaceIdx on a cached object goes through
+	// SetFaceIdx/SetCopyFace/SetCard (or is followed by SyncFace); a test
+	// binary re-derives the face on every cached read and panics on a stale
+	// one (faceVerify). A value copy (Clone) carries it, which is correct:
+	// the copied Card/CopyFace/FaceIdx it was derived from come along.
+	face *cards.Face
 	Card *cards.Card
 	// CopyFace is the CR 613.1a copy-effect basis for a permanent that became a
 	// copy of another (DB$ Clone): while non-nil, Face() returns THIS face
@@ -1349,7 +1360,7 @@ type Object struct {
 	// page-aligned Objs arena every object's hot head (the fields declared
 	// first) starts on a line of its own. Purely layout: it is never read or
 	// written. A field added above must re-pad it (TestObjectCacheLinePadded).
-	_ [48]byte
+	_ [40]byte
 }
 
 // MergedCard is one card stacked beneath a mutated permanent's top card
@@ -1415,6 +1426,27 @@ func (o *Object) ReconfiguredAttached() bool {
 }
 
 func (o *Object) Face() *cards.Face {
+	if f := o.face; f != nil && !faceVerify {
+		return f
+	}
+	return o.faceMiss()
+}
+
+// faceMiss is Face()'s out-of-line half: an uncached object (derive it the
+// long way) or a test binary (re-derive and check the cache). Kept out of
+// Face so Face inlines to one load and a branch.
+//
+//go:noinline
+func (o *Object) faceMiss() *cards.Face {
+	f := o.faceSlow()
+	if c := o.face; c != nil && c != f {
+		panic(fmt.Sprintf("state: object %d Face() cache is stale (cached %p, derived %p): a Card/CopyFace/FaceIdx write bypassed SetFaceIdx/SetCopyFace/SetCard/SyncFace", o.ID, c, f))
+	}
+	return f
+}
+
+// faceSlow is Face() derived from the source fields, without the cache.
+func (o *Object) faceSlow() *cards.Face {
 	// CR 613.1a: a copy effect is the FIRST layer, so while one applies the
 	// object's characteristics come from the copied face. Routing it here is
 	// what makes every Face() reader in the tree see the copy by construction
@@ -1426,6 +1458,28 @@ func (o *Object) Face() *cards.Face {
 		return nil
 	}
 	return o.Card.Faces[o.FaceIdx]
+}
+
+// SyncFace re-derives the cached face after a direct write of Card, CopyFace
+// or FaceIdx. Prefer SetFaceIdx/SetCopyFace/SetCard.
+func (o *Object) SyncFace() { o.face = o.faceSlow() }
+
+// SetFaceIdx sets FaceIdx and keeps the Face() cache coherent.
+func (o *Object) SetFaceIdx(i uint8) {
+	o.FaceIdx = i
+	o.face = o.faceSlow()
+}
+
+// SetCopyFace sets CopyFace and keeps the Face() cache coherent.
+func (o *Object) SetCopyFace(f *cards.Face) {
+	o.CopyFace = f
+	o.face = o.faceSlow()
+}
+
+// SetCard sets Card and FaceIdx together and keeps the Face() cache coherent.
+func (o *Object) SetCard(c *cards.Card, i uint8) {
+	o.Card, o.FaceIdx = c, i
+	o.face = o.faceSlow()
 }
 
 // faceDownEffective reports whether this object's face is currently hidden by

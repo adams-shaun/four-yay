@@ -71,8 +71,8 @@ func TestStaticEmitSkipVerifyCatchesUnreferencedWrite(t *testing.T) {
 	// Directly give the already-classified object a static-bearing copy face
 	// without emitting an event: the same bypass the trigger-walk verifier
 	// catches.
-	e.G.Obj(cold).CopyFace = card(t, "Name:Live\nTypes:Creature\nPT:1/1\n"+
-		"S:Mode$ Continuous | Affected$ Card.Self | AddPower$ 1 | Description$ gets +1/+0\nOracle:x\n").Faces[0]
+	e.G.Obj(cold).SetCopyFace(card(t, "Name:Live\nTypes:Creature\nPT:1/1\n"+
+		"S:Mode$ Continuous | Affected$ Card.Self | AddPower$ 1 | Description$ gets +1/+0\nOracle:x\n").Faces[0])
 	defer func() {
 		r := recover()
 		s, ok := r.(string)

@@ -98,7 +98,8 @@ func richBoard(t *testing.T) *state.Game {
 	spell.Zone, spell.Controller = state.ZStack, 2
 	spell.Targets = []state.Target{{Obj: bf0[1]}, {Player: 3, IsPlayer: true}}
 	ab := g.AddObject(c, 3)
-	ab.Card, ab.Zone, ab.Controller, ab.Source = nil, state.ZStack, 3, bf0[1]
+	ab.SetCard(nil, ab.FaceIdx)
+	ab.Zone, ab.Controller, ab.Source = state.ZStack, 3, bf0[1]
 	ab.Ability = c.Faces[0].Abilities[0]
 	ab.Targets = []state.Target{{Player: 0, IsPlayer: true}}
 	g.Stack = append(g.Stack, spell.ID, ab.ID)

@@ -64,7 +64,7 @@ func (e *Engine) offerAsFace(id state.ObjID, face *cards.Face, fn func() bool) b
 	_ = e.active()
 	e.refreshDerivedTypes()
 	prevFace, prevDepth, prevGen := o.FaceIdx, e.derivedMemoDepth, e.derivedMemoGen
-	o.FaceIdx = uint8(idx)
+	o.SetFaceIdx(uint8(idx))
 	e.derivedMemoDepth = 0
 	// The object classes (walk_objclass.go) cache nothing read under the
 	// flip, whose fingerprint would outlive it.
@@ -76,7 +76,7 @@ func (e *Engine) offerAsFace(id state.ObjID, face *cards.Face, fn func() bool) b
 	e.retireCrossWalkMemo()
 	defer func() {
 		e.offerProbeDepth--
-		o.FaceIdx = prevFace
+		o.SetFaceIdx(prevFace)
 		e.derivedMemoDepth = prevDepth
 		e.retireCrossWalkMemo()
 		if e.derivedMemoGen != prevGen {

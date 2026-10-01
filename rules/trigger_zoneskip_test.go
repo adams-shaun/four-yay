@@ -116,7 +116,7 @@ func TestTrigZoneSkipSeesInPlaceChangeThroughReferent(t *testing.T) {
 		t.Fatalf("library summary before = valid %v hot %v, want cold", s.valid, s.hot)
 	}
 	o := e.G.Obj(lib[len(lib)/2])
-	o.CopyFace = card(t, libraryTriggerSrc).Faces[0]
+	o.SetCopyFace(card(t, libraryTriggerSrc).Faces[0])
 	e.emit(events.Event{Kind: events.Note, Obj: o.ID, Text: "in-place face change"})
 	e.emit(events.Event{Kind: events.StepChange, Step: state.StepUpkeep})
 	e.putTriggersOnStack()
@@ -137,7 +137,7 @@ func TestTrigZoneSkipVerifyCatchesUnreferencedWrite(t *testing.T) {
 	e := layerEngine(t)
 	e.emit(events.Event{Kind: events.StepChange, Step: state.StepDraw})
 	lib := e.G.Zone(state.ZLibrary, 0)
-	e.G.Obj(lib[len(lib)/2]).CopyFace = card(t, libraryTriggerSrc).Faces[0]
+	e.G.Obj(lib[len(lib)/2]).SetCopyFace(card(t, libraryTriggerSrc).Faces[0])
 	defer func() {
 		r := recover()
 		if s, ok := r.(string); !ok || !strings.Contains(s, "trigger zone skip passed over") {

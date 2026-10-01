@@ -113,7 +113,7 @@ func megatronObject(t *testing.T, h *fakeHost, idx int) state.ObjID {
 	t.Helper()
 	o := h.g.AddObject(twoFacedMegatronShape(t), 0)
 	o.Zone = state.ZBattlefield
-	o.FaceIdx = uint8(idx)
+	o.SetFaceIdx(uint8(idx))
 	h.g.SetZone(state.ZBattlefield, 0, []state.ObjID{o.ID})
 	if o.Zone != state.ZBattlefield {
 		t.Fatal("object not on the battlefield")

@@ -45,7 +45,7 @@ func foldMutate(g *state.Game, e Event) {
 		if survivor == nil {
 			return
 		}
-		survivor.Card, survivor.FaceIdx = srcCard, srcFace
+		survivor.SetCard(srcCard, srcFace)
 		under := state.MergedCard{Obj: parkedID, Card: oldCard, FaceIdx: oldFace}
 		survivor.MergedCards = append([]state.MergedCard{under}, survivor.MergedCards...)
 		// The mutating spell's object is now redundant (its card data was
@@ -83,7 +83,8 @@ func foldStackCopy(g *state.Game, e Event) {
 		}
 		card, faceIdx := src.Card, src.FaceIdx
 		o := g.AddObject(card, e.Player)
-		o.FaceIdx, o.IsCopy = faceIdx, true
+		o.SetFaceIdx(faceIdx)
+		o.IsCopy = true
 		return
 	}
 	if src == nil || src.Zone != state.ZStack {
@@ -152,7 +153,8 @@ func foldStackCopy(g *state.Game, e Event) {
 
 	o := g.AddObject(card, e.Player)
 	Move(g, o.ID, state.ZLibrary, state.ZStack)
-	o.FaceIdx, o.Ability, o.Source = faceIdx, ability, source
+	o.SetFaceIdx(faceIdx)
+	o.Ability, o.Source = ability, source
 	o.StackKind, o.StackKindKnown = stackKind, stackKindKnown
 	o.GainedFace, o.GainedFrom = gainedFace, gainedFrom
 	o.Targets = targets
@@ -237,7 +239,7 @@ func foldCopyToken(g *state.Game, e Event) {
 	o := g.AddObject(card, e.Player)
 	o.IsToken = true
 	o.IsCopy = true
-	o.FaceIdx = faceIdx
+	o.SetFaceIdx(faceIdx)
 	// AtEOTTrig$ is a copiable value (CR 707.2): the mint's own body when
 	// the copying spell carries one (Counter), else the source object's --
 	// a token copy of an AtEOTTrig$ token still sacrifices itself at the
@@ -279,7 +281,7 @@ func foldCardToken(g *state.Game, e Event) {
 	card, faceIdx := src.Card, src.FaceIdx
 	o := g.AddObject(card, e.Player)
 	o.IsToken = true
-	o.FaceIdx = faceIdx
+	o.SetFaceIdx(faceIdx)
 	Move(g, o.ID, state.ZLibrary, state.ZBattlefield)
 	applyEntryCounterPairs(o, e.Pairs)
 	// Encore encodes its required defender as seat+1; zero remains the
@@ -315,7 +317,7 @@ func foldCloneStatic(g *state.Game, e Event) {
 		if statics, ok := cards.ParseStaticLines(e.Text); ok {
 			face := *o.CopyFace
 			face.Statics = append(append([]cards.Static(nil), face.Statics...), statics...)
-			o.CopyFace = &face
+			o.SetCopyFace(&face)
 		}
 	}
 }
@@ -338,7 +340,7 @@ func foldClonePermanent(g *state.Game, e Event) {
 		return
 	}
 	if e.Counter != "chosen-name" && (len(e.IDs) == 0 || e.IDs[0] == 0) {
-		o.CopyFace = nil
+		o.SetCopyFace(nil)
 		o.CopyGainThisAbility = false
 		return
 	}
@@ -400,14 +402,14 @@ func foldClonePermanent(g *state.Game, e Event) {
 	} else {
 		o.CopyGainThisAbility = false
 	}
-	o.CopyFace = &sf
+	o.SetCopyFace(&sf)
 }
 
 // foldFlipFace folds Kinds FlipFace, Specialize into state.
 func foldFlipFace(g *state.Game, e Event) {
 	if o := g.Obj(e.Obj); o != nil && o.Card != nil &&
 		e.Amount >= 0 && int(e.Amount) < len(o.Card.Faces) {
-		o.FaceIdx = uint8(e.Amount)
+		o.SetFaceIdx(uint8(e.Amount))
 	}
 }
 
