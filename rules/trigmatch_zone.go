@@ -59,7 +59,7 @@ func (e *Engine) zoneChangeMatchesWithCapture(t cards.Trigger, source state.ObjI
 	// Reforged's ChangesZoneAll carrier is Library,Graveyard). ParseZones is
 	// the set reader -- Any/All are wildcards, and an unknown token fails
 	// closed rather than degrading to a graveyard origin.
-	if o, ok := t.Params["Origin"]; ok {
+	if o, ok := t.Param(cards.PKOrigin); ok {
 		zones, all, listOK := effects.ParseZones(o)
 		if !listOK || (!all && !zoneIn(ev.From, zones)) {
 			return false
@@ -83,7 +83,7 @@ func (e *Engine) zoneChangeMatchesWithCapture(t cards.Trigger, source state.ObjI
 	// matcher serves both modes, so read the plural first and fall back.
 	v, hasSpec := t.Params["ValidCards"]
 	if !hasSpec {
-		v, hasSpec = t.Params["ValidCard"]
+		v, hasSpec = t.Param(cards.PKValidCard)
 	}
 	if hasSpec {
 		// The trigger's own source moving (source == ev.Obj) with an LKI

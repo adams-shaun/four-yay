@@ -2263,7 +2263,7 @@ func (e *Engine) AbilityCosts(p state.PlayerID, id state.ObjID) []string {
 // card, and legalActionsPriced stamps it on the ability's "ability" option,
 // so the two can never disagree about what an activation will charge.
 func (e *Engine) abilityOfferCost(p state.PlayerID, id state.ObjID, ab *cards.SA) string {
-	cost := e.parseCost(ab.Params["Cost"])
+	cost := e.parseCost(ab.ParamStr(cards.PKCost))
 	// The ability's own ReduceCost$ (Otawara's Channel): the same
 	// composition the offer gate and beginActivation's charge apply, so
 	// the decision's displayed cost is the cost the payment will charge.
@@ -3010,7 +3010,7 @@ func (c Cost) hasPips() bool {
 		len(c.HybridPhyrexian) > 0 || c.Snow > 0
 }
 
-func (c Cost) costPips(bLifeOK bool, rider pipRider) []pip {
+func (c Cost) costPips(dst []pip, bLifeOK bool, rider pipRider) []pip {
 	// Size the list once: every pip source below contributes exactly one
 	// pip per unit counted here.
 	n := len(c.Hybrid) + len(c.Twobrid) + len(c.Phyrexian) + len(c.HybridPhyrexian)
@@ -3022,7 +3022,12 @@ func (c Cost) costPips(bLifeOK bool, rider pipRider) []pip {
 			n += int(k)
 		}
 	}
-	out := make([]pip, 0, n)
+	// Built into the caller's buffer when it fits (resolveManaWith's stack
+	// array), so the common small cost allocates no pip list.
+	out := dst[:0]
+	if cap(out) < n {
+		out = make([]pip, 0, n)
+	}
 	// The coloured slots including the colourless one: a plain {C} pip is a
 	// strict colourless requirement generic must not satisfy by stealing the
 	// pool's only colourless, so it is reserved like any coloured pip.
@@ -3208,7 +3213,8 @@ func (c Cost) resolveManaWith(pool, snow state.Mana, typed [7]state.Mana, life i
 	if c.Life > 0 && life < c.Life {
 		return manaPayment{}, false
 	}
-	pips := c.costPips(bLifeOK, rider)
+	var pipBuf [8]pip
+	pips := c.costPips(pipBuf[:0], bLifeOK, rider)
 	rem := pool
 	sn := snow
 	tp := typed
@@ -3632,7 +3638,7 @@ func (e *Engine) payerGrantsPayLifeInsteadOfB(p state.PlayerID) bool {
 		// A member equal to the keyword needs the keyword as a substring, so
 		// the allocation-free substring test rejects every other static
 		// before the list is split.
-		if raw := sv.Params["AddKeyword"]; !strings.Contains(raw, "PayLifeInsteadOf:B") ||
+		if raw := sv.ParamStr(cards.PKAddKeyword); !strings.Contains(raw, "PayLifeInsteadOf:B") ||
 			!slices.Contains(cards.SplitKeywordList(raw), "PayLifeInsteadOf:B") {
 			continue
 		}

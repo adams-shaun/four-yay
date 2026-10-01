@@ -72,7 +72,7 @@ func (e *Engine) mayPlayGrant(p state.PlayerID, id state.ObjID) (free, ok bool) 
 // card (mayPlaySpellIds) can take through mayPlayGrantScoped.
 func (e *Engine) mayPlayBoardGrantsOpen(p state.PlayerID) bool {
 	for _, sv := range e.activeStatics("Continuous") {
-		if sv.Controller == p && strings.TrimSpace(sv.Params["MayPlay"]) == "True" {
+		if sv.Controller == p && strings.TrimSpace(sv.ParamStr(cards.PKMayPlay)) == "True" {
 			return true
 		}
 	}
@@ -753,7 +753,7 @@ func (e *Engine) mayPlayAltCosts(p state.PlayerID, id state.ObjID) []Cost {
 		} else {
 			continue
 		}
-		raw := strings.TrimSpace(sv.Params["MayPlayAltManaCost"])
+		raw := strings.TrimSpace(sv.ParamStr(cards.PKMayPlayAltManaCost))
 		if raw == "" || strings.TrimSpace(sv.Params["MayPlay"]) != "True" || mayPlayGateRejected(sv.Params) ||
 			!e.mayPlayConditionGateHolds(sv.Params, sv.Source, sv.Controller) {
 			continue

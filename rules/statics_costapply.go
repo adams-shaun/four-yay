@@ -152,7 +152,7 @@ func (e *Engine) costStaticGateFull(sv staticView, mode string, p state.PlayerID
 	if !e.checkSVarHoldsFor(sv, costSubject{p: p, id: id, ab: scope.ab}, targets) {
 		return false, false
 	}
-	if spec, ok := sv.Params["ValidTarget"]; ok {
+	if spec, ok := sv.Param(cards.PKValidTarget); ok {
 		if sv.Params["UnlessValidTarget"] == "True" {
 			// UnlessValidTarget$ True inverts the test (Mavinda's "if that
 			// spell doesn't target a creature you control, it costs {8}

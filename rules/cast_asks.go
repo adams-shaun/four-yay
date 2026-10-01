@@ -1080,7 +1080,7 @@ func (e *Engine) castModeAsk() bool {
 // legacy single-mode and unsupported multi-target paths. Supported distinct
 // modes instead use the per-mode grouped ask in targetAsk.
 func modalTargetSA(f *cards.Face, sa *cards.SA, modes []string) *cards.SA {
-	if sa == nil || sa.Params["ValidTgts"] != "" || sa.API != "Charm" || f == nil {
+	if sa == nil || sa.ParamStr(cards.PKValidTgts) != "" || sa.API != "Charm" || f == nil {
 		return sa
 	}
 	for _, name := range modes {

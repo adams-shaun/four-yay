@@ -115,7 +115,7 @@ type tpCtlAnswer struct {
 // for the Opponent form: every other TargetingPlayer$ referent resolves
 // deterministically or fails closed.
 func (e *Engine) targetControlsChooser(p state.PlayerID, source state.ObjID, sa *cards.SA) (state.PlayerID, tpControlState) {
-	if sa == nil || !strings.EqualFold(strings.TrimSpace(sa.Params["TargetingPlayerControls"]), "True") {
+	if sa == nil || !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKTargetingPlayerControls)), "True") {
 		return 0, tpNone
 	}
 	// The answered ask's record first: once a target decision for this
@@ -960,7 +960,7 @@ func (e *Engine) resolvedAbilityTallyFor(source state.ObjID, sa *cards.SA) int32
 	if sa == nil {
 		return 0
 	}
-	return e.G.ResolvedThisTurn[events.ResolvedAbilityKey(source, sa)]
+	return events.ResolvedThisTurnOf(e.G, source, sa)
 }
 
 // activationsThisTurnFor is the ConditionActivationLimit$ read

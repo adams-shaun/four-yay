@@ -23,8 +23,8 @@ func targetBoundReadsPromisedGift(o *state.Object, sa *cards.SA) bool {
 	if o == nil || o.Face() == nil || sa == nil {
 		return false
 	}
-	if strings.Contains(sa.Params["TargetMin"], "Count$PromisedGift") ||
-		strings.Contains(sa.Params["TargetMax"], "Count$PromisedGift") {
+	if strings.Contains(sa.ParamStr(cards.PKTargetMin), "Count$PromisedGift") ||
+		strings.Contains(sa.ParamStr(cards.PKTargetMax), "Count$PromisedGift") {
 		return true
 	}
 	for _, body := range o.Face().SVars {
@@ -44,7 +44,7 @@ func targetBoundReadsPromisedGift(o *state.Object, sa *cards.SA) bool {
 // the post-push ask. CR 601.2c is the reason the offer must not admit a
 // declaration the ask will reverse (CR 733.1) the instant it is submitted.
 func (e *Engine) targetSAAvailable(p state.PlayerID, id, excludeSelf state.ObjID, sa *cards.SA, x int32, xPending bool) bool {
-	if sa == nil || strings.TrimSpace(sa.Params["ValidTgts"]) == "" {
+	if sa == nil || strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) == "" {
 		return true
 	}
 	// A pending {X} is announced before targets, so a bare X bound cannot be
@@ -145,7 +145,7 @@ func (e *Engine) targetSAAvailable(p state.PlayerID, id, excludeSelf state.ObjID
 // (setPropTargetBounds). Each of those helpers is the identity on min when
 // its predicate here is false.
 func targetCrossConstrained(sa *cards.SA) bool {
-	if targetControllerExclusive(sa) || strings.EqualFold(sa.Params["TargetsWithSameController"], "True") {
+	if targetControllerExclusive(sa) || strings.EqualFold(sa.ParamStr(cards.PKTargetsWithSameController), "True") {
 		return true
 	}
 	mode, _ := targetSetPropMode(sa)
@@ -230,7 +230,7 @@ func targetsReadXPending(sa *cards.SA) bool {
 	if sa.API == "Charm" && strings.TrimSpace(sa.Params["Choices"]) != "" {
 		return true
 	}
-	return strings.TrimSpace(sa.Params["Announce"]) == "" && strings.TrimSpace(sa.Params["ValidTgts"]) != ""
+	return strings.TrimSpace(sa.ParamStr(cards.PKAnnounce)) == "" && strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) != ""
 }
 
 func (e *Engine) targetsAvailable(p state.PlayerID, id, excludeSelf state.ObjID, sa *cards.SA, xPending bool) bool {
@@ -243,10 +243,10 @@ func (e *Engine) targetsAvailable(p state.PlayerID, id, excludeSelf state.ObjID,
 	// An Announce$ value can change the target restriction itself; its value
 	// is not available until the cast transaction reaches the announcement
 	// stage, so retain the post-announcement backstop for that shape.
-	if strings.TrimSpace(sa.Params["Announce"]) != "" {
+	if strings.TrimSpace(sa.ParamStr(cards.PKAnnounce)) != "" {
 		return true
 	}
-	if strings.TrimSpace(sa.Params["ValidTgts"]) == "" {
+	if strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) == "" {
 		return true
 	}
 	return e.targetSAAvailable(p, id, excludeSelf, sa, 0, xPending)

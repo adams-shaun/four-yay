@@ -294,7 +294,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 				return false
 			}
 		}
-		if v, ok := r.Params["ValidCard"]; ok &&
+		if v, ok := r.Param(cards.PKValidCard); ok &&
 			!e.matchesSpecFrom(v, ev.Obj, you, source) {
 			return false
 		}

@@ -2565,7 +2565,7 @@ func (e *Engine) triggerMatchesWithSVars(t cards.Trigger, source state.ObjID, ev
 	}
 	// PlayerTurn$ True: only during the turn of the source's controller
 	// (Forge Trigger.requirementsCheck), scoped to actionTriggerModes.
-	if actionTriggerModes[t.Mode] && strings.EqualFold(t.Params["PlayerTurn"], "True") &&
+	if actionTriggerModes[t.Mode] && strings.EqualFold(t.ParamStr(cards.PKPlayerTurn), "True") &&
 		e.G.Active != e.controllerOf(source) {
 		return false
 	}
@@ -2647,7 +2647,7 @@ func (e *Engine) triggerMatchesWithSVars(t cards.Trigger, source state.ObjID, ev
 // read, kept beside actionCause's home package conventions. An absent or
 // non-True parameter is a cheap no-op (the corpus's 99.99% case).
 func (e *Engine) notThisAbilityExcludes(t cards.Trigger, source state.ObjID) bool {
-	if !strings.EqualFold(strings.TrimSpace(t.Params["NotThisAbility"]), "True") {
+	if !strings.EqualFold(strings.TrimSpace(t.ParamStr(cards.PKNotThisAbility)), "True") {
 		return false
 	}
 	cause := e.actionCause()

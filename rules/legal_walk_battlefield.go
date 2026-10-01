@@ -254,7 +254,7 @@ func (w *legalWalk) battlefieldWalk() {
 						if isManaAbilityAPI(ab.API) && !loyal {
 							continue
 						}
-						if ab.Params["SorcerySpeed"] == "True" && !sorcery {
+						if ab.ParamStr(cards.PKSorcerySpeed) == "True" && !sorcery {
 							continue
 						}
 						// Activator$ constrains who may activate the ability, not who
@@ -281,7 +281,7 @@ func (w *legalWalk) battlefieldWalk() {
 						// withheld -- one gate here covers both the real-pool offer and
 						// the hypothetical walk (offerCastable's hyp variants share
 						// this loop body).
-						if raw, ok := ab.Params["ActivationGameTypes"]; ok && !activationGameTypesOK(e.format, raw) {
+						if raw, ok := ab.Param(cards.PKActivationGameTypes); ok && !activationGameTypesOK(e.format, raw) {
 							continue
 						}
 						// CR 606.3: a planeswalker's loyalty ability may be activated
@@ -340,10 +340,10 @@ func (w *legalWalk) battlefieldWalk() {
 						// only if the source creature attacked this turn, and only once
 						// each turn. The once-per-turn half folds into the same
 						// activation-event scan the ActivationLimit$ gate uses.
-						if strings.EqualFold(strings.TrimSpace(ab.Params["Boast"]), "True") && !e.boastGateOK(id, i, "") {
+						if strings.EqualFold(strings.TrimSpace(ab.ParamStr(cards.PKBoast)), "True") && !e.boastGateOK(id, i, "") {
 							continue
 						}
-						cost := e.parseCost(ab.Params["Cost"])
+						cost := e.parseCost(ab.ParamStr(cards.PKCost))
 						// The ability's own ReduceCost$ (Otawara's Channel): the CR
 						// 601.2f composition the offer gate and beginActivation's
 						// charge share, so an offered cost and the paid one agree.
@@ -419,7 +419,7 @@ func (w *legalWalk) battlefieldWalk() {
 						// an unattached permanent, and a payable no-op the deterministic
 						// bot can answer identically forever is the livelock shape the
 						// offer gates exist to withhold.
-						if strings.EqualFold(strings.TrimSpace(ab.Params["Unattach"]), "True") && o.AttachedTo == 0 {
+						if strings.EqualFold(strings.TrimSpace(ab.ParamStr(cards.PKUnattach)), "True") && o.AttachedTo == 0 {
 							continue
 						}
 						if printedOK {

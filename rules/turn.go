@@ -2,7 +2,6 @@ package rules
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
@@ -963,8 +962,7 @@ func (e *Engine) askPriority(p state.PlayerID) {
 		Player: p, Kind: decision.KPriority, Min: 1, Max: 1,
 		// Byte-identical to fmt.Sprintf("turn %d, %s — %s has priority",
 		// ...) without fmt's boxing: every priority walk builds it.
-		Prompt: "turn " + strconv.Itoa(int(e.G.Turn)) + ", " + e.G.Step.String() + " — " +
-			seatFacingName(e.G, p) + " has priority",
+		Prompt:  e.priorityPrompt(p),
 		Options: e.legalActionsWithWindow(p, window),
 	}
 	if window != nil {

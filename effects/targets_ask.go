@@ -73,7 +73,7 @@ import (
 // tasha_the_witch_queen, geths_summons) reaches its ask here.
 func chosenTargetsFor(h Host, c *Ctx, sa *cards.SA, atRoot bool) ([]state.Target, bool) {
 	defined := strings.TrimSpace(sa.Params["Defined"])
-	if strings.TrimSpace(sa.Params["ValidTgts"]) == "" ||
+	if strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) == "" ||
 		(defined != "" && definedIsTargetReuse(defined) && sa.API != "Fight") {
 		return nil, false
 	}

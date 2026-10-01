@@ -84,7 +84,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 	if strings.EqualFold(strings.TrimSpace(sa.Params["Unimprint"]), "True") {
 		clearChangeZoneImprint(h, c)
 	}
-	to := changeZoneAltDestination(h, c, sa, ParseZone(sa.Params["Destination"]))
+	to := changeZoneAltDestination(h, c, sa, ParseZone(sa.ParamStr(cards.PKDestination)))
 	// Set only when an explicit multi-zone Origin$ including Hand falls
 	// through the dedicated walkers above to the object path; the diagnostic
 	// for a resolution that ends up moving nothing is emitted after the move
@@ -598,7 +598,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 			!strings.EqualFold(sa.Params["RememberChanged"], "True") {
 			c.Remembered = append(c.Remembered, state.Target{Obj: o.ID})
 		}
-		if strings.EqualFold(sa.Params["RememberChanged"], "True") {
+		if strings.EqualFold(sa.ParamStr(cards.PKRememberChanged), "True") {
 			c.Remembered = append(c.Remembered, state.Target{Obj: o.ID})
 			eventRemember(h, c, o.ID)
 		}

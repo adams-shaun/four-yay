@@ -219,7 +219,7 @@ func CheckSVarHolds(h Host, c *Ctx, check, cmp string) (holds, evaluated bool) {
 // phase-name parser state.ParsePhases and AND-ed with whatever group gate
 // the SA also carries.
 func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
-	defined := strings.TrimSpace(sa.Params["ConditionDefined"])
+	defined := strings.TrimSpace(sa.ParamStr(cards.PKConditionDefined))
 	present := strings.TrimSpace(sa.Params["ConditionPresent"])
 	notPresent := strings.TrimSpace(sa.Params["ConditionNotPresent"])
 	compare := strings.TrimSpace(sa.Params["ConditionCompare"])

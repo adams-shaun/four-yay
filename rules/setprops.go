@@ -50,13 +50,13 @@ func targetSetPropMode(sa *cards.SA) (decision.SetPropMode, string) {
 		return decision.SetPropNone, ""
 	}
 	switch {
-	case strings.EqualFold(sa.Params["TargetsWithSameCardType"], "True"):
+	case strings.EqualFold(sa.ParamStr(cards.PKTargetsWithSameCardType), "True"):
 		return decision.SetPropShared, "cardtype"
-	case strings.EqualFold(sa.Params["TargetsWithSameCreatureType"], "True"):
+	case strings.EqualFold(sa.ParamStr(cards.PKTargetsWithSameCreatureType), "True"):
 		return decision.SetPropShared, "creaturetype"
-	case strings.EqualFold(sa.Params["TargetsWithEqualToughness"], "True"):
+	case strings.EqualFold(sa.ParamStr(cards.PKTargetsWithEqualToughness), "True"):
 		return decision.SetPropShared, "toughness"
-	case strings.EqualFold(sa.Params["TargetsWithDifferentCMC"], "True"):
+	case strings.EqualFold(sa.ParamStr(cards.PKTargetsWithDifferentCMC), "True"):
 		return decision.SetPropDistinct, "cmc"
 	case strings.EqualFold(sa.Params["TargetsWithDifferentNames"], "True"):
 		return decision.SetPropDistinct, "name"
@@ -230,7 +230,7 @@ func sharedCardTypeRef(sa *cards.SA) string {
 	if sa == nil {
 		return ""
 	}
-	return strings.TrimSpace(sa.Params["TargetsWithSharedCardType"])
+	return strings.TrimSpace(sa.ParamStr(cards.PKTargetsWithSharedCardType))
 }
 
 // sharedTypesWhitelist parses TargetsWithSharedTypes$ ("Artifact,Creature,Land")

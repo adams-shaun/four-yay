@@ -137,6 +137,16 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 	// reusable buffer, never on the returned, retained Options.
 	out := e.legalOptBuf[:0]
 	e.legalOptBuf = nil
+	// A posed priority walk on an arena engine builds straight into the
+	// arena's option tail (decision_arena.go), so the result needs neither
+	// the copy out of the scratch nor the scratch's clear.
+	var tail optTail
+	var scratch []decision.Option
+	if forAsk {
+		if tail = e.arenaOptionsTail(); tail.buf != nil {
+			scratch, out = out, tail.buf
+		}
+	}
 	add := func(kind, label string, obj state.ObjID) {
 		out = append(out, decision.Option{Index: len(out), Kind: kind, Label: label, Obj: obj})
 	}
@@ -175,6 +185,7 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 	w.exileCastsWalk()
 	w.battlefieldWalk()
 	out = w.out
+	walkHW := max(len(out), w.outHW)
 	if w.rec != nil {
 		w.rec.finish(out)
 	}
@@ -212,6 +223,21 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 	add("concede", "Concede", 0)
 	var res []decision.Option
 	switch {
+	case tail.buf != nil && tail.commit(out, max(walkHW, len(out))):
+		res = out[:len(out):len(out)]
+		if window != nil {
+			e.windowClassify(p, res, window)
+		}
+		e.legalOptBuf = scratch
+		if castsOnly && castsOnlyWalkVerify {
+			verifyCastsOnlyWalk(res, e.legalActionsPriced(p, hyp))
+		}
+		return res
+	case tail.buf != nil:
+		// The walk outgrew the tail (commit cleared it): the grown heap
+		// array is this walk's scratch from here on.
+		res = e.arenaOptions(len(out))
+		copy(res, out)
 	case forAsk:
 		res = e.arenaOptions(len(out))
 		copy(res, out)

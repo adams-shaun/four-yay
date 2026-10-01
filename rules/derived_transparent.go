@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
@@ -540,7 +541,7 @@ func faceHasCDAStatic(o *state.Object) bool {
 	}
 	for i := range f.Statics {
 		st := &f.Statics[i]
-		if st.Mode == "Continuous" && strings.TrimSpace(st.Params["CharacteristicDefining"]) != "" {
+		if st.Mode == "Continuous" && strings.TrimSpace(st.ParamStr(cards.PKCharacteristicDefining)) != "" {
 			return true
 		}
 	}

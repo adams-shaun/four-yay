@@ -195,7 +195,7 @@ func (s *actionStaticSource) addAbilityContinuous() []staticView {
 func addAbilityCarriers(continuous []staticView) []staticView {
 	var out []staticView
 	for _, sv := range continuous {
-		if strings.TrimSpace(sv.Params["AddAbility"]) != "" {
+		if strings.TrimSpace(sv.ParamStr(cards.PKAddAbility)) != "" {
 			out = append(out, sv)
 		}
 	}
@@ -301,10 +301,10 @@ func (e *Engine) scanActionStaticsMode(carriersOnly bool) actionStaticViews {
 						// admission exactly): a static naming another zone is
 						// collected from THAT zone here and denied from the
 						// battlefield, the same gate staticEffects runs.
-						if !effectZoneOK(st.Params["EffectZone"], o.Zone) {
+						if !effectZoneOK(st.ParamStr(cards.PKEffectZone), o.Zone) {
 							continue
 						}
-						if carriersOnly && strings.TrimSpace(st.Params["AddAbility"]) == "" {
+						if carriersOnly && strings.TrimSpace(st.ParamStr(cards.PKAddAbility)) == "" {
 							continue
 						}
 						dst = &out.continuous

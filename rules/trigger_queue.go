@@ -1495,7 +1495,7 @@ func (e *Engine) optionalDecider(pt pendingTrigger) (who state.PlayerID, optiona
 	if !ok {
 		return 0, false, false
 	}
-	spec := t.Params["OptionalDecider"]
+	spec := t.ParamStr(cards.PKOptionalDecider)
 	if spec == "" {
 		return 0, false, false
 	}

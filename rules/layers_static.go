@@ -412,10 +412,10 @@ func (e *Engine) continuousGateHolds(sv staticView) bool {
 	if !e.classBandGateHolds(sv.Params, sv.Source) {
 		return false
 	}
-	if spec, ok := sv.Params["IsPresent"]; ok && !e.presentGate(sv, spec) {
+	if spec, ok := sv.Param(cards.PKIsPresent); ok && !e.presentGate(sv, spec) {
 		return false
 	}
-	if spec, ok := sv.Params["IsPresent2"]; ok && !e.presentGate(sv, spec) {
+	if spec, ok := sv.Param(cards.PKIsPresent2); ok && !e.presentGate(sv, spec) {
 		return false
 	}
 	if !e.continuousConditionHolds(sv) {
@@ -451,7 +451,7 @@ func (e *Engine) continuousGateHolds(sv staticView) bool {
 // is read separately by rules/speed.go's maxSpeedAbilities. An absent or empty
 // Condition$ keeps holding, as before.
 func (e *Engine) continuousConditionHolds(sv staticView) bool {
-	raw, ok := sv.Params["Condition"]
+	raw, ok := sv.Param(cards.PKCondition)
 	if !ok {
 		return true
 	}
@@ -600,7 +600,7 @@ func statRemoveKeywords(st cards.Static) []string {
 }
 
 func statCantHaveKeywords(st cards.Static) []string {
-	return cards.SplitKeywordList(st.Params["CantHaveKeyword"])
+	return cards.SplitKeywordList(st.ParamStr(cards.PKCantHaveKeyword))
 }
 
 // statList parses additive TYPE parameters. Type lists retain their existing

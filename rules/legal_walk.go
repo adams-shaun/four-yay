@@ -22,10 +22,14 @@ type legalWalk struct {
 	// gates counts the walk's reads of its pricing pool (pricing): the
 	// block reuse below (walk_block_reuse.go) treats a block that read none
 	// as independent of the pool.
-	gates         int
-	castsOnly     bool
-	sorcery       bool
-	out           []decision.Option
+	gates     int
+	castsOnly bool
+	sorcery   bool
+	out       []decision.Option
+	// outHW is the most options out held before a truncation (the
+	// verification path's rewind), so an in-place arena build clears every
+	// slot it wrote (legalActionsWalkWithWindow).
+	outHW         int
 	costStatics   costStaticSource
 	actionStatics actionStaticSource
 	// rec records this walk's pool-independent blocks (a priority walk);
@@ -111,7 +115,7 @@ func (w *legalWalk) offerFloorRefuses(statics *costStaticViews, p state.PlayerID
 		return false
 	}
 	if ab := scope.ab; ab != nil {
-		if _, own := ab.Params["ReduceCost"]; own || costAnnouncesX(*base) {
+		if own := ab.HasParam(cards.PKReduceCost); own || costAnnouncesX(*base) {
 			return false
 		}
 	}

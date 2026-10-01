@@ -428,13 +428,13 @@ func (e *Engine) activationLimitBlocked(p state.PlayerID, id state.ObjID, sa *ca
 	if sa == nil {
 		return false
 	}
-	if raw, ok := sa.Params["ActivationLimit"]; ok {
+	if raw, ok := sa.Param(cards.PKActivationLimit); ok {
 		if limit, ok := e.resolveActivationLimitAt(id, p, raw, merged); ok && limit >= 0 &&
 			e.activationUsedCount(id, ability, svar, true) >= limit {
 			return true
 		}
 	}
-	if raw, ok := sa.Params["GameActivationLimit"]; ok {
+	if raw, ok := sa.Param(cards.PKGameActivationLimit); ok {
 		if limit, ok := e.resolveActivationLimitAt(id, p, raw, merged); ok && limit >= 0 {
 			limit = e.additionalActivationLimit(id, p, sa, limit)
 			if e.activationUsedCount(id, ability, svar, false) >= limit {
@@ -447,8 +447,8 @@ func (e *Engine) activationLimitBlocked(p state.PlayerID, id state.ObjID, sa *ca
 	// either restriction. Activations statics raise this finite ceiling; they
 	// never make the ability unlimited unless a supported static explicitly
 	// has a negative MinLimit; those conditional/unbounded statics are not modeled.
-	if strings.EqualFold(strings.TrimSpace(sa.Params["Exhaust"]), "True") ||
-		strings.EqualFold(strings.TrimSpace(sa.Params["PowerUp"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKExhaust)), "True") ||
+		strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKPowerUp)), "True") {
 		limit := e.additionalActivationLimit(id, p, sa, 1)
 		if limit >= 0 && e.activationUsedCount(id, ability, svar, false) >= limit {
 			return true

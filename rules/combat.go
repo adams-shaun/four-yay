@@ -36,6 +36,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
@@ -1319,7 +1320,7 @@ type staticGoadLine struct {
 func (e *Engine) staticGoadLines() []staticGoadLine {
 	var out []staticGoadLine
 	for _, sv := range e.activeStatics("Continuous") {
-		if !strings.EqualFold(strings.TrimSpace(sv.Params["Goad"]), "True") {
+		if !strings.EqualFold(strings.TrimSpace(sv.ParamStr(cards.PKGoad)), "True") {
 			continue
 		}
 		spec := sv.Params["Affected"]

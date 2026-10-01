@@ -115,7 +115,7 @@ func Defined(h Host, c *Ctx, sa *cards.SA) []state.Target {
 	// names none acts on its source. A sub-ability that wants its
 	// parent's targets says so explicitly (Defined$ Targeted /
 	// ParentTarget), which every script in the corpus does.
-	if _, targeted := sa.Params["ValidTgts"]; targeted {
+	if _, targeted := sa.Param(cards.PKValidTgts); targeted {
 		// The generic pre-ask's answered set (task mvts1) outranks the
 		// resolution's own Ctx.Targets: this dispatch asked for and received
 		// ITS OWN targets, and the resolution-level list is either the outer
@@ -1684,7 +1684,7 @@ func forgetRememberedOne(h Host, c *Ctx, id state.ObjID) {
 // are themselves cards. The one shared resolver is used by every API so a
 // future ImprintCards$ rider cannot be accidentally skipped by its primitive.
 func imprint(h Host, c *Ctx, sa *cards.SA) {
-	if c.Source == 0 || strings.TrimSpace(sa.Params["ImprintCards"]) == "" {
+	if c.Source == 0 || strings.TrimSpace(sa.ParamStr(cards.PKImprintCards)) == "" {
 		return
 	}
 	var ids []state.ObjID

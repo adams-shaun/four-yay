@@ -5,6 +5,7 @@ import (
 	"maps"
 	"slices"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -320,7 +321,7 @@ func (e *Engine) scanBoardStaticsPrintedLists(out boardStatics, lists []boardSca
 					default:
 						continue
 					}
-					if zoneGated && !effectZoneOK(st.Params["EffectZone"], o.Zone) {
+					if zoneGated && !effectZoneOK(st.ParamStr(cards.PKEffectZone), o.Zone) {
 						continue
 					}
 					*dst = append(*dst, staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf(), SVars: pst.Face.SVars})
@@ -539,7 +540,7 @@ func (e *Engine) scanActiveStaticsFused(now walkKey) {
 					if c[i].mode != st.Mode {
 						continue
 					}
-					if effectZoneOK(st.Params["EffectZone"], o.Zone) {
+					if effectZoneOK(st.ParamStr(cards.PKEffectZone), o.Zone) {
 						c[i].sv = append(c[i].sv, staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf(), SVars: pst.Face.SVars})
 					}
 					break

@@ -170,7 +170,7 @@ func ManaProducerTag(h Host, source state.ObjID) (tag string, snow bool) {
 }
 
 func effMana(h Host, c *Ctx, sa *cards.SA) {
-	produced := strings.TrimSpace(sa.Params["Produced"])
+	produced := strings.TrimSpace(sa.ParamStr(cards.PKProduced))
 	// A resumed Combo allocation supplies one concrete symbol per unit.
 	// Consume it before walking the SA so the same choice is not posed again;
 	// its units carry Amount 1 below rather than being multiplied again.

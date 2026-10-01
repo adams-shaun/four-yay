@@ -809,7 +809,16 @@ func (g *Game) AliveFrom(start PlayerID) []PlayerID {
 	return out
 }
 
-func (g *Game) AliveCount() int { return len(g.AliveFrom(0)) }
+// AliveCount is len(AliveFrom(0)).
+func (g *Game) AliveCount() int {
+	c := 0
+	for i := range g.Players {
+		if !g.Players[i].Lost {
+			c++
+		}
+	}
+	return c
+}
 
 // IsMonarch reports whether p currently holds the monarch designation.
 func (g *Game) IsMonarch(p PlayerID) bool { return g.HasMonarch && g.Monarch == p }

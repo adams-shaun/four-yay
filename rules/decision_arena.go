@@ -1,6 +1,8 @@
 package rules
 
 import (
+	"unsafe"
+
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/state"
@@ -57,6 +59,24 @@ func (s *slab[T]) take(n, chunk int) []T {
 	out := c[s.off : s.off+n : s.off+n]
 	s.off += n
 	return out
+}
+
+// tail returns the current chunk's unhanded tail as an empty slice whose
+// capacity is the rest of the chunk (moving to a fresh chunk first when
+// fewer than min slots remain), for a caller that appends into it in place
+// and then hands out a prefix by advancing off. Nothing is handed out until
+// then; a caller that wrote into the tail without handing it out must clear
+// what it wrote, so every unhanded slot stays zero.
+func (s *slab[T]) tail(min, chunk int) []T {
+	if s.at < len(s.chunks) && s.off+min > chunk {
+		s.at, s.off = s.at+1, 0
+	}
+	if s.at == len(s.chunks) {
+		s.chunks = append(s.chunks, make([]T, chunk))
+		s.off = 0
+	}
+	c := s.chunks[s.at]
+	return c[s.off:s.off:len(c)]
 }
 
 // one returns a pointer to one zeroed slot.
@@ -128,6 +148,52 @@ func (e *Engine) arenaOptions(n int) []decision.Option {
 		return a.opts.take(n, arenaOptChunk)
 	}
 	return make([]decision.Option, n)
+}
+
+// arenaOptTailMin is the least room a priority walk builds its options in
+// place for (legalActionsWalkWithWindow); a larger walk outgrows the tail
+// and falls back to the copy.
+const arenaOptTailMin = 96
+
+// optTail is one in-place option build in an arena's option tail.
+type optTail struct {
+	a       *decisionArena
+	buf     []decision.Option
+	at, off int
+}
+
+// arenaOptionsTail returns the arena's option tail for an in-place build
+// (buf nil when the arena is off).
+func (e *Engine) arenaOptionsTail() optTail {
+	a := e.activeArena()
+	if a == nil {
+		return optTail{}
+	}
+	buf := a.opts.tail(arenaOptTailMin, arenaOptChunk)
+	return optTail{a: a, buf: buf, at: a.opts.at, off: a.opts.off}
+}
+
+// commit hands out out, built in place in t.buf, with hw the most slots the
+// build ever held: it clears the slots past len(out) the build wrote. When
+// out no longer lives in buf (the build outgrew it) it hands out nothing,
+// clears everything the build wrote into buf, and reports false; out's own
+// array is then untouched.
+func (t optTail) commit(out []decision.Option, hw int) bool {
+	s := &t.a.opts
+	if s.at != t.at || s.off != t.off {
+		// Nothing takes options while a walk builds (only the posed walk
+		// itself does), so a moved slab would mean overlapping slots.
+		panic("rules: decision arena options taken during an in-place priority walk")
+	}
+	if len(out) > 0 && unsafe.SliceData(out) == unsafe.SliceData(t.buf[:1]) {
+		s.off += len(out)
+		if hw > len(out) {
+			clear(t.buf[len(out):hw])
+		}
+		return true
+	}
+	clear(t.buf[:cap(t.buf)])
+	return false
 }
 
 // arenaDecision returns a zeroed Decision.

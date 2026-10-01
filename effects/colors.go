@@ -122,7 +122,7 @@ func ColorMaskOf(o *state.Object) ColorMask {
 // arm, where today's scan behaviour is no emission either way, but the shape
 // stays honest) from "not a CDA at all" (!isCDA).
 func cdaSetColourClaimStatic(s cards.Static) (ColorMask, bool, bool) {
-	if s.Mode != "Continuous" || s.Params["CharacteristicDefining"] != "True" {
+	if s.Mode != "Continuous" || s.ParamStr(cards.PKCharacteristicDefining) != "True" {
 		return 0, false, false
 	}
 	if !strings.Contains(s.Params["Affected"], "Self") {

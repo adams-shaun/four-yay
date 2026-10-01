@@ -459,7 +459,7 @@ func actingPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 		// remembered card's controller (Summon: Valefor's per-opponent loop).
 		return definedPlayers(h, c, sa)
 	}
-	if _, targeted := sa.Params["ValidTgts"]; targeted {
+	if _, targeted := sa.Param(cards.PKValidTgts); targeted {
 		return playerIDsFromTargets(h, c, "", Defined(h, c, sa))
 	}
 	return []state.PlayerID{c.Controller}

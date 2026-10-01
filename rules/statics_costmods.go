@@ -32,7 +32,7 @@ import (
 // spell is being cast at. The raise and set sites pass targets too, so one
 // composition path cannot half-apply a static with an unbound read.
 func (e *Engine) modAmountX(sv staticView, sub costSubject, x int32, targets []state.Target) int32 {
-	raw := strings.TrimSpace(sv.Params["Amount"])
+	raw := strings.TrimSpace(sv.ParamStr(cards.PKAmount))
 	if n, ok := parseInt10(raw); ok {
 		if n < 0 {
 			return 0
@@ -94,7 +94,7 @@ func (e *Engine) costAmountCtx(sv staticView, sub costSubject, x int32, targets 
 	// Explosive Singularity's Tapped) binds the SVar its name spells.
 	svars = e.namedAnnounceSVars(sv.Source, svars)
 	you := sv.Controller
-	if sv.Params["Relative"] == "True" && sub.id != 0 {
+	if sv.ParamStr(cards.PKRelative) == "True" && sub.id != 0 {
 		you = sub.p
 	}
 	// An Effect-delivered cost static carries its SetChosenNumber$ binding

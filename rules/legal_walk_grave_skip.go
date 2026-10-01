@@ -124,6 +124,7 @@ func (w *legalWalk) verifyGraveyardCandidates(zone, grave []state.ObjID) {
 	n := len(w.out)
 	w.graveyardCastsOver(zone)
 	full := slices.Clone(w.out[n:])
+	w.outHW = max(w.outHW, len(w.out))
 	w.out = w.out[:n]
 	w.graveyardCastsOver(grave)
 	if got := w.out[n:]; !(len(got) == 0 && len(full) == 0) && !reflect.DeepEqual(got, full) {

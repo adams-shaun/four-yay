@@ -1016,7 +1016,7 @@ func withSpellAbilityExtras(f *cards.Face, cost Cost) Cost {
 	if sa == nil {
 		return cost
 	}
-	sc := sa.Params["Cost"]
+	sc := sa.ParamStr(cards.PKCost)
 	if sc == "" {
 		return cost
 	}

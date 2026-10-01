@@ -3,6 +3,7 @@ package rules
 import (
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -108,15 +109,15 @@ func markCostValidTarget(out *costStaticViews) {
 		views []staticView
 	}{{"RaiseCost", out.raise}, {"ReduceCost", out.reduce}, {"SetCost", out.set}} {
 		for _, sv := range group.views {
-			if _, ok := sv.Params["ValidTarget"]; ok {
+			if _, ok := sv.Param(cards.PKValidTarget); ok {
 				out.validTarget = true
 				return
 			}
 			// Target-conditional ValidSpell$ and target-relative ReduceCost$
 			// amounts read chosen targets, so the offer gate must retry with
 			// potential targets for either shape.
-			if validSpellHasTargeting(sv.Params["ValidSpell"]) ||
-				(group.mode == "ReduceCost" && sv.Params["Relative"] == "True") {
+			if validSpellHasTargeting(sv.ParamStr(cards.PKValidSpell)) ||
+				(group.mode == "ReduceCost" && sv.ParamStr(cards.PKRelative) == "True") {
 				out.validTarget = true
 				return
 			}
@@ -141,7 +142,7 @@ func markCostValidTarget(out *costStaticViews) {
 // amountMayReadTargets reports whether a cost-modifier static's Amount$ is
 // anything other than a plain integer literal (see markCostValidTarget).
 func amountMayReadTargets(sv staticView) bool {
-	raw := strings.TrimSpace(sv.Params["Amount"])
+	raw := strings.TrimSpace(sv.ParamStr(cards.PKAmount))
 	if raw == "" {
 		return false
 	}

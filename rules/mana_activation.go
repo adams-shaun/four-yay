@@ -1029,7 +1029,7 @@ func manaAbilityComboColours(ma *cards.SA, chosen string) ([]string, bool) {
 // generic union it would mask every other API's unread Produced$ (measured:
 // api:Sacrifice/api:DealDamage).
 func manaAbilityProduced(ma *cards.SA) string {
-	return ma.Params["Produced"]
+	return ma.ParamStr(cards.PKProduced)
 }
 
 // manaAbilitiesProduce reports whether some ability of mas has Produced$
@@ -1244,7 +1244,7 @@ func exileOriginPhrase(z state.Zone) string {
 }
 
 func manaAbilityCostPrefix(ma *cards.SA) string {
-	raw := strings.TrimSpace(ma.Params["Cost"])
+	raw := strings.TrimSpace(ma.ParamStr(cards.PKCost))
 	if raw == "" {
 		return ""
 	}
@@ -1309,7 +1309,7 @@ func (e *Engine) manaAbilityPayablePool(p state.PlayerID, source state.ObjID, ma
 	if o == nil || o.Face() == nil {
 		return false
 	}
-	cc := e.compiledCostOf(ma.Params["Cost"])
+	cc := e.compiledCostOf(ma.ParamStr(cards.PKCost))
 	if e.tapFlagsSick(source, cc.Tap, cc.Untap) {
 		return false
 	}
@@ -2119,7 +2119,7 @@ func (e *Engine) emitManaTap(p state.PlayerID, source state.ObjID, sa *cards.SA)
 	// rebuilt by replay because replay takes the same activation path.
 	produced := ""
 	if sa != nil {
-		produced = strings.TrimSpace(sa.Params["Produced"])
+		produced = strings.TrimSpace(sa.ParamStr(cards.PKProduced))
 	}
 	before := len(e.pendingTriggers)
 	e.tappingForMana, e.tappingManaProduced = source, produced
@@ -2564,7 +2564,7 @@ func (e *Engine) resolveManaAbilityRefOriginal(p state.PlayerID, source state.Ob
 			e.emit(events.Event{Kind: events.ManaActivate, Player: p, Obj: source, Amount: int32(idx)})
 		}
 	}
-	cc := e.compiledCostOf(ma.Params["Cost"])
+	cc := e.compiledCostOf(ma.ParamStr(cards.PKCost))
 	cost := cc.Cost
 	sacs, _ := e.manaSacrifices(p, source, cost)
 	// The continuation owns EVERY non-mana cost part, so it must be entered
@@ -2641,11 +2641,11 @@ func manaReturnCostSupported(cost Cost) bool {
 // Valid$ "Defined.Sacrificed" selector (Squandered Resources) can read them
 // through the resolution context's Remembered list.
 func (e *Engine) resolveManaEffect(p state.PlayerID, source state.ObjID, ma *cards.SA, cast, cumulative bool, triggers []pendingTrigger, sacs []state.ObjID, gained gainedManaRef, untaps []state.ObjID) {
-	if strings.TrimSpace(ma.Params["UnlessCost"]) != "" {
+	if strings.TrimSpace(ma.ParamStr(cards.PKUnlessCost)) != "" {
 		e.askManaUnless(p, source, ma, cast, cumulative, triggers, sacs, gained)
 		return
 	}
-	produced := strings.TrimSpace(ma.Params["Produced"])
+	produced := strings.TrimSpace(ma.ParamStr(cards.PKProduced))
 	// A "Chosen" token (Quirion Elves' second activation: "Add one mana of
 	// the chosen color"; the Thriving-lands/gate family: "Add {R} or one mana
 	// of the chosen color") is a READ, not a choice: the colour was already
@@ -2691,7 +2691,7 @@ func (e *Engine) resolveManaEffect(p state.PlayerID, source state.ObjID, ma *car
 		}
 		return
 	}
-	if costHasDynamicXTap(e.parseCost(ma.Params["Cost"])) && strings.TrimSpace(ma.Params["Amount"]) == "0" {
+	if costHasDynamicXTap(e.parseCost(ma.ParamStr(cards.PKCost))) && strings.TrimSpace(ma.ParamStr(cards.PKAmount)) == "0" {
 		// X=0 produces no mana and therefore has no meaningful colour
 		// allocation decision.
 		e.finishManaEffect(p, source, ma, produced, gained, sacs, cast, cumulative, triggers)
@@ -3195,7 +3195,7 @@ func (e *Engine) CommanderIdentityColourCount(p state.PlayerID) int {
 // emitted only for these carriers so no other game's log changes.
 func chainGatesOnActivationCount(sa *cards.SA) bool {
 	for sub, n := sa, 0; sub != nil && n < 32; sub, n = sub.Sub, n+1 {
-		if strings.TrimSpace(sub.Params["ConditionActivationLimit"]) != "" {
+		if strings.TrimSpace(sub.ParamStr(cards.PKConditionActivationLimit)) != "" {
 			return true
 		}
 	}
