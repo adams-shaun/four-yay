@@ -420,7 +420,16 @@ func (e *Engine) buildDerivedTypes(buf []effects.ObjectTypes) []effects.ObjectTy
 	var arr [layer4MaxSelfSources]state.ObjID
 	srcs, selfOnly := e.layer4SelfOnlySources(arr[:0])
 	if !selfOnly {
-		return e.buildDerivedTypesWalk(buf, nil, false)
+		// A static-derived or non-self registered layer-4 effect is live.
+		// When every LType effect in active() still names a bounded object
+		// set (layer4BoundedReach: Self, or the source's attachment), the
+		// walk visits only those objects plus the base-may-differ ones --
+		// the same argument the self-only path rests on.
+		reach, ok := e.layer4BoundedReach(arr[:0])
+		if !ok {
+			return e.buildDerivedTypesWalk(buf, nil, false)
+		}
+		srcs = reach
 	}
 	buf = e.buildDerivedTypesWalk(buf, srcs, true)
 	if layer4PrecheckVerify {
@@ -473,6 +482,111 @@ func (e *Engine) layer4SelfOnlySources(buf []state.ObjID) ([]state.ObjID, bool) 
 		return buf, false
 	}
 	return buf, true
+}
+
+// layer4BoundedReach is the layer-4 walk's candidate bound when the
+// self-only fast path does not apply: if every LType effect active() holds
+// has an Affected$ spec whose every alternative names a bounded object
+// (affectsReach), it returns those objects (appended to buf, distinct, in
+// active() order) and true. Witness Protection's `Creature.EnchantedBy` and
+// Skyknight Squire's `Card.Self+counters_GE3_P1P1` -- statics, so never the
+// self-only path -- otherwise sent every emitted event through a
+// typeCharacteristics walk of the whole battlefield.
+//
+// The bound is exact for the table: an object outside it has no LType effect
+// matching it (each alternative of each spec requires the Self or attachment
+// predicate, effects' o.ID == src / src.AttachedTo == o.ID on a battlefield
+// src), so unless its base may differ (layer4BaseMayDiffer, which the walk
+// still visits) its derived list is its printed one and the full walk would
+// skip it. layer4PrecheckVerify holds every such build to the full walk.
+func (e *Engine) layer4BoundedReach(buf []state.ObjID) ([]state.ObjID, bool) {
+	act := e.active()
+	for i := range act {
+		ce := &act[i]
+		if ce.Layer != LType {
+			continue
+		}
+		reach := affectsReach(ce.Affects)
+		if reach == 0 {
+			return buf, false
+		}
+		if reach&reachSelf != 0 && ce.Source != 0 {
+			var ok bool
+			if buf, ok = appendReach(buf, ce.Source); !ok {
+				return buf, false
+			}
+		}
+		if reach&reachAttached != 0 {
+			if s := e.G.Obj(ce.Source); s != nil && s.Zone == state.ZBattlefield && s.AttachedTo != 0 {
+				var ok bool
+				if buf, ok = appendReach(buf, s.AttachedTo); !ok {
+					return buf, false
+				}
+			}
+		}
+	}
+	return buf, true
+}
+
+// appendReach adds id to the bounded reach list unless present; false when
+// the list is full (the caller falls back to the whole-board walk).
+func appendReach(buf []state.ObjID, id state.ObjID) ([]state.ObjID, bool) {
+	if slices.Contains(buf, id) {
+		return buf, true
+	}
+	if len(buf) == layer4MaxSelfSources {
+		return buf, false
+	}
+	return append(buf, id), true
+}
+
+// The affectsReach bits.
+const (
+	reachSelf uint8 = 1 << iota
+	reachAttached
+)
+
+// affectsReach classifies an Affected$ spec by the objects it can match:
+// reachSelf when some alternative is bounded to the effect's source (a
+// `Self` conjunct), reachAttached when some alternative is bounded to the
+// source's attachment (an `EnchantedBy`/`EquippedBy`/`AttachedBy` conjunct),
+// and 0 -- unbounded -- when any alternative carries neither, or when the
+// spec uses anything beyond the plain `Base.term+term,...` grammar
+// (negation, spaces, brackets, a named<Name> argument whose printed comma
+// would split an alternative). Conservative: 0 only costs the whole walk.
+func affectsReach(spec string) uint8 {
+	if spec == "" || strings.Contains(spec, "named") {
+		return 0
+	}
+	for i := 0; i < len(spec); i++ {
+		c := spec[i]
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '_' || c == '.' || c == '+' || c == ',') {
+			return 0
+		}
+	}
+	var out uint8
+	for alt := range strings.SplitSeq(spec, ",") {
+		_, props, ok := strings.Cut(alt, ".")
+		if !ok {
+			return 0
+		}
+		var bit uint8
+		for term := range strings.SplitSeq(props, "+") {
+			switch term {
+			case "Self":
+				bit = reachSelf
+			case "EnchantedBy", "EquippedBy", "AttachedBy":
+				if bit == 0 {
+					bit = reachAttached
+				}
+			}
+		}
+		if bit == 0 {
+			return 0
+		}
+		out |= bit
+	}
+	return out
 }
 
 // layer4BaseMayDiffer reports whether a battlefield object's layer-4 BASE
