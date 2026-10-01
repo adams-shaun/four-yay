@@ -143,11 +143,21 @@ func (e *engineEnv) matchRoot() (err error) {
 	var cands []cand
 	sum := 0.0
 	for i, k := range root.Keys {
-		in, err := m.intent(k)
-		if err != nil {
-			continue
+		var c cand
+		if IsMacroKey(k) {
+			mc, ok := e.macroCand(k)
+			if !ok {
+				continue
+			}
+			c = mc
+		} else {
+			in, err := m.intent(k)
+			if err != nil {
+				continue
+			}
+			c = cand{key: k, in: in}
 		}
-		cands = append(cands, cand{key: k, in: in})
+		cands = append(cands, c)
 		pt.Keys = append(pt.Keys, k)
 		pt.Prior = append(pt.Prior, root.Prior[i])
 		sum += root.Prior[i]
@@ -198,7 +208,11 @@ func (e *engineEnv) Play(k Key) (pt *Point, err error) {
 	if i < 0 {
 		return nil, fmt.Errorf("%w: candidate %s is not offered here", ErrSubmit, k)
 	}
-	if err := e.submit(e.cur, e.cands[i].in); err != nil {
+	if m := e.cands[i].macro; m != nil {
+		if err := e.playMacro(m); err != nil {
+			return nil, err
+		}
+	} else if err := e.submit(e.cur, e.cands[i].in); err != nil {
 		return nil, err
 	}
 	e.plies++

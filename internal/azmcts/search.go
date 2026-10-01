@@ -27,6 +27,19 @@ type Root struct {
 	// searchseat.Feed's, whose Capture stream ObserveDecision would perturb.
 	// Every world's Observer must be a clone of it taken after Search starts.
 	Observer *searchprobe.Collector
+
+	// The full root (the search benchmark's): set any of these and a
+	// priority root under Options.AutoPayment is searched over the
+	// vocabulary plus Macros even when Bot is outside the vocabulary (a mana
+	// activation, a land play), instead of being skipped. Macros are root
+	// candidates played as several submits (Macro); BotKey names the bot's
+	// candidate when Bot itself is outside the vocabulary (a macro the bot
+	// was pursuing); NoBot alone asks for the full root with no macros. With
+	// neither Bot's candidate nor BotKey's there is no bot candidate and
+	// Pass is candidate 0. In-walk decisions are unchanged.
+	Macros []Macro
+	BotKey Key
+	NoBot  bool
 }
 
 // Result is one Search. Candidates, Keys, Labels, Visits, Avail, Prior and
@@ -147,7 +160,7 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 	if root.Engine == nil || root.Decision == nil || root.Observer == nil {
 		return res, errors.New("azmcts: Search needs the root engine, decision and observer")
 	}
-	cands, kind, why, ok, cut := enumerateCut(root.Observer, root.Engine, root.Decision, root.Bot, opts.Kinds, opts.Limit, opts.AutoPayment)
+	cands, kind, why, ok, cut, botFound := rootCands(root.Observer, root, opts.Kinds, opts.Limit, opts.AutoPayment)
 	res.Kind = kind
 	if cut {
 		res.Stats.Truncated, res.Stats.RootTruncated = 1, 1
@@ -168,6 +181,9 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 	for i, c := range cands {
 		res.Candidates[i], res.Keys[i] = c.in, c.key
 		res.Labels[i] = CandidateLabel(root.Decision, c.in)
+		if c.macro != nil {
+			res.Labels[i] = c.macro.Label
+		}
 	}
 	priorNet := net
 	if opts.UniformPrior {
@@ -215,7 +231,7 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 		return res, nil
 	}
 	res.Choice = choose(res.Visits, opts.Sample, rng)
-	if res.Choice != 0 {
+	if res.Choice != 0 || !botFound {
 		res.Intent = cands[res.Choice].in
 	}
 	return res, nil

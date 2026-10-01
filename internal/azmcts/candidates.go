@@ -24,6 +24,10 @@ type cand struct {
 	acts []searchprobe.Action
 	key  Key
 	in   decision.Intent
+	// macro, when set, is a caller-supplied root macro (Root.Macros): in
+	// is its first step on the root decision, and the walk plays every
+	// step (engineEnv.playMacro).
+	macro *Macro
 	// score is the option-index list a network prior scores the candidate
 	// by: in.Choices, or a payment action's legacy cast option (nil when
 	// the payment has none, which makes a network prior fall back).
@@ -275,8 +279,33 @@ func nameKeys(e *rules.Engine, d *decision.Decision, cands []cand, rootRefs int)
 // Pass, the payment casts in engine order, and the rest by key; capped at
 // limit.
 func paymentPriorityCands(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, bot decision.Intent, limit int) ([]cand, SkipReason, bool) {
+	v, why, ok := paymentVocabulary(obs, e, d)
+	if !ok {
+		return nil, why, false
+	}
+	botAt := v.botIndex(d, bot)
+	if botAt < 0 {
+		return nil, SkipFewCandidates, false
+	}
+	out := botFirst(v.all, botAt, limit)
+	if len(out) < 2 {
+		return nil, SkipFewCandidates, false
+	}
+	return out, 0, true
+}
+
+// paymentVocab is the auto-payment priority vocabulary of one decision in
+// its natural order: Pass, the payment casts in engine order, the rest by
+// key (paymentPriorityCands).
+type paymentVocab struct {
+	all     []cand
+	payAt   map[state.ObjID]int // lookup only -- never ranged.
+	hasPass bool
+}
+
+func paymentVocabulary(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision) (paymentVocab, SkipReason, bool) {
 	if _, err := obs.ObserveDecision(e, d); err != nil {
-		return nil, SkipTranslate, false
+		return paymentVocab{}, SkipTranslate, false
 	}
 	payments := e.EnsurePaymentActions()
 	var pays, rest []cand
@@ -289,7 +318,7 @@ func paymentPriorityCands(obs *searchprobe.Collector, e *rules.Engine, d *decisi
 		}
 		acts, err := paymentActs(obs, e, d, a)
 		if err != nil {
-			return nil, SkipTranslate, false
+			return paymentVocab{}, SkipTranslate, false
 		}
 		c := cand{acts: acts, key: Key(payKeyPrefix + string(actionsKey(acts))), scoreSet: true,
 			in: decision.Intent{Seq: d.Seq, Player: d.Player, Payment: &decision.PaymentSelection{ActionID: a.ID, Plan: decision.ClonePaymentPlan(a.Plans[0])}}}
@@ -323,7 +352,7 @@ func paymentPriorityCands(obs *searchprobe.Collector, e *rules.Engine, d *decisi
 		in := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{i}}
 		acts, err := obs.Actions(d, in)
 		if err != nil {
-			return nil, SkipTranslate, false
+			return paymentVocab{}, SkipTranslate, false
 		}
 		c := cand{acts: acts, key: actionsKey(acts), in: in}
 		if o.Kind == "pass" {
@@ -335,42 +364,46 @@ func paymentPriorityCands(obs *searchprobe.Collector, e *rules.Engine, d *decisi
 		rest = append(rest, c)
 	}
 	sort.SliceStable(rest, func(i, j int) bool { return rest[i].key < rest[j].key })
-	var all []cand
+	v := paymentVocab{payAt: payAt, hasPass: pass != nil}
 	if pass != nil {
-		all = append(all, *pass)
+		v.all = append(v.all, *pass)
 	}
-	all = append(append(all, pays...), rest...)
-	botAt := -1
-	for i, c := range all {
+	v.all = append(append(v.all, pays...), rest...)
+	return v, 0, true
+}
+
+// botIndex is the index in v.all of the bot's answer bot, -1 when it is
+// outside the vocabulary (a land play, a mana activation).
+func (v paymentVocab) botIndex(d *decision.Decision, bot decision.Intent) int {
+	for i, c := range v.all {
 		switch {
 		case bot.Payment != nil:
 			if c.in.Payment != nil && c.in.Payment.ActionID == bot.Payment.ActionID {
-				botAt = i
+				return i
 			}
 		case len(bot.Choices) == 1 && c.in.Payment == nil:
 			if c.in.Choices[0] == bot.Choices[0] {
-				botAt = i
+				return i
 			}
 		}
-		if botAt >= 0 {
-			break
-		}
 	}
-	if botAt < 0 && bot.Payment == nil && len(bot.Choices) == 1 && bot.Choices[0] >= 0 && bot.Choices[0] < len(d.Options) {
+	if bot.Payment == nil && len(bot.Choices) == 1 && bot.Choices[0] >= 0 && bot.Choices[0] < len(d.Options) {
 		// A manual bot's plain cast of an object that has a payment action
 		// is that payment candidate.
 		if o := d.Options[bot.Choices[0]]; o.Kind == "cast" && o.Mode == "" && o.AltCostIndex == 0 {
-			if at, ok := payAt[o.Obj]; ok {
-				botAt = at
-				if pass != nil {
-					botAt++ // all is pass, then the payments
+			if at, ok := v.payAt[o.Obj]; ok {
+				if v.hasPass {
+					at++ // all is pass, then the payments
 				}
+				return at
 			}
 		}
 	}
-	if botAt < 0 {
-		return nil, SkipFewCandidates, false
-	}
+	return -1
+}
+
+// botFirst is all with all[botAt] moved to the front, capped at limit.
+func botFirst(all []cand, botAt, limit int) []cand {
 	out := []cand{all[botAt]}
 	for i, c := range all {
 		if len(out) >= limit {
@@ -380,10 +413,7 @@ func paymentPriorityCands(obs *searchprobe.Collector, e *rules.Engine, d *decisi
 			out = append(out, c)
 		}
 	}
-	if len(out) < 2 {
-		return nil, SkipFewCandidates, false
-	}
-	return out, 0, true
+	return out
 }
 
 // IntentForKey is the intent that plays candidate key k on decision d of
