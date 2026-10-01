@@ -196,7 +196,11 @@ func (e *Engine) refreshDerivedTypes() {
 // are unchanged (the caller's key) -- save that a TriggerPush or AbilityPush
 // may each have appended one face-less ability object (facelessAppended):
 // such an object is never a candidate (no face) and its push writes no
-// other object's candidacy field. Those kinds write none of the fields the
+// other object's candidacy field -- and off-battlefield moves
+// (offBattlefieldMove: draws, casts, discards, a spell to the graveyard):
+// the mover is off the battlefield on both sides, so it is no candidate, its
+// probe answer (the off-battlefield face probe in every such zone) is
+// unchanged, and the fold writes no other object. Those kinds write none of the fields the
 // candidate slice and the statics probe read (Zone, Card, FaceIdx, CopyFace,
 // Unlocked, MergedCards, FaceDown, CopyNonLegendary, AttachedTo), so the
 // catch-ups would change nothing; what remains is each candidate's derived
@@ -205,9 +209,11 @@ func (e *Engine) refreshDerivedTypes() {
 //   - stamped self-only (no static can change a type, every live LType
 //     effect a registered Card.Self one): a list reads the object's own base
 //     fields and the live registered LType effects, whose liveness reads
-//     source zones and incarnations, the turn and -- for an
-//     until-end-of-combat duration -- the step. So the table holds unless a
-//     StepChange passed while such an LType effect is registered;
+//     source zones and incarnations (a source-bound effect needs its source
+//     on the battlefield, which an off-battlefield mover never is), the turn
+//     and -- for an until-end-of-combat duration -- the step. So the table
+//     holds unless a StepChange passed while such an LType effect is
+//     registered;
 //   - otherwise (the bounded build): the table holds when derivedSeq, current
 //     right after that build, has not moved -- every derivation is then
 //     unchanged (derived_transparent.go, held by derivedMemoVerify).
@@ -229,7 +235,7 @@ func (e *Engine) typesQuietReuse(n int) bool {
 		case events.StepChange:
 			step = true
 		}
-		if !e.derivedQuietEvent(ev) {
+		if !e.derivedQuietEvent(ev) && !offBattlefieldMove(ev) {
 			return false
 		}
 	}
