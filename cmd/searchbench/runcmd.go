@@ -70,7 +70,7 @@ func runArm(args []string, out io.Writer) error {
 	workers := fs.Int("workers", 1, "worker goroutines")
 	seed := fs.Uint64("seed", 0, "run seed (each item's search seed is derived from it and the item ID)")
 	leaf := fs.String("leaf", "heuristic", "leaf evaluator: heuristic, or a policynet value checkpoint")
-	discount := fs.Float64("discount", 1, "backup discount gamma (1: off)")
+	discount := fs.Float64("discount", 0.99, "backup discount gamma per -discount-unit (docs/012 E2 default 0.99 per ply; 1: off)")
 	unitText := fs.String("discount-unit", "ply", "discount unit: ply, action or turn")
 	name := fs.String("name", "", "result arm label (default: from the arm, budget, discount, leaf and seed)")
 	corpus := fs.String("corpus", ".cards", "compiled Forge corpus")
