@@ -119,6 +119,10 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	// class: every member is copied as a fresh slice so a clone owns its
 	// own ledgers; the detail lives on cloneTurnLedger.
 	c.engineTurnLedger = cloneTurnLedger(e.engineTurnLedger)
+	// The offer walk's incremental log indexes (legal_walk_scratch.go): the
+	// clone's log is a copy of this one, so each watermark still names the
+	// same prefix and the clone resumes the fold instead of redoing it.
+	c.legalScratch = cloneLegalWalkScratch(e.legalScratch)
 	c.orderedTriggers = e.orderedTriggers
 	c.applyingReplacement = e.applyingReplacement
 	c.choosing = e.choosing
