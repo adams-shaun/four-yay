@@ -504,7 +504,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						if st.HasParam(cards.PKSetPower) || st.HasParam(cards.PKSetToughness) {
 							skip := false
 							if strings.TrimSpace(st.ParamStr(cards.PKCharacteristicDefining)) != "" {
-								if _, _, hp, ht := e.cdaPTStatic(st, &effects.Ctx{Source: id, Controller: o.Controller, SVars: fc.SVars}); hp || ht {
+								if _, _, hp, ht := e.cdaPTStatic(st, e.cdaEvalCtx(o, fc)); hp || ht {
 									skip = true
 								}
 							}

@@ -1,3 +1,1 @@
-{
-  "Ashaya, Soul of the Wild/nontoken-creatures-are-forests-and-pt-counts-lands": "Ashaya's characteristic-defining P/T is Count$Valid Land.YouCtrl. Its own static makes each nontoken creature I control a Forest land in addition (the scenario's Grizzly Bears types check passes, so the layer-4 type change IS applied), yet the land count reads 1 against two lands in play -- the CDA value is evaluated on the base/printed type characteristics before the layer-4 type-grant walk, so a creature that the same board makes a land is not counted. Observed P/T 1/1, want 2/2. Same shape governs every CDA whose count reads a type another continuous effect grants (Lumra is unaffected: its lands are printed Forests)."
-}
+{}
