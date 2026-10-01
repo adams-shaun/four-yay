@@ -778,6 +778,16 @@ type Decision struct {
 	ResumeChoices     []state.Target `json:"-"`
 	ResumeChosenValid bool           `json:"-"`
 	ResumeRemembered  []state.Target `json:"-"`
+	// ResumeNumberPicks carries the numbers every chooser answered so far in a
+	// multi-chooser secret ChooseNumber election (api:ChooseNumber's
+	// MatchedAbility$/UnmatchedAbility$ shape, Expert-Level Safe), in chooser
+	// order. It is the numeric sibling of ResumeChoices, which cannot hold a
+	// bare number: the re-entered effect appends the answered pick and asks the
+	// next chooser, exactly as effPlayerVote rides ResumeChoices across its
+	// per-voter asks. Server-side only (json:"-"): runtime continuation state,
+	// never client input, and a replay re-derives the same picks from the same
+	// recorded intents.
+	ResumeNumberPicks []int32 `json:"-"`
 	// ResumeSearchKnown carries the effects.Ctx.SearchKnown set of an earlier
 	// ask in the same search chain (effects/zone.go effSearchLibrary): the
 	// library cards the chooser has already legitimately seen. A planted

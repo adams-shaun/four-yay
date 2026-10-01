@@ -2249,6 +2249,24 @@ type Ctx struct {
 	// by the effect (the fx42 scoping discipline), so a nested ChooseNumber
 	// deeper in the same chain poses its own fresh ask.
 	ETBNumberRecorded bool
+	// ChooseNumberPicks/ChooseNumberAnswer/ChooseNumberDone/ChooseNumberIndex
+	// carry a multi-chooser SECRET ChooseNumber election (api:ChooseNumber's
+	// MatchedAbility$/UnmatchedAbility$ shape, Expert-Level Safe) across its
+	// per-chooser mid-resolution asks. ChooseNumberPicks accumulates each
+	// chooser's answered number in chooser order; ChooseNumberIndex is the
+	// chooser whose answer has just arrived (the resume re-entry appends the
+	// answer and advances past it); ChooseNumberAnswer is that answered number
+	// and ChooseNumberDone its marker -- ZERO is a legal answer, so a bare
+	// int32 cannot tell "answered 0" from "never asked". rules'
+	// "choosenumbermulti" resume arm rebuilds all four from the decision's
+	// ResumeTarget/ResumeNumberPicks, and effChooseNumber's election branch
+	// consumes and clears them once the last chooser has answered (the fx42
+	// scoping discipline), so a nested ChooseNumber cannot inherit the outer
+	// election's picks.
+	ChooseNumberPicks  []int32
+	ChooseNumberAnswer int32
+	ChooseNumberDone   bool
+	ChooseNumberIndex  int
 	// ETBEvenOddRecorded marks the ChooseEvenOdd body of an ETB replacement:
 	// the entry boundary already asked and recorded the answer on the entering
 	// permanent, so this invocation must not ask a second time.
