@@ -127,8 +127,14 @@ func (t *IDTable[K, V]) slot(k K) *V {
 		}
 	}
 	t.keys = append(t.keys, k)
-	var zero V
-	t.vals = append(t.vals, zero)
+	if n := len(t.vals); n < cap(t.vals) {
+		// Reuse the slot a previous fill left behind without zeroing it:
+		// the caller overwrites the whole value.
+		t.vals = t.vals[:n+1]
+	} else {
+		var zero V
+		t.vals = append(t.vals, zero)
+	}
 	t.pos[k] = int32(len(t.keys))
 	return &t.vals[len(t.vals)-1]
 }

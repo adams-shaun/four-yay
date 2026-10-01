@@ -323,7 +323,7 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 			}
 			var power, toughness int32
 			var castable, instantSpeed bool
-			if cr, seen := b.ownCreature(hasCombined, z, id); seen {
+			if cr := b.ownCreature(hasCombined, z, id); cr != nil {
 				// An own battlefield creature: the creature census above
 				// already holds its combined characteristics (keywords
 				// included, copied), so read them instead of querying the
@@ -397,7 +397,7 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 				continue
 			}
 			var power, toughness int32
-			if cr, seen := b.Creatures.Lookup(id); seen {
+			if cr := b.Creatures.Ref(id); cr != nil {
 				// The public creature census above (the ZBattlefield pass that
 				// walks every seat) already queried this object's combined
 				// characteristics; reuse them rather than querying the same
@@ -427,11 +427,11 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 // ownCreature is the creature census entry the Cards pass may reuse for id:
 // only an own battlefield card, and only when the census was filled from
 // the combined characteristics query.
-func (b *Board) ownCreature(hasCombined bool, z state.Zone, id state.ObjID) (Creature, bool) {
+func (b *Board) ownCreature(hasCombined bool, z state.Zone, id state.ObjID) *Creature {
 	if !hasCombined || z != state.ZBattlefield {
-		return Creature{}, false
+		return nil
 	}
-	return b.Creatures.Lookup(id)
+	return b.Creatures.Ref(id)
 }
 
 // canBlockLike is the policy's approximation of the engine's canBlock for
