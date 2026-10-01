@@ -199,7 +199,8 @@ func faceBlindScan(f *cards.Face) bool {
 			}
 		}
 		for k, v := range st.Params {
-			if k == "MayPlay" {
+			if k == "MayPlay" || k == "Description" {
+				// Description$ is display text: no rule reads it.
 				continue
 			}
 			if hiddenWord(k) || hiddenWord(v) || !sv.refs(v) {
