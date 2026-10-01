@@ -1294,7 +1294,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state
 			// Ordinary (unmutated) objects keep the allocation-free [2]array
 			// path above.
 			walk = triggerFacesWithMerged(o, faces[:n])
-		} else if !o.Unlocked && !e.faceTrigSig(f).admits(&ev) {
+		} else if !o.Unlocked && !e.faceTrigSig(f).admits(&ev, observer.G.Step) {
 			// The face's exact kind mask (trigger_kinds.go) rules out every
 			// printed line for this event, so the face loop below is a no-op;
 			// the granted walks after it still run, exactly as on this path

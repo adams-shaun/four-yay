@@ -48,19 +48,27 @@ import (
 type trigKinds [2]uint64
 
 // trigSig is a face's (or an object's) exact event signature: the kind mask,
-// and for the zone-change kinds the union of the From and To zones their
+// for the zone-change kinds the union of the From and To zones their
 // listening lines admit (bit z for zone z < 32; a zone at or past 32 is
-// always admitted).
+// always admitted), and the union of the steps during which a line's Phase$
+// gate (triggerMatches' phaseGate, which every mode passes through) can hold
+// -- allSteps for a line with no Phase$.
 type trigSig struct {
 	kinds  trigKinds
 	zcFrom uint32
 	zcTo   uint32
+	steps  uint16
 }
 
-var allTrigSig = trigSig{kinds: allTrigKinds, zcFrom: ^uint32(0), zcTo: ^uint32(0)}
+// allSteps marks an ungated line: it admits every step, an invalid one
+// included (phaseGate's absent-Phase$ arm). A gated line's set is a
+// state.StepSet, whose bits stay below it.
+const allSteps = ^uint16(0)
+
+var allTrigSig = trigSig{kinds: allTrigKinds, zcFrom: ^uint32(0), zcTo: ^uint32(0), steps: allSteps}
 
 func (s trigSig) or(o trigSig) trigSig {
-	return trigSig{kinds: s.kinds.or(o.kinds), zcFrom: s.zcFrom | o.zcFrom, zcTo: s.zcTo | o.zcTo}
+	return trigSig{kinds: s.kinds.or(o.kinds), zcFrom: s.zcFrom | o.zcFrom, zcTo: s.zcTo | o.zcTo, steps: s.steps | o.steps}
 }
 
 func zoneMaskHas(m uint32, z state.Zone) bool { return z >= 32 || m&(1<<z) != 0 }
@@ -98,10 +106,14 @@ func zoneChangeKind(k events.Kind) bool {
 }
 
 // admits reports whether some line behind s can pass triggerMatches' kind,
-// Origin$ and Destination$ gates for ev (an over-approximation of the
-// lines' conjunction).
-func (s trigSig) admits(ev *events.Event) bool {
+// Phase$, Origin$ and Destination$ gates for ev during step (the matching
+// engine's G.Step, which phaseGate reads) -- an over-approximation of the
+// lines' conjunction.
+func (s trigSig) admits(ev *events.Event, step state.Step) bool {
 	if !s.kinds.has(ev.Kind) {
+		return false
+	}
+	if s.steps != allSteps && !state.StepSet(s.steps).Has(step) {
 		return false
 	}
 	if zoneChangeKind(ev.Kind) {
@@ -120,10 +132,16 @@ var zoneChangeKindsMask = func() trigKinds {
 
 // lineTrigSig is one trigger line's signature (valid: see computeFaceTrigSig).
 func lineTrigSig(t *cards.Trigger, valid func(string) bool) trigSig {
-	if spec := t.ParamStr(cards.PKPhase); strings.TrimSpace(spec) != "" && !valid(spec) {
-		return allTrigSig
+	sig := trigSig{steps: allSteps}
+	if spec := t.ParamStr(cards.PKPhase); strings.TrimSpace(spec) != "" {
+		if !valid(spec) {
+			return allTrigSig
+		}
+		// phaseGate: a valid spec holds only while G.Step is in its set
+		// (narrowed further by PhaseCount$ and the first-strike mapping).
+		sig.steps = uint16(parsePhaseSpec(spec).set)
 	}
-	sig := trigSig{kinds: modeTrigKinds(t.Mode)}
+	sig.kinds = modeTrigKinds(t.Mode)
 	if sig.kinds[0]&zoneChangeKindsMask[0] == 0 && sig.kinds[1]&zoneChangeKindsMask[1] == 0 {
 		return sig
 	}

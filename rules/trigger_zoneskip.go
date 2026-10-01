@@ -473,7 +473,7 @@ func (e *Engine) forEachTriggerObject(ev events.Event, skip, kindOnly bool, fn f
 	planHeld := kindOnly && e.trigPlanHolds()
 	if planHeld {
 		e.trigWalkUnion, e.trigWalkUnionOK = e.trigPlan.union, true
-		if trigNoReferent(&ev) && !e.trigPlan.union.admits(&ev) &&
+		if trigNoReferent(&ev) && !e.trigPlan.union.admits(&ev, e.G.Step) &&
 			!(ev.Kind == events.StepChange && e.stepWalksBattlefield()) {
 			if verify == nil {
 				return
@@ -593,7 +593,7 @@ func (e *Engine) forEachTriggerObject(ev events.Event, skip, kindOnly bool, fn f
 				hotIDs, hotSigs := e.trigZoneHotIDs(p, slot)
 				if verify == nil {
 					for i, id := range hotIDs {
-						if !kindOnly || hotSigs[i].admits(&ev) {
+						if !kindOnly || hotSigs[i].admits(&ev, e.G.Step) {
 							fn(id)
 						}
 					}
@@ -646,7 +646,7 @@ func (e *Engine) trigHotMerge(buf []state.ObjID, ev events.Event, cur, hotIDs []
 		for _, id := range buf {
 			sel := false
 			if j < len(hotIDs) && hotIDs[j] == id {
-				sel = !kindOnly || hotSigs[j].admits(&ev)
+				sel = !kindOnly || hotSigs[j].admits(&ev, e.G.Step)
 				j++
 			}
 			if sel || trigMustVisit(ev, id) || (step && e.stepGrantMay(id)) {
@@ -661,7 +661,7 @@ func (e *Engine) trigHotMerge(buf []state.ObjID, ev events.Event, cur, hotIDs []
 	j := 0
 	for _, id := range cur {
 		if j < len(hotIDs) && hotIDs[j] == id {
-			if !kindOnly || hotSigs[j].admits(&ev) || trigMustVisit(ev, id) || (step && e.stepGrantMay(id)) {
+			if !kindOnly || hotSigs[j].admits(&ev, e.G.Step) || trigMustVisit(ev, id) || (step && e.stepGrantMay(id)) {
 				buf = append(buf, id)
 			}
 			j++
