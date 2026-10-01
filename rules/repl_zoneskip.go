@@ -46,7 +46,10 @@ var replZoneSkipVerify = derivedMemoVerifyFlag != "" || replZoneSkipVerifyFlag !
 const replZoneCount = int(state.ZStack) + 1
 
 type replZoneSummary struct {
-	ids    []state.ObjID
+	ids []state.ObjID
+	// live is the list header last confirmed (see sameZoneList), held so its
+	// array cannot be recycled while the summary names it.
+	live   []state.ObjID
 	hotIDs []state.ObjID
 	epoch  int
 	valid  bool
@@ -78,8 +81,21 @@ func (e *Engine) replZoneTouch(id state.ObjID) {
 	if o == nil || int(o.Zone) >= replZoneCount {
 		return
 	}
+	// An in-place write can change only the touched object's own class, so a
+	// summary that already records that class (hot exactly when listed in
+	// hotIDs) stays exact; a list change is caught by the list comparison.
+	hot, classified := false, false
 	for i := int(o.Zone); i < len(e.replZones); i += replZoneCount {
-		e.replZones[i].valid = false
+		z := &e.replZones[i]
+		if !z.valid {
+			continue
+		}
+		if !classified {
+			hot, classified = objectReplHot(o), true
+		}
+		if hot != slices.Contains(z.hotIDs, id) {
+			z.valid = false
+		}
 	}
 }
 
@@ -97,7 +113,8 @@ func (e *Engine) replZonesCatchUp() {
 		e.replZonesEp = n
 		return
 	}
-	for _, ev := range e.L.Events[e.replZonesEp:] {
+	for i := e.replZonesEp; i < n; i++ {
+		ev := &e.L.Events[i]
 		e.replZoneTouch(ev.Obj)
 		for _, id := range ev.IDs {
 			e.replZoneTouch(id)
@@ -120,6 +137,14 @@ func (e *Engine) replZoneHot(p state.PlayerID, z state.Zone, cur []state.ObjID) 
 	}
 	s := &e.replZones[i]
 	n := len(e.L.Events)
+	if s.valid && sameZoneList(s.live, cur) {
+		if replZoneSkipVerify && !slices.Equal(s.ids, cur) {
+			panic(fmt.Sprintf("rules: replacement zone summary (seat %d, zone %v) kept its header but the list changed in place", p, z))
+		}
+		s.epoch = n
+		return s.hotIDs
+	}
+	s.live = cur
 	if s.valid && len(cur) > len(s.ids) && s.epoch > 0 && s.epoch <= n && z == state.ZBattlefield {
 		// TokenCreate appends exactly one object to the event player's
 		// battlefield and names no Obj referent. The event suffix therefore
@@ -127,8 +152,8 @@ func (e *Engine) replZoneHot(p state.PlayerID, z state.Zone, cur []state.ObjID) 
 		// thousands of IDs; classify only the newly appended tail.
 		creates := 0
 		appendOnly := true
-		for _, ev := range e.L.Events[s.epoch:] {
-			if ev.Kind != events.TokenCreate || ev.Player != p {
+		for j := s.epoch; j < n; j++ {
+			if ev := &e.L.Events[j]; ev.Kind != events.TokenCreate || ev.Player != p {
 				appendOnly = false
 				break
 			}
