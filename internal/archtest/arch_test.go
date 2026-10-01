@@ -105,7 +105,9 @@ func set(s string) map[string]bool {
 // cmd/sbagent (the SpellBench v2 agent) reads it to report each shadow
 // policy decision's wall milliseconds in its -stats line and for the
 // search's per-decision clock guard (counted when it fires); cmd/sbv2local
-// (the in-process v2 runner) only reports latency. host/manabrewhttp uses
+// (the in-process v2 runner) only reports latency. cmd/enginebench (the
+// docs/015 engine-speed rows) reads it only to report each row's elapsed
+// wall time beside its CPU time; every game and seed is fixed by its flags. host/manabrewhttp uses
 // time only for SSE keep-alive and write deadlines. No game, event, view or
 // replay reads the clock, and intents reach the engine only through
 // SubmitIntent.
@@ -128,6 +130,7 @@ func TestTimeIsImportedOnlyByTheHost(t *testing.T) {
 		module + "/cmd/kshadowcheck":  true,
 		module + "/cmd/sbagent":       true,
 		module + "/cmd/sbv2local":     true,
+		module + "/cmd/enginebench":   true,
 		module + "/host/manabrewhttp": true,
 	}
 	for path, p := range packages(t) {

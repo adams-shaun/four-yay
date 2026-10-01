@@ -64,6 +64,7 @@ The import direction is one-way. `internal/archtest`'s
 | `traindash` | Read-only training dashboard over `/mnt/sata/gorge-training` (`make traindash`). |
 | `testtime` / `gcgate` / `allocgate` | Test wall-time, GC-share and allocation/RSS budgets (`TEST_HISTORY.md`, `ALLOC_HISTORY.md`). |
 | `gentypes` | Regenerates `web/src/protocol.ts` (`make gentypes`; `-check` in lint). |
+| `enginebench` | The draft-zero docs/015 engine-speed rows (random/bot play, Clone, one step, search rates); builds at a4af596 too. Results: `docs/superpowers/reports/2026-09-30-gorge-engine-speed.md`. |
 | `deckimport` | Plain-text decklist → repo deck JSON. |
 | `ledger` | Rebuilds the derived issue ledger (`.ds4/ledger.json`). |
 | `keywordbench` / `oraclepacket` / `autopayaudit` / `paymirror` | Keyword presence stats / Oracle text for audit authors (write to a gitignored path) / auto-pay audit (`-tags autopayaudit`) / payment A/B CLI. |
