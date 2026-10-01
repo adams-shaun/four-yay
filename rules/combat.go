@@ -1123,7 +1123,10 @@ func (e *Engine) validateAttackers(d *decision.Decision, in decision.Intent) err
 	// tap/sac/return obligation met by distinct permanents with the
 	// declaration's own attackers set aside.
 	var declaredCharge blockCharge
-	for _, o := range d.Chosen(in) {
+	// The chosen options, resolved once for every read below
+	// (validateAttackDeclaration's included).
+	chosen := d.Chosen(in)
+	for _, o := range chosen {
 		if !e.canAttackPair(o.Obj, o.Player) {
 			return fmt.Errorf("object %d cannot attack", o.Obj)
 		}
@@ -1171,11 +1174,11 @@ func (e *Engine) validateAttackers(d *decision.Decision, in decision.Intent) err
 	// unpriceable FREE charge. Naming the mana and the fail-closed flag keeps
 	// the diagnostic from hiding the real component again.
 	if !declaredCharge.zero() &&
-		!e.combatChargeAffordable(d.Player, declaredCharge, chosenAttackers(d.Chosen(in)), chosenAttackers(d.Chosen(in))) {
+		!e.combatChargeAffordable(d.Player, declaredCharge, chosenAttackers(chosen), chosenAttackers(chosen)) {
 		return fmt.Errorf("declaration's attack cost (%d mana, %d life, %d taps, %d sacrifices, %d returns, %d Phyrexian, unpriceable=%t) is not payable",
 			declaredCharge.mana, declaredCharge.life, len(declaredCharge.taps), len(declaredCharge.sacs), len(declaredCharge.returns), len(declaredCharge.phyrexian), declaredCharge.unpriceable)
 	}
-	return e.validateAttackDeclaration(d, in)
+	return e.validateAttackDeclarationChosen(d, in, chosen)
 }
 
 // mustAttackRequired reports whether id is a creature that must attack this
@@ -1491,7 +1494,12 @@ func (e *Engine) maxAttackers() int {
 // ceiling. When no requirement and no restriction is in force (the ordinary
 // game), the checks are inert.
 func (e *Engine) validateAttackDeclaration(d *decision.Decision, in decision.Intent) error {
-	chosen := d.Chosen(in)
+	return e.validateAttackDeclarationChosen(d, in, d.Chosen(in))
+}
+
+// validateAttackDeclarationChosen is validateAttackDeclaration over
+// chosen = d.Chosen(in), already resolved by the caller (validateAttackers).
+func (e *Engine) validateAttackDeclarationChosen(d *decision.Decision, in decision.Intent, chosen []decision.Option) error {
 	maxAllowed := e.maxAttackers()
 	// CR 508.1d: the declaration must include as many required creatures as
 	// possible. The options carry the requirement (Option.Required, set from
