@@ -263,3 +263,16 @@ func (e *Engine) verifyReplZoneSkip(cur, hot []state.ObjID) {
 func (s *replZoneSummary) resetSummary() {
 	*s = replZoneSummary{ids: s.ids[:0], hotIDs: s.hotIDs[:0]}
 }
+
+// copyReplZones is copyTrigZones for the replacement-source summaries; the
+// TokenCreate append path's epoch is the parent's, over the same log.
+func copyReplZones(dst, src []replZoneSummary) []replZoneSummary {
+	dst = growZoneSummaries(dst[:0], len(src))
+	for i := range src {
+		d, s := &dst[i], &src[i]
+		d.ids = append(d.ids[:0], s.ids...)
+		d.hotIDs = append(d.hotIDs[:0], s.hotIDs...)
+		d.live, d.epoch, d.valid = d.ids, s.epoch, s.valid
+	}
+	return dst
+}

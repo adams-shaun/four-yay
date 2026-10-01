@@ -433,7 +433,10 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	}
 	// The emit path's working storage, recycled from a spent engine (genesis
 	// Release): zone summaries arrive all invalid, the list arrays empty.
-	c.trigZones, c.replZones = sp.trigZones, sp.replZones
+	// The zone summaries are carried (copied into the recycled tables) with
+	// their catch-up positions: same board, same log, same obligations.
+	c.trigZones, c.trigZonesEp = copyTrigZones(sp.trigZones, e.trigZones), e.trigZonesEp
+	c.replZones, c.replZonesEp = copyReplZones(sp.replZones, e.replZones), e.replZonesEp
 	c.activeBuf, c.activeBufAlt = sp.activeBuf, sp.activeBufAlt
 	if e.triggerContexts != nil {
 		c.triggerContexts = make(map[state.ObjID]effects.TriggerContext, len(e.triggerContexts))

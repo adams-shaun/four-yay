@@ -289,6 +289,12 @@ func (e *Engine) trigZonesCatchUp() {
 		e.trigZonesEp = n
 		return
 	}
+	if len(e.trigZones) == 0 {
+		// Nothing summarized yet (a fresh engine, or a clone of one that
+		// had no summaries): nothing to drop, so skip the whole history.
+		e.trigZonesEp = n
+		return
+	}
 	for i := e.trigZonesEp; i < n; i++ {
 		ev := &e.L.Events[i]
 		e.trigZoneTouch(ev.Obj)
@@ -634,4 +640,22 @@ func growZoneSummaries[S any, PS interface {
 
 func (s *trigZoneSummary) resetSummary() {
 	*s = trigZoneSummary{ids: s.ids[:0], hotIDs: s.hotIDs[:0], anyIDs: s.anyIDs[:0]}
+}
+
+// copyTrigZones copies a parent engine's summaries into a clone's
+// (recycled) table: the clone's board and log are the parent's at the clone
+// boundary, so each summary describes the clone's same-content list. Its
+// recorded header is the copy's own id array, which no zone list shares, so
+// the clone's first look compares contents (an empty list matches an empty
+// summary, correctly) and then records its own header.
+func copyTrigZones(dst, src []trigZoneSummary) []trigZoneSummary {
+	dst = growZoneSummaries(dst[:0], len(src))
+	for i := range src {
+		d, s := &dst[i], &src[i]
+		d.ids = append(d.ids[:0], s.ids...)
+		d.hotIDs = append(d.hotIDs[:0], s.hotIDs...)
+		d.anyIDs = append(d.anyIDs[:0], s.anyIDs...)
+		d.live, d.hot, d.valid = d.ids, s.hot, s.valid
+	}
+	return dst
 }
