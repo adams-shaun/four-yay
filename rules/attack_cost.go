@@ -29,6 +29,7 @@ package rules
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -1454,6 +1455,57 @@ type attackOfferKey struct {
 // so both defenders stay offered and the controller picks; when they name the
 // same defender that defender is uniquely maximal.
 func (e *Engine) attackOffers() []attackOffer {
+	// One derivation per log head: mustAttackRequired's per-creature duty
+	// checks re-derive the list at the head askAttackers derived it.
+	if e.L != nil && e.atkOffersEp > 0 && e.atkOffersEp == len(e.L.Events) && e.atkOffersKeyHolds() {
+		return e.attackOffersReused()
+	}
+	return e.attackOffersStore()
+}
+
+// attackOffersPosed is attackOffers for validateAttackers' answer check:
+// askAttackers derived the list at the log head it posed d (d.Seq), and only
+// d's own DecisionAsk and the answer's DecisionMade -- priority bookkeeping
+// that writes nothing the list reads (layercache.go) -- can have been logged
+// since, so that list is reused rather than re-derived from the same board.
+func (e *Engine) attackOffersPosed(d *decision.Decision) []attackOffer {
+	if e.L != nil && e.atkOffersEp > 0 && e.atkOffersEp == int(d.Seq) && e.atkOffersKeyHolds() &&
+		e.layerInertSince(e.atkOffersEp) {
+		return e.attackOffersReused()
+	}
+	return e.attackOffersStore()
+}
+
+// atkOffersKeyHolds compares the stored list's non-log key.
+func (e *Engine) atkOffersKeyHolds() bool {
+	return e.atkOffersVer == e.continuousVersion && e.atkOffersObjs == len(e.G.Objs) && e.atkOffersActive == e.G.Active
+}
+
+// attackOffersReused returns the stored list; layerInertVerify recomputes it
+// and panics on a difference. Callers never mutate the list.
+func (e *Engine) attackOffersReused() []attackOffer {
+	if layerInertVerify {
+		if fresh := e.attackOffersCompute(); !reflect.DeepEqual(fresh, e.atkOffers) {
+			panic(fmt.Sprintf("rules: reused attack offer list at log %d (derived at %d) disagrees with a rebuild (%d vs %d offers)",
+				len(e.L.Events), e.atkOffersEp, len(e.atkOffers), len(fresh)))
+		}
+	}
+	return e.atkOffers
+}
+
+// attackOffersStore derives the list and stores it with its key. A fresh
+// slice every time, so a list a caller still holds is never overwritten.
+func (e *Engine) attackOffersStore() []attackOffer {
+	out := e.attackOffersCompute()
+	if e.L != nil {
+		e.atkOffers, e.atkOffersEp = out, len(e.L.Events)
+		e.atkOffersVer, e.atkOffersObjs, e.atkOffersActive = e.continuousVersion, len(e.G.Objs), e.G.Active
+	}
+	return out
+}
+
+// attackOffersCompute is attackOffers' derivation.
+func (e *Engine) attackOffersCompute() []attackOffer {
 	// A pure read (askAttackers and validateAttackers both re-derive it), so
 	// one Derived memo scope serves every per-creature requirement, goad and
 	// restriction static read from the walk cache (rules/walkcache.go): each

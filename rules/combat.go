@@ -1106,7 +1106,7 @@ func (e *Engine) validateAttackers(d *decision.Decision, in decision.Intent) err
 	// attack-prop budget serialization are properties of the OFFER LIST, and
 	// re-deriving it here (the same pure read askAttackers ran) keeps a
 	// hand-built intent from naming a pair the budget ran out on.
-	offers := e.attackOffers()
+	offers := e.attackOffersPosed(d)
 	offered := make(map[attackOfferKey]blockCharge, 8)
 	for _, of := range offers {
 		offered[attackOfferKey{id: of.id, def: of.def, battle: of.battle}] = of.charge

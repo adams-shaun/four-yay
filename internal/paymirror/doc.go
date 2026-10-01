@@ -172,6 +172,8 @@
 //	renameObjs, renameDSeq,            the rename table's cache keys (the renames/* class)
 //	renameBFSeq
 //	trigZeroNoopEp/Objs/Ver            checkFaceTriggers' zero-interest no-op memo key
+//	atkOffers, atkOffersEp/Ver/       attackOffers' layer-inert reuse: the last list and its key
+//	Objs/Active
 //	snapPool, lookBack, lookBackOwner, recycled storage one engine owns (snapshot arenas, the
 //	lookBackBusy, decArena,            look-back observer Engine, the decision arena, the entry
 //	preview, previewOwner/Busy         preview Engine): capacity,

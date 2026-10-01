@@ -258,6 +258,13 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "trigZeroNoopObjs"}:  true,
 	{"rules.Engine", "trigZeroNoopVer"}:   true,
 	{"rules.Engine", "trigZeroNoopKinds"}: true,
+	// attackOffers' layer-inert reuse (attack_cost.go): the last offer list
+	// and its key; Clone leaves them zero.
+	{"rules.Engine", "atkOffers"}:       true,
+	{"rules.Engine", "atkOffersEp"}:     true,
+	{"rules.Engine", "atkOffersVer"}:    true,
+	{"rules.Engine", "atkOffersObjs"}:   true,
+	{"rules.Engine", "atkOffersActive"}: true,
 	// Recycled storage owned by one engine: the trigger-window snapshot
 	// pool (trigger_snapshot_pool.go), the reusable look-back observer
 	// Engine and its owner/busy guard (checkTriggers), and the posed-decision

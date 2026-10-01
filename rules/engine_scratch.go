@@ -207,6 +207,15 @@ type engineScratch struct {
 	trigZeroNoopEp   int
 	trigZeroNoopObjs int
 	trigZeroNoopVer  int
+	// atkOffers is attackOffers' last list and atkOffersEp/Ver/Objs/Active
+	// its key (log length -- 0: none --, registry version, arena size,
+	// active player); reused across a layer-inert run. Clone leaves it zero.
+	atkOffers       []attackOffer
+	atkOffersEp     int
+	atkOffersVer    int
+	atkOffersObjs   int
+	atkOffersActive state.PlayerID
+
 	// trigZeroNoopKinds is the set of event kinds the memo holds: the walk
 	// is narrowed per kind (trigger_kinds.go), so an empty walk for one
 	// zero-interest kind says nothing about another.
