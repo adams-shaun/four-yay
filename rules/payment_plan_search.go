@@ -744,8 +744,16 @@ func (e *Engine) buildPaymentZoneSeqIndex() *paymentZoneSeqIndex {
 func (x *paymentZoneSeqIndex) build(e *Engine) {
 	x.built = true
 	n := len(e.G.Objs)
-	x.ans = make([]paymentZoneSeqAnswer, n+1)
-	resolved := make([]bool, n+1)
+	// The answer and resolved arrays come from e's scratch (hypclone.go):
+	// at most one index over e's log is valid at a time (a scope is made
+	// only when the enclosing one went stale, and the log only grows), and
+	// a stale index never reads its answers (lookup checks valid first), so
+	// a newer index may take over the arrays a stale one was built in.
+	pl := e.hypPool()
+	pl.zoneSeqAns = resizeCleared(pl.zoneSeqAns, n+1)
+	pl.zoneSeqResolved = resizeCleared(pl.zoneSeqResolved, n+1)
+	x.ans = pl.zoneSeqAns
+	resolved := pl.zoneSeqResolved
 	pending := 0
 	for _, pl := range e.G.Players {
 		for _, id := range e.G.Zone(state.ZBattlefield, pl.ID) {

@@ -3,6 +3,7 @@ package rules
 import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/state"
 )
 
 // Hypothetical clones: the throwaway engines a pure read builds to try a
@@ -28,6 +29,10 @@ type hypSparePool struct {
 	// planSearch is the payment-plan search's working storage
 	// (payment_plan_search.go).
 	planSearch paymentPlanSearchScratch
+	// zoneSeqAns / zoneSeqResolved back the payment query's zone-entry
+	// index (paymentZoneSeqIndex.build).
+	zoneSeqAns      []paymentZoneSeqAnswer
+	zoneSeqResolved []bool
 }
 
 // hypPool is e's own pool, created on first use.
@@ -52,6 +57,11 @@ func (e *Engine) hypClone(c *Engine) *Engine {
 	if need := len(c.L.Events) + hypLogSlack; cap(sp.events) < need {
 		sp.events = make([]events.Event, 0, need+len(c.L.Events)/2)
 	}
+	// Likewise the object arena (Game.CloneInto needs the objects plus its
+	// small minting headroom; a fresh array is zero, as a released one is).
+	if need := len(c.G.Objs) + hypObjSlack; cap(sp.objs) < need {
+		sp.objs = make([]state.Object, 0, need+len(c.G.Objs)/2)
+	}
 	return c.CloneInto(&sp)
 }
 
@@ -59,6 +69,10 @@ func (e *Engine) hypClone(c *Engine) *Engine {
 // parent's history; it is at least events' fork slack (256), so CloneInto
 // always takes the array.
 const hypLogSlack = 512
+
+// hypObjSlack is the objects a hypothetical clone's arena holds past its
+// parent's; at least state's clone headroom (8).
+const hypObjSlack = 32
 
 // hypTake pops a Spare from e's pool (the zero Spare when it is empty).
 func (e *Engine) hypTake() Spare {

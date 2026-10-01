@@ -96,7 +96,6 @@ type scriptSearch struct {
 	limited   bool // the budget ran out
 	approx    bool // a branch assumed an answer it did not enumerate
 	seen      map[string]bool
-	spare     Spare
 	path      []ScriptStep
 	// pool is the live engine whose hypothetical-clone pool backs the
 	// search's nested witness checks (hypclone.go); set by run.
@@ -115,12 +114,9 @@ func (e *Engine) newScriptSearch(p state.PlayerID, a decision.PotentialAction, a
 // when the play is already payable at the root).
 func (sr *scriptSearch) run(e *Engine) ([]ScriptStep, bool) {
 	sr.pool = e
-	sr.spare = e.hypTake()
 	root := e.hypClone(e)
 	found := sr.visit(root, 0, false)
 	e.hypRelease(root)
-	e.hypPut(sr.spare)
-	sr.spare = Spare{}
 	if !found {
 		return nil, false
 	}
@@ -162,16 +158,18 @@ func (sr *scriptSearch) priced(c *Engine) bool {
 // records that the path activated an uncovered source (or let the stack
 // resolve): only then can the planner's verdict differ from the root's.
 func (sr *scriptSearch) try(c *Engine, d *decision.Decision, in decision.Intent, funded int, gapUsed bool) bool {
-	child := c.CloneInto(&sr.spare)
+	child := sr.pool.hypClone(c)
+	found := false
 	if child.Submit(in) == nil {
 		sr.path = append(sr.path, scriptStepOf(d, in))
-		if sr.visit(child, funded, gapUsed) {
-			return true
+		if found = sr.visit(child, funded, gapUsed); !found {
+			sr.path = sr.path[:len(sr.path)-1]
 		}
-		sr.path = sr.path[:len(sr.path)-1]
 	}
-	sr.spare = child.Release()
-	return false
+	// The path holds plain values (scriptStepOf), so the clone is dead
+	// either way.
+	sr.pool.hypRelease(child)
+	return found
 }
 
 func (sr *scriptSearch) visit(c *Engine, funded int, gapUsed bool) bool {
