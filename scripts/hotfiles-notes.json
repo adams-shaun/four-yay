@@ -72,5 +72,17 @@
       "rules/genesis.go"
     ],
     "note": "engine construction: the CPU-perf workstream pools engine internals through `Spare` (`Release`/adopt in `newWithRNG`) and the searchbench workstream carves staged-construction entry points out of the same `newWithRNG` \u2014 different concerns inside one function, so no file split is honest while either branch is live (a split moves the exact lines the other is editing). Keep construction changes small and land the branches in sequence"
+  },
+  {
+    "files": [
+      "internal/azmcts/candidates.go"
+    ],
+    "note": "candidate enumeration plumbing: the CPU-perf workstream threads a reusable board scratch (`boardScratch`/`enumerateWhyInto`/`worthOptionsInto`) and the searchbench workstream threads payment candidates (`enumerateWhyAutoPayment`/`enumerateCut`/`enumerateLimit`) through the SAME function \u2014 both rewrite `enumerateWhy`'s head in place with a different wrapper chain and both edit its body (measured 2026-10-01), an intra-function collision no file split can separate. Land the branches in sequence; do not restructure the enumeration head while either is live"
+  },
+  {
+    "files": [
+      "internal/searchprobe/observation.go"
+    ],
+    "note": "the observation capture path: the CPU-perf workstream rewrites `NewCollector`/`Capture`/`capture` wholesale, while the searchbench workstream's whole footprint there is one 5-line accessor (`Introduced()`) inserted at the stable `clone()`/`Capture` anchor \u2014 adjacent, line-disjoint (measured 2026-10-01); only the per-file hotspot granularity flags it. Keep searchbench additions to self-contained accessors at stable anchors and the pair merges clean on rebase"
   }
 ]

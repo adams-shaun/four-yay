@@ -1,0 +1,30 @@
+{
+  "card": "Vilis, Broker of Blood",
+  "family": "triggered-ability",
+  "oracle_sha": "4f7efb911fb5",
+  "author": "agent-20261001T013350Z-8c8ab1ef (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "life-op-losing-2-life-draws-2",
+      "cr": ["603.2", "118.2", "119.3"],
+      "why": "Vilis triggers on its controller losing life (\"Whenever you lose life, draw that many cards\"). The harness \"life\" op emits a real logged LifeChange, so a -2 to p0 queues the trigger; it must then be resolved before the draw is visible, and TriggerCount$LifeAmount binds X=2, drawing two.",
+      "setup": {
+        "p0": {"battlefield": ["Vilis, Broker of Blood"], "library": ["Island", "Island", "Island"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "life", "seat": 0, "amount": -2,
+         "expect": [
+           {"trigger_on_stack": "p0:Vilis, Broker of Blood", "want": true},
+           {"life": {"p0": 18}},
+           {"hand_size": {"p0": 0}}
+         ]},
+        {"op": "resolve",
+         "expect": [
+           {"hand_size": {"p0": 2}},
+           {"life": {"p0": 18}}
+         ]}
+      ]
+    }
+  ]
+}

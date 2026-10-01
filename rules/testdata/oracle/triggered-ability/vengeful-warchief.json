@@ -1,0 +1,30 @@
+{
+  "card": "Vengeful Warchief",
+  "family": "triggered-ability",
+  "oracle_sha": "319c49a61c7a",
+  "author": "agent-20261001T013350Z-8c8ab1ef (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "life-op-first-life-loss-adds-counter",
+      "cr": ["603.2", "118.2", "119.3"],
+      "why": "Vengeful Warchief triggers the first time its controller loses life each turn (\"Whenever you lose life for the first time each turn\"). The harness \"life\" op emits a real logged LifeChange, so a -1 to p0 queues the trigger; resolving it puts one +1/+1 counter on the Warchief.",
+      "setup": {
+        "p0": {"battlefield": ["Vengeful Warchief"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "life", "seat": 0, "amount": -1,
+         "expect": [
+           {"trigger_on_stack": "p0:Vengeful Warchief", "want": true},
+           {"life": {"p0": 19}},
+           {"card": "p0:Vengeful Warchief", "counters": {"+1/+1": 0}}
+         ]},
+        {"op": "resolve",
+         "expect": [
+           {"card": "p0:Vengeful Warchief", "counters": {"+1/+1": 1}, "pt": "5/5"},
+           {"life": {"p0": 19}}
+         ]}
+      ]
+    }
+  ]
+}
