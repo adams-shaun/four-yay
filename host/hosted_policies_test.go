@@ -111,6 +111,12 @@ func TestEveryHostedPolicyIsDeterministic(t *testing.T) {
 				// the corpus-hungry entries exactly as the host threads them
 				// (a policy whose factory needs one cannot dodge the gate).
 				opts.BotDeps = sampleBotDeps(t)
+				// The gate compares two runs of one seed byte-for-byte; arming the
+				// hosted wall-clock budget under it makes a deadline bail-out answer
+				// from the non-searched fallback in one run and not the other, which
+				// is load, not seed (BP-07 §7 rejected a wall-clock budget for
+				// exactly this reason). Zero budget = unbounded, byte-identical.
+				opts.BotUnboundedDecisions = true
 				if e.Search {
 					// Parallelism changes latency only, never an answer
 					// (searchseat.Options.Parallelism); 4 keeps the run short.
