@@ -1899,11 +1899,7 @@ func (e *Engine) askTriggerOrder(p state.PlayerID, n int) {
 func (e *Engine) handleTriggerOrder(d *decision.Decision, in decision.Intent) {
 	if e.frontIsTheOfferedGroup(d) {
 		n := len(d.Options)
-		perm := make([]pendingTrigger, 0, n)
-		for _, c := range in.Choices {
-			perm = append(perm, e.pendingTriggers[c])
-		}
-		copy(e.pendingTriggers, perm)
+		permuteTriggersInPlace(e.pendingTriggers[:n], in.Choices)
 		e.orderedTriggers = n
 	} else if len(e.pendingTriggers) > 0 {
 		// Defensive, and believed unreachable: nothing between ask and answer
@@ -1914,6 +1910,39 @@ func (e *Engine) handleTriggerOrder(d *decision.Decision, in decision.Intent) {
 		e.orderedTriggers = 1
 	}
 	e.resumeTriggerDrain()
+}
+
+// permuteTriggersInPlace rewrites q so that q[k] is the entry formerly at
+// q[choices[k]], for choices a permutation of [0, len(q)) -- what copying
+// q[choices[0]], q[choices[1]], ... into a fresh slice and back did, without
+// the fresh slice (a pendingTrigger carries a whole effects.Ctx by value).
+// Each cycle of the permutation is rotated through one held entry.
+func permuteTriggersInPlace(q []pendingTrigger, choices []int) {
+	var doneBuf [64]bool
+	done := doneBuf[:0]
+	if len(q) <= len(doneBuf) {
+		done = doneBuf[:len(q)]
+	} else {
+		done = make([]bool, len(q))
+	}
+	for k := range q {
+		if done[k] || choices[k] == k {
+			done[k] = true
+			continue
+		}
+		held := q[k]
+		j := k
+		for {
+			done[j] = true
+			src := choices[j]
+			if src == k {
+				q[j] = held
+				break
+			}
+			q[j] = q[src]
+			j = src
+		}
+	}
 }
 
 // frontIsTheOfferedGroup rechecks that the queue still starts with exactly the
