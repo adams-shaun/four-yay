@@ -9,6 +9,13 @@ its **offline** (heuristic-leaf) arms throughout: we have no network arm. Plan a
 `docs/superpowers/plans/2026-09-30-searchbench-replication.md` (branch `wt/sbrep`). Code:
 `wt/sbrep-fast` at `408fb9dcc`.*
 
+> **Engine version.** Every number here was produced by `wt/sbrep-fast` (searchbench binary built at
+> 707711116; the grid ran 2026-09-30/10-01) on an engine branched from `main` at a8f1c2f25. When
+> the branch was merged into `main` on 2026-10-01, 198 newer engine commits (card and rules fixes)
+> came with it. Re-running the first 200 test items at 100 simulations on the merged engine changed
+> 4–6% of rows for clairvoyant/PIMC and 25% for IS-MCTS (`searchbench run -limit 200`, compared
+> with `cmp.py`). A full rerun on the merged engine is needed before these tables describe `main`.
+
 ## The question
 
 Docs/016 asks how much tree search helps a Magic limited agent and which kind works best, and
