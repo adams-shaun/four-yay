@@ -29,6 +29,7 @@ package rules
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -163,7 +164,8 @@ func (e *Engine) attackPairCharge(id state.ObjID, defender state.PlayerID, attac
 		}
 		total = total.plus(ch)
 	}
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.Restriction != "CantAttackUnless" {
 			continue
 		}
@@ -408,7 +410,8 @@ func (e *Engine) blockPairCharge(blocker, attacker state.ObjID) blockCharge {
 			total.unpriceable = true
 		}
 	}
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.Restriction != "CantBlockUnless" {
 			continue
 		}
@@ -1319,6 +1322,23 @@ func (e *Engine) attackBudget(p state.PlayerID) int32 {
 	return total
 }
 
+// attackBudgetUnits is attackBudget and attackSourceUnits from one
+// attackSourceUnits walk (attackBudget sums exactly that map), taken only
+// when the declaration carries a mana tax (taxed): without one, every
+// option's budget Value is its zero mana price, so neither is read.
+func (e *Engine) attackBudgetUnits(p state.PlayerID, taxed bool) (int32, map[state.ObjID]int32) {
+	if !taxed {
+		return 0, nil
+	}
+	units := e.attackSourceUnits(p)
+	total := e.G.Players[p].Pool.Total()
+	// Order-independent integer sum (attackBudget's own argument).
+	for _, n := range units {
+		total += n
+	}
+	return total, units
+}
+
 // attackSourceUnits returns, per mana-source Obj, the maximum units that
 // source contributes to attackBudget -- the max over its priceable
 // alternatives, exactly the per-source term attackBudget sums. A creature
@@ -1435,6 +1455,57 @@ type attackOfferKey struct {
 // so both defenders stay offered and the controller picks; when they name the
 // same defender that defender is uniquely maximal.
 func (e *Engine) attackOffers() []attackOffer {
+	// One derivation per log head: mustAttackRequired's per-creature duty
+	// checks re-derive the list at the head askAttackers derived it.
+	if e.L != nil && e.atkOffersEp > 0 && e.atkOffersEp == len(e.L.Events) && e.atkOffersKeyHolds() {
+		return e.attackOffersReused()
+	}
+	return e.attackOffersStore()
+}
+
+// attackOffersPosed is attackOffers for validateAttackers' answer check:
+// askAttackers derived the list at the log head it posed d (d.Seq), and only
+// d's own DecisionAsk and the answer's DecisionMade -- priority bookkeeping
+// that writes nothing the list reads (layercache.go) -- can have been logged
+// since, so that list is reused rather than re-derived from the same board.
+func (e *Engine) attackOffersPosed(d *decision.Decision) []attackOffer {
+	if e.L != nil && e.atkOffersEp > 0 && e.atkOffersEp == int(d.Seq) && e.atkOffersKeyHolds() &&
+		e.layerInertSince(e.atkOffersEp) {
+		return e.attackOffersReused()
+	}
+	return e.attackOffersStore()
+}
+
+// atkOffersKeyHolds compares the stored list's non-log key.
+func (e *Engine) atkOffersKeyHolds() bool {
+	return e.atkOffersVer == e.continuousVersion && e.atkOffersObjs == len(e.G.Objs) && e.atkOffersActive == e.G.Active
+}
+
+// attackOffersReused returns the stored list; layerInertVerify recomputes it
+// and panics on a difference. Callers never mutate the list.
+func (e *Engine) attackOffersReused() []attackOffer {
+	if layerInertVerify {
+		if fresh := e.attackOffersCompute(); !reflect.DeepEqual(fresh, e.atkOffers) {
+			panic(fmt.Sprintf("rules: reused attack offer list at log %d (derived at %d) disagrees with a rebuild (%d vs %d offers)",
+				len(e.L.Events), e.atkOffersEp, len(e.atkOffers), len(fresh)))
+		}
+	}
+	return e.atkOffers
+}
+
+// attackOffersStore derives the list and stores it with its key. A fresh
+// slice every time, so a list a caller still holds is never overwritten.
+func (e *Engine) attackOffersStore() []attackOffer {
+	out := e.attackOffersCompute()
+	if e.L != nil {
+		e.atkOffers, e.atkOffersEp = out, len(e.L.Events)
+		e.atkOffersVer, e.atkOffersObjs, e.atkOffersActive = e.continuousVersion, len(e.G.Objs), e.G.Active
+	}
+	return out
+}
+
+// attackOffersCompute is attackOffers' derivation.
+func (e *Engine) attackOffersCompute() []attackOffer {
 	// A pure read (askAttackers and validateAttackers both re-derive it), so
 	// one Derived memo scope serves every per-creature requirement, goad and
 	// restriction static read from the walk cache (rules/walkcache.go): each
@@ -1466,6 +1537,11 @@ func (e *Engine) attackOffers() []attackOffer {
 		if e.canAttack(id) {
 			reqs[id] = e.attackRequirements(id)
 		}
+	}
+	// Each (creature able to attack, defending player) pair is at most one
+	// offer; planeswalker and battle pairs, rarer, grow past it.
+	if n := len(reqs) * len(defenders); n > 0 {
+		out = make([]attackOffer, 0, n)
 	}
 	for _, d := range defenders {
 		var walkerTargets []state.ObjID

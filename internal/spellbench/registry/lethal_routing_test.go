@@ -25,13 +25,13 @@ import (
 func killerRoutedBoard(killerKeywords []string, life int32) botpolicy.Board {
 	return botpolicy.Board{
 		IsMain: true, FirstMain: true, MyTurn: true,
-		Creatures: map[state.ObjID]botpolicy.Creature{
+		Creatures: botpolicy.TableOf(map[state.ObjID]botpolicy.Creature{
 			10: {Power: 5, Toughness: 5, Controller: 0, Keywords: []string{"Trample"}},
 			20: {Power: 2, Toughness: 2, Controller: 1},
 			21: {Power: 5, Toughness: 2, Controller: 1, Keywords: killerKeywords},
-		},
-		Life:  map[state.PlayerID]int32{0: 20, 1: life},
-		Cards: map[state.ObjID]botpolicy.Card{10: {Sick: false}},
+		}),
+		Life:  botpolicy.TableOf(map[state.PlayerID]int32{0: 20, 1: life}),
+		Cards: botpolicy.TableOf(map[state.ObjID]botpolicy.Card{10: {Sick: false}}),
 	}
 }
 
@@ -53,13 +53,13 @@ func runAttacker(t *testing.T, board botpolicy.Board, d decision.Decision) decis
 // decorator must delegate -- not commit a swing the opponent fully prevents.
 func TestLethalKillerBlockerRoutedElsewhereDeniesTheTrampler(t *testing.T) {
 	board := killerRoutedBoard([]string{"First Strike"}, 3)
-	if board.Creatures[21].Keywords[0] != "First Strike" {
+	if board.Creatures.Get(21).Keywords[0] != "First Strike" {
 		t.Fatal("fixture: obj 21 must be the first-striking killer")
 	}
-	if board.Creatures[20].Toughness != board.Creatures[21].Toughness {
+	if board.Creatures.Get(20).Toughness != board.Creatures.Get(21).Toughness {
 		t.Fatal("fixture: the killer must tie the vanilla on toughness so the old sort picks the vanilla")
 	}
-	if board.Life[1] != 3 {
+	if board.Life.Get(1) != 3 {
 		t.Fatal("fixture: opponent life not 3")
 	}
 	got := runAttacker(t, board, attackerDecision(0, 10))
@@ -73,7 +73,7 @@ func TestLethalKillerBlockerRoutedElsewhereDeniesTheTrampler(t *testing.T) {
 // damage too, so it kills the trampler just the same.
 func TestLethalDoubleStrikingKillerRoutedElsewhereDeniesTheTrampler(t *testing.T) {
 	board := killerRoutedBoard([]string{"Double Strike"}, 3)
-	if board.Creatures[21].Keywords[0] != "Double Strike" {
+	if board.Creatures.Get(21).Keywords[0] != "Double Strike" {
 		t.Fatal("fixture: obj 21 must be the double-striking killer")
 	}
 	got := runAttacker(t, board, attackerDecision(0, 10))
@@ -88,14 +88,14 @@ func TestLethalDoubleStrikingKillerRoutedElsewhereDeniesTheTrampler(t *testing.T
 func TestLethalDeathtouchKillerDeniesTheTrampler(t *testing.T) {
 	board := botpolicy.Board{
 		IsMain: true, FirstMain: true, MyTurn: true,
-		Creatures: map[state.ObjID]botpolicy.Creature{
+		Creatures: botpolicy.TableOf(map[state.ObjID]botpolicy.Creature{
 			10: {Power: 5, Toughness: 5, Controller: 0, Keywords: []string{"Trample"}},
 			21: {Power: 1, Toughness: 1, Controller: 1, Keywords: []string{"First Strike", "Deathtouch"}},
-		},
-		Life:  map[state.PlayerID]int32{0: 20, 1: 1},
-		Cards: map[state.ObjID]botpolicy.Card{10: {Sick: false}},
+		}),
+		Life:  botpolicy.TableOf(map[state.PlayerID]int32{0: 20, 1: 1}),
+		Cards: botpolicy.TableOf(map[state.ObjID]botpolicy.Card{10: {Sick: false}}),
 	}
-	if board.Creatures[21].Power >= board.Creatures[10].Toughness {
+	if board.Creatures.Get(21).Power >= board.Creatures.Get(10).Toughness {
 		t.Fatal("fixture: the killer's power must be below the attacker toughness so only deathtouch can kill")
 	}
 	got := runAttacker(t, board, attackerDecision(0, 10))
@@ -109,7 +109,7 @@ func TestLethalDeathtouchKillerDeniesTheTrampler(t *testing.T) {
 // lands in the same step, so the killer cannot deny it and the kill is taken.
 func TestLethalFirstStrikingAttackerPunchesThroughTheKiller(t *testing.T) {
 	board := killerRoutedBoard([]string{"First Strike"}, 3)
-	board.Creatures[10] = botpolicy.Creature{Power: 5, Toughness: 5, Controller: 0, Keywords: []string{"Trample", "First Strike"}}
+	board.Creatures.Set(10, botpolicy.Creature{Power: 5, Toughness: 5, Controller: 0, Keywords: []string{"Trample", "First Strike"}})
 	got := runAttacker(t, board, attackerDecision(0, 10))
 	if len(got.Choices) != 1 || got.Choices[0] != 0 {
 		t.Fatalf("choices = %v, want the attacking option [0] (first strike punches through for 3)", got.Choices)
@@ -125,19 +125,19 @@ func TestLethalFirstStrikingAttackerPunchesThroughTheKiller(t *testing.T) {
 func TestLethalBigNonTramplerDoesNotStealTheSoak(t *testing.T) {
 	board := botpolicy.Board{
 		IsMain: true, FirstMain: true, MyTurn: true,
-		Creatures: map[state.ObjID]botpolicy.Creature{
+		Creatures: botpolicy.TableOf(map[state.ObjID]botpolicy.Creature{
 			10: {Power: 6, Toughness: 6, Controller: 0},
 			30: {Power: 3, Toughness: 3, Controller: 0, Keywords: []string{"Trample"}},
 			20: {Power: 2, Toughness: 2, Controller: 1},
 			21: {Power: 1, Toughness: 1, Controller: 1},
-		},
-		Life:  map[state.PlayerID]int32{0: 20, 1: 2},
-		Cards: map[state.ObjID]botpolicy.Card{10: {Sick: false}, 30: {Sick: false}},
+		}),
+		Life:  botpolicy.TableOf(map[state.PlayerID]int32{0: 20, 1: 2}),
+		Cards: botpolicy.TableOf(map[state.ObjID]botpolicy.Card{10: {Sick: false}, 30: {Sick: false}}),
 	}
-	if board.Creatures[10].Power <= board.Creatures[30].Power {
+	if board.Creatures.Get(10).Power <= board.Creatures.Get(30).Power {
 		t.Fatal("fixture: the vanilla must out-power the trampler to reproduce the old ordering")
 	}
-	if board.Life[1] != 2 {
+	if board.Life.Get(1) != 2 {
 		t.Fatal("fixture: opponent life not 2")
 	}
 	got := runAttacker(t, board, attackerDecision(0, 10, 30))
@@ -152,14 +152,14 @@ func TestLethalBigNonTramplerDoesNotStealTheSoak(t *testing.T) {
 func TestLethalBigNonTramplerTrampleStillCounts(t *testing.T) {
 	board := botpolicy.Board{
 		IsMain: true, FirstMain: true, MyTurn: true,
-		Creatures: map[state.ObjID]botpolicy.Creature{
+		Creatures: botpolicy.TableOf(map[state.ObjID]botpolicy.Creature{
 			10: {Power: 6, Toughness: 6, Controller: 0},
 			30: {Power: 3, Toughness: 3, Controller: 0, Keywords: []string{"Trample"}},
 			20: {Power: 2, Toughness: 2, Controller: 1},
 			21: {Power: 1, Toughness: 1, Controller: 1},
-		},
-		Life:  map[state.PlayerID]int32{0: 20, 1: 1},
-		Cards: map[state.ObjID]botpolicy.Card{10: {Sick: false}, 30: {Sick: false}},
+		}),
+		Life:  botpolicy.TableOf(map[state.PlayerID]int32{0: 20, 1: 1}),
+		Cards: botpolicy.TableOf(map[state.ObjID]botpolicy.Card{10: {Sick: false}, 30: {Sick: false}}),
 	}
 	got := runAttacker(t, board, attackerDecision(0, 10, 30))
 	if len(got.Choices) != 2 {

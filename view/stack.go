@@ -38,8 +38,9 @@ type TargetView struct {
 	Label string `json:"label,omitempty"`
 }
 
-// stackViews maps the stack's own object ids to StackViews, bottom to top.
-// Always non-nil (Ruling T23-u).
+// stackViews maps the stack's own object ids to StackViews, bottom to top,
+// into buf's storage (refill; each slot's Targets, Card and Decider storage
+// is reused). Always non-nil (Ruling T23-u).
 //
 // viewer and revealFaceDown redact a face-down SPELL (CR 708.4: a
 // face-down cast's spell has no name, no types and no abilities while it
@@ -49,13 +50,19 @@ type TargetView struct {
 // state bit rides the PutOnStack's entry marker (rules/cast.go pushCast);
 // no ordinary spell ever carries it, so every unrelated stack band is
 // byte-identical.
-func stackViews(g *state.Game, ch Chars, ids []state.ObjID, viewer state.PlayerID, revealFaceDown bool) []StackView {
-	out := make([]StackView, 0, len(ids))
+func (p *projector) stackViews(buf []StackView, ids []state.ObjID, revealFaceDown bool) []StackView {
+	g := p.g
+	out := refill(buf, len(ids))
 	for _, id := range ids {
 		o := g.Obj(id)
 		if o == nil {
 			continue
 		}
+		n := len(out)
+		out = out[:n+1]
+		sv := &out[n]
+		// The slot's previous storage (ProjectInto's reuse).
+		targets, card, decider := sv.Targets, sv.Card, sv.Decider
 		if o.Ability != nil {
 			// An ability object has no Face (Ruling F3): Card == nil, set
 			// by events/apply.go's TriggerPush case. Its display name is
@@ -72,19 +79,23 @@ func stackViews(g *state.Game, ch Chars, ids []state.ObjID, viewer state.PlayerI
 			if state.StackKindOf(g, o) == state.StackKindTriggered {
 				kind = "trigger"
 			}
-			sv := StackView{
-				ID: id, Kind: kind, Name: abilityName(g, o), Text: abilityText(g, o),
-				Controller: o.Controller, Source: o.Source, Targets: targetViews(o.Targets, targetLabel(o)),
+			*sv = StackView{
+				ID: id, Kind: kind, Name: abilityName(g, o), Text: abilityText(g, o, p.text),
+				Controller: o.Controller, Source: o.Source, Targets: targetViews(targets, o.Targets, targetLabel(o)),
 			}
 			// Ruling VW-1: an optional triggered ability on the stack awaiting
 			// its resolution-time yes/no reports its optionality and decider
 			// here, where the ability actually is. The engine derives it (it
 			// is the one place the OptionalDecider$ spec grammar lives, via
 			// deciderFromSpec); the view only asks, never re-derives it.
-			if ch != nil {
-				if opt, who := ch.StackOptional(id); opt {
+			if p.ch != nil {
+				if opt, who := p.ch.StackOptional(id); opt {
 					sv.Optional = true
-					sv.Decider = &who
+					if decider == nil {
+						decider = new(state.PlayerID)
+					}
+					*decider = who
+					sv.Decider = decider
 				}
 			}
 			// The ability object has no face of its own (Ruling F3), so the
@@ -97,27 +108,30 @@ func stackViews(g *state.Game, ch Chars, ids []state.ObjID, viewer state.PlayerI
 			// entirely, and neither may be exposed here. This is the same
 			// projection everything else uses, never a hand-built view.
 			if src := g.Obj(o.Source); src != nil && src.Face() != nil && !src.Zone.Hidden() && !src.Ephemeral() {
-				cv := cardView(g, ch, o.Source)
-				sv.Card = &cv
+				if card == nil {
+					card = new(CardView)
+				}
+				p.cardView(card, o.Source)
+				sv.Card = card
 			}
-			out = append(out, sv)
 			continue
 		}
-		sv := StackView{ID: id, Kind: "spell", Controller: o.Controller, Targets: targetViews(o.Targets, targetLabel(o))}
+		*sv = StackView{ID: id, Kind: "spell", Controller: o.Controller, Targets: targetViews(targets, o.Targets, targetLabel(o))}
 		if f := o.Face(); f != nil {
-			if o.FaceDown && !revealFaceDown && viewer != o.Controller {
+			if o.FaceDown && !revealFaceDown && p.viewer != o.Controller {
 				// CR 708.4: the face-down spell's printed identity is hidden
 				// from everyone but its controller. The controller's own view
 				// falls through to the printed band below.
-				out = append(out, sv)
 				continue
 			}
 			sv.Name = f.Name
-			sv.Text = spellText(f)
-			cv := cardView(g, ch, id)
-			sv.Card = &cv
+			sv.Text = spellText(f, p.text)
+			if card == nil {
+				card = new(CardView)
+			}
+			p.cardView(card, id)
+			sv.Card = card
 		}
-		out = append(out, sv)
 	}
 	return out
 }
@@ -150,7 +164,7 @@ func triggerLine(g *state.Game, o *state.Object) (cards.Trigger, bool) {
 // text is then placeholder-substituted with the same display name the
 // StackView.Name uses -- the source's face name, or "Ability" when the
 // source is gone (see abilityName and substitutePlaceholders).
-func abilityText(g *state.Game, o *state.Object) string {
+func abilityText(g *state.Game, o *state.Object, memo *textMemo) string {
 	text := ""
 	if t, ok := triggerLine(g, o); ok {
 		if d := t.Params["TriggerDescription"]; d != "" {
@@ -167,20 +181,20 @@ func abilityText(g *state.Game, o *state.Object) string {
 			}
 		}
 	}
-	return substitutePlaceholders(text, abilityName(g, o))
+	return memo.substitute(text, abilityName(g, o))
 }
 
 // spellText is SpellDescription$ of the face's own cast ability, falling
 // back to the printed Oracle text, with Forge's self-reference placeholders
 // substituted by the card's own name (see substitutePlaceholders).
-func spellText(f *cards.Face) string {
+func spellText(f *cards.Face, memo *textMemo) string {
 	text := f.Oracle
 	if sa := f.SpellAbility(); sa != nil {
 		if d := sa.Params["SpellDescription"]; d != "" {
 			text = d
 		}
 	}
-	return substitutePlaceholders(text, f.Name)
+	return memo.substitute(text, f.Name)
 }
 
 // targetViews copies an object's chosen targets. Object.Remembered is NEVER
@@ -190,8 +204,8 @@ func spellText(f *cards.Face) string {
 // label (from targetLabel) is stamped on every entry: the object declared
 // one set of legal targets, not one per chosen target. Always non-nil
 // (Ruling T23-u).
-func targetViews(targets []state.Target, label string) []TargetView {
-	out := make([]TargetView, 0, len(targets))
+func targetViews(buf []TargetView, targets []state.Target, label string) []TargetView {
+	out := refill(buf, len(targets))
 	for _, t := range targets {
 		out = append(out, TargetView{Obj: t.Obj, Player: t.Player, IsPlayer: t.IsPlayer, Label: label})
 	}
@@ -224,15 +238,21 @@ func targetLabel(o *state.Object) string {
 // shape, in the same order: R3. Always non-nil (Ruling T23-u), including
 // when called with nil (Project's own default before a real Chars, if any,
 // overwrites it).
-func pendingViews(pts []state.PendingTrigger) []PendingView {
-	out := make([]PendingView, 0, len(pts))
+func pendingViews(buf []PendingView, pts []state.PendingTrigger) []PendingView {
+	out := refill(buf, len(pts))
 	for _, pt := range pts {
-		pv := PendingView{Source: pt.Source, Controller: pt.Controller, Label: pt.Label, Optional: pt.Optional}
+		n := len(out)
+		out = out[:n+1]
+		pv := &out[n]
+		who := pv.Decider // the slot's previous storage (ProjectInto's reuse)
+		*pv = PendingView{Source: pt.Source, Controller: pt.Controller, Label: pt.Label, Optional: pt.Optional}
 		if pt.Optional {
-			who := pt.Decider
-			pv.Decider = &who
+			if who == nil {
+				who = new(state.PlayerID)
+			}
+			*who = pt.Decider
+			pv.Decider = who
 		}
-		out = append(out, pv)
 	}
 	return out
 }

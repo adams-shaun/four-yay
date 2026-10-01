@@ -96,8 +96,10 @@ type engineEmitCtx struct {
 	paymentPlanCarriersEvents int
 	paymentPlanCarriersValid  bool
 	// stepLeaving is the step transition currently offered to BeginPhase
-	// replacements; parked choices own a value copy.
-	stepLeaving *state.Step
+	// replacements (valid while stepLeavingSet); parked choices own a value
+	// copy. Held by value so a step change allocates nothing.
+	stepLeaving    state.Step
+	stepLeavingSet bool
 
 	// Tapping and damage provenance are likewise synchronous event context.
 	tappingForMana      state.ObjID

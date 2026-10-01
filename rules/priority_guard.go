@@ -78,7 +78,7 @@ func (e *Engine) priorityOptionStale(p state.PlayerID, opt decision.Option) stri
 	switch opt.Kind {
 	case "activate":
 		// activateMana -> activateManaFor's own member set.
-		if len(e.availableManaAbilitiesForWindow(p, opt.Obj, true)) == 0 {
+		if e.priorityManaAbilityCount(p, opt.Obj) == 0 {
 			return "the source has no activatable mana ability"
 		}
 	case "ability":

@@ -63,9 +63,10 @@ func legalWalkPositions(tb testing.TB) []*Engine {
 func legalWalkVerifyOff() func() {
 	flags := []*bool{&derivedMemoVerify, &sacrificeCardnameVerify, &pricedCandidatesVerify,
 		&castsOnlyWalkVerify, &potentialMembersVerify, &walkCacheVerify, &trigZoneSkipVerify,
-		&manaPayFastVerify, &activeSummaryVerify, &manaSAFactsVerify, &faceScanVerify,
+		&manaPayFastVerify, &activeSummaryVerify, &manaSAFactsVerify, &faceScanVerify, &manaPlainVerify,
 		&layer4PrecheckVerify, &layerInertVerify, &livelockCandVerify, &priorityFlowVerify,
-		&replZoneSkipVerify, &sbaQuietVerify, &provenanceGateVerify, &specDerivedVerify, &staticZoneSkipVerify}
+		&replZoneSkipVerify, &sbaQuietVerify, &provenanceGateVerify, &specDerivedVerify, &staticZoneSkipVerify,
+		&walkSkipVerify}
 	prev := make([]bool, len(flags))
 	for i, f := range flags {
 		prev[i], *f = *f, false

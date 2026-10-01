@@ -45,7 +45,8 @@ import (
 // active()/activeStatics walks are the one shared scan every static consumer
 // uses, and the ValidAttacked$ gate is a fixed-order log walk.
 func (e *Engine) attackAllowedThroughDefender(id state.ObjID, defender state.PlayerID) bool {
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.Restriction != "CanAttackDefender" {
 			continue
 		}

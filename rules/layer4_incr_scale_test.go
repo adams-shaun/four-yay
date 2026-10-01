@@ -82,14 +82,21 @@ func incrBoardOK(t testing.TB, e *Engine, car state.ObjID) {
 	}
 }
 
-// emitTapPair emits a Tap/Untap pair on one battlefield token: each is an
-// emitted non-inert event that writes an object field inside events.Apply,
-// so each one moves the table key and drives a real refresh of the
-// derived-type table -- O(1) board change per event, so the per-event refresh
-// cost is measured (or counted) alone.
-func emitTapPair(e *Engine, tap state.ObjID) {
-	e.emit(events.Event{Kind: events.Tap, Obj: tap})
-	e.emit(events.Event{Kind: events.Untap, Obj: tap})
+// emitRefreshPair emits a +1/-1 counter pair on one battlefield token: each
+// is an emitted event that writes an object field inside events.Apply and is
+// not derived-quiet (a counter is object-local), so each one moves the table
+// key and drives a real refresh of the derived-type table -- O(1) board
+// change per event, so the per-event refresh cost is measured (or counted)
+// alone. (A Tap/Untap pair no longer does: those are derived-quiet, and the
+// refresh reuses the table outright -- TestLayer4TableReusedAcrossQuietEvents.)
+func emitRefreshPair(e *Engine, tap state.ObjID) {
+	emitRefresh(e, tap, 1)
+	emitRefresh(e, tap, -1)
+}
+
+// emitRefresh emits one counter change on tap: an incremental refresh.
+func emitRefresh(e *Engine, tap state.ObjID, n int32) {
+	e.emit(events.Event{Kind: events.CounterChange, Obj: tap, Counter: "P1P1", Amount: n})
 }
 
 // engineIntField reads an unexported engine counter by name. The counters the
@@ -125,7 +132,7 @@ func TestLayer4TableRefreshWorkIsNotPerObject(t *testing.T) {
 			t.Fatalf("whole-board build at n=%d examined %d objects, want len(Objs)=%d", n, full, len(e.G.Objs))
 		}
 		// One non-inert emit refreshes the table through the ordinary path.
-		e.emit(events.Event{Kind: events.Tap, Obj: tap})
+		emitRefresh(e, tap, 1)
 		return engineIntField(t, e, "typesVisited")
 	}
 	small := visited(500)
@@ -155,7 +162,7 @@ func TestLayer4TableRefreshTakesTheIncrementalPath(t *testing.T) {
 	before := engineIntField(t, e, "typesIncrBuilds")
 	const K = 32
 	for i := 0; i < K; i++ {
-		emitTapPair(e, tap)
+		emitRefreshPair(e, tap)
 	}
 	got := engineIntField(t, e, "typesIncrBuilds") - before
 	if got != 2*K {
@@ -168,5 +175,31 @@ func TestLayer4TableRefreshTakesTheIncrementalPath(t *testing.T) {
 	}
 	if len(table) == 0 || table[0].ID != car {
 		t.Fatalf("fixture precondition failed after the emits: table %v lost the source's entry", table)
+	}
+}
+
+// TestLayer4TableReusedAcrossQuietEvents pins the derived-quiet reuse
+// (typesQuietReuse): a Tap/Untap pair writes nothing the table, its candidate
+// slice or the statics probe read, so the self-only table is restamped
+// without a rebuild -- and it is still exactly the full walk's.
+func TestLayer4TableReusedAcrossQuietEvents(t *testing.T) {
+	t.Parallel()
+	e, car, tap := incrBoard(t, 500)
+	incrBoardOK(t, e, car)
+	builds := e.typesIncrBuilds
+	for i := 0; i < 8; i++ {
+		e.emit(events.Event{Kind: events.Tap, Obj: tap})
+		e.emit(events.Event{Kind: events.Untap, Obj: tap})
+	}
+	if e.typesIncrBuilds != builds || e.typesEpoch != len(e.L.Events) {
+		t.Fatalf("quiet events rebuilt the table (builds %d -> %d, epoch %d of %d)", builds, e.typesIncrBuilds, e.typesEpoch, len(e.L.Events))
+	}
+	if got, want := e.EffectiveTypes(), e.buildDerivedTypesFull(nil); !reflect.DeepEqual(got, want) || len(got) != 1 || got[0].ID != car {
+		t.Fatalf("reused table %v, want full table %v", got, want)
+	}
+	// A non-quiet event still rebuilds.
+	emitRefresh(e, tap, 1)
+	if e.typesIncrBuilds != builds+1 {
+		t.Fatalf("a counter change did not rebuild (builds %d -> %d)", builds, e.typesIncrBuilds)
 	}
 }

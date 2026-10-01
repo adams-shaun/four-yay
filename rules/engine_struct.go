@@ -115,6 +115,10 @@ type Engine struct {
 	// effect (cards.ChangesTypes). False for most matches, which reduces the
 	// per-event refresh to one predictable branch.
 	layer4InPool bool
+	// controlStaticInPool is the same genesis-time fact for a GainControl$
+	// static (cards.MayCarryControlStatic). False for most matches, which
+	// reduces the per-event static-control reconcile to one branch.
+	controlStaticInPool bool
 	// continuousVersion is bumped by every direct mutation of e.continuous
 	// (layers.go's AddContinuous and EndOfTurnCleanup). It stands in for the
 	// events a board change would signal through the log head: while

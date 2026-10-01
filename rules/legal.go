@@ -55,7 +55,7 @@ func (e *Engine) legalActions(p state.PlayerID) []decision.Option {
 }
 
 func (e *Engine) legalActionsWithWindow(p state.PlayerID, w *windowCollector) []decision.Option {
-	return e.legalActionsWalkWithWindow(p, nil, false, w)
+	return e.legalActionsWalkWithWindow(p, nil, false, w, true, nil, false)
 }
 
 // aftermathAlternateFace returns the Aftermath alternate face (face 1 --
@@ -106,10 +106,23 @@ func (e *Engine) legalActionsPriced(p state.PlayerID, hyp *state.Mana) []decisio
 // on its own. The payment offer builder, which reads only plain casts, uses
 // it to avoid pricing every battlefield ability it would discard.
 func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly bool) []decision.Option {
-	return e.legalActionsWalkWithWindow(p, hyp, castsOnly, nil)
+	return e.legalActionsWalkWithWindow(p, hyp, castsOnly, nil, false, nil, false)
 }
 
-func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, castsOnly bool, window *windowCollector) []decision.Option {
+// legalActionsWalkTemp is legalActionsWalk for a caller that only reads the
+// result before it returns: the options are built into a scratch list
+// borrowed from e (hypclone.go) instead of a fresh exactly-sized array. The
+// caller hands it back with e.optRelease once it, and every value it took
+// a pointer into, is done; the options' contents are the walk's own.
+func (e *Engine) legalActionsWalkTemp(p state.PlayerID, hyp *state.Mana, castsOnly bool) []decision.Option {
+	return e.legalActionsWalkWithWindow(p, hyp, castsOnly, nil, false, e.optBorrow(), true)
+}
+
+// legalActionsWalkWithWindow is the walk's body. forAsk marks the walk
+// whose result becomes a posed priority decision's Options (askPriority),
+// which is the one result the decision arena (decision_arena.go) may back;
+// temp builds the result into dst (legalActionsWalkTemp's borrowed list).
+func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, castsOnly bool, window *windowCollector, forAsk bool, dst []decision.Option, temp bool) []decision.Option {
 	// Count the walk before anything can early-return. A test-visible
 	// diagnostic only: no event, no state mutation, no effect on replay or
 	// chain heads (legalActionWalks is not copied by Clone and never reaches
@@ -124,6 +137,16 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 	// reusable buffer, never on the returned, retained Options.
 	out := e.legalOptBuf[:0]
 	e.legalOptBuf = nil
+	// A posed priority walk on an arena engine builds straight into the
+	// arena's option tail (decision_arena.go), so the result needs neither
+	// the copy out of the scratch nor the scratch's clear.
+	var tail optTail
+	var scratch []decision.Option
+	if forAsk {
+		if tail = e.arenaOptionsTail(); tail.buf != nil {
+			scratch, out = out, tail.buf
+		}
+	}
 	add := func(kind, label string, obj state.ObjID) {
 		out = append(out, decision.Option{Index: len(out), Kind: kind, Label: label, Obj: obj})
 	}
@@ -141,6 +164,18 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 		costStatics:   costStaticSource{e: e},
 		actionStatics: actionStaticSource{e: e},
 	}
+	// Pool-independent block reuse (walk_block_reuse.go): a potential walk
+	// takes the reuse its caller armed (nested walks never see it); the
+	// priority walk records on an engine with full potential demand.
+	if reuse := e.walkReuse; reuse != nil {
+		e.walkReuse = nil
+		if hyp != nil && !castsOnly {
+			w.reuse = reuse
+			e.recordedBoardFacts(reuse, &w.actionStatics, p)
+		}
+	} else if forAsk && hyp == nil && !castsOnly && e.potentialFullDemand && e.walkRecDemand {
+		w.rec = e.walkBlockRecorder(p)
+	}
 	w.handWalk()
 	w.mayPlayLandWalk()
 	w.mayhemLandWalk()
@@ -150,6 +185,10 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 	w.exileCastsWalk()
 	w.battlefieldWalk()
 	out = w.out
+	walkHW := max(len(out), w.outHW)
+	if w.rec != nil {
+		w.rec.finish(out)
+	}
 
 	// K:Split second (CR 702.62, rules/split_second.go): while a split-second
 	// spell is on the stack, players can't cast spells or activate abilities
@@ -182,8 +221,32 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 	// living seat: grantPriority never hands a Lost seat priority, so no
 	// extra guard is needed here.
 	add("concede", "Concede", 0)
-	res := make([]decision.Option, len(out))
-	copy(res, out)
+	var res []decision.Option
+	switch {
+	case tail.buf != nil && tail.commit(out, max(walkHW, len(out))):
+		res = out[:len(out):len(out)]
+		if window != nil {
+			e.windowClassify(p, res, window)
+		}
+		e.legalOptBuf = scratch
+		if castsOnly && castsOnlyWalkVerify {
+			verifyCastsOnlyWalk(res, e.legalActionsPriced(p, hyp))
+		}
+		return res
+	case tail.buf != nil:
+		// The walk outgrew the tail (commit cleared it): the grown heap
+		// array is this walk's scratch from here on.
+		res = e.arenaOptions(len(out))
+		copy(res, out)
+	case forAsk:
+		res = e.arenaOptions(len(out))
+		copy(res, out)
+	case temp:
+		res = append(dst[:0], out...)
+	default:
+		res = make([]decision.Option, len(out))
+		copy(res, out)
+	}
 	if window != nil {
 		// Classify each of p's own visible candidates the walk did not
 		// offer, keeping the first gate in walk order that withheld it. The

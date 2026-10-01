@@ -71,6 +71,52 @@ func (c *Collector) IntentActions(d *decision.Decision, in decision.Intent) (cho
 	return choices, rest, err
 }
 
+// AppendIntentActions is Actions appending the choices' actions to dst: it
+// fails exactly when Actions does (the Rest pile is translated and checked,
+// not kept), and on success dst[len(dst):] gains exactly Actions' list.
+func (c *Collector) AppendIntentActions(dst []Action, d *decision.Decision, in decision.Intent) ([]Action, error) {
+	if d == nil || d.Player != c.actor {
+		return dst, fmt.Errorf("may only capture the acting seat's own answer")
+	}
+	if err := d.Validate(in); err != nil {
+		return dst, err
+	}
+	for _, i := range in.Choices {
+		a, err := c.action(d, d.Options[i])
+		if err != nil {
+			return dst, err
+		}
+		dst = append(dst, a)
+	}
+	for _, i := range in.Rest {
+		if _, err := c.action(d, d.Options[i]); err != nil {
+			return dst, err
+		}
+	}
+	return dst, nil
+}
+
+// IntentKey is AppendActionsKey of Actions(d, in), failing exactly when
+// Actions does, without building the action list: the key is built in c's
+// reusable storage and is valid until the next IntentKey on c (a caller
+// that keeps it copies it, as a string conversion does).
+func (c *Collector) IntentKey(d *decision.Decision, in decision.Intent) ([]byte, error) {
+	// Actions' list is never nil (it is made, not appended from nil), so
+	// neither is this one: AppendActionsKey tells a nil list apart.
+	if c.keyActs == nil {
+		c.keyActs = make([]Action, 0, 4)
+	}
+	acts, err := c.AppendIntentActions(c.keyActs[:0], d, in)
+	if cap(acts) > cap(c.keyActs) {
+		c.keyActs = acts[:0]
+	}
+	if err != nil {
+		return nil, err
+	}
+	c.keyBuf = AppendActionsKey(c.keyBuf[:0], acts)
+	return c.keyBuf, nil
+}
+
 // Match must use the target world's collector after Capture has validated its
 // observed prefix. Never reuse the source world's raw-ID dictionary.
 func (c *Collector) Match(d *decision.Decision, actions []Action) (decision.Intent, error) {
@@ -136,15 +182,21 @@ func (c *Collector) action(d *decision.Decision, o decision.Option) (Action, err
 	return a, nil
 }
 
-func (c *Collector) observeDecision(d *decision.Decision) (*ObservedDecision, error) {
-	if d == nil {
-		return nil, nil
-	}
+// observeDecisionInto builds d's observed form in out, appending its options
+// to buf[:0] (growing it if it is short). Options stays nil
+// for a decision with no options, as an appended-from-nil slice would, so an
+// owned and a scratch observation of one decision are reflect.DeepEqual.
+// Groups are numbered 1, 2, ... in first-appearance order.
+func (c *Collector) observeDecisionInto(out *ObservedDecision, buf []ObservedOption, d *decision.Decision) (*ObservedDecision, error) {
 	if d.Player != c.actor {
 		return nil, fmt.Errorf("opponent private decision entered observation")
 	}
-	out := &ObservedDecision{Player: d.Player, Kind: d.Kind, Min: d.Min, Max: d.Max, Source: c.ref(d.Source)}
-	groups := make(map[string]int)
+	opts := buf[:0]
+	*out = ObservedDecision{Player: d.Player, Kind: d.Kind, Min: d.Min, Max: d.Max, Source: c.ref(d.Source)}
+	// groups[i] is group i+1's name. A decision has a handful of groups, so
+	// a linear scan over a stack array beats a map allocated per call.
+	var groupBuf [16]string
+	groups := groupBuf[:0]
 	for _, o := range d.Options {
 		a, err := c.action(d, o)
 		if err != nil {
@@ -152,13 +204,21 @@ func (c *Collector) observeDecision(d *decision.Decision) (*ObservedDecision, er
 		}
 		group := 0
 		if o.Group != "" {
-			group = groups[o.Group]
+			for i, name := range groups {
+				if name == o.Group {
+					group = i + 1
+					break
+				}
+			}
 			if group == 0 {
-				group = len(groups) + 1
-				groups[o.Group] = group
+				groups = append(groups, o.Group)
+				group = len(groups)
 			}
 		}
-		out.Options = append(out.Options, ObservedOption{Action: a, Group: group, Required: o.Required})
+		opts = append(opts, ObservedOption{Action: a, Group: group, Required: o.Required})
+	}
+	if len(opts) > 0 {
+		out.Options = opts
 	}
 	if d.TargetEffect != nil {
 		out.EffectAPI = d.TargetEffect.API

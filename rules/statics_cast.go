@@ -209,7 +209,7 @@ func (e *Engine) castRestrictionSources(statics []staticView, id state.ObjID) []
 // illegal action through, and the static family's whole point is the
 // prohibition.
 func (e *Engine) restrictionGateHolds(sv staticView, target state.ObjID) bool {
-	if !e.classBandGateHolds(sv.Params, sv.Source) {
+	if !e.classBandGateHolds(sv.ParamStr(cards.PKClassBand), sv.Source) {
 		return false
 	}
 	if az, ok := sv.Param(cards.PKAffectedZone); ok {
@@ -535,7 +535,7 @@ func (e *Engine) presentGate(sv staticView, spec string) bool {
 // gate fails closed: granting instant timing without proving the script's
 // condition would permit an illegal cast.
 func (e *Engine) staticTimingGate(sv staticView) bool {
-	if !e.classBandGateHolds(sv.Params, sv.Source) {
+	if !e.classBandGateHolds(sv.ParamStr(cards.PKClassBand), sv.Source) {
 		return false
 	}
 	if spec, ok := sv.Params["IsPresent"]; ok && !e.presentGate(sv, spec) {

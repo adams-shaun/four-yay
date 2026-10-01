@@ -234,7 +234,7 @@ Oracle:x
 	target := onBoard(t, e, 0, "Name:Entering Card\nTypes:Creature\nPT:1/1\nOracle:x\n")
 	ev := events.Event{Kind: events.MoveZone, Obj: target, From: state.ZHand, To: state.ZBattlefield}
 	for i := 0; i < 2; i++ {
-		e.checkFaceTriggers(e, ev, nil, 0, 0, false, false, false)
+		e.checkFaceTriggers(e, &ev, nil, 0, 0, false, false, false)
 		if n := queuedPhaseTriggers(e, src); n != 0 {
 			t.Fatalf("unknown ChangesZone Phase$ queued %d triggers, want 0", n)
 		}

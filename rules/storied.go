@@ -108,7 +108,7 @@ func (e *Engine) storiedPossible() bool {
 		*s = storiedScan{game: e.G}
 	}
 	for ; !s.seen && s.scanned < len(e.G.Objs); s.scanned++ {
-		if cardMentionsStoried(e.G.Objs[s.scanned].Card) {
+		if _, st := cardMentions(e.G.Objs[s.scanned].Card); st {
 			s.seen = true
 		}
 	}

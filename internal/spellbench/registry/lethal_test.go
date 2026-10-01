@@ -59,15 +59,15 @@ func priorityDecision(player state.PlayerID) decision.Decision {
 func TestLethalTakesTheAttackKill(t *testing.T) {
 	board := botpolicy.Board{
 		IsMain: true, FirstMain: true, MyTurn: true,
-		Creatures: map[state.ObjID]botpolicy.Creature{10: {Power: 3, Toughness: 3, Controller: 0}},
-		Life:      map[state.PlayerID]int32{0: 20, 1: 3},
-		Cards:     map[state.ObjID]botpolicy.Card{10: {Sick: false}},
+		Creatures: botpolicy.TableOf(map[state.ObjID]botpolicy.Creature{10: {Power: 3, Toughness: 3, Controller: 0}}),
+		Life:      botpolicy.TableOf(map[state.PlayerID]int32{0: 20, 1: 3}),
+		Cards:     botpolicy.TableOf(map[state.ObjID]botpolicy.Card{10: {Sick: false}}),
 	}
 	// Preconditions the assertion depends on.
-	if got := board.Creatures[10].Power; got != 3 {
+	if got := board.Creatures.Get(10).Power; got != 3 {
 		t.Fatalf("fixture: attacker power %d, want 3", got)
 	}
-	if got := board.Life[1]; got != 3 {
+	if got := board.Life.Get(1); got != 3 {
 		t.Fatalf("fixture: opponent life %d, want 3", got)
 	}
 	d := attackerDecision(0, 10)
@@ -91,9 +91,9 @@ func TestLethalTakesTheAttackKill(t *testing.T) {
 func TestLethalAttackDelegatesWithoutEnoughDamage(t *testing.T) {
 	board := botpolicy.Board{
 		IsMain: true, FirstMain: true, MyTurn: true,
-		Creatures: map[state.ObjID]botpolicy.Creature{10: {Power: 3, Toughness: 3, Controller: 0}},
-		Life:      map[state.PlayerID]int32{0: 20, 1: 4},
-		Cards:     map[state.ObjID]botpolicy.Card{10: {Sick: false}},
+		Creatures: botpolicy.TableOf(map[state.ObjID]botpolicy.Creature{10: {Power: 3, Toughness: 3, Controller: 0}}),
+		Life:      botpolicy.TableOf(map[state.PlayerID]int32{0: 20, 1: 4}),
+		Cards:     botpolicy.TableOf(map[state.ObjID]botpolicy.Card{10: {Sick: false}}),
 	}
 	d := attackerDecision(0, 10)
 	inner := &stubSeat{answer: decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{}}}
@@ -114,14 +114,14 @@ func TestLethalAttackDelegatesWithoutEnoughDamage(t *testing.T) {
 func TestLethalWorstCaseBlockingDeniesTheKill(t *testing.T) {
 	board := botpolicy.Board{
 		IsMain: true, FirstMain: true, MyTurn: true,
-		Creatures: map[state.ObjID]botpolicy.Creature{
+		Creatures: botpolicy.TableOf(map[state.ObjID]botpolicy.Creature{
 			10: {Power: 3, Toughness: 3, Controller: 0},
 			20: {Power: 2, Toughness: 2, Controller: 1}, // untapped blocker
-		},
-		Life:  map[state.PlayerID]int32{0: 20, 1: 3},
-		Cards: map[state.ObjID]botpolicy.Card{10: {Sick: false}},
+		}),
+		Life:  botpolicy.TableOf(map[state.PlayerID]int32{0: 20, 1: 3}),
+		Cards: botpolicy.TableOf(map[state.ObjID]botpolicy.Card{10: {Sick: false}}),
 	}
-	if board.Creatures[20].Tapped {
+	if board.Creatures.Get(20).Tapped {
 		t.Fatal("fixture: blocker must be untapped")
 	}
 	d := attackerDecision(0, 10)
@@ -141,12 +141,12 @@ func TestLethalWorstCaseBlockingDeniesTheKill(t *testing.T) {
 func TestLethalFlierIgnoresAGroundBlocker(t *testing.T) {
 	board := botpolicy.Board{
 		IsMain: true, FirstMain: true, MyTurn: true,
-		Creatures: map[state.ObjID]botpolicy.Creature{
+		Creatures: botpolicy.TableOf(map[state.ObjID]botpolicy.Creature{
 			10: {Power: 3, Toughness: 3, Controller: 0, Keywords: []string{"Flying"}},
 			20: {Power: 2, Toughness: 2, Controller: 1},
-		},
-		Life:  map[state.PlayerID]int32{0: 20, 1: 3},
-		Cards: map[state.ObjID]botpolicy.Card{10: {Sick: false}},
+		}),
+		Life:  botpolicy.TableOf(map[state.PlayerID]int32{0: 20, 1: 3}),
+		Cards: botpolicy.TableOf(map[state.ObjID]botpolicy.Card{10: {Sick: false}}),
 	}
 	d := attackerDecision(0, 10)
 	inner := &stubSeat{answer: decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{}}}
@@ -268,9 +268,9 @@ func TestLethalDelegatesEverythingElse(t *testing.T) {
 	SetCardLookup(fakeLookup(burnCard("Bolt", "3")))
 	board := botpolicy.Board{
 		IsMain: true, FirstMain: true, MyTurn: true,
-		Creatures: map[state.ObjID]botpolicy.Creature{10: {Power: 3, Toughness: 3, Controller: 0}},
-		Life:      map[state.PlayerID]int32{0: 20, 1: 20},
-		Cards:     map[state.ObjID]botpolicy.Card{10: {Sick: false}},
+		Creatures: botpolicy.TableOf(map[state.ObjID]botpolicy.Creature{10: {Power: 3, Toughness: 3, Controller: 0}}),
+		Life:      botpolicy.TableOf(map[state.PlayerID]int32{0: 20, 1: 20}),
+		Cards:     botpolicy.TableOf(map[state.ObjID]botpolicy.Card{10: {Sick: false}}),
 	}
 	cases := []struct {
 		name string

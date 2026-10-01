@@ -547,7 +547,16 @@ func TestApplyNeverPanics(t *testing.T) {
 					}
 
 					before := len(g.Objs)
-					Apply(g, e) // must not panic
+					// ApplyPtr hands every fold the caller's own event: no fold
+					// may write it (rules keeps reading its event after the
+					// fold), so the event must come back exactly as sent.
+					want := e
+					want.IDs = append([]state.ObjID(nil), e.IDs...)
+					want.Pairs = append([][2]state.ObjID(nil), e.Pairs...)
+					ApplyPtr(g, &e) // must not panic
+					if !reflect.DeepEqual(e, want) {
+						t.Fatalf("the fold wrote its event:\n got %+v\nwant %+v", e, want)
+					}
 
 					switch v.name {
 					case "from zone out of range":

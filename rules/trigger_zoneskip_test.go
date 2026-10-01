@@ -17,7 +17,7 @@ import (
 func TestFaceTriggerZonesIsZoneGatesSpec(t *testing.T) {
 	t.Parallel()
 	e := layerEngine(t)
-	const lib, hand, bf, gy, ex = 1 << 0, 1 << 1, 1 << 2, 1 << 3, 1 << 4
+	const lib, hand, bf, gy, ex, stack, cmd = 1 << 0, 1 << 1, 1 << 2, 1 << 3, 1 << 4, 1 << 5, 1 << 6
 	for _, tc := range []struct {
 		trig string
 		want uint8
@@ -27,11 +27,12 @@ func TestFaceTriggerZonesIsZoneGatesSpec(t *testing.T) {
 		{"Mode$ Phase | Phase$ Upkeep | TriggerZones$ Library,Exile | Execute$ X", lib | ex},
 		{"Mode$ Phase | Phase$ Upkeep | ActiveZones$ Hand | Execute$ X", hand},
 		{"Mode$ Phase | Phase$ Upkeep | TriggerZones$ Battlefield, | Execute$ X", bf | gy}, // the literal Battlefield plus a phantom empty part that parses to the graveyard, as in zoneGate
-		{"Mode$ Phase | Phase$ NoSuchStep | Execute$ X", lib | hand | bf | gy | ex},
+		{"Mode$ Phase | Phase$ Upkeep | TriggerZones$ Command | Execute$ X", cmd},
+		{"Mode$ Phase | Phase$ NoSuchStep | Execute$ X", lib | hand | bf | gy | ex | stack | cmd},
 	} {
 		c := card(t, "Name:Probe\nManaCost:B\nTypes:Creature\nPT:1/1\nT:"+tc.trig+"\nSVar:X:DB$ GainLife | LifeAmount$ 1\nOracle:x\n")
 		if got := e.faceTriggerZones(c.Faces[0]); got != tc.want {
-			t.Errorf("%q: zones = %05b, want %05b", tc.trig, got, tc.want)
+			t.Errorf("%q: zones = %07b, want %07b", tc.trig, got, tc.want)
 		}
 	}
 }
@@ -115,7 +116,7 @@ func TestTrigZoneSkipSeesInPlaceChangeThroughReferent(t *testing.T) {
 		t.Fatalf("library summary before = valid %v hot %v, want cold", s.valid, s.hot)
 	}
 	o := e.G.Obj(lib[len(lib)/2])
-	o.CopyFace = card(t, libraryTriggerSrc).Faces[0]
+	o.SetCopyFace(card(t, libraryTriggerSrc).Faces[0])
 	e.emit(events.Event{Kind: events.Note, Obj: o.ID, Text: "in-place face change"})
 	e.emit(events.Event{Kind: events.StepChange, Step: state.StepUpkeep})
 	e.putTriggersOnStack()
@@ -136,7 +137,7 @@ func TestTrigZoneSkipVerifyCatchesUnreferencedWrite(t *testing.T) {
 	e := layerEngine(t)
 	e.emit(events.Event{Kind: events.StepChange, Step: state.StepDraw})
 	lib := e.G.Zone(state.ZLibrary, 0)
-	e.G.Obj(lib[len(lib)/2]).CopyFace = card(t, libraryTriggerSrc).Faces[0]
+	e.G.Obj(lib[len(lib)/2]).SetCopyFace(card(t, libraryTriggerSrc).Faces[0])
 	defer func() {
 		r := recover()
 		if s, ok := r.(string); !ok || !strings.Contains(s, "trigger zone skip passed over") {
@@ -144,4 +145,32 @@ func TestTrigZoneSkipVerifyCatchesUnreferencedWrite(t *testing.T) {
 		}
 	}()
 	e.emit(events.Event{Kind: events.StepChange, Step: state.StepUpkeep})
+}
+
+// TestTrigZoneSummariesCarryAcrossClone: a clone starts with the parent's
+// summaries in its own arrays and catch-up position, keeps them valid
+// through its first walk (a content match against its own lists), and the
+// parent's are untouched by the clone's.
+func TestTrigZoneSummariesCarryAcrossClone(t *testing.T) {
+	t.Parallel()
+	e := layerEngine(t)
+	e.emit(events.Event{Kind: events.StepChange, Step: state.StepDraw})
+	lib := trigZoneSlot(state.ZLibrary)
+	if !e.trigZones[lib].valid {
+		t.Fatal("parent library summary not built")
+	}
+	c := e.Clone()
+	if len(c.trigZones) != len(e.trigZones) || c.trigZonesEp != e.trigZonesEp || !c.trigZones[lib].valid {
+		t.Fatal("clone did not carry the summaries")
+	}
+	if len(c.trigZones[lib].ids) > 0 && &c.trigZones[lib].ids[0] == &e.trigZones[lib].ids[0] {
+		t.Fatal("clone shares the parent's summary ids")
+	}
+	c.emit(events.Event{Kind: events.StepChange, Step: state.StepMain1})
+	if s := c.trigZones[lib]; !s.valid || !sameZoneList(s.live, c.G.Zone(state.ZLibrary, 0)) {
+		t.Fatal("clone's walk did not confirm the carried library summary against its own list")
+	}
+	if sameZoneList(e.trigZones[lib].live, c.G.Zone(state.ZLibrary, 0)) {
+		t.Fatal("the clone's walk wrote the parent's summary")
+	}
 }

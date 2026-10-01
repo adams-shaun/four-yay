@@ -1,8 +1,8 @@
 package botpolicy
 
 import (
-	"reflect"
 	"testing"
+	"unsafe"
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/state"
@@ -69,14 +69,14 @@ func TestBoardFromGameIntoOwnership(t *testing.T) {
 	})
 	// The first fill, exactly what host/projectNext does for decision A.
 	boardA := BoardFromGame(gA, cA, 0)
-	if len(boardA.Creatures) != 2 {
-		t.Fatalf("board A census = %d creatures, want 2", len(boardA.Creatures))
+	if boardA.Creatures.Len() != 2 {
+		t.Fatalf("board A census = %d creatures, want 2", boardA.Creatures.Len())
 	}
 	// Reuse: capture the A map headers (each is a *Board*'s map reference a
 	// retaining seat could have held) before refilling.
-	creatA := boardA.Creatures
-	lifeA := boardA.Life
-	cardsA := boardA.Cards
+	creatA := tablePtr(boardA.Creatures)
+	lifeA := tablePtr(boardA.Life)
+	cardsA := tablePtr(boardA.Cards)
 
 	gB, cB := reuseGame(t, []struct {
 		kind string
@@ -88,33 +88,33 @@ func TestBoardFromGameIntoOwnership(t *testing.T) {
 	// (2) Same buckets: clearing-and-refilling must not reallocate the maps.
 	// Maps can't be compared with ==, so compare the header pointer each map
 	// resolves to: refill keeps the SAME map, so the pointers are equal.
-	if mapPtr(boardB.Creatures) != mapPtr(creatA) || mapPtr(boardB.Life) != mapPtr(lifeA) || mapPtr(boardB.Cards) != mapPtr(cardsA) {
+	if tablePtr(boardB.Creatures) != creatA || tablePtr(boardB.Life) != lifeA || tablePtr(boardB.Cards) != cardsA {
 		t.Fatalf("BoardFromGameInto reallocated the maps: reuse is not happening")
 	}
 
 	// (1) Refill cleared: only B's single creature remains, none of A's.
-	if len(boardB.Creatures) != 1 {
-		t.Fatalf("refilled census = %d creatures, want 1 (A's %d creatures failed to clear)", len(boardB.Creatures), len(boardA.Creatures))
+	if boardB.Creatures.Len() != 1 {
+		t.Fatalf("refilled census = %d creatures, want 1 (A's %d creatures failed to clear)", boardB.Creatures.Len(), boardA.Creatures.Len())
 	}
-	for id, c := range boardB.Creatures {
+	for id, c := range boardB.Creatures.All() {
 		if c.Power != 1 {
 			t.Errorf("refilled creature %d power = %d, want 1 (a stale A creature leaked into B)", id, c.Power)
 		}
 	}
-	if len(boardA.Creatures) != 1 {
-		t.Errorf("the reused Board A still reports %d creatures after refill, want 1", len(boardA.Creatures))
+	if boardA.Creatures.Len() != 1 {
+		t.Errorf("the reused Board A still reports %d creatures after refill, want 1", boardA.Creatures.Len())
 	}
 	// Life is repopulated identically on both fills.
-	if boardB.Life[0] != boardA.Life[0] || boardB.Life[0] != 20 {
-		t.Errorf("life after refill = %v, want 20", boardA.Life)
+	if boardB.Life.Get(0) != boardA.Life.Get(0) || boardB.Life.Get(0) != 20 {
+		t.Errorf("life after refill = %v, want 20", boardA.Life.Map())
 	}
 
 	// The retained-value hazard, stated as an assertion rather than a
 	// footnote: boardA (the value a careless seat might keep) now reads B's
 	// contents through its shared maps — which is exactly why a seat must
 	// hand each Board to Decide and never read it again.
-	if len(boardA.Creatures) != len(boardB.Creatures) {
-		t.Errorf("retained boardA sees %d creatures, boardB sees %d — retained boards are not readable after refill (ownership contract)", len(boardA.Creatures), len(boardB.Creatures))
+	if boardA.Creatures.Len() != boardB.Creatures.Len() {
+		t.Errorf("retained boardA sees %d creatures, boardB sees %d — retained boards are not readable after refill (ownership contract)", boardA.Creatures.Len(), boardB.Creatures.Len())
 	}
 }
 
@@ -138,7 +138,7 @@ func TestDecideDoesNotRetainBoard(t *testing.T) {
 		{"B", 0, 2}, {"B", 1, 5},
 	})
 	var aID, bID state.ObjID
-	for id, c := range BoardFromGame(gB, cB, 0).Creatures {
+	for id, c := range BoardFromGame(gB, cB, 0).Creatures.All() {
 		if c.Controller == 1 {
 			bID = id
 		} else {
@@ -178,13 +178,11 @@ func equalChoices(a, b []int) bool {
 	return true
 }
 
-// mapPtr returns the underlying hash-table pointer of a map (its header's
-// first word, what reflect.Value.Pointer returns for a map), so a test can
-// assert two map values are the SAME map — the reuse invariant — since Go
-// allows only nil comparisons on maps. A map kept across clear() has the same
-// pointer; a reallocated map has a different one.
-func mapPtr(m any) uintptr {
-	return reflect.ValueOf(m).Pointer()
+// tablePtr returns the address of a table's value storage, so a test can
+// assert a refill kept the SAME storage -- the reuse invariant. A table
+// kept across Reset has the same pointer; a reallocated one has another.
+func tablePtr[K TableKey, V any](t IDTable[K, V]) uintptr {
+	return uintptr(unsafe.Pointer(unsafe.SliceData(t.vals[:cap(t.vals)])))
 }
 
 // TestBoardFromGameIntoConcurrentOwnership runs the reuse protocol the host
@@ -239,11 +237,11 @@ func TestBoardFromGameIntoConcurrentOwnership(t *testing.T) {
 		for i := 0; i < cycles; i++ {
 			<-filled
 			// Read the latest fill fully before signalling the next produce.
-			if n := len(brd.Creatures); n != 1 {
+			if n := brd.Creatures.Len(); n != 1 {
 				t.Errorf("cycle %d: census = %d, want 1", i, n)
 			}
-			if brd.Life[0] != 20 || brd.Life[1] != 20 {
-				t.Errorf("cycle %d: life = %v, want 20/20", i, brd.Life)
+			if brd.Life.Get(0) != 20 || brd.Life.Get(1) != 20 {
+				t.Errorf("cycle %d: life = %v, want 20/20", i, brd.Life.Map())
 			}
 			consumed <- struct{}{} // the read is done; the next fill may start
 		}

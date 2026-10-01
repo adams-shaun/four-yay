@@ -17,6 +17,10 @@ import (
 // logging. Otherwise the event is logged and folded into state exactly as
 // before, and checkTriggers then looks for anything it just made true.
 func (e *Engine) emit(ev events.Event) events.Event {
+	if bookkeepingKind(ev.Kind) && !e.applyingReplacement {
+		e.emitBookkeeping(&ev)
+		return ev
+	}
 	if ev.Kind == events.EndTurn {
 		e.endTurnRequested = true
 	}
@@ -224,8 +228,9 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		ev.To != state.ZBattlefield && e.triggerBefore == nil {
 		if o := e.G.Obj(ev.Obj); o != nil && o.Zone == state.ZBattlefield {
 			saved := e.triggerBefore
-			e.triggerBefore = e.snapshotTriggerBoard()
-			defer func() { e.triggerBefore = saved }()
+			own := e.snapshotTriggerBoard()
+			e.triggerBefore = own
+			defer e.closeTriggerWindow(own, saved)
 		}
 	}
 	// LKI (CR 603.10 "look back in time") is captured HERE, before
@@ -240,7 +245,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 	case events.MoveZone, events.Draw, events.PutOnStack, events.ControlChange:
 		if o := e.G.Obj(ev.Obj); o != nil {
 			cp := o.CloneDeep()
-			lki = &cp
+			lki = e.arenaObject(&cp)
 			if o.Zone == state.ZBattlefield && o.Face() != nil {
 				lkiPower, lkiToughness = e.Power(o.ID), e.Toughness(o.ID)
 				lkiPTValid = true
@@ -254,7 +259,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		// are matched, so the pre-fold flag has to ride the LKI snapshot.
 		if o := e.G.Obj(ev.Obj); o != nil {
 			cp := o.CloneDeep()
-			lki = &cp
+			lki = e.arenaObject(&cp)
 		}
 	case events.CounterChange:
 		// Vanishing's last-counter trigger must distinguish a real removal
@@ -424,15 +429,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 				IDs: []state.ObjID{recipient}, Amount: stored.Amount})
 		}
 	}
-	if len(e.turnsTaken) == len(e.G.Players) && e.turnsTakenEpoch == len(e.L.Events)-1 {
-		if stored.Kind == events.TurnChange && int(stored.Player) < len(e.turnsTaken) {
-			e.turnsTaken[stored.Player]++
-		}
-		e.turnsTakenEpoch++
-	} else {
-		e.turnsTaken = nil
-		e.turnsTakenEpoch = 0
-	}
+	e.noteTurnsTaken(&stored)
 	// The per-turn combat-damage ledger expires with the turn (CR 514.2's
 	// "this turn" window): a TurnChange begins a fresh turn, so every hit
 	// captured during the turn that just ended is no longer "this turn".
@@ -443,7 +440,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		e.crimeSeatsThisTurn = 0
 		e.bendSeatsThisTurn = [64]uint8{}
 	}
-	e.loop.observeFrom(stored, e.damaging, len(e.G.Objs))
+	e.loop.observeFrom(&stored, e.damaging, len(e.G.Objs))
 	// setname.go: keep the layer-3 rename table the filter tier reads in step
 	// with the board. Gated so a match with no SetName$ carrier pays one
 	// branch.
@@ -630,7 +627,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		if stored.Kind == events.TokenCreate || stored.Kind == events.CardToken {
 			check.Obj = tokenMintWant
 		}
-		e.checkTriggers(check, lki, lkiPower, lkiToughness, lkiPTValid)
+		e.checkTriggers(&check, lki, lkiPower, lkiToughness, lkiPTValid)
 		// A pushed spell proposal's own target choice (CR 601.2c): remember
 		// which queue entries it produced so abortCast can drop them if the
 		// cast is reversed (CR 733.1 -- see pendingCast.proposalTriggers).
@@ -746,4 +743,71 @@ func (e *Engine) sweepExileReturn(source state.ObjID) {
 		}
 		e.emit(events.Event{Kind: events.MoveZone, Obj: entry.Obj, From: state.ZExile, To: entry.From})
 	}
+}
+
+// noteTurnsTaken keeps the per-seat turn tally cache in step with the log:
+// it stays valid only while every logged event passes through here, one at a
+// time, and a TurnChange bumps its player's count.
+func (e *Engine) noteTurnsTaken(stored *events.Event) {
+	if len(e.turnsTaken) == len(e.G.Players) && e.turnsTakenEpoch == len(e.L.Events)-1 {
+		if stored.Kind == events.TurnChange && int(stored.Player) < len(e.turnsTaken) {
+			e.turnsTaken[stored.Player]++
+		}
+		e.turnsTakenEpoch++
+	} else {
+		e.turnsTaken = nil
+		e.turnsTakenEpoch = 0
+	}
+}
+
+// bookkeepingKind reports the priority bookkeeping kinds -- a Priority
+// grant, a DecisionAsk and its DecisionMade answer. Together they are about
+// 70% of every logged event in a search game (measured on the az bench), and
+// every one of emit's per-kind hooks is a no-op for them; see
+// emitBookkeeping.
+func bookkeepingKind(k events.Kind) bool {
+	return k == events.Priority || k == events.DecisionAsk || k == events.DecisionMade
+}
+
+// emitBookkeeping is emit for a bookkeepingKind event outside a replacement
+// body (applyingReplacement rewrites a carried event, so that path stays on
+// the general emit). It runs exactly the hooks of emit that are not no-ops
+// for these kinds, in emit's order:
+//
+//   - the fold itself (foldEntryMove: no entry stage matches a non-entry
+//     kind and entryCounterGrants/entryBodyCandidates/entryRiderCandidates
+//     all answer "none", so it is a plain events.Emit);
+//   - the turn-tally cache, the livelock watcher, the layer-3 rename and
+//     layer-4 type tables, and the trigger check (with no LKI: emit takes an
+//     LKI snapshot only for MoveZone/Draw/PutOnStack/ControlChange/DoorUnlock
+//     and a TIME CounterChange).
+//
+// Every other emit hook is gated on a kind none of these is: protection and
+// infect/wither (Damage), Attach and Role sweeps, the counter prohibition
+// (CounterChange), entry staging (MoveZone/TokenCreate/CardToken),
+// applyReplacements (Draw/LifeChange/Damage branches; replacementEvent maps
+// none of these kinds, so the dispatch returns the event untouched), the
+// look-back window and source-lifelink LKI (battlefield departures), the
+// clone expiry (TurnFaceDown/Untap/MoveZone), the mint sinks and turn
+// ledgers (AbilityPush/TokenCreate/CopyToken/StackCopy/TargetsChosen/
+// ElementalBend/MoveZone), the zone-move sweeps, the damage and life-loss
+// batches, the deferred cast trigger (PutOnStack), the planar roll, the tap
+// ledger, speed, ascend, and the suppressedCast/control tail, which excludes
+// these three kinds by name. A hook added to emit for one of these kinds must
+// be added here too.
+//
+// It works in place: on return *ev is the stored event (Seq assigned, IDs and
+// Pairs detached), with no by-value copy of the 120-byte event on the way.
+// ev must point at the caller's own event, never into the log.
+func (e *Engine) emitBookkeeping(ev *events.Event) {
+	events.EmitPtr(e.G, e.L, ev)
+	e.noteTurnsTaken(ev)
+	e.loop.observeFrom(ev, e.damaging, len(e.G.Objs))
+	if e.setNameInPool {
+		e.refreshRenames()
+	}
+	if e.layer4InPool {
+		e.refreshDerivedTypes()
+	}
+	e.checkTriggers(ev, nil, 0, 0, false)
 }

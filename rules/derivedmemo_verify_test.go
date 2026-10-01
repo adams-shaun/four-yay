@@ -30,6 +30,7 @@ func init() {
 	activeSummaryVerify = true
 	manaSAFactsVerify = true
 	faceScanVerify = true
+	manaPlainVerify = true
 }
 
 // allocsWithoutWalkCacheVerify runs testing.AllocsPerRun with the walk

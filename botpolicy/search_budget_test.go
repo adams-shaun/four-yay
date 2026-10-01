@@ -23,7 +23,7 @@ import (
 // arm took the first offer regardless of MaxSum, diverging from the
 // stand-in it mirrors.
 func TestSearchBudgetArmStatedQualityDeclines(t *testing.T) {
-	b := Board{Cards: map[state.ObjID]Card{}}
+	b := Board{Cards: TableOf(map[state.ObjID]Card{})}
 	d := decision.Decision{
 		Kind:       decision.KChoose,
 		ResumeKind: "search",
@@ -50,7 +50,7 @@ func TestSearchBudgetArmStatedQualityDeclines(t *testing.T) {
 // the 3 fits, the 4 does not after it (3+4 = 7 > 5), the 2 fits (sum 5) --
 // [0,2], which passes Validate.
 func TestSearchBudgetArmQuantityOnlyTakesTheGreedySet(t *testing.T) {
-	b := Board{Cards: map[state.ObjID]Card{}}
+	b := Board{Cards: TableOf(map[state.ObjID]Card{})}
 	d := decision.Decision{
 		Kind:       decision.KChoose,
 		ResumeKind: "search",
@@ -75,7 +75,7 @@ func TestSearchBudgetArmQuantityOnlyTakesTheGreedySet(t *testing.T) {
 // TestSearchBudgetArmUnchangedWithoutMaxSum: a budget-less search keeps the
 // first-offer policy byte-for-byte.
 func TestSearchBudgetArmUnchangedWithoutMaxSum(t *testing.T) {
-	b := Board{Cards: map[state.ObjID]Card{}}
+	b := Board{Cards: TableOf(map[state.ObjID]Card{})}
 	d := decision.Decision{
 		Kind:       decision.KChoose,
 		ResumeKind: "search",

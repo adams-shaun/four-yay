@@ -3,22 +3,10 @@ package rules
 import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
-	"github.com/adams-shaun/gorge/deck"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
-
-func cloneDeckManifests(in []deck.Manifest) []deck.Manifest {
-	if in == nil {
-		return nil
-	}
-	out := make([]deck.Manifest, len(in))
-	for i := range in {
-		out[i] = in[i].Clone()
-	}
-	return out
-}
 
 // cloneTurnLedger copies the per-turn ledger cluster wholesale
 // (engine_turnledger.go): every member is the fresh-slice copy class, so a
@@ -101,11 +89,26 @@ func (e *Engine) CloneInto(sp *Spare) *Engine {
 	return e.cloneWith(spare)
 }
 
+// rekeyVersion maps a cache's continuousVersion stamp onto a clone, whose
+// continuousVersion starts at zero: a cache built under the parent's current
+// registry is current in the clone too (same registry, same board), and any
+// other stamp must never match the clone's.
+func rekeyVersion(stamp, current int) int {
+	if stamp == current {
+		return 0
+	}
+	return -1
+}
+
 func (e *Engine) cloneWith(sp Spare) *Engine {
 	c := &Engine{
-		G:                 e.G.CloneInto(sp.objs),
-		deckManifests:     cloneDeckManifests(e.deckManifests),
-		L:                 e.L.CloneInto(sp.events, sp.intents),
+		G: e.G.CloneIntoDirty(sp.objs, sp.objDirty),
+		// The genesis manifests are immutable after New (nothing writes
+		// deckManifests; OwnDeck publishes copies, OwnDeckShared is read-only
+		// by contract), so a clone shares them instead of copying every
+		// seat's rows per clone -- the search clones a root per simulation.
+		deckManifests:     e.deckManifests,
+		L:                 e.L.CloneIntoFrom(sp.events, sp.evFrom, sp.evN, sp.evDirty, sp.intents),
 		compiledText:      e.compiledText,
 		landTypeWords:     e.landTypeWords,
 		format:            e.format,
@@ -119,14 +122,32 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		// written -- where the watcher holds no in-flight run or quiet count
 		// worth carrying, so a fresh watcher over the same thresholds is a
 		// faithful copy.
-		loop:          newLivelockWatcherFromGuard(e.loop.guard, sp.loopSigs, sp.loopRecent),
-		setNameInPool: e.setNameInPool,
-		layer4InPool:  e.layer4InPool,
+		loop:                newLivelockWatcherFromGuard(e.loop.guard, sp.loopSigs, sp.loopRecent, sp.loopPrev, sp.loopHeads, sp.loopHash),
+		setNameInPool:       e.setNameInPool,
+		layer4InPool:        e.layer4InPool,
+		controlStaticInPool: e.controlStaticInPool,
 	}
+	c.trigGrant = e.trigGrant.forClone()
 	// The per-turn ledger cluster (engine_turnledger.go) is one clone
 	// class: every member is copied as a fresh slice so a clone owns its
 	// own ledgers; the detail lives on cloneTurnLedger.
 	c.engineTurnLedger = cloneTurnLedger(e.engineTurnLedger)
+	// The offer walk's incremental log indexes (legal_walk_scratch.go): the
+	// clone's log is a copy of this one, so each watermark still names the
+	// same prefix and the clone resumes the fold instead of redoing it.
+	c.legalScratch = cloneLegalWalkScratch(e.legalScratch)
+	// The offer walk's scratch lists come from the Spare (a spent engine's,
+	// cleared); a zero Spare leaves them nil, as Clone always has.
+	c.legalOptBuf, c.manaAbBuf = sp.legalOpts, sp.manaAb
+	// The offer walk's object classes (walk_objclass.go) are exact as of
+	// the static catch-up's watermark; the clone's log is a copy of this
+	// one, so it carries both and catches up the rest itself.
+	if e.walkClsOwner == e && len(e.walkObjCls) != 0 {
+		c.walkObjCls, c.walkClsOwner = append(sp.walkCls[:0], e.walkObjCls...), c
+		c.staticZonesEp = e.staticZonesEp
+	}
+	// A spent engine's zeroed pendingCast storage (cast_pool.go).
+	c.castFree = sp.cast
 	c.orderedTriggers = e.orderedTriggers
 	c.applyingReplacement = e.applyingReplacement
 	c.choosing = e.choosing
@@ -224,8 +245,40 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	// original would not. Same map-of-scalars class, so re-allocated, not
 	// shared.
 	c.castAborts = cloneAbortCounts(e.castAborts)
+	// The staticEffects memo (layercache.go), copied into recycled storage;
+	// see the staticContinuous note further down.
+	if e.staticEpoch > 0 && (e.staticVersion == e.continuousVersion || e.staticMemoQuiet()) {
+		c.staticContinuous = append(sp.static[:0], e.staticContinuous...)
+		c.staticEpoch, c.staticObjs = e.staticEpoch, e.staticObjs
+		c.staticVersion = c.continuousVersion
+		c.staticMemoGated, c.staticMemoStateRead = e.staticMemoGated, e.staticMemoStateRead
+		// The memo's gate records (static_gatememo.go) travel with it, into
+		// recycled storage: they are immutable values naming the shared
+		// card tables and the (arena-index) source ids both boards agree on.
+		if e.staticGatesKnown {
+			c.staticGates, c.staticGatesKnown = append(sp.gates[:0], e.staticGates...), true
+		} else {
+			c.staticGates = sp.gates[:0]
+		}
+	} else {
+		if sp.static != nil {
+			c.staticContinuous = sp.static[:0]
+		}
+		c.staticGates = sp.gates[:0]
+	}
 	c.suspendedCasts = append([]state.ObjID(nil), e.suspendedCasts...)
 	c.defeatedCasts = append([]state.ObjID(nil), e.defeatedCasts...)
+	// attackOffers' memo (attack_cost.go), carried under the same identical-
+	// board argument as the tables below: a search clones the engine while
+	// its declare-attackers decision is pending, and the clone's
+	// validateAttackers then reuses the list askAttackers derived instead of
+	// re-deriving it per simulation. The list is shared, never written (a
+	// recompute stores a fresh slice); the key's registry version is rekeyed
+	// onto the clone's.
+	if e.atkOffersEp > 0 && e.atkOffersVer == e.continuousVersion {
+		c.atkOffers, c.atkOffersEp = e.atkOffers, e.atkOffersEp
+		c.atkOffersVer, c.atkOffersObjs, c.atkOffersActive = c.continuousVersion, e.atkOffersObjs, e.atkOffersActive
+	}
 	// setname.go's layer-3 rename table and its genesis-time gate. The
 	// clone's board is identical at the clone boundary, so the table is
 	// carried with its (epoch, version) key rather than rebuilt -- but as
@@ -235,7 +288,8 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	// diverge (setname_filter_scope_test.go).
 	c.renames = append([]effects.ObjectName(nil), e.renames...)
 	c.renameEpoch = e.renameEpoch
-	c.renameVersion = e.renameVersion
+	c.renameVersion = rekeyVersion(e.renameVersion, e.continuousVersion)
+	c.renameObjs = e.renameObjs
 	// layer4types.go's layer-4 derived-type table and its genesis-time
 	// gate, carried with its (epoch, version) key for the same reason: the
 	// clone's board is identical at the clone boundary, and a fresh slice
@@ -244,8 +298,25 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	// read the CLONE's board once the two diverge.
 	c.layer4Types = append([]effects.ObjectTypes(nil), e.layer4Types...)
 	c.typesEpoch = e.typesEpoch
-	c.typesVersion = e.typesVersion
+	c.typesVersion = rekeyVersion(e.typesVersion, e.continuousVersion)
 	c.typesObjs = e.typesObjs
+	// The incremental layer-4 state and the statics probe cache describe the
+	// same identical board, so a table built under the current registry
+	// carries them too (engine_derived_tables.go): the clone's next refresh
+	// goes incremental instead of re-deriving and re-probing the whole board.
+	if e.typesIncrReady {
+		c.typesIncrReady, c.typesSelfOnly = true, e.typesSelfOnly
+		c.typesSrcs = append([]state.ObjID(nil), e.typesSrcs...)
+		c.typesMayDiffer = append([]state.ObjID(nil), e.typesMayDiffer...)
+	}
+	if e.typesProbeReady {
+		c.typesProbe = append(sp.probe[:0], e.typesProbe...)
+		c.typesProbeReady, c.typesProbeTrue = true, e.typesProbeTrue
+		c.typesProbeEpoch, c.typesProbeObjs = e.typesProbeEpoch, e.typesProbeObjs
+		c.typesProbeVersion = c.continuousVersion
+	} else {
+		c.typesProbe = sp.probe[:0]
+	}
 	if e.etbMove != nil {
 		ev := *e.etbMove
 		c.etbMove = &ev
@@ -386,9 +457,22 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 			c.continuous[i] = ce
 		}
 	}
-	if e.pendingTriggers != nil {
+	if len(e.pendingTriggers) > 0 {
 		c.pendingTriggers = clonePendingTriggers(e.pendingTriggers)
+	} else if e.pendingTriggers != nil || sp.pending != nil {
+		// An empty queue (a drained one keeps its array, putTriggersOnStack)
+		// takes the recycled array instead of allocating its first batch.
+		c.pendingTriggers = sp.pending
 	}
+	// The emit path's working storage, recycled from a spent engine (genesis
+	// Release): zone summaries arrive all invalid, the list arrays empty.
+	// The zone summaries are carried (copied into the recycled tables) with
+	// their catch-up positions: same board, same log, same obligations.
+	c.trigZones, c.trigZonesEp = copyTrigZones(sp.trigZones, e.trigZones), e.trigZonesEp
+	c.replZones, c.replZonesEp = copyReplZones(sp.replZones, e.replZones), e.replZonesEp
+	c.replArena = e.replArena
+	c.activeBuf, c.activeBufAlt = sp.activeBuf, sp.activeBufAlt
+	c.activeSrc = sp.activeSrc
 	if e.triggerContexts != nil {
 		c.triggerContexts = make(map[state.ObjID]effects.TriggerContext, len(e.triggerContexts))
 		for id, tc := range e.triggerContexts {
@@ -663,10 +747,16 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	// mid-range. Leaving both zero lets each engine grow its own buffer on
 	// its next depth-0 forEachObject call.
 	//
-	// staticContinuous / staticEpoch are likewise deliberately NOT copied:
-	// staticEffects rebuilds into the memo's reusable outer storage, so each
-	// branch must own its backing array. The zero epoch forces a fresh scan
-	// of the cloned board on its first active() rebuild. The static-control
+	// staticContinuous / staticEpoch are COPIED into the clone's own outer
+	// storage (below, after the struct literal): staticEffects rebuilds into
+	// the memo's reusable outer storage, so each branch must own its backing
+	// array, while the nested keyword/type slices are read-only once built
+	// and are shared. The clone's board and log are the parent's at the clone
+	// boundary, so the memo describes the clone exactly; it is carried only
+	// when it was built under the current registry (staticVersion ==
+	// continuousVersion) or read no registry state at all (staticMemoQuiet),
+	// re-keyed to the clone's own zero continuousVersion.
+	// Otherwise the zero epoch forces a fresh scan. The static-control
 	// reconcile (rules/control_static.go) derives its wanted set fresh from
 	// the same memo under the same epoch key, so it needs no copied cache
 	// either; reconcilingControlStatics (engine.go) is a transient re-entry
@@ -937,6 +1027,27 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	// tables start empty over Release-cleared capacity, the same zeroed state
 	// derivedMemoizedAt's growth relies on for a Config.Spare game.
 	c.derivedMemo, c.derivedMemoStack = sp.memo, sp.memoStack
+	// The spent engine's recycled snapshot arenas (trigger_snapshot_pool.go):
+	// cleared, owned by nobody else, so the clone's look-back windows reuse
+	// them; the original's own pool is never shared.
+	c.adoptSnapshotObjs(sp.snapObjs)
+	// The spent engine's cleared decision-arena chunks, switched off: the
+	// clone's owner turns the arena on (SetDecisionArena) if its decisions
+	// die with it.
+	c.adoptArena(sp.arena)
+	c.adoptHypPool(sp.hyp)
+	if sp.lookBack != nil {
+		c.lookBack, c.lookBackOwner = sp.lookBack, c
+	}
+	if sp.preview != nil {
+		c.preview, c.previewOwner = sp.preview, c
+	}
+	// The SBA quiet key (sbaquiet.go), when the original is provably quiet
+	// without a layer read: see sbaQuietCarry.
+	if k, ok := e.sbaQuietCarry(); ok {
+		k.ver = c.continuousVersion
+		c.sbaQuiet = k
+	}
 	return c
 }
 

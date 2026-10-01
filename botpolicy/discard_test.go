@@ -25,11 +25,11 @@ func TestDiscardRetention(t *testing.T) {
 		{"only lands", []Card{{Basic: true}, {CMC: 0}}, 1, []int{0}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			b := Board{Cards: map[state.ObjID]Card{}}
+			b := Board{Cards: TableOf(map[state.ObjID]Card{})}
 			d := decision.Decision{Kind: decision.KChoose, Min: tc.max, Max: tc.max}
 			for i, c := range tc.cards {
 				id := state.ObjID(i + 1)
-				b.Cards[id] = c
+				b.Cards.Set(id, c)
 				d.Options = append(d.Options, decision.Option{Index: i, Kind: "discard", Obj: id})
 			}
 			for _, seed := range []uint64{1, 99} {
@@ -55,7 +55,7 @@ func TestCommanderZoneManaAxisBoundary(t *testing.T) {
 		{2, 0, 3, 0},   // worth 30 minus 30: same zero boundary as chooseCast
 		{0, 0, 100, 0}, // zero mana value carries zero scaled tax
 	} {
-		b := Board{Cards: map[state.ObjID]Card{1: {Creature: true, CMC: tc.cmc, Power: tc.power}}, Commanders: map[state.ObjID]Commander{1: {Casts: tc.casts}}}
+		b := Board{Cards: TableOf(map[state.ObjID]Card{1: {Creature: true, CMC: tc.cmc, Power: tc.power}}), Commanders: TableOf(map[state.ObjID]Commander{1: {Casts: tc.casts}})}
 		if in := Decide(b, &d, rng(1)); !reflect.DeepEqual(in.Choices, []int{tc.want}) {
 			t.Fatalf("%+v: %v", tc, in.Choices)
 		}

@@ -429,6 +429,27 @@ func (s *Seat) Policy() Policy { return s.policy }
 // abort, it re-plans from the decision's fresh plans.
 func (s *Seat) WantsPaymentActions() bool { return s.mana != Manual }
 
+// ViewOmit (view.LeanReader) names the View parts Decide never reads: the
+// library list, availability, the archetype posterior, ability and
+// effective costs, the copied decision and the own deck, plus
+// PotentialActions everywhere but an AutoPay/Planned priority decision (the
+// only reader is candidates); a non-Tactical seat also skips every card list
+// but its own battlefield and every derived characteristic. Decide retains nothing of the View past the
+// call (Stats keeps formatted strings, the tactical caches keep values).
+func (s *Seat) ViewOmit(d *decision.Decision) view.Omit {
+	o := view.OmitLibrary | view.OmitAvailable | view.OmitArchetype | view.OmitAbilityCosts |
+		view.OmitEffectiveCost | view.OmitDecision | view.OmitOwnDeck
+	if d.Kind != decision.KPriority || s.mana == Manual {
+		o |= view.OmitPotential
+	}
+	if s.tac == nil {
+		// The SpellBench ports read no card but their own battlefield's tap
+		// state and mana production (pursuitColour).
+		o |= view.OmitCardLists | view.OmitDerivedChars
+	}
+	return o
+}
+
 // Decide answers d. The View supplies the step (to scope a pursuit), the
 // seat's own pool and PotentialActions, and the stack size; nothing else of
 // it is read.

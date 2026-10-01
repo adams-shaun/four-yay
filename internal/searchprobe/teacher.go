@@ -3,7 +3,7 @@ package searchprobe
 import (
 	"fmt"
 	"math"
-	"sort"
+	"slices"
 	"sync"
 	"sync/atomic"
 
@@ -40,7 +40,9 @@ type TeacherOptions struct {
 	// value. With Parallelism > 1 it is called from several goroutines at once,
 	// so it must be safe for concurrent use (policynet.Model.Value is), and it
 	// must be a pure function of its arguments or the result stops being
-	// independent of Parallelism.
+	// independent of Parallelism. v is a rollout worker's reusable
+	// projection (view.ProjectInto): it is valid only for the call, and Leaf
+	// must not retain it or anything in it.
 	Leaf func(v view.View, actor state.PlayerID) float64
 	// LeafOmniscient (ticket pn17-a1) hands Leaf the OMNISCIENT projection of
 	// a non-terminal leaf (view.ProjectFor with view.Omniscient, viewer =
@@ -175,7 +177,9 @@ func TeacherIntentChoice(worlds []World, candidates []SemanticIntent, opts Teach
 		done      bool
 	}
 	outs := make([]rollout, len(worlds)*len(candidates))
-	run := func(k int, e *rules.Engine) {
+	// lv is the worker's reusable leaf projection (view.ProjectInto): the
+	// sequential loop owns one, and every parallel worker its own.
+	run := func(k int, e *rules.Engine, lv *view.View) {
 		o := &outs[k]
 		defer func() {
 			if p := recover(); p != nil {
@@ -225,7 +229,8 @@ func TeacherIntentChoice(worlds []World, candidates []SemanticIntent, opts Teach
 		if opts.LeafOmniscient {
 			vis = view.Omniscient
 		}
-		o.value = leafValue(opts.Leaf, view.ProjectFor(e.G, e, actor, vis, e.Pending()), actor)
+		view.ProjectForInto(lv, e.G, e, actor, vis, e.Pending())
+		o.value = leafValue(opts.Leaf, *lv, actor)
 	}
 	if workers := min(opts.Parallelism, len(outs)); workers > 1 {
 		engines := make([]*rules.Engine, len(outs))
@@ -238,20 +243,22 @@ func TeacherIntentChoice(worlds []World, candidates []SemanticIntent, opts Teach
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
+				var lv view.View
 				for {
 					k := int(next.Add(1)) - 1
 					if k >= len(outs) {
 						return
 					}
-					run(k, engines[k])
+					run(k, engines[k], &lv)
 					engines[k] = nil
 				}
 			}()
 		}
 		wg.Wait()
 	} else {
+		var lv view.View
 		for k := range outs {
-			run(k, worlds[k/len(candidates)].Engine.Clone())
+			run(k, worlds[k/len(candidates)].Engine.Clone(), &lv)
 			if outs[k].err != nil || outs[k].panicked != nil {
 				break
 			}
@@ -314,23 +321,31 @@ func TeacherIntentChoice(worlds []World, candidates []SemanticIntent, opts Teach
 // toggle of the bot's answer, deduplicated and validated, capped at limit.
 // It assumes one option per attacker (two seats); options sharing an
 // attacker keep only the first defender for the all-in candidate.
+//
+// Map- and fmt-free (it runs at every attack decision of every search
+// simulation): a declaration is a set of Option.Index values, held as a
+// bitset over option POSITIONS (bit i: the set holds Options[i].Index), and
+// a duplicate is found by comparing against the candidates already kept.
 func AttackCandidates(d *decision.Decision, bot decision.Intent, limit int) []decision.Intent {
 	if d == nil || d.Kind != decision.KAttackers || limit < 2 {
 		return nil
 	}
-	chosen := make(map[int]bool, len(bot.Choices))
-	for _, c := range bot.Choices {
-		chosen[c] = true
-	}
-	var out []decision.Intent
-	seen := make(map[string]bool)
-	add := func(set map[int]bool) {
+	var setBuf [16]uint64
+	bits, w := optionBits(&setBuf, len(d.Options), 4)
+	chosen, none, all, t := bits[:w], bits[w:2*w], bits[2*w:3*w], bits[3*w:]
+	markIndicesIn(d, chosen, bot.Choices)
+	var choiceBuf [32]int
+	// At most limit candidates out of bot + none + all + one toggle per
+	// option; kept choice lists share one capped arena.
+	out := make([]decision.Intent, 0, min(limit, len(d.Options)+3))
+	var arena []int
+	add := func(set []uint64) {
 		if len(out) >= limit {
 			return
 		}
-		var choices []int
-		for _, o := range d.Options {
-			if set[o.Index] {
+		choices := choiceBuf[:0]
+		for i, o := range d.Options {
+			if bitHas(set, i) {
 				choices = append(choices, o.Index)
 			}
 		}
@@ -340,15 +355,18 @@ func AttackCandidates(d *decision.Decision, bot decision.Intent, limit int) []de
 		if d.RequiredChosen(choices) < d.RequiredQuota() {
 			return
 		}
-		key := fmt.Sprint(choices)
-		if seen[key] {
+		for i := range out {
+			if sameChoices(out[i].Choices, choices) {
+				return
+			}
+		}
+		if d.Validate(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: choices}) != nil {
 			return
 		}
-		in := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: choices}
-		if d.Validate(in) != nil {
-			return
+		in := decision.Intent{Seq: d.Seq, Player: d.Player}
+		if len(choices) > 0 { // an empty declaration stays nil, as it always was
+			in.Choices, arena = keepChoices(arena, choices, len(d.Options))
 		}
-		seen[key] = true
 		out = append(out, in)
 	}
 	add(chosen)
@@ -357,29 +375,21 @@ func AttackCandidates(d *decision.Decision, bot decision.Intent, limit int) []de
 	}
 	// "No attack" is the least declaration the requirement allows: the
 	// shared required core (decision.FitRequired over an empty preference).
-	none := make(map[int]bool)
-	for _, c := range d.FitRequired(nil) {
-		none[c] = true
-	}
+	markIndicesIn(d, none, d.FitRequired(nil))
 	add(none)
-	all := make(map[int]bool)
-	attacking := make(map[state.ObjID]bool)
-	for _, o := range d.Options {
-		if !attacking[o.Obj] {
-			attacking[o.Obj] = true
-			all[o.Index] = true
+	// All-in: the Index of the first option of each attacker.
+	for i, o := range d.Options {
+		if firstOfObj(d, i) {
+			markIndex(d, all, o.Index)
 		}
 	}
 	add(all)
 	for _, o := range d.Options {
-		t := make(map[int]bool, len(chosen)+1)
-		for k := range chosen {
-			t[k] = true
-		}
-		if t[o.Index] {
-			delete(t, o.Index)
-		} else {
-			t[o.Index] = true
+		copy(t, chosen)
+		for i := range d.Options {
+			if d.Options[i].Index == o.Index {
+				t[i>>6] ^= 1 << (uint(i) & 63)
+			}
 		}
 		add(t)
 	}
@@ -388,6 +398,59 @@ func AttackCandidates(d *decision.Decision, bot decision.Intent, limit int) []de
 	}
 	return out
 }
+
+// optionBits returns k zeroed option-position bitsets over n options laid
+// end to end (w words each, w returned), backed by buf unless the decision
+// is past len(buf)*64/k options.
+func optionBits(buf *[16]uint64, n, k int) (bits []uint64, w int) {
+	w = (n + 63) >> 6
+	if w*k <= len(buf) {
+		return buf[:w*k], w
+	}
+	return make([]uint64, w*k), w
+}
+
+// markIndicesIn adds every value of vals to the position set b: bit i for
+// each option whose Index is one of them.
+func markIndicesIn(d *decision.Decision, b []uint64, vals []int) {
+	for _, v := range vals {
+		markIndex(d, b, v)
+	}
+}
+
+// markIndex adds the Index value v to the position set b.
+func markIndex(d *decision.Decision, b []uint64, v int) {
+	for i := range d.Options {
+		if d.Options[i].Index == v {
+			bitSet(b, i)
+		}
+	}
+}
+
+// firstOfObj reports whether Options[i] is the first option naming its Obj.
+func firstOfObj(d *decision.Decision, i int) bool {
+	for j := 0; j < i; j++ {
+		if d.Options[j].Obj == d.Options[i].Obj {
+			return false
+		}
+	}
+	return true
+}
+
+// keepChoices copies choices into arena and returns the copy, capped at its
+// length so a caller's append can never write into a neighbour, with the
+// grown arena. A fresh arena is sized for a few candidates of n options.
+func keepChoices(arena, choices []int, n int) ([]int, []int) {
+	if cap(arena)-len(arena) < len(choices) {
+		arena = make([]int, 0, max(4*n, 2*len(choices), 16))
+	}
+	start := len(arena)
+	arena = append(arena, choices...)
+	return arena[start:len(arena):len(arena)], arena
+}
+
+func bitSet(b []uint64, i int)      { b[i>>6] |= 1 << (uint(i) & 63) }
+func bitHas(b []uint64, i int) bool { return b[i>>6]&(1<<(uint(i)&63)) != 0 }
 
 // BlockCandidates enumerates declarations to compare at a KBlockers root: the
 // bot's answer first (index 0, the label contract), then "no blocks" (the
@@ -411,24 +474,36 @@ func AttackCandidates(d *decision.Decision, bot decision.Intent, limit int) []de
 // detected on the sorted choice list. Options are visited in index order
 // only, so the output is deterministic. It returns nil unless at least two
 // candidates survive.
+//
+// Map- and fmt-free like AttackCandidates: candidates are built in scratch
+// and copied only when kept, the kept candidates' sorted lists live in one
+// flat arena for the duplicate test, and the bot's membership is a scan of
+// its (short) answer.
 func BlockCandidates(d *decision.Decision, bot decision.Intent, limit int, legal func([]int) []int) []decision.Intent {
 	if d == nil || d.Kind != decision.KBlockers || limit < 2 {
 		return nil
 	}
-	var out []decision.Intent
-	seen := make(map[string]bool)
-	add := func(choices []int) bool {
+	out := make([]decision.Intent, 0, min(limit, len(d.Options)+len(bot.Choices)+2))
+	var arena []int
+	var sortBuf, keyBuf [64]int
+	var endBuf [16]int
+	keys, ends := keyBuf[:0], endBuf[:0] // kept candidates' sorted lists, flat
+	// add tries one candidate; nilIfEmpty keeps an empty candidate built by
+	// copying a nil list nil, exactly as the map-keyed version carried it.
+	add := func(choices []int, nilIfEmpty bool) bool {
 		if len(out) >= limit {
 			return false
 		}
-		sorted := append([]int(nil), choices...)
-		sort.Ints(sorted)
-		key := fmt.Sprint(sorted)
-		if seen[key] {
-			return false
+		sorted := append(sortBuf[:0], choices...)
+		slices.Sort(sorted)
+		start := 0
+		for _, end := range ends {
+			if sameChoices(keys[start:end], sorted) {
+				return false
+			}
+			start = end
 		}
-		in := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: choices}
-		if d.Validate(in) != nil {
+		if d.Validate(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: choices}) != nil {
 			return false
 		}
 		if d.RequiredChosen(choices) < d.RequiredQuota() {
@@ -440,37 +515,39 @@ func BlockCandidates(d *decision.Decision, bot decision.Intent, limit int, legal
 		if legal != nil && !sameChoices(legal(append([]int(nil), choices...)), choices) {
 			return false
 		}
-		seen[key] = true
+		keys = append(keys, sorted...)
+		ends = append(ends, len(keys))
+		in := decision.Intent{Seq: d.Seq, Player: d.Player}
+		if len(choices) > 0 {
+			in.Choices, arena = keepChoices(arena, choices, len(d.Options))
+		} else if !nilIfEmpty {
+			in.Choices = []int{}
+		}
 		out = append(out, in)
 		return true
 	}
-	base := append([]int(nil), bot.Choices...)
-	if !add(base) {
+	var baseBuf, nextBuf [32]int
+	base := append(baseBuf[:0], bot.Choices...)
+	if !add(base, true) {
 		return nil
 	}
-	chosen := make(map[int]bool, len(base)) // membership only -- never ranged.
-	for _, c := range base {
-		chosen[c] = true
-	}
-	add(append([]int(nil), d.FitRequired(nil)...))
+	add(d.FitRequired(nil), true)
 	for _, o := range d.Options {
-		if chosen[o.Index] {
+		if slices.Contains(base, o.Index) {
 			continue
 		}
-		next := make([]int, 0, len(base)+1)
+		next := nextBuf[:0]
 		for _, c := range base {
 			if o.Group != "" && c >= 0 && c < len(d.Options) && d.Options[c].Group == o.Group {
 				continue
 			}
 			next = append(next, c)
 		}
-		add(append(next, o.Index))
+		add(append(next, o.Index), false)
 	}
 	for i := range base {
-		next := make([]int, 0, len(base)-1)
-		next = append(next, base[:i]...)
-		next = append(next, base[i+1:]...)
-		add(next)
+		next := append(nextBuf[:0], base[:i]...)
+		add(append(next, base[i+1:]...), false)
 	}
 	if len(out) < 2 {
 		return nil

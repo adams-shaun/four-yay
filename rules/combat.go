@@ -33,8 +33,10 @@ import (
 	"math"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
@@ -221,7 +223,8 @@ func (e *Engine) attackRequirements(id state.ObjID) attackRequirementSet {
 	if p, ok := e.encoreAttackDefender(id); ok {
 		s.addNamed(p)
 	}
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.Restriction != "MustAttack" {
 			continue
 		}
@@ -642,7 +645,6 @@ func (e *Engine) askAttackers() {
 	// enforces it). mustAttackRequired and validateAttackDeclaration read the
 	// same list and the same budget.
 	offers := e.attackOffers()
-	budget := e.attackBudget(p)
 	// A creature that is declared as attacking cannot also be tapped for
 	// mana, so a declaration including a mana source gives up that source's
 	// production. The published per-option budget cost therefore folds the
@@ -653,8 +655,11 @@ func (e *Engine) askAttackers() {
 	// can pay the tax. Without any mana tax every Value stays 0, so an
 	// ordinary prop-free declaration serialises byte-identically. See
 	// attackSourceUnits / attackTaxed in rules/attack_cost.go.
-	selfUnits := e.attackSourceUnits(p)
+	// Without a mana tax every Value is its pair's zero mana price, so
+	// neither the budget nor the per-source units can reach an option or the
+	// MaxSum below: both are pure reads, taken only under a tax.
 	taxed := e.attackTaxed(offers)
+	budget, selfUnits := e.attackBudgetUnits(p, taxed)
 	// The declaration-dependent tap-candidate pool (attackTapPool): published
 	// only when a tapXType obligation is offered and every such obligation
 	// shares one readable shape, so each option can carry the pool share it
@@ -666,7 +671,9 @@ func (e *Engine) askAttackers() {
 	if pool, costs, ok := e.attackTapPool(p, offers); ok {
 		tapPool, tapCosts = pool, costs
 	}
-	var opts []decision.Option
+	// Every offer becomes exactly one option: size the list once instead of
+	// regrowing a 392-byte element slice through every doubling.
+	opts := make([]decision.Option, 0, len(offers))
 	// groupLimits carries a raised per-defender attacker cap to the wire
 	// (Decision.GroupLimits): a scoped AttackRestrict ceiling above one
 	// (Crawlspace's "no more than two creatures can attack you") cannot be
@@ -779,7 +786,7 @@ func (e *Engine) askAttackers() {
 		return
 	}
 	e.ask(&decision.Decision{Player: p, Kind: decision.KAttackers, Min: 0, Max: maxOpts,
-		Prompt: fmt.Sprintf("turn %d — declare attackers", e.G.Turn), Options: opts,
+		Prompt: "turn " + strconv.Itoa(int(e.G.Turn)) + " — declare attackers", Options: opts,
 		// The cumulative attack-cost budget: the sum of the chosen options'
 		// Value (each pair's folded mana price: its tax plus, under a tax, the
 		// mana the attacker's own source would have produced) must not exceed
@@ -1100,20 +1107,20 @@ func (e *Engine) validateAttackers(d *decision.Decision, in decision.Intent) err
 	// attack-prop budget serialization are properties of the OFFER LIST, and
 	// re-deriving it here (the same pure read askAttackers ran) keeps a
 	// hand-built intent from naming a pair the budget ran out on.
-	offers := e.attackOffers()
+	offers := e.attackOffersPosed(d)
 	offered := make(map[attackOfferKey]blockCharge, 8)
 	for _, of := range offers {
 		offered[attackOfferKey{id: of.id, def: of.def, battle: of.battle}] = of.charge
 	}
-	budget := e.attackBudget(d.Player)
 	// The same folded budget currency askAttackers published (attackBudget
 	// Value): each attacker costs its mana price PLUS, under a mana tax, the
 	// mana its own source forgoes by attacking. Summing the raw charge.mana
 	// here would let this belt admit a declaration the very next check
 	// (combatChargeAffordable over chosenAttackers) rejects -- the two must
-	// agree. See attackOptionBudgetValue in rules/attack_cost.go.
-	selfUnits := e.attackSourceUnits(d.Player)
+	// agree. See attackOptionBudgetValue in rules/attack_cost.go. Without a
+	// tax every offered cost is 0, so the budget is never compared.
 	taxed := e.attackTaxed(offers)
+	budget, selfUnits := e.attackBudgetUnits(d.Player, taxed)
 	total := int32(0)
 	// The whole declaration's composite charge, validated against the same
 	// combatChargeAffordable read the offer gate used: mana within the budget,
@@ -1121,7 +1128,10 @@ func (e *Engine) validateAttackers(d *decision.Decision, in decision.Intent) err
 	// tap/sac/return obligation met by distinct permanents with the
 	// declaration's own attackers set aside.
 	var declaredCharge blockCharge
-	for _, o := range d.Chosen(in) {
+	// The chosen options, resolved once for every read below
+	// (validateAttackDeclaration's included).
+	chosen := d.Chosen(in)
+	for _, o := range chosen {
 		if !e.canAttackPair(o.Obj, o.Player) {
 			return fmt.Errorf("object %d cannot attack", o.Obj)
 		}
@@ -1169,11 +1179,11 @@ func (e *Engine) validateAttackers(d *decision.Decision, in decision.Intent) err
 	// unpriceable FREE charge. Naming the mana and the fail-closed flag keeps
 	// the diagnostic from hiding the real component again.
 	if !declaredCharge.zero() &&
-		!e.combatChargeAffordable(d.Player, declaredCharge, chosenAttackers(d.Chosen(in)), chosenAttackers(d.Chosen(in))) {
+		!e.combatChargeAffordable(d.Player, declaredCharge, chosenAttackers(chosen), chosenAttackers(chosen)) {
 		return fmt.Errorf("declaration's attack cost (%d mana, %d life, %d taps, %d sacrifices, %d returns, %d Phyrexian, unpriceable=%t) is not payable",
 			declaredCharge.mana, declaredCharge.life, len(declaredCharge.taps), len(declaredCharge.sacs), len(declaredCharge.returns), len(declaredCharge.phyrexian), declaredCharge.unpriceable)
 	}
-	return e.validateAttackDeclaration(d, in)
+	return e.validateAttackDeclarationChosen(d, in, chosen)
 }
 
 // mustAttackRequired reports whether id is a creature that must attack this
@@ -1310,7 +1320,7 @@ type staticGoadLine struct {
 func (e *Engine) staticGoadLines() []staticGoadLine {
 	var out []staticGoadLine
 	for _, sv := range e.activeStatics("Continuous") {
-		if !strings.EqualFold(strings.TrimSpace(sv.Params["Goad"]), "True") {
+		if !strings.EqualFold(strings.TrimSpace(sv.ParamStr(cards.PKGoad)), "True") {
 			continue
 		}
 		spec := sv.Params["Affected"]
@@ -1319,7 +1329,8 @@ func (e *Engine) staticGoadLines() []staticGoadLine {
 		}
 		out = append(out, staticGoadLine{source: sv.Source, controller: sv.Controller, spec: spec})
 	}
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.Restriction != "Goad" {
 			continue
 		}
@@ -1488,7 +1499,12 @@ func (e *Engine) maxAttackers() int {
 // ceiling. When no requirement and no restriction is in force (the ordinary
 // game), the checks are inert.
 func (e *Engine) validateAttackDeclaration(d *decision.Decision, in decision.Intent) error {
-	chosen := d.Chosen(in)
+	return e.validateAttackDeclarationChosen(d, in, d.Chosen(in))
+}
+
+// validateAttackDeclarationChosen is validateAttackDeclaration over
+// chosen = d.Chosen(in), already resolved by the caller (validateAttackers).
+func (e *Engine) validateAttackDeclarationChosen(d *decision.Decision, in decision.Intent, chosen []decision.Option) error {
 	maxAllowed := e.maxAttackers()
 	// CR 508.1d: the declaration must include as many required creatures as
 	// possible. The options carry the requirement (Option.Required, set from
@@ -1731,7 +1747,8 @@ func (e *Engine) mustBlockCandidates(defender state.PlayerID) map[state.ObjID]bo
 		if required[id] {
 			continue
 		}
-		for _, ce := range e.active() {
+		for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+			ce := &ceL[ceI]
 			if ce.Restriction == "MustBlock" && e.restrictionApplies(ce, id) {
 				required[id] = true
 				break
@@ -1872,7 +1889,11 @@ func (e *Engine) askBlockers() {
 		// requirement matcher runs over the SAME scope, so its maximum is
 		// counted on exactly the pairs the offer below makes declarable.
 		scope := e.blockPairScopeFor(defender)
-		var opts []decision.Option
+		// The options are collected in a stack buffer and copied once into an
+		// exact-size list below, instead of regrowing a 392-byte element
+		// slice through every doubling.
+		var optBuf [16]decision.Option
+		built := optBuf[:0]
 		requiredBlockers := e.mustBlockCandidates(defender)
 		// The attacker-oriented CR 509.1c requirements: every attacker the
 		// defender is being asked about that carries "CARDNAME must be blocked
@@ -1910,10 +1931,10 @@ func (e *Engine) askBlockers() {
 				// (one creature blocks one attacker) without knowing what a
 				// blocker is. The value is internal only -- a blocker:<id>
 				// prefix plus the object id -- never a display string.
-				opt := decision.Option{Index: len(opts), Kind: "block",
+				opt := decision.Option{Index: len(built), Kind: "block",
 					Label: e.G.Obj(bid).Face().Name + " blocks " + e.G.Obj(aid).Face().Name,
 					Obj:   bid, Attacker: aid, Player: defender,
-					Group: fmt.Sprintf("blocker:%d", bid), Required: requiredBlockers[bid], BlockMust: requiredBlockers[bid],
+					Group: "blocker:" + strconv.FormatUint(uint64(bid), 10), Required: requiredBlockers[bid], BlockMust: requiredBlockers[bid],
 					AttackMust: mustBeBlocked[aid]}
 				if b, ok := scope.bounds[aid]; ok {
 					opt.MinBlockers, opt.MaxBlockers = b[0], b[1]
@@ -1945,13 +1966,14 @@ func (e *Engine) askBlockers() {
 				if (opt.Required || opt.AttackMust) && e.hasKeywordH(aid, kwhMenace) && opt.MinBlockers < 2 {
 					opt.MinBlockers = 2
 				}
-				opts = append(opts, opt)
+				built = append(built, opt)
 			}
 		}
-		if len(opts) == 0 {
+		if len(built) == 0 {
 			br.cursor++
 			continue
 		}
+		opts := append(make([]decision.Option, 0, len(built)), built...)
 		maxSum := 0
 		for _, opt := range opts {
 			if opt.Value > 0 {
@@ -1971,7 +1993,7 @@ func (e *Engine) askBlockers() {
 			}
 		}
 		d := &decision.Decision{Player: defender, Kind: decision.KBlockers, Min: 0, Max: len(opts),
-			Prompt: fmt.Sprintf("turn %d — declare blockers", e.G.Turn), Options: opts, MaxSum: maxSum, PayerLife: payerLife}
+			Prompt: "turn " + strconv.Itoa(int(e.G.Turn)) + " — declare blockers", Options: opts, MaxSum: maxSum, PayerLife: payerLife}
 		// First find the maximum legal declaration with every candidate
 		// duty flagged. Publish only the required pairs in that team; the
 		// other members remain optional helpers needed to meet a Min$ bound.
@@ -3189,7 +3211,8 @@ func (e *Engine) maxHandSizeFor(p state.PlayerID) int {
 			return n
 		}
 	}
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.SetMaxHandSize == "" {
 			continue
 		}

@@ -25,9 +25,9 @@ import (
 // no mana sources so the tap gate never redirects the window (tapWants finds
 // no source to tap).
 func evokedCastBoard() (botpolicy.Board, decision.Decision) {
-	brd := botpolicy.Board{IsMain: true, MyTurn: true, Cards: map[state.ObjID]botpolicy.Card{
+	brd := botpolicy.Board{IsMain: true, MyTurn: true, Cards: botpolicy.TableOf(map[state.ObjID]botpolicy.Card{
 		42: {Creature: true, Power: 3, Toughness: 2, CMC: 5, Castable: true, ManaCost: "3 W W"},
-	}}
+	})}
 	d := decision.Decision{Seq: 7, Player: 0, Kind: decision.KPriority, Min: 1, Max: 1,
 		Options: []decision.Option{
 			{Index: 0, Kind: "activate", Obj: 1},
@@ -61,9 +61,9 @@ func TestAutoPayKeepsChosenLegacyMode(t *testing.T) {
 // alongside the legacy options) is then the best pick, and the adapter pays
 // the plan. A regression here would strand the planned spell.
 func TestAutoPayPaysPlanWhenPlanOnlyEntryIsBest(t *testing.T) {
-	brd := botpolicy.Board{IsMain: true, MyTurn: true, Cards: map[state.ObjID]botpolicy.Card{
+	brd := botpolicy.Board{IsMain: true, MyTurn: true, Cards: botpolicy.TableOf(map[state.ObjID]botpolicy.Card{
 		42: {Creature: true, Power: 3, Toughness: 2, CMC: 5, Castable: true, ManaCost: "3 W W"},
-	}}
+	})}
 	d := decision.Decision{Seq: 7, Player: 0, Kind: decision.KPriority, Min: 1, Max: 1,
 		Options: []decision.Option{
 			{Index: 0, Kind: "activate", Obj: 1},
@@ -86,9 +86,9 @@ func TestAutoPayPaysPlanWhenPlanOnlyEntryIsBest(t *testing.T) {
 // object also pays the plan -- the ordinary cast the plan witnesses is the
 // cast the policy chose -- so the two ordinary candidates can never diverge.
 func TestAutoPayPaysPlanWhenLegacyOrdinaryCastChosen(t *testing.T) {
-	brd := botpolicy.Board{IsMain: true, MyTurn: true, Cards: map[state.ObjID]botpolicy.Card{
+	brd := botpolicy.Board{IsMain: true, MyTurn: true, Cards: botpolicy.TableOf(map[state.ObjID]botpolicy.Card{
 		42: {Creature: true, Power: 3, Toughness: 2, CMC: 3, Castable: true, ManaCost: "2 W"},
-	}}
+	})}
 	d := decision.Decision{Seq: 7, Player: 0, Kind: decision.KPriority, Min: 1, Max: 1,
 		Options: []decision.Option{
 			{Index: 0, Kind: "activate", Obj: 1},

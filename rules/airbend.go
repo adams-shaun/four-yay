@@ -1,6 +1,8 @@
 package rules
 
 import (
+	"fmt"
+
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
@@ -15,66 +17,123 @@ import (
 // exile is the MoveZone whose Counter carries effects.AirbendExileCounter
 // (effects/airbend.go), and the permission lasts exactly as long as that
 // marker-carrying move is the card's most recent move into exile. A card
-// re-exiled by anything else fails the scan (the marker is on an older move),
-// and a card airbent again simply carries the marker on the newer move. The
-// same log-scan shape warpRecastAvailable and foretellCastAvailable take, so a
+// re-exiled by anything else fails (the marker is on an older move), and a
+// card airbent again simply carries the marker on the newer move. The same
+// log-derived shape warpRecastAvailable and foretellCastAvailable take, so a
 // replayed game derives the identical answer.
+//
+// The answer comes from the engine's incremental airbend index
+// (airbendIndex), which folds each log event exactly once; airbendScan is the
+// literal backward scan it is equivalent to (airbendIndexOff selects it, and
+// airbendIndexVerify checks every answer against it in the rules test binary).
 func (e *Engine) airbendCastAvailable(id state.ObjID) bool {
-	return buildAirbendExileIndex(e.L.Events).available(id)
+	if airbendIndexOff {
+		return airbendScan(e.L.Events, id)
+	}
+	got := e.airbendIndex().available(id)
+	if airbendIndexVerify {
+		if want := airbendScan(e.L.Events, id); got != want {
+			panic(fmt.Sprintf("rules: incremental airbend index says %v for obj %d at log %d, the scan %v", got, id, len(e.L.Events), want))
+		}
+	}
+	return got
 }
 
-// airbendIndexOff makes exileCastsWalk answer each exiled card with the
-// literal backward log scan (airbendScan) instead of the per-walk index,
-// for the offer-surface equivalence test's index-off arm. Default false --
-// production always indexes. Mirrors mayPlayCandIndexOff
-// (rules/mayplay_index.go).
+// airbendIndexOff makes airbendCastAvailable answer with the literal backward
+// log scan (airbendScan) instead of the incremental index, for the
+// equivalence tests' index-off arm. Default false: production indexes.
 var airbendIndexOff bool
 
-// airbendScan is the original one-off backward log scan: the latest MoveZone
-// naming id decides the permission. It is the reference arm airbendIndexOff
-// selects and the shape buildAirbendExileIndex folds into a map.
+// airbendIndexVerify: see derivedMemoVerify. Set by the rules test binary.
+var airbendIndexVerify = derivedMemoVerifyFlag != ""
+
+// airbendScan is the literal one-off backward log scan: the latest MoveZone
+// naming id decides the permission. An in-exile card's most recent move is by
+// construction the move that brought it there, so the marker on THAT move is
+// the whole of the permission; a card whose latest move was out of exile has
+// none, and a card never moved has none.
 func airbendScan(log []events.Event, id state.ObjID) bool {
 	for i := len(log) - 1; i >= 0; i-- {
 		ev := log[i]
 		if ev.Kind != events.MoveZone || ev.Obj != id {
 			continue
 		}
-		// An in-exile card's most recent move is by construction the move
-		// that brought it here, so the marker on THAT move is the whole of
-		// the permission; a card whose latest move was out of exile (it is
-		// on the stack or battlefield again) has none.
-		return ev.To == state.ZExile && ev.Counter == effects.AirbendExileCounter
+		return airbendMove(&ev)
 	}
 	return false
 }
 
-// airbendExileIndex answers airbendCastAvailable for every card an offer walk
-// asks about, from ONE backward pass over the log. The latest MoveZone naming
-// id decides: to exile with effects.AirbendExileCounter is the permission, any
-// other latest move withholds it. Built fresh per walk from the append-only
-// log, so it is replay-exact and cannot drift mid-walk (no Emit runs between
-// the exile loop's offer checks).
-type airbendExileIndex map[state.ObjID]bool
+// airbendMove is one MoveZone's verdict for its object: a move into exile
+// carrying the airbend marker grants the permission, every other move ends it.
+func airbendMove(ev *events.Event) bool {
+	return ev.To == state.ZExile && ev.Counter == effects.AirbendExileCounter
+}
 
-// buildAirbendExileIndex folds the log's MoveZone events into one permission
-// per card id. The log is scanned FORWARD and every MoveZone overwrites the
-// id's entry, so the map holds the latest move's verdict for each id --
-// exactly what airbendScan returns for that id. Ids never seen keep no entry
-// and available reports false, matching the scan's `return false`.
+// airbendExileIndex is the set of object ids whose latest MoveZone is an
+// airbend exile, as a bitset over ObjID. Its words are never written in
+// place: a change copies them first (fold), so an index may be shared freely
+// -- a clone, or entry_counters.go's by-value preview engine, holds the same
+// words as the engine it came from, and either one folding its own later
+// events cannot disturb the other. Changes are rare (only an airbend exile,
+// or an airbent card's next move), so the copies cost nothing in practice; a
+// game with no airbend never allocates.
+type airbendExileIndex struct {
+	bits []uint64
+}
+
+// available reports whether id's latest folded MoveZone was an airbend exile.
+func (ix *airbendExileIndex) available(id state.ObjID) bool {
+	w := int(id >> 6)
+	return w < len(ix.bits) && ix.bits[w]&(1<<(id&63)) != 0
+}
+
+// fold applies one MoveZone's verdict to its object.
+func (ix *airbendExileIndex) fold(ev *events.Event) {
+	id, perm := ev.Obj, airbendMove(ev)
+	if ix.available(id) == perm {
+		return
+	}
+	w := int(id >> 6)
+	n := len(ix.bits)
+	if w >= n {
+		n = w + 1
+	}
+	bits := make([]uint64, n)
+	copy(bits, ix.bits)
+	bits[w] ^= 1 << (id & 63)
+	ix.bits = bits
+}
+
+// buildAirbendExileIndex folds a whole log from scratch: the reference
+// rebuild the incremental index is equivalent to.
 func buildAirbendExileIndex(log []events.Event) airbendExileIndex {
-	ix := make(airbendExileIndex)
+	var ix airbendExileIndex
 	for i := range log {
-		ev := log[i]
-		if ev.Kind != events.MoveZone {
-			continue
+		if log[i].Kind == events.MoveZone {
+			ix.fold(&log[i])
 		}
-		ix[ev.Obj] = ev.To == state.ZExile && ev.Counter == effects.AirbendExileCounter
 	}
 	return ix
 }
 
-// available reports whether the card id carries the airbend recast
-// permission. An id the index never saw is false, matching the scan.
-func (ix airbendExileIndex) available(id state.ObjID) bool {
-	return ix[id]
+// airbendIndex brings the engine's incremental index up to the current log
+// head and returns it. Each event is folded once: the watermark
+// (airbendFolded) records how much of the append-only log the index covers,
+// and a clone carries both (Clone copies the log, so the watermark still
+// names the same prefix). A log shorter than the watermark -- a different
+// log installed on this engine -- restarts the fold from zero, so the answer
+// is always the current log's.
+func (e *Engine) airbendIndex() *airbendExileIndex {
+	s := &e.legalScratch
+	log := e.L.Events
+	if s.airbendFolded > len(log) {
+		s.airbendIx, s.airbendFolded = airbendExileIndex{}, 0
+	}
+	for i := s.airbendFolded; i < len(log); i++ {
+		if log[i].Kind == events.MoveZone {
+			s.airbendIx.fold(&log[i])
+		}
+	}
+	s.airbendFolded = len(log)
+	return &s.airbendIx
 }

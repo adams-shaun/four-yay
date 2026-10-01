@@ -30,6 +30,16 @@ type Spare struct {
 	events  []events.Event
 	objs    []state.Object
 	intents []decision.Intent
+	// Release recycles events and objs lazily: their first evDirty /
+	// objDirty slots may still hold the spent engine's history (every slot
+	// past them is zero), and the consumer zeroes whatever it does not
+	// overwrite (events.Log.CloneIntoFrom, state.Game.CloneIntoDirty,
+	// clearDirty). events[:evN] are the evN events of the array at evFrom
+	// (the spent log's Provenance), so a clone of that same history copies
+	// only what it lacks.
+	evFrom            *events.Event
+	evN               int
+	evDirty, objDirty int
 	// The Derived memo tables (derivedmemo.go): an ObjID index grown to the
 	// arena's size plus the slots; cleared by Release, which is exactly the
 	// zeroed never-written state derivedMemoTable.slot's growth relies on.
@@ -39,6 +49,58 @@ type Spare struct {
 	// regrowth; the watcher reads only their length.
 	loopSigs   []uint64
 	loopRecent []events.Event
+	// loopPrev / loopHeads are the watcher's candidate-index arrays
+	// (prevPos, slotHead), recycled like the windows: prevPos is read only
+	// below its length and slotHead is zeroed by the next watcher.
+	loopPrev, loopHeads []uint32
+	// loopHash is the watcher's rolling-hash prefix array (hs), parallel to
+	// loopSigs and likewise read only below its length.
+	loopHash []uint64
+	// snapObjs are the engine's recycled trigger-window snapshot arenas
+	// (trigger_snapshot_pool.go), cleared when they were pooled; the next
+	// engine's first look-back windows reuse them.
+	snapObjs [][]state.Object
+	// arena is a spent engine's cleared simulation arena (decision_arena.go),
+	// adopted (switched off) by the next engine.
+	arena *decisionArena
+	// lookBack is the spent engine's zeroed look-back observer struct
+	// (trigger_snapshot_pool.go), reused by the next engine.
+	lookBack *Engine
+	// preview is the spent engine's zeroed entry-preview struct
+	// (entry_counters.go), reused by the next engine.
+	preview *Engine
+	// legalOpts / manaAb are the offer walk's cleared scratch lists
+	// (legalOptBuf, manaAbBuf), so the next engine's first walks append
+	// into grown arrays instead of regrowing them from nil.
+	legalOpts []decision.Option
+	manaAb    []*cards.SA
+	// hyp is the spent engine's hypothetical-clone and read scratch pool
+	// (hypclone.go), adopted by the next engine.
+	hyp *hypSparePool
+	// static is a spent engine's cleared staticEffects memo storage, which
+	// the next clone copies its parent's memo into (clone.go).
+	static []ContinuousEffect
+	// gates is the static memo's cleared gate-record storage
+	// (static_gatememo.go), copied into by the next clone like static.
+	gates []staticGateRec
+	// probe is a spent engine's layer-4 statics probe cells
+	// (Engine.typesProbe), copied into by the next clone.
+	probe []uint8
+	// The emit path's per-engine working storage, recycled cleared: the
+	// trigger and replacement zone summaries (every summary invalid, its id
+	// lists emptied), active()'s two list arrays and the pending-trigger
+	// queue's array. Each is overwritten before it is read.
+	trigZones               []trigZoneSummary
+	replZones               []replZoneSummary
+	activeBuf, activeBufAlt []ContinuousEffect
+	activeSrc               []*ContinuousEffect
+	pending                 []pendingTrigger
+	// walkCls is a spent engine's object-class array (walk_objclass.go),
+	// copied into by the next clone.
+	walkCls []walkObjClass
+	// cast is the spent engine's recycled pendingCast storage
+	// (cast_pool.go), zeroed, adopted as the next engine's castFree.
+	cast *pendingCast
 }
 
 // Release returns e's log and object-arena arrays as a Spare for the next
@@ -47,7 +109,11 @@ type Spare struct {
 // LAST use of e and of anything sharing its arrays -- a Clone's log shares
 // the Events prefix (events.Log.Clone) -- which is why only a batch runner
 // that owns the finished engine outright calls it. The arrays are cleared so
-// the Spare does not pin the finished game's cards, strings and slices.
+// the Spare does not pin the finished game's cards, strings and slices --
+// lazily for the event and object arrays, which the next consumer zeroes
+// past what it overwrites (see Spare): a search recycles them once per
+// simulation, and clearing a mid-game log and arena only for the next clone
+// to copy over them again was most of Release's cost.
 //
 // A clone (Clone, CloneInto) may be released too -- that is the search loop
 // CloneInto documents. A clone's Events and Intents start as its parent's
@@ -71,20 +137,93 @@ func (e *Engine) Release() Spare {
 		events:     evs,
 		objs:       e.G.Objs[:cap(e.G.Objs)],
 		intents:    ints,
+		objDirty:   len(e.G.Objs),
 		memo:       e.derivedMemo.release(),
 		memoStack:  e.derivedMemoStack.release(),
 		loopSigs:   e.loop.sigs[:0],
 		loopRecent: e.loop.recent[:cap(e.loop.recent)],
+		loopPrev:   e.loop.prevPos[:0],
+		loopHeads:  e.loop.slotHead,
+		loopHash:   e.loop.hs[:0],
+		snapObjs:   e.releaseSnapshotObjs(),
 	}
+	sp.arena = e.releaseArena()
+	sp.hyp = e.releaseHypPool()
+	// The walk scratch lists are cleared at the end of every walk (legal.go,
+	// legal_walk_battlefield.go), so they hold no reference to recycle away.
+	sp.legalOpts, sp.manaAb = e.legalOptBuf[:0], e.manaAbBuf[:0]
+	e.legalOptBuf, e.manaAbBuf = nil, nil
+	if e.walkClsOwner == e {
+		sp.walkCls = e.walkObjCls[:0]
+	}
+	e.walkObjCls, e.walkClsOwner = nil, nil
+	// The static memo's outer storage is always this engine's own (a build
+	// writes into it, and a clone copies into its own), so it is recycled
+	// cleared: the nested slices it held are never reached again.
+	sp.static = e.staticContinuous[:cap(e.staticContinuous)]
+	clear(sp.static)
+	sp.static = sp.static[:0]
+	e.staticContinuous = nil
+	sp.gates = e.staticGates[:cap(e.staticGates)]
+	clear(sp.gates)
+	sp.gates, e.staticGates, e.staticGatesKnown = sp.gates[:0], nil, false
+	sp.probe, e.typesProbe, e.typesProbeReady = e.typesProbe[:0], nil, false
+	for i := range e.trigZones {
+		z := &e.trigZones[i]
+		z.resetSummary()
+	}
+	for i := range e.replZones {
+		z := &e.replZones[i]
+		*z = replZoneSummary{ids: z.ids[:0], hotIDs: z.hotIDs[:0]}
+	}
+	sp.trigZones, sp.replZones, e.trigZones, e.replZones = e.trigZones[:0], e.replZones[:0], nil, nil
+	sp.activeBuf, sp.activeBufAlt = clearedEffects(e.activeBuf), clearedEffects(e.activeBufAlt)
+	e.activeBuf, e.activeBufAlt = nil, nil
+	sp.activeSrc, e.activeSrc = e.activeSrc[:0], nil
+	sp.pending = e.pendingTriggers[:cap(e.pendingTriggers)]
+	clear(sp.pending)
+	sp.pending, e.pendingTriggers = sp.pending[:0], nil
+	e.recycleCast()
+	sp.cast, e.castFree, e.castIssued = e.castFree, nil, nil
+	if e.lookBackOwner == e && !e.lookBackBusy {
+		sp.lookBack = e.lookBack
+	}
+	e.lookBack, e.lookBackOwner = nil, nil
+	if e.previewOwner == e && !e.previewBusy {
+		sp.preview = e.preview
+	}
+	e.preview, e.previewOwner = nil, nil
 	clear(sp.loopRecent)
 	sp.loopRecent = sp.loopRecent[:0]
-	e.loop.sigs, e.loop.recent = nil, nil
-	clear(sp.events)
-	clear(sp.objs)
+	e.loop.sigs, e.loop.recent, e.loop.prevPos, e.loop.slotHead, e.loop.hs = nil, nil, nil, nil, nil
+	// The event and object arrays are not cleared here: the next consumer
+	// overwrites their live prefix anyway and zeroes the rest (see Spare).
+	if evs != nil {
+		sp.evFrom, sp.evN = e.L.Provenance()
+		sp.evDirty = len(e.L.Events)
+	}
 	clear(sp.intents)
 	e.L.Events, e.G.Objs, e.L.Intents = nil, nil, nil
 	e.derivedMemo, e.derivedMemoStack, e.intentBuf = derivedMemoTable{}, derivedMemoTable{}, nil
 	return sp
+}
+
+// clearDirty zeroes the spent history a lazily released Spare still holds
+// in its event and object arrays, for a consumer that fills them from empty
+// (genesis): afterwards both are zero throughout, as Release used to leave
+// them.
+func (sp *Spare) clearDirty() {
+	clear(sp.events[:sp.evDirty])
+	clear(sp.objs[:sp.objDirty])
+	sp.evFrom, sp.evN, sp.evDirty, sp.objDirty = nil, 0, 0, 0
+}
+
+// clearedEffects zeroes a spent effect array to its capacity (so it pins
+// none of the effects' slices and maps) and returns it empty.
+func clearedEffects(b []ContinuousEffect) []ContinuousEffect {
+	b = b[:cap(b)]
+	clear(b)
+	return b[:0]
 }
 
 // objectHeadroom is the extra Objs capacity newWithRNG reserves beyond the
@@ -140,6 +279,7 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 	var spare Spare
 	if cfg.Spare != nil {
 		spare, *cfg.Spare = *cfg.Spare, Spare{}
+		spare.clearDirty()
 	}
 	e := &Engine{
 		G:                 state.NewGameInto(cfg.Names, life, initialObjects, spare.objs),
@@ -147,7 +287,7 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 		L:                 events.NewLogInto(cfg.Seed, spare.events),
 		format:            cfg.Format,
 		rng:               random,
-		loop:              newLivelockWatcherInto(cfg.LoopGuard, spare.loopSigs, spare.loopRecent),
+		loop:              newLivelockWatcherInto(cfg.LoopGuard, spare.loopSigs, spare.loopRecent, spare.loopPrev, spare.loopHeads, spare.loopHash),
 		compiledText:      newCompiledText(cfg),
 		landTypeWords:     corpusLandTypeWords(cfg.NameUniverse),
 		mulligans:         cfg.Mulligans,
@@ -183,12 +323,19 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 	// the intent array waits for the first Submit (the log's Intents stays
 	// nil until an intent exists, as it always has).
 	e.derivedMemo, e.derivedMemoStack = spare.memo, spare.memoStack
+	e.adoptSnapshotObjs(spare.snapObjs)
+	e.adoptArena(spare.arena)
+	e.adoptHypPool(spare.hyp)
+	e.legalOptBuf, e.manaAbBuf = spare.legalOpts, spare.manaAb
+	e.castFree = spare.cast
 	if cap(spare.intents) > 0 {
 		e.intentBuf = spare.intents[:0]
 	}
 	e.G.Tokens = cfg.Tokens
 	e.setNameInPool = poolHasSetNameStatic(cfg)
 	e.layer4InPool = poolHasLayer4Static(cfg)
+	e.controlStaticInPool = poolHasControlStatic(cfg)
+	e.trigGrant.free = true // held per object as they appear (trigger_grantfree.go)
 	e.G.NameUniverse = cfg.NameUniverse
 	e.G.NameUniverseNames = append([]string(nil), cfg.NameUniverseNames...)
 	if len(e.G.NameUniverseNames) == 0 && len(cfg.NameUniverse) > 0 {

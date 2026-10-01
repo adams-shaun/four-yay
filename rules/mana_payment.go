@@ -5,9 +5,11 @@
 package rules
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -15,6 +17,19 @@ import (
 // manaLetters is state.Mana's index order (MW, MU, MB, MR, MG, MC) spelled
 // out as the WUBRGC symbols events.ManaAdd's Counter field expects.
 var manaLetters = [...]string{"W", "U", "B", "R", "G", "C"}
+
+// manaTaggedLetters[t][i] is state.ManaUnitTags[t]+manaLetters[i] and
+// manaSnowLetters[i] is "S"+manaLetters[i]: the spend split's Counter forms,
+// built once instead of per payment.
+var manaTaggedLetters, manaSnowLetters = func() (tagged [len(state.ManaUnitTags)][len(manaLetters)]string, snow [len(manaLetters)]string) {
+	for i, letter := range manaLetters {
+		for t, tag := range state.ManaUnitTags {
+			tagged[t][i] = tag + letter
+		}
+		snow[i] = "S" + letter
+	}
+	return tagged, snow
+}()
 
 // payMana spends cost from p's pool and reports whether it could. Every
 // state mutation goes through events, so payment cannot be a direct field
@@ -204,10 +219,14 @@ func (e *Engine) payManaDescriptorForSpent(p state.PlayerID, d paymentDescriptor
 			typedSpent += emitTyped[t][i]
 		}
 		emitSpend(letter, spent[i]-snowSpent-typedSpent)
-		for t, tag := range state.ManaUnitTags {
-			emitSpend(tag+letter, emitTyped[t][i])
+		for t := range state.ManaUnitTags {
+			if emitTyped[t][i] > 0 {
+				emitSpend(manaTaggedLetters[t][i], emitTyped[t][i])
+			}
 		}
-		emitSpend("S"+letter, snowSpent)
+		if snowSpent > 0 {
+			emitSpend(manaSnowLetters[i], snowSpent)
+		}
 	}
 	// Fixed life costs and any Phyrexian pips paid with life are deducted
 	// through the ordinary LifeChange event so a replay learns them.
@@ -681,6 +700,17 @@ func (e *Engine) restrictValidTermMatches(p state.PlayerID, d paymentDescriptor,
 // resolveMana path (and every game without a converter on the board)
 // byte-identical.
 func (e *Engine) paymentConv(p state.PlayerID, id state.ObjID, ability bool) *manaConv {
+	// With no printed ManaConvert static on the board and no Effect-delivered
+	// one in active()'s list (its build digest), manaConversionParts has no
+	// source to apply, so both parts are empty: the nil answer, directly.
+	if len(e.manaConvPrintedSources()) == 0 && !e.activeSummaryOf(e.active()).hasManaConvert {
+		if walkCacheVerify {
+			if m, o := e.manaConversionParts(p, id, ability); !m.empty() || !o.empty() {
+				panic(fmt.Sprintf("rules: a board with no ManaConvert source converts mana for obj %d", id))
+			}
+		}
+		return nil
+	}
 	mandatory, optional := e.manaConversionParts(p, id, ability)
 	conv := mandatory
 	// During an Optional$ ManaConvert cast, the offer-side path uses the union
@@ -758,7 +788,7 @@ func stackXAnnounced(o *state.Object) bool {
 		return true
 	}
 	if o.Ability != nil {
-		return costAnnouncesX(ParseCost(o.Ability.Params["Cost"]))
+		return costAnnouncesX(ParseCost(o.Ability.ParamStr(cards.PKCost)))
 	}
 	return false
 }

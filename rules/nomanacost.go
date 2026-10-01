@@ -31,7 +31,7 @@ import (
 // alternative-cost option (AltCostIndex > 0) and every keyword mode that
 // substitutes its own cost (flashback, escape, evoke, suspend, plot_cast,
 // ...) is not in the set.
-func paysPrintedManaCost(opt decision.Option) bool {
+func paysPrintedManaCost(opt *decision.Option) bool {
 	if opt.Kind != "cast" || opt.AltCostIndex > 0 {
 		return false
 	}
@@ -55,9 +55,11 @@ func isNoManaCost(mc string) bool {
 // the mana cost (MayPlayWithoutManaCost$) stays offered: that is exactly
 // CR 118.6's permitted route.
 func (e *Engine) filterNoManaCostCasts(p state.PlayerID, out []decision.Option) []decision.Option {
+	// The options are read in place (an Option is a large struct; a ranged
+	// copy per option per walk was a measurable share of the filter).
 	drop := false
-	for _, opt := range out {
-		if e.castsNoManaCostByPaying(p, opt) {
+	for i := range out {
+		if e.castsNoManaCostByPaying(p, &out[i]) {
 			drop = true
 			break
 		}
@@ -66,9 +68,9 @@ func (e *Engine) filterNoManaCostCasts(p state.PlayerID, out []decision.Option) 
 		return out
 	}
 	kept := out[:0]
-	for _, opt := range out {
-		if !e.castsNoManaCostByPaying(p, opt) {
-			kept = append(kept, opt)
+	for i := range out {
+		if !e.castsNoManaCostByPaying(p, &out[i]) {
+			kept = append(kept, out[i])
 		}
 	}
 	for i := range kept {
@@ -77,7 +79,7 @@ func (e *Engine) filterNoManaCostCasts(p state.PlayerID, out []decision.Option) 
 	return kept
 }
 
-func (e *Engine) castsNoManaCostByPaying(p state.PlayerID, opt decision.Option) bool {
+func (e *Engine) castsNoManaCostByPaying(p state.PlayerID, opt *decision.Option) bool {
 	if !paysPrintedManaCost(opt) {
 		return false
 	}

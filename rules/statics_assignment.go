@@ -26,7 +26,7 @@ func (e *Engine) asUnblockedStaticMatches(id state.ObjID) (matched, mandatory bo
 		if !e.restrictionGateHolds(sv, id) || !e.checkSVarHolds(sv) {
 			continue
 		}
-		if !e.classBandGateHolds(sv.Params, sv.Source) {
+		if !e.classBandGateHolds(sv.ParamStr(cards.PKClassBand), sv.Source) {
 			continue
 		}
 		if spec := strings.TrimSpace(sv.Params["IsPresent"]); spec != "" {
@@ -105,7 +105,8 @@ func (e *Engine) assignmentStatics(mode string) []staticView {
 	// the registration branch records; they do not participate in the printed
 	// EffectZone source-zone walk above. active() supplies lifetime and movement
 	// filtering, and its order is stable, so append in registry order.
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.AssignmentStaticMode != mode {
 			continue
 		}
@@ -133,7 +134,7 @@ func (e *Engine) combatDamageToughnessMatches(id state.ObjID) bool {
 		if !e.restrictionGateHolds(sv, id) || !e.checkSVarHolds(sv) {
 			continue
 		}
-		if !e.classBandGateHolds(sv.Params, sv.Source) {
+		if !e.classBandGateHolds(sv.ParamStr(cards.PKClassBand), sv.Source) {
 			continue
 		}
 		if spec := strings.TrimSpace(sv.Params["IsPresent"]); spec != "" {
@@ -227,7 +228,7 @@ func (e *Engine) tapPowerValue(id state.ObjID, saKind string) int32 {
 		if !e.restrictionGateHolds(sv, id) || !e.checkSVarHolds(sv) {
 			continue
 		}
-		if !e.classBandGateHolds(sv.Params, sv.Source) {
+		if !e.classBandGateHolds(sv.ParamStr(cards.PKClassBand), sv.Source) {
 			continue
 		}
 		if !tapPowerSAScopeMatches(sv.Params["ValidSA"], saKind) {

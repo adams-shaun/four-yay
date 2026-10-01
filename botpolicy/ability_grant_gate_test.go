@@ -61,7 +61,7 @@ func TestBoonActivationAcceptedWithOwnCreature(t *testing.T) {
 	if !b.hasOwnCreature(0) {
 		t.Fatal("precondition: board unexpectedly has no own creature")
 	}
-	if _, ok := b.Creatures[300]; ok {
+	if _, ok := b.Creatures.Lookup(300); ok {
 		t.Fatal("precondition: board unexpectedly offers the source as a creature")
 	}
 	if pick != 0 {
@@ -78,7 +78,7 @@ func TestBoonActivationAcceptedWithOwnCreature(t *testing.T) {
 // to make Whirler Rogue itself unblockable when no attack plan exists.
 func TestBoonActivationDeclinedWhenOnlyTheSourceIsOwn(t *testing.T) {
 	b := boardOf(def(1, 2, 2))
-	b.Creatures[300] = Creature{Power: 2, Toughness: 2, Controller: 0} // the source, Whirler Rogue
+	b.Creatures.Set(300, Creature{Power: 2, Toughness: 2, Controller: 0}) // the source, Whirler Rogue
 	pick, d := gateDecision(b, []string{"CantBlockBy"})
 	// Precondition: the inclusive census WOULD have seen the source, so the
 	// decline below is attributable to the exclusion, not to an empty board.

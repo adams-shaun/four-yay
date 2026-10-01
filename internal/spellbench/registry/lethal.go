@@ -253,26 +253,26 @@ func spaceFromBoard(b botpolicy.Board, me state.PlayerID) lethalSpace {
 	w.me = me
 	w.myTurn = b.MyTurn
 	w.firstMain = b.IsMain && b.FirstMain
-	players := make([]state.PlayerID, 0, len(b.Life))
-	for p := range b.Life {
+	players := make([]state.PlayerID, 0, b.Life.Len())
+	for p := range b.Life.All() {
 		players = append(players, p)
 	}
 	sort.Slice(players, func(i, j int) bool { return players[i] < players[j] })
 	found := false
 	for _, p := range players {
 		if p != me && !found {
-			w.opp, w.oppLife, found = p, b.Life[p], true
+			w.opp, w.oppLife, found = p, b.Life.Get(p), true
 		}
 	}
-	ids := make([]state.ObjID, 0, len(b.Creatures))
-	for id := range b.Creatures {
+	ids := make([]state.ObjID, 0, b.Creatures.Len())
+	for id := range b.Creatures.All() {
 		ids = append(ids, id)
 	}
 	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
 	for _, id := range ids {
-		c := b.Creatures[id]
+		c := b.Creatures.Get(id)
 		lc := lethalCre{obj: id, power: c.Power, toughness: c.Toughness, controller: c.Controller, tapped: c.Tapped}
-		if cd, ok := b.Cards[id]; ok {
+		if cd, ok := b.Cards.Lookup(id); ok {
 			lc.sick = cd.Sick
 		} else {
 			lc.sick = true

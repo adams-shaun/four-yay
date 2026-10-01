@@ -30,9 +30,9 @@ func TestUnlessPayPolicyDeclinesWhenPayingIsWorse(t *testing.T) {
 	r := rand.New(rand.NewPCG(5, 6))
 	d := manaUnlessDecision("3")
 	b := Board{
-		Life:      map[state.PlayerID]int32{0: 4},
+		Life:      TableOf(map[state.PlayerID]int32{0: 4}),
 		Pool:      state.Mana{state.MG: 1},
-		Creatures: map[state.ObjID]Creature{1: {Power: 5, Toughness: 5, Controller: 1}},
+		Creatures: TableOf(map[state.ObjID]Creature{1: {Power: 5, Toughness: 5, Controller: 1}}),
 	}
 	// Real assertion precondition: the decision really is a payable 2-option
 	// mana election with decline available.
@@ -58,9 +58,9 @@ func TestUnlessPayPolicyPaysWhenSafe(t *testing.T) {
 	r := rand.New(rand.NewPCG(5, 6))
 	d := manaUnlessDecision("3")
 	b := Board{
-		Life:      map[state.PlayerID]int32{0: 20},
+		Life:      TableOf(map[state.PlayerID]int32{0: 20}),
 		Pool:      state.Mana{state.MG: 1},
-		Creatures: map[state.ObjID]Creature{1: {Power: 5, Toughness: 5, Controller: 1}},
+		Creatures: TableOf(map[state.ObjID]Creature{1: {Power: 5, Toughness: 5, Controller: 1}}),
 	}
 	if b.facingLethal(0) {
 		t.Fatal("board precondition failed: unexpected lethal threat")

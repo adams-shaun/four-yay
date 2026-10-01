@@ -109,7 +109,18 @@ func (e *Engine) putTriggersOnStack() bool {
 		}
 		e.dropDepartedTriggers()
 		if len(e.pendingTriggers) == 0 {
-			e.pendingTriggers, e.orderedTriggers = nil, 0
+			// Keep the drained queue's array for the next batch, zeroed so
+			// the shifted-out tail pins nothing (removeTriggerAt shifts in
+			// place; nothing holds a view of the queue across a drain). Only
+			// the prefix a shrink can have left entries in needs zeroing
+			// (trigQueueStale): an already-drained array is clean, and a
+			// pendingTrigger carries a whole effects.Ctx, so re-zeroing the
+			// whole capacity on every priority round was most of this call.
+			if n := min(e.trigQueueStale, cap(e.pendingTriggers)); n > 0 {
+				clear(e.pendingTriggers[:n])
+			}
+			e.trigQueueStale = 0
+			e.pendingTriggers, e.orderedTriggers = e.pendingTriggers[:0], 0
 			return false
 		}
 		if e.orderedTriggers == 0 {
@@ -307,6 +318,20 @@ func (e *Engine) groupOrderDuplicates(n int) {
 // who has left the game (CR 800.4a) and leaves e.orderedTriggers counting the
 // same surviving entries it counted before.
 func (e *Engine) dropDepartedTriggers() {
+	departed := false
+	for i := range e.pendingTriggers {
+		if c := e.pendingTriggers[i].Controller; int(c) >= len(e.G.Players) || e.G.Players[c].Lost {
+			departed = true
+			break
+		}
+	}
+	if !departed {
+		// Nothing to drop: the filter below would copy every entry onto
+		// itself, and count min(orderedTriggers, len) settled survivors.
+		e.orderedTriggers = min(e.orderedTriggers, len(e.pendingTriggers))
+		return
+	}
+	e.noteTrigShrink()
 	kept := e.pendingTriggers[:0]
 	ordered := 0
 	for i, pt := range e.pendingTriggers {
@@ -320,6 +345,16 @@ func (e *Engine) dropDepartedTriggers() {
 	}
 	e.pendingTriggers = kept
 	e.orderedTriggers = ordered
+}
+
+// noteTrigShrink records the queue's length before a shrink, so the drain
+// knows how much of the backing array may hold left-behind entries
+// (trigQueueStale). Every site that shortens pendingTriggers in place calls
+// it first.
+func (e *Engine) noteTrigShrink() {
+	if n := len(e.pendingTriggers); n > e.trigQueueStale {
+		e.trigQueueStale = n
+	}
 }
 
 // popFrontTrigger removes the entry every pending decision is about. Entries
@@ -339,6 +374,7 @@ func (e *Engine) popFrontTrigger() {
 // to every reader, including one that ran between an ask and its answer.
 func (e *Engine) removeTriggerAt(i int) pendingTrigger {
 	pt := e.pendingTriggers[i]
+	e.noteTrigShrink()
 	e.pendingTriggers = append(e.pendingTriggers[:i], e.pendingTriggers[i+1:]...)
 	if i < e.orderedTriggers {
 		e.orderedTriggers--
@@ -1459,7 +1495,7 @@ func (e *Engine) optionalDecider(pt pendingTrigger) (who state.PlayerID, optiona
 	if !ok {
 		return 0, false, false
 	}
-	spec := t.Params["OptionalDecider"]
+	spec := t.ParamStr(cards.PKOptionalDecider)
 	if spec == "" {
 		return 0, false, false
 	}
@@ -1880,7 +1916,7 @@ func (e *Engine) askTriggerOrder(p state.PlayerID, n int) {
 		if e.pendingTriggers[i].Casualty {
 			// Ashad's EQ0 stack grant has expired on this cast. Invalidate
 			// the pre-payment layer snapshot before the ordering decision.
-			e.activeEpoch, e.staticEpoch = -1, -1
+			e.invalidateScratchLayerLists()
 			break
 		}
 	}
@@ -1894,11 +1930,7 @@ func (e *Engine) askTriggerOrder(p state.PlayerID, n int) {
 func (e *Engine) handleTriggerOrder(d *decision.Decision, in decision.Intent) {
 	if e.frontIsTheOfferedGroup(d) {
 		n := len(d.Options)
-		perm := make([]pendingTrigger, 0, n)
-		for _, c := range in.Choices {
-			perm = append(perm, e.pendingTriggers[c])
-		}
-		copy(e.pendingTriggers, perm)
+		permuteTriggersInPlace(e.pendingTriggers[:n], in.Choices)
 		e.orderedTriggers = n
 	} else if len(e.pendingTriggers) > 0 {
 		// Defensive, and believed unreachable: nothing between ask and answer
@@ -1909,6 +1941,39 @@ func (e *Engine) handleTriggerOrder(d *decision.Decision, in decision.Intent) {
 		e.orderedTriggers = 1
 	}
 	e.resumeTriggerDrain()
+}
+
+// permuteTriggersInPlace rewrites q so that q[k] is the entry formerly at
+// q[choices[k]], for choices a permutation of [0, len(q)) -- what copying
+// q[choices[0]], q[choices[1]], ... into a fresh slice and back did, without
+// the fresh slice (a pendingTrigger carries a whole effects.Ctx by value).
+// Each cycle of the permutation is rotated through one held entry.
+func permuteTriggersInPlace(q []pendingTrigger, choices []int) {
+	var doneBuf [64]bool
+	done := doneBuf[:0]
+	if len(q) <= len(doneBuf) {
+		done = doneBuf[:len(q)]
+	} else {
+		done = make([]bool, len(q))
+	}
+	for k := range q {
+		if done[k] || choices[k] == k {
+			done[k] = true
+			continue
+		}
+		held := q[k]
+		j := k
+		for {
+			done[j] = true
+			src := choices[j]
+			if src == k {
+				q[j] = held
+				break
+			}
+			q[j] = q[src]
+			j = src
+		}
+	}
 }
 
 // frontIsTheOfferedGroup rechecks that the queue still starts with exactly the

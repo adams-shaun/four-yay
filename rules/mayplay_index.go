@@ -177,7 +177,7 @@ func (w *mayPlayIndexWalk) pairs(ce *state.ContinuousEffect, zl []state.Zone, se
 		if !ok {
 			continue
 		}
-		if !w.e.effectGrantMatches(*ce, id) {
+		if !w.e.effectGrantMatches(ce, id) {
 			continue
 		}
 		hits = append(hits, keyed{mayPlayCand{o.Zone, id}, mayPlayPairKey(zr, pp, seatFirst)})
@@ -218,7 +218,7 @@ func (w *mayPlayIndexWalk) scan(ce *state.ContinuousEffect, zl []state.Zone, sea
 	var out []mayPlayCand
 	emit := func(z state.Zone, id state.ObjID) {
 		o := w.e.G.Obj(id)
-		if o == nil || !keep(o) || !w.e.effectGrantMatches(*ce, id) {
+		if o == nil || !keep(o) || !w.e.effectGrantMatches(ce, id) {
 			return
 		}
 		out = append(out, mayPlayCand{z, id})

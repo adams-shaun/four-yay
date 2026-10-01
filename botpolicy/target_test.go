@@ -97,7 +97,7 @@ func TestTargetPreferCreatureOverFace(t *testing.T) {
 	// at a healthy 20 life, so the face is merely legal and loses to the
 	// board (the do-not-suicide half of the dp3 face rule).
 	b := boardOf(def(1, 6, 6))
-	b.Life[1] = 20
+	b.Life.Set(1, 20)
 	got, d := targetDecision(b, []tgt{face(), opp(201)}, 1, 1)
 	if len(got) != 1 || objAt(d, got[0]) != 201 {
 		t.Errorf("board creature preferred over face = %v (obj %d), want the 6/6 (obj 201)", got, objAt(d, got[0]))
@@ -284,7 +284,7 @@ func TestTargetNeverTakesTwoOfOneGroup(t *testing.T) {
 // when nothing else is offered (see faceScore).
 func TestTargetLowLifeDoesNotClaimBurnReach(t *testing.T) {
 	b := boardOf(def(1, 5, 5))
-	b.Life[1] = 2 // a burn "would" reach -- but the policy cannot prove the effect deals damage
+	b.Life.Set(1, 2) // a burn "would" reach -- but the policy cannot prove the effect deals damage
 	got, d := targetDecision(b, []tgt{opp(201), face()}, 1, 1)
 	if len(got) != 1 || objAt(d, got[0]) != 201 {
 		t.Fatalf("target = %v (obj %d), want the 5/5 (obj 201) even at 2 life: low life is not provable burn reach", got, objAt(d, got[0]))
@@ -299,7 +299,7 @@ func TestTargetLowLifeDoesNotClaimBurnReach(t *testing.T) {
 // too (TestTargetLowLifeDoesNotClaimBurnReach).
 func TestTargetCreatureOverHealthyFace(t *testing.T) {
 	b := boardOf(def(1, 6, 6))
-	b.Life[1] = 18 // healthy
+	b.Life.Set(1, 18) // healthy
 	got, d := targetDecision(b, []tgt{face(), opp(201)}, 1, 1)
 	if len(got) != 1 || objAt(d, got[0]) != 201 {
 		t.Fatalf("target = obj %d, want the 6/6 (obj 201) over the healthy face", objAt(d, got[0]))
@@ -316,7 +316,7 @@ func TestTargetCreatureOverHealthyFace(t *testing.T) {
 func TestTargetFaceIsNeutralAcrossLife(t *testing.T) {
 	for _, life := range []int32{20, 15, 2, 0} {
 		b := boardOf(def(1, 4, 4))
-		b.Life[1] = life
+		b.Life.Set(1, life)
 		got, d := targetDecision(b, []tgt{opp(201), face()}, 1, 1)
 		if len(got) != 1 || objAt(d, got[0]) != 201 {
 			t.Errorf("at %d life target = %v (obj %d), want the 4/4 (obj 201): the face is neutral, not burn reach", life, got, objAt(d, got[0]))
@@ -333,10 +333,10 @@ func TestTargetFaceIsNeutralAcrossLife(t *testing.T) {
 // -- so the board is still preferred over the face.
 func TestTargetCommanderClockIsNotSpellReach(t *testing.T) {
 	b := boardOf(def(1, 3, 3))
-	b.Life[1] = 20
-	b.Commanders = map[state.ObjID]Commander{
+	b.Life.Set(1, 20)
+	b.Commanders = TableOf(map[state.ObjID]Commander{
 		300: {Damage: map[state.PlayerID]int32{1: 19}},
-	}
+	})
 	got, d := targetDecision(b, []tgt{opp(201), face()}, 1, 1)
 	if len(got) != 1 || objAt(d, got[0]) != 201 {
 		t.Fatalf("target = %v (obj %d), want the 3/3 (obj 201): commander-damage proximity is not spell burn reach", got, objAt(d, got[0]))

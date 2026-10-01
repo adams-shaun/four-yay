@@ -1,7 +1,6 @@
 package searchprobe
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -162,36 +161,16 @@ func NewKnownCardTracker(actor state.PlayerID) *KnownCardTracker {
 	}
 }
 
-// knownBoard is the slice of an observed board the tracker reads: public
-// zone members, the actor's own hand and the public zone sizes.
-type knownBoard struct {
-	Players []struct {
-		ID          state.PlayerID `json:"seat"`
-		LibrarySize int            `json:"library_size"`
-		HandSize    int            `json:"hand_size"`
-		Hand        []knownCardID  `json:"hand"`
-		Battlefield []knownCardID  `json:"battlefield"`
-		Graveyard   []knownCardID  `json:"graveyard"`
-		Exile       []knownCardID  `json:"exile"`
-		Command     []knownCardID  `json:"command"`
-	} `json:"players"`
-	Stack []knownCardID `json:"stack"`
-}
-
-type knownCardID struct {
-	ID uint32 `json:"id"`
-}
-
 // Observe folds one frame: its identities, its events in order, its
 // decision, then the end-of-frame board.
 func (t *KnownCardTracker) Observe(frame Frame) error {
-	var board knownBoard
-	if err := json.Unmarshal(frame.Board, &board); err != nil {
-		return fmt.Errorf("known cards: frame %d board: %w", t.frame, err)
+	board := &frame.Board
+	if len(board.Players) == 0 {
+		return fmt.Errorf("known cards: frame %d board: no players", t.frame)
 	}
 	if t.players == nil {
 		for _, p := range board.Players {
-			t.players = append(t.players, p.ID)
+			t.players = append(t.players, p.Seat)
 		}
 	}
 	for _, identity := range frame.Identities {
@@ -550,9 +529,9 @@ func (t *KnownCardTracker) applyArrange(a *pendingArrange) {
 }
 
 // reconcile applies the end-of-frame board.
-func (t *KnownCardTracker) reconcile(board knownBoard) {
+func (t *KnownCardTracker) reconcile(board *Board) {
 	for _, p := range board.Players {
-		for _, zone := range [][]knownCardID{p.Battlefield, p.Graveyard, p.Exile, p.Command} {
+		for _, zone := range [][]BoardCard{p.Battlefield, p.Graveyard, p.Exile, p.Command} {
 			for _, c := range zone {
 				t.forget(c.ID)
 			}
@@ -562,7 +541,7 @@ func (t *KnownCardTracker) reconcile(board knownBoard) {
 		t.forget(s.ID)
 	}
 	for _, p := range board.Players {
-		if p.ID != t.actor {
+		if p.Seat != t.actor {
 			continue
 		}
 		inHand := make(map[uint32]bool, len(p.Hand))
@@ -587,15 +566,15 @@ func (t *KnownCardTracker) reconcile(board knownBoard) {
 		counts[l]++
 	}
 	for _, p := range board.Players {
-		lib := knownLoc{zone: state.ZLibrary, player: p.ID}
-		hand := knownLoc{zone: state.ZHand, player: p.ID}
-		if t.frame > 0 && t.sizeKnown && t.libSize[p.ID] != p.LibrarySize || counts[lib] > p.LibrarySize || len(t.top[p.ID]) > p.LibrarySize || len(t.bot[p.ID]) > p.LibrarySize {
+		lib := knownLoc{zone: state.ZLibrary, player: p.Seat}
+		hand := knownLoc{zone: state.ZHand, player: p.Seat}
+		if t.frame > 0 && t.sizeKnown && t.libSize[p.Seat] != p.LibrarySize || counts[lib] > p.LibrarySize || len(t.top[p.Seat]) > p.LibrarySize || len(t.bot[p.Seat]) > p.LibrarySize {
 			t.clearZone(lib)
 		}
-		if t.frame > 0 && t.sizeKnown && t.handSize[p.ID] != p.HandSize || counts[hand] > p.HandSize {
+		if t.frame > 0 && t.sizeKnown && t.handSize[p.Seat] != p.HandSize || counts[hand] > p.HandSize {
 			t.clearZone(hand)
 		}
-		t.libSize[p.ID], t.handSize[p.ID] = p.LibrarySize, p.HandSize
+		t.libSize[p.Seat], t.handSize[p.Seat] = p.LibrarySize, p.HandSize
 	}
 	t.sizeKnown = true
 }

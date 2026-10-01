@@ -22,7 +22,7 @@ func TestLegalAttackChoicesVerifiesPublishedTapPool(t *testing.T) {
 		{Index: 1, Kind: "attacker", Obj: 2, TapPoolCost: 1},
 		{Index: 2, Kind: "attacker", Obj: 3, TapPoolCost: 1},
 	}}
-	b := Board{Life: map[state.PlayerID]int32{0: 20}}
+	b := Board{Life: TableOf(map[state.PlayerID]int32{0: 20})}
 	// PRECONDITION: the unfiltered answer is one the validator rejects, so the
 	// guard has real work to do.
 	if err := d.Validate(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{0, 1, 2}}); err == nil {
@@ -46,7 +46,7 @@ func TestLegalAttackChoicesDropsTapWithoutPublishedPool(t *testing.T) {
 		{Index: 0, Kind: "attacker", Obj: 1},
 		{Index: 1, Kind: "attacker", Obj: 2, CostTaps: 1},
 	}}
-	b := Board{Life: map[state.PlayerID]int32{0: 20}}
+	b := Board{Life: TableOf(map[state.PlayerID]int32{0: 20})}
 	if got := LegalAttackChoices(b, d, []int{0, 1}); !reflect.DeepEqual(got, []int{0}) {
 		t.Fatalf("LegalAttackChoices = %v, want [0] (no published pool)", got)
 	}

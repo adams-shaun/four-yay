@@ -1,7 +1,6 @@
 package searchprobe
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/adams-shaun/gorge/decision"
@@ -273,19 +272,10 @@ func arrangedEpochPositions(frame Frame, cursor epochCursor, answer []Action) ([
 	if len(answer) < d.Min || len(answer) > d.Max || len(d.Options) == 0 {
 		return nil, false
 	}
-	var board struct {
-		Players []struct {
-			ID          state.PlayerID `json:"seat"`
-			LibrarySize *int           `json:"library_size"`
-		} `json:"players"`
-	}
-	if json.Unmarshal(frame.Board, &board) != nil {
-		return nil, false
-	}
 	size := -1
-	for _, player := range board.Players {
-		if player.ID == d.Player && player.LibrarySize != nil {
-			size = *player.LibrarySize
+	for _, player := range frame.Board.Players {
+		if player.Seat == d.Player {
+			size = player.LibrarySize
 		}
 	}
 	if size < len(d.Options) || cursor.order != nil && len(cursor.order) != size {

@@ -2,7 +2,6 @@ package rules
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
@@ -541,10 +540,10 @@ func (e *Engine) defeatedCastAnswer(chosen []decision.Option) {
 
 func (e *Engine) setStep(s state.Step) {
 	leaving := e.G.Step
-	previous := e.stepLeaving
-	e.stepLeaving = &leaving
+	previous, previousSet := e.stepLeaving, e.stepLeavingSet
+	e.stepLeaving, e.stepLeavingSet = leaving, true
 	e.emit(events.Event{Kind: events.StepChange, Step: s})
-	e.stepLeaving = previous
+	e.stepLeaving, e.stepLeavingSet = previous, previousSet
 	if e.pending != nil {
 		// Optional BeginPhase parked the transition. Boundary cleanup belongs
 		// after that choice and is resumed by handleReplacement; emitting it
@@ -957,18 +956,20 @@ func (e *Engine) askPriority(p state.PlayerID) {
 	if e.windowDiagnostics {
 		window = newWindowCollector(p)
 	}
-	d := &decision.Decision{
+	d := e.arenaDecision()
+	ep, ver, objs := len(e.L.Events), e.continuousVersion, len(e.G.Objs)
+	*d = decision.Decision{
 		Player: p, Kind: decision.KPriority, Min: 1, Max: 1,
 		// Byte-identical to fmt.Sprintf("turn %d, %s — %s has priority",
 		// ...) without fmt's boxing: every priority walk builds it.
-		Prompt: "turn " + strconv.Itoa(int(e.G.Turn)) + ", " + e.G.Step.String() + " — " +
-			seatFacingName(e.G, p) + " has priority",
+		Prompt:  e.priorityPrompt(p),
 		Options: e.legalActionsWithWindow(p, window),
 	}
 	if window != nil {
 		d.WindowReasons = window.finish(d.Options)
 	}
 	e.ask(d)
+	e.notePriorityWalk(p, d, ep, ver, objs)
 }
 
 // finishEndTurn applies CR 723.1d/e after the EndTurn event has removed the

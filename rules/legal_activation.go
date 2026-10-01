@@ -42,7 +42,7 @@ var coreCardTypes = []string{"Artifact", "Battle", "Creature", "Enchantment",
 // gate as the other conditions. No repo-deck card carries Solved or Blessing
 // (measured at the current corpus pin: 3 raw lines each, none in the decks).
 func (e *Engine) activationConditionOK(p state.PlayerID, ab *cards.SA) bool {
-	raw, ok := ab.Params["Activation"]
+	raw, ok := ab.Param(cards.PKActivation)
 	if !ok || strings.TrimSpace(raw) == "" {
 		return true
 	}
@@ -54,7 +54,7 @@ func (e *Engine) activationConditionOK(p state.PlayerID, ab *cards.SA) bool {
 	case "Metalcraft":
 		n := 0
 		for _, id := range e.G.Zone(state.ZBattlefield, p) {
-			if o := e.G.Obj(id); o != nil && slices.Contains(e.Derived(id).Types, "Artifact") {
+			if o := e.G.Obj(id); o != nil && slices.Contains(e.derivedTypesOf(id), "Artifact") {
 				n++
 			}
 		}
@@ -172,7 +172,7 @@ func abilityZoneOK(ab *cards.SA, z state.Zone) bool {
 // the granted/gained-ability walk and the mana-ability membership walk) routes
 // through this helper, so the paths cannot drift.
 func (e *Engine) activatorAllows(p state.PlayerID, id state.ObjID, ab *cards.SA) bool {
-	spec := strings.TrimSpace(ab.Params["Activator"])
+	spec := strings.TrimSpace(ab.ParamStr(cards.PKActivator))
 	if spec == "" {
 		return e.controllerOf(id) == p
 	}
@@ -197,7 +197,7 @@ func (e *Engine) activatorAllows(p state.PlayerID, id state.ObjID, ab *cards.SA)
 // the census's generic rules-side SA union for Mana/ManaReflected: see
 // genericSAExcludes in paramcensus_test.go.
 func (e *Engine) abilityPresentHolds(p state.PlayerID, id state.ObjID, ab *cards.SA) bool {
-	if !e.classBandGateHolds(ab.Params, id) {
+	if !e.classBandGateHolds(ab.ParamStr(cards.PKClassBand), id) {
 		return false
 	}
 	spec := strings.TrimSpace(ab.Params["IsPresent"])
@@ -254,7 +254,7 @@ func (e *Engine) adaptGateOK(id state.ObjID, ab *cards.SA) bool {
 // corpus shape reaches the resolution through any other door -- no granted
 // or copied route for these abilities).
 func (e *Engine) monstrosityGateOK(id state.ObjID, ab *cards.SA) bool {
-	if strings.TrimSpace(ab.Params["Monstrosity"]) == "" {
+	if strings.TrimSpace(ab.ParamStr(cards.PKMonstrosity)) == "" {
 		return true
 	}
 	o := e.G.Obj(id)
@@ -273,7 +273,7 @@ func (e *Engine) monstrosityGateOK(id state.ObjID, ab *cards.SA) bool {
 // applies to every non-mana activation, its reads are the census's generic
 // rules-side SA set, not any one api's.
 func (e *Engine) sVarGateOK(p state.PlayerID, id state.ObjID, ab *cards.SA, merged int) bool {
-	check, ok := ab.Params["CheckSVar"]
+	check, ok := ab.Param(cards.PKCheckSVar)
 	if !ok {
 		return true
 	}
@@ -321,7 +321,7 @@ func (e *Engine) sVarGateOK(p state.PlayerID, id state.ObjID, ab *cards.SA, merg
 // repriceForTargets re-runs the evaluation with the answered targets (and
 // the pre-asked sub answers) at CR 601.2c, before CR 601.2h pays.
 func (e *Engine) ownReduceCost(p state.PlayerID, id state.ObjID, ab *cards.SA, targets, allTargets []state.Target, merged int) int32 {
-	v := strings.TrimSpace(ab.Params["ReduceCost"])
+	v := strings.TrimSpace(ab.ParamStr(cards.PKReduceCost))
 	if v == "" {
 		return 0
 	}
@@ -377,7 +377,7 @@ func ownReduceManaShape(v string) (col state.Mana, gen int32, ok bool) {
 // matching pip in the cost spills to generic exactly as a colour reduction
 // does.
 func (e *Engine) ownManaReduction(p state.PlayerID, id state.ObjID, ab *cards.SA, targets []state.Target) (costMod, bool) {
-	col, gen, ok := ownReduceManaShape(ab.Params["ReduceCost"])
+	col, gen, ok := ownReduceManaShape(ab.ParamStr(cards.PKReduceCost))
 	if !ok {
 		return costMod{}, false
 	}
@@ -414,12 +414,19 @@ func (e *Engine) ownManaReduction(p state.PlayerID, id state.ObjID, ab *cards.SA
 // active only during the turn it entered. This helper is shared by the offer
 // and activation paths so the displayed/validated cost equals the charge.
 func (e *Engine) powerUpReducedCost(id state.ObjID, ab *cards.SA, cost Cost) Cost {
-	if ab == nil || !strings.EqualFold(strings.TrimSpace(ab.Params["PowerUp"]), "True") {
-		return cost
+	e.powerUpReduceCost(id, ab, &cost)
+	return cost
+}
+
+// powerUpReduceCost is powerUpReducedCost applied to *cost in place, so the
+// offer walk does not copy the ~800-byte Cost twice per ability.
+func (e *Engine) powerUpReduceCost(id state.ObjID, ab *cards.SA, cost *Cost) {
+	if ab == nil || !strings.EqualFold(strings.TrimSpace(ab.ParamStr(cards.PKPowerUp)), "True") {
+		return
 	}
 	o := e.G.Obj(id)
 	if o == nil || !o.EnteredThisTurn || o.Face() == nil {
-		return cost
+		return
 	}
 	reduction := e.parseCost(o.Face().ManaCost)
 	// Generic mana reduces only generic mana. Each colored/colorless symbol
@@ -448,7 +455,6 @@ func (e *Engine) powerUpReducedCost(id state.ObjID, ab *cards.SA, cost Cost) Cos
 		}
 		cost.Generic -= left
 	}
-	return cost
 }
 
 // ownReduceCostOffer is ownReduceCost's offer-time reading for a body that
@@ -473,7 +479,7 @@ func (e *Engine) ownReduceCostOffer(p state.PlayerID, id state.ObjID, ab *cards.
 	if ab == nil {
 		return best
 	}
-	v := strings.TrimSpace(ab.Params["ReduceCost"])
+	v := strings.TrimSpace(ab.ParamStr(cards.PKReduceCost))
 	if v == "" {
 		return best
 	}

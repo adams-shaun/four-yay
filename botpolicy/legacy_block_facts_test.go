@@ -44,7 +44,7 @@ func TestLegacyDecideBlockNeverLoneBlocksATeamNeedingAttacker(t *testing.T) {
 	plainPicked := false
 	first := []int(nil)
 	for seed := uint64(0); seed < 250; seed++ {
-		board := Board{Creatures: map[state.ObjID]Creature{menace: {Keywords: []string{"Menace"}}}}
+		board := Board{Creatures: TableOf(map[state.ObjID]Creature{menace: {Keywords: []string{"Menace"}}})}
 		in := LegacyDecide(board, &d, rand.New(rand.NewPCG(seed, seed+1)))
 		counts := map[state.ObjID]int{}
 		for _, idx := range in.Choices {

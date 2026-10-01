@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/adams-shaun/gorge/effects"
@@ -44,7 +45,8 @@ func (e *Engine) mayPlayLandIds(p state.PlayerID) []state.ObjID {
 	// arms below (mayplay_index.go): a faceless object and a non-land are
 	// both refused, exactly as the nested scan's per-card gate did.
 	landKeep := func(o *state.Object) bool { return o.Face() != nil && o.Face().IsLand() }
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if !ce.MayPlay || ce.Controller != p {
 			continue
 		}
@@ -65,7 +67,7 @@ func (e *Engine) mayPlayLandIds(p state.PlayerID) []state.ObjID {
 		// deterministic seat order -- the same shape mayPlaySpellIds'
 		// walk already is. The Affects match decides ownership claims;
 		// walking the slices only enumerates candidates.
-		for _, pr := range w.pairs(&ce, mayPlayWalkZones(zones, all), false, landKeep) {
+		for _, pr := range w.pairs(ce, mayPlayWalkZones(zones, all), false, landKeep) {
 			dup := false
 			for _, s := range seen {
 				if s.zone == pr.zone && s.id == pr.id {
@@ -294,6 +296,22 @@ func (e *Engine) mayPlaySpellIds(p state.PlayerID) []mayPlaySpellOffer {
 	// aggregate mayPlayGrant/mayPlayRaiseCost helpers.
 	board := e.mayPlayBoardGrantsOpen(p)
 	addCard := func(z state.Zone, id state.ObjID) {
+		// With no board-side grant open, a card's only permissions are its
+		// own Continuous statics and a Paradigm exile grant (the
+		// mayPlayPermissions and mayPlayGrantScoped reads at board false),
+		// so a card carrying neither yields no offer: skip both reads (and
+		// the permission scan's per-call map). Verify mode runs them anyway.
+		if !board && !faceHasContinuousStatic(e.G.Obj(id)) && !e.paradigmMayPlay(p, e.G.Obj(id)) {
+			if derivedMemoVerify {
+				if perms := e.mayPlayPermissions(p, id, false); len(perms) != 0 {
+					panic(fmt.Sprintf("rules: may-play skip ruled out obj %d with permissions %+v", id, perms))
+				}
+				if _, ok := e.mayPlayGrantScoped(p, id, false); ok {
+					panic(fmt.Sprintf("rules: may-play skip ruled out obj %d with a grant", id))
+				}
+			}
+			return
+		}
 		perms := e.mayPlayPermissions(p, id, board)
 		hasUntyped := false
 		for _, off := range perms {
@@ -323,9 +341,25 @@ func (e *Engine) mayPlaySpellIds(p state.PlayerID) []mayPlaySpellOffer {
 			}
 		}
 	}
+	// With no board-side grant open, a card whose every face lacks both
+	// permissions addCard reads is a no-op there (walk_objclass.go's
+	// mayPlayHot); verify mode visits it anyway, and addCard's own skip
+	// verifies it.
+	useCls := !board
+	if useCls {
+		e.walkClassesCatchUp()
+	}
 	for _, z := range []state.Zone{state.ZGraveyard, state.ZExile} {
 		for _, q := range e.G.AliveFrom(0) {
 			for _, id := range e.G.Zone(z, q) {
+				if useCls && !e.walkClassOf(id).mayPlayHot {
+					if !derivedMemoVerify {
+						continue
+					}
+					if o := e.G.Obj(id); faceHasContinuousStatic(o) || e.paradigmMayPlay(p, o) {
+						panic(fmt.Sprintf("rules: may-play-cold obj %d carries a permission addCard reads", id))
+					}
+				}
 				o := e.G.Obj(id)
 				if o == nil || o.Controller != p || o.Face() == nil || o.Face().IsLand() {
 					continue
@@ -344,7 +378,8 @@ func (e *Engine) mayPlaySpellIds(p state.PlayerID) []mayPlaySpellOffer {
 	// arms below (mayplay_index.go): a faceless object and a land are both
 	// refused, exactly as the nested scan's per-card gate did.
 	spellKeep := func(o *state.Object) bool { return o.Face() != nil && !o.Face().IsLand() }
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if !ce.MayPlay || ce.Controller != p {
 			continue
 		}
@@ -364,7 +399,7 @@ func (e *Engine) mayPlaySpellIds(p state.PlayerID) []mayPlaySpellOffer {
 		// play it), so every seat's slice is walked in deterministic seat
 		// order -- never a map. The Affects match decides ownership claims;
 		// walking the slices only enumerates candidates.
-		for _, pr := range w.pairs(&ce, mayPlayWalkZones(zones, all), true, spellKeep) {
+		for _, pr := range w.pairs(ce, mayPlayWalkZones(zones, all), true, spellKeep) {
 			consider(pr.zone, pr.id, "")
 		}
 	}
@@ -400,4 +435,18 @@ func (e *Engine) adjustLandPlays(p state.PlayerID) int {
 		total += int(ce.AdjustLandPlays)
 	}
 	return total
+}
+
+// faceHasContinuousStatic reports whether o's current face prints a
+// Continuous-mode static (the only self-grant shape a may-play read takes).
+func faceHasContinuousStatic(o *state.Object) bool {
+	if o == nil || o.Face() == nil {
+		return false
+	}
+	for _, st := range o.Face().Statics {
+		if st.Mode == "Continuous" {
+			return true
+		}
+	}
+	return false
 }

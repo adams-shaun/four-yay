@@ -127,7 +127,7 @@ func (e *Engine) triggerConditionHoldsAsWithDelayedRemembered(t cards.Trigger, s
 func (e *Engine) triggerConditionHoldsWithSVars(t cards.Trigger, source state.ObjID, you state.PlayerID, tc *effects.TriggerContext, ownedSVars map[string]string) bool {
 	// A kw:Class level band is an independent AND gate beside every clause
 	// below (and beside the body's own IsPresent$/IsPresent2$ clauses).
-	if !e.classBandGateHolds(t.Params, source) {
+	if !e.classBandGateHolds(t.ParamStr(cards.PKClassBand), source) {
 		return false
 	}
 	// LifeLost's and LifeGained's LifeAmount$ are matched against the causing
@@ -150,11 +150,11 @@ func (e *Engine) triggerConditionHoldsWithSVars(t cards.Trigger, source state.Ob
 	// creature alone, stacking one Permanent Animate effect per resolution
 	// (cardfuzz batch3 lines 4/21: 500+ continuous effects, every Derived
 	// walking all of them -- the "hang").
-	if _, ok := t.Params["IsPresent"]; ok &&
+	if _, ok := t.Param(cards.PKIsPresent); ok &&
 		!e.presentClauseHolds(t, source, you, tc, "IsPresent", "PresentCompare", "PresentDefined", "PresentZone") {
 		return false
 	}
-	if _, ok := t.Params["IsPresent2"]; ok &&
+	if _, ok := t.Param(cards.PKIsPresent2); ok &&
 		!e.presentClauseHolds(t, source, you, tc, "IsPresent2", "PresentCompare2", "PresentDefined2", "PresentZone2") {
 		return false
 	}
@@ -166,7 +166,7 @@ func (e *Engine) triggerConditionHoldsWithSVars(t cards.Trigger, source state.Ob
 			return false
 		}
 	}
-	if strings.EqualFold(strings.TrimSpace(t.Params["Condition"]), "Metalcraft") {
+	if strings.EqualFold(strings.TrimSpace(t.ParamStr(cards.PKCondition)), "Metalcraft") {
 		// The bare-Condition$ spelling of the same gate. The trigger path
 		// reads no OTHER bare Condition$ value (LifePaid, Evolve,
 		// Sacrificed and friends are matched by their own per-kind helpers
@@ -187,7 +187,7 @@ func (e *Engine) triggerConditionHoldsWithSVars(t cards.Trigger, source state.Ob
 			return false
 		}
 	}
-	if v, ok := t.Params["Revolt"]; ok {
+	if v, ok := t.Param(cards.PKRevolt); ok {
 		// Revolt$ (the CR 702.38 ability word, "if a permanent you
 		// controlled left the battlefield this turn"): the SAME
 		// revoltThisTurn scan the replacement path's Revolt$ clause reads
@@ -255,7 +255,7 @@ func (e *Engine) triggerConditionHoldsWithSVars(t cards.Trigger, source state.Ob
 			return false
 		}
 	}
-	if strings.EqualFold(strings.TrimSpace(t.Params["Condition"]), "AttackedPlayerWithMostLife") {
+	if strings.EqualFold(strings.TrimSpace(t.ParamStr(cards.PKCondition)), "AttackedPlayerWithMostLife") {
 		// Scourge of the Throne's intervening-if ("if it's attacking the
 		// player with the most life or tied for most life"): an
 		// event-RELATIVE clause, so it is re-evaluated here only when the
@@ -274,7 +274,7 @@ func (e *Engine) triggerConditionHoldsWithSVars(t cards.Trigger, source state.Ob
 			}
 		}
 	}
-	if name, ok := t.Params["CheckSVar"]; ok {
+	if name, ok := t.Param(cards.PKCheckSVar); ok {
 		// CheckSVar$/SVarCompare$ (Kozilek, the Great Distortion's cast
 		// trigger: "if you have fewer than seven cards in hand"): the
 		// CR 603.4 intervening-if the shared SVar-compare evaluator reads,

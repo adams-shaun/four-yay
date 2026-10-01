@@ -17,12 +17,12 @@ import (
 
 func targetBounds(sa *cards.SA) (int, int) {
 	min, max := 1, 1
-	if v, ok := sa.Params["TargetMin"]; ok {
+	if v, ok := sa.Param(cards.PKTargetMin); ok {
 		if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
 			min = n
 		}
 	}
-	if v, ok := sa.Params["TargetMax"]; ok {
+	if v, ok := sa.Param(cards.PKTargetMax); ok {
 		if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
 			max = n
 		}
@@ -52,10 +52,10 @@ func isLiteralBound(v string) bool {
 // reads are spelled out rather than looped over the keys so the paramcensus
 // rot guard sees two static Params keys.)
 func targetBoundsDynamic(sa *cards.SA) bool {
-	if v, ok := sa.Params["TargetMin"]; ok && !isLiteralBound(v) {
+	if v, ok := sa.Param(cards.PKTargetMin); ok && !isLiteralBound(v) {
 		return true
 	}
-	if v, ok := sa.Params["TargetMax"]; ok && !isLiteralBound(v) {
+	if v, ok := sa.Param(cards.PKTargetMax); ok && !isLiteralBound(v) {
 		return true
 	}
 	return false
@@ -250,7 +250,7 @@ func (e *Engine) resolvedTargetMin(p state.PlayerID, source state.ObjID, sa *car
 // originImpliedTargetZone for the four gates that admit it.
 func targetZones(sa *cards.SA) []state.Zone {
 	var zones []state.Zone
-	for z := range strings.SplitSeq(sa.Params["TgtZone"], ",") {
+	for z := range strings.SplitSeq(sa.ParamStr(cards.PKTgtZone), ",") {
 		switch strings.TrimSpace(z) {
 		case "Battlefield":
 			zones = appendUniqueZone(zones, state.ZBattlefield)
@@ -267,7 +267,7 @@ func targetZones(sa *cards.SA) []state.Zone {
 	// A stack-targeting TargetType$ adds the stack even when no TgtZone$ is
 	// present (the counterspell shape) and even alongside a TgtZone$
 	// Battlefield for a spell-or-permanent effect (TgtZone$ Stack,Battlefield).
-	if targetsStackObjects(sa.Params["TargetType"]) {
+	if targetsStackObjects(sa.ParamStr(cards.PKTargetType)) {
 		zones = appendUniqueZone(zones, state.ZStack)
 	}
 	if len(zones) == 0 {
@@ -286,7 +286,7 @@ func targetZones(sa *cards.SA) []state.Zone {
 		if z, ok := originImpliedTargetZone(sa); ok {
 			zones = []state.Zone{z}
 		} else if sa.API == "Attach" {
-			if zs, ok := attachValidTgtsZones(sa.Params["ValidTgts"]); ok {
+			if zs, ok := attachValidTgtsZones(sa.ParamStr(cards.PKValidTgts)); ok {
 				zones = zs
 			}
 		}
@@ -295,7 +295,7 @@ func targetZones(sa *cards.SA) []state.Zone {
 			// targets the stack; otherwise the battlefield remains the
 			// default. An explicit TgtZone$ whose tokens were unknown must
 			// not silently widen a target back to the stack.
-			if sa.Params["TgtZone"] == "" && targetsStackObjects(sa.Params["ValidTgts"]) {
+			if sa.ParamStr(cards.PKTgtZone) == "" && targetsStackObjects(sa.ParamStr(cards.PKValidTgts)) {
 				zones = []state.Zone{state.ZStack}
 			} else {
 				zones = []state.Zone{state.ZBattlefield}
@@ -360,13 +360,13 @@ func originImpliedTargetZone(sa *cards.SA) (state.Zone, bool) {
 			return 0, false
 		}
 	}
-	if sa.Params["TgtZone"] != "" || targetsStackObjects(sa.Params["TargetType"]) {
+	if sa.ParamStr(cards.PKTgtZone) != "" || targetsStackObjects(sa.ParamStr(cards.PKTargetType)) {
 		return 0, false
 	}
 	if targetsPlayers(sa.Params["ValidTgts"]) {
 		return 0, false
 	}
-	zones, all, ok := effects.ParseZones(sa.Params["Origin"])
+	zones, all, ok := effects.ParseZones(sa.ParamStr(cards.PKOrigin))
 	if !ok || all || len(zones) != 1 || (sa.API == "ChangeZone" && zones[0] != state.ZGraveyard) {
 		return 0, false
 	}
@@ -481,7 +481,7 @@ func (e *Engine) stackKindAdmits(toks []targetTypeToken, k stackObjKind, o *stat
 			if tok.Colorless && e.Colors(o.ID) != "" {
 				continue
 			}
-			if tok.Legendary && !stackHasType(e.Derived(o.ID).Types, "Legendary") {
+			if tok.Legendary && !stackHasType(e.derivedTypesOf(o.ID), "Legendary") {
 				continue
 			}
 		}
@@ -932,17 +932,35 @@ func (e *Engine) candidatesFor(p state.PlayerID, source, excludeSelf state.ObjID
 // append-only and its first limit entries are exactly the full list's. The
 // feasibility gate (targetSAAvailable) needs a count, never the list.
 func (e *Engine) candidatesForLimit(p state.PlayerID, source, excludeSelf state.ObjID, sa *cards.SA, targeting bool, limit int) []targetCandidate {
-	if limit > 0 && (strings.TrimSpace(sa.Params["TargetsWithDefinedController"]) != "" ||
-		strings.TrimSpace(sa.Params["TargetValidTargeting"]) != "" ||
-		strings.TrimSpace(sa.Params["TargetsWithControllerProperty"]) != "" ||
+	return e.candidatesForLimitInto(nil, p, source, excludeSelf, sa, targeting, limit)
+}
+
+// candidatesCountForLimit is len(candidatesForLimit(...)), built in the
+// engine's census scratch list (taken for the call, so a nested census
+// allocates its own) instead of a fresh one.
+func (e *Engine) candidatesCountForLimit(p state.PlayerID, source, excludeSelf state.ObjID, sa *cards.SA, targeting bool, limit int) int {
+	buf := e.targetCensusBuf
+	e.targetCensusBuf = nil
+	out := e.candidatesForLimitInto(buf[:0], p, source, excludeSelf, sa, targeting, limit)
+	n := len(out)
+	clear(out)
+	e.targetCensusBuf = out[:0]
+	return n
+}
+
+// candidatesForLimitInto is candidatesForLimit appending into dst[:0].
+func (e *Engine) candidatesForLimitInto(dst []targetCandidate, p state.PlayerID, source, excludeSelf state.ObjID, sa *cards.SA, targeting bool, limit int) []targetCandidate {
+	if limit > 0 && (strings.TrimSpace(sa.ParamStr(cards.PKTargetsWithDefinedController)) != "" ||
+		strings.TrimSpace(sa.ParamStr(cards.PKTargetValidTargeting)) != "" ||
+		strings.TrimSpace(sa.ParamStr(cards.PKTargetsWithControllerProperty)) != "" ||
 		// tpc1: TargetingPlayerControls$ True is also a DROPPING post-filter,
 		// so the census must not stop at limit before the whole search space
 		// (battlefield included) has been walked and filtered.
-		strings.TrimSpace(sa.Params["TargetingPlayerControls"]) != "" ||
+		strings.TrimSpace(sa.ParamStr(cards.PKTargetingPlayerControls)) != "" ||
 		sharedCardTypeRef(sa) != "") {
 		limit = 0
 	}
-	spec := sa.Params["ValidTgts"]
+	spec := sa.ParamStr(cards.PKValidTgts)
 	// The spec-relative source (Self/Other/CARDNAME/sameName predicates read
 	// it) is the SOURCE PERMANENT when the ask belongs to a minted ability
 	// object -- the same object resolution-time recheck (legalTargets) already
@@ -962,7 +980,7 @@ func (e *Engine) candidatesForLimit(p state.PlayerID, source, excludeSelf state.
 	sc := e.targetSpecContext(specSrc, excludeSelf, p)
 	defer e.releaseSpecEnv()
 	zones := targetZones(sa)
-	var out []targetCandidate
+	out := dst[:0]
 	// Resolve the source ONCE for the whole census -- for an ability this is
 	// the Source permanent, not the Face-less stack object. Every protection
 	// test below is guarded on the candidate's zone, because a permanent's
@@ -1130,7 +1148,7 @@ zoneLoop:
 // trigger/activation roles this filter cannot see is never offered, never
 // wrongly offered).
 func (e *Engine) filterTargetValidTargeting(in []targetCandidate, sa *cards.SA, sc effects.SpecContext) []targetCandidate {
-	spec := strings.TrimSpace(sa.Params["TargetValidTargeting"])
+	spec := strings.TrimSpace(sa.ParamStr(cards.PKTargetValidTargeting))
 	if spec == "" {
 		return in
 	}
@@ -1173,7 +1191,7 @@ func (e *Engine) filterTargetValidTargeting(in []targetCandidate, sa *cards.SA, 
 // offering every creature would widen "target creature that player controls"
 // to any player's, or "another player's permanent" to your own.
 func (e *Engine) filterTargetsWithDefinedController(in []targetCandidate, sa *cards.SA, sc effects.SpecContext) []targetCandidate {
-	ref := strings.TrimSpace(sa.Params["TargetsWithDefinedController"])
+	ref := strings.TrimSpace(sa.ParamStr(cards.PKTargetsWithDefinedController))
 	if ref == "" {
 		return in
 	}

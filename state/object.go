@@ -1,6 +1,7 @@
 package state
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -519,7 +520,17 @@ type Object struct {
 	// CopyFace/FaceIdx, zone, controller, the tapped/face-down/phased-out/
 	// token status) are declared first so they share the object's first
 	// cache line; the Object is ~1KB and walks touch hundreds per pass.
-	ID   ObjID
+	ID ObjID
+	// face caches Face()'s answer (CopyFace, else Card.Faces[FaceIdx]) so the
+	// hot read is one load instead of a Card -> Faces -> Face pointer chase.
+	// nil means "not cached": Face() then derives it the long way, so an
+	// Object built by a composite literal (or zeroed) is always correct. Every
+	// write of Card/CopyFace/FaceIdx on a cached object goes through
+	// SetFaceIdx/SetCopyFace/SetCard (or is followed by SyncFace); a test
+	// binary re-derives the face on every cached read and panics on a stale
+	// one (faceVerify). A value copy (Clone) carries it, which is correct:
+	// the copied Card/CopyFace/FaceIdx it was derived from come along.
+	face *cards.Face
 	Card *cards.Card
 	// CopyFace is the CR 613.1a copy-effect basis for a permanent that became a
 	// copy of another (DB$ Clone): while non-nil, Face() returns THIS face
@@ -1345,11 +1356,11 @@ type Object struct {
 	// events.Apply writes it, so a replay rebuilds it.
 	Unlocked bool
 
-	// _ pads the Object to 960 bytes, a whole number of 64-byte cache
-	// lines, so in the page-aligned Objs arena every object's hot head (the
-	// fields declared first) starts on a line of its own. Purely layout: it
-	// is never read or written.
-	_ [8]byte
+	// _ pads the Object to 1088 bytes (17 64-byte cache lines), so in the
+	// page-aligned Objs arena every object's hot head (the fields declared
+	// first) starts on a line of its own. Purely layout: it is never read or
+	// written. A field added above must re-pad it (TestObjectCacheLinePadded).
+	_ [40]byte
 }
 
 // MergedCard is one card stacked beneath a mutated permanent's top card
@@ -1415,6 +1426,27 @@ func (o *Object) ReconfiguredAttached() bool {
 }
 
 func (o *Object) Face() *cards.Face {
+	if f := o.face; f != nil && !faceVerify {
+		return f
+	}
+	return o.faceMiss()
+}
+
+// faceMiss is Face()'s out-of-line half: an uncached object (derive it the
+// long way) or a test binary (re-derive and check the cache). Kept out of
+// Face so Face inlines to one load and a branch.
+//
+//go:noinline
+func (o *Object) faceMiss() *cards.Face {
+	f := o.faceSlow()
+	if c := o.face; c != nil && c != f {
+		panic(fmt.Sprintf("state: object %d Face() cache is stale (cached %p, derived %p): a Card/CopyFace/FaceIdx write bypassed SetFaceIdx/SetCopyFace/SetCard/SyncFace", o.ID, c, f))
+	}
+	return f
+}
+
+// faceSlow is Face() derived from the source fields, without the cache.
+func (o *Object) faceSlow() *cards.Face {
 	// CR 613.1a: a copy effect is the FIRST layer, so while one applies the
 	// object's characteristics come from the copied face. Routing it here is
 	// what makes every Face() reader in the tree see the copy by construction
@@ -1426,6 +1458,28 @@ func (o *Object) Face() *cards.Face {
 		return nil
 	}
 	return o.Card.Faces[o.FaceIdx]
+}
+
+// SyncFace re-derives the cached face after a direct write of Card, CopyFace
+// or FaceIdx. Prefer SetFaceIdx/SetCopyFace/SetCard.
+func (o *Object) SyncFace() { o.face = o.faceSlow() }
+
+// SetFaceIdx sets FaceIdx and keeps the Face() cache coherent.
+func (o *Object) SetFaceIdx(i uint8) {
+	o.FaceIdx = i
+	o.face = o.faceSlow()
+}
+
+// SetCopyFace sets CopyFace and keeps the Face() cache coherent.
+func (o *Object) SetCopyFace(f *cards.Face) {
+	o.CopyFace = f
+	o.face = o.faceSlow()
+}
+
+// SetCard sets Card and FaceIdx together and keeps the Face() cache coherent.
+func (o *Object) SetCard(c *cards.Card, i uint8) {
+	o.Card, o.FaceIdx = c, i
+	o.face = o.faceSlow()
 }
 
 // faceDownEffective reports whether this object's face is currently hidden by
@@ -1719,28 +1773,85 @@ func (o *Object) AddCounter(kind string, n int32) {
 // map field added to Object needs updating in exactly one place to stay
 // deep.
 func (o *Object) CloneDeep() Object {
-	c := *o
-	c.Counters = append([]Counter(nil), o.Counters...)
-	c.Targets = append([]Target(nil), o.Targets...)
-	c.Remembered = append([]Target(nil), o.Remembered...)
-	c.BlockedBy = append([]ObjID(nil), o.BlockedBy...)
-	c.CrewedVehicles = append([]ObjID(nil), o.CrewedVehicles...)
-	c.Chosen = append([]Target(nil), o.Chosen...)
+	var c Object
+	o.CloneDeepInto(&c)
+	return c
+}
+
+// CloneDeepInto is CloneDeep written straight into *c (which must not be o):
+// one copy of the ~1 KB object instead of CloneDeep's copy out and the
+// caller's copy in. Game.CloneInto clones the whole arena this way, once per
+// search simulation.
+func (o *Object) CloneDeepInto(c *Object) {
+	o.cloneDeepIntoArena(c, nil)
+}
+
+// cloneArena is one backing array per common slice element type that a
+// whole-arena clone (Game.CloneIntoDirty) carves its objects' copies from:
+// one allocation per type per clone instead of one per non-empty slice. Each
+// carved window is capped at its length, so an append on the copy
+// reallocates exactly as a full-capacity copy would at its end, and no two
+// windows ever share an element.
+type cloneArena struct {
+	ids []ObjID
+	tgs []Target
+	ctr []Counter
+}
+
+// carveClone is append([]T(nil), src...) carved from *buf when it has room:
+// nil for an empty src (as that append returns), else a capped window
+// holding src's elements.
+func carveClone[T any](buf *[]T, src []T) []T {
+	n := len(src)
+	if n == 0 {
+		return nil
+	}
+	b := *buf
+	if len(b) < n {
+		return append([]T(nil), src...)
+	}
+	out := b[:n:n]
+	copy(out, src)
+	*buf = b[n:]
+	return out
+}
+
+// cloneArenaNeed adds the element counts o's carved slices need to a.
+func (o *Object) cloneArenaNeed(ids, tgs, ctr *int) {
+	*ids += len(o.BlockedBy) + len(o.CrewedVehicles) + len(o.Imprinted) + len(o.DamageTakenByGame) +
+		len(o.DamageTakenThisTurnBy) + len(o.ImprintTokens) + len(o.EncodedCards) + len(o.SeekFound) + len(o.ExiledCards)
+	*tgs += len(o.Targets) + len(o.Remembered) + len(o.Chosen)
+	*ctr += len(o.Counters)
+}
+
+// cloneDeepIntoArena is CloneDeepInto carving the common slice copies from a
+// (nil: each copied on its own). The copy's contents are identical either way.
+func (o *Object) cloneDeepIntoArena(c *Object, a *cloneArena) {
+	var none cloneArena
+	if a == nil {
+		a = &none
+	}
+	*c = *o
+	c.Counters = carveClone(&a.ctr, o.Counters)
+	c.Targets = carveClone(&a.tgs, o.Targets)
+	c.Remembered = carveClone(&a.tgs, o.Remembered)
+	c.BlockedBy = carveClone(&a.ids, o.BlockedBy)
+	c.CrewedVehicles = carveClone(&a.ids, o.CrewedVehicles)
+	c.Chosen = carveClone(&a.tgs, o.Chosen)
 	c.Goads = append([]GoadEffect(nil), o.Goads...)
 	c.ChosenModes = CloneChosenModes(o.ChosenModes)
 	c.IntrinsicKeywords = append([]string(nil), o.IntrinsicKeywords...)
-	c.Imprinted = append([]ObjID(nil), o.Imprinted...)
-	c.DamageTakenByGame = append([]ObjID(nil), o.DamageTakenByGame...)
-	c.DamageTakenThisTurnBy = append([]ObjID(nil), o.DamageTakenThisTurnBy...)
-	c.ImprintTokens = append([]ObjID(nil), o.ImprintTokens...)
-	c.EncodedCards = append([]ObjID(nil), o.EncodedCards...)
-	c.SeekFound = append([]ObjID(nil), o.SeekFound...)
+	c.Imprinted = carveClone(&a.ids, o.Imprinted)
+	c.DamageTakenByGame = carveClone(&a.ids, o.DamageTakenByGame)
+	c.DamageTakenThisTurnBy = carveClone(&a.ids, o.DamageTakenThisTurnBy)
+	c.ImprintTokens = carveClone(&a.ids, o.ImprintTokens)
+	c.EncodedCards = carveClone(&a.ids, o.EncodedCards)
+	c.SeekFound = carveClone(&a.ids, o.SeekFound)
 	c.Notes = append([]string(nil), o.Notes...)
-	c.ExiledCards = append([]ObjID(nil), o.ExiledCards...)
+	c.ExiledCards = carveClone(&a.ids, o.ExiledCards)
 	c.ExileReturn = append([]ExileReturnEntry(nil), o.ExileReturn...)
 	c.MergedCards = append([]MergedCard(nil), o.MergedCards...)
 	c.RuntimeSVars = cloneRuntimeSVars(o.RuntimeSVars)
-	return c
 }
 
 // cloneRuntimeSVars deep-copies a runtime SVar table so a cloned game never

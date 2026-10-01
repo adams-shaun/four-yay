@@ -71,7 +71,8 @@ type costRememberedEntry struct {
 // cost-modifier statics that hold card id right now, in e.active() order.
 func (e *Engine) costRememberedCapture(id state.ObjID) []costRememberedEntry {
 	var out []costRememberedEntry
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		switch ce.CostStaticMode {
 		case "RaiseCost", "ReduceCost", "SetCost":
 		default:
@@ -168,6 +169,10 @@ type actionStaticSource struct {
 	// AddAbility$, built on first use (addAbilityContinuous).
 	addAbility      []staticView
 	addAbilityReady bool
+	// board is the offer walk's board-wide facts (legal_walk_skip.go),
+	// published by the walk before its mana sweep; zero (not ready) for
+	// every other source.
+	board walkBoardFacts
 }
 
 // addAbilityContinuous returns, in order, the Continuous statics of get()
@@ -190,7 +195,7 @@ func (s *actionStaticSource) addAbilityContinuous() []staticView {
 func addAbilityCarriers(continuous []staticView) []staticView {
 	var out []staticView
 	for _, sv := range continuous {
-		if strings.TrimSpace(sv.Params["AddAbility"]) != "" {
+		if strings.TrimSpace(sv.ParamStr(cards.PKAddAbility)) != "" {
 			out = append(out, sv)
 		}
 	}
@@ -217,6 +222,24 @@ func (e *Engine) collectActionStatics() actionStaticViews {
 }
 
 func (e *Engine) scanActionStatics() actionStaticViews {
+	return e.scanActionStaticsMode(false)
+}
+
+// collectAddAbilityCarriers is addAbilityCarriers(collectActionStatics()
+// .continuous) without building the other lists: outside a walk the scan
+// keeps only the Continuous statics carrying AddAbility$, in the same seat,
+// zone and static order, so a board with no grantor allocates nothing (the
+// mana path asks it once per object).
+func (e *Engine) collectAddAbilityCarriers() []staticView {
+	if v, ok := e.boardStaticsWalk(); ok {
+		return addAbilityCarriers(v.action.continuous)
+	}
+	return e.scanActionStaticsMode(true).continuous
+}
+
+// scanActionStaticsMode is scanActionStatics' walk; carriersOnly keeps only
+// the Continuous statics addAbilityCarriers would keep.
+func (e *Engine) scanActionStaticsMode(carriersOnly bool) actionStaticViews {
 	var out actionStaticViews
 	for pi, p := range e.G.AliveFrom(0) {
 		// Continuous statics are zone-scoped by their EffectZone$, so the
@@ -263,12 +286,12 @@ func (e *Engine) scanActionStatics() actionStaticViews {
 					var dst *[]staticView
 					switch st.Mode {
 					case "CantBeCast":
-						if z != state.ZBattlefield {
+						if carriersOnly || z != state.ZBattlefield {
 							continue
 						}
 						dst = &out.cantCast
 					case "CantBeActivated":
-						if z != state.ZBattlefield {
+						if carriersOnly || z != state.ZBattlefield {
 							continue
 						}
 						dst = &out.cantActivate
@@ -278,7 +301,10 @@ func (e *Engine) scanActionStatics() actionStaticViews {
 						// admission exactly): a static naming another zone is
 						// collected from THAT zone here and denied from the
 						// battlefield, the same gate staticEffects runs.
-						if !effectZoneOK(st.Params["EffectZone"], o.Zone) {
+						if !effectZoneOK(st.ParamStr(cards.PKEffectZone), o.Zone) {
+							continue
+						}
+						if carriersOnly && strings.TrimSpace(st.ParamStr(cards.PKAddAbility)) == "" {
 							continue
 						}
 						dst = &out.continuous
@@ -444,7 +470,7 @@ func (e *Engine) matchesSpec(spec string, id state.ObjID, sc effects.SpecContext
 			return e.verifySpecDerivedSkip(spec, id, sc)
 		}
 	}
-	return effects.MatchesSpecCtx(e.G, spec, id, sc)
+	return effects.MatchesSpecCtxPtr(e.G, spec, id, &sc)
 }
 
 // verifySpecDerivedSkip is matchesSpec's verify-mode tail for a spec

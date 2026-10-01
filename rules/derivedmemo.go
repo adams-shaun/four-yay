@@ -263,8 +263,20 @@ func (e *Engine) derivedMemoized(id state.ObjID) Derived {
 // card). Each has its own table: the override is a different question about
 // the same object, with the same walk-fixed inputs.
 func (e *Engine) derivedMemoizedAt(id state.ObjID, atStack state.Zone) Derived {
+	if d := e.derivedMemoRef(id, atStack); d != nil {
+		return *d
+	}
+	return e.derivedCompute(id, atStack)
+}
+
+// derivedMemoRef is derivedMemoizedAt answering by pointer into the memo
+// entry (nil for an id outside the arena, which the caller derives without
+// the memo), so a caller reading a few fields does not copy the whole
+// Derived. The pointer is valid until the next memo slot is created; the
+// caller reads it at once.
+func (e *Engine) derivedMemoRef(id state.ObjID, atStack state.Zone) *Derived {
 	if id == 0 || int(id) > len(e.G.Objs) {
-		return e.derivedCompute(id, atStack)
+		return nil
 	}
 	table := &e.derivedMemo
 	if atStack != 0 {
@@ -277,7 +289,7 @@ func (e *Engine) derivedMemoizedAt(id state.ObjID, atStack state.Zone) Derived {
 		if derivedMemoVerify {
 			e.verifyDerivedMemo(id, atStack, m.d)
 		}
-		return m.d
+		return &m.d
 	}
 	// Cross-walk reuse: an entry an EARLIER scope computed is still exact when
 	// active() has not been rebuilt since (activeBuildSeq unchanged after
@@ -295,14 +307,20 @@ func (e *Engine) derivedMemoizedAt(id state.ObjID, atStack state.Zone) Derived {
 	// takes the fresh-arrays path below. Measured: the priority walk and the
 	// bot's board build re-derived the same objects across every priority
 	// pass of an unchanged board. Verify mode recomputes every such hit.
-	if m.seq != 0 && m.gen != e.derivedMemoGen && m.ver == ver && m.objs == objs {
+	// The arena may have grown since the entry was stamped: an unmoved
+	// derivedSeq proves every growth up to the last build was a transparent
+	// rebuild's face-less ability mint (derived_transparent.go), which no
+	// other object's derivation reads -- and the arena must still be the
+	// one that build saw (derivedPrevObjs), so an eventless append since
+	// (a test's direct AddObject) still misses.
+	if m.seq != 0 && m.gen != e.derivedMemoGen && m.ver == ver && m.objs <= objs {
 		e.active()
-		if m.seq == e.activeBuildSeq {
+		if m.seq == e.derivedSeq && (m.objs == objs || objs == e.derivedPrevObjs) {
 			if derivedMemoVerify {
 				e.verifyDerivedMemo(id, atStack, m.d)
 			}
 			m.gen, m.ep = e.derivedMemoGen, ep
-			return m.d
+			return &m.d
 		}
 	}
 	if m.gen == e.derivedMemoGen {
@@ -312,10 +330,13 @@ func (e *Engine) derivedMemoizedAt(id state.ObjID, atStack state.Zone) Derived {
 		m.kw, m.ty = nil, nil
 	}
 	e.active()
-	seq := e.activeBuildSeq
+	builds, seq := e.activeBuildSeq, e.derivedSeq
 	d := e.derivedCompute(id, atStack)
-	if e.activeBuildSeq != seq {
-		seq = 0 // active() rebuilt mid-derivation: never reuse across walks
+	if e.activeBuildSeq != builds || faceHasCDAStatic(e.G.Obj(id)) {
+		// active() rebuilt mid-derivation, or the object's own CDA amount
+		// reads arbitrary state (derived_transparent.go): never reuse across
+		// walks.
+		seq = 0
 	}
 	// Re-resolve the entry: its storage is the table's append-grown entry
 	// list, so the pointer taken above is not held across the derivation.
@@ -324,7 +345,7 @@ func (e *Engine) derivedMemoizedAt(id state.ObjID, atStack state.Zone) Derived {
 	d.Types = memoOwned(&m.ty, d.Types)
 	m.d = d
 	m.gen, m.ep, m.ver, m.objs, m.seq = e.derivedMemoGen, ep, ver, objs, seq
-	return d
+	return &m.d
 }
 
 // memoOwned copies src into the entry's reusable backing array *buf and
@@ -359,4 +380,7 @@ func (e *Engine) verifyDerivedMemo(id state.ObjID, atStack state.Zone, got Deriv
 // It is for the engine's few no-event runtime inputs to Derived (faceprobe.go's
 // face flip, statics.go's cost-composition exclusion): an event reaches
 // active() on its own, these do not.
-func (e *Engine) retireCrossWalkMemo() { e.activeBuildSeq++ }
+//
+// crossWalkRetires counts the calls, so the posed decision's potential walk
+// (potential_walk_cache.go) can tell active() rebuilds from these.
+func (e *Engine) retireCrossWalkMemo() { e.activeBuildSeq++; e.derivedSeq++; e.crossWalkRetires++ }

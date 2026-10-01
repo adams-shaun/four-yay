@@ -55,7 +55,7 @@ func TestTriggerWalkVisitsOnlyHotObjects(t *testing.T) {
 
 	var visited int
 	e.pendingTriggers = e.pendingTriggers[:0]
-	e.forEachTriggerObject(events.Event{Kind: events.Note}, true, func(state.ObjID) { visited++ }, nil)
+	e.forEachTriggerObject(&events.Event{Kind: events.Note}, true, false, func(state.ObjID) { visited++ }, nil)
 
 	if visited >= board {
 		t.Fatalf("the walk visited %d of %d battlefield objects; want only the hot subset", visited, board)
@@ -72,7 +72,7 @@ func TestTriggerWalkHotSubsetStillFiresTheWatcher(t *testing.T) {
 	t.Parallel()
 	e, watcher := hotSubsetBoard(t, 300)
 	e.pendingTriggers = e.pendingTriggers[:0]
-	e.checkFaceTriggers(e, events.Event{Kind: events.MoveZone, Obj: watcher,
+	e.checkFaceTriggers(e, &events.Event{Kind: events.MoveZone, Obj: watcher,
 		From: state.ZLibrary, To: state.ZBattlefield}, nil, 0, 0, false, false, false)
 	if len(e.pendingTriggers) != 1 {
 		t.Fatalf("hot watcher queued %d triggers, want exactly its own enter trigger", len(e.pendingTriggers))

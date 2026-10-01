@@ -437,7 +437,7 @@ func TestTriggerEligibilityKeepsHiddenDiagnosticOrder(t *testing.T) {
 	events.Apply(e.G, events.Event{Kind: events.MoveZone, Obj: first, From: state.ZBattlefield, To: state.ZLibrary})
 	start := len(e.L.Events)
 	for range 2 {
-		e.checkFaceTriggers(e, events.Event{Kind: events.Priority}, nil, 0, 0, false, false, false)
+		e.checkFaceTriggers(e, &events.Event{Kind: events.Priority}, nil, 0, 0, false, false, false)
 	}
 	var got []string
 	var sources []state.ObjID
@@ -461,7 +461,7 @@ func TestTriggerEligibilityKeepsAlwaysOnBookkeepingEvents(t *testing.T) {
 		"T:Mode$ Always | LifeTotal$ You | LifeAmount$ GE20 | Execute$ Gain\n"+
 		"SVar:Gain:DB$ GainLife | LifeAmount$ 1 | Defined$ You\nOracle:x\n")
 	for _, kind := range []events.Kind{events.Priority, events.Note, events.DecisionMade} {
-		e.checkFaceTriggers(e, events.Event{Kind: kind}, nil, 0, 0, false, false, false)
+		e.checkFaceTriggers(e, &events.Event{Kind: kind}, nil, 0, 0, false, false, false)
 	}
 	if len(e.pendingTriggers) != 1 || e.pendingTriggers[0].Source != id {
 		t.Fatalf("Always queue = %+v, want exactly one outstanding instance", e.pendingTriggers)
@@ -484,12 +484,12 @@ func TestTriggerEligibilityKeepsRoomAlternateFace(t *testing.T) {
 		events.Apply(e.G, events.Event{Kind: events.FlipFace, Obj: id, Amount: face})
 		spell := onBoard(t, e, 0, "Name:Spell\nTypes:Sorcery\nOracle:x\n")
 		ev := events.Event{Kind: events.PutOnStack, Obj: spell, Player: 0}
-		e.checkFaceTriggers(e, ev, nil, 0, 0, false, false, false)
+		e.checkFaceTriggers(e, &ev, nil, 0, 0, false, false, false)
 		if len(e.pendingTriggers) != 0 {
 			t.Fatal("locked alternate face fired")
 		}
 		events.Apply(e.G, events.Event{Kind: events.DoorUnlock, Obj: id})
-		e.checkFaceTriggers(e, ev, nil, 0, 0, false, false, false)
+		e.checkFaceTriggers(e, &ev, nil, 0, 0, false, false, false)
 		if len(e.pendingTriggers) != 1 || e.pendingTriggers[0].Source != id || !e.pendingTriggers[0].Delayed {
 			t.Fatalf("cast face %d: queue = %+v, want alternate-face trigger", face, e.pendingTriggers)
 		}

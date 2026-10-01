@@ -31,6 +31,9 @@ type activeSummary struct {
 	n         int
 	hasLType  bool
 	hasGrants bool
+	// hasManaConvert: some entry is an Effect-delivered ManaConvert static
+	// (CostStaticMode ManaConvert, manaConversionParts' registry arm).
+	hasManaConvert bool
 }
 
 // activeSummaryVerify: see derivedMemoVerify. Set by the rules test binary.
@@ -46,7 +49,7 @@ func (e *Engine) activeSummaryOf(ces []ContinuousEffect) activeSummary {
 	s := &e.activeSum
 	if s.valid && s.seq == e.activeBuildSeq && s.base == base && s.n == len(ces) {
 		if activeSummaryVerify {
-			if fresh := summarizeActive(ces); fresh.hasLType != s.hasLType || fresh.hasGrants != s.hasGrants {
+			if fresh := summarizeActive(ces); fresh.hasLType != s.hasLType || fresh.hasGrants != s.hasGrants || fresh.hasManaConvert != s.hasManaConvert {
 				panic(fmt.Sprintf("rules: active summary at build %d disagrees with a rescan (%+v vs %+v)", s.seq, *s, fresh))
 			}
 		}
@@ -68,7 +71,10 @@ func summarizeActive(ces []ContinuousEffect) activeSummary {
 		if len(ce.AddAbilities) > 0 || len(ce.GainedFaces) > 0 {
 			s.hasGrants = true
 		}
-		if s.hasLType && s.hasGrants {
+		if ce.CostStaticMode == "ManaConvert" {
+			s.hasManaConvert = true
+		}
+		if s.hasLType && s.hasGrants && s.hasManaConvert {
 			break
 		}
 	}

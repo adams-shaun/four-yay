@@ -59,7 +59,7 @@ func TestChoosePolicy(t *testing.T) {
 	discard := decision.Decision{Kind: decision.KChoose, Min: 2, Max: 2, Options: []decision.Option{
 		{Index: 0, Kind: "discard", Obj: 1}, {Index: 1, Kind: "discard", Obj: 2}, {Index: 2, Kind: "discard", Obj: 3},
 	}}
-	b := Board{Cards: map[state.ObjID]Card{1: {Basic: true}, 2: {CMC: 1}, 3: {Creature: true, CMC: 8}}}
+	b := Board{Cards: TableOf(map[state.ObjID]Card{1: {Basic: true}, 2: {CMC: 1}, 3: {Creature: true, CMC: 8}})}
 	if got := Decide(b, &discard, r).Choices; len(got) != 2 || got[0] != 1 || got[1] != 2 {
 		t.Fatalf("discard: %v, want both spells, keeping land development", got)
 	}
@@ -105,10 +105,10 @@ func TestPassesOutsideMainWithNoCastOrLandDrop(t *testing.T) {
 	// the tap gate (T1) wants a tap when a castable card in hand needs
 	// mana the empty pool does not yet have.
 	wanting := Board{IsMain: true,
-		Cards: map[state.ObjID]Card{
+		Cards: TableOf(map[state.ObjID]Card{
 			// A hand card whose CMC 1 the empty pool cannot pay: a tap.
 			200: {CMC: 1, ManaCost: "1", Castable: true},
-		}}
+		})}
 	in = Decide(wanting, &d, rng(1))
 	if len(in.Choices) != 1 || d.Options[in.Choices[0]].Kind != "activate" {
 		t.Errorf("isMain=true: priority = %+v, want an activation chosen", in)
@@ -151,9 +151,9 @@ func TestEveryKind(t *testing.T) {
 			{Index: 3, Kind: "pass"},
 		}}
 	wanting := Board{IsMain: true,
-		Cards: map[state.ObjID]Card{
+		Cards: TableOf(map[state.ObjID]Card{
 			3: {CMC: 2, ManaCost: "2", Castable: true}, // in hand, pool can't pay it
-		}}
+		})}
 	if in := Decide(wanting, &priority, rng(1)); len(in.Choices) != 1 || priority.Options[in.Choices[0]].Kind != "activate" {
 		t.Errorf("priority (main phase) = %+v, want the lone activate option chosen first", in)
 	}
@@ -178,10 +178,10 @@ func TestEveryKind(t *testing.T) {
 	// an offered source can close the unmet pip, and a source with no facts
 	// claims no colour (fail closed).
 	pipWant := Board{IsMain: true,
-		Cards: map[state.ObjID]Card{
+		Cards: TableOf(map[state.ObjID]Card{
 			3: {CMC: 2, ManaCost: "U U", Castable: true},
 			2: {Produces: cards.ManaProduction{Colour: [6]int32{0, 1, 0, 0, 0, 0}}},
-		},
+		}),
 		Pool: state.Mana{state.MU: 1},
 	}
 	if in := Decide(pipWant, &priority, rng(1)); len(in.Choices) != 1 || priority.Options[in.Choices[0]].Kind != "activate" {
@@ -191,10 +191,10 @@ func TestEveryKind(t *testing.T) {
 	// justify a tap: nothing in hand wants mana, so the policy passes even
 	// with activate options on the table.
 	idle := Board{IsMain: true,
-		Cards: map[state.ObjID]Card{
+		Cards: TableOf(map[state.ObjID]Card{
 			4: {CMC: 2, ManaCost: "2", Castable: false}, // already on the battlefield
 			5: {CMC: 0, ManaCost: "", Castable: true},   // a land in hand
-		}}
+		})}
 	if in := Decide(idle, &priority, rng(1)); len(in.Choices) != 1 || priority.Options[in.Choices[0]].Kind == "activate" {
 		t.Errorf("priority (nothing castable wants mana) = %+v, want no tap", in)
 	}
@@ -216,10 +216,10 @@ func TestEveryKind(t *testing.T) {
 	// Combat-specific expectations live in combat_test.go; here, with a
 	// defender that has no creatures, both legal 2/2 attackers go (AR2 —
 	// there is nothing to punish the swing).
-	if in := Decide(Board{Creatures: map[state.ObjID]Creature{
+	if in := Decide(Board{Creatures: TableOf(map[state.ObjID]Creature{
 		10: {Power: 2, Toughness: 2, Controller: 0},
 		11: {Power: 2, Toughness: 2, Controller: 0},
-	}}, &attackers, rng(1)); len(in.Choices) != 2 {
+	})}, &attackers, rng(1)); len(in.Choices) != 2 {
 		t.Errorf("attackers = %+v, want every legal attacker chosen against a defender with no creatures", in)
 	}
 
@@ -300,11 +300,11 @@ func TestEveryKind(t *testing.T) {
 			{Index: 1, Kind: "bottom", Obj: 101},
 			{Index: 2, Kind: "bottom", Obj: 102},
 		}}
-	worstBoard := Board{Cards: map[state.ObjID]Card{
+	worstBoard := Board{Cards: TableOf(map[state.ObjID]Card{
 		100: {Creature: true, Power: 4, CMC: 0}, // cheap — kept
 		101: {CMC: 1},                           // cardWorth 1 — worst, bottomed
 		102: {Creature: true, Power: 2, CMC: 4}, // expensive — bottomed
-	}}
+	})}
 	if in := Decide(worstBoard, &bottoming, rng(1)); len(in.Choices) != 2 || in.Choices[0] != 1 || in.Choices[1] != 2 {
 		t.Errorf("bottoming = %+v, want the two least valuable cards (obj 101, 102) bottomed", in)
 	}

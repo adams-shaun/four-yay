@@ -91,30 +91,43 @@ func (e *Engine) PotentialPaymentPlans(p state.PlayerID) []PotentialPlan {
 	}
 	e.beginDerivedMemo()
 	defer e.endDerivedMemo()
-	defer e.paymentPlanQueryScope()()
+	defer e.paymentPlanQueryEnd(e.paymentPlanQueryResumeBegin(p))
 	prevPool := e.paymentPlanPotentialPool
 	e.paymentPlanPotentialPool = true
 	defer func() { e.paymentPlanPotentialPool = prevPool }()
-	hyp := e.PotentialMana(p)
-	opts := e.legalActionsPriced(p, &hyp)
-	type key struct {
-		kind    string
-		obj     state.ObjID
-		ability int
-		mode    string
+	hyp, opts := e.potentialWalkOf(p, true)
+	// ambiguous[i]: another potential play shares opts[i]'s (kind, object,
+	// ability, mode) identity. A pairwise scan over the walk's few plays
+	// spares the per-query map.
+	var ambiguousBuf [128]bool
+	ambiguous := ambiguousBuf[:0]
+	if len(opts) <= len(ambiguousBuf) {
+		ambiguous = ambiguousBuf[:len(opts)]
+	} else {
+		ambiguous = make([]bool, len(opts))
 	}
-	seen := map[key]int{} // lookup only
-	for _, o := range opts {
-		if potentialPlayKind(o.Kind) {
-			seen[key{o.Kind, o.Obj, o.Ability, o.Mode}]++
+	for i := range opts {
+		a := &opts[i]
+		if !potentialPlayKind(a.Kind) {
+			continue
+		}
+		for j := i + 1; j < len(opts); j++ {
+			b := &opts[j]
+			if a.Obj == b.Obj && a.Ability == b.Ability && a.Kind == b.Kind && a.Mode == b.Mode {
+				ambiguous[i], ambiguous[j] = true, true
+			}
 		}
 	}
 	poolOK := e.paymentPlanPoolAccepted(p)
+	// Every ordinary cast verdict below names a plain cast the PotentialMana
+	// walk above listed, so the planner shares one cost-static collection
+	// and a priced candidate set across them (castPlanShare).
+	share := castPlanShare{statics: costStaticSource{e: e}, candidates: paymentCastCandidates{e: e, p: p, priced: true}}
 	censused := false // the census (and its relaxed alternatives) was read
 	scripts := 0      // prefix searches run (potentialScriptPlays bounds them)
 	var census paymentPlanCensus
 	var out []PotentialPlan
-	for _, o := range opts {
+	for oi, o := range opts {
 		if !potentialPlayKind(o.Kind) {
 			continue
 		}
@@ -122,12 +135,12 @@ func (e *Engine) PotentialPaymentPlans(p state.PlayerID) []PotentialPlan {
 		witness := false // the verdict's Plan is the play's witness (not Decision.PaymentActions')
 		verdict := func() PaymentPlanOutcome {
 			switch {
-			case seen[key{o.Kind, o.Obj, o.Ability, o.Mode}] > 1:
+			case ambiguous[oi]:
 				return PaymentPlanOutcome{Reason: "ambiguous"}
 			case !poolOK:
 				return PaymentPlanOutcome{Reason: "unsupported", Detail: "pool"}
 			}
-			got, w := e.potentialPlayVerdict(p, o)
+			got, w := e.potentialPlayVerdictShared(p, o, &share)
 			witness = w
 			return got
 		}
@@ -190,9 +203,30 @@ func paymentPlanConsumes(plan decision.PaymentPlan) bool {
 // before the census check: witness reports whether the outcome's Plan is
 // a witness for the play (always, except an unsupported shape).
 func (e *Engine) potentialPlayVerdict(p state.PlayerID, o decision.Option) (got PaymentPlanOutcome, witness bool) {
+	return e.potentialPlayVerdictShared(p, o, nil)
+}
+
+// castPlanShare is the cast planner's per-query inputs shared across one
+// PotentialPaymentPlans query's ordinary-cast verdicts: one lazy cost-static
+// collection and a candidate set marked priced. Every query names a plain
+// cast the query's own PotentialMana walk listed -- exactly the offer
+// builder's priced set (paymentCastCandidates' priced argument), so
+// membership is certain and the per-cast huge-pool walk PlanCastPayment
+// would run is skipped (pricedCandidatesVerify runs it and panics on a
+// miss). The statics are a pure read of the unchanged board, shared exactly
+// as the offer builder shares them.
+type castPlanShare struct {
+	statics    costStaticSource
+	candidates paymentCastCandidates
+}
+
+// potentialPlayVerdictShared is potentialPlayVerdict with the ordinary-cast
+// verdict planned over sh (nil: PlanCastPayment's own fresh inputs). sh is
+// only valid for an o listed by the PotentialMana walk at this state.
+func (e *Engine) potentialPlayVerdictShared(p state.PlayerID, o decision.Option, sh *castPlanShare) (got PaymentPlanOutcome, witness bool) {
 	switch {
 	case o.Kind == "cast" && o.Mode == "" && o.AltCostIndex == 0:
-		got := e.potentialCastVerdict(p, o.Obj)
+		got := e.potentialCastVerdict(p, o.Obj, sh)
 		if got.Reason == "unsupported" {
 			// A shape the cast planner does not witness -- an {X} spell
 			// (the largest X the sources pay), a hybrid one (each pip
@@ -421,7 +455,12 @@ func (e *Engine) potentialWitnessOffers(p state.PlayerID, o decision.Option, pla
 			pool[c] += int32(n)
 		}
 	}
-	for _, opt := range e.legalActionsPriced(p, &pool) {
+	// A cast play is looked up among the walk's cast options only, which
+	// the casts-only walk lists exactly as the full walk does
+	// (castsOnlyWalkVerify), without pricing every battlefield ability.
+	opts := e.legalActionsWalkTemp(p, &pool, o.Kind == "cast")
+	defer e.optRelease(opts)
+	for _, opt := range opts {
 		if opt.Kind == o.Kind && opt.Obj == o.Obj && opt.Ability == o.Ability && opt.Mode == o.Mode && opt.AltCostIndex == o.AltCostIndex {
 			return true
 		}
@@ -431,7 +470,7 @@ func (e *Engine) potentialWitnessOffers(p state.PlayerID, o decision.Option, pla
 
 // potentialCastVerdict is PlanCastPayment's verdict for the ordinary cast of
 // id, whose origin is read from its zone.
-func (e *Engine) potentialCastVerdict(p state.PlayerID, id state.ObjID) PaymentPlanOutcome {
+func (e *Engine) potentialCastVerdict(p state.PlayerID, id state.ObjID, sh *castPlanShare) PaymentPlanOutcome {
 	o := e.G.Obj(id)
 	if o == nil {
 		return PaymentPlanOutcome{Reason: "unsupported"}
@@ -445,7 +484,13 @@ func (e *Engine) potentialCastVerdict(p state.PlayerID, id state.ObjID) PaymentP
 	default:
 		return PaymentPlanOutcome{Reason: "unsupported", Detail: "origin"}
 	}
-	got := e.PlanCastPayment(p, decision.PlannedCast{Object: id, Face: 0, Origin: origin})
+	cast := decision.PlannedCast{Object: id, Face: 0, Origin: origin}
+	var got PaymentPlanOutcome
+	if sh != nil {
+		got = e.planCastPaymentMemo(p, cast, &sh.statics, &sh.candidates)
+	} else {
+		got = e.PlanCastPayment(p, cast)
+	}
 	if got.Plan != nil && got.Reason == "search_limit" {
 		return got
 	}

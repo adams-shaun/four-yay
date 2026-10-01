@@ -62,7 +62,18 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "derivedPTFrames"}:      true,
 	{"rules.Engine", "boardStaticsCache"}:    true,
 	{"rules.Engine", "activeStaticsCache"}:   true,
+	{"rules.Engine", "activeStaticsScan"}:    true,
+	{"rules.Engine", "boardScanBuf"}:         true,
+	{"rules.Engine", "actIndex"}:             true,
 	{"rules.Engine", "mayPlaysCache"}:        true,
+	// The posed decision's shared potential walk (potential_walk_cache.go):
+	// keyed by an ask serial and the log; Clone copies none.
+	{"rules.Engine", "potentialWalk"}:       true,
+	{"rules.Engine", "potentialAskSerial"}:  true,
+	{"rules.Engine", "potentialWalkDepth"}:  true,
+	{"rules.Engine", "potentialFullDemand"}: true,
+	{"rules.Engine", "crossWalkRetires"}:    true,
+	{"rules.Engine", "priorityWalk"}:        true,
 	// Layer/static rebuild caches keyed by epoch/version counters.
 	{"rules.Engine", "staticContinuous"}: true,
 	{"rules.Engine", "staticEpoch"}:      true,
@@ -70,23 +81,29 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "staticObjs"}:       true,
 	{"rules.Engine", "staticBuildSeq"}:   true,
 	{"rules.Engine", "staticQueueBuf"}:   true,
-	{"rules.Engine", "activeBuf"}:        true,
-	{"rules.Engine", "activeEpoch"}:      true,
-	{"rules.Engine", "activeVersion"}:    true,
-	{"rules.Engine", "activeDepth"}:      true,
-	{"rules.Engine", "activeObjs"}:       true,
-	{"rules.Engine", "activeBuildSeq"}:   true,
-	{"rules.Engine", "activeStaticSeq"}:  true,
-	{"rules.Engine", "activeKWHeads"}:    true,
-	{"rules.Engine", "renames"}:          true,
-	{"rules.Engine", "renameEpoch"}:      true,
-	{"rules.Engine", "renameVersion"}:    true,
-	{"rules.Engine", "renameBuilding"}:   true,
-	{"rules.Engine", "layer4Types"}:      true,
-	{"rules.Engine", "typesEpoch"}:       true,
-	{"rules.Engine", "typesVersion"}:     true,
-	{"rules.Engine", "typesObjs"}:        true,
-	{"rules.Engine", "typesBuilding"}:    true,
+	// The static memo's gate records (static_gatememo.go): carried only
+	// with a copied memo, otherwise empty in a clone.
+	{"rules.Engine", "staticGates"}:       true,
+	{"rules.Engine", "staticGatesKnown"}:  true,
+	{"rules.Engine", "activeBuf"}:         true,
+	{"rules.Engine", "activeEpoch"}:       true,
+	{"rules.Engine", "activeVersion"}:     true,
+	{"rules.Engine", "activeDepth"}:       true,
+	{"rules.Engine", "activeObjs"}:        true,
+	{"rules.Engine", "activeBuildSeq"}:    true,
+	{"rules.Engine", "activeStaticSeq"}:   true,
+	{"rules.Engine", "activeKWHeads"}:     true,
+	{"rules.Engine", "activeKWHeadSet"}:   true,
+	{"rules.Engine", "activeKWHeadSetOK"}: true,
+	{"rules.Engine", "renames"}:           true,
+	{"rules.Engine", "renameEpoch"}:       true,
+	{"rules.Engine", "renameVersion"}:     true,
+	{"rules.Engine", "renameBuilding"}:    true,
+	{"rules.Engine", "layer4Types"}:       true,
+	{"rules.Engine", "typesEpoch"}:        true,
+	{"rules.Engine", "typesVersion"}:      true,
+	{"rules.Engine", "typesObjs"}:         true,
+	{"rules.Engine", "typesBuilding"}:     true,
 	// The layer-4 table's incremental state and statics-probe cache
 	// (layer4types.go), keyed by log length / continuousVersion / object
 	// count; Clone copies none, so a cloned route rebuilds them from its own
@@ -94,12 +111,15 @@ var excluded = map[excludedField]bool{
 	// game.
 	{"rules.Engine", "typesIncrReady"}:    true,
 	{"rules.Engine", "typesSelfOnly"}:     true,
+	{"rules.Engine", "typesDSeq"}:         true,
+	{"rules.Engine", "typesDSeqOK"}:       true,
 	{"rules.Engine", "typesSrcs"}:         true,
 	{"rules.Engine", "typesMayDiffer"}:    true,
 	{"rules.Engine", "typesTouch"}:        true,
 	{"rules.Engine", "typesAct"}:          true,
 	{"rules.Engine", "typesVisited"}:      true,
 	{"rules.Engine", "typesProbe"}:        true,
+	{"rules.Engine", "typesProbeReady"}:   true,
 	{"rules.Engine", "typesProbeTrue"}:    true,
 	{"rules.Engine", "typesProbeEpoch"}:   true,
 	{"rules.Engine", "typesProbeVersion"}: true,
@@ -123,32 +143,82 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "trigZones"}:          true,
 	{"rules.Engine", "trigZonesEp"}:        true,
 	{"rules.Engine", "trigFaceZones"}:      true,
-	{"rules.Engine", "phaseSpecs"}:         true,
+	// The exact-signature cache, summary generation, whole-board plan and
+	// last walk's signature union (trigger_kinds.go, trigger_plan.go), and
+	// the granted-trigger proof (trigger_grantfree.go, which Clone copies
+	// with its registry header reset): scratch validated on every use.
+	{"rules.Engine", "trigFaceKinds"}:   true,
+	{"rules.Engine", "trigZoneGen"}:     true,
+	{"rules.Engine", "trigPlan"}:        true,
+	{"rules.Engine", "trigWalkUnion"}:   true,
+	{"rules.Engine", "trigWalkUnionOK"}: true,
+	{"rules.Engine", "trigGrant"}:       true,
+	{"rules.Engine", "phaseSpecs"}:      true,
 	// The per-face text-scan memo (face_scan_memo.go) and active()'s
 	// per-build digest (active_summary.go): pure caches, Clone copies none.
 	{"rules.Engine", "faceScans"}: true,
 	{"rules.Engine", "activeSum"}: true,
+	// Characteristics' printed fast-path digest (derived_printed.go), the
+	// activeSum shape.
+	{"rules.Engine", "charsSum"}: true,
 	// The replacement-source walk's zone summaries (repl_zoneskip.go), the
 	// trigZones shape: scratch validated on every use; Clone copies none.
 	{"rules.Engine", "replZones"}:   true,
 	{"rules.Engine", "replZonesEp"}: true,
+	// The whole-arena replacement event mask (repl_arena_mask.go): a
+	// superset cache with its catch-up watermarks, rebuilt on first use.
+	{"rules.Engine", "replArena"}: true,
 	// The off-battlefield static-source walks' zone summaries
 	// (static_zoneskip.go), the same shape.
 	{"rules.Engine", "staticZones"}:   true,
 	{"rules.Engine", "staticZonesEp"}: true,
+	// The offer walk's object class cache (walk_objclass.go), kept by the
+	// same catch-up.
+	{"rules.Engine", "walkObjCls"}:      true,
+	{"rules.Engine", "walkClsOwner"}:    true,
+	{"rules.Engine", "offerProbeDepth"}: true,
+	{"rules.Engine", "staticTouchGen"}:  true,
 	// The payment-plan interference carrier memo (payment_plan_interference.go),
 	// keyed by object-arena size and log length; Clone copies none.
 	{"rules.Engine", "paymentPlanCarriers"}:       true,
 	{"rules.Engine", "paymentPlanCarriersObjs"}:   true,
 	{"rules.Engine", "paymentPlanCarriersEvents"}: true,
 	{"rules.Engine", "paymentPlanCarriersValid"}:  true,
+	// The payment planner's kept and recycled query scopes and the
+	// incremental zone-entry index (rules/payment_plan_search.go,
+	// rules/payment_zone_entry.go): pure caches of reads of G and the log,
+	// validated on every use; Clone copies none.
+	{"rules.Engine", "paymentPlanQueryKept"}:      true,
+	{"rules.Engine", "paymentPlanQueryKeptStamp"}: true,
+	{"rules.Engine", "paymentPlanQueryFree"}:      true,
+	{"rules.Engine", "zoneEntry"}:                 true,
+	// The priority walk's pool-independent block record for the potential
+	// walk (rules/walk_block_reuse.go) and its served-block counter: a walk
+	// cache keyed like priorityWalk, and a diagnostic; Clone copies none.
+	{"rules.Engine", "walkRec"}:           true,
+	{"rules.Engine", "walkReuse"}:         true,
+	{"rules.Engine", "walkBlocksServed"}:  true,
+	{"rules.Engine", "walkMembersServed"}: true,
+	{"rules.Engine", "potentialManaRec"}:  true,
+	{"rules.Engine", "walkRecDemand"}:     true,
 	// Scratch buffers reused across calls (contents after use are garbage).
-	{"rules.Engine", "legalOptBuf"}: true,
-	{"rules.Engine", "manaAbBuf"}:   true,
-	{"rules.Engine", "manaLabels"}:  true,
-	{"rules.Engine", "intentBuf"}:   true,
-	{"rules.Engine", "sbaIDBuf"}:    true,
-	{"rules.Engine", "foreachBuf"}:  true,
+	{"rules.Engine", "legalOptBuf"}:  true,
+	{"rules.Engine", "manaAbBuf"}:    true,
+	{"rules.Engine", "manaLabels"}:   true,
+	{"rules.Engine", "intentBuf"}:    true,
+	{"rules.Engine", "sbaIDBuf"}:     true,
+	{"rules.Engine", "graveCandBuf"}: true,
+	{"rules.Engine", "foreachBuf"}:   true,
+	// The target census and priority mana member-set scratch lists, and the
+	// off-stack mana frame slots (empty between Submits).
+	{"rules.Engine", "targetCensusBuf"}: true,
+	{"rules.Engine", "manaAbScratch"}:   true,
+	{"rules.Engine", "offStackSlots"}:   true,
+	{"rules.Engine", "offStackDepth"}:   true,
+	// The hypothetical-clone and read-scratch pool (rules/hypclone.go):
+	// recycled Spares and per-call scratch (PotentialMana's among them),
+	// owner-guarded; Clone copies none.
+	{"rules.Engine", "hypSpares"}: true,
 	// targetSpecContext's reusable Resolve records (trigger_referents.go),
 	// a stack that is free at every intent boundary; Clone starts a fresh
 	// one, so the recycled records a live engine keeps are not game state.
@@ -178,6 +248,69 @@ var excluded = map[excludedField]bool{
 	// emit nothing and mutate nothing, so they are not game state.
 	{"rules.Engine", "ManaAbilityHook"}: true,
 	{"rules.Engine", "paymentStats"}:    true,
+	// The Derived memo's cross-walk key and active()'s double buffer
+	// (derived_transparent.go): derivedSeq moves with activeBuildSeq, and
+	// derivedPrev*/derivedTouched/activeBufAlt are the previous build's key
+	// and list. Never cloned, so a control clone restarts them at zero while
+	// the live run A has counted its own rebuilds (round-7 cardfuzz seed
+	// 16178228601564090929: derivedSeq 9 vs 1).
+	{"rules.Engine", "derivedSeq"}:         true,
+	{"rules.Engine", "activeBufAlt"}:       true,
+	{"rules.Engine", "derivedPrevEpoch"}:   true,
+	{"rules.Engine", "derivedPrevVersion"}: true,
+	{"rules.Engine", "derivedPrevObjs"}:    true,
+	{"rules.Engine", "derivedTouched"}:     true,
+	// The battlefield-membership half of that key and the zone-ledger
+	// length it was taken at, and what active()'s list was assembled from
+	// (active_same.go); never cloned either.
+	{"rules.Engine", "derivedBFSeq"}:       true,
+	{"rules.Engine", "derivedPrevEntered"}: true,
+	{"rules.Engine", "activeList"}:         true,
+	// The rename table's arena-size key and its derivedSeq stamp
+	// (setname.go), the renames/* cache keys.
+	{"rules.Engine", "renameObjs"}:  true,
+	{"rules.Engine", "renameDSeq"}:  true,
+	{"rules.Engine", "renameBFSeq"}: true,
+	// checkFaceTriggers' zero-interest no-op memo key (log length, arena
+	// size, registry version); Clone leaves it zero.
+	{"rules.Engine", "trigZeroNoopEp"}:    true,
+	{"rules.Engine", "trigZeroNoopObjs"}:  true,
+	{"rules.Engine", "trigZeroNoopVer"}:   true,
+	{"rules.Engine", "trigZeroNoopKinds"}: true,
+	// attackOffers' layer-inert reuse (attack_cost.go): the last offer list
+	// and its key; Clone leaves them zero.
+	{"rules.Engine", "atkOffers"}:       true,
+	{"rules.Engine", "atkOffersEp"}:     true,
+	{"rules.Engine", "atkOffersVer"}:    true,
+	{"rules.Engine", "atkOffersObjs"}:   true,
+	{"rules.Engine", "atkOffersActive"}: true,
+	// The trigger queue's stale-prefix watermark (trigger_queue.go): scratch
+	// hygiene for the drained array, never game state.
+	{"rules.Engine", "trigQueueStale"}: true,
+	// Recycled storage owned by one engine: the trigger-window snapshot
+	// pool (trigger_snapshot_pool.go), the reusable look-back observer
+	// Engine and its owner/busy guard (checkTriggers), and the posed-decision
+	// arena (decision_arena.go). They hold capacity, never game state; Clone
+	// leaves them nil or adopts a spent engine's cleared ones from a Spare.
+	{"rules.Engine", "snapPool"}:      true,
+	{"rules.Engine", "lookBack"}:      true,
+	{"rules.Engine", "lookBackOwner"}: true,
+	{"rules.Engine", "lookBackBusy"}:  true,
+	{"rules.Engine", "preview"}:       true,
+	{"rules.Engine", "previewOwner"}:  true,
+	{"rules.Engine", "previewBusy"}:   true,
+	{"rules.Engine", "decArena"}:      true,
+	// The pendingCast recycling pair (cast_pool.go): the last issued cast
+	// storage and a zeroed spare -- capacity, never game state (the cast in
+	// flight is e.cast, compared as usual).
+	{"rules.Engine", "castIssued"}: true,
+	{"rules.Engine", "castFree"}:   true,
+	// The offer walk's incremental log-derived indexes (legal_walk_scratch.go):
+	// each is a pure function of the log prefix its watermark names, and the
+	// log itself is compared semantically. The manual route answers more
+	// decisions, so its watermark names a longer prefix of an equivalent log
+	// (round-9 cardfuzz seed 8175: airbendFolded).
+	{"rules.Engine", "legalScratch"}: true,
 }
 
 // The engine_struct embedding refactor (2026-09-30) moved most of the Engine

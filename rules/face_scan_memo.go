@@ -12,8 +12,9 @@ import (
 // ability/trigger/replacement/static text), which is fixed once the face is
 // built: the pay-time converge/cast-spend capture gates and the auto-pay
 // shape gate re-ran these substring scans over every battlefield face on
-// every cast and every planner query scope. faceScanHas memoises them per
-// face pointer for the engine's lifetime (a face held as a key stays alive,
+// every cast and every planner query scope. A configured face's verdicts
+// live in the shared compiled face table (walkFaceFacts.scan); for any other
+// face faceScanHas memoises them per face pointer for the engine's lifetime (a face held as a key stays alive,
 // so its address cannot be reused by another face). Clone leaves the memo
 // nil. In the rules test binary faceScanVerify recomputes every hit and
 // panics on a difference.
@@ -68,6 +69,17 @@ func computeFaceScan(f *cards.Face) faceScan {
 func (e *Engine) faceScanHas(f *cards.Face, bit faceScan) bool {
 	if f == nil {
 		return false
+	}
+	// A configured face's verdicts were computed once with the shared
+	// compiled text (walkFaceFacts.scan), so a fresh clone does not rescan
+	// every face it meets.
+	if ff := e.walkFaceFactsOf(f); ff != nil && ff.fullyCurrent(f) {
+		if faceScanVerify {
+			if fresh := computeFaceScan(f); fresh != ff.scan {
+				panic(fmt.Sprintf("rules: compiled face scan for %q is stale (%b vs %b)", f.Name, ff.scan, fresh))
+			}
+		}
+		return ff.scan&bit != 0
 	}
 	s, ok := e.faceScans[f]
 	if !ok {

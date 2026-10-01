@@ -32,7 +32,7 @@ func TestLayer4EventlessObjectCountForcesFullRefresh(t *testing.T) {
 		t.Fatalf("eventless refresh table %v, want full table %v with car %d", got, want, car)
 	}
 	before := e.typesIncrBuilds
-	e.emit(events.Event{Kind: events.Tap, Obj: tap})
+	emitRefresh(e, tap, 1)
 	if e.typesIncrBuilds != before+1 || e.typesVisited >= len(e.G.Objs) {
 		t.Fatalf("after reseeding, emitted event did not use incremental refresh (builds %d -> %d, visited %d of %d)", before, e.typesIncrBuilds, e.typesVisited, len(e.G.Objs))
 	}
@@ -56,5 +56,33 @@ func BenchmarkLayer4StaticProbeCatchUp(b *testing.B) {
 				}
 			}
 		})
+	}
+}
+
+// TestLayer4CloneCarriesIncrementalState: a clone of a board whose layer-4
+// table is current goes incremental on its first emitted event -- it carries
+// the candidate slice, source stamp and statics probe in its own storage --
+// and its table matches the whole-board rebuild; the parent is untouched.
+func TestLayer4CloneCarriesIncrementalState(t *testing.T) {
+	t.Parallel()
+	e, car, tap := incrBoard(t, 200)
+	incrBoardOK(t, e, car)
+	c := e.Clone()
+	if !c.typesIncrReady || !c.typesProbeReady || c.typesVersion != c.continuousVersion || c.typesProbeVersion != c.continuousVersion {
+		t.Fatalf("clone did not carry the current layer-4 state (incr %v probe %v)", c.typesIncrReady, c.typesProbeReady)
+	}
+	if len(c.typesProbe) > 0 && &c.typesProbe[0] == &e.typesProbe[0] {
+		t.Fatal("clone shares the parent's probe cells")
+	}
+	before := c.typesIncrBuilds
+	emitRefresh(c, tap, 1)
+	if c.typesIncrBuilds != before+1 || c.typesVisited >= len(c.G.Objs) {
+		t.Fatalf("clone's first refresh was not incremental (builds %d -> %d, visited %d of %d)", before, c.typesIncrBuilds, c.typesVisited, len(c.G.Objs))
+	}
+	if got, want := c.EffectiveTypes(), c.buildDerivedTypesFull(nil); !reflect.DeepEqual(got, want) {
+		t.Fatalf("clone table %v, want full table %v", got, want)
+	}
+	if e.G.Obj(tap).Counter("P1P1") != 0 {
+		t.Fatal("the clone's event reached the parent")
 	}
 }

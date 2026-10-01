@@ -272,11 +272,11 @@ func (e *Engine) targetAsk() bool {
 	// advance to the next stage while one remains, so a half with a target
 	// requirement is still asked. When no stage declares targets the flow
 	// proceeds directly to payment, exactly as a single targetless cast does.
-	for sa != nil && sa.Params["ValidTgts"] == "" && e.castHasNextTargetStage(pc, o) {
+	for sa != nil && sa.ParamStr(cards.PKValidTgts) == "" && e.castHasNextTargetStage(pc, o) {
 		pc.targetStage++
 		sa = e.castStageSA(pc, o, f)
 	}
-	if sa == nil || sa.Params["ValidTgts"] == "" {
+	if sa == nil || sa.ParamStr(cards.PKValidTgts) == "" {
 		return false
 	}
 	// A proposal whose resolved mana cost can no longer be paid, and with no
@@ -636,7 +636,7 @@ func (e *Engine) castCostReadsAllTargeted(pc *pendingCast, ab *cards.SA) bool {
 	if ab == nil {
 		return false
 	}
-	reduce := strings.TrimSpace(ab.Params["ReduceCost"])
+	reduce := strings.TrimSpace(ab.ParamStr(cards.PKReduceCost))
 	var dyn []string
 	for _, part := range pc.cost.Evidence {
 		if part.Dyn != "" {
@@ -1101,7 +1101,7 @@ func saHasKeyword(ab *cards.SA, want string) bool {
 	if ab == nil {
 		return false
 	}
-	for kw := range strings.SplitSeq(ab.Params["Keyword"], ",") {
+	for kw := range strings.SplitSeq(ab.ParamStr(cards.PKKeyword), ",") {
 		if strings.EqualFold(strings.TrimSpace(kw), want) {
 			return true
 		}

@@ -23,6 +23,9 @@ type engineDerivedTables struct {
 	renames        []effects.ObjectName
 	renameEpoch    int
 	renameVersion  int
+	renameObjs     int
+	renameDSeq     uint64 // derivedSeq at the build; never cloned (0 = none)
+	renameBFSeq    uint64 // derivedBFSeq at the build; never cloned
 	renameBuilding bool
 	// derivedTypes is the layer-4 derived type table (layer4types.go) the
 	// effects tier's ordinary type filters read through SpecContext.
@@ -42,12 +45,19 @@ type engineDerivedTables struct {
 	// re-derives only the self-only source list -- never a whole-board scan
 	// (the staticsMayChangeTypes precheck has its own probe cache below).
 	// Every fallback is toward the whole-board rebuild, never away from it.
-	// Clone deliberately copies none of these: the clone's board is
-	// identical at the boundary, so the carried table + key above stays
-	// valid for key hits, and the clone's first real rebuild repopulates
-	// the incremental state from scratch (the activeEpoch precedent).
+	// Clone copies these with the table (clone.go) when the table was built
+	// under the current registry: the clone's board is identical at the
+	// boundary, so the candidate slice and source stamp describe it exactly
+	// and its next refresh can go incremental instead of rebuilding the
+	// whole board once per clone.
 	typesIncrReady bool
 	typesSelfOnly  bool
+	// typesDSeq is derivedSeq right after the last bounded build (active()
+	// current there), typesDSeqOK marks it set; the derived-quiet reuse
+	// (typesQuietReuse) compares it. Never cloned: a clone's derivedSeq is
+	// its own.
+	typesDSeq      uint64
+	typesDSeqOK    bool
 	typesSrcs      []state.ObjID
 	typesMayDiffer []state.ObjID
 	typesTouch     []state.ObjID
@@ -60,8 +70,11 @@ type engineDerivedTables struct {
 	typesVisited int
 	// The staticsMayChangeTypes probe cache: per-object probe answers with
 	// the count of true ones, maintained by the same event-referent catch-up
-	// (see layer4types.go).
-	typesProbe        map[state.ObjID]bool
+	// (see layer4types.go). typesProbe is dense by ObjID (index id-1):
+	// probeUnset for an object never probed, else probeNo/probeYes;
+	// typesProbeReady marks a populated cache.
+	typesProbe        []uint8
+	typesProbeReady   bool
 	typesProbeTrue    int
 	typesProbeEpoch   int
 	typesProbeVersion int

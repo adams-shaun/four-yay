@@ -239,7 +239,7 @@ func (w *legalWalk) commandZoneWalk() {
 		}
 		targetsAvailable := e.castTargetsAvailable(p, id, f.SpellAbility())
 		if targetsAvailable && w.offerCastable(p, id, e.rawBaseCost(p, id), spellScope(""), false) {
-			w.add("cast", "Cast "+f.Name, id)
+			w.add("cast", w.castLabel(f), id)
 		}
 		if targetsAvailable {
 			for i, extra := range e.optionalCostViews(costStatics.get(), p, id) {
@@ -305,14 +305,38 @@ func (w *legalWalk) commandZoneWalk() {
 }
 
 // graveyardCastsWalk is the graveyard alternative-cast section (harmonize,
-// flashback, aftermath, warp, escape, retrace, jump-start, mayhem).
+// flashback, aftermath, warp, escape, retrace, jump-start, mayhem), over the
+// graveyard cards that can open any of those routes (graveyardCandidates).
 func (w *legalWalk) graveyardCastsWalk() {
+	e := w.e
+	zone := e.G.Zone(state.ZGraveyard, w.p)
+	// The candidate list is built in the engine's scratch, taken for the
+	// section (a re-entrant walk builds its own) and handed back after.
+	buf := e.graveCandBuf
+	e.graveCandBuf = nil
+	grave, filtered := w.graveyardCandidates(zone, buf[:0])
+	switch {
+	case !filtered:
+		w.graveyardCastsOver(zone)
+		e.graveCandBuf = buf[:0]
+		return
+	case walkSkipVerify && len(grave) != len(zone):
+		w.verifyGraveyardCandidates(zone, grave)
+	default:
+		w.graveyardCastsOver(grave)
+	}
+	e.graveCandBuf = grave[:0]
+}
+
+// graveyardCastsOver is graveyardCastsWalk's body over the graveyard ids
+// grave (in zone order).
+func (w *legalWalk) graveyardCastsOver(grave []state.ObjID) {
 	e, p := w.e, w.p
 	sorcery := w.sorcery
 	out := &w.out
 	// Harmonize is a graveyard alternative. It is offered as its own cast
 	// transaction, then spellRestZone exiles it after resolution.
-	for _, id := range e.G.Zone(state.ZGraveyard, p) {
+	for _, id := range grave {
 		o := e.G.Obj(id)
 		if o == nil || o.Face() == nil {
 			continue
@@ -343,7 +367,7 @@ func (w *legalWalk) graveyardCastsWalk() {
 	// Flashback: a graveyard walk, same instant-speed timing as hand cards,
 	// gated on the derived keyword (so a continuous-effect grant, e.g.
 	// Snapcaster Mage, counts) rather than the printed one.
-	for _, id := range e.G.Zone(state.ZGraveyard, p) {
+	for _, id := range grave {
 		o := e.G.Obj(id)
 		f := o.Face()
 		if f == nil || !e.hasKeywordH(id, kwhFlashback) {
@@ -385,7 +409,7 @@ func (w *legalWalk) graveyardCastsWalk() {
 	// (castRestrictedAsFace), not the front face still displayed in the
 	// graveyard: a restriction matching only one half must decide only that
 	// half's offer.
-	for _, id := range e.G.Zone(state.ZGraveyard, p) {
+	for _, id := range grave {
 		o := e.G.Obj(id)
 		af := aftermathAlternateFace(o)
 		if af == nil || w.castRestrictedAsFace(p, id, af) || e.castSuppressed(p, id) {
@@ -411,7 +435,7 @@ func (w *legalWalk) graveyardCastsWalk() {
 	// Warp from the graveyard requires a separate MayPlay Spell.Warp static;
 	// Warp itself grants only the hand alternative. Timeline Culler is the
 	// corpus shape carrying that explicit graveyard permission.
-	for _, id := range e.G.Zone(state.ZGraveyard, p) {
+	for _, id := range grave {
 		o := e.G.Obj(id)
 		f := o.Face()
 		if f == nil || len(f.Keywords) == 0 {
@@ -444,7 +468,7 @@ func (w *legalWalk) graveyardCastsWalk() {
 	// no post-resolution destination change -- unlike flashback the spell
 	// goes where it would otherwise go), so modeFlags marks it FlagEscaped
 	// and the ETB machinery reads the flag through Card.Self+escaped.
-	for _, id := range e.G.Zone(state.ZGraveyard, p) {
+	for _, id := range grave {
 		o := e.G.Obj(id)
 		f := o.Face()
 		if f == nil || !e.hasKeywordH(id, kwhEscape) || w.castRestricted(p, id) || e.castSuppressed(p, id) {
@@ -470,7 +494,7 @@ func (w *legalWalk) graveyardCastsWalk() {
 	// The discard is a real hand cost, so the offer is withheld unless a land
 	// card is actually there to discard -- an option that cannot be paid must
 	// never be offered (the offerCastable/withSpellAbilityExtras ruling).
-	for _, id := range e.G.Zone(state.ZGraveyard, p) {
+	for _, id := range grave {
 		o := e.G.Obj(id)
 		f := o.Face()
 		if f == nil || !e.hasKeywordH(id, kwhRetrace) || w.castRestricted(p, id) || e.castSuppressed(p, id) {
@@ -500,7 +524,7 @@ func (w *legalWalk) graveyardCastsWalk() {
 	// would count; the same timing/target/restriction gates as every other
 	// graveyard alt-cast, and the discount payable gate -- an option whose
 	// discard cannot be paid must never be offered (the offerCastable ruling).
-	for _, id := range e.G.Zone(state.ZGraveyard, p) {
+	for _, id := range grave {
 		o := e.G.Obj(id)
 		f := o.Face()
 		if f == nil || !e.hasKeywordH(id, kwhJumpStart) || w.castRestricted(p, id) || e.castSuppressed(p, id) {
@@ -533,7 +557,7 @@ func (w *legalWalk) graveyardCastsWalk() {
 	// card" LAND shape (Oscorp Industries) and is withheld here -- not a
 	// cast. Offer and charge both go through mayhemCastCost, so they cannot
 	// drift.
-	for _, id := range e.G.Zone(state.ZGraveyard, p) {
+	for _, id := range grave {
 		o := e.G.Obj(id)
 		f := o.Face()
 		if f == nil {
@@ -575,21 +599,9 @@ func (w *legalWalk) exileCastsWalk() {
 	// the permanent left the battlefield), but the log can. This later cast
 	// pays the normal mana cost and is not itself flagged warped.
 	//
-	// The airbend recast permission is log-derived too, so one pass over the
-	// append-only log per walk answers every exiled card in O(1). The log
-	// cannot change inside this read-only offer pass (legal.go builds the
-	// walk's options without an Emit), so the index is exact for the whole
-	// loop; airbendIndexOff (test-only) selects the literal scan.
-	var airbendIX airbendExileIndex
-	airbendAvailable := func(id state.ObjID) bool {
-		if airbendIndexOff {
-			return airbendScan(e.L.Events, id)
-		}
-		if airbendIX == nil {
-			airbendIX = buildAirbendExileIndex(e.L.Events)
-		}
-		return airbendIX.available(id)
-	}
+	// The airbend recast permission is log-derived too; the engine's
+	// incremental airbend index (airbend.go) answers each exiled card in O(1).
+	airbendAvailable := e.airbendCastAvailable
 	for _, id := range e.G.Zone(state.ZExile, p) {
 		o := e.G.Obj(id)
 		f := o.Face()

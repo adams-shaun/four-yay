@@ -15,6 +15,7 @@
 package rules
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -882,19 +883,37 @@ func (e *Engine) controllerOf(id state.ObjID) state.PlayerID {
 }
 
 func (e *Engine) snapshotTriggerBoard() *triggerSnapshot {
-	return &triggerSnapshot{game: e.G.Clone(), continuous: append([]ContinuousEffect(nil), e.continuous...)}
+	// A board no look-back walk can act on needs no copy (lookBackNoopBoard):
+	// the window's departures take the shared empty snapshot, whose look-back
+	// checkTriggers skips. Verify mode copies the board anyway and runs the
+	// walk, which must then queue nothing.
+	noop := e.lookBackNoopBoard()
+	if noop && !trigZoneSkipVerify {
+		return noLookBackSnapshot
+	}
+	snap := &triggerSnapshot{game: e.G.CloneInto(e.takeSnapshotObjs()), continuous: append([]ContinuousEffect(nil), e.continuous...), noLookBack: noop}
+	e.noteLookBackStatic(snap)
+	return snap
 }
 
-func (e *Engine) checkTriggers(ev events.Event, lki *state.Object,
+func (e *Engine) checkTriggers(ev *events.Event, lki *state.Object,
 	lkiPower, lkiToughness int32, lkiPTValid bool) {
 	batch := e.triggerBefore != nil && ev.Kind == events.MoveZone &&
 		ev.From == state.ZBattlefield && ev.To != state.ZBattlefield
-	if batch {
+	noop := batch && e.lookBackProvenNoop()
+	if batch && (!noop || trigZoneSkipVerify) {
+		np := len(e.pendingTriggers)
 		// Only leaves-the-battlefield triggers look back. Always and other
 		// event modes continue to read the live board, not an obsolete state.
-		observer := &Engine{G: e.triggerBefore.game, L: e.L,
+		observer := e.lookBackObserver()
+		staticBuf := observer.staticContinuous[:0]
+		*observer = Engine{G: e.triggerBefore.game, L: e.L,
 			continuous: e.triggerBefore.continuous, continuousVersion: e.continuousVersion,
 			setNameInPool: e.setNameInPool, layer4InPool: e.layer4InPool}
+		// The reused observer's static memo storage, and the live memo when
+		// it is still the snapshot board's (lookback_static.go).
+		observer.staticContinuous = staticBuf
+		e.seedLookBackStatic(observer)
 		// The observer reads the PRE-departure board from its own Game clone,
 		// so it derives its own layer-3 rename and layer-4 derived-type tables
 		// (setname.go, layer4types.go) rather than inheriting the live
@@ -912,11 +931,28 @@ func (e *Engine) checkTriggers(ev events.Event, lki *state.Object,
 		if valid {
 			power, toughness = observer.Power(ev.Obj), observer.Toughness(ev.Obj)
 		}
+		// The look-back LKI a matched trigger keeps (its Ctx.LKI, then the
+		// stack's triggerLKI) is a copy of the snapshot's object, not a
+		// pointer into the snapshot's arena: a window's snapshot arena is
+		// recycled when the window closes (trigger_snapshot_pool.go), and a
+		// trigger outlives it. The copy is the same struct value, sharing
+		// the same never-mutated inner slices the snapshot object holds.
+		if obj != nil {
+			obj = e.arenaObject(obj)
+		}
 		e.checkFaceTriggers(observer, ev, obj, power, toughness, valid, true, true)
+		// Released before the live walk below, whose emits may re-enter
+		// checkTriggers: a nested look-back then reuses the same struct. A
+		// panic skips the release and every later call allocates, exactly as
+		// before the reuse.
+		e.releaseLookBackObserver(observer)
+		if noop && len(e.pendingTriggers) != np {
+			panic(fmt.Sprintf("rules: look-back walk on a board proven inert queued %d trigger(s) for a %v event", len(e.pendingTriggers)-np, ev.Kind))
+		}
 	}
 	e.checkFaceTriggers(e, ev, lki, lkiPower, lkiToughness, lkiPTValid, batch, false)
 	if ev.Kind == events.Damage {
-		e.checkCipherTriggers(ev)
+		e.checkCipherTriggers(*ev)
 	}
 	if ev.Kind == events.TurnChange {
 		e.collectExpiredDelayedTriggers()
@@ -927,43 +963,43 @@ func (e *Engine) checkTriggers(ev events.Event, lki *state.Object,
 	if ev.Kind == events.PutOnStack || ev.Kind == events.MoveZone || ev.Kind == events.MonarchChange ||
 		ev.Kind == events.ControlChange || ev.Kind == events.Damage || ev.Kind == events.DeclareAttackers ||
 		e.hasEffectRepeatDelayed() {
-		e.checkEventDelayedTriggers(ev, lki)
+		e.checkEventDelayedTriggers(*ev, lki)
 	}
 	// Sagas (kw:Chapter): a lore counter's chapter ability queues off the one
 	// event that places a lore counter -- the LORE CounterChange (the entry
 	// grant rules' foldEntryMove places and the draw-step half alike; task
 	// addcounter1/2 moved the entry grant onto a real CounterChange, so the
 	// old MoveZone arm double-queued the entry chapter).
-	e.checkChapterTriggers(ev)
+	e.checkChapterTriggers(*ev)
 	if ev.Kind == events.Draw {
-		e.offerMiracle(ev)
+		e.offerMiracle(*ev)
 	}
 	// The alternative-cost keyword family's event hooks (altcast.go): a
 	// battlefield entry is where an evoked creature queues its pay-or-sacrifice
 	// follow-up and a dashed/warped creature registers its end-step delayed
 	// trigger; a discard that exiled a madness card queues its cast offer.
 	if ev.Kind == events.MoveZone && ev.To == state.ZBattlefield {
-		e.altCostEnter(ev)
+		e.altCostEnter(*ev)
 	}
 	if ev.Kind == events.MoveZone && ev.From == state.ZHand && ev.To == state.ZExile {
-		e.offerMadness(ev)
+		e.offerMadness(*ev)
 	}
 	if ev.Kind == events.StepChange {
-		e.checkDelayedTriggers(ev)
+		e.checkDelayedTriggers(*ev)
 	}
 	// Become-blocked triggers (trig:AttackerBlocked; She-Hulk, Wallbreaker):
 	// one queue entry per blocked attacker, which the ordinary per-trigger
 	// face scan cannot express (see checkAttackerBlockedTriggers).
 	if ev.Kind == events.DeclareBlockers {
-		e.checkAttackerBlockedTriggers(ev)
-		e.checkBlocksTriggers(ev)
+		e.checkAttackerBlockedTriggers(*ev)
+		e.checkBlocksTriggers(*ev)
 	}
 	// Rooms (CR 309.5): the unlocked half's "When you unlock this door"
 	// trigger queues off the DoorUnlock event itself -- its face is the
 	// alternate face (FaceIdx 1), which the ordinary face scan above does
 	// not walk.
 	if ev.Kind == events.DoorUnlock {
-		e.checkUnlockTriggers(ev)
+		e.checkUnlockTriggers(*ev)
 	}
 	// Rooms (CR 709.5d/709.5h): the CAST face is given the unlocked
 	// designation as it enters, so its own "when you unlock this door"
@@ -971,7 +1007,7 @@ func (e *Engine) checkTriggers(ev events.Event, lki *state.Object,
 	// primary face, which the ordinary per-face walk above cannot reach --
 	// the UnlockDoor matcher is gated to DoorUnlock, not MoveZone.
 	if ev.Kind == events.MoveZone && ev.From == state.ZStack && ev.To == state.ZBattlefield {
-		e.checkRoomEntryUnlockTriggers(ev)
+		e.checkRoomEntryUnlockTriggers(*ev)
 	}
 	// Dungeon rooms (CR 309.4c, the dungeon chain's slice 3): the room
 	// ability of the room a player just entered. The dungeon object lives in
@@ -980,14 +1016,14 @@ func (e *Engine) checkTriggers(ev events.Event, lki *state.Object,
 	// Triggers lines -- the same synthetic-scan shape as the Ring emblem
 	// above, keyed off the DungeonRoom event itself.
 	if ev.Kind == events.DungeonRoom {
-		e.checkDungeonRoomTriggers(ev)
+		e.checkDungeonRoomTriggers(*ev)
 	}
 	// Exert's Trigger$ rider (task exert1, CR 702.100a): the static's named
 	// SVar body queues off the Exert event itself, with Source = the
 	// exerted permanent. The Amount -1 consume marker fires nothing: it is
 	// the untap-step scan's own bookkeeping fold.
 	if ev.Kind == events.Exert && ev.Amount >= 0 {
-		e.checkExertTriggers(ev)
+		e.checkExertTriggers(*ev)
 	}
 	// The Ring emblem's four level abilities (CR 701.54c): engine-side
 	// "whenever" abilities with no corpus script text and no object in any
@@ -995,17 +1031,17 @@ func (e *Engine) checkTriggers(ev events.Event, lki *state.Object,
 	// scan reads state.Player.RingTempted (the fold RingTemptsYou just made
 	// renders here BEFORE any trigger check, so level 4 sees its own
 	// temptation) and queues one entry per firing seat.
-	e.checkRingEmblemTriggers(ev)
+	e.checkRingEmblemTriggers(*ev)
 	// A chaos-ensues marker (CR 901.9, task planar-verbs): the current
 	// plane's Mode$ ChaosEnsues ability. The plane lives in ZPlanarDeck,
 	// which the per-face walk above never visits, so this synthetic scan
 	// queues it -- the checkRingEmblemTriggers precedent.
-	e.checkChaosEnsuesTriggers(ev)
+	e.checkChaosEnsuesTriggers(*ev)
 	// A planeswalk (CR 901.8, task planar-verbs): the arrived-at plane's
 	// Mode$ PlaneswalkedTo and the left plane's Mode$ PlaneswalkedFrom. Both
 	// planes live in the private ZPlanarDeck zone, so this is the same
 	// synthetic-scan shape as the chaos marker above.
-	e.checkPlaneswalkTriggers(ev)
+	e.checkPlaneswalkTriggers(*ev)
 }
 
 // The Ring emblem's four level gates (CR 701.54c). Level N is active iff the
@@ -1150,7 +1186,7 @@ func (e *Engine) checkExertTriggers(ev events.Event) {
 // checkFaceTriggers separates the read-only matching board from the live
 // queue and firing limits. Both walks use deterministic seat/zone/slice order;
 // the ordinary APNAP drain still asks each controller to order their triggers.
-func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state.Object,
+func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *state.Object,
 	lkiPower, lkiToughness int32, lkiPTValid, split, leaving bool) {
 	// phaseNotes collects the unresolvable Phase$ specs this walk encountered
 	// (live walks only -- the leaves-the-battlefield look-back observer is a
@@ -1170,7 +1206,14 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state
 	// checkGrantedStaticTriggersUsing), so the per-object walk never runs an
 	// Affected$ spec match for a grant that cannot fire on this event.
 	var grantedBuf [8]*ContinuousEffect
-	grantedStatics := grantedTriggerStaticsFor(observer.active(), ev.Kind, grantedBuf[:0])
+	var grantedStatics []*ContinuousEffect
+	if e.trigGrantsPossible() {
+		grantedStatics = grantedTriggerStaticsFor(observer.active(), ev.Kind, grantedBuf[:0])
+	} else if trigZoneSkipVerify {
+		if g := grantedTriggerStaticsFor(observer.active(), ev.Kind, grantedBuf[:0]); len(g) != 0 {
+			panic(fmt.Sprintf("rules: trigGrantFree engine has %d active trigger grant(s) observing %v", len(g), ev.Kind))
+		}
+	}
 	// The event's compiled-interest test, hoisted out of the per-object walk:
 	// compiledTriggerInterestAllows(interests, ev.Kind) is exactly
 	// evAll || interests&evMask != 0 (see objectFaceMayTriggerHoisted).
@@ -1215,7 +1258,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state
 			// it into the pay-or-counter ask. Only the granted-ward walk
 			// revives; the printed-face walk stays suppressed.
 			if o.Cloaked && ev.Kind == events.TargetsChosen {
-				e.checkGrantedWardTriggers(observer, id, o, f, ev, objLKI, lkiPower, lkiToughness, lkiPTValid)
+				e.checkGrantedWardTriggers(observer, id, o, f, *ev, objLKI, lkiPower, lkiToughness, lkiPTValid)
 			}
 			return
 		}
@@ -1228,28 +1271,28 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state
 			if grantedKeywordTriggerEvent(ev.Kind) {
 				switch ev.Kind {
 				case events.TargetsChosen:
-					e.checkGrantedWardTriggers(observer, id, o, f, ev, objLKI, lkiPower, lkiToughness, lkiPTValid)
+					e.checkGrantedWardTriggers(observer, id, o, f, *ev, objLKI, lkiPower, lkiToughness, lkiPTValid)
 				case events.DeclareAttackers:
-					e.checkGrantedDethroneTriggers(observer, id, o, f, ev, objLKI)
-					e.checkGrantedTrainingTriggers(observer, id, o, f, ev, objLKI)
-					e.checkGrantedMeleeTriggers(observer, id, o, f, ev, objLKI)
-					e.checkGrantedMentorTriggers(observer, id, o, f, ev, objLKI)
-					e.checkGrantedFirebendingTriggers(observer, id, o, f, ev, objLKI)
+					e.checkGrantedDethroneTriggers(observer, id, o, f, *ev, objLKI)
+					e.checkGrantedTrainingTriggers(observer, id, o, f, *ev, objLKI)
+					e.checkGrantedMeleeTriggers(observer, id, o, f, *ev, objLKI)
+					e.checkGrantedMentorTriggers(observer, id, o, f, *ev, objLKI)
+					e.checkGrantedFirebendingTriggers(observer, id, o, f, *ev, objLKI)
 				case events.DeclareBlockers:
-					e.checkGrantedAfflictTriggers(id, o, f, ev)
+					e.checkGrantedAfflictTriggers(id, o, f, *ev)
 				case events.PutOnStack:
-					e.checkGrantedConspireTriggers(observer, id, o, f, ev, objLKI)
-					e.checkGrantedDemonstrateTriggers(observer, id, o, f, ev, objLKI)
+					e.checkGrantedConspireTriggers(observer, id, o, f, *ev, objLKI)
+					e.checkGrantedDemonstrateTriggers(observer, id, o, f, *ev, objLKI)
 				case events.MoveZone:
-					e.checkGrantedExploitTriggers(observer, id, o, f, ev, objLKI)
-					e.checkGrantedOffspringTriggers(observer, id, o, f, ev, objLKI)
+					e.checkGrantedExploitTriggers(observer, id, o, f, *ev, objLKI)
+					e.checkGrantedOffspringTriggers(observer, id, o, f, *ev, objLKI)
 				case events.StepChange:
-					e.checkGrantedCumulativeUpkeepTriggers(observer, id, o, f, ev, objLKI)
-					e.checkGrantedAtEOTTriggers(observer, id, o, ev, objLKI)
+					e.checkGrantedCumulativeUpkeepTriggers(observer, id, o, f, *ev, objLKI)
+					e.checkGrantedAtEOTTriggers(observer, id, o, *ev, objLKI)
 				}
 			}
 			if len(grantedStatics) > 0 {
-				e.checkGrantedStaticTriggersUsing(observer, grantedStatics, id, o, ev, objLKI, lkiPower, lkiToughness, lkiPTValid, split, leaving)
+				e.checkGrantedStaticTriggersUsing(observer, grantedStatics, id, o, *ev, objLKI, lkiPower, lkiToughness, lkiPTValid, split, leaving)
 			}
 			return
 		}
@@ -1271,6 +1314,12 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state
 			// Ordinary (unmutated) objects keep the allocation-free [2]array
 			// path above.
 			walk = triggerFacesWithMerged(o, faces[:n])
+		} else if !o.Unlocked && !e.faceTrigSig(f).admits(ev, observer.G.Step) {
+			// The face's exact kind mask (trigger_kinds.go) rules out every
+			// printed line for this event, so the face loop below is a no-op;
+			// the granted walks after it still run, exactly as on this path
+			// before.
+			walk = nil
 		}
 		for _, fc := range walk {
 			if o.Unlocked && !e.objectFaceMayTrigger(id, fc.faceIdx, fc.face, ev.Kind) {
@@ -1327,7 +1376,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state
 				if t.Mode == "Always" && e.stateTriggerOutstanding(id, ti) {
 					continue
 				}
-				if !observer.triggerMatches(t, id, ev, objLKI) {
+				if !observer.triggerMatches(t, id, *ev, objLKI) {
 					continue
 				}
 				// Capture the DiscardedAll FirstTime$ clause the matcher just parsed
@@ -1343,7 +1392,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state
 				// pair). A secondary whose primary did not fire for this event
 				// still fires on its own. See secondaryYields for the pairing.
 				if strings.EqualFold(t.Params["Secondary"], "True") &&
-					e.secondaryYields(observer, fc.face, ti, t, id, ev, objLKI) {
+					e.secondaryYields(observer, fc.face, ti, t, id, *ev, objLKI) {
 					continue
 				}
 				if (t.Mode == "DamageDealtOnce" || t.Mode == "DamageDoneOnce" || t.Mode == "DamageAll") && ev.Amount <= 0 {
@@ -1712,7 +1761,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state
 				// owner the move has since reset it to (a stolen creature's own
 				// dies trigger belongs to the player who stole it).
 				controller := o.Controller
-				if objLKI != nil && id == ev.Obj && leftBattlefield(ev) {
+				if objLKI != nil && id == ev.Obj && leftBattlefield(*ev) {
 					controller = objLKI.Controller
 				}
 				// TriggerController$ TriggeredCardController assigns the
@@ -1721,7 +1770,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state
 				// event's LKI: the live object has already returned to its owner.
 				if (t.Mode == "ChangesZone" || t.Mode == "ChangesZoneAll") &&
 					t.Params["TriggerController"] == "TriggeredCardController" &&
-					objLKI != nil && leftBattlefield(ev) {
+					objLKI != nil && leftBattlefield(*ev) {
 					controller = objLKI.Controller
 				}
 				// The non-active face of an unlocked Room must be minted through
@@ -1748,13 +1797,13 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state
 					Ctx: effects.Ctx{
 						Source:         id,
 						Controller:     controller,
-						Remembered:     e.triggerRememberedFor(t, ev, id),
-						Captured:       e.triggerRememberedFor(t, ev, id),
+						Remembered:     e.triggerRememberedFor(t, *ev, id),
+						Captured:       e.triggerRememberedFor(t, *ev, id),
 						LKI:            objLKI,
 						LKIPower:       lkiPower,
 						LKIToughness:   lkiToughness,
 						LKIPTValid:     objLKI != nil && lkiPTValid,
-						TriggerContext: observer.triggerReferents(t, id, ev, objLKI),
+						TriggerContext: observer.triggerReferents(t, id, *ev, objLKI),
 					},
 				}
 				switch {
@@ -1771,7 +1820,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state
 					// marker's causing object (the exploiter), so its LKI P/T -- not
 					// the exploiter's -- is what TriggeredExploited$CardPower and
 					// CardToughness must read.
-					e.attachExploitedLKI(&pt, ev)
+					e.attachExploitedLKI(&pt, *ev)
 				}
 				e.pendingTriggers = append(e.pendingTriggers, pt)
 				// stat:Panharmonicon (CR 702.109): "If a triggered ability of a
@@ -1784,77 +1833,137 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state
 				// the copy again: the copy is not an event). Panharmonicon's own
 				// trigger is excluded by the spec's Other predicate, which is
 				// relative to the Panharmonicon permanent itself.
-				for k := 0; k < e.panharmoniconEchoes(observer, id, ev); k++ {
+				for k := 0; k < e.panharmoniconEchoes(observer, id, *ev); k++ {
 					e.pendingTriggers = append(e.pendingTriggers, pt)
 				}
 			}
 		}
 		if len(grantedStatics) > 0 {
-			e.checkGrantedStaticTriggersUsing(observer, grantedStatics, id, o, ev, objLKI, lkiPower, lkiToughness, lkiPTValid, split, leaving)
+			e.checkGrantedStaticTriggersUsing(observer, grantedStatics, id, o, *ev, objLKI, lkiPower, lkiToughness, lkiPTValid, split, leaving)
 		}
 		// A granted Afflict must fire even when the object's own printed
 		// triggers are live for this event (a Zombie with its own become-blocked
 		// trigger carrying the Monarch's grant) -- the early-return path above
 		// reaches this object through checkGrantedAfflictTriggers's own call.
-		e.checkGrantedAfflictTriggers(id, o, f, ev)
+		e.checkGrantedAfflictTriggers(id, o, f, *ev)
 		// A granted Conspire must fire even when the object's own printed
 		// triggers are live for this event (a spell with its own cast trigger
 		// carrying a Conspire grant) -- the early-return path above reaches this
 		// object through checkGrantedConspireTriggers's own call.
-		e.checkGrantedConspireTriggers(observer, id, o, f, ev, objLKI)
+		e.checkGrantedConspireTriggers(observer, id, o, f, *ev, objLKI)
 		// A granted Demonstrate must fire even when the object's own printed
 		// triggers are live for this event (a spell with its own cast trigger
 		// carrying a Demonstrate grant) -- the same both-paths rule Conspire
 		// follows.
-		e.checkGrantedDemonstrateTriggers(observer, id, o, f, ev, objLKI)
+		e.checkGrantedDemonstrateTriggers(observer, id, o, f, *ev, objLKI)
 		// A granted Exploit must fire when its creature enters even when the
 		// object's own printed triggers are live for this event -- the same
 		// both-paths rule Afflict and Conspire follow.
-		e.checkGrantedExploitTriggers(observer, id, o, f, ev, objLKI)
+		e.checkGrantedExploitTriggers(observer, id, o, f, *ev, objLKI)
 		// A granted Offspring must fire when its creature enters even when the
 		// object's own printed triggers are live for this event -- the same
 		// both-paths rule Afflict, Conspire, Exploit and Training follow.
-		e.checkGrantedOffspringTriggers(observer, id, o, f, ev, objLKI)
+		e.checkGrantedOffspringTriggers(observer, id, o, f, *ev, objLKI)
 		// A granted Training must fire even when the object's own printed
 		// triggers are live for this event (an attacking token with its own
 		// trigger carrying the training grant) -- the early-return path above
 		// reaches this object through checkGrantedTrainingTriggers's own call.
-		e.checkGrantedTrainingTriggers(observer, id, o, f, ev, objLKI)
-		e.checkGrantedMeleeTriggers(observer, id, o, f, ev, objLKI)
+		e.checkGrantedTrainingTriggers(observer, id, o, f, *ev, objLKI)
+		e.checkGrantedMeleeTriggers(observer, id, o, f, *ev, objLKI)
 		// A granted Mentor must fire even when the object's own printed
 		// triggers are live for this event -- the same both-paths rule
 		// Afflict, Conspire, Exploit, Offspring and Training follow.
-		e.checkGrantedMentorTriggers(observer, id, o, f, ev, objLKI)
+		e.checkGrantedMentorTriggers(observer, id, o, f, *ev, objLKI)
 		// A granted Firebending must fire even when the object's own printed
 		// triggers are live for this event -- the same both-paths rule
 		// Afflict, Conspire, Exploit, Offspring, Training and Mentor follow.
-		e.checkGrantedFirebendingTriggers(observer, id, o, f, ev, objLKI)
+		e.checkGrantedFirebendingTriggers(observer, id, o, f, *ev, objLKI)
 		// A granted cumulative upkeep must fire at the beginning of the
 		// controller's upkeep even when the object's own printed triggers are
 		// live for this step change -- the same both-paths rule Afflict,
 		// Conspire, Exploit, Offspring and Training follow.
-		e.checkGrantedCumulativeUpkeepTriggers(observer, id, o, f, ev, objLKI)
+		e.checkGrantedCumulativeUpkeepTriggers(observer, id, o, f, *ev, objLKI)
 		// A copiable CopyPermanent AtEOTTrig$ body ("at the beginning of the
 		// end step, sacrifice/exile this token") must fire even when the
 		// object's own printed triggers are live for this step change -- the
 		// same both-paths rule cumulative upkeep follows.
-		e.checkGrantedAtEOTTriggers(observer, id, o, ev, objLKI)
+		e.checkGrantedAtEOTTriggers(observer, id, o, *ev, objLKI)
 	}
 	// The live walk skips a zone none of whose objects can act on any event
-	// (rules/trigger_zoneskip.go); the look-back observer and any event a
-	// static-granted trigger observes walk everything. A StepChange still
-	// walks the whole battlefield: a cumulative-upkeep keyword granted by a
-	// ContinuousEffect has no face trigger for the hot test to see
-	// (checkGrantedCumulativeUpkeepTriggers), so the battlefield summary must
-	// never prune it on a step change. The hidden-ish zones carry no such
-	// grant (cumulative upkeep functions only from the battlefield), so they
-	// keep their skip.
+	// and, within a zone, every object whose exact signature cannot admit
+	// this event (rules/trigger_zoneskip.go, trigger_kinds.go); the
+	// look-back observer visits only look-back-shaped sources and referents
+	// (objectLookBackHot), and any event a static-granted trigger observes
+	// walks everything. A StepChange into an upkeep or end step also visits
+	// every battlefield object a synthesized step trigger may reach
+	// (stepGrantMay).
 	skip := observer == e && len(grantedStatics) == 0
+	// The memo below is per kind and only for an event with no referent: the
+	// walk visits referents in place and narrows the rest by kind.
+	zero := skip && ev.Kind < 128 && zeroInterestEvent(ev.Kind, evAll, evMask) && ev.Obj == 0 && len(ev.IDs) == 0 && len(ev.Pairs) == 0
+	// The zero-interest no-op memo (trigZeroNoop): a zero-interest walk of
+	// this kind visited no object at all, and only layer-inert events --
+	// which write no object, zone list or registry -- have been logged since,
+	// so this walk would visit nothing either. Verify mode walks anyway and
+	// panics if the walk visits anything.
+	memo := zero && e.trigZeroNoopEp > 0 && e.trigZeroNoopObjs == len(e.G.Objs) &&
+		e.trigZeroNoopVer == e.continuousVersion && e.layerInertSince(e.trigZeroNoopEp)
+	noop := memo && e.trigZeroNoopKinds.has(ev.Kind)
+	if noop && !trigZoneSkipVerify {
+		return
+	}
 	var verify func(state.ObjID)
 	if skip && trigZoneSkipVerify {
-		verify = e.trigSkipVerifier(ev, visit, func() int { return len(phaseNotes) })
+		verify = e.trigSkipVerifier(*ev, visit, func() int { return len(phaseNotes) })
 	}
-	observer.forEachTriggerObject(ev, skip, visit, verify)
+	visited := 0
+	if observer != e && leaving && len(grantedStatics) == 0 {
+		// The leaves-the-battlefield look-back walk: of the pre-departure
+		// board only the referents and the objects with a look-back-shaped
+		// printed line can act (objectLookBackHot); granted walks are
+		// referent-gated, and a static-granted trigger observing the event
+		// disables the filter. Verify mode visits the rest and panics if any
+		// of them queued a trigger.
+		observer.forEachObject(func(id state.ObjID) {
+			if trigMustVisit(*ev, id) || e.objectLookBackHot(observer.G.Obj(id)) {
+				visited++
+				visit(id)
+				return
+			}
+			if trigZoneSkipVerify {
+				np := len(e.pendingTriggers)
+				visit(id)
+				if len(e.pendingTriggers) != np {
+					panic(fmt.Sprintf("rules: look-back trigger walk skipped obj %d that acts on a %v event", id, ev.Kind))
+				}
+			}
+		})
+	} else {
+		observer.forEachTriggerObject(ev, skip, skip, func(id state.ObjID) { visited++; visit(id) }, verify)
+	}
+	if noop && visited != 0 {
+		panic(fmt.Sprintf("rules: zero-interest trigger walk no-op memo at log %d skipped a walk that visits %d object(s)", len(e.L.Events), visited))
+	}
+	if zero && visited == 0 {
+		// A still-valid memo's kinds stay valid at this later head (only
+		// layer-inert events since, and this walk did nothing), so the kind
+		// joins them; otherwise the memo restarts with this kind alone.
+		if !memo {
+			e.trigZeroNoopKinds = trigKinds{}
+		}
+		e.trigZeroNoopKinds[ev.Kind>>6] |= 1 << (ev.Kind & 63)
+		if e.trigWalkUnionOK {
+			// No hot object anywhere admits a kind outside the board's
+			// union, so a referent-free walk of that kind visits nothing
+			// too while the memo holds.
+			u := e.trigWalkUnion.kinds
+			e.trigZeroNoopKinds[0] |= ^u[0]
+			e.trigZeroNoopKinds[1] |= ^u[1]
+		}
+		e.trigZeroNoopEp, e.trigZeroNoopObjs, e.trigZeroNoopVer = len(e.L.Events), len(e.G.Objs), e.continuousVersion
+	} else if observer == e {
+		e.trigZeroNoopEp = 0
+	}
 	for _, n := range phaseNotes {
 		e.emit(events.Event{Kind: events.Note, Obj: n.id,
 			Text: "Phase$ " + n.spec + " names no engine step; the trigger never fires"})
@@ -2456,7 +2565,7 @@ func (e *Engine) triggerMatchesWithSVars(t cards.Trigger, source state.ObjID, ev
 	}
 	// PlayerTurn$ True: only during the turn of the source's controller
 	// (Forge Trigger.requirementsCheck), scoped to actionTriggerModes.
-	if actionTriggerModes[t.Mode] && strings.EqualFold(t.Params["PlayerTurn"], "True") &&
+	if actionTriggerModes[t.Mode] && strings.EqualFold(t.ParamStr(cards.PKPlayerTurn), "True") &&
 		e.G.Active != e.controllerOf(source) {
 		return false
 	}
@@ -2538,7 +2647,7 @@ func (e *Engine) triggerMatchesWithSVars(t cards.Trigger, source state.ObjID, ev
 // read, kept beside actionCause's home package conventions. An absent or
 // non-True parameter is a cheap no-op (the corpus's 99.99% case).
 func (e *Engine) notThisAbilityExcludes(t cards.Trigger, source state.ObjID) bool {
-	if !strings.EqualFold(strings.TrimSpace(t.Params["NotThisAbility"]), "True") {
+	if !strings.EqualFold(strings.TrimSpace(t.ParamStr(cards.PKNotThisAbility)), "True") {
 		return false
 	}
 	cause := e.actionCause()

@@ -46,9 +46,9 @@ func chosenKind(d *decision.Decision, in decision.Intent) string {
 func TestCounterNotCastAtOwnSpellsOnlyStack(t *testing.T) {
 	b := Board{
 		IsMain: false, // an instant-speed priority: only the counter is offered
-		Cards: map[state.ObjID]Card{
+		Cards: TableOf(map[state.ObjID]Card{
 			10: {CMC: 2, Castable: true, InstantSpeed: true, Counter: true},
-		},
+		}),
 		Stack: []StackEntry{
 			{ID: 90, Controller: 0, IsSpell: true}, // the seat's own spell, mid-resolution
 		},
@@ -66,9 +66,9 @@ func TestCounterNotCastAtOwnSpellsOnlyStack(t *testing.T) {
 func TestCounterNotCastAtEmptyStack(t *testing.T) {
 	b := Board{
 		IsMain: false,
-		Cards: map[state.ObjID]Card{
+		Cards: TableOf(map[state.ObjID]Card{
 			10: {CMC: 2, Castable: true, InstantSpeed: true, Counter: true},
-		},
+		}),
 	}
 	d := counterPriority(10)
 	in := Decide(b, d, rng(1))
@@ -99,9 +99,9 @@ func TestCounterCastAtForeignSpell(t *testing.T) {
 	} {
 		b := Board{
 			IsMain: false,
-			Cards: map[state.ObjID]Card{
+			Cards: TableOf(map[state.ObjID]Card{
 				10: {CMC: 2, Castable: true, InstantSpeed: true, Counter: true},
-			},
+			}),
 			Stack: tc.stack,
 		}
 		d := counterPriority(10)
@@ -119,10 +119,10 @@ func TestCounterCastAtForeignSpell(t *testing.T) {
 func TestOwnSpellStillCastableBesideCounter(t *testing.T) {
 	b := Board{
 		IsMain: false,
-		Cards: map[state.ObjID]Card{
+		Cards: TableOf(map[state.ObjID]Card{
 			10: {CMC: 2, Castable: true, InstantSpeed: true, Counter: true},
 			11: {Creature: true, Power: 2, Castable: true},
-		},
+		}),
 		Stack: []StackEntry{{ID: 90, Controller: 0, IsSpell: true}},
 	}
 	d := counterPriority(10, 11)

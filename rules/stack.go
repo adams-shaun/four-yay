@@ -116,7 +116,7 @@ func (e *Engine) resolveTop() {
 		// and has none recorded resolves untargeted rather than fizzling --
 		// targetMin(o.Ability)==0 && len(targets)==0 is the exemption.
 		if !charmHandled {
-			if spec := o.Ability.Params["ValidTgts"]; spec != "" && !(e.resolvedTargetMin(o.Controller, id, o.Ability, 0) == 0 && len(targets) == 0) {
+			if spec := o.Ability.ParamStr(cards.PKValidTgts); spec != "" && !(e.resolvedTargetMin(o.Controller, id, o.Ability, 0) == 0 && len(targets) == 0) {
 				legal := e.legalTargets(targets, o.Ability, targetZones(o.Ability), o.Controller, o.Source, id)
 				// subLegal > 0 keeps a chain alive whose ROOT targets all
 				// became illegal but whose pre-asked sub target did not
@@ -184,7 +184,7 @@ func (e *Engine) resolveTop() {
 		if spec := e.triggerContexts[id].OptionalSpec; spec != "" {
 			resSpec = spec
 		} else if triggered {
-			resSpec = rt.Params["OptionalDecider"]
+			resSpec = rt.ParamStr(cards.PKOptionalDecider)
 		}
 		if resSpec != "" {
 			who, askable := e.deciderFromSpec(resSpec, o.Controller, o.Remembered, e.triggerContexts[id])
@@ -333,7 +333,8 @@ func (e *Engine) resolveTop() {
 		// resolves, so the effect would silently apply to nothing. The SVar
 		// lookup two lines above already gets this right by reading from
 		// o.Source; this was a one-line inconsistency, not a second design.
-		ctx := &effects.Ctx{Source: o.Source, Controller: o.Controller,
+		ctx := e.arenaCtx()
+		*ctx = effects.Ctx{Source: o.Source, Controller: o.Controller,
 			Targets: targets, ModeTargets: charmModeTargets, Remembered: e.resolvingRemembered(o), Captured: o.Remembered, TriggerContext: e.triggerContexts[id],
 			// Forge's Count$ResolvedThisTurn reads the per-ability tally the
 			// Resolve event's Apply folded: the count INCLUDES this resolution,
@@ -442,7 +443,7 @@ func (e *Engine) resolveTop() {
 		// placement from firing the mode: only a real increase counts.
 		var evolveWatch bool
 		var evolveCountersBefore int32
-		if triggered && rt.Params["Evolve"] != "" {
+		if triggered && rt.ParamStr(cards.PKEvolve) != "" {
 			if src := e.G.Obj(o.Source); src != nil {
 				evolveWatch = true
 				evolveCountersBefore = src.Counter("P1P1")
@@ -680,7 +681,8 @@ func (e *Engine) resolveTop() {
 	}
 	if resolveSA != nil {
 		e.damaging = id
-		ctx := &effects.Ctx{Source: id, Controller: o.Controller, Targets: targets,
+		ctx := e.arenaCtx()
+		*ctx = effects.Ctx{Source: id, Controller: o.Controller, Targets: targets,
 			ModeTargets: charmModeTargets, ResolvingObj: id,
 			// alltargeted1: the cast flow's pre-asked SubAbility$ target
 			// answers, consumed line by line by chosenTargetsFor. Disjoint
@@ -688,7 +690,7 @@ func (e *Engine) resolveTop() {
 			SubPreAsk: e.castSubTargets[id]}
 		// Same marker as the ability branch: the cast-flow target ask
 		// (targetAsk's targetSA) offered exactly this spell's targeting.
-		if targetSA != nil && strings.TrimSpace(targetSA.Params["ValidTgts"]) != "" {
+		if targetSA != nil && strings.TrimSpace(targetSA.ParamStr(cards.PKValidTgts)) != "" {
 			ctx.TargetsOffered = true
 			ctx.OfferedSA = targetSA
 		}
@@ -880,7 +882,7 @@ func (e *Engine) recheckCastSubTargets(id state.ObjID, root *cards.SA, controlle
 func (e *Engine) legalTargets(targets []state.Target, sa *cards.SA, zones []state.Zone, you state.PlayerID, source state.ObjID, self state.ObjID) []state.Target {
 	spec := ""
 	if sa != nil {
-		spec = sa.Params["ValidTgts"]
+		spec = sa.ParamStr(cards.PKValidTgts)
 	}
 	var legal []state.Target
 	// The resolution recheck, unlike a target offer, has this stack object's
@@ -919,7 +921,7 @@ func (e *Engine) legalTargets(targets []state.Target, sa *cards.SA, zones []stat
 	triggeredCardController := state.PlayerID(0)
 	triggeredCardControllerOK := false
 	if sa != nil {
-		controllerProp = strings.TrimSpace(sa.Params["TargetsWithControllerProperty"])
+		controllerProp = strings.TrimSpace(sa.ParamStr(cards.PKTargetsWithControllerProperty))
 		if strings.TrimSpace(sa.Params["TargetsWithDefinedController"]) == "NonTriggeredCardController" {
 			nonTriggeredController = true
 			triggeredCardController, triggeredCardControllerOK = effects.TriggeredCardController(e.G, sc.TriggerContext, sc.Remembered)
@@ -1018,7 +1020,7 @@ func (e *Engine) legalTargets(targets []state.Target, sa *cards.SA, zones []stat
 	if sa != nil && strings.EqualFold(sa.Params["TargetsWithDifferentControllers"], "True") {
 		legal = e.narrowDifferentControllers(legal)
 	}
-	if sa != nil && strings.EqualFold(sa.Params["TargetsWithSameController"], "True") {
+	if sa != nil && strings.EqualFold(sa.ParamStr(cards.PKTargetsWithSameController), "True") {
 		legal = e.narrowSameController(legal)
 	}
 	legal = e.narrowSetProps(sa, legal)
@@ -1097,7 +1099,8 @@ func (e *Engine) resolveAbility(source state.ObjID, controller state.PlayerID,
 // this is the mana ability path's one home for it.
 func (e *Engine) resolveAbilitySacrificing(source state.ObjID, controller state.PlayerID,
 	targets []state.Target, sa *cards.SA, svars map[string]string, sacs []state.ObjID) {
-	ctx := &effects.Ctx{Source: source, Controller: controller, Targets: targets}
+	ctx := e.arenaCtx()
+	*ctx = effects.Ctx{Source: source, Controller: controller, Targets: targets}
 	for _, id := range sacs {
 		ctx.Sacrificed = append(ctx.Sacrificed, state.SacrificedInfoOf(e.G, id))
 	}

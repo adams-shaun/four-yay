@@ -110,10 +110,17 @@
 //	derivedMemo*, derivedKW/Types/     per-walk Derived memo and scratch, keyed by an epoch
 //	Depth/PTFrames, boardStaticsCache, that advances with every ask; Clone copies none
 //	activeStaticsCache, mayPlaysCache
+//	potentialWalk, potentialAskSerial, a posed decision's shared potential walk, keyed by
+//	potentialWalkDepth/FullDemand      an ask serial and the log; Clone copies none
+//	crossWalkRetires                   retireCrossWalkMemo's call count (a cache key); Clone
+//	                                   copies none
+//	priorityWalk                       the posed decision's own offer walk, re-served to its
+//	                                   potential readers; Clone copies none
 //	staticContinuous/Epoch/Version/    layer/static rebuild caches keyed by log length and
 //	Objs/BuildSeq/QueueBuf, activeBuf/   continuousVersion; build sequence counters and
 //	Epoch/Version/Depth/Objs/         their snapshots are local cache keys (Clone rebuilds)
-//	BuildSeq/StaticSeq, renames/*,
+//	BuildSeq/StaticSeq/KWHeadSet(OK),
+//	renames/*,
 //	layer4Types/types*, sbaQuiet/Unquiet
 //	typesIncrReady/SelfOnly/Srcs/      layer-4 table incremental state and statics-probe
 //	MayDiffer/Touch/Act/Visited/       cache keyed by log length, continuousVersion and object
@@ -127,13 +134,29 @@
 //	triggerEventMasks, triggerObject-  immutable-syntax lookup caches keyed by face pointer
 //	Masks, trigZones/Ep, trigFaceZones,
 //	phaseSpecs, faceScans
+//	trigFaceKinds, trigZoneGen,        trigger-walk signature cache, summary generation,
+//	trigPlan, trigWalkUnion/OK,        board plan, last walk's union, granted-trigger proof
+//	trigGrant, trigZeroNoopKinds       and the zero-interest memo's kind set
 //	activeSum                          active()'s per-build digest keyed by activeBuildSeq
-//	replZones/Ep                       replacement-walk zone summaries, validated on every use
+//	charsSum                           the printed fast path's digest, keyed the same way
+//	replZones/Ep, replArena            replacement-walk zone summaries, validated on every use,
+//	                                   and the arena's replacement event-bit superset cache
 //	staticZones/Ep                     static-source-walk zone summaries, validated on every use
+//	walkObjCls                         the offer walk's object classes, kept by the same catch-up
 //	paymentPlanCarriers/Objs/Events/   payment-plan interference carrier memo keyed by the
 //	Valid                              object-arena size and log length; Clone copies none
+//	paymentPlanQueryKept/KeptStamp/    the payment planner's kept and recycled query scopes and
+//	Free, zoneEntry                    the incremental zone-entry index: caches of G and the
+//	                                   log, validated on every use; Clone copies none
+//	walkRec, walkReuse, walkRecDemand, the priority walk's pool-independent block record for the
+//	potentialManaRec, walkBlocks/      potential walk and PotentialMana (keyed like
+//	MembersServed                      priorityWalk) and its served diagnostic counters; Clone
+//	                                   copies none
 //	legalOptBuf, manaAbBuf, manaLabels, reused scratch buffers
-//	intentBuf, sbaIDBuf, foreachBuf
+//	intentBuf, sbaIDBuf, foreachBuf,
+//	graveCandBuf, hypSpares,
+//	targetCensusBuf, manaAbScratch,
+//	offStackSlots, offStackDepth
 //	discardAllFirstTime                the DiscardedAll matcher's FirstTime$ scratch: written on
 //	                                   every match and read only right after it; Clone copies none
 //	loop, askCount                    intent-stream watchdog and ask counter: they count the
@@ -145,6 +168,26 @@
 //	ManaAbilityHook, paymentStats      harness-only observers (rules/clone.go): Clone copies
 //	                                   neither, and cmd/cardfuzz installs the hook on its live
 //	                                   run A, so the control would read "<func> vs nil"
+//	derivedSeq, derivedPrev*,          the Derived memo's cross-walk key and active()'s double
+//	derivedTouched, activeBufAlt,      buffer: rebuild counters and the previous build's key;
+//	derivedBFSeq, activeList           never cloned, so a clone restarts them at zero
+//	staticGates, staticGatesKnown      the static memo's gate records, carried only with a
+//	                                   copied memo
+//	renameObjs, renameDSeq,            the rename table's cache keys (the renames/* class)
+//	renameBFSeq
+//	trigZeroNoopEp/Objs/Ver            checkFaceTriggers' zero-interest no-op memo key
+//	atkOffers, atkOffersEp/Ver/       attackOffers' layer-inert reuse: the last list and its key
+//	Objs/Active
+//	trigQueueStale                     the drained trigger queue's stale-prefix watermark
+//	snapPool, lookBack, lookBackOwner, recycled storage one engine owns (snapshot arenas, the
+//	lookBackBusy, decArena,            look-back observer Engine, the decision arena, the entry
+//	preview, previewOwner/Busy         preview Engine): capacity,
+//	                                   never game state; Clone leaves them nil or adopts a
+//	                                   Spare's cleared ones
+//	castIssued, castFree               the pendingCast recycling pair: capacity, never game state
+//	legalScratch                       the offer walk's log-derived indexes: a pure function of
+//	                                   the log prefix their watermark names; the manual route's
+//	                                   longer log moves the watermark
 //
 // A route is Unmirrorable when the manual route cannot be driven at all. It
 // is Expected (RouteResult.Expected) when the reason is a known limit of the

@@ -27,6 +27,18 @@ type Log struct {
 	buf      []byte
 	headHash hash.Hash
 	started  bool
+	// unhashed counts the trailing Events that Append stored but has not yet
+	// folded into chain: the fold is deferred to the first chain reader
+	// (Head, Clone's copy of the chain state via catchUp), so a search clone
+	// that plays a simulation and is discarded without its head ever being
+	// read never pays a SHA-256 per event. Stored events are append-only
+	// history (Append copies IDs/Pairs; nothing writes a logged event in
+	// place), so folding Events[len-unhashed:] later reads exactly the bytes
+	// an eager fold would have read at Append time, in the same order, and
+	// chain ends identical. A log built any other way (a JSON decode, a
+	// struct literal) has unhashed == 0 and its chain is untouched, exactly
+	// as before.
+	unhashed int
 	// noHashSet records NoHash's value on the first Append to pin it from
 	// changing (see the check in Append).
 	noHashSet bool
@@ -36,6 +48,16 @@ type Log struct {
 	// copied prefix (see forkGrowth). Capacity only: no reader of Events can
 	// observe it.
 	forked bool
+	// prefixFrom/prefixLen are Events' provenance (Clone, CloneInto): the
+	// first prefixLen events are the prefixLen events of the array starting
+	// at prefixFrom -- the parent's history, shared or copied. Stored events
+	// are append-only history and growEvents copies them on regrowth, so the
+	// claim holds for the log's whole life; a recycled array that still
+	// carries it skips re-copying that history from the same parent
+	// (CloneIntoFrom). The pointer keeps the parent's array alive, so its
+	// address cannot be reused by another array while the claim is held.
+	prefixFrom *Event
+	prefixLen  int
 }
 
 const expectedEventsPerGame = 4096
@@ -56,19 +78,25 @@ func NewLogInto(seed uint64, spare []Event) *Log {
 	} else {
 		events = make([]Event, 0, expectedEventsPerGame)
 	}
-	l := &Log{Seed: seed, Events: events, buf: make([]byte, 0, 128), headHash: sha256.New()}
+	l := &Log{Seed: seed, Events: events}
 	// Seed the chain with the seed value
 	var b [8]byte
 	binary.LittleEndian.PutUint64(b[:], seed)
-	h := sha256.New()
-	h.Write(b[:])
-	h.Sum(l.chain[:0])
+	l.chain = sha256.Sum256(b[:])
 	return l
 }
 
 // Append assigns the next sequence number, folds the event into the chain and
 // stores it. It returns the stored event so callers see the assigned Seq.
 func (l *Log) Append(e Event) Event {
+	l.AppendPtr(&e)
+	return e
+}
+
+// AppendPtr is Append in place: it assigns e.Seq, detaches e.IDs/e.Pairs and
+// stores a copy, so on return *e equals the stored event. e must not point
+// into l.Events (the store may reallocate it).
+func (l *Log) AppendPtr(e *Event) {
 	// Check NoHash immutability: must not change after the log is started
 	if l.started {
 		if l.noHashSet != l.NoHash {
@@ -91,20 +119,42 @@ func (l *Log) Append(e Event) Event {
 	e.Pairs = append([][2]state.ObjID(nil), e.Pairs...)
 
 	l.Events = growEvents(l.Events, len(l.Events)+1, l.forked)
-	l.Events[len(l.Events)-1] = e
+	l.Events[len(l.Events)-1] = *e
 	if l.NoHash {
-		return e
+		return
 	}
-	l.buf = e.Append(l.buf[:0])
-	// Reuse one digest instead of sha256.New() per event — a fresh hasher per
-	// append was a measurable per-event allocation on a long log. Reset
-	// restores the initial (empty) state, so the fold into the chain is
-	// byte-identical to a fresh hasher's: sha256(chain || encode(e)).
-	l.headHash.Reset()
-	l.headHash.Write(l.chain[:])
-	l.headHash.Write(l.buf)
-	l.headHash.Sum(l.chain[:0])
-	return e
+	l.unhashed++
+}
+
+// catchUp folds every stored-but-unfolded event (see unhashed) into chain,
+// oldest first: sha256(chain || encode(e)) per event, the fold Append used to
+// run eagerly. A log whose Events were cut below its unfolded tail by a
+// direct field write (no engine path does that to a live log) folds what is
+// left of the tail.
+func (l *Log) catchUp() {
+	if l.unhashed == 0 {
+		return
+	}
+	n := len(l.Events)
+	from := n - l.unhashed
+	if from < 0 {
+		from = 0
+	}
+	l.unhashed = 0
+	if l.headHash == nil {
+		l.headHash = sha256.New()
+	}
+	for i := from; i < n; i++ {
+		l.buf = l.Events[i].Append(l.buf[:0])
+		// Reuse one digest instead of sha256.New() per event — a fresh hasher
+		// per append was a measurable per-event allocation on a long log.
+		// Reset restores the initial (empty) state, so the fold into the
+		// chain is byte-identical to a fresh hasher's.
+		l.headHash.Reset()
+		l.headHash.Write(l.chain[:])
+		l.headHash.Write(l.buf)
+		l.headHash.Sum(l.chain[:0])
+	}
 }
 
 // Head is the chain head over every event so far.
@@ -112,6 +162,7 @@ func (l *Log) Head() string {
 	if l.NoHash {
 		return ""
 	}
+	l.catchUp()
 	return hex.EncodeToString(l.chain[:8])
 }
 
@@ -161,11 +212,23 @@ func (l *Log) Clone() *Log {
 	c.Intents = l.Intents[:len(l.Intents):len(l.Intents)]
 	c.buf = nil
 	c.forked = true
-	// headHash is mutable scratch Append reuses; two appended-to logs must not
-	// share it, exactly as they must not share buf. A clone gets its own.
-	c.headHash = sha256.New()
+	// headHash is mutable scratch catchUp reuses; two logs must not share it,
+	// exactly as they must not share buf. A clone allocates its own on its
+	// first fold. The unfolded tail (unhashed) travels with the struct copy:
+	// it names the same shared, immutable events in both logs, so each folds
+	// it to the same chain whenever it is first read.
+	c.headHash = nil
+	c.prefixFrom, c.prefixLen = nil, len(l.Events)
+	if len(l.Events) > 0 {
+		c.prefixFrom = &l.Events[0]
+	}
 	return &c
 }
+
+// Provenance reports what l's history was cloned from (Clone, CloneInto):
+// its first n events are the n events of the array starting at from. A log
+// not made by a clone reports nil.
+func (l *Log) Provenance() (from *Event, n int) { return l.prefixFrom, l.prefixLen }
 
 // CloneInto is Clone with the copy's Events and Intents copied into the
 // caller's recycled arrays (a spent clone's, handed back through the rules
@@ -178,9 +241,29 @@ func (l *Log) Clone() *Log {
 // no other reference into them. Everything a reader can observe -- Events,
 // Intents, Seed, the chain -- is identical to Clone's.
 func (l *Log) CloneInto(events []Event, intents []decision.Intent) *Log {
+	return l.CloneIntoFrom(events, nil, 0, 0, intents)
+}
+
+// CloneIntoFrom is CloneInto for a recycled array that may still hold a
+// spent clone's history: events[:dirty] may hold stale events (every slot
+// past dirty is zero), and events[:n] are the n events of the array starting
+// at from (the spent clone's Provenance). When from is l's own array and
+// n <= len(l.Events), those n events are still exactly l's -- stored events
+// are append-only history, never rewritten in place -- so only l.Events[n:]
+// are copied. Every stale slot past the copied history is zeroed, so the
+// copy's array is zero past its length, as a fresh one is. Everything a
+// reader can observe is identical to Clone's.
+func (l *Log) CloneIntoFrom(events []Event, from *Event, n, dirty int, intents []decision.Intent) *Log {
 	c := l.Clone()
-	if cap(events) >= len(l.Events)+forkMinSlack {
-		c.Events = append(events[:0], l.Events...)
+	if L := len(l.Events); cap(events) >= L+forkMinSlack {
+		k := 0
+		if L > 0 && from == &l.Events[0] && n <= L && n <= dirty {
+			k = n
+		}
+		c.Events = append(events[:k], l.Events[k:]...)
+		if dirty > L {
+			clear(events[L:dirty])
+		}
 	}
 	if len(l.Intents) > 0 && cap(intents) > len(l.Intents) {
 		c.Intents = append(intents[:0], l.Intents...)

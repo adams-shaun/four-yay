@@ -18,7 +18,6 @@ func (w *legalWalk) battlefieldWalk() {
 	actionStatics := &w.actionStatics
 	out := &w.out
 	castsOnly := w.castsOnly
-	hyp := w.hyp
 	if !castsOnly {
 		// Mana abilities may explicitly function from the battlefield, hand or
 		// graveyard (Spirit Guides and Jack-o'-Lantern). availableManaAbilities
@@ -30,48 +29,96 @@ func (w *legalWalk) battlefieldWalk() {
 		// The walk only inspects each object's mana-ability list, so one scratch
 		// buffer serves every object (taken from the Engine for the loop, so a
 		// re-entrant walk allocates its own).
-		masBuf := e.manaAbBuf
-		e.manaAbBuf = nil
-		for _, z := range []state.Zone{state.ZBattlefield, state.ZHand, state.ZGraveyard} {
-			zonePlayers := []state.PlayerID{p}
-			if z == state.ZBattlefield {
-				zonePlayers = make([]state.PlayerID, len(e.G.Players))
-				for seat := range zonePlayers {
-					zonePlayers[seat] = state.PlayerID(seat)
-				}
-			}
-			for _, zonePlayer := range zonePlayers {
-				for _, id := range e.G.Zone(z, zonePlayer) {
-					o := e.G.Obj(id)
-					if z == state.ZBattlefield && !existsOnBattlefield(o) {
-						// CR 702.25b: a phased-out permanent is treated as though it
-						// does not exist, so its mana abilities are not offered. The
-						// choke point appendAvailableManaAbilities is gated too, which
-						// covers the payment windows this offer walk does not reach.
-						continue
-					}
-					f := o.Face()
-					if f == nil {
-						continue
-					}
-					mas := e.appendAvailableManaAbilities(masBuf[:0], actionStatics, p, id)
-					masBuf = mas
-					if len(mas) == 0 {
-						continue
-					}
-					opt := decision.Option{Index: len(*out), Kind: "activate", Label: e.manaActivateLabel(f.Name), Obj: id}
-					// fb-led1: a mana ability that costs more than a bare tap is the
-					// play the window exists for — carry its cost so the client's
-					// empty-priority-window floor stops instead of passing it away.
-					if marker := e.manaActivationCostMarker(mas); marker != "" {
-						opt.Cost = marker
-					}
-					*out = append(*out, opt)
-				}
-			}
+		// The walk's board-wide facts (legal_walk_skip.go): read once here,
+		// outside every face probe, and shared with the mana walk through
+		// actionStatics so it stops re-deriving them per object.
+		board := w.boardFacts()
+		if w.rec != nil {
+			w.rec.board = board
 		}
-		clear(masBuf)
-		e.manaAbBuf = masBuf[:0]
+		// The object classes below are exact only once the log's touches
+		// are caught up (walk_objclass.go).
+		e.walkClassesCatchUp()
+		// The mana section reads no pricing pool: a potential walk at the
+		// recorded priority walk's state serves its options
+		// (walk_block_reuse.go).
+		manaStart := len(*out)
+		if !w.reuseManaSection() {
+			masBuf := e.manaAbBuf
+			e.manaAbBuf = nil
+			for _, z := range []state.Zone{state.ZBattlefield, state.ZHand, state.ZGraveyard} {
+				zonePlayers := []state.PlayerID{p}
+				if z == state.ZBattlefield {
+					zonePlayers = make([]state.PlayerID, len(e.G.Players))
+					for seat := range zonePlayers {
+						zonePlayers[seat] = state.PlayerID(seat)
+					}
+				}
+				// A mana-cold object offers nothing on this board
+				// (walk_objclass.go); verify mode visits it and checks its skip.
+				manaCls := board.ready && !board.addAbility && !board.hasGrants
+				lTypeBlock := w.manaLTypeBlockMay(board)
+				for _, zonePlayer := range zonePlayers {
+					// The seat's own battlefield membership is recorded for
+					// PotentialMana (walk_block_reuse.go: recordMembers).
+					own := w.rec != nil && z == state.ZBattlefield && zonePlayer == p
+					useCls := manaCls && !own && !(z == state.ZBattlefield && lTypeBlock)
+					for zi, id := range e.G.Zone(z, zonePlayer) {
+						if useCls && !e.walkClassOf(id).manaHot {
+							if !walkSkipVerify {
+								continue
+							}
+							w.verifyManaCold(board, e.G.Obj(id), id, z)
+						}
+						o := e.G.Obj(id)
+						if z == state.ZBattlefield && !existsOnBattlefield(o) {
+							// CR 702.25b: a phased-out permanent is treated as though it
+							// does not exist, so its mana abilities are not offered. The
+							// choke point appendAvailableManaAbilities is gated too, which
+							// covers the payment windows this offer walk does not reach.
+							continue
+						}
+						f := o.Face()
+						if f == nil {
+							continue
+						}
+						if w.manaWalkEmpty(board, o, id, f) {
+							// Provably nothing to offer (legal_walk_skip.go).
+							if walkSkipVerify {
+								if got := e.appendAvailableManaAbilities(masBuf[:0], actionStatics, p, id); len(got) != 0 {
+									panic(fmt.Sprintf("rules: mana walk skip dropped %d abilities of obj %d", len(got), id))
+								}
+							}
+							if own {
+								w.rec.recordMembers(zi, nil)
+							}
+							continue
+						}
+						var mas []*cards.SA
+						if own {
+							mas = w.ownManaMembers(masBuf[:0], zi, o, id)
+						} else {
+							mas = e.appendAvailableManaAbilities(masBuf[:0], actionStatics, p, id)
+						}
+						masBuf = mas
+						if len(mas) == 0 {
+							continue
+						}
+						opt := decision.Option{Index: len(*out), Kind: "activate", Label: w.manaLabel(f), Obj: id}
+						// fb-led1: a mana ability that costs more than a bare tap is the
+						// play the window exists for — carry its cost so the client's
+						// empty-priority-window floor stops instead of passing it away.
+						if marker := e.manaActivationCostMarker(mas); marker != "" {
+							opt.Cost = marker
+						}
+						*out = append(*out, opt)
+					}
+				}
+			}
+			clear(masBuf)
+			e.manaAbBuf = masBuf[:0]
+		}
+		w.recordManaSection(manaStart)
 
 		// Activated abilities (Task 10): every non-mana AB$ ability on a
 		// permanent p controls, and every one on a card in p's graveyard whose
@@ -104,8 +151,19 @@ func (w *legalWalk) battlefieldWalk() {
 					zonePlayers[seat] = state.PlayerID(seat)
 				}
 			}
+			// An ability-cold object's block is empty on a board with no
+			// granted-head AddKeywords (walk_objclass.go); the stack, walked
+			// once, is visited whole. Verify mode visits every object and
+			// checks each cold one.
+			useCls := board.kwOK && !board.kwMaybe && z != state.ZStack
 			for _, zonePlayer := range zonePlayers {
 				for _, id := range e.G.Zone(z, zonePlayer) {
+					if useCls && !e.walkClassOf(id).abHot(z) {
+						if !walkSkipVerify {
+							continue
+						}
+						w.verifyAbilityCold(board, e.G.Obj(id), id, z, zonePlayer)
+					}
 					o := e.G.Obj(id)
 					if z == state.ZBattlefield && !existsOnBattlefield(o) {
 						// CR 702.25b: a phased-out permanent is treated as though it
@@ -130,6 +188,13 @@ func (w *legalWalk) battlefieldWalk() {
 						// face-down permanent is offered at all.
 						continue
 					}
+					// One object's ability block: served from the recorded
+					// priority walk when it read no pricing pool there
+					// (walk_block_reuse.go), else walked and recorded.
+					if w.reuseAbilityBlock(z, zonePlayer, id) {
+						continue
+					}
+					blockStart, blockGates := len(*out), w.gates
 					// CR 702.140d: a mutated permanent has the top card's abilities
 					// PLUS all abilities of the cards beneath it. Walk the FLAT pile
 					// list (top face first, then each under-card): the flat index is
@@ -138,7 +203,9 @@ func (w *legalWalk) battlefieldWalk() {
 					// index. abFace is the face that carries the ability -- an
 					// under-card's label and SVar table must be its own, never the
 					// pile top's.
-					for i, pn := 0, o.PileAbilityCount(); i < pn; i++ {
+					pileSkip, faceFacts := w.pileAbilitiesEmpty(o, id, f, z)
+					pileMark := len(*out)
+					for i, pn := 0, o.PileAbilityCount(); i < pn && (!pileSkip || walkSkipVerify); i++ {
 						pa, okAb := o.PileAbilityAt(i)
 						if !okAb {
 							continue
@@ -170,7 +237,8 @@ func (w *legalWalk) battlefieldWalk() {
 						// graveyard or stack card's battlefield ability fails -- selects
 						// exactly the abilities the mana-then-zone order did.
 						var loyal bool
-						if mf := e.manaFactsOf(ab); mf != nil {
+						mf := e.manaFactsOf(ab)
+						if mf != nil {
 							if manaSAFactsVerify && (mf.zoneOKFact(ab, z) != abilityZoneOK(ab, z) || mf.loyalty != e.isLoyaltyAbility(ab)) {
 								panic(fmt.Sprintf("rules: configured ability facts for %q disagree with the zone/loyalty readers", ab.Line))
 							}
@@ -187,7 +255,7 @@ func (w *legalWalk) battlefieldWalk() {
 						if isManaAbilityAPI(ab.API) && !loyal {
 							continue
 						}
-						if ab.Params["SorcerySpeed"] == "True" && !sorcery {
+						if ab.ParamStr(cards.PKSorcerySpeed) == "True" && !sorcery {
 							continue
 						}
 						// Activator$ constrains who may activate the ability, not who
@@ -214,7 +282,7 @@ func (w *legalWalk) battlefieldWalk() {
 						// withheld -- one gate here covers both the real-pool offer and
 						// the hypothetical walk (offerCastable's hyp variants share
 						// this loop body).
-						if raw, ok := ab.Params["ActivationGameTypes"]; ok && !activationGameTypesOK(e.format, raw) {
+						if raw, ok := ab.Param(cards.PKActivationGameTypes); ok && !activationGameTypesOK(e.format, raw) {
 							continue
 						}
 						// CR 606.3: a planeswalker's loyalty ability may be activated
@@ -273,10 +341,17 @@ func (w *legalWalk) battlefieldWalk() {
 						// only if the source creature attacked this turn, and only once
 						// each turn. The once-per-turn half folds into the same
 						// activation-event scan the ActivationLimit$ gate uses.
-						if strings.EqualFold(strings.TrimSpace(ab.Params["Boast"]), "True") && !e.boastGateOK(id, i, "") {
+						if strings.EqualFold(strings.TrimSpace(ab.ParamStr(cards.PKBoast)), "True") && !e.boastGateOK(id, i, "") {
 							continue
 						}
-						cost := e.parseCost(ab.Params["Cost"])
+						// The configured facts carry the compiled Cost$ (the same
+						// frozen parse parseCost copies out of the cost table).
+						var cost Cost
+						if mf != nil && mf.cost != &freeCost {
+							cost = mf.cost.Cost
+						} else {
+							cost = e.parseCost(ab.ParamStr(cards.PKCost))
+						}
 						// The ability's own ReduceCost$ (Otawara's Channel): the CR
 						// 601.2f composition the offer gate and beginActivation's
 						// charge share, so an offered cost and the paid one agree.
@@ -288,8 +363,8 @@ func (w *legalWalk) battlefieldWalk() {
 						} else if n > 0 {
 							cost.Generic = 0
 						}
-						cost = e.powerUpReducedCost(id, ab, cost)
-						if activationTapCostUnavailable(o, cost) || e.tapCostSick(id, cost) {
+						e.powerUpReduceCost(id, ab, &cost)
+						if activationTapCostUnavailable(o, &cost) || e.tapCostSick(id, &cost) {
 							continue
 						}
 						// CR 702.6 / CR 601.2f: a minted attach-cost SA (K:Equip/K:Fortify,
@@ -352,7 +427,7 @@ func (w *legalWalk) battlefieldWalk() {
 						// an unattached permanent, and a payable no-op the deterministic
 						// bot can answer identically forever is the livelock shape the
 						// offer gates exist to withhold.
-						if strings.EqualFold(strings.TrimSpace(ab.Params["Unattach"]), "True") && o.AttachedTo == 0 {
+						if strings.EqualFold(strings.TrimSpace(ab.ParamStr(cards.PKUnattach)), "True") && o.AttachedTo == 0 {
 							continue
 						}
 						if printedOK {
@@ -392,7 +467,10 @@ func (w *legalWalk) battlefieldWalk() {
 					// CR 702.171a sorcery-only), the tap-cost availability gates
 					// (crew/saddle both pay a tapXType cost) and the offer-time
 					// CheckSVar$/IsPresent$ funnels.
-					for _, line := range e.grantedKeywordLines(id) {
+					if pileSkip && len(*out) != pileMark {
+						panic(fmt.Sprintf("rules: pile-ability skip dropped %d options of obj %d in zone %d", len(*out)-pileMark, id, z))
+					}
+					for _, line := range w.grantedKeywordLines(board, o, id, f, faceFacts) {
 						ab := cards.GrantedKeywordAbility(line)
 						if ab == nil || !abilityZoneOK(ab, z) {
 							continue
@@ -421,8 +499,8 @@ func (w *legalWalk) battlefieldWalk() {
 						} else if n > 0 {
 							cost.Generic = 0
 						}
-						cost = e.powerUpReducedCost(id, ab, cost)
-						if activationTapCostUnavailable(o, cost) || e.tapCostSick(id, cost) {
+						e.powerUpReduceCost(id, ab, &cost)
+						if activationTapCostUnavailable(o, &cost) || e.tapCostSick(id, &cost) {
 							continue
 						}
 						if !w.offerCastable(p, id, cost, abilityScope(ab), true) {
@@ -441,6 +519,7 @@ func (w *legalWalk) battlefieldWalk() {
 							Label: f.Name + ": " + ab.Params["SpellDescription"], Obj: id,
 							Ability: -1, Keyword: line})
 					}
+					w.recordAbilityBlock(z, zonePlayer, id, blockStart, blockGates)
 				}
 			}
 		}
@@ -460,7 +539,12 @@ func (w *legalWalk) battlefieldWalk() {
 		// activation limits are checked here too, with the SVar-name identity
 		// (see the gate's own comment below): Touch of Vitae carries
 		// GameActivationLimit$ 1 on an Animate-delivered AddAbility$ body.
+		// Without a grant anywhere on the board grantedAbilities is nil for
+		// every object (activeSummary.hasGrants), so the sweep is skipped.
 		for zonePlayer := range e.G.Players {
+			if !board.hasGrants && !walkSkipVerify {
+				break
+			}
 			for _, id := range e.G.Zone(state.ZBattlefield, state.PlayerID(zonePlayer)) {
 				o := e.G.Obj(id)
 				if o == nil || o.Face() == nil || e.faceDownPrintedHides(o) {
@@ -530,7 +614,7 @@ func (w *legalWalk) battlefieldWalk() {
 					} else if n > 0 {
 						cost.Generic = 0
 					}
-					if activationTapCostUnavailable(o, cost) || e.tapCostSick(id, cost) {
+					if activationTapCostUnavailable(o, &cost) || e.tapCostSick(id, &cost) {
 						continue
 					}
 					if !w.offerCastable(p, id, cost, abilityScope(ab), true) {
@@ -648,6 +732,12 @@ func (w *legalWalk) battlefieldWalk() {
 					// not exist, so it cannot be unlocked.
 					continue
 				}
+				// unlockRoomCost is ok exactly when the room has a locked
+				// face; test that first so a non-room permanent never builds
+				// (and returns) a zero Cost.
+				if roomLockedFace(o) == nil {
+					continue
+				}
 				cost, ok := e.unlockRoomCost(o)
 				if !ok {
 					continue
@@ -685,7 +775,7 @@ func (w *legalWalk) battlefieldWalk() {
 					continue
 				}
 				cost := e.parseCost(ab.Params["Cost"])
-				if activationTapCostUnavailable(o, cost) || e.tapCostSick(id, cost) {
+				if activationTapCostUnavailable(o, &cost) || e.tapCostSick(id, &cost) {
 					continue
 				}
 				if !w.offerCastable(p, id, cost, abilityScope(ab), true) {
@@ -740,7 +830,7 @@ func (w *legalWalk) battlefieldWalk() {
 			// against its hypothetical bound, so a float-gated turn-up is a
 			// potential play like every other mana-costed offer.
 			mods, ok := e.morphTurnUpMods(p, id, mf)
-			if !ok || !e.morphTurnUpPayablePriced(p, id, mf.cost, mods, hyp) {
+			if !ok || !e.morphTurnUpPayablePriced(p, id, mf.cost, mods, w.pricing()) {
 				continue
 			}
 			if e.turnFaceUpCantHappen(id) {
@@ -768,7 +858,7 @@ func (w *legalWalk) battlefieldWalk() {
 				for i := 1; i < len(o.Card.Faces); i++ {
 					// hyp nil is specializeLegal exactly; the potential walk
 					// prices the printed cost against its hypothetical bound.
-					cost, ok := e.specializeLegalPriced(p, id, i, hyp)
+					cost, ok := e.specializeLegalPriced(p, id, i, w.pricing())
 					if !ok {
 						continue
 					}

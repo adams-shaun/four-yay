@@ -46,6 +46,7 @@ func (e *Engine) dropProposalTriggers(pc *pendingCast) {
 		if start < e.orderedTriggers || start >= end || end > len(e.pendingTriggers) {
 			continue
 		}
+		e.noteTrigShrink()
 		e.pendingTriggers = append(e.pendingTriggers[:start], e.pendingTriggers[end:]...)
 	}
 }
@@ -130,7 +131,7 @@ func (e *Engine) castWindowProbeUnits(pc *pendingCast, windowUnits []windowManaU
 				continue
 			}
 			cost := e.parseCost(ma.Params["Cost"])
-			if activationTapCostUnavailable(o, cost) {
+			if activationTapCostUnavailable(o, &cost) {
 				continue
 			}
 			lifeCost := int32(0)

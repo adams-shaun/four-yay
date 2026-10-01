@@ -72,7 +72,7 @@ func (e *Engine) mayPlayGrant(p state.PlayerID, id state.ObjID) (free, ok bool) 
 // card (mayPlaySpellIds) can take through mayPlayGrantScoped.
 func (e *Engine) mayPlayBoardGrantsOpen(p state.PlayerID) bool {
 	for _, sv := range e.activeStatics("Continuous") {
-		if sv.Controller == p && strings.TrimSpace(sv.Params["MayPlay"]) == "True" {
+		if sv.Controller == p && strings.TrimSpace(sv.ParamStr(cards.PKMayPlay)) == "True" {
 			return true
 		}
 	}
@@ -435,7 +435,7 @@ func mayPlayGateRejectedOther(params map[string]string) bool {
 // them here would widen every CheckSVar-gated static on whichever path
 // forgot.
 func (e *Engine) mayPlayConditionGateHolds(params map[string]string, source state.ObjID, you state.PlayerID) bool {
-	if !e.classBandGateHolds(params, source) {
+	if !e.classBandGateHolds(params["ClassBand"], source) {
 		return false
 	}
 	ck := strings.TrimSpace(params["CheckSVar"])
@@ -753,7 +753,7 @@ func (e *Engine) mayPlayAltCosts(p state.PlayerID, id state.ObjID) []Cost {
 		} else {
 			continue
 		}
-		raw := strings.TrimSpace(sv.Params["MayPlayAltManaCost"])
+		raw := strings.TrimSpace(sv.ParamStr(cards.PKMayPlayAltManaCost))
 		if raw == "" || strings.TrimSpace(sv.Params["MayPlay"]) != "True" || mayPlayGateRejected(sv.Params) ||
 			!e.mayPlayConditionGateHolds(sv.Params, sv.Source, sv.Controller) {
 			continue
@@ -902,7 +902,7 @@ func (e *Engine) mayPlayKinds(p state.PlayerID, id state.ObjID) (plain, mutate, 
 // filter read the card's printed spell characteristics, the same way
 // mayPlayStatic evaluates a printed S: grant's ValidAfterStack$. An
 // unsupported value fails closed inside matchesSpec (no grant).
-func (e *Engine) effectGrantMatches(ce state.ContinuousEffect, id state.ObjID) bool {
+func (e *Engine) effectGrantMatches(ce *state.ContinuousEffect, id state.ObjID) bool {
 	sc := e.withNames(effects.SpecContext{You: ce.Controller, Source: ce.Source,
 		Remembered: rememberedTargets(ce.Remembered), Resolving: true})
 	if !e.matchesSpec(ce.Affects, id, sc) {
@@ -951,7 +951,7 @@ func (e *Engine) mayPlayEffectFree(p state.PlayerID, o *state.Object) (free, cov
 		if !all && !slices.Contains(zones, o.Zone) {
 			continue
 		}
-		if !e.effectGrantMatches(*ce, o.ID) {
+		if !e.effectGrantMatches(ce, o.ID) {
 			continue
 		}
 		return true, true
@@ -993,7 +993,7 @@ func (e *Engine) mayPlayEffectGrantsCast(p state.PlayerID, o *state.Object) bool
 		if !all && !slices.Contains(zones, o.Zone) {
 			continue
 		}
-		if e.effectGrantMatches(*ce, o.ID) {
+		if e.effectGrantMatches(ce, o.ID) {
 			return true
 		}
 	}
@@ -1065,7 +1065,7 @@ func (e *Engine) mayPlayGrantedBy(p state.PlayerID, id, host state.ObjID) bool {
 		if !all && !slices.Contains(zones, o.Zone) {
 			continue
 		}
-		if e.effectGrantMatches(*ce, o.ID) {
+		if e.effectGrantMatches(ce, o.ID) {
 			return true
 		}
 	}

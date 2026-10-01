@@ -1,6 +1,9 @@
 package rules
 
 import (
+	"fmt"
+	"slices"
+
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -78,14 +81,69 @@ func (e *Engine) refreshRenames() {
 	if e.renameEpoch == len(e.L.Events) && e.renameVersion == e.continuousVersion {
 		return
 	}
-	e.renameEpoch, e.renameVersion = len(e.L.Events), e.continuousVersion
+	// Layer-inert reuse (layercache.go), refreshDerivedTypes' twin: only
+	// priority bookkeeping moved the log since the table was built, and
+	// neither the continuous registry nor the object arena moved, so every
+	// Derived name the table holds is what a rebuild would read again.
+	if e.renameVersion == e.continuousVersion && e.renameObjs == len(e.G.Objs) && e.layerInertSince(e.renameEpoch) {
+		e.renameEpoch = len(e.L.Events)
+		if layerInertVerify {
+			e.verifyInertRenames()
+		}
+		return
+	}
+	// Derived-transparent reuse (derived_transparent.go): a table built at
+	// the derivedSeq active() still holds read names that no battlefield
+	// derivation has changed since -- a transparent rebuild spans no event
+	// that moves an object onto or off the battlefield, flips a face or
+	// appends an object, so the battlefield membership and every printed name
+	// the table compares against are unchanged too (an off-battlefield move's
+	// own object is never on the battlefield). A transparent rebuild that DID
+	// move an object across the battlefield boundary (or out of exile) moves
+	// derivedBFSeq instead, which the table keys on as well.
+	if e.renameVersion == e.continuousVersion && e.renameObjs == len(e.G.Objs) && e.renameDSeq != 0 {
+		e.active()
+		if e.renameDSeq == e.derivedSeq && e.renameBFSeq == e.derivedBFSeq {
+			e.renameEpoch = len(e.L.Events)
+			if layerInertVerify {
+				e.verifyInertRenames()
+			}
+			return
+		}
+	}
+	e.renameEpoch, e.renameVersion, e.renameObjs = len(e.L.Events), e.continuousVersion, len(e.G.Objs)
 	buf := e.renames[:0]
 	if !e.anySetNameActive() {
 		e.renames = buf[:0]
+		e.renameDSeq, e.renameBFSeq = e.derivedSeq, e.derivedBFSeq
 		return
 	}
+	e.renameDSeq, e.renameBFSeq = e.derivedSeq, e.derivedBFSeq
 	e.renameBuilding = true
 	defer func() { e.renameBuilding = false }()
+	// A name differs from the printed one only through a live SetName
+	// effect (derivedName), so when every such effect names a bounded object
+	// set (Witness Protection's Creature.EnchantedBy), only those objects can
+	// carry an entry. They are visited in id order -- e.G.Objs order, the
+	// dense arena -- so the table is the whole walk's.
+	var arr [layer4MaxSelfSources]state.ObjID
+	if reach, ok := e.setNameBoundedReach(arr[:0]); ok {
+		slices.Sort(reach)
+		for _, id := range reach {
+			o := e.G.Obj(id)
+			if o == nil || o.Zone != state.ZBattlefield || o.Face() == nil {
+				continue
+			}
+			if name := e.derivedName(id); name != "" && name != o.Face().Name {
+				buf = append(buf, effects.ObjectName{ID: id, Name: name})
+			}
+		}
+		e.renames = buf
+		if layerInertVerify {
+			e.verifyBoundedRenames()
+		}
+		return
+	}
 	// e.G.Objs is append-ordered, so this walk is deterministic; only the
 	// battlefield is scanned because a layer effect applies nowhere else.
 	for i := range e.G.Objs {
@@ -97,13 +155,75 @@ func (e *Engine) refreshRenames() {
 		if f == nil {
 			continue
 		}
-		name := e.Derived(o.ID).Name
+		name := e.derivedName(o.ID)
 		if name == "" || name == f.Name {
 			continue
 		}
 		buf = append(buf, effects.ObjectName{ID: o.ID, Name: name})
 	}
 	e.renames = buf
+}
+
+// setNameBoundedReach is layer4BoundedReach for the live SetName effects:
+// the distinct objects they can reach (appended to buf, unsorted) and true,
+// or false when some SetName effect's Affected$ spec is unbounded
+// (affectsReach) or the list would overflow.
+func (e *Engine) setNameBoundedReach(buf []state.ObjID) ([]state.ObjID, bool) {
+	act := e.active()
+	for i := range act {
+		ce := &act[i]
+		if ce.Layer != LText || ce.SetName == "" {
+			continue
+		}
+		bits := affectsReach(ce.Affects)
+		if bits == 0 {
+			return buf, false
+		}
+		fit := true
+		if bits&reachSelf != 0 && ce.Source != 0 {
+			buf, fit = appendReach(buf, ce.Source)
+		}
+		if fit && bits&reachAttached != 0 {
+			if s := e.G.Obj(ce.Source); s != nil && s.Zone == state.ZBattlefield && s.AttachedTo != 0 {
+				buf, fit = appendReach(buf, s.AttachedTo)
+			}
+		}
+		if !fit {
+			return buf, false
+		}
+	}
+	return buf, true
+}
+
+// verifyBoundedRenames rebuilds the rename table with the whole-battlefield
+// walk and panics if the bounded build disagrees.
+func (e *Engine) verifyBoundedRenames() {
+	var want []effects.ObjectName
+	for i := range e.G.Objs {
+		o := &e.G.Objs[i]
+		if o.Zone != state.ZBattlefield || o.Face() == nil {
+			continue
+		}
+		if name := e.derivedName(o.ID); name != "" && name != o.Face().Name {
+			want = append(want, effects.ObjectName{ID: o.ID, Name: name})
+		}
+	}
+	if !slices.Equal(want, e.renames) {
+		panic(fmt.Sprintf("rules: bounded rename table at log %d is %v, the whole walk %v", len(e.L.Events), e.renames, want))
+	}
+}
+
+// verifyInertRenames is refreshRenames' layer-inert reuse check: it rebuilds
+// the table into fresh storage and compares.
+func (e *Engine) verifyInertRenames() {
+	cached := append([]effects.ObjectName(nil), e.renames...)
+	e.renames = nil
+	e.renameEpoch, e.renameDSeq = -1, 0
+	e.refreshRenames()
+	fresh := e.renames
+	if !slices.Equal(cached, fresh) {
+		panic(fmt.Sprintf("rules: layer-inert rename table reuse at log %d disagrees with a rebuild (%v vs %v)", len(e.L.Events), cached, fresh))
+	}
 }
 
 // continuousChanged is the single mutator tail for e.continuous: bump the
@@ -124,8 +244,9 @@ func (e *Engine) continuousChanged() {
 // Without this gate every refresh would pay for a full battlefield Derived()
 // walk on a board whose SetName$ carrier is still in a library.
 func (e *Engine) anySetNameActive() bool {
-	for _, ce := range e.active() {
-		if ce.Layer == LText && ce.SetName != "" {
+	act := e.active()
+	for i := range act {
+		if ce := &act[i]; ce.Layer == LText && ce.SetName != "" {
 			return true
 		}
 	}

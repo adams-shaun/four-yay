@@ -1,9 +1,9 @@
 package rules
 
 import (
-	"strconv"
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -109,15 +109,15 @@ func markCostValidTarget(out *costStaticViews) {
 		views []staticView
 	}{{"RaiseCost", out.raise}, {"ReduceCost", out.reduce}, {"SetCost", out.set}} {
 		for _, sv := range group.views {
-			if _, ok := sv.Params["ValidTarget"]; ok {
+			if _, ok := sv.Param(cards.PKValidTarget); ok {
 				out.validTarget = true
 				return
 			}
 			// Target-conditional ValidSpell$ and target-relative ReduceCost$
 			// amounts read chosen targets, so the offer gate must retry with
 			// potential targets for either shape.
-			if validSpellHasTargeting(sv.Params["ValidSpell"]) ||
-				(group.mode == "ReduceCost" && sv.Params["Relative"] == "True") {
+			if validSpellHasTargeting(sv.ParamStr(cards.PKValidSpell)) ||
+				(group.mode == "ReduceCost" && sv.ParamStr(cards.PKRelative) == "True") {
 				out.validTarget = true
 				return
 			}
@@ -142,12 +142,12 @@ func markCostValidTarget(out *costStaticViews) {
 // amountMayReadTargets reports whether a cost-modifier static's Amount$ is
 // anything other than a plain integer literal (see markCostValidTarget).
 func amountMayReadTargets(sv staticView) bool {
-	raw := strings.TrimSpace(sv.Params["Amount"])
+	raw := strings.TrimSpace(sv.ParamStr(cards.PKAmount))
 	if raw == "" {
 		return false
 	}
-	_, err := strconv.ParseInt(raw, 10, 64)
-	return err != nil
+	_, ok := parseInt10(raw)
+	return !ok
 }
 
 // appendEffectCostStatics appends the registry-delivered cost-modifier
@@ -162,7 +162,8 @@ func amountMayReadTargets(sv staticView) bool {
 // layer/timestamp order, then each spec-scoped grant's hosts in the
 // deterministic zone walk grantedCostStaticHosts takes.
 func (e *Engine) appendEffectCostStatics(out *costStaticViews) {
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		// A GRANTED AddKeyword$ Affinity entry (CR 702.41a) prices here: a
 		// printed K:Affinity is expanded at keyword-expansion time into a face
 		// ReduceCost static (cards/kw_affinity.go) that the printed walk above
@@ -195,7 +196,7 @@ func (e *Engine) appendEffectCostStatics(out *costStaticViews) {
 		// e.active() at all. A future grammar that prices other granted
 		// cost-reduction keywords (Delve, Improvise, Convoke -- none granted
 		// via AddKeyword$ in the corpus) registers alongside this arm.
-		if arms := affinityGrantCostStatics(&ce); len(arms) > 0 {
+		if arms := affinityGrantCostStatics(ce); len(arms) > 0 {
 			for _, arm := range arms {
 				e.appendGrantedCostStatic(&out.reduce, arm, state.ZStack)
 			}
@@ -213,7 +214,7 @@ func (e *Engine) appendEffectCostStatics(out *costStaticViews) {
 			continue
 		}
 		if ce.CostStaticGranted {
-			e.appendGrantedCostStatic(dst, &ce, 0)
+			e.appendGrantedCostStatic(dst, ce, 0)
 			continue
 		}
 		*dst = append(*dst, staticView{Source: ce.Source, Controller: ce.Controller,

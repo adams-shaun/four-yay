@@ -531,8 +531,8 @@ func (e *Engine) narrowSameController(targets []state.Target) []state.Target {
 }
 
 func targetControllerExclusive(sa *cards.SA) bool {
-	return strings.EqualFold(sa.Params["TargetsForEachPlayer"], "True") ||
-		strings.EqualFold(sa.Params["TargetsWithDifferentControllers"], "True")
+	return strings.EqualFold(sa.ParamStr(cards.PKTargetsForEachPlayer), "True") ||
+		strings.EqualFold(sa.ParamStr(cards.PKTargetsWithDifferentControllers), "True")
 }
 
 // targetControllerGroup is the Option.Group label binding one selection slot
@@ -611,7 +611,7 @@ func (e *Engine) narrowDifferentControllers(targets []state.Target) []state.Targ
 // reaches this arm unresolvable, both carriers are the literal 10).
 
 func (e *Engine) maxTotalTargetCMC(p state.PlayerID, source state.ObjID, sa *cards.SA, x int32) (int, bool) {
-	v, ok := sa.Params["MaxTotalTargetCMC"]
+	v, ok := sa.Param(cards.PKMaxTotalTargetCMC)
 	if !ok {
 		return 0, false
 	}

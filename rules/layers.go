@@ -77,6 +77,8 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 	// (see its doc), so reset/set ordering is safe. A verify-only second walk
 	// (staticZoneSkipVerify) resets it again below and sets it identically.
 	e.staticMemoGated = false
+	e.staticMemoStateRead = false
+	e.staticGates, e.staticGatesKnown = e.staticGates[:0], true
 	out := dst[:0]
 	for pi, p := range e.G.AliveFrom(0) {
 		// staticSourceZones (below) walks the battlefield FIRST so every
@@ -248,7 +250,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 							// is set, so the memo is only reused across a token entry on a
 							// board with no gate-carrying Continuous static anywhere.
 							e.staticMemoGated = true
-							if !e.continuousGateHolds(staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf(), SVars: faceSVars}) {
+							if !e.staticGateHolds(staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf(), SVars: faceSVars}) {
 								continue
 							}
 						}
@@ -321,6 +323,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						// event, so a card exiled later is gained on the next rescan
 						// and a card that leaves the scoped zones loses its grant.
 						if st.MayHaveAnyParam(gainsAbilitiesKeys) && gainsAbilitiesOf(st) {
+							e.staticMemoStateRead = true
 							// The two parameters are resolved SEPARATELY and carried on
 							// separate face lists: GainsAbilitiesOf$ means ACTIVATED
 							// abilities only and GainsTriggerAbsOf$ TRIGGERED only (a
@@ -399,6 +402,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 								if word != "ImprintedCreatureType" {
 									continue
 								}
+								e.staticMemoStateRead = true
 								ty.AddTypes = append(ty.AddTypes[:i], ty.AddTypes[i+1:]...)
 								for j := len(o.Imprinted) - 1; j >= 0; j-- {
 									im := e.G.Obj(o.Imprinted[j])
@@ -504,6 +508,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						if st.HasParam(cards.PKSetPower) || st.HasParam(cards.PKSetToughness) {
 							skip := false
 							if strings.TrimSpace(st.ParamStr(cards.PKCharacteristicDefining)) != "" {
+								e.staticMemoStateRead = true
 								if _, _, hp, ht := e.cdaPTStatic(st, e.cdaEvalCtx(o, fc)); hp || ht {
 									skip = true
 								}
@@ -600,6 +605,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						// parser refuses, one whose mode is not Continuous, or a host
 						// the outer spec no longer matches, grants nothing.
 						if name := strings.TrimSpace(st.ParamStr(cards.PKAddStaticAbility)); name != "" && w.depth == 0 {
+							e.staticMemoStateRead = true
 							if inners, ok := cards.ParseStaticLines(fc.SVars[name]); ok {
 								for _, inner := range inners {
 									if inner.Mode == "Continuous" &&
@@ -753,6 +759,19 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 // (Giant Growth), so it outlives its source and is only removed by
 // EndOfTurnCleanup.
 func (e *Engine) active() []ContinuousEffect {
+	// The exact-hit test below, hoisted into this inlinable wrapper: the hit
+	// is by far the common call (every Derived and restriction read asks),
+	// and on it activeBuild's depth bump and deferred restore bracket no
+	// work at all, so returning here is the same answer at no call cost.
+	if e.activeEpoch == len(e.L.Events) && e.activeVersion == e.continuousVersion && e.activeStaticSeq == e.staticBuildSeq {
+		return e.activeBuf
+	}
+	return e.activeBuild()
+}
+
+// activeBuild is active() past its exact-hit test: the layer-inert re-stamp
+// or a full rebuild.
+func (e *Engine) activeBuild() []ContinuousEffect {
 	e.activeDepth++
 	defer func() { e.activeDepth-- }()
 	// Cached hit: derived only reads the returned slice, never mutates it, so
@@ -781,7 +800,10 @@ func (e *Engine) active() []ContinuousEffect {
 	e.activeVersion = e.continuousVersion
 	e.activeObjs = len(e.G.Objs)
 	e.activeBuildSeq++
-	buf := e.activeBuf[:0]
+	// Double-buffered (derived_transparent.go): the build writes the other
+	// array, so the previous list survives intact for the transparency
+	// comparison below.
+	buf := e.activeBufAlt[:0]
 	if e.activeDepth > 1 {
 		// Re-entrant (a nested Derived mid-rebuild): own a private list rather
 		// than overwrite the outer call's result mid-range. Same guard Task A2
@@ -797,9 +819,31 @@ func (e *Engine) active() []ContinuousEffect {
 	// moment play moves past end combat. These take precedence over the
 	// UntilEOT/source-leaves rules below, which model the other two
 	// lifetimes.
+	//
+	// The list is assembled as pointers to its sources first (src), sorted
+	// there when it is not already in order, and copied into buf once:
+	// sorting the ~1 KB ContinuousEffect values themselves copied two of them
+	// per comparison. A stable sort of the same sequence under the same order
+	// is the same permutation, so buf is exactly what sorting it in place
+	// produced. A re-entrant build owns a private src, as it owns buf.
+	var src []*ContinuousEffect
+	if e.activeDepth <= 1 {
+		src = e.activeSrc[:0]
+	}
+	// live records which registry entries passed continuousLive, for the
+	// unchanged-list check below (active_same.go); a registry wider than the
+	// mask never takes it.
+	var live uint64
+	liveN := len(e.continuous)
+	if liveN > 64 {
+		liveN = -1
+	}
 	for i := range e.continuous {
 		if e.continuousLive(&e.continuous[i]) {
-			buf = append(buf, e.continuous[i])
+			src = append(src, &e.continuous[i])
+			if liveN >= 0 {
+				live |= 1 << uint(i)
+			}
 		}
 	}
 	// The static-derived effects come from the memoized scan (see
@@ -814,48 +858,92 @@ func (e *Engine) active() []ContinuousEffect {
 	// refresh: the hit paths above require it, so an out-of-band refresh
 	// (staticControlWants) invalidates this buffer on the next active() call.
 	e.activeStaticSeq = e.staticBuildSeq
-	buf = append(buf, e.staticContinuous...)
-	slices.SortStableFunc(buf, func(a, b ContinuousEffect) int {
-		if a.Layer != b.Layer {
-			if a.Layer < b.Layer {
-				return -1
-			}
-			return 1
-		}
-		if a.Sub != b.Sub {
-			if a.Sub < b.Sub {
-				return -1
-			}
-			return 1
-		}
-		if a.Timestamp != b.Timestamp {
-			if a.Timestamp < b.Timestamp {
-				return -1
-			}
-			return 1
-		}
-		// A full tie inside layer 6 between an ability/keyword-removing effect
-		// and an ability-granting one applies removal first: static lines that
-		// strip and grant together follow CR 613.1f's removal-then-grant reading
-		// of a simultaneous pair. Without this tie-break the stable sort keeps
-		// scanner emission order and may wipe the grant. Timestamps still
-		// dominate: a LATER removal (Humility entering after) still wipes an
-		// earlier grant.
-		aRemovesKeywords := a.RemoveAbilities || len(a.RemoveKeywords) > 0
-		bRemovesKeywords := b.RemoveAbilities || len(b.RemoveKeywords) > 0
-		if a.Layer == LAbilities && aRemovesKeywords != bRemovesKeywords {
-			if aRemovesKeywords {
-				return -1
-			}
-			return 1
-		}
-		return 0
-	})
+	if e.activeDepth <= 1 && e.activeListUnchanged(liveN, live) {
+		clear(src)
+		e.activeSrc = src[:0]
+		return e.activeSameBuild()
+	}
+	for i := range e.staticContinuous {
+		src = append(src, &e.staticContinuous[i])
+	}
+	// A rebuild's list is usually already in CR 613 order (registration and
+	// the static scan both run in timestamp order), and a stable sort of a
+	// sorted list is the identity, so test that first.
+	if !continuousPtrsSorted(src) {
+		slices.SortStableFunc(src, compareContinuousPtr)
+	}
+	for _, p := range src {
+		buf = append(buf, *p)
+	}
+	if e.activeDepth <= 1 {
+		clear(src)
+		e.activeSrc = src[:0]
+	}
 	if e.activeDepth <= 1 {
 		// Keep the grown, sorted buffer on the Engine for the next build or
 		// cache hit; a re-entrant build's private buffer is discarded on return.
-		e.activeBuf = buf
+		allLocal := effectsAllLocal(buf)
+		if !e.derivedRebuildTransparent(e.activeBuf, buf, false, allLocal) {
+			e.derivedSeq++
+		}
+		e.derivedNoteBuild()
+		e.activeBufAlt, e.activeBuf = e.activeBuf, buf
 		e.activeKWHeads = appendKWHeads(e.activeKWHeads[:0], buf)
+		e.activeKWHeadSet, e.activeKWHeadSetOK = kwHeadSetOf(e.activeKWHeads)
+		e.activeList = activeListKey{ok: true, version: e.continuousVersion, staticSeq: e.staticBuildSeq,
+			liveN: liveN, live: live, allLocal: allLocal}
+	} else {
+		e.derivedSeq++
 	}
 	return buf
+}
+
+// continuousPtrsSorted reports whether active()'s source pointers are
+// already non-decreasing under compareContinuousPtr.
+func continuousPtrsSorted(src []*ContinuousEffect) bool {
+	for i := 1; i < len(src); i++ {
+		if compareContinuousPtr(src[i-1], src[i]) > 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// compareContinuousPtr is active()'s CR 613 order: layer, then sublayer,
+// then timestamp, then the layer-6 removal-before-grant tie-break below.
+func compareContinuousPtr(a, b *ContinuousEffect) int {
+	if a.Layer != b.Layer {
+		if a.Layer < b.Layer {
+			return -1
+		}
+		return 1
+	}
+	if a.Sub != b.Sub {
+		if a.Sub < b.Sub {
+			return -1
+		}
+		return 1
+	}
+	if a.Timestamp != b.Timestamp {
+		if a.Timestamp < b.Timestamp {
+			return -1
+		}
+		return 1
+	}
+	// A full tie inside layer 6 between an ability/keyword-removing effect
+	// and an ability-granting one applies removal first: static lines that
+	// strip and grant together follow CR 613.1f's removal-then-grant reading
+	// of a simultaneous pair. Without this tie-break the stable sort keeps
+	// scanner emission order and may wipe the grant. Timestamps still
+	// dominate: a LATER removal (Humility entering after) still wipes an
+	// earlier grant.
+	aRemovesKeywords := a.RemoveAbilities || len(a.RemoveKeywords) > 0
+	bRemovesKeywords := b.RemoveAbilities || len(b.RemoveKeywords) > 0
+	if a.Layer == LAbilities && aRemovesKeywords != bRemovesKeywords {
+		if aRemovesKeywords {
+			return -1
+		}
+		return 1
+	}
+	return 0
 }

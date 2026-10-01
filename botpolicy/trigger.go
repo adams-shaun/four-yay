@@ -43,7 +43,8 @@ func (b Board) chooseTriggerOrder(d *decision.Decision) []int {
 		return nil
 	}
 	perm := make([]int, n)
-	for i, o := range d.Options {
+	for i := range d.Options {
+		o := &d.Options[i]
 		perm[i] = o.Index
 	}
 	// perm is a permutation of [0, n) (every option's Index is its
@@ -74,7 +75,8 @@ func (b Board) chooseLowest(d *decision.Decision, worth func(state.ObjID) int32)
 		return nil
 	}
 	idx := make([]int, n)
-	for i, o := range d.Options {
+	for i := range d.Options {
+		o := &d.Options[i]
 		idx[i] = o.Index
 	}
 	sort.Slice(idx, func(i, j int) bool {
@@ -103,7 +105,8 @@ func (b Board) chooseLowest(d *decision.Decision, worth func(state.ObjID) int32)
 // option's index, not its position, is the answer that Decision.Validate reads.
 // If no decline is offered, Clamp handles the fallback as for any other ask.
 func declineOptional(d *decision.Decision) []int {
-	for _, o := range d.Options {
+	for oi := range d.Options {
+		o := &d.Options[oi]
 		if o.Kind == "no" {
 			return []int{o.Index}
 		}
@@ -119,7 +122,7 @@ func declineOptional(d *decision.Decision) []int {
 // this deliberately protects mana development even when the hand is flooded.
 func (b Board) chooseDiscard(d *decision.Decision) []int {
 	return b.chooseLowest(d, func(id state.ObjID) int32 {
-		c := b.Cards[id]
+		c := b.Cards.Get(id)
 		if c.Basic || (!c.Creature && c.CMC == 0) {
 			return 1
 		}

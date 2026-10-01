@@ -1,6 +1,9 @@
 package cards
 
-import "sync/atomic"
+import (
+	"sync/atomic"
+	"unsafe"
+)
 
 // Slot is a write-once place on an IR node where a downstream package hangs
 // its compiled form of one of the node's immutable texts, so a hot read
@@ -49,3 +52,37 @@ func (s *Slot) Store(key string, v any) any {
 // ManaCostSlot is the face's slot for a compiled form of its ManaCost text
 // (nil on a face never derived).
 func (f *Face) ManaCostSlot() *Slot { return f.manaCostSlot }
+
+// ExtSlot is a write-once pointer place on an IR node where a downstream
+// package hangs its own compiled facts about that node, so a hot read
+// follows a pointer instead of hashing the node into a side table. The value
+// is opaque here. A by-value node copy shares its original's slot, so a
+// reader must check that the stored facts are the node's own (they name the
+// node they were computed for) and treat anything else as absent; concurrent
+// first stores race benignly (the first wins).
+type ExtSlot struct {
+	p unsafe.Pointer
+}
+
+// Load returns the published value, or nil.
+func (s *ExtSlot) Load() unsafe.Pointer {
+	if s == nil {
+		return nil
+	}
+	return atomic.LoadPointer(&s.p)
+}
+
+// Store publishes v when the slot is empty and reports whether it did.
+func (s *ExtSlot) Store(v unsafe.Pointer) bool {
+	if s == nil {
+		return false
+	}
+	return atomic.CompareAndSwapPointer(&s.p, nil, v)
+}
+
+// ExtSlot is the face's downstream facts slot (nil on a face never derived).
+func (f *Face) ExtSlot() *ExtSlot { return f.extSlot }
+
+// ExtSlot is the ability's downstream facts slot (nil on an ability never
+// bound by its face's derive).
+func (sa *SA) ExtSlot() *ExtSlot { return sa.extSlot }

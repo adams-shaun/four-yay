@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync/atomic"
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
@@ -123,6 +124,7 @@ func (e *Engine) ask(d *decision.Decision) {
 	e.pendingMintSink = e.tokenMintSinkID
 	e.emit(events.Event{Kind: events.DecisionAsk, Player: d.Player, Text: string(d.Kind)})
 	e.pending = d
+	e.potentialAskSerial++
 }
 
 // decisionMadeText is the DecisionMade event text, byte-identical to
@@ -130,6 +132,67 @@ func (e *Engine) ask(d *decision.Decision) {
 // hash-chained, so its bytes are fixed -- built without fmt's reflection and
 // boxing, since every Submit pays it.
 func decisionMadeText(kind decision.Kind, choices []int) string {
+	// The common shapes -- no choice or one small choice -- are memoized
+	// process-wide (decisionMadeTextTable): the text is a pure function of
+	// (kind, choice), and every DecisionMade event built it afresh.
+	if k := decisionKindIndex(kind); k >= 0 {
+		c := decisionMadeTextNone
+		if len(choices) == 1 && choices[0] >= 0 && choices[0] < decisionMadeTextNone {
+			c = choices[0]
+		} else if len(choices) != 0 {
+			return decisionMadeTextBuild(kind, choices)
+		}
+		slot := &decisionMadeTextTable[k][c]
+		if p := slot.Load(); p != nil {
+			return *p
+		}
+		t := decisionMadeTextBuild(kind, choices)
+		slot.Store(&t)
+		return t
+	}
+	return decisionMadeTextBuild(kind, choices)
+}
+
+// decisionMadeTextNone is the table column of an empty choice list; columns
+// below it are the single choice of that value.
+const decisionMadeTextNone = 128
+
+var decisionMadeTextTable [13][decisionMadeTextNone + 1]atomic.Pointer[string]
+
+// decisionKindIndex is kind's row in decisionMadeTextTable (-1: none).
+func decisionKindIndex(kind decision.Kind) int {
+	switch kind {
+	case decision.KPriority:
+		return 0
+	case decision.KTarget:
+		return 1
+	case decision.KAttackers:
+		return 2
+	case decision.KBlockers:
+		return 3
+	case decision.KMulligan:
+		return 4
+	case decision.KModes:
+		return 5
+	case decision.KTriggerOrder:
+		return 6
+	case decision.KTriggerOptional:
+		return 7
+	case decision.KCommanderZone:
+		return 8
+	case decision.KChoose:
+		return 9
+	case decision.KReplacement:
+		return 10
+	case decision.KArrange:
+		return 11
+	case decision.KStartingPlayer:
+		return 12
+	}
+	return -1
+}
+
+func decisionMadeTextBuild(kind decision.Kind, choices []int) string {
 	var sb strings.Builder
 	sb.Grow(len(kind) + 3 + 4*len(choices))
 	sb.WriteString(string(kind))

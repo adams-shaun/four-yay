@@ -32,7 +32,7 @@ import (
 // strict `<` is what excludes the Mentor source itself, since no creature's
 // power is less than its own.
 func (e *Engine) mentorAdmits(sa *cards.SA, source, obj state.ObjID) bool {
-	if sa == nil || !strings.EqualFold(strings.TrimSpace(sa.Params["Mentor"]), "True") {
+	if sa == nil || !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKMentor)), "True") {
 		return true
 	}
 	if e.G.Obj(source) == nil || e.G.Obj(obj) == nil {

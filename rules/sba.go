@@ -66,6 +66,11 @@ type sbaAttempts struct {
 	sagas    map[state.ObjID]bool
 	dungeons map[state.ObjID]bool
 	alive    int
+	// skips counts, for the current pass, the candidates an attempt memory
+	// above made the pass skip. A stable final pass with none skipped is
+	// exactly what a fresh call's first pass would see, so the run is quiet
+	// even if earlier passes emitted (sbaRecordQuiet).
+	skips int
 }
 
 // rearm forgets every memory when the alive-player set has shrunk since it
@@ -132,6 +137,14 @@ type sbaAttempts struct {
 // for both the blocked destruction and the blocked removal sweep. The Note
 // covers the OTHER case, an unbounded cycle of genuinely new work, and has
 // never seen this one.
+// markTried records k in the attempt memory *m, allocating it on first use.
+func markTried[K comparable](m *map[K]bool, k K) {
+	if *m == nil {
+		*m = make(map[K]bool)
+	}
+	(*m)[k] = true
+}
+
 func (a *sbaAttempts) rearm(alive int) {
 	if alive >= a.alive {
 		return
@@ -250,14 +263,10 @@ func (e *Engine) checkStateBased() {
 		return
 	}
 	stable := false
-	tried := &sbaAttempts{
-		objs:     map[state.ObjID]bool{},
-		tokens:   map[state.ObjID]bool{},
-		players:  map[state.PlayerID]bool{},
-		sagas:    map[state.ObjID]bool{},
-		dungeons: map[state.ObjID]bool{},
-		alive:    e.G.AliveCount(),
-	}
+	// The attempt memories start nil and are allocated on their first mark
+	// (markTried): a read of a nil map is false, so the common call -- one
+	// that attempts nothing -- allocates none of them.
+	tried := &sbaAttempts{alive: e.G.AliveCount()}
 	// Safety net for a duration-ending change folded outside Engine.emit
 	// (the Updated replacement paths call events.Emit directly).
 	e.expireControl(controlOnEvent)
@@ -277,12 +286,16 @@ func (e *Engine) checkStateBased() {
 	}
 	e.sbaQuiet = sbaQuietKey{}
 	e.sbaUnquiet = false
+	// The fused per-permanent prefilter (rules/sba_prefilter.go): an action
+	// whose flag is down would find nothing on the board.
+	facts := &sbaBoardFacts{at: -1}
 	for pass := 0; pass < maxSBAPasses; pass++ {
+		tried.skips = 0
 		changed := e.checkLoseConditions(tried)
-		if e.annihilateOppositeCounters() {
+		if e.sbaFacts(facts).counterPair && e.annihilateOppositeCounters() {
 			changed = true
 		}
-		if e.destroyLethalDamage(tried) {
+		if e.destroyLethalDamage(tried, facts) {
 			changed = true
 		}
 		if e.legendBatch != nil {
@@ -301,22 +314,22 @@ func (e *Engine) checkStateBased() {
 		// batch channel the legend rule uses. It runs only once no legend
 		// batch is parked (the halt above), so a pass that parks a legend ask
 		// settles it before applying the world rule on the answer's next pass.
-		if e.worldRule() {
+		if e.sbaFacts(facts).world && e.worldRule() {
 			changed = true
 		}
-		if e.planeswalkerZeroLoyalty(tried) {
+		if e.sbaFacts(facts).pw && e.planeswalkerZeroLoyalty(tried) {
 			changed = true
 		}
-		if e.battleZeroDefense(tried) {
+		if e.sbaFacts(facts).battle && e.battleZeroDefense(tried) {
 			changed = true
 		}
 		if e.ceaseDeadTokens(tried) {
 			changed = true
 		}
-		if e.attachmentSBAs() {
+		if e.sbaFacts(facts).attach && e.attachmentSBAs() {
 			changed = true
 		}
-		if e.checkSagas(tried) {
+		if e.sbaFacts(facts).saga && e.checkSagas(tried) {
 			changed = true
 		}
 		// CR 704.5t: a dungeon whose marker sits on its bottommost room and
@@ -338,7 +351,7 @@ func (e *Engine) checkStateBased() {
 		e.emit(events.Event{Kind: events.Note,
 			Text: "state-based actions did not reach a fixed point within the pass budget"})
 	} else {
-		e.sbaRecordQuiet(ep0)
+		e.sbaRecordQuiet(ep0, tried.skips == 0)
 	}
 	e.checkGameOver()
 	e.releasePendingDecisionOfDepartedPlayer()
@@ -384,12 +397,16 @@ type legendBatch struct {
 // The scan is deterministic (AliveFrom(0) seat order, each battlefield zone a
 // slice, seen keyed on the current derived name), so the event stream is
 // reproducible run to run; membership maps are never iterated.
-func (e *Engine) legendGroups() []legendGroup {
+func (e *Engine) legendGroups(mayPair bool) []legendGroup {
 	// The exemption statics are collected once, in activeStatics' canonical
 	// deterministic order, and reused for every candidate; each candidate is
 	// matched with the static's own source/controller context so
 	// `Creature.YouCtrl` is scoped to the static's controller, not the
-	// duplicate set's.
+	// duplicate set's. mayPair is mayHaveLegendPair's answer, which the
+	// caller's fused board scan (sbaBoardFacts.legend) already holds.
+	if !mayPair {
+		return nil
+	}
 	exempt := e.activeStatics("IgnoreLegendRule")
 	var all []legendGroup
 	for _, p := range e.G.AliveFrom(0) {
@@ -692,6 +709,9 @@ func (e *Engine) worldPermanents() []state.ObjID {
 // destruction-replacement applies (the same treatment the legend rule gives
 // its non-kept members).
 func (e *Engine) worldRule() bool {
+	if !e.mayHaveWorldPair() {
+		return false
+	}
 	worlds := e.worldPermanents()
 	if len(worlds) < 2 {
 		return false
@@ -723,8 +743,9 @@ func (e *Engine) worldRule() bool {
 	// it). The snapshot never receives mutations and the log retains ordinary
 	// MoveZone events.
 	before := e.triggerBefore
-	e.triggerBefore = e.snapshotTriggerBoard()
-	defer func() { e.triggerBefore = before }()
+	own := e.snapshotTriggerBoard()
+	e.triggerBefore = own
+	defer e.closeTriggerWindow(own, before)
 	changed := false
 	for _, id := range worlds {
 		if newestCount == 1 && id == newest {
@@ -866,10 +887,14 @@ func (e *Engine) checkLoseConditions(tried *sbaAttempts) bool {
 	tried.rearm(e.G.AliveCount())
 	for i := range e.G.Players {
 		p := &e.G.Players[i]
-		if !p.Lost || tried.players[p.ID] {
+		if !p.Lost {
 			continue
 		}
-		tried.players[p.ID] = true
+		if tried.players[p.ID] {
+			tried.skips++
+			continue
+		}
+		markTried(&tried.players, p.ID)
 		// A sweep that emitted no event at all (every departed object already
 		// ceased -- the steady state of every call after the first once a
 		// seat has left) changed nothing, so it is not "new work" for the
@@ -906,8 +931,9 @@ func (e *Engine) ceaseDepartedObjects(p state.PlayerID) {
 	// quadratic in a large board (60,001 tokens in
 	// TestLargeEliminationSweepDoesNotTripLivelockWatcher took minutes).
 	if e.triggerBefore == nil && e.ceaseSweepLeavesBattlefield(p) {
-		e.triggerBefore = e.snapshotTriggerBoard()
-		defer func() { e.triggerBefore = nil }()
+		own := e.snapshotTriggerBoard()
+		e.triggerBefore = own
+		defer e.closeTriggerWindow(own, nil)
 	}
 	for i := range e.G.Objs {
 		o := &e.G.Objs[i]
@@ -1002,12 +1028,14 @@ type casualty struct {
 // reason for the rearm call below (an elimination during THIS function's
 // own emits, from a substitute effect that decks a player out, is picked up
 // by the next pass's rearm rather than mid-loop).
-func (e *Engine) destroyLethalDamage(tried *sbaAttempts) bool {
+func (e *Engine) destroyLethalDamage(tried *sbaAttempts, facts *sbaBoardFacts) bool {
 	tried.rearm(e.G.AliveCount())
 	var dead []casualty
+	anyLType := e.activeHasLType()
 	for _, p := range e.G.AliveFrom(0) {
 		for _, id := range e.G.Zone(state.ZBattlefield, p) {
 			if tried.objs[id] {
+				tried.skips++
 				continue
 			}
 			o := e.G.Obj(id)
@@ -1039,7 +1067,7 @@ func (e *Engine) destroyLethalDamage(tried *sbaAttempts) bool {
 			// typeCharacteristics already bases the derived set on
 			// FaceDownTypeWords (CR 708.5/Yedora), so the previous face-down
 			// special case gave the same answer through it.
-			if !e.IsCreature(id) {
+			if !e.sbaIsCreature(o, f, anyLType) {
 				continue
 			}
 			if e.Toughness(id) <= 0 {
@@ -1076,7 +1104,7 @@ func (e *Engine) destroyLethalDamage(tried *sbaAttempts) bool {
 	// after another SBA parked its own ask), the legends are left un-binned
 	// AND the lethal batch is left unapplied: no board change happens under
 	// an outstanding ask, and the pass after the answer re-scans everything.
-	if groups := e.legendGroups(); len(groups) > 0 {
+	if groups := e.legendGroups(e.sbaFacts(facts).legend); len(groups) > 0 {
 		if e.pending == nil && e.choosing == chooseNone && e.legendBatch == nil {
 			e.parkLegendChoice(groups[0], dead)
 			return true
@@ -1095,10 +1123,11 @@ func (e *Engine) destroyLethalDamage(tried *sbaAttempts) bool {
 	// actually occur; only those actual events are matched. The snapshot
 	// never receives mutations, and the log retains ordinary MoveZone events.
 	before := e.triggerBefore
-	e.triggerBefore = e.snapshotTriggerBoard()
-	defer func() { e.triggerBefore = before }()
+	own := e.snapshotTriggerBoard()
+	e.triggerBefore = own
+	defer e.closeTriggerWindow(own, before)
 	for _, c := range dead {
-		tried.objs[c.id] = true
+		markTried(&tried.objs, c.id)
 		if c.text == "lethal damage" && effects.ReplaceDestruction(e, c.id) {
 			continue
 		}
@@ -1157,6 +1186,7 @@ func (e *Engine) planeswalkerZeroLoyalty(tried *sbaAttempts) bool {
 	for _, p := range e.G.AliveFrom(0) {
 		for _, id := range e.G.Zone(state.ZBattlefield, p) {
 			if tried.objs[id] {
+				tried.skips++
 				continue
 			}
 			o := e.G.Obj(id)
@@ -1196,10 +1226,11 @@ func (e *Engine) planeswalkerZeroLoyalty(tried *sbaAttempts) bool {
 	// TestPlaneswalkerSBABatchUsesPreDepartureBoard pins it). The snapshot
 	// never receives mutations, and the log retains ordinary MoveZone events.
 	before := e.triggerBefore
-	e.triggerBefore = e.snapshotTriggerBoard()
-	defer func() { e.triggerBefore = before }()
+	own := e.snapshotTriggerBoard()
+	e.triggerBefore = own
+	defer e.closeTriggerWindow(own, before)
 	for _, c := range dead {
-		tried.objs[c.id] = true
+		markTried(&tried.objs, c.id)
 		e.emit(events.Event{Kind: events.MoveZone, Obj: c.id,
 			From: state.ZBattlefield, To: state.ZGraveyard, Text: c.text})
 	}
@@ -1223,6 +1254,7 @@ func (e *Engine) battleZeroDefense(tried *sbaAttempts) bool {
 	for _, p := range e.G.AliveFrom(0) {
 		for _, id := range e.G.Zone(state.ZBattlefield, p) {
 			if tried.objs[id] {
+				tried.skips++
 				continue
 			}
 			o := e.G.Obj(id)
@@ -1258,10 +1290,11 @@ func (e *Engine) battleZeroDefense(tried *sbaAttempts) bool {
 		return false
 	}
 	before := e.triggerBefore
-	e.triggerBefore = e.snapshotTriggerBoard()
-	defer func() { e.triggerBefore = before }()
+	own := e.snapshotTriggerBoard()
+	e.triggerBefore = own
+	defer e.closeTriggerWindow(own, before)
 	for _, c := range dead {
-		tried.objs[c.id] = true
+		markTried(&tried.objs, c.id)
 		e.emit(events.Event{Kind: events.MoveZone, Obj: c.id,
 			From: state.ZBattlefield, To: state.ZExile, Text: c.text})
 	}
@@ -1308,12 +1341,16 @@ func (e *Engine) ceaseDeadTokens(tried *sbaAttempts) bool {
 		o := &e.G.Objs[i]
 		// The field test first: the attempt memory is only consulted for a
 		// token that would otherwise be ceased (the same set as before).
-		if o.IsToken && o.Zone != state.ZBattlefield && o.Zone != state.ZStack && o.Zone != state.ZCeased && !tried.tokens[o.ID] {
+		if o.IsToken && o.Zone != state.ZBattlefield && o.Zone != state.ZStack && o.Zone != state.ZCeased {
+			if tried.tokens[o.ID] {
+				tried.skips++
+				continue
+			}
 			dead = append(dead, tokenCasualty{o.ID, o.Zone})
 		}
 	}
 	for _, c := range dead {
-		tried.tokens[c.id] = true
+		markTried(&tried.tokens, c.id)
 		e.emit(events.Event{Kind: events.MoveZone, Obj: c.id,
 			From: c.from, To: state.ZCeased, Text: "ceased to exist"})
 	}

@@ -6,13 +6,13 @@ import (
 	"math/rand/v2"
 	"reflect"
 	"testing"
+	"unsafe"
 
 	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/state"
-	"github.com/adams-shaun/gorge/view"
 )
 
 func TestRejectionBucketClassifiesObservedShapeWithoutIdentity(t *testing.T) {
@@ -53,17 +53,27 @@ func TestRejectionBucketClassifiesObservedShapeWithoutIdentity(t *testing.T) {
 func TestOpponentBoardsReusePerPlayerMaps(t *testing.T) {
 	e := &rules.Engine{G: state.NewGame([]string{"a", "b"})}
 	boards := newOpponentBoards(2)
-	wantCards := reflect.ValueOf(boards[1].Cards).Pointer()
-	wantLife := reflect.ValueOf(boards[1].Life).Pointer()
+	wantCards := tableStorage(boards[1].Cards.Values())
+	wantLife := tableStorage(boards[1].Life.Values())
+	if wantCards == 0 || wantLife == 0 {
+		t.Fatal("precondition: the opponent boards were built without table storage")
+	}
 
 	first := opponentBoard(e, 1, boards)
 	second := opponentBoard(e, 1, boards)
-	if reflect.ValueOf(first.Cards).Pointer() != wantCards || reflect.ValueOf(second.Cards).Pointer() != wantCards {
-		t.Fatal("opponent board card map was reallocated")
+	if tableStorage(first.Cards.Values()) != wantCards || tableStorage(second.Cards.Values()) != wantCards {
+		t.Fatal("opponent board card table was reallocated")
 	}
-	if reflect.ValueOf(first.Life).Pointer() != wantLife || reflect.ValueOf(second.Life).Pointer() != wantLife {
-		t.Fatal("opponent board life map was reallocated")
+	if tableStorage(first.Life.Values()) != wantLife || tableStorage(second.Life.Values()) != wantLife {
+		t.Fatal("opponent board life table was reallocated")
 	}
+}
+
+// tableStorage is the address of a Board table's value storage (its whole
+// capacity), so a test can tell a refill that reused it from one that
+// reallocated.
+func tableStorage[V any](vals []V) uintptr {
+	return uintptr(unsafe.Pointer(unsafe.SliceData(vals[:cap(vals)])))
 }
 
 func TestReserveObservedPrefixChangesOnlyLogCapacity(t *testing.T) {
@@ -130,11 +140,11 @@ func TestStackRejectionContextNormalizesPhaseActionAndConstraint(t *testing.T) {
 	knownGot := map[uint32]Identity{5: {ID: 5, Name: "Unexpected", Owner: 1}}
 	knownWant := map[uint32]Identity{}
 	got := Frame{
-		Board:  json.RawMessage(`{"step":"main1"}`),
+		Board:  Board{Step: "main1"},
 		Events: []ObservedEvent{{Kind: events.PutOnStack, Obj: 5, From: state.ZHand, To: state.ZStack}},
 	}
 	want := Frame{
-		Board:  json.RawMessage(`{"step":"main1"}`),
+		Board:  Board{Step: "main1"},
 		Events: []ObservedEvent{{Kind: events.Priority, Player: 1}},
 	}
 	wantBucket := StackRejectionContext{Cause: "hypothetical_extra_cast", Step: "main1", ExpectedAction: "pass", Constraint: "no_observed_cast", Count: 1}
@@ -162,12 +172,10 @@ func TestStackConstraintContextsDistinguishSupportedAndUnguidedEpochs(t *testing
 
 func TestSamplerRejectionHistogramCountsAndSorts(t *testing.T) {
 	setup, h := samplingHistory(t)
-	var board view.View
-	if err := json.Unmarshal(h.Frames[3].Board, &board); err != nil {
-		t.Fatal(err)
-	}
-	board.Players[0].Life = 999
-	h.Frames[3].Board, _ = json.Marshal(board)
+	// A board no replay can reproduce (the observed board with one bit of
+	// its digests flipped, as if a life total had read 999).
+	h.Frames[3].Board.Sum[0] ^= 1
+	h.Frames[3].Board.Stripped[0] ^= 1
 	result, err := Sample(setup, h, SampleOptions{Seed: 991, Attempts: 3, Worlds: 1, MaxSubmits: 5000})
 	if err != nil {
 		t.Fatal(err)
@@ -304,12 +312,10 @@ func TestSamplerReconstructsFullPrefixAndReplaysWorlds(t *testing.T) {
 
 func TestSamplerRejectsChangedPrefixAndHonorsSubmitBudget(t *testing.T) {
 	setup, h := samplingHistory(t)
-	var board view.View
-	if err := json.Unmarshal(h.Frames[3].Board, &board); err != nil {
-		t.Fatal(err)
-	}
-	board.Players[0].Life = 999
-	h.Frames[3].Board, _ = json.Marshal(board)
+	// A board no replay can reproduce (the observed board with one bit of
+	// its digests flipped, as if a life total had read 999).
+	h.Frames[3].Board.Sum[0] ^= 1
+	h.Frames[3].Board.Stripped[0] ^= 1
 	result, err := Sample(setup, h, SampleOptions{Seed: 991, Attempts: 8, Worlds: 4, MaxSubmits: 5000})
 	if err != nil {
 		t.Fatal(err)

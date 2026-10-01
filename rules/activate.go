@@ -85,7 +85,7 @@ func (e *Engine) beginActivation(p state.PlayerID, opt decision.Option) {
 	// and the gate agree; a stale option whose rider vanished falls back to
 	// the printed cost rather than stranding. Scoped to the Equip/Fortify
 	// SAs (isAttachCostSA): no other activation family reads AlternateCost$.
-	raw := e.parseCost(ab.Params["Cost"])
+	raw := e.parseCost(ab.ParamStr(cards.PKCost))
 	if opt.AltCostIndex > 0 {
 		if alt, ok := e.abilityAlternateCost(ab); ok {
 			raw = alt
@@ -125,8 +125,8 @@ func (e *Engine) beginActivation(p state.PlayerID, opt decision.Option) {
 	if !ok {
 		return
 	}
-	e.cast = &pendingCast{player: p, card: opt.Obj, from: o.Zone, ability: opt.Ability,
-		abilityMerged: pa.Merged, cost: cost, mods: mods, ownReduce: own}
+	e.cast = e.newCast(p, opt.Obj, o.Zone, "", opt.Ability)
+	e.cast.abilityMerged, e.cast.cost, e.cast.mods, e.cast.ownReduce = pa.Merged, cost, mods, own
 	e.continueCast()
 }
 
@@ -144,7 +144,7 @@ func isAttachCostSA(ab *cards.SA) bool {
 	if ab == nil {
 		return false
 	}
-	switch ab.Params["Keyword"] {
+	switch ab.ParamStr(cards.PKKeyword) {
 	case "Equip", "Fortify":
 		return true
 	}

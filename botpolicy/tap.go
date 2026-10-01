@@ -87,11 +87,12 @@ func hasFlash(kws []string) bool {
 // taps: the policy cannot read those facts, and its old behaviour did
 // worse (it tapped regardless of the hand at all).
 func (b Board) tapWants() bool {
-	for id, c := range b.Cards {
-		if !c.Castable || c.CMC <= 0 {
+	keys, cs := b.Cards.Keys(), b.Cards.Values()
+	for i := range cs {
+		if c := &cs[i]; !c.Castable || c.CMC <= 0 {
 			continue
 		}
-		if !b.poolPays(id, c) {
+		if !b.poolPays(keys[i], cs[i]) {
 			return true
 		}
 	}
@@ -104,7 +105,7 @@ func (b Board) tapWants() bool {
 // engine's CanPay, at the CmcOf granularity the Board carries.
 func (b Board) poolPays(id state.ObjID, c Card) bool {
 	cost := c.CMC
-	if cmdr, ok := b.Commanders[id]; ok && cmdr.InCommandZone {
+	if cmdr, ok := b.Commanders.Lookup(id); ok && cmdr.InCommandZone {
 		cost += 2 * cmdr.Casts
 	}
 	if b.Pool.Total() < cost {
@@ -132,6 +133,45 @@ func (b Board) poolPays(id state.ObjID, c Card) bool {
 // pays it. This is the shared pip count behind both poolPays and the
 // colour-aware tap gate's need map, so the two always agree.
 func colourPips(mc string) [5]int32 {
+	if pips, ok := colourPipsASCII(mc); ok {
+		return pips
+	}
+	return colourPipsSlow(mc)
+}
+
+// colourPipsASCII is colourPips' allocation-free path for a pure-ASCII cost:
+// braceForm turns each brace into a space and strings.FieldsSeq splits on
+// unicode.IsSpace, which over ASCII is exactly asciiSpace, so splitting on
+// asciiSpace or a brace yields the same symbols in the same order
+// (TestColourPipsASCIIMatchesSlow). ok is false for any other cost.
+func colourPipsASCII(mc string) (pips [5]int32, ok bool) {
+	for i := 0; i < len(mc); i++ {
+		if mc[i] >= 0x80 {
+			return pips, false
+		}
+	}
+	for i := 0; i < len(mc); {
+		for i < len(mc) && pipSeparator(mc[i]) {
+			i++
+		}
+		j := i
+		for j < len(mc) && !pipSeparator(mc[j]) {
+			j++
+		}
+		if j == i+1 {
+			if si := state.ManaIndex(mc[i]); si <= state.MG {
+				pips[si]++
+			}
+		}
+		i = j
+	}
+	return pips, true
+}
+
+func pipSeparator(c byte) bool { return c == '{' || c == '}' || asciiSpace(c) }
+
+// colourPipsSlow is colourPips' general path.
+func colourPipsSlow(mc string) [5]int32 {
 	var pips [5]int32
 	for sym := range strings.FieldsSeq(braceForm.Replace(mc)) {
 		if len(sym) != 1 {
@@ -195,10 +235,12 @@ func (b Board) bestUnpayable(offered [5]bool) (state.ObjID, Card, bool) {
 	var best Card
 	var bestScore int32 = -1
 	found := false
-	for id, c := range b.Cards {
-		if !c.Castable || c.CMC <= 0 {
+	keys, cs := b.Cards.Keys(), b.Cards.Values()
+	for i := range cs {
+		if c := &cs[i]; !c.Castable || c.CMC <= 0 {
 			continue
 		}
+		id, c := keys[i], cs[i]
 		if b.poolPays(id, c) {
 			continue
 		}
@@ -294,7 +336,8 @@ func (b Board) chooseTap(d *decision.Decision) int {
 		return -1
 	}
 	castOffered := false
-	for _, o := range d.Options {
+	for oi := range d.Options {
+		o := &d.Options[oi]
 		if o.Kind == "cast" {
 			castOffered = true
 			break
@@ -304,18 +347,19 @@ func (b Board) chooseTap(d *decision.Decision) int {
 	best := -1
 	bestTier := 3
 	bestFlex := 0
-	for _, o := range d.Options {
+	for oi := range d.Options {
+		o := &d.Options[oi]
 		if o.Kind != "activate" {
 			continue
 		}
 		if conv, spend := converterCost(o.Cost); conv {
 			// T3: a converter (see converterCost) is taken only when it
 			// provably moves the intended card closer to castable.
-			if castOffered || !b.conversionProgresses(c, spend, b.Cards[o.Obj].Produces) {
+			if castOffered || !b.conversionProgresses(c, spend, b.Cards.Get(o.Obj).Produces) {
 				continue
 			}
 		}
-		prod := b.Cards[o.Obj].Produces
+		prod := b.Cards.Get(o.Obj).Produces
 		matches := false
 		for i := 0; i < 5; i++ {
 			if need[i] && (prod.ProducesColour(i) || prod.Reflected || prod.Any) {
@@ -349,11 +393,12 @@ func (b Board) chooseTap(d *decision.Decision) int {
 // reads (see its doc).
 func (b Board) offeredColours(d *decision.Decision) [5]bool {
 	var offered [5]bool
-	for _, o := range d.Options {
+	for oi := range d.Options {
+		o := &d.Options[oi]
 		if o.Kind != "activate" {
 			continue
 		}
-		card, known := b.Cards[o.Obj]
+		card, known := b.Cards.Lookup(o.Obj)
 		if !known {
 			// Fail closed: an option the Board carries no facts for claims
 			// no colour (see bestUnpayable's doc for why the earlier
@@ -441,7 +486,7 @@ func (b Board) CastableNow(player state.PlayerID, d *decision.Decision) (state.O
 // order cannot reach it. It consumes no rng.
 func (b Board) AnyCastableNow(player state.PlayerID, d *decision.Decision) bool {
 	offered := b.offeredColours(d)
-	for id, c := range b.Cards {
+	for id, c := range b.Cards.All() {
 		if !c.Castable || c.CMC <= 0 {
 			continue
 		}
@@ -464,7 +509,7 @@ func (b Board) AnyCastableNow(player state.PlayerID, d *decision.Decision) bool 
 // AnyCastableNow read, so the two can never disagree about what "castable
 // now" means.
 func (b Board) castableNowCard(player state.PlayerID, id state.ObjID) bool {
-	c := b.Cards[id]
+	c := b.Cards.Get(id)
 	if !c.InstantSpeed && !(b.MyTurn && b.IsMain && len(b.Stack) == 0) {
 		return false
 	}
@@ -492,8 +537,9 @@ func (b Board) castableNowCard(player state.PlayerID, id state.ObjID) bool {
 // falls back to the pre-float-waste reading (timing and C8 only); a board of
 // known production keeps the affordability refusal.
 func (b Board) indeterminateSourceUntapped() bool {
-	for _, c := range b.Cards {
-		if c.OnBattlefield && !c.Tapped && c.Produces.Indeterminate {
+	cs := b.Cards.Values()
+	for i := range cs {
+		if c := &cs[i]; c.OnBattlefield && !c.Tapped && c.Produces.Indeterminate {
 			return true
 		}
 	}
@@ -703,7 +749,8 @@ func conversionDeficit(c Card, pips [5]int32, pool state.Mana) int32 {
 // no "activate" option is not a payment window and is left to the caller.
 func chooseManaWindow(d *decision.Decision) (int, bool) {
 	isWindow := false
-	for _, o := range d.Options {
+	for oi := range d.Options {
+		o := &d.Options[oi]
 		if o.Kind != "activate" {
 			continue
 		}
@@ -716,7 +763,8 @@ func chooseManaWindow(d *decision.Decision) (int, bool) {
 	if !isWindow {
 		return 0, false
 	}
-	for _, o := range d.Options {
+	for oi := range d.Options {
+		o := &d.Options[oi]
 		if o.Kind == "done" {
 			return o.Index, true
 		}

@@ -38,7 +38,10 @@ import (
 // (cast.go) additionally reads Cast, FirstMain and MyTurn.
 type Board struct {
 	// OwnDeck is the deciding seat's genesis manifest, when supplied by the
-	// rules engine; it is never an opponent or spectator deck list.
+	// rules engine; it is never an opponent or spectator deck list. It is
+	// READ-ONLY: BoardFromGameInto fills it with the engine's shared genesis
+	// manifest (rules.Engine.OwnDeckShared), so a write through it would
+	// reach engine storage. Copy it (deck.Manifest.Clone) before changing it.
 	OwnDeck *deck.Manifest
 	// IsMain reports whether sorcery-speed actions are legal right now.
 	// The seat adapter lifts it off the projected View's Phase
@@ -51,11 +54,11 @@ type Board struct {
 	// adapters fill it from public facts only — a battlefield is public
 	// for every seat — so the bot reasons about exactly the creatures the
 	// seat can legally see, and the two halves agree on every one of them.
-	Creatures map[state.ObjID]Creature
+	Creatures CreatureTable
 	// Life is every player's life total, keyed by seat. The blocking rule
 	// reads the defender's own life to decide when a chump block is
 	// warranted, which is public on both halves.
-	Life map[state.PlayerID]int32
+	Life LifeTable
 	// Cards is the casting ranking's card-facts table, keyed by ObjID and
 	// filled by both adapters for the DECIDING seat's own legally-seen
 	// zones (its hand, graveyard, battlefield and command zone) from
@@ -71,7 +74,7 @@ type Board struct {
 	// hand/graveyard/battlefield/command-zone fact is the deciding seat's
 	// own, so carrying it in the Board is no information leak (Ruling C0):
 	// it is exactly what that seat may see.
-	Cards map[state.ObjID]Card
+	Cards CardTable
 	// Pool is the deciding seat's current mana pool. The tap gate
 	// (tap.go) reads it to decide whether another tap could newly enable a
 	// cast: a pool that already pays some castable card's cost is a pool
@@ -126,7 +129,7 @@ type Board struct {
 	//	projected StackView list; BoardFromGame off state.Game.Stack), pinned
 	//	on every intent of a whole game by seat/integration_test.go's parity
 	//	tests.
-	Commanders map[state.ObjID]Commander
+	Commanders CommanderTable
 	// Stack is the public stack census, bottom to top in the stack's own
 	// order (state.Game.Stack and view.View.Stack are both
 	// order-preserving, so the census is an ordered slice and no map
@@ -197,6 +200,16 @@ type Board struct {
 	// attackSim is set only by AttackSimDecide (attacksim.go, the opt-in
 	// combat-simulation attacker); nil in every production policy.
 	attackSim *AttackSimParams
+	// kwArena backs every Creatures entry's Keywords: BoardFromGameInto
+	// truncates and refills it with the creatures, so a reused Board copies
+	// keyword lists without a per-creature allocation (valid, like the
+	// tables, until the next refill).
+	kwArena []string
+	// inc is the incremental build's row cache (board_inc.go), allocated on
+	// a Board's second refill (incArmed marks the first), so a Board built
+	// for one decision never pays for it.
+	inc      *boardInc
+	incArmed bool
 }
 
 // Commander is the Board's per-commander commander-format bookkeeping,
@@ -257,7 +270,7 @@ type StackEntry struct {
 // Commanders entry) or whose commander has never hit p (no Damage entry)
 // never closes a clock.
 func (b Board) closesClock(p state.PlayerID, id state.ObjID, a Creature) bool {
-	cm, ok := b.Commanders[id]
+	cm, ok := b.Commanders.Lookup(id)
 	if !ok {
 		return false
 	}
@@ -438,7 +451,8 @@ func decide(b Board, d *decision.Decision, r *rand.Rand, lethalPressure, combine
 			// legality predicate (face, activation riders and payment). Take
 			// the offered face deterministically before ordinary main-phase
 			// development actions.
-			for _, o := range d.Options {
+			for oi := range d.Options {
+				o := &d.Options[oi]
 				if o.Kind == "specialize" {
 					in.Choices = []int{o.Index}
 					return Clamp(d, in)
@@ -522,7 +536,8 @@ func decide(b Board, d *decision.Decision, r *rand.Rand, lethalPressure, combine
 				return Clamp(d, in)
 			}
 		}
-		for _, o := range d.Options {
+		for oi := range d.Options {
+			o := &d.Options[oi]
 			if o.Kind == "pass" {
 				in.Choices = []int{o.Index}
 				return Clamp(d, in)
@@ -695,7 +710,7 @@ func decide(b Board, d *decision.Decision, r *rand.Rand, lethalPressure, combine
 			// progress loop (a 0-mana-value library drains Ad Nauseam without
 			// any life loss, so the life gate alone never fires). For the
 			// carriers that consume neither zone this only stops early.
-			if b.Life[d.Player] > 5 && b.LibrarySize > 0 && b.HandSize > 0 {
+			if b.Life.Get(d.Player) > 5 && b.LibrarySize > 0 && b.HandSize > 0 {
 				in.Choices = []int{d.Options[0].Index}
 			} else if len(d.Options) > 1 {
 				in.Choices = []int{d.Options[1].Index}
@@ -730,7 +745,7 @@ func decide(b Board, d *decision.Decision, r *rand.Rand, lethalPressure, combine
 			// asks.
 			best := 0
 			for i := 1; i < len(d.Options); i++ {
-				if b.Life[d.Options[i].Player] < b.Life[d.Options[best].Player] {
+				if b.Life.Get(d.Options[i].Player) < b.Life.Get(d.Options[best].Player) {
 					best = i
 				}
 			}
@@ -944,7 +959,7 @@ func decide(b Board, d *decision.Decision, r *rand.Rand, lethalPressure, combine
 			// worth of buffer, so a two-pip cost never lands the seat at 0.
 			in.Choices = []int{d.Options[0].Index}
 			for _, o := range d.Options {
-				if o.Kind == "pay_life" && b.Life[d.Player] >= 6 {
+				if o.Kind == "pay_life" && b.Life.Get(d.Player) >= 6 {
 					in.Choices = []int{o.Index}
 					break
 				}
@@ -1154,12 +1169,12 @@ func decide(b Board, d *decision.Decision, r *rand.Rand, lethalPressure, combine
 // missing-life convention AR7 uses) -- so a seat that is not clearly dying
 // keeps paying its taxes.
 func (b Board) facingLethal(p state.PlayerID) bool {
-	life, ok := b.Life[p]
+	life, ok := b.Life.Lookup(p)
 	if !ok {
 		return false
 	}
 	total := int32(0)
-	for _, c := range b.Creatures {
+	for _, c := range b.Creatures.All() {
 		if c.Controller == p || c.Tapped || c.Power <= 0 {
 			continue
 		}
@@ -1227,7 +1242,7 @@ func (b Board) unlessSacrificeOffer(d *decision.Decision) []int {
 	if pay == nil || decline == nil {
 		return nil
 	}
-	if b.cardWorth(pay.Obj) >= int32(n) && b.Life[d.Player] > int32(n) {
+	if b.cardWorth(pay.Obj) >= int32(n) && b.Life.Get(d.Player) > int32(n) {
 		return []int{pay.Index}
 	}
 	return []int{decline.Index}

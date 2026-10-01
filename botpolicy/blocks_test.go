@@ -62,7 +62,7 @@ func pairsEqual(a, e [][2]int) bool {
 // second attacker takes the remaining blocker.
 func TestBlocksLethalSurvivesWithChumps(t *testing.T) {
 	b := boardOf(atk(1, 1, 1), atk(2, 2, 2), def(1, 6, 6), def(2, 3, 3))
-	b.Life[0] = 5
+	b.Life.Set(0, 5)
 	d, got := blocksDecisionFull(b, [2]int{1, 1}, [2]int{2, 1}, [2]int{1, 2}, [2]int{2, 2})
 	want := [][2]int{{1, 1}, {2, 2}} // the 1/1 chumps the 6/6, the 2/2 chumps the 3/3
 	if p := chosenPairs(&d, got); !pairsEqual(p, want) {
@@ -77,7 +77,7 @@ func TestBlocksFreeKillTaken(t *testing.T) {
 	// A 5/5 killing a 4/4 and surviving (4 < 5): free kill, taken. A 2/2
 	// would die without killing and stays home.
 	b := boardOf(atk(1, 5, 5), atk(2, 2, 2), def(1, 4, 4))
-	b.Life[0] = 20
+	b.Life.Set(0, 20)
 	d, got := blocksDecisionFull(b, [2]int{1, 1}, [2]int{2, 1})
 	if p := chosenPairs(&d, got); !pairsEqual(p, [][2]int{{1, 1}}) {
 		t.Errorf("free kill = %v, want {1,1}", p)
@@ -91,13 +91,13 @@ func TestBlocksBadTradeAvoided(t *testing.T) {
 	// My 3/2 kills the 2/3 but dies, and 2 < 3: the attacker's power does
 	// not reach the blocker's, so the trade is down and is declined.
 	b := boardOf(atk(1, 3, 2), def(1, 2, 3))
-	b.Life[0] = 20
+	b.Life.Set(0, 20)
 	if got := blocksDecision(b, [2]int{1, 1}); len(got) != 0 {
 		t.Errorf("trade-down taken: %v", got)
 	}
 	// A pure chump: my 2/2 cannot kill the 5/5 and would die for nothing.
 	b = boardOf(atk(1, 2, 2), def(1, 5, 5))
-	b.Life[0] = 20
+	b.Life.Set(0, 20)
 	if got := blocksDecision(b, [2]int{1, 1}); len(got) != 0 {
 		t.Errorf("chump taken while not facing lethal: %v", got)
 	}
@@ -113,7 +113,7 @@ func TestBlocksEvenTradeTaken(t *testing.T) {
 	// attacker: blocker deals 3 >= 3, dies to 3 >= 2, and 3 >= 3: trade up,
 	// taken.
 	b := boardOf(atk(1, 3, 2), def(1, 3, 3))
-	b.Life[0] = 20
+	b.Life.Set(0, 20)
 	d, got := blocksDecisionFull(b, [2]int{1, 1})
 	if p := chosenPairs(&d, got); !pairsEqual(p, [][2]int{{1, 1}}) {
 		t.Errorf("trade up = %v, want {1,1}", p)
@@ -126,7 +126,7 @@ func TestBlocksEvenTradeTaken(t *testing.T) {
 // for the blocker that cannot legally block.
 func TestBlocksIllegalPairNeverChosen(t *testing.T) {
 	b := boardOf(atk(1, 2, 2), atk(2, 2, 2, "Reach"), def(1, 3, 3, "Flying"))
-	b.Life[0] = 3
+	b.Life.Set(0, 3)
 	d := decision.Decision{Seq: 1, Player: 0, Kind: decision.KBlockers, Min: 0, Max: 1,
 		Options: []decision.Option{
 			{Index: 0, Kind: "block", Obj: 102, Attacker: 201, Player: 0},
@@ -145,7 +145,7 @@ func TestBlocksIllegalPairNeverChosen(t *testing.T) {
 // attackers, the largest takes it and the other goes unblocked.
 func TestBlocksOneBlockerOneAttacker(t *testing.T) {
 	b := boardOf(atk(1, 1, 1), def(1, 5, 5), def(2, 4, 4))
-	b.Life[0] = 3
+	b.Life.Set(0, 3)
 	d, got := blocksDecisionFull(b, [2]int{1, 1}, [2]int{1, 2})
 	if len(got) != 1 {
 		t.Fatalf("one blocker assigned %d times: %v", len(got), got)
@@ -160,7 +160,7 @@ func TestBlocksOneBlockerOneAttacker(t *testing.T) {
 // iteration order reaches the choice).
 func TestBlocksDeterministic(t *testing.T) {
 	b := boardOf(atk(1, 1, 1), atk(2, 2, 2), atk(3, 2, 2), def(1, 6, 6), def(2, 3, 3))
-	b.Life[0] = 5
+	b.Life.Set(0, 5)
 	pairs := [][2]int{{1, 1}, {2, 1}, {3, 1}, {1, 2}, {2, 2}, {3, 2}}
 	first := blocksDecision(b, pairs...)
 	for i := 0; i < 5; i++ {
@@ -177,7 +177,7 @@ func TestBlocksDeterministic(t *testing.T) {
 // kill and are taken; a lone blocker is never declared against it.
 func TestBlocksMenaceNeedsTwo(t *testing.T) {
 	b := boardOf(atk(1, 2, 2), atk(2, 2, 2), def(1, 2, 2, "Menace"))
-	b.Life[0] = 20
+	b.Life.Set(0, 20)
 	d, got := blocksDecisionFull(b, [2]int{1, 1}, [2]int{2, 1})
 	if len(got) != 2 {
 		t.Fatalf("menace attacker blocked by %d blockers: %v", len(got), got)
@@ -192,7 +192,7 @@ func TestBlocksMenaceNeedsTwo(t *testing.T) {
 // remaining toughness soaks the most overflow (the 2/4, not the 1/1).
 func TestBlocksTrampleChumpPrefersAdequate(t *testing.T) {
 	b := boardOf(atk(1, 1, 1), atk(2, 2, 4), def(1, 6, 6, "Trample"))
-	b.Life[0] = 3
+	b.Life.Set(0, 3)
 	d, got := blocksDecisionFull(b, [2]int{1, 1}, [2]int{2, 1})
 	if p := chosenPairs(&d, got); !pairsEqual(p, [][2]int{{2, 1}}) {
 		t.Errorf("trample chump = %v, want {2,1}", p)
@@ -234,7 +234,7 @@ func TestLegalBlockChoicesDropsIllegalCounts(t *testing.T) {
 	// blockers against one bumped 6/5 attacker under Min 3 must answer with
 	// no block, never an illegal one-creature chump.
 	b := boardOf(atk(1, 2, 2), atk(2, 2, 2), atk(3, 2, 2), def(1, 6, 5))
-	b.Life[state.PlayerID(0)] = 20
+	b.Life.Set(state.PlayerID(0), 20)
 	in := Decide(b, d, rng(1))
 	if len(in.Choices) != 0 {
 		t.Fatalf("Decide chose %v against a Min 3 attacker, want no block", in.Choices)

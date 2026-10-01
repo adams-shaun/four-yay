@@ -15,7 +15,7 @@ import (
 // fills greedily in offered order: [2,3,2] under budget 4 takes the two
 // 2-MV cards (3 does not fit after the first 2) and passes Validate.
 func TestDigBudgetArmFillsGreedilyUnderMaxSum(t *testing.T) {
-	b := Board{Cards: map[state.ObjID]Card{}}
+	b := Board{Cards: TableOf(map[state.ObjID]Card{})}
 	d := decision.Decision{
 		Kind:   decision.KChoose,
 		Min:    0,
@@ -45,7 +45,7 @@ func TestDigBudgetArmFillsGreedilyUnderMaxSum(t *testing.T) {
 // the no-choice stand-in. This is the regression guard the earlier [2,3,2]
 // case masked, since there the bounds happen to agree.
 func TestDigBudgetArmIndexAndCountBoundsAgree(t *testing.T) {
-	b := Board{Cards: map[state.ObjID]Card{}}
+	b := Board{Cards: TableOf(map[state.ObjID]Card{})}
 	d := decision.Decision{
 		Kind:   decision.KChoose,
 		Min:    0,
@@ -100,7 +100,7 @@ func TestClampBudgetAwareTopUp(t *testing.T) {
 // first-Max policy byte-for-byte, so every existing bot-answered game is
 // unaffected by this change.
 func TestDigBudgetArmUnchangedWithoutMaxSum(t *testing.T) {
-	b := Board{Cards: map[state.ObjID]Card{}}
+	b := Board{Cards: TableOf(map[state.ObjID]Card{})}
 	d := decision.Decision{
 		Kind: decision.KChoose,
 		Min:  0,

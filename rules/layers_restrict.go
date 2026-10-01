@@ -16,7 +16,8 @@ import (
 // this-turn restriction is UntilEOT and is dropped at cleanup, a permanent-
 // sourced one disappears when its source leaves the battlefield.
 func (e *Engine) RegenerationDisallowed(id state.ObjID) bool {
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.Restriction != "CantRegenerate" {
 			continue
 		}
@@ -34,7 +35,8 @@ func (e *Engine) RegenerationDisallowed(id state.ObjID) bool {
 // spells or abilities your opponents control this turn" is actually withheld
 // from the opponent's targeting options.
 func (e *Engine) restrictionBlocksTarget(id state.ObjID, actor state.PlayerID) bool {
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.Restriction != "CantTarget" {
 			continue
 		}
@@ -57,7 +59,7 @@ func (e *Engine) restrictionBlocksTarget(id state.ObjID, actor state.PlayerID) b
 // which is the dominant shape for Vines/Incinerate; any other spec falls back
 // to the same matcher so a restriction that names a quality (CantTarget with
 // ValidCard$ Creature, say) still works.
-func (e *Engine) restrictionApplies(ce ContinuousEffect, id state.ObjID) bool {
+func (e *Engine) restrictionApplies(ce *ContinuousEffect, id state.ObjID) bool {
 	spec := ce.RestrictParams["ValidCard"]
 	if spec == "" {
 		spec = ce.RestrictParams["ValidTarget"]
@@ -85,7 +87,7 @@ func (e *Engine) restrictionApplies(ce ContinuousEffect, id state.ObjID) bool {
 // bites when the player targeting the creature is an opponent of the effect's
 // controller (the caster of Vines). A restriction with no Activator$ applies
 // to any actor.
-func (e *Engine) restrictionActorMatches(ce ContinuousEffect, actor state.PlayerID) bool {
+func (e *Engine) restrictionActorMatches(ce *ContinuousEffect, actor state.PlayerID) bool {
 	spec, ok := ce.RestrictParams["Activator"]
 	if !ok {
 		return true
@@ -190,7 +192,8 @@ func costCauseForAbility(ability bool) costCause {
 }
 
 func (e *Engine) sacrificeBlocked(id state.ObjID, forCost bool, cause costCause) bool {
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.Restriction != "CantSacrifice" {
 			continue
 		}
@@ -281,7 +284,8 @@ func (e *Engine) exileBlockedForCost(id state.ObjID, cause costCause) bool {
 // cast/activation identity on the cost path (causeCostAdmits), the same
 // classifier discipline sacrificeBlocked keeps.
 func (e *Engine) exileBlocked(id state.ObjID, forCost bool, cause costCause) bool {
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.Restriction != "CantExile" {
 			continue
 		}
@@ -342,7 +346,8 @@ func (e *Engine) exileBlocked(id state.ObjID, forCost bool, cause costCause) boo
 // both forms. Both routes are consulted, mirroring SacrificeBlocked /
 // attackBlocked.
 func (e *Engine) PutCounterBlocked(kind string, obj state.ObjID, player state.PlayerID, playerForm bool) bool {
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.Restriction != "CantPutCounter" {
 			continue
 		}
@@ -463,7 +468,8 @@ func (e *Engine) attackBlocked(id state.ObjID, defender state.PlayerID, attacked
 	if e.hasCantAttackKeyword(id) {
 		return true
 	}
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.Restriction != "CantAttack" {
 			continue
 		}
@@ -659,7 +665,8 @@ func clauseIsRemembered(clause string) (neg, has bool) {
 // UntilEOT expiry, so a Fog cast on turn N contributes nothing from turn N+1
 // on.
 func (e *Engine) fogActive() bool {
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.Restriction == "PreventCombatDamage" {
 			return true
 		}

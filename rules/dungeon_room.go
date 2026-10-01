@@ -135,9 +135,10 @@ func (e *Engine) dungeonCompletion(tried *sbaAttempts) bool {
 			continue
 		}
 		if tried.dungeons[id] {
+			tried.skips++
 			continue
 		}
-		tried.dungeons[id] = true
+		markTried(&tried.dungeons, id)
 		if !e.G.Players[p].DungeonCompleted {
 			e.emit(events.Event{Kind: events.DungeonComplete, Player: pl, Obj: id})
 		}

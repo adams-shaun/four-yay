@@ -72,8 +72,8 @@ func TestReplacementSkipVerifyCatchesUnreferencedWrite(t *testing.T) {
 	// Directly give the already-classified object an R:-bearing copy face
 	// without emitting an event: the same bypass the trigger-walk verifier
 	// catches.
-	e.G.Obj(cold).CopyFace = card(t, "Name:Live\nTypes:Creature\nPT:1/1\n"+
-		"R:Event$ CreateToken | ActiveZones$ Battlefield | ReplaceWith$ None | Description$ live replacement\nOracle:x\n").Faces[0]
+	e.G.Obj(cold).SetCopyFace(card(t, "Name:Live\nTypes:Creature\nPT:1/1\n"+
+		"R:Event$ CreateToken | ActiveZones$ Battlefield | ReplaceWith$ None | Description$ live replacement\nOracle:x\n").Faces[0])
 	defer func() {
 		r := recover()
 		s, ok := r.(string)
@@ -132,5 +132,25 @@ func TestReplacementAppendFastPathDuringTokenFlood(t *testing.T) {
 		if !slices.Equal(visited, want) {
 			t.Fatalf("after %q append, walk = %v, want %v", name, visited, want)
 		}
+	}
+}
+
+// TestReplacementWalkSkipsZonesWithoutTheEventName pins the summary's event
+// mask: a walk for an event name no hot object in a zone carries visits none
+// of that zone, and the matching name still visits it.
+func TestReplacementWalkSkipsZonesWithoutTheEventName(t *testing.T) {
+	e := layerEngine(t)
+	repl := onBoard(t, e, 0, "Name:Replacement\nTypes:Creature\nPT:1/1\n"+
+		"R:Event$ CreateToken | ActiveZones$ Battlefield | ValidToken$ Creature | ReplaceWith$ ShiftCtrl | Description$ creates differently\n"+
+		"SVar:ShiftCtrl:DB$ ChangeController | Defined$ ReplacedToken | Controller$ You\nOracle:x\n")
+	var visited []state.ObjID
+	e.forEachReplacementSourceFor(replEventBit("DamageDone"), func(id state.ObjID) { visited = append(visited, id) })
+	if slices.Contains(visited, repl) {
+		t.Fatalf("a DamageDone walk visited the CreateToken-only source %d", repl)
+	}
+	visited = visited[:0]
+	e.forEachReplacementSourceFor(replEventBit("CreateToken"), func(id state.ObjID) { visited = append(visited, id) })
+	if !slices.Contains(visited, repl) {
+		t.Fatalf("a CreateToken walk skipped its source %d (visited %v)", repl, visited)
 	}
 }

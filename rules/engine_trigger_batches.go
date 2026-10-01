@@ -176,16 +176,50 @@ type engineTriggerBatches struct {
 	trigZones     []trigZoneSummary
 	trigZonesEp   int
 	trigFaceZones map[*cards.Face]uint8
+	// trigFaceKinds is faceTrigKinds' cache for faces outside the compiled
+	// face table (trigger_kinds.go): immutable syntax, scratch like
+	// trigFaceZones.
+	trigFaceKinds map[*cards.Face]faceTrigCache
+	// trigZoneGen counts summary changes (any write to a trigZones entry
+	// beyond a no-op confirmation); trigPlan is the whole-board walk plan
+	// keyed to it (trigger_plan.go). Scratch: a clone starts with no plan.
+	trigZoneGen uint64
+	trigPlan    trigPlan
+	// trigGrant proves that no active() entry can carry a granted trigger
+	// (trigger_grantfree.go), so the trigger walk's granted-static list is
+	// empty without building active().
+	trigGrant trigGrantProof
+	// trigWalkUnion is the last live walk's whole-board signature union,
+	// valid when trigWalkUnionOK (the zero-interest memo widens with it).
+	trigWalkUnion   trigSig
+	trigWalkUnionOK bool
 	// replZones / replZonesEp are the replacement-source walk's per-seat
 	// zone summaries (rules/repl_zoneskip.go): pure scratch validated on
 	// every use, so Clone copies neither.
 	replZones   []replZoneSummary
 	replZonesEp int
+	// replArena is the whole arena's replacement event-bit union
+	// (rules/repl_arena_mask.go); Clone carries it with the board.
+	replArena replArenaMask
 	// staticZones / staticZonesEp are the off-battlefield static-source
 	// walks' per-seat zone summaries (rules/static_zoneskip.go): pure scratch
 	// validated on every use, so Clone copies neither.
 	staticZones   []staticZoneSummary
 	staticZonesEp int
+	// walkObjCls is the offer walk's per-object class cache
+	// (rules/walk_objclass.go), indexed by ObjID-1 and kept exact by the
+	// staticZones catch-up: pure scratch, so Clone copies none.
+	walkObjCls []walkObjClass
+	// walkClsOwner is the engine walkObjCls belongs to: a by-value Engine
+	// copy sees another owner and starts its own (ownWalkClasses).
+	walkClsOwner *Engine
+	// offerProbeDepth counts the open face and cast probes (faceprobe.go,
+	// castprobe.go), whose no-event writes the class cache must not record.
+	offerProbeDepth int
+	// staticTouchGen counts the catch-up's touches of objects that are, or
+	// were, static-hot (walk_objclass.go: walkClassTouch): the static scans'
+	// cross-walk reuse keys on it (walkcache.go). Never cloned.
+	staticTouchGen uint64
 	// staticZoneVerified is verify-mode scratch (static_zoneskip.go's
 	// staticZoneSkipVerifyOnce): the (cur, hot) slices each summary slot was
 	// verified against inside the current verifyBoardStatics call

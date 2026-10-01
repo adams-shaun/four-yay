@@ -190,10 +190,14 @@ func (e *Engine) checkSagas(tried *sbaAttempts) bool {
 				// quiet key (rules/sbaquiet.go) does not cover.
 				e.sbaUnquiet = true
 			}
-			if busy || tried.sagas[id] {
+			if busy {
 				continue
 			}
-			tried.sagas[id] = true
+			if tried.sagas[id] {
+				tried.skips++
+				continue
+			}
+			markTried(&tried.sagas, id)
 			e.emit(events.Event{Kind: events.MoveZone, Obj: id,
 				From: state.ZBattlefield, To: state.ZGraveyard, Text: "saga concluded"})
 			changed = true

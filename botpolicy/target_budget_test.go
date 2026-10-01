@@ -20,7 +20,7 @@ import (
 // bot's own answer through Validate on the board where the constraint
 // binds.
 func TestTargetBudgetClampKeepsTheBotAnswerValid(t *testing.T) {
-	b := Board{Cards: map[state.ObjID]Card{}}
+	b := Board{Cards: TableOf(map[state.ObjID]Card{})}
 	d := decision.Decision{
 		Player: 0,
 		Kind:   decision.KTarget,
@@ -61,7 +61,7 @@ func TestTargetBudgetClampKeepsTheBotAnswerValid(t *testing.T) {
 // (both picks, 11 + (-1) = 10) is already valid and the bot produces the
 // compensated selection without needing a repair.
 func TestTargetBudgetNegativeOffsetProducesTheCompensatedSelection(t *testing.T) {
-	b := Board{Cards: map[state.ObjID]Card{}}
+	b := Board{Cards: TableOf(map[state.ObjID]Card{})}
 	d := decision.Decision{
 		Player: 0,
 		Kind:   decision.KTarget,
@@ -94,7 +94,7 @@ func TestTargetBudgetNegativeOffsetProducesTheCompensatedSelection(t *testing.T)
 // accepts on a board carrying a negative option -- the repaired answer is
 // valid even if it drops picks, never re-submitted and re-rejected.
 func TestTargetBudgetNegativeOffsetRepairStaysValid(t *testing.T) {
-	b := Board{Cards: map[state.ObjID]Card{}}
+	b := Board{Cards: TableOf(map[state.ObjID]Card{})}
 	d := decision.Decision{
 		Player: 0,
 		Kind:   decision.KTarget,
@@ -124,7 +124,7 @@ func TestTargetBudgetNegativeOffsetRepairStaysValid(t *testing.T) {
 // byte-for-byte -- Option.Value is unset on every existing target ask, so
 // no bot-answered game changes.
 func TestTargetWithoutMaxSumUnchanged(t *testing.T) {
-	b := Board{Cards: map[state.ObjID]Card{}}
+	b := Board{Cards: TableOf(map[state.ObjID]Card{})}
 	d := decision.Decision{
 		Player: 0,
 		Kind:   decision.KTarget,
@@ -150,7 +150,7 @@ func TestTargetWithoutMaxSumUnchanged(t *testing.T) {
 // an answer Validate rejects (the livelock the shared FitRequired rule
 // exists to prevent).
 func TestTargetBudgetNegativeCapTakesTheOffsets(t *testing.T) {
-	b := Board{Cards: map[state.ObjID]Card{}}
+	b := Board{Cards: TableOf(map[state.ObjID]Card{})}
 	d := decision.Decision{
 		Player:   0,
 		Kind:     decision.KTarget,
@@ -195,7 +195,7 @@ func TestTargetBudgetZeroCapNeedsBudgeted(t *testing.T) {
 	if err := d.Validate(decision.Intent{Choices: []int{0, 1}}); err == nil {
 		t.Fatal("a total of 1 validated under a present budget of 0")
 	}
-	in := Decide(Board{Cards: map[state.ObjID]Card{}}, &d, rng(1))
+	in := Decide(Board{Cards: TableOf(map[state.ObjID]Card{})}, &d, rng(1))
 	if err := d.Validate(in); err != nil {
 		t.Fatalf("bot answer %v failed Validate: %v", in.Choices, err)
 	}

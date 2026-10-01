@@ -65,7 +65,7 @@ func loopProfileDisableVerify() func() {
 		&manaPayFastVerify, &activeSummaryVerify, &manaSAFactsVerify,
 		&faceScanVerify, &livelockCandVerify, &priorityFlowVerify,
 		&replZoneSkipVerify, &sbaQuietVerify, &provenanceGateVerify,
-		&specDerivedVerify, &staticZoneSkipVerify,
+		&specDerivedVerify, &staticZoneSkipVerify, &manaPlainVerify,
 	}
 	old := make([]bool, len(ptrs))
 	for i, p := range ptrs {

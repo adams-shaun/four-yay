@@ -35,10 +35,15 @@ func TestStaticEffectsReusesBackingAcrossEvents(t *testing.T) {
 		t.Fatal("active sorting must use distinct storage and leave static scan order untouched")
 	}
 	epoch := e.staticEpoch
-	e.emit(events.Event{Kind: events.ClockTick})
+	// A static-quiet kind (layercache.go's staticQuietKinds, ClockTick among
+	// them) only re-stamps a gate-free memo -- and so does a library
+	// reorder of a library no effect comes from -- so force a real rebuild
+	// with a kind outside that set whose fold cannot change the scan.
+	seq := e.staticBuildSeq
+	e.emit(events.Event{Kind: events.Exert, Obj: bear})
 	e.active()
-	if e.staticEpoch <= epoch || e.staticEpoch != len(e.L.Events) {
-		t.Fatal("ClockTick did not refresh the static memo")
+	if e.staticEpoch <= epoch || e.staticEpoch != len(e.L.Events) || e.staticBuildSeq == seq {
+		t.Fatal("a non-quiet event did not rebuild the static memo")
 	}
 	if &e.staticContinuous[0] != backing {
 		t.Error("event-backed rebuild allocated new static effect storage")
@@ -109,12 +114,15 @@ func TestStaticEffectsCloneOwnsBacking(t *testing.T) {
 	e.active()
 	parentEffects := slices.Clone(e.staticContinuous)
 	c := e.Clone()
-	if c.staticContinuous != nil || c.staticEpoch != 0 {
-		t.Fatal("clone retained the parent's static scratch or cache key")
+	// The clone carries the parent's memo (same board, same log head) in its
+	// OWN outer storage, keyed to its own registry version.
+	if c.staticEpoch != e.staticEpoch || c.staticVersion != c.continuousVersion ||
+		len(c.staticContinuous) != 3 || &c.staticContinuous[0] == &e.staticContinuous[0] {
+		t.Fatal("clone did not carry the parent's static memo in its own storage")
 	}
 	c.active()
 	if len(c.staticContinuous) != 3 || !reflect.DeepEqual(c.staticContinuous, parentEffects) {
-		t.Fatal("clone did not rebuild the same three static effects")
+		t.Fatal("clone did not keep the same three static effects")
 	}
 	if &c.staticContinuous[0] == &e.staticContinuous[0] || &c.activeBuf[0] == &c.staticContinuous[0] {
 		t.Fatal("clone shares writable static storage with its parent or active list")
@@ -170,12 +178,71 @@ func TestStaticEffectsWarmRebuildAllocationBudget(t *testing.T) {
 		e.EndOfTurnCleanup()
 		// Force a genuine static rebuild without charging this measurement
 		// for event creation, hashing, trigger checks or log growth. The
-		// separate ClockTick test exercises real event-driven invalidation.
+		// event-driven test above exercises real invalidation.
 		e.staticEpoch = -1
 		staticEffectsBufferSink = e.active()
 	})
 	t.Logf("version-only rebuild = %.0f allocations; static rescan = %.0f", versionOnly, withStaticScan)
 	if extra := withStaticScan - versionOnly; extra > 1 {
 		t.Fatalf("warm static rescan added %.0f allocations, want at most 1 for unchanged seat traversal", extra)
+	}
+}
+
+// TestStaticMemoRestampsAcrossQuietEvents pins staticQuietKinds' admission:
+// on a state-read-free board a quiet event (a tap, a step change) re-stamps
+// the static memo instead of rescanning -- on a gated board too, once every
+// recorded gate re-evaluates unchanged (static_gatememo.go) -- while a quiet
+// event that flips a gate (the untapped-creature count below) rescans.
+// layerInertVerify (on in this binary) re-checks every re-stamp against a
+// fresh scan.
+func TestStaticMemoRestampsAcrossQuietEvents(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		src     string
+		restamp bool
+	}{
+		{"gate-free", staticBufferGrantSrc, true},
+		{"gated", "Name:Gated grant\nTypes:Enchantment\n" +
+			"S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | IsPresent$ Creature.YouCtrl\nOracle:x\n", true},
+		{"gate-flipped", "Name:Gated grant\nTypes:Enchantment\n" +
+			"S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 1 | IsPresent$ Creature.YouCtrl+untapped\nOracle:x\n", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e := layerEngine(t)
+			onBoardGrant(t, e, 0, tc.src)
+			bear := onBoardGrant(t, e, 0, creatureSrc("Quiet bear"))
+			e.active()
+			seq := e.staticBuildSeq
+			e.emit(events.Event{Kind: events.Tap, Obj: bear})
+			e.emit(events.Event{Kind: events.StepChange, Step: state.StepDraw})
+			e.active()
+			if e.staticEpoch != len(e.L.Events) {
+				t.Fatal("static memo not brought up to the log head")
+			}
+			if restamped := e.staticBuildSeq == seq; restamped != tc.restamp {
+				t.Fatalf("re-stamped = %v, want %v (gated %v, state-read %v)", restamped, tc.restamp, e.staticMemoGated, e.staticMemoStateRead)
+			}
+		})
+	}
+}
+
+// TestStaticMemoMoveAdmission pins staticMoveCold: on a quiet board a
+// static-free creature's zone move re-stamps the memo, while moving the
+// static's own source rescans (and drops its effects).
+func TestStaticMemoMoveAdmission(t *testing.T) {
+	e := layerEngine(t)
+	lord := onBoardGrant(t, e, 0, staticBufferGrantSrc)
+	bear := onBoardGrant(t, e, 0, creatureSrc("Moving bear"))
+	e.active()
+	seq := e.staticBuildSeq
+	e.emit(events.Event{Kind: events.MoveZone, Obj: bear, From: state.ZBattlefield, To: state.ZGraveyard})
+	e.active()
+	if e.staticBuildSeq != seq || len(e.staticContinuous) != 3 {
+		t.Fatalf("static-free move: rebuilt %v, %d effects; want a re-stamp keeping 3", e.staticBuildSeq != seq, len(e.staticContinuous))
+	}
+	e.emit(events.Event{Kind: events.MoveZone, Obj: lord, From: state.ZBattlefield, To: state.ZGraveyard})
+	e.active()
+	if e.staticBuildSeq == seq || len(e.staticContinuous) != 0 {
+		t.Fatalf("source move: rebuilt %v, %d effects; want a rescan leaving none", e.staticBuildSeq != seq, len(e.staticContinuous))
 	}
 }

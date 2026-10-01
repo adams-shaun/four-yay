@@ -1,11 +1,12 @@
 package rules
 
 import (
+	"strings"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
-	"strings"
 )
 
 // drawMatchAmount is the replacement-CONTEXT amount of a Draw event: a
@@ -294,7 +295,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 				return false
 			}
 		}
-		if v, ok := r.Params["ValidCard"]; ok &&
+		if v, ok := r.Param(cards.PKValidCard); ok &&
 			!e.matchesSpecFrom(v, ev.Obj, you, source) {
 			return false
 		}
@@ -815,7 +816,7 @@ func (e *Engine) replacementConditionHolds(r cards.Repl, source state.ObjID, you
 	// function reads only IsPresent$, so a band written anywhere else would be
 	// silently ignored and a level-N granted replacement would be live from
 	// level 1.
-	if !e.classBandGateHolds(r.Params, source) {
+	if !e.classBandGateHolds(r.ParamStr(cards.PKClassBand), source) {
 		return false
 	}
 	if spec, ok := r.Params["IsPresent"]; ok {

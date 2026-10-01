@@ -1,5 +1,10 @@
 package rules
 
+import (
+	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/state"
+)
+
 // engineLayerCaches groups the Engine's layer memoisation and arena-scan
 // caches that a clone deliberately leaves zero. It is embedded by value in
 // Engine (rules/engine_struct.go), so every field keeps its documented
@@ -45,6 +50,22 @@ type engineLayerCaches struct {
 	// invariant under a static-cold token entry. Reset at the top of each
 	// full staticEffectsWalk and set at the one gate site.
 	staticMemoGated bool
+	// staticMemoStateRead records whether the last full staticEffects build
+	// made a read outside the static-quiet input (layercache.go's
+	// staticQuietKinds): a GainsAbilitiesOf$/GainsAbilitiesOfDefined$/
+	// GainsTriggerAbsOf$ spec, an AddStaticAbility$ Affected$ match, a CDA
+	// P/T count, or an ImprintedCreatureType lookup. Any of them can read
+	// state a quiet event writes, so staticSafeSince admits quiet events only
+	// when it is false. Reset and set exactly like staticMemoGated.
+	staticMemoStateRead bool
+	// staticGates is every continuous gate the last full staticEffects build
+	// evaluated, in scan order, with its outcome (static_gatememo.go): a
+	// gated, state-read-free build is re-stamped across a quiet run when
+	// every one of them re-evaluates unchanged. staticGatesKnown says the
+	// list belongs to the current memo (a clone that did not carry it, or a
+	// fresh engine, has none). Reset at the top of each full walk.
+	staticGates      []staticGateRec
+	staticGatesKnown bool
 	// staticBuildSeq counts staticEffects REBUILDS (never a layer-inert
 	// re-stamp or an exact hit). The memo is refreshable OUTSIDE active() --
 	// staticControlWants (control_static.go) calls refreshStaticContinuous
@@ -90,17 +111,50 @@ type engineLayerCaches struct {
 	// Clone() copies none of these fields (see clone.go); a cloned engine
 	// starts with a zero key and rebuilds identically on its first Derived.
 	activeBuf []ContinuousEffect
+	// activeSrc is active()'s build scratch: pointers to the effects a build
+	// assembles, sorted before they are copied (layers.go). Cleared after
+	// every build; recycled through a Spare, never cloned.
+	activeSrc []*ContinuousEffect
 	// activeKWHeads is the deduplicated KeywordHead of every AddKeywords
 	// entry across activeBuf, rebuilt with it (layers.go's active()) and read
 	// by keywordmay.go's exact Derived-keyword precheck. Never cloned, like
 	// activeBuf: a clone's zero key rebuilds both together.
 	activeKWHeads []string
+	// activeKWHeadSet is activeKWHeads as interned keyword-head ordinals,
+	// valid (activeKWHeadSetOK) only when every head interned; set with
+	// activeKWHeads at each assignment (kwHeadSetOf).
+	activeKWHeadSet   cards.KeywordHeadSet
+	activeKWHeadSetOK bool
 	// activeBuildSeq counts active()'s REBUILDS (never its exact or
 	// layer-inert hits). derivedmemo.go's cross-walk reuse keys on it: an
 	// unchanged count means no non-inert event, continuous-registry write,
 	// object-count change or explicit invalidation has reached active() since.
 	// Never cloned: a clone starts at zero with an empty memo.
 	activeBuildSeq uint64
+	// derivedSeq is the Derived memo's cross-walk key (derived_transparent.go):
+	// it moves with activeBuildSeq except across a rebuild that provably left
+	// every derivation unchanged. activeBufAlt is the other half of activeBuf's
+	// double buffer (the previous build's list, kept intact so the next
+	// rebuild can be compared with it), and derivedPrev* the key the previous
+	// build (or layer-inert re-stamp) was taken at. Never cloned: a clone's
+	// zero values make its first build move derivedSeq off zero.
+	derivedSeq         uint64
+	activeBufAlt       []ContinuousEffect
+	derivedPrevEpoch   int
+	derivedPrevVersion int
+	derivedPrevObjs    int
+	// derivedPrevEntered is len(e.G.Entered) at the same point (the zone
+	// ledger check of a battlefield-crossing transparent rebuild), and
+	// derivedBFSeq counts the transparent rebuilds whose run moved an object
+	// across the battlefield boundary or out of exile: derivedSeq alone no
+	// longer proves the battlefield's membership unchanged (setname.go's
+	// rename table keys on both). Never cloned.
+	derivedPrevEntered int
+	derivedBFSeq       uint64
+	// activeList records what activeBuf was assembled from (active_same.go);
+	// never cloned, so a clone's first build is a full one.
+	activeList     activeListKey
+	derivedTouched []state.ObjID
 	activeEpoch    int
 	activeVersion  int
 	activeDepth    int

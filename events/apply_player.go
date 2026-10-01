@@ -12,7 +12,7 @@ import (
 )
 
 // foldPlayerLost folds Kind PlayerLost into state.
-func foldPlayerLost(g *state.Game, e Event) {
+func foldPlayerLost(g *state.Game, e *Event) {
 	if validPlayer(g, e.Player) {
 		g.Players[e.Player].Lost = true
 		// CR 723.4/723.5: a player-controlling effect ends when either
@@ -43,7 +43,7 @@ func foldPlayerLost(g *state.Game, e Event) {
 }
 
 // foldGameOver folds Kind GameOver into state.
-func foldGameOver(g *state.Game, e Event) {
+func foldGameOver(g *state.Game, e *Event) {
 	// Ruling T22-g (fix round 1): the first GameOver wins; a later one
 	// on an already-finished game is a no-op. Without this guard, a log
 	// carrying two GameOver events (a duplicate, a replay quirk, a
@@ -90,7 +90,7 @@ func foldGameOver(g *state.Game, e Event) {
 }
 
 // foldControlChange folds Kind ControlChange into state.
-func foldControlChange(g *state.Game, e Event) {
+func foldControlChange(g *state.Game, e *Event) {
 	if validPlayer(g, e.Player) {
 		if o := g.Obj(e.Obj); o != nil {
 			// CR 701.54b: a Ring-bearer designation ends "until another
@@ -123,7 +123,7 @@ func foldControlChange(g *state.Game, e Event) {
 }
 
 // foldControlPlayerChange folds Kind ControlPlayerChange into state.
-func foldControlPlayerChange(g *state.Game, e Event) {
+func foldControlPlayerChange(g *state.Game, e *Event) {
 	// CR 720: Player is the controlling seat and IDs[0] the controlled
 	// seat. +1 grants (and stamps g.Turn as the armed turn), -1 expires at
 	// the end of the controlled player's next turn. Both are folded so a
@@ -159,21 +159,21 @@ func foldControlPlayerChange(g *state.Game, e Event) {
 }
 
 // foldLifeChange folds Kind LifeChange into state.
-func foldLifeChange(g *state.Game, e Event) {
+func foldLifeChange(g *state.Game, e *Event) {
 	if validPlayer(g, e.Player) {
 		g.Players[e.Player].Life += e.Amount
 	}
 }
 
 // foldPlayerCounterChange folds Kind PlayerCounterChange into state.
-func foldPlayerCounterChange(g *state.Game, e Event) {
+func foldPlayerCounterChange(g *state.Game, e *Event) {
 	if validPlayer(g, e.Player) {
 		g.Players[e.Player].AddCounter(e.Counter, e.Amount)
 	}
 }
 
 // foldCounterChange folds Kind CounterChange into state.
-func foldCounterChange(g *state.Game, e Event) {
+func foldCounterChange(g *state.Game, e *Event) {
 	if e.Text != EntryCounterNotice {
 		if o := g.Obj(e.Obj); o != nil {
 			o.AddCounter(e.Counter, e.Amount)
@@ -182,7 +182,7 @@ func foldCounterChange(g *state.Game, e Event) {
 }
 
 // foldTargetsChosen folds Kind TargetsChosen into state.
-func foldTargetsChosen(g *state.Game, e Event) {
+func foldTargetsChosen(g *state.Game, e *Event) {
 	// Amount discriminates the target shape (Ruling T14-b's own
 	// discriminator, extended by Task 4 with two more shapes that
 	// APPEND rather than replace -- a spell can gain a second target
@@ -225,7 +225,7 @@ func foldTargetsChosen(g *state.Game, e Event) {
 }
 
 // foldAlterAttribute folds Kind AlterAttribute into state.
-func foldAlterAttribute(g *state.Game, e Event) {
+func foldAlterAttribute(g *state.Game, e *Event) {
 	// The AlterAttribute fold (task alterattr1): the engine models the
 	// "Saddled" (CR 702.171), "Suspected" (CR 702.157) and "Plotted"
 	// (CR 701.34, task kw-plot)
@@ -294,7 +294,7 @@ func foldAlterAttribute(g *state.Game, e Event) {
 }
 
 // foldImprint folds Kind Imprint into state.
-func foldImprint(g *state.Game, e Event) {
+func foldImprint(g *state.Game, e *Event) {
 	if o := g.Obj(e.Obj); o != nil {
 		if e.Text == "clear" {
 			o.Imprinted = nil

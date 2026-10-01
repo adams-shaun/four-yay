@@ -1555,8 +1555,9 @@ var apiSpecificRulesSA = map[string][]string{
 	// reachable from the viewer's projection on every priority decision, so
 	// without this entry their reads would join the generic union and mask
 	// Sacrifice's unread Produced$/DealDamage's unread Produced$.
-	"addPotentialMana": {"Mana"},
-	"potentialAmount":  {"Mana"},
+	"addPotentialMana":        {"Mana"},
+	"computePotentialManaAdd": {"Mana"},
+	"potentialAmount":         {"Mana"},
 	// The potential-play planner's relaxed census proof (rules/
 	// potential_plan.go): it reads a missed MANA ability's Cost$/Produced$/
 	// ActivationLimit$ (it returns at once for any other API), so its reads
@@ -1603,7 +1604,10 @@ var apiSpecificRulesSA = map[string][]string{
 	// (availableManaAbilitiesForWindow), so its Reads belong to api:Mana
 	// alone -- left in the generic union they would mask every other
 	// API's unread Produced$ (measured: api:Sacrifice/api:DealDamage).
-	"Engine.windowManaUnits": {"Mana"},
+	// The reads live in computeManaStaticFacts, the census's per-ability
+	// text facts (rules/mana_safacts.go), which the census and the payment
+	// planner's alternatives read instead of the Params.
+	"computeManaStaticFacts": {"Mana"},
 	// The attack-prop payment window's choice-shaped membership
 	// (rules/attack_cost.go attackChoiceManaSources): it walks the payer's
 	// battlefield and reads each window-usable mana ability's Produced$ (plus
@@ -1644,9 +1648,8 @@ var apiSpecificRulesSA = map[string][]string{
 	// reads Produced$/RestrictValid$/Cost$ (and the Amount$ helper) to build a
 	// replayable tap witness.  These reads cannot make those parameters appear
 	// implemented on unrelated resolving APIs such as Sacrifice or DealDamage.
-	"Engine.paymentPlanManaUnits":        {"Mana"},
-	"Engine.paymentPlanUnitAlternatives": {"Mana"},
-	"Engine.paymentPlanChoiceColours":    {"Mana"},
+	"Engine.paymentPlanManaUnitsOnlyCompute": {"Mana"},
+	"Engine.paymentPlanChoiceColours":        {"Mana"},
 	// The payment-plan source-interference check (ticket
 	// aph-interference-scope, rules/payment_plan_interference.go) is reached
 	// only from paymentPlanAbilityTier, i.e. for an AB$ Mana candidate: it
@@ -1736,6 +1739,11 @@ var apiSpecificRulesSA = map[string][]string{
 	"Engine.entryBodyCounterGrants": {"PutCounter"},
 	"entryBodyKindEncodable":        {"PutCounter"},
 	"entryBodyAbsorbable":           {"PutCounter"},
+
+	// plainManaShape (rules/mana_plain.go) returns at once unless the
+	// ability is api:Mana, so its Produced$/Amount$/Cost$ reads belong to
+	// api:Mana alone.
+	"plainManaShape": {"Mana"},
 }
 
 // apiSpecificRulesStat is the stat-bucket twin of apiSpecificRulesSA: it

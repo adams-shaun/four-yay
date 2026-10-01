@@ -96,8 +96,10 @@ type scriptSearch struct {
 	limited   bool // the budget ran out
 	approx    bool // a branch assumed an answer it did not enumerate
 	seen      map[string]bool
-	spare     Spare
 	path      []ScriptStep
+	// pool is the live engine whose hypothetical-clone pool backs the
+	// search's nested witness checks (hypclone.go); set by run.
+	pool *Engine
 }
 
 func (e *Engine) newScriptSearch(p state.PlayerID, a decision.PotentialAction, altCost, budget int) *scriptSearch {
@@ -111,7 +113,11 @@ func (e *Engine) newScriptSearch(p state.PlayerID, a decision.PotentialAction, a
 // run searches from a clone of e; found reports a path (possibly empty,
 // when the play is already payable at the root).
 func (sr *scriptSearch) run(e *Engine) ([]ScriptStep, bool) {
-	if !sr.visit(e.Clone(), 0, false) {
+	sr.pool = e
+	root := e.hypClone(e)
+	found := sr.visit(root, 0, false)
+	e.hypRelease(root)
+	if !found {
 		return nil, false
 	}
 	return append([]ScriptStep(nil), sr.path...), true
@@ -127,7 +133,7 @@ func (sr *scriptSearch) offered(o *decision.Option) bool {
 // is neither a witness nor a proof marks the search unproven.
 func (sr *scriptSearch) priced(c *Engine) bool {
 	c.paymentPlanPotentialPool = true
-	defer c.paymentPlanQueryScope()()
+	defer c.paymentPlanQueryEnd(c.paymentPlanQueryBegin())
 	o := decision.Option{Kind: sr.play.Kind, Obj: sr.play.Obj, Ability: sr.play.Ability, Mode: sr.play.Mode, AltCostIndex: max(sr.altCost, 0)}
 	got, _ := c.potentialPlayVerdict(sr.p, o)
 	// Only a search that leans on these verdicts for its proof (nodePlans)
@@ -139,7 +145,7 @@ func (sr *scriptSearch) priced(c *Engine) bool {
 		}
 		return false
 	}
-	if paymentPlanConsumes(*got.Plan) && !c.potentialWitnessReaches(sr.p, o, *got.Plan) {
+	if paymentPlanConsumes(*got.Plan) && !c.witnessReachesFrom(sr.pool, sr.p, o, *got.Plan) {
 		if sr.nodePlans {
 			sr.unproven = true
 		}
@@ -152,16 +158,18 @@ func (sr *scriptSearch) priced(c *Engine) bool {
 // records that the path activated an uncovered source (or let the stack
 // resolve): only then can the planner's verdict differ from the root's.
 func (sr *scriptSearch) try(c *Engine, d *decision.Decision, in decision.Intent, funded int, gapUsed bool) bool {
-	child := c.CloneInto(&sr.spare)
+	child := sr.pool.hypClone(c)
+	found := false
 	if child.Submit(in) == nil {
 		sr.path = append(sr.path, scriptStepOf(d, in))
-		if sr.visit(child, funded, gapUsed) {
-			return true
+		if found = sr.visit(child, funded, gapUsed); !found {
+			sr.path = sr.path[:len(sr.path)-1]
 		}
-		sr.path = sr.path[:len(sr.path)-1]
 	}
-	sr.spare = child.Release()
-	return false
+	// The path holds plain values (scriptStepOf), so the clone is dead
+	// either way.
+	sr.pool.hypRelease(child)
+	return found
 }
 
 func (sr *scriptSearch) visit(c *Engine, funded int, gapUsed bool) bool {
@@ -262,7 +270,7 @@ func (sr *scriptSearch) visit(c *Engine, funded int, gapUsed bool) bool {
 func (e *Engine) scriptNodeGaps(p state.PlayerID) []state.ObjID {
 	e.beginDerivedMemo()
 	defer e.endDerivedMemo()
-	defer e.paymentPlanQueryScope()()
+	defer e.paymentPlanQueryEnd(e.paymentPlanQueryBegin())
 	e.paymentPlanPotentialPool = true
 	hyp := e.PotentialMana(p)
 	return e.paymentPlanCensusOf(p, &hyp).gaps
@@ -360,6 +368,13 @@ func scriptStateKey(c *Engine, p state.PlayerID) string {
 // permanent may be the play's only target, or feed a trigger, which the
 // planner's mana accounting cannot see.
 func (e *Engine) potentialWitnessReaches(p state.PlayerID, o decision.Option, plan decision.PaymentPlan) bool {
+	return e.witnessReachesFrom(e, p, o, plan)
+}
+
+// witnessReachesFrom is potentialWitnessReaches drawing its clones' storage
+// from pool's hypothetical-clone pool (pool is e, or the live engine whose
+// own hypothetical search made e).
+func (e *Engine) witnessReachesFrom(pool *Engine, p state.PlayerID, o decision.Option, plan decision.PaymentPlan) bool {
 	if e.Pending() == nil {
 		return false
 	}
@@ -397,8 +412,10 @@ func (e *Engine) potentialWitnessReaches(p state.PlayerID, o decision.Option, pl
 		}
 		if d.Kind != decision.KPriority {
 			for _, in := range scriptAnswers(d) {
-				child := c.Clone()
-				if child.Submit(in) == nil && visit(child, next, expect, waits) {
+				child := pool.hypClone(c)
+				ok := child.Submit(in) == nil && visit(child, next, expect, waits)
+				pool.hypRelease(child)
+				if ok {
 					return true
 				}
 			}
@@ -419,9 +436,11 @@ func (e *Engine) potentialWitnessReaches(p state.PlayerID, o decision.Option, pl
 			}
 			for _, opt := range d.Options {
 				if opt.Kind == "pass" {
-					child := c.Clone()
-					return child.Submit(decision.Intent{Seq: d.Seq, Player: p, Choices: []int{opt.Index}}) == nil &&
+					child := pool.hypClone(c)
+					ok := child.Submit(decision.Intent{Seq: d.Seq, Player: p, Choices: []int{opt.Index}}) == nil &&
 						visit(child, next, expect, waits+1)
+					pool.hypRelease(child)
+					return ok
 				}
 			}
 			return false
@@ -435,14 +454,19 @@ func (e *Engine) potentialWitnessReaches(p state.PlayerID, o decision.Option, pl
 			for i, n := range act.Produces {
 				want[i] += int32(n)
 			}
-			child := c.Clone()
-			if child.Submit(decision.Intent{Seq: d.Seq, Player: p, Choices: []int{opt.Index}}) == nil && visit(child, next+1, want, waits) {
+			child := pool.hypClone(c)
+			ok := child.Submit(decision.Intent{Seq: d.Seq, Player: p, Choices: []int{opt.Index}}) == nil && visit(child, next+1, want, waits)
+			pool.hypRelease(child)
+			if ok {
 				return true
 			}
 		}
 		return false
 	}
-	return visit(e.Clone(), 0, e.G.Players[p].Pool, 0)
+	root := pool.hypClone(e)
+	ok := visit(root, 0, e.G.Players[p].Pool, 0)
+	pool.hypRelease(root)
+	return ok
 }
 
 // PotentialPlayScript is the exact fallback for a potential play the
@@ -484,7 +508,7 @@ func (e *Engine) PotentialPlayScript(p state.PlayerID, a decision.PotentialActio
 	func() {
 		e.beginDerivedMemo()
 		defer e.endDerivedMemo()
-		defer e.paymentPlanQueryScope()()
+		defer e.paymentPlanQueryEnd(e.paymentPlanQueryBegin())
 		prev := e.paymentPlanPotentialPool
 		e.paymentPlanPotentialPool = true
 		defer func() { e.paymentPlanPotentialPool = prev }()

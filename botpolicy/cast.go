@@ -583,8 +583,8 @@ func (b Board) castScore(o decision.Option) int32 {
 	// CreatureToughness is a cast-scorer feature, not part of the shared
 	// base worth (cardWorth): the discard and commander-zone paths price a
 	// creature by its power alone, the cast path may price the body.
-	if b.Cards[o.Obj].Creature {
-		s += w.CreatureToughness * b.Cards[o.Obj].Toughness
+	if b.Cards.Get(o.Obj).Creature {
+		s += w.CreatureToughness * b.Cards.Get(o.Obj).Toughness
 	}
 	switch o.Mode {
 	// The and/or Kicker's per-part modes are kicked casts too (each a
@@ -605,7 +605,7 @@ func (b Board) castScore(o decision.Option) int32 {
 // base-worth feature: it belongs to the cast scorer alone (castScore).
 func (b Board) cardWorth(id state.ObjID) int32 {
 	w := b.castWeights()
-	c := b.Cards[id]
+	c := b.Cards.Get(id)
 	if c.Creature {
 		return w.CreatureBase + w.CreaturePower*c.Power
 	}
@@ -616,7 +616,7 @@ func (b Board) cardWorth(id state.ObjID) int32 {
 // mana-value-scaled recast penalty shared with commander_zone (policy.go's
 // KCommanderZone branch), now priced by the Board's cast profile.
 func (b Board) commandTax(id state.ObjID) int32 {
-	return b.castWeights().CommanderTaxScale * b.Commanders[id].Casts * b.Cards[id].CMC
+	return b.castWeights().CommanderTaxScale * b.Commanders.Get(id).Casts * b.Cards.Get(id).CMC
 }
 
 // chooseCast is the KPriority cast ranking: it picks ONE of the offered
@@ -747,14 +747,15 @@ func (b Board) chooseCast(d *decision.Decision) int {
 	if w.SetValue != 0 {
 		entries = b.castEntries(d, foreignSpell)
 	}
-	for _, o := range d.Options {
+	for oi := range d.Options {
+		o := &d.Options[oi]
 		if o.Kind != "cast" {
 			continue
 		}
 		// C8: a counter with no foreign spell to counter is not cast at all,
 		// whatever it would otherwise score — the wasted self-counter is
 		// refused at the commit point, before the mana is ever spent.
-		if b.Cards[o.Obj].Counter && !foreignSpell {
+		if b.Cards.Get(o.Obj).Counter && !foreignSpell {
 			continue
 		}
 		// CR1: price the command-zone tax on the commander's mana value, not
@@ -766,8 +767,8 @@ func (b Board) chooseCast(d *decision.Decision) int {
 		// and seat/bot.go's BoardFromView the same). A command-zone cast is
 		// also never held for the reserve's sake (the deck must be able to
 		// cast its commander), so it is priced by value alone.
-		inCmd := b.Commanders[o.Obj].InCommandZone
-		s := b.castScore(o)
+		inCmd := b.Commanders.Get(o.Obj).InCommandZone
+		s := b.castScore(*o)
 		// The context features, dotted with their weights. With the default
 		// profile every weight here is 0, so the default bot's pick is the
 		// pre-refactor arithmetic to the digit (pinned by cast_weights_test.go).
@@ -778,7 +779,7 @@ func (b Board) chooseCast(d *decision.Decision) int {
 		// ManaLeft, InstantOnOwnTurn) separate casts the base worth ties. With
 		// a C9 threshold set, the constants become meaningful in a second way:
 		// they move the cast/hold boundary instead of only reordering casts.
-		cost := b.castCost(o.Obj, b.Cards[o.Obj])
+		cost := b.castCost(o.Obj, b.Cards.Get(o.Obj))
 		// The mana-side features below ask what mana is LEFT after this cast
 		// (ManaLeft) or whether it keeps the C7 reserve. On a plan-backed
 		// candidate the auto-pay adapter performs the cast's mana
@@ -796,14 +797,14 @@ func (b Board) chooseCast(d *decision.Decision) int {
 		if b.FirstMain {
 			s += w.Precombat // Precombat feature: 1 in the first main phase
 		}
-		if b.MyTurn && b.IsMain && b.Cards[o.Obj].InstantSpeed {
+		if b.MyTurn && b.IsMain && b.Cards.Get(o.Obj).InstantSpeed {
 			s += w.InstantOnOwnTurn // instant-speed card in the seat's own main phase
 		}
 		// The window features (fixed evaluation order): each is the
 		// instant-speed class conjuncted with the step and turn the cast
 		// is being offered in. A weight 0 on every one skips all four, so
 		// the default arithmetic is unchanged (pinned by cast_weights_test.go).
-		if b.Cards[o.Obj].InstantSpeed {
+		if b.Cards.Get(o.Obj).InstantSpeed {
 			if b.MyTurn {
 				switch b.Step {
 				case state.StepUntap, state.StepUpkeep, state.StepDraw:
@@ -834,12 +835,12 @@ func (b Board) chooseCast(d *decision.Decision) int {
 		// weight reads on the same scale as the other features.
 		if w.SetValue != 0 {
 			eff := b.setEfficiency(entries,
-				castEntry{obj: o.Obj, cost: cost, score: b.castScore(o)}, ctx.producible-cost)
+				castEntry{obj: o.Obj, cost: cost, score: b.castScore(*o)}, ctx.producible-cost)
 			s += w.SetValue * eff / 8
 		}
 		// C10's interaction features: the card's class conjuncted with the
 		// same decision-level context, fixed evaluation order.
-		card := b.Cards[o.Obj]
+		card := b.Cards.Get(o.Obj)
 		if card.Creature {
 			if b.FirstMain {
 				s += w.CreaturePrecombat // creature × first main phase
@@ -907,16 +908,18 @@ type castContext struct {
 // count), so no map iteration order reaches it.
 func (b Board) castContextFor(d *decision.Decision) castContext {
 	ctx := castContext{poolTotal: b.Pool.Total(), producible: b.producibleMana()}
-	for _, cr := range b.Creatures {
+	crs := b.Creatures.Values()
+	for i := range crs {
+		cr := &crs[i]
 		if cr.Controller == d.Player {
 			ctx.ownCreatures++
 		} else {
 			ctx.oppCreatures++
 		}
 	}
-	own := b.Life[d.Player]
+	own := b.Life.Get(d.Player)
 	low, hasOpp := int32(0), false
-	for p, life := range b.Life {
+	for p, life := range b.Life.All() {
 		if p == d.Player {
 			continue
 		}
@@ -935,7 +938,9 @@ func (b Board) castContextFor(d *decision.Decision) castContext {
 // CurveFit feature's "mana the seat can produce" side).
 func (b Board) producibleMana() int32 {
 	total := b.Pool.Total()
-	for _, c := range b.Cards {
+	cs := b.Cards.Values()
+	for i := range cs {
+		c := &cs[i]
 		if !c.OnBattlefield || c.Tapped {
 			continue
 		}
@@ -955,7 +960,9 @@ func (b Board) producibleMana() int32 {
 // enable it. A land (CMC 0) contributes nothing -- it has no pips.
 func (b Board) colourNeed() [5]int32 {
 	var need [5]int32
-	for _, c := range b.Cards {
+	cs := b.Cards.Values()
+	for i := range cs {
+		c := &cs[i]
 		if !c.Castable || c.CMC <= 0 {
 			continue
 		}
@@ -982,7 +989,9 @@ func (b Board) availableColours() [5]int32 {
 	for i := 0; i < 5; i++ {
 		avail[i] = b.Pool[i]
 	}
-	for _, c := range b.Cards {
+	cs := b.Cards.Values()
+	for i := range cs {
+		c := &cs[i]
 		if !c.OnBattlefield {
 			continue
 		}
@@ -1008,7 +1017,9 @@ func (b Board) availableColours() [5]int32 {
 // commander) is still made even if it spends that reserve.
 func (b Board) reserve() int32 {
 	var min int32 = -1
-	for _, c := range b.Cards {
+	cs := b.Cards.Values()
+	for i := range cs {
+		c := &cs[i]
 		if !c.Castable || !c.InstantSpeed || c.CMC <= 0 {
 			continue
 		}
@@ -1028,7 +1039,7 @@ func (b Board) reserve() int32 {
 // poolPays reads, so the reserve and the tap gate price the same cast.
 func (b Board) castCost(id state.ObjID, c Card) int32 {
 	cost := c.CMC
-	if cmdr, ok := b.Commanders[id]; ok && cmdr.InCommandZone {
+	if cmdr, ok := b.Commanders.Lookup(id); ok && cmdr.InCommandZone {
 		cost += 2 * cmdr.Casts
 	}
 	return cost
@@ -1071,7 +1082,7 @@ func (b Board) ForeignSpell(player state.PlayerID) bool {
 // reads the same rule rather than re-deriving it. A non-counter is never
 // dead. The card must already be in b.Cards.
 func (b Board) CounterIsDead(player state.PlayerID, id state.ObjID) bool {
-	return b.Cards[id].Counter && !b.ForeignSpell(player)
+	return b.Cards.Get(id).Counter && !b.ForeignSpell(player)
 }
 
 // castEntries builds C11's candidate table: every cast option that survives
@@ -1082,17 +1093,18 @@ func (b Board) CounterIsDead(player state.PlayerID, id state.ObjID) bool {
 // map iteration order reaches a score.
 func (b Board) castEntries(d *decision.Decision, foreignSpell bool) []castEntry {
 	byObj := make(map[state.ObjID]castEntry)
-	for _, o := range d.Options {
+	for oi := range d.Options {
+		o := &d.Options[oi]
 		if o.Kind != "cast" {
 			continue
 		}
-		if b.Cards[o.Obj].Counter && !foreignSpell {
+		if b.Cards.Get(o.Obj).Counter && !foreignSpell {
 			continue
 		}
 		e := byObj[o.Obj]
 		e.obj = o.Obj
-		e.cost = b.castCost(o.Obj, b.Cards[o.Obj])
-		if sc := b.castScore(o); sc > e.score {
+		e.cost = b.castCost(o.Obj, b.Cards.Get(o.Obj))
+		if sc := b.castScore(*o); sc > e.score {
 			e.score = sc
 		}
 		byObj[o.Obj] = e
@@ -1206,11 +1218,12 @@ func (b Board) chooseLand(d *decision.Decision) int {
 	bestCover := int32(-1)
 	bestBasic := false
 	bestFlex := 0
-	for _, o := range d.Options {
+	for oi := range d.Options {
+		o := &d.Options[oi]
 		if o.Kind != "play_land" {
 			continue
 		}
-		c := b.Cards[o.Obj] // zero facts read as no coverage/nonbasic/flex 0, never a crash
+		c := b.Cards.Get(o.Obj) // zero facts read as no coverage/nonbasic/flex 0, never a crash
 		prod := c.Produces
 		var cover int32
 		for i := 0; i < 5; i++ {

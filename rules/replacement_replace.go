@@ -1,12 +1,13 @@
 package rules
 
 import (
+	"strconv"
+	"strings"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
-	"strconv"
-	"strings"
 )
 
 // ReplaceEvent implements effects.Host. It rewrites the amount of the Damage
@@ -157,7 +158,7 @@ func replCountOp(base int32, op string) int32 {
 // replacementCondition reads the common CheckSVar$/SVarCompare$ gate (Phial
 // of Galadriel) from the replacement source's current context.
 func (e *Engine) replacementCondition(source state.ObjID, r *cards.Repl) bool {
-	if !e.classBandGateHolds(r.Params, source) {
+	if !e.classBandGateHolds(r.ParamStr(cards.PKClassBand), source) {
 		return false
 	}
 	o := e.G.Obj(source)

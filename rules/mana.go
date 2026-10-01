@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"fmt"
 	"math"
 	"regexp"
 	"slices"
@@ -770,6 +771,19 @@ func ParseCost(s string) Cost {
 		case isHybridPhyrexian(sym):
 			c.HybridPhyrexian = append(c.HybridPhyrexian, hybridPhyrexianPair(sym))
 		default:
+			// A generic amount ("2"): every head regexp below is anchored on a
+			// letter, so a token opening with a digit or a sign matches none
+			// of them and lands on the numeric parse at the end of this
+			// branch. Go straight there instead of trying ~30 patterns.
+			if c0 := sym[0]; c0 >= '0' && c0 <= '9' || c0 == '-' || c0 == '+' {
+				if n, err := strconv.ParseInt(sym, 10, 64); err == nil && n >= 0 && n <= int64(math.MaxInt32) {
+					c.Generic = addClampedGeneric(c.Generic, n)
+					continue
+				}
+				c.reportUnknown(sym)
+				c.Generic = addClampedGeneric(c.Generic, 1)
+				continue
+			}
 			if m := waterbendCost.FindStringSubmatch(sym); m != nil {
 				// Waterbend<N> / Waterbend<X> (the keyword action "waterbend
 				// {N}": pay {N}; while paying it, each untapped artifact or
@@ -1772,11 +1786,19 @@ func (e *Engine) offerCostForUsing(statics costStaticViews, p state.PlayerID, id
 // out, so offerCastable can evaluate the composition once and reuse it for
 // both the per-face enumeration and the composed castable check.
 func (e *Engine) composedOfferCost(p state.PlayerID, id state.ObjID, base Cost, mods costMods, scope costScope) Cost {
-	c := mods.apply(base)
-	if scope.kind != "Ability" && scope.kind != "Foretell" && scope.kind != "Static" {
-		c = e.commanderTaxFor(p, id, c)
-	}
+	var c Cost
+	e.composedOfferCostInto(&c, p, id, &base, &mods, scope)
 	return c
+}
+
+// composedOfferCostInto is composedOfferCost writing the composition into
+// *dst, reading *base and *mods in place (neither is written).
+func (e *Engine) composedOfferCostInto(dst *Cost, p state.PlayerID, id state.ObjID, base *Cost, mods *costMods, scope costScope) {
+	*dst = *base
+	mods.applyTo(dst)
+	if scope.kind != "Ability" && scope.kind != "Foretell" && scope.kind != "Static" {
+		*dst = e.commanderTaxFor(p, id, *dst)
+	}
 }
 
 // offerCastable is THE offer-side gate every cast/activation option is gated
@@ -1796,7 +1818,7 @@ func (e *Engine) composedOfferCost(p state.PlayerID, id state.ObjID, base Cost, 
 // feasibility are conjunctive, and the stricter composed answer can only
 // withhold a legal offer (the safe direction), never offer an illegal one.
 func (e *Engine) offerCastable(p state.PlayerID, id state.ObjID, base Cost, scope costScope, ability bool) bool {
-	return e.offerCastableUsing(e.collectCostStatics(), p, id, base, scope, ability, nil)
+	return e.offerCastableUsing(e.collectCostStatics(), p, id, &base, scope, ability, nil)
 }
 
 // fixLifeXCost resolves an announced PayLife<X> cost part whose source face
@@ -1919,7 +1941,10 @@ func (e *Engine) drawCostCountTrig(id state.ObjID, you state.PlayerID, part Cost
 // (the pool the seat would hold after floating every untapped source) while
 // every non-mana read stays real. The two modes share one body, so the walk
 // cannot drift from the offer it mirrors.
-func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, id state.ObjID, base Cost, scope costScope, ability bool, hyp *state.Mana) bool {
+//
+// base is read in place and never written: a step that reshapes the cost
+// (fixLifeXCost, the XMin$ floor) works on a local copy.
+func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, id state.ObjID, base *Cost, scope costScope, ability bool, hyp *state.Mana) bool {
 	// The SVar-fixed PayLife<X> conversion (fixLifeXCost) shapes the cost the
 	// gate prices into the exact cost the payment will store (beginCast and
 	// beginActivation convert through the same helper), so an offered cost and
@@ -1927,9 +1952,14 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 	// body is present but unresolvable is WITHHELD here -- the fail-closed
 	// direction the rest of the cost grammar takes -- rather than offered with
 	// an arbitrary announcement.
-	base, ok := e.fixLifeXCost(p, id, base)
-	if !ok {
-		return false
+	// fixLifeXCost is the identity on a cost with no PayLife<X> part.
+	var local Cost
+	if len(base.LifeX) > 0 {
+		var ok bool
+		if local, ok = e.fixLifeXCost(p, id, *base); !ok {
+			return false
+		}
+		base = &local
 	}
 	// The activated ability's own XMin$ parameter (task cost:xmin-param): the
 	// same announcement floor xAsk folds from the ability being activated,
@@ -1940,12 +1970,20 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 	// gate and xAsk share one floor answer and an unannounced cost still
 	// reports no charge. A cost that announces no X binds nothing: no {X} pip
 	// and no announced-X part means no announcement exists to floor.
-	if scope.ab != nil && costAnnouncesX(base) {
+	if scope.ab != nil && costAnnouncesX(*base) {
 		if n := xMinAbilityParam(scope.ab); n > base.XMin {
+			if base != &local {
+				local = *base
+				base = &local
+			}
 			base.XMin = n
 		}
 	}
-	mods := e.costModifiersWithTargetsUsing(statics, p, id, scope, nil, false)
+	// mayApply/provenance capture what the potential-target retry below
+	// needs to know of this pass (offerRetryFutile).
+	mayApply := false
+	mods := e.costModifiersCompose(statics, p, id, scope, nil, false, 0, &mayApply)
+	provenance := e.costProvenanceSeen
 	// A Waterbend<N>/<X> part carried by the cost itself (an ability's own
 	// Cost$ like Giant Koi's, or a spell's optional-cost part) credits the
 	// same taps a RaiseCost Waterbend does (mods.waterbend), so the offer is
@@ -1957,7 +1995,11 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 		mods.waterbendX = true
 		mods.waterbendPartX++
 	}
-	mods = e.withWaterbendOfferCredit(p, id, base.XMin, mods)
+	// withWaterbendOfferCredit returns mods unchanged unless some waterbend
+	// credit is wanted (its want is 0 when both counts are).
+	if mods.waterbend != 0 || mods.waterbendPartX != 0 {
+		mods = e.withWaterbendOfferCredit(p, id, base.XMin, mods)
+	}
 	tax := int32(0)
 	if scope.kind != "Ability" && scope.kind != "Foretell" && scope.kind != "Static" {
 		tax = e.commanderTaxAmount(p, id)
@@ -1966,7 +2008,7 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 	if e.hasKeywordH(id, kwhDelve) {
 		delve = int32(len(e.G.Zone(state.ZGraveyard, p)))
 	}
-	if !e.manaFeasiblePriced(p, id, ability, base, mods, tax, delve, hyp) {
+	if !e.manaFeasiblePricedP(p, id, ability, base, &mods, tax, delve, hyp) {
 		// A target-dependent reducer cannot be in the ordinary pre-target
 		// snapshot, but it may make one legal target choice payable. Retry with
 		// exactly those potential reductions; target-dependent raises/floors
@@ -1981,15 +2023,22 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 		// census (a pure read) is skipped, not changed.
 		var potential costMods
 		potentialOK := false
-		if statics.validTarget {
+		if futile := offerRetryFutile(scope, &mods, mayApply, provenance); statics.validTarget && (!futile || walkSkipVerify) {
 			potential, potentialOK = e.potentialCostModsUsing(statics, p, id, scope, e.costPotentialTargets(p, id, scope), 0, func(m costMods) bool {
-				return e.manaFeasiblePriced(p, id, ability, base, m, tax, delve, hyp) &&
-					e.nonManaCastable(p, id, e.composedOfferCost(p, id, base, m, scope), ability, tapCostSAKind(scope.ab))
+				if !e.manaFeasiblePriced(p, id, ability, *base, m, tax, delve, hyp) {
+					return false
+				}
+				var c Cost
+				e.composedOfferCostInto(&c, p, id, base, &m, scope)
+				return e.nonManaCastableP(p, id, &c, ability, tapCostSAKind(scope.ab))
 			})
+			if futile && potentialOK {
+				panic(fmt.Sprintf("rules: futile potential-target retry for obj %d accepted %+v", id, potential))
+			}
 		}
 		if potentialOK {
 			mods = potential
-		} else if accepted, ok := e.offerSacXMods(p, id, ability, base, statics, scope, tax, delve, hyp); ok {
+		} else if accepted, ok := e.offerSacXModsGated(p, id, ability, base, statics, scope, tax, delve, hyp); ok {
 			// The cost announces a Sac<X/Spec> count whose resulting X-dependent
 			// reduction (Dargo's "{2} less for each permanent sacrificed this
 			// way", read through Count$xPaid) can make the cast payable at a
@@ -1998,7 +2047,7 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 			// recomputation manaToPay makes after the announcement, applied at
 			// the gate so the offer and the charge agree.
 			mods = accepted
-		} else if accepted, ok := e.offerNamedMods(p, id, ability, base, mods, statics, scope, tax, delve, hyp); ok {
+		} else if accepted, ok := e.offerNamedModsGated(p, id, ability, base, &mods, statics, scope, tax, delve, hyp); ok {
 			// A RaiseCost part counted by a named announcement (Explosive
 			// Singularity's "tap any number of untapped creatures ... costs
 			// {1} less for each creature tapped this way") can make the cast
@@ -2015,7 +2064,9 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 	// of {W/U} free, while applying it before that half is chosen sees no W
 	// pip at all. The remaining cost parts are face-independent, so this
 	// shared tail preserves every Sac/Discard/counter/tap legality check.
-	return e.nonManaCastable(p, id, e.composedOfferCost(p, id, base, mods, scope), ability, tapCostSAKind(scope.ab))
+	var composed Cost
+	e.composedOfferCostInto(&composed, p, id, base, &mods, scope)
+	return e.nonManaCastableP(p, id, &composed, ability, tapCostSAKind(scope.ab))
 }
 
 // offerSacXMods is the offer gate's announced-sacrifice-count affordability
@@ -2235,7 +2286,7 @@ func (e *Engine) AbilityCosts(p state.PlayerID, id state.ObjID) []string {
 // card, and legalActionsPriced stamps it on the ability's "ability" option,
 // so the two can never disagree about what an activation will charge.
 func (e *Engine) abilityOfferCost(p state.PlayerID, id state.ObjID, ab *cards.SA) string {
-	cost := e.parseCost(ab.Params["Cost"])
+	cost := e.parseCost(ab.ParamStr(cards.PKCost))
 	// The ability's own ReduceCost$ (Otawara's Channel): the same
 	// composition the offer gate and beginActivation's charge apply, so
 	// the decision's displayed cost is the cost the payment will charge.
@@ -2254,61 +2305,73 @@ func (e *Engine) abilityOfferCost(p state.PlayerID, id state.ObjID, ab *cards.SA
 // and every recognised non-mana component remains visible so a client that
 // cannot price it can still fail closed.
 func formatCost(c Cost) string {
-	var parts []string
+	// The tokens are written straight into one buffer, joined by single
+	// spaces exactly as strings.Join(tokens, " ") joins them (an empty token
+	// still takes its separator).
+	var buf [64]byte
+	b := buf[:0]
+	nTok := 0
+	add := func(tok string) {
+		if nTok > 0 {
+			b = append(b, ' ')
+		}
+		nTok++
+		b = append(b, tok...)
+	}
 	if c.Generic > 0 {
-		parts = append(parts, strconv.FormatInt(int64(c.Generic), 10))
+		add(strconv.FormatInt(int64(c.Generic), 10))
 	}
 	const faces = "WUBRGC"
 	for i, face := range []byte(faces) {
 		for n := int32(0); n < c.Colored[i]; n++ {
-			parts = append(parts, string(face))
+			add(string(face))
 		}
 	}
 	for range c.X {
-		parts = append(parts, "X")
+		add("X")
 	}
 	for _, h := range c.Hybrid {
-		parts = append(parts, string([]byte{h.A, '/', h.B}))
+		add(string([]byte{h.A, '/', h.B}))
 	}
 	for _, t := range c.Twobrid {
-		parts = append(parts, strconv.FormatInt(int64(t.Generic), 10)+"/"+string(t.Col))
+		add(strconv.FormatInt(int64(t.Generic), 10) + "/" + string(t.Col))
 	}
 	for _, p := range c.Phyrexian {
-		parts = append(parts, string([]byte{p, 'P'}))
+		add(string([]byte{p, 'P'}))
 	}
 	for _, hp := range c.HybridPhyrexian {
-		parts = append(parts, string([]byte{hp.A, '/', hp.B, '/', 'P'}))
+		add(string([]byte{hp.A, '/', hp.B, '/', 'P'}))
 	}
 	for n := c.Snow; n > 0; n-- {
-		parts = append(parts, "S")
+		add("S")
 	}
 	if c.Life > 0 {
-		parts = append(parts, "PayLife<"+strconv.FormatInt(int64(c.Life), 10)+">")
+		add("PayLife<" + strconv.FormatInt(int64(c.Life), 10) + ">")
 	}
 	for range c.LifeX {
-		parts = append(parts, "PayLife<X>")
+		add("PayLife<X>")
 	}
 	for _, part := range c.DamageYou {
-		parts = append(parts, "DamageYou<"+strconv.FormatInt(int64(part.N), 10)+">")
+		add("DamageYou<" + strconv.FormatInt(int64(part.N), 10) + ">")
 	}
 	for _, part := range c.GainLife {
 		tok := "GainLife<" + strconv.FormatInt(int64(part.N), 10) + "/" + part.Spec
 		if part.Each {
 			tok += "/*"
 		}
-		parts = append(parts, tok+">")
+		add(tok + ">")
 	}
 	if c.Tap {
-		parts = append(parts, "T")
+		add("T")
 	}
 	if c.Untap {
-		parts = append(parts, "Q")
+		add("Q")
 	}
 	for _, part := range c.Energy {
 		if part.Spec == "X" {
-			parts = append(parts, "PayEnergy<X>")
+			add("PayEnergy<X>")
 		} else {
-			parts = append(parts, "PayEnergy<"+strconv.FormatInt(int64(part.N), 10)+">")
+			add("PayEnergy<" + strconv.FormatInt(int64(part.N), 10) + ">")
 		}
 	}
 	appendCostParts := func(kind string, costs []CostPart) {
@@ -2317,7 +2380,7 @@ func formatCost(c Cost) string {
 			if part.Dyn != "" {
 				n = part.Dyn
 			}
-			parts = append(parts, kind+"<"+n+"/"+part.Spec+">")
+			add(kind + "<" + n + "/" + part.Spec + ">")
 		}
 	}
 	appendCostParts("Sac", c.Sac)
@@ -2339,10 +2402,10 @@ func formatCost(c Cost) string {
 		if part.Announced {
 			n = "X"
 		}
-		parts = append(parts, head+"<"+n+"/"+part.Spec+">")
+		add(head + "<" + n + "/" + part.Spec + ">")
 	}
 	for _, part := range c.ExileFromTop {
-		parts = append(parts, "ExileFromTop<"+strconv.FormatInt(int64(part.N), 10)+"/"+part.Spec+">")
+		add("ExileFromTop<" + strconv.FormatInt(int64(part.N), 10) + "/" + part.Spec + ">")
 	}
 	appendCostParts("Reveal", c.Reveal)
 	// RevealOrChoose prints its own head so Compile/Decompile round-trips back
@@ -2355,36 +2418,36 @@ func formatCost(c Cost) string {
 		if part.Desc != "" {
 			head += "/" + part.Desc
 		}
-		parts = append(parts, head+">")
+		add(head + ">")
 	}
 	for _, part := range c.RevealChosen {
 		// RevealChosen<Player> has no trailing field; RevealChosen<Type/...>
 		// prints its description. Both are re-parseable by revealChosenCost.
 		if part.Desc == "" {
-			parts = append(parts, "RevealChosen<"+part.Spec+">")
+			add("RevealChosen<" + part.Spec + ">")
 		} else {
-			parts = append(parts, "RevealChosen<"+part.Spec+"/"+part.Desc+">")
+			add("RevealChosen<" + part.Spec + "/" + part.Desc + ">")
 		}
 	}
 	appendCostParts("Behold", c.Behold)
 	appendCostParts("ExiledMoveToGrave", c.MoveToGrave)
 	for _, part := range c.Mill {
-		parts = append(parts, "Mill<"+strconv.FormatInt(int64(part.N), 10)+">")
+		add("Mill<" + strconv.FormatInt(int64(part.N), 10) + ">")
 	}
 	appendCostParts("tapXType", c.TapPermanent)
 	for _, part := range c.Blight {
 		if part.Announced {
-			parts = append(parts, "Blight<X>")
+			add("Blight<X>")
 			continue
 		}
-		parts = append(parts, "Blight<"+strconv.FormatInt(int64(part.N), 10)+">")
+		add("Blight<" + strconv.FormatInt(int64(part.N), 10) + ">")
 	}
 	appendCostParts("Return", c.Return)
 	for range c.Exert {
-		parts = append(parts, "Exert<1/CARDNAME>")
+		add("Exert<1/CARDNAME>")
 	}
 	if c.Forage {
-		parts = append(parts, "Forage")
+		add("Forage")
 	}
 	appendCostParts("PayEnergy", c.Energy)
 	for _, part := range c.PutToLib {
@@ -2395,10 +2458,10 @@ func formatCost(c Cost) string {
 		case state.ZGraveyard:
 			zone = "Grave"
 		}
-		parts = append(parts, "PutCardToLibFrom"+zone+"<"+strconv.FormatInt(int64(part.N), 10)+"/"+
-			strconv.FormatInt(int64(part.LibraryPos), 10)+"/"+part.Spec+">")
+		add("PutCardToLibFrom" + zone + "<" + strconv.FormatInt(int64(part.N), 10) + "/" +
+			strconv.FormatInt(int64(part.LibraryPos), 10) + "/" + part.Spec + ">")
 	}
-	return strings.Join(parts, " ")
+	return string(b)
 }
 
 // costPhrase renders a parsed cost for a PLAYER-FACING prompt or option
@@ -2749,8 +2812,16 @@ func manaCostBeyondTap(c Cost) bool {
 // copies it; only a marked ability's cost is formatted.
 func (e *Engine) manaActivationCostMarker(abilities []*cards.SA) string {
 	for _, ma := range abilities {
-		if cc := e.compiledCostOf(ma.Params["Cost"]); cc.beyondTap {
-			return formatCost(cc.Cost)
+		// A configured ability's facts carry the same compiled cost
+		// (mana_safacts.go), read through its pointer.
+		var cc *compiledCost
+		if mf := e.manaFactsOf(ma); mf != nil {
+			cc = mf.cost
+		} else {
+			cc = e.compiledCostOf(ma.Params["Cost"])
+		}
+		if cc.beyondTap {
+			return cc.formatted()
 		}
 	}
 	return ""
@@ -2913,7 +2984,7 @@ func (c Cost) withoutEnergy() Cost {
 // cost's fixed energy parts (Forge CostPayEnergy.canPay reads the same total).
 // A dynamic PayEnergy<X> part is bounded by that total at its own X ask, so
 // this gate makes no assumption about the not-yet-chosen value.
-func (e *Engine) energyPayable(p state.PlayerID, c Cost) bool {
+func (e *Engine) energyPayable(p state.PlayerID, c *Cost) bool {
 	total := c.energyCostTotal()
 	return total == 0 || e.G.Players[p].Counter("ENERGY") >= total
 }
@@ -2974,7 +3045,7 @@ func (c Cost) hasPips() bool {
 		len(c.HybridPhyrexian) > 0 || c.Snow > 0
 }
 
-func (c Cost) costPips(bLifeOK bool, rider pipRider) []pip {
+func (c Cost) costPips(dst []pip, bLifeOK bool, rider pipRider) []pip {
 	// Size the list once: every pip source below contributes exactly one
 	// pip per unit counted here.
 	n := len(c.Hybrid) + len(c.Twobrid) + len(c.Phyrexian) + len(c.HybridPhyrexian)
@@ -2986,7 +3057,12 @@ func (c Cost) costPips(bLifeOK bool, rider pipRider) []pip {
 			n += int(k)
 		}
 	}
-	out := make([]pip, 0, n)
+	// Built into the caller's buffer when it fits (resolveManaWith's stack
+	// array), so the common small cost allocates no pip list.
+	out := dst[:0]
+	if cap(out) < n {
+		out = make([]pip, 0, n)
+	}
 	// The coloured slots including the colourless one: a plain {C} pip is a
 	// strict colourless requirement generic must not satisfy by stealing the
 	// pool's only colourless, so it is reserved like any coloured pip.
@@ -3172,7 +3248,8 @@ func (c Cost) resolveManaWith(pool, snow state.Mana, typed [7]state.Mana, life i
 	if c.Life > 0 && life < c.Life {
 		return manaPayment{}, false
 	}
-	pips := c.costPips(bLifeOK, rider)
+	var pipBuf [8]pip
+	pips := c.costPips(pipBuf[:0], bLifeOK, rider)
 	rem := pool
 	sn := snow
 	tp := typed
@@ -3596,7 +3673,7 @@ func (e *Engine) payerGrantsPayLifeInsteadOfB(p state.PlayerID) bool {
 		// A member equal to the keyword needs the keyword as a substring, so
 		// the allocation-free substring test rejects every other static
 		// before the list is split.
-		if raw := sv.Params["AddKeyword"]; !strings.Contains(raw, "PayLifeInsteadOf:B") ||
+		if raw := sv.ParamStr(cards.PKAddKeyword); !strings.Contains(raw, "PayLifeInsteadOf:B") ||
 			!slices.Contains(cards.SplitKeywordList(raw), "PayLifeInsteadOf:B") {
 			continue
 		}
@@ -3672,4 +3749,65 @@ func rememberedTargets(ids []state.ObjID) []state.Target {
 		out = append(out, state.Target{Obj: id})
 	}
 	return out
+}
+
+// offerRetryFutile reports that offerCastableUsing's potential-target retry
+// would re-ask exactly the mana question its first pass just failed: no
+// cost static survived a target-independent gate (so the retry, whatever
+// targets it binds, composes no static either), the composition is the zero
+// costMods the retry's own empty composition is (no waterbend credit was
+// folded on top), the scope is not an ability's (whose own ReduceCost$
+// reads targets, ownManaReduction), and no ValidCard$ provenance capture is
+// pending (the retry would leave it as the first pass did). The retry's
+// accept is then manaFeasiblePriced over identical arguments, which failed.
+func offerRetryFutile(scope costScope, mods *costMods, mayApply, provenance bool) bool {
+	if mayApply || provenance || (scope.kind == "Ability" && scope.ab != nil) {
+		return false
+	}
+	return costModsZero(mods)
+}
+
+// costModsZero reports whether m is the zero composition in every field
+// (TestCostModsZeroCoversEveryField pins the field list).
+func costModsZero(m *costMods) bool {
+	return len(m.raises) == 0 && !m.hasExtra && m.raiseCol == (state.Mana{}) && m.raiseGen == 0 &&
+		m.raiseLife == 0 && len(m.reduces) == 0 && m.setFloor == 0 && m.waterbend == 0 &&
+		!m.waterbendX && m.waterbendPartX == 0 && m.raiseX == 0
+}
+
+// offerSacXModsGated is offerSacXMods behind its own first test
+// (costAnnouncesSacX), read through the pointer so the common no-Sac<X> cost
+// is refused without copying the cost and the statics into the call.
+func (e *Engine) offerSacXModsGated(p state.PlayerID, id state.ObjID, ability bool, base *Cost, statics costStaticViews, scope costScope, tax, delve int32, hyp *state.Mana) (costMods, bool) {
+	announced := false
+	for i := range base.Sac {
+		if base.Sac[i].Announced {
+			announced = true
+			break
+		}
+	}
+	if !announced {
+		return costMods{}, false
+	}
+	return e.offerSacXMods(p, id, ability, *base, statics, scope, tax, delve, hyp)
+}
+
+// offerNamedModsGated is offerNamedMods behind its own first test
+// (costHasNamedCount over the composition's extra cost), read through the
+// pointers for the same reason.
+func (e *Engine) offerNamedModsGated(p state.PlayerID, id state.ObjID, ability bool, base *Cost, mods *costMods, statics costStaticViews, scope costScope, tax, delve int32, hyp *state.Mana) (costMods, bool) {
+	named := false
+	for i := range mods.extra.Exile {
+		if isNamedCountPart(mods.extra.Exile[i]) {
+			named = true
+			break
+		}
+	}
+	for i := 0; !named && i < len(mods.extra.TapPermanent); i++ {
+		named = isNamedCountPart(mods.extra.TapPermanent[i])
+	}
+	if !named {
+		return costMods{}, false
+	}
+	return e.offerNamedMods(p, id, ability, *base, *mods, statics, scope, tax, delve, hyp)
 }

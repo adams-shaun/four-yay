@@ -380,7 +380,7 @@ func censusPlace(e *Engine, c *cards.Card, p state.PlayerID, z state.Zone, face 
 	o := e.G.AddObject(c, p)
 	id := o.ID
 	o.Zone = z
-	o.FaceIdx = uint8(face)
+	o.SetFaceIdx(uint8(face))
 	o.SummonSick = false
 	e.G.Clock++
 	o.Timestamp = e.G.Clock

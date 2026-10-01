@@ -26,13 +26,13 @@ func TestTraceBoardProjectionIsSortedAndRedacted(t *testing.T) {
 	b := botpolicy.NewBoard(2)
 	b.IsMain = true
 	b.Pool = state.Mana{1, 2, 3, 4, 5, 6}
-	b.Cards[9] = botpolicy.Card{Creature: true, Power: 4, CMC: 3, Basic: false, ManaCost: "2 R", Castable: true, Produces: cards.ManaProduction{Colour: [6]int32{0, 0, 0, 1, 0, 0}}}
-	b.Cards[2] = botpolicy.Card{Basic: true, OnBattlefield: true}
-	b.Life[1] = 17
-	b.Life[0] = 20
-	b.Creatures[8] = botpolicy.Creature{Power: 3, Toughness: 2, Damage: 1, Keywords: []string{"Haste"}, Tapped: true, Controller: 1}
-	b.Creatures[3] = botpolicy.Creature{Power: 1, Toughness: 1, Controller: 0}
-	b.Commanders[8] = botpolicy.Commander{Casts: 2, InCommandZone: false, Damage: map[state.PlayerID]int32{1: 7, 0: 2}}
+	b.Cards.Set(9, botpolicy.Card{Creature: true, Power: 4, CMC: 3, Basic: false, ManaCost: "2 R", Castable: true, Produces: cards.ManaProduction{Colour: [6]int32{0, 0, 0, 1, 0, 0}}})
+	b.Cards.Set(2, botpolicy.Card{Basic: true, OnBattlefield: true})
+	b.Life.Set(1, 17)
+	b.Life.Set(0, 20)
+	b.Creatures.Set(8, botpolicy.Creature{Power: 3, Toughness: 2, Damage: 1, Keywords: []string{"Haste"}, Tapped: true, Controller: 1})
+	b.Creatures.Set(3, botpolicy.Creature{Power: 1, Toughness: 1, Controller: 0})
+	b.Commanders.Set(8, botpolicy.Commander{Casts: 2, InCommandZone: false, Damage: map[state.PlayerID]int32{1: 7, 0: 2}})
 	b.Stack = []botpolicy.StackEntry{{ID: 11, Controller: 1, IsSpell: true}}
 
 	d := &decision.Decision{
@@ -80,19 +80,19 @@ func TestTraceBoardProjectionIsSortedAndRedacted(t *testing.T) {
 
 func TestTraceSnapshotSurvivesBoardReuse(t *testing.T) {
 	b := botpolicy.NewBoard(2)
-	b.Cards[2] = botpolicy.Card{Power: 4, ManaCost: "2 G"}
-	b.Creatures[3] = botpolicy.Creature{Power: 2, Keywords: []string{"Flying"}}
-	b.Commanders[3] = botpolicy.Commander{Damage: map[state.PlayerID]int32{1: 5}}
+	b.Cards.Set(2, botpolicy.Card{Power: 4, ManaCost: "2 G"})
+	b.Creatures.Set(3, botpolicy.Creature{Power: 2, Keywords: []string{"Flying"}})
+	b.Commanders.Set(3, botpolicy.Commander{Damage: map[state.PlayerID]int32{1: 5}})
 	g := newGameTrace()
 	d := &decision.Decision{Seq: 1, Player: 0, Kind: decision.KPriority, Min: 1, Max: 1, Options: []decision.Option{{Index: 0, Kind: "pass"}}}
 	if err := g.record(d, decision.Intent{Seq: 1, Player: 0, Choices: []int{0}}, &b, traceDecisionMeta{}); err != nil {
 		t.Fatal(err)
 	}
 
-	b.Cards[2] = botpolicy.Card{Power: 99, ManaCost: "SECRET"}
-	b.Creatures[3] = botpolicy.Creature{Power: 99, Keywords: []string{"SECRET"}}
-	b.Commanders[3].Damage[1] = 99
-	delete(b.Cards, 2)
+	b.Cards.Set(2, botpolicy.Card{Power: 99, ManaCost: "SECRET"})
+	b.Creatures.Set(3, botpolicy.Creature{Power: 99, Keywords: []string{"SECRET"}})
+	b.Commanders.Get(3).Damage[1] = 99
+	b.Cards.Delete(2)
 
 	got, err := json.Marshal(g.Decisions[0])
 	if err != nil {

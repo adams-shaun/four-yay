@@ -32,8 +32,8 @@ import (
 // spell is being cast at. The raise and set sites pass targets too, so one
 // composition path cannot half-apply a static with an unbound read.
 func (e *Engine) modAmountX(sv staticView, sub costSubject, x int32, targets []state.Target) int32 {
-	raw := strings.TrimSpace(sv.Params["Amount"])
-	if n, err := strconv.ParseInt(raw, 10, 64); err == nil {
+	raw := strings.TrimSpace(sv.ParamStr(cards.PKAmount))
+	if n, ok := parseInt10(raw); ok {
 		if n < 0 {
 			return 0
 		}
@@ -94,7 +94,7 @@ func (e *Engine) costAmountCtx(sv staticView, sub costSubject, x int32, targets 
 	// Explosive Singularity's Tapped) binds the SVar its name spells.
 	svars = e.namedAnnounceSVars(sv.Source, svars)
 	you := sv.Controller
-	if sv.Params["Relative"] == "True" && sub.id != 0 {
+	if sv.ParamStr(cards.PKRelative) == "True" && sub.id != 0 {
 		you = sub.p
 	}
 	// An Effect-delivered cost static carries its SetChosenNumber$ binding
@@ -211,11 +211,11 @@ func (e *Engine) withCostCompositionEvent(id state.ObjID, compose func() costMod
 	// 601.2i, the spell is not yet cast -- price {3}{U} (round-8 cardfuzz
 	// mirror seed 12687133153333408407, a_witness pool_after).
 	e.retireCrossWalkMemo()
-	e.activeEpoch, e.staticEpoch = -1, -1
+	e.invalidateScratchLayerLists()
 	mods := compose()
 	e.costCompositionEvent = previous
 	e.retireCrossWalkMemo()
-	e.activeEpoch, e.staticEpoch = -1, -1
+	e.invalidateScratchLayerLists()
 	return mods
 }
 
@@ -270,6 +270,14 @@ func (e *Engine) costModifiersWithTargetsX(p state.PlayerID, id state.ObjID, sco
 }
 
 func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target, potential bool, x int32) costMods {
+	return e.costModifiersCompose(statics, p, id, scope, targets, potential, x, nil)
+}
+
+// costModifiersCompose is costModifiersWithTargetsXUsing; a non-nil mayApply
+// is set when some raise/reduce/set member was NOT denied by a
+// target-independent gate (costStaticGate) -- false means no member can
+// apply under any target assignment.
+func (e *Engine) costModifiersCompose(statics costStaticViews, p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target, potential bool, x int32, mayApply *bool) costMods {
 	// Each pass owns the provenance capture: cleared here, set by
 	// costStaticApplies when a ValidCard$ carries a cast-provenance token.
 	e.costProvenanceSeen = false
@@ -307,8 +315,14 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 					continue
 				}
 			}
-			if !e.costStaticApplies(sv, mode, p, id, scope, targets, xBound) {
+			if ok, indepFail := e.costStaticGate(sv, mode, p, id, scope, targets, xBound); !ok {
+				if !indepFail && mayApply != nil {
+					*mayApply = true
+				}
 				continue
+			}
+			if mayApply != nil {
+				*mayApply = true
 			}
 			if mode == "RaiseCost" {
 				// A Relative$ raise scales with the announcement (Fireball's
@@ -378,8 +392,14 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 				continue
 			}
 		}
-		if !e.costStaticApplies(sv, "SetCost", p, id, scope, targets, xBound) {
+		if ok, indepFail := e.costStaticGate(sv, "SetCost", p, id, scope, targets, xBound); !ok {
+			if !indepFail && mayApply != nil {
+				*mayApply = true
+			}
 			continue
+		}
+		if mayApply != nil {
+			*mayApply = true
 		}
 		if n := e.modAmountX(sv, sub, x, amountTargets); n > mods.setFloor {
 			mods.setFloor = n

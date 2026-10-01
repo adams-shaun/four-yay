@@ -286,19 +286,56 @@ func (d *Decision) Clone() *Decision {
 // needs a Decision (view's projection copy) does not pay a heap allocation
 // for the struct itself.
 func (d *Decision) CloneValue() Decision {
-	c := *d
-	c.Options = append([]Option(nil), d.Options...)
-	c.WindowReasons = append([]WindowReason(nil), d.WindowReasons...)
-	c.PaymentActions = make([]PaymentAction, len(d.PaymentActions))
-	for i := range d.PaymentActions {
-		c.PaymentActions[i] = ClonePaymentAction(d.PaymentActions[i])
-	}
-	if d.PaymentFallback != nil {
-		f := *d.PaymentFallback
-		c.PaymentFallback = &f
-	}
-	c.ManaPayment = CloneManaPaymentWindow(d.ManaPayment)
+	var c Decision
+	d.CloneInto(&c)
 	return c
+}
+
+// CloneInto writes CloneValue's copy of d into dst, reusing the storage dst
+// already owns: its Options, WindowReasons and PaymentActions backing arrays
+// and its PaymentFallback and ManaPayment structs (and that window's
+// AutoFill). Whatever dst held is overwritten, so a caller that refills one
+// Decision per call (view.ProjectInto) pays nothing once the buffers have
+// grown. The copy is CloneValue's exactly, nil-ness included: Options,
+// WindowReasons and AutoFill are nil when d's are empty, PaymentActions is
+// always non-nil. dst must not be d or share storage with it.
+func (d *Decision) CloneInto(dst *Decision) {
+	opts, reasons, pays := dst.Options[:0], dst.WindowReasons[:0], dst.PaymentActions[:0]
+	fb, mp := dst.PaymentFallback, dst.ManaPayment
+	*dst = *d
+	dst.Options, dst.WindowReasons = nil, nil
+	if len(d.Options) > 0 {
+		dst.Options = append(opts, d.Options...)
+	}
+	if len(d.WindowReasons) > 0 {
+		dst.WindowReasons = append(reasons, d.WindowReasons...)
+	}
+	if pays == nil {
+		pays = []PaymentAction{}
+	}
+	for i := range d.PaymentActions {
+		pays = append(pays, ClonePaymentAction(d.PaymentActions[i]))
+	}
+	dst.PaymentActions = pays
+	if d.PaymentFallback != nil {
+		if fb == nil {
+			fb = new(PaymentFallback)
+		}
+		*fb = *d.PaymentFallback
+		dst.PaymentFallback = fb
+	}
+	if w := d.ManaPayment; w != nil {
+		if mp == nil {
+			mp = new(ManaPaymentWindow)
+		}
+		fill := mp.AutoFill[:0]
+		*mp = *w
+		mp.AutoFill = nil
+		if len(w.AutoFill) > 0 {
+			mp.AutoFill = append(fill, w.AutoFill...)
+		}
+		dst.ManaPayment = mp
+	}
 }
 
 // CloneIntent makes an owned copy at an admission or persistence boundary.
@@ -318,7 +355,9 @@ func PaymentActionID(version uint32, seq uint64, player state.PlayerID, cast Pla
 	if err := validateVersionAndCast(version, cast); err != nil {
 		return "", err
 	}
-	b := canonicalPaymentPrefix("gorge.payment-action.v1", version, seq, player, cast)
+	// The encoding is built in a stack buffer (hashed, never retained).
+	var buf [paymentIDBuf]byte
+	b := canonicalPaymentPrefixInto(buf[:0], "gorge.payment-action.v1", version, seq, player, cast)
 	s := sha256.Sum256(b)
 	return hex.EncodeToString(s[:]), nil
 }
@@ -330,7 +369,10 @@ func PaymentPlanID(seq uint64, player state.PlayerID, cast PlannedCast, plan Pay
 	if err := plan.validateShape(); err != nil {
 		return "", err
 	}
-	b := canonicalPaymentPrefix("gorge.payment-plan.v1", plan.Version, seq, player, cast)
+	// The encoding is built in a stack buffer (hashed, never retained);
+	// a plan too long for it grows onto the heap as before.
+	var buf [paymentIDBuf]byte
+	b := canonicalPaymentPrefixInto(buf[:0], "gorge.payment-plan.v1", plan.Version, seq, player, cast)
 	b = appendPaymentPlanCanonical(b, plan)
 	s := sha256.Sum256(b)
 	return hex.EncodeToString(s[:]), nil
@@ -362,15 +404,17 @@ func (p PaymentPlan) validateShape() error {
 	if err := p.PoolAfter.validate(); err != nil {
 		return fmt.Errorf("payment pool after: %w", err)
 	}
-	seen := make(map[state.ObjID]struct{}, len(p.Activations))
 	for i, a := range p.Activations {
 		if a.Source == 0 {
 			return fmt.Errorf("payment activation %d has no source", i)
 		}
-		if _, ok := seen[a.Source]; ok {
-			return fmt.Errorf("payment activation %d reuses source %d", i, a.Source)
+		// At most MaxPaymentActivations steps: a scan of the earlier ones
+		// replaces a set.
+		for _, prev := range p.Activations[:i] {
+			if prev.Source == a.Source {
+				return fmt.Errorf("payment activation %d reuses source %d", i, a.Source)
+			}
 		}
-		seen[a.Source] = struct{}{}
 		if err := a.Ability.validate(); err != nil {
 			return fmt.Errorf("payment activation %d: %w", i, err)
 		}
@@ -421,8 +465,11 @@ func (a PaymentAbility) validate() error {
 	return nil
 }
 
-func canonicalPaymentPrefix(domain string, version uint32, seq uint64, player state.PlayerID, cast PlannedCast) []byte {
-	b := make([]byte, 0, 96)
+// paymentIDBuf sizes the stack buffer the identity encodings are built in:
+// the prefix plus a dozen activations.
+const paymentIDBuf = 1536
+
+func canonicalPaymentPrefixInto(b []byte, domain string, version uint32, seq uint64, player state.PlayerID, cast PlannedCast) []byte {
 	b = appendString(b, domain)
 	b = appendU32(b, version)
 	b = appendU64(b, seq)

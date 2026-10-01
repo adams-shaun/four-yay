@@ -38,15 +38,15 @@ func pendingKillBoard(t *testing.T, pendingCost string, forests int) Board {
 	t.Helper()
 	green := pendingGreen()
 	b := boardOf(def(1, 2, 2), def(2, 5, 5))
-	b.Life[0] = 20
-	b.Life[1] = 20 // neither lethal nor a threat: only tiers 1/2 are excluded by design
-	b.Cards = map[state.ObjID]Card{
+	b.Life.Set(0, 20)
+	b.Life.Set(1, 20) // neither lethal nor a threat: only tiers 1/2 are excluded by design
+	b.Cards = TableOf(map[state.ObjID]Card{
 		// The instant-speed reserve: cost {G}{G} (Giant Growth's sibling shape;
 		// the printed Giant Growth itself is {G}, see the report).
 		9: {Castable: true, InstantSpeed: true, ManaCost: "G G", CMC: CmcOf("G G")},
-	}
+	})
 	for i := 1; i <= forests; i++ {
-		b.Cards[state.ObjID(i)] = Card{OnBattlefield: true, Basic: true, Produces: green}
+		b.Cards.Set(state.ObjID(i), Card{OnBattlefield: true, Basic: true, Produces: green})
 	}
 	b.Stack = []StackEntry{{ID: 50, Controller: 0, IsSpell: true, CMC: CmcOf(pendingCost), ManaCost: pendingCost}}
 	// Preconditions the ranking depends on: the requested number of live
@@ -54,7 +54,7 @@ func pendingKillBoard(t *testing.T, pendingCost string, forests int) Board {
 	// spell with the exact printed cost under test. A vacuous board must fail
 	// here, not pass silently downstream.
 	for i := 1; i <= forests; i++ {
-		c := b.Cards[state.ObjID(i)]
+		c := b.Cards.Get(state.ObjID(i))
 		if !c.OnBattlefield || !c.Basic || c.Tapped || c.Produces.Colour[state.MG] != 1 {
 			t.Fatalf("source %d is not a live untapped basic Forest: %+v", i, c)
 		}
@@ -62,13 +62,13 @@ func pendingKillBoard(t *testing.T, pendingCost string, forests int) Board {
 	if forests < 1 {
 		t.Fatal("two creature values under comparison need at least one source")
 	}
-	if r := b.Cards[9]; !r.Castable || !r.InstantSpeed || colourPips(r.ManaCost)[state.MG] != 2 {
+	if r := b.Cards.Get(9); !r.Castable || !r.InstantSpeed || colourPips(r.ManaCost)[state.MG] != 2 {
 		t.Fatalf("reserve 9 is not a {G}{G} instant: %+v", r)
 	}
 	if len(b.Stack) != 1 || b.Stack[0].ManaCost != pendingCost {
 		t.Fatalf("pending stack entry cost %q, want %q", b.Stack[0].ManaCost, pendingCost)
 	}
-	if b.Creatures[201].Toughness == b.Creatures[202].Toughness {
+	if b.Creatures.Get(201).Toughness == b.Creatures.Get(202).Toughness {
 		t.Fatal("the two creature values under comparison must differ")
 	}
 	return b
@@ -133,12 +133,12 @@ func TestTargetSpareManaUnpayablePipsFailClosed(t *testing.T) {
 	blue.Colour[state.MU] = 1
 	// Reserve {U}: minCost 1, so a deduction that wrongly spends both Islands
 	// for the {G}{G} cost would still leave nothing to pay it with.
-	b := Board{Cards: map[state.ObjID]Card{
+	b := Board{Cards: TableOf(map[state.ObjID]Card{
 		1: {OnBattlefield: true, Basic: true, Produces: green},
 		2: {OnBattlefield: true, Basic: true, Produces: blue},
 		3: {OnBattlefield: true, Basic: true, Produces: blue},
 		9: {Castable: true, InstantSpeed: true, ManaCost: "U", CMC: CmcOf("U")},
-	}}
+	})}
 	b.Stack = []StackEntry{{ID: 50, Controller: 0, IsSpell: true, CMC: CmcOf("G G"), ManaCost: "G G"}}
 	// Preconditions: the pool can cover the reserve, but only ONE green pip of
 	// the pending {G}{G}; the two facts under test must actually differ.
@@ -170,19 +170,19 @@ func TestTargetSpareManaCountsJustPlayedBasicLand(t *testing.T) {
 	// A land that entered this turn carries no botpolicy-visible mark: the
 	// adapters fill no sickness fact, so this Board is exactly what the bot
 	// sees for a Forest played this turn.
-	b := Board{Cards: map[state.ObjID]Card{
+	b := Board{Cards: TableOf(map[state.ObjID]Card{
 		1: {OnBattlefield: true, Basic: true, Produces: green},
 		2: {OnBattlefield: true, Basic: true, Produces: green},
 		3: {OnBattlefield: true, Basic: true, Produces: green},
 		9: {Castable: true, InstantSpeed: true, ManaCost: "G G", CMC: CmcOf("G G")},
-	}}
-	if r := b.Cards[9]; !r.Castable || !r.InstantSpeed || colourPips(r.ManaCost)[state.MG] != 2 {
+	})}
+	if r := b.Cards.Get(9); !r.Castable || !r.InstantSpeed || colourPips(r.ManaCost)[state.MG] != 2 {
 		t.Fatalf("reserve 9 is not a {G}{G} instant: %+v", r)
 	}
 	// Precondition: all three sources are live untapped basics, so a fresh
 	// land is represented exactly as any other land.
 	for i := 1; i <= 3; i++ {
-		c := b.Cards[state.ObjID(i)]
+		c := b.Cards.Get(state.ObjID(i))
 		if !c.OnBattlefield || !c.Basic || c.Tapped || c.Produces.Colour[state.MG] != 1 {
 			t.Fatalf("source %d is not a live untapped basic Forest: %+v", i, c)
 		}
@@ -194,9 +194,9 @@ func TestTargetSpareManaCountsJustPlayedBasicLand(t *testing.T) {
 	// The one fact that DOES disqualify a basic source is being tapped: tap
 	// one and the same board is no longer spare, so the answer above is not
 	// vacuous.
-	tapped := b.Cards[3]
+	tapped := b.Cards.Get(3)
 	tapped.Tapped = true
-	b.Cards[3] = tapped
+	b.Cards.Set(3, tapped)
 	if b.hasSpareMana() {
 		t.Fatal("two live plus one tapped Forest must not read spare for a {G}{G} reserve")
 	}
@@ -226,11 +226,11 @@ func TestTargetSpareManaXPaymentFailsClosed(t *testing.T) {
 // is the shape the probe rejects, and the free pending cost must reject it too.
 func TestTargetSpareManaFreePendingKeepsProbe(t *testing.T) {
 	green := pendingGreen()
-	b := Board{Cards: map[state.ObjID]Card{
+	b := Board{Cards: TableOf(map[state.ObjID]Card{
 		1: {OnBattlefield: true, Basic: true, Produces: green},
 		2: {OnBattlefield: true, Basic: true, Produces: green},
 		9: {Castable: true, InstantSpeed: true, ManaCost: "G G", CMC: CmcOf("G G")},
-	}}
+	})}
 	if CmcOf("0") != 0 || colourPips("0") != [5]int32{} {
 		t.Fatalf("a printed 0 must be a free cost: CmcOf=%d pips=%v", CmcOf("0"), colourPips("0"))
 	}
@@ -243,7 +243,7 @@ func TestTargetSpareManaFreePendingKeepsProbe(t *testing.T) {
 
 	// And a live pending cost still tightens it: three Forests are probe-spare
 	// only until a {1}{G} payment is accounted for.
-	b.Cards[3] = Card{OnBattlefield: true, Basic: true, Produces: green}
+	b.Cards.Set(3, Card{OnBattlefield: true, Basic: true, Produces: green})
 	if !b.hasSpareMana() {
 		t.Fatal("precondition: three Forests should be probe-spare for a {G}{G} reserve")
 	}

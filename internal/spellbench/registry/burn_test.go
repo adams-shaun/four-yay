@@ -409,11 +409,11 @@ func TestBurnBoardSurfaceMatches(t *testing.T) {
 	// The BoardSeat surface computes the same pick off the same public facts:
 	// the lethal-face case through DecideBoard.
 	b := botpolicy.Board{
-		Creatures: map[state.ObjID]botpolicy.Creature{
+		Creatures: botpolicy.TableOf(map[state.ObjID]botpolicy.Creature{
 			10: {Power: 3, Toughness: 3, Controller: 0, Keywords: []string{"Flying"}},
 			20: {Power: 2, Toughness: 2, Controller: 1},
-		},
-		Life: map[state.PlayerID]int32{0: 20, 1: 3},
+		}),
+		Life: botpolicy.TableOf(map[state.PlayerID]int32{0: 20, 1: 3}),
 	}
 	d := burnD(intp(3), burnFaceOpt(0, 1), burnCreOpt(1, 20))
 	f := burnFactsFromBoard(b, d)
@@ -446,11 +446,11 @@ func TestBurnBoardSurfaceMatches(t *testing.T) {
 func TestBurnBoardSurfaceKillsBlocker(t *testing.T) {
 	// The clock-moving kill on the board surface, matching the view surface.
 	b := botpolicy.Board{
-		Creatures: map[state.ObjID]botpolicy.Creature{
+		Creatures: botpolicy.TableOf(map[state.ObjID]botpolicy.Creature{
 			10: {Power: 3, Toughness: 3, Controller: 0},
 			20: {Power: 3, Toughness: 3, Controller: 1},
-		},
-		Life: map[state.PlayerID]int32{0: 20, 1: 20},
+		}),
+		Life: botpolicy.TableOf(map[state.PlayerID]int32{0: 20, 1: 20}),
 	}
 	d := burnD(intp(3), burnFaceOpt(0, 1), burnCreOpt(1, 20))
 	f := burnFactsFromBoard(b, d)

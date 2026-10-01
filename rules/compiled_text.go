@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"sort"
 	"sync"
+	"sync/atomic"
+	"unsafe"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
@@ -23,6 +25,9 @@ type compiledText struct {
 	// saFacts holds every configured AB$ ability's mana-walk gate facts
 	// (mana_safacts.go), keyed by the ability's pointer.
 	saFacts map[*cards.SA]*manaSAFacts
+	// faces holds every configured face's offer-walk facts
+	// (walk_face_facts.go).
+	faces walkFaceTable
 }
 
 // compiledCost is one configured cost text's frozen parse plus the facts
@@ -35,6 +40,19 @@ type compiledCost struct {
 	bareTap bool
 	// beyondTap caches manaCostBeyondTap(Cost) (the fb-led1 marker test).
 	beyondTap bool
+	// text memoizes formatCost(Cost) (manaActivationCostMarker): the Cost
+	// is frozen, so its text never changes; set once, read by any engine.
+	text atomic.Pointer[string]
+}
+
+// formatted is formatCost(cc.Cost), memoized on the frozen cost.
+func (cc *compiledCost) formatted() string {
+	if t := cc.text.Load(); t != nil {
+		return *t
+	}
+	t := formatCost(cc.Cost)
+	cc.text.Store(&t)
+	return t
 }
 
 func newCompiledCost(text string) *compiledCost {
@@ -282,6 +300,13 @@ func buildCardText(c *cards.Card) *cardText {
 		if f.ManaCost != "" {
 			costTexts[f.ManaCost] = struct{}{}
 		}
+		// The AlternateAdditionalCost keyword's parts, which the offer walk
+		// prices per hand card per walk (parseCost(part)): a configured text
+		// is a map read instead of a parse. A part missing here (a face
+		// edited since) still parses to the same cost.
+		for _, part := range altAddCostParts(f) {
+			costTexts[part] = struct{}{}
+		}
 		for _, sa := range f.Abilities {
 			addAbility(sa)
 		}
@@ -313,6 +338,7 @@ func buildCompiledText(cfg Config) *compiledText {
 	costTexts := make(map[string]struct{})
 	seen := make(map[*cards.SA]struct{})
 	cardsSeen := make(map[*cards.Card]struct{})
+	var faces []*cards.Face
 	// Each card's contribution is compiled once (cardTextOf); a config is
 	// the union of its cards', so repeat configurations -- and the token
 	// scripts every configuration shares -- cost a merge, not a re-walk of
@@ -325,6 +351,7 @@ func buildCompiledText(cfg Config) *compiledText {
 			return
 		}
 		cardsSeen[c] = struct{}{}
+		faces = append(faces, c.Faces...)
 		ct := cardTextOf(c)
 		for _, text := range ct.texts {
 			predicateTexts[text] = struct{}{}
@@ -377,10 +404,15 @@ func buildCompiledText(cfg Config) *compiledText {
 	saFacts := make(map[*cards.SA]*manaSAFacts)
 	for sa := range seen {
 		if sa.Kind == "AB" {
-			saFacts[sa] = buildManaSAFacts(sa, costOf)
+			f := buildManaSAFacts(sa, costOf)
+			saFacts[sa] = f
+			// Published on the ability (cards.ExtSlot) for a pointer read;
+			// the first configuration to publish wins.
+			sa.ExtSlot().Store(unsafe.Pointer(f))
 		}
 	}
-	return &compiledText{predicates: effects.CompilePredicatePrograms(preds), costs: costs, saFacts: saFacts}
+	return &compiledText{predicates: effects.CompilePredicatePrograms(preds), costs: costs, saFacts: saFacts,
+		faces: buildWalkFaceTable(faces)}
 }
 
 func freezeCost(c Cost) Cost {

@@ -20,9 +20,9 @@ func TestAutoPayManaSelectsPreferredPaymentInsteadOfManualActivation(t *testing.
 		Options:        []decision.Option{{Index: 0, Kind: "activate"}, {Index: 1, Kind: "pass"}},
 		PaymentActions: []decision.PaymentAction{paymentAction("pay", 42)},
 	}
-	brd := botpolicy.Board{IsMain: true, Cards: map[state.ObjID]botpolicy.Card{
+	brd := botpolicy.Board{IsMain: true, Cards: botpolicy.TableOf(map[state.ObjID]botpolicy.Card{
 		42: {Creature: true, Power: 3, CMC: 3, Castable: true},
-	}}
+	})}
 	in := bot.decide(brd, &d)
 	if in.Payment == nil {
 		t.Fatalf("intent = %+v, want payment selection", in)
@@ -41,10 +41,10 @@ func TestAutoPayManaKeepsLandBeforePayment(t *testing.T) {
 		Options:        []decision.Option{{Index: 0, Kind: "activate"}, {Index: 1, Kind: "play_land", Obj: 1}, {Index: 2, Kind: "pass"}},
 		PaymentActions: []decision.PaymentAction{paymentAction("pay", 42)},
 	}
-	brd := botpolicy.Board{IsMain: true, Cards: map[state.ObjID]botpolicy.Card{
+	brd := botpolicy.Board{IsMain: true, Cards: botpolicy.TableOf(map[state.ObjID]botpolicy.Card{
 		1:  {Basic: true, Castable: true},
 		42: {Creature: true, Power: 3, CMC: 3, Castable: true},
-	}}
+	})}
 	in := bot.decide(brd, &d)
 	if in.Payment != nil {
 		t.Fatalf("intent = %+v, want normal land play before payment", in)

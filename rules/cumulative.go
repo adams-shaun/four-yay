@@ -888,7 +888,7 @@ func (e *Engine) triggeredCostXAsk(tc *triggeredEffectCost) bool {
 	var opts []decision.Option
 	for x := int32(0); x <= bound; x++ {
 		v := foldCostX(tc.amount, x)
-		if !e.energyPayable(tc.player, v) || !e.costPayablePool(tc.player, tc.source, false, v, pot, e.G.Players[tc.player].ManaUnits()) {
+		if !e.energyPayable(tc.player, &v) || !e.costPayablePool(tc.player, tc.source, false, v, pot, e.G.Players[tc.player].ManaUnits()) {
 			continue
 		}
 		opts = append(opts, decision.Option{Index: len(opts), Kind: "trigger_cost_x",
@@ -1051,7 +1051,7 @@ func (tc *triggeredEffectCost) announcedCost() Cost {
 // is (CR 107.4e).
 func (e *Engine) triggeredCostPayable(tc *triggeredEffectCost) bool {
 	amt := tc.announcedCost()
-	if !e.energyPayable(tc.player, amt) {
+	if !e.energyPayable(tc.player, &amt) {
 		return false
 	}
 	rest := amt.withoutEnergy()

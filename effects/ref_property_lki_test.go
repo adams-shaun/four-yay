@@ -21,7 +21,7 @@ func TestCardManaCostLKIReadsRememberedSnapshot(t *testing.T) {
 		t.Fatalf("parse current face: %v", diags)
 	}
 	current.Link()
-	live.Card = current
+	live.SetCard(current, live.FaceIdx)
 	if live.Face().Cmc() == 0 || live.Face().Cmc() == wantLKI {
 		t.Fatalf("setup failed: live mana value %d must be non-zero and differ from LKI %d", live.Face().Cmc(), wantLKI)
 	}

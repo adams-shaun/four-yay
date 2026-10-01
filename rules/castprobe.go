@@ -54,8 +54,12 @@ func (e *Engine) offerAsSpellOnStack(id state.ObjID, fn func() bool) bool {
 	e.G.Stack = append(slices.Clip(prevStack), id)
 	o.Zone = state.ZStack
 	e.derivedMemoDepth = 0
+	// The object classes (walk_objclass.go) cache nothing read under the
+	// move, whose fingerprint would outlive it.
+	e.offerProbeDepth++
 	e.retireCrossWalkMemo()
 	defer func() {
+		e.offerProbeDepth--
 		o.Zone = prevZone
 		e.G.Stack = prevStack
 		e.G.SetZone(state.ZHand, o.Owner, hand)
@@ -118,7 +122,13 @@ func (e *Engine) paymentPlanHoldsOnStack(p state.PlayerID, id state.ObjID, plan 
 		prevQuery := e.paymentPlanQuery
 		e.paymentPlanQuery = nil
 		defer func() { e.paymentPlanQuery = prevQuery }()
-		units := e.paymentPlanManaUnits(p)
+		// Only the plan's own sources are resolved, so the census is taken
+		// for those alone (exactly the full census's units for them).
+		only := make([]state.ObjID, 0, len(plan.Activations))
+		for _, pa := range plan.Activations {
+			only = append(only, pa.Source)
+		}
+		units := e.paymentPlanManaUnitsOnly(p, only)
 		for _, pa := range plan.Activations {
 			if _, ok := e.paymentPlanStepAlternative(units, pa); !ok {
 				return false

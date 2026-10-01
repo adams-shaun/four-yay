@@ -99,10 +99,10 @@ func (c Creature) pt() int32 { return c.Power + c.Toughness }
 // count the Life map is sized to (len(g.Players) at the time).
 func NewBoard(numPlayers int) Board {
 	return Board{
-		Creatures:  make(map[state.ObjID]Creature, 32),
-		Life:       make(map[state.PlayerID]int32, numPlayers),
-		Cards:      make(map[state.ObjID]Card, 16),
-		Commanders: make(map[state.ObjID]Commander, 8),
+		Creatures:  makeTable[state.ObjID, Creature](32),
+		Life:       makeTable[state.PlayerID, int32](numPlayers),
+		Cards:      makeTable[state.ObjID, Card](16),
+		Commanders: makeTable[state.ObjID, Commander](8),
 		Stack:      make([]StackEntry, 0, 8),
 	}
 }
@@ -148,10 +148,11 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 		defer sc.EndDerivedReads()
 	}
 	combined, hasCombined := ch.(combinedChars)
-	clear(b.Creatures)
-	clear(b.Life)
-	clear(b.Cards)
-	clear(b.Commanders)
+	b.Creatures.Reset()
+	b.Life.Reset()
+	b.Cards.Reset()
+	b.Commanders.Reset()
+	b.kwArena = b.kwArena[:0]
 	// The public stack census (C8's facts): the stack's own bottom-to-top
 	// order, truncated in place so the reused Board's slice never carries a
 	// stale entry from the previous refill (the same clear-the-buckets
@@ -181,7 +182,15 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 		}
 		b.Stack = append(b.Stack, StackEntry{ID: id, Controller: o.Controller, IsSpell: o.Ability == nil, CMC: cmc, ManaCost: manaCost})
 	}
-	if manifests, ok := ch.(interface {
+	// The manifest is read, never written, by everything a Board reaches,
+	// so the engine's shared read-only pointer (rules.Engine.OwnDeckShared)
+	// serves it without the per-decision copy OwnDeck makes; a Chars that
+	// only offers OwnDeck still gets its copy.
+	if shared, ok := ch.(interface {
+		OwnDeckShared(state.PlayerID) *deck.Manifest
+	}); ok {
+		b.OwnDeck = shared.OwnDeckShared(me)
+	} else if manifests, ok := ch.(interface {
 		OwnDeck(state.PlayerID) *deck.Manifest
 	}); ok {
 		b.OwnDeck = manifests.OwnDeck(me)
@@ -208,9 +217,16 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 	b.PoolRestricted = RestrictedPool(g.Players[me].RestrictedMana)
 	b.LibrarySize = int32(len(g.Zone(state.ZLibrary, me)))
 	b.HandSize = int32(len(g.Zone(state.ZHand, me)))
+	if b.fillTablesInc(g, ch, me) {
+		fillCommanders(g, b)
+		if boardIncVerify {
+			verifyIncBoard(g, ch, me, b)
+		}
+		return *b
+	}
 	for i := range g.Players {
 		p := &g.Players[i]
-		b.Life[p.ID] = p.Life
+		b.Life.Set(p.ID, p.Life)
 		for _, id := range g.Zone(state.ZBattlefield, p.ID) {
 			o := g.Obj(id)
 			if o == nil || o.Face() == nil || o.Ephemeral() || !o.Face().IsCreature() {
@@ -220,13 +236,23 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 			var keywords []string
 			if hasCombined {
 				power, toughness, keywords = combined.Characteristics(id)
-				keywords = append([]string(nil), keywords...)
 			} else {
 				power = ch.Power(id)
 				toughness = ch.Toughness(id)
-				keywords = append([]string(nil), ch.Keywords(id)...)
+				keywords = ch.Keywords(id)
 			}
-			b.Creatures[id] = Creature{
+			// The Board's own copy of the derived list (the engine's slice
+			// is scratch), carved from the reused keyword arena: capped at
+			// its length so no reader's append can reach a neighbour, and
+			// nil for an empty list exactly as the per-creature copy was.
+			if len(keywords) == 0 {
+				keywords = nil
+			} else {
+				start := len(b.kwArena)
+				b.kwArena = append(b.kwArena, keywords...)
+				keywords = b.kwArena[start:len(b.kwArena):len(b.kwArena)]
+			}
+			*b.Creatures.slot(id) = Creature{
 				Power:      power,
 				Toughness:  toughness,
 				Damage:     o.Damage,
@@ -236,44 +262,7 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 			}
 		}
 	}
-	// The commander bookkeeping: every commander in the match, in the
-	// dense order rules.New assigns at genesis (player order, then each
-	// player's CmdCasts-parallel Commanders order) — the same index every
-	// player's CmdDamage slice is keyed by, transposed here to the
-	// per-commander, per-damaged-player shape the clock rules read
-	// (closesClock). InCommandZone is zone-LIST membership, the exact
-	// mirror of the view half's p.Command membership, so a cast commander
-	// (moved out of the zone list) reads false on both halves.
-	dense := 0
-	for i := range g.Players {
-		p := &g.Players[i]
-		for k, id := range p.Commanders {
-			var casts int32
-			if k < len(p.CmdCasts) {
-				casts = p.CmdCasts[k]
-			}
-			cmdr := Commander{Casts: casts}
-			for _, zid := range g.Zone(state.ZCommand, p.ID) {
-				if zid == id {
-					cmdr.InCommandZone = true
-					break
-				}
-			}
-			for q := range g.Players {
-				// Guarded to totality: a game whose CmdDamage was never
-				// sized (a non-Commander game, or a hand-built state) reads
-				// nothing here, never a panic.
-				if dense < len(g.Players[q].CmdDamage) && g.Players[q].CmdDamage[dense] != 0 {
-					if cmdr.Damage == nil {
-						cmdr.Damage = make(map[state.PlayerID]int32, len(g.Players))
-					}
-					cmdr.Damage[g.Players[q].ID] = g.Players[q].CmdDamage[dense]
-				}
-			}
-			b.Commanders[id] = cmdr
-			dense++
-		}
-	}
+	fillCommanders(g, b)
 	// The casting Card census: every object in the deciding seat's own hand,
 	// graveyard, battlefield and command zone — exactly the zones
 	// BoardFromView fills from the viewer's own Hand/Graveyard/Battlefield/
@@ -304,7 +293,14 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 			}
 			var power, toughness int32
 			var castable, instantSpeed bool
-			if hasCombined {
+			if cr := b.ownCreature(hasCombined, z, id); cr != nil {
+				// An own battlefield creature: the creature census above
+				// already holds its combined characteristics (keywords
+				// included, copied), so read them instead of querying the
+				// same object again. A battlefield card is never castable.
+				power, toughness = cr.Power, cr.Toughness
+				instantSpeed = f.TypeLineHas("Instant", twInstant) || hasFlash(cr.Keywords)
+			} else if hasCombined {
 				var keywords []string
 				power, toughness, keywords = combined.Characteristics(id)
 				castable = z == state.ZHand || z == state.ZCommand || (z == state.ZGraveyard && hasFlashback(keywords))
@@ -315,7 +311,7 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 				castable = z == state.ZHand || z == state.ZCommand || (z == state.ZGraveyard && hasFlashback(ch.Keywords(id)))
 				instantSpeed = f.TypeLineHas("Instant", twInstant) || hasFlash(ch.Keywords(id))
 			}
-			b.Cards[id] = Card{
+			*b.Cards.slot(id) = Card{
 				Creature:      f.IsCreature(),
 				Power:         power,
 				Toughness:     toughness,
@@ -330,7 +326,7 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 				Sick:          o.SummonSick,
 				Produces:      f.ManaProduction(),
 				InstantSpeed:  instantSpeed,
-				Counter:       f.SpellAbility() != nil && f.SpellAbility().API == "Counter",
+				Counter:       isCounterSpell(f),
 			}
 		}
 	}
@@ -367,11 +363,11 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 				// Owner, nothing printed), so the view half's fillZone lands
 				// a zero-fact entry for it and this half writes the same
 				// entry, never a printed-face fact the voter cannot see.
-				b.Cards[id] = Card{}
+				b.Cards.Set(id, Card{})
 				continue
 			}
 			var power, toughness int32
-			if cr, seen := b.Creatures[id]; seen {
+			if cr := b.Creatures.Ref(id); cr != nil {
 				// The public creature census above (the ZBattlefield pass that
 				// walks every seat) already queried this object's combined
 				// characteristics; reuse them rather than querying the same
@@ -385,7 +381,7 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 				toughness = ch.Toughness(id)
 			}
 			f := o.Face()
-			b.Cards[id] = Card{
+			*b.Cards.slot(id) = Card{
 				Creature:  f.IsCreature(),
 				Power:     power,
 				CMC:       cmcOfFace(f),
@@ -396,6 +392,64 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 		}
 	}
 	return *b
+}
+
+// The commander bookkeeping: every commander in the match, in the
+// dense order rules.New assigns at genesis (player order, then each
+// player's CmdCasts-parallel Commanders order) — the same index every
+// player's CmdDamage slice is keyed by, transposed here to the
+// per-commander, per-damaged-player shape the clock rules read
+// (closesClock). InCommandZone is zone-LIST membership, the exact
+// mirror of the view half's p.Command membership, so a cast commander
+// (moved out of the zone list) reads false on both halves.
+func fillCommanders(g *state.Game, b *Board) {
+	dense := 0
+	for i := range g.Players {
+		p := &g.Players[i]
+		for k, id := range p.Commanders {
+			var casts int32
+			if k < len(p.CmdCasts) {
+				casts = p.CmdCasts[k]
+			}
+			cmdr := Commander{Casts: casts}
+			for _, zid := range g.Zone(state.ZCommand, p.ID) {
+				if zid == id {
+					cmdr.InCommandZone = true
+					break
+				}
+			}
+			for q := range g.Players {
+				// Guarded to totality: a game whose CmdDamage was never
+				// sized (a non-Commander game, or a hand-built state) reads
+				// nothing here, never a panic.
+				if dense < len(g.Players[q].CmdDamage) && g.Players[q].CmdDamage[dense] != 0 {
+					if cmdr.Damage == nil {
+						cmdr.Damage = make(map[state.PlayerID]int32, len(g.Players))
+					}
+					cmdr.Damage[g.Players[q].ID] = g.Players[q].CmdDamage[dense]
+				}
+			}
+			b.Commanders.Set(id, cmdr)
+			dense++
+		}
+	}
+}
+
+// isCounterSpell reports whether f's spell ability is a Counter (one
+// SpellAbility lookup, not two).
+func isCounterSpell(f *cards.Face) bool {
+	sa := f.SpellAbility()
+	return sa != nil && sa.API == "Counter"
+}
+
+// ownCreature is the creature census entry the Cards pass may reuse for id:
+// only an own battlefield card, and only when the census was filled from
+// the combined characteristics query.
+func (b *Board) ownCreature(hasCombined bool, z state.Zone, id state.ObjID) *Creature {
+	if !hasCombined || z != state.ZBattlefield {
+		return nil
+	}
+	return b.Creatures.Ref(id)
 }
 
 // canBlockLike is the policy's approximation of the engine's canBlock for
@@ -809,7 +863,7 @@ func ar8DamageThrough(atks []ar8Attacker, blockers []blocker) int32 {
 // ar8MaxAttackers the enumeration is skipped and the AR7 per-attacker test is
 // used instead: every attacker whose own unblocked power reaches life.
 func (b Board) ar8LethalSubset(defender state.PlayerID, atks []ar8Attacker, blockers []blocker) ([]ar8Attacker, bool) {
-	life, ok := b.Life[defender]
+	life, ok := b.Life.Lookup(defender)
 	if !ok || life <= 0 {
 		return nil, false
 	}
@@ -858,7 +912,7 @@ func (b Board) ar8LethalSubset(defender state.PlayerID, atks []ar8Attacker, bloc
 // result is a pure function of the sorted list and the board: no map order
 // reaches it.
 func (b Board) swarmLethalSubset(defender state.PlayerID, atks []ar8Attacker, blockers []blocker, taken map[state.ObjID]int) []ar8Attacker {
-	life, ok := b.Life[defender]
+	life, ok := b.Life.Lookup(defender)
 	if !ok || life <= 0 {
 		return nil
 	}
@@ -915,7 +969,7 @@ func (b Board) chooseAttackersMode(d *decision.Decision, lethalPressure, combine
 	}
 	me := d.Player
 	lethalToLife := func(defender state.PlayerID, power int32) bool {
-		life, ok := b.Life[defender]
+		life, ok := b.Life.Lookup(defender)
 		return ok && power > 0 && power >= life
 	}
 
@@ -927,7 +981,7 @@ func (b Board) chooseAttackersMode(d *decision.Decision, lethalPressure, combine
 	// defender runs here against each option's own.
 	defBlockers := make(map[state.PlayerID][]blocker, len(d.Options))
 	defHasThreat := make(map[state.PlayerID]bool, len(d.Options))
-	for id, c := range b.Creatures {
+	for id, c := range b.Creatures.All() {
 		if c.Controller == me {
 			continue
 		}
@@ -966,7 +1020,7 @@ func (b Board) chooseAttackersMode(d *decision.Decision, lethalPressure, combine
 		o := &d.Options[i]
 		at, ok := byID[o.Obj]
 		if !ok {
-			at = &atk{id: o.Obj, a: b.Creatures[o.Obj], pos: i}
+			at = &atk{id: o.Obj, a: b.Creatures.Get(o.Obj), pos: i}
 			byID[o.Obj] = at
 			attackers = append(attackers, at)
 		}
@@ -1143,7 +1197,7 @@ func (b Board) chooseAttackersMode(d *decision.Decision, lethalPressure, combine
 			// At equal combat risk, pressure the opponent closest to dying
 			// rather than the lowest seat. Life is public on both adapters.
 			// Equal life keeps the first option (opts is in offered order).
-			life := b.Life[d.Options[oi].Player]
+			life := b.Life.Get(d.Options[oi].Player)
 			if t > bestTier || (t == bestTier && life < bestLife) {
 				best, bestTier, bestLife = oi, t, life
 			}
@@ -1175,7 +1229,7 @@ func (b Board) chooseAttackersMode(d *decision.Decision, lethalPressure, combine
 	for _, oi := range chosen {
 		attackingSet[d.Options[oi].Obj] = true
 	}
-	for id, c := range b.Creatures {
+	for id, c := range b.Creatures.All() {
 		if c.Controller != me || c.Tapped {
 			continue
 		}
@@ -1202,7 +1256,7 @@ func (b Board) chooseAttackersMode(d *decision.Decision, lethalPressure, combine
 		// reads only the attacker's facts (an order-independent any-match).
 		anyBlockable := make(map[string]bool)
 		for j, oi := range chosen {
-			a := b.Creatures[d.Options[oi].Obj]
+			a := b.Creatures.Get(d.Options[oi].Obj)
 			// Blockable by any opponent's creature: the held-back creature
 			// defends the board against every future attacker (an
 			// order-independent any-match over the defenders).
@@ -1318,7 +1372,7 @@ func (b Board) chooseBlockers(d *decision.Decision) []int {
 		return nil
 	}
 	me := d.Player
-	myLife := b.Life[me]
+	myLife := b.Life.Get(me)
 
 	// Group the offered options by attacker, preserving the engine's
 	// enumeration order (first-seen position is the deterministic tiebreak).
@@ -1334,7 +1388,7 @@ func (b Board) chooseBlockers(d *decision.Decision) []int {
 		o := &d.Options[i]
 		at, ok := byID[o.Attacker]
 		if !ok {
-			at = &atk{id: o.Attacker, a: b.Creatures[o.Attacker], pos: i}
+			at = &atk{id: o.Attacker, a: b.Creatures.Get(o.Attacker), pos: i}
 			byID[o.Attacker] = at
 			attackers = append(attackers, at)
 		}
@@ -1373,8 +1427,8 @@ func (b Board) chooseBlockers(d *decision.Decision) []int {
 			if obj == d.Options[first].Obj || used[obj] {
 				continue
 			}
-			if best == -1 || b.Creatures[obj].pt() < b.Creatures[d.Options[best].Obj].pt() ||
-				(b.Creatures[obj].pt() == b.Creatures[d.Options[best].Obj].pt() && oi < best) {
+			if best == -1 || b.Creatures.Get(obj).pt() < b.Creatures.Get(d.Options[best].Obj).pt() ||
+				(b.Creatures.Get(obj).pt() == b.Creatures.Get(d.Options[best].Obj).pt() && oi < best) {
 				best = oi
 			}
 		}
@@ -1400,7 +1454,7 @@ func (b Board) chooseBlockers(d *decision.Decision) []int {
 			if used[ob.Obj] {
 				continue
 			}
-			bl := b.Creatures[ob.Obj]
+			bl := b.Creatures.Get(ob.Obj)
 			aDead, dead := blockCombat(at.a, []Creature{bl})
 			if !aDead {
 				continue // this block does not kill the attacker
@@ -1441,7 +1495,7 @@ func (b Board) chooseBlockers(d *decision.Decision) []int {
 				if used[d.Options[oi].Obj] {
 					continue
 				}
-				if chump == -1 || b.Creatures[d.Options[oi].Obj].pt() < b.Creatures[d.Options[chump].Obj].pt() {
+				if chump == -1 || b.Creatures.Get(d.Options[oi].Obj).pt() < b.Creatures.Get(d.Options[chump].Obj).pt() {
 					chump = oi
 				}
 			}
@@ -1462,9 +1516,9 @@ func (b Board) chooseBlockers(d *decision.Decision) []int {
 					}
 					saved := at.a.Power
 					if at.a.hasKeyword("Trample") {
-						saved = b.Creatures[d.Options[chump].Obj].remTough()
+						saved = b.Creatures.Get(d.Options[chump].Obj).remTough()
 						if second >= 0 {
-							saved += b.Creatures[d.Options[second].Obj].remTough()
+							saved += b.Creatures.Get(d.Options[second].Obj).remTough()
 						}
 						if saved > at.a.Power {
 							saved = at.a.Power

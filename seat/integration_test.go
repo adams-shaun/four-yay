@@ -223,7 +223,7 @@ func agreeOverCommanderGame(t testing.TB, newBot func(uint64) *Bot) {
 		if !reflect.DeepEqual(boardView.OwnDeck, boardGame.OwnDeck) {
 			t.Fatalf("intent %d: own deck manifest diverged: view=%#v game=%#v", n, boardView.OwnDeck, boardGame.OwnDeck)
 		}
-		if !maps.Equal(boardView.Cards, boardGame.Cards) {
+		if !maps.Equal(boardView.Cards.Map(), boardGame.Cards.Map()) {
 			t.Fatalf("intent %d: casting Card census diverged (step %s)", n, eGame.G.Step)
 		}
 		// The exact step fact, the commander twin of the whole-game pin.
@@ -235,8 +235,8 @@ func agreeOverCommanderGame(t testing.TB, newBot func(uint64) *Bot) {
 		}
 		// The commander facts: identical maps on both halves, pinned on
 		// every decision (not only when a ranking flips a choice).
-		if !reflect.DeepEqual(boardView.Commanders, boardGame.Commanders) {
-			t.Fatalf("intent %d: commander facts diverged:\nview: %+v\ngame: %+v (step %s)", n, boardView.Commanders, boardGame.Commanders, eGame.G.Step)
+		if !reflect.DeepEqual(boardView.Commanders.Map(), boardGame.Commanders.Map()) {
+			t.Fatalf("intent %d: commander facts diverged:\nview: %+v\ngame: %+v (step %s)", n, boardView.Commanders.Map(), boardGame.Commanders.Map(), eGame.G.Step)
 		}
 		// op6 (the tap gate's pool), the commander twin of the whole-game
 		// test's own pool agreement.
@@ -265,10 +265,10 @@ func agreeOverCommanderGame(t testing.TB, newBot func(uint64) *Bot) {
 		// Only intents that actually carried a commander fact count toward
 		// the pin below; an unconditional increment would make the
 		// cmdPinned == 0 guard unreachable even with an empty roster.
-		if len(boardGame.Commanders) > 0 {
+		if boardGame.Commanders.Len() > 0 {
 			cmdPinned++
 		}
-		for _, cm := range boardGame.Commanders {
+		for _, cm := range boardGame.Commanders.All() {
 			if cm.Casts > 0 {
 				castN++
 				break
@@ -495,16 +495,16 @@ func agreeOverGame(t testing.TB, names []string, decks [][]*cards.Card, seed uin
 		}
 		// AR6 also reads defender life to break equal combat tiers. Compare
 		// the fact itself, not just choices that may never need a tiebreak.
-		if !maps.Equal(boardView.Life, boardGame.Life) {
-			t.Fatalf("intent %d: life census diverged: view %v vs game %v", n, boardView.Life, boardGame.Life)
+		if !maps.Equal(boardView.Life.Map(), boardGame.Life.Map()) {
+			t.Fatalf("intent %d: life census diverged: view %v vs game %v", n, boardView.Life.Map(), boardGame.Life.Map())
 		}
 		for _, p := range eView.G.Players {
-			if boardView.Life[p.ID] != boardView.Life[d.Player] {
+			if boardView.Life.Get(p.ID) != boardView.Life.Get(d.Player) {
 				sawUnequalLife = true
 			}
 		}
-		if !maps.Equal(boardView.Cards, boardGame.Cards) {
-			t.Fatalf("intent %d: casting Card census diverged: view %v vs game %v (step %s)", n, boardView.Cards, boardGame.Cards, eGame.G.Step)
+		if !maps.Equal(boardView.Cards.Map(), boardGame.Cards.Map()) {
+			t.Fatalf("intent %d: casting Card census diverged: view %v vs game %v (step %s)", n, boardView.Cards.Map(), boardGame.Cards.Map(), eGame.G.Step)
 		}
 		// The exact step fact (the cast scorer's timing features): the view
 		// half parses the projected View.Step string, the game half reads
@@ -546,7 +546,7 @@ func agreeOverGame(t testing.TB, names []string, decks [][]*cards.Card, seed uin
 		// reads true on both halves — the view half off CardView.SpellAPI,
 		// the game half off cards.Face.SpellAbility().API — and a foreign
 		// stack spell is what makes the census worth reading at all.
-		for _, c := range boardGame.Cards {
+		for _, c := range boardGame.Cards.All() {
 			if c.Counter {
 				counterN++
 				break
@@ -562,10 +562,10 @@ func agreeOverGame(t testing.TB, names []string, decks [][]*cards.Card, seed uin
 		// adapters reading different facts, and the non-zero count besides
 		// proves the field actually BOTHERS to run rather than staying at 0
 		// on both halves by luck (the wantAttached assertion below).
-		for id, cv := range boardView.Cards {
+		for id, cv := range boardView.Cards.All() {
 			if cv.AttachedTo != 0 {
-				if boardGame.Cards[id].AttachedTo != cv.AttachedTo {
-					t.Fatalf("intent %d: AttachedTo diverged for %d: view %d, game %d (step %s)", n, id, cv.AttachedTo, boardGame.Cards[id].AttachedTo, eGame.G.Step)
+				if boardGame.Cards.Get(id).AttachedTo != cv.AttachedTo {
+					t.Fatalf("intent %d: AttachedTo diverged for %d: view %d, game %d (step %s)", n, id, cv.AttachedTo, boardGame.Cards.Get(id).AttachedTo, eGame.G.Step)
 				}
 				attachedN++
 			}

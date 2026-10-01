@@ -28,11 +28,7 @@ import (
 // source is part of the key because two permanents can carry the same body
 // (two Sephiroths, or a Sephiroth and a copied one) and each has its own tally.
 func ResolvedAbilityKey(source state.ObjID, sa *cards.SA) string {
-	var b strings.Builder
-	b.WriteString(strconv.FormatUint(uint64(source), 10))
-	b.WriteByte('|')
-	writeSAKey(&b, sa, 0)
-	return b.String()
+	return strconv.FormatUint(uint64(source), 10) + "|" + saKeyContent(sa)
 }
 
 func writeSAKey(b *strings.Builder, sa *cards.SA, depth int) {

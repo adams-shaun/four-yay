@@ -53,12 +53,34 @@ type engineScratch struct {
 	// (rules/walkcache.go). Pure per-walk scratch: Clone copies none of it.
 	boardStaticsCache  boardStaticsCache
 	activeStaticsCache []activeStaticsEntry
-	mayPlaysCache      []mayPlaysEntry
+	// activeStaticsScan records the lists the last fused activeStatics scan
+	// walked (static_scan_reuse.go). Pure scratch: Clone copies none.
+	activeStaticsScan staticScanRec
+	// actIndex is the incremental activation-count folds
+	// (activation_count_index.go). Pure scratch: Clone copies none.
+	actIndex activationIndex
+	// boardScanBuf is the printed board scan's gathered zone lists
+	// (static_scan_reuse.go: gatherBoardScan). Pure scratch.
+	boardScanBuf  []boardScanList
+	mayPlaysCache []mayPlaysEntry
 	// paymentPlanQuery is the payment planner's per-query scratch (the
 	// zone-entry index and source census, rules/payment_plan_search.go),
 	// installed for one query and validated against the log on every read.
 	// Pure per-query scratch: Clone copies none of it.
 	paymentPlanQuery *paymentPlanQuery
+	// paymentPlanQueryKept / paymentPlanQueryKeptStamp are the offer
+	// builder's query scope kept at its posed decision for the decision's
+	// other pure payment readers (paymentPlanQueryResumeBegin). Pure scratch:
+	// Clone copies none of it.
+	paymentPlanQueryKept      *paymentPlanQuery
+	paymentPlanQueryKeptStamp potentialStamp
+	// paymentPlanQueryFree is the last finished query scope, reset and
+	// reused by the next (paymentPlanQueryBegin). Clone copies none.
+	paymentPlanQueryFree *paymentPlanQuery
+	// zoneEntry is the incremental zone-entry index paymentSourceZoneSeq
+	// reads (payment_zone_entry.go), validated against the log on every
+	// read. Pure scratch over the log: Clone copies none of it.
+	zoneEntry zoneEntryIndex
 	// paymentPlanRelaxed is PotentialPaymentPlans' transient proof mode
 	// (rules/potential_plan.go paymentPlanRelaxProof): relaxed, never
 	// executed alternatives for the mana abilities the planner census does
@@ -71,6 +93,47 @@ type engineScratch struct {
 	// paymentPlanPotentialPool marks a PotentialPaymentPlans query
 	// (paymentPlanPoolAccepted). Pure per-query scratch: Clone copies none.
 	paymentPlanPotentialPool bool
+	// potentialWalk is one posed priority decision's PotentialMana and the
+	// legal-offer walk priced against it, shared by the offer builder, the
+	// PotentialActions projection and PotentialPaymentPlans
+	// (potential_walk_cache.go). potentialAskSerial (bumped by every ask and
+	// every Submit) keys it to the decision; potentialWalkDepth bypasses it
+	// inside its own computation; potentialFullDemand records that a
+	// full-walk reader asked on this engine. Pure scratch: Clone copies none.
+	potentialWalk       potentialWalkCache
+	potentialAskSerial  uint64
+	potentialWalkDepth  int
+	potentialFullDemand bool
+	// crossWalkRetires counts retireCrossWalkMemo calls (derivedmemo.go), so
+	// activeBuildSeq minus it counts active()'s real rebuilds. Clone copies
+	// none (a clone's activeBuildSeq restarts too).
+	crossWalkRetires uint64
+	// priorityWalk is the posed priority decision's own offer walk, which
+	// the potential readers use while PotentialMana adds nothing to the pool
+	// (potential_walk_cache.go). Clone copies none.
+	priorityWalk priorityWalkTail
+	// walkRec is the priority walk's pool-independent block record and
+	// walkReuse the record armed for the next potential walk
+	// (walk_block_reuse.go). Clone copies none.
+	walkRec   walkBlockRec
+	walkReuse *walkBlockRec
+	// walkRecDemand: the payment offer builder has run on this engine, so
+	// its potential walk follows priority walks and they record
+	// (walk_block_reuse.go). Clone copies none.
+	walkRecDemand bool
+	// potentialManaRec is the record armed for the next PotentialMana's
+	// membership walk (walk_block_reuse.go potentialMembers). Clone copies
+	// none.
+	potentialManaRec *walkBlockRec
+	// walkBlocksServed counts the blocks a potential walk served from the
+	// record (a test-visible diagnostic, like legalActionWalks).
+	walkBlocksServed uint64
+	// walkMembersServed counts PotentialMana membership lists served from
+	// the record (the same kind of diagnostic).
+	walkMembersServed uint64
+	// graveCandBuf is the offer walk's graveyard-candidate scratch
+	// (legal_walk_grave_skip.go), taken for the section. Not cloned.
+	graveCandBuf []state.ObjID
 
 	// derivingColorsSet/ID/Colors: the finished layer-5 colour answer for the
 	// object whose Derived is mid-build (set by derivedWith before its layer-7
@@ -89,6 +152,32 @@ type engineScratch struct {
 	// triggerBefore is the immutable pre-departure board for an SBA death
 	// batch. Scoped to its emission/resumption, never carried as live state.
 	triggerBefore *triggerSnapshot
+	// snapPool recycles the object arenas of trigger-window snapshots no
+	// record retained (trigger_snapshot_pool.go). Owned by exactly one
+	// engine (snapshotPool.owner): a by-value Engine copy (entryPreview's
+	// preview) carries the pointer but never uses it, and Clone leaves it
+	// nil for the clone to build its own.
+	snapPool *snapshotPool
+	// lookBack is checkTriggers' reusable look-back observer Engine: the
+	// observer lives for one checkTriggers call and never emits, so one
+	// struct serves every call, rebuilt from zero each time (a fresh
+	// observer's exact state, minus the allocation). lookBackOwner is the
+	// engine that allocated it, so a by-value Engine copy never reuses the
+	// original's; lookBackBusy guards against a nested use.
+	lookBack *Engine
+	// decArena backs posed priority decisions for an engine whose decisions
+	// all die with it (SetDecisionArena, decision_arena.go); nil or off
+	// everywhere else.
+	decArena      *decisionArena
+	lookBackOwner *Engine
+	lookBackBusy  bool
+	// preview is entryPreview's reusable preview Engine struct, owned and
+	// guarded exactly like lookBack (previewOwner, previewBusy): a preview
+	// lives for one entry's plan and is zeroed when released
+	// (releaseEntryPreview).
+	preview      *Engine
+	previewOwner *Engine
+	previewBusy  bool
 	// A shallow read-only observer of a recurring Effect trigger overrides
 	// controllerOf for its creating source. The Effect's controller is the
 	// registration's owner, even when its source card belongs to another seat.
@@ -120,6 +209,27 @@ type engineScratch struct {
 	foreachBuf   []state.ObjID
 	foreachDepth int
 
+	// trigZeroNoopEp/Objs/Ver key checkFaceTriggers' zero-interest no-op
+	// memo: the log length, arena size and registry version after the last
+	// zero-interest walk that visited no object (0: none). Clone leaves it
+	// zero.
+	trigZeroNoopEp   int
+	trigZeroNoopObjs int
+	trigZeroNoopVer  int
+	// atkOffers is attackOffers' last list and atkOffersEp/Ver/Objs/Active
+	// its key (log length -- 0: none --, registry version, arena size,
+	// active player); reused across a layer-inert run. Clone leaves it zero.
+	atkOffers       []attackOffer
+	atkOffersEp     int
+	atkOffersVer    int
+	atkOffersObjs   int
+	atkOffersActive state.PlayerID
+
+	// trigZeroNoopKinds is the set of event kinds the memo holds: the walk
+	// is narrowed per kind (trigger_kinds.go), so an empty walk for one
+	// zero-interest kind says nothing about another.
+	trigZeroNoopKinds trigKinds
+
 	// legalOptBuf is legalActionsPriced's scratch option list. The walk
 	// appends into it (so the doubling growth that used to reallocate the
 	// list several times per walk settles at the largest walk seen) and
@@ -130,6 +240,17 @@ type engineScratch struct {
 	// walk allocates its own rather than clobbering the outer one. Owned by
 	// this Engine alone: Clone leaves it nil, like foreachBuf.
 	legalOptBuf []decision.Option
+	// targetCensusBuf is candidatesCountForLimit's scratch list (taken for
+	// the call; Clone leaves it nil).
+	targetCensusBuf []targetCandidate
+	// manaAbScratch is the priority mana member-set scratch list
+	// (activateManaFor, priorityManaAbilityCount; taken for the call,
+	// Clone leaves it nil).
+	manaAbScratch []*cards.SA
+	// legalScratch is the offer walk's incremental log-derived indexes and
+	// their watermarks (legal_walk_scratch.go). Clone carries it
+	// (cloneLegalWalkScratch): copy-on-write, so nothing is shared mutably.
+	legalScratch legalWalkScratch
 	// legalActionWalks counts every legalActionsPriced call (test-visible
 	// only; unexported, bumped unconditionally, no event and no effect on
 	// determinism or chain heads -- a plain monotonic read-only diagnostic
@@ -147,6 +268,9 @@ type engineScratch struct {
 	// activeSum is active()'s per-build digest for the mana walk and
 	// grantedAbilities (active_summary.go). Clone leaves it zero.
 	activeSum activeSummary
+	// charsSum is active()'s per-build digest for Characteristics' printed
+	// fast path (derived_printed.go). Clone leaves it zero.
+	charsSum charsSummary
 	// faceScans memoises per-face text-scan verdicts (face_scan_memo.go).
 	// Clone leaves it nil.
 	faceScans map[*cards.Face]faceScan
@@ -156,4 +280,7 @@ type engineScratch struct {
 	// sbaIDBuf is the battlefield-snapshot scratch attachmentSBAs and
 	// checkSagas range (taken for the walk, restored after). Not cloned.
 	sbaIDBuf []state.ObjID
+	// hypSpares recycles the hypothetical clones' storage (hypclone.go).
+	// Owner-guarded like decArena; Clone leaves it nil.
+	hypSpares *hypSparePool
 }

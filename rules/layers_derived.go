@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -33,13 +34,16 @@ func (e *Engine) derivedScalar(id state.ObjID) (power, toughness int32) {
 	}
 	f := o.Face()
 	active := e.active()
+	if p, t, ok := e.printedPT(o, f, active); ok {
+		return p, t
+	}
 	for i := range active {
 		if ce := &active[i]; ce.Layer == LPT && effects.SpecReadsKeywords(ce.Affects) {
 			d := e.derivedWith(id, 0)
 			return d.Power, d.Toughness
 		}
 	}
-	p, t, _, _ := e.derivedScalarFrom(id, o, f, active, nil)
+	p, t, _, _ := e.derivedScalarFrom(id, o, f, active, nil, nil, false)
 	return p, t
 }
 
@@ -60,7 +64,7 @@ func (e *Engine) derivedScalarBase(id state.ObjID) int32 {
 			return e.derivedWith(id, 0).BasePower
 		}
 	}
-	_, _, bp, _ := e.derivedScalarFrom(id, o, f, active, nil)
+	_, _, bp, _ := e.derivedScalarFrom(id, o, f, active, nil, nil, false)
 	return bp
 }
 
@@ -77,7 +81,12 @@ func (e *Engine) derivedScalarBase(id state.ObjID) int32 {
 // every SubCDA/SubSet set but by NO SubModify modify and by NO 7d counter --
 // so a 7c pump or a +1/+1 counter moves power/toughness while leaving the base
 // pair where it was. That is the value the base filter predicates read.
-func (e *Engine) derivedScalarFrom(id state.ObjID, o *state.Object, f *cards.Face, active []ContinuousEffect, kw []string) (power, toughness, basePower, baseToughness int32) {
+//
+// types/haveTypes: a caller that already holds typeCharacteristics(id, 0)'s
+// exact result (derivedCompute on a live-zone derivation) passes it with
+// haveTypes set, so the layer-4 walk is not run a second time; otherwise the
+// walk computes it.
+func (e *Engine) derivedScalarFrom(id state.ObjID, o *state.Object, f *cards.Face, active []ContinuousEffect, kw []string, types []string, haveTypes bool) (power, toughness, basePower, baseToughness int32) {
 	frameIndex := len(e.derivedPTFrames)
 	e.derivedPTFrames = append(e.derivedPTFrames, derivedPTSnapshot{id: id})
 	defer func() { e.derivedPTFrames = e.derivedPTFrames[:frameIndex] }()
@@ -145,7 +154,9 @@ func (e *Engine) derivedScalarFrom(id state.ObjID, o *state.Object, f *cards.Fac
 	// typeCharacteristics is 837910f4's layer-4-aware type derivation; the
 	// active list comes in as a parameter (230574a2's plumbing) because
 	// active() is a cached, idempotent read — same slice, no recomputation.
-	types := e.typeCharacteristics(id, 0)
+	if !haveTypes {
+		types = e.typeCharacteristics(id, 0)
+	}
 	for i := range active {
 		ce := &active[i]
 		if ce.Layer != LPT {
@@ -170,13 +181,13 @@ func (e *Engine) derivedScalarFrom(id state.ObjID, o *state.Object, f *cards.Fac
 					if ce.SetPowerPresent {
 						power = ce.SetPower
 						if ce.SetPowerExpr != "" {
-							power = e.staticAmount(*ce, ce.SetPowerExpr)
+							power = e.staticAmount(ce, ce.SetPowerExpr)
 						}
 					}
 					if ce.SetToughnessPresent {
 						toughness = ce.SetToughness
 						if ce.SetToughnessExpr != "" {
-							toughness = e.staticAmount(*ce, ce.SetToughnessExpr)
+							toughness = e.staticAmount(ce, ce.SetToughnessExpr)
 						}
 					}
 				} else {
@@ -203,14 +214,14 @@ func (e *Engine) derivedScalarFrom(id state.ObjID, o *state.Object, f *cards.Fac
 				if ce.AddPowerAffected {
 					anchor = id
 				}
-				addPower = e.staticAmountOn(*ce, ce.AddPowerExpr, anchor)
+				addPower = e.staticAmountOn(ce, ce.AddPowerExpr, anchor)
 			}
 			if ce.AddToughnessExpr != "" {
 				anchor := ce.Source
 				if ce.AddToughnessAffected {
 					anchor = id
 				}
-				addToughness = e.staticAmountOn(*ce, ce.AddToughnessExpr, anchor)
+				addToughness = e.staticAmountOn(ce, ce.AddToughnessExpr, anchor)
 			}
 			if ce.DoublePower {
 				addPower = power
@@ -304,7 +315,17 @@ func (e *Engine) FilterDerivedPT(id state.ObjID) (power, toughness, basePower, b
 // pass. Keywords aliases Engine scratch storage exactly as Derived does; a
 // caller that keeps it across another characteristics query must copy it.
 func (e *Engine) Characteristics(id state.ObjID) (power, toughness int32, keywords []string) {
-	d := e.Derived(id)
+	if p, t, kw, ok := e.printedCharacteristics(id, true); ok {
+		return p, t, kw
+	}
+	// Derived(id), read in place: the memo entry by pointer when derivedWith
+	// would serve the memo, else one uncached build.
+	if e.derivedMemoDepth > 0 && e.derivedMemoUsable() {
+		if d := e.derivedMemoRef(id, 0); d != nil {
+			return d.Power, d.Toughness, d.Keywords
+		}
+	}
+	d := e.derivedCompute(id, 0)
 	return d.Power, d.Toughness, d.Keywords
 }
 
@@ -360,56 +381,12 @@ func (e *Engine) derivedCompute(id state.ObjID, atStack state.Zone) Derived {
 		kw = nil
 		ty = nil
 	}
-	kw = append(kw[:0], f.Keywords...)
-	kw = append(kw, o.IntrinsicKeywords...)
-	// CR 122.1b: a marker counter whose kind names a keyword grants that
-	// keyword to the permanent it sits on (Forge's CounterKeywordType emits a
-	// Mode$ Continuous | AddKeyword$ static, EffectZone$ All). Appended here,
-	// ahead of the layer walk, so the grant is a base keyword the layer-6
-	// walk then removes or replaces exactly as it would Forge's static -- a
-	// RemoveAbilities/RemoveKeywords effect clears it and a later layer-6
-	// grant re-adds on top. Iterating o.Counters (a fixed-order slice) keeps
-	// this deterministic; cards.CounterKeyword is the single classifier, so
-	// every counter-to-keyword read agrees. Order is buttoned by the counter
-	// slice, which is append-order stable.
-	for _, c := range o.Counters {
-		if kwName, ok := cards.CounterKeyword(c.Kind); ok && c.N > 0 {
-			kw = append(kw, kwName)
-		}
-	}
-	// CR 708.5's cloak variant: a CLOAKED face-down card is a 2/2 creature
-	// with ward {2} -- the ward is part of the cloak status itself, not a
-	// printed or granted ability (the printed face does not exist while face
-	// down, CR 708.8, and faceDownBasis carries no keywords). Appending it
-	// here -- ahead of the layer walk, exactly where a layer-6 grant would
-	// land -- is what feeds checkGrantedWardTriggers's derived-keyword scan
-	// (rules/trigger_match.go), so targeting a cloaked 2/2 meets the real
-	// pay-or-counter ask. Leaving the battlefield clears both flags together
-	// (events.Apply's Move reset), so the ward drops with the face-down
-	// status.
-	if faceDown && o.Cloaked {
-		kw = append(kw, "Ward:2")
-	}
-	// CR 702.157b: a suspected creature has menace. The designation is a
-	// status, not an ability, so appending it here -- ahead of the layer
-	// walk, exactly where the cloak's status ward lands -- is the same grant
-	// shape; leaving the battlefield or another player gaining control
-	// clears it (events.Apply's Move and ControlChange folds), so the menace
-	// drops with the designation.
-	if o.Suspected {
-		kw = append(kw, "Menace")
-	}
-	// A Pump/PumpAll "it gains suspend" grant is event-backed because the
-	// target may be in exile (where ordinary continuous effects still apply),
-	// and because cast legality and filters must agree after replay. Keep it in
-	// the same derived keyword stream as printed and layer-6 keywords.
-	if o.SuspendGranted {
-		kw = append(kw, "Suspend")
-	}
+	kw = derivedBaseKeywords(kw, o, f, faceDown)
 	// Layer 4 runs first through typeCharacteristics (see above), so every
 	// later effect's Affected$ filter — and every layer-4 effect's own —
 	// sees the derived type list, not the printed face.
-	ty = append(ty[:0], e.typeCharacteristics(id, atStack)...)
+	tyRaw := e.typeCharacteristics(id, atStack)
+	ty = append(ty[:0], tyRaw...)
 	// A faced object's keyword and type lists are always BOUND, even when
 	// empty, from here through the layer walk to the returned Derived: a nil
 	// ExtraKeywords/ExtraTypes is effects.SpecContext's "unbound, read the
@@ -449,6 +426,14 @@ func (e *Engine) derivedCompute(id state.ObjID, atStack state.Zone) Derived {
 	var cantHaveKeywords [][]string
 	for i := range seq {
 		ce := &seq[i]
+		// Only layers 3, 5 and 6 (and a CantHaveKeywords$ prohibition, which
+		// any layer's effect may carry) act in this walk: layer 4 settled in
+		// typeCharacteristics above and layer 7 is derivedScalarFrom's walk
+		// below. Matching an effect this walk would then ignore is pure cost
+		// (the match has no side effect), so skip it before the match.
+		if len(ce.CantHaveKeywords) == 0 && ce.Layer != LText && ce.Layer != LColor && ce.Layer != LAbilities {
+			continue
+		}
 		// kw is the walk's keywords-so-far list for THIS object (printed
 		// keywords, IntrinsicKeywords, marker-counter grants and every
 		// layer-6 grant applied so far), bound exactly as ty is: an
@@ -570,11 +555,135 @@ func (e *Engine) derivedCompute(id state.ObjID, atStack state.Zone) Derived {
 	// scalar walk stashes Y and restores X's on the way out).
 	prevStashID, prevStashColors, prevStashSet := e.derivingColorsID, e.derivingColors, e.derivingColorsSet
 	e.derivingColorsSet, e.derivingColorsID, e.derivingColors = true, id, colors
-	power, toughness, basePower, baseToughness := e.derivedScalarFrom(id, o, f, active, kw)
+	power, toughness, basePower, baseToughness := e.derivedScalarFrom(id, o, f, active, kw, tyRaw, atStack == 0)
 	e.derivingColorsSet, e.derivingColorsID, e.derivingColors = prevStashSet, prevStashID, prevStashColors
 	e.derivedDepth--
 	return Derived{Power: power, Toughness: toughness, BasePower: basePower, BaseToughness: baseToughness,
 		Keywords: kw, Types: ty, Name: name, Text: text, Colors: colors}
+}
+
+// derivedName is Derived(id).Name without the rest of the walk. The name is
+// written only by a layer-3 SetName$ effect, and every layer-3 effect sorts
+// ahead of the layer-6 group abilityDependencyOrder reorders, so when the
+// full walk reaches one its keyword list is still the base list and its type
+// list is typeCharacteristics'. This walk evaluates exactly those effects,
+// with exactly those bindings (nil-ness included) and the same derivedDepth
+// framing, in the same order, so it names what derivedCompute names. The
+// keyword/type lists are built only when some SetName$ effect survives the
+// Card.Self early rejection matchesWithCharsPT itself applies first.
+func (e *Engine) derivedName(id state.ObjID) string {
+	o := e.G.Obj(id)
+	if o == nil || o.Face() == nil {
+		return ""
+	}
+	f := o.Face()
+	faceDown := o.FaceDown && o.Zone == state.ZBattlefield
+	if faceDown {
+		f = faceDownBasis
+	}
+	name := f.Name
+	active := e.active()
+	var kw, ty []string
+	built := false
+	for i := range active {
+		ce := &active[i]
+		if ce.Layer != LText || ce.SetName == "" {
+			continue
+		}
+		if ce.Affects == "Card.Self" && id != ce.Source {
+			continue
+		}
+		if !built {
+			built = true
+			e.derivedDepth++
+			if e.derivedDepth == 1 {
+				kw, ty = e.derivedKW, e.derivedTypes
+			}
+			kw = derivedBaseKeywords(kw, o, f, faceDown)
+			ty = append(ty[:0], e.typeCharacteristics(id, 0)...)
+			if kw == nil {
+				kw = []string{}
+			}
+			if ty == nil {
+				ty = []string{}
+			}
+		}
+		if !e.matchesWithChars(ce, id, ty, kw, 0) {
+			continue
+		}
+		if ce.AffectedZone != "" && !ce.MayPlay {
+			if zones, all, ok := effects.ParseZones(ce.AffectedZone); !ok || (!all && !slices.Contains(zones, o.Zone)) {
+				continue
+			}
+		}
+		name = ce.SetName
+	}
+	if built {
+		if e.derivedDepth == 1 {
+			e.derivedKW, e.derivedTypes = kw, ty
+		}
+		e.derivedDepth--
+	}
+	if derivedMemoVerify {
+		if want := e.derivedCompute(id, 0).Name; want != name {
+			panic(fmt.Sprintf("rules: derivedName(%d) = %q, full walk %q", id, name, want))
+		}
+	}
+	return name
+}
+
+// derivedBaseKeywords is the keyword list the layer walk starts from --
+// printed, intrinsic, marker-counter and status keywords, in that order --
+// appended into kw[:0]. derivedCompute and derivedName share it so both see
+// the same basis.
+func derivedBaseKeywords(kw []string, o *state.Object, f *cards.Face, faceDown bool) []string {
+	kw = append(kw[:0], f.Keywords...)
+	kw = append(kw, o.IntrinsicKeywords...)
+	// CR 122.1b: a marker counter whose kind names a keyword grants that
+	// keyword to the permanent it sits on (Forge's CounterKeywordType emits a
+	// Mode$ Continuous | AddKeyword$ static, EffectZone$ All). Appended here,
+	// ahead of the layer walk, so the grant is a base keyword the layer-6
+	// walk then removes or replaces exactly as it would Forge's static -- a
+	// RemoveAbilities/RemoveKeywords effect clears it and a later layer-6
+	// grant re-adds on top. Iterating o.Counters (a fixed-order slice) keeps
+	// this deterministic; cards.CounterKeyword is the single classifier, so
+	// every counter-to-keyword read agrees. Order is buttoned by the counter
+	// slice, which is append-order stable.
+	for _, c := range o.Counters {
+		if kwName, ok := cards.CounterKeyword(c.Kind); ok && c.N > 0 {
+			kw = append(kw, kwName)
+		}
+	}
+	// CR 708.5's cloak variant: a CLOAKED face-down card is a 2/2 creature
+	// with ward {2} -- the ward is part of the cloak status itself, not a
+	// printed or granted ability (the printed face does not exist while face
+	// down, CR 708.8, and faceDownBasis carries no keywords). Appending it
+	// here -- ahead of the layer walk, exactly where a layer-6 grant would
+	// land -- is what feeds checkGrantedWardTriggers's derived-keyword scan
+	// (rules/trigger_match.go), so targeting a cloaked 2/2 meets the real
+	// pay-or-counter ask. Leaving the battlefield clears both flags together
+	// (events.Apply's Move reset), so the ward drops with the face-down
+	// status.
+	if faceDown && o.Cloaked {
+		kw = append(kw, "Ward:2")
+	}
+	// CR 702.157b: a suspected creature has menace. The designation is a
+	// status, not an ability, so appending it here -- ahead of the layer
+	// walk, exactly where the cloak's status ward lands -- is the same grant
+	// shape; leaving the battlefield or another player gaining control
+	// clears it (events.Apply's Move and ControlChange folds), so the menace
+	// drops with the designation.
+	if o.Suspected {
+		kw = append(kw, "Menace")
+	}
+	// A Pump/PumpAll "it gains suspend" grant is event-backed because the
+	// target may be in exile (where ordinary continuous effects still apply),
+	// and because cast legality and filters must agree after replay. Keep it in
+	// the same derived keyword stream as printed and layer-6 keywords.
+	if o.SuspendGranted {
+		kw = append(kw, "Suspend")
+	}
+	return kw
 }
 
 // substituteTextWord replaces every whole-word, case-insensitive instance of
@@ -644,8 +753,8 @@ func (e *Engine) abilityDependencyOrder(active []ContinuousEffect, id state.ObjI
 	// The layer-6 effects are contiguous in active()'s (layer, timestamp)
 	// sort; only they can act on the walk's keyword list.
 	start := -1
-	for i, ce := range active {
-		if ce.Layer == LAbilities {
+	for i := range active {
+		if active[i].Layer == LAbilities {
 			start = i
 			break
 		}
@@ -911,11 +1020,36 @@ func (e *Engine) ToxicValue(id state.ObjID) int {
 	return total
 }
 
+// derivedTypesOf is Derived(id).Types' content -- the layer-4 result
+// typeCharacteristics computes, which is exactly what derivedCompute copies
+// into Types -- without the layer-3/5/6/7 walks the rest of Derived runs.
+// It keeps derivedCompute's framing (the faceless-object guard and the
+// derivedDepth bump a nested read sees), so every read is the same answer.
+// Only a read-only caller that tests membership may use it: the result may
+// alias the printed face's slice, and its nil-ness is not Derived's (an
+// empty list may be nil here, where Derived binds []string{}), so a
+// SpecContext ExtraTypes binding must still read Derived.
+func (e *Engine) derivedTypesOf(id state.ObjID) []string {
+	o := e.G.Obj(id)
+	if o == nil || o.Face() == nil {
+		return nil
+	}
+	e.derivedDepth++
+	ty := e.typeCharacteristics(id, 0)
+	e.derivedDepth--
+	if derivedMemoVerify {
+		if want := e.derivedCompute(id, 0).Types; !slices.Equal(ty, want) {
+			panic(fmt.Sprintf("rules: derivedTypesOf(%d) = %v, full walk %v", id, ty, want))
+		}
+	}
+	return ty
+}
+
 // IsCreature reads the current layer-derived type list. In particular, a
 // planeswalker animated by a layer-4 effect is a creature for damage marking,
 // even though its printed face is not.
 func (e *Engine) IsCreature(id state.ObjID) bool {
-	for _, typ := range e.Derived(id).Types {
+	for _, typ := range e.derivedTypesOf(id) {
 		if typ == "Creature" {
 			return true
 		}
@@ -928,7 +1062,7 @@ func (e *Engine) IsCreature(id state.ObjID) bool {
 // to a layer-4 static is no longer a legal Fortification bearer, and one that
 // gained a type (an animated manland) still is.
 func (e *Engine) IsLand(id state.ObjID) bool {
-	for _, typ := range e.Derived(id).Types {
+	for _, typ := range e.derivedTypesOf(id) {
 		if typ == "Land" {
 			return true
 		}
@@ -974,4 +1108,11 @@ func (e *Engine) objColors(o *state.Object) string {
 // an interface expecting a slice. This is that method; Derived(id).Keywords
 // remains the field other engine-internal code should read when it also
 // wants Power/Toughness/Types in the same call.
-func (e *Engine) Keywords(id state.ObjID) []string { return e.Derived(id).Keywords }
+func (e *Engine) Keywords(id state.ObjID) []string {
+	// The printed fast path (derived_printed.go) answers with the face's own
+	// list, which no later derivation rewrites.
+	if kw, ok := e.printedKeywordsOnly(id); ok {
+		return kw
+	}
+	return e.Derived(id).Keywords
+}

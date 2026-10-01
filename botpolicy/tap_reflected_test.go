@@ -31,11 +31,11 @@ func TestChooseTapAimsAReflectedSourceAtANeededPip(t *testing.T) {
 	refProd.Colour[5] = 1 // the reflected/conditional source
 
 	b := Board{IsMain: true, Pool: state.Mana{},
-		Cards: map[state.ObjID]Card{
+		Cards: TableOf(map[state.ObjID]Card{
 			spell:  {Castable: true, CMC: 1, ManaCost: "U"},
 			decoy:  {OnBattlefield: true, Produces: decoyProd},
 			refSrc: {OnBattlefield: true, Produces: refProd},
-		}}
+		})}
 	// Precondition: the spell really needs a U pip the empty pool lacks, and
 	// the reflected source is NOT already a known U producer (it is honest
 	// only through the Reflected flag).
@@ -68,10 +68,10 @@ func TestChooseTapAimsPlainAnySourceAtANeededPip(t *testing.T) {
 	anyProd.Colour[5] = 1
 
 	b := Board{IsMain: true, Pool: state.Mana{},
-		Cards: map[state.ObjID]Card{
+		Cards: TableOf(map[state.ObjID]Card{
 			spell:  {Castable: true, CMC: 1, ManaCost: "U"},
 			anySrc: {OnBattlefield: true, Produces: anyProd},
-		}}
+		})}
 	// Precondition: the spell needs a U pip, and the plain Any source claims
 	// no guaranteed colour and is not reflected.
 	if pips := colourPips("U"); pips[state.MU] != 1 || b.Pool[state.MU] != 0 {

@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -122,11 +123,26 @@ func (e *Engine) loyaltyActivationsThisTurn(id state.ObjID) int {
 	if o == nil || o.Card == nil || len(o.Card.Faces) == 0 {
 		return 0
 	}
+	// The count resets at the current turn's TurnChange, so only this turn's
+	// events can count; the stint and face they start from is the kept
+	// prefix fold (activation_count_index.go).
+	start := e.turnStart()
+	onBattlefield, faceIdx := e.loyaltyStintAt(o, start)
+	used := e.loyaltyActivationsFrom(o, start, onBattlefield, faceIdx)
+	if walkCacheVerify {
+		if want := e.loyaltyActivationsFrom(o, 0, false, 0); want != used {
+			panic(fmt.Sprintf("rules: loyalty activations of obj %d from the turn start %d, the whole-log fold %d", id, used, want))
+		}
+	}
+	return used
+}
 
+// loyaltyActivationsFrom is loyaltyActivationsThisTurn's fold over the log
+// from index from, starting at the given stint and face.
+func (e *Engine) loyaltyActivationsFrom(o *state.Object, from int, onBattlefield bool, faceIdx int) int {
+	id := o.ID
 	used := 0
-	onBattlefield := false
-	faceIdx := 0
-	for _, ev := range e.L.Events {
+	for _, ev := range e.L.Events[from:] {
 		switch ev.Kind {
 		case events.TurnChange:
 			// CR 606.3's window is a turn, not a player's own turn.
@@ -256,7 +272,8 @@ func (e *Engine) loyaltyAbilityLimit(id state.ObjID) int {
 	for _, sv := range e.activeStatics("NumLoyaltyAct") {
 		apply(sv.Params, sv.Source, sv.Controller, nil)
 	}
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.Restriction != "NumLoyaltyAct" {
 			continue
 		}
@@ -289,6 +306,11 @@ func (e *Engine) loyaltyAbilityLimit(id state.ObjID) int {
 // departure, so a permanent that leaves and returns has still spent its
 // once-per-game activation.
 func (e *Engine) activationUsedCount(id state.ObjID, ability int, svar string, thisTurn bool) int {
+	if !thisTurn {
+		// The whole game's count, folded on incrementally
+		// (activation_count_index.go).
+		return e.gameActivationsUsed(id, ability, svar)
+	}
 	used := 0
 	for i := len(e.L.Events) - 1; i >= 0; i-- {
 		ev := e.L.Events[i]
@@ -406,13 +428,13 @@ func (e *Engine) activationLimitBlocked(p state.PlayerID, id state.ObjID, sa *ca
 	if sa == nil {
 		return false
 	}
-	if raw, ok := sa.Params["ActivationLimit"]; ok {
+	if raw, ok := sa.Param(cards.PKActivationLimit); ok {
 		if limit, ok := e.resolveActivationLimitAt(id, p, raw, merged); ok && limit >= 0 &&
 			e.activationUsedCount(id, ability, svar, true) >= limit {
 			return true
 		}
 	}
-	if raw, ok := sa.Params["GameActivationLimit"]; ok {
+	if raw, ok := sa.Param(cards.PKGameActivationLimit); ok {
 		if limit, ok := e.resolveActivationLimitAt(id, p, raw, merged); ok && limit >= 0 {
 			limit = e.additionalActivationLimit(id, p, sa, limit)
 			if e.activationUsedCount(id, ability, svar, false) >= limit {
@@ -425,8 +447,8 @@ func (e *Engine) activationLimitBlocked(p state.PlayerID, id state.ObjID, sa *ca
 	// either restriction. Activations statics raise this finite ceiling; they
 	// never make the ability unlimited unless a supported static explicitly
 	// has a negative MinLimit; those conditional/unbounded statics are not modeled.
-	if strings.EqualFold(strings.TrimSpace(sa.Params["Exhaust"]), "True") ||
-		strings.EqualFold(strings.TrimSpace(sa.Params["PowerUp"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKExhaust)), "True") ||
+		strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKPowerUp)), "True") {
 		limit := e.additionalActivationLimit(id, p, sa, 1)
 		if limit >= 0 && e.activationUsedCount(id, ability, svar, false) >= limit {
 			return true

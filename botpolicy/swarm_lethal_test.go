@@ -13,9 +13,9 @@ func swarmBoard(n int, p, t int32, life int32, defs ...fact) Board {
 	b := boardOf(defs...)
 	for i := 1; i <= n; i++ {
 		f := atk(i, p, t)
-		b.Creatures[f.id] = f.c
+		b.Creatures.Set(f.id, f.c)
 	}
-	b.Life[1] = life
+	b.Life.Set(1, life)
 	return b
 }
 
@@ -63,9 +63,9 @@ func TestSwarmLethalNeedsGuaranteedDamage(t *testing.T) {
 func TestSwarmLethalIgnoresTappedDefenders(t *testing.T) {
 	b := swarmBoard(10, 1, 1, 8, def(1, 2, 2), def(2, 2, 2), def(3, 2, 2))
 	for _, id := range []state.ObjID{202, 203} {
-		c := b.Creatures[id]
+		c := b.Creatures.Get(id)
 		c.Tapped = true
-		b.Creatures[id] = c
+		b.Creatures.Set(id, c)
 	}
 	if got := attackDecision(b, swarmIDs(10)...); len(got) != 9 {
 		t.Fatalf("attack choices = %v, want 9 attackers", got)
@@ -81,7 +81,7 @@ func TestSwarmLethalIgnoresTappedDefenders(t *testing.T) {
 func TestSwarmLethalBlocksTheBiggestAttackers(t *testing.T) {
 	mk := func(life int32) Board {
 		b := boardOf(atk(1, 5, 5), atk(2, 1, 1), atk(3, 1, 1), atk(4, 1, 1), def(1, 6, 6))
-		b.Life[1] = life
+		b.Life.Set(1, life)
 		return b
 	}
 	if got := attackDecision(mk(3), 1, 2, 3, 4); len(got) != 4 {
@@ -103,7 +103,7 @@ func TestAttackPlannerScalesToTokenArmies(t *testing.T) {
 	const n = 3000
 	b := swarmBoard(n, 1, 1, 20)
 	for i := 1; i <= n; i++ {
-		b.Creatures[state.ObjID(10000+i)] = Creature{Power: 1, Toughness: 1, Controller: 1}
+		b.Creatures.Set(state.ObjID(10000+i), Creature{Power: 1, Toughness: 1, Controller: 1})
 	}
 	d := decision.Decision{Seq: 1, Player: 0, Kind: decision.KAttackers, Min: 0, Max: n}
 	for i := 1; i <= n; i++ {

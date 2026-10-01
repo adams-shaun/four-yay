@@ -1029,7 +1029,8 @@ func (e *Engine) fireDeferredCastTrigger() {
 	lki := e.deferredPushLKI
 	e.deferredPushLKI = nil
 	e.sweepEffectDelayedCast(*ev)
-	e.checkTriggers(*ev, lki, 0, 0, false)
+	push := *ev
+	e.checkTriggers(&push, lki, 0, 0, false)
 }
 
 // fireManaSpentTriggers queues the TriggersWhenSpent$ rider of every mana

@@ -96,7 +96,7 @@ func specializedObject(t *testing.T, h *fakeHost, owner state.PlayerID, idx int)
 	t.Helper()
 	o := h.g.AddObject(fourFacedCard(t), owner)
 	o.Zone = state.ZBattlefield
-	o.FaceIdx = uint8(idx)
+	o.SetFaceIdx(uint8(idx))
 	h.g.SetZone(state.ZBattlefield, owner, append(h.g.Zone(state.ZBattlefield, owner), o.ID))
 	return o.ID
 }

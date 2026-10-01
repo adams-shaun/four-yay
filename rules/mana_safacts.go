@@ -2,6 +2,7 @@ package rules
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -20,6 +21,10 @@ import (
 // recomputes the facts on every hit and panics on a difference (the
 // "configured text is immutable" argument, checked).
 type manaSAFacts struct {
+	// sa is the ability the facts were computed for: a by-value SA copy
+	// shares its original's published slot (cards.ExtSlot) and must not
+	// read these.
+	sa *cards.SA
 	// zoneOK is abilityZoneOK(ab, z) for every z < 32 (bit z).
 	zoneOK uint32
 	// loyalty is isLoyaltyAbility(ab).
@@ -43,6 +48,61 @@ type manaSAFacts struct {
 	noLimit bool
 	// cost is the ability's compiled Cost$.
 	cost *compiledCost
+	// plainSym/plainAmt: the ability is a plain AB$ Mana (plainManaShape)
+	// adding plainAmt of the one symbol plainSym; plainSym 0 otherwise.
+	plainSym byte
+	plainAmt int32
+	// shapeKnown: the ability carries no SubAbility$, so its payment-plan
+	// shape verdict (paymentPlanShapeTierOf) reads only its own Params and
+	// cost and is shapeTier/shapeCons/shapeDetail.
+	shapeKnown  bool
+	shapeTier   paymentAbilityTier
+	shapeCons   paymentConsequence
+	shapeDetail string
+	// static is the payment census's per-ability text reads
+	// (manaStaticOf).
+	static manaStaticFacts
+	// potential is the ability's PotentialMana production
+	// (addPotentialManaOf).
+	potential potentialManaAdd
+}
+
+// manaStaticFacts is the payment census's reads of a mana ability's own
+// text (windowManaUnits, paymentPlanManaUnits, the planner's alternatives):
+// pure functions of its Params and compiled cost.
+type manaStaticFacts struct {
+	produced      string // TrimSpace(Produced$)
+	counts        [6]int32
+	any           bool  // cards.ProducedCounts(Produced$)
+	amount        int32 // availableAmount
+	restrictValid bool  // a non-blank RestrictValid$
+	freeCost      bool  // manaFreeCost(cost)
+	tapOnly       bool  // paymentPlanTapOnlyCost(cost)
+	tap, untap    bool  // cost.Tap, cost.Untap
+}
+
+func computeManaStaticFacts(ab *cards.SA, cost *Cost) manaStaticFacts {
+	f := manaStaticFacts{produced: strings.TrimSpace(ab.Params["Produced"]), amount: availableAmount(ab),
+		restrictValid: strings.TrimSpace(ab.Params["RestrictValid"]) != "",
+		freeCost:      manaFreeCost(*cost), tapOnly: paymentPlanTapOnlyCost(*cost), tap: cost.Tap, untap: cost.Untap}
+	f.counts, f.any = cards.ProducedCounts(ab.Params["Produced"])
+	return f
+}
+
+// manaStaticOf is ab's census text reads: its configured facts', or read
+// now for an ability outside the configured set.
+func (e *Engine) manaStaticOf(ab *cards.SA) manaStaticFacts {
+	if f := e.manaFactsOf(ab); f != nil {
+		if manaSAFactsVerify {
+			c := e.parseCost(ab.Params["Cost"])
+			if fresh := computeManaStaticFacts(ab, &c); fresh != f.static {
+				panic(fmt.Sprintf("rules: configured census facts for %q disagree with a recompute", ab.Line))
+			}
+		}
+		return f.static
+	}
+	c := e.parseCost(ab.Params["Cost"])
+	return computeManaStaticFacts(ab, &c)
 }
 
 // manaSAFactsVerify: see derivedMemoVerify. Set by the rules test binary.
@@ -56,7 +116,7 @@ func buildManaSAFacts(ab *cards.SA, costOf func(string) *compiledCost) *manaSAFa
 // buildManaSAFactsValue is buildManaSAFacts without the heap copy: the
 // verify-mode recompute in manaFactsOf only compares it.
 func buildManaSAFactsValue(ab *cards.SA, costOf func(string) *compiledCost) manaSAFacts {
-	f := manaSAFacts{cost: costOf(ab.Params["Cost"])}
+	f := manaSAFacts{sa: ab, cost: costOf(ab.Params["Cost"])}
 	f.zoneOK = abilityZoneMask(ab)
 	raw := ab.Params["Cost"]
 	if containsLoyaltyFold(raw) {
@@ -83,19 +143,34 @@ func buildManaSAFactsValue(ab *cards.SA, costOf func(string) *compiledCost) mana
 	f.noCheckSVar = !check
 	_, limited := ab.Params["ActivationLimit"]
 	f.noLimit = !limited && ab.Params["GameActivationLimit"] == ""
+	f.plainSym, f.plainAmt = plainManaShape(ab)
+	f.static = computeManaStaticFacts(ab, &f.cost.Cost)
+	f.potential = computePotentialManaAdd(ab)
+	if tier, c, detail, rider := paymentPlanShapeTierOf(ab, f.cost.Cost); !rider {
+		f.shapeKnown, f.shapeTier, f.shapeCons, f.shapeDetail = true, tier, c, detail
+	}
 	return f
 }
 
 // manaFactsOf returns ab's configured facts, or nil for an ability outside
 // the configured set.
 func (e *Engine) manaFactsOf(ab *cards.SA) *manaSAFacts {
-	if e == nil || e.compiledText == nil {
+	if e == nil || e.compiledText == nil || ab == nil {
 		return nil
 	}
-	f := e.compiledText.saFacts[ab]
+	// The facts published on the ability itself (compiled_text.go) when
+	// they are its own, else the engine's table. A published entry may come
+	// from another configuration's compiledText, whose compiled cost is the
+	// same frozen parse of the same text at a different address.
+	var f *manaSAFacts
+	if p := ab.ExtSlot().Load(); p != nil && (*manaSAFacts)(p).sa == ab {
+		f = (*manaSAFacts)(p)
+	} else {
+		f = e.compiledText.saFacts[ab]
+	}
 	if f != nil && manaSAFactsVerify {
 		fresh := buildManaSAFactsValue(ab, e.compiledCostOf)
-		if fresh.cost != f.cost || !sameFactsIgnoringCost(fresh, *f) {
+		if (fresh.cost != f.cost && !sameCompiledCost(fresh.cost, f.cost)) || !sameFactsIgnoringCost(fresh, *f) {
 			panic(fmt.Sprintf("rules: configured mana facts for %q disagree with a recompute (%+v vs %+v)", ab.Line, *f, fresh))
 		}
 	}
@@ -115,4 +190,10 @@ func (f *manaSAFacts) zoneOKFact(ab *cards.SA, z state.Zone) bool {
 		return f.zoneOK&(1<<z) != 0
 	}
 	return abilityZoneOK(ab, z)
+}
+
+// sameCompiledCost compares two compiled costs' facts (not the memoized text,
+// which only one of them may have built yet).
+func sameCompiledCost(a, b *compiledCost) bool {
+	return reflect.DeepEqual(a.Cost, b.Cost) && a.bareTap == b.bareTap && a.beyondTap == b.beyondTap
 }

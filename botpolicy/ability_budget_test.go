@@ -23,17 +23,17 @@ func TestAbilityBudgetEndsTheUntapCycle(t *testing.T) {
 	}
 	b := Board{
 		IsMain: true,
-		Life:   map[state.PlayerID]int32{0: 20, 1: 20},
+		Life:   TableOf(map[state.PlayerID]int32{0: 20, 1: 20}),
 		// One own creature, so A1's broad no-own-creature equip decline (the
 		// documented approximation that declines every "ability" while the
 		// bot controls no creatures) does not mask the budget rule.
-		Creatures: map[state.ObjID]Creature{5: {Controller: 0}},
-		Cards:     map[state.ObjID]Card{9: {Activated: maxActivationsPerTurn - 1}},
+		Creatures: TableOf(map[state.ObjID]Creature{5: {Controller: 0}}),
+		Cards:     TableOf(map[state.ObjID]Card{9: {Activated: maxActivationsPerTurn - 1}}),
 	}
 	if pick := b.chooseAbility(d); pick != 0 {
 		t.Fatalf("below the budget: chooseAbility = %d, want 0 (the untap still ranks)", pick)
 	}
-	b.Cards[9] = Card{Activated: maxActivationsPerTurn}
+	b.Cards.Set(9, Card{Activated: maxActivationsPerTurn})
 	if pick := b.chooseAbility(d); pick != -1 {
 		t.Fatalf("at the budget: chooseAbility = %d, want -1 (pass fallthrough)", pick)
 	}

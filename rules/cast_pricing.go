@@ -132,7 +132,10 @@ func (e *Engine) cyclingKeyword(pc *pendingCast) string {
 
 // hybrids, the monocolour hybrids, the Phyrexian pips and the
 // hybrid-Phyrexian pips (snow pips have nothing to announce).
-func (c Cost) annPipCount() int {
+func (c Cost) annPipCount() int { return c.annPipCountP() }
+
+// annPipCountP is annPipCount without the receiver copy.
+func (c *Cost) annPipCountP() int {
 	return len(c.Hybrid) + len(c.Twobrid) + len(c.Phyrexian) + len(c.HybridPhyrexian)
 }
 

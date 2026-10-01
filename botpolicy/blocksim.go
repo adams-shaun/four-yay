@@ -47,11 +47,11 @@ func (b Board) chooseBlockersSim(d *decision.Decision, p *AttackSimParams) []int
 		if o.Kind != "block" || o.MinBlockers != 0 || o.MaxBlockers != 0 {
 			return base
 		}
-		a, ok := b.Creatures[o.Attacker]
+		a, ok := b.Creatures.Lookup(o.Attacker)
 		if !ok {
 			return base
 		}
-		if _, ok := b.Creatures[o.Obj]; !ok {
+		if _, ok := b.Creatures.Lookup(o.Obj); !ok {
 			return base
 		}
 		if !oppSet {
@@ -72,10 +72,10 @@ func (b Board) chooseBlockersSim(d *decision.Decision, p *AttackSimParams) []int
 	if opp == me {
 		return base
 	}
-	if _, ok := b.Life[me]; !ok {
+	if _, ok := b.Life.Lookup(me); !ok {
 		return base
 	}
-	if _, ok := b.Life[opp]; !ok {
+	if _, ok := b.Life.Lookup(opp); !ok {
 		return base
 	}
 	if len(blkOrder) > maxSimAttackers || len(atkOrder) > maxSimAttackers {
@@ -107,7 +107,7 @@ func (b Board) chooseBlockersSim(d *decision.Decision, p *AttackSimParams) []int
 		}
 		for _, aid := range sortedAtk {
 			bl := blocks[aid]
-			if len(bl) == 1 && b.Creatures[aid].hasKeyword("Menace") {
+			if len(bl) == 1 && b.Creatures.Get(aid).hasKeyword("Menace") {
 				return 0, false
 			}
 			sort.Slice(bl, func(i, j int) bool { return bl[i] < bl[j] })

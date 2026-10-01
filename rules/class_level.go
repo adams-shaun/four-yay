@@ -29,8 +29,8 @@ import (
 // ungated (true), so every non-Class static/trigger/replacement is unaffected.
 // A malformed or unreadable band fails closed -- a granted body whose level is
 // not proven is never live, the family's fail-closed direction.
-func (e *Engine) classBandGateHolds(params map[string]string, source state.ObjID) bool {
-	raw := strings.TrimSpace(params["ClassBand"])
+func (e *Engine) classBandGateHolds(band string, source state.ObjID) bool {
+	raw := strings.TrimSpace(band)
 	if raw == "" {
 		return true
 	}

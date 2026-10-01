@@ -19,16 +19,44 @@ import (
 // Boseiju) imposes no spend restriction and certifies nothing about why a
 // cast was refused, so it is not annotated. The returned slice preserves the
 // state's batch order (deterministic, never a map range).
-func poolRestrictions(g *state.Game, rs []state.ManaRestriction) []PoolRestrictionView {
-	var out []PoolRestrictionView
+func poolRestrictions(buf []PoolRestrictionView, g *state.Game, rs []state.ManaRestriction, memo *textMemo) []PoolRestrictionView {
+	out := buf[:0] // the previous projection's storage (ProjectInto's reuse)
 	for _, r := range rs {
-		text := humanizeRestrictValid(g, r.Source, r.Valid)
+		text := restrictionText(g, r.Source, r.Valid, memo)
 		if text == "" {
 			continue
 		}
 		out = append(out, PoolRestrictionView{Color: r.Color, Amount: r.Amount, Text: text})
 	}
+	if len(out) == 0 {
+		return nil // no restricted batch: absent, as an append from nil leaves it
+	}
 	return out
+}
+
+// restrictionText is humanizeRestrictValid memoised in memo (when non-nil):
+// the sentence is a pure function of the Valid$ string and the source's
+// chosen type, the one game fact humanizeSpec reads.
+func restrictionText(g *state.Game, source state.ObjID, valid string, memo *textMemo) string {
+	if memo == nil {
+		return humanizeRestrictValid(g, source, valid)
+	}
+	slot, out, ok := memo.lookup(memoRestrict, valid, sourceChosenType(g, source))
+	if ok {
+		return out
+	}
+	return slot.store(memoRestrict, valid, sourceChosenType(g, source), humanizeRestrictValid(g, source, valid))
+}
+
+// sourceChosenType is the restriction source's chosen type ("" when there is
+// no such object), as humanizeSpec reads it.
+func sourceChosenType(g *state.Game, source state.ObjID) string {
+	if g != nil && source != 0 {
+		if o := g.Obj(source); o != nil {
+			return o.ChosenType
+		}
+	}
+	return ""
 }
 
 // humanizeRestrictValid renders a batch's RestrictValid$ as a sentence, or ""
@@ -96,12 +124,7 @@ func humanizeRestrictTerm(g *state.Game, source state.ObjID, term string) (strin
 // honest raw-string fallback -- so exotic provenance tokens
 // (wasCastFromYourHand, MultiColor, ...) never become misleading prose.
 func humanizeSpec(g *state.Game, source state.ObjID, spec, noun string) (string, bool) {
-	chosen := ""
-	if g != nil && source != 0 {
-		if o := g.Obj(source); o != nil {
-			chosen = o.ChosenType
-		}
-	}
+	chosen := sourceChosenType(g, source)
 	var types []string
 	hasChosen := false
 	for q := range strings.SplitSeq(spec, "+") {

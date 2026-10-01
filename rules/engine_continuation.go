@@ -107,6 +107,11 @@ type engineContinuation struct {
 	// cast holds the in-progress cast-flow state while choosing ==
 	// chooseCast (Task 9, rules/cast.go). Nil whenever no cast is mid-flow.
 	cast *pendingCast
+	// castIssued / castFree are the pendingCast recycling pair
+	// (cast_pool.go): the last cast storage newCast handed out, and a
+	// zeroed one ready for the next cast. Never copied by Clone (a clone's
+	// cast is its own copy); castFree rides a Spare.
+	castIssued, castFree *pendingCast
 	// costCompositionEvent is the one PutOnStack event excluded from
 	// cast-count statics while the current cast's cost modifiers are composed
 	// after PutOnStack. Stored as event index + 1 (zero means none), so an

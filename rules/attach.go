@@ -49,6 +49,9 @@ func (e *Engine) attachmentSBAs() bool {
 	// walk so a re-entrant pass allocates its own (sbaIDBuf).
 	ids := e.sbaIDBuf
 	e.sbaIDBuf = nil
+	// The board's layer-4 presence for sbaIsAura, re-read whenever an emit
+	// below has moved the log (a departure can change the active list).
+	ltAt, anyLType := -1, false
 	for _, p := range e.G.AliveFrom(0) {
 		ids = append(ids[:0], e.G.Zone(state.ZBattlefield, p)...)
 		for _, id := range ids {
@@ -61,6 +64,9 @@ func (e *Engine) attachmentSBAs() bool {
 				// does not exist, so attachment SBAs do not fire on it (it and
 				// anything attached to it phase out together).
 				continue
+			}
+			if n := len(e.L.Events); n != ltAt {
+				ltAt, anyLType = n, e.activeHasLType()
 			}
 			if o.HasAttachedPlayer {
 				// Enchant:Player Auras have no object bearer. A lost seat
@@ -77,7 +83,7 @@ func (e *Engine) attachmentSBAs() bool {
 			}
 			if o.AttachedTo == 0 {
 				// A detached Aura has nothing legal to do on the battlefield.
-				if e.isAura(o) {
+				if e.sbaIsAura(o, anyLType) {
 					e.emit(events.Event{Kind: events.MoveZone, Obj: id,
 						From: state.ZBattlefield, To: state.ZGraveyard, Text: "Aura attached to nothing"})
 					changed = true

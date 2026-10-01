@@ -134,6 +134,12 @@ func (e *Engine) AddContinuous(ce ContinuousEffect) {
 		// the controller's next actual turn.
 	}
 	e.continuous = append(e.continuous, ce)
+	if ce.AddTrigger != nil || len(ce.GainedTriggerFaces) > 0 {
+		e.trigGrant.free = false // trigger_grantfree.go
+	}
+	if ce.ReplacementEvent != "" {
+		e.trigGrant.replSeen = true // trigger_grantfree.go
+	}
 	// A REGISTERED layer-3 rename (an Effect-delivered SetName$, which has no
 	// printed static for the genesis pool probe to find) arms the rename
 	// table for the rest of the match; see rules/setname.go.
@@ -275,7 +281,8 @@ func (e *Engine) EndImprintedEffects(source state.ObjID) {
 // same named effect (Wrenn and Six's emblem). Scans active() so an expired
 // effect never blocks a fresh registration.
 func (e *Engine) ContinuousNamed(p state.PlayerID, name string) bool {
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.Controller == p && ce.Name == name {
 			return true
 		}
@@ -445,6 +452,7 @@ func (e *Engine) EndOfTurnCleanup() {
 	e.rescheduleNextTurnBoundaries()
 	e.expireControl(controlAtCleanup)
 	e.reconcileControlStatics()
+	n0 := len(e.continuous)
 	kept := e.continuous[:0]
 	// expiredClones collects the clone UNITS whose LCopy marker this cleanup
 	// drops, so the object's CopyFace basis can be settled after the kept
@@ -460,7 +468,7 @@ func (e *Engine) EndOfTurnCleanup() {
 	// lifetimes differ.
 	var expiredClones []cloneExpiry
 	dropClone := func(ce ContinuousEffect) {
-		k := cloneExpiryOf(ce)
+		k := cloneExpiryOf(&ce)
 		for _, seen := range expiredClones {
 			if seen == k {
 				return
@@ -514,7 +522,7 @@ func (e *Engine) EndOfTurnCleanup() {
 		// own modifiers (the two-overlapping-clones defect).
 		surviving := kept[:0]
 		for _, ce := range kept {
-			if ce.CloneTarget != 0 && cloneExpiryIn(expiredClones, cloneExpiryOf(ce)) {
+			if ce.CloneTarget != 0 && cloneExpiryIn(expiredClones, cloneExpiryOf(&ce)) {
 				continue
 			}
 			surviving = append(surviving, ce)
@@ -532,8 +540,13 @@ func (e *Engine) EndOfTurnCleanup() {
 	// keyed on continuousVersion, and this in-place rewrite (which emits no
 	// event and moves no log head) drops every UntilEOT pump and every
 	// expired UntilTurn effect. Without the bump, a stale active() cache
-	// would keep reporting a dead pump's P/T.
-	e.continuousChanged()
+	// would keep reporting a dead pump's P/T. kept is a subsequence of the
+	// old list written over it in place, so an unchanged length is an
+	// unchanged registry: nothing to invalidate (most turns end with no
+	// effect to drop).
+	if len(e.continuous) != n0 {
+		e.continuousChanged()
+	}
 }
 
 // cloneExpiry identifies ONE clone unit (task api-clone): the permanent that
@@ -555,7 +568,7 @@ type cloneExpiry struct {
 	DurationTarget state.ObjID
 }
 
-func cloneExpiryOf(ce ContinuousEffect) cloneExpiry {
+func cloneExpiryOf(ce *ContinuousEffect) cloneExpiry {
 	return cloneExpiry{Target: ce.CloneTarget,
 		Duration:  strings.ToLower(strings.TrimSpace(ce.Duration)),
 		UntilEOT:  ce.UntilEOT,
@@ -584,8 +597,8 @@ func (e *Engine) expireClonesOnEvent(ev events.Event, wasTapped bool) {
 		match := dur == "untilfacedown" && ev.Kind == events.TurnFaceDown && ev.Obj == ce.CloneTarget ||
 			dur == "untiltargeteduntaps" && ev.Obj == ce.CloneDurationTarget &&
 				(ev.Kind == events.Untap && wasTapped || ev.Kind == events.MoveZone && ev.From == state.ZBattlefield)
-		if match && !cloneExpiryIn(expired, cloneExpiryOf(ce)) {
-			expired = append(expired, cloneExpiryOf(ce))
+		if match && !cloneExpiryIn(expired, cloneExpiryOf(&ce)) {
+			expired = append(expired, cloneExpiryOf(&ce))
 		}
 	}
 	if len(expired) == 0 {
@@ -593,7 +606,7 @@ func (e *Engine) expireClonesOnEvent(ev events.Event, wasTapped bool) {
 	}
 	kept := e.continuous[:0]
 	for _, ce := range e.continuous {
-		if ce.CloneTarget != 0 && cloneExpiryIn(expired, cloneExpiryOf(ce)) {
+		if ce.CloneTarget != 0 && cloneExpiryIn(expired, cloneExpiryOf(&ce)) {
 			continue
 		}
 		kept = append(kept, ce)
@@ -726,7 +739,7 @@ func (e *Engine) effectMoveSweep(ev events.Event) {
 			changed = true
 			continue // the effect ends: not kept
 		}
-		if forget == "" && exile == "" && mayPlayRememberedLeftZone(ce, ev) {
+		if forget == "" && exile == "" && mayPlayRememberedLeftZone(&ce, ev) {
 			ce.Remembered = objIDWithout(ce.Remembered, ev.Obj)
 			changed = true
 		}
@@ -750,7 +763,7 @@ func (e *Engine) effectMoveSweep(ev events.Event) {
 // Affected$ spec that reads the remembered set (Card.IsRemembered) and an
 // explicit zone list qualify: a grant naming Any/All zones, or one whose
 // remembered set parameterises something else, keeps its old behaviour.
-func mayPlayRememberedLeftZone(ce state.ContinuousEffect, ev events.Event) bool {
+func mayPlayRememberedLeftZone(ce *state.ContinuousEffect, ev events.Event) bool {
 	if !ce.MayPlay || ce.AffectedZone == "" || !strings.Contains(ce.Affects, "IsRemembered") ||
 		!objIDIn(ce.Remembered, ev.Obj) {
 		return false

@@ -12,7 +12,7 @@ import (
 // both adapters fill), with IsMain true so the land drop and cast groups
 // are reachable. A test that wants a factless board passes nil.
 func priorityCards(facts map[state.ObjID]Card) Board {
-	b := Board{IsMain: true, Cards: facts}
+	b := Board{IsMain: true, Cards: TableOf(facts)}
 	return b
 }
 
@@ -244,7 +244,7 @@ func TestChooseCastAndLandPickOneWithoutClamp(t *testing.T) {
 		{Index: 0, Kind: "play_land", Obj: 1},
 		{Index: 1, Kind: "play_land", Obj: 2},
 	}
-	b.Cards = map[state.ObjID]Card{1: {Basic: false}, 2: {Basic: true}}
+	b.Cards = TableOf(map[state.ObjID]Card{1: {Basic: false}, 2: {Basic: true}})
 	if got := b.chooseLand(&decision.Decision{Player: 0, Kind: decision.KPriority, Options: landOpts}); got != 1 {
 		t.Fatalf("chooseLand = option %d, want the basic (index 1)", got)
 	}

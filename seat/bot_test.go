@@ -264,14 +264,14 @@ func TestBoardFromViewCommanderClockFill(t *testing.T) {
 		},
 	}}
 	b := BoardFromView(v)
-	a := b.Commanders[cmdA]
+	a := b.Commanders.Get(cmdA)
 	if !a.InCommandZone || a.Casts != 2 {
 		t.Errorf("seat 0's commander = %+v, want in the zone with 2 casts", a)
 	}
 	if a.Damage[1] != 4 || len(a.Damage) != 1 {
 		t.Errorf("seat 0's commander damage = %v, want {seat 1: 4}", a.Damage)
 	}
-	bb := b.Commanders[cmdB]
+	bb := b.Commanders.Get(cmdB)
 	if bb.InCommandZone || bb.Casts != 0 {
 		t.Errorf("seat 1's commander = %+v, want not in seat 0's zone with 0 casts", bb)
 	}
@@ -289,12 +289,12 @@ func TestBoardFromViewCommanderClockFill(t *testing.T) {
 // reaches DecideBoard and that the default bot is untouched.
 func TestCombinedLethalBotForcesCombinedAttack(t *testing.T) {
 	brd := botpolicy.Board{
-		Creatures: map[state.ObjID]botpolicy.Creature{
+		Creatures: botpolicy.TableOf(map[state.ObjID]botpolicy.Creature{
 			101: {Power: 3, Toughness: 3, Controller: 0},
 			102: {Power: 3, Toughness: 3, Controller: 0},
 			201: {Power: 2, Toughness: 2, Controller: 1},
-		},
-		Life: map[state.PlayerID]int32{0: 20, 1: 5},
+		}),
+		Life: botpolicy.TableOf(map[state.PlayerID]int32{0: 20, 1: 5}),
 	}
 	d := decision.Decision{Seq: 1, Player: 0, Kind: decision.KAttackers, Min: 0, Max: 2,
 		Options: []decision.Option{
@@ -325,11 +325,11 @@ func TestCombinedLethalBotForcesCombinedAttack(t *testing.T) {
 // leaves it home -- the two policies demonstrably differ.
 func TestBlocksBotDeclinesTradeDown(t *testing.T) {
 	brd := botpolicy.Board{
-		Creatures: map[state.ObjID]botpolicy.Creature{
+		Creatures: botpolicy.TableOf(map[state.ObjID]botpolicy.Creature{
 			101: {Power: 3, Toughness: 2, Controller: 0},
 			201: {Power: 2, Toughness: 3, Controller: 1},
-		},
-		Life: map[state.PlayerID]int32{0: 20, 1: 20},
+		}),
+		Life: botpolicy.TableOf(map[state.PlayerID]int32{0: 20, 1: 20}),
 	}
 	d := decision.Decision{Seq: 1, Player: 0, Kind: decision.KBlockers, Min: 0, Max: 1,
 		Options: []decision.Option{{Index: 0, Kind: "block", Obj: 101, Attacker: 201, Player: 0}}}
@@ -358,13 +358,13 @@ func TestBlocksBotDeclinesTradeDown(t *testing.T) {
 // home. The whole assignment keeps 3 more life than the per-blocker one.
 func TestBlocksBotTakesLethalChumps(t *testing.T) {
 	brd := botpolicy.Board{
-		Creatures: map[state.ObjID]botpolicy.Creature{
+		Creatures: botpolicy.TableOf(map[state.ObjID]botpolicy.Creature{
 			101: {Power: 1, Toughness: 1, Controller: 0},
 			102: {Power: 2, Toughness: 2, Controller: 0},
 			201: {Power: 6, Toughness: 6, Controller: 1},
 			202: {Power: 3, Toughness: 3, Controller: 1},
-		},
-		Life: map[state.PlayerID]int32{0: 5, 1: 20},
+		}),
+		Life: botpolicy.TableOf(map[state.PlayerID]int32{0: 5, 1: 20}),
 	}
 	d := decision.Decision{Seq: 1, Player: 0, Kind: decision.KBlockers, Min: 0, Max: 4,
 		Options: []decision.Option{

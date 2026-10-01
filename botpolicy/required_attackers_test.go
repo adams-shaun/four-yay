@@ -41,7 +41,7 @@ func TestChooseAttackersDeclaresRequiredAttackers(t *testing.T) {
 	// swallow a requirement -- a goaded creature attacks even when it deals
 	// no damage (it is a blocker magnet and a tapped-attacker cost at worst).
 	b := boardOf(atk(1, 0, 2), atk(2, 3, 3), def(1, 2, 2))
-	b.Life[1] = 20
+	b.Life.Set(1, 20)
 	got := requiredDecision(t, b, map[int]bool{1: true}, 2, 1, 2)
 	for _, id := range got {
 		if id == state.ObjID(101) {
@@ -61,7 +61,7 @@ func TestChooseAttackersRequiredOverridesTheDeadlyBlockVeto(t *testing.T) {
 	// defender trades a 3-pt creature for a 4-pt one); the requirement
 	// declares it anyway.
 	b := boardOf(atk(1, 2, 2), def(1, 2, 1))
-	b.Life[1] = 20
+	b.Life.Set(1, 20)
 	got := requiredDecision(t, b, map[int]bool{1: true}, 1, 1)
 	if len(got) != 1 || got[0] != state.ObjID(101) {
 		t.Fatalf("the vetoed required attacker was not declared: %v", got)
@@ -76,7 +76,7 @@ func TestChooseAttackersRequiredOverridesTheDeadlyBlockVeto(t *testing.T) {
 // min(len(required), ceiling)).
 func TestChooseAttackersRespectsTheWireMax(t *testing.T) {
 	b := boardOf(atk(1, 2, 2), atk(2, 3, 3), def(1, 2, 2))
-	b.Life[1] = 20
+	b.Life.Set(1, 20)
 	got := requiredDecision(t, b, map[int]bool{1: true}, 1, 1, 2)
 	if len(got) != 1 {
 		t.Fatalf("chose %d options against a Max of 1: %v", len(got), got)
@@ -99,7 +99,7 @@ func TestChooseAttackersRespectsTheWireMax(t *testing.T) {
 // AR4's hold-back from rescuing the cut.
 func TestChooseAttackersKeepsRequiredUnderTheCeilingWhenRequiredIsSecond(t *testing.T) {
 	b := boardOf(atk(1, 2, 2, "Vigilance"), atk(2, 3, 3, "Vigilance"), def(1, 2, 2))
-	b.Life[1] = 20
+	b.Life.Set(1, 20)
 	got := requiredDecision(t, b, map[int]bool{2: true}, 1, 1, 2)
 	if len(got) != 1 || got[0] != state.ObjID(102) {
 		t.Fatalf("the ceiling cut dropped the required attacker (it was the later option): chose %v", got)
@@ -115,8 +115,8 @@ func TestChooseAttackersKeepsRequiredUnderTheCeilingWhenRequiredIsSecond(t *test
 // lethal defender and threw the safe swing away.
 func TestRequiredAttackerSkipsAVetoedDefenderForAScoreableOne(t *testing.T) {
 	b := boardOf(atk(1, 2, 2, "Vigilance"), def(1, 2, 1), defN(2, 1, 0, 4))
-	b.Life[1] = 20
-	b.Life[2] = 20
+	b.Life.Set(1, 20)
+	b.Life.Set(2, 20)
 	d := decision.Decision{Seq: 1, Player: 0, Kind: decision.KAttackers, Min: 0, Max: 1,
 		Options: []decision.Option{
 			{Index: 0, Kind: "attacker", Obj: state.ObjID(101), Player: 1, Required: true},
@@ -138,7 +138,7 @@ func TestRequiredAttackerSkipsAVetoedDefenderForAScoreableOne(t *testing.T) {
 // pool payment -- never walking itself to 0 by paying pips.
 func TestPhyrexianPipPrefersTheLifePayment(t *testing.T) {
 	ask := func(life int32, opts ...decision.Option) int {
-		b := Board{Creatures: map[state.ObjID]Creature{}, Life: map[state.PlayerID]int32{0: life}}
+		b := Board{Creatures: TableOf(map[state.ObjID]Creature{}), Life: TableOf(map[state.PlayerID]int32{0: life})}
 		d := decision.Decision{Seq: 1, Player: 0, Kind: decision.KChoose, Min: 1, Max: 1,
 			Options: opts}
 		return Decide(b, &d, rng(1)).Choices[0]

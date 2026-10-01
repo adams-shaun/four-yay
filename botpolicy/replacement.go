@@ -20,7 +20,8 @@ import "github.com/adams-shaun/gorge/decision"
 func (b Board) chooseReplacementOrder(d *decision.Decision) int {
 	best := -1
 	var bestWorth int32
-	for _, o := range d.Options {
+	for oi := range d.Options {
+		o := &d.Options[oi]
 		if o.Kind != "replacement" {
 			continue
 		}

@@ -41,14 +41,14 @@ func spellbenchRungs(d *decision.Decision, brd botpolicy.Board, seatIdx int) []d
 func TestFallbacksMatchTheSpellbenchRunner(t *testing.T) {
 	brdMain := botpolicy.Board{
 		IsMain: true,
-		Creatures: map[state.ObjID]botpolicy.Creature{
+		Creatures: botpolicy.TableOf(map[state.ObjID]botpolicy.Creature{
 			7:  {Controller: 0, Power: 2, Toughness: 2},
 			11: {Controller: 1, Power: 3, Toughness: 3},
-		},
-		Cards: map[state.ObjID]botpolicy.Card{
+		}),
+		Cards: botpolicy.TableOf(map[state.ObjID]botpolicy.Card{
 			7:  {Creature: true, Power: 2, CMC: 2},
 			11: {Creature: true, Power: 3, CMC: 3},
-		},
+		}),
 	}
 	cases := []struct {
 		name    string

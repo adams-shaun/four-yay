@@ -108,7 +108,8 @@ type staticWork struct {
 // live grant matches returns nil.
 func (e *Engine) gainedFacesForSource(source state.ObjID) []state.GainedFace {
 	var out []state.GainedFace
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if len(ce.GainedFaces) == 0 && len(ce.GainedTriggerFaces) == 0 {
 			continue
 		}
@@ -345,7 +346,8 @@ func (e *Engine) cdaSetPT(o *state.Object) (p, t int32, hasP, hasT bool) {
 // the answer is deterministic; the map it reads is key-resolved, so map
 // order never reaches an event, option, view or file.
 func (e *Engine) GrantedSVar(id state.ObjID, name string) (string, bool) {
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if len(ce.AddSVars) == 0 {
 			continue
 		}
@@ -364,7 +366,8 @@ func (e *Engine) GrantedSVar(id state.ObjID, name string) (string, bool) {
 // immutable card data.
 func (e *Engine) grantedSVarsFor(id state.ObjID) map[string]string {
 	var merged map[string]string
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if len(ce.AddSVars) == 0 {
 			continue
 		}
@@ -394,7 +397,8 @@ func (e *Engine) MayLookAtLibraryTop(p state.PlayerID) bool {
 	if len(lib) == 0 {
 		return false
 	}
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.MayLookAt && e.matchesSpecFrom(ce.Affects, lib[0], ce.Controller, ce.Source) {
 			return true
 		}
@@ -417,13 +421,13 @@ func (e *Engine) MayLookAtLibraryTop(p state.PlayerID) bool {
 // fails closed -- the shipped statics convention: an unreadable "as long as"
 // must not silently always-apply.
 func (e *Engine) continuousGateHolds(sv staticView) bool {
-	if !e.classBandGateHolds(sv.Params, sv.Source) {
+	if !e.classBandGateHolds(sv.ParamStr(cards.PKClassBand), sv.Source) {
 		return false
 	}
-	if spec, ok := sv.Params["IsPresent"]; ok && !e.presentGate(sv, spec) {
+	if spec, ok := sv.Param(cards.PKIsPresent); ok && !e.presentGate(sv, spec) {
 		return false
 	}
-	if spec, ok := sv.Params["IsPresent2"]; ok && !e.presentGate(sv, spec) {
+	if spec, ok := sv.Param(cards.PKIsPresent2); ok && !e.presentGate(sv, spec) {
 		return false
 	}
 	if !e.continuousConditionHolds(sv) {
@@ -459,7 +463,7 @@ func (e *Engine) continuousGateHolds(sv staticView) bool {
 // is read separately by rules/speed.go's maxSpeedAbilities. An absent or empty
 // Condition$ keeps holding, as before.
 func (e *Engine) continuousConditionHolds(sv staticView) bool {
-	raw, ok := sv.Params["Condition"]
+	raw, ok := sv.Param(cards.PKCondition)
 	if !ok {
 		return true
 	}
@@ -552,7 +556,7 @@ func hasStat(st cards.Static, key string) bool {
 // grammar for signed SVar names and Count$ bodies. The source and its SVar
 // table are rebound on every call, so a life total, counters, or zones changing
 // after the static entered changes its value without any cached snapshot.
-func (e *Engine) staticAmount(ce ContinuousEffect, expr string) int32 {
+func (e *Engine) staticAmount(ce *ContinuousEffect, expr string) int32 {
 	return e.staticAmountOn(ce, expr, ce.Source)
 }
 
@@ -561,7 +565,7 @@ func (e *Engine) staticAmount(ce ContinuousEffect, expr string) int32 {
 // (ce.SVars, falling back to the grantor's face). staticAmount delegates
 // with the grantor itself as the anchor. The layer-7c modify walk uses an
 // affected-object anchor only for the explicit AffectedX convention.
-func (e *Engine) staticAmountOn(ce ContinuousEffect, expr string, anchor state.ObjID) int32 {
+func (e *Engine) staticAmountOn(ce *ContinuousEffect, expr string, anchor state.ObjID) int32 {
 	if expr == "" {
 		return 0
 	}
@@ -608,7 +612,7 @@ func statRemoveKeywords(st cards.Static) []string {
 }
 
 func statCantHaveKeywords(st cards.Static) []string {
-	return cards.SplitKeywordList(st.Params["CantHaveKeyword"])
+	return cards.SplitKeywordList(st.ParamStr(cards.PKCantHaveKeyword))
 }
 
 // statList parses additive TYPE parameters. Type lists retain their existing

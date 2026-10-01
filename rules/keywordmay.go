@@ -119,6 +119,28 @@ func (e *Engine) mayHaveDerivedKeywordAnyH(id state.ObjID, heads ...kwHead) bool
 	outer := e.activeDepth == 0
 	active := e.active()
 	if outer {
+		// Interned heads answer by bit: two ASCII heads are EqualFold
+		// exactly when they intern to one ordinal. A head that did not
+		// intern (non-ASCII, or the vocabulary full) takes the fold scan.
+		if e.activeKWHeadSetOK {
+			for _, hd := range heads {
+				if hd.s == "" {
+					continue
+				}
+				if hd.id != 0 {
+					if e.activeKWHeadSet.Has(hd.id) {
+						return true
+					}
+					continue
+				}
+				for _, h := range e.activeKWHeads {
+					if strings.EqualFold(h, hd.s) {
+						return true
+					}
+				}
+			}
+			return false
+		}
 		for _, h := range e.activeKWHeads {
 			for _, hd := range heads {
 				if hd.s != "" && strings.EqualFold(h, hd.s) {
@@ -167,4 +189,17 @@ func (e *Engine) verifyKeywordPrecheck(id state.ObjID, head string) {
 			panic(fmt.Sprintf("rules: keyword precheck ruled out %q on obj %d but Derived carries %q", head, id, k))
 		}
 	}
+}
+
+// kwHeadSetOf interns heads into a keyword-head bitset; ok is false when
+// some head has no ordinal (non-ASCII, or the vocabulary full).
+func kwHeadSetOf(heads []string) (set cards.KeywordHeadSet, ok bool) {
+	for _, h := range heads {
+		id := cards.KeywordHeadIDOf(h)
+		if id == 0 {
+			return cards.KeywordHeadSet{}, false
+		}
+		set[id>>6] |= 1 << (id & 63)
+	}
+	return set, true
 }

@@ -17,6 +17,27 @@ var counterKeywordCounters = [...]string{
 	"Reach", "Shadow", "Trample", "Vigilance",
 }
 
+// utf8RuneSelf is utf8.RuneSelf: bytes below it are single-byte ASCII.
+const utf8RuneSelf = 0x80
+
+func lowerASCII(c byte) byte {
+	if 'A' <= c && c <= 'Z' {
+		return c + 'a' - 'A'
+	}
+	return c
+}
+
+// counterKeywordFirst has bit (c & 63) set for the lower-cased first letter
+// c of every counterKeywordCounters name (all ASCII letters, so the 6-bit
+// fold is collision-free among them: 'a'..'z' are 0x61..0x7a).
+var counterKeywordFirst = func() uint64 {
+	var m uint64
+	for _, name := range counterKeywordCounters {
+		m |= 1 << (lowerASCII(name[0]) & 63)
+	}
+	return m
+}()
+
 // CounterKeyword maps a marker counter kind to the keyword it grants, matching
 // case-insensitively and returning the CANONICAL keyword spelling (the same
 // title-cased name Forge's CounterKeywordType.toString emits), plus whether
@@ -35,6 +56,14 @@ var counterKeywordCounters = [...]string{
 func CounterKeyword(kind string) (string, bool) {
 	kind = strings.TrimSpace(kind)
 	if kind == "" {
+		return "", false
+	}
+	// Every listed name starts with an ASCII letter, and strings.EqualFold
+	// can match an ASCII letter only with itself in either case or with a
+	// non-ASCII fold partner (U+017F for s, U+212A for k). A kind whose
+	// first byte is ASCII and folds to no listed name's first letter cannot
+	// match any of them: the common counters (P1P1, CHARGE, ...) stop here.
+	if c := kind[0]; c < utf8RuneSelf && counterKeywordFirst&(1<<(lowerASCII(c)&63)) == 0 {
 		return "", false
 	}
 	head := kind

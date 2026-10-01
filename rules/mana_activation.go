@@ -165,7 +165,17 @@ type offStackManaFrame struct {
 // offStackManaFrame and reports whether a routed ask suspended it.
 func (e *Engine) withOffStackMana(act manaColorActivation, run func()) bool {
 	saved := e.offStackMana
-	f := &offStackManaFrame{act: act, baseResume: e.resume, baseUnless: e.unlessPayment != nil,
+	// The frame lives in the engine's own slots while the nesting fits them
+	// (it is never read after this call returns: askOffStackMana copies what
+	// it keeps), else on the heap.
+	var f *offStackManaFrame
+	if d := e.offStackDepth; d < len(e.offStackSlots) {
+		f = &e.offStackSlots[d]
+	} else {
+		f = new(offStackManaFrame)
+	}
+	e.offStackDepth++
+	*f = offStackManaFrame{act: act, baseResume: e.resume, baseUnless: e.unlessPayment != nil,
 		baseCumulative: e.cumulative != nil, baseTriggerCost: e.triggerCost != nil}
 	e.offStackMana = f
 	// A mana ability's own chain is not a contChain-draining pass: an ask it
@@ -185,7 +195,10 @@ func (e *Engine) withOffStackMana(act manaColorActivation, run func()) bool {
 	e.SetCounterAdder(prevAdder)
 	e.contChainOwners = savedOwners
 	e.offStackMana = saved
-	return f.asked
+	asked := f.asked
+	*f = offStackManaFrame{}
+	e.offStackDepth--
+	return asked
 }
 
 // askOffStackMana routes every resumable ask from an off-stack mana chain
@@ -303,7 +316,7 @@ func (e *Engine) answerNestedManaColor(ma *manaColorActivation, chosen []decisio
 	}
 	savedTap, savedProducer := e.manaFromTap, e.manaProducer
 	if ma.trigger == nil && ma.ability != nil {
-		e.manaFromTap = e.parseCost(ma.ability.Params["Cost"]).Tap
+		e.manaFromTap = e.costRef(ma.ability.Params["Cost"]).Tap
 		e.manaProducer = ma.source
 	}
 	template := *ma
@@ -395,7 +408,7 @@ func isManaAbilityAPI(api string) bool { return api == "Mana" || api == "ManaRef
 // native mana ability excludes itself, while a static-granted SVar (Tazri)
 // requires one printed activated ability on that creature.
 func (e *Engine) manaReflectedPresentHolds(p state.PlayerID, source state.ObjID, ma *cards.SA) bool {
-	if !e.classBandGateHolds(ma.Params, source) {
+	if !e.classBandGateHolds(ma.ParamStr(cards.PKClassBand), source) {
 		return false
 	}
 	spec, ok := ma.Params["IsPresent"]
@@ -515,8 +528,8 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 	// only for its controller, so for any other object the block would add
 	// nothing the loop keeps: it is skipped, with its layer read.
 	if !faceDown && len(e.landTypeWords) > 0 && o.Zone == state.ZBattlefield && e.controllerOf(id) == p &&
-		e.activeSummaryOf(e.active()).hasLType {
-		for _, typ := range e.Derived(id).Types {
+		manaWalkHasLType(e, statics) {
+		for _, typ := range e.derivedTypesOf(id) {
 			color, ok := cards.IntrinsicManaColor(typ)
 			if !ok || manaAbilitiesProduce(manaAbilities, color) {
 				continue
@@ -683,8 +696,15 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 		return len(effects.ManaReflectedCandidates(e, &c, ma)) > 0
 	}
 	// A ManaReflected ability may sit on the top face or any under-card; each
-	// resolves its own face's table.
-	for i := 0; i < o.PileFaceCount(); i++ {
+	// resolves its own face's table. A single face the walk facts show
+	// carries none (walk_face_facts.go) has nothing for the scan to find.
+	pileFaces := o.PileFaceCount()
+	if pileFaces == 1 && !walkSkipVerify {
+		if ff := e.walkFaceFactsOf(f); ff != nil && !ff.manaReflected {
+			pileFaces = 0
+		}
+	}
+	for i := 0; i < pileFaces; i++ {
 		pf, ok := o.PileFaceAt(i)
 		if !ok {
 			continue
@@ -731,7 +751,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 	// included) that one walk sees and the other does not.
 	var continuous []staticView
 	if statics == nil {
-		continuous = addAbilityCarriers(e.collectActionStatics().continuous)
+		continuous = e.collectAddAbilityCarriers()
 	} else {
 		// The walk's snapshot pre-filtered to AddAbility$ carriers: every
 		// other static fails the name test below, so the order and the
@@ -782,6 +802,11 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 	// abilities of the land cards in all graveyards -- was a mana source for
 	// the non-controller's offer, payment window and planner (cardfuzz
 	// explore seed 11656500164625753431: planfb source_changed).
+	if statics != nil && statics.board.ready && !statics.board.hasGrants && !walkSkipVerify {
+		// grantedAbilities is nil on a board without a grant
+		// (activeSummary.hasGrants), read once per walk.
+		return out
+	}
 	for _, ga := range e.grantedAbilities(p, id) {
 		if printed[ga.sa.Line] {
 			continue
@@ -905,6 +930,18 @@ func (e *Engine) instantSpeedOnly(ma *cards.SA) bool {
 // availableManaAbilitiesForWindow is the member set for one window: the
 // ordinary priority set, or the payment-window set with the InstantSpeed$
 // timing-restricted abilities withheld.
+// priorityManaAbilityCount is len(availableManaAbilitiesForWindow(p, id,
+// true)), counted in the engine's scratch list.
+func (e *Engine) priorityManaAbilityCount(p state.PlayerID, id state.ObjID) int {
+	buf := e.manaAbScratch
+	e.manaAbScratch = nil
+	all := e.appendAvailableManaAbilities(buf[:0], nil, p, id)
+	n := len(all)
+	clear(all)
+	e.manaAbScratch = all[:0]
+	return n
+}
+
 func (e *Engine) availableManaAbilitiesForWindow(p state.PlayerID, id state.ObjID, atPriority bool) []*cards.SA {
 	all := e.availableManaAbilities(p, id)
 	if atPriority {
@@ -921,7 +958,35 @@ func (e *Engine) availableManaAbilitiesForWindow(p state.PlayerID, id state.ObjI
 }
 
 func (e *Engine) activateManaFor(p state.PlayerID, source state.ObjID, cast, cumulative, atPriority bool) {
-	abilities := e.availableManaAbilitiesForWindow(p, source, atPriority)
+	var abilities []*cards.SA
+	if atPriority {
+		// The priority member set is built in the engine's scratch list:
+		// the common single-ability source resolves from it and keeps
+		// nothing; a choice among several keeps an owned copy below.
+		buf := e.manaAbScratch
+		e.manaAbScratch = nil
+		abilities = e.appendAvailableManaAbilities(buf[:0], nil, p, source)
+		if len(abilities) <= 1 {
+			var only *cards.SA
+			if len(abilities) == 1 {
+				only = abilities[0]
+			}
+			clear(abilities)
+			e.manaAbScratch = abilities[:0]
+			if only == nil {
+				return
+			}
+			e.resolveManaAbilityInteractive(p, source, only, cast, cumulative)
+			e.continueManaPaymentWindow(cumulative)
+			return
+		}
+		owned := slices.Clone(abilities)
+		clear(abilities)
+		e.manaAbScratch = abilities[:0]
+		abilities = owned
+	} else {
+		abilities = e.availableManaAbilitiesForWindow(p, source, atPriority)
+	}
 	if len(abilities) == 0 {
 		return
 	}
@@ -1017,7 +1082,7 @@ func manaAbilityComboColours(ma *cards.SA, chosen string) ([]string, bool) {
 // generic union it would mask every other API's unread Produced$ (measured:
 // api:Sacrifice/api:DealDamage).
 func manaAbilityProduced(ma *cards.SA) string {
-	return ma.Params["Produced"]
+	return ma.ParamStr(cards.PKProduced)
 }
 
 // manaAbilitiesProduce reports whether some ability of mas has Produced$
@@ -1232,7 +1297,7 @@ func exileOriginPhrase(z state.Zone) string {
 }
 
 func manaAbilityCostPrefix(ma *cards.SA) string {
-	raw := strings.TrimSpace(ma.Params["Cost"])
+	raw := strings.TrimSpace(ma.ParamStr(cards.PKCost))
 	if raw == "" {
 		return ""
 	}
@@ -1255,7 +1320,7 @@ func (e *Engine) manaAbilityPayable(p state.PlayerID, source state.ObjID, ma *ca
 
 // tapCostSick is CR 302.6's shared source-cost predicate for {T}/{Q}.
 // Tapping another permanent to pay a cost is intentionally not checked here.
-func (e *Engine) tapCostSick(source state.ObjID, cost Cost) bool {
+func (e *Engine) tapCostSick(source state.ObjID, cost *Cost) bool {
 	return e.tapFlagsSick(source, cost.Tap, cost.Untap)
 }
 
@@ -1267,10 +1332,10 @@ func (e *Engine) tapFlagsSick(source state.ObjID, tap, untap bool) bool {
 	if o == nil || (!tap && !untap) || o.Zone != state.ZBattlefield || !o.SummonSick {
 		return false
 	}
-	return slices.Contains(e.Derived(source).Types, "Creature") && !e.hasKeywordH(source, kwhHaste)
+	return slices.Contains(e.derivedTypesOf(source), "Creature") && !e.hasKeywordH(source, kwhHaste)
 }
 
-func activationTapCostUnavailable(o *state.Object, cost Cost) bool {
+func activationTapCostUnavailable(o *state.Object, cost *Cost) bool {
 	return o == nil || (cost.Tap && o.Tapped) || (cost.Untap && !o.Tapped)
 }
 
@@ -1297,7 +1362,7 @@ func (e *Engine) manaAbilityPayablePool(p state.PlayerID, source state.ObjID, ma
 	if o == nil || o.Face() == nil {
 		return false
 	}
-	cc := e.compiledCostOf(ma.Params["Cost"])
+	cc := e.compiledCostOf(ma.ParamStr(cards.PKCost))
 	if e.tapFlagsSick(source, cc.Tap, cc.Untap) {
 		return false
 	}
@@ -1351,7 +1416,7 @@ func (e *Engine) manaCostPayableFull(p state.PlayerID, o *state.Object, source s
 		typed = e.G.Players[p].ManaUnits()
 	}
 	if cost.X != 0 || len(cost.Reveal) > 0 || len(cost.RevealOrChoose) > 0 || len(cost.RevealChosen) > 0 || len(cost.Behold) > 0 ||
-		len(cost.Blight) > 0 || activationTapCostUnavailable(o, cost) || !e.costPayablePool(p, source, true, cost, pool, typed) {
+		len(cost.Blight) > 0 || activationTapCostUnavailable(o, &cost) || !e.costPayablePool(p, source, true, cost, pool, typed) {
 		return false
 	}
 	// A Forage cost is payable when the payer's graveyard holds three cards OR
@@ -1472,7 +1537,7 @@ func (e *Engine) manaCostPayableFull(p state.PlayerID, o *state.Object, source s
 // part with no eligible permanent is affordable at X=0 (the cast path's
 // tapPermanentCostAsk does the same), while a non-X dynamic head still fails
 // closed HERE: no "any number" election exists beside a mana ability yet.
-func costHasDynamicXTap(cost Cost) bool {
+func costHasDynamicXTap(cost *Cost) bool {
 	for _, part := range cost.TapPermanent {
 		if part.Dyn == "X" {
 			return true
@@ -2107,7 +2172,7 @@ func (e *Engine) emitManaTap(p state.PlayerID, source state.ObjID, sa *cards.SA)
 	// rebuilt by replay because replay takes the same activation path.
 	produced := ""
 	if sa != nil {
-		produced = strings.TrimSpace(sa.Params["Produced"])
+		produced = strings.TrimSpace(sa.ParamStr(cards.PKProduced))
 	}
 	before := len(e.pendingTriggers)
 	e.tappingForMana, e.tappingManaProduced = source, produced
@@ -2141,6 +2206,7 @@ func (e *Engine) emitManaTap(p state.PlayerID, source state.ObjID, sa *cards.SA)
 		}
 		kept = append(kept, pt)
 	}
+	e.noteTrigShrink()
 	e.pendingTriggers = kept
 	return immediate
 }
@@ -2543,7 +2609,7 @@ func (e *Engine) resolveManaAbilityRef(p state.PlayerID, source state.ObjID, ma 
 // on an immutable copy, but the limit census is keyed to the compiled ability
 // in the source pile, not that copy.
 func (e *Engine) resolveManaAbilityRefOriginal(p state.PlayerID, source state.ObjID, ma, original *cards.SA, gained gainedManaRef, cast, payment, interactive bool) {
-	if !interactive && costHasDynamicXTap(e.parseCost(ma.Params["Cost"])) {
+	if !interactive && costHasDynamicXTap(e.costRef(ma.Params["Cost"])) {
 		return
 	}
 	if !e.manaAbilityPayable(p, source, ma) {
@@ -2578,7 +2644,8 @@ func (e *Engine) resolveManaAbilityRefOriginal(p state.PlayerID, source state.Ob
 			e.emit(events.Event{Kind: events.ManaActivate, Player: p, Obj: source, Amount: int32(idx)})
 		}
 	}
-	cost := e.parseCost(ma.Params["Cost"])
+	cc := e.compiledCostOf(ma.ParamStr(cards.PKCost))
+	cost := cc.Cost
 	sacs, _ := e.manaSacrifices(p, source, cost)
 	// The continuation owns EVERY non-mana cost part, so it must be entered
 	// whenever one exists -- a caller that cannot ask (interactive == false:
@@ -2606,7 +2673,7 @@ func (e *Engine) resolveManaAbilityRefOriginal(p state.PlayerID, source state.Ob
 		e.continueManaDiscard()
 		return
 	}
-	if !e.payManaConvFor(p, source, true, cost, e.paymentConv(p, source, true)) {
+	if !e.payManaAbilityMana(p, source, cc) {
 		return
 	}
 	e.payMillCost(p, cost.Mill)
@@ -2654,11 +2721,11 @@ func manaReturnCostSupported(cost Cost) bool {
 // Valid$ "Defined.Sacrificed" selector (Squandered Resources) can read them
 // through the resolution context's Remembered list.
 func (e *Engine) resolveManaEffect(p state.PlayerID, source state.ObjID, ma *cards.SA, cast, cumulative bool, triggers []pendingTrigger, sacs []state.ObjID, gained gainedManaRef, untaps []state.ObjID) {
-	if strings.TrimSpace(ma.Params["UnlessCost"]) != "" {
+	if strings.TrimSpace(ma.ParamStr(cards.PKUnlessCost)) != "" {
 		e.askManaUnless(p, source, ma, cast, cumulative, triggers, sacs, gained)
 		return
 	}
-	produced := strings.TrimSpace(ma.Params["Produced"])
+	produced := strings.TrimSpace(ma.ParamStr(cards.PKProduced))
 	// A "Chosen" token (Quirion Elves' second activation: "Add one mana of
 	// the chosen color"; the Thriving-lands/gate family: "Add {R} or one mana
 	// of the chosen color") is a READ, not a choice: the colour was already
@@ -2704,7 +2771,7 @@ func (e *Engine) resolveManaEffect(p state.PlayerID, source state.ObjID, ma *car
 		}
 		return
 	}
-	if costHasDynamicXTap(e.parseCost(ma.Params["Cost"])) && strings.TrimSpace(ma.Params["Amount"]) == "0" {
+	if costHasDynamicXTap(e.costRef(ma.ParamStr(cards.PKCost))) && strings.TrimSpace(ma.ParamStr(cards.PKAmount)) == "0" {
 		// X=0 produces no mana and therefore has no meaningful colour
 		// allocation decision.
 		e.finishManaEffect(p, source, ma, produced, gained, sacs, cast, cumulative, triggers)
@@ -2981,6 +3048,18 @@ func (e *Engine) resolveManaEffectColor(p state.PlayerID, source state.ObjID, ma
 	if o == nil || o.Face() == nil {
 		return
 	}
+	// A plain printed "{T}: Add {G}" emits its one ManaAdd directly
+	// (rules/mana_plain.go); the verify build checks it against the general
+	// path below.
+	plain, plainTap, isPlain := e.plainManaAdd(p, source, ma, produced, gained, sacs)
+	if isPlain && !manaPlainVerify {
+		savedTap, savedProducer := e.manaFromTap, e.manaProducer
+		e.manaFromTap, e.manaProducer = plainTap, source
+		e.emit(plain)
+		e.manaFromTap, e.manaProducer = savedTap, savedProducer
+		return
+	}
+	n0 := len(e.L.Events)
 	copy := *ma
 	copy.Params = make(map[string]string, len(ma.Params)+1)
 	for k, v := range ma.Params {
@@ -2994,12 +3073,15 @@ func (e *Engine) resolveManaEffectColor(p state.PlayerID, source state.ObjID, ma
 	// replay chain head). A sacrifice-only KCI activation therefore identifies
 	// its source but is not tap-produced.
 	savedTap, savedProducer := e.manaFromTap, e.manaProducer
-	e.manaFromTap = e.parseCost(ma.Params["Cost"]).Tap
+	e.manaFromTap = e.costRef(ma.Params["Cost"]).Tap
 	e.manaProducer = source
 	// A gained mana ability's body resolves its SVars (Amount$ X) against
 	// the FOREIGN face it was compiled on, never the recipient's.
 	e.resolveAbilitySacrificing(source, p, nil, &copy, gained.svars(o.Face().SVars), sacs)
 	e.manaFromTap, e.manaProducer = savedTap, savedProducer
+	if isPlain {
+		e.verifyPlainMana(plain, n0)
+	}
 }
 
 // answerManaColor completes a Produced$ Any choice after the activation cost
@@ -3193,7 +3275,7 @@ func (e *Engine) CommanderIdentityColourCount(p state.PlayerID) int {
 // emitted only for these carriers so no other game's log changes.
 func chainGatesOnActivationCount(sa *cards.SA) bool {
 	for sub, n := sa, 0; sub != nil && n < 32; sub, n = sub.Sub, n+1 {
-		if strings.TrimSpace(sub.Params["ConditionActivationLimit"]) != "" {
+		if strings.TrimSpace(sub.ParamStr(cards.PKConditionActivationLimit)) != "" {
 			return true
 		}
 	}
@@ -3301,4 +3383,18 @@ func (e *Engine) payManaSourceParts(p state.PlayerID, source state.ObjID, cost C
 			e.emit(events.Event{Kind: events.Exert, Obj: source, Player: p})
 		}
 	}
+}
+
+// manaWalkHasLType is activeSummaryOf(active()).hasLType, answered from the
+// offer walk's once-per-walk board facts when the caller is that walk.
+func manaWalkHasLType(e *Engine, statics *actionStaticSource) bool {
+	if statics != nil && statics.board.ready {
+		if walkSkipVerify {
+			if fresh := e.activeSummaryOf(e.active()).hasLType; fresh != statics.board.hasLType {
+				panic(fmt.Sprintf("rules: walk board hasLType %v disagrees with a fresh read %v", statics.board.hasLType, fresh))
+			}
+		}
+		return statics.board.hasLType
+	}
+	return e.activeSummaryOf(e.active()).hasLType
 }

@@ -5,6 +5,7 @@ import (
 	"maps"
 	"slices"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -93,6 +94,12 @@ type boardStaticsCache struct {
 	// cross-walk reuse); see walkCrossHit.
 	seq uint64
 	v   boardStatics
+	// scan records the lists v's printed part was scanned over and
+	// printed[i] the printed prefix length of v.cost's raise, reduce, set
+	// and optional lists (the Effect-delivered statics follow it):
+	// static_scan_reuse.go.
+	scan    staticScanRec
+	printed [4]int
 }
 
 // walkCrossHit reports whether an entry an EARLIER scope built at key k and
@@ -148,10 +155,36 @@ func (e *Engine) boardStaticsWalk() (boardStatics, bool) {
 		}
 		c.key = now
 	default:
-		// Fresh backing on every rebuild, so no slice a caller may still be
-		// ranging is ever rewritten.
+		// A rebuild inside the scope that built the entry takes fresh
+		// backing, so no slice a caller of this scope may still be ranging
+		// is ever rewritten. An entry from an EARLIER outermost scope is
+		// dead -- the memo generation moves only on an outermost entry, so
+		// that scope has returned, and every holder of these views (the
+		// walk's costStaticSource/actionStaticSource, the readers it called)
+		// lived inside it -- so its arrays are refilled instead of regrown.
 		seq := e.walkBuildSeq()
-		c.v = e.scanBoardStatics()
+		earlier := c.key.gen != 0 && c.key.gen != now.gen
+		lists := e.gatherBoardScan()
+		if earlier && e.boardScanMatches(&c.scan, lists) {
+			// The printed scan of an unchanged static board
+			// (static_scan_reuse.go): keep it, and recompute only the
+			// Effect-delivered cost statics after it.
+			c.v.cost = e.reappendEffectCostStatics(c.v.cost, c.printed)
+			if walkCacheVerify {
+				e.verifyBoardStatics(c.v)
+			}
+		} else {
+			var into boardStatics
+			if earlier {
+				into = boardStaticsArrays(c.v)
+			}
+			c.v = e.scanBoardStaticsPrintedLists(into, lists)
+			c.printed = [4]int{len(c.v.cost.raise), len(c.v.cost.reduce), len(c.v.cost.set), len(c.v.cost.optional)}
+			e.recordBoardScan(&c.scan, lists)
+			e.appendEffectCostStatics(&c.v.cost)
+			markCostValidTarget(&c.v.cost)
+		}
+		e.putBoardScan(lists)
 		if e.activeBuildSeq != seq {
 			seq = 0 // active() rebuilt mid-scan: never reuse across walks
 		}
@@ -177,13 +210,60 @@ func clipBoardStatics(v boardStatics) boardStatics {
 // a face-down battlefield permanent (CR 708.8). The Effect-delivered cost statics are
 // appended after the printed walk, exactly as scanCostStatics does.
 func (e *Engine) scanBoardStatics() boardStatics {
-	var out boardStatics
-	for pi, p := range e.G.AliveFrom(0) {
-		for _, z := range staticSourceZones {
-			if z == state.ZStack && pi > 0 {
-				continue
-			}
-			for _, id := range e.staticSourceIDs(p, z) {
+	return e.scanBoardStaticsInto(boardStatics{})
+}
+
+// boardStaticsArrays is v's slices emptied (cleared, so the dead views pin
+// nothing) for scanBoardStaticsInto to refill; every other field is zero.
+func boardStaticsArrays(v boardStatics) boardStatics {
+	empty := func(s []staticView) []staticView { clear(s); return s[:0] }
+	clear(v.manaConv)
+	return boardStatics{
+		cost: costStaticViews{raise: empty(v.cost.raise), reduce: empty(v.cost.reduce),
+			set: empty(v.cost.set), optional: empty(v.cost.optional)},
+		action: actionStaticViews{cantCast: empty(v.action.cantCast),
+			cantActivate: empty(v.action.cantActivate), continuous: empty(v.action.continuous)},
+		manaConv: v.manaConv[:0],
+	}
+}
+
+// scanBoardStaticsInto is scanBoardStatics appending into out's (empty)
+// slices.
+func (e *Engine) scanBoardStaticsInto(out boardStatics) boardStatics {
+	out = e.scanBoardStaticsPrintedInto(out)
+	e.appendEffectCostStatics(&out.cost)
+	markCostValidTarget(&out.cost)
+	return out
+}
+
+// reappendEffectCostStatics truncates cost's four lists to their printed
+// prefixes (clearing the dropped views) and appends the Effect-delivered
+// cost statics and the ValidTarget mark afresh -- scanBoardStaticsInto's
+// tail over a kept printed scan.
+func (e *Engine) reappendEffectCostStatics(cost costStaticViews, printed [4]int) costStaticViews {
+	cut := func(s []staticView, n int) []staticView { clear(s[n:]); return s[:n] }
+	out := costStaticViews{raise: cut(cost.raise, printed[0]), reduce: cut(cost.reduce, printed[1]),
+		set: cut(cost.set, printed[2]), optional: cut(cost.optional, printed[3])}
+	e.appendEffectCostStatics(&out)
+	markCostValidTarget(&out)
+	return out
+}
+
+// scanBoardStaticsPrintedInto is scanBoardStaticsInto's printed walk alone.
+func (e *Engine) scanBoardStaticsPrintedInto(out boardStatics) boardStatics {
+	lists := e.gatherBoardScan()
+	out = e.scanBoardStaticsPrintedLists(out, lists)
+	e.putBoardScan(lists)
+	return out
+}
+
+// scanBoardStaticsPrintedLists is the printed walk over lists, the zone
+// lists gatherBoardScan collected in the walk's order.
+func (e *Engine) scanBoardStaticsPrintedLists(out boardStatics, lists []boardScanList) boardStatics {
+	for _, l := range lists {
+		z := l.z
+		{
+			for _, id := range l.ids {
 				o := e.G.Obj(id)
 				if o == nil || o.Face() == nil || offBattlefieldStaticsInert(z, o) {
 					continue
@@ -241,7 +321,7 @@ func (e *Engine) scanBoardStatics() boardStatics {
 					default:
 						continue
 					}
-					if zoneGated && !effectZoneOK(st.Params["EffectZone"], o.Zone) {
+					if zoneGated && !effectZoneOK(st.ParamStr(cards.PKEffectZone), o.Zone) {
 						continue
 					}
 					*dst = append(*dst, staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf(), SVars: pst.Face.SVars})
@@ -249,8 +329,6 @@ func (e *Engine) scanBoardStatics() boardStatics {
 			}
 		}
 	}
-	e.appendEffectCostStatics(&out.cost)
-	markCostValidTarget(&out.cost)
 	return out
 }
 
@@ -336,11 +414,18 @@ type activeStaticsEntry struct {
 	mode string
 	key  walkKey
 	sv   []staticView
+	// shared: sv was handed to a reader outside any memo scope
+	// (activeStaticsOutOfScope), whom no scope boundary bounds, so the next
+	// fused scan gives the entry fresh backing instead of refilling it.
+	shared bool
 }
 
 func (e *Engine) activeStaticsCached(mode string) []staticView {
 	now, ok := e.walkKeyNow()
 	if !ok {
+		if sv, hit := e.activeStaticsOutOfScope(mode); hit {
+			return sv
+		}
 		return e.scanActiveStatics(mode, nil)
 	}
 	var m *activeStaticsEntry
@@ -360,12 +445,109 @@ func (e *Engine) activeStaticsCached(mode string) []staticView {
 		}
 		return slices.Clip(m.sv)
 	}
-	if m.key.gen == now.gen {
-		m.sv = nil // same walk, moved key: never rewrite a slice a caller may range
+	// A miss refreshes EVERY mode this engine has been asked for in one
+	// battlefield pass (scanActiveStaticsFused), so the walk's other modes
+	// are hits instead of one full battlefield walk each -- or, when every
+	// entry was scanned in an earlier scope over an unchanged static board
+	// (static_scan_reuse.go), re-stamps them all.
+	if e.activeStaticsReusable(now) {
+		for i := range e.activeStaticsCache {
+			e.activeStaticsCache[i].key = now
+		}
+		if walkCacheVerify {
+			for i := range e.activeStaticsCache {
+				e.verifyActiveStatics(e.activeStaticsCache[i].mode, e.activeStaticsCache[i].sv)
+			}
+		}
+		return slices.Clip(m.sv)
 	}
-	m.sv = e.scanActiveStatics(mode, m.sv[:0])
-	m.key = now
+	e.scanActiveStaticsFused(now)
+	e.recordActiveScan(&e.activeStaticsScan)
 	return slices.Clip(m.sv)
+}
+
+// activeStaticsOutOfScope serves mode's list outside a memo scope from the
+// last fused scan when that scan is exactly the scan of the current static
+// board (static_scan_reuse.go) -- a scan made in a scope, so never one built
+// across a face or cast probe, which runs scope-free and moves
+// crossWalkRetires on both edges. The entry is marked shared so no later
+// scan refills the array the reader may still range.
+func (e *Engine) activeStaticsOutOfScope(mode string) ([]staticView, bool) {
+	for i := range e.activeStaticsCache {
+		m := &e.activeStaticsCache[i]
+		if m.mode != mode {
+			continue
+		}
+		if m.key.gen == 0 || !e.activeScanUnchanged(&e.activeStaticsScan) {
+			return nil, false
+		}
+		if walkCacheVerify {
+			e.verifyActiveStatics(mode, m.sv)
+		}
+		m.shared = true
+		return slices.Clip(m.sv), true
+	}
+	return nil, false
+}
+
+// activeStaticsReusable reports whether every activeStaticsCache entry holds
+// the fused scan of an earlier scope over the current static board
+// (static_scan_reuse.go), so re-stamping them is exact.
+func (e *Engine) activeStaticsReusable(now walkKey) bool {
+	for i := range e.activeStaticsCache {
+		if k := e.activeStaticsCache[i].key; k.gen == 0 || k.gen == now.gen {
+			return false
+		}
+	}
+	return e.activeScanUnchanged(&e.activeStaticsScan)
+}
+
+// scanActiveStaticsFused refreshes every activeStaticsCache entry at key now
+// from ONE battlefield pile-static walk: each entry's list is the walk's
+// statics of its mode, in walk order -- exactly scanActiveStatics(mode) for
+// each, since that scan is this same walk filtered by Mode$. An entry built
+// earlier in this same scope gets fresh backing (a caller may still be
+// ranging its old slice); an entry from an earlier scope reuses its array.
+func (e *Engine) scanActiveStaticsFused(now walkKey) {
+	c := e.activeStaticsCache
+	for i := range c {
+		if c[i].key.gen == now.gen || c[i].shared {
+			c[i].sv = nil
+		} else {
+			c[i].sv = c[i].sv[:0]
+		}
+		c[i].key, c[i].shared = now, false
+	}
+	for _, p := range e.G.AliveFrom(0) {
+		for _, id := range e.G.Zone(state.ZBattlefield, p) {
+			o := e.G.Obj(id)
+			if o == nil {
+				continue
+			}
+			f := o.Face()
+			if f == nil || e.faceDownPrintedHides(o) || o.PhasedOut {
+				// The scan's face-down (CR 708.8) and phased-out (CR
+				// 702.25b/d) object gates.
+				continue
+			}
+			for si, sn := 0, o.PileStaticCount(); si < sn; si++ {
+				pst, ok := o.PileStaticAt(si)
+				if !ok {
+					continue
+				}
+				st := pst.Static
+				for i := range c {
+					if c[i].mode != st.Mode {
+						continue
+					}
+					if effectZoneOK(st.ParamStr(cards.PKEffectZone), o.Zone) {
+						c[i].sv = append(c[i].sv, staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf(), SVars: pst.Face.SVars})
+					}
+					break
+				}
+			}
+		}
+	}
 }
 
 func (e *Engine) verifyActiveStatics(mode string, got []staticView) {

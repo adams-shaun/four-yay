@@ -20,13 +20,13 @@ func (w *legalWalk) handWalk() {
 		}
 		// The printed keyword-cost heads this face can answer
 		// (printed_heads.go): a clear bit skips that head's reader below.
-		ph := printedHeadsOf(f)
+		ph := w.printedHeads(f)
 		if derivedMemoVerify {
 			verifyPrintedHeads(f, ph)
 		}
 		if f.IsLand() {
 			if sorcery && e.G.Players[p].LandsPlayed < int32(1+e.adjustLandPlays(p)) {
-				w.add("play_land", "Play "+f.Name, id)
+				w.add("play_land", w.playLabel(f), id)
 				// A Modal DFC may also be played as its back land, even
 				// when its front face is itself a land (CR 712.8).
 				if back := modalLandBack(o); back != nil {
@@ -271,10 +271,12 @@ func (w *legalWalk) handWalk() {
 		}
 		// targetsAvailable is the plain SpellAbility's target census, run on
 		// first use and remembered for the rest of this card. Every offer
-		// below that needs it tests it LAST among pure conjuncts, so a card
-		// no offer can afford (the common case in a priority window) never
-		// pays for the census; the walk is a pure read, so a late census
-		// equals an eager one and each offer's answer is unchanged.
+		// below that needs it tests it LAST among pure conjuncts -- after
+		// its offerCastable, whose empty-pool refusal is the cheap common
+		// answer (legalWalk.offerFloorRefuses) -- so a card no offer can
+		// afford (the common case in a priority window) never pays for the
+		// census; the walk is a pure read, so a late census equals an eager
+		// one and each offer's answer is unchanged.
 		taDone, taOK := false, false
 		targetsAvailable := func() bool {
 			if !taDone {
@@ -314,31 +316,28 @@ func (w *legalWalk) handWalk() {
 			altParts = altAddCostParts(f)
 		}
 		if len(altParts) > 0 {
-			if targetsAvailable() {
-				for _, part := range altParts {
-					if w.offerCastable(p, id, withSpellAbilityExtras(f, convokeBase).Plus(e.parseCost(part)), spellScope(""), false) {
-						w.add("cast", "Cast "+f.Name, id)
-						break
+			for _, part := range altParts {
+				if w.offerCastable(p, id, withSpellAbilityExtras(f, convokeBase).Plus(e.parseCost(part)), spellScope(""), false) {
+					if targetsAvailable() {
+						w.add("cast", w.castLabel(f), id)
 					}
+					break
 				}
 			}
 		} else if w.offerCastable(p, id, withSpellAbilityExtras(f, convokeBase), spellScope(""), false) && targetsAvailable() {
-			w.add("cast", "Cast "+f.Name, id)
+			w.add("cast", w.castLabel(f), id)
 		}
 		// Self-spell OptionalCost is a separate paid offer; the plain
 		// cast above remains the decline path. Preserve static order.
-		if views := e.optionalCostViews(costStatics.get(), p, id); len(views) > 0 && targetsAvailable() {
+		if views := e.optionalCostViews(costStatics.get(), p, id); len(views) > 0 {
 			for i, extra := range views {
-				if w.offerCastable(p, id, withSpellAbilityExtras(f, convokeBase).Plus(extra), spellScope("optionalcost"), false) {
+				if w.offerCastable(p, id, withSpellAbilityExtras(f, convokeBase).Plus(extra), spellScope("optionalcost"), false) && targetsAvailable() {
 					*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 						Label: "Cast " + f.Name + " (optional cost)", Obj: id, Mode: "optionalcost", AltCostIndex: i + 1})
 				}
 			}
 		}
 		for i, alt := range e.alternativeCosts(p, id) {
-			if !targetsAvailable() {
-				continue
-			}
 			// An announce-bearing alternative (the Shoal cycle's Announce$ X):
 			// the exile filter's cmcEQX is bound to the value the caster will
 			// announce, so the "some announcement is payable" gate is
@@ -362,7 +361,7 @@ func (w *legalWalk) handWalk() {
 			// matching permanents exist, and beginCast then asked a sacrifice
 			// decision with zero options that no answer could escape. castable
 			// is the same gate every other "cast" option uses.
-			if w.offerCastable(p, id, gate, spellScope(""), false) {
+			if w.offerCastable(p, id, gate, spellScope(""), false) && targetsAvailable() {
 				// AltCostIndex is i+1, not i: the zero value must mean "the
 				// card's own cost" so every other Option literal in the tree
 				// (play_land, activate, pass, and the base "cast" option
@@ -389,18 +388,18 @@ func (w *legalWalk) handWalk() {
 					{"kicked2", "Cast " + f.Name + " (kicked 2)", c2},
 					{"kickedboth", "Cast " + f.Name + " (kicked both)", c1.Plus(c2)},
 				} {
-					if targetsAvailable() && w.offerCastable(p, id, base.Plus(kp.cost), spellScope(kp.mode), false) {
+					if w.offerCastable(p, id, base.Plus(kp.cost), spellScope(kp.mode), false) && targetsAvailable() {
 						*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 							Label: kp.label, Obj: id, Mode: kp.mode})
 					}
 				}
-			} else if kc, ok := kickerCost(f); ok && targetsAvailable() && w.offerCastable(p, id, e.rawBaseCost(p, id).Plus(kc), spellScope("kicked"), false) {
+			} else if kc, ok := kickerCost(f); ok && w.offerCastable(p, id, e.rawBaseCost(p, id).Plus(kc), spellScope("kicked"), false) && targetsAvailable() {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 					Label: "Cast " + f.Name + " (kicked)", Obj: id, Mode: "kicked"})
 			}
 		}
 		if ph.has(phSurge) {
-			if sc, ok := surgeCost(f); ok && targetsAvailable() && e.spellsCastThisTurn(p) > 0 && w.offerCastable(p, id, sc, spellScope("surged"), false) {
+			if sc, ok := surgeCost(f); ok && e.spellsCastThisTurn(p) > 0 && w.offerCastable(p, id, sc, spellScope("surged"), false) && targetsAvailable() {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 					Label: "Cast " + f.Name + " (surged)", Obj: id, Mode: "surged"})
 			}
@@ -418,8 +417,8 @@ func (w *legalWalk) handWalk() {
 		// Entwine files are Charms) would take mana for nothing; such a face
 		// keeps its printed-cast path and its coverage gap stays visible.
 		if ph.has(phEntwine) {
-			if ec, ok := entwineCost(f); ok && targetsAvailable() && isCharmSpell(f) &&
-				w.offerCastable(p, id, e.rawBaseCost(p, id).Plus(ec), spellScope("entwined"), false) {
+			if ec, ok := entwineCost(f); ok && isCharmSpell(f) &&
+				w.offerCastable(p, id, e.rawBaseCost(p, id).Plus(ec), spellScope("entwined"), false) && targetsAvailable() {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 					Label: "Cast " + f.Name + " (entwined)", Obj: id, Mode: "entwined"})
 			}
@@ -433,8 +432,8 @@ func (w *legalWalk) handWalk() {
 		// the payment fail closed in nonManaCastable (offerCastable's shared
 		// tail), so the two tapXType carriers' replicate never offers.
 		if ph.has(phReplicate) {
-			if rc, ok := replicateCost(f); ok && targetsAvailable() &&
-				w.offerCastable(p, id, e.rawBaseCost(p, id).Plus(rc), spellScope("replicated"), false) {
+			if rc, ok := replicateCost(f); ok &&
+				w.offerCastable(p, id, e.rawBaseCost(p, id).Plus(rc), spellScope("replicated"), false) && targetsAvailable() {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 					Label: "Cast " + f.Name + " (replicated)", Obj: id, Mode: "replicated"})
 			}
@@ -446,8 +445,8 @@ func (w *legalWalk) handWalk() {
 		// carrier pairs Kicker with Multikicker (measured), so this offer
 		// never collides with the kicked family above.
 		if ph.has(phMultikicker) {
-			if mkc, ok := multikickerCost(f); ok && targetsAvailable() &&
-				w.offerCastable(p, id, e.rawBaseCost(p, id).Plus(mkc), spellScope("multikicked"), false) {
+			if mkc, ok := multikickerCost(f); ok &&
+				w.offerCastable(p, id, e.rawBaseCost(p, id).Plus(mkc), spellScope("multikicked"), false) && targetsAvailable() {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 					Label: "Cast " + f.Name + " (multikicked)", Obj: id, Mode: "multikicked"})
 			}
@@ -462,8 +461,8 @@ func (w *legalWalk) handWalk() {
 		// fail closed in nonManaCastable (offerCastable's shared tail), so a
 		// squad cost ParseCost cannot price never offers.
 		if ph.has(phSquad) {
-			if sqc, ok := squadCost(f); ok && targetsAvailable() &&
-				w.offerCastable(p, id, e.rawBaseCost(p, id).Plus(sqc), spellScope("squadded"), false) {
+			if sqc, ok := squadCost(f); ok &&
+				w.offerCastable(p, id, e.rawBaseCost(p, id).Plus(sqc), spellScope("squadded"), false) && targetsAvailable() {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 					Label: "Cast " + f.Name + " (squadded)", Obj: id, Mode: "squadded"})
 			}
@@ -479,9 +478,9 @@ func (w *legalWalk) handWalk() {
 		// AND on at least two eligible creatures existing. Do NOT route the
 		// tap through offerCastable with a fabricated cost -- the tap has no
 		// Cost$ representation; conspireAsk enforces it at announcement.
-		if e.hasCastConspire(id) && targetsAvailable() &&
-			len(e.conspireCandidates(p, id)) >= 2 &&
-			w.offerCastable(p, id, withSpellAbilityExtras(f, convokeBase), spellScope(""), false) {
+		if e.hasCastConspire(id) &&
+			w.offerCastable(p, id, withSpellAbilityExtras(f, convokeBase), spellScope(""), false) &&
+			len(e.conspireCandidates(p, id)) >= 2 && targetsAvailable() {
 			*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 				Label: "Cast " + f.Name + " (conspired)", Obj: id, Mode: "conspired"})
 		}
@@ -491,13 +490,13 @@ func (w *legalWalk) handWalk() {
 		// variable form (Casualty:X, Ob Nixilis, the Adversary) has no
 		// threshold: the sacrificed creature's own power names the amount, so
 		// any creature qualifies and the ask's power gate reads 0.
-		if info, ok := e.casualtySpec(id); ok && targetsAvailable() {
+		if info, ok := e.casualtySpec(id); ok {
 			n := info.threshold
 			if info.variable {
 				n = 0
 			}
-			if len(e.casualtyCandidates(p, id, n)) > 0 &&
-				w.offerCastable(p, id, withSpellAbilityExtras(f, convokeBase), spellScope(""), false) {
+			if w.offerCastable(p, id, withSpellAbilityExtras(f, convokeBase), spellScope(""), false) &&
+				len(e.casualtyCandidates(p, id, n)) > 0 && targetsAvailable() {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 					Label: "Cast " + f.Name + " (casualty)", Obj: id, Mode: "casualty"})
 			}
@@ -525,8 +524,8 @@ func (w *legalWalk) handWalk() {
 				continue
 			}
 			alt, ok := keywordAltCost(f, ka.head)
-			if !ok || (ka.mode != "overloaded" && !targetsAvailable()) ||
-				!w.offerCastable(p, id, alt, spellScope(ka.mode), false) {
+			if !ok || !w.offerCastable(p, id, alt, spellScope(ka.mode), false) ||
+				(ka.mode != "overloaded" && !targetsAvailable()) {
 				continue
 			}
 			*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
@@ -544,7 +543,7 @@ func (w *legalWalk) handWalk() {
 		// whose return cannot be paid must never be offered (the offerCastable
 		// ruling).
 		for _, wc := range e.webSlingingCosts(p, id) {
-			if !targetsAvailable() || !w.offerCastable(p, id, wc.cost, spellScope(wc.mode), false) {
+			if !w.offerCastable(p, id, wc.cost, spellScope(wc.mode), false) || !targetsAvailable() {
 				continue
 			}
 			label := "web-slinging"
@@ -554,9 +553,9 @@ func (w *legalWalk) handWalk() {
 			*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 				Label: "Cast " + f.Name + " (" + label + ")", Obj: id, Mode: wc.mode})
 		}
-		if blitzes := e.blitzCosts(p, id); len(blitzes) > 0 && targetsAvailable() {
+		if blitzes := e.blitzCosts(p, id); len(blitzes) > 0 {
 			for _, blitz := range blitzes {
-				if !w.offerCastable(p, id, blitz.cost, spellScope(blitz.mode), false) {
+				if !w.offerCastable(p, id, blitz.cost, spellScope(blitz.mode), false) || !targetsAvailable() {
 					continue
 				}
 				label := "blitzed"
@@ -647,9 +646,9 @@ func (w *legalWalk) handWalk() {
 		// same base+additional composition beginCast will charge, and
 		// targetsAvailable keeps a target-bearing creature spell's offer honest
 		// (the plain cast's gate, which the offspring cast shares).
-		if e.hasCastOffspring(id) && targetsAvailable() {
+		if e.hasCastOffspring(id) {
 			if oc, ok := e.offspringCost(id); ok &&
-				w.offerCastable(p, id, e.rawBaseCost(p, id).Plus(oc), spellScope("offspring"), false) {
+				w.offerCastable(p, id, e.rawBaseCost(p, id).Plus(oc), spellScope("offspring"), false) && targetsAvailable() {
 				*out = append(*out, decision.Option{Index: len(*out), Kind: "cast",
 					Label: "Cast " + f.Name + " (offspring)", Obj: id, Mode: "offspring"})
 			}
