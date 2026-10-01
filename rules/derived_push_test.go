@@ -167,3 +167,35 @@ func TestDerivedAnyMoveRefusesAMutatedPile(t *testing.T) {
 		t.Fatal("a mutated pile's departure (its under-card moved silently) kept derivedSeq")
 	}
 }
+
+// TestSBAQuietSpansAPlainEntry pins sbaQuietEntry: a vanilla creature
+// entering keeps the quiet skip (sbaQuietVerify, on in this binary, runs the
+// pass loop anyway and panics if it would have applied anything); a 0/0
+// creature or a legendary permanent entering drops it.
+func TestSBAQuietSpansAPlainEntry(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name, src string
+		quiet     bool
+	}{
+		{"vanilla", "Name:Cub\nManaCost:G\nTypes:Creature Bear\nPT:1/1\nOracle:x\n", true},
+		{"zero toughness", "Name:Husk\nManaCost:G\nTypes:Creature Bear\nPT:0/0\nOracle:x\n", false},
+		{"legendary", "Name:Lady\nManaCost:G\nTypes:Legendary Creature Bear\nPT:1/1\nOracle:x\n", false},
+	} {
+		e := newSeats(t, 2)
+		co := e.G.AddObject(card(t, tc.src), 0)
+		co.Zone = state.ZHand
+		e.G.SetZone(state.ZHand, 0, append(e.G.Zone(state.ZHand, 0), co.ID))
+		e.staticEpoch, e.activeEpoch = -1, -1
+		e.emit(events.Event{Kind: events.Note, Text: "settle"})
+		e.checkStateBased()
+		if !e.sbaQuietNow() {
+			t.Fatalf("%s: precondition: the quiet key is not armed", tc.name)
+		}
+		e.emit(events.Event{Kind: events.MoveZone, Obj: co.ID, From: state.ZHand, To: state.ZBattlefield})
+		if got := e.sbaQuietNow(); got != tc.quiet {
+			t.Fatalf("%s: quiet after the entry = %v, want %v", tc.name, got, tc.quiet)
+		}
+		e.checkStateBased()
+	}
+}
