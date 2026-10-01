@@ -26,6 +26,7 @@ var (
 	kwhConspire         = newKWHead("Conspire")
 	kwhConvoke          = newKWHead("Convoke")
 	kwhCrew             = newKWHead("Crew")
+	kwhCumulativeUpkeep = newKWHead("Cumulative upkeep")
 	kwhCycling          = newKWHead("Cycling")
 	kwhDeathtouch       = newKWHead("Deathtouch")
 	kwhDefender         = newKWHead("Defender")

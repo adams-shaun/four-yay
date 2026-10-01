@@ -10,6 +10,7 @@
 package rules
 
 import (
+	"fmt"
 	"slices"
 	"strconv"
 	"strings"
@@ -1226,6 +1227,19 @@ func (e *Engine) checkGrantedCumulativeUpkeepTriggers(observer *Engine, id state
 // empty string. A nil result means no granted instance (the whole object is
 // skipped, so a printed-only permanent never reaches the synthesis).
 func (e *Engine) grantedCumulativeCosts(id state.ObjID, f *cards.Face) []string {
+	// The exact negative precheck (keywordmay.go): no printed, intrinsic,
+	// status or active-effect keyword seed carries the head, so the derived
+	// list cannot either and the layer walk below would find nothing.
+	if !e.mayHaveDerivedKeywordH(id, kwhCumulativeUpkeep) {
+		if derivedMemoVerify {
+			for _, k := range e.Derived(id).Keywords {
+				if strings.EqualFold(cards.KeywordHead(k), "Cumulative upkeep") {
+					panic(fmt.Sprintf("rules: cumulative-upkeep precheck ruled out obj %d but Derived carries %q", id, k))
+				}
+			}
+		}
+		return nil
+	}
 	var printed map[string]bool
 	for _, k := range f.Keywords {
 		if strings.EqualFold(cards.KeywordHead(k), "Cumulative upkeep") {
