@@ -1083,6 +1083,10 @@ type triggerCastAlt struct {
 // step" (which is the AtEOT$ DELAYED rider's family, not this copiable one).
 const atEOTTrigPhase = "End of Turn"
 
+// atEOTTrigParsed is parsedPhaseSpec(atEOTTrigPhase), parsed once: the
+// hoisted gate below runs at every step change of every engine and clone.
+var atEOTTrigParsed = parsePhaseSpec(atEOTTrigPhase)
+
 // checkGrantedAtEOTTriggers synthesizes the "At the beginning of the end
 // step, sacrifice/exile this token" triggered ability a DB$ CopyPermanent |
 // AtEOTTrig$ put on the object as a copiable value (Object.AtEOTTrigBody,
@@ -1112,7 +1116,7 @@ func (e *Engine) checkGrantedAtEOTTriggers(observer *Engine, id state.ObjID, o *
 	// same parsed spec on the same observer) hoisted above the match: on any
 	// other step the trigger cannot match, and the body lookup below is a
 	// pure read, so skipping it there queues nothing less.
-	if p := observer.parsedPhaseSpec(atEOTTrigPhase); !p.valid || !p.set.Has(observer.G.Step) {
+	if p := atEOTTrigParsed; !p.valid || !p.set.Has(observer.G.Step) {
 		return
 	}
 	body := o.AtEOTTrigBody
@@ -1154,6 +1158,10 @@ func (e *Engine) checkGrantedAtEOTTriggers(observer *Engine, id state.ObjID, o *
 // Phase$ value, shared by the trigger and its early step gate.
 const cumulativeUpkeepPhase = "Upkeep"
 
+// cumulativeUpkeepParsed is parsedPhaseSpec(cumulativeUpkeepPhase), parsed
+// once, like atEOTTrigParsed.
+var cumulativeUpkeepParsed = parsePhaseSpec(cumulativeUpkeepPhase)
+
 func (e *Engine) checkGrantedCumulativeUpkeepTriggers(observer *Engine, id state.ObjID, o *state.Object, f *cards.Face, ev events.Event, objLKI *state.Object) {
 	if ev.Kind != events.StepChange || o.Zone != state.ZBattlefield {
 		return
@@ -1163,7 +1171,7 @@ func (e *Engine) checkGrantedCumulativeUpkeepTriggers(observer *Engine, id state
 	// derived-keyword read: on every other step change the trigger cannot
 	// match, and grantedCumulativeCosts is a pure read, so skipping it there
 	// queues nothing less.
-	if p := observer.parsedPhaseSpec(cumulativeUpkeepPhase); !p.valid || !p.set.Has(observer.G.Step) {
+	if p := cumulativeUpkeepParsed; !p.valid || !p.set.Has(observer.G.Step) {
 		return
 	}
 	costs := observer.grantedCumulativeCosts(id, f)

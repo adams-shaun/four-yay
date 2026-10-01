@@ -113,18 +113,35 @@ type trigZoneSummary struct {
 // faceTriggerZones is the bit set (by trigZoneSlot) of the summarized zones
 // from which at least one of f's printed triggers can function, or every bit
 // for a face carrying an unresolvable Phase$ (its diagnostic is emitted from
-// any zone). Pure syntax, cached per engine like triggerEventMasks.
+// any zone). Pure syntax: a configured face's answer is computed once with
+// the shared compiled text (walkFaceFacts.trigZones); any other face's is
+// cached per engine like triggerEventMasks.
 func (e *Engine) faceTriggerZones(f *cards.Face) uint8 {
 	if f == nil || len(f.Triggers) == 0 {
 		return 0
 	}
+	if ff := e.walkFaceFactsOf(f); ff != nil && ff.triggersCurrent(f) {
+		return ff.trigZones
+	}
 	if m, ok := e.trigFaceZones[f]; ok {
 		return m
 	}
+	m := computeFaceTriggerZones(f, func(spec string) bool { return e.parsedPhaseSpec(spec).valid })
+	if e.trigFaceZones == nil {
+		e.trigFaceZones = make(map[*cards.Face]uint8)
+	}
+	e.trigFaceZones[f] = m
+	return m
+}
+
+// computeFaceTriggerZones is faceTriggerZones' pure computation; valid
+// reports whether a Phase$ spec parses (phaseSpecValid, or the engine's
+// memoised parse of the same function).
+func computeFaceTriggerZones(f *cards.Face, valid func(string) bool) uint8 {
 	var m uint8
 	for i := range f.Triggers {
 		t := &f.Triggers[i]
-		if spec := t.Params["Phase"]; strings.TrimSpace(spec) != "" && !e.parsedPhaseSpec(spec).valid {
+		if spec := t.Params["Phase"]; strings.TrimSpace(spec) != "" && !valid(spec) {
 			m = 1<<trigZoneSlots - 1
 			break
 		}
@@ -143,12 +160,11 @@ func (e *Engine) faceTriggerZones(f *cards.Face) uint8 {
 			}
 		}
 	}
-	if e.trigFaceZones == nil {
-		e.trigFaceZones = make(map[*cards.Face]uint8)
-	}
-	e.trigFaceZones[f] = m
 	return m
 }
+
+// phaseSpecValid is parsedPhaseSpec's validity bit without an engine memo.
+func phaseSpecValid(spec string) bool { return parsePhaseSpec(spec).valid }
 
 // objectTriggerHot reports whether the trigger walk might do anything for o
 // (other than as an event referent) where it sits now. Conservative: true

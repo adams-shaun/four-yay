@@ -33,6 +33,7 @@ import (
 	"math"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/adams-shaun/gorge/decision"
@@ -780,7 +781,7 @@ func (e *Engine) askAttackers() {
 		return
 	}
 	e.ask(&decision.Decision{Player: p, Kind: decision.KAttackers, Min: 0, Max: maxOpts,
-		Prompt: fmt.Sprintf("turn %d — declare attackers", e.G.Turn), Options: opts,
+		Prompt: "turn " + strconv.Itoa(int(e.G.Turn)) + " — declare attackers", Options: opts,
 		// The cumulative attack-cost budget: the sum of the chosen options'
 		// Value (each pair's folded mana price: its tax plus, under a tax, the
 		// mana the attacker's own source would have produced) must not exceed
@@ -1916,7 +1917,7 @@ func (e *Engine) askBlockers() {
 				opt := decision.Option{Index: len(opts), Kind: "block",
 					Label: e.G.Obj(bid).Face().Name + " blocks " + e.G.Obj(aid).Face().Name,
 					Obj:   bid, Attacker: aid, Player: defender,
-					Group: fmt.Sprintf("blocker:%d", bid), Required: requiredBlockers[bid], BlockMust: requiredBlockers[bid],
+					Group: "blocker:" + strconv.FormatUint(uint64(bid), 10), Required: requiredBlockers[bid], BlockMust: requiredBlockers[bid],
 					AttackMust: mustBeBlocked[aid]}
 				if b, ok := scope.bounds[aid]; ok {
 					opt.MinBlockers, opt.MaxBlockers = b[0], b[1]
@@ -1974,7 +1975,7 @@ func (e *Engine) askBlockers() {
 			}
 		}
 		d := &decision.Decision{Player: defender, Kind: decision.KBlockers, Min: 0, Max: len(opts),
-			Prompt: fmt.Sprintf("turn %d — declare blockers", e.G.Turn), Options: opts, MaxSum: maxSum, PayerLife: payerLife}
+			Prompt: "turn " + strconv.Itoa(int(e.G.Turn)) + " — declare blockers", Options: opts, MaxSum: maxSum, PayerLife: payerLife}
 		// First find the maximum legal declaration with every candidate
 		// duty flagged. Publish only the required pairs in that team; the
 		// other members remain optional helpers needed to meet a Min$ bound.

@@ -68,9 +68,8 @@ func legalActionsPricedKinds(t *testing.T) []string {
 			if !ok || fn.Body == nil || fn.Recv == nil {
 				continue
 			}
-			// legalActionsPriced delegates through legalActionsWalk and
-			// legalActionsWalkWithWindow to legalActionsWalkAsk, the
-			// shared entry body; its sections are the *legalWalk) *Walk
+			// legalActionsPriced delegates through legalActionsWalk to
+			// legalActionsWalkWithWindow, the shared entry body; its sections are the *legalWalk) *Walk
 			// methods the entry calls (legal_walk*.go).
 			recvName := ""
 			if star, ok := fn.Recv.List[0].Type.(*ast.StarExpr); ok {
@@ -78,7 +77,7 @@ func legalActionsPricedKinds(t *testing.T) []string {
 					recvName = id.Name
 				}
 			}
-			if fn.Name.Name == "legalActionsWalkAsk" && recvName == "Engine" {
+			if fn.Name.Name == "legalActionsWalkWithWindow" && recvName == "Engine" {
 				bodies = append(bodies, fn.Body)
 				haveEntry = true
 			}
@@ -88,7 +87,7 @@ func legalActionsPricedKinds(t *testing.T) []string {
 		}
 	}
 	if !haveEntry {
-		t.Fatal("rules/legal*.go has no (*Engine).legalActionsWalkAsk")
+		t.Fatal("rules/legal*.go has no (*Engine).legalActionsWalkWithWindow")
 	}
 	seen := map[string]bool{}
 	lit := func(n ast.Expr, where string) {

@@ -1,6 +1,7 @@
 package decision
 
 import (
+	"slices"
 	"sort"
 
 	"github.com/adams-shaun/gorge/state"
@@ -46,6 +47,11 @@ import (
 // verify it), while the required set leaves it to the engine's board-aware
 // payment -- the pre-existing contract.
 func (d *Decision) requiredCore() []int {
+	// No Required option: both the greedy and the knapsack below pick
+	// nothing and return nil, so skip building their tables.
+	if !slices.ContainsFunc(d.Options, func(o Option) bool { return o.Required }) {
+		return nil
+	}
 	type pick struct{ idx, pos int }
 	best := make(map[state.ObjID]*pick) // membership/lookup only -- never ranged.
 	var order []*pick
@@ -208,18 +214,30 @@ func (d *Decision) RequiredChosen(choices []int) int {
 	if d.Kind == KBlockers {
 		return d.blockRequirementsSatisfied(choices)
 	}
-	seen := make(map[state.ObjID]bool, len(choices)) // membership only.
+	// Map-free (it runs per candidate answer in search): an Obj counts at
+	// its first required choice, found by scanning the choices before it.
 	n := 0
-	for _, c := range choices {
-		if c < 0 || c >= len(d.Options) || !d.Options[c].Required {
+	for k, c := range choices {
+		if !d.requiredAt(c) {
 			continue
 		}
-		if obj := d.Options[c].Obj; !seen[obj] {
-			seen[obj] = true
+		obj, first := d.Options[c].Obj, true
+		for _, p := range choices[:k] {
+			if d.requiredAt(p) && d.Options[p].Obj == obj {
+				first = false
+				break
+			}
+		}
+		if first {
 			n++
 		}
 	}
 	return n
+}
+
+// requiredAt reports whether c names an in-range Required option.
+func (d *Decision) requiredAt(c int) bool {
+	return c >= 0 && c < len(d.Options) && d.Options[c].Required
 }
 
 // FitRequired returns an answer that satisfies the Max ceiling, the MaxSum

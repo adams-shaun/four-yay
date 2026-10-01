@@ -682,24 +682,41 @@ func (e *Engine) staticsProbeTouch(id state.ObjID) {
 	e.staticsProbeStore(id)
 }
 
-// staticsProbeStore recomputes one object's probe answer and keeps the count
-// of true answers in step. Objects absent from the map (never probed) count
-// from zero.
-func (e *Engine) staticsProbeStore(id state.ObjID) {
-	now := e.objectStaticsMayChangeTypes(e.G.Obj(id))
-	if old, ok := e.typesProbe[id]; ok {
-		if old == now {
-			return
-		}
-		if now {
-			e.typesProbeTrue++
-		} else {
-			e.typesProbeTrue--
-		}
-	} else if now {
-		e.typesProbeTrue++
+// The typesProbe cache's per-object states; the zero value is "never
+// probed".
+const (
+	probeFalse uint8 = 1
+	probeTrue  uint8 = 2
+)
+
+func probeState(ans bool) uint8 {
+	if ans {
+		return probeTrue
 	}
-	e.typesProbe[id] = now
+	return probeFalse
+}
+
+// staticsProbeStore recomputes one object's probe answer and keeps the count
+// of true answers in step. Objects never probed count from zero. id is a
+// live arena id (1..len(e.G.Objs)); the dense cache grows to cover it, and
+// never shrinks here, so an entry past a shrunken arena keeps counting
+// exactly as a map entry would.
+func (e *Engine) staticsProbeStore(id state.ObjID) {
+	now := probeState(e.objectStaticsMayChangeTypes(e.G.Obj(id)))
+	i := int(id) - 1
+	for len(e.typesProbe) <= i {
+		e.typesProbe = append(e.typesProbe, 0)
+	}
+	old := e.typesProbe[i]
+	if old == now {
+		return
+	}
+	if now == probeTrue {
+		e.typesProbeTrue++
+	} else if old == probeTrue {
+		e.typesProbeTrue--
+	}
+	e.typesProbe[i] = now
 }
 
 // staticsMayChangeTypesWalk is the uncached zone-list walk the probe cache
@@ -756,11 +773,20 @@ func (e *Engine) objectStaticsMayChangeTypes(o *state.Object) bool {
 // staticsProbeFull re-probes the whole board (the pre-incremental walk,
 // once, populating the cache).
 func (e *Engine) staticsProbeFull() {
-	m := make(map[state.ObjID]bool, len(e.G.Objs))
+	// Reuse the dense cache's capacity: every entry is rewritten below and
+	// any past the arena dropped, exactly a fresh map's contents.
+	m := e.typesProbe[:0]
+	if m == nil {
+		m = make([]uint8, 0, len(e.G.Objs))
+	}
 	count := 0
 	for i := range e.G.Objs {
 		ans := e.objectStaticsMayChangeTypes(&e.G.Objs[i])
-		m[e.G.Objs[i].ID] = ans
+		at := int(e.G.Objs[i].ID) - 1
+		for len(m) <= at {
+			m = append(m, 0)
+		}
+		m[at] = probeState(ans)
 		if ans {
 			count++
 		}

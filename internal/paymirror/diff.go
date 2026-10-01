@@ -178,6 +178,43 @@ var excluded = map[excludedField]bool{
 	// emit nothing and mutate nothing, so they are not game state.
 	{"rules.Engine", "ManaAbilityHook"}: true,
 	{"rules.Engine", "paymentStats"}:    true,
+	// The Derived memo's cross-walk key and active()'s double buffer
+	// (derived_transparent.go): derivedSeq moves with activeBuildSeq, and
+	// derivedPrev*/derivedTouched/activeBufAlt are the previous build's key
+	// and list. Never cloned, so a control clone restarts them at zero while
+	// the live run A has counted its own rebuilds (round-7 cardfuzz seed
+	// 16178228601564090929: derivedSeq 9 vs 1).
+	{"rules.Engine", "derivedSeq"}:         true,
+	{"rules.Engine", "activeBufAlt"}:       true,
+	{"rules.Engine", "derivedPrevEpoch"}:   true,
+	{"rules.Engine", "derivedPrevVersion"}: true,
+	{"rules.Engine", "derivedPrevObjs"}:    true,
+	{"rules.Engine", "derivedTouched"}:     true,
+	// The rename table's arena-size key and its derivedSeq stamp
+	// (setname.go), the renames/* cache keys.
+	{"rules.Engine", "renameObjs"}: true,
+	{"rules.Engine", "renameDSeq"}: true,
+	// checkFaceTriggers' zero-interest no-op memo key (log length, arena
+	// size, registry version); Clone leaves it zero.
+	{"rules.Engine", "trigZeroNoopEp"}:   true,
+	{"rules.Engine", "trigZeroNoopObjs"}: true,
+	{"rules.Engine", "trigZeroNoopVer"}:  true,
+	// Recycled storage owned by one engine: the trigger-window snapshot
+	// pool (trigger_snapshot_pool.go), the reusable look-back observer
+	// Engine and its owner/busy guard (checkTriggers), and the posed-decision
+	// arena (decision_arena.go). They hold capacity, never game state; Clone
+	// leaves them nil or adopts a spent engine's cleared ones from a Spare.
+	{"rules.Engine", "snapPool"}:      true,
+	{"rules.Engine", "lookBack"}:      true,
+	{"rules.Engine", "lookBackOwner"}: true,
+	{"rules.Engine", "lookBackBusy"}:  true,
+	{"rules.Engine", "decArena"}:      true,
+	// The offer walk's incremental log-derived indexes (legal_walk_scratch.go):
+	// each is a pure function of the log prefix its watermark names, and the
+	// log itself is compared semantically. The manual route answers more
+	// decisions, so its watermark names a longer prefix of an equivalent log
+	// (round-9 cardfuzz seed 8175: airbendFolded).
+	{"rules.Engine", "legalScratch"}: true,
 }
 
 // The engine_struct embedding refactor (2026-09-30) moved most of the Engine
