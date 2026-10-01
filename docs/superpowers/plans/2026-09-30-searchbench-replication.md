@@ -123,3 +123,7 @@ script text is committed.
   100/300/1k/3k, plus 10k for PIMC-1 and IS-MCTS), E2b discount, and a
   learned-value arm if a leak-free FDN value checkpoint exists. Then the
   report.
+
+## 2026-09-30 21:35: discount correction
+
+The pilot (sb-v1/gorge2/runs) and the first grid wave ran with the backup discount OFF (`-discount` defaulted to 1). docs/012 E2 uses 0.99 per ply. Every pilot table is therefore an undiscounted arm. Fix: 683b3cf69 on wt/sbrep-fast makes 0.99 the default, and the grid restarted with an explicit `-discount 0.99 -discount-unit ply` (grid/grid.sh). The undiscounted 1k clairvoyant/pimc-4 runs are E2b's 1.0 arm (grid/undiscounted, identical to the `-d1.0-ply` rows). E2b matched discounts for gorge: 0.95 per ply ≙ 0.4578 per searched edge and 0.2340 per turn. Gorge counts every engine decision on the path as a ply, about 15 per searched edge and 23 per turn; upstream counted 1.43 and 16.2.
