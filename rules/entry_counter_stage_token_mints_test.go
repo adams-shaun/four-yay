@@ -13,7 +13,11 @@ import (
 // TestTokenPlanMintIsObservedOnce pins the finalized-plan mint path now that
 // it routes through Engine.emit: a doubled creation reports both minted ids
 // to EmitTokenCreate's sink, and the ETB watcher queues exactly one trigger
-// per plan (the plan's mints are observed once, not once per re-drive).
+// per minted token (the plan's mints are observed once, not once per
+// re-drive). Since the token-entry fix (agent-20261001T043732Z-8f099a06) a
+// token mint fires a ChangesZone trigger, so the plan now contributes one
+// watcher trigger per mint instead of none; the assertion counts the delta
+// over whatever the watcher's own earlier entry already queued.
 func TestTokenPlanMintIsObservedOnce(t *testing.T) {
 	doubler := card(t, tokenSVarAmountReplSrc())
 	token := card(t, "Name:Observed Token\nTypes:Creature\nPT:1/1\nOracle:x\n")
@@ -32,6 +36,7 @@ func TestTokenPlanMintIsObservedOnce(t *testing.T) {
 		t.Fatalf("precondition: ETB watcher is not on battlefield: %+v", o)
 	}
 
+	before := len(e.pendingTriggers)
 	ids := e.EmitTokenCreate(events.Event{Kind: events.TokenCreate, Player: 0, Text: "observed_token"})
 	if len(ids) != 2 || ids[0] == ids[1] {
 		t.Fatalf("doubled token creation returned %d ids, want two distinct minted ids: %v", len(ids), ids)
@@ -41,8 +46,11 @@ func TestTokenPlanMintIsObservedOnce(t *testing.T) {
 			t.Fatalf("reported mint %d is not a battlefield token: %+v", id, o)
 		}
 	}
-	if got := len(e.pendingTriggers); got != 1 {
-		t.Fatalf("doubled token plan queued %d ETB triggers, want the single watcher trigger", got)
+	// One trigger per minted token: a doubled plan queues two watcher
+	// triggers, never one per re-drive. The watcher's own battlefield entry
+	// (queued before the plan) is excluded by the delta.
+	if got := len(e.pendingTriggers) - before; got != len(ids) {
+		t.Fatalf("doubled token plan queued %d ETB triggers, want one per minted token (%d)", got, len(ids))
 	}
 	replayCheck(t, e, cfg)
 }

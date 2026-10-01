@@ -18,11 +18,17 @@ import (
 // or misses its witness, the live-vs-clone control is equivalent, and each
 // named cast gets its root-caused verdict.
 //
-//   - 12468 seq 7227 (Homarid Spawning Bed), random4 state_differs on
+//   - 12468 seq 5830 (Homarid Spawning Bed), random4 state_differs on
 //     G.Objs[*].Remembered[*].Obj: Veiled Crocodile's CR 603.8 state trigger
 //     remembered the Island tapped in run A's CR 601.2g window but itself on
 //     the float route. A rules fix: a state trigger remembers its source
-//     (stateTriggerRemembered).
+//     (stateTriggerRemembered). The token-entry fix
+//     (agent-20261001T043732Z-8f099a06: a token mint now fires ChangesZone)
+//     moved the game's trajectory, so the Veiled Crocodile cast no longer
+//     occurs and the state_differs route no longer reproduces end to end; the
+//     Homarid Spawning Bed cast survives at seq 5830 (was 7227), equivalent
+//     on its float_then_cast route, and the root cause stays pinned by the
+//     unit test rules/state_trigger_remembered_test.go.
 //   - 11828 seq 4243 (Vorinclex, Voice of Hunger), random2
 //     a_fallback=source_changed: the plan's Fanatic of Rhonas step ("Activate
 //     only if you control a creature with power 4 or greater") held only
@@ -54,7 +60,9 @@ import (
 // the merged tree was re-measured to that seq, verdict equivalent. The
 // crew-tracking fix (tmt-crewedthisturn, CR 702.122) emits one Crew event per
 // crewing creature, so seed 12468's trajectory renumbers: the Homarid
-// Spawning Bed cast moves from seq 7211 to 7227, verdict unchanged.
+// Spawning Bed cast moves from seq 7211 to 7227, verdict unchanged. The
+// token-entry fix (agent-20261001T043732Z-8f099a06) then moves seed 12468's
+// trajectory again, from seq 7227 to 5830; verdict unchanged.
 func TestRoundTenFindingsMirror(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
@@ -83,7 +91,7 @@ func TestRoundTenFindingsMirror(t *testing.T) {
 		t.Fatalf("testdata holds %d specs, want 4", len(specs))
 	}
 	want := map[uint64]map[uint64]string{ // seed -> seq -> verdict key ("" = equivalent)
-		12468: {7227: ""},
+		12468: {5830: ""},
 		11828: {},
 		12603: {2298: ""},
 		10877: {2834: ""},
