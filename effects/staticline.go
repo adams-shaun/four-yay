@@ -632,6 +632,20 @@ func effectRememberedPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 					add(t.Player)
 				}
 			}
+		case "TriggeredTarget":
+			// The player the firing trigger's event targeted (Stigma Lasher's
+			// DamageDone | ValidTarget$ Player: "that player can't gain life
+			// for the rest of the game"). The role is bound at fire time
+			// (rules/trigger_referents.go's DamageDone case: ev.Obj==0 => the
+			// damaged player) and rides the trigger's stack context into the
+			// Effect's resolution. Read the direct TriggerTarget role rather
+			// than definedSpec's TriggeredTarget arm: an OBJECT recipient
+			// (a DamageDone to a creature) must contribute no player rather
+			// than fall back to an unrelated chosen player target -- this
+			// helper is the player half, beside the TargetedPlayer sibling.
+			if c.TriggerTarget.IsPlayer {
+				add(c.TriggerTarget.Player)
+			}
 		case "Player.IsRemembered":
 			// Screaming Nemesis's DBEffect RememberObjects$ Player.IsRemembered:
 			// the Effect is created INSIDE the resolution whose DealDamage
