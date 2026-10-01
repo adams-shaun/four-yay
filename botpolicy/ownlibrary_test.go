@@ -71,14 +71,14 @@ func newOwnLibFixture(t *testing.T) ownLibFixture {
 	// Twin transformed (its back face up), a token Alpha of ours, and a Beta
 	// stolen FROM the opponent: only Twin is one of our deck's cards.
 	put(state.ZBattlefield, 0, twinID, tokenAlpha, stolen)
-	g.Obj(twinID).FaceIdx = 1
+	g.Obj(twinID).SetFaceIdx(1)
 	g.Obj(tokenAlpha).IsToken = true
 	g.Obj(stolen).Controller = 0
 	// Our Mimic, stolen by the opponent and copying Alpha: it must count as
 	// the Mimic it is, never as a second Alpha.
 	put(state.ZBattlefield, 1, mimicID)
 	g.Obj(mimicID).Controller = 1
-	g.Obj(mimicID).CopyFace = alpha.Faces[0]
+	g.Obj(mimicID).SetCopyFace(alpha.Faces[0])
 	put(state.ZGraveyard, 0, gyBeta)
 	put(state.ZExile, 0, exAlpha)
 	return ownLibFixture{g: g, m: deck.NewManifest("me", "", main, nil, nil), libBeta: libBeta}
