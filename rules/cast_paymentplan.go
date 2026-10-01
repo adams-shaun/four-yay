@@ -168,7 +168,7 @@ func (e *Engine) paymentPlanStepReady(p state.PlayerID, units []windowManaUnit, 
 		if u.id != pa.Source {
 			continue
 		}
-		for _, alt := range e.paymentPlanUnitAlternatives(u) {
+		for _, alt := range e.paymentPlanQueryAlternatives(u) {
 			if alt.activation.Ability == pa.Ability {
 				return plannedManaActivation{}, paymentFallbackProductionChanged
 			}

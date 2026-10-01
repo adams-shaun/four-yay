@@ -1850,7 +1850,7 @@ func (e *Engine) paymentPlanStepAlternative(units []windowManaUnit, pa decision.
 		if u.id != pa.Source {
 			continue
 		}
-		for _, candidate := range e.paymentPlanUnitAlternatives(u) {
+		for _, candidate := range e.paymentPlanQueryAlternatives(u) {
 			if candidate.ma != nil && candidate.activation.Ability == pa.Ability && candidate.activation.Produces == pa.Produces &&
 				paymentConsequenceEqual(candidate.consequence, pa.Consequence) {
 				return candidate, true
