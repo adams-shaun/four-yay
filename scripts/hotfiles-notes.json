@@ -130,5 +130,14 @@
       "rules/replacement_life.go"
     ],
     "note": "the CR 614.1 life-gain replacement machinery: the CPU-perf workstream's pointer pass (`for _, ce := range e.active()` -> index-and-pointer in `lifeReplacementCandidates`, commit `841e37d1c`) and a feature ticket's new registered-restriction walk (`lifeGainForbidden`'s second `range e.active()` loop reading Effect-delivered CantGainLife through `restrictionPlayerSpecMatches`, landed as `76a807b8a`) are ADJACENT functions in this 390-line module, both rewriting `active()` iteration \u2014 no file split separates edits inside one function, and the file is already the focused output of the 15-way `replacement.go` split. The 2026-10-01 pair is line-disjoint and merges clean on rebase; keep each change to its own loop and land the branches in sequence (the feature ticket landed first; the perf pointer pass folds the new loop in as it goes)"
+  },
+  {
+    "files": [
+      "internal/azmcts/env.go",
+      "internal/azmcts/options.go",
+      "internal/azmcts/search.go",
+      "internal/azmcts/tree.go"
+    ],
+    "note": "the azmcts search engine's environment/options/entry/simulate files are measured ONE-SIDED between the CPU-perf workstream and the searchbench branch against their true merge-base (wt/perf-tip base e43cde989, 2026-10-01): every perf-workstream edit to these four files predates e43cde989, so the perf head carries that base's blob byte-identically and the ONLY live editor since the base is the searchbench branch (env.go maps roots onto decision keys via matchRoot/priorNet/Plies/Turn in newEngineEnv/Play/advance; options.go adds DiscountUnit/ParseDiscountUnit/BenchCandidateLimit/Stats.MeanLeaf*; search.go rewrites Search for RootRow/Result.RootTable; tree.go adds the backup discount PathEnv/pathClock/commit to simulate). The main...ref hotspot measure over-counts them because main predates perf-tip: git diff main...ref lists a file the perf head changed before the fork while its sibling carries the same blob. A carried blob cannot conflict with the file's editor, so either landing order merges clean; the tool's ancestry pass cannot drop the carrier because perf-tip has no worktree. (An earlier note claimed these were intra-struct collisions where both branches edit the same functions; that measurement was taken against e43cde989 mislabelled as the perf head rather than as the merge-base and is superseded here.) The one file where a real collision remains is internal/azmcts/candidates.go, already recorded separately"
   }
 ]
