@@ -161,6 +161,10 @@ func PlayGame(cfg rules.Config, seats []seat.Seat, maxTurns, maxIntents int, hoo
 	}
 	e.Advance()
 	board := botpolicy.NewBoard(len(seats))
+	// leanViews are the per-seat reusable Views of view.LeanReader seats;
+	// rounds folds the board clock incrementally over the append-only log.
+	leanViews := make([]view.View, len(seats))
+	var rounds view.RoundFold
 	// Search-seat feeds (the seat.BoardSeat branch, mirrored one level up):
 	// an engine-aware seat needs the driver-maintained observation stream --
 	// searchprobe.Collector.Capture takes the *rules.Engine and the raw event
@@ -291,9 +295,19 @@ func PlayGame(cfg rules.Config, seats []seat.Seat, maxTurns, maxIntents int, hoo
 				b := botpolicy.BoardFromGameInto(e.G, e, d.Player, &board)
 				in, err = s.DecideBoard(context.Background(), b, *d)
 				decisionBoard = &b
+			} else if lr, ok := seats[d.Player].(view.LeanReader); ok {
+				// A lean reader: its own reusable View, only the parts it reads.
+				lv := &leanViews[d.Player]
+				view.ProjectLeanInto(lv, e.G, e, d.Player, d, lr.ViewOmit(d))
+				lv.Round = rounds.Of(e.G, e.L.Events)
+				in, err = seats[d.Player].Decide(context.Background(), *lv, *d)
+				if hooks.NeedBoard {
+					b := botpolicy.BoardFromGameInto(e.G, e, d.Player, &board)
+					decisionBoard = &b
+				}
 			} else {
 				v := view.Project(e.G, e, d.Player, d)
-				v.Round = view.RoundOf(e.G, e.L.Events)
+				v.Round = rounds.Of(e.G, e.L.Events)
 				in, err = seats[d.Player].Decide(context.Background(), v, *d)
 				if hooks.NeedBoard {
 					b := botpolicy.BoardFromGameInto(e.G, e, d.Player, &board)

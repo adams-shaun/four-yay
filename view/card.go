@@ -139,8 +139,16 @@ type projector struct {
 	effective interface {
 		SpellEffectiveCost(state.PlayerID, state.ObjID) string
 	}
-	namer    interface{ Name(state.ObjID) string }
+	namer interface{ Name(state.ObjID) string }
+	// vchars is ch's optional one-call Name/Keywords/Power/Toughness
+	// (rules.Engine.ViewCharacteristics), nil when ch lacks it.
+	vchars interface {
+		ViewCharacteristics(state.ObjID) (string, []string, int32, int32)
+	}
 	noTokens bool
+	// noDerived leaves every CardView's Chars-derived facts (layer-3 name,
+	// keywords, P/T) unasked: a lean projection's OmitDerivedChars.
+	noDerived bool
 	// types and text are the projection's type-line cache and display-text
 	// memo (projScratch).
 	types *typeCache
@@ -153,6 +161,9 @@ func newProjector(g *state.Game, ch Chars, viewer state.PlayerID, sc *projScratc
 		SpellEffectiveCost(state.PlayerID, state.ObjID) string
 	})
 	p.namer, _ = ch.(interface{ Name(state.ObjID) string })
+	p.vchars, _ = ch.(interface {
+		ViewCharacteristics(state.ObjID) (string, []string, int32, int32)
+	})
 	if s, ok := ch.(tokenSuppressor); ok && s.SuppressCardTokens() {
 		p.noTokens = true
 	}
@@ -213,6 +224,15 @@ func (p *projector) cardViews(buf []CardView, ids []state.ObjID, includeAbilityC
 		}
 	}
 	return out
+}
+
+// listViews is cardViews (never revealing face-down cards), or nil when skip
+// (a lean projection's OmitCardLists).
+func (p *projector) listViews(skip bool, buf []CardView, ids []state.ObjID, includeAbilityCosts bool, abilityPlayer state.PlayerID, alsoVisible *seatSet) []CardView {
+	if skip {
+		return nil
+	}
+	return p.cardViews(buf, ids, includeAbilityCosts, abilityPlayer, false, alsoVisible)
 }
 
 // zoneCard writes id's zone CardView into cv (cardViews' per-card body) and
@@ -362,12 +382,25 @@ func (p *projector) cardView(cv *CardView, id state.ObjID) {
 	cv.Token = p.token(id)
 	cv.IsToken = o.IsToken
 	cv.IsCopy = o.IsCopy
+	// vchars answers the four derived facts below in one call; without it
+	// each is asked for separately.
+	var dName string
+	var dKw []string
+	if p.vchars != nil && !p.noDerived {
+		dName, dKw, cv.Power, cv.Toughness = p.vchars.ViewCharacteristics(id)
+	}
 	if f := o.Face(); f != nil {
 		cv.Name = f.Name
 		// Name is a layer-3 characteristic. Keep the optional method so
 		// lightweight Chars test doubles remain source-compatible while the
 		// real rules engine exposes SetName$ results to clients.
-		if p.namer != nil {
+		if p.noDerived {
+			// a lean projection's printed name
+		} else if p.vchars != nil {
+			if dName != "" {
+				cv.Name = dName
+			}
+		} else if p.namer != nil {
 			if name := p.namer.Name(id); name != "" {
 				cv.Name = name
 			}
@@ -405,7 +438,13 @@ func (p *projector) cardView(cv *CardView, id state.ObjID) {
 	if len(o.BlockedBy) > 0 {
 		cv.BlockedBy = append(blk, o.BlockedBy...)
 	}
-	if p.ch != nil {
+	if p.noDerived {
+		// no keywords, zero P/T
+	} else if p.vchars != nil {
+		if len(dKw) > 0 {
+			cv.Keywords = append(kws, dKw...)
+		}
+	} else if p.ch != nil {
 		cv.Power = p.ch.Power(id)
 		cv.Toughness = p.ch.Toughness(id)
 		// A copy: Chars is an interface, and nothing guarantees an

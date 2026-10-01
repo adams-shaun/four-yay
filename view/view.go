@@ -499,6 +499,9 @@ type projectMode struct {
 	ownLibrary     bool
 	omniHands      bool
 	anyDecision    bool
+	// omit is a lean projection's skipped parts (ProjectLeanInto); zero for
+	// every other entry point.
+	omit Omit
 }
 
 // project is projectInto on a fresh View with a map-shaped alsoVisible, for
@@ -570,6 +573,12 @@ func projectInto(dst *View, g *state.Game, ch Chars, viewer state.PlayerID, d *d
 	}
 	sc := scratchPool.Get().(*projScratch)
 	pr := newProjector(g, ch, viewer, sc)
+	if m.omit&OmitEffectiveCost != 0 {
+		pr.effective = nil
+	}
+	seatCosts := m.omit&OmitAbilityCosts == 0
+	noLists := m.omit&OmitCardLists != 0
+	pr.noDerived = m.omit&OmitDerivedChars != 0
 	v.Stack = pr.stackViews(stack, g.Stack, m.revealFaceDown)
 	// Non-nil even when empty (Ruling T23-u), whether or not ch is nil.
 	var pts []state.PendingTrigger
@@ -594,17 +603,21 @@ func projectInto(dst *View, g *state.Game, ch Chars, viewer state.PlayerID, d *d
 		players = players[:i+1]
 		pv := &players[i]
 		prev := *pv // the slot's previous storage
-		roster, casts := pr.commanderViews(prev.Commanders, prev.CommanderCasts, p.Commanders, p.CmdCasts)
+		var roster []CardView
+		var casts []int32
+		if !noLists {
+			roster, casts = pr.commanderViews(prev.Commanders, prev.CommanderCasts, p.Commanders, p.CmdCasts)
+		}
 		*pv = PlayerView{
 			ID: p.ID, Name: displayName(p), Life: p.Life, Lost: p.Lost,
 			LibrarySize:       len(g.Zone(state.ZLibrary, p.ID)),
 			HandSize:          len(g.Zone(state.ZHand, p.ID)),
-			PlanarDeck:        pr.cardViews(prev.PlanarDeck, g.Zone(state.ZPlanarDeck, p.ID), false, p.ID, false, &m.alsoVisible),
+			PlanarDeck:        pr.listViews(noLists, prev.PlanarDeck, g.Zone(state.ZPlanarDeck, p.ID), false, p.ID, &m.alsoVisible),
 			GraveyardSize:     len(g.Zone(state.ZGraveyard, p.ID)),
-			Battlefield:       pr.cardViews(prev.Battlefield, g.Zone(state.ZBattlefield, p.ID), true, p.ID, false, &m.alsoVisible),
-			Graveyard:         pr.cardViews(prev.Graveyard, g.Zone(state.ZGraveyard, p.ID), false, p.ID, false, &m.alsoVisible),
-			Exile:             pr.cardViews(prev.Exile, g.Zone(state.ZExile, p.ID), false, p.ID, false, &m.alsoVisible),
-			Command:           pr.cardViews(prev.Command, g.Zone(state.ZCommand, p.ID), false, p.ID, false, &m.alsoVisible),
+			Battlefield:       pr.listViews(noLists && p.ID != viewer, prev.Battlefield, g.Zone(state.ZBattlefield, p.ID), seatCosts, p.ID, &m.alsoVisible),
+			Graveyard:         pr.listViews(noLists, prev.Graveyard, g.Zone(state.ZGraveyard, p.ID), false, p.ID, &m.alsoVisible),
+			Exile:             pr.listViews(noLists, prev.Exile, g.Zone(state.ZExile, p.ID), false, p.ID, &m.alsoVisible),
+			Command:           pr.listViews(noLists, prev.Command, g.Zone(state.ZCommand, p.ID), false, p.ID, &m.alsoVisible),
 			Commanders:        roster,
 			CompletedDungeons: p.CompletedDungeons,
 			HasInitiative:     g.IsInitiative(p.ID),
@@ -623,11 +636,13 @@ func projectInto(dst *View, g *state.Game, ch Chars, viewer state.PlayerID, d *d
 		// hidden zone) is filled for the viewer's own seat. A nil ch
 		// (supplement §7) degrades to an empty (zero) availability, the same
 		// way it degrades every other derived characteristic.
-		var avail state.Mana
-		if ch != nil {
-			avail = ch.AvailableMana(p.ID)
+		if m.omit&OmitAvailable == 0 {
+			var avail state.Mana
+			if ch != nil {
+				avail = ch.AvailableMana(p.ID)
+			}
+			pv.Available = poolView(prev.Available, avail)
 		}
-		pv.Available = poolView(prev.Available, avail)
 		// ownSeat is "this is the viewer's own seat", widened by CR 723.4's
 		// alsoVisible set and by CR 720.4 to a seat the viewer controls: the
 		// one gate every hidden-information field below is filled behind.
@@ -675,8 +690,8 @@ func projectInto(dst *View, g *state.Game, ch Chars, viewer state.PlayerID, d *d
 			// The omniscient spectator sees every hand, face-down cards
 			// included, without the seat-only ability costs.
 			pv.Hand = pr.cardViews(prev.Hand, g.Zone(state.ZHand, p.ID), false, p.ID, true, &noSeats)
-		case ownSeat:
-			pv.Hand = pr.cardViews(prev.Hand, g.Zone(state.ZHand, p.ID), true, p.ID, false, &m.alsoVisible)
+		case ownSeat && !noLists:
+			pv.Hand = pr.cardViews(prev.Hand, g.Zone(state.ZHand, p.ID), seatCosts, p.ID, false, &m.alsoVisible)
 		}
 		// The library CONTENTS are the viewer's own seat only (CR 400.2),
 		// and only in a real seat's own projection (ownLibrary): a spectator
@@ -698,7 +713,7 @@ func projectInto(dst *View, g *state.Game, ch Chars, viewer state.PlayerID, d *d
 		// not belong to carries no field at all (nil), and a spectator
 		// (viewer naming no real seat) never matches the gate above. A nil
 		// ch degrades to an empty projection like every other derived fact.
-		if ownSeat && ch != nil {
+		if ownSeat && ch != nil && m.omit&OmitPotential == 0 {
 			pv.PotentialActions = ch.PotentialActions(p.ID)
 			for i := range pv.PotentialActions {
 				pv.PotentialActions[i].Label = pr.text.labelText(pv.PotentialActions[i].Label)
@@ -708,13 +723,13 @@ func projectInto(dst *View, g *state.Game, ch Chars, viewer state.PlayerID, d *d
 		// projection already decided the viewer may see; it is never computed
 		// for the viewer's own seat (whose archetype is the manifest's fact)
 		// nor for a spectator (whose viewer index matches no real seat).
-		if p.ID != viewer && !spectator {
+		if p.ID != viewer && !spectator && m.omit&(OmitArchetype|OmitCardLists|OmitDerivedChars) == 0 {
 			pv.Archetype = inferArchetypePosteriorInto(prev.Archetype, pv.Battlefield, pv.Graveyard, pv.Exile, pv.Command)
 		}
 	}
 	v.Players = players
 
-	if m.anyDecision || !spectator && d != nil && d.Player == viewer {
+	if m.anyDecision || !spectator && d != nil && d.Player == viewer && m.omit&OmitDecision == 0 {
 		// A copy, never the engine's own pending pointer (supplement §10):
 		// a Seat (Task 25) holds this View in-process and must not be able
 		// to corrupt the live decision through it.
