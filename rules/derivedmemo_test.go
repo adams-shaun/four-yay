@@ -372,3 +372,29 @@ func TestSpecLocalWhitelist(t *testing.T) {
 		}
 	}
 }
+
+// TestDerivedQuietEventDamage pins derivedQuietEvent's one conditional
+// kind: damage to a creature or a player is quiet for derivations, damage to
+// a planeswalker (folded into LOYALTY counters a local counters_ predicate
+// reads) is not.
+func TestDerivedQuietEventDamage(t *testing.T) {
+	t.Parallel()
+	e := layerEngine(t)
+	bear := onBoard(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
+	walker := onBoard(t, e, 0, "Name:Walker\nManaCost:3\nTypes:Legendary Planeswalker Test\nLoyalty:3\nOracle:x\n")
+	for _, c := range []struct {
+		ev   events.Event
+		want bool
+	}{
+		{events.Event{Kind: events.Damage, Obj: bear, Amount: 1}, true},
+		{events.Event{Kind: events.Damage, Player: 1, Amount: 1}, true},
+		{events.Event{Kind: events.Damage, Obj: walker, Amount: 1}, false},
+		{events.Event{Kind: events.CounterChange, Obj: bear, Counter: "P1P1", Amount: 1}, false},
+		{events.Event{Kind: events.MoveZone, Obj: bear}, false},
+		{events.Event{Kind: events.DeclareAttackers, IDs: []state.ObjID{bear}}, true},
+	} {
+		if got := e.derivedQuietEvent(&c.ev); got != c.want {
+			t.Errorf("derivedQuietEvent(%v) = %v, want %v", c.ev.Kind, got, c.want)
+		}
+	}
+}
