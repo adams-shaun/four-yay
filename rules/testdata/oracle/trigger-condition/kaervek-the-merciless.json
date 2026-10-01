@@ -1,0 +1,111 @@
+{
+  "card": "Kaervek the Merciless",
+  "family": "trigger-condition",
+  "oracle_sha": "076d12936b71",
+  "author": "cli-20261001T032655Z-b2eec9f5 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "opponent-cast-damage-mana-value",
+      "cr": [
+        "603.2",
+        "116.2a"
+      ],
+      "why": "When the opponent casts a spell, Kaervek deals damage equal to that spell's mana value to any target: 2 for Grizzly Bears.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Kaervek the Merciless"
+          ]
+        },
+        "p1": {
+          "hand": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p1"
+        },
+        {
+          "op": "mana",
+          "seat": 1,
+          "mana": "GG"
+        },
+        {
+          "op": "cast",
+          "seat": 1,
+          "card": "p1:Grizzly Bears",
+          "targets": [
+            "p1"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p1": 18
+          }
+        },
+        {
+          "card": "p1:Grizzly Bears",
+          "zone": "battlefield"
+        }
+      ]
+    },
+    {
+      "name": "zero-mana-value-zero-damage",
+      "cr": [
+        "603.2",
+        "107.1b"
+      ],
+      "why": "Casting a mana-value-0 spell still triggers Kaervek, which deals 0 damage: p1's life is unchanged.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Kaervek the Merciless"
+          ]
+        },
+        "p1": {
+          "hand": [
+            "Ornithopter"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p1"
+        },
+        {
+          "op": "cast",
+          "seat": 1,
+          "card": "p1:Ornithopter",
+          "targets": [
+            "p1"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p1": 20
+          }
+        },
+        {
+          "card": "p1:Ornithopter",
+          "zone": "battlefield"
+        }
+      ]
+    }
+  ]
+}

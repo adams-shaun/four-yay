@@ -1,0 +1,94 @@
+{
+  "card": "Grave Titan",
+  "family": "etb-ltb",
+  "oracle_sha": "24ed1ba4959e",
+  "author": "cli-20261001T032655Z-b2eec9f5 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enters-two-zombie-tokens-deathtouch",
+      "cr": [
+        "603.2",
+        "702.2b",
+        "704.5f"
+      ],
+      "why": "Entering the battlefield makes Grave Titan create two 2/2 black Zombie creature tokens; Grave Titan itself has deathtouch.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Grave Titan"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Grave Titan",
+          "mana": "BBBBBB"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grave Titan",
+          "zone": "battlefield",
+          "keywords": [
+            "deathtouch"
+          ]
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Zombie",
+            "token": true
+          },
+          "eq": 2
+        }
+      ]
+    },
+    {
+      "name": "attacks-two-more-zombies",
+      "cr": [
+        "603.2",
+        "508.2"
+      ],
+      "why": "Setup places Grave Titan, so its enters trigger already made two Zombies; when Grave Titan attacks, its trigger makes two more, four in total.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Grave Titan"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Grave Titan"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Zombie",
+            "token": true
+          },
+          "eq": 4
+        }
+      ]
+    }
+  ]
+}

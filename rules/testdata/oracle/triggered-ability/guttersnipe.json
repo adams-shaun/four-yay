@@ -1,0 +1,113 @@
+{
+  "card": "Guttersnipe",
+  "family": "triggered-ability",
+  "oracle_sha": "a3e3c58c360c",
+  "author": "cli-20261001T032655Z-b2eec9f5 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "instant-you-cast-deals-two-each-opponent",
+      "cr": [
+        "603.2",
+        "116.2a"
+      ],
+      "why": "Casting the instant Shock triggers Guttersnipe: 2 damage to each opponent, on top of Shock's own 2.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Guttersnipe"
+          ],
+          "hand": [
+            "Shock"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Shock",
+          "mana": "RR",
+          "targets": [
+            "p1"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p1": 16
+          }
+        },
+        {
+          "hand_size": {
+            "p0": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "artifact-and-opponent-spells-no-trigger",
+      "cr": [
+        "603.2"
+      ],
+      "why": "Guttersnipe triggers only on instant or sorcery spells its controller casts: p0's artifact spell and p1's instant do not trigger it.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Guttersnipe"
+          ],
+          "hand": [
+            "Ornithopter"
+          ]
+        },
+        "p1": {
+          "hand": [
+            "Shock"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Ornithopter"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "pass",
+          "seat": 0
+        },
+        {
+          "op": "mana",
+          "seat": 1,
+          "mana": "RR"
+        },
+        {
+          "op": "cast",
+          "seat": 1,
+          "card": "p1:Shock",
+          "targets": [
+            "p0"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p0": 18,
+            "p1": 20
+          }
+        }
+      ]
+    }
+  ]
+}

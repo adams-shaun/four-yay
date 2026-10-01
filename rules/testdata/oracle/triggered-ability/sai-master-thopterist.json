@@ -1,0 +1,125 @@
+{
+  "card": "Sai, Master Thopterist",
+  "family": "triggered-ability",
+  "oracle_sha": "32de849cc26e",
+  "author": "cli-20261001T032655Z-b2eec9f5 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "artifact-spell-makes-thopter",
+      "cr": [
+        "603.2"
+      ],
+      "why": "Casting the artifact spell Ornithopter makes Sai create a 1/1 colorless Thopter artifact creature token with flying.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Sai, Master Thopterist"
+          ],
+          "hand": [
+            "Ornithopter"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Ornithopter"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Thopter",
+            "token": true
+          },
+          "eq": 1
+        }
+      ]
+    },
+    {
+      "name": "sacrifice-two-artifacts-draw",
+      "cr": [
+        "117.12",
+        "601.2"
+      ],
+      "why": "Sai's activated ability costs {1}{U} and sacrificing two artifacts, then draws a card; two cast Ornithopters plus their two Thopter tokens are four artifacts to pay with.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Sai, Master Thopterist"
+          ],
+          "hand": [
+            "Ornithopter",
+            "Ornithopter"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Ornithopter"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Ornithopter#2"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "UU",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "p0:token:Thopter",
+                "p0:token:Thopter#2"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Sai, Master Thopterist",
+          "ability": "Draw a card",
+          "mana": "UU",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "p0:Ornithopter",
+                "p0:Ornithopter#2"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "hand_size": {
+            "p0": 1
+          }
+        }
+      ]
+    }
+  ]
+}

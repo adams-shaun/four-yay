@@ -1,0 +1,109 @@
+{
+  "card": "Siege-Gang Commander",
+  "family": "activated-ability",
+  "oracle_sha": "585006765c46",
+  "author": "cli-20261001T032655Z-b2eec9f5 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enters-three-goblin-tokens",
+      "cr": [
+        "603.2"
+      ],
+      "why": "Siege-Gang Commander entering creates three 1/1 red Goblin creature tokens.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Siege-Gang Commander"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Siege-Gang Commander",
+          "mana": "RRRRR"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Siege-Gang Commander",
+          "pt": "2/2"
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Goblin",
+            "token": true
+          },
+          "eq": 3
+        }
+      ]
+    },
+    {
+      "name": "sacrifice-goblin-deals-two",
+      "cr": [
+        "117.12",
+        "601.2"
+      ],
+      "why": "Its {1}{R} ability sacrifices a Goblin and deals 2 damage to any target: one Goblin leaves, p1 takes 2.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Siege-Gang Commander"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "RR"
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Siege-Gang Commander",
+          "ability": "deals 2 damage",
+          "mana": "RR",
+          "targets": [
+            "p1"
+          ],
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "p0:token:Goblin"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Goblin",
+            "token": true
+          },
+          "eq": 2
+        },
+        {
+          "life": {
+            "p1": 18
+          }
+        }
+      ]
+    }
+  ]
+}

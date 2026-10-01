@@ -1,0 +1,151 @@
+{
+  "card": "Glaring Fleshraker",
+  "family": "triggered-ability",
+  "oracle_sha": "9574c9cbb4ea",
+  "author": "cli-20261001T032655Z-b2eec9f5 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "colorless-spell-spawn-and-etb-damage",
+      "cr": [
+        "603.2",
+        "603.6a",
+        "110.5a"
+      ],
+      "why": "Casting the colorless Ornithopter creates a 0/1 colorless Eldrazi Spawn token, and the Spawn entering is itself a colorless creature entering: the ETB trigger fires for the Ornithopter's entry and again for the Spawn's entry, 1 damage to each opponent each time (2 in total).",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Glaring Fleshraker"
+          ],
+          "hand": [
+            "Ornithopter"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Ornithopter"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "pass",
+          "seat": 0
+        },
+        {
+          "op": "pass",
+          "seat": 1
+        }
+      ],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Spawn",
+            "token": true
+          },
+          "eq": 1
+        },
+        {
+          "life": {
+            "p1": 18
+          }
+        }
+      ]
+    },
+    {
+      "name": "token-entry-awakening-zone",
+      "cr": [
+        "603.6a",
+        "110.5a"
+      ],
+      "why": "A token entering the battlefield is a permanent entering (CR 110.5a), so the Spawn token Awakening Zone creates at p0's upkeep must trigger Fleshraker's ETB: 1 damage to each opponent.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Glaring Fleshraker",
+            "Awakening Zone"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "pass",
+          "seat": 0
+        },
+        {
+          "op": "pass",
+          "seat": 1
+        }
+      ],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Spawn",
+            "token": true
+          },
+          "eq": 1
+        },
+        {
+          "life": {
+            "p1": 19
+          }
+        }
+      ]
+    },
+    {
+      "name": "colored-spell-no-spawn-no-damage",
+      "cr": [
+        "603.2"
+      ],
+      "why": "Casting the green Grizzly Bears triggers nothing: no Spawn token and no damage.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Glaring Fleshraker"
+          ],
+          "hand": [
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Grizzly Bears",
+          "mana": "GG"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Spawn",
+            "token": true
+          },
+          "eq": 0
+        },
+        {
+          "life": {
+            "p1": 20
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,120 @@
+{
+  "card": "Sun Titan",
+  "family": "etb-ltb",
+  "oracle_sha": "667501723f3b",
+  "author": "cli-20261001T032655Z-b2eec9f5 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enters-returns-mana-value-three-or-less",
+      "cr": [
+        "603.2",
+        "702.3d"
+      ],
+      "why": "Sun Titan entering lets its controller return a permanent card with mana value 3 or less from the graveyard: the 2-mana-value Bears are a legal target, the 6-mana-value Shivan Dragon is not.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Sun Titan"
+          ],
+          "graveyard": [
+            "Grizzly Bears",
+            "Shivan Dragon"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Sun Titan",
+          "mana": "WWWWWW"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Sun Titan",
+          "zone": "battlefield"
+        },
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "battlefield"
+        },
+        {
+          "card": "p0:Shivan Dragon",
+          "zone": "graveyard"
+        }
+      ]
+    },
+    {
+      "name": "attacks-returns-again",
+      "cr": [
+        "603.2",
+        "508.2"
+      ],
+      "why": "Setup's enters trigger returned the Grizzly Bears (and the Bears STAY: exactly one Bears copy is on the battlefield). Sun Titan's attack trigger then returns a second permanent card with mana value 3 or less -- the Mountain land (CR 603.2: 'permanent card' is not creature-restricted) -- emptying the graveyard.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Sun Titan"
+          ],
+          "graveyard": [
+            "Grizzly Bears",
+            "Mountain"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Sun Titan"
+          ],
+          "defender": "p1",
+          "answers": [
+            {
+              "kind": "target",
+              "pick": [
+                "p0:Mountain"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Grizzly Bears"
+          },
+          "eq": 1
+        },
+        {
+          "card": "p0:Mountain",
+          "zone": "battlefield"
+        },
+        {
+          "graveyard_size": {
+            "p0": 0
+          }
+        }
+      ],
+      "setup_answers": [
+        {
+          "kind": "target",
+          "pick": [
+            "p0:Grizzly Bears"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "card": "All Is Dust",
+  "family": "spell-conditional",
+  "oracle_sha": "247ea6ad21e3",
+  "author": "cli-20261001T032655Z-b2eec9f5 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "colored-permanents-sacrificed-colorless-stay",
+      "cr": [
+        "701.17a",
+        "608.2c"
+      ],
+      "why": "Each player sacrifices all permanents that are one or more colors: the green Bears and the blue Prodigal Sorcerer go, while the colorless Ornithopters and the colorless Tome stay.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Ornithopter",
+            "Grizzly Bears"
+          ],
+          "hand": [
+            "All Is Dust"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Prodigal Sorcerer",
+            "Jayemdae Tome"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:All Is Dust",
+          "mana": "CCCCCCC"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "graveyard"
+        },
+        {
+          "card": "p1:Prodigal Sorcerer",
+          "zone": "graveyard"
+        },
+        {
+          "card": "p0:Ornithopter",
+          "zone": "battlefield"
+        },
+        {
+          "card": "p1:Jayemdae Tome",
+          "zone": "battlefield"
+        },
+        {
+          "card": "p0:All Is Dust",
+          "zone": "graveyard"
+        }
+      ]
+    }
+  ]
+}

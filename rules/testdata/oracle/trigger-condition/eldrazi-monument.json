@@ -1,0 +1,101 @@
+{
+  "card": "Eldrazi Monument",
+  "family": "trigger-condition",
+  "oracle_sha": "daecaeb59ceb",
+  "author": "cli-20261001T032655Z-b2eec9f5 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "upkeep-sacrifice-a-creature",
+      "cr": [
+        "603.2",
+        "514.1",
+        "701.17a"
+      ],
+      "why": "At the upkeep, sacrificing a creature (the only one, Grizzly Bears) satisfies the requirement and Monument stays.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Eldrazi Monument",
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "graveyard"
+        },
+        {
+          "card": "p0:Eldrazi Monument",
+          "zone": "battlefield"
+        }
+      ]
+    },
+    {
+      "name": "grants-plus1-flying-indestructible",
+      "cr": [
+        "613.1",
+        "702.9a",
+        "702.11b"
+      ],
+      "why": "Creatures you control get +1/+1 and have flying and indestructible: the 0/2 Ornithopter becomes a 1/3 with both keywords.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Eldrazi Monument",
+            "Grizzly Bears"
+          ],
+          "hand": [
+            "Ornithopter"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Ornithopter"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Ornithopter",
+          "pt": "1/3",
+          "keywords": [
+            "flying",
+            "indestructible"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "monument-sacrificed-when-no-creature",
+      "cr": [
+        "603.2",
+        "514.1"
+      ],
+      "why": "Oracle: 'sacrifice a creature. If you can't, sacrifice Eldrazi Monument.' With no creature, Monument sacrifices itself.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Eldrazi Monument"
+          ]
+        }
+      },
+      "setup_answers": null,
+      "steps": [],
+      "expect": [
+        {
+          "card": "p0:Eldrazi Monument",
+          "zone": "graveyard"
+        }
+      ]
+    }
+  ]
+}

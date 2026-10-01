@@ -1,0 +1,124 @@
+{
+  "card": "Linvala, Keeper of Silence",
+  "family": "conditional-static",
+  "oracle_sha": "9b55401a40d3",
+  "author": "cli-20261001T032655Z-b2eec9f5 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "opponent-creature-activations-locked-own-open",
+      "cr": [
+        "613.1",
+        "702.9a"
+      ],
+      "why": "Activated abilities of creatures opponents control can't be activated, so p1's Prodigal Sorcerer has no activation offered, while p0's own can still be activated for 1 damage.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Linvala, Keeper of Silence",
+            "Prodigal Sorcerer"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Prodigal Sorcerer"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "pass",
+          "seat": 0,
+          "expect": [
+            {
+              "offered": {
+                "seat": 1,
+                "kind": "activate",
+                "card": "p1:Prodigal Sorcerer"
+              },
+              "want": false
+            }
+          ]
+        },
+        {
+          "op": "mana",
+          "seat": 1,
+          "mana": "U"
+        },
+        {
+          "op": "pass",
+          "seat": 1
+        },
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "U"
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Prodigal Sorcerer",
+          "ability": "deals 1 damage",
+          "targets": [
+            "p1"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p1": 19
+          }
+        }
+      ]
+    },
+    {
+      "name": "noncreature-activations-unaffected",
+      "cr": [
+        "613.1"
+      ],
+      "why": "The restriction names creatures only (Oracle: 'Activated abilities of creatures'), so p1 can still activate the artifact Jayemdae Tome's {4}, T: draw a card; its successful activation is the positive arm of the check.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Linvala, Keeper of Silence"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Jayemdae Tome"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "pass",
+          "seat": 0
+        },
+        {
+          "op": "mana",
+          "seat": 1,
+          "mana": "CCCC"
+        },
+        {
+          "op": "activate",
+          "seat": 1,
+          "card": "p1:Jayemdae Tome",
+          "ability": "Draw a card"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "hand_size": {
+            "p1": 1
+          }
+        }
+      ]
+    }
+  ]
+}
