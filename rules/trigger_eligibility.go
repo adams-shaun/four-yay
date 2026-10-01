@@ -47,6 +47,14 @@ func eventTriggerInterest(kind events.Kind) cards.TriggerInterest {
 	switch kind {
 	case events.MoveZone:
 		return cards.TriggerInterestZoneChange
+	case events.TokenCreate, events.CardToken:
+		// A token is minted straight onto the battlefield by these folds, so
+		// its entry is a zone change the ChangesZone/ChangesZoneAll matchers
+		// must see (see trigmatch_zone.go's mint override). CopyToken is NOT
+		// admitted here: foldCopyToken creates the copy in the library and a
+		// separate MoveZone performs the entry, which already reaches the
+		// matcher; admitting CopyToken would double-fire.
+		return cards.TriggerInterestZoneChange
 	case events.Draw:
 		return cards.TriggerInterestZoneChange | cards.TriggerInterestDraw
 	case events.LifeChange:
@@ -75,12 +83,12 @@ func eventTriggerInterest(kind events.Kind) cards.TriggerInterest {
 		events.DecisionAsk, events.DecisionMade, events.Note, events.LandPlayed,
 		events.FlipFace, events.ClockTick, events.TriggerPush,
 		events.EndCombatReset, events.Choose,
-		events.TokenCreate, events.StackCopy, events.ModeChosen,
+		events.StackCopy, events.ModeChosen,
 		events.CmdDamage, events.DelayedRegister, events.DelayedPush, events.DelayedRemove,
 		events.GrantAbilityPush,
 		events.LibraryOrder, events.ExtraTurn, events.DoorUnlock,
 		events.SpeedChange, events.ControlChange,
-		events.CardToken, events.KeywordTriggerPush, events.Goad,
+		events.KeywordTriggerPush, events.Goad,
 		events.PlayerCounterChange, events.Imprint, events.StartingPlayerChange,
 		events.Pair, events.MyriadCopy, events.MyriadCleanup,
 		events.GrantTriggerPush, events.ManaActivate,
@@ -318,7 +326,8 @@ func compiledTriggerInterestAllows(interests cards.TriggerInterest, kind events.
 func triggerModeEvents(mode string) triggerEventMask {
 	switch mode {
 	case "ChangesZone", "ChangesZoneAll":
-		return 1<<events.MoveZone | 1<<events.Draw | 1<<events.PutOnStack
+		return 1<<events.MoveZone | 1<<events.Draw | 1<<events.PutOnStack |
+			1<<events.TokenCreate | 1<<events.CardToken
 	case "SpellCast":
 		return 1 << events.PutOnStack
 	case "SpellCastOrCopy":

@@ -620,7 +620,17 @@ func (e *Engine) emit(ev events.Event) events.Event {
 			e.lifeLossBatch = append(e.lifeLossBatch, stored)
 		}
 		before := len(e.pendingTriggers)
-		e.checkTriggers(stored, lki, lkiPower, lkiToughness, lkiPTValid)
+		// A token mint (TokenCreate/CardToken) has no object id in the event:
+		// foldTokenCreate/foldCardToken mint e.G.NextID (captured as
+		// tokenMintWant before the fold) but never set ev.Obj, so the trigger
+		// matcher would see Obj == 0 and ValidCard$ could not read the entering
+		// token. Hand it a COPY carrying the minted id; stored itself is
+		// already logged and must stay byte-identical for replay.
+		check := stored
+		if stored.Kind == events.TokenCreate || stored.Kind == events.CardToken {
+			check.Obj = tokenMintWant
+		}
+		e.checkTriggers(check, lki, lkiPower, lkiToughness, lkiPTValid)
 		// A pushed spell proposal's own target choice (CR 601.2c): remember
 		// which queue entries it produced so abortCast can drop them if the
 		// cast is reversed (CR 733.1 -- see pendingCast.proposalTriggers).
