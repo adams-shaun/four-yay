@@ -305,14 +305,28 @@ func (w *legalWalk) commandZoneWalk() {
 }
 
 // graveyardCastsWalk is the graveyard alternative-cast section (harmonize,
-// flashback, aftermath, warp, escape, retrace, jump-start, mayhem).
+// flashback, aftermath, warp, escape, retrace, jump-start, mayhem), over the
+// graveyard cards that can open any of those routes (graveyardCandidates).
 func (w *legalWalk) graveyardCastsWalk() {
+	zone := w.e.G.Zone(state.ZGraveyard, w.p)
+	var buf [32]state.ObjID
+	grave := w.graveyardCandidates(zone, buf[:0])
+	if walkSkipVerify && len(grave) != len(zone) {
+		w.verifyGraveyardCandidates(zone, grave)
+		return
+	}
+	w.graveyardCastsOver(grave)
+}
+
+// graveyardCastsOver is graveyardCastsWalk's body over the graveyard ids
+// grave (in zone order).
+func (w *legalWalk) graveyardCastsOver(grave []state.ObjID) {
 	e, p := w.e, w.p
 	sorcery := w.sorcery
 	out := &w.out
 	// Harmonize is a graveyard alternative. It is offered as its own cast
 	// transaction, then spellRestZone exiles it after resolution.
-	for _, id := range e.G.Zone(state.ZGraveyard, p) {
+	for _, id := range grave {
 		o := e.G.Obj(id)
 		if o == nil || o.Face() == nil {
 			continue
@@ -343,7 +357,7 @@ func (w *legalWalk) graveyardCastsWalk() {
 	// Flashback: a graveyard walk, same instant-speed timing as hand cards,
 	// gated on the derived keyword (so a continuous-effect grant, e.g.
 	// Snapcaster Mage, counts) rather than the printed one.
-	for _, id := range e.G.Zone(state.ZGraveyard, p) {
+	for _, id := range grave {
 		o := e.G.Obj(id)
 		f := o.Face()
 		if f == nil || !e.hasKeywordH(id, kwhFlashback) {
@@ -385,7 +399,7 @@ func (w *legalWalk) graveyardCastsWalk() {
 	// (castRestrictedAsFace), not the front face still displayed in the
 	// graveyard: a restriction matching only one half must decide only that
 	// half's offer.
-	for _, id := range e.G.Zone(state.ZGraveyard, p) {
+	for _, id := range grave {
 		o := e.G.Obj(id)
 		af := aftermathAlternateFace(o)
 		if af == nil || w.castRestrictedAsFace(p, id, af) || e.castSuppressed(p, id) {
@@ -411,7 +425,7 @@ func (w *legalWalk) graveyardCastsWalk() {
 	// Warp from the graveyard requires a separate MayPlay Spell.Warp static;
 	// Warp itself grants only the hand alternative. Timeline Culler is the
 	// corpus shape carrying that explicit graveyard permission.
-	for _, id := range e.G.Zone(state.ZGraveyard, p) {
+	for _, id := range grave {
 		o := e.G.Obj(id)
 		f := o.Face()
 		if f == nil || len(f.Keywords) == 0 {
@@ -444,7 +458,7 @@ func (w *legalWalk) graveyardCastsWalk() {
 	// no post-resolution destination change -- unlike flashback the spell
 	// goes where it would otherwise go), so modeFlags marks it FlagEscaped
 	// and the ETB machinery reads the flag through Card.Self+escaped.
-	for _, id := range e.G.Zone(state.ZGraveyard, p) {
+	for _, id := range grave {
 		o := e.G.Obj(id)
 		f := o.Face()
 		if f == nil || !e.hasKeywordH(id, kwhEscape) || w.castRestricted(p, id) || e.castSuppressed(p, id) {
@@ -470,7 +484,7 @@ func (w *legalWalk) graveyardCastsWalk() {
 	// The discard is a real hand cost, so the offer is withheld unless a land
 	// card is actually there to discard -- an option that cannot be paid must
 	// never be offered (the offerCastable/withSpellAbilityExtras ruling).
-	for _, id := range e.G.Zone(state.ZGraveyard, p) {
+	for _, id := range grave {
 		o := e.G.Obj(id)
 		f := o.Face()
 		if f == nil || !e.hasKeywordH(id, kwhRetrace) || w.castRestricted(p, id) || e.castSuppressed(p, id) {
@@ -500,7 +514,7 @@ func (w *legalWalk) graveyardCastsWalk() {
 	// would count; the same timing/target/restriction gates as every other
 	// graveyard alt-cast, and the discount payable gate -- an option whose
 	// discard cannot be paid must never be offered (the offerCastable ruling).
-	for _, id := range e.G.Zone(state.ZGraveyard, p) {
+	for _, id := range grave {
 		o := e.G.Obj(id)
 		f := o.Face()
 		if f == nil || !e.hasKeywordH(id, kwhJumpStart) || w.castRestricted(p, id) || e.castSuppressed(p, id) {
@@ -533,7 +547,7 @@ func (w *legalWalk) graveyardCastsWalk() {
 	// card" LAND shape (Oscorp Industries) and is withheld here -- not a
 	// cast. Offer and charge both go through mayhemCastCost, so they cannot
 	// drift.
-	for _, id := range e.G.Zone(state.ZGraveyard, p) {
+	for _, id := range grave {
 		o := e.G.Obj(id)
 		f := o.Face()
 		if f == nil {
