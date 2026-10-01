@@ -1,0 +1,98 @@
+{
+  "card": "Empty the Warrens",
+  "family": "keywords",
+  "oracle_sha": "c83b9bd4f2aa",
+  "author": "cli-20260930T220416Z-ed59db28 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "storm-count-one-makes-four-goblins",
+      "cr": [
+        "702.55",
+        "111.8",
+        "117.7"
+      ],
+      "why": "One spell was cast before the Warrens this turn, so storm copies it once: the original and the copy create four Goblin tokens in total.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Lightning Bolt",
+            "Empty the Warrens"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Lightning Bolt",
+          "mana": "R",
+          "targets": [
+            "p1"
+          ]
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Empty the Warrens",
+          "mana": "RRRRRR"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Goblin"
+          },
+          "eq": 4
+        },
+        {
+          "life": {
+            "p1": 17
+          }
+        }
+      ]
+    },
+    {
+      "name": "no-prior-spell-makes-only-two",
+      "cr": [
+        "702.55"
+      ],
+      "why": "With no spell cast before it this turn, storm copies it zero times: exactly two Goblins.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Empty the Warrens"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Empty the Warrens",
+          "mana": "RRRRRR"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Goblin"
+          },
+          "eq": 2
+        }
+      ]
+    }
+  ]
+}

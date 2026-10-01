@@ -1,0 +1,158 @@
+{
+  "card": "Hexing Squelcher",
+  "family": "evasion",
+  "oracle_sha": "5740fb631b40",
+  "author": "cli-20260930T220416Z-ed59db28 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "granted-ward-blocks-doom-blade-unless-paid",
+      "cr": [
+        "702.38b",
+        "613.7c"
+      ],
+      "why": "Doom Blade targets p0's Grizzly Bears, which has ward\u2014pay 2 life granted by Hexing Squelcher. Declining the ward counters the Doom Blade.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Hexing Squelcher",
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {
+          "hand": [
+            "Doom Blade"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p1"
+        },
+        {
+          "op": "pass",
+          "seat": 1
+        },
+        {
+          "op": "pass",
+          "seat": 0
+        },
+        {
+          "op": "cast",
+          "seat": 1,
+          "card": "p1:Doom Blade",
+          "mana": "CB",
+          "targets": [
+            "p0:Grizzly Bears"
+          ],
+          "answers": []
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "modes",
+              "pick": [
+                "Don't pay"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve",
+          "answers": []
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "battlefield"
+        },
+        {
+          "life": {
+            "p0": 20
+          }
+        },
+        {
+          "graveyard_size": {
+            "p1": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "granted-ward-pays-and-bear-dies",
+      "cr": [
+        "702.38b",
+        "613.7c"
+      ],
+      "why": "Paying the granted ward (the spell's controller pays, CR 702.38b) lets the Doom Blade resolve and destroy the Grizzly Bears; p1 loses exactly 2 life.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Hexing Squelcher",
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {
+          "hand": [
+            "Doom Blade"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p1"
+        },
+        {
+          "op": "pass",
+          "seat": 1
+        },
+        {
+          "op": "pass",
+          "seat": 0
+        },
+        {
+          "op": "cast",
+          "seat": 1,
+          "card": "p1:Doom Blade",
+          "mana": "CB",
+          "targets": [
+            "p0:Grizzly Bears"
+          ],
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "yes"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "graveyard"
+        },
+        {
+          "life": {
+            "p0": 20,
+            "p1": 18
+          }
+        },
+        {
+          "graveyard_size": {
+            "p1": 1
+          }
+        }
+      ]
+    }
+  ]
+}

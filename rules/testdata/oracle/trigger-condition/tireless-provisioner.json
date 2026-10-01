@@ -1,0 +1,119 @@
+{
+  "card": "Tireless Provisioner",
+  "family": "trigger-condition",
+  "oracle_sha": "009a80f59ebd",
+  "author": "cli-20260930T220416Z-ed59db28 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "landfall-chooses-food-token",
+      "cr": [
+        "702.44",
+        "603.3d",
+        "107.4b"
+      ],
+      "why": "Playing the Forest makes the Provisioner's landfall trigger ask Food or Treasure; choosing Food creates a Food artifact token and no Treasure.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Tireless Provisioner"
+          ],
+          "hand": [
+            "Forest"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "play",
+          "seat": 0,
+          "card": "p0:Forest",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "Food"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve",
+          "answers": []
+        }
+      ],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Food"
+          },
+          "eq": 1
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Treasure"
+          },
+          "eq": 0
+        }
+      ]
+    },
+    {
+      "name": "landfall-chooses-treasure-token",
+      "cr": [
+        "702.44",
+        "603.3d"
+      ],
+      "why": "The same trigger answered with Treasure instead creates a Treasure token and no Food.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Tireless Provisioner"
+          ],
+          "hand": [
+            "Forest"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "play",
+          "seat": 0,
+          "card": "p0:Forest",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "Treasure"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve",
+          "answers": []
+        }
+      ],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Treasure"
+          },
+          "eq": 1
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Food"
+          },
+          "eq": 0
+        }
+      ]
+    }
+  ]
+}

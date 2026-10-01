@@ -1,0 +1,178 @@
+{
+  "card": "Redirect Lightning",
+  "family": "cost-modifier",
+  "oracle_sha": "989704aa06f3",
+  "author": "cli-20260930T220416Z-ed59db28 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "additional-cost-two-mana-retargets-shock-to-a-player",
+      "cr": [
+        "601.2b",
+        "601.2e",
+        "115.6a"
+      ],
+      "why": "Redirect Lightning's additional cost can be paid with {2}; paying it with mana leaves my life untouched. Its retarget effect moves the Shock already on the stack to me, so my Grizzly Bears are unharmed and I take the 2 damage.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Grizzly Bears"
+          ],
+          "hand": [
+            "Redirect Lightning"
+          ]
+        },
+        "p1": {
+          "hand": [
+            "Shock"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "pass",
+          "seat": 0
+        },
+        {
+          "op": "cast",
+          "seat": 1,
+          "card": "p1:Shock",
+          "targets": [
+            "p0:Grizzly Bears"
+          ],
+          "mana": "R"
+        },
+        {
+          "op": "pass",
+          "seat": 1
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Redirect Lightning",
+          "targets": [
+            "p1:Shock"
+          ],
+          "mana": "CCR",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "2"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "p0"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "battlefield",
+          "damage": 0
+        },
+        {
+          "life": {
+            "p0": 18,
+            "p1": 20
+          }
+        },
+        {
+          "card": "p1:Shock",
+          "zone": "graveyard"
+        }
+      ]
+    },
+    {
+      "name": "additional-cost-five-life-when-no-mana",
+      "cr": [
+        "601.2b",
+        "118.12a"
+      ],
+      "why": "With only {R} of mana available I pay the {2} additional cost with 5 life; I lose 5 from the cost and the retargeted Shock points at my opponent, so they take 2.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Mountain"
+          ],
+          "hand": [
+            "Redirect Lightning"
+          ]
+        },
+        "p1": {
+          "hand": [
+            "Shock"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "pass",
+          "seat": 0
+        },
+        {
+          "op": "cast",
+          "seat": 1,
+          "card": "p1:Shock",
+          "targets": [
+            "p0"
+          ],
+          "mana": "R"
+        },
+        {
+          "op": "pass",
+          "seat": 1
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Redirect Lightning",
+          "targets": [
+            "p1:Shock"
+          ],
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "life"
+              ]
+            }
+          ],
+          "mana": "R"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "p1"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p0": 15,
+            "p1": 18
+          }
+        },
+        {
+          "card": "p1:Shock",
+          "zone": "graveyard"
+        }
+      ]
+    }
+  ]
+}

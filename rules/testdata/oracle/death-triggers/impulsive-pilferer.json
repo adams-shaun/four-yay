@@ -1,0 +1,48 @@
+{
+  "card": "Impulsive Pilferer",
+  "family": "death-triggers",
+  "oracle_sha": "b4ddb1328f92",
+  "author": "cli-20260930T220416Z-ed59db28 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "dies-creates-treasure-token",
+      "cr": [
+        "603.6c",
+        "111.2"
+      ],
+      "why": "When the Pilferer leaves the battlefield for the graveyard, its dies trigger creates a Treasure artifact token; the Pilferer itself is in the graveyard.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Impulsive Pilferer"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "move",
+          "seat": 0,
+          "card": "p0:Impulsive Pilferer",
+          "to": "graveyard"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Treasure"
+          },
+          "eq": 1
+        },
+        {
+          "card": "p0:Impulsive Pilferer",
+          "zone": "graveyard"
+        }
+      ]
+    }
+  ]
+}

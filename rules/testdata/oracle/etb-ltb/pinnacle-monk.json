@@ -1,0 +1,108 @@
+{
+  "card": "Pinnacle Monk",
+  "family": "etb-ltb",
+  "oracle_sha": "0aff84f6cd6a",
+  "author": "cli-20260930T220416Z-ed59db28 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "etb-returns-instant-from-graveyard-to-hand",
+      "cr": [
+        "603.3d",
+        "601.2e",
+        "117.6"
+      ],
+      "why": "When Pinnacle Monk enters I choose the Lightning Bolt in my graveyard as the target; the monk's enters trigger returns it to my hand, emptying the graveyard.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Pinnacle Monk"
+          ],
+          "graveyard": [
+            "Lightning Bolt"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Pinnacle Monk",
+          "mana": "CCCRR",
+          "targets": [
+            "p0:Lightning Bolt"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Pinnacle Monk",
+          "zone": "battlefield",
+          "pt": "2/2"
+        },
+        {
+          "card": "p0:Lightning Bolt",
+          "zone": "hand"
+        },
+        {
+          "hand_size": {
+            "p0": 1
+          }
+        },
+        {
+          "graveyard_size": {
+            "p0": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "prowess-pumps-on-noncreature-spell",
+      "cr": [
+        "702.139a",
+        "613.3f"
+      ],
+      "why": "Prowess counts the noncreature spell I cast after the monk is on the battlefield: casting Shock makes the 2/2 monk 3/3 until end of turn.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Pinnacle Monk"
+          ],
+          "hand": [
+            "Shock"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Shock",
+          "targets": [
+            "p1"
+          ],
+          "mana": "R"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Pinnacle Monk",
+          "zone": "battlefield",
+          "pt": "3/3"
+        },
+        {
+          "life": {
+            "p1": 18
+          }
+        }
+      ]
+    }
+  ]
+}

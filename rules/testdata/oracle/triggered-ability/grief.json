@@ -1,0 +1,170 @@
+{
+  "card": "Grief",
+  "family": "triggered-ability",
+  "oracle_sha": "ca84aac51a99",
+  "author": "cli-20260930T220416Z-ed59db28 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "evoked-exiles-black-card-and-makes-opponent-discard",
+      "cr": [
+        "702.74a",
+        "601.2i",
+        "614.11d"
+      ],
+      "why": "Casting Grief evoked for its alternative cost (exile Blood Pet, a black card, instead of paying) still puts it on the battlefield, its enters trigger makes p1 discard the chosen nonland card from the revealed hand, and the evoke sacrifice trigger then sends it to the graveyard (all before the stack is next flushed).",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Grief",
+            "Blood Pet"
+          ]
+        },
+        "p1": {
+          "hand": [
+            "Dusk Legion Zealot",
+            "Island"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Grief",
+          "cast_mode": "evoked",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "Blood Pet"
+              ]
+            }
+          ],
+          "targets": [
+            "p1"
+          ]
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "reveals",
+                "sacrifice"
+              ]
+            },
+            {
+              "kind": "any",
+              "pick": [
+                "Dusk Legion Zealot"
+              ]
+            }
+          ],
+          "targets": [
+            "p1"
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grief",
+          "zone": "graveyard"
+        },
+        {
+          "hand_size": {
+            "p0": 0,
+            "p1": 1
+          }
+        },
+        {
+          "graveyard_size": {
+            "p1": 1
+          }
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "exile",
+            "name": "Blood Pet"
+          },
+          "eq": 1
+        }
+      ]
+    },
+    {
+      "name": "normal-cost-cast-keeps-nonland-black-card",
+      "cr": [
+        "702.74a",
+        "118.7"
+      ],
+      "why": "Casting Grief for its mana cost keeps the other card in hand (no evokable black card is offered); only the discard trigger's chosen card leaves p1's hand.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Grief",
+            "Mountain"
+          ]
+        },
+        "p1": {
+          "hand": [
+            "Dusk Legion Zealot",
+            "Island"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Grief",
+          "mana": "BBBB"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "modes",
+              "pick": [
+                "Dusk Legion Zealot"
+              ]
+            }
+          ],
+          "targets": [
+            "p1"
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grief",
+          "zone": "battlefield",
+          "pt": "3/2"
+        },
+        {
+          "hand_size": {
+            "p0": 1,
+            "p1": 1
+          }
+        },
+        {
+          "graveyard_size": {
+            "p1": 1
+          }
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "exile",
+            "name": "Mountain"
+          },
+          "eq": 0
+        },
+        {
+          "card": "p0:Mountain",
+          "zone": "hand"
+        }
+      ]
+    }
+  ]
+}

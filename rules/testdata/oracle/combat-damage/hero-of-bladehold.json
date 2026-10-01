@@ -1,0 +1,56 @@
+{
+  "card": "Hero of Bladehold",
+  "family": "combat-damage",
+  "oracle_sha": "dfc2f44961b2",
+  "author": "cli-20260930T220416Z-ed59db28 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "battle-cry-and-two-attacking-soldiers",
+      "cr": [
+        "702.57",
+        "701.24",
+        "510.1a"
+      ],
+      "why": "Attacking with the Hero and the Bear: battle cry gives each other attacker +1/+0, and the Hero's trigger creates two tapped 1/1 attacking Soldiers, so p1 takes 8 damage in total.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Hero of Bladehold",
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Hero of Bladehold",
+            "p0:Grizzly Bears"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "pass_to",
+          "step": "end",
+          "active": "p0"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p1": 12
+          }
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Soldier"
+          },
+          "eq": 2
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "card": "Lumra, Bellow of the Woods",
+  "family": "etb-ltb",
+  "oracle_sha": "3d44aa6208b2",
+  "author": "cli-20260930T220416Z-ed59db28 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "mill-four-then-return-land-cards-tapped",
+      "cr": [
+        "701.15a",
+        "701.17a",
+        "614.16"
+      ],
+      "why": "Lumra mills the top four cards (all nonland here), then returns every land card from the graveyard to the battlefield tapped; the milled nonland cards stay in the graveyard and the returned land adds to Lumra's land count, so its characteristic-defining P/T is 3/3 (two Forests already in play plus the returned one).",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Lumra, Bellow of the Woods"
+          ],
+          "battlefield": [
+            "Forest",
+            "Forest"
+          ],
+          "graveyard": [
+            "Forest",
+            "Grizzly Bears"
+          ],
+          "library_top": [
+            "Lightning Bolt",
+            "Doom Blade",
+            "Dismember",
+            "Gut Shot"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Lumra, Bellow of the Woods",
+          "mana": "GGGGGG"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Lumra, Bellow of the Woods",
+          "zone": "battlefield",
+          "pt": "3/3"
+        },
+        {
+          "card": "p0:Forest#3",
+          "zone": "battlefield",
+          "tapped": true
+        },
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "graveyard"
+        },
+        {
+          "card": "p0:Lightning Bolt",
+          "zone": "graveyard"
+        }
+      ]
+    }
+  ]
+}
