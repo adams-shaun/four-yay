@@ -281,9 +281,9 @@ func (e *Engine) PotentialActions(p state.PlayerID) []decision.PotentialAction {
 	if e.G.Over {
 		return nil
 	}
-	pool := e.PotentialMana(p)
+	_, opts := e.potentialWalkOf(p, true)
 	var out []decision.PotentialAction
-	for _, o := range e.legalActionsPriced(p, &pool) {
+	for _, o := range opts {
 		if potentialPlayKind(o.Kind) {
 			out = append(out, decision.PotentialAction{
 				Kind: o.Kind, Obj: o.Obj, Ability: o.Ability, Mode: o.Mode, Label: o.Label,

@@ -63,6 +63,12 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "boardStaticsCache"}:    true,
 	{"rules.Engine", "activeStaticsCache"}:   true,
 	{"rules.Engine", "mayPlaysCache"}:        true,
+	// The posed decision's shared potential walk (potential_walk_cache.go):
+	// keyed by an ask serial and the log; Clone copies none.
+	{"rules.Engine", "potentialWalk"}:       true,
+	{"rules.Engine", "potentialAskSerial"}:  true,
+	{"rules.Engine", "potentialWalkDepth"}:  true,
+	{"rules.Engine", "potentialFullDemand"}: true,
 	// Layer/static rebuild caches keyed by epoch/version counters.
 	{"rules.Engine", "staticContinuous"}: true,
 	{"rules.Engine", "staticEpoch"}:      true,

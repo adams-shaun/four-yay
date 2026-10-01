@@ -362,4 +362,7 @@ func (e *Engine) verifyDerivedMemo(id state.ObjID, atStack state.Zone, got Deriv
 // It is for the engine's few no-event runtime inputs to Derived (faceprobe.go's
 // face flip, statics.go's cost-composition exclusion): an event reaches
 // active() on its own, these do not.
-func (e *Engine) retireCrossWalkMemo() { e.activeBuildSeq++; e.derivedSeq++ }
+//
+// crossWalkRetires counts the calls, so the posed decision's potential walk
+// (potential_walk_cache.go) can tell active() rebuilds from these.
+func (e *Engine) retireCrossWalkMemo() { e.activeBuildSeq++; e.derivedSeq++; e.crossWalkRetires++ }

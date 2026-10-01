@@ -123,6 +123,7 @@ func (e *Engine) ask(d *decision.Decision) {
 	e.pendingMintSink = e.tokenMintSinkID
 	e.emit(events.Event{Kind: events.DecisionAsk, Player: d.Player, Text: string(d.Kind)})
 	e.pending = d
+	e.potentialAskSerial++
 }
 
 // decisionMadeText is the DecisionMade event text, byte-identical to

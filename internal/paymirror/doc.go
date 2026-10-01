@@ -110,6 +110,8 @@
 //	derivedMemo*, derivedKW/Types/     per-walk Derived memo and scratch, keyed by an epoch
 //	Depth/PTFrames, boardStaticsCache, that advances with every ask; Clone copies none
 //	activeStaticsCache, mayPlaysCache
+//	potentialWalk, potentialAskSerial, a posed decision's shared potential walk, keyed by
+//	potentialWalkDepth/FullDemand      an ask serial and the log; Clone copies none
 //	staticContinuous/Epoch/Version/    layer/static rebuild caches keyed by log length and
 //	Objs/BuildSeq/QueueBuf, activeBuf/   continuousVersion; build sequence counters and
 //	Epoch/Version/Depth/Objs/         their snapshots are local cache keys (Clone rebuilds)

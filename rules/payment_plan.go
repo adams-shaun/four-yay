@@ -437,7 +437,14 @@ func (e *Engine) paymentPlanTargetDependentFor(statics costStaticViews, p state.
 // Without the decision in hand it derives BaseOptionIndex from a fresh
 // legalActions walk; EnsurePaymentActions passes the pending Options instead.
 func (e *Engine) PaymentActionsForPriority(p state.PlayerID, seq uint64) []decision.PaymentAction {
-	return e.paymentActionsForPriority(p, seq, nil)
+	// The builder's plans may be shared with the decision's cast-plan memo
+	// (planCastPaymentMemo); hand the caller its own copy, as
+	// EnsurePaymentActions does.
+	out := e.paymentActionsForPriority(p, seq, nil)
+	if out == nil {
+		return nil
+	}
+	return (&decision.Decision{PaymentActions: out}).Clone().PaymentActions
 }
 
 // paymentActionsForPriority is the one-pass offer builder (spec 5 as amended:
@@ -477,11 +484,12 @@ func (e *Engine) paymentActionsForPriority(p state.PlayerID, seq uint64, options
 	// legalActionsPriced is the authoritative candidate walk.  Its hypothetical
 	// pool is only a superset gate; every admission below still has an exact
 	// source-exclusive witness.
-	hyp := e.PotentialMana(p)
 	// Only plain casts are read below, so the walk skips the sections that
 	// append non-cast options (legalActionsWalk's castsOnly): the same cast
 	// options in the same order, without pricing every battlefield ability.
-	candidates := e.legalActionsWalk(p, &hyp, true)
+	// The walk is shared with the decision's other potential readers
+	// (potential_walk_cache.go), which may hand back the full walk.
+	_, candidates := e.potentialWalkOf(p, false)
 	statics := costStaticSource{e: e}
 	legal := paymentCastCandidates{e: e, p: p, priced: true}
 	var out []decision.PaymentAction
@@ -511,7 +519,7 @@ func (e *Engine) paymentActionsForPriority(p state.PlayerID, seq uint64, options
 			continue
 		}
 		cast := decision.PlannedCast{Object: opt.Obj, Face: 0, Origin: origin}
-		got := e.planCastPaymentChecked(p, cast, &statics, &legal)
+		got := e.planCastPaymentMemo(p, cast, &statics, &legal)
 		e.paymentStats.recordOutcome(got)
 		if got.Plan == nil {
 			continue
@@ -568,7 +576,7 @@ func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast
 	e.beginDerivedMemo()
 	defer e.endDerivedMemo()
 	defer e.paymentPlanQueryScope()()
-	got := e.PlanCastPayment(p, cast)
+	got := e.planCastPaymentAtDecision(p, cast)
 	// PP-14: a Sac-bearing additional cost is answered by the ordinary in-flow
 	// ask AFTER this validation, so the distinct-candidate assignment must
 	// still hold at submit time. Re-run the offer gate's own sacrifice
