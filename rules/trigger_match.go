@@ -15,6 +15,7 @@
 package rules
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -1865,11 +1866,31 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state
 	// grant (cumulative upkeep functions only from the battlefield), so they
 	// keep their skip.
 	skip := observer == e && len(grantedStatics) == 0
+	zero := skip && zeroInterestEvent(ev.Kind, evAll, evMask)
+	// The zero-interest no-op memo (trigZeroNoop): the last zero-interest walk
+	// visited no object at all, and only layer-inert events -- which write no
+	// object, zone list or registry -- have been logged since, so this walk
+	// would visit nothing either. Verify mode walks anyway and panics if the
+	// walk visits anything.
+	noop := zero && e.trigZeroNoopEp > 0 && e.trigZeroNoopObjs == len(e.G.Objs) &&
+		e.trigZeroNoopVer == e.continuousVersion && e.layerInertSince(e.trigZeroNoopEp)
+	if noop && !trigZoneSkipVerify {
+		return
+	}
 	var verify func(state.ObjID)
 	if skip && trigZoneSkipVerify {
 		verify = e.trigSkipVerifier(ev, visit, func() int { return len(phaseNotes) })
 	}
-	observer.forEachTriggerObject(ev, skip, skip && zeroInterestEvent(ev.Kind, evAll, evMask), visit, verify)
+	visited := 0
+	observer.forEachTriggerObject(ev, skip, zero, func(id state.ObjID) { visited++; visit(id) }, verify)
+	if noop && visited != 0 {
+		panic(fmt.Sprintf("rules: zero-interest trigger walk no-op memo at log %d skipped a walk that visits %d object(s)", len(e.L.Events), visited))
+	}
+	if zero && visited == 0 {
+		e.trigZeroNoopEp, e.trigZeroNoopObjs, e.trigZeroNoopVer = len(e.L.Events), len(e.G.Objs), e.continuousVersion
+	} else if observer == e {
+		e.trigZeroNoopEp = 0
+	}
 	for _, n := range phaseNotes {
 		e.emit(events.Event{Kind: events.Note, Obj: n.id,
 			Text: "Phase$ " + n.spec + " names no engine step; the trigger never fires"})
