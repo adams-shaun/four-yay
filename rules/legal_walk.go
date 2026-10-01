@@ -70,24 +70,29 @@ func (w *legalWalk) offerCastable(p state.PlayerID, id state.ObjID, base Cost, s
 //   - the floating pool prices the offer (hyp nil, no RestrictedMana), so
 //     the priced pool is p's Pool;
 //   - no RaiseCost/ReduceCost/SetCost static is in the walk's snapshot (so
-//     no ValidTarget$ member either), and the scope is a spell or special
-//     action (an ability's own ReduceCost$ composes too): costModifiersCompose
+//     no ValidTarget$ member either), and an ability scope carries no own
+//     ReduceCost$ (ownManaReduction's only source): costModifiersCompose
 //     returns costMods{}, which has no floor (hasFloorP), so the floor test
 //     runs, and the potential-target retry, the Sac<X> sweep (no announced
 //     Sac part) and the named-count sweep (no extra cost) all decline;
-//   - no PayLife<X>, Waterbend or XMin part, and no negative Life/Snow, so
-//     the cost the floor reads is base and composedPoolFloor takes its
+//   - no PayLife<X>, Waterbend or XMin part, no negative Life/Snow, and for
+//     an ability scope no announced X (its XMin$ would raise XMin), so the
+//     cost the floor reads is base and composedPoolFloor takes its
 //     zero-composition branch: max(0, Generic+tax-delve) plus the coloured
-//     pips. That is non-decreasing in the commander tax (>= 0) and
+//     pips. That is non-decreasing in the commander tax (>= 0, and 0 for an ability) and
 //     non-increasing in delve (0, or the graveyard's size with Delve), so
 //     pricing tax 0 against the whole graveyard bounds the floor from below.
 //
 // walkSkipVerify runs offerCastableUsing on every refusal.
 func (w *legalWalk) offerFloorRefuses(statics *costStaticViews, p state.PlayerID, base *Cost, scope costScope) bool {
-	if w.hyp != nil || scope.ab != nil || scope.kind == "Ability" ||
-		len(statics.raise) != 0 || len(statics.reduce) != 0 || len(statics.set) != 0 || statics.validTarget ||
+	if w.hyp != nil || len(statics.raise) != 0 || len(statics.reduce) != 0 || len(statics.set) != 0 || statics.validTarget ||
 		len(base.LifeX) != 0 || base.Waterbend != 0 || base.WaterbendX || base.XMin != 0 || base.Life < 0 || base.Snow < 0 {
 		return false
+	}
+	if scope.ab != nil {
+		if _, own := scope.ab.Params["ReduceCost"]; own || costAnnouncesX(*base) {
+			return false
+		}
 	}
 	for i := range base.Sac {
 		if base.Sac[i].Announced {
