@@ -148,6 +148,7 @@ func (e *Engine) refreshDerivedTypes() {
 	// state (mayDiffer, probe cache) is untouched too; the probe cache keeps
 	// its own epoch and catches up on its next read.
 	if e.typesVersion == e.continuousVersion && e.typesObjs == len(e.G.Objs) && e.layerInertSince(e.typesEpoch) {
+		e.typesProbeFollow(n)
 		e.typesEpoch = n
 		if layerInertVerify {
 			e.verifyInertDerivedTypes()
@@ -157,6 +158,7 @@ func (e *Engine) refreshDerivedTypes() {
 	// Derived-quiet reuse: see typesQuietReuse.
 	if e.typesIncrReady && e.typesVersion == e.continuousVersion && e.typesObjs <= len(e.G.Objs) &&
 		e.typesQuietReuse(n) {
+		e.typesProbeFollow(n)
 		e.typesEpoch, e.typesObjs = n, len(e.G.Objs)
 		if layerInertVerify {
 			e.verifyInertDerivedTypes()
@@ -186,6 +188,18 @@ func (e *Engine) refreshDerivedTypes() {
 		return
 	}
 	e.refreshDerivedTypesFull(n)
+}
+
+// typesProbeFollow advances the statics probe's key along with a table reuse
+// to n, when the probe stood at the table's key: a reuse admits only events
+// that change no probe answer (no Zone/Card/FaceIdx/CopyFace/Unlocked/
+// MergedCards write, an off-battlefield mover keeping its off-battlefield
+// answer) and face-less appended objects, whose answer is "no" -- an unset
+// cell counts the same (staticsProbeStore).
+func (e *Engine) typesProbeFollow(n int) {
+	if e.typesProbeReady && e.typesProbeEpoch == e.typesEpoch && e.typesProbeObjs == e.typesObjs {
+		e.typesProbeEpoch, e.typesProbeVersion, e.typesProbeObjs = n, e.continuousVersion, len(e.G.Objs)
+	}
 }
 
 // typesQuietReuse reports whether the table (and the incremental state
@@ -303,7 +317,18 @@ func (e *Engine) stampTypes(n int, srcs []state.ObjID, selfOnly bool) {
 // mayDiffer slice must reflect the events logged since the last build
 // before the build reads it.
 func (e *Engine) refreshDerivedTypesIncremental(n int) bool {
-	e.typesCatchUp(n)
+	// When the statics probe stands at the table's own key, its catch-up
+	// would scan exactly the events and appended objects typesCatchUp scans
+	// (the same Obj/IDs/Pairs referents): re-probe the touched list here and
+	// stamp it, instead of a second pass over the same log suffix.
+	inStep := e.typesProbeReady && e.typesProbeEpoch == e.typesEpoch && e.typesProbeObjs == e.typesObjs
+	touch := e.typesCatchUp(n)
+	if inStep {
+		for _, id := range touch {
+			e.staticsProbeTouch(id)
+		}
+		e.typesProbeEpoch, e.typesProbeVersion, e.typesProbeObjs = n, e.continuousVersion, len(e.G.Objs)
+	}
 	var arr [layer4MaxSelfSources]state.ObjID
 	srcs, selfOnly := e.layer4SelfOnlySources(arr[:0])
 	if !selfOnly {
