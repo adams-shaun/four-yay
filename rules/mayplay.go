@@ -435,7 +435,7 @@ func mayPlayGateRejectedOther(params map[string]string) bool {
 // them here would widen every CheckSVar-gated static on whichever path
 // forgot.
 func (e *Engine) mayPlayConditionGateHolds(params map[string]string, source state.ObjID, you state.PlayerID) bool {
-	if !e.classBandGateHolds(params, source) {
+	if !e.classBandGateHolds(params["ClassBand"], source) {
 		return false
 	}
 	ck := strings.TrimSpace(params["CheckSVar"])

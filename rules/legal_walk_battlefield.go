@@ -237,7 +237,8 @@ func (w *legalWalk) battlefieldWalk() {
 						// graveyard or stack card's battlefield ability fails -- selects
 						// exactly the abilities the mana-then-zone order did.
 						var loyal bool
-						if mf := e.manaFactsOf(ab); mf != nil {
+						mf := e.manaFactsOf(ab)
+						if mf != nil {
 							if manaSAFactsVerify && (mf.zoneOKFact(ab, z) != abilityZoneOK(ab, z) || mf.loyalty != e.isLoyaltyAbility(ab)) {
 								panic(fmt.Sprintf("rules: configured ability facts for %q disagree with the zone/loyalty readers", ab.Line))
 							}
@@ -343,7 +344,14 @@ func (w *legalWalk) battlefieldWalk() {
 						if strings.EqualFold(strings.TrimSpace(ab.ParamStr(cards.PKBoast)), "True") && !e.boastGateOK(id, i, "") {
 							continue
 						}
-						cost := e.parseCost(ab.ParamStr(cards.PKCost))
+						// The configured facts carry the compiled Cost$ (the same
+						// frozen parse parseCost copies out of the cost table).
+						var cost Cost
+						if mf != nil && mf.cost != &freeCost {
+							cost = mf.cost.Cost
+						} else {
+							cost = e.parseCost(ab.ParamStr(cards.PKCost))
+						}
 						// The ability's own ReduceCost$ (Otawara's Channel): the CR
 						// 601.2f composition the offer gate and beginActivation's
 						// charge share, so an offered cost and the paid one agree.

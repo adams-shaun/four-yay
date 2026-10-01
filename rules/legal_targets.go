@@ -273,7 +273,10 @@ func (e *Engine) targetsAvailable(p state.PlayerID, id, excludeSelf state.ObjID,
 // are chosen either way; the clause only stops the offer gate from
 // withholding the action on a bound whose value the tap election will
 // supply (Aryel's powerLEX).
-func costAnnouncesX(c Cost) bool {
+func costAnnouncesX(c Cost) bool { return costAnnouncesXRef(&c) }
+
+// costAnnouncesXRef is costAnnouncesX reading c in place.
+func costAnnouncesXRef(c *Cost) bool {
 	if c.X > 0 {
 		return true
 	}
@@ -329,9 +332,9 @@ func (e *Engine) castTargetsAvailable(p state.PlayerID, id state.ObjID, sa *card
 		return e.targetsAvailable(p, id, id, sa, false)
 	}
 	if o := e.G.Obj(id); o != nil && o.Face() != nil {
-		xPending = costAnnouncesX(e.faceCost(o.Face()))
+		xPending = costAnnouncesXRef(&e.faceCompiledCost(o.Face()).Cost)
 		if ab := o.Face().SpellAbility(); ab != nil {
-			xPending = xPending || costAnnouncesX(e.parseCost(ab.Params["Cost"]))
+			xPending = xPending || costAnnouncesXRef(e.costRef(ab.Params["Cost"]))
 		}
 	}
 	return e.targetsAvailable(p, id, id, sa, xPending)

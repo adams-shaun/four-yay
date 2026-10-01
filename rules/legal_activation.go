@@ -197,7 +197,7 @@ func (e *Engine) activatorAllows(p state.PlayerID, id state.ObjID, ab *cards.SA)
 // the census's generic rules-side SA union for Mana/ManaReflected: see
 // genericSAExcludes in paramcensus_test.go.
 func (e *Engine) abilityPresentHolds(p state.PlayerID, id state.ObjID, ab *cards.SA) bool {
-	if !e.classBandGateHolds(ab.Params, id) {
+	if !e.classBandGateHolds(ab.ParamStr(cards.PKClassBand), id) {
 		return false
 	}
 	spec := strings.TrimSpace(ab.Params["IsPresent"])

@@ -26,7 +26,7 @@ func (e *Engine) asUnblockedStaticMatches(id state.ObjID) (matched, mandatory bo
 		if !e.restrictionGateHolds(sv, id) || !e.checkSVarHolds(sv) {
 			continue
 		}
-		if !e.classBandGateHolds(sv.Params, sv.Source) {
+		if !e.classBandGateHolds(sv.ParamStr(cards.PKClassBand), sv.Source) {
 			continue
 		}
 		if spec := strings.TrimSpace(sv.Params["IsPresent"]); spec != "" {
@@ -134,7 +134,7 @@ func (e *Engine) combatDamageToughnessMatches(id state.ObjID) bool {
 		if !e.restrictionGateHolds(sv, id) || !e.checkSVarHolds(sv) {
 			continue
 		}
-		if !e.classBandGateHolds(sv.Params, sv.Source) {
+		if !e.classBandGateHolds(sv.ParamStr(cards.PKClassBand), sv.Source) {
 			continue
 		}
 		if spec := strings.TrimSpace(sv.Params["IsPresent"]); spec != "" {
@@ -228,7 +228,7 @@ func (e *Engine) tapPowerValue(id state.ObjID, saKind string) int32 {
 		if !e.restrictionGateHolds(sv, id) || !e.checkSVarHolds(sv) {
 			continue
 		}
-		if !e.classBandGateHolds(sv.Params, sv.Source) {
+		if !e.classBandGateHolds(sv.ParamStr(cards.PKClassBand), sv.Source) {
 			continue
 		}
 		if !tapPowerSAScopeMatches(sv.Params["ValidSA"], saKind) {

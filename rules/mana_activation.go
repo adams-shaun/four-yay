@@ -316,7 +316,7 @@ func (e *Engine) answerNestedManaColor(ma *manaColorActivation, chosen []decisio
 	}
 	savedTap, savedProducer := e.manaFromTap, e.manaProducer
 	if ma.trigger == nil && ma.ability != nil {
-		e.manaFromTap = e.parseCost(ma.ability.Params["Cost"]).Tap
+		e.manaFromTap = e.costRef(ma.ability.Params["Cost"]).Tap
 		e.manaProducer = ma.source
 	}
 	template := *ma
@@ -408,7 +408,7 @@ func isManaAbilityAPI(api string) bool { return api == "Mana" || api == "ManaRef
 // native mana ability excludes itself, while a static-granted SVar (Tazri)
 // requires one printed activated ability on that creature.
 func (e *Engine) manaReflectedPresentHolds(p state.PlayerID, source state.ObjID, ma *cards.SA) bool {
-	if !e.classBandGateHolds(ma.Params, source) {
+	if !e.classBandGateHolds(ma.ParamStr(cards.PKClassBand), source) {
 		return false
 	}
 	spec, ok := ma.Params["IsPresent"]
@@ -1537,7 +1537,7 @@ func (e *Engine) manaCostPayableFull(p state.PlayerID, o *state.Object, source s
 // part with no eligible permanent is affordable at X=0 (the cast path's
 // tapPermanentCostAsk does the same), while a non-X dynamic head still fails
 // closed HERE: no "any number" election exists beside a mana ability yet.
-func costHasDynamicXTap(cost Cost) bool {
+func costHasDynamicXTap(cost *Cost) bool {
 	for _, part := range cost.TapPermanent {
 		if part.Dyn == "X" {
 			return true
@@ -2582,7 +2582,7 @@ func (e *Engine) resolveManaAbilityRef(p state.PlayerID, source state.ObjID, ma 
 // on an immutable copy, but the limit census is keyed to the compiled ability
 // in the source pile, not that copy.
 func (e *Engine) resolveManaAbilityRefOriginal(p state.PlayerID, source state.ObjID, ma, original *cards.SA, gained gainedManaRef, cast, payment, interactive bool) {
-	if !interactive && costHasDynamicXTap(e.parseCost(ma.Params["Cost"])) {
+	if !interactive && costHasDynamicXTap(e.costRef(ma.Params["Cost"])) {
 		return
 	}
 	if !e.manaAbilityPayable(p, source, ma) {
@@ -2744,7 +2744,7 @@ func (e *Engine) resolveManaEffect(p state.PlayerID, source state.ObjID, ma *car
 		}
 		return
 	}
-	if costHasDynamicXTap(e.parseCost(ma.ParamStr(cards.PKCost))) && strings.TrimSpace(ma.ParamStr(cards.PKAmount)) == "0" {
+	if costHasDynamicXTap(e.costRef(ma.ParamStr(cards.PKCost))) && strings.TrimSpace(ma.ParamStr(cards.PKAmount)) == "0" {
 		// X=0 produces no mana and therefore has no meaningful colour
 		// allocation decision.
 		e.finishManaEffect(p, source, ma, produced, gained, sacs, cast, cumulative, triggers)
@@ -3046,7 +3046,7 @@ func (e *Engine) resolveManaEffectColor(p state.PlayerID, source state.ObjID, ma
 	// replay chain head). A sacrifice-only KCI activation therefore identifies
 	// its source but is not tap-produced.
 	savedTap, savedProducer := e.manaFromTap, e.manaProducer
-	e.manaFromTap = e.parseCost(ma.Params["Cost"]).Tap
+	e.manaFromTap = e.costRef(ma.Params["Cost"]).Tap
 	e.manaProducer = source
 	// A gained mana ability's body resolves its SVars (Amount$ X) against
 	// the FOREIGN face it was compiled on, never the recipient's.

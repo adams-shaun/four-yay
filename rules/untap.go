@@ -48,7 +48,7 @@ func (e *Engine) untapTurnPermanent(subject state.ObjID) {
 // The default compare is presence. It deliberately uses the same
 // deterministic battlefield matcher as trigger intervening-if conditions.
 func (e *Engine) staticPresentHolds(st cards.Static, source state.ObjID) bool {
-	if !e.classBandGateHolds(st.Params, source) {
+	if !e.classBandGateHolds(st.ParamStr(cards.PKClassBand), source) {
 		return false
 	}
 	spec, ok := st.Params["IsPresent"]

@@ -193,7 +193,7 @@ func (e *Engine) altCostXCandidates(p state.PlayerID, id state.ObjID, alt altCos
 // cast is an illegal game action, a wrongly-withheld one merely an option
 // lost.
 func (e *Engine) alternativeCostScopeOK(params map[string]string, id, srcID state.ObjID, caster, controller state.PlayerID) bool {
-	if !e.classBandGateHolds(params, srcID) {
+	if !e.classBandGateHolds(params["ClassBand"], srcID) {
 		return false
 	}
 	if vp := strings.TrimSpace(params["ValidPlayer"]); vp != "" && !effects.MatchesPlayerSpec(e.G, vp, caster, controller) {

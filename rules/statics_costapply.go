@@ -54,7 +54,7 @@ func (e *Engine) costStaticGate(sv staticView, mode string, p state.PlayerID, id
 
 // costStaticGateFull is costStaticGate's full gate chain.
 func (e *Engine) costStaticGateFull(sv staticView, mode string, p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target, xBound bool) (ok, indepFail bool) {
-	if !e.classBandGateHolds(sv.Params, sv.Source) {
+	if !e.classBandGateHolds(sv.ParamStr(cards.PKClassBand), sv.Source) {
 		return false, true
 	}
 	if ty, ok := sv.Param(cards.PKType); ok && ty != "" && ty != scope.kind {

@@ -127,7 +127,7 @@ func (e *Engine) triggerConditionHoldsAsWithDelayedRemembered(t cards.Trigger, s
 func (e *Engine) triggerConditionHoldsWithSVars(t cards.Trigger, source state.ObjID, you state.PlayerID, tc *effects.TriggerContext, ownedSVars map[string]string) bool {
 	// A kw:Class level band is an independent AND gate beside every clause
 	// below (and beside the body's own IsPresent$/IsPresent2$ clauses).
-	if !e.classBandGateHolds(t.Params, source) {
+	if !e.classBandGateHolds(t.ParamStr(cards.PKClassBand), source) {
 		return false
 	}
 	// LifeLost's and LifeGained's LifeAmount$ are matched against the causing
