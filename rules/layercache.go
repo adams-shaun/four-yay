@@ -99,22 +99,46 @@ func (e *Engine) layerInertSince(epoch int) bool {
 // admitted. A static-carrying token, a gate-carrying board, an unaccounted
 // object append, or any other event forces the full rebuild. The gate-free
 // board is the runtime common case, so the perf win of e748c8f1b survives.
+//
+// A build that was also state-read-free (staticMemoStateRead false) admits
+// more: the static-quiet kinds (staticQuietKinds), zone moves of objects that
+// are static-cold on both sides (staticMoveCold) and the TriggerPush /
+// AbilityPush mints, whose new objects are face-less (the appended-object
+// loop skips a face-less object; the scan skips it in every zone). A
+// layer-inert run is admitted even on a gated build, exactly as
+// layerInertSince admits it for active().
 func (e *Engine) staticSafeSince(epoch, oldObjs int) bool {
 	n := len(e.L.Events)
-	if e.staticMemoGated {
-		return false
-	}
 	if epoch <= 0 || epoch > n || oldObjs < 0 || oldObjs > len(e.G.Objs) {
 		return false
 	}
+	// quiet: the build read nothing outside the static-quiet input (see
+	// staticQuietKinds), so the wider admissions below apply.
+	quiet := !e.staticMemoGated && !e.staticMemoStateRead
 	creates := 0
 	for i := epoch; i < n; i++ {
-		switch k := e.L.Events[i].Kind; k {
+		ev := &e.L.Events[i]
+		switch k := ev.Kind; k {
 		case events.DecisionAsk, events.DecisionMade, events.Priority:
+			// Layer-inert (layerInertSince): no gate reads them either.
 		case events.TokenCreate:
+			if e.staticMemoGated {
+				return false
+			}
 			creates++
+		case events.TriggerPush, events.AbilityPush:
+			// Each mints one face-less ability object onto the stack (checked
+			// below); the scan skips a face-less object in every zone.
+			if !quiet {
+				return false
+			}
+			creates++
+		case events.MoveZone, events.Draw, events.PutOnStack:
+			if !quiet || !e.staticMoveCold(ev.Obj) {
+				return false
+			}
 		default:
-			if e.staticMemoStateRead || !staticQuietKinds.has(k) {
+			if !quiet || !staticQuietKinds.has(k) {
 				return false
 			}
 		}
@@ -124,7 +148,32 @@ func (e *Engine) staticSafeSince(epoch, oldObjs int) bool {
 	}
 	for i := oldObjs; i < len(e.G.Objs); i++ {
 		o := &e.G.Objs[i]
+		if o.Face() == nil {
+			continue
+		}
 		if o.Zone != state.ZBattlefield || objectStaticHotOn(o) {
+			return false
+		}
+	}
+	return true
+}
+
+// staticMoveCold reports whether a zone move of id cannot change a quiet
+// (gate-free, state-read-free) static scan: the object contributed no effect
+// to the memo where it was (no entry names it as Source) and can contribute
+// none where it is now (no face, copied face or merged card it can resolve
+// to carries any static at all, the coarse objectStaticHotOn probe). A quiet
+// scan reads nothing else a move writes: the move's other folds (the
+// departing permanent's own battlefield state, soulbond and crew links,
+// zone lists) feed only gates, spec matches and the static zone summaries,
+// and the summaries are re-checked by the next real rescan.
+func (e *Engine) staticMoveCold(id state.ObjID) bool {
+	o := e.G.Obj(id)
+	if o == nil || objectStaticHotOn(o) {
+		return false
+	}
+	for i := range e.staticContinuous {
+		if e.staticContinuous[i].Source == id {
 			return false
 		}
 	}
@@ -152,15 +201,25 @@ func (e *Engine) staticSafeSince(epoch, oldObjs int) bool {
 //   - ClockTick: g.Clock (the scan reads an object's own Timestamp).
 //   - DeclareAttackers/DeclareBlockers/EndCombatReset: attack and block
 //     state. TargetsChosen: an object's Targets and copy-target bit.
+//   - TurnChange: the turn number, active seat, per-turn object and seat
+//     bookkeeping (summoning sickness, this-turn tallies, goads, this-turn
+//     mode picks), the turn's Entered list and persistent-mana flags.
+//   - Resolve: the per-ability ResolvedThisTurn tally.
 //   - Note: a marker; Apply writes nothing.
+//
+// Zone moves (MoveZone/Draw/PutOnStack) and the two ability pushes are
+// admitted separately in staticSafeSince: a move only of an object that is
+// static-cold on both sides (staticMoveCold), a push because its new object
+// is face-less.
 //
 // None of them adds an object, moves a zone list or changes a seat's Lost
 // bit. layerInertVerify rescans on every re-stamp and panics on a
 // difference, so the rules suite holds this list to the scan empirically.
 var staticQuietKinds = newKindSet(events.Tap, events.Untap, events.ManaAdd, events.ManaClear,
 	events.LifeChange, events.LandPlayed, events.Damage, events.DamageProvenance,
-	events.StepChange, events.ClockTick, events.DeclareAttackers, events.DeclareBlockers,
-	events.EndCombatReset, events.TargetsChosen, events.Note)
+	events.StepChange, events.TurnChange, events.Resolve, events.ClockTick,
+	events.DeclareAttackers, events.DeclareBlockers, events.EndCombatReset,
+	events.TargetsChosen, events.Note)
 
 // refreshStaticContinuous brings the staticEffects memo up to the current log
 // head: a no-op on an exact hit, a re-stamp across a layer-safe run, a full
