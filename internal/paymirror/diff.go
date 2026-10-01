@@ -149,6 +149,9 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "intentBuf"}:   true,
 	{"rules.Engine", "sbaIDBuf"}:    true,
 	{"rules.Engine", "foreachBuf"}:  true,
+	// The hypothetical-clone and read-scratch pool (rules/hypclone.go):
+	// recycled Spares and per-call scratch, owner-guarded; Clone copies none.
+	{"rules.Engine", "hypSpares"}: true,
 	// targetSpecContext's reusable Resolve records (trigger_referents.go),
 	// a stack that is free at every intent boundary; Clone starts a fresh
 	// one, so the recycled records a live engine keeps are not game state.
