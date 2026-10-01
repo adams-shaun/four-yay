@@ -259,6 +259,17 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	}
 	c.suspendedCasts = append([]state.ObjID(nil), e.suspendedCasts...)
 	c.defeatedCasts = append([]state.ObjID(nil), e.defeatedCasts...)
+	// attackOffers' memo (attack_cost.go), carried under the same identical-
+	// board argument as the tables below: a search clones the engine while
+	// its declare-attackers decision is pending, and the clone's
+	// validateAttackers then reuses the list askAttackers derived instead of
+	// re-deriving it per simulation. The list is shared, never written (a
+	// recompute stores a fresh slice); the key's registry version is rekeyed
+	// onto the clone's.
+	if e.atkOffersEp > 0 && e.atkOffersVer == e.continuousVersion {
+		c.atkOffers, c.atkOffersEp = e.atkOffers, e.atkOffersEp
+		c.atkOffersVer, c.atkOffersObjs, c.atkOffersActive = c.continuousVersion, e.atkOffersObjs, e.atkOffersActive
+	}
 	// setname.go's layer-3 rename table and its genesis-time gate. The
 	// clone's board is identical at the clone boundary, so the table is
 	// carried with its (epoch, version) key rather than rebuilt -- but as
