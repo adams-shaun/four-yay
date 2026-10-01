@@ -717,15 +717,19 @@ def _proc_is_script_supervisor(proc: Path, ppid: int) -> bool:
                for a in argv if a)
 
 
-def _live_agent_dirs(proc: Path | None = None) -> list[Path]:
-    """The `--cwd` of every live pi-agent-shaped process, for telling a dev
-    gorged a SEAT is actively using apart from a standing one nobody owns."""
+def _live_agent_pids(proc: Path | None = None) -> dict[int, str]:
+    """Every live pi-agent-shaped process: pid -> its `--cwd` ("" when absent).
+
+    One scan feeds both ownership signals: the `--cwd` path a dev gorged's
+    `-dir` is tested against, and the pid set the gorged's ancestor chain is
+    walked against. Matching on the `pi-agent` process ROLE (not a name list)
+    is what makes a future launcher covered without editing this function."""
     proc = proc or Path(os.environ.get("GORGE_PROC_DIR", "/proc"))
-    dirs: list[Path] = []
+    pids: dict[int, str] = {}
     try:
         entries = list(proc.iterdir())
     except OSError:
-        return dirs
+        return pids
     for d in entries:
         if not d.name.isdigit():
             continue
@@ -737,12 +741,122 @@ def _live_agent_dirs(proc: Path | None = None) -> list[Path]:
         if not any("pi-agent" in a for a in args):
             continue
         cwd = next((args[i + 1] for i, a in enumerate(args[:-1]) if a == "--cwd"), "")
-        if cwd:
-            try:
-                dirs.append(Path(cwd).resolve())
-            except OSError:
-                pass
-    return dirs
+        pids[int(d.name)] = cwd
+    return pids
+
+
+def _agent_ancestor(proc: Path, pid: int, agent_pids: dict[int, str]) -> bool:
+    """True when `pid`'s ancestor chain (walking `ppid` up to init) contains a
+    live pi-agent process.
+
+    This is the ownership signal that a gorged launched FROM an agent's own
+    shell is caught by, even when its `-dir` is outside that agent's worktree
+    (a `/tmp` fixture dir) and its immediate parent is not a `.sh` script but
+    an inline `bash -c` from the agent's session. The 2026-10-01 stability
+    event was exactly this shape: the ui24 fixture server on :8095
+    (`-dir /tmp/gorge-ui24-...`, parent `bash -c ...`, real grandparent the
+    live `agent-...-fda041b7` pi-agent) matched NEITHER the `-dir` signal nor
+    the script-supervisor signal, so it counted as a second standing instance.
+
+    Deliberately structural and role-based: any future agent-launched server,
+    whatever its data dir or parent binary, is covered because the agent that
+    spawned it is still on its ancestor chain. Bounded by the process tree
+    depth and fails closed (an unreadable/gone pid ends the walk).
+    """
+    seen: set[int] = set()
+    cur = pid
+    while cur > 1 and cur not in seen:
+        seen.add(cur)
+        if cur in agent_pids:
+            return True
+        try:
+            after = proc.joinpath(str(cur), "stat").read_text().rsplit(")", 1)[1].split()
+            cur = int(after[1])
+        except (OSError, ValueError, IndexError):
+            return False
+    return False
+
+
+def _agent_seat_ids(agent_pids: dict[int, str]) -> set[str]:
+    """The id suffix of every live agent's worktree (`--cwd` basename).
+
+    A seat names its scratch/state dir under `/tmp/gorge-<something-unique>`
+    (AGENTS.md) and, in practice, ends that name with its OWN id -- the same
+    suffix as its worktree and its issue id. The 2026-10-01 stability event
+    is the example: worktree `agent-20260929T124737Z-fda041b7`, fixture dir
+    `/tmp/gorge-ui24-fda041b7`. The suffix survives the launcher's exit and
+    the server's reparenting to systemd, which is exactly why neither the
+    `-dir`-in-worktree signal nor the live-ancestor signal catches it.
+
+    Derived from the live agents themselves, never a hardcoded list, so a
+    seat with a new id is covered; only ids of at least 6 characters count,
+    which excludes a generic trailing token.
+    """
+    ids: set[str] = set()
+    for cwd in agent_pids.values():
+        if not cwd:
+            continue
+        tail = Path(cwd).name.rsplit("-", 1)[-1]
+        if len(tail) >= 6:
+            ids.add(tail)
+    return ids
+
+
+def _dir_names_agent(gdir: str, seat_ids: set[str]) -> bool:
+    """True when a gorged `-dir` names a live agent by its id suffix: the dir
+    basename IS that id or ENDS WITH `-<id>`. Tight by design -- a substring
+    anywhere would let an unrelated path match -- and it is the seat's own
+    naming that carries the tie, not a list in this file."""
+    if not gdir:
+        return False
+    base = Path(gdir).name
+    return any(base == sid or base.endswith("-" + sid) for sid in seat_ids)
+
+
+def _owner_dirs(agent_pids: dict[int, str]) -> list[Path]:
+    """The resolved `--cwd` of every live agent, for the `-dir`-in-worktree
+    ownership signal."""
+    owners: list[Path] = []
+    for cwd in agent_pids.values():
+        if not cwd:
+            continue
+        try:
+            owners.append(Path(cwd).resolve())
+        except OSError:
+            pass
+    return owners
+
+
+def gorged_owned(p: dict, proc_root: Path, agent_pids: dict[int, str],
+                 seat_ids: set[str], owners: list[Path]) -> bool:
+    """True when a gorged process is owned by a currently-live agent.
+
+    One home for the ownership rule, so `collect_gorged_hygiene` and the
+    selftest both read it (a per-pid predicate the test can isolate each
+    signal with, rather than only the aggregate excess). Four signals, tried
+    in order from the most durable to the least:
+
+      1. the ancestor chain still contains a live pi-agent -- an inline
+         `bash -c` launcher is covered, no name needed;
+      2. the `-dir` ends with a live seat's own id -- survives the launcher
+         exiting and the server reparenting to systemd;
+      3. the `-dir` resolves inside a live agent's worktree (`--cwd`);
+      4. the parent is a live, non-init `.sh` script (the smoke.sh shape).
+    """
+    if _agent_ancestor(proc_root, p["pid"], agent_pids):
+        return True
+    if _dir_names_agent(p["dir"], seat_ids):
+        return True
+    gdir = p["dir"]
+    if gdir:
+        try:
+            gp = Path(gdir).resolve()
+        except OSError:
+            gp = None
+        if gp is not None and any(
+                gp == o or gp.is_relative_to(o) or o.is_relative_to(gp) for o in owners):
+            return True
+    return _proc_is_script_supervisor(proc_root, p["ppid"])
 
 
 def collect_gorged_hygiene(proc: Path | None = None) -> tuple[int, int, str]:
@@ -768,19 +882,12 @@ def collect_gorged_hygiene(proc: Path | None = None) -> tuple[int, int, str]:
     if not procs:
         return 0, 0, "no gorged process running"
     proc_root = proc or Path(os.environ.get("GORGE_PROC_DIR", "/proc"))
-    owners = _live_agent_dirs(proc)
+    agent_pids = _live_agent_pids(proc)
+    seat_ids = _agent_seat_ids(agent_pids)
+    owners = _owner_dirs(agent_pids)
 
     def owned(p: dict) -> bool:
-        gdir = p["dir"]
-        if gdir:
-            try:
-                gp = Path(gdir).resolve()
-            except OSError:
-                gp = None
-            if gp is not None and any(
-                    gp == o or gp.is_relative_to(o) or o.is_relative_to(gp) for o in owners):
-                return True
-        return _proc_is_script_supervisor(proc_root, p["ppid"])
+        return gorged_owned(p, proc_root, agent_pids, seat_ids, owners)
 
     standing = [p for p in procs if not owned(p)]
     excess = max(0, len(standing) - 1)
@@ -1868,9 +1975,45 @@ def selftest() -> int:
         fake_pid(104, ["bin/gorged", "-addr", "127.0.0.1:8100", "-dir", "/tmp/gorge-smoke-public-PxZf9S",
                         "-tables", "1"], ppid=9002)
         fake_pid(9002, ["bash", "scripts/smoke.sh"], ppid=500)
+        # A SIXTH instance: the 2026-10-01 stability event's exact shape. The
+        # seat launches the ui24 fixture gorged with `nohup ... &`, its shell
+        # exits, and the server reparents to systemd -- so: `-dir` is a /tmp
+        # fixture dir OUTSIDE the agent's `--cwd` worktree, the parent is not a
+        # pi-agent (the chain is broken), and the parent is not a `.sh` file.
+        # The ONLY surviving tie is that the seat named the dir with its own
+        # id: worktree `agent-20260929T124737Z-fda041b7`, dir
+        # `/tmp/gorge-ui24-fda041b7`.
+        fake_pid(9005, ["bash", "/home/sadams/projects/ds4-harness/bin/pi-agent",
+                        "--cwd", "/home/agent/agent-20260929T124737Z-fda041b7",
+                        "--name", "impl-agent-20260929T124737Z-fda041b7-r1"], ppid=500)
+        # ppid 1928974 is `systemd --user`, deliberately absent from the fake
+        # tree: the walk ends there and finds no agent.
+        fake_pid(105, ["bin/gorged", "-addr", "127.0.0.1:8095", "-dir", "/tmp/gorge-ui24-fda041b7",
+                        "-tables", "1"], ppid=1928974)
+        # A SEVENTH instance: a dev gorged whose launcher is STILL ALIVE and is
+        # itself a pi-agent (an inline `bash -c` would do as well), but whose
+        # `-dir` names no seat id and sits outside any worktree -- the case the
+        # ancestor-chain signal exists for, isolated from the dir-names signal.
+        fake_pid(9007, ["bash", "/home/sadams/projects/ds4-harness/bin/pi-agent",
+                        "--cwd", "/home/agent/other-wt-abc12345", "--name", "agent-y"], ppid=500)
+        fake_pid(106, ["bin/gorged", "-addr", "127.0.0.1:8096", "-dir", "/tmp/gorge-dev-unnamed",
+                        "-tables", "1"], ppid=9007)
         procs = gorged_processes(fproc)
         check("gorged_processes finds every table server by flags, not comm",
-              {p["pid"] for p in procs} == {101, 102, 103, 104}, procs)
+              {p["pid"] for p in procs} == {101, 102, 103, 104, 105, 106}, procs)
+        # Precondition: the reparented orphan is NOT reachable by the two
+        # pre-existing signals -- its chain has no live agent and its parent is
+        # not a `.sh` -- so the assertion below can only pass through the new
+        # dir-names-the-seat signal (not for the wrong reason).
+        check("precondition: the reparented orphan has no live agent ancestor",
+              _agent_ancestor(fproc, 105, _live_agent_pids(fproc)) is False)
+        check("precondition: the reparented orphan's parent is not a live .sh script",
+              _proc_is_script_supervisor(fproc, _proc_ppid(fproc / "105")) is False)
+        # Precondition: the live agent's id really is the suffix of the dir, or
+        # the dir-names-agent assertion would pass vacuously.
+        check("precondition: the fixture dir names the live seat's id",
+              "fda041b7" in _agent_seat_ids(_live_agent_pids(fproc)),
+              _agent_seat_ids(_live_agent_pids(fproc)))
         # Precondition: the supervised instance really has a live, non-init
         # `.sh` parent in the fake tree -- otherwise the assertion below
         # would pass for the wrong reason (a missing parent pid).
@@ -1882,6 +2025,36 @@ def selftest() -> int:
         check("the agent-owned dev instance does not count as standing", excess == 1, excess)
         check("a gorged supervised by a live repo-side script does not count as standing",
               excess == 1, excess)
+        # The class this ticket fixes: an agent-launched gorged whose `-dir` is
+        # outside the agent's worktree, whose launcher has exited, and whose
+        # server reparented to systemd. The dir still names the live seat's id,
+        # so it is owned and the excess stays 1 (only the intended demo plus
+        # the stray -manabrew are standing).
+        check("a reparented dev gorged whose dir names a live seat does not count as standing",
+              excess == 1, excess)
+        # An ancestor-alive dev gorged that names no seat: only the ancestor
+        # signal reaches it. Assert it is genuinely not a `-dir`/worktree match
+        # first, so the check cannot pass through the other signals.
+        check("precondition: the ancestor-only dev gorged's dir names no live seat",
+              _dir_names_agent("/tmp/gorge-dev-unnamed", _agent_seat_ids(_live_agent_pids(fproc))) is False)
+        check("an ancestor-alive dev gorged that names no seat does not count as standing",
+              excess == 1, excess)
+        # Per-pid assertions, so each signal is isolated (the aggregate excess
+        # above cannot tell which signal owned which process). The two signals
+        # are independent: disabling either must flip only its own process.
+        def owned_pid(pid: int) -> bool:
+            procs_by_pid = {p["pid"]: p for p in gorged_processes(fproc)}
+            ap = _live_agent_pids(fproc)
+            return gorged_owned(procs_by_pid[pid], fproc, ap,
+                                _agent_seat_ids(ap), _owner_dirs(ap))
+
+        check("the reparented orphan (105) is owned by the dir-names-seat signal",
+              owned_pid(105) is True)
+        check("the ancestor-alive dev gorged (106) is owned by the ancestor signal",
+              owned_pid(106) is True)
+        # A genuinely standing instance -- the stray -manabrew on :8081 -- must
+        # stay unowned, or the veto could never fire at all.
+        check("the stray -manabrew is NOT owned", owned_pid(102) is False)
         check("both init-reparented instances are unsafe launches, the supervised one is not",
               unsafe == 2, unsafe)
 
