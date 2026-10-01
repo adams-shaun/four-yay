@@ -346,7 +346,7 @@ func (e *Engine) damageReplacementMatches(r cards.Repl, source state.ObjID, ev e
 func (e *Engine) poseDamageReplacementChoice(ev events.Event, matches []replMatch, p state.PlayerID) {
 	source := e.protectionSource(e.damaging)
 	e.replChoices = append(e.replChoices, replChoice{
-		kind: replChoiceDamage, ev: ev, cands: matches, before: e.triggerBefore, player: p,
+		kind: replChoiceDamage, ev: ev, cands: matches, before: e.retainTriggerBefore(), player: p,
 		damaging: source, combat: e.combatDamaging,
 		lifelink: e.hasKeywordH(source, kwhLifelink), deadly: e.hasKeywordH(source, kwhDeathtouch),
 		toxic: e.ToxicValue(source),

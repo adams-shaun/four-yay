@@ -10,6 +10,10 @@ import (
 // the root decision's objects. Hypothetical marks an engine built by
 // rules.NewHypothetical or CloneHypothetical, stepped with
 // SubmitHypothetical so a chance failure is reported, not panicked.
+//
+// The env switches the engine's decision arena on (rules.Engine.SetDecisionArena):
+// a source may Release a world once the next simulation asks for its own,
+// but must not Release it while that simulation still runs.
 type World struct {
 	Engine       *rules.Engine
 	Observer     *searchprobe.Collector

@@ -2,6 +2,7 @@ package view
 
 import (
 	"strings"
+	"unicode/utf8"
 
 	"github.com/adams-shaun/gorge/state"
 )
@@ -81,10 +82,27 @@ type ArchetypePosterior struct {
 // returns nil when there is nothing to classify, which is the honest answer
 // for a seat whose public zones are still empty.
 func inferArchetypePosterior(zones ...[]CardView) *ArchetypePosterior {
+	return inferArchetypePosteriorZones(nil, zones)
+}
+
+// inferArchetypePosteriorInto is inferArchetypePosterior over a seat's four
+// revealed public zones, written into dst's storage (its struct and its
+// Scores map) when dst is non-nil -- ProjectInto's reuse.
+func inferArchetypePosteriorInto(dst *ArchetypePosterior, battlefield, graveyard, exile, command []CardView) *ArchetypePosterior {
+	zones := [4][]CardView{battlefield, graveyard, exile, command}
+	return inferArchetypePosteriorZones(dst, zones[:])
+}
+
+// archSeenBits bounds the object ids inferArchetypePosteriorZones dedupes
+// with its stack bitset; a larger id falls back to scanning the cards
+// already classified, which answers the same question.
+const archSeenBits = 1 << 13
+
+func inferArchetypePosteriorZones(dst *ArchetypePosterior, zones [][]CardView) *ArchetypePosterior {
 	var acc archetypeAcc
-	seen := map[state.ObjID]bool{}
+	var seen [archSeenBits / 64]uint64
 	count := 0
-	for _, zone := range zones {
+	for zi, zone := range zones {
 		for i := range zone {
 			cv := &zone[i]
 			if cv.FaceDown {
@@ -93,13 +111,10 @@ func inferArchetypePosterior(zones ...[]CardView) *ArchetypePosterior {
 				// blanking as a signal. Skip it.
 				continue
 			}
-			if cv.ID != 0 && seen[cv.ID] {
+			if cv.ID != 0 && archSeen(&seen, zones, zi, i, cv.ID) {
 				// The same object projected twice (a commander listed in both
 				// Commanders and the command zone) is one revealed card.
 				continue
-			}
-			if cv.ID != 0 {
-				seen[cv.ID] = true
 			}
 			count++
 			acc.accumulate(cv)
@@ -108,7 +123,32 @@ func inferArchetypePosterior(zones ...[]CardView) *ArchetypePosterior {
 	if acc.empty() {
 		return nil
 	}
-	return acc.posterior(count)
+	return acc.posterior(dst, count)
+}
+
+// archSeen reports whether id was already classified -- an earlier face-up
+// card in zones (before zones[zi][i]) carried it -- and marks it seen.
+func archSeen(seen *[archSeenBits / 64]uint64, zones [][]CardView, zi, i int, id state.ObjID) bool {
+	if id < archSeenBits {
+		w, bit := id>>6, uint64(1)<<(id&63)
+		if seen[w]&bit != 0 {
+			return true
+		}
+		seen[w] |= bit
+		return false
+	}
+	for z := 0; z <= zi; z++ {
+		end := len(zones[z])
+		if z == zi {
+			end = i
+		}
+		for j := 0; j < end; j++ {
+			if c := &zones[z][j]; !c.FaceDown && c.ID == id {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // archetypeAcc is the accumulated public feature set across a seat's
@@ -150,8 +190,7 @@ func (a *archetypeAcc) empty() bool {
 // accumulate folds one revealed card's public shape into the feature set.
 func (a *archetypeAcc) accumulate(cv *CardView) {
 	a.colorsFrom(cv)
-	types := " " + strings.ToLower(cv.Types) + " "
-	if strings.Contains(types, " creature ") {
+	if hasTypeWord(cv.Types, "creature") {
 		a.creatures++
 		mv := cmcFromManaCost(cv.ManaCost)
 		a.mvSum += mv
@@ -162,10 +201,10 @@ func (a *archetypeAcc) accumulate(cv *CardView) {
 			a.smallBodies++
 		}
 	}
-	if strings.Contains(types, " artifact ") {
+	if hasTypeWord(cv.Types, "artifact") {
 		a.artifacts++
 	}
-	if strings.Contains(types, " land ") {
+	if hasTypeWord(cv.Types, "land") {
 		// A land contributes colour (its production) but never a spell
 		// class; lands are already covered by colorsFrom.
 	}
@@ -182,8 +221,7 @@ func (a *archetypeAcc) accumulate(cv *CardView) {
 		a.tokens++
 	}
 	for _, k := range cv.Keywords {
-		switch strings.ToLower(keywordHead(k)) {
-		case "flying", "menace", "unblockable", "fear", "intimidate", "deathtouch":
+		if isEvasionKeyword(keywordHead(k)) {
 			a.evasion++
 		}
 	}
@@ -228,6 +266,60 @@ func (a *archetypeAcc) colorsFrom(cv *CardView) {
 // cards.KeywordHead without importing it: the view tier already treats
 // keywords as opaque strings (CardView.Keywords), so a local head split
 // keeps that boundary.
+// evasionKeywords are the keyword heads accumulate counts as evasion,
+// compared case-insensitively (lowerIs).
+var evasionKeywords = [...]string{"flying", "menace", "unblockable", "fear", "intimidate", "deathtouch"}
+
+func isEvasionKeyword(head string) bool {
+	for _, w := range evasionKeywords {
+		if lowerIs(head, w) {
+			return true
+		}
+	}
+	return false
+}
+
+// hasTypeWord reports whether word (lower-case ASCII) is one of the
+// space-separated words of the type line types, compared after
+// strings.ToLower -- exactly strings.Contains(" "+strings.ToLower(types)+" ",
+// " "+word+" "), without building either string.
+func hasTypeWord(types, word string) bool {
+	for {
+		tok, rest, more := strings.Cut(types, " ")
+		if lowerIs(tok, word) {
+			return true
+		}
+		if !more {
+			return false
+		}
+		types = rest
+	}
+}
+
+// lowerIs reports strings.ToLower(s) == want for a lower-case ASCII want,
+// allocation-free for an ASCII s (a non-ASCII s takes ToLower itself, since
+// a few non-ASCII runes lower-case into ASCII).
+func lowerIs(s, want string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] >= utf8.RuneSelf {
+			return strings.ToLower(s) == want
+		}
+	}
+	if len(s) != len(want) {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if 'A' <= c && c <= 'Z' {
+			c += 'a' - 'A'
+		}
+		if c != want[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func keywordHead(k string) string {
 	if i := strings.IndexByte(k, ':'); i >= 0 {
 		return k[:i]
@@ -265,7 +357,7 @@ func cmcFromManaCost(cost string) int {
 }
 
 // posterior normalises the accumulated features to a probability vector.
-func (a *archetypeAcc) posterior(seen int) *ArchetypePosterior {
+func (a *archetypeAcc) posterior(dst *ArchetypePosterior, seen int) *ArchetypePosterior {
 	var s [archKindCount]float64
 	if a.colors[3] { // R
 		s[ArchAggro] += 1.0
@@ -343,11 +435,19 @@ func (a *archetypeAcc) posterior(seen int) *ArchetypePosterior {
 		// asserting a uniform posterior the evidence does not support.
 		return nil
 	}
-	p := &ArchetypePosterior{
-		Known:  true,
-		Seen:   seen,
-		Scores: make(map[string]float64, archKindCount),
+	// dst's struct and map are reused when given (ProjectInto); every
+	// field is rewritten and every key of the map is set below.
+	p := dst
+	if p == nil {
+		p = new(ArchetypePosterior)
 	}
+	scores := p.Scores
+	if scores == nil {
+		scores = make(map[string]float64, archKindCount)
+	} else {
+		clear(scores)
+	}
+	*p = ArchetypePosterior{Known: true, Seen: seen, Scores: scores}
 	for i := 0; i < archKindCount; i++ {
 		v := s[i] / sum
 		p.Scores[archetypeNames[i]] = v

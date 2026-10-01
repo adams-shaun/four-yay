@@ -181,7 +181,15 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 		}
 		b.Stack = append(b.Stack, StackEntry{ID: id, Controller: o.Controller, IsSpell: o.Ability == nil, CMC: cmc, ManaCost: manaCost})
 	}
-	if manifests, ok := ch.(interface {
+	// The manifest is read, never written, by everything a Board reaches,
+	// so the engine's shared read-only pointer (rules.Engine.OwnDeckShared)
+	// serves it without the per-decision copy OwnDeck makes; a Chars that
+	// only offers OwnDeck still gets its copy.
+	if shared, ok := ch.(interface {
+		OwnDeckShared(state.PlayerID) *deck.Manifest
+	}); ok {
+		b.OwnDeck = shared.OwnDeckShared(me)
+	} else if manifests, ok := ch.(interface {
 		OwnDeck(state.PlayerID) *deck.Manifest
 	}); ok {
 		b.OwnDeck = manifests.OwnDeck(me)

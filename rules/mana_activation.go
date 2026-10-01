@@ -515,7 +515,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 	// only for its controller, so for any other object the block would add
 	// nothing the loop keeps: it is skipped, with its layer read.
 	if !faceDown && len(e.landTypeWords) > 0 && o.Zone == state.ZBattlefield && e.controllerOf(id) == p &&
-		e.activeSummaryOf(e.active()).hasLType {
+		manaWalkHasLType(e, statics) {
 		for _, typ := range e.derivedTypesOf(id) {
 			color, ok := cards.IntrinsicManaColor(typ)
 			if !ok || manaAbilitiesProduce(manaAbilities, color) {
@@ -683,8 +683,15 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 		return len(effects.ManaReflectedCandidates(e, &c, ma)) > 0
 	}
 	// A ManaReflected ability may sit on the top face or any under-card; each
-	// resolves its own face's table.
-	for i := 0; i < o.PileFaceCount(); i++ {
+	// resolves its own face's table. A single face the walk facts show
+	// carries none (walk_face_facts.go) has nothing for the scan to find.
+	pileFaces := o.PileFaceCount()
+	if pileFaces == 1 && !walkSkipVerify {
+		if ff := e.walkFaceFactsOf(f); ff != nil && !ff.manaReflected {
+			pileFaces = 0
+		}
+	}
+	for i := 0; i < pileFaces; i++ {
 		pf, ok := o.PileFaceAt(i)
 		if !ok {
 			continue
@@ -782,6 +789,11 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 	// abilities of the land cards in all graveyards -- was a mana source for
 	// the non-controller's offer, payment window and planner (cardfuzz
 	// explore seed 11656500164625753431: planfb source_changed).
+	if statics != nil && statics.board.ready && !statics.board.hasGrants && !walkSkipVerify {
+		// grantedAbilities is nil on a board without a grant
+		// (activeSummary.hasGrants), read once per walk.
+		return out
+	}
 	for _, ga := range e.grantedAbilities(p, id) {
 		if printed[ga.sa.Line] {
 			continue
@@ -3274,4 +3286,18 @@ func (e *Engine) payManaSourceParts(p state.PlayerID, source state.ObjID, cost C
 			e.emit(events.Event{Kind: events.Exert, Obj: source, Player: p})
 		}
 	}
+}
+
+// manaWalkHasLType is activeSummaryOf(active()).hasLType, answered from the
+// offer walk's once-per-walk board facts when the caller is that walk.
+func manaWalkHasLType(e *Engine, statics *actionStaticSource) bool {
+	if statics != nil && statics.board.ready {
+		if walkSkipVerify {
+			if fresh := e.activeSummaryOf(e.active()).hasLType; fresh != statics.board.hasLType {
+				panic(fmt.Sprintf("rules: walk board hasLType %v disagrees with a fresh read %v", statics.board.hasLType, fresh))
+			}
+		}
+		return statics.board.hasLType
+	}
+	return e.activeSummaryOf(e.active()).hasLType
 }

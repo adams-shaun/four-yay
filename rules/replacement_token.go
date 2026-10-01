@@ -234,7 +234,7 @@ func (e *Engine) driveTokenReplacements(ev events.Event, matches []replMatch, pl
 					}
 				}
 				e.replChoices = append(e.replChoices, replChoice{kind: replChoiceToken,
-					ev: ev, cands: matches[i:], applicable: applicable, before: e.triggerBefore,
+					ev: ev, cands: matches[i:], applicable: applicable, before: e.retainTriggerBefore(),
 					tokenPlan: plan, tokenNext: i, player: p, inResolution: e.resolvingObj != 0 || e.answerInResolution})
 				if e.pending == nil {
 					e.askReplacementChoice(p)

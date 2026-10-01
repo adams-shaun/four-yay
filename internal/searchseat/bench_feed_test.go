@@ -8,7 +8,6 @@ package searchseat_test
 // measured; the second is the delegation contract.
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"reflect"
@@ -137,8 +136,8 @@ func TestBenchDriverFeedsTheTeacherLoop(t *testing.T) {
 				t.Fatalf("frame %d event %d differs from the teacher loop's", i, j)
 			}
 		}
-		if !bytes.Equal(of.Board, gf.Board) {
-			t.Fatalf("frame %d: board bytes differ from the teacher loop's", i)
+		if !reflect.DeepEqual(of.Board, gf.Board) {
+			t.Fatalf("frame %d: board differs from the teacher loop's", i)
 		}
 	}
 	if !reflect.DeepEqual(got.Answers, h.Answers) {

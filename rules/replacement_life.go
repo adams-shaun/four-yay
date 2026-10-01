@@ -90,7 +90,7 @@ func (e *Engine) poseLifeReplacementChoice(ev events.Event, cands, applied []rep
 	if int(p) >= len(e.G.Players) || e.G.Players[p].Lost {
 		return false
 	}
-	rc := replChoice{ev: ev, cands: cands, before: e.triggerBefore, life: true,
+	rc := replChoice{ev: ev, cands: cands, before: e.retainTriggerBefore(), life: true,
 		exchange:     e.lifeExchange,
 		appliedRepls: applied, damaging: e.damaging, combatDamaging: e.combatDamaging,
 		dmgSrcOverride: e.dmgSrcOverride, inResolution: e.resolvingObj != 0 || e.answerInResolution}

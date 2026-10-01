@@ -39,6 +39,16 @@ type Spare struct {
 	// regrowth; the watcher reads only their length.
 	loopSigs   []uint64
 	loopRecent []events.Event
+	// snapObjs are the engine's recycled trigger-window snapshot arenas
+	// (trigger_snapshot_pool.go), cleared when they were pooled; the next
+	// engine's first look-back windows reuse them.
+	snapObjs [][]state.Object
+	// arena is a spent engine's cleared simulation arena (decision_arena.go),
+	// adopted (switched off) by the next engine.
+	arena *decisionArena
+	// lookBack is the spent engine's zeroed look-back observer struct
+	// (trigger_snapshot_pool.go), reused by the next engine.
+	lookBack *Engine
 }
 
 // Release returns e's log and object-arena arrays as a Spare for the next
@@ -75,7 +85,13 @@ func (e *Engine) Release() Spare {
 		memoStack:  e.derivedMemoStack.release(),
 		loopSigs:   e.loop.sigs[:0],
 		loopRecent: e.loop.recent[:cap(e.loop.recent)],
+		snapObjs:   e.releaseSnapshotObjs(),
 	}
+	sp.arena = e.releaseArena()
+	if e.lookBackOwner == e && !e.lookBackBusy {
+		sp.lookBack = e.lookBack
+	}
+	e.lookBack, e.lookBackOwner = nil, nil
 	clear(sp.loopRecent)
 	sp.loopRecent = sp.loopRecent[:0]
 	e.loop.sigs, e.loop.recent = nil, nil
@@ -183,6 +199,8 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 	// the intent array waits for the first Submit (the log's Intents stays
 	// nil until an intent exists, as it always has).
 	e.derivedMemo, e.derivedMemoStack = spare.memo, spare.memoStack
+	e.adoptSnapshotObjs(spare.snapObjs)
+	e.adoptArena(spare.arena)
 	if cap(spare.intents) > 0 {
 		e.intentBuf = spare.intents[:0]
 	}

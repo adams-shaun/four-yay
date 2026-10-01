@@ -23,6 +23,9 @@ type compiledText struct {
 	// saFacts holds every configured AB$ ability's mana-walk gate facts
 	// (mana_safacts.go), keyed by the ability's pointer.
 	saFacts map[*cards.SA]*manaSAFacts
+	// faces holds every configured face's offer-walk facts
+	// (walk_face_facts.go).
+	faces walkFaceTable
 }
 
 // compiledCost is one configured cost text's frozen parse plus the facts
@@ -313,6 +316,7 @@ func buildCompiledText(cfg Config) *compiledText {
 	costTexts := make(map[string]struct{})
 	seen := make(map[*cards.SA]struct{})
 	cardsSeen := make(map[*cards.Card]struct{})
+	var faces []*cards.Face
 	// Each card's contribution is compiled once (cardTextOf); a config is
 	// the union of its cards', so repeat configurations -- and the token
 	// scripts every configuration shares -- cost a merge, not a re-walk of
@@ -325,6 +329,7 @@ func buildCompiledText(cfg Config) *compiledText {
 			return
 		}
 		cardsSeen[c] = struct{}{}
+		faces = append(faces, c.Faces...)
 		ct := cardTextOf(c)
 		for _, text := range ct.texts {
 			predicateTexts[text] = struct{}{}
@@ -380,7 +385,8 @@ func buildCompiledText(cfg Config) *compiledText {
 			saFacts[sa] = buildManaSAFacts(sa, costOf)
 		}
 	}
-	return &compiledText{predicates: effects.CompilePredicatePrograms(preds), costs: costs, saFacts: saFacts}
+	return &compiledText{predicates: effects.CompilePredicatePrograms(preds), costs: costs, saFacts: saFacts,
+		faces: buildWalkFaceTable(faces)}
 }
 
 func freezeCost(c Cost) Cost {

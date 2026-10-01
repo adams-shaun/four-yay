@@ -106,14 +106,25 @@ func TestFeedReproducesTheTeacherLoop(t *testing.T) {
 				t.Fatalf("frame %d event %d: feed %+v, teacher loop %+v", i, j, gf.Events[j], of.Events[j])
 			}
 		}
-		if !bytes.Equal(of.Board, gf.Board) {
-			t.Fatalf("frame %d: board bytes differ from the teacher loop's", i)
+		if !reflect.DeepEqual(of.Board, gf.Board) {
+			t.Fatalf("frame %d: board differs from the teacher loop's", i)
 		}
 	}
 	if !reflect.DeepEqual(got.Answers, oracle.Answers) {
 		t.Fatalf("feed answers differ from the teacher loop's recorded answers")
 	}
 	// And the whole serialized history -- what Sample digests for its seeds.
+	dg, err := searchprobe.HistoryDigest(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	do, err := searchprobe.HistoryDigest(oracle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dg != do {
+		t.Fatalf("history digest differs from the teacher loop's")
+	}
 	ag, _ := json.Marshal(got)
 	ao, _ := json.Marshal(oracle)
 	if !bytes.Equal(ag, ao) {

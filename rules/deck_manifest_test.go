@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/deck"
 	"github.com/adams-shaun/gorge/state"
@@ -70,6 +71,46 @@ func TestEngineOwnDeckIsDetachedGenesisData(t *testing.T) {
 	// An out-of-range seat has no manifest.
 	if e.OwnDeck(state.PlayerID(255)) != nil {
 		t.Fatal("out-of-range seat received a manifest")
+	}
+	// The shared read path is the same manifest without the copy, and a
+	// clone shares (never copies) the immutable genesis storage.
+	shared := e.OwnDeckShared(0)
+	if shared == nil || !reflect.DeepEqual(*shared, *e.OwnDeck(0)) {
+		t.Fatalf("shared manifest = %#v, want %#v", shared, e.OwnDeck(0))
+	}
+	if c := e.Clone(); c.OwnDeckShared(0) != shared || !reflect.DeepEqual(c.OwnDeck(0), e.OwnDeck(0)) {
+		t.Fatal("a clone does not share the immutable genesis manifest")
+	}
+	if e.OwnDeckShared(state.PlayerID(255)) != nil {
+		t.Fatal("out-of-range seat received a shared manifest")
+	}
+	// A published copy taken from a clone is still detached from the storage
+	// every clone shares.
+	cc := e.Clone().OwnDeck(0)
+	cc.Main[0].Count = 99
+	if shared.Main[0].Count == 99 || e.OwnDeck(0).Main[0].Count == 99 {
+		t.Fatal("a clone's published manifest aliases the shared genesis storage")
+	}
+}
+
+// TestBoardOwnDeckIsTheSharedManifest pins the per-decision read path: the
+// board the bot and the search build at every decision reads the engine's
+// shared manifest (no copy), equal to the published one.
+func TestBoardOwnDeckIsTheSharedManifest(t *testing.T) {
+	c, diags := cards.ParseBytes("manifest.txt", []byte("Name:Board Manifest\nTypes:Creature\nPT:1/1\n"))
+	if len(diags) != 0 {
+		t.Fatal(diags)
+	}
+	c.Link()
+	e := New(Config{Names: []string{"a", "b"}, Decks: [][]*cards.Card{{c, c}, {c}}})
+	for p := state.PlayerID(0); p < 2; p++ {
+		b := botpolicy.BoardFromGame(e.G, e, p)
+		if b.OwnDeck != e.OwnDeckShared(p) {
+			t.Fatalf("seat %d: board manifest is not the shared storage", p)
+		}
+		if !reflect.DeepEqual(*b.OwnDeck, *e.OwnDeck(p)) {
+			t.Fatalf("seat %d: board manifest = %#v, want %#v", p, b.OwnDeck, e.OwnDeck(p))
+		}
 	}
 }
 
