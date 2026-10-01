@@ -133,6 +133,9 @@
 //	triggerEventMasks, triggerObject-  immutable-syntax lookup caches keyed by face pointer
 //	Masks, trigZones/Ep, trigFaceZones,
 //	phaseSpecs, faceScans
+//	trigFaceKinds, trigZoneGen,        trigger-walk signature cache, summary generation,
+//	trigPlan, trigWalkUnion/OK,        board plan, last walk's union, granted-trigger proof
+//	trigGrant, trigZeroNoopKinds       and the zero-interest memo's kind set
 //	activeSum                          active()'s per-build digest keyed by activeBuildSeq
 //	charsSum                           the printed fast path's digest, keyed the same way
 //	replZones/Ep                       replacement-walk zone summaries, validated on every use

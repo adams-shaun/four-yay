@@ -132,7 +132,17 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "trigZones"}:          true,
 	{"rules.Engine", "trigZonesEp"}:        true,
 	{"rules.Engine", "trigFaceZones"}:      true,
-	{"rules.Engine", "phaseSpecs"}:         true,
+	// The exact-signature cache, summary generation, whole-board plan and
+	// last walk's signature union (trigger_kinds.go, trigger_plan.go), and
+	// the granted-trigger proof (trigger_grantfree.go, which Clone copies
+	// with its registry header reset): scratch validated on every use.
+	{"rules.Engine", "trigFaceKinds"}:   true,
+	{"rules.Engine", "trigZoneGen"}:     true,
+	{"rules.Engine", "trigPlan"}:        true,
+	{"rules.Engine", "trigWalkUnion"}:   true,
+	{"rules.Engine", "trigWalkUnionOK"}: true,
+	{"rules.Engine", "trigGrant"}:       true,
+	{"rules.Engine", "phaseSpecs"}:      true,
 	// The per-face text-scan memo (face_scan_memo.go) and active()'s
 	// per-build digest (active_summary.go): pure caches, Clone copies none.
 	{"rules.Engine", "faceScans"}: true,
@@ -213,9 +223,10 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "renameDSeq"}: true,
 	// checkFaceTriggers' zero-interest no-op memo key (log length, arena
 	// size, registry version); Clone leaves it zero.
-	{"rules.Engine", "trigZeroNoopEp"}:   true,
-	{"rules.Engine", "trigZeroNoopObjs"}: true,
-	{"rules.Engine", "trigZeroNoopVer"}:  true,
+	{"rules.Engine", "trigZeroNoopEp"}:    true,
+	{"rules.Engine", "trigZeroNoopObjs"}:  true,
+	{"rules.Engine", "trigZeroNoopVer"}:   true,
+	{"rules.Engine", "trigZeroNoopKinds"}: true,
 	// Recycled storage owned by one engine: the trigger-window snapshot
 	// pool (trigger_snapshot_pool.go), the reusable look-back observer
 	// Engine and its owner/busy guard (checkTriggers), and the posed-decision

@@ -381,7 +381,9 @@ func (w *livelockWatcher) observeFrom(ev events.Event, damageSource state.ObjID,
 		w.recent = append(w.recent, ev)
 	} else {
 		w.recent[w.recentHead] = ev
-		w.recentHead = (w.recentHead + 1) % w.guard.MaxPeriod
+		if w.recentHead++; w.recentHead == w.guard.MaxPeriod {
+			w.recentHead = 0
+		}
 	}
 
 	// Exact-period detector. While a run is active, each event that
@@ -419,7 +421,9 @@ func (w *livelockWatcher) pushSig(sig uint64) {
 	} else {
 		w.sigs[w.sigHead] = sig
 		w.prevPos[w.sigHead] = link
-		w.sigHead = (w.sigHead + 1) % sigCap
+		if w.sigHead++; w.sigHead == sigCap {
+			w.sigHead = 0
+		}
 	}
 }
 
@@ -482,7 +486,27 @@ func (w *livelockWatcher) detectIndexed() int {
 		return 0
 	}
 	t := w.total - 1 // the newest position
-	phys := func(pos uint32) int { return int(pos % uint32(n)) }
+	// pos % n without a division on the two common shapes: before the ring
+	// wraps every position is its own slot, and the default window (2 *
+	// MaxPeriod = 256) is a power of two.
+	var mask uint32
+	mode := 0
+	if w.total > uint32(n) {
+		if n&(n-1) == 0 {
+			mode, mask = 1, uint32(n-1)
+		} else {
+			mode = 2
+		}
+	}
+	phys := func(pos uint32) int {
+		switch mode {
+		case 0:
+			return int(pos)
+		case 1:
+			return int(pos & mask)
+		}
+		return int(pos % uint32(n))
+	}
 	last := w.sigs[phys(t)]
 	prev := w.sigs[phys(t-1)]
 	for link := w.prevPos[phys(t)]; link != 0; {

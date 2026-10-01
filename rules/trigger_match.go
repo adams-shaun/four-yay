@@ -883,14 +883,24 @@ func (e *Engine) controllerOf(id state.ObjID) state.PlayerID {
 }
 
 func (e *Engine) snapshotTriggerBoard() *triggerSnapshot {
-	return &triggerSnapshot{game: e.G.CloneInto(e.takeSnapshotObjs()), continuous: append([]ContinuousEffect(nil), e.continuous...)}
+	// A board no look-back walk can act on needs no copy (lookBackNoopBoard):
+	// the window's departures take the shared empty snapshot, whose look-back
+	// checkTriggers skips. Verify mode copies the board anyway and runs the
+	// walk, which must then queue nothing.
+	noop := e.lookBackNoopBoard()
+	if noop && !trigZoneSkipVerify {
+		return noLookBackSnapshot
+	}
+	return &triggerSnapshot{game: e.G.CloneInto(e.takeSnapshotObjs()), continuous: append([]ContinuousEffect(nil), e.continuous...), noLookBack: noop}
 }
 
 func (e *Engine) checkTriggers(ev events.Event, lki *state.Object,
 	lkiPower, lkiToughness int32, lkiPTValid bool) {
 	batch := e.triggerBefore != nil && ev.Kind == events.MoveZone &&
 		ev.From == state.ZBattlefield && ev.To != state.ZBattlefield
-	if batch {
+	noop := batch && e.lookBackProvenNoop()
+	if batch && (!noop || trigZoneSkipVerify) {
+		np := len(e.pendingTriggers)
 		// Only leaves-the-battlefield triggers look back. Always and other
 		// event modes continue to read the live board, not an obsolete state.
 		observer := e.lookBackObserver()
@@ -929,6 +939,9 @@ func (e *Engine) checkTriggers(ev events.Event, lki *state.Object,
 		// panic skips the release and every later call allocates, exactly as
 		// before the reuse.
 		e.releaseLookBackObserver(observer)
+		if noop && len(e.pendingTriggers) != np {
+			panic(fmt.Sprintf("rules: look-back walk on a board proven inert queued %d trigger(s) for a %v event", len(e.pendingTriggers)-np, ev.Kind))
+		}
 	}
 	e.checkFaceTriggers(e, ev, lki, lkiPower, lkiToughness, lkiPTValid, batch, false)
 	if ev.Kind == events.Damage {
@@ -1186,7 +1199,14 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state
 	// checkGrantedStaticTriggersUsing), so the per-object walk never runs an
 	// Affected$ spec match for a grant that cannot fire on this event.
 	var grantedBuf [8]*ContinuousEffect
-	grantedStatics := grantedTriggerStaticsFor(observer.active(), ev.Kind, grantedBuf[:0])
+	var grantedStatics []*ContinuousEffect
+	if e.trigGrantsPossible() {
+		grantedStatics = grantedTriggerStaticsFor(observer.active(), ev.Kind, grantedBuf[:0])
+	} else if trigZoneSkipVerify {
+		if g := grantedTriggerStaticsFor(observer.active(), ev.Kind, grantedBuf[:0]); len(g) != 0 {
+			panic(fmt.Sprintf("rules: trigGrantFree engine has %d active trigger grant(s) observing %v", len(g), ev.Kind))
+		}
+	}
 	// The event's compiled-interest test, hoisted out of the per-object walk:
 	// compiledTriggerInterestAllows(interests, ev.Kind) is exactly
 	// evAll || interests&evMask != 0 (see objectFaceMayTriggerHoisted).
@@ -1287,6 +1307,12 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state
 			// Ordinary (unmutated) objects keep the allocation-free [2]array
 			// path above.
 			walk = triggerFacesWithMerged(o, faces[:n])
+		} else if !o.Unlocked && !e.faceTrigSig(f).admits(&ev, observer.G.Step) {
+			// The face's exact kind mask (trigger_kinds.go) rules out every
+			// printed line for this event, so the face loop below is a no-op;
+			// the granted walks after it still run, exactly as on this path
+			// before.
+			walk = nil
 		}
 		for _, fc := range walk {
 			if o.Unlocked && !e.objectFaceMayTrigger(id, fc.faceIdx, fc.face, ev.Kind) {
@@ -1857,23 +1883,25 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state
 		e.checkGrantedAtEOTTriggers(observer, id, o, ev, objLKI)
 	}
 	// The live walk skips a zone none of whose objects can act on any event
-	// (rules/trigger_zoneskip.go); the look-back observer and any event a
-	// static-granted trigger observes walk everything. A StepChange still
-	// walks the whole battlefield: a cumulative-upkeep keyword granted by a
-	// ContinuousEffect has no face trigger for the hot test to see
-	// (checkGrantedCumulativeUpkeepTriggers), so the battlefield summary must
-	// never prune it on a step change. The hidden-ish zones carry no such
-	// grant (cumulative upkeep functions only from the battlefield), so they
-	// keep their skip.
+	// and, within a zone, every object whose exact signature cannot admit
+	// this event (rules/trigger_zoneskip.go, trigger_kinds.go); the
+	// look-back observer visits only look-back-shaped sources and referents
+	// (objectLookBackHot), and any event a static-granted trigger observes
+	// walks everything. A StepChange into an upkeep or end step also visits
+	// every battlefield object a synthesized step trigger may reach
+	// (stepGrantMay).
 	skip := observer == e && len(grantedStatics) == 0
-	zero := skip && zeroInterestEvent(ev.Kind, evAll, evMask)
-	// The zero-interest no-op memo (trigZeroNoop): the last zero-interest walk
-	// visited no object at all, and only layer-inert events -- which write no
-	// object, zone list or registry -- have been logged since, so this walk
-	// would visit nothing either. Verify mode walks anyway and panics if the
-	// walk visits anything.
-	noop := zero && e.trigZeroNoopEp > 0 && e.trigZeroNoopObjs == len(e.G.Objs) &&
+	// The memo below is per kind and only for an event with no referent: the
+	// walk visits referents in place and narrows the rest by kind.
+	zero := skip && ev.Kind < 128 && zeroInterestEvent(ev.Kind, evAll, evMask) && ev.Obj == 0 && len(ev.IDs) == 0 && len(ev.Pairs) == 0
+	// The zero-interest no-op memo (trigZeroNoop): a zero-interest walk of
+	// this kind visited no object at all, and only layer-inert events --
+	// which write no object, zone list or registry -- have been logged since,
+	// so this walk would visit nothing either. Verify mode walks anyway and
+	// panics if the walk visits anything.
+	memo := zero && e.trigZeroNoopEp > 0 && e.trigZeroNoopObjs == len(e.G.Objs) &&
 		e.trigZeroNoopVer == e.continuousVersion && e.layerInertSince(e.trigZeroNoopEp)
+	noop := memo && e.trigZeroNoopKinds.has(ev.Kind)
 	if noop && !trigZoneSkipVerify {
 		return
 	}
@@ -1882,11 +1910,49 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev events.Event, lki *state
 		verify = e.trigSkipVerifier(ev, visit, func() int { return len(phaseNotes) })
 	}
 	visited := 0
-	observer.forEachTriggerObject(ev, skip, zero, func(id state.ObjID) { visited++; visit(id) }, verify)
+	if observer != e && leaving && len(grantedStatics) == 0 {
+		// The leaves-the-battlefield look-back walk: of the pre-departure
+		// board only the referents and the objects with a look-back-shaped
+		// printed line can act (objectLookBackHot); granted walks are
+		// referent-gated, and a static-granted trigger observing the event
+		// disables the filter. Verify mode visits the rest and panics if any
+		// of them queued a trigger.
+		observer.forEachObject(func(id state.ObjID) {
+			if trigMustVisit(ev, id) || e.objectLookBackHot(observer.G.Obj(id)) {
+				visited++
+				visit(id)
+				return
+			}
+			if trigZoneSkipVerify {
+				np := len(e.pendingTriggers)
+				visit(id)
+				if len(e.pendingTriggers) != np {
+					panic(fmt.Sprintf("rules: look-back trigger walk skipped obj %d that acts on a %v event", id, ev.Kind))
+				}
+			}
+		})
+	} else {
+		observer.forEachTriggerObject(ev, skip, skip, func(id state.ObjID) { visited++; visit(id) }, verify)
+	}
 	if noop && visited != 0 {
 		panic(fmt.Sprintf("rules: zero-interest trigger walk no-op memo at log %d skipped a walk that visits %d object(s)", len(e.L.Events), visited))
 	}
 	if zero && visited == 0 {
+		// A still-valid memo's kinds stay valid at this later head (only
+		// layer-inert events since, and this walk did nothing), so the kind
+		// joins them; otherwise the memo restarts with this kind alone.
+		if !memo {
+			e.trigZeroNoopKinds = trigKinds{}
+		}
+		e.trigZeroNoopKinds[ev.Kind>>6] |= 1 << (ev.Kind & 63)
+		if e.trigWalkUnionOK {
+			// No hot object anywhere admits a kind outside the board's
+			// union, so a referent-free walk of that kind visits nothing
+			// too while the memo holds.
+			u := e.trigWalkUnion.kinds
+			e.trigZeroNoopKinds[0] |= ^u[0]
+			e.trigZeroNoopKinds[1] |= ^u[1]
+		}
 		e.trigZeroNoopEp, e.trigZeroNoopObjs, e.trigZeroNoopVer = len(e.L.Events), len(e.G.Objs), e.continuousVersion
 	} else if observer == e {
 		e.trigZeroNoopEp = 0

@@ -169,7 +169,13 @@ func (e *Engine) replZoneTouch(id state.ObjID) {
 				mask = objectReplMask(o)
 			}
 		}
-		if hot != slices.Contains(z.hotIDs, id) || mask&^z.mask != 0 {
+		inHot := slices.Contains(z.hotIDs, id)
+		if !inHot && !slices.Contains(z.ids, id) {
+			// Another seat's list: this summary does not describe the
+			// object (a list change is caught by the list comparison).
+			continue
+		}
+		if hot != inHot || mask&^z.mask != 0 {
 			z.valid = false
 		}
 	}
@@ -191,6 +197,11 @@ func (e *Engine) replZonesCatchUp() {
 	}
 	for i := e.replZonesEp; i < n; i++ {
 		ev := &e.L.Events[i]
+		if touchFreeKinds.has(ev.Kind) {
+			// No in-place write to a summarized field (touchFreeKinds); verify
+			// mode recomputes every summary on use (verifyReplZoneSkip).
+			continue
+		}
 		e.replZoneTouch(ev.Obj)
 		for _, id := range ev.IDs {
 			e.replZoneTouch(id)

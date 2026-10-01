@@ -147,7 +147,7 @@ func (e *Engine) Release() Spare {
 	sp.probe, e.typesProbe, e.typesProbeReady = e.typesProbe[:0], nil, false
 	for i := range e.trigZones {
 		z := &e.trigZones[i]
-		*z = trigZoneSummary{ids: z.ids[:0], hotIDs: z.hotIDs[:0], anyIDs: z.anyIDs[:0]}
+		z.resetSummary()
 	}
 	for i := range e.replZones {
 		z := &e.replZones[i]
@@ -304,6 +304,7 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 	e.G.Tokens = cfg.Tokens
 	e.setNameInPool = poolHasSetNameStatic(cfg)
 	e.layer4InPool = poolHasLayer4Static(cfg)
+	e.trigGrant.free = true // held per object as they appear (trigger_grantfree.go)
 	e.G.NameUniverse = cfg.NameUniverse
 	e.G.NameUniverseNames = append([]string(nil), cfg.NameUniverseNames...)
 	if len(e.G.NameUniverseNames) == 0 && len(cfg.NameUniverse) > 0 {

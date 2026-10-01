@@ -152,3 +152,18 @@ func (e *Engine) releaseLookBackObserver(o *Engine) {
 		e.lookBackBusy = false
 	}
 }
+
+// noLookBackSnapshot is the window snapshot of a board no look-back walk can
+// act on (lookBackNoopBoard): it copies nothing, and checkTriggers skips the
+// look-back walk for it. It is shared by every engine and never written:
+// retained is already set (retainTriggerBefore writes only a false flag) and
+// closeTriggerWindow returns before touching a retained or arena-less
+// snapshot.
+var noLookBackSnapshot = &triggerSnapshot{retained: true, noLookBack: true}
+
+// lookBackProvenNoop reports whether the current window's board was proven
+// inert for the look-back walk when the window opened.
+func (e *Engine) lookBackProvenNoop() bool {
+	s := e.triggerBefore
+	return s != nil && s.noLookBack
+}

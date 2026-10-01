@@ -134,6 +134,12 @@ func (e *Engine) AddContinuous(ce ContinuousEffect) {
 		// the controller's next actual turn.
 	}
 	e.continuous = append(e.continuous, ce)
+	if ce.AddTrigger != nil || len(ce.GainedTriggerFaces) > 0 {
+		e.trigGrant.free = false // trigger_grantfree.go
+	}
+	if ce.ReplacementEvent != "" {
+		e.trigGrant.replSeen = true // trigger_grantfree.go
+	}
 	// A REGISTERED layer-3 rename (an Effect-delivered SetName$, which has no
 	// printed static for the genesis pool probe to find) arms the rename
 	// table for the rest of the match; see rules/setname.go.
