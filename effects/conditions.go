@@ -562,7 +562,23 @@ func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 		// chose nothing), not the fail-open an absent binding gets elsewhere:
 		// a Target-bearing ability always has a definite target list, and a
 		// gate over an empty list genuinely denies.
-		group = targetedGroup(c)
+		//
+		// ORDERING (task agent-20261001T034046Z-5fea0e4d): this gate runs in
+		// Resolve's loop BEFORE chosenTargetsFor poses the SA's own
+		// ValidTgts$ ask. A gate whose SA declares its own targets, whose ask
+		// has NOT been covered yet, and whose group is therefore empty is NOT
+		// the resolved zero above -- it is UNRESOLVED, so Resolve dispatches
+		// the sub and chosenTargetsFor poses the ask inside that dispatch. On
+		// the answered re-entry the recorded answer is visible
+		// (targetedGateGroup reads Ctx.TargetsPick and Ctx.SubPreAsk), the
+		// gate resolves for real, and the ask is never re-posed. Guard Dogs'
+		// DBPrevent is the one measured carrier (a DB sub of an ACTIVATED
+		// ability, reached by no placement or charm ask).
+		group = targetedGateGroup(c, sa)
+		if len(group) == 0 && strings.TrimSpace(sa.Params["ValidTgts"]) != "" &&
+			!targetedAskCovered(c, sa) {
+			return false, false
+		}
 	}
 	if defined == "Discarded" {
 		// ConditionDefined$ Discarded (task mordorparams1: Moria Scavenger's
@@ -1018,6 +1034,53 @@ func targetedGroup(c *Ctx) []state.Target {
 		return c.PickedTargets
 	}
 	return c.Targets
+}
+
+// targetedGateGroup is the ConditionDefined$ Targeted gate's effective group.
+// It is targetedGroup PLUS the two answer channels that are populated at GATE
+// time but consumed only later by chosenTargetsFor: a cast-time pre-ask's
+// recorded answer (Ctx.SubPreAsk, keyed by the SA's Line — the same matching
+// convention chosenTargetsFor's OfferedSA check uses) and a mid-resolution
+// pre-ask's recorded answer (Ctx.TargetsPick when Ctx.TargetsPickDone).
+// Resolve evaluates this gate BEFORE chosenTargetsFor, so without reading
+// these the answered re-entry of a sub that carries its own ValidTgts$ would
+// still show the empty group and re-resolve as the ordering bug's resolved
+// zero. An absent answer and an answered-empty one are distinguished by
+// targetedAskCovered, not by this slice's length.
+func targetedGateGroup(c *Ctx, sa *cards.SA) []state.Target {
+	if c.PickedTargets != nil {
+		return c.PickedTargets
+	}
+	if c.SubPreAsk != nil && sa != nil {
+		if ts, ok := c.SubPreAsk[sa.Line]; ok {
+			return ts
+		}
+	}
+	if c.TargetsPickDone {
+		return c.TargetsPick
+	}
+	return c.Targets
+}
+
+// targetedAskCovered reports whether this SA's own ValidTgts$ ask has already
+// been offered or answered, over exactly the channels chosenTargetsFor
+// consults: an in-flight pre-ask answer (Ctx.PickedTargets), the cast-time
+// pre-ask record (Ctx.SubPreAsk, by Line), a mid-resolution pre-ask answer
+// (Ctx.TargetsPickDone), and the placement/announcement SA marker
+// (Ctx.OfferedSA, by Line — ResolveSVar parses fresh on every call, so pointer
+// identity never holds). The ConditionDefined$ Targeted gate uses it to tell a
+// genuinely empty answered group (a real zero) from the pre-ask state that
+// must stay UNRESOLVED so the sub runs and poses its own target ask.
+func targetedAskCovered(c *Ctx, sa *cards.SA) bool {
+	if c.PickedTargets != nil || c.TargetsPickDone {
+		return true
+	}
+	if c.SubPreAsk != nil && sa != nil {
+		if _, ok := c.SubPreAsk[sa.Line]; ok {
+			return true
+		}
+	}
+	return c.OfferedSA != nil && sa != nil && sa.Line == c.OfferedSA.Line
 }
 
 // evalConditionCount turns a counted group into (met, resolved) from the

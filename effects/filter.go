@@ -794,21 +794,23 @@ func spellIsTargetingMatchesPtr(g *state.Game, spec string, o *state.Object, sc 
 }
 
 // sharesColorBareReferent reports whether a `SharesColorWith ` argument is
-// the one bare one-word referent the token grammar binds. It is the one
+// one of the bare one-word referents the token grammar binds. It is the one
 // recognition point positiveRecognised (the census) and specialPositiveToken
 // (the compiled dispatch) share, so a bare referent is either recognised by
-// both or unknown to both. ChosenCard (Guard Dogs' referent) is deliberately
-// NOT bound: its carrier's ConditionDefined$ Targeted gate is evaluated by
-// effects.conditionMet BEFORE the DB sub's own mid-resolution target ask is
-// posed, so on an empty group the recognised predicate resolves the gate
-// false and the whole sub -- target ask included -- is skipped. Measured
-// driving the real card (task brief's stop rule): at main the unknown
-// predicate failed the gate open and the ask was posed; recognising
-// ChosenCard half-wires the card, so it stays unrecognised until the
-// sub-target-before-gate ordering lands (agent-20260920T104356Z-c898602e's
-// alltargeted1 scope).
+// both or unknown to both. Two referents are bound: TriggeredProduced
+// (C.A.M.P.'s mana set) and ChosenCard (Guard Dogs' chosen permanent).
+//
+// ChosenCard was held back until the sub-target-before-gate ordering landed
+// (task agent-20261001T030154Z-694d075b's stop rule): its carrier's
+// ConditionDefined$ Targeted gate is evaluated by effects.conditionMet BEFORE
+// the DB sub's own mid-resolution target ask is posed, so on the empty group
+// a recognised predicate resolved the gate false and the whole sub -- target
+// ask included -- was skipped. That ordering is now fixed in conditionMet's
+// Targeted branch (an empty group on an SA that carries ValidTgts$ and whose
+// ask has not run is UNRESOLVED, so Resolve poses the ask and the answered
+// re-entry resolves the gate for real).
 func sharesColorBareReferent(arg string) bool {
-	return arg == "TriggeredProduced"
+	return arg == "TriggeredProduced" || arg == "ChosenCard"
 }
 
 // sharesColorShape reports whether an alternative's rest is Forge's
@@ -862,6 +864,42 @@ func sharesColorUnitMatches(g *state.Game, spec string, o *state.Object, sc Spec
 	return false
 }
 
+// sharesColorWithChosenMatches reports whether the candidate o shares a
+// colour with any card the resolution's choose recorded. The chosen set is
+// resolved exactly as ChosenTargets/resolutionChosenCards resolve it (the
+// SAME set the ordinary Card.ChosenCard predicate and the ConditionDefined$
+// ChosenCard group read): the in-flight choice the SpecContext carries
+// (sc.Chosen/sc.ChosenValid, seeded by (*Ctx).SpecContext from Ctx.Chosen),
+// else the source object's EVENT-BACKED chosen list (state.Object.Chosen,
+// the Choose "chosen" fold choiceRecord emits). The event-backed fallback is
+// load-bearing: a mid-resolution ValidTgts$ ask rebuilds a fresh Ctx on the
+// re-entry, so a carrier reached only after such an ask (Guard Dogs' DBPrevent)
+// loses the in-flight Ctx.Chosen and must read the source's fold. An
+// unbound choose is a resolved non-match -- never an unresolved gate -- the
+// same convention the empty TriggerMana set takes. The colour read is the
+// shared ColorMaskOf the ordinary colour predicates and sharesColorUnitMatches
+// both take.
+func sharesColorWithChosenMatches(g *state.Game, o *state.Object, sc SpecContext) bool {
+	chosen := sc.Chosen
+	if !sc.ChosenValid && len(chosen) == 0 {
+		chosen = ChosenTargetsFrom(g, sc.Source)
+	}
+	if len(chosen) == 0 {
+		return false
+	}
+	cand := ColorMaskOf(o)
+	for _, t := range chosen {
+		if t.IsPlayer {
+			continue
+		}
+		c := g.Obj(t.Obj)
+		if c != nil && ColorMaskOf(c)&cand != 0 {
+			return true
+		}
+	}
+	return false
+}
+
 // triggerManaColorMask maps the fixed-order WUBRGC TriggerMana set-string
 // (rules/mana_activation.go's manaProducedSince stamp) to a colour mask. C
 // (colourless) is not a colour and contributes nothing -- colorless mana
@@ -887,8 +925,13 @@ func triggerManaColorMask(mana string) ColorMask {
 //	mana, or the referent is read outside a stamped trigger context -- is
 //	"shares nothing", a resolved false, never an unresolved gate.
 //
-//	Every other spelling -- MostProminentColor, Imprinted, ChosenCard
-//	(deliberately unrecognised, sharesColorBareReferent), Equipped,
+//	ChosenCard -- Guard Dogs' "shares a color with that permanent": the
+//	candidate's colours intersect the colours of any card the resolution's
+//	choose recorded (SpecContext.Chosen, sharesColorWithChosenMatches). An
+//	unbound choose is a resolved non-match, the same convention
+//	TriggeredProduced's empty set takes.
+//
+//	Every other spelling -- MostProminentColor, Imprinted, Equipped,
 //	TopOfLibrary, Sacrificed, LastCastThisTurn, the bare form,
 //	SharesColorWithOther, and the `Valid <spec>` unit (alternative-level,
 //	sharesColorShape) -- returns ok=false here, so a token carrying one fails
@@ -897,6 +940,9 @@ func matchSharesColorWith(g *state.Game, p string, o *state.Object, sc SpecConte
 	arg, has := strings.CutPrefix(p, "SharesColorWith ")
 	if !has || !sharesColorBareReferent(arg) {
 		return false, false
+	}
+	if arg == "ChosenCard" {
+		return sharesColorWithChosenMatches(g, o, sc), true
 	}
 	return ColorMaskOf(o)&triggerManaColorMask(sc.TriggerMana) != 0, true
 }
@@ -936,13 +982,13 @@ func positiveRecognised(p string) bool {
 		return true
 	}
 	// Forge's base-qualified `SharesColorWith <referent>` predicate (C.A.M.P.'s
-	// TriggeredProduced; Guard Dogs' ChosenCard stays UNRECOGNISED -- the
-	// stop rule sharesColorBareReferent documents; the `SharesColorWith Valid <spec>` spelling is
-	// recognised at the ALTERNATIVE level, sharesColorShape, the IsTargeting
-	// precedent). Every other spelling (MostProminentColor, Imprinted,
-	// Equipped, TopOfLibrary, Sacrificed, LastCastThisTurn, the bare form,
-	// SharesColorWithOther) stays unrecognised: those carriers keep today's
-	// fail-open/closed behaviour, and UnknownPredicates keeps reporting them.
+	// TriggeredProduced, Guard Dogs' ChosenCard). The `SharesColorWith Valid
+	// <spec>` spelling is recognised at the ALTERNATIVE level, sharesColorShape
+	// (the IsTargeting precedent). Every other spelling (MostProminentColor,
+	// Imprinted, Equipped, TopOfLibrary, Sacrificed, LastCastThisTurn, the bare
+	// form, SharesColorWithOther) stays unrecognised: those carriers keep
+	// today's fail-open/closed behaviour, and UnknownPredicates keeps reporting
+	// them.
 	if arg, has := strings.CutPrefix(p, "SharesColorWith "); has {
 		return sharesColorBareReferent(arg)
 	}
