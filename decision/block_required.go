@@ -15,6 +15,11 @@ import "github.com/adams-shaun/gorge/state"
 // requirements, so a declaration that satisfies one of each always beats one
 // that satisfies only the other; ties take the shortest team.
 func (d *Decision) blockRequiredCore() []int {
+	// No requirement of either orientation: no candidate blocker, so the
+	// search below returns nil -- skip building its tables.
+	if !d.hasRequiredBlocks() {
+		return nil
+	}
 	type blocker struct {
 		id       state.ObjID
 		opts     []int
@@ -193,20 +198,34 @@ func (d *Decision) hasRequiredBlocks() bool {
 // declaration check and the client's repair can never disagree about what
 // "the maximum" means. Out-of-range indices are ignored.
 func (d *Decision) blockRequirementsSatisfied(choices []int) int {
-	seenBlocker := make(map[state.ObjID]bool)
-	seenAttacker := make(map[state.ObjID]bool)
+	// Map-free (it runs per candidate answer in search): a unit counts at the
+	// first choice that satisfies it, found by scanning the choices before.
 	n := 0
-	for _, c := range choices {
+	for k, c := range choices {
 		if c < 0 || c >= len(d.Options) {
 			continue
 		}
-		o := d.Options[c]
-		if (o.BlockMust || o.Required) && !seenBlocker[o.Obj] {
-			seenBlocker[o.Obj] = true
+		o := &d.Options[c]
+		blockUnit, atkUnit := o.BlockMust || o.Required, o.AttackMust
+		for _, p := range choices[:k] {
+			if !blockUnit && !atkUnit {
+				break
+			}
+			if p < 0 || p >= len(d.Options) {
+				continue
+			}
+			q := &d.Options[p]
+			if blockUnit && (q.BlockMust || q.Required) && q.Obj == o.Obj {
+				blockUnit = false
+			}
+			if atkUnit && q.AttackMust && q.Attacker == o.Attacker {
+				atkUnit = false
+			}
+		}
+		if blockUnit {
 			n++
 		}
-		if o.AttackMust && !seenAttacker[o.Attacker] {
-			seenAttacker[o.Attacker] = true
+		if atkUnit {
 			n++
 		}
 	}

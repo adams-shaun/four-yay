@@ -8,6 +8,8 @@ package decision
 import (
 	"fmt"
 	"math/rand/v2"
+	"reflect"
+	"sort"
 	"testing"
 
 	"github.com/adams-shaun/gorge/state"
@@ -311,6 +313,17 @@ func CheckValidateEquivalent(d *Decision, ins []Intent) error {
 		if got, want := d.groupCapExceeded(in.Choices), d.groupCapExceededRef(in.Choices); got != want {
 			return fmt.Errorf("decision %s intent %+v: groupCapExceeded %v, reference %v", d.Kind, in, got, want)
 		}
+		if got, want := d.RequiredChosen(in.Choices), d.requiredChosenRef(in.Choices); got != want {
+			return fmt.Errorf("decision %s %+v intent %+v: RequiredChosen %v, reference %v", d.Kind, d.Options, in, got, want)
+		}
+	}
+	if len(d.Options) <= 16 { // the block team search is exponential
+		if got, want := d.requiredCore(), d.requiredCoreRef(); !reflect.DeepEqual(got, want) {
+			return fmt.Errorf("decision %s %+v: requiredCore %#v, reference %#v", d.Kind, d.Options, got, want)
+		}
+		if got, want := d.blockRequiredCore(), d.blockRequiredCoreRef(); !reflect.DeepEqual(got, want) {
+			return fmt.Errorf("decision %s %+v: blockRequiredCore %#v, reference %#v", d.Kind, d.Options, got, want)
+		}
 	}
 	return nil
 }
@@ -327,7 +340,18 @@ func randomDecision(r *rand.Rand) *Decision {
 	for i := 0; i < n; i++ {
 		o := Option{Index: i, Kind: "pick", Group: groups[r.IntN(len(groups))],
 			Controller: state.PlayerID(r.IntN(2)), Value: r.IntN(5), Value2: r.IntN(5),
-			CostTaps: r.IntN(2), TapPoolCost: r.IntN(2)}
+			CostTaps: r.IntN(2), TapPoolCost: r.IntN(2),
+			Obj: state.ObjID(1 + r.IntN(5)), Attacker: state.ObjID(20 + r.IntN(3)),
+			Required: r.IntN(5) == 0, BlockMust: r.IntN(8) == 0, AttackMust: r.IntN(8) == 0}
+		if r.IntN(6) == 0 {
+			o.MinBlockers = 2
+		}
+		if r.IntN(6) == 0 {
+			o.MaxBlockers = 1 + r.IntN(2)
+		}
+		if r.IntN(8) == 0 {
+			o.CostLife = 1 + r.IntN(3)
+		}
 		for _, p := range props {
 			if r.IntN(3) == 0 {
 				o.SetProps = append(o.SetProps, p)
@@ -357,6 +381,9 @@ func randomDecision(r *rand.Rand) *Decision {
 	}
 	if r.IntN(3) == 0 {
 		d.ChargeTapPool = r.IntN(4)
+	}
+	if r.IntN(3) == 0 {
+		d.PayerLife = int32(1 + r.IntN(6))
 	}
 	return d
 }
@@ -397,4 +424,349 @@ func TestValidateAllocatesNothing(t *testing.T) {
 	if n := testing.AllocsPerRun(100, func() { _ = arr.Validate(in) }); n != 0 {
 		t.Fatalf("arrange Validate allocated %v times per call, want 0", n)
 	}
+}
+
+// The map-based Required counters and cores as they stood before the
+// map-free rewrite and the no-requirement fast paths.
+func (d *Decision) requiredChosenRef(choices []int) int {
+	if d.Kind == KBlockers {
+		return d.blockRequirementsSatisfiedRef(choices)
+	}
+	seen := make(map[state.ObjID]bool, len(choices)) // membership only.
+	n := 0
+	for _, c := range choices {
+		if c < 0 || c >= len(d.Options) || !d.Options[c].Required {
+			continue
+		}
+		if obj := d.Options[c].Obj; !seen[obj] {
+			seen[obj] = true
+			n++
+		}
+	}
+	return n
+}
+func (d *Decision) blockRequirementsSatisfiedRef(choices []int) int {
+	seenBlocker := make(map[state.ObjID]bool)
+	seenAttacker := make(map[state.ObjID]bool)
+	n := 0
+	for _, c := range choices {
+		if c < 0 || c >= len(d.Options) {
+			continue
+		}
+		o := d.Options[c]
+		if (o.BlockMust || o.Required) && !seenBlocker[o.Obj] {
+			seenBlocker[o.Obj] = true
+			n++
+		}
+		if o.AttackMust && !seenAttacker[o.Attacker] {
+			seenAttacker[o.Attacker] = true
+			n++
+		}
+	}
+	return n
+}
+
+func (d *Decision) requiredCoreRef() []int {
+	type pick struct{ idx, pos int }
+	best := make(map[state.ObjID]*pick) // membership/lookup only -- never ranged.
+	var order []*pick
+	better := func(a, b int) bool {
+		// Lower Value first; on a tie the lower non-mana life charge, then
+		// the earlier option. Deterministic: no map iteration reaches the
+		// comparison.
+		oa, ob := &d.Options[a], &d.Options[b]
+		if oa.Value != ob.Value {
+			return oa.Value < ob.Value
+		}
+		ca := oa.chargeLifeCost()
+		cb := ob.chargeLifeCost()
+		return ca < cb
+	}
+	for i := range d.Options {
+		o := &d.Options[i]
+		if !o.Required {
+			continue
+		}
+		p, ok := best[o.Obj]
+		if !ok {
+			p = &pick{idx: i, pos: i}
+			best[o.Obj] = p
+			order = append(order, p)
+			continue
+		}
+		if better(i, p.idx) {
+			p.idx = i
+		}
+	}
+	sort.SliceStable(order, func(a, b int) bool {
+		va, vb := d.Options[order[a].idx].Value, d.Options[order[b].idx].Value
+		if va != vb {
+			return va < vb
+		}
+		return order[a].pos < order[b].pos
+	})
+	life := d.PayerLifeBound()
+	if life < 0 {
+		// No published charge bound: the ascending-Value prefix greedy is
+		// optimal for the count (the pre-charge contract) and byte-identical.
+		var core []int
+		sum := 0
+		for _, p := range order {
+			if len(core) >= d.maxChoices() {
+				break
+			}
+			v := d.Options[p.idx].Value
+			if d.HasBudget() && sum+v > d.MaxSum {
+				break // ascending: nothing later fits either
+			}
+			sum += v
+			core = append(core, p.idx)
+		}
+		return core
+	}
+
+	// With a published life bound, this is a two-resource, multiple-choice
+	// knapsack: choose at most one Required option per Obj, maximize count,
+	// and respect life and (when present) Value budgets. Keep the cheapest
+	// Value for each exact (life,count) state; for equal costs, keep the
+	// lexicographically first option sequence. The sparse DP is
+	// pseudopolynomial in the bounded life capacity and polynomial in the
+	// number of objects/options, unlike exhaustive subset search.
+	type key struct {
+		life  int32
+		count int
+	}
+	type candidate struct {
+		value int
+		picks []int
+	}
+	states := map[key]candidate{{}: {}}
+	maxCount := d.maxChoices()
+	lessPicks := func(a, b []int) bool {
+		for i := 0; i < len(a) && i < len(b); i++ {
+			if a[i] != b[i] {
+				return a[i] < b[i]
+			}
+		}
+		return len(a) < len(b)
+	}
+	groups := make([][]int, 0, len(order))
+	gpos := make(map[state.ObjID]int, len(order))
+	for i := range d.Options {
+		o := &d.Options[i]
+		if !o.Required {
+			continue
+		}
+		g, ok := gpos[o.Obj]
+		if !ok {
+			g = len(groups)
+			gpos[o.Obj] = g
+			groups = append(groups, nil)
+		}
+		groups[g] = append(groups[g], i)
+	}
+	for _, group := range groups {
+		next := make(map[key]candidate, len(states)*(len(group)+1))
+		for k, c := range states {
+			// Skipping this Obj is always an available transition. Preserve
+			// the same minimum-Value/lexicographic dominance as option picks:
+			// map iteration can otherwise overwrite a cheaper candidate.
+			if old, exists := next[k]; !exists || c.value < old.value ||
+				(c.value == old.value && lessPicks(c.picks, old.picks)) {
+				next[k] = c
+			}
+			if k.count >= maxCount {
+				continue
+			}
+			for _, ci := range group {
+				o := &d.Options[ci]
+				cost := o.chargeLifeCost()
+				if cost > life-k.life || (d.HasBudget() && (o.Value > d.MaxSum-c.value)) {
+					continue
+				}
+				nk := key{life: k.life + cost, count: k.count + 1}
+				nc := candidate{value: c.value + o.Value, picks: append(append([]int(nil), c.picks...), ci)}
+				old, exists := next[nk]
+				if !exists || nc.value < old.value || (nc.value == old.value && lessPicks(nc.picks, old.picks)) {
+					next[nk] = nc
+				}
+			}
+		}
+		states = next
+	}
+
+	var bestKey key
+	var bestCandidate candidate
+	found := false
+	for k, c := range states {
+		if !found || k.count > bestKey.count ||
+			(k.count == bestKey.count && (k.life < bestKey.life ||
+				(k.life == bestKey.life && (c.value < bestCandidate.value ||
+					(c.value == bestCandidate.value && lessPicks(c.picks, bestCandidate.picks)))))) {
+			bestKey, bestCandidate, found = k, c, true
+		}
+	}
+	return bestCandidate.picks
+}
+
+func (d *Decision) blockRequiredCoreRef() []int {
+	type blocker struct {
+		id       state.ObjID
+		opts     []int
+		required bool
+	}
+	var blocks []blocker
+	pos := make(map[state.ObjID]int)
+	minAttackers := make(map[state.ObjID]bool)
+	// atkReq is the set of attackers carrying an attacker-oriented
+	// requirement. Each is satisfied once by ANY chosen option naming it.
+	atkReq := make(map[state.ObjID]bool)
+	for _, o := range d.Options {
+		if o.AttackMust {
+			atkReq[o.Attacker] = true
+		}
+		if (o.BlockMust || o.Required || o.AttackMust) && o.MinBlockers > 1 {
+			minAttackers[o.Attacker] = true
+		}
+	}
+	for i, o := range d.Options {
+		p, ok := pos[o.Obj]
+		if !ok {
+			p = len(blocks)
+			pos[o.Obj] = p
+			blocks = append(blocks, blocker{id: o.Obj})
+		}
+		blocks[p].required = blocks[p].required || o.BlockMust || o.Required
+		blocks[p].opts = append(blocks[p].opts, i)
+	}
+	// Required creatures first; ordinary blockers need only be considered
+	// as helpers for a required block with a multi-blocker minimum, or as a
+	// satisfier of an attacker requirement.
+	var candidates []blocker
+	for _, b := range blocks {
+		if b.required {
+			candidates = append(candidates, b)
+		}
+	}
+	requiredCount := len(candidates)
+	for _, b := range blocks {
+		if b.required {
+			continue
+		}
+		var helper blocker
+		helper.id = b.id
+		for _, i := range b.opts {
+			o := d.Options[i]
+			if minAttackers[o.Attacker] || atkReq[o.Attacker] {
+				helper.opts = append(helper.opts, i)
+			}
+		}
+		if len(helper.opts) != 0 {
+			candidates = append(candidates, helper)
+		}
+	}
+	counts := make(map[state.ObjID]int)
+	satAtk := make(map[state.ObjID]bool)
+	lifeBound := d.PayerLifeBound()
+	var chosen, best []int
+	bestRequired := -1
+	bestLength := int(^uint(0) >> 1)
+	var search func(int, int, int, int32)
+	search = func(at, satisfied, spent int, spentLife int32) {
+		if bestRequired == requiredCount+len(atkReq) {
+			return
+		}
+		remaining := requiredCount - at
+		if remaining < 0 {
+			remaining = 0
+		}
+		// Over-estimate the satisfaction still reachable from here: every
+		// unsatisfied attacker requirement may still be satisfied ahead. An
+		// over-estimate only costs search, never prunes a branch that could
+		// beat the best team.
+		if unsat := len(atkReq) - len(satAtk); unsat > 0 {
+			remaining += unsat
+		}
+		if satisfied+remaining < bestRequired {
+			return
+		}
+		if at == len(candidates) {
+			for _, ci := range chosen {
+				o := d.Options[ci]
+				if o.MinBlockers > counts[o.Attacker] {
+					return
+				}
+			}
+			if satisfied > bestRequired || (satisfied == bestRequired && len(chosen) < bestLength) {
+				bestRequired, bestLength = satisfied, len(chosen)
+				best = append([]int(nil), chosen...)
+			}
+			return
+		}
+		b := candidates[at]
+		try := func(ci int) {
+			o := d.Options[ci]
+			if len(chosen) >= d.maxChoices() || (d.HasBudget() && spent+o.Value > d.MaxSum) {
+				return
+			}
+			// The combined non-mana LIFE charge bound is enforced INSIDE the
+			// team search, not by pruning a finished team afterwards: a team
+			// member dropped after the fact can break a Min$ team minimum (the
+			// remaining members no longer form a legal declaration). One
+			// option priced through the shared chargeLifeCost reader, so this
+			// bound and the attack path's quota price a pip identically.
+			cost := o.chargeLifeCost()
+			if lifeBound >= 0 && spentLife+cost > lifeBound {
+				return
+			}
+			if o.MaxBlockers > 0 && counts[o.Attacker] >= o.MaxBlockers {
+				return
+			}
+			counts[o.Attacker]++
+			chosen = append(chosen, ci)
+			add := 0
+			if b.required {
+				add = 1
+			}
+			// An attacker-oriented requirement is satisfied by the FIRST
+			// chosen option naming that attacker; later blockers of the same
+			// attacker add nothing. Only the option that SET the flag clears
+			// it on backtrack -- a second blocker of the same attacker must
+			// not delete the first one's satisfaction.
+			setAtk := o.AttackMust && !satAtk[o.Attacker]
+			if setAtk {
+				satAtk[o.Attacker] = true
+				add++
+			}
+			search(at+1, satisfied+add, spent+o.Value, spentLife+cost)
+			if setAtk {
+				delete(satAtk, o.Attacker)
+			}
+			chosen = chosen[:len(chosen)-1]
+			counts[o.Attacker]--
+		}
+		if b.required {
+			// Prefer a legal singleton over a multi-blocker team when both
+			// discharge the same requirement; this also keeps a Min$ attacker
+			// available to an actual team if another required blocker needs it.
+			for _, ci := range b.opts {
+				if d.Options[ci].MinBlockers <= 1 {
+					try(ci)
+				}
+			}
+			for _, ci := range b.opts {
+				if d.Options[ci].MinBlockers > 1 {
+					try(ci)
+				}
+			}
+			search(at+1, satisfied, spent, spentLife)
+		} else {
+			search(at+1, satisfied, spent, spentLife)
+			for _, ci := range b.opts {
+				try(ci)
+			}
+		}
+	}
+	search(0, 0, 0, 0)
+	return best
 }
