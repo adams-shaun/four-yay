@@ -34,6 +34,9 @@ func (e *Engine) derivedScalar(id state.ObjID) (power, toughness int32) {
 	}
 	f := o.Face()
 	active := e.active()
+	if p, t, ok := e.printedPT(o, f, active); ok {
+		return p, t
+	}
 	for i := range active {
 		if ce := &active[i]; ce.Layer == LPT && effects.SpecReadsKeywords(ce.Affects) {
 			d := e.derivedWith(id, 0)

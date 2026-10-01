@@ -70,6 +70,11 @@ type charsSummary struct {
 	// renames: some entry is a layer-3 SetName$ effect, so a derived name
 	// may differ from the printed one (ViewCharacteristics' fast path).
 	renames bool
+	// ptNonSelf / ptSrc are nonSelf / selfSrc over the layer-7 entries alone:
+	// P/T is written only by layer 7, so the P/T-only fast path
+	// (printedPT) needs no more.
+	ptNonSelf bool
+	ptSrc     []state.ObjID
 }
 
 // charsSummaryOf returns the digest of ces, which must be active()'s
@@ -82,37 +87,51 @@ func (e *Engine) charsSummaryOf(ces []ContinuousEffect) *charsSummary {
 	s := &e.charsSum
 	if s.valid && s.seq == e.activeBuildSeq && s.base == base && s.n == len(ces) {
 		if printedCharsVerify {
-			nonSelf, src, renames := summarizeChars(ces, nil)
-			if nonSelf != s.nonSelf || !slices.Equal(src, s.selfSrc) || renames != s.renames {
+			var fresh charsSummary
+			fresh.summarize(ces)
+			if fresh.nonSelf != s.nonSelf || !slices.Equal(fresh.selfSrc, s.selfSrc) || fresh.renames != s.renames ||
+				fresh.ptNonSelf != s.ptNonSelf || !slices.Equal(fresh.ptSrc, s.ptSrc) {
 				panic(fmt.Sprintf("rules: chars summary at build %d disagrees with a rescan", s.seq))
 			}
 		}
 		return s
 	}
-	s.nonSelf, s.selfSrc, s.renames = summarizeChars(ces, s.selfSrc[:0])
+	s.summarize(ces)
 	s.valid, s.seq, s.base, s.n = true, e.activeBuildSeq, base, len(ces)
 	return s
 }
 
-func summarizeChars(ces []ContinuousEffect, src []state.ObjID) (nonSelf bool, _ []state.ObjID, renames bool) {
+func (s *charsSummary) summarize(ces []ContinuousEffect) {
+	s.nonSelf, s.selfSrc, s.renames = false, s.selfSrc[:0], false
+	s.ptNonSelf, s.ptSrc = false, s.ptSrc[:0]
 	for i := range ces {
 		ce := &ces[i]
 		if ce.Layer == LText && ce.SetName != "" {
-			renames = true
+			s.renames = true
 		}
-		if nonSelf || (ce.Layer != LAbilities && ce.Layer != LPT && len(ce.CantHaveKeywords) == 0) {
+		self := ce.Affects == "Card.Self"
+		if ce.Layer == LPT {
+			if !self {
+				s.ptNonSelf = true
+			} else if !s.ptNonSelf {
+				s.ptSrc = append(s.ptSrc, ce.Source)
+			}
+		}
+		if s.nonSelf || (ce.Layer != LAbilities && ce.Layer != LPT && len(ce.CantHaveKeywords) == 0) {
 			continue
 		}
-		if ce.Affects != "Card.Self" {
-			nonSelf = true
+		if !self {
+			s.nonSelf = true
 			continue
 		}
-		src = append(src, ce.Source)
+		s.selfSrc = append(s.selfSrc, ce.Source)
 	}
-	if nonSelf {
-		src = src[:0]
+	if s.nonSelf {
+		s.selfSrc = s.selfSrc[:0]
 	}
-	return nonSelf, src, renames
+	if s.ptNonSelf {
+		s.ptSrc = s.ptSrc[:0]
+	}
 }
 
 // printedCharacteristics answers Characteristics without the layer walk when
@@ -236,6 +255,31 @@ func (e *Engine) printedViewCharacteristics(id state.ObjID) (name string, keywor
 		e.verifyPrintedChars(id, power, toughness, kw, f.Name)
 	}
 	return f.Name, kw, power, toughness, true
+}
+
+// printedPT is derivedScalar's fast path: when every layer-7 entry of
+// active (which must be active()'s current list) is another object's exact
+// Card.Self effect, no layer-7 match can admit id, so its P/T is the printed
+// pair plus the 7d counter totals -- the layer-4/6 bindings a layer-7 match
+// would read never matter. The same exclusions as printedReach apply.
+func (e *Engine) printedPT(o *state.Object, f *cards.Face, active []ContinuousEffect) (power, toughness int32, ok bool) {
+	if !e.derivedMemoUsable() || (o.FaceDown && o.Zone == state.ZBattlefield) {
+		return 0, 0, false
+	}
+	s := e.charsSummaryOf(active)
+	if s.ptNonSelf || slices.Contains(s.ptSrc, o.ID) || faceHasCDAStatic(o) {
+		return 0, 0, false
+	}
+	dp, dt := o.CounterPTTotals()
+	power, toughness = int32(f.Power())+dp, int32(f.Toughness())+dt
+	if printedCharsVerify {
+		if want := e.derivedCompute(o.ID, 0); want.Power != power || want.Toughness != toughness {
+			msg := fmt.Sprintf("rules: printed P/T for obj %d: fast %d/%d, full %d/%d", o.ID, power, toughness, want.Power, want.Toughness)
+			fmt.Fprintln(os.Stderr, msg)
+			panic(msg)
+		}
+	}
+	return power, toughness, true
 }
 
 func (e *Engine) verifyPrintedChars(id state.ObjID, power, toughness int32, got []string, name string) {

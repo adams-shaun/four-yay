@@ -89,11 +89,26 @@ func TestPrintedCharacteristicsFastPath(t *testing.T) {
 	check(elk, false, 3, 3, []string{"Flying"})
 	check(bear, true, 4, 4, []string{"Trample"})
 
-	// A lord's static can reach any creature: every object takes the full
+	// A keyword lord leaves P/T alone: Characteristics takes the full
+	// derivation, the P/T-only fast path still answers.
+	onBoard(t, e, 0, "Name:Ascend Lord\nManaCost:2\nTypes:Creature Lord\nPT:1/1\nS:Mode$ Continuous | Affected$ Creature.Other+YouCtrl | AddKeyword$ Vigilance | Description$ x\nOracle:x\n")
+	check(bear, false, 4, 4, []string{"Trample", "Vigilance"})
+	e.active()
+	if p, tough, ok := e.printedPT(e.G.Obj(bear), e.G.Obj(bear).Face(), e.active()); !ok || p != 4 || tough != 4 {
+		t.Fatalf("P/T fast path with a keyword lord: %d/%d %v", p, tough, ok)
+	}
+	if e.Power(bear) != 4 || e.Toughness(elk) != 3 {
+		t.Fatalf("Power/Toughness = %d/%d", e.Power(bear), e.Toughness(elk))
+	}
+
+	// A P/T lord's static can reach any creature: every object takes the full
 	// derivation.
 	onBoard(t, e, 0, "Name:Lord\nManaCost:2\nTypes:Creature Lord\nPT:1/1\nS:Mode$ Continuous | Affected$ Creature.Other+YouCtrl | AddPower$ 1 | AddToughness$ 1 | Description$ x\nOracle:x\n")
-	check(bear, false, 5, 5, []string{"Trample"})
-	check(elk, false, 4, 4, []string{"Flying"})
+	check(bear, false, 5, 5, []string{"Trample", "Vigilance"})
+	check(elk, false, 4, 4, []string{"Flying", "Vigilance"})
+	if _, _, ok := e.printedPT(e.G.Obj(bear), e.G.Obj(bear).Face(), e.active()); ok {
+		t.Fatal("P/T fast path taken with a P/T lord in play")
+	}
 	if printedFast(e, inHand) {
 		t.Fatal("hand card took the fast path with a lord in play")
 	}
