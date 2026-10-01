@@ -11,7 +11,7 @@ import (
 )
 
 // foldMutate folds Kind Mutate into state.
-func foldMutate(g *state.Game, e Event) {
+func foldMutate(g *state.Game, e *Event) {
 	// CR 702.140d: a mutate-spell resolution merges the mutating card's
 	// card into the target permanent. Obj is the surviving target, IDs[0]
 	// the mutating card's object (the resolving spell), Text "top"/"under"
@@ -45,7 +45,7 @@ func foldMutate(g *state.Game, e Event) {
 		if survivor == nil {
 			return
 		}
-		survivor.Card, survivor.FaceIdx = srcCard, srcFace
+		survivor.SetCard(srcCard, srcFace)
 		under := state.MergedCard{Obj: parkedID, Card: oldCard, FaceIdx: oldFace}
 		survivor.MergedCards = append([]state.MergedCard{under}, survivor.MergedCards...)
 		// The mutating spell's object is now redundant (its card data was
@@ -68,7 +68,7 @@ func foldMutate(g *state.Game, e Event) {
 }
 
 // foldStackCopy folds Kind StackCopy into state.
-func foldStackCopy(g *state.Game, e Event) {
+func foldStackCopy(g *state.Game, e *Event) {
 	if !validPlayer(g, e.Player) {
 		return
 	}
@@ -83,7 +83,8 @@ func foldStackCopy(g *state.Game, e Event) {
 		}
 		card, faceIdx := src.Card, src.FaceIdx
 		o := g.AddObject(card, e.Player)
-		o.FaceIdx, o.IsCopy = faceIdx, true
+		o.SetFaceIdx(faceIdx)
+		o.IsCopy = true
 		return
 	}
 	if src == nil || src.Zone != state.ZStack {
@@ -152,7 +153,8 @@ func foldStackCopy(g *state.Game, e Event) {
 
 	o := g.AddObject(card, e.Player)
 	Move(g, o.ID, state.ZLibrary, state.ZStack)
-	o.FaceIdx, o.Ability, o.Source = faceIdx, ability, source
+	o.SetFaceIdx(faceIdx)
+	o.Ability, o.Source = ability, source
 	o.StackKind, o.StackKindKnown = stackKind, stackKindKnown
 	o.GainedFace, o.GainedFrom = gainedFace, gainedFrom
 	o.Targets = targets
@@ -199,7 +201,7 @@ func foldStackCopy(g *state.Game, e Event) {
 }
 
 // foldPair folds Kind Pair into state.
-func foldPair(g *state.Game, e Event) {
+func foldPair(g *state.Game, e *Event) {
 	// CR 702.103: a Soulbond pairing. Obj is the pairing permanent and
 	// IDs[0] its chosen partner; both fields are set reciprocally when
 	// both are battlefield permanents. Neither half is written when a
@@ -211,7 +213,7 @@ func foldPair(g *state.Game, e Event) {
 }
 
 // foldCopyToken folds Kind CopyToken into state.
-func foldCopyToken(g *state.Game, e Event) {
+func foldCopyToken(g *state.Game, e *Event) {
 	// DB$ CopyPermanent's mint (task copyp1: Flamerush Rider, Molten
 	// Echoes, the populate family). Mirrors MyriadCopy's discipline: the
 	// copy is the SOURCE CARD + face snapshot taken BEFORE AddObject
@@ -237,7 +239,7 @@ func foldCopyToken(g *state.Game, e Event) {
 	o := g.AddObject(card, e.Player)
 	o.IsToken = true
 	o.IsCopy = true
-	o.FaceIdx = faceIdx
+	o.SetFaceIdx(faceIdx)
 	// AtEOTTrig$ is a copiable value (CR 707.2): the mint's own body when
 	// the copying spell carries one (Counter), else the source object's --
 	// a token copy of an AtEOTTrig$ token still sacrifices itself at the
@@ -261,7 +263,7 @@ func foldCopyToken(g *state.Game, e Event) {
 }
 
 // foldCardToken folds Kind CardToken into state.
-func foldCardToken(g *state.Game, e Event) {
+func foldCardToken(g *state.Game, e *Event) {
 	// A battlefield token that is a copy of the CARD object Obj names
 	// (encore's "create a token copy" per opponent). Mirrors StackCopy's
 	// snapshot discipline: every read from src is taken into a local
@@ -279,7 +281,7 @@ func foldCardToken(g *state.Game, e Event) {
 	card, faceIdx := src.Card, src.FaceIdx
 	o := g.AddObject(card, e.Player)
 	o.IsToken = true
-	o.FaceIdx = faceIdx
+	o.SetFaceIdx(faceIdx)
 	Move(g, o.ID, state.ZLibrary, state.ZBattlefield)
 	applyEntryCounterPairs(o, e.Pairs)
 	// Encore encodes its required defender as seat+1; zero remains the
@@ -295,7 +297,7 @@ func foldCardToken(g *state.Game, e Event) {
 }
 
 // foldTokenCreate folds Kind TokenCreate into state.
-func foldTokenCreate(g *state.Game, e Event) {
+func foldTokenCreate(g *state.Game, e *Event) {
 	if !validPlayer(g, e.Player) {
 		return
 	}
@@ -310,18 +312,18 @@ func foldTokenCreate(g *state.Game, e Event) {
 }
 
 // foldCloneStatic folds Kind CloneStatic into state.
-func foldCloneStatic(g *state.Game, e Event) {
+func foldCloneStatic(g *state.Game, e *Event) {
 	if o := g.Obj(e.Obj); o != nil && o.CopyFace != nil {
 		if statics, ok := cards.ParseStaticLines(e.Text); ok {
 			face := *o.CopyFace
 			face.Statics = append(append([]cards.Static(nil), face.Statics...), statics...)
-			o.CopyFace = &face
+			o.SetCopyFace(&face)
 		}
 	}
 }
 
 // foldClonePermanent folds Kind ClonePermanent into state.
-func foldClonePermanent(g *state.Game, e Event) {
+func foldClonePermanent(g *state.Game, e *Event) {
 	// CR 613.1a's layer-1 copy basis (DB$ Clone, api:Clone). Obj is the
 	// object that becomes the copy and IDs[0] the object copied from; an
 	// empty or zero id CLEARS the basis. The synthetic face is a value
@@ -338,7 +340,7 @@ func foldClonePermanent(g *state.Game, e Event) {
 		return
 	}
 	if e.Counter != "chosen-name" && (len(e.IDs) == 0 || e.IDs[0] == 0) {
-		o.CopyFace = nil
+		o.SetCopyFace(nil)
 		o.CopyGainThisAbility = false
 		return
 	}
@@ -400,19 +402,19 @@ func foldClonePermanent(g *state.Game, e Event) {
 	} else {
 		o.CopyGainThisAbility = false
 	}
-	o.CopyFace = &sf
+	o.SetCopyFace(&sf)
 }
 
 // foldFlipFace folds Kinds FlipFace, Specialize into state.
-func foldFlipFace(g *state.Game, e Event) {
+func foldFlipFace(g *state.Game, e *Event) {
 	if o := g.Obj(e.Obj); o != nil && o.Card != nil &&
 		e.Amount >= 0 && int(e.Amount) < len(o.Card.Faces) {
-		o.FaceIdx = uint8(e.Amount)
+		o.SetFaceIdx(uint8(e.Amount))
 	}
 }
 
 // foldTurnFaceDown folds Kind TurnFaceDown into state.
-func foldTurnFaceDown(g *state.Game, e Event) {
+func foldTurnFaceDown(g *state.Game, e *Event) {
 	if o := g.Obj(e.Obj); o != nil && o.Zone == state.ZBattlefield && !o.FaceDown {
 		setType, power, toughness, hasPT, _ := FaceDownEntryFields(e.Counter)
 		o.FaceDown = true
@@ -423,7 +425,7 @@ func foldTurnFaceDown(g *state.Game, e Event) {
 }
 
 // foldTurnFaceUp folds Kind TurnFaceUp into state.
-func foldTurnFaceUp(g *state.Game, e Event) {
+func foldTurnFaceUp(g *state.Game, e *Event) {
 	// CR 708.6: turning a face-down permanent face up reveals the face it
 	// already had -- no FaceIdx change -- and retires the CR 708.5
 	// face-down characteristic set (the folded FaceDownSetType/Power/

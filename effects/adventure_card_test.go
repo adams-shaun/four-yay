@@ -38,7 +38,7 @@ func TestAdventureCardPredicate(t *testing.T) {
 	// The card identity survives selection of the spell face. Use Card as the
 	// base here: the current Adventure face is an instant, not a creature.
 	spellFace := *adventure
-	spellFace.FaceIdx = 1
+	spellFace.SetFaceIdx(1)
 	if spellFace.Face() == nil || !spellFace.Face().IsInstant() {
 		t.Fatal("Bonecrusher Giant's second face must be an Adventure instant")
 	}
@@ -57,7 +57,7 @@ func TestAdventureCardPredicate(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			malformed := *adventure
-			malformed.Card = card
+			malformed.SetCard(card, malformed.FaceIdx)
 			if MatchesObjectCtx(g, "Creature.AdventureCard", &malformed, SpecContext{You: 0}) {
 				t.Fatal("malformed or non-Adventure card matched")
 			}

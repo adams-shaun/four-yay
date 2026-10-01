@@ -27,7 +27,8 @@ func (e *Engine) EndLifeLossBatch() {
 	batch := e.lifeLossBatch
 	if len(batch) != 0 {
 		e.finishingLifeLossBatch = true
-		e.checkFaceTriggers(e, batch[0], nil, 0, 0, false, false, false)
+		first := batch[0]
+		e.checkFaceTriggers(e, &first, nil, 0, 0, false, false, false)
 		e.finishingLifeLossBatch = false
 	}
 	e.lifeLossBatch = nil

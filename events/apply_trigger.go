@@ -14,7 +14,7 @@ import (
 )
 
 // foldTriggerPush folds Kind TriggerPush into state.
-func foldTriggerPush(g *state.Game, e Event) {
+func foldTriggerPush(g *state.Game, e *Event) {
 	// Ruling T20-a: the ability object is minted here, inside Apply, so
 	// a log-only replay creates the exact same object a live game did --
 	// not via a direct, unlogged AddObject call from rules.Engine. e.Obj
@@ -76,7 +76,7 @@ func foldTriggerPush(g *state.Game, e Event) {
 }
 
 // foldKeywordTriggerPush folds Kind KeywordTriggerPush into state.
-func foldKeywordTriggerPush(g *state.Game, e Event) {
+func foldKeywordTriggerPush(g *state.Game, e *Event) {
 	if !validPlayer(g, e.Player) {
 		return
 	}
@@ -363,7 +363,7 @@ func foldKeywordTriggerPush(g *state.Game, e Event) {
 }
 
 // foldKeywordAbilityPush folds Kind KeywordAbilityPush into state.
-func foldKeywordAbilityPush(g *state.Game, e Event) {
+func foldKeywordAbilityPush(g *state.Game, e *Event) {
 	// A keyword-GRANTED activated ability (CR 613.1f): the mint mirrors
 	// AbilityPush (Ruling T20-a) so a log-only replay creates the same
 	// object a live game did, but the body is not a face index -- it is
@@ -403,7 +403,7 @@ func foldKeywordAbilityPush(g *state.Game, e Event) {
 }
 
 // foldAbilityPush folds Kind AbilityPush into state.
-func foldAbilityPush(g *state.Game, e Event) {
+func foldAbilityPush(g *state.Game, e *Event) {
 	// Mirrors TriggerPush above (Ruling T20-a): the ability object is
 	// minted here, inside Apply, so a log-only replay creates the same
 	// object a live game did.
@@ -453,7 +453,7 @@ func foldAbilityPush(g *state.Game, e Event) {
 }
 
 // foldMergedTriggerPush folds Kind MergedTriggerPush into state.
-func foldMergedTriggerPush(g *state.Game, e Event) {
+func foldMergedTriggerPush(g *state.Game, e *Event) {
 	// CR 702.140d: a mutated pile's under-card trigger fired and its
 	// ability object is minted here, inside Apply, so a log-only replay
 	// creates the same object a live game did (the Ruling T20-a/DelayedPush

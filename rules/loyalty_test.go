@@ -392,6 +392,7 @@ func TestLoyaltyActivationUsesFaceAtPush(t *testing.T) {
 			{Kind: "AB", API: "Draw", Params: map[string]string{"Planeswalker": "True"}},
 		}},
 	}}
+	e.G.Obj(walker).SyncFace()
 	recordLoyaltyPush(e, walker, 0)
 	e.emit(events.Event{Kind: events.FlipFace, Obj: walker, Amount: 1})
 	if got := e.loyaltyActivationsThisTurn(walker); got != 1 {

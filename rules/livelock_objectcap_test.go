@@ -34,9 +34,9 @@ func TestLivelockWatcherObjectCapFires(t *testing.T) {
 			t.Fatalf("aborting kind %v, want token_create", le.Kind)
 		}
 	}()
-	w.observeFrom(events.Event{Kind: events.TokenCreate, Seq: 1}, 0, 4)
-	w.observeFrom(events.Event{Kind: events.TokenCreate, Seq: 2}, 0, 5)
-	w.observeFrom(events.Event{Kind: events.TokenCreate, Seq: 3}, 0, 6)
+	w.observeFrom(&events.Event{Kind: events.TokenCreate, Seq: 1}, 0, 4)
+	w.observeFrom(&events.Event{Kind: events.TokenCreate, Seq: 2}, 0, 5)
+	w.observeFrom(&events.Event{Kind: events.TokenCreate, Seq: 3}, 0, 6)
 }
 
 // TestLivelockWatcherObjectCapZeroIsOff pins the zero value: an unarmed
@@ -46,7 +46,7 @@ func TestLivelockWatcherObjectCapZeroIsOff(t *testing.T) {
 	t.Parallel()
 	w := newLivelockWatcher(&LoopGuard{})
 	for i := 0; i < 100; i++ {
-		w.observeFrom(events.Event{Kind: events.TokenCreate, Seq: uint64(i + 1)}, 0, 100000)
+		w.observeFrom(&events.Event{Kind: events.TokenCreate, Seq: uint64(i + 1)}, 0, 100000)
 	}
 }
 
@@ -56,6 +56,6 @@ func TestLivelockWatcherObjectCapDisabledIsOff(t *testing.T) {
 	t.Parallel()
 	w := newLivelockWatcher(&LoopGuard{MaxObjs: 1, Disabled: true})
 	for i := 0; i < 100; i++ {
-		w.observeFrom(events.Event{Kind: events.TokenCreate, Seq: uint64(i + 1)}, 0, 100000)
+		w.observeFrom(&events.Event{Kind: events.TokenCreate, Seq: uint64(i + 1)}, 0, 100000)
 	}
 }

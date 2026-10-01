@@ -111,7 +111,7 @@ func (e *Engine) composeUpdatedReplacements(ev events.Event, matches []replMatch
 	}
 	departing, link, controller := e.captureSourceLifelinkLKI(ev)
 	stored, absorbed := e.foldEntryMove(ev)
-	e.loop.observeFrom(stored, e.damaging, len(e.G.Objs))
+	e.loop.observeFrom(&stored, e.damaging, len(e.G.Objs))
 	// The move-driven Effect lifetimes, replayed inline exactly as the
 	// single-match Updated branch does (the raw events.Emit above bypasses
 	// Engine.emit's own sweep point).
@@ -130,7 +130,7 @@ func (e *Engine) composeUpdatedReplacements(ev events.Event, matches []replMatch
 		e.runReplaceWith(e.replCtx(m, ev), ev.Obj, m.repl.With, nil)
 	}
 	// Matched after every Updated body, as in the single-match branch.
-	e.checkTriggers(stored, nil, 0, 0, false)
+	e.checkTriggers(&stored, nil, 0, 0, false)
 	if e.pending == nil && stored.Kind == events.MoveZone && stored.To == state.ZBattlefield {
 		e.finishLandPlay(stored.Obj)
 	}
@@ -247,11 +247,11 @@ func (e *Engine) resumeUpdatedComposition(rc replChoice, selected int) {
 		// the just-answered competition cannot re-pose).
 		stored, absorbed := e.foldEntryMove(rc.ev)
 		rc.absorbed = absorbed
-		e.loop.observeFrom(stored, e.damaging, len(e.G.Objs))
+		e.loop.observeFrom(&stored, e.damaging, len(e.G.Objs))
 		// The move-driven Effect lifetimes, replayed inline exactly as the
 		// synchronous composition does (see applyReplacement's Updated arm).
 		e.effectMoveSweep(rc.ev)
-		e.checkTriggers(stored, nil, 0, 0, false)
+		e.checkTriggers(&stored, nil, 0, 0, false)
 		e.finishSourceLifelinkLKI(rc.ev, departing, link, controller)
 		rc.emitted = true
 	}

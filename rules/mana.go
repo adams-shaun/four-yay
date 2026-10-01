@@ -1786,11 +1786,19 @@ func (e *Engine) offerCostForUsing(statics costStaticViews, p state.PlayerID, id
 // out, so offerCastable can evaluate the composition once and reuse it for
 // both the per-face enumeration and the composed castable check.
 func (e *Engine) composedOfferCost(p state.PlayerID, id state.ObjID, base Cost, mods costMods, scope costScope) Cost {
-	c := mods.apply(base)
-	if scope.kind != "Ability" && scope.kind != "Foretell" && scope.kind != "Static" {
-		c = e.commanderTaxFor(p, id, c)
-	}
+	var c Cost
+	e.composedOfferCostInto(&c, p, id, &base, &mods, scope)
 	return c
+}
+
+// composedOfferCostInto is composedOfferCost writing the composition into
+// *dst, reading *base and *mods in place (neither is written).
+func (e *Engine) composedOfferCostInto(dst *Cost, p state.PlayerID, id state.ObjID, base *Cost, mods *costMods, scope costScope) {
+	*dst = *base
+	mods.applyTo(dst)
+	if scope.kind != "Ability" && scope.kind != "Foretell" && scope.kind != "Static" {
+		*dst = e.commanderTaxFor(p, id, *dst)
+	}
 }
 
 // offerCastable is THE offer-side gate every cast/activation option is gated
@@ -1810,7 +1818,7 @@ func (e *Engine) composedOfferCost(p state.PlayerID, id state.ObjID, base Cost, 
 // feasibility are conjunctive, and the stricter composed answer can only
 // withhold a legal offer (the safe direction), never offer an illegal one.
 func (e *Engine) offerCastable(p state.PlayerID, id state.ObjID, base Cost, scope costScope, ability bool) bool {
-	return e.offerCastableUsing(e.collectCostStatics(), p, id, base, scope, ability, nil)
+	return e.offerCastableUsing(e.collectCostStatics(), p, id, &base, scope, ability, nil)
 }
 
 // fixLifeXCost resolves an announced PayLife<X> cost part whose source face
@@ -1933,7 +1941,10 @@ func (e *Engine) drawCostCountTrig(id state.ObjID, you state.PlayerID, part Cost
 // (the pool the seat would hold after floating every untapped source) while
 // every non-mana read stays real. The two modes share one body, so the walk
 // cannot drift from the offer it mirrors.
-func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, id state.ObjID, base Cost, scope costScope, ability bool, hyp *state.Mana) bool {
+//
+// base is read in place and never written: a step that reshapes the cost
+// (fixLifeXCost, the XMin$ floor) works on a local copy.
+func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, id state.ObjID, base *Cost, scope costScope, ability bool, hyp *state.Mana) bool {
 	// The SVar-fixed PayLife<X> conversion (fixLifeXCost) shapes the cost the
 	// gate prices into the exact cost the payment will store (beginCast and
 	// beginActivation convert through the same helper), so an offered cost and
@@ -1942,11 +1953,13 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 	// direction the rest of the cost grammar takes -- rather than offered with
 	// an arbitrary announcement.
 	// fixLifeXCost is the identity on a cost with no PayLife<X> part.
+	var local Cost
 	if len(base.LifeX) > 0 {
 		var ok bool
-		if base, ok = e.fixLifeXCost(p, id, base); !ok {
+		if local, ok = e.fixLifeXCost(p, id, *base); !ok {
 			return false
 		}
+		base = &local
 	}
 	// The activated ability's own XMin$ parameter (task cost:xmin-param): the
 	// same announcement floor xAsk folds from the ability being activated,
@@ -1957,8 +1970,12 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 	// gate and xAsk share one floor answer and an unannounced cost still
 	// reports no charge. A cost that announces no X binds nothing: no {X} pip
 	// and no announced-X part means no announcement exists to floor.
-	if scope.ab != nil && costAnnouncesX(base) {
+	if scope.ab != nil && costAnnouncesX(*base) {
 		if n := xMinAbilityParam(scope.ab); n > base.XMin {
+			if base != &local {
+				local = *base
+				base = &local
+			}
 			base.XMin = n
 		}
 	}
@@ -1991,7 +2008,7 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 	if e.hasKeywordH(id, kwhDelve) {
 		delve = int32(len(e.G.Zone(state.ZGraveyard, p)))
 	}
-	if !e.manaFeasiblePricedP(p, id, ability, &base, &mods, tax, delve, hyp) {
+	if !e.manaFeasiblePricedP(p, id, ability, base, &mods, tax, delve, hyp) {
 		// A target-dependent reducer cannot be in the ordinary pre-target
 		// snapshot, but it may make one legal target choice payable. Retry with
 		// exactly those potential reductions; target-dependent raises/floors
@@ -2008,8 +2025,12 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 		potentialOK := false
 		if futile := offerRetryFutile(scope, &mods, mayApply, provenance); statics.validTarget && (!futile || walkSkipVerify) {
 			potential, potentialOK = e.potentialCostModsUsing(statics, p, id, scope, e.costPotentialTargets(p, id, scope), 0, func(m costMods) bool {
-				return e.manaFeasiblePriced(p, id, ability, base, m, tax, delve, hyp) &&
-					e.nonManaCastable(p, id, e.composedOfferCost(p, id, base, m, scope), ability, tapCostSAKind(scope.ab))
+				if !e.manaFeasiblePriced(p, id, ability, *base, m, tax, delve, hyp) {
+					return false
+				}
+				var c Cost
+				e.composedOfferCostInto(&c, p, id, base, &m, scope)
+				return e.nonManaCastableP(p, id, &c, ability, tapCostSAKind(scope.ab))
 			})
 			if futile && potentialOK {
 				panic(fmt.Sprintf("rules: futile potential-target retry for obj %d accepted %+v", id, potential))
@@ -2017,7 +2038,7 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 		}
 		if potentialOK {
 			mods = potential
-		} else if accepted, ok := e.offerSacXModsGated(p, id, ability, &base, statics, scope, tax, delve, hyp); ok {
+		} else if accepted, ok := e.offerSacXModsGated(p, id, ability, base, statics, scope, tax, delve, hyp); ok {
 			// The cost announces a Sac<X/Spec> count whose resulting X-dependent
 			// reduction (Dargo's "{2} less for each permanent sacrificed this
 			// way", read through Count$xPaid) can make the cast payable at a
@@ -2026,7 +2047,7 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 			// recomputation manaToPay makes after the announcement, applied at
 			// the gate so the offer and the charge agree.
 			mods = accepted
-		} else if accepted, ok := e.offerNamedModsGated(p, id, ability, &base, &mods, statics, scope, tax, delve, hyp); ok {
+		} else if accepted, ok := e.offerNamedModsGated(p, id, ability, base, &mods, statics, scope, tax, delve, hyp); ok {
 			// A RaiseCost part counted by a named announcement (Explosive
 			// Singularity's "tap any number of untapped creatures ... costs
 			// {1} less for each creature tapped this way") can make the cast
@@ -2043,7 +2064,9 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 	// of {W/U} free, while applying it before that half is chosen sees no W
 	// pip at all. The remaining cost parts are face-independent, so this
 	// shared tail preserves every Sac/Discard/counter/tap legality check.
-	return e.nonManaCastable(p, id, e.composedOfferCost(p, id, base, mods, scope), ability, tapCostSAKind(scope.ab))
+	var composed Cost
+	e.composedOfferCostInto(&composed, p, id, base, &mods, scope)
+	return e.nonManaCastableP(p, id, &composed, ability, tapCostSAKind(scope.ab))
 }
 
 // offerSacXMods is the offer gate's announced-sacrifice-count affordability
@@ -2961,7 +2984,7 @@ func (c Cost) withoutEnergy() Cost {
 // cost's fixed energy parts (Forge CostPayEnergy.canPay reads the same total).
 // A dynamic PayEnergy<X> part is bounded by that total at its own X ask, so
 // this gate makes no assumption about the not-yet-chosen value.
-func (e *Engine) energyPayable(p state.PlayerID, c Cost) bool {
+func (e *Engine) energyPayable(p state.PlayerID, c *Cost) bool {
 	total := c.energyCostTotal()
 	return total == 0 || e.G.Players[p].Counter("ENERGY") >= total
 }

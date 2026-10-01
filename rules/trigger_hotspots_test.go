@@ -41,17 +41,17 @@ func BenchmarkFaceTriggerScanDistinctFaces(b *testing.B) {
 	g.SetZone(state.ZStack, 0, []state.ObjID{spell.ID})
 
 	// Warm immutable syntax metadata before measuring the repeated event path.
-	e.checkFaceTriggers(e, events.Event{Kind: events.Note}, nil, 0, 0, false, false, false)
+	e.checkFaceTriggers(e, &events.Event{Kind: events.Note}, nil, 0, 0, false, false, false)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for range b.N {
-		e.checkFaceTriggers(e, events.Event{Kind: events.Note}, nil, 0, 0, false, false, false)
+		e.checkFaceTriggers(e, &events.Event{Kind: events.Note}, nil, 0, 0, false, false, false)
 	}
 	b.StopTimer()
 	if len(e.pendingTriggers) != 0 {
 		b.Fatalf("irrelevant scan queued %d triggers", len(e.pendingTriggers))
 	}
-	e.checkFaceTriggers(e, events.Event{Kind: events.PutOnStack, Obj: spell.ID, Player: 0}, nil, 0, 0, false, false, false)
+	e.checkFaceTriggers(e, &events.Event{Kind: events.PutOnStack, Obj: spell.ID, Player: 0}, nil, 0, 0, false, false, false)
 	if got := len(e.pendingTriggers); got != 240 {
 		b.Fatalf("matching scan queued %d triggers, want 240", got)
 	}
@@ -93,7 +93,7 @@ func TestGrantedWardIrrelevantEventDoesNotAllocate(t *testing.T) {
 func TestFaceTriggerScanDoesNotAllocatePerCard(t *testing.T) {
 	e := layerEngine(t)
 	allocs := testing.AllocsPerRun(100, func() {
-		e.checkFaceTriggers(e, events.Event{Kind: events.Note}, nil, 0, 0, false, false, false)
+		e.checkFaceTriggers(e, &events.Event{Kind: events.Note}, nil, 0, 0, false, false, false)
 	})
 	if allocs != 0 {
 		t.Fatalf("empty trigger scan allocated %.0f objects; want zero", allocs)
@@ -148,11 +148,11 @@ func grantedStaticTriggerBenchEngine(b testing.TB, watchers int) *Engine {
 func BenchmarkGrantedStaticTriggerScan(b *testing.B) {
 	e := grantedStaticTriggerBenchEngine(b, 240)
 	ev := events.Event{Kind: events.Note}
-	e.checkFaceTriggers(e, ev, nil, 0, 0, false, false, false)
+	e.checkFaceTriggers(e, &ev, nil, 0, 0, false, false, false)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for range b.N {
-		e.checkFaceTriggers(e, ev, nil, 0, 0, false, false, false)
+		e.checkFaceTriggers(e, &ev, nil, 0, 0, false, false, false)
 	}
 }
 
@@ -179,7 +179,7 @@ func TestPhaseDiagnosticScanDoesNotReparse(t *testing.T) {
 			e := layerEngine(t)
 			onBoard(t, e, 0, "Name:Phase probe\nTypes:Enchantment\nT:Mode$ Phase | Phase$ "+phase+" | Execute$ Gain\nSVar:Gain:DB$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:x\n")
 			allocs := testing.AllocsPerRun(100, func() {
-				e.checkFaceTriggers(e, events.Event{Kind: events.Note}, nil, 0, 0, false, false, false)
+				e.checkFaceTriggers(e, &events.Event{Kind: events.Note}, nil, 0, 0, false, false, false)
 			})
 			if allocs != 0 {
 				t.Fatalf("repeated %q diagnostic scan allocated %.0f objects; want zero", phase, allocs)
@@ -194,7 +194,7 @@ func TestPhaseDiagnosticScanDoesNotReparse(t *testing.T) {
 func TestPhaseDiagnosticMemoIsCloneIndependent(t *testing.T) {
 	e := layerEngine(t)
 	onBoard(t, e, 0, "Name:Known phase\nTypes:Enchantment\nT:Mode$ Phase | Phase$ Upkeep | Execute$ Gain\nSVar:Gain:DB$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:x\n")
-	e.checkFaceTriggers(e, events.Event{Kind: events.Note}, nil, 0, 0, false, false, false)
+	e.checkFaceTriggers(e, &events.Event{Kind: events.Note}, nil, 0, 0, false, false, false)
 	c := e.Clone()
 	// Populating the clone's writable syntax cache must not populate the
 	// parent's cache; a shared map would race in parallel search branches.
@@ -205,7 +205,7 @@ func TestPhaseDiagnosticMemoIsCloneIndependent(t *testing.T) {
 	for _, branch := range []*Engine{e, c} {
 		onBoard(t, branch, 0, "Name:Unknown phase\nTypes:Enchantment\nT:Mode$ Phase | Phase$ NoSuchPhase | Execute$ Gain\nSVar:Gain:DB$ GainLife | Defined$ You | LifeAmount$ 1\nOracle:x\n")
 		for range 2 {
-			branch.checkFaceTriggers(branch, events.Event{Kind: events.Note}, nil, 0, 0, false, false, false)
+			branch.checkFaceTriggers(branch, &events.Event{Kind: events.Note}, nil, 0, 0, false, false, false)
 		}
 		count := 0
 		for _, ev := range branch.L.Events {

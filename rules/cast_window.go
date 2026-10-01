@@ -131,7 +131,7 @@ func (e *Engine) castWindowProbeUnits(pc *pendingCast, windowUnits []windowManaU
 				continue
 			}
 			cost := e.parseCost(ma.Params["Cost"])
-			if activationTapCostUnavailable(o, cost) {
+			if activationTapCostUnavailable(o, &cost) {
 				continue
 			}
 			lifeCost := int32(0)

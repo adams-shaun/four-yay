@@ -14,7 +14,7 @@ import (
 )
 
 // foldDelayedRegister folds Kind DelayedRegister into state.
-func foldDelayedRegister(g *state.Game, e Event) {
+func foldDelayedRegister(g *state.Game, e *Event) {
 	// Ruling dt1-a: the registration is game state folded here, so a
 	// log-only replay rebuilds the same set a live game held. Totality
 	// like every case: an invalid controller, a nonexistent source, or a
@@ -185,7 +185,7 @@ func foldDelayedRegister(g *state.Game, e Event) {
 }
 
 // foldDelayedForget folds Kind DelayedForget into state.
-func foldDelayedForget(g *state.Game, e Event) {
+func foldDelayedForget(g *state.Game, e *Event) {
 	for i := range g.Delayed {
 		if g.Delayed[i].ID != uint32(e.Amount) {
 			continue
@@ -201,7 +201,7 @@ func foldDelayedForget(g *state.Game, e Event) {
 }
 
 // foldDelayedRemove folds Kind DelayedRemove into state.
-func foldDelayedRemove(g *state.Game, e Event) {
+func foldDelayedRemove(g *state.Game, e *Event) {
 	for i := range g.Delayed {
 		if g.Delayed[i].ID == uint32(e.Amount) {
 			g.Delayed = append(g.Delayed[:i], g.Delayed[i+1:]...)
@@ -211,7 +211,7 @@ func foldDelayedRemove(g *state.Game, e Event) {
 }
 
 // foldDelayedPush folds Kind DelayedPush into state.
-func foldDelayedPush(g *state.Game, e Event) {
+func foldDelayedPush(g *state.Game, e *Event) {
 	// Ruling dt1-a: the ability object is minted here, inside Apply, so a
 	// log-only replay creates the same object a live game did (the
 	// Ruling T20-a precedent TriggerPush and AbilityPush already set).
@@ -321,7 +321,7 @@ func foldDelayedPush(g *state.Game, e Event) {
 }
 
 // foldGrantTriggerPush folds Kind GrantTriggerPush into state.
-func foldGrantTriggerPush(g *state.Game, e Event) {
+func foldGrantTriggerPush(g *state.Game, e *Event) {
 	// A static-grant's trigger (AddTrigger$ on a Mode$ Continuous static):
 	// the Ruling T20-a/DelayedPush precedent -- the ability object is
 	// minted here, inside Apply, so a log-only replay creates the same
@@ -371,7 +371,7 @@ func foldGrantTriggerPush(g *state.Game, e Event) {
 }
 
 // foldGrantAbilityPush folds Kind GrantAbilityPush into state.
-func foldGrantAbilityPush(g *state.Game, e Event) {
+func foldGrantAbilityPush(g *state.Game, e *Event) {
 	// A cross-object ability grant (CR 613.1f): the granting static's
 	// SOURCE resolves the SVar body (Counter), while the minted ability
 	// object's Source is the RECIPIENT (Obj). The DelayedPush/
@@ -416,7 +416,7 @@ func foldGrantAbilityPush(g *state.Game, e Event) {
 }
 
 // foldGainedAbilityPush folds Kind GainedAbilityPush into state.
-func foldGainedAbilityPush(g *state.Game, e Event) {
+func foldGainedAbilityPush(g *state.Game, e *Event) {
 	// A has-all-abilities-of activated ability (Forge's GainsAbilitiesOf$,
 	// task gains1): like AbilityPush the object is minted inside Apply so a
 	// log-only replay creates the same object a live game did, but the
@@ -471,7 +471,7 @@ func foldGainedAbilityPush(g *state.Game, e Event) {
 }
 
 // foldGainedTriggerPush folds Kind GainedTriggerPush into state.
-func foldGainedTriggerPush(g *state.Game, e Event) {
+func foldGainedTriggerPush(g *state.Game, e *Event) {
 	// A has-all-abilities-of triggered ability (Forge's GainsTriggerAbsOf$,
 	// task gains1): the GainedAbilityPush shape one level over, the
 	// MergedTriggerPush precedent's Apply-time mint. Obj is the recipient

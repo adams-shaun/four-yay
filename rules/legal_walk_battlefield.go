@@ -363,8 +363,8 @@ func (w *legalWalk) battlefieldWalk() {
 						} else if n > 0 {
 							cost.Generic = 0
 						}
-						cost = e.powerUpReducedCost(id, ab, cost)
-						if activationTapCostUnavailable(o, cost) || e.tapCostSick(id, cost) {
+						e.powerUpReduceCost(id, ab, &cost)
+						if activationTapCostUnavailable(o, &cost) || e.tapCostSick(id, &cost) {
 							continue
 						}
 						// CR 702.6 / CR 601.2f: a minted attach-cost SA (K:Equip/K:Fortify,
@@ -499,8 +499,8 @@ func (w *legalWalk) battlefieldWalk() {
 						} else if n > 0 {
 							cost.Generic = 0
 						}
-						cost = e.powerUpReducedCost(id, ab, cost)
-						if activationTapCostUnavailable(o, cost) || e.tapCostSick(id, cost) {
+						e.powerUpReduceCost(id, ab, &cost)
+						if activationTapCostUnavailable(o, &cost) || e.tapCostSick(id, &cost) {
 							continue
 						}
 						if !w.offerCastable(p, id, cost, abilityScope(ab), true) {
@@ -614,7 +614,7 @@ func (w *legalWalk) battlefieldWalk() {
 					} else if n > 0 {
 						cost.Generic = 0
 					}
-					if activationTapCostUnavailable(o, cost) || e.tapCostSick(id, cost) {
+					if activationTapCostUnavailable(o, &cost) || e.tapCostSick(id, &cost) {
 						continue
 					}
 					if !w.offerCastable(p, id, cost, abilityScope(ab), true) {
@@ -775,7 +775,7 @@ func (w *legalWalk) battlefieldWalk() {
 					continue
 				}
 				cost := e.parseCost(ab.Params["Cost"])
-				if activationTapCostUnavailable(o, cost) || e.tapCostSick(id, cost) {
+				if activationTapCostUnavailable(o, &cost) || e.tapCostSick(id, &cost) {
 					continue
 				}
 				if !w.offerCastable(p, id, cost, abilityScope(ab), true) {

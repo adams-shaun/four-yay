@@ -414,12 +414,19 @@ func (e *Engine) ownManaReduction(p state.PlayerID, id state.ObjID, ab *cards.SA
 // active only during the turn it entered. This helper is shared by the offer
 // and activation paths so the displayed/validated cost equals the charge.
 func (e *Engine) powerUpReducedCost(id state.ObjID, ab *cards.SA, cost Cost) Cost {
+	e.powerUpReduceCost(id, ab, &cost)
+	return cost
+}
+
+// powerUpReduceCost is powerUpReducedCost applied to *cost in place, so the
+// offer walk does not copy the ~800-byte Cost twice per ability.
+func (e *Engine) powerUpReduceCost(id state.ObjID, ab *cards.SA, cost *Cost) {
 	if ab == nil || !strings.EqualFold(strings.TrimSpace(ab.ParamStr(cards.PKPowerUp)), "True") {
-		return cost
+		return
 	}
 	o := e.G.Obj(id)
 	if o == nil || !o.EnteredThisTurn || o.Face() == nil {
-		return cost
+		return
 	}
 	reduction := e.parseCost(o.Face().ManaCost)
 	// Generic mana reduces only generic mana. Each colored/colorless symbol
@@ -448,7 +455,6 @@ func (e *Engine) powerUpReducedCost(id state.ObjID, ab *cards.SA, cost Cost) Cos
 		}
 		cost.Generic -= left
 	}
-	return cost
 }
 
 // ownReduceCostOffer is ownReduceCost's offer-time reading for a body that

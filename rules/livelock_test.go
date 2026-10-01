@@ -273,7 +273,7 @@ func TestLivelockWatcherCombatDamageFromManySourcesIsNotACycle(t *testing.T) {
 			}
 		}()
 		for i := 0; i < 500; i++ {
-			w.observeFrom(events.Event{Seq: uint64(i + 1), Kind: events.Damage, Player: 1, Amount: 1},
+			w.observeFrom(&events.Event{Seq: uint64(i + 1), Kind: events.Damage, Player: 1, Amount: 1},
 				state.ObjID(1000+i), 0)
 		}
 	}()
@@ -285,7 +285,7 @@ func TestLivelockWatcherCombatDamageFromManySourcesIsNotACycle(t *testing.T) {
 		}
 	}()
 	for i := 0; i < 500; i++ {
-		w.observeFrom(events.Event{Seq: uint64(i + 1), Kind: events.Damage, Player: 1, Amount: 1}, 77, 0)
+		w.observeFrom(&events.Event{Seq: uint64(i + 1), Kind: events.Damage, Player: 1, Amount: 1}, 77, 0)
 	}
 }
 

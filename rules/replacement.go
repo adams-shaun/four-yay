@@ -1117,7 +1117,7 @@ func (e *Engine) applyReplacement(ev events.Event, m replMatch) (events.Event, b
 		// still on the stack is a no-op to effTap).
 		departing, link, controller := e.captureSourceLifelinkLKI(ev)
 		stored, absorbed := e.foldEntryMove(ev)
-		e.loop.observeFrom(stored, e.damaging, len(e.G.Objs))
+		e.loop.observeFrom(&stored, e.damaging, len(e.G.Objs))
 		// The move-driven Effect lifetimes (the ExileOnMoved$/ForgetOnMoved$
 		// sweep) run on Engine.emit's own MoveZone path right here in the
 		// ordering; the raw events.Emit above bypasses that path, so the sweep
@@ -1136,7 +1136,7 @@ func (e *Engine) applyReplacement(ev events.Event, m replMatch) (events.Event, b
 		// body, Amulet of Vigor's and Tiller Engine's `Permanent.tapped`
 		// never matched an enters-tapped land (cardfuzz coverage audit: zero
 		// fires in ~800 casts each).
-		e.checkTriggers(stored, nil, 0, 0, false)
+		e.checkTriggers(&stored, nil, 0, 0, false)
 		if e.pending == nil && stored.Kind == events.MoveZone && stored.To == state.ZBattlefield {
 			e.finishLandPlay(stored.Obj)
 		}

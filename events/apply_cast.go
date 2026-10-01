@@ -12,7 +12,7 @@ import (
 )
 
 // foldCastInfo folds Kind CastInfo into state.
-func foldCastInfo(g *state.Game, e Event) {
+func foldCastInfo(g *state.Game, e *Event) {
 	if o := g.Obj(e.Obj); o != nil {
 		o.CastFlags = FlagsFrom(e.Counter)
 		// FlagConverged's Amount is the distinct-colour spend count (CR
@@ -130,7 +130,7 @@ func foldCastInfo(g *state.Game, e Event) {
 }
 
 // foldResolve folds Kind Resolve into state.
-func foldResolve(g *state.Game, e Event) {
+func foldResolve(g *state.Game, e *Event) {
 	// The resolving object leaves the stack through its own MoveZone event,
 	// so popping here would drop a second object; what the case DOES fold
 	// is the per-ability resolution tally Forge's Count$ResolvedThisTurn
@@ -153,7 +153,7 @@ func foldResolve(g *state.Game, e Event) {
 }
 
 // foldPriority folds Kind Priority into state.
-func foldPriority(g *state.Game, e Event) {
+func foldPriority(g *state.Game, e *Event) {
 	if validPlayer(g, e.Player) {
 		g.Priority = e.Player
 		passes := e.Amount
@@ -165,7 +165,7 @@ func foldPriority(g *state.Game, e Event) {
 }
 
 // foldXChange folds Kind XChange into state.
-func foldXChange(g *state.Game, e Event) {
+func foldXChange(g *state.Game, e *Event) {
 	// A mid-resolution effect rewrote the {X} a stack object was cast or
 	// activated with (DB$ ChangeX: Unbound Flourishing's doubling, Glava's
 	// "the value of X becomes 5"). Amount is the new value, Obj the stack
@@ -178,7 +178,7 @@ func foldXChange(g *state.Game, e Event) {
 }
 
 // foldGiftPromise folds Kind GiftPromise into state.
-func foldGiftPromise(g *state.Game, e Event) {
+func foldGiftPromise(g *state.Game, e *Event) {
 	// CR 702.168: the cast-time gift election. Obj is the spell on the
 	// stack, Player the promised opponent (valid only when Amount != 0),
 	// Amount 1 for a promise and 0 for a decline. Folded onto the object
@@ -196,7 +196,7 @@ func foldGiftPromise(g *state.Game, e Event) {
 }
 
 // foldStoreSVar folds Kind StoreSVar into state.
-func foldStoreSVar(g *state.Game, e Event) {
+func foldStoreSVar(g *state.Game, e *Event) {
 	// api:StoreSVar wrote one named runtime SVar onto its source (Forge's
 	// sa.setSVar: Minion of the Wastes / Phyrexian Processor's
 	// `Cost$ Mandatory PayLife<X>` body storing the paid life under
@@ -216,7 +216,7 @@ func foldStoreSVar(g *state.Game, e Event) {
 }
 
 // foldNoteNumber folds Kind NoteNumber into state.
-func foldNoteNumber(g *state.Game, e Event) {
+func foldNoteNumber(g *state.Game, e *Event) {
 	// A trigger's Execute$ body noted a number onto the CARD (DB$ Pump
 	// NoteNumber$ <expr> -- Lupine Harbingers' exile trigger noting
 	// Count$YourTurns). Amount is the value, Obj the card; Count$
@@ -228,7 +228,7 @@ func foldNoteNumber(g *state.Game, e Event) {
 }
 
 // foldChoose folds Kind Choose into state.
-func foldChoose(g *state.Game, e Event) {
+func foldChoose(g *state.Game, e *Event) {
 	if o := g.Obj(e.Obj); o != nil {
 		switch e.Counter {
 		case "name":

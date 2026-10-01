@@ -18,7 +18,8 @@ import (
 // before, and checkTriggers then looks for anything it just made true.
 func (e *Engine) emit(ev events.Event) events.Event {
 	if bookkeepingKind(ev.Kind) && !e.applyingReplacement {
-		return e.emitBookkeeping(ev)
+		e.emitBookkeeping(&ev)
+		return ev
 	}
 	if ev.Kind == events.EndTurn {
 		e.endTurnRequested = true
@@ -428,7 +429,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 				IDs: []state.ObjID{recipient}, Amount: stored.Amount})
 		}
 	}
-	e.noteTurnsTaken(stored)
+	e.noteTurnsTaken(&stored)
 	// The per-turn combat-damage ledger expires with the turn (CR 514.2's
 	// "this turn" window): a TurnChange begins a fresh turn, so every hit
 	// captured during the turn that just ended is no longer "this turn".
@@ -439,7 +440,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		e.crimeSeatsThisTurn = 0
 		e.bendSeatsThisTurn = [64]uint8{}
 	}
-	e.loop.observeFrom(stored, e.damaging, len(e.G.Objs))
+	e.loop.observeFrom(&stored, e.damaging, len(e.G.Objs))
 	// setname.go: keep the layer-3 rename table the filter tier reads in step
 	// with the board. Gated so a match with no SetName$ carrier pays one
 	// branch.
@@ -616,7 +617,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 			e.lifeLossBatch = append(e.lifeLossBatch, stored)
 		}
 		before := len(e.pendingTriggers)
-		e.checkTriggers(stored, lki, lkiPower, lkiToughness, lkiPTValid)
+		e.checkTriggers(&stored, lki, lkiPower, lkiToughness, lkiPTValid)
 		// A pushed spell proposal's own target choice (CR 601.2c): remember
 		// which queue entries it produced so abortCast can drop them if the
 		// cast is reversed (CR 733.1 -- see pendingCast.proposalTriggers).
@@ -737,7 +738,7 @@ func (e *Engine) sweepExileReturn(source state.ObjID) {
 // noteTurnsTaken keeps the per-seat turn tally cache in step with the log:
 // it stays valid only while every logged event passes through here, one at a
 // time, and a TurnChange bumps its player's count.
-func (e *Engine) noteTurnsTaken(stored events.Event) {
+func (e *Engine) noteTurnsTaken(stored *events.Event) {
 	if len(e.turnsTaken) == len(e.G.Players) && e.turnsTakenEpoch == len(e.L.Events)-1 {
 		if stored.Kind == events.TurnChange && int(stored.Player) < len(e.turnsTaken) {
 			e.turnsTaken[stored.Player]++
@@ -784,16 +785,19 @@ func bookkeepingKind(k events.Kind) bool {
 // ledger, speed, ascend, and the suppressedCast/control tail, which excludes
 // these three kinds by name. A hook added to emit for one of these kinds must
 // be added here too.
-func (e *Engine) emitBookkeeping(ev events.Event) events.Event {
-	stored := events.Emit(e.G, e.L, ev)
-	e.noteTurnsTaken(stored)
-	e.loop.observeFrom(stored, e.damaging, len(e.G.Objs))
+//
+// It works in place: on return *ev is the stored event (Seq assigned, IDs and
+// Pairs detached), with no by-value copy of the 120-byte event on the way.
+// ev must point at the caller's own event, never into the log.
+func (e *Engine) emitBookkeeping(ev *events.Event) {
+	events.EmitPtr(e.G, e.L, ev)
+	e.noteTurnsTaken(ev)
+	e.loop.observeFrom(ev, e.damaging, len(e.G.Objs))
 	if e.setNameInPool {
 		e.refreshRenames()
 	}
 	if e.layer4InPool {
 		e.refreshDerivedTypes()
 	}
-	e.checkTriggers(stored, nil, 0, 0, false)
-	return stored
+	e.checkTriggers(ev, nil, 0, 0, false)
 }

@@ -13,12 +13,12 @@ import (
 )
 
 // foldManaAdd folds Kind ManaAdd into state.
-func foldManaAdd(g *state.Game, e Event) {
+func foldManaAdd(g *state.Game, e *Event) {
 	applyManaAdd(g, e)
 }
 
 // foldManaClear folds Kind ManaClear into state.
-func foldManaClear(g *state.Game, e Event) {
+func foldManaClear(g *state.Game, e *Event) {
 	if validPlayer(g, e.Player) {
 		// PersistentMana$ True units survive the boundary (CR 500.4 with the
 		// producing card's exception) — only the slot's ordinary share
@@ -64,7 +64,7 @@ func foldManaClear(g *state.Game, e Event) {
 }
 
 // foldManaUndo folds Kind ManaUndo into state.
-func foldManaUndo(g *state.Game, e Event) {
+func foldManaUndo(g *state.Game, e *Event) {
 	// The announced payment window's reversal of one mana activation
 	// (CR 733.1, announce-then-pay spec §5): remove exactly the units one
 	// ManaAdd put in the pool -- the same slot and snow/typed tally the
@@ -72,14 +72,14 @@ func foldManaUndo(g *state.Game, e Event) {
 	// and untap the named source. The rules side offers it only when the
 	// pool still holds those units, so the clamp is defensive.
 	if validPlayer(g, e.Player) && e.Amount > 0 {
-		rm := e
+		rm := *e // a copy: a fold must never write the event it folds
 		rm.Kind, rm.Amount, rm.Text = ManaAdd, -e.Amount, ""
 		idx := manaAddSlot(rm.Counter)
 		if have := g.Players[e.Player].Pool[idx]; have < e.Amount {
 			rm.Amount = -have
 		}
 		if rm.Amount < 0 {
-			applyManaAdd(g, rm)
+			applyManaAdd(g, &rm)
 		}
 	}
 	if o := g.Obj(e.Obj); e.Obj != 0 && o != nil {
@@ -88,21 +88,21 @@ func foldManaUndo(g *state.Game, e Event) {
 }
 
 // foldTap folds Kind Tap into state.
-func foldTap(g *state.Game, e Event) {
+func foldTap(g *state.Game, e *Event) {
 	if o := g.Obj(e.Obj); o != nil {
 		o.Tapped = true
 	}
 }
 
 // foldUntap folds Kind Untap into state.
-func foldUntap(g *state.Game, e Event) {
+func foldUntap(g *state.Game, e *Event) {
 	if o := g.Obj(e.Obj); o != nil {
 		o.Tapped = false
 	}
 }
 
 // foldDoorUnlock folds Kind DoorUnlock into state.
-func foldDoorUnlock(g *state.Game, e Event) {
+func foldDoorUnlock(g *state.Game, e *Event) {
 	// CR 309.5: the unlock activation paid the locked half's mana cost as
 	// a sorcery. The flag is what makes the alternate face's rules text
 	// live (rules' trigger/static/ability scans) and what a Mode$
@@ -114,7 +114,7 @@ func foldDoorUnlock(g *state.Game, e Event) {
 }
 
 // foldSpeedChange folds Kind SpeedChange into state.
-func foldSpeedChange(g *state.Game, e Event) {
+func foldSpeedChange(g *state.Game, e *Event) {
 	// One speed change (CR 702.179). The once-per-turn trigger gate
 	// belongs to rules; Apply folds the delta and clamps to [0, 4].
 	if validPlayer(g, e.Player) {
@@ -129,7 +129,7 @@ func foldSpeedChange(g *state.Game, e Event) {
 }
 
 // foldRingTemptsYou folds Kind RingTemptsYou into state.
-func foldRingTemptsYou(g *state.Game, e Event) {
+func foldRingTemptsYou(g *state.Game, e *Event) {
 	// One "the Ring tempts you" action (CR 701.54a): the count rises by
 	// one and the designated permanent becomes (or stays) this seat's
 	// Ring-bearer. An impossible bearer choice (no creature controlled)
@@ -143,7 +143,7 @@ func foldRingTemptsYou(g *state.Game, e Event) {
 }
 
 // foldRingEmblemPush folds Kind RingEmblemPush into state.
-func foldRingEmblemPush(g *state.Game, e Event) {
+func foldRingEmblemPush(g *state.Game, e *Event) {
 	// One of the Ring emblem's four level abilities (CR 701.54c) being
 	// put on the stack. The ability is minted HERE, inside Apply, so a
 	// log-only replay creates the exact same object a live game did
@@ -180,14 +180,14 @@ func foldRingEmblemPush(g *state.Game, e Event) {
 }
 
 // foldMonarchChange folds Kind MonarchChange into state.
-func foldMonarchChange(g *state.Game, e Event) {
+func foldMonarchChange(g *state.Game, e *Event) {
 	if validPlayer(g, e.Player) {
 		g.Monarch, g.HasMonarch = e.Player, true
 	}
 }
 
 // foldInitiativeChange folds Kind InitiativeChange into state.
-func foldInitiativeChange(g *state.Game, e Event) {
+func foldInitiativeChange(g *state.Game, e *Event) {
 	// CR 726.3: only one player can have the initiative at a time; as a
 	// player takes it, the player who currently has it ceases to have it.
 	// Assigning the single holder covers both halves of that transition.
@@ -197,7 +197,7 @@ func foldInitiativeChange(g *state.Game, e Event) {
 }
 
 // foldBlessingChange folds Kind BlessingChange into state.
-func foldBlessingChange(g *state.Game, e Event) {
+func foldBlessingChange(g *state.Game, e *Event) {
 	// CR 702.131: one-way designation latch.
 	if validPlayer(g, e.Player) {
 		g.Players[e.Player].Blessing = true
@@ -205,14 +205,14 @@ func foldBlessingChange(g *state.Game, e Event) {
 }
 
 // foldEnduringStoryChange folds Kind EnduringStoryChange into state.
-func foldEnduringStoryChange(g *state.Game, e Event) {
+func foldEnduringStoryChange(g *state.Game, e *Event) {
 	if validPlayer(g, e.Player) {
 		g.Players[e.Player].EnduringStory = true
 	}
 }
 
 // foldPlanarDeckShuffle folds Kind PlanarDeckShuffle into state.
-func foldPlanarDeckShuffle(g *state.Game, e Event) {
+func foldPlanarDeckShuffle(g *state.Game, e *Event) {
 	if validPlayer(g, e.Player) {
 		ids := append([]state.ObjID(nil), e.IDs...)
 		for _, id := range ids {
@@ -225,7 +225,7 @@ func foldPlanarDeckShuffle(g *state.Game, e Event) {
 }
 
 // foldPlanarReveal folds Kind PlanarReveal into state.
-func foldPlanarReveal(g *state.Game, e Event) {
+func foldPlanarReveal(g *state.Game, e *Event) {
 	if validPlayer(g, e.Player) {
 		ids := g.Zone(state.ZPlanarDeck, e.Player)
 		if len(ids) > 0 && ids[0] == e.Obj {
@@ -237,7 +237,7 @@ func foldPlanarReveal(g *state.Game, e Event) {
 }
 
 // foldPlanarWalk folds Kind PlanarWalk into state.
-func foldPlanarWalk(g *state.Game, e Event) {
+func foldPlanarWalk(g *state.Game, e *Event) {
 	if validPlayer(g, e.Player) {
 		ids := g.Zone(state.ZPlanarDeck, e.Player)
 		if len(ids) > 0 {
@@ -267,7 +267,7 @@ func foldPlanarWalk(g *state.Game, e Event) {
 }
 
 // foldDungeonCreate folds Kind DungeonCreate into state.
-func foldDungeonCreate(g *state.Game, e Event) {
+func foldDungeonCreate(g *state.Game, e *Event) {
 	if !validPlayer(g, e.Player) || g.Players[e.Player].DungeonObj != 0 {
 		return
 	}
@@ -286,14 +286,14 @@ func foldDungeonCreate(g *state.Game, e Event) {
 }
 
 // foldDungeonRoom folds Kind DungeonRoom into state.
-func foldDungeonRoom(g *state.Game, e Event) {
+func foldDungeonRoom(g *state.Game, e *Event) {
 	if e.Text != "" && activeDungeon(g, e.Player, e.Obj) != nil {
 		g.Players[e.Player].DungeonRoom = e.Text
 	}
 }
 
 // foldDungeonComplete folds Kind DungeonComplete into state.
-func foldDungeonComplete(g *state.Game, e Event) {
+func foldDungeonComplete(g *state.Game, e *Event) {
 	if activeDungeon(g, e.Player, e.Obj) != nil && !g.Players[e.Player].DungeonCompleted {
 		g.Players[e.Player].CompletedDungeons++
 		g.Players[e.Player].DungeonCompleted = true
@@ -301,7 +301,7 @@ func foldDungeonComplete(g *state.Game, e Event) {
 }
 
 // foldDungeonRemove folds Kind DungeonRemove into state.
-func foldDungeonRemove(g *state.Game, e Event) {
+func foldDungeonRemove(g *state.Game, e *Event) {
 	if o := activeDungeon(g, e.Player, e.Obj); o != nil {
 		Move(g, o.ID, state.ZCommand, state.ZCeased)
 		g.Players[e.Player].DungeonObj = 0
@@ -311,7 +311,7 @@ func foldDungeonRemove(g *state.Game, e Event) {
 }
 
 // foldPlayerNoted folds Kind PlayerNoted into state.
-func foldPlayerNoted(g *state.Game, e Event) {
+func foldPlayerNoted(g *state.Game, e *Event) {
 	// A DB$ Pump body noted a label onto a player (NoteCards$ <defined>
 	// | NoteCardsFor$ <label> -- Seize the Spotlight, Master of
 	// Ceremonies). Player is the seat and Text the label; the note is
@@ -337,7 +337,7 @@ func foldPlayerNoted(g *state.Game, e Event) {
 }
 
 // foldPlayerNoteCleared folds Kind PlayerNoteCleared into state.
-func foldPlayerNoteCleared(g *state.Game, e Event) {
+func foldPlayerNoteCleared(g *state.Game, e *Event) {
 	// ClearNotedCardsFor$ removes exactly one label. Retaining the remaining
 	// order makes the event fold deterministic and replay-equivalent.
 	if e.Text == "" || int(e.Player) >= len(g.Players) {
@@ -354,7 +354,7 @@ func foldPlayerNoteCleared(g *state.Game, e Event) {
 }
 
 // foldCardNoted folds Kind CardNoted into state.
-func foldCardNoted(g *state.Game, e Event) {
+func foldCardNoted(g *state.Game, e *Event) {
 	// A DB$ Pump body noted a label onto a CARD (NoteCards$ Remembered |
 	// NoteCardsFor$ <label> -- Volatile Chimera, Arcane Savant, Caller of
 	// the Untamed; NoteCards$ TriggeredSource -- Maelstrom Archangel
