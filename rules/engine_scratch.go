@@ -86,6 +86,10 @@ type engineScratch struct {
 	// activeBuildSeq minus it counts active()'s real rebuilds. Clone copies
 	// none (a clone's activeBuildSeq restarts too).
 	crossWalkRetires uint64
+	// priorityWalk is the posed priority decision's own offer walk, which
+	// the potential readers use while PotentialMana adds nothing to the pool
+	// (potential_walk_cache.go). Clone copies none.
+	priorityWalk priorityWalkTail
 
 	// derivingColorsSet/ID/Colors: the finished layer-5 colour answer for the
 	// object whose Derived is mid-build (set by derivedWith before its layer-7

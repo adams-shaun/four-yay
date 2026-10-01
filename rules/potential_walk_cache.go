@@ -5,6 +5,7 @@ import (
 	"reflect"
 
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -65,6 +66,19 @@ import (
 // (forAsk false: never the decision arena), read-only to every reader --
 // each ranges it by value and none retains it past its call.
 type potentialWalkCache struct {
+	stamp potentialStamp
+	full  bool
+	mana  state.Mana
+	opts  []decision.Option
+	// plans memoises the cast planner's verdicts at this entry's state
+	// (planCastPaymentMemo); it lives and dies with the entry.
+	plans []castPlanMemo
+}
+
+// potentialStamp is a cache entry's validity key: the posed decision (the
+// ask serial and the pending pointer), the board counters, active()'s
+// rebuild count, and the seat with its own pool stamp.
+type potentialStamp struct {
 	serial  uint64
 	pending *decision.Decision
 	ep      int
@@ -73,12 +87,14 @@ type potentialWalkCache struct {
 	seq     uint64
 	p       state.PlayerID
 	pl      potentialPlayerStamp
-	full    bool
-	mana    state.Mana
-	opts    []decision.Option
-	// plans memoises the cast planner's verdicts at this entry's state
-	// (planCastPaymentMemo); it lives and dies with the entry.
-	plans []castPlanMemo
+}
+
+// potentialStampNow is p's key at the current state (pending non-nil and
+// activeDepth 0: potentialWalkUsable).
+func (e *Engine) potentialStampNow(p state.PlayerID) potentialStamp {
+	return potentialStamp{serial: e.potentialAskSerial, pending: e.pending,
+		ep: len(e.L.Events), ver: e.continuousVersion, objs: len(e.G.Objs),
+		seq: e.potentialRebuilds(), p: p, pl: e.potentialPlayerStampOf(p)}
 }
 
 // castPlanMemo is one memoised planCastPaymentChecked verdict.
@@ -99,9 +115,7 @@ func (e *Engine) potentialWalkUsable() bool {
 // state (full: the full walk is required).
 func (e *Engine) potentialWalkHit(p state.PlayerID, full bool) bool {
 	c := &e.potentialWalk
-	return c.opts != nil && c.serial == e.potentialAskSerial && c.pending == e.pending &&
-		c.ep == len(e.L.Events) && c.ver == e.continuousVersion && c.objs == len(e.G.Objs) &&
-		c.p == p && (c.full || !full) && c.pl == e.potentialPlayerStampOf(p) && c.seq == e.potentialRebuilds()
+	return c.opts != nil && (c.full || !full) && c.stamp.p == p && c.stamp == e.potentialStampNow(p)
 }
 
 // potentialPlayerStamp is the seat's own mana and turn bookkeeping plus the
@@ -148,14 +162,37 @@ func (e *Engine) potentialWalkOf(p state.PlayerID, full bool) (state.Mana, []dec
 		return c.mana, c.opts
 	}
 	walkFull := full || e.potentialFullDemand
-	mana, opts := e.potentialWalkCompute(p, walkFull)
+	var mana state.Mana
+	var opts []decision.Option
+	if tail := e.priorityWalkTailFor(p); tail != nil {
+		// The decision's own offer walk is the potential walk whenever
+		// PotentialMana adds nothing to the floating pool (see
+		// priorityWalkTail): only the bound needs computing.
+		e.potentialWalkDepth++
+		mana = e.PotentialMana(p)
+		e.potentialWalkDepth--
+		if mana == e.G.Players[p].Pool {
+			opts, walkFull = tail, true
+			if walkCacheVerify {
+				e.potentialWalkDepth++
+				want := e.legalActionsWalk(p, &mana, false)
+				e.potentialWalkDepth--
+				if !reflect.DeepEqual(want, opts) {
+					panic(fmt.Sprintf("rules: priority walk served as the potential walk %+v, the priced walk is %+v", opts, want))
+				}
+			}
+		} else {
+			e.potentialWalkDepth++
+			opts = e.legalActionsWalk(p, &mana, !walkFull)
+			e.potentialWalkDepth--
+		}
+	} else {
+		mana, opts = e.potentialWalkCompute(p, walkFull)
+	}
 	plans := e.potentialWalk.plans
 	clear(plans)
 	e.potentialWalk = potentialWalkCache{
-		plans:  plans[:0],
-		serial: e.potentialAskSerial, pending: e.pending,
-		ep: len(e.L.Events), ver: e.continuousVersion, objs: len(e.G.Objs),
-		seq: e.potentialRebuilds(), p: p, pl: e.potentialPlayerStampOf(p), full: walkFull, mana: mana, opts: opts,
+		plans: plans[:0], stamp: e.potentialStampNow(p), full: walkFull, mana: mana, opts: opts,
 	}
 	if walkFull && !full && castsOnlyWalkVerify {
 		e.potentialWalkDepth++
@@ -257,4 +294,63 @@ func (e *Engine) planCastPaymentMemo(p state.PlayerID, cast decision.PlannedCast
 		c.plans = append(c.plans, castPlanMemo{cast: cast, out: out})
 	}
 	return out
+}
+
+// priorityWalkTail is the posed priority decision's own offer walk
+// (askPriority's legalActionsWithWindow, priced against the floating pool),
+// recorded right after its ask so the potential readers can use it.
+//
+// When PotentialMana(p) equals p's floating pool (no untapped source adds
+// anything: measured 60% of the potential walks on the random SpellBench
+// leg), the potential walk priced against it IS that walk: every place the
+// walk reads its hypothetical bound is a mana pricing whose nil-pool form
+// prices exactly (Pool, ManaUnits) while p holds no RestrictedMana --
+// manaFeasiblePricedP's two arms, castable/castablePriced and
+// costPayable/costPayablePool (the same resolveManaWith; the pip-free fast
+// path is verify-checked against it), and specializeLegalPriced's
+// costPayableOther/costPayablePool. The one structural difference,
+// morphTurnUpPayablePriced's smallest-X pricing against the nil form's X
+// loop, only runs for a face-down permanent of p's, so the tail is not used
+// while p controls one. Verify mode (walkCacheVerify) runs the priced walk
+// on every use and panics unless the two option lists are identical.
+//
+// The tail is recorded only when nothing but ask's own DecisionAsk marker
+// (whose Apply writes nothing) was logged since the walk, and the registry
+// and arena did not move, so the walk read the state the stamp names.
+type priorityWalkTail struct {
+	stamp potentialStamp
+	opts  []decision.Option
+}
+
+// notePriorityWalk records askPriority's walk for p (taken at log length ep,
+// registry version ver and arena size objs) once its ask posed d.
+func (e *Engine) notePriorityWalk(p state.PlayerID, d *decision.Decision, ep, ver, objs int) {
+	e.priorityWalk = priorityWalkTail{}
+	if e.pending != d || ver != e.continuousVersion || objs != len(e.G.Objs) || ep > len(e.L.Events) ||
+		!e.potentialWalkUsable() {
+		return
+	}
+	for _, ev := range e.L.Events[ep:] {
+		if ev.Kind != events.DecisionAsk {
+			return
+		}
+	}
+	e.priorityWalk = priorityWalkTail{stamp: e.potentialStampNow(p), opts: d.Options}
+}
+
+// priorityWalkTailFor returns the recorded priority walk's options when they
+// are p's walk at the current state and stand for the potential walk's
+// pricing (no RestrictedMana, no face-down permanent of p's); the caller
+// still checks the PotentialMana bound against the pool.
+func (e *Engine) priorityWalkTailFor(p state.PlayerID) []decision.Option {
+	t := &e.priorityWalk
+	if t.opts == nil || t.stamp.p != p || len(e.G.Players[p].RestrictedMana) != 0 || t.stamp != e.potentialStampNow(p) {
+		return nil
+	}
+	for _, id := range e.G.Zone(state.ZBattlefield, p) {
+		if o := e.G.Obj(id); o != nil && o.FaceDown {
+			return nil
+		}
+	}
+	return t.opts
 }
