@@ -253,8 +253,13 @@ On the 1,000 test decisions.
   "cast the biggest spell; attack when power ≥ the best blocker's toughness; block when the blocker
   kills and survives". The two land within a point on A_set. Ours is 0.05 higher balanced, because
   it attacks like a top player (attack-or-not 0.708). It casts on 99% of holds.
-- **Not run:** a same-settings second-seed rerun (upstream's test–retest check). The
-  undiscounted-vs-`-discount 1.0` rerun above checks determinism only.
+- **Test–retest (second seed, 1,000 simulations, 0.99 per ply).** Rerunning each method with
+  run seed 1 instead of 0 moves A_set by at most 0.3 points and balanced by at most 0.001; no
+  difference is detectable. Same choice: clairvoyant 100%, PIMC-1 98.8%, PIMC-4 99.0%,
+  IS-MCTS 85.2%. The run seed only reseeds the search: the PIMC and clairvoyant worlds are the
+  item's fixed planned worlds, and gorge's tree with uniform priors rarely breaks ties by chance.
+  IS-MCTS re-deals a fresh world every simulation, so its seed matters more. Run-to-run noise is
+  therefore far below the ±3.5-point bootstrap CI over games, as upstream also found.
 
 ## 3. E1: the hidden-information test
 
