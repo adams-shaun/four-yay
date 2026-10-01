@@ -134,6 +134,12 @@ type ArmInput struct {
 	// FreshChance re-seeds a tree arm's future chance for every simulation
 	// (open loop) instead of once per tree. IS-MCTS always re-seeds.
 	FreshChance bool
+	// OnWorld, when non-nil, sees every world engine an honest arm's
+	// simulation is dealt (PIMC's per-simulation clone, IS-MCTS's re-deal)
+	// before the simulation walks it. It must not mutate the engine. The
+	// leak probes use it to prove a card no belief can deal never reaches a
+	// search; the clairvoyant arm searches Real and does not call it.
+	OnWorld func(*rules.Engine)
 }
 
 // LoadLeafNet loads a policynet value checkpoint for ArmInput.Net: a
@@ -270,7 +276,7 @@ func RunArm(ctx context.Context, in ArmInput) (ArmResult, error) {
 			return res, err
 		}
 		opts.Seed = treeSeed(in.Seed, 0)
-		src := &pimcSource{base: in.Worlds[0], obs: obs, seed: chanceSeed(in.Seed, 0), fresh: in.FreshChance}
+		src := &pimcSource{base: in.Worlds[0], obs: obs, seed: chanceSeed(in.Seed, 0), fresh: in.FreshChance, onWorld: in.OnWorld}
 		single, res.plan, err = search(ctx, in.Worlds[0], obs, botSeed, src, in.Net, opts)
 		if err != nil {
 			return res, err
@@ -280,6 +286,7 @@ func RunArm(ctx context.Context, in ArmInput) (ArmResult, error) {
 		if err != nil {
 			return res, err
 		}
+		src.onWorld = in.OnWorld
 		opts.Seed = treeSeed(in.Seed, 0)
 		opts.RootPerWorld = true
 		obs, err := rootObserver(in.Worlds[0], actor)
@@ -446,7 +453,7 @@ func runPIMC4(ctx context.Context, in ArmInput, res ArmResult, answer *rules.Eng
 		if err != nil {
 			return res, err
 		}
-		src := &pimcSource{base: in.Worlds[i], obs: obs, seed: chanceSeed(in.Seed, i), fresh: in.FreshChance}
+		src := &pimcSource{base: in.Worlds[i], obs: obs, seed: chanceSeed(in.Seed, i), fresh: in.FreshChance, onWorld: in.OnWorld}
 		r, plan, err := search(ctx, in.Worlds[i], obs, botSeed, src, in.Net, local)
 		if err != nil {
 			return res, fmt.Errorf("searchbench: pimc-4 world %d: %w", i, err)
@@ -532,6 +539,8 @@ type pimcSource struct {
 	fresh bool
 	prev  *rules.Engine
 	spare rules.Spare
+
+	onWorld func(*rules.Engine)
 }
 
 func (s *pimcSource) World(sim int) (azmcts.World, error) {
@@ -543,6 +552,9 @@ func (s *pimcSource) World(sim int) (azmcts.World, error) {
 		seed = splitMix64(s.seed ^ splitMix64(uint64(sim)+1))
 	}
 	s.prev = s.base.CloneHypotheticalInto(seed, &s.spare)
+	if s.onWorld != nil {
+		s.onWorld(s.prev)
+	}
 	return azmcts.World{Engine: s.prev, Observer: s.obs.Clone(), Hypothetical: true}, nil
 }
 
@@ -568,6 +580,7 @@ type isSource struct {
 	firstFail string
 	prev      *rules.Engine
 	spare     rules.Spare
+	onWorld   func(*rules.Engine)
 }
 
 type isWorld struct {
@@ -610,6 +623,9 @@ func (s *isSource) World(sim int) (azmcts.World, error) {
 	}
 	s.redeals++
 	s.prev = w
+	if s.onWorld != nil {
+		s.onWorld(w)
+	}
 	return azmcts.World{Engine: w, Observer: s.worlds[i].obs.Clone(), Hypothetical: true}, nil
 }
 

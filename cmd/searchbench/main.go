@@ -29,6 +29,8 @@ func run(args []string, out io.Writer) error {
 		return build(args[1:], out)
 	case "run":
 		return runArm(args[1:], out)
+	case "leak":
+		return leak(args[1:], out)
 	}
 	if len(args) < 2 {
 		return usage()
@@ -52,7 +54,7 @@ func run(args []string, out io.Writer) error {
 }
 
 func usage() error {
-	return fmt.Errorf("usage: searchbench build -out <dir> [-games games.jsonl] [-rows rows.jsonl.gz] [-corpus .cards] [-workers 4] [-max-games N] [-quota-scale f] [-python py] [-prep prep.py] [-upstream dir]\n       searchbench run -manifest <manifest.json> -store <items.jsonl.gz> -arm <no-search|clairvoyant-mcts|pimc-1|pimc-4|is-mcts> -sims N -out <results.jsonl> [-split test] [-workers K] [-seed s] [-leaf heuristic|<checkpoint>] [-discount g -discount-unit ply|action|turn] [-name arm-label] [-corpus .cards] [-corpus-full] [-limit N] [-gc-percent P] [-mem-limit 1500MiB]\n       searchbench manifest validate -in <manifest.json>\n       searchbench analyze -manifest <manifest.json> [-split test] [-boot 1000] [-seed 0] [-qscale 2] [-json <out.json>] -results <results.jsonl> [<results.jsonl>...]\n       searchbench compare -manifest <manifest.json> -a <results.jsonl> -b <results.jsonl> [-split test] [-boot 1000] [-seed 0] [-json <out.json>]\n       searchbench baselines -manifest <manifest.json> -out <dir> [-seed 1]\n       searchbench source audit -in <17lands.csv[.gz]>")
+	return fmt.Errorf("usage: searchbench build -out <dir> [-games games.jsonl] [-rows rows.jsonl.gz] [-corpus .cards] [-workers 4] [-max-games N] [-quota-scale f] [-python py] [-prep prep.py] [-upstream dir]\n       searchbench run -manifest <manifest.json> -store <items.jsonl.gz> -arm <no-search|clairvoyant-mcts|pimc-1|pimc-4|is-mcts> -sims N -out <results.jsonl> [-split test] [-workers K] [-seed s] [-leaf heuristic|<checkpoint>] [-discount g -discount-unit ply|action|turn] [-name arm-label] [-corpus .cards] [-corpus-full] [-limit N] [-gc-percent P] [-mem-limit 1500MiB]\n       searchbench leak -probes <probes.json.gz> -out <dir> [-arms a,b] [-pairs p,q] [-seeds 16] [-sims 3000] [-workers K] [-discount 0.99 -discount-unit ply] [-corpus .cards] [-gc-percent P] [-mem-limit 1500MiB] | -analyze -out <dir>\n       searchbench manifest validate -in <manifest.json>\n       searchbench analyze -manifest <manifest.json> [-split test] [-boot 1000] [-seed 0] [-qscale 2] [-json <out.json>] -results <results.jsonl> [<results.jsonl>...]\n       searchbench compare -manifest <manifest.json> -a <results.jsonl> -b <results.jsonl> [-split test] [-boot 1000] [-seed 0] [-json <out.json>]\n       searchbench baselines -manifest <manifest.json> -out <dir> [-seed 1]\n       searchbench source audit -in <17lands.csv[.gz]>")
 }
 
 func validate(args []string, out io.Writer) error {

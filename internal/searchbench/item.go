@@ -522,19 +522,7 @@ func CardNames(items []*StoreItem) ([]string, error) {
 			if err != nil {
 				return nil, fmt.Errorf("searchbench: %s: %w", it.ID, err)
 			}
-			for _, p := range spec.Players {
-				for _, list := range [][]string{p.Decklist, p.Hand, p.Graveyard, p.Exile, p.LibraryTop} {
-					for _, n := range list {
-						add(n)
-					}
-				}
-				for _, perm := range p.Battlefield {
-					add(perm.Name)
-				}
-			}
-			for _, st := range spec.Stack {
-				add(st.Card)
-			}
+			specCardNames(spec, add)
 		}
 	}
 	out := make([]string, 0, len(seen))
@@ -543,6 +531,24 @@ func CardNames(items []*StoreItem) ([]string, error) {
 	}
 	slices.Sort(out)
 	return out, nil
+}
+
+// specCardNames calls add with every card name spec seats: each seat's
+// decklist and every named card in a zone.
+func specCardNames(spec *statespec.Spec, add func(string)) {
+	for _, p := range spec.Players {
+		for _, list := range [][]string{p.Decklist, p.Hand, p.Graveyard, p.Exile, p.LibraryTop} {
+			for _, n := range list {
+				add(n)
+			}
+		}
+		for _, perm := range p.Battlefield {
+			add(perm.Name)
+		}
+	}
+	for _, st := range spec.Stack {
+		add(st.Card)
+	}
 }
 
 // CheckRoots checks every world is at the real engine's root decision and
