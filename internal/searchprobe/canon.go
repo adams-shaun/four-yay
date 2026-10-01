@@ -365,7 +365,20 @@ func (e *canonEncoder) encodeAt(ptr unsafe.Pointer, p *canonPlan) error {
 			f := &p.fields[i]
 			fp := unsafe.Add(ptr, f.offset)
 			if f.omitEmpty {
-				if canonEmptyAt(fp, f.plan) {
+				var empty bool
+				switch f.plan.kind {
+				case canonString:
+					empty = len(*(*string)(fp)) == 0
+				case canonSlice:
+					empty = (*canonSliceHeader)(fp).len == 0
+				case canonBool:
+					empty = !*(*bool)(fp)
+				case canonPointer:
+					empty = *(*unsafe.Pointer)(fp) == nil
+				default:
+					empty = canonEmptyAt(fp, f.plan)
+				}
+				if empty {
 					e.buf = append(e.buf, 0)
 					continue
 				}

@@ -385,7 +385,12 @@ func redealPlayer(w *rules.Engine, plan *redealPlan, r *rand.Rand, sc *dealScrat
 	}
 	sc.free = free
 	r.Shuffle(len(free), func(i, j int) { free[i], free[j] = free[j], free[i] })
-	lib := make([]state.ObjID, plan.libLen)
+	// lib is scratch too: Log.Append copies an event's IDs and the
+	// LibraryOrder fold copies them again into the zone, so no world keeps
+	// it.
+	lib := sc.lib[:0]
+	lib = append(lib, make([]state.ObjID, plan.libLen)...)
+	sc.lib = lib
 	for i, id := range plan.top {
 		lib[i] = id
 	}
@@ -436,9 +441,9 @@ func redealPlayer(w *rules.Engine, plan *redealPlan, r *rand.Rand, sc *dealScrat
 
 // dealScratch is redealPlayer's reusable storage.
 type dealScratch struct {
-	idx   []int32
-	dealt []bool
-	free  []state.ObjID
+	idx       []int32
+	dealt     []bool
+	free, lib []state.ObjID
 }
 
 func deckHas(deck []*cards.Card, name string) bool {
