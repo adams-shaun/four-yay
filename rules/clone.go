@@ -139,6 +139,8 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	// The offer walk's scratch lists come from the Spare (a spent engine's,
 	// cleared); a zero Spare leaves them nil, as Clone always has.
 	c.legalOptBuf, c.manaAbBuf = sp.legalOpts, sp.manaAb
+	// A spent engine's zeroed pendingCast storage (cast_pool.go).
+	c.castFree = sp.cast
 	c.orderedTriggers = e.orderedTriggers
 	c.applyingReplacement = e.applyingReplacement
 	c.choosing = e.choosing

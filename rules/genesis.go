@@ -95,6 +95,9 @@ type Spare struct {
 	activeBuf, activeBufAlt []ContinuousEffect
 	activeSrc               []*ContinuousEffect
 	pending                 []pendingTrigger
+	// cast is the spent engine's recycled pendingCast storage
+	// (cast_pool.go), zeroed, adopted as the next engine's castFree.
+	cast *pendingCast
 }
 
 // Release returns e's log and object-arena arrays as a Spare for the next
@@ -173,6 +176,8 @@ func (e *Engine) Release() Spare {
 	sp.pending = e.pendingTriggers[:cap(e.pendingTriggers)]
 	clear(sp.pending)
 	sp.pending, e.pendingTriggers = sp.pending[:0], nil
+	e.recycleCast()
+	sp.cast, e.castFree, e.castIssued = e.castFree, nil, nil
 	if e.lookBackOwner == e && !e.lookBackBusy {
 		sp.lookBack = e.lookBack
 	}
@@ -315,6 +320,7 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 	e.adoptArena(spare.arena)
 	e.adoptHypPool(spare.hyp)
 	e.legalOptBuf, e.manaAbBuf = spare.legalOpts, spare.manaAb
+	e.castFree = spare.cast
 	if cap(spare.intents) > 0 {
 		e.intentBuf = spare.intents[:0]
 	}

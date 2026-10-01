@@ -110,7 +110,7 @@ func (e *Engine) handlePriority(d *decision.Decision, in decision.Intent) {
 		if o := e.G.Obj(opt.Obj); o != nil {
 			from = o.Zone
 		}
-		e.cast = &pendingCast{player: in.Player, card: opt.Obj, from: from, mode: "land", ability: -1}
+		e.cast = e.newCast(in.Player, opt.Obj, from, "land", -1)
 		e.continueCast()
 
 	case "activate":

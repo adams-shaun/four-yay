@@ -125,8 +125,8 @@ func (e *Engine) beginActivation(p state.PlayerID, opt decision.Option) {
 	if !ok {
 		return
 	}
-	e.cast = &pendingCast{player: p, card: opt.Obj, from: o.Zone, ability: opt.Ability,
-		abilityMerged: pa.Merged, cost: cost, mods: mods, ownReduce: own}
+	e.cast = e.newCast(p, opt.Obj, o.Zone, "", opt.Ability)
+	e.cast.abilityMerged, e.cast.cost, e.cast.mods, e.cast.ownReduce = pa.Merged, cost, mods, own
 	e.continueCast()
 }
 

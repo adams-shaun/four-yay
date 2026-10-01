@@ -171,8 +171,8 @@ func (e *Engine) beginGainedActivation(p state.PlayerID, opt decision.Option) {
 		}
 	}
 	mods := e.costModifiers(p, opt.Obj, abilityScope(ab))
-	e.cast = &pendingCast{player: p, card: opt.Obj, from: o.Zone, ability: -1,
-		gainedFrom: opt.GainedSource, gainedIdx: opt.GainedIdx, cost: cost, mods: mods, ownReduce: own}
+	e.cast = e.newCast(p, opt.Obj, o.Zone, "", -1)
+	e.cast.gainedFrom, e.cast.gainedIdx, e.cast.cost, e.cast.mods, e.cast.ownReduce = opt.GainedSource, opt.GainedIdx, cost, mods, own
 	e.continueCast()
 }
 
@@ -244,8 +244,8 @@ func (e *Engine) beginGrantedActivation(p state.PlayerID, opt decision.Option) {
 		}
 	}
 	mods := e.costModifiers(p, opt.Obj, abilityScope(ab))
-	e.cast = &pendingCast{player: p, card: opt.Obj, from: o.Zone, ability: -1,
-		grantSVar: opt.SVar, grantSource: grantor, cost: cost, mods: mods, ownReduce: own}
+	e.cast = e.newCast(p, opt.Obj, o.Zone, "", -1)
+	e.cast.grantSVar, e.cast.grantSource, e.cast.cost, e.cast.mods, e.cast.ownReduce = opt.SVar, grantor, cost, mods, own
 	e.continueCast()
 }
 
@@ -295,8 +295,8 @@ func (e *Engine) beginKeywordGrantedActivation(p state.PlayerID, opt decision.Op
 		}
 	}
 	mods := e.costModifiers(p, opt.Obj, abilityScope(ab))
-	e.cast = &pendingCast{player: p, card: opt.Obj, from: o.Zone, ability: -1,
-		grantKeyword: opt.Keyword, cost: cost, mods: mods, ownReduce: own}
+	e.cast = e.newCast(p, opt.Obj, o.Zone, "", -1)
+	e.cast.grantKeyword, e.cast.cost, e.cast.mods, e.cast.ownReduce = opt.Keyword, cost, mods, own
 	e.continueCast()
 }
 

@@ -614,11 +614,13 @@ func (e *Engine) beginCastWith(p state.PlayerID, opt decision.Option, selection 
 	}
 	if opt.AltCostIndex == 0 && opt.Mode == "" {
 		pcAlt := altAddCostParts(f)
-		e.cast = &pendingCast{player: p, card: id, from: from, mode: opt.Mode, ability: -1,
-			cost: cost, faceBefore: faceBefore, mods: mods, taxGeneric: tax, altAddParts: pcAlt, optionalCost: optionalCost}
+		e.cast = e.newCast(p, id, from, opt.Mode, -1)
+		e.cast.cost, e.cast.faceBefore, e.cast.mods, e.cast.taxGeneric, e.cast.altAddParts, e.cast.optionalCost =
+			cost, faceBefore, mods, tax, pcAlt, optionalCost
 	} else {
-		e.cast = &pendingCast{player: p, card: id, from: from, mode: opt.Mode, ability: -1,
-			cost: cost, faceBefore: faceBefore, mods: mods, taxGeneric: tax, optionalCost: optionalCost}
+		e.cast = e.newCast(p, id, from, opt.Mode, -1)
+		e.cast.cost, e.cast.faceBefore, e.cast.mods, e.cast.taxGeneric, e.cast.optionalCost =
+			cost, faceBefore, mods, tax, optionalCost
 	}
 	// Emerge (CR 702.118a): sacAsk folds the chosen sacrifice's mana value out
 	// of pc.cost once the mandatory creature sacrifice is settled. The mark is
@@ -815,7 +817,7 @@ func (e *Engine) beginPlay(p state.PlayerID, id state.ObjID, withoutManaCost boo
 			e.emit(events.Event{Kind: events.Note, Player: p, Text: "Play cannot use an additional land drop"})
 			return
 		}
-		e.cast = &pendingCast{player: p, card: id, from: o.Zone, mode: "land", ability: -1}
+		e.cast = e.newCast(p, id, o.Zone, "land", -1)
 		e.continueCast()
 		return
 	}
@@ -902,8 +904,8 @@ func (e *Engine) beginPlay(p state.PlayerID, id state.ObjID, withoutManaCost boo
 	if !ok {
 		return
 	}
-	e.cast = &pendingCast{player: p, card: id, from: o.Zone, mode: "play", ability: -1,
-		cost: cost, mods: mods, replaceGraveyard: replaceGraveyard}
+	e.cast = e.newCast(p, id, o.Zone, "play", -1)
+	e.cast.cost, e.cast.mods, e.cast.replaceGraveyard = cost, mods, replaceGraveyard
 	e.continueCast()
 }
 
