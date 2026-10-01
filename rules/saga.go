@@ -193,7 +193,7 @@ func (e *Engine) checkSagas(tried *sbaAttempts) bool {
 			if busy || tried.sagas[id] {
 				continue
 			}
-			tried.sagas[id] = true
+			markTried(&tried.sagas, id)
 			e.emit(events.Event{Kind: events.MoveZone, Obj: id,
 				From: state.ZBattlefield, To: state.ZGraveyard, Text: "saga concluded"})
 			changed = true

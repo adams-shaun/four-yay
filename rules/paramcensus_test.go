@@ -1736,6 +1736,11 @@ var apiSpecificRulesSA = map[string][]string{
 	"Engine.entryBodyCounterGrants": {"PutCounter"},
 	"entryBodyKindEncodable":        {"PutCounter"},
 	"entryBodyAbsorbable":           {"PutCounter"},
+
+	// plainManaShape (rules/mana_plain.go) returns at once unless the
+	// ability is api:Mana, so its Produced$/Amount$/Cost$ reads belong to
+	// api:Mana alone.
+	"plainManaShape": {"Mana"},
 }
 
 // apiSpecificRulesStat is the stat-bucket twin of apiSpecificRulesSA: it

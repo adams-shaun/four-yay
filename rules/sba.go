@@ -132,6 +132,14 @@ type sbaAttempts struct {
 // for both the blocked destruction and the blocked removal sweep. The Note
 // covers the OTHER case, an unbounded cycle of genuinely new work, and has
 // never seen this one.
+// markTried records k in the attempt memory *m, allocating it on first use.
+func markTried[K comparable](m *map[K]bool, k K) {
+	if *m == nil {
+		*m = make(map[K]bool)
+	}
+	(*m)[k] = true
+}
+
 func (a *sbaAttempts) rearm(alive int) {
 	if alive >= a.alive {
 		return
@@ -250,14 +258,10 @@ func (e *Engine) checkStateBased() {
 		return
 	}
 	stable := false
-	tried := &sbaAttempts{
-		objs:     map[state.ObjID]bool{},
-		tokens:   map[state.ObjID]bool{},
-		players:  map[state.PlayerID]bool{},
-		sagas:    map[state.ObjID]bool{},
-		dungeons: map[state.ObjID]bool{},
-		alive:    e.G.AliveCount(),
-	}
+	// The attempt memories start nil and are allocated on their first mark
+	// (markTried): a read of a nil map is false, so the common call -- one
+	// that attempts nothing -- allocates none of them.
+	tried := &sbaAttempts{alive: e.G.AliveCount()}
 	// Safety net for a duration-ending change folded outside Engine.emit
 	// (the Updated replacement paths call events.Emit directly).
 	e.expireControl(controlOnEvent)
@@ -277,9 +281,12 @@ func (e *Engine) checkStateBased() {
 	}
 	e.sbaQuiet = sbaQuietKey{}
 	e.sbaUnquiet = false
+	// The fused per-permanent prefilter (rules/sba_prefilter.go): an action
+	// whose flag is down would find nothing on the board.
+	facts := &sbaBoardFacts{at: -1}
 	for pass := 0; pass < maxSBAPasses; pass++ {
 		changed := e.checkLoseConditions(tried)
-		if e.annihilateOppositeCounters() {
+		if e.sbaFacts(facts).counterPair && e.annihilateOppositeCounters() {
 			changed = true
 		}
 		if e.destroyLethalDamage(tried) {
@@ -301,22 +308,22 @@ func (e *Engine) checkStateBased() {
 		// batch channel the legend rule uses. It runs only once no legend
 		// batch is parked (the halt above), so a pass that parks a legend ask
 		// settles it before applying the world rule on the answer's next pass.
-		if e.worldRule() {
+		if e.sbaFacts(facts).world && e.worldRule() {
 			changed = true
 		}
-		if e.planeswalkerZeroLoyalty(tried) {
+		if e.sbaFacts(facts).pw && e.planeswalkerZeroLoyalty(tried) {
 			changed = true
 		}
-		if e.battleZeroDefense(tried) {
+		if e.sbaFacts(facts).battle && e.battleZeroDefense(tried) {
 			changed = true
 		}
 		if e.ceaseDeadTokens(tried) {
 			changed = true
 		}
-		if e.attachmentSBAs() {
+		if e.sbaFacts(facts).attach && e.attachmentSBAs() {
 			changed = true
 		}
-		if e.checkSagas(tried) {
+		if e.sbaFacts(facts).saga && e.checkSagas(tried) {
 			changed = true
 		}
 		// CR 704.5t: a dungeon whose marker sits on its bottommost room and
@@ -390,6 +397,9 @@ func (e *Engine) legendGroups() []legendGroup {
 	// matched with the static's own source/controller context so
 	// `Creature.YouCtrl` is scoped to the static's controller, not the
 	// duplicate set's.
+	if !e.mayHaveLegendPair() {
+		return nil
+	}
 	exempt := e.activeStatics("IgnoreLegendRule")
 	var all []legendGroup
 	for _, p := range e.G.AliveFrom(0) {
@@ -692,6 +702,9 @@ func (e *Engine) worldPermanents() []state.ObjID {
 // destruction-replacement applies (the same treatment the legend rule gives
 // its non-kept members).
 func (e *Engine) worldRule() bool {
+	if !e.mayHaveWorldPair() {
+		return false
+	}
 	worlds := e.worldPermanents()
 	if len(worlds) < 2 {
 		return false
@@ -870,7 +883,7 @@ func (e *Engine) checkLoseConditions(tried *sbaAttempts) bool {
 		if !p.Lost || tried.players[p.ID] {
 			continue
 		}
-		tried.players[p.ID] = true
+		markTried(&tried.players, p.ID)
 		// A sweep that emitted no event at all (every departed object already
 		// ceased -- the steady state of every call after the first once a
 		// seat has left) changed nothing, so it is not "new work" for the
@@ -1101,7 +1114,7 @@ func (e *Engine) destroyLethalDamage(tried *sbaAttempts) bool {
 	e.triggerBefore = own
 	defer e.closeTriggerWindow(own, before)
 	for _, c := range dead {
-		tried.objs[c.id] = true
+		markTried(&tried.objs, c.id)
 		if c.text == "lethal damage" && effects.ReplaceDestruction(e, c.id) {
 			continue
 		}
@@ -1203,7 +1216,7 @@ func (e *Engine) planeswalkerZeroLoyalty(tried *sbaAttempts) bool {
 	e.triggerBefore = own
 	defer e.closeTriggerWindow(own, before)
 	for _, c := range dead {
-		tried.objs[c.id] = true
+		markTried(&tried.objs, c.id)
 		e.emit(events.Event{Kind: events.MoveZone, Obj: c.id,
 			From: state.ZBattlefield, To: state.ZGraveyard, Text: c.text})
 	}
@@ -1266,7 +1279,7 @@ func (e *Engine) battleZeroDefense(tried *sbaAttempts) bool {
 	e.triggerBefore = own
 	defer e.closeTriggerWindow(own, before)
 	for _, c := range dead {
-		tried.objs[c.id] = true
+		markTried(&tried.objs, c.id)
 		e.emit(events.Event{Kind: events.MoveZone, Obj: c.id,
 			From: state.ZBattlefield, To: state.ZExile, Text: c.text})
 	}
@@ -1318,7 +1331,7 @@ func (e *Engine) ceaseDeadTokens(tried *sbaAttempts) bool {
 		}
 	}
 	for _, c := range dead {
-		tried.tokens[c.id] = true
+		markTried(&tried.tokens, c.id)
 		e.emit(events.Event{Kind: events.MoveZone, Obj: c.id,
 			From: c.from, To: state.ZCeased, Text: "ceased to exist"})
 	}

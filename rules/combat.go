@@ -644,7 +644,6 @@ func (e *Engine) askAttackers() {
 	// enforces it). mustAttackRequired and validateAttackDeclaration read the
 	// same list and the same budget.
 	offers := e.attackOffers()
-	budget := e.attackBudget(p)
 	// A creature that is declared as attacking cannot also be tapped for
 	// mana, so a declaration including a mana source gives up that source's
 	// production. The published per-option budget cost therefore folds the
@@ -655,8 +654,11 @@ func (e *Engine) askAttackers() {
 	// can pay the tax. Without any mana tax every Value stays 0, so an
 	// ordinary prop-free declaration serialises byte-identically. See
 	// attackSourceUnits / attackTaxed in rules/attack_cost.go.
-	selfUnits := e.attackSourceUnits(p)
+	// Without a mana tax every Value is its pair's zero mana price, so
+	// neither the budget nor the per-source units can reach an option or the
+	// MaxSum below: both are pure reads, taken only under a tax.
 	taxed := e.attackTaxed(offers)
+	budget, selfUnits := e.attackBudgetUnits(p, taxed)
 	// The declaration-dependent tap-candidate pool (attackTapPool): published
 	// only when a tapXType obligation is offered and every such obligation
 	// shares one readable shape, so each option can carry the pool share it
@@ -1107,15 +1109,15 @@ func (e *Engine) validateAttackers(d *decision.Decision, in decision.Intent) err
 	for _, of := range offers {
 		offered[attackOfferKey{id: of.id, def: of.def, battle: of.battle}] = of.charge
 	}
-	budget := e.attackBudget(d.Player)
 	// The same folded budget currency askAttackers published (attackBudget
 	// Value): each attacker costs its mana price PLUS, under a mana tax, the
 	// mana its own source forgoes by attacking. Summing the raw charge.mana
 	// here would let this belt admit a declaration the very next check
 	// (combatChargeAffordable over chosenAttackers) rejects -- the two must
-	// agree. See attackOptionBudgetValue in rules/attack_cost.go.
-	selfUnits := e.attackSourceUnits(d.Player)
+	// agree. See attackOptionBudgetValue in rules/attack_cost.go. Without a
+	// tax every offered cost is 0, so the budget is never compared.
 	taxed := e.attackTaxed(offers)
+	budget, selfUnits := e.attackBudgetUnits(d.Player, taxed)
 	total := int32(0)
 	// The whole declaration's composite charge, validated against the same
 	// combatChargeAffordable read the offer gate used: mana within the budget,

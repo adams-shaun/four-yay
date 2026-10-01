@@ -58,6 +58,11 @@ type sbaQuietKey struct {
 	// first quiet-kind skip are the same.
 	dseq  uint64
 	quiet uint8
+	// scanned is the log index the incremental classification
+	// (sbaInputsQuietSince) has reached, and sawQuiet whether an event
+	// before it was a quiet kind rather than layer-inert.
+	scanned  int
+	sawQuiet bool
 }
 
 // sbaQuietVerifyFlag turns verify mode on in a non-test binary:
@@ -109,32 +114,41 @@ func (e *Engine) sbaRecordQuiet(ep0 int) {
 // sbaInputsQuietSince reports whether nothing the pass loop reads has moved
 // since the quiet record q: every event since is layer-inert (the original
 // argument above), or -- the quiet-kind extension -- every event since is
-// layer-inert or a derivedQuietKind (Tap, Untap, ManaAdd, ManaClear,
-// StepChange), the recorded board admits the extension (q.quiet), and
+// layer-inert or an sbaQuietEvent (the derivedQuietKind set -- Tap, Untap,
+// ManaAdd, ManaClear, StepChange -- plus the markers, combat and life kinds
+// and the off-battlefield moves it lists), the recorded board admits the
+// extension (q.quiet), and
 // derivedSeq has not moved (derived_transparent.go: every layer-derived
 // characteristic the loop reads -- toughness, types, keywords, names,
-// protection -- is unchanged). Those kinds write a permanent's Tapped flag, a
-// pool, the step and the combat-mana tallies; the pass loop's direct reads
+// protection -- is unchanged). The derivedQuietKind set writes a permanent's
+// Tapped flag, a pool, the step and the combat-mana tallies; the pass loop's direct reads
 // (damage, counters, zones, attachments, timestamps, life and poison, the
 // Saga and dungeon bookkeeping) are none of them. Its remaining indirect
 // reads are what sbaQuietKindsSafe excludes.
 func (e *Engine) sbaInputsQuietSince(q *sbaQuietKey) bool {
 	n := len(e.L.Events)
-	if q.ep > n {
+	if q.ep > n || q.scanned > n {
 		return false
 	}
-	quiet := false
-	for _, ev := range e.L.Events[q.ep:] {
+	// The scan is incremental: every event in [q.ep, q.scanned) was already
+	// classified by an earlier call on this same key (the log only grows
+	// under one key -- a shorter log fails the test above), and q.sawQuiet
+	// remembers whether one of them was a quiet kind. A per-event verdict
+	// depends on nothing a later accepted event can change (sbaQuietEvent).
+	from := max(q.ep, q.scanned)
+	for i := from; i < n; i++ {
+		ev := &e.L.Events[i]
 		switch ev.Kind {
 		case events.DecisionAsk, events.DecisionMade, events.Priority:
 		default:
-			if q.quiet == 2 || !derivedQuietKind(ev.Kind) {
+			if q.quiet == 2 || !e.sbaQuietEvent(ev) {
 				return false
 			}
-			quiet = true
+			q.sawQuiet = true
 		}
+		q.scanned = i + 1
 	}
-	if !quiet {
+	if !q.sawQuiet {
 		return true
 	}
 	if q.quiet == 0 {
@@ -148,6 +162,60 @@ func (e *Engine) sbaInputsQuietSince(q *sbaQuietKey) bool {
 	}
 	e.active()
 	return e.derivedSeq == q.dseq
+}
+
+// sbaQuietEvent reports whether ev is a quiet kind for the SBA skip: an event
+// whose Apply writes nothing the pass loop reads directly, so -- together
+// with an unmoved derivedSeq, which every derivedQuietEvent and every
+// off-battlefield move of a non-source keeps -- the pass loop's inputs are
+// unchanged. Beyond derivedQuietKind:
+//
+//   - the markers and tallies derivedQuietEvent admits (Note, ModeChosen,
+//     ManaActivate, Resolve, TargetsChosen, LandPlayed, ClockTick,
+//     DamageProvenance): Apply writes no object damage, counter, zone,
+//     attachment, timestamp, Saga or dungeon state;
+//   - the combat kinds (DeclareAttackers, DeclareBlockers, EndCombatReset):
+//     the pass loop reads combat state only in ceaseDepartedObjects, for an
+//     object attacking a departed player -- and a declaration can only name a
+//     player still in the game;
+//   - LifeChange and damage to a player: sbaQuietNow re-reads every
+//     player's life, poison and commander damage on every call;
+//   - an off-battlefield move (offBattlefieldMove: library, hand, graveyard
+//     and stack, or into exile) of a non-token no battlefield permanent is
+//     attached to. The pass loop reads hidden and stack objects only to cease
+//     a token (CR 704.5d), to sweep a departed player and to judge an Aura
+//     whose bearer left the battlefield (auraEnchantZoneAdmits, the Animate
+//     Dead family) -- and a Saga's or dungeon's "busy" test, whose deferral
+//     never records a quiet key. Damage to an object is NOT quiet: lethal
+//     damage reads marked damage.
+func (e *Engine) sbaQuietEvent(ev *events.Event) bool {
+	switch ev.Kind {
+	case events.Note, events.ModeChosen, events.ManaActivate, events.Resolve,
+		events.DeclareAttackers, events.DeclareBlockers, events.EndCombatReset,
+		events.TargetsChosen, events.LandPlayed, events.LifeChange, events.ClockTick,
+		events.DamageProvenance:
+		return true
+	case events.Damage:
+		return ev.Obj == 0
+	}
+	if derivedQuietKind(ev.Kind) {
+		return true
+	}
+	if !offBattlefieldMove(ev) {
+		return false
+	}
+	o := e.G.Obj(ev.Obj)
+	if o == nil || o.IsToken {
+		return false
+	}
+	for _, p := range e.G.AliveFrom(0) {
+		for _, id := range e.G.Zone(state.ZBattlefield, p) {
+			if a := e.G.Obj(id); a != nil && a.AttachedTo == ev.Obj {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // sbaQuietKindsSafe reports whether the pass loop's reads that do not go

@@ -43,6 +43,10 @@ type manaSAFacts struct {
 	noLimit bool
 	// cost is the ability's compiled Cost$.
 	cost *compiledCost
+	// plainSym/plainAmt: the ability is a plain AB$ Mana (plainManaShape)
+	// adding plainAmt of the one symbol plainSym; plainSym 0 otherwise.
+	plainSym byte
+	plainAmt int32
 }
 
 // manaSAFactsVerify: see derivedMemoVerify. Set by the rules test binary.
@@ -83,6 +87,7 @@ func buildManaSAFactsValue(ab *cards.SA, costOf func(string) *compiledCost) mana
 	f.noCheckSVar = !check
 	_, limited := ab.Params["ActivationLimit"]
 	f.noLimit = !limited && ab.Params["GameActivationLimit"] == ""
+	f.plainSym, f.plainAmt = plainManaShape(ab)
 	return f
 }
 

@@ -1321,6 +1321,23 @@ func (e *Engine) attackBudget(p state.PlayerID) int32 {
 	return total
 }
 
+// attackBudgetUnits is attackBudget and attackSourceUnits from one
+// attackSourceUnits walk (attackBudget sums exactly that map), taken only
+// when the declaration carries a mana tax (taxed): without one, every
+// option's budget Value is its zero mana price, so neither is read.
+func (e *Engine) attackBudgetUnits(p state.PlayerID, taxed bool) (int32, map[state.ObjID]int32) {
+	if !taxed {
+		return 0, nil
+	}
+	units := e.attackSourceUnits(p)
+	total := e.G.Players[p].Pool.Total()
+	// Order-independent integer sum (attackBudget's own argument).
+	for _, n := range units {
+		total += n
+	}
+	return total, units
+}
+
 // attackSourceUnits returns, per mana-source Obj, the maximum units that
 // source contributes to attackBudget -- the max over its priceable
 // alternatives, exactly the per-source term attackBudget sums. A creature
