@@ -32,6 +32,10 @@ func (w *legalWalk) battlefieldWalk() {
 		// re-entrant walk allocates its own).
 		masBuf := e.manaAbBuf
 		e.manaAbBuf = nil
+		// The walk's board-wide facts (legal_walk_skip.go): read once here,
+		// outside every face probe, and shared with the mana walk through
+		// actionStatics so it stops re-deriving them per object.
+		board := w.boardFacts()
 		for _, z := range []state.Zone{state.ZBattlefield, state.ZHand, state.ZGraveyard} {
 			zonePlayers := []state.PlayerID{p}
 			if z == state.ZBattlefield {
@@ -52,6 +56,15 @@ func (w *legalWalk) battlefieldWalk() {
 					}
 					f := o.Face()
 					if f == nil {
+						continue
+					}
+					if w.manaWalkEmpty(board, o, id, f) {
+						// Provably nothing to offer (legal_walk_skip.go).
+						if walkSkipVerify {
+							if got := e.appendAvailableManaAbilities(masBuf[:0], actionStatics, p, id); len(got) != 0 {
+								panic(fmt.Sprintf("rules: mana walk skip dropped %d abilities of obj %d", len(got), id))
+							}
+						}
 						continue
 					}
 					mas := e.appendAvailableManaAbilities(masBuf[:0], actionStatics, p, id)
@@ -138,7 +151,9 @@ func (w *legalWalk) battlefieldWalk() {
 					// index. abFace is the face that carries the ability -- an
 					// under-card's label and SVar table must be its own, never the
 					// pile top's.
-					for i, pn := 0, o.PileAbilityCount(); i < pn; i++ {
+					pileSkip := w.pileAbilitiesEmpty(o, id, f, z)
+					pileMark := len(*out)
+					for i, pn := 0, o.PileAbilityCount(); i < pn && (!pileSkip || walkSkipVerify); i++ {
 						pa, okAb := o.PileAbilityAt(i)
 						if !okAb {
 							continue
@@ -392,7 +407,10 @@ func (w *legalWalk) battlefieldWalk() {
 					// CR 702.171a sorcery-only), the tap-cost availability gates
 					// (crew/saddle both pay a tapXType cost) and the offer-time
 					// CheckSVar$/IsPresent$ funnels.
-					for _, line := range e.grantedKeywordLines(id) {
+					if pileSkip && len(*out) != pileMark {
+						panic(fmt.Sprintf("rules: pile-ability skip dropped %d options of obj %d in zone %d", len(*out)-pileMark, id, z))
+					}
+					for _, line := range w.grantedKeywordLines(board, o, id, f) {
 						ab := cards.GrantedKeywordAbility(line)
 						if ab == nil || !abilityZoneOK(ab, z) {
 							continue
@@ -460,7 +478,12 @@ func (w *legalWalk) battlefieldWalk() {
 		// activation limits are checked here too, with the SVar-name identity
 		// (see the gate's own comment below): Touch of Vitae carries
 		// GameActivationLimit$ 1 on an Animate-delivered AddAbility$ body.
+		// Without a grant anywhere on the board grantedAbilities is nil for
+		// every object (activeSummary.hasGrants), so the sweep is skipped.
 		for zonePlayer := range e.G.Players {
+			if !board.hasGrants && !walkSkipVerify {
+				break
+			}
 			for _, id := range e.G.Zone(state.ZBattlefield, state.PlayerID(zonePlayer)) {
 				o := e.G.Obj(id)
 				if o == nil || o.Face() == nil || e.faceDownPrintedHides(o) {

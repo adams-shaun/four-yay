@@ -169,6 +169,10 @@ type actionStaticSource struct {
 	// AddAbility$, built on first use (addAbilityContinuous).
 	addAbility      []staticView
 	addAbilityReady bool
+	// board is the offer walk's board-wide facts (legal_walk_skip.go),
+	// published by the walk before its mana sweep; zero (not ready) for
+	// every other source.
+	board walkBoardFacts
 }
 
 // addAbilityContinuous returns, in order, the Continuous statics of get()
