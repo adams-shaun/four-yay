@@ -133,6 +133,17 @@ func (c *Collector) action(d *decision.Decision, o decision.Option) (Action, err
 	if o.Obj == 0 || o.Kind == "mode" {
 		a.Value = o.Label
 	}
+	// An attack on a planeswalker or a battle shares Obj (the creature) and
+	// Player (the permanent's controller) with the same creature's attack on
+	// that player; the attacked permanent tells them apart. Player attacks
+	// (Battle 0) keep their Value, so their keys are unchanged.
+	if o.Battle != 0 {
+		b := c.ref(o.Battle)
+		if b == 0 {
+			return Action{}, fmt.Errorf("action references an unobserved object")
+		}
+		a.Value = fmt.Sprintf("attacks:%d", b)
+	}
 	return a, nil
 }
 
