@@ -41,7 +41,8 @@ var measuredLegalActionKinds = []string{
 }
 
 // legalActionsPricedKinds parses the legal.go walk family -- the entry body
-// in legal.go plus every (*legalWalk) *Walk section method in legal_walk*.go,
+// in legal.go (the one (*Engine) method that constructs the legalWalk
+// walker) plus every (*legalWalk) *Walk section method in legal_walk*.go,
 // which the entry calls in order -- and returns every option Kind the walk
 // can emit: a `Kind: "<lit>"` field of a composite literal, the literal first
 // argument of the walk's add(kind, ...) closure (the entry's local one and
@@ -68,16 +69,19 @@ func legalActionsPricedKinds(t *testing.T) []string {
 			if !ok || fn.Body == nil || fn.Recv == nil {
 				continue
 			}
-			// legalActionsPriced delegates through legalActionsWalk to this
-			// shared entry body; its sections are the *legalWalk) *Walk
-			// methods the entry calls (legal_walk*.go).
+			// legalActionsPriced delegates (legalActionsPriced ->
+			// legalActionsWalk -> the entry) to the method that constructs the
+			// legalWalk walker; its sections are the (*legalWalk) *Walk methods
+			// the entry calls (legal_walk*.go). The entry is found by that
+			// construction, never by name, so a rename of any walk method
+			// leaves this ratchet untouched.
 			recvName := ""
 			if star, ok := fn.Recv.List[0].Type.(*ast.StarExpr); ok {
 				if id, ok := star.X.(*ast.Ident); ok {
 					recvName = id.Name
 				}
 			}
-			if fn.Name.Name == "legalActionsWalkWithWindow" && recvName == "Engine" {
+			if recvName == "Engine" && constructsLegalWalk(fn.Body) {
 				bodies = append(bodies, fn.Body)
 				haveEntry = true
 			}
@@ -87,7 +91,7 @@ func legalActionsPricedKinds(t *testing.T) []string {
 		}
 	}
 	if !haveEntry {
-		t.Fatal("rules/legal*.go has no (*Engine).legalActionsWalkWithWindow")
+		t.Fatal("rules/legal*.go has no (*Engine) method constructing legalWalk; the shared walk entry moved or was restructured -- update legalActionsPricedKinds' entry detection")
 	}
 	seen := map[string]bool{}
 	lit := func(n ast.Expr, where string) {
@@ -142,6 +146,24 @@ func legalActionsPricedKinds(t *testing.T) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// constructsLegalWalk reports whether body contains a CompositeLit of type
+// legalWalk -- the shape of the ONE place the engine builds the shared walk
+// walker (rules/legal.go, the body legalActionsPriced delegates to). Matching
+// the construction, not a method name, is what keeps this ratchet silent
+// across renames of the walk entry.
+func constructsLegalWalk(body *ast.BlockStmt) bool {
+	found := false
+	ast.Inspect(body, func(n ast.Node) bool {
+		if cl, ok := n.(*ast.CompositeLit); ok {
+			if id, ok := cl.Type.(*ast.Ident); ok && id.Name == "legalWalk" {
+				found = true
+			}
+		}
+		return true
+	})
+	return found
 }
 
 // TestPotentialActionsProjectsEveryPlayKind is the vocabulary ratchet: the
