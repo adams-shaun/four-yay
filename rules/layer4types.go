@@ -207,9 +207,14 @@ func (e *Engine) refreshDerivedTypesIncremental(n int) bool {
 	e.typesCatchUp(n)
 	var arr [layer4MaxSelfSources]state.ObjID
 	srcs, selfOnly := e.layer4SelfOnlySources(arr[:0])
-	if !selfOnly || !slices.Equal(srcs, e.typesSrcs) {
-		// A non-self-shaped live layer-4 effect, or the source list moved:
-		// only the whole-board walk can say which objects the effects reach.
+	if !selfOnly {
+		// A static-derived or non-self registered layer-4 effect is live:
+		// incremental only while every one has a bounded reach.
+		return e.refreshDerivedTypesBounded(n)
+	}
+	if !slices.Equal(srcs, e.typesSrcs) {
+		// The source list moved: only the whole-board walk can say which
+		// objects the effects reach.
 		return false
 	}
 	e.stampTypes(n, srcs, selfOnly)
@@ -227,6 +232,37 @@ func (e *Engine) refreshDerivedTypesIncremental(n int) bool {
 		return true
 	}
 	e.layer4Types = e.buildDerivedTypesIncremental()
+	if layer4PrecheckVerify {
+		e.verifySelfOnlyDerivedTypes(e.layer4Types)
+	}
+	return true
+}
+
+// refreshDerivedTypesBounded is the incremental rebuild when a live layer-4
+// effect is static-derived or not Card.Self-shaped, but every LType effect in
+// active() has a bounded reach (layer4BoundedReach): the candidates are the
+// maintained mayDiffer slice plus that reach, walked under the full active()
+// list -- the whole-board walk's own table (buildDerivedTypes' bounded
+// branch) without its two whole-arena scans. The caller has already caught
+// typesMayDiffer up to n. False sends the caller to the whole-board rebuild.
+func (e *Engine) refreshDerivedTypesBounded(n int) bool {
+	var arr [layer4MaxSelfSources]state.ObjID
+	reach, anyLType, ok := e.layer4BoundedReach(arr[:0])
+	if !ok {
+		return false
+	}
+	// Stamped non-self-only: the next self-only refresh compares its fresh
+	// source list against this reach and rebuilds the whole board unless
+	// they agree.
+	e.stampTypes(n, reach, false)
+	e.typesIncrBuilds++
+	if !anyLType {
+		// No LType effect in active(): anyLayer4Active is false and the
+		// whole-board build answers an empty table.
+		e.layer4Types = e.layer4Types[:0]
+	} else {
+		e.layer4Types = e.buildDerivedTypesCands(e.active(), e.typesSrcs)
+	}
 	if layer4PrecheckVerify {
 		e.verifySelfOnlyDerivedTypes(e.layer4Types)
 	}
@@ -303,9 +339,6 @@ func (e *Engine) typesMayDifferScan() {
 // self-only walk's table: same candidates, same per-candidate
 // typeCharacteristics, and a dense arena's id order equals its Objs order.
 func (e *Engine) buildDerivedTypesIncremental() []effects.ObjectTypes {
-	buf := e.layer4Types[:0]
-	e.typesBuilding = true
-	defer func() { e.typesBuilding = false }()
 	// Apply only the live registered LType effects: layer4SelfOnlySources has
 	// already proved staticsMayChangeTypes() false, so no static-derived
 	// effect can change a type and the memoized static scan cannot contribute
@@ -316,11 +349,21 @@ func (e *Engine) buildDerivedTypesIncremental() []effects.ObjectTypes {
 	// walk.
 	act := e.liveLTypeEffects(e.typesAct[:0])
 	e.typesAct = act
-	e.typesVisited = len(e.typesMayDiffer) + len(e.typesSrcs)
+	return e.buildDerivedTypesCands(act, e.typesSrcs)
+}
+
+// buildDerivedTypesCands walks the incremental candidate set -- the
+// maintained mayDiffer slice plus srcs -- under the effect list act, and
+// sorts the few entries back into e.G.Objs order.
+func (e *Engine) buildDerivedTypesCands(act []ContinuousEffect, srcs []state.ObjID) []effects.ObjectTypes {
+	buf := e.layer4Types[:0]
+	e.typesBuilding = true
+	defer func() { e.typesBuilding = false }()
+	e.typesVisited = len(e.typesMayDiffer) + len(srcs)
 	for _, id := range e.typesMayDiffer {
 		buf = e.appendDerivedEntry(buf, act, id)
 	}
-	for _, id := range e.typesSrcs {
+	for _, id := range srcs {
 		buf = e.appendDerivedEntry(buf, act, id)
 	}
 	slices.SortFunc(buf, func(a, b effects.ObjectTypes) int {
@@ -425,7 +468,7 @@ func (e *Engine) buildDerivedTypes(buf []effects.ObjectTypes) []effects.ObjectTy
 		// set (layer4BoundedReach: Self, or the source's attachment), the
 		// walk visits only those objects plus the base-may-differ ones --
 		// the same argument the self-only path rests on.
-		reach, ok := e.layer4BoundedReach(arr[:0])
+		reach, _, ok := e.layer4BoundedReach(arr[:0])
 		if !ok {
 			return e.buildDerivedTypesWalk(buf, nil, false)
 		}
@@ -499,33 +542,34 @@ func (e *Engine) layer4SelfOnlySources(buf []state.ObjID) ([]state.ObjID, bool) 
 // src), so unless its base may differ (layer4BaseMayDiffer, which the walk
 // still visits) its derived list is its printed one and the full walk would
 // skip it. layer4PrecheckVerify holds every such build to the full walk.
-func (e *Engine) layer4BoundedReach(buf []state.ObjID) ([]state.ObjID, bool) {
+func (e *Engine) layer4BoundedReach(buf []state.ObjID) (_ []state.ObjID, anyLType, ok bool) {
 	act := e.active()
 	for i := range act {
 		ce := &act[i]
 		if ce.Layer != LType {
 			continue
 		}
-		reach := affectsReach(ce.Affects)
-		if reach == 0 {
-			return buf, false
+		anyLType = true
+		bits := affectsReach(ce.Affects)
+		if bits == 0 {
+			return buf, true, false
 		}
-		if reach&reachSelf != 0 && ce.Source != 0 {
-			var ok bool
-			if buf, ok = appendReach(buf, ce.Source); !ok {
-				return buf, false
+		if bits&reachSelf != 0 && ce.Source != 0 {
+			var fit bool
+			if buf, fit = appendReach(buf, ce.Source); !fit {
+				return buf, true, false
 			}
 		}
-		if reach&reachAttached != 0 {
+		if bits&reachAttached != 0 {
 			if s := e.G.Obj(ce.Source); s != nil && s.Zone == state.ZBattlefield && s.AttachedTo != 0 {
-				var ok bool
-				if buf, ok = appendReach(buf, s.AttachedTo); !ok {
-					return buf, false
+				var fit bool
+				if buf, fit = appendReach(buf, s.AttachedTo); !fit {
+					return buf, true, false
 				}
 			}
 		}
 	}
-	return buf, true
+	return buf, anyLType, true
 }
 
 // appendReach adds id to the bounded reach list unless present; false when
