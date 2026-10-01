@@ -18,7 +18,9 @@ const (
 	OmitLibrary Omit = 1 << iota
 	// OmitAvailable skips PlayerView.Available (Chars.AvailableMana).
 	OmitAvailable
-	// OmitArchetype skips PlayerView.Archetype (the opponent posterior).
+	// OmitArchetype skips PlayerView.Archetype (the opponent posterior). It
+	// is inferred from full card lists, so OmitCardLists and
+	// OmitDerivedChars skip it too.
 	OmitArchetype
 	// OmitAbilityCosts skips CardView.AbilityCosts (Chars.AbilityCosts).
 	OmitAbilityCosts

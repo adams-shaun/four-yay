@@ -723,7 +723,7 @@ func projectInto(dst *View, g *state.Game, ch Chars, viewer state.PlayerID, d *d
 		// projection already decided the viewer may see; it is never computed
 		// for the viewer's own seat (whose archetype is the manifest's fact)
 		// nor for a spectator (whose viewer index matches no real seat).
-		if p.ID != viewer && !spectator && m.omit&OmitArchetype == 0 {
+		if p.ID != viewer && !spectator && m.omit&(OmitArchetype|OmitCardLists|OmitDerivedChars) == 0 {
 			pv.Archetype = inferArchetypePosteriorInto(prev.Archetype, pv.Battlefield, pv.Graveyard, pv.Exile, pv.Command)
 		}
 	}
