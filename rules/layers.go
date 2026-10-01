@@ -78,6 +78,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 	// (staticZoneSkipVerify) resets it again below and sets it identically.
 	e.staticMemoGated = false
 	e.staticMemoStateRead = false
+	e.staticGates, e.staticGatesKnown = e.staticGates[:0], true
 	out := dst[:0]
 	for pi, p := range e.G.AliveFrom(0) {
 		// staticSourceZones (below) walks the battlefield FIRST so every
@@ -249,7 +250,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 							// is set, so the memo is only reused across a token entry on a
 							// board with no gate-carrying Continuous static anywhere.
 							e.staticMemoGated = true
-							if !e.continuousGateHolds(staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf(), SVars: faceSVars}) {
+							if !e.staticGateHolds(staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf(), SVars: faceSVars}) {
 								continue
 							}
 						}

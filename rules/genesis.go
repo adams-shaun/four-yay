@@ -74,6 +74,9 @@ type Spare struct {
 	// static is a spent engine's cleared staticEffects memo storage, which
 	// the next clone copies its parent's memo into (clone.go).
 	static []ContinuousEffect
+	// gates is the static memo's cleared gate-record storage
+	// (static_gatememo.go), copied into by the next clone like static.
+	gates []staticGateRec
 	// probe is a spent engine's layer-4 statics probe cells
 	// (Engine.typesProbe), copied into by the next clone.
 	probe []uint8
@@ -144,6 +147,9 @@ func (e *Engine) Release() Spare {
 	clear(sp.static)
 	sp.static = sp.static[:0]
 	e.staticContinuous = nil
+	sp.gates = e.staticGates[:cap(e.staticGates)]
+	clear(sp.gates)
+	sp.gates, e.staticGates, e.staticGatesKnown = sp.gates[:0], nil, false
 	sp.probe, e.typesProbe, e.typesProbeReady = e.typesProbe[:0], nil, false
 	for i := range e.trigZones {
 		z := &e.trigZones[i]

@@ -55,6 +55,14 @@ type engineLayerCaches struct {
 	// state a quiet event writes, so staticSafeSince admits quiet events only
 	// when it is false. Reset and set exactly like staticMemoGated.
 	staticMemoStateRead bool
+	// staticGates is every continuous gate the last full staticEffects build
+	// evaluated, in scan order, with its outcome (static_gatememo.go): a
+	// gated, state-read-free build is re-stamped across a quiet run when
+	// every one of them re-evaluates unchanged. staticGatesKnown says the
+	// list belongs to the current memo (a clone that did not carry it, or a
+	// fresh engine, has none). Reset at the top of each full walk.
+	staticGates      []staticGateRec
+	staticGatesKnown bool
 	// staticBuildSeq counts staticEffects REBUILDS (never a layer-inert
 	// re-stamp or an exact hit). The memo is refreshable OUTSIDE active() --
 	// staticControlWants (control_static.go) calls refreshStaticContinuous
