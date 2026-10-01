@@ -51,13 +51,85 @@ type replZoneSummary struct {
 	// array cannot be recycled while the summary names it.
 	live   []state.ObjID
 	hotIDs []state.ObjID
-	epoch  int
-	valid  bool
+	// mask is the union of the hot objects' replacement event bits
+	// (objectReplMask): a superset of every R:Event$ name a visit in this
+	// zone can match.
+	mask  uint32
+	epoch int
+	valid bool
 }
 
 // objectReplHot reports whether any face replacementFace could return for o
 // carries an R: line.
 func faceReplHot(f *cards.Face) bool { return f != nil && len(f.Repls) > 0 }
+
+// replEventBit maps an R:Event$ name -- or the name replacementEvent gives
+// a logged event -- to its bit; DrawCards shares Draw's (the one alias
+// replacementEventNameMatches accepts). A name replacementEvent never
+// returns gets no bit: no event can match it.
+func replEventBit(name string) uint32 {
+	switch name {
+	case "Attached":
+		return 1 << 0
+	case "Moved":
+		return 1 << 1
+	case "Untap":
+		return 1 << 2
+	case "BeginPhase":
+		return 1 << 3
+	case "Transform":
+		return 1 << 4
+	case "ProduceMana":
+		return 1 << 5
+	case "DamageDone":
+		return 1 << 6
+	case "Draw", "DrawCards":
+		return 1 << 7
+	case "CreateToken":
+		return 1 << 8
+	case "Explore":
+		return 1 << 9
+	case "Cascade":
+		return 1 << 10
+	case "Scry":
+		return 1 << 11
+	case "RollDice":
+		return 1 << 12
+	case "RollPlanarDice":
+		return 1 << 13
+	case "AddCounter":
+		return 1 << 14
+	case "TurnFaceUp":
+		return 1 << 15
+	}
+	return 0
+}
+
+// objectReplMask is the union of replEventBit over every R: line of every
+// face objectReplHot reads (CopyFace and each of the card's faces), the
+// face set replacementFace chooses from.
+func objectReplMask(o *state.Object) uint32 {
+	if o == nil {
+		return 0
+	}
+	var m uint32
+	if o.CopyFace != nil {
+		for i := range o.CopyFace.Repls {
+			m |= replEventBit(o.CopyFace.Repls[i].Event)
+		}
+	}
+	if o.Card != nil {
+		for _, f := range o.Card.Faces {
+			if f == nil {
+				continue
+			}
+			for i := range f.Repls {
+				m |= replEventBit(f.Repls[i].Event)
+			}
+		}
+	}
+	return m
+}
 
 func objectReplHot(o *state.Object) bool {
 	if o == nil {
@@ -85,6 +157,7 @@ func (e *Engine) replZoneTouch(id state.ObjID) {
 	// summary that already records that class (hot exactly when listed in
 	// hotIDs) stays exact; a list change is caught by the list comparison.
 	hot, classified := false, false
+	var mask uint32
 	for i := int(o.Zone); i < len(e.replZones); i += replZoneCount {
 		z := &e.replZones[i]
 		if !z.valid {
@@ -92,8 +165,11 @@ func (e *Engine) replZoneTouch(id state.ObjID) {
 		}
 		if !classified {
 			hot, classified = objectReplHot(o), true
+			if hot {
+				mask = objectReplMask(o)
+			}
 		}
-		if hot != slices.Contains(z.hotIDs, id) {
+		if hot != slices.Contains(z.hotIDs, id) || mask&^z.mask != 0 {
 			z.valid = false
 		}
 	}
@@ -161,8 +237,9 @@ func (e *Engine) replZoneHot(p state.PlayerID, z state.Zone, cur []state.ObjID) 
 		}
 		if appendOnly && creates == len(cur)-len(s.ids) {
 			for _, id := range cur[len(s.ids):] {
-				if objectReplHot(e.G.Obj(id)) {
+				if o := e.G.Obj(id); objectReplHot(o) {
 					s.hotIDs = append(s.hotIDs, id)
+					s.mask |= objectReplMask(o)
 				}
 			}
 			s.ids = append(s.ids, cur[len(s.ids):]...)
@@ -176,18 +253,20 @@ func (e *Engine) replZoneHot(p state.PlayerID, z state.Zone, cur []state.ObjID) 
 	}
 	from := 0
 	hot := s.hotIDs[:0]
+	var mask uint32
 	if s.valid && len(cur) > len(s.ids) && slices.Equal(s.ids, cur[:len(s.ids)]) {
 		// Append-only: the recorded prefix and its hot subset stand.
 		from = len(s.ids)
-		hot = s.hotIDs
+		hot, mask = s.hotIDs, s.mask
 	}
 	for _, id := range cur[from:] {
-		if objectReplHot(e.G.Obj(id)) {
+		if o := e.G.Obj(id); objectReplHot(o) {
 			hot = append(hot, id)
+			mask |= objectReplMask(o)
 		}
 	}
 	s.ids = append(s.ids[:0], cur...)
-	s.hotIDs, s.epoch, s.valid = hot, len(e.L.Events), true
+	s.hotIDs, s.mask, s.epoch, s.valid = hot, mask, len(e.L.Events), true
 	return hot
 }
 
@@ -206,6 +285,16 @@ func (e *Engine) replZoneHot(p state.PlayerID, z state.Zone, cur []state.ObjID) 
 // skipped; callers must only act on a visited id through
 // replacementFace(id, ev).Repls.
 func (e *Engine) forEachReplacementSource(fn func(id state.ObjID)) {
+	e.forEachReplacementSourceFor(0, fn)
+}
+
+// forEachReplacementSourceFor is forEachReplacementSource for a caller that
+// acts on a visited object only through R: lines whose event name maps to
+// bit (replEventBit; 0 visits everything): a summarized zone whose hot
+// objects carry no such line (summary mask) is not visited. The summaries
+// are still brought up to date, in the same order. The command zone is
+// always visited.
+func (e *Engine) forEachReplacementSourceFor(bit uint32, fn func(id state.ObjID)) {
 	e.replZonesCatchUp()
 	e.foreachDepth++
 	defer func() { e.foreachDepth-- }()
@@ -222,6 +311,16 @@ func (e *Engine) forEachReplacementSource(fn func(id state.ObjID)) {
 			hot := e.replZoneHot(p, z, cur)
 			if replZoneSkipVerify {
 				e.verifyReplZoneSkip(cur, hot)
+			}
+			if bit != 0 && e.replZones[int(p)*replZoneCount+int(z)].mask&bit == 0 {
+				if replZoneSkipVerify {
+					for _, id := range hot {
+						if objectReplMask(e.G.Obj(id))&bit != 0 {
+							panic(fmt.Sprintf("rules: replacement zone mask skipped obj %d carrying event bit %#x", id, bit))
+						}
+					}
+				}
+				continue
 			}
 			buf = append(buf[:0], hot...)
 			for _, id := range buf {
@@ -272,7 +371,7 @@ func copyReplZones(dst, src []replZoneSummary) []replZoneSummary {
 		d, s := &dst[i], &src[i]
 		d.ids = append(d.ids[:0], s.ids...)
 		d.hotIDs = append(d.hotIDs[:0], s.hotIDs...)
-		d.live, d.epoch, d.valid = d.ids, s.epoch, s.valid
+		d.live, d.mask, d.epoch, d.valid = d.ids, s.mask, s.epoch, s.valid
 	}
 	return dst
 }
