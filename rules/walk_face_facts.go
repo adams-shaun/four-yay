@@ -57,7 +57,7 @@ type walkFaceFacts struct {
 	// so a walk shares them instead of concatenating per option (Go strings
 	// are immutable; a shared label is the same value the concatenation
 	// produces). A label is served only while f.Name still equals name.
-	name                             string
+	name                            string
 	castLabel, playLabel, manaLabel string
 }
 
