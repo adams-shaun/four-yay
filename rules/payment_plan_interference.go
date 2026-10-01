@@ -410,7 +410,8 @@ func (e *Engine) paymentPlanProductionReplaced(id state.ObjID, activator state.P
 			continue
 		}
 		ev := events.Event{Kind: events.ManaAdd, Player: activator, Counter: string(cards.ManaSymbol(i)), Amount: n * amount}
-		for _, ce := range active {
+		for ceI, ceL := 0, active; ceI < len(ceL); ceI++ {
+			ce := &ceL[ceI]
 			if ce.ReplacementEvent != "ProduceMana" {
 				continue
 			}
