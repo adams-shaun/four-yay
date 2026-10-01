@@ -632,6 +632,19 @@ func effectRememberedPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 					add(t.Player)
 				}
 			}
+		case "Player.IsRemembered":
+			// Screaming Nemesis's DBEffect RememberObjects$ Player.IsRemembered:
+			// the Effect is created INSIDE the resolution whose DealDamage
+			// RememberDamaged$ True just remembered the damaged player, so it
+			// must capture that player from the live Ctx.Remembered set (the
+			// persistent-list precedence of definedSpec's Player.IsRemembered
+			// arm is for a later, independent resolution). Same body as the
+			// Remembered* case beside it.
+			for _, t := range c.Remembered {
+				if t.IsPlayer {
+					add(t.Player)
+				}
+			}
 		case "RememberedPlayer", "RememberedPlayers", "Remembered":
 			for _, t := range c.Remembered {
 				if t.IsPlayer {

@@ -308,6 +308,9 @@ func effDealDamage(h Host, c *Ctx, sa *cards.SA) {
 				continue
 			}
 			emitPlayerDamage(r, t.player)
+			if remember {
+				rememberPlayerBothHalves(h, c, t.player)
+			}
 		}
 		h.EndDamageBatch()
 		return
@@ -315,6 +318,9 @@ func effDealDamage(h Host, c *Ctx, sa *cards.SA) {
 	for _, t := range Defined(h, c, sa) {
 		if t.IsPlayer {
 			emitPlayerDamage(rider, t.Player)
+			if remember {
+				rememberPlayerBothHalves(h, c, t.Player)
+			}
 			continue
 		}
 		if o := h.Game().Obj(t.Obj); o != nil && o.Zone == state.ZBattlefield {
@@ -397,6 +403,9 @@ func emitFromEachSource(h Host, c *Ctx, sa *cards.SA, sources []state.ObjID, n i
 		for _, t := range recips {
 			if t.IsPlayer {
 				emitPlayerDamage(rider, t.Player)
+				if remember {
+					rememberPlayerBothHalves(h, c, t.Player)
+				}
 				emittedAny = true
 				continue
 			}
@@ -1512,6 +1521,7 @@ func effDamageResolve(h Host, c *Ctx, sa *cards.SA) {
 		prev := h.SetDamageSource(m.rider.source)
 		if m.target.IsPlayer {
 			emitPlayerDamage(m.rider, m.target.Player)
+			damaged = append(damaged, state.Target{Player: m.target.Player, IsPlayer: true})
 		} else if o := h.Game().Obj(m.target.Obj); o != nil && o.Zone == state.ZBattlefield {
 			emitObjectDamage(m.rider, m.target.Obj)
 			damaged = append(damaged, state.Target{Obj: m.target.Obj})
@@ -1525,7 +1535,14 @@ func effDamageResolve(h Host, c *Ctx, sa *cards.SA) {
 	if strings.TrimSpace(sa.Params["RememberDamaged"]) != "" {
 		for _, t := range damaged {
 			c.Remembered = append(c.Remembered, t)
-			eventRemember(h, c, t.Obj)
+			// A player entry's Obj is zero and would emit a garbage Choose
+			// event; encode the player through PlayerRef, the same encoding
+			// rememberPlayerBothHalves' persistent half uses.
+			id := t.Obj
+			if t.IsPlayer {
+				id = state.PlayerRef(t.Player)
+			}
+			eventRemember(h, c, id)
 		}
 	}
 	registerReplaceDying(h, c, sa, damaged)
