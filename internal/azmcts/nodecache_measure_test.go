@@ -46,32 +46,13 @@ func measureRoots(t testing.TB, n int) []measureRoot {
 	return out
 }
 
-// fixedChanceTestSource is a PIMC tree's world with its chance fixed per
-// tree: a hypothetical clone of e with the same chance seed every
-// simulation (searchbench's pimcSource without FreshChance).
-type fixedChanceTestSource struct {
-	e     *rules.Engine
-	obs   *searchprobe.Collector
-	seed  uint64
-	prev  *rules.Engine
-	spare rules.Spare
-}
-
-func (s *fixedChanceTestSource) World(int) (World, error) {
-	if s.prev != nil {
-		s.spare = s.prev.Release()
-	}
-	s.prev = s.e.CloneHypotheticalInto(s.seed, &s.spare)
-	return World{Engine: s.prev, Observer: s.obs.Clone(), Hypothetical: true}, nil
-}
-
 func measureSource(kind string, e *rules.Engine, obs *searchprobe.Collector) WorldSource {
 	switch kind {
 	case "clairvoyant":
 		src, _ := newTestClairvoyant(e, obs)
 		return src
 	case "pimc":
-		return &fixedChanceTestSource{e: e, obs: obs, seed: 0x5eed}
+		return &FixedChance{Base: e, Observer: obs, Seed: 0x5eed}
 	}
 	panic("unknown source " + kind)
 }
@@ -140,4 +121,4 @@ func TestNodeCacheMeasure(t *testing.T) {
 	t.Logf("rss before searches: %s   after: %s", rssBase, vmHWM())
 }
 
-func setNodeCache(o *Options, n int) {}
+func setNodeCache(o *Options, n int) { o.NodeCache = n }

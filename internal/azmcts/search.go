@@ -59,6 +59,8 @@ func (o Options) Validate(net *policynet.Model) error {
 		return fmt.Errorf("azmcts: Dirichlet alpha %g must be > 0", o.DirichletAlpha)
 	case o.DirichletEps < 0 || o.DirichletEps > 1:
 		return fmt.Errorf("azmcts: Dirichlet epsilon %g must be in [0,1]", o.DirichletEps)
+	case o.NodeCache < 0:
+		return fmt.Errorf("azmcts: node cache %d must be >= 0 (0 is off)", o.NodeCache)
 	case o.Kinds == (Kinds{}):
 		return errors.New("azmcts: no searched decision kinds")
 	}
@@ -143,7 +145,11 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 		envSeed: splitmix(opts.Seed ^ 0x656e762d73656564), actor: root.Decision.Player,
 		root: rootPt, rootCands: cands, rootDec: root.Decision, stats: &res.Stats,
 	}
-	tr, err := RunTree(ctx, rootPt, &worldEnvs{src: src, cfg: cfg}, opts, &res.Stats)
+	var envs EnvSource = &worldEnvs{src: src, cfg: cfg}
+	if opts.NodeCache > 0 && isFixed(src) {
+		envs = &fixedEnvs{worldEnvs: envs.(*worldEnvs)}
+	}
+	tr, err := RunTree(ctx, rootPt, envs, opts, &res.Stats)
 	if err != nil {
 		return res, err
 	}

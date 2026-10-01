@@ -1,6 +1,8 @@
 package azmcts
 
 import (
+	"fmt"
+
 	"github.com/adams-shaun/gorge/internal/searchprobe"
 	"github.com/adams-shaun/gorge/rules"
 )
@@ -25,3 +27,50 @@ type World struct {
 type WorldSource interface {
 	World(sim int) (World, error)
 }
+
+// FixedWorldSource is a WorldSource that promises every World it hands out
+// is the same position with the same future chance -- a clone of one engine
+// with its generator carried (the clairvoyant source) or re-seeded to one
+// seed per tree (FixedChance) -- so every simulation's walk is a function of
+// the keys it plays. Search then turns on the node cache (Options.NodeCache)
+// and asks the source for a world only until the root's state is saved. A
+// source whose worlds differ between simulations (a redeal, a per-simulation
+// chance seed) must not implement it, or return false.
+type FixedWorldSource interface {
+	WorldSource
+	FixedWorld() bool
+}
+
+// isFixed reports whether src declares a fixed world.
+func isFixed(src WorldSource) bool {
+	f, ok := src.(FixedWorldSource)
+	return ok && f.FixedWorld()
+}
+
+// FixedChance is a PIMC tree's world source: every simulation walks a
+// hypothetical clone of one world, Base, whose future chance is re-seeded
+// with the SAME Seed every time (rules.Engine.CloneHypothetical), so a
+// node's chance outcome is drawn once per tree, as upstream BenchSearch's
+// cached nodes draw it. It is a FixedWorldSource. Observer is the collector
+// that captured Base at the root; each world gets a clone of it.
+type FixedChance struct {
+	Base     *rules.Engine
+	Observer *searchprobe.Collector
+	Seed     uint64
+	prev     *rules.Engine
+	spare    rules.Spare
+}
+
+func (s *FixedChance) World(int) (World, error) {
+	if s.Base == nil || s.Observer == nil {
+		return World{}, fmt.Errorf("%w: the fixed-chance source needs a base engine and observer", ErrBadWorld)
+	}
+	if s.prev != nil {
+		s.spare = s.prev.Release()
+	}
+	s.prev = s.Base.CloneHypotheticalInto(s.Seed, &s.spare)
+	return World{Engine: s.prev, Observer: s.Observer.Clone(), Hypothetical: true}, nil
+}
+
+// FixedWorld is true: one world, one chance seed.
+func (s *FixedChance) FixedWorld() bool { return true }

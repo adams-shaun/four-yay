@@ -77,6 +77,24 @@ type EnvSource interface {
 	Env(sim int) (Env, error)
 }
 
+// NodeStateSource is an EnvSource over ONE fixed world: every Env it hands
+// out is the same position with the same future chance, so a walk's state
+// is a function of the keys it played and a simulation can resume from a
+// state saved at a tree node instead of re-walking from the root (the node
+// cache, Options.NodeCache). RunTree then asks Env for a world only until
+// the root's state is saved, and never again.
+type NodeStateSource interface {
+	EnvSource
+	// Save stores env's current position -- at a point Env.Root or Play
+	// returned. With final false env keeps walking, on its own copy, so the
+	// stored state never changes; final true means env's walk is over and
+	// its state may be kept as it stands (env is not used again).
+	Save(env Env, final bool) (any, error)
+	// Resume is a fresh Env positioned at a saved state, as if it had
+	// walked there from the root.
+	Resume(snap any) (Env, error)
+}
+
 // TreeResult is the root's statistics after RunTree.
 type TreeResult struct {
 	Visits    []int     // per root key (parallel to root.Keys)
@@ -89,6 +107,11 @@ type node struct {
 	n    int
 	w    float64
 	kids []*edge
+	// pt and snap are the node cache's (simulateCached): the point this
+	// node was expanded from, and the saved env state at it (nil when not
+	// stored). Both stay nil without the cache.
+	pt   *Point
+	snap any
 }
 
 type edge struct {
@@ -98,6 +121,10 @@ type edge struct {
 	w     float64
 	avail int
 	next  *node
+	// end is the node cache's record of an edge whose walk ended (game
+	// over or the step cap): in a fixed world every later play of it ends
+	// the same way, so its leaf is reused instead of re-walked.
+	end *Leaf
 }
 
 func newNode(pt *Point) *node {
@@ -183,6 +210,11 @@ func RunTree(ctx context.Context, root *Point, src EnvSource, opts Options, st *
 		return TreeResult{}, fmt.Errorf("azmcts: a root point needs keys and a parallel prior")
 	}
 	top := newNode(root)
+	var cache *nodeCache
+	if ns, ok := src.(NodeStateSource); ok && opts.NodeCache > 0 {
+		top.pt = root
+		cache = &nodeCache{src: ns, max: opts.NodeCache}
+	}
 	for i := 0; i < opts.Sims; i++ {
 		if ctx != nil {
 			if err := ctx.Err(); err != nil {
@@ -193,6 +225,14 @@ func RunTree(ctx context.Context, root *Point, src EnvSource, opts Options, st *
 			}
 		}
 		st.Simulations++
+		if cache != nil {
+			if err := cache.simulate(top, i, opts, st); err != nil {
+				classify(st, err)
+				continue
+			}
+			st.Completed++
+			continue
+		}
 		env, err := src.Env(i)
 		if err != nil {
 			classify(st, err)

@@ -60,6 +60,7 @@ type engineEnv struct {
 	hyp    bool
 	cfg    *walkConfig
 	rngs   []*rand.Rand
+	pcgs   []*rand.PCG // rngs' sources, which the node cache saves and restores
 	board  botpolicy.Board
 	cur    *decision.Decision
 	cands  []cand
@@ -76,11 +77,26 @@ func newEngineEnv(w World, cfg *walkConfig) (*engineEnv, error) {
 		return nil, fmt.Errorf("%w (root seq %d)", ErrBadWorld, rd.Seq)
 	}
 	n := len(w.Engine.G.Players)
+	rngs, pcgs := botStreams(cfg.envSeed, n)
 	return &engineEnv{
 		e: w.Engine, obs: w.Observer, hyp: w.Hypothetical, cfg: cfg,
-		rngs: searchprobe.BotRandoms(cfg.envSeed, n), board: botpolicy.NewBoard(n),
+		rngs: rngs, pcgs: pcgs, board: botpolicy.NewBoard(n),
 		cur: pd, cands: cfg.rootCands,
 	}, nil
+}
+
+// botStreams is searchprobe.BotRandoms with the PCG sources kept, so the
+// node cache can save a walk's bot streams mid-game (math/rand/v2's Rand
+// holds no state beyond its source). TestBotStreamsAreBotRandoms pins the
+// two identical.
+func botStreams(seed uint64, seats int) ([]*rand.Rand, []*rand.PCG) {
+	rngs, pcgs := make([]*rand.Rand, seats), make([]*rand.PCG, seats)
+	for i := range rngs {
+		s := seed ^ uint64(i+1)
+		pcgs[i] = rand.NewPCG(s, s^0x9e3779b97f4a7c15)
+		rngs[i] = rand.New(pcgs[i])
+	}
+	return rngs, pcgs
 }
 
 func (e *engineEnv) Root() *Point { return e.cfg.root }

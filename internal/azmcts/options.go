@@ -71,6 +71,12 @@ type Options struct {
 	// even when a network supplies the prior: the network's value head is
 	// then unused (M1b's prior-only ablation).
 	HeuristicLeaf bool
+	// NodeCache caps the tree nodes whose engine state the search stores
+	// (nodecache.go) when the world source declares a fixed world
+	// (FixedWorldSource: the clairvoyant clone, FixedChance); 0 turns the
+	// cache off. It never changes the Result, only its cost counters, and a
+	// source whose worlds differ between simulations never uses it.
+	NodeCache int
 }
 
 // DefaultOptions are the spec's values (§2) and this plan's candidate and
@@ -78,7 +84,7 @@ type Options struct {
 func DefaultOptions() Options {
 	return Options{
 		Sims: 100, CPUCT: 1.5, FPU: 0.1, Limit: 6, MaxSteps: 1000, Kinds: AllKinds(),
-		DirichletAlpha: 0.3, DirichletEps: 0.25,
+		DirichletAlpha: 0.3, DirichletEps: 0.25, NodeCache: DefaultNodeCache,
 	}
 }
 
