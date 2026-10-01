@@ -36,6 +36,20 @@ func (h *handler) decks(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, decks)
 }
 
+// botPolicies serves GET /api/bot-policies: the immutable offered set and the
+// server's default. A nil listing serves the empty shape rather than null, so
+// a client can always read .policies and .default.
+func (h *handler) botPolicies(w http.ResponseWriter, r *http.Request) {
+	list := h.opts.BotPolicies
+	if list == nil {
+		list = &protocol.BotPolicyList{Policies: []protocol.BotPolicyInfo{}}
+	}
+	if list.Policies == nil {
+		list = &protocol.BotPolicyList{Default: list.Default, Policies: []protocol.BotPolicyInfo{}}
+	}
+	writeJSON(w, http.StatusOK, list)
+}
+
 // defaultMinGames is the leaderboard's floor when ?min_games is absent.
 const defaultMinGames = 10
 
