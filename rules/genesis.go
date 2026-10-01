@@ -39,6 +39,10 @@ type Spare struct {
 	// regrowth; the watcher reads only their length.
 	loopSigs   []uint64
 	loopRecent []events.Event
+	// loopPrev / loopHeads are the watcher's candidate-index arrays
+	// (prevPos, slotHead), recycled like the windows: prevPos is read only
+	// below its length and slotHead is zeroed by the next watcher.
+	loopPrev, loopHeads []uint32
 	// snapObjs are the engine's recycled trigger-window snapshot arenas
 	// (trigger_snapshot_pool.go), cleared when they were pooled; the next
 	// engine's first look-back windows reuse them.
@@ -96,6 +100,8 @@ func (e *Engine) Release() Spare {
 		memoStack:  e.derivedMemoStack.release(),
 		loopSigs:   e.loop.sigs[:0],
 		loopRecent: e.loop.recent[:cap(e.loop.recent)],
+		loopPrev:   e.loop.prevPos[:0],
+		loopHeads:  e.loop.slotHead,
 		snapObjs:   e.releaseSnapshotObjs(),
 	}
 	sp.arena = e.releaseArena()
@@ -117,7 +123,7 @@ func (e *Engine) Release() Spare {
 	e.lookBack, e.lookBackOwner = nil, nil
 	clear(sp.loopRecent)
 	sp.loopRecent = sp.loopRecent[:0]
-	e.loop.sigs, e.loop.recent = nil, nil
+	e.loop.sigs, e.loop.recent, e.loop.prevPos, e.loop.slotHead = nil, nil, nil, nil
 	clear(sp.events)
 	clear(sp.objs)
 	clear(sp.intents)
@@ -186,7 +192,7 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 		L:                 events.NewLogInto(cfg.Seed, spare.events),
 		format:            cfg.Format,
 		rng:               random,
-		loop:              newLivelockWatcherInto(cfg.LoopGuard, spare.loopSigs, spare.loopRecent),
+		loop:              newLivelockWatcherInto(cfg.LoopGuard, spare.loopSigs, spare.loopRecent, spare.loopPrev, spare.loopHeads),
 		compiledText:      newCompiledText(cfg),
 		landTypeWords:     corpusLandTypeWords(cfg.NameUniverse),
 		mulligans:         cfg.Mulligans,
