@@ -72,14 +72,14 @@ func foldManaUndo(g *state.Game, e *Event) {
 	// and untap the named source. The rules side offers it only when the
 	// pool still holds those units, so the clamp is defensive.
 	if validPlayer(g, e.Player) && e.Amount > 0 {
-		rm := e
+		rm := *e // a copy: a fold must never write the event it folds
 		rm.Kind, rm.Amount, rm.Text = ManaAdd, -e.Amount, ""
 		idx := manaAddSlot(rm.Counter)
 		if have := g.Players[e.Player].Pool[idx]; have < e.Amount {
 			rm.Amount = -have
 		}
 		if rm.Amount < 0 {
-			applyManaAdd(g, rm)
+			applyManaAdd(g, &rm)
 		}
 	}
 	if o := g.Obj(e.Obj); e.Obj != 0 && o != nil {
