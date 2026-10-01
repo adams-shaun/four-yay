@@ -381,16 +381,16 @@ file next to it over growing it.
 `--max-rows N` for this embedded cut). The durable "why it collides" prose
 lives in `scripts/hotfiles-notes.json` (tracked): a seat filing a new
 contended pair adds one note entry there in its own commit and re-renders.
-Rendered 2026-10-01 at head fcae595d5, with `--max-rows 5`:
+Rendered 2026-10-01 at head bc3d9ad57, with `--max-rows 5`:
 
 | file | why it collides |
 |---|---|
-| `internal/azmcts/env.go` | 4 live branches: az-nodecache, cpu-derived, cpu-legal, sbrep-fix |
-| `internal/azmcts/search.go` | 4 live branches: az-nodecache, cpu-derived, cpu-legal, sbrep-fix |
 | `docs/agents/repo-map.md` | 3 live branches: cpu-derived, enginecmp, sbrep-fix |
-| `internal/azmcts/candidates.go` | 3 live branches: cpu-derived, cpu-legal, sbrep-fix |
-| `internal/searchprobe/observation.go` | 3 live branches: cpu-derived, cpu-legal, sbrep-fix |
-… and 25 more; run the command for the live list
+| `internal/azmcts/env.go` | 3 live branches: az-nodecache, cpu-derived, sbrep-fix |
+| `internal/azmcts/search.go` | 3 live branches: az-nodecache, cpu-derived, sbrep-fix |
+| `botpolicy/combat.go` | 2 live branches: cpu-derived, libcomp |
+| `botpolicy/policy.go` | 2 live branches: cpu-derived, libcomp |
+… and 12 more; run the command for the live list
 
 Durable notes for files not shown above:
 - `rules/cast.go` — 12515 lines and the entry point for every cast-side ticket
@@ -404,3 +404,5 @@ Durable notes for files not shown above:
 - `cmd/botbench/main.go` — the bench harness's run entry points (`run`, `runMatrixTraced`, `main`): every measuring arm lands here — corpus opening, az/spellbench/GC/pprof flag setup, the deck matrix. The 2026-10-01 collision (cpu-derived vs sbrep-fix) was the SAME subset-corpus-loader patch (identical git patch-id) carried by both live branches with a divergent tail hunk (`applyGCFlags()` add vs `startPprof()` removal) — duplicate work, not a seam, so there was nothing to split
 - `internal/searchprobe/action.go` — the Collector's action-to-key mapping: CPU-perf rewrites of the observation path and searchbench action-key work land in ADJACENT NON-OVERLAPPING functions (`observeDecision` vs `action`, measured 2026-10-01); the per-file hotspot granularity flags it, but keep each change to its own function so it stays that way
 - `rules/genesis.go` — engine construction: the CPU-perf workstream pools engine internals through `Spare` (`Release`/adopt in `newWithRNG`) and the searchbench workstream carves staged-construction entry points out of the same `newWithRNG` — different concerns inside one function, so no file split is honest while either branch is live (a split moves the exact lines the other is editing). Keep construction changes small and land the branches in sequence
+- `internal/azmcts/candidates.go` — candidate enumeration plumbing: the CPU-perf workstream threads a reusable board scratch (`boardScratch`/`enumerateWhyInto`/`worthOptionsInto`) and the searchbench workstream threads payment candidates (`enumerateWhyAutoPayment`/`enumerateCut`/`enumerateLimit`) through the SAME function — both rewrite `enumerateWhy`'s head in place with a different wrapper chain and both edit its body (measured 2026-10-01), an intra-function collision no file split can separate. Land the branches in sequence; do not restructure the enumeration head while either is live
+- `internal/searchprobe/observation.go` — the observation capture path: the CPU-perf workstream rewrites `NewCollector`/`Capture`/`capture` wholesale, while the searchbench workstream's whole footprint there is one 5-line accessor (`Introduced()`) inserted at the stable `clone()`/`Capture` anchor — adjacent, line-disjoint (measured 2026-10-01); only the per-file hotspot granularity flags it. Keep searchbench additions to self-contained accessors at stable anchors and the pair merges clean on rebase
