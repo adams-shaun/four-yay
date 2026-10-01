@@ -1,0 +1,64 @@
+{
+  "card": "Kindred Discovery",
+  "family": "choose-type",
+  "oracle_sha": "2baccc2bcdea",
+  "author": "cli-20260930T220416Z-ed59db28 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "chosen-goblin-enters-draws",
+      "cr": [
+        "614.12",
+        "603.2c",
+        "121.1"
+      ],
+      "why": "Choosing Goblin: when a Goblin enters under my control I draw a card, so casting Goblin Guide takes my hand from empty to one card.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Kindred Discovery",
+            "Goblin Guide"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Kindred Discovery",
+          "mana": "UUUUUU",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "Goblin"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Goblin Guide",
+          "mana": "RR"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "hand_size": {
+            "p0": 1
+          }
+        },
+        {
+          "card": "p0:Kindred Discovery",
+          "zone": "battlefield"
+        }
+      ]
+    }
+  ]
+}

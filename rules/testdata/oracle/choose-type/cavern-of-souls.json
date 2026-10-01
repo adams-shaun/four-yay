@@ -1,0 +1,51 @@
+{
+  "card": "Cavern of Souls",
+  "family": "choose-type",
+  "oracle_sha": "ccd508f871dd",
+  "author": "cli-20260930T220416Z-ed59db28 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "taps-for-c-when-offered-type-chosen",
+      "cr": [
+        "305.7",
+        "106.9"
+      ],
+      "why": "With a type chosen the second-stage wheel offers {T}: Add {C}; tapping yields one colourless mana. (The build only offers the chooser's own creature types here, so the scenario picks the offered one.)",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Cavern of Souls"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "play",
+          "seat": 0,
+          "card": "p0:Cavern of Souls",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "Human"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Cavern of Souls",
+          "ability": "Add C"
+        }
+      ],
+      "expect": [
+        {
+          "pool": {
+            "p0": "C"
+          }
+        }
+      ]
+    }
+  ]
+}

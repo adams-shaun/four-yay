@@ -1,0 +1,47 @@
+{
+  "card": "Sublime Archangel",
+  "family": "keywords",
+  "oracle_sha": "10bf32d326d1",
+  "author": "cli-20260930T220416Z-ed59db28 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "attacks-alone-gets-exalted-bonus",
+      "cr": [
+        "702.90",
+        "508.1",
+        "510.1a"
+      ],
+      "why": "Attacking with only the Grizzly Bears triggers the Archangel's (and the bear's own granted) exalted once for a total of +1/+1, so p1 takes 3 damage.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Sublime Archangel",
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Grizzly Bears"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "pass_to",
+          "step": "end",
+          "active": "p0"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p1": 17
+          }
+        }
+      ]
+    }
+  ]
+}

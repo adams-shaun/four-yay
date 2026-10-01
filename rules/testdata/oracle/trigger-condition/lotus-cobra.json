@@ -1,0 +1,53 @@
+{
+  "card": "Lotus Cobra",
+  "family": "trigger-condition",
+  "oracle_sha": "fda510469c39",
+  "author": "cli-20260930T220416Z-ed59db28 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "landfall-adds-any-chosen-colour",
+      "cr": [
+        "702.44",
+        "106.9",
+        "603.3d"
+      ],
+      "why": "Playing the Forest triggers landfall; choosing red puts one red mana in p0's pool.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Lotus Cobra"
+          ],
+          "hand": [
+            "Forest"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "play",
+          "seat": 0,
+          "card": "p0:Forest",
+          "answers": []
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "R"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "pool": {
+            "p0": "R"
+          }
+        }
+      ]
+    }
+  ]
+}

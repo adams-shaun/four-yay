@@ -1,0 +1,93 @@
+{
+  "card": "Into the Roil",
+  "family": "cost-modifier",
+  "oracle_sha": "5208c66a815c",
+  "author": "cli-20260930T220416Z-ed59db28 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "unkicked-no-draw",
+      "cr": [
+        "702.31",
+        "701.7a"
+      ],
+      "why": "Unkicked, the Roil only returns the targeted bear; p0 draws nothing.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Into the Roil"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Into the Roil",
+          "mana": "UUU",
+          "targets": [
+            "p1:Grizzly Bears"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "hand_size": {
+            "p0": 0,
+            "p1": 1
+          }
+        }
+      ]
+    },
+    {
+      "name": "kicked-draws-a-card",
+      "cr": [
+        "702.31a",
+        "701.7a"
+      ],
+      "why": "Kicked, the Roil returns the bear AND p0 draws a card.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Into the Roil"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Into the Roil",
+          "kicked": true,
+          "mana": "UUUUU",
+          "targets": [
+            "p1:Grizzly Bears"
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "hand_size": {
+            "p0": 1,
+            "p1": 1
+          }
+        }
+      ]
+    }
+  ]
+}

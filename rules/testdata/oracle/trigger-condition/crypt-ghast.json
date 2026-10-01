@@ -1,0 +1,90 @@
+{
+  "card": "Crypt Ghast",
+  "family": "trigger-condition",
+  "oracle_sha": "ae111c16828f",
+  "author": "cli-20260930T220416Z-ed59db28 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "extort-pays-swing-life-then-bolt-resolves",
+      "cr": [
+        "702.106a",
+        "603.2c",
+        "120.3"
+      ],
+      "why": "Casting Lightning Bolt with the Ghast out: the extort trigger is paid with {W/B}, each opponent loses 1 life and p0 gains it; then the Bolt resolves for 3 more.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Crypt Ghast",
+            "Swamp"
+          ],
+          "hand": [
+            "Lightning Bolt"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Lightning Bolt",
+          "mana": "RWB",
+          "targets": [
+            "p1"
+          ],
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "yes"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p0": 21,
+            "p1": 16
+          }
+        }
+      ]
+    },
+    {
+      "name": "tapping-swamp-adds-additional-b",
+      "cr": [
+        "702.106",
+        "106.9",
+        "611.3"
+      ],
+      "why": "Crypt Ghast's second trigger adds an additional {B} whenever a Swamp is tapped for mana, so tapping it yields two black mana.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Crypt Ghast",
+            "Swamp"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Swamp",
+          "ability": "Add"
+        }
+      ],
+      "expect": [
+        {
+          "pool": {
+            "p0": "BB"
+          }
+        }
+      ]
+    }
+  ]
+}
