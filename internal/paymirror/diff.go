@@ -151,6 +151,20 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "paymentPlanCarriersObjs"}:   true,
 	{"rules.Engine", "paymentPlanCarriersEvents"}: true,
 	{"rules.Engine", "paymentPlanCarriersValid"}:  true,
+	// The payment planner's kept and recycled query scopes and the
+	// incremental zone-entry index (rules/payment_plan_search.go,
+	// rules/payment_zone_entry.go): pure caches of reads of G and the log,
+	// validated on every use; Clone copies none.
+	{"rules.Engine", "paymentPlanQueryKept"}:      true,
+	{"rules.Engine", "paymentPlanQueryKeptStamp"}: true,
+	{"rules.Engine", "paymentPlanQueryFree"}:      true,
+	{"rules.Engine", "zoneEntry"}:                 true,
+	// The priority walk's pool-independent block record for the potential
+	// walk (rules/walk_block_reuse.go) and its served-block counter: a walk
+	// cache keyed like priorityWalk, and a diagnostic; Clone copies none.
+	{"rules.Engine", "walkRec"}:          true,
+	{"rules.Engine", "walkReuse"}:        true,
+	{"rules.Engine", "walkBlocksServed"}: true,
 	// Scratch buffers reused across calls (contents after use are garbage).
 	{"rules.Engine", "legalOptBuf"}:  true,
 	{"rules.Engine", "manaAbBuf"}:    true,
