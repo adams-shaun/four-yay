@@ -101,9 +101,21 @@ type engineLayerCaches struct {
 	// object-count change or explicit invalidation has reached active() since.
 	// Never cloned: a clone starts at zero with an empty memo.
 	activeBuildSeq uint64
-	activeEpoch    int
-	activeVersion  int
-	activeDepth    int
+	// derivedSeq is the Derived memo's cross-walk key (derived_transparent.go):
+	// it moves with activeBuildSeq except across a rebuild that provably left
+	// every derivation unchanged. activeBufAlt is the other half of activeBuf's
+	// double buffer (the previous build's list, kept intact so the next
+	// rebuild can be compared with it), and derivedPrev* the key the previous
+	// build (or layer-inert re-stamp) was taken at. Never cloned: a clone's
+	// zero values make its first build move derivedSeq off zero.
+	derivedSeq         uint64
+	activeBufAlt       []ContinuousEffect
+	derivedPrevEpoch   int
+	derivedPrevVersion int
+	derivedPrevObjs    int
+	activeEpoch        int
+	activeVersion      int
+	activeDepth        int
 	// activeObjs is len(e.G.Objs) at the last active() build, read only by
 	// the layer-inert reuse (layercache.go).
 	activeObjs int

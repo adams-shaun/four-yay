@@ -228,6 +228,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	c.renames = append([]effects.ObjectName(nil), e.renames...)
 	c.renameEpoch = e.renameEpoch
 	c.renameVersion = e.renameVersion
+	c.renameObjs = e.renameObjs
 	// layer4types.go's layer-4 derived-type table and its genesis-time
 	// gate, carried with its (epoch, version) key for the same reason: the
 	// clone's board is identical at the clone boundary, and a fresh slice

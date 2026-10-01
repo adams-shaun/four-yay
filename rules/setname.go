@@ -1,6 +1,9 @@
 package rules
 
 import (
+	"fmt"
+	"slices"
+
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -78,7 +81,18 @@ func (e *Engine) refreshRenames() {
 	if e.renameEpoch == len(e.L.Events) && e.renameVersion == e.continuousVersion {
 		return
 	}
-	e.renameEpoch, e.renameVersion = len(e.L.Events), e.continuousVersion
+	// Layer-inert reuse (layercache.go), refreshDerivedTypes' twin: only
+	// priority bookkeeping moved the log since the table was built, and
+	// neither the continuous registry nor the object arena moved, so every
+	// Derived name the table holds is what a rebuild would read again.
+	if e.renameVersion == e.continuousVersion && e.renameObjs == len(e.G.Objs) && e.layerInertSince(e.renameEpoch) {
+		e.renameEpoch = len(e.L.Events)
+		if layerInertVerify {
+			e.verifyInertRenames()
+		}
+		return
+	}
+	e.renameEpoch, e.renameVersion, e.renameObjs = len(e.L.Events), e.continuousVersion, len(e.G.Objs)
 	buf := e.renames[:0]
 	if !e.anySetNameActive() {
 		e.renames = buf[:0]
@@ -104,6 +118,19 @@ func (e *Engine) refreshRenames() {
 		buf = append(buf, effects.ObjectName{ID: o.ID, Name: name})
 	}
 	e.renames = buf
+}
+
+// verifyInertRenames is refreshRenames' layer-inert reuse check: it rebuilds
+// the table into fresh storage and compares.
+func (e *Engine) verifyInertRenames() {
+	cached := append([]effects.ObjectName(nil), e.renames...)
+	e.renames = nil
+	e.renameEpoch = -1
+	e.refreshRenames()
+	fresh := e.renames
+	if !slices.Equal(cached, fresh) {
+		panic(fmt.Sprintf("rules: layer-inert rename table reuse at log %d disagrees with a rebuild (%v vs %v)", len(e.L.Events), cached, fresh))
+	}
 }
 
 // continuousChanged is the single mutator tail for e.continuous: bump the
