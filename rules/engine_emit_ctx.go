@@ -113,9 +113,20 @@ type engineEmitCtx struct {
 	// Transient engine scratch, zero at every intent boundary (Clone builds a
 	// fresh Engine and never copies it). Zero means no pending activated tap.
 	manaTapMark int
-	tapObj      state.ObjID
-	tapPlayer   state.PlayerID
-	tapEntering bool
+	// manaTapPendingFrom is pendingTriggers' index boundary emitManaTap's Tap
+	// event queued from (the `before` snapshot) and manaTapSource the
+	// permanent that was tapped. stampTriggeredManaProduced binds the
+	// produced-type set onto the NON-immediate TapsForMana triggers the same
+	// tap queued -- C.A.M.P.'s targeted `Triggers$ TapsForMana` stays in
+	// e.pendingTriggers for its later placement, while an immediate CR 605.3b
+	// batch is stamped with the triggers list resolveTriggeredManaAbilities
+	// receives. Transient engine scratch, zero at every intent boundary
+	// (Clone builds a fresh Engine and never copies it), like manaTapMark.
+	manaTapPendingFrom int
+	manaTapSource      state.ObjID
+	tapObj             state.ObjID
+	tapPlayer          state.PlayerID
+	tapEntering        bool
 
 	// counterAdder is the player causing the CounterChange/PlayerCounterChange
 	// events currently in flight (the repl:AddCounter class's "who would put
