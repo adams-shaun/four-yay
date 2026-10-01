@@ -641,7 +641,7 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 		// set), so the first hit is removed and the loop stops.
 		if wasBattlefield {
 			for i := range g.Objs {
-				cr := g.Objs[i]
+				cr := &g.Objs[i] // a read: never copy the ~1 KB Object per arena slot
 				if cr.ID == id || cr.Zone != state.ZBattlefield || len(cr.CrewedVehicles) == 0 {
 					continue
 				}
