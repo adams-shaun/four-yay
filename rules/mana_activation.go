@@ -2239,6 +2239,7 @@ func (e *Engine) stampTriggeredManaProduced(triggers []pendingTrigger) {
 	}
 	produced := e.manaProducedSince(e.manaTapMark)
 	tapped := e.manaTapSource
+	from := e.manaTapPendingFrom
 	e.manaTapMark, e.manaTapPendingFrom, e.manaTapSource = 0, 0, 0
 	if produced == "" {
 		return
@@ -2255,7 +2256,6 @@ func (e *Engine) stampTriggeredManaProduced(triggers []pendingTrigger) {
 	// unrelated trigger the activation's other events queued (a sacrifice,
 	// a cost tap's reaction) keeps an unbound referent -- sharesColorWith's
 	// TriggeredProduced reads the EMPTY set as shares-nothing, resolved.
-	from := e.manaTapPendingFrom
 	if from > len(e.pendingTriggers) {
 		from = len(e.pendingTriggers)
 	}
