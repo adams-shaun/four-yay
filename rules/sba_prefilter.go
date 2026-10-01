@@ -233,12 +233,14 @@ func (e *Engine) mayHaveLegendPair() bool {
 //   - counterPair: annihilateOppositeCounters' phased-in P1P1+M1M1 holder;
 //   - attach: attachmentSBAs' phased-in permanent that is attached (to an
 //     object or a player) or is an Aura (sbaIsAura);
-//   - world: mayHaveWorldPair's answer (a layer-4 effect, or two World
-//     permanents by the face test).
+//   - world: two or more World permanents (worldPermanents' derived test,
+//     answered through sbaTypeFast);
+//   - legend: mayHaveLegendPair's answer (some controller has two phased-in
+//     permanents with a printed Legendary face), legendGroups' own gate.
 type sbaBoardFacts struct {
 	at                                    int
 	pw, battle, saga, counterPair, attach bool
-	world                                 bool
+	world, legend                         bool
 }
 
 // sbaFacts refreshes f when the log has moved since it was taken.
@@ -246,9 +248,9 @@ func (e *Engine) sbaFacts(f *sbaBoardFacts) *sbaBoardFacts {
 	if n := len(e.L.Events); f.at != n {
 		*f = sbaBoardFacts{at: n}
 		anyLType := e.activeHasLType()
-		f.world = anyLType
 		worlds := 0
 		for _, p := range e.G.AliveFrom(0) {
+			legends := 0
 			for _, id := range e.G.Zone(state.ZBattlefield, p) {
 				o := e.G.Obj(id)
 				if o == nil {
@@ -259,7 +261,9 @@ func (e *Engine) sbaFacts(f *sbaBoardFacts) *sbaBoardFacts {
 					if n, _ := chapterSpec(face); n > 0 {
 						f.saga = true
 					}
-					if !anyLType && e.sbaTypeFast(o, "World", false) {
+					// worldPermanents' own test, through the layer-4 table
+					// when a layer-4 effect is live (sbaTypeFast).
+					if !f.world && e.sbaTypeFast(o, "World", anyLType) {
 						if worlds++; worlds >= 2 {
 							f.world = true
 						}
@@ -267,6 +271,11 @@ func (e *Engine) sbaFacts(f *sbaBoardFacts) *sbaBoardFacts {
 				}
 				if o.PhasedOut {
 					continue
+				}
+				if face != nil && !f.legend && face.IsLegendary() {
+					if legends++; legends >= 2 {
+						f.legend = true
+					}
 				}
 				if face != nil {
 					if face.IsPlaneswalker() {
@@ -286,6 +295,9 @@ func (e *Engine) sbaFacts(f *sbaBoardFacts) *sbaBoardFacts {
 		}
 		if sbaQuietVerify && !f.world && len(e.worldPermanents()) >= 2 {
 			panic("rules: SBA world prefilter missed a world pair")
+		}
+		if sbaQuietVerify && f.legend != e.mayHaveLegendPair() {
+			panic("rules: SBA legend prefilter disagrees with mayHaveLegendPair")
 		}
 	}
 	return f

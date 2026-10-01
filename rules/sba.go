@@ -295,7 +295,7 @@ func (e *Engine) checkStateBased() {
 		if e.sbaFacts(facts).counterPair && e.annihilateOppositeCounters() {
 			changed = true
 		}
-		if e.destroyLethalDamage(tried) {
+		if e.destroyLethalDamage(tried, facts) {
 			changed = true
 		}
 		if e.legendBatch != nil {
@@ -397,13 +397,14 @@ type legendBatch struct {
 // The scan is deterministic (AliveFrom(0) seat order, each battlefield zone a
 // slice, seen keyed on the current derived name), so the event stream is
 // reproducible run to run; membership maps are never iterated.
-func (e *Engine) legendGroups() []legendGroup {
+func (e *Engine) legendGroups(mayPair bool) []legendGroup {
 	// The exemption statics are collected once, in activeStatics' canonical
 	// deterministic order, and reused for every candidate; each candidate is
 	// matched with the static's own source/controller context so
 	// `Creature.YouCtrl` is scoped to the static's controller, not the
-	// duplicate set's.
-	if !e.mayHaveLegendPair() {
+	// duplicate set's. mayPair is mayHaveLegendPair's answer, which the
+	// caller's fused board scan (sbaBoardFacts.legend) already holds.
+	if !mayPair {
 		return nil
 	}
 	exempt := e.activeStatics("IgnoreLegendRule")
@@ -1027,7 +1028,7 @@ type casualty struct {
 // reason for the rearm call below (an elimination during THIS function's
 // own emits, from a substitute effect that decks a player out, is picked up
 // by the next pass's rearm rather than mid-loop).
-func (e *Engine) destroyLethalDamage(tried *sbaAttempts) bool {
+func (e *Engine) destroyLethalDamage(tried *sbaAttempts, facts *sbaBoardFacts) bool {
 	tried.rearm(e.G.AliveCount())
 	var dead []casualty
 	anyLType := e.activeHasLType()
@@ -1103,7 +1104,7 @@ func (e *Engine) destroyLethalDamage(tried *sbaAttempts) bool {
 	// after another SBA parked its own ask), the legends are left un-binned
 	// AND the lethal batch is left unapplied: no board change happens under
 	// an outstanding ask, and the pass after the answer re-scans everything.
-	if groups := e.legendGroups(); len(groups) > 0 {
+	if groups := e.legendGroups(e.sbaFacts(facts).legend); len(groups) > 0 {
 		if e.pending == nil && e.choosing == chooseNone && e.legendBatch == nil {
 			e.parkLegendChoice(groups[0], dead)
 			return true
