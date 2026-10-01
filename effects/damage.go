@@ -1002,6 +1002,25 @@ func effDamageAll(h Host, c *Ctx, sa *cards.SA) {
 	}
 	spec := strings.TrimSpace(sa.Params["ValidCards"])
 	remember := strings.TrimSpace(sa.Params["RememberDamaged"]) != ""
+	// A player-kind ValidTgts$ scopes the object sweep to that target
+	// player's permanents ("each creature target player controls"): the
+	// restriction is carried by ValidTgts$, never by ValidCards$, so the
+	// plain spellings (Aggravate, Simoon, Chandra, Bold Pyromancer) would
+	// otherwise sweep every seat. Resolve it through the same referent the
+	// TargetedPlayerCtrl filter predicate uses so the two cannot drift. A
+	// non-nil scope that resolves to no player fails CLOSED, matching the
+	// Defined/TargetedPlayerCtrl direction. ValidTgts$ Creature (a
+	// non-player spec) leaves scope nil, so the filter-only sweep stands.
+	var scope map[state.PlayerID]bool
+	if tg := strings.TrimSpace(sa.Params["ValidTgts"]); tg != "" && playerSpecBaseKnown(tg) {
+		sc := c.SpecContext(c.Controller)
+		sc.ResolutionTargets = targetedGroup(c)
+		players, _ := controlReferentPlayers(h.Game(), sc, "ControlledBy", "TargetedPlayer")
+		scope = make(map[state.PlayerID]bool, len(players))
+		for _, p := range players {
+			scope[p] = true
+		}
+	}
 	g := h.Game()
 	rider := newDamageRider(h, c, sa, n)
 	prev := h.SetDamageSource(rider.source)
@@ -1015,6 +1034,11 @@ func effDamageAll(h Host, c *Ctx, sa *cards.SA) {
 		for _, p := range g.AliveFrom(0) {
 			for _, id := range g.Zone(state.ZBattlefield, p) {
 				if MatchesSpecCtx(g, spec, id, c.SpecContext(c.Controller)) {
+					if scope != nil {
+						if o := g.Obj(id); o == nil || !scope[o.Controller] {
+							continue
+						}
+					}
 					emitObjectDamage(rider, id)
 					damaged = append(damaged, state.Target{Obj: id})
 					if remember {
