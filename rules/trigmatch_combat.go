@@ -1189,7 +1189,34 @@ func (e *Engine) damageMatchesWithCapture(t cards.Trigger, source state.ObjID, e
 	// before checkTriggers runs, so a state field cannot distinguish the
 	// first hit -- the replay-stable log scan below can, counting the current
 	// event as one.
+	if t.Mode == "DamageDoneOnce" && strings.EqualFold(t.Params["FirstTime"], "True") && !e.firstDamageToThisTurn(ev) {
+		return false
+	}
 	return true
+}
+
+// firstDamageToThisTurn is the damage mirror of firstLifeLossThisTurn
+// (trigmatch_life.go): scanning the log backwards, true only for the newest
+// Damage event on this recipient (same Obj/Player pair: object recipients
+// carry nonzero Obj, player recipients Obj == 0 plus a Player) in the current
+// turn, stopping at TurnChange. Same replay-stable log scan -- no new event
+// kind, no engine field, survives Clone.
+func (e *Engine) firstDamageToThisTurn(ev events.Event) bool {
+	seenCurrent := false
+	for i := len(e.L.Events) - 1; i >= 0; i-- {
+		le := e.L.Events[i]
+		if le.Kind == events.TurnChange {
+			return seenCurrent
+		}
+		if le.Kind != events.Damage || le.Obj != ev.Obj || le.Player != ev.Player {
+			continue
+		}
+		if seenCurrent {
+			return false
+		}
+		seenCurrent = true
+	}
+	return seenCurrent
 }
 
 // damageDefendingPlayer binds the combat defending-player role only during
