@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strconv"
+	"strings"
+	"sync/atomic"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/state"
@@ -32,15 +35,28 @@ import (
 // Layers 3, 4 and 5 (name/text, types, colours) feed those two outputs only
 // through the Affected$ bindings of a layer-6/7 effect that is evaluated
 // against the object -- they never write P/T or keywords themselves. So when
-// every layer-6/7/CantHaveKeywords entry of active() is an exact `Card.Self`
-// effect whose source is ANOTHER object, no match can admit the object:
-// matchesWithCharsPT rejects that shape before any binding is read (the
-// Card.Self early-out, held to the full match by layer4PrecheckVerify).
-// Nothing then applies in either walk, whatever the bindings, and the result
-// is the base keyword list and printed P/T plus counters. The two remaining
+// no layer-6/7/CantHaveKeywords entry of active() CAN match the object,
+// nothing applies in either walk, whatever the bindings, and the result is
+// the base keyword list and printed P/T plus counters. The two remaining
 // inputs are excluded explicitly: a face-down battlefield object (CR 708.5's
 // synthetic 2/2 basis) and a face carrying a characteristic-defining static
 // (cdaSetPT evaluates an arbitrary amount) take the full derivation.
+//
+// "Cannot match" is decided by a gate per entry (charsGate): a set of
+// NECESSARY conditions read off the entry's Affected$ spec when that spec is
+// one plain conjunction -- a single alternative `Base.P1+P2+...` with no
+// comma, EACH list, space, negation, comparison or cast-provenance token --
+// so the filter admits the object only if every predicate holds. The gate
+// keeps only predicates whose meaning is a plain field test, mirrored
+// exactly from the filter (effects/filter.go's predicate table and
+// numeric counters_ form): Self (the object is the source), Other (it is
+// not), YouCtrl / OppCtrl (its controller is / is not the effect's
+// controller, the match's You), EquippedBy / EnchantedBy (the source is on
+// the battlefield attached to it) and counters_GE<n>_<KIND> with a literal
+// n (o.Counter(KIND) >= n). One failed condition proves the match false.
+// Every other predicate, and any spec outside the plain shape, is treated
+// as satisfiable. The exact `Card.Self` spec is the gate {Self}: the same
+// test matchesWithCharsPT's Card.Self early-out applies.
 //
 // The fast path runs only on a top-level read (no derivation, active() build
 // or memo-bypassing probe in progress: derivedMemoUsable) and only when active() is already
@@ -55,26 +71,41 @@ import (
 // printedCharsVerify: see derivedMemoVerify.
 var printedCharsVerify = derivedMemoVerifyFlag != ""
 
-// charsSummary is a per-build digest of active() for the fast path: whether
-// any P/T- or keyword-bearing entry (layer 6, layer 7, or a CantHaveKeywords$
-// prohibition) is anything but an exact Card.Self effect, and the sources of
-// the exact Card.Self ones. It is keyed like activeSummary: active()'s build
-// count plus the list's backing pointer and length.
+// charsSummary is a per-build digest of active() for the fast path: one gate
+// per P/T- or keyword-bearing entry (layer 6, layer 7, or a
+// CantHaveKeywords$ prohibition), and whether some layer-3 SetName$ entry
+// exists. It is keyed like activeSummary: active()'s build count plus the
+// list's backing pointer and length.
 type charsSummary struct {
-	valid   bool
-	seq     uint64
-	base    *ContinuousEffect
-	n       int
-	nonSelf bool
-	selfSrc []state.ObjID
+	valid bool
+	seq   uint64
+	base  *ContinuousEffect
+	n     int
+	gates []charsGate
+	// open / ptOpen: some gate (some layer-7 gate) carries no condition at
+	// all, so it may reach every object and the fast path never applies.
+	open, ptOpen bool
 	// renames: some entry is a layer-3 SetName$ effect, so a derived name
 	// may differ from the printed one (ViewCharacteristics' fast path).
 	renames bool
-	// ptNonSelf / ptSrc are nonSelf / selfSrc over the layer-7 entries alone:
-	// P/T is written only by layer 7, so the P/T-only fast path
-	// (printedPT) needs no more.
-	ptNonSelf bool
-	ptSrc     []state.ObjID
+}
+
+// charsGate is one entry's necessary match conditions (see above).
+type charsGate struct {
+	src  state.ObjID
+	ctrl state.PlayerID
+	// pt: a layer-7 entry, the only kind that can move P/T.
+	pt bool
+	gateSpec
+}
+
+// gateSpec is the src/controller-independent part of a gate: a pure
+// function of the Affected$ text, memoised per spec (gateSpecFor).
+type gateSpec struct {
+	open                            bool // no usable condition
+	self, other, you, opp, attached bool
+	ctrKind                         string
+	ctrMin                          int32
 }
 
 // charsSummaryOf returns the digest of ces, which must be active()'s
@@ -89,8 +120,7 @@ func (e *Engine) charsSummaryOf(ces []ContinuousEffect) *charsSummary {
 		if printedCharsVerify {
 			var fresh charsSummary
 			fresh.summarize(ces)
-			if fresh.nonSelf != s.nonSelf || !slices.Equal(fresh.selfSrc, s.selfSrc) || fresh.renames != s.renames ||
-				fresh.ptNonSelf != s.ptNonSelf || !slices.Equal(fresh.ptSrc, s.ptSrc) {
+			if !slices.Equal(fresh.gates, s.gates) || fresh.open != s.open || fresh.ptOpen != s.ptOpen || fresh.renames != s.renames {
 				panic(fmt.Sprintf("rules: chars summary at build %d disagrees with a rescan", s.seq))
 			}
 		}
@@ -102,36 +132,130 @@ func (e *Engine) charsSummaryOf(ces []ContinuousEffect) *charsSummary {
 }
 
 func (s *charsSummary) summarize(ces []ContinuousEffect) {
-	s.nonSelf, s.selfSrc, s.renames = false, s.selfSrc[:0], false
-	s.ptNonSelf, s.ptSrc = false, s.ptSrc[:0]
+	s.gates, s.open, s.ptOpen, s.renames = s.gates[:0], false, false, false
 	for i := range ces {
 		ce := &ces[i]
 		if ce.Layer == LText && ce.SetName != "" {
 			s.renames = true
 		}
-		self := ce.Affects == "Card.Self"
-		if ce.Layer == LPT {
-			if !self {
-				s.ptNonSelf = true
-			} else if !s.ptNonSelf {
-				s.ptSrc = append(s.ptSrc, ce.Source)
+		if ce.Layer != LAbilities && ce.Layer != LPT && len(ce.CantHaveKeywords) == 0 {
+			continue
+		}
+		g := charsGate{src: ce.Source, ctrl: ce.Controller, pt: ce.Layer == LPT, gateSpec: gateSpecFor(ce.Affects)}
+		if g.open {
+			s.open = true
+			if g.pt {
+				s.ptOpen = true
 			}
 		}
-		if s.nonSelf || (ce.Layer != LAbilities && ce.Layer != LPT && len(ce.CantHaveKeywords) == 0) {
-			continue
+		s.gates = append(s.gates, g)
+	}
+}
+
+// mayReach reports whether the gate's conditions all hold for o, i.e. the
+// entry's match is not proven false.
+func (g *charsGate) mayReach(game *state.Game, o *state.Object) bool {
+	if g.open {
+		return true
+	}
+	if (g.self && o.ID != g.src) || (g.other && o.ID == g.src) ||
+		(g.you && o.Controller != g.ctrl) || (g.opp && o.Controller == g.ctrl) {
+		return false
+	}
+	if g.attached {
+		if s := game.Obj(g.src); s == nil || s.AttachedTo != o.ID || s.Zone != state.ZBattlefield {
+			return false
 		}
-		if !self {
-			s.nonSelf = true
-			continue
+	}
+	if g.ctrKind != "" && o.Counter(g.ctrKind) < g.ctrMin {
+		return false
+	}
+	return true
+}
+
+// reached reports whether some gate (some layer-7 gate, with ptOnly) may
+// reach o.
+func (s *charsSummary) reached(game *state.Game, o *state.Object, ptOnly bool) bool {
+	if s.ptOpen || (s.open && !ptOnly) {
+		return true
+	}
+	for i := range s.gates {
+		if g := &s.gates[i]; (g.pt || !ptOnly) && g.mayReach(game, o) {
+			return true
 		}
-		s.selfSrc = append(s.selfSrc, ce.Source)
 	}
-	if s.nonSelf {
-		s.selfSrc = s.selfSrc[:0]
+	return false
+}
+
+// gateSpecMemo caches gateSpecParse per spec text: a direct-mapped table of
+// immutable entries, shared across engines (specLocalMemo's shape).
+var gateSpecMemo [256]atomic.Pointer[gateSpecEntry]
+
+type gateSpecEntry struct {
+	spec string
+	g    gateSpec
+}
+
+func gateSpecFor(spec string) gateSpec {
+	h := uint32(2166136261)
+	for i := 0; i < len(spec); i++ {
+		h = (h ^ uint32(spec[i])) * 16777619
 	}
-	if s.ptNonSelf {
-		s.ptSrc = s.ptSrc[:0]
+	slot := &gateSpecMemo[h%uint32(len(gateSpecMemo))]
+	if en := slot.Load(); en != nil && en.spec == spec {
+		return en.g
 	}
+	g := gateSpecParse(spec)
+	slot.Store(&gateSpecEntry{spec: spec, g: g})
+	return g
+}
+
+// gateSpecParse reads the necessary conditions of a plain conjunctive spec
+// (see the file comment); anything else is open.
+func gateSpecParse(spec string) gateSpec {
+	open := gateSpec{open: true}
+	if spec == "" || strings.ContainsAny(spec, ", &!<>=()") || strings.Contains(spec, "wasCast") ||
+		strings.Contains(spec, "IsTargeting") {
+		return open
+	}
+	base, preds, _ := strings.Cut(spec, ".")
+	if !letterWord(base) || base == "CARDNAME" {
+		return open
+	}
+	var g gateSpec
+	any := false
+	for p := range strings.SplitSeq(preds, "+") {
+		switch p {
+		case "Self":
+			g.self, any = true, true
+		case "Other":
+			g.other, any = true, true
+		case "YouCtrl":
+			g.you, any = true, true
+		case "OppCtrl":
+			g.opp, any = true, true
+		case "EquippedBy", "EnchantedBy":
+			g.attached, any = true, true
+		default:
+			rest, ok := strings.CutPrefix(p, "counters_GE")
+			if !ok || g.ctrKind != "" {
+				continue
+			}
+			num, kind, ok := strings.Cut(rest, "_")
+			if !ok || kind == "" || !literalAmount(num) || num[0] == '+' || num[0] == '-' {
+				continue
+			}
+			n, err := strconv.Atoi(num)
+			if err != nil || n <= 0 {
+				continue
+			}
+			g.ctrKind, g.ctrMin, any = kind, int32(n), true
+		}
+	}
+	if !any {
+		return open
+	}
+	return g
 }
 
 // printedCharacteristics answers Characteristics without the layer walk when
@@ -193,8 +317,7 @@ func (e *Engine) printedReach(id state.ObjID) (*state.Object, *cards.Face) {
 	if f == nil || (o.FaceDown && o.Zone == state.ZBattlefield) {
 		return nil, nil
 	}
-	s := e.charsSummaryOf(e.activeBuf)
-	if s.nonSelf || slices.Contains(s.selfSrc, id) || faceHasCDAStatic(o) {
+	if e.charsSummaryOf(e.activeBuf).reached(e.G, o, false) || faceHasCDAStatic(o) {
 		return nil, nil
 	}
 	return o, f
@@ -257,17 +380,15 @@ func (e *Engine) printedViewCharacteristics(id state.ObjID) (name string, keywor
 	return f.Name, kw, power, toughness, true
 }
 
-// printedPT is derivedScalar's fast path: when every layer-7 entry of
-// active (which must be active()'s current list) is another object's exact
-// Card.Self effect, no layer-7 match can admit id, so its P/T is the printed
-// pair plus the 7d counter totals -- the layer-4/6 bindings a layer-7 match
+// printedPT is derivedScalar's fast path: when no layer-7 entry of active
+// (which must be active()'s current list) can match o, its P/T is the
+// printed pair plus the 7d counter totals -- the layer-4/6 bindings a layer-7 match
 // would read never matter. The same exclusions as printedReach apply.
 func (e *Engine) printedPT(o *state.Object, f *cards.Face, active []ContinuousEffect) (power, toughness int32, ok bool) {
 	if !e.derivedMemoUsable() || (o.FaceDown && o.Zone == state.ZBattlefield) {
 		return 0, 0, false
 	}
-	s := e.charsSummaryOf(active)
-	if s.ptNonSelf || slices.Contains(s.ptSrc, o.ID) || faceHasCDAStatic(o) {
+	if e.charsSummaryOf(active).reached(e.G, o, true) || faceHasCDAStatic(o) {
 		return 0, 0, false
 	}
 	dp, dt := o.CounterPTTotals()

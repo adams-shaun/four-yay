@@ -103,7 +103,8 @@ func TestPrintedCharacteristicsFastPath(t *testing.T) {
 
 	// A P/T lord's static can reach any creature: every object takes the full
 	// derivation.
-	onBoard(t, e, 0, "Name:Lord\nManaCost:2\nTypes:Creature Lord\nPT:1/1\nS:Mode$ Continuous | Affected$ Creature.Other+YouCtrl | AddPower$ 1 | AddToughness$ 1 | Description$ x\nOracle:x\n")
+	foe := onBoard(t, e, 1, "Name:Foe\nManaCost:1 R\nTypes:Creature Goblin\nPT:1/1\nOracle:x\n")
+	lord := onBoard(t, e, 0, "Name:Lord\nManaCost:2\nTypes:Creature Lord\nPT:1/1\nS:Mode$ Continuous | Affected$ Creature.Other+YouCtrl | AddPower$ 1 | AddToughness$ 1 | Description$ x\nOracle:x\n")
 	check(bear, false, 5, 5, []string{"Trample", "Vigilance"})
 	check(elk, false, 4, 4, []string{"Flying", "Vigilance"})
 	if _, _, ok := e.printedPT(e.G.Obj(bear), e.G.Obj(bear).Face(), e.active()); ok {
@@ -112,4 +113,27 @@ func TestPrintedCharacteristicsFastPath(t *testing.T) {
 	if printedFast(e, inHand) {
 		t.Fatal("hand card took the fast path with a lord in play")
 	}
+	// The lord's own gate (Other+YouCtrl) proves it cannot reach itself or
+	// another player's creature (the keyword lord's gate likewise).
+	check(foe, true, 1, 1, []string{})
+	check(lord, false, 1, 1, []string{"Vigilance"})
+	if _, _, ok := e.printedPT(e.G.Obj(lord), e.G.Obj(lord).Face(), e.active()); !ok {
+		t.Fatal("P/T fast path not taken for the lord itself")
+	}
+
+	// An Equipment's EquippedBy gate reaches only what it is attached to.
+	eq := onBoard(t, e, 1, "Name:Blade\nManaCost:1\nTypes:Artifact Equipment\nS:Mode$ Continuous | Affected$ Creature.EquippedBy | AddPower$ 2 | AddToughness$ 2 | Description$ x\nOracle:x\n")
+	check(foe, true, 1, 1, []string{})
+	e.emit(events.Event{Kind: events.Attach, Obj: eq, IDs: []state.ObjID{foe}})
+	if e.G.Obj(eq).AttachedTo != foe {
+		t.Fatalf("attach did not land: %d", e.G.Obj(eq).AttachedTo)
+	}
+	check(foe, false, 3, 3, []string{})
+
+	// counters_GE1_P1P1 gates on the object's own counters.
+	onBoard(t, e, 1, "Name:Counter Lord\nManaCost:2\nTypes:Creature Lord\nPT:1/1\nS:Mode$ Continuous | Affected$ Creature.YouCtrl+counters_GE1_P1P1 | AddKeyword$ Trample | Description$ x\nOracle:x\n")
+	foe2 := onBoard(t, e, 1, "Name:Foe Two\nManaCost:1 R\nTypes:Creature Goblin\nPT:2/1\nOracle:x\n")
+	check(foe2, true, 2, 1, []string{})
+	e.emit(events.Event{Kind: events.CounterChange, Obj: foe2, Counter: "P1P1", Amount: 1})
+	check(foe2, false, 3, 2, []string{"Trample"})
 }
