@@ -63,7 +63,7 @@ type engineDerivedTables struct {
 	// The staticsMayChangeTypes probe cache: per-object probe answers with
 	// the count of true ones, maintained by the same event-referent catch-up
 	// (see layer4types.go).
-	typesProbe        map[state.ObjID]bool
+	typesProbe        *typesProbeTable
 	typesProbeTrue    int
 	typesProbeEpoch   int
 	typesProbeVersion int

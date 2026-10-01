@@ -687,7 +687,7 @@ func (e *Engine) staticsProbeTouch(id state.ObjID) {
 // from zero.
 func (e *Engine) staticsProbeStore(id state.ObjID) {
 	now := e.objectStaticsMayChangeTypes(e.G.Obj(id))
-	if old, ok := e.typesProbe[id]; ok {
+	if old, ok := e.typesProbe.get(id); ok {
 		if old == now {
 			return
 		}
@@ -699,7 +699,31 @@ func (e *Engine) staticsProbeStore(id state.ObjID) {
 	} else if now {
 		e.typesProbeTrue++
 	}
-	e.typesProbe[id] = now
+	e.typesProbe.set(id, now)
+}
+
+// typesProbeTable is the probe cache's per-object answers, dense by ObjID
+// (0 never probed, 1 false, 2 true). It is held by pointer, exactly as the
+// map it replaces was a reference: an Engine copied by value shares the
+// table, and a whole-board re-probe installs a fresh one on the engine that
+// ran it.
+type typesProbeTable struct{ v []uint8 }
+
+func (t *typesProbeTable) get(id state.ObjID) (bool, bool) {
+	if int(id) >= len(t.v) || t.v[id] == 0 {
+		return false, false
+	}
+	return t.v[id] == 2, true
+}
+
+func (t *typesProbeTable) set(id state.ObjID, ans bool) {
+	if int(id) >= len(t.v) {
+		t.v = append(t.v, make([]uint8, int(id)+1-len(t.v)+16)...)
+	}
+	t.v[id] = 1
+	if ans {
+		t.v[id] = 2
+	}
 }
 
 // staticsMayChangeTypesWalk is the uncached zone-list walk the probe cache
@@ -756,11 +780,11 @@ func (e *Engine) objectStaticsMayChangeTypes(o *state.Object) bool {
 // staticsProbeFull re-probes the whole board (the pre-incremental walk,
 // once, populating the cache).
 func (e *Engine) staticsProbeFull() {
-	m := make(map[state.ObjID]bool, len(e.G.Objs))
+	m := &typesProbeTable{v: make([]uint8, len(e.G.Objs)+1)}
 	count := 0
 	for i := range e.G.Objs {
 		ans := e.objectStaticsMayChangeTypes(&e.G.Objs[i])
-		m[e.G.Objs[i].ID] = ans
+		m.set(e.G.Objs[i].ID, ans)
 		if ans {
 			count++
 		}

@@ -33,6 +33,8 @@ type hypSparePool struct {
 	// index (paymentZoneSeqIndex.build).
 	zoneSeqAns      []paymentZoneSeqAnswer
 	zoneSeqResolved []bool
+	// ids is a stack of id lists read-only walks borrow (idsBorrow).
+	ids [][]state.ObjID
 }
 
 // hypPool is e's own pool, created on first use.
@@ -139,4 +141,28 @@ func (e *Engine) adoptHypPool(pl *hypSparePool) {
 	}
 	pl.owner = e
 	e.hypSpares = pl
+}
+
+// idsBorrow pops an empty id list from e's pool (nil when empty); the caller
+// appends into it, only ranges the result, and hands it back with
+// idsRelease. Nested borrowers get distinct lists.
+func (e *Engine) idsBorrow() []state.ObjID {
+	pl := e.hypPool()
+	n := len(pl.ids)
+	if n == 0 {
+		return nil
+	}
+	b := pl.ids[n-1]
+	pl.ids[n-1] = nil
+	pl.ids = pl.ids[:n-1]
+	return b[:0]
+}
+
+// idsRelease returns a borrowed id list to e's pool.
+func (e *Engine) idsRelease(b []state.ObjID) {
+	if cap(b) == 0 {
+		return
+	}
+	pl := e.hypPool()
+	pl.ids = append(pl.ids, b[:0])
 }

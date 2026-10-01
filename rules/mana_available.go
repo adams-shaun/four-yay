@@ -54,7 +54,9 @@ import (
 // pool event records only the selected colour.
 func (e *Engine) AvailableMana(p state.PlayerID) state.Mana {
 	var out state.Mana
-	for _, id := range e.battlefieldManaSourceIDs(p) {
+	ids := e.appendBattlefieldManaSourceIDs(e.idsBorrow(), p)
+	defer e.idsRelease(ids)
+	for _, id := range ids {
 		o := e.G.Obj(id)
 		if o == nil {
 			continue
@@ -87,7 +89,13 @@ func (e *Engine) AvailableMana(p state.PlayerID) state.Mana {
 // availableManaAbilities gate filters each source. Zone order within each
 // owner is retained for deterministic option ordering.
 func (e *Engine) battlefieldManaSourceIDs(p state.PlayerID) []state.ObjID {
-	ids := append([]state.ObjID(nil), e.G.Zone(state.ZBattlefield, p)...)
+	return e.appendBattlefieldManaSourceIDs(nil, p)
+}
+
+// appendBattlefieldManaSourceIDs is battlefieldManaSourceIDs appending to
+// dst (a list borrowed with idsBorrow by a caller that only ranges it).
+func (e *Engine) appendBattlefieldManaSourceIDs(dst []state.ObjID, p state.PlayerID) []state.ObjID {
+	ids := append(dst, e.G.Zone(state.ZBattlefield, p)...)
 	for _, owner := range e.G.AliveFrom(0) {
 		if owner != p {
 			ids = append(ids, e.G.Zone(state.ZBattlefield, owner)...)
@@ -221,7 +229,9 @@ func (e *Engine) windowManaUnits(p state.PlayerID) []windowManaUnit {
 	e.beginDerivedMemo()
 	defer e.endDerivedMemo()
 	var out []windowManaUnit
-	for _, id := range e.battlefieldManaSourceIDs(p) {
+	ids := e.appendBattlefieldManaSourceIDs(e.idsBorrow(), p)
+	defer e.idsRelease(ids)
+	for _, id := range ids {
 		o := e.G.Obj(id)
 		if o == nil || o.Face() == nil {
 			continue
