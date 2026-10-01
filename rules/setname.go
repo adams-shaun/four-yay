@@ -121,6 +121,29 @@ func (e *Engine) refreshRenames() {
 	e.renameDSeq, e.renameBFSeq = e.derivedSeq, e.derivedBFSeq
 	e.renameBuilding = true
 	defer func() { e.renameBuilding = false }()
+	// A name differs from the printed one only through a live SetName
+	// effect (derivedName), so when every such effect names a bounded object
+	// set (Witness Protection's Creature.EnchantedBy), only those objects can
+	// carry an entry. They are visited in id order -- e.G.Objs order, the
+	// dense arena -- so the table is the whole walk's.
+	var arr [layer4MaxSelfSources]state.ObjID
+	if reach, ok := e.setNameBoundedReach(arr[:0]); ok {
+		slices.Sort(reach)
+		for _, id := range reach {
+			o := e.G.Obj(id)
+			if o == nil || o.Zone != state.ZBattlefield || o.Face() == nil {
+				continue
+			}
+			if name := e.derivedName(id); name != "" && name != o.Face().Name {
+				buf = append(buf, effects.ObjectName{ID: id, Name: name})
+			}
+		}
+		e.renames = buf
+		if layerInertVerify {
+			e.verifyBoundedRenames()
+		}
+		return
+	}
 	// e.G.Objs is append-ordered, so this walk is deterministic; only the
 	// battlefield is scanned because a layer effect applies nowhere else.
 	for i := range e.G.Objs {
@@ -139,6 +162,55 @@ func (e *Engine) refreshRenames() {
 		buf = append(buf, effects.ObjectName{ID: o.ID, Name: name})
 	}
 	e.renames = buf
+}
+
+// setNameBoundedReach is layer4BoundedReach for the live SetName effects:
+// the distinct objects they can reach (appended to buf, unsorted) and true,
+// or false when some SetName effect's Affected$ spec is unbounded
+// (affectsReach) or the list would overflow.
+func (e *Engine) setNameBoundedReach(buf []state.ObjID) ([]state.ObjID, bool) {
+	act := e.active()
+	for i := range act {
+		ce := &act[i]
+		if ce.Layer != LText || ce.SetName == "" {
+			continue
+		}
+		bits := affectsReach(ce.Affects)
+		if bits == 0 {
+			return buf, false
+		}
+		fit := true
+		if bits&reachSelf != 0 && ce.Source != 0 {
+			buf, fit = appendReach(buf, ce.Source)
+		}
+		if fit && bits&reachAttached != 0 {
+			if s := e.G.Obj(ce.Source); s != nil && s.Zone == state.ZBattlefield && s.AttachedTo != 0 {
+				buf, fit = appendReach(buf, s.AttachedTo)
+			}
+		}
+		if !fit {
+			return buf, false
+		}
+	}
+	return buf, true
+}
+
+// verifyBoundedRenames rebuilds the rename table with the whole-battlefield
+// walk and panics if the bounded build disagrees.
+func (e *Engine) verifyBoundedRenames() {
+	var want []effects.ObjectName
+	for i := range e.G.Objs {
+		o := &e.G.Objs[i]
+		if o.Zone != state.ZBattlefield || o.Face() == nil {
+			continue
+		}
+		if name := e.derivedName(o.ID); name != "" && name != o.Face().Name {
+			want = append(want, effects.ObjectName{ID: o.ID, Name: name})
+		}
+	}
+	if !slices.Equal(want, e.renames) {
+		panic(fmt.Sprintf("rules: bounded rename table at log %d is %v, the whole walk %v", len(e.L.Events), e.renames, want))
+	}
 }
 
 // verifyInertRenames is refreshRenames' layer-inert reuse check: it rebuilds

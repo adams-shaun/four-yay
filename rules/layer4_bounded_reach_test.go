@@ -106,3 +106,34 @@ func TestAffectsReach(t *testing.T) {
 		}
 	}
 }
+
+// TestRenameBoundedReachMatchesFullWalk is the rename table's twin of the
+// bounded layer-4 walk: Witness Protection's SetName$ on the enchanted
+// creature only. Every refresh runs under layerInertVerify, which rebuilds the
+// table with the whole-battlefield walk and panics on a difference.
+func TestRenameBoundedReachMatchesFullWalk(t *testing.T) {
+	const witness = "Name:Rename Aura\nManaCost:U\nTypes:Enchantment Aura\nK:Enchant:Creature\n" +
+		"S:Mode$ Continuous | Affected$ Creature.EnchantedBy | SetName$ Legitimate Businessperson | Description$ x\nOracle:x\n"
+	aura := card(t, witness)
+	deck := append(mountainDeck(t, 39), aura)
+	e := New(seatZeroStart(Config{Seed: 1, Names: []string{"a", "b"},
+		Decks: [][]*cards.Card{deck, mountainDeck(t, 40)}}))
+	if !e.setNameInPool {
+		t.Fatal("precondition: the renaming Aura did not arm setNameInPool")
+	}
+	bear := onBoard(t, e, 1, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
+	other := onBoard(t, e, 1, "Name:Other\nManaCost:1 G\nTypes:Creature Elf\nPT:1/1\nOracle:x\n")
+	au := onBoard(t, e, 0, witness)
+	e.Emit(events.Event{Kind: events.Attach, Obj: au, IDs: []state.ObjID{bear}})
+	if reach, ok := e.setNameBoundedReach(nil); !ok || !slices.Equal(reach, []state.ObjID{bear}) {
+		t.Fatalf("rename reach = %v (ok %v), want the enchanted Bear", reach, ok)
+	}
+	if got := e.EffectiveNames(); len(got) != 1 || got[0].ID != bear || got[0].Name != "Legitimate Businessperson" {
+		t.Fatalf("rename table %v, want the Bear renamed", got)
+	}
+	e.Emit(events.Event{Kind: events.Attach, Obj: au, IDs: []state.ObjID{other}})
+	e.Emit(events.Event{Kind: events.Tap, Obj: bear})
+	if got := e.EffectiveNames(); len(got) != 1 || got[0].ID != other {
+		t.Fatalf("rename table %v after the move, want only the newly enchanted creature", got)
+	}
+}
