@@ -1,0 +1,72 @@
+{
+  "card": "Steel Overseer",
+  "family": "activated-ability",
+  "oracle_sha": "43052f8212b0",
+  "author": "cli-20261001T032655Z-b2eec9f5 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "tap-counters-artifact-creatures-you-control",
+      "cr": [
+        "117.12",
+        "611.1"
+      ],
+      "why": "Steel Overseer's {T} puts a +1/+1 counter on each artifact creature you control: itself and p0's Ornithopter, not the non-artifact Bears and not p1's Ornithopter.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Steel Overseer",
+            "Ornithopter",
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Ornithopter"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Steel Overseer",
+          "ability": "+1/+1 counter"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Steel Overseer",
+          "tapped": true,
+          "counters": {
+            "+1/+1": 1
+          },
+          "pt": "2/2"
+        },
+        {
+          "card": "p0:Ornithopter",
+          "counters": {
+            "+1/+1": 1
+          },
+          "pt": "1/3"
+        },
+        {
+          "card": "p0:Grizzly Bears",
+          "counters": {
+            "+1/+1": 0
+          },
+          "pt": "2/2"
+        },
+        {
+          "card": "p1:Ornithopter",
+          "counters": {
+            "+1/+1": 0
+          },
+          "pt": "0/2"
+        }
+      ]
+    }
+  ]
+}

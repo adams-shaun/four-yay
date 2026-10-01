@@ -1,0 +1,118 @@
+{
+  "card": "Lathliss, Dragon Queen",
+  "family": "triggered-ability",
+  "oracle_sha": "38d631941db7",
+  "author": "cli-20261001T032655Z-b2eec9f5 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "nontoken-dragon-enters-makes-token",
+      "cr": [
+        "603.2"
+      ],
+      "why": "Casting the nontoken Dragon Hatchling makes Lathliss create one 5/5 red Dragon token with flying; the token entering does not repeat the trigger (it is a token).",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Lathliss, Dragon Queen"
+          ],
+          "hand": [
+            "Dragon Hatchling"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Dragon Hatchling",
+          "mana": "RR"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:token:Dragon",
+          "pt": "5/5",
+          "keywords": [
+            "flying"
+          ]
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Dragon",
+            "token": true
+          },
+          "eq": 1
+        }
+      ]
+    },
+    {
+      "name": "activation-pumps-dragons-one-plus",
+      "cr": [
+        "117.12",
+        "611.1"
+      ],
+      "why": "Lathliss's {1}{R} ability gives Dragons you control +1/+0 until end of turn: the 0/1 Hatchling becomes 1/2 and the 5/5 token 6/5.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Lathliss, Dragon Queen"
+          ],
+          "hand": [
+            "Dragon Hatchling"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Dragon Hatchling",
+          "mana": "RR"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "pass",
+          "seat": 0
+        },
+        {
+          "op": "pass",
+          "seat": 1
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Lathliss, Dragon Queen",
+          "ability": "+1/+0",
+          "mana": "RR"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Dragon Hatchling",
+          "pt": "1/1"
+        },
+        {
+          "card": "p0:token:Dragon",
+          "pt": "6/5"
+        },
+        {
+          "pool": {
+            "p0": ""
+          }
+        }
+      ]
+    }
+  ]
+}

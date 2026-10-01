@@ -1,0 +1,156 @@
+{
+  "card": "Angelic Skirmisher",
+  "family": "keywords",
+  "oracle_sha": "b25e244e8a3e",
+  "author": "cli-20261001T032655Z-b2eec9f5 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "combat-choose-first-strike-gained",
+      "cr": [
+        "603.2",
+        "506.1",
+        "611.1"
+      ],
+      "why": "At the beginning of each combat the controller chooses first strike, vigilance or lifelink, and creatures you control gain it until end of turn.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Angelic Skirmisher",
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "pass_to",
+          "step": "begin-combat"
+        },
+        {
+          "op": "pass_to",
+          "step": "declare-attackers",
+          "answers": [
+            {
+              "kind": "modes",
+              "pick": [
+                "first strike"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Angelic Skirmisher",
+          "keywords": [
+            "flying",
+            "first strike"
+          ]
+        },
+        {
+          "card": "p0:Grizzly Bears",
+          "keywords": [
+            "first strike"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "combat-choose-vigilance-not-first-strike",
+      "cr": [
+        "603.2",
+        "506.1"
+      ],
+      "why": "Choosing vigilance grants exactly vigilance; first strike is not among the choices this combat.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Angelic Skirmisher",
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "pass_to",
+          "step": "begin-combat"
+        },
+        {
+          "op": "pass_to",
+          "step": "declare-attackers",
+          "answers": [
+            {
+              "kind": "modes",
+              "pick": [
+                "vigilance"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "keywords": [
+            "vigilance"
+          ],
+          "no_keywords": [
+            "first strike"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "lifelink-combat-damage-gains-life",
+      "cr": [
+        "603.2",
+        "702.15a",
+        "510.2"
+      ],
+      "why": "With lifelink chosen, combat damage Skirmisher deals also has its controller gain that much life: 4 damage heals 4.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Angelic Skirmisher"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "pass_to",
+          "step": "begin-combat"
+        },
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Angelic Skirmisher"
+          ],
+          "defender": "p1",
+          "answers": [
+            {
+              "kind": "modes",
+              "pick": [
+                "lifelink"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "pass_to",
+          "step": "end-combat"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p0": 24,
+            "p1": 16
+          }
+        }
+      ]
+    }
+  ]
+}

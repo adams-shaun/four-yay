@@ -1,0 +1,134 @@
+{
+  "card": "Rhystic Study",
+  "family": "trigger-condition",
+  "oracle_sha": "b01edb4edf23",
+  "author": "cli-20261001T032655Z-b2eec9f5 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "decline-pay-opponent-draws",
+      "cr": [
+        "603.2",
+        "117.12"
+      ],
+      "why": "Casting Shock without paying {1} lets Rhystic Study's controller draw a card.",
+      "setup": {
+        "p1": {
+          "battlefield": [
+            "Rhystic Study"
+          ]
+        },
+        "p0": {
+          "hand": [
+            "Shock"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "RR"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Shock",
+          "targets": [
+            "p1"
+          ]
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "modes",
+              "pick": [
+                "don't pay"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "hand_size": {
+            "p1": 1
+          }
+        },
+        {
+          "life": {
+            "p1": 18
+          }
+        },
+        {
+          "pool": {
+            "p0": "R"
+          }
+        }
+      ]
+    },
+    {
+      "name": "pays-one-no-draw",
+      "cr": [
+        "603.2",
+        "117.12"
+      ],
+      "why": "Paying {1} while the trigger resolves stops the draw; the pool's third mana is spent on the payment.",
+      "setup": {
+        "p1": {
+          "battlefield": [
+            "Rhystic Study"
+          ]
+        },
+        "p0": {
+          "hand": [
+            "Shock"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "RRR"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Shock",
+          "targets": [
+            "p1"
+          ]
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "modes",
+              "pick": [
+                "pay 1"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "hand_size": {
+            "p1": 0
+          }
+        },
+        {
+          "life": {
+            "p1": 18
+          }
+        },
+        {
+          "pool": {
+            "p0": "R"
+          }
+        }
+      ]
+    }
+  ]
+}

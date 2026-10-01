@@ -1,0 +1,134 @@
+{
+  "card": "Mayhem Devil",
+  "family": "death-triggers",
+  "oracle_sha": "860189ddb6e7",
+  "author": "cli-20261001T032655Z-b2eec9f5 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "sacrifice-a-permanent-deals-one",
+      "cr": [
+        "603.2",
+        "701.17a"
+      ],
+      "why": "Sacrificing Grizzly Bears to pay Carrion Feeder's cost makes Mayhem Devil deal 1 damage to any target.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Mayhem Devil",
+            "Carrion Feeder",
+            "Grizzly Bears"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "BB"
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Carrion Feeder",
+          "mana": "BB",
+          "ability": "+1/+1 counter",
+          "targets": [
+            "p1"
+          ],
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "p0:Grizzly Bears"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "graveyard"
+        },
+        {
+          "card": "p0:Carrion Feeder",
+          "counters": {
+            "+1/+1": 1
+          }
+        },
+        {
+          "life": {
+            "p1": 19
+          }
+        }
+      ]
+    },
+    {
+      "name": "opponent-sacrifice-also-triggers",
+      "cr": [
+        "603.2"
+      ],
+      "why": "The trigger watches any player's sacrifice: p1 sacrificing Bears to its own Carrion Feeder makes p0's Mayhem Devil deal 1.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Mayhem Devil"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Carrion Feeder",
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "pass",
+          "seat": 0
+        },
+        {
+          "op": "mana",
+          "seat": 1,
+          "mana": "BB"
+        },
+        {
+          "op": "activate",
+          "seat": 1,
+          "card": "p1:Carrion Feeder",
+          "mana": "BB",
+          "ability": "+1/+1 counter",
+          "targets": [
+            "p1"
+          ],
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "p1:Grizzly Bears"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p1:Grizzly Bears",
+          "zone": "graveyard"
+        },
+        {
+          "life": {
+            "p1": 19
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,236 @@
+{
+  "card": "Null Elemental Blast",
+  "family": "spell-conditional",
+  "oracle_sha": "1fc3983fa356",
+  "author": "cli-20261001T032655Z-b2eec9f5 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "destroy-multicolored-permanent",
+      "cr": [
+        "601.2c",
+        "701.7a",
+        "708.2"
+      ],
+      "why": "Choosing destroy, the multicolored Dryad Militant is destroyed (CR 601.2c: only the CHOSEN mode's target must be legal).",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Null Elemental Blast"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Dryad Militant"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "CC"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Null Elemental Blast",
+          "targets": [
+            "p1:Dryad Militant"
+          ],
+          "answers": [
+            {
+              "kind": "modes",
+              "pick": [
+                "destroy"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p1:Dryad Militant",
+          "zone": "graveyard"
+        },
+        {
+          "life": {
+            "p0": 20,
+            "p1": 20
+          }
+        }
+      ]
+    },
+    {
+      "name": "counter-multicolored-spell",
+      "cr": [
+        "608.2c",
+        "701.5a"
+      ],
+      "why": "Choosing counter, the multicolored Terminate on the stack is countered: it never resolves and p0's Grizzly Bears survive.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Grizzly Bears"
+          ],
+          "hand": [
+            "Null Elemental Blast"
+          ]
+        },
+        "p1": {
+          "hand": [
+            "Terminate"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "pass",
+          "seat": 0
+        },
+        {
+          "op": "mana",
+          "seat": 1,
+          "mana": "BRR"
+        },
+        {
+          "op": "cast",
+          "seat": 1,
+          "card": "p1:Terminate",
+          "targets": [
+            "p0:Grizzly Bears"
+          ]
+        },
+        {
+          "op": "pass",
+          "seat": 1
+        },
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "C"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Null Elemental Blast",
+          "targets": [
+            "p1:Terminate"
+          ],
+          "answers": [
+            {
+              "kind": "modes",
+              "pick": [
+                "counter"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p1:Terminate",
+          "zone": "graveyard"
+        },
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "battlefield"
+        },
+        {
+          "life": {
+            "p0": 20,
+            "p1": 20
+          }
+        }
+      ]
+    },
+    {
+      "name": "no-multicolored-permanent-no-cast",
+      "cr": [
+        "601.2b",
+        "608.2c"
+      ],
+      "why": "With only a colorless permanent on the battlefield, neither mode has a legal target, so the spell is not offered at all.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Null Elemental Blast"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Ornithopter"
+          ]
+        }
+      },
+      "steps": [],
+      "expect": [
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Null Elemental Blast"
+          },
+          "want": false
+        }
+      ]
+    },
+    {
+      "name": "destroy-multicolored-land",
+      "cr": [
+        "601.2c",
+        "608.2c"
+      ],
+      "why": "The destroy mode targets 'multicolored permanent' and a multicolored LAND qualifies (CR 608.2c); with the Boros Guildgate as the only multicolored permanent the cast must be offered (CR 601.2b).",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Null Elemental Blast"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Boros Guildgate"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "CC"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Null Elemental Blast",
+          "targets": [
+            "p1:Boros Guildgate"
+          ],
+          "answers": [
+            {
+              "kind": "modes",
+              "pick": [
+                "destroy"
+              ]
+            }
+          ]
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p1:Boros Guildgate",
+          "zone": "graveyard"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,90 @@
+{
+  "card": "Awakening Zone",
+  "family": "triggered-ability",
+  "oracle_sha": "0839fd7b04c6",
+  "author": "cli-20261001T032655Z-b2eec9f5 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "upkeep-optional-spawn-token",
+      "cr": [
+        "603.2",
+        "514.1"
+      ],
+      "why": "At the beginning of each of its controller's upkeeps, Awakening Zone may create a 0/1 Eldrazi Spawn token; the turn-1 upkeep fires it, and the token's sacrifice ability adds {C}.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Awakening Zone"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:token:Spawn",
+          "ability": "Add {C}"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "pool": {
+            "p0": "C"
+          }
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Spawn",
+            "token": true
+          },
+          "eq": 0
+        }
+      ]
+    },
+    {
+      "name": "declined-upkeep-no-token",
+      "cr": [
+        "603.2"
+      ],
+      "why": "Declining the may at the upkeep creates no Eldrazi Spawn token.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Awakening Zone"
+          ]
+        },
+        "p1": {}
+      },
+      "setup_answers": [
+        {
+          "kind": "trigger_optional",
+          "pick": [
+            "no"
+          ]
+        }
+      ],
+      "steps": [],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Spawn",
+            "token": true
+          },
+          "eq": 0
+        },
+        {
+          "card": "p0:Awakening Zone",
+          "zone": "battlefield"
+        }
+      ]
+    }
+  ]
+}

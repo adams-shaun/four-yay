@@ -1,0 +1,119 @@
+{
+  "card": "Utvara Hellkite",
+  "family": "attack-triggers",
+  "oracle_sha": "65dc1c666972",
+  "author": "cli-20261001T032655Z-b2eec9f5 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "dragon-attacks-makes-dragon-token",
+      "cr": [
+        "603.2",
+        "508.2"
+      ],
+      "why": "Whenever a Dragon you control attacks, a 6/6 red Dragon token with flying is created; Utvara Hellkite itself attacking triggers it.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Utvara Hellkite"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Utvara Hellkite"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "pass_to",
+          "step": "end-combat"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:token:Dragon",
+          "pt": "6/6",
+          "keywords": [
+            "flying"
+          ]
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Dragon",
+            "token": true
+          },
+          "eq": 1
+        },
+        {
+          "life": {
+            "p1": 14
+          }
+        }
+      ]
+    },
+    {
+      "name": "two-dragons-two-tokens",
+      "cr": [
+        "603.2",
+        "508.2"
+      ],
+      "why": "Casting the Dragon Hatchling makes it summoning sick (CR 302.6), so only Utvara Hellkite attacks: one 6/6 Dragon token, and Utvara deals 6.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Utvara Hellkite"
+          ],
+          "hand": [
+            "Dragon Hatchling"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Dragon Hatchling",
+          "mana": "RR"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Utvara Hellkite"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "pass_to",
+          "step": "end-combat"
+        }
+      ],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Dragon",
+            "token": true
+          },
+          "eq": 1
+        },
+        {
+          "life": {
+            "p1": 14
+          }
+        }
+      ]
+    }
+  ]
+}

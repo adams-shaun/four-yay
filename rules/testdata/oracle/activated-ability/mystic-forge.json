@@ -1,0 +1,94 @@
+{
+  "card": "Mystic Forge",
+  "family": "activated-ability",
+  "oracle_sha": "76c7a44b13ed",
+  "author": "cli-20261001T032655Z-b2eec9f5 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "cast-artifact-from-top",
+      "cr": [
+        "613.1",
+        "601.2"
+      ],
+      "why": "Mystic Forge's static allows casting artifact spells from the top of the library, so the Ornithopter on top is a castable card without it being in hand.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Mystic Forge"
+          ],
+          "library_top": [
+            "Ornithopter",
+            "Mountain"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Ornithopter"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Ornithopter",
+          "zone": "battlefield"
+        },
+        {
+          "card": "p0:Mountain",
+          "zone": "library"
+        }
+      ]
+    },
+    {
+      "name": "tap-pay-life-exile-top",
+      "cr": [
+        "117.12",
+        "701.14a"
+      ],
+      "why": "Mystic Forge's {T}, pay 1 life ability exiles the top card: the Ornithopter goes to exile and p0 loses 1 life.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Mystic Forge"
+          ],
+          "library_top": [
+            "Ornithopter",
+            "Mountain"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Mystic Forge",
+          "ability": "Exile the top card"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p0": 19
+          }
+        },
+        {
+          "card": "p0:Ornithopter",
+          "zone": "exile"
+        },
+        {
+          "card": "p0:Mystic Forge",
+          "tapped": true
+        }
+      ]
+    }
+  ]
+}
