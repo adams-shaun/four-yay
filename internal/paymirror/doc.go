@@ -154,9 +154,12 @@
 //	                                   neither, and cmd/cardfuzz installs the hook on its live
 //	                                   run A, so the control would read "<func> vs nil"
 //	derivedSeq, derivedPrev*,          the Derived memo's cross-walk key and active()'s double
-//	derivedTouched, activeBufAlt       buffer: rebuild counters and the previous build's key;
-//	                                   never cloned, so a clone restarts them at zero
-//	renameObjs, renameDSeq             the rename table's cache keys (the renames/* class)
+//	derivedTouched, activeBufAlt,      buffer: rebuild counters and the previous build's key;
+//	derivedBFSeq, activeList           never cloned, so a clone restarts them at zero
+//	staticGates, staticGatesKnown      the static memo's gate records, carried only with a
+//	                                   copied memo
+//	renameObjs, renameDSeq,            the rename table's cache keys (the renames/* class)
+//	renameBFSeq
 //	trigZeroNoopEp/Objs/Ver            checkFaceTriggers' zero-interest no-op memo key
 //	snapPool, lookBack, lookBackOwner, recycled storage one engine owns (snapshot arenas, the
 //	lookBackBusy, decArena             look-back observer Engine, the decision arena): capacity,
