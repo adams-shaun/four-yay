@@ -1,0 +1,164 @@
+{
+  "card": "Panoptic Projektor",
+  "family": "morph",
+  "oracle_sha": "51f9c0ee2f5e",
+  "author": "cli-20261001T022457Z-f0c31bb6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "tapping-makes-the-next-face-down-spell-cost-three-less",
+      "cr": [
+        "602.2",
+        "702.37a",
+        "117.7d"
+      ],
+      "why": "{T}: The next face-down creature spell you cast this turn costs {3} less -- Zoetic Cavern's face-down cast is {3} reduced to {0}, paid with no mana at all.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Panoptic Projektor"
+          ],
+          "hand": [
+            "Zoetic Cavern"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Panoptic Projektor",
+          "ability": "face-down creature spell"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Zoetic Cavern",
+          "cast_mode": "morphed"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Panoptic Projektor",
+          "zone": "battlefield",
+          "tapped": true
+        },
+        {
+          "card": "p0:Zoetic Cavern",
+          "zone": "battlefield",
+          "pt": "2/2"
+        }
+      ]
+    },
+    {
+      "name": "face-up-trigger-fires-an-additional-time",
+      "cr": [
+        "603.2",
+        "614.5"
+      ],
+      "why": "If turning a face-down permanent face up causes a triggered ability of a permanent you control to trigger, that ability triggers an additional time: Master of Pearls' own +2/+2 trigger fires twice, making the 2/2 a 6/6.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Panoptic Projektor"
+          ],
+          "hand": [
+            "Master of Pearls"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Master of Pearls",
+          "cast_mode": "morphed",
+          "mana": "CCC"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "CCCWW"
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Master of Pearls",
+          "ability": "Turn face up"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Master of Pearls",
+          "zone": "battlefield",
+          "pt": "6/6"
+        }
+      ]
+    },
+    {
+      "name": "full-price-cast-still-enters-face-down",
+      "cr": [
+        "702.37a",
+        "602.2"
+      ],
+      "why": "Control for the missing reduction: paying the full {3} for the face-down cast works after the Projektor's {T} activation, isolating the defect to the cost reduction itself.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Panoptic Projektor"
+          ],
+          "hand": [
+            "Zoetic Cavern"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Panoptic Projektor",
+          "ability": "face-down creature spell"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Zoetic Cavern",
+          "cast_mode": "morphed",
+          "mana": "CCC"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Panoptic Projektor",
+          "zone": "battlefield",
+          "tapped": true
+        },
+        {
+          "card": "p0:Zoetic Cavern",
+          "zone": "battlefield",
+          "pt": "2/2"
+        }
+      ]
+    }
+  ]
+}

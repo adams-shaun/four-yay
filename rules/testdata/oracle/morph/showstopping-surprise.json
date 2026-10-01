@@ -1,0 +1,48 @@
+{
+  "card": "Showstopping Surprise",
+  "family": "morph",
+  "oracle_sha": "d0cd95d77b10",
+  "author": "cli-20261001T022457Z-f0c31bb6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "turns-the-face-down-target-up-and-pings-every-other-creature",
+      "cr": ["608.2", "708.6"],
+      "why": "Choose target creature you control. Turn it face up if it's face down: Den Protector (cast megamorphed, not turned up for its megamorph cost, so no counter) becomes its printed 2/1, then deals 2 damage to each OTHER creature -- Grizzly Bears dies, Centaur Courser survives with 2 damage, and Den Protector's own face-up trigger returned Forest to hand.",
+      "setup": {
+        "p0": {"battlefield": ["Grizzly Bears"], "hand": ["Showstopping Surprise", "Den Protector"], "graveyard": ["Forest"]},
+        "p1": {"battlefield": ["Centaur Courser"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Den Protector", "cast_mode": "megamorphed", "mana": "CCC"},
+        {"op": "resolve"},
+        {"op": "cast", "seat": 0, "card": "p0:Showstopping Surprise", "mana": "CCCRR", "targets": ["p0:Den Protector"]},
+        {"op": "resolve", "targets": ["p0:Forest"]}
+      ],
+      "expect": [
+        {"card": "p0:Den Protector", "zone": "battlefield", "pt": "2/1"},
+        {"card": "p0:Grizzly Bears", "zone": "graveyard"},
+        {"card": "p1:Centaur Courser", "zone": "battlefield", "damage": 2},
+        {"hand_size": {"p0": 1}}
+      ]
+    },
+    {
+      "name": "face-up-target-simply-pings",
+      "cr": ["608.2"],
+      "why": "Chosen creature is already face up: nothing is turned over, and it deals damage equal to its power to each other creature -- Grizzly Bears (2/2) kills the face-down Den Protector (2/2) while it stays on the battlefield.",
+      "setup": {
+        "p0": {"battlefield": ["Grizzly Bears"], "hand": ["Showstopping Surprise", "Den Protector"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Den Protector", "cast_mode": "megamorphed", "mana": "CCC"},
+        {"op": "resolve"},
+        {"op": "cast", "seat": 0, "card": "p0:Showstopping Surprise", "mana": "CCCRR", "targets": ["p0:Grizzly Bears"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "zone": "battlefield", "pt": "2/2"},
+        {"card": "p0:Den Protector", "zone": "graveyard"}
+      ]
+    }
+  ]
+}

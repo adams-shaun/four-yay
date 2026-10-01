@@ -1,0 +1,43 @@
+{
+  "card": "Zoetic Cavern",
+  "family": "morph",
+  "oracle_sha": "f12d271388aa",
+  "author": "cli-20261001T022457Z-f0c31bb6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "casts-face-down-as-a-2-2-creature",
+      "cr": ["702.37a", "708.4"],
+      "why": "Morph {2}: casting face down is always for {3} and the card becomes a face-down 2/2 creature with no other characteristics -- no land type, no mana ability.",
+      "setup": {
+        "p0": {"hand": ["Zoetic Cavern"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Zoetic Cavern", "cast_mode": "morphed", "mana": "CCC"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Zoetic Cavern", "zone": "battlefield", "pt": "2/2", "types": ["Creature"], "no_types": ["Land"]}
+      ]
+    },
+    {
+      "name": "turning-face-up-reveals-the-land",
+      "cr": ["702.37a", "708.6", "708.2"],
+      "why": "Turning the face-down 2/2 face up for its morph cost {2} reveals the printed characteristics: it is a land that taps for {C}, no longer a creature.",
+      "setup": {
+        "p0": {"hand": ["Zoetic Cavern"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Zoetic Cavern", "cast_mode": "morphed", "mana": "CCC"},
+        {"op": "resolve"},
+        {"op": "mana", "seat": 0, "mana": "CC"},
+        {"op": "activate", "seat": 0, "card": "p0:Zoetic Cavern", "ability": "Turn face up"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Zoetic Cavern", "zone": "battlefield", "types": ["Land"], "no_types": ["Creature"]}
+      ]
+    }
+  ]
+}

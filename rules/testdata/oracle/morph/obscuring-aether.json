@@ -1,0 +1,129 @@
+{
+  "card": "Obscuring Aether",
+  "family": "morph",
+  "oracle_sha": "c1e4f80b521c",
+  "author": "cli-20261001T022457Z-f0c31bb6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "face-down-spell-costs-one-less",
+      "cr": [
+        "702.37a",
+        "117.7d"
+      ],
+      "why": "'Face-down creature spells you cast cost {1} less to cast': Zoetic Cavern's face-down cast is {3} reduced to {2} -- a {C} only payment is accepted.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Obscuring Aether"
+          ],
+          "hand": [
+            "Zoetic Cavern"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Zoetic Cavern",
+          "cast_mode": "morphed",
+          "mana": "CC"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Zoetic Cavern",
+          "zone": "battlefield",
+          "pt": "2/2"
+        }
+      ]
+    },
+    {
+      "name": "turns-itself-face-down-as-a-2-2",
+      "cr": [
+        "117.2d",
+        "708.4"
+      ],
+      "why": "{1}{G}: Turn Obscuring Aether face down -- the enchantment becomes a 2/2 creature with no other characteristics, so it no longer has the enchantment type.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Obscuring Aether"
+          ],
+          "hand": [
+            "Zoetic Cavern"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "mana",
+          "seat": 0,
+          "mana": "CG"
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Obscuring Aether",
+          "ability": "Turn"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Obscuring Aether",
+          "zone": "battlefield",
+          "pt": "2/2",
+          "no_types": [
+            "Enchantment"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "full-price-cast-still-enters-face-down",
+      "cr": [
+        "702.37a",
+        "708.4"
+      ],
+      "why": "Control for the missing reduction: paying the full {3} for the face-down cast works with the Aether in play, isolating the defect to the cost reduction itself.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Obscuring Aether"
+          ],
+          "hand": [
+            "Zoetic Cavern"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Zoetic Cavern",
+          "cast_mode": "morphed",
+          "mana": "CCC"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Zoetic Cavern",
+          "zone": "battlefield",
+          "pt": "2/2"
+        }
+      ]
+    }
+  ]
+}

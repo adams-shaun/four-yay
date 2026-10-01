@@ -1,0 +1,162 @@
+{
+  "card": "C.A.M.P.",
+  "family": "triggered-ability",
+  "oracle_sha": "dddf80df1f1d",
+  "author": "cli-20261001T022457Z-f0c31bb6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "shared-color-tap-makes-counter-and-junk",
+      "cr": [
+        "603.2",
+        "108.1"
+      ],
+      "why": "The fortified Forest (a green land) is tapped for {G} and the chosen creature is green (Grizzly Bears): the color is shared, so the Bears get a +1/+1 counter (3/3) and a Junk token is created.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Forest",
+            "Grizzly Bears"
+          ],
+          "hand": [
+            "C.A.M.P."
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:C.A.M.P.",
+          "mana": "CCC"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:C.A.M.P.",
+          "ability": "Fortify",
+          "mana": "CCC",
+          "targets": [
+            "p0:Forest"
+          ]
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Forest",
+          "ability": "Add {G}"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "Grizzly Bears"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Grizzly Bears",
+          "zone": "battlefield",
+          "pt": "3/3"
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Junk",
+            "token": true
+          },
+          "eq": 1
+        }
+      ]
+    },
+    {
+      "name": "non-shared-color-tap-makes-counter-no-junk",
+      "cr": [
+        "603.2",
+        "108.1"
+      ],
+      "why": "The fortified Plains (white) is tapped for {W} and the chosen creature is blue (Welcoming Vampire): the color is not shared, so the Vampire still gets the +1/+1 counter (3/4) but no Junk token is created.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Plains",
+            "Welcoming Vampire"
+          ],
+          "hand": [
+            "C.A.M.P."
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:C.A.M.P.",
+          "mana": "CCC"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:C.A.M.P.",
+          "ability": "Fortify",
+          "mana": "CCC",
+          "targets": [
+            "p0:Plains"
+          ]
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "activate",
+          "seat": 0,
+          "card": "p0:Plains",
+          "ability": "Add {W}"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "Welcoming Vampire"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Welcoming Vampire",
+          "zone": "battlefield",
+          "pt": "3/4"
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Junk",
+            "token": true
+          },
+          "eq": 0
+        }
+      ]
+    }
+  ]
+}
