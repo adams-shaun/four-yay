@@ -141,7 +141,7 @@
 //	paymentPlanQueryKept/KeptStamp/    the payment planner's kept and recycled query scopes and
 //	Free, zoneEntry                    the incremental zone-entry index: caches of G and the
 //	                                   log, validated on every use; Clone copies none
-//	walkRec, walkReuse,                the priority walk's pool-independent block record for the
+//	walkRec, walkReuse, walkRecDemand, the priority walk's pool-independent block record for the
 //	potentialManaRec, walkBlocks/      potential walk and PotentialMana (keyed like
 //	MembersServed                      priorityWalk) and its served diagnostic counters; Clone
 //	                                   copies none

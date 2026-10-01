@@ -476,6 +476,9 @@ func (e *Engine) paymentActionsForPriority(p state.PlayerID, seq uint64, options
 		return nil
 	}
 	e.paymentStats.recordBuild(false)
+	// The builder's potential walk is what the priority walk's block record
+	// serves (walk_block_reuse.go): record from now on.
+	e.walkRecDemand = true
 	// The build is a pure read: one memo scope makes every nested walk
 	// (PotentialMana, the candidate walk, each candidate's window-unit and
 	// legality reads) share one generation and one board-static scan.

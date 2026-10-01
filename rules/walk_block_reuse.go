@@ -39,7 +39,9 @@ import (
 //
 // Recording runs only in the priority walk (askPriority's forAsk walk, real
 // pool, full) on an engine whose potential readers have asked for the full
-// walk (potentialFullDemand), and is promoted to usable only when
+// walk (potentialFullDemand) and whose payment offer builder has run
+// (walkRecDemand: a host that never builds offers -- a search's clones --
+// never pays for a record it would not read), and is promoted to usable only when
 // notePriorityWalk records that walk as the decision's tail. A potential
 // walk uses it only when the tail is still exact for its seat
 // (priorityWalkTailFor) and the walk is full. Both walks visit the same

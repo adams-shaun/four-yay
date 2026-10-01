@@ -108,6 +108,10 @@ type engineScratch struct {
 	// (walk_block_reuse.go). Clone copies none.
 	walkRec   walkBlockRec
 	walkReuse *walkBlockRec
+	// walkRecDemand: the payment offer builder has run on this engine, so
+	// its potential walk follows priority walks and they record
+	// (walk_block_reuse.go). Clone copies none.
+	walkRecDemand bool
 	// potentialManaRec is the record armed for the next PotentialMana's
 	// membership walk (walk_block_reuse.go potentialMembers). Clone copies
 	// none.

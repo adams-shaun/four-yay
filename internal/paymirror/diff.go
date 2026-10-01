@@ -167,6 +167,7 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "walkBlocksServed"}:  true,
 	{"rules.Engine", "walkMembersServed"}: true,
 	{"rules.Engine", "potentialManaRec"}:  true,
+	{"rules.Engine", "walkRecDemand"}:     true,
 	// Scratch buffers reused across calls (contents after use are garbage).
 	{"rules.Engine", "legalOptBuf"}:  true,
 	{"rules.Engine", "manaAbBuf"}:    true,
