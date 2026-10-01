@@ -89,6 +89,17 @@ func (e *Engine) CloneInto(sp *Spare) *Engine {
 	return e.cloneWith(spare)
 }
 
+// rekeyVersion maps a cache's continuousVersion stamp onto a clone, whose
+// continuousVersion starts at zero: a cache built under the parent's current
+// registry is current in the clone too (same registry, same board), and any
+// other stamp must never match the clone's.
+func rekeyVersion(stamp, current int) int {
+	if stamp == current {
+		return 0
+	}
+	return -1
+}
+
 func (e *Engine) cloneWith(sp Spare) *Engine {
 	c := &Engine{
 		G: e.G.CloneInto(sp.objs),
@@ -244,7 +255,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	// diverge (setname_filter_scope_test.go).
 	c.renames = append([]effects.ObjectName(nil), e.renames...)
 	c.renameEpoch = e.renameEpoch
-	c.renameVersion = e.renameVersion
+	c.renameVersion = rekeyVersion(e.renameVersion, e.continuousVersion)
 	c.renameObjs = e.renameObjs
 	// layer4types.go's layer-4 derived-type table and its genesis-time
 	// gate, carried with its (epoch, version) key for the same reason: the
@@ -254,8 +265,25 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	// read the CLONE's board once the two diverge.
 	c.layer4Types = append([]effects.ObjectTypes(nil), e.layer4Types...)
 	c.typesEpoch = e.typesEpoch
-	c.typesVersion = e.typesVersion
+	c.typesVersion = rekeyVersion(e.typesVersion, e.continuousVersion)
 	c.typesObjs = e.typesObjs
+	// The incremental layer-4 state and the statics probe cache describe the
+	// same identical board, so a table built under the current registry
+	// carries them too (engine_derived_tables.go): the clone's next refresh
+	// goes incremental instead of re-deriving and re-probing the whole board.
+	if e.typesVersion == e.continuousVersion && e.typesIncrReady {
+		c.typesIncrReady, c.typesSelfOnly = true, e.typesSelfOnly
+		c.typesSrcs = append([]state.ObjID(nil), e.typesSrcs...)
+		c.typesMayDiffer = append([]state.ObjID(nil), e.typesMayDiffer...)
+	}
+	if e.typesProbeReady && e.typesProbeVersion == e.continuousVersion {
+		c.typesProbe = append(sp.probe[:0], e.typesProbe...)
+		c.typesProbeReady, c.typesProbeTrue = true, e.typesProbeTrue
+		c.typesProbeEpoch, c.typesProbeObjs = e.typesProbeEpoch, e.typesProbeObjs
+		c.typesProbeVersion = c.continuousVersion
+	} else {
+		c.typesProbe = sp.probe[:0]
+	}
 	if e.etbMove != nil {
 		ev := *e.etbMove
 		c.etbMove = &ev

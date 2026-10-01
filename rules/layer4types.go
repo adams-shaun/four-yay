@@ -651,7 +651,7 @@ func (e *Engine) staticsMayChangeTypes() bool {
 // self-invalidates when its Statics list grows) plus every object appended
 // since, and re-stamps.
 func (e *Engine) staticsProbeCatchUp(n int) {
-	if e.typesProbe == nil || e.typesProbeEpoch < 0 || n < e.typesProbeEpoch || e.typesProbeVersion != e.continuousVersion {
+	if !e.typesProbeReady || e.typesProbeEpoch < 0 || n < e.typesProbeEpoch || e.typesProbeVersion != e.continuousVersion {
 		e.staticsProbeFull()
 		return
 	}
@@ -687,20 +687,31 @@ func (e *Engine) staticsProbeTouch(id state.ObjID) {
 // from zero.
 func (e *Engine) staticsProbeStore(id state.ObjID) {
 	now := e.objectStaticsMayChangeTypes(e.G.Obj(id))
-	if old, ok := e.typesProbe[id]; ok {
-		if old == now {
-			return
-		}
-		if now {
-			e.typesProbeTrue++
-		} else {
-			e.typesProbeTrue--
-		}
-	} else if now {
+	i := int(id) - 1
+	for len(e.typesProbe) <= i {
+		e.typesProbe = append(e.typesProbe, probeUnset)
+	}
+	ans := probeNo
+	if now {
+		ans = probeYes
+	}
+	switch old := e.typesProbe[i]; {
+	case old == ans:
+		return
+	case old == probeYes:
+		e.typesProbeTrue--
+	case now:
 		e.typesProbeTrue++
 	}
-	e.typesProbe[id] = now
+	e.typesProbe[i] = ans
 }
+
+// The typesProbe cell values.
+const (
+	probeUnset uint8 = iota
+	probeNo
+	probeYes
+)
 
 // staticsMayChangeTypesWalk is the uncached zone-list walk the probe cache
 // replaces: layer4PrecheckVerify holds the cached answer to it (a "yes" here
@@ -753,19 +764,29 @@ func (e *Engine) objectStaticsMayChangeTypes(o *state.Object) bool {
 	return false
 }
 
+// cloneObjectHeadroomProbe is the spare probe capacity a full re-probe
+// allocates, so the objects a game mints next extend it in place.
+const cloneObjectHeadroomProbe = 64
+
 // staticsProbeFull re-probes the whole board (the pre-incremental walk,
 // once, populating the cache).
 func (e *Engine) staticsProbeFull() {
-	m := make(map[state.ObjID]bool, len(e.G.Objs))
+	m := e.typesProbe[:0]
+	if cap(m) < len(e.G.Objs) {
+		m = make([]uint8, 0, len(e.G.Objs)+cloneObjectHeadroomProbe)
+	}
+	m = m[:len(e.G.Objs)]
 	count := 0
 	for i := range e.G.Objs {
-		ans := e.objectStaticsMayChangeTypes(&e.G.Objs[i])
-		m[e.G.Objs[i].ID] = ans
-		if ans {
+		// Objs is the dense arena: Objs[i].ID == i+1, the cell's index.
+		if e.objectStaticsMayChangeTypes(&e.G.Objs[i]) {
+			m[i] = probeYes
 			count++
+		} else {
+			m[i] = probeNo
 		}
 	}
-	e.typesProbe = m
+	e.typesProbe, e.typesProbeReady = m, true
 	e.typesProbeTrue = count
 	e.typesProbeEpoch = len(e.L.Events)
 	e.typesProbeVersion = e.continuousVersion

@@ -57,6 +57,9 @@ type Spare struct {
 	// static is a spent engine's cleared staticEffects memo storage, which
 	// the next clone copies its parent's memo into (clone.go).
 	static []ContinuousEffect
+	// probe is a spent engine's layer-4 statics probe cells
+	// (Engine.typesProbe), copied into by the next clone.
+	probe []uint8
 }
 
 // Release returns e's log and object-arena arrays as a Spare for the next
@@ -107,6 +110,7 @@ func (e *Engine) Release() Spare {
 	clear(sp.static)
 	sp.static = sp.static[:0]
 	e.staticContinuous = nil
+	sp.probe, e.typesProbe, e.typesProbeReady = e.typesProbe[:0], nil, false
 	if e.lookBackOwner == e && !e.lookBackBusy {
 		sp.lookBack = e.lookBack
 	}
