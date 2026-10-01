@@ -1,0 +1,40 @@
+{
+  "card": "Kozilek's Command",
+  "family": "spell-conditional",
+  "oracle_sha": "f3ffcc7e3cfb",
+  "author": "agent-20261001T003812Z-b6e8e6aa (charm sub-ability dynamic TargetMax$ X reads the paid X)",
+  "scenarios": [
+    {
+      "name": "token-plus-exile-graveyard-at-x2",
+      "cr": ["107.3i", "601.2b", "601.2c"],
+      "why": "Announcing X = 2 and choosing Token + Exile-up-to-X bounds the graveyard mode's target ask to the PAID X (CR 107.3i: X is 2): both graveyard cards are offered and both are exiled, and the token mode makes X tokens for its targeted player.",
+      "setup": {
+        "p0": {
+          "hand": ["Kozilek's Command"],
+          "graveyard": ["Grizzly Bears", "Centaur Courser"]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Kozilek's Command",
+          "mana": "CCCCCC",
+          "answers": [
+            {"kind": "choose", "pick": ["X = 2"]},
+            {"kind": "modes", "pick": ["creates X 0/1", "Exile up to X target cards"]}
+          ],
+          "targets": ["p1", "p0:Grizzly Bears", "p0:Centaur Courser"]
+        },
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Kozilek's Command", "zone": "graveyard"},
+        {"card": "p0:Grizzly Bears", "zone": "exile"},
+        {"card": "p0:Centaur Courser", "zone": "exile"},
+        {"card": "p1:token:Eldrazi Spawn#1", "zone": "battlefield"},
+        {"card": "p1:token:Eldrazi Spawn#2", "zone": "battlefield"}
+      ]
+    }
+  ]
+}
