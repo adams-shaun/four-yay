@@ -406,6 +406,7 @@ func (e *Engine) verifyInertActive() {
 	savedStaticSeq := e.activeStaticSeq
 	savedDerivedSeq, savedAlt := e.derivedSeq, e.activeBufAlt
 	savedPrevEpoch, savedPrevVersion, savedPrevObjs := e.derivedPrevEpoch, e.derivedPrevVersion, e.derivedPrevObjs
+	savedPrevEntered, savedBFSeq := e.derivedPrevEntered, e.derivedBFSeq
 	// The forced rebuild must not write the served list's array (activeBuf)
 	// nor the transparency baseline: give it fresh storage.
 	e.activeBufAlt = nil
@@ -424,6 +425,7 @@ func (e *Engine) verifyInertActive() {
 	e.activeStaticSeq = savedStaticSeq
 	e.derivedSeq, e.activeBufAlt = savedDerivedSeq, savedAlt
 	e.derivedPrevEpoch, e.derivedPrevVersion, e.derivedPrevObjs = savedPrevEpoch, savedPrevVersion, savedPrevObjs
+	e.derivedPrevEntered, e.derivedBFSeq = savedPrevEntered, savedBFSeq
 	if len(cached) != len(fresh) || (len(cached) > 0 && !reflect.DeepEqual(cached, fresh)) {
 		panic(fmt.Sprintf("rules: layer-inert active() reuse at log %d disagrees with a rebuild (%d vs %d effects)", len(e.L.Events), len(cached), len(fresh)))
 	}

@@ -161,7 +161,13 @@ func derivedObjectLocalKind(k events.Kind) bool {
 //     face-less object derives to nothing and no local predicate or literal
 //     amount of another object's derivation reads it or the stack list;
 //     AbilityPush's ActivatedThisTurn tally on the source is read only by
-//     the Count$ThisTurnActivated head, never a local amount.
+//     the Count$ThisTurnActivated head, never a local amount;
+//   - any other zone move (onto or off the battlefield, out of exile) of an
+//     object that is no live effect's source, retired like an
+//     off-battlefield mover (see derivedAnyMoveOK for what such a move
+//     writes to OTHER objects, none of which a local derivation reads). Such
+//     a run moves derivedBFSeq, the battlefield-membership half of the key
+//     the rename table (setname.go) also needs.
 func (e *Engine) derivedRebuildTransparent(prev, fresh []ContinuousEffect) bool {
 	if e.derivedSeq == 0 || e.derivedPrevEpoch <= 0 || e.derivedPrevEpoch > len(e.L.Events) ||
 		e.derivedPrevVersion != e.continuousVersion || e.derivedPrevObjs > len(e.G.Objs) ||
@@ -169,19 +175,31 @@ func (e *Engine) derivedRebuildTransparent(prev, fresh []ContinuousEffect) bool 
 		return false
 	}
 	touched := e.derivedTouched[:0]
-	pushes := 0
+	pushes, moves := 0, 0
+	other := false
 	evs := e.L.Events[e.derivedPrevEpoch:]
 	for i := range evs {
-		switch k := evs[i].Kind; k {
+		ev := &evs[i]
+		switch k := ev.Kind; k {
 		case events.DecisionAsk, events.DecisionMade, events.Priority:
 		case events.TriggerPush, events.AbilityPush:
 			pushes++
+		case events.MoveZone, events.Draw, events.PutOnStack:
+			if ev.Obj == 0 {
+				e.derivedTouched = touched[:0]
+				return false
+			}
+			touched = append(touched, ev.Obj)
+			moves++
+			if !offBattlefieldMove(ev) {
+				other = true
+			}
 		default:
-			if offBattlefieldMove(&evs[i]) || derivedObjectLocalKind(k) && evs[i].Obj != 0 {
-				touched = append(touched, evs[i].Obj)
+			if derivedObjectLocalKind(k) && ev.Obj != 0 {
+				touched = append(touched, ev.Obj)
 				continue
 			}
-			if !e.derivedQuietEvent(&evs[i]) {
+			if !e.derivedQuietEvent(ev) {
 				e.derivedTouched = touched[:0]
 				return false
 			}
@@ -189,6 +207,9 @@ func (e *Engine) derivedRebuildTransparent(prev, fresh []ContinuousEffect) bool 
 	}
 	e.derivedTouched = touched
 	if !e.facelessAppended(e.derivedPrevObjs, pushes) {
+		return false
+	}
+	if other && !e.derivedAnyMoveOK(evs, pushes) {
 		return false
 	}
 	for i := range fresh {
@@ -210,7 +231,48 @@ func (e *Engine) derivedRebuildTransparent(prev, fresh []ContinuousEffect) bool 
 			m.seq = 0
 		}
 	}
+	if other {
+		e.derivedBFSeq++
+	}
 	return true
+}
+
+// derivedAnyMoveOK checks the one input a zone move outside
+// offBattlefieldMove can change silently for an object it does not name.
+// events.Apply's move fold writes, besides the moved object itself, its zone
+// lists and the zone-entry ledger:
+//
+//   - leaving exile: every object's ExiledCards / ExileReturn / EncodedCards
+//     link to it (read only by the ExiledWith / encoded predicates and the
+//     static scan's GainsAbilitiesOf spec -- non-local, or a static list
+//     change the content check sees);
+//   - leaving the battlefield: other objects' BlockedBy tombstones, a
+//     soulbond partner's Paired, other objects' CrewedVehicles, goads
+//     sourced by it, ring-bearer designations (all read only by combat, the
+//     non-local filter predicates and triggers -- no layer step);
+//   - leaving the battlefield as a mutated pile: each card merged beneath it
+//     MOVES too, with no event of its own -- a derivation that did change.
+//
+// The last is the one to rule out, and every such nested move appends its
+// own zone entry (Move's g.Entered append): so the ledger must have grown
+// by exactly one entry per logged move (none for a ceased ability object
+// leaving the stack, Move's ceasedAbility) and one per push (its mint is a
+// library->stack Move). A shorter ledger (a CR 733.1 reversal truncates it)
+// fails the count too.
+func (e *Engine) derivedAnyMoveOK(evs []events.Event, pushes int) bool {
+	want := e.derivedPrevEntered + pushes
+	for i := range evs {
+		ev := &evs[i]
+		switch ev.Kind {
+		case events.MoveZone, events.Draw, events.PutOnStack:
+		default:
+			continue
+		}
+		if o := e.G.Obj(ev.Obj); o != nil && !(ev.To != state.ZStack && o.Card == nil && o.Ability != nil) {
+			want++
+		}
+	}
+	return want == len(e.G.Entered)
 }
 
 // facelessAppended reports whether the object arena grew from oldObjs by
@@ -252,6 +314,7 @@ func offBattlefieldMove(ev *events.Event) bool {
 // derivedNoteBuild records the key the build or re-stamp that produced the
 // current list was taken at.
 func (e *Engine) derivedNoteBuild() {
+	e.derivedPrevEntered = len(e.G.Entered)
 	e.derivedPrevEpoch = len(e.L.Events)
 	e.derivedPrevVersion = e.continuousVersion
 	e.derivedPrevObjs = len(e.G.Objs)

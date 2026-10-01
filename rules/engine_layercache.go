@@ -135,6 +135,14 @@ type engineLayerCaches struct {
 	derivedPrevEpoch   int
 	derivedPrevVersion int
 	derivedPrevObjs    int
+	// derivedPrevEntered is len(e.G.Entered) at the same point (the zone
+	// ledger check of a battlefield-crossing transparent rebuild), and
+	// derivedBFSeq counts the transparent rebuilds whose run moved an object
+	// across the battlefield boundary or out of exile: derivedSeq alone no
+	// longer proves the battlefield's membership unchanged (setname.go's
+	// rename table keys on both). Never cloned.
+	derivedPrevEntered int
+	derivedBFSeq       uint64
 	derivedTouched     []state.ObjID
 	activeEpoch        int
 	activeVersion      int
