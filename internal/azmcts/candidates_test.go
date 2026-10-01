@@ -149,7 +149,7 @@ func TestPriorsUniformWithoutANetwork(t *testing.T) {
 	if !ok {
 		t.Fatal("enumerate failed")
 	}
-	p, fell := priors(nil, nil, d, bot, kind, cands)
+	p, fell := priors(nil, nil, d, bot, kind, cands, nil)
 	if fell || !reflect.DeepEqual(p, []float64{0.5, 0.5}) {
 		t.Fatalf("priors = %v (fell back %v), want uniform", p, fell)
 	}

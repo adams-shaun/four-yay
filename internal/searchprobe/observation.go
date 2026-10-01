@@ -81,6 +81,14 @@ type Collector struct {
 	retainJSON bool
 	// noPot is capture's reusable Chars wrapper; see there.
 	noPot noPotentialChars
+	// view is observe's reusable projection (view.ProjectInto): every
+	// capture and probe refills it, so the view observe returns -- and every
+	// slice in it -- is valid only until c's next observation. No frame
+	// retains any of it (boardFacts copies, the digests hash it). viewDec
+	// keeps the projected decision's storage across the observations that
+	// clear the returned view's decision.
+	view    view.View
+	viewDec *decision.Decision
 }
 
 // noPotentialChars is a view.Chars whose seat projection carries no
@@ -379,8 +387,15 @@ func (c *Collector) observe(e *rules.Engine, burst []events.Event, withPotential
 	c.noPot.Chars = e
 	c.noPot.keepPotential = withPotential
 	var chars view.Chars = &c.noPot
-	v := view.Project(e.G, chars, c.actor, e.Pending())
-	v.Round = view.RoundOf(e.G, e.L.Events)
+	if c.view.Decision == nil {
+		c.view.Decision = c.viewDec
+	}
+	view.ProjectInto(&c.view, e.G, chars, c.actor, e.Pending())
+	if c.view.Decision != nil {
+		c.viewDec = c.view.Decision
+	}
+	c.view.Round = view.RoundOf(e.G, e.L.Events)
+	v := c.view
 	// Introduce only cards explicitly displayed to this seat. Traversal order is
 	// fixed, so observed identities do not encode hidden arena allocation.
 	for i := range v.Players {
@@ -496,10 +511,11 @@ func (c *Collector) observe(e *rules.Engine, burst []events.Event, withPotential
 }
 
 // remap rewrites every object reference of a projected view (decision
-// already cleared) into observation refs, in place: view.Project builds
-// every slice and pointer it returns fresh per call and hands ownership to
-// the caller (zones, BlockedBy, LibraryTop, stack cards and targets, and
-// the potential actions rules.PotentialActions builds), so nothing aliases.
+// already cleared) into observation refs, in place: the projection owns
+// every slice and pointer it holds -- c's reusable view (zones, BlockedBy,
+// LibraryTop, stack cards and targets) and the potential actions
+// rules.PotentialActions builds fresh per call -- so nothing aliases the
+// engine, and the next ProjectInto rewrites every field remap touched.
 func (c *Collector) remap(v *view.View) {
 	for i := range v.Players {
 		p := &v.Players[i]

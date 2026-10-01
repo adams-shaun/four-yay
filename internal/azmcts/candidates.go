@@ -245,11 +245,16 @@ func actionsKey(acts []searchprobe.Action) Key {
 // score for priority and target. The bot's options are marked (BotPick) as a
 // residual checkpoint was trained. fellBack reports a network prior that
 // could not be formed (every candidate -Inf or NaN) and fell back to uniform.
-func priors(net *policynet.Model, e *rules.Engine, d *decision.Decision, bot decision.Intent, kind string, cands []cand) ([]float64, bool) {
+// The view is projected into pv (view.ProjectInto), a fresh one when nil.
+func priors(net *policynet.Model, e *rules.Engine, d *decision.Decision, bot decision.Intent, kind string, cands []cand, pv *view.View) ([]float64, bool) {
 	if net == nil {
 		return uniform(len(cands)), false
 	}
-	v := view.Project(e.G, e, d.Player, d)
+	if pv == nil {
+		pv = new(view.View)
+	}
+	view.ProjectInto(pv, e.G, e, d.Player, d)
+	v := *pv
 	st := policynet.EncodeStateWith(net.Features, v, d.Player, nil)
 	enc := make([]policynet.Option, len(d.Options))
 	for i := range d.Options {

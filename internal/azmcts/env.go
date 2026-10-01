@@ -5,9 +5,11 @@ import (
 	"math"
 	"math/rand/v2"
 	"strings"
+	"sync"
 
 	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/deck"
 	"github.com/adams-shaun/gorge/internal/policynet"
 	"github.com/adams-shaun/gorge/internal/searchprobe"
 	"github.com/adams-shaun/gorge/rules"
@@ -38,6 +40,52 @@ type walkConfig struct {
 	// envBoard backs the bot's answers (engineEnv.advance), enumBoard the
 	// candidate enumeration, so neither refill clobbers a board still read.
 	envBoard, enumBoard *boardScratch
+	// views is the Search's projection scratch (viewScratch): the leaf's
+	// and the prior's reusable views, refilled per leaf and per point.
+	// Nil (a hand-built config) projects into fresh views.
+	views *viewScratch
+}
+
+// viewScratch is one Search's reusable projections. Simulations run one at
+// a time and each view is read only until the value or prior it feeds is
+// computed, so one leaf view and one prior view serve every simulation;
+// Search draws a scratch from searchViews and returns it when it ends, so a
+// worker's searches reuse the same buffers decision after decision.
+type viewScratch struct {
+	leaf, prior view.View
+	leafChars   heuristicLeafChars
+}
+
+var searchViews = sync.Pool{New: func() any { return new(viewScratch) }}
+
+// heuristicLeafChars is the frozen heuristic leaf's view.Chars: the real
+// engine's, minus every derived fact searchprobe.LeafValue never reads.
+// LeafValue reads the result (Over/Draw/Winner) and, per seat, Life,
+// HandSize and each battlefield card's Types, Power and Toughness -- nothing
+// else -- so the seat's own potential-action walk (a whole second legal-offer
+// walk per leaf), the own-library list, the genesis manifest, availability,
+// ability costs, keywords, card tokens and the library-top reveal are not
+// computed for it. Embedding the interface also drops the optional layer-3
+// Name and effective-cost capabilities (cards keep their printed names and
+// costs, which the leaf does not read either). The leaf value is unchanged:
+// TestHeuristicLeafCharsKeepsLeafValue pins it against the full projection.
+type heuristicLeafChars struct{ view.Chars }
+
+func (heuristicLeafChars) PotentialActions(state.PlayerID) []decision.PotentialAction { return nil }
+func (heuristicLeafChars) OwnDeck(state.PlayerID) *deck.Manifest                      { return nil }
+func (heuristicLeafChars) AvailableMana(state.PlayerID) state.Mana                    { return state.Mana{} }
+func (heuristicLeafChars) AbilityCosts(state.PlayerID, state.ObjID) []string          { return nil }
+func (heuristicLeafChars) Keywords(state.ObjID) []string                              { return nil }
+func (heuristicLeafChars) MayLookAtLibraryTop(state.PlayerID) bool                    { return false }
+func (heuristicLeafChars) SuppressOwnLibrary() bool                                   { return true }
+func (heuristicLeafChars) SuppressCardTokens() bool                                   { return true }
+
+// priorView is the config's reusable prior projection, nil without scratch.
+func (c *walkConfig) priorView() *view.View {
+	if c.views == nil {
+		return nil
+	}
+	return &c.views.prior
 }
 
 // worldEnvs adapts a WorldSource to the tree's EnvSource.
@@ -161,7 +209,7 @@ func (e *engineEnv) advance() (*Point, error) {
 		if pd.Player == e.cfg.actor {
 			if cands, kind, ok := enumerateInto(e.obs, e.e, pd, in, e.cfg.kinds, e.cfg.limit, e.cfg.enumBoard); ok {
 				e.cur, e.cands = pd, cands
-				prior, fell := priors(e.cfg.net, e.e, pd, in, kind, cands)
+				prior, fell := priors(e.cfg.net, e.e, pd, in, kind, cands, e.cfg.priorView())
 				if fell {
 					e.cfg.stats.PriorFallbacks++
 				}
@@ -235,18 +283,25 @@ func (e *engineEnv) Leaf() (l Leaf) {
 	if e.cfg.heuristicLeaf {
 		leafNet = nil
 	}
-	return Leaf{V: leafValue(leafNet, e.e, e.cfg.actor), Capped: e.capped}
+	return Leaf{V: leafValue(leafNet, e.e, e.cfg.actor, e.cfg.views), Capped: e.capped}
 }
 
 // leafValue is spec §1's leaf: the value head on the actor's REDACTED view
 // (policynet.Model.Value), or -- generation 0, no network -- the frozen
-// heuristic searchprobe.LeafValue. Clamped into [0,1]; NaN reads 0.5.
-func leafValue(net *policynet.Model, e *rules.Engine, actor state.PlayerID) float64 {
+// heuristic searchprobe.LeafValue, computed straight from the game
+// (heuristicLeafValue, bit-identical to the view-based value). Clamped into
+// [0,1]; NaN reads 0.5. A network leaf projects into sc's reusable view when
+// sc is non-nil (view.ProjectInto).
+func leafValue(net *policynet.Model, e *rules.Engine, actor state.PlayerID, sc *viewScratch) float64 {
 	if net == nil {
 		return heuristicLeafValue(e, actor)
 	}
-	v := view.Project(e.G, e, actor, e.Pending())
-	x := float64(net.Value(policynet.EncodeStateWith(net.Features, v, actor, nil)))
+	if sc == nil {
+		sc = new(viewScratch)
+	}
+	v := &sc.leaf
+	view.ProjectInto(v, e.G, e, actor, e.Pending())
+	x := float64(net.Value(policynet.EncodeStateWith(net.Features, *v, actor, nil)))
 	switch {
 	case math.IsNaN(x):
 		return 0.5
