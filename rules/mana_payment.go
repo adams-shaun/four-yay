@@ -5,6 +5,7 @@
 package rules
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -681,6 +682,17 @@ func (e *Engine) restrictValidTermMatches(p state.PlayerID, d paymentDescriptor,
 // resolveMana path (and every game without a converter on the board)
 // byte-identical.
 func (e *Engine) paymentConv(p state.PlayerID, id state.ObjID, ability bool) *manaConv {
+	// With no printed ManaConvert static on the board and no Effect-delivered
+	// one in active()'s list (its build digest), manaConversionParts has no
+	// source to apply, so both parts are empty: the nil answer, directly.
+	if len(e.manaConvPrintedSources()) == 0 && !e.activeSummaryOf(e.active()).hasManaConvert {
+		if walkCacheVerify {
+			if m, o := e.manaConversionParts(p, id, ability); !m.empty() || !o.empty() {
+				panic(fmt.Sprintf("rules: a board with no ManaConvert source converts mana for obj %d", id))
+			}
+		}
+		return nil
+	}
 	mandatory, optional := e.manaConversionParts(p, id, ability)
 	conv := mandatory
 	// During an Optional$ ManaConvert cast, the offer-side path uses the union
