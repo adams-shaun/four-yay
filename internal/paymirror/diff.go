@@ -265,6 +265,9 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "atkOffersVer"}:    true,
 	{"rules.Engine", "atkOffersObjs"}:   true,
 	{"rules.Engine", "atkOffersActive"}: true,
+	// The trigger queue's stale-prefix watermark (trigger_queue.go): scratch
+	// hygiene for the drained array, never game state.
+	{"rules.Engine", "trigQueueStale"}: true,
 	// Recycled storage owned by one engine: the trigger-window snapshot
 	// pool (trigger_snapshot_pool.go), the reusable look-back observer
 	// Engine and its owner/busy guard (checkTriggers), and the posed-decision

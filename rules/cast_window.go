@@ -46,6 +46,7 @@ func (e *Engine) dropProposalTriggers(pc *pendingCast) {
 		if start < e.orderedTriggers || start >= end || end > len(e.pendingTriggers) {
 			continue
 		}
+		e.noteTrigShrink()
 		e.pendingTriggers = append(e.pendingTriggers[:start], e.pendingTriggers[end:]...)
 	}
 }

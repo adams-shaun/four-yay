@@ -111,9 +111,15 @@ func (e *Engine) putTriggersOnStack() bool {
 		if len(e.pendingTriggers) == 0 {
 			// Keep the drained queue's array for the next batch, zeroed so
 			// the shifted-out tail pins nothing (removeTriggerAt shifts in
-			// place; nothing holds a view of the queue across a drain).
-			e.pendingTriggers = e.pendingTriggers[:cap(e.pendingTriggers)]
-			clear(e.pendingTriggers)
+			// place; nothing holds a view of the queue across a drain). Only
+			// the prefix a shrink can have left entries in needs zeroing
+			// (trigQueueStale): an already-drained array is clean, and a
+			// pendingTrigger carries a whole effects.Ctx, so re-zeroing the
+			// whole capacity on every priority round was most of this call.
+			if n := min(e.trigQueueStale, cap(e.pendingTriggers)); n > 0 {
+				clear(e.pendingTriggers[:n])
+			}
+			e.trigQueueStale = 0
 			e.pendingTriggers, e.orderedTriggers = e.pendingTriggers[:0], 0
 			return false
 		}
@@ -312,6 +318,20 @@ func (e *Engine) groupOrderDuplicates(n int) {
 // who has left the game (CR 800.4a) and leaves e.orderedTriggers counting the
 // same surviving entries it counted before.
 func (e *Engine) dropDepartedTriggers() {
+	departed := false
+	for i := range e.pendingTriggers {
+		if c := e.pendingTriggers[i].Controller; int(c) >= len(e.G.Players) || e.G.Players[c].Lost {
+			departed = true
+			break
+		}
+	}
+	if !departed {
+		// Nothing to drop: the filter below would copy every entry onto
+		// itself, and count min(orderedTriggers, len) settled survivors.
+		e.orderedTriggers = min(e.orderedTriggers, len(e.pendingTriggers))
+		return
+	}
+	e.noteTrigShrink()
 	kept := e.pendingTriggers[:0]
 	ordered := 0
 	for i, pt := range e.pendingTriggers {
@@ -325,6 +345,16 @@ func (e *Engine) dropDepartedTriggers() {
 	}
 	e.pendingTriggers = kept
 	e.orderedTriggers = ordered
+}
+
+// noteTrigShrink records the queue's length before a shrink, so the drain
+// knows how much of the backing array may hold left-behind entries
+// (trigQueueStale). Every site that shortens pendingTriggers in place calls
+// it first.
+func (e *Engine) noteTrigShrink() {
+	if n := len(e.pendingTriggers); n > e.trigQueueStale {
+		e.trigQueueStale = n
+	}
 }
 
 // popFrontTrigger removes the entry every pending decision is about. Entries
@@ -344,6 +374,7 @@ func (e *Engine) popFrontTrigger() {
 // to every reader, including one that ran between an ask and its answer.
 func (e *Engine) removeTriggerAt(i int) pendingTrigger {
 	pt := e.pendingTriggers[i]
+	e.noteTrigShrink()
 	e.pendingTriggers = append(e.pendingTriggers[:i], e.pendingTriggers[i+1:]...)
 	if i < e.orderedTriggers {
 		e.orderedTriggers--

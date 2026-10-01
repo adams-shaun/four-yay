@@ -383,6 +383,7 @@ func (e *Engine) undoWindowTap(pc *pendingCast) {
 		e.emit(ev)
 	}
 	if len(e.pendingTriggers) > trig {
+		e.noteTrigShrink()
 		e.pendingTriggers = e.pendingTriggers[:trig]
 	}
 }

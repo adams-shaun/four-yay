@@ -2149,6 +2149,7 @@ func (e *Engine) emitManaTap(p state.PlayerID, source state.ObjID, sa *cards.SA)
 		}
 		kept = append(kept, pt)
 	}
+	e.noteTrigShrink()
 	e.pendingTriggers = kept
 	return immediate
 }
