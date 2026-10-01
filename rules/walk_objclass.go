@@ -62,7 +62,71 @@ type walkObjClass struct {
 	// no board-side grant is open (faceHasContinuousStatic,
 	// paradigmMayPlay), so a card without one yields no offer there.
 	mayPlayHot bool
-	abMask     uint32
+	// staticOn / staticOff are objectStaticHotOn / objectStaticHotOff
+	// (static_zoneskip.go): some face carries any static / a static an
+	// off-battlefield collector could admit, or the object is a merged pile.
+	staticOn, staticOff bool
+	// ctrDep: some counter kind on the object is a keyword counter, so a
+	// counter amount change can move the class (walkClassTouch recomputes).
+	ctrDep bool
+	abMask uint32
+	// fp is the object's fields the class and the static scans read, as of
+	// the classification (walkObjFPOf).
+	fp walkObjFP
+}
+
+// walkObjFP is the part of an object every input of its class -- and every
+// per-object read of the printed static scans (static_scan_reuse.go) --
+// comes from, short of the immutable faces themselves: an object whose
+// fingerprint is unchanged (and that is no merged pile, and carries no
+// keyword counter) has the same class and contributes the same views.
+type walkObjFP struct {
+	card     *cards.Card
+	copyFace *cards.Face
+	faceIdx  uint8
+	flags    uint8
+	zone     state.Zone
+	ctl      state.PlayerID
+	merged   int32
+	keywords int32
+	counters int32
+}
+
+const (
+	fpFaceDown = 1 << iota
+	fpPhasedOut
+	fpCloaked
+	fpSuspected
+	fpSuspendGranted
+)
+
+func walkObjFPOf(o *state.Object) walkObjFP {
+	fp := walkObjFP{card: o.Card, copyFace: o.CopyFace, faceIdx: o.FaceIdx, zone: o.Zone, ctl: o.Controller,
+		merged: int32(len(o.MergedCards)), keywords: int32(len(o.IntrinsicKeywords)), counters: int32(len(o.Counters))}
+	if o.FaceDown {
+		fp.flags |= fpFaceDown
+	}
+	if o.PhasedOut {
+		fp.flags |= fpPhasedOut
+	}
+	if o.Cloaked {
+		fp.flags |= fpCloaked
+	}
+	if o.Suspected {
+		fp.flags |= fpSuspected
+	}
+	if o.SuspendGranted {
+		fp.flags |= fpSuspendGranted
+	}
+	return fp
+}
+
+// staticHot is objectStaticHot(o, z) from the class.
+func (c walkObjClass) staticHot(z state.Zone) bool {
+	if z == state.ZBattlefield {
+		return c.staticOn
+	}
+	return c.staticOff
 }
 
 // abHot reports whether the class admits an ability-loop offer in zone z.
@@ -73,8 +137,13 @@ func (c walkObjClass) abHot(z state.Zone) bool {
 // computeWalkObjClass classifies o (see walkObjClass).
 func (e *Engine) computeWalkObjClass(o *state.Object) walkObjClass {
 	c := walkObjClass{set: true}
-	if o == nil || len(o.MergedCards) != 0 {
+	if o == nil {
 		c.manaHot, c.abAlways, c.mayPlayHot = true, true, true
+		return c
+	}
+	c.fp = walkObjFPOf(o)
+	if len(o.MergedCards) != 0 {
+		c.manaHot, c.abAlways, c.mayPlayHot, c.staticOn, c.staticOff = true, true, true, true, true
 		return c
 	}
 	c.manaHot = o.FaceDown
@@ -85,8 +154,11 @@ func (e *Engine) computeWalkObjClass(o *state.Object) walkObjClass {
 		}
 	}
 	for _, ct := range o.Counters {
-		if kwName, ok := cards.CounterKeyword(ct.Kind); ok && ct.N > 0 && grantedKWHeadMatch(kwName) {
-			c.abAlways = true
+		if kwName, ok := cards.CounterKeyword(ct.Kind); ok {
+			c.ctrDep = true
+			if ct.N > 0 && grantedKWHeadMatch(kwName) {
+				c.abAlways = true
+			}
 		}
 	}
 	if o.CopyFace != nil {
@@ -103,17 +175,17 @@ func (e *Engine) computeWalkObjClass(o *state.Object) walkObjClass {
 }
 
 func (e *Engine) classifyWalkFace(c *walkObjClass, f *cards.Face) {
-	if !c.mayPlayHot {
-		for _, st := range f.Statics {
-			if st.Mode == "Continuous" {
-				c.mayPlayHot = true
-			}
-		}
-		if f.HasKeyword("Paradigm") {
-			c.mayPlayHot = true
-		}
-	}
 	ff := e.walkFaceFactsOf(f)
+	if ff != nil && ff.fullyCurrent(f) {
+		// The face's own class bits, computed with its facts.
+		c.staticOn = c.staticOn || ff.staticOn
+		c.staticOff = c.staticOff || ff.staticOff
+		c.mayPlayHot = c.mayPlayHot || ff.mayPlay
+	} else {
+		c.staticOn = c.staticOn || faceStaticHotOn(f)
+		c.staticOff = c.staticOff || faceStaticHotOff(f)
+		c.mayPlayHot = c.mayPlayHot || faceMayPlayHot(f)
+	}
 	if ff == nil {
 		c.manaHot, c.abAlways = true, true
 		return
@@ -127,40 +199,89 @@ func (e *Engine) classifyWalkFace(c *walkObjClass, f *cards.Face) {
 	}
 }
 
+// walkFacesEdited reports whether some face of o was edited in place after
+// its facts were computed (a face with facts that are not fullyCurrent).
+func (e *Engine) walkFacesEdited(o *state.Object) bool {
+	edited := func(f *cards.Face) bool {
+		ff := e.walkFaceFactsOf(f)
+		return ff == nil || !ff.fullyCurrent(f)
+	}
+	if o.CopyFace != nil && edited(o.CopyFace) {
+		return true
+	}
+	if o.Card != nil {
+		for _, f := range o.Card.Faces {
+			if f != nil && edited(f) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// withoutFP is c with its fingerprint zeroed.
+func (c walkObjClass) withoutFP() walkObjClass {
+	c.fp = walkObjFP{}
+	return c
+}
+
+// faceMayPlayHot reports whether f carries a Continuous static or the
+// Paradigm keyword (walkObjClass.mayPlayHot's per-face half).
+func faceMayPlayHot(f *cards.Face) bool {
+	for _, st := range f.Statics {
+		if st.Mode == "Continuous" {
+			return true
+		}
+	}
+	return f.HasKeyword("Paradigm")
+}
+
 // walkClassOf returns id's class, computing and caching it on first use.
 // The caller has brought the catch-up up to date (walkClassesCatchUp).
-func (e *Engine) walkClassOf(id state.ObjID) walkObjClass {
-	if i := uint(id) - 1; i < uint(len(e.walkObjCls)) && !walkSkipVerify {
-		if c := e.walkObjCls[i]; c.set {
-			return c
-		}
+// The result points into the cache: read it before anything can grow the
+// cache again.
+func (e *Engine) walkClassOf(id state.ObjID) *walkObjClass {
+	// No owner test here: every caller has run the catch-up, which gives a
+	// by-value Engine copy its own cache first (ownWalkClasses).
+	if i := uint(id) - 1; i < uint(len(e.walkObjCls)) && e.walkObjCls[i].set && !walkSkipVerify {
+		return &e.walkObjCls[i]
 	}
 	return e.walkClassOfSlow(id)
 }
 
-func (e *Engine) walkClassOfSlow(id state.ObjID) walkObjClass {
+// walkClassInvalid is the class of an id that names no object: hot for the
+// two walk loops, cold for the static summaries and the may-play scan (each
+// of which skips a nil object itself).
+var walkClassInvalid = walkObjClass{set: true, manaHot: true, abAlways: true}
+
+func (e *Engine) walkClassOfSlow(id state.ObjID) *walkObjClass {
+	e.ownWalkClasses()
 	i := int(id) - 1
 	if i < 0 || i >= len(e.G.Objs) {
-		return walkObjClass{set: true, manaHot: true, abAlways: true}
+		c := walkClassInvalid
+		return &c
 	}
 	if n := len(e.G.Objs); n > len(e.walkObjCls) {
-		// Capacity past the length was never written (the cache only grows),
-		// so a re-slice exposes zero (unset) classes.
 		if n > cap(e.walkObjCls) {
 			grown := make([]walkObjClass, n, n+n/2+8)
 			copy(grown, e.walkObjCls)
 			e.walkObjCls = grown
 		} else {
+			// The capacity past the length may hold a recycled array's old
+			// classes (Spare.walkCls): expose it unset.
+			old := len(e.walkObjCls)
 			e.walkObjCls = e.walkObjCls[:n]
+			clear(e.walkObjCls[old:])
 		}
 	}
-	c := e.walkObjCls[i]
+	c := &e.walkObjCls[i]
 	if !c.set {
-		c = e.computeWalkObjClass(&e.G.Objs[i])
-		e.walkObjCls[i] = c
+		*c = e.computeWalkObjClass(&e.G.Objs[i])
 	} else if walkSkipVerify {
-		if fresh := e.computeWalkObjClass(&e.G.Objs[i]); fresh != c {
-			panic(fmt.Sprintf("rules: walk class of obj %d is stale (%+v, recomputed %+v)", id, c, fresh))
+		// The fingerprint is compared by the catch-up's touches, not here:
+		// a field it records may move without changing the class.
+		if fresh := e.computeWalkObjClass(&e.G.Objs[i]); fresh.withoutFP() != c.withoutFP() {
+			panic(fmt.Sprintf("rules: walk class of obj %d is stale (%+v, recomputed %+v)", id, *c, fresh))
 		}
 	}
 	return c
@@ -171,17 +292,63 @@ func (e *Engine) walkClassesCatchUp() {
 	e.staticZonesCatchUp()
 }
 
-// walkClassTouch drops id's cached class (staticZoneTouch's per-object
-// half).
-func (e *Engine) walkClassTouch(id state.ObjID) {
-	if i := int(id) - 1; i >= 0 && i < len(e.walkObjCls) {
-		e.walkObjCls[i].set = false
+// walkClassTouch refreshes the cached class of o, an object an event named
+// (staticZoneTouch's per-object half). It reports whether o's static-hot
+// classification is provably unchanged -- the class was cached and its
+// staticOn/staticOff bits are the fresh ones -- so no static summary holding
+// o needs dropping (its recorded classification of o stands), and bumps
+// staticTouchGen unless o is provably static-cold before and after (a
+// static-cold object contributes nothing to any static scan, whatever its
+// other fields).
+func (e *Engine) walkClassTouch(o *state.Object) (staticSame bool) {
+	e.ownWalkClasses()
+	i := int(o.ID) - 1
+	if i < 0 || i >= len(e.walkObjCls) || !e.walkObjCls[i].set {
+		e.staticTouchGen++
+		return false
 	}
+	old := e.walkObjCls[i]
+	if old.fp.merged == 0 && !old.ctrDep && old.fp == walkObjFPOf(o) {
+		// Every input of the class and of the object's static views is
+		// as classified: nothing to refresh, nothing a scan reads moved.
+		if walkSkipVerify {
+			if fresh := e.computeWalkObjClass(o); fresh != old {
+				// Faces are immutable once configured; a test that edits
+				// one in place (no event) is the only way a class moves
+				// under an unchanged fingerprint. Refresh it then; any
+				// other move is a missed input.
+				if !e.walkFacesEdited(o) {
+					panic(fmt.Sprintf("rules: walk class of obj %d moved under an unchanged fingerprint (%+v, recomputed %+v)", o.ID, old, fresh))
+				}
+				e.walkObjCls[i] = fresh
+				e.staticTouchGen++
+				return old.staticOn == fresh.staticOn && old.staticOff == fresh.staticOff
+			}
+		}
+		return true
+	}
+	fresh := e.computeWalkObjClass(o)
+	e.walkObjCls[i] = fresh
+	if old.staticOn || old.staticOff || fresh.staticOn || fresh.staticOff {
+		e.staticTouchGen++
+	}
+	return old.staticOn == fresh.staticOn && old.staticOff == fresh.staticOff
 }
 
 // walkClassDropAll drops every cached class.
 func (e *Engine) walkClassDropAll() {
+	e.ownWalkClasses()
 	clear(e.walkObjCls)
+	e.staticTouchGen++
+}
+
+// ownWalkClasses gives a by-value Engine copy (entryPreview's speculative
+// engine) its own empty class cache, so it never writes the original's
+// array: classes computed over the copy's state are the copy's alone.
+func (e *Engine) ownWalkClasses() {
+	if e.walkClsOwner != e {
+		e.walkObjCls, e.walkClsOwner = nil, e
+	}
 }
 
 // verifyManaCold panics unless a mana-cold object's visit in the mana loop

@@ -171,9 +171,12 @@ func (e *Engine) staticZoneTouch(id state.ObjID) {
 	if o == nil {
 		return
 	}
-	// The offer walk's object classes (walk_objclass.go) share this
-	// catch-up.
-	e.walkClassTouch(id)
+	// The object's cached class (walk_objclass.go) is refreshed here; when
+	// its static-hot bits are provably unchanged, every summary holding it
+	// keeps its recorded classification, so none is dropped.
+	if e.walkClassTouch(o) {
+		return
+	}
 	s := staticZoneSlot(o.Zone)
 	if s < 0 {
 		return
@@ -190,7 +193,12 @@ func (e *Engine) staticZonesCatchUp() {
 	if n == e.staticZonesEp {
 		return
 	}
+	e.ownWalkClasses()
 	if len(e.staticZones) == 0 && len(e.walkObjCls) == 0 {
+		// No summary or class to refresh, so the events' objects are not
+		// examined: count them all as touches of static-hot objects
+		// (static_scan_reuse.go keys on staticTouchGen).
+		e.staticTouchGen++
 		e.staticZonesEp = n
 		return
 	}
@@ -273,7 +281,9 @@ func (e *Engine) staticSourceIDs(p state.PlayerID, z state.Zone) []state.ObjID {
 		from = k
 	}
 	for _, id := range cur[from:] {
-		if objectStaticHot(e.G.Obj(id), z) {
+		// objectStaticHot through the object's cached class
+		// (walk_objclass.go; verify mode recomputes both).
+		if e.walkClassOf(id).staticHot(z) {
 			hot = append(hot, id)
 		}
 	}

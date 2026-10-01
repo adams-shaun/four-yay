@@ -53,7 +53,13 @@ type engineScratch struct {
 	// (rules/walkcache.go). Pure per-walk scratch: Clone copies none of it.
 	boardStaticsCache  boardStaticsCache
 	activeStaticsCache []activeStaticsEntry
-	mayPlaysCache      []mayPlaysEntry
+	// activeStaticsScan records the lists the last fused activeStatics scan
+	// walked (static_scan_reuse.go). Pure scratch: Clone copies none.
+	activeStaticsScan staticScanRec
+	// boardScanBuf is the printed board scan's gathered zone lists
+	// (static_scan_reuse.go: gatherBoardScan). Pure scratch.
+	boardScanBuf  []boardScanList
+	mayPlaysCache []mayPlaysEntry
 	// paymentPlanQuery is the payment planner's per-query scratch (the
 	// zone-entry index and source census, rules/payment_plan_search.go),
 	// installed for one query and validated against the log on every read.

@@ -138,6 +138,13 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	// The offer walk's scratch lists come from the Spare (a spent engine's,
 	// cleared); a zero Spare leaves them nil, as Clone always has.
 	c.legalOptBuf, c.manaAbBuf = sp.legalOpts, sp.manaAb
+	// The offer walk's object classes (walk_objclass.go) are exact as of
+	// the static catch-up's watermark; the clone's log is a copy of this
+	// one, so it carries both and catches up the rest itself.
+	if e.walkClsOwner == e && len(e.walkObjCls) != 0 {
+		c.walkObjCls, c.walkClsOwner = append(sp.walkCls[:0], e.walkObjCls...), c
+		c.staticZonesEp = e.staticZonesEp
+	}
 	c.orderedTriggers = e.orderedTriggers
 	c.applyingReplacement = e.applyingReplacement
 	c.choosing = e.choosing

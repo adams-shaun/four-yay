@@ -62,6 +62,8 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "derivedPTFrames"}:      true,
 	{"rules.Engine", "boardStaticsCache"}:    true,
 	{"rules.Engine", "activeStaticsCache"}:   true,
+	{"rules.Engine", "activeStaticsScan"}:    true,
+	{"rules.Engine", "boardScanBuf"}:         true,
 	{"rules.Engine", "mayPlaysCache"}:        true,
 	// The posed decision's shared potential walk (potential_walk_cache.go):
 	// keyed by an ask serial and the log; Clone copies none.
@@ -164,7 +166,9 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "staticZonesEp"}: true,
 	// The offer walk's object class cache (walk_objclass.go), kept by the
 	// same catch-up.
-	{"rules.Engine", "walkObjCls"}: true,
+	{"rules.Engine", "walkObjCls"}:     true,
+	{"rules.Engine", "walkClsOwner"}:   true,
+	{"rules.Engine", "staticTouchGen"}: true,
 	// The payment-plan interference carrier memo (payment_plan_interference.go),
 	// keyed by object-arena size and log length; Clone copies none.
 	{"rules.Engine", "paymentPlanCarriers"}:       true,
