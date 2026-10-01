@@ -438,6 +438,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	c.trigZones, c.trigZonesEp = copyTrigZones(sp.trigZones, e.trigZones), e.trigZonesEp
 	c.replZones, c.replZonesEp = copyReplZones(sp.replZones, e.replZones), e.replZonesEp
 	c.activeBuf, c.activeBufAlt = sp.activeBuf, sp.activeBufAlt
+	c.activeSrc = sp.activeSrc
 	if e.triggerContexts != nil {
 		c.triggerContexts = make(map[state.ObjID]effects.TriggerContext, len(e.triggerContexts))
 		for id, tc := range e.triggerContexts {

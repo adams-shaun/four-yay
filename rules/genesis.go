@@ -84,6 +84,7 @@ type Spare struct {
 	trigZones               []trigZoneSummary
 	replZones               []replZoneSummary
 	activeBuf, activeBufAlt []ContinuousEffect
+	activeSrc               []*ContinuousEffect
 	pending                 []pendingTrigger
 }
 
@@ -155,6 +156,7 @@ func (e *Engine) Release() Spare {
 	sp.trigZones, sp.replZones, e.trigZones, e.replZones = e.trigZones[:0], e.replZones[:0], nil, nil
 	sp.activeBuf, sp.activeBufAlt = clearedEffects(e.activeBuf), clearedEffects(e.activeBufAlt)
 	e.activeBuf, e.activeBufAlt = nil, nil
+	sp.activeSrc, e.activeSrc = e.activeSrc[:0], nil
 	sp.pending = e.pendingTriggers[:cap(e.pendingTriggers)]
 	clear(sp.pending)
 	sp.pending, e.pendingTriggers = sp.pending[:0], nil
