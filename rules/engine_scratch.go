@@ -59,6 +59,19 @@ type engineScratch struct {
 	// installed for one query and validated against the log on every read.
 	// Pure per-query scratch: Clone copies none of it.
 	paymentPlanQuery *paymentPlanQuery
+	// paymentPlanQueryKept / paymentPlanQueryKeptStamp are the offer
+	// builder's query scope kept at its posed decision for the decision's
+	// other pure payment readers (paymentPlanQueryResumeBegin). Pure scratch:
+	// Clone copies none of it.
+	paymentPlanQueryKept      *paymentPlanQuery
+	paymentPlanQueryKeptStamp potentialStamp
+	// paymentPlanQueryFree is the last finished query scope, reset and
+	// reused by the next (paymentPlanQueryBegin). Clone copies none.
+	paymentPlanQueryFree *paymentPlanQuery
+	// zoneEntry is the incremental zone-entry index paymentSourceZoneSeq
+	// reads (payment_zone_entry.go), validated against the log on every
+	// read. Pure scratch over the log: Clone copies none of it.
+	zoneEntry zoneEntryIndex
 	// paymentPlanRelaxed is PotentialPaymentPlans' transient proof mode
 	// (rules/potential_plan.go paymentPlanRelaxProof): relaxed, never
 	// executed alternatives for the mana abilities the planner census does
@@ -90,6 +103,25 @@ type engineScratch struct {
 	// the potential readers use while PotentialMana adds nothing to the pool
 	// (potential_walk_cache.go). Clone copies none.
 	priorityWalk priorityWalkTail
+	// walkRec is the priority walk's pool-independent block record and
+	// walkReuse the record armed for the next potential walk
+	// (walk_block_reuse.go). Clone copies none.
+	walkRec   walkBlockRec
+	walkReuse *walkBlockRec
+	// walkRecDemand: the payment offer builder has run on this engine, so
+	// its potential walk follows priority walks and they record
+	// (walk_block_reuse.go). Clone copies none.
+	walkRecDemand bool
+	// potentialManaRec is the record armed for the next PotentialMana's
+	// membership walk (walk_block_reuse.go potentialMembers). Clone copies
+	// none.
+	potentialManaRec *walkBlockRec
+	// walkBlocksServed counts the blocks a potential walk served from the
+	// record (a test-visible diagnostic, like legalActionWalks).
+	walkBlocksServed uint64
+	// walkMembersServed counts PotentialMana membership lists served from
+	// the record (the same kind of diagnostic).
+	walkMembersServed uint64
 	// graveCandBuf is the offer walk's graveyard-candidate scratch
 	// (legal_walk_grave_skip.go), taken for the section. Not cloned.
 	graveCandBuf []state.ObjID

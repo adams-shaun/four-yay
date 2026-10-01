@@ -355,7 +355,9 @@ func PaymentActionID(version uint32, seq uint64, player state.PlayerID, cast Pla
 	if err := validateVersionAndCast(version, cast); err != nil {
 		return "", err
 	}
-	b := canonicalPaymentPrefix("gorge.payment-action.v1", version, seq, player, cast)
+	// The encoding is built in a stack buffer (hashed, never retained).
+	var buf [paymentIDBuf]byte
+	b := canonicalPaymentPrefixInto(buf[:0], "gorge.payment-action.v1", version, seq, player, cast)
 	s := sha256.Sum256(b)
 	return hex.EncodeToString(s[:]), nil
 }
@@ -367,7 +369,10 @@ func PaymentPlanID(seq uint64, player state.PlayerID, cast PlannedCast, plan Pay
 	if err := plan.validateShape(); err != nil {
 		return "", err
 	}
-	b := canonicalPaymentPrefix("gorge.payment-plan.v1", plan.Version, seq, player, cast)
+	// The encoding is built in a stack buffer (hashed, never retained);
+	// a plan too long for it grows onto the heap as before.
+	var buf [paymentIDBuf]byte
+	b := canonicalPaymentPrefixInto(buf[:0], "gorge.payment-plan.v1", plan.Version, seq, player, cast)
 	b = appendPaymentPlanCanonical(b, plan)
 	s := sha256.Sum256(b)
 	return hex.EncodeToString(s[:]), nil
@@ -399,15 +404,17 @@ func (p PaymentPlan) validateShape() error {
 	if err := p.PoolAfter.validate(); err != nil {
 		return fmt.Errorf("payment pool after: %w", err)
 	}
-	seen := make(map[state.ObjID]struct{}, len(p.Activations))
 	for i, a := range p.Activations {
 		if a.Source == 0 {
 			return fmt.Errorf("payment activation %d has no source", i)
 		}
-		if _, ok := seen[a.Source]; ok {
-			return fmt.Errorf("payment activation %d reuses source %d", i, a.Source)
+		// At most MaxPaymentActivations steps: a scan of the earlier ones
+		// replaces a set.
+		for _, prev := range p.Activations[:i] {
+			if prev.Source == a.Source {
+				return fmt.Errorf("payment activation %d reuses source %d", i, a.Source)
+			}
 		}
-		seen[a.Source] = struct{}{}
 		if err := a.Ability.validate(); err != nil {
 			return fmt.Errorf("payment activation %d: %w", i, err)
 		}
@@ -458,8 +465,11 @@ func (a PaymentAbility) validate() error {
 	return nil
 }
 
-func canonicalPaymentPrefix(domain string, version uint32, seq uint64, player state.PlayerID, cast PlannedCast) []byte {
-	b := make([]byte, 0, 96)
+// paymentIDBuf sizes the stack buffer the identity encodings are built in:
+// the prefix plus a dozen activations.
+const paymentIDBuf = 1536
+
+func canonicalPaymentPrefixInto(b []byte, domain string, version uint32, seq uint64, player state.PlayerID, cast PlannedCast) []byte {
 	b = appendString(b, domain)
 	b = appendU32(b, version)
 	b = appendU64(b, seq)

@@ -142,6 +142,13 @@
 //	staticZones/Ep                     static-source-walk zone summaries, validated on every use
 //	paymentPlanCarriers/Objs/Events/   payment-plan interference carrier memo keyed by the
 //	Valid                              object-arena size and log length; Clone copies none
+//	paymentPlanQueryKept/KeptStamp/    the payment planner's kept and recycled query scopes and
+//	Free, zoneEntry                    the incremental zone-entry index: caches of G and the
+//	                                   log, validated on every use; Clone copies none
+//	walkRec, walkReuse, walkRecDemand, the priority walk's pool-independent block record for the
+//	potentialManaRec, walkBlocks/      potential walk and PotentialMana (keyed like
+//	MembersServed                      priorityWalk) and its served diagnostic counters; Clone
+//	                                   copies none
 //	legalOptBuf, manaAbBuf, manaLabels, reused scratch buffers
 //	intentBuf, sbaIDBuf, foreachBuf,
 //	graveCandBuf, hypSpares

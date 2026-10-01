@@ -16,14 +16,32 @@ import (
 // sections must hit the same instance, so a face probe can never leave a
 // later reader with a stale probed-face collection (faceprobe.go).
 type legalWalk struct {
-	e             *Engine
-	p             state.PlayerID
-	hyp           *state.Mana
+	e   *Engine
+	p   state.PlayerID
+	hyp *state.Mana // read only through pricing
+	// gates counts the walk's reads of its pricing pool (pricing): the
+	// block reuse below (walk_block_reuse.go) treats a block that read none
+	// as independent of the pool.
+	gates         int
 	castsOnly     bool
 	sorcery       bool
 	out           []decision.Option
 	costStatics   costStaticSource
 	actionStatics actionStaticSource
+	// rec records this walk's pool-independent blocks (a priority walk);
+	// reuse serves them to a potential walk at the same state
+	// (walk_block_reuse.go). At most one is set.
+	rec         *walkBlockRec
+	reuse       *walkBlockRec
+	reuseCursor int
+}
+
+// pricing is the walk's pricing pool: nil for the ordinary real-pool offer
+// walk, the hypothetical bound for a potential walk. Every read of it is a
+// mana-pricing gate and is counted (gates).
+func (w *legalWalk) pricing() *state.Mana {
+	w.gates++
+	return w.hyp
 }
 
 // add appends one option to the walk scratch list with the running Index.
@@ -47,7 +65,7 @@ func (w *legalWalk) abilityRestricted(p state.PlayerID, id state.ObjID, ab *card
 }
 
 func (w *legalWalk) offerCastable(p state.PlayerID, id state.ObjID, base Cost, scope costScope, ability bool) bool {
-	return w.e.offerCastableUsing(w.costStatics.get(), p, id, base, scope, ability, w.hyp)
+	return w.e.offerCastableUsing(w.costStatics.get(), p, id, base, scope, ability, w.pricing())
 }
 
 // offerCastableAsFace is offerCastable for an alternate-face cast route
@@ -62,6 +80,7 @@ func (w *legalWalk) offerCastable(p state.PlayerID, id state.ObjID, base Cost, s
 // only when either face carries a cost-modifier static of its own.
 func (w *legalWalk) offerCastableAsFace(p state.PlayerID, id state.ObjID, face *cards.Face, base Cost, scope costScope) bool {
 	statics := w.costStatics.get()
+	hyp := w.pricing()
 	var cur *cards.Face
 	if o := w.e.G.Obj(id); o != nil {
 		cur = o.Face()
@@ -70,7 +89,7 @@ func (w *legalWalk) offerCastableAsFace(p state.PlayerID, id state.ObjID, face *
 		if faceHasCostStatics(cur) || faceHasCostStatics(face) {
 			statics = w.e.collectCostStatics()
 		}
-		return w.e.offerCastableUsing(statics, p, id, base, scope, false, w.hyp)
+		return w.e.offerCastableUsing(statics, p, id, base, scope, false, hyp)
 	})
 }
 
@@ -104,10 +123,11 @@ func (w *legalWalk) castRestrictedAsFace(p state.PlayerID, id state.ObjID, face 
 // owns); hyp==nil is the ordinary castable, hyp!=nil prices the same
 // composed cost against the hypothetical pool.
 func (w *legalWalk) affordable(q state.PlayerID, id state.ObjID, c Cost, ability bool) bool {
-	if w.hyp == nil {
+	hyp := w.pricing()
+	if hyp == nil {
 		return w.e.castable(q, id, c, ability)
 	}
-	return w.e.castablePriced(q, id, c, ability, *w.hyp)
+	return w.e.castablePriced(q, id, c, ability, *hyp)
 }
 
 func (w *legalWalk) offerCostFor(p state.PlayerID, id state.ObjID, base Cost, scope costScope) Cost {

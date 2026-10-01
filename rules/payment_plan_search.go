@@ -176,6 +176,9 @@ func (b paymentPlanBoundStats) merge(o paymentPlanBoundStats) paymentPlanBoundSt
 
 // paymentPlanSearch is one phase's search state.
 type paymentPlanSearch struct {
+	// sc is the working storage the search was drawn from
+	// (searchPaymentPlanInto); materialize builds its witness steps there.
+	sc      *paymentPlanSearchScratch
 	cost    Cost
 	pool    state.Mana
 	life    int32
@@ -258,6 +261,14 @@ type paymentPlanSearchScratch struct {
 	counts     [][]int32
 	countsFlat []int32
 	used       []int32
+	// materialize's working storage: the witness steps (read by the
+	// caller's witness and rank builders, which copy them, before the next
+	// materialize), the owed counts and the per-class cursors.
+	chosen      []plannedManaActivation
+	owed        []int32
+	owedAltFlat []int32
+	owedAlt     [][]int32
+	next        []int
 }
 
 // searchPaymentPlanInto is searchPaymentPlan with its working storage drawn
@@ -270,7 +281,7 @@ func searchPaymentPlanInto(sc *paymentPlanSearchScratch, cost Cost, pool state.M
 	// The search struct itself is the scratch's too: the caller reads only
 	// its result fields before the next search starts.
 	s := &sc.search
-	*s = paymentPlanSearch{cost: cost, pool: pool, life: life, ctx: ctx, choices: choices, classes: classes}
+	*s = paymentPlanSearch{sc: sc, cost: cost, pool: pool, life: life, ctx: ctx, choices: choices, classes: classes}
 	s.order(sc)
 	total := 0
 	for k := range s.classes {
@@ -634,13 +645,22 @@ func (s *paymentPlanSearch) complete() bool {
 // choice at each position is forced and the result is the least witness of
 // this count vector.
 func (s *paymentPlanSearch) materialize() []plannedManaActivation {
-	out := make([]plannedManaActivation, 0, s.sources)
-	owed := slices.Clone(s.used)
-	owedAlt := make([][]int32, len(s.counts))
+	sc := s.sc
+	out := slices.Grow(sc.chosen[:0], s.sources)
+	owed := append(sc.owed[:0], s.used...)
+	flat := sc.owedAltFlat[:0]
 	for k := range s.counts {
-		owedAlt[k] = slices.Clone(s.counts[k])
+		flat = append(flat, s.counts[k]...)
 	}
-	next := make([]int, len(s.classes)) // first member after the last step
+	owedAlt := resizeCleared(sc.owedAlt, len(s.counts))
+	at := 0
+	for k := range s.counts {
+		n := len(s.counts[k])
+		owedAlt[k] = flat[at : at+n : at+n]
+		at += n
+	}
+	next := resizeCleared(sc.next, len(s.classes)) // first member after the last step
+
 	// limit(k) is the latest unit position class k's next step may take and
 	// still leave owed[k]-1 later members; another class's step must come
 	// strictly before it.
@@ -702,106 +722,10 @@ func (s *paymentPlanSearch) materialize() []plannedManaActivation {
 			}
 		}
 	}
+	// The arrays are kept for the next witness; out is read (and copied) by
+	// the caller before then.
+	sc.chosen, sc.owed, sc.owedAltFlat, sc.owedAlt, sc.next = out[:0], owed[:0], flat[:0], owedAlt[:0], next[:0]
 	return out
-}
-
-// ---------------------------------------------------------------------------
-// Zone-entry index (spec 5 amended: source_zone_seq from one index per query).
-
-// paymentZoneSeqIndex answers paymentSourceZoneSeq for every object that was
-// on the battlefield when it was built, from ONE backward pass over the log
-// instead of one pass per alternative. Each object's answer is found with the
-// scan's own predicate (the latest MoveZone into the object's current zone,
-// or on the battlefield a TokenCreate naming it), so it is exactly the scan's
-// answer; an object outside the indexed set, or any read after the log or
-// the object's zone changed, falls back to the scan. The pass runs lazily, on
-// the query's first read, so a query that reads no source never pays for it.
-type paymentZoneSeqIndex struct {
-	log   []events.Event
-	built bool
-	ans   []paymentZoneSeqAnswer // indexed by ObjID
-}
-
-type paymentZoneSeqAnswer struct {
-	zone    state.Zone
-	indexed bool
-	seq     uint64
-}
-
-// newPaymentZoneSeqIndex returns an index over e's current log; its pass
-// runs on the first lookup.
-func (e *Engine) newPaymentZoneSeqIndex() *paymentZoneSeqIndex {
-	return &paymentZoneSeqIndex{log: e.L.Events}
-}
-
-// buildPaymentZoneSeqIndex returns an index with its pass already run.
-func (e *Engine) buildPaymentZoneSeqIndex() *paymentZoneSeqIndex {
-	x := e.newPaymentZoneSeqIndex()
-	x.build(e)
-	return x
-}
-
-func (x *paymentZoneSeqIndex) build(e *Engine) {
-	x.built = true
-	n := len(e.G.Objs)
-	// The answer and resolved arrays come from e's scratch (hypclone.go):
-	// at most one index over e's log is valid at a time (a scope is made
-	// only when the enclosing one went stale, and the log only grows), and
-	// a stale index never reads its answers (lookup checks valid first), so
-	// a newer index may take over the arrays a stale one was built in.
-	pl := e.hypPool()
-	pl.zoneSeqAns = resizeCleared(pl.zoneSeqAns, n+1)
-	pl.zoneSeqResolved = resizeCleared(pl.zoneSeqResolved, n+1)
-	x.ans = pl.zoneSeqAns
-	resolved := pl.zoneSeqResolved
-	pending := 0
-	for _, pl := range e.G.Players {
-		for _, id := range e.G.Zone(state.ZBattlefield, pl.ID) {
-			if o := e.G.Obj(id); o != nil && !x.ans[id].indexed {
-				x.ans[id] = paymentZoneSeqAnswer{zone: o.Zone, indexed: true, seq: decision.GenesisZoneSeq}
-				pending++
-			}
-		}
-	}
-	for i := len(x.log) - 1; i >= 0 && pending > 0; i-- {
-		ev := &x.log[i]
-		if ev.Obj == 0 || int(ev.Obj) > n || resolved[ev.Obj] || !x.ans[ev.Obj].indexed {
-			continue
-		}
-		a := &x.ans[ev.Obj]
-		if ev.Kind == events.MoveZone && ev.To == a.zone || ev.Kind == events.TokenCreate && a.zone == state.ZBattlefield {
-			a.seq = ev.Seq
-			resolved[ev.Obj] = true
-			pending--
-		}
-	}
-}
-
-// valid reports whether the index still describes e's log.
-func (x *paymentZoneSeqIndex) valid(e *Engine) bool {
-	if x == nil {
-		return false
-	}
-	n := len(e.L.Events)
-	return n == len(x.log) && (n == 0 || &e.L.Events[0] == &x.log[0])
-}
-
-func (x *paymentZoneSeqIndex) lookup(e *Engine, id state.ObjID) uint64 {
-	o := e.G.Obj(id)
-	if o == nil {
-		return decision.GenesisZoneSeq
-	}
-	if x.valid(e) {
-		if !x.built {
-			x.build(e)
-		}
-		if int(id) < len(x.ans) {
-			if a := x.ans[id]; a.indexed && a.zone == o.Zone {
-				return a.seq
-			}
-		}
-	}
-	return e.paymentSourceZoneSeqScan(id)
 }
 
 // paymentPlanQuery is the per-query scratch of one planner query, or of one
@@ -812,10 +736,25 @@ func (x *paymentZoneSeqIndex) lookup(e *Engine, id state.ObjID) uint64 {
 // installed for the query's duration and every read checks it still
 // describes the engine's log; Clone copies none of it.
 type paymentPlanQuery struct {
-	zoneSeqs *paymentZoneSeqIndex
-	units    map[state.PlayerID][]windowManaUnit
-	alts     map[state.ObjID][]plannedManaActivation
-	classes  map[paymentPlanClassesKey][]paymentPlanClass
+	// logLen / logBase pin the log the scope describes (valid).
+	logLen  int
+	logBase *events.Event
+	// payer is the player a kept scope was built for
+	// (paymentPlanQueryKeep).
+	payer state.PlayerID
+	// owner is the engine that made the scope (paymentPlanQueryBegin's
+	// recycling never takes another engine's).
+	owner   *Engine
+	units   map[state.PlayerID][]windowManaUnit
+	alts    map[state.ObjID][]plannedManaActivation
+	classes map[paymentPlanClassesKey][]paymentPlanClass
+	// altArena backs alts' lists.
+	altArena []plannedManaActivation
+	// plans memoises plain-cost planner outcomes (planPaymentCost).
+	plans []paymentPlanCostMemo
+	// installs counts the scope's current installations (Begin, Resume);
+	// only an uninstalled scope is recycled.
+	installs int
 	// spendReaderOut caches paymentPlanBoardSpendReaderOut: 0 unread, 1
 	// false, 2 true.
 	spendReaderOut uint8
@@ -851,18 +790,119 @@ type paymentPlanClassesKey struct {
 }
 
 func (q *paymentPlanQuery) valid(e *Engine) bool {
-	return q != nil && q.zoneSeqs.valid(e)
+	if q == nil || len(e.L.Events) != q.logLen {
+		return false
+	}
+	return q.logLen == 0 || &e.L.Events[0] == q.logBase
 }
 
-// paymentPlanQueryScope installs a query scope and returns the function that
-// removes it. A still-valid enclosing scope is reused.
-func (e *Engine) paymentPlanQueryScope() func() {
+// paymentQueryTok is one paymentPlanQueryBegin's undo: the scope it
+// installed (nil when an enclosing valid scope was reused) and the one it
+// replaced. End hands a scope installed nowhere else and not kept back to
+// the engine's free slot (paymentPlanQueryRecycle).
+type paymentQueryTok struct {
+	q, prev *paymentPlanQuery
+}
+
+// paymentPlanQueryBegin installs a query scope -- a still-valid enclosing
+// scope is reused -- and returns its undo for paymentPlanQueryEnd, without
+// a closure:
+//
+//	defer e.paymentPlanQueryEnd(e.paymentPlanQueryBegin())
+//
+// A scope is pure per-query cache; the one a finished query leaves is reset
+// and reused by the next (paymentPlanQueryFree), never while installed,
+// kept, or owned by another engine (a by-value Engine copy).
+func (e *Engine) paymentPlanQueryBegin() paymentQueryTok {
 	if e.paymentPlanQuery.valid(e) {
-		return func() {}
+		return paymentQueryTok{}
 	}
-	prev := e.paymentPlanQuery
-	e.paymentPlanQuery = &paymentPlanQuery{zoneSeqs: e.newPaymentZoneSeqIndex()}
-	return func() { e.paymentPlanQuery = prev }
+	q := e.paymentPlanQueryFree
+	if q != nil && q.owner == e {
+		e.paymentPlanQueryFree = nil
+		units, alts, classes, arena, plans := q.units, q.alts, q.classes, q.altArena, q.plans
+		clear(units)
+		clear(alts)
+		clear(classes)
+		clear(arena)
+		clear(plans)
+		*q = paymentPlanQuery{owner: e, units: units, alts: alts, classes: classes, altArena: arena[:0], plans: plans[:0]}
+	} else {
+		q = &paymentPlanQuery{owner: e}
+	}
+	q.logLen = len(e.L.Events)
+	if q.logLen > 0 {
+		q.logBase = &e.L.Events[0]
+	}
+	q.installs = 1
+	t := paymentQueryTok{q: q, prev: e.paymentPlanQuery}
+	e.paymentPlanQuery = q
+	return t
+}
+
+// paymentPlanQueryEnd undoes one paymentPlanQueryBegin (or
+// paymentPlanQueryResumeBegin).
+func (e *Engine) paymentPlanQueryEnd(t paymentQueryTok) {
+	if t.q == nil {
+		return
+	}
+	e.paymentPlanQuery = t.prev
+	t.q.installs--
+	if t.q != e.paymentPlanQueryKept {
+		e.paymentPlanQueryRecycle(t.q)
+	}
+}
+
+// paymentPlanQueryRecycle hands a finished scope to the free slot: one this
+// engine made, installed nowhere (installs 0) and not kept.
+func (e *Engine) paymentPlanQueryRecycle(q *paymentPlanQuery) {
+	if q != nil && q.owner == e && q.installs == 0 && q != e.paymentPlanQueryKept {
+		e.paymentPlanQueryFree = q
+	}
+}
+
+// paymentPlanQueryResumeBegin is paymentPlanQueryBegin for a pure reader of p's
+// posed priority decision (PotentialPaymentPlans, ValidateCastPayment under
+// Submit's validation): when the offer builder's own query scope for p was
+// kept at this exact decision state (paymentPlanQueryKeep), it is
+// reinstalled, so its source census, alternatives, classes and board
+// verdicts -- each a pure read of the board the builder read -- are served
+// instead of recomputed. The kept scope is keyed like the potential walk
+// cache (potentialStamp: the posed decision, the log length, the registry
+// version, the arena size, active()'s rebuild count and p's own pool and
+// turn stamp) and is reused only at a top-level read of the posed decision
+// (potentialWalkUsable); verify mode (walkCacheVerify) recomputes every
+// cached census, alternative list and class grouping on each hit.
+func (e *Engine) paymentPlanQueryResumeBegin(p state.PlayerID) paymentQueryTok {
+	if e.paymentPlanQuery.valid(e) {
+		return paymentQueryTok{}
+	}
+	k := e.paymentPlanQueryKept
+	if k == nil || k.payer != p || !e.potentialWalkUsable() || !k.valid(e) || e.paymentPlanQueryKeptStamp != e.potentialStampNow(p) {
+		return e.paymentPlanQueryBegin()
+	}
+	k.installs++
+	t := paymentQueryTok{q: k, prev: e.paymentPlanQuery}
+	e.paymentPlanQuery = k
+	return t
+}
+
+// paymentPlanQueryKeep records the installed query scope as p's kept scope
+// at the posed decision (paymentPlanQueryResumeBegin), when the read is a
+// top-level read of a posed priority decision.
+func (e *Engine) paymentPlanQueryKeep(p state.PlayerID) {
+	q := e.paymentPlanQuery
+	if !q.valid(e) || !e.potentialWalkUsable() {
+		return
+	}
+	q.payer = p
+	old := e.paymentPlanQueryKept
+	e.paymentPlanQueryKept = q
+	e.paymentPlanQueryKeptStamp = e.potentialStampNow(p)
+	// The replaced kept scope is finished unless it is still installed.
+	if old != q {
+		e.paymentPlanQueryRecycle(old)
+	}
 }
 
 // paymentPlanQueryUnits is paymentPlanManaUnits, computed once per query
@@ -900,7 +940,10 @@ func (e *Engine) paymentPlanQueryAlternatives(u windowManaUnit) []plannedManaAct
 		}
 		return alts
 	}
-	alts := e.paymentPlanUnitAlternatives(u)
+	// The scope's alternatives share one arena, reset when the scope is
+	// recycled (paymentPlanQueryBegin): no alternative outlives its scope.
+	var alts []plannedManaActivation
+	q.altArena, alts = e.appendUnitAlternatives(q.altArena, u)
 	if q.alts == nil {
 		q.alts = map[state.ObjID][]plannedManaActivation{}
 	}
@@ -943,14 +986,7 @@ func paymentPlanClassMembers(classes []paymentPlanClass) [][]int {
 }
 
 // paymentPlanSameAlternative compares two computations of one alternative.
-// A choice-shaped exec is a fresh withProduced copy per computation, derived
-// from ma and the recorded production (both compared), so exec itself is
-// compared only for presence.
 func paymentPlanSameAlternative(a, b plannedManaActivation) bool {
-	if (a.exec == nil) != (b.exec == nil) {
-		return false
-	}
-	a.exec, b.exec = nil, nil
 	return a == b
 }
 

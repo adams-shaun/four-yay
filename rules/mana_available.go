@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
@@ -226,33 +227,70 @@ type windowManaUnit struct {
 // permanent -- O(permanents^2) per call on a token board otherwise (cardfuzz
 // seed 6181111140895991800).
 func (e *Engine) windowManaUnits(p state.PlayerID) []windowManaUnit {
+	return e.windowManaUnitsOnly(p, nil)
+}
+
+// windowManaUnitsOnly is windowManaUnits restricted to the sources in only
+// (nil: every source): each source's unit is computed from that source
+// alone, so the restricted census is exactly the full census's units for
+// those sources, in the same order.
+func (e *Engine) windowManaUnitsOnly(p state.PlayerID, only []state.ObjID) []windowManaUnit {
+	return e.windowManaUnitsWith(p, only, nil)
+}
+
+// windowManaUnitsWith is windowManaUnitsOnly with p's own battlefield
+// sources' payment-window abilities already read: pre[k] is
+// availableManaAbilitiesForWindow(p, id, false) for the k-th object of p's
+// battlefield zone (the first ids the walk visits, appendBattlefieldManaSourceIDs),
+// read at this state by a caller that needs the same lists (the payment
+// planner's census). The list is a pure read of the board, so it is the
+// one this walk would read.
+func (e *Engine) windowManaUnitsWith(p state.PlayerID, only []state.ObjID, pre [][]*cards.SA) []windowManaUnit {
 	e.beginDerivedMemo()
 	defer e.endDerivedMemo()
 	var out []windowManaUnit
+	var flat []windowManaAlt
+	var boundsBuf [64]int32
+	bounds := boundsBuf[:0] // each unit's first alt in flat
 	ids := e.appendBattlefieldManaSourceIDs(e.idsBorrow(), p)
 	defer e.idsRelease(ids)
-	for _, id := range ids {
+	for k, id := range ids {
+		if only != nil && !slices.Contains(only, id) {
+			continue
+		}
 		o := e.G.Obj(id)
 		if o == nil || o.Face() == nil {
 			continue
 		}
-		var free []*cards.SA
-		for _, ma := range e.availableManaAbilitiesForWindow(p, id, false) {
-			if strings.TrimSpace(ma.Params["RestrictValid"]) != "" {
+		var mas []*cards.SA
+		if k < len(pre) {
+			mas = pre[k]
+		} else {
+			mas = e.availableManaAbilitiesForWindow(p, id, false)
+		}
+		// One pass: each free ability counts toward freeCount and, when its
+		// production prices deterministically, becomes the next alt (the
+		// same alts, in the same order, as filtering the free list first).
+		// The alts of every unit share one backing array, cut into capped
+		// spans once the walk is done (a later append to one unit's alts
+		// reallocates instead of writing into the next unit's).
+		start, free := len(flat), 0
+		for _, ma := range mas {
+			// The ability's own text reads come from its configured facts
+			// (manaStaticOf).
+			mf := e.manaStaticOf(ma)
+			if mf.restrictValid {
 				continue
 			}
-			cost := e.parseCost(ma.Params["Cost"])
-			if manaFreeCost(cost) && !activationTapCostUnavailable(o, cost) {
-				free = append(free, ma)
+			if !mf.freeCost || (mf.tap && o.Tapped) || (mf.untap && !o.Tapped) {
+				continue // activationTapCostUnavailable
 			}
-		}
-		var alts []windowManaAlt
-		for _, ma := range free {
-			amt := availableAmount(ma)
+			free++
+			amt := mf.amount
 			if amt <= 0 {
 				continue
 			}
-			counts, any := cards.ProducedCounts(ma.Params["Produced"])
+			counts, any := mf.counts, mf.any
 			total := int32(0)
 			for _, n := range counts {
 				total += n
@@ -265,12 +303,18 @@ func (e *Engine) windowManaUnits(p state.PlayerID) []windowManaUnit {
 			} else if total <= 0 {
 				continue
 			}
-			alts = append(alts, windowManaAlt{ma: ma, counts: counts, amt: amt, any: any})
+			flat = append(flat, windowManaAlt{ma: ma, counts: counts, amt: amt, any: any})
 		}
-		if len(alts) == 0 {
+		if len(flat) == start {
 			continue
 		}
-		out = append(out, windowManaUnit{id: id, freeCount: len(free), alts: alts})
+		out = append(out, windowManaUnit{id: id, freeCount: free})
+		bounds = append(bounds, int32(start))
+	}
+	bounds = append(bounds, int32(len(flat)))
+	for i := range out {
+		s, t := bounds[i], bounds[i+1]
+		out[i].alts = flat[s:t:t]
 	}
 	return out
 }

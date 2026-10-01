@@ -118,7 +118,13 @@ func (e *Engine) paymentPlanHoldsOnStack(p state.PlayerID, id state.ObjID, plan 
 		prevQuery := e.paymentPlanQuery
 		e.paymentPlanQuery = nil
 		defer func() { e.paymentPlanQuery = prevQuery }()
-		units := e.paymentPlanManaUnits(p)
+		// Only the plan's own sources are resolved, so the census is taken
+		// for those alone (exactly the full census's units for them).
+		only := make([]state.ObjID, 0, len(plan.Activations))
+		for _, pa := range plan.Activations {
+			only = append(only, pa.Source)
+		}
+		units := e.paymentPlanManaUnitsOnly(p, only)
 		for _, pa := range plan.Activations {
 			if _, ok := e.paymentPlanStepAlternative(units, pa); !ok {
 				return false

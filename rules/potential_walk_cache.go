@@ -175,7 +175,13 @@ func (e *Engine) potentialWalkOf(p state.PlayerID, full bool) (state.Mana, []dec
 		// PotentialMana adds nothing to the floating pool (see
 		// priorityWalkTail): only the bound needs computing.
 		e.potentialWalkDepth++
+		if e.priorityWalk.blocks {
+			// The recorded priority walk's own-battlefield membership
+			// lists serve PotentialMana's (walk_block_reuse.go).
+			e.potentialManaRec = &e.walkRec
+		}
 		mana = e.PotentialMana(p)
+		e.potentialManaRec = nil
 		e.potentialWalkDepth--
 		if mana == e.G.Players[p].Pool {
 			opts, walkFull, servedTail = tail, true, true
@@ -188,9 +194,24 @@ func (e *Engine) potentialWalkOf(p state.PlayerID, full bool) (state.Mana, []dec
 				}
 			}
 		} else {
+			// The full walk serves the recorded priority walk's
+			// pool-independent blocks (walk_block_reuse.go).
+			reuse := walkFull && e.priorityWalk.blocks
+			if reuse {
+				e.walkReuse = &e.walkRec
+			}
 			e.potentialWalkDepth++
 			opts = e.legalActionsWalkWithWindow(p, &mana, !walkFull, nil, false, e.potentialWalk.spare, true)
 			e.potentialWalkDepth--
+			e.walkReuse = nil
+			if reuse && walkCacheVerify {
+				e.potentialWalkDepth++
+				want := e.legalActionsWalk(p, &mana, false)
+				e.potentialWalkDepth--
+				if !reflect.DeepEqual(want, opts) {
+					panic(fmt.Sprintf("rules: potential walk with reused blocks %+v, the walk is %+v", opts, want))
+				}
+			}
 		}
 	} else {
 		// The replaced entry's own array is reused for the new walk: no
@@ -298,7 +319,7 @@ func (e *Engine) planCastPaymentAtDecision(p state.PlayerID, cast decision.Plann
 // (walkCacheVerify) re-plans every hit with fresh inputs and panics on any
 // difference.
 func (e *Engine) planCastPaymentMemo(p state.PlayerID, cast decision.PlannedCast, statics *costStaticSource, candidates *paymentCastCandidates) PaymentPlanOutcome {
-	if e.paymentPlanRelaxed != nil || e.paymentPlanRelaxedFee != 0 || !paymentPlanPoolOK(e.G.Players[p]) ||
+	if e.paymentPlanRelaxed != nil || e.paymentPlanRelaxedFee != 0 || !paymentPlanPoolOK(&e.G.Players[p]) ||
 		!e.potentialWalkUsable() || !e.potentialWalkHit(p, false) {
 		return e.planCastPaymentChecked(p, cast, statics, candidates)
 	}
@@ -345,12 +366,20 @@ func (e *Engine) planCastPaymentMemo(p state.PlayerID, cast decision.PlannedCast
 type priorityWalkTail struct {
 	stamp potentialStamp
 	opts  []decision.Option
+	// blocks: the walk recorded its pool-independent blocks
+	// (walk_block_reuse.go, e.walkRec).
+	blocks bool
 }
 
 // notePriorityWalk records askPriority's walk for p (taken at log length ep,
 // registry version ver and arena size objs) once its ask posed d.
 func (e *Engine) notePriorityWalk(p state.PlayerID, d *decision.Decision, ep, ver, objs int) {
 	e.priorityWalk = priorityWalkTail{}
+	// A block record is this walk's only if the walk just completed one
+	// (walk_block_reuse.go); it is promoted with the tail or dropped.
+	r := &e.walkRec
+	recorded := r.owner == e && r.done && r.p == p
+	r.done = false
 	if e.pending != d || ver != e.continuousVersion || objs != len(e.G.Objs) || ep > len(e.L.Events) ||
 		!e.potentialWalkUsable() {
 		return
@@ -360,7 +389,7 @@ func (e *Engine) notePriorityWalk(p state.PlayerID, d *decision.Decision, ep, ve
 			return
 		}
 	}
-	e.priorityWalk = priorityWalkTail{stamp: e.potentialStampNow(p), opts: d.Options}
+	e.priorityWalk = priorityWalkTail{stamp: e.potentialStampNow(p), opts: d.Options, blocks: recorded}
 }
 
 // priorityWalkTailFor returns the recorded priority walk's options when they

@@ -91,21 +91,31 @@ func (e *Engine) PotentialPaymentPlans(p state.PlayerID) []PotentialPlan {
 	}
 	e.beginDerivedMemo()
 	defer e.endDerivedMemo()
-	defer e.paymentPlanQueryScope()()
+	defer e.paymentPlanQueryEnd(e.paymentPlanQueryResumeBegin(p))
 	prevPool := e.paymentPlanPotentialPool
 	e.paymentPlanPotentialPool = true
 	defer func() { e.paymentPlanPotentialPool = prevPool }()
 	hyp, opts := e.potentialWalkOf(p, true)
-	type key struct {
-		kind    string
-		obj     state.ObjID
-		ability int
-		mode    string
+	// ambiguous[i]: another potential play shares opts[i]'s (kind, object,
+	// ability, mode) identity. A pairwise scan over the walk's few plays
+	// spares the per-query map.
+	var ambiguousBuf [128]bool
+	ambiguous := ambiguousBuf[:0]
+	if len(opts) <= len(ambiguousBuf) {
+		ambiguous = ambiguousBuf[:len(opts)]
+	} else {
+		ambiguous = make([]bool, len(opts))
 	}
-	seen := map[key]int{} // lookup only
-	for _, o := range opts {
-		if potentialPlayKind(o.Kind) {
-			seen[key{o.Kind, o.Obj, o.Ability, o.Mode}]++
+	for i := range opts {
+		a := &opts[i]
+		if !potentialPlayKind(a.Kind) {
+			continue
+		}
+		for j := i + 1; j < len(opts); j++ {
+			b := &opts[j]
+			if a.Obj == b.Obj && a.Ability == b.Ability && a.Kind == b.Kind && a.Mode == b.Mode {
+				ambiguous[i], ambiguous[j] = true, true
+			}
 		}
 	}
 	poolOK := e.paymentPlanPoolAccepted(p)
@@ -117,7 +127,7 @@ func (e *Engine) PotentialPaymentPlans(p state.PlayerID) []PotentialPlan {
 	scripts := 0      // prefix searches run (potentialScriptPlays bounds them)
 	var census paymentPlanCensus
 	var out []PotentialPlan
-	for _, o := range opts {
+	for oi, o := range opts {
 		if !potentialPlayKind(o.Kind) {
 			continue
 		}
@@ -125,7 +135,7 @@ func (e *Engine) PotentialPaymentPlans(p state.PlayerID) []PotentialPlan {
 		witness := false // the verdict's Plan is the play's witness (not Decision.PaymentActions')
 		verdict := func() PaymentPlanOutcome {
 			switch {
-			case seen[key{o.Kind, o.Obj, o.Ability, o.Mode}] > 1:
+			case ambiguous[oi]:
 				return PaymentPlanOutcome{Reason: "ambiguous"}
 			case !poolOK:
 				return PaymentPlanOutcome{Reason: "unsupported", Detail: "pool"}
@@ -445,7 +455,10 @@ func (e *Engine) potentialWitnessOffers(p state.PlayerID, o decision.Option, pla
 			pool[c] += int32(n)
 		}
 	}
-	opts := e.legalActionsWalkTemp(p, &pool, false)
+	// A cast play is looked up among the walk's cast options only, which
+	// the casts-only walk lists exactly as the full walk does
+	// (castsOnlyWalkVerify), without pricing every battlefield ability.
+	opts := e.legalActionsWalkTemp(p, &pool, o.Kind == "cast")
 	defer e.optRelease(opts)
 	for _, opt := range opts {
 		if opt.Kind == o.Kind && opt.Obj == o.Obj && opt.Ability == o.Ability && opt.Mode == o.Mode && opt.AltCostIndex == o.AltCostIndex {
