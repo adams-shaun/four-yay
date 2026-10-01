@@ -307,6 +307,30 @@ def live_branch_files(repo: Path) -> dict[str, list[str]]:
     integrate the other is collapsed to one representative first, computed
     from the merge commits (`_integrates`); a third branch that genuinely
     collided with the pair is in neither group and stays a second editor.
+
+    A surviving editor that is a pure CARRIER of the surviving set's common
+    ancestor is not a second editor either: an editor E whose blob for the
+    file equals, for every other surviving editor O, the blob at the
+    merge-base of E and O, changed nothing in this file since it forked from
+    O, so it cannot conflict with O whatever the landing order. The
+    identical-blob dedup cannot catch this -- it only drops editors that
+    agree with EACH OTHER, never one that agrees with the common ancestor --
+    and the blob-vs-main filter cannot see it either, because the shared base
+    is typically AHEAD of main. Measured 2026-10-01: `wt/cpu-redeal` and
+    `wt/sbrep-fast` both descend from `wt/perf-tip`, which has no worktree of
+    its own (its tip is shared with differently named worktrees) and is
+    therefore never enumerated as an editor; 8 of the 13 files the pair
+    shared were ones one branch never edited past perf-tip, each reading as a
+    second editor and minting briefs to split files no second uncontrolled
+    branch was editing. The merge-base is computed pairwise (two refs), not
+    with the multi-ref form, which can emit several best common ancestors on
+    criss-cross histories; an empty merge-base (unrelated histories) means
+    E is not a carrier. The carrier is measured against the MAXIMAL
+    survivors, not the raw editor list. If the pass reduces the set to
+    nothing, the original maximal list is kept: that can only mean every
+    editor carries one identical blob, which the dedup below collapses to one
+    anyway -- two editors with different blobs cannot both be pairwise
+    carriers, and a lone surviving editor is never a carrier.
     """
     closed = closed_issue_ids(repo)
     editors: dict[str, list[tuple[str, str, str]]] = collections.defaultdict(list)
@@ -374,6 +398,34 @@ def live_branch_files(repo: Path) -> dict[str, list[str]]:
             if not any(other != ref and _is_ancestor(repo, ref, other)
                        for _, other, _ in collapsed)
         ]
+        # THEN drop a pure CARRIER of the surviving set's common ancestor: an
+        # editor whose blob equals the blob at its pairwise merge-base with
+        # EVERY other surviving editor changed nothing in this file since it
+        # forked from them, so it cannot conflict with any of them whatever
+        # the landing order. The identical-blob dedup below only catches
+        # editors that agree with EACH OTHER, never one that agrees with the
+        # common ancestor (typically an unenumerated integration branch that
+        # is ahead of main, so the blob-vs-main filter above cannot see it
+        # either). The pass runs on the MAXIMAL survivors, never drops the
+        # only editor, and an empty reduction keeps the original list -- that
+        # can only mean every editor carries one identical blob, which the
+        # dedup below collapses to one anyway. See the docstring for the
+        # measured 2026-10-01 live-repo case.
+        if len(maximal) > 1:
+            non_carriers = []
+            for name, ref, blob in maximal:
+                carrier = True
+                for _, other, _ in maximal:
+                    if other == ref:
+                        continue
+                    mb = git(repo, "merge-base", ref, other).strip()
+                    if not mb or blob != _tree_blobs(repo, mb, [f]).get(f, ""):
+                        carrier = False
+                        break
+                if not carrier:
+                    non_carriers.append((name, ref, blob))
+            if non_carriers:
+                maximal = non_carriers
         # THEN dedup distinct branches that contribute identical content: two
         # unrelated branches with the same blob cannot conflict. They survive
         # the ancestry pass, so the representative the dedup keeps is always a
@@ -1600,16 +1652,22 @@ def selftest() -> int:
 
         # An ancestor and its descendant that contribute the IDENTICAL blob,
         # plus a branch that descends from the ancestor with a DIFFERENT blob:
-        # the shape where the dedup and the maximal-editor pass fight.
         # wt/blob-a <= wt/blob-b share one blob for blob.txt; wt/blob-c descends
-        # from wt/blob-a carrying a different blob. So blob-a is NON-maximal
-        # (it contains both blob-b and blob-c), but blob-b and blob-c are
-        # unrelated and genuinely collide. The maximal-editor pass must run
-        # first so blob-b survives as its blob's representative (blob-a, its
-        # ancestor, is dropped) and the file reports two editors. With the
-        # dedup first the representative is blob-a, blob-b is discarded, the
-        # ancestry pass then drops blob-a as non-maximal, and the file reports a
-        # single editor and no hot spot -- the false negative this guards.
+        # from wt/blob-a carrying a different blob. blob-a is NON-maximal (it
+        # contains both blob-b and blob-c) and the maximal-editor pass drops it
+        # so blob-b and blob-c survive as its blob's representatives. But
+        # blob-b never edited blob.txt (it committed only marker.txt), so it is
+        # a pure CARRIER of blob-a's blob -- the pairwise merge-base with
+        # blob-c is blob-a, where blob.txt still holds blob-b's exact blob --
+        # and the carrier pass drops it as well: blob-b cannot conflict with
+        # blob-c in either landing order, so the correct reading is one editor
+        # (blob-c). The carrier rule subsumes the maximal-before-dedup ordering
+        # concern FOR THIS CARRIER SHAPE (blob-b is dropped after the maximal
+        # pass, never before it), and the ordering pass stays in place; the
+        # blob-d/blob-e variant further below keeps a live ordering guard the
+        # carrier pass cannot satisfy. The fixture was originally added by
+        # d506db046 as the proof of the maximal-before-dedup ordering fix,
+        # demonstrated with a blob-b that is in fact a carrier.
         wba = Path(td) / "hot-blob-a"
         hrun("worktree", "add", "-q", "-b", "wt/blob-a", str(wba), base)
         (wba / "blob.txt").write_text("same\n")
@@ -1648,11 +1706,127 @@ def selftest() -> int:
               all("blob.txt" in git(hr, "diff", "--name-only", "main...wt/blob-%s" % s).split()
                   for s in "abc"))
         deduped = live_branch_files(hr)
-        check("an identical-blob ancestor does not hide its descendant",
-              sorted(deduped.get("blob.txt", [])) == ["blob-b", "blob-c"],
+        check("a pure carrier of the shared base is not a second editor",
+              sorted(deduped.get("blob.txt", [])) == ["blob-c"],
               deduped.get("blob.txt"))
-        check("the identical-blob ancestor plus descendant is a hot spot",
+        check("a lone surviving editor is not a hot spot",
+              not any(f == "blob.txt" for f, _ in hotspots(hr)), hotspots(hr))
+
+        # Variant: a genuine second editor the carrier pass must NOT swallow.
+        # wt/blob-b2 also descends from wt/blob-a but CHANGES blob.txt to a
+        # different blob, as blob-c already did -- neither is a carrier of the
+        # common ancestor's blob, so both count and the file is a hot spot.
+        wbb2 = Path(td) / "hot-blob-b2"
+        hrun("worktree", "add", "-q", "-b", "wt/blob-b2", str(wbb2), "wt/blob-a")
+        (wbb2 / "blob.txt").write_text("same2\n")
+        subprocess.run(["git", "-C", str(wbb2), "add", "blob.txt"], capture_output=True)
+        hcommit(wbb2, "blob b2, a genuine second editor")
+        b2_blob = hrun("rev-parse", "wt/blob-b2:blob.txt").stdout.strip()
+        check("precondition: blob-b2 descends from blob-a with a different blob",
+              hrun("merge-base", "--is-ancestor", "wt/blob-a", "wt/blob-b2").returncode == 0
+              and b2_blob not in (a_blob, c_blob) and b2_blob,
+              (a_blob, b2_blob, c_blob))
+        deduped2 = live_branch_files(hr)
+        check("the carrier pass does not swallow a genuine editor",
+              sorted(deduped2.get("blob.txt", [])) == ["blob-b2", "blob-c"],
+              deduped2.get("blob.txt"))
+        check("two genuine editors are still a hot spot",
               any(f == "blob.txt" for f, _ in hotspots(hr)), hotspots(hr))
+
+        # Variant: the maximal-before-dedup ordering still needs its own guard,
+        # one the carrier pass CANNOT provide. wt/blob-d forks from base (a
+        # line unrelated to blob-a's) and adds the SAME blob.txt blob as
+        # blob-a; wt/blob-e descends from blob-a with yet another blob. blob-a
+        # is non-maximal (ancestor of blob-e), so with the dedup FIRST the
+        # representative of the shared blob is blob-a, blob-d is dropped as its
+        # identical-blob twin, and the maximal pass then drops blob-a -- the
+        # file loses a real editor. Maximal-first keeps blob-d, and the
+        # carrier pass cannot drop it either: the pairwise merge-base of
+        # blob-d with the others is `base`, where blob.txt does not exist.
+        wbd = Path(td) / "hot-blob-d"
+        hrun("worktree", "add", "-q", "-b", "wt/blob-d", str(wbd), base)
+        (wbd / "blob.txt").write_text("same\n")
+        subprocess.run(["git", "-C", str(wbd), "add", "blob.txt"], capture_output=True)
+        hcommit(wbd, "blob d, unrelated line, same blob as blob-a")
+        wbe = Path(td) / "hot-blob-e"
+        hrun("worktree", "add", "-q", "-b", "wt/blob-e", str(wbe), "wt/blob-a")
+        (wbe / "blob.txt").write_text("other2\n")
+        subprocess.run(["git", "-C", str(wbe), "add", "blob.txt"], capture_output=True)
+        hcommit(wbe, "blob e, descends from blob-a")
+        d_blob = hrun("rev-parse", "wt/blob-d:blob.txt").stdout.strip()
+        e_blob = hrun("rev-parse", "wt/blob-e:blob.txt").stdout.strip()
+        check("precondition: blob-d shares blob-a's blob and is not its descendant",
+              d_blob == a_blob
+              and hrun("merge-base", "--is-ancestor", "wt/blob-a", "wt/blob-d").returncode != 0)
+        check("precondition: blob-e descends from blob-a with a fresh blob",
+              hrun("merge-base", "--is-ancestor", "wt/blob-a", "wt/blob-e").returncode == 0
+              and e_blob not in (a_blob, b2_blob, c_blob))
+        deduped3 = live_branch_files(hr)
+        check("maximal runs before the dedup: the ancestor's blob twin survives",
+              sorted(deduped3.get("blob.txt", []))
+              == ["blob-b", "blob-b2", "blob-c", "blob-e"],
+              deduped3.get("blob.txt"))
+        check("the ordering-shape file is still a hot spot",
+              any(f == "blob.txt" for f, _ in hotspots(hr)), hotspots(hr))
+
+        # The motivating geometry, measured 2026-10-01 on the live repo: two
+        # live branches descend from a shared integration branch that has NO
+        # worktree of its own, so it is never enumerated as an editor and its
+        # content is never treated as the shared base. A branch that changed
+        # nothing in the file since that shared base is a pure carrier and
+        # cannot conflict with the file's real editor in either landing order.
+        gt = Path(td) / "carrierrepo"
+        gt.mkdir()
+        grun = lambda *a: subprocess.run(  # noqa: E731
+            ["git", "-C", str(gt), *a], capture_output=True, text=True
+        )
+        gcommit = lambda wt, msg: subprocess.run(  # noqa: E731
+            ["git", "-C", str(wt), "-c", "user.email=t@t", "-c", "user.name=t",
+             "commit", "-qm", msg], capture_output=True
+        )
+        subprocess.run(["git", "init", "-q", "-b", "main", str(gt)], capture_output=True)
+        grun("config", "user.email", "t@t")
+        grun("config", "user.name", "t")
+        (gt / "base.txt").write_text("base\n")
+        grun("add", "base.txt")
+        grun("commit", "-qm", "init")
+        gbase = grun("rev-parse", "HEAD").stdout.strip()
+        # wt/perf-tip edits carrier.txt, then its worktree is REMOVED so the
+        # ref remains but no worktree lists it -- exactly the live geometry
+        # where the shared base is invisible to the worktree enumeration.
+        wtpt = Path(td) / "carrier-perftip"
+        grun("worktree", "add", "-q", "-b", "wt/perf-tip", str(wtpt), gbase)
+        (wtpt / "carrier.txt").write_text("perf\n")
+        subprocess.run(["git", "-C", str(wtpt), "add", "carrier.txt"], capture_output=True)
+        gcommit(wtpt, "perf tip")
+        grun("worktree", "remove", "--force", str(wtpt))
+        check("precondition: wt/perf-tip has no worktree of its own",
+              "wt/perf-tip" not in grun("worktree", "list", "--porcelain").stdout,
+              grun("worktree", "list", "--porcelain").stdout)
+        # wt/carrier forks from wt/perf-tip and commits only an UNRELATED file;
+        # wt/editor forks from wt/perf-tip and changes carrier.txt.
+        wtcarr = Path(td) / "carrier-carrier"
+        grun("worktree", "add", "-q", "-b", "wt/carrier", str(wtcarr), "wt/perf-tip")
+        (wtcarr / "other.txt").write_text("c\n")
+        subprocess.run(["git", "-C", str(wtcarr), "add", "other.txt"], capture_output=True)
+        gcommit(wtcarr, "unrelated commit, carrier.txt untouched")
+        wted = Path(td) / "carrier-editor"
+        grun("worktree", "add", "-q", "-b", "wt/editor", str(wted), "wt/perf-tip")
+        (wted / "carrier.txt").write_text("edit\n")
+        subprocess.run(["git", "-C", str(wted), "add", "carrier.txt"], capture_output=True)
+        gcommit(wted, "edit carrier")
+        pt_blob = grun("rev-parse", "wt/perf-tip:carrier.txt").stdout.strip()
+        carr_blob = grun("rev-parse", "wt/carrier:carrier.txt").stdout.strip()
+        ed_blob = grun("rev-parse", "wt/editor:carrier.txt").stdout.strip()
+        check("precondition: wt/carrier pure-carries wt/perf-tip's blob",
+              carr_blob == pt_blob and len(pt_blob) == 40, (pt_blob, carr_blob))
+        check("precondition: wt/editor really edited carrier.txt",
+              ed_blob != pt_blob and len(ed_blob) == 40, (pt_blob, ed_blob))
+        carried = live_branch_files(gt)
+        check("a pure carrier of an unenumerated shared base is not a second editor",
+              carried.get("carrier.txt") == ["editor"], carried.get("carrier.txt"))
+        check("the carried file is not a hot spot",
+              not any(f == "carrier.txt" for f, _ in hotspots(gt)), hotspots(gt))
 
         obs = [json.loads(r) for r in collect_obs(repo)]
         check("a missing checklist explains itself", "absent" in obs[0]["note"], obs)
