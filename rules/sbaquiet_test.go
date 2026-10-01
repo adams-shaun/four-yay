@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/state"
 )
 
 // TestSBAQuietKey pins the quiet key's arming and invalidation: a pass loop
@@ -73,5 +74,48 @@ func TestProvenanceGate(t *testing.T) {
 		if again := specProvenanceGate(spec); again != g {
 			t.Errorf("%q: cached gate %+v differs from first %+v", spec, again, g)
 		}
+	}
+}
+
+// TestSBAQuietEventClasses pins sbaQuietEvent's per-event verdicts: an
+// off-battlefield move of a non-token nothing is attached to is quiet; the
+// same move is not once a permanent is attached to the moving card (the
+// Animate Dead family's bearer) or the card is a token; a battlefield move
+// and damage to an object never are; damage to a player is.
+func TestSBAQuietEventClasses(t *testing.T) {
+	t.Parallel()
+	e := newSeats(t, 2)
+	hand := e.G.Zone(state.ZHand, 0)
+	if len(hand) < 2 {
+		t.Fatalf("precondition: hand of %d", len(hand))
+	}
+	card, land := hand[0], hand[1]
+	move := events.Event{Kind: events.MoveZone, Obj: card, From: state.ZHand, To: state.ZGraveyard}
+	if !e.sbaQuietEvent(&move) {
+		t.Fatal("an off-battlefield move of a plain card should be quiet")
+	}
+	e.emit(events.Event{Kind: events.MoveZone, Obj: land, From: state.ZHand, To: state.ZBattlefield})
+	if e.G.Obj(land).Zone != state.ZBattlefield {
+		t.Fatal("precondition: the land should be on the battlefield")
+	}
+	leave := events.Event{Kind: events.MoveZone, Obj: land, From: state.ZBattlefield, To: state.ZGraveyard}
+	if e.sbaQuietEvent(&leave) {
+		t.Fatal("a battlefield move must not be quiet")
+	}
+	e.G.Obj(land).AttachedTo = card
+	if e.sbaQuietEvent(&move) {
+		t.Fatal("a move of a card a permanent is attached to must not be quiet")
+	}
+	e.G.Obj(land).AttachedTo = 0
+	e.G.Obj(card).IsToken = true
+	if e.sbaQuietEvent(&move) {
+		t.Fatal("a token's move must not be quiet")
+	}
+	e.G.Obj(card).IsToken = false
+	if e.sbaQuietEvent(&events.Event{Kind: events.Damage, Obj: land, Amount: 1}) {
+		t.Fatal("damage to an object must not be quiet")
+	}
+	if !e.sbaQuietEvent(&events.Event{Kind: events.Damage, Player: 1, Amount: 1}) {
+		t.Fatal("damage to a player should be quiet")
 	}
 }
