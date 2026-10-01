@@ -89,39 +89,63 @@ func ProjectFor(g *state.Game, ch Chars, viewer state.PlayerID, vis Visibility, 
 // exact pre-widening projection and only a caller that has resolved control
 // relationships (the host, from state.Game.ControlledBy) passes a set.
 func ProjectForControlledFor(g *state.Game, ch Chars, viewer state.PlayerID, vis Visibility, alsoVisible []state.PlayerID, d *decision.Decision) View {
-	visSet := make(map[state.PlayerID]bool, len(alsoVisible))
-	for _, p := range alsoVisible {
-		visSet[p] = true
-	}
-	if len(visSet) == 0 {
-		visSet = nil
-	}
+	var v View
+	ProjectForControlledInto(&v, g, ch, viewer, vis, alsoVisible, d)
+	return v
+}
+
+// ProjectInto is Project written into a caller-owned View: *dst becomes
+// exactly the View Project(g, ch, viewer, d) returns (reflect.DeepEqual,
+// redaction included), but every list, struct, slice and map dst already
+// holds is reused as storage for it, so a caller that refills one View per
+// call -- a search worker projecting every simulated leaf -- allocates
+// nothing once its buffers have grown. Nothing of dst's previous contents
+// survives in the result.
+//
+// The price is ownership: dst owns everything reachable from it, and the
+// next ProjectInto into the same dst overwrites it in place. A caller must
+// not retain any slice, map or pointer out of dst past that call (copy what
+// it keeps), must not hand dst to two projections at once, and must not
+// plant storage in dst that anything else still references. A field the
+// caller sets to nil simply gives up its storage. Slices that come from Chars
+// (AbilityCosts, PotentialActions) and OwnDeck are the Chars' own, as in
+// Project, and are never reused.
+func ProjectInto(dst *View, g *state.Game, ch Chars, viewer state.PlayerID, d *decision.Decision) {
+	ProjectForControlledInto(dst, g, ch, viewer, Seat, nil, d)
+}
+
+// ProjectForInto is ProjectFor written into dst under ProjectInto's reuse
+// contract.
+func ProjectForInto(dst *View, g *state.Game, ch Chars, viewer state.PlayerID, vis Visibility, d *decision.Decision) {
+	ProjectForControlledInto(dst, g, ch, viewer, vis, nil, d)
+}
+
+// ProjectForControlledInto is ProjectForControlledFor written into dst under
+// ProjectInto's reuse contract; every other projection entry point is this
+// function.
+func ProjectForControlledInto(dst *View, g *state.Game, ch Chars, viewer state.PlayerID, vis Visibility, alsoVisible []state.PlayerID, d *decision.Decision) {
 	switch vis {
 	case Public:
-		v := project(g, ch, NoSeat, nil, false, nil, false)
-		v.Viewer = viewer
-		v.Visibility = vis.String()
-		return v
+		projectInto(dst, g, ch, NoSeat, nil, &projectMode{})
+		dst.Viewer = viewer
+		dst.Visibility = vis.String()
 	case Omniscient:
-		v := project(g, ch, viewer, nil, true, nil, false)
-		if g != nil {
-			for i := range v.Players {
-				p := &g.Players[i]
-				// An omniscient spectator can read this hand, but cannot act from it:
-				// ability costs are only needed on a viewer's own hand.
-				v.Players[i].Hand = cardViews(g, ch, g.Zone(state.ZHand, p.ID), false, p.ID, viewer, true, nil)
-			}
-		}
-		v.Decision = copyDecision(d)
-		v.Visibility = vis.String()
-		return v
+		// Every seat's hand is projected (an omniscient spectator can read a
+		// hand, but cannot act from it: ability costs are only needed on a
+		// viewer's own hand), and the decision is attached whoever it was
+		// asked of.
+		projectInto(dst, g, ch, viewer, d, &projectMode{revealFaceDown: true, omniHands: true, anyDecision: true})
+		dst.Visibility = vis.String()
 	default:
-		v := project(g, ch, viewer, d, false, visSet, true)
-		v.Visibility = Seat.String()
-		if vis == Seat && g != nil && int(viewer) < len(g.Players) && ch != nil {
-			v.OwnDeck = ch.OwnDeck(viewer)
+		m := projectMode{ownLibrary: true}
+		for _, p := range alsoVisible {
+			m.alsoVisible.add(p)
 		}
-		return v
+		projectInto(dst, g, ch, viewer, d, &m)
+		dst.Visibility = Seat.String()
+		if vis == Seat && g != nil && int(viewer) < len(g.Players) && ch != nil {
+			dst.OwnDeck = ch.OwnDeck(viewer)
+		}
 	}
 }
 
@@ -181,8 +205,14 @@ func RedactEventFor(g *state.Game, e events.Event, viewer state.PlayerID, vis Vi
 
 // poolView is the viewer-facing mana pool: only the symbols with mana in
 // them, always non-nil so an empty pool marshals "{}" rather than null.
-func poolView(m state.Mana) map[string]int32 {
-	pool := map[string]int32{}
+// pool is the previous projection's map when non-nil (ProjectInto's reuse),
+// cleared and refilled.
+func poolView(pool map[string]int32, m state.Mana) map[string]int32 {
+	if pool == nil {
+		pool = map[string]int32{}
+	} else {
+		clear(pool)
+	}
 	for idx, sym := range [...]string{"W", "U", "B", "R", "G", "C"} {
 		if n := m[idx]; n > 0 {
 			pool[sym] = n
