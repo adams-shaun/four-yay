@@ -190,6 +190,9 @@ func PlayGame(cfg rules.Config, seats []seat.Seat, maxTurns, maxIntents int, hoo
 			}
 		}
 		feeds[i] = searchseat.NewFeed(state.PlayerID(i))
+		if df, ok := s.(searchseat.DigestFree); ok && df.DigestFree() {
+			feeds[i].Unchain()
+		}
 	}
 	n := 0
 	// The livelock watcher fires inside a single Submit call -- the loop is

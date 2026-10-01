@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding"
 	"encoding/json"
+	"fmt"
 	"hash"
 	"strconv"
 	"strings"
@@ -197,6 +198,11 @@ func HistoryDigest(h History) ([sha256.Size]byte, error) { return historyDigest(
 // hashed. A history assembled by hand (unit tests) has no chain and is
 // hashed through its own current encoding instead.
 func historyDigest(h History) ([sha256.Size]byte, error) {
+	for i := range h.Frames {
+		if h.Frames[i].unchained {
+			return [sha256.Size]byte{}, fmt.Errorf("searchprobe: history frame %d was captured without its digest chain (Collector.Unchain)", i)
+		}
+	}
 	if st := chainState(h); st != nil {
 		hs := sha256.New()
 		if err := hs.(encoding.BinaryUnmarshaler).UnmarshalBinary(st); err != nil {
