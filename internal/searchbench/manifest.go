@@ -207,7 +207,7 @@ func (m Manifest) validate(checkDigest bool) error {
 	counts := [2]int{}
 	lastID := ""
 	itemsByGame := make(map[string]int)
-	drafts := make(map[string]Split)
+	gameSplits := make(map[string]Split)
 	gameRows := make(map[string]int)
 	rowGames := make(map[int]string)
 	for i := range m.Items {
@@ -245,10 +245,12 @@ func (m Manifest) validate(checkDigest bool) error {
 		if itemsByGame[it.GameID] > m.Selection.MaximumItemsPerGame {
 			return fmt.Errorf("searchbench: game %q exceeds maximum items per game", it.GameID)
 		}
-		if old, ok := drafts[it.DraftID]; ok && old != it.Split {
-			return fmt.Errorf("searchbench: draft %q crosses dev/test split", it.DraftID)
+		// Upstream assigns dev/test per game (items.py split_of[row_index]),
+		// so a draft's games may fall in both splits; a game never does.
+		if old, ok := gameSplits[it.GameID]; ok && old != it.Split {
+			return fmt.Errorf("searchbench: game %q crosses dev/test split", it.GameID)
 		}
-		drafts[it.DraftID] = it.Split
+		gameSplits[it.GameID] = it.Split
 		if it.Split == SplitDev {
 			counts[0]++
 		} else {

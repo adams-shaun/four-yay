@@ -99,15 +99,6 @@ func TestBuildIsSequentialWhateverTheWorkers(t *testing.T) {
 			}
 		}
 	}
-	// One draft never spans the two splits.
-	ds := map[string]Split{}
-	for _, it := range one.Items {
-		d := games[it.Row-1000].DraftID
-		if s, ok := ds[d]; ok && s != it.Split {
-			t.Fatalf("draft %s spans splits", d)
-		}
-		ds[d] = it.Split
-	}
 	// The single-worker run consumed exactly what it evaluated.
 	if one.Speculative > 4*len(games) {
 		t.Fatalf("speculative %d", one.Speculative)

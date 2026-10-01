@@ -46,7 +46,9 @@ func TestManifestSealAndValidate(t *testing.T) {
 
 func TestManifestRejectsSplitLeakAndNonCanonicalLabels(t *testing.T) {
 	for name, change := range map[string]func(*Manifest){
-		"draft split":           func(m *Manifest) { m.Items[1].DraftID = m.Items[0].DraftID },
+		"game split": func(m *Manifest) {
+			m.Items[1].GameID, m.Items[1].Row, m.Items[1].DraftID = m.Items[0].GameID, m.Items[0].Row, m.Items[0].DraftID
+		},
 		"unsorted alternatives": func(m *Manifest) { m.Items[1].Label.Alternatives = [][]int{{3}, {1}} },
 		"multi-index alternative": func(m *Manifest) {
 			m.Items[1].Label.Alternatives = [][]int{{1, 3}}
@@ -162,5 +164,16 @@ func TestSBV1WorldSeedsAreStableAndDistinct(t *testing.T) {
 	a, b := SBV1WorldSeeds(), SBV1WorldSeeds()
 	if len(a) != WorldCount || !uniqueSeeds(a) || !reflect.DeepEqual(a, b) {
 		t.Fatalf("world seeds %v", a)
+	}
+}
+
+// Upstream splits by game (items.py split_of[row_index]): two games of one
+// draft may sit in different splits.
+func TestManifestAcceptsADraftAcrossSplits(t *testing.T) {
+	m := testManifest()
+	m.Items[1].DraftID = m.Items[0].DraftID
+	m.Digest = ""
+	if err := m.Seal(); err != nil {
+		t.Fatal(err)
 	}
 }

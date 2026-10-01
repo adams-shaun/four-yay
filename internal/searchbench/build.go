@@ -195,7 +195,6 @@ func Build(games []BuildGame, cfg BuildConfig, eval Evaluator) (*BuildResult, er
 		wg.Wait()
 	}
 	res := &BuildResult{GamesTotal: len(games)}
-	draftSplit := map[string]Split{} // lookup only
 	for gi := range games {
 		st.mu.Lock()
 		st.cursor = gi
@@ -245,13 +244,6 @@ func Build(games []BuildGame, cfg BuildConfig, eval Evaluator) (*BuildResult, er
 				res.Rejections = append(res.Rejections, Rejection{Row: g.Row, Turn: c.Turn, Kind: c.Kind, Split: g.Split, Side: o.Side, Key: o.Key, Detail: o.Detail})
 				continue
 			}
-			// gorge's manifest keeps a draft in one split (Manifest.validate);
-			// upstream splits by game, so a draft whose other game already
-			// gave an item to the other split is refused here.
-			if sp, ok := draftSplit[g.DraftID]; ok && g.DraftID != "" && sp != g.Split {
-				res.Rejections = append(res.Rejections, Rejection{Row: g.Row, Turn: c.Turn, Kind: c.Kind, Split: g.Split, Side: "gorge", Key: "draft crosses split", Detail: "draft " + g.DraftID + " has a " + string(sp) + " item"})
-				continue
-			}
 			st.mu.Lock()
 			if !st.need(g.Split, c.Kind) {
 				st.mu.Unlock()
@@ -259,7 +251,6 @@ func Build(games []BuildGame, cfg BuildConfig, eval Evaluator) (*BuildResult, er
 			}
 			st.counts[g.Split][c.Kind]++
 			st.mu.Unlock()
-			draftSplit[g.DraftID] = g.Split
 			res.Items = append(res.Items, o.Item)
 			got++
 			used[ut] = true
