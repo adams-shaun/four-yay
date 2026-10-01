@@ -1993,7 +1993,7 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 		// census (a pure read) is skipped, not changed.
 		var potential costMods
 		potentialOK := false
-		if futile := offerRetryFutile(scope, mods, mayApply, provenance); statics.validTarget && (!futile || walkSkipVerify) {
+		if futile := offerRetryFutile(scope, &mods, mayApply, provenance); statics.validTarget && (!futile || walkSkipVerify) {
 			potential, potentialOK = e.potentialCostModsUsing(statics, p, id, scope, e.costPotentialTargets(p, id, scope), 0, func(m costMods) bool {
 				return e.manaFeasiblePriced(p, id, ability, base, m, tax, delve, hyp) &&
 					e.nonManaCastable(p, id, e.composedOfferCost(p, id, base, m, scope), ability, tapCostSAKind(scope.ab))
@@ -3698,7 +3698,7 @@ func rememberedTargets(ids []state.ObjID) []state.Target {
 // reads targets, ownManaReduction), and no ValidCard$ provenance capture is
 // pending (the retry would leave it as the first pass did). The retry's
 // accept is then manaFeasiblePriced over identical arguments, which failed.
-func offerRetryFutile(scope costScope, mods costMods, mayApply, provenance bool) bool {
+func offerRetryFutile(scope costScope, mods *costMods, mayApply, provenance bool) bool {
 	if mayApply || provenance || (scope.kind == "Ability" && scope.ab != nil) {
 		return false
 	}
@@ -3707,7 +3707,7 @@ func offerRetryFutile(scope costScope, mods costMods, mayApply, provenance bool)
 
 // costModsZero reports whether m is the zero composition in every field
 // (TestCostModsZeroCoversEveryField pins the field list).
-func costModsZero(m costMods) bool {
+func costModsZero(m *costMods) bool {
 	return len(m.raises) == 0 && !m.hasExtra && m.raiseCol == (state.Mana{}) && m.raiseGen == 0 &&
 		m.raiseLife == 0 && len(m.reduces) == 0 && m.setFloor == 0 && m.waterbend == 0 &&
 		!m.waterbendX && m.waterbendPartX == 0 && m.raiseX == 0

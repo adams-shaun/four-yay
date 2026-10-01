@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"strconv"
 	"strings"
 
 	"github.com/adams-shaun/gorge/state"
@@ -146,8 +145,8 @@ func amountMayReadTargets(sv staticView) bool {
 	if raw == "" {
 		return false
 	}
-	_, err := strconv.ParseInt(raw, 10, 64)
-	return err != nil
+	_, ok := parseInt10(raw)
+	return !ok
 }
 
 // appendEffectCostStatics appends the registry-delivered cost-modifier

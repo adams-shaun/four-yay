@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"fmt"
 	"math"
 	"strings"
 
@@ -406,7 +407,7 @@ func (e *Engine) manaFeasiblePoolP(p state.PlayerID, id state.ObjID, ability boo
 	// whose first answer is the pool-unit floor (poolUnitsFloor): decide that
 	// here, before the payer's grant and conversion reads the search needs.
 	if !mods.hasFloorP() || c.annPipCountP() == 0 {
-		if cc := composeFeasibleP(mods, c, taxGeneric, delve); int64(pool.Total()) < cc.poolUnitsFloor() {
+		if int64(pool.Total()) < composedPoolFloor(mods, c, taxGeneric, delve) {
 			return false
 		}
 	}
@@ -494,4 +495,38 @@ func effectZoneOK(v string, z state.Zone) bool {
 		}
 	}
 	return false
+}
+
+// composedPoolFloor is composeFeasibleP(m, c, taxGeneric, delve)
+// .poolUnitsFloor(). Under the zero composition (costModsZero) on a cost
+// with no XMin and no negative Life/Snow, apply only clamps Generic and the
+// coloured pips at zero, so the floor is computed from *c directly instead
+// of materialising the composed Cost; walkSkipVerify checks it against the
+// composition.
+func composedPoolFloor(m *costMods, c *Cost, taxGeneric, delve int32) int64 {
+	if !costModsZero(m) || c.XMin != 0 || c.Life < 0 || c.Snow < 0 {
+		cc := composeFeasibleP(m, c, taxGeneric, delve)
+		return cc.poolUnitsFloor()
+	}
+	g := addClampedGeneric(addClampedGeneric(c.Generic, 0), int64(taxGeneric))
+	if g > delve {
+		g -= delve
+	} else {
+		g = 0
+	}
+	n := int64(g)
+	for _, letter := range pipLetters {
+		if letter == 'B' {
+			continue
+		}
+		if k := c.Colored[state.ManaIndex(letter)]; k > 0 {
+			n += int64(k)
+		}
+	}
+	if walkSkipVerify {
+		if cc := composeFeasibleP(m, c, taxGeneric, delve); cc.poolUnitsFloor() != n {
+			panic(fmt.Sprintf("rules: zero-composition pool floor %d disagrees with the composed %d", n, cc.poolUnitsFloor()))
+		}
+	}
+	return n
 }

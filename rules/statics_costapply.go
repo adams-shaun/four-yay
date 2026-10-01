@@ -734,9 +734,31 @@ func saFlagProperty(ab *cards.SA, property string) bool {
 // value to be anywhere near a real int32 overflow at the mana-cost level:
 // the bug is entirely in this parse, not in anything cost-shaped.
 func parseAmount(s string, def int32) int32 {
-	v, err := strconv.ParseInt(strings.TrimSpace(s), 10, 64)
-	if err != nil || v < 0 || v > int64(math.MaxInt32) {
+	v, ok := parseInt10(strings.TrimSpace(s))
+	if !ok || v < 0 || v > int64(math.MaxInt32) {
 		return def
 	}
 	return int32(v)
+}
+
+// parseInt10 is strconv.ParseInt(s, 10, 64) reporting success as a bool. A
+// string that is not an optionally signed run of ASCII digits -- the only
+// shape ParseInt accepts in base 10 -- is refused before ParseInt is asked,
+// because ParseInt's refusal allocates a *NumError, and the cost-modifier
+// readers parse an absent (empty) or non-literal parameter on every pass.
+func parseInt10(s string) (int64, bool) {
+	i := 0
+	if i < len(s) && (s[i] == '+' || s[i] == '-') {
+		i++
+	}
+	if i == len(s) {
+		return 0, false
+	}
+	for ; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
+			return 0, false
+		}
+	}
+	v, err := strconv.ParseInt(s, 10, 64)
+	return v, err == nil
 }
