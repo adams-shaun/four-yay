@@ -1,3 +1,1 @@
-{
-  "Hercules, Olympian Hero/second-damage-same-turn-adds-no-more-counters": "The script's damage trigger carries FirstTime$ True (Mode$ DamageDoneOnce | ValidTarget$ Card.Self | FirstTime$ True), so the 'for the first time each turn' gate should admit exactly the first damage event of the turn. gorge reads FirstTime$ only on the life-gain/life-loss trigger paths (rules/trigmatch_life.go), never on the DamageDoneOnce path, so a second Lightning Bolt in the same turn puts three more +1/+1 counters on Hercules. Observed: 7/7 with seven +1/+1 counters after two Bolts (one from attacking plus three per Bolt); expected 7/7 with four (the second damage event adds none). The param is already listed unread in rules/paramcensus_test.go (param:trig:DamageDoneOnce.FirstTime); this scenario is its behavioural pin."
-}
+{}

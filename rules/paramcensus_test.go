@@ -2980,8 +2980,7 @@ var knownUnsupportedParams = map[string][]string{
 	// Haakon, Stromgald Scourge's param:stat:Continuous.MayPlay.ValidAfterStack
 	// entry was deleted when mayPlayStatic began consuming ValidAfterStack$ as
 	// a derived spell filter (task mayplay-validafterstack).
-	"Hercules, Olympian Hero": {"param:trig:DamageDoneOnce.FirstTime"},
-	"Heroic Return":           {"param:api:ChangeZone.ValidTgtsDesc"},
+	"Heroic Return": {"param:api:ChangeZone.ValidTgtsDesc"},
 	// Heroic Sacrifice's param:api:PutCounter.EachFromSource entry was deleted
 	// when the CounterType$ EachFromSource copy-each-kind shape was read
 	// (task eachfromsource, effects/counters.go effPutCounter's dispatch) --
