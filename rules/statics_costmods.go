@@ -270,6 +270,14 @@ func (e *Engine) costModifiersWithTargetsX(p state.PlayerID, id state.ObjID, sco
 }
 
 func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target, potential bool, x int32) costMods {
+	return e.costModifiersCompose(statics, p, id, scope, targets, potential, x, nil)
+}
+
+// costModifiersCompose is costModifiersWithTargetsXUsing; a non-nil mayApply
+// is set when some raise/reduce/set member was NOT denied by a
+// target-independent gate (costStaticGate) -- false means no member can
+// apply under any target assignment.
+func (e *Engine) costModifiersCompose(statics costStaticViews, p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target, potential bool, x int32, mayApply *bool) costMods {
 	// Each pass owns the provenance capture: cleared here, set by
 	// costStaticApplies when a ValidCard$ carries a cast-provenance token.
 	e.costProvenanceSeen = false
@@ -307,8 +315,14 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 					continue
 				}
 			}
-			if !e.costStaticApplies(sv, mode, p, id, scope, targets, xBound) {
+			if ok, indepFail := e.costStaticGate(sv, mode, p, id, scope, targets, xBound); !ok {
+				if !indepFail && mayApply != nil {
+					*mayApply = true
+				}
 				continue
+			}
+			if mayApply != nil {
+				*mayApply = true
 			}
 			if mode == "RaiseCost" {
 				// A Relative$ raise scales with the announcement (Fireball's
@@ -378,8 +392,14 @@ func (e *Engine) costModifiersWithTargetsXUsing(statics costStaticViews, p state
 				continue
 			}
 		}
-		if !e.costStaticApplies(sv, "SetCost", p, id, scope, targets, xBound) {
+		if ok, indepFail := e.costStaticGate(sv, "SetCost", p, id, scope, targets, xBound); !ok {
+			if !indepFail && mayApply != nil {
+				*mayApply = true
+			}
 			continue
+		}
+		if mayApply != nil {
+			*mayApply = true
 		}
 		if n := e.modAmountX(sv, sub, x, amountTargets); n > mods.setFloor {
 			mods.setFloor = n
