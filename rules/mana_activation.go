@@ -1320,7 +1320,7 @@ func (e *Engine) manaAbilityPayable(p state.PlayerID, source state.ObjID, ma *ca
 
 // tapCostSick is CR 302.6's shared source-cost predicate for {T}/{Q}.
 // Tapping another permanent to pay a cost is intentionally not checked here.
-func (e *Engine) tapCostSick(source state.ObjID, cost Cost) bool {
+func (e *Engine) tapCostSick(source state.ObjID, cost *Cost) bool {
 	return e.tapFlagsSick(source, cost.Tap, cost.Untap)
 }
 
@@ -1335,7 +1335,7 @@ func (e *Engine) tapFlagsSick(source state.ObjID, tap, untap bool) bool {
 	return slices.Contains(e.derivedTypesOf(source), "Creature") && !e.hasKeywordH(source, kwhHaste)
 }
 
-func activationTapCostUnavailable(o *state.Object, cost Cost) bool {
+func activationTapCostUnavailable(o *state.Object, cost *Cost) bool {
 	return o == nil || (cost.Tap && o.Tapped) || (cost.Untap && !o.Tapped)
 }
 
@@ -1416,7 +1416,7 @@ func (e *Engine) manaCostPayableFull(p state.PlayerID, o *state.Object, source s
 		typed = e.G.Players[p].ManaUnits()
 	}
 	if cost.X != 0 || len(cost.Reveal) > 0 || len(cost.RevealOrChoose) > 0 || len(cost.RevealChosen) > 0 || len(cost.Behold) > 0 ||
-		len(cost.Blight) > 0 || activationTapCostUnavailable(o, cost) || !e.costPayablePool(p, source, true, cost, pool, typed) {
+		len(cost.Blight) > 0 || activationTapCostUnavailable(o, &cost) || !e.costPayablePool(p, source, true, cost, pool, typed) {
 		return false
 	}
 	// A Forage cost is payable when the payer's graveyard holds three cards OR

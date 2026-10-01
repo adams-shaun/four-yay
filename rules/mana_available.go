@@ -69,7 +69,7 @@ func (e *Engine) AvailableMana(p state.PlayerID) state.Mana {
 		var free []*cards.SA
 		for _, ma := range e.availableManaAbilities(p, id) {
 			cost := e.parseCost(ma.Params["Cost"])
-			if manaFreeCost(cost) && !activationTapCostUnavailable(o, cost) {
+			if manaFreeCost(cost) && !activationTapCostUnavailable(o, &cost) {
 				free = append(free, ma)
 			}
 		}

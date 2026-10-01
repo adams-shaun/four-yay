@@ -84,6 +84,12 @@ func (e *Engine) exileCostCandidates(zone state.Zone, p state.PlayerID, part Cos
 // one helper means that specialized offer logic cannot bypass Sac/Discard/
 // counter/tap legality.
 func (e *Engine) nonManaCastable(p state.PlayerID, id state.ObjID, cost Cost, ability bool, tapKind string) bool {
+	return e.nonManaCastableP(p, id, &cost, ability, tapKind)
+}
+
+// nonManaCastableP is nonManaCastable reading *cost in place (never written),
+// so the offer gate's hot path does not copy the ~800-byte Cost.
+func (e *Engine) nonManaCastableP(p state.PlayerID, id state.ObjID, cost *Cost, ability bool, tapKind string) bool {
 	// A RaiseCost Cost$ part no payment stage can settle (Cost.Withheld):
 	// the additional cost cannot be paid, so neither can the whole cost.
 	if len(cost.Withheld) > 0 {

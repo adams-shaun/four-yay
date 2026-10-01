@@ -74,7 +74,7 @@ func (w *legalWalk) offerCastable(p state.PlayerID, id state.ObjID, base Cost, s
 	// the floor refusal reads it too even though it only refuses at hyp nil.
 	pool := w.pricing()
 	if w.offerFloorRefuses(&statics, p, &base, scope) {
-		if walkSkipVerify && w.e.offerCastableUsing(statics, p, id, base, scope, ability, pool) {
+		if walkSkipVerify && w.e.offerCastableUsing(statics, p, id, &base, scope, ability, pool) {
 			panic(fmt.Sprintf("rules: offer floor refusal for obj %d (%+v) disagrees with offerCastableUsing", id, base))
 		}
 		// The skipped composition is the empty one, which clears the
@@ -82,7 +82,7 @@ func (w *legalWalk) offerCastable(p state.PlayerID, id state.ObjID, base Cost, s
 		w.e.costProvenanceSeen = false
 		return false
 	}
-	return w.e.offerCastableUsing(statics, p, id, base, scope, ability, pool)
+	return w.e.offerCastableUsing(statics, p, id, &base, scope, ability, pool)
 }
 
 // offerFloorRefuses reports, without composing a modifier set, that
@@ -153,7 +153,7 @@ func (w *legalWalk) offerCastableAsFace(p state.PlayerID, id state.ObjID, face *
 		if faceHasCostStatics(cur) || faceHasCostStatics(face) {
 			statics = w.e.collectCostStatics()
 		}
-		return w.e.offerCastableUsing(statics, p, id, base, scope, false, hyp)
+		return w.e.offerCastableUsing(statics, p, id, &base, scope, false, hyp)
 	})
 }
 
