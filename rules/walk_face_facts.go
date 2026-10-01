@@ -59,6 +59,14 @@ type walkFaceFacts struct {
 	// produces). A label is served only while f.Name still equals name.
 	name                            string
 	castLabel, playLabel, manaLabel string
+	// scan is the face's text-scan verdicts (computeFaceScan), served by
+	// faceScanHas instead of a per-engine memo every clone rebuilt.
+	scan faceScan
+	// trigZones is faceTriggerZones' answer (computeFaceTriggerZones),
+	// guarded by trigFirst/trigLen like the abilities.
+	trigZones uint8
+	trigFirst *cards.Trigger
+	trigLen   int
 }
 
 // keywordsCurrent reports whether the facts' keyword half was computed over
@@ -75,6 +83,11 @@ func computeWalkFaceFacts(f *cards.Face) walkFaceFacts {
 		castLabel: "Cast " + f.Name, playLabel: "Play " + f.Name, manaLabel: "Activate " + f.Name + " for mana"}
 	if len(f.Abilities) > 0 {
 		ff.abFirst = &f.Abilities[0]
+	}
+	ff.scan = computeFaceScan(f)
+	ff.trigZones, ff.trigLen = computeFaceTriggerZones(f, phaseSpecValid), len(f.Triggers)
+	if len(f.Triggers) > 0 {
+		ff.trigFirst = &f.Triggers[0]
 	}
 	if len(f.Keywords) > 0 {
 		ff.kwFirst = &f.Keywords[0]
@@ -222,6 +235,12 @@ func (t *walkFaceTable) lookup(f *cards.Face) *walkFaceFacts {
 		}
 		i = (i + 1) & t.mask
 	}
+}
+
+// triggersCurrent reports whether the facts' trigger half was computed over
+// f's current trigger list.
+func (ff *walkFaceFacts) triggersCurrent(f *cards.Face) bool {
+	return ff.trigLen == len(f.Triggers) && (ff.trigLen == 0 || ff.trigFirst == &f.Triggers[0])
 }
 
 // walkFaceFactsOf is the engine's table lookup (nil without a compiledText).
