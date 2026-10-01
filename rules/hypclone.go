@@ -1,5 +1,7 @@
 package rules
 
+import "github.com/adams-shaun/gorge/decision"
+
 // Hypothetical clones: the throwaway engines a pure read builds to try a
 // line of play (potentialWitnessReaches, PotentialPlayScript's search). Each
 // such clone dies before the read returns, so its storage -- the log, object
@@ -15,6 +17,9 @@ package rules
 type hypSparePool struct {
 	owner  *Engine
 	spares []Spare
+	// opts is a stack of cleared option lists the temporary offer walks
+	// (legalActionsWalkTemp) build into.
+	opts [][]decision.Option
 }
 
 // hypPool is e's own pool, created on first use.
@@ -53,4 +58,28 @@ func (e *Engine) hypRelease(c *Engine) { e.hypPut(c.Release()) }
 func (e *Engine) hypPut(sp Spare) {
 	pl := e.hypPool()
 	pl.spares = append(pl.spares, sp)
+}
+
+// optBorrow pops a cleared option list from e's pool (nil when empty).
+func (e *Engine) optBorrow() []decision.Option {
+	pl := e.hypPool()
+	n := len(pl.opts)
+	if n == 0 {
+		return nil
+	}
+	b := pl.opts[n-1]
+	pl.opts[n-1] = nil
+	pl.opts = pl.opts[:n-1]
+	return b
+}
+
+// optRelease clears a list legalActionsWalkTemp returned (dropping its
+// labels, slices and grants) and pushes it back onto e's pool.
+func (e *Engine) optRelease(b []decision.Option) {
+	if cap(b) == 0 {
+		return
+	}
+	clear(b)
+	pl := e.hypPool()
+	pl.opts = append(pl.opts, b[:0])
 }

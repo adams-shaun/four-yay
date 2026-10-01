@@ -283,13 +283,15 @@ func (e *Engine) PotentialActions(p state.PlayerID) []decision.PotentialAction {
 	}
 	pool := e.PotentialMana(p)
 	var out []decision.PotentialAction
-	for _, o := range e.legalActionsPriced(p, &pool) {
+	opts := e.legalActionsWalkTemp(p, &pool, false)
+	for _, o := range opts {
 		if potentialPlayKind(o.Kind) {
 			out = append(out, decision.PotentialAction{
 				Kind: o.Kind, Obj: o.Obj, Ability: o.Ability, Mode: o.Mode, Label: o.Label,
 			})
 		}
 	}
+	e.optRelease(opts)
 	return out
 }
 

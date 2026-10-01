@@ -113,6 +113,19 @@ func (e *Engine) legalActionsWalk(p state.PlayerID, hyp *state.Mana, castsOnly b
 // whose result becomes a posed priority decision's Options (askPriority),
 // which is the one result the decision arena (decision_arena.go) may back.
 func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, castsOnly bool, window *windowCollector, forAsk bool) []decision.Option {
+	return e.legalActionsWalkBody(p, hyp, castsOnly, window, forAsk, nil, false)
+}
+
+// legalActionsWalkTemp is legalActionsWalk for a caller that only reads the
+// result before it returns: the options are built into a scratch list
+// borrowed from e (hypclone.go) instead of a fresh exactly-sized array. The
+// caller hands it back with e.optRelease once it, and every value it took
+// a pointer into, is done; the options' contents are the walk's own.
+func (e *Engine) legalActionsWalkTemp(p state.PlayerID, hyp *state.Mana, castsOnly bool) []decision.Option {
+	return e.legalActionsWalkBody(p, hyp, castsOnly, nil, false, e.optBorrow(), true)
+}
+
+func (e *Engine) legalActionsWalkBody(p state.PlayerID, hyp *state.Mana, castsOnly bool, window *windowCollector, forAsk bool, dst []decision.Option, temp bool) []decision.Option {
 	// Count the walk before anything can early-return. A test-visible
 	// diagnostic only: no event, no state mutation, no effect on replay or
 	// chain heads (legalActionWalks is not copied by Clone and never reaches
@@ -186,12 +199,16 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 	// extra guard is needed here.
 	add("concede", "Concede", 0)
 	var res []decision.Option
-	if forAsk {
+	switch {
+	case forAsk:
 		res = e.arenaOptions(len(out))
-	} else {
+		copy(res, out)
+	case temp:
+		res = append(dst[:0], out...)
+	default:
 		res = make([]decision.Option, len(out))
+		copy(res, out)
 	}
-	copy(res, out)
 	if window != nil {
 		// Classify each of p's own visible candidates the walk did not
 		// offer, keeping the first gate in walk order that withheld it. The
