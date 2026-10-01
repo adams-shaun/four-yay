@@ -143,10 +143,13 @@ type engineLayerCaches struct {
 	// rename table keys on both). Never cloned.
 	derivedPrevEntered int
 	derivedBFSeq       uint64
-	derivedTouched     []state.ObjID
-	activeEpoch        int
-	activeVersion      int
-	activeDepth        int
+	// activeList records what activeBuf was assembled from (active_same.go);
+	// never cloned, so a clone's first build is a full one.
+	activeList     activeListKey
+	derivedTouched []state.ObjID
+	activeEpoch    int
+	activeVersion  int
+	activeDepth    int
 	// activeObjs is len(e.G.Objs) at the last active() build, read only by
 	// the layer-inert reuse (layercache.go).
 	activeObjs int

@@ -830,9 +830,20 @@ func (e *Engine) activeBuild() []ContinuousEffect {
 	if e.activeDepth <= 1 {
 		src = e.activeSrc[:0]
 	}
+	// live records which registry entries passed continuousLive, for the
+	// unchanged-list check below (active_same.go); a registry wider than the
+	// mask never takes it.
+	var live uint64
+	liveN := len(e.continuous)
+	if liveN > 64 {
+		liveN = -1
+	}
 	for i := range e.continuous {
 		if e.continuousLive(&e.continuous[i]) {
 			src = append(src, &e.continuous[i])
+			if liveN >= 0 {
+				live |= 1 << uint(i)
+			}
 		}
 	}
 	// The static-derived effects come from the memoized scan (see
@@ -847,6 +858,11 @@ func (e *Engine) activeBuild() []ContinuousEffect {
 	// refresh: the hit paths above require it, so an out-of-band refresh
 	// (staticControlWants) invalidates this buffer on the next active() call.
 	e.activeStaticSeq = e.staticBuildSeq
+	if e.activeDepth <= 1 && e.activeListUnchanged(liveN, live) {
+		clear(src)
+		e.activeSrc = src[:0]
+		return e.activeSameBuild()
+	}
 	for i := range e.staticContinuous {
 		src = append(src, &e.staticContinuous[i])
 	}
@@ -866,12 +882,15 @@ func (e *Engine) activeBuild() []ContinuousEffect {
 	if e.activeDepth <= 1 {
 		// Keep the grown, sorted buffer on the Engine for the next build or
 		// cache hit; a re-entrant build's private buffer is discarded on return.
-		if !e.derivedRebuildTransparent(e.activeBuf, buf) {
+		allLocal := effectsAllLocal(buf)
+		if !e.derivedRebuildTransparent(e.activeBuf, buf, false, allLocal) {
 			e.derivedSeq++
 		}
 		e.derivedNoteBuild()
 		e.activeBufAlt, e.activeBuf = e.activeBuf, buf
 		e.activeKWHeads = appendKWHeads(e.activeKWHeads[:0], buf)
+		e.activeList = activeListKey{ok: true, version: e.continuousVersion, staticSeq: e.staticBuildSeq,
+			liveN: liveN, live: live, allLocal: allLocal}
 	} else {
 		e.derivedSeq++
 	}

@@ -168,14 +168,18 @@ func derivedObjectLocalKind(k events.Kind) bool {
 //     writes to OTHER objects, none of which a local derivation reads). Such
 //     a run moves derivedBFSeq, the battlefield-membership half of the key
 //     the rename table (setname.go) also needs.
-func (e *Engine) derivedRebuildTransparent(prev, fresh []ContinuousEffect) bool {
+//
+// same says fresh is prev itself (active_same.go's unchanged list), so the
+// per-effect equality is known; allLocal is derivedEffectLocal over every
+// effect of fresh, computed once per list.
+func (e *Engine) derivedRebuildTransparent(prev, fresh []ContinuousEffect, same, allLocal bool) bool {
 	if e.derivedSeq == 0 || e.derivedPrevEpoch <= 0 || e.derivedPrevEpoch > len(e.L.Events) ||
 		e.derivedPrevVersion != e.continuousVersion || e.derivedPrevObjs > len(e.G.Objs) ||
 		len(prev) != len(fresh) {
 		return false
 	}
 	touched := e.derivedTouched[:0]
-	pushes, moves := 0, 0
+	pushes := 0
 	other := false
 	evs := e.L.Events[e.derivedPrevEpoch:]
 	for i := range evs {
@@ -190,7 +194,6 @@ func (e *Engine) derivedRebuildTransparent(prev, fresh []ContinuousEffect) bool 
 				return false
 			}
 			touched = append(touched, ev.Obj)
-			moves++
 			if !offBattlefieldMove(ev) {
 				other = true
 			}
@@ -212,13 +215,21 @@ func (e *Engine) derivedRebuildTransparent(prev, fresh []ContinuousEffect) bool 
 	if other && !e.derivedAnyMoveOK(evs, pushes) {
 		return false
 	}
-	for i := range fresh {
-		ce := &fresh[i]
-		if !derivedEffectEqual(&prev[i], ce) || !derivedEffectLocal(ce) {
-			return false
+	if !allLocal {
+		return false
+	}
+	if !same {
+		for i := range fresh {
+			if !derivedEffectEqual(&prev[i], &fresh[i]) {
+				return false
+			}
 		}
-		if len(touched) > 0 && slices.Contains(touched, ce.Source) {
-			return false
+	}
+	if len(touched) > 0 {
+		for i := range fresh {
+			if slices.Contains(touched, fresh[i].Source) {
+				return false
+			}
 		}
 	}
 	// A moved object's own derivation changed (its zone, and the per-zone
