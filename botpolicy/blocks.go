@@ -53,7 +53,7 @@ func (b Board) chooseBlockAssignment(d *decision.Decision) []int {
 		return nil
 	}
 	me := d.Player
-	myLife, hasLife := b.Life[me]
+	myLife, hasLife := b.Life.Lookup(me)
 
 	// Group the offered options by attacker, preserving the engine's
 	// enumeration order (first-seen position is the deterministic tiebreak)
@@ -70,7 +70,7 @@ func (b Board) chooseBlockAssignment(d *decision.Decision) []int {
 		o := &d.Options[i]
 		at, ok := byID[o.Attacker]
 		if !ok {
-			at = &atk{id: o.Attacker, a: b.Creatures[o.Attacker], pos: i}
+			at = &atk{id: o.Attacker, a: b.Creatures.Get(o.Attacker), pos: i}
 			byID[o.Attacker] = at
 			attackers = append(attackers, at)
 		}
@@ -152,7 +152,7 @@ func (b Board) blockCandidates(d *decision.Decision, opts []int, used map[state.
 		if used[o.Obj] {
 			continue
 		}
-		out = append(out, blkCand{pos: oi, id: o.Obj, c: b.Creatures[o.Obj]})
+		out = append(out, blkCand{pos: oi, id: o.Obj, c: b.Creatures.Get(o.Obj)})
 	}
 	return out
 }
@@ -374,7 +374,7 @@ func blockSaved(a Creature, picks []int, d *decision.Decision, b Board) int32 {
 		if remaining <= 0 {
 			break
 		}
-		bl, ok := b.Creatures[d.Options[oi].Obj]
+		bl, ok := b.Creatures.Lookup(d.Options[oi].Obj)
 		if !ok {
 			continue
 		}
@@ -462,7 +462,7 @@ func legalBlockChoices(b Board, d *decision.Decision, choices []int) []int {
 	// read too, so an adapter whose options predate the published floor
 	// still never submits a lone blocker the engine rejects.
 	for aid := range count {
-		if c, ok := b.Creatures[aid]; ok && c.hasKeyword("Menace") {
+		if c, ok := b.Creatures.Lookup(aid); ok && c.hasKeyword("Menace") {
 			bd := bounds[aid]
 			if bd[0] < 2 {
 				bd[0] = 2
@@ -537,5 +537,5 @@ func attackChargeLife(b Board, d *decision.Decision) int32 {
 	if life := d.PayerLifeBound(); life >= 0 {
 		return life
 	}
-	return b.Life[d.Player]
+	return b.Life.Get(d.Player)
 }

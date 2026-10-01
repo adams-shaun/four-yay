@@ -66,10 +66,10 @@ func TestTargetGrantTotalityPicksWeakestOpponent(t *testing.T) {
 	}
 	// Precondition: the board offers no own creature, so the totality floor
 	// is genuinely exercised, and the two foreign threats really differ.
-	if _, ok := b.Creatures[101]; ok {
+	if _, ok := b.Creatures.Lookup(101); ok {
 		t.Fatal("precondition: board unexpectedly offers an own creature")
 	}
-	if b.Creatures[201].threat() == b.Creatures[202].threat() {
+	if b.Creatures.Get(201).threat() == b.Creatures.Get(202).threat() {
 		t.Fatal("precondition: foreign threats are equal; the test cannot distinguish the rank")
 	}
 	if objAt(d, got[0]) != 201 {
@@ -116,7 +116,7 @@ func TestTargetGrantPicksHighestThreatOwn(t *testing.T) {
 		t.Fatalf("grant target = obj %d, want the 4/4 flier (obj 102)", objAt(d, got[0]))
 	}
 	// Precondition: the two own threats really do differ.
-	if b.Creatures[101].threat() == b.Creatures[102].threat() {
+	if b.Creatures.Get(101).threat() == b.Creatures.Get(102).threat() {
 		t.Fatal("precondition: own threats are equal; the test cannot distinguish the rank")
 	}
 }

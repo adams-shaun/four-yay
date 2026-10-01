@@ -35,12 +35,12 @@ func TestRepeatOptionalBotAnswerIsLegal(t *testing.T) {
 	// Precondition: the two arms really differ, so the assertions below can
 	// tell "repeat" from "stop" and neither is a vacuous pass.
 	high := election()
-	highIn := Decide(Board{Life: map[state.PlayerID]int32{0: 20}, LibrarySize: 30, HandSize: 3}, high, rng(1))
+	highIn := Decide(Board{Life: TableOf(map[state.PlayerID]int32{0: 20}), LibrarySize: 30, HandSize: 3}, high, rng(1))
 	if len(highIn.Choices) != 1 || highIn.Choices[0] != 0 {
 		t.Fatalf("high life answer = %v, want [0] (repeat)", highIn.Choices)
 	}
 	low := election()
-	lowIn := Decide(Board{Life: map[state.PlayerID]int32{0: 5}, LibrarySize: 30, HandSize: 3}, low, rng(1))
+	lowIn := Decide(Board{Life: TableOf(map[state.PlayerID]int32{0: 5}), LibrarySize: 30, HandSize: 3}, low, rng(1))
 	if len(lowIn.Choices) != 1 || lowIn.Choices[0] != 1 {
 		t.Fatalf("low life answer = %v, want [1] (stop)", lowIn.Choices)
 	}
@@ -52,12 +52,12 @@ func TestRepeatOptionalBotAnswerIsLegal(t *testing.T) {
 	// carriers' bodies consume one of those zones, so another iteration
 	// makes no progress (the the-epic-storm Ad Nauseam livelock).
 	emptyLib := election()
-	emptyLibIn := Decide(Board{Life: map[state.PlayerID]int32{0: 20}, LibrarySize: 0, HandSize: 3}, emptyLib, rng(1))
+	emptyLibIn := Decide(Board{Life: TableOf(map[state.PlayerID]int32{0: 20}), LibrarySize: 0, HandSize: 3}, emptyLib, rng(1))
 	if len(emptyLibIn.Choices) != 1 || emptyLibIn.Choices[0] != 1 {
 		t.Fatalf("empty library answer = %v, want [1] (stop)", emptyLibIn.Choices)
 	}
 	emptyHand := election()
-	emptyHandIn := Decide(Board{Life: map[state.PlayerID]int32{0: 20}, LibrarySize: 30, HandSize: 0}, emptyHand, rng(1))
+	emptyHandIn := Decide(Board{Life: TableOf(map[state.PlayerID]int32{0: 20}), LibrarySize: 30, HandSize: 0}, emptyHand, rng(1))
 	if len(emptyHandIn.Choices) != 1 || emptyHandIn.Choices[0] != 1 {
 		t.Fatalf("empty hand answer = %v, want [1] (stop)", emptyHandIn.Choices)
 	}

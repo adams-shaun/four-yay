@@ -31,8 +31,8 @@ func TestBotPolicyCorpusReplacementOrder(t *testing.T) {
 	// The corpus source has printed mana value 6 while the authored competing
 	// source has none; verify the policy's ranking facts actually differ.
 	board := botpolicy.BoardFromGame(e.G, e, 1)
-	if board.Cards[fiery].CMC <= board.Cards[other].CMC {
-		t.Fatalf("replacement worth precondition: Fiery CMC %d, other CMC %d", board.Cards[fiery].CMC, board.Cards[other].CMC)
+	if board.Cards.Get(fiery).CMC <= board.Cards.Get(other).CMC {
+		t.Fatalf("replacement worth precondition: Fiery CMC %d, other CMC %d", board.Cards.Get(fiery).CMC, board.Cards.Get(other).CMC)
 	}
 	e.damaging = source
 	e.emit(events.Event{Kind: events.Damage, Obj: target, Amount: 1})

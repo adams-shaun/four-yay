@@ -105,10 +105,10 @@ func TestParseCastProfileRejectsTrailingData(t *testing.T) {
 // hand-built Board.Cast does (the TestCastWeightsZeroValueIsDefault tuned
 // case), and the embedded default's parsed weights do NOT change it.
 func TestParsedProfileWeightsReachTheScorer(t *testing.T) {
-	b := Board{IsMain: true, Cards: map[state.ObjID]Card{
+	b := Board{IsMain: true, Cards: TableOf(map[state.ObjID]Card{
 		1: {Creature: true, Power: 1},
 		2: {CMC: 3},
-	}}
+	})}
 	d := &decision.Decision{Player: 0, Kind: decision.KPriority, Min: 1, Max: 1,
 		Options: []decision.Option{castSpell(0, 2), castCreature(1, 1)}}
 

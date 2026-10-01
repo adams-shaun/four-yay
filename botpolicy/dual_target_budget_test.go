@@ -8,7 +8,7 @@ import (
 )
 
 func TestDualTargetBudgetClampKeepsTheBotAnswerValid(t *testing.T) {
-	b := Board{Cards: map[state.ObjID]Card{}}
+	b := Board{Cards: TableOf(map[state.ObjID]Card{})}
 	d := decision.Decision{Player: 0, Kind: decision.KTarget, Min: 0, Max: 4,
 		MaxSum: 7, Budgeted: true, MaxSum2: 5, Budgeted2: true,
 		Options: []decision.Option{

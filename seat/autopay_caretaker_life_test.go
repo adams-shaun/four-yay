@@ -18,9 +18,9 @@ func caretakerLifeDecision(life, damage uint32) (decision.Decision, botpolicy.Bo
 		Options:        []decision.Option{{Index: 0, Kind: "activate", Obj: 5}, {Index: 1, Kind: "pass"}},
 		PaymentActions: []decision.PaymentAction{a},
 	}
-	brd := botpolicy.Board{IsMain: true, Cards: map[state.ObjID]botpolicy.Card{
+	brd := botpolicy.Board{IsMain: true, Cards: botpolicy.TableOf(map[state.ObjID]botpolicy.Card{
 		42: {Creature: true, Power: 3, CMC: 3, Castable: true},
-	}}
+	})}
 	return d, brd
 }
 

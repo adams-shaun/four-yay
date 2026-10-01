@@ -95,7 +95,7 @@ func TestBotReserveCountsJustPlayedLand(t *testing.T) {
 	b := BoardFromView(v)
 	live := 0
 	for id := state.ObjID(1); id <= 4; id++ {
-		c := b.Cards[id]
+		c := b.Cards.Get(id)
 		if c.OnBattlefield && c.Basic && !c.Tapped && c.Produces.Colour[state.MG] == 1 {
 			live++
 		}
@@ -103,13 +103,13 @@ func TestBotReserveCountsJustPlayedLand(t *testing.T) {
 	if live != 4 {
 		t.Fatalf("adapter produced %d live basic Forests, want 4 (a just-played land is tappable)", live)
 	}
-	if r := b.Cards[9]; !r.Castable || !r.InstantSpeed || r.ManaCost != reserve {
+	if r := b.Cards.Get(9); !r.Castable || !r.InstantSpeed || r.ManaCost != reserve {
 		t.Fatalf("hand reserve 9 is not a castable {G}{G} instant: %+v", r)
 	}
 	if len(b.Stack) != 1 || b.Stack[0].ID != 50 || !b.Stack[0].IsSpell || b.Stack[0].ManaCost != burn {
 		t.Fatalf("pending stack spell is not a {G} spell at id 50: %+v", b.Stack)
 	}
-	if b.Creatures[201].Toughness == b.Creatures[202].Toughness {
+	if b.Creatures.Get(201).Toughness == b.Creatures.Get(202).Toughness {
 		t.Fatal("precondition: the two creature values under comparison must differ")
 	}
 

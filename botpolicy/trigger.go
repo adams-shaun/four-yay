@@ -119,7 +119,7 @@ func declineOptional(d *decision.Decision) []int {
 // this deliberately protects mana development even when the hand is flooded.
 func (b Board) chooseDiscard(d *decision.Decision) []int {
 	return b.chooseLowest(d, func(id state.ObjID) int32 {
-		c := b.Cards[id]
+		c := b.Cards.Get(id)
 		if c.Basic || (!c.Creature && c.CMC == 0) {
 			return 1
 		}

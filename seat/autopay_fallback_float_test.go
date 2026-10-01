@@ -39,7 +39,7 @@ func TestAutoPayFallbackDoesNotFloatForUncastable(t *testing.T) {
 		1: forestCard(), 2: forestCard(),
 		50: {Creature: true, Power: 3, Toughness: 3, CMC: 3, Castable: true, ManaCost: "2 G"},
 	}
-	brd1 := botpolicy.Board{IsMain: true, FirstMain: true, MyTurn: false, Cards: cards1}
+	brd1 := botpolicy.Board{IsMain: true, FirstMain: true, MyTurn: false, Cards: botpolicy.TableOf(cards1)}
 	d1 := decision.Decision{Seq: 7, Player: 0, Kind: decision.KPriority, Min: 1, Max: 1,
 		Options: []decision.Option{
 			{Index: 0, Kind: "activate", Obj: 1}, {Index: 1, Kind: "activate", Obj: 2},
@@ -63,7 +63,7 @@ func TestAutoPayFallbackDoesNotFloatForUncastable(t *testing.T) {
 		1: forestCard(), 2: forestCard(), 3: forestCard(),
 		50: {Creature: true, Power: 3, Toughness: 3, CMC: 3, Castable: true, ManaCost: "X G G"},
 	}
-	brd2 := botpolicy.Board{IsMain: true, FirstMain: true, MyTurn: true, Cards: cards2}
+	brd2 := botpolicy.Board{IsMain: true, FirstMain: true, MyTurn: true, Cards: botpolicy.TableOf(cards2)}
 	d2 := decision.Decision{Seq: 7, Player: 0, Kind: decision.KPriority, Min: 1, Max: 1,
 		Options: []decision.Option{
 			{Index: 0, Kind: "activate", Obj: 1}, {Index: 1, Kind: "activate", Obj: 2},
@@ -87,7 +87,7 @@ func TestAutoPayFallbackDoesNotFloatForUncastable(t *testing.T) {
 		1: forestCard(), 2: forestCard(), 3: forestCard(), 4: forestCard(), 5: forestCard(),
 		50: {Creature: true, Power: 7, Toughness: 7, CMC: 7, Castable: true, ManaCost: "6 G"},
 	}
-	brd3 := botpolicy.Board{IsMain: true, FirstMain: true, MyTurn: true, Cards: cards3}
+	brd3 := botpolicy.Board{IsMain: true, FirstMain: true, MyTurn: true, Cards: botpolicy.TableOf(cards3)}
 	d3 := decision.Decision{Seq: 7, Player: 0, Kind: decision.KPriority, Min: 1, Max: 1}
 	for _, id := range []state.ObjID{1, 2, 3, 4, 5} {
 		d3.Options = append(d3.Options, decision.Option{Index: len(d3.Options), Kind: "activate", Obj: id})
@@ -117,7 +117,7 @@ func TestAutoPayFallbackKeepsPlanForUncastableIntent(t *testing.T) {
 		42: {Creature: true, Power: 2, Toughness: 2, CMC: 2, Castable: true, ManaCost: "1 G"},
 		50: {Creature: true, Power: 7, Toughness: 7, CMC: 7, Castable: true, ManaCost: "6 G"},
 	}
-	brd := botpolicy.Board{IsMain: true, FirstMain: true, MyTurn: true, Cards: cardsMap}
+	brd := botpolicy.Board{IsMain: true, FirstMain: true, MyTurn: true, Cards: botpolicy.TableOf(cardsMap)}
 	d := decision.Decision{Seq: 7, Player: 0, Kind: decision.KPriority, Min: 1, Max: 1}
 	for _, id := range []state.ObjID{1, 2, 3, 4, 5} {
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "activate", Obj: id})
@@ -157,10 +157,10 @@ func TestAutoPayFallbackTapsIndeterminateUrzaLands(t *testing.T) {
 		return botpolicy.Card{OnBattlefield: true, Produces: p}
 	}
 	brd := botpolicy.Board{IsMain: true, FirstMain: true, MyTurn: true,
-		Cards: map[state.ObjID]botpolicy.Card{
+		Cards: botpolicy.TableOf(map[state.ObjID]botpolicy.Card{
 			1: urza(), 2: urza(),
 			50: {CMC: 1, Castable: true, ManaCost: "1"},
-		}}
+		})}
 	d := decision.Decision{Seq: 47, Player: 0, Kind: decision.KPriority, Min: 1, Max: 1,
 		Options: []decision.Option{
 			{Index: 0, Kind: "activate", Obj: 1}, {Index: 1, Kind: "activate", Obj: 2},

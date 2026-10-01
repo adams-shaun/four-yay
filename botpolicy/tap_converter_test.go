@@ -26,10 +26,10 @@ func TestTapGateNeverLoopsANetZeroConverter(t *testing.T) {
 	// Line 3's exact window: pool {W}, the intended card {2}{W}{W}. Paying
 	// {1} spends the {W} and adds a {W}: the same pool, so the pass.
 	b := Board{IsMain: true,
-		Cards: map[state.ObjID]Card{
+		Cards: TableOf(map[state.ObjID]Card{
 			3: {CMC: 4, ManaCost: "2 W W", Castable: true},
 			7: {Produces: white},
-		},
+		}),
 		Pool: state.Mana{1, 0, 0, 0, 0, 0}}
 	if in := Decide(b, &priority, rng(1)); priority.Options[in.Choices[0]].Kind != "pass" {
 		t.Fatalf("net-zero conversion = %+v, want the pass", in)
@@ -52,11 +52,11 @@ func TestTapGateNeverLoopsANetZeroConverter(t *testing.T) {
 			{Index: 2, Kind: "pass", Label: "Pass priority"},
 		}}
 	bog := Board{IsMain: true,
-		Cards: map[state.ObjID]Card{
+		Cards: TableOf(map[state.ObjID]Card{
 			3: {CMC: 5, ManaCost: "3 B B", Castable: true},
 			4: {CMC: 4, ManaCost: "4", Castable: true},
 			7: {Produces: cards.ManaProduction{Colour: [6]int32{0, 0, 1, 0, 0, 0}}},
-		},
+		}),
 		Pool: state.Mana{0, 0, 4, 0, 0, 0}}
 	if in := Decide(bog, &withCast, rng(1)); withCast.Options[in.Choices[0]].Kind != "cast" {
 		t.Fatalf("conversion beside an offered cast = %+v, want the cast", in)
@@ -85,10 +85,10 @@ func TestConverterGateTerminates(t *testing.T) {
 		}}
 	for _, start := range []state.Mana{{1, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 5}, {2, 1, 1, 1, 1, 1}, {0, 3, 0, 0, 0, 0}} {
 		b := Board{IsMain: true,
-			Cards: map[state.ObjID]Card{
+			Cards: TableOf(map[state.ObjID]Card{
 				3: {CMC: 6, ManaCost: "2 W W W W", Castable: true},
 				7: {Produces: cards.ManaProduction{Colour: [6]int32{1, 0, 0, 0, 0, 0}}},
-			},
+			}),
 			Pool: start}
 		steps := 0
 		for ; steps < 50; steps++ {
@@ -127,7 +127,7 @@ func TestPaymentWindowNeverTakesAConverter(t *testing.T) {
 				{Index: 1, Kind: "activate", Label: "Tap Plains for mana", Obj: 8},
 				{Index: 2, Kind: "done", Label: "Done"},
 			}}
-		b := Board{Pool: state.Mana{1, 0, 0, 0, 0, 0}, Cards: map[state.ObjID]Card{}}
+		b := Board{Pool: state.Mana{1, 0, 0, 0, 0, 0}, Cards: TableOf(map[state.ObjID]Card{})}
 		if in := Decide(b, &w, rng(1)); len(in.Choices) != 1 || in.Choices[0] != 1 {
 			t.Fatalf("%q window with a converter first = %+v, want the Plains (option 1)", resume, in)
 		}
@@ -161,10 +161,10 @@ func TestConverterGateIgnoresRestrictedPoolMana(t *testing.T) {
 			{Index: 1, Kind: "pass", Label: "Pass priority"},
 		}}
 	b := Board{IsMain: true,
-		Cards: map[state.ObjID]Card{
+		Cards: TableOf(map[state.ObjID]Card{
 			3: {CMC: 3, ManaCost: "1 B B", Castable: true},
 			7: {Produces: cards.ManaProduction{Colour: [6]int32{0, 0, 1, 0, 0, 0}}},
-		},
+		}),
 		Pool: state.Mana{0, 0, 1, 0, 0, 2}}
 	// Control: the same {C}{C} UNRESTRICTED really does fix the colour.
 	if in := Decide(b, &priority, rng(1)); priority.Options[in.Choices[0]].Kind != "activate" {

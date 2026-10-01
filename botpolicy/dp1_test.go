@@ -19,11 +19,11 @@ import (
 // card's worth (cardWorth), most valuable source first, ties on index. It is
 // not the shuffle it replaced -- the same offer always orders the same way.
 func TestTriggerOrderRanksBySourceWorth(t *testing.T) {
-	b := Board{Cards: map[state.ObjID]Card{
+	b := Board{Cards: TableOf(map[state.ObjID]Card{
 		30: {CMC: 1},                   // worth 1
 		31: {Creature: true, Power: 4}, // worth 46 — most valuable
 		32: {Creature: true, Power: 1}, // worth 34
-	}}
+	})}
 	d := decision.Decision{Seq: 1, Player: 0, Kind: decision.KTriggerOrder, Min: 3, Max: 3,
 		Options: []decision.Option{
 			{Index: 0, Kind: "trigger", Obj: 30},
@@ -49,10 +49,10 @@ func TestTriggerOrderRanksBySourceWorth(t *testing.T) {
 // triggers of equal source worth keep the offer order (index), not a map or
 // random order.
 func TestTriggerOrderTiesBreakOnIndex(t *testing.T) {
-	b := Board{Cards: map[state.ObjID]Card{
+	b := Board{Cards: TableOf(map[state.ObjID]Card{
 		40: {Creature: true, Power: 2},
 		41: {Creature: true, Power: 2},
-	}}
+	})}
 	d := decision.Decision{Seq: 1, Player: 0, Kind: decision.KTriggerOrder, Min: 2, Max: 2,
 		Options: []decision.Option{
 			{Index: 0, Kind: "trigger", Obj: 40},
@@ -109,8 +109,8 @@ func TestCommanderZoneTaxAware(t *testing.T) {
 	}
 	// A fresh 4/4 commander (Casts 0) is worth 46 with no tax -- command zone.
 	fresh := Board{
-		Cards:      map[state.ObjID]Card{100: {Creature: true, Power: 4, CMC: 4}},
-		Commanders: map[state.ObjID]Commander{100: {Casts: 0}},
+		Cards:      TableOf(map[state.ObjID]Card{100: {Creature: true, Power: 4, CMC: 4}}),
+		Commanders: TableOf(map[state.ObjID]Commander{100: {Casts: 0}}),
 	}
 	if in := Decide(fresh, cmdDecision(100), rng(1)); len(in.Choices) != 1 || in.Choices[0] != 0 {
 		t.Fatalf("fresh commander = %v, want the command zone (option 0)", in.Choices)
@@ -119,8 +119,8 @@ func TestCommanderZoneTaxAware(t *testing.T) {
 	// let it leave so it can be recast from a non-command-zone source at no
 	// tax, the same losing-exchange line the cast rule's CR1 draws.
 	taxed := Board{
-		Cards:      map[state.ObjID]Card{200: {Creature: true, Power: 4, CMC: 4}},
-		Commanders: map[state.ObjID]Commander{200: {Casts: 3}},
+		Cards:      TableOf(map[state.ObjID]Card{200: {Creature: true, Power: 4, CMC: 4}}),
+		Commanders: TableOf(map[state.ObjID]Commander{200: {Casts: 3}}),
 	}
 	if in := Decide(taxed, cmdDecision(200), rng(1)); len(in.Choices) != 1 || in.Choices[0] != 1 {
 		t.Fatalf("taxed commander = %v, want leave (option 1) -- the tax has made recasting losing", in.Choices)
@@ -133,12 +133,12 @@ func TestCommanderZoneTaxAware(t *testing.T) {
 // sacrifice cost pays it with the least valuable permanent, and a delve
 // exile spends the least valuable graveyard cards.
 func TestChooseWorstPicksLeastValuable(t *testing.T) {
-	b := Board{Cards: map[state.ObjID]Card{
+	b := Board{Cards: TableOf(map[state.ObjID]Card{
 		1: {Creature: true, Power: 1}, // worth 34
 		2: {CMC: 3},                   // worth 3
 		3: {Creature: true, Power: 4}, // worth 46 — most valuable, kept
 		4: {CMC: 1},                   // worth 1 — least valuable
-	}}
+	})}
 	for _, kind := range []string{"sacrifice"} {
 		d := decision.Decision{Seq: 1, Player: 0, Kind: decision.KChoose, Min: 2, Max: 2,
 			Options: []decision.Option{

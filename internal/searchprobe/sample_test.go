@@ -52,15 +52,15 @@ func TestRejectionBucketClassifiesObservedShapeWithoutIdentity(t *testing.T) {
 func TestOpponentBoardsReusePerPlayerMaps(t *testing.T) {
 	e := &rules.Engine{G: state.NewGame([]string{"a", "b"})}
 	boards := newOpponentBoards(2)
-	wantCards := reflect.ValueOf(boards[1].Cards).Pointer()
-	wantLife := reflect.ValueOf(boards[1].Life).Pointer()
+	wantCards := reflect.ValueOf(boards[1].Cards.Map()).Pointer()
+	wantLife := reflect.ValueOf(boards[1].Life.Map()).Pointer()
 
 	first := opponentBoard(e, 1, boards)
 	second := opponentBoard(e, 1, boards)
-	if reflect.ValueOf(first.Cards).Pointer() != wantCards || reflect.ValueOf(second.Cards).Pointer() != wantCards {
+	if reflect.ValueOf(first.Cards.Map()).Pointer() != wantCards || reflect.ValueOf(second.Cards.Map()).Pointer() != wantCards {
 		t.Fatal("opponent board card map was reallocated")
 	}
-	if reflect.ValueOf(first.Life).Pointer() != wantLife || reflect.ValueOf(second.Life).Pointer() != wantLife {
+	if reflect.ValueOf(first.Life.Map()).Pointer() != wantLife || reflect.ValueOf(second.Life.Map()).Pointer() != wantLife {
 		t.Fatal("opponent board life map was reallocated")
 	}
 }

@@ -21,7 +21,7 @@ import (
 // [0,1] sums to 7 and would be rejected -- and the answer passes
 // Decision.Validate, so the engine consumes it and no livelock occurs.
 func TestPlayBudgetModesArmFillsGreedilyUnderMaxSum(t *testing.T) {
-	b := Board{Cards: map[state.ObjID]Card{}}
+	b := Board{Cards: TableOf(map[state.ObjID]Card{})}
 	d := decision.Decision{
 		Kind:   decision.KModes,
 		Min:    2,
@@ -46,7 +46,7 @@ func TestPlayBudgetModesArmFillsGreedilyUnderMaxSum(t *testing.T) {
 // shape every corpus WithTotalCMC$ Play carrier has -- is answered with the
 // empty intent (the decline), which passes Validate.
 func TestPlayBudgetModesOptionalDeclines(t *testing.T) {
-	b := Board{Cards: map[state.ObjID]Card{}}
+	b := Board{Cards: TableOf(map[state.ObjID]Card{})}
 	d := decision.Decision{
 		Kind:   decision.KModes,
 		Min:    0,

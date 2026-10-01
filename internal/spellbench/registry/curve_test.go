@@ -204,7 +204,7 @@ func TestCurveBoardSurfaceTakesTheLandDrop(t *testing.T) {
 	spell := botpolicy.Card{OnBattlefield: false, Castable: true, ManaCost: "1", CMC: 1}
 	b := botpolicy.Board{
 		IsMain: true, MyTurn: true,
-		Cards: map[state.ObjID]botpolicy.Card{20: land, 22: spell},
+		Cards: botpolicy.TableOf(map[state.ObjID]botpolicy.Card{20: land, 22: spell}),
 	}
 	d := curveTDecision(0, curveTPass(), curveTLand(1, 20), curveTCast(2, 22))
 	inner := &stubSeat{answer: passIntent}

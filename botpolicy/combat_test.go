@@ -19,9 +19,9 @@ type fact struct {
 // boardOf builds a Board with the given creatures (Life empty unless a test
 // sets it) -- the battlefield census the adapters would produce.
 func boardOf(fs ...fact) Board {
-	b := Board{Creatures: map[state.ObjID]Creature{}, Life: map[state.PlayerID]int32{}}
+	b := Board{Creatures: TableOf(map[state.ObjID]Creature{}), Life: TableOf(map[state.PlayerID]int32{})}
 	for _, f := range fs {
-		b.Creatures[f.id] = f.c
+		b.Creatures.Set(f.id, f.c)
 	}
 	return b
 }
@@ -143,7 +143,7 @@ func TestAttackCheapKillBlockIsDeadly(t *testing.T) {
 
 func TestLethalPressureCandidateForcesBlockOrWins(t *testing.T) {
 	b := boardOf(atk(1, 5, 5), def(1, 6, 6))
-	b.Life[1] = 5
+	b.Life.Set(1, 5)
 	d := decision.Decision{Seq: 1, Player: 0, Kind: decision.KAttackers, Min: 0, Max: 1,
 		Options: []decision.Option{{Index: 0, Kind: "attacker", Obj: 101, Player: 1}}}
 	// AR7 is promoted into the default: Decide and LethalPressureDecide both
@@ -156,7 +156,7 @@ func TestLethalPressureCandidateForcesBlockOrWins(t *testing.T) {
 	}
 	// Not lethal (6 life vs 5 power): the AR3 veto still holds the bad
 	// trade back.
-	b.Life[1] = 6
+	b.Life.Set(1, 6)
 	if got := Decide(b, &d, rng(1)).Choices; len(got) != 0 {
 		t.Fatalf("non-lethal choices = %v, want the bad trade held back", got)
 	}
@@ -252,17 +252,17 @@ func TestAttackLeaveABlocker(t *testing.T) {
 // a 1/1 is never thrown at a 6/6 it cannot touch when no life is at stake.
 func TestBlockFavorableAndEvenTrades(t *testing.T) {
 	b := boardOf(atk(1, 4, 4), def(1, 3, 3))
-	b.Life[0] = 20
+	b.Life.Set(0, 20)
 	if got := blockDecision(b, [2]int{1, 1}); len(got) != 1 {
 		t.Errorf("4/4 vs 3/3 = %v, want the block (it survives, attacker dies)", got)
 	}
 	b = boardOf(atk(1, 3, 3), def(1, 3, 3))
-	b.Life[0] = 20
+	b.Life.Set(0, 20)
 	if got := blockDecision(b, [2]int{1, 1}); len(got) != 1 {
 		t.Errorf("3/3 vs 3/3 = %v, want the block (even trade)", got)
 	}
 	b = boardOf(atk(1, 1, 1), def(1, 6, 6))
-	b.Life[0] = 20
+	b.Life.Set(0, 20)
 	if got := blockDecision(b, [2]int{1, 1}); len(got) != 0 {
 		t.Errorf("1/1 vs 6/6 = %v, want no block (it dies for nothing at 20 life)", got)
 	}
@@ -271,7 +271,7 @@ func TestBlockFavorableAndEvenTrades(t *testing.T) {
 	// no life is at stake.
 	b = boardOf(fact{state.ObjID(101), Creature{Power: 5, Toughness: 5, Damage: 4, Controller: 0}},
 		def(1, 4, 4))
-	b.Life[0] = 20
+	b.Life.Set(0, 20)
 	if got := blockDecision(b, [2]int{1, 1}); len(got) != 0 {
 		t.Errorf("5/5-damaged vs 4/4 = %v, want no block (both die and it trades down)", got)
 	}
@@ -283,7 +283,7 @@ func TestBlockFavorableAndEvenTrades(t *testing.T) {
 // same block.
 func TestBlockSpendsTheCheapestKiller(t *testing.T) {
 	b := boardOf(atk(1, 4, 4), atk(2, 1, 1, "Deathtouch"), def(1, 4, 4))
-	b.Life[0] = 20
+	b.Life.Set(0, 20)
 	got := blockDecision(b, [2]int{1, 1}, [2]int{2, 1}) // both options block the 4/4
 	if len(got) != 1 || got[0] != 1 {
 		t.Errorf("4/4 vs {4/4, 1/1-deathtouch} = %v, want only the 1/1 option spent", got)
@@ -297,25 +297,25 @@ func TestBlockSpendsTheCheapestKiller(t *testing.T) {
 func TestBlockChumpOnlyForLethal(t *testing.T) {
 	// 4 damage at 5 life: not lethal, the 1/1 stays home.
 	b := boardOf(atk(1, 1, 1), def(1, 4, 4))
-	b.Life[0] = 5
+	b.Life.Set(0, 5)
 	if got := blockDecision(b, [2]int{1, 1}); len(got) != 0 {
 		t.Errorf("1/1 vs 4/4 at 5 life = %v, want no chump (not lethal)", got)
 	}
 	// The same block at 4 life: lethal, chump.
-	b.Life[0] = 4
+	b.Life.Set(0, 4)
 	if got := blockDecision(b, [2]int{1, 1}); len(got) != 1 {
 		t.Errorf("1/1 vs 4/4 at 4 life = %v, want the chump (lethal)", got)
 	}
 	// Trample: at 3 life the unblocked 4 is lethal, and a 1/1 chump saves
 	// the only life it can (1); still the right block.
 	b = boardOf(atk(1, 1, 1), def(1, 4, 4, "Trample"))
-	b.Life[0] = 3
+	b.Life.Set(0, 3)
 	if got := blockDecision(b, [2]int{1, 1}); len(got) != 1 {
 		t.Errorf("1/1 vs trampling 4/4 at 3 life = %v, want the chump", got)
 	}
 	// Non-lethal incoming total with two attackers: no chump on either.
 	b = boardOf(atk(1, 1, 1), def(1, 2, 2), def(2, 2, 2))
-	b.Life[0] = 5
+	b.Life.Set(0, 5)
 	if got := blockDecision(b, [2]int{1, 1}, [2]int{1, 2}); len(got) != 0 {
 		t.Errorf("1/1 vs two 2/2s at 5 life = %v, want no chump", got)
 	}
@@ -326,7 +326,7 @@ func TestBlockChumpOnlyForLethal(t *testing.T) {
 // gets a legal two-creature declaration.
 func TestBlockMenaceUsesZeroOrAtLeastTwoCreatures(t *testing.T) {
 	b := boardOf(atk(1, 1, 1), atk(2, 1, 1), def(1, 3, 3, "Menace"))
-	b.Life[0] = 2 // the menace attacker is lethal if left unblocked
+	b.Life.Set(0, 2) // the menace attacker is lethal if left unblocked
 
 	if got := blockDecision(b, [2]int{1, 1}); len(got) != 0 {
 		t.Fatalf("one available blocker produced declaration %v, want no block", got)
@@ -343,7 +343,7 @@ func TestBlockMenaceUsesZeroOrAtLeastTwoCreatures(t *testing.T) {
 // gets through untouched.
 func TestBlockNeverThrowsAway(t *testing.T) {
 	b := boardOf(atk(1, 2, 2), def(1, 5, 5), def(2, 1, 1))
-	b.Life[0] = 20
+	b.Life.Set(0, 20)
 	got := blockDecision(b, [2]int{1, 1}, [2]int{1, 2}) // options: (2/2,5/5), (2/2,1/1)
 	if len(got) != 1 {
 		t.Fatalf("2/2 vs {5/5, 1/1} = %v, want exactly one block", got)
@@ -361,7 +361,7 @@ func TestBlockNeverThrowsAway(t *testing.T) {
 // that names it shifts.
 func TestBlockCombatIsDeterministic(t *testing.T) {
 	b := boardOf(atk(1, 4, 4), atk(2, 3, 3), def(1, 4, 4))
-	b.Life[0] = 20
+	b.Life.Set(0, 20)
 	// Forward: option 0 is (blocker, 4/4 attacker).
 	fa := blockDecisionFull(b, [2]int{1, 1}, [2]int{1, 2})
 	if len(fa.choices) != 1 {
@@ -433,14 +433,14 @@ func TestBoardFromGameCensusSkipsNonCreatures(t *testing.T) {
 	land := g.AddObject(cardFace(t, "Mountain", "Basic Land Mountain", 0, 0), 0)
 	g.SetZone(state.ZBattlefield, 0, []state.ObjID{whelp.ID, land.ID})
 	got := BoardFromGame(g, stubChars{}, 0)
-	if len(got.Creatures) != 1 {
-		t.Fatalf("census has %d creatures, want 1 (the land must be dropped)", len(got.Creatures))
+	if got.Creatures.Len() != 1 {
+		t.Fatalf("census has %d creatures, want 1 (the land must be dropped)", got.Creatures.Len())
 	}
-	cr := got.Creatures[whelp.ID]
+	cr := got.Creatures.Get(whelp.ID)
 	if cr.Power != 2 || cr.Toughness != 2 {
 		t.Errorf("creature facts = %d/%d, want 2/2", cr.Power, cr.Toughness)
 	}
-	if _, ok := got.Creatures[land.ID]; ok {
+	if _, ok := got.Creatures.Lookup(land.ID); ok {
 		t.Errorf("land object leaked into the creature census")
 	}
 	// A brand-new game sits in the untap step: not a main phase, and both
@@ -448,8 +448,8 @@ func TestBoardFromGameCensusSkipsNonCreatures(t *testing.T) {
 	if got.IsMain {
 		t.Errorf("IsMain = true on a fresh game (step untap), want false")
 	}
-	if got.Life[0] != 20 || got.Life[1] != 20 {
-		t.Errorf("life = %v, want 20/20", got.Life)
+	if got.Life.Get(0) != 20 || got.Life.Get(1) != 20 {
+		t.Errorf("life = %v, want 20/20", got.Life.Map())
 	}
 }
 
@@ -545,14 +545,15 @@ func TestAttackDefenderLifeTiebreak(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			b := boardOf(atk(1, 4, 4), atk(2, 0, 2)) // AR4 cannot mask the choice
 			if tc.life1 != 0 || tc.life2 != 0 {
-				b.Life[1], b.Life[2] = tc.life1, tc.life2
+				b.Life.Set(1, tc.life1)
+				b.Life.Set(2, tc.life2)
 			}
 			if tc.blocker {
 				f := defN(1, 1, 4, 4) // even trade (tier 1), vs empty seat 2 (tier 2)
-				b.Creatures[f.id] = f.c
+				b.Creatures.Set(f.id, f.c)
 			}
 			if tc.clock {
-				b.Commanders = map[state.ObjID]Commander{101: zoneCmd(1, map[state.PlayerID]int32{1: 18})}
+				b.Commanders = TableOf(map[state.ObjID]Commander{101: zoneCmd(1, map[state.PlayerID]int32{1: 18})})
 			}
 			pairs := [][2]int{{1, 1}, {2, 1}}
 			if tc.reverse {
@@ -627,12 +628,12 @@ func TestAttackSplitsTwoAttackersAcrossTwoDefenders(t *testing.T) {
 // stays home from seat 1 and takes the safe swing at seat 2 instead.
 func TestAttackClockClosesAgainstOnlyOneDefender(t *testing.T) {
 	b := boardOf(atk(1, 4, 4), atk(2, 0, 2), defN(1, 1, 1, 1, "Deathtouch"))
-	b.Commanders = map[state.ObjID]Commander{101: zoneCmd(1, map[state.PlayerID]int32{1: 18})}
+	b.Commanders = TableOf(map[state.ObjID]Commander{101: zoneCmd(1, map[state.PlayerID]int32{1: 18})})
 	fa := attackDecisionDefsFull(b, [2]int{1, 1}, [2]int{2, 1})
 	if len(fa.choices) != 1 || fa.d.Options[fa.choices[0]].Player != 1 {
 		t.Fatalf("closing commander vs {1/1 deathtouch, empty} = %v, want the seat-1 swing (18+4 closes)", fa.choices)
 	}
-	b.Commanders = map[state.ObjID]Commander{101: zoneCmd(1, map[state.PlayerID]int32{1: 16})}
+	b.Commanders = TableOf(map[state.ObjID]Commander{101: zoneCmd(1, map[state.PlayerID]int32{1: 16})})
 	fa = attackDecisionDefsFull(b, [2]int{1, 1}, [2]int{2, 1})
 	if len(fa.choices) != 1 || fa.d.Options[fa.choices[0]].Player != 2 {
 		t.Fatalf("non-closing commander vs {1/1 deathtouch, empty} = %v, want the seat-2 swing (16+4 does not close)", fa.choices)
@@ -668,7 +669,7 @@ func combinedAttackDecision(b Board, ids ...int) []int {
 // blocking response that can absorb only one 3/3 and sends both.
 func TestCombinedLethalTwoThreesVsFiveLife(t *testing.T) {
 	b := boardOf(atk(1, 3, 3), atk(2, 3, 3), def(1, 2, 2))
-	b.Life[1] = 5
+	b.Life.Set(1, 5)
 	if got := attackDecision(b, 1, 2); len(got) != 1 {
 		t.Fatalf("baseline (AR7 only) choices = %v, want one attacker held back", got)
 	}
@@ -683,7 +684,7 @@ func TestCombinedLethalTwoThreesVsFiveLife(t *testing.T) {
 // baseline (AR4 holds one back) is unchanged.
 func TestCombinedLethalSevenLifeAddsNothing(t *testing.T) {
 	b := boardOf(atk(1, 3, 3), atk(2, 3, 3), def(1, 2, 2))
-	b.Life[1] = 7
+	b.Life.Set(1, 7)
 	base := attackDecision(b, 1, 2)
 	got := combinedAttackDecision(b, 1, 2)
 	if len(base) != 1 || len(got) != 1 {
@@ -725,7 +726,7 @@ func TestCombinedLethalFlyingIsUnblockable(t *testing.T) {
 // yield exactly 3 through, not 0).
 func TestCombinedLethalFlyingSwingIsFound(t *testing.T) {
 	b := boardOf(atk(1, 3, 3, "Flying"), atk(2, 2, 2), def(1, 5, 5))
-	b.Life[1] = 4
+	b.Life.Set(1, 4)
 	if got := combinedAttackDecision(b, 1, 2); len(got) != 1 || got[0] != 0 {
 		t.Fatalf("AR8 vs 4 life with ground-only blocker = %v, want only the flier (blocker absorbs the 2/2; 3 < 4)", got)
 	}
@@ -759,7 +760,7 @@ func TestCombinedLethalUnknownLifeIsNoChange(t *testing.T) {
 func TestCombinedLethalDeterministic(t *testing.T) {
 	build := func() Board {
 		b := boardOf(atk(1, 3, 3), atk(2, 3, 3), atk(3, 2, 2), def(1, 2, 2), def(2, 1, 1))
-		b.Life[1] = 5
+		b.Life.Set(1, 5)
 		return b
 	}
 	a := combinedAttackDecision(build(), 1, 2, 3)
@@ -782,7 +783,8 @@ func TestCombinedLethalDeterministic(t *testing.T) {
 func TestCombinedLethalMultiDefenderDeterministic(t *testing.T) {
 	b := boardOf(atk(1, 3, 3), atk(2, 3, 3),
 		defN(1, 1, 2, 2), defN(2, 1, 2, 2))
-	b.Life[1], b.Life[2] = 5, 5
+	b.Life.Set(1, 5)
+	b.Life.Set(2, 5)
 	build := func() decision.Decision {
 		return decision.Decision{Seq: 1, Player: 0, Kind: decision.KAttackers, Min: 0, Max: 4,
 			Options: []decision.Option{

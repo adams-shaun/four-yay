@@ -69,8 +69,8 @@ func TestCouncilsJudgmentBotVotesTheBestBallotPermanent(t *testing.T) {
 		}
 		if voteAsks == 0 {
 			brd := botpolicy.BoardFromGame(e.G, e, d.Player)
-			bf, bok := brd.Cards[bear]
-			tf, tok := brd.Cards[brontodon]
+			bf, bok := brd.Cards.Lookup(bear)
+			tf, tok := brd.Cards.Lookup(brontodon)
 			if !bok || !bf.Creature || bf.Power != 2 {
 				t.Fatalf("bot board facts for the bear = %+v (present %v), want a 2-power creature", bf, bok)
 			}

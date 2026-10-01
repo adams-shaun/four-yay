@@ -33,7 +33,7 @@ func legacyCardWorth(c Card) int32 {
 }
 
 func legacyCastScore(b Board, o decision.Option) int32 {
-	s := legacyCardWorth(b.Cards[o.Obj])
+	s := legacyCardWorth(b.Cards.Get(o.Obj))
 	switch o.Mode {
 	case "kicked", "kicked1", "kicked2", "kickedboth", "surged":
 		s += 6
@@ -44,9 +44,9 @@ func legacyCastScore(b Board, o decision.Option) int32 {
 }
 
 func legacyCastCost(b Board, id state.ObjID) int32 {
-	c := b.Cards[id]
+	c := b.Cards.Get(id)
 	cost := c.CMC
-	if cmdr, ok := b.Commanders[id]; ok && cmdr.InCommandZone {
+	if cmdr, ok := b.Commanders.Lookup(id); ok && cmdr.InCommandZone {
 		cost += 2 * cmdr.Casts
 	}
 	return cost
@@ -67,13 +67,13 @@ func legacyChooseCast(b Board, d *decision.Decision) int {
 		if o.Kind != "cast" {
 			continue
 		}
-		if b.Cards[o.Obj].Counter && !foreignSpell {
+		if b.Cards.Get(o.Obj).Counter && !foreignSpell {
 			continue
 		}
-		inCmd := b.Commanders[o.Obj].InCommandZone
+		inCmd := b.Commanders.Get(o.Obj).InCommandZone
 		s := legacyCastScore(b, o)
 		if inCmd {
-			s -= 5 * b.Commanders[o.Obj].Casts * b.Cards[o.Obj].CMC
+			s -= 5 * b.Commanders.Get(o.Obj).Casts * b.Cards.Get(o.Obj).CMC
 			if s < 0 {
 				continue
 			}
@@ -105,148 +105,148 @@ func castWeightsCases() []castWeightsCase {
 	return []castWeightsCase{
 		{
 			name: "C1 creature over spell",
-			b:    Board{IsMain: true, Cards: map[state.ObjID]Card{1: {Creature: true, Power: 1}, 2: {CMC: 1}}},
+			b:    Board{IsMain: true, Cards: TableOf(map[state.ObjID]Card{1: {Creature: true, Power: 1}, 2: {CMC: 1}})},
 			opts: []decision.Option{castSpell(0, 2), castCreature(1, 1)},
 		},
 		{
 			name: "C2 higher power",
-			b:    Board{IsMain: true, Cards: map[state.ObjID]Card{1: {Creature: true, Power: 1}, 2: {Creature: true, Power: 4}}},
+			b:    Board{IsMain: true, Cards: TableOf(map[state.ObjID]Card{1: {Creature: true, Power: 1}, 2: {Creature: true, Power: 4}})},
 			opts: []decision.Option{castCreature(0, 1), castCreature(1, 2)},
 		},
 		{
 			name: "C3 bigger spell",
-			b:    Board{IsMain: true, Cards: map[state.ObjID]Card{1: {CMC: 1}, 2: {CMC: 3}}},
+			b:    Board{IsMain: true, Cards: TableOf(map[state.ObjID]Card{1: {CMC: 1}, 2: {CMC: 3}})},
 			opts: []decision.Option{castSpell(0, 1), castSpell(1, 2)},
 		},
 		{
 			name: "C4 kicked over ordinary",
-			b:    Board{IsMain: true, Cards: map[state.ObjID]Card{1: {Creature: true, Power: 2}}},
+			b:    Board{IsMain: true, Cards: TableOf(map[state.ObjID]Card{1: {Creature: true, Power: 2}})},
 			opts: []decision.Option{{Index: 0, Kind: "cast", Obj: 1}, {Index: 1, Kind: "cast", Obj: 1, Mode: "kicked"}},
 		},
 		{
 			name: "C4 flashback over ordinary",
-			b:    Board{IsMain: true, Cards: map[state.ObjID]Card{1: {Creature: true, Power: 2}}},
+			b:    Board{IsMain: true, Cards: TableOf(map[state.ObjID]Card{1: {Creature: true, Power: 2}})},
 			opts: []decision.Option{{Index: 0, Kind: "cast", Obj: 1}, {Index: 1, Kind: "cast", Obj: 1, Mode: "flashback"}},
 		},
 		{
 			name: "C5 unreadable option is low rank",
-			b:    Board{IsMain: true, Cards: map[state.ObjID]Card{1: {Creature: true, Power: 1}}},
+			b:    Board{IsMain: true, Cards: TableOf(map[state.ObjID]Card{1: {Creature: true, Power: 1}})},
 			opts: []decision.Option{castSpell(0, 999), castCreature(1, 1)},
 		},
 		{
 			name: "C6 tie on index",
-			b:    Board{IsMain: true, Cards: map[state.ObjID]Card{1: {Creature: true, Power: 2}, 2: {Creature: true, Power: 2}}},
+			b:    Board{IsMain: true, Cards: TableOf(map[state.ObjID]Card{1: {Creature: true, Power: 2}, 2: {Creature: true, Power: 2}})},
 			opts: []decision.Option{castCreature(0, 1), castCreature(1, 2)},
 		},
 		{
 			name: "equal-cost non-creatures tie on index",
-			b:    Board{IsMain: true, Cards: map[state.ObjID]Card{1: {CMC: 2}, 2: {CMC: 2}}},
+			b:    Board{IsMain: true, Cards: TableOf(map[state.ObjID]Card{1: {CMC: 2}, 2: {CMC: 2}})},
 			opts: []decision.Option{castSpell(0, 2), castSpell(1, 1)},
 		},
 		{
 			name: "C3 ranks by cost not oracle",
-			b:    Board{IsMain: true, Cards: map[state.ObjID]Card{1: {CMC: 4}, 2: {CMC: 1}}},
+			b:    Board{IsMain: true, Cards: TableOf(map[state.ObjID]Card{1: {CMC: 4}, 2: {CMC: 1}})},
 			opts: []decision.Option{castSpell(0, 2), castSpell(1, 1)},
 		},
 		{
 			name: "C7 prefer the cast that keeps the reserve",
-			b: Board{IsMain: true, Pool: state.Mana{state.MC: 3}, Cards: map[state.ObjID]Card{
+			b: Board{IsMain: true, Pool: state.Mana{state.MC: 3}, Cards: TableOf(map[state.ObjID]Card{
 				1: {CMC: 1, Castable: true},
 				3: {CMC: 3, Castable: true},
 				2: {CMC: 1, Castable: true, InstantSpeed: true},
-			}},
+			})},
 			opts: []decision.Option{{Index: 0, Kind: "cast", Obj: 3}, {Index: 1, Kind: "cast", Obj: 1}, {Index: 2, Kind: "pass"}},
 		},
 		{
 			name: "C7 never suppresses the best play",
-			b: Board{IsMain: true, Pool: state.Mana{state.MC: 4}, Cards: map[state.ObjID]Card{
+			b: Board{IsMain: true, Pool: state.Mana{state.MC: 4}, Cards: TableOf(map[state.ObjID]Card{
 				1: {CMC: 4, Creature: true, Power: 4, Castable: true},
 				2: {CMC: 1, Castable: true, InstantSpeed: true},
-			}},
+			})},
 			opts: []decision.Option{{Index: 0, Kind: "cast", Obj: 1}, {Index: 1, Kind: "pass"}},
 		},
 		{
 			name: "C7 allows a cast with surplus",
-			b: Board{IsMain: true, Pool: state.Mana{state.MC: 4}, Cards: map[state.ObjID]Card{
+			b: Board{IsMain: true, Pool: state.Mana{state.MC: 4}, Cards: TableOf(map[state.ObjID]Card{
 				1: {CMC: 3, Creature: true, Power: 2, Castable: true},
 				2: {CMC: 1, Castable: true, InstantSpeed: true},
-			}},
+			})},
 			opts: []decision.Option{{Index: 0, Kind: "cast", Obj: 1}, {Index: 1, Kind: "pass"}},
 		},
 		{
 			name: "C7 inert without an instant-speed card",
-			b: Board{IsMain: true, Pool: state.Mana{state.MC: 3}, Cards: map[state.ObjID]Card{
+			b: Board{IsMain: true, Pool: state.Mana{state.MC: 3}, Cards: TableOf(map[state.ObjID]Card{
 				1: {CMC: 3, Creature: true, Power: 2, Castable: true},
-			}},
+			})},
 			opts: []decision.Option{{Index: 0, Kind: "cast", Obj: 1}, {Index: 1, Kind: "pass"}},
 		},
 		{
 			name: "C7 never holds the commander cast",
 			b: Board{IsMain: true, Pool: state.Mana{state.MC: 3},
-				Commanders: map[state.ObjID]Commander{9: {Casts: 0, InCommandZone: true}},
-				Cards: map[state.ObjID]Card{
+				Commanders: TableOf(map[state.ObjID]Commander{9: {Casts: 0, InCommandZone: true}}),
+				Cards: TableOf(map[state.ObjID]Card{
 					9: {CMC: 3, Creature: true, Power: 3, Castable: true},
 					2: {CMC: 1, Castable: true, InstantSpeed: true},
-				}},
+				})},
 			opts: []decision.Option{{Index: 0, Kind: "cast", Obj: 9}, {Index: 1, Kind: "pass"}},
 		},
 		{
 			name: "CR1 first cast",
-			b:    Board{IsMain: true, Cards: map[state.ObjID]Card{1: {Creature: true, Power: 4, CMC: 4}}, Commanders: cmdr(0)},
+			b:    Board{IsMain: true, Cards: TableOf(map[state.ObjID]Card{1: {Creature: true, Power: 4, CMC: 4}}), Commanders: TableOf(cmdr(0))},
 			opts: []decision.Option{castCreature(0, 1), {Index: 1, Kind: "pass"}},
 		},
 		{
 			name: "CR1 second cast still casts",
-			b:    Board{IsMain: true, Cards: map[state.ObjID]Card{1: {Creature: true, Power: 4, CMC: 4}, 2: {CMC: 3}}, Commanders: cmdr(1)},
+			b:    Board{IsMain: true, Cards: TableOf(map[state.ObjID]Card{1: {Creature: true, Power: 4, CMC: 4}, 2: {CMC: 3}}), Commanders: TableOf(cmdr(1))},
 			opts: []decision.Option{castSpell(0, 2), castCreature(1, 1)},
 		},
 		{
 			name: "CR1 fourth cast refused",
-			b:    Board{IsMain: true, Cards: map[state.ObjID]Card{1: {Creature: true, Power: 4, CMC: 4}}, Commanders: cmdr(3)},
+			b:    Board{IsMain: true, Cards: TableOf(map[state.ObjID]Card{1: {Creature: true, Power: 4, CMC: 4}}), Commanders: TableOf(cmdr(3))},
 			opts: []decision.Option{castCreature(0, 1), {Index: 1, Kind: "pass"}},
 		},
 		{
 			name: "CR1 12/12 third cast refused",
-			b:    Board{IsMain: true, Cards: map[state.ObjID]Card{1: {Creature: true, Power: 12, CMC: 12}}, Commanders: cmdr(2)},
+			b:    Board{IsMain: true, Cards: TableOf(map[state.ObjID]Card{1: {Creature: true, Power: 12, CMC: 12}}), Commanders: TableOf(cmdr(2))},
 			opts: []decision.Option{castCreature(0, 1), {Index: 1, Kind: "pass"}},
 		},
 		{
 			name: "CR1 cheap outlasts expensive",
-			b:    Board{IsMain: true, Cards: map[state.ObjID]Card{1: {Creature: true, Power: 2, CMC: 2}}, Commanders: cmdr(2)},
+			b:    Board{IsMain: true, Cards: TableOf(map[state.ObjID]Card{1: {Creature: true, Power: 2, CMC: 2}}), Commanders: TableOf(cmdr(2))},
 			opts: []decision.Option{castCreature(0, 1), {Index: 1, Kind: "pass"}},
 		},
 		{
 			name: "CR1 expensive CMC8 priced out",
-			b:    Board{IsMain: true, Cards: map[state.ObjID]Card{1: {Creature: true, Power: 4, CMC: 8}}, Commanders: cmdr(2)},
+			b:    Board{IsMain: true, Cards: TableOf(map[state.ObjID]Card{1: {Creature: true, Power: 4, CMC: 8}}), Commanders: TableOf(cmdr(2))},
 			opts: []decision.Option{castCreature(0, 1), {Index: 1, Kind: "pass"}},
 		},
 		{
 			name: "CR1 taxed below the big spell",
-			b:    Board{IsMain: true, Cards: map[state.ObjID]Card{1: {Creature: true, Power: 4, CMC: 4}, 2: {CMC: 8}}, Commanders: cmdr(2)},
+			b:    Board{IsMain: true, Cards: TableOf(map[state.ObjID]Card{1: {Creature: true, Power: 4, CMC: 4}, 2: {CMC: 8}}), Commanders: TableOf(cmdr(2))},
 			opts: []decision.Option{castCreature(0, 1), castSpell(1, 2)},
 		},
 		{
 			name: "CR1 hand cast untaxed",
-			b:    Board{IsMain: true, Cards: map[state.ObjID]Card{1: {Creature: true, Power: 4, CMC: 4}}, Commanders: map[state.ObjID]Commander{1: {Casts: 3, InCommandZone: false}}},
+			b:    Board{IsMain: true, Cards: TableOf(map[state.ObjID]Card{1: {Creature: true, Power: 4, CMC: 4}}), Commanders: TableOf(map[state.ObjID]Commander{1: {Casts: 3, InCommandZone: false}})},
 			opts: []decision.Option{castCreature(0, 1), {Index: 1, Kind: "pass"}},
 		},
 		{
 			name: "CR1 refusal falls to the land drop",
-			b:    Board{IsMain: true, Cards: map[state.ObjID]Card{1: {Creature: true, Power: 2, CMC: 2}, 2: {Basic: true}}, Commanders: cmdr(2)},
+			b:    Board{IsMain: true, Cards: TableOf(map[state.ObjID]Card{1: {Creature: true, Power: 2, CMC: 2}, 2: {Basic: true}}), Commanders: TableOf(cmdr(2))},
 			opts: []decision.Option{castCreature(0, 1), playLand(1, 2)},
 		},
 		{
 			name: "C8 counter refused at an own-spells-only stack",
-			b: Board{Cards: map[state.ObjID]Card{
+			b: Board{Cards: TableOf(map[state.ObjID]Card{
 				10: {CMC: 2, Castable: true, InstantSpeed: true, Counter: true},
-			}, Stack: []StackEntry{{ID: 90, Controller: 0, IsSpell: true}}},
+			}), Stack: []StackEntry{{ID: 90, Controller: 0, IsSpell: true}}},
 			opts: counterPriority(10).Options,
 		},
 		{
 			name: "C8 counter cast at a foreign spell",
-			b: Board{Cards: map[state.ObjID]Card{
+			b: Board{Cards: TableOf(map[state.ObjID]Card{
 				10: {CMC: 2, Castable: true, InstantSpeed: true, Counter: true},
-			}, Stack: []StackEntry{{ID: 91, Controller: 1, IsSpell: true}}},
+			}), Stack: []StackEntry{{ID: 91, Controller: 1, IsSpell: true}}},
 			opts: counterPriority(10).Options,
 		},
 	}
@@ -306,7 +306,7 @@ func TestCastWeightCreatureToughness(t *testing.T) {
 		2: {Creature: true, Power: 2, Toughness: 4, Castable: true},
 	}
 	opts := []decision.Option{castCreature(0, 1), castCreature(1, 2)}
-	b := Board{IsMain: true, Cards: cards}
+	b := Board{IsMain: true, Cards: TableOf(cards)}
 	d := &decision.Decision{Player: 0, Kind: decision.KPriority, Min: 1, Max: 1, Options: opts}
 	if got := b.chooseCast(d); got != 0 {
 		t.Fatalf("default pick = option %d, want the index tie (0)", got)
@@ -327,7 +327,7 @@ func TestCastWeightCurveFit(t *testing.T) {
 		5: {OnBattlefield: true, Produces: prod(state.MC, 2)}, // an untapped colourless source
 	}
 	opts := []decision.Option{castCreature(0, 1), castCreature(1, 2)}
-	b := Board{IsMain: true, Pool: state.Mana{state.MC: 1}, Cards: cards}
+	b := Board{IsMain: true, Pool: state.Mana{state.MC: 1}, Cards: TableOf(cards)}
 	d := &decision.Decision{Player: 0, Kind: decision.KPriority, Min: 1, Max: 1, Options: opts}
 	if got := b.chooseCast(d); got != 0 {
 		t.Fatalf("default pick = option %d, want the index tie (0)", got)
@@ -339,7 +339,7 @@ func TestCastWeightCurveFit(t *testing.T) {
 	// the fit moves to the 1-cost cast, which the weight then prefers.
 	src := cards[5]
 	src.Tapped = true
-	cards[5] = src
+	b.Cards.Set(5, src)
 	if got := withTuned(b, func(w *CastWeights) { w.CurveFit = 10 }).chooseCast(d); got != 0 {
 		t.Fatalf("CurveFit=10 with a tapped source = option %d, want 0 — producible is the pool's 1 and the 1-cost cast is what fits", got)
 	}
@@ -354,7 +354,7 @@ func TestCastWeightManaLeft(t *testing.T) {
 		2: {Creature: true, Power: 2, CMC: 1, Castable: true},
 	}
 	opts := []decision.Option{castCreature(0, 1), castCreature(1, 2)}
-	b := Board{IsMain: true, Pool: state.Mana{state.MC: 5}, Cards: cards}
+	b := Board{IsMain: true, Pool: state.Mana{state.MC: 5}, Cards: TableOf(cards)}
 	d := &decision.Decision{Player: 0, Kind: decision.KPriority, Min: 1, Max: 1, Options: opts}
 	if got := b.chooseCast(d); got != 0 {
 		t.Fatalf("default pick = option %d, want the index tie (0)", got)
@@ -370,8 +370,8 @@ func TestCastWeightManaLeft(t *testing.T) {
 // weight keeps it refused.
 func TestCastWeightPrecombat(t *testing.T) {
 	b := Board{IsMain: true, FirstMain: true,
-		Cards:      map[state.ObjID]Card{1: {Creature: true, Power: 4, CMC: 4, Castable: true}},
-		Commanders: map[state.ObjID]Commander{1: {Casts: 3, InCommandZone: true}}}
+		Cards:      TableOf(map[state.ObjID]Card{1: {Creature: true, Power: 4, CMC: 4, Castable: true}}),
+		Commanders: TableOf(map[state.ObjID]Commander{1: {Casts: 3, InCommandZone: true}})}
 	opts := []decision.Option{castCreature(0, 1), {Index: 1, Kind: "pass"}}
 	d := &decision.Decision{Player: 0, Kind: decision.KPriority, Min: 1, Max: 1, Options: opts}
 	if got := b.chooseCast(d); got != -1 {
@@ -396,7 +396,7 @@ func TestCastWeightInstantOnOwnTurn(t *testing.T) {
 		2: {CMC: 2, Castable: true, InstantSpeed: true},
 	}
 	opts := []decision.Option{castSpell(0, 1), castSpell(1, 2)}
-	b := Board{IsMain: true, MyTurn: true, Cards: cards}
+	b := Board{IsMain: true, MyTurn: true, Cards: TableOf(cards)}
 	d := &decision.Decision{Player: 0, Kind: decision.KPriority, Min: 1, Max: 1, Options: opts}
 	if got := b.chooseCast(d); got != 0 {
 		t.Fatalf("default pick = option %d, want the index tie (0)", got)
@@ -418,9 +418,9 @@ func TestCastWeightInstantOnOwnTurn(t *testing.T) {
 // a cast at the CR1 boundary.
 func TestCastWeightOppCreatures(t *testing.T) {
 	b := Board{IsMain: true,
-		Cards:      map[state.ObjID]Card{1: {Creature: true, Power: 4, CMC: 4, Castable: true}},
-		Commanders: map[state.ObjID]Commander{1: {Casts: 3, InCommandZone: true}},
-		Creatures:  map[state.ObjID]Creature{50: {Controller: 1}}}
+		Cards:      TableOf(map[state.ObjID]Card{1: {Creature: true, Power: 4, CMC: 4, Castable: true}}),
+		Commanders: TableOf(map[state.ObjID]Commander{1: {Casts: 3, InCommandZone: true}}),
+		Creatures:  TableOf(map[state.ObjID]Creature{50: {Controller: 1}})}
 	opts := []decision.Option{castCreature(0, 1), {Index: 1, Kind: "pass"}}
 	d := &decision.Decision{Player: 0, Kind: decision.KPriority, Min: 1, Max: 1, Options: opts}
 	if got := b.chooseCast(d); got != -1 {
@@ -436,9 +436,9 @@ func TestCastWeightOppCreatures(t *testing.T) {
 // weight.
 func TestCastWeightOwnCreatures(t *testing.T) {
 	b := Board{IsMain: true,
-		Cards:      map[state.ObjID]Card{1: {Creature: true, Power: 4, CMC: 4, Castable: true}},
-		Commanders: map[state.ObjID]Commander{1: {Casts: 3, InCommandZone: true}},
-		Creatures:  map[state.ObjID]Creature{50: {Controller: 0}}}
+		Cards:      TableOf(map[state.ObjID]Card{1: {Creature: true, Power: 4, CMC: 4, Castable: true}}),
+		Commanders: TableOf(map[state.ObjID]Commander{1: {Casts: 3, InCommandZone: true}}),
+		Creatures:  TableOf(map[state.ObjID]Creature{50: {Controller: 0}})}
 	opts := []decision.Option{castCreature(0, 1), {Index: 1, Kind: "pass"}}
 	d := &decision.Decision{Player: 0, Kind: decision.KPriority, Min: 1, Max: 1, Options: opts}
 	if got := b.chooseCast(d); got != -1 {
@@ -454,9 +454,9 @@ func TestCastWeightOwnCreatures(t *testing.T) {
 // with the default weight it stays refused.
 func TestCastWeightLifeDelta(t *testing.T) {
 	b := Board{IsMain: true,
-		Cards:      map[state.ObjID]Card{1: {Creature: true, Power: 4, CMC: 4, Castable: true}},
-		Commanders: map[state.ObjID]Commander{1: {Casts: 3, InCommandZone: true}},
-		Life:       map[state.PlayerID]int32{0: 20, 1: 5}}
+		Cards:      TableOf(map[state.ObjID]Card{1: {Creature: true, Power: 4, CMC: 4, Castable: true}}),
+		Commanders: TableOf(map[state.ObjID]Commander{1: {Casts: 3, InCommandZone: true}}),
+		Life:       TableOf(map[state.PlayerID]int32{0: 20, 1: 5})}
 	opts := []decision.Option{castCreature(0, 1), {Index: 1, Kind: "pass"}}
 	d := &decision.Decision{Player: 0, Kind: decision.KPriority, Min: 1, Max: 1, Options: opts}
 	if got := b.chooseCast(d); got != -1 {
@@ -483,10 +483,10 @@ func TestCastWeightsZeroValueIsDefault(t *testing.T) {
 	}
 	// A tuned profile is live: creature terms zeroed, non-creatures priced
 	// up — the C1 ranking inverts and the spell is cast over the creature.
-	b := Board{IsMain: true, Cards: map[state.ObjID]Card{
+	b := Board{IsMain: true, Cards: TableOf(map[state.ObjID]Card{
 		1: {Creature: true, Power: 1},
 		2: {CMC: 3},
-	}}
+	})}
 	d := &decision.Decision{Player: 0, Kind: decision.KPriority, Min: 1, Max: 1,
 		Options: []decision.Option{castSpell(0, 2), castCreature(1, 1)}}
 	if got := withTuned(b, func(w *CastWeights) { w.CreatureBase, w.CreaturePower, w.NonCreatureCMC = 0, 0, 10 }).chooseCast(d); got != 0 {
@@ -506,7 +506,7 @@ func TestCastThresholdHoldsTheBestCast(t *testing.T) {
 		2: {Creature: true, Power: 3, Castable: true},
 	}
 	opts := []decision.Option{castCreature(0, 1), castCreature(1, 2)}
-	b := Board{IsMain: true, Cards: cards}
+	b := Board{IsMain: true, Cards: TableOf(cards)}
 	d := &decision.Decision{Player: 0, Kind: decision.KPriority, Min: 1, Max: 1, Options: opts}
 	if got := b.chooseCast(d); got != 1 {
 		t.Fatalf("default pick = option %d, want 1 — the 3-power creature (42) outranks the 2/2 (38)", got)
@@ -535,7 +535,7 @@ func TestCastThresholdHoldsTheWholePriorityDecision(t *testing.T) {
 			{Index: 1, Kind: "pass"},
 			{Index: 2, Kind: "concede"},
 		}}
-	b := Board{IsMain: true, Cards: map[state.ObjID]Card{1: {Creature: true, Power: 2, Castable: true}}}
+	b := Board{IsMain: true, Cards: TableOf(map[state.ObjID]Card{1: {Creature: true, Power: 2, Castable: true}})}
 	in := Decide(b, d, rng(1))
 	if err := d.Validate(in); err != nil {
 		t.Fatalf("default intent failed Validate: %v", in)
@@ -561,8 +561,8 @@ func TestCastThresholdHoldsTheWholePriorityDecision(t *testing.T) {
 // threshold holds the whole decision.
 func TestCastThresholdSparesTheCommanderCast(t *testing.T) {
 	b := Board{IsMain: true,
-		Cards:      map[state.ObjID]Card{1: {Creature: true, Power: 2, CMC: 2, Castable: true}},
-		Commanders: map[state.ObjID]Commander{1: {Casts: 0, InCommandZone: true}}}
+		Cards:      TableOf(map[state.ObjID]Card{1: {Creature: true, Power: 2, CMC: 2, Castable: true}}),
+		Commanders: TableOf(map[state.ObjID]Commander{1: {Casts: 0, InCommandZone: true}})}
 	opts := []decision.Option{castCreature(0, 1), {Index: 1, Kind: "pass"}}
 	d := &decision.Decision{Player: 0, Kind: decision.KPriority, Min: 1, Max: 1, Options: opts}
 	if got := withTuned(b, func(w *CastWeights) { w.CastThreshold = 100 }).chooseCast(d); got != 0 {
@@ -571,11 +571,11 @@ func TestCastThresholdSparesTheCommanderCast(t *testing.T) {
 	// Mixed: the hand 4-power creature (46) outscores the commander (38), so
 	// it is the best option and the threshold applies to the whole decision.
 	b2 := Board{IsMain: true,
-		Cards: map[state.ObjID]Card{
+		Cards: TableOf(map[state.ObjID]Card{
 			1: {Creature: true, Power: 2, CMC: 2, Castable: true},
 			2: {Creature: true, Power: 4, Castable: true},
-		},
-		Commanders: map[state.ObjID]Commander{1: {Casts: 0, InCommandZone: true}}}
+		}),
+		Commanders: TableOf(map[state.ObjID]Commander{1: {Casts: 0, InCommandZone: true}})}
 	opts2 := []decision.Option{castCreature(0, 1), castCreature(1, 2), {Index: 2, Kind: "pass"}}
 	d2 := &decision.Decision{Player: 0, Kind: decision.KPriority, Min: 1, Max: 1, Options: opts2}
 	if got := b2.chooseCast(d2); got != 1 {
@@ -596,7 +596,7 @@ func TestCastWeightCreaturePrecombat(t *testing.T) {
 		2: {CMC: 34},
 	}
 	opts := []decision.Option{castSpell(0, 2), castCreature(1, 1)}
-	b := Board{IsMain: true, FirstMain: true, Cards: cards}
+	b := Board{IsMain: true, FirstMain: true, Cards: TableOf(cards)}
 	d := &decision.Decision{Player: 0, Kind: decision.KPriority, Min: 1, Max: 1, Options: opts}
 	if got := b.chooseCast(d); got != 0 {
 		t.Fatalf("default pick = option %d, want the index tie (0)", got)
@@ -621,8 +621,8 @@ func TestCastWeightCreatureOppCreatures(t *testing.T) {
 		2: {CMC: 34},
 	}
 	opts := []decision.Option{castSpell(0, 2), castCreature(1, 1)}
-	b := Board{IsMain: true, FirstMain: true, Cards: cards,
-		Creatures: map[state.ObjID]Creature{10: {Controller: 1}, 11: {Controller: 1}}}
+	b := Board{IsMain: true, FirstMain: true, Cards: TableOf(cards),
+		Creatures: TableOf(map[state.ObjID]Creature{10: {Controller: 1}, 11: {Controller: 1}})}
 	d := &decision.Decision{Player: 0, Kind: decision.KPriority, Min: 1, Max: 1, Options: opts}
 	if got := b.chooseCast(d); got != 0 {
 		t.Fatalf("default pick = option %d, want the index tie (0)", got)
@@ -631,7 +631,7 @@ func TestCastWeightCreatureOppCreatures(t *testing.T) {
 		t.Fatalf("CreatureOppCreatures=3 pick = option %d, want 1 — the creature earns 2 opposing creatures × 3", got)
 	}
 	empty := b
-	empty.Creatures = nil
+	empty.Creatures = CreatureTable{}
 	if got := withTuned(empty, func(w *CastWeights) { w.CreatureOppCreatures = 3 }).chooseCast(d); got != 0 {
 		t.Fatalf("CreatureOppCreatures=3 with an empty board = option %d, want 0 — the count is 0 and the tie stands", got)
 	}
@@ -647,8 +647,8 @@ func TestCastWeightNonCreatureOppCreatures(t *testing.T) {
 		2: {CMC: 1},
 	}
 	opts := []decision.Option{castSpell(0, 2), castCreature(1, 1)}
-	b := Board{IsMain: true, Cards: cards,
-		Creatures: map[state.ObjID]Creature{10: {Controller: 1}, 11: {Controller: 1}}}
+	b := Board{IsMain: true, Cards: TableOf(cards),
+		Creatures: TableOf(map[state.ObjID]Creature{10: {Controller: 1}, 11: {Controller: 1}})}
 	d := &decision.Decision{Player: 0, Kind: decision.KPriority, Min: 1, Max: 1, Options: opts}
 	if got := b.chooseCast(d); got != 1 {
 		t.Fatalf("default pick = option %d, want 1 — C1 casts the creature over the one-shot", got)
@@ -657,7 +657,7 @@ func TestCastWeightNonCreatureOppCreatures(t *testing.T) {
 		t.Fatalf("NonCreatureOppCreatures=20 pick = option %d, want 0 — the one-shot earns 2 × 20 against the wide board", got)
 	}
 	empty := b
-	empty.Creatures = nil
+	empty.Creatures = CreatureTable{}
 	if got := withTuned(empty, func(w *CastWeights) { w.NonCreatureOppCreatures = 20 }).chooseCast(d); got != 1 {
 		t.Fatalf("NonCreatureOppCreatures=20 with an empty board = option %d, want 1 — the count is 0 and C1 stands", got)
 	}
@@ -673,8 +673,8 @@ func TestCastWeightCreatureLifeDelta(t *testing.T) {
 		2: {CMC: 34},
 	}
 	opts := []decision.Option{castSpell(0, 2), castCreature(1, 1)}
-	b := Board{IsMain: true, FirstMain: true, Cards: cards,
-		Life: map[state.PlayerID]int32{0: 25, 1: 20}}
+	b := Board{IsMain: true, FirstMain: true, Cards: TableOf(cards),
+		Life: TableOf(map[state.PlayerID]int32{0: 25, 1: 20})}
 	d := &decision.Decision{Player: 0, Kind: decision.KPriority, Min: 1, Max: 1, Options: opts}
 	if got := b.chooseCast(d); got != 0 {
 		t.Fatalf("default pick = option %d, want the index tie (0)", got)
@@ -683,7 +683,7 @@ func TestCastWeightCreatureLifeDelta(t *testing.T) {
 		t.Fatalf("CreatureLifeDelta=2 pick = option %d, want 1 — the creature earns the +5 life delta × 2", got)
 	}
 	even := b
-	even.Life = map[state.PlayerID]int32{0: 20, 1: 20}
+	even.Life = TableOf(map[state.PlayerID]int32{0: 20, 1: 20})
 	if got := withTuned(even, func(w *CastWeights) { w.CreatureLifeDelta = 2 }).chooseCast(d); got != 0 {
 		t.Fatalf("CreatureLifeDelta=2 at even life = option %d, want 0 — the delta is 0 and the tie stands", got)
 	}
@@ -703,7 +703,7 @@ func TestCastWeightInstantSpeedOffTurnHold(t *testing.T) {
 		2: {CMC: 2},
 	}
 	opts := []decision.Option{castSpell(0, 1), castSpell(1, 2)}
-	b := Board{IsMain: true, MyTurn: true, Cards: cards}
+	b := Board{IsMain: true, MyTurn: true, Cards: TableOf(cards)}
 	d := &decision.Decision{Player: 0, Kind: decision.KPriority, Min: 1, Max: 1, Options: opts}
 	if got := b.chooseCast(d); got != 0 {
 		t.Fatalf("default pick = option %d, want the index tie (0)", got)
@@ -721,7 +721,7 @@ func TestCastWeightInstantSpeedOffTurnHold(t *testing.T) {
 	// instant-speed card would earn the C7 reserve bonus and muddy the
 	// score the threshold reads.
 	pair := Board{IsMain: true, MyTurn: true, Pool: state.Mana{state.MC: 5},
-		Cards: map[state.ObjID]Card{1: {CMC: 2, InstantSpeed: true}}}
+		Cards: TableOf(map[state.ObjID]Card{1: {CMC: 2, InstantSpeed: true}})}
 	pairOpts := []decision.Option{castSpell(0, 1), {Index: 1, Kind: "pass"}}
 	pairD := &decision.Decision{Player: 0, Kind: decision.KPriority, Min: 1, Max: 1, Options: pairOpts}
 	if got := withTuned(pair, func(w *CastWeights) { w.CastThreshold = 1 }).chooseCast(pairD); got != 0 {
@@ -732,7 +732,7 @@ func TestCastWeightInstantSpeedOffTurnHold(t *testing.T) {
 		t.Fatalf("instant at threshold 1 with the term = option %d, want -1 — the term moved the score (2-10) below the boundary", got)
 	}
 	plain := Board{IsMain: true, MyTurn: true, Pool: state.Mana{state.MC: 5},
-		Cards: map[state.ObjID]Card{1: {CMC: 2}}}
+		Cards: TableOf(map[state.ObjID]Card{1: {CMC: 2}})}
 	plainD := &decision.Decision{Player: 0, Kind: decision.KPriority, Min: 1, Max: 1,
 		Options: []decision.Option{castSpell(0, 1), {Index: 1, Kind: "pass"}}}
 	if got := withTuned(plain, func(w *CastWeights) { w.CastThreshold = 1 }).chooseCast(plainD); got != 0 {
@@ -756,7 +756,7 @@ func TestCastWeightSetValuePrefersTheFollowUp(t *testing.T) {
 		3: {Creature: true, Power: 2, CMC: 2, Castable: true},
 	}
 	opts := []decision.Option{castCreature(0, 1), castCreature(1, 2), castCreature(2, 3)}
-	b := Board{IsMain: true, Pool: state.Mana{state.MC: 4}, Cards: cards}
+	b := Board{IsMain: true, Pool: state.Mana{state.MC: 4}, Cards: TableOf(cards)}
 	d := &decision.Decision{Player: 0, Kind: decision.KPriority, Min: 1, Max: 1, Options: opts}
 	if got := b.chooseCast(d); got != 0 {
 		t.Fatalf("default pick = option %d, want the index tie (0) — the 3-drop", got)
@@ -797,7 +797,7 @@ func TestCastWeightSetValueSubsetCapDeterministic(t *testing.T) {
 		cards[id] = Card{Creature: true, Power: int32(i%3) + 1, CMC: int32(i%5) + 1, Castable: true}
 		opts = append(opts, castCreature(i, id))
 	}
-	b := Board{IsMain: true, Pool: state.Mana{state.MC: 20}, Cards: cards}
+	b := Board{IsMain: true, Pool: state.Mana{state.MC: 20}, Cards: TableOf(cards)}
 	d := &decision.Decision{Player: 0, Kind: decision.KPriority, Min: 1, Max: 1, Options: opts}
 	tuned := withTuned(b, func(w *CastWeights) { w.SetValue = 8 })
 	first := tuned.chooseCast(d)

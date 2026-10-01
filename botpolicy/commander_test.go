@@ -11,7 +11,7 @@ import (
 // (Cards) and the commander bookkeeping (Commanders) both adapters fill,
 // with IsMain true so the cast group is reachable.
 func commanderBoard(facts map[state.ObjID]Card, cmds map[state.ObjID]Commander) Board {
-	return Board{IsMain: true, Cards: facts, Commanders: cmds}
+	return Board{IsMain: true, Cards: TableOf(facts), Commanders: TableOf(cmds)}
 }
 
 // zoneCmd is a Commander fact standing for "in the command zone, cast N
@@ -221,14 +221,14 @@ func TestCommanderRefusalFallsToLand(t *testing.T) {
 // second track if it gets through.
 func TestAttackCommanderClockCloseout(t *testing.T) {
 	b := boardOf(atk(1, 4, 4), def(1, 1, 1, "Deathtouch"))
-	b.Commanders = map[state.ObjID]Commander{101: zoneCmd(1, map[state.PlayerID]int32{1: 18})}
+	b.Commanders = TableOf(map[state.ObjID]Commander{101: zoneCmd(1, map[state.PlayerID]int32{1: 18})})
 	if got := attackDecision(b, 1); len(got) != 1 || got[0] != 0 {
 		t.Errorf("4/4 commander at 18 vs 1/1 swiftdeath = %v, want it to attack (18+4 closes the clock)", got)
 	}
 	// The same commander at 16 stays home: 16 + 4 = 20 is not yet a
 	// win, and dying to the free block only delays the closing while
 	// paying the tax to recast.
-	b.Commanders = map[state.ObjID]Commander{101: zoneCmd(1, map[state.PlayerID]int32{1: 16})}
+	b.Commanders = TableOf(map[state.ObjID]Commander{101: zoneCmd(1, map[state.PlayerID]int32{1: 16})})
 	if got := attackDecision(b, 1); len(got) != 0 {
 		t.Errorf("4/4 commander at 16 vs 1/1 swiftdeath = %v, want it held back (16+4 does not close)", got)
 	}
@@ -240,7 +240,7 @@ func TestAttackCommanderClockCloseout(t *testing.T) {
 // swing, never the spare.
 func TestAttackCommanderClockCloserNotHeldBack(t *testing.T) {
 	b := boardOf(atk(1, 4, 4), atk(2, 2, 2), def(1, 2, 2))
-	b.Commanders = map[state.ObjID]Commander{101: zoneCmd(0, map[state.PlayerID]int32{1: 18})}
+	b.Commanders = TableOf(map[state.ObjID]Commander{101: zoneCmd(0, map[state.PlayerID]int32{1: 18})})
 	got := attackDecision(b, 1, 2)
 	if len(got) != 1 || got[0] != 0 {
 		t.Errorf("closer 4/4 + spare 2/2 vs defender 2/2 = %v, want only the closer (option 0) to attack", got)
@@ -283,7 +283,7 @@ func commanderGameState(t *testing.T) (*state.Game, state.ObjID, state.ObjID) {
 func TestBoardFromGameCommanderFacts(t *testing.T) {
 	g, A, B := commanderGameState(t)
 	got := BoardFromGame(g, stubChars{}, 0)
-	cmA, ok := got.Commanders[A]
+	cmA, ok := got.Commanders.Lookup(A)
 	if !ok {
 		t.Fatalf("seat 0's commander A (%d) missing from the board", A)
 	}
@@ -293,7 +293,7 @@ func TestBoardFromGameCommanderFacts(t *testing.T) {
 	if cmA.Damage[0] != 7 || cmA.Damage[1] != 0 || len(cmA.Damage) != 1 {
 		t.Errorf("commander A damage = %v, want {seat 0: 7} exactly", cmA.Damage)
 	}
-	cmB, ok := got.Commanders[B]
+	cmB, ok := got.Commanders.Lookup(B)
 	if !ok {
 		t.Fatalf("seat 1's commander B (%d) missing from the board", B)
 	}
@@ -314,7 +314,7 @@ func TestBoardFromGameCommanderFacts(t *testing.T) {
 func TestBoardFromGameCommandZoneCensus(t *testing.T) {
 	g, A, _ := commanderGameState(t)
 	got := BoardFromGame(g, stubChars{}, 0)
-	c, ok := got.Cards[A]
+	c, ok := got.Cards.Lookup(A)
 	if !ok {
 		t.Fatalf("command-zone commander A (%d) absent from the casting census", A)
 	}
@@ -335,7 +335,7 @@ func TestBoardFromGameCommandZoneCensus(t *testing.T) {
 func TestBoardFromGameIntoClearsCommanders(t *testing.T) {
 	gA, A, _ := commanderGameState(t)
 	boardA := BoardFromGame(gA, stubChars{}, 0)
-	cmdPtr := mapPtr(boardA.Commanders)
+	cmdPtr := tablePtr(boardA.Commanders)
 
 	// Game B: seat 1 alone has a commander. A filler object takes object id
 	// 1 so B's commander id (2) cannot collide with game A's commander id
@@ -350,16 +350,16 @@ func TestBoardFromGameIntoClearsCommanders(t *testing.T) {
 	gB.SetZone(state.ZBattlefield, 1, []state.ObjID{Bo.ID})
 	boardB := BoardFromGameInto(gB, stubChars{}, 0, &boardA)
 
-	if mapPtr(boardB.Commanders) != cmdPtr {
+	if tablePtr(boardB.Commanders) != cmdPtr {
 		t.Fatalf("BoardFromGameInto reallocated the Commanders map: reuse is not happening")
 	}
-	if len(boardB.Commanders) != 1 {
-		t.Fatalf("refilled Commanders = %d entries, want 1 (game A's commander failed to clear)", len(boardB.Commanders))
+	if boardB.Commanders.Len() != 1 {
+		t.Fatalf("refilled Commanders = %d entries, want 1 (game A's commander failed to clear)", boardB.Commanders.Len())
 	}
-	if _, stale := boardB.Commanders[A]; stale {
+	if _, stale := boardB.Commanders.Lookup(A); stale {
 		t.Errorf("game A's commander A leaked into the refilled board")
 	}
-	cmB := boardB.Commanders[Bo.ID]
+	cmB := boardB.Commanders.Get(Bo.ID)
 	if cmB.Casts != 0 || cmB.InCommandZone || cmB.Damage[1] != 3 || len(cmB.Damage) != 1 {
 		t.Errorf("game B's commander facts = %+v, want the clean B facts", cmB)
 	}
@@ -375,20 +375,20 @@ func TestBoardFromGameIntoClearsCommanders(t *testing.T) {
 // would also decline; only the clock forces the block.
 func TestBlockCommanderClockChump(t *testing.T) {
 	b := boardOf(atk(1, 1, 1), def(1, 3, 3))
-	b.Life[0] = 20
-	b.Commanders = map[state.ObjID]Commander{201: zoneCmd(0, map[state.PlayerID]int32{0: 18})}
+	b.Life.Set(0, 20)
+	b.Commanders = TableOf(map[state.ObjID]Commander{201: zoneCmd(0, map[state.PlayerID]int32{0: 18})})
 	if got := blockDecision(b, [2]int{1, 1}); len(got) != 1 {
 		t.Errorf("1/1 vs 3/3 commander at 18 = %v, want the chump (18+3 closes the clock)", got)
 	}
 	// The same 1/1 vs a commander at 16 stays home: 19 < 21, and 20 life
 	// can take the hit.
-	b.Commanders = map[state.ObjID]Commander{201: zoneCmd(0, map[state.PlayerID]int32{0: 16})}
+	b.Commanders = TableOf(map[state.ObjID]Commander{201: zoneCmd(0, map[state.PlayerID]int32{0: 16})})
 	if got := blockDecision(b, [2]int{1, 1}); len(got) != 0 {
 		t.Errorf("1/1 vs 3/3 commander at 16 = %v, want no chump (16+3 does not close)", got)
 	}
 	// And a NON-commander never fires the clock: without the Commanders
 	// entry the same attacker and same life read as a plain 3/3.
-	b.Commanders = map[state.ObjID]Commander{}
+	b.Commanders = TableOf(map[state.ObjID]Commander{})
 	if got := blockDecision(b, [2]int{1, 1}); len(got) != 0 {
 		t.Errorf("1/1 vs plain 3/3 at 20 life = %v, want no chump (no commander clock)", got)
 	}
@@ -403,8 +403,8 @@ func TestBlockCommanderClockChump(t *testing.T) {
 // closing the clock at 21 — a loss the clock ordering prevents.
 func TestBlockCommanderCloserRankedFirst(t *testing.T) {
 	b := boardOf(atk(1, 4, 4), def(1, 3, 3), def(2, 4, 4))
-	b.Life[0] = 20
-	b.Commanders = map[state.ObjID]Commander{201: zoneCmd(0, map[state.PlayerID]int32{0: 18})}
+	b.Life.Set(0, 20)
+	b.Commanders = TableOf(map[state.ObjID]Commander{201: zoneCmd(0, map[state.PlayerID]int32{0: 18})})
 	fa := blockDecisionFull(b, [2]int{1, 1}, [2]int{1, 2}) // options: (4/4, closer 3/3), (4/4, plain 4/4)
 	if len(fa.choices) != 1 {
 		t.Fatalf("one blocker vs two attackers = %v, want exactly one block", fa.choices)

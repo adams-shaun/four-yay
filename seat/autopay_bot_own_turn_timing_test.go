@@ -14,9 +14,9 @@ func TestAutoPayHoldsPlannedInstantOnOwnNonMainStep(t *testing.T) {
 		Options:        []decision.Option{{Index: 0, Kind: "activate"}, {Index: 1, Kind: "pass"}},
 		PaymentActions: []decision.PaymentAction{paymentAction("pay", 42)},
 	}
-	brd := botpolicy.Board{Cards: map[state.ObjID]botpolicy.Card{
+	brd := botpolicy.Board{Cards: botpolicy.TableOf(map[state.ObjID]botpolicy.Card{
 		42: {Creature: true, Power: 3, CMC: 3, Castable: true, InstantSpeed: true},
-	}}
+	})}
 
 	brd.MyTurn = true
 	in := bot.decide(brd, &d)

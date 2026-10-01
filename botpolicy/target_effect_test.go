@@ -37,8 +37,8 @@ func intp(v int) *int { return &v }
 // lethal" guard.
 func TestTargetEffectUnknownDamageIsNotLethal(t *testing.T) {
 	b := boardOf(def(1, 6, 6))
-	b.Life[0] = 20
-	b.Life[1] = 2 // about to die -- but the damage amount is unknown (nil)
+	b.Life.Set(0, 20)
+	b.Life.Set(1, 2) // about to die -- but the damage amount is unknown (nil)
 	got, d := effectTargetDecision(b, nil, []tgt{face(), opp(201)}, 1, 1)
 	if len(got) != 1 || objAt(d, got[0]) != 201 {
 		t.Fatalf("unknown damage = obj %d, want the creature (obj 201): unknown must not be treated as lethal face", objAt(d, got[0]))
@@ -52,8 +52,8 @@ func TestTargetEffectUnknownDamageIsNotLethal(t *testing.T) {
 // literal amount -- and treats every other shape as unreadable.
 func TestTargetEffectUnknownApiIsNotLethal(t *testing.T) {
 	b := boardOf(def(1, 6, 6))
-	b.Life[0] = 20
-	b.Life[1] = 2
+	b.Life.Set(0, 20)
+	b.Life.Set(1, 2)
 	// A Draw effect: no damage, whatever a script says.
 	d := decision.Decision{Seq: 1, Player: 0, Kind: decision.KTarget, Min: 1, Max: 1,
 		TargetEffect: &decision.TargetEffect{API: "Draw"},
@@ -72,8 +72,8 @@ func TestTargetEffectUnknownApiIsNotLethal(t *testing.T) {
 // it is not a kill.
 func TestTargetEffectKnownNonLethalDamageKeepsBoardOverFace(t *testing.T) {
 	b := boardOf(def(1, 6, 6))
-	b.Life[0] = 20
-	b.Life[1] = 20
+	b.Life.Set(0, 20)
+	b.Life.Set(1, 20)
 	got, d := effectTargetDecision(b, intp(3), []tgt{face(), opp(201)}, 1, 1)
 	if len(got) != 1 || objAt(d, got[0]) != 201 {
 		t.Fatalf("known non-lethal damage = obj %d, want the creature (obj 201) over the healthy face", objAt(d, got[0]))
@@ -89,8 +89,8 @@ func TestTargetEffectKnownNonLethalDamageKeepsBoardOverFace(t *testing.T) {
 // kill. The 4/3 wins on the threat tier.
 func TestTargetEffectThreatRemoval(t *testing.T) {
 	b := boardOf(def(1, 4, 3), def(2, 2, 2))
-	b.Life[0] = 4 // the 4/3 would take the seat to 0 this round
-	b.Life[1] = 20
+	b.Life.Set(0, 4) // the 4/3 would take the seat to 0 this round
+	b.Life.Set(1, 20)
 	b.Pool[state.MC] = 1 // spare mana, so the 2/2 would be a legal value kill
 	got, d := effectTargetDecision(b, intp(3), []tgt{face(), opp(201), opp(202)}, 1, 1)
 	if len(got) != 1 || objAt(d, got[0]) != 201 {
@@ -105,8 +105,8 @@ func TestTargetEffectThreatRemoval(t *testing.T) {
 // outranks the creature it could alternatively kill.
 func TestTargetEffectLethalFace(t *testing.T) {
 	b := boardOf(def(1, 2, 2))
-	b.Life[0] = 20 // healthy, so the 2/2 is not a threat to the seat
-	b.Life[1] = 2  // lethal to a 3-damage bolt
+	b.Life.Set(0, 20) // healthy, so the 2/2 is not a threat to the seat
+	b.Life.Set(1, 2)  // lethal to a 3-damage bolt
 	b.Pool[state.MC] = 0
 	got, d := effectTargetDecision(b, intp(3), []tgt{face(), opp(201)}, 1, 1)
 	if len(got) != 1 || d.Options[got[0]].Kind != "player" {
@@ -121,8 +121,8 @@ func TestTargetEffectLethalFace(t *testing.T) {
 // both apply; the 4/3 threat wins.
 func TestTargetEffectThreatBeforeLethalFace(t *testing.T) {
 	b := boardOf(def(1, 4, 3))
-	b.Life[0] = 4 // the 4/3 is a must-answer threat
-	b.Life[1] = 2 // and the effect is also lethal to the opponent's face
+	b.Life.Set(0, 4) // the 4/3 is a must-answer threat
+	b.Life.Set(1, 2) // and the effect is also lethal to the opponent's face
 	got, d := effectTargetDecision(b, intp(3), []tgt{face(), opp(201)}, 1, 1)
 	if len(got) != 1 || objAt(d, got[0]) != 201 {
 		t.Fatalf("threat-vs-lethal-face = obj %d, want the threat (obj 201): tier 1 precedes tier 2", objAt(d, got[0]))
@@ -140,8 +140,8 @@ func TestTargetEffectThreatBeforeLethalFace(t *testing.T) {
 func TestTargetEffectValueKillOnlyWithSpareMana(t *testing.T) {
 	// 5/5 is not killable by 3 damage (remTough 5 > 3); the 2/2 is (2 <= 3).
 	b := boardOf(def(1, 5, 5), def(2, 2, 2))
-	b.Life[0] = 20
-	b.Life[1] = 20 // not lethal to a 3-damage bolt; no threat to a healthy seat
+	b.Life.Set(0, 20)
+	b.Life.Set(1, 20) // not lethal to a 3-damage bolt; no threat to a healthy seat
 
 	// Spare floating mana: the value kill fires -- the strongest killable
 	// creature (the 2/2) beats the unkillable 5/5 the old policy would have

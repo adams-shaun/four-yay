@@ -392,14 +392,14 @@ func TestLethalPrintedCantBlockByOnTheBoardPath(t *testing.T) {
 	SetCardLookup(fakeLookup(cbbCard("Kor Castigator", "Creature.powerLE2")))
 	board := botpolicy.Board{
 		IsMain: true, FirstMain: true, MyTurn: true,
-		Creatures: map[state.ObjID]botpolicy.Creature{
+		Creatures: botpolicy.TableOf(map[state.ObjID]botpolicy.Creature{
 			10: {Power: 3, Toughness: 3, Controller: 0},
 			20: {Power: 2, Toughness: 2, Controller: 1},
-		},
-		Life:  map[state.PlayerID]int32{0: 20, 1: 3},
-		Cards: map[state.ObjID]botpolicy.Card{10: {Sick: false}},
+		}),
+		Life:  botpolicy.TableOf(map[state.PlayerID]int32{0: 20, 1: 3}),
+		Cards: botpolicy.TableOf(map[state.ObjID]botpolicy.Card{10: {Sick: false}}),
 	}
-	if got := board.Creatures[20].Power; got != 2 {
+	if got := board.Creatures.Get(20).Power; got != 2 {
 		t.Fatalf("fixture: blocker power %d, want 2", got)
 	}
 	d := attackerDecision(0, 10)
@@ -413,7 +413,7 @@ func TestLethalPrintedCantBlockByOnTheBoardPath(t *testing.T) {
 		t.Fatalf("choices = %v, want the attack [0] (printed static excludes the power-2 blocker)", got.Choices)
 	}
 	// Control: a power-3 blocker is not excluded.
-	board.Creatures[20] = botpolicy.Creature{Power: 3, Toughness: 3, Controller: 1}
+	board.Creatures.Set(20, botpolicy.Creature{Power: 3, Toughness: 3, Controller: 1})
 	inner2 := &stubSeat{answer: decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{}}}
 	got2, err := newLethal(inner2, 1).(seat.BoardSeat).DecideBoard(context.Background(), board, d)
 	if err != nil {

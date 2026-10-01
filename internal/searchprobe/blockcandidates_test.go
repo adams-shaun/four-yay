@@ -12,7 +12,7 @@ import (
 // searchseat binds it to the deciding seat's real board.
 func blockGuard(d *decision.Decision) func([]int) []int {
 	b := botpolicy.NewBoard(2)
-	b.Life[d.Player] = 20
+	b.Life.Set(d.Player, 20)
 	return func(c []int) []int { return botpolicy.LegalBlockChoices(b, d, c) }
 }
 

@@ -22,15 +22,15 @@ func TestFT1DamageRequiresDamageAPI(t *testing.T) {
 }
 
 func TestFT1UntappedManaSourceIsSpare(t *testing.T) {
-	b := Board{Cards: map[state.ObjID]Card{
+	b := Board{Cards: TableOf(map[state.ObjID]Card{
 		1: {OnBattlefield: true, Basic: true, Produces: manaProductionForTest()},
-	}}
+	})}
 	if !b.hasSpareMana() {
 		t.Fatal("untapped battlefield mana source should count as available spare mana")
 	}
-	c := b.Cards[1]
+	c := b.Cards.Get(1)
 	c.Tapped = true
-	b.Cards[1] = c
+	b.Cards.Set(1, c)
 	if b.hasSpareMana() {
 		t.Fatal("tapped source must not count as spare mana")
 	}

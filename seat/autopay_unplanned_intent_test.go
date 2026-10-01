@@ -36,12 +36,12 @@ func islandCard() botpolicy.Card {
 // the commander) rather than the 2/2's payment plan.
 func TestAutoPayPaysManuallyForUnplannedPreferredCast(t *testing.T) {
 	brd := botpolicy.Board{IsMain: true, FirstMain: true, MyTurn: true,
-		Cards: map[state.ObjID]botpolicy.Card{
+		Cards: botpolicy.TableOf(map[state.ObjID]botpolicy.Card{
 			1: forestCard(), 2: forestCard(), 3: forestCard(), 4: forestCard(), 5: forestCard(),
 			42: {Creature: true, Power: 2, Toughness: 2, CMC: 2, Castable: true, ManaCost: "1 G"},
 			50: {Creature: true, Power: 5, Toughness: 5, CMC: 5, Castable: true, ManaCost: "3 G G"},
-		},
-		Commanders: map[state.ObjID]botpolicy.Commander{50: {InCommandZone: true}},
+		}),
+		Commanders: botpolicy.TableOf(map[state.ObjID]botpolicy.Commander{50: {InCommandZone: true}}),
 	}
 	d := decision.Decision{Seq: 7, Player: 0, Kind: decision.KPriority, Min: 1, Max: 1}
 	for _, id := range []state.ObjID{1, 2, 3, 4, 5} {
@@ -82,7 +82,7 @@ func TestAutoPayKeepsPlanForDeadCounterIntent(t *testing.T) {
 		42: {CMC: 1, Castable: true, ManaCost: "U"},
 		50: {CMC: 3, Castable: true, ManaCost: "1 U U", Counter: true, InstantSpeed: true},
 	}
-	brd := botpolicy.Board{IsMain: true, FirstMain: true, MyTurn: true, Cards: cardsMap}
+	brd := botpolicy.Board{IsMain: true, FirstMain: true, MyTurn: true, Cards: botpolicy.TableOf(cardsMap)}
 	d := decision.Decision{Seq: 7, Player: 0, Kind: decision.KPriority, Min: 1, Max: 1}
 	for _, id := range []state.ObjID{1, 2, 3} {
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "activate", Obj: id})
@@ -114,7 +114,7 @@ func TestAutoPayPaysManuallyForLiveUnplannedCounter(t *testing.T) {
 		42: {CMC: 1, Castable: true, ManaCost: "U"},
 		50: {CMC: 3, Castable: true, ManaCost: "1 U U", Counter: true, InstantSpeed: true},
 	}
-	brd := botpolicy.Board{IsMain: true, FirstMain: true, MyTurn: true, Cards: cardsMap,
+	brd := botpolicy.Board{IsMain: true, FirstMain: true, MyTurn: true, Cards: botpolicy.TableOf(cardsMap),
 		Stack: []botpolicy.StackEntry{{ID: 91, Controller: 1, IsSpell: true, CMC: 4}},
 	}
 	d := decision.Decision{Seq: 7, Player: 0, Kind: decision.KPriority, Min: 1, Max: 1}

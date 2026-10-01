@@ -63,10 +63,10 @@ func TestBoardFromGameUsesCombinedCharacteristicsOncePerObject(t *testing.T) {
 	}
 
 	got := BoardFromGame(g, chars, 0)
-	if creature := got.Creatures[foe.ID]; creature.Power != 7 || creature.Toughness != 4 || !slices.Equal(creature.Keywords, []string{"Flying"}) {
+	if creature := got.Creatures.Get(foe.ID); creature.Power != 7 || creature.Toughness != 4 || !slices.Equal(creature.Keywords, []string{"Flying"}) {
 		t.Errorf("foe creature = %+v, want literal 7/4 with Flying", creature)
 	}
-	if card := got.Cards[hand.ID]; card.Power != 3 || !card.Castable || !card.InstantSpeed {
+	if card := got.Cards.Get(hand.ID); card.Power != 3 || !card.Castable || !card.InstantSpeed {
 		t.Errorf("hand card = %+v, want literal power 3, castable, and instant-speed from Flash", card)
 	}
 	if chars.calls[foe.ID] != 1 || chars.calls[hand.ID] != 1 {

@@ -16,7 +16,7 @@ func TestLegalAttackChoicesDropsTapObligations(t *testing.T) {
 		{Index: 0, Kind: "attacker", Obj: 1},
 		{Index: 1, Kind: "attacker", Obj: 2, CostTaps: 1},
 	}}
-	b := Board{Life: map[state.PlayerID]int32{0: 20}}
+	b := Board{Life: TableOf(map[state.PlayerID]int32{0: 20})}
 	if got := LegalAttackChoices(b, d, []int{0, 1}); !reflect.DeepEqual(got, []int{0}) {
 		t.Fatalf("choices = %v, want [0] (the tap-costed pair dropped)", got)
 	}
@@ -30,7 +30,7 @@ func TestLegalAttackChoicesTrimsOverBudgetLife(t *testing.T) {
 		{Index: 0, Kind: "attacker", Obj: 1, CostLife: 2},
 		{Index: 1, Kind: "attacker", Obj: 2, CostLife: 2},
 	}}
-	b := Board{Life: map[state.PlayerID]int32{0: 3}}
+	b := Board{Life: TableOf(map[state.PlayerID]int32{0: 3})}
 	if got := LegalAttackChoices(b, d, []int{0, 1}); !reflect.DeepEqual(got, []int{0}) {
 		t.Fatalf("choices = %v, want [0] (the second pair exceeds 3 life)", got)
 	}
@@ -43,7 +43,7 @@ func TestLegalAttackChoicesLeavesChargeFreeAnswersUntouched(t *testing.T) {
 		{Index: 0, Kind: "attacker", Obj: 1, Value: 1},
 		{Index: 1, Kind: "attacker", Obj: 2, Value: 1},
 	}}
-	b := Board{Life: map[state.PlayerID]int32{0: 20}}
+	b := Board{Life: TableOf(map[state.PlayerID]int32{0: 20})}
 	if got := LegalAttackChoices(b, d, []int{0, 1}); !reflect.DeepEqual(got, []int{0, 1}) {
 		t.Fatalf("choices = %v, want both unchanged", got)
 	}
