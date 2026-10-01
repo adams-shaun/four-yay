@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"fmt"
 	"math"
 	"slices"
 	"strconv"
@@ -31,6 +32,28 @@ func (e *Engine) costStaticApplies(sv staticView, mode string, p state.PlayerID,
 // composition retried with potential targets is denied it too. A denial by
 // ValidSpell$, CheckSVar$, ValidTarget$ or Relative$ reports false.
 func (e *Engine) costStaticGate(sv staticView, mode string, p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target, xBound bool) (ok, indepFail bool) {
+	// ValidCard$ Card.Self -- the corpus's self-cost-reduction shape ("this
+	// spell costs {1} less ...") -- matches only the static's own source
+	// (the Self predicate is o.ID == Source on both the compiled and the
+	// text matcher path), and every gate before it is a pure,
+	// target-independent read, so for any other priced object the verdict
+	// is the ValidCard$ denial whatever those gates say. It is the one
+	// static every other card in the zone is otherwise priced against.
+	if id != sv.Source {
+		if spec, has := sv.Param(cards.PKValidCard); has && spec == "Card.Self" {
+			if walkSkipVerify {
+				if full, _ := e.costStaticGateFull(sv, mode, p, id, scope, targets, xBound); full {
+					panic(fmt.Sprintf("rules: Card.Self cost static of %d applied to obj %d", sv.Source, id))
+				}
+			}
+			return false, true
+		}
+	}
+	return e.costStaticGateFull(sv, mode, p, id, scope, targets, xBound)
+}
+
+// costStaticGateFull is costStaticGate's full gate chain.
+func (e *Engine) costStaticGateFull(sv staticView, mode string, p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target, xBound bool) (ok, indepFail bool) {
 	if !e.classBandGateHolds(sv.Params, sv.Source) {
 		return false, true
 	}
