@@ -180,6 +180,8 @@ func (e *Engine) sbaInputsQuietSince(q *sbaQuietKey) bool {
 //     player still in the game;
 //   - LifeChange and damage to a player: sbaQuietNow re-reads every
 //     player's life, poison and commander damage on every call;
+//   - LibraryOrder and Shuffle: Apply writes only a library list, whose
+//     order no state-based action reads;
 //   - an off-battlefield move (offBattlefieldMove: library, hand, graveyard
 //     and stack, or into exile) of a non-token no battlefield permanent is
 //     attached to. The pass loop reads hidden and stack objects only to cease
@@ -193,7 +195,7 @@ func (e *Engine) sbaQuietEvent(ev *events.Event) bool {
 	case events.Note, events.ModeChosen, events.ManaActivate, events.Resolve,
 		events.DeclareAttackers, events.DeclareBlockers, events.EndCombatReset,
 		events.TargetsChosen, events.LandPlayed, events.LifeChange, events.ClockTick,
-		events.DamageProvenance:
+		events.DamageProvenance, events.LibraryOrder, events.Shuffle:
 		return true
 	case events.Damage:
 		return ev.Obj == 0

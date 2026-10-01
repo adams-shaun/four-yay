@@ -36,11 +36,11 @@ func TestStaticEffectsReusesBackingAcrossEvents(t *testing.T) {
 	}
 	epoch := e.staticEpoch
 	// A static-quiet kind (layercache.go's staticQuietKinds, ClockTick among
-	// them) only re-stamps a gate-free memo, so force a real rebuild with a
-	// kind outside that set whose fold cannot change the scan.
+	// them) only re-stamps a gate-free memo -- and so does a library
+	// reorder of a library no effect comes from -- so force a real rebuild
+	// with a kind outside that set whose fold cannot change the scan.
 	seq := e.staticBuildSeq
-	lib := append([]state.ObjID(nil), e.G.Zone(state.ZLibrary, 1)...)
-	e.emit(events.Event{Kind: events.Shuffle, Player: 1, IDs: lib})
+	e.emit(events.Event{Kind: events.Exert, Obj: bear})
 	e.active()
 	if e.staticEpoch <= epoch || e.staticEpoch != len(e.L.Events) || e.staticBuildSeq == seq {
 		t.Fatal("a non-quiet event did not rebuild the static memo")

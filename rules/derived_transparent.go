@@ -86,7 +86,11 @@ func derivedQuietKind(k events.Kind) bool {
 //   - Damage to a player, or to an object whose printed face is neither a
 //     planeswalker nor a battle: marked damage and the per-turn damage
 //     tallies (foldDamage converts a walker's or battle's damage into
-//     LOYALTY/DEFENSE counters, which a local counters_ predicate reads).
+//     LOYALTY/DEFENSE counters, which a local counters_ predicate reads);
+//   - LibraryOrder, Shuffle: a player's library list, nothing else -- no
+//     object field (a derivation reads its object's own fields, never its
+//     position in a zone list), and only a non-local spec (TopLibrary and
+//     the like are not local predicates) could read the order.
 //
 // It is NOT safe for the SBA skip: lethal damage reads marked damage.
 func (e *Engine) derivedQuietEvent(ev *events.Event) bool {
@@ -94,7 +98,7 @@ func (e *Engine) derivedQuietEvent(ev *events.Event) bool {
 	case events.Note, events.ModeChosen, events.ManaActivate, events.Resolve,
 		events.DeclareAttackers, events.DeclareBlockers, events.EndCombatReset,
 		events.TargetsChosen, events.LandPlayed, events.LifeChange, events.ClockTick,
-		events.DamageProvenance:
+		events.DamageProvenance, events.LibraryOrder, events.Shuffle:
 		return true
 	case events.Damage:
 		if ev.Obj == 0 {
