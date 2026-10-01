@@ -199,21 +199,36 @@ def _integrates(repo: Path, a: str, b: str) -> bool:
 
     The signal is the deliberate merge commit: some merge in `main..a` (a
     commit with two parents, i.e. an integration rather than a fast-forward)
-    has a parent `p` that lies in `b`'s history but NOT in main's. A plain
-    feature branch that forked from `b` shares `b`'s commits without ever
-    merging them, but its `b`-only ancestors are ordinary single-parent
-    commits, not merge parents, so it is not mistaken for an integration.
+    has a parent `p` that is a point on `b`'s OWN branch line -- `p` lies on
+    `b`'s first-parent history (`rev-list --first-parent main..b`), i.e. it
+    was a trunk tip of `b` that `a` pulled in, and it is not in main's
+    history. Reachability is not enough and would spoil the mutual-merge
+    signal (measured 2026-10-01 on a scratch repo): a branch that merges a
+    third branch `cc` carries `cc`'s tip only as a merge's SECOND parent, so
+    two INDEPENDENT branches that each merged the same unlanded `cc` both
+    have `cc`'s tip in their history and, under a plain is-ancestor test,
+    each read as "integrating" the other -- the pair collapsed to one editor
+    and a genuine conflict went unflagged. `cc`'s tip is on neither branch's
+    first-parent line, so the first-parent test rejects it, while the real
+    mutual fork wt/cpu-derived <-> wt/cpu-legal still passes because its
+    integrated parent 939c4f642 is a trunk tip of cpu-legal that cpu-derived
+    merged. A plain feature branch that forked from `b` shares `b`'s commits
+    without ever merging them, but its `b`-only ancestors are ordinary
+    single-parent commits, not merge parents, so it is not mistaken for an
+    integration either. Membership in `rev-list --first-parent main..b`
+    already implies both "reachable from b" and "not reachable from main",
+    so no separate is-ancestor call is needed.
 
     `a` and `b` are the two ends of a MUTUAL merge when each integrates the
     other (see `live_branch_files`); that pair is one workstream, not two
     racing editors.
     """
+    b_own = set(git(repo, "rev-list", "--first-parent", f"main..{b}").split())
     for m in git(repo, "log", "--merges", "--format=%H", f"main..{a}").split():
         # `rev-list --parents -n1 <merge>` lists the commit then its parents.
         parents = git(repo, "rev-list", "--parents", "-n1", m).split()[1:]
-        for p in parents:
-            if _is_ancestor(repo, p, b) and not _is_ancestor(repo, p, "main"):
-                return True
+        if any(p in b_own for p in parents):
+            return True
     return False
 
 
@@ -1522,6 +1537,66 @@ def selftest() -> int:
         mmx = live_branch_files(hr)
         check("a third colliding branch makes the file hot again",
               len(mmx.get("mm.txt", [])) == 2, mmx.get("mm.txt"))
+
+        # The mutual-merge signal must not be SPOOFABLE through a SHARED
+        # merged parent. Two INDEPENDENT branches that each merge the SAME
+        # unlanded third branch cc both carry cc's tip in their history (and
+        # cc is unlanded, so it is not in main's), but cc arrived on each only
+        # as a merge's SECOND parent -- under a plain is-ancestor test each
+        # branch read as "integrating" the other, the pair collapsed to ONE
+        # editor, and a genuine two-editor conflict on the shared file went
+        # unflagged (the r2-review MAJOR, reproduced on a scratch repo).
+        # The first-parent rule -- an integrated merge parent must be a trunk
+        # tip of the OTHER branch -- rejects cc's tip on both sides, so the
+        # pair stays two editors and the conflict stays hot.
+        ws_base = hrun("rev-parse", "HEAD").stdout.strip()
+        wsa = Path(td) / "hot-spoof-a"
+        hrun("worktree", "add", "-q", "-b", "wt/spoof-a", str(wsa), ws_base)
+        (wsa / "spoof.txt").write_text("a\n")
+        subprocess.run(["git", "-C", str(wsa), "add", "spoof.txt"], capture_output=True)
+        hcommit(wsa, "spoof a")
+        wsb = Path(td) / "hot-spoof-b"
+        hrun("worktree", "add", "-q", "-b", "wt/spoof-b", str(wsb), ws_base)
+        (wsb / "spoof.txt").write_text("b\n")
+        subprocess.run(["git", "-C", str(wsb), "add", "spoof.txt"], capture_output=True)
+        hcommit(wsb, "spoof b")
+        wsc = Path(td) / "hot-spoof-cc"
+        hrun("worktree", "add", "-q", "-b", "wt/spoof-cc", str(wsc), ws_base)
+        (wsc / "cc.txt").write_text("cc\n")
+        subprocess.run(["git", "-C", str(wsc), "add", "cc.txt"], capture_output=True)
+        hcommit(wsc, "spoof cc")
+        subprocess.run(["git", "-C", str(wsa), "merge", "-q", "--no-ff", "-m",
+                        "a merges cc", "wt/spoof-cc"], capture_output=True)
+        subprocess.run(["git", "-C", str(wsb), "merge", "-q", "--no-ff", "-m",
+                        "b merges cc", "wt/spoof-cc"], capture_output=True)
+        cc_tip = hrun("rev-parse", "wt/spoof-cc").stdout.strip()
+        check("precondition: the two spoof branches are independent",
+              hrun("merge-base", "--is-ancestor", "wt/spoof-a", "wt/spoof-b").returncode != 0
+              and hrun("merge-base", "--is-ancestor", "wt/spoof-b", "wt/spoof-a").returncode != 0)
+        check("precondition: cc's unlanded tip is reachable from both branches",
+              hrun("merge-base", "--is-ancestor", cc_tip, "wt/spoof-a").returncode == 0
+              and hrun("merge-base", "--is-ancestor", cc_tip, "wt/spoof-b").returncode == 0
+              and hrun("merge-base", "--is-ancestor", cc_tip, "main").returncode != 0)
+        check("precondition: cc's tip is on NEITHER first-parent line "
+              "(it arrived as a merge's second parent on each)",
+              cc_tip not in git(hr, "rev-list", "--first-parent",
+                                "main..wt/spoof-a").split()
+              and cc_tip not in git(hr, "rev-list", "--first-parent",
+                                    "main..wt/spoof-b").split())
+        check("a shared merged parent does not fake mutual integration",
+              not _integrates(hr, "wt/spoof-a", "wt/spoof-b")
+              and not _integrates(hr, "wt/spoof-b", "wt/spoof-a"))
+        a_shared = hrun("rev-parse", "wt/spoof-a:spoof.txt").stdout.strip()
+        b_shared = hrun("rev-parse", "wt/spoof-b:spoof.txt").stdout.strip()
+        check("precondition: the spoof pair contributes DISTINCT blobs "
+              "(the dedup must not be what keeps them apart)",
+              a_shared and b_shared and a_shared != b_shared, (a_shared, b_shared))
+        spoof = live_branch_files(hr)
+        check("a shared merged parent does not collapse a genuine pair",
+              sorted(spoof.get("spoof.txt", [])) == ["spoof-a", "spoof-b"],
+              spoof.get("spoof.txt"))
+        check("the spoof-hidden conflict is still a hot spot",
+              any(f == "shared.txt" for f, _ in hotspots(hr)), hotspots(hr))
 
         # An ancestor and its descendant that contribute the IDENTICAL blob,
         # plus a branch that descends from the ancestor with a DIFFERENT blob:
