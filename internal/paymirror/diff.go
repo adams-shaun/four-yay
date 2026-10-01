@@ -137,6 +137,9 @@ var excluded = map[excludedField]bool{
 	// per-build digest (active_summary.go): pure caches, Clone copies none.
 	{"rules.Engine", "faceScans"}: true,
 	{"rules.Engine", "activeSum"}: true,
+	// Characteristics' printed fast-path digest (derived_printed.go), the
+	// activeSum shape.
+	{"rules.Engine", "charsSum"}: true,
 	// The replacement-source walk's zone summaries (repl_zoneskip.go), the
 	// trigZones shape: scratch validated on every use; Clone copies none.
 	{"rules.Engine", "replZones"}:   true,

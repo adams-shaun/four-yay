@@ -34,6 +34,9 @@ func (e *Engine) derivedScalar(id state.ObjID) (power, toughness int32) {
 	}
 	f := o.Face()
 	active := e.active()
+	if p, t, ok := e.printedPT(o, f, active); ok {
+		return p, t
+	}
 	for i := range active {
 		if ce := &active[i]; ce.Layer == LPT && effects.SpecReadsKeywords(ce.Affects) {
 			d := e.derivedWith(id, 0)
@@ -312,7 +315,17 @@ func (e *Engine) FilterDerivedPT(id state.ObjID) (power, toughness, basePower, b
 // pass. Keywords aliases Engine scratch storage exactly as Derived does; a
 // caller that keeps it across another characteristics query must copy it.
 func (e *Engine) Characteristics(id state.ObjID) (power, toughness int32, keywords []string) {
-	d := e.Derived(id)
+	if p, t, kw, ok := e.printedCharacteristics(id, true); ok {
+		return p, t, kw
+	}
+	// Derived(id), read in place: the memo entry by pointer when derivedWith
+	// would serve the memo, else one uncached build.
+	if e.derivedMemoDepth > 0 && e.derivedMemoUsable() {
+		if d := e.derivedMemoRef(id, 0); d != nil {
+			return d.Power, d.Toughness, d.Keywords
+		}
+	}
+	d := e.derivedCompute(id, 0)
 	return d.Power, d.Toughness, d.Keywords
 }
 
@@ -1095,4 +1108,11 @@ func (e *Engine) objColors(o *state.Object) string {
 // an interface expecting a slice. This is that method; Derived(id).Keywords
 // remains the field other engine-internal code should read when it also
 // wants Power/Toughness/Types in the same call.
-func (e *Engine) Keywords(id state.ObjID) []string { return e.Derived(id).Keywords }
+func (e *Engine) Keywords(id state.ObjID) []string {
+	// The printed fast path (derived_printed.go) answers with the face's own
+	// list, which no later derivation rewrites.
+	if kw, ok := e.printedKeywordsOnly(id); ok {
+		return kw
+	}
+	return e.Derived(id).Keywords
+}

@@ -356,7 +356,7 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 				Sick:          o.SummonSick,
 				Produces:      f.ManaProduction(),
 				InstantSpeed:  instantSpeed,
-				Counter:       f.SpellAbility() != nil && f.SpellAbility().API == "Counter",
+				Counter:       isCounterSpell(f),
 			}
 		}
 	}
@@ -422,6 +422,13 @@ func BoardFromGameInto(g *state.Game, ch Chars, me state.PlayerID, b *Board) Boa
 		}
 	}
 	return *b
+}
+
+// isCounterSpell reports whether f's spell ability is a Counter (one
+// SpellAbility lookup, not two).
+func isCounterSpell(f *cards.Face) bool {
+	sa := f.SpellAbility()
+	return sa != nil && sa.API == "Counter"
 }
 
 // ownCreature is the creature census entry the Cards pass may reuse for id:
