@@ -182,8 +182,12 @@ func (c *seatConn) ackSynthetic(id int64) {
 }
 
 // markGameOver reports whether THIS seat's terminal gameOver prompt is still
-// owed, latching it so exactly one is ever delivered (MBX-2): a stream
-// refresh, a /state poll and a reconnect all consult the same latch.
+// owed, latching it so exactly one is ever delivered (MBX-2). The latch is
+// seat-wide, not per-connection: a stream refresh, a /state poll and a
+// reconnect all consult the same latch, so whichever observes Over first
+// consumes it and every later path for that seat is state-only. A stream
+// that connects after match end is therefore deliberately state-only -- see
+// state.go and TestReconnectGameOverIsDeliberatelyStateOnly.
 func (c *seatConn) markGameOver() bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
