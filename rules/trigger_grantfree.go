@@ -40,10 +40,19 @@ type trigGrantProof struct {
 	objs    int // e.G.Objs[:objs] checked
 	contPtr *ContinuousEffect
 	contLen int // e.continuous header last checked (-1: never)
+	// replSeen: some registered continuous effect carried an effect-created
+	// replacement (ReplacementEvent), which only registrations carry -- the
+	// static scan never sets one, so active() can hold one only from
+	// e.continuous. Sticky; while it is false, applyReplacementsDispatch's
+	// effect-created half reads an empty list without building active().
+	// Set by AddContinuous and by the registry rescan, which every header
+	// change of e.continuous triggers (an empty registry has nothing to see).
+	replSeen bool
 }
 
 // forClone is the proof a Clone inherits: the same objects (copied in
-// order), over its own copy of the registry, which it rechecks once.
+// order), over its own copy of the registry, which it rechecks once (the
+// sticky flags carry over: the clone's registry is the parent's).
 func (p trigGrantProof) forClone() trigGrantProof {
 	p.contPtr, p.contLen = nil, -1
 	return p
@@ -56,17 +65,8 @@ func (e *Engine) trigGrantsPossible() bool {
 	if !pr.free {
 		return true
 	}
-	if n := len(e.continuous); n != pr.contLen || (n > 0 && &e.continuous[0] != pr.contPtr) {
-		for i := range e.continuous {
-			if ce := &e.continuous[i]; ce.AddTrigger != nil || len(ce.GainedTriggerFaces) > 0 {
-				pr.free = false
-				return true
-			}
-		}
-		pr.contLen, pr.contPtr = n, nil
-		if n > 0 {
-			pr.contPtr = &e.continuous[0]
-		}
+	if !e.registryRescan() {
+		return true
 	}
 	for ; pr.objs < len(e.G.Objs); pr.objs++ {
 		o := &e.G.Objs[pr.objs]
@@ -84,6 +84,38 @@ func (e *Engine) trigGrantsPossible() bool {
 		}
 	}
 	return false
+}
+
+// registryRescan rechecks e.continuous when its header moved since the last
+// check (any write AddContinuous did not make: a filter, a fixture's direct
+// assignment) and reports whether the trigger-grant proof still holds.
+func (e *Engine) registryRescan() bool {
+	pr := &e.trigGrant
+	if n := len(e.continuous); n != pr.contLen || (n > 0 && &e.continuous[0] != pr.contPtr) {
+		for i := range e.continuous {
+			ce := &e.continuous[i]
+			if ce.AddTrigger != nil || len(ce.GainedTriggerFaces) > 0 {
+				pr.free = false
+			}
+			if ce.ReplacementEvent != "" {
+				pr.replSeen = true
+			}
+		}
+		pr.contLen, pr.contPtr = n, nil
+		if n > 0 {
+			pr.contPtr = &e.continuous[0]
+		}
+	}
+	return pr.free
+}
+
+// effectReplacementsPossible reports whether active() may hold an
+// effect-created replacement (false while none was ever registered).
+func (e *Engine) effectReplacementsPossible() bool {
+	if !e.trigGrant.replSeen {
+		e.registryRescan()
+	}
+	return e.trigGrant.replSeen
 }
 
 func (e *Engine) faceGrantsTriggersCached(f *cards.Face) bool {

@@ -195,7 +195,20 @@ func (e *Engine) applyReplacementsDispatch(ev events.Event) (events.Event, bool)
 	// current zone. active() enforces the Effect duration; reconstruct the
 	// Forge R: body into the same replMatch path used by printed replacements
 	// so filters, ordering and replacement context cannot drift.
-	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+	var ceL []ContinuousEffect
+	if e.effectReplacementsPossible() {
+		ceL = e.active()
+	} else if trigZoneSkipVerify {
+		// trigger_grantfree.go's replSeen proof: verify mode reads the list
+		// anyway and panics if it holds an effect-created replacement.
+		act := e.active()
+		for i := range act {
+			if act[i].ReplacementEvent != "" {
+				panic("rules: effect-replacement proof skipped an active effect-created replacement")
+			}
+		}
+	}
+	for ceI := 0; ceI < len(ceL); ceI++ {
 		ce := &ceL[ceI]
 		if ce.ReplacementEvent == "" || ce.ReplacementEvent != event {
 			continue
