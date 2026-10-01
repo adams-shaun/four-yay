@@ -1,10 +1,13 @@
 package rules
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -52,6 +55,15 @@ func faceHasTypeFold(f *cards.Face, t string) bool {
 // or "Aura" (see the file comment for why those three are exact).
 func (e *Engine) sbaTypeFast(o *state.Object, t string, anyLType bool) bool {
 	if anyLType || o.Zone != state.ZBattlefield || (o.FaceDown && o.Zone == state.ZBattlefield) {
+		if !anyLType {
+			return e.hasType(o, t)
+		}
+		if r, ok := e.sbaTypeFromTable(o, t); ok {
+			if sbaQuietVerify && r != e.hasType(o, t) {
+				panic(fmt.Sprintf("rules: SBA layer-4 table type read disagrees with the derived read for object %d (%s)", o.ID, t))
+			}
+			return r
+		}
 		return e.hasType(o, t)
 	}
 	f := o.Face()
@@ -68,6 +80,90 @@ func (e *Engine) sbaTypeFast(o *state.Object, t string, anyLType bool) bool {
 		return !o.CopyNonLegendary && f.IsLegendary()
 	}
 	return faceHasTypeFold(f, t)
+}
+
+// sbaTypeFromTable answers hasType for a battlefield permanent from the
+// layer-4 derived-type table (layer4types.go) when the table describes the
+// current board: an entry is the object's derived list itself, and with no
+// entry the derived list is a same-length fold-subset of the printed one
+// (sameTypeWordSet), so a type the printed face lacks is not derived either.
+// The one case the table cannot settle -- no entry and the face prints t,
+// where a derived list with a repeated word could still lack it -- reports
+// ok = false and the caller takes the derived read. Only for a board with a
+// layer-4 effect in active() (sbaTypeFast's anyLType): the table is then the
+// full walk's, which lists every base-may-differ object (a bestowed or
+// reconfigured attachment, a non-legendary copy) whose derived list moved; a
+// face-down permanent is left to the derived read outright.
+func (e *Engine) sbaTypeFromTable(o *state.Object, t string) (r, ok bool) {
+	types, entry, ok := e.sbaTableTypes(o)
+	if !ok {
+		return false, false
+	}
+	if entry {
+		for _, x := range types {
+			if strings.EqualFold(x, t) {
+				return true, true
+			}
+		}
+		return false, true
+	}
+	if faceHasTypeFold(o.Face(), t) {
+		return false, false
+	}
+	return false, true
+}
+
+// sbaTableTypes looks o up in the layer-4 derived-type table when the table
+// describes the current board and o is a face-up battlefield permanent with
+// a face: entry reports whether the table lists o (types is then its derived
+// list); ok = false means the table cannot be consulted.
+func (e *Engine) sbaTableTypes(o *state.Object) (types []string, entry, ok bool) {
+	if !e.layer4InPool || e.typesBuilding || o.Zone != state.ZBattlefield || o.FaceDown || o.Face() == nil ||
+		e.typesEpoch != len(e.L.Events) || e.typesVersion != e.continuousVersion || e.typesObjs != len(e.G.Objs) {
+		return nil, false, false
+	}
+	tab := e.layer4Types
+	i, found := slices.BinarySearchFunc(tab, o.ID, func(x effects.ObjectTypes, id state.ObjID) int {
+		return cmp.Compare(x.ID, id)
+	})
+	if found {
+		return tab[i].Types, true, true
+	}
+	return nil, false, true
+}
+
+// sbaIsCreature is IsCreature for destroyLethalDamage's candidates -- a
+// phased-in battlefield permanent with face f that is neither bestowed nor
+// reconfigured onto something -- with the board's layer-4 presence known.
+// With no LType effect in active() a face-up permanent's derived list is its
+// printed one (typeCharacteristicsActive's no-layer-4 arm: the bestow and
+// reconfigure switches do not apply to these candidates, the
+// CopyNonLegendary strip touches only Legendary). With one, the layer-4
+// table answers: an entry is the derived list, and with no entry a face that
+// prints no Creature word (fold) has none derived either. Everything else
+// takes the derived read; sbaQuietVerify holds every fast answer to it.
+func (e *Engine) sbaIsCreature(o *state.Object, f *cards.Face, anyLType bool) bool {
+	r, ok := false, false
+	switch {
+	case o.FaceDown:
+	case !anyLType:
+		r, ok = slices.Contains(f.Types, "Creature"), true
+	default:
+		if types, entry, tabOK := e.sbaTableTypes(o); tabOK {
+			if entry {
+				r, ok = slices.Contains(types, "Creature"), true
+			} else if !faceHasTypeFold(f, "Creature") {
+				ok = true
+			}
+		}
+	}
+	if !ok {
+		return e.IsCreature(o.ID)
+	}
+	if sbaQuietVerify && r != e.IsCreature(o.ID) {
+		panic(fmt.Sprintf("rules: SBA creature prefilter disagrees with the derived read for object %d", o.ID))
+	}
+	return r
 }
 
 // sbaIsAura is isAura through sbaTypeFast.

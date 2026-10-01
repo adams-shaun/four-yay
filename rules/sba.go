@@ -1030,6 +1030,7 @@ type casualty struct {
 func (e *Engine) destroyLethalDamage(tried *sbaAttempts) bool {
 	tried.rearm(e.G.AliveCount())
 	var dead []casualty
+	anyLType := e.activeHasLType()
 	for _, p := range e.G.AliveFrom(0) {
 		for _, id := range e.G.Zone(state.ZBattlefield, p) {
 			if tried.objs[id] {
@@ -1065,7 +1066,7 @@ func (e *Engine) destroyLethalDamage(tried *sbaAttempts) bool {
 			// typeCharacteristics already bases the derived set on
 			// FaceDownTypeWords (CR 708.5/Yedora), so the previous face-down
 			// special case gave the same answer through it.
-			if !e.IsCreature(id) {
+			if !e.sbaIsCreature(o, f, anyLType) {
 				continue
 			}
 			if e.Toughness(id) <= 0 {
