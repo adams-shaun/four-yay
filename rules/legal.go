@@ -161,6 +161,7 @@ func (e *Engine) legalActionsWalkWithWindow(p state.PlayerID, hyp *state.Mana, c
 		e.walkReuse = nil
 		if hyp != nil && !castsOnly {
 			w.reuse = reuse
+			e.recordedBoardFacts(reuse, &w.actionStatics, p)
 		}
 	} else if forAsk && hyp == nil && !castsOnly && e.potentialFullDemand {
 		w.rec = e.walkBlockRecorder(p)

@@ -64,6 +64,9 @@ type walkBlockRec struct {
 	// (ownManaMembers) for the decision's PotentialMana (potentialMembers).
 	members     []*cards.SA
 	memberSpans []potentialManaSpan
+	// board is the recorded walk's board facts (legal_walk_skip.go), a pure
+	// read of the board both later readers take instead of re-deriving.
+	board walkBoardFacts
 }
 
 // walkBlock is one object's ability block: its span of raw, and whether it
@@ -85,7 +88,7 @@ func (e *Engine) walkBlockRecorder(p state.PlayerID) *walkBlockRec {
 	}
 	clear(r.raw)
 	clear(r.members)
-	r.p, r.done, r.manaOK = p, false, false
+	r.p, r.done, r.manaOK, r.board = p, false, false, walkBoardFacts{}
 	r.blocks, r.raw, r.members = r.blocks[:0], r.raw[:0], r.members[:0]
 	r.memberSpans = resizeCleared(r.memberSpans, len(e.G.Zone(state.ZBattlefield, p)))
 	return r
@@ -207,4 +210,20 @@ func (w *legalWalk) appendRecorded(r *walkBlockRec, start, end int32) {
 		o.Index = len(w.out)
 		w.out = append(w.out, o)
 	}
+}
+
+// recordedBoardFacts installs the record's board facts on a walk's
+// action-static source (where boardFacts and the mana walk read them),
+// checked against a fresh read in verify mode.
+func (e *Engine) recordedBoardFacts(r *walkBlockRec, s *actionStaticSource, p state.PlayerID) {
+	if r == nil || !r.board.ready {
+		return
+	}
+	if walkCacheVerify {
+		fresh := (&legalWalk{e: e, p: p, actionStatics: actionStaticSource{e: e}}).boardFacts()
+		if fresh != r.board {
+			panic(fmt.Sprintf("rules: recorded walk board facts %+v, a fresh read %+v", r.board, fresh))
+		}
+	}
+	s.board = r.board
 }

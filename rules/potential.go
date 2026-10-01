@@ -116,6 +116,9 @@ func (e *Engine) PotentialMana(p state.PlayerID) state.Mana {
 	// nothing on any pass, so its membership walk is skipped too. The board
 	// facts are read once, outside every face probe.
 	lw := legalWalk{e: e, p: p, actionStatics: actionStaticSource{e: e}}
+	if rec != nil && rec.p == p {
+		e.recordedBoardFacts(rec, &lw.actionStatics, p)
+	}
 	board := lw.boardFacts()
 	for {
 		progressed := false

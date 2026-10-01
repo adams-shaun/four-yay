@@ -33,6 +33,9 @@ func (w *legalWalk) battlefieldWalk() {
 		// outside every face probe, and shared with the mana walk through
 		// actionStatics so it stops re-deriving them per object.
 		board := w.boardFacts()
+		if w.rec != nil {
+			w.rec.board = board
+		}
 		// The mana section reads no pricing pool: a potential walk at the
 		// recorded priority walk's state serves its options
 		// (walk_block_reuse.go).
