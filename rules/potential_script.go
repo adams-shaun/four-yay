@@ -98,6 +98,9 @@ type scriptSearch struct {
 	seen      map[string]bool
 	spare     Spare
 	path      []ScriptStep
+	// pool is the live engine whose hypothetical-clone pool backs the
+	// search's nested witness checks (hypclone.go); set by run.
+	pool *Engine
 }
 
 func (e *Engine) newScriptSearch(p state.PlayerID, a decision.PotentialAction, altCost, budget int) *scriptSearch {
@@ -111,7 +114,14 @@ func (e *Engine) newScriptSearch(p state.PlayerID, a decision.PotentialAction, a
 // run searches from a clone of e; found reports a path (possibly empty,
 // when the play is already payable at the root).
 func (sr *scriptSearch) run(e *Engine) ([]ScriptStep, bool) {
-	if !sr.visit(e.Clone(), 0, false) {
+	sr.pool = e
+	sr.spare = e.hypTake()
+	root := e.hypClone(e)
+	found := sr.visit(root, 0, false)
+	e.hypRelease(root)
+	e.hypPut(sr.spare)
+	sr.spare = Spare{}
+	if !found {
 		return nil, false
 	}
 	return append([]ScriptStep(nil), sr.path...), true
@@ -139,7 +149,7 @@ func (sr *scriptSearch) priced(c *Engine) bool {
 		}
 		return false
 	}
-	if paymentPlanConsumes(*got.Plan) && !c.potentialWitnessReaches(sr.p, o, *got.Plan) {
+	if paymentPlanConsumes(*got.Plan) && !c.witnessReachesFrom(sr.pool, sr.p, o, *got.Plan) {
 		if sr.nodePlans {
 			sr.unproven = true
 		}
@@ -360,6 +370,13 @@ func scriptStateKey(c *Engine, p state.PlayerID) string {
 // permanent may be the play's only target, or feed a trigger, which the
 // planner's mana accounting cannot see.
 func (e *Engine) potentialWitnessReaches(p state.PlayerID, o decision.Option, plan decision.PaymentPlan) bool {
+	return e.witnessReachesFrom(e, p, o, plan)
+}
+
+// witnessReachesFrom is potentialWitnessReaches drawing its clones' storage
+// from pool's hypothetical-clone pool (pool is e, or the live engine whose
+// own hypothetical search made e).
+func (e *Engine) witnessReachesFrom(pool *Engine, p state.PlayerID, o decision.Option, plan decision.PaymentPlan) bool {
 	if e.Pending() == nil {
 		return false
 	}
@@ -397,8 +414,10 @@ func (e *Engine) potentialWitnessReaches(p state.PlayerID, o decision.Option, pl
 		}
 		if d.Kind != decision.KPriority {
 			for _, in := range scriptAnswers(d) {
-				child := c.Clone()
-				if child.Submit(in) == nil && visit(child, next, expect, waits) {
+				child := pool.hypClone(c)
+				ok := child.Submit(in) == nil && visit(child, next, expect, waits)
+				pool.hypRelease(child)
+				if ok {
 					return true
 				}
 			}
@@ -419,9 +438,11 @@ func (e *Engine) potentialWitnessReaches(p state.PlayerID, o decision.Option, pl
 			}
 			for _, opt := range d.Options {
 				if opt.Kind == "pass" {
-					child := c.Clone()
-					return child.Submit(decision.Intent{Seq: d.Seq, Player: p, Choices: []int{opt.Index}}) == nil &&
+					child := pool.hypClone(c)
+					ok := child.Submit(decision.Intent{Seq: d.Seq, Player: p, Choices: []int{opt.Index}}) == nil &&
 						visit(child, next, expect, waits+1)
+					pool.hypRelease(child)
+					return ok
 				}
 			}
 			return false
@@ -435,14 +456,19 @@ func (e *Engine) potentialWitnessReaches(p state.PlayerID, o decision.Option, pl
 			for i, n := range act.Produces {
 				want[i] += int32(n)
 			}
-			child := c.Clone()
-			if child.Submit(decision.Intent{Seq: d.Seq, Player: p, Choices: []int{opt.Index}}) == nil && visit(child, next+1, want, waits) {
+			child := pool.hypClone(c)
+			ok := child.Submit(decision.Intent{Seq: d.Seq, Player: p, Choices: []int{opt.Index}}) == nil && visit(child, next+1, want, waits)
+			pool.hypRelease(child)
+			if ok {
 				return true
 			}
 		}
 		return false
 	}
-	return visit(e.Clone(), 0, e.G.Players[p].Pool, 0)
+	root := pool.hypClone(e)
+	ok := visit(root, 0, e.G.Players[p].Pool, 0)
+	pool.hypRelease(root)
+	return ok
 }
 
 // PotentialPlayScript is the exact fallback for a potential play the
