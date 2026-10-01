@@ -452,6 +452,7 @@ func (e *Engine) EndOfTurnCleanup() {
 	e.rescheduleNextTurnBoundaries()
 	e.expireControl(controlAtCleanup)
 	e.reconcileControlStatics()
+	n0 := len(e.continuous)
 	kept := e.continuous[:0]
 	// expiredClones collects the clone UNITS whose LCopy marker this cleanup
 	// drops, so the object's CopyFace basis can be settled after the kept
@@ -539,8 +540,13 @@ func (e *Engine) EndOfTurnCleanup() {
 	// keyed on continuousVersion, and this in-place rewrite (which emits no
 	// event and moves no log head) drops every UntilEOT pump and every
 	// expired UntilTurn effect. Without the bump, a stale active() cache
-	// would keep reporting a dead pump's P/T.
-	e.continuousChanged()
+	// would keep reporting a dead pump's P/T. kept is a subsequence of the
+	// old list written over it in place, so an unchanged length is an
+	// unchanged registry: nothing to invalidate (most turns end with no
+	// effect to drop).
+	if len(e.continuous) != n0 {
+		e.continuousChanged()
+	}
 }
 
 // cloneExpiry identifies ONE clone unit (task api-clone): the permanent that
