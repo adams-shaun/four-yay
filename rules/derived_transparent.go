@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -230,7 +231,17 @@ func letterWord(s string) bool {
 func localPredicate(p string) bool {
 	switch p {
 	case "Self", "Other", "YouCtrl", "OppCtrl", "YouOwn", "OppOwn", "EnchantedBy", "EquippedBy",
-		"ChosenColor", "IsRemembered", "ChosenCard", "token", "nonToken":
+		"ChosenColor", "IsRemembered", "ChosenCard", "token", "nonToken",
+		"White", "Blue", "Black", "Red", "Green", "Colorless", "MultiColor", "MonoColor",
+		"nonWhite", "nonBlue", "nonBlack", "nonRed", "nonGreen", "nonColorless", "nonMultiColor":
+		return true
+	}
+	// A type word (Creature.Elf, Card.nonLand) tests the candidate's own
+	// derived type list.
+	if localTypeWord(p) {
+		return true
+	}
+	if t, ok := strings.CutPrefix(p, "non"); ok && localTypeWord(t) {
 		return true
 	}
 	if rest, ok := strings.CutPrefix(p, "counters_"); ok {
@@ -250,6 +261,21 @@ func localPredicate(p string) bool {
 	}
 	if kw, ok := strings.CutPrefix(p, "with"); ok {
 		return letterWord(kw)
+	}
+	return false
+}
+
+// localTypeWord reports whether w is a card type, supertype, creature
+// subtype or one of the common non-creature subtypes: a predicate the filter
+// answers from the candidate's own type list.
+func localTypeWord(w string) bool {
+	if isCardType(w) || isSupertype(w) || effects.CreatureTypeWords(w) {
+		return true
+	}
+	switch w {
+	case "Equipment", "Aura", "Vehicle", "Food", "Treasure", "Clue", "Saga",
+		"Plains", "Island", "Swamp", "Mountain", "Forest":
+		return true
 	}
 	return false
 }

@@ -14,9 +14,9 @@ import (
 // TestDerivedMemoScopedToOneWalk pins derivedmemo.go's invalidation contract:
 // inside one scope a repeated Derived is served from the memo with owned
 // slices (a Derived of another object does not rewrite them); a NEW scope
-// reuses an entry only while active() has not been rebuilt, so an
-// event-backed change (and not a layer-inert Priority marker) is seen by the
-// next walk.
+// reuses an entry only while derivedSeq has not moved (derived_transparent.go),
+// so an event-backed change (and not a layer-inert Priority marker) is seen
+// by the next walk.
 func TestDerivedMemoScopedToOneWalk(t *testing.T) {
 	t.Parallel()
 	e := layerEngine(t)
@@ -54,8 +54,8 @@ func TestDerivedMemoScopedToOneWalk(t *testing.T) {
 		t.Fatal("no memo entry for the derived bear")
 	}
 	seq := m.seq
-	if seq == 0 || seq != e.activeBuildSeq {
-		t.Fatalf("entry not eligible for cross-walk reuse: seq %d, active %d", seq, e.activeBuildSeq)
+	if seq == 0 || seq != e.derivedSeq {
+		t.Fatalf("entry not eligible for cross-walk reuse: seq %d, derived %d", seq, e.derivedSeq)
 	}
 
 	// A layer-inert Priority marker keeps active(), so the next walk reuses
@@ -65,8 +65,8 @@ func TestDerivedMemoScopedToOneWalk(t *testing.T) {
 	if p := e.Derived(bear).Power; p != 3 {
 		t.Fatalf("reused entry power %d, want 3", p)
 	}
-	if m = e.derivedMemo.at(bear); m.gen != e.derivedMemoGen || m.seq != seq || e.activeBuildSeq != seq {
-		t.Fatalf("inert event did not keep the entry: gen %d/%d seq %d/%d active %d", m.gen, e.derivedMemoGen, m.seq, seq, e.activeBuildSeq)
+	if m = e.derivedMemo.at(bear); m.gen != e.derivedMemoGen || m.seq != seq || e.derivedSeq != seq {
+		t.Fatalf("inert event did not keep the entry: gen %d/%d seq %d/%d derived %d", m.gen, e.derivedMemoGen, m.seq, seq, e.derivedSeq)
 	}
 	e.endDerivedMemo()
 }
@@ -300,4 +300,75 @@ func TestDerivedMemoFaceProbeDoesNotLeak(t *testing.T) {
 		}
 		return true
 	})
+}
+
+// TestDerivedSeqSpansQuietEvents pins derived_transparent.go: a Tap (or a
+// pool or step change) between two walks keeps derivedSeq when every live
+// effect is local, so the second walk is served the first walk's entry; an
+// Affected$ predicate that reads tapped-ness is not local, so the same Tap
+// moves derivedSeq and the next walk sees the pump the tap switched on.
+func TestDerivedSeqSpansQuietEvents(t *testing.T) {
+	t.Parallel()
+	e := layerEngine(t)
+	onBoard(t, e, 0, "Name:Lord\nManaCost:2\nTypes:Creature Lord\nPT:1/1\nS:Mode$ Continuous | Affected$ Creature.Other+YouCtrl | AddPower$ 1 | Description$ x\nOracle:x\n")
+	bear := onBoard(t, e, 0, "Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
+	e.beginDerivedMemo()
+	if p := e.Derived(bear).Power; p != 3 {
+		t.Fatalf("bear power %d, want 3", p)
+	}
+	e.endDerivedMemo()
+	seq := e.derivedSeq
+	builds := e.activeBuildSeq
+	e.emit(events.Event{Kind: events.Tap, Obj: bear})
+	e.beginDerivedMemo()
+	if p := e.Derived(bear).Power; p != 3 {
+		t.Fatalf("bear power after tap %d, want 3", p)
+	}
+	e.endDerivedMemo()
+	if e.activeBuildSeq == builds {
+		t.Fatalf("the Tap did not rebuild active(); the test no longer exercises a transparent rebuild")
+	}
+	if e.derivedSeq != seq {
+		t.Fatalf("a Tap under local effects moved derivedSeq %d -> %d", seq, e.derivedSeq)
+	}
+
+	f := layerEngine(t)
+	onBoard(t, f, 0, "Name:Tapper Lord\nManaCost:2\nTypes:Creature Lord\nPT:1/1\nS:Mode$ Continuous | Affected$ Creature.tapped+YouCtrl | AddPower$ 1 | Description$ x\nOracle:x\n")
+	cub := onBoard(t, f, 0, "Name:Cub\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
+	f.beginDerivedMemo()
+	if p := f.Derived(cub).Power; p != 2 {
+		t.Fatalf("untapped cub power %d, want 2", p)
+	}
+	f.endDerivedMemo()
+	seq = f.derivedSeq
+	f.emit(events.Event{Kind: events.Tap, Obj: cub})
+	f.beginDerivedMemo()
+	if p := f.Derived(cub).Power; p != 3 {
+		t.Fatalf("tapped cub power %d, want 3 (stale memo entry served)", p)
+	}
+	f.endDerivedMemo()
+	if f.derivedSeq == seq {
+		t.Fatalf("a Tap under a tapped-reading effect kept derivedSeq")
+	}
+}
+
+func TestSpecLocalWhitelist(t *testing.T) {
+	for spec, want := range map[string]bool{
+		"":                                true,
+		"Card.Self":                       true,
+		"Creature.Elf+Other+YouCtrl":      true,
+		"Creature.EnchantedBy":            true,
+		"Card.Self+counters_GE3_P1P1":     true,
+		"Creature.withFlying+YouCtrl":     true,
+		"Creature.tapped+YouCtrl":         false,
+		"Creature.powerLEX":               false,
+		"Card.counters_GEX_P1P1":          false,
+		"Creature.YouCtrl,Artifact.Other": true,
+		"Creature.wasCastFromYourHand":    false,
+		"Creature.attacking":              false,
+	} {
+		if got := specLocalParse(spec); got != want {
+			t.Errorf("specLocalParse(%q) = %v, want %v", spec, got, want)
+		}
+	}
 }
