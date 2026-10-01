@@ -263,20 +263,29 @@ func (e *Engine) sbaQuietEvent(ev *events.Event) bool {
 //     P/T is an arbitrary count, which derivedSeq does not cover -- a
 //     "number of untapped lands" toughness can reach zero on a Tap);
 //   - no IgnoreLegendRule static is live (its "as long as" gate is an
-//     arbitrary condition, read by legendGroups);
+//     arbitrary condition, read by legendGroups) -- needed only while some
+//     controller has a legend pair: legendGroups reads the statics only past
+//     its mayHaveLegendPair gate, and no quiet kind can form a pair (a quiet
+//     entry is never printed Legendary, and phasing and control moves are
+//     not quiet);
 //   - no Aura is attached to a player, and every Aura attached to an object
 //     has a local derived Enchant spec (specLocal: attachmentSBAs matches it
 //     against the bearer, and a non-local spec -- tapped, a count -- could
 //     flip on a quiet event).
 func (e *Engine) sbaQuietKindsSafe() bool {
-	if len(e.activeStatics("IgnoreLegendRule")) > 0 {
-		return false
-	}
+	pair := false
 	for _, p := range e.G.AliveFrom(0) {
+		legends := 0
 		for _, id := range e.G.Zone(state.ZBattlefield, p) {
 			o := e.G.Obj(id)
 			if o == nil {
 				continue
+			}
+			// mayHaveLegendPair's own count, fused into this scan.
+			if !pair && !o.PhasedOut && o.Face() != nil && o.Face().IsLegendary() {
+				if legends++; legends >= 2 {
+					pair = true
+				}
 			}
 			if faceHasCDAStatic(o) {
 				return false
@@ -295,7 +304,10 @@ func (e *Engine) sbaQuietKindsSafe() bool {
 			}
 		}
 	}
-	return true
+	if sbaQuietVerify && pair != e.mayHaveLegendPair() {
+		panic("rules: SBA kinds-safe legend count disagrees with mayHaveLegendPair")
+	}
+	return !pair || len(e.activeStatics("IgnoreLegendRule")) == 0
 }
 
 // sbaQuietCarry returns the quiet key a clone of e may start with. A clone
