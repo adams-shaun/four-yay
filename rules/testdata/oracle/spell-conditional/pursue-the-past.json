@@ -1,0 +1,61 @@
+{
+  "card": "Pursue the Past",
+  "family": "spell-conditional",
+  "oracle_sha": "6d76c5b1d497",
+  "author": "cli-20261001T014438Z-51ea329c (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "gain-two-life-then-discard-to-draw-two",
+      "cr": ["121.1", "701.8a", "608.2c"],
+      "why": "Casting it gains 2 life; discarding a card to the optional clause draws two, so the hand ends with the two drawn cards and the discarded card is in the graveyard.",
+      "setup": {
+        "p0": {"hand": ["Pursue the Past", "Forest"], "library_top": ["Island", "Mountain"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Pursue the Past", "mana": "RW"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["Pay the cost"]}, {"kind": "any", "pick": ["p0:Forest"]}]}
+      ],
+      "expect": [
+        {"life": {"p0": 22}},
+        {"card": "p0:Forest", "zone": "graveyard"},
+        {"hand_size": {"p0": 2}}
+      ]
+    },
+    {
+      "name": "declining-the-discard-draws-nothing",
+      "cr": ["608.2c", "701.8a"],
+      "why": "Declining the optional discard still gains 2 life but draws no cards, leaving the one card that was never discarded in hand.",
+      "setup": {
+        "p0": {"hand": ["Pursue the Past", "Forest"], "library_top": ["Island", "Mountain"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Pursue the Past", "mana": "RW"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["no"]}]}
+      ],
+      "expect": [
+        {"life": {"p0": 22}},
+        {"hand_size": {"p0": 1}},
+        {"card": "p0:Forest", "zone": "hand"}
+      ]
+    },
+    {
+      "name": "flashback-casts-from-graveyard-then-exiles",
+      "cr": ["702.34a"],
+      "why": "Flashback {2}{R}{W} lets me cast it from my graveyard; after it resolves it is exiled instead of returning to the graveyard.",
+      "setup": {
+        "p0": {"graveyard": ["Pursue the Past"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Pursue the Past", "mana": "RRWW", "cast_mode": "flashback"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["no"]}]}
+      ],
+      "expect": [
+        {"life": {"p0": 22}},
+        {"card": "p0:Pursue the Past", "zone": "exile"}
+      ]
+    }
+  ]
+}

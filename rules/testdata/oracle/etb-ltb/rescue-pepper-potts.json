@@ -1,0 +1,42 @@
+{
+  "card": "Rescue, Pepper Potts",
+  "family": "etb-ltb",
+  "oracle_sha": "549366b7b0ac",
+  "author": "cli-20261001T014438Z-51ea329c (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "returning-an-artifact-gives-a-counter",
+      "cr": ["603.6a", "614.12", "122.1"],
+      "why": "The enters trigger returns an artifact I control to hand; because the returned card was an artifact, Rescue gets a +1/+1 counter, making the 2/1 a 3/2.",
+      "setup": {
+        "p0": {"hand": ["Rescue, Pepper Potts"], "battlefield": ["Sol Ring"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Rescue, Pepper Potts", "mana": "CU"},
+        {"op": "resolve", "targets": ["p0:Sol Ring"]}
+      ],
+      "expect": [
+        {"card": "p0:Rescue, Pepper Potts", "zone": "battlefield", "pt": "3/2", "keywords": ["Flash", "Flying"], "counters": {"+1/+1": 1}},
+        {"card": "p0:Sol Ring", "zone": "hand"}
+      ]
+    },
+    {
+      "name": "returning-a-creature-gives-no-counter",
+      "cr": ["603.6a", "122.1"],
+      "why": "Returning a creature rather than an artifact does not satisfy the counter rider, so Rescue stays a 2/1.",
+      "setup": {
+        "p0": {"hand": ["Rescue, Pepper Potts"], "battlefield": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Rescue, Pepper Potts", "mana": "CU"},
+        {"op": "resolve", "targets": ["p0:Grizzly Bears"]}
+      ],
+      "expect": [
+        {"card": "p0:Rescue, Pepper Potts", "zone": "battlefield", "pt": "2/1"},
+        {"card": "p0:Grizzly Bears", "zone": "hand"}
+      ]
+    }
+  ]
+}

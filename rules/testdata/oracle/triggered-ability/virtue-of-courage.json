@@ -1,0 +1,61 @@
+{
+  "card": "Virtue of Courage",
+  "family": "triggered-ability",
+  "oracle_sha": "9f8047898186",
+  "author": "cli-20261001T014438Z-51ea329c (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "noncombat-damage-to-an-opponent-exiles-that-many",
+      "cr": ["603.2", "120.3", "608.2d"],
+      "why": "Lightning Bolt is a source I control dealing 3 noncombat damage to an opponent, so the may-exile trigger exiles the top three cards of my library.",
+      "setup": {
+        "p0": {"battlefield": ["Virtue of Courage"], "hand": ["Lightning Bolt"], "library_top": ["Forest", "Island", "Mountain"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["yes"]}]}
+      ],
+      "expect": [
+        {"life": {"p1": 17}},
+        {"count": {"seat": 0, "zone": "exile", "name": "Forest"}, "eq": 1},
+        {"count": {"seat": 0, "zone": "exile", "name": "Island"}, "eq": 1},
+        {"count": {"seat": 0, "zone": "exile", "name": "Mountain"}, "eq": 1}
+      ]
+    },
+    {
+      "name": "declining-the-exile-leaves-the-library-alone",
+      "cr": ["603.2", "608.2d"],
+      "why": "The exile is optional; declining it still lets the Bolt deal its damage but moves no cards from the library.",
+      "setup": {
+        "p0": {"battlefield": ["Virtue of Courage"], "hand": ["Lightning Bolt"], "library_top": ["Forest", "Island", "Mountain"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["no"]}]}
+      ],
+      "expect": [
+        {"life": {"p1": 17}},
+        {"count": {"seat": 0, "zone": "exile", "name": "Forest"}, "eq": 0}
+      ]
+    },
+    {
+      "name": "exiled-cards-may-be-played-this-turn",
+      "cr": ["608.2d", "305.1"],
+      "why": "After exiling the top three, the trigger's 'you may play those cards this turn' permission lets me play the exiled Forest as a land this turn.",
+      "setup": {
+        "p0": {"battlefield": ["Virtue of Courage"], "hand": ["Lightning Bolt"], "library_top": ["Forest", "Island", "Mountain"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p1"]},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["yes"]}]},
+        {"op": "play", "seat": 0, "card": "p0:Forest"}
+      ],
+      "expect": [
+        {"card": "p0:Forest", "zone": "battlefield"}
+      ]
+    }
+  ]
+}

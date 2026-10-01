@@ -1,0 +1,62 @@
+{
+  "card": "Hercules, Olympian Hero",
+  "family": "attack-triggers",
+  "oracle_sha": "1f3d7912938b",
+  "author": "cli-20261001T014438Z-51ea329c (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "attacking-puts-a-counter-and-grants-indestructible",
+      "cr": ["603.2", "613.4c", "702.12a"],
+      "why": "The attack trigger puts a +1/+1 counter on Hercules (3/3 becomes 4/4) and grants indestructible until end of turn.",
+      "setup": {
+        "p0": {"battlefield": ["Hercules, Olympian Hero"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:Hercules, Olympian Hero"], "defender": "p1"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Hercules, Olympian Hero", "zone": "battlefield", "pt": "4/4", "counters": {"+1/+1": 1}, "keywords": ["Indestructible"]}
+      ]
+    },
+    {
+      "name": "first-damage-adds-counters-equal-to-the-damage",
+      "cr": ["603.2", "120.3", "122.1"],
+      "why": "After attacking, Hercules is a 4/4; Lightning Bolt deals it 3 damage for the first time this turn, it survives, and it gets three +1/+1 counters on top of the one from attacking, for four total and a 7/7 body.",
+      "setup": {
+        "p0": {"battlefield": ["Hercules, Olympian Hero"], "hand": ["Lightning Bolt"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:Hercules, Olympian Hero"], "defender": "p1"},
+        {"op": "resolve"},
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p0:Hercules, Olympian Hero"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Hercules, Olympian Hero", "zone": "battlefield", "pt": "7/7", "damage": 3, "counters": {"+1/+1": 4}}
+      ]
+    },
+    {
+      "name": "second-damage-same-turn-adds-no-more-counters",
+      "cr": ["603.2", "120.3", "122.1"],
+      "why": "The damage clause triggers only the first time Hercules is dealt damage each turn. After the attack counter and the first Bolt (three more counters, a 7/7), a second Bolt in the same turn deals 3 more damage but adds no counters, so Hercules is still 7/7 with 6 damage and four +1/+1 counters.",
+      "setup": {
+        "p0": {"battlefield": ["Hercules, Olympian Hero"], "hand": ["Lightning Bolt", "Lightning Bolt"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:Hercules, Olympian Hero"], "defender": "p1"},
+        {"op": "resolve"},
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt", "mana": "R", "targets": ["p0:Hercules, Olympian Hero"]},
+        {"op": "resolve"},
+        {"op": "cast", "seat": 0, "card": "p0:Lightning Bolt#2", "mana": "R", "targets": ["p0:Hercules, Olympian Hero"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Hercules, Olympian Hero", "zone": "battlefield", "pt": "7/7", "damage": 6, "counters": {"+1/+1": 4}}
+      ]
+    }
+  ]
+}

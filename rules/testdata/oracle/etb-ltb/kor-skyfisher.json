@@ -1,0 +1,42 @@
+{
+  "card": "Kor Skyfisher",
+  "family": "etb-ltb",
+  "oracle_sha": "3ada697827db",
+  "author": "cli-20261001T014438Z-51ea329c (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enters-returns-another-permanent-to-hand",
+      "cr": ["603.6a", "701.8a"],
+      "why": "The enters trigger returns a permanent I control to my hand. Returning the Grizzly Bears leaves the Skyfisher on the battlefield and the Bears in hand.",
+      "setup": {
+        "p0": {"hand": ["Kor Skyfisher"], "battlefield": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Kor Skyfisher", "mana": "CW"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["p0:Grizzly Bears"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Kor Skyfisher", "zone": "battlefield", "pt": "2/3", "keywords": ["Flying"]},
+        {"card": "p0:Grizzly Bears", "zone": "hand"}
+      ]
+    },
+    {
+      "name": "enters-can-return-itself-to-hand",
+      "cr": ["603.6a", "701.8a"],
+      "why": "The Skyfisher is itself a permanent I control once it enters, so with no other permanent it may return itself to hand; the trigger is mandatory and cannot simply be left unanswered.",
+      "setup": {
+        "p0": {"hand": ["Kor Skyfisher"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Kor Skyfisher", "mana": "CW"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["p0:Kor Skyfisher"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Kor Skyfisher", "zone": "hand"},
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Kor Skyfisher"}, "eq": 0}
+      ]
+    }
+  ]
+}

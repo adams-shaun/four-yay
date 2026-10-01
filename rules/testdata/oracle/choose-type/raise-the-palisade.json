@@ -1,0 +1,43 @@
+{
+  "card": "Raise the Palisade",
+  "family": "choose-type",
+  "oracle_sha": "d5e02162dc2c",
+  "author": "cli-20261001T014438Z-51ea329c (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "chosen-type-stays-everything-else-bounces",
+      "cr": ["608.2d", "701.8a"],
+      "why": "Choosing Bear returns every creature that is not a Bear to its owner's hand: p1's Goblin Guide goes to p1's hand, while both players' Bears (Grizzly Bears) stay on the battlefield.",
+      "setup": {
+        "p0": {"hand": ["Raise the Palisade"], "battlefield": ["Grizzly Bears"]},
+        "p1": {"battlefield": ["Goblin Guide", "Grizzly Bears"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Raise the Palisade", "mana": "UUUUU"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["Bear"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "zone": "battlefield"},
+        {"card": "p1:Grizzly Bears", "zone": "battlefield"},
+        {"card": "p1:Goblin Guide", "zone": "hand"}
+      ]
+    },
+    {
+      "name": "chosen-type-goblin-returns-the-bears",
+      "cr": ["608.2d", "701.8a"],
+      "why": "Choosing Goblin reverses the result: the Goblin Guide stays and both players' Grizzly Bears are returned to hand.",
+      "setup": {
+        "p0": {"hand": ["Raise the Palisade", "Goblin Guide"]},
+        "p1": {"battlefield": ["Grizzly Bears"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Raise the Palisade", "mana": "UUUUU"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["Goblin"]}]}
+      ],
+      "expect": [
+        {"card": "p1:Grizzly Bears", "zone": "hand"},
+        {"card": "p0:Goblin Guide", "zone": "hand"}
+      ]
+    }
+  ]
+}

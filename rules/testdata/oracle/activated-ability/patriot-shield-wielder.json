@@ -1,0 +1,39 @@
+{
+  "card": "Patriot, Shield Wielder",
+  "family": "activated-ability",
+  "oracle_sha": "0884381cd170",
+  "author": "cli-20261001T014438Z-51ea329c (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "pump-and-hexproof-another-creature",
+      "cr": ["602.2", "613.4c", "702.11a"],
+      "why": "The {2}, {T}: ability targets another creature I control; Grizzly Bears becomes 4/2 and gains hexproof until end of turn while Patriot stays 2/2.",
+      "setup": {
+        "p0": {"battlefield": ["Patriot, Shield Wielder", "Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Patriot, Shield Wielder", "mana": "CC", "targets": ["p0:Grizzly Bears"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "pt": "4/2", "keywords": ["Hexproof"]},
+        {"card": "p0:Patriot, Shield Wielder", "pt": "2/2"},
+        {"card": "p0:Patriot, Shield Wielder", "tapped": true}
+      ]
+    },
+    {
+      "name": "cannot-target-itself",
+      "cr": ["602.2", "115.1"],
+      "why": "The ability requires another target creature you control, so a lone Patriot has no legal target and the activation is not offered.",
+      "setup": {
+        "p0": {"battlefield": ["Patriot, Shield Wielder"]},
+        "p1": {}
+      },
+      "steps": [],
+      "expect": [
+        {"offered": {"seat": 0, "kind": "activate", "card": "p0:Patriot, Shield Wielder", "label": "gets +2/+0"}, "want": false}
+      ]
+    }
+  ]
+}
