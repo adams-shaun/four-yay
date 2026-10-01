@@ -128,6 +128,7 @@
 //	Masks, trigZones/Ep, trigFaceZones,
 //	phaseSpecs, faceScans
 //	activeSum                          active()'s per-build digest keyed by activeBuildSeq
+//	charsSum                           the printed fast path's digest, keyed the same way
 //	replZones/Ep                       replacement-walk zone summaries, validated on every use
 //	staticZones/Ep                     static-source-walk zone summaries, validated on every use
 //	paymentPlanCarriers/Objs/Events/   payment-plan interference carrier memo keyed by the
