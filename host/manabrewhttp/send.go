@@ -53,6 +53,27 @@ func (h *handler) send(w http.ResponseWriter, r *http.Request) {
 	sc := h.connFor(connKey{table: t, match: k, seat: claim.Seat})
 	tr := manabrew.New(string(t), int64(k), h.opts.Text)
 
+	// A response naming an OPEN synthetic prompt's id (MBX-2) never reaches
+	// the engine or the ordinary translator: AcknowledgeSynthetic validates
+	// it against exactly what this seat was shown, the ack is recorded, and
+	// the engine log is untouched. The open-synthetic lookup doubles as the
+	// gate: an id that names nothing open (never delivered, already
+	// acknowledged, or an ordinary decision id) falls through to the
+	// ordinary path below, whose own "no prompt is open" branch reports
+	// stalePrompt -- the same shape a late ordinary answer gets.
+	if resp, ok := msg.Value.(mb.ClientResponse); ok {
+		if pm, open := sc.openSynthetic(resp.PromptID); open {
+			if perr := manabrew.AcknowledgeSynthetic(msg, pm); perr != nil {
+				sc.pushMsg(mb.EngineMessage{Value: mb.ErrorMessage{Error: *perr}})
+				writeProtocolError(w, *perr)
+				return
+			}
+			sc.ackSynthetic(resp.PromptID)
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+	}
+
 	v, d, verr := h.pollView(t, k, claim.Seat)
 	if verr != nil {
 		pe := mb.ProtocolError{Code: mb.CodeStalePrompt, Message: "no match state to answer against: " + verr.Error()}
