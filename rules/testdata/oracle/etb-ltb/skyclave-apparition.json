@@ -1,0 +1,195 @@
+{
+  "card": "Skyclave Apparition",
+  "family": "etb-ltb",
+  "oracle_sha": "2ce8bf78fe09",
+  "author": "cli-20261001T032655Z-b2eec9f5 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enters-exiles-mana-value-four-or-less",
+      "cr": [
+        "603.2",
+        "614.1"
+      ],
+      "why": "Apparition's enters trigger may exile a nonland, nontoken permanent an opponent controls with mana value 4 or less; the 2-mana-value Bears are exiled.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Skyclave Apparition"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Skyclave Apparition",
+          "mana": "WWW",
+          "targets": [
+            "p1:Grizzly Bears"
+          ]
+        },
+        {
+          "op": "resolve",
+          "targets": [
+            "p1:Grizzly Bears"
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Skyclave Apparition",
+          "zone": "battlefield"
+        },
+        {
+          "card": "p1:Grizzly Bears",
+          "zone": "exile"
+        }
+      ]
+    },
+    {
+      "name": "leaves-illusion-token-x-is-mana-value",
+      "cr": [
+        "603.2"
+      ],
+      "why": "When the Apparition leaves, the exiled card's owner creates an X/X blue Illusion token with X the exiled card's mana value: a 2/2 Illusion for the Bears, which stay exiled.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Skyclave Apparition"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Grizzly Bears"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Skyclave Apparition",
+          "mana": "WWW",
+          "targets": [
+            "p1:Grizzly Bears"
+          ]
+        },
+        {
+          "op": "resolve",
+          "targets": [
+            "p1:Grizzly Bears"
+          ]
+        },
+        {
+          "op": "move",
+          "seat": 0,
+          "card": "p0:Skyclave Apparition",
+          "to": "graveyard"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p1:token:Illusion",
+          "pt": "2/2"
+        },
+        {
+          "count": {
+            "seat": 1,
+            "zone": "battlefield",
+            "name": "Illusion",
+            "token": true
+          },
+          "eq": 1
+        },
+        {
+          "card": "p1:Grizzly Bears",
+          "zone": "exile"
+        }
+      ]
+    },
+    {
+      "name": "zero-targets-no-exile-no-token",
+      "cr": [
+        "603.2",
+        "601.2c"
+      ],
+      "why": "The exile is up to one: choosing no target exiles nothing, and a 6-mana-value creature is never a legal target. With nothing exiled, leaving creates no Illusion token.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Skyclave Apparition"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Grizzly Bears",
+            "Shivan Dragon"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Skyclave Apparition",
+          "mana": "WWW"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "target",
+              "pick": []
+            }
+          ],
+          "observe": {
+            "kind": "target",
+            "source": "trigger",
+            "has": [
+              "p1:Grizzly Bears"
+            ],
+            "not": [
+              "p1:Shivan Dragon"
+            ]
+          }
+        },
+        {
+          "op": "move",
+          "seat": 0,
+          "card": "p0:Skyclave Apparition",
+          "to": "graveyard"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p1:Grizzly Bears",
+          "zone": "battlefield"
+        },
+        {
+          "card": "p1:Shivan Dragon",
+          "zone": "battlefield"
+        },
+        {
+          "count": {
+            "seat": 1,
+            "zone": "battlefield",
+            "name": "Illusion",
+            "token": true
+          },
+          "eq": 0
+        }
+      ]
+    }
+  ]
+}

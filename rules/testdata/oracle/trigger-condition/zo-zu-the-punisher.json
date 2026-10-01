@@ -1,0 +1,94 @@
+{
+  "card": "Zo-Zu the Punisher",
+  "family": "trigger-condition",
+  "oracle_sha": "90c428354976",
+  "author": "cli-20261001T032655Z-b2eec9f5 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "own-land-drop-damages-its-controller",
+      "cr": [
+        "603.2",
+        "305.1"
+      ],
+      "why": "Any land entering damages its controller: playing Boros Guildgate makes Zo-Zu deal 2 to p0.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Zo-Zu the Punisher"
+          ],
+          "hand": [
+            "Boros Guildgate"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "play",
+          "seat": 0,
+          "card": "p0:Boros Guildgate"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p0": 18
+          }
+        },
+        {
+          "card": "p0:Boros Guildgate",
+          "zone": "battlefield",
+          "tapped": true
+        }
+      ]
+    },
+    {
+      "name": "opponent-land-drop-damaged",
+      "cr": [
+        "603.2"
+      ],
+      "why": "On p1's turn, p1 playing a Mountain makes Zo-Zu deal 2 damage to p1.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Zo-Zu the Punisher"
+          ]
+        },
+        "p1": {
+          "hand": [
+            "Mountain"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "pass_to",
+          "step": "main1",
+          "active": "p1"
+        },
+        {
+          "op": "play",
+          "seat": 1,
+          "card": "p1:Mountain"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p1": 18
+          }
+        },
+        {
+          "card": "p1:Mountain",
+          "zone": "battlefield"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,94 @@
+{
+  "card": "Nulldrifter",
+  "family": "etb-ltb",
+  "oracle_sha": "aeeedd9c2321",
+  "author": "cli-20261001T032655Z-b2eec9f5 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "cast-draws-two",
+      "cr": [
+        "603.2",
+        "116.2a"
+      ],
+      "why": "Nulldrifter has 'When you cast this spell, draw two cards', so casting it draws two cards and it enters with flying.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Nulldrifter"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Nulldrifter",
+          "mana": "CCCCCCC"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Nulldrifter",
+          "zone": "battlefield",
+          "keywords": [
+            "flying"
+          ]
+        },
+        {
+          "hand_size": {
+            "p0": 2
+          }
+        }
+      ]
+    },
+    {
+      "name": "attacks-annihilator-one",
+      "cr": [
+        "702.99a",
+        "510.2"
+      ],
+      "why": "Annihilator 1 makes the defending player sacrifice a permanent when Nulldrifter attacks; the only permanent, an Ornithopter, is sacrificed, and 4 combat damage lands.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Nulldrifter"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Ornithopter"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Nulldrifter"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "pass_to",
+          "step": "end-combat"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p1:Ornithopter",
+          "zone": "graveyard"
+        },
+        {
+          "life": {
+            "p1": 16
+          }
+        }
+      ]
+    }
+  ]
+}

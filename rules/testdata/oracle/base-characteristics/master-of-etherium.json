@@ -1,0 +1,71 @@
+{
+  "card": "Master of Etherium",
+  "family": "base-characteristics",
+  "oracle_sha": "3cb03857670c",
+  "author": "cli-20261001T032655Z-b2eec9f5 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "power-toughness-equals-artifact-count",
+      "cr": [
+        "208.3",
+        "613.1"
+      ],
+      "why": "Master of Etherium's printed P/T is a characteristic-defining ability equal to the number of artifacts you control: with itself and two Ornithopters that is 3/3, and the other artifact creatures get +1/+1 (1/3 each).",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Master of Etherium",
+            "Ornithopter",
+            "Ornithopter"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [],
+      "expect": [
+        {
+          "card": "p0:Master of Etherium",
+          "pt": "3/3"
+        },
+        {
+          "card": "p0:Ornithopter",
+          "pt": "1/3"
+        },
+        {
+          "card": "p0:Ornithopter#2",
+          "pt": "1/3"
+        }
+      ]
+    },
+    {
+      "name": "leaves-others-return-baseline",
+      "cr": [
+        "611.3"
+      ],
+      "why": "When Master of Etherium leaves, its +1/+1 static stops applying and the Ornithopters return to their printed 0/2.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Master of Etherium",
+            "Ornithopter"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "move",
+          "seat": 0,
+          "card": "p0:Master of Etherium",
+          "to": "graveyard"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Ornithopter",
+          "pt": "0/2"
+        }
+      ]
+    }
+  ]
+}
