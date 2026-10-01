@@ -445,11 +445,18 @@ func (w *livelockWatcher) detect() {
 	if phys >= n {
 		phys -= n
 	}
+	// prev is logical n-2, the second comparison periodHolds makes for any
+	// p >= 2 (sig(n-2) == sig(n-2-p)); testing it inline -- logical n-2-p is
+	// the physical slot just before k, wrapping once -- spares the call for
+	// almost every candidate, which fails exactly there. p == 1 needs only
+	// the sig(n-1) == sig(n-2) match the candidate test already made. Same
+	// p order, same verdict.
+	prev := w.sigs[phys]
 	p := 1
 	for p <= maxP {
 		seg := w.sigs[:phys+1]
 		for k := len(seg) - 1; k >= 0 && p <= maxP; k-- {
-			if seg[k] == last && w.periodHolds(n, p) {
+			if seg[k] == last && (p == 1 || w.sigs[ringPrev(k, n)] == prev && w.periodHolds(n, p)) {
 				w.runPeriod, w.runEvents = p, 2*p
 				if w.runEvents >= w.guard.CycleEvents {
 					w.abort()
@@ -460,6 +467,14 @@ func (w *livelockWatcher) detect() {
 		}
 		phys = n - 1
 	}
+}
+
+// ringPrev is the physical slot before k in an n-slot ring.
+func ringPrev(k, n int) int {
+	if k == 0 {
+		return n - 1
+	}
+	return k - 1
 }
 
 // periodHolds reports whether the trailing 2p signatures of an n-entry
