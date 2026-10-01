@@ -203,6 +203,10 @@ type engineTriggerBatches struct {
 	// validated on every use, so Clone copies neither.
 	staticZones   []staticZoneSummary
 	staticZonesEp int
+	// walkObjCls is the offer walk's per-object class cache
+	// (rules/walk_objclass.go), indexed by ObjID-1 and kept exact by the
+	// staticZones catch-up: pure scratch, so Clone copies none.
+	walkObjCls []walkObjClass
 	// staticZoneVerified is verify-mode scratch (static_zoneskip.go's
 	// staticZoneSkipVerifyOnce): the (cur, hot) slices each summary slot was
 	// verified against inside the current verifyBoardStatics call

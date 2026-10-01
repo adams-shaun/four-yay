@@ -162,6 +162,9 @@ var excluded = map[excludedField]bool{
 	// (static_zoneskip.go), the same shape.
 	{"rules.Engine", "staticZones"}:   true,
 	{"rules.Engine", "staticZonesEp"}: true,
+	// The offer walk's object class cache (walk_objclass.go), kept by the
+	// same catch-up.
+	{"rules.Engine", "walkObjCls"}: true,
 	// The payment-plan interference carrier memo (payment_plan_interference.go),
 	// keyed by object-arena size and log length; Clone copies none.
 	{"rules.Engine", "paymentPlanCarriers"}:       true,

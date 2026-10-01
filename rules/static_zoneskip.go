@@ -171,6 +171,9 @@ func (e *Engine) staticZoneTouch(id state.ObjID) {
 	if o == nil {
 		return
 	}
+	// The offer walk's object classes (walk_objclass.go) share this
+	// catch-up.
+	e.walkClassTouch(id)
 	s := staticZoneSlot(o.Zone)
 	if s < 0 {
 		return
@@ -187,7 +190,7 @@ func (e *Engine) staticZonesCatchUp() {
 	if n == e.staticZonesEp {
 		return
 	}
-	if len(e.staticZones) == 0 {
+	if len(e.staticZones) == 0 && len(e.walkObjCls) == 0 {
 		e.staticZonesEp = n
 		return
 	}
@@ -195,6 +198,7 @@ func (e *Engine) staticZonesCatchUp() {
 		for i := range e.staticZones {
 			e.staticZones[i].valid = false
 		}
+		e.walkClassDropAll()
 		e.staticZonesEp = n
 		return
 	}
