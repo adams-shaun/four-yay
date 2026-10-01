@@ -206,6 +206,11 @@ func (c *Collector) Unchain() { c.unchained = true }
 
 func (c *Collector) clone() *Collector { return c.Clone() }
 
+// Introduced is how many objects c has given references: references run
+// 1..Introduced() in introduction order, so an object whose reference
+// exceeds an earlier Introduced() count was first observed after it.
+func (c *Collector) Introduced() int { return len(c.byRef) - 1 }
+
 // Forker hands out clones of one collector to a caller that uses them one
 // at a time, each dead before the next is asked for (internal/azmcts's
 // simulations: every world's observer is a clone of the root observer, and
@@ -294,6 +299,25 @@ func (c *Collector) Capture(e *rules.Engine, burst []events.Event) (Frame, error
 	}
 	frame.link = link
 	return frame, nil
+}
+
+// CaptureBoardJSON is Capture that also returns the frame's board as the
+// JSON it encoded -- the legacy Board encoding a frame used to carry -- for
+// a caller that digests that text (internal/searchbench's
+// PublicStateDigest).
+func (c *Collector) CaptureBoardJSON(e *rules.Engine, burst []events.Event) (Frame, []byte, error) {
+	keep := c.retainJSON
+	c.retainJSON = true
+	f, err := c.Capture(e, burst)
+	c.retainJSON = keep
+	if err != nil {
+		return Frame{}, nil, err
+	}
+	raw := f.Board.raw
+	if !keep {
+		f.Board.raw = nil
+	}
+	return f, raw, nil
 }
 
 // captureScratch is Capture for a caller that only COMPARES the frame and

@@ -40,6 +40,11 @@ type Point struct {
 	Keys []Key
 	// Prior parallels Keys: non-negative, summing to 1.
 	Prior []float64
+	// cut and fell record what producing this point counted (an Env's
+	// Stats.Truncated and PriorFallbacks), so the node cache, which reaches
+	// a stored point without producing it again, counts them exactly as a
+	// re-walk would have.
+	cut, fell bool
 }
 
 // Leaf is the value of the position a walk stopped at, for the searching
@@ -70,6 +75,18 @@ type Env interface {
 	Play(k Key) (*Point, error)
 	// Leaf evaluates the current position.
 	Leaf() Leaf
+}
+
+// PathEnv is an optional Env extension: where the walk stands on the
+// engine's own clock, for the backup discount and the depth diagnostics.
+// An Env that does not implement it counts one ply per searched edge and
+// never crosses a turn.
+type PathEnv interface {
+	// Plies is the number of engine submits made in this world since the
+	// root: the searched intents and every environment answer.
+	Plies() int
+	// Turn is the game's turn number now.
+	Turn() int
 }
 
 // EnvSource hands each simulation its own world.
@@ -112,6 +129,9 @@ type node struct {
 	// stored). Both stay nil without the cache.
 	pt   *Point
 	snap any
+	// clk is the engine clock at the node's point (PathEnv), which the
+	// discount and the leaf-depth counters read; the node cache's.
+	clk pathClock
 }
 
 type edge struct {
@@ -125,6 +145,8 @@ type edge struct {
 	// over or the step cap): in a fixed world every later play of it ends
 	// the same way, so its leaf is reused instead of re-walked.
 	end *Leaf
+	// endClk is the engine clock where that walk ended.
+	endClk pathClock
 }
 
 func newNode(pt *Point) *node {
@@ -168,7 +190,8 @@ func puctScore(q, prior float64, avail, n int, c float64) float64 {
 // selectEdge is PUCT over the children this world offers. N_avail counts the
 // simulations the child was available in, THIS one included (so the first
 // selection at a node is guided by the prior rather than a 0 * U tie). An
-// unvisited child's Q is the parent's Q minus FPU. Strict > keeps the lower
+// unvisited child's Q is the parent's Q minus FPU, or the constant
+// opts.UnvisitedQ under opts.AbsoluteUnvisitedQ. Strict > keeps the lower
 // index on a tie: candidate 0, the bot's answer, wins ties.
 func selectEdge(nd *node, pt *Point, opts Options) *edge {
 	parentQ := nd.q()
@@ -179,6 +202,9 @@ func selectEdge(nd *node, pt *Point, opts Options) *edge {
 			continue
 		}
 		q := parentQ - opts.FPU
+		if opts.AbsoluteUnvisitedQ {
+			q = opts.UnvisitedQ
+		}
 		if kid.n > 0 {
 			q = kid.w / float64(kid.n)
 		}
@@ -279,7 +305,17 @@ func simulate(top *node, env Env, opts Options, st *Stats) error {
 		path    []*edge
 		marks   []*edge
 		unavail int
+		// clock[i] is the engine clock at nodes[i]'s decision; the leaf's
+		// is appended when the walk ends.
+		clock []pathClock
 	)
+	pe, _ := env.(PathEnv)
+	now := func() pathClock {
+		if pe == nil {
+			return pathClock{plies: len(path)}
+		}
+		return pathClock{plies: pe.Plies(), turn: pe.Turn()}
+	}
 	nd, pt := top, env.Root()
 	for {
 		if pt == nil || len(pt.Keys) == 0 || len(pt.Prior) != len(pt.Keys) {
@@ -300,6 +336,7 @@ func simulate(top *node, env Env, opts Options, st *Stats) error {
 			}
 		}
 		sel := selectEdge(nd, pt, opts)
+		clock = append(clock, now())
 		nodes, path = append(nodes, nd), append(path, sel)
 		replay, steps0 := sel.next != nil || sel.n > 0, st.EnvSteps
 		next, err := env.Play(sel.key)
@@ -322,7 +359,7 @@ func simulate(top *node, env Env, opts Options, st *Stats) error {
 			if l.Capped {
 				st.StepCapped++
 			}
-			commit(nodes, path, marks, l.V)
+			commit(nodes, path, marks, append(clock, now()), l.V, opts, st)
 			st.Unavailable += unavail
 			return nil
 		}
@@ -334,7 +371,7 @@ func simulate(top *node, env Env, opts Options, st *Stats) error {
 			sel.next = newNode(next)
 			sel.next.n, sel.next.w = 1, l.V
 			st.Expanded++
-			commit(nodes, path, marks, l.V)
+			commit(nodes, path, marks, append(clock, now()), l.V, opts, st)
 			st.Unavailable += unavail
 			return nil
 		}
@@ -342,18 +379,59 @@ func simulate(top *node, env Env, opts Options, st *Stats) error {
 	}
 }
 
-func commit(nodes []*node, path, marks []*edge, v float64) {
-	for _, n := range nodes {
-		n.n++
-		n.w += v
+// pathClock is the engine clock at one point of a walk (PathEnv).
+type pathClock struct{ plies, turn int }
+
+// commit backs v up a completed walk. clock parallels nodes plus one: its
+// last entry is the leaf's. Node i stands clock[i] on the engine clock and
+// its edge path[i] leads to the position at clock[i+1], so under a discount
+// node i's value is v's deviation from 0.5 scaled by gamma^Delta for the
+// Delta between clock[i] and the leaf, and edge i's by the Delta between
+// clock[i+1] and the leaf (the child's own position; the newly expanded
+// leaf keeps v undiscounted, as upstream's backprop adds the leaf's value
+// before its first multiplication).
+func commit(nodes []*node, path, marks []*edge, clock []pathClock, v float64, opts Options, st *Stats) {
+	leaf := clock[len(clock)-1]
+	discounted := opts.Discount > 0 && opts.Discount < 1
+	at := func(i int) float64 {
+		if !discounted {
+			return v
+		}
+		var delta int
+		switch opts.DiscountUnit {
+		case DiscountAction:
+			delta = len(path) - i
+		case DiscountTurn:
+			delta = leaf.turn - clock[i].turn
+		default:
+			delta = leaf.plies - clock[i].plies
+		}
+		return discountValue(v, opts.Discount, delta)
 	}
-	for _, e := range path {
+	for i, n := range nodes {
+		n.n++
+		n.w += at(i)
+	}
+	for i, e := range path {
 		e.n++
-		e.w += v
+		e.w += at(i + 1)
 	}
 	for _, e := range marks {
 		e.avail++
 	}
+	st.LeafPlies += leaf.plies - clock[0].plies
+	st.LeafEdges += len(path)
+	st.LeafTurns += leaf.turn - clock[0].turn
+}
+
+// discountValue is 0.5 + (v - 0.5) * gamma^delta: the discount shrinks a
+// [0,1] value toward 0.5 ("unknown") as upstream's shrinks a [-1,1] value
+// toward 0. A non-positive delta leaves v unchanged.
+func discountValue(v, gamma float64, delta int) float64 {
+	if delta <= 0 {
+		return v
+	}
+	return 0.5 + (v-0.5)*math.Pow(gamma, float64(delta))
 }
 
 func classify(st *Stats, err error) {

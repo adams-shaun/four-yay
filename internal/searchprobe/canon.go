@@ -13,6 +13,8 @@ import (
 	"unicode/utf8"
 	"unsafe"
 
+	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/state"
 	"github.com/adams-shaun/gorge/view"
 )
 
@@ -612,6 +614,165 @@ func AppendActionsKey(dst []byte, acts []Action) []byte {
 		dst = appendCanonString(dst, a.Value)
 	}
 	return dst
+}
+
+// CompareActionsJSON orders two action lists exactly as bytes.Compare
+// orders their json.Marshal encodings, without encoding them: nil is
+// "null", above every list ('n' > '['); lists compare element by element
+// (actionJSONCompare: a complete object is never a proper prefix of
+// another, so the first differing element decides); the empty list sorts
+// before every other ("[]": ']' < '{'), and a non-empty list that is a
+// proper prefix of another sorts AFTER it (']' > ','). internal/azmcts
+// orders candidates by it, the order its keys had while they were JSON.
+func CompareActionsJSON(a, b []Action) int {
+	switch {
+	case a == nil && b == nil:
+		return 0
+	case a == nil:
+		return 1
+	case b == nil:
+		return -1
+	}
+	for i := 0; i < len(a) && i < len(b); i++ {
+		if c := actionJSONCompare(&a[i], &b[i]); c != 0 {
+			return c
+		}
+	}
+	switch {
+	case len(a) == len(b):
+		return 0
+	case len(a) == 0:
+		return -1
+	case len(b) == 0:
+		return 1
+	case len(a) < len(b):
+		return 1
+	}
+	return -1
+}
+
+// ParseActionsKey is AppendActionsKey's inverse: the action list a key
+// encodes. A string that was not valid UTF-8 comes back as encoding/json
+// decodes its JSON token (each invalid byte U+FFFD), as when keys were JSON.
+// internal/azmcts plays a key on another engine with it (IntentForKey).
+func ParseActionsKey(k []byte) ([]Action, error) {
+	r := keyReader{b: k}
+	switch r.byte() {
+	case 0:
+		if r.err == nil && len(r.b) != 0 {
+			return nil, fmt.Errorf("searchprobe: %d trailing bytes after a nil action key", len(r.b))
+		}
+		return nil, r.err
+	case 1:
+	default:
+		if r.err == nil {
+			r.err = fmt.Errorf("searchprobe: not an action key")
+		}
+		return nil, r.err
+	}
+	n := r.uvarint()
+	if r.err == nil && n > uint64(len(r.b)) {
+		r.err = fmt.Errorf("searchprobe: action key claims %d actions in %d bytes", n, len(r.b))
+	}
+	if r.err != nil {
+		return nil, r.err
+	}
+	acts := make([]Action, n)
+	for i := range acts {
+		a := &acts[i]
+		a.Decision = decision.Kind(r.str())
+		a.Source = uint32(r.uvarint())
+		a.Kind = r.str()
+		a.Obj = uint32(r.uvarint())
+		a.Attacker = uint32(r.uvarint())
+		a.Player = state.PlayerID(r.uvarint())
+		a.Ability = int(r.varint())
+		a.AltCostIndex = int(r.varint())
+		a.Amount = int(r.varint())
+		a.Mode = r.str()
+		a.SVar = r.str()
+		a.Value = r.str()
+	}
+	if r.err == nil && len(r.b) != 0 {
+		r.err = fmt.Errorf("searchprobe: %d trailing bytes after an action key", len(r.b))
+	}
+	if r.err != nil {
+		return nil, r.err
+	}
+	return acts, nil
+}
+
+// keyReader reads AppendActionsKey's encoding; the first error sticks.
+type keyReader struct {
+	b   []byte
+	err error
+}
+
+func (r *keyReader) fail() { r.err, r.b = fmt.Errorf("searchprobe: truncated action key"), nil }
+
+func (r *keyReader) byte() byte {
+	if r.err != nil || len(r.b) == 0 {
+		if r.err == nil {
+			r.fail()
+		}
+		return 0
+	}
+	c := r.b[0]
+	r.b = r.b[1:]
+	return c
+}
+
+func (r *keyReader) uvarint() uint64 {
+	if r.err != nil {
+		return 0
+	}
+	v, n := binary.Uvarint(r.b)
+	if n <= 0 {
+		r.fail()
+		return 0
+	}
+	r.b = r.b[n:]
+	return v
+}
+
+func (r *keyReader) varint() int64 {
+	if r.err != nil {
+		return 0
+	}
+	v, n := binary.Varint(r.b)
+	if n <= 0 {
+		r.fail()
+		return 0
+	}
+	r.b = r.b[n:]
+	return v
+}
+
+// str reads appendCanonString's encoding.
+func (r *keyReader) str() string {
+	tag := r.byte()
+	n := r.uvarint()
+	if r.err != nil {
+		return ""
+	}
+	if n > uint64(len(r.b)) {
+		r.fail()
+		return ""
+	}
+	raw := r.b[:n]
+	r.b = r.b[n:]
+	switch tag {
+	case 0:
+		return string(raw)
+	case 1:
+		var s string
+		if err := json.Unmarshal(raw, &s); err != nil {
+			r.err, r.b = fmt.Errorf("searchprobe: action key string token: %v", err), nil
+		}
+		return s
+	}
+	r.err, r.b = fmt.Errorf("searchprobe: action key string tag %d", tag), nil
+	return ""
 }
 
 // canonEmpty is encoding/json's isEmptyValue.

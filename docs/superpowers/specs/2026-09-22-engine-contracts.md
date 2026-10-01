@@ -102,3 +102,18 @@ round. Every log-bearing caller (host fan-out, `viewAt`, the seat view,
 mtgsim, botbench, keywordbench) uses it; `roundOf` is only the snapshot
 fallback. It never touches engine state. Revisit if a same-seat repeat turn
 (`AddTurn`) ever lands.
+
+## Staged hypothetical engines (`rules.NewStaged`)
+
+`rules.NewStaged` builds a two-player engine at an arbitrary position from a
+rules-level `Stage` (research harnesses only: `internal/searchbench`). Every
+placement after the genesis-style object arena is an event folded by
+`events.Apply`, emitted raw, so staging queues no trigger, runs no
+replacement or ETB effect and writes no rules-side "this turn" ledger. A
+permanent is summoning sick exactly when the Stage says so and nothing
+"entered this turn". The sickness of the active player's sick permanents is
+set by parking them under the other seat across the last `TurnChange`, so
+they sit at the end of their controller's battlefield list. The engine is
+hypothetical: its later shuffles are seeded by `Config.Seed` and it is not
+replayable from `Config`. The full contract is the doc comment in
+`rules/staging.go`.

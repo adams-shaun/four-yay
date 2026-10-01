@@ -55,6 +55,10 @@ type Options struct {
 	MaxSteps int
 	// Kinds are the searched decision kinds.
 	Kinds Kinds
+	// AutoPayment lifts engine-provided automatic payment witnesses into
+	// priority candidates. It is off by default so ordinary seats retain the
+	// established manual-payment candidate vocabulary.
+	AutoPayment bool
 	// Seed is the per-decision seed (DecisionSeed): it seeds the root noise,
 	// the move sampling, and -- identically for every simulation -- the
 	// environment bots' streams.
@@ -71,6 +75,49 @@ type Options struct {
 	// even when a network supplies the prior: the network's value head is
 	// then unused (M1b's prior-only ablation).
 	HeuristicLeaf bool
+	// UniformPrior keeps the uniform prior even when a network is given: the
+	// network then supplies only the leaf value (the search benchmark's
+	// "priors off", upstream experiment #2's setting).
+	UniformPrior bool
+
+	// AbsoluteUnvisitedQ replaces first-play urgency: an unvisited child's Q
+	// is the constant UnvisitedQ instead of its parent's Q minus FPU. The
+	// search benchmark sets UnvisitedQ 0.5 with CPUCT 0.5, the [0,1]
+	// equivalent of upstream MageZero's c = 1 with unvisited children valued
+	// 0 on [-1,1] (values map by v01 = (v+1)/2, which halves Q's scale, so
+	// c halves with it).
+	AbsoluteUnvisitedQ bool
+	UnvisitedQ         float64
+
+	// Discount is the backup discount gamma; 0 and 1 are both off (the
+	// default). A simulation's leaf value v reaches a node Delta units above
+	// the leaf as 0.5 + (v - 0.5) * gamma^Delta: discounting shrinks the
+	// value toward 0.5, "unknown", exactly as upstream's multiplication of a
+	// [-1,1] value shrinks it toward 0. DiscountUnit says what Delta counts.
+	Discount     float64
+	DiscountUnit DiscountUnit
+	// RootPerWorld makes every simulation re-derive the root candidates in
+	// its own world: each root key is matched against that world's decision
+	// (IntentForKey), a key the world does not offer is unavailable there
+	// (the availability rule, at the root too), and the world's pending
+	// decision need only share the root's kind and player, not its
+	// sequence number. A multi-world source whose worlds were built
+	// independently (the benchmark's IS-MCTS) needs it: a root intent's
+	// option indices and payment witness are only valid on the engine that
+	// built them. Every world's Observer must then be a collector that
+	// captured THAT world's root.
+	RootPerWorld bool
+	// NameKeys names, in the key of an in-walk candidate, every object the
+	// root observation did not show (a card drawn or a permanent that
+	// entered during the walk) by its card name instead of its
+	// observer-local reference. References are assigned in introduction
+	// order, so across re-dealt worlds "the first card drawn" would share a
+	// key whatever card it is; a name is what upstream's keys use (an
+	// ability's text and its source's name). Two same-named new objects
+	// then share one key, and one candidate is kept. Root keys are
+	// unchanged. A face-down object the searching seat does not control is
+	// named "face-down".
+	NameKeys bool
 	// NodeCache caps the tree nodes whose engine state the search stores
 	// (nodecache.go) when the world source declares a fixed world
 	// (FixedWorldSource: the clairvoyant clone, FixedChance); 0 turns the
@@ -78,6 +125,48 @@ type Options struct {
 	// source whose worlds differ between simulations never uses it.
 	NodeCache int
 }
+
+// DiscountUnit is what one step of the backup discount counts.
+type DiscountUnit uint8
+
+const (
+	// DiscountPly counts engine decisions on the simulation's path from the
+	// node to the leaf: every submit, the searched intents and the
+	// environment's (bot and opponent) answers alike.
+	DiscountPly DiscountUnit = iota
+	// DiscountAction counts searched tree edges between the node and the
+	// leaf (upstream's "logical action": only edges out of the searching
+	// seat's searched decisions).
+	DiscountAction
+	// DiscountTurn counts turn boundaries crossed between the node and the
+	// leaf.
+	DiscountTurn
+)
+
+// DiscountUnitNames are the units' names in constant order.
+var DiscountUnitNames = [...]string{"ply", "action", "turn"}
+
+func (u DiscountUnit) String() string {
+	if int(u) < len(DiscountUnitNames) {
+		return DiscountUnitNames[u]
+	}
+	return fmt.Sprintf("DiscountUnit(%d)", u)
+}
+
+// ParseDiscountUnit parses ply, action or turn.
+func ParseDiscountUnit(s string) (DiscountUnit, error) {
+	for i, n := range DiscountUnitNames {
+		if n == s {
+			return DiscountUnit(i), nil
+		}
+	}
+	return 0, fmt.Errorf("unknown discount unit %q (want ply, action, turn)", s)
+}
+
+// BenchCandidateLimit is a candidate limit no benchmark decision reaches:
+// the search benchmark must never cut a legal root option (Stats.Truncated
+// and RootTruncated count every cut that happens anyway).
+const BenchCandidateLimit = 512
 
 // DefaultOptions are the spec's values (§2) and this plan's candidate and
 // step caps.
@@ -109,6 +198,18 @@ type Stats struct {
 	PriorFallbacks int // network priors that fell back to uniform, at the root and at in-walk points (a discarded simulation's included)
 	FeedStopped    int // decisions the driver routed around the search (its observation feed stopped): the bot's answer was played
 	RedealRefused  int // decisions whose honest (redeal) world source refused to prepare: no world, the bot's answer was played
+	// Truncated counts searched points -- the root and in-walk decisions,
+	// a discarded simulation's included -- whose candidate list the Limit
+	// cut; RootTruncated is the root's share (0 or 1 per Search).
+	Truncated     int
+	RootTruncated int
+	// LeafPlies, LeafEdges and LeafTurns sum, over completed simulations,
+	// the leaf's depth below the root: engine decisions (every submit, the
+	// environment's included), searched tree edges, and turn boundaries
+	// crossed. MeanLeafPlies and friends divide by Completed.
+	LeafPlies int
+	LeafEdges int
+	LeafTurns int
 	// DeadlineHits is the armed wall-clock bail-out (Search's ctx, the hosted
 	// seats' per-decision budget): the caller's context was done at the call
 	// or became done between simulations, the tree stopped where it was and
@@ -116,8 +217,9 @@ type Stats struct {
 	DeadlineHits int
 
 	// The walk's cost counters. They count work, not outcomes: the node
-	// cache (Options.NodeCache) changes them, and EnvSteps and PriorFallbacks
-	// above, and nothing else in Stats.
+	// cache (Options.NodeCache) changes them, and EnvSteps above, and
+	// nothing else in Stats (a stored point records the Truncated and
+	// PriorFallbacks producing it counted, so those stay exact).
 	Plays       int // searched submits (Env.Play), a discarded simulation's included
 	ReplayPlays int // Plays along an edge the tree already held (expanded, or ended there before)
 	ReplaySteps int // the EnvSteps spent inside those ReplayPlays: re-walking known tree edges
@@ -219,6 +321,11 @@ func (s *Stats) Add(o Stats) {
 	s.FeedStopped += o.FeedStopped
 	s.RedealRefused += o.RedealRefused
 	s.DeadlineHits += o.DeadlineHits
+	s.Truncated += o.Truncated
+	s.RootTruncated += o.RootTruncated
+	s.LeafPlies += o.LeafPlies
+	s.LeafEdges += o.LeafEdges
+	s.LeafTurns += o.LeafTurns
 	s.Plays += o.Plays
 	s.ReplayPlays += o.ReplayPlays
 	s.ReplaySteps += o.ReplaySteps
@@ -236,6 +343,22 @@ func (s *Stats) Add(o Stats) {
 			s.PrioritySkipped[b][r] += o.PrioritySkipped[b][r]
 		}
 	}
+}
+
+// MeanLeafPlies is LeafPlies per completed simulation (0 with none).
+func (s Stats) MeanLeafPlies() float64 { return perCompleted(s.LeafPlies, s.Completed) }
+
+// MeanLeafEdges is LeafEdges per completed simulation (0 with none).
+func (s Stats) MeanLeafEdges() float64 { return perCompleted(s.LeafEdges, s.Completed) }
+
+// MeanLeafTurns is LeafTurns per completed simulation (0 with none).
+func (s Stats) MeanLeafTurns() float64 { return perCompleted(s.LeafTurns, s.Completed) }
+
+func perCompleted(sum, n int) float64 {
+	if n == 0 {
+		return 0
+	}
+	return float64(sum) / float64(n)
 }
 
 // The error classes a world reports; RunTree counts a discarded simulation

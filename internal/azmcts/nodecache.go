@@ -12,9 +12,14 @@ package azmcts
 //
 // It is exact: with the cache on, the tree sees the same points, leaves and
 // selections as without it, so the Result is byte-identical except the
-// walk's cost counters (Stats.EnvSteps, PriorFallbacks, Plays, ReplayPlays,
-// ReplaySteps and the Node* counters) -- TestNodeCacheIsExact pins it over
-// many roots. It is never on for a source whose worlds differ between
+// walk's cost counters (Stats.EnvSteps, Plays, ReplayPlays, ReplaySteps and
+// the Node* counters) -- TestNodeCacheIsExact pins it over many roots, and
+// TestNodeCacheIsExactWithBenchKnobs under the search benchmark's knobs. A
+// node keeps what the walk needs that its point does not say: the engine
+// clock there (the discount and the leaf-depth sums read it), the actor's
+// auto-pay bot stream, and whether producing the point counted a Truncated
+// or a PriorFallbacks (counted again when a cached walk passes it). It is
+// never on for a source whose worlds differ between
 // simulations (the redeal source, a re-seeded chance): there a node's state
 // is not a function of its path.
 //
@@ -48,6 +53,7 @@ import (
 	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/internal/searchprobe"
 	"github.com/adams-shaun/gorge/rules"
+	"github.com/adams-shaun/gorge/seat"
 )
 
 // DefaultNodeCache is DefaultOptions' node-state cap.
@@ -147,6 +153,7 @@ func (c *nodeCache) simulate(top *node, sim int, opts Options, st *Stats) error 
 			top.pt = nil
 			return fmt.Errorf("%w: a world offered a malformed point", ErrSubmit)
 		}
+		top.clk = clockOf(env, 0)
 		c.save(top, env, false, st)
 	}
 	var (
@@ -186,8 +193,15 @@ func (c *nodeCache) simulate(top *node, sim int, opts Options, st *Stats) error 
 			from = len(nodes)
 		}
 	}
+	clock := make([]pathClock, len(nodes), len(nodes)+1)
+	for i, n := range nodes {
+		clock[i] = n.clk
+	}
 	last := path[len(path)-1]
 	if last.end != nil {
+		// No point below the root is produced again: count what producing
+		// each would have (a re-walk's Truncated and PriorFallbacks).
+		skipped(nodes[1:], st)
 		l := *last.end
 		if l.Terminal {
 			st.Terminal++
@@ -195,7 +209,7 @@ func (c *nodeCache) simulate(top *node, sim int, opts Options, st *Stats) error 
 		if l.Capped {
 			st.StepCapped++
 		}
-		commit(nodes, path, marks, l.V)
+		commit(nodes, path, marks, append(clock, last.endClk), l.V, opts, st)
 		st.Unavailable += unavail
 		return nil
 	}
@@ -209,6 +223,7 @@ func (c *nodeCache) simulate(top *node, sim int, opts Options, st *Stats) error 
 			st.NodeResumes++
 		}
 	}
+	skipped(nodes[1:from+1], st)
 	for j := from; j < len(path); j++ {
 		sel := path[j]
 		replay, steps0 := sel.next != nil || sel.n > 0, st.EnvSteps
@@ -222,7 +237,7 @@ func (c *nodeCache) simulate(top *node, sim int, opts Options, st *Stats) error 
 			return err
 		}
 		if j < len(path)-1 {
-			if !samePoint(next, nodes[j+1]) {
+			if !samePoint(next, nodes[j+1]) || clockOf(env, j+1) != nodes[j+1].clk {
 				return fmt.Errorf("%w: a fixed world reached a different point than the tree holds", ErrSubmit)
 			}
 			if nodes[j+1].snap == nil {
@@ -242,21 +257,46 @@ func (c *nodeCache) simulate(top *node, sim int, opts Options, st *Stats) error 
 				st.StepCapped++
 			}
 			end := l
-			sel.end = &end
-			commit(nodes, path, marks, l.V)
+			sel.end, sel.endClk = &end, clockOf(env, len(path))
+			commit(nodes, path, marks, append(clock, sel.endClk), l.V, opts, st)
 			st.Unavailable += unavail
 			return nil
 		}
 		sel.next = newNode(next)
-		sel.next.pt = next
+		sel.next.pt, sel.next.clk = next, clockOf(env, len(path))
 		sel.next.n, sel.next.w = 1, l.V
 		st.Expanded++
-		commit(nodes, path, marks, l.V)
+		commit(nodes, path, marks, append(clock, sel.next.clk), l.V, opts, st)
 		st.Unavailable += unavail
 		c.offer(sel.next, env, true, st)
 		return nil
 	}
 	return errors.New("azmcts: unreachable: the cached walk ended without a leaf")
+}
+
+// clockOf is env's engine clock at a point depth searched edges below the
+// root: simulate's now().
+func clockOf(env Env, depth int) pathClock {
+	if pe, ok := env.(PathEnv); ok {
+		return pathClock{plies: pe.Plies(), turn: pe.Turn()}
+	}
+	return pathClock{plies: depth}
+}
+
+// skipped counts, for stored points a cached walk reached without
+// producing them, what producing each counted (Point.cut, Point.fell).
+func skipped(nodes []*node, st *Stats) {
+	for _, n := range nodes {
+		if n.pt == nil {
+			continue
+		}
+		if n.pt.cut {
+			st.Truncated++
+		}
+		if n.pt.fell {
+			st.PriorFallbacks++
+		}
+	}
 }
 
 // fixedEnvs is worldEnvs over a FixedWorldSource: the NodeStateSource the
@@ -281,6 +321,11 @@ type envState struct {
 	pcgs  []rand.PCG
 	cands []cand
 	steps int
+	plies int
+	root  *Point
+	// actor is the auto-pay actor bot's source (engineEnv.actorPCG); nil
+	// without autoPayment.
+	actor *rand.PCG
 }
 
 func (f *fixedEnvs) Save(env Env, final bool) (snap any, err error) {
@@ -288,9 +333,13 @@ func (f *fixedEnvs) Save(env Env, final bool) (snap any, err error) {
 	if !ok || ee.e == nil || ee.cur == nil || ee.capped {
 		return nil, errors.New("azmcts: the node cache saves an engine env at a point")
 	}
-	s := &envState{e: ee.e, obs: ee.obs, hyp: ee.hyp, cands: ee.cands, steps: ee.steps, pcgs: make([]rand.PCG, len(ee.pcgs))}
+	s := &envState{e: ee.e, obs: ee.obs, hyp: ee.hyp, cands: ee.cands, steps: ee.steps, plies: ee.plies, root: ee.root, pcgs: make([]rand.PCG, len(ee.pcgs))}
 	for i, p := range ee.pcgs {
 		s.pcgs[i] = *p
+	}
+	if ee.actorPCG != nil {
+		a := *ee.actorPCG
+		s.actor = &a
 	}
 	if final {
 		// The walk is over: the state is ee's own engine, kept as it stands.
@@ -348,7 +397,12 @@ func (f *fixedEnvs) Resume(snap any) (env Env, err error) {
 	ee := &engineEnv{
 		e: e, obs: s.obs.Clone(), hyp: s.hyp, cfg: f.cfg,
 		rngs: rngs, pcgs: pcgs, board: board,
-		cur: e.Pending(), cands: s.cands, steps: s.steps,
+		cur: e.Pending(), cands: s.cands, steps: s.steps, plies: s.plies, root: s.root,
+	}
+	if s.actor != nil {
+		a := *s.actor
+		ee.actorPCG = &a
+		ee.actorBot = seat.NewBotOn(ee.actorPCG).EnableAutoPayMana()
 	}
 	f.prev = ee
 	return ee, nil

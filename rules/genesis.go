@@ -250,6 +250,15 @@ func NewStartingPlayerChoice(cfg Config) *Engine {
 }
 
 func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
+	e := newEngineShell(cfg, random)
+	e.emit(events.Event{Kind: events.GameStart, Amount: int32(len(cfg.Names))})
+	return e.genesisDeal(cfg, tossAsk)
+}
+
+// newEngineShell builds an Engine with every Config-derived field set and an
+// empty board: no GameStart, no toss, no deal. newWithRNG deals a game onto
+// it; NewStaged (rules/staging.go) places a described position instead.
+func newEngineShell(cfg Config, random *rng) *Engine {
 	life := int32(20)
 	if cfg.StartingLife > 0 {
 		life = cfg.StartingLife
@@ -348,7 +357,12 @@ func newWithRNG(cfg Config, random *rng, tossAsk bool) *Engine {
 			e.G.Players[i].PlayerName = cfg.PlayerNames[i]
 		}
 	}
-	e.emit(events.Event{Kind: events.GameStart, Amount: int32(len(cfg.Names))})
+	return e
+}
+
+// genesisDeal is newWithRNG's deal: the toss, each seat's library, shuffle
+// and opening hand, and the pregame rounds or turn 1.
+func (e *Engine) genesisDeal(cfg Config, tossAsk bool) *Engine {
 	// CR 103.1: the starting player is determined by a random method. Draw
 	// the toss HERE, as the FIRST rng consumption of the game, before any
 	// per-seat shuffle: the toss value is then a pure function of (seed,

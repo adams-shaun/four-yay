@@ -1,6 +1,7 @@
 package azmcts
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"math/rand/v2"
@@ -13,6 +14,7 @@ import (
 	"github.com/adams-shaun/gorge/internal/policynet"
 	"github.com/adams-shaun/gorge/internal/searchprobe"
 	"github.com/adams-shaun/gorge/rules"
+	"github.com/adams-shaun/gorge/seat"
 	"github.com/adams-shaun/gorge/state"
 	"github.com/adams-shaun/gorge/view"
 )
@@ -28,10 +30,21 @@ type walkConfig struct {
 	maxSteps      int
 	envSeed       uint64
 	actor         state.PlayerID
-	root          *Point
-	rootCands     []cand
-	rootDec       *decision.Decision
-	stats         *Stats
+	autoPayment   bool
+	// uniformPrior keeps the uniform prior at in-walk points even with a
+	// network (Options.UniformPrior).
+	uniformPrior bool
+	// rootPerWorld re-derives the root candidates in every world
+	// (Options.RootPerWorld).
+	rootPerWorld bool
+	// nameKeys names post-root objects in in-walk keys (Options.NameKeys);
+	// rootRefs is the root observer's reference count after the root.
+	nameKeys  bool
+	rootRefs  int
+	root      *Point
+	rootCands []cand
+	rootDec   *decision.Decision
+	stats     *Stats
 	// envBoard and enumBoard are the Search's board scratch
 	// (botpolicy.BoardFromGameInto): simulations run one at a time, and
 	// every board is read only until the decision it was built for is
@@ -44,6 +57,14 @@ type walkConfig struct {
 	// and the prior's reusable views, refilled per leaf and per point.
 	// Nil (a hand-built config) projects into fresh views.
 	views *viewScratch
+}
+
+// priorNet is the network in-walk priors read: nil under uniformPrior.
+func (c *walkConfig) priorNet() *policynet.Model {
+	if c.uniformPrior {
+		return nil
+	}
+	return c.net
 }
 
 // viewScratch is one Search's reusable projections. Simulations run one at
@@ -123,6 +144,21 @@ type engineEnv struct {
 	cands  []cand
 	steps  int
 	capped bool
+	// plies counts every submit on this world since the root, the
+	// searched intents included (PathEnv).
+	plies int
+	// root is this world's root point: cfg.root, or under rootPerWorld the
+	// root keys this world offers.
+	root *Point
+	// actorBot answers the searching seat's unsearched decisions under
+	// autoPayment: the auto-pay bot (seat.Bot.EnableAutoPayMana), so a
+	// searched priority's bot answer is a planned cast or pass, never a
+	// manual mana tap outside the vocabulary. Seeded identically for every
+	// simulation, like rngs.
+	actorBot *seat.Bot
+	// actorPCG is actorBot's source, which the node cache saves and
+	// restores with pcgs.
+	actorPCG *rand.PCG
 }
 
 func newEngineEnv(w World, cfg *walkConfig) (*engineEnv, error) {
@@ -130,7 +166,7 @@ func newEngineEnv(w World, cfg *walkConfig) (*engineEnv, error) {
 		return nil, fmt.Errorf("%w: the world has no engine or observer", ErrBadWorld)
 	}
 	pd, rd := w.Engine.Pending(), cfg.rootDec
-	if w.Engine.G.Over || pd == nil || pd.Seq != rd.Seq || pd.Player != rd.Player || pd.Kind != rd.Kind {
+	if w.Engine.G.Over || pd == nil || (pd.Seq != rd.Seq && !cfg.rootPerWorld) || pd.Player != rd.Player || pd.Kind != rd.Kind {
 		return nil, fmt.Errorf("%w (root seq %d)", ErrBadWorld, rd.Seq)
 	}
 	// A simulation's world and every decision it poses die together: the
@@ -148,11 +184,21 @@ func newEngineEnv(w World, cfg *walkConfig) (*engineEnv, error) {
 		board = &b
 	}
 	rngs, pcgs := botStreams(cfg.envSeed, n)
-	return &engineEnv{
+	env := &engineEnv{
 		e: w.Engine, obs: w.Observer, hyp: w.Hypothetical, cfg: cfg,
 		rngs: rngs, pcgs: pcgs, board: board,
-		cur: pd, cands: cfg.rootCands,
-	}, nil
+		cur: pd, cands: cfg.rootCands, root: cfg.root,
+	}
+	if cfg.autoPayment {
+		env.actorPCG = seat.BotSource(splitmix(cfg.envSeed ^ 0x6163746f722d6270 ^ uint64(cfg.actor)))
+		env.actorBot = seat.NewBotOn(env.actorPCG).EnableAutoPayMana()
+	}
+	if cfg.rootPerWorld {
+		if err := env.matchRoot(); err != nil {
+			return nil, err
+		}
+	}
+	return env, nil
 }
 
 // botStreams is searchprobe.BotRandoms with the PCG sources kept, so the
@@ -169,7 +215,64 @@ func botStreams(seed uint64, seats int) ([]*rand.Rand, []*rand.PCG) {
 	return rngs, pcgs
 }
 
-func (e *engineEnv) Root() *Point { return e.cfg.root }
+// matchRoot maps every root key onto this world's decision (IntentForKey):
+// the world offers the keys it can play, with the root prior renormalised
+// over them; a key it cannot play is unavailable in this simulation.
+func (e *engineEnv) matchRoot() (err error) {
+	defer func() {
+		if p := recover(); p != nil {
+			err = fmt.Errorf("%w: matching the root: %v", ErrPanic, p)
+		}
+	}()
+	m, err := newKeyMatcher(e.obs, e.e, e.cur)
+	if err != nil {
+		return fmt.Errorf("%w: observing the root: %v", ErrBadWorld, err)
+	}
+	root := e.cfg.root
+	pt := &Point{}
+	var cands []cand
+	sum := 0.0
+	for i, k := range root.Keys {
+		var c cand
+		if IsMacroKey(k) {
+			mc, ok := e.macroCand(k)
+			if !ok {
+				continue
+			}
+			c = mc
+		} else {
+			in, err := m.intent(k)
+			if err != nil {
+				continue
+			}
+			c = cand{key: k, in: in}
+		}
+		cands = append(cands, c)
+		pt.Keys = append(pt.Keys, k)
+		pt.Prior = append(pt.Prior, root.Prior[i])
+		sum += root.Prior[i]
+	}
+	if len(cands) == 0 {
+		return fmt.Errorf("%w: the world offers no root candidate", ErrBadWorld)
+	}
+	for i := range pt.Prior {
+		if sum > 0 {
+			pt.Prior[i] /= sum
+		} else {
+			pt.Prior[i] = 1 / float64(len(pt.Prior))
+		}
+	}
+	e.cands, e.root = cands, pt
+	return nil
+}
+
+func (e *engineEnv) Root() *Point { return e.root }
+
+// Plies is PathEnv's engine clock: submits since the root.
+func (e *engineEnv) Plies() int { return e.plies }
+
+// Turn is PathEnv's turn number.
+func (e *engineEnv) Turn() int { return int(e.e.G.Turn) }
 
 // Play recovers a panic anywhere on its path -- the bot's answers
 // (botpolicy.BoardFromGameInto, botpolicy.Decide), enumerate and priors at the
@@ -195,9 +298,14 @@ func (e *engineEnv) Play(k Key) (pt *Point, err error) {
 	if i < 0 {
 		return nil, fmt.Errorf("%w: candidate %q is not offered here", ErrSubmit, k)
 	}
-	if err := e.submit(e.cur, e.cands[i].in); err != nil {
+	if m := e.cands[i].macro; m != nil {
+		if err := e.playMacro(m); err != nil {
+			return nil, err
+		}
+	} else if err := e.submit(e.cur, e.cands[i].in); err != nil {
 		return nil, err
 	}
+	e.plies++
 	return e.advance()
 }
 
@@ -220,19 +328,35 @@ func (e *engineEnv) advance() (*Point, error) {
 		if pd == nil {
 			return nil, fmt.Errorf("%w: no pending decision and the game is not over", ErrSubmit)
 		}
-		// A decision whose bot answer reads no board (a priority window
-		// offering nothing but pass, or only mana activations outside a main
-		// phase) skips the board build: botpolicy.DecideBoardFree is Decide's
-		// own answer there and, like it, draws no rng.
-		in, free := botpolicy.DecideBoardFree(pd, g.Step.IsMain())
-		if !free {
+		var in decision.Intent
+		if pd.Player == e.cfg.actor && e.actorBot != nil {
 			b := botpolicy.BoardFromGameInto(g, e.e, pd.Player, e.board)
-			in = botpolicy.Decide(b, pd, e.rngs[pd.Player])
+			if pd.Kind == decision.KPriority {
+				e.e.EnsurePaymentActions()
+			}
+			in, _ = e.actorBot.DecideBoard(context.Background(), b, *pd)
+		} else {
+			// A decision whose bot answer reads no board (a priority window
+			// offering nothing but pass, or only mana activations outside a main
+			// phase) skips the board build: botpolicy.DecideBoardFree is Decide's
+			// own answer there and, like it, draws no rng.
+			var free bool
+			in, free = botpolicy.DecideBoardFree(pd, g.Step.IsMain())
+			if !free {
+				b := botpolicy.BoardFromGameInto(g, e.e, pd.Player, e.board)
+				in = botpolicy.Decide(b, pd, e.rngs[pd.Player])
+			}
 		}
 		if pd.Player == e.cfg.actor {
-			if cands, kind, ok := enumerateInto(e.obs, e.e, pd, in, e.cfg.kinds, e.cfg.limit, e.cfg.enumBoard); ok {
+			if cands, kind, _, ok, cut := enumerateCutInto(e.obs, e.e, pd, in, e.cfg.kinds, e.cfg.limit, e.cfg.autoPayment, e.cfg.enumBoard); ok {
+				if cut {
+					e.cfg.stats.Truncated++
+				}
+				if e.cfg.nameKeys {
+					cands = nameKeys(e.obs, e.e, pd, cands, e.cfg.rootRefs)
+				}
 				e.cur, e.cands = pd, cands
-				prior, fell := priors(e.cfg.net, e.e, pd, in, kind, cands, e.cfg.priorView())
+				prior, fell := priors(e.cfg.priorNet(), e.e, pd, in, kind, cands, e.cfg.priorView())
 				if fell {
 					e.cfg.stats.PriorFallbacks++
 				}
@@ -240,7 +364,7 @@ func (e *engineEnv) advance() (*Point, error) {
 				for i, c := range cands {
 					keys[i] = c.key
 				}
-				return &Point{Keys: keys, Prior: prior}, nil
+				return &Point{Keys: keys, Prior: prior, cut: cut, fell: fell}, nil
 			}
 		}
 		if e.steps >= e.cfg.maxSteps {
@@ -252,6 +376,7 @@ func (e *engineEnv) advance() (*Point, error) {
 			return nil, err
 		}
 		e.steps++
+		e.plies++
 		e.cfg.stats.EnvSteps++
 	}
 }

@@ -25,7 +25,7 @@ The import direction is one-way. `internal/archtest`'s
 | `bots` | Registry of hosted bot policies (`bots/registry.go`); built-ins register from `bots/bot`, `bots/lethalpressure` and `bots/castprofile`, linked together by `bots/all`. |
 | `events` | The event union, `events.Apply` (the only state mutator), the log, the sha256 hash chain. `events.Kind` is append-only. |
 | `effects` | `api:` primitive implementations, filter/count/value evaluators. Talks to the engine only through the small `effects.Host` interface; never imports `rules`. |
-| `rules` | The engine: turn structure, priority, stack, combat, SBAs, layers, casting and payment, and the `kw:`/`trig:`/`stat:`/`repl:` primitives. `rules.New`, `Pending`, `Submit`, `Advance`, `Clone`. Also holds the coverage ratchets and golden heads (`rules/*_test.go`). |
+| `rules` | The engine: turn structure, priority, stack, combat, SBAs, layers, casting and payment, and the `kw:`/`trig:`/`stat:`/`repl:` primitives. `rules.New`, `Pending`, `Submit`, `Advance`, `Clone`. `rules.NewStaged` (`staging.go`) builds a hypothetical engine at a described position. Also holds the coverage ratchets and golden heads (`rules/*_test.go`). |
 | `view` | Projects one seat's redacted `view.View` (`Project`, `ProjectFor`, `RedactEvents`). The only way a client reads state. `view/view.go` is the orchestration (`Project`/`project`, `View`, the shared text helpers); the card/battlefield projection family lives in `view/card.go` (`CardView`, `cardViews`, `cardView`) and the stack family in `view/stack.go` (`StackView`, `stackViews`). A projection change goes in the family file for its seam, not in `view/view.go` — the two families were interleaved in one file and two projection tickets collided on it (split out in `97655ff0b`). |
 | `seat` | Who answers decisions: `seat.Seat` (+ `BoardSeat`, `PaymentPlanConsumer`), `NewBot`, `NewAttackSimBot`, `NewPolicyNetBot`, explore bot. Handed a view, never an engine. |
 | `replay` | Re-executes `(Config, Log)` and names the first divergent event (`Replay`, `ReplayTo`). |
@@ -44,6 +44,8 @@ The import direction is one-way. `internal/archtest`'s
 | `bench` | Policy-agnostic game runner: `PlayGame`, `RunPairs`, watchdogs, livelock recovery. Shared by `botbench` and `policytune`. |
 | `traceboard` | The redacted, map-free decision-trace board schema (`botbench -decision-trace`). |
 | `policynet` | Pure-Go learned policy: hashed features, MLP, value head, `.gpol` checkpoints, label-corpus loaders. |
+| `searchbench` | Native search-benchmark replication: the sealed item manifest and scoring, `Materialize` (StateSpec → staged engine), `Reach`, canonical options (`BuildCanon`, `Canon.Project`) and 17lands label matching (`LabelItem`). Research harness. |
+| `searchbench/statespec` | Strict Go mirror of Draft Zero's StateSpec v1 JSON (validation, aliases, typed labels). |
 | `searchprobe` | Hidden-information world sampler (`Collector`, `Sample`, `Redealer`, known-card tracking) and PIMC teacher scoring. Research harness, not production. |
 | `searchseat` | The PIMC search decision function (`Choose`) shared by the teacher corpus generator and `SearchBot`. |
 | `hindsight` | Deterministic hindsight-branch mechanics (no clock, no files). |

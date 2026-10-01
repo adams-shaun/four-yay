@@ -363,3 +363,33 @@ func TestActionKeepsScalarModeMeaningWithHighlightedSource(t *testing.T) {
 		t.Fatalf("scalar mode match: %v %v", in, err)
 	}
 }
+
+// An attack on a planeswalker (or battle) and the same creature's attack on
+// that permanent's controller are different actions (sb-v1 test-0434: a
+// Helpful Hunter could attack B or B's Kaito, and the two keys collided).
+func TestActionTellsAPermanentAttackFromAPlayerAttack(t *testing.T) {
+	e := observationEngine(t, 17)
+	c := NewCollector(0)
+	if _, err := c.Capture(e, e.L.Events); err != nil {
+		t.Fatal(err)
+	}
+	hand := e.G.Zone(state.ZHand, 0)
+	creature, walker := hand[0], hand[1]
+	d := &decision.Decision{Player: 0, Kind: decision.KAttackers, Min: 0, Max: 1, Options: []decision.Option{
+		{Index: 0, Kind: "attacker", Obj: creature, Player: 1, Label: "Attack with X at B"},
+		{Index: 1, Kind: "attacker", Obj: creature, Player: 1, Battle: walker, Label: "Attack with X at B (planeswalker: W)"},
+	}}
+	for i := range d.Options {
+		actions, err := c.Actions(d, decision.Intent{Player: 0, Choices: []int{i}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		in, err := c.Match(d, actions)
+		if err != nil {
+			t.Fatalf("option %d: %v", i, err)
+		}
+		if !reflect.DeepEqual(in.Choices, []int{i}) {
+			t.Fatalf("option %d matched %v", i, in.Choices)
+		}
+	}
+}

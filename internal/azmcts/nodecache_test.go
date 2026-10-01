@@ -10,12 +10,13 @@ import (
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/internal/searchprobe"
+	"github.com/adams-shaun/gorge/rules"
 )
 
 // withoutCost is st with the walk's cost counters zeroed: the only fields
 // the node cache may change.
 func withoutCost(st Stats) Stats {
-	st.EnvSteps, st.PriorFallbacks = 0, 0
+	st.EnvSteps = 0
 	st.Plays, st.ReplayPlays, st.ReplaySteps = 0, 0, 0
 	st.NodeSaves, st.NodeResumes, st.NodeEvicts = 0, 0, 0
 	return st
@@ -34,8 +35,10 @@ func sameResult(a, b Result) string {
 	switch {
 	case a.Kind != b.Kind || a.Choice != b.Choice:
 		return fmt.Sprintf("kind/choice %q/%d vs %q/%d", a.Kind, a.Choice, b.Kind, b.Choice)
-	case !reflect.DeepEqual(a.Keys, b.Keys):
+	case !reflect.DeepEqual(a.Keys, b.Keys) || !reflect.DeepEqual(a.Labels, b.Labels):
 		return "keys"
+	case !reflect.DeepEqual(a.Avail, b.Avail):
+		return fmt.Sprintf("avail %v vs %v", a.Avail, b.Avail)
 	case !reflect.DeepEqual(a.Visits, b.Visits):
 		return fmt.Sprintf("visits %v vs %v", a.Visits, b.Visits)
 	case !reflect.DeepEqual(bits(a.Q), bits(b.Q)):
@@ -229,4 +232,92 @@ func TestNodeCacheTreeMatchesUncached(t *testing.T) {
 			}
 		}
 	}
+}
+
+// landMacros is a root macro per land play d offers (the full root's way
+// of searching a play outside the auto-pay vocabulary), and the key of the
+// one bot plays, "" when bot is no land play.
+func landMacros(d *decision.Decision, bot decision.Intent) ([]Macro, Key) {
+	var out []Macro
+	var botKey Key
+	for i, o := range d.Options {
+		if d.Kind != decision.KPriority || o.Kind != "play_land" {
+			continue
+		}
+		m := Macro{Key: Key(fmt.Sprintf("%sland-%d", MacroKeyPrefix, o.Obj)), Label: "Play " + o.Label, Steps: []MacroStep{{
+			Player: d.Player, Kind: d.Kind, Picks: []rules.ScriptPick{{Kind: o.Kind, Obj: o.Obj, Label: o.Label, ManaSymbol: o.ManaSymbol}},
+		}}}
+		if len(bot.Choices) == 1 && bot.Choices[0] == i {
+			botKey = m.Key
+		}
+		out = append(out, m)
+	}
+	return out, botKey
+}
+
+// The node cache stays exact under the search benchmark's knobs: auto-pay
+// candidates (the actor's own auto-pay bot answering its unsearched asks,
+// whose stream the cache saves), the full root with macro edges (a land
+// play played as one edge), absolute unvisited Q, name keys, the
+// benchmark's candidate limit, and the backup discount in every unit (which
+// reads each node's engine clock, saved with its state). Everything but
+// EnvSteps and the cache's own counters is identical, the leaf-depth sums,
+// Truncated and PriorFallbacks included.
+func TestNodeCacheIsExactWithBenchKnobs(t *testing.T) {
+	roots := measureRoots(t, 10)
+	e, d, land := landPlayRoot(t)
+	roots = append(roots, measureRoot{name: "land-play", e: e, d: d, bot: land})
+	sims := 120
+	if testing.Short() {
+		roots, sims = append(roots[:3], roots[len(roots)-1]), 50
+	}
+	type unit struct {
+		name  string
+		gamma float64
+		u     DiscountUnit
+	}
+	units := []unit{{"none", 0, 0}, {"ply", 0.97, DiscountPly}, {"action", 0.9, DiscountAction}, {"turn", 0.8, DiscountTurn}}
+	var macroVisits, resumes int
+	for i, r := range roots {
+		macros, botKey := landMacros(r.d, r.bot)
+		for _, kind := range []string{"clairvoyant", "pimc"} {
+			for _, un := range units {
+				run := func(cache int) Result {
+					opts := DefaultOptions()
+					opts.Sims, opts.Seed, opts.NodeCache = sims, uint64(i)*11+3, cache
+					opts.CPUCT, opts.AbsoluteUnvisitedQ, opts.UnvisitedQ = 0.5, true, 0.5
+					opts.Limit, opts.AutoPayment, opts.UniformPrior, opts.NameKeys = BenchCandidateLimit, true, true, true
+					opts.Noise, opts.Sample = false, false
+					opts.Discount, opts.DiscountUnit = un.gamma, un.u
+					obs := searchprobe.NewCollector(r.d.Player)
+					root := Root{Engine: r.e, Decision: r.d, Bot: r.bot, Observer: obs, Macros: macros, BotKey: botKey}
+					res, err := Search(context.Background(), root, measureSource(kind, r.e, obs), nil, opts)
+					if err != nil {
+						t.Fatal(err)
+					}
+					return res
+				}
+				off := run(0)
+				if off.Stats.Completed == 0 {
+					continue
+				}
+				for k, key := range off.Keys {
+					if IsMacroKey(key) {
+						macroVisits += off.Visits[k]
+					}
+				}
+				for _, cache := range []int{1, 3, 17, DefaultNodeCache} {
+					on := run(cache)
+					if diff := sameResult(off, on); diff != "" {
+						t.Fatalf("%s %s discount %s cache %d: the cached search differs: %s", r.name, kind, un.name, cache, diff)
+					}
+					resumes += on.Stats.NodeResumes
+				}
+			}
+		}
+	}
+	if macroVisits == 0 || resumes == 0 {
+		t.Fatalf("the roots never exercised a macro edge (%d visits) or a resume (%d)", macroVisits, resumes)
+	}
+	t.Logf("%d roots x 2 sources x %d discounts x 4 caps: identical; %d macro-edge visits, %d resumes", len(roots), len(units), macroVisits, resumes)
 }

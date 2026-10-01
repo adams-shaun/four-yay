@@ -379,3 +379,53 @@ func TestActionOrderAndKeyMatchTheJSONEncoding(t *testing.T) {
 		}
 	}
 }
+
+// CompareActionsJSON orders action lists as their JSON encodings' bytes do
+// (nil, empty, prefixes and multi-action lists included), and
+// ParseActionsKey inverts AppendActionsKey.
+func TestActionListOrderAndKeyRoundTrip(t *testing.T) {
+	strs := []string{"", "a", "a!", "a\"", "ab", "b", "\xff", "\ufffd", "é", "cast", "attacks:3"}
+	one := []Action{}
+	for i, s := range strs {
+		one = append(one,
+			Action{Decision: decision.KPriority, Kind: "cast", Obj: uint32(i), Value: s},
+			Action{Decision: decision.KTarget, Source: uint32(i), Mode: s, Ability: -i, Amount: i, AltCostIndex: i % 2, Player: 1, Attacker: 7, SVar: s},
+		)
+	}
+	lists := [][]Action{nil, {}}
+	for i := range one {
+		lists = append(lists, []Action{one[i]})
+		lists = append(lists, []Action{one[i], one[(i+3)%len(one)]})
+		lists = append(lists, []Action{one[i], one[(i+3)%len(one)], one[(i+5)%len(one)]})
+	}
+	for _, a := range lists {
+		for _, b := range lists {
+			want := bytes.Compare(jsonOf(t, a), jsonOf(t, b))
+			if got := CompareActionsJSON(a, b); (got < 0) != (want < 0) || (got > 0) != (want > 0) {
+				t.Fatalf("CompareActionsJSON(%+v, %+v) = %d, JSON order %d", a, b, got, want)
+			}
+		}
+		k := AppendActionsKey(nil, a)
+		back, err := ParseActionsKey(k)
+		if err != nil {
+			t.Fatalf("ParseActionsKey(key(%+v)): %v", a, err)
+		}
+		// The round trip is the JSON round trip: an invalid UTF-8 string
+		// comes back as encoding/json decodes it.
+		var viaJSON []Action
+		if err := json.Unmarshal(jsonOf(t, a), &viaJSON); err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(back, viaJSON) || (back == nil) != (a == nil) {
+			t.Fatalf("ParseActionsKey(key(%+v)) = %+v, want %+v", a, back, viaJSON)
+		}
+		if !bytes.Equal(AppendActionsKey(nil, back), AppendActionsKey(nil, viaJSON)) {
+			t.Fatalf("re-keying %+v changed the key", back)
+		}
+	}
+	for _, bad := range [][]byte{{}, {2}, {1}, {1, 5}, append(AppendActionsKey(nil, lists[3]), 0)} {
+		if _, err := ParseActionsKey(bad); err == nil {
+			t.Fatalf("ParseActionsKey(%v) accepted a malformed key", bad)
+		}
+	}
+}

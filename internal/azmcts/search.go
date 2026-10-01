@@ -27,21 +27,73 @@ type Root struct {
 	// searchseat.Feed's, whose Capture stream ObserveDecision would perturb.
 	// Every world's Observer must be a clone of it taken after Search starts.
 	Observer *searchprobe.Collector
+
+	// The full root (the search benchmark's): set any of these and a
+	// priority root under Options.AutoPayment is searched over the
+	// vocabulary plus Macros even when Bot is outside the vocabulary (a mana
+	// activation, a land play), instead of being skipped. Macros are root
+	// candidates played as several submits (Macro); BotKey names the bot's
+	// candidate when Bot itself is outside the vocabulary (a macro the bot
+	// was pursuing); NoBot alone asks for the full root with no macros. With
+	// neither Bot's candidate nor BotKey's there is no bot candidate and
+	// Pass is candidate 0. In-walk decisions are unchanged.
+	Macros []Macro
+	BotKey Key
+	NoBot  bool
 }
 
-// Result is one Search. Candidates, Keys, Visits, Prior and Q are parallel;
-// index 0 is the bot's answer.
+// Result is one Search. Candidates, Keys, Labels, Visits, Avail, Prior and
+// Q are parallel; index 0 is the bot's answer.
 type Result struct {
 	Kind       string // "", or the searched kind
 	Candidates []decision.Intent
 	Keys       []Key
+	Labels     []string // CandidateLabel of each candidate on the root decision
 	Visits     []int
+	Avail      []int     // simulations in which each root candidate was available
 	Prior      []float64 // the prior before any root noise
 	Q          []float64
 	RootValue  float64
 	Choice     int
 	Intent     decision.Intent // the answer to play
 	Stats      Stats
+}
+
+// RootRow is one root child of a Search: its semantic key, a
+// human-readable label, its visits, mean backed-up value (0 when
+// unvisited), availability count and prior.
+type RootRow struct {
+	Key    Key     `json:"key"`
+	Label  string  `json:"label"`
+	Visits int     `json:"visits"`
+	Q      float64 `json:"q"`
+	Avail  int     `json:"avail"`
+	Prior  float64 `json:"prior"`
+}
+
+// RootTable is r's root children in candidate order (nil when no tree was
+// built).
+func (r Result) RootTable() []RootRow {
+	if len(r.Visits) != len(r.Keys) {
+		return nil
+	}
+	out := make([]RootRow, len(r.Keys))
+	for i, k := range r.Keys {
+		out[i] = RootRow{Key: k, Visits: r.Visits[i]}
+		if i < len(r.Labels) {
+			out[i].Label = r.Labels[i]
+		}
+		if i < len(r.Q) {
+			out[i].Q = r.Q[i]
+		}
+		if i < len(r.Avail) {
+			out[i].Avail = r.Avail[i]
+		}
+		if i < len(r.Prior) {
+			out[i].Prior = r.Prior[i]
+		}
+	}
+	return out
 }
 
 // Validate refuses options and networks Search must not run with.
@@ -63,6 +115,12 @@ func (o Options) Validate(net *policynet.Model) error {
 		return fmt.Errorf("azmcts: node cache %d must be >= 0 (0 is off)", o.NodeCache)
 	case o.Kinds == (Kinds{}):
 		return errors.New("azmcts: no searched decision kinds")
+	case o.Discount < 0 || o.Discount > 1 || o.Discount != o.Discount:
+		return fmt.Errorf("azmcts: discount %g must be in [0,1] (0 and 1 are off)", o.Discount)
+	case int(o.DiscountUnit) >= len(DiscountUnitNames):
+		return fmt.Errorf("azmcts: unknown discount unit %d", o.DiscountUnit)
+	case o.AbsoluteUnvisitedQ && (o.UnvisitedQ < 0 || o.UnvisitedQ > 1 || o.UnvisitedQ != o.UnvisitedQ):
+		return fmt.Errorf("azmcts: unvisited Q %g must be in [0,1]", o.UnvisitedQ)
 	}
 	if net != nil {
 		if !net.HasValue() {
@@ -107,8 +165,11 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 	var envBoard, enumBoard boardScratch
 	views := searchViews.Get().(*viewScratch)
 	defer searchViews.Put(views)
-	cands, kind, why, ok := enumerateWhyInto(root.Observer, root.Engine, root.Decision, root.Bot, opts.Kinds, opts.Limit, &enumBoard)
+	cands, kind, why, ok, cut, botFound := rootCands(root.Observer, root, opts.Kinds, opts.Limit, opts.AutoPayment, &enumBoard)
 	res.Kind = kind
+	if cut {
+		res.Stats.Truncated, res.Stats.RootTruncated = 1, 1
+	}
 	if !ok {
 		if k := kindIndex(kind); k >= 0 {
 			res.Stats.Skipped = 1
@@ -121,10 +182,19 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 	}
 	res.Candidates = make([]decision.Intent, len(cands))
 	res.Keys = make([]Key, len(cands))
+	res.Labels = make([]string, len(cands))
 	for i, c := range cands {
 		res.Candidates[i], res.Keys[i] = c.in, c.key
+		res.Labels[i] = CandidateLabel(root.Decision, c.in)
+		if c.macro != nil {
+			res.Labels[i] = c.macro.Label
+		}
 	}
-	prior, fell := priors(net, root.Engine, root.Decision, root.Bot, kind, cands, &views.prior)
+	priorNet := net
+	if opts.UniformPrior {
+		priorNet = nil
+	}
+	prior, fell := priors(priorNet, root.Engine, root.Decision, root.Bot, kind, cands, &views.prior)
 	if fell {
 		res.Stats.PriorFallbacks++
 	}
@@ -145,7 +215,9 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 	rootPt := &Point{Keys: res.Keys, Prior: treePrior}
 	cfg := &walkConfig{
 		net: net, heuristicLeaf: opts.HeuristicLeaf, kinds: opts.Kinds, limit: opts.Limit, maxSteps: opts.MaxSteps,
-		envSeed: splitmix(opts.Seed ^ 0x656e762d73656564), actor: root.Decision.Player,
+		envSeed: splitmix(opts.Seed ^ 0x656e762d73656564), actor: root.Decision.Player, autoPayment: opts.AutoPayment,
+		uniformPrior: opts.UniformPrior, rootPerWorld: opts.RootPerWorld,
+		nameKeys: opts.NameKeys, rootRefs: root.Observer.Introduced(),
 		root: rootPt, rootCands: cands, rootDec: root.Decision, stats: &res.Stats,
 		envBoard: &envBoard, enumBoard: &enumBoard, views: views,
 	}
@@ -163,13 +235,13 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 		// is played -- the partial tree's choice is never taken.
 		return res, nil
 	}
-	res.Visits, res.Q, res.RootValue = tr.Visits, tr.Q, tr.RootValue
+	res.Visits, res.Q, res.Avail, res.RootValue = tr.Visits, tr.Q, tr.Avail, tr.RootValue
 	if res.Stats.Completed == 0 {
 		res.Stats.AllFailed = 1
 		return res, nil
 	}
 	res.Choice = choose(res.Visits, opts.Sample, rng)
-	if res.Choice != 0 {
+	if res.Choice != 0 || !botFound {
 		res.Intent = cands[res.Choice].in
 	}
 	return res, nil
