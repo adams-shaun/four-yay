@@ -1,0 +1,84 @@
+{
+  "name": "Boros Moxite Burn",
+  "format": "custom",
+  "archetype": "pauper-burn",
+  "notes": "Moxfield Pauper deck: https://moxfield.com/decks/amm1GkRREkGkj3PhYLFstw (downloaded 2026-09-30). 60-card mainboard only, sideboard ignored. ENGINE-RISK: Melded Moxite discard/treasure, Glint Hawk artifact bounce, Voldaren Epicure blood, Jolted Awake/Pursue the Past, Makeshift Munitions sacrifice-damage.",
+  "cards": [
+    {
+      "name": "Fiery Temper",
+      "count": 4
+    },
+    {
+      "name": "Glint Hawk",
+      "count": 4
+    },
+    {
+      "name": "Galvanic Blast",
+      "count": 4
+    },
+    {
+      "name": "Lightning Bolt",
+      "count": 4
+    },
+    {
+      "name": "Great Furnace",
+      "count": 4
+    },
+    {
+      "name": "Rustvale Bridge",
+      "count": 4
+    },
+    {
+      "name": "Mountain",
+      "count": 4
+    },
+    {
+      "name": "Sneaky Snacker",
+      "count": 4
+    },
+    {
+      "name": "Dispatch",
+      "count": 4
+    },
+    {
+      "name": "Melded Moxite",
+      "count": 4
+    },
+    {
+      "name": "Makeshift Munitions",
+      "count": 1
+    },
+    {
+      "name": "Kor Skyfisher",
+      "count": 2
+    },
+    {
+      "name": "Ancient Den",
+      "count": 2
+    },
+    {
+      "name": "Abraded Bluffs",
+      "count": 2
+    },
+    {
+      "name": "Jolted Awake",
+      "count": 2
+    },
+    {
+      "name": "Pursue the Past",
+      "count": 2
+    },
+    {
+      "name": "Voldaren Epicure",
+      "count": 3
+    },
+    {
+      "name": "Plains",
+      "count": 3
+    },
+    {
+      "name": "Ragged Short Spear",
+      "count": 3
+    }
+  ]
+}

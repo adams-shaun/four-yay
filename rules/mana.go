@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"fmt"
 	"math"
 	"regexp"
 	"slices"
@@ -1945,7 +1946,11 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 			base.XMin = n
 		}
 	}
-	mods := e.costModifiersWithTargetsUsing(statics, p, id, scope, nil, false)
+	// mayApply/provenance capture what the potential-target retry below
+	// needs to know of this pass (offerRetryFutile).
+	mayApply := false
+	mods := e.costModifiersCompose(statics, p, id, scope, nil, false, 0, &mayApply)
+	provenance := e.costProvenanceSeen
 	// A Waterbend<N>/<X> part carried by the cost itself (an ability's own
 	// Cost$ like Giant Koi's, or a spell's optional-cost part) credits the
 	// same taps a RaiseCost Waterbend does (mods.waterbend), so the offer is
@@ -1981,11 +1986,14 @@ func (e *Engine) offerCastableUsing(statics costStaticViews, p state.PlayerID, i
 		// census (a pure read) is skipped, not changed.
 		var potential costMods
 		potentialOK := false
-		if statics.validTarget {
+		if futile := offerRetryFutile(scope, mods, mayApply, provenance); statics.validTarget && (!futile || walkSkipVerify) {
 			potential, potentialOK = e.potentialCostModsUsing(statics, p, id, scope, e.costPotentialTargets(p, id, scope), 0, func(m costMods) bool {
 				return e.manaFeasiblePriced(p, id, ability, base, m, tax, delve, hyp) &&
 					e.nonManaCastable(p, id, e.composedOfferCost(p, id, base, m, scope), ability, tapCostSAKind(scope.ab))
 			})
+			if futile && potentialOK {
+				panic(fmt.Sprintf("rules: futile potential-target retry for obj %d accepted %+v", id, potential))
+			}
 		}
 		if potentialOK {
 			mods = potential
@@ -3672,4 +3680,28 @@ func rememberedTargets(ids []state.ObjID) []state.Target {
 		out = append(out, state.Target{Obj: id})
 	}
 	return out
+}
+
+// offerRetryFutile reports that offerCastableUsing's potential-target retry
+// would re-ask exactly the mana question its first pass just failed: no
+// cost static survived a target-independent gate (so the retry, whatever
+// targets it binds, composes no static either), the composition is the zero
+// costMods the retry's own empty composition is (no waterbend credit was
+// folded on top), the scope is not an ability's (whose own ReduceCost$
+// reads targets, ownManaReduction), and no ValidCard$ provenance capture is
+// pending (the retry would leave it as the first pass did). The retry's
+// accept is then manaFeasiblePriced over identical arguments, which failed.
+func offerRetryFutile(scope costScope, mods costMods, mayApply, provenance bool) bool {
+	if mayApply || provenance || (scope.kind == "Ability" && scope.ab != nil) {
+		return false
+	}
+	return costModsZero(mods)
+}
+
+// costModsZero reports whether m is the zero composition in every field
+// (TestCostModsZeroCoversEveryField pins the field list).
+func costModsZero(m costMods) bool {
+	return len(m.raises) == 0 && !m.hasExtra && m.raiseCol == (state.Mana{}) && m.raiseGen == 0 &&
+		m.raiseLife == 0 && len(m.reduces) == 0 && m.setFloor == 0 && m.waterbend == 0 &&
+		!m.waterbendX && m.waterbendPartX == 0 && m.raiseX == 0
 }

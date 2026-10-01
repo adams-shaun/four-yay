@@ -19,14 +19,26 @@ import (
 // closed; a SetCost without RaiseTo$ True is not the shape this build
 // implements.
 func (e *Engine) costStaticApplies(sv staticView, mode string, p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target, xBound bool) bool {
+	ok, _ := e.costStaticGate(sv, mode, p, id, scope, targets, xBound)
+	return ok
+}
+
+// costStaticGate is costStaticApplies reporting, beside the verdict, whether
+// the static was denied by a TARGET-INDEPENDENT gate (indepFail): one that
+// reads neither targets nor the pass's potential/announced-X mode (its
+// classes, actor, ValidCard$, zone, turn, presence and condition gates, and
+// the SetCost shape). Such a denial holds for every target assignment, so a
+// composition retried with potential targets is denied it too. A denial by
+// ValidSpell$, CheckSVar$, ValidTarget$ or Relative$ reports false.
+func (e *Engine) costStaticGate(sv staticView, mode string, p state.PlayerID, id state.ObjID, scope costScope, targets []state.Target, xBound bool) (ok, indepFail bool) {
 	if !e.classBandGateHolds(sv.Params, sv.Source) {
-		return false
+		return false, true
 	}
 	if ty, ok := sv.Param(cards.PKType); ok && ty != "" && ty != scope.kind {
-		return false
+		return false, true
 	}
 	if !e.costActorMatches(sv, p) {
-		return false
+		return false, true
 	}
 	if strings.EqualFold(strings.TrimSpace(sv.ParamStr(cards.PKOnlyFirstSpell)), "True") &&
 		e.onlyFirstSpellUsed(sv, p, id) {
@@ -34,7 +46,7 @@ func (e *Engine) costStaticApplies(sv staticView, mode string, p state.PlayerID,
 		// each turn costs {2} less"): the reduction is spent once the
 		// turn's first covered spell has been announced. See
 		// onlyFirstSpellUsed for the tracking.
-		return false
+		return false, true
 	}
 	if spec, ok := sv.Param(cards.PKValidCard); ok {
 		// The provenance-keyed ValidCard$ (castprov3: Bilbo's
@@ -63,12 +75,12 @@ func (e *Engine) costStaticApplies(sv staticView, mode string, p state.PlayerID,
 			var alive bool
 			if spec, alive = admitProvenanceAlternatives(spec, castSaMayPlaySource,
 				e.castRidesMayPlayOf(p, id, sv.Source, scope)); !alive {
-				return false
+				return false, true
 			}
 		}
 		spec, ok2 := e.castProvenanceAdmitsPending(spec, id, sv.Controller)
 		if !ok2 {
-			return false
+			return false, true
 		}
 		if scope.kind == "Spell" && strings.Contains(spec, "Permanent") {
 			// The priced object is a SPELL -- in hand/graveyard/exile at the
@@ -81,15 +93,15 @@ func (e *Engine) costStaticApplies(sv staticView, mode string, p state.PlayerID,
 			spec = spellCastPermanentSpec(spec)
 		}
 		if !e.matchesSpec(spec, id, e.costStaticSpecCtx(sv, id)) {
-			return false
+			return false, true
 		}
 	}
 	if first, ok := sv.Param(cards.PKFirstForetell); ok && strings.EqualFold(strings.TrimSpace(first), "True") &&
 		scope.kind == "Foretell" && e.firstForetellUsed(p) {
-		return false
+		return false, true
 	}
 	if vs, ok := sv.Param(cards.PKValidSpell); ok && !e.validSpellMatches(sv, scope, p, id, vs, targets) {
-		return false
+		return false, false
 	}
 	if az, ok := sv.Param(cards.PKAffectedZone); ok {
 		// AffectedZone$ names where the priced object must be: an ability's
@@ -98,24 +110,24 @@ func (e *Engine) costStaticApplies(sv staticView, mode string, p state.PlayerID,
 		// costs {2} more" reaches only the exiled card's cast from exile).
 		zone, known := e.costAffectedZone(id, scope)
 		if !known || !affectedZoneOK(az, zone) {
-			return false
+			return false, true
 		}
 	}
 	if !e.costTurnGateHolds(sv) {
-		return false
+		return false, true
 	}
 	if spec, ok := sv.Param(cards.PKIsPresent); ok && !e.presentGate(sv, spec) {
 		// The shared IsPresent$ gate: PresentZone$ picks the zone counted
 		// (Igneous Elemental's graveyard, Forceful Cultivator's hand) and
 		// PresentCompare$ the threshold (default GE1; Hour of Revelation's
 		// GE10, Saiba Syphoner's EQ0 "no ... cards in your hand").
-		return false
+		return false, true
 	}
 	if !e.costConditionHolds(sv, p) {
-		return false
+		return false, true
 	}
 	if !e.checkSVarHoldsFor(sv, costSubject{p: p, id: id, ab: scope.ab}, targets) {
-		return false
+		return false, false
 	}
 	if spec, ok := sv.Params["ValidTarget"]; ok {
 		if sv.Params["UnlessValidTarget"] == "True" {
@@ -123,17 +135,17 @@ func (e *Engine) costStaticApplies(sv staticView, mode string, p state.PlayerID,
 			// spell doesn't target a creature you control, it costs {8}
 			// more"): see costTargetsUnless for the offer-phase direction.
 			if !e.costTargetsUnless(sv, spec, id, scope, targets) {
-				return false
+				return false, false
 			}
 		} else if !e.costTargetsMatch(sv, spec, targets) {
-			return false
+			return false, false
 		}
 	}
 	if mode == "SetCost" && sv.Params["RaiseTo"] != "True" {
 		// Forge's SetCost carries RaiseTo$ True (Trinisphere) for the
 		// raise-to-N shape; any other SetCost shape is unimplemented and
 		// must not silently floor the cost.
-		return false
+		return false, true
 	}
 	// Secondary$ True is NOT a gate: Forge reads CardTraitBase.isSecondary
 	// only while building card text (Card.java's description walks), and
@@ -182,10 +194,10 @@ func (e *Engine) costStaticApplies(sv staticView, mode string, p state.PlayerID,
 		// the CR 601.2c reprice charges the chosen targets. A SetCost
 		// Relative$ has no corpus carrier and keeps the skip.
 		if mode == "SetCost" || !e.relativeAmountResolves(sv, costSubject{p: p, id: id, ab: scope.ab}, targets) {
-			return false
+			return false, false
 		}
 	}
-	return true
+	return true, false
 }
 
 // relativeAmountResolves reports whether a Relative$ cost-modifier static's
@@ -348,7 +360,7 @@ func (e *Engine) costConditionHolds(sv staticView, p state.PlayerID) bool {
 func (e *Engine) metalcraftHolds(p state.PlayerID) bool {
 	n := 0
 	for _, id := range e.G.Zone(state.ZBattlefield, p) {
-		if o := e.G.Obj(id); o != nil && slices.Contains(e.Derived(id).Types, "Artifact") {
+		if o := e.G.Obj(id); o != nil && slices.Contains(e.derivedTypesOf(id), "Artifact") {
 			n++
 		}
 	}

@@ -2,8 +2,11 @@ package searchprobe
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/adams-shaun/gorge/decision"
@@ -32,24 +35,60 @@ type ObservedEvent struct {
 	Secret        bool
 }
 type Frame struct {
-	Board      json.RawMessage
+	Board      Board
 	Identities []Identity
 	Events     []ObservedEvent
 	Decision   *ObservedDecision
+	// link is this frame's place in its collector's history chain
+	// (historyDigest); nil for a scratch capture or a hand-built frame.
+	link *historyLink
 }
 
 // Collector alone can read a source engine. History frames contain owned values,
 // never this raw-id dictionary or a pointer/callback into the source engine.
 type Collector struct {
-	actor      state.PlayerID
-	known      map[state.ObjID]uint32
+	actor state.PlayerID
+	// known is the raw-id dictionary, dense by engine ObjID (object ids are
+	// handed out from 1 upward): known[id] is id's observation ref, or 0.
+	// byRef is its inverse, byRef[ref] = id (byRef[0] is the zero id).
+	known      []uint32
 	byRef      []state.ObjID
+	gen        uint64 // bumped whenever known changes (Forker)
 	introduced []Identity
 	redacted   []events.Event
-	// board is captureScratch's reusable encode buffer; see there.
-	board bytes.Buffer
-	// noPot is captureScratch's reusable Chars wrapper; see there.
+	// chain is the last recorded capture's history link (historyDigest);
+	// hasher is extendChain's reusable hash and legacy its reusable frame.
+	chain  *historyLink
+	hasher hashState
+	legacy legacyFrame
+	// board and frameJSON are the reusable JSON buffers of a recorded
+	// capture's history-chain hash (Capture), enc and frameEnc their
+	// encoders; canon is every capture's reusable canonical encoder. No
+	// capture retains any of them.
+	board, frameJSON bytes.Buffer
+	enc, frameEnc    *json.Encoder
+	canon            canonEncoder
+	// rec is the append-only arena recorded frames are written into (they
+	// own what they hold); scratch is captureScratch's, reset per capture.
+	rec, scratch frameArena
+	// probeDec/probeOpts are probeBoundary's reusable observed decision and
+	// obsDec/obsOpts ObserveDecision's; cands is Candidates' storage.
+	probeDec, obsDec   ObservedDecision
+	probeOpts, obsOpts []ObservedOption
+	candPool, candOut  []Action
+	// retainJSON makes every capture keep a copy of its encoded board in
+	// Board.raw (in-package tests that inspect the bytes).
+	retainJSON bool
+	// noPot is capture's reusable Chars wrapper; see there.
 	noPot noPotentialChars
+	// view is observe's reusable projection (view.ProjectInto): every
+	// capture and probe refills it, so the view observe returns -- and every
+	// slice in it -- is valid only until c's next observation. No frame
+	// retains any of it (boardFacts copies, the digests hash it). viewDec
+	// keeps the projected decision's storage across the observations that
+	// clear the returned view's decision.
+	view    view.View
+	viewDec *decision.Decision
 }
 
 // noPotentialChars is a view.Chars whose seat projection carries no
@@ -80,8 +119,31 @@ func (c noPotentialChars) PotentialActions(p state.PlayerID) []decision.Potentia
 
 func (noPotentialChars) OwnDeck(state.PlayerID) *deck.Manifest { return nil }
 
+// SuppressOwnLibrary tells view.Project not to build the own-library CONTENTS
+// list at all. The observation frame must never carry it, exactly as it never
+// carries PotentialActions or OwnDeck: the sampler's whole purpose is to
+// search over the draws the seat has not seen, and the recorded engine and the
+// hypothetical engine allocate hidden library objects from different arenas,
+// so a raw library in the board can never compare equal (before this,
+// TestSampleRealDeckGolden reported every world rejected at frame 0 on "board
+// state"). The seat's own library CONTENTS are a view fact now
+// (own_library_list, view.PlayerView.Library), but the observation is the
+// deliberately limited knowledge model the search reasons from, not the
+// seat's full view -- the same split OwnDeck already makes. Suppressing it at
+// the projection also keeps the sampler's hottest path from allocating a list
+// it would discard (TestCollectorCaptureReusesRedactionStorageWithoutAliasingFrames).
+// LibraryTop is deliberately NOT suppressed: a live MayLookAt grant makes it
+// legitimately revealed information, and the capture introduces and remaps it.
+func (noPotentialChars) SuppressOwnLibrary() bool { return true }
+
+// SuppressCardTokens tells view.Project not to format CardView.Token: remap
+// blanks the token of every card it rewrites. The one CardView list remap
+// does not rewrite, a planar deck, gets its tokens back there, so no board
+// changes.
+func (noPotentialChars) SuppressCardTokens() bool { return true }
+
 func NewCollector(actor state.PlayerID) *Collector {
-	return &Collector{actor: actor, known: make(map[state.ObjID]uint32), byRef: []state.ObjID{0}}
+	return &Collector{actor: actor, byRef: []state.ObjID{0}}
 }
 
 // Clone returns an independent copy at the current observation boundary.
@@ -89,11 +151,11 @@ func NewCollector(actor state.PlayerID) *Collector {
 // later map semantic actions back into that engine's raw object ids.
 func (c *Collector) Clone() *Collector {
 	out := NewCollector(c.actor)
-	for id, ref := range c.known {
-		out.known[id] = ref
-	}
+	out.known = append([]uint32(nil), c.known...)
 	out.byRef = append(out.byRef[:0], c.byRef...)
 	out.introduced = append([]Identity(nil), c.introduced...)
+	out.chain = c.chain
+	out.retainJSON = c.retainJSON
 	return out
 }
 
@@ -104,22 +166,112 @@ func (c *Collector) clone() *Collector { return c.Clone() }
 // exceeds an earlier Introduced() count was first observed after it.
 func (c *Collector) Introduced() int { return len(c.byRef) - 1 }
 
+// Forker hands out clones of one collector to a caller that uses them one
+// at a time, each dead before the next is asked for (internal/azmcts's
+// simulations: every world's observer is a clone of the root observer, and
+// a simulation's observer is spent when the next simulation starts). Fork
+// returns the SAME collector every time, rolled back to the base's boundary,
+// which is exactly the state a fresh Clone of the base would have; only when
+// the base itself has changed since does it clone again.
+type Forker struct {
+	base    *Collector
+	c       *Collector
+	baseGen uint64
+	mark    int
+}
+
+// Forker returns a Forker over c.
+func (c *Collector) Forker() *Forker { return &Forker{base: c} }
+
+// Fork returns a clone of the base at its current boundary, valid until the
+// next Fork.
+func (f *Forker) Fork() *Collector {
+	if f.c == nil || f.base.gen != f.baseGen {
+		f.c = f.base.Clone()
+		f.baseGen, f.mark = f.base.gen, len(f.c.byRef)
+		return f.c
+	}
+	f.c.rollback(f.mark)
+	f.c.chain = f.base.chain
+	return f.c
+}
+
+// Capture records the frame at e's current boundary, burst being the events
+// since the previous capture on c: the frame owns everything it holds (cut
+// from c's append-only recording arena) and extends c's history chain
+// (historyDigest).
+//
+// This is the one place the observation still produces JSON: the history
+// chain hashes each frame's legacy JSON encoding because Sample's seeds are
+// rooted in that hash (a pinned golden: TestHistoryDigestMatchesTheJSONBoardEncoding,
+// the sampler and teacher goldens). The text goes into a reusable buffer, is
+// hashed and dropped; no frame keeps it and no reader parses it. A recorded
+// capture runs once per real decision of the game, never inside a search.
 func (c *Collector) Capture(e *rules.Engine, burst []events.Event) (Frame, error) {
-	return c.capture(e, burst, false, true)
+	v, frame, err := c.observe(e, burst, true, &c.rec)
+	if err != nil {
+		return Frame{}, err
+	}
+	raw, err := c.encodeBoardJSON(&v)
+	if err != nil {
+		return Frame{}, err
+	}
+	c.frameJSON.Reset()
+	if c.frameEnc == nil {
+		c.frameEnc = json.NewEncoder(&c.frameJSON)
+	}
+	c.legacy = legacyFrame{Board: raw, Identities: frame.Identities, Events: frame.Events, Decision: frame.Decision}
+	err = c.frameEnc.Encode(&c.legacy)
+	c.legacy = legacyFrame{}
+	if err != nil {
+		return Frame{}, err
+	}
+	link, err := c.extendChain(c.frameJSON.Bytes()[:c.frameJSON.Len()-1], &c.rec)
+	if err != nil {
+		return Frame{}, err
+	}
+	frame.Board = boardFacts(&v, &c.rec)
+	if c.retainJSON {
+		frame.Board.raw = bytes.Clone(raw)
+	}
+	if frame.Board.Sum, frame.Board.Stripped, err = c.boardSums(&v, true); err != nil {
+		return Frame{}, err
+	}
+	frame.link = link
+	return frame, nil
+}
+
+// CaptureBoardJSON is Capture that also returns the frame's board as the
+// JSON it encoded -- the legacy Board encoding a frame used to carry -- for
+// a caller that digests that text (internal/searchbench's
+// PublicStateDigest).
+func (c *Collector) CaptureBoardJSON(e *rules.Engine, burst []events.Event) (Frame, []byte, error) {
+	keep := c.retainJSON
+	c.retainJSON = true
+	f, err := c.Capture(e, burst)
+	c.retainJSON = keep
+	if err != nil {
+		return Frame{}, nil, err
+	}
+	raw := f.Board.raw
+	if !keep {
+		f.Board.raw = nil
+	}
+	return f, raw, nil
 }
 
 // captureScratch is Capture for a caller that only COMPARES the frame and
-// drops it before the next capture (the sampler's replay). Two things are
+// drops it before the next capture (the sampler's replay). Three things are
 // traded for the copy the caller does not need:
 //
-//   - Frame.Board aliases the collector's reusable encode buffer instead of
-//     owning a fresh copy, the largest single allocation of a capture. The
-//     frame must not be retained past the next capture on c.
+//   - The frame lives in c's scratch arena, reused by the next scratch
+//     capture: it must not be retained past it. Its Board carries only its
+//     digests (no facts, no history link), and no JSON is produced.
 //   - The board carries no potential_actions: the seat's own legal-offer walk
-//     is skipped (noPotentialChars). The bytes are otherwise identical to
-//     Capture's, so a caller compares against stripPotentialActions of the
-//     observed board -- which is what Sample does, leaving the observed
-//     History (and therefore the sampler's seeds) byte for byte unchanged.
+//     is skipped (noPotentialChars). The board is otherwise identical to
+//     Capture's, so a caller compares against the observed board's Stripped
+//     digest -- which is what Sample does, leaving the observed History (and
+//     therefore the sampler's seeds) byte for byte unchanged.
 //     Skipping the walk only preserves which worlds are accepted because no
 //     rejection is decided by that field alone. SampleOptions.
 //     ComparePotentialActions restores the walk and counts such rejections
@@ -127,47 +279,179 @@ func (c *Collector) Capture(e *rules.Engine, burst []events.Event) (Frame, error
 //     games of the ten approved pairs (3191 searched decisions, 204224
 //     attempts) the count is zero.
 func (c *Collector) captureScratch(e *rules.Engine, burst []events.Event, withPotential bool) (Frame, error) {
-	return c.capture(e, burst, true, withPotential)
+	c.scratch.reset()
+	v, frame, err := c.observe(e, burst, withPotential, &c.scratch)
+	if err != nil {
+		return Frame{}, err
+	}
+	if c.retainJSON {
+		raw, err := c.encodeBoardJSON(&v)
+		if err != nil {
+			return Frame{}, err
+		}
+		frame.Board.raw = bytes.Clone(raw)
+	}
+	if frame.Board.Sum, frame.Board.Stripped, err = c.boardSums(&v, withPotential); err != nil {
+		return Frame{}, err
+	}
+	return frame, nil
 }
 
-func (c *Collector) capture(e *rules.Engine, burst []events.Event, scratch, withPotential bool) (Frame, error) {
-	if e == nil || int(c.actor) >= len(e.G.Players) {
-		return Frame{}, fmt.Errorf("invalid observation seat or engine")
+// probeBoundary is what Capture(e, nil) on a throwaway Clone of c would
+// report of e's board and decision, without the clone: the board's
+// canonical encoding (canon.go; aliasing c's reusable buffer until c's next
+// capture or probe) and the observed decision (c-owned scratch, valid
+// equally long). Every identity the probe introduces is rolled back, so c is
+// left exactly as it was and a later probe numbers its objects as a fresh
+// clone of c would. The redeal compares every dealt world this way.
+func (c *Collector) probeBoundary(e *rules.Engine) ([]byte, *ObservedDecision, error) {
+	mark := len(c.byRef)
+	defer c.rollback(mark)
+	v, _, err := c.observe(e, nil, true, nil)
+	if err != nil {
+		return nil, nil, err
 	}
-	c.introduced = nil
-	// The observation frame never carries the seat's genesis manifest (see
-	// noPotentialChars); one reusable wrapper for both the recorded and the
-	// scratch capture keeps them byte-identical.
-	c.noPot.Chars = e
-	c.noPot.keepPotential = withPotential
-	var chars view.Chars = &c.noPot
-	v := view.Project(e.G, chars, c.actor, e.Pending())
-	v.Round = view.RoundOf(e.G, e.L.Events)
-	// Introduce only cards explicitly displayed to this seat. Traversal order is
-	// fixed, so observed identities do not encode hidden arena allocation.
-	for _, p := range v.Players {
-		if len(p.Commanders) > 0 {
-			return Frame{}, fail("unsupported", "commander observation is outside the constructed probe")
+	var d *ObservedDecision
+	if v.Decision != nil {
+		d, err = c.observeDecisionInto(&c.probeDec, c.probeOpts[:0], v.Decision)
+		if len(c.probeDec.Options) > cap(c.probeOpts) {
+			c.probeOpts = c.probeDec.Options
 		}
-		for _, zone := range [][]view.CardView{p.Battlefield, p.Hand, p.Graveyard, p.Exile, p.Command} {
-			for _, card := range zone {
-				c.introduce(e, card.ID)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+	v.Decision = nil
+	c.remap(&v)
+	raw, err := c.canonBoard(&v)
+	if err != nil {
+		return nil, nil, err
+	}
+	return raw, d, nil
+}
+
+// rollback forgets every identity introduced after the first mark refs.
+func (c *Collector) rollback(mark int) {
+	if mark >= len(c.byRef) {
+		c.introduced = c.introduced[:0]
+		return
+	}
+	for _, id := range c.byRef[mark:] {
+		c.known[id] = 0
+	}
+	clear(c.byRef[mark:])
+	c.byRef = c.byRef[:mark]
+	c.introduced = c.introduced[:0]
+	c.gen++
+}
+
+// canonBoard appends v's canonical encoding into c's reusable buffer.
+func (c *Collector) canonBoard(v *view.View) ([]byte, error) {
+	c.canon.buf = c.canon.buf[:0]
+	err := c.canon.encode(reflect.ValueOf(v).Elem(), viewPlan())
+	return c.canon.buf, err
+}
+
+// boardSums is a remapped board's Sum and Stripped digests (Board). Stripped
+// is the digest with every seat's potential_actions cleared -- the board a
+// capture that skips the walk sees -- and is only computed apart from Sum
+// when the board carries some (withPotential). It clears them in v.
+func (c *Collector) boardSums(v *view.View, withPotential bool) (sum, stripped [sha256.Size]byte, err error) {
+	raw, err := c.canonBoard(v)
+	if err != nil {
+		return sum, stripped, err
+	}
+	sum = sha256.Sum256(raw)
+	carried := false
+	if withPotential {
+		for i := range v.Players {
+			if len(v.Players[i].PotentialActions) > 0 {
+				v.Players[i].PotentialActions = nil
+				carried = true
 			}
 		}
 	}
-	for _, s := range v.Stack {
-		c.introduce(e, s.ID)
-		c.introduce(e, s.Source)
+	if !carried {
+		return sum, sum, nil
 	}
-	for _, p := range v.Pending {
-		c.introduce(e, p.Source)
+	if raw, err = c.canonBoard(v); err != nil {
+		return sum, stripped, err
+	}
+	return sum, sha256.Sum256(raw), nil
+}
+
+// encodeBoardJSON encodes v into c's reusable buffer and returns the bytes
+// json.Marshal(v) would (an Encoder writes the same bytes -- same HTML
+// escaping, same field order -- plus one trailing newline, dropped here).
+func (c *Collector) encodeBoardJSON(v *view.View) ([]byte, error) {
+	c.board.Reset()
+	if c.enc == nil {
+		c.enc = json.NewEncoder(&c.board)
+	}
+	if err := c.enc.Encode(v); err != nil {
+		return nil, err
+	}
+	return c.board.Bytes()[:c.board.Len()-1], nil
+}
+
+// observe projects e for c's seat, introduces every displayed object, and
+// builds the frame's identities, redacted events and observed decision in
+// a; the returned view is remapped to observation refs with its decision
+// cleared. A probe (nil a) introduces the same objects but builds no frame
+// and leaves the view unremapped with its decision attached, for the caller
+// to observe into its own scratch.
+func (c *Collector) observe(e *rules.Engine, burst []events.Event, withPotential bool, a *frameArena) (view.View, Frame, error) {
+	if e == nil || int(c.actor) >= len(e.G.Players) {
+		return view.View{}, Frame{}, fmt.Errorf("invalid observation seat or engine")
+	}
+	c.introduced = c.introduced[:0]
+	// The observation frame never carries the seat's genesis manifest (see
+	// noPotentialChars); one reusable wrapper for every capture kind keeps
+	// them byte-identical.
+	c.noPot.Chars = e
+	c.noPot.keepPotential = withPotential
+	var chars view.Chars = &c.noPot
+	if c.view.Decision == nil {
+		c.view.Decision = c.viewDec
+	}
+	view.ProjectInto(&c.view, e.G, chars, c.actor, e.Pending())
+	if c.view.Decision != nil {
+		c.viewDec = c.view.Decision
+	}
+	c.view.Round = view.RoundOf(e.G, e.L.Events)
+	v := c.view
+	// Introduce only cards explicitly displayed to this seat. Traversal order is
+	// fixed, so observed identities do not encode hidden arena allocation.
+	for i := range v.Players {
+		p := &v.Players[i]
+		if len(p.Commanders) > 0 {
+			return view.View{}, Frame{}, fail("unsupported", "commander observation is outside the constructed probe")
+		}
+		for _, zone := range [...][]view.CardView{p.Battlefield, p.Hand, p.Graveyard, p.Exile, p.Command} {
+			for j := range zone {
+				c.introduce(e, zone[j].ID)
+			}
+		}
+		if p.LibraryTop != nil {
+			c.introduce(e, p.LibraryTop.ID)
+		}
+	}
+	for i := range v.Stack {
+		c.introduce(e, v.Stack[i].ID)
+		c.introduce(e, v.Stack[i].Source)
+	}
+	for i := range v.Pending {
+		c.introduce(e, v.Pending[i].Source)
 	}
 	if d := v.Decision; d != nil {
 		c.introduce(e, d.Source)
-		for _, o := range d.Options {
-			c.introduce(e, o.Obj)
-			c.introduce(e, o.Attacker)
+		for i := range d.Options {
+			c.introduce(e, d.Options[i].Obj)
+			c.introduce(e, d.Options[i].Attacker)
 		}
+	}
+	if a == nil {
+		return v, Frame{}, nil
 	}
 	redacted := c.redacted[:0]
 	defer func() {
@@ -190,7 +474,7 @@ func (c *Collector) capture(e *rules.Engine, burst []events.Event, scratch, with
 			switch ev.Kind {
 			case events.Note:
 				if len(ev.IDs) > 0 && ev.Text != "" && ev.Text != "looks at the top of the library" && !(strings.HasPrefix(ev.Text, "revealed ") && strings.HasSuffix(ev.Text, " as a cost")) {
-					return Frame{}, fail("unsupported", "identity-bearing note: %q", ev.Text)
+					return view.View{}, Frame{}, fail("unsupported", "identity-bearing note: %q", ev.Text)
 				}
 				for _, id := range ev.IDs {
 					c.introduce(e, id)
@@ -203,46 +487,82 @@ func (c *Collector) capture(e *rules.Engine, burst []events.Event, scratch, with
 		}
 		redacted = append(redacted, ev)
 	}
-	frame := Frame{Identities: append([]Identity(nil), c.introduced...)}
-	for _, ev := range redacted {
-		out := ObservedEvent{Kind: ev.Kind, Player: ev.Player, Obj: c.ref(ev.Obj), From: ev.From, To: ev.To, Amount: ev.Amount, Step: ev.Step, Counter: ev.Counter, Text: ev.Text, Secret: ev.Secret}
-		for _, id := range ev.IDs {
-			if ref := c.ref(id); ref != 0 {
-				out.IDs = append(out.IDs, ref)
+	// Every slice is exactly sized and nil when empty, as an append from nil
+	// would leave it: frames are compared with reflect.DeepEqual.
+	frame := Frame{Identities: a.identities.take(len(c.introduced))}
+	copy(frame.Identities, c.introduced)
+	frame.Events = a.events.take(len(redacted))
+	for i := range redacted {
+		ev := &redacted[i]
+		out := &frame.Events[i]
+		*out = ObservedEvent{Kind: ev.Kind, Player: ev.Player, Obj: c.ref(ev.Obj), From: ev.From, To: ev.To, Amount: ev.Amount, Step: ev.Step, Counter: ev.Counter, Text: ev.Text, Secret: ev.Secret}
+		if len(ev.IDs) > 0 {
+			ids, k := a.refs.take(len(ev.IDs)), 0
+			for _, id := range ev.IDs {
+				if ref := c.ref(id); ref != 0 {
+					ids[k] = ref
+					k++
+				}
+			}
+			if k > 0 {
+				out.IDs = ids[:k:k]
 			}
 		}
-		for _, pair := range ev.Pairs {
-			a, b := c.ref(pair[0]), c.ref(pair[1])
-			if a != 0 && b != 0 {
-				out.Pairs = append(out.Pairs, [2]uint32{a, b})
+		if len(ev.Pairs) > 0 {
+			pairs, k := a.pairs.take(len(ev.Pairs)), 0
+			for _, pair := range ev.Pairs {
+				x, y := c.ref(pair[0]), c.ref(pair[1])
+				if x != 0 && y != 0 {
+					pairs[k] = [2]uint32{x, y}
+					k++
+				}
+			}
+			if k > 0 {
+				out.Pairs = pairs[:k:k]
 			}
 		}
-		frame.Events = append(frame.Events, out)
 	}
-	var err error
-	frame.Decision, err = c.observeDecision(v.Decision)
-	if err != nil {
-		return Frame{}, err
+	if d := v.Decision; d != nil {
+		var err error
+		out := &a.decisions.take(1)[0]
+		if frame.Decision, err = c.observeDecisionInto(out, a.options.take(len(d.Options)), d); err != nil {
+			return view.View{}, Frame{}, err
+		}
 	}
 	v.Decision = nil // never serialize in-memory engine continuation state
+	c.remap(&v)
+	return v, frame, nil
+}
+
+// remap rewrites every object reference of a projected view (decision
+// already cleared) into observation refs, in place: the projection owns
+// every slice and pointer it holds -- c's reusable view (zones, BlockedBy,
+// LibraryTop, stack cards and targets) and the potential actions
+// rules.PotentialActions builds fresh per call -- so nothing aliases the
+// engine, and the next ProjectInto rewrites every field remap touched.
+func (c *Collector) remap(v *view.View) {
 	for i := range v.Players {
 		p := &v.Players[i]
-		p.Hand = c.cards(p.Hand)
-		p.Battlefield = c.cards(p.Battlefield)
-		p.Graveyard = c.cards(p.Graveyard)
-		p.Exile = c.cards(p.Exile)
-		p.Command = c.cards(p.Command)
+		c.cards(p.Hand)
+		c.cards(p.Battlefield)
+		c.cards(p.Graveyard)
+		c.cards(p.Exile)
+		c.cards(p.Command)
+		if p.LibraryTop != nil {
+			c.card(p.LibraryTop)
+		}
+		for j := range p.PlanarDeck {
+			// Not rewritten, so not blanked: the token the projection
+			// would have formatted (SuppressCardTokens).
+			p.PlanarDeck[j].Token = "#" + strconv.FormatUint(uint64(p.PlanarDeck[j].ID), 10)
+		}
 		// PotentialActions (the viewer's own offer walk, view/view.go) names
 		// its objects by engine ObjID like every other board field; left raw,
 		// a sampled world whose hidden objects were allocated different IDs
 		// can never serialize the same board, and every world is rejected at
 		// its first frame. Map them through the same observation refs.
-		if len(p.PotentialActions) > 0 {
-			pa := append([]decision.PotentialAction(nil), p.PotentialActions...)
-			for j := range pa {
-				pa[j].Obj = state.ObjID(c.ref(pa[j].Obj))
-			}
-			p.PotentialActions = pa
+		for j := range p.PotentialActions {
+			p.PotentialActions[j].Obj = state.ObjID(c.ref(p.PotentialActions[j].Obj))
 		}
 	}
 	for i := range v.Stack {
@@ -250,10 +570,13 @@ func (c *Collector) capture(e *rules.Engine, burst []events.Event, scratch, with
 		s.ID = state.ObjID(c.ref(s.ID))
 		s.Source = state.ObjID(c.ref(s.Source))
 		if s.Card != nil {
-			card := c.card(*s.Card)
-			s.Card = &card
+			c.card(s.Card)
 		}
-		s.Targets = append([]view.TargetView(nil), s.Targets...)
+		// An empty target list becomes nil (JSON null), as the copy this
+		// rewrite replaced made it.
+		if len(s.Targets) == 0 {
+			s.Targets = nil
+		}
 		for j := range s.Targets {
 			s.Targets[j].Obj = state.ObjID(c.ref(s.Targets[j].Obj))
 		}
@@ -261,107 +584,27 @@ func (c *Collector) capture(e *rules.Engine, burst []events.Event, scratch, with
 	for i := range v.Pending {
 		v.Pending[i].Source = state.ObjID(c.ref(v.Pending[i].Source))
 	}
-	if !scratch {
-		frame.Board, err = json.Marshal(v)
-		return frame, err
-	}
-	// json.Marshal encodes into a pooled buffer and then copies the result
-	// out; an Encoder writes the same bytes (same HTML escaping, same field
-	// order) plus one trailing newline straight into a buffer we keep.
-	c.board.Reset()
-	if err := json.NewEncoder(&c.board).Encode(v); err != nil {
-		return Frame{}, err
-	}
-	frame.Board = c.board.Bytes()[:c.board.Len()-1]
-	return frame, nil
-}
-
-// stripPotentialActions removes every `"potential_actions"` member from a
-// marshalled view.View, yielding exactly the bytes the same view marshals to
-// when no seat carries the field (it is tagged omitempty, so a nil slice is an
-// absent key). The scan is string-aware, so a card name spelling the key is
-// not a member. TestStripPotentialActionsMatchesASkippedCapture pins the
-// equality against a real capture on every frame of the bench fixture.
-func stripPotentialActions(board []byte) []byte {
-	const key = `,"potential_actions":`
-	if !bytes.Contains(board, []byte(key)) {
-		return board
-	}
-	out := make([]byte, 0, len(board))
-	for i := 0; i < len(board); {
-		switch c := board[i]; {
-		case c == '"':
-			end := skipJSONString(board, i)
-			out = append(out, board[i:end]...)
-			i = end
-		case c == ',' && bytes.HasPrefix(board[i:], []byte(key)):
-			i = skipJSONValue(board, i+len(key))
-		default:
-			out = append(out, c)
-			i++
-		}
-	}
-	return out
-}
-
-// skipJSONString returns the index just past the string literal opening at i.
-func skipJSONString(b []byte, i int) int {
-	for i++; i < len(b); i++ {
-		switch b[i] {
-		case '\\':
-			i++
-		case '"':
-			return i + 1
-		}
-	}
-	return i
-}
-
-// skipJSONValue returns the index just past the value starting at i.
-func skipJSONValue(b []byte, i int) int {
-	depth := 0
-	for i < len(b) {
-		switch c := b[i]; c {
-		case '"':
-			i = skipJSONString(b, i)
-			if depth == 0 {
-				return i
-			}
-			continue
-		case '[', '{':
-			depth++
-		case ']', '}':
-			if depth--; depth <= 0 {
-				if depth < 0 {
-					return i
-				}
-				return i + 1
-			}
-		case ',':
-			if depth == 0 {
-				return i
-			}
-		}
-		i++
-	}
-	return i
 }
 
 func (c *Collector) introduce(e *rules.Engine, id state.ObjID) {
-	if id == 0 || c.known[id] != 0 {
+	if id == 0 || int(id) < len(c.known) && c.known[id] != 0 {
 		return
 	}
 	o := e.G.Obj(id)
 	if o == nil {
 		return
 	}
-	ref := uint32(len(c.known) + 1)
+	ref := uint32(len(c.byRef))
 	name := ""
 	if o.Card != nil && len(o.Card.Faces) > 0 {
 		name = o.Card.Faces[0].Name
 	}
+	if int(id) >= len(c.known) {
+		c.known = append(c.known, make([]uint32, int(id)+1-len(c.known))...)
+	}
 	c.known[id] = ref
 	c.byRef = append(c.byRef, id)
+	c.gen++
 	c.introduced = append(c.introduced, Identity{ID: ref, Name: name, Owner: o.Owner})
 }
 
@@ -369,7 +612,10 @@ func (c *Collector) ref(id state.ObjID) uint32 {
 	if _, ok := id.PlayerRef(); ok {
 		return uint32(id)
 	}
-	return c.known[id]
+	if int(id) < len(c.known) {
+		return c.known[id]
+	}
+	return 0
 }
 
 func (c *Collector) object(ref uint32) state.ObjID {
@@ -379,30 +625,28 @@ func (c *Collector) object(ref uint32) state.ObjID {
 	return c.byRef[ref]
 }
 
-func (c *Collector) card(card view.CardView) view.CardView {
+// card rewrites one pointed-to projected card (a library top, a stack
+// entry's card) in place. An empty BlockedBy becomes nil, as the copy this
+// rewrite replaced made it.
+func (c *Collector) card(card *view.CardView) {
+	if len(card.BlockedBy) == 0 {
+		card.BlockedBy = nil
+	}
+	c.zoneCard(card)
+}
+
+func (c *Collector) zoneCard(card *view.CardView) {
 	card.ID = state.ObjID(c.ref(card.ID))
 	card.Token = ""
 	card.AttachedTo = state.ObjID(c.ref(card.AttachedTo))
-	card.BlockedBy = append([]state.ObjID(nil), card.BlockedBy...)
 	for i := range card.BlockedBy {
 		card.BlockedBy[i] = state.ObjID(c.ref(card.BlockedBy[i]))
 	}
-	return card
 }
 
-// cards rewrites a projected zone in place. view.Project builds every zone
-// slice (and every CardView.BlockedBy) fresh per call and hands ownership to
-// the caller, so there is nothing to alias; the copy this used to make was the
-// second largest allocation of a capture.
-func (c *Collector) cards(cards []view.CardView) []view.CardView {
+// cards rewrites a projected zone in place (see remap).
+func (c *Collector) cards(cards []view.CardView) {
 	for i := range cards {
-		card := &cards[i]
-		card.ID = state.ObjID(c.ref(card.ID))
-		card.Token = ""
-		card.AttachedTo = state.ObjID(c.ref(card.AttachedTo))
-		for j := range card.BlockedBy {
-			card.BlockedBy[j] = state.ObjID(c.ref(card.BlockedBy[j]))
-		}
+		c.zoneCard(&cards[i])
 	}
-	return cards
 }

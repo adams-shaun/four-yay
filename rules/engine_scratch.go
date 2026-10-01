@@ -89,6 +89,25 @@ type engineScratch struct {
 	// triggerBefore is the immutable pre-departure board for an SBA death
 	// batch. Scoped to its emission/resumption, never carried as live state.
 	triggerBefore *triggerSnapshot
+	// snapPool recycles the object arenas of trigger-window snapshots no
+	// record retained (trigger_snapshot_pool.go). Owned by exactly one
+	// engine (snapshotPool.owner): a by-value Engine copy (entryPreview's
+	// preview) carries the pointer but never uses it, and Clone leaves it
+	// nil for the clone to build its own.
+	snapPool *snapshotPool
+	// lookBack is checkTriggers' reusable look-back observer Engine: the
+	// observer lives for one checkTriggers call and never emits, so one
+	// struct serves every call, rebuilt from zero each time (a fresh
+	// observer's exact state, minus the allocation). lookBackOwner is the
+	// engine that allocated it, so a by-value Engine copy never reuses the
+	// original's; lookBackBusy guards against a nested use.
+	lookBack *Engine
+	// decArena backs posed priority decisions for an engine whose decisions
+	// all die with it (SetDecisionArena, decision_arena.go); nil or off
+	// everywhere else.
+	decArena      *decisionArena
+	lookBackOwner *Engine
+	lookBackBusy  bool
 	// A shallow read-only observer of a recurring Effect trigger overrides
 	// controllerOf for its creating source. The Effect's controller is the
 	// registration's owner, even when its source card belongs to another seat.
@@ -120,6 +139,14 @@ type engineScratch struct {
 	foreachBuf   []state.ObjID
 	foreachDepth int
 
+	// trigZeroNoopEp/Objs/Ver key checkFaceTriggers' zero-interest no-op
+	// memo: the log length, arena size and registry version after the last
+	// zero-interest walk that visited no object (0: none). Clone leaves it
+	// zero.
+	trigZeroNoopEp   int
+	trigZeroNoopObjs int
+	trigZeroNoopVer  int
+
 	// legalOptBuf is legalActionsPriced's scratch option list. The walk
 	// appends into it (so the doubling growth that used to reallocate the
 	// list several times per walk settles at the largest walk seen) and
@@ -130,6 +157,10 @@ type engineScratch struct {
 	// walk allocates its own rather than clobbering the outer one. Owned by
 	// this Engine alone: Clone leaves it nil, like foreachBuf.
 	legalOptBuf []decision.Option
+	// legalScratch is the offer walk's incremental log-derived indexes and
+	// their watermarks (legal_walk_scratch.go). Clone carries it
+	// (cloneLegalWalkScratch): copy-on-write, so nothing is shared mutably.
+	legalScratch legalWalkScratch
 	// legalActionWalks counts every legalActionsPriced call (test-visible
 	// only; unexported, bumped unconditionally, no event and no effect on
 	// determinism or chain heads -- a plain monotonic read-only diagnostic

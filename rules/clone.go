@@ -3,22 +3,10 @@ package rules
 import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
-	"github.com/adams-shaun/gorge/deck"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
-
-func cloneDeckManifests(in []deck.Manifest) []deck.Manifest {
-	if in == nil {
-		return nil
-	}
-	out := make([]deck.Manifest, len(in))
-	for i := range in {
-		out[i] = in[i].Clone()
-	}
-	return out
-}
 
 // cloneTurnLedger copies the per-turn ledger cluster wholesale
 // (engine_turnledger.go): every member is the fresh-slice copy class, so a
@@ -103,8 +91,12 @@ func (e *Engine) CloneInto(sp *Spare) *Engine {
 
 func (e *Engine) cloneWith(sp Spare) *Engine {
 	c := &Engine{
-		G:                 e.G.CloneInto(sp.objs),
-		deckManifests:     cloneDeckManifests(e.deckManifests),
+		G: e.G.CloneInto(sp.objs),
+		// The genesis manifests are immutable after New (nothing writes
+		// deckManifests; OwnDeck publishes copies, OwnDeckShared is read-only
+		// by contract), so a clone shares them instead of copying every
+		// seat's rows per clone -- the search clones a root per simulation.
+		deckManifests:     e.deckManifests,
 		L:                 e.L.CloneInto(sp.events, sp.intents),
 		compiledText:      e.compiledText,
 		landTypeWords:     e.landTypeWords,
@@ -127,6 +119,13 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	// class: every member is copied as a fresh slice so a clone owns its
 	// own ledgers; the detail lives on cloneTurnLedger.
 	c.engineTurnLedger = cloneTurnLedger(e.engineTurnLedger)
+	// The offer walk's incremental log indexes (legal_walk_scratch.go): the
+	// clone's log is a copy of this one, so each watermark still names the
+	// same prefix and the clone resumes the fold instead of redoing it.
+	c.legalScratch = cloneLegalWalkScratch(e.legalScratch)
+	// The offer walk's scratch lists come from the Spare (a spent engine's,
+	// cleared); a zero Spare leaves them nil, as Clone always has.
+	c.legalOptBuf, c.manaAbBuf = sp.legalOpts, sp.manaAb
 	c.orderedTriggers = e.orderedTriggers
 	c.applyingReplacement = e.applyingReplacement
 	c.choosing = e.choosing
@@ -236,6 +235,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	c.renames = append([]effects.ObjectName(nil), e.renames...)
 	c.renameEpoch = e.renameEpoch
 	c.renameVersion = e.renameVersion
+	c.renameObjs = e.renameObjs
 	// layer4types.go's layer-4 derived-type table and its genesis-time
 	// gate, carried with its (epoch, version) key for the same reason: the
 	// clone's board is identical at the clone boundary, and a fresh slice
@@ -937,6 +937,17 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	// tables start empty over Release-cleared capacity, the same zeroed state
 	// derivedMemoizedAt's growth relies on for a Config.Spare game.
 	c.derivedMemo, c.derivedMemoStack = sp.memo, sp.memoStack
+	// The spent engine's recycled snapshot arenas (trigger_snapshot_pool.go):
+	// cleared, owned by nobody else, so the clone's look-back windows reuse
+	// them; the original's own pool is never shared.
+	c.adoptSnapshotObjs(sp.snapObjs)
+	// The spent engine's cleared decision-arena chunks, switched off: the
+	// clone's owner turns the arena on (SetDecisionArena) if its decisions
+	// die with it.
+	c.adoptArena(sp.arena)
+	if sp.lookBack != nil {
+		c.lookBack, c.lookBackOwner = sp.lookBack, c
+	}
 	return c
 }
 

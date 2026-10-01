@@ -1,0 +1,34 @@
+{
+  "card": "Captain Mar-Vell, Space-Born",
+  "family": "keywords",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "oracle_sha": "3ff323651411",
+  "scenarios": [
+    {
+      "name": "flying-and-vigilance",
+      "cr": [
+        "702.9a",
+        "702.20a"
+      ],
+      "why": "Captain Mar-Vell's printed keywords are flying and vigilance.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Captain Mar-Vell, Space-Born"
+          ]
+        }
+      },
+      "steps": [],
+      "expect": [
+        {
+          "card": "p0:Captain Mar-Vell, Space-Born",
+          "pt": "4/4",
+          "keywords": [
+            "flying",
+            "vigilance"
+          ]
+        }
+      ]
+    }
+  ]
+}

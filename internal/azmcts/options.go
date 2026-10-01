@@ -118,6 +118,12 @@ type Options struct {
 	// unchanged. A face-down object the searching seat does not control is
 	// named "face-down".
 	NameKeys bool
+	// NodeCache caps the tree nodes whose engine state the search stores
+	// (nodecache.go) when the world source declares a fixed world
+	// (FixedWorldSource: the clairvoyant clone, FixedChance); 0 turns the
+	// cache off. It never changes the Result, only its cost counters, and a
+	// source whose worlds differ between simulations never uses it.
+	NodeCache int
 }
 
 // DiscountUnit is what one step of the backup discount counts.
@@ -167,7 +173,7 @@ const BenchCandidateLimit = 512
 func DefaultOptions() Options {
 	return Options{
 		Sims: 100, CPUCT: 1.5, FPU: 0.1, Limit: 6, MaxSteps: 1000, Kinds: AllKinds(),
-		DirichletAlpha: 0.3, DirichletEps: 0.25,
+		DirichletAlpha: 0.3, DirichletEps: 0.25, NodeCache: DefaultNodeCache,
 	}
 }
 
@@ -209,6 +215,17 @@ type Stats struct {
 	// or became done between simulations, the tree stopped where it was and
 	// the bot's answer was played. A live context never counts it.
 	DeadlineHits int
+
+	// The walk's cost counters. They count work, not outcomes: the node
+	// cache (Options.NodeCache) changes them, and EnvSteps above, and
+	// nothing else in Stats (a stored point records the Truncated and
+	// PriorFallbacks producing it counted, so those stay exact).
+	Plays       int // searched submits (Env.Play), a discarded simulation's included
+	ReplayPlays int // Plays along an edge the tree already held (expanded, or ended there before)
+	ReplaySteps int // the EnvSteps spent inside those ReplayPlays: re-walking known tree edges
+	NodeSaves   int // node states the cache stored
+	NodeResumes int // simulations that resumed from a stored node state below the root
+	NodeEvicts  int // stored node states dropped for a more-visited node (the cache was full)
 
 	// KindSearched splits Searched by kind (KindNames order).
 	KindSearched [NumKinds]int
@@ -309,6 +326,12 @@ func (s *Stats) Add(o Stats) {
 	s.LeafPlies += o.LeafPlies
 	s.LeafEdges += o.LeafEdges
 	s.LeafTurns += o.LeafTurns
+	s.Plays += o.Plays
+	s.ReplayPlays += o.ReplayPlays
+	s.ReplaySteps += o.ReplaySteps
+	s.NodeSaves += o.NodeSaves
+	s.NodeResumes += o.NodeResumes
+	s.NodeEvicts += o.NodeEvicts
 	for k := range s.KindSearched {
 		s.KindSearched[k] += o.KindSearched[k]
 		for r := range s.KindSkipped[k] {

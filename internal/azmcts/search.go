@@ -111,6 +111,8 @@ func (o Options) Validate(net *policynet.Model) error {
 		return fmt.Errorf("azmcts: Dirichlet alpha %g must be > 0", o.DirichletAlpha)
 	case o.DirichletEps < 0 || o.DirichletEps > 1:
 		return fmt.Errorf("azmcts: Dirichlet epsilon %g must be in [0,1]", o.DirichletEps)
+	case o.NodeCache < 0:
+		return fmt.Errorf("azmcts: node cache %d must be >= 0 (0 is off)", o.NodeCache)
 	case o.Kinds == (Kinds{}):
 		return errors.New("azmcts: no searched decision kinds")
 	case o.Discount < 0 || o.Discount > 1 || o.Discount != o.Discount:
@@ -160,7 +162,10 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 	if root.Engine == nil || root.Decision == nil || root.Observer == nil {
 		return res, errors.New("azmcts: Search needs the root engine, decision and observer")
 	}
-	cands, kind, why, ok, cut, botFound := rootCands(root.Observer, root, opts.Kinds, opts.Limit, opts.AutoPayment)
+	var envBoard, enumBoard boardScratch
+	views := searchViews.Get().(*viewScratch)
+	defer searchViews.Put(views)
+	cands, kind, why, ok, cut, botFound := rootCands(root.Observer, root, opts.Kinds, opts.Limit, opts.AutoPayment, &enumBoard)
 	res.Kind = kind
 	if cut {
 		res.Stats.Truncated, res.Stats.RootTruncated = 1, 1
@@ -189,7 +194,7 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 	if opts.UniformPrior {
 		priorNet = nil
 	}
-	prior, fell := priors(priorNet, root.Engine, root.Decision, root.Bot, kind, cands)
+	prior, fell := priors(priorNet, root.Engine, root.Decision, root.Bot, kind, cands, &views.prior)
 	if fell {
 		res.Stats.PriorFallbacks++
 	}
@@ -214,8 +219,13 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 		uniformPrior: opts.UniformPrior, rootPerWorld: opts.RootPerWorld,
 		nameKeys: opts.NameKeys, rootRefs: root.Observer.Introduced(),
 		root: rootPt, rootCands: cands, rootDec: root.Decision, stats: &res.Stats,
+		envBoard: &envBoard, enumBoard: &enumBoard, views: views,
 	}
-	tr, err := RunTree(ctx, rootPt, &worldEnvs{src: src, cfg: cfg}, opts, &res.Stats)
+	var envs EnvSource = &worldEnvs{src: src, cfg: cfg}
+	if opts.NodeCache > 0 && isFixed(src) {
+		envs = &fixedEnvs{worldEnvs: envs.(*worldEnvs)}
+	}
+	tr, err := RunTree(ctx, rootPt, envs, opts, &res.Stats)
 	if err != nil {
 		return res, err
 	}

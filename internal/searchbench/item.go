@@ -388,7 +388,7 @@ func PrepareItem(reg *cards.Registry, p *Payload, worldSeeds []uint64) (*StoreIt
 			return nil, &ItemRefusal{StageWorlds, refuse("redeal", "world %d: %s", i, why)}
 		}
 	}
-	frame, err := searchprobe.NewCollector(actor).Capture(pos.Real.M.Engine, nil)
+	frame, boardJSON, err := searchprobe.NewCollector(actor).CaptureBoardJSON(pos.Real.M.Engine, nil)
 	if err != nil {
 		return nil, &ItemRefusal{StageWorlds, refuse("observation", "capture: %v", err)}
 	}
@@ -396,7 +396,7 @@ func PrepareItem(reg *cards.Registry, p *Payload, worldSeeds []uint64) (*StoreIt
 		Board      json.RawMessage
 		Identities []searchprobe.Identity
 		Decision   *searchprobe.ObservedDecision
-	}{frame.Board, frame.Identities, frame.Decision})
+	}{boardJSON, frame.Identities, frame.Decision})
 	if err != nil {
 		return nil, err
 	}

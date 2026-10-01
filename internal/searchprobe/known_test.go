@@ -1,7 +1,6 @@
 package searchprobe
 
 import (
-	"encoding/json"
 	"errors"
 	"math/rand/v2"
 	"reflect"
@@ -26,45 +25,24 @@ type seatBoard struct {
 	graveyard   []uint32
 }
 
-func knownBoardJSON(t *testing.T, seats ...seatBoard) json.RawMessage {
+func knownTestBoard(t *testing.T, seats ...seatBoard) Board {
 	t.Helper()
-	type card struct {
-		ID uint32 `json:"id"`
-	}
-	list := func(ids []uint32) []card {
-		out := []card{}
+	list := func(ids []uint32) []BoardCard {
+		out := []BoardCard{}
 		for _, id := range ids {
-			out = append(out, card{ID: id})
+			out = append(out, BoardCard{ID: id})
 		}
 		return out
 	}
-	type player struct {
-		Seat        state.PlayerID `json:"seat"`
-		LibrarySize int            `json:"library_size"`
-		HandSize    int            `json:"hand_size"`
-		Hand        []card         `json:"hand"`
-		Battlefield []card         `json:"battlefield"`
-		Graveyard   []card         `json:"graveyard"`
-		Exile       []card         `json:"exile"`
-		Command     []card         `json:"command"`
-	}
-	var b struct {
-		Players []player `json:"players"`
-		Stack   []card   `json:"stack"`
-	}
-	b.Stack = []card{}
+	var b Board
 	for _, s := range seats {
-		p := player{Seat: s.seat, LibrarySize: s.lib, HandSize: s.hand, Battlefield: list(s.battlefield), Graveyard: list(s.graveyard), Exile: []card{}, Command: []card{}}
+		p := BoardPlayer{Seat: s.seat, LibrarySize: s.lib, HandSize: s.hand, Battlefield: list(s.battlefield), Graveyard: list(s.graveyard), Exile: []BoardCard{}, Command: []BoardCard{}}
 		if s.seat == 0 {
 			p.Hand = list(s.handCards)
 		}
 		b.Players = append(b.Players, p)
 	}
-	raw, err := json.Marshal(b)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return raw
+	return b
 }
 
 func refsOf(ids []Identity) []uint32 {
@@ -113,12 +91,12 @@ func scryHistory(t *testing.T) History {
 	}
 	return History{Actor: 0, Answers: map[int][]Action{1: {options[1].Action}}, Frames: []Frame{
 		{Identities: ids[2:], Events: []ObservedEvent{{Kind: events.Shuffle, Player: 0}, {Kind: events.Shuffle, Player: 1}},
-			Board: knownBoardJSON(t, seatBoard{seat: 0, lib: 10, hand: 1, handCards: []uint32{3}}, seatBoard{seat: 1, lib: 10, hand: 1})},
+			Board: knownTestBoard(t, seatBoard{seat: 0, lib: 10, hand: 1, handCards: []uint32{3}}, seatBoard{seat: 1, lib: 10, hand: 1})},
 		{Identities: ids[:2], Events: []ObservedEvent{{Kind: events.Note, Player: 0, From: state.ZLibrary, Text: "looks at the top of the library", Secret: true}},
 			Decision: &ObservedDecision{Player: 0, Kind: decision.KArrange, Min: 0, Max: 2, Options: options},
-			Board:    knownBoardJSON(t, seatBoard{seat: 0, lib: 10, hand: 1, handCards: []uint32{3}}, seatBoard{seat: 1, lib: 10, hand: 1})},
+			Board:    knownTestBoard(t, seatBoard{seat: 0, lib: 10, hand: 1, handCards: []uint32{3}}, seatBoard{seat: 1, lib: 10, hand: 1})},
 		{Events: []ObservedEvent{{Kind: events.Scry, Player: 0, Amount: 1}, {Kind: events.LibraryOrder, Player: 0, Secret: true}},
-			Board: knownBoardJSON(t, seatBoard{seat: 0, lib: 10, hand: 1, handCards: []uint32{3}}, seatBoard{seat: 1, lib: 10, hand: 1})},
+			Board: knownTestBoard(t, seatBoard{seat: 0, lib: 10, hand: 1, handCards: []uint32{3}}, seatBoard{seat: 1, lib: 10, hand: 1})},
 	}}
 }
 
@@ -149,7 +127,7 @@ func TestKnownCardsScryPositions(t *testing.T) {
 func TestKnownCardsShuffleWipesPositionsKeepsMembers(t *testing.T) {
 	h := scryHistory(t)
 	h.Frames = append(h.Frames, Frame{Events: []ObservedEvent{{Kind: events.Shuffle, Player: 0}},
-		Board: knownBoardJSON(t, seatBoard{seat: 0, lib: 10, hand: 1, handCards: []uint32{3}}, seatBoard{seat: 1, lib: 10, hand: 1})})
+		Board: knownTestBoard(t, seatBoard{seat: 0, lib: 10, hand: 1, handCards: []uint32{3}}, seatBoard{seat: 1, lib: 10, hand: 1})})
 	k, err := ProjectKnownCards(h)
 	if err != nil {
 		t.Fatal(err)
@@ -160,7 +138,7 @@ func TestKnownCardsShuffleWipesPositionsKeepsMembers(t *testing.T) {
 	wantRefs(t, "members", members, 1, 2)
 	// An unseen draw from a shuffled library may have taken any member.
 	h.Frames = append(h.Frames, Frame{Events: []ObservedEvent{{Kind: events.Draw, Player: 0, From: state.ZLibrary, To: state.ZHand}},
-		Board: knownBoardJSON(t, seatBoard{seat: 0, lib: 9, hand: 2, handCards: []uint32{3}}, seatBoard{seat: 1, lib: 10, hand: 1})})
+		Board: knownTestBoard(t, seatBoard{seat: 0, lib: 9, hand: 2, handCards: []uint32{3}}, seatBoard{seat: 1, lib: 10, hand: 1})})
 	k, err = ProjectKnownCards(h)
 	if err != nil {
 		t.Fatal(err)
@@ -172,7 +150,7 @@ func TestKnownCardsShuffleWipesPositionsKeepsMembers(t *testing.T) {
 func TestKnownCardsDrawOfKnownTopMovesToHand(t *testing.T) {
 	h := scryHistory(t)
 	h.Frames = append(h.Frames, Frame{Events: []ObservedEvent{{Kind: events.Draw, Player: 0, Obj: 2, From: state.ZLibrary, To: state.ZHand, Secret: true}},
-		Board: knownBoardJSON(t, seatBoard{seat: 0, lib: 9, hand: 2, handCards: []uint32{3, 2}}, seatBoard{seat: 1, lib: 10, hand: 1})})
+		Board: knownTestBoard(t, seatBoard{seat: 0, lib: 9, hand: 2, handCards: []uint32{3, 2}}, seatBoard{seat: 1, lib: 10, hand: 1})})
 	k, err := ProjectKnownCards(h)
 	if err != nil {
 		t.Fatal(err)
@@ -191,9 +169,9 @@ func TestKnownCardsUnseenDrawOfKnownCard(t *testing.T) {
 	ids := []Identity{{ID: 7, Name: "Bear", Owner: 1}}
 	h := History{Actor: 0, Frames: []Frame{
 		{Identities: ids, Events: []ObservedEvent{{Kind: events.Shuffle, Player: 1}},
-			Board: knownBoardJSON(t, seatBoard{seat: 0, lib: 5}, seatBoard{seat: 1, lib: 0, hand: 3, battlefield: []uint32{7}})},
+			Board: knownTestBoard(t, seatBoard{seat: 0, lib: 5}, seatBoard{seat: 1, lib: 0, hand: 3, battlefield: []uint32{7}})},
 		{Events: []ObservedEvent{{Kind: events.MoveZone, Player: 0, Obj: 7, From: state.ZBattlefield, To: state.ZLibrary}},
-			Board: knownBoardJSON(t, seatBoard{seat: 0, lib: 5}, seatBoard{seat: 1, lib: 1, hand: 3})},
+			Board: knownTestBoard(t, seatBoard{seat: 0, lib: 5}, seatBoard{seat: 1, lib: 1, hand: 3})},
 	}}
 	k, err := ProjectKnownCards(h)
 	if err != nil {
@@ -204,7 +182,7 @@ func TestKnownCardsUnseenDrawOfKnownCard(t *testing.T) {
 	wantRefs(t, "tucked bottom", bottom, 7)
 	wantRefs(t, "tucked members", members, 7)
 	h.Frames = append(h.Frames, Frame{Events: []ObservedEvent{{Kind: events.Draw, Player: 1, From: state.ZLibrary, To: state.ZHand, Secret: true}},
-		Board: knownBoardJSON(t, seatBoard{seat: 0, lib: 5}, seatBoard{seat: 1, lib: 0, hand: 4})})
+		Board: knownTestBoard(t, seatBoard{seat: 0, lib: 5}, seatBoard{seat: 1, lib: 0, hand: 4})})
 	if k, err = ProjectKnownCards(h); err != nil {
 		t.Fatal(err)
 	}
@@ -214,10 +192,10 @@ func TestKnownCardsUnseenDrawOfKnownCard(t *testing.T) {
 
 	// In a bigger library the tucked bottom card survives an unseen draw.
 	big := History{Actor: 0, Frames: []Frame{h.Frames[0], h.Frames[1], {}}}
-	big.Frames[0].Board = knownBoardJSON(t, seatBoard{seat: 0, lib: 5}, seatBoard{seat: 1, lib: 8, hand: 3, battlefield: []uint32{7}})
-	big.Frames[1].Board = knownBoardJSON(t, seatBoard{seat: 0, lib: 5}, seatBoard{seat: 1, lib: 9, hand: 3})
+	big.Frames[0].Board = knownTestBoard(t, seatBoard{seat: 0, lib: 5}, seatBoard{seat: 1, lib: 8, hand: 3, battlefield: []uint32{7}})
+	big.Frames[1].Board = knownTestBoard(t, seatBoard{seat: 0, lib: 5}, seatBoard{seat: 1, lib: 9, hand: 3})
 	big.Frames[2] = Frame{Events: []ObservedEvent{{Kind: events.Draw, Player: 1, From: state.ZLibrary, To: state.ZHand, Secret: true}},
-		Board: knownBoardJSON(t, seatBoard{seat: 0, lib: 5}, seatBoard{seat: 1, lib: 8, hand: 4})}
+		Board: knownTestBoard(t, seatBoard{seat: 0, lib: 5}, seatBoard{seat: 1, lib: 8, hand: 4})}
 	if k, err = ProjectKnownCards(big); err != nil {
 		t.Fatal(err)
 	}
@@ -231,10 +209,10 @@ func TestKnownCardsRevealedHandCardStaysKnownUntilItLeaves(t *testing.T) {
 	opp := func(hand int) seatBoard { return seatBoard{seat: 1, lib: 30, hand: hand} }
 	me := seatBoard{seat: 0, lib: 30}
 	h := History{Actor: 0, Frames: []Frame{
-		{Events: []ObservedEvent{{Kind: events.Shuffle, Player: 1}}, Board: knownBoardJSON(t, me, opp(7))},
-		{Identities: ids, Events: []ObservedEvent{{Kind: events.Note, Player: 1, IDs: []uint32{9}, Text: "revealed Dragon as a cost"}}, Board: knownBoardJSON(t, me, opp(7))},
+		{Events: []ObservedEvent{{Kind: events.Shuffle, Player: 1}}, Board: knownTestBoard(t, me, opp(7))},
+		{Identities: ids, Events: []ObservedEvent{{Kind: events.Note, Player: 1, IDs: []uint32{9}, Text: "revealed Dragon as a cost"}}, Board: knownTestBoard(t, me, opp(7))},
 		// Kept: an ordinary turn of unseen draws and a land play leave it.
-		{Events: []ObservedEvent{{Kind: events.Draw, Player: 1, From: state.ZLibrary, To: state.ZHand, Secret: true}}, Board: knownBoardJSON(t, me, opp(8))},
+		{Events: []ObservedEvent{{Kind: events.Draw, Player: 1, From: state.ZLibrary, To: state.ZHand, Secret: true}}, Board: knownTestBoard(t, me, opp(8))},
 	}}
 	k, err := ProjectKnownCards(h)
 	if err != nil {
@@ -244,7 +222,7 @@ func TestKnownCardsRevealedHandCardStaysKnownUntilItLeaves(t *testing.T) {
 
 	// An unseen hand-to-library move (Brainstorm) may have been that card.
 	hidden := h
-	hidden.Frames = append(append([]Frame(nil), h.Frames...), Frame{Events: []ObservedEvent{{Kind: events.MoveZone, Player: 1, From: state.ZHand, To: state.ZLibrary, Secret: true}}, Board: knownBoardJSON(t, me, seatBoard{seat: 1, lib: 31, hand: 7})})
+	hidden.Frames = append(append([]Frame(nil), h.Frames...), Frame{Events: []ObservedEvent{{Kind: events.MoveZone, Player: 1, From: state.ZHand, To: state.ZLibrary, Secret: true}}, Board: knownTestBoard(t, me, seatBoard{seat: 1, lib: 31, hand: 7})})
 	if k, err = ProjectKnownCards(hidden); err != nil {
 		t.Fatal(err)
 	}
@@ -252,7 +230,7 @@ func TestKnownCardsRevealedHandCardStaysKnownUntilItLeaves(t *testing.T) {
 
 	// A card that left the zone publicly is dropped.
 	cast := h
-	cast.Frames = append(append([]Frame(nil), h.Frames...), Frame{Events: []ObservedEvent{{Kind: events.PutOnStack, Player: 1, Obj: 9, From: state.ZHand, To: state.ZStack}}, Board: knownBoardJSON(t, me, opp(7))})
+	cast.Frames = append(append([]Frame(nil), h.Frames...), Frame{Events: []ObservedEvent{{Kind: events.PutOnStack, Player: 1, Obj: 9, From: state.ZHand, To: state.ZStack}}, Board: knownTestBoard(t, me, opp(7))})
 	if k, err = ProjectKnownCards(cast); err != nil {
 		t.Fatal(err)
 	}
@@ -263,15 +241,15 @@ func TestKnownCardsBounceThenDiscard(t *testing.T) {
 	ids := []Identity{{ID: 4, Name: "Bear", Owner: 1}}
 	me := seatBoard{seat: 0, lib: 30}
 	h := History{Actor: 0, Frames: []Frame{
-		{Identities: ids, Board: knownBoardJSON(t, me, seatBoard{seat: 1, lib: 30, hand: 2, battlefield: []uint32{4}})},
-		{Events: []ObservedEvent{{Kind: events.MoveZone, Player: 0, Obj: 4, From: state.ZBattlefield, To: state.ZHand}}, Board: knownBoardJSON(t, me, seatBoard{seat: 1, lib: 30, hand: 3})},
+		{Identities: ids, Board: knownTestBoard(t, me, seatBoard{seat: 1, lib: 30, hand: 2, battlefield: []uint32{4}})},
+		{Events: []ObservedEvent{{Kind: events.MoveZone, Player: 0, Obj: 4, From: state.ZBattlefield, To: state.ZHand}}, Board: knownTestBoard(t, me, seatBoard{seat: 1, lib: 30, hand: 3})},
 	}}
 	k, err := ProjectKnownCards(h)
 	if err != nil {
 		t.Fatal(err)
 	}
 	wantRefs(t, "bounced", knownHand(k, 1), 4)
-	h.Frames = append(h.Frames, Frame{Events: []ObservedEvent{{Kind: events.MoveZone, Player: 1, Obj: 4, From: state.ZHand, To: state.ZGraveyard}}, Board: knownBoardJSON(t, me, seatBoard{seat: 1, lib: 30, hand: 2, graveyard: []uint32{4}})})
+	h.Frames = append(h.Frames, Frame{Events: []ObservedEvent{{Kind: events.MoveZone, Player: 1, Obj: 4, From: state.ZHand, To: state.ZGraveyard}}, Board: knownTestBoard(t, me, seatBoard{seat: 1, lib: 30, hand: 2, graveyard: []uint32{4}})})
 	if k, err = ProjectKnownCards(h); err != nil {
 		t.Fatal(err)
 	}
@@ -282,10 +260,10 @@ func TestKnownCardsUnmodelledSizeChangeForgets(t *testing.T) {
 	ids := []Identity{{ID: 4, Name: "Bear", Owner: 1}}
 	me := seatBoard{seat: 0, lib: 30}
 	h := History{Actor: 0, Frames: []Frame{
-		{Identities: ids, Board: knownBoardJSON(t, me, seatBoard{seat: 1, lib: 30, hand: 2, battlefield: []uint32{4}})},
-		{Events: []ObservedEvent{{Kind: events.MoveZone, Player: 0, Obj: 4, From: state.ZBattlefield, To: state.ZHand}}, Board: knownBoardJSON(t, me, seatBoard{seat: 1, lib: 30, hand: 3})},
+		{Identities: ids, Board: knownTestBoard(t, me, seatBoard{seat: 1, lib: 30, hand: 2, battlefield: []uint32{4}})},
+		{Events: []ObservedEvent{{Kind: events.MoveZone, Player: 0, Obj: 4, From: state.ZBattlefield, To: state.ZHand}}, Board: knownTestBoard(t, me, seatBoard{seat: 1, lib: 30, hand: 3})},
 		// The hand shrank with no observed event: some unmodelled channel.
-		{Board: knownBoardJSON(t, me, seatBoard{seat: 1, lib: 30, hand: 2})},
+		{Board: knownTestBoard(t, me, seatBoard{seat: 1, lib: 30, hand: 2})},
 	}}
 	k, err := ProjectKnownCards(h)
 	if err != nil {

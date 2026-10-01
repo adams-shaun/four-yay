@@ -163,7 +163,8 @@ func (e *Engine) attackPairCharge(id state.ObjID, defender state.PlayerID, attac
 		}
 		total = total.plus(ch)
 	}
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.Restriction != "CantAttackUnless" {
 			continue
 		}
@@ -408,7 +409,8 @@ func (e *Engine) blockPairCharge(blocker, attacker state.ObjID) blockCharge {
 			total.unpriceable = true
 		}
 	}
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.Restriction != "CantBlockUnless" {
 			continue
 		}

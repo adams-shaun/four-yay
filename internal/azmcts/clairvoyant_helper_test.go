@@ -40,6 +40,9 @@ func (c *testClairvoyant) World(int) (World, error) {
 	return World{Engine: c.prev, Observer: c.obs.Clone()}, nil
 }
 
+// FixedWorld is the real source's: one engine, its generator carried.
+func (c *testClairvoyant) FixedWorld() bool { return true }
+
 // testSeatSource is the SeatConfig.Source the azmcts seat tests inject.
 func testSeatSource(env searchseat.Env, obs *searchprobe.Collector) (WorldSource, error) {
 	return newTestClairvoyant(env.Engine, obs)

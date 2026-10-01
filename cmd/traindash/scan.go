@@ -40,6 +40,7 @@ type Snapshot struct {
 	Alerts      []Alert       `json:"alerts"`
 	Artifacts   []Artifact    `json:"artifacts"`
 	DeckLedgers []*DeckLedger `json:"deck_ledgers,omitempty"`
+	DeckHistory []DeckHistory `json:"deck_history,omitempty"`
 }
 
 // Experiment groups the run dirs under one top-level directory of a root.
@@ -307,6 +308,7 @@ func (s *Scanner) Scan() *Snapshot {
 		for _, dl := range s.scanDeckLedgers(droot, dmulti) {
 			snap.DeckLedgers = append(snap.DeckLedgers, dl)
 		}
+		snap.DeckHistory = append(snap.DeckHistory, scanDeckHistory(droot)...)
 	}
 	sort.Strings(order)
 	for _, name := range order {
@@ -328,6 +330,9 @@ func (s *Scanner) Scan() *Snapshot {
 	}
 	if snap.DeckLedgers == nil {
 		snap.DeckLedgers = []*DeckLedger{}
+	}
+	if snap.DeckHistory == nil {
+		snap.DeckHistory = []DeckHistory{}
 	}
 	return snap
 }

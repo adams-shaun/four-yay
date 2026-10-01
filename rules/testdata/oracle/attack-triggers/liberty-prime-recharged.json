@@ -1,0 +1,70 @@
+{
+  "card": "Liberty Prime, Recharged",
+  "family": "attack-triggers",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "oracle_sha": "23bb3fe8cc7d",
+  "scenarios": [
+    {
+      "name": "attacks-with-no-energy-sacrifices-itself",
+      "cr": [
+        "603.6a",
+        "608.2c"
+      ],
+      "why": "Liberty Prime's attack trigger makes you sacrifice it unless you pay {E}{E}. With no energy counters, the payment is impossible and Liberty Prime is sacrificed.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Liberty Prime, Recharged"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Liberty Prime, Recharged"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Liberty Prime, Recharged",
+          "zone": "graveyard"
+        }
+      ]
+    },
+    {
+      "name": "keywords-vigilance-trample-haste",
+      "cr": [
+        "702.20a",
+        "702.19a",
+        "702.10a"
+      ],
+      "why": "Liberty Prime's printed keywords are vigilance, trample and haste.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Liberty Prime, Recharged"
+          ]
+        }
+      },
+      "steps": [],
+      "expect": [
+        {
+          "card": "p0:Liberty Prime, Recharged",
+          "pt": "8/8",
+          "keywords": [
+            "vigilance",
+            "trample",
+            "haste"
+          ]
+        }
+      ]
+    }
+  ]
+}

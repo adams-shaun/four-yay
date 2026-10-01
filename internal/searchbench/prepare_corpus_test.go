@@ -88,10 +88,10 @@ func logBoardDiff(t *testing.T, reg any, p *Payload) {
 		return
 	}
 	actor := pos.Real.Reached.Decision.Player
-	want, _ := searchprobe.NewCollector(actor).Capture(pos.Real.M.Engine, nil)
+	_, wantJSON, _ := searchprobe.NewCollector(actor).CaptureBoardJSON(pos.Real.M.Engine, nil)
 	for i, w := range pos.Worlds {
-		got, _ := searchprobe.NewCollector(actor).Capture(w.M.Engine, nil)
-		a, b := string(want.Board), string(got.Board)
+		_, gotJSON, _ := searchprobe.NewCollector(actor).CaptureBoardJSON(w.M.Engine, nil)
+		a, b := string(wantJSON), string(gotJSON)
 		if a == b {
 			continue
 		}
@@ -102,8 +102,8 @@ func logBoardDiff(t *testing.T, reg any, p *Payload) {
 		lo := max(0, k-300)
 		t.Logf("row %d turn %d %s world %d differs at %d:\n real  ...%s\n world ...%s", p.Row, p.Turn, p.Kind, i, k, a[lo:min(len(a), k+200)], b[lo:min(len(b), k+200)])
 		if dir := os.Getenv("SEARCHBENCH_PAYLOADS_DUMP"); dir != "" {
-			_ = os.WriteFile(fmt.Sprintf("%s/%d-%d-%s-real.json", dir, p.Row, p.Turn, p.Kind), want.Board, 0o644)
-			_ = os.WriteFile(fmt.Sprintf("%s/%d-%d-%s-w%d.json", dir, p.Row, p.Turn, p.Kind, i), got.Board, 0o644)
+			_ = os.WriteFile(fmt.Sprintf("%s/%d-%d-%s-real.json", dir, p.Row, p.Turn, p.Kind), wantJSON, 0o644)
+			_ = os.WriteFile(fmt.Sprintf("%s/%d-%d-%s-w%d.json", dir, p.Row, p.Turn, p.Kind, i), gotJSON, 0o644)
 		}
 		return
 	}

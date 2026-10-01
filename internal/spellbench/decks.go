@@ -26,21 +26,21 @@ const PauperKernel = "decks/pauper-kernel"
 var BenchmarkPool = []string{"Wildfire", "Rally", "Affinity", "Elves", "Spy", "Burn", "CawGates", "Faeries"}
 
 // RepoConstructed is the repo-constructed catalog directory: byte copies of
-// the 14 supported 60-card constructed repo decks from
+// the 15 supported 60-card constructed repo decks from
 // internal/testutil/decks (format "custom", exactly 60 main-deck cards).
 // The copies are deliberate: internal/spellbench must never import
 // internal/testutil, and cmd/botbench's byte-equality guard pins the copies
 // against drift.
 const RepoConstructed = "decks/repo-constructed"
 
-// RepoPool is the repo-constructed rotating deck pool: the 13 fully
+// RepoPool is the repo-constructed rotating deck pool: the 14 fully
 // supported constructed decks (every one but mono-green-stompy, whose single
 // Vines of Vastwood runs under the recorded stat:CantTarget approximation).
 // mono-green-stompy stays IN the directory and OUT of the pool, exactly the
 // pauper-kernel catalog's Terror precedent, so a -spellbench-decks run can
 // still name it explicitly.
 var RepoPool = []string{
-	"death-n-taxes", "dimir-tempo", "eldrazi-stompy", "mono-black-aggro",
+	"boros-moxite-burn", "death-n-taxes", "dimir-tempo", "eldrazi-stompy", "mono-black-aggro",
 	"mono-blue-tempo", "mono-red-goblins", "mono-red-prowess",
 	"mono-white-equipment", "the-epic-storm", "tron", "ur-delver",
 	"uw-control", "uw-tempo",

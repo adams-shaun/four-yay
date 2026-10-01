@@ -1,0 +1,53 @@
+{
+  "card": "Rex, Cyber-Hound",
+  "family": "combat-damage",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "oracle_sha": "0fea396c5ecc",
+  "scenarios": [
+    {
+      "name": "combat-damage-mills-defending-player-two",
+      "cr": [
+        "603.6a",
+        "701.13a"
+      ],
+      "why": "The player dealt combat damage mills two cards. Rex is a 2/2, so unblocked it deals 2 damage and the defending player's top two cards are milled into their graveyard.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Rex, Cyber-Hound"
+          ]
+        },
+        "p1": {
+          "life": 20
+        }
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Rex, Cyber-Hound"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "pass_to",
+          "seat": 0,
+          "step": "end"
+        }
+      ],
+      "expect": [
+        {
+          "life": {
+            "p1": 18
+          }
+        },
+        {
+          "graveyard_size": {
+            "p1": 2
+          }
+        }
+      ]
+    }
+  ]
+}

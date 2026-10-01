@@ -90,14 +90,14 @@ func (r Root) fullRoot() bool { return len(r.Macros) > 0 || r.BotKey != "" || r.
 // Pass first) -- instead of skipping a decision whose bot answer is outside
 // the vocabulary. botFound reports whether candidate 0 is the bot's. Any
 // other root enumerates as before (enumerateCut).
-func rootCands(obs *searchprobe.Collector, root Root, kinds Kinds, limit int, autoPayment bool) (cands []cand, kind string, why SkipReason, ok, cut, botFound bool) {
+func rootCands(obs *searchprobe.Collector, root Root, kinds Kinds, limit int, autoPayment bool, scratch *boardScratch) (cands []cand, kind string, why SkipReason, ok, cut, botFound bool) {
 	e, d := root.Engine, root.Decision
 	if !root.fullRoot() || !autoPayment || d.Kind != decision.KPriority || !kinds.Priority {
-		cands, kind, why, ok, cut = enumerateCut(obs, e, d, root.Bot, kinds, limit, autoPayment)
+		cands, kind, why, ok, cut = enumerateCutInto(obs, e, d, root.Bot, kinds, limit, autoPayment, scratch)
 		return cands, kind, why, ok, cut, ok
 	}
 	kind = "priority"
-	v, why, ok := paymentVocabulary(obs, e, d)
+	v, why, ok := paymentVocabulary(obs, e, d, scratch)
 	if !ok {
 		return nil, kind, why, false, false, false
 	}

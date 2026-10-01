@@ -158,7 +158,8 @@ func (e *Engine) gameWinPrevented(p state.PlayerID) bool {
 func (e *Engine) gameEventCantHappen(name string, ev events.Event) bool {
 	// Effect-created replacements (a delayed "you can't lose this turn"):
 	// bodyless, Layer$ CantHappen, matching through the same matcher.
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.ReplacementEvent != name || ce.ReplacementBody != "" ||
 			!strings.EqualFold(strings.TrimSpace(ce.ReplacementParams["Layer"]), "CantHappen") {
 			continue

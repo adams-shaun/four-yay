@@ -7,7 +7,7 @@ import (
 )
 
 // TestRepoConstructedCatalogDecks checks the repo-constructed catalog
-// corpus-free: the directory is the 14 supported 60-card constructed repo
+// corpus-free: the directory is the 15 supported 60-card constructed repo
 // decks, RepoPool is exactly the catalog minus mono-green-stompy (the Terror
 // precedent: in the dir, out of the pool), every deck parses as a 60-card
 // custom-format main deck, and CatalogByID serves the catalog. The
@@ -26,10 +26,10 @@ func TestRepoConstructedCatalogDecks(t *testing.T) {
 	if len(ids) == 0 {
 		t.Fatal("repo-constructed catalog directory is empty")
 	}
-	// The catalog must carry the full 14 constructed decks, mono-green-stompy
+	// The catalog must carry the full 15 constructed decks, mono-green-stompy
 	// included (it stays in the dir, out of the pool).
-	if len(ids) != 14 {
-		t.Fatalf("catalog has %d decks, want 14: %s", len(ids), strings.Join(ids, ","))
+	if len(ids) != 15 {
+		t.Fatalf("catalog has %d decks, want 15: %s", len(ids), strings.Join(ids, ","))
 	}
 	if !slices.Contains(ids, "mono-green-stompy") {
 		t.Fatal("mono-green-stompy missing from the catalog directory")

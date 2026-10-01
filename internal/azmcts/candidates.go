@@ -1,7 +1,6 @@
 package azmcts
 
 import (
-	"encoding/json"
 	"fmt"
 	"math"
 	"sort"
@@ -69,18 +68,56 @@ func (c cand) scoreChoices() ([]int, bool) {
 // translated). obs must be a collector for d.Player; ObserveDecision runs on
 // it first. e is read only by the blockers arm.
 func enumerate(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, bot decision.Intent, kinds Kinds, limit int) ([]cand, string, bool) {
-	cands, kind, _, ok := enumerateWhy(obs, e, d, bot, kinds, limit)
+	cands, kind, _, ok := enumerateWhyInto(obs, e, d, bot, kinds, limit, nil)
+	return cands, kind, ok
+}
+
+// enumerateInto is enumerate building its boards into scratch
+// (botpolicy.BoardFromGameInto) instead of allocating one per call; nil
+// allocates. The boards are read only inside the call, so a caller may
+// hand the same scratch to every call it makes.
+func enumerateInto(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, bot decision.Intent, kinds Kinds, limit int, scratch *boardScratch) ([]cand, string, bool) {
+	cands, kind, _, ok := enumerateWhyInto(obs, e, d, bot, kinds, limit, scratch)
 	return cands, kind, ok
 }
 
 // enumerateWhy is enumerate plus the reason a searched kind was skipped
 // (meaningful only when ok is false and kind is not "").
 func enumerateWhy(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, bot decision.Intent, kinds Kinds, limit int) ([]cand, string, SkipReason, bool) {
-	return enumerateWhyAutoPayment(obs, e, d, bot, kinds, limit, false)
+	return enumerateWhyInto(obs, e, d, bot, kinds, limit, nil)
 }
 
-func enumerateWhyAutoPayment(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, bot decision.Intent, kinds Kinds, limit int, autoPayment bool) ([]cand, string, SkipReason, bool) {
-	cands, kind, why, ok, _ := enumerateCut(obs, e, d, bot, kinds, limit, autoPayment)
+// boardScratch is one reusable Board, allocated on first use
+// (botpolicy.NewBoard) and refilled by every later use, so a caller that
+// never needs a board never pays for one.
+type boardScratch struct {
+	b     botpolicy.Board
+	built bool
+}
+
+// board is the scratch Board, allocated on first use.
+func (s *boardScratch) board(players int) *botpolicy.Board {
+	if !s.built {
+		s.b, s.built = botpolicy.NewBoard(players), true
+	}
+	return &s.b
+}
+
+// boardInto is BoardFromGame, filled into scratch when one is given.
+func boardInto(e *rules.Engine, p state.PlayerID, scratch *boardScratch) botpolicy.Board {
+	if scratch == nil {
+		return botpolicy.BoardFromGame(e.G, e, p)
+	}
+	return botpolicy.BoardFromGameInto(e.G, e, p, scratch.board(len(e.G.Players)))
+}
+
+// enumerateWhyInto is enumerateWhy over a board scratch (enumerateInto).
+func enumerateWhyInto(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, bot decision.Intent, kinds Kinds, limit int, scratch *boardScratch) ([]cand, string, SkipReason, bool) {
+	return enumerateWhyAutoPayment(obs, e, d, bot, kinds, limit, false, scratch)
+}
+
+func enumerateWhyAutoPayment(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, bot decision.Intent, kinds Kinds, limit int, autoPayment bool, scratch *boardScratch) ([]cand, string, SkipReason, bool) {
+	cands, kind, why, ok, _ := enumerateCutInto(obs, e, d, bot, kinds, limit, autoPayment, scratch)
 	return cands, kind, why, ok
 }
 
@@ -91,19 +128,24 @@ func enumerateWhyAutoPayment(obs *searchprobe.Collector, e *rules.Engine, d *dec
 // capped enumeration, so the candidates are exactly the capped
 // enumerator's whenever that one succeeds.
 func enumerateCut(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, bot decision.Intent, kinds Kinds, limit int, autoPayment bool) ([]cand, string, SkipReason, bool, bool) {
-	cands, kind, why, ok := enumerateLimit(obs, e, d, bot, kinds, limit+1, autoPayment)
+	return enumerateCutInto(obs, e, d, bot, kinds, limit, autoPayment, nil)
+}
+
+// enumerateCutInto is enumerateCut over a board scratch (enumerateInto).
+func enumerateCutInto(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, bot decision.Intent, kinds Kinds, limit int, autoPayment bool, scratch *boardScratch) ([]cand, string, SkipReason, bool, bool) {
+	cands, kind, why, ok := enumerateLimit(obs, e, d, bot, kinds, limit+1, autoPayment, scratch)
 	if ok && len(cands) > limit {
 		return cands[:limit], kind, why, ok, true
 	}
 	if !ok && why == SkipTranslate {
 		// The probe past the cap could not be translated: the capped list
 		// may still be, exactly as before the probe existed.
-		cands, kind, why, ok = enumerateLimit(obs, e, d, bot, kinds, limit, autoPayment)
+		cands, kind, why, ok = enumerateLimit(obs, e, d, bot, kinds, limit, autoPayment, scratch)
 	}
 	return cands, kind, why, ok, false
 }
 
-func enumerateLimit(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, bot decision.Intent, kinds Kinds, limit int, autoPayment bool) ([]cand, string, SkipReason, bool) {
+func enumerateLimit(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, bot decision.Intent, kinds Kinds, limit int, autoPayment bool, scratch *boardScratch) ([]cand, string, SkipReason, bool) {
 	var kind string
 	switch {
 	case d == nil:
@@ -124,7 +166,7 @@ func enumerateLimit(obs *searchprobe.Collector, e *rules.Engine, d *decision.Dec
 	// abilities, but they are nevertheless legal priority actions and must be
 	// searchable when an embedding exposes auto-pay (paymentPriorityCands).
 	if autoPayment && kind == "priority" && e != nil {
-		cands, why, ok := paymentPriorityCands(obs, e, d, bot, limit)
+		cands, why, ok := paymentPriorityCands(obs, e, d, bot, limit, scratch)
 		return cands, kind, why, ok
 	}
 	if bot.Payment != nil {
@@ -139,7 +181,7 @@ func enumerateLimit(obs *searchprobe.Collector, e *rules.Engine, d *decision.Dec
 	case "attackers":
 		ins = searchprobe.AttackCandidates(d, bot, limit)
 	case "blockers":
-		b := botpolicy.BoardFromGame(e.G, e, d.Player)
+		b := boardInto(e, d.Player, scratch)
 		legal := func(choices []int) []int { return botpolicy.LegalBlockChoices(b, d, choices) }
 		ins = searchprobe.BlockCandidates(d, bot, limit, legal)
 	case "target":
@@ -149,7 +191,7 @@ func enumerateLimit(obs *searchprobe.Collector, e *rules.Engine, d *decision.Dec
 		if err != nil || len(base) != 1 {
 			return nil, kind, SkipTranslate, false
 		}
-		for _, a := range searchprobe.Candidates(worthOptions(od, e, d), base[0], limit) {
+		for _, a := range obs.Candidates(worthOptionsInto(od, e, d, scratch), base[0], limit) {
 			in, err := obs.Match(d, []searchprobe.Action{a})
 			if err != nil {
 				return nil, kind, SkipTranslate, false
@@ -278,8 +320,8 @@ func nameKeys(e *rules.Engine, d *decision.Decision, cands []cand, rootRefs int)
 // answer is played (SkipFewCandidates, the ordinary path's rule). Then
 // Pass, the payment casts in engine order, and the rest by key; capped at
 // limit.
-func paymentPriorityCands(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, bot decision.Intent, limit int) ([]cand, SkipReason, bool) {
-	v, why, ok := paymentVocabulary(obs, e, d)
+func paymentPriorityCands(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, bot decision.Intent, limit int, scratch *boardScratch) ([]cand, SkipReason, bool) {
+	v, why, ok := paymentVocabulary(obs, e, d, scratch)
 	if !ok {
 		return nil, why, false
 	}
@@ -303,7 +345,7 @@ type paymentVocab struct {
 	hasPass bool
 }
 
-func paymentVocabulary(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision) (paymentVocab, SkipReason, bool) {
+func paymentVocabulary(obs *searchprobe.Collector, e *rules.Engine, d *decision.Decision, scratch *boardScratch) (paymentVocab, SkipReason, bool) {
 	if _, err := obs.ObserveDecision(e, d); err != nil {
 		return paymentVocab{}, SkipTranslate, false
 	}
@@ -339,7 +381,7 @@ func paymentVocabulary(obs *searchprobe.Collector, e *rules.Engine, d *decision.
 		}
 		if o.Kind == "ability" {
 			if !built {
-				b = botpolicy.BoardFromGame(e.G, e, d.Player)
+				b = boardInto(e, d.Player, scratch)
 				built = true
 			}
 			if !b.AbilityWorthTaking(o, d.Player) {
@@ -363,13 +405,22 @@ func paymentVocabulary(obs *searchprobe.Collector, e *rules.Engine, d *decision.
 		}
 		rest = append(rest, c)
 	}
-	sort.SliceStable(rest, func(i, j int) bool { return rest[i].key < rest[j].key })
+	sortByJSON(rest)
 	v := paymentVocab{payAt: payAt, hasPass: pass != nil}
 	if pass != nil {
 		v.all = append(v.all, *pass)
 	}
 	v.all = append(append(v.all, pays...), rest...)
 	return v, 0, true
+}
+
+// sortByJSON orders cands by the JSON encoding of their semantic actions,
+// stably (searchprobe.CompareActionsJSON): the order the vocabulary's
+// "rest" had while a candidate key WAS that encoding, before
+// searchprobe.AppendActionsKey replaced it. The candidate order decides
+// PUCT's ties, so the search benchmark's results are pinned to it.
+func sortByJSON(cands []cand) {
+	sort.SliceStable(cands, func(i, j int) bool { return searchprobe.CompareActionsJSON(cands[i].acts, cands[j].acts) < 0 })
 }
 
 // botIndex is the index in v.all of the bot's answer bot, -1 when it is
@@ -474,8 +525,8 @@ func (m *keyMatcher) intent(k Key) (decision.Intent, error) {
 		}
 		return decision.Intent{}, fmt.Errorf("azmcts: payment candidate %s is not offered here", k)
 	}
-	var acts []searchprobe.Action
-	if err := json.Unmarshal([]byte(k), &acts); err != nil {
+	acts, err := searchprobe.ParseActionsKey([]byte(k))
+	if err != nil {
 		return decision.Intent{}, fmt.Errorf("azmcts: key %q is not a semantic action list: %v", k, err)
 	}
 	return m.obs.Match(m.d, acts)
@@ -531,6 +582,12 @@ func CandidateLabel(d *decision.Decision, in decision.Intent) string {
 // no creature, no activation census, exactly what such a decision shows the
 // bot. od is returned unchanged when nothing is dropped.
 func worthOptions(od *searchprobe.ObservedDecision, e *rules.Engine, d *decision.Decision) *searchprobe.ObservedDecision {
+	return worthOptionsInto(od, e, d, nil)
+}
+
+// worthOptionsInto is worthOptions building its board into scratch (nil
+// allocates).
+func worthOptionsInto(od *searchprobe.ObservedDecision, e *rules.Engine, d *decision.Decision, scratch *boardScratch) *searchprobe.ObservedDecision {
 	if od == nil || len(od.Options) != len(d.Options) {
 		return od
 	}
@@ -541,7 +598,7 @@ func worthOptions(od *searchprobe.ObservedDecision, e *rules.Engine, d *decision
 		if o.Kind == "ability" {
 			if !built {
 				if e != nil {
-					b = botpolicy.BoardFromGame(e.G, e, d.Player)
+					b = boardInto(e, d.Player, scratch)
 				}
 				built = true
 			}
@@ -588,15 +645,12 @@ func priorityBase(d *decision.Decision, bot decision.Intent) BaseKind {
 	return BaseOther
 }
 
-// actionsKey is the canonical key of a semantic action list: its JSON
-// encoding (fixed field order, so equal lists give equal keys).
+// actionsKey is the canonical key of a semantic action list
+// (searchprobe.AppendActionsKey): equal exactly when the lists' JSON
+// encodings are, which is what the key was before it stopped being JSON.
 func actionsKey(acts []searchprobe.Action) Key {
-	b, err := json.Marshal(acts)
-	if err != nil {
-		// Action holds only integers and strings; Marshal cannot fail.
-		panic(fmt.Sprintf("azmcts: encoding a semantic action: %v", err))
-	}
-	return Key(b)
+	var buf [128]byte
+	return Key(searchprobe.AppendActionsKey(buf[:0], acts))
 }
 
 // priors is the candidates' prior (spec §2): uniform without a network;
@@ -606,11 +660,16 @@ func actionsKey(acts []searchprobe.Action) Key {
 // score for priority and target. The bot's options are marked (BotPick) as a
 // residual checkpoint was trained. fellBack reports a network prior that
 // could not be formed (every candidate -Inf or NaN) and fell back to uniform.
-func priors(net *policynet.Model, e *rules.Engine, d *decision.Decision, bot decision.Intent, kind string, cands []cand) ([]float64, bool) {
+// The view is projected into pv (view.ProjectInto), a fresh one when nil.
+func priors(net *policynet.Model, e *rules.Engine, d *decision.Decision, bot decision.Intent, kind string, cands []cand, pv *view.View) ([]float64, bool) {
 	if net == nil {
 		return uniform(len(cands)), false
 	}
-	v := view.Project(e.G, e, d.Player, d)
+	if pv == nil {
+		pv = new(view.View)
+	}
+	view.ProjectInto(pv, e.G, e, d.Player, d)
+	v := *pv
 	st := policynet.EncodeStateWith(net.Features, v, d.Player, nil)
 	enc := make([]policynet.Option, len(d.Options))
 	for i := range d.Options {

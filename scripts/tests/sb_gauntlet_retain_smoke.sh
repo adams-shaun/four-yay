@@ -175,6 +175,17 @@ PY
 check "kept matches.jsonl parses as a spellbench-match-ledger/v1 with a deck and two seats" \
 	$? "$(cat "$TMP/parse.err")"
 
+python3 - "$CAND_DIR/meta.json" "$HEAD" "$SPEC" <<'PY' >"$TMP/meta.err" 2>&1
+import json
+import sys
+
+meta = json.load(open(sys.argv[1]))
+assert set(meta) == {"ts", "git_head", "spec", "key"}, meta
+assert meta["git_head"] == sys.argv[2] and meta["spec"] == sys.argv[3], meta
+assert meta["key"] and meta["ts"].endswith("Z"), meta
+PY
+check "candidate meta.json carries UTC ts, head, spec and key" $? "$(cat "$TMP/meta.err")"
+
 # --- 3. the h2h column still finds the candidate dir (regression guard)
 grep -q "$REF 1-0" "$GDIR/run.log"
 check "head-to-head column is non-empty ($REF 1-0)" $? "$(grep -A2 'spec' "$GDIR/run.log")"

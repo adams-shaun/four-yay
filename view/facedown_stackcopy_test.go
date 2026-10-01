@@ -42,7 +42,7 @@ func TestFaceDownStackCopyIsRedactedFromOpponents(t *testing.T) {
 	ch := flatChars{g}
 	// Opponent's (seat 1) seat view: the copied spell must carry no name,
 	// text or card.
-	opp := project(g, ch, 1, nil, false, nil)
+	opp := project(g, ch, 1, nil, false, nil, false)
 	var oppCopy *StackView
 	for i := range opp.Stack {
 		if opp.Stack[i].ID == copyID {
@@ -58,7 +58,7 @@ func TestFaceDownStackCopyIsRedactedFromOpponents(t *testing.T) {
 	}
 
 	// Controller's (seat 0) seat view: the printed band is visible.
-	ctrl := project(g, ch, 0, nil, false, nil)
+	ctrl := project(g, ch, 0, nil, false, nil, false)
 	var ctrlCopy *StackView
 	for i := range ctrl.Stack {
 		if ctrl.Stack[i].ID == copyID {
@@ -89,7 +89,7 @@ func TestFaceDownStackCopyIsRedactedFromOpponents(t *testing.T) {
 	if c := g2.Obj(upID); c == nil || !c.IsCopy || c.FaceDown {
 		t.Fatalf("control precondition: not a face-up copy: %+v", c)
 	}
-	up := project(g2, flatChars{g2}, 1, nil, false, nil)
+	up := project(g2, flatChars{g2}, 1, nil, false, nil, false)
 	var upCopy *StackView
 	for i := range up.Stack {
 		if up.Stack[i].ID == upID {

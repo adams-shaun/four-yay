@@ -141,15 +141,21 @@ func wireCardIDs(t *testing.T, pv map[string]any, key string) []state.ObjID {
 }
 
 // noLibraryOnWire walks the whole decoded tree for any seat object carrying a
-// "library" key. The struct half of the D12 pin lives in view/ (no Library
-// field at all); here we additionally prove no library-carrying key reaches
-// the wire in any seat object, which is the shape a marshalling-introduced
-// leak would show.
-func noLibraryOnWire(t *testing.T, players []map[string]any) {
+// "library" key. The struct half of the D12 pin lives in view/; here we
+// additionally prove no library-carrying key reaches the wire to a viewer
+// that does not own the seat. The one exception is a real seat's OWN library
+// in Seat visibility (own_library_list): the viewer's own seat may carry the
+// unordered "library" list, but no other seat may, and no spectator mode
+// (Public or Omniscient) may carry one at all -- the secret draw order is
+// never served.
+func noLibraryOnWire(t *testing.T, players []map[string]any, vis view.Visibility, viewer state.PlayerID) {
 	t.Helper()
-	for _, pv := range players {
+	for seat, pv := range players {
 		if _, ok := pv["library"]; ok {
-			t.Fatalf("wire player carries a library list: %v", pv)
+			if vis == view.Seat && state.PlayerID(seat) == viewer {
+				continue
+			}
+			t.Fatalf("wire player %d carries a library list (visibility %s, viewer %d): %v", seat, vis, viewer, pv)
 		}
 	}
 }
@@ -207,6 +213,16 @@ func TestWireSeatVisibilityRedactsHandsKeepsOpponentsPublicZones(t *testing.T) {
 	if hand := own["hand"].([]any); len(hand) != len(g.Zone(state.ZHand, viewer)) {
 		t.Fatalf("the viewer's own wire hand has %d cards, want %d", len(hand), len(g.Zone(state.ZHand, viewer)))
 	}
+	// The viewer's own library list is served (own_library_list); without this
+	// positive control the noLibraryOnWire exception below would pass even if
+	// the library were never projected at all.
+	ownLib, ok := own["library"].([]any)
+	if !ok {
+		t.Fatalf("the viewer's own library is not served as an array on the wire: %v", own["library"])
+	}
+	if len(ownLib) != len(g.Zone(state.ZLibrary, viewer)) {
+		t.Fatalf("the viewer's own wire library has %d cards, want %d", len(ownLib), len(g.Zone(state.ZLibrary, viewer)))
+	}
 	assertWirePool(t, own, 0)
 
 	for other := state.PlayerID(1); other < 4; other++ {
@@ -230,7 +246,7 @@ func TestWireSeatVisibilityRedactsHandsKeepsOpponentsPublicZones(t *testing.T) {
 			t.Fatalf("seat %d exile on wire = %v, want ids %v", other, got, g.Zone(state.ZExile, other))
 		}
 	}
-	noLibraryOnWire(t, players)
+	noLibraryOnWire(t, players, view.Seat, viewer)
 }
 
 // TestWirePublicVisibilityShowsEveryPublicZoneNoHands is group 2 on the wire:
@@ -259,7 +275,7 @@ func TestWirePublicVisibilityShowsEveryPublicZoneNoHands(t *testing.T) {
 				t.Fatalf("public viewer %d seat %d exile on wire = %v, want %v", viewer, seat, got, g.Zone(state.ZExile, seat))
 			}
 		}
-		noLibraryOnWire(t, players)
+		noLibraryOnWire(t, players, view.Public, viewer)
 	}
 }
 
@@ -291,7 +307,7 @@ func TestWireOmniscientShowsEveryHandAndPoolNoLibrary(t *testing.T) {
 				t.Fatalf("omniscient viewer %d seat %d exile on wire = %v, want %v", viewer, seat, got, g.Zone(state.ZExile, seat))
 			}
 		}
-		noLibraryOnWire(t, players)
+		noLibraryOnWire(t, players, view.Omniscient, viewer)
 	}
 }
 
@@ -337,7 +353,7 @@ func TestWireSeatEndpointServesOpponentsPublicZonesAndNoLibrary(t *testing.T) {
 	if players[other]["exile"] == nil {
 		t.Fatal("an opponent's exile key is absent on the served wire")
 	}
-	noLibraryOnWire(t, players)
+	noLibraryOnWire(t, players, view.Seat, parked)
 
 	// The omniscient spectator path (no ?seat=) on the same table: it serves
 	// a library list to nobody either.
@@ -351,5 +367,5 @@ func TestWireSeatEndpointServesOpponentsPublicZonesAndNoLibrary(t *testing.T) {
 	if specPlayers[parked]["hand"] == nil || specPlayers[other]["hand"] == nil {
 		t.Fatal("the omniscient spectator endpoint fails to serve one of the human hands over the network")
 	}
-	noLibraryOnWire(t, specPlayers)
+	noLibraryOnWire(t, specPlayers, view.Omniscient, view.NoSeat)
 }

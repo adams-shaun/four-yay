@@ -1,0 +1,60 @@
+{
+  "card": "Scarlet Witch, Chaotic Avenger",
+  "family": "hero-triggers",
+  "oracle_sha": "a58f711882b9",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "combat-damage-exiles-two",
+      "cr": [
+        "510.1",
+        "603.2"
+      ],
+      "why": "Unblocked Scarlet Witch deals three damage, then its trigger exiles the top two cards face down with it.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Scarlet Witch, Chaotic Avenger"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Scarlet Witch, Chaotic Avenger"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "pass_to",
+          "step": "main2",
+          "active": "p0"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Scarlet Witch, Chaotic Avenger",
+          "zone": "battlefield",
+          "keywords": [
+            "Flying"
+          ]
+        },
+        {
+          "life": {
+            "p1": 17
+          }
+        },
+        {
+          "count": {
+            "seat": 0,
+            "zone": "exile",
+            "name": "Wastes"
+          },
+          "eq": 2
+        }
+      ]
+    }
+  ]
+}

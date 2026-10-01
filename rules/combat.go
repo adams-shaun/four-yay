@@ -221,7 +221,8 @@ func (e *Engine) attackRequirements(id state.ObjID) attackRequirementSet {
 	if p, ok := e.encoreAttackDefender(id); ok {
 		s.addNamed(p)
 	}
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.Restriction != "MustAttack" {
 			continue
 		}
@@ -1319,7 +1320,8 @@ func (e *Engine) staticGoadLines() []staticGoadLine {
 		}
 		out = append(out, staticGoadLine{source: sv.Source, controller: sv.Controller, spec: spec})
 	}
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.Restriction != "Goad" {
 			continue
 		}
@@ -1731,7 +1733,8 @@ func (e *Engine) mustBlockCandidates(defender state.PlayerID) map[state.ObjID]bo
 		if required[id] {
 			continue
 		}
-		for _, ce := range e.active() {
+		for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+			ce := &ceL[ceI]
 			if ce.Restriction == "MustBlock" && e.restrictionApplies(ce, id) {
 				required[id] = true
 				break
@@ -3189,7 +3192,8 @@ func (e *Engine) maxHandSizeFor(p state.PlayerID) int {
 			return n
 		}
 	}
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.SetMaxHandSize == "" {
 			continue
 		}

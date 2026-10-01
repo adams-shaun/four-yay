@@ -73,7 +73,7 @@ func (e *Engine) stationCandidates(p state.PlayerID, station state.ObjID) []stat
 			continue
 		}
 		o := e.G.Obj(id)
-		if o == nil || o.Tapped || !hasCreatureType(e.Derived(id).Types) {
+		if o == nil || o.Tapped || !hasCreatureType(e.derivedTypesOf(id)) {
 			continue
 		}
 		out = append(out, id)

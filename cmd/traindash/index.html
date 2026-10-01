@@ -315,6 +315,18 @@ function renderDecks() {
   if (!ls.length) return '<section class="panel empty">No matches.jsonl ledgers found under the root. Point -root at the gauntlet work tree (its ref/&lt;key&gt; dirs hold one) or a botbench -spellbench-out directory.</section>';
   let h = '<section class="panel"><h2>Per-deck win rate by ledger</h2>' +
     '<div class="muted" style="font-size:12px;margin-bottom:6px">Each chart: the focus policy\'s win rate on each deck in that ledger, with the 95% Wilson interval. Source: <code>matches.jsonl</code> rows (<code>decks[].catalog_id</code>, <code>seats[].name</code>, <code>winner</code>). Focus is set by <code>-deck-focus</code> (default: the ledger\'s dominant policy).</div>';
+  const histories = ((snap && snap.deck_history) || []).filter(d => d.points && d.points.length >= 2);
+  if (histories.length) {
+    h += '<h3>Per-deck win rate across candidate runs</h3><div class="muted" style="font-size:12px">Candidate runs are ordered by ledger timestamp (or matches.jsonl mtime for older runs); bands are 95% Wilson intervals.</div>';
+    for (const d of histories) {
+      const labels = d.points.map(p => p.run);
+      const series = [{name: d.deck, color: PALETTE[0],
+        pts: d.points.map((p, i) => [i + 1, p.win_rate]),
+        band: d.points.map((p, i) => (p.ci && p.ci.length === 2) ? [i + 1, p.ci[0], p.ci[1]] : null).filter(Boolean)}];
+      h += `<div style="margin:10px 0 2px"><b>${esc(d.deck)}</b> <span class="muted">${d.points.length} candidate runs</span></div>`;
+      h += lineChart({series, h: 260, xticks: labels, ymin: 0, ymax: 1, yfmt: v => (v * 100).toFixed(0) + "%"});
+    }
+  }
   for (const l of ls) {
     h += `<div style="margin:10px 0 2px"><b>${esc(l.id)}</b> <span class="muted">focus ${esc(l.focus)} · ${l.games} games</span></div>`;
     const series = [{name: l.focus, color: PALETTE[0],

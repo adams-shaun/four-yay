@@ -1,0 +1,77 @@
+{
+  "card": "Synth Eradicator",
+  "family": "energy",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "oracle_sha": "df8cf9b44060",
+  "scenarios": [
+    {
+      "name": "haste-keyword",
+      "cr": [
+        "702.10a"
+      ],
+      "why": "Synth Eradicator has haste printed in its Oracle text.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Synth Eradicator"
+          ]
+        }
+      },
+      "steps": [],
+      "expect": [
+        {
+          "card": "p0:Synth Eradicator",
+          "pt": "3/3",
+          "keywords": [
+            "haste"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "attack-exiles-top-card",
+      "cr": [
+        "603.6a",
+        "608.2c"
+      ],
+      "why": "Whenever Synth Eradicator attacks it exiles the top card of its controller's library; the exiled card is not put anywhere else this turn unless the energy is declined and it is played.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Synth Eradicator"
+          ],
+          "library_top": [
+            "Lightning Bolt"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Synth Eradicator"
+          ],
+          "defender": "p1"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "any",
+              "pick": [
+                "yes"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Lightning Bolt",
+          "zone": "exile"
+        }
+      ]
+    }
+  ]
+}

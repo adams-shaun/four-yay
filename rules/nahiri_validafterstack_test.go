@@ -156,15 +156,15 @@ func TestEffectGrantValidAfterStackGateFailsClosed(t *testing.T) {
 		MayPlayValidAfterStack: "Spell.Equipment",
 		Remembered:             []state.ObjID{equipment.ID, nonEquipment.ID},
 	}
-	if !e.effectGrantMatches(grant, equipment.ID) {
+	if !e.effectGrantMatches(&grant, equipment.ID) {
 		t.Fatal("Equipment card rejected by its own Spell.Equipment qualifier")
 	}
-	if e.effectGrantMatches(grant, nonEquipment.ID) {
+	if e.effectGrantMatches(&grant, nonEquipment.ID) {
 		t.Fatal("non-Equipment card passed the Spell.Equipment qualifier")
 	}
 	// An unsupported predicate value must remain fail-closed.
 	grant.MayPlayValidAfterStack = "Spell.NotAPredicate"
-	if e.effectGrantMatches(grant, equipment.ID) {
+	if e.effectGrantMatches(&grant, equipment.ID) {
 		t.Fatal("an unsupported ValidAfterStack$ value was accepted (must fail closed)")
 	}
 }

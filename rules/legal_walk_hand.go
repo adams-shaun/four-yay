@@ -26,7 +26,7 @@ func (w *legalWalk) handWalk() {
 		}
 		if f.IsLand() {
 			if sorcery && e.G.Players[p].LandsPlayed < int32(1+e.adjustLandPlays(p)) {
-				w.add("play_land", "Play "+f.Name, id)
+				w.add("play_land", w.playLabel(f), id)
 				// A Modal DFC may also be played as its back land, even
 				// when its front face is itself a land (CR 712.8).
 				if back := modalLandBack(o); back != nil {
@@ -317,13 +317,13 @@ func (w *legalWalk) handWalk() {
 			if targetsAvailable() {
 				for _, part := range altParts {
 					if w.offerCastable(p, id, withSpellAbilityExtras(f, convokeBase).Plus(e.parseCost(part)), spellScope(""), false) {
-						w.add("cast", "Cast "+f.Name, id)
+						w.add("cast", w.castLabel(f), id)
 						break
 					}
 				}
 			}
 		} else if w.offerCastable(p, id, withSpellAbilityExtras(f, convokeBase), spellScope(""), false) && targetsAvailable() {
-			w.add("cast", "Cast "+f.Name, id)
+			w.add("cast", w.castLabel(f), id)
 		}
 		// Self-spell OptionalCost is a separate paid offer; the plain
 		// cast above remains the decline path. Preserve static order.

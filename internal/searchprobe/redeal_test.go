@@ -79,7 +79,7 @@ func TestRedealFallbackOnStarvedRealDeckSample(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if string(frame.Board) != string(f.h.Frames[len(f.h.Frames)-1].Board) {
+		if frame.Board.Sum != f.h.Frames[len(f.h.Frames)-1].Board.Sum {
 			t.Fatal("redealt world changes the observed board")
 		}
 		key := ""

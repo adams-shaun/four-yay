@@ -753,6 +753,19 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 // (Giant Growth), so it outlives its source and is only removed by
 // EndOfTurnCleanup.
 func (e *Engine) active() []ContinuousEffect {
+	// The exact-hit test below, hoisted into this inlinable wrapper: the hit
+	// is by far the common call (every Derived and restriction read asks),
+	// and on it activeBuild's depth bump and deferred restore bracket no
+	// work at all, so returning here is the same answer at no call cost.
+	if e.activeEpoch == len(e.L.Events) && e.activeVersion == e.continuousVersion && e.activeStaticSeq == e.staticBuildSeq {
+		return e.activeBuf
+	}
+	return e.activeBuild()
+}
+
+// activeBuild is active() past its exact-hit test: the layer-inert re-stamp
+// or a full rebuild.
+func (e *Engine) activeBuild() []ContinuousEffect {
 	e.activeDepth++
 	defer func() { e.activeDepth-- }()
 	// Cached hit: derived only reads the returned slice, never mutates it, so
@@ -781,7 +794,10 @@ func (e *Engine) active() []ContinuousEffect {
 	e.activeVersion = e.continuousVersion
 	e.activeObjs = len(e.G.Objs)
 	e.activeBuildSeq++
-	buf := e.activeBuf[:0]
+	// Double-buffered (derived_transparent.go): the build writes the other
+	// array, so the previous list survives intact for the transparency
+	// comparison below.
+	buf := e.activeBufAlt[:0]
 	if e.activeDepth > 1 {
 		// Re-entrant (a nested Derived mid-rebuild): own a private list rather
 		// than overwrite the outer call's result mid-range. Same guard Task A2
@@ -815,47 +831,76 @@ func (e *Engine) active() []ContinuousEffect {
 	// (staticControlWants) invalidates this buffer on the next active() call.
 	e.activeStaticSeq = e.staticBuildSeq
 	buf = append(buf, e.staticContinuous...)
-	slices.SortStableFunc(buf, func(a, b ContinuousEffect) int {
-		if a.Layer != b.Layer {
-			if a.Layer < b.Layer {
-				return -1
-			}
-			return 1
-		}
-		if a.Sub != b.Sub {
-			if a.Sub < b.Sub {
-				return -1
-			}
-			return 1
-		}
-		if a.Timestamp != b.Timestamp {
-			if a.Timestamp < b.Timestamp {
-				return -1
-			}
-			return 1
-		}
-		// A full tie inside layer 6 between an ability/keyword-removing effect
-		// and an ability-granting one applies removal first: static lines that
-		// strip and grant together follow CR 613.1f's removal-then-grant reading
-		// of a simultaneous pair. Without this tie-break the stable sort keeps
-		// scanner emission order and may wipe the grant. Timestamps still
-		// dominate: a LATER removal (Humility entering after) still wipes an
-		// earlier grant.
-		aRemovesKeywords := a.RemoveAbilities || len(a.RemoveKeywords) > 0
-		bRemovesKeywords := b.RemoveAbilities || len(b.RemoveKeywords) > 0
-		if a.Layer == LAbilities && aRemovesKeywords != bRemovesKeywords {
-			if aRemovesKeywords {
-				return -1
-			}
-			return 1
-		}
-		return 0
-	})
+	// A rebuild's list is usually already in CR 613 order (registration and
+	// the static scan both run in timestamp order), and a stable sort of a
+	// sorted list is the identity, so test that first by pointer instead of
+	// paying the sort's by-value comparator on 1 KB elements.
+	if !continuousSorted(buf) {
+		slices.SortStableFunc(buf, compareContinuous)
+	}
 	if e.activeDepth <= 1 {
 		// Keep the grown, sorted buffer on the Engine for the next build or
 		// cache hit; a re-entrant build's private buffer is discarded on return.
-		e.activeBuf = buf
+		if !e.derivedRebuildTransparent(e.activeBuf, buf) {
+			e.derivedSeq++
+		}
+		e.derivedNoteBuild()
+		e.activeBufAlt, e.activeBuf = e.activeBuf, buf
 		e.activeKWHeads = appendKWHeads(e.activeKWHeads[:0], buf)
+	} else {
+		e.derivedSeq++
 	}
 	return buf
+}
+
+// continuousSorted reports whether buf is already non-decreasing under
+// compareContinuous.
+func continuousSorted(buf []ContinuousEffect) bool {
+	for i := 1; i < len(buf); i++ {
+		if compareContinuousPtr(&buf[i-1], &buf[i]) > 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func compareContinuous(a, b ContinuousEffect) int { return compareContinuousPtr(&a, &b) }
+
+// compareContinuousPtr is active()'s CR 613 order: layer, then sublayer,
+// then timestamp, then the layer-6 removal-before-grant tie-break below.
+func compareContinuousPtr(a, b *ContinuousEffect) int {
+	if a.Layer != b.Layer {
+		if a.Layer < b.Layer {
+			return -1
+		}
+		return 1
+	}
+	if a.Sub != b.Sub {
+		if a.Sub < b.Sub {
+			return -1
+		}
+		return 1
+	}
+	if a.Timestamp != b.Timestamp {
+		if a.Timestamp < b.Timestamp {
+			return -1
+		}
+		return 1
+	}
+	// A full tie inside layer 6 between an ability/keyword-removing effect
+	// and an ability-granting one applies removal first: static lines that
+	// strip and grant together follow CR 613.1f's removal-then-grant reading
+	// of a simultaneous pair. Without this tie-break the stable sort keeps
+	// scanner emission order and may wipe the grant. Timestamps still
+	// dominate: a LATER removal (Humility entering after) still wipes an
+	// earlier grant.
+	aRemovesKeywords := a.RemoveAbilities || len(a.RemoveKeywords) > 0
+	bRemovesKeywords := b.RemoveAbilities || len(b.RemoveKeywords) > 0
+	if a.Layer == LAbilities && aRemovesKeywords != bRemovesKeywords {
+		if aRemovesKeywords {
+			return -1
+		}
+		return 1
+	}
+	return 0
 }

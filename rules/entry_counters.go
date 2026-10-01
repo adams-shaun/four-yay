@@ -477,8 +477,14 @@ func (e *Engine) entryPreview(ev events.Event) (*Engine, state.ObjID) {
 	// A competing AddCounter choice can log an ask during the preview. Keep
 	// both its log and its queue private; no speculative event may leak into
 	// the real chain. Preserve prior events for log-backed counter predicates.
+	// The prior events are SHARED, capped at their length (the fork
+	// events.Log.Clone makes): stored events are append-only history, so the
+	// preview reads the live prefix in place, and a preview append -- rare,
+	// only a competing AddCounter ask -- regrows into a private array and can
+	// never write into the live log's. Copying the whole log here was a
+	// per-entry O(log) copy (a measured top allocator of the search loop).
 	shadow := *e.L
-	shadow.Events = append([]events.Event(nil), e.L.Events...)
+	shadow.Events = e.L.Events[:len(e.L.Events):len(e.L.Events)]
 	preview.L = &shadow
 	preview.replChoices = append([]replChoice(nil), e.replChoices...)
 	// TokenCreate/CardToken mint in their own Apply fold rather than
@@ -562,7 +568,7 @@ func (e *Engine) stageEntryCounterOrder(ev events.Event, preview *Engine, n0 int
 	}
 	e.replChoices = append(e.replChoices, replChoice{kind: replChoiceEntryOrder,
 		ev: posed.ev, cands: posed.cands, player: posed.player,
-		before: e.triggerBefore, inResolution: st.inRes,
+		before: e.retainTriggerBefore(), inResolution: st.inRes,
 		damaging: e.damaging, combatDamaging: e.combatDamaging, dmgSrcOverride: e.dmgSrcOverride,
 		stage: st})
 	if e.pending == nil {
@@ -665,7 +671,7 @@ func (e *Engine) resumeEntryCounterOrder(rc replChoice, idx int) {
 			st.counter, st.applied = rc2.ev, rc2.appliedRepls
 			e.replChoices = append(e.replChoices, replChoice{kind: replChoiceEntryOrder,
 				ev: rc2.ev, cands: rc2.cands, player: p,
-				before: e.triggerBefore, inResolution: st.inRes,
+				before: e.retainTriggerBefore(), inResolution: st.inRes,
 				damaging: e.damaging, combatDamaging: e.combatDamaging, dmgSrcOverride: e.dmgSrcOverride,
 				stage: st})
 			if e.pending == nil {

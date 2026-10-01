@@ -83,6 +83,13 @@ order is hidden in both modes (count only): it spoils draws and teaches
 nothing. `public` is exactly today's spectator redaction — a viewer with no
 seat.
 
+Amended by `own_library_list` (reward-loop spec §6): a real seat's OWN view
+(Seat visibility) also carries its own library as an UNORDERED list of cards,
+gated on "is this the viewer's own seat" exactly like Hand (CR 400.2). The
+list is canonicalised by card name then object id, so the ORDER stays hidden —
+only the contents are exposed, to that seat alone. Both spectator modes
+(public and omniscient) still list no library at all.
+
 ### D13. Client is a Svelte + Vite TypeScript SPA under `web/`
 
 Built assets are `go:embed`ed into `gorged`. Envelope types are generated

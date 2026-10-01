@@ -118,7 +118,7 @@ func TestHonestRootKeepsTheObservation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("capture the root: %v", err)
 	}
-	if string(got.Board) != string(last.Board) {
+	if got.Board.Sum != last.Board.Sum {
 		t.Fatalf("the root's board differs from the feed's last frame")
 	}
 	if !reflect.DeepEqual(got.Decision, last.Decision) {

@@ -42,7 +42,8 @@ import (
 // run to run and replays byte-identically.
 func (e *Engine) playerKeywords(p state.PlayerID) []string {
 	var out []string
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if len(ce.AddKeywords) == 0 {
 			continue
 		}

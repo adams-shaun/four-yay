@@ -186,7 +186,7 @@ func (e *Engine) continueScryReplacements(ev events.Event, matches []replMatch, 
 				sa, target = e.scrySA, e.scryTarget
 			}
 			e.replChoices = append([]replChoice{{kind: replChoiceScry, ev: ev, cands: matches,
-				applied: used, applicable: applicable, before: e.triggerBefore, player: ev.Player}}, e.replChoices...)
+				applied: used, applicable: applicable, before: e.retainTriggerBefore(), player: ev.Player}}, e.replChoices...)
 			if e.pending == nil {
 				d := e.scryReplacementDecision(e.replChoices[0], sa, target)
 				if e.resume == nil {

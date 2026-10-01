@@ -1,0 +1,42 @@
+{
+  "card": "Underground Mortuary",
+  "family": "etb-ltb",
+  "oracle_sha": "de3201dcc323",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enters-tapped-surveils-top-card-into-graveyard",
+      "cr": ["305.8", "701.42a", "603.6a"],
+      "why": "Underground Mortuary enters tapped and its enter trigger surveils 1; binning the top card moves it to the graveyard.",
+      "setup": {
+        "p0": {"hand": ["Underground Mortuary"], "library_top": ["Lightning Bolt"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "play", "seat": 0, "card": "p0:Underground Mortuary"},
+      {"op": "resolve", "answers": [{"kind": "arrange", "pick": []}]}
+      ],
+      "expect": [
+        {"card": "p0:Underground Mortuary", "zone": "battlefield", "tapped": true},
+        {"card": "p0:Lightning Bolt", "zone": "graveyard"}
+      ]
+    },
+    {
+      "name": "surveil-keeps-top-card-and-taps-for-black-or-green",
+      "cr": ["305.8", "701.42a"],
+      "why": "Declining to bin keeps the surveiled card on top of the library; the tapped land produced its {B} or {G} mana.",
+      "setup": {
+        "p0": {"hand": ["Underground Mortuary"], "library_top": ["Lightning Bolt"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "play", "seat": 0, "card": "p0:Underground Mortuary"},
+        {"op": "resolve", "answers": [{"kind": "arrange", "pick": ["Lightning Bolt"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Lightning Bolt", "zone": "library"},
+        {"card": "p0:Underground Mortuary", "tapped": true}
+      ]
+    }
+  ]
+}

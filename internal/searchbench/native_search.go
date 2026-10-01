@@ -407,7 +407,7 @@ func checkRoots(answer, real *rules.Engine, worlds []*rules.Engine) (state.Playe
 			return fmt.Errorf("searchbench: capture %s: %w", name, err)
 		}
 		switch {
-		case string(got.Board) != string(want.Board):
+		case got.Board.Sum != want.Board.Sum: // equal exactly when the boards' JSON encodings are
 			return fmt.Errorf("searchbench: %s observes a different board", name)
 		case !reflect.DeepEqual(got.Identities, want.Identities):
 			return fmt.Errorf("searchbench: %s observes different identities", name)

@@ -44,7 +44,8 @@ func (e *Engine) mayPlayLandIds(p state.PlayerID) []state.ObjID {
 	// arms below (mayplay_index.go): a faceless object and a non-land are
 	// both refused, exactly as the nested scan's per-card gate did.
 	landKeep := func(o *state.Object) bool { return o.Face() != nil && o.Face().IsLand() }
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if !ce.MayPlay || ce.Controller != p {
 			continue
 		}
@@ -65,7 +66,7 @@ func (e *Engine) mayPlayLandIds(p state.PlayerID) []state.ObjID {
 		// deterministic seat order -- the same shape mayPlaySpellIds'
 		// walk already is. The Affects match decides ownership claims;
 		// walking the slices only enumerates candidates.
-		for _, pr := range w.pairs(&ce, mayPlayWalkZones(zones, all), false, landKeep) {
+		for _, pr := range w.pairs(ce, mayPlayWalkZones(zones, all), false, landKeep) {
 			dup := false
 			for _, s := range seen {
 				if s.zone == pr.zone && s.id == pr.id {
@@ -344,7 +345,8 @@ func (e *Engine) mayPlaySpellIds(p state.PlayerID) []mayPlaySpellOffer {
 	// arms below (mayplay_index.go): a faceless object and a land are both
 	// refused, exactly as the nested scan's per-card gate did.
 	spellKeep := func(o *state.Object) bool { return o.Face() != nil && !o.Face().IsLand() }
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if !ce.MayPlay || ce.Controller != p {
 			continue
 		}
@@ -364,7 +366,7 @@ func (e *Engine) mayPlaySpellIds(p state.PlayerID) []mayPlaySpellOffer {
 		// play it), so every seat's slice is walked in deterministic seat
 		// order -- never a map. The Affects match decides ownership claims;
 		// walking the slices only enumerates candidates.
-		for _, pr := range w.pairs(&ce, mayPlayWalkZones(zones, all), true, spellKeep) {
+		for _, pr := range w.pairs(ce, mayPlayWalkZones(zones, all), true, spellKeep) {
 			consider(pr.zone, pr.id, "")
 		}
 	}

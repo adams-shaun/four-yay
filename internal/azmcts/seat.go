@@ -10,6 +10,7 @@ import (
 	"github.com/adams-shaun/gorge/internal/policynet"
 	"github.com/adams-shaun/gorge/internal/searchprobe"
 	"github.com/adams-shaun/gorge/internal/searchseat"
+	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/seat"
 	"github.com/adams-shaun/gorge/view"
 )
@@ -100,6 +101,11 @@ type Seat struct {
 	// record, when set (SetRecorder), receives one visit-corpus record per
 	// decision this seat searched to completion. nil records nothing.
 	record func(policynet.VisitRecord)
+	// spare is the recycled world storage carried from one searched
+	// decision's redeal source to the next (RedealSource.reclaim): the
+	// seat's decisions are answered one at a time, and every world of a
+	// decision is spent once its Search returns.
+	spare rules.Spare
 }
 
 // SetRecorder installs the visit-corpus recorder (M1b; cmd/botbench
@@ -183,6 +189,7 @@ func (s *Seat) DecideSearch(ctx context.Context, env searchseat.Env, d decision.
 		if err != nil {
 			return decision.Intent{}, err
 		}
+		rs.spare, s.spare = s.spare, rules.Spare{}
 		src, redeal = rs, rs
 	} else {
 		cs, err := s.cfg.Source(env, obs)
@@ -197,6 +204,9 @@ func (s *Seat) DecideSearch(ctx context.Context, env searchseat.Env, d decision.
 		opts.Sample = env.Engine.G.Turn <= s.cfg.ExploreTurns
 	}
 	res, err := Search(ctx, Root{Engine: env.Engine, Decision: &d, Bot: botIn, Observer: obs}, src, s.net, opts)
+	if redeal != nil {
+		s.spare = redeal.reclaim()
+	}
 	if err != nil {
 		return decision.Intent{}, err
 	}

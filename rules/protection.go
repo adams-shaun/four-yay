@@ -298,7 +298,8 @@ func (e *Engine) cantPreventDamage(damageSource, target state.ObjID) bool {
 	// the rest of the StaticAbilities$ family) live in the same registry as
 	// CantTarget/CantRegenerate. A restriction with no Affected$ is global;
 	// an IsRemembered restriction applies only to the captured target.
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.Restriction != "CantPreventDamage" {
 			continue
 		}

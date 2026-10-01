@@ -297,7 +297,7 @@ func (e *Engine) derivedMemoizedAt(id state.ObjID, atStack state.Zone) Derived {
 	// pass of an unchanged board. Verify mode recomputes every such hit.
 	if m.seq != 0 && m.gen != e.derivedMemoGen && m.ver == ver && m.objs == objs {
 		e.active()
-		if m.seq == e.activeBuildSeq {
+		if m.seq == e.derivedSeq {
 			if derivedMemoVerify {
 				e.verifyDerivedMemo(id, atStack, m.d)
 			}
@@ -312,10 +312,13 @@ func (e *Engine) derivedMemoizedAt(id state.ObjID, atStack state.Zone) Derived {
 		m.kw, m.ty = nil, nil
 	}
 	e.active()
-	seq := e.activeBuildSeq
+	builds, seq := e.activeBuildSeq, e.derivedSeq
 	d := e.derivedCompute(id, atStack)
-	if e.activeBuildSeq != seq {
-		seq = 0 // active() rebuilt mid-derivation: never reuse across walks
+	if e.activeBuildSeq != builds || faceHasCDAStatic(e.G.Obj(id)) {
+		// active() rebuilt mid-derivation, or the object's own CDA amount
+		// reads arbitrary state (derived_transparent.go): never reuse across
+		// walks.
+		seq = 0
 	}
 	// Re-resolve the entry: its storage is the table's append-grown entry
 	// list, so the pointer taken above is not held across the derivation.
@@ -359,4 +362,4 @@ func (e *Engine) verifyDerivedMemo(id state.ObjID, atStack state.Zone, got Deriv
 // It is for the engine's few no-event runtime inputs to Derived (faceprobe.go's
 // face flip, statics.go's cost-composition exclusion): an event reaches
 // active() on its own, these do not.
-func (e *Engine) retireCrossWalkMemo() { e.activeBuildSeq++ }
+func (e *Engine) retireCrossWalkMemo() { e.activeBuildSeq++; e.derivedSeq++ }

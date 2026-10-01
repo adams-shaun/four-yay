@@ -132,6 +132,18 @@ func TestViewMarshalsClosed(t *testing.T) {
 		// seat. The grant-gated reveal rules/static_grants_test.go pins the
 		// seat scoping end to end.
 		"library_top": true,
+		// library (own_library_list) IS a hidden-zone carrier — exactly the
+		// class this allowlist gates — admitted deliberately: it is the
+		// viewer's OWN library as an UNORDERED list, gated in project() on
+		// "is this the viewer's own seat" (widened by CR 720.4 to a seat the
+		// viewer controls), the same gate Hand takes. view.unorderedLibrary
+		// canonicalises it by name then object id, so the emitted order is a
+		// pure function of the CONTENTS and never preserves the secret library
+		// order; nil (omitempty) for every other seat and for a spectator, so
+		// the omniscient half below still carries no library key. The
+		// order-free projection is pinned end to end by
+		// view/own_library_test.go.
+		"library": true,
 		// potential_actions (rv2c) is DERIVED from the seat's own hidden zones
 		// (the legal-offer walk reads the seat's hand, command zone and
 		// graveyard), which is exactly why it is gated on "is this the

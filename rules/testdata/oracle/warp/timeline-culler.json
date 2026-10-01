@@ -1,0 +1,59 @@
+{
+  "card": "Timeline Culler",
+  "family": "warp",
+  "oracle_sha": "1fe496226e49",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "graveyard-warp-offered",
+      "cr": [
+        "702.185a",
+        "601.2a"
+      ],
+      "why": "Warp explicitly permits casting this card from its graveyard for its alternative cost; haste remains on the creature even when not warped.",
+      "setup": {
+        "p0": {
+          "graveyard": [
+            "Timeline Culler"
+          ]
+        }
+      },
+      "steps": [
+        {"op": "mana", "seat": 0, "mana": "B", "expect": [{"pool": {"p0": "B"}}]}
+      ],
+      "expect": [
+        {
+          "card": "p0:Timeline Culler",
+          "zone": "graveyard",
+          "keywords": [
+            "Haste"
+          ]
+        },
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Timeline Culler"
+          },
+          "want": true
+        }
+      ]
+    },
+    {
+      "name": "graveyard-warp-pays-life-and-exiles-at-end-step",
+      "cr": ["702.185a", "601.2f", "603.7"],
+      "why": "Casting the Culler from its graveyard for its {B} and 2-life warp cost puts it onto the battlefield; the delayed warp trigger exiles it at the next end step.",
+      "setup": {"p0": {"graveyard": ["Timeline Culler"]}},
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Timeline Culler", "mana": "B"},
+        {"op": "resolve", "expect": [
+          {"card": "p0:Timeline Culler", "zone": "battlefield", "pt": "2/2"},
+          {"life": {"p0": 18}}
+        ]},
+        {"op": "pass_to", "step": "end", "active": "p0"},
+        {"op": "resolve"}
+      ],
+      "expect": [{"card": "p0:Timeline Culler", "zone": "exile"}]
+    }
+  ]
+}

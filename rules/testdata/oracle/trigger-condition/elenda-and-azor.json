@@ -1,0 +1,121 @@
+{
+  "card": "Elenda and Azor",
+  "family": "trigger-condition",
+  "oracle_sha": "31ae64ba70ab",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "attacking-pays-two-and-draws-two",
+      "cr": [
+        "603.2",
+        "118.2",
+        "121.2"
+      ],
+      "why": "The attack trigger lets me pay {X}{W}{U}{B}; paying X=2 with WUB mana draws two cards.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Elenda and Azor"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "attack",
+          "seat": 0,
+          "attackers": [
+            "p0:Elenda and Azor"
+          ],
+          "defender": "p1",
+          "mana": "WUB",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "2"
+              ]
+            },
+            {
+              "kind": "choose",
+              "pick": [
+                "W",
+                "U",
+                "B"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Elenda and Azor",
+          "tapped": true
+        }
+      ]
+    },
+    {
+      "name": "end-step-pays-four-life-for-vampire-knights",
+      "cr": [
+        "603.2",
+        "118.2",
+        "702.18a"
+      ],
+      "why": "Having drawn two cards this turn (Divination), the end-step trigger pays four life and creates that many 1/1 black Vampire Knight creature tokens with lifelink.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Elenda and Azor"
+          ],
+          "hand": [
+            "Divination"
+          ]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Divination",
+          "mana": "CCU"
+        },
+        {
+          "op": "resolve"
+        },
+        {
+          "op": "pass_to",
+          "step": "end",
+          "active": "p0"
+        },
+        {
+          "op": "resolve",
+          "answers": [
+            {
+              "kind": "choose",
+              "pick": [
+                "Pay 4 life"
+              ]
+            }
+          ]
+        }
+      ],
+      "expect": [
+        {
+          "count": {
+            "seat": 0,
+            "zone": "battlefield",
+            "name": "Vampire Knight",
+            "token": true
+          },
+          "eq": 2
+        },
+        {
+          "life": {
+            "p0": 16
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -40,6 +40,11 @@ type Point struct {
 	Keys []Key
 	// Prior parallels Keys: non-negative, summing to 1.
 	Prior []float64
+	// cut and fell record what producing this point counted (an Env's
+	// Stats.Truncated and PriorFallbacks), so the node cache, which reaches
+	// a stored point without producing it again, counts them exactly as a
+	// re-walk would have.
+	cut, fell bool
 }
 
 // Leaf is the value of the position a walk stopped at, for the searching
@@ -89,6 +94,24 @@ type EnvSource interface {
 	Env(sim int) (Env, error)
 }
 
+// NodeStateSource is an EnvSource over ONE fixed world: every Env it hands
+// out is the same position with the same future chance, so a walk's state
+// is a function of the keys it played and a simulation can resume from a
+// state saved at a tree node instead of re-walking from the root (the node
+// cache, Options.NodeCache). RunTree then asks Env for a world only until
+// the root's state is saved, and never again.
+type NodeStateSource interface {
+	EnvSource
+	// Save stores env's current position -- at a point Env.Root or Play
+	// returned. With final false env keeps walking, on its own copy, so the
+	// stored state never changes; final true means env's walk is over and
+	// its state may be kept as it stands (env is not used again).
+	Save(env Env, final bool) (any, error)
+	// Resume is a fresh Env positioned at a saved state, as if it had
+	// walked there from the root.
+	Resume(snap any) (Env, error)
+}
+
 // TreeResult is the root's statistics after RunTree.
 type TreeResult struct {
 	Visits    []int     // per root key (parallel to root.Keys)
@@ -101,6 +124,14 @@ type node struct {
 	n    int
 	w    float64
 	kids []*edge
+	// pt and snap are the node cache's (simulateCached): the point this
+	// node was expanded from, and the saved env state at it (nil when not
+	// stored). Both stay nil without the cache.
+	pt   *Point
+	snap any
+	// clk is the engine clock at the node's point (PathEnv), which the
+	// discount and the leaf-depth counters read; the node cache's.
+	clk pathClock
 }
 
 type edge struct {
@@ -110,6 +141,12 @@ type edge struct {
 	w     float64
 	avail int
 	next  *node
+	// end is the node cache's record of an edge whose walk ended (game
+	// over or the step cap): in a fixed world every later play of it ends
+	// the same way, so its leaf is reused instead of re-walked.
+	end *Leaf
+	// endClk is the engine clock where that walk ended.
+	endClk pathClock
 }
 
 func newNode(pt *Point) *node {
@@ -199,6 +236,11 @@ func RunTree(ctx context.Context, root *Point, src EnvSource, opts Options, st *
 		return TreeResult{}, fmt.Errorf("azmcts: a root point needs keys and a parallel prior")
 	}
 	top := newNode(root)
+	var cache *nodeCache
+	if ns, ok := src.(NodeStateSource); ok && opts.NodeCache > 0 {
+		top.pt = root
+		cache = &nodeCache{src: ns, max: opts.NodeCache}
+	}
 	for i := 0; i < opts.Sims; i++ {
 		if ctx != nil {
 			if err := ctx.Err(); err != nil {
@@ -209,6 +251,14 @@ func RunTree(ctx context.Context, root *Point, src EnvSource, opts Options, st *
 			}
 		}
 		st.Simulations++
+		if cache != nil {
+			if err := cache.simulate(top, i, opts, st); err != nil {
+				classify(st, err)
+				continue
+			}
+			st.Completed++
+			continue
+		}
 		env, err := src.Env(i)
 		if err != nil {
 			classify(st, err)
@@ -288,7 +338,13 @@ func simulate(top *node, env Env, opts Options, st *Stats) error {
 		sel := selectEdge(nd, pt, opts)
 		clock = append(clock, now())
 		nodes, path = append(nodes, nd), append(path, sel)
+		replay, steps0 := sel.next != nil || sel.n > 0, st.EnvSteps
 		next, err := env.Play(sel.key)
+		st.Plays++
+		if replay {
+			st.ReplayPlays++
+			st.ReplaySteps += st.EnvSteps - steps0
+		}
 		if err != nil {
 			return err
 		}

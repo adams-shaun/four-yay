@@ -256,7 +256,8 @@ func (e *Engine) manaConversionParts(p state.PlayerID, id state.ObjID, ability b
 	for i := range srcs {
 		apply(srcs[i].sv, nil)
 	}
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.CostStaticMode == "ManaConvert" {
 			remembered := ce.Remembered
 			// A may-play cast's own ForgetOnMoved$ clears the binding the
@@ -285,7 +286,8 @@ func (e *Engine) manaConversionParts(p state.PlayerID, id state.ObjID, ability b
 // authoritative whenever it is non-empty.
 func (e *Engine) mayPlayManaConvertRemembered(p state.PlayerID, id state.ObjID) map[state.ObjID][]state.ObjID {
 	var out map[state.ObjID][]state.ObjID
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		if ce.CostStaticMode != "ManaConvert" || len(ce.Remembered) == 0 {
 			continue
 		}

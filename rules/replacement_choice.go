@@ -225,7 +225,7 @@ func (e *Engine) poseUntapReplacementChoice(ev events.Event, matches []replMatch
 	if o == nil || int(o.Controller) >= len(e.G.Players) {
 		return
 	}
-	rc := replChoice{kind: replChoiceUntap, ev: ev, cands: matches, before: e.triggerBefore}
+	rc := replChoice{kind: replChoiceUntap, ev: ev, cands: matches, before: e.retainTriggerBefore()}
 	if e.untapResume != nil {
 		resume := *e.untapResume
 		rc.untap = &resume
@@ -255,7 +255,7 @@ func (e *Engine) poseReplacementChoice(ev events.Event, matches []replMatch) {
 		return
 	}
 	e.replChoices = append(e.replChoices, replChoice{kind: replChoiceMove,
-		ev: ev, cands: matches, before: e.triggerBefore, inResolution: e.resolvingObj != 0 || e.answerInResolution})
+		ev: ev, cands: matches, before: e.retainTriggerBefore(), inResolution: e.resolvingObj != 0 || e.answerInResolution})
 	if e.pending == nil {
 		e.askReplacementChoice(p)
 	}

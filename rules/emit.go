@@ -224,8 +224,9 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		ev.To != state.ZBattlefield && e.triggerBefore == nil {
 		if o := e.G.Obj(ev.Obj); o != nil && o.Zone == state.ZBattlefield {
 			saved := e.triggerBefore
-			e.triggerBefore = e.snapshotTriggerBoard()
-			defer func() { e.triggerBefore = saved }()
+			own := e.snapshotTriggerBoard()
+			e.triggerBefore = own
+			defer e.closeTriggerWindow(own, saved)
 		}
 	}
 	// LKI (CR 603.10 "look back in time") is captured HERE, before
@@ -240,7 +241,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 	case events.MoveZone, events.Draw, events.PutOnStack, events.ControlChange:
 		if o := e.G.Obj(ev.Obj); o != nil {
 			cp := o.CloneDeep()
-			lki = &cp
+			lki = e.arenaObject(&cp)
 			if o.Zone == state.ZBattlefield && o.Face() != nil {
 				lkiPower, lkiToughness = e.Power(o.ID), e.Toughness(o.ID)
 				lkiPTValid = true
@@ -254,7 +255,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		// are matched, so the pre-fold flag has to ride the LKI snapshot.
 		if o := e.G.Obj(ev.Obj); o != nil {
 			cp := o.CloneDeep()
-			lki = &cp
+			lki = e.arenaObject(&cp)
 		}
 	case events.CounterChange:
 		// Vanishing's last-counter trigger must distinguish a real removal

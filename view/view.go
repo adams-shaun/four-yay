@@ -15,6 +15,8 @@
 package view
 
 import (
+	"cmp"
+	"slices"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -140,15 +142,17 @@ type View struct {
 // commander's current zone's state like ordinary zone CardViews; the cast
 // count is Player.CmdCasts's entry for that commander, whatever zone it
 // currently occupies.
-func commanderViews(g *state.Game, ch Chars, ids []state.ObjID, casts []int32) ([]CardView, []int32) {
-	cmds := make([]CardView, 0, len(ids))
-	cs := make([]int32, 0, len(ids))
+func (p *projector) commanderViews(buf []CardView, castBuf []int32, ids []state.ObjID, casts []int32) ([]CardView, []int32) {
+	cmds := refill(buf, len(ids))
+	cs := refill(castBuf, len(ids))
 	for k, id := range ids {
-		o := g.Obj(id)
+		o := p.g.Obj(id)
 		if o == nil || o.Face() == nil || o.Ephemeral() {
 			continue
 		}
-		cmds = append(cmds, cardView(g, ch, id))
+		n := len(cmds)
+		cmds = cmds[:n+1]
+		p.cardView(&cmds[n], id)
 		if k < len(casts) {
 			cs = append(cs, casts[k])
 		} else {
@@ -171,7 +175,9 @@ func dungeonRoomName(face *cards.Face, key string) string {
 	if key == "" {
 		return ""
 	}
-	for _, field := range strings.Split(face.SVars[key], "|") {
+	for rest, more := face.SVars[key], true; more; {
+		var field string
+		field, rest, more = strings.Cut(rest, "|")
 		name, value, ok := strings.Cut(strings.TrimSpace(field), "$")
 		if ok && name == "RoomName" && strings.TrimSpace(value) != "" {
 			return strings.TrimSpace(value)
@@ -205,6 +211,18 @@ type PlayerView struct {
 	// documents applies to it in full. nil (an omitted JSON key) for every
 	// other seat and whenever no grant is live.
 	LibraryTop *CardView `json:"library_top,omitempty"`
+	// Library is the viewer's own library as an UNORDERED list of cards:
+	// the contents a human knows about their own deck, without the secret
+	// order CR 400.2 hides from every player (including its owner, who may
+	// not reorder or inspect it). It is sorted into a canonical order (by
+	// card name, then object id) that is a pure function of the CONTENTS,
+	// so it never preserves and never leaks the library's actual order.
+	// Like Hand it is a CR 400.2 hidden zone and is filled only for the
+	// viewer's own seat (widened by CR 720.4 to a seat the viewer controls);
+	// for every other seat it is nil and omitted from the wire, and a
+	// spectator never matches the gate. LibrarySize (an int) and LibraryTop
+	// (one card, gated on a MayLookAt grant) are not it.
+	Library []CardView `json:"library,omitempty"`
 	// Hand is nil (marshalling to a literal JSON null, not an omitted key --
 	// it deliberately carries no "omitempty" tag) for every seat but the
 	// viewer's own, whose Hand is always non-nil even when empty ("[]").
@@ -384,15 +402,23 @@ func ProjectForControlled(g *state.Game, ch Chars, viewer state.PlayerID, vis Vi
 	return ProjectForControlledFor(g, ch, viewer, vis, alsoVisible, d)
 }
 
-func copyDecision(d *decision.Decision) *decision.Decision {
+func copyDecision(d *decision.Decision) *decision.Decision { return copyDecisionInto(nil, d, nil) }
+
+// copyDecisionInto is copyDecision written into dst's storage when dst is
+// non-nil (decision.CloneInto; ProjectInto's reuse), its label substitutions
+// memoised in text when that is non-nil.
+func copyDecisionInto(dst, d *decision.Decision, text *textMemo) *decision.Decision {
 	if d == nil {
 		return nil
 	}
-	cp := d.CloneValue()
-	for i := range cp.Options {
-		cp.Options[i].Label = optionLabelText(cp.Options[i].Label)
+	if dst == nil {
+		dst = new(decision.Decision)
 	}
-	return &cp
+	d.CloneInto(dst)
+	for i := range dst.Options {
+		dst.Options[i].Label = text.labelText(dst.Options[i].Label)
+	}
+	return dst
 }
 
 // optionLabelText substitutes Forge's self-reference placeholders in an
@@ -406,7 +432,7 @@ func copyDecision(d *decision.Decision) *decision.Decision {
 // nothing the label did not. A label without a placeholder, or without the
 // prefix, is returned unchanged.
 func optionLabelText(label string) string {
-	if !strings.Contains(label, "CARDNAME") && !strings.Contains(label, "NICKNAME") {
+	if !hasPlaceholder(label) {
 		return label
 	}
 	i := strings.Index(label, ": ")
@@ -416,20 +442,96 @@ func optionLabelText(label string) string {
 	return label[:i+2] + substitutePlaceholders(label[i+2:], label[:i])
 }
 
-// project is Project's body, shared by every Visibility in ProjectFor.
-// revealFaceDown is the omniscient projection's face-down reveal flag: it
-// is the same flag cardViews' FaceDown redaction takes, so the two views
-// (a battlefield card and a face-down spell on the stack) cannot disagree
-// about who may look at a face-down card's printed face. alsoVisible is the
-// CR 723.4 widening set (see ProjectForControlled): seats whose hidden
-// information the viewer may read because they control them. It is nil for
-// every ordinary projection, so the pre-existing gates are unchanged unless a
-// caller explicitly widens.
-func project(g *state.Game, ch Chars, viewer state.PlayerID, d *decision.Decision, revealFaceDown bool, alsoVisible map[state.PlayerID]bool) View {
-	v := View{Viewer: viewer}
-	if g == nil {
-		return v
+// librarySuppressor is the optional Chars capability that lets a caller skip
+// paying for the own-library CONTENTS projection it does not use. The search
+// observation (internal/searchprobe) strips the library from every frame -- it
+// samples the unseen draws and the recorded/hypothetical engines allocate
+// hidden library objects from different arenas -- so it declares this and
+// unorderedLibrary is never built for it. A Chars that does not implement it
+// (every ordinary caller, including rules.Engine) keeps the field, so the
+// projection's allocation cost is paid only where the field is read.
+type librarySuppressor interface{ SuppressOwnLibrary() bool }
+
+func suppressesOwnLibrary(ch Chars) bool {
+	s, ok := ch.(librarySuppressor)
+	return ok && s.SuppressOwnLibrary()
+}
+
+// unorderedLibrary projects a seat's own library as a canonical, order-free
+// list of CardViews: the same multiset of cards the library holds, arranged
+// by card name then object id so the slice is a pure function of the
+// CONTENTS and never of the secret order CR 400.2 keeps hidden. It is called
+// only for a seat the viewer is entitled to read (their own, or one they
+// control under CR 720.4), mirroring the Hand gate; a nil ch degrades to an
+// empty projection like every other derived fact.
+func (p *projector) unorderedLibrary(buf []CardView, ids []state.ObjID, abilityPlayer state.PlayerID, alsoVisible *seatSet) []CardView {
+	cvs := p.cardViews(buf, ids, false, abilityPlayer, false, alsoVisible)
+	// (Name, ID) is a total order over distinct objects, and one object
+	// projects one CardView, so every correct sort leaves the same list.
+	slices.SortFunc(cvs, func(a, b CardView) int {
+		if c := strings.Compare(a.Name, b.Name); c != 0 {
+			return c
+		}
+		return cmp.Compare(a.ID, b.ID)
+	})
+	return cvs
+}
+
+// projectMode is the rule set one projection applies (ProjectForControlledInto
+// picks it from the Visibility). revealFaceDown is the omniscient
+// projection's face-down reveal for the stack and for every hand (omniHands):
+// it is the same flag cardViews' FaceDown redaction takes, so the two views
+// (a face-down card in a hand and a face-down spell on the stack) cannot
+// disagree about who may look at a face-down card's printed face.
+// alsoVisible is the CR 723.4 widening set (see ProjectForControlled): seats
+// whose hidden information the viewer may read because they control them. It
+// is empty for every ordinary projection, so the pre-existing gates are
+// unchanged unless a caller explicitly widens. ownLibrary admits the viewer's
+// own (or controlled) library CONTENTS into the projection
+// (own_library_list); it is true only for a real seat's Seat-mode view, so no
+// spectator mode -- Public or Omniscient -- ever lists a library (spec D12).
+// omniHands projects every seat's hand, face-down cards revealed and without
+// ability costs, and anyDecision attaches d whoever it was asked of: the
+// Omniscient spectator's view.
+type projectMode struct {
+	revealFaceDown bool
+	alsoVisible    seatSet
+	ownLibrary     bool
+	omniHands      bool
+	anyDecision    bool
+}
+
+// project is projectInto on a fresh View with a map-shaped alsoVisible, for
+// this package's own tests.
+func project(g *state.Game, ch Chars, viewer state.PlayerID, d *decision.Decision, revealFaceDown bool, alsoVisible map[state.PlayerID]bool, ownLibrary bool) View {
+	m := projectMode{revealFaceDown: revealFaceDown, ownLibrary: ownLibrary}
+	for p, ok := range alsoVisible { // a set: order cannot matter
+		if ok {
+			m.alsoVisible.add(p)
+		}
 	}
+	var v View
+	projectInto(&v, g, ch, viewer, d, &m)
+	return v
+}
+
+// projectInto is every projection's body: it overwrites *dst with viewer's
+// view of g under m, reusing the storage dst already holds -- every list's
+// backing array, and the structs, slices and maps its elements point to
+// (refill, projector.cardView) -- so a caller that refills one View per
+// call allocates nothing once its buffers have grown. A zero dst allocates
+// exactly what a fresh View needs. Every field is rewritten: nothing of
+// dst's previous contents survives in the result.
+func projectInto(dst *View, g *state.Game, ch Chars, viewer state.PlayerID, d *decision.Decision, m *projectMode) {
+	players, stack, pending, winner, dec := dst.Players, dst.Stack, dst.Pending, dst.Winner, dst.Decision
+	*dst = View{Viewer: viewer}
+	if g == nil {
+		if m.anyDecision {
+			dst.Decision = copyDecisionInto(dec, d, nil)
+		}
+		return
+	}
+	v := dst
 	v.Turn = g.Turn
 	v.Round = roundOf(g)
 	v.Step = g.Step.String()
@@ -460,16 +562,21 @@ func project(g *state.Game, ch Chars, viewer state.PlayerID, d *decision.Decisio
 	v.Over = g.Over
 	v.Draw = g.Draw
 	if g.Over && !g.Draw && int(g.Winner) < len(g.Players) {
-		w := g.Winner
-		v.Winner = &w
+		if winner == nil {
+			winner = new(state.PlayerID)
+		}
+		*winner = g.Winner
+		v.Winner = winner
 	}
-	v.Stack = stackViews(g, ch, g.Stack, viewer, revealFaceDown)
-	// Default to the non-nil empty shape (Ruling T23-u) whether or not ch
-	// is nil; a real Chars overwrites it below.
-	v.Pending = pendingViews(nil)
+	sc := scratchPool.Get().(*projScratch)
+	pr := newProjector(g, ch, viewer, sc)
+	v.Stack = pr.stackViews(stack, g.Stack, m.revealFaceDown)
+	// Non-nil even when empty (Ruling T23-u), whether or not ch is nil.
+	var pts []state.PendingTrigger
 	if ch != nil {
-		v.Pending = pendingViews(ch.PendingTriggers())
+		pts = ch.PendingTriggers()
 	}
+	v.Pending = pendingViews(pending, pts)
 
 	// A viewer index that names no real seat is a spectator: everything
 	// below that gates on "is this the viewer's own seat" naturally stays
@@ -481,37 +588,35 @@ func project(g *state.Game, ch Chars, viewer state.PlayerID, d *decision.Decisio
 
 	// Non-nil even when g.Players is empty (Ruling T23-u): an empty match
 	// still marshals "players":[], never "players":null.
-	v.Players = make([]PlayerView, 0, len(g.Players))
-	// denseCmd is every commander object in the match, in the match-wide
-	// dense order rules.New assigns at genesis (player order, then each
-	// player's Commanders order) -- the index Player.CmdDamage is keyed by,
-	// so each player's tally slice can be re-keyed by object identity for
-	// the wire (CmdDamage map). Nil when the match has no commanders; the
-	// single small slice is shared by every player's clock below.
-	var denseCmd []state.ObjID
-	for i := range g.Players {
-		denseCmd = append(denseCmd, g.Players[i].Commanders...)
-	}
+	players = refill(players, len(g.Players))
 	for i := range g.Players {
 		p := &g.Players[i]
-		roster, casts := commanderViews(g, ch, p.Commanders, p.CmdCasts)
-		pv := PlayerView{
+		players = players[:i+1]
+		pv := &players[i]
+		prev := *pv // the slot's previous storage
+		roster, casts := pr.commanderViews(prev.Commanders, prev.CommanderCasts, p.Commanders, p.CmdCasts)
+		*pv = PlayerView{
 			ID: p.ID, Name: displayName(p), Life: p.Life, Lost: p.Lost,
 			LibrarySize:       len(g.Zone(state.ZLibrary, p.ID)),
 			HandSize:          len(g.Zone(state.ZHand, p.ID)),
-			PlanarDeck:        cardViews(g, ch, g.Zone(state.ZPlanarDeck, p.ID), false, p.ID, viewer, false, alsoVisible),
+			PlanarDeck:        pr.cardViews(prev.PlanarDeck, g.Zone(state.ZPlanarDeck, p.ID), false, p.ID, false, &m.alsoVisible),
 			GraveyardSize:     len(g.Zone(state.ZGraveyard, p.ID)),
-			Battlefield:       cardViews(g, ch, g.Zone(state.ZBattlefield, p.ID), true, p.ID, viewer, false, alsoVisible),
-			Graveyard:         cardViews(g, ch, g.Zone(state.ZGraveyard, p.ID), false, p.ID, viewer, false, alsoVisible),
-			Exile:             cardViews(g, ch, g.Zone(state.ZExile, p.ID), false, p.ID, viewer, false, alsoVisible),
-			Command:           cardViews(g, ch, g.Zone(state.ZCommand, p.ID), false, p.ID, viewer, false, alsoVisible),
+			Battlefield:       pr.cardViews(prev.Battlefield, g.Zone(state.ZBattlefield, p.ID), true, p.ID, false, &m.alsoVisible),
+			Graveyard:         pr.cardViews(prev.Graveyard, g.Zone(state.ZGraveyard, p.ID), false, p.ID, false, &m.alsoVisible),
+			Exile:             pr.cardViews(prev.Exile, g.Zone(state.ZExile, p.ID), false, p.ID, false, &m.alsoVisible),
+			Command:           pr.cardViews(prev.Command, g.Zone(state.ZCommand, p.ID), false, p.ID, false, &m.alsoVisible),
 			Commanders:        roster,
 			CompletedDungeons: p.CompletedDungeons,
 			HasInitiative:     g.IsInitiative(p.ID),
 			CommanderCasts:    casts,
 		}
 		if dungeon := g.Obj(p.DungeonObj); dungeon != nil && dungeon.Zone == state.ZCommand && dungeon.Face() != nil {
-			pv.Dungeon = &DungeonView{Name: dungeon.Face().Name, Room: dungeonRoomName(dungeon.Face(), p.DungeonRoom)}
+			dv := prev.Dungeon
+			if dv == nil {
+				dv = new(DungeonView)
+			}
+			*dv = DungeonView{Name: dungeon.Face().Name, Room: dungeonRoomName(dungeon.Face(), p.DungeonRoom)}
+			pv.Dungeon = dv
 		}
 		// Available is public (battlefield-derived) and so projected for
 		// every seat under every visibility, like Pool; only Hand (a CR 400.2
@@ -522,7 +627,11 @@ func project(g *state.Game, ch Chars, viewer state.PlayerID, d *decision.Decisio
 		if ch != nil {
 			avail = ch.AvailableMana(p.ID)
 		}
-		pv.Available = poolView(avail)
+		pv.Available = poolView(prev.Available, avail)
+		// ownSeat is "this is the viewer's own seat", widened by CR 723.4's
+		// alsoVisible set and by CR 720.4 to a seat the viewer controls: the
+		// one gate every hidden-information field below is filled behind.
+		ownSeat := viewer == p.ID || m.alsoVisible.has(p.ID) || controlsSeat(g, viewer, p.ID)
 		// The MayLookAt grant (Oracle of Mul Daya): the viewer's own seat sees
 		// the top card of their own library when a live grant covers it, and
 		// (CR 720.4) so does the controller of that seat -- the controller may
@@ -530,27 +639,26 @@ func project(g *state.Game, ch Chars, viewer state.PlayerID, d *decision.Decisio
 		// sees nothing (the CR 400.2 hidden-zone rule the Hand field documents
 		// applies in full). A nil ch degrades to no reveal, the way it degrades
 		// every other derived fact.
-		if (viewer == p.ID || alsoVisible[p.ID] || controlsSeat(g, viewer, p.ID)) && ch != nil && ch.MayLookAtLibraryTop(p.ID) {
+		if ownSeat && ch != nil && ch.MayLookAtLibraryTop(p.ID) {
 			if lib := g.Zone(state.ZLibrary, p.ID); len(lib) > 0 {
-				if cvs := cardViews(g, ch, lib[:1], false, p.ID, viewer, false, alsoVisible); len(cvs) == 1 {
-					pv.LibraryTop = &cvs[0]
+				top := prev.LibraryTop
+				if top == nil {
+					top = new(CardView)
+				}
+				if pr.zoneCard(top, lib[0], false, p.ID, false, &m.alsoVisible) {
+					pv.LibraryTop = top
 				}
 			}
 		}
 		// The 21-damage clock: this player's cumulative commander damage,
-		// keyed by the commander that dealt it (re-keyed off the dense
-		// slice CmdDamage is indexed by). Only built when any tally is
-		// nonzero -- nil/absent means zero -- so no map is allocated for a
-		// player (or a game) with no commander damage.
+		// keyed by the commander that dealt it -- re-keyed off the match-wide
+		// dense order Player.CmdDamage is indexed by (every commander object,
+		// player order then each player's Commanders order, as rules.New
+		// assigns it at genesis). Only built when any tally is nonzero --
+		// nil/absent means zero -- so no map is filled for a player (or a
+		// game) with no commander damage.
 		if len(p.CmdDamage) > 0 {
-			for j, id := range denseCmd {
-				if j < len(p.CmdDamage) && p.CmdDamage[j] != 0 {
-					if pv.CmdDamage == nil {
-						pv.CmdDamage = make(map[state.ObjID]int32, len(denseCmd))
-					}
-					pv.CmdDamage[id] = p.CmdDamage[j]
-				}
-			}
+			pv.CmdDamage = cmdDamageView(prev.CmdDamage, g, p.CmdDamage)
 		}
 		// Pool is public (CR 106.4a/106.4b): a mana pool is not one of the
 		// seven zones in CR 400.1 and holds no cards, so CR 400.2's hidden-
@@ -560,10 +668,24 @@ func project(g *state.Game, ch Chars, viewer state.PlayerID, d *decision.Decisio
 		// projected for every seat under every visibility, like Available;
 		// only Hand stays gated on "is this the viewer's own seat" (CR 400.2
 		// names hand as a hidden zone).
-		pv.Pool = poolView(p.Pool)
-		pv.PoolRestrictions = poolRestrictions(g, p.RestrictedMana)
-		if p.ID == viewer || alsoVisible[p.ID] || controlsSeat(g, viewer, p.ID) {
-			pv.Hand = cardViews(g, ch, g.Zone(state.ZHand, p.ID), true, p.ID, viewer, false, alsoVisible)
+		pv.Pool = poolView(prev.Pool, p.Pool)
+		pv.PoolRestrictions = poolRestrictions(prev.PoolRestrictions, g, p.RestrictedMana, pr.text)
+		switch {
+		case m.omniHands:
+			// The omniscient spectator sees every hand, face-down cards
+			// included, without the seat-only ability costs.
+			pv.Hand = pr.cardViews(prev.Hand, g.Zone(state.ZHand, p.ID), false, p.ID, true, &noSeats)
+		case ownSeat:
+			pv.Hand = pr.cardViews(prev.Hand, g.Zone(state.ZHand, p.ID), true, p.ID, false, &m.alsoVisible)
+		}
+		// The library CONTENTS are the viewer's own seat only (CR 400.2),
+		// and only in a real seat's own projection (ownLibrary): a spectator
+		// mode -- Public or Omniscient -- never lists a library, preserving
+		// D12's "library order is hidden" for every spectator. unorderedLibrary
+		// canonicalises the order, so even the own seat learns the contents
+		// and never the secret draw order.
+		if ownSeat && m.ownLibrary && !suppressesOwnLibrary(ch) {
+			pv.Library = pr.unorderedLibrary(prev.Library, g.Zone(state.ZLibrary, p.ID), p.ID, &m.alsoVisible)
 		}
 		// PotentialActions is the "what could I still do after tapping out"
 		// projection (rules.PotentialActions): the engine's own legal-offer
@@ -576,10 +698,10 @@ func project(g *state.Game, ch Chars, viewer state.PlayerID, d *decision.Decisio
 		// not belong to carries no field at all (nil), and a spectator
 		// (viewer naming no real seat) never matches the gate above. A nil
 		// ch degrades to an empty projection like every other derived fact.
-		if (p.ID == viewer || alsoVisible[p.ID] || controlsSeat(g, viewer, p.ID)) && ch != nil {
+		if ownSeat && ch != nil {
 			pv.PotentialActions = ch.PotentialActions(p.ID)
 			for i := range pv.PotentialActions {
-				pv.PotentialActions[i].Label = optionLabelText(pv.PotentialActions[i].Label)
+				pv.PotentialActions[i].Label = pr.text.labelText(pv.PotentialActions[i].Label)
 			}
 		}
 		// The opponent archetype posterior rides the public card lists this
@@ -587,19 +709,46 @@ func project(g *state.Game, ch Chars, viewer state.PlayerID, d *decision.Decisio
 		// for the viewer's own seat (whose archetype is the manifest's fact)
 		// nor for a spectator (whose viewer index matches no real seat).
 		if p.ID != viewer && !spectator {
-			pv.Archetype = inferArchetypePosterior(pv.Battlefield, pv.Graveyard, pv.Exile, pv.Command)
+			pv.Archetype = inferArchetypePosteriorInto(prev.Archetype, pv.Battlefield, pv.Graveyard, pv.Exile, pv.Command)
 		}
-		v.Players = append(v.Players, pv)
 	}
+	v.Players = players
 
-	if !spectator && d != nil && d.Player == viewer {
+	if m.anyDecision || !spectator && d != nil && d.Player == viewer {
 		// A copy, never the engine's own pending pointer (supplement §10):
 		// a Seat (Task 25) holds this View in-process and must not be able
 		// to corrupt the live decision through it.
-		v.Decision = copyDecision(d)
+		v.Decision = copyDecisionInto(dec, d, pr.text)
 	}
+	scratchPool.Put(sc)
+}
 
-	return v
+// cmdDamageView is the CmdDamage map of one player's tallies (Player.CmdDamage,
+// dense commander order), written into m's storage when m is non-nil; nil
+// when every tally is zero.
+func cmdDamageView(m map[state.ObjID]int32, g *state.Game, tallies []int32) map[state.ObjID]int32 {
+	dense := 0
+	for i := range g.Players {
+		dense += len(g.Players[i].Commanders)
+	}
+	var out map[state.ObjID]int32
+	j := 0
+	for i := range g.Players {
+		for _, id := range g.Players[i].Commanders {
+			if j < len(tallies) && tallies[j] != 0 {
+				if out == nil {
+					if out = m; out == nil {
+						out = make(map[state.ObjID]int32, dense)
+					} else {
+						clear(out)
+					}
+				}
+				out[id] = tallies[j]
+			}
+			j++
+		}
+	}
+	return out
 }
 
 // RoundOf is the EXACT round-trip count, folded over the ordered event
@@ -667,7 +816,13 @@ func RoundOf(g *state.Game, evs []events.Event) int32 {
 	if n <= 0 {
 		return 1
 	}
-	alive := make([]bool, n)
+	var aliveBuf [16]bool // the alive set lives on the stack for any real table
+	alive := aliveBuf[:0]
+	if n <= len(aliveBuf) {
+		alive = aliveBuf[:n]
+	} else {
+		alive = make([]bool, n)
+	}
 	for i := range alive {
 		alive[i] = true
 	}
@@ -811,6 +966,10 @@ func substitutePlaceholders(text, name string) string {
 	if text == "" || name == "" {
 		return text
 	}
+	// No token anywhere: the scan below would rebuild text byte for byte.
+	if !hasPlaceholder(text) {
+		return text
+	}
 	nick := firstWord(name)
 	var b strings.Builder
 	b.Grow(len(text))
@@ -837,6 +996,12 @@ func substitutePlaceholders(text, name string) string {
 		i = j
 	}
 	return b.String()
+}
+
+// hasPlaceholder reports whether text contains either placeholder token's
+// letters at all; without them substitutePlaceholders returns text unchanged.
+func hasPlaceholder(text string) bool {
+	return strings.Contains(text, "CARDNAME") || strings.Contains(text, "NICKNAME")
 }
 
 // firstWord is the first whitespace-delimited word of a name -- Forge's

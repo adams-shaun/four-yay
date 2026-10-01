@@ -79,6 +79,11 @@ func TestCopyDecisionPaymentOwnership(t *testing.T) {
 // searchprobe allocation ceiling passes uncached with the old expression
 // restored. This guard therefore rejects the historical source shape itself:
 // a dereferenced Decision.Clone() call inside copyDecision.
+//
+// Since ProjectInto the choke point is copyDecisionInto (copyDecision is it
+// with no storage to reuse), and it clones through Decision.CloneInto, which
+// is CloneValue written into the caller's storage -- CloneValue itself is
+// CloneInto on a fresh value, so the two cannot drift.
 func TestCopyDecisionRejectsDerefedClone(t *testing.T) {
 	src, err := os.ReadFile("view.go")
 	if err != nil {
@@ -91,14 +96,14 @@ func TestCopyDecisionRejectsDerefedClone(t *testing.T) {
 	}
 	var body *ast.BlockStmt
 	ast.Inspect(file, func(n ast.Node) bool {
-		if fd, ok := n.(*ast.FuncDecl); ok && fd.Name.Name == "copyDecision" {
+		if fd, ok := n.(*ast.FuncDecl); ok && fd.Name.Name == "copyDecisionInto" {
 			body = fd.Body
 			return false
 		}
 		return true
 	})
 	if body == nil {
-		t.Fatal("copyDecision not found in view.go; the projection choke point moved -- repoint this guard")
+		t.Fatal("copyDecisionInto not found in view.go; the projection choke point moved -- repoint this guard")
 	}
 	var derefedClone, cloneValue bool
 	ast.Inspect(body, func(n ast.Node) bool {
@@ -110,16 +115,16 @@ func TestCopyDecisionRejectsDerefedClone(t *testing.T) {
 			}
 		}
 		if call, ok := n.(*ast.CallExpr); ok {
-			if sel, ok := call.Fun.(*ast.SelectorExpr); ok && sel.Sel.Name == "CloneValue" {
+			if sel, ok := call.Fun.(*ast.SelectorExpr); ok && sel.Sel.Name == "CloneInto" {
 				cloneValue = true
 			}
 		}
 		return true
 	})
 	if !cloneValue {
-		t.Fatal("copyDecision no longer clones through Decision.CloneValue; the projection copy changed shape")
+		t.Fatal("copyDecisionInto no longer clones through Decision.CloneInto; the projection copy changed shape")
 	}
 	if derefedClone {
-		t.Fatal("copyDecision dereferences Decision.Clone() (`cp := *d.Clone()`), the shape bf2668175 introduced and fc7d924ad removed")
+		t.Fatal("copyDecisionInto dereferences Decision.Clone() (`cp := *d.Clone()`), the shape bf2668175 introduced and fc7d924ad removed")
 	}
 }

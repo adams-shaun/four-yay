@@ -38,7 +38,10 @@ import (
 // (cast.go) additionally reads Cast, FirstMain and MyTurn.
 type Board struct {
 	// OwnDeck is the deciding seat's genesis manifest, when supplied by the
-	// rules engine; it is never an opponent or spectator deck list.
+	// rules engine; it is never an opponent or spectator deck list. It is
+	// READ-ONLY: BoardFromGameInto fills it with the engine's shared genesis
+	// manifest (rules.Engine.OwnDeckShared), so a write through it would
+	// reach engine storage. Copy it (deck.Manifest.Clone) before changing it.
 	OwnDeck *deck.Manifest
 	// IsMain reports whether sorcery-speed actions are legal right now.
 	// The seat adapter lifts it off the projected View's Phase

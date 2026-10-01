@@ -71,7 +71,8 @@ type costRememberedEntry struct {
 // cost-modifier statics that hold card id right now, in e.active() order.
 func (e *Engine) costRememberedCapture(id state.ObjID) []costRememberedEntry {
 	var out []costRememberedEntry
-	for _, ce := range e.active() {
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		ce := &ceL[ceI]
 		switch ce.CostStaticMode {
 		case "RaiseCost", "ReduceCost", "SetCost":
 		default:
@@ -168,6 +169,10 @@ type actionStaticSource struct {
 	// AddAbility$, built on first use (addAbilityContinuous).
 	addAbility      []staticView
 	addAbilityReady bool
+	// board is the offer walk's board-wide facts (legal_walk_skip.go),
+	// published by the walk before its mana sweep; zero (not ready) for
+	// every other source.
+	board walkBoardFacts
 }
 
 // addAbilityContinuous returns, in order, the Continuous statics of get()

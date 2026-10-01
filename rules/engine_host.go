@@ -22,6 +22,24 @@ func (e *Engine) OwnDeck(p state.PlayerID) *deck.Manifest {
 	return &m
 }
 
+// OwnDeckShared is OwnDeck without the copy: a pointer to p's genesis
+// manifest in engine storage, or nil when p is not a configured seat. The
+// manifest is immutable for the engine's whole life and is shared, not
+// copied, by every Clone (cloneWith), so the pointer stays valid and
+// unchanging for as long as the caller holds it -- but the caller must
+// never write through it (or through its slices), because that write would
+// reach this engine, every clone of it and every later OwnDeck copy.
+// It is the per-decision read path (botpolicy.BoardFromGameInto, which the
+// search loop runs at every bot decision of every simulation); anything
+// that publishes or hands the manifest outside the process (view.View's
+// OwnDeck) takes OwnDeck's detached copy instead.
+func (e *Engine) OwnDeckShared(p state.PlayerID) *deck.Manifest {
+	if e == nil || int(p) >= len(e.deckManifests) {
+		return nil
+	}
+	return &e.deckManifests[p]
+}
+
 // EnsurePaymentActions lazily builds the payment extension for the current
 // priority decision. It is a pure derived read: it emits no event and does
 // not advance sequence or RNG. The built marker also caches an empty result.

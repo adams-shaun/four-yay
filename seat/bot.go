@@ -74,7 +74,20 @@ var _ BoardSeat = (*Bot)(nil)
 // and never the engine's rng: a match's outcome must be a pure function of
 // (engine seed, bot seed), nothing else.
 func NewBot(seed uint64) *Bot {
-	return &Bot{r: rand.New(rand.NewPCG(seed, seed^0x9e3779b97f4a7c15))}
+	return NewBotOn(BotSource(seed))
+}
+
+// BotSource is the PCG source NewBot(seed) draws from.
+func BotSource(seed uint64) *rand.PCG {
+	return rand.NewPCG(seed, seed^0x9e3779b97f4a7c15)
+}
+
+// NewBotOn is NewBot over a caller-held source, so a caller that must save
+// and restore the bot's stream mid-game (internal/azmcts's node cache) keeps
+// it: the source is the bot's only state. NewBotOn(BotSource(seed)) is
+// NewBot(seed).
+func NewBotOn(src *rand.PCG) *Bot {
+	return &Bot{r: rand.New(src)}
 }
 
 // EnableAutoPayMana configures this bot to select payment-plan witnesses at

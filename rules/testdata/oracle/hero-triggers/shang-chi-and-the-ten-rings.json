@@ -1,0 +1,52 @@
+{
+  "card": "Shang-Chi and the Ten Rings",
+  "family": "hero-triggers",
+  "oracle_sha": "d1cb3af7318e",
+  "author": "cli-20260930T010403Z-ef157ef6 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "drawing-two-cards-adds-two-counters",
+      "cr": [
+        "603.2",
+        "121.1"
+      ],
+      "why": "Each drawn card triggers a separate +1/+1 counter on Shang-Chi, so drawing two increases its size from 2/2 to 4/4.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Shang-Chi and the Ten Rings"
+          ],
+          "hand": [
+            "Divination"
+          ]
+        }
+      },
+      "steps": [
+        {
+          "op": "cast",
+          "seat": 0,
+          "card": "p0:Divination",
+          "mana": "UUU"
+        },
+        {
+          "op": "resolve"
+        }
+      ],
+      "expect": [
+        {
+          "card": "p0:Shang-Chi and the Ten Rings",
+          "zone": "battlefield",
+          "pt": "4/4",
+          "counters": {
+            "+1/+1": 2
+          }
+        },
+        {
+          "hand_size": {
+            "p0": 2
+          }
+        }
+      ]
+    }
+  ]
+}
