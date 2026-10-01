@@ -97,10 +97,10 @@ func TestCompoundRememberedEffectStaticRegistersAndDoesNotOverapply(t *testing.T
 	}
 	// It applies to the remembered creature that satisfies BOTH halves and
 	// never to a non-remembered creature.
-	if !e.restrictionApplies(*ce, creature) {
+	if !e.restrictionApplies(ce, creature) {
 		t.Fatal("compound must apply to the remembered creature (both halves hold)")
 	}
-	if e.restrictionApplies(*ce, stranger) {
+	if e.restrictionApplies(ce, stranger) {
 		t.Fatal("compound applied to a non-remembered creature")
 	}
 }
