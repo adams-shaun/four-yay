@@ -20,6 +20,9 @@ import (
 // same log-scan shape warpRecastAvailable and foretellCastAvailable take, so a
 // replayed game derives the identical answer.
 func (e *Engine) airbendCastAvailable(id state.ObjID) bool {
+	if !e.airbendLogged() {
+		return false
+	}
 	log := e.L.Events
 	for i := len(log) - 1; i >= 0; i-- {
 		ev := log[i]
