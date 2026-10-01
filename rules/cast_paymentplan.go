@@ -112,12 +112,17 @@ func (e *Engine) paymentPlanCheckUnits(pc *pendingCast) (string, []windowManaUni
 	// executor resolves the next of them), so the census is taken for those
 	// sources alone (paymentPlanManaUnitsOnly: exactly the full census's
 	// units for them).
-	var srcBuf [16]state.ObjID
-	only := srcBuf[:0]
+	// The id list is borrowed from the engine's pool; it must be non-nil
+	// (nil asks for every source).
+	only := e.idsBorrow()
+	if only == nil {
+		only = make([]state.ObjID, 0, len(plan.Activations))
+	}
 	for _, pa := range plan.Activations[min(next, len(plan.Activations)):] {
 		only = append(only, pa.Source)
 	}
 	units := e.paymentPlanManaUnitsOnly(pc.player, only)
+	e.idsRelease(only)
 	pool := e.G.Players[pc.player].Pool
 	var first plannedManaActivation
 	for i, pa := range plan.Activations {

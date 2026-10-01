@@ -1555,8 +1555,9 @@ var apiSpecificRulesSA = map[string][]string{
 	// reachable from the viewer's projection on every priority decision, so
 	// without this entry their reads would join the generic union and mask
 	// Sacrifice's unread Produced$/DealDamage's unread Produced$.
-	"addPotentialMana": {"Mana"},
-	"potentialAmount":  {"Mana"},
+	"addPotentialMana":        {"Mana"},
+	"computePotentialManaAdd": {"Mana"},
+	"potentialAmount":         {"Mana"},
 	// The potential-play planner's relaxed census proof (rules/
 	// potential_plan.go): it reads a missed MANA ability's Cost$/Produced$/
 	// ActivationLimit$ (it returns at once for any other API), so its reads

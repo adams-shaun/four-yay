@@ -57,6 +57,9 @@ type manaSAFacts struct {
 	// static is the payment census's per-ability text reads
 	// (manaStaticOf).
 	static manaStaticFacts
+	// potential is the ability's PotentialMana production
+	// (addPotentialManaOf).
+	potential potentialManaAdd
 }
 
 // manaStaticFacts is the payment census's reads of a mana ability's own
@@ -65,7 +68,7 @@ type manaSAFacts struct {
 type manaStaticFacts struct {
 	produced      string // TrimSpace(Produced$)
 	counts        [6]int32
-	any           bool // cards.ProducedCounts(Produced$)
+	any           bool  // cards.ProducedCounts(Produced$)
 	amount        int32 // availableAmount
 	restrictValid bool  // a non-blank RestrictValid$
 	freeCost      bool  // manaFreeCost(cost)
@@ -137,6 +140,7 @@ func buildManaSAFactsValue(ab *cards.SA, costOf func(string) *compiledCost) mana
 	f.noLimit = !limited && ab.Params["GameActivationLimit"] == ""
 	f.plainSym, f.plainAmt = plainManaShape(ab)
 	f.static = computeManaStaticFacts(ab, &f.cost.Cost)
+	f.potential = computePotentialManaAdd(ab)
 	if tier, c, detail, rider := paymentPlanShapeTierOf(ab, f.cost.Cost); !rider {
 		f.shapeKnown, f.shapeTier, f.shapeCons, f.shapeDetail = true, tier, c, detail
 	}

@@ -182,7 +182,7 @@ func (e *Engine) PotentialMana(p state.PlayerID) state.Mana {
 				if ma := flat[k]; !admitted[k] && e.manaAbilityPayablePool(p, id, ma, &others) {
 					admitted[k] = true
 					admittedAny = true
-					addPotentialMana(&out, ma)
+					e.addPotentialManaOf(&out, ma)
 				}
 			}
 			if !admittedAny {
@@ -273,6 +273,66 @@ func addPotentialMana(m *state.Mana, ma *cards.SA) {
 	for _, r := range s {
 		i := state.ManaIndex(byte(r))
 		m[i] = saturatingPotentialMana(m[i], amt)
+	}
+}
+
+// potentialManaAdd is addPotentialMana's effect as data: unbounded, or a
+// per-slot total (each production rune's amount summed per slot; the
+// amounts are non-negative, so one saturating add of the total is the
+// rune-by-rune saturating adds).
+type potentialManaAdd struct {
+	unbounded bool
+	add       [len(state.Mana{})]int64
+}
+
+func computePotentialManaAdd(ma *cards.SA) potentialManaAdd {
+	var f potentialManaAdd
+	amt, indeterminate := potentialAmount(ma)
+	raw := strings.TrimSpace(ma.Params["Produced"])
+	if raw == "" {
+		raw = "C"
+	}
+	if indeterminate || producedOpen(raw) {
+		f.unbounded = true
+		return f
+	}
+	for _, r := range potentialProducedStrip.Replace(raw) {
+		f.add[state.ManaIndex(byte(r))] += int64(amt)
+	}
+	return f
+}
+
+// addPotentialManaOf is addPotentialMana through ab's configured facts (the
+// same production, read once per configured text; verify mode compares the
+// two folds).
+func (e *Engine) addPotentialManaOf(m *state.Mana, ma *cards.SA) {
+	mf := e.manaFactsOf(ma)
+	if mf == nil {
+		addPotentialMana(m, ma)
+		return
+	}
+	var want state.Mana
+	if manaSAFactsVerify {
+		want = *m
+		addPotentialMana(&want, ma)
+	}
+	if mf.potential.unbounded {
+		for i := range m {
+			m[i] = saturatingPotentialMana(m[i], potentialUnbounded)
+		}
+	} else {
+		for i, n := range mf.potential.add {
+			if n > 0 {
+				if sum := int64(m[i]) + n; sum >= math.MaxInt32 {
+					m[i] = math.MaxInt32
+				} else {
+					m[i] = int32(sum)
+				}
+			}
+		}
+	}
+	if manaSAFactsVerify && want != *m {
+		panic(fmt.Sprintf("rules: configured potential production of %q folds %v, the text folds %v", ma.Line, *m, want))
 	}
 }
 
