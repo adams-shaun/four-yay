@@ -119,6 +119,32 @@ brief_file() { mktemp "${TMPDIR:-/tmp}/seed-brief.XXXXXX.md"; }
 BSTATUS=$("$ROOT/scripts/broker.sh" status 2>/dev/null | head -1)
 saw "broker: $BSTATUS"
 
+# Reap the standing (agent-unowned) gorged table servers BEFORE measuring the
+# stability axis, so the caretaker loop removes the cause it would otherwise
+# only report. A leaked fixture server -- the 2026-10-01 veto (a finished
+# seat's gorged left on a smoke port, `-dir /tmp/gorge-reap-seed-orphan`) -- is
+# exactly what standing_gorged_excess counts, and until now nothing in the
+# pipeline removed one: the loop filed a ticket and paused heavy leases while
+# the process kept vetoing every later head. gorged_reap.py decides ownership
+# from the SAME gorged_owned predicate that feeds the metric, and protects the
+# demo's documented ports, so this can never disagree with the veto nor kill
+# the demo. GORGED_REAP=0 disables it (a smoke that must not touch real
+# processes does that, or points GORGE_PROC_DIR at a fake tree).
+if [ "${GORGED_REAP:-1}" = 1 ] && [ -f "$ROOT/scripts/gorged_reap.py" ]; then
+	# shellcheck source=scripts/demo-ports.sh
+	source "$ROOT/scripts/demo-ports.sh"
+	if reap_out=$(DEMO_PORT_HISTORY="$DEMO_PORT_HISTORY" \
+		python3 "$ROOT/scripts/gorged_reap.py" --apply 2>&1); then
+		case "$reap_out" in
+		*"reaped "*) did "reaped standing gorged: $(printf '%s' "$reap_out" | tail -1)" ;;
+		*"FAILED"*) did "gorged reap FAILED: $(printf '%s' "$reap_out" | tail -1)" ;;
+		*) saw "gorged reap: $(printf '%s' "$reap_out" | tail -1)" ;;
+		esac
+	else
+		saw "gorged reap failed"
+	fi
+fi
+
 if [ "$PROBE" = 1 ]; then
 	GORGE_REWARD_DIR=$STATE GORGE_TARGET_REPO=$TARGET "$ROOT/scripts/reward-probe.sh" free >/dev/null 2>&1 &&
 		saw "free axes measured" || saw "free probe FAILED"
