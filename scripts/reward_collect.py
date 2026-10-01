@@ -859,9 +859,17 @@ def gorged_owned(p: dict, proc_root: Path, agent_pids: dict[int, str],
     return _proc_is_script_supervisor(proc_root, p["ppid"])
 
 
-def collect_gorged_hygiene(proc: Path | None = None) -> tuple[int, int, str]:
-    """(standing_excess, unsafe_launches, note): the two gorged-process
-    hygiene failing signals (operator ruling 2026-09-30).
+def collect_gorged_hygiene(proc: Path | None = None) -> tuple[int, int, str, str]:
+    """(standing_excess, unsafe_launches, standing_note, unsafe_note): the
+    two gorged-process hygiene failing signals (operator ruling
+    2026-09-30), each with its own evidence note.
+
+    standing_note names exactly the UNOWNED gorged processes -- the list
+    standing_excess is computed from (the surplus is that list minus the
+    one allowed demo) -- and unsafe_note names exactly the init-reparented
+    ones. Neither note is capped: a truncated note is how an offending pid
+    gets hidden precisely when the metric fires, so both carry every entry
+    whenever their metric is non-zero.
 
     standing_excess: gorged processes NOT inside any currently-live agent's
     own worktree -- the box's standing/demo instances -- above the documented
@@ -880,7 +888,7 @@ def collect_gorged_hygiene(proc: Path | None = None) -> tuple[int, int, str]:
     """
     procs = gorged_processes(proc)
     if not procs:
-        return 0, 0, "no gorged process running"
+        return 0, 0, "no gorged process running", "no gorged process running"
     proc_root = proc or Path(os.environ.get("GORGE_PROC_DIR", "/proc"))
     agent_pids = _live_agent_pids(proc)
     seat_ids = _agent_seat_ids(agent_pids)
@@ -889,11 +897,16 @@ def collect_gorged_hygiene(proc: Path | None = None) -> tuple[int, int, str]:
     def owned(p: dict) -> bool:
         return gorged_owned(p, proc_root, agent_pids, seat_ids, owners)
 
+    def entry(p: dict) -> str:
+        return f"pid={p['pid']} addr={p['addr']} dir={p['dir']}"
+
     standing = [p for p in procs if not owned(p)]
+    unsafe_procs = [p for p in procs if p["ppid"] == 1]
     excess = max(0, len(standing) - 1)
-    unsafe = sum(1 for p in procs if p["ppid"] == 1)
-    note = "; ".join(f"pid={p['pid']} addr={p['addr']} dir={p['dir']}" for p in procs[:6])
-    return excess, unsafe, note
+    unsafe = len(unsafe_procs)
+    standing_note = "; ".join(entry(p) for p in standing) or "no standing gorged process"
+    unsafe_note = "; ".join(entry(p) for p in unsafe_procs) or "no init-reparented gorged process"
+    return excess, unsafe, standing_note, unsafe_note
 
 
 def collect_stability(repo: Path, state: Path | None = None) -> list[str]:
@@ -934,8 +947,8 @@ def collect_stability(repo: Path, state: Path | None = None) -> list[str]:
             sum(1 for d in j if d.get("kind") in ("provider_failure", "endpoint_down")),
         )
     )
-    excess, _, gorged_note = collect_gorged_hygiene()
-    rows.append(row(repo, "stability", "standing_gorged_excess", excess, note=gorged_note))
+    excess, _, standing_note, _ = collect_gorged_hygiene()
+    rows.append(row(repo, "stability", "standing_gorged_excess", excess, note=standing_note))
     if state:
         state.parent.mkdir(parents=True, exist_ok=True)
         state.write_text(json.dumps(cur))
@@ -1145,8 +1158,8 @@ def collect_steward(repo: Path, context_file: Path | None = None) -> list[str]:
             note="; ".join(f"{p}({n})" for n, p in big[:6]),
         )
     )
-    _, unsafe, gorged_note = collect_gorged_hygiene()
-    rows.append(row(repo, "steward", "unsafe_gorged_launches", unsafe, note=gorged_note))
+    _, unsafe, _, unsafe_note = collect_gorged_hygiene()
+    rows.append(row(repo, "steward", "unsafe_gorged_launches", unsafe, note=unsafe_note))
     return rows
 
 
@@ -2019,7 +2032,7 @@ def selftest() -> int:
         # would pass for the wrong reason (a missing parent pid).
         check("the smoke-supervised gorged's parent is a live non-init .sh script",
               _proc_is_script_supervisor(fproc, _proc_ppid(fproc / "104")) is True)
-        excess, unsafe, _ = collect_gorged_hygiene(fproc)
+        excess, unsafe, _, _ = collect_gorged_hygiene(fproc)
         check("two standing instances against the default of one is an excess of 1",
               excess == 1, excess)
         check("the agent-owned dev instance does not count as standing", excess == 1, excess)
@@ -2057,11 +2070,30 @@ def selftest() -> int:
         check("the stray -manabrew is NOT owned", owned_pid(102) is False)
         check("both init-reparented instances are unsafe launches, the supervised one is not",
               unsafe == 2, unsafe)
+        # Per-metric evidence notes (agent-20261001T060854Z-d1315abb): each
+        # metric's row must carry a note naming ONLY the processes that
+        # metric counts, and no note may be truncated at six entries.
+        check("precondition: the demo (101) and the stray -manabrew (102) are init-reparented",
+              _proc_ppid(fproc / "101") == 1 and _proc_ppid(fproc / "102") == 1,
+              (_proc_ppid(fproc / "101"), _proc_ppid(fproc / "102")))
+        _, _, standing_note, unsafe_note = collect_gorged_hygiene(fproc)
+        check("precondition: the stray -manabrew (102) is the only unowned instance besides the demo",
+              owned_pid(102) is False and owned_pid(101) is False
+              and all(owned_pid(p) for p in (103, 104, 105, 106)))
+        check("standing_gorged_excess's note names exactly the standing instances (demo + stray)",
+              all(f"pid={p}" in standing_note for p in (101, 102))
+              and not any(f"pid={p}" in standing_note for p in (103, 104, 105, 106)),
+              standing_note)
+        check("unsafe_gorged_launches's note names exactly the init-reparented instances",
+              all(f"pid={p}" in unsafe_note for p in (101, 102))
+              and not any(f"pid={p}" in unsafe_note for p in (103, 104, 105, 106)),
+              unsafe_note)
 
         empty_proc = Path(td) / "proc-empty"
         empty_proc.mkdir()
         check("no gorged process running is not a failure",
-              collect_gorged_hygiene(empty_proc) == (0, 0, "no gorged process running"))
+              collect_gorged_hygiene(empty_proc)
+              == (0, 0, "no gorged process running", "no gorged process running"))
 
     print(f"\n{len(fails)} failure(s)")
     return 1 if fails else 0
