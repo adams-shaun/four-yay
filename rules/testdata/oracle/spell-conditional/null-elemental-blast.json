@@ -181,12 +181,14 @@
       ]
     },
     {
-      "name": "destroy-multicolored-land",
+      "name": "colorless-land-is-not-multicolored",
       "cr": [
-        "601.2c",
-        "608.2c"
+        "105.3a",
+        "105.4a",
+        "608.2c",
+        "601.2b"
       ],
-      "why": "The destroy mode targets 'multicolored permanent' and a multicolored LAND qualifies (CR 608.2c); with the Boros Guildgate as the only multicolored permanent the cast must be offered (CR 601.2b).",
+      "why": "Boros Guildgate has no mana cost, no colour indicator and no characteristic-defining ability, so it is colourless (CR 105.3a), and a colourless permanent is never multicolored (CR 105.4a). The destroy mode's target is 'multicolored permanent' (CR 608.2c), so with the Guildgate as the only permanent that mode has no legal target and the cast is not offered (CR 601.2b). The mana identity of a guildgate is two-coloured, but colour identity is a Commander concept (CR 903.4), not colour.",
       "setup": {
         "p0": {
           "hand": [
@@ -196,6 +198,79 @@
         "p1": {
           "battlefield": [
             "Boros Guildgate"
+          ]
+        }
+      },
+      "steps": [],
+      "expect": [
+        {
+          "card": "p1:Boros Guildgate",
+          "zone": "battlefield"
+        },
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Null Elemental Blast"
+          },
+          "want": false
+        }
+      ]
+    },
+    {
+      "name": "colored-land-is-not-multicolored",
+      "cr": [
+        "105.3a",
+        "105.4a",
+        "608.2c",
+        "601.2b"
+      ],
+      "why": "Dryad Arbor is a land that is green and only green (CR 105.3a, via its colour indicator), so it is not multicolored (CR 105.4a: 'more than one colour'). The destroy mode's target is 'multicolored permanent' (CR 608.2c), so with Dryad Arbor as the only permanent that mode has no legal target and the cast is not offered (CR 601.2b). This pins that the colour path does run for lands: one colour is still not multicolored.",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Null Elemental Blast"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Dryad Arbor"
+          ]
+        }
+      },
+      "steps": [],
+      "expect": [
+        {
+          "card": "p1:Dryad Arbor",
+          "zone": "battlefield"
+        },
+        {
+          "offered": {
+            "seat": 0,
+            "kind": "cast",
+            "card": "p0:Null Elemental Blast"
+          },
+          "want": false
+        }
+      ]
+    },
+    {
+      "name": "destroy-multicolored-enchantment",
+      "cr": [
+        "601.2c",
+        "608.2c",
+        "701.7a"
+      ],
+      "why": "The destroy mode targets 'multicolored permanent' (CR 608.2c), which is any permanent, not only a creature. Privileged Position is a genuinely multicolored noncreature permanent, so choosing destroy (CR 601.2c: only the chosen mode's target must be legal) destroys it (CR 701.7a).",
+      "setup": {
+        "p0": {
+          "hand": [
+            "Null Elemental Blast"
+          ]
+        },
+        "p1": {
+          "battlefield": [
+            "Privileged Position"
           ]
         }
       },
@@ -210,7 +285,7 @@
           "seat": 0,
           "card": "p0:Null Elemental Blast",
           "targets": [
-            "p1:Boros Guildgate"
+            "p1:Privileged Position"
           ],
           "answers": [
             {
@@ -227,8 +302,14 @@
       ],
       "expect": [
         {
-          "card": "p1:Boros Guildgate",
+          "card": "p1:Privileged Position",
           "zone": "graveyard"
+        },
+        {
+          "life": {
+            "p0": 20,
+            "p1": 20
+          }
         }
       ]
     }
