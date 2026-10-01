@@ -69,6 +69,7 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "potentialAskSerial"}:  true,
 	{"rules.Engine", "potentialWalkDepth"}:  true,
 	{"rules.Engine", "potentialFullDemand"}: true,
+	{"rules.Engine", "crossWalkRetires"}:    true,
 	// Layer/static rebuild caches keyed by epoch/version counters.
 	{"rules.Engine", "staticContinuous"}: true,
 	{"rules.Engine", "staticEpoch"}:      true,
