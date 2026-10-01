@@ -455,7 +455,10 @@ func (e *Engine) potentialWitnessOffers(p state.PlayerID, o decision.Option, pla
 			pool[c] += int32(n)
 		}
 	}
-	opts := e.legalActionsWalkTemp(p, &pool, false)
+	// A cast play is looked up among the walk's cast options only, which
+	// the casts-only walk lists exactly as the full walk does
+	// (castsOnlyWalkVerify), without pricing every battlefield ability.
+	opts := e.legalActionsWalkTemp(p, &pool, o.Kind == "cast")
 	defer e.optRelease(opts)
 	for _, opt := range opts {
 		if opt.Kind == o.Kind && opt.Obj == o.Obj && opt.Ability == o.Ability && opt.Mode == o.Mode && opt.AltCostIndex == o.AltCostIndex {
