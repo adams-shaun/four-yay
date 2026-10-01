@@ -106,6 +106,20 @@ func (c *syntheticCollector) gameOvers() int {
 	return n
 }
 
+// firstFrame returns the first frame seen so far and whether one exists.
+// It exists so a caller whose stream is already owned by a background
+// readFrames can inspect the first frame WITHOUT a second reader on the
+// same bufio.Reader (two concurrent readers on one whole message stream
+// race and corrupt each other).
+func (c *syntheticCollector) firstFrame() (mb.EngineMessage, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if len(c.msgs) == 0 {
+		return mb.EngineMessage{}, false
+	}
+	return c.msgs[0], true
+}
+
 // failed reports whether the reader goroutine died, with its error.
 func (c *syntheticCollector) failed() (bool, error) {
 	c.mu.Lock()

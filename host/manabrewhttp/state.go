@@ -50,9 +50,12 @@ func (h *handler) state(w http.ResponseWriter, r *http.Request) {
 	if v.Over {
 		// The terminal gameOver prompt, exactly once per seat (the seatConn
 		// latch), after the final state -- the scoping spec Appendix A row
-		// "end of match (View.Over) -> gameOver prompt". A poll-only client
-		// that keeps polling a finished match gets state-only responses;
-		// reconnect-based clients get it from the stream's own latch.
+		// "end of match (View.Over) -> gameOver prompt". The latch is
+		// seat-wide, not per-connection: whichever path (this poll or a
+		// stream) observes Over first consumes it, and every later poll or
+		// reconnect for the same seat is state-only. The re-served state
+		// already carries GameViewDto.gameOver, so that client is not left
+		// without the information.
 		if sc := h.connFor(connKey{table: t, match: k, seat: claim.Seat}); sc.markGameOver() {
 			msgs = append(msgs, mb.EngineMessage{Value: tr.GameOver(&v)})
 		}
