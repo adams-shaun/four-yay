@@ -148,10 +148,17 @@ export interface MatchStart {
 
   /**
    * ManifestRow is one canonical card-name/count pair in an own-deck manifest.
+   * Land is whether the card's FRONT face is a land: the face every card in a
+   * library presents (CR 711.2/712.2 -- a double-faced card has only its front
+   * face's characteristics outside the stack and battlefield), so it is the
+   * land/nonland split of whatever copies remain in the library
+   * (LibraryComposition). A printed card fact of the seat's own list, not
+   * game state; omitted from the wire when false.
    */
 export interface ManifestRow {
   name: string;
   count: number;
+  land?: boolean;
 }
 
   /**
@@ -237,6 +244,21 @@ export interface ManaProduction {
 export interface CardView {
   id: number;
   name: string;
+  /**
+   * CardName is the object's PRINTED card name -- its card's front face,
+   * the name its genesis deck list (deck.Manifest) records -- when that
+   * differs from Name: a transformed or back-face-played double-faced
+   * card, a split or adventure half on the stack, a permanent a copy
+   * effect (CopyFace) or a SetName$ renamed. Empty when it equals Name,
+   * and on every redacted face-down CardView (the redaction rebuilds the
+   * view from a fresh literal). The physical card's identity is exactly as
+   * visible as the object carrying it: a copy or a transformed permanent
+   * is a public card whose printed front every player can read. The
+   * honest own-library composition (view.OwnLibrary) keys on it, so a
+   * Clone copying one of the seat's own cards is counted as the Clone it
+   * is, not as a second copy of what it copies.
+   */
+  card_name?: string;
   face_down?: boolean;
   types: string;
   /**

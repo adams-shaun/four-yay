@@ -74,7 +74,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		kindLoss       = fs.String("kind-loss", "attackers=bce", "per-kind loss overrides as kind=mode,... (e.g. attackers=bce); kinds not listed keep -loss. The attackers default is bce: a per-option binary logistic loss trains the score LEVEL the seat's per-option admission rule reads, which argmax CE (shift-invariant) cannot")
 	)
 	var grid gridFlags
-	fs.StringVar(&grid.features, "features", "", "pn12: encoder feature set: v1 (default, the pinned encoder), mz (MageZero-style per-card properties; checkpointable), or the DIAGNOSTIC mz-opphand / mz-oracle (read hidden information from a -label-extras corpus; never checkpointed)")
+	fs.StringVar(&grid.features, "features", "", "pn12: encoder feature set: v1 (default, the pinned encoder), mz (MageZero-style per-card properties; checkpointable), mz-ownlib (mz plus the seat's honest remaining own-library composition, folded from the view's own deck list and what it sees; checkpointable; needs corpora whose views carry own_deck), or the DIAGNOSTIC mz-opphand / mz-oracle (read hidden information from a -label-extras corpus; never checkpointed)")
 	fs.StringVar(&grid.actions, "actions", "", "pn12: action encoding: split (default) or joint (each targeted cast option expanded into one (card, target) option per legal target; needs a -label-extras corpus)")
 	fs.IntVar(&grid.maxGameIndex, "max-game-index", 0, "pn12: train only on games whose per-pair game index is below this (nested subsets for the data axis; 0 = every game)")
 	fs.StringVar(&grid.evalCorpus, "eval-corpus", "", "pn12: comma-separated held-out label corpora (a disjoint seed block) to score the trained model on, with the override-only readout")

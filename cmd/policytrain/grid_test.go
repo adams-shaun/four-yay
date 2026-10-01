@@ -53,6 +53,13 @@ func TestGridFlags(t *testing.T) {
 	if rep.Arm != "mz-half" || rep.TrainGames != 24 || rep.EvalExamples != 48 || len(rep.Kinds) != 1 || rep.Kinds[0].N != 48 {
 		t.Fatalf("eval report %+v", rep)
 	}
+	// The honest own-library set (mz-ownlib) is opt-in by the same flag and
+	// checkpointable: it writes a checkpoint that loads as mz-ownlib.
+	ownlib := filepath.Join(dir, "ownlib.gpol")
+	runOK("-out", ownlib, "-features", "mz-ownlib")
+	if m, err := policynet.LoadCheckpointFile(ownlib); err != nil || m.Features != policynet.FeaturesMZOwnLib {
+		t.Fatalf("mz-ownlib checkpoint: %v features %v", err, m)
+	}
 	for _, extra := range [][]string{{"-features", "mz-opphand"}, {"-actions", "joint"}} {
 		out := filepath.Join(dir, "none.gpol")
 		runOK(append([]string{"-out", out}, extra...)...)
