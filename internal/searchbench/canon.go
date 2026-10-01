@@ -3,8 +3,10 @@ package searchbench
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/internal/azmcts"
 	"github.com/adams-shaun/gorge/rules"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -97,36 +99,11 @@ func BuildCanon(m *Materialized, r *Reached) (*Canon, error) {
 		if d.Kind != decision.KPriority {
 			return nil, refuse("reached", "%s for a %s item", d.Kind, r.Kind)
 		}
-		var acts []CanonOption
-		add := func(key string, o CanonOption) {
-			if key == "" || key == "pass" {
-				return
-			}
-			if _, ok := c.byKey[key]; ok {
-				return
-			}
-			c.byKey[key] = -1
-			o.key = key
-			acts = append(acts, o)
-		}
-		for _, o := range d.Options {
-			add(priorityKey(e, o.Kind, o.Obj, o.Mode, o.Label))
-		}
-		c.payments = e.EnsurePaymentActions()
-		for _, pa := range c.payments {
-			if len(pa.Plans) > 0 {
-				add(priorityKey(e, "cast", pa.Cast.Object, "", ""))
-			}
-		}
-		for _, pp := range e.PotentialPaymentPlans(d.Player) {
-			// Only a PROVEN-unpayable play is left out: "unsupported",
-			// "search_limit" and "ambiguous" verdicts are plays the offer
-			// walk admits against the seat's potential mana (an overbound,
-			// as XMage's available-mana playability check is) that the exact
-			// planner could not witness.
-			if pp.Reason != "insufficient" {
-				add(priorityKey(e, pp.Action.Kind, pp.Action.Obj, pp.Action.Mode, pp.Action.Label))
-			}
+		plays, payments := canonPlays(e, d)
+		c.payments = payments
+		acts := make([]CanonOption, len(plays))
+		for i, p := range plays {
+			acts[i] = p.opt
 		}
 		sort.SliceStable(acts, func(i, j int) bool { return acts[i].Label < acts[j].Label })
 		c.Options = append([]CanonOption{{Label: "Pass", Kind: "pass", key: "pass"}}, acts...)
@@ -224,6 +201,66 @@ func BuildCanon(m *Materialized, r *Reached) (*Canon, error) {
 		return nil, fmt.Errorf("searchbench: unknown item kind %q", r.Kind)
 	}
 	return c, nil
+}
+
+// canonPlay is one canonical non-pass priority action of a decision and
+// every way the decision offers it: the first option naming it (Offered,
+// -1 none), the payment actions with a plan casting a card of that name
+// (plain casts), and the potential plays naming it with a verdict other
+// than "insufficient", in the engine's order.
+type canonPlay struct {
+	key      string
+	opt      CanonOption
+	offered  int
+	payments []decision.PaymentAction
+	plans    []rules.PotentialPlan
+}
+
+// canonPlays lists d's canonical non-pass priority actions (BuildCanon's
+// spell/hold rule) in first-seen order -- d's options, then the payment
+// actions with a plan, then the potential plays the exact planner does not
+// prove unpayable -- with the payment actions it read.
+func canonPlays(e *rules.Engine, d *decision.Decision) ([]canonPlay, []decision.PaymentAction) {
+	var out []canonPlay
+	at := map[string]int{} // lookup only
+	get := func(key string, o CanonOption) *canonPlay {
+		if key == "" || key == "pass" {
+			return nil
+		}
+		if i, ok := at[key]; ok {
+			return &out[i]
+		}
+		at[key] = len(out)
+		o.key = key
+		out = append(out, canonPlay{key: key, opt: o, offered: -1})
+		return &out[len(out)-1]
+	}
+	for i, o := range d.Options {
+		if p := get(priorityKey(e, o.Kind, o.Obj, o.Mode, o.Label)); p != nil && p.offered < 0 {
+			p.offered = i
+		}
+	}
+	payments := e.EnsurePaymentActions()
+	for _, pa := range payments {
+		if len(pa.Plans) > 0 {
+			if p := get(priorityKey(e, "cast", pa.Cast.Object, "", "")); p != nil {
+				p.payments = append(p.payments, pa)
+			}
+		}
+	}
+	for _, pp := range e.PotentialPaymentPlans(d.Player) {
+		// Only a PROVEN-unpayable play is left out: "unsupported",
+		// "search_limit" and "ambiguous" verdicts are plays the offer walk
+		// admits against the seat's potential mana (an overbound, as
+		// XMage's available-mana playability check is) that the exact
+		// planner could not witness.
+		if pp.Reason != "insufficient" {
+			if p := get(priorityKey(e, pp.Action.Kind, pp.Action.Obj, pp.Action.Mode, pp.Action.Label)); p != nil {
+				p.plans = append(p.plans, pp)
+			}
+		}
+	}
+	return out, payments
 }
 
 // aliasesOf lists every spec alias of id, shortest first.
@@ -352,6 +389,17 @@ func (c *Canon) ProjectAt(e *rules.Engine, d *decision.Decision, in decision.Int
 	i, ok := c.byKey[key]
 	if !ok || i < 0 {
 		return -1, false, fmt.Errorf("searchbench: action %q is not canonical here", key)
+	}
+	return i, c.Options[i].Act, nil
+}
+
+// projectMacro maps a root macro's key (planRoot: azmcts.MacroKeyPrefix
+// plus a canonical key) onto its canonical option.
+func (c *Canon) projectMacro(k azmcts.Key) (int, bool, error) {
+	key := strings.TrimPrefix(string(k), azmcts.MacroKeyPrefix)
+	i, ok := c.byKey[key]
+	if !ok || i < 0 {
+		return -1, false, fmt.Errorf("searchbench: macro %q is not canonical here", key)
 	}
 	return i, c.Options[i].Act, nil
 }

@@ -176,6 +176,26 @@ type ArmResult struct {
 	// IS-MCTS: re-deals made and failed, and simulations per world.
 	Redeals, RedealFailures int
 	WorldPicks              []int
+
+	// plan is the full root of the first tree (planRoot), nil when the
+	// root is not a priority decision.
+	plan *rootPlan
+}
+
+// RootMacros and RootUnreached count the full root's macro candidates and
+// the canonical plays no candidate reaches (0 without a full root).
+func (r ArmResult) RootMacros() int {
+	if r.plan == nil {
+		return 0
+	}
+	return len(r.plan.Macros)
+}
+
+func (r ArmResult) RootUnreached() []string {
+	if r.plan == nil {
+		return nil
+	}
+	return r.plan.Unreached
 }
 
 // RunArm runs one arm. The error return is misconfiguration or an input
@@ -240,7 +260,7 @@ func RunArm(ctx context.Context, in ArmInput) (ArmResult, error) {
 			return res, err
 		}
 		opts.Seed = treeSeed(in.Seed, 0)
-		single, err = search(ctx, in.Real, obs, botSeed, src, in.Net, opts)
+		single, res.plan, err = search(ctx, in.Real, obs, botSeed, src, in.Net, opts)
 		if err != nil {
 			return res, err
 		}
@@ -251,7 +271,7 @@ func RunArm(ctx context.Context, in ArmInput) (ArmResult, error) {
 		}
 		opts.Seed = treeSeed(in.Seed, 0)
 		src := &pimcSource{base: in.Worlds[0], obs: obs, seed: chanceSeed(in.Seed, 0), fresh: in.FreshChance}
-		single, err = search(ctx, in.Worlds[0], obs, botSeed, src, in.Net, opts)
+		single, res.plan, err = search(ctx, in.Worlds[0], obs, botSeed, src, in.Net, opts)
 		if err != nil {
 			return res, err
 		}
@@ -266,7 +286,7 @@ func RunArm(ctx context.Context, in ArmInput) (ArmResult, error) {
 		if err != nil {
 			return res, err
 		}
-		single, err = search(ctx, in.Worlds[0], obs, botSeed, src, in.Net, opts)
+		single, res.plan, err = search(ctx, in.Worlds[0], obs, botSeed, src, in.Net, opts)
 		if err != nil {
 			return res, err
 		}
@@ -290,6 +310,23 @@ func chosen(r azmcts.Result) bool {
 // answerWith plays root row choice of res.Table on the answer engine.
 func answerWith(res ArmResult, answer *rules.Engine, actor state.PlayerID, choice int) (ArmResult, error) {
 	row := res.Table[choice]
+	if azmcts.IsMacroKey(row.Key) {
+		// A macro's answer on the answer engine is its first step (every
+		// world shares the root observation, so it is offered there too).
+		if res.plan != nil {
+			for _, m := range res.plan.Macros {
+				if m.Key == row.Key {
+					in, err := m.Steps[0].Intent(answer, answer.Pending())
+					if err != nil {
+						return res, fmt.Errorf("searchbench: the chosen %s cannot be played on the answer engine: %w", row.Label, err)
+					}
+					res.Searched, res.Choice, res.Key, res.Label, res.Intent = true, choice, row.Key, row.Label, in
+					return res, nil
+				}
+			}
+		}
+		return res, fmt.Errorf("searchbench: the chosen macro %s is not in the root plan", row.Label)
+	}
 	obs, err := rootObserver(answer, actor)
 	if err != nil {
 		return res, err
@@ -315,10 +352,20 @@ func rootObserver(e *rules.Engine, actor state.PlayerID) (*searchprobe.Collector
 	return obs, nil
 }
 
-// search is one azmcts.Search rooted at e.
-func search(ctx context.Context, e *rules.Engine, obs *searchprobe.Collector, botSeed uint64, src azmcts.WorldSource, net *policynet.Model, opts azmcts.Options) (azmcts.Result, error) {
+// search is one azmcts.Search rooted at e. A priority root under
+// auto-payment is the full root (planRoot): every canonical play is a
+// candidate, and the bot's candidate is never a mana tap.
+func search(ctx context.Context, e *rules.Engine, obs *searchprobe.Collector, botSeed uint64, src azmcts.WorldSource, net *policynet.Model, opts azmcts.Options) (azmcts.Result, *rootPlan, error) {
 	d := e.Pending()
-	return azmcts.Search(ctx, azmcts.Root{Engine: e, Decision: d, Bot: botAnswer(e, botSeed), Observer: obs}, src, net, opts)
+	root := azmcts.Root{Engine: e, Decision: d, Bot: botAnswer(e, botSeed), Observer: obs}
+	var plan *rootPlan
+	if d.Kind == decision.KPriority && opts.AutoPayment {
+		p := planRoot(e, root.Bot, botSeed)
+		plan = &p
+		root.Bot, root.BotKey, root.Macros, root.NoBot = p.Bot, p.BotKey, p.Macros, true
+	}
+	r, err := azmcts.Search(ctx, root, src, net, opts)
+	return r, plan, err
 }
 
 // botAnswer is the redacted auto-pay bot's answer at e's pending decision:
@@ -400,9 +447,12 @@ func runPIMC4(ctx context.Context, in ArmInput, res ArmResult, answer *rules.Eng
 			return res, err
 		}
 		src := &pimcSource{base: in.Worlds[i], obs: obs, seed: chanceSeed(in.Seed, i), fresh: in.FreshChance}
-		r, err := search(ctx, in.Worlds[i], obs, botSeed, src, in.Net, local)
+		r, plan, err := search(ctx, in.Worlds[i], obs, botSeed, src, in.Net, local)
 		if err != nil {
 			return res, fmt.Errorf("searchbench: pimc-4 world %d: %w", i, err)
+		}
+		if res.plan == nil {
+			res.plan = plan
 		}
 		results[i] = r
 		res.Stats.Add(r.Stats)

@@ -39,6 +39,11 @@ type Result struct {
 	EnvSteps                    int
 	Fallback                    string
 	CoreSeconds                 float64
+	// RootMacros counts the full root's macro candidates (canonical plays
+	// reached by tapping mana first, land plays ...); RootUnreached the
+	// canonical plays no root candidate reaches.
+	RootMacros    int `json:",omitempty"`
+	RootUnreached int `json:",omitempty"`
 }
 
 func finite(v ...float64) bool {

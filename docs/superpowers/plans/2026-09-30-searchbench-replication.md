@@ -77,6 +77,7 @@ of scope here.
 
 | | upstream (XMage/MageZero BenchSearch) | gorge (azmcts) |
 |---|---|---|
+| root | every playable action | Pass plus every canonical cast, activation and land play (the item's options): a payment action or offered option is one intent; a play reached only by tapping mana first (a mana-costed ability, a kicked cast, a scripted-prefix cast) is a recorded macro (the planner's witness, its script, or the exact manual-mana search) played as one edge; the bot's candidate is the play it taps for, never a tap |
 | tree | both players' decisions, including micro decisions | the searching seat's searched decisions (priority, attackers, blockers, target); the opponent and unsearched asks are played by `botpolicy` |
 | PUCT | c = 1 on values in [-1,1]; unvisited Q = 0 | c = 0.5 on values in [0,1] (the same ratio); unvisited Q = 0.5 (absolute) |
 | priors | uniform (priors off) | uniform |

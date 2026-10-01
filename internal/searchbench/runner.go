@@ -75,7 +75,13 @@ func RunItem(ctx context.Context, reg *cards.Registry, it Item, s *StoreItem, cf
 	if err != nil {
 		return r, fmt.Errorf("searchbench: %s: %w", it.ID, err)
 	}
-	choice, act, err := pos.Canon.Project(real, res.Intent)
+	var choice int
+	var act bool
+	if res.Searched && azmcts.IsMacroKey(res.Key) {
+		choice, act, err = pos.Canon.projectMacro(res.Key)
+	} else {
+		choice, act, err = pos.Canon.Project(real, res.Intent)
+	}
 	if err != nil && IsManaActivation(real.Pending(), res.Intent) {
 		choice, act, err = followBot(pos.Canon, real, res.Intent, splitMix64(r.Seed^0x626f742d61727365))
 	}
@@ -83,6 +89,7 @@ func RunItem(ctx context.Context, reg *cards.Registry, it Item, s *StoreItem, cf
 		return r, fmt.Errorf("searchbench: %s: projecting the answer: %w", it.ID, err)
 	}
 	r.AgentChoices, r.AgentAct = []int{choice}, act
+	r.RootMacros, r.RootUnreached = res.RootMacros(), len(res.RootUnreached())
 	st := res.Stats
 	r.Sims, r.Completed, r.EnvSteps = st.Simulations, st.Completed, st.EnvSteps
 	if st.Completed > 0 {
@@ -133,13 +140,19 @@ func projectRoot(pos *Positioned, table []azmcts.RootRow) ([]RootOption, error) 
 	qsum := make([]float64, len(pos.Canon.Options))
 	seen := make([]bool, len(pos.Canon.Options))
 	for _, row := range table {
-		in, err := azmcts.IntentForKey(obs, real, d, row.Key)
-		if err != nil {
-			return nil, fmt.Errorf("key %s: %w", row.Label, err)
-		}
-		c, _, err := pos.Canon.Project(real, in)
-		if err != nil {
-			return nil, fmt.Errorf("key %s: %w", row.Label, err)
+		var c int
+		if azmcts.IsMacroKey(row.Key) {
+			if c, _, err = pos.Canon.projectMacro(row.Key); err != nil {
+				return nil, fmt.Errorf("key %s: %w", row.Label, err)
+			}
+		} else {
+			in, err := azmcts.IntentForKey(obs, real, d, row.Key)
+			if err != nil {
+				return nil, fmt.Errorf("key %s: %w", row.Label, err)
+			}
+			if c, _, err = pos.Canon.Project(real, in); err != nil {
+				return nil, fmt.Errorf("key %s: %w", row.Label, err)
+			}
 		}
 		seen[c] = true
 		visits[c] += row.Visits
