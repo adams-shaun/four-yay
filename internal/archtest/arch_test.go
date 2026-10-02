@@ -111,7 +111,11 @@ func set(s string) map[string]bool {
 // keep-alive and write deadlines. internal/mzbridge/mzclient (the HTTP client
 // for MageZero's inference server) uses time only for its micro-batch flush
 // timer and request timeout; the bridge's encoders in internal/mzbridge
-// import no time. No game, event, view or
+// import no time. cmd/mzselfplay (the DraftZero loop's engine, in place of the
+// XMage JVM) reads it for its log timestamps, the wall-clock limits its
+// game.yml asks for (a decision's timeout_ms, a game's max_minutes), the
+// inference request timeout and its timing report; the games themselves are
+// played by internal/mzplay, which imports no time. No game, event, view or
 // replay reads the clock, and intents reach the engine only through
 // SubmitIntent.
 func TestTimeIsImportedOnlyByTheHost(t *testing.T) {
@@ -137,6 +141,7 @@ func TestTimeIsImportedOnlyByTheHost(t *testing.T) {
 		module + "/host/manabrewhttp": true,
 
 		module + "/internal/mzbridge/mzclient": true,
+		module + "/cmd/mzselfplay":             true,
 	}
 	for path, p := range packages(t) {
 		if p.imports["time"] && !allowed[path] {
