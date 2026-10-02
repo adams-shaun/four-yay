@@ -113,6 +113,14 @@ type Config struct {
 	ValueWeight float64
 	ValueBlend  float64
 
+	// Init, when set, is the model training continues from instead of a
+	// fresh one (visits mode's -init); its architecture must be the run's
+	// (checkInit). It is trained in place. ScalePolicy and PolicyWeight are
+	// policynet.LossConfig's (visits mode's -visits-policy-weight).
+	Init         *policynet.Model
+	ScalePolicy  bool
+	PolicyWeight float64
+
 	// Log receives one line per epoch (nil discards).
 	Log io.Writer
 }
@@ -275,16 +283,24 @@ func Train(examples []policynet.Example, cfg Config) (*Result, error) {
 		sp = splitCorpus(usable, cfg.Holdout, rng)
 	}
 
-	model := policynet.NewModelExtra(policynet.TableRows, cfg.Embed, cfg.Hidden, cfg.ExtraW, rng)
-	model.ResidualW = float32(cfg.ResidualInit)
-	if cfg.ValueWeight > 0 {
-		// After the policy blocks, from its own rng: the main rng's draw
-		// sequence (split, policy init, every epoch shuffle) is untouched.
-		model.InitValue(cfg.ValueHidden, valueRNG(cfg.Seed))
+	var model *policynet.Model
+	if cfg.Init != nil {
+		if err := checkInit(cfg.Init, cfg); err != nil {
+			return nil, err
+		}
+		model = cfg.Init
+	} else {
+		model = policynet.NewModelExtra(policynet.TableRows, cfg.Embed, cfg.Hidden, cfg.ExtraW, rng)
+		model.ResidualW = float32(cfg.ResidualInit)
+		if cfg.ValueWeight > 0 {
+			// After the policy blocks, from its own rng: the main rng's draw
+			// sequence (split, policy init, every epoch shuffle) is untouched.
+			model.InitValue(cfg.ValueHidden, valueRNG(cfg.Seed))
+		}
 	}
 	grads := model.NewGrads()
 	lc := policynet.LossConfig{Mode: cfg.Mode, HuberDelta: cfg.HuberDelta, RankWeight: cfg.RankWeight, OverrideWeight: cfg.OverrideWeight, KindModes: cfg.KindModes,
-		ValueWeight: cfg.ValueWeight, ValueBlend: cfg.ValueBlend}
+		ValueWeight: cfg.ValueWeight, ValueBlend: cfg.ValueBlend, ScalePolicy: cfg.ScalePolicy, PolicyWeight: cfg.PolicyWeight}
 
 	res := &Result{Model: model, TrainN: len(sp.train), HoldoutN: len(sp.hold), Skipped: skipped}
 	var vbase valueBase

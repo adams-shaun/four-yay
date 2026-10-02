@@ -104,6 +104,12 @@ type sbOpts struct {
 	// trace names a directory where every sb-tactical seat writes its
 	// scored decisions, one file per game and seat (debugging).
 	trace string
+	// firstOnly is -spellbench-first-game-only: play game 0 of each pair and
+	// skip its seat swap. Two seats of one deterministic policy (two az
+	// variants on one checkpoint, the generation loop's current-vs-current
+	// self-play) replay the SAME game when swapped, so the swap is a
+	// duplicate, not a second game.
+	firstOnly bool
 }
 
 var sbFlags sbOpts
@@ -121,6 +127,7 @@ func registerSpellbenchFlags(fs *flag.FlagSet) {
 	fs.StringVar(&sbFlags.tacticalAlt, "spellbench-tactical-alt-weights", "", "spellbench: comma list of JSON files of builtins.TacticalWeights for sb-tactical-alt, -alt2 ... -alt8 (weight-tuning A/B)")
 	fs.StringVar(&sbFlags.trace, "spellbench-trace", "", "spellbench: directory for sb-tactical decision traces (one file per game and seat)")
 	fs.StringVar(&sbFlags.engineVersion, "spellbench-engine-version", "dev", "spellbench: engine_version recorded in the ledger (e.g. the git commit)")
+	fs.BoolVar(&sbFlags.firstOnly, "spellbench-first-game-only", false, "spellbench: play only game 0 of each pair, no seat swap (self-play between two seats of one deterministic policy, whose swapped game is the same game again; never a rating run)")
 	fs.IntVar(&sbFlags.mulligans, "spellbench-mulligans", 0, "spellbench: London mulligans per player per game (0 = none posed, the benchmark default; 0..6 as host/httpapi clamps it)")
 }
 
@@ -195,6 +202,10 @@ type sbResult struct {
 	corpus []byte
 	// visits counts the records in corpus.
 	visits int
+	// vcorpus / vvisits are the same per seat, for a seat that is an az
+	// variant with its own corpus (azvariant.go).
+	vcorpus [2][]byte
+	vvisits [2]int
 }
 
 // sbDisplayName is the ledger name for a policy. A spec resolves through
@@ -208,6 +219,9 @@ type sbResult struct {
 // composed clairvoyant spec can be rated as a fair one.
 func sbDisplayName(policy string) string {
 	base := basePolicy(policy)
+	if v := azVariantNamed(base); v != nil {
+		return v.displayName() + strings.TrimPrefix(policy, base)
+	}
 	if !isAZPolicy(base) {
 		return policy
 	}
@@ -357,6 +371,7 @@ func sbPlay(g sbGame, deck []*cards.Card, reg *cards.Registry, maxTurns, maxInte
 			})
 		}
 	}
+	vrecs := azVariantRecorders(g, seats)
 	hooks := gbench.Hooks{Submit: sbSubmitWithFallback(seats, &res),
 		Decision: func(seatIdx int, d *decision.Decision, in decision.Intent, _ *botpolicy.Board) error {
 			if d.Kind != decision.KMulligan || len(d.Options) == 0 || d.Options[0].Kind == "bottom" {
@@ -387,6 +402,7 @@ func sbPlay(g sbGame, deck []*cards.Card, reg *cards.Registry, maxTurns, maxInte
 	if len(recs) > 0 {
 		res.corpus, res.visits = sbCorpusMember(recs, o, err)
 	}
+	azVariantMembers(vrecs, &res, o, err)
 	for s := 0; s < 2; s++ {
 		if b, ok := registry.UnwrapSeat(seats[s]).(*builtins.Seat); ok {
 			res.stats[s] = b.Stats
@@ -543,6 +559,7 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 	seen := map[string]bool{}
 	azSide := false
 	azBases := map[string]bool{}
+	azRegisterVariants()
 	for _, b := range bots {
 		// Every name is a registry spec ("bot", "bot+passguard"); the
 		// error names the registered policies for an unknown base.
@@ -556,6 +573,11 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 		if base := basePolicy(b); isAZPolicy(base) {
 			azSide = true
 			azBases[base] = true
+		} else if isAZVariant(base) {
+			// A variant is the plain az seat with overrides: it goes
+			// through az's front door.
+			azSide = true
+			azBases["az"] = true
 		}
 	}
 	if azBases["az"] && azBases["az-redeal"] && azWorldArg == "redeal" {
@@ -632,6 +654,9 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 	if err := azFrontDoor(azA, azB, ckModel, azSeatsFromSpellbench); err != nil {
 		return fail(err)
 	}
+	if err := azResolveVariants(); err != nil {
+		return fail(err)
+	}
 	if azSide {
 		installAZCostStats()
 	}
@@ -685,7 +710,7 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 	var sched []sbGame
 	for _, g := range full {
 		has := func(p string) bool { return g.seats[0] == p || g.seats[1] == p }
-		if (o.with != "" && !has(o.with)) || (o.without != "" && has(o.without)) {
+		if (o.with != "" && !has(o.with)) || (o.without != "" && has(o.without)) || (o.firstOnly && g.game == 1) {
 			continue
 		}
 		sched = append(sched, g)
@@ -740,7 +765,7 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 	if azSide {
 		// Both az policies feed one cost report; its game count is the
 		// games either seated.
-		fmt.Fprint(stdout, azCostReport(sbCountBase(sched, "az")+sbCountBase(sched, "az-redeal")))
+		fmt.Fprint(stdout, azCostReport(sbCountBase(sched, "az")+sbCountBase(sched, "az-redeal")+azVariantGames(sched)))
 	}
 	if sbSearchSide {
 		var ps []string
@@ -759,6 +784,9 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 			return fail(fmt.Errorf("-az-corpus: %w", err))
 		}
 		fmt.Fprintf(stdout, "az visit corpus %s: %d records\n", azCorpusPath, n)
+	}
+	if err := azWriteVariantCorpora(sched, results, stdout); err != nil {
+		return fail(err)
 	}
 	return 0
 }
@@ -840,8 +868,14 @@ func sbWriteOutputs(o sbOpts, bots, pool []string, sched []sbGame, results []sbR
 		"base_seed": o.baseSeed, "with": o.with, "without": o.without, "games": len(sched),
 		"mulligans":    o.mulligans,
 		"wall_seconds": elapsed.Seconds(), "workers": workers, "engine": engine,
-		"az":               map[string]any{"sims": azCfg.Search.Sims, "world": azWorldArg, "worlds": azCfg.Worlds},
+		"az":               azRunRecord(),
 		"max_turn_intents": maxTurnIntents,
+	}
+	if len(azVariants) > 0 {
+		run["az_variants"] = azVariantRunRecords()
+	}
+	if o.firstOnly {
+		run["first_game_only"] = true
 	}
 	raw, err := json.MarshalIndent(run, "", "  ")
 	if err != nil {

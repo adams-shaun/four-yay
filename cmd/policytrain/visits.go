@@ -37,7 +37,11 @@ type visitsArgs struct {
 	diag                             bool
 	maxGames                         int
 	temp                             float64
-	cfg                              Config
+	// tdLambda and window are -visits-td-lambda and -visits-window
+	// (visits_td.go); 0 is off.
+	tdLambda float64
+	window   int
+	cfg      Config
 }
 
 // VisitEval is one model's readout on one eval corpus.
@@ -114,7 +118,7 @@ func runVisits(a visitsArgs, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stderr, "policytrain: visits mode needs -out")
 			return 2
 		}
-		exs, _, fs, err := loadVisitCorpora(a.corpora, policynet.VisitLoadOptions{Label: a.label, Diag: a.diag, MaxGames: a.maxGames, Temp: a.temp}, stdout)
+		exs, fs, err := loadVisitTrain(a, stdout)
 		if err != nil {
 			fmt.Fprintf(stderr, "policytrain: %v\n", err)
 			return 1
@@ -130,6 +134,19 @@ func runVisits(a visitsArgs, stdout, stderr io.Writer) int {
 		cfg := a.cfg
 		cfg.HoldoutBy = HoldoutByGame
 		cfg.Log = stdout
+		if a.init != "" {
+			m, err := policynet.LoadCheckpointFile(a.init)
+			if err != nil {
+				fmt.Fprintf(stderr, "policytrain: -init %s: %v\n", a.init, err)
+				return 1
+			}
+			if m.Features != fs {
+				fmt.Fprintf(stderr, "policytrain: -init %s is feature set %s, the corpus %s\n", a.init, m.Features, fs)
+				return 1
+			}
+			cfg.Init = m
+			fmt.Fprintf(stdout, "continuing from %s\n", a.init)
+		}
 		res, err := Train(exs, cfg)
 		if err != nil {
 			fmt.Fprintf(stderr, "policytrain: %v\n", err)

@@ -258,6 +258,13 @@ type LossConfig struct {
 	// nothing about who won.
 	ValueWeight float64
 	ValueBlend  float64
+	// ScalePolicy multiplies a VISIT example's policy term (lossVisits) and its
+	// gradient by PolicyWeight; false (the zero value) leaves the term as it
+	// is. PolicyWeight 0 trains the value head alone: no gradient reaches the
+	// policy head's blocks (HidW, HidB, OutW, OutB), while the state trunk the
+	// two heads share still moves with the value term.
+	ScalePolicy  bool
+	PolicyWeight float64
 	// KindModes overrides Mode for specific decision kinds: the two scored
 	// kinds take different inference paths (attackers admits options with an
 	// absolute per-option vote; priority argmaxes a shift-invariant softmax),
@@ -337,8 +344,13 @@ type LossParts struct {
 // ValueTarget returns the value head's training target for ex under the
 // blend b = ValueBlend: (1-b)·Outcome + b·TeacherValue. ok is false when the
 // example lacks a part the blend needs (an outcome for b < 1, a teacher
-// value for b > 0), in which case the example trains no value term.
+// value for b > 0), in which case the example trains no value term. An
+// example carrying a trajectory target (Example.HasTDTarget) returns that
+// instead, blend or not.
 func (lc LossConfig) ValueTarget(ex Example) (t float64, ok bool) {
+	if ex.HasTDTarget {
+		return ex.TDTarget, true
+	}
 	b := lc.ValueBlend
 	if b < 1 && !ex.HasOutcome {
 		return 0, false
@@ -1081,7 +1093,7 @@ func (m *Model) Loss(ex Example, lc LossConfig) StepStat {
 	case ex.PPO != nil:
 		parts, _, ps = lossPPO(lc, ex, labelled, ys)
 	case ex.Visits != nil:
-		parts, _ = lossVisits(ex, labelled, ys)
+		parts, _ = lc.visitPolicy(lossVisits(ex, labelled, ys))
 	default:
 		parts, _ = lossFromScores(lc, ex, labelled, ys)
 	}
@@ -1140,7 +1152,7 @@ func (m *Model) LossGrad(ex Example, lc LossConfig, g *Grads) StepStat {
 	case ex.PPO != nil:
 		parts, dys, ps = lossPPO(lc, ex, labelled, ys)
 	case ex.Visits != nil:
-		parts, dys = lossVisits(ex, labelled, ys)
+		parts, dys = lc.visitPolicy(lossVisits(ex, labelled, ys))
 	default:
 		parts, dys = lossFromScores(lc, ex, labelled, ys)
 	}

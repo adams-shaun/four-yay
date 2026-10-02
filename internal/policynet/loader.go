@@ -114,8 +114,14 @@ type Example struct {
 	// the candidate range.
 	TeacherValue    float64
 	HasTeacherValue bool
-	State           State
-	Options         []Option
+	// TDTarget is a value target computed over the example's whole trajectory
+	// (VisitTDTargets, cmd/policytrain -visits-td-lambda). When HasTDTarget is
+	// set it IS the value head's target, whatever LossConfig.ValueBlend says;
+	// false (every loader's default) keeps the blend.
+	TDTarget    float64
+	HasTDTarget bool
+	State       State
+	Options     []Option
 	// PPO is the on-policy PPO target (ticket pn13, LoadOnPolicy): non-nil
 	// makes the example train the PPO objective instead of the supervised
 	// loss. nil for every label-corpus example.
