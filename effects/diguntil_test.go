@@ -86,32 +86,54 @@ func TestDigUntilRevealsUntilTheMatchMovesFoundAndRest(t *testing.T) {
 	}
 }
 
-// TestDigUntilDefaultDestinationsAreHandAndStayInPlace pins the defaults:
-// FoundDestination$ absent = Hand, RevealedDestination$ absent = Library
-// with no RevealedLibraryPosition$ = the stay-in-place default (no events
-// for the revealed rest — they were the top cards and stay on top in their
-// existing order).
-func TestDigUntilDefaultDestinationsAreHandAndStayInPlace(t *testing.T) {
+// TestDigUntilDefaultDestinationsFollowTheRevealedPile pins the defaults:
+// FoundDestination$ absent = the found card is one of the revealed cards and
+// goes where the pile goes (Forge's reading; every one of the 25 corpus lines
+// without FoundDestination$ says so in its Oracle text), RevealedDestination$
+// absent = Library with no RevealedLibraryPosition$ = the stay-in-place
+// default (no events -- the revealed cards were the top cards and stay on top
+// in their existing order). The found card used to default to Hand, which
+// handed Consuming Aberration's victim the land it should have milled.
+func TestDigUntilDefaultDestinationsFollowTheRevealedPile(t *testing.T) {
 	h, ids := digUntilFixture(t)
 	Resolve(h, &Ctx{Controller: 0}, sa(t, "SP$ DigUntil | Valid$ Aura"))
 	if h.asked != nil {
 		t.Fatalf("a mandatory found move must not ask: %+v", h.asked)
 	}
-	if o := h.g.Obj(ids[1]); o.Zone != state.ZHand {
-		t.Fatalf("found card zone = %s, want hand (the FoundDestination$ default)", o.Zone)
-	}
 	lib := h.g.Zone(state.ZLibrary, 0)
-	if len(lib) != 3 || lib[0] != ids[0] || lib[1] != ids[2] || lib[2] != ids[3] {
-		t.Fatalf("library = %v, want [%d %d %d] — revealed rest stayed in place", lib, ids[0], ids[2], ids[3])
+	if len(lib) != 4 || lib[0] != ids[0] || lib[1] != ids[1] || lib[2] != ids[2] || lib[3] != ids[3] {
+		t.Fatalf("library = %v, want %v untouched -- found card and revealed rest stay in place", lib, ids)
 	}
-	moved := false
 	for _, e := range h.log {
-		if e.Kind == events.MoveZone && e.Obj == ids[0] {
-			moved = true
+		if e.Kind == events.MoveZone {
+			t.Fatalf("a card moved with no destinations given: %+v", e)
 		}
 	}
-	if moved {
-		t.Fatal("the revealed rest moved with no RevealedLibraryPosition$: the stay-in-place default emits nothing")
+
+	// RevealedDestination$ Graveyard alone (Consuming Aberration, Balustrade
+	// Spy, Mind Funeral): the found card goes to the graveyard WITH the rest;
+	// the cards after it stay in the library.
+	h, ids = digUntilFixture(t)
+	Resolve(h, &Ctx{Controller: 0}, sa(t, "SP$ DigUntil | Valid$ Aura | RevealedDestination$ Graveyard"))
+	for _, id := range ids[:2] {
+		if o := h.g.Obj(id); o.Zone != state.ZGraveyard {
+			t.Fatalf("revealed card %d zone = %s, want graveyard (the found card follows RevealedDestination$)", id, o.Zone)
+		}
+	}
+	for _, id := range ids[2:] {
+		if o := h.g.Obj(id); o.Zone != state.ZLibrary {
+			t.Fatalf("card %d after the found one left the library: %s", id, o.Zone)
+		}
+	}
+
+	// An explicit FoundDestination$ still wins.
+	h, ids = digUntilFixture(t)
+	Resolve(h, &Ctx{Controller: 0}, sa(t, "SP$ DigUntil | Valid$ Aura | FoundDestination$ Hand | RevealedDestination$ Graveyard"))
+	if o := h.g.Obj(ids[1]); o.Zone != state.ZHand {
+		t.Fatalf("found card zone = %s, want hand (explicit FoundDestination$)", o.Zone)
+	}
+	if o := h.g.Obj(ids[0]); o.Zone != state.ZGraveyard {
+		t.Fatalf("revealed rest zone = %s, want graveyard", o.Zone)
 	}
 }
 
