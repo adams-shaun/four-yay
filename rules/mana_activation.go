@@ -3021,7 +3021,7 @@ func (e *Engine) manaEffectAmount(p state.PlayerID, source state.ObjID, ma *card
 	}
 	ctx := e.manaAmountCtx(p, source)
 	for _, id := range sacs {
-		ctx.Sacrificed = append(ctx.Sacrificed, state.SacrificedInfoOf(e.G, id))
+		ctx.Sacrificed = append(ctx.Sacrificed, effects.SacrificedLKI(e, id))
 	}
 	effects.SetSVars(ctx, gained.svars(o.Face().SVars))
 	amount := effects.Num(e, ctx, ma, "Amount", 1)

@@ -640,7 +640,7 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 	// to. Idempotent per call site; called exactly once per sacrificed object.
 	rememberLKICapture := func(id state.ObjID) {
 		if remember {
-			c.Sacrificed = append(c.Sacrificed, state.SacrificedInfoOf(g, id))
+			c.Sacrificed = append(c.Sacrificed, SacrificedLKI(h, id))
 			// Forge's RememberSacrificed$ also remembers the card, which is
 			// what a following ConditionDefined$ Remembered, Remembered$Amount
 			// or RememberedCard reads (Braids, Scapeshift, Victimize).

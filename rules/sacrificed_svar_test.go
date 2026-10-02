@@ -177,3 +177,76 @@ func TestSacrificedAmountCountsSacrificedObjects(t *testing.T) {
 	}
 	replayCheck(t, e, cfg)
 }
+
+// sacAnthem is a plain layer-7c anthem, so the sacrificed creature's power on
+// the battlefield differs from its printed power without any counter.
+const sacAnthem = "Name:Rallying Banner\nManaCost:2 W\nTypes:Enchantment\n" +
+	"S:Mode$ Continuous | Affected$ Creature.YouCtrl | AddPower$ 2 | AddToughness$ 2 | Description$ x\n" +
+	"Oracle:x\n"
+
+// sacZealot sacrifices ITSELF as a cost and deals damage equal to its power:
+// the self-sacrifice shape, where the source is already in the graveyard when
+// the ability resolves.
+const sacZealot = "Name:Cinder Zealot\nManaCost:1 R\nTypes:Creature Human Shaman\nPT:2/2\n" +
+	"A:AB$ DealDamage | Cost$ R Sac<1/CARDNAME> | ValidTgts$ Player | NumDmg$ X | SpellDescription$ x\n" +
+	"SVar:X:Sacrificed$CardPower\n" +
+	"Oracle:x\n"
+
+// TestSacrificedPowerIsTheLayerDerivedLastKnownPower pins CR 608.2h: "the
+// sacrificed creature's power" is its last known power on the battlefield,
+// with every continuous effect applied -- not the printed face plus +1/+1
+// counters the snapshot used to read. A 1/1 under a +2/+2 anthem makes three
+// zombies, and a self-sacrificing 2/2 under it deals 4.
+func TestSacrificedPowerIsTheLayerDerivedLastKnownPower(t *testing.T) {
+	t.Run("another_creature", func(t *testing.T) {
+		const bear = "Name:Forest Bear\nManaCost:G\nTypes:Creature Bear\nPT:1/1\nOracle:x\n"
+		e, cfg, gisa := newFixtureDeck(t, 77, sacGisa, bear, sacAnthem)
+		moveSeeded(t, e, 0, sacGisa, state.ZBattlefield)
+		creature := moveSeeded(t, e, 0, bear, state.ZBattlefield)
+		moveSeeded(t, e, 0, sacAnthem, state.ZBattlefield)
+		if got := e.Power(creature); got != 3 {
+			t.Fatalf("PRECONDITION: bear power under the anthem = %d, want 3", got)
+		}
+		e.G.Tokens["sac1_zombie"] = card(t, sac1Zombie)
+		addMana(t, e, 0, "B")
+		submitChoices(t, e, abilityOption(t, e, gisa, 0).Index)
+		d := e.Pending()
+		if d == nil || d.Kind != decision.KChoose {
+			t.Fatalf("after activating Gisa: %+v, want a KChoose sacrifice decision", d)
+		}
+		submitChoices(t, e, sacrificeOption(t, d, creature))
+		passUntilStackEmpty(t, e, 20)
+		if got := countTokensNamed(t, e, "Zombie Token"); got != 3 {
+			t.Fatalf("sacrificing a 1/1 that was 3/3 on the battlefield made %d zombies, want 3", got)
+		}
+		replayCheck(t, e, cfg)
+	})
+	t.Run("itself", func(t *testing.T) {
+		e, cfg, _ := newFixtureDeck(t, 78, sacZealot, sacAnthem)
+		zealot := moveSeeded(t, e, 0, sacZealot, state.ZBattlefield)
+		moveSeeded(t, e, 0, sacAnthem, state.ZBattlefield)
+		if got := e.Power(zealot); got != 4 {
+			t.Fatalf("PRECONDITION: zealot power under the anthem = %d, want 4", got)
+		}
+		addMana(t, e, 0, "R")
+		life := e.G.Players[1].Life
+		submitChoices(t, e, abilityOption(t, e, zealot, 0).Index)
+		for d := e.Pending(); d != nil && d.Kind != decision.KPriority; d = e.Pending() {
+			pick := d.Options[0].Index
+			for _, o := range d.Options {
+				if d.Kind == decision.KTarget && o.Obj == 0 && o.Player == 1 {
+					pick = o.Index
+				}
+			}
+			submitChoices(t, e, pick)
+		}
+		passUntilStackEmpty(t, e, 20)
+		if o := e.G.Obj(zealot); o == nil || o.Zone != state.ZGraveyard {
+			t.Fatalf("zealot was not sacrificed")
+		}
+		if got := life - e.G.Players[1].Life; got != 4 {
+			t.Fatalf("the sacrificed 4/4 zealot dealt %d, want 4 (its last known power)", got)
+		}
+		replayCheck(t, e, cfg)
+	})
+}

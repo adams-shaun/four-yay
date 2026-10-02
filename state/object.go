@@ -1883,6 +1883,10 @@ func cloneRuntimeSVars(m map[string]int32) map[string]int32 {
 // effects-side reads (effects/count.go's Count$CardPower/Count$CardToughness:
 // face value plus P1P1, not the full layer-system Derived) so the new
 // Sacrificed$ heads agree with their nearest existing analogue.
+//
+// This is only the BASE snapshot: state cannot see the layer system, so every
+// engine capture site calls effects.SacrificedLKI, which overwrites power and
+// toughness with the layer-derived battlefield values (CR 608.2h).
 func SacrificedInfoOf(g *Game, id ObjID) SacrificedInfo {
 	o := g.Obj(id)
 	if o == nil || o.Face() == nil {
