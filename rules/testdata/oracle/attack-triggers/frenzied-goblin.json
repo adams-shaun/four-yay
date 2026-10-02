@@ -1,0 +1,515 @@
+{
+ "card": "Frenzied Goblin",
+ "family": "attack-triggers",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "77b285ea1721",
+ "scenarios": [
+  {
+   "name": "pay-red-target-cannot-block",
+   "cr": [
+    "603.2",
+    "608.2c",
+    "509.1b"
+   ],
+   "why": "Attacking, its controller pays {R}: the target creature can't block this turn, while the opponent's other creature still can.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Frenzied Goblin"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Frenzied Goblin"
+     ],
+     "defender": "p1",
+     "targets": [
+      "p1:Grizzly Bears"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Frenzied Goblin",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "R"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "yes"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p1:Grizzly Bears",
+        "attacker": "p0:Frenzied Goblin"
+       },
+       "want": false
+      },
+      {
+       "can_block": {
+        "blocker": "p1:Centaur Courser",
+        "attacker": "p0:Frenzied Goblin"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": []
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 19
+     }
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "decline-to-pay-target-can-block",
+   "cr": [
+    "603.5"
+   ],
+   "why": "'You may pay': declining with the mana available leaves the target able to block.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Frenzied Goblin"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Frenzied Goblin"
+     ],
+     "defender": "p1",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "R"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "no"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p1:Grizzly Bears",
+        "attacker": "p0:Frenzied Goblin"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Grizzly Bears",
+       "p0:Frenzied Goblin"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Frenzied Goblin",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-red-mana-cannot-pay",
+   "cr": [
+    "118.3"
+   ],
+   "why": "With no mana the cost cannot be paid, so the target can still block.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Frenzied Goblin"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Frenzied Goblin"
+     ],
+     "defender": "p1",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "yes"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p1:Grizzly Bears",
+        "attacker": "p0:Frenzied Goblin"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": []
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 19
+     }
+    }
+   ]
+  },
+  {
+   "name": "cannot-pay-with-the-wrong-colour",
+   "cr": [
+    "118.3",
+    "107.4"
+   ],
+   "why": "{R} must be red mana: with only green in the pool the target can still block.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Frenzied Goblin"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Frenzied Goblin"
+     ],
+     "defender": "p1",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "G"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "yes"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p1:Grizzly Bears",
+        "attacker": "p0:Frenzied Goblin"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": []
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 19
+     }
+    }
+   ]
+  },
+  {
+   "name": "effect-ends-with-the-turn",
+   "cr": [
+    "611.2",
+    "514.2"
+   ],
+   "why": "This turn only: on the following turn the same creature can block.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Frenzied Goblin",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Frenzied Goblin"
+     ],
+     "defender": "p1",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "R"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "yes"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p1:Grizzly Bears",
+        "attacker": "p0:Grizzly Bears"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": []
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 17
+     }
+    }
+   ]
+  },
+  {
+   "name": "goblin-staying-home-no-trigger",
+   "cr": [
+    "603.2"
+   ],
+   "why": "It triggers only when the Goblin itself attacks.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Frenzied Goblin",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Frenzied Goblin",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p1:Centaur Courser",
+        "attacker": "p0:Grizzly Bears"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": []
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 18
+     }
+    }
+   ]
+  }
+ ]
+}

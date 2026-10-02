@@ -1,0 +1,522 @@
+{
+ "card": "Claws Out",
+ "family": "cost-modifier",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "89b3e383287a",
+ "scenarios": [
+  {
+   "name": "no-cats-full-price",
+   "cr": [
+    "702.41a",
+    "601.2f"
+   ],
+   "why": "With no Cat it costs the full {3}{W}{W}: four mana is not enough, five casts it and every creature its caster controls gets +2/+2.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Claws Out"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCWW",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Claws Out"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Claws Out",
+     "mana": "C"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "4/4"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    },
+    {
+     "card": "p0:Claws Out",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "one-cat-costs-one-less",
+   "cr": [
+    "702.41a"
+   ],
+   "why": "One Cat: {2}{W}{W}. Three mana is not enough; four casts it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Claws Out"
+     ],
+     "battlefield": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CWW",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Claws Out"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Claws Out",
+     "mana": "C"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Savannah Lions",
+     "pt": "4/3"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "three-cats-cost-white-white",
+   "cr": [
+    "702.41a"
+   ],
+   "why": "Three Cats remove all the generic mana: {W}{W}.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Claws Out"
+     ],
+     "battlefield": [
+      "Savannah Lions",
+      "Savannah Lions",
+      "Helpful Hunter"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Claws Out",
+     "mana": "WW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Savannah Lions",
+     "pt": "4/3"
+    },
+    {
+     "card": "p0:Savannah Lions#2",
+     "pt": "4/3"
+    },
+    {
+     "card": "p0:Helpful Hunter",
+     "pt": "3/3"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "affinity-never-reduces-coloured-mana",
+   "cr": [
+    "702.41a",
+    "601.2f"
+   ],
+   "why": "Affinity reduces only generic mana: with four Cats it still costs {W}{W}, and one white mana does not cast it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Claws Out"
+     ],
+     "battlefield": [
+      "Savannah Lions",
+      "Savannah Lions",
+      "Savannah Lions",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "W",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Claws Out"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "W"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Claws Out"
+     },
+     "want": true
+    }
+   ]
+  },
+  {
+   "name": "cat-tokens-count",
+   "cr": [
+    "702.41a",
+    "111.1"
+   ],
+   "why": "A Cat token is a Cat: a Cat card and the token it made are two Cats, so it costs {1}{W}{W} - two mana is not enough, three is.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Claws Out",
+      "Prideful Parent"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Prideful Parent",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "count": {
+        "seat": 0,
+        "zone": "battlefield",
+        "name": "Cat",
+        "token": true
+       },
+       "eq": 1
+      }
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "WW",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Claws Out"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Claws Out",
+     "mana": "C"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Prideful Parent",
+     "pt": "4/4"
+    },
+    {
+     "card": "p0:token:Cat",
+     "pt": "3/3"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-cats-do-not-count",
+   "cr": [
+    "702.41a",
+    "109.5"
+   ],
+   "why": "Only Cats its caster controls: the opponent's Cats give no reduction and no bonus.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Claws Out"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Savannah Lions",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCWW",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Claws Out"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Claws Out",
+     "mana": "C"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Savannah Lions",
+     "pt": "2/1"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "4/4"
+    }
+   ]
+  },
+  {
+   "name": "non-cat-creatures-do-not-reduce",
+   "cr": [
+    "702.41a"
+   ],
+   "why": "Three non-Cat creatures give no reduction.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Claws Out"
+     ],
+     "battlefield": [
+      "Grizzly Bears",
+      "Centaur Courser",
+      "Wind Drake"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCWW"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Claws Out"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "bonus-ends-at-end-of-turn-and-misses-the-opponent",
+   "cr": [
+    "611.2",
+    "514.2"
+   ],
+   "why": "Until end of turn, and only its caster's creatures.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Claws Out"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Claws Out",
+     "mana": "CCCWW"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Grizzly Bears",
+       "pt": "4/4"
+      },
+      {
+       "card": "p1:Centaur Courser",
+       "pt": "3/3"
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2"
+    }
+   ]
+  },
+  {
+   "name": "instant-after-blockers-wins-the-combat",
+   "cr": [
+    "304.1",
+    "510.1"
+   ],
+   "why": "An instant: cast after blockers, a blocked 2/2 becomes 4/4, kills the 3/3 blocker and survives.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Claws Out"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Centaur Courser",
+       "p0:Grizzly Bears"
+      ]
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Claws Out",
+     "mana": "CCCWW"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 3
+    }
+   ]
+  }
+ ]
+}

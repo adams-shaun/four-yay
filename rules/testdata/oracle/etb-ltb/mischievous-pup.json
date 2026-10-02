@@ -1,0 +1,373 @@
+{
+ "card": "Mischievous Pup",
+ "family": "etb-ltb",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "32489a261a39",
+ "scenarios": [
+  {
+   "name": "returns-another-own-permanent-to-hand",
+   "cr": [
+    "603.6a",
+    "115.1"
+   ],
+   "why": "Entering, it returns up to one other target permanent its controller controls to its owner's hand.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Mischievous Pup"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Mischievous Pup",
+     "mana": "CCW"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "pass_to",
+     "decision": "priority",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Mischievous Pup",
+       "want": true
+      },
+      {
+       "card": "p0:Grizzly Bears",
+       "zone": "battlefield"
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Mischievous Pup",
+     "zone": "battlefield",
+     "pt": "3/1"
+    }
+   ]
+  },
+  {
+   "name": "up-to-one-may-choose-no-target",
+   "cr": [
+    "115.1b"
+   ],
+   "why": "'Up to one': choosing no target leaves everything in place.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Mischievous Pup"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Mischievous Pup",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "target",
+       "pick": []
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Mischievous Pup",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "returns-a-land",
+   "cr": [
+    "115.1"
+   ],
+   "why": "Any permanent: a land.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Mischievous Pup"
+     ],
+     "battlefield": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Mischievous Pup",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Forest"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Forest",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "flash-on-the-opponents-turn",
+   "cr": [
+    "702.8a"
+   ],
+   "why": "Flash: castable during the opponent's turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Mischievous Pup"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Mischievous Pup",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Mischievous Pup",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "saves-a-creature-from-removal",
+   "cr": [
+    "702.8a",
+    "608.2b"
+   ],
+   "why": "Flashed in with a removal spell on the stack, it returns the targeted creature to hand; the removal spell has no legal target.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Mischievous Pup"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Mischievous Pup",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "card": "p1:Murder",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Mischievous Pup",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "alone-it-does-not-return-itself",
+   "cr": [
+    "115.1"
+   ],
+   "why": "'Other': the Pup is not a legal target for its own trigger, and the opponent's permanents are not its controller's.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Mischievous Pup"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Mischievous Pup",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Mischievous Pup",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "returned-etb-creature-can-be-replayed",
+   "cr": [
+    "400.7"
+   ],
+   "why": "A returned creature is a new object when recast: Elvish Visionary draws again.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Mischievous Pup",
+      "Elvish Visionary"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Elvish Visionary",
+     "mana": "CG"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "hand_size": {
+        "p0": 2
+       }
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Mischievous Pup",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Elvish Visionary"
+     ],
+     "expect": [
+      {
+       "card": "p0:Elvish Visionary",
+       "zone": "hand"
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Elvish Visionary",
+     "mana": "CG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Elvish Visionary",
+     "zone": "battlefield"
+    },
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    }
+   ]
+  }
+ ]
+}

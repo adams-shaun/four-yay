@@ -1,0 +1,241 @@
+{
+ "card": "Serra Angel",
+ "family": "keywords",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "771dc95bfdda",
+ "scenarios": [
+  {
+   "name": "flying-and-vigilance-on-attack",
+   "cr": [
+    "702.9b",
+    "702.20b"
+   ],
+   "why": "A 4/4 with flying and vigilance: attacking does not tap it, a ground creature cannot block it, a flier can; unblocked it deals 4.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Serra Angel"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Wind Drake"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Serra Angel"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "card": "p0:Serra Angel",
+       "pt": "4/4",
+       "keywords": [
+        "Flying",
+        "Vigilance"
+       ],
+       "tapped": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p1:Grizzly Bears",
+        "attacker": "p0:Serra Angel"
+       },
+       "want": false
+      },
+      {
+       "can_block": {
+        "blocker": "p1:Wind Drake",
+        "attacker": "p0:Serra Angel"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": []
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 16
+     }
+    },
+    {
+     "card": "p0:Serra Angel",
+     "tapped": false
+    }
+   ]
+  },
+  {
+   "name": "having-attacked-it-can-still-block",
+   "cr": [
+    "702.20b",
+    "509.1a"
+   ],
+   "why": "Untapped after attacking, it blocks on the opponent's turn and kills a 2/2 attacker.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Serra Angel"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Serra Angel"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Grizzly Bears"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p0:Serra Angel",
+        "attacker": "p1:Grizzly Bears"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p0:Serra Angel",
+       "p1:Grizzly Bears"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 16
+     }
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Serra Angel",
+     "zone": "battlefield",
+     "damage": 2
+    }
+   ]
+  },
+  {
+   "name": "blocked-by-a-flier-deals-and-takes-damage",
+   "cr": [
+    "510.1"
+   ],
+   "why": "Blocked by a 4/4 flier both take lethal damage; no damage reaches the player.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Serra Angel"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Air Elemental"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Serra Angel"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Air Elemental",
+       "p0:Serra Angel"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Serra Angel",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Air Elemental",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    }
+   ]
+  }
+ ]
+}

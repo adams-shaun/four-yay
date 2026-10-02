@@ -1,0 +1,674 @@
+{
+ "card": "Kellan, Planar Trailblazer",
+ "family": "activated-ability",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "bb125a54e728",
+ "scenarios": [
+  {
+   "name": "starts-as-a-2-1-human-faerie-scout",
+   "cr": [
+    "205.3m"
+   ],
+   "why": "Printed: a 2/1 Human Faerie Scout with no keywords. As a Scout, combat damage to a player exiles nothing.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Kellan, Planar Trailblazer"
+     ],
+     "library_top": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Kellan, Planar Trailblazer"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "card": "p0:Kellan, Planar Trailblazer",
+       "pt": "2/1",
+       "no_keywords": [
+        "Double Strike"
+       ],
+       "types": [
+        "Legendary",
+        "Creature",
+        "Human",
+        "Faerie",
+        "Scout"
+       ],
+       "no_types": [
+        "Detective",
+        "Rogue"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 18
+     }
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "library"
+    }
+   ]
+  },
+  {
+   "name": "first-ability-scout-becomes-detective",
+   "cr": [
+    "602.2",
+    "205.1a",
+    "613.1d"
+   ],
+   "why": "{1}{R} while a Scout: it becomes a Human Faerie Detective (no longer a Scout), still 2/1.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Kellan, Planar Trailblazer"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Kellan, Planar Trailblazer",
+     "mana": "CR",
+     "ability": "Detective"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Kellan, Planar Trailblazer",
+     "pt": "2/1",
+     "no_keywords": [
+      "Double Strike"
+     ],
+     "types": [
+      "Human",
+      "Faerie",
+      "Detective"
+     ],
+     "no_types": [
+      "Scout",
+      "Rogue"
+     ]
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "detective-combat-damage-exiles-top-card-playable-this-turn",
+   "cr": [
+    "603.2",
+    "510.3a"
+   ],
+   "why": "As a Detective it has the gained trigger: combat damage to a player exiles the top card of its controller's library, which may be played this turn - here cast from exile.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Kellan, Planar Trailblazer"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Kellan, Planar Trailblazer",
+     "mana": "CR",
+     "ability": "Detective"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Kellan, Planar Trailblazer"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "expect": [
+      {
+       "card": "p0:Lightning Bolt",
+       "zone": "exile"
+      },
+      {
+       "card": "p0:Shock",
+       "zone": "library"
+      },
+      {
+       "life": {
+        "p0": 20,
+        "p1": 18
+       }
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 15
+     }
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "exiled-card-not-playable-next-turn",
+   "cr": [
+    "611.2",
+    "514.2"
+   ],
+   "why": "'This turn': an exiled card not played stays in exile and is not castable on a later turn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Kellan, Planar Trailblazer"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Kellan, Planar Trailblazer",
+     "mana": "CR",
+     "ability": "Detective"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Kellan, Planar Trailblazer"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "expect": [
+      {
+       "card": "p0:Lightning Bolt",
+       "zone": "exile"
+      }
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "R",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Lightning Bolt"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "R"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Lightning Bolt"
+     },
+     "want": false
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "exile"
+    }
+   ]
+  },
+  {
+   "name": "second-ability-does-nothing-to-a-scout",
+   "cr": [
+    "608.2c"
+   ],
+   "why": "{2}{R} checks 'if Kellan is a Detective' on resolution: activated while it is a Scout it can be paid for but changes nothing.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Kellan, Planar Trailblazer"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Kellan, Planar Trailblazer",
+     "mana": "CCR",
+     "ability": "Rogue"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Kellan, Planar Trailblazer",
+     "pt": "2/1",
+     "no_keywords": [
+      "Double Strike"
+     ],
+     "types": [
+      "Scout"
+     ],
+     "no_types": [
+      "Rogue",
+      "Detective"
+     ]
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "second-ability-detective-becomes-3-2-rogue-with-double-strike",
+   "cr": [
+    "602.2",
+    "613.4b",
+    "702.4b"
+   ],
+   "why": "{2}{R} while a Detective: it becomes a 3/2 Human Faerie Rogue with double strike (no longer a Detective).",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Kellan, Planar Trailblazer"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Kellan, Planar Trailblazer",
+     "mana": "CR",
+     "ability": "Detective"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Kellan, Planar Trailblazer",
+     "mana": "CCR",
+     "ability": "Rogue"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Kellan, Planar Trailblazer",
+     "pt": "3/2",
+     "keywords": [
+      "Double Strike"
+     ],
+     "types": [
+      "Human",
+      "Faerie",
+      "Rogue"
+     ],
+     "no_types": [
+      "Scout",
+      "Detective"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "rogue-keeps-the-exile-trigger-and-strikes-twice",
+   "cr": [
+    "702.4b",
+    "603.2",
+    "611.2a"
+   ],
+   "why": "The gained ability has no duration and is not tied to the Detective type: as a double-striking 3/2 Rogue it deals combat damage twice (6 in all) and exiles a card each time.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Kellan, Planar Trailblazer"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Shock",
+      "Opt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Kellan, Planar Trailblazer",
+     "mana": "CR",
+     "ability": "Detective"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Kellan, Planar Trailblazer",
+     "mana": "CCR",
+     "ability": "Rogue"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Kellan, Planar Trailblazer"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 14
+     }
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "exile"
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "exile"
+    },
+    {
+     "card": "p0:Opt",
+     "zone": "library"
+    }
+   ]
+  },
+  {
+   "name": "first-ability-again-as-a-detective-changes-nothing",
+   "cr": [
+    "608.2c"
+   ],
+   "why": "Activated again while already a Detective, the first ability's condition is false: it stays a Detective.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Kellan, Planar Trailblazer"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Kellan, Planar Trailblazer",
+     "mana": "CR",
+     "ability": "Detective"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Kellan, Planar Trailblazer",
+     "mana": "CR",
+     "ability": "Detective"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Kellan, Planar Trailblazer",
+     "pt": "2/1",
+     "types": [
+      "Detective"
+     ],
+     "no_types": [
+      "Scout"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "first-ability-as-a-rogue-changes-nothing",
+   "cr": [
+    "608.2c"
+   ],
+   "why": "A Rogue is not a Scout: the first ability no longer turns it back into a Detective, and it stays a 3/2 double striker.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Kellan, Planar Trailblazer"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Kellan, Planar Trailblazer",
+     "mana": "CR",
+     "ability": "Detective"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Kellan, Planar Trailblazer",
+     "mana": "CCR",
+     "ability": "Rogue"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Kellan, Planar Trailblazer",
+     "mana": "CR",
+     "ability": "Detective"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Kellan, Planar Trailblazer",
+     "pt": "3/2",
+     "keywords": [
+      "Double Strike"
+     ],
+     "types": [
+      "Rogue"
+     ],
+     "no_types": [
+      "Scout",
+      "Detective"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "changes-are-permanent",
+   "cr": [
+    "611.2a"
+   ],
+   "why": "Neither ability says 'until end of turn': it is still a 3/2 Rogue with double strike on later turns.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Kellan, Planar Trailblazer"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Kellan, Planar Trailblazer",
+     "mana": "CR",
+     "ability": "Detective"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Kellan, Planar Trailblazer",
+     "mana": "CCR",
+     "ability": "Rogue"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Kellan, Planar Trailblazer",
+     "pt": "3/2",
+     "keywords": [
+      "Double Strike"
+     ],
+     "types": [
+      "Rogue"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "costs-need-red",
+   "cr": [
+    "602.2b"
+   ],
+   "why": "Both costs need {R}: colourless mana alone offers neither.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Kellan, Planar Trailblazer"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCC"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Kellan, Planar Trailblazer"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,455 @@
+{
+ "card": "Firespitter Whelp",
+ "family": "triggered-ability",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "4024ce1ff21c",
+ "scenarios": [
+  {
+   "name": "noncreature-spell-pings-on-cast",
+   "cr": [
+    "603.2",
+    "601.2i"
+   ],
+   "why": "Casting a noncreature spell triggers it; the trigger resolves first, so the opponent is at 19 while the spell is still on the stack.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Divination"
+     ],
+     "battlefield": [
+      "Firespitter Whelp"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Divination",
+     "mana": "CCU",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Firespitter Whelp",
+       "want": true
+      },
+      {
+       "life": {
+        "p0": 20,
+        "p1": 20
+       }
+      }
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1,
+     "expect": [
+      {
+       "life": {
+        "p0": 20,
+        "p1": 19
+       }
+      },
+      {
+       "card": "p0:Divination",
+       "zone": "stack"
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 19
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "non-dragon-creature-spell-does-nothing",
+   "cr": [
+    "603.2"
+   ],
+   "why": "A creature spell that is not a Dragon does not trigger it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Grizzly Bears"
+     ],
+     "battlefield": [
+      "Firespitter Whelp"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "CG",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Firespitter Whelp",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "dragon-creature-spell-pings",
+   "cr": [
+    "603.2",
+    "205.3m"
+   ],
+   "why": "A Dragon spell triggers it even though it is a creature spell.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shivan Dragon"
+     ],
+     "battlefield": [
+      "Firespitter Whelp"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shivan Dragon",
+     "mana": "CCCCRR",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Firespitter Whelp",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 19
+     }
+    },
+    {
+     "card": "p0:Shivan Dragon",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "artifact-spell-pings-artifact-creature-does-not",
+   "cr": [
+    "603.2"
+   ],
+   "why": "A noncreature artifact spell triggers it; an artifact creature spell is a creature spell and does not.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Short Sword",
+      "Memnite"
+     ],
+     "battlefield": [
+      "Firespitter Whelp"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Short Sword",
+     "mana": "C"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "life": {
+        "p0": 20,
+        "p1": 19
+       }
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Memnite",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Firespitter Whelp",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 19
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-spell-does-nothing",
+   "cr": [
+    "109.5"
+   ],
+   "why": "Only spells its controller casts.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Firespitter Whelp"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Divination"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Divination",
+     "mana": "CCU",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Firespitter Whelp",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "countered-spell-still-pinged",
+   "cr": [
+    "603.2",
+    "701.5a"
+   ],
+   "why": "It triggers on casting, so countering the spell does not stop the damage.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Divination"
+     ],
+     "battlefield": [
+      "Firespitter Whelp"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Cancel"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Divination",
+     "mana": "CCU"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Cancel",
+     "mana": "CUU",
+     "targets": [
+      "p0:Divination"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 19
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "playing-a-land-is-not-casting",
+   "cr": [
+    "305.1"
+   ],
+   "why": "A land is played, not cast.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Forest"
+     ],
+     "battlefield": [
+      "Firespitter Whelp"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Forest",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Firespitter Whelp",
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "whelp-cast-does-not-trigger-itself",
+   "cr": [
+    "603.2",
+    "113.6"
+   ],
+   "why": "Its ability works only on the battlefield: casting the Whelp (a Dragon spell) does not trigger its own ability.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Firespitter Whelp"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Firespitter Whelp",
+     "mana": "CCR"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    },
+    {
+     "card": "p0:Firespitter Whelp",
+     "zone": "battlefield",
+     "pt": "2/2",
+     "keywords": [
+      "Flying"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "second-whelp-triggers-the-first",
+   "cr": [
+    "603.2"
+   ],
+   "why": "A Whelp on the battlefield sees a second Whelp (a Dragon spell) being cast.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Firespitter Whelp"
+     ],
+     "battlefield": [
+      "Firespitter Whelp"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Firespitter Whelp#2",
+     "mana": "CCR"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 19
+     }
+    }
+   ]
+  }
+ ]
+}

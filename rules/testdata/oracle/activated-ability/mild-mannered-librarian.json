@@ -1,0 +1,500 @@
+{
+ "card": "Mild-Mannered Librarian",
+ "family": "activated-ability",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "fd955669524d",
+ "scenarios": [
+  {
+   "name": "activation-becomes-werewolf-two-counters-draws",
+   "cr": [
+    "602.2",
+    "205.1a",
+    "122.1a"
+   ],
+   "why": "For {3}{G} it becomes a Werewolf (its creature type is set, so it is no longer a Human), gets two +1/+1 counters (3/3) and its controller draws a card.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Mild-Mannered Librarian"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Mild-Mannered Librarian",
+     "mana": "CCCG",
+     "expect": [
+      {
+       "stack_size": 1
+      },
+      {
+       "card": "p0:Mild-Mannered Librarian",
+       "pt": "1/1"
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Mild-Mannered Librarian",
+     "pt": "3/3",
+     "types": [
+      "Creature",
+      "Werewolf"
+     ],
+     "no_types": [
+      "Human"
+     ],
+     "counters": {
+      "+1/+1": 2
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "before-activation-it-is-a-human-1-1",
+   "cr": [
+    "205.3m"
+   ],
+   "why": "Control: untouched it is a 1/1 Human, not a Werewolf.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Mild-Mannered Librarian"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCG"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Mild-Mannered Librarian",
+     "pt": "1/1",
+     "types": [
+      "Creature",
+      "Human"
+     ],
+     "no_types": [
+      "Werewolf"
+     ]
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Mild-Mannered Librarian"
+     },
+     "want": true
+    }
+   ]
+  },
+  {
+   "name": "activate-only-once",
+   "cr": [
+    "602.5b"
+   ],
+   "why": "Activate only once: after it has been activated the ability is not offered again that turn, nor on a later turn, even with the mana available. The type change and the counters have no duration and remain.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Mild-Mannered Librarian"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Mild-Mannered Librarian",
+     "mana": "CCCG"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCG",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Mild-Mannered Librarian"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCG",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Mild-Mannered Librarian"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Mild-Mannered Librarian",
+     "pt": "3/3",
+     "types": [
+      "Werewolf"
+     ],
+     "no_types": [
+      "Human"
+     ],
+     "counters": {
+      "+1/+1": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "cost-needs-green",
+   "cr": [
+    "602.2b",
+    "107.4"
+   ],
+   "why": "The cost is {3}{G}: four colourless mana cannot pay it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Mild-Mannered Librarian"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCC"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Mild-Mannered Librarian"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "cost-needs-four-mana",
+   "cr": [
+    "602.2b"
+   ],
+   "why": "Three green mana is one short.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Mild-Mannered Librarian"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "GGG"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Mild-Mannered Librarian"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "no-tap-symbol-usable-the-turn-it-is-cast",
+   "cr": [
+    "302.6",
+    "602.5a"
+   ],
+   "why": "The cost has no {T}, so a Librarian cast this turn can activate it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Mild-Mannered Librarian"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Mild-Mannered Librarian",
+     "mana": "G"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Mild-Mannered Librarian",
+     "mana": "CCCG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Mild-Mannered Librarian",
+     "pt": "3/3",
+     "types": [
+      "Werewolf"
+     ]
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "instant-speed-on-opponents-turn",
+   "cr": [
+    "602.5d"
+   ],
+   "why": "No timing restriction: it can be activated during the opponent's upkeep.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Mild-Mannered Librarian"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Mild-Mannered Librarian",
+     "mana": "CCCG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Mild-Mannered Librarian",
+     "pt": "3/3",
+     "counters": {
+      "+1/+1": 2
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "librarian-killed-in-response-still-draws",
+   "cr": [
+    "608.2b",
+    "113.7a"
+   ],
+   "why": "The ability has no target: if the Librarian dies in response it still resolves and its controller draws a card.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Mild-Mannered Librarian"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Mild-Mannered Librarian",
+     "mana": "CCCG"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Shock",
+     "mana": "R",
+     "targets": [
+      "p0:Mild-Mannered Librarian"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Mild-Mannered Librarian",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "a-new-librarian-can-activate-again",
+   "cr": [
+    "400.7",
+    "602.5b"
+   ],
+   "why": "'Activate only once' belongs to the object: returned to hand and recast it is a new object, a 1/1 Human again whose ability can be activated.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Mischievous Pup"
+     ],
+     "battlefield": [
+      "Mild-Mannered Librarian"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Mild-Mannered Librarian",
+     "mana": "CCCG"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Mild-Mannered Librarian",
+       "pt": "3/3"
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Mischievous Pup",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Mild-Mannered Librarian"
+     ],
+     "expect": [
+      {
+       "card": "p0:Mild-Mannered Librarian",
+       "zone": "hand"
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Mild-Mannered Librarian",
+     "mana": "G"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Mild-Mannered Librarian",
+       "zone": "battlefield",
+       "pt": "1/1",
+       "types": [
+        "Human"
+       ],
+       "no_types": [
+        "Werewolf"
+       ],
+       "counters": {
+        "+1/+1": 0
+       }
+      }
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCG"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Mild-Mannered Librarian"
+     },
+     "want": true
+    }
+   ]
+  }
+ ]
+}

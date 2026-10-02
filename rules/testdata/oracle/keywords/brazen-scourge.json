@@ -1,0 +1,143 @@
+{
+ "card": "Brazen Scourge",
+ "family": "keywords",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "de3b46da4da8",
+ "scenarios": [
+  {
+   "name": "haste-attacks-the-turn-it-is-cast",
+   "cr": [
+    "702.10b",
+    "302.6"
+   ],
+   "why": "A 3/3 with haste: cast for {1}{R}{R} and attacks the same turn for 3; attacking taps it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Brazen Scourge"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Brazen Scourge",
+     "mana": "CRR"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Brazen Scourge",
+       "zone": "battlefield",
+       "pt": "3/3",
+       "keywords": [
+        "Haste"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Brazen Scourge"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "card": "p0:Brazen Scourge",
+       "tapped": true
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 17
+     }
+    }
+   ]
+  },
+  {
+   "name": "blocked-by-a-3-3-both-die",
+   "cr": [
+    "510.1",
+    "704.5g"
+   ],
+   "why": "No evasion and no other ability: blocked by a 3/3, both die.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Brazen Scourge"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Brazen Scourge"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p1:Centaur Courser",
+        "attacker": "p0:Brazen Scourge"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Centaur Courser",
+       "p0:Brazen Scourge"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Brazen Scourge",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    }
+   ]
+  }
+ ]
+}

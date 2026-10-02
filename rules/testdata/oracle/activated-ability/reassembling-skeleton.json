@@ -1,0 +1,334 @@
+{
+ "card": "Reassembling Skeleton",
+ "family": "activated-ability",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "3e6023f2588c",
+ "scenarios": [
+  {
+   "name": "returns-from-graveyard-tapped",
+   "cr": [
+    "602.2",
+    "113.6k"
+   ],
+   "why": "From its owner's graveyard, {1}{B} returns it to the battlefield tapped.",
+   "setup": {
+    "p0": {
+     "graveyard": [
+      "Reassembling Skeleton"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Reassembling Skeleton",
+     "mana": "CB",
+     "expect": [
+      {
+       "stack_size": 1
+      },
+      {
+       "card": "p0:Reassembling Skeleton",
+       "zone": "graveyard"
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Reassembling Skeleton",
+     "zone": "battlefield",
+     "pt": "1/1",
+     "tapped": true
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "not-offered-on-the-battlefield",
+   "cr": [
+    "113.6k"
+   ],
+   "why": "The ability functions only from the graveyard: a Skeleton on the battlefield has no ability to activate.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Reassembling Skeleton"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CB"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Reassembling Skeleton"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "not-offered-from-hand-or-exile",
+   "cr": [
+    "113.6k"
+   ],
+   "why": "Nor from the hand or from exile.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Reassembling Skeleton"
+     ],
+     "exile": [
+      "Reassembling Skeleton"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CB"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Reassembling Skeleton"
+     },
+     "want": false
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Reassembling Skeleton#2"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "dies-and-comes-back-the-same-turn",
+   "cr": [
+    "602.2",
+    "400.7"
+   ],
+   "why": "Killed, it can be returned at once.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Reassembling Skeleton"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Shock",
+     "mana": "R",
+     "targets": [
+      "p0:Reassembling Skeleton"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Reassembling Skeleton",
+       "zone": "graveyard"
+      }
+     ]
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Reassembling Skeleton",
+     "mana": "CB"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Reassembling Skeleton",
+     "zone": "battlefield",
+     "tapped": true,
+     "damage": 0
+    }
+   ]
+  },
+  {
+   "name": "instant-speed-on-opponents-turn",
+   "cr": [
+    "602.5d"
+   ],
+   "why": "No timing restriction: activated in the opponent's upkeep. It stays tapped through that turn and untaps in its controller's untap step.",
+   "setup": {
+    "p0": {
+     "graveyard": [
+      "Reassembling Skeleton"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Reassembling Skeleton",
+     "mana": "CB"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Reassembling Skeleton",
+       "zone": "battlefield",
+       "tapped": true
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Reassembling Skeleton",
+     "zone": "battlefield",
+     "tapped": false
+    }
+   ]
+  },
+  {
+   "name": "cost-needs-black-and-two-mana",
+   "cr": [
+    "602.2b"
+   ],
+   "why": "{1}{B}: one black mana alone, or two colourless, is not enough.",
+   "setup": {
+    "p0": {
+     "graveyard": [
+      "Reassembling Skeleton"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "B",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Reassembling Skeleton"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CC"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Reassembling Skeleton"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "opponent-cannot-activate-it",
+   "cr": [
+    "602.2",
+    "113.6k"
+   ],
+   "why": "Only its owner, whose graveyard it is in, can activate it.",
+   "setup": {
+    "p0": {
+     "graveyard": [
+      "Reassembling Skeleton"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "mana",
+     "seat": 1,
+     "mana": "CB"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 1,
+      "kind": "activate",
+      "card": "p0:Reassembling Skeleton"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

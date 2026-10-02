@@ -1,0 +1,404 @@
+{
+ "card": "Apothecary Stomper",
+ "family": "etb-ltb",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "eb5f02aaf76a",
+ "scenarios": [
+  {
+   "name": "counters-mode-on-another-creature",
+   "cr": [
+    "603.3c",
+    "700.2b",
+    "122.1a"
+   ],
+   "why": "Entering, its controller chooses one mode as the trigger is put on the stack. The first mode puts two +1/+1 counters on a target creature that player controls; no life is gained.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Apothecary Stomper"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Apothecary Stomper",
+     "mana": "CCCCGG"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "counters"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "4/4",
+     "counters": {
+      "+1/+1": 2
+     }
+    },
+    {
+     "card": "p0:Apothecary Stomper",
+     "zone": "battlefield",
+     "pt": "4/4",
+     "counters": {
+      "+1/+1": 0
+     }
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "counters-mode-on-itself",
+   "cr": [
+    "603.3c",
+    "115.1"
+   ],
+   "why": "The Stomper is itself a creature its controller controls, so it is a legal target for its own trigger: 6/6.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Apothecary Stomper"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Apothecary Stomper",
+     "mana": "CCCCGG"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Apothecary Stomper"
+     ],
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "counters"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Apothecary Stomper",
+     "pt": "6/6",
+     "counters": {
+      "+1/+1": 2
+     }
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "life-mode-gains-four",
+   "cr": [
+    "700.2b",
+    "119.3"
+   ],
+   "why": "The second mode: its controller gains 4 life and no counters are placed.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Apothecary Stomper"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Apothecary Stomper",
+     "mana": "CCCCGG"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "gain 4 life"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 24,
+      "p1": 20
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2",
+     "counters": {
+      "+1/+1": 0
+     }
+    },
+    {
+     "card": "p0:Apothecary Stomper",
+     "pt": "4/4",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "enter-ability-is-a-trigger-on-the-stack",
+   "cr": [
+    "603.3",
+    "603.6a"
+   ],
+   "why": "The modal ability is a triggered ability: once the creature spell has resolved the trigger sits on the stack with nothing done yet, and resolves afterwards.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Apothecary Stomper"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Apothecary Stomper",
+     "mana": "CCCCGG"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "pass_to",
+     "decision": "priority",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "gain 4 life"
+       ]
+      }
+     ],
+     "expect": [
+      {
+       "card": "p0:Apothecary Stomper",
+       "zone": "battlefield"
+      },
+      {
+       "trigger_on_stack": "p0:Apothecary Stomper",
+       "want": true
+      },
+      {
+       "life": {
+        "p0": 20,
+        "p1": 20
+       }
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 24,
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "counter-target-killed-in-response-nothing-happens",
+   "cr": [
+    "608.2b"
+   ],
+   "why": "The mode was chosen when the trigger was put on the stack. With its only target gone the trigger does nothing: no counters anywhere and no life (the other mode was not chosen).",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Apothecary Stomper"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Apothecary Stomper",
+     "mana": "CCCCGG"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "pass_to",
+     "decision": "priority",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "counters"
+       ]
+      }
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Apothecary Stomper",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Apothecary Stomper",
+     "pt": "4/4",
+     "counters": {
+      "+1/+1": 0
+     }
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "vigilance-attacks-without-tapping",
+   "cr": [
+    "702.20b",
+    "510.1"
+   ],
+   "why": "Vigilance: attacking does not tap it. Unblocked it deals 4.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Apothecary Stomper"
+     ]
+    }
+   },
+   "setup_answers": [
+    {
+     "kind": "modes",
+     "pick": [
+      "gain 4 life"
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Apothecary Stomper"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "card": "p0:Apothecary Stomper",
+       "keywords": [
+        "Vigilance"
+       ],
+       "tapped": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 16
+     }
+    },
+    {
+     "card": "p0:Apothecary Stomper",
+     "tapped": false
+    }
+   ]
+  }
+ ]
+}
