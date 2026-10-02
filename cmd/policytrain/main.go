@@ -53,7 +53,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		ppoCorpora     = fs.String("ppo-corpus", "", "comma-separated ON-POLICY corpus paths (cmd/botbench -onpolicy-corpus): switches to the PPO mode (ticket pn13), which fine-tunes -init on its own games; -corpus must then be empty")
 		valueCorpora   = fs.String("value-corpus", "", "pn17: comma-separated state/outcome dump paths (JSONL, policynet.LoadStateOutcome): switches to the VALUE-ONLY mode, which trains ONLY the value head on the records' outcomes (BCE/log-loss) — the dump has no labelled options; -corpus/-ppo-corpus must be empty, and the split is always by seed block (-holdout-by is a policy-mode flag)")
 		oracleCkpt     = fs.Bool("oracle-checkpoint", false, "pn17-a1, value-only mode with -features mz-opphand: write the model as an ORACLE checkpoint (policynet.WriteOracleCheckpoint) for botbench -search-oracle-checkpoint, instead of the measurement-only no-checkpoint run; refused for any other feature set or mode")
-		initCkpt       = fs.String("init", "", "PPO mode: the checkpoint that played the -ppo-corpus games (required; training starts from it)")
+		initCkpt       = fs.String("init", "", "PPO mode: the checkpoint that played the -ppo-corpus games (required; training starts from it). Visits mode: with -epochs > 0 training continues from this checkpoint instead of a fresh model (its geometry must be the run's); with -epochs 0 it is the model -visits-eval scores")
 		ppoClip        = fs.Float64("ppo-clip", 0.2, "PPO mode: surrogate clip epsilon")
 		ppoKL          = fs.Float64("ppo-kl", 0.1, "PPO mode: KL(pi_old || pi) anchor weight")
 		ppoAdvNorm     = fs.Bool("ppo-adv-norm", true, "PPO mode: normalise advantages per batch")
@@ -70,6 +70,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 		visitsMaxGames = fs.Int("visits-max-games", 0, "visits mode: train only on the first N games of the corpus list (the equal-data-volume cap; 0 = all)")
 		visitsEval     = fs.String("visits-eval", "", "visits mode: comma-separated visit corpora to score the model on after training (teacher visits, value AUC within deck)")
 		visitsTemp     = fs.Float64("visits-temp", 1, "visits mode: teacher target temperature, pi ∝ visits^(1/T); 1 is the raw visit distribution, small T approaches the teacher's argmax")
+		visitsTD       = fs.Float64("visits-td-lambda", 0, "visits mode: value target by the trajectory recursion y_i = l*y_{i+1} + (1-l)*root_value_i within one (game, seat) trajectory in decision order, ending at the game outcome (upstream MageZero's label; 0.95 there). 0 (default) keeps the -value-blend target; records with no known outcome train no value term either way")
+		visitsPolicyW  = fs.Float64("visits-policy-weight", 1, "visits mode: weight of the policy (visit cross-entropy) term. 0 trains the value head only: the policy head's parameters do not move (the state trunk both heads read still does)")
+		visitsWindow   = fs.Int("visits-window", 0, "visits mode: train only on the newest N records of the -visits-corpus list (later files are newer; within a file, later records); 0 = all")
 		visitsReport   = fs.String("visits-report", "", "visits mode: write the -visits-eval readout as JSON to this path")
 		kindLoss       = fs.String("kind-loss", "attackers=bce", "per-kind loss overrides as kind=mode,... (e.g. attackers=bce); kinds not listed keep -loss. The attackers default is bce: a per-option binary logistic loss trains the score LEVEL the seat's per-option admission rule reads, which argmax CE (shift-invariant) cannot")
 	)
@@ -106,13 +109,29 @@ func run(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "policytrain: %v\n", err)
 			return 2
 		}
+		switch {
+		case *visitsTD < 0 || *visitsTD > 1 || *visitsPolicyW < 0 || *visitsWindow < 0:
+			fmt.Fprintln(stderr, "policytrain: -visits-td-lambda must be in [0,1], -visits-policy-weight and -visits-window >= 0")
+			return 2
+		case *visitsTD > 0 && *valueBlend != 0:
+			fmt.Fprintln(stderr, "policytrain: -visits-td-lambda and -value-blend are two value targets; give one")
+			return 2
+		case (*visitsTD > 0 || *visitsPolicyW == 0) && *valueWeight <= 0 && *epochs > 0:
+			fmt.Fprintln(stderr, "policytrain: -visits-td-lambda and -visits-policy-weight 0 train the value head; they need -value-weight > 0")
+			return 2
+		case *visitsWindow > 0 && *visitsMaxGames > 0:
+			fmt.Fprintln(stderr, "policytrain: -visits-window (the newest records) and -visits-max-games (the first games) are mutually exclusive")
+			return 2
+		}
 		return runVisits(visitsArgs{
 			corpora: *visitsCorpora, eval: *visitsEval, init: *initCkpt, out: *out, report: *visitsReport,
 			label: label, diag: *visitsDiag, maxGames: *visitsMaxGames, temp: *visitsTemp,
+			tdLambda: *visitsTD, window: *visitsWindow,
 			cfg: Config{Epochs: *epochs, Batch: *batch, LR: *lr, Seed: *seed, Holdout: *holdout,
 				Embed: *embed, Hidden: *hidden, Mode: policynet.LossCE, RankWeight: 1, Clip: *clip, OverrideWeight: 1,
 				ResidualInit: *residualInit,
-				ValueHidden:  *valueHidden, ValueWeight: *valueWeight, ValueBlend: *valueBlend},
+				ValueHidden:  *valueHidden, ValueWeight: *valueWeight, ValueBlend: *valueBlend,
+				ScalePolicy: *visitsPolicyW != 1, PolicyWeight: *visitsPolicyW},
 		}, stdout, stderr)
 	}
 	if *ppoCorpora != "" {
