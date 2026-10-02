@@ -195,6 +195,10 @@ type sbResult struct {
 	corpus []byte
 	// visits counts the records in corpus.
 	visits int
+	// vcorpus / vvisits are the same per seat, for a seat that is an az
+	// variant with its own corpus (azvariant.go).
+	vcorpus [2][]byte
+	vvisits [2]int
 }
 
 // sbDisplayName is the ledger name for a policy. A spec resolves through
@@ -208,6 +212,9 @@ type sbResult struct {
 // composed clairvoyant spec can be rated as a fair one.
 func sbDisplayName(policy string) string {
 	base := basePolicy(policy)
+	if v := azVariantNamed(base); v != nil {
+		return v.displayName() + strings.TrimPrefix(policy, base)
+	}
 	if !isAZPolicy(base) {
 		return policy
 	}
@@ -361,6 +368,7 @@ func sbPlayWithPool(g sbGame, deck []*cards.Card, reg *cards.Registry, maxTurns,
 			})
 		}
 	}
+	vrecs := azVariantRecorders(g, seats)
 	hooks := gbench.Hooks{Submit: sbSubmitWithFallback(seats, &res),
 		Decision: func(seatIdx int, d *decision.Decision, in decision.Intent, _ *botpolicy.Board) error {
 			if d.Kind != decision.KMulligan || len(d.Options) == 0 || d.Options[0].Kind == "bottom" {
@@ -391,6 +399,7 @@ func sbPlayWithPool(g sbGame, deck []*cards.Card, reg *cards.Registry, maxTurns,
 	if len(recs) > 0 {
 		res.corpus, res.visits = sbCorpusMember(recs, o, err)
 	}
+	azVariantMembers(vrecs, &res, o, err)
 	for s := 0; s < 2; s++ {
 		if b, ok := registry.UnwrapSeat(seats[s]).(*builtins.Seat); ok {
 			res.stats[s] = b.Stats
@@ -546,6 +555,7 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 	seen := map[string]bool{}
 	azSide := false
 	azBases := map[string]bool{}
+	azRegisterVariants()
 	for _, b := range bots {
 		// Every name is a registry spec ("bot", "bot+passguard"); the
 		// error names the registered policies for an unknown base.
@@ -559,6 +569,11 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 		if base := basePolicy(b); isAZPolicy(base) {
 			azSide = true
 			azBases[base] = true
+		} else if isAZVariant(base) {
+			// A variant is the plain az seat with overrides: it goes
+			// through az's front door.
+			azSide = true
+			azBases["az"] = true
 		}
 	}
 	if azBases["az"] && azBases["az-redeal"] && azWorldArg == "redeal" {
@@ -633,6 +648,9 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 	// -checkpoint is applied here and the front door must not refuse it
 	// (azSeatsFromSpellbench); the -pairs path is azSeatsFromHosted.
 	if err := azFrontDoor(azA, azB, ckModel, azSeatsFromSpellbench); err != nil {
+		return fail(err)
+	}
+	if err := azResolveVariants(); err != nil {
 		return fail(err)
 	}
 	if azSide {
@@ -743,7 +761,7 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 	if azSide {
 		// Both az policies feed one cost report; its game count is the
 		// games either seated.
-		fmt.Fprint(stdout, azCostReport(sbCountBase(sched, "az")+sbCountBase(sched, "az-redeal")))
+		fmt.Fprint(stdout, azCostReport(sbCountBase(sched, "az")+sbCountBase(sched, "az-redeal")+azVariantGames(sched)))
 	}
 	if sbSearchSide {
 		var ps []string
@@ -762,6 +780,9 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 			return fail(fmt.Errorf("-az-corpus: %w", err))
 		}
 		fmt.Fprintf(stdout, "az visit corpus %s: %d records\n", azCorpusPath, n)
+	}
+	if err := azWriteVariantCorpora(sched, results, stdout); err != nil {
+		return fail(err)
 	}
 	return 0
 }
@@ -843,8 +864,11 @@ func sbWriteOutputs(o sbOpts, bots, pool []string, sched []sbGame, results []sbR
 		"base_seed": o.baseSeed, "with": o.with, "without": o.without, "games": len(sched),
 		"mulligans":    o.mulligans,
 		"wall_seconds": elapsed.Seconds(), "workers": workers, "engine": engine,
-		"az":               map[string]any{"sims": azCfg.Search.Sims, "world": azWorldArg, "worlds": azCfg.Worlds},
+		"az":               azRunRecord(),
 		"max_turn_intents": maxTurnIntents,
+	}
+	if len(azVariants) > 0 {
+		run["az_variants"] = azVariantRunRecords()
 	}
 	raw, err := json.MarshalIndent(run, "", "  ")
 	if err != nil {
