@@ -1,0 +1,68 @@
+goes_first: random
+player_a:
+  deckPath: ''
+  type: mcts
+  priors:
+    priority: false
+    target: false
+    binary: false
+    opponent: false
+    prior_temperature: 1.5
+  noise:
+    enabled: false
+    dirichlet_noise: 0.15
+    selection_temperature: 2
+  mcts:
+    search_budget: 300
+    timeout_ms: 60000
+    td_discount: 0.95
+    offline_mode: false
+  gameplay:
+    mulligans_enabled: false
+    manual_tapping: false
+  hiddenInfo:
+    see_opponent_hand: false
+  deck_pool: /run/root/runs/2026-10-02_15-00-00/.pools/train.txt
+  deck_pool_mode: random
+  output_file: /run/root/data/FDN_exp2/ver1/testing/session3_A_self.hdf5
+player_b:
+  deckPath: ''
+  type: mcts
+  priors:
+    priority: false
+    target: false
+    binary: false
+    opponent: false
+    prior_temperature: 1.5
+  noise:
+    enabled: false
+    dirichlet_noise: 0.15
+    selection_temperature: 2
+  mcts:
+    search_budget: 300
+    timeout_ms: 60000
+    td_discount: 0.95
+    offline_mode: true
+  gameplay:
+    mulligans_enabled: false
+    manual_tapping: false
+  hiddenInfo:
+    see_opponent_hand: false
+  deck_pool: /run/root/runs/2026-10-02_15-00-00/.pools/eval_B.txt
+  deck_pool_mode: sequential
+  output_file: /run/root/runs/2026-10-02_15-00-00/scratch/eval_offline_B.hdf5
+training:
+  games: 4
+  threads: 4
+  max_turns: 50
+  max_minutes: 50
+server:
+  host: localhost
+  port: 50052
+  opponent_port: 50053
+logging:
+  sparse: false
+  all_threads: true
+  log_feature_hash: true
+  save_final_wr: true
+  show_mcts_info: true
