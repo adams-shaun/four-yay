@@ -758,16 +758,63 @@ func (e *Engine) WasCast(obj state.ObjID) bool {
 // (castProvenanceAdmits) applies that guard, this read answers the log
 // question alone. Derived from the event log like WasCastFromHandByYou, so
 // a replay derives the same answer; a card never put on the stack (cheated
-// into play) reads false. Shared approximation with the hand read: the scan
-// cannot distinguish a cast from a later un-cast re-entry's provenance.
+// into play) reads false, and so does a card that left the battlefield after
+// that cast and came back without one (reanimated, blinked: CR 400.7).
 func (e *Engine) WasCastByYou(obj state.ObjID, p state.PlayerID) bool {
 	for i := len(e.L.Events) - 1; i >= 0; i-- {
 		ev := e.L.Events[i]
-		if ev.Kind == events.PutOnStack && ev.Obj == obj {
+		if ev.Obj != obj {
+			continue
+		}
+		if ev.Kind == events.MoveZone && ev.From == state.ZBattlefield {
+			// It left the battlefield after its latest cast: whatever is asked
+			// about now is a new object that was never cast (CR 400.7) --
+			// Nine-Lives Familiar's own return must not re-enter with eight.
+			return false
+		}
+		if ev.Kind == events.PutOnStack {
 			return ev.Player == p
 		}
 	}
 	return false
+}
+
+// DepartureCounters answers the counters obj carried when it last left the
+// battlefield (CR 608.2h's last-known information for a reader that has no
+// trigger snapshot -- a delayed trigger's remembered card). Derived from the
+// event log: the counter changes between its latest battlefield entry and its
+// latest departure, folded in order. ok is false
+// when the log holds no departure.
+func (e *Engine) DepartureCounters(obj state.ObjID) ([]state.Counter, bool) {
+	left := -1
+	for i := len(e.L.Events) - 1; i >= 0; i-- {
+		ev := &e.L.Events[i]
+		if ev.Kind == events.MoveZone && ev.Obj == obj && ev.From == state.ZBattlefield {
+			left = i
+			break
+		}
+	}
+	if left < 0 {
+		return nil, false
+	}
+	entered := 0
+	for i := left - 1; i >= 0; i-- {
+		ev := &e.L.Events[i]
+		if ev.Kind == events.MoveZone && ev.Obj == obj && ev.To == state.ZBattlefield {
+			entered = i + 1
+			break
+		}
+	}
+	var scratch state.Object
+	for i := entered; i < left; i++ {
+		ev := &e.L.Events[i]
+		// An EntryCounterNotice counts too: its placement was folded inside the
+		// entry MoveZone, and the notice is the log's only record of it.
+		if ev.Kind == events.CounterChange && ev.Obj == obj {
+			scratch.AddCounter(ev.Counter, ev.Amount)
+		}
+	}
+	return scratch.Counters, true
 }
 
 // combatHit snapshots one landed combat-damage-to-player instance for the

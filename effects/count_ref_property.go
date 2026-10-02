@@ -163,6 +163,19 @@ func evalRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 					o = &oc
 				}
 			}
+			// A delayed trigger's remembered card has no trigger snapshot: the
+			// registration outlives the death that made it. Its counters are
+			// the ones it left the battlefield with (Nine-Lives Familiar's
+			// "return it with one fewer revival counter").
+			if !lki && o.Zone != state.ZBattlefield && delayedRemembers(c, t.Obj) {
+				if dh, ok := h.(departureCountersHost); ok {
+					if cs, ok := dh.DepartureCounters(t.Obj); ok {
+						oc := *o
+						oc.Counters = cs
+						o = &oc
+					}
+				}
+			}
 			if strings.EqualFold(strings.TrimPrefix(prop, "CardCounters."), "ALL") {
 				n += sumCounters(o.Counters)
 			} else {
@@ -548,4 +561,25 @@ func refToughness(h Host, o *state.Object, snapshot bool) int32 {
 	}
 	_, dt := o.CounterPTTotals()
 	return int32(o.Face().Toughness()) + dt
+}
+
+// departureCountersHost is the optional host read behind a delayed trigger's
+// last-known counters: the counters an object carried when it last left the
+// battlefield, derived from the event log so a replay answers identically.
+type departureCountersHost interface {
+	DepartureCounters(state.ObjID) ([]state.Counter, bool)
+}
+
+// delayedRemembers reports whether id is in the resolving delayed trigger's
+// own registration capture.
+func delayedRemembers(c *Ctx, id state.ObjID) bool {
+	if c == nil {
+		return false
+	}
+	for _, t := range c.TriggerContext.DelayedRemembered {
+		if !t.IsPlayer && t.Obj == id {
+			return true
+		}
+	}
+	return false
 }
