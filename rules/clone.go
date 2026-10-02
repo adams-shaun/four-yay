@@ -271,6 +271,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	}
 	c.suspendedCasts = append([]state.ObjID(nil), e.suspendedCasts...)
 	c.defeatedCasts = append([]state.ObjID(nil), e.defeatedCasts...)
+	c.queuedPlays = e.queuedPlays.clone()
 	// attackOffers' memo (attack_cost.go), carried under the same identical-
 	// board argument as the tables below: a search clones the engine while
 	// its declare-attackers decision is pending, and the clone's

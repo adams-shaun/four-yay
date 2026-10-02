@@ -6,6 +6,7 @@ package rules
 
 import (
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 
@@ -23,6 +24,9 @@ func runInlineOracle(t *testing.T, scenario string) *oracleRun {
 		t.Fatalf("scenario JSON: %v", err)
 	}
 	fails, transcript, run := runOracleScenario(reg, sc)
+	if os.Getenv("ORACLE_AUDIT_TRACE") != "" {
+		t.Logf("transcript:\n    %s", strings.Join(transcript, "\n    "))
+	}
 	if len(fails) > 0 {
 		t.Fatalf("%s:\n  %s\n  transcript:\n    %s", sc.Name, strings.Join(fails, "\n  "), strings.Join(transcript, "\n    "))
 	}
