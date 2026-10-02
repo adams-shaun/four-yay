@@ -1,0 +1,125 @@
+{
+ "card": "Talisman of Conviction",
+ "family": "activated-ability",
+ "author": "cli-20261002T022427Z-efa27a16 (Oracle + CR only)",
+ "oracle_sha": "4984b409f9b8",
+ "scenarios": [
+  {
+   "name": "tap-for-red-deals-one-damage-to-you",
+   "cr": [
+    "605.3a",
+    "118.12a"
+   ],
+   "why": "{T}: Add {R} or {W}. Talisman of Conviction deals 1 damage to you -- activating the red mode puts {R} in the pool and its controller takes exactly 1 damage.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Talisman of Conviction"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Talisman of Conviction",
+     "ability": "add r"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Talisman of Conviction",
+     "zone": "battlefield",
+     "tapped": true
+    },
+    {
+     "pool": {
+      "p0": "R"
+     }
+    },
+    {
+     "life": {
+      "p0": 19
+     }
+    }
+   ]
+  },
+  {
+   "name": "tap-for-white-deals-one-damage",
+   "cr": [
+    "605.3a",
+    "118.12a"
+   ],
+   "why": "The white mode works identically: {W} enters the pool and the Talisman deals 1 damage to its controller.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Talisman of Conviction"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Talisman of Conviction",
+     "ability": "add r or w",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "w"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": "W"
+     }
+    },
+    {
+     "life": {
+      "p0": 19
+     }
+    }
+   ]
+  },
+  {
+   "name": "tap-for-colourless-no-damage",
+   "cr": [
+    "605.3a"
+   ],
+   "why": "{T}: Add {C} has no rider: colourless mana enters the pool with no damage to the controller.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Talisman of Conviction"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Talisman of Conviction",
+     "ability": "add c"
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": "C"
+     }
+    },
+    {
+     "life": {
+      "p0": 20
+     }
+    }
+   ]
+  }
+ ]
+}

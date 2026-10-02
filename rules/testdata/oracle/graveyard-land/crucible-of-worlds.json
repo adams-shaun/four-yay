@@ -1,0 +1,97 @@
+{
+ "card": "Crucible of Worlds",
+ "family": "graveyard-land",
+ "author": "cli-20261002T022427Z-efa27a16 (Oracle + CR only)",
+ "oracle_sha": "1b0f60561367",
+ "scenarios": [
+  {
+   "name": "play-land-from-graveyard",
+   "cr": [
+    "305.2a",
+    "604.3"
+   ],
+   "why": "You may play lands from your graveyard: the Mountain sitting in p0's graveyard is a legal land play this turn and leaves the graveyard.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Crucible of Worlds"
+     ],
+     "graveyard": [
+      "Mountain"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Mountain"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Mountain"
+     },
+     "eq": 1
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "graveyard",
+      "name": "Mountain"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "one-land-drop-per-turn-still-binds",
+   "cr": [
+    "305.2a",
+    "305.2b"
+   ],
+   "why": "Playing from the graveyard does not grant an extra land drop: after playing the hand Mountain this turn, the graveyard Mountain's play is not offered.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Crucible of Worlds"
+     ],
+     "graveyard": [
+      "Mountain"
+     ],
+     "hand": [
+      "Mountain"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Mountain"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Mountain"
+     },
+     "eq": 1
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "play_land",
+      "card": "p0:Mountain#2"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

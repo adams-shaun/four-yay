@@ -1,0 +1,124 @@
+{
+ "card": "Whirler Rogue",
+ "family": "etb-ltb",
+ "author": "cli-20261002T022427Z-efa27a16 (Oracle + CR only)",
+ "oracle_sha": "c9754f575ecd",
+ "scenarios": [
+  {
+   "name": "enters-creates-two-thopters",
+   "cr": [
+    "603.3d",
+    "111.9"
+   ],
+   "why": "When Whirler Rogue enters, create two 1/1 colorless Thopter artifact creature tokens with flying.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Whirler Rogue"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Whirler Rogue",
+     "mana": "CCUU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Whirler Rogue",
+     "zone": "battlefield",
+     "pt": "2/2"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Thopter",
+      "token": true
+     },
+     "eq": 2
+    }
+   ]
+  },
+  {
+   "name": "tap-two-artifacts-target-cant-be-blocked",
+   "cr": [
+    "605.3a",
+    "702.20"
+   ],
+   "why": "Tap two untapped artifacts you control: target creature can't be blocked this turn -- the Rogue's own two Thopters are tapped by the activation and the Rogue then attacks past a 2/2 blocker.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Whirler Rogue"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Whirler Rogue",
+     "ability": "blocked",
+     "targets": [
+      "p0:Whirler Rogue"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Whirler Rogue"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "seat": 0,
+     "step": "end"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:token:Thopter#1",
+     "zone": "battlefield",
+     "tapped": true
+    },
+    {
+     "card": "p0:token:Thopter#2",
+     "zone": "battlefield",
+     "tapped": true
+    },
+    {
+     "card": "p0:Whirler Rogue",
+     "zone": "battlefield",
+     "tapped": true
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "life": {
+      "p1": 18
+     }
+    }
+   ]
+  }
+ ]
+}

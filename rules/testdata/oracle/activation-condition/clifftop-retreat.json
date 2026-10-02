@@ -1,0 +1,91 @@
+{
+ "card": "Clifftop Retreat",
+ "family": "activation-condition",
+ "author": "cli-20261002T022427Z-efa27a16 (Oracle + CR only)",
+ "oracle_sha": "cb32a04bd836",
+ "scenarios": [
+  {
+   "name": "enters-tapped-without-mountain-or-plains",
+   "cr": [
+    "614.6",
+    "305.7"
+   ],
+   "why": "Enters tapped unless you control a Mountain or a Plains: played with only an Island-like nonbasic board (a Talisman is not a land) the Retreat arrives tapped.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Clifftop Retreat"
+     ],
+     "battlefield": [
+      "Talisman of Conviction"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Clifftop Retreat"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Clifftop Retreat",
+     "zone": "battlefield",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "enters-untapped-controlling-plains",
+   "cr": [
+    "614.6",
+    "305.7"
+   ],
+   "why": "You control a Plains, so the unless-condition does not hold and the Retreat enters untapped; its {T} then adds {W}.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Clifftop Retreat"
+     ],
+     "battlefield": [
+      "Plains"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Clifftop Retreat"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Clifftop Retreat",
+     "ability": "add r or w",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "w"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Clifftop Retreat",
+     "zone": "battlefield",
+     "tapped": true
+    },
+    {
+     "pool": {
+      "p0": "W"
+     }
+    }
+   ]
+  }
+ ]
+}

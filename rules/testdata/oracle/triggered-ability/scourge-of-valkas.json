@@ -1,0 +1,104 @@
+{
+ "card": "Scourge of Valkas",
+ "family": "triggered-ability",
+ "author": "cli-20261002T022427Z-efa27a16 (Oracle + CR only)",
+ "oracle_sha": "1e9616509ee1",
+ "scenarios": [
+  {
+   "name": "own-enters-and-second-dragon-enters-stack-damage",
+   "cr": [
+    "603.2",
+    "107.3i"
+   ],
+   "why": "Whenever Scourge of Valkas or another Dragon you control enters, it deals X damage to any target, X = Dragons you control: its own entry deals 1 (setup), then casting Dragon Hatchling makes a second Dragon (X = 2) -- p1 takes 1 then 2.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Scourge of Valkas"
+     ],
+     "hand": [
+      "Dragon Hatchling"
+     ]
+    },
+    "p1": {}
+   },
+   "setup_answers": [
+    {
+     "kind": "target",
+     "pick": [
+      "p1"
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Dragon Hatchling",
+     "mana": "CR",
+     "targets": []
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 17
+     }
+    },
+    {
+     "card": "p0:Dragon Hatchling",
+     "zone": "battlefield",
+     "pt": "0/1"
+    }
+   ]
+  },
+  {
+   "name": "red-pump-until-end-of-turn",
+   "cr": [
+    "611.3a",
+    "605.3a"
+   ],
+   "why": "{R}: Scourge of Valkas gets +1/+0 until end of turn -- a one-mana pump from 4/4 to 5/4.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Scourge of Valkas"
+     ]
+    }
+   },
+   "setup_answers": [
+    {
+     "kind": "target",
+     "pick": [
+      "p1"
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Scourge of Valkas",
+     "mana": "R",
+     "ability": "gets"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Scourge of Valkas",
+     "pt": "5/4",
+     "zone": "battlefield"
+    }
+   ]
+  }
+ ]
+}

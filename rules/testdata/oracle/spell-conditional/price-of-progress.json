@@ -1,0 +1,101 @@
+{
+ "card": "Price of Progress",
+ "family": "spell-conditional",
+ "author": "cli-20261002T022427Z-efa27a16 (Oracle + CR only)",
+ "oracle_sha": "f89eb5ffcf18",
+ "scenarios": [
+  {
+   "name": "deals-twice-nonbasic-lands-to-each-player",
+   "cr": [
+    "608.2c",
+    "107.4a"
+   ],
+   "why": "Price of Progress deals damage to each player equal to twice the number of nonbasic lands that player controls: one nonbasic for p0 is 2 damage, two for p1 is 4.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Clifftop Retreat"
+     ],
+     "hand": [
+      "Price of Progress"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Clifftop Retreat",
+      "Clifftop Retreat"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Price of Progress",
+     "mana": "CR"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Price of Progress",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 18,
+      "p1": 16
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-nonbasic-lands-no-damage",
+   "cr": [
+    "608.2c",
+    "107.4a"
+   ],
+   "why": "Basic lands are not nonbasic lands: with only Plains and Mountains on both battlefields, the spell resolves for zero damage.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Plains"
+     ],
+     "hand": [
+      "Price of Progress"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Mountain"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Price of Progress",
+     "mana": "CR"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Price of Progress",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    }
+   ]
+  }
+ ]
+}

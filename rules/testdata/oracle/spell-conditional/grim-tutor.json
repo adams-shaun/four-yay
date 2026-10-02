@@ -1,0 +1,24 @@
+{
+ "card": "Grim Tutor",
+ "family": "spell-conditional",
+ "author": "cli-20261002T022427Z-efa27a16 (Oracle + CR only)",
+ "oracle_sha": "13804b065acf",
+ "scenarios": [
+  {
+   "name": "search-puts-card-in-hand-lose-three-life",
+   "cr": ["701.19a", "119.6"],
+   "why": "Search your library for a card, put it into your hand, then shuffle; you lose 3 life: Lightning Bolt goes from library top to hand and p0's life drops from 20 to 17.",
+   "setup": {"p0": {"hand": ["Grim Tutor"], "library_top": ["Lightning Bolt"]}},
+   "steps": [
+    {"op": "cast", "seat": 0, "card": "p0:Grim Tutor", "mana": "CBB", "answers": [{"kind": "choose", "pick": ["Lightning Bolt"]}]},
+    {"op": "resolve"}
+   ],
+   "expect": [
+    {"card": "p0:Grim Tutor", "zone": "graveyard"},
+    {"card": "p0:Lightning Bolt", "zone": "hand"},
+    {"hand_size": {"p0": 1}},
+    {"life": {"p0": 17}}
+   ]
+  }
+ ]
+}

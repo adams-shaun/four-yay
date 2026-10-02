@@ -1,0 +1,103 @@
+{
+ "card": "Mentor of the Meek",
+ "family": "triggered-ability",
+ "author": "cli-20261002T022427Z-efa27a16 (Oracle + CR only)",
+ "oracle_sha": "954e5f6bcac2",
+ "scenarios": [
+  {
+   "name": "low-power-enters-may-pay-one-draw",
+   "cr": [
+    "603.2",
+    "118.2"
+   ],
+   "why": "Whenever another creature you control with power 2 or less enters, you may pay {1}: casting Ember Hauler (2/2) triggers the Mentor; paying 1 draws exactly one card.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Mentor of the Meek",
+      "Fellwar Stone"
+     ],
+     "hand": [
+      "Ember Hauler"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Ember Hauler",
+     "mana": "RR",
+     "answers": []
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "pay"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Ember Hauler",
+     "zone": "battlefield"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "power-three-or-more-no-trigger",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Kalonian Tusker enters with power 3: the Mentor's trigger does not fire, no payment is asked and no card is drawn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Mentor of the Meek"
+     ],
+     "hand": [
+      "Kalonian Tusker"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Kalonian Tusker",
+     "mana": "GG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Kalonian Tusker",
+     "zone": "battlefield",
+     "pt": "3/3"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,108 @@
+{
+ "card": "Banisher Priest",
+ "family": "etb-ltb",
+ "author": "cli-20261002T022427Z-efa27a16 (Oracle + CR only)",
+ "oracle_sha": "35f86f92e403",
+ "scenarios": [
+  {
+   "name": "enters-exiles-creature-until-it-leaves",
+   "cr": [
+    "608.2c",
+    "610.3"
+   ],
+   "why": "When Banisher Priest enters, exile target creature an opponent controls until Banisher Priest leaves the battlefield: the Bears go to exile with the Priest on the battlefield.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Banisher Priest"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Banisher Priest",
+     "mana": "WWW",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Banisher Priest",
+     "zone": "battlefield",
+     "pt": "2/2"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "exile"
+    }
+   ]
+  },
+  {
+   "name": "priest-leaves-exiled-creature-returns",
+   "cr": [
+    "610.3",
+    "603.6c"
+   ],
+   "why": "When the Priest leaves the battlefield (here a stand-in outside effect moves it to the graveyard), the exiled creature returns under its owner's control.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Banisher Priest"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Banisher Priest",
+     "mana": "WWW",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "move",
+     "seat": 0,
+     "card": "p0:Banisher Priest",
+     "to": "graveyard"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Banisher Priest",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield",
+     "pt": "2/2",
+     "damage": 0
+    }
+   ]
+  }
+ ]
+}

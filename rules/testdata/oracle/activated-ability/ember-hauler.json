@@ -1,0 +1,40 @@
+{
+ "card": "Ember Hauler",
+ "family": "activated-ability",
+ "author": "cli-20261002T022427Z-efa27a16 (Oracle + CR only)",
+ "oracle_sha": "feae4098dc56",
+ "scenarios": [
+  {
+   "name": "sacrifice-deals-two-to-player",
+   "cr": ["605.3a", "608.2c"],
+   "why": "{1}, Sacrifice Ember Hauler: it deals 2 damage to any target -- the Hauler is sacrificed as part of the cost and the player target takes 2.",
+   "setup": {"p0": {"battlefield": ["Ember Hauler"]}},
+   "steps": [
+    {"op": "activate", "seat": 0, "card": "p0:Ember Hauler", "mana": "C", "targets": ["p1"]},
+    {"op": "resolve"}
+   ],
+   "expect": [
+    {"card": "p0:Ember Hauler", "zone": "graveyard"},
+    {"life": {"p1": 18}}
+   ]
+  },
+  {
+   "name": "sacrifice-deals-two-to-a-creature",
+   "cr": ["605.3a", "608.2c"],
+   "why": "The target may be a creature: targeting p1's Grizzly Bears (toughness 2) destroys them, not the defending player.",
+   "setup": {
+    "p0": {"battlefield": ["Ember Hauler"]},
+    "p1": {"battlefield": ["Grizzly Bears"]}
+   },
+   "steps": [
+    {"op": "activate", "seat": 0, "card": "p0:Ember Hauler", "mana": "C", "targets": ["p1:Grizzly Bears"]},
+    {"op": "resolve"}
+   ],
+   "expect": [
+    {"card": "p0:Ember Hauler", "zone": "graveyard"},
+    {"card": "p1:Grizzly Bears", "zone": "graveyard"},
+    {"life": {"p0": 20, "p1": 20}}
+   ]
+  }
+ ]
+}

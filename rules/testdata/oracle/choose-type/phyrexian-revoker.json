@@ -1,0 +1,126 @@
+{
+ "card": "Phyrexian Revoker",
+ "family": "choose-type",
+ "author": "cli-20261002T022427Z-efa27a16 (Oracle + CR only)",
+ "oracle_sha": "d4041c9f2949",
+ "scenarios": [
+  {
+   "name": "enters-chooses-name-shuts-that-source",
+   "cr": [
+    "614.10",
+    "605.3a"
+   ],
+   "why": "As Phyrexian Revoker enters, choose a nonland card name; activated abilities of sources with the chosen name can't be activated: naming Ember Hauler means p1's Hauler activation is no longer offered.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Phyrexian Revoker"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Ember Hauler"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Phyrexian Revoker",
+     "mana": "CC",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Ember Hauler"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Phyrexian Revoker",
+     "zone": "battlefield",
+     "pt": "2/1"
+    },
+    {
+     "offered": {
+      "seat": 1,
+      "kind": "activate",
+      "card": "p1:Ember Hauler"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "unnamed-sources-still-activate",
+   "cr": [
+    "614.10",
+    "605.3a"
+   ],
+   "why": "Only sources with the chosen name are shut down: naming Lotus Petal leaves the Talisman of Conviction's mana ability available while the Petal's is not.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Lotus Petal",
+      "Talisman of Conviction"
+     ],
+     "hand": [
+      "Phyrexian Revoker"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Phyrexian Revoker",
+     "mana": "CC",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Lotus Petal"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Phyrexian Revoker",
+     "zone": "battlefield"
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Lotus Petal"
+     },
+     "want": false
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Talisman of Conviction"
+     },
+     "want": true
+    }
+   ]
+  }
+ ]
+}

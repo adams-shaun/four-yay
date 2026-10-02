@@ -1,0 +1,121 @@
+{
+ "card": "Selfless Spirit",
+ "family": "keywords",
+ "author": "cli-20261002T022427Z-efa27a16 (Oracle + CR only)",
+ "oracle_sha": "c5263f220d6d",
+ "scenarios": [
+  {
+   "name": "sacrifice-grants-indestructible-survives-bolt",
+   "cr": [
+    "702.12b",
+    "611.3a"
+   ],
+   "why": "Sacrifice Selfless Spirit: creatures you control gain indestructible until end of turn -- the Spirit is gone from the battlefield, but a Lightning Bolt on the 2/2 Grizzly Bears marks 3 damage without destroying it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Selfless Spirit",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Selfless Spirit",
+     "ability": "indestructible"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Selfless Spirit",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 3
+    },
+    {
+     "life": {
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "without-the-grant-the-bolt-kills",
+   "cr": [
+    "702.12b",
+    "611.3a"
+   ],
+   "why": "Precondition for the grant: with the Spirit left on the battlefield (not sacrificed), the same Bolt destroys the 2/2 Bears -- the survival assertion above can only be explained by the indestructible grant.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Selfless Spirit",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Selfless Spirit",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,115 @@
+{
+ "card": "Mirror Entity",
+ "family": "activated-ability",
+ "author": "cli-20261002T022427Z-efa27a16 (Oracle + CR only)",
+ "oracle_sha": "bd29159cf248",
+ "scenarios": [
+  {
+   "name": "x-activation-sets-base-and-gains-all-types",
+   "cr": [
+    "613.3c",
+    "107.3i"
+   ],
+   "why": "{X}: Until end of turn, creatures you control have base power and toughness X/X and gain all creature types: paying 4 makes the 2/2 Grizzly Bears a 4/4 and it gains the Dragon type, and Mirror Entity itself becomes 4/4.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Mirror Entity",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Mirror Entity",
+     "mana": "CCCC",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "4"
+       ]
+      }
+     ],
+     "ability": "base"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "4/4",
+     "zone": "battlefield",
+     "types": [
+      "Dragon"
+     ]
+    },
+    {
+     "card": "p0:Mirror Entity",
+     "pt": "4/4",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "effect-expires-and-types-return",
+   "cr": [
+    "613.3c",
+    "611.3a"
+   ],
+   "why": "The effect lasts until end of turn: at p0's next main phase the Bears are 2/2 again and no longer carry the Dragon type.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Mirror Entity",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Mirror Entity",
+     "mana": "CCCC",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "4"
+       ]
+      }
+     ],
+     "ability": "base"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2",
+     "zone": "battlefield",
+     "no_types": [
+      "Dragon"
+     ]
+    },
+    {
+     "card": "p0:Mirror Entity",
+     "pt": "1/1",
+     "zone": "battlefield"
+    }
+   ]
+  }
+ ]
+}

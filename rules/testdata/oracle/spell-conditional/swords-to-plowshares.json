@@ -1,0 +1,46 @@
+{
+ "card": "Swords to Plowshares",
+ "family": "spell-conditional",
+ "author": "cli-20261002T022427Z-efa27a16 (Oracle + CR only)",
+ "oracle_sha": "03c7ae8fb4c3",
+ "scenarios": [
+  {
+   "name": "exile-creature-controller-gains-power-life",
+   "cr": ["608.2c", "118.1"],
+   "why": "Exile target creature. Its controller gains life equal to its power: a 2/2 Grizzly Bears leaves the battlefield to exile and its controller gains exactly 2 life.",
+   "setup": {
+    "p0": {"hand": ["Swords to Plowshares"]},
+    "p1": {"battlefield": ["Grizzly Bears"]}
+   },
+   "steps": [
+    {"op": "cast", "seat": 0, "card": "p0:Swords to Plowshares", "mana": "W", "targets": ["p1:Grizzly Bears"]},
+    {"op": "resolve"}
+   ],
+   "expect": [
+    {"card": "p1:Grizzly Bears", "zone": "exile"},
+    {"card": "p0:Swords to Plowshares", "zone": "graveyard"},
+    {"life": {"p1": 22}}
+   ]
+  },
+  {
+   "name": "target-leaves-in-response-spell-fizzles-no-life",
+   "cr": ["608.2b", "117.1a"],
+   "why": "The target leaves the battlefield before the spell resolves (CR 608.2b: every target illegal, the spell does not resolve), so neither the exile nor the dependent life gain happens -- Ember Hauler is sacrificed by its own ability, deals its 2 damage, and p1 gains nothing.",
+   "setup": {
+    "p0": {"hand": ["Swords to Plowshares"]},
+    "p1": {"battlefield": ["Ember Hauler"]}
+   },
+   "steps": [
+    {"op": "cast", "seat": 0, "card": "p0:Swords to Plowshares", "mana": "W", "targets": ["p1:Ember Hauler"]},
+    {"op": "pass", "seat": 0},
+    {"op": "activate", "seat": 1, "card": "p1:Ember Hauler", "mana": "C", "targets": ["p0"]},
+    {"op": "resolve"}
+   ],
+   "expect": [
+    {"card": "p1:Ember Hauler", "zone": "graveyard"},
+    {"card": "p0:Swords to Plowshares", "zone": "graveyard"},
+    {"life": {"p0": 18, "p1": 20}}
+   ]
+  }
+ ]
+}
