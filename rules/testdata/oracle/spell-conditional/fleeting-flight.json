@@ -1,0 +1,574 @@
+{
+ "card": "Fleeting Flight",
+ "family": "spell-conditional",
+ "author": "fdn-audit-2 (Oracle + CR only)",
+ "oracle_sha": "dd314faec690",
+ "scenarios": [
+  {
+   "name": "counter-stays-flying-ends",
+   "cr": [
+    "122.1",
+    "514.2"
+   ],
+   "why": "The +1/+1 counter is permanent; flying lasts only until end of turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Fleeting Flight"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Fleeting Flight",
+     "mana": "W",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Grizzly Bears",
+       "pt": "3/3",
+       "keywords": [
+        "Flying"
+       ],
+       "counters": {
+        "+1/+1": 1
+       }
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "pt": "3/3",
+     "no_keywords": [
+      "Flying"
+     ],
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "card": "p0:Fleeting Flight",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "combat-damage-to-it-is-prevented",
+   "cr": [
+    "615.1",
+    "510.2"
+   ],
+   "why": "Cast after blockers, the 3/3 Bears takes no combat damage from the 3/3 blocker and deals 3, killing it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Fleeting Flight"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Centaur Courser",
+       "p0:Grizzly Bears"
+      ]
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Fleeting Flight",
+     "mana": "W",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "pt": "3/3",
+     "damage": 0
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "cast-before-combat-still-prevents-combat-damage",
+   "cr": [
+    "615.1",
+    "611.2a"
+   ],
+   "why": "The shield lasts the whole turn: cast in the main phase, the 3/3 flying Bears blocked later by a 2/2 flyer takes no combat damage and kills it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Fleeting Flight"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Wind Drake"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Fleeting Flight",
+     "mana": "W",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Wind Drake",
+       "p0:Grizzly Bears"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "pt": "3/3",
+     "damage": 0
+    },
+    {
+     "card": "p1:Wind Drake",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "noncombat-damage-is-not-prevented",
+   "cr": [
+    "615.1",
+    "120.2"
+   ],
+   "why": "Only combat damage is prevented: 3 noncombat damage kills the 3/3.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Fleeting Flight"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Fleeting Flight",
+     "mana": "W",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "flying-makes-it-unblockable-by-ground-creatures",
+   "cr": [
+    "702.9b"
+   ],
+   "why": "Given flying before blocks, the attacker cannot be blocked by a creature without flying or reach.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Fleeting Flight"
+     ],
+     "battlefield": [
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears",
+      "p0:Savannah Lions"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Fleeting Flight",
+     "mana": "W",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p1:Centaur Courser",
+        "attacker": "p0:Grizzly Bears"
+       },
+       "want": false
+      },
+      {
+       "can_block": {
+        "blocker": "p1:Centaur Courser",
+        "attacker": "p0:Savannah Lions"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 15
+     }
+    }
+   ]
+  },
+  {
+   "name": "only-the-targeted-creature-is-protected",
+   "cr": [
+    "615.1"
+   ],
+   "why": "The shield covers only the targeted creature: another creature of the same controller takes combat damage normally, and damage the target deals is not prevented.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Fleeting Flight"
+     ],
+     "battlefield": [
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears",
+      "p0:Savannah Lions"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Centaur Courser",
+       "p0:Savannah Lions"
+      ],
+      [
+       "p1:Grizzly Bears",
+       "p0:Grizzly Bears"
+      ]
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Fleeting Flight",
+     "mana": "W",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "battlefield",
+     "damage": 2
+    }
+   ]
+  },
+  {
+   "name": "prevention-ends-with-the-turn",
+   "cr": [
+    "611.2a",
+    "514.2"
+   ],
+   "why": "'This turn': blocking on the next turn the 3/3 (counter kept) takes combat damage normally and dies to a 6/4.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Fleeting Flight"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Fleeting Flight",
+     "mana": "W",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Craw Wurm"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p0:Grizzly Bears",
+       "p1:Craw Wurm"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "battlefield",
+     "damage": 3
+    }
+   ]
+  },
+  {
+   "name": "can-target-an-opponents-creature",
+   "cr": [
+    "115.1"
+   ],
+   "why": "'Target creature' has no controller restriction.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Fleeting Flight"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Fleeting Flight",
+     "mana": "W",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield",
+     "pt": "3/3",
+     "keywords": [
+      "Flying"
+     ],
+     "counters": {
+      "+1/+1": 1
+     }
+    }
+   ]
+  }
+ ]
+}

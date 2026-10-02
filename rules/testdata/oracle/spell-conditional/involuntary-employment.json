@@ -1,0 +1,422 @@
+{
+ "card": "Involuntary Employment",
+ "family": "spell-conditional",
+ "author": "fdn-audit-2 (Oracle + CR only)",
+ "oracle_sha": "4ad550c64135",
+ "scenarios": [
+  {
+   "name": "steal-attack-with-haste-and-treasure",
+   "cr": [
+    "611.2a",
+    "702.10b",
+    "111.10a"
+   ],
+   "why": "Gains control of the target until end of turn; it has haste so it can attack its owner at once; a Treasure is created for the caster.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Involuntary Employment"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Involuntary Employment",
+     "mana": "CCCR",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p1:Centaur Courser",
+       "zone": "battlefield",
+       "keywords": [
+        "Haste"
+       ],
+       "tapped": false
+      },
+      {
+       "count": {
+        "seat": 0,
+        "zone": "battlefield",
+        "name": "Treasure",
+        "token": true
+       },
+       "eq": 1
+      },
+      {
+       "count": {
+        "seat": 1,
+        "zone": "battlefield",
+        "name": "Treasure"
+       },
+       "eq": 0
+      }
+     ]
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p1:Centaur Courser"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 17,
+      "p0": 20
+     }
+    },
+    {
+     "card": "p0:Involuntary Employment",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "control-and-haste-end-at-end-of-turn",
+   "cr": [
+    "611.2a",
+    "514.2"
+   ],
+   "why": "At end of turn control returns: on its owner's next turn the creature has no haste and attacks for its owner.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Involuntary Employment"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Involuntary Employment",
+     "mana": "CCCR",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1",
+     "expect": [
+      {
+       "card": "p1:Centaur Courser",
+       "zone": "battlefield",
+       "no_keywords": [
+        "Haste"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Centaur Courser"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 17,
+      "p1": 20
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Treasure",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "untaps-the-creature",
+   "cr": [
+    "701.26a"
+   ],
+   "why": "'Untap that creature': a tapped creature (the caster's own, tapped from attacking) is untapped.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Involuntary Employment"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "expect": [
+      {
+       "card": "p0:Grizzly Bears",
+       "tapped": true
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Involuntary Employment",
+     "mana": "CCCR",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "keywords": [
+      "Haste"
+     ],
+     "tapped": false
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Treasure",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "sorcery-timing-only",
+   "cr": [
+    "307.1"
+   ],
+   "why": "A sorcery: not castable on the opponent's turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Involuntary Employment"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCR",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Involuntary Employment"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCR",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Involuntary Employment"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Involuntary Employment",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "no-creature-not-castable",
+   "cr": [
+    "601.2c"
+   ],
+   "why": "It needs a target creature: with none on the battlefield it cannot be cast (so no Treasure either).",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Involuntary Employment"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Sol Ring"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCR",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Involuntary Employment"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Involuntary Employment",
+     "zone": "hand"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Treasure"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "target-gone-no-treasure",
+   "cr": [
+    "608.2b"
+   ],
+   "why": "With its only target illegal on resolution the spell does nothing: no Treasure is created.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Involuntary Employment"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Involuntary Employment",
+     "mana": "CCCR",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Treasure"
+     },
+     "eq": 0
+    },
+    {
+     "card": "p0:Involuntary Employment",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

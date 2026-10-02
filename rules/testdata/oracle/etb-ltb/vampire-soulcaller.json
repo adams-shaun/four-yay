@@ -1,0 +1,321 @@
+{
+ "card": "Vampire Soulcaller",
+ "family": "etb-ltb",
+ "author": "fdn-audit-2 (Oracle + CR only)",
+ "oracle_sha": "2aa5c4d14eb2",
+ "scenarios": [
+  {
+   "name": "returns-a-creature-card-to-hand",
+   "cr": [
+    "603.2",
+    "400.7"
+   ],
+   "why": "Entering, it returns the target creature card from its controller's graveyard to their hand.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Vampire Soulcaller"
+     ],
+     "graveyard": [
+      "Grizzly Bears",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Vampire Soulcaller",
+     "mana": "CCCCB"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Centaur Courser"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Vampire Soulcaller",
+     "zone": "battlefield",
+     "pt": "3/2",
+     "keywords": [
+      "Flying"
+     ]
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-creature-card-nothing-returns",
+   "cr": [
+    "603.3d",
+    "115.1"
+   ],
+   "why": "Only a creature card in your own graveyard is a legal target: an instant there and a creature card in the opponent's graveyard are left alone.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Vampire Soulcaller"
+     ],
+     "graveyard": [
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Vampire Soulcaller",
+     "mana": "CCCCB"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Vampire Soulcaller",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 0,
+      "p1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "cannot-block",
+   "cr": [
+    "509.1a"
+   ],
+   "why": "It can't block: when the opponent attacks it is not a legal blocker while another creature is.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Vampire Soulcaller",
+      "Savannah Lions"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Wind Drake"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Grizzly Bears",
+      "p1:Wind Drake"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p0:Vampire Soulcaller",
+        "attacker": "p1:Grizzly Bears"
+       },
+       "want": false
+      },
+      {
+       "can_block": {
+        "blocker": "p0:Vampire Soulcaller",
+        "attacker": "p1:Wind Drake"
+       },
+       "want": false
+      },
+      {
+       "can_block": {
+        "blocker": "p0:Savannah Lions",
+        "attacker": "p1:Grizzly Bears"
+       },
+       "want": true
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Vampire Soulcaller",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "flying-attacker",
+   "cr": [
+    "702.9b"
+   ],
+   "why": "It attacks as a 3/2 flyer: a ground creature cannot block it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Vampire Soulcaller",
+      "Savannah Lions"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Vampire Soulcaller",
+      "p0:Savannah Lions"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p1:Centaur Courser",
+        "attacker": "p0:Vampire Soulcaller"
+       },
+       "want": false
+      },
+      {
+       "can_block": {
+        "blocker": "p1:Centaur Courser",
+        "attacker": "p0:Savannah Lions"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 15
+     }
+    }
+   ]
+  },
+  {
+   "name": "target-removed-in-response-returns-nothing",
+   "cr": [
+    "608.2b"
+   ],
+   "why": "If the targeted card leaves the graveyard before the trigger resolves, nothing is returned and no other card is substituted.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Vampire Soulcaller"
+     ],
+     "graveyard": [
+      "Grizzly Bears",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Vampire Soulcaller",
+     "mana": "CCCCB"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "pass_to",
+     "decision": "priority",
+     "targets": [
+      "p0:Centaur Courser"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Vampire Soulcaller",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "move",
+     "seat": 0,
+     "card": "p0:Centaur Courser",
+     "to": "exile"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "exile"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,410 @@
+{
+ "card": "Abrade",
+ "family": "spell-conditional",
+ "author": "fdn-audit-2 (Oracle + CR only)",
+ "oracle_sha": "ad1cf89df23f",
+ "scenarios": [
+  {
+   "name": "damage-mode-kills-a-three-toughness-creature",
+   "cr": [
+    "700.2a",
+    "120.3"
+   ],
+   "why": "First mode: 3 damage to the target creature kills a 3/3.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Abrade"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser",
+      "Sol Ring"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Abrade",
+     "mana": "CR",
+     "targets": [
+      "p1:Centaur Courser"
+     ],
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "damage"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Sol Ring",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Abrade",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "damage-mode-leaves-a-bigger-creature-damaged",
+   "cr": [
+    "120.3"
+   ],
+   "why": "It deals exactly 3: a 6/4 survives with 3 damage.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Abrade"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Abrade",
+     "mana": "CR",
+     "targets": [
+      "p1:Craw Wurm"
+     ],
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "damage"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "battlefield",
+     "damage": 3
+    }
+   ]
+  },
+  {
+   "name": "destroy-mode-destroys-an-artifact",
+   "cr": [
+    "700.2a",
+    "701.8a"
+   ],
+   "why": "Second mode: the target artifact is destroyed; a creature alongside it is untouched.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Abrade"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser",
+      "Sol Ring"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Abrade",
+     "mana": "CR",
+     "targets": [
+      "p1:Sol Ring"
+     ],
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "artifact"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Sol Ring",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "battlefield",
+     "damage": 0
+    }
+   ]
+  },
+  {
+   "name": "destroy-mode-hits-an-artifact-creature",
+   "cr": [
+    "701.8a",
+    "300.2"
+   ],
+   "why": "An artifact creature is an artifact: the destroy mode destroys it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Abrade"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Ornithopter"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Abrade",
+     "mana": "CR",
+     "targets": [
+      "p1:Ornithopter"
+     ],
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "artifact"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Ornithopter",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "destroy-mode-fails-against-indestructible",
+   "cr": [
+    "702.12b"
+   ],
+   "why": "An indestructible artifact creature is a legal target but is not destroyed.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Abrade"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Darksteel Myr"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Abrade",
+     "mana": "CR",
+     "targets": [
+      "p1:Darksteel Myr"
+     ],
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "artifact"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Darksteel Myr",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "card": "p0:Abrade",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "damage-mode-does-not-destroy-indestructible",
+   "cr": [
+    "702.12b",
+    "704.5g"
+   ],
+   "why": "3 damage to an indestructible 0/1 marks damage but does not destroy it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Abrade"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Darksteel Myr"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Abrade",
+     "mana": "CR",
+     "targets": [
+      "p1:Darksteel Myr"
+     ],
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "damage"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Darksteel Myr",
+     "zone": "battlefield",
+     "damage": 3
+    }
+   ]
+  },
+  {
+   "name": "instant-on-opponents-turn",
+   "cr": [
+    "304.1"
+   ],
+   "why": "An instant: castable during the opponent's turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Abrade"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Abrade",
+     "mana": "CR",
+     "targets": [
+      "p1:Grizzly Bears"
+     ],
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "damage"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "no-legal-target-not-castable",
+   "cr": [
+    "601.2c",
+    "700.2a"
+   ],
+   "why": "With neither a creature nor an artifact on the battlefield no mode has a legal target, so the spell cannot be cast.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Abrade"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CR",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Abrade"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Abrade",
+     "zone": "hand"
+    }
+   ]
+  }
+ ]
+}

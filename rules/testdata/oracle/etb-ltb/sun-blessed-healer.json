@@ -1,0 +1,290 @@
+{
+ "card": "Sun-Blessed Healer",
+ "family": "etb-ltb",
+ "author": "fdn-audit-2 (Oracle + CR only)",
+ "oracle_sha": "b9ab746cdd87",
+ "scenarios": [
+  {
+   "name": "unkicked-returns-nothing",
+   "cr": [
+    "702.33a",
+    "603.4"
+   ],
+   "why": "Cast without kicker for {1}{W}: the enters trigger's 'if it was kicked' is false, so nothing returns.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Sun-Blessed Healer"
+     ],
+     "graveyard": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Sun-Blessed Healer",
+     "mana": "CW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Sun-Blessed Healer",
+     "zone": "battlefield",
+     "pt": "3/1",
+     "keywords": [
+      "Lifelink"
+     ]
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "kicked-returns-a-two-drop-to-the-battlefield",
+   "cr": [
+    "702.33a",
+    "603.4",
+    "202.3"
+   ],
+   "why": "Kicked ({1}{W} more), it returns a target nonland permanent card with mana value 2 or less from its controller's graveyard to the battlefield.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Sun-Blessed Healer"
+     ],
+     "graveyard": [
+      "Grizzly Bears",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Sun-Blessed Healer",
+     "mana": "CCWW",
+     "kicked": true
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Sun-Blessed Healer",
+     "zone": "battlefield",
+     "pt": "3/1"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "pt": "2/2"
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "graveyard"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "kicked-returns-a-noncreature-permanent",
+   "cr": [
+    "110.4a"
+   ],
+   "why": "'Nonland permanent card' includes an artifact with mana value 1.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Sun-Blessed Healer"
+     ],
+     "graveyard": [
+      "Sol Ring"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Sun-Blessed Healer",
+     "mana": "CCWW",
+     "kicked": true
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Sol Ring"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Sol Ring",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "kicked-cannot-return-illegal-cards",
+   "cr": [
+    "115.1",
+    "110.4a",
+    "202.3"
+   ],
+   "why": "A mana value 3 creature, a land, an instant (not a permanent card) and a card in the opponent's graveyard are all illegal targets: nothing returns.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Sun-Blessed Healer"
+     ],
+     "graveyard": [
+      "Centaur Courser",
+      "Forest",
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Sun-Blessed Healer",
+     "mana": "CCWW",
+     "kicked": true
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Sun-Blessed Healer",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "unkicked-cast-with-spare-mana-pays-only-two",
+   "cr": [
+    "702.33a",
+    "601.2f"
+   ],
+   "why": "Kicker is optional: with four mana available an unkicked cast spends only {1}{W} and returns nothing.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Sun-Blessed Healer"
+     ],
+     "graveyard": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Sun-Blessed Healer",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Sun-Blessed Healer",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "pool": {
+      "p0": "CW"
+     }
+    }
+   ]
+  },
+  {
+   "name": "lifelink-attack",
+   "cr": [
+    "702.15b"
+   ],
+   "why": "A 3/1 lifelinker: unblocked it deals 3 and its controller gains 3.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sun-Blessed Healer"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Sun-Blessed Healer"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 23,
+      "p1": 17
+     }
+    }
+   ]
+  }
+ ]
+}

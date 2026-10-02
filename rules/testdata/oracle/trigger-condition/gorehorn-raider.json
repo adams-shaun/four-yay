@@ -1,0 +1,378 @@
+{
+ "card": "Gorehorn Raider",
+ "family": "trigger-condition",
+ "author": "fdn-audit-2 (Oracle + CR only)",
+ "oracle_sha": "717d9a7f7f57",
+ "scenarios": [
+  {
+   "name": "raid-after-attacking-deals-two-to-a-player",
+   "cr": [
+    "603.4",
+    "207.2c"
+   ],
+   "why": "Having attacked this turn, the Raider's enters trigger deals 2 damage to any target - here the opponent (2 combat + 2).",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Gorehorn Raider"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Gorehorn Raider",
+     "mana": "CCCCR"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Gorehorn Raider",
+     "zone": "battlefield",
+     "pt": "4/4"
+    },
+    {
+     "life": {
+      "p1": 16,
+      "p0": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "raid-after-attacking-kills-a-creature",
+   "cr": [
+    "603.4",
+    "120.3"
+   ],
+   "why": "Any target includes a creature: 2 damage kills a 2/2.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Gorehorn Raider"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Gorehorn Raider",
+     "mana": "CCCCR"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "life": {
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-attack-no-trigger",
+   "cr": [
+    "603.4"
+   ],
+   "why": "Without an attack this turn the intervening 'if' is false: no trigger, no damage.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Gorehorn Raider"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Gorehorn Raider",
+     "mana": "CCCCR"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "pass_to",
+     "decision": "priority",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Gorehorn Raider",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Gorehorn Raider",
+     "zone": "battlefield",
+     "pt": "4/4"
+    },
+    {
+     "life": {
+      "p1": 20,
+      "p0": 20
+     }
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 0
+    }
+   ]
+  },
+  {
+   "name": "attack-on-an-earlier-turn-does-not-count",
+   "cr": [
+    "603.4"
+   ],
+   "why": "'This turn': an attack on a previous turn does not satisfy raid.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Gorehorn Raider"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Gorehorn Raider",
+     "mana": "CCCCR"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Gorehorn Raider",
+     "zone": "battlefield"
+    },
+    {
+     "life": {
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "cast-before-combat-then-attacking-is-too-late",
+   "cr": [
+    "603.4"
+   ],
+   "why": "The condition is checked as the Raider enters: entering precombat and attacking afterwards deals no raid damage.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Gorehorn Raider"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Gorehorn Raider",
+     "mana": "CCCCR"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "blocked-attack-still-counts",
+   "cr": [
+    "207.2c",
+    "508.1"
+   ],
+   "why": "Raid asks only whether you attacked, not whether damage was dealt: a blocked attacker still enables it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Gorehorn Raider"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Centaur Courser",
+       "p0:Grizzly Bears"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Gorehorn Raider",
+     "mana": "CCCCR"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 18
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

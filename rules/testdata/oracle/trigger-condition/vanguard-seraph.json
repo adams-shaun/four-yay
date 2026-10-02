@@ -1,0 +1,457 @@
+{
+ "card": "Vanguard Seraph",
+ "family": "trigger-condition",
+ "author": "fdn-audit-2 (Oracle + CR only)",
+ "oracle_sha": "b4acdbf35f51",
+ "scenarios": [
+  {
+   "name": "first-life-gain-surveils-one",
+   "cr": [
+    "603.2",
+    "701.25a"
+   ],
+   "why": "The first life gain of the turn triggers surveil 1: the top card may be put into the graveyard; only one card is looked at.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Angel's Mercy"
+     ],
+     "battlefield": [
+      "Vanguard Seraph"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Angel's Mercy",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "arrange",
+       "pick": []
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "library"
+    },
+    {
+     "life": {
+      "p0": 27
+     }
+    },
+    {
+     "card": "p0:Vanguard Seraph",
+     "zone": "battlefield",
+     "pt": "3/3",
+     "keywords": [
+      "Flying"
+     ]
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "surveil-may-keep-the-card",
+   "cr": [
+    "701.25a"
+   ],
+   "why": "Surveil lets the card stay on top instead.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Angel's Mercy"
+     ],
+     "battlefield": [
+      "Vanguard Seraph"
+     ],
+     "library_top": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Angel's Mercy",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "arrange",
+       "pick": [
+        "Lightning Bolt"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "library"
+    },
+    {
+     "graveyard_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "second-life-gain-same-turn-does-not-trigger",
+   "cr": [
+    "603.2"
+   ],
+   "why": "'For the first time each turn': a second gain in the same turn does not surveil again.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Angel's Mercy",
+      "Angel's Mercy"
+     ],
+     "battlefield": [
+      "Vanguard Seraph"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Angel's Mercy",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "arrange",
+       "pick": []
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Angel's Mercy#2",
+     "mana": "CCWW",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Vanguard Seraph",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "arrange",
+       "pick": []
+      }
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Vanguard Seraph",
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "library"
+    },
+    {
+     "life": {
+      "p0": 34
+     }
+    }
+   ]
+  },
+  {
+   "name": "triggers-again-on-the-next-turn",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Each turn has its own first time: a gain on the opponent's following turn surveils again.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Angel's Mercy",
+      "Angel's Mercy"
+     ],
+     "battlefield": [
+      "Vanguard Seraph"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Angel's Mercy",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "arrange",
+       "pick": []
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Angel's Mercy#2",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "arrange",
+       "pick": []
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 34
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-life-gain-does-not-trigger",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Only its controller's life gain counts.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Vanguard Seraph"
+     ],
+     "library_top": [
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Angel's Mercy"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Angel's Mercy",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "arrange",
+       "pick": []
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "library"
+    },
+    {
+     "life": {
+      "p1": 27
+     }
+    }
+   ]
+  },
+  {
+   "name": "gain-before-seraph-arrived-uses-up-the-first-time",
+   "cr": [
+    "603.2",
+    "603.6"
+   ],
+   "why": "If its controller already gained life this turn before the Seraph entered, a later gain that turn is not the first: no surveil.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Vanguard Seraph",
+      "Angel's Mercy",
+      "Angel's Mercy"
+     ],
+     "library_top": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Angel's Mercy",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Vanguard Seraph",
+     "mana": "CCCW"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Angel's Mercy#2",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "arrange",
+       "pick": []
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "library"
+    },
+    {
+     "card": "p0:Vanguard Seraph",
+     "zone": "battlefield"
+    },
+    {
+     "life": {
+      "p0": 34
+     }
+    }
+   ]
+  },
+  {
+   "name": "lifelink-gain-triggers-it",
+   "cr": [
+    "702.15b"
+   ],
+   "why": "Life gained through lifelink combat damage is life gain: surveil 1.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Vanguard Seraph",
+      "Ajani's Sunstriker"
+     ],
+     "library_top": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Ajani's Sunstriker"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "answers": [
+      {
+       "kind": "arrange",
+       "pick": []
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 22
+     }
+    }
+   ]
+  }
+ ]
+}

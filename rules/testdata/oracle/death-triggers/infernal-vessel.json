@@ -1,0 +1,330 @@
+{
+ "card": "Infernal Vessel",
+ "family": "death-triggers",
+ "author": "fdn-audit-2 (Oracle + CR only)",
+ "oracle_sha": "91e2301a0f17",
+ "scenarios": [
+  {
+   "name": "dies-and-returns-as-a-demon-with-two-counters",
+   "cr": [
+    "603.6c",
+    "603.10a",
+    "613.1d"
+   ],
+   "why": "Dying as a non-Demon, it returns to the battlefield under its owner's control with two +1/+1 counters (4/3) and is a Demon in addition to Human Cleric. Not said to be tapped.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Infernal Vessel"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Infernal Vessel"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Infernal Vessel",
+     "zone": "battlefield",
+     "pt": "4/3",
+     "types": [
+      "Creature",
+      "Demon",
+      "Human",
+      "Cleric"
+     ],
+     "tapped": false,
+     "damage": 0,
+     "counters": {
+      "+1/+1": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "before-dying-it-is-not-a-demon",
+   "cr": [
+    "205.3"
+   ],
+   "why": "As printed it is a 2/1 Human Cleric, not a Demon.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Infernal Vessel"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Infernal Vessel",
+     "mana": "CCB"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Infernal Vessel",
+     "zone": "battlefield",
+     "pt": "2/1",
+     "types": [
+      "Human",
+      "Cleric"
+     ],
+     "no_types": [
+      "Demon"
+     ],
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "dying-as-a-demon-stays-dead",
+   "cr": [
+    "603.4",
+    "603.10a"
+   ],
+   "why": "The returned Vessel is a Demon: when it dies again the 'if it wasn't a Demon' condition is false and it stays in the graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt",
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Infernal Vessel"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Infernal Vessel"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Infernal Vessel",
+       "zone": "battlefield",
+       "pt": "4/3"
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt#2",
+     "mana": "R",
+     "targets": [
+      "p0:Infernal Vessel"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Infernal Vessel",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "demon-type-persists-on-later-turns",
+   "cr": [
+    "611.2a"
+   ],
+   "why": "The Demon type has no duration: it and the counters remain on the next turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Infernal Vessel"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Infernal Vessel"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Infernal Vessel",
+     "zone": "battlefield",
+     "pt": "4/3",
+     "types": [
+      "Demon"
+     ],
+     "counters": {
+      "+1/+1": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "dies-in-combat-and-returns",
+   "cr": [
+    "603.6c",
+    "704.5g"
+   ],
+   "why": "Combat death is dying: blocked by a 2/2 the 2/1 Vessel dies, kills the blocker, and returns as a 4/3 Demon.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Infernal Vessel"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Infernal Vessel"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Grizzly Bears",
+       "p0:Infernal Vessel"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Infernal Vessel",
+     "zone": "battlefield",
+     "pt": "4/3",
+     "types": [
+      "Demon"
+     ]
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "opponent-kills-it-owner-gets-it-back",
+   "cr": [
+    "603.6c"
+   ],
+   "why": "Killed by an opponent's spell it still returns under its owner's control.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Infernal Vessel"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Infernal Vessel"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Infernal Vessel",
+     "zone": "battlefield",
+     "pt": "4/3"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Infernal Vessel"
+     },
+     "eq": 1
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Infernal Vessel"
+     },
+     "eq": 0
+    }
+   ]
+  }
+ ]
+}

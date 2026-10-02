@@ -1,0 +1,277 @@
+{
+ "card": "Goblin Boarders",
+ "family": "conditional-static",
+ "author": "fdn-audit-2 (Oracle + CR only)",
+ "oracle_sha": "975e41862393",
+ "scenarios": [
+  {
+   "name": "raid-enters-with-a-counter-after-attacking",
+   "cr": [
+    "614.1c",
+    "207.2c"
+   ],
+   "why": "Having attacked this turn, it enters with a +1/+1 counter: a 4/3.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Goblin Boarders"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Goblin Boarders",
+     "mana": "CCR"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Goblin Boarders",
+     "zone": "battlefield",
+     "pt": "4/3",
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-attack-no-counter",
+   "cr": [
+    "614.1c"
+   ],
+   "why": "Without an attack this turn it enters as a plain 3/2.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Goblin Boarders"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Goblin Boarders",
+     "mana": "CCR"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Goblin Boarders",
+     "zone": "battlefield",
+     "pt": "3/2",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "attack-on-an-earlier-turn-does-not-count",
+   "cr": [
+    "614.1c"
+   ],
+   "why": "'This turn': last turn's attack does not count.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Goblin Boarders"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Goblin Boarders",
+     "mana": "CCR"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Goblin Boarders",
+     "zone": "battlefield",
+     "pt": "3/2",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "attacking-after-it-entered-adds-nothing",
+   "cr": [
+    "614.1c",
+    "614.12"
+   ],
+   "why": "The check happens as it enters: attacking later in the turn adds no counter.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Goblin Boarders"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Goblin Boarders",
+     "mana": "CCR"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Goblin Boarders",
+     "zone": "battlefield",
+     "pt": "3/2",
+     "counters": {
+      "+1/+1": 0
+     }
+    },
+    {
+     "life": {
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-attack-does-not-count",
+   "cr": [
+    "614.1c"
+   ],
+   "why": "'If you attacked': the opponent's attack on their own turn is not yours; on your next turn without attacking there is no counter.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Goblin Boarders"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Grizzly Bears"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Goblin Boarders",
+     "mana": "CCR"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Goblin Boarders",
+     "zone": "battlefield",
+     "pt": "3/2",
+     "counters": {
+      "+1/+1": 0
+     }
+    },
+    {
+     "life": {
+      "p0": 18
+     }
+    }
+   ]
+  }
+ ]
+}

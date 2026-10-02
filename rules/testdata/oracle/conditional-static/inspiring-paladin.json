@@ -1,0 +1,389 @@
+{
+ "card": "Inspiring Paladin",
+ "family": "conditional-static",
+ "author": "fdn-audit-2 (Oracle + CR only)",
+ "oracle_sha": "c427e8bf9c3b",
+ "scenarios": [
+  {
+   "name": "first-strike-only-during-your-turn",
+   "cr": [
+    "611.3a",
+    "702.7a"
+   ],
+   "why": "The Paladin has first strike during its controller's turn and loses it on the opponent's turn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Inspiring Paladin"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "begin-combat",
+     "active": "p0",
+     "expect": [
+      {
+       "card": "p0:Inspiring Paladin",
+       "zone": "battlefield",
+       "pt": "3/3",
+       "keywords": [
+        "First strike"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Inspiring Paladin",
+     "zone": "battlefield",
+     "pt": "3/3",
+     "no_keywords": [
+      "First strike"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "first-strike-wins-combat-on-own-turn",
+   "cr": [
+    "702.7b",
+    "510.4"
+   ],
+   "why": "Attacking on its controller's turn the 3/3 Paladin deals first-strike damage to a blocking 3/3, which dies before dealing damage back.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Inspiring Paladin"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Inspiring Paladin"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Centaur Courser",
+       "p0:Inspiring Paladin"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Inspiring Paladin",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "life": {
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-first-strike-when-blocking-on-opponents-turn",
+   "cr": [
+    "611.3a",
+    "510.2"
+   ],
+   "why": "On the opponent's turn the Paladin has no first strike: blocking a 3/3 attacker, both 3/3s deal damage together and both die.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Inspiring Paladin"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Centaur Courser"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p0:Inspiring Paladin",
+       "p1:Centaur Courser"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Inspiring Paladin",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "your-creatures-with-counters-gain-first-strike",
+   "cr": [
+    "611.3a",
+    "613.1f"
+   ],
+   "why": "During your turn a creature you control with a +1/+1 counter has first strike; one without a counter does not; on the opponent's turn neither does.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Inspiring Paladin",
+      "Hungry Ghoul",
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Hungry Ghoul",
+     "mana": "C",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Savannah Lions"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Hungry Ghoul",
+       "zone": "battlefield",
+       "pt": "3/3",
+       "keywords": [
+        "First strike"
+       ],
+       "counters": {
+        "+1/+1": 1
+       }
+      },
+      {
+       "card": "p0:Grizzly Bears",
+       "zone": "battlefield",
+       "no_keywords": [
+        "First strike"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Hungry Ghoul",
+     "zone": "battlefield",
+     "pt": "3/3",
+     "no_keywords": [
+      "First strike"
+     ]
+    },
+    {
+     "card": "p0:Inspiring Paladin",
+     "no_keywords": [
+      "First strike"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "opponents-creature-with-counter-gets-nothing",
+   "cr": [
+    "611.3a"
+   ],
+   "why": "Only creatures the Paladin's controller controls are affected: an opponent's creature with a +1/+1 counter has no first strike.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Inspiring Paladin"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Hungry Ghoul",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "activate",
+     "seat": 1,
+     "card": "p1:Hungry Ghoul",
+     "mana": "C",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p1:Grizzly Bears"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Hungry Ghoul",
+     "zone": "battlefield",
+     "pt": "3/3",
+     "no_keywords": [
+      "First strike"
+     ],
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "card": "p0:Inspiring Paladin",
+     "keywords": [
+      "First strike"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "grant-ends-when-paladin-leaves",
+   "cr": [
+    "611.3b"
+   ],
+   "why": "The grant is a static ability of the Paladin: once it leaves the battlefield the countered creature loses first strike.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Inspiring Paladin",
+      "Hungry Ghoul",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Hungry Ghoul",
+     "mana": "C",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Savannah Lions"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Hungry Ghoul",
+       "keywords": [
+        "First strike"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "move",
+     "seat": 0,
+     "card": "p0:Inspiring Paladin",
+     "to": "graveyard"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Hungry Ghoul",
+     "zone": "battlefield",
+     "pt": "3/3",
+     "no_keywords": [
+      "First strike"
+     ]
+    }
+   ]
+  }
+ ]
+}

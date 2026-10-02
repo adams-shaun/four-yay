@@ -1,0 +1,326 @@
+{
+ "card": "Elementalist Adept",
+ "family": "keywords",
+ "author": "fdn-audit-2 (Oracle + CR only)",
+ "oracle_sha": "5ac8da08ed55",
+ "scenarios": [
+  {
+   "name": "flash-cast-on-opponents-turn",
+   "cr": [
+    "702.8a"
+   ],
+   "why": "Flash lets the creature be cast any time an instant could, including the opponent's main phase.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Elementalist Adept"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Elementalist Adept",
+     "mana": "CU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Elementalist Adept",
+     "zone": "battlefield",
+     "pt": "2/1"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "prowess-noncreature-spell-pumps-until-end-of-turn",
+   "cr": [
+    "702.108a",
+    "514.2"
+   ],
+   "why": "Casting a noncreature spell triggers prowess: +1/+1 until end of turn, gone on the next turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Elementalist Adept"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Elementalist Adept",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Elementalist Adept",
+       "pt": "3/2"
+      },
+      {
+       "life": {
+        "p1": 17
+       }
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Elementalist Adept",
+     "zone": "battlefield",
+     "pt": "2/1"
+    }
+   ]
+  },
+  {
+   "name": "creature-spell-does-not-trigger-prowess",
+   "cr": [
+    "702.108a"
+   ],
+   "why": "A creature spell is not a noncreature spell.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Grizzly Bears"
+     ],
+     "battlefield": [
+      "Elementalist Adept"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "CG",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Elementalist Adept",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Elementalist Adept",
+     "pt": "2/1"
+    }
+   ]
+  },
+  {
+   "name": "opponents-spell-does-not-trigger-prowess",
+   "cr": [
+    "702.108a"
+   ],
+   "why": "Prowess watches only spells its controller casts.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Elementalist Adept"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Elementalist Adept",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Elementalist Adept",
+     "pt": "2/1"
+    },
+    {
+     "life": {
+      "p0": 17
+     }
+    }
+   ]
+  },
+  {
+   "name": "two-spells-stack-prowess",
+   "cr": [
+    "702.108b"
+   ],
+   "why": "Each noncreature spell triggers prowess separately: two spells make it 4/3.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt",
+      "Shock"
+     ],
+     "battlefield": [
+      "Elementalist Adept"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Elementalist Adept",
+     "pt": "4/3"
+    },
+    {
+     "life": {
+      "p1": 15
+     }
+    }
+   ]
+  },
+  {
+   "name": "prowess-saves-it-from-shock-in-response",
+   "cr": [
+    "702.108a",
+    "405.5"
+   ],
+   "why": "Prowess resolves before the spell that triggered it: its controller's Giant Growth in response to a Shock makes it 6/5 (prowess +1/+1, Growth +3/+3) and it survives 2 damage.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Giant Growth"
+     ],
+     "battlefield": [
+      "Elementalist Adept"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Shock",
+     "mana": "R",
+     "targets": [
+      "p0:Elementalist Adept"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Giant Growth",
+     "mana": "G",
+     "targets": [
+      "p0:Elementalist Adept"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Elementalist Adept",
+     "zone": "battlefield",
+     "pt": "6/5",
+     "damage": 2
+    }
+   ]
+  }
+ ]
+}

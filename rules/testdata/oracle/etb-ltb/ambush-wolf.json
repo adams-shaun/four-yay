@@ -1,0 +1,287 @@
+{
+ "card": "Ambush Wolf",
+ "family": "etb-ltb",
+ "author": "fdn-audit-2 (Oracle + CR only)",
+ "oracle_sha": "dbe72ccc63ec",
+ "scenarios": [
+  {
+   "name": "exiles-a-card-from-an-opponents-graveyard",
+   "cr": [
+    "603.2",
+    "115.1"
+   ],
+   "why": "Entering, it exiles the target card from a graveyard - here the opponent's.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Ambush Wolf"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Grizzly Bears",
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Ambush Wolf",
+     "mana": "CCG"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Ambush Wolf",
+     "zone": "battlefield",
+     "pt": "4/2"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "exile"
+    },
+    {
+     "card": "p1:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "graveyard_size": {
+      "p1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "exiles-any-card-type-from-own-graveyard",
+   "cr": [
+    "115.1"
+   ],
+   "why": "'Card from a graveyard': any card type and either player's graveyard, including a noncreature card in its controller's own.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Ambush Wolf"
+     ],
+     "graveyard": [
+      "Lightning Bolt",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Ambush Wolf",
+     "mana": "CCG"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Lightning Bolt"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "exile"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "up-to-one-may-choose-none",
+   "cr": [
+    "601.2c"
+   ],
+   "why": "'Up to one': its controller may choose no target, and nothing is exiled.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Ambush Wolf"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Ambush Wolf",
+     "mana": "CCG"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "target",
+       "pick": []
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Ambush Wolf",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "empty-graveyards-enters-normally",
+   "cr": [
+    "603.3d"
+   ],
+   "why": "With no card in any graveyard the Wolf simply enters.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Ambush Wolf"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Ambush Wolf",
+     "mana": "CCG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Ambush Wolf",
+     "zone": "battlefield",
+     "pt": "4/2"
+    },
+    {
+     "graveyard_size": {
+      "p0": 0,
+      "p1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "flash-on-opponents-turn",
+   "cr": [
+    "702.8a"
+   ],
+   "why": "Flash: cast during the opponent's turn, still exiling a card.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Ambush Wolf"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Ambush Wolf",
+     "mana": "CCG"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Ambush Wolf",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "exile"
+    }
+   ]
+  },
+  {
+   "name": "exiles-only-one-card",
+   "cr": [
+    "601.2c"
+   ],
+   "why": "At most one card is exiled however many are available.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Ambush Wolf"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Grizzly Bears",
+      "Lightning Bolt",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Ambush Wolf",
+     "mana": "CCG"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Lightning Bolt"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Lightning Bolt",
+     "zone": "exile"
+    },
+    {
+     "graveyard_size": {
+      "p1": 2
+     }
+    }
+   ]
+  }
+ ]
+}
