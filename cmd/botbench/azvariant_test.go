@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"fmt"
 	"math/rand/v2"
 	"os"
 	"path/filepath"
@@ -263,5 +264,56 @@ func TestAZDefaultRunRecordUnchanged(t *testing.T) {
 	raw, _ = json.Marshal(azRunRecord())
 	if !bytes.Contains(raw, []byte(`"discount":0.99`)) {
 		t.Fatalf("a set discount is not recorded: %s", raw)
+	}
+}
+
+// Two variants on one configuration are one deterministic policy: the seat
+// swap replays the same game, which is what -spellbench-first-game-only
+// drops.
+func TestSpellbenchFirstGameOnly(t *testing.T) {
+	dir := corpusDirOrSkip(t)
+	saveAZVariants(t)
+	var f azVariantFlag
+	for _, spec := range []string{"a", "b"} {
+		if err := f.Set(spec); err != nil {
+			t.Fatal(err)
+		}
+	}
+	azWorldArg, azKindsArg, azFlagsGiven = "clairvoyant", "priority,attackers,blockers,target", true
+	azCfg.Search.Sims = 2
+	play := func(firstOnly bool) []string {
+		out := filepath.Join(t.TempDir(), "o")
+		o := sbOpts{bots: "az:a,az:b", pairs: 1, decks: "FDN01-UBG,FDN02-WG", out: out, baseSeed: 5, catalog: "fdn", firstOnly: firstOnly}
+		var stdout, stderr bytes.Buffer
+		if rc := spellbenchExit(o, dir, 2, 12, 20000, "", &stdout, &stderr); rc != 0 {
+			t.Fatalf("rc %d: %s", rc, stderr.String())
+		}
+		raw, err := os.ReadFile(filepath.Join(out, "games.jsonl"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var rows []string
+		for _, line := range strings.Split(strings.TrimSpace(string(raw)), "\n") {
+			var row struct {
+				GameID  string `json:"game_id"`
+				Result  string `json:"result"`
+				Turns   int    `json:"turns"`
+				Intents int    `json:"intents"`
+			}
+			if err := json.Unmarshal([]byte(line), &row); err != nil {
+				t.Fatal(err)
+			}
+			rows = append(rows, fmt.Sprintf("%s %s %d %d", row.GameID, row.Result, row.Turns, row.Intents))
+		}
+		return rows
+	}
+	both, first := play(false), play(true)
+	if len(both) != 4 || len(first) != 2 || first[0] != both[0] || first[1] != both[2] {
+		t.Fatalf("first-game-only %v of %v", first, both)
+	}
+	for p := 0; p < 2; p++ {
+		if strings.TrimPrefix(both[2*p], "m0000p000"+fmt.Sprint(p)+"g0") != strings.TrimPrefix(both[2*p+1], "m0000p000"+fmt.Sprint(p)+"g1") {
+			t.Fatalf("pair %d: identical seats, yet the swap is another game: %q vs %q", p, both[2*p], both[2*p+1])
+		}
 	}
 }

@@ -104,6 +104,12 @@ type sbOpts struct {
 	// trace names a directory where every sb-tactical seat writes its
 	// scored decisions, one file per game and seat (debugging).
 	trace string
+	// firstOnly is -spellbench-first-game-only: play game 0 of each pair and
+	// skip its seat swap. Two seats of one deterministic policy (two az
+	// variants on one checkpoint, the generation loop's current-vs-current
+	// self-play) replay the SAME game when swapped, so the swap is a
+	// duplicate, not a second game.
+	firstOnly bool
 }
 
 var sbFlags sbOpts
@@ -121,6 +127,7 @@ func registerSpellbenchFlags(fs *flag.FlagSet) {
 	fs.StringVar(&sbFlags.tacticalAlt, "spellbench-tactical-alt-weights", "", "spellbench: comma list of JSON files of builtins.TacticalWeights for sb-tactical-alt, -alt2 ... -alt8 (weight-tuning A/B)")
 	fs.StringVar(&sbFlags.trace, "spellbench-trace", "", "spellbench: directory for sb-tactical decision traces (one file per game and seat)")
 	fs.StringVar(&sbFlags.engineVersion, "spellbench-engine-version", "dev", "spellbench: engine_version recorded in the ledger (e.g. the git commit)")
+	fs.BoolVar(&sbFlags.firstOnly, "spellbench-first-game-only", false, "spellbench: play only game 0 of each pair, no seat swap (self-play between two seats of one deterministic policy, whose swapped game is the same game again; never a rating run)")
 	fs.IntVar(&sbFlags.mulligans, "spellbench-mulligans", 0, "spellbench: London mulligans per player per game (0 = none posed, the benchmark default; 0..6 as host/httpapi clamps it)")
 }
 
@@ -706,7 +713,7 @@ func spellbenchExit(o sbOpts, dir string, workers, maxTurns, maxIntents int, che
 	var sched []sbGame
 	for _, g := range full {
 		has := func(p string) bool { return g.seats[0] == p || g.seats[1] == p }
-		if (o.with != "" && !has(o.with)) || (o.without != "" && has(o.without)) {
+		if (o.with != "" && !has(o.with)) || (o.without != "" && has(o.without)) || (o.firstOnly && g.game == 1) {
 			continue
 		}
 		sched = append(sched, g)
@@ -869,6 +876,9 @@ func sbWriteOutputs(o sbOpts, bots, pool []string, sched []sbGame, results []sbR
 	}
 	if len(azVariants) > 0 {
 		run["az_variants"] = azVariantRunRecords()
+	}
+	if o.firstOnly {
+		run["first_game_only"] = true
 	}
 	raw, err := json.MarshalIndent(run, "", "  ")
 	if err != nil {
