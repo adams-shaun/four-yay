@@ -254,4 +254,4 @@ alloc-gate`) and `make gc-gate`, both run by hand. Otherwise convention.
   results in `reports/`. All are date-prefixed.
 - `AGENTS.md` is loaded into every agent turn. Keep additions to it to
   pointers, and put detail here.
-- When code moves, fix [repo-map.md](repo-map.md) in the same commit.
+- When code moves, fix the [repo map](repo-map.md) in the same commit.
