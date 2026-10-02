@@ -191,3 +191,66 @@ func unary(n int) []string {
 	}
 	return out
 }
+
+// TestRefreshResetsOnlyWhatWasWritten: after any sequence of states, a
+// Refresh leaves the tree emitting exactly what a brand-new tree emits for
+// the same calls -- the dirty list misses no node -- and resets nothing but
+// the nodes written since the previous Refresh.
+func TestRefreshResetsOnlyWhatWasWritten(t *testing.T) {
+	state := func(s *FeatureSet, k int) {
+		r := s.Root()
+		r.Add("PRIORITY")
+		p := r.Sub("Player", true)
+		bf := p.Sub("Battlefield", true)
+		for i := 0; i < 1+k%4; i++ {
+			c := bf.Sub("Forest", true)
+			c.Add("Tapped")
+			c.AddNumeric("Power", k%7)
+		}
+		st := r.Sub("Stack", false)
+		st.Sub("Cast Spell "+strconv.Itoa(k%5), true).AddNumeric("Depth", 2)
+		if k%3 == 0 {
+			p.Sub("Hand", true).Sub("Card "+strconv.Itoa(k), false).Add("Card")
+		}
+	}
+	reused := NewFeatureSet()
+	for k := 0; k < 40; k++ {
+		reused.Refresh()
+		state(reused, k)
+		fresh := NewFeatureSet()
+		state(fresh, k)
+		if got, want := reused.IDs(), fresh.IDs(); !slices.Equal(got, want) {
+			t.Fatalf("state %d: a reused tree emits %d ids, a fresh tree %d, and they differ", k, len(got), len(want))
+		}
+	}
+	// Every count is zero after a Refresh, on every node ever created.
+	reused.Refresh()
+	var walk func(n *Node)
+	nodes := 0
+	walk = func(n *Node) {
+		nodes++
+		for name, c := range n.occurrences {
+			if c != 0 {
+				t.Fatalf("%s: %q still counts %d after Refresh", n.path, name, c)
+			}
+		}
+		if n.dirty {
+			t.Fatalf("%s is still marked dirty after Refresh", n.path)
+		}
+		for _, c := range n.subs {
+			walk(c)
+		}
+	}
+	walk(reused.Root())
+	if nodes < 20 {
+		t.Fatalf("precondition: the tree holds only %d nodes", nodes)
+	}
+	if len(reused.dirty) != 0 {
+		t.Fatalf("%d nodes on the dirty list after Refresh", len(reused.dirty))
+	}
+	// One small state dirties only the nodes it writes.
+	reused.Root().Add("PRIORITY")
+	if len(reused.dirty) != 1 {
+		t.Fatalf("one root feature dirtied %d nodes, want 1", len(reused.dirty))
+	}
+}
