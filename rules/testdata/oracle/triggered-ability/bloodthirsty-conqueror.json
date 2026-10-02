@@ -1,0 +1,339 @@
+{
+ "card": "Bloodthirsty Conqueror",
+ "family": "triggered-ability",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "34a8f525b134",
+ "scenarios": [
+  {
+   "name": "cast-flying-deathtouch-five-five",
+   "cr": [
+    "702.9a",
+    "702.2b"
+   ],
+   "why": "Cast for {3}{B}{B}: a 5/5 with flying and deathtouch.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Bloodthirsty Conqueror"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bloodthirsty Conqueror",
+     "mana": "BBCCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Bloodthirsty Conqueror",
+     "zone": "battlefield",
+     "pt": "5/5",
+     "keywords": [
+      "Flying",
+      "Deathtouch"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "burn-to-opponent-gains-that-much",
+   "cr": [
+    "603.2",
+    "120.3a"
+   ],
+   "why": "Lightning Bolt makes the opponent lose 3 life, so its controller gains 3.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Bloodthirsty Conqueror"
+     ],
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 23,
+      "p1": 17
+     }
+    }
+   ]
+  },
+  {
+   "name": "shock-gains-two",
+   "cr": [
+    "603.2",
+    "120.3a"
+   ],
+   "why": "'That much': Shock's 2 life lost gains exactly 2.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Bloodthirsty Conqueror"
+     ],
+     "hand": [
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 22,
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "own-combat-damage-gains-five",
+   "cr": [
+    "510.2",
+    "120.3a",
+    "603.2"
+   ],
+   "why": "Its own 5 unblocked combat damage makes the opponent lose 5; its controller gains 5.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Bloodthirsty Conqueror"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Bloodthirsty Conqueror"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 25,
+      "p1": 15
+     }
+    }
+   ]
+  },
+  {
+   "name": "non-damage-life-loss-also-counts",
+   "cr": [
+    "119.3",
+    "603.2"
+   ],
+   "why": "Any life loss counts, not only damage: Sign in Blood making the opponent lose 2 life gains 2.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Bloodthirsty Conqueror"
+     ],
+     "hand": [
+      "Sign in Blood"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Sign in Blood",
+     "mana": "BB",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 22,
+      "p1": 18
+     }
+    },
+    {
+     "hand_size": {
+      "p1": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "own-life-loss-does-not-trigger",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Only an OPPONENT losing life triggers it: its controller Bolting themselves gains nothing.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Bloodthirsty Conqueror"
+     ],
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 17,
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponent-gaining-life-does-not-trigger",
+   "cr": [
+    "603.2"
+   ],
+   "why": "An opponent gaining life is not losing life.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Bloodthirsty Conqueror"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "life",
+     "seat": 1,
+     "amount": 5
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 25
+     }
+    }
+   ]
+  },
+  {
+   "name": "deathtouch-kills-larger-flying-blocker",
+   "cr": [
+    "702.2b",
+    "704.5h"
+   ],
+   "why": "Blocked by a 5/6 flier, its 5 deathtouch damage destroys the blocker; the 5 damage it takes kills it too.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Bloodthirsty Conqueror"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Mahamoti Djinn"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Bloodthirsty Conqueror"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "blocks": [
+      [
+       "p1:Mahamoti Djinn",
+       "p0:Bloodthirsty Conqueror"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Mahamoti Djinn",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Bloodthirsty Conqueror",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    }
+   ]
+  }
+ ]
+}

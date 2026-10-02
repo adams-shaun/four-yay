@@ -1,0 +1,505 @@
+{
+ "card": "Kaito, Cunning Infiltrator",
+ "family": "activated-ability",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "a3519c9bc856",
+ "scenarios": [
+  {
+   "name": "enters-with-three-loyalty",
+   "cr": [
+    "306.5b"
+   ],
+   "why": "Cast for {1}{U}{U}: three loyalty counters.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Kaito, Cunning Infiltrator"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Kaito, Cunning Infiltrator",
+     "mana": "UUC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Kaito, Cunning Infiltrator",
+     "zone": "battlefield",
+     "counters": {
+      "loyalty": 3
+     }
+    }
+   ]
+  },
+  {
+   "name": "plus-one-unblockable-then-loot",
+   "cr": [
+    "606.4",
+    "509.1b",
+    "701.9"
+   ],
+   "why": "+1: loyalty 4; the targeted creature can't be blocked this turn; draw a card, then discard a card.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Kaito, Cunning Infiltrator",
+      "Grizzly Bears",
+      "Savannah Lions"
+     ],
+     "hand": [
+      "Forest"
+     ],
+     "library_top": [
+      "Island"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Hill Giant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Kaito, Cunning Infiltrator",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "ability": "can't be blocked",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Forest"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Forest"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears",
+      "p0:Savannah Lions"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p1:Hill Giant",
+        "attacker": "p0:Grizzly Bears"
+       },
+       "want": false
+      },
+      {
+       "can_block": {
+        "blocker": "p1:Hill Giant",
+        "attacker": "p0:Savannah Lions"
+       },
+       "want": true
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Kaito, Cunning Infiltrator",
+     "counters": {
+      "loyalty": 4
+     }
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Island",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "plus-one-with-no-target-still-loots",
+   "cr": [
+    "115.1d",
+    "606.4"
+   ],
+   "why": "'Up to one target': with no creature it can still be activated; the draw and discard happen.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Kaito, Cunning Infiltrator"
+     ],
+     "library_top": [
+      "Island"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Kaito, Cunning Infiltrator",
+     "ability": "can't be blocked"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Kaito, Cunning Infiltrator",
+     "counters": {
+      "loyalty": 4
+     }
+    },
+    {
+     "card": "p0:Island",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "minus-two-makes-a-ninja",
+   "cr": [
+    "606.4",
+    "111.1"
+   ],
+   "why": "-2: loyalty 1 and a 2/1 blue Ninja creature token.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Kaito, Cunning Infiltrator"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Kaito, Cunning Infiltrator",
+     "ability": "Ninja"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Kaito, Cunning Infiltrator",
+     "counters": {
+      "loyalty": 1
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Ninja",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:token:Ninja",
+     "pt": "2/1",
+     "types": [
+      "Creature"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "one-loyalty-ability-per-turn",
+   "cr": [
+    "606.3"
+   ],
+   "why": "Only one loyalty ability per turn: after the -2 the +1 is not offered.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Kaito, Cunning Infiltrator",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Kaito, Cunning Infiltrator",
+     "ability": "Ninja"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Kaito, Cunning Infiltrator",
+      "label": "can't be blocked"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "ultimate-not-offered-at-three",
+   "cr": [
+    "606.6"
+   ],
+   "why": "-9 needs nine loyalty: not offered at three.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Kaito, Cunning Infiltrator"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Kaito, Cunning Infiltrator",
+      "label": "emblem"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "combat-damage-to-player-adds-loyalty",
+   "cr": [
+    "603.2",
+    "510.2"
+   ],
+   "why": "A creature its controller controls dealing combat damage to a player puts a loyalty counter on Kaito.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Kaito, Cunning Infiltrator",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Kaito, Cunning Infiltrator",
+     "counters": {
+      "loyalty": 4
+     }
+    },
+    {
+     "life": {
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "two-creatures-two-counters",
+   "cr": [
+    "603.2",
+    "510.2"
+   ],
+   "why": "Each creature dealing combat damage to a player triggers it separately: two attackers, two counters.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Kaito, Cunning Infiltrator",
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears",
+      "p0:Savannah Lions"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Kaito, Cunning Infiltrator",
+     "counters": {
+      "loyalty": 5
+     }
+    },
+    {
+     "life": {
+      "p1": 16
+     }
+    }
+   ]
+  },
+  {
+   "name": "blocked-creature-adds-nothing",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Combat damage to a creature is not damage to a player: a blocked attacker adds no loyalty.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Kaito, Cunning Infiltrator",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Hill Giant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "blocks": [
+      [
+       "p1:Hill Giant",
+       "p0:Grizzly Bears"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Kaito, Cunning Infiltrator",
+     "counters": {
+      "loyalty": 3
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-creature-damaging-you-adds-nothing",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Only creatures YOU control: the opponent's creature hitting Kaito's controller adds no loyalty.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Kaito, Cunning Infiltrator"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Grizzly Bears"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Kaito, Cunning Infiltrator",
+     "counters": {
+      "loyalty": 3
+     }
+    },
+    {
+     "life": {
+      "p0": 18
+     }
+    }
+   ]
+  }
+ ]
+}
