@@ -871,7 +871,20 @@ var acceptanceHeads = map[int]string{
 	// Auto-accepted: CR conformance lane 0 FAIL and `make sim` 20/20 replay OK,
 	// the same proxy this repo has used by hand for every head move -- neither
 	// check is sensitive to bot-choice quality, only engine correctness.
-	2: "a991478b3edb213c",
+	// CR 601.2c sub-ability targets on cast (wt/cr601-subtargets): 2 seats
+	// moves to 6b3129c0f22c5cc2. Measured by diffing the two event streams
+	// (the old one reproduced exactly, head a991478b3edb213c, with only the
+	// chain announcement and its offer census disabled): the first diverging
+	// event is index 432, a DecisionAsk "target" -- dimir-tempo's Cabal
+	// Therapy (obj 116, `SP$ NameCard` with a `ValidTgts$ Player` link) now
+	// announces "target player" as it is cast, followed by the answer, a
+	// TargetsChosen (events.SubTargetNotice) naming death-n-taxes, and the
+	// caster's Priority event; the resolution-time "choose" ask/answer pair
+	// 13 events later is gone. The same block repeats once for the flashback
+	// cast (index 1407). Twelve changed lines in all, 2476 -> 2480 events;
+	// the same player is targeted and every other event is identical. The 4,
+	// 6 and 8 seat heads are unchanged.
+	2: "6b3129c0f22c5cc2",
 	// 4 seats moved to c232a4aca592e0f8 (autonomous orchestrator): resolving fb-20260914T033246Z-3f1cc033 (delver of secrets was played, but I was not prompted ... "you MAY reveal"... ...)
 	// Auto-accepted: CR conformance lane 0 FAIL and `make sim` 20/20 replay OK,
 	// the same proxy this repo has used by hand for every head move -- neither
