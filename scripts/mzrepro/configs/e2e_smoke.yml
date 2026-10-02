@@ -1,0 +1,38 @@
+# End-to-end smoke of draft-zero's loop on the gorge engine: configs/exp2.yml shrunk to
+# 2 generations of 8 games at search budget 50; generation 0's eval is 2 pairs (4 games).
+#
+#   scripts/mzrepro/dzrun.sh setup <run_root> scripts/mzrepro/configs/e2e_smoke.yml
+#   MZ_GPU=1 scripts/mzrepro/dzrun.sh loop <run_root> --fresh      (MZ_GPU="" runs train/server on CPU)
+model: FDN_exp2
+version: 1
+curriculum: configs/curriculum_exp2.yml   # lambda fixed at 0.95, all priors off
+generations: 2
+target_games: null
+resource_interval_s: 30
+
+bootstrap_games: 8
+games_per_gen: 8
+chunk_games: 4
+mix: {self: 0.2, past: 0.7, gen0: 0.1}
+replay_states: 150000
+train_batch: 16             # keeps a CPU trainer inside 4 GiB (64 swaps there); 64 with a GPU
+hidden_info: {see_opponent_hand: false}
+
+eval:
+  baselines: [offline]
+  every_n_gens: 8
+  pairs: 2
+  fixed_decks: true
+  window_gens: 1
+stats:
+  window_gens: 10
+  min_card_games: 15
+
+jvm:
+  heap: 1g
+  threads: 1
+  jvms: 1
+  gc: zgc-gen
+  search_budget: 50
+  timeout_ms: 60000
+  max_minutes: 50
