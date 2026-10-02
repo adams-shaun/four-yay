@@ -161,6 +161,17 @@ var excluded = map[excludedField]bool{
 	// Characteristics' printed fast-path digest (derived_printed.go), the
 	// activeSum shape.
 	{"rules.Engine", "charsSum"}: true,
+	// The no-"loses all abilities" proof (abilityloss.go, which Clone copies
+	// with its registry header reset, the trigGrant shape) and the on-demand
+	// layer-5 derived-colour table with its key (layer5colors.go, which
+	// Clone does not copy): scratch validated on every use.
+	{"rules.Engine", "lossProof"}:      true,
+	{"rules.Engine", "layer5Colors"}:   true,
+	{"rules.Engine", "colorsEpoch"}:    true,
+	{"rules.Engine", "colorsVersion"}:  true,
+	{"rules.Engine", "colorsObjs"}:     true,
+	{"rules.Engine", "colorsValid"}:    true,
+	{"rules.Engine", "colorsBuilding"}: true,
 	// The replacement-source walk's zone summaries (repl_zoneskip.go), the
 	// trigZones shape: scratch validated on every use; Clone copies none.
 	{"rules.Engine", "replZones"}:   true,

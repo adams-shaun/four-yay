@@ -69,9 +69,15 @@ func (e *Engine) grantedAbilities(p state.PlayerID, id state.ObjID) []grantedAbi
 	if !e.activeSummaryOf(ces).hasGrants {
 		return nil
 	}
+	// CR 613.1f: a recipient that lost all abilities keeps only the grants
+	// that are not older than the removal (abilityloss.go).
+	lossStamp, lost := e.abilityLoss(e.G.Obj(id))
 	for i := range ces {
 		ce := &ces[i]
 		if len(ce.AddAbilities) == 0 && len(ce.GainedFaces) == 0 {
+			continue
+		}
+		if lost && lossStamp > ce.Timestamp {
 			continue
 		}
 		if !e.matchesSpecFrom(ce.Affects, id, ce.Controller, ce.Source) {

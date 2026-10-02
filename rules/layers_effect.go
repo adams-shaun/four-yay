@@ -153,6 +153,11 @@ func (e *Engine) AddContinuous(ce ContinuousEffect) {
 	if ce.Layer == LType {
 		e.layer4InPool = true
 	}
+	// A REGISTERED "loses all abilities" effect ends the no-loss proof
+	// (abilityloss.go).
+	if ce.RemoveAbilities {
+		e.lossProof.seen = true
+	}
 	// Bump the cache version: active() (below) caches its sorted effect list
 	// on (log head, continuousVersion), and this is the write that changes
 	// e.continuous. The ClockTick above moved the log head too, but naming

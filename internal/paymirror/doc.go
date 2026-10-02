@@ -139,6 +139,9 @@
 //	trigGrant, trigZeroNoopKinds       and the zero-interest memo's kind set
 //	activeSum                          active()'s per-build digest keyed by activeBuildSeq
 //	charsSum                           the printed fast path's digest, keyed the same way
+//	lossProof                          the no-ability-loss proof, the trigGrant shape
+//	layer5Colors, colorsEpoch/Version/ the on-demand derived-colour table and its key,
+//	Objs/Valid/Building                validated on every use; Clone copies none
 //	replZones/Ep, replArena            replacement-walk zone summaries, validated on every use,
 //	                                   and the arena's replacement event-bit superset cache
 //	staticZones/Ep                     static-source-walk zone summaries, validated on every use
