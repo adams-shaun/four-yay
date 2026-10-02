@@ -428,8 +428,9 @@ pass the agent spec's kill criteria (§12.3):
 Start with [`docs/agents/`](docs/agents/README.md), written for coding agents
 and humans alike:
 
-- [repo-map.md](docs/agents/repo-map.md) says what lives where, including the
-  `internal/` packages and `cmd/` tools the layout above omits.
+- [repo-map.md](docs/agents/repo-map.md) (the index, with per-domain files)
+  says what lives where, including the `internal/` packages and `cmd/` tools
+  the layout above omits.
 - [invariants.md](docs/agents/invariants.md) lists the design invariants,
   what enforces each one, and the contributor workflow.
 - [do-not.md](docs/agents/do-not.md) lists the mistakes that have actually

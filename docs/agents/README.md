@@ -6,7 +6,7 @@ so it can stay out of every turn's context.
 
 | Read | When |
 |---|---|
-| [repo-map.md](repo-map.md) | Finding where something lives, or where a kind of change goes. |
+| [repo-map.md](repo-map.md) (the index) and its per-domain files (`repo-map-engine.md`, `repo-map-internal.md`, `repo-map-research.md`, `repo-map-paths.md`) | Finding where something lives, or where a kind of change goes. |
 | [invariants.md](invariants.md) | Before changing engine code. It lists each design invariant, what enforces it, and the legitimate way to change it, and ends with the contributor workflow. |
 | [do-not.md](do-not.md) | Before you touch git, run a server, or merge. Every entry has happened here. |
 | [README § Bot player training and adoption](../../README.md#bot-player-training-and-adoption-guidelines) | Building, training or evaluating a bot policy. |
