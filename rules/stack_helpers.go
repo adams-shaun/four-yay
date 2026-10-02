@@ -843,12 +843,20 @@ func (e *Engine) CombatDamageToPlayersThisTurn() []effects.CombatDamageHit {
 
 // LifeLostThisTurn satisfies effects.Host's LifeLostThisTurn for
 // Count$LifeOppsLostThisTurn (Rakdos, Lord of Riots' cost reduction): the
-// total life p lost this turn, summed from every LifeChange below zero since
-// the last TurnChange. Derived from the event log like CastThisTurn, so a
-// replay that rebuilds the game arrives at the same number. Life GAINED is
-// not folded in — "lost life" is a loss even if the player ended the turn
-// higher than they started (CR 118.3's distinction, and the reading Forge's
-// own head takes).
+// total life p lost this turn, summed since the last TurnChange over every
+// event lifeLoss classifies as a loss -- a LifeChange below zero AND a
+// player Damage event. Damage dealt to a player causes that much life loss
+// (CR 120.3a, 119.3) but folds straight to the life total with no
+// LifeChange (events.Apply's Damage case), so a LifeChange-only fold
+// missed every point of combat and burn damage (Stromkirk Bloodthief).
+// Infect-marked player damage is poison, not life loss (CR 702.90b), and
+// lifeLoss already excludes it. Using the one classifier the LifeLost
+// triggers and the speed check read keeps the count and those triggers
+// agreeing. Derived from the event log like CastThisTurn, so a replay that
+// rebuilds the game arrives at the same number. Life GAINED is not folded
+// in — "lost life" is a loss even if the player ended the turn higher than
+// they started (CR 118.3's distinction, and the reading Forge's own head
+// takes).
 func (e *Engine) LifeLostThisTurn(p state.PlayerID) int32 {
 	var n int32
 	for i := len(e.L.Events) - 1; i >= 0; i-- {
@@ -856,8 +864,8 @@ func (e *Engine) LifeLostThisTurn(p state.PlayerID) int32 {
 		if ev.Kind == events.TurnChange {
 			break
 		}
-		if ev.Kind == events.LifeChange && ev.Player == p && ev.Amount < 0 {
-			n += -ev.Amount
+		if q, amount, ok := lifeLoss(ev); ok && q == p {
+			n += amount
 		}
 	}
 	return n
@@ -1121,10 +1129,10 @@ func (e *Engine) AttackersDeclaredThisTurn() []state.ObjID {
 	return out
 }
 
-// LifeLostLastTurn satisfies effects.Host's LifeLostLastTurn: the negative
-// LifeChanges naming p between the second-to-last and the last TurnChange
-// of the log -- the previous turn's window, the LifeLostThisTurn fold one
-// turn back.
+// LifeLostLastTurn satisfies effects.Host's LifeLostLastTurn: the life
+// losses (lifeLoss: negative LifeChanges and non-infect player damage)
+// naming p between the second-to-last and the last TurnChange of the log --
+// the previous turn's window, the LifeLostThisTurn fold one turn back.
 func (e *Engine) LifeLostLastTurn(p state.PlayerID) int32 {
 	var n int32
 	boundaries := 0
@@ -1137,8 +1145,11 @@ func (e *Engine) LifeLostLastTurn(p state.PlayerID) int32 {
 			}
 			continue
 		}
-		if boundaries == 1 && ev.Kind == events.LifeChange && ev.Player == p && ev.Amount < 0 {
-			n += -ev.Amount
+		if boundaries != 1 {
+			continue
+		}
+		if q, amount, ok := lifeLoss(ev); ok && q == p {
+			n += amount
 		}
 	}
 	if boundaries < 2 {

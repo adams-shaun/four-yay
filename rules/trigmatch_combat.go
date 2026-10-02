@@ -543,7 +543,7 @@ func (e *Engine) queueAttackerBlockedTrigger(t cards.Trigger, source state.ObjID
 	if !e.triggerGameActivationLimitAllows(t, key) {
 		return // GameActivationLimit$: already triggered enough this game.
 	}
-	if actionTriggerModes[t.Mode] && !e.triggerActivationLimitAllows(t, key) {
+	if !e.triggerActivationLimitAllows(t, key) {
 		return
 	}
 	// The two limit gates above are READ-ONLY: a DeclareBlockers event whose
@@ -760,7 +760,7 @@ func (e *Engine) queueAttackerUnblockedTrigger(t cards.Trigger, source state.Obj
 		e.triggerFireCount = map[triggerKey]int32{}
 	}
 	if e.triggerFireCount[key] >= maxTriggerFires || !e.triggerGameActivationLimitAllows(t, key) ||
-		(actionTriggerModes[t.Mode] && !e.triggerActivationLimitAllows(t, key)) {
+		!e.triggerActivationLimitAllows(t, key) {
 		return
 	}
 	pt := func(p state.PlayerID) state.Target { return state.Target{Player: p, IsPlayer: true} }
@@ -883,7 +883,7 @@ func (e *Engine) checkAttackerUnblockedOnceTriggers() {
 			if !e.triggerGameActivationLimitAllows(t, key) {
 				continue // GameActivationLimit$: already triggered enough this game.
 			}
-			if actionTriggerModes[t.Mode] && !e.triggerActivationLimitAllows(t, key) {
+			if !e.triggerActivationLimitAllows(t, key) {
 				continue
 			}
 			// The limit gates above are READ-ONLY: a combat with no matching
@@ -1046,7 +1046,7 @@ func (e *Engine) checkBlocksTriggers(ev events.Event) {
 			if !e.triggerGameActivationLimitAllows(t, key) {
 				continue // GameActivationLimit$: already triggered enough this game.
 			}
-			if actionTriggerModes[t.Mode] && !e.triggerActivationLimitAllows(t, key) {
+			if !e.triggerActivationLimitAllows(t, key) {
 				continue
 			}
 			// The two limit gates above are READ-ONLY: a DeclareBlockers event
