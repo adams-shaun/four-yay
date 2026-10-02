@@ -61,7 +61,7 @@
     "702.16b",
     "604.3"
    ],
-   "why": "Vigilance means the attacking Squadron never tapped; with two Bears alongside it, its CDA makes it 3/3 for 3 damage and exactly one Knight token appears for the single opponent.",
+   "why": "Vigilance means the attacking Squadron never tapped; with the Bears and the Sable, and then the created tapped-and-attacking Knight token, four creatures you control give its CDA 4/4. The CR-correct combat damage is Squadron 4 + Knight 2 = 6 (p1 at 14); the Knight never joining the attackers is the recorded divergence.",
    "setup": {
     "p0": {
      "battlefield": [
@@ -89,7 +89,7 @@
    "expect": [
     {
      "card": "p0:Silverwing Squadron",
-     "pt": "5/5",
+     "pt": "4/4",
      "tapped": false,
      "zone": "battlefield"
     },
@@ -104,7 +104,7 @@
     },
     {
      "life": {
-      "p1": 13
+      "p1": 14
      }
     }
    ]

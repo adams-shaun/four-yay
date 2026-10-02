@@ -10,7 +10,7 @@
     "701.5a",
     "608.2b"
    ],
-   "why": "Counter target spell: p1's Lightning Bolt on the stack is countered and goes to its owner's graveyard without resolving, so p0 takes no damage.",
+   "why": "Counter target spell: p1's Lightning Bolt on the stack is countered and goes to its owner's graveyard without resolving, so p0 takes no damage; the two upkeep draws have NOT happened yet, so p1's hand is 0 and p0's hand is his own uncast Lightning Bolt (1).",
    "setup": {
     "p0": {
      "hand": [
@@ -72,7 +72,7 @@
     },
     {
      "hand_size": {
-      "p0": 0,
+      "p0": 1,
       "p1": 0
      }
     }
