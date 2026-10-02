@@ -49,7 +49,10 @@ type mulliganStarterFixture struct {
 // the one named by prev: after a SubmitIntent the slot clears asynchronously
 // (the match goroutine consumes the intent, submits to the engine and installs
 // the next park), so the first Pending that still succeeds may be the OLD
-// decision — waiting for a different Seq is the only race-free shape.
+// decision — waiting for a different Seq is the only race-free shape. A
+// missing match (ErrNotFound: the table goroutine has not installed a current
+// match yet, e.g. immediately after Start) is retried like an empty slot; only
+// any other error is fatal.
 func waitNextPending(t *testing.T, r *Registry, id TableID, k int, p state.PlayerID, prev uint64) *decision.Decision {
 	t.Helper()
 	deadline := time.Now().Add(20 * time.Second)
@@ -58,7 +61,7 @@ func waitNextPending(t *testing.T, r *Registry, id TableID, k int, p state.Playe
 		if err == nil && d.Seq != prev {
 			return d
 		}
-		if err != nil && !strings.Contains(err.Error(), "no decision pending") {
+		if err != nil && !strings.Contains(err.Error(), "no decision pending") && !errors.Is(err, ErrNotFound) {
 			t.Fatalf("pending for player %d: %v", p, err)
 		}
 		if time.Now().After(deadline) {

@@ -65,8 +65,8 @@ func TestUndoRebuildsEnvSeatFeeds(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	answerOnce(t, r, "t1") // the human's first intent
-	d2 := answerOnce(t, r, "t1")
+	d1 := answerOnce(t, r, "t1", 0) // the human's first intent
+	d2 := answerOnce(t, r, "t1", d1.Seq)
 	waitIntents(t, r, "t1", 4) // bot intents land after the human's second action
 
 	m := liveMatch(t, r, "t1")
