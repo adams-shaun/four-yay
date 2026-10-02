@@ -174,16 +174,6 @@
     ],
     "note": "the hot-file notes workstream's own two output files: every 'record a hot file' seat appends one entry to the same one authoritative JSON list (scripts/reward_collect.py:load_hotfiles_notes reads exactly this one file) and mirrors the same bullet into AGENTS.md's durable-notes block, so two live notes seats collide on BOTH files by construction. The 2026-10-01 pair resolved itself before this ticket dispatched: cli-20261001T020456Z-d30942a9 MERGED into main as 2fd35b887 (the rules/replacement_life.go note), and cli-20261001T020456Z-f497b076 was PARKED superseded (a91b4bf2f) after cli-20261001T024615Z-caad3047 (e6ab2d08d) re-landed its five notes on main — and one of its premises was stale (rules/nameuniverse_readers_test.go IS on main; its four azmcts files are main's one-sided four-file entry). NO HONEST SPLIT: the JSON is ONE list with ONE renderer feeding the ONE generated AGENTS.md embed (the same single-output argument recorded for internal/botobs/checklist.json + web/src/protocol.ts), and AGENTS.md's durable-notes section is one prose block every notes seat appends to; per-pair or per-seat note files would fragment the renderer's single input and rewire the embed pipeline for zero conflict reduction. OPERATING RULE: land notes seats in sequence (this ticket's own Depends-On chain is the mechanism); keep each change to append-only entries at the JSON tail plus one mirrored durable-notes bullet; and RE-MEASURE hotspots and re-verify a note's premises against current main BEFORE writing it — a stale premise is what minted the superseded f497b076 branch. The register copy of this table (.superpowers/ds4/gorge-context.md, git-excluded, read-only from a seat jail) is the controller's to re-render; a seat records only in this tracked file. This ticket itself landed as a record-only change; hotspots() lists no path for the briefed branch set. Dedupe against cli-20261001T022457Z-f9dc4b92."
   },
-{
-  "files": [
-    "docs/agents/repo-map-engine.md",
-    "docs/agents/repo-map-internal.md",
-    "docs/agents/repo-map-research.md",
-    "docs/agents/repo-map-paths.md",
-    "docs/agents/repo-map.md"
-  ],
-  "note": "the 2026-10-01 docs/agents/repo-map.md contention was CLOSED by the per-domain split: repo-map.md is now the INDEX, and every package/path row lives in exactly one of repo-map-engine.md, repo-map-internal.md, repo-map-research.md or repo-map-paths.md. Future package-doc edits go to the editor's own domain file, so a docs-heavy workstream appends to a narrower file; repo-map.md itself changes only when a new DOMAIN appears, not when a package does. The hotspots tool renders per-FILE, so this note names both the new domain files and the old docs/agents/repo-map.md for dedupe; dedupe against cli-20261002T013609Z-24e33ade and the earlier cli-20261001T042757Z-fcbaaa35 / cli-20261001T022457Z-f9dc4b92 notes."
-},
   {
     "files": [
       "docs/agents/repo-map-engine.md",
