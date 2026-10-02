@@ -18,11 +18,11 @@
 //     Familiar's etbCounter gate): SOME PutOnStack event for this object
 //     names you as caster — the oracle's "if you cast it" does not care
 //     where from. A copy was never cast (the same IsCopy guard both reads
-//     take). Shared approximation of both scans: they read only the event
-//     log's casts, so they cannot distinguish a card that was cast and then
-//     re-entered play without a cast (reanimated and friends) — the
-//     exists-scan still answers "you did cast it, earlier", which is the
-//     oracle's own wording.
+//     take). A card that left the battlefield after that cast and came
+//     back without one (reanimated, blinked, Nine-Lives Familiar's own
+//     return) is a new object that was never cast (CR 400.7) and reads
+//     false. The hand scan (castprov1) still has the approximation: it reads
+//     only the log's casts and cannot tell such a re-entry apart.
 //
 //   - wasCastFromYourHand (castprov3): the object's LATEST PutOnStack event
 //     names the cast AND that cast came from a hand — ANY caster. The bare

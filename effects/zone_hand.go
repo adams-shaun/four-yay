@@ -1037,25 +1037,67 @@ func counterDestination(to state.Zone) bool {
 	return to == state.ZBattlefield || to == state.ZExile
 }
 
-// withCounterAmount parses WithCountersAmount$ (default 1). Malformed values
-// must be loud, not silently default to 1 (the reviewer's item): a wrong
-// counter count on a Returning permanent is a hard-to-spot board-shape bug. A
-// Note event (the way Resolve surfaces an unimplemented API) keeps this
-// deterministic and replay-log-visible rather than dropping to a log line the
-// event log cannot account for. The movement still proceeds with the safe
-// default 1.
+// withCounterAmount reads WithCountersAmount$ (default 1): a literal, or a
+// value the ordinary Num grammar resolves -- an SVar name on the resolving
+// face (Nine-Lives Familiar's X over Spawner>TriggeredCard$CardCounters.
+// REVIVAL/Minus.1, Ochre Jelly's Y), the same resolution the token path's
+// entry counters use. An amount the grammar cannot evaluate must be loud, not
+// silently default to 1 (the reviewer's item): a wrong counter count on a
+// Returning permanent is a hard-to-spot board-shape bug. A Note event (the way
+// Resolve surfaces an unimplemented API) keeps this deterministic and
+// replay-log-visible rather than dropping to a log line the event log cannot
+// account for. The movement still proceeds with the safe default 1.
+//
+// The amount is read BEFORE the move, so a body that measures the card this
+// very move remembers (Alaundo the Seer's X:Remembered$CardManaCost under
+// RememberChanged$ True) has nothing to measure yet and keeps the loud
+// default rather than a silent zero.
 func withCounterAmount(h Host, c *Ctx, sa *cards.SA) int32 {
 	v := strings.TrimSpace(sa.Params["WithCountersAmount"])
 	if v == "" {
 		return 1
 	}
-	n, err := strconv.Atoi(v)
-	if err != nil {
-		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-			Text: "malformed WithCountersAmount " + v})
-		return 1
+	if n, err := strconv.Atoi(v); err == nil {
+		return int32(n)
 	}
-	return int32(n)
+	if withCounterAmountDefined(c, v) && !withCounterAmountReadsMoved(c, sa, v) {
+		if n, ok := NumResolvedStrict(h, c, sa, "WithCountersAmount", 1); ok {
+			return n
+		}
+	}
+	h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+		Text: "malformed WithCountersAmount " + v})
+	return 1
+}
+
+// withCounterAmountDefined reports whether v names something the resolving
+// face defines: an SVar in the context's table, or an inline expression. A
+// bare name with no definition (an X nothing chose) stays loud rather than
+// reading the context's zero.
+func withCounterAmountDefined(c *Ctx, v string) bool {
+	if strings.Contains(v, "$") {
+		return true
+	}
+	if c == nil || c.SVars == nil {
+		return false
+	}
+	_, ok := c.SVars[v]
+	return ok
+}
+
+// withCounterAmountReadsMoved reports whether the amount v measures the card
+// the move itself is about to remember: a Remembered$ body (direct, or behind
+// an SVar name) on a RememberChanged$ True line.
+func withCounterAmountReadsMoved(c *Ctx, sa *cards.SA, v string) bool {
+	if !strings.EqualFold(strings.TrimSpace(sa.Params["RememberChanged"]), "True") {
+		return false
+	}
+	if c != nil && c.SVars != nil {
+		if body, ok := c.SVars[v]; ok {
+			v = body
+		}
+	}
+	return strings.HasPrefix(strings.TrimSpace(v), "Remembered$")
 }
 
 // effSearchLibrary implements the hidden-origin ChangeZone shape. The option
