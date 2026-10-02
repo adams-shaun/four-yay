@@ -1495,7 +1495,7 @@ func (e *Engine) optionalDecider(pt pendingTrigger) (who state.PlayerID, optiona
 	if !ok {
 		return 0, false, false
 	}
-	spec := t.ParamStr(cards.PKOptionalDecider)
+	spec := triggerOptionalSpec(t)
 	if spec == "" {
 		return 0, false, false
 	}
@@ -1629,7 +1629,7 @@ func (e *Engine) StackOptional(id state.ObjID) (optional bool, decider state.Pla
 	}
 	spec := ""
 	if t, ok := e.findTriggerForAbility(o.Source, o.Ability); ok {
-		spec = t.Params["OptionalDecider"]
+		spec = triggerOptionalSpec(t)
 	} else {
 		// An Effect-created delayed trigger: no face T: line, so its
 		// OptionalDecider$ spec rides the registration's referent context
