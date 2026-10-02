@@ -1,0 +1,225 @@
+{
+ "card": "Blanchwood Armor",
+ "family": "conditional-static",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "df1be1edd3c3",
+ "scenarios": [
+  {
+   "name": "plus-one-per-forest",
+   "cr": [
+    "303.4",
+    "613.4c"
+   ],
+   "why": "Enchanted creature gets +1/+1 for each Forest its controller controls: two Forests make Bears 4/4.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Forest",
+      "Forest"
+     ],
+     "hand": [
+      "Blanchwood Armor"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Blanchwood Armor",
+     "mana": "GCC",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "4/4"
+    }
+   ]
+  },
+  {
+   "name": "opponents-forests-do-not-count",
+   "cr": [
+    "613.4c"
+   ],
+   "why": "Only Forests you control.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Forest"
+     ],
+     "hand": [
+      "Blanchwood Armor"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Forest",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Blanchwood Armor",
+     "mana": "GCC",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "3/3"
+    }
+   ]
+  },
+  {
+   "name": "updates-as-forests-enter",
+   "cr": [
+    "611.3a"
+   ],
+   "why": "The bonus is continuously recounted: playing another Forest adds +1/+1.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Forest"
+     ],
+     "hand": [
+      "Blanchwood Armor",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Blanchwood Armor",
+     "mana": "GCC",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Grizzly Bears",
+       "pt": "3/3"
+      }
+     ]
+    },
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Forest#2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "4/4"
+    }
+   ]
+  },
+  {
+   "name": "no-forests-no-bonus",
+   "cr": [
+    "613.4c"
+   ],
+   "why": "With no Forests (other lands only) it gives nothing.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Mountain"
+     ],
+     "hand": [
+      "Blanchwood Armor"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Blanchwood Armor",
+     "mana": "GCC",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2"
+    }
+   ]
+  },
+  {
+   "name": "on-opponents-creature-counts-auras-controllers-forests",
+   "cr": [
+    "613.4c",
+    "303.4"
+   ],
+   "why": "'Each Forest you control' means the Aura's controller: on the opponent's creature, its controller's two Forests count, not the opponent's one.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Forest",
+      "Forest"
+     ],
+     "hand": [
+      "Blanchwood Armor"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Blanchwood Armor",
+     "mana": "GCC",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "pt": "4/4"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,3 @@
+{
+  "Authority of the Consuls/opponents-tokens-enter-tapped-each-gains": "CR 614.1c/111.1: 'Creatures your opponents control enter tapped' applies to creature tokens too. Expected: the opponent's two Dragon Fodder Goblin tokens enter tapped (and its controller gains 2). Observed: the life trigger fires for both (22, correct) but both tokens enter untapped. Controls: the opponent's Grizzly Bears (a card) does enter tapped, and a Ninja token from the opponent's Kaito -2 also enters untapped, so the enters-tapped replacement skips tokens. Confidence high. New root, found by the FDN audit batch 6; no ticket yet."
+}
