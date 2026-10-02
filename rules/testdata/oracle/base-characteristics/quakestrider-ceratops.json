@@ -1,0 +1,225 @@
+{
+ "card": "Quakestrider Ceratops",
+ "family": "base-characteristics",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "e3b0c44298fc",
+ "scenarios": [
+  {
+   "name": "twelve-eight-for-six",
+   "cr": [
+    "208.1",
+    "202.1"
+   ],
+   "why": "A 12/8 Dinosaur for {3}{G}{G}{G} with no abilities.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Quakestrider Ceratops"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Quakestrider Ceratops",
+     "mana": "CCCGGG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Quakestrider Ceratops",
+     "zone": "battlefield",
+     "pt": "12/8",
+     "no_keywords": [
+      "Trample",
+      "Haste"
+     ],
+     "types": [
+      "Creature",
+      "Dinosaur"
+     ]
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "needs-three-green",
+   "cr": [
+    "601.2f",
+    "107.4"
+   ],
+   "why": "Six mana with two green cannot pay it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Quakestrider Ceratops"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCCGG"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Quakestrider Ceratops"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "unblocked-deals-twelve",
+   "cr": [
+    "510.1"
+   ],
+   "why": "Unblocked it deals 12.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Quakestrider Ceratops"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Quakestrider Ceratops"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 8
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-trample-a-chump-block-stops-all-damage",
+   "cr": [
+    "510.1c",
+    "702.19a"
+   ],
+   "why": "Without trample a single 2/2 blocker absorbs all 12; the Ceratops takes 2 and survives.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Quakestrider Ceratops"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Quakestrider Ceratops"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Grizzly Bears",
+       "p0:Quakestrider Ceratops"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 20
+     }
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Quakestrider Ceratops",
+     "zone": "battlefield",
+     "damage": 2
+    }
+   ]
+  },
+  {
+   "name": "summoning-sick-the-turn-it-is-cast",
+   "cr": [
+    "302.6"
+   ],
+   "why": "No haste: cast in the first main phase it does not attack that turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Quakestrider Ceratops"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Quakestrider Ceratops",
+     "mana": "CCCGGG"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 20
+     }
+    },
+    {
+     "card": "p0:Quakestrider Ceratops",
+     "tapped": false
+    }
+   ]
+  }
+ ]
+}

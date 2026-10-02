@@ -1,0 +1,603 @@
+{
+ "card": "Stromkirk Bloodthief",
+ "family": "trigger-condition",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "bdff7fad432a",
+ "scenarios": [
+  {
+   "name": "opponent-lost-life-counter-on-a-vampire",
+   "cr": [
+    "603.4",
+    "119.3"
+   ],
+   "why": "An opponent lost life this turn, so at its controller's end step a +1/+1 counter goes on target Vampire they control (here itself).",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Stromkirk Bloodthief"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Stromkirk Bloodthief"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Stromkirk Bloodthief",
+     "pt": "3/3",
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "life": {
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "life-loss-effect-counts",
+   "cr": [
+    "603.4",
+    "119.3"
+   ],
+   "why": "A spell that makes the opponent lose life (no damage) satisfies the condition.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Bump in the Night"
+     ],
+     "battlefield": [
+      "Stromkirk Bloodthief"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bump in the Night",
+     "mana": "B",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Stromkirk Bloodthief"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Stromkirk Bloodthief",
+     "pt": "3/3",
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "life": {
+      "p1": 17
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-life-lost-no-trigger",
+   "cr": [
+    "603.4"
+   ],
+   "why": "Intervening if: with no opponent life loss it does not trigger.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Stromkirk Bloodthief"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "end",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Stromkirk Bloodthief",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Stromkirk Bloodthief",
+     "pt": "2/2",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "own-life-loss-does-not-count",
+   "cr": [
+    "603.4",
+    "109.5"
+   ],
+   "why": "Only an opponent losing life counts.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Stromkirk Bloodthief"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p0"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "end",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Stromkirk Bloodthief",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 18
+     }
+    },
+    {
+     "card": "p0:Stromkirk Bloodthief",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "combat-damage-is-life-loss",
+   "cr": [
+    "120.3a",
+    "603.4"
+   ],
+   "why": "Combat damage to the opponent causes life loss: the ability triggers.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Stromkirk Bloodthief"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Stromkirk Bloodthief"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Stromkirk Bloodthief"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 18
+     }
+    },
+    {
+     "card": "p0:Stromkirk Bloodthief",
+     "pt": "3/3",
+     "counters": {
+      "+1/+1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "counter-can-go-on-another-vampire",
+   "cr": [
+    "115.1"
+   ],
+   "why": "The target is any Vampire its controller controls.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Stromkirk Bloodthief",
+      "Child of Night"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Child of Night"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Child of Night",
+     "pt": "3/2",
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "card": "p0:Stromkirk Bloodthief",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "life-lost-then-regained-still-counts",
+   "cr": [
+    "603.4",
+    "119.3"
+   ],
+   "why": "The condition asks whether an opponent lost life, not whether their total went down: losing 2 then gaining 7 still satisfies it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Stromkirk Bloodthief"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Angel's Mercy"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Angel's Mercy",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Stromkirk Bloodthief"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 25
+     }
+    },
+    {
+     "card": "p0:Stromkirk Bloodthief",
+     "counters": {
+      "+1/+1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "not-on-the-opponents-end-step",
+   "cr": [
+    "603.4",
+    "513.1"
+   ],
+   "why": "It is tied to its controller's end step: life the opponent loses on their own turn does not trigger it at their end step.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Stromkirk Bloodthief"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "end",
+     "active": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Stromkirk Bloodthief",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 18
+     }
+    },
+    {
+     "card": "p0:Stromkirk Bloodthief",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "last-turns-life-loss-does-not-carry-over",
+   "cr": [
+    "603.4"
+   ],
+   "why": "'This turn': life lost on the opponent's turn does not satisfy the condition at its controller's next end step.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Stromkirk Bloodthief"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "end",
+     "active": "p0",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Stromkirk Bloodthief",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Stromkirk Bloodthief",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "paying-life-is-losing-life",
+   "cr": [
+    "119.4",
+    "603.4"
+   ],
+   "why": "A player who pays life loses that much life: the opponent paying 2 life for ward satisfies the condition.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Stromkirk Bloodthief",
+      "Zul Ashur, Lich Lord"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Shock",
+     "mana": "R",
+     "targets": [
+      "p0:Zul Ashur, Lich Lord"
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "yes"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Stromkirk Bloodthief"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 18
+     }
+    },
+    {
+     "card": "p0:Stromkirk Bloodthief",
+     "counters": {
+      "+1/+1": 1
+     }
+    }
+   ]
+  }
+ ]
+}

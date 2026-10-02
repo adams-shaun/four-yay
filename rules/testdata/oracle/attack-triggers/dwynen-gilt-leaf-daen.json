@@ -1,0 +1,373 @@
+{
+ "card": "Dwynen, Gilt-Leaf Daen",
+ "family": "attack-triggers",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "5d23323ca3ca",
+ "scenarios": [
+  {
+   "name": "other-elves-get-plus-one",
+   "cr": [
+    "604.2",
+    "613.4c"
+   ],
+   "why": "Other Elf creatures its controller controls get +1/+1; Dwynen herself, non-Elves and the opponent's Elves do not. She has reach.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Dwynen, Gilt-Leaf Daen",
+      "Llanowar Elves",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Elvish Mystic"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "G"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Dwynen, Gilt-Leaf Daen",
+     "pt": "3/4",
+     "keywords": [
+      "Reach"
+     ]
+    },
+    {
+     "card": "p0:Llanowar Elves",
+     "pt": "2/2"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2"
+    },
+    {
+     "card": "p1:Elvish Mystic",
+     "pt": "1/1"
+    }
+   ]
+  },
+  {
+   "name": "attack-with-two-other-elves-gain-three",
+   "cr": [
+    "603.2",
+    "608.2h"
+   ],
+   "why": "Dwynen is an attacking Elf herself: with two other attacking Elves her controller gains 3.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Dwynen, Gilt-Leaf Daen",
+      "Llanowar Elves",
+      "Elvish Warrior"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Dwynen, Gilt-Leaf Daen",
+      "p0:Llanowar Elves",
+      "p0:Elvish Warrior"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 23
+     }
+    }
+   ]
+  },
+  {
+   "name": "attacks-alone-gain-one",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Alone she counts herself.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Dwynen, Gilt-Leaf Daen"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Dwynen, Gilt-Leaf Daen"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Dwynen, Gilt-Leaf Daen",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 21
+     }
+    }
+   ]
+  },
+  {
+   "name": "non-elf-attackers-and-home-elves-do-not-count",
+   "cr": [
+    "608.2h"
+   ],
+   "why": "Only attacking Elves count: a non-Elf attacker and an Elf that stays home add nothing.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Dwynen, Gilt-Leaf Daen",
+      "Llanowar Elves",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Dwynen, Gilt-Leaf Daen",
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 21
+     }
+    }
+   ]
+  },
+  {
+   "name": "dwynen-not-attacking-no-trigger",
+   "cr": [
+    "603.2",
+    "508.2a"
+   ],
+   "why": "It triggers only when Dwynen attacks.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Dwynen, Gilt-Leaf Daen",
+      "Llanowar Elves"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Llanowar Elves"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Dwynen, Gilt-Leaf Daen",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "count-is-taken-on-resolution",
+   "cr": [
+    "608.2h"
+   ],
+   "why": "The number of attacking Elves is counted as the ability resolves: an attacking Elf killed in response is not counted.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Dwynen, Gilt-Leaf Daen",
+      "Llanowar Elves",
+      "Elvish Warrior"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Dwynen, Gilt-Leaf Daen",
+      "p0:Llanowar Elves",
+      "p0:Elvish Warrior"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Shock",
+     "mana": "R",
+     "targets": [
+      "p0:Llanowar Elves"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Llanowar Elves",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 22
+     }
+    }
+   ]
+  },
+  {
+   "name": "lord-bonus-ends-when-dwynen-leaves",
+   "cr": [
+    "611.3a"
+   ],
+   "why": "The bonus is a static ability: once Dwynen is destroyed the Elves return to their printed size.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Dwynen, Gilt-Leaf Daen",
+      "Llanowar Elves"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p0:Dwynen, Gilt-Leaf Daen"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Dwynen, Gilt-Leaf Daen",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Llanowar Elves",
+     "pt": "1/1"
+    }
+   ]
+  },
+  {
+   "name": "reach-blocks-a-flier",
+   "cr": [
+    "702.17b"
+   ],
+   "why": "Reach lets her block a creature with flying.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Dwynen, Gilt-Leaf Daen"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Wind Drake"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Wind Drake"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    }
+   ],
+   "expect": [
+    {
+     "can_block": {
+      "blocker": "p0:Dwynen, Gilt-Leaf Daen",
+      "attacker": "p1:Wind Drake"
+     },
+     "want": true
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,454 @@
+{
+ "card": "Reclamation Sage",
+ "family": "etb-ltb",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "b4b9aaca7ba6",
+ "scenarios": [
+  {
+   "name": "enters-destroys-target-artifact",
+   "cr": [
+    "603.3",
+    "701.8a"
+   ],
+   "why": "The enter ability targets an artifact; accepting the option destroys it. The Sage stays as a 2/1.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Reclamation Sage"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Mind Stone",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Reclamation Sage",
+     "mana": "CCG"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Mind Stone"
+     ],
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "yes"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Mind Stone",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Reclamation Sage",
+     "zone": "battlefield",
+     "pt": "2/1"
+    }
+   ]
+  },
+  {
+   "name": "enters-destroys-target-enchantment",
+   "cr": [
+    "603.3",
+    "701.8a"
+   ],
+   "why": "An enchantment is the other legal kind of target.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Reclamation Sage"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Glorious Anthem"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Reclamation Sage",
+     "mana": "CCG"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Glorious Anthem"
+     ],
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "yes"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Glorious Anthem",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Reclamation Sage",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "artifact-creature-is-an-artifact",
+   "cr": [
+    "205.2b",
+    "701.8a"
+   ],
+   "why": "An artifact creature is an artifact and can be destroyed by the ability.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Reclamation Sage"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Ornithopter"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Reclamation Sage",
+     "mana": "CCG"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Ornithopter"
+     ],
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "yes"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Ornithopter",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "may-decline-to-destroy",
+   "cr": [
+    "603.5"
+   ],
+   "why": "The destruction is a 'may': declining on resolution leaves the targeted artifact alone.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Reclamation Sage"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Mind Stone"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Reclamation Sage",
+     "mana": "CCG"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Mind Stone"
+     ],
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "no"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Mind Stone",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Reclamation Sage",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "own-artifact-is-a-legal-target",
+   "cr": [
+    "115.1"
+   ],
+   "why": "The target is any artifact or enchantment, including one its controller owns.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Reclamation Sage"
+     ],
+     "battlefield": [
+      "Mind Stone"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Reclamation Sage",
+     "mana": "CCG"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Mind Stone"
+     ],
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "yes"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Mind Stone",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "no-artifact-or-enchantment-no-trigger-on-stack",
+   "cr": [
+    "603.3d"
+   ],
+   "why": "With only creatures and no artifact or enchantment there is no legal target: the ability is removed from the stack and nothing is destroyed.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Reclamation Sage"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Reclamation Sage",
+     "mana": "CCG"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1,
+     "expect": [
+      {
+       "stack_size": 0
+      },
+      {
+       "trigger_on_stack": "p0:Reclamation Sage",
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Reclamation Sage",
+     "zone": "battlefield",
+     "pt": "2/1"
+    }
+   ]
+  },
+  {
+   "name": "indestructible-artifact-survives",
+   "cr": [
+    "702.12b"
+   ],
+   "why": "An indestructible artifact can be targeted but is not destroyed.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Reclamation Sage"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Darksteel Ingot"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Reclamation Sage",
+     "mana": "CCG"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Darksteel Ingot"
+     ],
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "yes"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Darksteel Ingot",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "target-gone-in-response-does-nothing",
+   "cr": [
+    "608.2b"
+   ],
+   "why": "The targeted artifact creature is destroyed in response; the ability has no legal target on resolution and does not move on to another artifact.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Reclamation Sage"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Ornithopter",
+      "Mind Stone"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Reclamation Sage",
+     "mana": "CCG"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "pass_to",
+     "decision": "priority",
+     "targets": [
+      "p1:Ornithopter"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Reclamation Sage",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Shock",
+     "mana": "R",
+     "targets": [
+      "p1:Ornithopter"
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "yes"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Ornithopter",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Mind Stone",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Reclamation Sage",
+     "zone": "battlefield"
+    }
+   ]
+  }
+ ]
+}

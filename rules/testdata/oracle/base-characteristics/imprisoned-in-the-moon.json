@@ -1,0 +1,759 @@
+{
+ "card": "Imprisoned in the Moon",
+ "family": "base-characteristics",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "d8335c06e37d",
+ "scenarios": [
+  {
+   "name": "enchanted-creature-is-a-land-and-not-a-creature",
+   "cr": [
+    "205.1a",
+    "613.1d"
+   ],
+   "why": "The enchanted creature becomes a land and loses its other card types (and so its creature types) and its abilities.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Imprisoned in the Moon"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Air Elemental"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Imprisoned in the Moon",
+     "mana": "CCU",
+     "targets": [
+      "p1:Air Elemental"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Imprisoned in the Moon",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Air Elemental",
+     "zone": "battlefield",
+     "no_keywords": [
+      "Flying"
+     ],
+     "types": [
+      "Land"
+     ],
+     "no_types": [
+      "Creature",
+      "Elemental"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "enchanted-permanent-taps-for-colorless",
+   "cr": [
+    "613.1f",
+    "605.1a"
+   ],
+   "why": "It has \"{T}: Add {C}\": its controller can tap it for colourless mana.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Imprisoned in the Moon"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Air Elemental"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Imprisoned in the Moon",
+     "mana": "CCU",
+     "targets": [
+      "p1:Air Elemental"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "activate",
+     "seat": 1,
+     "card": "p1:Air Elemental"
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p1": "C"
+     }
+    },
+    {
+     "card": "p1:Air Elemental",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "loses-its-own-mana-ability",
+   "cr": [
+    "613.1f"
+   ],
+   "why": "A mana creature loses its own ability: it no longer adds {G}, only {C}.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Imprisoned in the Moon"
+     ],
+     "battlefield": [
+      "Llanowar Elves"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Imprisoned in the Moon",
+     "mana": "CCU",
+     "targets": [
+      "p0:Llanowar Elves"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Llanowar Elves",
+        "label": "Add G"
+       },
+       "want": false
+      },
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Llanowar Elves",
+        "label": "Add C"
+       },
+       "want": true
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Llanowar Elves",
+     "types": [
+      "Land"
+     ],
+     "no_types": [
+      "Creature",
+      "Elf"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "loses-a-static-ability",
+   "cr": [
+    "613.1f",
+    "604.1"
+   ],
+   "why": "A lord enchanted by it loses its static ability: the other Elves return to their printed size.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Imprisoned in the Moon"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Dwynen, Gilt-Leaf Daen",
+      "Llanowar Elves"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Imprisoned in the Moon",
+     "mana": "CCU",
+     "targets": [
+      "p1:Dwynen, Gilt-Leaf Daen"
+     ],
+     "expect": [
+      {
+       "card": "p1:Llanowar Elves",
+       "pt": "2/2"
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Llanowar Elves",
+     "pt": "1/1"
+    },
+    {
+     "card": "p1:Dwynen, Gilt-Leaf Daen",
+     "types": [
+      "Land"
+     ],
+     "no_types": [
+      "Creature"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "loses-a-triggered-ability",
+   "cr": [
+    "613.1f",
+    "603.1"
+   ],
+   "why": "An enchanted Crackling Cyclops no longer triggers on a noncreature spell (no trigger goes on the stack).",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Imprisoned in the Moon"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Crackling Cyclops"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Imprisoned in the Moon",
+     "mana": "CCU",
+     "targets": [
+      "p1:Crackling Cyclops"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Shock",
+     "mana": "R",
+     "targets": [
+      "p0"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p1:Crackling Cyclops",
+       "want": false
+      },
+      {
+       "stack_size": 1
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 18
+     }
+    },
+    {
+     "card": "p1:Crackling Cyclops",
+     "types": [
+      "Land"
+     ],
+     "no_types": [
+      "Creature"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "loses-an-activated-ability",
+   "cr": [
+    "613.1f",
+    "602.1"
+   ],
+   "why": "A land with an activated ability keeps being a land but loses that ability: an enchanted Soulstone Sanctuary can no longer animate itself.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Imprisoned in the Moon"
+     ],
+     "battlefield": [
+      "Soulstone Sanctuary"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCC",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Soulstone Sanctuary",
+        "label": "becomes"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Imprisoned in the Moon",
+     "mana": "CCU",
+     "targets": [
+      "p0:Soulstone Sanctuary"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCC"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Soulstone Sanctuary",
+      "label": "becomes"
+     },
+     "want": false
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Soulstone Sanctuary",
+      "label": "Add C"
+     },
+     "want": true
+    },
+    {
+     "card": "p0:Soulstone Sanctuary",
+     "types": [
+      "Land"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "enchanted-planeswalker-is-a-land-without-loyalty-abilities",
+   "cr": [
+    "205.1a",
+    "613.1f",
+    "306.5"
+   ],
+   "why": "An enchanted planeswalker is a land, not a planeswalker, and has no loyalty abilities to activate.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Jace Beleren",
+      "Imprisoned in the Moon"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Jace Beleren",
+     "mana": "CUU"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Jace Beleren"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Imprisoned in the Moon",
+     "mana": "CCU",
+     "targets": [
+      "p0:Jace Beleren"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Jace Beleren",
+     "zone": "battlefield",
+     "types": [
+      "Land"
+     ],
+     "no_types": [
+      "Planeswalker"
+     ]
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Jace Beleren",
+      "label": "draw"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "effect-ends-when-the-aura-leaves",
+   "cr": [
+    "611.3a",
+    "704.5m"
+   ],
+   "why": "The effect is the Aura's static ability: once the Aura is destroyed the creature is itself again.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Imprisoned in the Moon"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Naturalize"
+     ],
+     "battlefield": [
+      "Air Elemental"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Imprisoned in the Moon",
+     "mana": "CCU",
+     "targets": [
+      "p1:Air Elemental"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Naturalize",
+     "mana": "CG",
+     "targets": [
+      "p0:Imprisoned in the Moon"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Imprisoned in the Moon",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Air Elemental",
+     "pt": "4/4",
+     "keywords": [
+      "Flying"
+     ],
+     "types": [
+      "Creature",
+      "Elemental"
+     ],
+     "no_types": [
+      "Land"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "summoning-sick-creature-turned-land-taps-at-once",
+   "cr": [
+    "302.6"
+   ],
+   "why": "The tap restriction applies to creatures only: a creature cast this turn and then enchanted is a land and can tap for {C} right away.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Imprisoned in the Moon",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "CG"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Imprisoned in the Moon",
+     "mana": "CCU",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Grizzly Bears"
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": "C"
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "attacking-creature-is-removed-from-combat",
+   "cr": [
+    "506.4"
+   ],
+   "why": "An attacking creature that stops being a creature is removed from combat: it deals no damage.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Imprisoned in the Moon"
+     ],
+     "battlefield": [
+      "High Fae Trickster"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Craw Wurm"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Imprisoned in the Moon",
+     "mana": "CCU",
+     "targets": [
+      "p0:Craw Wurm"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 20
+     }
+    },
+    {
+     "card": "p0:Craw Wurm",
+     "types": [
+      "Land"
+     ],
+     "no_types": [
+      "Creature"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "noncreature-artifact-is-not-a-legal-target",
+   "cr": [
+    "702.5a",
+    "115.1"
+   ],
+   "why": "Enchant creature, land, or planeswalker: with only a noncreature artifact on the battlefield the Aura cannot be cast.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Imprisoned in the Moon"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Mind Stone"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCU"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Imprisoned in the Moon"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "damaged-creature-turned-land-is-not-destroyed",
+   "cr": [
+    "704.5g",
+    "120.3"
+   ],
+   "why": "Damage marked on a creature that becomes a land does not destroy it: it is no longer a creature.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Imprisoned in the Moon",
+      "Shock"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Imprisoned in the Moon",
+     "mana": "CCU",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "battlefield",
+     "types": [
+      "Land"
+     ],
+     "no_types": [
+      "Creature"
+     ]
+    }
+   ]
+  }
+ ]
+}

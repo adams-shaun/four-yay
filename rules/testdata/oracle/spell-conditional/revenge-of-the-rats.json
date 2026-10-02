@@ -1,0 +1,440 @@
+{
+ "card": "Revenge of the Rats",
+ "family": "spell-conditional",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "79873a692c54",
+ "scenarios": [
+  {
+   "name": "three-creature-cards-three-tapped-rats",
+   "cr": [
+    "608.2h",
+    "110.5b"
+   ],
+   "why": "One tapped 1/1 Rat token for each creature card in its caster's graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Revenge of the Rats"
+     ],
+     "graveyard": [
+      "Grizzly Bears",
+      "Centaur Courser",
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Revenge of the Rats",
+     "mana": "CCBB"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Rat",
+      "token": true
+     },
+     "eq": 3
+    },
+    {
+     "card": "p0:token:Rat",
+     "pt": "1/1",
+     "types": [
+      "Creature",
+      "Rat"
+     ],
+     "tapped": true
+    },
+    {
+     "card": "p0:token:Rat#3",
+     "tapped": true
+    },
+    {
+     "card": "p0:Revenge of the Rats",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "no-creature-cards-no-rats",
+   "cr": [
+    "608.2h"
+   ],
+   "why": "With no creature card in the graveyard nothing is created.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Revenge of the Rats"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Revenge of the Rats",
+     "mana": "CCBB"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Rat"
+     },
+     "eq": 0
+    },
+    {
+     "card": "p0:Revenge of the Rats",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "noncreature-cards-are-not-counted",
+   "cr": [
+    "608.2h"
+   ],
+   "why": "Only creature cards count: one creature among lands, instants and artifacts makes one Rat.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Revenge of the Rats"
+     ],
+     "graveyard": [
+      "Grizzly Bears",
+      "Shock",
+      "Forest",
+      "Mind Stone"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Revenge of the Rats",
+     "mana": "CCBB"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Rat",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "artifact-creature-card-counts",
+   "cr": [
+    "205.2b"
+   ],
+   "why": "An artifact creature card is a creature card.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Revenge of the Rats"
+     ],
+     "graveyard": [
+      "Ornithopter"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Revenge of the Rats",
+     "mana": "CCBB"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Rat",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "opponents-graveyard-is-not-counted",
+   "cr": [
+    "109.5"
+   ],
+   "why": "Only its caster's graveyard counts.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Revenge of the Rats"
+     ],
+     "graveyard": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Centaur Courser",
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Revenge of the Rats",
+     "mana": "CCBB"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Rat",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Rat"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "flashback-from-graveyard-then-exiled",
+   "cr": [
+    "702.34a"
+   ],
+   "why": "Cast from the graveyard for its flashback cost it makes the Rats and is then exiled.",
+   "setup": {
+    "p0": {
+     "graveyard": [
+      "Revenge of the Rats",
+      "Grizzly Bears",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Revenge of the Rats",
+     "mana": "CCBB",
+     "cast_mode": "flashback"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Rat",
+      "token": true
+     },
+     "eq": 2
+    },
+    {
+     "card": "p0:Revenge of the Rats",
+     "zone": "exile"
+    }
+   ]
+  },
+  {
+   "name": "cast-then-flashback-the-same-turn",
+   "cr": [
+    "702.34a",
+    "608.2n"
+   ],
+   "why": "After resolving from hand it is in the graveyard and can be cast again with flashback; it is not a creature card, so it never counts itself.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Revenge of the Rats"
+     ],
+     "graveyard": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Revenge of the Rats",
+     "mana": "CCBB"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "count": {
+        "seat": 0,
+        "zone": "battlefield",
+        "name": "Rat",
+        "token": true
+       },
+       "eq": 1
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Revenge of the Rats",
+     "mana": "CCBB",
+     "cast_mode": "flashback"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Rat",
+      "token": true
+     },
+     "eq": 2
+    },
+    {
+     "card": "p0:Revenge of the Rats",
+     "zone": "exile"
+    }
+   ]
+  },
+  {
+   "name": "flashback-is-sorcery-speed",
+   "cr": [
+    "702.34a",
+    "307.1"
+   ],
+   "why": "Flashback does not change when a sorcery can be cast: not on the opponent's turn.",
+   "setup": {
+    "p0": {
+     "graveyard": [
+      "Revenge of the Rats",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCBB"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Revenge of the Rats"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "rats-untap-next-turn",
+   "cr": [
+    "502.3"
+   ],
+   "why": "The Rats enter tapped but untap normally during their controller's next untap step.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Revenge of the Rats"
+     ],
+     "graveyard": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Revenge of the Rats",
+     "mana": "CCBB"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:token:Rat",
+       "tapped": true
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:token:Rat",
+     "tapped": false
+    }
+   ]
+  }
+ ]
+}

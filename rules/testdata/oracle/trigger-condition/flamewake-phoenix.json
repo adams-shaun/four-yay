@@ -1,0 +1,435 @@
+{
+ "card": "Flamewake Phoenix",
+ "family": "trigger-condition",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "77e17ec7745e",
+ "scenarios": [
+  {
+   "name": "flying-haste-attacks-the-turn-it-is-cast",
+   "cr": [
+    "702.10b",
+    "702.9a"
+   ],
+   "why": "Haste: cast in the first main phase it attacks the same turn for 2 in the air.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Flamewake Phoenix"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Flamewake Phoenix",
+     "mana": "CRR"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Flamewake Phoenix",
+       "pt": "2/2",
+       "keywords": [
+        "Flying",
+        "Haste"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Flamewake Phoenix"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "ferocious-pay-red-returns-it",
+   "cr": [
+    "603.4",
+    "207.2c"
+   ],
+   "why": "At the beginning of combat on its controller's turn, with a power-4-or-greater creature under their control, paying {R} returns it from the graveyard to the battlefield.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Craw Wurm"
+     ],
+     "graveyard": [
+      "Flamewake Phoenix"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "begin-combat",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Flamewake Phoenix",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "R"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Pay R"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Flamewake Phoenix",
+     "zone": "battlefield",
+     "pt": "2/2"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "ferocious-decline-to-pay-stays-in-graveyard",
+   "cr": [
+    "603.5"
+   ],
+   "why": "Paying is optional: declining leaves it in the graveyard.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Craw Wurm"
+     ],
+     "graveyard": [
+      "Flamewake Phoenix"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "begin-combat"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "R"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "no"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Flamewake Phoenix",
+     "zone": "graveyard"
+    },
+    {
+     "pool": {
+      "p0": "R"
+     }
+    }
+   ]
+  },
+  {
+   "name": "ferocious-cannot-pay-stays-in-graveyard",
+   "cr": [
+    "118.3",
+    "608.2d"
+   ],
+   "why": "'If you do': with no red mana the cost cannot be paid and it does not return.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Craw Wurm"
+     ],
+     "graveyard": [
+      "Flamewake Phoenix"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "begin-combat"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Flamewake Phoenix",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "no-power-four-creature-no-trigger",
+   "cr": [
+    "603.4"
+   ],
+   "why": "Intervening if: with only a 3/3 the ability does not trigger.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Centaur Courser"
+     ],
+     "graveyard": [
+      "Flamewake Phoenix"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "begin-combat",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Flamewake Phoenix",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "R"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Flamewake Phoenix",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "not-on-the-opponents-combat",
+   "cr": [
+    "603.4",
+    "507.1"
+   ],
+   "why": "Only at the beginning of combat on its controller's turn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Craw Wurm"
+     ],
+     "graveyard": [
+      "Flamewake Phoenix"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "begin-combat"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "no"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "begin-combat",
+     "active": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Flamewake Phoenix",
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Flamewake Phoenix",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "power-four-creature-gone-on-resolution-no-return",
+   "cr": [
+    "603.4"
+   ],
+   "why": "The condition is checked again on resolution: the 6/4 is destroyed in response, so the ability does nothing even with {R} available.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Craw Wurm"
+     ],
+     "graveyard": [
+      "Flamewake Phoenix"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "begin-combat"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "R"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p0:Craw Wurm"
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "yes"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Craw Wurm",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Flamewake Phoenix",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "returned-phoenix-attacks-that-combat",
+   "cr": [
+    "702.10b",
+    "508.1a"
+   ],
+   "why": "Returned at the beginning of combat, it has haste and can be declared as an attacker in that combat.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Craw Wurm"
+     ],
+     "graveyard": [
+      "Flamewake Phoenix"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "begin-combat"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "R"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Pay R"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Flamewake Phoenix"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 18
+     }
+    },
+    {
+     "card": "p0:Flamewake Phoenix",
+     "zone": "battlefield",
+     "tapped": true
+    }
+   ]
+  }
+ ]
+}

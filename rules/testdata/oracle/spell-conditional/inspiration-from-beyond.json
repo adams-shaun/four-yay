@@ -1,0 +1,509 @@
+{
+ "card": "Inspiration from Beyond",
+ "family": "spell-conditional",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "67b56ebb3565",
+ "scenarios": [
+  {
+   "name": "mills-three-then-returns-an-instant",
+   "cr": [
+    "701.17a",
+    "608.2c"
+   ],
+   "why": "Its caster mills three cards, then returns an instant or sorcery card from their graveyard to hand.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Inspiration from Beyond"
+     ],
+     "graveyard": [
+      "Shock"
+     ],
+     "library_top": [
+      "Forest",
+      "Grizzly Bears",
+      "Swamp",
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Inspiration from Beyond",
+     "mana": "CCU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Shock",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Swamp",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Craw Wurm",
+     "zone": "library"
+    },
+    {
+     "card": "p0:Inspiration from Beyond",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "graveyard_size": {
+      "p0": 4
+     }
+    }
+   ]
+  },
+  {
+   "name": "a-card-just-milled-can-be-returned",
+   "cr": [
+    "608.2c"
+   ],
+   "why": "'Then': the choice is made after the mill, so a sorcery milled by this spell can be returned.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Inspiration from Beyond"
+     ],
+     "library_top": [
+      "Divination",
+      "Forest",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Inspiration from Beyond",
+     "mana": "CCU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Divination",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "graveyard_size": {
+      "p0": 3
+     }
+    }
+   ]
+  },
+  {
+   "name": "cannot-return-itself",
+   "cr": [
+    "608.2n"
+   ],
+   "why": "The spell is still on the stack while it resolves: with no other instant or sorcery in the graveyard nothing is returned.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Inspiration from Beyond"
+     ],
+     "library_top": [
+      "Forest",
+      "Grizzly Bears",
+      "Swamp"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Inspiration from Beyond",
+     "mana": "CCU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Inspiration from Beyond",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    },
+    {
+     "graveyard_size": {
+      "p0": 4
+     }
+    }
+   ]
+  },
+  {
+   "name": "creature-and-land-cards-cannot-be-returned",
+   "cr": [
+    "608.2d"
+   ],
+   "why": "Only an instant or sorcery card can be returned.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Inspiration from Beyond"
+     ],
+     "graveyard": [
+      "Craw Wurm",
+      "Mind Stone"
+     ],
+     "library_top": [
+      "Forest",
+      "Grizzly Bears",
+      "Swamp"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Inspiration from Beyond",
+     "mana": "CCU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Craw Wurm",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Mind Stone",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "caster-chooses-which-card",
+   "cr": [
+    "608.2d"
+   ],
+   "why": "With two eligible cards its caster chooses one; the other stays.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Inspiration from Beyond"
+     ],
+     "graveyard": [
+      "Shock"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Forest",
+      "Swamp"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Inspiration from Beyond",
+     "mana": "CCU"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Lightning Bolt"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "not-targeted-so-graveyard-hate-in-response-leaves-other-choices",
+   "cr": [
+    "608.2d",
+    "115.1"
+   ],
+   "why": "The card is chosen on resolution, not targeted: when the only instant is exiled in response, an instant milled by the spell is returned instead.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Inspiration from Beyond"
+     ],
+     "graveyard": [
+      "Shock"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Forest",
+      "Swamp"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Cremate"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Inspiration from Beyond",
+     "mana": "CCU"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Cremate",
+     "mana": "B",
+     "targets": [
+      "p0:Shock"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Shock",
+     "zone": "exile"
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "opponents-graveyard-is-not-used",
+   "cr": [
+    "109.5"
+   ],
+   "why": "'Your graveyard': an instant in the opponent's graveyard cannot be returned.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Inspiration from Beyond"
+     ],
+     "library_top": [
+      "Forest",
+      "Grizzly Bears",
+      "Swamp"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Inspiration from Beyond",
+     "mana": "CCU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Shock",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "flashback-for-seven-then-exiled",
+   "cr": [
+    "702.34a"
+   ],
+   "why": "Cast from the graveyard for {5}{U}{U}: it mills three, returns a card, and is exiled.",
+   "setup": {
+    "p0": {
+     "graveyard": [
+      "Inspiration from Beyond",
+      "Shock"
+     ],
+     "library_top": [
+      "Forest",
+      "Grizzly Bears",
+      "Swamp"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Inspiration from Beyond",
+     "mana": "CCCCCUU",
+     "cast_mode": "flashback"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Inspiration from Beyond",
+     "zone": "exile"
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "hand"
+    },
+    {
+     "graveyard_size": {
+      "p0": 3
+     }
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "flashback-not-offered-for-its-mana-cost",
+   "cr": [
+    "702.34a",
+    "118.9"
+   ],
+   "why": "From the graveyard only the flashback cost works: three mana is not enough.",
+   "setup": {
+    "p0": {
+     "graveyard": [
+      "Inspiration from Beyond",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCU"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Inspiration from Beyond"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "sorcery-timing",
+   "cr": [
+    "307.1"
+   ],
+   "why": "Not castable on the opponent's turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Inspiration from Beyond"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCU"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Inspiration from Beyond"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

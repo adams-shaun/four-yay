@@ -1,0 +1,633 @@
+{
+ "card": "Etali, Primal Storm",
+ "family": "attack-triggers",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "6cd2bc020932",
+ "scenarios": [
+  {
+   "name": "attack-exiles-the-top-card-of-each-library",
+   "cr": [
+    "603.2",
+    "701.13a"
+   ],
+   "why": "On attacking, the top card of each player's library is exiled.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Etali, Primal Storm"
+     ],
+     "library_top": [
+      "Forest",
+      "Shock"
+     ]
+    },
+    "p1": {
+     "library_top": [
+      "Mountain",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Etali, Primal Storm"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Etali, Primal Storm",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Forest",
+     "zone": "exile"
+    },
+    {
+     "card": "p1:Mountain",
+     "zone": "exile"
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "library"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "library"
+    },
+    {
+     "card": "p0:Etali, Primal Storm",
+     "pt": "6/6"
+    }
+   ]
+  },
+  {
+   "name": "casts-both-exiled-spells-free",
+   "cr": [
+    "608.2g",
+    "118.9"
+   ],
+   "why": "Both exiled cards are spells and may be cast without paying their mana costs during the resolution, even a sorcery in combat.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Etali, Primal Storm"
+     ],
+     "library_top": [
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {
+     "library_top": [
+      "Divination"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Etali, Primal Storm"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1"
+     ],
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "Play Lightning Bolt",
+        "Play Divination"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 17
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Divination",
+     "zone": "graveyard"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "casts-two-exiled-instants-free",
+   "cr": [
+    "608.2g",
+    "118.9"
+   ],
+   "why": "Any number of spells: both exiled instants are cast for free, one from each library.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Etali, Primal Storm"
+     ],
+     "library_top": [
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {
+     "library_top": [
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Etali, Primal Storm"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1",
+      "p1"
+     ],
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "Play Lightning Bolt",
+        "Play Shock"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 15
+     }
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Shock",
+     "zone": "graveyard"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "casts-own-exiled-sorcery-during-combat",
+   "cr": [
+    "608.2g",
+    "307.1"
+   ],
+   "why": "A spell cast during the resolution of an ability ignores timing based on its card type: the sorcery exiled from its controller's own library is cast in the declare attackers step.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Etali, Primal Storm"
+     ],
+     "library_top": [
+      "Divination"
+     ]
+    },
+    "p1": {
+     "library_top": [
+      "Mountain"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Etali, Primal Storm"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "Play Divination"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    },
+    {
+     "card": "p0:Divination",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "casts-opponents-exiled-sorcery-during-combat",
+   "cr": [
+    "608.2g",
+    "307.1"
+   ],
+   "why": "The same holds for a sorcery exiled from the opponent's library: it is cast, resolves for Etali's controller and goes to its owner's graveyard.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Etali, Primal Storm"
+     ],
+     "library_top": [
+      "Forest"
+     ]
+    },
+    "p1": {
+     "library_top": [
+      "Divination"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Etali, Primal Storm"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "Play Divination"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    },
+    {
+     "card": "p1:Divination",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "exiled-lands-cannot-be-played",
+   "cr": [
+    "305.1",
+    "608.2g"
+   ],
+   "why": "'Cast': a land card is not cast, so exiled lands stay in exile.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Etali, Primal Storm"
+     ],
+     "library_top": [
+      "Forest"
+     ]
+    },
+    "p1": {
+     "library_top": [
+      "Mountain"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Etali, Primal Storm"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Forest",
+     "zone": "exile"
+    },
+    {
+     "card": "p1:Mountain",
+     "zone": "exile"
+    },
+    {
+     "life": {
+      "p1": 14
+     }
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "play_land",
+      "card": "p0:Forest"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "may-decline-and-the-cards-stay-exiled",
+   "cr": [
+    "608.2d"
+   ],
+   "why": "'May': declining leaves the cards in exile, and they cannot be cast later.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Etali, Primal Storm"
+     ],
+     "library_top": [
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {
+     "library_top": [
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Etali, Primal Storm"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": []
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "RR"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "exile"
+    },
+    {
+     "card": "p1:Shock",
+     "zone": "exile"
+    },
+    {
+     "life": {
+      "p1": 14
+     }
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Lightning Bolt"
+     },
+     "want": false
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p1:Shock"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "opponents-creature-card-enters-under-etalis-controller",
+   "cr": [
+    "608.2g",
+    "110.2"
+   ],
+   "why": "A creature card exiled from the opponent's library is cast by Etali's controller and enters under their control.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Etali, Primal Storm"
+     ],
+     "library_top": [
+      "Forest"
+     ]
+    },
+    "p1": {
+     "library_top": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Etali, Primal Storm"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "Play Grizzly Bears"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Grizzly Bears"
+     },
+     "eq": 1
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Grizzly Bears"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "etali-not-attacking-no-trigger",
+   "cr": [
+    "603.2",
+    "508.2a"
+   ],
+   "why": "It triggers only when Etali attacks.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Etali, Primal Storm",
+      "Grizzly Bears"
+     ],
+     "library_top": [
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {
+     "library_top": [
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Etali, Primal Storm",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "library"
+    },
+    {
+     "card": "p1:Shock",
+     "zone": "library"
+    }
+   ]
+  },
+  {
+   "name": "six-six-unblocked-deals-six",
+   "cr": [
+    "208.1"
+   ],
+   "why": "A 6/6: unblocked it deals 6.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Etali, Primal Storm"
+     ],
+     "library_top": [
+      "Forest"
+     ]
+    },
+    "p1": {
+     "library_top": [
+      "Mountain"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Etali, Primal Storm"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 14
+     }
+    }
+   ]
+  }
+ ]
+}
