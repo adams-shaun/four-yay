@@ -254,6 +254,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 								continue
 							}
 						}
+						emitFrom := len(out)
 						base := ContinuousEffect{
 							Source:     id,
 							Timestamp:  o.Timestamp,
@@ -733,6 +734,10 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 							gc.GainControl = raw
 							out = append(out, gc)
 						}
+						// CR 613.1f/613.6: stamp what this one static ability
+						// emitted, so active() can drop it when its source
+						// loses all abilities (abilityloss.go).
+						markSourceAbilityLayer(out[emitFrom:])
 					}
 					e.staticQueueBuf = grantQueue
 				}
@@ -872,12 +877,21 @@ func (e *Engine) activeBuild() []ContinuousEffect {
 	if !continuousPtrsSorted(src) {
 		slices.SortStableFunc(src, compareContinuousPtr)
 	}
+	removers := false
 	for _, p := range src {
 		buf = append(buf, *p)
+		removers = removers || p.RemoveAbilities
 	}
 	if e.activeDepth <= 1 {
 		clear(src)
 		e.activeSrc = src[:0]
+	}
+	if removers {
+		// CR 613.1f: the statics of a permanent that lost all abilities stop
+		// applying (abilityloss.go). What is dropped depends on the board,
+		// not only on the list's inputs, so such a list is never adopted by
+		// the unchanged-list shortcut (activeList.ok below).
+		buf = e.pruneLostSourceAbilities(buf)
 	}
 	if e.activeDepth <= 1 {
 		// Keep the grown, sorted buffer on the Engine for the next build or
@@ -890,7 +904,7 @@ func (e *Engine) activeBuild() []ContinuousEffect {
 		e.activeBufAlt, e.activeBuf = e.activeBuf, buf
 		e.activeKWHeads = appendKWHeads(e.activeKWHeads[:0], buf)
 		e.activeKWHeadSet, e.activeKWHeadSetOK = kwHeadSetOf(e.activeKWHeads)
-		e.activeList = activeListKey{ok: true, version: e.continuousVersion, staticSeq: e.staticBuildSeq,
+		e.activeList = activeListKey{ok: !removers, version: e.continuousVersion, staticSeq: e.staticBuildSeq,
 			liveN: liveN, live: live, allLocal: allLocal}
 	} else {
 		e.derivedSeq++
