@@ -155,8 +155,8 @@ func TestWaveOfReckoningSurvivorsAreExactlyToughnessGreaterThanPower(t *testing.
 }
 
 // TestGrimContestToEachOtherDealsToughnessBothWays pins the ToEachOther$
-// shape end to end on the real card: the announcement ask names your
-// creature, the DB sub's own mid-resolution ask names the opponent's, and
+// shape end to end on the real card: the announcement names your creature
+// and then the opponent's (both targets are chosen on cast, CR 601.2c), and
 // each of the two creatures deals damage equal to its TOUGHNESS to the
 // other (per-damager amounts: the 0/5 wall deals 5, the 6/4 wurm deals 4).
 func TestGrimContestToEachOtherDealsToughnessBothWays(t *testing.T) {
@@ -190,10 +190,9 @@ func TestGrimContestToEachOtherDealsToughnessBothWays(t *testing.T) {
 	}
 	targetObject(t, e, wall)
 
-	// The DB sub's own mid-resolution ask over the opponent's creatures.
-	if d = passUntilNonPriority(t, e, 20); d == nil || d.Kind != decision.KChoose || d.ResumeKind != "tgts" {
-		t.Fatalf("pending after the announcement ask = %+v, want the sub's own KChoose target ask", d)
-	}
+	// CR 601.2c: the DB sub's "target creature an opponent controls" is
+	// announced on cast too, right after the first target.
+	d = castSubAsk(t, e)
 	subIdx := -1
 	for _, o := range d.Options {
 		if o.Obj == wurm {
@@ -204,8 +203,16 @@ func TestGrimContestToEachOtherDealsToughnessBothWays(t *testing.T) {
 		t.Fatalf("Craw Wurm not offered: %+v", d.Options)
 	}
 	submitChoices(t, e, subIdx)
-	if d = e.Pending(); d == nil || d.Kind != decision.KPriority {
-		t.Fatalf("pending after the answer = %+v, want priority (resolution complete)", d)
+	// Both announced: the spell is on the stack. It resolves on two passes
+	// and asks nothing more.
+	for i := 0; i < 2; i++ {
+		if d = e.Pending(); d == nil || d.Kind != decision.KPriority {
+			t.Fatalf("pending after the announcement = %+v, want priority", d)
+		}
+		submitChoices(t, e, passIndex(t, d))
+	}
+	if d = e.Pending(); d == nil || d.Kind != decision.KPriority || len(e.G.Stack) != 0 {
+		t.Fatalf("pending after two passes = %+v (stack %v), want priority with the resolution complete", d, e.G.Stack)
 	}
 
 	// Each dealt its OWN toughness to the other: the wall took 4 (survives

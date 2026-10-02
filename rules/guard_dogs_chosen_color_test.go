@@ -103,7 +103,10 @@ func guardDogsDrive(t *testing.T, chosen, chosenColor, target, targetColor strin
 				t.Fatalf("chosen permanent %d not offered: %+v", chosenID, d.Options)
 			}
 			submitChoices(t, e, idx)
-		case d.Kind == decision.KChoose && d.ResumeKind == "tgts":
+		case d.Kind == decision.KTarget && d.ResumeKind == "cast_sub":
+			// CR 602.2b / 601.2c: "target creature" is announced as the
+			// ability is activated, before the permanent is chosen at
+			// resolution.
 			idx := -1
 			for _, o := range d.Options {
 				if o.Obj == targetID {

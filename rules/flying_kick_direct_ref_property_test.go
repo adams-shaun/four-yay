@@ -66,10 +66,9 @@ func TestFlyingKickDirectParentTargetPower(t *testing.T) {
 	}
 	submitChoices(t, e, parentChoice)
 
-	d = passUntilPendingKind(t, e, decision.KChoose, 30)
-	if d == nil || d.ResumeKind != "tgts" {
-		t.Fatalf("Flying Kick damage target pending=%+v, want tgts", d)
-	}
+	// CR 601.2c: the damage's "target creature an opponent controls" is
+	// announced as the spell is cast, right after the first target.
+	d = castSubAsk(t, e)
 	victimChoice := -1
 	for _, o := range d.Options {
 		if o.Obj == victim {

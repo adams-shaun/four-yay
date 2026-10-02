@@ -256,6 +256,13 @@ func TestBlackGateChoosePlayerOffersTheTiedLeaders(t *testing.T) {
 
 	fundPool(t, e, "BB") // {1}{B}, {T}: the generic and the black pip
 	activateAbility(t, e, gate)
+	// CR 602.2b / 601.2c: "Target creature can't be blocked ..." is a target,
+	// so it is announced as the ability is ACTIVATED -- before the player
+	// choice, which is made as the ability resolves.
+	if tgt := castSubAsk(t, e); len(tgt.Options) == 0 || tgt.Options[0].Kind == "player" {
+		t.Fatalf("expected the CantBlock creature target ask on activation, got %+v", tgt)
+	}
+	submitChoices(t, e, e.Pending().Options[0].Index)
 	d = drainPriorities(t, e, 20)
 	if d == nil || d.Kind != decision.KChoose || d.Min != 1 || d.Max != 1 {
 		t.Fatalf("withMostLife ask = %+v, want KChoose 1-of", d)
@@ -273,20 +280,19 @@ func TestBlackGateChoosePlayerOffersTheTiedLeaders(t *testing.T) {
 	}
 	submitChoices(t, e, d.Options[0].Index)
 
-	// The chained Effect's target ask (ValidTgts$ Creature) — a KChoose over
-	// card options, the ResumeKind "tgts" placement shape.
-	d = drainPriorities(t, e, 20)
-	if d == nil || d.Kind != decision.KChoose || len(d.Options) == 0 || d.Options[0].Kind != "card" {
-		t.Fatalf("expected the CantBlock target ask, got %+v", d)
+	// The chained Effect's target was announced on activation, so the
+	// resolution finishes without another ask.
+	if len(e.G.Stack) != 0 {
+		t.Fatalf("the ability did not finish resolving after the player choice: stack %v, pending %+v", e.G.Stack, e.Pending())
 	}
-	submitChoices(t, e, d.Options[0].Index)
-	passUntilStackEmpty(t, e, 30)
 
 	// Seat 1 falls behind; the next activation offers only seat 0.
 	e.emit(events.Event{Kind: events.LifeChange, Player: 1, Amount: -3})
 	driveMordor(t, e, 5, 0, state.StepMain1)
 	fundPool(t, e, "BB")
 	activateAbility(t, e, gate)
+	castSubAsk(t, e)
+	submitChoices(t, e, e.Pending().Options[0].Index)
 	d = drainPriorities(t, e, 20)
 	if d == nil || d.Kind != decision.KChoose {
 		t.Fatalf("second withMostLife ask = %+v, want KChoose", d)

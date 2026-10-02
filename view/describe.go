@@ -612,7 +612,10 @@ func Describe(g *state.Game, ev events.Event) string {
 	case events.LandPlayed:
 		return player(g, ev.Player) + " plays a land"
 	case events.TargetsChosen:
-		if ev.Amount == 1 {
+		// Amount 1 replaces with, and 3 appends, a PLAYER target; a chain
+		// link's cast-time target (events.SubTargetNotice) uses the append
+		// shapes and reads the same way -- it is a target of the object.
+		if ev.Amount == 1 || ev.Amount == 3 {
 			return obj(g, ev.Obj) + " targets " + player(g, ev.Player)
 		}
 		return obj(g, ev.Obj) + " targets " + objs(g, ev.IDs)

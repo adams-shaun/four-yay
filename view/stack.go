@@ -81,7 +81,7 @@ func (p *projector) stackViews(buf []StackView, ids []state.ObjID, revealFaceDow
 			}
 			*sv = StackView{
 				ID: id, Kind: kind, Name: abilityName(g, o), Text: abilityText(g, o, p.text),
-				Controller: o.Controller, Source: o.Source, Targets: targetViews(targets, o.Targets, targetLabel(o)),
+				Controller: o.Controller, Source: o.Source, Targets: targetViews(targets, o.Targets, o.SubTargets, targetLabel(o)),
 			}
 			// Ruling VW-1: an optional triggered ability on the stack awaiting
 			// its resolution-time yes/no reports its optionality and decider
@@ -116,7 +116,7 @@ func (p *projector) stackViews(buf []StackView, ids []state.ObjID, revealFaceDow
 			}
 			continue
 		}
-		*sv = StackView{ID: id, Kind: "spell", Controller: o.Controller, Targets: targetViews(targets, o.Targets, targetLabel(o))}
+		*sv = StackView{ID: id, Kind: "spell", Controller: o.Controller, Targets: targetViews(targets, o.Targets, o.SubTargets, targetLabel(o))}
 		if f := o.Face(); f != nil {
 			if o.FaceDown && !revealFaceDown && p.viewer != o.Controller {
 				// CR 708.4: the face-down spell's printed identity is hidden
@@ -204,9 +204,14 @@ func spellText(f *cards.Face, memo *textMemo) string {
 // label (from targetLabel) is stamped on every entry: the object declared
 // one set of legal targets, not one per chosen target. Always non-nil
 // (Ruling T23-u).
-func targetViews(buf []TargetView, targets []state.Target, label string) []TargetView {
-	out := refill(buf, len(targets))
+func targetViews(buf []TargetView, targets, subTargets []state.Target, label string) []TargetView {
+	out := refill(buf, len(targets)+len(subTargets))
 	for _, t := range targets {
+		out = append(out, TargetView{Obj: t.Obj, Player: t.Player, IsPlayer: t.IsPlayer, Label: label})
+	}
+	// The SubAbility$ links' targets, announced on cast with the root's (CR
+	// 601.2c): a client draws them like any other target of the object.
+	for _, t := range subTargets {
 		out = append(out, TargetView{Obj: t.Obj, Player: t.Player, IsPlayer: t.IsPlayer, Label: label})
 	}
 	return out

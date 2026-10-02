@@ -230,13 +230,79 @@ func targetsReadXPending(sa *cards.SA) bool {
 	if sa.API == "Charm" && strings.TrimSpace(sa.Params["Choices"]) != "" {
 		return true
 	}
-	return strings.TrimSpace(sa.ParamStr(cards.PKAnnounce)) == "" && strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) != ""
+	if strings.TrimSpace(sa.ParamStr(cards.PKAnnounce)) == "" && strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) != "" {
+		return true
+	}
+	// A targeting SubAbility$ link is censused too (chainTargetsAvailable),
+	// and its bounds or spec may read the pending X exactly as a root's do.
+	for sub := sa.Sub; sub != nil; sub = sub.Sub {
+		if strings.TrimSpace(sub.ParamStr(cards.PKValidTgts)) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *Engine) targetsAvailable(p state.PlayerID, id, excludeSelf state.ObjID, sa *cards.SA, xPending bool) bool {
 	if sa == nil {
 		return true
 	}
+	return e.rootTargetsAvailable(p, id, excludeSelf, sa, xPending) &&
+		e.chainTargetsAvailable(p, id, excludeSelf, sa, xPending)
+}
+
+// chainTargetsAvailable is the SubAbility$ half of the offer census (CR
+// 601.2c): every link of the chain announces its targets on cast, so a
+// mandatory link with no legal target makes the whole spell or ability
+// unannounceable -- Bite Down with no creature or planeswalker the caster
+// doesn't control cannot be cast. It walks the same links the cast flow's
+// subTargetAsk announces (collectSubTargetPreAsks) through the same
+// feasibility predicate the root uses, and stays OFFERABLE for every link it
+// cannot judge before the announcement exists:
+//   - a link behind an optional additional cost (Condition$ Kicked /
+//     OptionalCost): whether it owes a target depends on the cast option;
+//   - a link whose declaration reads an earlier target of the same spell
+//     (subTargetingReadsRootTarget): not announced by the cast flow at all
+//     (castSubPreAskable);
+//   - a TargetUnique$ link: its pool excludes the root's answer.
+//
+// The post-push ask (subTargetAsk) is the backstop for all three, exactly as
+// targetAsk is for a dynamic root.
+func (e *Engine) chainTargetsAvailable(p state.PlayerID, id, excludeSelf state.ObjID, sa *cards.SA, xPending bool) bool {
+	if sa.Sub == nil {
+		return true
+	}
+	var svars map[string]string
+	svarsRead := false
+	for _, sub := range e.collectSubTargetPreAsks(sa) {
+		if cond := strings.TrimSpace(sub.Params["Condition"]); strings.EqualFold(cond, "Kicked") ||
+			strings.EqualFold(cond, "OptionalCost") {
+			continue
+		}
+		if effects.TargetUniqueRequested(sub) {
+			continue
+		}
+		if !svarsRead {
+			svarsRead = true
+			if o := e.G.Obj(id); o != nil && o.Face() != nil {
+				svars = o.Face().SVars
+			}
+		}
+		if subTargetingReadsRootTarget(sub, svars) {
+			continue
+		}
+		subExclude := excludeSelf
+		if sub.API == "Attach" {
+			subExclude = id
+		}
+		if !e.targetSAAvailable(p, id, subExclude, sub, 0, xPending) {
+			return false
+		}
+	}
+	return true
+}
+
+func (e *Engine) rootTargetsAvailable(p state.PlayerID, id, excludeSelf state.ObjID, sa *cards.SA, xPending bool) bool {
 	if sa.API == "Charm" && strings.TrimSpace(sa.Params["Choices"]) != "" {
 		return e.charmTargetsAvailable(p, id, sa, xPending)
 	}

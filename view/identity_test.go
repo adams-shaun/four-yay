@@ -158,6 +158,32 @@ func TestTargetLabelPrefersTgtPromptThenValidTgts(t *testing.T) {
 	}
 }
 
+// TestStackViewListsChainTargetsAfterRootTargets: a SubAbility$ link's
+// cast-time targets (CR 601.2c, Object.SubTargets) are targets of the stack
+// object, so the view lists them after the root's -- a client draws the
+// second arrow of "target creature you control deals damage to target
+// creature you don't control" as soon as the spell is cast.
+func TestStackViewListsChainTargetsAfterRootTargets(t *testing.T) {
+	g, id := twoSeatWith(t, boltSrc)
+	c, _ := cards.ParseBytes("b.txt", []byte("Name:Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"))
+	bear := g.AddObject(c, 1).ID
+	events.Apply(g, events.Event{Kind: events.MoveZone, Obj: bear, From: state.ZLibrary, To: state.ZBattlefield})
+	events.Apply(g, events.Event{Kind: events.PutOnStack, Obj: id, Player: 0, From: state.ZHand, To: state.ZStack})
+	events.Apply(g, events.Event{Kind: events.TargetsChosen, Obj: id, Player: 1, Amount: 1})
+	events.Apply(g, events.Event{Kind: events.TargetsChosen, Obj: id, IDs: []state.ObjID{bear}, Amount: 2, Text: events.SubTargetNotice})
+	v := Project(g, flatChars{g}, 1, nil)
+	if len(v.Stack) != 1 || len(v.Stack[0].Targets) != 2 {
+		t.Fatalf("stack %+v, want one spell with its root and chain target", v.Stack)
+	}
+	root, chain := v.Stack[0].Targets[0], v.Stack[0].Targets[1]
+	if !root.IsPlayer || root.Player != 1 {
+		t.Fatalf("first target %+v, want the root's player target", root)
+	}
+	if chain.IsPlayer || chain.Obj != bear {
+		t.Fatalf("second target %+v, want the chain link's object target %d", chain, bear)
+	}
+}
+
 func TestCardViewCarriesCombatRelationships(t *testing.T) {
 	g, attacker := twoSeatWith(t, watcherSrc)
 	events.Apply(g, events.Event{Kind: events.MoveZone, Obj: attacker, From: state.ZHand, To: state.ZBattlefield})

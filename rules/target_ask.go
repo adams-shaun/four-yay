@@ -364,8 +364,13 @@ func (e *Engine) answerOppPick(d *decision.Decision, chosen []decision.Option) {
 	case oppPickCastRoot:
 		e.continueCast()
 	case oppPickCastSub:
-		if pc := e.cast; pc != nil {
-			e.postTargetAsks(pc)
+		if pc := e.cast; pc != nil && !e.postTargetAsks(pc) {
+			// The selected seat's ask needed no decision after all (its pool
+			// emptied on a Min-0 link): nothing else is outstanding, so the
+			// announcement is complete and the cast pays -- the same tail the
+			// cast_sub answer takes. Without it the proposal would be left
+			// parked with no decision pending.
+			e.finishTargetedCast(pc, pc.player)
 		}
 	}
 }

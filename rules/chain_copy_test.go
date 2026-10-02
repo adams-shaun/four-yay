@@ -3,7 +3,9 @@ package rules
 import (
 	"testing"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -102,10 +104,24 @@ func TestChainOfSmogMarksCopyOfCopyElection(t *testing.T) {
 func TestBarroomBrawlCopyGoesToNextOpponent(t *testing.T) {
 	t.Parallel()
 	reg := testutil.CorpusRegistry(t)
-	e, cfg, ids := edrBoard(t, reg, 89, map[string]state.Zone{
-		"Barroom Brawl": state.ZHand,
-		"Grizzly Bears": state.ZBattlefield,
-	})
+	// edrBoard's shape, with a creature in the OPPONENT's deck too. CR 601.2c:
+	// "target creature the opponent to your left controls" is a mandatory
+	// target announced on cast, so the spell is castable only while that
+	// opponent controls a creature.
+	brawl, bear := mustCorpusCard(t, reg, "Barroom Brawl"), mustCorpusCard(t, reg, "Grizzly Bears")
+	cfg := Config{Seed: 89, Names: []string{"a", "b"}, Decks: [][]*cards.Card{
+		append([]*cards.Card{brawl, bear}, mountainDeck(t, 38)...),
+		append([]*cards.Card{bear}, mountainDeck(t, 39)...)}}
+	e := New(cfg)
+	ids := map[string]state.ObjID{
+		"Barroom Brawl": moveByName(t, e, 0, "Barroom Brawl", state.ZHand),
+		"Grizzly Bears": moveByName(t, e, 0, "Grizzly Bears", state.ZBattlefield),
+	}
+	moveByName(t, e, 1, "Grizzly Bears", state.ZBattlefield)
+	e.emit(events.Event{Kind: events.TurnChange, Player: 0, Amount: 2})
+	e.emit(events.Event{Kind: events.StepChange, Step: state.StepMain1})
+	e.Advance()
+	edrSeatZeroPriority(t, e)
 	addMana(t, e, 0, "G1")
 	edrSeatZeroPriority(t, e)
 	d := e.Pending()

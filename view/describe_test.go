@@ -114,6 +114,12 @@ func TestDescribeTemplates(t *testing.T) {
 		{"land", events.Event{Kind: events.LandPlayed, Player: 0}, "Ann plays a land"},
 		{"target player", events.Event{Kind: events.TargetsChosen, Obj: bolt, Player: 0, Amount: 1}, "Bolt #2 targets Ann"},
 		{"target objects", events.Event{Kind: events.TargetsChosen, Obj: bolt, IDs: []state.ObjID{bear}}, "Bolt #2 targets Bear #1"},
+		// The append shapes: a second root target, and a SubAbility$ link's
+		// cast-time target (CR 601.2c) -- a player one must not print as an
+		// empty object list.
+		{"target player appended", events.Event{Kind: events.TargetsChosen, Obj: bolt, Player: 1, Amount: 3}, "Bolt #2 targets Bob"},
+		{"chain target player", events.Event{Kind: events.TargetsChosen, Obj: bolt, Player: 1, Amount: 3, Text: events.SubTargetNotice}, "Bolt #2 targets Bob"},
+		{"chain target object", events.Event{Kind: events.TargetsChosen, Obj: bolt, IDs: []state.ObjID{bear}, Amount: 2, Text: events.SubTargetNotice}, "Bolt #2 targets Bear #1"},
 		{"flip", events.Event{Kind: events.FlipFace, Obj: bear, Amount: 1}, "Bear #1 turns to face 1"},
 		{"clock", events.Event{Kind: events.ClockTick}, ""},
 		{"trigger", events.Event{Kind: events.TriggerPush, Player: 0, Obj: bear}, "Bear #1 triggers"},

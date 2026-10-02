@@ -503,6 +503,10 @@ type pendingCast struct {
 	subStage     int
 	subCollected bool
 	rootOpts     []decision.Option
+	// targetedFinish is set for the duration of finishTargetedCast's payCast
+	// call (see there): the caller, not payCast, dispatches the ability's
+	// mana-spent rider.
+	targetedFinish bool
 
 	// evidence / evidenceN / evidenceResolved / evidenceSettled carry the
 	// CollectEvidence<N>/<NAME> cost component (task alltargeted1): the

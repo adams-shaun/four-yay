@@ -1429,7 +1429,8 @@ func TestSetAudit_sos_StrixhavenSkycoach_ETBSearchAndCrew(t *testing.T) {
 
 // (a) Fight (CR 701.12), Chelonian Tackle: the pump (+0/+10) applies BEFORE
 // the fight sub-resolves, so the pumped 2/2 takes the ogre's 3 and survives;
-// the fight itself is the SubAbility's "up to one" target. Declared variant.
+// the fight itself is the SubAbility's "up to one" target, announced on cast
+// (CR 601.2c). Declared variant.
 func TestSetAudit_sos_ChelonianTackle_FightDeclared(t *testing.T) {
 	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 933, []string{"Chelonian Tackle"}, []string{sosBearSrc}, []string{sosOgreSrc})
@@ -1441,28 +1442,19 @@ func TestSetAudit_sos_ChelonianTackle_FightDeclared(t *testing.T) {
 	addMana(t, e, 0, "GGG")
 	submitChoices(t, e, castOptionFor(t, e, tackle).Index)
 	answerTargetAsk(t, e, []state.ObjID{bear})
-	// Both players pass so the tackle resolves; its resolution poses the
-	// fight's "up to one" ask (TargetMin$ 0).
+	// CR 601.2c: the fight's "up to one target creature an opponent controls"
+	// is announced as the spell is cast (Min 0, Max 1), right after the
+	// root's target and before payment -- not as the spell resolves.
+	if d := castSubAsk(t, e); d.Min != 0 || d.Max != 1 {
+		t.Fatalf("the fight's up-to-one ask has bounds %d..%d, want 0..1", d.Min, d.Max)
+	}
+	answerCastSubObj(t, e, ogre)
+	// Both players pass so the tackle resolves; the resolution asks nothing.
 	sosPassPriority(t, e)
 	sosPassPriority(t, e)
-	// The fight's "up to one" ask is a KChoose tgts election (Min 0, Max 1).
-	d := e.Pending()
-	if d == nil || d.Kind != decision.KChoose || d.ResumeKind != "tgts" {
-		t.Fatalf("expected the fight's up-to-one tgts ask, got kind %v resume %q: %+v", d.Kind, d.ResumeKind, d)
+	if len(e.G.Stack) != 0 {
+		t.Fatalf("the tackle did not resolve on two passes: stack %v, pending %+v", e.G.Stack, e.Pending())
 	}
-	idx := -1
-	for _, o := range d.Options {
-		if o.Obj == ogre {
-			idx = o.Index
-		}
-	}
-	if idx < 0 {
-		t.Fatalf("precondition: the ogre is not offered as the fight target: %+v", d.Options)
-	}
-	if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{idx}}); err != nil {
-		t.Fatalf("submit fight target: %v", err)
-	}
-	passUntilStackEmpty(t, e, 20)
 	if so := e.G.Obj(bear); so == nil || so.Zone != state.ZBattlefield || so.Damage != 3 {
 		t.Errorf("fight: the pumped bear should survive on the battlefield with the ogre's 3 damage, got zone/damage %+v/%d", so, pageDamage(so))
 	}
@@ -1489,17 +1481,17 @@ func TestSetAudit_sos_ChelonianTackle_FightDeclined(t *testing.T) {
 	addMana(t, e, 0, "GGG")
 	submitChoices(t, e, castOptionFor(t, e, tackle).Index)
 	answerTargetAsk(t, e, []state.ObjID{bear})
-	sosPassPriority(t, e)
-	sosPassPriority(t, e)
-	d := e.Pending()
-	if d == nil || d.Kind != decision.KChoose || d.ResumeKind != "tgts" {
-		t.Fatalf("expected the fight's up-to-one tgts ask, got kind %v resume %q: %+v", d.Kind, d.ResumeKind, d)
-	}
+	// The "up to one" ask is posed on cast (CR 601.2c).
+	d := castSubAsk(t, e)
 	// "Up to one" legal decline: no targets at all.
 	if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: nil}); err != nil {
 		t.Fatalf("declining the up-to-one fight target was rejected: %v (CR 701.12a TargetMin$ 0)", err)
 	}
-	passUntilStackEmpty(t, e, 20)
+	sosPassPriority(t, e)
+	sosPassPriority(t, e)
+	if len(e.G.Stack) != 0 {
+		t.Fatalf("the tackle did not resolve on two passes: stack %v, pending %+v", e.G.Stack, e.Pending())
+	}
 	if so := e.G.Obj(bear); so == nil || so.Damage != 0 {
 		t.Errorf("fight declined: the bear took %v damage, want 0 (no fight target)", soDamageTaken(so))
 	}
@@ -2042,8 +2034,8 @@ const sosKillSrc = "Name:Test Killer\nManaCost:R\nTypes:Instant\nA:SP$ DealDamag
 // bear; the OPPONENT's killer spell kills the bear in response; the tackle's
 // target is illegal when it would resolve, so it does NOTHING — no pump, no
 // fight, no damage — and is put into its owner's graveyard. The
-// distinguishing assertion: the ogre (the fight's available target) takes
-// zero damage and no fight tgts ask is ever posed.
+// distinguishing assertion: the ogre (the fight's available target, declined
+// on cast) takes zero damage and no target ask is posed at resolution.
 func TestSetAudit_sos_ChelonianTackle_TargetDiesInResponse(t *testing.T) {
 	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 948, []string{"Chelonian Tackle"}, []string{sosBearSrc}, []string{sosKillSrc, sosOgreSrc})
@@ -2065,6 +2057,13 @@ func TestSetAudit_sos_ChelonianTackle_TargetDiesInResponse(t *testing.T) {
 	addMana(t, e, 1, "R")
 	submitChoices(t, e, castOptionFor(t, e, tackle).Index)
 	answerTargetAsk(t, e, []state.ObjID{bear})
+	// The fight's "up to one target" is announced on cast (CR 601.2c) and is
+	// declined here, so the bear is the spell's ONLY target: when it dies the
+	// spell has no legal target left and does not resolve (CR 608.2b).
+	decline := castSubAsk(t, e)
+	if err := e.Submit(decision.Intent{Seq: decline.Seq, Player: decline.Player, Choices: nil}); err != nil {
+		t.Fatalf("declining the up-to-one fight target was rejected: %v", err)
+	}
 	// I hold priority after my cast; pass so the opponent can respond.
 	sosPassPriority(t, e)
 	d := e.Pending()

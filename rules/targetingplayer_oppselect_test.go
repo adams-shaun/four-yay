@@ -299,8 +299,11 @@ func TestThreeSeatOpponentSelectionEvangelize(t *testing.T) {
 
 // TestThreeSeatVolcanicOfferingMidResolutionSelection: Volcanic Offering's
 // root SP$ Pump (no TargetingPlayer$) is answered by the CASTER, then the
-// depth-2 DB$DestroyLand sub carries `TargetingPlayer$ Player.Opponent`, so
-// the controller's selection ask fires before the sub's target ask.
+// DBDestroyLand link carries `TargetingPlayer$ Player.Opponent`, so the
+// controller's which-opponent selection fires before that link's target ask.
+// CR 601.2c: both happen as the spell is CAST (the name is kept for history;
+// nothing here is mid-resolution any more) -- the selection, then the selected
+// opponent's target, before any cost is paid.
 func TestThreeSeatVolcanicOfferingMidResolutionSelection(t *testing.T) {
 	t.Parallel()
 	reg := searchTestRegistry(t)
@@ -312,9 +315,11 @@ func TestThreeSeatVolcanicOfferingMidResolutionSelection(t *testing.T) {
 	e, cfg := oppSelectBoard(t, reg, 3, "Volcanic Offering", furnace)
 	offeringID := searchMoveByName(t, e, "Volcanic Offering", state.ZHand)
 	furnaceID := searchMoveByNameSeat(t, e, 1, "Great Furnace", state.ZBattlefield)
+	// The mandatory creature targets need an opposing creature (CR 601.2c).
+	bearID := searchMoveByNameSeat(t, e, 1, "Grizzly Bears", state.ZBattlefield)
 	fo := e.G.Obj(furnaceID)
-	if fo == nil || fo.Zone != state.ZBattlefield || fo.Controller != 1 {
-		t.Fatalf("furnace precondition: %+v (want a nonbasic land under seat 1)", fo)
+	if fo == nil || fo.Zone != state.ZBattlefield || fo.Controller != 1 || bearID == 0 {
+		t.Fatalf("furnace precondition: %+v, bear %d (want a nonbasic land and a creature under seat 1)", fo, bearID)
 	}
 	addMana(t, e, 0, "CCCCR") // {4}{R}
 	submitChoices(t, e, castCardOption(t, e, offeringID).Index)
@@ -324,21 +329,13 @@ func TestThreeSeatVolcanicOfferingMidResolutionSelection(t *testing.T) {
 	if root == nil || root.Kind != decision.KTarget || root.Player != 0 {
 		t.Fatalf("root target ask = %+v, want the caster seat 0 answering the root", root)
 	}
-	rootIdx := -1
-	for _, o := range root.Options {
-		if o.Obj == furnaceID {
-			rootIdx = o.Index
-		}
-	}
-	if rootIdx < 0 {
-		t.Fatalf("root ask did not offer seat 1's furnace %d: %+v", furnaceID, root.Options)
-	}
-	submitChoices(t, e, rootIdx)
+	answerTargetAsk(t, e, []state.ObjID{furnaceID})
 
-	// The selection ask for DBDestroyLand, posed to the controller.
-	pick := passPriorityUntilNonPriority(t, e)
-	if pick.Kind != decision.KChoose || pick.ResumeKind != "opp_pick" {
-		t.Fatalf("mid-resolution ask = %+v, want the which-opponent selection", pick)
+	// The selection ask for DBDestroyLand, posed to the controller -- during
+	// the announcement, with the spell unpaid.
+	pick := e.Pending()
+	if pick == nil || pick.Kind != decision.KChoose || pick.ResumeKind != "opp_pick" {
+		t.Fatalf("cast-time ask = %+v, want the which-opponent selection", pick)
 	}
 	if pick.Player != 0 {
 		t.Fatalf("selection ask posed to seat %d, want the controller seat 0", pick.Player)
@@ -356,13 +353,10 @@ func TestThreeSeatVolcanicOfferingMidResolutionSelection(t *testing.T) {
 		t.Fatalf("submit the seat-2 selection: %v", err)
 	}
 
-	// The sub's target ask must now be posed to the SELECTED opponent.
-	ask := passPriorityUntilNonPriority(t, e)
-	if ask.Kind != decision.KChoose || ask.ResumeKind != "tgts" {
-		t.Fatalf("mid-resolution ask = %+v, want the mvts1 \"tgts\" KChoose for DBDestroyLand", ask)
-	}
+	// The link's target ask must now be posed to the SELECTED opponent.
+	ask := castSubAsk(t, e)
 	if ask.Player != 2 {
-		t.Fatalf("mid-resolution sub target ask posed to seat %d, want the SELECTED opponent seat 2", ask.Player)
+		t.Fatalf("the opponent's-choice land ask is posed to seat %d, want the SELECTED opponent seat 2", ask.Player)
 	}
 	offered := false
 	for _, o := range ask.Options {

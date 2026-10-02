@@ -33,7 +33,26 @@ func (e *Engine) commitCrimeMatches(t cards.Trigger, source state.ObjID, ev even
 		return false
 	}
 	if o := e.G.Obj(ev.Obj); o != nil && (ev.Amount == 2 || ev.Amount == 3) {
-		for _, target := range o.Targets[:len(o.Targets)-1] {
+		// The targets already on the object before this one. A chain link's
+		// target (events.SubTargetNotice, CR 601.2c) was appended to
+		// SubTargets, after every root target; a root append to Targets.
+		prior, priorSub := o.Targets, o.SubTargets
+		if ev.Text == events.SubTargetNotice {
+			if len(priorSub) > 0 {
+				priorSub = priorSub[:len(priorSub)-1]
+			}
+		} else {
+			priorSub = nil
+			if len(prior) > 0 {
+				prior = prior[:len(prior)-1]
+			}
+		}
+		for _, target := range prior {
+			if e.targetCommitsCrime(target, actor) {
+				return false
+			}
+		}
+		for _, target := range priorSub {
 			if e.targetCommitsCrime(target, actor) {
 				return false
 			}

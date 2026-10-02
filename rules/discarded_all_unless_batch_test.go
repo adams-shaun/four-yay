@@ -186,6 +186,13 @@ func TestDiscardedAllSingleCardUnlessPaymentIsOneBatch(t *testing.T) {
 
 	addMana(t, e, 0, "RR")
 	submitChoices(t, e, passToCast(t, e, spell))
+	// CR 601.2c: Witch's Mark's "up to one target creature you control" (the
+	// Wicked Role's host) is announced as the spell is cast -- declined here,
+	// the test is about the discard batch.
+	if d := castSubAsk(t, e); d.Min != 0 {
+		t.Fatalf("the Role's up-to-one target ask has Min %d, want 0", d.Min)
+	}
+	submitChoices(t, e)
 	var ask *decision.Decision
 	for i := 0; i < 12 && e.Pending() != nil; i++ {
 		d := e.Pending()
@@ -225,9 +232,8 @@ func TestDiscardedAllSingleCardUnlessPaymentIsOneBatch(t *testing.T) {
 	if d := e.Pending(); d != nil && d.Kind == decision.KTriggerOrder {
 		t.Fatalf("a single-card unless discard offered %d triggers, want 1", len(d.Options))
 	}
-	// Witch's Mark's switched body chains an optional token sub whose target
-	// ask (Min 0) follows the payment; answer it with nothing, then pass the
-	// priority rounds so the DiscardedAll trigger resolves.
+	// The Role's target was settled on cast, so nothing is asked after the
+	// payment: pass the priority rounds so the DiscardedAll trigger resolves.
 	for i := 0; i < 30 && !e.G.Over; i++ {
 		d := e.Pending()
 		if d == nil || (len(e.G.Stack) == 0 && len(e.pendingTriggers) == 0) {
@@ -236,8 +242,6 @@ func TestDiscardedAllSingleCardUnlessPaymentIsOneBatch(t *testing.T) {
 		switch d.Kind {
 		case decision.KPriority:
 			castFirst(t, e, "pass")
-		case decision.KChoose:
-			submitChoices(t, e) // the optional token target: none
 		default:
 			t.Fatalf("unexpected decision %v while draining the single-card payment: %+v", d.Kind, d)
 		}

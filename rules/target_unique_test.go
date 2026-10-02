@@ -85,29 +85,9 @@ func TestBiomanticMasterySubTargetExcludesParentTarget(t *testing.T) {
 	}
 	submitChoices(t, e, rootChoice)
 
-	// Pass priority until the spell resolves to the SubAbility's pre-ask.
-	for i := 0; i < 20; i++ {
-		d := e.Pending()
-		if d == nil {
-			t.Fatal("no decision while awaiting the sub target ask")
-		}
-		if d.Kind != decision.KPriority {
-			break
-		}
-		for _, o := range d.Options {
-			if o.Kind == "pass" {
-				submitChoices(t, e, o.Index)
-				break
-			}
-		}
-	}
-
-	// The SubAbility's own pre-ask (KChoose, resume kind "tgts"). TargetUnique$
-	// must exclude seat 1, the root's already-chosen target.
-	sub := e.Pending()
-	if sub == nil || sub.Kind != decision.KChoose || sub.ResumeKind != "tgts" {
-		t.Fatalf("sub pre-ask = %+v, want a KChoose tgts ask", sub)
-	}
+	// CR 601.2c: "another target player" is announced with the first, as the
+	// spell is cast. TargetUnique$ must exclude seat 1, the root's target.
+	sub := castSubAsk(t, e)
 	offered := pendingPlayerIDs(t, e)
 	if offered[1] {
 		t.Fatalf("sub TargetUnique$ ask re-offers the parent's own target (seat 1): %+v", sub.Options)
@@ -135,39 +115,21 @@ func chainUniqueScript() string {
 }
 
 // TestTargetUniqueAccumulatesAcrossTheChain pins the intra-chain half of the
-// shared constraint: the second TargetUnique$ rider in one resolution excludes
-// not only the placement targets (there are none here — the root is
-// untargeted) but also the target an EARLIER TargetUnique$ rider in the same
-// chain chose. Without Ctx.TargetsUnique accumulation the second rider offers
-// both players again.
+// shared constraint at its CR 601.2c timing: both riders are announced as the
+// spell is cast, and the second TargetUnique$ rider excludes not only the
+// root's targets (there are none here — the root is untargeted) but also the
+// target an EARLIER TargetUnique$ rider in the same chain chose. Without the
+// accumulation the second rider offers both players again.
 func TestTargetUniqueAccumulatesAcrossTheChain(t *testing.T) {
 	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 7002, chainUniqueScript())
 	addMana(t, e, 0, "C")
 	castFirst(t, e, "cast")
 
-	// Pass priority until the spell resolves to the first rider's pre-ask.
-	for i := 0; i < 20; i++ {
-		d := e.Pending()
-		if d == nil {
-			t.Fatal("no decision while awaiting the first rider ask")
-		}
-		if d.Kind != decision.KPriority {
-			break
-		}
-		for _, o := range d.Options {
-			if o.Kind == "pass" {
-				submitChoices(t, e, o.Index)
-				break
-			}
-		}
-	}
-
+	// CR 601.2c: both riders are targets, so both are announced as the spell
+	// is cast -- before any priority is passed and before the spell resolves.
 	// First rider's ask: both players.
-	d := e.Pending()
-	if d == nil || d.Kind != decision.KChoose || d.ResumeKind != "tgts" {
-		t.Fatalf("first rider ask = %+v, want KChoose tgts", d)
-	}
+	d := castSubAsk(t, e)
 	first := pendingPlayerIDs(t, e)
 	if !first[0] || !first[1] {
 		t.Fatalf("first rider should offer both players: %+v", d.Options)
@@ -184,10 +146,7 @@ func TestTargetUniqueAccumulatesAcrossTheChain(t *testing.T) {
 	submitChoices(t, e, pick0)
 
 	// Second rider's ask must exclude seat 0, chosen by the FIRST rider.
-	d2 := e.Pending()
-	if d2 == nil || d2.Kind != decision.KChoose || d2.ResumeKind != "tgts" {
-		t.Fatalf("second rider ask = %+v, want KChoose tgts", d2)
-	}
+	d2 := castSubAsk(t, e)
 	second := pendingPlayerIDs(t, e)
 	if second[0] {
 		t.Fatalf("second rider re-offers the first rider's target (seat 0): %+v", d2.Options)
@@ -196,7 +155,18 @@ func TestTargetUniqueAccumulatesAcrossTheChain(t *testing.T) {
 		t.Fatalf("second rider offers no legal different player: %+v", d2.Options)
 	}
 	submitChoices(t, e, 0)
-	passUntilStackEmpty(t, e, 30)
+	// Both announced before the spell could resolve: it is still on the stack
+	// and the resolution poses no target ask of its own.
+	if d := e.Pending(); d == nil || d.Kind != decision.KPriority || len(e.G.Stack) != 1 {
+		t.Fatalf("after the announcement: pending %+v, stack %v; want priority with the spell on the stack", d, e.G.Stack)
+	}
+	for len(e.G.Stack) > 0 {
+		d := e.Pending()
+		if d == nil || d.Kind != decision.KPriority {
+			t.Fatalf("the resolution posed %+v: every rider was already announced on cast", d)
+		}
+		submitChoices(t, e, passIndex(t, d))
+	}
 	replayCheck(t, e, cfg)
 }
 
@@ -239,26 +209,9 @@ func TestCyberneticaTokenSubTargetExcludesParentTarget(t *testing.T) {
 	}
 	submitChoices(t, e, pick1)
 
-	for i := 0; i < 20; i++ {
-		d := e.Pending()
-		if d == nil {
-			t.Fatal("no decision while awaiting the Token sub ask")
-		}
-		if d.Kind != decision.KPriority {
-			break
-		}
-		for _, o := range d.Options {
-			if o.Kind == "pass" {
-				submitChoices(t, e, o.Index)
-				break
-			}
-		}
-	}
-
-	sub := e.Pending()
-	if sub == nil || sub.Kind != decision.KChoose || sub.ResumeKind != "tgts" {
-		t.Fatalf("token sub ask = %+v, want KChoose tgts", sub)
-	}
+	// CR 601.2c: "another target player" is announced with the first, as the
+	// spell is cast.
+	sub := castSubAsk(t, e)
 	offered := pendingPlayerIDs(t, e)
 	if offered[1] {
 		t.Fatalf("token TargetUnique$ ask re-offers the parent's target (seat 1): %+v", sub.Options)
@@ -553,10 +506,8 @@ func TestWithdrawShapedSubExcludesTheBattlefieldParent(t *testing.T) {
 }
 
 // suspensionRiderScript is chainUniqueScript with an intervening PLAIN (non-
-// TargetUnique) target rider: the second rider's own ask suspends the
-// resolution, and the resumed Ctx is rebuilt fresh — which used to rebuild
-// the TargetUnique accumulator empty, so the third rider re-offered the first
-// rider's target.
+// TargetUnique) target rider between the two unique ones: the third rider
+// must exclude the first rider's target but not the second's.
 func suspensionRiderScript() string {
 	return "Name:Rider Suspension\nManaCost:1\nTypes:Sorcery\n" +
 		"A:SP$ Draw | NumCards$ 1 | SubAbility$ R1\n" +
@@ -566,11 +517,11 @@ func suspensionRiderScript() string {
 		"Oracle:x\n"
 }
 
-// TestTargetUniqueSurvivesASuspensionBetweenRiders pins the accumulator across
-// the engine's normal continuation boundary: a plain target ask between two
-// TargetUnique$ riders must not erase the earlier rider's pick. Pre-fix the
-// third rider offered BOTH players again (its filter saw an empty
-// accumulator).
+// TestTargetUniqueSurvivesASuspensionBetweenRiders pins the exclusion across
+// an intervening plain target ask, at the CR 601.2c timing (all three riders
+// are announced on cast): the plain ask between two TargetUnique$ riders must
+// not erase the earlier rider's pick, and its own answer must not enter the
+// exclusion set. The resolution then poses no target ask at all.
 func TestTargetUniqueSurvivesASuspensionBetweenRiders(t *testing.T) {
 	t.Parallel()
 	e, cfg, _ := newFixtureDeck(t, 7007, suspensionRiderScript())
@@ -578,37 +529,16 @@ func TestTargetUniqueSurvivesASuspensionBetweenRiders(t *testing.T) {
 	castFirst(t, e, "cast")
 	handBefore := len(e.G.Zone(state.ZHand, 0))
 
-	for i := 0; i < 20; i++ {
-		d := e.Pending()
-		if d == nil {
-			t.Fatal("no decision while awaiting the first rider ask")
-		}
-		if d.Kind != decision.KPriority {
-			break
-		}
-		for _, o := range d.Options {
-			if o.Kind == "pass" {
-				submitChoices(t, e, o.Index)
-				break
-			}
-		}
-	}
-
+	// CR 601.2c: all three riders are announced as the spell is cast.
 	// Rider 1's ask: both players; pick seat 0.
-	d := e.Pending()
-	if d == nil || d.Kind != decision.KChoose || d.ResumeKind != "tgts" {
-		t.Fatalf("first rider ask = %+v, want KChoose tgts", d)
-	}
+	d := castSubAsk(t, e)
 	if !pendingPlayerIDs(t, e)[0] || !pendingPlayerIDs(t, e)[1] {
 		t.Fatalf("first rider should offer both players: %+v", d.Options)
 	}
 	submitChoices(t, e, 0)
 
-	// Rider 2's ask (the intervening non-unique suspension): pick seat 1.
-	d = e.Pending()
-	if d == nil || d.Kind != decision.KChoose || d.ResumeKind != "tgts" {
-		t.Fatalf("second rider ask = %+v, want KChoose tgts", d)
-	}
+	// Rider 2's ask (the intervening non-unique one): pick seat 1.
+	d = castSubAsk(t, e)
 	if !pendingPlayerIDs(t, e)[0] || !pendingPlayerIDs(t, e)[1] {
 		t.Fatalf("second rider should offer both players (it is not unique): %+v", d.Options)
 	}
@@ -616,12 +546,9 @@ func TestTargetUniqueSurvivesASuspensionBetweenRiders(t *testing.T) {
 
 	// Rider 3's ask must still exclude seat 0, chosen by rider 1 BEFORE
 	// rider 2's suspension.
-	d = e.Pending()
-	if d == nil || d.Kind != decision.KChoose || d.ResumeKind != "tgts" {
-		t.Fatalf("third rider ask = %+v, want KChoose tgts", d)
-	}
+	d = castSubAsk(t, e)
 	if pendingPlayerIDs(t, e)[0] {
-		t.Fatalf("third rider re-offers seat 0: the suspension dropped the accumulator: %+v", d.Options)
+		t.Fatalf("third rider re-offers seat 0: the intervening ask dropped the exclusion: %+v", d.Options)
 	}
 	if !pendingPlayerIDs(t, e)[1] {
 		t.Fatalf("third rider offers no legal different player: %+v", d.Options)

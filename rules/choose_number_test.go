@@ -17,7 +17,8 @@ import (
 // ChooseNumber shape the fix targets.
 
 // castVoid funds {3}{B}{R} and casts the real Void from seat 0's hand,
-// leaving the resolution suspended on the mid-resolution number ask. It
+// answering the cast-time "target player" ask with seat 1 and leaving the
+// spell on the stack; the callers pass priority to the number ask. It
 // asserts its own precondition: a real cmc-2 creature is on the battlefield
 // (so the number chosen provably names a value the board contains), and the
 // spell is in seat 0's hand before the cast.
@@ -45,6 +46,10 @@ func castVoid(t *testing.T) (*Engine, state.ObjID, state.ObjID) {
 		t.Fatalf("no cast option for Void in %+v", d.Options)
 	}
 	submitChoices(t, e, idx)
+	// CR 601.2c: Void's "target player reveals their hand" is a target, so it
+	// is announced as the spell is cast -- before the number is chosen, which
+	// stays a resolution-time choice.
+	answerCastSubPlayer(t, e, 1)
 	return e, void, bear
 }
 

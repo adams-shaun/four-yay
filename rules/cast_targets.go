@@ -585,29 +585,32 @@ func (pc *pendingCast) allTargets() []state.Target {
 }
 
 // collectSubTargetPreAsks walks the root SA's SubAbility$ chain in order and
-// returns the bodies whose targeting Forge would pre-ask at cast time
-// (CR 601.2c): a ValidTgts$ declaration, no already-named Defined$ fetch list
-// (target reuse -- with the API$ Fight carve-out, whose SA carries TWO
-// independent target lists and whose ValidTgts$ IS its second ask), and not
-// the ChangeZone family (effChangeZone's own mid-resolution ask owns that
-// shape). The same inclusion rules effects' chosenTargetsFor applies to the
-// mid-resolution path, so a sub asked at resolution today is exactly a sub
-// pre-asked here, and one asked by NEITHER (a Defined$ reuse) stays silent.
+// returns the links whose targets are announced as the spell is cast or the
+// ability activated (CR 601.2c): every link that declares ValidTgts$, except
+// the ChangeZone family (effChangeZone's own mid-resolution ask,
+// changeZoneChosenTargets, still owns that shape -- a later stage).
+//
+// A link's Defined$ does not excuse it. `Defined$ You | ValidTgts$ Player`
+// (Biomantic Mastery's "another target player", Humble Defector's "target
+// opponent gains control") names who ACTS, the target is still a target; the
+// mid-resolution path asks for it (chosenTargetsFor) and so does this walk.
+// A target-REUSE Defined$ beside a ValidTgts$ (`Defined$ ParentTarget |
+// ValidTgts$ ...` -- Fight's and ExchangeControl's two-list bodies, which
+// read the answer from Ctx.SubPreAsk; Donate's `Defined$ Targeted`) is a
+// second target declaration that no mid-resolution ask ever posed: it is
+// announced here.
+//
 // Deliberately excluded whole: modal (Charm) and CopySpellAbility roots --
 // castModeAsk/AskCopyTargets own their targeting -- and trigger bodies (this
-// walks the cast flow only; a trigger's placement ask timing is CR 603.3c's,
-// not 601.2c's).
+// walks the cast flow only; a trigger's chain is CR 603.3d's, announced when
+// the trigger is put on the stack, a later stage).
 func (e *Engine) collectSubTargetPreAsks(root *cards.SA) []*cards.SA {
-	if root == nil || root.API == "Charm" || root.API == "CopySpellAbility" {
+	if root == nil || root.Sub == nil || root.API == "Charm" || root.API == "CopySpellAbility" {
 		return nil
 	}
 	var out []*cards.SA
 	for sa := root.Sub; sa != nil; sa = sa.Sub {
-		if strings.TrimSpace(sa.Params["ValidTgts"]) == "" {
-			continue
-		}
-		defined := strings.TrimSpace(sa.Params["Defined"])
-		if defined != "" && !effects.DefinedIsTargetReuse(defined) && sa.API != "Fight" {
+		if strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) == "" {
 			continue
 		}
 		if sa.CompiledAPI() == cards.APIChangeZone || sa.API == "ChangeZone" {
@@ -616,46 +619,6 @@ func (e *Engine) collectSubTargetPreAsks(root *cards.SA) []*cards.SA {
 		out = append(out, sa)
 	}
 	return out
-}
-
-// castCostReadsAllTargeted reports whether this cast's COST depends on the
-// AllTargeted$ union over the root/sub-ability chain (alltargeted1), which is
-// the only reason the cast flow pre-asks the chain's targets: CR 601.2b/601.2f
-// determine the cost AFTER targets are chosen, so a cost head naming
-// AllTargeted$ cannot be evaluated until the sub targets exist.
-//
-// Two cost sites can carry such a head: the root SA's own ReduceCost$ (Wayta,
-// Trainer Prodigy's `ReduceCost$ X` -> `Count$Compare Y EQ2.2.0` ->
-// `Y:AllTargeted$Valid Creature.YouCtrl`) and a dynamic
-// CollectEvidence<NAME> amount (Urgent Necropsy's `X:AllTargeted$CardManaCost`).
-// Both are resolved through the source's SVar table, so the scan expands SVar
-// references transitively (bounded, so a cyclic table cannot spin). Raft
-// Security Officer carries the third corpus AllTargeted$ line but has no
-// sub-ability, so the gate holds and collectSubTargetPreAsks finds nothing.
-func (e *Engine) castCostReadsAllTargeted(pc *pendingCast, ab *cards.SA) bool {
-	if ab == nil {
-		return false
-	}
-	reduce := strings.TrimSpace(ab.ParamStr(cards.PKReduceCost))
-	var dyn []string
-	for _, part := range pc.cost.Evidence {
-		if part.Dyn != "" {
-			dyn = append(dyn, part.Dyn)
-		}
-	}
-	if reduce == "" && len(dyn) == 0 {
-		return false
-	}
-	svars := e.castStageSVars(pc)
-	if bodyReadsAllTargeted(reduce, svars, 0) {
-		return true
-	}
-	for _, name := range dyn {
-		if bodyReadsAllTargeted(name, svars, 0) {
-			return true
-		}
-	}
-	return false
 }
 
 // castStageSVars returns the SVar table the cast's cost heads resolve
@@ -676,7 +639,12 @@ func (e *Engine) castStageSVars(pc *pendingCast) map[string]string {
 }
 
 // bodyReadsAllTargeted reports whether v, or any SVar body it reaches, names
-// the AllTargeted$ reference. v is either a literal count body or an SVar
+// the AllTargeted$ reference -- the cost heads (Wayta's ReduceCost$, Urgent
+// Necropsy's CollectEvidence<X>) that read the union of the root's and the
+// chain's targets, which is one reason the chain is announced before payment
+// (CR 601.2c before 601.2f). It no longer gates the chain announcement (every
+// chain is announced on cast now); it is kept as the tested scan of that
+// cost shape. v is either a literal count body or an SVar
 // name; every identifier-shaped word in an expanded body is followed too
 // (Wayta's Count$Compare names its Y operand as a bare word). depth bounds
 // the walk so a self- or mutually-referential SVar table terminates. The scan
@@ -783,25 +751,38 @@ func (e *Engine) subTargetAsk(pc *pendingCast) bool {
 				root = e.castStageSA(pc, o, f)
 			}
 		}
-		// Fuse halves use separate target slices and resolution frames; a
-		// stage-0 chain walk here cannot attribute the other half's subs.
-		//
-		// alltargeted1 SCOPE GATE: the chain pre-ask runs ONLY for a cast
-		// whose own COST reads the AllTargeted$ union (castCostReadsAllTargeted
-		// -- Wayta's ReduceCost$ and Urgent Necropsy's CollectEvidence<X>, the
-		// whole corpus carrier set). General CR 601.2c sub-ability
-		// pre-announcement for every chain is a separate, far wider change
-		// (it moves the decision sequence of every spell with a targeting
-		// sub-ability, and with it the chain heads and golden replays); it is
-		// ticket agent-20260920T104356Z-c898602e's, not this row's. Outside
-		// the gate a sub keeps its mid-resolution ask exactly as before.
-		if pc.mode != "fuse" && e.castCostReadsAllTargeted(pc, root) {
-			pc.subAsks = e.collectSubTargetPreAsks(root)
+		// CR 601.2c: every target of the spell or ability is chosen as it is
+		// cast or activated -- the root's and every SubAbility$ link's alike.
+		// The chain walk (collectSubTargetPreAsks) names the links. Not
+		// announced here:
+		//   - Fuse: the two halves use separate target slices and resolution
+		//     frames; a stage-0 chain walk cannot attribute the other half's
+		//     subs. Its links keep their mid-resolution ask (a later stage).
+		//   - Overload: "target" reads "each" (CR 702.96a), so nothing in the
+		//     chain is a target at all.
+		//   - a link the census cannot judge yet (castSubPreAskable), which
+		//     also keeps its mid-resolution ask.
+		if pc.mode != "fuse" && pc.mode != "overloaded" {
+			for _, sub := range e.collectSubTargetPreAsks(root) {
+				if e.castSubPreAskable(pc, sub) {
+					pc.subAsks = append(pc.subAsks, sub)
+				}
+			}
 		}
 		pc.subAns = make([][]state.Target, len(pc.subAsks))
 	}
 	for pc.subStage < len(pc.subAsks) {
 		sub := pc.subAsks[pc.subStage]
+		if !castSubTargetsOwed(pc, sub) {
+			// CR 601.2c: "if the spell has ... additional costs ... such as
+			// kicker ... that will be paid, [targets are required] only if
+			// those costs are paid". The link exists only behind the unpaid
+			// cost, so it announces no target: an ANSWERED EMPTY set, which
+			// also keeps the resolution from re-posing the ask.
+			pc.subAns[pc.subStage] = []state.Target{}
+			pc.subStage++
+			continue
+		}
 		var excludeSelf state.ObjID
 		if !pc.isAbility() || sub.API == "Attach" {
 			excludeSelf = pc.card
@@ -842,7 +823,8 @@ func (e *Engine) subTargetAsk(pc *pendingCast) bool {
 		}
 		d := &decision.Decision{Player: pc.player, Kind: decision.KTarget, Min: min, Max: max,
 			Prompt: "Choose a target for " + e.targetName(pc.card) + "'s chained ability",
-			Source: excludeSelf, ResumeKind: "cast_sub"}
+			Source: excludeSelf, ResumeKind: "cast_sub",
+			TargetEffect: e.describeTargetEffect(pc.player, pc.card, sub, pc.x)}
 		pickOwed := false
 		if who, ok, pick := e.targetAskChooser(pc.player, pc.card, sub); pick {
 			pickOwed = true
@@ -869,6 +851,54 @@ func (e *Engine) subTargetAsk(pc *pendingCast) bool {
 	return false
 }
 
+// castSubPreAskable reports whether the cast flow can announce this chain
+// link's targets itself. The one shape it cannot: a link whose legality reads
+// an EARLIER target of the same spell or ability (Searing Blaze's
+// `Creature.ControlledBy ParentTargetedController`, Keeper of the Dead's
+// `Creature.nonBlack+TargetedPlayerCtrl`, Goblin Welder's
+// TargetsWithDefinedController$ ParentTargetedController, Mogg Assassin's
+// TargetingPlayer$ ParentTargetedController). CR 601.2c still wants it on
+// cast, relative to the target just chosen -- but the target census
+// (candidatesFor -> targetSpecContext) binds the Targeted*/ParentTarget
+// referents only for a RESOLVING context, never while an offer is being
+// built, so here the pool would come back empty and a mandatory link would
+// abort a castable spell. The link keeps the mid-resolution path it has on
+// main (where the same census cannot bind the referent either -- measured:
+// the ask is never posed). Closing it needs the census to take the
+// proposal's already-announced targets; ~12 corpus links.
+func (e *Engine) castSubPreAskable(pc *pendingCast, sub *cards.SA) bool {
+	return !subTargetingReadsRootTarget(sub, e.castStageSVars(pc))
+}
+
+// subTargetingReadsRootTarget reports whether a chain link's target
+// declaration is relative to an EARLIER target of the same spell or ability:
+// its spec, its controller restriction, its chooser, or a dynamic bound.
+func subTargetingReadsRootTarget(sub *cards.SA, svars map[string]string) bool {
+	for _, v := range []string{sub.ParamStr(cards.PKValidTgts), sub.Params["TargetsWithDefinedController"],
+		sub.Params["TargetingPlayer"]} {
+		if strings.Contains(v, "Targeted") || strings.Contains(v, "ParentTarget") {
+			return true
+		}
+	}
+	return bodyReadsRootTarget(sub.Params["TargetMin"], svars, 0) ||
+		bodyReadsRootTarget(sub.Params["TargetMax"], svars, 0)
+}
+
+// castSubTargetsOwed reports whether a chain link behind an optional
+// additional cost announces targets for THIS cast. Only the two cost gates
+// whose outcome is fixed when the cast option was picked are read -- every
+// other Condition*$ (a later discard, a colour of mana spent, a board census)
+// is judged as the link resolves and never excuses the announcement.
+func castSubTargetsOwed(pc *pendingCast, sub *cards.SA) bool {
+	switch cond := strings.TrimSpace(sub.Params["Condition"]); {
+	case strings.EqualFold(cond, "Kicked"):
+		return modeIsKicked(pc.mode) || (pc.multikickSet && pc.multikickTimes > 0)
+	case strings.EqualFold(cond, "OptionalCost"):
+		return pc.mode == "optionalcost"
+	}
+	return true
+}
+
 // answerCastSubTarget records a cast_sub KTarget answer against the stage it
 // was asked for and re-prices (the union grew, so a target-dependent
 // ReduceCost$ may now apply -- the net form is idempotent, which matters
@@ -880,6 +910,47 @@ func (e *Engine) answerCastSubTarget(pc *pendingCast, chosen []decision.Option) 
 	pc.subAns[pc.subStage] = targetOptions(chosen)
 	pc.subStage++
 	e.repriceForTargets(pc)
+	// A spell is already on the stack (pushCast), so the chain target is
+	// recorded now, before payment (601.2c before 601.2h) -- exactly when the
+	// root's is. An activated ability's object is minted by payCast's
+	// AbilityPush; recordCastSubTargets runs there for it.
+	if !pc.isAbility() && pc.stackObj != 0 {
+		e.recordSubTargets(pc.stackObj, pc.subAns[pc.subStage-1])
+	}
+}
+
+// recordSubTargets emits the TargetsChosen events for one chain link's
+// announced targets (CR 601.2c). They are real targetings -- ward (CR
+// 702.21a), "becomes the target" and the crime check (CR 700.13) match them
+// like the root's -- but carry events.SubTargetNotice so the fold appends to
+// Object.SubTargets instead of the root's Targets. One call is one targeting
+// batch (BecomesTargetOnce), the same bracket recordChosenTargets opens.
+func (e *Engine) recordSubTargets(obj state.ObjID, ts []state.Target) {
+	if len(ts) == 0 {
+		return
+	}
+	e.openTargetBatch()
+	defer e.closeTargetBatch()
+	for _, t := range ts {
+		ev := events.Event{Kind: events.TargetsChosen, Obj: obj, Amount: 2, Text: events.SubTargetNotice}
+		if t.IsPlayer {
+			ev.Amount, ev.Player = 3, t.Player
+		} else {
+			ev.IDs = []state.ObjID{t.Obj}
+		}
+		e.emit(ev)
+	}
+}
+
+// recordCastSubTargets records every answered chain link's targets onto an
+// activated ability's freshly minted stack object, in chain order.
+func (e *Engine) recordCastSubTargets(pc *pendingCast) {
+	if pc.stackObj == 0 {
+		return
+	}
+	for _, ts := range pc.subAns {
+		e.recordSubTargets(pc.stackObj, ts)
+	}
 }
 
 // installSubPreAsk publishes the answered sub-ask record onto the stack
@@ -1118,7 +1189,16 @@ func saHasKeyword(ab *cards.SA, want string) bool {
 // is outstanding, and a trigger drain parked on the target ask resumes
 // through its own continuation.
 func (e *Engine) finishTargetedCast(pc *pendingCast, player state.PlayerID) {
+	// targetedFinish tells payCast's ability arm that THIS function owns the
+	// mana-spent dispatch below. An ability whose root declares no target but
+	// whose chain link was asked reaches here with rootOpts nil, and payCast's
+	// own "no target-recording continuation" dispatch would fire the rider a
+	// second time. Cleared on return so a payment parked in the 601.2g window
+	// (no stack object yet, nothing dispatched here) dispatches from the
+	// resumed payCast instead.
+	pc.targetedFinish = true
 	e.payCast()
+	pc.targetedFinish = false
 	// payCast closes the proposal after creating the stack object (and has
 	// already recorded an ability's root targets, on either the immediate pay
 	// path or a resumed payCast). Keep its completed target bindings available

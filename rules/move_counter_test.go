@@ -285,12 +285,10 @@ func TestNestingGroundsSubTargetReceivesTheMove(t *testing.T) {
 	}
 	submitChoices(t, e, root)
 
-	// The sub DBMove's own ValidTgts$ pre-ask (ResumeKind "tgts"): the
-	// second bear.
-	kd := passUntilNonPriority(t, e, 60)
-	if kd == nil || kd.Kind != decision.KChoose || kd.ResumeKind != "tgts" {
-		t.Fatalf("decision = %+v, want the sub's tgts pre-ask", kd)
-	}
+	// The sub DBMove's own "another target permanent": announced as the
+	// ability is ACTIVATED (CR 602.2b / 601.2c), right after the root's
+	// target and before the cost is paid -- the second bear.
+	kd := castSubAsk(t, e)
 	sub := -1
 	for _, o := range kd.Options {
 		if o.Obj == bearB {
@@ -357,10 +355,7 @@ func TestNestingGroundsAnyKindWithOwnTargetDrains(t *testing.T) {
 	}
 	submitChoices(t, e, root)
 
-	kd := passUntilNonPriority(t, e, 60)
-	if kd == nil || kd.Kind != decision.KChoose || kd.ResumeKind != "tgts" {
-		t.Fatalf("decision = %+v, want the sub's tgts pre-ask", kd)
-	}
+	kd := castSubAsk(t, e)
 	sub := -1
 	for _, o := range kd.Options {
 		if o.Obj == bearB {

@@ -5,13 +5,22 @@ package rules
 // mid-resolution target pre-ask. These carriers put an intervening ask of a
 // DIFFERENT kind -- the row names a dig/scry/arrange ask -- between two
 // TargetUnique$ riders: the resumed Ctx rebuilt from the pending ask's ride
-// and, before this ticket, an ask that did not stamp that ride dropped the
+// and, before that ticket, an ask that did not stamp that ride dropped the
 // accumulator, so the later rider re-offered the earlier rider's pick.
+//
+// The carriers are TRIGGERED abilities. A spell's or activated ability's
+// chain links are announced on cast (CR 601.2c, cr601_subtargets_test.go), so
+// a spell carrier no longer reaches the mid-resolution ask at all; a
+// trigger's deeper links are still asked as the trigger resolves (the
+// placement ask covers only its first body -- CR 603.3d wants them at
+// placement, a separate stage). What is pinned here is the accumulator
+// surviving the suspension, which that path still depends on -- not the
+// timing. The spell forms of the same chains are pinned at their cast-time
+// timing by TestSpellRidersAnnouncedOnCastSurviveASuspension.
 //
 // The target-bearing SA lines are the corpus TargetUnique$ parameter
 // spellings (see target_unique_test.go's chainUniqueScript); the intervening
-// Dig line is dig_ask_test.go's minimal shape. Only ManaCost is simplified so
-// the fixture funds with one colour.
+// Dig line is dig_ask_test.go's minimal shape.
 
 import (
 	"testing"
@@ -19,12 +28,13 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 )
 
-// digBetweenRidersScript is a root Draw followed by two TargetUnique$ player
-// riders with a Dig -- a "dig"-kind KChoose suspension, an ask kind OUTSIDE
+// digBetweenRidersScript is an enters trigger whose body is a root Draw
+// followed by two TargetUnique$ player riders with a Dig -- a "dig"-kind KChoose suspension, an ask kind OUTSIDE
 // the shared target tail -- parked between them.
 func digBetweenRidersScript() string {
-	return "Name:Dig Between Riders\nManaCost:1\nTypes:Sorcery\n" +
-		"A:SP$ Draw | NumCards$ 1 | SubAbility$ R1\n" +
+	return "Name:Dig Between Riders\nManaCost:1\nTypes:Creature Bear\nPT:1/1\n" +
+		"T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigRoot | TriggerDescription$ x\n" +
+		"SVar:TrigRoot:DB$ Draw | NumCards$ 1 | SubAbility$ R1\n" +
 		"SVar:R1:DB$ Draw | NumCards$ 0 | ValidTgts$ Player | TargetUnique$ True | TargetMin$ 0 | TargetMax$ 1 | SubAbility$ R2\n" +
 		"SVar:R2:DB$ Dig | Defined$ You | DigNum$ 3 | ChangeNum$ 1 | SubAbility$ R3\n" +
 		"SVar:R3:DB$ Draw | NumCards$ 0 | ValidTgts$ Player | TargetUnique$ True | TargetMin$ 0 | TargetMax$ 1\n" +
@@ -121,8 +131,9 @@ func TestTargetUniqueSurvivesADifferentAskKindBetweenRiders(t *testing.T) {
 // kind the row names) between the riders, so the class is covered for a
 // second ask kind than Dig.
 func scryBetweenRidersScript() string {
-	return "Name:Scry Between Riders\nManaCost:1\nTypes:Sorcery\n" +
-		"A:SP$ Draw | NumCards$ 1 | SubAbility$ R1\n" +
+	return "Name:Scry Between Riders\nManaCost:1\nTypes:Creature Bear\nPT:1/1\n" +
+		"T:Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self | Execute$ TrigRoot | TriggerDescription$ x\n" +
+		"SVar:TrigRoot:DB$ Draw | NumCards$ 1 | SubAbility$ R1\n" +
 		"SVar:R1:DB$ Draw | NumCards$ 0 | ValidTgts$ Player | TargetUnique$ True | TargetMin$ 0 | TargetMax$ 1 | SubAbility$ R2\n" +
 		"SVar:R2:DB$ Scry | ScryNum$ 2 | SubAbility$ R3\n" +
 		"SVar:R3:DB$ Draw | NumCards$ 0 | ValidTgts$ Player | TargetUnique$ True | TargetMin$ 0 | TargetMax$ 1\n" +

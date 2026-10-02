@@ -372,7 +372,10 @@ func (e *Engine) payCast() {
 		if pc.stackObj != 0 && pc.rootOpts != nil {
 			e.recordChosenTargets(pc.stackObj, pc.rootOpts, false)
 		}
-		if pc.rootOpts == nil {
+		// The chain links' announced targets (CR 601.2c / 602.2b), after the
+		// root's: the ability object exists only now.
+		e.recordCastSubTargets(pc)
+		if pc.rootOpts == nil && !pc.targetedFinish {
 			// No target-recording continuation: dispatch at the completed
 			// AbilityPush boundary while the spent-source capture is still live.
 			e.fireManaSpentTriggers(pc.activationPushEvent(e), nil)

@@ -9,15 +9,15 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// This file pins the MID-RESOLUTION half of TargetingPlayer$: the
-// effects-side ValidTgts$ asks that run below the rules tier. A
-// TargetingPlayer$ parameter sitting on a depth>=2 DB$ sub is posed by
-// effects.chosenTargetsFor (the mvts1 "tgts" ask) or
-// effects.changeZoneChosenTargets (the ChangeZone "choice" ask), neither of
-// which had a rules-tier ask site to route the chooser. Before
-// Engine.ChooserFor they silently asked the ability's controller; Volcanic
-// Offering (DBDestroyLand) and Mausoleum Turnkey (TrigChangeZone) are the
-// real corpus carriers.
+// This file pins TargetingPlayer$ on a chained DB$ sub. For a SPELL the link
+// is announced on cast (CR 601.2c) by the cast flow's subTargetAsk, which
+// routes the chooser through targetAskChooser (Volcanic Offering's
+// DBDestroyLand). For a TRIGGER's deeper link the ask is still posed below
+// the rules tier as the trigger resolves -- effects.chosenTargetsFor (the
+// mvts1 "tgts" ask) or effects.changeZoneChosenTargets (the ChangeZone
+// "choice" ask) -- and Engine.ChooserFor routes it (Mausoleum Turnkey's
+// TrigChangeZone shape). Before either router the ask silently went to the
+// ability's controller.
 
 // cardHasSubTargetingPlayer reports whether the compiled card carries any
 // SVar body (a depth>=2 DB$ sub) whose TargetingPlayer$ equals spec and whose
@@ -65,12 +65,15 @@ func subaskChooserBoard(t *testing.T, reg *cards.Registry, carrier *cards.Card, 
 	return e, cfg
 }
 
-// TestVolcanicOfferingSubTargetAskGoesToOpponent is the mvts1 "tgts" half:
-// Volcanic Offering's root SP$ Pump has no TargetingPlayer$, so the CASTER
-// answers the first land ask; its depth-2 DB$DestroyLand sub carries
-// `TargetingPlayer$ Player.Opponent | ValidTgts$ Land.nonBasic+YouDontCtrl`,
-// so the resolution-time ask for the second, opponent-chosen land must be
-// posed to seat 1. Before this fix it was posed to the caster (seat 0).
+// TestVolcanicOfferingSubTargetAskGoesToOpponent: Volcanic Offering's root
+// SP$ Pump has no TargetingPlayer$, so the CASTER answers the first land ask;
+// its DBDestroyLand link carries `TargetingPlayer$ Player.Opponent |
+// ValidTgts$ Land.nonBasic+YouDontCtrl` -- "target nonbasic land of an
+// opponent's choice you don't control". CR 601.2c: that is still a target of
+// the spell, chosen as it is CAST, by the opponent. So the ask is posed to
+// seat 1 during the announcement, before any cost is paid, and so are the two
+// creature targets (the caster's, then the opponent's). Nothing is asked as
+// the spell resolves.
 func TestVolcanicOfferingSubTargetAskGoesToOpponent(t *testing.T) {
 	t.Parallel()
 	reg := searchTestRegistry(t)
@@ -82,8 +85,11 @@ func TestVolcanicOfferingSubTargetAskGoesToOpponent(t *testing.T) {
 	e, cfg := subaskChooserBoard(t, reg, offering, furnace)
 	offeringID := searchMoveByName(t, e, "Volcanic Offering", state.ZHand)
 	furnaceID := searchMoveByNameSeat(t, e, 1, "Great Furnace", state.ZBattlefield)
-	if offeringID == 0 || furnaceID == 0 {
-		t.Fatalf("fixtures missing: offering=%d furnace=%d", offeringID, furnaceID)
+	// "7 damage to target creature you don't control" is mandatory: with no
+	// opposing creature the spell could not be cast at all (CR 601.2c).
+	bearID := searchMoveByNameSeat(t, e, 1, "Grizzly Bears", state.ZBattlefield)
+	if offeringID == 0 || furnaceID == 0 || bearID == 0 {
+		t.Fatalf("fixtures missing: offering=%d furnace=%d bear=%d", offeringID, furnaceID, bearID)
 	}
 	fo := e.G.Obj(furnaceID)
 	if fo == nil || fo.Zone != state.ZBattlefield || fo.Controller != 1 {
@@ -94,38 +100,47 @@ func TestVolcanicOfferingSubTargetAskGoesToOpponent(t *testing.T) {
 
 	// Root ask: the caster (seat 0) picks the first land.
 	root := e.Pending()
-	if root == nil || root.Kind != decision.KTarget || root.Player != 0 {
+	if root == nil || root.Kind != decision.KTarget || root.Player != 0 || root.ResumeKind == "cast_sub" {
 		t.Fatalf("root target ask = %+v, want the caster seat 0 answering the root Pump", root)
 	}
-	rootIdx := -1
-	for _, o := range root.Options {
-		if o.Obj == furnaceID {
-			rootIdx = o.Index
-		}
-	}
-	if rootIdx < 0 {
-		t.Fatalf("root ask did not offer seat 1's furnace %d: %+v", furnaceID, root.Options)
-	}
-	submitChoices(t, e, rootIdx)
+	answerTargetAsk(t, e, []state.ObjID{furnaceID})
 
-	// The depth-2 DB$DestroyLand ask must now go to the named opponent.
-	ask := passPriorityUntilNonPriority(t, e)
-	if ask.Kind != decision.KChoose || ask.ResumeKind != "tgts" {
-		t.Fatalf("mid-resolution ask = %+v, want the mvts1 \"tgts\" KChoose for DBDestroyLand", ask)
-	}
+	// DBDestroyLand: announced on cast, by the named opponent.
+	ask := castSubAsk(t, e)
 	if ask.Player != 1 {
-		t.Fatalf("mid-resolution sub target ask posed to seat %d, want the opponent seat 1 (TargetingPlayer$ Player.Opponent)", ask.Player)
+		t.Fatalf("the opponent's-choice land ask is posed to seat %d, want the opponent seat 1 (TargetingPlayer$ Player.Opponent)", ask.Player)
 	}
 	// Legality stays controller-relative: the offer is still seat 0's
 	// "nonbasic land you don't control", i.e. seat 1's furnace.
-	offered := false
-	for _, o := range ask.Options {
-		if o.Obj == furnaceID {
-			offered = true
-		}
+	answerCastSubObj(t, e, furnaceID)
+	// DBDamage: the caster's own creature target.
+	if ask = castSubAsk(t, e); ask.Player != 0 {
+		t.Fatalf("the caster's creature ask is posed to seat %d, want seat 0", ask.Player)
 	}
-	if !offered {
-		t.Fatalf("sub ask did not offer the controller-relative legal target %d: %+v", furnaceID, ask.Options)
+	answerCastSubObj(t, e, bearID)
+	// DBDamage2: the opponent's-choice creature target.
+	if ask = castSubAsk(t, e); ask.Player != 1 {
+		t.Fatalf("the opponent's-choice creature ask is posed to seat %d, want seat 1", ask.Player)
+	}
+	answerCastSubObj(t, e, bearID)
+
+	// Everything was announced before payment; the spell is on the stack with
+	// its mana spent, and it resolves without asking anything.
+	if d := e.Pending(); d == nil || d.Kind != decision.KPriority || len(e.G.Stack) != 1 {
+		t.Fatalf("after the announcement: pending %+v, stack %v; want priority with the spell on the stack", d, e.G.Stack)
+	}
+	for len(e.G.Stack) > 0 {
+		d := e.Pending()
+		if d == nil || d.Kind != decision.KPriority {
+			t.Fatalf("the resolution posed %+v: every target was already announced on cast", d)
+		}
+		submitChoices(t, e, passIndex(t, d))
+	}
+	if o := e.G.Obj(furnaceID); o == nil || o.Zone != state.ZGraveyard {
+		t.Fatalf("the targeted nonbasic land was not destroyed: %+v", o)
+	}
+	if o := e.G.Obj(bearID); o == nil || o.Zone != state.ZGraveyard {
+		t.Fatalf("the targeted creature did not die to the 7 damage: %+v", o)
 	}
 	replayCheck(t, e, cfg)
 }

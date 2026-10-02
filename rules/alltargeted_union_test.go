@@ -410,11 +410,13 @@ func TestUrgentNecropsyCollectsEvidenceOnTheTargetUnion(t *testing.T) {
 	})
 }
 
-// TestBodyReadsAllTargetedScopeGate pins the alltargeted1 SCOPE GATE: the
-// cast flow pre-asks a chain's sub-ability targets only when the cast's own
-// cost head reaches the AllTargeted$ ref, so every other chain keeps its
-// mid-resolution ask (the general CR 601.2c pre-announcement is a separate
-// ticket). The bodies are the real corpus spellings.
+// TestBodyReadsAllTargetedScopeGate pins the AllTargeted$ cost-head scan.
+// It used to be the scope gate of the chain announcement (the cast flow
+// announced a chain's targets only for a cost that read the union); the
+// chain is now announced on cast for every spell and ability (CR 601.2c,
+// cr601_subtargets_test.go), and the scan remains as the recognizer of the
+// cost shape that needs the union before payment. The bodies are the real
+// corpus spellings.
 func TestBodyReadsAllTargetedScopeGate(t *testing.T) {
 	t.Parallel()
 	// Wayta's ReduceCost$ X -> Count$Compare Y EQ2.2.0 -> Y:AllTargeted$...
@@ -434,10 +436,10 @@ func TestBodyReadsAllTargetedScopeGate(t *testing.T) {
 		"X": "Count$Compare Y EQ2.2.0",
 		"Y": "Count$Valid Creature.YouCtrl",
 	}, 0) {
-		t.Fatal("a reduction that never names AllTargeted$ must not arm the pre-ask")
+		t.Fatal("a reduction that never names AllTargeted$ must not be reported as reading it")
 	}
 	if bodyReadsAllTargeted("", map[string]string{"X": "AllTargeted$CardManaCost"}, 0) {
-		t.Fatal("an empty cost head must not arm the pre-ask")
+		t.Fatal("an empty cost head must not be reported as reading AllTargeted$")
 	}
 	// A cyclic SVar table terminates rather than spinning.
 	if bodyReadsAllTargeted("X", map[string]string{"X": "Count$Compare Y EQ1.1.0", "Y": "X"}, 0) {
