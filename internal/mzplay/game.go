@@ -94,7 +94,12 @@ type GameStats struct {
 	MacroFailed int
 	Simulations int
 	Completed   int
-	SimFailures int // simulations discarded (panics, rejected submits, chance failures)
+	SimFailures int // simulations discarded, by class below
+	// SimPanics, SimSubmitErrors, SimChance and SimBadWorlds split
+	// SimFailures by azmcts's error classes (an engine panic in a world, a
+	// world that rejected a submit, a chance failure, a world not at the
+	// root).
+	SimPanics, SimSubmitErrors, SimChance, SimBadWorlds int
 	// Rows by head, both seats.
 	RowsPriority, RowsTarget, RowsUse int
 	// The action vocabulary's coverage of what was recorded: root candidates
@@ -143,6 +148,10 @@ func (s *GameStats) Add(o GameStats) {
 	s.Simulations += o.Simulations
 	s.Completed += o.Completed
 	s.SimFailures += o.SimFailures
+	s.SimPanics += o.SimPanics
+	s.SimSubmitErrors += o.SimSubmitErrors
+	s.SimChance += o.SimChance
+	s.SimBadWorlds += o.SimBadWorlds
 	s.RowsPriority += o.RowsPriority
 	s.RowsTarget += o.RowsTarget
 	s.RowsUse += o.RowsUse
@@ -364,6 +373,10 @@ func PlayGame(gs GameSetup) (res GameResult, err error) {
 		res.Stats.Simulations += st.Simulations
 		res.Stats.Completed += st.Completed
 		res.Stats.SimFailures += st.Simulations - st.Completed
+		res.Stats.SimPanics += st.Panics
+		res.Stats.SimSubmitErrors += st.SubmitErrors
+		res.Stats.SimChance += st.ChanceFailures
+		res.Stats.SimBadWorlds += st.BadWorlds + st.NoWorld
 		if st.DeadlineHits > 0 {
 			res.Stats.Timeouts++
 		}
@@ -493,7 +506,7 @@ func (r *recorder) rows(e *rules.Engine, d *decision.Decision, lr searchbench.Li
 					flashback = flashbackCost(o.Face())
 				}
 			}
-			label, known := r.index.resolve(ActionLabel(a, rule, flashback))
+			label, known := r.index.resolve(ActionLabel(a, rule, flashback), a.Name)
 			index[i] = r.vocab.ActionIndex(label)
 			v := 0
 			if i < len(res.Visits) {
@@ -596,7 +609,11 @@ func traceLine(e *rules.Engine, d *decision.Decision, lr searchbench.LiveRoot) s
 		}
 		return "?"
 	}
-	s := fmt.Sprintf("turn %d step %d seat %d %s: chose [%s] value %.3f |", e.G.Turn, e.G.Step, d.Player, r.Kind, label(r.Choice), r.RootValue)
+	s := fmt.Sprintf("turn %d step %d seat %d %s: chose [%s] value %.3f", e.G.Turn, e.G.Step, d.Player, r.Kind, label(r.Choice), r.RootValue)
+	if f := r.Stats.Simulations - r.Stats.Completed; f > 0 {
+		s += fmt.Sprintf(" (%d simulations discarded: %d panics, %d rejected submits, %d chance)", f, r.Stats.Panics, r.Stats.SubmitErrors, r.Stats.ChanceFailures)
+	}
+	s += " |"
 	for i := range r.Keys {
 		v, q := 0, 0.0
 		if i < len(r.Visits) {

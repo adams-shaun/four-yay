@@ -163,27 +163,71 @@ func newActionIndexer(v *mzbridge.Vocab) *actionIndexer {
 var selfReferences = []string{"this creature", "this land", "this artifact", "this enchantment", "this permanent", "this token",
 	"this Aura", "this Equipment", "this Vehicle", "this card"}
 
-// resolve returns the label the vocabulary is indexed by and whether it has
-// a slot of its own.
-func (ix *actionIndexer) resolve(label string) (string, bool) {
-	if ix.vocab.KnownAction(label) {
-		return label, true
+// loyaltyCost rewrites a planeswalker ability's cost into XMage's form
+// ("+1: ...", "-3: ..."): gorge's rule text may carry it bracketed ("[+1]:",
+// "[−3]:") or as the Forge cost token ("AddCounter<1/LOYALTY>:",
+// "SubCounter<3/LOYALTY>:"). ok is false when label has no such cost.
+func loyaltyCost(label string) (string, bool) {
+	colon := strings.Index(label, ": ")
+	if colon < 0 {
+		return "", false
 	}
-	if full, ok := ix.alias[label]; ok {
-		return full, true
-	}
-	if strings.Contains(label, "this ") {
-		l := label
-		for _, ref := range selfReferences {
-			l = strings.ReplaceAll(l, ref, "{this}")
+	cost, rest := label[:colon], label[colon:]
+	switch {
+	case strings.HasPrefix(cost, "[") && strings.HasSuffix(cost, "]"):
+		cost = strings.ReplaceAll(cost[1:len(cost)-1], "\u2212", "-")
+		if cost == "0" || cost == "" || !strings.ContainsAny(cost[:1], "+-0123456789") {
+			return "", false
 		}
-		if l != label {
-			if ix.vocab.KnownAction(l) {
-				return l, true
+		return cost + rest, true
+	case strings.HasPrefix(cost, "AddCounter<") && strings.HasSuffix(cost, "/LOYALTY>"):
+		return "+" + cost[len("AddCounter<"):len(cost)-len("/LOYALTY>")] + rest, true
+	case strings.HasPrefix(cost, "SubCounter<") && strings.HasSuffix(cost, "/LOYALTY>"):
+		return "-" + cost[len("SubCounter<"):len(cost)-len("/LOYALTY>")] + rest, true
+	}
+	return "", false
+}
+
+// resolve returns the label the vocabulary is indexed by and whether it has
+// a slot of its own. source is the card's name: a rule text that names its
+// own card by the name's short form ("Kellan" for "Kellan, Planar
+// Trailblazer") is tried with "{this}" in its place.
+func (ix *actionIndexer) resolve(label, source string) (string, bool) {
+	known := func(l string) (string, bool) {
+		if ix.vocab.KnownAction(l) {
+			return l, true
+		}
+		if full, ok := ix.alias[l]; ok {
+			return full, true
+		}
+		return "", false
+	}
+	if l, ok := known(label); ok {
+		return l, true
+	}
+	variants := []string{label}
+	if l, ok := loyaltyCost(label); ok {
+		variants = append(variants, l)
+	}
+	for _, v := range variants {
+		if strings.Contains(v, "this ") {
+			w := v
+			for _, ref := range selfReferences {
+				w = strings.ReplaceAll(w, ref, "{this}")
 			}
-			if full, ok := ix.alias[l]; ok {
-				return full, true
+			variants = append(variants, w)
+		}
+	}
+	if short, _, ok := strings.Cut(source, ","); ok && short != "" {
+		for _, v := range variants {
+			if strings.Contains(v, short) {
+				variants = append(variants, strings.ReplaceAll(v, short, "{this}"))
 			}
+		}
+	}
+	for _, v := range variants[1:] {
+		if l, ok := known(v); ok {
+			return l, true
 		}
 	}
 	return label, false
