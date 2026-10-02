@@ -282,6 +282,8 @@ func waitDecision(t *testing.T, pendingURL, seat, tok string) decision.Decision 
 // test waits on ~10 decisions across two created games, and at the shared
 // 50ms granularity the poll sleep alone is a visible slice of the package's
 // test-time budget. Same harness (decisionOnce), just a tighter tick.
+// Only for polls that PRECEDE any answer on that seat: after an answer, use
+// nextDecision — a first-200 poll can still be inside the stale window.
 func fastPollDecision(t *testing.T, pendingURL, seat, tok string) decision.Decision {
 	t.Helper()
 	deadline := time.Now().Add(10 * time.Second)
@@ -292,6 +294,35 @@ func fastPollDecision(t *testing.T, pendingURL, seat, tok string) decision.Decis
 		}
 		if time.Now().After(deadline) {
 			t.Fatalf("no decision offered to seat %s: last status %d", seat, status)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+// nextDecision polls the pending endpoint until it serves a decision NEWER
+// than `after` (strictly greater Seq; after == 0 accepts the first decision
+// served) — the shape every poll that FOLLOWS an answer needs. Between
+// SubmitIntent's 204 and the match goroutine consuming the answer, the seat
+// slot is still installed (host/humanseat.go: the parked await's defer clears
+// it), so Pending serves the just-answered ask with 200; a first-200 poll
+// inside that window re-serves the stale decision. That is exactly what
+// flaked the 2026-10-01 module gate on
+// TestVsBotGameHonoursRequestedMulliganAllowance — "bottoming ask is mulligan
+// Min 1 Max 1, want mulligan 3/3" was the stale keep-only ask (whose Min/Max
+// is 1/1) served in the window after the keep answer's 204. Seq is stamped
+// from the event count, which only grows, so a strictly greater Seq is the
+// new ask — the same advance test the intent-answering helpers in this file
+// already rely on.
+func nextDecision(t *testing.T, pendingURL, seat, tok string, after uint64) decision.Decision {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		d, status := decisionOnce(t, pendingURL, seat, tok)
+		if status == http.StatusOK && (after == 0 || d.Seq > after) {
+			return d
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("no decision newer than seq %d for seat %s: last %+v status %d", after, seat, d, status)
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
@@ -1019,7 +1050,10 @@ func afterTossChoice(t *testing.T, url, table, pendingURL, tok string, d decisio
 		t.Fatalf("toss winner %d not among candidates: %+v", d.Player, d.Options)
 	}
 	answerMulligan(t, url, table, tok, d, []int{self})
-	return fastPollDecision(t, pendingURL, "0", tok)
+	// Wait for a decision NEWER than the toss ask: the stale window between
+	// the answer's 204 and the match goroutine consuming it would otherwise
+	// re-serve the toss ask here (see nextDecision).
+	return nextDecision(t, pendingURL, "0", tok, d.Seq)
 }
 
 // TestVsBotGameHonoursRequestedMulliganAllowance is the product proof for
@@ -1041,10 +1075,17 @@ func TestVsBotGameHonoursRequestedMulliganAllowance(t *testing.T) {
 	pendingURL := fmt.Sprintf("%s/api/tables/%s/matches/1/pending", url, table)
 
 	// Take three mulligans: option 1 ("mulligan") of each keep/mulligan ask.
+	// last is the highest Seq served so far: every poll below follows an
+	// answer, so each waits for a strictly newer decision (nextDecision) —
+	// a first-200 poll can re-serve the just-answered ask inside the stale
+	// window between the 204 and the match goroutine consuming it.
+	var last uint64
 	for taken := 1; taken <= 3; taken++ {
-		d := fastPollDecision(t, pendingURL, "0", tok)
+		d := nextDecision(t, pendingURL, "0", tok, last)
+		last = d.Seq
 		if taken == 1 {
 			d = afterTossChoice(t, url, table, pendingURL, tok, d)
+			last = d.Seq
 		}
 		if d.Kind != decision.KMulligan {
 			t.Fatalf("after %d prior mulligan(s) the seat is asked %q, want mulligan", taken-1, d.Kind)
@@ -1056,7 +1097,8 @@ func TestVsBotGameHonoursRequestedMulliganAllowance(t *testing.T) {
 	}
 
 	// The allowance is spent: the next ask offers only "keep".
-	d := fastPollDecision(t, pendingURL, "0", tok)
+	d := nextDecision(t, pendingURL, "0", tok, last)
+	last = d.Seq
 	if d.Kind != decision.KMulligan || len(d.Options) != 1 || d.Options[0].Kind != "keep" {
 		t.Fatalf("4th ask is %q with %d option(s), want mulligan with only \"keep\"", d.Kind, len(d.Options))
 	}
@@ -1064,7 +1106,7 @@ func TestVsBotGameHonoursRequestedMulliganAllowance(t *testing.T) {
 
 	// The bottoming ask: 3 cards on the bottom (freeMulligans is 0 at two
 	// seats). Answer the first three hand indices.
-	d = fastPollDecision(t, pendingURL, "0", tok)
+	d = nextDecision(t, pendingURL, "0", tok, last)
 	if d.Kind != decision.KMulligan || d.Min != 3 || d.Max != 3 {
 		t.Fatalf("bottoming ask is %q Min %d Max %d, want mulligan 3/3", d.Kind, d.Min, d.Max)
 	}
