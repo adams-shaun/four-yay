@@ -1,0 +1,154 @@
+{
+ "card": "Ulalek, Fused Atrocity",
+ "family": "trigger-condition",
+ "author": "cli-20261001T152342Z-4051bc78 (Oracle + CR only)",
+ "scenarios": [
+  {
+   "name": "paying-cc-copies-the-eldrazi-spell",
+   "cr": [
+    "603.9",
+    "707.10",
+    "706.10"
+   ],
+   "why": "Casting World Breaker (an Eldrazi spell) triggers Ulalek; paying {C}{C} copies all spells you control (a second World Breaker on the stack) and all other activated and triggered abilities you control (a copy of its cast-trigger). Whatever the trigger order, at least one exile trigger and the spell copy hit the same Sol Ring: the copy or the original that resolves second fizzles (CR 608.2b) but Sol Ring ends exiled and the original World Breaker spell still resolves to the battlefield.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ulalek, Fused Atrocity"
+     ],
+     "hand": [
+      "World Breaker"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Sol Ring"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:World Breaker",
+     "mana": "GGGGGGGCC",
+     "targets": [
+      "p1:Sol Ring"
+     ],
+     "answers": [
+      {
+       "kind": "trigger_order",
+       "pick": [
+        "Ulalek",
+        "World Breaker"
+       ]
+      },
+      {
+       "kind": "any",
+       "pick": [
+        "pay"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:World Breaker",
+     "zone": "battlefield",
+     "pt": "5/7"
+    },
+    {
+     "card": "p1:Sol Ring",
+     "zone": "exile"
+    },
+    {
+     "stack_size": 0
+    }
+   ]
+  },
+  {
+   "name": "declining-pays-no-copy",
+   "cr": [
+    "603.9",
+    "707.10"
+   ],
+   "why": "Declining the {C}{C} payment copies nothing: only the original cast-trigger resolves, exiling Sol Ring; the untargeted Dragon's Claw stays on the battlefield and the copy count stays at one.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ulalek, Fused Atrocity"
+     ],
+     "hand": [
+      "World Breaker"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Sol Ring",
+      "Dragon's Claw"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:World Breaker",
+     "mana": "GGGGGGGCC",
+     "targets": [
+      "p1:Sol Ring"
+     ],
+     "answers": [
+      {
+       "kind": "trigger_order",
+       "pick": [
+        "Ulalek",
+        "World Breaker"
+       ]
+      },
+      {
+       "kind": "any",
+       "pick": [
+        "no"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:World Breaker",
+     "zone": "battlefield",
+     "pt": "5/7"
+    },
+    {
+     "card": "p1:Sol Ring",
+     "zone": "exile"
+    },
+    {
+     "card": "p1:Dragon's Claw",
+     "zone": "battlefield"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "World Breaker"
+     },
+     "eq": 1
+    },
+    {
+     "stack_size": 0
+    }
+   ]
+  }
+ ],
+ "oracle_sha": "ed13c9c75c41"
+}

@@ -1,0 +1,130 @@
+{
+ "card": "The Meathook Massacre",
+ "family": "etb-ltb",
+ "author": "cli-20261001T152342Z-4051bc78 (Oracle + CR only)",
+ "scenarios": [
+  {
+   "name": "x2-cleans-the-board",
+   "cr": [
+    "611.3",
+    "107.3i",
+    "704.5f"
+   ],
+   "why": "Paid X=2: on entry each creature gets -2/-2 until end of turn, so the 2/2 Grizzly Bears dies (CR 704.5f); the massacre's own 'creature you control dies' trigger then makes each opponent lose 1 life.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "The Meathook Massacre"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:The Meathook Massacre",
+     "mana": "CCBB",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "2"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p1": 19,
+      "p0": 20
+     }
+    },
+    {
+     "card": "p0:The Meathook Massacre",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "x0-and-death-trigger",
+   "cr": [
+    "611.3",
+    "107.3i",
+    "603.6c",
+    "118.3"
+   ],
+   "why": "Paid X=0: nothing gets -0/-0 (no creature dies on entry). Killing the Bears with Lightning Bolt afterwards fires the 'creature you control dies' trigger: each opponent loses 1 life.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "The Meathook Massacre",
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:The Meathook Massacre",
+     "mana": "BB",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "0"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p1": 19,
+      "p0": 20
+     }
+    },
+    {
+     "card": "p0:The Meathook Massacre",
+     "zone": "battlefield"
+    }
+   ]
+  }
+ ],
+ "oracle_sha": "3ad256473fc1"
+}

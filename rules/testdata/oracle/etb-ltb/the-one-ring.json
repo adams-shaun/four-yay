@@ -1,0 +1,92 @@
+{
+ "card": "The One Ring",
+ "family": "etb-ltb",
+ "author": "cli-20261001T152342Z-4051bc78 (Oracle + CR only)",
+ "scenarios": [
+  {
+   "name": "burden-counter-draws",
+   "cr": [
+    "605.3",
+    "122.1",
+    "121.1"
+   ],
+   "why": "'{T}: Put a burden counter on The One Ring, then draw a card for each burden counter': one activation puts one burden counter and draws one card.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "The One Ring"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:The One Ring",
+     "ability": "burden counter"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:The One Ring",
+     "zone": "battlefield",
+     "tapped": true,
+     "counters": {
+      "burden": 1
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "tapped-ring-cannot-activate-again",
+   "cr": [
+    "109.5",
+    "605.3"
+   ],
+   "why": "The {T} activation taps The One Ring, so a second activation is not offered while it stays tapped (CR 109.5: a tapped cost is unpayable). The counter/draw side of the first activation is the defect row of the first scenario.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "The One Ring"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:The One Ring",
+     "ability": "burden counter"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:The One Ring",
+     "zone": "battlefield",
+     "tapped": true
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:The One Ring",
+      "label": "burden counter"
+     },
+     "want": false
+    }
+   ]
+  }
+ ],
+ "oracle_sha": "0720f1748bad"
+}

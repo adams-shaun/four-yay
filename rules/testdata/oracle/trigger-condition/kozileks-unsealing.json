@@ -1,0 +1,93 @@
+{
+ "card": "Kozilek's Unsealing",
+ "family": "trigger-condition",
+ "author": "cli-20261001T152342Z-4051bc78 (Oracle + CR only)",
+ "scenarios": [
+  {
+   "name": "mid-mv-creature-spawn-tokens",
+   "cr": [
+    "603.6",
+    "706.10"
+   ],
+   "why": "'Whenever you cast a creature spell with mana value 4, 5, or 6': Craw Wurm has mana value 5, so casting it creates two 0/1 colorless Eldrazi Spawn tokens and Wurm itself resolves to the battlefield.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Kozilek's Unsealing"
+     ],
+     "hand": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Craw Wurm",
+     "mana": "GGGGGG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Craw Wurm",
+     "zone": "battlefield",
+     "pt": "6/4"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Eldrazi Spawn",
+      "token": true
+     },
+     "eq": 2
+    }
+   ]
+  },
+  {
+   "name": "high-mv-draws-three",
+   "cr": [
+    "603.6",
+    "121.1"
+   ],
+   "why": "'Whenever you cast a creature spell with mana value 7 or greater': Artisan of Kozilek ({9}) has mana value 9, so casting it draws three cards and the empty hand holds exactly the three drawn cards.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Kozilek's Unsealing"
+     ],
+     "hand": [
+      "Artisan of Kozilek"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Artisan of Kozilek",
+     "mana": "CCCCCCCCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 3
+     }
+    },
+    {
+     "card": "p0:Artisan of Kozilek",
+     "zone": "battlefield"
+    }
+   ]
+  }
+ ],
+ "oracle_sha": "7f6bb321ef3d"
+}

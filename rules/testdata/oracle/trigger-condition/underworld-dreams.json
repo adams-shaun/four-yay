@@ -1,0 +1,102 @@
+{
+ "card": "Underworld Dreams",
+ "family": "trigger-condition",
+ "author": "cli-20261001T152342Z-4051bc78 (Oracle + CR only)",
+ "scenarios": [
+  {
+   "name": "opponent-draws-damage",
+   "cr": [
+    "603.6c",
+    "118.3",
+    "121.1"
+   ],
+   "why": "'Whenever an opponent draws a card, Underworld Dreams deals 1 damage to that player': p1 casting Thirst for Knowledge draws three (three triggers, 3 damage) and then discards two under the unless clause, ending at 17 life with one card in hand.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Underworld Dreams"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Thirst for Knowledge"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Thirst for Knowledge",
+     "mana": "CCU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 17
+     }
+    },
+    {
+     "hand_size": {
+      "p1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-draw-no-damage",
+   "cr": [
+    "603.6c",
+    "118.3"
+   ],
+   "why": "A spell that draws nothing causes no Underworld Dreams damage: p1's Lightning Bolt still deals its own 3 to p0, and p1 stays at 20.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Underworld Dreams"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 20,
+      "p0": 17
+     }
+    }
+   ]
+  }
+ ],
+ "oracle_sha": "9b11629333de"
+}

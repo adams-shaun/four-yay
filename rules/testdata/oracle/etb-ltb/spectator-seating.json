@@ -1,0 +1,95 @@
+{
+ "card": "Spectator Seating",
+ "family": "etb-ltb",
+ "author": "cli-20261001T152342Z-4051bc78 (Oracle + CR only)",
+ "scenarios": [
+  {
+   "name": "enters-tapped-with-one-opponent",
+   "cr": [
+    "614.12",
+    "305.6"
+   ],
+   "why": "'enters tapped unless you have two or more opponents': this is a two-seat table with one opponent, so the replacement applies and it enters tapped.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Spectator Seating"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Spectator Seating"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Spectator Seating",
+     "zone": "battlefield",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "untaps-and-adds-r-or-w",
+   "cr": [
+    "614.12",
+    "605.3"
+   ],
+   "why": "The tapped replacement does not bind later turns: after passing to turn two the land untaps and '{T}: Add {R} or {W}' adds exactly the chosen {R}.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Spectator Seating"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Spectator Seating"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Spectator Seating",
+     "ability": "for mana",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "R"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": "R"
+     }
+    },
+    {
+     "card": "p0:Spectator Seating",
+     "zone": "battlefield",
+     "tapped": true
+    }
+   ]
+  }
+ ],
+ "oracle_sha": "2b762dba9f24"
+}

@@ -1,0 +1,150 @@
+{
+ "card": "Relic of Legends",
+ "family": "activated-ability",
+ "author": "cli-20261001T152342Z-4051bc78 (Oracle + CR only)",
+ "scenarios": [
+  {
+   "name": "tapping-legendary-produces-any-color",
+   "cr": [
+    "605.3",
+    "106.5"
+   ],
+   "why": "The cost is 'Tap an untapped legendary creature you control' (no {T} of the Relic itself): Vivi Ornitier becomes tapped, Relic of Legends stays untapped, and the ability adds {W} of the chosen colour.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Relic of Legends",
+      "Vivi Ornitier"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Relic of Legends",
+     "ability": "for mana",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "tap untapped legendary"
+       ]
+      },
+      {
+       "kind": "any",
+       "pick": [
+        "W"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Relic of Legends",
+     "zone": "battlefield",
+     "tapped": false
+    },
+    {
+     "card": "p0:Vivi Ornitier",
+     "zone": "battlefield",
+     "tapped": true
+    },
+    {
+     "pool": {
+      "p0": "W"
+     }
+    }
+   ]
+  },
+  {
+   "name": "repeat-activation-taps-second-legendary",
+   "cr": [
+    "109.5",
+    "605.3"
+   ],
+   "why": "Two activations each pay 'Tap an untapped legendary creature you control': the first taps Vivi Ornitier, the second must tap a DIFFERENT untapped legendary (Captain America) -- CR 109.5 forbids paying a tapped cost twice, so the already-tapped Vivi cannot be tapped again.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Relic of Legends",
+      "Vivi Ornitier",
+      "Captain America, Living Legend"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Relic of Legends",
+     "ability": "for mana",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "tap untapped legendary"
+       ]
+      },
+      {
+       "kind": "choose",
+       "pick": [
+        "Vivi Ornitier"
+       ]
+      },
+      {
+       "kind": "any",
+       "pick": [
+        "W"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Relic of Legends",
+     "ability": "for mana",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "tap untapped legendary"
+       ]
+      },
+      {
+       "kind": "any",
+       "pick": [
+        "W"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Vivi Ornitier",
+     "zone": "battlefield",
+     "tapped": true
+    },
+    {
+     "card": "p0:Captain America, Living Legend",
+     "zone": "battlefield",
+     "tapped": true
+    },
+    {
+     "card": "p0:Relic of Legends",
+     "zone": "battlefield",
+     "tapped": false
+    },
+    {
+     "pool": {
+      "p0": "WW"
+     }
+    }
+   ]
+  }
+ ],
+ "oracle_sha": "5987336180d4"
+}

@@ -1,0 +1,219 @@
+{
+ "card": "Avengers Tower",
+ "family": "activated-ability",
+ "author": "cli-20261001T152342Z-4051bc78 (Oracle + CR only)",
+ "scenarios": [
+  {
+   "name": "hero-mana-casts-hero-spell",
+   "cr": [
+    "106.6",
+    "118.7c"
+   ],
+   "why": "The any-colour mana from the second ability carries the 'spend this mana only to cast a Hero spell or to activate an ability of a Hero source' restriction (CR 106.6), which still permits casting a Hero spell: tapping the Tower for {W}, Island for {U} and Forest for the generic lets p0 cast Captain America, Living Legend (a Human Soldier Hero).",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Avengers Tower",
+      "Island",
+      "Forest"
+     ],
+     "hand": [
+      "Captain America, Living Legend"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Avengers Tower",
+     "ability": "any color",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "W"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Island",
+     "ability": "for mana"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Forest",
+     "ability": "for mana"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Captain America, Living Legend"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Captain America, Living Legend",
+     "zone": "battlefield"
+    },
+    {
+     "life": {
+      "p0": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "hero-mana-cannot-cast-nonhero",
+   "cr": [
+    "106.6",
+    "118.7c"
+   ],
+   "why": "The restricted {W} may only pay for a Hero spell: with the pool at {W}{U}{G}{G}{G}{G}, Craw Wurm's {4}{G}{G} can only be paid with the five unrestricted mana, so the Wurm cast must NOT be offered.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Avengers Tower",
+      "Island",
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest"
+     ],
+     "hand": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Avengers Tower",
+     "ability": "any color",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "W"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Island",
+     "ability": "for mana"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Forest",
+     "ability": "for mana"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Forest#2",
+     "ability": "for mana"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Forest#3",
+     "ability": "for mana"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Forest#4",
+     "ability": "for mana"
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": "WUGGGG"
+     }
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Craw Wurm"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "look-at-top-three-reveals-hero",
+   "cr": [
+    "605.3",
+    "701.16"
+   ],
+   "why": "The {4},{T} ability looks at the top three, may reveal a Hero card from among them and put it into the hand, and puts the rest on the bottom: with Captain America, Living Legend (a Hero) second from the top, revealing puts it in hand and the two non-Hero cards go to the library bottom.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Avengers Tower"
+     ],
+     "library_top": [
+      "Grizzly Bears",
+      "Captain America, Living Legend",
+      "Island"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCC"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Avengers Tower",
+     "ability": "Look at the top three"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Captain America"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Captain America, Living Legend",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Avengers Tower",
+     "zone": "battlefield",
+     "tapped": true
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  }
+ ],
+ "oracle_sha": "33e2f4a15ac2"
+}

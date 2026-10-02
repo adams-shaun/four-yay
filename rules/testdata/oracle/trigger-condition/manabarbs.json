@@ -1,0 +1,116 @@
+{
+ "card": "Manabarbs",
+ "family": "trigger-condition",
+ "author": "cli-20261001T152342Z-4051bc78 (Oracle + CR only)",
+ "scenarios": [
+  {
+   "name": "tapping-own-land-damages-tapper",
+   "cr": [
+    "603.6c",
+    "605.3",
+    "118.3"
+   ],
+   "why": "'Whenever a player taps a land for mana, Manabarbs deals 1 damage to that player': p0 tapping their own Forest for {G} takes 1 damage (20 to 19) and keeps the {G} in the pool.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Manabarbs",
+      "Forest"
+     ],
+     "hand": [
+      "Mountain"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Forest",
+     "ability": "for mana",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "G"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 19
+     }
+    },
+    {
+     "pool": {
+      "p0": "G"
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponent-taps-damaged",
+   "cr": [
+    "603.6c",
+    "605.3",
+    "118.3"
+   ],
+   "why": "The trigger hits whichever player taps: on p0's turn p1 taps their own Forest (a legal mana activation whenever p1 holds priority), so p1 takes the 1 damage and p0 stays at 20.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Manabarbs"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "activate",
+     "seat": 1,
+     "card": "p1:Forest",
+     "ability": "for mana",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "G"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 19,
+      "p0": 20
+     }
+    },
+    {
+     "pool": {
+      "p1": "G"
+     }
+    }
+   ]
+  }
+ ],
+ "oracle_sha": "9673a17a8dda"
+}

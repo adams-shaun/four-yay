@@ -1,0 +1,118 @@
+{
+ "card": "Three Tree City",
+ "family": "activated-ability",
+ "author": "cli-20261001T152342Z-4051bc78 (Oracle + CR only)",
+ "scenarios": [
+  {
+   "name": "counts-creatures-of-chosen-type",
+   "cr": [
+    "605.3",
+    "700.2"
+   ],
+   "why": "'As Three Tree City enters, choose a creature type' is answered Bear; the {2},{T} ability then adds one {G} per Bear you control -- two Grizzly Bears means {G}{G}.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Three Tree City",
+      "Captain America, Living Legend",
+      "Knight of Infamy"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CC"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Three Tree City",
+     "ability": "for mana",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Pay 2: Add any color"
+       ]
+      },
+      {
+       "kind": "any",
+       "pick": [
+        "G"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": "GG"
+     }
+    }
+   ],
+   "setup_answers": [
+    {
+     "kind": "choose",
+     "pick": [
+      "Human"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "chosen-type-no-creatures-produces-nothing",
+   "cr": [
+    "605.3",
+    "106.5"
+   ],
+   "why": "With Bear chosen but no Bear on the battlefield, the {2},{T} activation adds zero mana and the pool stays empty.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Three Tree City"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CC"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Three Tree City",
+     "ability": "for mana",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Pay 2: Add any color"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ],
+   "setup_answers": [
+    {
+     "kind": "choose",
+     "pick": [
+      "Human"
+     ]
+    }
+   ]
+  }
+ ],
+ "oracle_sha": "c4f4c6f6d95a"
+}

@@ -1,0 +1,114 @@
+{
+ "card": "World Breaker",
+ "family": "trigger-condition",
+ "author": "cli-20261001T152342Z-4051bc78 (Oracle + CR only)",
+ "scenarios": [
+  {
+   "name": "cast-trigger-exiles-artifact",
+   "cr": [
+    "603.9",
+    "701.7"
+   ],
+   "why": "'When you cast this spell, exile target artifact, enchantment, or land': casting World Breaker with Sol Ring targeted puts Sol Ring in exile, and the 5/7 with reach resolves to the battlefield.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "World Breaker"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Sol Ring"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:World Breaker",
+     "mana": "GGGGGGG",
+     "targets": [
+      "p1:Sol Ring"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:World Breaker",
+     "zone": "battlefield",
+     "pt": "5/7",
+     "keywords": [
+      "Reach"
+     ]
+    },
+    {
+     "card": "p1:Sol Ring",
+     "zone": "exile"
+    }
+   ]
+  },
+  {
+   "name": "regrowth-ability-returns-from-graveyard",
+   "cr": [
+    "605.3",
+    "118.7b",
+    "701.8"
+   ],
+   "why": "The {2}{C}, Sacrifice a land ability functions from the graveyard: paying the cost by sacrificing the Mountain returns World Breaker from the graveyard to the hand.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Mountain"
+     ],
+     "graveyard": [
+      "World Breaker"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCC"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:World Breaker",
+     "ability": "Return CARDNAME from your graveyard",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Mountain"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:World Breaker",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Mountain",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  }
+ ],
+ "oracle_sha": "6ebdd1340f7a"
+}

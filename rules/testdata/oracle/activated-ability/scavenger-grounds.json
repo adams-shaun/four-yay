@@ -1,0 +1,111 @@
+{
+ "card": "Scavenger Grounds",
+ "family": "activated-ability",
+ "author": "cli-20261001T152342Z-4051bc78 (Oracle + CR only)",
+ "scenarios": [
+  {
+   "name": "exile-all-graveyards",
+   "cr": [
+    "605.3",
+    "701.17",
+    "118.7b"
+   ],
+   "why": "Paying {2} plus tapping and sacrificing the Desert (the activation cost, CR 118.7b) puts Scavenger Grounds itself in its graveyard, and the resolution then exiles ALL graveyards -- including that sacrificed copy.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Scavenger Grounds"
+     ],
+     "graveyard": [
+      "Island"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Scavenger Grounds"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CC"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Scavenger Grounds",
+     "ability": "Exile all graveyards",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Scavenger Grounds"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Scavenger Grounds",
+     "zone": "exile"
+    },
+    {
+     "card": "p1:Savannah Lions",
+     "zone": "exile"
+    },
+    {
+     "card": "p0:Island",
+     "zone": "exile"
+    },
+    {
+     "graveyard_size": {
+      "p0": 0,
+      "p1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "untapped-adds-colorless",
+   "cr": [
+    "605.3",
+    "305.7"
+   ],
+   "why": "The basic production '{T}: Add {C}' works on a turn-one land (lands are not summoning sick) and adds exactly one colorless mana.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Scavenger Grounds"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Scavenger Grounds",
+     "ability": "for mana"
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": "C"
+     }
+    }
+   ]
+  }
+ ],
+ "oracle_sha": "0253f9945e18"
+}

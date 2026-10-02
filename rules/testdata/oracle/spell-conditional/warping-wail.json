@@ -1,0 +1,175 @@
+{
+ "card": "Warping Wail",
+ "family": "spell-conditional",
+ "author": "cli-20261001T152342Z-4051bc78 (Oracle + CR only)",
+ "scenarios": [
+  {
+   "name": "scion-token-mode",
+   "cr": [
+    "700.2",
+    "608.2d",
+    "706.10"
+   ],
+   "why": "Choosing the third mode creates one 1/1 colorless Eldrazi Scion token with 'Sacrifice this creature: Add {C}'.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Warping Wail"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Warping Wail",
+     "mana": "CC",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "Eldrazi Scion"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Eldrazi Scion",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "exiles-low-toughness-creature",
+   "cr": [
+    "700.2",
+    "608.2d",
+    "701.7"
+   ],
+   "why": "The first mode exiles a creature with power OR toughness 1 or less: Savannah Lions is 2/1, so its toughness qualifies and it is exiled.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Warping Wail"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Warping Wail",
+     "mana": "CC",
+     "targets": [
+      "p1:Savannah Lions"
+     ],
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "Exile target creature"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Savannah Lions",
+     "zone": "exile"
+    }
+   ]
+  },
+  {
+   "name": "counters-sorcery-spell",
+   "cr": [
+    "700.2",
+    "608.2d",
+    "701.5"
+   ],
+   "why": "The second mode counters a sorcery: p1's Nature's Lore (a sorcery) is countered while it is on the stack, so it goes to the graveyard and no Forest enters.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Warping Wail"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Nature's Lore"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Nature's Lore",
+     "mana": "CG"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Warping Wail",
+     "mana": "CC",
+     "targets": [
+      "p1:Nature's Lore"
+     ],
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "Counter target sorcery"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Nature's Lore",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Forest"
+     },
+     "eq": 0
+    }
+   ]
+  }
+ ],
+ "oracle_sha": "ab1547c40ff2"
+}
