@@ -1,0 +1,152 @@
+{
+ "card": "Herald of Eternal Dawn",
+ "family": "conditional-static",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "907b194b0358",
+ "scenarios": [
+  {
+   "name": "flash-flying-six-six",
+   "cr": [
+    "702.8a",
+    "702.9a"
+   ],
+   "why": "Flash and flying: cast in the opponent's upkeep for {4}{W}{W}{W}, it is a 6/6 flier.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Herald of Eternal Dawn"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Herald of Eternal Dawn",
+     "mana": "WWWCCCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Herald of Eternal Dawn",
+     "zone": "battlefield",
+     "pt": "6/6",
+     "keywords": [
+      "Flying"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "zero-life-does-not-lose",
+   "cr": [
+    "104.3b",
+    "704.5a"
+   ],
+   "why": "'You can't lose the game': at 0 or less life its controller keeps playing.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Herald of Eternal Dawn"
+     ],
+     "life": 2
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": -1
+     }
+    },
+    {
+     "card": "p0:Herald of Eternal Dawn",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "own-lethal-burn-does-not-lose",
+   "cr": [
+    "104.3b"
+   ],
+   "why": "Even self-inflicted: its controller Bolting themselves to -1 keeps playing and can pass to the next turn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Herald of Eternal Dawn"
+     ],
+     "hand": [
+      "Lightning Bolt"
+     ],
+     "life": 2
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": -1
+     }
+    }
+   ]
+  }
+ ]
+}

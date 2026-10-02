@@ -1,0 +1,256 @@
+{
+ "card": "Adventuring Gear",
+ "family": "equipment",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "c8c01cbcadf2",
+ "scenarios": [
+  {
+   "name": "landfall-plus-two",
+   "cr": [
+    "603.2",
+    "301.5"
+   ],
+   "why": "Equip {1}; a land entering under its controller's control gives the equipped creature +2/+2 until end of turn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Adventuring Gear",
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Adventuring Gear",
+     "mana": "C",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "ability": "Equip"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Grizzly Bears",
+       "pt": "2/2"
+      }
+     ]
+    },
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Forest"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "4/4"
+    }
+   ]
+  },
+  {
+   "name": "two-landfalls-plus-four",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Two lands entering (one played, one put onto the battlefield) give +4/+4.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Adventuring Gear",
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Forest",
+      "Plains"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Adventuring Gear",
+     "mana": "C",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "ability": "Equip"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Forest"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "move",
+     "card": "p0:Plains",
+     "to": "battlefield"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "6/6"
+    }
+   ]
+  },
+  {
+   "name": "bonus-ends-at-end-of-turn",
+   "cr": [
+    "514.2"
+   ],
+   "why": "'Until end of turn'.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Adventuring Gear",
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Adventuring Gear",
+     "mana": "C",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "ability": "Equip"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Forest"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2"
+    }
+   ]
+  },
+  {
+   "name": "opponents-land-does-nothing",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Only a land YOU control: the opponent's land drop gives nothing.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Adventuring Gear",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Adventuring Gear",
+     "mana": "C",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "ability": "Equip"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "play",
+     "seat": 1,
+     "card": "p1:Forest"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2"
+    }
+   ]
+  },
+  {
+   "name": "unattached-landfall-pumps-nothing",
+   "cr": [
+    "603.2",
+    "301.5"
+   ],
+   "why": "Unattached, the trigger has no equipped creature to pump.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Adventuring Gear",
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Forest"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2"
+    }
+   ]
+  }
+ ]
+}

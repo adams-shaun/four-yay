@@ -1,0 +1,283 @@
+{
+ "card": "Broken Wings",
+ "family": "spell-conditional",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "bdd75ebd1cab",
+ "scenarios": [
+  {
+   "name": "destroys-a-flying-creature",
+   "cr": [
+    "701.8a"
+   ],
+   "why": "Destroys a creature with flying.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Broken Wings"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Serra Angel"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Broken Wings",
+     "mana": "GCC",
+     "targets": [
+      "p1:Serra Angel"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Serra Angel",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "destroys-an-artifact",
+   "cr": [
+    "701.8a"
+   ],
+   "why": "Destroys an artifact.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Broken Wings"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Quick-Draw Katana"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Broken Wings",
+     "mana": "GCC",
+     "targets": [
+      "p1:Quick-Draw Katana"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Quick-Draw Katana",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "destroys-an-enchantment",
+   "cr": [
+    "701.8a"
+   ],
+   "why": "Destroys an enchantment.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Broken Wings"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Anthem of Champions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Broken Wings",
+     "mana": "GCC",
+     "targets": [
+      "p1:Anthem of Champions"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Anthem of Champions",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "non-flying-creature-is-not-a-legal-target",
+   "cr": [
+    "115.1",
+    "601.2c"
+   ],
+   "why": "A creature without flying is not a legal target: with only Grizzly Bears it cannot be cast.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Broken Wings"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "GCC"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Broken Wings"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "creature-that-gained-flying-is-legal",
+   "cr": [
+    "115.1",
+    "613.1f"
+   ],
+   "why": "A creature that has flying right now (Bears given flying by Ajani's -3) is a creature with flying.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ajani, Caller of the Pride"
+     ],
+     "hand": [
+      "Broken Wings"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ajani, Caller of the Pride",
+     "targets": [
+      "p1:Grizzly Bears"
+     ],
+     "ability": "double strike"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Broken Wings",
+     "mana": "GCC",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "instant-speed",
+   "cr": [
+    "304.1"
+   ],
+   "why": "An instant: it can destroy an attacking flier during the opponent's combat.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Broken Wings"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Serra Angel"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Serra Angel"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Broken Wings",
+     "mana": "GCC",
+     "targets": [
+      "p1:Serra Angel"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Serra Angel",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 20
+     }
+    }
+   ]
+  }
+ ]
+}

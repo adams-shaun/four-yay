@@ -1,0 +1,350 @@
+{
+ "card": "Muldrotha, the Gravetide",
+ "family": "graveyard-land",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "5d773184de35",
+ "scenarios": [
+  {
+   "name": "play-land-from-graveyard",
+   "cr": [
+    "305.1",
+    "601.3"
+   ],
+   "why": "During your turn you may play a land from your graveyard.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Muldrotha, the Gravetide"
+     ],
+     "graveyard": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Forest"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Forest",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "cast-creature-from-graveyard",
+   "cr": [
+    "601.3"
+   ],
+   "why": "...and cast a creature spell from your graveyard.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Muldrotha, the Gravetide"
+     ],
+     "graveyard": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "GC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "one-creature-per-turn",
+   "cr": [
+    "601.3"
+   ],
+   "why": "Only one permanent spell of each type: after one creature, a second creature card is not offered.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Muldrotha, the Gravetide"
+     ],
+     "graveyard": [
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "GC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "W"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Savannah Lions"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "one-of-each-type-same-turn",
+   "cr": [
+    "601.3",
+    "110.4"
+   ],
+   "why": "A creature, an artifact and an enchantment can all be cast from the graveyard in one turn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Muldrotha, the Gravetide"
+     ],
+     "graveyard": [
+      "Grizzly Bears",
+      "Quick-Draw Katana",
+      "Anthem of Champions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "GC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Quick-Draw Katana",
+     "mana": "CC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Anthem of Champions",
+     "mana": "GW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "pt": "3/3"
+    },
+    {
+     "card": "p0:Quick-Draw Katana",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Anthem of Champions",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "new-turn-new-allowance",
+   "cr": [
+    "601.3"
+   ],
+   "why": "The allowance is per turn: next turn a second creature card can be cast.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Muldrotha, the Gravetide"
+     ],
+     "graveyard": [
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "GC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Savannah Lions",
+     "mana": "W"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "instants-not-castable",
+   "cr": [
+    "601.3",
+    "110.4"
+   ],
+   "why": "Only permanent spells: Lightning Bolt in the graveyard is not offered.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Muldrotha, the Gravetide"
+     ],
+     "graveyard": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "R"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Lightning Bolt"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "not-during-opponents-turn",
+   "cr": [
+    "601.3"
+   ],
+   "why": "'During each of your turns': on the opponent's turn a flash creature in the graveyard is not offered.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Muldrotha, the Gravetide"
+     ],
+     "graveyard": [
+      "Ambush Viper"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "GC"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Ambush Viper"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "graveyard-land-uses-the-land-drop",
+   "cr": [
+    "305.2"
+   ],
+   "why": "Playing a land from the graveyard is the turn's land play: after a land from hand, the graveyard land is not offered.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Muldrotha, the Gravetide"
+     ],
+     "hand": [
+      "Plains"
+     ],
+     "graveyard": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Plains"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "play_land",
+      "card": "p0:Forest"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}
