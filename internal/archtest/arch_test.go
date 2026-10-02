@@ -112,7 +112,10 @@ func set(s string) map[string]bool {
 // corpus. cmd/enginebench (the docs/015 engine-speed rows) reads it only to
 // report each row's elapsed wall time beside its CPU time; every game and
 // seed is fixed by its flags. host/manabrewhttp uses time only for SSE
-// keep-alive and write deadlines. No game, event, view or
+// keep-alive and write deadlines. internal/mzbridge/mzclient (the HTTP client
+// for MageZero's inference server) uses time only for its micro-batch flush
+// timer and request timeout; the bridge's encoders in internal/mzbridge
+// import no time. No game, event, view or
 // replay reads the clock, and intents reach the engine only through
 // SubmitIntent.
 func TestTimeIsImportedOnlyByTheHost(t *testing.T) {
@@ -137,6 +140,8 @@ func TestTimeIsImportedOnlyByTheHost(t *testing.T) {
 		module + "/cmd/searchbench":   true,
 		module + "/cmd/enginebench":   true,
 		module + "/host/manabrewhttp": true,
+
+		module + "/internal/mzbridge/mzclient": true,
 	}
 	for path, p := range packages(t) {
 		if p.imports["time"] && !allowed[path] {
