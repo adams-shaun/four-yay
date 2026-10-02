@@ -10,6 +10,15 @@ import (
 // access keeps compiling unchanged through Go's field promotion. Clone's
 // per-field copy classes (rules/clone.go) are unchanged by the move.
 type engineEmitCtx struct {
+	// subOfferParent / subOfferBound carry the PARENT ability's chosen
+	// targets into the target census for a SubAbility$'s own mid-resolution
+	// offer (LegalSubTargets, rules/target_sub_offer.go), so a sub spec that
+	// names them (`Equipment.AttachedTo ParentTarget`) can be judged. Set and
+	// restored inside that one synchronous call; no ask suspends within it,
+	// so like damaging below Clone copies nothing of it.
+	subOfferParent []state.Target
+	subOfferBound  bool
+
 	// costProvenanceSeen is the transient capture of the last cost-modifier
 	// pass (castprov3): true when that pass evaluated a cost static whose
 	// ValidCard$ carries a cast-provenance token (Bilbo's

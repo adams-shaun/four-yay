@@ -909,7 +909,8 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 		// contextPredicateBound's: outside a resolution the predicate is
 		// unbound and refused beneath '!' rather than inverting an absence
 		// into an always-true match.
-		for _, t := range sc.ResolutionTargets {
+		bound, _ := sc.TargetBinding()
+		for _, t := range bound {
 			if !t.IsPlayer && t.Obj == o.ID {
 				return false
 			}
@@ -1087,7 +1088,7 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 func contextPredicateBound(g *state.Game, kind wordKind, key string, sc SpecContext) bool {
 	switch kind {
 	case wordNotDefinedTargeted:
-		return sc.Resolving
+		return sc.Resolving || sc.ParentBound
 	case wordDefenderCtrl:
 		return sc.DefendingPlayer.IsPlayer
 	case wordEnchantedControllerCtrl:

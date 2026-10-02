@@ -2158,6 +2158,15 @@ type SpecContext struct {
 	// its own targets have been chosen. Resolving distinguishes a real empty
 	// target list from no resolving object at all.
 	ResolutionTargets []state.Target
+	// ParentTargets are the PARENT ability's already-chosen targets, bound
+	// (ParentBound) only while the offer for a SubAbility$'s OWN ValidTgts$ is
+	// built during the parent's resolution. "Exile up to one target Equipment
+	// attached to that creature" (`Equipment.AttachedTo ParentTarget`) names a
+	// target chosen BEFORE this one, so unlike the self-referential case
+	// ResolutionTargets' doc rules out, the Targeted*/ParentTarget referents
+	// are well defined for this offer. Read through TargetBinding only.
+	ParentTargets []state.Target
+	ParentBound   bool
 	// ProposedTargets are the announced-but-not-yet-recorded targets of a spell
 	// being cast or a permission being checked (CR 601.2c runs while the
 	// announced spell is still in hand, so state.Object.Targets is necessarily
@@ -2318,7 +2327,22 @@ type ObjectName struct {
 // Chosen, the layer tables). A context that reports false answers exactly
 // what the resolver-free walk would, so a memo may serve it.
 func (sc *SpecContext) ResolutionStateBound() bool {
-	return sc != nil && (sc.Resolve != nil || sc.Resolving)
+	return sc != nil && (sc.Resolve != nil || sc.Resolving || sc.ParentBound)
+}
+
+// TargetBinding is the one read of "the targets the Targeted*/ParentTarget
+// referents name": the resolving object's own targets while Resolving, else
+// the parent ability's targets while a sub-ability's target offer is built
+// (ParentBound), else unbound (ok=false; the predicate fails closed, also
+// under '!').
+func (sc *SpecContext) TargetBinding() ([]state.Target, bool) {
+	switch {
+	case sc.Resolving:
+		return sc.ResolutionTargets, true
+	case sc.ParentBound:
+		return sc.ParentTargets, true
+	}
+	return nil, false
 }
 
 // ObjectTypes binds one object to its layer-4 derived type list (CR

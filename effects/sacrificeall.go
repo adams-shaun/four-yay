@@ -41,7 +41,7 @@ func effSacrificeAll(h Host, c *Ctx, sa *cards.SA) {
 			return
 		}
 		if remember {
-			c.Sacrificed = append(c.Sacrificed, state.SacrificedInfoOf(g, id))
+			c.Sacrificed = append(c.Sacrificed, SacrificedLKI(h, id))
 			// Forge's RememberSacrificed$ also remembers the card (mirroring
 			// effSacrifice's rememberLKICapture), which is what a following
 			// ConditionDefined$ Remembered, Remembered$Amount or
