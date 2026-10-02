@@ -1,0 +1,117 @@
+{
+ "card": "Echoes of Eternity",
+ "family": "trigger-condition",
+ "author": "cli-20261001T152342Z-4051bc78 (Oracle + CR only)",
+ "scenarios": [
+  {
+   "name": "copies-colorless-spell-on-cast",
+   "cr": [
+    "603.2c",
+    "707.10"
+   ],
+   "why": "Echoes' own copy-trigger ('Whenever you cast a colorless spell, copy it') fires once -- 'another colorless permanent' excludes Echoes itself, and its copy puts a second Warping Wail on the stack, so the spell resolves twice and creates exactly two Eldrazi Scion tokens.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Echoes of Eternity"
+     ],
+     "hand": [
+      "Warping Wail"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Warping Wail",
+     "mana": "CC",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "Eldrazi Scion"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Eldrazi Scion",
+      "token": true
+     },
+     "eq": 2
+    }
+   ]
+  },
+  {
+   "name": "doubles-colorless-cast-trigger",
+   "cr": [
+    "603.2c",
+    "603.6",
+    "707.10"
+   ],
+   "why": "Echoes is a Panharmonicon static over 'a triggered ability of a colorless spell you control or another colorless permanent you control': the World Breaker spell's own cast-trigger (WB is a colorless spell on the stack, CR 603.2c) triggers an additional time -- two exile triggers, one per artifact -- while Echoes' own trigger does NOT double ('Other' excludes it), so exactly two World Breakers end on the battlefield.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Echoes of Eternity"
+     ],
+     "hand": [
+      "World Breaker"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Sol Ring",
+      "Dragon's Claw"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:World Breaker",
+     "mana": "GGGGGGG",
+     "targets": [
+      "p1:Sol Ring",
+      "p1:Dragon's Claw"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "World Breaker"
+     },
+     "eq": 2
+    },
+    {
+     "card": "p1:Sol Ring",
+     "zone": "exile"
+    },
+    {
+     "card": "p1:Dragon's Claw",
+     "zone": "exile"
+    },
+    {
+     "stack_size": 0
+    }
+   ]
+  }
+ ],
+ "oracle_sha": "21808f04d88c"
+}

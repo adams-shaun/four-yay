@@ -1,0 +1,110 @@
+{
+ "card": "Fellwar Stone",
+ "family": "activated-ability",
+ "author": "cli-20261001T152342Z-4051bc78 (Oracle + CR only)",
+ "scenarios": [
+  {
+   "name": "opponents-mountain-produces-red",
+   "cr": [
+    "106.5",
+    "605.3"
+   ],
+   "why": "'Add one mana of any color that a land an opponent controls could produce': p1 controls only a Mountain, so activating the Stone adds exactly {R}.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Fellwar Stone"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Mountain"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Fellwar Stone",
+     "mana": "CC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Fellwar Stone",
+     "ability": "for mana",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "R"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": "R"
+     }
+    },
+    {
+     "card": "p0:Fellwar Stone",
+     "zone": "battlefield",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "own-lands-never-count",
+   "cr": [
+    "106.5",
+    "605.3"
+   ],
+   "why": "Fellwar Stone reflects only 'any color that a land an opponent controls could produce' (CR 106.5): p0's own Forest must NOT give G. With no opponent land the reflection set is empty, so the pool must stay empty and the engine's offer policy (considerReflected requires ManaReflectedCandidates > 0) omits the ability -- the not-offered assertion is exactly what fails if own lands were counted.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Fellwar Stone"
+     ],
+     "battlefield": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Fellwar Stone",
+     "mana": "CC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": ""
+     }
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Fellwar Stone",
+      "label": "for mana"
+     },
+     "want": false
+    }
+   ]
+  }
+ ],
+ "oracle_sha": "549742fb7886"
+}

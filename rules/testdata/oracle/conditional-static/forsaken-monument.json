@@ -1,0 +1,102 @@
+{
+ "card": "Forsaken Monument",
+ "family": "conditional-static",
+ "author": "cli-20261001T152342Z-4051bc78 (Oracle + CR only)",
+ "scenarios": [
+  {
+   "name": "colorless-creature-gets-2-2",
+   "cr": [
+    "611.3",
+    "613.3"
+   ],
+   "why": "'Colorless creatures you control get +2/+2' is a continuous effect applied in the layer system: the colorless 10/10 Ulamog, the Ceaseless Hunger reads 12/12.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Forsaken Monument",
+      "Ulamog, the Ceaseless Hunger"
+     ]
+    }
+   },
+   "steps": [],
+   "expect": [
+    {
+     "card": "p0:Ulamog, the Ceaseless Hunger",
+     "zone": "battlefield",
+     "pt": "12/12"
+    },
+    {
+     "card": "p0:Forsaken Monument",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "tapping-for-c-adds-extra-and-cast-gains-life",
+   "cr": [
+    "605.1a",
+    "106.7",
+    "603.6"
+   ],
+   "why": "'Whenever you tap a permanent for {C}, add an additional {C}': tapping Wastes for {C} leaves {C}{C} in the pool. And 'Whenever you cast a colorless spell, you gain 2 life' fires on the Warping Wail cast (a {C}{C} spell), taking p0 to 22 life.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Forsaken Monument",
+      "Wastes"
+     ],
+     "hand": [
+      "Warping Wail"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Warping Wail",
+     "mana": "CC",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "Eldrazi Scion"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Wastes",
+     "ability": "for mana"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 22
+     }
+    },
+    {
+     "pool": {
+      "p0": "CC"
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Eldrazi Scion",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  }
+ ],
+ "oracle_sha": "d69e11187af6"
+}

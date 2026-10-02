@@ -1,0 +1,166 @@
+{
+ "card": "Sanctum of Ugin",
+ "family": "trigger-condition",
+ "author": "cli-20261001T152342Z-4051bc78 (Oracle + CR only)",
+ "scenarios": [
+  {
+   "name": "sacrifice-and-search-colorless-creature",
+   "cr": [
+    "603.6",
+    "701.16"
+   ],
+   "why": "Casting Ulamog, the Ceaseless Hunger ({10}, colorless, mana value 10) triggers Sanctum of Ugin; sacrificing it allows searching the library for a colorless creature card: Artisan of Kozilek (a colorless Eldrazi) is the only one in the library and goes to the hand, and Sanctum is in the graveyard. Ulamog's own cast-trigger exiles both targeted permanents.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sanctum of Ugin"
+     ],
+     "hand": [
+      "Ulamog, the Ceaseless Hunger"
+     ],
+     "library": [
+      "Artisan of Kozilek"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Sol Ring",
+      "Dragon's Claw"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCCCCCCCC"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Ulamog, the Ceaseless Hunger",
+     "targets": [
+      "p1:Sol Ring",
+      "p1:Dragon's Claw"
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "sacrifice"
+       ]
+      },
+      {
+       "kind": "any",
+       "pick": [
+        "Artisan of Kozilek"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Ulamog, the Ceaseless Hunger",
+     "zone": "battlefield",
+     "pt": "10/10"
+    },
+    {
+     "card": "p1:Sol Ring",
+     "zone": "exile"
+    },
+    {
+     "card": "p1:Dragon's Claw",
+     "zone": "exile"
+    },
+    {
+     "card": "p0:Sanctum of Ugin",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Artisan of Kozilek",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "declining-keeps-sanctum",
+   "cr": [
+    "603.6",
+    "603.3c"
+   ],
+   "why": "Declining the sacrifice search keeps Sanctum of Ugin on the battlefield and does not search; Ulamog's own cast-trigger still exiles both permanents.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sanctum of Ugin"
+     ],
+     "hand": [
+      "Ulamog, the Ceaseless Hunger"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Sol Ring",
+      "Dragon's Claw"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCCCCCCCC"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Ulamog, the Ceaseless Hunger",
+     "targets": [
+      "p1:Sol Ring",
+      "p1:Dragon's Claw"
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Do not pay"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Sanctum of Ugin",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Sol Ring",
+     "zone": "exile"
+    },
+    {
+     "card": "p1:Dragon's Claw",
+     "zone": "exile"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  }
+ ],
+ "oracle_sha": "0e2f06b35dda"
+}

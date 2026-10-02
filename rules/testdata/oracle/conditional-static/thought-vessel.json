@@ -1,0 +1,108 @@
+{
+ "card": "Thought Vessel",
+ "family": "conditional-static",
+ "author": "cli-20261001T152342Z-4051bc78 (Oracle + CR only)",
+ "scenarios": [
+  {
+   "name": "no-maximum-hand-size",
+   "cr": [
+    "514.2",
+    "605.3"
+   ],
+   "why": "'You have no maximum hand size' removes the cleanup discard entirely: a nine-card hand survives turn one's cleanup and gains the turn-two draw, reaching ten.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Thought Vessel"
+     ],
+     "hand": [
+      "Grizzly Bears",
+      "Savannah Lions",
+      "Mountain",
+      "Forest",
+      "Island",
+      "Plains",
+      "Swamp",
+      "Wastes",
+      "Sol Ring"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 10
+     }
+    },
+    {
+     "card": "p0:Thought Vessel",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "without-it-discard-to-seven",
+   "cr": [
+    "514.2"
+   ],
+   "why": "Control: without Thought Vessel, the cleanup discard reduces the nine-card hand to seven (CR 514.2 discards down to the maximum, seven), and the turn-two draw makes it eight.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Grizzly Bears",
+      "Savannah Lions",
+      "Mountain",
+      "Forest",
+      "Island",
+      "Plains",
+      "Swamp",
+      "Wastes",
+      "Sol Ring"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 8
+     }
+    }
+   ]
+  }
+ ],
+ "oracle_sha": "55cfe3fe96d4"
+}

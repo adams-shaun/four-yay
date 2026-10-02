@@ -1,0 +1,106 @@
+{
+ "card": "Rip Apart",
+ "family": "spell-conditional",
+ "author": "cli-20261001T152342Z-4051bc78 (Oracle + CR only)",
+ "scenarios": [
+  {
+   "name": "three-damage-mode-kills-bears",
+   "cr": [
+    "700.2",
+    "608.2d",
+    "702.2"
+   ],
+   "why": "Choosing the first mode deals 3 damage to the targeted creature: the 2/2 Grizzly Bears takes 3 damage and is put into its owner's graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Rip Apart"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Rip Apart",
+     "mana": "RW",
+     "targets": [
+      "p1:Grizzly Bears"
+     ],
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "deals 3 damage"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "destroy-artifact-mode",
+   "cr": [
+    "700.2",
+    "608.2d",
+    "701.6"
+   ],
+   "why": "Choosing the second mode destroys the targeted artifact: Sol Ring goes to its owner's graveyard (CR 701.6b).",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Rip Apart"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Sol Ring"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Rip Apart",
+     "mana": "RW",
+     "targets": [
+      "p1:Sol Ring"
+     ],
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "destroy target artifact"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Sol Ring",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ],
+ "oracle_sha": "9040322e0d5c"
+}

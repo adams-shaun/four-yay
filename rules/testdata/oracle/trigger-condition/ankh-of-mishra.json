@@ -1,0 +1,64 @@
+{
+ "card": "Ankh of Mishra",
+ "family": "trigger-condition",
+ "author": "cli-20261001T152342Z-4051bc78 (Oracle + CR only)",
+ "scenarios": [
+  {
+   "name": "both-players-play-lands-lose-two",
+   "cr": [
+    "603.6c",
+    "118.3",
+    "104.3b"
+   ],
+   "why": "'Whenever a land enters, Ankh of Mishra deals 2 damage to that land's controller': p0 playing Island costs p0 2 life, and on p1's turn playing Mountain costs p1 2 life.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ankh of Mishra"
+     ],
+     "hand": [
+      "Island"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Mountain"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Island"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "play",
+     "seat": 1,
+     "card": "p1:Mountain"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Mountain",
+     "zone": "battlefield"
+    },
+    {
+     "life": {
+      "p0": 18,
+      "p1": 18
+     }
+    }
+   ]
+  }
+ ],
+ "oracle_sha": "dc6064b3d180"
+}

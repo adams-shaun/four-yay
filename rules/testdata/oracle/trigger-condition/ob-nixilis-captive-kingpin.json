@@ -1,0 +1,105 @@
+{
+ "card": "Ob Nixilis, Captive Kingpin",
+ "family": "trigger-condition",
+ "author": "cli-20261001T152342Z-4051bc78 (Oracle + CR only)",
+ "scenarios": [
+  {
+   "name": "exactly-one-life-counter-and-exile",
+   "cr": [
+    "603.2b",
+    "122.1",
+    "701.7",
+    "117.6"
+   ],
+   "why": "'Whenever one or more opponents each lose exactly 1 life': p1 losing exactly 1 puts a +1/+1 counter on Ob Nixilis and exiles the top card (Grizzly Bears); 'until your next end step, you may play that card' makes the exiled card castable, so the Bears cast is offered from exile.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ob Nixilis, Captive Kingpin"
+     ],
+     "library_top": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "life",
+     "seat": 1,
+     "amount": -1
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CG"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Ob Nixilis, Captive Kingpin",
+     "zone": "battlefield",
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "exile"
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Grizzly Bears"
+     },
+     "want": true
+    }
+   ]
+  },
+  {
+   "name": "two-life-no-trigger",
+   "cr": [
+    "603.2b",
+    "701.7"
+   ],
+   "why": "'lose exactly 1 life' is a threshold, not an amount: p1 losing 2 life in one event is not 'exactly 1', so no counter is put and nothing is exiled.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ob Nixilis, Captive Kingpin"
+     ],
+     "library_top": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "life",
+     "seat": 1,
+     "amount": -2
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Ob Nixilis, Captive Kingpin",
+     "zone": "battlefield",
+     "counters": {
+      "+1/+1": 0
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "library"
+    }
+   ]
+  }
+ ],
+ "oracle_sha": "e0027476a633"
+}

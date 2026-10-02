@@ -1,0 +1,95 @@
+{
+ "card": "Exotic Orchard",
+ "family": "activated-ability",
+ "author": "cli-20261001T152342Z-4051bc78 (Oracle + CR only)",
+ "scenarios": [
+  {
+   "name": "opponents-mountain-produces-red",
+   "cr": [
+    "106.5",
+    "605.3"
+   ],
+   "why": "Same wording as Fellwar Stone on a land body: with p1 controlling a Mountain, activating Exotic Orchard adds exactly {R}.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Exotic Orchard"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Mountain"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Exotic Orchard"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Exotic Orchard",
+     "ability": "for mana",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "R"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": "R"
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-land-produces-nothing",
+   "cr": [
+    "106.5",
+    "106.4",
+    "605.3"
+   ],
+   "why": "With no land anywhere, 'Add one mana of any color that a land an opponent controls could produce' has nothing to reflect: the pool must stay empty (CR 106.5). The engine's offer policy also omits a mana ability with no producible candidate (considerReflected requires ManaReflectedCandidates > 0), so the activate is asserted not offered -- the substance (no mana appears; nothing reflected) is what CR pins.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Exotic Orchard"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Exotic Orchard"
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": ""
+     }
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Exotic Orchard",
+      "label": "for mana"
+     },
+     "want": false
+    }
+   ]
+  }
+ ],
+ "oracle_sha": "549742fb7886"
+}

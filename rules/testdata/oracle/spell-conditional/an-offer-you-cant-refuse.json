@@ -1,0 +1,127 @@
+{
+ "card": "An Offer You Can't Refuse",
+ "family": "spell-conditional",
+ "author": "cli-20261001T152342Z-4051bc78 (Oracle + CR only)",
+ "scenarios": [
+  {
+   "name": "counter-sorcery-two-treasures",
+   "cr": [
+    "701.5a",
+    "608.2b",
+    "706.10"
+   ],
+   "why": "Countering p1's Dark Ritual (a noncreature spell) puts it in its owner's graveyard, and its controller creates exactly two Treasure tokens.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "An Offer You Can't Refuse"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Dark Ritual"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Dark Ritual",
+     "mana": "B"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:An Offer You Can't Refuse",
+     "mana": "U",
+     "targets": [
+      "p1:Dark Ritual"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Dark Ritual",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Treasure",
+      "token": true
+     },
+     "eq": 2
+    },
+    {
+     "stack_size": 0
+    }
+   ]
+  },
+  {
+   "name": "creature-spell-not-a-legal-target",
+   "cr": [
+    "701.5a",
+    "115.3"
+   ],
+   "why": "'Counter target noncreature spell': a Grizzly Bears spell on the stack is a creature spell, so it is not a legal target and the Offer cast is not offered (CR 115.3: illegal target, no cast option).",
+   "setup": {
+    "p0": {
+     "hand": [
+      "An Offer You Can't Refuse"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Grizzly Bears",
+     "mana": "GG"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "stack"
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:An Offer You Can't Refuse"
+     },
+     "want": false
+    }
+   ]
+  }
+ ],
+ "oracle_sha": "c0bdfd6dc825"
+}

@@ -1,0 +1,114 @@
+{
+ "card": "Reconnaissance Mission",
+ "family": "attack-triggers",
+ "author": "cli-20261001T152342Z-4051bc78 (Oracle + CR only)",
+ "scenarios": [
+  {
+   "name": "combat-damage-may-draw",
+   "cr": [
+    "603.6a",
+    "510.1",
+    "121.1"
+   ],
+   "why": "Whenever a creature you control deals combat damage to a player, you may draw: unblocked Savannah Lions (2/1) deal 2 to p1 in combat, the trigger fires once (not once per point of damage), p1 loses 2 life, and the accepted optional draw takes hand from 1 to 2.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Reconnaissance Mission",
+      "Savannah Lions"
+     ],
+     "hand": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Savannah Lions"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    },
+    {
+     "life": {
+      "p1": 18
+     }
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "cycling-discards-and-draws",
+   "cr": [
+    "702.29a",
+    "121.1"
+   ],
+   "why": "Cycling {2} is an activated ability from hand: paying {2} discards Reconnaissance Mission and draws a card (the library-top Forest), so the card lands in the graveyard and the hand holds exactly the drawn card.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Reconnaissance Mission"
+     ],
+     "library_top": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Reconnaissance Mission",
+     "ability": "Cycling",
+     "mana": "CC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Reconnaissance Mission",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  }
+ ],
+ "oracle_sha": "fa003dc7a7e0"
+}

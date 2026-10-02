@@ -1,0 +1,97 @@
+{
+ "card": "Path of Annihilation",
+ "family": "etb-ltb",
+ "author": "cli-20261001T152342Z-4051bc78 (Oracle + CR only)",
+ "scenarios": [
+  {
+   "name": "enters-creates-two-spawn",
+   "cr": [
+    "603.6c",
+    "706.10"
+   ],
+   "why": "'When Path of Annihilation enters, create two 0/1 colorless Eldrazi Spawn creature tokens': casting it for {3}{G} yields exactly two Spawn tokens.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Path of Annihilation"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Path of Annihilation",
+     "mana": "GGGG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Path of Annihilation",
+     "zone": "battlefield"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Eldrazi Spawn",
+      "token": true
+     },
+     "eq": 2
+    }
+   ]
+  },
+  {
+   "name": "eldrazi-gain-add-any-color",
+   "cr": [
+    "605.3",
+    "706.10"
+   ],
+   "why": "'Eldrazi you control have {T}: Add one mana of any color': the World Breaker on the battlefield (a colorless Eldrazi) gains the ability, and activating it for {G} leaves {G} in the pool. The setup entrance's two Spawn tokens are still there.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Path of Annihilation",
+      "World Breaker"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:World Breaker",
+     "ability": "for mana",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "G"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": "G"
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Eldrazi Spawn",
+      "token": true
+     },
+     "eq": 2
+    }
+   ]
+  }
+ ],
+ "oracle_sha": "43e04db467c1"
+}
