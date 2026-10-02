@@ -409,6 +409,7 @@ func startingPlayerIntent(d *decision.Decision, who state.PlayerID) (decision.In
 type recorder struct {
 	seat  state.PlayerID
 	vocab *mzbridge.Vocab
+	index *actionIndexer
 	see   bool
 	enc   *mzbridge.Encoder
 	fs    *mzbridge.FeatureSet
@@ -416,7 +417,7 @@ type recorder struct {
 }
 
 func newRecorder(seat state.PlayerID, vocab *mzbridge.Vocab, see bool, stats *GameStats) *recorder {
-	return &recorder{seat: seat, vocab: vocab, see: see, enc: mzbridge.NewEncoder(), fs: mzbridge.NewFeatureSet(), stats: stats}
+	return &recorder{seat: seat, vocab: vocab, index: newActionIndexer(vocab), see: see, enc: mzbridge.NewEncoder(), fs: mzbridge.NewFeatureSet(), stats: stats}
 }
 
 // encode is the seat's encoding of the real state at decision d.
@@ -456,13 +457,16 @@ func (r *recorder) rows(e *rules.Engine, d *decision.Decision, lr searchbench.Li
 			if i < len(lr.Actions) {
 				a = lr.Actions[i]
 			}
-			rule := ""
-			if a.Kind == "ability" && a.Ability >= 0 {
-				if o := e.G.Obj(a.Obj); o != nil {
+			rule, flashback := "", ""
+			if o := e.G.Obj(a.Obj); o != nil {
+				switch {
+				case a.Kind == "ability" && a.Ability >= 0:
 					rule, _ = r.enc.ActivatedRule(o.Face(), a.Ability)
+				case a.Kind == "cast" && a.Mode == "flashback":
+					flashback = flashbackCost(o.Face())
 				}
 			}
-			label := ActionLabel(a, rule)
+			label, known := r.index.resolve(ActionLabel(a, rule, flashback))
 			index[i] = r.vocab.ActionIndex(label)
 			v := 0
 			if i < len(res.Visits) {
@@ -470,7 +474,7 @@ func (r *recorder) rows(e *rules.Engine, d *decision.Decision, lr searchbench.Li
 			}
 			r.stats.ActionCands++
 			r.stats.ActionVisits += v
-			if r.vocab.KnownAction(label) {
+			if known {
 				r.stats.ActionHits++
 				r.stats.ActionHitV += v
 			} else {

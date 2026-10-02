@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# mzjava -- the MZ_JAVA to give draft-zero's loop when gorge is the engine.
+#
+# draft-zero launches its game engine as
+#
+#     $MZ_JAVA <jvm flags...> -jar lib/mage-magezero-1.4.58.jar <game.yml>
+#
+# from the directory $MZ_XMAGE_DIR (draftzero/engine.py, jvm_command /
+# start_jvm). This script ignores the JVM flags and the jar and runs gorge's
+# cmd/mzselfplay on the last argument, the game.yml. Nothing in draft-zero or
+# MageZero changes: export MZ_JAVA=<this file> and run their loop.
+#
+# What a run needs in the environment:
+#
+#   MZ_JAVA            this script
+#   MZ_XMAGE_DIR       any existing directory (the loop only uses it as the
+#                      engine's working directory; every path in game.yml is
+#                      absolute). Default "xmage" under the run root.
+#   MZ_ACTION_VOCAB    draft-zero's assets/vocab/FDN_SPG.tsv, absolute. The
+#                      trainer, the server and this engine must read the same
+#                      file.
+#   MZ_DECK_DIR        the directory holding the .dck files (the loop reads it)
+#   MZ_SELFPLAY_BIN    the built cmd/mzselfplay binary
+#                      (default: bin/mzselfplay next to the repo root)
+#   MZ_GORGE_CARDS     gorge's compiled card corpus (default: <repo>/.cards)
+#   MZ_PYTHON          a Python with numpy and h5py, for the HDF5 conversion
+#                      (default: the python on PATH; use the MageZero venv's)
+#   MZ_NPY2H5          npy2h5.py (default: the one beside this script)
+#   MZ_SEED            optional run seed; by default a run is seeded from the
+#                      bytes of its game.yml
+#   GOMAXPROCS         CPU threads the engine may use (training.threads game
+#                      threads run at once)
+#
+# Optional: MZ_EVAL_TIMEOUT_MS (one inference request's timeout, 30000),
+# MZ_TRACE=1 (log every searched decision).
+set -euo pipefail
+
+if [ "$#" -lt 1 ]; then
+	echo "mzjava: usage: mzjava [jvm flags] -jar <jar> <game.yml>" >&2
+	exit 2
+fi
+here=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)
+repo=$(cd "$here/../.." && pwd)
+yml="${!#}"
+
+export MZ_NPY2H5="${MZ_NPY2H5:-$here/npy2h5.py}"
+export MZ_GORGE_CARDS="${MZ_GORGE_CARDS:-$repo/.cards}"
+bin="${MZ_SELFPLAY_BIN:-$repo/bin/mzselfplay}"
+if [ ! -x "$bin" ]; then
+	echo "mzjava: no mzselfplay binary at $bin: build it with" >&2
+	echo "  go build -o $bin $repo/cmd/mzselfplay   (or set MZ_SELFPLAY_BIN)" >&2
+	exit 2
+fi
+exec "$bin" "$yml"

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -158,6 +159,17 @@ func (v *Vocab) KnownAction(label string) bool { _, ok := v.actions[label]; retu
 
 // KnownTarget reports whether name has a slot of its own.
 func (v *Vocab) KnownTarget(name string) bool { _, ok := v.targets[name]; return ok }
+
+// ActionLabels lists every priority-action label that has a slot of its own,
+// sorted.
+func (v *Vocab) ActionLabels() []string {
+	out := make([]string, 0, len(v.actions))
+	for k := range v.actions {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
 
 // ActionIndex is ActionEncoder.getActionIndex for a PRIORITY decision: the
 // label's own slot, else the hashed tail
