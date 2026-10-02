@@ -1,0 +1,260 @@
+root/+1/+1@0#1
+root/Add {G}.#1
+root/Add {G}.#2
+root/AmountChoices#1
+root/AmountChoices#2
+root/BEAR#1
+root/BEAR_dynamic#1
+root/Battlefield#1
+root/Battlefield#2
+root/CREATURE#1
+root/CREATURE_dynamic#1
+root/CanActivate#1
+root/CanPlayLand#1
+root/Card#1
+root/Card#2
+root/Card#3
+root/ChosenChoices#1
+root/ChosenChoices#2
+root/ChosenTargets#1
+root/ChosenTargets#2
+root/ColorlessCard#1
+root/ColorlessCard#2
+root/ColorlessCard_dynamic#1
+root/ColorlessCard_dynamic#2
+root/CommandZone#1
+root/CommandZone#2
+root/Damage@0#1
+root/DynamicPermAbilities#1
+root/DynamicPermAbilities#2
+root/DynamicPermAbilities#3
+root/Exile#1
+root/Exile#1/Permanent - Exile#1
+root/FOREST#1
+root/FOREST#2
+root/FOREST_dynamic#1
+root/FOREST_dynamic#2
+root/GlobalWatchers#1
+root/GlobalWatchers#2
+root/Graveyard#1
+root/Graveyard#2
+root/GreenCard#1
+root/GreenCard_dynamic#1
+root/Hand#1
+root/IsActivePlayer#1
+root/IsDecisionPlayer#1
+root/LAND#1
+root/LAND#2
+root/LAND_dynamic#1
+root/LAND_dynamic#2
+root/LibraryCount@0..2#1
+root/LibraryCount@0..2#2
+root/LifeTotal@0..17#1
+root/LifeTotal@0..6#2
+root/ManaAbility#1
+root/ManaAbility#2
+root/ManaPool#1
+root/ManaPool#2
+root/ManaValue@0..1#1
+root/Opponent#1
+root/Opponent#1/AmountChoices#1
+root/Opponent#1/Battlefield#1
+root/Opponent#1/CanPlayLand#1
+root/Opponent#1/ChosenChoices#1
+root/Opponent#1/ChosenTargets#1
+root/Opponent#1/CommandZone#1
+root/Opponent#1/GlobalWatchers#1
+root/Opponent#1/Graveyard#1
+root/Opponent#1/LibraryCount@0..2#1
+root/Opponent#1/LifeTotal@0..6#1
+root/Opponent#1/ManaPool#1
+root/Opponent#1/UseChoices#1
+root/POSTCOMBAT_MAIN#1
+root/PRIORITY#1
+root/Permanent - Exile#1
+root/Permanent#1
+root/Permanent#2
+root/Permanent#3
+root/Player#1
+root/Player#1/+1/+1@0#1
+root/Player#1/Add {G}.#1
+root/Player#1/Add {G}.#2
+root/Player#1/AmountChoices#1
+root/Player#1/BEAR#1
+root/Player#1/BEAR_dynamic#1
+root/Player#1/Battlefield#1
+root/Player#1/Battlefield#1/+1/+1@0#1
+root/Player#1/Battlefield#1/Add {G}.#1
+root/Player#1/Battlefield#1/Add {G}.#2
+root/Player#1/Battlefield#1/BEAR#1
+root/Player#1/Battlefield#1/BEAR_dynamic#1
+root/Player#1/Battlefield#1/CREATURE#1
+root/Player#1/Battlefield#1/CREATURE_dynamic#1
+root/Player#1/Battlefield#1/CanActivate#1
+root/Player#1/Battlefield#1/Card#1
+root/Player#1/Battlefield#1/Card#2
+root/Player#1/Battlefield#1/Card#3
+root/Player#1/Battlefield#1/ColorlessCard#1
+root/Player#1/Battlefield#1/ColorlessCard#2
+root/Player#1/Battlefield#1/ColorlessCard_dynamic#1
+root/Player#1/Battlefield#1/ColorlessCard_dynamic#2
+root/Player#1/Battlefield#1/Damage@0#1
+root/Player#1/Battlefield#1/DynamicPermAbilities#1
+root/Player#1/Battlefield#1/DynamicPermAbilities#2
+root/Player#1/Battlefield#1/DynamicPermAbilities#3
+root/Player#1/Battlefield#1/FOREST#1
+root/Player#1/Battlefield#1/FOREST#2
+root/Player#1/Battlefield#1/FOREST_dynamic#1
+root/Player#1/Battlefield#1/FOREST_dynamic#2
+root/Player#1/Battlefield#1/GreenCard#1
+root/Player#1/Battlefield#1/GreenCard_dynamic#1
+root/Player#1/Battlefield#1/LAND#1
+root/Player#1/Battlefield#1/LAND#2
+root/Player#1/Battlefield#1/LAND_dynamic#1
+root/Player#1/Battlefield#1/LAND_dynamic#2
+root/Player#1/Battlefield#1/ManaAbility#1
+root/Player#1/Battlefield#1/ManaAbility#2
+root/Player#1/Battlefield#1/ManaValue@0..1#1
+root/Player#1/Battlefield#1/Permanent#1
+root/Player#1/Battlefield#1/Permanent#2
+root/Player#1/Battlefield#1/Permanent#3
+root/Player#1/Battlefield#1/Power@0..2#1
+root/Player#1/Battlefield#1/Tapped#1
+root/Player#1/Battlefield#1/Tapped#2
+root/Player#1/Battlefield#1/Test Bear#1
+root/Player#1/Battlefield#1/Test Bear#1/+1/+1@0#1
+root/Player#1/Battlefield#1/Test Bear#1/BEAR_dynamic#1
+root/Player#1/Battlefield#1/Test Bear#1/CREATURE_dynamic#1
+root/Player#1/Battlefield#1/Test Bear#1/Damage@0#1
+root/Player#1/Battlefield#1/Test Bear#1/DynamicPermAbilities#1
+root/Player#1/Battlefield#1/Test Bear#1/DynamicPermAbilities#1/#1
+root/Player#1/Battlefield#1/Test Bear#1/DynamicPermAbilities#1/#1/ManaValue_dynamic@0..1#1
+root/Player#1/Battlefield#1/Test Bear#1/DynamicPermAbilities#1/#1/{1}_dynamic#1
+root/Player#1/Battlefield#1/Test Bear#1/DynamicPermAbilities#1/#1/{G}_dynamic#1
+root/Player#1/Battlefield#1/Test Bear#1/DynamicPermAbilities#1/ManaValue_dynamic@0..1#1
+root/Player#1/Battlefield#1/Test Bear#1/DynamicPermAbilities#1/{1}_dynamic#1
+root/Player#1/Battlefield#1/Test Bear#1/DynamicPermAbilities#1/{G}_dynamic#1
+root/Player#1/Battlefield#1/Test Bear#1/GreenCard_dynamic#1
+root/Player#1/Battlefield#1/Test Bear#1/Power@0..2#1
+root/Player#1/Battlefield#1/Test Bear#1/Tapped#1
+root/Player#1/Battlefield#1/Test Bear#1/Toughness@0..2#1
+root/Player#1/Battlefield#1/Testwood#1
+root/Player#1/Battlefield#1/Testwood#1/Add {G}.#1
+root/Player#1/Battlefield#1/Testwood#1/CanActivate#1
+root/Player#1/Battlefield#1/Testwood#1/ColorlessCard_dynamic#1
+root/Player#1/Battlefield#1/Testwood#1/DynamicPermAbilities#1
+root/Player#1/Battlefield#1/Testwood#1/DynamicPermAbilities#1/Add {G}.#1
+root/Player#1/Battlefield#1/Testwood#1/DynamicPermAbilities#1/CanActivate#1
+root/Player#1/Battlefield#1/Testwood#1/DynamicPermAbilities#1/ManaAbility#1
+root/Player#1/Battlefield#1/Testwood#1/DynamicPermAbilities#1/Play Testwood#1
+root/Player#1/Battlefield#1/Testwood#1/DynamicPermAbilities#1/{T}#1
+root/Player#1/Battlefield#1/Testwood#1/DynamicPermAbilities#1/{T}: Add {G}.#1
+root/Player#1/Battlefield#1/Testwood#1/DynamicPermAbilities#1/{T}: Add {G}.#1/CanActivate#1
+root/Player#1/Battlefield#1/Testwood#1/DynamicPermAbilities#1/{T}: Add {G}.#1/ManaAbility#1
+root/Player#1/Battlefield#1/Testwood#1/DynamicPermAbilities#1/{T}: Add {G}.#1/{T}#1
+root/Player#1/Battlefield#1/Testwood#1/FOREST_dynamic#1
+root/Player#1/Battlefield#1/Testwood#1/LAND_dynamic#1
+root/Player#1/Battlefield#1/Testwood#1/ManaAbility#1
+root/Player#1/Battlefield#1/Testwood#1/{T}#1
+root/Player#1/Battlefield#1/Testwood#1/{T}: Add {G}.#1
+root/Player#1/Battlefield#1/Testwood#1/{T}: Add {G}.#1/CanActivate#1
+root/Player#1/Battlefield#1/Testwood#1/{T}: Add {G}.#1/ManaAbility#1
+root/Player#1/Battlefield#1/Testwood#1/{T}: Add {G}.#1/{T}#1
+root/Player#1/Battlefield#1/Testwood#2
+root/Player#1/Battlefield#1/Testwood#2/Add {G}.#1
+root/Player#1/Battlefield#1/Testwood#2/ColorlessCard_dynamic#1
+root/Player#1/Battlefield#1/Testwood#2/DynamicPermAbilities#1
+root/Player#1/Battlefield#1/Testwood#2/DynamicPermAbilities#1/Add {G}.#1
+root/Player#1/Battlefield#1/Testwood#2/DynamicPermAbilities#1/ManaAbility#1
+root/Player#1/Battlefield#1/Testwood#2/DynamicPermAbilities#1/Play Testwood#1
+root/Player#1/Battlefield#1/Testwood#2/DynamicPermAbilities#1/{T}#1
+root/Player#1/Battlefield#1/Testwood#2/DynamicPermAbilities#1/{T}: Add {G}.#1
+root/Player#1/Battlefield#1/Testwood#2/DynamicPermAbilities#1/{T}: Add {G}.#1/ManaAbility#1
+root/Player#1/Battlefield#1/Testwood#2/DynamicPermAbilities#1/{T}: Add {G}.#1/{T}#1
+root/Player#1/Battlefield#1/Testwood#2/FOREST_dynamic#1
+root/Player#1/Battlefield#1/Testwood#2/LAND_dynamic#1
+root/Player#1/Battlefield#1/Testwood#2/ManaAbility#1
+root/Player#1/Battlefield#1/Testwood#2/Tapped#1
+root/Player#1/Battlefield#1/Testwood#2/{T}#1
+root/Player#1/Battlefield#1/Testwood#2/{T}: Add {G}.#1
+root/Player#1/Battlefield#1/Testwood#2/{T}: Add {G}.#1/ManaAbility#1
+root/Player#1/Battlefield#1/Testwood#2/{T}: Add {G}.#1/{T}#1
+root/Player#1/Battlefield#1/Toughness@0..2#1
+root/Player#1/Battlefield#1/{1}#1
+root/Player#1/Battlefield#1/{G}#1
+root/Player#1/Battlefield#1/{T}#1
+root/Player#1/Battlefield#1/{T}#2
+root/Player#1/Battlefield#1/{T}: Add {G}.#1
+root/Player#1/Battlefield#1/{T}: Add {G}.#2
+root/Player#1/CREATURE#1
+root/Player#1/CREATURE_dynamic#1
+root/Player#1/CanActivate#1
+root/Player#1/Card#1
+root/Player#1/Card#2
+root/Player#1/Card#3
+root/Player#1/ChosenChoices#1
+root/Player#1/ChosenTargets#1
+root/Player#1/ColorlessCard#1
+root/Player#1/ColorlessCard#2
+root/Player#1/ColorlessCard_dynamic#1
+root/Player#1/ColorlessCard_dynamic#2
+root/Player#1/CommandZone#1
+root/Player#1/Damage@0#1
+root/Player#1/DynamicPermAbilities#1
+root/Player#1/DynamicPermAbilities#2
+root/Player#1/DynamicPermAbilities#3
+root/Player#1/FOREST#1
+root/Player#1/FOREST#2
+root/Player#1/FOREST_dynamic#1
+root/Player#1/FOREST_dynamic#2
+root/Player#1/GlobalWatchers#1
+root/Player#1/Graveyard#1
+root/Player#1/GreenCard#1
+root/Player#1/GreenCard_dynamic#1
+root/Player#1/Hand#1
+root/Player#1/IsActivePlayer#1
+root/Player#1/IsDecisionPlayer#1
+root/Player#1/LAND#1
+root/Player#1/LAND#2
+root/Player#1/LAND_dynamic#1
+root/Player#1/LAND_dynamic#2
+root/Player#1/LibraryCount@0..2#1
+root/Player#1/LifeTotal@0..17#1
+root/Player#1/ManaAbility#1
+root/Player#1/ManaAbility#2
+root/Player#1/ManaPool#1
+root/Player#1/ManaValue@0..1#1
+root/Player#1/Permanent#1
+root/Player#1/Permanent#2
+root/Player#1/Permanent#3
+root/Player#1/Power@0..2#1
+root/Player#1/Tapped#1
+root/Player#1/Tapped#2
+root/Player#1/Test Bear#1
+root/Player#1/Testwood#1
+root/Player#1/Testwood#2
+root/Player#1/Toughness@0..2#1
+root/Player#1/UseChoices#1
+root/Player#1/{1}#1
+root/Player#1/{G}#1
+root/Player#1/{T}#1
+root/Player#1/{T}#2
+root/Player#1/{T}: Add {G}.#1
+root/Player#1/{T}: Add {G}.#2
+root/Power@0..2#1
+root/Stack#1
+root/Tapped#1
+root/Tapped#2
+root/Test Bear#1
+root/Testwood#1
+root/Testwood#2
+root/Toughness@0..2#1
+root/UseChoices#1
+root/UseChoices#2
+root/priority#1
+root/{1}#1
+root/{G}#1
+root/{T}#1
+root/{T}#2
+root/{T}: Add {G}.#1
+root/{T}: Add {G}.#2

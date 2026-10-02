@@ -1,0 +1,92 @@
+root/AmountChoices#1
+root/AmountChoices#2
+root/Battlefield#1
+root/Battlefield#2
+root/CAT_dynamic#1
+root/CREATURE_dynamic#1
+root/CanBlock#1
+root/CanPlayLand#1
+root/ChosenChoices#1
+root/ChosenChoices#2
+root/ChosenTargets#1
+root/ChosenTargets#2
+root/CommandZone#1
+root/CommandZone#2
+root/Exile#1
+root/Exile#1/Permanent - Exile#1
+root/GlobalWatchers#1
+root/GlobalWatchers#2
+root/Graveyard#1
+root/Graveyard#2
+root/Hand#1
+root/IsActivePlayer#1
+root/IsDecisionPlayer#1
+root/LibraryCount@0..2#1
+root/LibraryCount@0..2#2
+root/LifeTotal@0..19#1
+root/LifeTotal@0..19#2
+root/ManaPool#1
+root/ManaPool#2
+root/Opponent#1
+root/Opponent#1/AmountChoices#1
+root/Opponent#1/Battlefield#1
+root/Opponent#1/Battlefield#1/CAT_dynamic#1
+root/Opponent#1/Battlefield#1/CREATURE_dynamic#1
+root/Opponent#1/Battlefield#1/CanBlock#1
+root/Opponent#1/Battlefield#1/Power@0..2#1
+root/Opponent#1/Battlefield#1/SummoningSick#1
+root/Opponent#1/Battlefield#1/Test Cat Token#1
+root/Opponent#1/Battlefield#1/Test Cat Token#1/CAT_dynamic#1
+root/Opponent#1/Battlefield#1/Test Cat Token#1/CREATURE_dynamic#1
+root/Opponent#1/Battlefield#1/Test Cat Token#1/CanBlock#1
+root/Opponent#1/Battlefield#1/Test Cat Token#1/Power@0..2#1
+root/Opponent#1/Battlefield#1/Test Cat Token#1/SummoningSick#1
+root/Opponent#1/Battlefield#1/Test Cat Token#1/Toughness@0..2#1
+root/Opponent#1/Battlefield#1/Test Cat Token#1/WhiteCard_dynamic#1
+root/Opponent#1/Battlefield#1/Toughness@0..2#1
+root/Opponent#1/Battlefield#1/WhiteCard_dynamic#1
+root/Opponent#1/CAT_dynamic#1
+root/Opponent#1/CREATURE_dynamic#1
+root/Opponent#1/CanBlock#1
+root/Opponent#1/CanPlayLand#1
+root/Opponent#1/ChosenChoices#1
+root/Opponent#1/ChosenTargets#1
+root/Opponent#1/CommandZone#1
+root/Opponent#1/GlobalWatchers#1
+root/Opponent#1/Graveyard#1
+root/Opponent#1/LibraryCount@0..2#1
+root/Opponent#1/LifeTotal@0..19#1
+root/Opponent#1/ManaPool#1
+root/Opponent#1/Power@0..2#1
+root/Opponent#1/SummoningSick#1
+root/Opponent#1/Test Cat Token#1
+root/Opponent#1/Toughness@0..2#1
+root/Opponent#1/UseChoices#1
+root/Opponent#1/WhiteCard_dynamic#1
+root/PRECOMBAT_MAIN#1
+root/PRIORITY#1
+root/Permanent - Exile#1
+root/Player#1
+root/Player#1/AmountChoices#1
+root/Player#1/Battlefield#1
+root/Player#1/ChosenChoices#1
+root/Player#1/ChosenTargets#1
+root/Player#1/CommandZone#1
+root/Player#1/GlobalWatchers#1
+root/Player#1/Graveyard#1
+root/Player#1/Hand#1
+root/Player#1/IsActivePlayer#1
+root/Player#1/IsDecisionPlayer#1
+root/Player#1/LibraryCount@0..2#1
+root/Player#1/LifeTotal@0..19#1
+root/Player#1/ManaPool#1
+root/Player#1/UseChoices#1
+root/Power@0..2#1
+root/Stack#1
+root/SummoningSick#1
+root/Test Cat Token#1
+root/Toughness@0..2#1
+root/UseChoices#1
+root/UseChoices#2
+root/WhiteCard_dynamic#1
+root/priority#1
