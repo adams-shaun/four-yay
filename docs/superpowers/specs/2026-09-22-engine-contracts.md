@@ -94,6 +94,37 @@ mid-resolution `ValidTgts$` asks (`chosenTargetsFor` and
 a logged event. Trigger-relative `TargetingPlayer$` referents continue to
 fail closed to the controller when their binding is absent.
 
+## Chain targets are announced on cast (CR 601.2c)
+
+Every target of a spell or activated ability is chosen as it is cast or
+activated: the root declaration's and each `SubAbility$` link's that declares
+`ValidTgts$`. The cast flow asks the root first (`targetAsk`), then each link
+in chain order (`subTargetAsk`), all before payment. A link's ask is an
+ordinary `KTarget` decision with `ResumeKind` `cast_sub`; it carries the
+link's `TargetEffect`, routes `TargetingPlayer$` to the named chooser, and
+honours `TargetUnique$` against the targets already announced.
+
+- The answer is a targeting: one `TargetsChosen` per target with
+  `Text == events.SubTargetNotice`, folded into `Object.SubTargets` (the
+  root's stay in `Object.Targets`). Ward, "becomes the target" and the crime
+  check match it by kind. `view.StackView.Targets` lists root targets, then
+  chain targets.
+- Which link chose which target is engine flow state
+  (`Engine.castSubTargets`, keyed by the link's line), rebuilt by replaying
+  the answers. Resolution reads it through `Ctx.SubPreAsk` and never
+  re-asks; CR 608.2b prunes illegal chain targets (`recheckCastSubTargets`).
+- The offer census (`targetsAvailable`) withholds a cast or activation whose
+  chain has a mandatory target with no legal candidate.
+- A link behind `Condition$ Kicked` / `OptionalCost` announces nothing when
+  that cost is not being paid.
+
+Not announced by the cast flow, and still asked as the link resolves (debt,
+not contract; each is a later stage): ChangeZone-family links, a modal
+(Charm) mode's deeper links, Fuse, copies, a trigger's chain (CR 603.3d), and
+a link whose legality reads an earlier target of the same spell
+(`castSubPreAskable`). An overloaded or face-down cast announces no targets
+at all. `rules/cr601_subtargets_test.go`.
+
 ## The board clock's round number is exact
 
 `view.RoundOf` folds the ordered event stream, anchored on the starting
