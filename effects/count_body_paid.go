@@ -421,6 +421,9 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 		// like LifeOppsLostThisTurn, so a replay derives the same number.
 		return h.TurnsTaken(c.Controller), true, true
 	case "CardPower":
+		if lki, ok := sacrificedSourceLKI(g, c); ok {
+			return lki.Power, true, true // sacrificed by this ability: LKI
+		}
 		if o := g.Obj(c.Source); o != nil && o.Face() != nil {
 			return refPower(h, o, false), true, true
 		}
@@ -431,6 +434,9 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 		}
 		return 0, true, true
 	case "CardToughness":
+		if lki, ok := sacrificedSourceLKI(g, c); ok {
+			return lki.Toughness, true, true // sacrificed by this ability: LKI
+		}
 		if o := g.Obj(c.Source); o != nil && o.Face() != nil {
 			return refToughness(h, o, false), true, true
 		}
