@@ -1,0 +1,472 @@
+{
+ "card": "Balmor, Battlemage Captain",
+ "family": "trigger-condition",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "0764ed6b1a37",
+ "scenarios": [
+  {
+   "name": "instant-pumps-own-creatures-and-grants-trample",
+   "cr": [
+    "603.2",
+    "601.2i"
+   ],
+   "why": "Casting an instant triggers it; the trigger resolves before the spell: creatures its controller controls get +1/+0 and trample, the opponent's do not.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Balmor, Battlemage Captain",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Balmor, Battlemage Captain",
+       "want": true
+      },
+      {
+       "stack_size": 2
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Balmor, Battlemage Captain",
+     "pt": "2/3",
+     "keywords": [
+      "Flying",
+      "Trample"
+     ]
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "3/2",
+     "keywords": [
+      "Trample"
+     ]
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "pt": "3/3",
+     "no_keywords": [
+      "Trample"
+     ]
+    },
+    {
+     "life": {
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "sorcery-also-triggers",
+   "cr": [
+    "603.2"
+   ],
+   "why": "A sorcery spell triggers it too.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Divination"
+     ],
+     "battlefield": [
+      "Balmor, Battlemage Captain"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Divination",
+     "mana": "CCU",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Balmor, Battlemage Captain",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Balmor, Battlemage Captain",
+     "pt": "2/3",
+     "keywords": [
+      "Trample"
+     ]
+    },
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "creature-spell-does-not-trigger",
+   "cr": [
+    "603.2"
+   ],
+   "why": "A creature spell is neither an instant nor a sorcery.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Savannah Lions"
+     ],
+     "battlefield": [
+      "Balmor, Battlemage Captain"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Savannah Lions",
+     "mana": "W",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Balmor, Battlemage Captain",
+       "want": false
+      },
+      {
+       "stack_size": 1
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Balmor, Battlemage Captain",
+     "pt": "1/3",
+     "no_keywords": [
+      "Trample"
+     ]
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "pt": "2/1"
+    }
+   ]
+  },
+  {
+   "name": "two-spells-stack-the-bonus",
+   "cr": [
+    "603.2c"
+   ],
+   "why": "Each instant or sorcery cast triggers it separately.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock",
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Balmor, Battlemage Captain",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Balmor, Battlemage Captain",
+     "pt": "3/3"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "4/2",
+     "keywords": [
+      "Trample"
+     ]
+    },
+    {
+     "life": {
+      "p1": 15
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-spell-does-not-trigger",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Only spells its controller casts count.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Balmor, Battlemage Captain"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Shock",
+     "mana": "R",
+     "targets": [
+      "p0"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Balmor, Battlemage Captain",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Balmor, Battlemage Captain",
+     "pt": "1/3",
+     "no_keywords": [
+      "Trample"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "bonus-ends-at-end-of-turn",
+   "cr": [
+    "514.2"
+   ],
+   "why": "The bonus and trample last until end of turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Balmor, Battlemage Captain",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Balmor, Battlemage Captain",
+     "pt": "1/3",
+     "no_keywords": [
+      "Trample"
+     ]
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2",
+     "no_keywords": [
+      "Trample"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "creature-entering-later-gets-nothing",
+   "cr": [
+    "611.2c"
+   ],
+   "why": "The affected creatures are fixed as the trigger resolves: a creature cast afterwards gets neither bonus nor trample.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock",
+      "Savannah Lions"
+     ],
+     "battlefield": [
+      "Balmor, Battlemage Captain"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Savannah Lions",
+     "mana": "W"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Savannah Lions",
+     "pt": "2/1",
+     "no_keywords": [
+      "Trample"
+     ]
+    },
+    {
+     "card": "p0:Balmor, Battlemage Captain",
+     "pt": "2/3",
+     "keywords": [
+      "Trample"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "trigger-resolves-even-if-the-spell-is-countered",
+   "cr": [
+    "603.2",
+    "603.3"
+   ],
+   "why": "The trigger is independent of the spell once cast: with the spell countered, the bonus still applies.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Balmor, Battlemage Captain"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Counterspell"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Counterspell",
+     "mana": "UU",
+     "targets": [
+      "p0:Shock"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Balmor, Battlemage Captain",
+     "pt": "2/3",
+     "keywords": [
+      "Trample"
+     ]
+    },
+    {
+     "life": {
+      "p1": 20
+     }
+    }
+   ]
+  }
+ ]
+}

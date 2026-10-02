@@ -1,0 +1,289 @@
+{
+ "card": "Hare Apparent",
+ "family": "etb-ltb",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "1d36ea8c0b90",
+ "scenarios": [
+  {
+   "name": "first-hare-makes-no-rabbit",
+   "cr": [
+    "603.6a",
+    "608.2h"
+   ],
+   "why": "With no other creature named Hare Apparent under its controller's control it creates zero tokens.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Hare Apparent"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Hare Apparent",
+     "mana": "CW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Hare Apparent",
+     "zone": "battlefield",
+     "pt": "2/2"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Rabbit",
+      "token": true
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "second-and-third-hares-count-the-others",
+   "cr": [
+    "608.2h"
+   ],
+   "why": "The second Hare sees one other and makes one Rabbit; the third sees two others (Rabbit tokens are not named Hare Apparent) and makes two more.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Hare Apparent",
+      "Hare Apparent",
+      "Hare Apparent"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Hare Apparent",
+     "mana": "CW"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "count": {
+        "seat": 0,
+        "zone": "battlefield",
+        "name": "Rabbit",
+        "token": true
+       },
+       "eq": 0
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Hare Apparent#2",
+     "mana": "CW"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "count": {
+        "seat": 0,
+        "zone": "battlefield",
+        "name": "Rabbit",
+        "token": true
+       },
+       "eq": 1
+      },
+      {
+       "card": "p0:token:Rabbit",
+       "pt": "1/1",
+       "types": [
+        "Creature",
+        "Rabbit"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Hare Apparent#3",
+     "mana": "CW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Rabbit",
+      "token": true
+     },
+     "eq": 3
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Hare Apparent"
+     },
+     "eq": 3
+    }
+   ]
+  },
+  {
+   "name": "opponents-hare-does-not-count",
+   "cr": [
+    "608.2h"
+   ],
+   "why": "Only Hares its controller controls are counted.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Hare Apparent"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Hare Apparent"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Hare Apparent",
+     "mana": "CW"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Hare Apparent",
+     "mana": "CW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Rabbit",
+      "token": true
+     },
+     "eq": 0
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Rabbit",
+      "token": true
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "count-is-taken-on-resolution",
+   "cr": [
+    "608.2h"
+   ],
+   "why": "The number is counted as the trigger resolves: the other Hare leaves in response, so no Rabbit is created.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Hare Apparent",
+      "Hare Apparent"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Hare Apparent",
+     "mana": "CW"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Hare Apparent#2",
+     "mana": "CW"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "pass_to",
+     "decision": "priority",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Hare Apparent#2",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "move",
+     "card": "p0:Hare Apparent",
+     "to": "graveyard"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Rabbit",
+      "token": true
+     },
+     "eq": 0
+    },
+    {
+     "card": "p0:Hare Apparent#2",
+     "zone": "battlefield"
+    }
+   ]
+  }
+ ]
+}

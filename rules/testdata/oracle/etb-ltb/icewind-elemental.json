@@ -1,0 +1,171 @@
+{
+ "card": "Icewind Elemental",
+ "family": "etb-ltb",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "fb0402b88c21",
+ "scenarios": [
+  {
+   "name": "enters-drawing-then-discarding",
+   "cr": [
+    "603.6a",
+    "701.9a"
+   ],
+   "why": "Entering draws one card, then its controller discards a card of their choice.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Icewind Elemental",
+      "Grizzly Bears"
+     ],
+     "library_top": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Icewind Elemental",
+     "mana": "CCCCU"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Icewind Elemental",
+     "zone": "battlefield",
+     "pt": "3/4",
+     "keywords": [
+      "Flying"
+     ]
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "graveyard_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "may-discard-the-card-just-drawn",
+   "cr": [
+    "701.9a"
+   ],
+   "why": "The drawn card is in hand when the discard is chosen, so it may be the one discarded.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Icewind Elemental",
+      "Grizzly Bears"
+     ],
+     "library_top": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Icewind Elemental",
+     "mana": "CCCCU"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Lightning Bolt"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "empty-hand-discards-the-drawn-card",
+   "cr": [
+    "701.9a",
+    "603.3"
+   ],
+   "why": "The discard is not optional: with an otherwise empty hand the drawn card is discarded.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Icewind Elemental"
+     ],
+     "library_top": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Icewind Elemental",
+     "mana": "CCCCU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    },
+    {
+     "graveyard_size": {
+      "p0": 1
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,435 @@
+{
+ "card": "Incinerating Blast",
+ "family": "spell-conditional",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "1ad83929a85e",
+ "scenarios": [
+  {
+   "name": "six-damage-kills-a-six-six-and-loot-declined",
+   "cr": [
+    "120.3e",
+    "608.2d"
+   ],
+   "why": "6 damage destroys a 6/6. The discard is optional: declining keeps the hand as it is and draws nothing.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Incinerating Blast",
+      "Grizzly Bears"
+     ],
+     "library_top": [
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Colossal Dreadmaw"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Incinerating Blast",
+     "mana": "CCCCR",
+     "targets": [
+      "p1:Colossal Dreadmaw"
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "no"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Colossal Dreadmaw",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "card": "p0:Incinerating Blast",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "discard-then-draw",
+   "cr": [
+    "608.2d",
+    "701.9a"
+   ],
+   "why": "Choosing to discard a card draws a card.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Incinerating Blast",
+      "Grizzly Bears"
+     ],
+     "library_top": [
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Colossal Dreadmaw"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Incinerating Blast",
+     "mana": "CCCCR",
+     "targets": [
+      "p1:Colossal Dreadmaw"
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Colossal Dreadmaw",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "discard-is-the-casters-choice-of-card",
+   "cr": [
+    "608.2d",
+    "701.9a"
+   ],
+   "why": "With two cards in hand the caster chooses which to discard, then draws one.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Incinerating Blast",
+      "Grizzly Bears",
+      "Savannah Lions"
+     ],
+     "library_top": [
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Colossal Dreadmaw"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Incinerating Blast",
+     "mana": "CCCCR",
+     "targets": [
+      "p1:Colossal Dreadmaw"
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "Pay"
+       ]
+      },
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Savannah Lions"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "empty-hand-no-discard-no-draw",
+   "cr": [
+    "608.2d",
+    "101.3"
+   ],
+   "why": "With no card to discard, 'if you do' is false and no card is drawn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Incinerating Blast"
+     ],
+     "library_top": [
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Colossal Dreadmaw"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Incinerating Blast",
+     "mana": "CCCCR",
+     "targets": [
+      "p1:Colossal Dreadmaw"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Colossal Dreadmaw",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "target-gone-no-loot-either",
+   "cr": [
+    "608.2b"
+   ],
+   "why": "Its only target leaves in response: the spell does not resolve, so no discard is offered and no card is drawn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Incinerating Blast",
+      "Grizzly Bears"
+     ],
+     "library_top": [
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Colossal Dreadmaw"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Incinerating Blast",
+     "mana": "CCCCR",
+     "targets": [
+      "p1:Colossal Dreadmaw"
+     ]
+    },
+    {
+     "op": "move",
+     "card": "p1:Colossal Dreadmaw",
+     "to": "hand"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "card": "p0:Incinerating Blast",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "exactly-six-damage-is-marked",
+   "cr": [
+    "120.3e"
+   ],
+   "why": "A creature pumped to 9/9 in response survives with exactly 6 damage marked.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Incinerating Blast"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Giant Growth"
+     ],
+     "battlefield": [
+      "Colossal Dreadmaw"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Incinerating Blast",
+     "mana": "CCCCR",
+     "targets": [
+      "p1:Colossal Dreadmaw"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Giant Growth",
+     "mana": "G",
+     "targets": [
+      "p1:Colossal Dreadmaw"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Colossal Dreadmaw",
+     "zone": "battlefield",
+     "pt": "9/9",
+     "damage": 6
+    }
+   ]
+  },
+  {
+   "name": "no-creature-not-castable",
+   "cr": [
+    "601.2c"
+   ],
+   "why": "The target must be a creature; with none on the battlefield the spell cannot be cast (a player is not a legal target).",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Incinerating Blast",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCCR",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Incinerating Blast"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Incinerating Blast",
+     "zone": "hand"
+    },
+    {
+     "life": {
+      "p1": 20
+     }
+    }
+   ]
+  }
+ ]
+}

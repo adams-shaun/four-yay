@@ -1,0 +1,334 @@
+{
+ "card": "Arcane Epiphany",
+ "family": "cost-modifier",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "24923674dab5",
+ "scenarios": [
+  {
+   "name": "no-wizard-costs-five",
+   "cr": [
+    "601.2f"
+   ],
+   "why": "Without a Wizard it costs {3}{U}{U}: four mana is not enough, five is, and it draws three.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Arcane Epiphany"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCUU",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Arcane Epiphany"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Arcane Epiphany"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Arcane Epiphany",
+     "expect": [
+      {
+       "pool": {
+        "p0": ""
+       }
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 3
+     }
+    },
+    {
+     "card": "p0:Arcane Epiphany",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "wizard-makes-it-cost-four",
+   "cr": [
+    "601.2f"
+   ],
+   "why": "Controlling a Wizard it costs {1} less: castable for {2}{U}{U}, emptying the pool.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Arcane Epiphany"
+     ],
+     "battlefield": [
+      "Fugitive Wizard"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCUU",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Arcane Epiphany"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Arcane Epiphany",
+     "expect": [
+      {
+       "pool": {
+        "p0": ""
+       }
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 3
+     }
+    }
+   ]
+  },
+  {
+   "name": "wizard-reduction-is-exactly-one",
+   "cr": [
+    "601.2f"
+   ],
+   "why": "The reduction is one generic mana: paying from five leaves one, and three mana is not enough.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Arcane Epiphany"
+     ],
+     "battlefield": [
+      "Fugitive Wizard"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CUU",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Arcane Epiphany"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CC",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Arcane Epiphany"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Arcane Epiphany",
+     "expect": [
+      {
+       "pool": {
+        "p0": "C"
+       }
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 3
+     }
+    }
+   ]
+  },
+  {
+   "name": "reduction-does-not-cover-coloured-mana",
+   "cr": [
+    "601.2f",
+    "118.7c"
+   ],
+   "why": "Only the generic part is reduced: with a Wizard, one blue plus three colourless cannot pay {2}{U}{U}.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Arcane Epiphany"
+     ],
+     "battlefield": [
+      "Fugitive Wizard"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCU",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Arcane Epiphany"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Arcane Epiphany",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "opponents-wizard-does-not-reduce",
+   "cr": [
+    "601.2f"
+   ],
+   "why": "The Wizard must be controlled by the caster.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Arcane Epiphany"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Fugitive Wizard"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCUU",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Arcane Epiphany"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Arcane Epiphany",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "instant-on-opponents-turn",
+   "cr": [
+    "307.1"
+   ],
+   "why": "It is an instant.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Arcane Epiphany"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Arcane Epiphany",
+     "mana": "CCCUU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 3
+     }
+    }
+   ]
+  }
+ ]
+}

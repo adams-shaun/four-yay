@@ -1,0 +1,381 @@
+{
+ "card": "Dreadwing Scavenger",
+ "family": "conditional-static",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "2695a86c895b",
+ "scenarios": [
+  {
+   "name": "enters-drawing-then-discarding",
+   "cr": [
+    "603.6a",
+    "701.9a"
+   ],
+   "why": "Entering draws a card, then its controller discards a card of their choice. Below threshold it is a 2/2 flyer without deathtouch.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Dreadwing Scavenger",
+      "Grizzly Bears"
+     ],
+     "library_top": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Dreadwing Scavenger",
+     "mana": "CUB"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Dreadwing Scavenger",
+     "zone": "battlefield",
+     "pt": "2/2",
+     "keywords": [
+      "Flying"
+     ],
+     "no_keywords": [
+      "Deathtouch"
+     ]
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "attacking-also-loots",
+   "cr": [
+    "508.1m",
+    "603.2"
+   ],
+   "why": "It also triggers when it attacks: two turns later the attack draws a card and discards the chosen one.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Dreadwing Scavenger",
+      "Grizzly Bears"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Dreadwing Scavenger",
+     "mana": "CUB"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Dreadwing Scavenger"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Dreadwing Scavenger",
+       "want": true
+      },
+      {
+       "hand_size": {
+        "p0": 2
+       }
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Shock"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Shock",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    },
+    {
+     "graveyard_size": {
+      "p0": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "threshold-on-with-seven-cards",
+   "cr": [
+    "207.2c",
+    "604.2"
+   ],
+   "why": "Six cards in the graveyard plus the card it discards make seven: it is 3/3 with deathtouch.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Dreadwing Scavenger"
+     ],
+     "graveyard": [
+      "Shock",
+      "Shock",
+      "Shock",
+      "Shock",
+      "Shock",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Dreadwing Scavenger",
+     "mana": "CUB"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "graveyard_size": {
+      "p0": 7
+     }
+    },
+    {
+     "card": "p0:Dreadwing Scavenger",
+     "pt": "3/3",
+     "keywords": [
+      "Deathtouch",
+      "Flying"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "six-cards-is-below-threshold",
+   "cr": [
+    "207.2c",
+    "604.2"
+   ],
+   "why": "Five cards plus its own discard make six: still 2/2 without deathtouch.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Dreadwing Scavenger"
+     ],
+     "graveyard": [
+      "Shock",
+      "Shock",
+      "Shock",
+      "Shock",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Dreadwing Scavenger",
+     "mana": "CUB"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "graveyard_size": {
+      "p0": 6
+     }
+    },
+    {
+     "card": "p0:Dreadwing Scavenger",
+     "pt": "2/2",
+     "no_keywords": [
+      "Deathtouch"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "opponents-graveyard-does-not-count",
+   "cr": [
+    "207.2c"
+   ],
+   "why": "Threshold counts only its controller's graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Dreadwing Scavenger"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Shock",
+      "Shock",
+      "Shock",
+      "Shock",
+      "Shock",
+      "Shock",
+      "Shock",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Dreadwing Scavenger",
+     "mana": "CUB"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "graveyard_size": {
+      "p0": 1,
+      "p1": 8
+     }
+    },
+    {
+     "card": "p0:Dreadwing Scavenger",
+     "pt": "2/2",
+     "no_keywords": [
+      "Deathtouch"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "threshold-turns-off-when-the-graveyard-shrinks",
+   "cr": [
+    "604.2",
+    "611.3a"
+   ],
+   "why": "The bonus applies only as long as the count holds: a card leaving the graveyard (7 to 6) turns it off.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Dreadwing Scavenger"
+     ],
+     "graveyard": [
+      "Shock",
+      "Shock",
+      "Shock",
+      "Shock",
+      "Shock",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Dreadwing Scavenger",
+     "mana": "CUB"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Dreadwing Scavenger",
+       "pt": "3/3",
+       "keywords": [
+        "Deathtouch"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "move",
+     "card": "p0:Shock",
+     "to": "exile"
+    }
+   ],
+   "expect": [
+    {
+     "graveyard_size": {
+      "p0": 6
+     }
+    },
+    {
+     "card": "p0:Dreadwing Scavenger",
+     "pt": "2/2",
+     "no_keywords": [
+      "Deathtouch"
+     ]
+    }
+   ]
+  }
+ ]
+}

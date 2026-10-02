@@ -1,0 +1,443 @@
+{
+ "card": "Fiendish Panda",
+ "family": "death-triggers",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "6e60fbba755c",
+ "scenarios": [
+  {
+   "name": "each-life-gain-adds-a-counter",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Each time its controller gains life it gets one +1/+1 counter, whatever the amount.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Fiendish Panda"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "life",
+     "seat": 0,
+     "amount": 3
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Fiendish Panda",
+       "pt": "4/3",
+       "counters": {
+        "+1/+1": 1
+       }
+      }
+     ]
+    },
+    {
+     "op": "life",
+     "seat": 0,
+     "amount": 1
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Fiendish Panda",
+     "pt": "5/4",
+     "counters": {
+      "+1/+1": 2
+     }
+    },
+    {
+     "life": {
+      "p0": 24
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponent-gaining-life-adds-nothing",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Only its controller's life gain counts; life loss does not either.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Fiendish Panda"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "life",
+     "seat": 1,
+     "amount": 3
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "life",
+     "seat": 0,
+     "amount": -2
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Fiendish Panda",
+     "pt": "3/2",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "dies-returning-a-creature-with-mana-value-three",
+   "cr": [
+    "603.6c",
+    "608.2h"
+   ],
+   "why": "Dying with power 3 it returns another target non-Bear creature card of mana value 3 or less from its controller's graveyard to the battlefield.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Murder"
+     ],
+     "battlefield": [
+      "Fiendish Panda"
+     ],
+     "graveyard": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p0:Fiendish Panda"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "pass_to",
+     "decision": "priority",
+     "targets": [
+      "p0:Centaur Courser"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Fiendish Panda",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Fiendish Panda",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "mana-value-four-is-too-big-at-power-three",
+   "cr": [
+    "115.1",
+    "603.3d"
+   ],
+   "why": "A creature card with mana value 4 exceeds the Panda's power of 3: no legal target, nothing returns.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Murder"
+     ],
+     "battlefield": [
+      "Fiendish Panda"
+     ],
+     "graveyard": [
+      "Giant Spider"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p0:Fiendish Panda"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Fiendish Panda",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Giant Spider",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "counters-raise-the-limit-by-last-known-power",
+   "cr": [
+    "608.2h",
+    "113.7a",
+    "603.10a"
+   ],
+   "why": "With one +1/+1 counter the Panda had power 4 when it died; that last known power sets the limit, so a mana value 4 creature card returns.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Murder"
+     ],
+     "battlefield": [
+      "Fiendish Panda"
+     ],
+     "graveyard": [
+      "Giant Spider"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "life",
+     "seat": 0,
+     "amount": 1
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Fiendish Panda",
+       "pt": "4/3"
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p0:Fiendish Panda"
+     ]
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Giant Spider"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Fiendish Panda",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Giant Spider",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "bear-card-is-not-a-legal-target",
+   "cr": [
+    "115.1"
+   ],
+   "why": "The returned card must be a non-Bear: a Bear creature card of small mana value stays in the graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Murder"
+     ],
+     "battlefield": [
+      "Fiendish Panda"
+     ],
+     "graveyard": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p0:Fiendish Panda"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Fiendish Panda",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "opponents-graveyard-and-noncreature-cards-are-not-targets",
+   "cr": [
+    "115.1"
+   ],
+   "why": "Only creature cards in its controller's graveyard qualify: the opponent's creature card and its controller's own instant stay.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Murder"
+     ],
+     "battlefield": [
+      "Fiendish Panda"
+     ],
+     "graveyard": [
+      "Shock"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p0:Fiendish Panda"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Savannah Lions",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Fiendish Panda",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "dies-to-combat-damage-and-returns-a-creature",
+   "cr": [
+    "704.5g",
+    "603.6c"
+   ],
+   "why": "Dying to lethal combat damage triggers it the same way.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Fiendish Panda"
+     ],
+     "graveyard": [
+      "Savannah Lions"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Fiendish Panda"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 1,
+     "blocks": [
+      [
+       "p1:Centaur Courser",
+       "p0:Fiendish Panda"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "targets": [
+      "p0:Savannah Lions"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Fiendish Panda",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

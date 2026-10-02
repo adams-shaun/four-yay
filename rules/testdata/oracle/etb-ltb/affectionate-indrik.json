@@ -1,0 +1,268 @@
+{
+ "card": "Affectionate Indrik",
+ "family": "etb-ltb",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "b7aa851be795",
+ "scenarios": [
+  {
+   "name": "fights-and-kills-a-smaller-creature",
+   "cr": [
+    "701.14a",
+    "603.6a"
+   ],
+   "why": "The Indrik (4/4) fights the target 3/3: each deals damage equal to its power to the other; the 3/3 dies and the Indrik has 3 damage.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Affectionate Indrik"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Affectionate Indrik",
+     "mana": "CCCCCG"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Affectionate Indrik",
+     "zone": "battlefield",
+     "damage": 3,
+     "pt": "4/4"
+    }
+   ]
+  },
+  {
+   "name": "may-decline-the-fight",
+   "cr": [
+    "603.5",
+    "701.14a"
+   ],
+   "why": "The fight is optional: declining leaves both creatures undamaged.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Affectionate Indrik"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Affectionate Indrik",
+     "mana": "CCCCCG"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Centaur Courser"
+     ],
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "no"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "card": "p0:Affectionate Indrik",
+     "zone": "battlefield",
+     "damage": 0
+    }
+   ]
+  },
+  {
+   "name": "fighting-a-bigger-creature-kills-the-indrik",
+   "cr": [
+    "701.14a",
+    "704.5g"
+   ],
+   "why": "Fighting a 6/6: the Indrik takes 6 and dies, the 6/6 has 4 damage.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Affectionate Indrik"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Colossal Dreadmaw"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Affectionate Indrik",
+     "mana": "CCCCCG"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Colossal Dreadmaw"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Affectionate Indrik",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Colossal Dreadmaw",
+     "zone": "battlefield",
+     "damage": 4
+    }
+   ]
+  },
+  {
+   "name": "own-creatures-are-not-legal-targets",
+   "cr": [
+    "115.1",
+    "603.3d"
+   ],
+   "why": "The target must be a creature its controller doesn't control; with only own creatures the trigger has no target and nothing fights.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Affectionate Indrik"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Affectionate Indrik",
+     "mana": "CCCCCG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "card": "p0:Affectionate Indrik",
+     "zone": "battlefield",
+     "damage": 0
+    }
+   ]
+  },
+  {
+   "name": "target-gone-in-response-no-fight",
+   "cr": [
+    "608.2b",
+    "701.14b"
+   ],
+   "why": "The target leaves in response: no fight happens and the Indrik takes and deals no damage, to that creature or to another.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Affectionate Indrik"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Affectionate Indrik",
+     "mana": "CCCCCG"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "pass_to",
+     "decision": "priority",
+     "targets": [
+      "p1:Centaur Courser"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Affectionate Indrik",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "move",
+     "card": "p1:Centaur Courser",
+     "to": "hand"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Affectionate Indrik",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "hand"
+    }
+   ]
+  }
+ ]
+}
