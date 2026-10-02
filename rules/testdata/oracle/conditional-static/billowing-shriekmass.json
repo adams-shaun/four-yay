@@ -1,0 +1,420 @@
+{
+ "card": "Billowing Shriekmass",
+ "family": "conditional-static",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "b22958dc802d",
+ "scenarios": [
+  {
+   "name": "enters-mills-three",
+   "cr": [
+    "701.17a",
+    "603.6a"
+   ],
+   "why": "On entering its controller mills three cards. With three cards in the graveyard it is a 2/3 flier.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Billowing Shriekmass"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Centaur Courser",
+      "Swamp",
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Billowing Shriekmass",
+     "mana": "CCCB"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Swamp",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Craw Wurm",
+     "zone": "library"
+    },
+    {
+     "graveyard_size": {
+      "p0": 3
+     }
+    },
+    {
+     "card": "p0:Billowing Shriekmass",
+     "zone": "battlefield",
+     "pt": "2/3",
+     "keywords": [
+      "Flying"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "threshold-seven-cards-four-four",
+   "cr": [
+    "604.2",
+    "207.2c"
+   ],
+   "why": "Four cards already in the graveyard plus the three milled make seven: +2/+1, a 4/4.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Billowing Shriekmass"
+     ],
+     "graveyard": [
+      "Shock",
+      "Forest",
+      "Grizzly Bears",
+      "Mind Stone"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Billowing Shriekmass",
+     "mana": "CCCB"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "graveyard_size": {
+      "p0": 7
+     }
+    },
+    {
+     "card": "p0:Billowing Shriekmass",
+     "pt": "4/4",
+     "keywords": [
+      "Flying"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "six-cards-is-short-of-threshold",
+   "cr": [
+    "604.2"
+   ],
+   "why": "Three in the graveyard plus three milled is six: still 2/3.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Billowing Shriekmass"
+     ],
+     "graveyard": [
+      "Shock",
+      "Forest",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Billowing Shriekmass",
+     "mana": "CCCB"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "graveyard_size": {
+      "p0": 6
+     }
+    },
+    {
+     "card": "p0:Billowing Shriekmass",
+     "pt": "2/3"
+    }
+   ]
+  },
+  {
+   "name": "opponents-graveyard-does-not-count",
+   "cr": [
+    "109.5"
+   ],
+   "why": "Only its controller's graveyard counts.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Billowing Shriekmass"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Shock",
+      "Forest",
+      "Grizzly Bears",
+      "Mind Stone",
+      "Shock",
+      "Forest",
+      "Grizzly Bears",
+      "Mind Stone"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Billowing Shriekmass",
+     "mana": "CCCB"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "graveyard_size": {
+      "p0": 3,
+      "p1": 8
+     }
+    },
+    {
+     "card": "p0:Billowing Shriekmass",
+     "pt": "2/3"
+    }
+   ]
+  },
+  {
+   "name": "threshold-lost-when-graveyard-shrinks",
+   "cr": [
+    "604.2",
+    "611.3a"
+   ],
+   "why": "The bonus applies only while the count holds: a card exiled from the graveyard drops it to six and the Shriekmass is 2/3 again.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Billowing Shriekmass"
+     ],
+     "graveyard": [
+      "Shock",
+      "Forest",
+      "Grizzly Bears",
+      "Mind Stone"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Cremate"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Billowing Shriekmass",
+     "mana": "CCCB"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Billowing Shriekmass",
+       "pt": "4/4"
+      }
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Cremate",
+     "mana": "B",
+     "targets": [
+      "p0:Shock"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "graveyard_size": {
+      "p0": 6
+     }
+    },
+    {
+     "card": "p0:Billowing Shriekmass",
+     "pt": "2/3"
+    }
+   ]
+  },
+  {
+   "name": "damage-becomes-lethal-when-threshold-is-lost",
+   "cr": [
+    "704.5g",
+    "604.2"
+   ],
+   "why": "With 3 damage marked on the 4/4, losing threshold makes its toughness 3 and it is destroyed.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Billowing Shriekmass"
+     ],
+     "graveyard": [
+      "Shock",
+      "Forest",
+      "Grizzly Bears",
+      "Mind Stone"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Cremate",
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Billowing Shriekmass",
+     "mana": "CCCB"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Billowing Shriekmass"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Billowing Shriekmass",
+       "zone": "battlefield",
+       "damage": 3
+      }
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Cremate",
+     "mana": "B",
+     "targets": [
+      "p0:Shock"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Billowing Shriekmass",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "threshold-gained-later",
+   "cr": [
+    "604.2"
+   ],
+   "why": "The condition is checked continuously: a seventh card arriving later turns the bonus on.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Billowing Shriekmass",
+      "Shock"
+     ],
+     "graveyard": [
+      "Shock",
+      "Forest",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Billowing Shriekmass",
+     "mana": "CCCB"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Billowing Shriekmass",
+       "pt": "2/3"
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "graveyard_size": {
+      "p0": 7
+     }
+    },
+    {
+     "card": "p0:Billowing Shriekmass",
+     "pt": "4/4"
+    }
+   ]
+  }
+ ]
+}

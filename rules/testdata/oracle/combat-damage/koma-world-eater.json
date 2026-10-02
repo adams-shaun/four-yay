@@ -1,0 +1,519 @@
+{
+ "card": "Koma, World-Eater",
+ "family": "combat-damage",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "ccfd45161538",
+ "scenarios": [
+  {
+   "name": "cannot-be-countered",
+   "cr": [
+    "101.2",
+    "701.6"
+   ],
+   "why": "A counterspell can target the Koma spell but does not counter it: Koma resolves.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Koma, World-Eater"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Cancel"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Koma, World-Eater",
+     "mana": "CCCGGUU"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Cancel",
+     "mana": "CUU",
+     "targets": [
+      "p0:Koma, World-Eater"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Koma, World-Eater",
+     "zone": "battlefield",
+     "pt": "8/12",
+     "keywords": [
+      "Trample"
+     ]
+    },
+    {
+     "card": "p1:Cancel",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "ward-four-unpaid-counters-the-spell",
+   "cr": [
+    "702.21a"
+   ],
+   "why": "An opponent's spell targeting Koma is countered unless they pay {4}; declining counters it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Koma, World-Eater"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p0:Koma, World-Eater"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Koma, World-Eater",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "no"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Koma, World-Eater",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Murder",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "ward-four-paid-spell-resolves",
+   "cr": [
+    "702.21a"
+   ],
+   "why": "Paying {4} lets the spell resolve.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Koma, World-Eater"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p0:Koma, World-Eater"
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 1,
+     "mana": "CCCC"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "yes"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Koma, World-Eater",
+     "zone": "graveyard"
+    },
+    {
+     "pool": {
+      "p1": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "ward-cannot-be-paid-with-three",
+   "cr": [
+    "702.21a",
+    "118.3"
+   ],
+   "why": "With only three mana the ward cost cannot be paid and the spell is countered.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Koma, World-Eater"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p0:Koma, World-Eater"
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 1,
+     "mana": "CCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Koma, World-Eater",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Murder",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "own-spell-does-not-trigger-ward",
+   "cr": [
+    "702.21a"
+   ],
+   "why": "Ward only looks at spells and abilities an opponent controls.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Giant Growth"
+     ],
+     "battlefield": [
+      "Koma, World-Eater"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Giant Growth",
+     "mana": "G",
+     "targets": [
+      "p0:Koma, World-Eater"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Koma, World-Eater",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Koma, World-Eater",
+     "pt": "11/15"
+    }
+   ]
+  },
+  {
+   "name": "combat-damage-to-player-makes-four-coils",
+   "cr": [
+    "603.2",
+    "510.3a"
+   ],
+   "why": "Unblocked it deals 8 and creates four 3/3 Serpent tokens named Koma's Coil.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Koma, World-Eater"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Koma, World-Eater"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 12
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Koma's Coil",
+      "token": true
+     },
+     "eq": 4
+    },
+    {
+     "card": "p0:token:Koma's Coil",
+     "pt": "3/3",
+     "types": [
+      "Creature",
+      "Serpent"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "trample-over-a-blocker-still-four-coils",
+   "cr": [
+    "702.19b",
+    "603.2c"
+   ],
+   "why": "Blocked by a 2/2, 6 tramples over: it dealt combat damage to a player once, so exactly four tokens.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Koma, World-Eater"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Koma, World-Eater"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Grizzly Bears",
+       "p0:Koma, World-Eater"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 14
+     }
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Koma's Coil",
+      "token": true
+     },
+     "eq": 4
+    }
+   ]
+  },
+  {
+   "name": "fully-blocked-no-coils",
+   "cr": [
+    "702.19b",
+    "603.2g"
+   ],
+   "why": "Blocked by a 0/8, all 8 damage is needed for lethal: nothing reaches the player and no tokens are made.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Koma, World-Eater"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Wall of Stone"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Koma, World-Eater"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Wall of Stone",
+       "p0:Koma, World-Eater"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 20
+     }
+    },
+    {
+     "card": "p1:Wall of Stone",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Koma's Coil"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "noncombat-damage-does-not-trigger",
+   "cr": [
+    "603.2",
+    "120.2a"
+   ],
+   "why": "Only combat damage counts. (Control for the trigger condition: no attack, no tokens.)",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Koma, World-Eater"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 18
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Koma's Coil"
+     },
+     "eq": 0
+    }
+   ]
+  }
+ ]
+}
