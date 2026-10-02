@@ -1,0 +1,263 @@
+{
+ "card": "Uncharted Voyage",
+ "family": "spell-conditional",
+ "author": "fdn-audit-1 (Oracle + CR only)",
+ "oracle_sha": "d337fc288758",
+ "scenarios": [
+  {
+   "name": "owner-chooses-top-and-redraws-it",
+   "cr": [
+    "608.2d",
+    "608.2"
+   ],
+   "why": "The targeted creature's OWNER chooses top or bottom of their library. Chosen top, it is the card that player draws in their next draw step.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Uncharted Voyage"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Uncharted Voyage",
+     "mana": "CCCU",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "top"
+       ]
+      }
+     ],
+     "expect": [
+      {
+       "card": "p1:Centaur Courser",
+       "zone": "library"
+      },
+      {
+       "card": "p0:Uncharted Voyage",
+       "zone": "graveyard"
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "owner-chooses-bottom-and-does-not-redraw-it",
+   "cr": [
+    "608.2d"
+   ],
+   "why": "Chosen bottom, the creature card is under the whole library and is not drawn next turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Uncharted Voyage"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Uncharted Voyage",
+     "mana": "CCCU",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "bottom"
+       ]
+      }
+     ],
+     "expect": [
+      {
+       "card": "p1:Centaur Courser",
+       "zone": "library"
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "surveil-into-graveyard",
+   "cr": [
+    "701.25a"
+   ],
+   "why": "After the creature is put away the caster surveils 1: the top card of the caster's library may go to the graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Uncharted Voyage"
+     ],
+     "library_top": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Uncharted Voyage",
+     "mana": "CCCU",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "bottom"
+       ]
+      },
+      {
+       "kind": "arrange",
+       "pick": []
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "surveil-keeps-card-on-top",
+   "cr": [
+    "701.25a"
+   ],
+   "why": "Surveil is a may: the looked-at card can stay on top of the library, and it is not drawn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Uncharted Voyage"
+     ],
+     "library_top": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Uncharted Voyage",
+     "mana": "CCCU",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "bottom"
+       ]
+      },
+      {
+       "kind": "arrange",
+       "pick": [
+        "Grizzly Bears"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    },
+    {
+     "graveyard_size": {
+      "p0": 1
+     }
+    }
+   ]
+  }
+ ]
+}

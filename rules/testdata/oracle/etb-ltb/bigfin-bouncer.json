@@ -1,0 +1,124 @@
+{
+ "card": "Bigfin Bouncer",
+ "family": "etb-ltb",
+ "author": "fdn-audit-1 (Oracle + CR only)",
+ "oracle_sha": "ec098eb9e743",
+ "scenarios": [
+  {
+   "name": "returns-opponents-creature-to-hand",
+   "cr": [
+    "603.2",
+    "400.7"
+   ],
+   "why": "The enters trigger returns the targeted opposing creature to its owner's hand; the Bouncer is a 3/2.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Bigfin Bouncer"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bigfin Bouncer",
+     "mana": "CCCU"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Bigfin Bouncer",
+     "zone": "battlefield",
+     "pt": "3/2"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "hand"
+    },
+    {
+     "card": "p1:Savannah Lions",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "hand_size": {
+      "p1": 1,
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-opposing-creature-nothing-returns",
+   "cr": [
+    "603.3d"
+   ],
+   "why": "With no creature an opponent controls there is no legal target, so the trigger is removed from the stack; the controller's own creature is not a legal target and stays.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Bigfin Bouncer"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Sol Ring"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bigfin Bouncer",
+     "mana": "CCCU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Bigfin Bouncer",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Sol Ring",
+     "zone": "battlefield"
+    },
+    {
+     "hand_size": {
+      "p0": 0,
+      "p1": 0
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,256 @@
+{
+ "card": "Evolving Wilds",
+ "family": "activated-ability",
+ "author": "fdn-audit-1 (Oracle + CR only)",
+ "oracle_sha": "db6d96c9002a",
+ "scenarios": [
+  {
+   "name": "sacrifice-fetches-basic-land-tapped",
+   "cr": [
+    "701.23a",
+    "601.2h",
+    "602.2"
+   ],
+   "why": "Tapping and sacrificing the Wilds is the cost, so it is in the graveyard while the ability is still on the stack; on resolution a basic land card from the library enters the battlefield tapped.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Evolving Wilds"
+     ],
+     "library_top": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Evolving Wilds",
+     "ability": "Search your library",
+     "expect": [
+      {
+       "card": "p0:Evolving Wilds",
+       "zone": "graveyard"
+      },
+      {
+       "card": "p0:Forest",
+       "zone": "library"
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Forest"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Evolving Wilds",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "battlefield",
+     "tapped": true
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "fetched-basic-does-not-use-land-drop",
+   "cr": [
+    "305.2",
+    "305.4"
+   ],
+   "why": "The fetched land is put onto the battlefield by an effect, not played, so the turn's land play is still available afterwards.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Evolving Wilds"
+     ],
+     "hand": [
+      "Plains"
+     ],
+     "library_top": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Evolving Wilds",
+     "ability": "Search your library"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Forest"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Plains"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Forest",
+     "zone": "battlefield",
+     "tapped": true
+    },
+    {
+     "card": "p0:Plains",
+     "zone": "battlefield",
+     "tapped": false
+    }
+   ]
+  },
+  {
+   "name": "usable-the-turn-it-is-played",
+   "cr": [
+    "302.6",
+    "305.1"
+   ],
+   "why": "A land is not a creature, so its tap ability can be used the turn it is played.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Evolving Wilds"
+     ],
+     "library_top": [
+      "Plains"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Evolving Wilds",
+     "expect": [
+      {
+       "card": "p0:Evolving Wilds",
+       "zone": "battlefield",
+       "tapped": false
+      }
+     ]
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Evolving Wilds",
+     "ability": "Search your library"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Plains"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Plains",
+     "zone": "battlefield",
+     "tapped": true
+    },
+    {
+     "card": "p0:Evolving Wilds",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "search-may-find-nothing",
+   "cr": [
+    "701.23b",
+    "701.23a"
+   ],
+   "why": "A search for a card with a stated quality may fail to find: choosing nothing still costs the Wilds and puts no land onto the battlefield.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Evolving Wilds"
+     ],
+     "library_top": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Evolving Wilds",
+     "ability": "Search your library"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": []
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Evolving Wilds",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "library"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Forest"
+     },
+     "eq": 0
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Wastes"
+     },
+     "eq": 0
+    }
+   ]
+  }
+ ]
+}

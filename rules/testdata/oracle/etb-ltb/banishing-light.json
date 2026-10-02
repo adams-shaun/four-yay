@@ -1,0 +1,251 @@
+{
+ "card": "Banishing Light",
+ "family": "etb-ltb",
+ "author": "fdn-audit-1 (Oracle + CR only)",
+ "oracle_sha": "86d10c23225f",
+ "scenarios": [
+  {
+   "name": "exiles-opponents-nonland-permanent",
+   "cr": [
+    "603.2",
+    "610.3"
+   ],
+   "why": "The enters trigger exiles the targeted nonland permanent an opponent controls for as long as the Light stays on the battlefield; any nonland permanent type qualifies, here an artifact.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Banishing Light"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Sol Ring",
+      "Centaur Courser",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Banishing Light",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Sol Ring"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Banishing Light",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Sol Ring",
+     "zone": "exile"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Forest",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "leaving-returns-the-exiled-card",
+   "cr": [
+    "610.3",
+    "610.3c"
+   ],
+   "why": "When the Light leaves the battlefield the exiled card returns to the battlefield under its owner's control, immediately and as a new object.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Banishing Light"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Banishing Light",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Centaur Courser"
+     ],
+     "expect": [
+      {
+       "card": "p1:Centaur Courser",
+       "zone": "exile"
+      }
+     ]
+    },
+    {
+     "op": "move",
+     "seat": 0,
+     "card": "p0:Banishing Light",
+     "to": "graveyard"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Banishing Light",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "battlefield",
+     "pt": "3/3"
+    }
+   ]
+  },
+  {
+   "name": "opponent-with-only-lands-nothing-exiled",
+   "cr": [
+    "603.3d"
+   ],
+   "why": "A land is not a legal target, and neither is anything its own controller controls: with no legal target the trigger does nothing.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Banishing Light"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Banishing Light",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Banishing Light",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Forest",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "light-gone-before-trigger-resolves-exiles-nothing",
+   "cr": [
+    "610.3b"
+   ],
+   "why": "If the Light has already left the battlefield when its trigger resolves, the until-leaves duration has already ended and the target is not exiled at all.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Banishing Light",
+      "Disenchant"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Banishing Light",
+     "mana": "CCW"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "pass_to",
+     "decision": "priority",
+     "targets": [
+      "p1:Centaur Courser"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Banishing Light",
+       "want": true
+      },
+      {
+       "card": "p1:Centaur Courser",
+       "zone": "battlefield"
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Disenchant",
+     "mana": "CW",
+     "targets": [
+      "p0:Banishing Light"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Banishing Light",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "battlefield"
+    }
+   ]
+  }
+ ]
+}

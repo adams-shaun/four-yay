@@ -1,0 +1,352 @@
+{
+ "card": "Gnarlid Colony",
+ "family": "conditional-static",
+ "author": "fdn-audit-1 (Oracle + CR only)",
+ "oracle_sha": "9bcf95a500ff",
+ "scenarios": [
+  {
+   "name": "unkicked-plain-two-two",
+   "cr": [
+    "702.33a"
+   ],
+   "why": "Cast for two mana without kicker it is a 2/2 with no counters, and with no +1/+1 counter on it it does not have trample.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Gnarlid Colony"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Gnarlid Colony",
+     "mana": "CG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Gnarlid Colony",
+     "zone": "battlefield",
+     "pt": "2/2",
+     "counters": {
+      "+1/+1": 0
+     },
+     "no_keywords": [
+      "Trample"
+     ]
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "kicked-enters-with-two-counters-and-tramples",
+   "cr": [
+    "702.33a",
+    "614.1c"
+   ],
+   "why": "Kicked (five mana in all) it enters with two +1/+1 counters: a 4/4, and since it has a +1/+1 counter it has trample.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Gnarlid Colony"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Gnarlid Colony",
+     "mana": "CCCGG",
+     "kicked": true
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Gnarlid Colony",
+     "zone": "battlefield",
+     "pt": "4/4",
+     "counters": {
+      "+1/+1": 2
+     },
+     "keywords": [
+      "Trample"
+     ]
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "unkicked-cast-pays-only-two",
+   "cr": [
+    "702.33a",
+    "601.2f"
+   ],
+   "why": "Kicker is optional: cast without it from a four-mana pool only the printed two mana are spent and it enters with no counters.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Gnarlid Colony"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Gnarlid Colony",
+     "mana": "CCGG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Gnarlid Colony",
+     "zone": "battlefield",
+     "pt": "2/2",
+     "counters": {
+      "+1/+1": 0
+     }
+    },
+    {
+     "pool": {
+      "p0": "CG"
+     }
+    }
+   ]
+  },
+  {
+   "name": "grants-trample-to-other-creatures-with-counters",
+   "cr": [
+    "604.1",
+    "613.1f"
+   ],
+   "why": "Every creature its controller controls with a +1/+1 counter has trample; one without a counter does not. When the Colony leaves, the grant ends.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Gnarlid Colony",
+      "Hungry Ghoul",
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Hungry Ghoul",
+     "mana": "C",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Savannah Lions"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Hungry Ghoul",
+       "zone": "battlefield",
+       "pt": "3/3",
+       "keywords": [
+        "Trample"
+       ]
+      },
+      {
+       "card": "p0:Grizzly Bears",
+       "zone": "battlefield",
+       "no_keywords": [
+        "Trample"
+       ]
+      },
+      {
+       "card": "p0:Gnarlid Colony",
+       "zone": "battlefield",
+       "no_keywords": [
+        "Trample"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "move",
+     "seat": 0,
+     "card": "p0:Gnarlid Colony",
+     "to": "graveyard"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Hungry Ghoul",
+     "zone": "battlefield",
+     "pt": "3/3",
+     "no_keywords": [
+      "Trample"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "opponents-countered-creature-gets-no-trample",
+   "cr": [
+    "604.1"
+   ],
+   "why": "The grant covers only creatures the Colony's controller controls: an opponent's creature with a +1/+1 counter does not gain trample.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Gnarlid Colony"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Hungry Ghoul",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "activate",
+     "seat": 1,
+     "card": "p1:Hungry Ghoul",
+     "mana": "C",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p1:Grizzly Bears"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Hungry Ghoul",
+     "zone": "battlefield",
+     "pt": "3/3",
+     "counters": {
+      "+1/+1": 1
+     },
+     "no_keywords": [
+      "Trample"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "granted-trample-works-in-combat",
+   "cr": [
+    "702.19b"
+   ],
+   "why": "A kicked 4/4 Colony blocked by a 2/2 assigns 2 lethal damage to the blocker and tramples over for 2.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Gnarlid Colony"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Gnarlid Colony",
+     "mana": "CCCGG",
+     "kicked": true
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Gnarlid Colony"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Grizzly Bears",
+       "p0:Gnarlid Colony"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 18
+     }
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

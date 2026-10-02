@@ -1,0 +1,473 @@
+{
+ "card": "Tragic Banshee",
+ "family": "trigger-condition",
+ "author": "fdn-audit-1 (Oracle + CR only)",
+ "oracle_sha": "122518ed9ac7",
+ "scenarios": [
+  {
+   "name": "no-death-minus-one-until-end-of-turn",
+   "cr": [
+    "207.2c",
+    "611.2a"
+   ],
+   "why": "With no creature having died this turn the targeted opposing creature gets only -1/-1 until end of turn. The Banshee is a 5/3.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Tragic Banshee"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Tragic Banshee",
+     "mana": "CCCCB"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Centaur Courser"
+     ],
+     "expect": [
+      {
+       "card": "p1:Centaur Courser",
+       "zone": "battlefield",
+       "pt": "2/2"
+      },
+      {
+       "card": "p0:Tragic Banshee",
+       "zone": "battlefield",
+       "pt": "5/3"
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "battlefield",
+     "pt": "3/3"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "pt": "2/2"
+    }
+   ]
+  },
+  {
+   "name": "minus-one-kills-a-one-toughness-creature",
+   "cr": [
+    "704.5f"
+   ],
+   "why": "-1/-1 alone is lethal to a creature with toughness 1.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Tragic Banshee"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Tragic Banshee",
+     "mana": "CCCCB"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Savannah Lions"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Savannah Lions",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "morbid-minus-thirteen",
+   "cr": [
+    "207.2c",
+    "700.4",
+    "704.5f"
+   ],
+   "why": "A creature died earlier this turn (any player's), so the target gets -13/-13 instead and dies.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Tragic Banshee"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "move",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "to": "graveyard"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Tragic Banshee",
+     "mana": "CCCCB"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Craw Wurm"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Tragic Banshee",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "opponents-creature-dying-also-enables-morbid",
+   "cr": [
+    "207.2c"
+   ],
+   "why": "Morbid counts any creature that died this turn, including an opponent's.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Tragic Banshee",
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Tragic Banshee",
+     "mana": "CCCCB"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Craw Wurm"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "death-on-an-earlier-turn-does-not-count",
+   "cr": [
+    "207.2c"
+   ],
+   "why": "Only deaths this turn matter: a creature that died on a previous turn leaves the trigger at -1/-1.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Tragic Banshee"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "move",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "to": "graveyard"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Tragic Banshee",
+     "mana": "CCCCB"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Craw Wurm"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "battlefield",
+     "pt": "5/3"
+    }
+   ]
+  },
+  {
+   "name": "morbid-is-checked-on-resolution",
+   "cr": [
+    "608.2c",
+    "603.4"
+   ],
+   "why": "The 'instead' is evaluated as the trigger resolves, not when it triggers: a creature dying in response turns the -1/-1 into -13/-13.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Tragic Banshee",
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Tragic Banshee",
+     "mana": "CCCCB"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "pass_to",
+     "decision": "priority",
+     "targets": [
+      "p1:Craw Wurm"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Tragic Banshee",
+       "want": true
+      },
+      {
+       "card": "p1:Craw Wurm",
+       "zone": "battlefield",
+       "pt": "6/4"
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "noncreature-card-going-to-graveyard-is-not-a-death",
+   "cr": [
+    "700.4"
+   ],
+   "why": "A spell card going to the graveyard is not a creature dying: after an instant resolves the trigger still gives only -1/-1.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Tragic Banshee",
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Tragic Banshee",
+     "mana": "CCCCB"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Craw Wurm"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "battlefield",
+     "pt": "5/3"
+    },
+    {
+     "life": {
+      "p1": 17
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-opposing-creature-enters-quietly",
+   "cr": [
+    "603.3d"
+   ],
+   "why": "With no creature an opponent controls there is no legal target; its controller's own creature is unaffected even with morbid on.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Tragic Banshee"
+     ],
+     "battlefield": [
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "move",
+     "seat": 0,
+     "card": "p0:Savannah Lions",
+     "to": "graveyard"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Tragic Banshee",
+     "mana": "CCCCB"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "pt": "2/2"
+    },
+    {
+     "card": "p0:Tragic Banshee",
+     "zone": "battlefield",
+     "pt": "5/3"
+    }
+   ]
+  }
+ ]
+}

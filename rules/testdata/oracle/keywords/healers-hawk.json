@@ -1,0 +1,154 @@
+{
+ "card": "Healer's Hawk",
+ "family": "keywords",
+ "author": "fdn-audit-1 (Oracle + CR only)",
+ "oracle_sha": "86d8cdeb5b52",
+ "scenarios": [
+  {
+   "name": "flying-and-lifelink-unblocked",
+   "cr": [
+    "702.9b",
+    "702.15b",
+    "510.1"
+   ],
+   "why": "A 1/1 with flying and lifelink: a ground creature cannot block it but a flier can; unblocked it deals 1 to the defender and its controller gains 1.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Healer's Hawk"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Wind Drake"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Healer's Hawk"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "card": "p0:Healer's Hawk",
+       "zone": "battlefield",
+       "pt": "1/1",
+       "keywords": [
+        "Flying",
+        "Lifelink"
+       ],
+       "tapped": true
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p1:Grizzly Bears",
+        "attacker": "p0:Healer's Hawk"
+       },
+       "want": false
+      },
+      {
+       "can_block": {
+        "blocker": "p1:Wind Drake",
+        "attacker": "p0:Healer's Hawk"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": []
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 21,
+      "p1": 19
+     }
+    }
+   ]
+  },
+  {
+   "name": "lifelink-on-damage-to-a-blocker",
+   "cr": [
+    "702.15b",
+    "510.2"
+   ],
+   "why": "Lifelink counts damage dealt to a creature too: blocked by a 2/2 flier the Hawk deals 1 to it, its controller gains 1, and the Hawk dies.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Healer's Hawk"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Wind Drake"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Healer's Hawk"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Wind Drake",
+       "p0:Healer's Hawk"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 21,
+      "p1": 20
+     }
+    },
+    {
+     "card": "p0:Healer's Hawk",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Wind Drake",
+     "zone": "battlefield",
+     "damage": 1
+    }
+   ]
+  }
+ ]
+}

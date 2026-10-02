@@ -1,0 +1,463 @@
+{
+ "card": "Tolarian Terror",
+ "family": "cost-modifier",
+ "author": "fdn-audit-1 (Oracle + CR only)",
+ "oracle_sha": "aa604c0a2dc4",
+ "scenarios": [
+  {
+   "name": "full-price-with-empty-graveyard",
+   "cr": [
+    "601.2f",
+    "202.1"
+   ],
+   "why": "With no instant or sorcery card in its controller's graveyard the spell costs its printed seven mana; creature cards in that graveyard and instants in the opponent's graveyard do not reduce it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Tolarian Terror"
+     ],
+     "graveyard": [
+      "Grizzly Bears",
+      "Centaur Courser"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Lightning Bolt",
+      "Giant Growth",
+      "Doom Blade"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCCCU",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Tolarian Terror"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Tolarian Terror"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Tolarian Terror"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Tolarian Terror",
+     "zone": "battlefield",
+     "pt": "5/5"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "three-instants-and-sorceries-cost-four",
+   "cr": [
+    "601.2f"
+   ],
+   "why": "Each instant and each sorcery card in its controller's graveyard reduces the cost by {1}: with two instants and one sorcery it costs four mana.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Tolarian Terror"
+     ],
+     "graveyard": [
+      "Lightning Bolt",
+      "Giant Growth",
+      "Divination"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCU",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Tolarian Terror"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Tolarian Terror"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Tolarian Terror"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Tolarian Terror",
+     "zone": "battlefield"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "reduction-cannot-touch-the-blue-mana",
+   "cr": [
+    "601.2f",
+    "118.7"
+   ],
+   "why": "The reduction applies to generic mana only: with eight instants in the graveyard the spell still costs {U}, which colourless mana cannot pay.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Tolarian Terror"
+     ],
+     "graveyard": [
+      "Lightning Bolt",
+      "Lightning Bolt",
+      "Lightning Bolt",
+      "Lightning Bolt",
+      "Lightning Bolt",
+      "Lightning Bolt",
+      "Lightning Bolt",
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Tolarian Terror"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "U",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Tolarian Terror"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Tolarian Terror"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Tolarian Terror",
+     "zone": "battlefield"
+    },
+    {
+     "pool": {
+      "p0": "C"
+     }
+    }
+   ]
+  },
+  {
+   "name": "ward-two-unpaid-counters-the-spell",
+   "cr": [
+    "702.21a"
+   ],
+   "why": "Ward {2}: when an opponent's spell targets the Terror and that opponent does not pay {2}, the spell is countered and the Terror survives.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Tolarian Terror"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Doom Blade"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Doom Blade",
+     "mana": "CB",
+     "targets": [
+      "p0:Tolarian Terror"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Tolarian Terror",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "no"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Tolarian Terror",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Doom Blade",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "ward-two-paid-lets-the-spell-resolve",
+   "cr": [
+    "702.21a"
+   ],
+   "why": "If the opponent pays the {2}, the spell is not countered and resolves.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Tolarian Terror"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Doom Blade"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Doom Blade",
+     "mana": "CB",
+     "targets": [
+      "p0:Tolarian Terror"
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 1,
+     "mana": "CC"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "yes"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Tolarian Terror",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Doom Blade",
+     "zone": "graveyard"
+    },
+    {
+     "pool": {
+      "p1": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "ward-also-answers-an-opponents-ability",
+   "cr": [
+    "702.21a"
+   ],
+   "why": "Ward triggers for abilities as well as spells: an opponent's enters trigger that targets the Terror is countered when the {2} is not paid, and the Terror stays on the battlefield.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Tolarian Terror"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Bigfin Bouncer"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Bigfin Bouncer",
+     "mana": "CCCU"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "no"
+       ]
+      }
+     ],
+     "targets": [
+      "p0:Tolarian Terror"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Tolarian Terror",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Bigfin Bouncer",
+     "zone": "battlefield"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "own-spell-does-not-trigger-ward",
+   "cr": [
+    "702.21a"
+   ],
+   "why": "Ward looks only at spells and abilities an OPPONENT controls: its controller's own Giant Growth resolves with no ward trigger.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Tolarian Terror"
+     ],
+     "hand": [
+      "Giant Growth"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Giant Growth",
+     "mana": "G",
+     "targets": [
+      "p0:Tolarian Terror"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Tolarian Terror",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Tolarian Terror",
+     "zone": "battlefield",
+     "pt": "8/8"
+    }
+   ]
+  }
+ ]
+}

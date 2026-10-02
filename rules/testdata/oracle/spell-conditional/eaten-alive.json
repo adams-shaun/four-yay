@@ -1,0 +1,476 @@
+{
+ "card": "Eaten Alive",
+ "family": "spell-conditional",
+ "author": "fdn-audit-1 (Oracle + CR only)",
+ "oracle_sha": "5a23871dc790",
+ "scenarios": [
+  {
+   "name": "sacrifice-a-creature-as-the-additional-cost",
+   "cr": [
+    "118.8",
+    "601.2b",
+    "601.2h"
+   ],
+   "why": "With a creature sacrificed as the additional cost only {B} is paid in mana; the sacrifice happens on casting, and the target creature is exiled on resolution.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Eaten Alive"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Eaten Alive",
+     "mana": "B",
+     "targets": [
+      "p1:Craw Wurm"
+     ],
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Sacrifice"
+       ]
+      },
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ],
+     "expect": [
+      {
+       "card": "p0:Grizzly Bears",
+       "zone": "graveyard"
+      },
+      {
+       "card": "p1:Craw Wurm",
+       "zone": "battlefield"
+      },
+      {
+       "pool": {
+        "p0": ""
+       }
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "exile"
+    },
+    {
+     "card": "p0:Eaten Alive",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "pay-three-and-black-instead",
+   "cr": [
+    "118.8",
+    "601.2b"
+   ],
+   "why": "With no creature to sacrifice the additional cost is {3}{B}, five mana in all with two black; the target is exiled.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Eaten Alive"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCB",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Eaten Alive"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "B",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Eaten Alive"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Eaten Alive",
+     "targets": [
+      "p1:Craw Wurm"
+     ],
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Pay 3 B"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "exile"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "may-pay-mana-and-keep-the-creature",
+   "cr": [
+    "118.8",
+    "601.2b"
+   ],
+   "why": "The choice between the two additional costs is the caster's: paying the mana with a creature on the battlefield sacrifices nothing.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Eaten Alive"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Eaten Alive",
+     "mana": "CCCBB",
+     "targets": [
+      "p1:Craw Wurm"
+     ],
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Pay 3 B"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "exile"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "sacrifice-option-leaves-extra-mana-unspent",
+   "cr": [
+    "118.8",
+    "601.2h"
+   ],
+   "why": "Choosing the sacrifice from a five-mana pool spends only the one black mana of the printed cost.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Eaten Alive"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Eaten Alive",
+     "mana": "CCCBB",
+     "targets": [
+      "p1:Craw Wurm"
+     ],
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Sacrifice"
+       ]
+      },
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "exile"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "pool": {
+      "p0": "CCCB"
+     }
+    }
+   ]
+  },
+  {
+   "name": "one-black-and-no-creature-is-not-castable",
+   "cr": [
+    "118.8",
+    "601.2h"
+   ],
+   "why": "An additional cost is mandatory: with a single black mana and no creature of its own to sacrifice (the opponent's creatures cannot be sacrificed) the spell cannot be cast.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Eaten Alive"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "B",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Eaten Alive"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Eaten Alive",
+     "zone": "hand"
+    },
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "sorcery-timing-only",
+   "cr": [
+    "307.1"
+   ],
+   "why": "A sorcery: with both payment options available it is still not castable on the opponent's turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Eaten Alive"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCBB",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Eaten Alive"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCBB",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Eaten Alive"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Eaten Alive",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "exiles-a-planeswalker",
+   "cr": [
+    "115.1",
+    "406.1"
+   ],
+   "why": "The target may be a planeswalker instead of a creature.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Eaten Alive"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Jace Beleren"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Jace Beleren",
+     "mana": "CUU"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Eaten Alive",
+     "mana": "CCCBB",
+     "targets": [
+      "p1:Jace Beleren"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Jace Beleren",
+     "zone": "exile"
+    },
+    {
+     "card": "p0:Eaten Alive",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}
