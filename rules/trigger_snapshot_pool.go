@@ -98,6 +98,36 @@ func (e *Engine) closeTriggerWindow(own, outer *triggerSnapshot) {
 	p.objs = append(p.objs, objs)
 }
 
+// openBatchWindow parks the pre-departure board for an effect's simultaneous
+// departure batch (BatchDepartures, engine_damage.go) unless a window is
+// already open -- an outer state-based batch or parked replacement keeps
+// winning, and nested batches share the outermost board.
+func (e *Engine) openBatchWindow() {
+	if e.batchWindowDepth == 0 && e.triggerBefore == nil {
+		e.batchWindow = e.snapshotTriggerBoard()
+		e.triggerBefore = e.batchWindow
+	}
+	e.batchWindowDepth++
+}
+
+// closeBatchWindow ends one BatchDepartures call; the outermost one closes
+// the window it opened. The effect loop is over, or suspended on an ask
+// (which returns through the caller's defer), so no batch window outlives an
+// intent boundary.
+func (e *Engine) closeBatchWindow() {
+	if e.batchWindowDepth > 0 {
+		e.batchWindowDepth--
+	}
+	if e.batchWindowDepth != 0 || e.batchWindow == nil {
+		return
+	}
+	own := e.batchWindow
+	e.batchWindow = nil
+	if e.triggerBefore == own {
+		e.closeTriggerWindow(own, nil)
+	}
+}
+
 // poisonObjects overwrites every slot with an object no correct reader can
 // mistake for a real one: a foreign ID, an out-of-range controller and zone,
 // and no card, so a stale pointer read fails a match, indexes out of range

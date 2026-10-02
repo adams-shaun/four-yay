@@ -1,6 +1,7 @@
 package effects
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
@@ -184,6 +185,15 @@ func effChangeZoneAll(h Host, c *Ctx, sa *cards.SA) {
 	// and are not touched here.
 	randomOrder := strings.EqualFold(strings.TrimSpace(sa.Params["RandomOrder"]), "True")
 	rider := classifyAttackingEntry(c, sa, to)
+	// A sweep off the battlefield is one simultaneous departure (CR 603.10a):
+	// every member's leaves-the-battlefield triggers look back at the same
+	// pre-sweep board. The id list is empty -- the sweep emits as it scans --
+	// so only the shared board is parked; the per-object lifelink capture
+	// keeps its live read.
+	if to != state.ZBattlefield && slices.Contains(from, state.ZBattlefield) {
+		h.BatchDepartures(nil)
+		defer h.EndBatchDepartures()
+	}
 	emitMove := func(id state.ObjID, z state.Zone, p state.PlayerID) {
 		// A CantExile restriction withholds the object from a battlefield exile
 		// before the MoveZone (and the moved bookkeeping) is produced -- the
