@@ -1,0 +1,120 @@
+{
+ "card": "Training Center",
+ "family": "etb-ltb",
+ "author": "cli-20261002T012416Z-b23985ce (Oracle + CR only)",
+ "oracle_sha": "c7db8c11fc9c",
+ "scenarios": [
+  {
+   "name": "single-opponent-enters-tapped",
+   "cr": [
+    "106.7b",
+    "305.2"
+   ],
+   "why": "This land enters tapped unless you have two or more opponents: in this two-player game each player has exactly one opponent, so the exemption does not apply and Training Center enters tapped.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Training Center"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Training Center"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Training Center",
+     "zone": "battlefield",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "untaps-and-adds-blue",
+   "cr": [
+    "106.7b",
+    "605.3a",
+    "107.4c"
+   ],
+   "why": "{T}: Add {U} or {R} -- after the land untaps on the next turn, activating it for blue puts a {U} in the pool.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Training Center"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Training Center",
+     "ability": "Add U",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Add U"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Training Center",
+     "zone": "battlefield",
+     "tapped": true
+    },
+    {
+     "pool": {
+      "p0": "U"
+     }
+    }
+   ]
+  },
+  {
+   "name": "adds-red",
+   "cr": [
+    "106.7b",
+    "605.3a",
+    "107.4c"
+   ],
+   "why": "The same {T}: Add {U} or {R} activation with the red branch chosen puts an {R} in the pool.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Training Center"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Training Center",
+     "ability": "Add U or R",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Add R"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": "R"
+     }
+    }
+   ]
+  }
+ ]
+}

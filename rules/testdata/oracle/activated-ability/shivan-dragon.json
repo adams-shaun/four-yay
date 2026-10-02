@@ -1,0 +1,108 @@
+{
+ "card": "Shivan Dragon",
+ "family": "activated-ability",
+ "author": "cli-20261002T012416Z-b23985ce (Oracle + CR only)",
+ "oracle_sha": "9421ab953c60",
+ "scenarios": [
+  {
+   "name": "firebreathing-pumps-power-until-eot",
+   "cr": [
+    "702.3",
+    "611.2a"
+   ],
+   "why": "{R}: Shivan Dragon gets +1/+0 until end of turn -- the pump is a continuous effect that expires at end of turn, so it is 6/5 the turn it is pumped and 5/5 afterwards.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Shivan Dragon"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "R"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Shivan Dragon",
+     "ability": "+1/+0"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Shivan Dragon",
+     "zone": "battlefield",
+     "pt": "6/5",
+     "keywords": [
+      "flying"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "pump-expires-at-the-next-turn",
+   "cr": [
+    "611.2a",
+    "514.2"
+   ],
+   "why": "The +1/+0 is 'until end of turn': after the end-of-turn step the Dragon is 5/5 again while still flying.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Shivan Dragon"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "R"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Shivan Dragon",
+     "ability": "+1/+0"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "seat": 0,
+     "step": "end-combat",
+     "active": "p0"
+    },
+    {
+     "op": "pass_to",
+     "seat": 0,
+     "step": "upkeep",
+     "active": "p0"
+    },
+    {
+     "op": "pass_to",
+     "seat": 0,
+     "step": "main1",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Shivan Dragon",
+     "zone": "battlefield",
+     "pt": "5/5",
+     "keywords": [
+      "flying"
+     ]
+    }
+   ]
+  }
+ ]
+}

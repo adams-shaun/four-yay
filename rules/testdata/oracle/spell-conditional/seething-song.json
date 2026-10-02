@@ -1,0 +1,113 @@
+{
+ "card": "Seething Song",
+ "family": "spell-conditional",
+ "author": "cli-20261002T012416Z-b23985ce (Oracle + CR only)",
+ "oracle_sha": "037b484f5bc3",
+ "scenarios": [
+  {
+   "name": "resolves-adding-five-red",
+   "cr": [
+    "608.2g",
+    "117.5"
+   ],
+   "why": "Resolving the ritual adds {R}{R}{R}{R}{R} to the caster's pool on top of what remained of the casting payment.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Seething Song"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "R"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Seething Song",
+     "mana": "RR"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Seething Song",
+     "zone": "graveyard"
+    },
+    {
+     "pool": {
+      "p0": "RRRRR"
+     }
+    }
+   ]
+  },
+  {
+   "name": "pool-survives-into-the-following-cast",
+   "cr": [
+    "500.2",
+    "608.2g"
+   ],
+   "why": "The mana added by a resolving spell stays in the pool for the player's subsequent actions in that main phase: a second spell can be paid entirely from the ritual's {R}{R}{R}{R}{R}.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Seething Song",
+      "Gut Shot"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Seething Song",
+     "mana": "RRR"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Gut Shot",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Seething Song",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Gut Shot",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 1
+    },
+    {
+     "pool": {
+      "p0": "RRRR"
+     }
+    }
+   ]
+  }
+ ]
+}

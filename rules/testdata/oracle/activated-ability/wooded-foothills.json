@@ -1,0 +1,114 @@
+{
+ "card": "Wooded Foothills",
+ "family": "activated-ability",
+ "author": "cli-20261002T012416Z-b23985ce (Oracle + CR only)",
+ "oracle_sha": "a5867a7bea2d",
+ "scenarios": [
+  {
+   "name": "sacrifice-fetches-a-forest-tapped",
+   "cr": [
+    "701.19a",
+    "305.7",
+    "118.12"
+   ],
+   "why": "{T}, Pay 1 life, Sacrifice Wooded Foothills: Search your library for a Mountain or Forest card, put it onto the battlefield tapped, then shuffle -- the printed card says the fetched land enters tapped, the Foothills are in the graveyard and one life is gone.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Wooded Foothills"
+     ],
+     "library_top": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Wooded Foothills",
+     "ability": "Search your library"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Forest"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Wooded Foothills",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "battlefield",
+     "tapped": true
+    },
+    {
+     "life": {
+      "p0": 19
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-mountain-or-forest-fetches-nothing",
+   "cr": [
+    "701.19a",
+    "701.16d",
+    "305.7"
+   ],
+   "why": "The search's card pool is Mountains and Forests only; when the library has none (filler wastes only), the search finds nothing, the Foothills still die and the life cost is still paid.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Wooded Foothills"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Wooded Foothills",
+     "ability": "Search your library"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": []
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Wooded Foothills",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 19
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Forest"
+     },
+     "eq": 0
+    }
+   ]
+  }
+ ]
+}

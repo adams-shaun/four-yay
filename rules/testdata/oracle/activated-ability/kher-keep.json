@@ -1,0 +1,147 @@
+{
+ "card": "Kher Keep",
+ "family": "activated-ability",
+ "author": "cli-20261002T012416Z-b23985ce (Oracle + CR only)",
+ "oracle_sha": "c5525e4ae9e0",
+ "scenarios": [
+  {
+   "name": "tap-with-cost-creates-a-kobold",
+   "cr": [
+    "107.4d",
+    "605.3a",
+    "111.9"
+   ],
+   "why": "{1}{R}, {T}: Create a 0/1 red Kobold creature token named Kobolds of Kher Keep -- the token exists on the battlefield with the named characteristics.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Kher Keep"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CC"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "R"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Kher Keep",
+     "ability": "Kobold"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Kher Keep",
+     "zone": "battlefield",
+     "tapped": true
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Kobolds of Kher Keep",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "two-activations-two-kobolds",
+   "cr": [
+    "111.9",
+    "605.3a"
+   ],
+   "why": "The activation is repeatable: after it untaps on a later turn, a second {1}{R},{T} activation makes a second Kobold.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Kher Keep"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCR"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Kher Keep",
+     "ability": "Kobold"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "seat": 0,
+     "step": "end-combat",
+     "active": "p0"
+    },
+    {
+     "op": "pass_to",
+     "seat": 0,
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "pass_to",
+     "seat": 0,
+     "step": "end-combat",
+     "active": "p0"
+    },
+    {
+     "op": "pass_to",
+     "seat": 0,
+     "step": "upkeep",
+     "active": "p0"
+    },
+    {
+     "op": "pass_to",
+     "seat": 0,
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCR"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Kher Keep",
+     "ability": "Kobold"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Kobolds of Kher Keep",
+      "token": true
+     },
+     "eq": 2
+    }
+   ]
+  }
+ ]
+}

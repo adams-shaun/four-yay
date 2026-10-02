@@ -1,0 +1,114 @@
+{
+ "card": "Krosan Verge",
+ "family": "activated-ability",
+ "author": "cli-20261002T012416Z-b23985ce (Oracle + CR only)",
+ "scenarios": [
+  {
+   "name": "played-enters-tapped",
+   "cr": [
+    "305.2",
+    "701.30a"
+   ],
+   "why": "Krosan Verge enters tapped unconditionally (it has no 'unless you control two or fewer other lands' clause): played from hand it is a tapped land on the battlefield.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Krosan Verge"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Krosan Verge"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Krosan Verge",
+     "zone": "battlefield",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "sacrifice-searches-forest-and-plains-tapped",
+   "cr": [
+    "701.19a",
+    "701.19b",
+    "305.7"
+   ],
+   "why": "{2}, {T}, Sacrifice Krosan Verge: Search your library for a Forest card and a Plains card, put them onto the battlefield tapped, then shuffle -- both searched lands enter tapped and the Verge is in the graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Krosan Verge"
+     ],
+     "library": [
+      "Forest",
+      "Plains"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Krosan Verge"
+    },
+    {
+     "op": "pass_to",
+     "seat": 0,
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "seat": 0,
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CC"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Krosan Verge",
+     "ability": "Search your library"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Forest",
+        "p0:Plains"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Krosan Verge",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "battlefield",
+     "tapped": true
+    },
+    {
+     "card": "p0:Plains",
+     "zone": "battlefield",
+     "tapped": true
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,172 @@
+{
+ "card": "Chrome Mox",
+ "family": "etb-ltb",
+ "author": "cli-20261002T012416Z-b23985ce (Oracle + CR only)",
+ "oracle_sha": "a2f225a4552b",
+ "scenarios": [
+  {
+   "name": "imprint-green-enables-green-mana",
+   "cr": [
+    "702.37a",
+    "605.3a",
+    "107.2c"
+   ],
+   "why": "Imprinting a green card when Chrome Mox enters means its {T}: Add one mana of any of the exiled card's colors offers green, and activating it puts a {G} in the pool with the Bear in exile.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Chrome Mox"
+     ],
+     "hand": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Chrome Mox",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Add {G}"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Chrome Mox",
+     "zone": "battlefield",
+     "tapped": true
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "exile"
+    },
+    {
+     "pool": {
+      "p0": "G"
+     }
+    }
+   ],
+   "setup_answers": [
+    {
+     "kind": "trigger_optional",
+     "pick": [
+      "yes"
+     ]
+    },
+    {
+     "kind": "choose",
+     "pick": [
+      "p0:Grizzly Bears"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "imprint-red-enables-red-mana",
+   "cr": [
+    "702.37a",
+    "605.3a",
+    "107.2c"
+   ],
+   "why": "Imprinting a red card (Bolt) instead offers only red: activating the mana ability puts an {R} in the pool.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Chrome Mox"
+     ],
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Chrome Mox",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Add {R}"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "exile"
+    },
+    {
+     "pool": {
+      "p0": "R"
+     }
+    }
+   ],
+   "setup_answers": [
+    {
+     "kind": "trigger_optional",
+     "pick": [
+      "yes"
+     ]
+    },
+    {
+     "kind": "choose",
+     "pick": [
+      "p0:Lightning Bolt"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "no-imprint-no-mana-ability",
+   "cr": [
+    "702.37a",
+    "605.3a",
+    "108.1"
+   ],
+   "why": "Declining the imprint leaves no exiled card, so the {T}: Add one mana of any of the exiled card's colors ability is never offered -- the Mox taps for nothing and stays on the battlefield untapped.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Chrome Mox"
+     ]
+    }
+   },
+   "steps": [],
+   "expect": [
+    {
+     "card": "p0:Chrome Mox",
+     "zone": "battlefield",
+     "tapped": false
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Chrome Mox",
+      "label": "Add"
+     },
+     "want": false
+    }
+   ],
+   "setup_answers": [
+    {
+     "kind": "trigger_optional",
+     "pick": [
+      "no"
+     ]
+    }
+   ]
+  }
+ ]
+}

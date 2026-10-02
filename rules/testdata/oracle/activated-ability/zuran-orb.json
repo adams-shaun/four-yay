@@ -1,0 +1,60 @@
+{
+ "card": "Zuran Orb",
+ "family": "activated-ability",
+ "author": "cli-20261002T012416Z-b23985ce (Oracle + CR only)",
+ "scenarios": [
+  {
+   "name": "sacrificing-a-land-gains-two-life",
+   "cr": ["602.2", "701.16a", "118.3"],
+   "why": "Sacrifice a land: You gain 2 life -- the land is sacrificed as the cost and the controlling player's life total rises by two.",
+   "setup": {
+    "p0": {
+     "battlefield": ["Zuran Orb", "Mountain"]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Zuran Orb",
+     "answers": [
+      {"kind": "choose", "pick": ["p0:Mountain"]}
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Mountain",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Zuran Orb",
+     "zone": "battlefield"
+    },
+    {
+     "life": {"p0": 22}
+    }
+   ]
+  },
+  {
+   "name": "without-a-land-the-ability-is-not-offered",
+   "cr": ["602.2", "601.2h"],
+   "why": "The ability's only cost sacrifices a land; with no land on the battlefield (the Orb itself is an artifact) the cost cannot be paid, so activating it is not offered.",
+   "setup": {
+    "p0": {
+     "battlefield": ["Zuran Orb"]
+    }
+   },
+   "steps": [],
+   "expect": [
+    {
+     "offered": {"seat": 0, "kind": "activate", "card": "p0:Zuran Orb", "label": "gain 2 life"},
+     "want": false
+    }
+   ]
+  }
+ ]
+}

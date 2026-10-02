@@ -1,0 +1,84 @@
+{
+ "card": "Worldly Tutor",
+ "family": "spell-conditional",
+ "author": "cli-20261002T012416Z-b23985ce (Oracle + CR only)",
+ "oracle_sha": "159c2194c3d4",
+ "scenarios": [
+  {
+   "name": "creature-card-goes-on-top",
+   "cr": ["701.19a", "701.19b", "701.19d"],
+   "why": "Search for a creature card, reveal it, shuffle, put it on top: the creature ends the resolution on top of the shuffled library, so it is in the library and drawn first on the next draw step.",
+   "setup": {
+    "p0": {
+     "hand": ["Worldly Tutor"],
+     "library_top": ["Lightning Bolt", "Grizzly Bears"]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "G"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Worldly Tutor"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {"kind": "choose", "pick": ["p0:Grizzly Bears"]}
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Worldly Tutor",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "library"
+    }
+   ]
+  },
+  {
+   "name": "no-creature-card-reveals-nothing",
+   "cr": ["701.19a", "701.19d", "305.5"],
+   "why": "When the library has no creature card (filler wastes only) the search finds nothing: the spell still resolves to the graveyard and the library stays as it was.",
+   "setup": {
+    "p0": {
+     "hand": ["Worldly Tutor"]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "G"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Worldly Tutor"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {"kind": "choose", "pick": []}
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Worldly Tutor",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {"p0": 0}
+    }
+   ]
+  }
+ ]
+}

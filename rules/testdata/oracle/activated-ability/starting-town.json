@@ -1,0 +1,229 @@
+{
+ "card": "Starting Town",
+ "family": "activated-ability",
+ "author": "cli-20261002T012416Z-b23985ce (Oracle + CR only)",
+ "oracle_sha": "86e8c0950bf6",
+ "scenarios": [
+  {
+   "name": "first-turn-enters-untapped-and-adds-colourless",
+   "cr": [
+    "106.7b",
+    "305.2",
+    "605.3a"
+   ],
+   "why": "On the game's first turn the ETB 'enters tapped unless' clause does not apply, so the land is untapped and its {T}: Add {C} ability can be activated immediately.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Starting Town"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Starting Town",
+     "ability": "Add {C}"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Starting Town",
+     "zone": "battlefield",
+     "tapped": true
+    },
+    {
+     "pool": {
+      "p0": "C"
+     }
+    }
+   ]
+  },
+  {
+   "name": "pay-life-ability-adds-any-colour",
+   "cr": [
+    "118.12",
+    "605.3a",
+    "107.4f"
+   ],
+   "why": "{T}, Pay 1 life: Add one mana of any color -- the life is a cost, so a 20-life player ends at 19 with the chosen colour in the pool.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Starting Town"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Starting Town",
+     "ability": "Pay 1 life",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "G"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Starting Town",
+     "zone": "battlefield",
+     "tapped": true
+    },
+    {
+     "pool": {
+      "p0": "G"
+     }
+    },
+    {
+     "life": {
+      "p0": 19
+     }
+    }
+   ]
+  },
+  {
+   "name": "third-turn-enters-untapped",
+   "cr": [
+    "106.7b",
+    "305.2"
+   ],
+   "why": "The untapped entry is granted on the player's first, second or third turn: p0's third turn (game turn 5) still lets the land enter untapped.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Starting Town"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "seat": 0,
+     "step": "end-combat",
+     "active": "p0"
+    },
+    {
+     "op": "pass_to",
+     "seat": 0,
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "pass_to",
+     "seat": 0,
+     "step": "end-combat",
+     "active": "p0"
+    },
+    {
+     "op": "pass_to",
+     "seat": 0,
+     "step": "upkeep",
+     "active": "p0"
+    },
+    {
+     "op": "pass_to",
+     "seat": 0,
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Starting Town"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Starting Town",
+     "zone": "battlefield",
+     "tapped": false
+    }
+   ]
+  },
+  {
+   "name": "fourth-turn-enters-tapped",
+   "cr": [
+    "106.7b",
+    "305.2"
+   ],
+   "why": "The untapped entry is granted only on the first, second or third turn: p1's fourth turn (game turn 8) makes a Starting Town enter tapped.",
+   "setup": {
+    "p1": {
+     "hand": [
+      "Starting Town"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "seat": 1,
+     "step": "end-combat",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "seat": 1,
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "seat": 1,
+     "step": "end-combat",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "seat": 1,
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "seat": 1,
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "seat": 1,
+     "step": "end-combat",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "seat": 1,
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "seat": 1,
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "play",
+     "seat": 1,
+     "card": "p1:Starting Town"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Starting Town",
+     "zone": "battlefield",
+     "tapped": true
+    }
+   ]
+  }
+ ]
+}

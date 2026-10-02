@@ -1,0 +1,65 @@
+{
+ "card": "Wasteland",
+ "family": "activated-ability",
+ "author": "cli-20261002T012416Z-b23985ce (Oracle + CR only)",
+ "scenarios": [
+  {
+   "name": "tap-adds-colourless",
+   "cr": ["107.4d", "605.3a", "305.2"],
+   "why": "{T}: Add {C} -- the plain mana ability puts one {C} in the pool.",
+   "setup": {
+    "p0": {
+     "battlefield": ["Wasteland"]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Wasteland",
+     "ability": "Add {C}"
+    }
+   ],
+   "expect": [
+    {
+     "pool": {"p0": "C"}
+    }
+   ]
+  },
+  {
+   "name": "sacrifice-destroys-target-nonbasic-land",
+   "cr": ["701.28a", "118.12", "605.3a"],
+   "why": "{T}, Sacrifice Wasteland: Destroy target nonbasic land -- aimed at the opponent's Krosan Verge, the Verge is destroyed and the Wasteland is sacrificed with it.",
+   "setup": {
+    "p0": {
+     "battlefield": ["Wasteland"]
+    },
+    "p1": {
+     "battlefield": ["Krosan Verge"]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Wasteland",
+     "ability": "Destroy target nonbasic land",
+     "targets": ["p1:Krosan Verge"]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Wasteland",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Krosan Verge",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

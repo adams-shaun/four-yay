@@ -1,0 +1,110 @@
+{
+ "card": "Lion's Eye Diamond",
+ "family": "activated-ability",
+ "author": "cli-20261002T012416Z-b23985ce (Oracle + CR only)",
+ "oracle_sha": "574dd4679a61",
+ "scenarios": [
+  {
+   "name": "discard-and-sacrifice-adds-three-of-one-colour",
+   "cr": [
+    "605.3a",
+    "117.12",
+    "701.10a"
+   ],
+   "why": "'Discard your hand, Sacrifice Lion's Eye Diamond: Add three mana of any one color' -- the whole hand goes to the graveyard as a cost, the artifact is sacrificed, and the chosen colour lands three deep in the pool.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Lion's Eye Diamond"
+     ],
+     "hand": [
+      "Island",
+      "Mountain"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Lion's Eye Diamond",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Sacrifice a permanent and discard your hand: Add R"
+       ]
+      },
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Island",
+        "p0:Mountain"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lion's Eye Diamond",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     },
+     "graveyard_size": {
+      "p0": 3
+     }
+    },
+    {
+     "pool": {
+      "p0": "RRR"
+     }
+    }
+   ]
+  },
+  {
+   "name": "empty-hand-still-adds-three",
+   "cr": [
+    "605.3a",
+    "117.12"
+   ],
+   "why": "Discarding an empty hand is a cost paid vacuously: with no cards to discard the activation still sacrifices the artifact and adds three of the chosen colour.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Lion's Eye Diamond"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Lion's Eye Diamond",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Sacrifice a permanent and discard your hand: Add G"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lion's Eye Diamond",
+     "zone": "graveyard"
+    },
+    {
+     "pool": {
+      "p0": "GGG"
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,129 @@
+{
+ "card": "Restless Cottage",
+ "family": "activated-ability",
+ "author": "cli-20261002T012416Z-b23985ce (Oracle + CR only)",
+ "oracle_sha": "b74ebac4a988",
+ "scenarios": [
+  {
+   "name": "animate-becomes-a-4-4-horror-still-a-land",
+   "cr": [
+    "701.58a",
+    "613.7f",
+    "301.5c"
+   ],
+   "why": "{2}{B}{G}: Restless Cottage becomes a 4/4 black and green Horror creature until end of turn, and stays a land -- it keeps both types.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Restless Cottage"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCBG"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Restless Cottage",
+     "ability": "4/4 black and green Horror"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Restless Cottage",
+     "zone": "battlefield",
+     "pt": "4/4",
+     "types": [
+      "Land",
+      "Creature",
+      "Horror"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "attack-creates-food-and-exiles-a-graveyard-card",
+   "cr": [
+    "603.2a",
+    "508.1a",
+    "701.16a"
+   ],
+   "why": "Whenever Restless Cottage attacks, create a Food token and exile up to one target card from a graveyard -- the token exists and the chosen graveyard card leaves for exile.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Restless Cottage"
+     ],
+     "graveyard": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCBG"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Restless Cottage",
+     "ability": "4/4 black and green Horror"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Lightning Bolt"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Restless Cottage"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Lightning Bolt"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Food",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "exile"
+    }
+   ]
+  }
+ ]
+}
