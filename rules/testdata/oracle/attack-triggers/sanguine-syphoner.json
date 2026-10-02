@@ -1,0 +1,239 @@
+{
+ "card": "Sanguine Syphoner",
+ "family": "attack-triggers",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "43888c184431",
+ "scenarios": [
+  {
+   "name": "attack-drains-one-then-deals-combat-damage",
+   "cr": [
+    "508.1m",
+    "603.2"
+   ],
+   "why": "Attacking triggers: each opponent loses 1 and its controller gains 1, before combat damage; unblocked it then deals 1.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sanguine Syphoner"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Sanguine Syphoner"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Sanguine Syphoner",
+       "want": true
+      },
+      {
+       "life": {
+        "p0": 20,
+        "p1": 20
+       }
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "life": {
+        "p0": 21,
+        "p1": 19
+       }
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 21,
+      "p1": 18
+     }
+    },
+    {
+     "card": "p0:Sanguine Syphoner",
+     "pt": "1/3"
+    }
+   ]
+  },
+  {
+   "name": "blocked-still-drains",
+   "cr": [
+    "603.2"
+   ],
+   "why": "The trigger is on attacking, not on dealing damage: blocked by a 3/3 it still drains, then dies in combat.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sanguine Syphoner"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Sanguine Syphoner"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 1,
+     "blocks": [
+      [
+       "p1:Centaur Courser",
+       "p0:Sanguine Syphoner"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 21,
+      "p1": 19
+     }
+    },
+    {
+     "card": "p0:Sanguine Syphoner",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "damage": 1
+    }
+   ]
+  },
+  {
+   "name": "another-creature-attacking-does-not-trigger",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Only the Syphoner itself attacking triggers it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sanguine Syphoner",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Sanguine Syphoner",
+       "want": false
+      },
+      {
+       "stack_size": 0
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "triggers-each-time-it-attacks",
+   "cr": [
+    "603.2"
+   ],
+   "why": "It triggers again on a later attack.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sanguine Syphoner"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Sanguine Syphoner"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Sanguine Syphoner"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 22,
+      "p1": 16
+     }
+    }
+   ]
+  }
+ ]
+}

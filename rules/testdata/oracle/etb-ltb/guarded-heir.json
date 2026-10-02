@@ -1,0 +1,133 @@
+{
+ "card": "Guarded Heir",
+ "family": "etb-ltb",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "7a4755984d1f",
+ "scenarios": [
+  {
+   "name": "enters-creating-two-knights",
+   "cr": [
+    "603.6a",
+    "111.1"
+   ],
+   "why": "Entering creates two 3/3 Knight creature tokens; the Heir is a 1/1 with lifelink.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Guarded Heir"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Guarded Heir",
+     "mana": "CCCCCW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Guarded Heir",
+     "zone": "battlefield",
+     "pt": "1/1",
+     "keywords": [
+      "Lifelink"
+     ]
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Knight",
+      "token": true
+     },
+     "eq": 2
+    },
+    {
+     "card": "p0:token:Knight",
+     "pt": "3/3",
+     "types": [
+      "Creature",
+      "Knight"
+     ],
+     "no_keywords": [
+      "Lifelink"
+     ]
+    },
+    {
+     "card": "p0:token:Knight#2",
+     "pt": "3/3"
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Knight"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "lifelink-gains-only-for-the-heirs-damage",
+   "cr": [
+    "702.15b",
+    "510.2"
+   ],
+   "why": "Attacking two turns later with the Heir and one Knight unblocked deals 1+3; only the Heir's 1 damage gains life.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Guarded Heir"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Guarded Heir",
+     "mana": "CCCCCW"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Guarded Heir",
+      "p0:token:Knight"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 21,
+      "p1": 16
+     }
+    }
+   ]
+  }
+ ]
+}

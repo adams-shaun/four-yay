@@ -1,0 +1,309 @@
+{
+ "card": "Sure Strike",
+ "family": "spell-conditional",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "5355cf0dfab5",
+ "scenarios": [
+  {
+   "name": "target-gets-plus-three-and-first-strike",
+   "cr": [
+    "613.4c",
+    "702.7a"
+   ],
+   "why": "The target creature gets +3/+0 and first strike.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Sure Strike"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Sure Strike",
+     "mana": "CR",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "5/2",
+     "keywords": [
+      "First Strike"
+     ]
+    },
+    {
+     "card": "p0:Sure Strike",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "first-strike-kills-the-blocker-before-it-deals-damage",
+   "cr": [
+    "510.4",
+    "702.7b"
+   ],
+   "why": "After blockers, the 5/2 first-striking Bears kills its 3/3 blocker in the first combat damage step and takes no damage.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Sure Strike"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 1,
+     "blocks": [
+      [
+       "p1:Centaur Courser",
+       "p0:Grizzly Bears"
+      ]
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Sure Strike",
+     "mana": "CR",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 0
+    }
+   ]
+  },
+  {
+   "name": "without-it-the-attacker-dies",
+   "cr": [
+    "510.2"
+   ],
+   "why": "Control: the same combat without Sure Strike kills the 2/2 and leaves the 3/3 alive with 2 damage.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 1,
+     "blocks": [
+      [
+       "p1:Centaur Courser",
+       "p0:Grizzly Bears"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "battlefield",
+     "damage": 2
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "bonus-ends-at-end-of-turn",
+   "cr": [
+    "514.2"
+   ],
+   "why": "Both the power bonus and first strike end with the turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Sure Strike"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Sure Strike",
+     "mana": "CR",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2",
+     "no_keywords": [
+      "First Strike"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "can-target-an-opponents-creature",
+   "cr": [
+    "115.1"
+   ],
+   "why": "Any creature is a legal target.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Sure Strike"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Sure Strike",
+     "mana": "CR",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "pt": "5/2",
+     "keywords": [
+      "First Strike"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "no-creature-not-castable",
+   "cr": [
+    "601.2c"
+   ],
+   "why": "With no creature there is no legal target.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Sure Strike"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CR",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Sure Strike"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Sure Strike",
+     "zone": "hand"
+    }
+   ]
+  }
+ ]
+}

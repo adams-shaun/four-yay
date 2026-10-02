@@ -1,0 +1,339 @@
+{
+ "card": "Elfsworn Giant",
+ "family": "trigger-condition",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "e6ff3ce45545",
+ "scenarios": [
+  {
+   "name": "land-drop-creates-an-elf-warrior",
+   "cr": [
+    "207.2c",
+    "603.2"
+   ],
+   "why": "Playing a land triggers landfall: one 1/1 Elf Warrior token.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Forest"
+     ],
+     "battlefield": [
+      "Elfsworn Giant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Forest",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Elfsworn Giant",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Elf Warrior",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:token:Elf Warrior",
+     "pt": "1/1",
+     "types": [
+      "Creature",
+      "Elf",
+      "Warrior"
+     ]
+    },
+    {
+     "card": "p0:Elfsworn Giant",
+     "pt": "5/3",
+     "keywords": [
+      "Reach"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "land-put-onto-battlefield-by-an-effect-triggers",
+   "cr": [
+    "603.2",
+    "603.6a"
+   ],
+   "why": "Landfall is any land entering under its controller's control, not just a land drop: a second land entering by an effect makes a second token.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Forest"
+     ],
+     "battlefield": [
+      "Elfsworn Giant"
+     ],
+     "library": [
+      "Mountain"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Forest"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "move",
+     "card": "p0:Mountain",
+     "to": "battlefield"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Elf Warrior",
+      "token": true
+     },
+     "eq": 2
+    }
+   ]
+  },
+  {
+   "name": "opponents-land-does-not-trigger",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Only lands entering under its controller's control count.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Elfsworn Giant"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "play",
+     "seat": 1,
+     "card": "p1:Forest",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Elfsworn Giant",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Elf Warrior",
+      "token": true
+     },
+     "eq": 0
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Elf Warrior",
+      "token": true
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "nonland-permanent-does-not-trigger",
+   "cr": [
+    "603.2"
+   ],
+   "why": "A creature entering is not landfall.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Grizzly Bears"
+     ],
+     "battlefield": [
+      "Elfsworn Giant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "CG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Elf Warrior",
+      "token": true
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "giant-entering-with-a-land-already-out-makes-nothing",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Lands already on the battlefield do not trigger it when the Giant itself enters.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Elfsworn Giant"
+     ],
+     "battlefield": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Elfsworn Giant",
+     "mana": "CCCGG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Elfsworn Giant",
+     "zone": "battlefield",
+     "pt": "5/3"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Elf Warrior",
+      "token": true
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "reach-blocks-a-flyer",
+   "cr": [
+    "702.17b",
+    "509.1b"
+   ],
+   "why": "Reach lets it block a creature with flying: it deals 5 to the 4/4 flyer and takes 4.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Elfsworn Giant"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Serra Angel"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Serra Angel"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p0:Elfsworn Giant",
+        "attacker": "p1:Serra Angel"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "block",
+     "seat": 1,
+     "blocks": [
+      [
+       "p0:Elfsworn Giant",
+       "p1:Serra Angel"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Serra Angel",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Elfsworn Giant",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 20
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,346 @@
+{
+ "card": "Nessian Hornbeetle",
+ "family": "trigger-condition",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "e80550ab0ea7",
+ "scenarios": [
+  {
+   "name": "another-power-four-creature-adds-a-counter",
+   "cr": [
+    "603.4",
+    "507.1"
+   ],
+   "why": "At the beginning of combat on its controller's turn, with another creature of power exactly 4, it gets a +1/+1 counter.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Nessian Hornbeetle",
+      "Serra Angel"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "begin-combat",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Nessian Hornbeetle",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Nessian Hornbeetle",
+     "pt": "3/3",
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "card": "p0:Serra Angel",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "power-three-is-not-enough",
+   "cr": [
+    "603.4"
+   ],
+   "why": "Another creature with power 3 does not satisfy the condition: no trigger.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Nessian Hornbeetle",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "begin-combat",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Nessian Hornbeetle",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Nessian Hornbeetle",
+     "pt": "2/2",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "its-own-power-does-not-count",
+   "cr": [
+    "603.4"
+   ],
+   "why": "'Another creature': a Hornbeetle pumped to power 5 with no other creature gets nothing.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Giant Growth"
+     ],
+     "battlefield": [
+      "Nessian Hornbeetle"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Giant Growth",
+     "mana": "G",
+     "targets": [
+      "p0:Nessian Hornbeetle"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "begin-combat",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Nessian Hornbeetle",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Nessian Hornbeetle",
+     "pt": "5/5",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-big-creature-does-not-count",
+   "cr": [
+    "603.4"
+   ],
+   "why": "The other creature must be controlled by the Hornbeetle's controller.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Nessian Hornbeetle"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "begin-combat",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Nessian Hornbeetle",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Nessian Hornbeetle",
+     "pt": "2/2",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "pumped-creature-counts-by-current-power",
+   "cr": [
+    "603.4",
+    "613.4c"
+   ],
+   "why": "Power is read as it currently is: a 2/2 pumped to 5/5 before combat satisfies the condition.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Giant Growth"
+     ],
+     "battlefield": [
+      "Nessian Hornbeetle",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Giant Growth",
+     "mana": "G",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "begin-combat",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Nessian Hornbeetle",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Nessian Hornbeetle",
+     "pt": "3/3",
+     "counters": {
+      "+1/+1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "condition-rechecked-on-resolution",
+   "cr": [
+    "603.4"
+   ],
+   "why": "Intervening if: the big creature leaves with the trigger on the stack, so the trigger does nothing.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Nessian Hornbeetle",
+      "Serra Angel"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "begin-combat",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Nessian Hornbeetle",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "move",
+     "card": "p0:Serra Angel",
+     "to": "graveyard"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Nessian Hornbeetle",
+     "pt": "2/2",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "only-on-its-controllers-turn-and-each-such-turn",
+   "cr": [
+    "603.2",
+    "507.1"
+   ],
+   "why": "It triggers in each of its controller's combats and never in the opponent's: one counter after turn 1, still one at the end of the opponent's turn, two after its controller's next combat.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Nessian Hornbeetle",
+      "Serra Angel"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "begin-combat"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "end",
+     "active": "p1",
+     "expect": [
+      {
+       "card": "p0:Nessian Hornbeetle",
+       "counters": {
+        "+1/+1": 1
+       }
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "begin-combat",
+     "active": "p0"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Nessian Hornbeetle",
+     "pt": "4/4",
+     "counters": {
+      "+1/+1": 2
+     }
+    }
+   ]
+  }
+ ]
+}

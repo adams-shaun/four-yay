@@ -1,0 +1,460 @@
+{
+ "card": "Cat Collector",
+ "family": "trigger-condition",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "fe6be3e3fa59",
+ "scenarios": [
+  {
+   "name": "enters-creating-a-food",
+   "cr": [
+    "603.6a",
+    "111.10b"
+   ],
+   "why": "Entering creates one Food artifact token and no Cat.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Cat Collector"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Cat Collector",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Cat Collector",
+     "zone": "battlefield",
+     "pt": "3/2"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Food",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Cat",
+      "token": true
+     },
+     "eq": 0
+    },
+    {
+     "card": "p0:token:Food",
+     "types": [
+      "Artifact",
+      "Food"
+     ]
+    },
+    {
+     "life": {
+      "p0": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "food-life-gain-on-own-turn-makes-a-cat",
+   "cr": [
+    "111.10b",
+    "603.2"
+   ],
+   "why": "Sacrificing the Food ({2},{T}) gains 3 life; that is the first life gain of its controller's turn, so a 1/1 Cat token is created.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Cat Collector"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Cat Collector",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:token:Food",
+     "mana": "CC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 23
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Food",
+      "token": true
+     },
+     "eq": 0
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Cat",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:token:Cat",
+     "pt": "1/1",
+     "types": [
+      "Cat"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "second-life-gain-same-turn-no-second-cat",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Only the first life gain of the turn triggers it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Cat Collector"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "life",
+     "seat": 0,
+     "amount": 2
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "count": {
+        "seat": 0,
+        "zone": "battlefield",
+        "name": "Cat",
+        "token": true
+       },
+       "eq": 1
+      }
+     ]
+    },
+    {
+     "op": "life",
+     "seat": 0,
+     "amount": 2
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 24
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Cat",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "life-gain-on-opponents-turn-no-cat",
+   "cr": [
+    "603.2"
+   ],
+   "why": "It triggers only during its controller's own turns.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Cat Collector"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "life",
+     "seat": 0,
+     "amount": 3
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 23
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Cat",
+      "token": true
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "triggers-again-on-a-later-own-turn",
+   "cr": [
+    "603.2"
+   ],
+   "why": "The first-time limit is per turn: a gain on a later turn of its controller's makes another Cat.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Cat Collector"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "life",
+     "seat": 0,
+     "amount": 1
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "life",
+     "seat": 0,
+     "amount": 1
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 22
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Cat",
+      "token": true
+     },
+     "eq": 2
+    }
+   ]
+  },
+  {
+   "name": "gain-on-opponents-turn-does-not-use-up-own-turn",
+   "cr": [
+    "603.2"
+   ],
+   "why": "A gain on the opponent's turn neither makes a Cat nor counts as the first gain of the controller's next turn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Cat Collector"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "life",
+     "seat": 0,
+     "amount": 1
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "life",
+     "seat": 0,
+     "amount": 1
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Cat",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "opponent-gaining-life-no-cat",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Only its controller's life gain counts.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Cat Collector"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "life",
+     "seat": 1,
+     "amount": 3
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 23
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Cat",
+      "token": true
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "life-loss-is-not-a-gain",
+   "cr": [
+    "119.3"
+   ],
+   "why": "Losing life does not trigger it, and does not use up the first gain: a later gain the same turn still makes a Cat.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Cat Collector"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "life",
+     "seat": 0,
+     "amount": -2
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "count": {
+        "seat": 0,
+        "zone": "battlefield",
+        "name": "Cat",
+        "token": true
+       },
+       "eq": 0
+      }
+     ]
+    },
+    {
+     "op": "life",
+     "seat": 0,
+     "amount": 1
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 19
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Cat",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  }
+ ]
+}

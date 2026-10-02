@@ -1,0 +1,339 @@
+{
+ "card": "Brineborn Cutthroat",
+ "family": "trigger-condition",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "09dfb809b4c0",
+ "scenarios": [
+  {
+   "name": "flash-cast-on-opponents-turn-no-counter-for-itself",
+   "cr": [
+    "702.8a",
+    "603.2",
+    "113.6"
+   ],
+   "why": "Flash lets it be cast on the opponent's turn. Its trigger works only from the battlefield, so casting the Cutthroat itself puts no counter on it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Brineborn Cutthroat"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Brineborn Cutthroat",
+     "mana": "CU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Brineborn Cutthroat",
+     "zone": "battlefield",
+     "pt": "2/1",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "spell-on-opponents-turn-adds-a-counter",
+   "cr": [
+    "603.2",
+    "603.3"
+   ],
+   "why": "Its controller casting a spell during an opponent's turn triggers it; the trigger resolves before the spell and adds one +1/+1 counter.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Brineborn Cutthroat"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Brineborn Cutthroat",
+       "want": true
+      },
+      {
+       "stack_size": 2
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Brineborn Cutthroat",
+     "pt": "3/2",
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "life": {
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "spell-on-own-turn-no-counter",
+   "cr": [
+    "603.2"
+   ],
+   "why": "A spell cast during its controller's own turn does not trigger it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Brineborn Cutthroat"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Brineborn Cutthroat",
+       "want": false
+      },
+      {
+       "stack_size": 1
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Brineborn Cutthroat",
+     "pt": "2/1",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-spell-on-their-turn-no-counter",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Only spells cast by the Cutthroat's controller count; an opponent's spell on their own turn does nothing.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Brineborn Cutthroat"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Shock",
+     "mana": "R",
+     "targets": [
+      "p0"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Brineborn Cutthroat",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Brineborn Cutthroat",
+     "pt": "2/1",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "two-spells-on-opponents-turn-two-counters",
+   "cr": [
+    "603.2c"
+   ],
+   "why": "It triggers once per spell cast.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock",
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Brineborn Cutthroat"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Brineborn Cutthroat",
+     "pt": "4/3",
+     "counters": {
+      "+1/+1": 2
+     }
+    },
+    {
+     "life": {
+      "p1": 15
+     }
+    }
+   ]
+  },
+  {
+   "name": "creature-spell-on-opponents-turn-counts",
+   "cr": [
+    "603.2",
+    "111.1"
+   ],
+   "why": "Any spell counts, not only instants: a flash creature cast on the opponent's turn triggers a Cutthroat already on the battlefield.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Brineborn Cutthroat"
+     ],
+     "battlefield": [
+      "Brineborn Cutthroat"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Brineborn Cutthroat#2",
+     "mana": "CU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Brineborn Cutthroat",
+     "pt": "3/2",
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "card": "p0:Brineborn Cutthroat#2",
+     "zone": "battlefield",
+     "pt": "2/1",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  }
+ ]
+}
