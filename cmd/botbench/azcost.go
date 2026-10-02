@@ -59,6 +59,7 @@ func registerAZFlags(fs *flag.FlagSet) {
 	fs.IntVar(&azCfg.Search.MaxSteps, "az-max-steps", d.MaxSteps, "az policy: environment submits per simulation before the walk stops and its leaf is evaluated")
 	fs.IntVar(&azCfg.Search.NodeCache, "az-node-cache", d.NodeCache, "az policy: tree nodes whose engine state a fixed-world search (clairvoyant) stores so a simulation resumes there instead of re-walking from the root (0 = off); the result is identical either way, and a redeal world never uses it")
 	fs.StringVar(&azKindsArg, "az-kinds", azKindsArg, "az policy: comma list of searched decision kinds (priority, attackers, blockers, target)")
+	registerAZVariantFlags(fs) // azvariant.go
 }
 
 // azSeatMode names which construction path this run's az-redeal seats take,
