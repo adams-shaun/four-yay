@@ -232,7 +232,14 @@ gc-gate:
 # test` and the pipeline gates; run by hand or at night.
 .PHONY: fuzz
 fuzz:
-	go test $(GO_TEST_FLAGS) -tags fuzz -count=1 -run 'Fuzz' ./rules ./protocol/manabrew ./internal/manabrew
+	go test $(GO_TEST_FLAGS) -tags fuzz,manabrew -count=1 -run 'Fuzz' ./rules ./protocol/manabrew ./internal/manabrew
+
+# test-manabrew runs the ManaBrew wire/translator tests (build tag `manabrew`).
+# ManaBrew work is deprioritised (operator, 2026-10-02), so these test files
+# are excluded from `go test ./...`, `make test` and the pipeline gates.
+.PHONY: test-manabrew
+test-manabrew:
+	go test $(GO_TEST_FLAGS) -tags manabrew -count=1 ./protocol/manabrew ./internal/manabrew/... ./host/manabrewhttp ./cmd/gorged ./cmd/cardfuzz
 
 test-time:
 	go run ./cmd/testtime -all

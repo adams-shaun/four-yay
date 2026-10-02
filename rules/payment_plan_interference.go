@@ -268,7 +268,7 @@ func (e *Engine) paymentPlanTapObservers(id state.ObjID, activator state.PlayerI
 	tapMode := func(mode string) bool { return mode == "Taps" || mode == "TapsForMana" }
 	for _, oid := range e.paymentPlanInterferenceCarriers() {
 		o := e.G.Obj(oid)
-		if o == nil || o.PhasedOut || o.Face() == nil || e.faceDownPrintedHides(o) || !e.paymentPlanAlive(o) {
+		if o == nil || o.PhasedOut || o.Face() == nil || e.printedAbilitiesGone(o) || !e.paymentPlanAlive(o) {
 			continue
 		}
 		faces, n := roomTriggerFaces(o, o.Face())

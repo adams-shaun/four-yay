@@ -248,4 +248,11 @@ type engineTriggerBatches struct {
 	triggerTurnDiceTurn int32
 	dmgSrcOverride      state.ObjID
 	batchDamageKeywords map[state.ObjID]damageKeywordLKI
+	// batchWindow is the pre-departure board BatchDepartures parked in
+	// triggerBefore for an effect's simultaneous departure batch, and
+	// batchWindowDepth the open BatchDepartures calls (nested batches share
+	// the outermost board). Engine-transient like triggerBefore: nil/zero at
+	// every intent boundary, never cloned.
+	batchWindow      *triggerSnapshot
+	batchWindowDepth int
 }

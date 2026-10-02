@@ -1,0 +1,416 @@
+{
+ "card": "Lathril, Blade of the Elves",
+ "family": "combat-damage",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "9c707694ac9d",
+ "scenarios": [
+  {
+   "name": "cast-menace-two-three",
+   "cr": [
+    "702.111a"
+   ],
+   "why": "Cast for {2}{B}{G}: a 2/3 with menace.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lathril, Blade of the Elves"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lathril, Blade of the Elves",
+     "mana": "BGCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lathril, Blade of the Elves",
+     "zone": "battlefield",
+     "pt": "2/3",
+     "keywords": [
+      "Menace"
+     ],
+     "types": [
+      "Elf"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "combat-damage-makes-that-many-elves",
+   "cr": [
+    "510.2",
+    "603.2",
+    "111.1"
+   ],
+   "why": "Dealing 2 combat damage to a player creates two 1/1 green Elf Warrior tokens.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Lathril, Blade of the Elves"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Lathril, Blade of the Elves"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 18
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Elf Warrior",
+      "token": true
+     },
+     "eq": 2
+    },
+    {
+     "card": "p0:token:Elf Warrior",
+     "pt": "1/1"
+    }
+   ]
+  },
+  {
+   "name": "pumped-damage-makes-more",
+   "cr": [
+    "510.2",
+    "603.2"
+   ],
+   "why": "'That many': pumped by Giant Growth to 5 power, 5 combat damage makes five tokens.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Lathril, Blade of the Elves"
+     ],
+     "hand": [
+      "Giant Growth"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Lathril, Blade of the Elves"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Giant Growth",
+     "mana": "G",
+     "targets": [
+      "p0:Lathril, Blade of the Elves"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 15
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Elf Warrior",
+      "token": true
+     },
+     "eq": 5
+    }
+   ]
+  },
+  {
+   "name": "blocked-makes-none",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Blocked by two creatures (menace), it deals no damage to a player: no tokens.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Lathril, Blade of the Elves"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Hill Giant",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Lathril, Blade of the Elves"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "blocks": [
+      [
+       "p1:Hill Giant",
+       "p0:Lathril, Blade of the Elves"
+      ],
+      [
+       "p1:Grizzly Bears",
+       "p0:Lathril, Blade of the Elves"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 20
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Elf Warrior"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "tap-ten-elves-drains-ten",
+   "cr": [
+    "602.2",
+    "118.3"
+   ],
+   "why": "{T}, tap ten untapped Elves you control: each opponent loses 10 life and its controller gains 10.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Lathril, Blade of the Elves",
+      "Llanowar Elves",
+      "Llanowar Elves",
+      "Llanowar Elves",
+      "Llanowar Elves",
+      "Llanowar Elves",
+      "Llanowar Elves",
+      "Llanowar Elves",
+      "Llanowar Elves",
+      "Llanowar Elves",
+      "Llanowar Elves"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Lathril, Blade of the Elves",
+     "ability": "loses 10"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 30,
+      "p1": 10
+     }
+    },
+    {
+     "card": "p0:Lathril, Blade of the Elves",
+     "tapped": true
+    },
+    {
+     "card": "p0:Llanowar Elves#10",
+     "tapped": true
+    },
+    {
+     "card": "p0:Llanowar Elves#1",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "lathril-cannot-be-one-of-the-ten",
+   "cr": [
+    "602.2b",
+    "601.2h"
+   ],
+   "why": "Lathril is tapped by the {T} part of the cost, so it cannot also be one of the ten: with only nine other Elves it cannot be activated.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Lathril, Blade of the Elves",
+      "Llanowar Elves",
+      "Llanowar Elves",
+      "Llanowar Elves",
+      "Llanowar Elves",
+      "Llanowar Elves",
+      "Llanowar Elves",
+      "Llanowar Elves",
+      "Llanowar Elves",
+      "Llanowar Elves"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Lathril, Blade of the Elves",
+      "label": "loses 10"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "summoning-sick-elf-can-be-tapped-for-the-cost",
+   "cr": [
+    "302.6"
+   ],
+   "why": "Only {T}/{Q} costs of a creature's own abilities care about summoning sickness: an Elf cast this turn can be one of the ten tapped.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Lathril, Blade of the Elves",
+      "Llanowar Elves",
+      "Llanowar Elves",
+      "Llanowar Elves",
+      "Llanowar Elves",
+      "Llanowar Elves",
+      "Llanowar Elves",
+      "Llanowar Elves",
+      "Llanowar Elves",
+      "Llanowar Elves"
+     ],
+     "hand": [
+      "Llanowar Elves"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Llanowar Elves#10",
+     "mana": "G"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Lathril, Blade of the Elves",
+      "label": "loses 10"
+     },
+     "want": true
+    }
+   ]
+  },
+  {
+   "name": "summoning-sick-lathril-cannot-activate",
+   "cr": [
+    "302.6"
+   ],
+   "why": "Lathril's own {T} needs it to have been under control since the turn began: cast this turn, it cannot activate even with ten Elves.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Llanowar Elves",
+      "Llanowar Elves",
+      "Llanowar Elves",
+      "Llanowar Elves",
+      "Llanowar Elves",
+      "Llanowar Elves",
+      "Llanowar Elves",
+      "Llanowar Elves",
+      "Llanowar Elves",
+      "Llanowar Elves"
+     ],
+     "hand": [
+      "Lathril, Blade of the Elves"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lathril, Blade of the Elves",
+     "mana": "BGCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Lathril, Blade of the Elves",
+      "label": "loses 10"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

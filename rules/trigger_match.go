@@ -915,6 +915,9 @@ func (e *Engine) checkTriggers(ev *events.Event, lki *state.Object,
 		*observer = Engine{G: e.triggerBefore.game, L: e.L,
 			continuous: e.triggerBefore.continuous, continuousVersion: e.continuousVersion,
 			setNameInPool: e.setNameInPool, layer4InPool: e.layer4InPool}
+		// The no-ability-loss proof covers every object and registration
+		// the snapshot can hold (abilityloss.go).
+		observer.lossProof = abilityLossProof{seen: e.abilityLossPossible(), objs: e.lossProof.objs, contLen: -1}
 		// The reused observer's static memo storage, and the live memo when
 		// it is still the snapshot board's (lookback_static.go).
 		observer.staticContinuous = staticBuf
@@ -1324,6 +1327,11 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 			// printed line for this event, so the face loop below is a no-op;
 			// the granted walks after it still run, exactly as on this path
 			// before.
+			walk = nil
+		}
+		if len(walk) != 0 && observer.printedAbilitiesLost(o) {
+			// CR 613.1f: a permanent that lost all abilities has no printed
+			// triggered ability; the granted walks below still run.
 			walk = nil
 		}
 		for _, fc := range walk {

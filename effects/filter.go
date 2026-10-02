@@ -851,13 +851,13 @@ func sharesColorUnitMatches(g *state.Game, spec string, o *state.Object, sc Spec
 	if o == nil {
 		return false
 	}
-	cand := ColorMaskOf(o)
+	cand := colorMaskCtx(o, &sc)
 	for i := range g.Objs {
 		m := &g.Objs[i]
 		if m.Zone != state.ZBattlefield || !MatchesSpecCtx(g, spec, m.ID, sc) {
 			continue
 		}
-		if ColorMaskOf(m)&cand != 0 {
+		if colorMaskCtx(m, &sc)&cand != 0 {
 			return true
 		}
 	}
@@ -887,13 +887,13 @@ func sharesColorWithChosenMatches(g *state.Game, o *state.Object, sc SpecContext
 	if len(chosen) == 0 {
 		return false
 	}
-	cand := ColorMaskOf(o)
+	cand := colorMaskCtx(o, &sc)
 	for _, t := range chosen {
 		if t.IsPlayer {
 			continue
 		}
 		c := g.Obj(t.Obj)
-		if c != nil && ColorMaskOf(c)&cand != 0 {
+		if c != nil && colorMaskCtx(c, &sc)&cand != 0 {
 			return true
 		}
 	}
@@ -2005,7 +2005,10 @@ func matchPositive(g *state.Game, p string, o *state.Object, sc SpecContext) (re
 	if result, ok := namePredicate(p, g, o, sc); ok {
 		return result, true
 	}
-	if fn, ok := predicates[p]; ok {
+	// Colour predicates must use the layer-5 derived colours when rules
+	// supplies them: the map's legacy colour functions carry no SpecContext,
+	// so with a table bound they fall through to the word path below.
+	if fn, ok := predicates[p]; ok && !(len(sc.DerivedColors) != 0 && colourMapPredicate(p)) {
 		return fn(g, o, sc.You, sc.Source), true
 	}
 	if res, ok := numericPred(p, g, o, sc); ok {
@@ -2289,6 +2292,14 @@ type SpecContext struct {
 	// overwhelmingly common board), so the linear scan below is cheaper than
 	// building a map.
 	DerivedTypes []ObjectTypes
+	// DerivedColors optionally supplies the layer-5 derived colours (CR
+	// 613.1e -- SetColor$, AddColor$, an Animate's Colors$) of the battlefield
+	// objects whose colours differ from their printed ones, keyed by id. It
+	// is what makes the colour predicates (Black, nonBlack, Colorless,
+	// MultiColor, ChosenColor, SharesColorWith) see a colour a continuous
+	// effect set. The same immutable value-slice shape as DerivedTypes, for
+	// the same reasons; nil on the overwhelmingly common board.
+	DerivedColors []ObjectColors
 	// DerivedPTs optionally supplies layer-derived current power for all
 	// objects participating in a greatestPower comparison. Like DerivedTypes,
 	// this is an immutable value table, never a rules back-pointer or resolver.
@@ -2508,7 +2519,8 @@ func matchesObjectPtr(g *state.Game, spec string, o *state.Object, sc *SpecConte
 	// discipline the layer walk keeps for ExtraTypes (rules/layers.go), scoped
 	// here to the one object that actually carries a change.
 	cs := compiledSpecFor(spec)
-	if ps := sc.PredicatePrograms; ps != nil && !hasEffectiveNamePtr(o, sc) && !hasDerivedTypeEntryPtr(o, sc) {
+	if ps := sc.PredicatePrograms; ps != nil && !hasEffectiveNamePtr(o, sc) && !hasDerivedTypeEntryPtr(o, sc) &&
+		(len(sc.DerivedColors) == 0 || !hasDerivedColorEntryPtr(o, sc)) {
 		switch ps.evaluateCS(cs, spec, g, o, sc) {
 		case PredicateYes:
 			return true

@@ -1,0 +1,286 @@
+{
+ "card": "Akroma's Memorial",
+ "family": "conditional-static",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "34c461806eef",
+ "scenarios": [
+  {
+   "name": "creatures-have-the-keywords",
+   "cr": [
+    "611.3a",
+    "702.9a"
+   ],
+   "why": "Creatures you control have flying, first strike, vigilance, trample and haste; the opponent's do not.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Akroma's Memorial",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "keywords": [
+      "Flying",
+      "First Strike",
+      "Vigilance",
+      "Trample",
+      "Haste"
+     ]
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "no_keywords": [
+      "Flying",
+      "First Strike",
+      "Vigilance",
+      "Trample",
+      "Haste"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "haste-and-vigilance-attack",
+   "cr": [
+    "702.10b",
+    "702.20b"
+   ],
+   "why": "A creature cast this turn attacks (haste) without tapping (vigilance).",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Akroma's Memorial"
+     ],
+     "hand": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "GC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 18
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "tapped": false
+    }
+   ]
+  },
+  {
+   "name": "protection-from-black-stops-murder",
+   "cr": [
+    "702.16b"
+   ],
+   "why": "Protection from black: the opponent's Murder cannot target the only creature.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Akroma's Memorial",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "mana",
+     "seat": 1,
+     "mana": "BBC"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 1,
+      "kind": "cast",
+      "card": "p1:Murder"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "protection-from-red-stops-lava-coil",
+   "cr": [
+    "702.16b"
+   ],
+   "why": "Protection from red: the opponent's Lava Coil cannot target the only creature.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Akroma's Memorial",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lava Coil"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "mana",
+     "seat": 1,
+     "mana": "RC"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 1,
+      "kind": "cast",
+      "card": "p1:Lava Coil"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "protection-from-red-prevents-damage",
+   "cr": [
+    "702.16e"
+   ],
+   "why": "Damage from red sources is prevented: the opponent's Slagstorm (3 damage to each creature) deals nothing to the Memorial's creature.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Akroma's Memorial",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Slagstorm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Slagstorm",
+     "mana": "RRC",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "creature"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 0
+    }
+   ]
+  },
+  {
+   "name": "control-without-memorial-murder-castable",
+   "cr": [
+    "115.1"
+   ],
+   "why": "Control: without the Memorial the same Murder can target the creature.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "mana",
+     "seat": 1,
+     "mana": "BBC"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 1,
+      "kind": "cast",
+      "card": "p1:Murder"
+     },
+     "want": true
+    }
+   ]
+  }
+ ]
+}

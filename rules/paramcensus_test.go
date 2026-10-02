@@ -1024,6 +1024,13 @@ func (s *scan) scanRangeWhitelist(t *testing.T, fset *token.FileSet, fi *fnInfo,
 		if pkg == "effects" && fname == "saMentionsGoaded" {
 			return
 		}
+		// saMentionsColors is the same recognition for a colour word in any
+		// inline filter value, so effects can ask rules for the layer-5
+		// derived-colour table. Recognition only; it consumes no SA
+		// parameter.
+		if pkg == "effects" && fname == "saMentionsColors" {
+			return
+		}
 		// abilityReferencesX (effects/flipcoin.go) recognizes the standalone
 		// token "X" in any parameter value along an ability's Sub chain, so a
 		// NoCall$ True coin-flip outcome branch fires once with the total

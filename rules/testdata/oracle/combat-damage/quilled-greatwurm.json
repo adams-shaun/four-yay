@@ -1,0 +1,356 @@
+{
+ "card": "Quilled Greatwurm",
+ "family": "combat-damage",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "509aaed57b85",
+ "scenarios": [
+  {
+   "name": "cast-trample-seven-seven",
+   "cr": [
+    "702.19a"
+   ],
+   "why": "Cast for {4}{G}{G}: a 7/7 with trample.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Quilled Greatwurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Quilled Greatwurm",
+     "mana": "GGCCCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Quilled Greatwurm",
+     "zone": "battlefield",
+     "pt": "7/7",
+     "keywords": [
+      "Trample"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "combat-damage-to-player-gives-that-many-counters",
+   "cr": [
+    "603.2",
+    "510.2"
+   ],
+   "why": "A creature you control dealing 2 combat damage during your turn gets two +1/+1 counters.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Quilled Greatwurm",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "4/4",
+     "counters": {
+      "+1/+1": 2
+     }
+    },
+    {
+     "card": "p0:Quilled Greatwurm",
+     "counters": {
+      "+1/+1": 0
+     }
+    },
+    {
+     "life": {
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "combat-damage-to-blocker-counts-too",
+   "cr": [
+    "603.2",
+    "510.2"
+   ],
+   "why": "Any combat damage counts: the Bears dealing 2 to a 0/4 blocker (and surviving) gets two counters.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Quilled Greatwurm",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Crystal Barricade"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "blocks": [
+      [
+       "p1:Crystal Barricade",
+       "p0:Grizzly Bears"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "counters": {
+      "+1/+1": 2
+     }
+    },
+    {
+     "card": "p1:Crystal Barricade",
+     "damage": 2
+    }
+   ]
+  },
+  {
+   "name": "greatwurm-itself-gets-seven",
+   "cr": [
+    "603.2"
+   ],
+   "why": "The Greatwurm's own 7 combat damage puts seven counters on it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Quilled Greatwurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Quilled Greatwurm"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Quilled Greatwurm",
+     "pt": "14/14",
+     "counters": {
+      "+1/+1": 7
+     }
+    },
+    {
+     "life": {
+      "p1": 13
+     }
+    }
+   ]
+  },
+  {
+   "name": "not-during-opponents-turn",
+   "cr": [
+    "603.2"
+   ],
+   "why": "'During your turn': a blocker dealing combat damage in the opponent's turn gets nothing.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Quilled Greatwurm",
+      "Hill Giant"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Grizzly Bears"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "blocks": [
+      [
+       "p0:Hill Giant",
+       "p1:Grizzly Bears"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Hill Giant",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "cast-from-graveyard-removing-six-counters",
+   "cr": [
+    "601.2h",
+    "118.3"
+   ],
+   "why": "From the graveyard, removing six counters from creatures you control plus its mana cost: a second Greatwurm with seven counters pays with six of them.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Quilled Greatwurm"
+     ],
+     "graveyard": [
+      "Quilled Greatwurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Quilled Greatwurm"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Quilled Greatwurm#2",
+     "mana": "GGCCCC",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Quilled Greatwurm"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Quilled Greatwurm#2",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Quilled Greatwurm",
+     "counters": {
+      "+1/+1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-graveyard-cast-without-six-counters",
+   "cr": [
+    "601.2f",
+    "602.5"
+   ],
+   "why": "Without six counters among its controller's creatures the graveyard cast is not available.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "graveyard": [
+      "Quilled Greatwurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "GGCCCC"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Quilled Greatwurm"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,518 @@
+{
+ "card": "Vivien Reid",
+ "family": "activated-ability",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "627d2fb6a4f9",
+ "scenarios": [
+  {
+   "name": "enters-with-five-loyalty",
+   "cr": [
+    "306.5b"
+   ],
+   "why": "Cast for {3}{G}{G}: five loyalty counters.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Vivien Reid"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Vivien Reid",
+     "mana": "GGCCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Vivien Reid",
+     "zone": "battlefield",
+     "counters": {
+      "loyalty": 5
+     }
+    }
+   ]
+  },
+  {
+   "name": "plus-one-takes-a-creature",
+   "cr": [
+    "606.4",
+    "701.20"
+   ],
+   "why": "+1: look at the top four, reveal a creature card and put it into hand; the other three go to the bottom.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Vivien Reid"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Grizzly Bears",
+      "Shock",
+      "Opt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Vivien Reid",
+     "ability": "Look at the top four",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Vivien Reid",
+     "counters": {
+      "loyalty": 6
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "library"
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "library"
+    },
+    {
+     "card": "p0:Opt",
+     "zone": "library"
+    }
+   ]
+  },
+  {
+   "name": "plus-one-may-take-a-land",
+   "cr": [
+    "606.4"
+   ],
+   "why": "A land card may be taken instead.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Vivien Reid"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Forest",
+      "Shock",
+      "Opt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Vivien Reid",
+     "ability": "Look at the top four",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Forest"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Forest"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Forest",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "plus-one-nothing-eligible",
+   "cr": [
+    "606.4"
+   ],
+   "why": "With only instants among the four, nothing goes to hand; the loyalty is still gained.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Vivien Reid"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Shock",
+      "Opt",
+      "Divination"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Vivien Reid",
+     "ability": "Look at the top four"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Vivien Reid",
+     "counters": {
+      "loyalty": 6
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "library"
+    }
+   ]
+  },
+  {
+   "name": "plus-one-may-decline",
+   "cr": [
+    "606.4"
+   ],
+   "why": "'You may reveal': taking nothing is allowed even with a creature among them.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Vivien Reid"
+     ],
+     "library_top": [
+      "Grizzly Bears",
+      "Shock",
+      "Opt",
+      "Divination"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Vivien Reid",
+     "ability": "Look at the top four",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": []
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": []
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "library"
+    }
+   ]
+  },
+  {
+   "name": "minus-three-destroys-flier",
+   "cr": [
+    "606.4",
+    "701.8a"
+   ],
+   "why": "-3: destroy target artifact, enchantment, or creature with flying; loyalty 2.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Vivien Reid"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Serra Angel"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Vivien Reid",
+     "targets": [
+      "p1:Serra Angel"
+     ],
+     "ability": "Destroy target"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Serra Angel",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Vivien Reid",
+     "counters": {
+      "loyalty": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "minus-three-destroys-enchantment",
+   "cr": [
+    "701.8a"
+   ],
+   "why": "-3 can destroy an enchantment.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Vivien Reid"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Anthem of Champions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Vivien Reid",
+     "targets": [
+      "p1:Anthem of Champions"
+     ],
+     "ability": "Destroy target"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Anthem of Champions",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "minus-three-needs-a-legal-target",
+   "cr": [
+    "602.2b",
+    "601.2c"
+   ],
+   "why": "With only non-flying creatures there is no legal target, so -3 cannot be activated.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Vivien Reid"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Vivien Reid",
+      "label": "Destroy target"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "ultimate-emblem-pumps-creatures",
+   "cr": [
+    "606.4",
+    "114.4"
+   ],
+   "why": "After three +1s (loyalty 8) the -8 gives an emblem: creatures you control get +2/+2 and have vigilance, trample and indestructible, even after Vivien is gone.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Vivien Reid",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Vivien Reid",
+     "ability": "Look at the top four"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Vivien Reid",
+     "ability": "Look at the top four"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Vivien Reid",
+     "ability": "Look at the top four"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0",
+     "expect": [
+      {
+       "card": "p0:Vivien Reid",
+       "counters": {
+        "loyalty": 8
+       }
+      }
+     ]
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Vivien Reid",
+     "ability": "emblem"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Vivien Reid",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "4/4",
+     "keywords": [
+      "Vigilance",
+      "Trample",
+      "Indestructible"
+     ]
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "pt": "2/2"
+    }
+   ]
+  }
+ ]
+}

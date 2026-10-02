@@ -1,0 +1,245 @@
+{
+ "card": "Condemn",
+ "family": "spell-conditional",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "a10d56b52fb7",
+ "scenarios": [
+  {
+   "name": "attacker-to-library-bottom-controller-gains-toughness",
+   "cr": [
+    "608.2c",
+    "401.4"
+   ],
+   "why": "The attacking Hill Giant goes to the bottom of its owner's library and its controller gains 3 (its toughness).",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Condemn"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Hill Giant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Hill Giant"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Condemn",
+     "mana": "W",
+     "targets": [
+      "p1:Hill Giant"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Hill Giant",
+     "zone": "library"
+    },
+    {
+     "life": {
+      "p1": 23,
+      "p0": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "only-an-attacking-creature",
+   "cr": [
+    "115.1",
+    "601.2c"
+   ],
+   "why": "'Target attacking creature': in a main phase with no attackers it cannot be cast.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Condemn"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Hill Giant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "W"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Condemn"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "uses-current-toughness",
+   "cr": [
+    "608.2c",
+    "613.4c"
+   ],
+   "why": "The life gained is its toughness as Condemn resolves: a Giant Growth-pumped 6/6 attacker gives 6.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Condemn"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Hill Giant"
+     ],
+     "hand": [
+      "Giant Growth"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Hill Giant"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Giant Growth",
+     "mana": "G",
+     "targets": [
+      "p1:Hill Giant"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Condemn",
+     "mana": "W",
+     "targets": [
+      "p1:Hill Giant"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Hill Giant",
+     "zone": "library"
+    },
+    {
+     "life": {
+      "p1": 26
+     }
+    }
+   ]
+  },
+  {
+   "name": "own-attacker-can-be-condemned",
+   "cr": [
+    "115.1"
+   ],
+   "why": "Any attacking creature, including its caster's own: its controller (the caster) gains the toughness.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Hill Giant"
+     ],
+     "hand": [
+      "Condemn"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Hill Giant"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Condemn",
+     "mana": "W",
+     "targets": [
+      "p0:Hill Giant"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Hill Giant",
+     "zone": "library"
+    },
+    {
+     "life": {
+      "p0": 23,
+      "p1": 20
+     }
+    }
+   ]
+  }
+ ]
+}

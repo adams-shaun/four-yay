@@ -1,0 +1,207 @@
+{
+ "card": "Lunar Insight",
+ "family": "spell-conditional",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "28be215168b4",
+ "scenarios": [
+  {
+   "name": "draws-per-distinct-mana-value",
+   "cr": [
+    "202.3",
+    "608.2c"
+   ],
+   "why": "Nonland permanents with mana values 2, 1, 4 and 2 again: three different values draw three.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Savannah Lions",
+      "Hill Giant",
+      "Grizzly Bears",
+      "Forest"
+     ],
+     "hand": [
+      "Lunar Insight"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lunar Insight",
+     "mana": "UCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 3
+     }
+    }
+   ]
+  },
+  {
+   "name": "token-mana-value-zero-counts",
+   "cr": [
+    "202.3b",
+    "111.1"
+   ],
+   "why": "A token's mana value is 0, a distinct value: Goblin tokens (0) plus Grizzly Bears (2) draw two.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Dragon Fodder",
+      "Lunar Insight"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Dragon Fodder",
+     "mana": "RC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lunar Insight",
+     "mana": "UCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "lands-do-not-count",
+   "cr": [
+    "608.2c"
+   ],
+   "why": "Only nonland permanents: with only lands it draws nothing.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Forest",
+      "Island"
+     ],
+     "hand": [
+      "Lunar Insight"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lunar Insight",
+     "mana": "UCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-permanents-do-not-count",
+   "cr": [
+    "608.2c"
+   ],
+   "why": "Only permanents you control.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Lunar Insight"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Savannah Lions",
+      "Hill Giant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lunar Insight",
+     "mana": "UCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "noncreature-permanents-count",
+   "cr": [
+    "608.2c"
+   ],
+   "why": "Artifacts and enchantments count: Anthem of Champions (2) and Fishing Pole (1) draw two.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Anthem of Champions",
+      "Fishing Pole"
+     ],
+     "hand": [
+      "Lunar Insight"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lunar Insight",
+     "mana": "UCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    }
+   ]
+  }
+ ]
+}
