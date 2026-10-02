@@ -181,7 +181,9 @@ func (w *legalWalk) battlefieldWalk() {
 						// before the per-ability gates (the zone can be large).
 						continue
 					}
-					if e.faceDownPrintedHides(o) {
+					if e.printedAbilitiesGone(o) {
+						// CR 613.1f: a permanent that lost all abilities has no
+						// printed activated abilities either.
 						// CR 708.8: a face-down permanent's printed activated abilities
 						// and mana abilities do not exist while it is face down, and
 						// turn-face-up (CR 708.6) is not implemented -- nothing on a

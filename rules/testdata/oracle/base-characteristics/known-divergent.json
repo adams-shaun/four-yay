@@ -1,7 +1,1 @@
-{
-  "Witness Protection/loses-triggered-ability": "CR 613.1f: the enchanted creature loses all abilities, so an enchanted Ajani's Pridemate gets no counter when its controller gains life. Observed: the Pridemate still triggers and gets a +1/+1 counter (2/2 with one counter, want 1/1 with none). Keyword abilities are removed (the sibling Serra Angel scenarios pass), so only non-keyword abilities survive the Aura. Found by the FDN audit batch 3; no ticket yet.",
-  "Witness Protection/loses-activated-mana-ability": "CR 613.1f: an enchanted Llanowar Elves has no mana ability. Observed: its {T}: Add {G} is still offered. Same root as loses-triggered-ability: only keyword abilities are removed.",
-  "Witness Protection/loses-activated-pump-ability": "CR 613.1f: an enchanted Shivan Dragon has no {R} pump ability. Observed: the activation is still offered (flying is removed and it is 1/1). Same root as loses-triggered-ability: only keyword abilities are removed.",
-  "Witness Protection/loses-static-ability": "CR 613.1f: an enchanted Mocking Sprite no longer reduces instant and sorcery costs, so Divination is not castable for two mana. Observed: the cast is still offered for {1}{U}. Same root as loses-triggered-ability: only keyword abilities are removed.",
-  "Witness Protection/becomes-nonblack-so-doom-blade-can-target-it": "CR 613.1e/105.3: the enchanted creature is green and white and loses its other colours, so an enchanted black Walking Corpse is a legal Doom Blade (nonblack) target. Observed: Doom Blade is still not castable with the mana in pool and the enchanted Corpse the only creature (it is 1/1 and no longer a Zombie), i.e. the colour change is not applied. Found by the FDN audit batch 3; no ticket yet."
-}
+{}

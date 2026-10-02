@@ -264,7 +264,7 @@ func compiledPositive(c *compiledPred, g *state.Game, o *state.Object, sc *SpecC
 	if c.named {
 		return namePredicate(c.pos, g, o, *sc)
 	}
-	if c.fn != nil {
+	if c.fn != nil && !(len(sc.DerivedColors) != 0 && colourMapPredicate(c.pos)) {
 		return c.fn(g, o, sc.You, sc.Source), true
 	}
 	if c.num {

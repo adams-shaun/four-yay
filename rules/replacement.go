@@ -744,6 +744,12 @@ func (e *Engine) replacementFace(id state.ObjID, ev events.Event) *cards.Face {
 	if ev.Kind == events.FlipFace && id == ev.Obj && ev.Amount >= 0 && int(ev.Amount) < len(o.Card.Faces) {
 		return o.Card.Faces[ev.Amount]
 	}
+	if e.printedAbilitiesLost(o) {
+		// CR 613.1f: a battlefield permanent that lost all abilities has no
+		// printed replacement ability. (An entering permanent is not on the
+		// battlefield yet, so its own as-enters replacements still apply.)
+		return nil
+	}
 	return o.Face()
 }
 
