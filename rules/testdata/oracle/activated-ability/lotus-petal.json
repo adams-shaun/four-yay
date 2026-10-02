@@ -1,0 +1,66 @@
+{
+ "card": "Lotus Petal",
+ "family": "activated-ability",
+ "author": "cli-20261002T012416Z-b23985ce (Oracle + CR only)",
+ "oracle_sha": "3091cdade923",
+ "scenarios": [
+  {
+   "name": "sacrifice-adds-red",
+   "cr": ["605.3a", "118.12a"],
+   "why": "{T}, Sacrifice Lotus Petal: Add one mana of any color -- activating taps and sacrifices the Petal and puts the chosen colour in the pool.",
+   "setup": {
+    "p0": {
+     "battlefield": ["Lotus Petal"]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Lotus Petal",
+     "answers": [
+      {"kind": "any", "pick": ["R"]}
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lotus Petal",
+     "zone": "graveyard"
+    },
+    {
+     "pool": {"p0": "R"}
+    }
+   ]
+  },
+  {
+   "name": "sacrifice-adds-green",
+   "cr": ["605.3a", "118.12a"],
+   "why": "The any-colour choice is the player's: choosing green puts a {G} in the pool just as choosing red would.",
+   "setup": {
+    "p0": {
+     "battlefield": ["Lotus Petal"]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Lotus Petal",
+     "answers": [
+      {"kind": "any", "pick": ["G"]}
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lotus Petal",
+     "zone": "graveyard"
+    },
+    {
+     "pool": {"p0": "G"}
+    }
+   ]
+  }
+ ]
+}

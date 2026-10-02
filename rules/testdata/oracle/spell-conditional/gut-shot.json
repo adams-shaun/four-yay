@@ -1,0 +1,120 @@
+{
+ "card": "Gut Shot",
+ "family": "spell-conditional",
+ "author": "cli-20261002T012416Z-b23985ce (Oracle + CR only)",
+ "oracle_sha": "a11327cb59bf",
+ "scenarios": [
+  {
+   "name": "red-pip-pays-the-pip-with-mana",
+   "cr": [
+    "107.4f",
+    "601.2b"
+   ],
+   "why": "Gut Shot costs {R/P} (CR 107.4f): paying the Phyrexian pip with {R} from the pool spends no life and the spell resolves for its 1 damage to the target.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Gut Shot"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "R"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Gut Shot",
+     "targets": [
+      "p1:Grizzly Bears"
+     ],
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Pay R"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 1
+    },
+    {
+     "life": {
+      "p0": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "life-only-pays-two-life",
+   "cr": [
+    "107.4f",
+    "601.2b",
+    "118.12a"
+   ],
+   "why": "The Phyrexian pip's alternative cost is 2 life (CR 107.4f): with no red mana in the pool, paying the pip with life costs exactly 2 life and the spell still deals its damage.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Gut Shot"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Gut Shot",
+     "targets": [
+      "p1:Grizzly Bears"
+     ],
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Pay 2 life"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 1
+    },
+    {
+     "life": {
+      "p0": 18
+     }
+    }
+   ]
+  }
+ ]
+}

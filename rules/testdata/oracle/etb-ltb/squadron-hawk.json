@@ -1,0 +1,105 @@
+{
+ "card": "Squadron Hawk",
+ "family": "etb-ltb",
+ "author": "cli-20261002T012416Z-b23985ce (Oracle + CR only)",
+ "oracle_sha": "464cb7931bc3",
+ "scenarios": [
+  {
+   "name": "enters-and-searches-three-to-hand",
+   "cr": [
+    "603.3d",
+    "701.19a",
+    "701.19b"
+   ],
+   "why": "When Squadron Hawk enters, its player may search the library for up to three cards named Squadron Hawk: taking all three puts them in the hand and shuffles the rest of the library.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Squadron Hawk"
+     ],
+     "library": [
+      "Squadron Hawk",
+      "Squadron Hawk",
+      "Squadron Hawk"
+     ]
+    }
+   },
+   "steps": [],
+   "expect": [
+    {
+     "card": "p0:Squadron Hawk",
+     "zone": "battlefield"
+    },
+    {
+     "hand_size": {
+      "p0": 3
+     }
+    }
+   ],
+   "setup_answers": [
+    {
+     "kind": "trigger_optional",
+     "pick": [
+      "yes"
+     ]
+    },
+    {
+     "kind": "choose",
+     "pick": [
+      "p0:Squadron Hawk#2",
+      "p0:Squadron Hawk#3",
+      "p0:Squadron Hawk#4"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "declining-keeps-them-in-the-library",
+   "cr": [
+    "603.3d",
+    "603.5"
+   ],
+   "why": "Declining the MAY search leaves the library untouched: no hawks leave it, the hand stays empty and the battlefield Hawk stays.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Squadron Hawk"
+     ],
+     "library": [
+      "Squadron Hawk",
+      "Squadron Hawk",
+      "Squadron Hawk"
+     ]
+    }
+   },
+   "steps": [],
+   "expect": [
+    {
+     "card": "p0:Squadron Hawk",
+     "zone": "battlefield"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "library",
+      "name": "Squadron Hawk"
+     },
+     "eq": 3
+    }
+   ],
+   "setup_answers": [
+    {
+     "kind": "trigger_optional",
+     "pick": [
+      "no"
+     ]
+    }
+   ]
+  }
+ ]
+}

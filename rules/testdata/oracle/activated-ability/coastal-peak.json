@@ -1,0 +1,142 @@
+{
+ "card": "Coastal Peak",
+ "family": "activated-ability",
+ "author": "cli-20261002T012416Z-b23985ce (Oracle + CR only)",
+ "scenarios": [
+  {
+   "name": "tap-adds-red",
+   "cr": [
+    "107.4c",
+    "605.3a",
+    "305.2"
+   ],
+   "why": "{T}: Add {U} or {R} -- the red branch puts one {R} in the pool (the land's enters-tapped clause is about entry, not the tap).",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Coastal Peak"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Coastal Peak",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Add R"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": "R"
+     }
+    }
+   ]
+  },
+  {
+   "name": "tap-adds-blue",
+   "cr": [
+    "107.4c",
+    "605.3a",
+    "305.2"
+   ],
+   "why": "The blue branch of the same {T}: Add {U} or {R} activation puts one {U} in the pool.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Coastal Peak"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Coastal Peak",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Add U"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": "U"
+     }
+    }
+   ]
+  },
+  {
+   "name": "cycling-draws-a-card",
+   "cr": [
+    "702.29a",
+    "702.29b",
+    "701.10a"
+   ],
+   "why": "Cycling {2} (Discard this card: Draw a card) -- paying the two generic mana and discarding Coastal Peak draws one card, and the Peak goes to the graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Coastal Peak"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CC"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Coastal Peak",
+     "ability": "cycling",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Coastal Peak"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Coastal Peak"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Coastal Peak",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  }
+ ]
+}

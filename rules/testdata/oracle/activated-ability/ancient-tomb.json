@@ -1,0 +1,38 @@
+{
+ "card": "Ancient Tomb",
+ "family": "activated-ability",
+ "author": "cli-20261002T012416Z-b23985ce (Oracle + CR only)",
+ "oracle_sha": "288a2ac1f2b4",
+ "scenarios": [
+  {
+   "name": "tap-adds-two-colourless-and-deals-two",
+   "cr": ["605.3a", "118.3", "107.4d"],
+   "why": "{T}: Add {C}{C}. Ancient Tomb deals 2 damage to you -- the damage is part of the ability's resolution, so a 20-life player ends at 18 with {C}{C} in the pool.",
+   "setup": {
+    "p0": {
+     "battlefield": ["Ancient Tomb"]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ancient Tomb"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Ancient Tomb",
+     "zone": "battlefield",
+     "tapped": true
+    },
+    {
+     "pool": {"p0": "CC"}
+    },
+    {
+     "life": {"p0": 18}
+    }
+   ]
+  }
+ ]
+}

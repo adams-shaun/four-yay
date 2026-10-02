@@ -1,0 +1,113 @@
+{
+ "card": "Chivalric Alliance",
+ "family": "triggered-ability",
+ "author": "cli-20261002T012416Z-b23985ce (Oracle + CR only)",
+ "scenarios": [
+  {
+   "name": "attacking-with-two-creatures-draws",
+   "cr": [
+    "603.2a",
+    "508.1a",
+    "701.58a"
+   ],
+   "why": "Whenever you attack with two or more creatures, draw a card -- attacking with the two creature attackers makes the trigger on the Alliance enchantment fire once, drawing a card.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Chivalric Alliance",
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears",
+      "p0:Savannah Lions"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "card": "p0:Chivalric Alliance",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "two-mana-and-a-discard-make-a-vigilant-knight",
+   "cr": [
+    "701.10a",
+    "117.12",
+    "111.9"
+   ],
+   "why": "{2}, Discard a card: Create a 2/2 white and blue Knight creature token with vigilance -- the discarded card goes to the graveyard and the token exists with the named characteristics.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Chivalric Alliance"
+     ],
+     "hand": [
+      "Island"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CC"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Chivalric Alliance",
+     "ability": "Knight",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Island"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Knight",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:Island",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  }
+ ]
+}

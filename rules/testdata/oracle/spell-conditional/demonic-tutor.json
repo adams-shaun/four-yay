@@ -1,0 +1,117 @@
+{
+ "card": "Demonic Tutor",
+ "family": "spell-conditional",
+ "author": "cli-20261002T012416Z-b23985ce (Oracle + CR only)",
+ "oracle_sha": "e759f75c5251",
+ "scenarios": [
+  {
+   "name": "search-puts-a-card-in-hand",
+   "cr": [
+    "701.19a",
+    "701.19b"
+   ],
+   "why": "Search your library for a card, put that card into your hand, then shuffle -- the searched card moves from the library to the hand and the library is shuffled.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Demonic Tutor"
+     ],
+     "library_top": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "BB"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Demonic Tutor"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Lightning Bolt"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Demonic Tutor",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "sorcery-only-not-castable-during-combat",
+   "cr": [
+    "305.5",
+    "117.1a"
+   ],
+   "why": "A sorcery may be cast only in its controller's main phase when the stack is empty: at the declare-blockers decision the cast is not among p0's offered actions.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Demonic Tutor"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 1,
+     "blocks": [
+      [
+       "p1:Savannah Lions",
+       "p0:Grizzly Bears"
+      ]
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Demonic Tutor",
+     "zone": "hand"
+    }
+   ]
+  }
+ ]
+}

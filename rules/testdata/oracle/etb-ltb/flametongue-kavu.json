@@ -1,0 +1,71 @@
+{
+ "card": "Flametongue Kavu",
+ "family": "etb-ltb",
+ "author": "cli-20261002T012416Z-b23985ce (Oracle + CR only)",
+ "oracle_sha": "88a3817bf452",
+ "scenarios": [
+  {
+   "name": "enters-and-burns-an-opponent-creature",
+   "cr": [
+    "603.3d",
+    "603.7a"
+   ],
+   "why": "When Flametongue Kavu enters it deals 4 damage to target creature: with the player's pick aimed at the opponent's Bear, the 2/2 dies and the Kavu stays.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Flametongue Kavu"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [],
+   "expect": [
+    {
+     "card": "p0:Flametongue Kavu",
+     "zone": "battlefield",
+     "pt": "4/2"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ],
+   "setup_answers": [
+    {
+     "kind": "target",
+     "pick": [
+      "p1:Grizzly Bears"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "only-legal-target-is-itself",
+   "cr": [
+    "603.3d",
+    "115.5",
+    "104.3a"
+   ],
+   "why": "The ETB must target a creature; when the Kavu is the only creature on the battlefield the fallback targets it and the Kavu dies to its own entry burn (a state-based action with 4 damage on a 4/2).",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Flametongue Kavu"
+     ]
+    }
+   },
+   "steps": [],
+   "expect": [
+    {
+     "card": "p0:Flametongue Kavu",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

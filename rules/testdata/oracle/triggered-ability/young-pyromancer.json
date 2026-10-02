@@ -1,0 +1,106 @@
+{
+ "card": "Young Pyromancer",
+ "family": "triggered-ability",
+ "author": "cli-20261002T012416Z-b23985ce (Oracle + CR only)",
+ "scenarios": [
+  {
+   "name": "casting-an-instant-makes-a-1-1-elemental",
+   "cr": [
+    "603.2a",
+    "601.2a",
+    "111.9"
+   ],
+   "why": "Whenever you cast an instant or sorcery spell, create a 1/1 red Elemental creature token -- casting Lightning Bolt (an instant) triggers the Pyromancer, and resolving the trigger puts a 1/1 red Elemental token onto the battlefield.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Young Pyromancer"
+     ],
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Elemental",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:Young Pyromancer",
+     "zone": "battlefield",
+     "pt": "2/1"
+    },
+    {
+     "life": {
+      "p1": 17
+     }
+    }
+   ]
+  },
+  {
+   "name": "casting-a-creature-spell-makes-no-elemental",
+   "cr": [
+    "603.2a",
+    "601.2a"
+   ],
+   "why": "The trigger watches ONLY an instant or sorcery; casting a creature spell (Grizzly Bears) is not one, so no Elemental token is created.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Young Pyromancer"
+     ],
+     "hand": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "CG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Elemental",
+      "token": true
+     },
+     "eq": 0
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "pt": "2/2"
+    }
+   ]
+  }
+ ]
+}

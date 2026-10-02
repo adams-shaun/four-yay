@@ -1,0 +1,123 @@
+{
+ "card": "Dismember",
+ "family": "cost-modifier",
+ "author": "cli-20261002T012416Z-b23985ce (Oracle + CR only)",
+ "oracle_sha": "43cabab42dd2",
+ "scenarios": [
+  {
+   "name": "both-black-pips-paid-with-black-mana",
+   "cr": [
+    "107.4f",
+    "601.2b"
+   ],
+   "why": "Paying both {B/P} pips with {B} mana (plus the {1} generic) spends three mana and no life, and the -5/-5 kills the 2/2 Bear.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Dismember"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "BBB"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Dismember",
+     "targets": [
+      "p1:Grizzly Bears"
+     ],
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Pay B"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "both-pips-paid-with-life",
+   "cr": [
+    "107.4f",
+    "601.2b",
+    "118.12a"
+   ],
+   "why": "Each {B/P} may be paid with 2 life instead of {B}: paying both pips with life plus the one generic mana costs 4 life and still resolves the -5/-5.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Dismember"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Dismember",
+     "targets": [
+      "p1:Grizzly Bears"
+     ],
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Pay 2 life"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 16
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,73 @@
+{
+ "card": "Simian Spirit Guide",
+ "family": "activated-ability",
+ "author": "cli-20261002T012416Z-b23985ce (Oracle + CR only)",
+ "oracle_sha": "da0230b773a7",
+ "scenarios": [
+  {
+   "name": "exile-from-hand-adds-red",
+   "cr": [
+    "118.6",
+    "605.3a",
+    "701.16a"
+   ],
+   "why": "'Exile Simian Spirit Guide from your hand: Add {R}' is a special mana action a player may take any time they have priority (CR 701.16a exile): the Ape leaves the hand for exile and one {R} lands in the pool.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Simian Spirit Guide"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Simian Spirit Guide"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Simian Spirit Guide",
+     "zone": "exile"
+    },
+    {
+     "pool": {
+      "p0": "R"
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-offer-on-the-battlefield",
+   "cr": [
+    "605.3a",
+    "118.6"
+   ],
+   "why": "The exiling action names the card in hand; a Simian Spirit Guide that is already on the battlefield does not offer it (the ability only exists from the hand).",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Simian Spirit Guide"
+     ]
+    }
+   },
+   "steps": [],
+   "expect": [
+    {
+     "card": "p0:Simian Spirit Guide",
+     "zone": "battlefield"
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Simian Spirit Guide",
+      "label": "Exile"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

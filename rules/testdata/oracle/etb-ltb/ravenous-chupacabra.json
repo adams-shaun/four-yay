@@ -1,0 +1,78 @@
+{
+ "card": "Ravenous Chupacabra",
+ "family": "etb-ltb",
+ "author": "cli-20261002T012416Z-b23985ce (Oracle + CR only)",
+ "oracle_sha": "cbddfde6e9f7",
+ "scenarios": [
+  {
+   "name": "enters-and-destroys-an-opponent-creature",
+   "cr": [
+    "603.3d",
+    "603.7a",
+    "701.28a"
+   ],
+   "why": "When Ravenous Chupacabra enters it destroys target creature an opponent controls: the aimed-at Bear leaves the battlefield and the Chupacabra stays.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ravenous Chupacabra"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [],
+   "expect": [
+    {
+     "card": "p0:Ravenous Chupacabra",
+     "zone": "battlefield",
+     "pt": "2/2"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ],
+   "setup_answers": [
+    {
+     "kind": "target",
+     "pick": [
+      "p1:Grizzly Bears"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "own-creatures-are-not-legal-targets",
+   "cr": [
+    "603.3d",
+    "115.5",
+    "601.2c"
+   ],
+   "why": "The trigger targets only creatures an OPPONENT controls: when p1 has no creature the trigger has no legal target and is removed from the stack without asking (CR 115.5), so p0's own Bear survives.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ravenous Chupacabra",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [],
+   "expect": [
+    {
+     "card": "p0:Ravenous Chupacabra",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 0
+    }
+   ]
+  }
+ ]
+}
