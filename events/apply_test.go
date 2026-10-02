@@ -1658,3 +1658,45 @@ func itoa(n int) string {
 	}
 	return string(buf[i:])
 }
+
+// TestSubTargetsChosenFoldsApartFromRootTargets pins the CR 601.2c chain
+// shape: a TargetsChosen carrying SubTargetNotice appends to
+// Object.SubTargets and leaves the root's Targets untouched, for both append
+// shapes; a zone change clears both lists; and a clone carries an independent
+// copy.
+func TestSubTargetsChosenFoldsApartFromRootTargets(t *testing.T) {
+	g, l := twoPlayer(t)
+	spell := g.Zone(state.ZLibrary, 0)[0]
+	Emit(g, l, Event{Kind: MoveZone, Obj: spell, From: state.ZLibrary, To: state.ZStack})
+	root := g.Zone(state.ZLibrary, 0)[1]
+	sub := g.Zone(state.ZLibrary, 0)[2]
+
+	Emit(g, l, Event{Kind: TargetsChosen, Obj: spell, Amount: 0, IDs: []state.ObjID{root}})
+	Emit(g, l, Event{Kind: TargetsChosen, Obj: spell, Amount: 2, IDs: []state.ObjID{sub}, Text: SubTargetNotice})
+	Emit(g, l, Event{Kind: TargetsChosen, Obj: spell, Amount: 3, Player: 1, Text: SubTargetNotice})
+	o := g.Obj(spell)
+	if len(o.Targets) != 1 || o.Targets[0].Obj != root {
+		t.Fatalf("root targets = %+v, want only the root target %d", o.Targets, root)
+	}
+	want := []state.Target{{Obj: sub}, {Player: 1, IsPlayer: true}}
+	if !reflect.DeepEqual(o.SubTargets, want) {
+		t.Fatalf("sub targets = %+v, want %+v", o.SubTargets, want)
+	}
+	// A replace-shaped sub event folds nothing: a chain target never replaces.
+	Emit(g, l, Event{Kind: TargetsChosen, Obj: spell, Amount: 0, IDs: []state.ObjID{sub}, Text: SubTargetNotice})
+	Emit(g, l, Event{Kind: TargetsChosen, Obj: spell, Amount: 3, Player: state.PlayerID(250), Text: SubTargetNotice})
+	if o = g.Obj(spell); len(o.Targets) != 1 || !reflect.DeepEqual(o.SubTargets, want) {
+		t.Fatalf("a malformed sub-target event changed the lists: %+v / %+v", o.Targets, o.SubTargets)
+	}
+
+	c := g.Clone()
+	c.Obj(spell).SubTargets[0].Obj = 0
+	if g.Obj(spell).SubTargets[0].Obj != sub {
+		t.Fatal("the clone aliases the original's SubTargets")
+	}
+
+	Emit(g, l, Event{Kind: MoveZone, Obj: spell, From: state.ZStack, To: state.ZGraveyard})
+	if o = g.Obj(spell); o.Targets != nil || o.SubTargets != nil {
+		t.Fatalf("a zone change kept targets: %+v / %+v", o.Targets, o.SubTargets)
+	}
+}

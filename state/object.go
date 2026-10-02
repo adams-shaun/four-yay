@@ -737,6 +737,18 @@ type Object struct {
 	StackKind      StackObjKind
 	StackKindKnown bool
 	Targets        []Target
+	// SubTargets are the targets a SubAbility$ link of this spell or
+	// activated ability announced when it was cast or activated (CR 601.2c:
+	// every target of the chain is chosen then, not as the link resolves).
+	// They are kept apart from Targets -- which stays the ROOT declaration's
+	// own list, the one Ctx.Targets and the CR 608.2b root recheck read -- so
+	// a chain target can never be mistaken for a root target. Event-backed
+	// (a TargetsChosen whose Text is events.SubTargetNotice appends here) and
+	// cleared with Targets on a zone change. Which link chose which entry is
+	// rules' per-Line record (Engine.castSubTargets); this flat list is what
+	// "what does this object target" readers (the view, the crime check)
+	// need.
+	SubTargets []Target
 	// Remembered carries a triggered ability's Ctx.Remembered from the
 	// moment it was queued (rules.checkTriggers) through to resolution. An
 	// ability object has no Face (Ruling F3) and therefore no card-script
@@ -1360,7 +1372,7 @@ type Object struct {
 	// page-aligned Objs arena every object's hot head (the fields declared
 	// first) starts on a line of its own. Purely layout: it is never read or
 	// written. A field added above must re-pad it (TestObjectCacheLinePadded).
-	_ [40]byte
+	_ [16]byte
 }
 
 // MergedCard is one card stacked beneath a mutated permanent's top card
@@ -1820,7 +1832,7 @@ func carveClone[T any](buf *[]T, src []T) []T {
 func (o *Object) cloneArenaNeed(ids, tgs, ctr *int) {
 	*ids += len(o.BlockedBy) + len(o.CrewedVehicles) + len(o.Imprinted) + len(o.DamageTakenByGame) +
 		len(o.DamageTakenThisTurnBy) + len(o.ImprintTokens) + len(o.EncodedCards) + len(o.SeekFound) + len(o.ExiledCards)
-	*tgs += len(o.Targets) + len(o.Remembered) + len(o.Chosen)
+	*tgs += len(o.Targets) + len(o.SubTargets) + len(o.Remembered) + len(o.Chosen)
 	*ctr += len(o.Counters)
 }
 
@@ -1834,6 +1846,7 @@ func (o *Object) cloneDeepIntoArena(c *Object, a *cloneArena) {
 	*c = *o
 	c.Counters = carveClone(&a.ctr, o.Counters)
 	c.Targets = carveClone(&a.tgs, o.Targets)
+	c.SubTargets = carveClone(&a.tgs, o.SubTargets)
 	c.Remembered = carveClone(&a.tgs, o.Remembered)
 	c.BlockedBy = carveClone(&a.ids, o.BlockedBy)
 	c.CrewedVehicles = carveClone(&a.ids, o.CrewedVehicles)

@@ -684,6 +684,7 @@ func move(g *state.Game, id state.ObjID, from, to state.Zone, countersRemain boo
 		o.CopyGainThisAbility = false
 		o.Paired = 0
 		o.Targets = nil
+		o.SubTargets = nil
 		// o.Remembered is deliberately NOT reset here: a card's remembered
 		// list is CARD memory, not permanent state -- Forge preserves it
 		// across zone changes, which is the whole O-Ring premise (the return

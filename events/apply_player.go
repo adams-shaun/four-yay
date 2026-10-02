@@ -181,6 +181,16 @@ func foldCounterChange(g *state.Game, e *Event) {
 	}
 }
 
+// SubTargetNotice is the Text a TargetsChosen event carries when the target
+// belongs to a SubAbility$ link of the spell or ability rather than to its
+// root declaration (CR 601.2c: the whole chain's targets are chosen on cast).
+// The event still IS a targeting -- ward, "becomes the target" and the crime
+// check all match it by Kind -- but its fold appends to Object.SubTargets and
+// leaves the root's Targets untouched. Amount keeps the append shapes'
+// meaning (2 object, 3 player), so a reader that tells a player target from
+// an object target by Amount needs no second rule.
+const SubTargetNotice = "sub-target"
+
 // foldTargetsChosen folds Kind TargetsChosen into state.
 func foldTargetsChosen(g *state.Game, e *Event) {
 	// Amount discriminates the target shape (Ruling T14-b's own
@@ -200,6 +210,23 @@ func foldTargetsChosen(g *state.Game, e *Event) {
 		// re-runs the same fold.
 		if o.IsCopy {
 			o.CopyMayChooseTarget = false
+		}
+		if e.Text == SubTargetNotice {
+			// A SubAbility$ link's cast-time target (CR 601.2c): it joins
+			// SubTargets, never the root's own Targets. Only the two APPEND
+			// shapes are meaningful -- a chain target never replaces
+			// anything -- and any other Amount folds nothing.
+			switch e.Amount {
+			case 2:
+				for _, id := range e.IDs {
+					o.SubTargets = append(o.SubTargets, state.Target{Obj: id})
+				}
+			case 3:
+				if validPlayer(g, e.Player) {
+					o.SubTargets = append(o.SubTargets, state.Target{Player: e.Player, IsPlayer: true})
+				}
+			}
+			return
 		}
 		switch e.Amount {
 		case 1:
