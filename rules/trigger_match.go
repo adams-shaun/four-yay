@@ -41,6 +41,11 @@ type pendingTrigger struct {
 	Controller state.PlayerID
 	Idx        int
 	SA         *cards.SA
+	// sourceCharLKI is the source's last-known characteristics when it left
+	// the battlefield while this trigger waited (source_char_lki.go); it
+	// moves onto the stack object at TriggerPush.
+	sourceCharLKI      sourceCharSnapshot
+	sourceCharLKIValid bool
 	// Miracle marks a keyword offer (Task 18) rather than a matched T: line: a
 	// Miracle drawing queued with Idx/SA unset, which the drain treats as an
 	// optional trigger whose decider is the owner and routes a yes through

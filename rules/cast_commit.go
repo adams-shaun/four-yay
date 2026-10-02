@@ -264,8 +264,16 @@ func (e *Engine) payCast() {
 		// Sacrificed$<Property> SVar heads answer "the sacrificed creature's
 		// power/toughness/mana value" (CR 608.2g) against them.
 		var sacrificedLKI []state.SacrificedInfo
+		var selfChar sourceCharSnapshot
+		selfCharOK := false
 		for _, id := range pc.sacs {
 			sacrificedLKI = append(sacrificedLKI, effects.SacrificedLKI(e, id))
+			if id == pc.card && !selfCharOK {
+				// The source sacrificed as its own cost: its target filter
+				// reads this last-known snapshot (source_char_lki.go). The
+				// departure walk cannot seed it -- AbilityPush comes later.
+				selfChar, selfCharOK = e.sourceCharSnapshotOf(id), true
+			}
 		}
 		for _, id := range pc.sacs {
 			e.emit(events.Sacrifice(id))
@@ -354,6 +362,9 @@ func (e *Engine) payCast() {
 			}
 			e.sourceLifelinkLKI[pc.stackObj] = sourceKeywordLKI.lifelink
 			e.sourceControllerLKI[pc.stackObj] = sourceControllerLKI
+			if selfCharOK {
+				e.setSourceCharLKI(pc.stackObj, selfChar)
+			}
 			// The own-source fields above carry only lifelink and controller.
 			// CR 113.7a's other damage-relevant characteristics -- infect
 			// (CR 702.90b) and deathtouch (CR 702.2b) -- live in the named
