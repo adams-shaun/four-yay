@@ -219,8 +219,10 @@ func TestTheThingMultiplyCounterDoublesEachKind(t *testing.T) {
 	// TargetMax$ MaxTargets, where MaxTargets = Count$Valid Permanent.YouCtrl
 	// (every permanent seat 0 controls: The Thing, the Bears and the basics).
 	controls := len(e.G.Zone(state.ZBattlefield, 0))
-	if d.Kind != decision.KChoose {
-		t.Fatalf("target ask kind = %s, want choose (the multi-card ask): %+v", d.Kind, d)
+	// CR 603.12: the paid "when you do" half is a reflexive triggered ability,
+	// so its targets are a placement target ask as it goes on the stack.
+	if d.Kind != decision.KTarget {
+		t.Fatalf("target ask kind = %s, want target (the reflexive ability's placement ask): %+v", d.Kind, d)
 	}
 	if d.Min != 0 {
 		t.Fatalf("target ask Min = %d, want 0 (TargetMin$ 0)", d.Min)
@@ -230,9 +232,6 @@ func TestTheThingMultiplyCounterDoublesEachKind(t *testing.T) {
 	}
 	var thingOpt, bearOpt = -1, -1
 	for _, o := range d.Options {
-		if o.Kind != "card" {
-			continue
-		}
 		switch o.Obj {
 		case thingID:
 			thingOpt = o.Index
@@ -283,8 +282,8 @@ func TestTheThingMultiplyCounterZeroTargets(t *testing.T) {
 	thingID, bearID := thingBoard(t, e)
 
 	d := thingAttackToTargetAsk(t, e, thingID)
-	if d.Kind != decision.KChoose || d.Min != 0 {
-		t.Fatalf("target ask = %+v, want choose Min 0", d)
+	if d.Kind != decision.KTarget || d.Min != 0 {
+		t.Fatalf("target ask = %+v, want the reflexive ability's target ask, Min 0", d)
 	}
 	// The "nothing happens" test must prove the feature's handler actually
 	// ran: reaching this ask at all means the paid ImmediateTrigger chain

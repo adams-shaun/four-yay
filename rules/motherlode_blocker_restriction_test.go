@@ -153,7 +153,9 @@ func TestMotherlodeExcavatorPaidAttackRestrictsNonflyingBlockers(t *testing.T) {
 		case pd.Kind == decision.KChoose && len(pd.Options) > 0 && pd.Options[0].Kind == "trigger_cost_pay":
 			sawPay = true
 			chooseKindOption(t, e, pd, "trigger_cost_pay")
-		case pd.Kind == decision.KChoose && pd.ResumeKind == "tgts" && sawPay:
+		case pd.Kind == decision.KTarget && sawPay:
+			// CR 603.12: the "when you do" half is a reflexive triggered
+			// ability, so its target is chosen as it is put on the stack.
 			sawTarget = true
 		case pd.Kind == decision.KTriggerOptional:
 			submitChoices(t, e, 0)
@@ -168,7 +170,7 @@ func TestMotherlodeExcavatorPaidAttackRestrictsNonflyingBlockers(t *testing.T) {
 		t.Fatal("after paying 4 energy, the Destroy body never posed its target ask (the empty-set no-op)")
 	}
 	pd := e.Pending()
-	if pd == nil || pd.Kind != decision.KChoose || pd.ResumeKind != "tgts" {
+	if pd == nil || pd.Kind != decision.KTarget {
 		t.Fatalf("pending = %+v, want the destroy target ask", pd)
 	}
 	tpick := -1

@@ -18,20 +18,25 @@ func init() { Register("ImmediateTrigger", effImmediateTrigger) }
 // two target cards" (Diregraf Horde), "you may pay {1}. When you do, target
 // creature with haste can't be blocked ..." (Speed, Young Avenger's AB shape).
 //
-// The accepted approximation (this brief's contract, and deliberately NOT a
-// new events.Kind nor a stack object): Forge pushes one real trigger instance
-// per amount onto the stack, so each instance is a separate stack object that
-// responds to priority ordering; this build resolves the Execute$ body
-// INLINE, amount times, inside the resolving ability's own resolution. The
-// ordering vs other stack objects therefore differs from Forge's whenever
-// another ability could be placed between the "when you do" offer and its
-// resolution — with no response window in between, the effect resolves
-// immediately. Every per-instance behaviour (its target ask, its UnlessCost$
-// gate, its own remembered set) is real; only the stack-object ceremony is
-// not.
+// CR 603.12: each instance is a REFLEXIVE TRIGGERED ABILITY. It is handed to
+// the host's trigger queue (Host.QueueReflexiveTrigger), which puts it on the
+// stack as its own triggered ability the next time a player would receive
+// priority: its targets are chosen as it is put there (a real target, so
+// hexproof, ward and "becomes the target" apply), players can respond between
+// the spawning effect and it, and it resolves or fizzles on its own. Until
+// 2026-10 this build resolved the Execute$ body INLINE inside the spawning
+// resolution -- an accepted approximation that made the target an untargeted
+// resolution-time choice and left no response window (Faebloom Trick's tap).
 //
-// Per instance the loop builds a FRESH Ctx copy (the fx42 scoping rule: an
-// answer must never carry between instances) and resolves Execute$ through
+// The inline resolution below is kept for exactly three shapes: Static$ True
+// (Forge's static trigger resolves immediately by definition -- Melira, the
+// Living Cure's replacement-installed lock), a host that reports it cannot
+// mint the ability from the log (a body compiled on a foreign face; an
+// effects-package test double), and the re-entry of an inline loop that
+// already suspended.
+//
+// On the inline path, per instance the loop builds a FRESH Ctx copy (the fx42
+// scoping rule: an answer must never carry between instances) and resolves Execute$ through
 // the ordinary Resolve, so a sub's own mid-resolution ask (Forum Filibuster's
 // TargetMin$ 0 / TargetMax$ 1 ChangeZone) suspends the WHOLE resolution and
 // re-enters through the same RepeatCursor machinery effRepeatEach uses —
@@ -151,6 +156,17 @@ func effImmediateTrigger(h Host, c *Ctx, sa *cards.SA) {
 			start = len(subjects)
 		}
 	}
+	// CR 603.12: each instance is a reflexive triggered ability. It goes on
+	// the stack -- targets chosen as it is put there, respondable, ward and
+	// "becomes the target" triggers firing -- the next time a player would
+	// receive priority, through the host's trigger queue. Three shapes keep
+	// the inline resolution: Static$ True (Forge's static trigger, which
+	// resolves immediately by definition -- Melira, the Living Cure's lock
+	// must be installed before its replacement returns), a re-entry into an
+	// inline loop that already suspended, and a body the host cannot mint
+	// from the log (QueueReflexiveTrigger reports false; decided on the first
+	// instance, so one ImmediateTrigger never mixes the two).
+	queue := start == 0 && !strings.EqualFold(strings.TrimSpace(sa.Params["Static"]), "True")
 	for i := start; i < len(subjects); i++ {
 		cc := *c
 		cc.Repeat = nil
@@ -160,6 +176,12 @@ func effImmediateTrigger(h Host, c *Ctx, sa *cards.SA) {
 			cc.Remembered = []state.Target{subjects[i]}
 		} else {
 			cc.Remembered = copyTargets(wholeSet)
+		}
+		if queue {
+			if h.QueueReflexiveTrigger(c, execName, sub, cc.Remembered) {
+				continue
+			}
+			queue = false
 		}
 		Resolve(h, &cc, sub)
 		if h.Suspended() {

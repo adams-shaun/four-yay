@@ -217,6 +217,9 @@ func TestLoamcrafterFaunWhenYouDoReturnsThatMany(t *testing.T) {
 		t.Fatalf("the graveyard permanents were not all offered by the return ask: %+v", ret.Options)
 	}
 	submitChoices(t, e, answer...)
+	// CR 603.12: the ask above was the reflexive ability's placement target
+	// ask; the cards move when that ability resolves.
+	passUntilStackEmpty(t, e, 20)
 
 	// (3) the answered ChangeZone moved the named graveyard cards to hand.
 	for _, id := range grave {
