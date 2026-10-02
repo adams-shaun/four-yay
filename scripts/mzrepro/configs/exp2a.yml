@@ -1,0 +1,51 @@
+# DraftZero experiment #2a on the gorge engine: draft-zero's configs/exp2.yml with the
+# layout its deploy/exp2.sh would compute for this box instead of a 31-core pod.
+#
+#   scripts/mzrepro/dzrun.sh setup <run_root> scripts/mzrepro/configs/exp2a.yml
+#   MZ_GPU=1 scripts/mzrepro/dzrun.sh loop <run_root> --fresh
+#
+# Unchanged from exp2.yml: the model name, the curriculum (lambda 0.95, all priors off),
+# 112 games per generation, the 20/70/10 opponent mix, the 150,000-state replay window,
+# hidden hands, search budget 300, the 60 s search timeout, and the eval (every 8
+# generations, 100 seat-swapped pairs against offline search at the same budget).
+# Changed: generations is 17 (gens 0..16, evaluated at 0, 8 and 16: the span of the
+# reference run, which was stopped by its budget), and the engine layout: one engine
+# process with four game threads. A game thread of a network generation spends most of
+# its time waiting for the inference server, so four of them keep the server's batches
+# fuller while the engine itself stays on GOMAXPROCS CPU threads (export GOMAXPROCS=1
+# for a one-vCPU cap; an offline generation is then simply time-sliced). With several
+# game threads a network generation is not bit-reproducible: the server batches
+# whatever arrives together.
+model: FDN_exp2
+version: 1
+curriculum: configs/curriculum_exp2.yml
+generations: 17
+target_games: null
+resource_interval_s: 30
+
+bootstrap_games: 112
+games_per_gen: 112
+chunk_games: 4
+mix: {self: 0.2, past: 0.7, gen0: 0.1}
+replay_states: 150000
+train_batch: 64              # the reference run's value on a 24 GB GPU
+hidden_info: {see_opponent_hand: false}
+
+eval:
+  baselines: [offline]
+  every_n_gens: 8
+  pairs: 100
+  fixed_decks: true
+  window_gens: 1
+stats:
+  window_gens: 10
+  min_card_games: 15
+
+jvm:
+  heap: 1g                   # passed to the JVM the shim replaces; unused
+  threads: 4
+  jvms: 1
+  gc: zgc-gen                # likewise unused
+  search_budget: 300
+  timeout_ms: 60000
+  max_minutes: 50

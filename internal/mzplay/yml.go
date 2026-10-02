@@ -50,7 +50,7 @@ func parseYML(src string) (*ymlNode, error) {
 	lines := strings.Split(strings.ReplaceAll(src, "\r\n", "\n"), "\n")
 	for ln, raw := range lines {
 		lineNo := ln + 1
-		if strings.ContainsRune(raw, '\t') && strings.TrimLeft(raw, " ")[:min(1, len(strings.TrimLeft(raw, " ")))] == "\t" {
+		if lead := raw[:len(raw)-len(strings.TrimLeft(raw, " \t"))]; strings.ContainsRune(lead, '\t') {
 			return nil, fmt.Errorf("game.yml line %d: tab indentation", lineNo)
 		}
 		body := stripComment(raw)

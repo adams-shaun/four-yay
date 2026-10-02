@@ -54,7 +54,6 @@ import (
 	"time"
 
 	"github.com/adams-shaun/gorge/cards"
-	"github.com/adams-shaun/gorge/internal/azmcts"
 	"github.com/adams-shaun/gorge/internal/azmcts/clairvoyant"
 	"github.com/adams-shaun/gorge/internal/mzbridge"
 	"github.com/adams-shaun/gorge/internal/mzbridge/mzclient"
@@ -131,42 +130,43 @@ func (n *netEval) Evaluate(ids []int32) (mzbridge.Evaluation, error) {
 
 // runStats is the run's totals, printed as one MZSELFPLAY_STATS line.
 type runStats struct {
-	Games         int      `json:"games"`
-	Failed        int      `json:"failed"`
-	WallSeconds   float64  `json:"wall_seconds"`
-	PlaySeconds   float64  `json:"play_seconds"`
-	Threads       int      `json:"threads"`
-	Seed          uint64   `json:"seed"`
-	RowsA         int      `json:"rows_a"`
-	RowsB         int      `json:"rows_b"`
-	RowsPriority  int      `json:"rows_priority"`
-	RowsTarget    int      `json:"rows_target"`
-	RowsUse       int      `json:"rows_use"`
-	Turns         int      `json:"turns"`
-	Submits       int      `json:"submits"`
-	Searches      int      `json:"searches"`
-	BotAnswers    int      `json:"bot_answers"`
-	Trivial       int      `json:"trivial_passes"`
-	Timeouts      int      `json:"search_timeouts"`
-	MacroFailed   int      `json:"macro_failed"`
-	Simulations   int      `json:"simulations"`
-	SimFailures   int      `json:"simulation_failures"`
-	LeafEvals     int64    `json:"leaf_evals"`
-	LeafPerSecond float64  `json:"leaf_evals_per_second"`
-	NetEvals      int64    `json:"net_evals"`
-	NetErrors     int64    `json:"net_errors"`
-	NetFallbacks  int64    `json:"net_fallbacks"`
-	NetMeanMS     float64  `json:"net_mean_ms"`
-	ActionCands   int      `json:"action_candidates"`
-	ActionHits    int      `json:"action_vocab_hits"`
-	ActionVisits  int      `json:"action_visits"`
-	ActionHitV    int      `json:"action_vocab_hit_visits"`
-	TargetCands   int      `json:"target_candidates"`
-	TargetHits    int      `json:"target_vocab_hits"`
-	TargetVisits  int      `json:"target_visits"`
-	TargetHitV    int      `json:"target_vocab_hit_visits"`
-	MissedActions []string `json:"missed_actions,omitempty"`
-	MissedTargets []string `json:"missed_targets,omitempty"`
+	Games         int            `json:"games"`
+	Failed        int            `json:"failed"`
+	WallSeconds   float64        `json:"wall_seconds"`
+	PlaySeconds   float64        `json:"play_seconds"`
+	Threads       int            `json:"threads"`
+	Seed          uint64         `json:"seed"`
+	RowsA         int            `json:"rows_a"`
+	RowsB         int            `json:"rows_b"`
+	RowsPriority  int            `json:"rows_priority"`
+	RowsTarget    int            `json:"rows_target"`
+	RowsUse       int            `json:"rows_use"`
+	Turns         int            `json:"turns"`
+	Submits       int            `json:"submits"`
+	Searches      int            `json:"searches"`
+	BotAnswers    int            `json:"bot_answers"`
+	BotByKind     map[string]int `json:"bot_answers_by_kind"`
+	Trivial       int            `json:"trivial_passes"`
+	Timeouts      int            `json:"search_timeouts"`
+	MacroFailed   int            `json:"macro_failed"`
+	Simulations   int            `json:"simulations"`
+	SimFailures   int            `json:"simulation_failures"`
+	LeafEvals     int64          `json:"leaf_evals"`
+	LeafPerSecond float64        `json:"leaf_evals_per_second"`
+	NetEvals      int64          `json:"net_evals"`
+	NetErrors     int64          `json:"net_errors"`
+	NetFallbacks  int64          `json:"net_fallbacks"`
+	NetMeanMS     float64        `json:"net_mean_ms"`
+	ActionCands   int            `json:"action_candidates"`
+	ActionHits    int            `json:"action_vocab_hits"`
+	ActionVisits  int            `json:"action_visits"`
+	ActionHitV    int            `json:"action_vocab_hit_visits"`
+	TargetCands   int            `json:"target_candidates"`
+	TargetHits    int            `json:"target_vocab_hits"`
+	TargetVisits  int            `json:"target_visits"`
+	TargetHitV    int            `json:"target_vocab_hit_visits"`
+	MissedActions []string       `json:"missed_actions,omitempty"`
+	MissedTargets []string       `json:"missed_targets,omitempty"`
 }
 
 func run(args []string, stdout, stderr io.Writer) int {
@@ -471,6 +471,12 @@ func run(args []string, stdout, stderr io.Writer) int {
 	st.RowsA, st.RowsB = shards[0].Rows(), shards[1].Rows()
 	st.RowsPriority, st.RowsTarget, st.RowsUse = total.RowsPriority, total.RowsTarget, total.RowsUse
 	st.Submits, st.Searches, st.BotAnswers, st.Trivial = total.Submits, total.Searches, total.Bot, total.Trivial
+	st.BotByKind = map[string]int{}
+	for i, n := range total.BotByKind {
+		if n > 0 {
+			st.BotByKind[mzplay.BotKindNames[i]] = n
+		}
+	}
 	st.Timeouts, st.MacroFailed, st.Simulations, st.SimFailures = total.Timeouts, total.MacroFailed, total.Simulations, total.SimFailures
 	st.ActionCands, st.ActionHits, st.ActionVisits, st.ActionHitV = total.ActionCands, total.ActionHits, total.ActionVisits, total.ActionHitV
 	st.TargetCands, st.TargetHits, st.TargetVisits, st.TargetHitV = total.TargetCands, total.TargetHits, total.TargetVisits, total.TargetHitV
@@ -563,5 +569,3 @@ func trimNL(b []byte) string {
 	}
 	return string(b)
 }
-
-var _ azmcts.LeafFunc = mzplay.OfflineLeaf

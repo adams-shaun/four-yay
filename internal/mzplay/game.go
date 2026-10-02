@@ -85,7 +85,10 @@ type GameStats struct {
 	Trivial  int // pass-only priority windows, answered without a search
 	Searches int // decisions a tree was built for and answered from
 	Bot      int // other decisions: the bot's answer was played
-	Timeouts int // searches the decision deadline stopped
+	// BotByKind splits Bot by decision kind (BotKindNames order): the
+	// decisions upstream searches and this engine does not show up here.
+	BotByKind [NumBotKinds]int
+	Timeouts  int // searches the decision deadline stopped
 	// MacroFailed counts chosen macros a later step of which the live engine
 	// refused; the game went on from wherever the macro stopped.
 	MacroFailed int
@@ -106,8 +109,31 @@ type GameStats struct {
 	MissedActions, MissedTargets []string
 }
 
+// BotKindNames are the decision kinds Stats.BotByKind counts, in index
+// order; the last entry collects every other kind.
+var BotKindNames = [NumBotKinds]string{
+	string(decision.KPriority), string(decision.KTarget), string(decision.KAttackers), string(decision.KBlockers),
+	string(decision.KModes), string(decision.KChoose), string(decision.KTriggerOptional), string(decision.KTriggerOrder),
+	string(decision.KReplacement), string(decision.KArrange), "other",
+}
+
+// NumBotKinds is len(BotKindNames).
+const NumBotKinds = 11
+
+func botKind(k decision.Kind) int {
+	for i, n := range BotKindNames {
+		if n == string(k) {
+			return i
+		}
+	}
+	return NumBotKinds - 1
+}
+
 // Add sums o into s (the miss lists are merged, each label once).
 func (s *GameStats) Add(o GameStats) {
+	for i := range s.BotByKind {
+		s.BotByKind[i] += o.BotByKind[i]
+	}
 	s.Submits += o.Submits
 	s.Trivial += o.Trivial
 	s.Searches += o.Searches
@@ -337,12 +363,13 @@ func PlayGame(gs GameSetup) (res GameResult, err error) {
 		st := lr.Result.Stats
 		res.Stats.Simulations += st.Simulations
 		res.Stats.Completed += st.Completed
-		res.Stats.SimFailures += st.Simulations - st.Completed - st.DeadlineHits
+		res.Stats.SimFailures += st.Simulations - st.Completed
 		if st.DeadlineHits > 0 {
 			res.Stats.Timeouts++
 		}
 		if !lr.Chosen() {
 			res.Stats.Bot++
+			res.Stats.BotByKind[botKind(d.Kind)]++
 			if err := submit(lr.Result.Intent); err != nil {
 				return res, fmt.Errorf("mzplay: game %d, decision %d: the bot's answer: %w", gs.Index, d.Seq, err)
 			}
