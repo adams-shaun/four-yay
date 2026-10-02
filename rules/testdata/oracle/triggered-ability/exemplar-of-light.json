@@ -134,7 +134,7 @@
    "name": "second-gain-same-turn-counter-but-no-second-draw",
    "cr": [
     "603.2",
-    "603.2h"
+    "603.4"
    ],
    "why": "The draw ability triggers only once each turn: a second life gain adds a second counter but draws nothing more.",
    "setup": {
@@ -199,7 +199,7 @@
    "name": "life-gain-then-another-counter-same-turn-one-draw",
    "cr": [
     "603.2",
-    "603.2h"
+    "603.4"
    ],
    "why": "The once-each-turn limit covers every way of putting counters on it: after the life-gain counter has drawn a card, a counter from a spell the same turn draws nothing.",
    "setup": {
@@ -314,7 +314,7 @@
   {
    "name": "draws-again-on-a-later-turn",
    "cr": [
-    "603.2h"
+    "603.2"
    ],
    "why": "Once each turn resets with the turn: a gain on the opponent's turn draws again.",
    "setup": {

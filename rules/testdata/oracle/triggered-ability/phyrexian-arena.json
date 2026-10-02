@@ -1,0 +1,341 @@
+{
+ "card": "Phyrexian Arena",
+ "family": "triggered-ability",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "12d3e21e486f",
+ "scenarios": [
+  {
+   "name": "own-upkeep-draw-and-lose-one",
+   "cr": [
+    "503.1a",
+    "603.2"
+   ],
+   "why": "At the beginning of its controller's upkeep they draw a card and lose 1 life. Cast on turn 1, it first triggers on turn 3: one card from the Arena before the draw step.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Phyrexian Arena"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Phyrexian Arena",
+     "mana": "CBB"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "life": {
+        "p0": 20
+       }
+      },
+      {
+       "hand_size": {
+        "p0": 0
+       }
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p0",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Phyrexian Arena",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "decision": "priority"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 19,
+      "p1": 20
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "on-the-battlefield-from-the-start-triggers-on-turn-one",
+   "cr": [
+    "503.1a"
+   ],
+   "why": "An Arena already on the battlefield triggers in its controller's first upkeep: by the first main phase they have drawn a card and are at 19.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Phyrexian Arena"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "B"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 19
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "not-on-the-opponents-upkeep",
+   "cr": [
+    "503.1a",
+    "109.5"
+   ],
+   "why": "Nothing happens in the opponent's upkeep.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Phyrexian Arena"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Phyrexian Arena",
+     "mana": "CBB"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Phyrexian Arena",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 0,
+      "p1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "two-arenas-two-triggers",
+   "cr": [
+    "603.2c"
+   ],
+   "why": "Two Arenas each trigger: two cards and 2 life each upkeep.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Phyrexian Arena",
+      "Phyrexian Arena"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "B"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 18
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-arena-works-on-their-upkeep",
+   "cr": [
+    "503.1a",
+    "109.5"
+   ],
+   "why": "The opponent's Arena triggers in their upkeep: with their draw step they have two cards by their main phase.",
+   "setup": {
+    "p1": {
+     "battlefield": [
+      "Phyrexian Arena"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 19
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 0,
+      "p1": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "life-loss-is-mandatory-and-can-kill",
+   "cr": [
+    "603.5",
+    "704.5a"
+   ],
+   "why": "Neither half is optional: at 1 life its controller draws, goes to 0 and loses the game.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Phyrexian Arena"
+     ],
+     "life": 1
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Phyrexian Arena",
+     "mana": "CBB"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p0"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "triggers-every-upkeep",
+   "cr": [
+    "603.2"
+   ],
+   "why": "It triggers each of its controller's upkeeps: after turns 1, 3 and 5 they are at 17.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Phyrexian Arena"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 17
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 5
+     }
+    }
+   ]
+  }
+ ]
+}
