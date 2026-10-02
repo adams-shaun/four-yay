@@ -77,6 +77,9 @@ func changeZoneAllPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 }
 
 func effChangeZoneAll(h Host, c *Ctx, sa *cards.SA) {
+	if exileHostGone(h, c, sa) {
+		return
+	}
 	from, all, valid := ParseZones(sa.Params["Origin"])
 	if !valid {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
