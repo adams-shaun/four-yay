@@ -1,0 +1,700 @@
+{
+ "card": "Kykar, Zephyr Awakener",
+ "family": "triggered-ability",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "264bd365f696",
+ "scenarios": [
+  {
+   "name": "spirit-mode-makes-a-flying-spirit",
+   "cr": [
+    "603.3c",
+    "700.2b"
+   ],
+   "why": "A noncreature spell triggers it; the second mode creates a 1/1 Spirit token with flying. Kykar is a 3/4 flier.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Kykar, Zephyr Awakener"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ],
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "Spirit"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Spirit",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:token:Spirit",
+     "pt": "1/1",
+     "keywords": [
+      "Flying"
+     ],
+     "types": [
+      "Creature",
+      "Spirit"
+     ]
+    },
+    {
+     "card": "p0:Kykar, Zephyr Awakener",
+     "pt": "3/4",
+     "keywords": [
+      "Flying"
+     ]
+    },
+    {
+     "life": {
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "exile-mode-returns-at-the-next-end-step",
+   "cr": [
+    "603.7",
+    "610.3"
+   ],
+   "why": "The first mode exiles another target creature its controller controls; it returns to the battlefield at the beginning of the next end step.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Kykar, Zephyr Awakener",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1",
+      "p0:Grizzly Bears"
+     ],
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "Exile"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Grizzly Bears",
+       "zone": "exile"
+      },
+      {
+       "count": {
+        "seat": 0,
+        "zone": "battlefield",
+        "name": "Spirit"
+       },
+       "eq": 0
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "creature-spell-does-not-trigger",
+   "cr": [
+    "603.2"
+   ],
+   "why": "A creature spell is not a noncreature spell.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Memnite"
+     ],
+     "battlefield": [
+      "Kykar, Zephyr Awakener"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Memnite",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Kykar, Zephyr Awakener",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Spirit"
+     },
+     "eq": 0
+    },
+    {
+     "card": "p0:Memnite",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "opponents-spell-does-not-trigger",
+   "cr": [
+    "603.2",
+    "109.5"
+   ],
+   "why": "Only its controller's spells trigger it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Kykar, Zephyr Awakener"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Shock",
+     "mana": "R",
+     "targets": [
+      "p0"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Kykar, Zephyr Awakener",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Spirit"
+     },
+     "eq": 0
+    },
+    {
+     "life": {
+      "p0": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "flickered-creature-returns-as-a-new-object",
+   "cr": [
+    "400.7",
+    "603.6a"
+   ],
+   "why": "The exiled card comes back as a new object: its counter is gone and its enter ability triggers again.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Battlegrowth",
+      "Wall of Omens",
+      "Shock"
+     ],
+     "battlefield": [
+      "Kykar, Zephyr Awakener"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Wall of Omens",
+     "mana": "CW"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "hand_size": {
+        "p0": 3
+       }
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Battlegrowth",
+     "mana": "G",
+     "targets": [
+      "p0:Wall of Omens"
+     ],
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "Spirit"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Wall of Omens",
+       "pt": "1/5",
+       "counters": {
+        "+1/+1": 1
+       }
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1",
+      "p0:Wall of Omens"
+     ],
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "Exile"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Wall of Omens",
+       "zone": "exile"
+      },
+      {
+       "hand_size": {
+        "p0": 1
+       }
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Wall of Omens",
+     "zone": "battlefield",
+     "pt": "0/4",
+     "counters": {
+      "+1/+1": 0
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "exiled-token-does-not-return",
+   "cr": [
+    "111.7",
+    "704.5d"
+   ],
+   "why": "A token exiled this way ceases to exist and nothing returns.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock",
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Kykar, Zephyr Awakener"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ],
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "Spirit"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "count": {
+        "seat": 0,
+        "zone": "battlefield",
+        "name": "Spirit",
+        "token": true
+       },
+       "eq": 1
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1",
+      "p0:token:Spirit"
+     ],
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "Exile"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Spirit"
+     },
+     "eq": 0
+    },
+    {
+     "life": {
+      "p1": 15
+     }
+    }
+   ]
+  },
+  {
+   "name": "exiled-during-an-end-step-returns-at-the-next-turns-end-step",
+   "cr": [
+    "513.2",
+    "603.7"
+   ],
+   "why": "A creature exiled during an end step stays exiled through that step: the delayed ability first triggers at the next turn's end step.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Kykar, Zephyr Awakener",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1",
+      "p0:Grizzly Bears"
+     ],
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "Exile"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1",
+     "expect": [
+      {
+       "card": "p0:Grizzly Bears",
+       "zone": "exile"
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "end",
+     "active": "p1"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "two-spells-two-triggers",
+   "cr": [
+    "603.2c"
+   ],
+   "why": "Each noncreature spell triggers it: two spells, two Spirits.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock",
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Kykar, Zephyr Awakener"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ],
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "Spirit"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ],
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "Spirit"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Spirit",
+      "token": true
+     },
+     "eq": 2
+    }
+   ]
+  },
+  {
+   "name": "exiled-creature-returns-even-if-kykar-is-gone",
+   "cr": [
+    "603.7c",
+    "113.7a"
+   ],
+   "why": "The return is a delayed triggered ability that does not depend on Kykar staying on the battlefield.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Kykar, Zephyr Awakener",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1",
+      "p0:Grizzly Bears"
+     ],
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "Exile"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p0:Kykar, Zephyr Awakener"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Kykar, Zephyr Awakener",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    }
+   ]
+  }
+ ]
+}
