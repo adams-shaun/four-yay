@@ -45,6 +45,9 @@ func TestFDNNoteSweep(t *testing.T) {
 	notes := map[key]int{}
 	noteGames := map[key]int{}
 	matchups := [][2]string{{"bot", "bot"}, {"sb-tactical", "bot"}, {"bot", "sb-tactical"}}
+	// FDN_NOTE_SWEEP_TRACE=<substring> logs the events around the first
+	// three notes whose text contains it.
+	trace, traced := os.Getenv("FDN_NOTE_SWEEP_TRACE"), 0
 	played, failed := 0, 0
 	play := func(label string, slot int, deck []*cards.Card) {
 		for mi, m := range matchups {
@@ -66,6 +69,18 @@ func TestFDNNoteSweep(t *testing.T) {
 					ev := &e.L.Events[i]
 					if ev.Kind != events.Note {
 						continue
+					}
+					if trace != "" && traced < 3 && strings.Contains(ev.Text, trace) {
+						traced++
+						t.Logf("TRACE %s %v game %d seed %d: note %q at event %d", label, m, g, seed, ev.Text, i)
+						for j := max(0, i-25); j <= min(len(e.L.Events)-1, i+3); j++ {
+							x := &e.L.Events[j]
+							name := ""
+							if o := e.G.Obj(x.Obj); o != nil && o.Face() != nil {
+								name = o.Face().Name
+							}
+							t.Logf("  %d %s p%d obj=%d(%s) %s->%s amt=%d ctr=%q ids=%v text=%q", j, x.Kind, x.Player, x.Obj, name, x.From, x.To, x.Amount, x.Counter, x.IDs, x.Text)
+						}
 					}
 					k := key{card: "-", text: noteShape(ev.Text)}
 					if o := e.G.Obj(ev.Obj); o != nil && o.Face() != nil {
