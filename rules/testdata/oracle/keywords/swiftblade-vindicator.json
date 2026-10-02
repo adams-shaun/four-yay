@@ -1,0 +1,207 @@
+{
+ "card": "Swiftblade Vindicator",
+ "family": "keywords",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "6dd81e7b42ef",
+ "scenarios": [
+  {
+   "name": "cast-has-three-keywords",
+   "cr": [
+    "702.4a",
+    "702.20a",
+    "702.19a"
+   ],
+   "why": "Cast for {R}{W}: a 1/1 with double strike, vigilance and trample.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Swiftblade Vindicator"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Swiftblade Vindicator",
+     "mana": "RW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Swiftblade Vindicator",
+     "zone": "battlefield",
+     "pt": "1/1",
+     "keywords": [
+      "Double Strike",
+      "Vigilance",
+      "Trample"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "unblocked-deals-two-and-stays-untapped",
+   "cr": [
+    "702.4b",
+    "702.20b"
+   ],
+   "why": "Unblocked, double strike deals 1 twice (opponent 18); vigilance keeps it untapped.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Swiftblade Vindicator"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Swiftblade Vindicator"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "card": "p0:Swiftblade Vindicator",
+       "tapped": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 18
+     }
+    },
+    {
+     "card": "p0:Swiftblade Vindicator",
+     "tapped": false
+    }
+   ]
+  },
+  {
+   "name": "first-strike-kills-blocker-then-tramples-over",
+   "cr": [
+    "702.19e",
+    "702.4b",
+    "510.1c"
+   ],
+   "why": "Blocked by a 2/1, the first-strike damage kills it; in the regular step a trampler whose blocker is gone assigns all its damage to the player (opponent 19) and takes none.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Swiftblade Vindicator"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Swiftblade Vindicator"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "blocks": [
+      [
+       "p1:Savannah Lions",
+       "p0:Swiftblade Vindicator"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Savannah Lions",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Swiftblade Vindicator",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "life": {
+      "p1": 19
+     }
+    }
+   ]
+  },
+  {
+   "name": "pumped-double-strike-doubles-damage",
+   "cr": [
+    "702.4b"
+   ],
+   "why": "With Giant Growth (4/4) it deals 4 in each combat damage step: 8 to the opponent.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Swiftblade Vindicator"
+     ],
+     "hand": [
+      "Giant Growth"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Swiftblade Vindicator"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Giant Growth",
+     "mana": "G",
+     "targets": [
+      "p0:Swiftblade Vindicator"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 12
+     }
+    }
+   ]
+  }
+ ]
+}

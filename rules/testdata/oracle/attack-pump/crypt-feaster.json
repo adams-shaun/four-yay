@@ -1,0 +1,300 @@
+{
+ "card": "Crypt Feaster",
+ "family": "attack-pump",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "5a843fb77a08",
+ "scenarios": [
+  {
+   "name": "cast-menace-three-four",
+   "cr": [
+    "702.111a"
+   ],
+   "why": "Cast for {3}{B}: a 3/4 with menace.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Crypt Feaster"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Crypt Feaster",
+     "mana": "BCCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Crypt Feaster",
+     "zone": "battlefield",
+     "pt": "3/4",
+     "keywords": [
+      "Menace"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "threshold-seven-cards-gets-plus-two",
+   "cr": [
+    "603.4",
+    "603.2"
+   ],
+   "why": "With seven cards in its controller's graveyard, attacking gives +2/+0: 5/4.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Crypt Feaster"
+     ],
+     "graveyard": [
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Crypt Feaster"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Crypt Feaster",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Crypt Feaster",
+     "pt": "5/4"
+    }
+   ]
+  },
+  {
+   "name": "threshold-six-cards-no-trigger",
+   "cr": [
+    "603.4"
+   ],
+   "why": "With only six cards the intervening 'if' is false: no trigger, stays 3/4.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Crypt Feaster"
+     ],
+     "graveyard": [
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Crypt Feaster"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Crypt Feaster",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Crypt Feaster",
+     "pt": "3/4"
+    }
+   ]
+  },
+  {
+   "name": "threshold-rechecked-on-resolution",
+   "cr": [
+    "603.4"
+   ],
+   "why": "The intervening 'if' is checked again on resolution: a card leaving the graveyard in response (down to six) means no bonus.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Crypt Feaster"
+     ],
+     "graveyard": [
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Crypt Feaster"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Crypt Feaster",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "move",
+     "card": "p0:Forest",
+     "to": "exile"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Crypt Feaster",
+     "pt": "3/4"
+    }
+   ]
+  },
+  {
+   "name": "bonus-lasts-until-end-of-turn",
+   "cr": [
+    "514.2"
+   ],
+   "why": "The +2/+0 ends at end of turn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Crypt Feaster"
+     ],
+     "graveyard": [
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Crypt Feaster"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "expect": [
+      {
+       "life": {
+        "p1": 15
+       }
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Crypt Feaster",
+     "pt": "3/4"
+    }
+   ]
+  },
+  {
+   "name": "opponents-graveyard-does-not-count",
+   "cr": [
+    "603.4"
+   ],
+   "why": "'Your graveyard': seven cards in the opponent's graveyard do not enable it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Crypt Feaster"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Crypt Feaster"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Crypt Feaster",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Crypt Feaster",
+     "pt": "3/4"
+    }
+   ]
+  }
+ ]
+}

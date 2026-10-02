@@ -1,0 +1,131 @@
+{
+ "card": "Boltwave",
+ "family": "spell-conditional",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "be953e7e16fa",
+ "scenarios": [
+  {
+   "name": "three-to-each-opponent",
+   "cr": [
+    "120.3"
+   ],
+   "why": "3 damage to each opponent; its caster and creatures are untouched.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Boltwave"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Boltwave",
+     "mana": "R"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 17
+     }
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "damage": 0
+    }
+   ]
+  },
+  {
+   "name": "hexproof-opponent-still-hit",
+   "cr": [
+    "115.10",
+    "702.11d"
+   ],
+   "why": "It doesn't target, so an opponent with hexproof (Crystal Barricade) still takes 3.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Boltwave"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Crystal Barricade"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Boltwave",
+     "mana": "R"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 17
+     }
+    }
+   ]
+  },
+  {
+   "name": "sorcery-timing",
+   "cr": [
+    "307.1"
+   ],
+   "why": "A sorcery: not castable in the opponent's turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Boltwave"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "R"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Boltwave"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

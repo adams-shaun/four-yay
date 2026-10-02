@@ -1,0 +1,431 @@
+{
+ "card": "Ajani, Caller of the Pride",
+ "family": "activated-ability",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "32db8ed05142",
+ "scenarios": [
+  {
+   "name": "enters-with-four-loyalty",
+   "cr": [
+    "306.5b"
+   ],
+   "why": "Cast for {1}{W}{W}: four loyalty counters.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Ajani, Caller of the Pride"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Ajani, Caller of the Pride",
+     "mana": "WWC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Ajani, Caller of the Pride",
+     "zone": "battlefield",
+     "counters": {
+      "loyalty": 4
+     }
+    }
+   ]
+  },
+  {
+   "name": "plus-one-counter-on-target",
+   "cr": [
+    "606.4",
+    "122.1"
+   ],
+   "why": "+1: loyalty 5 and a +1/+1 counter on the target creature.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ajani, Caller of the Pride",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ajani, Caller of the Pride",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "ability": "+1/+1 counter"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Ajani, Caller of the Pride",
+     "counters": {
+      "loyalty": 5
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "3/3",
+     "counters": {
+      "+1/+1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "plus-one-may-target-opponents-creature",
+   "cr": [
+    "115.1"
+   ],
+   "why": "'Target creature' is any creature: the counter can go on an opponent's.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ajani, Caller of the Pride"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ajani, Caller of the Pride",
+     "targets": [
+      "p1:Grizzly Bears"
+     ],
+     "ability": "+1/+1 counter"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "counters": {
+      "+1/+1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "plus-one-with-no-target",
+   "cr": [
+    "115.1d",
+    "606.4"
+   ],
+   "why": "'Up to one': with no creature it still gains the loyalty.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ajani, Caller of the Pride"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ajani, Caller of the Pride",
+     "ability": "+1/+1 counter"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Ajani, Caller of the Pride",
+     "counters": {
+      "loyalty": 5
+     }
+    }
+   ]
+  },
+  {
+   "name": "minus-three-flying-double-strike",
+   "cr": [
+    "606.4",
+    "702.4b"
+   ],
+   "why": "-3: loyalty 1; the target gains flying and double strike; attacking unblocked it deals 4.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ajani, Caller of the Pride",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ajani, Caller of the Pride",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "ability": "double strike"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Grizzly Bears",
+       "keywords": [
+        "Flying",
+        "Double Strike"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Ajani, Caller of the Pride",
+     "counters": {
+      "loyalty": 1
+     }
+    },
+    {
+     "life": {
+      "p1": 16
+     }
+    }
+   ]
+  },
+  {
+   "name": "minus-three-ends-at-end-of-turn",
+   "cr": [
+    "514.2"
+   ],
+   "why": "'Until end of turn': next turn the keywords are gone.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ajani, Caller of the Pride",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ajani, Caller of the Pride",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "ability": "double strike"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "no_keywords": [
+      "Flying",
+      "Double Strike"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "minus-eight-not-offered-at-four",
+   "cr": [
+    "606.6"
+   ],
+   "why": "-8 needs eight loyalty.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ajani, Caller of the Pride"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Ajani, Caller of the Pride",
+      "label": "Cat"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "minus-eight-creates-x-cats-equal-to-life",
+   "cr": [
+    "606.4",
+    "107.3"
+   ],
+   "why": "After four +1s (loyalty 8) the -8 makes X 2/2 Cats where X is its controller's life total (5); Ajani dies at 0 loyalty.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ajani, Caller of the Pride"
+     ],
+     "life": 5
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ajani, Caller of the Pride",
+     "ability": "+1/+1 counter"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ajani, Caller of the Pride",
+     "ability": "+1/+1 counter"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ajani, Caller of the Pride",
+     "ability": "+1/+1 counter"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ajani, Caller of the Pride",
+     "ability": "+1/+1 counter"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0",
+     "expect": [
+      {
+       "card": "p0:Ajani, Caller of the Pride",
+       "counters": {
+        "loyalty": 8
+       }
+      }
+     ]
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ajani, Caller of the Pride",
+     "ability": "Cat"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Cat",
+      "token": true
+     },
+     "eq": 5
+    },
+    {
+     "card": "p0:token:Cat",
+     "pt": "2/2"
+    },
+    {
+     "card": "p0:Ajani, Caller of the Pride",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

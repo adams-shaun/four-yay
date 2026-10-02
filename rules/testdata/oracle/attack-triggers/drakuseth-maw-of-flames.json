@@ -1,0 +1,334 @@
+{
+ "card": "Drakuseth, Maw of Flames",
+ "family": "attack-triggers",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "9295df0f14f5",
+ "scenarios": [
+  {
+   "name": "cast-is-a-seven-seven-flier",
+   "cr": [
+    "302.1",
+    "702.9a"
+   ],
+   "why": "Cast for {4}{R}{R}{R} it is a 7/7 with flying.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Drakuseth, Maw of Flames"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Drakuseth, Maw of Flames",
+     "mana": "RRRCCCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Drakuseth, Maw of Flames",
+     "zone": "battlefield",
+     "pt": "7/7",
+     "keywords": [
+      "Flying"
+     ]
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "attack-four-to-player-three-to-two-creatures",
+   "cr": [
+    "603.2",
+    "115.1d",
+    "120.3"
+   ],
+   "why": "On attack: 4 damage to the first target (the opponent) and 3 to each of two other targets (two 3-toughness creatures die) before combat damage.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Drakuseth, Maw of Flames"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Hill Giant",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Drakuseth, Maw of Flames"
+     ],
+     "defender": "p1",
+     "targets": [
+      "p1",
+      "p1:Hill Giant",
+      "p1:Grizzly Bears"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Drakuseth, Maw of Flames",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1",
+      "p1:Hill Giant",
+      "p1:Grizzly Bears"
+     ],
+     "expect": [
+      {
+       "life": {
+        "p1": 16
+       }
+      },
+      {
+       "card": "p1:Hill Giant",
+       "zone": "graveyard"
+      },
+      {
+       "card": "p1:Grizzly Bears",
+       "zone": "graveyard"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "attack-then-combat-damage-totals",
+   "cr": [
+    "603.2",
+    "510.2"
+   ],
+   "why": "4 from the trigger plus 7 unblocked combat damage: the opponent ends combat at 9.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Drakuseth, Maw of Flames"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Drakuseth, Maw of Flames"
+     ],
+     "defender": "p1",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 9
+     }
+    }
+   ]
+  },
+  {
+   "name": "up-to-two-may-choose-none",
+   "cr": [
+    "115.1d",
+    "601.2c"
+   ],
+   "why": "'Up to two other targets': choosing only the 4-damage target (a 6/4 creature) is legal; it dies and nothing else is damaged.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Drakuseth, Maw of Flames"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Drakuseth, Maw of Flames"
+     ],
+     "defender": "p1",
+     "targets": [
+      "p1:Craw Wurm"
+     ]
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Craw Wurm"
+     ],
+     "expect": [
+      {
+       "card": "p1:Craw Wurm",
+       "zone": "graveyard"
+      },
+      {
+       "card": "p1:Grizzly Bears",
+       "zone": "battlefield",
+       "damage": 0
+      },
+      {
+       "life": {
+        "p1": 20
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "three-damage-to-a-player-target",
+   "cr": [
+    "115.1d",
+    "120.3"
+   ],
+   "why": "Any target includes players: 4 to a creature and 3 to the opponent.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Drakuseth, Maw of Flames"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Drakuseth, Maw of Flames"
+     ],
+     "defender": "p1",
+     "targets": [
+      "p1:Craw Wurm",
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Craw Wurm",
+      "p1"
+     ],
+     "expect": [
+      {
+       "card": "p1:Craw Wurm",
+       "zone": "graveyard"
+      },
+      {
+       "life": {
+        "p1": 17
+       }
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "one-illegal-target-others-still-damaged",
+   "cr": [
+    "608.2b"
+   ],
+   "why": "If one of the targets leaves in response (bounced), the ability still deals damage to the remaining legal targets.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Drakuseth, Maw of Flames"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Hill Giant",
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Unsummon"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Drakuseth, Maw of Flames"
+     ],
+     "defender": "p1",
+     "targets": [
+      "p1",
+      "p1:Hill Giant",
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Unsummon",
+     "mana": "U",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "life": {
+        "p1": 16
+       }
+      },
+      {
+       "card": "p1:Hill Giant",
+       "zone": "graveyard"
+      },
+      {
+       "card": "p1:Grizzly Bears",
+       "zone": "hand"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,305 @@
+{
+ "card": "Inspiring Call",
+ "family": "spell-conditional",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "ea8fefb82e86",
+ "scenarios": [
+  {
+   "name": "draws-per-countered-creature-and-grants-indestructible",
+   "cr": [
+    "608.2c",
+    "702.12b"
+   ],
+   "why": "Two creatures with +1/+1 counters (Ajani's +1 on Grizzly Bears, Mossborn Hydra's own) draw two cards; those two gain indestructible, the counterless Savannah Lions does not.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ajani, Caller of the Pride",
+      "Grizzly Bears",
+      "Savannah Lions"
+     ],
+     "hand": [
+      "Mossborn Hydra",
+      "Inspiring Call"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ajani, Caller of the Pride",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "ability": "+1/+1 counter"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Mossborn Hydra",
+     "mana": "GCC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Inspiring Call",
+     "mana": "GCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "keywords": [
+      "Indestructible"
+     ]
+    },
+    {
+     "card": "p0:Mossborn Hydra",
+     "keywords": [
+      "Indestructible"
+     ]
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "no_keywords": [
+      "Indestructible"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "no-countered-creatures-draws-nothing",
+   "cr": [
+    "608.2c"
+   ],
+   "why": "With no creature carrying a +1/+1 counter it draws nothing and grants nothing.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Inspiring Call"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Inspiring Call",
+     "mana": "GCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "no_keywords": [
+      "Indestructible"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "opponents-countered-creature-not-counted",
+   "cr": [
+    "608.2c"
+   ],
+   "why": "Only creatures YOU control: the opponent's creature with a counter draws nothing and gains nothing.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ajani, Caller of the Pride"
+     ],
+     "hand": [
+      "Inspiring Call"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ajani, Caller of the Pride",
+     "targets": [
+      "p1:Grizzly Bears"
+     ],
+     "ability": "+1/+1 counter"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Inspiring Call",
+     "mana": "GCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "no_keywords": [
+      "Indestructible"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "countered-creatures-survive-a-wrath",
+   "cr": [
+    "702.12b",
+    "701.8b"
+   ],
+   "why": "The creature with a counter survives Day of Judgment afterwards; the other dies.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ajani, Caller of the Pride",
+      "Grizzly Bears",
+      "Savannah Lions"
+     ],
+     "hand": [
+      "Inspiring Call",
+      "Day of Judgment"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ajani, Caller of the Pride",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "ability": "+1/+1 counter"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Inspiring Call",
+     "mana": "GCC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Day of Judgment",
+     "mana": "WWCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "indestructible-ends-at-end-of-turn",
+   "cr": [
+    "514.2"
+   ],
+   "why": "'Until end of turn'.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ajani, Caller of the Pride",
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Inspiring Call"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ajani, Caller of the Pride",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "ability": "+1/+1 counter"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Inspiring Call",
+     "mana": "GCC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "no_keywords": [
+      "Indestructible"
+     ],
+     "counters": {
+      "+1/+1": 1
+     }
+    }
+   ]
+  }
+ ]
+}

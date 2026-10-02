@@ -1,0 +1,425 @@
+{
+ "card": "Thousand-Year Storm",
+ "family": "triggered-ability",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "c35562ace7b4",
+ "scenarios": [
+  {
+   "name": "first-spell-no-copies",
+   "cr": [
+    "603.2",
+    "707.10"
+   ],
+   "why": "The first instant or sorcery this turn has no earlier ones: no copy.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Thousand-Year Storm"
+     ],
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 17
+     }
+    }
+   ]
+  },
+  {
+   "name": "second-spell-copied-once",
+   "cr": [
+    "603.2",
+    "707.10",
+    "707.10c"
+   ],
+   "why": "Bolt then Shock: the Shock is copied once (2 + 2), total 7.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Thousand-Year Storm"
+     ],
+     "hand": [
+      "Lightning Bolt",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 13
+     }
+    }
+   ]
+  },
+  {
+   "name": "third-spell-copied-twice",
+   "cr": [
+    "603.2",
+    "707.10"
+   ],
+   "why": "The third instant or sorcery this turn is copied twice: Bolt (3), Shock plus one copy (4), the second Shock plus two copies (6): 13 in all.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Thousand-Year Storm"
+     ],
+     "hand": [
+      "Lightning Bolt",
+      "Shock",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock#2",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1",
+      "p1"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 7
+     }
+    }
+   ]
+  },
+  {
+   "name": "spells-before-storm-entered-count",
+   "cr": [
+    "603.2",
+    "608.2h"
+   ],
+   "why": "Spells cast this turn before the Storm entered count: Bolt, then the Storm, then Shock copied once.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt",
+      "Thousand-Year Storm",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Thousand-Year Storm",
+     "mana": "URCCCC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 13
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-spells-do-not-count",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Only spells YOU cast: the opponent's Bolt earlier this turn adds no copy to its controller's Shock.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Thousand-Year Storm"
+     ],
+     "hand": [
+      "Shock"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 17,
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "creature-spells-do-not-count",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Only instants and sorceries count: a creature spell earlier gives no copy.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Thousand-Year Storm"
+     ],
+     "hand": [
+      "Grizzly Bears",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "GC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "copy-may-choose-new-target",
+   "cr": [
+    "707.10c"
+   ],
+   "why": "'You may choose new targets for the copies': the copy of the second Bolt kills a creature while the original hits the player.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Thousand-Year Storm"
+     ],
+     "hand": [
+      "Shock",
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Hill Giant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Hill Giant"
+     ],
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "yes"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Hill Giant",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p1": 15
+     }
+    }
+   ]
+  }
+ ]
+}
