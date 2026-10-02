@@ -1,0 +1,522 @@
+{
+ "card": "Elenda, Saint of Dusk",
+ "family": "conditional-static",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "e38f119d1e28",
+ "scenarios": [
+  {
+   "name": "at-starting-life-plain-4-4",
+   "cr": [
+    "604.1"
+   ],
+   "why": "At exactly the starting life total neither bonus applies: 4/4 with lifelink, no menace.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Elenda, Saint of Dusk"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Elenda, Saint of Dusk",
+     "pt": "4/4",
+     "keywords": [
+      "Lifelink"
+     ],
+     "no_keywords": [
+      "Menace"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "above-starting-life-5-5-menace",
+   "cr": [
+    "604.1",
+    "613.4c"
+   ],
+   "why": "At 21 life (greater than 20) it gets +1/+1 and has menace.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Elenda, Saint of Dusk"
+     ],
+     "life": 21
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Elenda, Saint of Dusk",
+     "pt": "5/5",
+     "keywords": [
+      "Menace",
+      "Lifelink"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "below-starting-life-plain",
+   "cr": [
+    "604.1"
+   ],
+   "why": "Below the starting total: nothing.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Elenda, Saint of Dusk"
+     ],
+     "life": 12
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Elenda, Saint of Dusk",
+     "pt": "4/4",
+     "no_keywords": [
+      "Menace"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "twenty-nine-life-only-the-first-bonus",
+   "cr": [
+    "604.1"
+   ],
+   "why": "At 29 (nine above) only the first bonus: 5/5.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Elenda, Saint of Dusk"
+     ],
+     "life": 29
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Elenda, Saint of Dusk",
+     "pt": "5/5",
+     "keywords": [
+      "Menace"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "thirty-life-both-bonuses-10-10",
+   "cr": [
+    "604.1",
+    "613.4c"
+   ],
+   "why": "At 30 (at least 10 above) the additional +5/+5 applies on top: 10/10 with menace.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Elenda, Saint of Dusk"
+     ],
+     "life": 30
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Elenda, Saint of Dusk",
+     "pt": "10/10",
+     "keywords": [
+      "Menace"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "own-lifelink-turns-the-bonus-on",
+   "cr": [
+    "702.15b",
+    "611.3a"
+   ],
+   "why": "At 20 it attacks as a 4/4; its lifelink puts its controller at 24, and it is then a 5/5 with menace.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Elenda, Saint of Dusk"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Elenda, Saint of Dusk"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "card": "p0:Elenda, Saint of Dusk",
+       "pt": "4/4"
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 24,
+      "p1": 16
+     }
+    },
+    {
+     "card": "p0:Elenda, Saint of Dusk",
+     "pt": "5/5",
+     "keywords": [
+      "Menace"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "bonus-switches-off-when-life-drops",
+   "cr": [
+    "611.3a"
+   ],
+   "why": "The static ability tracks the life total: from 21 down to 20 it is a 4/4 without menace again.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Elenda, Saint of Dusk"
+     ],
+     "life": 21
+    }
+   },
+   "steps": [
+    {
+     "op": "life",
+     "seat": 0,
+     "amount": -1
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Elenda, Saint of Dusk",
+     "pt": "4/4",
+     "no_keywords": [
+      "Menace"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "opponents-life-is-irrelevant",
+   "cr": [
+    "109.5"
+   ],
+   "why": "Only its controller's life total counts.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Elenda, Saint of Dusk"
+     ]
+    },
+    "p1": {
+     "life": 35
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Elenda, Saint of Dusk",
+     "pt": "4/4",
+     "no_keywords": [
+      "Menace"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "hexproof-from-instants-opposing-instant-cannot-target",
+   "cr": [
+    "702.11d",
+    "601.2c"
+   ],
+   "why": "Hexproof from instants: an opponent's instant cannot target it - with Elenda the only creature the opponent's Murder is not castable.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Elenda, Saint of Dusk"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "mana",
+     "seat": 1,
+     "mana": "CBB"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 1,
+      "kind": "cast",
+      "card": "p1:Murder"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "opposing-sorcery-can-target",
+   "cr": [
+    "702.11d"
+   ],
+   "why": "A sorcery is not an instant: the opponent's Volcanic Hammer targets it and marks 3 damage.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Elenda, Saint of Dusk"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Volcanic Hammer"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Volcanic Hammer",
+     "mana": "CR",
+     "targets": [
+      "p0:Elenda, Saint of Dusk"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Elenda, Saint of Dusk",
+     "zone": "battlefield",
+     "damage": 3
+    }
+   ]
+  },
+  {
+   "name": "opposing-ability-can-target",
+   "cr": [
+    "702.11d"
+   ],
+   "why": "Nor is an activated ability an instant: an opponent's pinger can target it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Elenda, Saint of Dusk"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Prodigal Pyromancer"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "activate",
+     "seat": 1,
+     "card": "p1:Prodigal Pyromancer",
+     "targets": [
+      "p0:Elenda, Saint of Dusk"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Elenda, Saint of Dusk",
+     "damage": 1
+    }
+   ]
+  },
+  {
+   "name": "own-instant-can-target",
+   "cr": [
+    "702.11d"
+   ],
+   "why": "Hexproof from instants stops only opponents' instants: its controller's Giant Growth works.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Giant Growth"
+     ],
+     "battlefield": [
+      "Elenda, Saint of Dusk"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Giant Growth",
+     "mana": "G",
+     "targets": [
+      "p0:Elenda, Saint of Dusk"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Elenda, Saint of Dusk",
+     "pt": "7/7"
+    }
+   ]
+  },
+  {
+   "name": "menace-two-blockers-may-block",
+   "cr": [
+    "702.111b"
+   ],
+   "why": "With menace two creatures together are a legal block.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Elenda, Saint of Dusk"
+     ],
+     "life": 30
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Elenda, Saint of Dusk"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "card": "p0:Elenda, Saint of Dusk",
+       "pt": "10/10",
+       "keywords": [
+        "Menace"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Grizzly Bears",
+       "p0:Elenda, Saint of Dusk"
+      ],
+      [
+       "p1:Centaur Courser",
+       "p0:Elenda, Saint of Dusk"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 20
+     }
+    },
+    {
+     "card": "p0:Elenda, Saint of Dusk",
+     "zone": "battlefield",
+     "damage": 5
+    }
+   ]
+  }
+ ]
+}

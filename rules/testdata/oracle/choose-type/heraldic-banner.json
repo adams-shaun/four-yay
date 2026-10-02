@@ -1,0 +1,450 @@
+{
+ "card": "Heraldic Banner",
+ "family": "choose-type",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "913c73c84e8d",
+ "scenarios": [
+  {
+   "name": "green-chosen-pumps-green-creatures-and-taps-for-green",
+   "cr": [
+    "614.12",
+    "604.1",
+    "605.1a"
+   ],
+   "why": "As it enters green is chosen: green creatures its controller controls get +1/+0, others do not, and it taps for {G} the turn it enters (an artifact has no summoning sickness).",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Heraldic Banner"
+     ],
+     "battlefield": [
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Heraldic Banner",
+     "mana": "CCC",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "green"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "green"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Heraldic Banner"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "3/2"
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "pt": "2/1"
+    },
+    {
+     "pool": {
+      "p0": "G"
+     }
+    },
+    {
+     "card": "p0:Heraldic Banner",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "white-chosen-pumps-white-creatures-and-taps-for-white",
+   "cr": [
+    "614.12",
+    "604.1"
+   ],
+   "why": "With white chosen the white creature gets the bonus and the mana is {W}.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Heraldic Banner"
+     ],
+     "battlefield": [
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Heraldic Banner",
+     "mana": "CCC",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "white"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "white"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Heraldic Banner"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2"
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "pt": "3/1"
+    },
+    {
+     "pool": {
+      "p0": "W"
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-creatures-of-the-colour-get-nothing",
+   "cr": [
+    "109.5"
+   ],
+   "why": "Only its controller's creatures.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Heraldic Banner"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Heraldic Banner",
+     "mana": "CCC",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "green"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "green"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "pt": "2/2"
+    }
+   ]
+  },
+  {
+   "name": "colourless-creature-gets-nothing",
+   "cr": [
+    "105.2c"
+   ],
+   "why": "A colourless artifact creature has no colour, so no choice pumps it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Heraldic Banner"
+     ],
+     "battlefield": [
+      "Memnite"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Heraldic Banner",
+     "mana": "CCC",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "blue"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "blue"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Memnite",
+     "pt": "1/1"
+    }
+   ]
+  },
+  {
+   "name": "multicolour-creature-of-the-colour-is-pumped",
+   "cr": [
+    "105.2"
+   ],
+   "why": "A red-green creature is red: with red chosen it gets +1/+0.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Heraldic Banner"
+     ],
+     "battlefield": [
+      "Ruby, Daring Tracker",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Heraldic Banner",
+     "mana": "CCC",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "red"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "red"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Heraldic Banner"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Ruby, Daring Tracker",
+     "pt": "2/2"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2"
+    },
+    {
+     "pool": {
+      "p0": "R"
+     }
+    }
+   ]
+  },
+  {
+   "name": "creature-entering-later-is-pumped",
+   "cr": [
+    "611.3a"
+   ],
+   "why": "A static ability: a creature of the chosen colour entering later gets the bonus.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Heraldic Banner",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Heraldic Banner",
+     "mana": "CCC",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "green"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "green"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "CG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "3/2"
+    }
+   ]
+  },
+  {
+   "name": "bonus-ends-when-the-banner-leaves",
+   "cr": [
+    "611.3a"
+   ],
+   "why": "Destroyed, its bonus ends.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Heraldic Banner"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Disenchant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Heraldic Banner",
+     "mana": "CCC",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "green"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "green"
+       ]
+      }
+     ],
+     "expect": [
+      {
+       "card": "p0:Grizzly Bears",
+       "pt": "3/2"
+      }
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Disenchant",
+     "mana": "CW",
+     "targets": [
+      "p0:Heraldic Banner"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Heraldic Banner",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2"
+    }
+   ]
+  }
+ ]
+}

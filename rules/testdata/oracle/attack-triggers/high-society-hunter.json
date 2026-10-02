@@ -1,0 +1,579 @@
+{
+ "card": "High-Society Hunter",
+ "family": "attack-triggers",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "1ebb045c3418",
+ "scenarios": [
+  {
+   "name": "attack-sacrifice-another-creature-counter-and-draw",
+   "cr": [
+    "603.2",
+    "701.17a"
+   ],
+   "why": "Attacking, its controller may sacrifice another creature; doing so puts a +1/+1 counter on the Hunter. The sacrificed nontoken creature died, so the second ability draws a card.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "High-Society Hunter",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:High-Society Hunter"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:High-Society Hunter",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Sacrifice another creature"
+       ]
+      },
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:High-Society Hunter",
+     "pt": "6/4",
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 14
+     }
+    }
+   ]
+  },
+  {
+   "name": "attack-may-decline",
+   "cr": [
+    "603.5"
+   ],
+   "why": "The sacrifice is optional: declining keeps the creature and gives no counter.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "High-Society Hunter",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:High-Society Hunter"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Do not pay"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:High-Society Hunter",
+     "pt": "5/3",
+     "counters": {
+      "+1/+1": 0
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 15
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-other-creature-no-counter",
+   "cr": [
+    "603.2"
+   ],
+   "why": "It cannot sacrifice itself ('another creature'): alone it gets no counter and stays on the battlefield.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "High-Society Hunter"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:High-Society Hunter"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:High-Society Hunter",
+     "zone": "battlefield",
+     "pt": "5/3",
+     "counters": {
+      "+1/+1": 0
+     }
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 15
+     }
+    }
+   ]
+  },
+  {
+   "name": "sacrificing-a-token-gives-a-counter-but-no-card",
+   "cr": [
+    "603.2",
+    "111.1"
+   ],
+   "why": "A creature token can be sacrificed for the counter, but a token dying does not draw.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Dragon Fodder"
+     ],
+     "battlefield": [
+      "High-Society Hunter"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Dragon Fodder",
+     "mana": "CR"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:High-Society Hunter"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Sacrifice another creature"
+       ]
+      },
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:token:Goblin"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:High-Society Hunter",
+     "pt": "6/4",
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Goblin",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "opponents-nontoken-creature-dying-draws",
+   "cr": [
+    "603.2",
+    "700.4"
+   ],
+   "why": "'Another nontoken creature' has no controller restriction: an opponent's creature dying draws a card.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "High-Society Hunter"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1,
+     "expect": [
+      {
+       "trigger_on_stack": "p0:High-Society Hunter",
+       "want": true
+      },
+      {
+       "hand_size": {
+        "p0": 0
+       }
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "hunter-itself-dying-does-not-draw",
+   "cr": [
+    "603.2"
+   ],
+   "why": "'Another': the Hunter's own death draws nothing.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "High-Society Hunter"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p0:High-Society Hunter"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:High-Society Hunter",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "dying-together-with-other-creatures-draws-for-each",
+   "cr": [
+    "603.10a",
+    "603.6c"
+   ],
+   "why": "Leaves-the-battlefield abilities look back: destroyed by the same Day of Judgment as two other nontoken creatures, the Hunter sees both die and its controller draws two.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Day of Judgment"
+     ],
+     "battlefield": [
+      "High-Society Hunter",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Day of Judgment",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:High-Society Hunter",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Savannah Lions",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "surviving-a-sweep-of-two-others-draws-two",
+   "cr": [
+    "603.2c"
+   ],
+   "why": "Control for the look-back scenario: two other nontoken creatures dying while the Hunter survives draw two cards.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt",
+      "Shock"
+     ],
+     "battlefield": [
+      "High-Society Hunter",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1:Savannah Lions"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    },
+    {
+     "card": "p0:High-Society Hunter",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "flying-evasion",
+   "cr": [
+    "702.9b"
+   ],
+   "why": "A 5/3 flier.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "High-Society Hunter"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Wind Drake"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:High-Society Hunter"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p1:Grizzly Bears",
+        "attacker": "p0:High-Society Hunter"
+       },
+       "want": false
+      },
+      {
+       "can_block": {
+        "blocker": "p1:Wind Drake",
+        "attacker": "p0:High-Society Hunter"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": []
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 15
+     }
+    },
+    {
+     "card": "p0:High-Society Hunter",
+     "keywords": [
+      "Flying"
+     ]
+    }
+   ]
+  }
+ ]
+}
