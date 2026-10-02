@@ -1,0 +1,447 @@
+{
+ "card": "Archmage of Runes",
+ "family": "cost-modifier",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "bec21fa8146d",
+ "scenarios": [
+  {
+   "name": "sorcery-costs-one-less-and-draws-on-cast",
+   "cr": [
+    "601.2f",
+    "603.2"
+   ],
+   "why": "A {2}{U} sorcery is castable for two mana, and casting it draws a card from the trigger before the spell's own two.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Divination"
+     ],
+     "battlefield": [
+      "Archmage of Runes"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Divination",
+     "mana": "CU",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Archmage of Runes",
+       "want": true
+      },
+      {
+       "pool": {
+        "p0": ""
+       }
+      },
+      {
+       "hand_size": {
+        "p0": 0
+       }
+      }
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1,
+     "expect": [
+      {
+       "hand_size": {
+        "p0": 1
+       }
+      },
+      {
+       "card": "p0:Divination",
+       "zone": "stack"
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 3
+     }
+    }
+   ]
+  },
+  {
+   "name": "sorcery-not-castable-for-one-mana",
+   "cr": [
+    "601.2f"
+   ],
+   "why": "The reduction is exactly {1}: one blue mana does not cast a {2}{U} spell.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Divination"
+     ],
+     "battlefield": [
+      "Archmage of Runes"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "U"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Divination"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "without-archmage-two-mana-is-not-enough",
+   "cr": [
+    "601.2f"
+   ],
+   "why": "Control: with no Archmage the sorcery needs all three mana.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Divination"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CU"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Divination"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "coloured-mana-is-not-reduced",
+   "cr": [
+    "601.2f",
+    "118.7c"
+   ],
+   "why": "The reduction applies only to generic mana: a {R} instant still costs {R} and is not castable with an empty pool.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Archmage of Runes"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Lightning Bolt"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "instant-draws-a-card",
+   "cr": [
+    "603.2"
+   ],
+   "why": "An instant triggers the draw too.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Archmage of Runes"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 17
+     }
+    }
+   ]
+  },
+  {
+   "name": "creature-spell-not-reduced-and-no-draw",
+   "cr": [
+    "601.2f",
+    "603.2"
+   ],
+   "why": "Creature spells are neither reduced nor a trigger: a {1}{G} creature is not castable for {G}, and casting it for full price draws nothing.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Grizzly Bears"
+     ],
+     "battlefield": [
+      "Archmage of Runes"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "G",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Grizzly Bears"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "C",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Archmage of Runes",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "countered-spell-still-drew",
+   "cr": [
+    "603.2",
+    "701.5a"
+   ],
+   "why": "The draw triggers on casting, so it happens even if the spell is countered.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Divination"
+     ],
+     "battlefield": [
+      "Archmage of Runes"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Cancel"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Divination",
+     "mana": "CU"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Cancel",
+     "mana": "CUU",
+     "targets": [
+      "p0:Divination"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "card": "p0:Divination",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "opponents-spells-not-reduced-and-no-draw",
+   "cr": [
+    "109.5"
+   ],
+   "why": "Only its controller's spells: the opponent's sorcery is not castable for two mana and, cast for three, draws its controller nothing.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Archmage of Runes"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Divination"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "mana",
+     "seat": 1,
+     "mana": "CU",
+     "expect": [
+      {
+       "offered": {
+        "seat": 1,
+        "kind": "cast",
+        "card": "p1:Divination"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Divination",
+     "mana": "C",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Archmage of Runes",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "two-archmages-reduce-by-two-and-draw-two",
+   "cr": [
+    "601.2f",
+    "603.2"
+   ],
+   "why": "Two Archmages: the sorcery costs {U} and each triggers.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Divination"
+     ],
+     "battlefield": [
+      "Archmage of Runes",
+      "Archmage of Runes"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Divination",
+     "mana": "U"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 4
+     }
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  }
+ ]
+}

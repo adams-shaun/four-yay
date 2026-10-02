@@ -1,0 +1,389 @@
+{
+ "card": "Marauding Blight-Priest",
+ "family": "triggered-ability",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "616a3b7a8f26",
+ "scenarios": [
+  {
+   "name": "gaining-life-drains-one",
+   "cr": [
+    "603.2",
+    "119.3"
+   ],
+   "why": "Its controller gains 3 life in one event: one trigger, the opponent loses 1.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Revitalize"
+     ],
+     "battlefield": [
+      "Marauding Blight-Priest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Revitalize",
+     "mana": "CW"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1,
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Marauding Blight-Priest",
+       "want": true
+      },
+      {
+       "life": {
+        "p0": 23,
+        "p1": 20
+       }
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 23,
+      "p1": 19
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponent-gaining-life-does-nothing",
+   "cr": [
+    "109.5"
+   ],
+   "why": "Only its controller's life gain triggers it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Marauding Blight-Priest"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Revitalize"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Revitalize",
+     "mana": "CW"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Marauding Blight-Priest",
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 23
+     }
+    }
+   ]
+  },
+  {
+   "name": "two-gains-two-triggers",
+   "cr": [
+    "603.2c"
+   ],
+   "why": "Each life-gain event triggers separately: two Revitalizes lose the opponent 2.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Revitalize",
+      "Revitalize"
+     ],
+     "battlefield": [
+      "Marauding Blight-Priest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Revitalize",
+     "mana": "CW"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Revitalize#2",
+     "mana": "CW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 26,
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "lifelink-combat-damage-triggers",
+   "cr": [
+    "702.15b",
+    "510.2"
+   ],
+   "why": "Lifelink life gain counts: an unblocked 1/1 lifelinker deals 1, its controller gains 1, and the Priest takes 1 more from the opponent.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Marauding Blight-Priest",
+      "Healer's Hawk"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Healer's Hawk"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 21,
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "two-lifelinkers-are-two-life-gain-events",
+   "cr": [
+    "702.15f",
+    "603.2c"
+   ],
+   "why": "Two lifelink creatures dealing combat damage at the same time are two separate life gains: two triggers. The opponent takes 2 damage and loses 2 life.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Marauding Blight-Priest",
+      "Healer's Hawk",
+      "Healer's Hawk"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Healer's Hawk",
+      "p0:Healer's Hawk#2"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 22,
+      "p1": 16
+     }
+    }
+   ]
+  },
+  {
+   "name": "two-priests-each-trigger",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Each Priest has its own trigger: one life gain loses the opponent 2.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Revitalize"
+     ],
+     "battlefield": [
+      "Marauding Blight-Priest",
+      "Marauding Blight-Priest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Revitalize",
+     "mana": "CW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 23,
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "gain-land-entering-triggers",
+   "cr": [
+    "603.2"
+   ],
+   "why": "The 1 life from a land's enter trigger counts.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Tranquil Cove"
+     ],
+     "battlefield": [
+      "Marauding Blight-Priest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Tranquil Cove"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 21,
+      "p1": 19
+     }
+    }
+   ]
+  },
+  {
+   "name": "losing-life-does-not-trigger",
+   "cr": [
+    "119.3"
+   ],
+   "why": "Losing life is not gaining life.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Marauding Blight-Priest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "life",
+     "seat": 0,
+     "amount": -3,
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Marauding Blight-Priest",
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 17,
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponent-loses-life-not-damage-and-it-is-a-3-2",
+   "cr": [
+    "119.3",
+    "208.1"
+   ],
+   "why": "The Priest is a 3/2 with no keywords; outside life gain it does nothing in combat beyond 3 damage.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Marauding Blight-Priest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Marauding Blight-Priest"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "card": "p0:Marauding Blight-Priest",
+       "pt": "3/2",
+       "tapped": true
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 17
+     }
+    }
+   ]
+  }
+ ]
+}

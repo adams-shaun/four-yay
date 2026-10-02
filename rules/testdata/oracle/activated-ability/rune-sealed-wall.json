@@ -1,0 +1,372 @@
+{
+ "card": "Rune-Sealed Wall",
+ "family": "activated-ability",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "165ca0d46c59",
+ "scenarios": [
+  {
+   "name": "tap-surveil-one-to-graveyard",
+   "cr": [
+    "602.2",
+    "701.25a"
+   ],
+   "why": "{T}: surveil 1 - the top card may go to the graveyard. The Wall is tapped.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Rune-Sealed Wall"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Rune-Sealed Wall",
+     "ability": "Surveil",
+     "expect": [
+      {
+       "card": "p0:Rune-Sealed Wall",
+       "tapped": true
+      },
+      {
+       "stack_size": 1
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "arrange",
+       "pick": []
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "library"
+    },
+    {
+     "graveyard_size": {
+      "p0": 1
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "tap-surveil-one-keep-on-top",
+   "cr": [
+    "701.25a"
+   ],
+   "why": "Or the card stays on top.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Rune-Sealed Wall"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Rune-Sealed Wall",
+     "ability": "Surveil"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "arrange",
+       "pick": [
+        "Lightning Bolt"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "library"
+    },
+    {
+     "graveyard_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "tapped-wall-cannot-activate-again",
+   "cr": [
+    "602.2b",
+    "107.5"
+   ],
+   "why": "The cost is {T}: once tapped it is not offered again that turn; it untaps and is offered on its controller's next turn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Rune-Sealed Wall"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Rune-Sealed Wall",
+     "ability": "Surveil"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Rune-Sealed Wall"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Rune-Sealed Wall"
+     },
+     "want": true
+    },
+    {
+     "card": "p0:Rune-Sealed Wall",
+     "tapped": false
+    }
+   ]
+  },
+  {
+   "name": "summoning-sick-wall-cannot-tap",
+   "cr": [
+    "302.6"
+   ],
+   "why": "A creature's {T} ability cannot be activated the turn it comes under its controller's control; it can on the next turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Rune-Sealed Wall"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Rune-Sealed Wall",
+     "mana": "CCU"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Rune-Sealed Wall",
+       "zone": "battlefield",
+       "pt": "0/6",
+       "keywords": [
+        "Defender"
+       ]
+      },
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Rune-Sealed Wall"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Rune-Sealed Wall"
+     },
+     "want": true
+    }
+   ]
+  },
+  {
+   "name": "instant-speed-on-opponents-turn",
+   "cr": [
+    "602.5d"
+   ],
+   "why": "It can be activated during the opponent's turn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Rune-Sealed Wall"
+     ],
+     "library_top": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Rune-Sealed Wall",
+     "ability": "Surveil"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "arrange",
+       "pick": []
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "blocks-as-a-0-6",
+   "cr": [
+    "702.3b",
+    "510.1"
+   ],
+   "why": "Defender does not stop blocking: it blocks a 3/3, takes 3, deals 0.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Rune-Sealed Wall"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Centaur Courser"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p0:Rune-Sealed Wall",
+        "attacker": "p1:Centaur Courser"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p0:Rune-Sealed Wall",
+       "p1:Centaur Courser"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Rune-Sealed Wall",
+     "zone": "battlefield",
+     "damage": 3
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "damage": 0
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,208 @@
+{
+ "card": "Diregraf Ghoul",
+ "family": "etb-ltb",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "e92380ff3208",
+ "scenarios": [
+  {
+   "name": "enters-tapped",
+   "cr": [
+    "614.1c"
+   ],
+   "why": "Cast for {B}, it enters tapped: a 2/2 Zombie with no triggered ability.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Diregraf Ghoul"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Diregraf Ghoul",
+     "mana": "B"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1,
+     "expect": [
+      {
+       "card": "p0:Diregraf Ghoul",
+       "zone": "battlefield",
+       "pt": "2/2",
+       "types": [
+        "Creature",
+        "Zombie"
+       ],
+       "tapped": true
+      },
+      {
+       "stack_size": 0
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Diregraf Ghoul",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "untaps-and-attacks-next-turn",
+   "cr": [
+    "502.3",
+    "508.1a"
+   ],
+   "why": "It untaps in its controller's next untap step and attacks for 2.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Diregraf Ghoul"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Diregraf Ghoul",
+     "mana": "B"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Diregraf Ghoul"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "card": "p0:Diregraf Ghoul",
+       "tapped": true
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "returned-from-the-graveyard-enters-tapped",
+   "cr": [
+    "614.1c",
+    "614.12"
+   ],
+   "why": "It enters tapped however it enters, not only when cast: returned from the graveyard by a spell it is tapped.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Zombify"
+     ],
+     "graveyard": [
+      "Diregraf Ghoul"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Zombify",
+     "mana": "CCCB",
+     "targets": [
+      "p0:Diregraf Ghoul"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Diregraf Ghoul",
+       "zone": "battlefield",
+       "tapped": true
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Diregraf Ghoul",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "opponents-ghoul-also-enters-tapped",
+   "cr": [
+    "614.1c"
+   ],
+   "why": "The replacement applies whoever controls it.",
+   "setup": {
+    "p1": {
+     "hand": [
+      "Diregraf Ghoul"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Diregraf Ghoul",
+     "mana": "B"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Diregraf Ghoul",
+     "zone": "battlefield",
+     "tapped": true
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,369 @@
+{
+ "card": "Arahbo, the First Fang",
+ "family": "trigger-condition",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "3264ce1a563a",
+ "scenarios": [
+  {
+   "name": "arahbo-entering-makes-a-cat-token-that-it-pumps",
+   "cr": [
+    "603.6a",
+    "613.4c",
+    "111.4"
+   ],
+   "why": "Arahbo entering triggers itself: a 1/1 white Cat token, which as another Cat gets +1/+1. Arahbo itself stays 2/2.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Arahbo, the First Fang"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Arahbo, the First Fang",
+     "mana": "CCW"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1,
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Arahbo, the First Fang",
+       "want": true
+      },
+      {
+       "count": {
+        "seat": 0,
+        "zone": "battlefield",
+        "name": "Cat",
+        "token": true
+       },
+       "eq": 0
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Cat",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:token:Cat",
+     "pt": "2/2",
+     "types": [
+      "Creature",
+      "Cat"
+     ]
+    },
+    {
+     "card": "p0:Arahbo, the First Fang",
+     "pt": "2/2"
+    }
+   ]
+  },
+  {
+   "name": "another-nontoken-cat-entering-makes-a-token",
+   "cr": [
+    "603.2",
+    "613.4c"
+   ],
+   "why": "A nontoken Cat entering under its controller's control makes a token; the Cat card itself gets +1/+1.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Savannah Lions"
+     ],
+     "battlefield": [
+      "Arahbo, the First Fang"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Savannah Lions",
+     "mana": "W"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Cat",
+      "token": true
+     },
+     "eq": 2
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "pt": "3/2"
+    }
+   ]
+  },
+  {
+   "name": "token-cats-do-not-trigger-it",
+   "cr": [
+    "603.2",
+    "111.1"
+   ],
+   "why": "Only nontoken Cats trigger: a Cat that makes its own Cat token gives one extra token from Arahbo (for the card), not an endless chain. With the setup token that is three tokens.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Prideful Parent"
+     ],
+     "battlefield": [
+      "Arahbo, the First Fang"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Prideful Parent",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Cat",
+      "token": true
+     },
+     "eq": 3
+    },
+    {
+     "card": "p0:Prideful Parent",
+     "pt": "3/3"
+    }
+   ]
+  },
+  {
+   "name": "non-cat-creature-no-token-no-bonus",
+   "cr": [
+    "603.2",
+    "613.4c"
+   ],
+   "why": "A non-Cat creature entering makes no token and gets no bonus.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Grizzly Bears"
+     ],
+     "battlefield": [
+      "Arahbo, the First Fang"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "CG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Cat",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2"
+    }
+   ]
+  },
+  {
+   "name": "opponents-cat-no-token-no-bonus",
+   "cr": [
+    "603.2",
+    "109.5"
+   ],
+   "why": "An opponent's Cat neither triggers it nor gets the bonus.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Arahbo, the First Fang"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Savannah Lions",
+     "mana": "W"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Cat",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Cat",
+      "token": true
+     },
+     "eq": 0
+    },
+    {
+     "card": "p1:Savannah Lions",
+     "pt": "2/1"
+    }
+   ]
+  },
+  {
+   "name": "bonus-ends-when-arahbo-leaves",
+   "cr": [
+    "611.3a"
+   ],
+   "why": "With Arahbo gone the token is a 1/1.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Arahbo, the First Fang"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p0:Arahbo, the First Fang"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Arahbo, the First Fang",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:token:Cat",
+     "pt": "1/1"
+    }
+   ]
+  },
+  {
+   "name": "token-is-white",
+   "cr": [
+    "111.4",
+    "105.2"
+   ],
+   "why": "The token is white, so a 'nonblack' removal spell can target it and a protection-free check passes: Doom Blade destroys it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Arahbo, the First Fang"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Doom Blade"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Doom Blade",
+     "mana": "CB",
+     "targets": [
+      "p0:token:Cat"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Cat",
+      "token": true
+     },
+     "eq": 0
+    }
+   ]
+  }
+ ]
+}
