@@ -9,5 +9,15 @@
 // Features.java under a real JVM, so a failing vector test means this package
 // has drifted from upstream, never the other way round.
 //
-// Standard library only, no cgo.
+// The checks that need upstream's Python (MageZero's shard reader, its
+// trainer and its inference server) are env-gated tests, skipped by default:
+//
+//	MZBRIDGE_PYTHON     <venv>/bin/python with torch, h5py, msgpack
+//	MZBRIDGE_MAGEZERO   <MageZero>/src/magezero
+//	MZBRIDGE_SYNTH_OUT  directory to write a synthetic training/testing shard pair into
+//	MZBRIDGE_SERVER_URL, MZBRIDGE_RUN_ROOT, MZBRIDGE_DECK, MZ_ACTION_VOCAB
+//	                    a running server.py and the run directory it serves (mzclient)
+//
+// The HTTP client is the sub-package mzclient, the only part that reads a
+// clock. Standard library only, no cgo.
 package mzbridge

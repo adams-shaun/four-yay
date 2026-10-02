@@ -7,7 +7,7 @@ import (
 )
 
 // Port of the namespace tree in Features.java (77-152) plus the id set and
-// cleanString of StateEncoder.java (59, 683-690).
+// cleanString of StateEncoder.java (59, 682-689).
 //
 // A FeatureSet is one encoder's tree and the ids emitted since the last
 // Refresh. A Node is one namespace. Adding a feature name to a node bumps
