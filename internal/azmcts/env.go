@@ -25,12 +25,15 @@ type walkConfig struct {
 	// heuristicLeaf evaluates leaves with the frozen heuristic even when net
 	// supplies the prior (Options.HeuristicLeaf).
 	heuristicLeaf bool
-	kinds         Kinds
-	limit         int
-	maxSteps      int
-	envSeed       uint64
-	actor         state.PlayerID
-	autoPayment   bool
+	// leaf, when set, replaces the heuristic and the network leaf
+	// (Options.Leaf).
+	leaf        LeafFunc
+	kinds       Kinds
+	limit       int
+	maxSteps    int
+	envSeed     uint64
+	actor       state.PlayerID
+	autoPayment bool
 	// uniformPrior keeps the uniform prior at in-walk points even with a
 	// network (Options.UniformPrior).
 	uniformPrior bool
@@ -427,11 +430,28 @@ func (e *engineEnv) Leaf() (l Leaf) {
 		}
 		return Leaf{V: v, Terminal: true}
 	}
+	if e.cfg.leaf != nil {
+		return Leaf{V: clampLeaf(e.cfg.leaf(e.e, e.cfg.actor)), Capped: e.capped}
+	}
 	leafNet := e.cfg.net
 	if e.cfg.heuristicLeaf {
 		leafNet = nil
 	}
 	return Leaf{V: leafValue(leafNet, e.e, e.cfg.actor, e.cfg.views), Capped: e.capped}
+}
+
+// clampLeaf is a caller-supplied leaf's value as the tree takes it: clamped
+// into [0,1], NaN read as 0.5 (the network leaf's own rule, leafValue).
+func clampLeaf(x float64) float64 {
+	switch {
+	case math.IsNaN(x):
+		return 0.5
+	case x < 0:
+		return 0
+	case x > 1:
+		return 1
+	}
+	return x
 }
 
 // leafValue is spec §1's leaf: the value head on the actor's REDACTED view

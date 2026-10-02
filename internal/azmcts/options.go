@@ -4,7 +4,17 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/adams-shaun/gorge/rules"
+	"github.com/adams-shaun/gorge/state"
 )
+
+// LeafFunc is a caller-supplied leaf evaluator (Options.Leaf): the searching
+// seat actor's win probability, in [0,1], at world e's current position. It
+// is called once per simulation whose walk did not end the game, and once
+// for the root. e is a simulation's world, never the real engine; the
+// function must not submit to it or keep it.
+type LeafFunc func(e *rules.Engine, actor state.PlayerID) float64
 
 // Kinds are the searched decision kinds (spec §1). Every other decision --
 // and a decision of a searched kind whose candidates cannot be built -- is
@@ -124,6 +134,12 @@ type Options struct {
 	// cache off. It never changes the Result, only its cost counters, and a
 	// source whose worlds differ between simulations never uses it.
 	NodeCache int
+	// Leaf, when set, is the leaf evaluator: it replaces both the frozen
+	// heuristic and the network's value head (HeuristicLeaf and the net
+	// argument then only decide the prior). Its value is clamped into [0,1]
+	// and NaN reads 0.5; a panic inside it discards the simulation
+	// (Stats.Panics). Nil leaves every search exactly as it was.
+	Leaf LeafFunc
 }
 
 // DiscountUnit is what one step of the backup discount counts.
