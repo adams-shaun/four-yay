@@ -1,0 +1,126 @@
+{
+ "card": "Secluded Courtyard",
+ "family": "choose-type",
+ "author": "cli-20261002T022427Z-efa27a16 (Oracle + CR only)",
+ "oracle_sha": "e8be98b855bd",
+ "scenarios": [
+  {
+   "name": "enters-choosing-a-type-tapped-without-that-creature",
+   "cr": [
+    "614.6",
+    "305.7"
+   ],
+   "why": "As it enters, choose a creature type: choosing Goblin with no Goblin on the battlefield means the Courtyard enters tapped; its {T} then adds {C}.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Secluded Courtyard",
+      "Raging Goblin"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Secluded Courtyard",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Goblin"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Secluded Courtyard",
+     "ability": "add c"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Secluded Courtyard",
+     "zone": "battlefield",
+     "tapped": true
+    },
+    {
+     "pool": {
+      "p0": "C"
+     }
+    }
+   ]
+  },
+  {
+   "name": "chosen-type-mana-casts-creature-of-that-type",
+   "cr": [
+    "605.3a",
+    "107.4d"
+   ],
+   "why": "{T}: Add one mana of any color, spend only to cast a creature spell of the chosen type or activate an ability of a creature/creature card of the chosen type -- with Goblin chosen, the red mana may pay for Raging Goblin.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Secluded Courtyard",
+      "Raging Goblin",
+      "Raging Goblin"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Secluded Courtyard",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Goblin"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Raging Goblin",
+     "mana": "R"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Secluded Courtyard",
+     "ability": "any color",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "R"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Raging Goblin#2",
+     "mana": ""
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Raging Goblin",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Secluded Courtyard",
+     "zone": "battlefield",
+     "tapped": true
+    }
+   ]
+  }
+ ]
+}

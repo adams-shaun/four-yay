@@ -1,0 +1,107 @@
+{
+ "card": "Azusa, Lost but Seeking",
+ "family": "conditional-static",
+ "author": "cli-20261002T022427Z-efa27a16 (Oracle + CR only)",
+ "oracle_sha": "7818cd84f925",
+ "scenarios": [
+  {
+   "name": "three-land-drops-then-stopped",
+   "cr": [
+    "604.3",
+    "305.2b"
+   ],
+   "why": "You may play two additional lands on each of your turns: Mountains 1, 2 and 3 are all legal this turn; the fourth land drop is not offered.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Azusa, Lost but Seeking"
+     ],
+     "hand": [
+      "Mountain",
+      "Mountain",
+      "Mountain",
+      "Mountain"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Mountain"
+    },
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Mountain#2"
+    },
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Mountain#3"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Mountain"
+     },
+     "eq": 3
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "play_land",
+      "card": "p0:Mountain#4"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "without-azusa-only-one-land-drop",
+   "cr": [
+    "305.2b"
+   ],
+   "why": "Baseline: without Azusa the second Mountain's land play is not offered on the same turn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Mountain",
+      "Mountain"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Mountain"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Mountain"
+     },
+     "eq": 1
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "play_land",
+      "card": "p0:Mountain#2"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

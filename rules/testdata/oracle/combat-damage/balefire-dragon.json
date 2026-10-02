@@ -1,0 +1,128 @@
+{
+ "card": "Balefire Dragon",
+ "family": "combat-damage",
+ "author": "cli-20261002T022427Z-efa27a16 (Oracle + CR only)",
+ "oracle_sha": "24609178104a",
+ "scenarios": [
+  {
+   "name": "combat-damage-deals-that-much-to-each-creature",
+   "cr": [
+    "603.10a",
+    "603.10"
+   ],
+   "why": "Whenever Balefire Dragon deals combat damage to a player, it deals that much damage to each creature that player controls: 6 unblocked damage to p1 means both of p1's creatures take 6 and die.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Balefire Dragon"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Bronze Sable"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Balefire Dragon"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "seat": 0,
+     "step": "end"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Bronze Sable",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Balefire Dragon",
+     "zone": "battlefield"
+    },
+    {
+     "life": {
+      "p1": 14
+     }
+    }
+   ]
+  },
+  {
+   "name": "blocked-no-player-damage-no-trigger",
+   "cr": [
+    "603.10a",
+    "510.2"
+   ],
+   "why": "Blocked by a legal flying blocker (Dragon Hatchling, 0/1), the Dragon deals its combat damage to the blocker rather than the player, so its trigger never fires and no player damage is dealt.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Balefire Dragon"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Dragon Hatchling"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Balefire Dragon"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 1,
+     "blocks": [
+      [
+       "p1:Dragon Hatchling",
+       "p0:Balefire Dragon"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "seat": 0,
+     "step": "end"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Dragon Hatchling",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Balefire Dragon",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "life": {
+      "p1": 20
+     }
+    }
+   ]
+  }
+ ]
+}

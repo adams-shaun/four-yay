@@ -1,0 +1,165 @@
+{
+ "card": "Arcane Denial",
+ "family": "spell-conditional",
+ "author": "cli-20261002T022427Z-efa27a16 (Oracle + CR only)",
+ "oracle_sha": "ea93b2df1876",
+ "scenarios": [
+  {
+   "name": "counter-target-spell",
+   "cr": [
+    "701.5a",
+    "608.2b"
+   ],
+   "why": "Counter target spell: p1's Lightning Bolt on the stack is countered and goes to its owner's graveyard without resolving, so p0 takes no damage; the two upkeep draws have NOT happened yet, so p1's hand is 0 and p0's hand is his own uncast Lightning Bolt (1).",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Arcane Denial",
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Arcane Denial",
+     "mana": "CU",
+     "targets": [
+      "p1:Lightning Bolt"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Arcane Denial",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 20
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1,
+      "p1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "next-upkeep-denied-players-draw",
+   "cr": [
+    "610.2",
+    "603.7f"
+   ],
+   "why": "The two delayed triggers fire at the beginning of the next turn's upkeep: the countered spell's controller (p1) may draw up to two cards and Arcane Denial's caster (p0) draws a card.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Arcane Denial",
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Arcane Denial",
+     "mana": "CU",
+     "targets": [
+      "p1:Lightning Bolt"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "trigger_optional",
+       "pick": [
+        "yes"
+       ]
+      },
+      {
+       "kind": "choose",
+       "pick": [
+        "2"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 1,
+      "p1": 2
+     }
+    }
+   ]
+  }
+ ]
+}

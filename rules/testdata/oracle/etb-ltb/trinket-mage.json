@@ -1,0 +1,127 @@
+{
+ "card": "Trinket Mage",
+ "family": "etb-ltb",
+ "author": "cli-20261002T022427Z-efa27a16 (Oracle + CR only)",
+ "oracle_sha": "44f102ecb781",
+ "scenarios": [
+  {
+   "name": "enters-searches-mv1-or-less-artifact-to-hand",
+   "cr": [
+    "603.3d",
+    "701.19a"
+   ],
+   "why": "When Trinket Mage enters, search your library for an artifact card with mana value 1 or less, put it into your hand, then shuffle: Lotus Petal (mana value 0) goes from the library to the hand.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Trinket Mage"
+     ],
+     "library_top": [
+      "Lotus Petal"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Trinket Mage",
+     "mana": "CCU",
+     "answers": []
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "trigger_optional",
+       "pick": [
+        "yes"
+       ]
+      },
+      {
+       "kind": "any",
+       "pick": [
+        "Lotus Petal"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Trinket Mage",
+     "zone": "battlefield",
+     "pt": "2/2"
+    },
+    {
+     "card": "p0:Lotus Petal",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "expensive-artifact-not-in-choice",
+   "cr": [
+    "603.3d",
+    "701.19a"
+   ],
+   "why": "Wurmcoil Engine (mana value 6) is not a legal search result, so it stays in the library while Lotus Petal is taken.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Trinket Mage"
+     ],
+     "library_top": [
+      "Wurmcoil Engine",
+      "Lotus Petal"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Trinket Mage",
+     "mana": "CCU",
+     "answers": []
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "trigger_optional",
+       "pick": [
+        "yes"
+       ]
+      },
+      {
+       "kind": "any",
+       "pick": [
+        "Lotus Petal"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lotus Petal",
+     "zone": "hand"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "library",
+      "name": "Wurmcoil Engine"
+     },
+     "eq": 1
+    }
+   ]
+  }
+ ]
+}

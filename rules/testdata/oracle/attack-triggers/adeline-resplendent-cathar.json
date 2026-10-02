@@ -1,0 +1,112 @@
+{
+ "card": "Adeline, Resplendent Cathar",
+ "family": "attack-triggers",
+ "author": "cli-20261002T022427Z-efa27a16 (Oracle + CR only)",
+ "oracle_sha": "908288f4eb3f",
+ "scenarios": [
+  {
+   "name": "attack-creates-tapped-attacking-token",
+   "cr": [
+    "604.3",
+    "603.2"
+   ],
+   "why": "Adeline has vigilance, so attacking never taps her; her power equals the number of creatures you control, and the newly created tapped-and-attacking Human counts, making her 2/4 -- 2 damage from her plus 1 from the token.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Adeline, Resplendent Cathar"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Adeline, Resplendent Cathar"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "seat": 0,
+     "step": "end"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Adeline, Resplendent Cathar",
+     "pt": "2/4",
+     "tapped": false,
+     "zone": "battlefield"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Human",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "life": {
+      "p1": 17
+     }
+    }
+   ]
+  },
+  {
+   "name": "power-grows-with-creatures-controlled",
+   "cr": [
+    "604.3",
+    "613.3b"
+   ],
+   "why": "With Grizzly Bears also under your control Adeline is 2/4 before the attack and 3/4 with the created attacking Human counted; she and the token deal 3 and 1 for 4 total.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Adeline, Resplendent Cathar",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Adeline, Resplendent Cathar"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "seat": 0,
+     "step": "end"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Adeline, Resplendent Cathar",
+     "pt": "3/4",
+     "tapped": false
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Human",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "life": {
+      "p1": 16
+     }
+    }
+   ]
+  }
+ ]
+}

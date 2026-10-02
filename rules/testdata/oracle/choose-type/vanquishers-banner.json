@@ -1,0 +1,130 @@
+{
+ "card": "Vanquisher's Banner",
+ "family": "choose-type",
+ "author": "cli-20261002T022427Z-efa27a16 (Oracle + CR only)",
+ "oracle_sha": "cace9172c642",
+ "scenarios": [
+  {
+   "name": "chosen-type-pumps-and-draws-on-cast",
+   "cr": [
+    "604.3",
+    "603.2"
+   ],
+   "why": "As it enters, choose a creature type: choosing Bear gives your Bears +1/+1 (the 2/2 Grizzly Bears becomes 3/3) and casting Bear Cub draws exactly one card while the Cub itself also gets the pump.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Vanquisher's Banner",
+      "Bear Cub"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Vanquisher's Banner",
+     "mana": "CCCCC",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Bear"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bear Cub",
+     "mana": "CG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Vanquisher's Banner",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "3/3",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Bear Cub",
+     "pt": "3/3",
+     "zone": "battlefield"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "other-type-creatures-not-pumped",
+   "cr": [
+    "604.3",
+    "614.10"
+   ],
+   "why": "The engine's type chooser only offers types the game already knows; with Human chosen, the 2/2 Grizzly Bears stays 2/2 while the Human Selfless Spirit is pumped 2/1 -> 3/2: only creatures of the chosen type get the pump.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Selfless Spirit"
+     ],
+     "hand": [
+      "Vanquisher's Banner"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Vanquisher's Banner",
+     "mana": "CCCCC",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Human"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Selfless Spirit",
+     "pt": "3/2",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Vanquisher's Banner",
+     "zone": "battlefield"
+    }
+   ]
+  }
+ ]
+}

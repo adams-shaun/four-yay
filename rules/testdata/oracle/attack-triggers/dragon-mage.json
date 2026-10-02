@@ -1,0 +1,127 @@
+{
+ "card": "Dragon Mage",
+ "family": "attack-triggers",
+ "author": "cli-20261002T022427Z-efa27a16 (Oracle + CR only)",
+ "oracle_sha": "f9be448b2308",
+ "scenarios": [
+  {
+   "name": "combat-damage-each-player-discards-then-draws-seven",
+   "cr": [
+    "603.10a",
+    "701.7",
+    "121.2"
+   ],
+   "why": "Whenever Dragon Mage deals combat damage to a player, each player discards their hand, then draws seven cards: 5 unblocked damage means both hands end at exactly seven cards.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Dragon Mage"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Dragon Mage"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "seat": 0,
+     "step": "end"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Dragon Mage",
+     "zone": "battlefield"
+    },
+    {
+     "life": {
+      "p1": 15
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 7,
+      "p1": 7
+     }
+    }
+   ]
+  },
+  {
+   "name": "blocked-player-damage-no-refill",
+   "cr": [
+    "603.10a",
+    "510.2"
+   ],
+   "why": "Blocked by a legal flying blocker (Dragon Hatchling, 0/1), the Mage's damage goes to the blocker, not the player, so the trigger never fires and hands stay empty.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Dragon Mage"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Dragon Hatchling"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Dragon Mage"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 1,
+     "blocks": [
+      [
+       "p1:Dragon Hatchling",
+       "p0:Dragon Mage"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "seat": 0,
+     "step": "end"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Dragon Hatchling",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Dragon Mage",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "life": {
+      "p1": 20
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 0,
+      "p1": 0
+     }
+    }
+   ]
+  }
+ ]
+}

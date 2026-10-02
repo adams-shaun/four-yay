@@ -1,0 +1,125 @@
+{
+ "card": "Static Orb",
+ "family": "conditional-static",
+ "author": "cli-20261002T022427Z-efa27a16 (Oracle + CR only)",
+ "oracle_sha": "702bfa10b157",
+ "scenarios": [
+  {
+   "name": "two-or-fewer-tapped-untap-normally",
+   "cr": [
+    "611.3c",
+    "515.4a"
+   ],
+   "why": "As long as Static Orb is untapped, players can't untap more than two permanents during their untap steps: with only the one tapped Talisman, the untap step untaps it normally.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Talisman of Conviction"
+     ],
+     "hand": [
+      "Static Orb"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Talisman of Conviction",
+     "ability": "add c"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Static Orb",
+     "mana": "CCC"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Talisman of Conviction",
+     "tapped": false,
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Static Orb",
+     "tapped": false,
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "more-than-two-tapped-only-two-untap",
+   "cr": [
+    "611.3c",
+    "515.4a"
+   ],
+   "why": "With three tapped permanents and the untapped Orb, the untap step may not untap more than two: at least one of the three mana rocks must still be tapped at the start of p0's next turn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Talisman of Conviction",
+      "Talisman of Conviction",
+      "Talisman of Conviction"
+     ],
+     "hand": [
+      "Static Orb"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Talisman of Conviction",
+     "ability": "add c"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Talisman of Conviction#2",
+     "ability": "add c"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Talisman of Conviction#3",
+     "ability": "add c"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Static Orb",
+     "mana": "CCC"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Talisman of Conviction",
+     "tapped": false,
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Talisman of Conviction#2",
+     "tapped": false,
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Talisman of Conviction#3",
+     "tapped": true,
+     "zone": "battlefield"
+    }
+   ]
+  }
+ ]
+}

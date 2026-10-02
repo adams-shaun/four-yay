@@ -1,0 +1,113 @@
+{
+ "card": "Silverwing Squadron",
+ "family": "attack-triggers",
+ "author": "cli-20261002T022427Z-efa27a16 (Oracle + CR only)",
+ "oracle_sha": "71fc0232ee56",
+ "scenarios": [
+  {
+   "name": "attack-creates-one-knight-per-opponent",
+   "cr": [
+    "603.2",
+    "111.9"
+   ],
+   "why": "Power and toughness are each equal to the number of creatures you control (alone: 1/1); whenever it attacks, create a number of 2/2 white Knight tokens with vigilance equal to the number of opponents you have (one).",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Silverwing Squadron"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Silverwing Squadron"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "seat": 0,
+     "step": "end"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Silverwing Squadron",
+     "pt": "2/2",
+     "zone": "battlefield"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Knight",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "life": {
+      "p1": 16
+     }
+    }
+   ]
+  },
+  {
+   "name": "vigilance-attacker-untapped-and-pt-grows",
+   "cr": [
+    "702.16b",
+    "604.3"
+   ],
+   "why": "Vigilance means the attacking Squadron never tapped; with the Bears and the Sable, and then the created tapped-and-attacking Knight token, four creatures you control give its CDA 4/4. The CR-correct combat damage is Squadron 4 + Knight 2 = 6 (p1 at 14); the Knight never joining the attackers is the recorded divergence.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Silverwing Squadron",
+      "Grizzly Bears",
+      "Bronze Sable"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Silverwing Squadron"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "seat": 0,
+     "step": "end"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Silverwing Squadron",
+     "pt": "4/4",
+     "tapped": false,
+     "zone": "battlefield"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Knight",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "life": {
+      "p1": 14
+     }
+    }
+   ]
+  }
+ ]
+}
