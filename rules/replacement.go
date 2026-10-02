@@ -291,6 +291,12 @@ func (e *Engine) applyReplacementsDispatch(ev events.Event) (events.Event, bool)
 			matches = append(matches, *m)
 		}
 	}
+	// The GRANTED "Prevent all [combat] damage dealt to/by CARDNAME." keyword
+	// (CR 615.1), read off the derived keyword list the same way
+	// (rules/replacement_prevent_kw.go).
+	if ev.Kind == events.Damage {
+		matches = append(matches, e.grantedPreventMatches(ev)...)
+	}
 	matches = e.dropAppliedReplacements(matches)
 	if ev.Kind == events.ManaAdd {
 		return e.continueManaReplacements(ev, manaCandidates, nil, false, e.manaFromTap, e.manaProducer)
