@@ -382,10 +382,11 @@ func controlReferentPlayers(g *state.Game, sc SpecContext, op, ref string) ([]st
 		}
 		targets = []state.Target{{Obj: sc.TriggerCard}}
 	case "Targeted", "TargetedPlayer", "ThisTargetedPlayer", "TargetedController", "TargetedOrController":
-		if !sc.Resolving {
+		bound, ok := sc.TargetBinding()
+		if !ok {
 			return nil, false
 		}
-		targets = sc.ResolutionTargets
+		targets = bound
 	case "Remembered", "RememberedPlayer":
 		// Resolution-only, like Targeted*: the players this resolution
 		// remembers -- a RepeatEach loop's current subject. Forge's

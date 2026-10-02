@@ -1104,7 +1104,7 @@ func changeZoneChosenTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool
 	// Legality stays referenced to the ability controller; only the
 	// decision's Player moves to the TargetingPlayer$ chooser (the same
 	// resolver every rules-tier target ask uses).
-	candidates := h.LegalTargets(c.Controller, c.Source, sa)
+	candidates := subAskCandidates(h, c, sa)
 	chooser := h.ChooserFor(c, sa)
 	if ch, posed := opponentPick(h, c, sa, chooser); posed {
 		// The controller's which-opponent selection ask was posted: the walk
@@ -1127,7 +1127,7 @@ func changeZoneChosenTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool
 	}
 	if max <= 0 {
 		// Nothing eligible (or an explicitly zero bound): no ask, no move.
-		return nil, false
+		return noSubTargets(c, sa)
 	}
 	return poseTargetsAsk(h, c, sa, chooser, candidates, min, max, "choice")
 }

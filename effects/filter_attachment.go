@@ -280,7 +280,7 @@ func sharesTypeReferents(g *state.Game, sc SpecContext, ref string) []state.Targ
 			ts = append(ts, state.Target{Obj: sc.TriggerCard})
 		}
 	case "Targeted":
-		ts = sc.ResolutionTargets
+		ts, _ = sc.TargetBinding()
 	case "Self":
 		if sc.Source != 0 {
 			ts = append(ts, state.Target{Obj: sc.Source})
@@ -614,11 +614,15 @@ func attachedToReferentObjects(g *state.Game, sc SpecContext, ref string) ([]sta
 		// families: SpecContext has ResolutionTargets set only by a
 		// resolving context (effects.Ctx.SpecContext or a legality recheck),
 		// never while a target offer is being built.
-		if !sc.Resolving {
+		// The one exception is a SUB-ability's own offer, built while the
+		// parent resolves: its ParentTarget is the parent's already-chosen
+		// target (SpecContext.TargetBinding).
+		bound, ok := sc.TargetBinding()
+		if !ok {
 			return nil, false
 		}
-		out := make([]state.ObjID, 0, len(sc.ResolutionTargets))
-		for _, t := range sc.ResolutionTargets {
+		out := make([]state.ObjID, 0, len(bound))
+		for _, t := range bound {
 			if !t.IsPlayer && t.Obj != 0 {
 				if g.Obj(t.Obj) == nil {
 					return nil, false

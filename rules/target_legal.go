@@ -979,6 +979,9 @@ func (e *Engine) candidatesForLimitInto(dst []targetCandidate, p state.PlayerID,
 	}
 	sc := e.targetSpecContext(specSrc, excludeSelf, p)
 	defer e.releaseSpecEnv()
+	if e.subOfferBound {
+		sc.ParentTargets, sc.ParentBound = e.subOfferParent, true
+	}
 	zones := targetZones(sa)
 	out := dst[:0]
 	// Resolve the source ONCE for the whole census -- for an ability this is

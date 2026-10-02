@@ -173,6 +173,12 @@ type Host interface {
 	// Redirect effects use this shared census rather than duplicating target
 	// legality below rules (protection and continuous restrictions included).
 	LegalTargets(chooser state.PlayerID, source state.ObjID, sa *cards.SA) []state.Target
+	// LegalSubTargets is LegalTargets for a SubAbility$'s OWN ValidTgts$ asked
+	// while its parent resolves: parent is the parent ability's already-chosen
+	// target list, which the census binds for the Targeted*/ParentTarget
+	// referents (SpecContext.ParentTargets) -- "exile up to one target
+	// Equipment attached to THAT creature".
+	LegalSubTargets(chooser state.PlayerID, source state.ObjID, sa *cards.SA, parent []state.Target) []state.Target
 	// ChooserFor resolves the seat that answers a target ask declared by sa,
 	// per Forge's TargetingPlayer$ ("an opponent chooses the target"). The
 	// mid-resolution ValidTgts$ asks (chosenTargetsFor, changeZoneChosenTargets)

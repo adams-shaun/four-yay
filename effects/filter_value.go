@@ -403,7 +403,8 @@ func sameNameContextReferent(g *state.Game, base string, sc SpecContext) (state.
 			}
 		}
 	case strings.HasPrefix(base, "Targeted"):
-		for _, t := range sc.ResolutionTargets {
+		bound, _ := sc.TargetBinding()
+		for _, t := range bound {
 			if !t.IsPlayer && t.Obj != 0 && g.Obj(t.Obj) != nil {
 				return t.Obj, true
 			}
