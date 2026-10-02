@@ -3729,9 +3729,7 @@ func (e *Engine) payerGrantsMayPlayRider(p state.PlayerID, id state.ObjID, rider
 		if !all && !slices.Contains(zones, o.Zone) {
 			continue
 		}
-		sc := e.withNames(effects.SpecContext{You: ce.Controller, Source: ce.Source,
-			Remembered: rememberedTargets(ce.Remembered), Resolving: true})
-		if e.matchesSpec(ce.Affects, id, sc) {
+		if e.matchesSpec(ce.Affects, id, e.effectGrantSpecContext(ce)) {
 			return true
 		}
 	}

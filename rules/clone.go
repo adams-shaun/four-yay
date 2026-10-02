@@ -442,6 +442,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 			}
 			ce.Remembered = append([]state.ObjID(nil), ce.Remembered...)
 			ce.RememberedPlayers = append([]state.PlayerID(nil), ce.RememberedPlayers...)
+			ce.Chosen = append([]state.ObjID(nil), ce.Chosen...)
 			// The has-all-abilities-of face lists: deep-copied like the other
 			// rider slices so an intent-boundary clone never shares a backing
 			// array the live engine may extend (the entries' Face pointers are

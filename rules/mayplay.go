@@ -902,9 +902,23 @@ func (e *Engine) mayPlayKinds(p state.PlayerID, id state.ObjID) (plain, mutate, 
 // filter read the card's printed spell characteristics, the same way
 // mayPlayStatic evaluates a printed S: grant's ValidAfterStack$. An
 // unsupported value fails closed inside matchesSpec (no grant).
-func (e *Engine) effectGrantMatches(ce *state.ContinuousEffect, id state.ObjID) bool {
+// effectGrantSpecContext is the match context an Effect-delivered may-play
+// grant's Affects spec evaluates under: the effect's controller and source,
+// its Remembered set and, when the grant snapshotted one at creation, the
+// chosen-card set (state.ContinuousEffect.Chosen) a Card.ChosenCard spec
+// reads (Strongbox Raider, Chandra, Flameshaper).
+func (e *Engine) effectGrantSpecContext(ce *state.ContinuousEffect) effects.SpecContext {
 	sc := e.withNames(effects.SpecContext{You: ce.Controller, Source: ce.Source,
 		Remembered: rememberedTargets(ce.Remembered), Resolving: true})
+	if ce.ChosenBound {
+		sc.Chosen = rememberedTargets(ce.Chosen)
+		sc.ChosenValid = true
+	}
+	return sc
+}
+
+func (e *Engine) effectGrantMatches(ce *state.ContinuousEffect, id state.ObjID) bool {
+	sc := e.effectGrantSpecContext(ce)
 	if !e.matchesSpec(ce.Affects, id, sc) {
 		return false
 	}
