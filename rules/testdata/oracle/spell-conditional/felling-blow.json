@@ -1,0 +1,531 @@
+{
+ "card": "Felling Blow",
+ "family": "spell-conditional",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "acbdb5afaf29",
+ "scenarios": [
+  {
+   "name": "counter-then-damage-equal-to-new-power",
+   "cr": [
+    "608.2c",
+    "120.3"
+   ],
+   "why": "The counter is put on first, then the creature deals damage equal to its power: a 2/2 becomes 3/3 and deals 3, killing a 3/3. It is not a fight, so nothing is dealt back.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Felling Blow"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Felling Blow",
+     "mana": "CCG",
+     "targets": [
+      "p0:Grizzly Bears",
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "pt": "3/3",
+     "damage": 0,
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "card": "p0:Felling Blow",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "damage-marked-on-a-bigger-creature",
+   "cr": [
+    "608.2c",
+    "608.2h"
+   ],
+   "why": "The amount is the power after the counter: 3 damage is marked on a 6/4, which survives.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Felling Blow"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Felling Blow",
+     "mana": "CCG",
+     "targets": [
+      "p0:Grizzly Bears",
+      "p1:Craw Wurm"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "battlefield",
+     "damage": 3
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "3/3",
+     "damage": 0
+    }
+   ]
+  },
+  {
+   "name": "the-creature-is-the-source-so-deathtouch-applies",
+   "cr": [
+    "702.2b",
+    "120.3"
+   ],
+   "why": "The creature, not the spell, deals the damage: a deathtouch creature's 2 damage destroys a 6/4.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Felling Blow"
+     ],
+     "battlefield": [
+      "Typhoid Rats"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Felling Blow",
+     "mana": "CCG",
+     "targets": [
+      "p0:Typhoid Rats",
+      "p1:Craw Wurm"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Typhoid Rats",
+     "pt": "2/2"
+    }
+   ]
+  },
+  {
+   "name": "second-target-is-chosen-on-cast",
+   "cr": [
+    "601.2c"
+   ],
+   "why": "Both targets are announced on cast: with two opposing creatures, the one named on cast (the Wurm) takes the damage and the other is untouched.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Felling Blow"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Savannah Lions",
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Felling Blow",
+     "mana": "CCG",
+     "targets": [
+      "p0:Grizzly Bears",
+      "p1:Craw Wurm"
+     ],
+     "expect": [
+      {
+       "stack_size": 1
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Craw Wurm",
+     "damage": 3
+    },
+    {
+     "card": "p1:Savannah Lions",
+     "zone": "battlefield",
+     "damage": 0
+    }
+   ]
+  },
+  {
+   "name": "no-opposing-creature-not-castable",
+   "cr": [
+    "601.2c"
+   ],
+   "why": "With no creature an opponent controls there is no legal second target, so the spell cannot be cast.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Felling Blow"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCG"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Felling Blow"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "no-own-creature-not-castable",
+   "cr": [
+    "601.2c"
+   ],
+   "why": "With no creature its caster controls there is no legal first target.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Felling Blow"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCG"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Felling Blow"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "castable-with-both-targets",
+   "cr": [
+    "601.2c"
+   ],
+   "why": "Positive control for the two not-castable scenarios: one creature on each side makes it castable for {2}{G}.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Felling Blow"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCG"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Felling Blow"
+     },
+     "want": true
+    }
+   ]
+  },
+  {
+   "name": "second-target-gone-counter-still-placed-nobody-else-hurt",
+   "cr": [
+    "608.2b"
+   ],
+   "why": "The opposing target left in response: the counter is still put on the first target, and no damage is dealt to any other creature.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Felling Blow"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Unsummon"
+     ],
+     "battlefield": [
+      "Savannah Lions",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Felling Blow",
+     "mana": "CCG",
+     "targets": [
+      "p0:Grizzly Bears",
+      "p1:Savannah Lions"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Unsummon",
+     "mana": "U",
+     "targets": [
+      "p1:Savannah Lions"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Savannah Lions",
+     "zone": "hand"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "3/3",
+     "counters": {
+      "+1/+1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "first-target-gone-no-damage",
+   "cr": [
+    "608.2b"
+   ],
+   "why": "The caster's creature died in response: it gets no counter and, being an illegal target, deals no damage.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Felling Blow"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Felling Blow",
+     "mana": "CCG",
+     "targets": [
+      "p0:Grizzly Bears",
+      "p1:Savannah Lions"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Savannah Lions",
+     "zone": "battlefield",
+     "damage": 0
+    }
+   ]
+  },
+  {
+   "name": "targeting-a-ward-creature-triggers-ward",
+   "cr": [
+    "702.21a",
+    "601.2c"
+   ],
+   "why": "The opposing creature is a target, so naming a ward {2} creature triggers ward on cast; unpaid, Felling Blow is countered and does nothing.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Felling Blow"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Tolarian Terror"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Felling Blow",
+     "mana": "CCG",
+     "targets": [
+      "p0:Grizzly Bears",
+      "p1:Tolarian Terror"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p1:Tolarian Terror",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "no"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Tolarian Terror",
+     "damage": 0
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2",
+     "counters": {
+      "+1/+1": 0
+     }
+    },
+    {
+     "card": "p0:Felling Blow",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

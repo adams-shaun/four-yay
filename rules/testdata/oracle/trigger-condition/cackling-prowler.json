@@ -1,0 +1,701 @@
+{
+ "card": "Cackling Prowler",
+ "family": "trigger-condition",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "d36289d74333",
+ "scenarios": [
+  {
+   "name": "morbid-opposing-creature-died-gets-a-counter",
+   "cr": [
+    "603.4",
+    "207.2c"
+   ],
+   "why": "A creature died this turn, so at the beginning of its controller's end step the Prowler gets a +1/+1 counter.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Cackling Prowler"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "end",
+     "active": "p0",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Cackling Prowler",
+       "want": true
+      },
+      {
+       "card": "p0:Cackling Prowler",
+       "counters": {
+        "+1/+1": 0
+       }
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Cackling Prowler",
+     "pt": "5/4",
+     "counters": {
+      "+1/+1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "morbid-own-creature-died-counts",
+   "cr": [
+    "603.4"
+   ],
+   "why": "Any creature dying counts, including its controller's own.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Cackling Prowler",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "end",
+     "active": "p0"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Cackling Prowler",
+     "pt": "5/4",
+     "counters": {
+      "+1/+1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-death-no-trigger",
+   "cr": [
+    "603.4"
+   ],
+   "why": "Intervening if: no creature died this turn, so the ability does not trigger at all.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Cackling Prowler"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "end",
+     "active": "p0",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Cackling Prowler",
+       "want": false
+      },
+      {
+       "stack_size": 0
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Cackling Prowler",
+     "pt": "4/3",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "noncreature-permanent-going-to-graveyard-is-not-a-death",
+   "cr": [
+    "700.4",
+    "603.4"
+   ],
+   "why": "Only a creature dying counts: an artifact destroyed this turn does not turn morbid on.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Disenchant"
+     ],
+     "battlefield": [
+      "Cackling Prowler"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Short Sword"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Disenchant",
+     "mana": "CW",
+     "targets": [
+      "p1:Short Sword"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p1:Short Sword",
+       "zone": "graveyard"
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "end",
+     "active": "p0",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Cackling Prowler",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Cackling Prowler",
+     "pt": "4/3",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-end-step-does-not-trigger",
+   "cr": [
+    "603.4",
+    "513.1"
+   ],
+   "why": "It triggers only at its controller's end step: a creature dying during the opponent's turn gives no counter at that turn's end step, and that death is not 'this turn' at its controller's next end step either.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Cackling Prowler"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p1:Grizzly Bears",
+       "zone": "graveyard"
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "end",
+     "active": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Cackling Prowler",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "end",
+     "active": "p0",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Cackling Prowler",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Cackling Prowler",
+     "pt": "4/3",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "ward-unpaid-counters-the-opponents-spell",
+   "cr": [
+    "702.21a"
+   ],
+   "why": "An opponent's spell targeting it triggers ward {2}; the opponent cannot or does not pay, so the spell is countered and the Prowler takes no damage.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Cackling Prowler"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Cackling Prowler"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Cackling Prowler",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "no"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Cackling Prowler",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "card": "p1:Lightning Bolt",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "ward-paid-spell-resolves",
+   "cr": [
+    "702.21a"
+   ],
+   "why": "Paying {2} lets the spell resolve: 3 damage kills the 4/3.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Cackling Prowler"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "RCC",
+     "targets": [
+      "p0:Cackling Prowler"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Cackling Prowler",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "yes"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Cackling Prowler",
+     "zone": "graveyard"
+    },
+    {
+     "pool": {
+      "p1": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "own-spell-does-not-trigger-ward",
+   "cr": [
+    "702.21a"
+   ],
+   "why": "Ward looks only at spells and abilities an opponent controls: its controller's own Giant Growth resolves with no trigger.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Giant Growth"
+     ],
+     "battlefield": [
+      "Cackling Prowler"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Giant Growth",
+     "mana": "G",
+     "targets": [
+      "p0:Cackling Prowler"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Cackling Prowler",
+       "want": false
+      },
+      {
+       "stack_size": 1
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Cackling Prowler",
+     "pt": "7/6",
+     "keywords": [
+      "Ward:2"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "returning-a-creature-to-hand-is-not-a-death",
+   "cr": [
+    "700.4",
+    "603.4"
+   ],
+   "why": "Dies means put into a graveyard from the battlefield: a creature returned to its owner's hand does not turn morbid on.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Unsummon"
+     ],
+     "battlefield": [
+      "Cackling Prowler"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Unsummon",
+     "mana": "U",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p1:Grizzly Bears",
+       "zone": "hand"
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "end",
+     "active": "p0",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Cackling Prowler",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Cackling Prowler",
+     "pt": "4/3",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "token-creature-dying-counts",
+   "cr": [
+    "700.4",
+    "111.8"
+   ],
+   "why": "A creature token dying is a creature dying.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Dragon Fodder",
+      "Shock"
+     ],
+     "battlefield": [
+      "Cackling Prowler"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Dragon Fodder",
+     "mana": "CR"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p0:token:Goblin"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "count": {
+        "seat": 0,
+        "zone": "battlefield",
+        "name": "Goblin",
+        "token": true
+       },
+       "eq": 1
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "end",
+     "active": "p0"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Cackling Prowler",
+     "pt": "5/4",
+     "counters": {
+      "+1/+1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "ward-triggers-for-an-opponents-ability-too",
+   "cr": [
+    "702.21a"
+   ],
+   "why": "Ward covers abilities as well as spells: an opponent's pinger targeting it is countered unless {2} is paid, so no damage is dealt.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Cackling Prowler"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Prodigal Pyromancer"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "activate",
+     "seat": 1,
+     "card": "p1:Prodigal Pyromancer",
+     "targets": [
+      "p0:Cackling Prowler"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Cackling Prowler",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "no"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Cackling Prowler",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "card": "p1:Prodigal Pyromancer",
+     "tapped": true
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,369 @@
+{
+ "card": "Grow from the Ashes",
+ "family": "spell-conditional",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "3681d46fc37e",
+ "scenarios": [
+  {
+   "name": "unkicked-one-basic-onto-the-battlefield-untapped",
+   "cr": [
+    "701.23",
+    "702.33"
+   ],
+   "why": "Unkicked: one basic land card from the library is put onto the battlefield. Nothing says tapped, so it enters untapped.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Grow from the Ashes"
+     ],
+     "library": [
+      "Forest",
+      "Mountain"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grow from the Ashes",
+     "mana": "CCG"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Forest"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Forest",
+     "zone": "battlefield",
+     "tapped": false
+    },
+    {
+     "card": "p0:Mountain",
+     "zone": "library"
+    },
+    {
+     "card": "p0:Grow from the Ashes",
+     "zone": "graveyard"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": ""
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "kicked-two-basics-onto-the-battlefield-untapped",
+   "cr": [
+    "702.33d",
+    "608.2e"
+   ],
+   "why": "Kicked ({2} more, five mana in all): two basic land cards are put onto the battlefield, both untapped.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Grow from the Ashes"
+     ],
+     "library": [
+      "Forest",
+      "Mountain"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grow from the Ashes",
+     "mana": "CCCCG",
+     "kicked": true
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Forest",
+        "p0:Mountain"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Forest",
+     "zone": "battlefield",
+     "tapped": false
+    },
+    {
+     "card": "p0:Mountain",
+     "zone": "battlefield",
+     "tapped": false
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "kicked-may-fetch-two-of-the-same-name",
+   "cr": [
+    "702.33d"
+   ],
+   "why": "The two cards need not have different names: two Forests.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Grow from the Ashes"
+     ],
+     "library": [
+      "Forest",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grow from the Ashes",
+     "mana": "CCCCG",
+     "kicked": true
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Forest",
+        "p0:Forest#2"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Forest",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Forest#2",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "may-fail-to-find",
+   "cr": [
+    "701.23b"
+   ],
+   "why": "Searching a hidden zone for a card with a stated quality may find nothing: no land enters and the spell still goes to the graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Grow from the Ashes"
+     ],
+     "library": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grow from the Ashes",
+     "mana": "CCG"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": []
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Forest",
+     "zone": "library"
+    },
+    {
+     "card": "p0:Grow from the Ashes",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "land-drop-still-available-afterwards",
+   "cr": [
+    "305.4",
+    "701.23"
+   ],
+   "why": "Putting a land onto the battlefield is not playing a land: the turn's land play is still available.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Grow from the Ashes",
+      "Plains"
+     ],
+     "library": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grow from the Ashes",
+     "mana": "CCG"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Forest"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Plains"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Forest",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Plains",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "sorcery-timing",
+   "cr": [
+    "307.1"
+   ],
+   "why": "A sorcery: not castable during the opponent's turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Grow from the Ashes"
+     ],
+     "library": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCG",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Grow from the Ashes"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCG"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Grow from the Ashes"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "two-mana-not-castable",
+   "cr": [
+    "601.2f"
+   ],
+   "why": "{2}{G} is the cost; two mana is not enough.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Grow from the Ashes"
+     ],
+     "library": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CG"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Grow from the Ashes"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

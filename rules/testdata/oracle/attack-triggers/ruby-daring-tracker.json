@@ -1,0 +1,498 @@
+{
+ "card": "Ruby, Daring Tracker",
+ "family": "attack-triggers",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "4c6aa5f74b42",
+ "scenarios": [
+  {
+   "name": "haste-attacks-the-turn-it-is-cast-no-big-creature",
+   "cr": [
+    "702.10b",
+    "603.2"
+   ],
+   "why": "Haste lets it attack the turn it is cast. With no creature of power 4 or greater under its controller's control there is no trigger: it attacks as a 1/2 and deals 1.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Ruby, Daring Tracker"
+     ],
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Ruby, Daring Tracker",
+     "mana": "RG"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Ruby, Daring Tracker"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Ruby, Daring Tracker",
+       "want": false
+      },
+      {
+       "card": "p0:Ruby, Daring Tracker",
+       "pt": "1/2",
+       "keywords": [
+        "Haste"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 19
+     }
+    }
+   ]
+  },
+  {
+   "name": "attacking-with-a-power-four-creature-gets-plus-two",
+   "cr": [
+    "603.2",
+    "611.2"
+   ],
+   "why": "Attacking while its controller controls a creature with power exactly 4: +2/+2 until end of turn, so it deals 3; the bonus is gone next turn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ruby, Daring Tracker",
+      "Air Elemental"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Ruby, Daring Tracker"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Ruby, Daring Tracker",
+       "want": true
+      },
+      {
+       "card": "p0:Ruby, Daring Tracker",
+       "pt": "1/2"
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Ruby, Daring Tracker",
+       "pt": "3/4"
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "expect": [
+      {
+       "life": {
+        "p0": 20,
+        "p1": 17
+       }
+      },
+      {
+       "card": "p0:Ruby, Daring Tracker",
+       "pt": "3/4"
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Ruby, Daring Tracker",
+     "pt": "1/2"
+    }
+   ]
+  },
+  {
+   "name": "opponents-big-creature-does-not-count",
+   "cr": [
+    "603.2",
+    "109.5"
+   ],
+   "why": "The power-4 creature must be its controller's.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ruby, Daring Tracker"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Ruby, Daring Tracker"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Ruby, Daring Tracker",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 19
+     }
+    }
+   ]
+  },
+  {
+   "name": "ruby-itself-at-power-four-counts",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Ruby is a creature its controller controls: pumped to 4/5 before attackers, it satisfies its own condition and becomes 6/7.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Giant Growth"
+     ],
+     "battlefield": [
+      "Ruby, Daring Tracker"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Giant Growth",
+     "mana": "G",
+     "targets": [
+      "p0:Ruby, Daring Tracker"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Ruby, Daring Tracker",
+       "pt": "4/5"
+      }
+     ]
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Ruby, Daring Tracker"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Ruby, Daring Tracker",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Ruby, Daring Tracker",
+     "pt": "6/7"
+    }
+   ]
+  },
+  {
+   "name": "condition-is-checked-only-as-it-attacks",
+   "cr": [
+    "603.2",
+    "603.4"
+   ],
+   "why": "'Attacks while' is part of the trigger event, not an intervening if: the big creature being destroyed in response does not stop the bonus.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ruby, Daring Tracker",
+      "Craw Wurm"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Ruby, Daring Tracker"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Ruby, Daring Tracker",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p0:Craw Wurm"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Craw Wurm",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Ruby, Daring Tracker",
+     "pt": "3/4"
+    }
+   ]
+  },
+  {
+   "name": "taps-for-red-or-green",
+   "cr": [
+    "605.1a",
+    "106.1"
+   ],
+   "why": "{T}: Add {R} or {G} - only those two colours are offered.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ruby, Daring Tracker"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ruby, Daring Tracker",
+     "observe": {
+      "kind": "choose",
+      "source": "p0:Ruby, Daring Tracker",
+      "has": [
+       "Add R",
+       "Add G"
+      ],
+      "not": [
+       "Add W",
+       "Add U",
+       "Add B"
+      ]
+     },
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Add R"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": "R"
+     }
+    },
+    {
+     "card": "p0:Ruby, Daring Tracker",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "taps-for-green",
+   "cr": [
+    "605.1a"
+   ],
+   "why": "The other colour.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ruby, Daring Tracker"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ruby, Daring Tracker",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Add G"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": "G"
+     }
+    },
+    {
+     "card": "p0:Ruby, Daring Tracker",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "haste-taps-for-mana-the-turn-it-is-cast",
+   "cr": [
+    "702.10c",
+    "302.6"
+   ],
+   "why": "Haste also lets it pay {T} costs at once.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Ruby, Daring Tracker"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Ruby, Daring Tracker",
+     "mana": "RG"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ruby, Daring Tracker",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Add G"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": "G"
+     }
+    },
+    {
+     "card": "p0:Ruby, Daring Tracker",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "tapped-for-mana-cannot-attack-and-vice-versa",
+   "cr": [
+    "508.1a"
+   ],
+   "why": "Attacking taps it (no vigilance), so it cannot then be tapped for mana.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ruby, Daring Tracker"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Ruby, Daring Tracker"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "card": "p0:Ruby, Daring Tracker",
+       "tapped": true
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Ruby, Daring Tracker",
+      "label": "Add"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}
