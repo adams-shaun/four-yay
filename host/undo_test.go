@@ -101,10 +101,14 @@ func waitRewind(t *testing.T, rewound <-chan int) int {
 
 // answerOnce submits one legal intent for the human seat (the same
 // first-Min-options answer action_test's legalIntent builds) and waits for
-// the game to move past it.
-func answerOnce(t *testing.T, r *Registry, id TableID) *decision.Decision {
+// the game to move past it. after must be the Seq of the decision answered
+// immediately before on the same seat (0 for a seat's first ask): inside the
+// stale-ask window between SubmitIntent's acceptance and the match goroutine
+// clearing the slot, a first-200 poll re-serves the just-answered decision,
+// so the initial poll must wait for a Seq past after.
+func answerOnce(t *testing.T, r *Registry, id TableID, after uint64) *decision.Decision {
 	t.Helper()
-	d := waitPending(t, r, id, 1, 0)
+	d := waitNextPending(t, r, id, 1, 0, after)
 	if err := r.SubmitIntent(id, 1, 0, legalIntent(d)); err != nil {
 		t.Fatalf("SubmitIntent(seq %d): %v", d.Seq, err)
 	}
@@ -340,8 +344,8 @@ func TestUndoRewindsToTheRequesterLastDecisionAndReplaysIdentically(t *testing.T
 	rewound := make(chan int, 1)
 	o.OnRewind = func(_ TableID, _ int, n int, _ uint64) error { rewound <- n; return nil }
 	r := undoTable(t, o, "t1")
-	answerOnce(t, r, "t1") // intent 0: the human's first action
-	d2 := answerOnce(t, r, "t1")
+	d1 := answerOnce(t, r, "t1", 0) // intent 0: the human's first action
+	d2 := answerOnce(t, r, "t1", d1.Seq)
 	waitIntents(t, r, "t1", 3) // bot intents land after the human's second action
 
 	m := liveMatch(t, r, "t1")
@@ -467,8 +471,11 @@ func TestRapidDoubleUndoPerformsTwoRewinds(t *testing.T) {
 	r := undoTable(t, o, "t1")
 
 	var seqs []uint64
+	var last uint64
 	for i := 0; i < 3; i++ {
-		seqs = append(seqs, answerOnce(t, r, "t1").Seq)
+		d := answerOnce(t, r, "t1", last)
+		last = d.Seq
+		seqs = append(seqs, d.Seq)
 	}
 	waitIntents(t, r, "t1", 5)
 
@@ -507,8 +514,10 @@ func TestRepeatedUndoWalksBackOneHumanIntentAtATime(t *testing.T) {
 	// Record the decision seqs of the human's first three actions in order;
 	// each undo must land pending on the previous one.
 	var seqs []uint64
+	var last uint64
 	for i := 0; i < 3; i++ {
-		d := answerOnce(t, r, "t1")
+		d := answerOnce(t, r, "t1", last)
+		last = d.Seq
 		seqs = append(seqs, d.Seq)
 	}
 	waitIntents(t, r, "t1", 5) // bots play between/after the human's actions
@@ -559,8 +568,8 @@ func TestUndoTruncatesDiskAndAppendsFromTheNewEnd(t *testing.T) {
 	rewound := make(chan int, 1)
 	o.OnRewind = func(_ TableID, _ int, n int, _ uint64) error { rewound <- n; return nil }
 	r := undoTable(t, o, "t1")
-	answerOnce(t, r, "t1")
-	d2 := answerOnce(t, r, "t1")
+	d1 := answerOnce(t, r, "t1", 0)
+	d2 := answerOnce(t, r, "t1", d1.Seq)
 	waitIntents(t, r, "t1", 3)
 
 	m := liveMatch(t, r, "t1")
@@ -705,8 +714,8 @@ func TestUndoHookFiresOnceAndOnBurstStaysOneIntentPerBurst(t *testing.T) {
 		return nil
 	}
 	r := undoTable(t, o, "t1")
-	answerOnce(t, r, "t1")
-	d2 := answerOnce(t, r, "t1")
+	d1 := answerOnce(t, r, "t1", 0)
+	d2 := answerOnce(t, r, "t1", d1.Seq)
 	waitIntents(t, r, "t1", 3)
 
 	// The expected rewind point is stable: bots may append intents after the
@@ -802,8 +811,8 @@ func TestUndoStreamReceivesRewindThenConsistentFrames(t *testing.T) {
 	if err := r.Subscribe(s, "t1", protocol.ModeFocus); err != nil {
 		t.Fatal(err)
 	}
-	answerOnce(t, r, "t1")
-	answerOnce(t, r, "t1")
+	d1 := answerOnce(t, r, "t1", 0)
+	answerOnce(t, r, "t1", d1.Seq)
 	waitIntents(t, r, "t1", 3)
 
 	// The pre-undo head, read from the live match under its lock. The
