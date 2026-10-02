@@ -1,0 +1,310 @@
+{
+ "card": "Zombify",
+ "family": "spell-conditional",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "4266896af29a",
+ "scenarios": [
+  {
+   "name": "returns-creature-card-to-battlefield",
+   "cr": [
+    "608.2",
+    "110.5b"
+   ],
+   "why": "The target creature card returns from its owner's graveyard to the battlefield untapped under their control.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Zombify"
+     ],
+     "graveyard": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Zombify",
+     "mana": "CCCB",
+     "targets": [
+      "p0:Craw Wurm"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Craw Wurm",
+     "zone": "battlefield",
+     "pt": "6/4",
+     "tapped": false
+    },
+    {
+     "card": "p0:Zombify",
+     "zone": "graveyard"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-graveyard-is-not-a-legal-target",
+   "cr": [
+    "115.1",
+    "601.2c"
+   ],
+   "why": "'From your graveyard': with a creature card only in the opponent's graveyard there is no legal target and the spell cannot be cast.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Zombify"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCB"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Zombify"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "noncreature-card-is-not-a-legal-target",
+   "cr": [
+    "115.1",
+    "601.2c"
+   ],
+   "why": "Only creature cards are legal targets.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Zombify"
+     ],
+     "graveyard": [
+      "Shock",
+      "Forest",
+      "Mind Stone"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCB"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Zombify"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "enter-ability-of-the-returned-creature-triggers",
+   "cr": [
+    "603.6a"
+   ],
+   "why": "The creature enters the battlefield, so its enter ability triggers.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Zombify"
+     ],
+     "graveyard": [
+      "Wall of Omens"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Zombify",
+     "mana": "CCCB",
+     "targets": [
+      "p0:Wall of Omens"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Wall of Omens",
+     "zone": "battlefield"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "target-exiled-in-response-does-nothing",
+   "cr": [
+    "608.2b"
+   ],
+   "why": "The target is exiled from the graveyard in response: Zombify has no legal target, does nothing and is put into the graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Zombify"
+     ],
+     "graveyard": [
+      "Craw Wurm"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Cremate"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Zombify",
+     "mana": "CCCB",
+     "targets": [
+      "p0:Craw Wurm"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Cremate",
+     "mana": "B",
+     "targets": [
+      "p0:Craw Wurm"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Craw Wurm",
+     "zone": "exile"
+    },
+    {
+     "card": "p0:Zombify",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "sorcery-timing",
+   "cr": [
+    "307.1"
+   ],
+   "why": "A sorcery: not castable on the opponent's turn even with a target and the mana.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Zombify"
+     ],
+     "graveyard": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCB"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Zombify"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "needs-black-mana",
+   "cr": [
+    "601.2f",
+    "107.4"
+   ],
+   "why": "Four colourless cannot pay {3}{B}.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Zombify"
+     ],
+     "graveyard": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCC"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Zombify"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

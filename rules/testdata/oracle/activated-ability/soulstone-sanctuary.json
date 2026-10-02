@@ -1,0 +1,543 @@
+{
+ "card": "Soulstone Sanctuary",
+ "family": "activated-ability",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "cc4830084d1b",
+ "scenarios": [
+  {
+   "name": "taps-for-colorless",
+   "cr": [
+    "605.1a"
+   ],
+   "why": "{T}: Add {C}.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Soulstone Sanctuary"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Soulstone Sanctuary",
+     "ability": "Add C"
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": "C"
+     }
+    },
+    {
+     "card": "p0:Soulstone Sanctuary",
+     "types": [
+      "Land"
+     ],
+     "no_types": [
+      "Creature"
+     ],
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "becomes-a-three-three-vigilance-creature-land",
+   "cr": [
+    "205.1b",
+    "602.2"
+   ],
+   "why": "For {4} it becomes a 3/3 creature with vigilance and all creature types, and is still a land.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Soulstone Sanctuary"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Soulstone Sanctuary",
+     "mana": "CCCC",
+     "ability": "becomes"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Soulstone Sanctuary",
+     "pt": "3/3",
+     "keywords": [
+      "Vigilance"
+     ],
+     "types": [
+      "Land",
+      "Creature",
+      "Elf",
+      "Wall",
+      "Goblin",
+      "Zombie"
+     ],
+     "tapped": false
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "not-offered-with-three-mana",
+   "cr": [
+    "602.2b"
+   ],
+   "why": "The cost is {4}.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Soulstone Sanctuary"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCC"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Soulstone Sanctuary",
+      "label": "becomes"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "effect-has-no-duration",
+   "cr": [
+    "611.2a"
+   ],
+   "why": "The effect states no duration, so it does not end at end of turn: on a later turn it is still a 3/3 creature land.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Soulstone Sanctuary"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Soulstone Sanctuary",
+     "mana": "CCCC",
+     "ability": "becomes"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Soulstone Sanctuary",
+     "pt": "3/3",
+     "keywords": [
+      "Vigilance"
+     ],
+     "types": [
+      "Land",
+      "Creature"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "attacks-with-vigilance-for-three",
+   "cr": [
+    "702.20b",
+    "508.1"
+   ],
+   "why": "Animated, it attacks for 3 and vigilance keeps it untapped.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Soulstone Sanctuary"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Soulstone Sanctuary",
+     "mana": "CCCC",
+     "ability": "becomes"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Soulstone Sanctuary"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 17
+     }
+    },
+    {
+     "card": "p0:Soulstone Sanctuary",
+     "tapped": false
+    }
+   ]
+  },
+  {
+   "name": "still-taps-for-mana-while-a-creature",
+   "cr": [
+    "205.1b",
+    "605.1a"
+   ],
+   "why": "It keeps its mana ability once animated.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Soulstone Sanctuary"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Soulstone Sanctuary",
+     "mana": "CCCC",
+     "ability": "becomes"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Soulstone Sanctuary",
+     "ability": "Add C"
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": "C"
+     }
+    },
+    {
+     "card": "p0:Soulstone Sanctuary",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "land-played-this-turn-then-animated-is-summoning-sick",
+   "cr": [
+    "302.6"
+   ],
+   "why": "A land played this turn that becomes a creature has not been under control since the turn began: its {T} mana ability can no longer be activated.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Soulstone Sanctuary"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Soulstone Sanctuary"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Soulstone Sanctuary",
+     "mana": "CCCC",
+     "ability": "becomes"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Soulstone Sanctuary",
+     "pt": "3/3",
+     "types": [
+      "Creature"
+     ]
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Soulstone Sanctuary",
+      "label": "Add C"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "all-creature-types-so-an-elf-lord-pumps-it",
+   "cr": [
+    "205.3m",
+    "604.2"
+   ],
+   "why": "With all creature types it is an Elf: a lord that gives other Elves +1/+1 makes it 4/4.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Soulstone Sanctuary",
+      "Dwynen, Gilt-Leaf Daen"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Soulstone Sanctuary",
+     "mana": "CCCC",
+     "ability": "becomes"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Soulstone Sanctuary",
+     "pt": "4/4"
+    }
+   ]
+  },
+  {
+   "name": "animated-land-dies-to-creature-removal",
+   "cr": [
+    "701.8a",
+    "205.1b"
+   ],
+   "why": "As a creature it can be the target of a destroy-target-creature spell and goes to the graveyard.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Soulstone Sanctuary"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Soulstone Sanctuary",
+     "mana": "CCCC",
+     "ability": "becomes"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p0:Soulstone Sanctuary"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Soulstone Sanctuary",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "activating-twice-is-still-three-three",
+   "cr": [
+    "613.4b"
+   ],
+   "why": "A second activation sets the same base 3/3 again; it does not add.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Soulstone Sanctuary"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Soulstone Sanctuary",
+     "mana": "CCCC",
+     "ability": "becomes"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Soulstone Sanctuary",
+     "mana": "CCCC",
+     "ability": "becomes"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Soulstone Sanctuary",
+     "pt": "3/3"
+    }
+   ]
+  },
+  {
+   "name": "usable-on-opponents-turn",
+   "cr": [
+    "602.5d"
+   ],
+   "why": "No timing restriction: it can be animated on the opponent's turn and can then block.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Soulstone Sanctuary"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Soulstone Sanctuary",
+     "mana": "CCCC",
+     "ability": "becomes"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Grizzly Bears"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p0:Soulstone Sanctuary",
+        "attacker": "p1:Grizzly Bears"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p0:Soulstone Sanctuary",
+       "p1:Grizzly Bears"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Soulstone Sanctuary",
+     "zone": "battlefield",
+     "damage": 2
+    },
+    {
+     "life": {
+      "p0": 20
+     }
+    }
+   ]
+  }
+ ]
+}

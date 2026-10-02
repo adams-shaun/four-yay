@@ -1,0 +1,704 @@
+{
+ "card": "Abyssal Harvester",
+ "family": "activated-ability",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "46397a0f38f8",
+ "scenarios": [
+  {
+   "name": "copies-a-creature-that-died-this-turn",
+   "cr": [
+    "707.2",
+    "707.9b",
+    "602.2"
+   ],
+   "why": "A creature card put into a graveyard this turn is exiled and its controller gets a token copy that is a Nightmare in addition to its other types.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Abyssal Harvester"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Abyssal Harvester",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "exile"
+    },
+    {
+     "card": "p0:Abyssal Harvester",
+     "tapped": true
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Grizzly Bears",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:token:Grizzly Bears",
+     "pt": "2/2",
+     "types": [
+      "Creature",
+      "Bear",
+      "Nightmare"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "card-not-put-there-this-turn-is-not-a-legal-target",
+   "cr": [
+    "115.1",
+    "602.2b"
+   ],
+   "why": "A creature card that was already in the graveyard before this turn is not a legal target: the ability cannot be activated.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Abyssal Harvester"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "B"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Abyssal Harvester"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "own-graveyard-and-discarded-card-count",
+   "cr": [
+    "115.1"
+   ],
+   "why": "'A graveyard' is any graveyard and 'put there this turn' covers a discard: a creature card its controller discarded this turn can be copied.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Centaur Courser"
+     ],
+     "battlefield": [
+      "Abyssal Harvester"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Mind Rot"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Mind Rot",
+     "mana": "CCB",
+     "targets": [
+      "p0"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Abyssal Harvester",
+     "targets": [
+      "p0:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "exile"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Centaur Courser",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:token:Centaur Courser",
+     "pt": "3/3",
+     "types": [
+      "Centaur",
+      "Warrior",
+      "Nightmare"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "noncreature-card-is-not-a-legal-target",
+   "cr": [
+    "115.1"
+   ],
+   "why": "An instant put into the graveyard this turn is not a creature card.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Abyssal Harvester"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Abyssal Harvester"
+     },
+     "want": false
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "second-token-exiles-the-first-nightmare-token",
+   "cr": [
+    "608.2c"
+   ],
+   "why": "Then all other Nightmare tokens its controller controls are exiled: a second activation (from a second Harvester) leaves only the newest token.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock",
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Abyssal Harvester",
+      "Abyssal Harvester"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Abyssal Harvester",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "count": {
+        "seat": 0,
+        "zone": "battlefield",
+        "name": "Grizzly Bears",
+        "token": true
+       },
+       "eq": 1
+      }
+     ]
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Abyssal Harvester#2",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Grizzly Bears",
+      "token": true
+     },
+     "eq": 0
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Centaur Courser",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:Abyssal Harvester",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Abyssal Harvester#2",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "summoning-sick-harvester-cannot-activate",
+   "cr": [
+    "302.6"
+   ],
+   "why": "The cost includes {T}: a Harvester cast this turn cannot activate it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Abyssal Harvester",
+      "Shock"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Abyssal Harvester",
+     "mana": "CBB"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Abyssal Harvester"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "target-exiled-in-response-no-token",
+   "cr": [
+    "608.2b"
+   ],
+   "why": "If the target card leaves the graveyard in response the ability does nothing: no token.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Abyssal Harvester"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Cremate"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Abyssal Harvester",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Cremate",
+     "mana": "B",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "exile"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Grizzly Bears"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "copy-of-a-creature-with-an-enter-ability-triggers-it",
+   "cr": [
+    "707.2",
+    "603.6a"
+   ],
+   "why": "The token is a copy, so it has the copied card's enter ability, which triggers.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Murder"
+     ],
+     "battlefield": [
+      "Abyssal Harvester"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Wall of Omens"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p1:Wall of Omens"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Abyssal Harvester",
+     "targets": [
+      "p1:Wall of Omens"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Wall of Omens",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "card": "p0:token:Wall of Omens",
+     "pt": "0/4",
+     "keywords": [
+      "Defender"
+     ],
+     "types": [
+      "Wall",
+      "Nightmare"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "usable-on-opponents-turn",
+   "cr": [
+    "602.5d"
+   ],
+   "why": "No timing restriction: it works on the opponent's turn for a creature that died that turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Abyssal Harvester"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Abyssal Harvester",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Grizzly Bears",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "card-that-died-last-turn-is-no-longer-a-legal-target",
+   "cr": [
+    "115.1"
+   ],
+   "why": "'This turn' ends with the turn: a creature that died on turn 1 cannot be targeted on the next turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Abyssal Harvester"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Abyssal Harvester"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Abyssal Harvester"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

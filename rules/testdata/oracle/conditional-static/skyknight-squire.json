@@ -1,0 +1,538 @@
+{
+ "card": "Skyknight Squire",
+ "family": "conditional-static",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "65bb5e803dcc",
+ "scenarios": [
+  {
+   "name": "another-creature-enters-one-counter",
+   "cr": [
+    "603.2",
+    "603.6a"
+   ],
+   "why": "Another creature entering under its controller's control puts a +1/+1 counter on it. With one counter it has no flying and is not a Knight.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Memnite"
+     ],
+     "battlefield": [
+      "Skyknight Squire"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Memnite"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Skyknight Squire",
+     "pt": "2/2",
+     "no_keywords": [
+      "Flying"
+     ],
+     "types": [
+      "Cat",
+      "Scout"
+     ],
+     "no_types": [
+      "Knight"
+     ],
+     "counters": {
+      "+1/+1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "two-counters-still-no-flying",
+   "cr": [
+    "604.2"
+   ],
+   "why": "Two counters are short of three.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Memnite",
+      "Ornithopter"
+     ],
+     "battlefield": [
+      "Skyknight Squire"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Memnite"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Ornithopter"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Skyknight Squire",
+     "pt": "3/3",
+     "no_keywords": [
+      "Flying"
+     ],
+     "no_types": [
+      "Knight"
+     ],
+     "counters": {
+      "+1/+1": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "three-counters-flying-and-knight",
+   "cr": [
+    "604.2",
+    "205.1b"
+   ],
+   "why": "With three or more +1/+1 counters it has flying and is a Knight in addition to its other types.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Memnite",
+      "Ornithopter",
+      "Memnite"
+     ],
+     "battlefield": [
+      "Skyknight Squire"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Memnite"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Ornithopter"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Memnite#2"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Skyknight Squire",
+     "pt": "4/4",
+     "keywords": [
+      "Flying"
+     ],
+     "types": [
+      "Creature",
+      "Cat",
+      "Scout",
+      "Knight"
+     ],
+     "counters": {
+      "+1/+1": 3
+     }
+    }
+   ]
+  },
+  {
+   "name": "counters-from-another-source-count",
+   "cr": [
+    "604.2"
+   ],
+   "why": "The static ability counts +1/+1 counters from any source.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Battlegrowth",
+      "Battlegrowth",
+      "Battlegrowth"
+     ],
+     "battlefield": [
+      "Skyknight Squire"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Battlegrowth",
+     "mana": "G",
+     "targets": [
+      "p0:Skyknight Squire"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Battlegrowth#2",
+     "mana": "G",
+     "targets": [
+      "p0:Skyknight Squire"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Battlegrowth#3",
+     "mana": "G",
+     "targets": [
+      "p0:Skyknight Squire"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Skyknight Squire",
+     "pt": "4/4",
+     "keywords": [
+      "Flying"
+     ],
+     "types": [
+      "Knight"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "opponents-creature-entering-does-nothing",
+   "cr": [
+    "603.2",
+    "109.5"
+   ],
+   "why": "Only creatures entering under its controller's control count.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Skyknight Squire"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Ambush Viper"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Ambush Viper",
+     "mana": "CG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Skyknight Squire",
+     "pt": "1/1",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "itself-entering-does-nothing",
+   "cr": [
+    "603.2"
+   ],
+   "why": "'Another': it does not trigger for itself.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Skyknight Squire"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Skyknight Squire",
+     "mana": "CW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Skyknight Squire",
+     "zone": "battlefield",
+     "pt": "1/1",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "two-tokens-entering-two-counters",
+   "cr": [
+    "603.2c",
+    "111.1"
+   ],
+   "why": "Two creature tokens entering at once trigger it twice.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Raise the Alarm"
+     ],
+     "battlefield": [
+      "Skyknight Squire"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Raise the Alarm",
+     "mana": "CW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Skyknight Squire",
+     "pt": "3/3",
+     "counters": {
+      "+1/+1": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "noncreature-permanent-entering-does-nothing",
+   "cr": [
+    "603.2"
+   ],
+   "why": "A noncreature artifact entering is not a creature entering.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Mind Stone"
+     ],
+     "battlefield": [
+      "Skyknight Squire"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Mind Stone",
+     "mana": "CC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Skyknight Squire",
+     "pt": "1/1",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "three-counters-blocks-a-flier",
+   "cr": [
+    "702.9b",
+    "604.2"
+   ],
+   "why": "With flying it can block a creature with flying; without it could not.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Battlegrowth",
+      "Battlegrowth",
+      "Battlegrowth"
+     ],
+     "battlefield": [
+      "Skyknight Squire"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Wind Drake"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Battlegrowth",
+     "mana": "G",
+     "targets": [
+      "p0:Skyknight Squire"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Battlegrowth#2",
+     "mana": "G",
+     "targets": [
+      "p0:Skyknight Squire"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Battlegrowth#3",
+     "mana": "G",
+     "targets": [
+      "p0:Skyknight Squire"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Wind Drake"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    }
+   ],
+   "expect": [
+    {
+     "can_block": {
+      "blocker": "p0:Skyknight Squire",
+      "attacker": "p1:Wind Drake"
+     },
+     "want": true
+    }
+   ]
+  },
+  {
+   "name": "control-without-counters-cannot-block-a-flier",
+   "cr": [
+    "702.9b"
+   ],
+   "why": "Control: with no counters it has no flying: it can block a ground attacker but not a flier.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Skyknight Squire"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Wind Drake",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Wind Drake",
+      "p1:Grizzly Bears"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    }
+   ],
+   "expect": [
+    {
+     "can_block": {
+      "blocker": "p0:Skyknight Squire",
+      "attacker": "p1:Wind Drake"
+     },
+     "want": false
+    },
+    {
+     "can_block": {
+      "blocker": "p0:Skyknight Squire",
+      "attacker": "p1:Grizzly Bears"
+     },
+     "want": true
+    }
+   ]
+  }
+ ]
+}

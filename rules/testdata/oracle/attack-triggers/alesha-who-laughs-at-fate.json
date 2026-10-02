@@ -1,0 +1,597 @@
+{
+ "card": "Alesha, Who Laughs at Fate",
+ "family": "attack-triggers",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "bf260c6df0ba",
+ "scenarios": [
+  {
+   "name": "attack-puts-a-counter-and-deals-three",
+   "cr": [
+    "603.2",
+    "508.1m"
+   ],
+   "why": "Whenever she attacks she gets a +1/+1 counter before damage: unblocked she deals 3. She has first strike.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Alesha, Who Laughs at Fate"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Alesha, Who Laughs at Fate"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Alesha, Who Laughs at Fate",
+       "want": true
+      },
+      {
+       "card": "p0:Alesha, Who Laughs at Fate",
+       "pt": "2/2",
+       "keywords": [
+        "First Strike"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Alesha, Who Laughs at Fate",
+     "pt": "3/3",
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "life": {
+      "p1": 17
+     }
+    }
+   ]
+  },
+  {
+   "name": "first-strike-kills-a-blocker-unharmed",
+   "cr": [
+    "702.7b",
+    "510.4"
+   ],
+   "why": "As an attacking 3/3 first striker blocked by a 2/2 she kills it in the first-strike damage step and takes no damage.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Alesha, Who Laughs at Fate"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Alesha, Who Laughs at Fate"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Grizzly Bears",
+       "p0:Alesha, Who Laughs at Fate"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Alesha, Who Laughs at Fate",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "life": {
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "raid-returns-a-creature-card-with-mana-value-up-to-her-power",
+   "cr": [
+    "603.4",
+    "202.3"
+   ],
+   "why": "She attacked, so at the end step the raid ability returns a mana-value-3 creature card (her power is 3 after the counter) to the battlefield.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Alesha, Who Laughs at Fate"
+     ],
+     "graveyard": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Alesha, Who Laughs at Fate"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Centaur Courser"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "battlefield",
+     "pt": "3/3"
+    }
+   ]
+  },
+  {
+   "name": "mana-value-above-her-power-is-not-a-legal-target",
+   "cr": [
+    "603.3d",
+    "115.1"
+   ],
+   "why": "A mana-value-6 creature card is not a legal target for a power-3 Alesha: the ability is removed from the stack and the card stays in the graveyard.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Alesha, Who Laughs at Fate"
+     ],
+     "graveyard": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Alesha, Who Laughs at Fate"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Craw Wurm",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "no-attack-no-raid",
+   "cr": [
+    "603.4"
+   ],
+   "why": "Intervening if: without an attack this turn the raid ability does not trigger.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Alesha, Who Laughs at Fate"
+     ],
+     "graveyard": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "end",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Alesha, Who Laughs at Fate",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Alesha, Who Laughs at Fate",
+     "pt": "2/2"
+    }
+   ]
+  },
+  {
+   "name": "raid-with-another-attacker-uses-her-printed-power",
+   "cr": [
+    "603.4",
+    "207.2c"
+   ],
+   "why": "Raid is satisfied by any attack. With Alesha at home she has no counter and power 2: a mana-value-2 creature card returns.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Alesha, Who Laughs at Fate",
+      "Savannah Lions"
+     ],
+     "graveyard": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Savannah Lions"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Alesha, Who Laughs at Fate",
+     "pt": "2/2",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "raid-with-another-attacker-mana-value-three-is-too-big",
+   "cr": [
+    "603.3d",
+    "115.1"
+   ],
+   "why": "With power 2 a mana-value-3 creature card is not a legal target.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Alesha, Who Laughs at Fate",
+      "Savannah Lions"
+     ],
+     "graveyard": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Savannah Lions"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "opponents-graveyard-is-not-searched",
+   "cr": [
+    "115.1"
+   ],
+   "why": "'From your graveyard': a creature card in the opponent's graveyard is not a legal target.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Alesha, Who Laughs at Fate"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Alesha, Who Laughs at Fate"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "other-attackers-do-not-get-her-counter",
+   "cr": [
+    "603.2"
+   ],
+   "why": "The counter ability triggers only when Alesha herself attacks.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Alesha, Who Laughs at Fate",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Savannah Lions"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Alesha, Who Laughs at Fate",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Alesha, Who Laughs at Fate",
+     "counters": {
+      "+1/+1": 0
+     }
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "raid-not-on-the-opponents-end-step",
+   "cr": [
+    "603.4",
+    "513.1"
+   ],
+   "why": "The raid ability is tied to her controller's end step: an attack by the opponent on their turn returns nothing.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Alesha, Who Laughs at Fate"
+     ],
+     "graveyard": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Hill Giant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Hill Giant"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": []
+    },
+    {
+     "op": "pass_to",
+     "step": "end",
+     "active": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Alesha, Who Laughs at Fate",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "alesha-killed-in-response-uses-her-last-known-power",
+   "cr": [
+    "113.7a",
+    "608.2h"
+   ],
+   "why": "Alesha is destroyed with the raid ability on the stack: the ability still resolves and its mana-value limit uses her last known power (3), so the mana-value-3 card returns.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Alesha, Who Laughs at Fate"
+     ],
+     "graveyard": [
+      "Centaur Courser"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Alesha, Who Laughs at Fate"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "pass_to",
+     "decision": "priority",
+     "targets": [
+      "p0:Centaur Courser"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p0:Alesha, Who Laughs at Fate"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Alesha, Who Laughs at Fate",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "battlefield"
+    }
+   ]
+  }
+ ]
+}

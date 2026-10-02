@@ -1,0 +1,539 @@
+{
+ "card": "Exemplar of Light",
+ "family": "triggered-ability",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "e23a8bcbdd32",
+ "scenarios": [
+  {
+   "name": "gain-life-counter-then-draw",
+   "cr": [
+    "603.2",
+    "122.6"
+   ],
+   "why": "Gaining life puts a +1/+1 counter on it; putting that counter on it draws a card.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Angel's Mercy"
+     ],
+     "battlefield": [
+      "Exemplar of Light"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Angel's Mercy",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Exemplar of Light",
+     "pt": "4/4",
+     "keywords": [
+      "Flying"
+     ],
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "life": {
+      "p0": 27
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "untouched-three-three-flier",
+   "cr": [
+    "208.1"
+   ],
+   "why": "Control: a 3/3 flier with no counters.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Exemplar of Light"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "W"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Exemplar of Light",
+     "pt": "3/3",
+     "keywords": [
+      "Flying"
+     ],
+     "counters": {
+      "+1/+1": 0
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "one-life-gain-event-is-one-counter",
+   "cr": [
+    "603.2c",
+    "119.3"
+   ],
+   "why": "Gaining 7 life is one life-gain event: one counter, not seven.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Angel's Mercy"
+     ],
+     "battlefield": [
+      "Exemplar of Light"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Angel's Mercy",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Exemplar of Light",
+     "counters": {
+      "+1/+1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "second-gain-same-turn-counter-but-no-second-draw",
+   "cr": [
+    "603.2",
+    "603.4"
+   ],
+   "why": "The draw ability triggers only once each turn: a second life gain adds a second counter but draws nothing more.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Angel's Mercy",
+      "Angel's Mercy"
+     ],
+     "battlefield": [
+      "Exemplar of Light"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Angel's Mercy",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "hand_size": {
+        "p0": 2
+       }
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Angel's Mercy#2",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Exemplar of Light",
+     "pt": "5/5",
+     "counters": {
+      "+1/+1": 2
+     }
+    },
+    {
+     "life": {
+      "p0": 34
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "life-gain-then-another-counter-same-turn-one-draw",
+   "cr": [
+    "603.2",
+    "603.4"
+   ],
+   "why": "The once-each-turn limit covers every way of putting counters on it: after the life-gain counter has drawn a card, a counter from a spell the same turn draws nothing.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Angel's Mercy",
+      "Battlegrowth"
+     ],
+     "battlefield": [
+      "Exemplar of Light"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Angel's Mercy",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "hand_size": {
+        "p0": 2
+       }
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Battlegrowth",
+     "mana": "G",
+     "targets": [
+      "p0:Exemplar of Light"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Exemplar of Light",
+     "pt": "5/5",
+     "counters": {
+      "+1/+1": 2
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "counter-put-by-an-opponent-does-not-draw",
+   "cr": [
+    "603.2",
+    "109.5"
+   ],
+   "why": "'Whenever you put': a counter put on it by a spell an opponent controls is not put there by its controller, so no card is drawn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Exemplar of Light"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Battlegrowth"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Battlegrowth",
+     "mana": "G",
+     "targets": [
+      "p0:Exemplar of Light"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Exemplar of Light",
+     "pt": "4/4",
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 0,
+      "p1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "draws-again-on-a-later-turn",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Once each turn resets with the turn: a gain on the opponent's turn draws again.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Angel's Mercy",
+      "Angel's Mercy"
+     ],
+     "battlefield": [
+      "Exemplar of Light"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Angel's Mercy",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "hand_size": {
+        "p0": 2
+       }
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Angel's Mercy#2",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Exemplar of Light",
+     "pt": "5/5",
+     "counters": {
+      "+1/+1": 2
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "counter-from-another-source-you-control-draws",
+   "cr": [
+    "603.2",
+    "122.6"
+   ],
+   "why": "The draw ability cares about its controller putting +1/+1 counters on it from any source, not only its own first ability.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Battlegrowth"
+     ],
+     "battlefield": [
+      "Exemplar of Light"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Battlegrowth",
+     "mana": "G",
+     "targets": [
+      "p0:Exemplar of Light"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Exemplar of Light",
+     "pt": "4/4",
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "life": {
+      "p0": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponent-gaining-life-does-nothing",
+   "cr": [
+    "603.2",
+    "109.5"
+   ],
+   "why": "Only its controller's life gain counts.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Exemplar of Light"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Angel's Mercy"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Angel's Mercy",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Exemplar of Light",
+     "pt": "3/3",
+     "counters": {
+      "+1/+1": 0
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    },
+    {
+     "life": {
+      "p1": 27
+     }
+    }
+   ]
+  },
+  {
+   "name": "gain-on-the-opponents-turn-counts",
+   "cr": [
+    "603.2"
+   ],
+   "why": "The first ability has no timing limit: gaining life on the opponent's turn adds a counter.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Angel's Mercy"
+     ],
+     "battlefield": [
+      "Exemplar of Light"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Angel's Mercy",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Exemplar of Light",
+     "pt": "4/4",
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,382 @@
+{
+ "card": "Searslicer Goblin",
+ "family": "trigger-condition",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "aa8ce2b8cdd9",
+ "scenarios": [
+  {
+   "name": "attacked-with-it-makes-a-goblin-at-end-step",
+   "cr": [
+    "603.4",
+    "207.2c"
+   ],
+   "why": "Raid: its controller attacked this turn, so at the beginning of their end step a 1/1 Goblin token is created.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Searslicer Goblin"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Searslicer Goblin"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "expect": [
+      {
+       "count": {
+        "seat": 0,
+        "zone": "battlefield",
+        "name": "Goblin",
+        "token": true
+       },
+       "eq": 0
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Goblin",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:token:Goblin",
+     "pt": "1/1",
+     "types": [
+      "Creature",
+      "Goblin"
+     ]
+    },
+    {
+     "life": {
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-attack-no-token",
+   "cr": [
+    "603.4"
+   ],
+   "why": "Intervening if: without an attack this turn the ability does not trigger.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Searslicer Goblin"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "end",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Searslicer Goblin",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Goblin",
+      "token": true
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "attacking-with-another-creature-counts",
+   "cr": [
+    "603.4",
+    "207.2c"
+   ],
+   "why": "Raid asks whether you attacked, not whether this creature did.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Searslicer Goblin",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Goblin",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:Searslicer Goblin",
+     "tapped": false
+    }
+   ]
+  },
+  {
+   "name": "cast-after-combat-still-triggers",
+   "cr": [
+    "603.4",
+    "603.2"
+   ],
+   "why": "Cast in the second main phase after an attack, it is on the battlefield as the end step begins and the condition is true.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Searslicer Goblin"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Searslicer Goblin",
+     "mana": "CR"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Goblin",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "not-on-the-opponents-end-step-and-not-on-a-later-turn-without-attack",
+   "cr": [
+    "603.4",
+    "513.1"
+   ],
+   "why": "Only its controller's end step, and only for that turn's attack: one token on turn 1, none on the opponent's turn, none on its controller's next turn without an attack.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Searslicer Goblin"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Searslicer Goblin"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "count": {
+        "seat": 0,
+        "zone": "battlefield",
+        "name": "Goblin",
+        "token": true
+       },
+       "eq": 1
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "end",
+     "active": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Searslicer Goblin",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "end",
+     "active": "p0",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Searslicer Goblin",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Goblin",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "opponent-attacking-does-not-count",
+   "cr": [
+    "603.4"
+   ],
+   "why": "The opponent attacking on their own turn does not satisfy raid for the Goblin's controller.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Searslicer Goblin"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Grizzly Bears"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": []
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Goblin",
+      "token": true
+     },
+     "eq": 0
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Goblin",
+      "token": true
+     },
+     "eq": 0
+    },
+    {
+     "life": {
+      "p0": 18
+     }
+    }
+   ]
+  }
+ ]
+}
