@@ -395,10 +395,22 @@ type discardBatchEntry struct {
 }
 
 // turnFires is one T: line's trigger count within the turn it last
-// triggered (Engine.triggerTurnFires).
+// triggered (Engine.triggerTurnFires). Stint is the source object's zone
+// stint (objectStintStart) the count belongs to, for the per-object limits
+// (ActivationLimit$, ResolvedLimit$): a source that changed zones is a new
+// object (CR 400.7) whose count starts over. Readers that are not
+// per-object leave it zero.
 type turnFires struct {
-	Turn int32
-	N    int32
+	Turn  int32
+	N     int32
+	Stint int
+}
+
+// gameFires is one T: line's lifetime trigger count for
+// GameActivationLimit$ within one zone stint of its source (see turnFires).
+type gameFires struct {
+	N     int32
+	Stint int
 }
 
 // combatFires is one T: line's once-per-combat latch stamp
@@ -592,7 +604,30 @@ func (e *Engine) triggerGameActivationLimitAllows(t cards.Trigger, key triggerKe
 	if !present {
 		return true
 	}
-	return int(e.triggerGameFires[key]) < limit
+	return int(e.triggerGameFiresNow(key).N) < limit
+}
+
+// triggerGameFiresNow is key's lifetime count for its source's CURRENT
+// object (CR 400.7): an entry from an earlier zone stint reads as zero.
+func (e *Engine) triggerGameFiresNow(key triggerKey) gameFires {
+	stint := e.objectStintStart(key.Source)
+	f := e.triggerGameFires[key]
+	if f.Stint != stint {
+		f = gameFires{Stint: stint}
+	}
+	return f
+}
+
+// triggerTurnFiresNow is key's count this turn for its source's CURRENT
+// object: an entry from an earlier turn or an earlier zone stint (CR 400.7)
+// reads as zero.
+func (e *Engine) triggerTurnFiresNow(key triggerKey) turnFires {
+	stint := e.objectStintStart(key.Source)
+	f := e.triggerTurnFires[key]
+	if f.Turn != e.G.Turn || f.Stint != stint {
+		f = turnFires{Turn: e.G.Turn, Stint: stint}
+	}
+	return f
 }
 
 // reserveTriggerGameActivationLimit commits the lifetime queue count for a
@@ -606,12 +641,14 @@ func (e *Engine) reserveTriggerGameActivationLimit(t cards.Trigger, key triggerK
 		return
 	}
 	if e.triggerGameFires == nil {
-		e.triggerGameFires = map[triggerKey]int32{}
+		e.triggerGameFires = map[triggerKey]gameFires{}
 	}
-	if int(e.triggerGameFires[key]) >= limit {
+	f := e.triggerGameFiresNow(key)
+	if int(f.N) >= limit {
 		return
 	}
-	e.triggerGameFires[key]++
+	f.N++
+	e.triggerGameFires[key] = f
 }
 
 // triggerTurnLimitFor parses a trigger's effective per-turn limit: the
@@ -654,11 +691,7 @@ func (e *Engine) triggerActivationLimitAllows(t cards.Trigger, key triggerKey) b
 	if !present {
 		return true
 	}
-	f := e.triggerTurnFires[key]
-	if f.Turn != e.G.Turn {
-		f = turnFires{Turn: e.G.Turn}
-	}
-	return int(f.N) < limit
+	return int(e.triggerTurnFiresNow(key).N) < limit
 }
 
 // reserveTriggerActivationLimit commits the per-turn queue count for a
@@ -673,10 +706,7 @@ func (e *Engine) reserveTriggerActivationLimit(t cards.Trigger, key triggerKey) 
 	if e.triggerTurnFires == nil {
 		e.triggerTurnFires = map[triggerKey]turnFires{}
 	}
-	f := e.triggerTurnFires[key]
-	if f.Turn != e.G.Turn {
-		f = turnFires{Turn: e.G.Turn}
-	}
+	f := e.triggerTurnFiresNow(key)
 	if int(f.N) >= limit {
 		return
 	}

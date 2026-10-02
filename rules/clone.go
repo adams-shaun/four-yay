@@ -691,7 +691,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		}
 	}
 	if e.triggerGameFires != nil {
-		c.triggerGameFires = make(map[triggerKey]int32, len(e.triggerGameFires))
+		c.triggerGameFires = make(map[triggerKey]gameFires, len(e.triggerGameFires))
 		for k, v := range e.triggerGameFires {
 			c.triggerGameFires[k] = v
 		}
