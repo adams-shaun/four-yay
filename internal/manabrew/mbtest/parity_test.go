@@ -1,3 +1,5 @@
+//go:build manabrew
+
 package mbtest
 
 // MBX-4's in-process leg: the ManaBrew wire is a lossless transport for a
