@@ -1,0 +1,369 @@
+{
+ "card": "Vampire Gourmand",
+ "family": "attack-triggers",
+ "author": "fdn-audit-2 (Oracle + CR only)",
+ "oracle_sha": "33cbb1194384",
+ "scenarios": [
+  {
+   "name": "sacrifice-draws-and-makes-it-unblockable",
+   "cr": [
+    "603.2",
+    "701.21a",
+    "509.1b"
+   ],
+   "why": "On attack its controller may sacrifice another creature; doing so draws a card and the Gourmand can't be blocked this turn, while another attacker still can be.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Vampire Gourmand",
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Vampire Gourmand",
+      "p0:Savannah Lions"
+     ],
+     "defender": "p1",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Sacrifice another creature"
+       ]
+      },
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Sacrifice another creature"
+       ]
+      },
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p1:Centaur Courser",
+        "attacker": "p0:Vampire Gourmand"
+       },
+       "want": false
+      },
+      {
+       "can_block": {
+        "blocker": "p1:Centaur Courser",
+        "attacker": "p0:Savannah Lions"
+       },
+       "want": true
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "card": "p0:Vampire Gourmand",
+     "zone": "battlefield",
+     "pt": "2/2"
+    }
+   ]
+  },
+  {
+   "name": "declining-keeps-everything",
+   "cr": [
+    "603.5"
+   ],
+   "why": "'You may': declining sacrifices nothing, draws nothing, and the Gourmand can be blocked.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Vampire Gourmand",
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Vampire Gourmand",
+      "p0:Savannah Lions"
+     ],
+     "defender": "p1",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Do not pay"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Do not pay"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p1:Centaur Courser",
+        "attacker": "p0:Vampire Gourmand"
+       },
+       "want": true
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-other-creature-nothing-happens",
+   "cr": [
+    "608.2c",
+    "701.21a"
+   ],
+   "why": "The sacrifice must be another creature: alone, the Gourmand cannot sacrifice itself, so no card is drawn and it deals its 2 damage normally.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Vampire Gourmand"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Vampire Gourmand"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Vampire Gourmand",
+     "zone": "battlefield"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    },
+    {
+     "life": {
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "sacrificed-gourmand-attack-connects",
+   "cr": [
+    "510.1"
+   ],
+   "why": "After the sacrifice the unblockable 2/2 deals 2 combat damage to the defending player; exactly one card is drawn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Vampire Gourmand",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Vampire Gourmand"
+     ],
+     "defender": "p1",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Sacrifice another creature"
+       ]
+      },
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Sacrifice another creature"
+       ]
+      },
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 18
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "graveyard_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "another-creature-attacking-does-not-trigger",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Only the Gourmand's own attack triggers it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Vampire Gourmand",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Vampire Gourmand",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "life": {
+      "p1": 18
+     }
+    }
+   ]
+  }
+ ]
+}

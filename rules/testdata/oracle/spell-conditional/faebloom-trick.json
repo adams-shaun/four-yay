@@ -1,0 +1,400 @@
+{
+ "card": "Faebloom Trick",
+ "family": "spell-conditional",
+ "author": "fdn-audit-2 (Oracle + CR only)",
+ "oracle_sha": "5e3ab36048c7",
+ "scenarios": [
+  {
+   "name": "two-flying-faeries-and-tap",
+   "cr": [
+    "603.12",
+    "111.1"
+   ],
+   "why": "Creates two 1/1 Faerie tokens with flying; the reflexive trigger then taps the chosen opposing creature.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Faebloom Trick"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Faebloom Trick",
+     "mana": "CCU",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Faerie",
+      "token": true
+     },
+     "eq": 2
+    },
+    {
+     "card": "p0:token:Faerie",
+     "pt": "1/1",
+     "keywords": [
+      "Flying"
+     ],
+     "types": [
+      "Creature",
+      "Faerie"
+     ]
+    },
+    {
+     "card": "p0:token:Faerie#2",
+     "pt": "1/1",
+     "keywords": [
+      "Flying"
+     ]
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "battlefield",
+     "tapped": true
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield",
+     "tapped": false
+    },
+    {
+     "card": "p0:Faebloom Trick",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Faerie"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "tap-is-a-reflexive-trigger-after-the-tokens",
+   "cr": [
+    "603.12",
+    "601.2c"
+   ],
+   "why": "'When you do' is a reflexive trigger: the spell itself has no target; after it resolves and the tokens exist, the trigger goes on the stack with its target, and only its resolution taps the creature.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Faebloom Trick"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Faebloom Trick",
+     "mana": "CCU"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "pass_to",
+     "decision": "priority",
+     "targets": [
+      "p1:Centaur Courser"
+     ],
+     "expect": [
+      {
+       "count": {
+        "seat": 0,
+        "zone": "battlefield",
+        "name": "Faerie",
+        "token": true
+       },
+       "eq": 2
+      },
+      {
+       "stack_size": 1
+      },
+      {
+       "card": "p1:Centaur Courser",
+       "tapped": false
+      },
+      {
+       "card": "p0:Faebloom Trick",
+       "zone": "graveyard"
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "battlefield",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "castable-with-no-opposing-creature",
+   "cr": [
+    "603.12",
+    "603.3d"
+   ],
+   "why": "The spell has no targets, so it can be cast with no creature an opponent controls: the tokens are made and the reflexive trigger, lacking a legal target, is removed.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Faebloom Trick"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Faebloom Trick",
+     "mana": "CCU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Faerie",
+      "token": true
+     },
+     "eq": 2
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "tapped": false
+    },
+    {
+     "card": "p0:Faebloom Trick",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "tap-targets-so-ward-triggers",
+   "cr": [
+    "603.12",
+    "702.21a"
+   ],
+   "why": "The reflexive trigger targets: aimed at an opposing ward {2} creature it triggers ward and, unpaid, is countered - the creature stays untapped (the tokens are still created).",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Faebloom Trick"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Tolarian Terror"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Faebloom Trick",
+     "mana": "CCU",
+     "targets": [
+      "p1:Tolarian Terror"
+     ]
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Tolarian Terror"
+     ],
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "no"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Tolarian Terror",
+     "zone": "battlefield",
+     "tapped": false
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Faerie",
+      "token": true
+     },
+     "eq": 2
+    }
+   ]
+  },
+  {
+   "name": "tap-cannot-target-a-hexproof-creature",
+   "cr": [
+    "603.12",
+    "702.11b"
+   ],
+   "why": "A hexproof creature cannot be the target of an opponent's ability: as the only opposing creature it is not tapped.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Faebloom Trick"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Gladecover Scout"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Faebloom Trick",
+     "mana": "CCU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Gladecover Scout",
+     "zone": "battlefield",
+     "tapped": false
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Faerie",
+      "token": true
+     },
+     "eq": 2
+    }
+   ]
+  },
+  {
+   "name": "instant-taps-an-attacker-before-attacks",
+   "cr": [
+    "304.1",
+    "508.1a"
+   ],
+   "why": "Cast in the opponent's beginning of combat it taps their creature, which then cannot be declared as an attacker.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Faebloom Trick"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "begin-combat",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Faebloom Trick",
+     "mana": "CCU",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Centaur Courser",
+     "tapped": true
+    },
+    {
+     "life": {
+      "p0": 20
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Faerie",
+      "token": true
+     },
+     "eq": 2
+    }
+   ]
+  }
+ ]
+}

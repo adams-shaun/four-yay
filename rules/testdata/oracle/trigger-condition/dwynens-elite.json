@@ -1,0 +1,317 @@
+{
+ "card": "Dwynen's Elite",
+ "family": "trigger-condition",
+ "author": "fdn-audit-2 (Oracle + CR only)",
+ "oracle_sha": "b79976c9290e",
+ "scenarios": [
+  {
+   "name": "another-elf-makes-an-elf-warrior-token",
+   "cr": [
+    "603.4",
+    "111.1"
+   ],
+   "why": "Entering while its controller controls another Elf, it creates one 1/1 Elf Warrior creature token.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Dwynen's Elite"
+     ],
+     "battlefield": [
+      "Llanowar Elves"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Dwynen's Elite",
+     "mana": "CG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Dwynen's Elite",
+     "zone": "battlefield",
+     "pt": "2/2"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Elf Warrior",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:token:Elf Warrior",
+     "pt": "1/1",
+     "types": [
+      "Creature",
+      "Elf",
+      "Warrior"
+     ]
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Elf Warrior"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "no-other-elf-no-token",
+   "cr": [
+    "603.4"
+   ],
+   "why": "The Elite is itself an Elf but the condition needs another one: alone (with a non-Elf creature) it makes no token and does not even trigger.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Dwynen's Elite"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Dwynen's Elite",
+     "mana": "CG"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "pass_to",
+     "decision": "priority",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Dwynen's Elite",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Dwynen's Elite",
+     "zone": "battlefield",
+     "pt": "2/2"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Elf Warrior"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "opponents-elf-does-not-count",
+   "cr": [
+    "603.4"
+   ],
+   "why": "The other Elf must be controlled by the Elite's controller.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Dwynen's Elite"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Llanowar Elves"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Dwynen's Elite",
+     "mana": "CG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Elf Warrior"
+     },
+     "eq": 0
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Elf Warrior"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "condition-rechecked-on-resolution",
+   "cr": [
+    "603.4"
+   ],
+   "why": "Intervening 'if': the trigger goes on the stack with the other Elf present, but if that Elf is gone when it resolves no token is created.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Dwynen's Elite",
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Llanowar Elves"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Dwynen's Elite",
+     "mana": "CG"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "pass_to",
+     "decision": "priority",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Dwynen's Elite",
+       "want": true
+      },
+      {
+       "count": {
+        "seat": 0,
+        "zone": "battlefield",
+        "name": "Elf Warrior"
+       },
+       "eq": 0
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Llanowar Elves"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Llanowar Elves",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Elf Warrior"
+     },
+     "eq": 0
+    },
+    {
+     "card": "p0:Dwynen's Elite",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "second-elite-sees-the-first",
+   "cr": [
+    "603.4"
+   ],
+   "why": "A second Elite sees the first (an Elf Warrior) and makes a token; the first, having entered alone, made none.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Dwynen's Elite",
+      "Dwynen's Elite"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Dwynen's Elite",
+     "mana": "CG"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "count": {
+        "seat": 0,
+        "zone": "battlefield",
+        "name": "Elf Warrior"
+       },
+       "eq": 0
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Dwynen's Elite#2",
+     "mana": "CG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Elf Warrior",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  }
+ ]
+}

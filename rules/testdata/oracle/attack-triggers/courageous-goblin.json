@@ -1,0 +1,421 @@
+{
+ "card": "Courageous Goblin",
+ "family": "attack-triggers",
+ "author": "fdn-audit-2 (Oracle + CR only)",
+ "oracle_sha": "4d4b1e30f41b",
+ "scenarios": [
+  {
+   "name": "attacks-with-power-four-ally-gets-pump-and-menace",
+   "cr": [
+    "508.1m",
+    "603.2",
+    "514.2"
+   ],
+   "why": "Attacking while its controller controls a 6/4, the Goblin triggers: +1/+0 and menace until end of turn; both wear off afterwards.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Courageous Goblin",
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Courageous Goblin"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Courageous Goblin",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Courageous Goblin",
+       "zone": "battlefield",
+       "pt": "3/2",
+       "keywords": [
+        "Menace"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "expect": [
+      {
+       "life": {
+        "p1": 17
+       }
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Courageous Goblin",
+     "zone": "battlefield",
+     "pt": "2/2",
+     "no_keywords": [
+      "Menace"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "attacks-without-power-four-no-trigger",
+   "cr": [
+    "603.2",
+    "603.4"
+   ],
+   "why": "With no creature of power 4 or greater under its controller's control the attack does not trigger the ability.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Courageous Goblin",
+      "Grizzly Bears",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Courageous Goblin"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Courageous Goblin",
+       "want": false
+      },
+      {
+       "card": "p0:Courageous Goblin",
+       "pt": "2/2",
+       "no_keywords": [
+        "Menace"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-big-creature-does-not-count",
+   "cr": [
+    "603.2"
+   ],
+   "why": "The power-4 creature must be controlled by the Goblin's controller; an opponent's 6/4 does not enable the trigger.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Courageous Goblin"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Courageous Goblin"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Courageous Goblin",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Courageous Goblin",
+     "pt": "2/2",
+     "no_keywords": [
+      "Menace"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "goblin-itself-at-power-four-counts",
+   "cr": [
+    "603.2",
+    "603.4"
+   ],
+   "why": "The Goblin is itself a creature you control: pumped to 5/5 before attacking it satisfies the condition and gets +1/+0 and menace.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Giant Growth"
+     ],
+     "battlefield": [
+      "Courageous Goblin"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Giant Growth",
+     "mana": "G",
+     "targets": [
+      "p0:Courageous Goblin"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Courageous Goblin"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Courageous Goblin",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Courageous Goblin",
+     "zone": "battlefield",
+     "pt": "6/5",
+     "keywords": [
+      "Menace"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "another-creature-attacking-does-not-trigger",
+   "cr": [
+    "603.2"
+   ],
+   "why": "The ability triggers only when the Goblin itself attacks.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Courageous Goblin",
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Craw Wurm"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Courageous Goblin",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Courageous Goblin",
+     "pt": "2/2",
+     "no_keywords": [
+      "Menace"
+     ],
+     "tapped": false
+    },
+    {
+     "life": {
+      "p1": 14
+     }
+    }
+   ]
+  },
+  {
+   "name": "menace-lone-creature-cannot-block",
+   "cr": [
+    "702.111b",
+    "509.1b"
+   ],
+   "why": "With menace it can't be blocked except by two or more creatures: a defender with a single creature has no legal block of the Goblin, while a second, menace-less attacker can be blocked.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Courageous Goblin",
+      "Craw Wurm",
+      "Savannah Lions"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Courageous Goblin",
+      "p0:Savannah Lions"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p1:Grizzly Bears",
+        "attacker": "p0:Courageous Goblin"
+       },
+       "want": false
+      },
+      {
+       "can_block": {
+        "blocker": "p1:Grizzly Bears",
+        "attacker": "p0:Savannah Lions"
+       },
+       "want": true
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Courageous Goblin",
+     "zone": "battlefield",
+     "pt": "3/2",
+     "keywords": [
+      "Menace"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "menace-two-blockers-can-block",
+   "cr": [
+    "702.111b",
+    "509.1b"
+   ],
+   "why": "With menace the Goblin can be blocked by two creatures together; the 3/2 Goblin takes 4 damage and dies.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Courageous Goblin",
+      "Craw Wurm"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Courageous Goblin"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Grizzly Bears",
+       "p0:Courageous Goblin"
+      ],
+      [
+       "p1:Savannah Lions",
+       "p0:Courageous Goblin"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Courageous Goblin",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p1": 20
+     }
+    }
+   ]
+  }
+ ]
+}

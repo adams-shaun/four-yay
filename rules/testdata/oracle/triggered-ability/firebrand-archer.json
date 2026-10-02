@@ -1,0 +1,318 @@
+{
+ "card": "Firebrand Archer",
+ "family": "triggered-ability",
+ "author": "fdn-audit-2 (Oracle + CR only)",
+ "oracle_sha": "8c6e8789c2ef",
+ "scenarios": [
+  {
+   "name": "noncreature-spell-pings-the-opponent",
+   "cr": [
+    "603.2",
+    "601.2i"
+   ],
+   "why": "Casting a noncreature spell triggers it: 1 damage to each opponent, resolving before the spell.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Giant Growth"
+     ],
+     "battlefield": [
+      "Firebrand Archer"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Giant Growth",
+     "mana": "G",
+     "targets": [
+      "p0:Firebrand Archer"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Firebrand Archer",
+       "want": true
+      },
+      {
+       "life": {
+        "p1": 20
+       }
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 19
+     }
+    },
+    {
+     "card": "p0:Firebrand Archer",
+     "pt": "5/4"
+    }
+   ]
+  },
+  {
+   "name": "creature-spell-does-not-trigger",
+   "cr": [
+    "603.2"
+   ],
+   "why": "A creature spell is not a noncreature spell.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Grizzly Bears"
+     ],
+     "battlefield": [
+      "Firebrand Archer"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "CG",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Firebrand Archer",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-spell-does-not-trigger",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Only its controller's spells trigger it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Firebrand Archer"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Giant Growth"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Giant Growth",
+     "mana": "G",
+     "targets": [
+      "p1:Grizzly Bears"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Firebrand Archer",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "triggers-on-cast-even-if-the-spell-is-countered",
+   "cr": [
+    "603.2",
+    "701.6a"
+   ],
+   "why": "The trigger is independent of the spell: a countered spell still pinged the opponent.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock"
+     ],
+     "battlefield": [
+      "Firebrand Archer"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Cancel"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Cancel",
+     "mana": "CUU",
+     "targets": [
+      "p0:Shock"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 19,
+      "p0": 20
+     }
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "each-spell-and-each-archer-triggers",
+   "cr": [
+    "603.2c"
+   ],
+   "why": "Two Archers each trigger for one spell: 2 damage; a second spell makes it 4, plus 3 from the Bolt.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Giant Growth",
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Firebrand Archer",
+      "Firebrand Archer"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Giant Growth",
+     "mana": "G",
+     "targets": [
+      "p0:Firebrand Archer"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "life": {
+        "p1": 18
+       }
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 13,
+      "p0": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "its-own-cast-does-not-trigger",
+   "cr": [
+    "603.2",
+    "603.6a"
+   ],
+   "why": "The Archer is a creature spell and is not on the battlefield while being cast.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Firebrand Archer"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Firebrand Archer",
+     "mana": "CR"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Firebrand Archer",
+     "zone": "battlefield",
+     "pt": "2/1"
+    },
+    {
+     "life": {
+      "p1": 20
+     }
+    }
+   ]
+  }
+ ]
+}

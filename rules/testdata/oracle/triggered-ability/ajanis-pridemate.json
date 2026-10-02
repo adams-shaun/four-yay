@@ -1,0 +1,307 @@
+{
+ "card": "Ajani's Pridemate",
+ "family": "triggered-ability",
+ "author": "fdn-audit-2 (Oracle + CR only)",
+ "oracle_sha": "9d089dcf86c1",
+ "scenarios": [
+  {
+   "name": "one-life-gain-event-one-counter",
+   "cr": [
+    "603.2",
+    "119.9"
+   ],
+   "why": "Gaining 7 life at once is one life-gain event: one +1/+1 counter, not seven.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Angel's Mercy"
+     ],
+     "battlefield": [
+      "Ajani's Pridemate"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Angel's Mercy",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Ajani's Pridemate",
+     "zone": "battlefield",
+     "pt": "3/3",
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "life": {
+      "p0": 27
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-life-gain-does-not-trigger",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Only its controller's life gain counts.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ajani's Pridemate"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Angel's Mercy"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Angel's Mercy",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Ajani's Pridemate",
+     "zone": "battlefield",
+     "pt": "2/2",
+     "counters": {
+      "+1/+1": 0
+     }
+    },
+    {
+     "life": {
+      "p1": 27
+     }
+    }
+   ]
+  },
+  {
+   "name": "two-gains-two-counters-and-they-stay",
+   "cr": [
+    "603.2",
+    "122.1"
+   ],
+   "why": "Each separate gain triggers; counters remain on later turns.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Angel's Mercy",
+      "Angel's Mercy"
+     ],
+     "battlefield": [
+      "Ajani's Pridemate"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Angel's Mercy",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Angel's Mercy#2",
+     "mana": "CCWW"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Ajani's Pridemate",
+     "zone": "battlefield",
+     "pt": "4/4",
+     "counters": {
+      "+1/+1": 2
+     }
+    },
+    {
+     "life": {
+      "p0": 34
+     }
+    }
+   ]
+  },
+  {
+   "name": "lifelink-combat-damage-triggers",
+   "cr": [
+    "702.15b",
+    "510.2"
+   ],
+   "why": "Lifelink life gain from combat damage triggers it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ajani's Pridemate",
+      "Ajani's Sunstriker"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Ajani's Sunstriker"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 22,
+      "p1": 18
+     }
+    },
+    {
+     "card": "p0:Ajani's Pridemate",
+     "zone": "battlefield",
+     "pt": "3/3",
+     "counters": {
+      "+1/+1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "two-lifelinkers-at-once-trigger-twice",
+   "cr": [
+    "702.15e",
+    "119.9"
+   ],
+   "why": "Two lifelink creatures dealing combat damage simultaneously are two separate life-gain events: two counters.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ajani's Pridemate",
+      "Ajani's Sunstriker",
+      "Healer's Hawk"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Ajani's Sunstriker",
+      "p0:Healer's Hawk"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 23,
+      "p1": 17
+     }
+    },
+    {
+     "card": "p0:Ajani's Pridemate",
+     "zone": "battlefield",
+     "pt": "4/4",
+     "counters": {
+      "+1/+1": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "losing-life-does-not-trigger",
+   "cr": [
+    "603.2",
+    "119.3"
+   ],
+   "why": "Damage and life loss are not life gain.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ajani's Pridemate"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Ajani's Pridemate",
+     "zone": "battlefield",
+     "pt": "2/2",
+     "counters": {
+      "+1/+1": 0
+     }
+    },
+    {
+     "life": {
+      "p0": 17
+     }
+    }
+   ]
+  }
+ ]
+}

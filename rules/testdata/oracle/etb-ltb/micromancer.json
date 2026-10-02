@@ -1,0 +1,302 @@
+{
+ "card": "Micromancer",
+ "family": "etb-ltb",
+ "author": "fdn-audit-2 (Oracle + CR only)",
+ "oracle_sha": "3fa7e91dd650",
+ "scenarios": [
+  {
+   "name": "fetches-a-one-mana-instant",
+   "cr": [
+    "701.23a",
+    "202.3"
+   ],
+   "why": "Entering, its controller may search for an instant or sorcery card with mana value 1 and put it into their hand.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Micromancer"
+     ],
+     "library": [
+      "Shock",
+      "Doom Blade"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Micromancer",
+     "mana": "CCCU"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "trigger_optional",
+       "pick": [
+        "yes"
+       ]
+      },
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Shock"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Micromancer",
+     "zone": "battlefield",
+     "pt": "3/3"
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Doom Blade",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "fetches-a-one-mana-sorcery",
+   "cr": [
+    "701.23a"
+   ],
+   "why": "A sorcery with mana value 1 is equally findable.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Micromancer"
+     ],
+     "library": [
+      "Raise Dead"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Micromancer",
+     "mana": "CCCU"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "trigger_optional",
+       "pick": [
+        "yes"
+       ]
+      },
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Raise Dead"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Raise Dead",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "may-decline-the-search",
+   "cr": [
+    "603.5"
+   ],
+   "why": "'You may': declining leaves the library untouched.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Micromancer"
+     ],
+     "library": [
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Micromancer",
+     "mana": "CCCU"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "no"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Micromancer",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "only-mana-value-one-instants-and-sorceries",
+   "cr": [
+    "701.23b",
+    "202.3"
+   ],
+   "why": "A mana value 2 instant, a mana value 1 creature and a mana value 3 sorcery are not legal finds: nothing reaches the hand.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Micromancer"
+     ],
+     "library": [
+      "Doom Blade",
+      "Savannah Lions",
+      "Day of Judgment",
+      "Cancel"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Micromancer",
+     "mana": "CCCU"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "trigger_optional",
+       "pick": [
+        "yes"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Doom Blade",
+     "zone": "library"
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "library"
+    },
+    {
+     "card": "p0:Day of Judgment",
+     "zone": "library"
+    },
+    {
+     "card": "p0:Cancel",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "finds-exactly-one-card",
+   "cr": [
+    "701.23a"
+   ],
+   "why": "'An instant or sorcery card': only one card is taken even when several qualify.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Micromancer"
+     ],
+     "library": [
+      "Shock",
+      "Lightning Bolt",
+      "Giant Growth"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Micromancer",
+     "mana": "CCCU"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "trigger_optional",
+       "pick": [
+        "yes"
+       ]
+      },
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Lightning Bolt"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "library"
+    },
+    {
+     "card": "p0:Giant Growth",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  }
+ ]
+}

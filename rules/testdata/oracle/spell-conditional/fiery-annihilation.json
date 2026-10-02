@@ -1,0 +1,531 @@
+{
+ "card": "Fiery Annihilation",
+ "family": "spell-conditional",
+ "author": "fdn-audit-2 (Oracle + CR only)",
+ "oracle_sha": "c6195ea7721b",
+ "scenarios": [
+  {
+   "name": "five-damage-kills-and-exiles",
+   "cr": [
+    "614.1a",
+    "120.3"
+   ],
+   "why": "5 damage is lethal to a 3/3, and because it would die this turn it is exiled instead of going to the graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Fiery Annihilation"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Fiery Annihilation",
+     "mana": "CCR",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "exile"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "card": "p0:Fiery Annihilation",
+     "zone": "graveyard"
+    },
+    {
+     "graveyard_size": {
+      "p1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "six-toughness-creature-survives",
+   "cr": [
+    "120.3"
+   ],
+   "why": "A 6/6 takes 5 damage and survives; nothing is exiled.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Fiery Annihilation"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Colossal Dreadmaw"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Fiery Annihilation",
+     "mana": "CCR",
+     "targets": [
+      "p1:Colossal Dreadmaw"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Colossal Dreadmaw",
+     "zone": "battlefield",
+     "damage": 5
+    }
+   ]
+  },
+  {
+   "name": "survivor-dying-later-this-turn-is-exiled",
+   "cr": [
+    "614.1a",
+    "611.2a"
+   ],
+   "why": "The replacement lasts the whole turn: the damaged 6/6 killed later the same turn by a second source is exiled instead of dying.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Fiery Annihilation",
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Colossal Dreadmaw"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Fiery Annihilation",
+     "mana": "CCR",
+     "targets": [
+      "p1:Colossal Dreadmaw"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1:Colossal Dreadmaw"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Colossal Dreadmaw",
+     "zone": "exile"
+    },
+    {
+     "graveyard_size": {
+      "p1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "replacement-ends-with-the-turn",
+   "cr": [
+    "611.2a",
+    "514.2"
+   ],
+   "why": "'This turn' ends at cleanup: the same creature destroyed on the next turn goes to the graveyard normally.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Fiery Annihilation",
+      "Murder"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Colossal Dreadmaw"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Fiery Annihilation",
+     "mana": "CCR",
+     "targets": [
+      "p1:Colossal Dreadmaw"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p1:Colossal Dreadmaw"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Colossal Dreadmaw",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "attached-equipment-is-exiled-too",
+   "cr": [
+    "601.2c",
+    "115.1"
+   ],
+   "why": "The second target is an Equipment attached to the damaged creature: it is exiled, and the 4/4 equipped creature, dealt 5, is exiled instead of dying.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Fiery Annihilation"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser",
+      "Short Sword"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "activate",
+     "seat": 1,
+     "card": "p1:Short Sword",
+     "mana": "C",
+     "ability": "equip",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p1:Centaur Courser",
+       "pt": "4/4"
+      }
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Fiery Annihilation",
+     "mana": "CCR",
+     "targets": [
+      "p1:Centaur Courser",
+      "p1:Short Sword"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "exile"
+    },
+    {
+     "card": "p1:Short Sword",
+     "zone": "exile"
+    }
+   ]
+  },
+  {
+   "name": "equipment-on-a-survivor-is-still-exiled",
+   "cr": [
+    "608.2c"
+   ],
+   "why": "Exiling the Equipment does not depend on the creature dying: a 7/7 equipped Dreadmaw survives 5 damage (as a 6/6 once the Sword is gone) and the Sword is exiled.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Fiery Annihilation"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Colossal Dreadmaw",
+      "Short Sword"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "activate",
+     "seat": 1,
+     "card": "p1:Short Sword",
+     "mana": "C",
+     "ability": "equip",
+     "targets": [
+      "p1:Colossal Dreadmaw"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Fiery Annihilation",
+     "mana": "CCR",
+     "targets": [
+      "p1:Colossal Dreadmaw",
+      "p1:Short Sword"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Colossal Dreadmaw",
+     "zone": "battlefield",
+     "pt": "6/6",
+     "damage": 5
+    },
+    {
+     "card": "p1:Short Sword",
+     "zone": "exile"
+    }
+   ]
+  },
+  {
+   "name": "up-to-one-equipment-may-be-zero",
+   "cr": [
+    "601.2c",
+    "115.1"
+   ],
+   "why": "'Up to one' lets the caster choose no Equipment: the creature is exiled and its Equipment stays on the battlefield.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Fiery Annihilation"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser",
+      "Short Sword"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "activate",
+     "seat": 1,
+     "card": "p1:Short Sword",
+     "mana": "C",
+     "ability": "equip",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Fiery Annihilation",
+     "mana": "CCR",
+     "targets": [
+      "p1:Centaur Courser"
+     ],
+     "answers": [
+      {
+       "kind": "target",
+       "pick": []
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "target",
+       "pick": []
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "exile"
+    },
+    {
+     "card": "p1:Short Sword",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "equipment-target-is-chosen-on-cast",
+   "cr": [
+    "601.2c",
+    "608.2b"
+   ],
+   "why": "Both targets are announced on cast. With two Equipment attached, the one named on cast (the second attached) is the one exiled.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Fiery Annihilation"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser",
+      "Short Sword",
+      "Bonesplitter"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "activate",
+     "seat": 1,
+     "card": "p1:Short Sword",
+     "mana": "C",
+     "ability": "equip",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 1,
+     "card": "p1:Bonesplitter",
+     "mana": "C",
+     "ability": "equip",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Fiery Annihilation",
+     "mana": "CCR",
+     "targets": [
+      "p1:Centaur Courser",
+      "p1:Bonesplitter"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Bonesplitter",
+     "zone": "exile"
+    },
+    {
+     "card": "p1:Short Sword",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "exile"
+    }
+   ]
+  }
+ ]
+}

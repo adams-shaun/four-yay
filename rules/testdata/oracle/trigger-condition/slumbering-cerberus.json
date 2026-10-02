@@ -1,0 +1,422 @@
+{
+ "card": "Slumbering Cerberus",
+ "family": "trigger-condition",
+ "author": "fdn-audit-2 (Oracle + CR only)",
+ "oracle_sha": "cdce8257606e",
+ "scenarios": [
+  {
+   "name": "does-not-untap-in-your-untap-step",
+   "cr": [
+    "502.3",
+    "603.4"
+   ],
+   "why": "Tapped from attacking, with no creature death, it stays tapped through its controller's next untap step while another attacker untaps.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Slumbering Cerberus",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Slumbering Cerberus",
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1",
+     "expect": [
+      {
+       "card": "p0:Slumbering Cerberus",
+       "tapped": true
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Slumbering Cerberus",
+     "zone": "battlefield",
+     "pt": "4/2",
+     "tapped": true
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "tapped": false
+    },
+    {
+     "life": {
+      "p1": 14
+     }
+    }
+   ]
+  },
+  {
+   "name": "morbid-untaps-at-your-end-step",
+   "cr": [
+    "603.4",
+    "513.1"
+   ],
+   "why": "A creature died this turn: at the beginning of the end step the Cerberus untaps.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Slumbering Cerberus"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Slumbering Cerberus"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "expect": [
+      {
+       "card": "p0:Slumbering Cerberus",
+       "tapped": true
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Slumbering Cerberus",
+       "tapped": true
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Slumbering Cerberus",
+     "zone": "battlefield",
+     "tapped": false
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "morbid-untaps-at-the-opponents-end-step",
+   "cr": [
+    "603.4",
+    "513.1"
+   ],
+   "why": "'Each end step': a creature dying on the opponent's turn untaps it at that turn's end step.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Slumbering Cerberus"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Slumbering Cerberus"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1",
+     "expect": [
+      {
+       "card": "p0:Slumbering Cerberus",
+       "tapped": true
+      }
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Slumbering Cerberus",
+       "tapped": true
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Slumbering Cerberus",
+     "zone": "battlefield",
+     "tapped": false
+    }
+   ]
+  },
+  {
+   "name": "noncreature-card-to-graveyard-is-not-a-death",
+   "cr": [
+    "700.4",
+    "603.4"
+   ],
+   "why": "An instant going to the graveyard is not a creature dying: it stays tapped.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Slumbering Cerberus"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Slumbering Cerberus"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Slumbering Cerberus",
+     "zone": "battlefield",
+     "tapped": true
+    },
+    {
+     "life": {
+      "p1": 13
+     }
+    }
+   ]
+  },
+  {
+   "name": "death-on-an-earlier-turn-does-not-count",
+   "cr": [
+    "603.4"
+   ],
+   "why": "Morbid looks at this turn only: a death on turn 1 does not untap it at the end of a later turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt"
+     ],
+     "battlefield": [
+      "Slumbering Cerberus"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Slumbering Cerberus"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Slumbering Cerberus",
+     "zone": "battlefield",
+     "tapped": true
+    },
+    {
+     "life": {
+      "p1": 16
+     }
+    }
+   ]
+  },
+  {
+   "name": "own-creature-dying-in-combat-counts",
+   "cr": [
+    "700.4",
+    "603.4"
+   ],
+   "why": "Any creature dying counts, including its controller's own in combat.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Slumbering Cerberus",
+      "Savannah Lions"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Slumbering Cerberus",
+      "p0:Savannah Lions"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Centaur Courser",
+       "p0:Savannah Lions"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Slumbering Cerberus",
+     "zone": "battlefield",
+     "tapped": false
+    },
+    {
+     "life": {
+      "p1": 16
+     }
+    }
+   ]
+  }
+ ]
+}
