@@ -1,0 +1,584 @@
+{
+ "card": "Bite Down",
+ "family": "spell-conditional",
+ "author": "fdn-audit-1 (Oracle + CR only)",
+ "oracle_sha": "89161f83aefa",
+ "scenarios": [
+  {
+   "name": "one-sided-damage-equal-to-power",
+   "cr": [
+    "120.3",
+    "608.2"
+   ],
+   "why": "The controller's creature deals damage equal to its power to the opposing creature. It is not a fight: nothing is dealt back.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Bite Down"
+     ],
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bite Down",
+     "mana": "CG",
+     "targets": [
+      "p0:Centaur Courser",
+      "p1:Craw Wurm"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "battlefield",
+     "damage": 3
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "card": "p0:Bite Down",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "lethal-damage-kills",
+   "cr": [
+    "704.5g"
+   ],
+   "why": "3 damage on a 2/2 is lethal.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Bite Down"
+     ],
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bite Down",
+     "mana": "CG",
+     "targets": [
+      "p0:Centaur Courser",
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "battlefield",
+     "damage": 0
+    }
+   ]
+  },
+  {
+   "name": "uses-current-power",
+   "cr": [
+    "608.2h"
+   ],
+   "why": "The amount is the creature's power as the spell resolves: a 2/2 pumped to 5/5 deals 5, enough to kill a 6/4.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Bite Down",
+      "Giant Growth"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Giant Growth",
+     "mana": "G",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bite Down",
+     "mana": "CG",
+     "targets": [
+      "p0:Grizzly Bears",
+      "p1:Craw Wurm"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "pt": "5/5"
+    }
+   ]
+  },
+  {
+   "name": "planeswalker-loses-loyalty",
+   "cr": [
+    "120.3c",
+    "306.8"
+   ],
+   "why": "The second target may be a planeswalker the caster does not control; damage removes that many loyalty counters, and one with none is put into the graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Bite Down"
+     ],
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Jace Beleren"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Jace Beleren",
+     "mana": "CUU"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p1:Jace Beleren",
+       "zone": "battlefield",
+       "counters": {
+        "LOYALTY": 3
+       }
+      }
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bite Down",
+     "mana": "CG",
+     "targets": [
+      "p0:Centaur Courser",
+      "p1:Jace Beleren"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Jace Beleren",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "biter-gone-no-damage",
+   "cr": [
+    "608.2b",
+    "608.2h"
+   ],
+   "why": "If the caster's creature is no longer on the battlefield when the spell resolves, no damage is dealt to the other target.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Bite Down"
+     ],
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bite Down",
+     "mana": "CG",
+     "targets": [
+      "p0:Centaur Courser",
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 0
+    }
+   ]
+  },
+  {
+   "name": "second-target-is-chosen-on-cast",
+   "cr": [
+    "601.2c",
+    "115.1"
+   ],
+   "why": "Both targets are chosen as the spell is cast. With two opposing creatures the one named on cast takes the damage and the other is untouched.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Bite Down"
+     ],
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bite Down",
+     "mana": "CG",
+     "targets": [
+      "p0:Centaur Courser",
+      "p1:Craw Wurm"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "battlefield",
+     "damage": 3
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 0
+    }
+   ]
+  },
+  {
+   "name": "no-opposing-creature-or-planeswalker-not-castable",
+   "cr": [
+    "601.2c"
+   ],
+   "why": "The spell needs a legal second target: with no creature or planeswalker the caster does not control it cannot be cast, even with two creatures of the caster's own.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Bite Down"
+     ],
+     "battlefield": [
+      "Centaur Courser",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Sol Ring"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CG",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Bite Down"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Bite Down",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 0
+    }
+   ]
+  },
+  {
+   "name": "no-own-creature-not-castable",
+   "cr": [
+    "601.2c"
+   ],
+   "why": "It also needs a creature the caster controls as the first target.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Bite Down"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CG",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Bite Down"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Bite Down",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "second-target-gone-other-creature-unharmed",
+   "cr": [
+    "608.2b"
+   ],
+   "why": "If the opposing target has left the battlefield before resolution, the damage is not redirected to another creature that player controls.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Bite Down"
+     ],
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Savannah Lions",
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bite Down",
+     "mana": "CG",
+     "targets": [
+      "p0:Centaur Courser",
+      "p1:Savannah Lions"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1:Savannah Lions"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Savannah Lions",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "battlefield",
+     "damage": 0
+    }
+   ]
+  },
+  {
+   "name": "targeting-a-ward-creature-triggers-ward",
+   "cr": [
+    "702.21a",
+    "601.2c"
+   ],
+   "why": "The opposing creature is a target, so an opposing creature with ward triggers when Bite Down is cast; unpaid, the spell is countered and no damage is dealt.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Bite Down"
+     ],
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Tolarian Terror"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bite Down",
+     "mana": "CG",
+     "targets": [
+      "p0:Centaur Courser",
+      "p1:Tolarian Terror"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p1:Tolarian Terror",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "no"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Tolarian Terror",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "card": "p0:Bite Down",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,315 @@
+{
+ "card": "Strix Lookout",
+ "family": "activated-ability",
+ "author": "fdn-audit-1 (Oracle + CR only)",
+ "oracle_sha": "017427386c9f",
+ "scenarios": [
+  {
+   "name": "loots-draw-then-discard",
+   "cr": [
+    "602.2",
+    "121.1",
+    "701.9a"
+   ],
+   "why": "Two mana (one blue) and tapping it: draw a card, then discard a card of its controller's choice.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Strix Lookout"
+     ],
+     "hand": [
+      "Forest"
+     ],
+     "library_top": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Strix Lookout",
+     "ability": "Draw a card",
+     "mana": "CU",
+     "expect": [
+      {
+       "card": "p0:Strix Lookout",
+       "zone": "battlefield",
+       "tapped": true
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Forest"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    },
+    {
+     "card": "p0:Strix Lookout",
+     "zone": "battlefield",
+     "tapped": true,
+     "pt": "1/2"
+    }
+   ]
+  },
+  {
+   "name": "tapped-cannot-activate-again",
+   "cr": [
+    "602.2b",
+    "107.5"
+   ],
+   "why": "The tap symbol is a cost: once tapped it cannot be activated again that turn, whatever mana is available; without mana it is not available either.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Strix Lookout"
+     ],
+     "hand": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "decision": "priority",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Strix Lookout"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CU",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Strix Lookout"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Strix Lookout",
+     "ability": "Draw a card"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CU",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Strix Lookout"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Strix Lookout",
+     "zone": "battlefield",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "summoning-sick-cannot-activate",
+   "cr": [
+    "302.6"
+   ],
+   "why": "The ability has a tap cost, so it is unavailable the turn the Lookout comes under its controller's control.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Strix Lookout"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Strix Lookout",
+     "mana": "CU"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CU",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Strix Lookout"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Strix Lookout",
+     "zone": "battlefield",
+     "pt": "1/2"
+    }
+   ]
+  },
+  {
+   "name": "flying-vigilance-attack",
+   "cr": [
+    "702.9b",
+    "702.20b"
+   ],
+   "why": "Flying and vigilance: a ground creature cannot block it, attacking does not tap it, so it can still loot after combat; it deals 1.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Strix Lookout"
+     ],
+     "library_top": [
+      "Centaur Courser"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Wind Drake"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Strix Lookout"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "card": "p0:Strix Lookout",
+       "zone": "battlefield",
+       "tapped": false,
+       "keywords": [
+        "Flying",
+        "Vigilance"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p1:Grizzly Bears",
+        "attacker": "p0:Strix Lookout"
+       },
+       "want": false
+      },
+      {
+       "can_block": {
+        "blocker": "p1:Wind Drake",
+        "attacker": "p0:Strix Lookout"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": []
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Strix Lookout",
+     "ability": "Draw a card",
+     "mana": "CU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 19
+     }
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    },
+    {
+     "card": "p0:Strix Lookout",
+     "zone": "battlefield",
+     "tapped": true
+    }
+   ]
+  }
+ ]
+}

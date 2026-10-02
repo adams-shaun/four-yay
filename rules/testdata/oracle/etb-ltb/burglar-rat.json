@@ -1,0 +1,165 @@
+{
+ "card": "Burglar Rat",
+ "family": "etb-ltb",
+ "author": "fdn-audit-1 (Oracle + CR only)",
+ "oracle_sha": "2338cc24415f",
+ "scenarios": [
+  {
+   "name": "opponent-discards-a-card-of-their-choice",
+   "cr": [
+    "701.9a",
+    "603.2"
+   ],
+   "why": "The enters trigger makes each opponent discard one card; the discarding player chooses which. The Rat's controller's hand is untouched.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Burglar Rat",
+      "Forest"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Grizzly Bears",
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Burglar Rat",
+     "mana": "CB"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p1:Lightning Bolt"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Burglar Rat",
+     "zone": "battlefield",
+     "pt": "1/1"
+    },
+    {
+     "card": "p1:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 1,
+      "p1": 1
+     }
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "opponent-with-empty-hand-discards-nothing",
+   "cr": [
+    "701.9a",
+    "609.3"
+   ],
+   "why": "An opponent with no cards in hand simply discards nothing; the Rat still enters.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Burglar Rat",
+      "Forest"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Burglar Rat",
+     "mana": "CB"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Burglar Rat",
+     "zone": "battlefield"
+    },
+    {
+     "hand_size": {
+      "p0": 1,
+      "p1": 0
+     }
+    },
+    {
+     "graveyard_size": {
+      "p0": 0,
+      "p1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "exactly-one-card-from-a-larger-hand",
+   "cr": [
+    "701.9a"
+   ],
+   "why": "Only one card is discarded however many the opponent holds.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Burglar Rat"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Grizzly Bears",
+      "Lightning Bolt",
+      "Forest",
+      "Plains"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Burglar Rat",
+     "mana": "CB"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p1": 3
+     }
+    },
+    {
+     "graveyard_size": {
+      "p1": 1
+     }
+    }
+   ]
+  }
+ ]
+}

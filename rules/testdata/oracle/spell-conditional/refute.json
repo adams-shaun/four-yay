@@ -1,0 +1,287 @@
+{
+ "card": "Refute",
+ "family": "spell-conditional",
+ "author": "fdn-audit-1 (Oracle + CR only)",
+ "oracle_sha": "c7aef7d975e6",
+ "scenarios": [
+  {
+   "name": "counters-spell-then-loots",
+   "cr": [
+    "701.6a",
+    "121.1",
+    "701.9a"
+   ],
+   "why": "The targeted spell is countered (its owner's graveyard, no effect); then the caster draws a card and afterwards discards a card of their choice.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Refute",
+      "Forest"
+     ],
+     "library_top": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Refute",
+     "mana": "CUU",
+     "targets": [
+      "p1:Lightning Bolt"
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Forest"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 20
+     }
+    },
+    {
+     "card": "p0:Refute",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "may-discard-the-card-just-drawn",
+   "cr": [
+    "701.9a"
+   ],
+   "why": "The draw comes first, so the drawn card is in hand when the discard is chosen and may itself be discarded. A countered creature spell goes to the graveyard, never the battlefield.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Refute",
+      "Forest"
+     ],
+     "library_top": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Centaur Courser",
+     "mana": "CCG"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Refute",
+     "mana": "CUU",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-spell-on-the-stack-not-castable",
+   "cr": [
+    "601.2c"
+   ],
+   "why": "With an empty stack there is no legal target, so Refute cannot be cast.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Refute"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CUU",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Refute"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Refute",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "discard-with-empty-hand-loses-the-drawn-card",
+   "cr": [
+    "701.9a"
+   ],
+   "why": "With no other card in hand the card just drawn is the only one that can be discarded: hand ends empty.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Refute"
+     ],
+     "library_top": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Refute",
+     "mana": "CUU",
+     "targets": [
+      "p1:Lightning Bolt"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 20
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,297 @@
+{
+ "card": "Beast-Kin Ranger",
+ "family": "triggered-ability",
+ "author": "fdn-audit-1 (Oracle + CR only)",
+ "oracle_sha": "e7df393ec1fd",
+ "scenarios": [
+  {
+   "name": "another-creature-entering-pumps-until-end-of-turn",
+   "cr": [
+    "603.2",
+    "611.2a"
+   ],
+   "why": "Another creature entering under its controller's control gives the Ranger +1/+0 until end of turn; next turn it is a 3/3 again. It has trample.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Beast-Kin Ranger"
+     ],
+     "hand": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "CG",
+     "expect": [
+      {
+       "card": "p0:Beast-Kin Ranger",
+       "zone": "battlefield",
+       "pt": "3/3"
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Beast-Kin Ranger",
+       "zone": "battlefield",
+       "pt": "4/3",
+       "keywords": [
+        "Trample"
+       ]
+      },
+      {
+       "card": "p0:Grizzly Bears",
+       "zone": "battlefield",
+       "pt": "2/2"
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Beast-Kin Ranger",
+     "zone": "battlefield",
+     "pt": "3/3"
+    }
+   ]
+  },
+  {
+   "name": "its-own-entry-does-not-count",
+   "cr": [
+    "603.2"
+   ],
+   "why": "The trigger is for ANOTHER creature: the Ranger entering by itself stays 3/3.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Beast-Kin Ranger"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Beast-Kin Ranger",
+     "mana": "CCG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Beast-Kin Ranger",
+     "zone": "battlefield",
+     "pt": "3/3"
+    }
+   ]
+  },
+  {
+   "name": "opponents-creature-entering-does-not-count",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Only creatures entering under the Ranger's controller's control trigger it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Beast-Kin Ranger"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Grizzly Bears",
+     "mana": "CG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Beast-Kin Ranger",
+     "zone": "battlefield",
+     "pt": "3/3"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "each-entering-creature-triggers-separately-tokens-included",
+   "cr": [
+    "603.2c",
+    "111.1"
+   ],
+   "why": "A creature that brings a creature token with it is two separate entries: two triggers, +2/+0 in total.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Beast-Kin Ranger"
+     ],
+     "hand": [
+      "Prideful Parent"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Prideful Parent",
+     "mana": "CCW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Beast-Kin Ranger",
+     "zone": "battlefield",
+     "pt": "5/3"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Cat",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "noncreature-permanent-entering-does-not-count",
+   "cr": [
+    "603.2"
+   ],
+   "why": "An artifact that is not a creature entering does not trigger it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Beast-Kin Ranger"
+     ],
+     "hand": [
+      "Sol Ring"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Sol Ring",
+     "mana": "C"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Beast-Kin Ranger",
+     "zone": "battlefield",
+     "pt": "3/3"
+    },
+    {
+     "card": "p0:Sol Ring",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "trample-assigns-excess-to-the-player",
+   "cr": [
+    "702.19b",
+    "510.1c"
+   ],
+   "why": "Trample: blocked by a 2/1, the 3/3 needs to assign only 1 to the blocker and the other 2 go to the defending player.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Beast-Kin Ranger"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Beast-Kin Ranger"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Savannah Lions",
+       "p0:Beast-Kin Ranger"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 18
+     }
+    },
+    {
+     "card": "p1:Savannah Lions",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Beast-Kin Ranger",
+     "zone": "battlefield",
+     "damage": 2
+    }
+   ]
+  }
+ ]
+}

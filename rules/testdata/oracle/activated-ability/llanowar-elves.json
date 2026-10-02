@@ -1,0 +1,164 @@
+{
+ "card": "Llanowar Elves",
+ "family": "activated-ability",
+ "author": "fdn-audit-1 (Oracle + CR only)",
+ "oracle_sha": "9231ec8ed88e",
+ "scenarios": [
+  {
+   "name": "taps-for-green",
+   "cr": [
+    "605.1a",
+    "605.3b"
+   ],
+   "why": "Tapping it adds one green mana immediately, without the stack. A 1/1.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Llanowar Elves"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Llanowar Elves",
+     "expect": [
+      {
+       "pool": {
+        "p0": "G"
+       }
+      },
+      {
+       "card": "p0:Llanowar Elves",
+       "zone": "battlefield",
+       "tapped": true,
+       "pt": "1/1"
+      },
+      {
+       "stack_size": 0
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Llanowar Elves"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "summoning-sick-cannot-tap-for-mana",
+   "cr": [
+    "302.6"
+   ],
+   "why": "A creature that came under its controller's control this turn cannot pay a tap cost; from that player's next turn it can.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Llanowar Elves"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Llanowar Elves",
+     "mana": "G"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Llanowar Elves",
+       "zone": "battlefield",
+       "tapped": false
+      },
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Llanowar Elves"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Llanowar Elves"
+     },
+     "want": true
+    }
+   ]
+  },
+  {
+   "name": "mana-pays-for-a-spell",
+   "cr": [
+    "106.4"
+   ],
+   "why": "The green mana it makes can pay for a green spell.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Llanowar Elves"
+     ],
+     "hand": [
+      "Giant Growth"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Llanowar Elves"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Giant Growth",
+     "targets": [
+      "p0:Llanowar Elves"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Llanowar Elves",
+     "zone": "battlefield",
+     "pt": "4/4",
+     "tapped": true
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  }
+ ]
+}

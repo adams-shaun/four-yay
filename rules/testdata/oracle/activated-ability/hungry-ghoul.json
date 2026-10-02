@@ -1,0 +1,246 @@
+{
+ "card": "Hungry Ghoul",
+ "family": "activated-ability",
+ "author": "fdn-audit-1 (Oracle + CR only)",
+ "oracle_sha": "a45e882a96d5",
+ "scenarios": [
+  {
+   "name": "sacrifice-another-creature-for-a-counter",
+   "cr": [
+    "602.2",
+    "701.21a",
+    "122.1a"
+   ],
+   "why": "Paying {1} and sacrificing another creature puts one +1/+1 counter on the Ghoul: a 2/2 becomes 3/3 and the sacrificed creature is in the graveyard.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Hungry Ghoul",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Hungry Ghoul",
+     "mana": "C",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ],
+     "expect": [
+      {
+       "card": "p0:Grizzly Bears",
+       "zone": "graveyard"
+      },
+      {
+       "card": "p0:Hungry Ghoul",
+       "zone": "battlefield",
+       "pt": "2/2"
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Hungry Ghoul",
+     "zone": "battlefield",
+     "pt": "3/3",
+     "counters": {
+      "+1/+1": 1
+     },
+     "tapped": false
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "cannot-sacrifice-itself",
+   "cr": [
+    "602.2b",
+    "701.21a"
+   ],
+   "why": "The cost asks for ANOTHER creature: with the Ghoul as its controller's only creature the ability cannot be activated, even though the opponent has a creature.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Hungry Ghoul"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CC",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Hungry Ghoul"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Hungry Ghoul",
+     "zone": "battlefield",
+     "pt": "2/2"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "needs-the-one-mana",
+   "cr": [
+    "602.2b"
+   ],
+   "why": "The {1} is part of the cost: with an empty pool the ability is not available; with one mana it is.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Hungry Ghoul",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "decision": "priority",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Hungry Ghoul"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Hungry Ghoul"
+       },
+       "want": true
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Hungry Ghoul",
+     "zone": "battlefield",
+     "pt": "2/2"
+    }
+   ]
+  },
+  {
+   "name": "twice-in-a-turn-two-counters",
+   "cr": [
+    "602.2"
+   ],
+   "why": "No tap symbol and no once-per-turn limit: two activations with two other creatures give two counters.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Hungry Ghoul",
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Hungry Ghoul",
+     "mana": "C",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Hungry Ghoul",
+     "mana": "C",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Savannah Lions"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Hungry Ghoul",
+     "zone": "battlefield",
+     "pt": "4/4",
+     "counters": {
+      "+1/+1": 2
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

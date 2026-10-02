@@ -1,0 +1,283 @@
+{
+ "card": "Cathar Commando",
+ "family": "activated-ability",
+ "author": "fdn-audit-1 (Oracle + CR only)",
+ "oracle_sha": "917a253d2410",
+ "scenarios": [
+  {
+   "name": "flash-on-opponents-turn-then-destroys-artifact",
+   "cr": [
+    "702.8a",
+    "602.2",
+    "302.6"
+   ],
+   "why": "Flash lets it be cast on the opponent's turn. Its ability has no tap symbol, so it works the turn it arrives: {1} and sacrificing the Commando destroys the targeted artifact.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Cathar Commando"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Sol Ring"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Cathar Commando",
+     "mana": "CW"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Cathar Commando",
+       "zone": "battlefield",
+       "pt": "3/1"
+      }
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Cathar Commando",
+     "mana": "C",
+     "targets": [
+      "p1:Sol Ring"
+     ],
+     "expect": [
+      {
+       "card": "p0:Cathar Commando",
+       "zone": "graveyard"
+      },
+      {
+       "card": "p1:Sol Ring",
+       "zone": "battlefield"
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Cathar Commando",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Sol Ring",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "destroys-enchantment",
+   "cr": [
+    "701.8a"
+   ],
+   "why": "The target may instead be an enchantment.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Cathar Commando"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Glorious Anthem"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Cathar Commando",
+     "mana": "C",
+     "targets": [
+      "p1:Glorious Anthem"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Cathar Commando",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Glorious Anthem",
+     "zone": "graveyard"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-artifact-or-enchantment-not-activatable",
+   "cr": [
+    "602.2b",
+    "601.2c"
+   ],
+   "why": "A plain creature or land is not a legal target; with no artifact or enchantment on the battlefield the ability cannot be activated.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Cathar Commando"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CC",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Cathar Commando"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Cathar Commando",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "needs-one-mana",
+   "cr": [
+    "602.2b"
+   ],
+   "why": "The {1} must be paid: an empty pool does not offer the ability, one mana does.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Cathar Commando"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Sol Ring"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "decision": "priority",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Cathar Commando"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Cathar Commando"
+       },
+       "want": true
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Cathar Commando",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "artifact-creature-is-a-legal-target",
+   "cr": [
+    "205.2a"
+   ],
+   "why": "An artifact creature is an artifact; its controller's own permanents are legal targets too.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Cathar Commando",
+      "Ornithopter"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Cathar Commando",
+     "mana": "C",
+     "targets": [
+      "p0:Ornithopter"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Ornithopter",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Cathar Commando",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}
