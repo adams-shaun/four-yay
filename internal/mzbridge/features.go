@@ -28,6 +28,13 @@ type FeatureSet struct {
 	root *Node
 	ids  []int32
 
+	// dirty lists the nodes whose occurrence counts are non-zero since the
+	// last Refresh. Refresh resets those and only those: the tree keeps every
+	// node it ever created (a card name, an ability text, a decision text
+	// each make one), so walking the whole tree per state grows with the
+	// length of the run, while a state touches a few hundred nodes.
+	dirty []*Node
+
 	debug bool
 	names map[int32][]string
 
@@ -47,6 +54,8 @@ type Node struct {
 	passToParent bool
 	occurrences  map[string]int
 	subs         map[string]*Node
+	// dirty: on FeatureSet.dirty since the last Refresh.
+	dirty bool
 }
 
 // NewFeatureSet returns an empty tree rooted at Features' global seed.
@@ -71,19 +80,20 @@ func (s *FeatureSet) Root() *Node { return s.root }
 
 // Refresh is Features.stateRefresh plus featureVector.clear(): call it
 // before encoding each state.
+//
+// Upstream's stateRefresh walks the whole tree zeroing every count. Here
+// only the nodes written since the last Refresh are reset; a node not
+// written holds no non-zero count, so the result is the same. A cleared map
+// reads zero for every name exactly as a zeroed entry does.
 func (s *FeatureSet) Refresh() {
-	s.root.refresh()
+	for i, n := range s.dirty {
+		clear(n.occurrences)
+		n.dirty = false
+		s.dirty[i] = nil
+	}
+	s.dirty = s.dirty[:0]
 	s.ids = s.ids[:0]
 	clear(s.names)
-}
-
-func (n *Node) refresh() {
-	for k := range n.occurrences {
-		n.occurrences[k] = 0
-	}
-	for _, c := range n.subs {
-		c.refresh()
-	}
 }
 
 // IDs returns the distinct ids emitted since the last Refresh, ascending:
@@ -135,9 +145,13 @@ func (n *Node) AddFeature(name string, callParent bool) {
 	}
 	c := n.occurrences[name] + 1
 	n.occurrences[name] = c
+	s := n.set
+	if !n.dirty {
+		n.dirty = true
+		s.dirty = append(s.dirty, n)
+	}
 	key := name + "#" + strconv.Itoa(c)
 	id := FeatureID(key, n.seed)
-	s := n.set
 	s.ids = append(s.ids, id)
 	if s.debug {
 		s.names[id] = append(s.names[id], n.path+"/"+key)
