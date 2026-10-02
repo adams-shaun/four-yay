@@ -1,0 +1,138 @@
+root/#1
+root/AmountChoices#1
+root/AmountChoices#2
+root/BEAR#1
+root/Battlefield#1
+root/Battlefield#2
+root/CREATURE#1
+root/CanActivate#1
+root/CanPlayLand#1
+root/CanPlayLand#2
+root/Card#1
+root/Card#2
+root/CardsInHand@0..2#1
+root/ChosenChoices#1
+root/ChosenChoices#2
+root/ChosenTargets#1
+root/ChosenTargets#2
+root/ColorlessCard#1
+root/CommandZone#1
+root/CommandZone#2
+root/Exile#1
+root/Exile#1/Permanent - Exile#1
+root/FOREST#1
+root/GlobalWatchers#1
+root/GlobalWatchers#2
+root/Graveyard#1
+root/Graveyard#2
+root/GreenCard#1
+root/Hand#1
+root/IsActivePlayer#1
+root/IsDecisionPlayer#1
+root/LAND#1
+root/LibraryCount@0..3#2
+root/LibraryCount@0..4#1
+root/LifeTotal@0..19#1
+root/LifeTotal@0..19#2
+root/ManaPool#1
+root/ManaPool#2
+root/ManaValue@0..1#1
+root/ManaValue_dynamic@0..1#1
+root/Opponent#1
+root/Opponent#1/AmountChoices#1
+root/Opponent#1/Battlefield#1
+root/Opponent#1/CanPlayLand#1
+root/Opponent#1/CardsInHand@0..2#1
+root/Opponent#1/ChosenChoices#1
+root/Opponent#1/ChosenTargets#1
+root/Opponent#1/CommandZone#1
+root/Opponent#1/GlobalWatchers#1
+root/Opponent#1/Graveyard#1
+root/Opponent#1/LibraryCount@0..3#1
+root/Opponent#1/LifeTotal@0..19#1
+root/Opponent#1/ManaPool#1
+root/Opponent#1/UseChoices#1
+root/PRECOMBAT_MAIN#1
+root/PRIORITY#1
+root/Permanent - Exile#1
+root/Permanent#1
+root/Permanent#2
+root/Play Testwood#1
+root/Player#1
+root/Player#1/#1
+root/Player#1/AmountChoices#1
+root/Player#1/BEAR#1
+root/Player#1/Battlefield#1
+root/Player#1/CREATURE#1
+root/Player#1/CanActivate#1
+root/Player#1/CanPlayLand#1
+root/Player#1/Card#1
+root/Player#1/Card#2
+root/Player#1/ChosenChoices#1
+root/Player#1/ChosenTargets#1
+root/Player#1/ColorlessCard#1
+root/Player#1/CommandZone#1
+root/Player#1/FOREST#1
+root/Player#1/GlobalWatchers#1
+root/Player#1/Graveyard#1
+root/Player#1/GreenCard#1
+root/Player#1/Hand#1
+root/Player#1/Hand#1/#1
+root/Player#1/Hand#1/BEAR#1
+root/Player#1/Hand#1/CREATURE#1
+root/Player#1/Hand#1/CanActivate#1
+root/Player#1/Hand#1/Card#1
+root/Player#1/Hand#1/Card#2
+root/Player#1/Hand#1/ColorlessCard#1
+root/Player#1/Hand#1/FOREST#1
+root/Player#1/Hand#1/GreenCard#1
+root/Player#1/Hand#1/LAND#1
+root/Player#1/Hand#1/ManaValue@0..1#1
+root/Player#1/Hand#1/ManaValue_dynamic@0..1#1
+root/Player#1/Hand#1/Permanent#1
+root/Player#1/Hand#1/Permanent#2
+root/Player#1/Hand#1/Play Testwood#1
+root/Player#1/Hand#1/Test Bear#1
+root/Player#1/Hand#1/Test Bear#1/#1
+root/Player#1/Hand#1/Test Bear#1/#1/ManaValue_dynamic@0..1#1
+root/Player#1/Hand#1/Test Bear#1/#1/{1}_dynamic#1
+root/Player#1/Hand#1/Test Bear#1/#1/{G}_dynamic#1
+root/Player#1/Hand#1/Test Bear#1/ManaValue_dynamic@0..1#1
+root/Player#1/Hand#1/Test Bear#1/{1}_dynamic#1
+root/Player#1/Hand#1/Test Bear#1/{G}_dynamic#1
+root/Player#1/Hand#1/Testwood#1
+root/Player#1/Hand#1/Testwood#1/CanActivate#1
+root/Player#1/Hand#1/Testwood#1/Play Testwood#1
+root/Player#1/Hand#1/Testwood#1/Play Testwood#1/CanActivate#1
+root/Player#1/Hand#1/{1}#1
+root/Player#1/Hand#1/{1}_dynamic#1
+root/Player#1/Hand#1/{G}#1
+root/Player#1/Hand#1/{G}_dynamic#1
+root/Player#1/IsActivePlayer#1
+root/Player#1/IsDecisionPlayer#1
+root/Player#1/LAND#1
+root/Player#1/LibraryCount@0..4#1
+root/Player#1/LifeTotal@0..19#1
+root/Player#1/ManaPool#1
+root/Player#1/ManaValue@0..1#1
+root/Player#1/ManaValue_dynamic@0..1#1
+root/Player#1/Permanent#1
+root/Player#1/Permanent#2
+root/Player#1/Play Testwood#1
+root/Player#1/Test Bear#1
+root/Player#1/Testwood#1
+root/Player#1/UseChoices#1
+root/Player#1/{1}#1
+root/Player#1/{1}_dynamic#1
+root/Player#1/{G}#1
+root/Player#1/{G}_dynamic#1
+root/Stack#1
+root/Test Bear#1
+root/Testwood#1
+root/UseChoices#1
+root/UseChoices#2
+root/priority#1
+root/{1}#1
+root/{1}_dynamic#1
+root/{G}#1
+root/{G}_dynamic#1
