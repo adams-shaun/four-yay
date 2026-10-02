@@ -23,6 +23,9 @@ const labelVocab = "dim\t64\n" +
 	"A\t14\t{2}{R}: {this} gets +1/+0 until end of turn.\n" +
 	"A\t15\tCrew 3 <i>(Tap any number of creatures: This Vehicle becomes an artifact creature.)</i>\n" +
 	"A\t16\t{T}, Sacrifice {this}: Draw a card.\n" +
+	"A\t17\t+1: Put a +1/+1 counter on up to one target creature.\n" +
+	"A\t18\t-3: Destroy target artifact.\n" +
+	"A\t19\t{1}{R}: If {this} is a Scout, it becomes a Detective.\n" +
 	"T\t0\tStop Choosing\nT\t1\tPlayerA\nT\t2\tPlayerB\nT\t3\tGrizzly Bears\n"
 
 // TestActionLabelsReachTheVocabulary: every kind of root candidate is given
@@ -58,8 +61,13 @@ func TestActionLabelsReachTheVocabulary(t *testing.T) {
 		{"ability without a rule keeps its label", searchbench.LiveAction{Kind: "ability", Label: "Activate Relic: Cycling"}, "", "", "Activate Relic: Cycling", -1},
 		{"unknown ability text", searchbench.LiveAction{Kind: "ability"}, "{9}: You win the game.", "", "{9}: You win the game.", -1},
 		{"nameless", searchbench.LiveAction{}, "", "", "?", -1},
+		{"loyalty, bracketed", searchbench.LiveAction{Kind: "ability"}, "[+1]: Put a +1/+1 counter on up to one target creature.", "", "+1: Put a +1/+1 counter on up to one target creature.", 17},
+		{"loyalty, minus sign", searchbench.LiveAction{Kind: "ability"}, "[\u22123]: Destroy target artifact.", "", "-3: Destroy target artifact.", 18},
+		{"loyalty, Forge cost", searchbench.LiveAction{Kind: "ability"}, "SubCounter<3/LOYALTY>: Destroy target artifact.", "", "-3: Destroy target artifact.", 18},
+		{"loyalty, Forge add", searchbench.LiveAction{Kind: "ability"}, "AddCounter<1/LOYALTY>: Put a +1/+1 counter on up to one target creature.", "", "+1: Put a +1/+1 counter on up to one target creature.", 17},
+		{"short self-name", searchbench.LiveAction{Kind: "ability", Name: "Kellan, Planar Trailblazer"}, "{1}{R}: If Kellan is a Scout, it becomes a Detective.", "", "{1}{R}: If {this} is a Scout, it becomes a Detective.", 19},
 	} {
-		label, known := ix.resolve(ActionLabel(tc.a, tc.rule, tc.flashback))
+		label, known := ix.resolve(ActionLabel(tc.a, tc.rule, tc.flashback), tc.a.Name)
 		if label != tc.wantLabel {
 			t.Errorf("%s: label %q, want %q", tc.name, label, tc.wantLabel)
 			continue

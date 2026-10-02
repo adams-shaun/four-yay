@@ -151,6 +151,10 @@ type runStats struct {
 	MacroFailed   int            `json:"macro_failed"`
 	Simulations   int            `json:"simulations"`
 	SimFailures   int            `json:"simulation_failures"`
+	SimPanics     int            `json:"simulation_panics"`
+	SimSubmitErr  int            `json:"simulation_submit_errors"`
+	SimChance     int            `json:"simulation_chance_failures"`
+	SimBadWorlds  int            `json:"simulation_bad_worlds"`
 	LeafEvals     int64          `json:"leaf_evals"`
 	LeafPerSecond float64        `json:"leaf_evals_per_second"`
 	NetEvals      int64          `json:"net_evals"`
@@ -481,6 +485,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	st.ActionCands, st.ActionHits, st.ActionVisits, st.ActionHitV = total.ActionCands, total.ActionHits, total.ActionVisits, total.ActionHitV
 	st.TargetCands, st.TargetHits, st.TargetVisits, st.TargetHitV = total.TargetCands, total.TargetHits, total.TargetVisits, total.TargetHitV
 	st.MissedActions, st.MissedTargets = total.MissedActions, total.MissedTargets
+	st.SimPanics, st.SimSubmitErr, st.SimChance, st.SimBadWorlds = total.SimPanics, total.SimSubmitErrors, total.SimChance, total.SimBadWorlds
 	st.LeafEvals, st.NetFallbacks = leafEvals.Load(), netFallbacks.Load()
 	st.WallSeconds = time.Since(t0).Seconds()
 	st.PlaySeconds = float64(playNanos.Load()) / 1e9
