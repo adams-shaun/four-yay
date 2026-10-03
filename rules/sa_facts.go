@@ -26,6 +26,10 @@ type saFacts struct {
 	// mana is the mana walk's gate facts (mana_safacts.go): non-nil exactly
 	// for an AB$ ability.
 	mana *manaSAFacts
+	// mayAsk caches the resolution kernel's ask-free predicate over this
+	// ability and its SubAbility$ chain (resolve_mayask.go): a pure function
+	// of the text, filled on first use with an atomic store.
+	mayAsk uint32
 }
 
 // buildSAFacts computes ab's facts record.

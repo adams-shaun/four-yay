@@ -106,6 +106,15 @@ type Config struct {
 	// engine reads.
 	LoopGuard *LoopGuard
 
+	// TapeKernel opts this game into the W3 resolution kernel
+	// (rules/resolve): checkpoint at the pass that begins a resolution and
+	// answer its mid-resolution decisions by re-executing it from the
+	// checkpoint with the recorded intents as an answer tape. It never
+	// changes an event (the dual-run harness holds it to byte identity with
+	// the legacy resume path, which stays the default); the
+	// GORGE_TAPE_KERNEL=1 environment switch turns it on for every engine.
+	TapeKernel bool
+
 	// Spare, when non-nil, is a finished game's storage (Engine.Release)
 	// the new engine reuses for its log and object arena. It never changes
 	// the game -- see Spare. It is consumed: New empties *Spare, so a copy
@@ -162,6 +171,24 @@ func (e *Engine) Submit(in decision.Intent) error {
 	if (in.Payment != nil || in.Announce != nil) && d.Kind == decision.KPriority {
 		e.EnsurePaymentActions()
 	}
+	if err := submitValidate(e, d, in); err != nil {
+		return err
+	}
+	// The resolution kernel (rules/resolve, behind Config.TapeKernel): a
+	// posed tape resolution re-executes from its checkpoint, and a pass that
+	// begins a resolution takes the checkpoint first.
+	if e.tape.On() && e.tape.Submit(asResolve(e), d, in) {
+		return nil
+	}
+	submitCommit(e, d, in)
+	return nil
+}
+
+// submitValidate is Submit's validation of in against the posed decision d,
+// a pure read: a rejected intent leaves the decision posed and the engine
+// untouched. The resolution kernel's served answers run through the same
+// checks (resolveBoard.Validate).
+func submitValidate(e *Engine, d *decision.Decision, in decision.Intent) error {
 	if err := d.Validate(in); err != nil {
 		return err
 	}
@@ -234,10 +261,14 @@ func (e *Engine) Submit(in decision.Intent) error {
 			}
 		}
 	}
-	// Everything above is validation, a pure read (a rejected intent leaves
-	// the decision posed and the engine untouched); from here the Submit
-	// commits, which ends the posed decision's rest window
-	// (potential_walk_cache.go).
+	return nil
+}
+
+// submitCommit is Submit past validation: it records in, emits DecisionMade
+// and runs the answer's handler and Submit's idle tail. Validation (above) is
+// a pure read; from here the Submit commits, which ends the posed decision's
+// rest window (potential_walk_cache.go).
+func submitCommit(e *Engine, d *decision.Decision, in decision.Intent) {
 	e.potentialAskSerial++
 	if e.L.Intents == nil && e.intentBuf != nil {
 		// A recycled intent array (Config.Spare) backs the log from its first
@@ -248,7 +279,7 @@ func (e *Engine) Submit(in decision.Intent) error {
 	// The caller owns its intent. Keep a private witness before it becomes
 	// replay history, so a client-side mutation after Submit cannot alter it.
 	in = cloneIntentForLog(in)
-	e.L.Intents = append(e.L.Intents, in)
+	e.tape.LogIntent(e.L, in)
 	made := decisionMadePaymentText(d.Kind, in.Choices, in.Payment)
 	if in.Announce != nil {
 		made = decisionMadeAnnounceText(d.Kind, in.Choices, in.Announce)
@@ -276,7 +307,7 @@ func (e *Engine) Submit(in decision.Intent) error {
 	// A decision posed while a commander-zone choice was outstanding waited
 	// behind it (ask's CR 903.9 arm); pose it now that the answer landed,
 	// before anything below can treat the engine as idle and advance.
-	e.drainDeferredAsks()
+	drainDeferredAsks(e)
 	// A mana ability whose cost payment posed a decision (the CR 903.9
 	// commander-zone choice for a sacrificed commander) resolves its mana
 	// effect once that decision -- and any it handed on to -- is answered.
@@ -326,7 +357,6 @@ func (e *Engine) Submit(in decision.Intent) error {
 		e.checkStateBased()
 	}
 	e.Advance()
-	return nil
 }
 
 // drawCard draws for the turn structure, sharing effects.DrawFor with the

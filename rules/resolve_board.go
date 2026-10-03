@@ -1,0 +1,285 @@
+package rules
+
+// resolve_board.go is the rules side of the W3 resolution kernel (lasagna
+// spec §7; rules/resolve): the Engine cluster the kernel's state lives in,
+// and resolveBoard, which implements resolve.Board over the Engine itself so
+// the kernel drives the engine without holding it.
+
+import (
+	"os"
+	"sync/atomic"
+
+	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/resolve"
+	"github.com/adams-shaun/gorge/state"
+)
+
+// tapeKernelEnv turns the kernel on for every engine (GORGE_TAPE_KERNEL=1, or
+// baked into a bench binary with
+// -ldflags "-X github.com/adams-shaun/gorge/rules.tapeKernelBuild=1"). Read
+// once; it is configuration, never game state.
+var tapeKernelEnv = os.Getenv("GORGE_TAPE_KERNEL") == "1" || tapeKernelBuild == "1"
+
+var tapeKernelBuild string
+
+// engineResolveKernel is the resolution kernel's Engine cluster.
+type engineResolveKernel struct {
+	// tape is the kernel's per-engine state (resolve.Kernel carries its own
+	// per-field clone tags; cloneWith copies tape.ForClone()).
+	tape resolve.Kernel `clone:"deep"`
+	// tapeSpare recycles the storage of a checkpoint dropped unused (its
+	// resolution finished, or went legacy, without posing a tape ask -- no
+	// clone can have shared it), so the next checkpoint allocates nothing.
+	// Release carries it in Spare.tapeCkpt, so a search's per-simulation
+	// engines recycle it too.
+	tapeSpare Spare `clone:"reset"`
+	// tapeHeldHook and tapeHeldStats are the harness observers a restore
+	// parked while the recorded prefix re-executes (spec §7.5): the prefix
+	// was already observed once. resolveBoard.Observe re-attaches them.
+	tapeHeldHook  func(p state.PlayerID, source state.ObjID, sa *cards.SA) `clone:"hook"`
+	tapeHeldStats *PaymentPlanStats                                        `clone:"hook"`
+}
+
+// resolveBoard is the Engine itself under the kernel's method set: asResolve
+// is a pointer conversion, so handing the kernel its Board allocates nothing.
+type resolveBoard Engine
+
+var _ resolve.Board = (*resolveBoard)(nil)
+
+func asResolve(e *Engine) *resolveBoard { return (*resolveBoard)(e) }
+
+// TapeAnswer implements effects' ask seam (effects.AskTape) for the
+// converted ask sites: inside a tape run the decision is posed and either
+// answered from the tape or the run unwinds; with a synchronous answerer it
+// is posed and answered inline. ok false: ask through the legacy path.
+func (e *Engine) TapeAnswer(d *decision.Decision) ([]decision.Option, bool) {
+	return e.tape.Answer(asResolve(e), d)
+}
+
+// SetTapeAnswerer installs (nil removes) e's synchronous answerer: an engine
+// whose every seat is a policy answers a converted mid-resolution ask inline,
+// so the kernel takes no checkpoint and re-executes nothing. A clone never
+// inherits it. Inline answers bypass per-decision observers, so a training
+// collector must not install one.
+func SetTapeAnswerer(e *Engine, f resolve.Answerer) { e.tape.SetAnswerer(f) }
+
+// TapePosed reports whether e has a tape resolution posed (S0 held).
+func TapePosed(e *Engine) bool { return e.tape.Posed() }
+
+func (b *resolveBoard) Log() *events.Log { return b.L }
+
+func (b *resolveBoard) Pending() *decision.Decision { return b.pending }
+
+func (b *resolveBoard) Busy() bool {
+	e := (*Engine)(b)
+	return e.resume != nil || e.Suspended()
+}
+
+func (b *resolveBoard) StartsResolution(d *decision.Decision, in decision.Intent) bool {
+	e := (*Engine)(b)
+	if d.Kind != decision.KPriority || in.Payment != nil || in.Announce != nil || len(e.G.Stack) == 0 {
+		return false
+	}
+	if e.resume != nil || e.Suspended() {
+		return false // a legacy suspension is in flight; never nest a tape run in it
+	}
+	return firstChosen(d, in).Kind == "pass" && e.G.Passes+1 >= int32(e.G.AliveCount())
+}
+
+func (b *resolveBoard) MayAsk() bool { return tapeMayAsk((*Engine)(b)) }
+
+func (b *resolveBoard) Checkpoint() resolve.Snapshot {
+	e := (*Engine)(b)
+	return e.CloneInto(&e.tapeSpare)
+}
+
+func (b *resolveBoard) Drop(s resolve.Snapshot) { b.tapeSpare = s.(*Engine).Release() }
+
+// Restore makes the engine a fresh copy of the checkpoint in place. The
+// copy is written into the live engine's own storage (the live state it
+// replaces is dead: it is released, minus its log arrays, and S0 is cloned
+// into what it freed), and the live log keeps its arrays: S0's history is
+// their prefix, so the log rewinds to S0's chain state with a verify window
+// over the recorded events (events.Log.RewindTo). The Game and Log pointers
+// hosts and tests hold, the kernel's own state and the per-engine pools keep
+// their identity.
+//
+// A hypothetical world's checkpoint carries an RNG splice (cp.World): the
+// re-run draws S0's own generator for exactly the draws the prefix had made
+// when the world was forked, then switches to the world's reseeded generator,
+// so nothing after the fork reads S0's true future (spec §7.3).
+func (b *resolveBoard) Restore(cp *resolve.Checkpoint, evEnd int) {
+	e := (*Engine)(b)
+	s0 := cp.S0.(*Engine)
+	g, l := e.G, e.L
+	arenaOn := e.decArena != nil && e.decArena.owner == e && e.decArena.on
+	kernel := e.tape
+	hook, stats := e.ManaAbilityHook, e.paymentStats
+	if hook == nil && stats == nil {
+		hook, stats = e.tapeHeldHook, e.tapeHeldStats // already parked
+	}
+	evs, ints := l.Events, l.Intents
+	l.Events, l.Intents = nil, nil
+	sp := e.Release()
+	l.Events, l.Intents = evs, ints
+	sc := s0.CloneInto(&sp)
+	if w, ok := cp.World.(*rngSplice); ok {
+		sc.rng.splice = w
+		// Stay a hypothetical engine across the prefix (SubmitHypothetical
+		// requires a chance state); the splice replaces it with the world's
+		// own at the fork point, discarding the prefix's records.
+		sc.rng.chance = w.next.chance.clone()
+	}
+	l.RewindTo(s0.L, evEnd)
+	*g = *sc.G
+	sc.L = l
+	*e = *sc
+	e.G, e.L = g, l
+	e.tape = kernel
+	e.tapeHeldHook, e.tapeHeldStats = hook, stats
+	tapeRebindOwner(e, sc, arenaOn)
+}
+
+// tapeRebindOwner moves the per-engine pools a restore adopted (cloneWith
+// bound them to the scratch copy sc) onto e, which took sc's contents by
+// value, and keeps a host-enabled decision arena on: without this every
+// re-execution dropped the pools and the arena and allocated afresh (S3b
+// restore fix 3). Owner-keyed caches (static scan reuse, walk block reuse,
+// the activation index) only miss and rebuild.
+func tapeRebindOwner(e *Engine, sc *Engine, arenaOn bool) {
+	if e.walkClsOwner == sc {
+		e.walkClsOwner = e
+	}
+	if e.lookBackOwner == sc {
+		e.lookBackOwner = e
+	}
+	if e.previewOwner == sc {
+		e.previewOwner = e
+	}
+	if e.decArena != nil && e.decArena.owner == sc {
+		e.decArena.owner = e
+	}
+	if e.hypSpares != nil && e.hypSpares.owner == sc {
+		e.hypSpares.owner = e
+	}
+	if e.snapPool != nil && e.snapPool.owner == sc {
+		e.snapPool.owner = e
+	}
+	if arenaOn {
+		e.SetDecisionArena(true)
+	}
+}
+
+func (b *resolveBoard) Observe() {
+	if b.tapeHeldHook != nil || b.tapeHeldStats != nil {
+		b.ManaAbilityHook, b.paymentStats = b.tapeHeldHook, b.tapeHeldStats
+		b.tapeHeldHook, b.tapeHeldStats = nil, nil
+	}
+}
+
+func (b *resolveBoard) Validate(d *decision.Decision, in decision.Intent) error {
+	return submitValidate((*Engine)(b), d, in)
+}
+
+func (b *resolveBoard) Commit(d *decision.Decision, in decision.Intent) {
+	submitCommit((*Engine)(b), d, in)
+}
+
+func (b *resolveBoard) Submit(in decision.Intent) error { return (*Engine)(b).Submit(in) }
+
+func (b *resolveBoard) Pose(d *decision.Decision) { (*Engine)(b).ask(d) }
+
+func (b *resolveBoard) Record(d *decision.Decision, in decision.Intent) []decision.Option {
+	e := (*Engine)(b)
+	in = cloneIntentForLog(in)
+	e.potentialAskSerial++
+	e.tape.LogIntent(e.L, in)
+	e.emit(events.Event{Kind: events.DecisionMade, Player: in.Player, Text: decisionMadeText(d.Kind, in.Choices)})
+	e.pending = nil
+	chosen := d.Chosen(in)
+	if d.Kind == decision.KModes {
+		obj := d.Source
+		if n := len(e.G.Stack); n > 0 {
+			obj = e.G.Stack[n-1] // the resolving object stays on the stack
+		}
+		recordModesAnswer(e, d, in.Player, chosen, obj)
+	}
+	return chosen
+}
+
+func (b *resolveBoard) Emit(ev events.Event) { events.Emit(b.G, b.L, ev) }
+
+// tapeMissObserver receives one class string per predicate miss (a legacy
+// ask during a resolution the ask-free predicate exempted): the cardfuzz
+// miss census. Process-wide; nil (every production engine) costs one load.
+var tapeMissObserver atomic.Pointer[func(class string)]
+
+// SetTapeMissObserver installs (nil removes) the process-wide predicate-miss
+// observer and returns the previous one. f must be safe for concurrent use.
+func SetTapeMissObserver(f func(class string)) func(class string) {
+	var prev *func(string)
+	if f == nil {
+		prev = tapeMissObserver.Swap(nil)
+	} else {
+		prev = tapeMissObserver.Swap(&f)
+	}
+	if prev == nil {
+		return nil
+	}
+	return *prev
+}
+
+// tapeMissed reports a predicate miss to the observer, classed by the
+// resolving object's shape and the decision that reached the ask choke
+// point.
+func tapeMissed(e *Engine, d *decision.Decision) {
+	f := tapeMissObserver.Load()
+	if f == nil {
+		return
+	}
+	ask := string(d.Kind)
+	if d.ResumeKind != "" {
+		ask += "/" + d.ResumeKind
+	}
+	(*f)(tapeShape(e) + " -> " + ask)
+}
+
+// tapeShape names the top of the stack's shape: its kind and SubAbility$
+// API chain.
+func tapeShape(e *Engine) string {
+	if len(e.G.Stack) == 0 {
+		return "nostack"
+	}
+	o := e.G.Obj(e.G.Stack[len(e.G.Stack)-1])
+	if o == nil {
+		return "nil"
+	}
+	if o.Ability != nil {
+		return "ab:" + saChainShape(o.Ability)
+	}
+	f := o.Face()
+	if f == nil {
+		return "spell:noface"
+	}
+	kind := "spell:"
+	if f.IsPermanent() {
+		kind = "perm:"
+	}
+	if sa := f.SpellAbility(); sa != nil {
+		return kind + saChainShape(sa)
+	}
+	return kind
+}
+
+func saChainShape(sa *cards.SA) string {
+	out := ""
+	for s, n := sa, 0; s != nil && n < 8; s, n = s.Sub, n+1 {
+		if n > 0 {
+			out += ">"
+		}
+		out += s.API
+	}
+	return out
+}
