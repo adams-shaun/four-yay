@@ -142,6 +142,16 @@ func (e *Engine) loyaltyActivationsThisTurn(id state.ObjID) int {
 func (e *Engine) loyaltyActivationsFrom(o *state.Object, from int, onBattlefield bool, faceIdx int) int {
 	id := o.ID
 	used := 0
+	if o.IsToken {
+		// A token is minted straight onto the battlefield: TokenCreate (and
+		// the copy-mint kinds) fold AddObject + Move with no MoveZone event,
+		// so the fold would never see it enter and would count none of its
+		// activations (a fresh empower Jace token could [-1] and then [-3]
+		// in one turn). A token that leaves ceases to exist (CR 111.7), so
+		// its one stint runs from its minting; a leaving MoveZone still
+		// ends it below.
+		onBattlefield = true
+	}
 	for _, ev := range e.L.Events[from:] {
 		switch ev.Kind {
 		case events.TurnChange:

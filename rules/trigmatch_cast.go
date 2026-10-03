@@ -467,13 +467,17 @@ func (e *Engine) abilityCastMatches(t cards.Trigger, source state.ObjID, ev even
 			return false
 		}
 	}
+	removed := int32(-1)
+	if strings.Contains(t.Params["ValidSA"], "CountersRemovedToPay") || strings.Contains(t.Params["ValidSAonCard"], "CountersRemovedToPay") {
+		removed = e.activationCountersRemoved(ev, ab)
+	}
 	if v, ok := t.Params["ValidSA"]; ok {
-		if ab == nil || !abilityCastValidSA(ab, v, obj.Controller, ctrl) {
+		if ab == nil || !abilityCastValidSA(ab, v, obj.Controller, ctrl, removed) {
 			return false
 		}
 	}
 	if v, ok := t.Params["ValidSAonCard"]; ok {
-		if ab == nil || !abilityCastValidSA(ab, v, ev.Player, obj.Controller) {
+		if ab == nil || !abilityCastValidSA(ab, v, ev.Player, obj.Controller, removed) {
 			return false
 		}
 	}
@@ -514,7 +518,7 @@ func (e *Engine) abilityCastMatches(t cards.Trigger, source state.ObjID, ev even
 // source's controller: a YouCtrl constraint holds when the two agree
 // (bill_potts' Activated.YouCtrl; the spell half resolves its own YouCtrl
 // through the ordinary filter).
-func abilityCastValidSA(ab *cards.SA, validSA string, abCtrl, ctrl state.PlayerID) bool {
+func abilityCastValidSA(ab *cards.SA, validSA string, abCtrl, ctrl state.PlayerID, removed int32) bool {
 	v := strings.TrimSpace(validSA)
 	if v == "" {
 		return true
@@ -533,29 +537,89 @@ func abilityCastValidSA(ab *cards.SA, validSA string, abCtrl, ctrl state.PlayerI
 		}
 		switch kind {
 		case "SpellAbility", "Activated", "":
-			switch constraint {
-			case "":
+			if abilityCastConstraintHolds(ab, constraint, abCtrl, ctrl, removed) {
 				return true
-			case "!ManaAbility":
-				if !isManaAbilityAPI(ab.API) {
-					return true
-				}
-			case "ManaAbility":
-				if isManaAbilityAPI(ab.API) {
-					return true
-				}
-			case "YouCtrl":
-				if abCtrl == ctrl {
-					return true
-				}
-			case "OppCtrl":
-				if abCtrl != ctrl {
-					return true
-				}
 			}
 		}
 	}
 	return false
+}
+
+// abilityCastConstraintHolds evaluates one alternative's constraint: a
+// `+`-joined list of terms that must ALL hold (Forge's conjunction, as in
+// Activated.Loyalty+OppCtrl). An empty constraint matches every activated
+// ability; an unknown term fails the whole alternative closed.
+//
+// Loyalty / !Loyalty classify the activated ability as a planeswalker
+// loyalty ability (isLoyaltyAbility: the Planeswalker$ marker or a LOYALTY
+// counter cost part). CountersRemovedToPay<OP><N> (Way of the Mind
+// Sculptor's "if you removed two or more loyalty counters to activate it")
+// compares the counters the activation removed as its cost; removed < 0
+// means the caller could not establish that count, and the term fails closed.
+func abilityCastConstraintHolds(ab *cards.SA, constraint string, abCtrl, ctrl state.PlayerID, removed int32) bool {
+	if constraint == "" {
+		return true
+	}
+	for term := range strings.SplitSeq(constraint, "+") {
+		ok := false
+		switch term {
+		case "!ManaAbility":
+			ok = !isManaAbilityAPI(ab.API)
+		case "ManaAbility":
+			ok = isManaAbilityAPI(ab.API)
+		case "YouCtrl":
+			ok = abCtrl == ctrl
+		case "OppCtrl":
+			ok = abCtrl != ctrl
+		case "Loyalty":
+			ok = isLoyaltyAbility(ab)
+		case "!Loyalty":
+			ok = !isLoyaltyAbility(ab)
+		default:
+			if cmp, found := strings.CutPrefix(term, "CountersRemovedToPay"); found && removed >= 0 {
+				if op, n, valid := splitCompare(cmp); valid {
+					ok = applyCompare(int(removed), op, n)
+				}
+			}
+		}
+		if !ok {
+			return false
+		}
+	}
+	return true
+}
+
+// activationCountersRemoved is the number of counters the activation ev
+// pushed removed as its cost (its SubCounter parts), for the
+// CountersRemovedToPay ValidSA$ term. The AbilityPush is emitted only once
+// the cost is paid, while the activation's pendingCast is still live, so the
+// paid parts and the announced X are read from it: a fixed part counts its
+// N, an announced (SubCounter<X/...>) part counts the announced X. With no
+// live activation for ev the printed cost answers when every part is fixed;
+// an announced part then makes the count unknown (-1, failing closed).
+func (e *Engine) activationCountersRemoved(ev events.Event, ab *cards.SA) int32 {
+	if pc := e.cast; pc != nil && pc.isAbility() && pc.card == ev.Obj {
+		var n int32
+		for _, part := range pc.cost.SubCounter {
+			if part.Announced {
+				n += pc.x
+			} else {
+				n += part.N
+			}
+		}
+		return n
+	}
+	if ab == nil {
+		return -1
+	}
+	var n int32
+	for _, part := range ParseCost(ab.Params["Cost"]).SubCounter {
+		if part.Announced {
+			return -1
+		}
+		n += part.N
+	}
+	return n
 }
 
 // hasXManaCostGate implements HasXManaCost$ True on cast/activation trigger

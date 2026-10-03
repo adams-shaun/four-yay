@@ -435,6 +435,36 @@ func NumLoyaltyActParamsReadable(params map[string]string) bool {
 	return true
 }
 
+// LoyaltyFlashParamsReadable reports whether an Effect-delivered
+// Mode$ CastWithFlash body is the loyalty-timing grant this build evaluates:
+// "you may activate loyalty abilities of <ValidCard$> any time you could
+// cast an instant" (Jace's Machinations' InstantJace, Teferi, Temporal
+// Archmage's emblem). Its ValidSA$ must be exactly Activated.Loyalty and its
+// Caster$, when present, You; the rest is the selector and display text.
+// Every other CastWithFlash body (the spell-flash grants) stays the honest
+// unimplemented Note, so this whitelist widens nothing on the spell side.
+// rules' loyaltyAtInstantSpeed reads the registration this admits.
+func LoyaltyFlashParamsReadable(params map[string]string) bool {
+	loyalty := false
+	for key, v := range params {
+		switch key {
+		case "Mode", "ValidCard", "Description":
+		case "ValidSA":
+			if strings.TrimSpace(v) != "Activated.Loyalty" {
+				return false
+			}
+			loyalty = true
+		case "Caster":
+			if strings.TrimSpace(v) != "You" {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return loyalty
+}
+
 // GoadStaticGrantReadable is the exported form of goadStaticGrantReadable:
 // rules' etbCloneWhitelist value check (staticgoad1) reads a granted
 // AddStaticAbilities$ body through it, so the ETB offer and the effClone

@@ -478,6 +478,8 @@ func TestSetAudit_sos_EliteInterceptor_PreparedSpellCopyUnprepares(t *testing.T)
 	if copyID == 0 {
 		t.Fatal("prepared copy: no Rejoinder spell copy in exile after Interceptor enters (CR 722.3c)")
 	}
+	// The copy is cast, not cast free: Rejoinder's {1}{W} is paid (CR 601.2f).
+	addMana(t, e, 0, "WW")
 	idx := -1
 	for _, opt := range castOptions(t, e) {
 		if opt.Obj == copyID {
@@ -1538,6 +1540,8 @@ func TestSetAudit_sos_TamObservantSequencer_LandfallPreparesAndCopyCasts(t *test
 	if copyID == 0 {
 		t.Fatalf("landfall: no Deep Sight prepared copy in exile (CR 722.3c)")
 	}
+	// The copy is cast, not cast free: Deep Sight's {G}{U} is paid (CR 601.2f).
+	addMana(t, e, 0, "GU")
 	opt, ok := sosPreparedCastOption(e, copyID)
 	if !ok {
 		t.Fatalf("landfall: no prepared_copy cast option for the Deep Sight copy: %+v", e.Pending().Options)
@@ -1581,11 +1585,12 @@ func TestSetAudit_sos_GoblinGlasswright_PreparedCopyMintsTreasure(t *testing.T) 
 	if copyID == 0 {
 		t.Fatalf("treasure: no Craft with Pride prepared copy in exile")
 	}
+	// The copy is cast, not cast free: Craft with Pride's {R} is paid (CR 601.2f).
+	addMana(t, e, 0, "R")
 	opt, ok := sosPreparedCastOption(e, copyID)
 	if !ok {
 		t.Fatalf("treasure: no prepared_copy cast option: %+v", e.Pending().Options)
 	}
-	addMana(t, e, 0, "RR")
 	submitChoices(t, e, opt.Index)
 	passUntilStackEmpty(t, e, 12)
 	treasure := sosFindTokenBy(t, e, "Treasure Token")
