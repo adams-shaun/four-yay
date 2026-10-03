@@ -665,8 +665,10 @@ func unlessPayerTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
 		} else {
 			return nil, false
 		}
-	case "Targeted", "ParentTarget", "Player.targetedBy":
+	case "Targeted", "Player.targetedBy":
 		addTargets(c.Targets)
+	case "ParentTarget":
+		addTargets(parentLinkTargets(c))
 	case "TriggeredTarget":
 		if !c.TriggerTarget.IsPlayer && c.TriggerTarget.Obj == 0 {
 			return nil, false

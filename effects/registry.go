@@ -1564,6 +1564,17 @@ type Ctx struct {
 	// it is non-nil and fall back to Ctx.Targets otherwise (a chain with no
 	// sub targets unions to exactly the root's own set).
 	AllTargets []state.Target
+	// parentLinks is the walk's record of the targets each TARGETING
+	// SubAbility$ link chose, in chain order (effects/parent_targets.go): the
+	// binding Forge's ParentTarget/ParentTargeted referents name -- the
+	// NEAREST targeting parent's targets, not the root's. Resolution scratch,
+	// scoped to one Resolve walk; never event-encoded.
+	parentLinks [][]state.Target
+	// linkAnswer carries a link body's own consumed target answer out to
+	// Resolve's recorder when the body asked for it itself (effChangeZone's
+	// changeZoneChosenTargets), which the generic pre-ask never sees.
+	linkAnswer   []state.Target
+	linkAnswered bool
 	// ChoiceTarget is the index of the per-player chooser currently being
 	// resumed. It keeps multi-player ChooseCard/ChoosePlayer asks from
 	// returning to the first chooser after every answer.
@@ -3285,6 +3296,12 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 			defer rh.SetResolutionCtx(prevCtx)
 		}
 	}
+	if c != nil {
+		// The parent-link record belongs to THIS walk: a nested walk sharing
+		// the Ctx (a body resolving its own sub-chain) must not leave its links
+		// behind as "parents" of the enclosing chain's later links.
+		defer func(n int) { c.parentLinks = c.parentLinks[:n] }(len(c.parentLinks))
+	}
 	reg := registry.load()
 	for d := 0; sa != nil && d < maxChain; d, sa = d+1, sa.Sub {
 		// Earlier bodies in this chain may emit events that change the active
@@ -3465,6 +3482,7 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 			}
 			fn(h, c, sa)
 			c.PickedTargets = nil
+			recordParentLink(c, sa, ts, true)
 		} else {
 			if prefetchedRememberedSub {
 				c.PickedTargets = rememberedSubTargets
@@ -3473,6 +3491,7 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 			if prefetchedRememberedSub {
 				c.PickedTargets = nil
 			}
+			recordParentLink(c, sa, nil, false)
 		}
 		// A DB$ Token whose mint parked has not finished: its Imprint/
 		// ClearImprinted tail belongs after the mints, so it runs on the

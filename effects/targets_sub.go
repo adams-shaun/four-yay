@@ -22,7 +22,7 @@ func isLaterTargetedSub(c *Ctx, sa *cards.SA) bool {
 // (CR 115.1: each target is chosen as its own instruction's "target").
 func subAskCandidates(h Host, c *Ctx, sa *cards.SA) []state.Target {
 	if isLaterTargetedSub(c, sa) {
-		return h.LegalSubTargets(c.Controller, c.Source, sa, c.Targets)
+		return h.LegalSubTargets(c.Controller, c.Source, sa, parentLinkTargets(c))
 	}
 	return h.LegalTargets(c.Controller, c.Source, sa)
 }

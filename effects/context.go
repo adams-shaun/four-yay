@@ -793,7 +793,15 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 		// union (Ctx.AllTargets: rules' chainTargetUnion) -- Uldaros Theorix's
 		// and Urgent Necropsy's untargeted "exile/destroy them" tail link.
 		return copyTargets(refTargetUnion(c)), true
-	case "ParentTarget", "ParentTargeted", "ThisTargetedCard":
+	case "ParentTarget", "ParentTargeted":
+		// The NEAREST targeting parent link's targets (parent_targets.go).
+		return copyTargets(parentLinkTargets(c)), true
+	case "ParentTargetedController":
+		// Forge's getDefinedPlayers "ParentTargetedController": the
+		// controllers of the ParentTarget cards (Intruder's Inquisition's
+		// "its controller discards" names the creature DBDamage targeted).
+		return controllersOf(g, parentLinkTargets(c)), true
+	case "ThisTargetedCard":
 		return copyTargets(c.Targets), true
 	case "TriggeredAttackers":
 		// Forge's plural attack-batch referent (Love on the Battlefield's

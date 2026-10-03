@@ -520,7 +520,7 @@ func effectRemembered(h Host, c *Ctx, sa *cards.SA) []state.ObjID {
 				}
 				out = appendEffectRememberedObjects(h, out, targets)
 			case "ParentTarget":
-				out = appendEffectRememberedObjects(h, out, c.Targets)
+				out = appendEffectRememberedObjects(h, out, parentLinkTargets(c))
 			case "Remembered", "Remembered.Creature", "Remembered.Permanent", "RememberedCard":
 				out = appendEffectRememberedObjects(h, out, c.Remembered)
 			case "Imprinted":
