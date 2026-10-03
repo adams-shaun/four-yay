@@ -85,12 +85,35 @@ func TestParadigmCensus(t *testing.T) {
 	}
 }
 
+// paradigmCopyOffer returns the index of the free may-play "cast" option for
+// the exiled Paradigm card id in the pending priority decision, or -1.
+func paradigmCopyOffer(t *testing.T, e *Engine, id state.ObjID) int {
+	t.Helper()
+	d := e.Pending()
+	if d == nil || d.Kind != decision.KPriority {
+		t.Fatalf("expected a priority decision, got %+v", d)
+	}
+	for _, o := range d.Options {
+		if o.Obj == id && o.Kind == "cast" && o.Mode == "mayplay" {
+			return o.Index
+		}
+	}
+	return -1
+}
+
 // TestParadigmOffersFreeCopyFromExile drives the whole mechanic on Restoration
-// Seminar: the first cast resolves and exiles the card, and at that same first
-// main phase the ordinary may-play offer makes the exiled card a FREE castable
-// copy. Casting it without any mana in the pool resolves a second time and
-// returns the card to exile, so the lone physical card stands in for the rules
-// text's "cast a copy ... while the card remains there".
+// Seminar: the first cast resolves and exiles the card. The copy is cast "at
+// the beginning of each of your first main phases" -- ONE cast per first main
+// phase, and not in the main phase the original resolved in (that phase's
+// beginning has already passed). At the owner's NEXT first main phase the
+// ordinary may-play offer makes the exiled card a FREE castable copy; casting
+// it without any mana in the pool resolves a second time and returns the card
+// to exile, so the lone physical card stands in for the rules text's "cast a
+// copy ... while the card remains there". After that cast the offer is gone
+// for the rest of the phase: an offer that survived its own resolution was an
+// unbounded free loop (cardfuzz fuzz-1003: Restoration Seminar recurring an
+// Aura with nothing to enchant, Germination Practicum, Improvisation Capstone
+// and Echocasting Symposium each livelocked or hit the intent cap).
 func TestParadigmOffersFreeCopyFromExile(t *testing.T) {
 	t.Parallel()
 	// Two graveyard nonland permanents so the original cast AND the free copy
@@ -123,26 +146,20 @@ func TestParadigmOffersFreeCopyFromExile(t *testing.T) {
 	if o := e.G.Obj(bear); o == nil || o.Zone != state.ZGraveyard {
 		t.Fatal("precondition: the bear left the graveyard before the copy could target it")
 	}
+	if e.G.Step != state.StepMain1 || e.G.Active != 0 {
+		t.Fatalf("precondition: still in seat 0's first main phase, got turn %d seat %d step %s", e.G.Turn, e.G.Active, e.G.Step)
+	}
 
-	// The free copy is offered through the ORDINARY may-play walk: a "cast"
-	// option for the exiled card whose Mode is "mayplay".
-	d := e.Pending()
-	if d == nil || d.Kind != decision.KPriority {
-		t.Fatalf("expected a priority decision after resolution, got %+v", d)
+	// The beginning of THIS first main phase has passed: no copy this turn.
+	if idx := paradigmCopyOffer(t, e, seminar); idx >= 0 {
+		t.Fatalf("paradigm: free copy offered in the same main phase the original resolved in (option %d)", idx)
 	}
-	copyIdx := -1
-	var offered []decision.Option
-	for _, o := range d.Options {
-		if o.Obj != seminar {
-			continue
-		}
-		offered = append(offered, o)
-		if o.Kind == "cast" && o.Mode == "mayplay" {
-			copyIdx = o.Index
-		}
-	}
+
+	// Seat 0's next first main phase (a two-player game: turn 3).
+	driveToStep(t, e, 3, 0, state.StepMain1)
+	copyIdx := paradigmCopyOffer(t, e, seminar)
 	if copyIdx < 0 {
-		t.Fatalf("no free may-play copy offer for the exiled Paradigm spell; options: %+v", offered)
+		t.Fatalf("no free may-play copy offer for the exiled Paradigm spell at the next first main phase; pending %+v", e.Pending())
 	}
 
 	// Cast it with an EMPTY mana pool: only the MayPlayWithoutManaCost$ free
@@ -155,6 +172,14 @@ func TestParadigmOffersFreeCopyFromExile(t *testing.T) {
 	}
 	if o := e.G.Obj(seminar); o == nil || o.Zone != state.ZExile {
 		t.Fatalf("after the free copy resolved: seminar zone = %v, want exile", o)
+	}
+
+	// One copy per first main phase: the offer must not come back.
+	if e.G.Step != state.StepMain1 || e.G.Active != 0 {
+		t.Fatalf("precondition: still in seat 0's first main phase, got turn %d seat %d step %s", e.G.Turn, e.G.Active, e.G.Step)
+	}
+	if idx := paradigmCopyOffer(t, e, seminar); idx >= 0 {
+		t.Fatalf("paradigm: a second free copy offered in the same first main phase (option %d) -- an unbounded free-cast loop", idx)
 	}
 	replayCheck(t, e, cfg)
 }
