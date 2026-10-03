@@ -125,6 +125,9 @@ func effDealDamage(h Host, c *Ctx, sa *cards.SA) {
 		player state.PlayerID
 	}
 	var divTargets []divTarget
+	// split is the allocation the emission walk reads: the legacy re-entry's
+	// answered Ctx.DamageSplit, or the one this call fills below.
+	split := c.DamageSplit
 	if divided {
 		for _, t := range Defined(h, c, sa) {
 			if t.IsPlayer {
@@ -164,21 +167,29 @@ func effDealDamage(h Host, c *Ctx, sa *cards.SA) {
 					Min: int(total), Max: int(total), Options: opts, Repeatable: true,
 					ResumeKind: "damage_split", ResumeSA: sa, Source: c.Source,
 					Prompt: "Assign " + strconv.Itoa(int(total)) + " damage"}
-				if Ask(h, d) == AskAsked {
+				if ans, ok := AskTape(h, d); ok {
+					// The "damage_split" answer in hand: the shares, decoded
+					// as the arm decodes them; the walk below emits them.
+					// The re-entry rebuilds its rider, so this does too (an
+					// unresolvable DamageSource$ re-emits its Note there).
+					split = damageSplitAnswer(ans)
+					rider = newDamageRider(h, c, sa, n)
+				} else if Ask(h, d) == AskAsked {
 					// Suspended: rules' "damage_split" resume arm fills
 					// Ctx.DamageSplit from the answered multiset and re-enters
 					// this SA, which then emits with the player's shares. The
 					// damage batch is not open yet, so the suspension leaves
 					// nothing half-emitted.
 					return
+				} else {
+					// No host (R-9): the deterministic round-robin stand-in.
+					split = roundRobinSplit(len(divTargets), total)
 				}
-				// No host (R-9): the deterministic round-robin stand-in.
-				c.DamageSplit = roundRobinSplit(len(divTargets), total)
 			} else if len(divTargets) == 1 && total > 0 {
 				// The sole target must receive the whole total: filling the
 				// split directly keeps the positional emission loop below
 				// honest without posing an unanswerable decision.
-				c.DamageSplit = []int32{total}
+				split = []int32{total}
 			}
 			c.DamageSplitDone = true
 		}
@@ -284,8 +295,8 @@ func effDealDamage(h Host, c *Ctx, sa *cards.SA) {
 		}()
 		for i, t := range divTargets {
 			amt := int32(0)
-			if i < len(c.DamageSplit) {
-				amt = c.DamageSplit[i]
+			if i < len(split) {
+				amt = split[i]
 			}
 			if amt <= 0 {
 				continue
@@ -1582,4 +1593,24 @@ func effDamageResolve(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 	registerReplaceDying(h, c, sa, damaged)
+}
+
+// damageSplitAnswer decodes a "damage_split" answer exactly as rules' resume
+// arm does: the answer is a multiset over the target options, and each
+// option's multiplicity is the damage its target (the option's Index, the
+// target's Defined$ position) receives.
+func damageSplitAnswer(ans []decision.Option) []int32 {
+	n := 0
+	for _, o := range ans {
+		if o.Index+1 > n {
+			n = o.Index + 1
+		}
+	}
+	split := make([]int32, n)
+	for _, o := range ans {
+		if o.Index >= 0 && o.Index < len(split) {
+			split[o.Index]++
+		}
+	}
+	return split
 }
