@@ -103,9 +103,9 @@ func effClash(h Host, c *Ctx, sa *cards.SA) {
 			}
 		}
 	}
-	c.ClashWinner, c.ClashWon = players[0], winnerIdx == 0
+	c.ClashWon = winnerIdx == 0
 	if winnerIdx >= 0 {
-		c.ClashWinner = players[winnerIdx]
+
 	}
 	for ; cursor < len(players); cursor++ {
 		p, id := players[cursor], revealed[cursor]

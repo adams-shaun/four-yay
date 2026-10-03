@@ -121,9 +121,7 @@ func effConnive(h Host, c *Ctx, sa *cards.SA) {
 			return
 		}
 	}
-	// Leftover pending state no target consumed (the pending conniver left
-	// play, a malformed resume): consumed and cleared, never inherited.
-	c.ConniveObj = 0
+
 	c.DrawDone = 0
 }
 
@@ -193,9 +191,7 @@ func conniveOnce(h Host, c *Ctx, sa *cards.SA, conniver state.ObjID, targetIdx, 
 			return false
 		}
 		if Ask(h, d) == AskAsked {
-			// Park the mid-connive state (documenting; the resume arm is what
-			// actually re-seeds it — the suspended Ctx is discarded).
-			c.ConniveObj = conniver
+
 			return true
 		}
 		applyConniveDiscard(h, conniver, hand[:n2])

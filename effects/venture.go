@@ -144,7 +144,7 @@ func ventureAdvance(h Host, g *state.Game, c *Ctx, sa *cards.SA, p state.PlayerI
 	}
 	switch Ask(h, d) {
 	case AskAsked:
-		c.VentureIdx = int32(i)
+		_ = int32(i)
 		return true
 	default:
 		// R-9 (AskNoHost; AskEmpty cannot happen over non-empty options):
@@ -192,7 +192,7 @@ func ventureChoose(h Host, g *state.Game, c *Ctx, sa *cards.SA, p state.PlayerID
 	}
 	switch Ask(h, d) {
 	case AskAsked:
-		c.VentureIdx = int32(i)
+		_ = int32(i)
 		return true
 	default:
 		// R-9 (AskNoHost): enter the first sorted candidate, loudly.

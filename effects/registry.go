@@ -800,8 +800,6 @@ type Ctx struct {
 	// re-derives the same set by replaying the same resolution.
 	SearchKnown []state.Target
 
-	VentureIdx int32
-
 	// Play is the answered card a resolved Play effect chose to play from a
 	// zone (CR 701.23): the object the controller selected among the offered
 	// candidates. rules' resumeResolution sets it from the recorded answer
@@ -935,17 +933,7 @@ type Ctx struct {
 	// and cleared at the point of application (fx42 scoping), so the
 	// pending explorer's remaining explores and every later target pose
 	// their own fresh path.
-	ExploreObj  state.ObjID
-	ExploreCard state.ObjID
-
-	// ConniveObj/ConniveDiscard/ConniveDone carry one pending connive
-	// discard (api:Connive, task connive1): ConniveDone marks an ANSWERED
-	// discard for the conniver parked in ConniveObj, ConniveDiscard the
-	// chosen card ids. rules' "connive" resume arm re-enters with
-	// ConniveDone set and both other fields restored from the resume
-	// point. Consumed and cleared at the point of application (fx42
-	// scoping), so a later conniving target poses its own fresh ask.
-	ConniveObj state.ObjID
+	ExploreObj state.ObjID
 
 	// LastRoll/LastRollName carry the result of a DB$ RollDice this same
 	// resolution just made (effects/dice.go), under the SVar name its
@@ -1022,12 +1010,6 @@ type Ctx struct {
 	// Targets/SVars -- never event-encoded (the marker carries the same bit
 	// in Amount), a replay re-derives the same value.
 	ClashWon bool
-	// ClashWinner is the seat that won the clash, or the resolving controller
-	// on a tie (CR 701.31's no-winner case, where Forge reports"False" to
-	// both clashing players). effClash's branch read uses ClashWon; this field
-	// is kept so a chained SubAbility$ (or a future Defined$ referent) can
-	// name the winner without re-deriving it from the log.
-	ClashWinner state.PlayerID
 }
 
 // VoteCount is one ballot subject's tally (see Ctx.VoteCounts).

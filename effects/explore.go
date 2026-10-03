@@ -84,7 +84,7 @@ func effExplore(h Host, c *Ctx, sa *cards.SA) {
 	}
 	// Leftover pending state that no target consumed (the pending explorer
 	// left play, a malformed resume): consumed and cleared, never inherited.
-	c.ExploreObj, c.ExploreCard = 0, 0
+	c.ExploreObj = 0
 }
 
 // exploreOnce runs one explore process for explorer and reports whether the
@@ -154,7 +154,7 @@ func exploreOnce(h Host, c *Ctx, sa *cards.SA, explorer state.ObjID, done int32)
 		// actually re-seeds it — the suspended Ctx is discarded) and report
 		// the suspension.
 		c.ExploreObj = explorer
-		c.ExploreCard = top
+
 		return true
 	}
 	// No host (an effects-package test double, a fuzz run): option 0, the
