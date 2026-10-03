@@ -1,7 +1,6 @@
 {
   "card": "Decimate",
   "rows": {
-    "destroys-all-four-named-permanent-types": "CR 601.2c: all four targets (artifact, creature, enchantment, land) are announced as the spell is cast. Observed: only the first (Sol Ring) is asked on cast; the creature, enchantment and land are posed as resolution-time chooses that then do nothing (Grizzly Bears, Ghostly Prison and Forest all survive). Same root as Bite Down/second-target-is-chosen-on-cast; no ticket yet.",
-    "not-castable-when-one-required-target-is-missing": "CR 601.2c: with no enchantment on the battlefield there is no legal target for one of the four required targets, so Decimate cannot be cast. Observed: the cast is offered (the engine does not require the full target set). Same root as Bite Down/no-opposing-creature-or-planeswalker-not-castable; no ticket yet."
+    "destroys-all-four-named-permanent-types": "CR 601.2c: all four targets (artifact, creature, enchantment, land) are announced as the spell is cast. Observed: only the first (Sol Ring) is asked on cast; the creature, enchantment and land are posed as resolution-time chooses that then do nothing (Grizzly Bears, Ghostly Prison and Forest all survive). Same root as Bite Down/second-target-is-chosen-on-cast; no ticket yet."
   }
 }
