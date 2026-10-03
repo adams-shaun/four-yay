@@ -405,11 +405,12 @@ type manaUnlessActivation struct {
 // native mana ability excludes itself, while a static-granted SVar (Tazri)
 // requires one printed activated ability on that creature.
 func (e *Engine) manaReflectedPresentHolds(p state.PlayerID, source state.ObjID, ma *cards.SA) bool {
-	if !e.classBandGateHolds(ma.ParamStr(cards.PKClassBand), source) {
+	mr := effects.ManaReflectedOf(ma)
+	if !e.classBandGateHolds(mr.ClassBand, source) {
 		return false
 	}
-	spec, ok := ma.Param(cards.PKIsPresent)
-	if !ok || strings.TrimSpace(spec) == "" {
+	spec := mr.IsPresent
+	if spec == "" {
 		return true
 	}
 	if strings.Contains(spec, "hasAbility Activated.otherAbility") {
@@ -424,13 +425,13 @@ func (e *Engine) manaReflectedPresentHolds(p state.PlayerID, source state.ObjID,
 				n++
 			}
 		}
-		if cmp := strings.TrimSpace(ma.ParamStr(cards.PKPresentCompare)); cmp != "" {
+		if cmp := mr.PresentCompare; cmp != "" {
 			return comparePresent(n, cmp)
 		}
 		return n > 0
 	}
 	n := e.countPresent(spec, source, p)
-	if cmp := strings.TrimSpace(ma.ParamStr(cards.PKPresentCompare)); cmp != "" {
+	if cmp := mr.PresentCompare; cmp != "" {
 		return comparePresent(n, e.presentCompareFor(cmp, source, p))
 	}
 	return n > 0

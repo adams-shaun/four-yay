@@ -1579,6 +1579,19 @@ func (s *scan) closureReads(fi *fnInfo, exclude map[string]bool, visited map[str
 // 2. Attribution roots the code does not state in a machine-readable position
 // ---------------------------------------------------------------------------
 
+// foreignAbilityReaders names the effects functions inside an API's
+// implementation closure that read OTHER abilities' parameters through
+// another API's typed compiler: their closures are cut from the implementing
+// API's read set, since what they read is never the resolving ability's own
+// parameter. producibleSymbols (effects/mana_reflected.go) reads each
+// reflected permanent's own mana abilities' Produced$ through effects.ManaOf;
+// followed, compileMana's reads (the AddsCounters$/PersistentMana$/... riders)
+// would join api:ManaReflected's read set and mask a reflected ability's own
+// unread rider. The rot guard fails on an entry naming no effects function.
+var foreignAbilityReaders = map[string]bool{
+	"producibleSymbols": true,
+}
+
 // apiSpecificRulesSA names the rules functions whose SA (bSA) reads execute
 // only inside the listed APIs' code paths -- NOT for every cast/activation/
 // targeting of any primitive. Their direct SA reads are REMOVED from the
@@ -1624,13 +1637,6 @@ var apiSpecificRulesSA = map[string][]string{
 	"Engine.attackChoiceManaSources":        {"Mana"},
 	"Engine.castWindowProbeUnits":           {"Mana"},
 	"Engine.paymentPlanSourceInterference":  {"Mana"},
-	// The ManaReflected activation gate: only a reflected-mana ability's
-	// offer consults IsPresent$/PresentCompare$ on the SA itself (Tazri's
-	// "another activated ability" condition). A plain AB$ Mana ability's
-	// IsPresent$ gate is read separately, by manaActivationGateHolds above
-	// (the Verge lands, Temple of the False God, Shrine of the Forsaken
-	// Gods), so this entry must not swallow it.
-	"Engine.manaReflectedPresentHolds": {"ManaReflected"},
 	// The Charm mode paths: the CR 601.2b cast-time modes ask (castModeAsk)
 	// and the per-mode target declaration (modalTargetSA) read the MODE
 	// bodies' targeting. The Charm's own Choices$/CharmNum$ reads are
@@ -2041,7 +2047,7 @@ func (s *scan) derived() *derivedReads {
 	for api, fn := range s.apiImpl {
 		out := map[bucket]map[string]bool{}
 		if fi := s.fns["effects:"+fn]; fi != nil {
-			s.closureReads(fi, nil, map[string]bool{}, out)
+			s.closureReads(fi, foreignAbilityReaders, map[string]bool{}, out)
 		}
 		keys := map[string]bool{}
 		for k := range out[bSA] {
@@ -2244,6 +2250,12 @@ func (s *scan) rotGuard(t *testing.T) {
 		sort.Strings(s.unclassified)
 		s.guardErrs = append(s.guardErrs, fmt.Sprintf("paramcensus: %d unclassified Params reads (the census cannot rot):\n%s",
 			len(s.unclassified), strings.Join(s.unclassified, "\n")))
+	}
+	for fn := range foreignAbilityReaders {
+		if s.fns["effects:"+fn] == nil {
+			s.guardErrs = append(s.guardErrs, fmt.Sprintf(
+				"paramcensus: foreignAbilityReaders entry %q names no effects function -- delete the stale entry", fn))
+		}
 	}
 	// effects reachability.
 	visited := map[string]bool{}

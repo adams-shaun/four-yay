@@ -64,6 +64,10 @@ type SAFacts struct {
 	// non-nil exactly when the API is Mana; rules' mana half (Rules) is
 	// derived from it.
 	Mana *ManaParams
+	// ManaReflected is api:ManaReflected's compiled parameter set
+	// (manareflected_params.go), non-nil exactly when the API is
+	// ManaReflected.
+	ManaReflected *ManaReflectedParams
 }
 
 // NewSAFacts compiles sa's typed halves into a fresh record naming sa. The

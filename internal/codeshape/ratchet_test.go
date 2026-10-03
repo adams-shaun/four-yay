@@ -61,8 +61,9 @@ const (
 	// (RememberAttached$ read once): 627 -> 626. The Charm and Pump
 	// compilers (charm_params.go, pump_params.go): 626 -> 624. The Mana
 	// compiler (mana_params.go: each rider read once, the plain-shape key
-	// spelling a table scan): 624 -> 615.
-	stringParamReads = 615
+	// spelling a table scan): 624 -> 615. The ManaReflected compiler
+	// (ReflectProperty$ read once): 615 -> 614.
+	stringParamReads = 614
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
 	// W4 step 3: Attach's Object$ switch compiled to a kind: 2886 -> 2883.
@@ -113,6 +114,9 @@ const (
 	// manaParamLeaks is the same census for api:Mana's production compiler
 	// (effects/mana_params.go). It landed at zero.
 	manaParamLeaks = 0
+	// manaReflectedParamLeaks is the same census for api:ManaReflected's
+	// compiler (effects/manareflected_params.go). It landed at zero.
+	manaReflectedParamLeaks = 0
 )
 
 func measureRepo(t *testing.T) Metrics {
@@ -257,6 +261,12 @@ func TestCodeShapeOnlyShrinks(t *testing.T) {
 				"field to compileMana in effects/mana_params.go) instead of reading the " +
 				"ability's Params in effects/mana_effect.go or a Mana-only rider key " +
 				"elsewhere. Leaks: " + strings.Join(m.ManaLeaks, ", ")},
+		{"manaReflectedParamLeaks", m.ManaReflectedParamLeaks, manaReflectedParamLeaks,
+			"Read the parameter through effects.ManaReflectedOf's compiled " +
+				"ManaReflectedParams (add a field to compileManaReflected in " +
+				"effects/manareflected_params.go) instead of reading the ability's Params " +
+				"in effects/mana_reflected.go or a ManaReflected-only key elsewhere. " +
+				"Leaks: " + strings.Join(m.ManaReflectedLeaks, ", ")},
 		{"triggerContextLiterals", m.TriggerContextLiterals, triggerContextLiterals,
 			"Derive trigger referents from the firing event (rules' triggerReferents) or " +
 				"copy an existing TriggerContext and set the fields that differ; a " +
