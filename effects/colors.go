@@ -258,7 +258,7 @@ func ColorLetters(list string) ([]string, bool) {
 
 // ObjectColors binds one object to its layer-5 derived colour set (CR
 // 613.1e). rules builds the table for the objects whose derived colours
-// differ from their printed ones and binds it on SpecContext.DerivedColors,
+// differ from their printed ones and binds it on SpecContext.Layers.DerivedColors,
 // so a colour predicate agrees with the layer walk.
 type ObjectColors struct {
 	ID   state.ObjID
@@ -280,9 +280,9 @@ func ColorMaskFromLetters(letters string) ColorMask {
 // from the context, so the context does not leak (see hasEffectiveName).
 func colorMaskCtx(o *state.Object, sc *SpecContext) ColorMask {
 	if o != nil {
-		for i := range sc.DerivedColors {
-			if sc.DerivedColors[i].ID == o.ID {
-				return sc.DerivedColors[i].Mask
+		for i := range sc.Layers.DerivedColors {
+			if sc.Layers.DerivedColors[i].ID == o.ID {
+				return sc.Layers.DerivedColors[i].Mask
 			}
 		}
 	}
@@ -298,8 +298,8 @@ func colorsCtx(o *state.Object, sc *SpecContext) string {
 // for o (the compiled predicate programs read the printed face, so such an
 // object takes the textual path, as a renamed or retyped one does).
 func hasDerivedColorEntryPtr(o *state.Object, sc *SpecContext) bool {
-	for i := range sc.DerivedColors {
-		if sc.DerivedColors[i].ID == o.ID {
+	for i := range sc.Layers.DerivedColors {
+		if sc.Layers.DerivedColors[i].ID == o.ID {
 			return true
 		}
 	}

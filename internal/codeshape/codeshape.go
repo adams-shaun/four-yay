@@ -74,6 +74,12 @@ type Metrics struct {
 	HostEmbeds         int `json:"host_embeds"`
 	HostDirectMethods  int `json:"host_direct_methods"`
 	HostRoleMaxMethods int `json:"host_role_max_methods"`
+	// HostOptionalAssertions counts, in package effects' non-test files, the
+	// type assertions to an interface other than Host and its roles -- an
+	// inline `h.(interface{ ... })` or a named optional interface such as
+	// `h.(layerTablesHost)`. Each is a Host method by another name that the
+	// role split cannot see; W1d collapsed five per-table ones into one.
+	HostOptionalAssertions int `json:"host_optional_assertions"`
 	// CtxFields counts the named fields of effects.Ctx (each name on a
 	// multi-name line counts); CtxEmbeds its embedded fields.
 	CtxFields int `json:"ctx_fields"`
@@ -122,6 +128,9 @@ func Measure(root string) (Metrics, error) {
 	// ifaces is every top-level interface type of package effects, so Host's
 	// embedded roles can be resolved once the whole package is parsed.
 	ifaces := map[string]*ast.InterfaceType{}
+	// assertedNames are the named types effects asserts to; the optional
+	// interfaces among them are counted once ifaces is complete.
+	var assertedNames []string
 	for _, dir := range ScannedDirs {
 		files, err := goFiles(root, dir)
 		if err != nil {
@@ -185,8 +194,18 @@ func Measure(root string) (Metrics, error) {
 					}
 				}
 			}
+			inEffects := dir == "effects"
 			ast.Inspect(f, func(n ast.Node) bool {
 				switch x := n.(type) {
+				case *ast.TypeAssertExpr:
+					if inEffects {
+						switch t := x.Type.(type) {
+						case *ast.InterfaceType:
+							m.HostOptionalAssertions++
+						case *ast.Ident:
+							assertedNames = append(assertedNames, t.Name)
+						}
+					}
 				case *ast.IndexExpr:
 					if lit, ok := x.Index.(*ast.BasicLit); ok && lit.Kind == token.STRING && isParams(x.X) {
 						m.StringParamReads++
@@ -215,6 +234,17 @@ func Measure(root string) (Metrics, error) {
 	}
 	if err := measureHost(ifaces, &m); err != nil {
 		return m, err
+	}
+	roles := map[string]bool{"Host": true}
+	for _, fld := range ifaces["Host"].Methods.List {
+		if id, ok := fld.Type.(*ast.Ident); ok {
+			roles[id.Name] = true
+		}
+	}
+	for _, name := range assertedNames {
+		if ifaces[name] != nil && !roles[name] {
+			m.HostOptionalAssertions++
+		}
 	}
 	m.StringParamKeys = len(keys)
 	m.FuncsOver300 = len(m.LongFuncs)

@@ -837,7 +837,7 @@ func (e *Engine) anyLayer4Active() bool {
 
 // EffectiveTypes publishes the current layer-4 derived type table to the
 // effects tier, which reads it once at the top of every effects.Resolve walk
-// (effects' typeTableHost) and binds it on the resolving Ctx. That is what
+// (effects' layerTablesHost) and binds it on the resolving Ctx. That is what
 // makes a resolving effect's own filter calls -- a target offer, a Count$Valid
 // census, a CantTarget spec -- agree with the layer walk instead of reading
 // the printed face. It is a plain value-slice read, never a live engine

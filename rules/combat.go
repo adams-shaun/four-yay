@@ -1379,8 +1379,8 @@ func (e *Engine) staticGoaders(o *state.Object) []state.PlayerID {
 }
 
 // staticallyGoaded derives the static-goad SET the effects tier's IsGoaded
-// predicate reads (SpecContext.StaticGoads, published through the
-// goadTableHost seam and bound in matchesSpec): every battlefield object any
+// predicate reads (SpecContext.Layers.StaticGoads, published through the
+// layerTablesHost seam and bound in matchesSpec): every battlefield object any
 // live Goad$ True static currently goads, printed or granted. One board walk,
 // AliveFrom(0) order, so the table is deterministic; nil when no goad static
 // is live, which keeps the per-Resolve publication free for every board
@@ -1423,17 +1423,6 @@ func (e *Engine) staticallyGoadedWithLKI(lki *state.Object) map[state.ObjID]bool
 		}
 	}
 	return out
-}
-
-// StaticallyGoaded is the goadTableHost half (staticgoad1): effects.Resolve
-// binds this table on the resolving Ctx when a body's filter consults the
-// IsGoaded predicate, so a resolving effect's IsGoaded read agrees with the
-// combat requirement's staticGoaders derivation instead of seeing the
-// event-backed goad list alone. A value-map read, never a live engine
-// pointer: effects answer the filter without a back-pointer on state.Game,
-// and a cloned game cannot read another game's board.
-func (e *Engine) StaticallyGoaded() map[state.ObjID]bool {
-	return e.staticallyGoaded()
 }
 
 func (e *Engine) hasActiveGoad(o *state.Object) bool {

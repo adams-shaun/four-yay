@@ -136,12 +136,12 @@ func pureNameSpecIgnoresContext(sc *SpecContext) bool {
 	if sc.ExtraTypes != nil {
 		return false
 	}
-	for _, d := range sc.DerivedTypes {
+	for _, d := range sc.Layers.DerivedTypes {
 		if d.ID == 0 {
 			return false
 		}
 	}
-	for _, n := range sc.EffectiveNames {
+	for _, n := range sc.Layers.EffectiveNames {
 		if n.ID == 0 {
 			return false
 		}

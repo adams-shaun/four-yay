@@ -260,14 +260,14 @@ func (e *Engine) anySetNameActive() bool {
 // such context cannot silently miss a layer table the way one more site of
 // this ticket's class would.
 func (e *Engine) withNames(sc effects.SpecContext) effects.SpecContext {
-	sc.EffectiveNames = e.renames
-	sc.DerivedTypes = e.layer4Types
+	sc.Layers.EffectiveNames = e.renames
+	sc.Layers.DerivedTypes = e.layer4Types
 	return sc
 }
 
 // EffectiveNames publishes the current layer-3 rename table to the effects
 // tier, which reads it once at the top of every effects.Resolve walk
-// (effects' nameTableHost) and binds it on the resolving Ctx. That is what
+// (effects' layerTablesHost) and binds it on the resolving Ctx. That is what
 // makes a resolving effect's own filter calls -- the (*Ctx).SpecContext calls
 // effects/zone.go, counter and damage primitives already make, plus the
 // Ctx.MatchSpec sites -- agree with the layer walk instead of reading the

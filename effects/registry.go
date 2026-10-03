@@ -265,36 +265,17 @@ type Ctx struct {
 	// (Farrelite Priest's "if this ability has been activated four or more
 	// times this turn").
 	ActivationsThisTurn int32
-	// EffectiveNames is the layer-3 rename table (SetName$, CR 613.1d) in force
-	// on the battlefield, published by the resolving Host at the top of every
-	// effects.Resolve walk and bound onto every SpecContext (*Ctx).SpecContext
-	// builds. It is immutable DATA -- the same shape SpecContext.EffectiveNames
-	// already uses -- so a resolving effect's name filter agrees with rules'
-	// layer walk instead of the printed face, without a pointer from state.Game
-	// into rules. An effects test double whose Host does not implement
-	// nameTableHost leaves it nil and reads the printed face.
-	EffectiveNames []ObjectName
-	// EffectiveTypes is the layer-4 derived type table (AddTypes$,
-	// AddAllCreatureTypes$, RemoveCardTypes$, the CR 708.5 face-down set) in
-	// force on the battlefield, published alongside EffectiveNames and bound
-	// onto every SpecContext (*Ctx).SpecContext builds. It is immutable DATA
-	// -- the same shape SpecContext.DerivedTypes already uses -- so a
-	// resolving effect's target offer, Count$Valid census or other filter
-	// sees a type a continuous effect granted, without a pointer from
-	// state.Game into rules. An effects test double whose Host does not
-	// implement typeTableHost leaves it nil and reads the printed face.
-	EffectiveTypes []ObjectTypes
-	// LayerTables is the layer-5 derived-colour table (SetColor$, AddColor$,
-	// an Animate's Colors$; published for a body that names a colour word)
-	// and the layer-6 derived keyword table (AddKeyword$ grants, ability
-	// loss; published for a body that can name a with<Keyword> predicate),
-	// bound onto every SpecContext (*Ctx).SpecContext builds, so a resolving
-	// effect's colour or keyword filter ("destroy all nonblack creatures",
-	// "each creature without flying") agrees with the layer walk.
-	LayerTables
-	// StaticGoads is the live static-goad table (staticgoad1), published by
-	// rules for resolution-time IsGoaded filters.
-	StaticGoads map[state.ObjID]bool
+	// Layers is the board's derived-characteristic tables (LayerTables: the
+	// layer-3 rename table, the layer-4 type table, the layer-5 colour and
+	// layer-6 keyword tables, the static-goad set), published by the
+	// resolving Host at the top of every effects.Resolve walk and at each
+	// body boundary (layerTablesHost) and bound onto every SpecContext
+	// (*Ctx).SpecContext builds, so a resolving effect's filters -- target
+	// offer, Count$Valid census, CantTarget -- agree with rules' layer walk
+	// instead of the printed face. Immutable DATA, never a pointer from
+	// state.Game into rules; an effects test double whose Host does not
+	// publish them leaves it zero and reads the printed face.
+	Layers LayerTables
 	// TargetableObjects is a rules-built immutable legality snapshot for the
 	// triggering spell, used by CanBeTargetedByTriggeredSpellAbility.
 	TargetableObjects []state.ObjID
@@ -2207,27 +2188,58 @@ type exchangeMemoryHost interface {
 	SetResolutionExchangeMemory(*ExchangeMemory) *ExchangeMemory
 }
 
-// nameTableHost is implemented by the rules engine to publish its current
-// layer-3 rename table (specs SetName$) as immutable data. Resolve reads it
-// once at the top of every walk and binds it on the resolving Ctx, so every
-// filter call a resolving effect makes through (*Ctx).SpecContext -- and
-// every direct Ctx.EffectiveNames read -- agrees with rules' layer walk. It is
-// optional, like effectFrameHost, so the effects test doubles stay small and
-// a double with no rename table reads the printed face.
-type nameTableHost interface {
-	EffectiveNames() []ObjectName
+// LayerTableSet selects the on-demand tables a layerTablesHost publishes
+// beyond the always-published layer-3 rename and layer-4 type tables: the
+// static-goad set, the layer-5 colour table and the layer-6 keyword table are
+// built on demand by rules, so they are asked for only by a body that can read
+// them.
+type LayerTableSet uint8
+
+const (
+	// LayerGoads asks for LayerTables.StaticGoads.
+	LayerGoads LayerTableSet = 1 << iota
+	// LayerColors asks for LayerTables.DerivedColors.
+	LayerColors
+	// LayerKeywords asks for LayerTables.DerivedKeywords.
+	LayerKeywords
+)
+
+// layerTablesHost is implemented by the rules engine to publish the board's
+// derived-characteristic tables (LayerTables) as immutable data: the layer-3
+// rename and layer-4 type tables always, and the tables want selects. Resolve
+// reads it at the top of every walk and at each body boundary
+// (layerTablesFor) and binds the result on the resolving Ctx, so every
+// filter call a resolving effect makes through (*Ctx).SpecContext -- and every
+// direct Ctx.Layers read -- agrees with rules' layer walk. It is optional,
+// like effectFrameHost, so the effects test doubles stay small and a double
+// with no tables reads the printed face. It replaced five per-table optional
+// interfaces (W1d), so a table added to LayerTables is published here and
+// nowhere else.
+type layerTablesHost interface {
+	LayerTables(want LayerTableSet) LayerTables
 }
 
-// typeTableHost is implemented by the rules engine to publish its current
-// layer-4 derived type table (CR 613.1d/613.1c) as immutable data, alongside
-// the rename table. Resolve reads it once at the top of every walk and binds
-// it on the resolving Ctx, so every filter call a resolving effect makes
-// through (*Ctx).SpecContext -- and every direct Ctx.EffectiveTypes read --
-// agrees with rules' layer walk instead of the printed face. Optional, like
-// nameTableHost, so the effects test doubles stay small and a double with no
-// derived types reads the printed face.
-type typeTableHost interface {
-	EffectiveTypes() []ObjectTypes
+// layerTablesFor is the tables Resolve binds for body sa: what h publishes,
+// with the on-demand tables asked for only when sa can read them (the zero
+// LayerTables when h publishes none).
+func layerTablesFor(h Host, sa *cards.SA) LayerTables {
+	lh, ok := h.(layerTablesHost)
+	if !ok {
+		return LayerTables{}
+	}
+	var want LayerTableSet
+	if sa != nil {
+		if saMentionsGoaded(sa) {
+			want |= LayerGoads
+		}
+		if saMentionsColors(sa) {
+			want |= LayerColors
+		}
+		if saMentionsKeywords(sa) {
+			want |= LayerKeywords
+		}
+	}
+	return lh.LayerTables(want)
 }
 
 // castProhibitedHost is implemented by the rules engine to expose its
@@ -2240,25 +2252,6 @@ type typeTableHost interface {
 // legality recheck remains the sole gate -- the pre-existing behaviour.
 type castProhibitedHost interface {
 	CastProhibited(p state.PlayerID, id state.ObjID) bool
-}
-
-// goadTableHost publishes rules' live static-goad table for resolving filters.
-type goadTableHost interface {
-	StaticallyGoaded() map[state.ObjID]bool
-}
-
-// colorTableHost publishes rules' layer-5 derived-colour table for resolving
-// filters. Optional, like goadTableHost; it is asked only for a body that
-// names a colour word, because rules builds the table on demand.
-type colorTableHost interface {
-	EffectiveColors() []ObjectColors
-}
-
-// keywordTableHost publishes rules' layer-derived keyword table for
-// resolving filters. Optional, like colorTableHost; asked only for a body
-// that can name a keyword predicate.
-type keywordTableHost interface {
-	EffectiveKeywords() []ObjectKeywords
 }
 
 // saMentionsKeywords reports whether any parameter of sa, or of a
@@ -2389,41 +2382,14 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 	}
 	if c != nil {
 		c.Host = h
-		// Publish the current layer-3 rename table for the whole of this walk
-		// (and every sub-ability, which shares this Ctx). A FIELD READ of the
-		// optional host method once per walk, never a call from the hot
-		// specCtxSVars constructor: the table is immutable data, so binding it
-		// here cannot make the resolving context read another game's board.
-		if nh, ok := h.(nameTableHost); ok {
-			c.EffectiveNames = nh.EffectiveNames()
-		} else {
-			// A Ctx may be reused with a different Host. Never let names
-			// published by an earlier rules engine leak into this walk.
-			c.EffectiveNames = nil
-		}
-		// The layer-4 derived type table, the type counterpart of the rename
-		// table above: a resolving effect's ordinary filter reads it so a
-		// target offer/Count$Valid agrees with the layer walk.
-		if th, ok := h.(typeTableHost); ok {
-			c.EffectiveTypes = th.EffectiveTypes()
-		} else {
-			c.EffectiveTypes = nil
-		}
-		if gh, ok := h.(goadTableHost); ok && sa != nil && saMentionsGoaded(sa) {
-			c.StaticGoads = gh.StaticallyGoaded()
-		} else {
-			c.StaticGoads = nil
-		}
-		if ch, ok := h.(colorTableHost); ok && sa != nil && saMentionsColors(sa) {
-			c.DerivedColors = ch.EffectiveColors()
-		} else {
-			c.DerivedColors = nil
-		}
-		if kh, ok := h.(keywordTableHost); ok && sa != nil && saMentionsKeywords(sa) {
-			c.DerivedKeywords = kh.EffectiveKeywords()
-		} else {
-			c.DerivedKeywords = nil
-		}
+		// Publish the board's derived-characteristic tables for the whole of
+		// this walk (and every sub-ability, which shares this Ctx): ONE
+		// optional host read per walk, never a call from the hot specCtxSVars
+		// constructor. The tables are immutable data, so binding them here
+		// cannot make the resolving context read another game's board, and a
+		// Ctx reused with a different Host (or a double that publishes none)
+		// is reset to the printed-face read.
+		c.Layers = layerTablesFor(h, sa)
 		if th, ok := h.(targetableObjectsHost); ok {
 			c.TargetableObjects = th.TargetableObjects(c.TriggerCard)
 		} else {
@@ -2529,30 +2495,10 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 	}
 	reg := registry.load()
 	for d := 0; sa != nil && d < maxChain; d, sa = d+1, sa.Sub {
-		// Earlier bodies in this chain may emit events that change the active
-		// layer-3 name effects. Refresh at each body boundary, not only at
+		// Earlier bodies in this chain may emit events that change the
+		// derived characteristics. Refresh at each body boundary, not only at
 		// Resolve entry, so the next body's filters see the current snapshot.
-		if nh, ok := h.(nameTableHost); ok {
-			c.EffectiveNames = nh.EffectiveNames()
-		}
-		if th, ok := h.(typeTableHost); ok {
-			c.EffectiveTypes = th.EffectiveTypes()
-		}
-		if gh, ok := h.(goadTableHost); ok && saMentionsGoaded(sa) {
-			c.StaticGoads = gh.StaticallyGoaded()
-		} else {
-			c.StaticGoads = nil
-		}
-		if ch, ok := h.(colorTableHost); ok && saMentionsColors(sa) {
-			c.DerivedColors = ch.EffectiveColors()
-		} else {
-			c.DerivedColors = nil
-		}
-		if kh, ok := h.(keywordTableHost); ok && saMentionsKeywords(sa) {
-			c.DerivedKeywords = kh.EffectiveKeywords()
-		} else {
-			c.DerivedKeywords = nil
-		}
+		c.Layers = layerTablesFor(h, sa)
 		if th, ok := h.(targetableObjectsHost); ok {
 			c.TargetableObjects = th.TargetableObjects(c.TriggerCard)
 		} else {

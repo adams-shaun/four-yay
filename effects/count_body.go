@@ -292,7 +292,7 @@ func evalCountBodyCost(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 			return 0, true, true
 		}
 		types := o.Face().Types
-		for _, derived := range c.EffectiveTypes {
+		for _, derived := range c.Layers.DerivedTypes {
 			if derived.ID == o.ID {
 				types = derived.Types
 				break

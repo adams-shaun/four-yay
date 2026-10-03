@@ -31,10 +31,17 @@ const (
 	// hostRoleMaxMethods is the method-set size of effects.Host's largest
 	// role interface (HostTurnLedger at the W1d split).
 	hostRoleMaxMethods = 18
+	// hostOptionalAssertions is the number of type assertions in package
+	// effects to an interface other than Host and its roles (inline
+	// `interface{...}` or a named optional interface). W1d replaced five
+	// per-table optional interfaces with layerTablesHost: 54 -> 45.
+	hostOptionalAssertions = 45
 	// ctxFieldCount is the number of named fields in effects.Ctx; embeds are
 	// ratcheted separately by ctxEmbedCount.
-	ctxFieldCount = 293
-	ctxEmbedCount = 2
+	// W1d folded EffectiveNames, EffectiveTypes, StaticGoads and the embedded
+	// LayerTables into the one named Layers field: 293/2 -> 291/1.
+	ctxFieldCount = 291
+	ctxEmbedCount = 1
 	// resumePointFieldCount is the number of fields in rules' resumePoint.
 	resumePointFieldCount = 90
 	// stringParamReads is the number of <x>Params["literal"] index
@@ -114,6 +121,11 @@ func TestCodeShapeOnlyShrinks(t *testing.T) {
 		{"hostRoleMaxMethods", m.HostRoleMaxMethods, hostRoleMaxMethods,
 			"A Host role is to stay narrow (<= 20 methods); split a role that grows by " +
 				"concern rather than widening it, or replace an existing method."},
+		{"hostOptionalAssertions", m.HostOptionalAssertions, hostOptionalAssertions,
+			"An optional-interface assertion on Host is a Host method the role split " +
+				"cannot see. Put the method on the role it belongs to (a test double then " +
+				"implements it), or extend an existing optional interface, instead of " +
+				"asserting a new one."},
 		{"ctxFieldCount", m.CtxFields, ctxFieldCount,
 			"effects.Ctx fields are mostly per-primitive ask/resume cursors; keep a " +
 				"primitive's cursor in its own resume record instead of widening Ctx."},

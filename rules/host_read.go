@@ -9,6 +9,39 @@ import (
 // role of effects.Host (rules-engine refactor spec W1d): the live game and
 // the characteristics queries an effect reads it through.
 
+// boardLayers is the always-published pair of the board's derived-
+// characteristic tables: the layer-3 rename table (setname.go) and the
+// layer-4 derived type table (layer4types.go), both refreshed after every
+// emitted event. The other LayerTables (static goads, layer-5 colours,
+// layer-6 keywords) are built on demand; LayerTables adds them.
+func (e *Engine) boardLayers() effects.LayerTables {
+	return effects.LayerTables{EffectiveNames: e.renames, DerivedTypes: e.layer4Types}
+}
+
+// LayerTables is effects' optional layerTablesHost: the board's derived-
+// characteristic tables a resolving Ctx binds (effects.Resolve reads it at
+// walk entry and at every body boundary). The rename and type tables always;
+// the static-goad set, the layer-5 colour and layer-6 keyword tables only when
+// want asks, because rules builds those on demand.
+func (e *Engine) LayerTables(want effects.LayerTableSet) effects.LayerTables {
+	t := e.boardLayers()
+	if want&effects.LayerGoads != 0 {
+		// The static-goad set (staticgoad1): a resolving IsGoaded read agrees
+		// with the combat requirement's staticGoaders derivation instead of
+		// seeing the event-backed goad list alone.
+		t.StaticGoads = e.staticallyGoaded()
+	}
+	if want&effects.LayerColors != 0 {
+		// The layer-5 colour table (layer5colors.go), for a body that names
+		// a colour word.
+		t.DerivedColors = e.derivedColorTable()
+	}
+	if want&effects.LayerKeywords != 0 {
+		t.DerivedKeywords = e.EffectiveKeywords()
+	}
+	return t
+}
+
 // Chars is effects.HostRead's characteristics query: the object's current,
 // layer-derived characteristics (effects.Chars, which Derived aliases). It is
 // Derived(id) answered by pointer: inside a Derived memo scope (a legal-actions

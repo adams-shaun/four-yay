@@ -37,17 +37,15 @@ func (e *Engine) specCtxSVars(source state.ObjID, you state.PlayerID, svars map[
 		You:               you,
 		Source:            source,
 		PredicatePrograms: predicates,
-		// setname.go: the layer-3 rename set, so a name filter rules
-		// evaluates agrees with the layer walk instead of the printed face.
-		// setname.go's layer-3 rename table. A FIELD READ, never a call: a
+		// The always-published layer tables (boardLayers' pair): setname.go's
+		// layer-3 rename table, so a name filter rules evaluates agrees with
+		// the layer walk instead of the printed face, and layer4types.go's
+		// layer-4 derived type table, so the ordinary filter grammar (target
+		// offer, cost site, Count$Valid, CantTarget) sees a type a continuous
+		// effect granted. FIELD READS, never a call (boardLayers included): a
 		// call here breaks this constructor's inlining and heap-allocates the
 		// Resolve closure on every hot-path construction.
-		EffectiveNames: e.renames,
-		// layer4types.go's layer-4 derived type table. The same field-read
-		// discipline as EffectiveNames above: it makes the ordinary filter
-		// grammar (target offer, cost site, Count$Valid, CantTarget) see a
-		// type a continuous effect granted.
-		DerivedTypes: e.layer4Types,
+		Layers: effects.LayerTables{EffectiveNames: e.renames, DerivedTypes: e.layer4Types},
 		Resolve: func(name string) (int32, bool) {
 			o := e.G.Obj(source)
 			if o == nil {
@@ -81,14 +79,14 @@ func (e *Engine) specCtxSVars(source state.ObjID, you state.PlayerID, svars map[
 
 // cdaEvalCtx builds the Ctx a CDA's value expression resolves through. It
 // carries the published layer-4 derived-type table (Engine.EffectiveTypes,
-// the same one effects.Resolve binds via the typeTableHost) so a type-based
+// the same one effects.Resolve binds via the layerTablesHost) so a type-based
 // Count$Valid value sees types other continuous effects GRANTED (CR 604.3/
 // 613.1f: a CDA is evaluated against the characteristics the object actually
 // has, and the layer-4 type grant is already in effect at layer 7a). Without
 // it the count falls through to the printed face. Every CDA Ctx construction
 // site goes through this helper so the reads cannot diverge.
 func (e *Engine) cdaEvalCtx(o *state.Object, f *cards.Face) *effects.Ctx {
-	return &effects.Ctx{Source: o.ID, Controller: o.Controller, SVars: f.SVars, EffectiveTypes: e.EffectiveTypes()}
+	return &effects.Ctx{Source: o.ID, Controller: o.Controller, SVars: f.SVars, Layers: effects.LayerTables{DerivedTypes: e.EffectiveTypes()}}
 }
 
 // manaAmountCtx is the Ctx a mana ability's Amount$ is priced in outside its
@@ -99,6 +97,5 @@ func (e *Engine) cdaEvalCtx(o *state.Object, f *cards.Face) *effects.Ctx {
 // Planar Nexus's "every nonbasic land type") prices exactly what effMana will
 // add.
 func (e *Engine) manaAmountCtx(p state.PlayerID, source state.ObjID) *effects.Ctx {
-	return &effects.Ctx{Source: source, Controller: p,
-		EffectiveNames: e.EffectiveNames(), EffectiveTypes: e.EffectiveTypes()}
+	return &effects.Ctx{Source: source, Controller: p, Layers: e.boardLayers()}
 }

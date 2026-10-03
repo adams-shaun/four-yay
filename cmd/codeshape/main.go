@@ -62,6 +62,7 @@ func run(w io.Writer, root string, table bool, top int) error {
 		{"effects.Host embeds", m.HostEmbeds},
 		{"effects.Host direct methods", m.HostDirectMethods},
 		{"effects.Host largest role", m.HostRoleMaxMethods},
+		{"effects optional-host assertions", m.HostOptionalAssertions},
 		{"effects.Ctx named fields", m.CtxFields},
 		{"effects.Ctx embeds", m.CtxEmbeds},
 		{"resumePoint fields", m.ResumePointFields},

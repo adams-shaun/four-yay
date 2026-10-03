@@ -775,7 +775,7 @@ func (e *Engine) queueAttackerUnblockedTrigger(t cards.Trigger, source state.Obj
 				// helper call).
 				sc := e.specCtx(source, controller)
 				if e.goadProbe == 0 && strings.Contains(v, "IsGoaded") {
-					sc.StaticGoads = e.staticallyGoaded()
+					sc.Layers.StaticGoads = e.staticallyGoaded()
 				}
 				if !effects.MatchesSpecCtx(e.G, v, aid, sc) {
 					continue
@@ -1163,7 +1163,7 @@ func (e *Engine) damageMatchesWithCapture(t cards.Trigger, source state.ObjID, e
 			}
 		} else if !effects.MatchesPlayerSpecCtx(e.G, v, ev.Player, ctrl, effects.PlayerSpecCtx{
 			Source: source, DefendingPlayer: e.damageDefendingPlayer(ev), DelayedRemembered: remembered,
-			EffectiveNames: e.renames, DerivedTypes: e.layer4Types,
+			Layers: e.boardLayers(),
 		}) {
 			return false
 		}
@@ -1256,8 +1256,7 @@ func (e *Engine) damagePreventedMatches(t cards.Trigger, source state.ObjID, ev 
 		} else if !effects.MatchesPlayerSpecCtx(e.G, v, ev.Player, ctrl, effects.PlayerSpecCtx{
 			Source:          source,
 			DefendingPlayer: e.damageDefendingPlayer(ev),
-			EffectiveNames:  e.renames,
-			DerivedTypes:    e.layer4Types,
+			Layers:          e.boardLayers(),
 		}) {
 			return false
 		}

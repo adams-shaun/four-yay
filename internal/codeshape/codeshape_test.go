@@ -55,6 +55,16 @@ type Ctx struct {
 	Controller     int
 }
 
+type optionalHost interface{ Extra() }
+
+func opt(h Host, x any) {
+	_ = h.(optionalHost)
+	_ = h.(interface{ Inline() })
+	_ = h.(ReadRole) // a role: not counted
+	switch x.(type) {
+	}
+}
+
 func f(m map[string]string, s string) {
 	_ = m["k"]
 	var sa struct{ Params, RestrictParams map[string]string }
@@ -100,19 +110,20 @@ func free()          {}
 		t.Fatal(err)
 	}
 	want := Metrics{
-		FuncsOver300:       2,
-		EngineMethods:      4, // A, B, C and the subpackage's D; never the test file's T
-		HostMethods:        4, // Game, A, B (declared twice, counted once), C
-		HostEmbeds:         1,
-		HostDirectMethods:  1,
-		HostRoleMaxMethods: 3,
-		CtxFields:          3,
-		CtxEmbeds:          2,
-		ResumePointFields:  4,
-		StringParamReads:   3,
-		StringParamKeys:    2,
-		StringCaseLiterals: 3,
-		Files:              4,
+		FuncsOver300:           2,
+		EngineMethods:          4, // A, B, C and the subpackage's D; never the test file's T
+		HostMethods:            4, // Game, A, B (declared twice, counted once), C
+		HostEmbeds:             1,
+		HostDirectMethods:      1,
+		HostRoleMaxMethods:     3,
+		HostOptionalAssertions: 2,
+		CtxFields:              3,
+		CtxEmbeds:              2,
+		ResumePointFields:      4,
+		StringParamReads:       3,
+		StringParamKeys:        2,
+		StringCaseLiterals:     3,
+		Files:                  4,
 		LongFuncs: []Func{
 			{Name: "deep", File: "rules/sub/deep.go", Line: 6, Lines: 402},
 			{Name: "long301", File: "effects/long.go", Line: 303, Lines: 301},

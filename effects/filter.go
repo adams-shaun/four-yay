@@ -451,7 +451,7 @@ var colorLetter = map[string]string{"White": "W", "Blue": "U", "Black": "B", "Re
 // layer walk, which this predicate has no access to); a counter grant is
 // answerable from the object alone.
 // ObjectKeywords is one entry of the layer-derived keyword table rules
-// publishes for resolving filters (SpecContext.DerivedKeywords): a
+// publishes for resolving filters (SpecContext.Layers.DerivedKeywords): a
 // battlefield object whose current keyword list differs from what its
 // printed face and keyword counters give, with that current list.
 type ObjectKeywords struct {
@@ -460,11 +460,51 @@ type ObjectKeywords struct {
 }
 
 // LayerTables groups the board-wide derived-characteristic tables rules
-// publishes for one resolution, embedded in both Ctx and SpecContext so
-// (*Ctx).SpecContext copies them as ONE field: that constructor must stay
-// within the inlining budget (a warm caller-built Ctx must not escape --
+// publishes -- the sparse, escape-safe form of effects.Chars a filter reads
+// for objects whose derived characteristics differ from their printed face
+// -- held as the ONE field Layers in Ctx, SpecContext and PlayerSpecCtx, so
+// every derivation copies them together (a table added here reaches every
+// context at once, W1d) and (*Ctx).SpecContext stays within the inlining
+// budget (a warm caller-built Ctx must not escape --
 // TestEvalCountValidZoneScanIsAllocationFree and rules' warm Derived pin).
 type LayerTables struct {
+	// EffectiveNames optionally supplies the layer-3 derived names (SetName$,
+	// CR 613.1d) in force on the battlefield -- rules' layer walk computes
+	// them and binds the result on every SpecContext it builds. Ordinary
+	// filter callers leave it nil and fall back to the printed face name.
+	// Like ExtraTypes it is a plain value slice and deliberately not a
+	// callable resolver: a call made through a SpecContext field makes escape
+	// analysis leak the whole context (its Resolve closure included) to the
+	// heap on every hot-path construction. It is also NOT a back-pointer into
+	// rules: the slice is an immutable snapshot, so a context built from one
+	// game can never read another game's board.
+	//
+	// Entries are only ever the renamed objects (a handful at most, nil on the
+	// overwhelmingly common board), so the linear scan is cheaper than
+	// building a map.
+	EffectiveNames []ObjectName
+	// DerivedTypes optionally supplies the layer-4 derived type list (CR
+	// 613.1d/613.1c -- AddTypes$, RemoveCardTypes$, AddAllCreatureTypes$, a
+	// face-down CR 708.5 set) for objects on the battlefield, keyed by id. It
+	// is what makes the ORDINARY filter grammar -- target offer and legality,
+	// cost sites, Count$Valid, CantTarget specs -- see a type a continuous
+	// effect granted, exactly as ExtraTypes makes the layer walk see it.
+	//
+	// It is an immutable value slice, deliberately not a callable resolver and
+	// never a back-pointer into rules (EffectiveNames' rationale). Entries are
+	// only ever the objects whose derived list differs from the printed face
+	// (nil on the overwhelmingly common board), so the linear scan is cheaper
+	// than building a map.
+	DerivedTypes []ObjectTypes
+	// StaticGoads is the set of battlefield ids a live Goad$ True static
+	// currently goads (printed S: statics and AddStaticAbilities$/
+	// StaticAbilities$ granted ones alike), derived by the engine's rules
+	// tier and bound by the caller that holds it. The IsGoaded predicate
+	// unions it with the event-backed o.Goads list; a nil map keeps the
+	// object-alone read (the same no-binding convention Remembered keeps).
+	// Immutable data bound per evaluation, never a callable: the same
+	// escape-analysis rationale as EffectiveNames.
+	StaticGoads map[state.ObjID]bool
 	// DerivedColors optionally supplies the layer-5 derived colours (CR
 	// 613.1e -- SetColor$, AddColor$, an Animate's Colors$) of the battlefield
 	// objects whose colours differ from their printed ones, keyed by id. It
@@ -491,9 +531,9 @@ type LayerTables struct {
 func keywordInCtx(o *state.Object, kw string, sc *SpecContext) bool {
 	list := sc.ExtraKeywords
 	if list == nil && o != nil {
-		for i := range sc.DerivedKeywords {
-			if sc.DerivedKeywords[i].ID == o.ID {
-				list = sc.DerivedKeywords[i].Keywords
+		for i := range sc.Layers.DerivedKeywords {
+			if sc.Layers.DerivedKeywords[i].ID == o.ID {
+				list = sc.Layers.DerivedKeywords[i].Keywords
 				if list == nil {
 					list = []string{}
 				}
@@ -1650,7 +1690,7 @@ func sharesNameWithObject(o, src *state.Object, sc SpecContext) bool {
 		// The renamed source has exactly one name characteristic. The bound
 		// string is passed straight into sharesName, never returned, so the
 		// context's content still does not escape.
-		for _, n := range sc.EffectiveNames {
+		for _, n := range sc.Layers.EffectiveNames {
 			if n.ID == src.ID {
 				return sharesName(o, n.Name, sc)
 			}
@@ -1834,7 +1874,7 @@ func matchPositive(g *state.Game, p string, o *state.Object, sc SpecContext) (re
 		// CantBlock static). Two bindings UNION, the same shape IsRemembered
 		// keeps: the event-backed relationship list o.Goads (expired
 		// relationships are pruned by the same folds that prune the list --
-		// pruneGoads / expireTurnGoads), and SpecContext.StaticGoads -- the
+		// pruneGoads / expireTurnGoads), and SpecContext.Layers.StaticGoads -- the
 		// live Goad$ True static route (a printed Shiny Impetus static and an
 		// AddStaticAbilities$/StaticAbilities$ granted one alike) that the
 		// engine's rules tier derives on demand and the caller binds. A
@@ -1844,7 +1884,7 @@ func matchPositive(g *state.Game, p string, o *state.Object, sc SpecContext) (re
 		if len(o.Goads) > 0 {
 			return true, true
 		}
-		return sc.StaticGoads[o.ID], true
+		return sc.Layers.StaticGoads[o.ID], true
 	}
 	if p == "IsTriggerRemembered" {
 		// Only a delayed registration's captured set binds this predicate;
@@ -2065,7 +2105,7 @@ func matchPositive(g *state.Game, p string, o *state.Object, sc SpecContext) (re
 	// Colour predicates must use the layer-5 derived colours when rules
 	// supplies them: the map's legacy colour functions carry no SpecContext,
 	// so with a table bound they fall through to the word path below.
-	if fn, ok := predicates[p]; ok && !(len(sc.DerivedColors) != 0 && colourMapPredicate(p)) {
+	if fn, ok := predicates[p]; ok && !(len(sc.Layers.DerivedColors) != 0 && colourMapPredicate(p)) {
 		return fn(g, o, sc.You, sc.Source), true
 	}
 	if res, ok := numericPred(p, g, o, sc); ok {
@@ -2304,54 +2344,16 @@ type SpecContext struct {
 	// caller with the layer walk in hand can gate on a granted keyword
 	// (kw:Flanking's blocker check, Cavalry Master's `withFlanking` lord).
 	// nil keeps the object-alone read (printed face plus counters).
-	//
-	// StaticGoads is the per-board complement: the set of battlefield ids a
-	// live Goad$ True static currently goads (printed S: statics and
-	// AddStaticAbilities$/StaticAbilities$ granted ones alike), derived by
-	// the engine's rules tier and bound by the caller that holds it. The
-	// IsGoaded predicate unions it with the event-backed o.Goads list; a nil
-	// map keeps the object-alone read (the same no-binding convention
-	// Remembered keeps). Immutable data bound per evaluation, never a
-	// callable: the same escape-analysis rationale as EffectiveNames.
-	StaticGoads   map[state.ObjID]bool
 	ExtraKeywords []string
 	// TargetableObjects is the rules tier's immutable snapshot of objects this
 	// triggered spell can currently target under full rules legality.
 	TargetableObjects []state.ObjID
-	// EffectiveNames optionally supplies the layer-3 derived names (SetName$,
-	// CR 613.1d) in force on the battlefield -- rules' layer walk computes
-	// them and binds the result on every SpecContext it builds. Ordinary
-	// filter callers leave it nil and fall back to the printed face name
-	// above. Like ExtraTypes it is a plain value slice and deliberately not a
-	// callable resolver: a call made through a SpecContext field makes escape
-	// analysis leak the whole context (its Resolve closure included) to the
-	// heap on every hot-path construction. It is also NOT a back-pointer into
-	// rules: the slice is an immutable snapshot, so a context built from one
-	// game can never read another game's board.
-	//
-	// Entries are only ever the renamed objects (a handful at most, nil on the
-	// overwhelmingly common board), so the linear scan below is cheaper than
-	// building a map.
-	EffectiveNames []ObjectName
-	// DerivedTypes optionally supplies the layer-4 derived type list (CR
-	// 613.1d/613.1c -- AddTypes$, RemoveCardTypes$, AddAllCreatureTypes$, a
-	// face-down CR 708.5 set) for objects on the battlefield, keyed by id. It
-	// is what makes the ORDINARY filter grammar -- target offer and legality,
-	// cost sites, Count$Valid, CantTarget specs -- see a type a continuous
-	// effect granted, exactly as ExtraTypes makes the layer walk see it.
-	//
-	// It is an immutable value slice, deliberately not a callable resolver and
-	// never a back-pointer into rules: a call made through a SpecContext field
-	// makes escape analysis leak the whole context (its Resolve closure
-	// included) to the heap on every hot-path construction, and a slice built
-	// from one game can never read another game's board. Entries are only ever
-	// the objects whose derived list differs from the printed face (nil on the
-	// overwhelmingly common board), so the linear scan below is cheaper than
-	// building a map.
-	DerivedTypes []ObjectTypes
-	// LayerTables carries the resolution-published layer-5 colour and
-	// layer-6 keyword tables (DerivedColors, DerivedKeywords: promoted).
-	LayerTables
+	// Layers is the board's derived-characteristic tables (LayerTables:
+	// layer-3 names, layer-4 types, layer-5 colours, layer-6 keywords, static
+	// goads), bound by rules on every context it builds and copied from a
+	// resolving Ctx by (*Ctx).SpecContext. The zero value reads the printed
+	// face.
+	Layers LayerTables
 	// DerivedPTs optionally supplies layer-derived current power for all
 	// objects participating in a greatestPower comparison. Like DerivedTypes,
 	// this is an immutable value table, never a rules back-pointer or resolver.
@@ -2443,7 +2445,7 @@ func hasEffectiveNamePtr(o *state.Object, sc *SpecContext) bool {
 	if o == nil {
 		return false
 	}
-	for _, n := range sc.EffectiveNames {
+	for _, n := range sc.Layers.EffectiveNames {
 		if n.ID == o.ID {
 			return n.Name != ""
 		}
@@ -2453,7 +2455,7 @@ func hasEffectiveNamePtr(o *state.Object, sc *SpecContext) bool {
 
 // matchesEffectiveName reports whether o's bound layer-3 name is name.
 func matchesEffectiveName(o *state.Object, name string, sc SpecContext) bool {
-	for _, n := range sc.EffectiveNames {
+	for _, n := range sc.Layers.EffectiveNames {
 		if n.ID == o.ID {
 			return n.Name != "" && n.Name == name
 		}
@@ -2498,7 +2500,7 @@ func derivedTypesForPtr(o *state.Object, sc *SpecContext) ([]string, bool) {
 	if o == nil {
 		return nil, false
 	}
-	for _, d := range sc.DerivedTypes {
+	for _, d := range sc.Layers.DerivedTypes {
 		if d.ID == o.ID {
 			return d.Types, true
 		}
@@ -2572,7 +2574,7 @@ func matchesObjectPtr(g *state.Game, spec string, o *state.Object, sc *SpecConte
 	// here to the one object that actually carries a change.
 	cs := compiledSpecFor(spec)
 	if ps := sc.PredicatePrograms; ps != nil && !hasEffectiveNamePtr(o, sc) && !hasDerivedTypeEntryPtr(o, sc) &&
-		(len(sc.DerivedColors) == 0 || !hasDerivedColorEntryPtr(o, sc)) {
+		(len(sc.Layers.DerivedColors) == 0 || !hasDerivedColorEntryPtr(o, sc)) {
 		switch ps.evaluateCS(cs, spec, g, o, sc) {
 		case PredicateYes:
 			return true
