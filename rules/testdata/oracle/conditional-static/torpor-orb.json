@@ -1,0 +1,57 @@
+{
+  "card": "Torpor Orb",
+  "family": "conditional-static",
+  "oracle_sha": "2fdc036d01c4",
+  "author": "agent-20261003T002630Z-960d2519 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "orb-controller-creature-etb-suppressed",
+      "cr": ["603.2", "603.10"],
+      "why": "A creature entering under Torpor Orb does not cause its enter-the-battlefield ability to trigger: Aether Adept's bounce never goes on the stack, so the targeted Grizzly Bears stays on the battlefield.",
+      "setup": {
+        "p0": {"battlefield": ["Torpor Orb"], "hand": ["Aether Adept"]},
+        "p1": {"battlefield": ["Grizzly Bears"]}
+      },
+      "steps": [
+        {"op": "move", "seat": 0, "card": "p0:Aether Adept", "to": "battlefield", "targets": ["p1:Grizzly Bears"]}
+      ],
+      "expect": [
+        {"card": "p1:Grizzly Bears", "zone": "battlefield"},
+        {"stack_size": 0}
+      ]
+    },
+    {
+      "name": "opponent-creature-etb-suppressed",
+      "cr": ["603.2", "603.10"],
+      "why": "Torpor Orb suppresses an opponent's creature entering as well as its controller's: p1's Aether Adept ETB does not trigger against p0's Grizzly Bears.",
+      "setup": {
+        "p0": {"battlefield": ["Torpor Orb", "Grizzly Bears"]},
+        "p1": {"hand": ["Aether Adept"]}
+      },
+      "steps": [
+        {"op": "move", "seat": 1, "card": "p1:Aether Adept", "to": "battlefield", "targets": ["p0:Grizzly Bears"]}
+      ],
+      "expect": [
+        {"card": "p0:Torpor Orb", "zone": "battlefield"},
+        {"card": "p0:Grizzly Bears", "zone": "battlefield"},
+        {"stack_size": 0}
+      ]
+    },
+    {
+      "name": "without-torpor-orb-the-trigger-fires",
+      "cr": ["603.2"],
+      "why": "Without the static, Aether Adept's enter-the-battlefield trigger fires and returns the opposing creature.",
+      "setup": {
+        "p0": {"hand": ["Aether Adept"]},
+        "p1": {"battlefield": ["Grizzly Bears"]}
+      },
+      "steps": [
+        {"op": "move", "seat": 0, "card": "p0:Aether Adept", "to": "battlefield", "targets": ["p1:Grizzly Bears"]},
+        {"op": "resolve", "seat": 0}
+      ],
+      "expect": [
+        {"card": "p1:Grizzly Bears", "zone": "hand"}
+      ]
+    }
+  ]
+}

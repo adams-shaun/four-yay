@@ -2525,6 +2525,9 @@ func (e *Engine) triggerMatchesWithSVars(t cards.Trigger, source state.ObjID, ev
 	if !e.zoneGate(t, source, ev) || !e.phaseGate(t) {
 		return false
 	}
+	if e.disableTriggersExcludes(t, source, ev) {
+		return false
+	}
 	// NotThisAbility$ True (task nta1): the event being matched must not
 	// have been caused by the resolution of THIS very trigger instance
 	// (Kodama of the East Tree -- the corpus's one carrier, 1 of 38000+ card
