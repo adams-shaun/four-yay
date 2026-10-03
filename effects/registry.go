@@ -521,6 +521,13 @@ type Host interface {
 	// same event, so an opening-hand draw inside the first turn's window is
 	// counted, exactly as Forge's cardsDrawnThisTurn list is.
 	CardsDrawnThisTurn(p state.PlayerID) int32
+	// ScriedThisTurn / SurveilledThisTurn report how many scry / surveil
+	// instructions player p completed this turn -- every events.Scry /
+	// events.Surveil record naming p since the last TurnChange, derived from
+	// the event log so a replay derives the same number. They back
+	// Count$YouScryThisTurn and Count$YouSurveilThisTurn.
+	ScriedThisTurn(p state.PlayerID) int32
+	SurveilledThisTurn(p state.PlayerID) int32
 	// SpellsCastThisTurnBy counts the spells put on the stack this turn by
 	// player p — the per-caster projection of CastThisTurn, derived from the
 	// event log so a replay derives the same number. This is the
