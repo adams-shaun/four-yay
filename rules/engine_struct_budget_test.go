@@ -8,8 +8,9 @@ import (
 	"testing"
 )
 
-// The steward metric scripts/reward.py and cmd/gorged/feedback.go track
-// (`oversized_files`) flags every non-test .go file at or over 1500 lines.
+// The steward metric scripts/reward.py tracked until 2026-10-03
+// (`oversized_files`, since replaced by cmd/codeshape's funcs_over_300)
+// flagged every .go file at or over 1500 lines.
 // Until now nothing in the suite enforced that threshold, so the Engine
 // struct's field-contract file could grow past it unnoticed. This test is
 // the enforcement: the file holding `type Engine struct` stays under the

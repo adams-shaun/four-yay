@@ -88,9 +88,13 @@ Generators, in the order they are consulted:
   verdict. The ticket is to drive it through the oracle harness and record the
   verdict; a disagreement becomes a defect row in `.ds4/reward/defects.jsonl`,
   which is what the axis pays for.
-- **steward (100x).** The largest source file, the gate suite's slowest gate,
-  the agent context's growth. The ticket names the measured number and the
-  number it must reach.
+- **steward (100x).** The longest function in `rules/` + `effects/`
+  (`go run ./cmd/codeshape`; the metric is `funcs_over_300`), the gate suite's
+  slowest gate, the agent context's growth. The ticket names the measured
+  number and the number it must reach. A long-function ticket is done when it
+  moves a cohesive concern behind a named seam -- never when a file drops under
+  a line count; size-only file names (`*_rest.go`, `*_helpers.go`, ...) are
+  rejected by `internal/archtest`.
 - **eff (10x).** A profile hotspot from the last `eff` probe, with a benchstat
   threshold in "Done means".
 - **obs, audit, win (1x).** Checklist gaps, unaudited families, champion
