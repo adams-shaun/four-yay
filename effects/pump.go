@@ -34,71 +34,7 @@ func effPump(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 
-	// ClearNotedCardsFor$ clears the requested player labels from its Defined$
-	// player set. The event fold keeps a later resolution and a replay from
-	// retaining a previous choice (Master of Ceremonies changes these labels
-	// every upkeep).
-	for _, label := range p.ClearNotedCardsFor {
-		for _, t := range Defined(h, c, sa) {
-			if t.IsPlayer && playerHasNote(h.Game(), t.Player, label) {
-				h.Emit(events.Event{Kind: events.PlayerNoteCleared, Player: t.Player, Text: label})
-			}
-		}
-	}
-
-	// NoteCards$ <defined> + NoteCardsFor$ <label> (Forge's NoteCardsEffect):
-	// the body records a notation that a later resolution reads back through
-	// the shared filters. The player half (NoteCards$ Self, state.Player.Notes
-	// and the `Player.NotedFor<label>` qualifier) is unchanged: corpus
-	// carriers are Seize the Spotlight's fame/fortune branches, Master of
-	// Ceremonies' money/friends/secrets, Wheel of Potential, Borderland
-	// Explorer. The noted SEAT is the resolution's Defined set (a remembered
-	// chooser, `Defined$ Player`, or `Defined$ Player.!IsRemembered`); Forge's
-	// NoteCardsEffect notes the CURRENT player when Defined$ is absent, which
-	// here is the resolving controller. The CARD half is the other corpus
-	// family: `NoteCards$ Remembered` (Volatile Chimera, Arcane Savant, Caller
-	// of the Untamed) notes the resolution's Remembered cards and
-	// `NoteCards$ TriggeredSource` (Maelstrom Archangel Avatar) notes the
-	// triggering source, both onto the noted CARD through events.CardNoted,
-	// for the later `Card.NotedFor<label>` reads at ChooseCard's Choices$, DB$
-	// Play's Valid$ and RepeatEach's RepeatCards$. CopyPermanent's
-	// RevealFromExile cost is an evidenced corpus shape but remains unsupported.
-	// The note lands through its own event so a
-	// log-only replay rebuilds state.Object.Notes exactly; the pump body then
-	// runs unchanged (a `Defined$ Remembered` chooser is a player entry,
-	// skipped by the object walk below). Any other NoteCards$ form stays
-	// loud-unimplemented (transcript note, no state write).
-	if label := p.NoteCardsFor; label != "" {
-		switch p.NoteCards {
-		case "Self":
-			spec := p.Defined
-			noted := false
-			for _, t := range Defined(h, c, sa) {
-				if !t.IsPlayer {
-					continue
-				}
-				h.Emit(events.Event{Kind: events.PlayerNoted, Player: t.Player, Text: label})
-				noted = true
-			}
-			if !noted && spec == "" {
-				h.Emit(events.Event{Kind: events.PlayerNoted, Player: c.Controller, Text: label})
-			}
-		case "Remembered":
-			for _, t := range resolvedRemembered(h, c) {
-				if t.IsPlayer || t.Obj == 0 {
-					continue
-				}
-				h.Emit(events.Event{Kind: events.CardNoted, Obj: t.Obj, Text: label})
-			}
-		case "TriggeredSource":
-			if c.TriggerSource != 0 {
-				h.Emit(events.Event{Kind: events.CardNoted, Obj: c.TriggerSource, Text: label})
-			}
-		default:
-			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-				Text: "unimplemented NoteCards$ " + p.NoteCards})
-		}
-	}
+	pumpNotes(h, c, sa, p)
 
 	// Secondary$ True (Amonkhet Raceway's max-speed AddAbility$ grant marks
 	// the granted pump with it): Forge CardFactoryUtil sets the key on
@@ -136,14 +72,31 @@ func effPump(h Host, c *Ctx, sa *cards.SA) {
 				d.Options = append(d.Options, decision.Option{
 					Index: i, Kind: "mode", Label: name, Obj: c.Source, Player: c.Controller})
 			}
-			if Ask(h, d) == AskAsked {
+			if ans, ok := AskTape(h, d); ok {
+				// The resolution kernel's answer in hand (its Record wrote
+				// the ModeChosen a KModes answer records): the chosen
+				// keywords by option index into KWChoice$, exactly the
+				// names the "modes" arm binds into Ctx.Modes. The legacy
+				// re-entry re-runs this body from its first line, so the
+				// emissions before the ask are repeated first, exactly as
+				// it repeats them.
+				noteUnreadParams(h, c, "Pump", p.Unread)
+				pumpNotes(h, c, sa, p)
+				chosenKW = make([]string, 0, len(ans))
+				for _, o := range ans {
+					if o.Index >= 0 && o.Index < len(choices) {
+						chosenKW = append(chosenKW, choices[o.Index])
+					}
+				}
+			} else if Ask(h, d) == AskAsked {
 				return
+			} else {
+				// No engine host (R-9): the deterministic first candidate, with
+				// the Note that records why the richer path did not run.
+				h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+					Text: "chose its first keyword (no engine host to ask)"})
+				chosenKW = choices[:1]
 			}
-			// No engine host (R-9): the deterministic first candidate, with
-			// the Note that records why the richer path did not run.
-			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-				Text: "chose its first keyword (no engine host to ask)"})
-			chosenKW = choices[:1]
 		}
 	}
 	zone := p.PumpZone
@@ -224,6 +177,76 @@ func effPump(h Host, c *Ctx, sa *cards.SA) {
 		}
 		if len(ids) > 0 && c.Source != 0 {
 			h.Emit(events.Event{Kind: events.Imprint, Obj: c.Source, IDs: ids, Text: "forget"})
+		}
+	}
+}
+
+// pumpNotes is effPump's ClearNotedCardsFor$ and NoteCards$ notation, run
+// before any KWChoice$ ask (and so repeated by that ask's re-entry).
+func pumpNotes(h Host, c *Ctx, sa *cards.SA, p *PumpParams) {
+	// ClearNotedCardsFor$ clears the requested player labels from its Defined$
+	// player set. The event fold keeps a later resolution and a replay from
+	// retaining a previous choice (Master of Ceremonies changes these labels
+	// every upkeep).
+	for _, label := range p.ClearNotedCardsFor {
+		for _, t := range Defined(h, c, sa) {
+			if t.IsPlayer && playerHasNote(h.Game(), t.Player, label) {
+				h.Emit(events.Event{Kind: events.PlayerNoteCleared, Player: t.Player, Text: label})
+			}
+		}
+	}
+
+	// NoteCards$ <defined> + NoteCardsFor$ <label> (Forge's NoteCardsEffect):
+	// the body records a notation that a later resolution reads back through
+	// the shared filters. The player half (NoteCards$ Self, state.Player.Notes
+	// and the `Player.NotedFor<label>` qualifier) is unchanged: corpus
+	// carriers are Seize the Spotlight's fame/fortune branches, Master of
+	// Ceremonies' money/friends/secrets, Wheel of Potential, Borderland
+	// Explorer. The noted SEAT is the resolution's Defined set (a remembered
+	// chooser, `Defined$ Player`, or `Defined$ Player.!IsRemembered`); Forge's
+	// NoteCardsEffect notes the CURRENT player when Defined$ is absent, which
+	// here is the resolving controller. The CARD half is the other corpus
+	// family: `NoteCards$ Remembered` (Volatile Chimera, Arcane Savant, Caller
+	// of the Untamed) notes the resolution's Remembered cards and
+	// `NoteCards$ TriggeredSource` (Maelstrom Archangel Avatar) notes the
+	// triggering source, both onto the noted CARD through events.CardNoted,
+	// for the later `Card.NotedFor<label>` reads at ChooseCard's Choices$, DB$
+	// Play's Valid$ and RepeatEach's RepeatCards$. CopyPermanent's
+	// RevealFromExile cost is an evidenced corpus shape but remains unsupported.
+	// The note lands through its own event so a
+	// log-only replay rebuilds state.Object.Notes exactly; the pump body then
+	// runs unchanged (a `Defined$ Remembered` chooser is a player entry,
+	// skipped by the object walk below). Any other NoteCards$ form stays
+	// loud-unimplemented (transcript note, no state write).
+	if label := p.NoteCardsFor; label != "" {
+		switch p.NoteCards {
+		case "Self":
+			spec := p.Defined
+			noted := false
+			for _, t := range Defined(h, c, sa) {
+				if !t.IsPlayer {
+					continue
+				}
+				h.Emit(events.Event{Kind: events.PlayerNoted, Player: t.Player, Text: label})
+				noted = true
+			}
+			if !noted && spec == "" {
+				h.Emit(events.Event{Kind: events.PlayerNoted, Player: c.Controller, Text: label})
+			}
+		case "Remembered":
+			for _, t := range resolvedRemembered(h, c) {
+				if t.IsPlayer || t.Obj == 0 {
+					continue
+				}
+				h.Emit(events.Event{Kind: events.CardNoted, Obj: t.Obj, Text: label})
+			}
+		case "TriggeredSource":
+			if c.TriggerSource != 0 {
+				h.Emit(events.Event{Kind: events.CardNoted, Obj: c.TriggerSource, Text: label})
+			}
+		default:
+			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+				Text: "unimplemented NoteCards$ " + p.NoteCards})
 		}
 	}
 }

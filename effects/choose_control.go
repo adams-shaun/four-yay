@@ -418,6 +418,22 @@ func choiceRecord(h Host, c *Ctx, sa *cards.SA, picked []state.Target, playerCho
 	}
 }
 
+// ChoiceAnswerTargets is the "choice" answer's target shape, the one home
+// the rules "choice" resume arm and the resolution kernel's tape branches
+// share: a "player" option is a player target (player zero is a real
+// target), any other option naming an object is that object.
+func ChoiceAnswerTargets(chosen []decision.Option) []state.Target {
+	out := make([]state.Target, 0, len(chosen))
+	for _, o := range chosen {
+		if o.Kind == "player" {
+			out = append(out, state.Target{Player: o.Player, IsPlayer: true})
+		} else if o.Obj != 0 {
+			out = append(out, state.Target{Obj: o.Obj})
+		}
+	}
+	return out
+}
+
 // chooseCardRecord is the shared completion point for answered, random and
 // no-host picks. ForgetChosen removes only picked objects, after recording the
 // choice, so the chosen-card binding remains available to the next ability.
@@ -653,6 +669,23 @@ func effChooseCard(h Host, c *Ctx, sa *cards.SA) {
 		if hasBudget {
 			d.Prompt += " (total power " + strconv.Itoa(int(budget)) + " or less)"
 		}
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand: what the "choice"
+			// resume arm's re-entry does. The legacy re-entry rebuilds the
+			// candidate selection from the Ctx as it stood at the ask (before
+			// this record), then records, reveals and re-reads the bounds.
+			selection = *c
+			if c.ForgetOtherReady {
+				selection.Remembered = append(append([]state.Target(nil), selection.Remembered...), c.ForgetOtherSnapshot...)
+			}
+			answered := ChoiceAnswerTargets(ans)
+			chooseCardRecord(h, c, sa, answered)
+			if reveal {
+				emitChosenReveal(h, chooser, answered)
+			}
+			minBase, maxBase = choiceBounds(h, c, sa, true)
+			continue
+		}
 		if Ask(h, d) == AskAsked {
 			return
 		}
@@ -800,6 +833,13 @@ func effChooseSource(h Host, c *Ctx, sa *cards.SA) {
 		if d.Prompt == "" {
 			d.Prompt = "Choose a source"
 		}
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand: the "choice" re-entry's
+			// record, then the bounds re-read it makes before the next chooser.
+			choiceRecord(h, c, sa, ChoiceAnswerTargets(ans), false)
+			minBase, maxBase = choiceBounds(h, c, sa, false)
+			continue
+		}
 		if Ask(h, d) == AskAsked {
 			return
 		}
@@ -908,6 +948,13 @@ func effChoosePlayer(h Host, c *Ctx, sa *cards.SA) {
 		}
 		if d.Prompt == "" {
 			d.Prompt = "Choose player"
+		}
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand: the "choice" re-entry's
+			// record, then the bounds re-read it makes before the next chooser.
+			choiceRecord(h, c, sa, ChoiceAnswerTargets(ans), true)
+			minBase, maxBase = choiceBounds(h, c, sa, false)
+			continue
 		}
 		if Ask(h, d) == AskAsked {
 			return
@@ -1158,11 +1205,17 @@ func effGainControl(h Host, c *Ctx, sa *cards.SA) {
 				if d.Prompt == "" {
 					d.Prompt = "Choose card"
 				}
-				if Ask(h, d) != AskAsked {
-					h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "GainControl Choices$ requires a player choice"})
+				ans, ok := AskTape(h, d)
+				if !ok {
+					if Ask(h, d) != AskAsked {
+						h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "GainControl Choices$ requires a player choice"})
+						return
+					}
 					return
 				}
-				return
+				// The resolution kernel's answer in hand: the "choice"
+				// re-entry's record below, then the transfer.
+				ts = ChoiceAnswerTargets(ans)
 			} else {
 				ts = choices
 			}
@@ -1514,6 +1567,16 @@ func gainControlVariantAskLoop(h Host, c *Ctx, sa *cards.SA, base ControlGrant,
 		for j, id := range pool {
 			d.Options = append(d.Options, decision.Option{Index: j, Kind: "card", Obj: id, Player: chooser})
 		}
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand: the pick the "choice"
+			// re-entry appends (an empty answer keeps the positional blank).
+			pick := state.Target{}
+			if ts := ChoiceAnswerTargets(ans); len(ts) > 0 {
+				pick = ts[0]
+			}
+			picks = append(picks[:len(picks):len(picks)], pick)
+			continue
+		}
 		if Ask(h, d) == AskAsked {
 			return
 		}
@@ -1671,13 +1734,7 @@ func effChangeTargets(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	if c.ChoiceDone {
-		if len(c.Choice) > 0 { // an empty Optional answer means keep every target
-			out := append([]state.Target(nil), c.Choice...)
-			if strings.EqualFold(sa.Params["ChangeSingleTarget"], "True") || len(out) < len(target.Targets) {
-				out = append(out, target.Targets[len(out):]...)
-			}
-			recordTargets(h, target.ID, out)
-		}
+		changeTargetsApply(h, sa, target, c.Choice)
 		c.ChoiceDone = false
 		c.Choice = nil
 		return
@@ -1761,6 +1818,12 @@ func effChangeTargets(h Host, c *Ctx, sa *cards.SA) {
 		}
 		d.Options = append(d.Options, o)
 	}
+	if ans, ok := AskTape(h, d); ok {
+		// The resolution kernel's answer in hand: the "choice" re-entry's
+		// redirect.
+		changeTargetsApply(h, sa, target, ChoiceAnswerTargets(ans))
+		return
+	}
 	if Ask(h, d) == AskAsked {
 		return
 	}
@@ -1768,6 +1831,20 @@ func effChangeTargets(h Host, c *Ctx, sa *cards.SA) {
 	// conservative Optional answer: no target changes. It must not leave
 	// ChoiceDone set, which a later choice in the same chain would read as
 	// its own answer.
+}
+
+// changeTargetsApply records an answered ChangeTargets redirect: the chosen
+// new targets, padded with the subject's remaining old ones. An empty
+// (Optional) answer keeps every target.
+func changeTargetsApply(h Host, sa *cards.SA, target *state.Object, choice []state.Target) {
+	if len(choice) == 0 {
+		return
+	}
+	out := append([]state.Target(nil), choice...)
+	if strings.EqualFold(sa.Params["ChangeSingleTarget"], "True") || len(out) < len(target.Targets) {
+		out = append(out, target.Targets[len(out):]...)
+	}
+	recordTargets(h, target.ID, out)
 }
 
 func repeatPlayers(h Host, c *Ctx, spec string) ([]state.PlayerID, bool) {
@@ -2056,34 +2133,8 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 		// and the answer names a permutation of it. A no-host host (R-9) keeps
 		// that scan order as its deterministic stand-in.
 		if cardsSubjects && len(subjects) > 1 && strings.TrimSpace(sa.ParamStr(cards.PKChooseOrder)) != "" {
-			chooser := c.Controller
-			if !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKChooseOrder)), "True") {
-				if ps := definedPlayerIDs(h, c, strings.TrimSpace(sa.ParamStr(cards.PKChooseOrder))); len(ps) > 0 {
-					chooser = ps[0]
-				}
-			}
-			d := &decision.Decision{Player: chooser, Kind: decision.KChoose,
-				Min: len(subjects), Max: len(subjects), Source: c.Source,
-				ResumeKind: "repeat_choose_order", ResumeSA: sa,
-				Prompt: "Choose the order the repeated ability processes these in"}
-			for i, t := range subjects {
-				o := decision.Option{Index: i, Kind: "order", Player: PlayerOf(h, c, t)}
-				if t.IsPlayer {
-					o.Label = "player " + strconv.Itoa(int(t.Player))
-				} else if obj := h.Game().Obj(t.Obj); obj != nil && obj.Face() != nil {
-					o.Obj, o.Label = t.Obj, obj.Face().Name
-				}
-				d.Options = append(d.Options, o)
-			}
-			if Ask(h, d) == AskAsked {
-				h.SuspendRepeat(RepeatSuspension{
-					RepeatCursor: RepeatCursor{SA: sa, Subjects: copyTargets(subjects), Next: 0, ChooseOrder: true},
-					Body:         copyTargets(c.Remembered),
-					Outer:        copyTargets(c.Remembered),
-					Chosen:       copyTargets(c.Chosen),
-					ChosenValid:  c.ChosenValid,
-					VoteCounts:   append([]VoteCount(nil), c.VoteCounts...),
-				})
+			var suspended bool
+			if subjects, suspended = repeatEachChooseOrder(h, c, sa, subjects); suspended {
 				return
 			}
 		}
@@ -2115,10 +2166,19 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 				// This subject has not been offered yet: pose its election.
 				// A yes re-enters at i and runs the body below; a no is the
 				// skip above. R-9: a host with no decision channel declines.
-				if !poseRepeatEachElection(h, c, sa, t, i, subjects, optionalMsg) {
-					continue
+				if ans, ok := AskTape(h, repeatEachElectionDecision(h, c, sa, t, i, optionalMsg)); ok {
+					// The resolution kernel's answer in hand (the
+					// "repeat_each_optional" arm's Accept): a decline skips
+					// this subject, a yes runs its body below.
+					if len(ans) == 0 || ans[0].Kind != "yes" {
+						continue
+					}
+				} else {
+					if !poseRepeatEachElection(h, c, sa, t, i, subjects, optionalMsg) {
+						continue
+					}
+					return
 				}
-				return
 			}
 		}
 		cc := *c
@@ -2207,18 +2267,7 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 // the loop continues. RepeatOptionalMessage$ is the prompt when the line
 // carries one.
 func poseRepeatEachElection(h Host, c *Ctx, sa *cards.SA, subj state.Target, idx int, subjects []state.Target, msg string) bool {
-	if msg == "" {
-		msg = "Accept this offer?"
-	}
-	player := PlayerOf(h, c, subj)
-	d := &decision.Decision{Player: player, Kind: decision.KChoose, Min: 1, Max: 1,
-		Prompt: msg, Source: c.Source,
-		ResumeKind: "repeat_each_optional", ResumeSA: sa, ResumeRepeatNext: int32(idx),
-		Options: []decision.Option{
-			{Index: 0, Kind: "yes", Label: "Yes", Player: player},
-			{Index: 1, Kind: "no", Label: "No", Player: player},
-		}}
-	if Ask(h, d) != AskAsked {
+	if Ask(h, repeatEachElectionDecision(h, c, sa, subj, idx, msg)) != AskAsked {
 		return false
 	}
 	// The loop cursor rides the existing RepeatEach suspension so the subjects
@@ -2237,6 +2286,68 @@ func poseRepeatEachElection(h Host, c *Ctx, sa *cards.SA, subj state.Target, idx
 		VoteCounts:   append([]VoteCount(nil), c.VoteCounts...),
 	})
 	return true
+}
+
+// repeatEachChooseOrder poses a RepeatEach ChooseOrder$ ordering ask over
+// subjects (see effRepeatEach) and returns the loop order: the answered
+// permutation when the resolution kernel serves it, the offered order for a
+// no-host stand-in, or suspended after a legacy ask (the loop cursor parked
+// on SuspendRepeat).
+func repeatEachChooseOrder(h Host, c *Ctx, sa *cards.SA, subjects []state.Target) ([]state.Target, bool) {
+	chooser := c.Controller
+	if !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKChooseOrder)), "True") {
+		if ps := definedPlayerIDs(h, c, strings.TrimSpace(sa.ParamStr(cards.PKChooseOrder))); len(ps) > 0 {
+			chooser = ps[0]
+		}
+	}
+	d := &decision.Decision{Player: chooser, Kind: decision.KChoose,
+		Min: len(subjects), Max: len(subjects), Source: c.Source,
+		ResumeKind: "repeat_choose_order", ResumeSA: sa,
+		Prompt: "Choose the order the repeated ability processes these in"}
+	for i, t := range subjects {
+		o := decision.Option{Index: i, Kind: "order", Player: PlayerOf(h, c, t)}
+		if t.IsPlayer {
+			o.Label = "player " + strconv.Itoa(int(t.Player))
+		} else if obj := h.Game().Obj(t.Obj); obj != nil && obj.Face() != nil {
+			o.Obj, o.Label = t.Obj, obj.Face().Name
+		}
+		d.Options = append(d.Options, o)
+	}
+	if ans, ok := AskTape(h, d); ok {
+		// The resolution kernel's answer in hand: permute the
+		// subjects exactly as the "repeat_choose_order" arm does (a
+		// malformed answer, unreachable past validation, keeps the
+		// offered order), and run the loop in that order.
+		return repeatChooseOrderApply(subjects, ans), false
+	}
+	if Ask(h, d) == AskAsked {
+		h.SuspendRepeat(RepeatSuspension{
+			RepeatCursor: RepeatCursor{SA: sa, Subjects: copyTargets(subjects), Next: 0, ChooseOrder: true},
+			Body:         copyTargets(c.Remembered),
+			Outer:        copyTargets(c.Remembered),
+			Chosen:       copyTargets(c.Chosen),
+			ChosenValid:  c.ChosenValid,
+			VoteCounts:   append([]VoteCount(nil), c.VoteCounts...),
+		})
+		return nil, true
+	}
+	return subjects, false
+}
+
+// repeatEachElectionDecision is subject subj's (loop index idx)
+// RepeatOptionalForEachPlayer$ offer.
+func repeatEachElectionDecision(h Host, c *Ctx, sa *cards.SA, subj state.Target, idx int, msg string) *decision.Decision {
+	if msg == "" {
+		msg = "Accept this offer?"
+	}
+	player := PlayerOf(h, c, subj)
+	return &decision.Decision{Player: player, Kind: decision.KChoose, Min: 1, Max: 1,
+		Prompt: msg, Source: c.Source,
+		ResumeKind: "repeat_each_optional", ResumeSA: sa, ResumeRepeatNext: int32(idx),
+		Options: []decision.Option{
+			{Index: 0, Kind: "yes", Label: "Yes", Player: player},
+			{Index: 1, Kind: "no", Label: "No", Player: player},
+		}}
 }
 
 // iterationBase is what an iteration's Remembered holds besides its subject.
@@ -2328,4 +2439,25 @@ func effBranch(h Host, c *Ctx, sa *cards.SA) {
 	if sub := cards.ResolveSVar(c.SVars, name); sub != nil {
 		Resolve(h, c, sub)
 	}
+}
+
+// repeatChooseOrderApply is a RepeatEach ChooseOrder$ answer applied to the
+// offered subjects: option Index names the subject's offered position, the
+// answer's order is the loop order (rules' "repeat_choose_order" arm reads
+// it the same way). A malformed answer -- not a permutation -- keeps the
+// offered order rather than dropping or duplicating a subject.
+func repeatChooseOrderApply(subjects []state.Target, chosen []decision.Option) []state.Target {
+	ordered := copyTargets(subjects)
+	if len(chosen) != len(ordered) {
+		return ordered
+	}
+	seen := make([]bool, len(ordered))
+	for pos, o := range chosen {
+		if o.Index < 0 || o.Index >= len(ordered) || seen[o.Index] {
+			return copyTargets(subjects)
+		}
+		seen[o.Index] = true
+		ordered[pos] = subjects[o.Index]
+	}
+	return ordered
 }

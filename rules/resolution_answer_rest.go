@@ -242,7 +242,7 @@ func (e *Engine) resumeAnswerBindingRest(rp *resumePoint, o *state.Object, ctx *
 		// publishes ChosenSVar$ = the sum of the picked dice's results,
 		// OtherSVar$ = the sum of the rest, and consumes and clears all
 		// three Ctx fields at its top (the fx42 scoping discipline).
-		ctx.RollResults = rp.rolls
+		ctx.RollResults = rp.rolls.dice
 		pick := make([]int, 0, len(chosen))
 		for _, o := range chosen {
 			pick = append(pick, o.Index)
@@ -375,6 +375,12 @@ func (e *Engine) resumeAnswerBindingRest(rp *resumePoint, o *state.Object, ctx *
 		if len(chosen) > 0 && chosen[0].Kind == "unless" {
 			ctx.UnlessElected = "unless"
 		}
+		// The per-target cursor (the discard_may pattern): the election
+		// belongs to the acting player it was posed for, so the re-entered
+		// walk skips the targets processed before it instead of handing
+		// target 0 a later target's election (Bandit's Talent's Defined$
+		// Opponent over two opponents re-ran opponent 0's discard).
+		ctx.DiscardTarget = rp.target
 	case "hideaway_pick":
 		// Hideaway's first ask chooses exactly one of the looked-at cards.
 		// The effect validates it remains in the library before moving it,
@@ -620,12 +626,8 @@ func (e *Engine) resumeAnswerBindingRest(rp *resumePoint, o *state.Object, ctx *
 		// colours deterministically declines (the drain never runs without
 		// the mana being genuinely paid). The re-entered effExtort reads
 		// Ctx.Extort and runs the drain only on "pay".
-		if len(chosen) > 0 && chosen[0].Index == 0 {
-			if e.payExtortPip(chosen[0].Player) {
-				ctx.Extort = "pay"
-			} else {
-				ctx.Extort = "decline"
-			}
+		if extortAnswerRecord(e, chosen) {
+			ctx.Extort = "pay"
 		} else {
 			ctx.Extort = "decline"
 		}

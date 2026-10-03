@@ -36,10 +36,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.
 	confirmYes := strings.EqualFold(c.HiddenPickConfirm, "yes")
 	confirmTarget := c.HiddenPickConfirmTarget
 	c.HiddenPickConfirm, c.HiddenPickConfirmDone, c.HiddenPickConfirmTarget = "", false, 0
-	if !originValid {
-		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-			Text: "ChangeZone Origin$ " + from + " includes a zone this engine does not model (no outside-the-game cards exist); nothing is offered from it"})
-	}
+	hiddenPickOriginNote(h, c, originValid, from)
 	players := hiddenPickPlayers(h, c, cz.fetch())
 	if c.ForgetOtherReady {
 		players = c.ForgetOtherOwners
@@ -116,8 +113,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.
 		}
 	}
 	if hasChooseFromDefined && !chooseFromDefinedResolved {
-		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-			Text: "ChangeZone ChooseFromDefined$ " + cz.ChooseFromDefined + " is not resolvable; nothing is offered"})
+		hiddenPickChooseFromDefinedNote(h, c, cz)
 	}
 	apply := func(owner state.PlayerID, ids []state.ObjID) []state.ObjID {
 		g := h.Game()
@@ -187,6 +183,19 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.
 	// reading when ChooseFromDefined$ is present: the pool itself bounds the
 	// pick. A caller that names ChangeNum$ keeps it.
 	chooseFromAll := hasChooseFromDefined && cz.ChangeNum.Text == ""
+	// applyAnswered applies one fetch player's answered pick: the answer
+	// re-entry's branch, and the resolution kernel's served answer alike.
+	applyAnswered := func(owner state.PlayerID, ids []state.ObjID) {
+		if raw, ok := totalCardTypesRequirement(cz); ok {
+			need, err := strconv.Atoi(raw)
+			if err != nil || need < 0 || !totalCardTypesSatisfied(h.Game(), ids, need) {
+				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: owner,
+					Text: "hidden pick fails WithTotalCardTypes$ requirement"})
+				return
+			}
+		}
+		apply(owner, ids)
+	}
 	for i, owner := range players {
 		var eligible []state.ObjID
 		addPool := func(ids []state.ObjID) {
@@ -261,15 +270,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.
 			continue
 		}
 		if done && i == cursor {
-			if raw, ok := totalCardTypesRequirement(cz); ok {
-				need, err := strconv.Atoi(raw)
-				if err != nil || need < 0 || !totalCardTypesSatisfied(h.Game(), ans, need) {
-					h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: owner,
-						Text: "hidden pick fails WithTotalCardTypes$ requirement"})
-					continue
-				}
-			}
-			apply(owner, ans)
+			applyAnswered(owner, ans)
 			continue
 		}
 		chooser := hiddenPickChooser(h, c, cz, owner)
@@ -308,7 +309,16 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.
 						{Index: 0, Kind: "yes", Label: "Yes", Player: chooser},
 						{Index: 1, Kind: "no", Label: "No", Player: chooser},
 					}}
-				if Ask(h, cd) == AskAsked {
+				if ans, ok := AskTape(h, cd); ok {
+					// The resolution kernel's answer in hand: the
+					// "hidden_pick_confirm" re-entry's own events, then a
+					// decline skips this player and an acceptance enters the
+					// pick.
+					hiddenPickReentryEcho(h, c, cz, to, originValid, from)
+					if !tapeAnswerYes(ans) {
+						continue
+					}
+				} else if Ask(h, cd) == AskAsked {
 					return
 				}
 				// R-9: no host to ask -- play "may" as "do" deterministically,
@@ -419,6 +429,13 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.
 				}
 				d.Options = append(d.Options, opt)
 			}
+		}
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand: the "hidden_pick"
+			// re-entry's own events, then its answered branch.
+			hiddenPickReentryEcho(h, c, cz, to, originValid, from)
+			applyAnswered(owner, tapeAnswerObjs(ans))
+			continue
 		}
 		oc := Ask(h, d)
 		if oc == AskAsked {

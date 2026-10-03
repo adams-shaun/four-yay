@@ -515,6 +515,12 @@ type Ctx struct {
 	// Both are bound by the rules package when it builds the context.
 	SVars map[string]string
 	X     int32
+	// PublishedSVars records, in publication order, the resolution-scoped
+	// SVar bindings an effect published into SVars for a chained
+	// SubAbility$ to read (DealDamage's ExcessSVar$). It rides a suspended
+	// resolution's resume point, so the rebuilt Ctx re-binds them over the
+	// face table (RebindPublishedSVars) instead of losing them across an ask.
+	PublishedSVars []SVarBinding
 	// XAnnounced marks that X above IS a real CR 601.2b/107.3i announcement
 	// (the resolving spell or ability paid a {X} cost, possibly zero), set by
 	// the rules package at the same sites that bind X from the stack object's
@@ -1020,9 +1026,17 @@ type Ctx struct {
 	// continues rather than restarting or abandoning its remaining cards.
 	DrawDone int32
 	// Imprint is the selected public-zone ChangeZone card. It is scoped to
-	// Imprint$ True so a nested ordinary ChangeZone cannot consume it.
-	Imprint     []state.ObjID
-	ImprintDone bool
+	// Imprint$ True so a nested ordinary ChangeZone cannot consume it. The
+	// answer arm makes it non-nil even for an empty answer, so non-nil is
+	// "answered".
+	Imprint []state.ObjID
+	// ResumedGatePassed is the SA a legacy resume re-enters that already
+	// passed its Condition* gate on the pass that asked (the asking SA
+	// itself, or a rest frame's own SA): effects.Resolve skips that one gate
+	// read, once, so a board the first pass changed (Natural Balance's
+	// fetched lands, Whiskervale Forerunner's chosen card) cannot cancel the
+	// answered re-entry. The resolution kernel's path never re-enters.
+	ResumedGatePassed *cards.SA
 	// Untap is the answered UntapType$ selection. UntapDone distinguishes an
 	// answered empty "up to" choice from the first pass and scopes the answer
 	// to the Untap primitive that asked.
@@ -1051,13 +1065,13 @@ type Ctx struct {
 	// OptionalNoDestination$ when the SA carries one, else the found card
 	// joins the revealed pile (RevealedDestination$). rules' resumeResolution
 	// sets it from the recorded answer before re-running the suspended
-	// sub-ability, and DigUntilMoveDone distinguishes "answered" from the
-	// first pass (it also suppresses the reveal Note and the withheld-params
-	// Note a re-entry would otherwise re-emit). The asking effect consumes
-	// and clears both at the top of its own walk (the fx42 scoping
-	// discipline), so a nested DigUntil cannot inherit the outer answer.
-	DigUntilMove     string
-	DigUntilMoveDone bool
+	// sub-ability; a non-empty value is the "answered" marker that
+	// distinguishes a re-entry from the first pass (it also suppresses the
+	// reveal Note and the withheld-params Note a re-entry would otherwise
+	// re-emit). The asking effect consumes and clears it at the top of its
+	// own walk (the fx42 scoping discipline), so a nested DigUntil cannot
+	// inherit the outer answer.
+	DigUntilMove string
 	// DigUntilAuraBearer is the selected bearer for a non-cast Aura entering
 	// from DigUntil. DigUntilAuraDone distinguishes an answered bearer choice
 	// from the first pass; both are consumed at the top of the effect so a
@@ -1692,8 +1706,8 @@ type Ctx struct {
 	// a chained sub's own SVar body (Velukan Dragon's
 	// "SVar:X:SVar$Result/Minus.1") and a ConditionCheckSVar$ can read the
 	// roll. Zero/"" on any resolution that did not roll, and the values are
-	// never persisted -- a roll that suspends and resumes loses them, the
-	// same per-resolution lifetime every other Ctx field has. RollPubs is
+	// never persisted beyond the resolution; a mid-resolution ask carries them
+	// across its suspension (effects.RollRide on the resume point). RollPubs is
 	// the general form of the same publication (both are read through
 	// effects.dice.go's rollPublished, and this slot stays the primary
 	// result's mirror for the existing readers).
@@ -1707,10 +1721,10 @@ type Ctx struct {
 	// bare-name fallback and evalCountExpr's SVar$ head through
 	// rollPublished, and by Ctx.SpecContext's numeric-RHS resolver, so a
 	// chained sub's filter spec (Valiant Endeavor's Creature.powerGEX,
-	// Arcane Endeavor's Instant.cmcLEY) reads the roll too. Never persisted
-	// across a suspension -- the chosen/other publications are rebuilt from
-	// the answered decision on the roll resume (Ctx.RollResults/RollPick),
-	// the same per-resolution lifetime as LastRoll.
+	// Arcane Endeavor's Instant.cmcLEY) reads the roll too. Carried across a
+	// suspension with LastRoll (effects.RollRide); the chosen/other
+	// publications are rebuilt from the answered decision on the roll resume
+	// (Ctx.RollResults/RollPick).
 	RollPubs []RollPub
 	// RollResults/RollPick/RollDone carry the ANSWERED choose-one-result ask
 	// on a re-entered mid-resolution RollDice (rules/resolution.go's "roll"
@@ -2557,7 +2571,9 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		// is the rest of the body that already passed its gate on the first
 		// pass: the mints it made may have changed what the condition reads.
 		resumingTokens := c.TokenRest != nil && c.TokenRest.SA == sa
-		if !resumingLoop && !resumingTokens {
+		gatePassed := c.ResumedGatePassed == sa
+		c.ResumedGatePassed = nil
+		if !resumingLoop && !resumingTokens && !gatePassed {
 			if met, supported := conditionMet(h, c, sa); supported && !met {
 				continue
 			}

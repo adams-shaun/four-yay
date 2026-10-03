@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
@@ -79,6 +80,17 @@ func (e *Engine) handleArrange(d *decision.Decision, in decision.Intent) {
 	}
 	rp := e.resume
 	e.resume = nil
+	arrangeAnswerRecord(e, d, in, rp.sa)
+	e.resumeResolution(rp, d.Chosen(in))
+}
+
+// arrangeAnswerRecord applies an answered KArrange (handleArrange's contract
+// above): the new library order, pile B's destination, and a Scry's bottom
+// record. It is the decision kind's answer record, shared by handleArrange
+// and the resolution kernel serving the answer from its tape
+// (resolveBoard.Record); sa is the asking ability (the Scry record is
+// identified by its API).
+func arrangeAnswerRecord(e *Engine, d *decision.Decision, in decision.Intent, sa *cards.SA) {
 	chosen := d.Chosen(in)
 	// Pile A: the chosen options in the order the answer gave them.
 	pileA := make([]state.ObjID, 0, len(chosen))
@@ -150,7 +162,6 @@ func (e *Engine) handleArrange(d *decision.Decision, in decision.Intent) {
 		newLib = append(newLib, pileA...)
 		e.emit(events.Event{Kind: events.LibraryOrder, Player: d.Player,
 			IDs: newLib, Secret: true})
-		e.resumeResolution(rp, chosen)
 		return
 	}
 	switch kind {
@@ -185,7 +196,7 @@ func (e *Engine) handleArrange(d *decision.Decision, in decision.Intent) {
 		// suspended resolution's own SA, NOT by the option Kind: a plain
 		// RearrangeTopOfLibrary (Ponder) shares the "bottom" Kind with an
 		// always-empty pile B and must emit no scry record at all.
-		if rp.sa != nil && rp.sa.API == "Scry" {
+		if sa != nil && sa.API == "Scry" {
 			e.emitScryRecord(events.Event{Kind: events.Scry, Player: d.Player,
 				Obj: d.Source, Amount: int32(len(pileB))})
 		}
@@ -213,5 +224,4 @@ func (e *Engine) handleArrange(d *decision.Decision, in decision.Intent) {
 		e.emit(events.Event{Kind: events.LibraryOrder, Player: d.Player,
 			IDs: newLib, Secret: true})
 	}
-	e.resumeResolution(rp, chosen)
 }

@@ -73,11 +73,7 @@ func effRecruit(h Host, c *Ctx, sa *cards.SA) {
 	switch {
 	case answered != nil:
 		// The answered pick, filtered to cards still in this hand.
-		for _, id := range answered {
-			if o := g.Obj(id); o != nil && o.Zone == state.ZHand && o.Owner == ctrl {
-				picks = append(picks, id)
-			}
-		}
+		picks = recruitPicks(g, ctrl, answered, picks)
 	case len(hand) == 0:
 		// Nothing to discard and therefore no token.
 	case len(hand) == 1:
@@ -96,6 +92,12 @@ func effRecruit(h Host, c *Ctx, sa *cards.SA) {
 		d := &decision.Decision{Player: ctrl, Kind: decision.KChoose, Min: 1, Max: 1,
 			Source: c.Source, ResumeKind: "discard", ResumeSA: sa, ResumeTarget: 0,
 			Prompt: "Recruit: choose a card to discard", Options: opts}
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand: the same pick the
+			// "discard" re-entry filters above.
+			picks = recruitPicks(g, ctrl, answerObjs(ans), picks)
+			break
+		}
 		if Ask(h, d) == AskAsked {
 			return
 		}
@@ -131,4 +133,16 @@ func effRecruit(h Host, c *Ctx, sa *cards.SA) {
 		// the whole of what remains.
 		suspendMint(h, c, TokenRest{SA: sa})
 	}
+}
+
+// recruitPicks appends the answered discard picks still in ctrl's hand: the
+// one home of Recruit's "discard" answer, shared by the re-entry and the
+// resolution kernel's tape answer.
+func recruitPicks(g *state.Game, ctrl state.PlayerID, answered, picks []state.ObjID) []state.ObjID {
+	for _, id := range answered {
+		if o := g.Obj(id); o != nil && o.Zone == state.ZHand && o.Owner == ctrl {
+			picks = append(picks, id)
+		}
+	}
+	return picks
 }

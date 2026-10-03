@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -1186,4 +1187,24 @@ func effDamageResolve(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 	registerReplaceDying(h, c, replaceDyingParam(sa), damaged)
+}
+
+// damageSplitAnswer decodes a "damage_split" answer exactly as rules' resume
+// arm does: the answer is a multiset over the target options, and each
+// option's multiplicity is the damage its target (the option's Index, the
+// target's Defined$ position) receives.
+func damageSplitAnswer(ans []decision.Option) []int32 {
+	n := 0
+	for _, o := range ans {
+		if o.Index+1 > n {
+			n = o.Index + 1
+		}
+	}
+	split := make([]int32, n)
+	for _, o := range ans {
+		if o.Index >= 0 && o.Index < len(split) {
+			split[o.Index]++
+		}
+	}
+	return split
 }

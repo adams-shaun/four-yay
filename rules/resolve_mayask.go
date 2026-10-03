@@ -25,6 +25,7 @@ import (
 	"sync/atomic"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/state"
 )
 
 // tapeCheckpointAll (tests only) makes the predicate say "may ask" for every
@@ -32,11 +33,14 @@ import (
 // exempt everything, to exercise the miss fallback.
 var tapeCheckpointAll, tapeExemptAll bool
 
-// SAFacts.MayAsk cache states.
+// SAFacts.MayAsk cache states: 0 is unknown; a known state carries
+// mayAskKnown, plus mayAskText when the text may ask, plus the chain's board
+// gates (cards.SAChainBoardGates) shifted by mayAskGateShift.
 const (
-	mayAskUnknown uint32 = iota
-	mayAskNo
-	mayAskYes
+	mayAskUnknown   uint32 = 0
+	mayAskKnown     uint32 = 1
+	mayAskText      uint32 = 2
+	mayAskGateShift        = 2
 )
 
 // tapeMayAsk reports whether resolving the top of the stack may pose a
@@ -71,7 +75,7 @@ func tapeMayAsk(e *Engine) bool {
 		if owned, ok := e.triggerLineSVars[id]; ok {
 			// A granted, delayed or reflexive body: a freshly parsed SA with
 			// no facts record, read against the grant's own SVar table.
-			return cards.SAChainMayAsk(ab, owned, self, true)
+			return mayAskOnBoard(e, saMayAskState(ab, owned, self))
 		}
 		if self == nil || !cards.FaceOwnsSA(self, ab) {
 			// A granted ability or a mutated pile's under-card: Self is not
@@ -81,9 +85,9 @@ func tapeMayAsk(e *Engine) bool {
 			if self != nil {
 				svars = self.SVars
 			}
-			return cards.SAChainMayAsk(ab, svars, nil, true)
+			return mayAskOnBoard(e, saMayAskState(ab, svars, nil))
 		}
-		return saMayAskCached(e, ab, self)
+		return mayAskOnBoard(e, saMayAskCached(e, ab, self))
 	}
 	f := o.Face()
 	if f == nil {
@@ -97,32 +101,106 @@ func tapeMayAsk(e *Engine) bool {
 		if sa == nil {
 			return false
 		}
+	} else if f.HasKeyword("Cipher") {
+		return true // the resolving spell's CR 702.99a encode election
 	}
 	if sa == nil {
 		return true
 	}
-	return saMayAskCached(e, sa, f)
+	return mayAskOnBoard(e, saMayAskCached(e, sa, f))
+}
+
+// saMayAskState is the text judgement of sa's chain as a cache state.
+func saMayAskState(sa *cards.SA, svars map[string]string, self *cards.Face) uint32 {
+	if cards.SAChainMayAsk(sa, svars, self, true) {
+		return mayAskKnown | mayAskText
+	}
+	return mayAskKnown | uint32(cards.SAChainBoardGates(sa, svars))<<mayAskGateShift
+}
+
+// mayAskOnBoard resolves a cache state against the board: an ask-free text
+// asks only through a board gate it opens.
+func mayAskOnBoard(e *Engine, st uint32) bool {
+	if st&mayAskText != 0 {
+		return true
+	}
+	g := uint8(st >> mayAskGateShift)
+	return (g&cards.GateTokens != 0 && tapeReplMayAsk(e, "CreateToken")) ||
+		(g&cards.GateDamage != 0 && tapeReplMayAsk(e, "DamageDone")) ||
+		(g&cards.GateDraw != 0 && tapeDredgeMayAsk(e))
+}
+
+// tapeDredgeMayAsk is the draw gate: a card with Dredge in any graveyard
+// (CR 702.55) can replace a draw with its election. Read only for an
+// otherwise ask-free drawing resolution.
+func tapeDredgeMayAsk(e *Engine) bool {
+	for p := range e.G.Players {
+		for _, id := range e.G.Zone(state.ZGraveyard, state.PlayerID(p)) {
+			if o := e.G.Obj(id); o != nil {
+				if f := o.Face(); f != nil {
+					if _, ok := f.KeywordParam("Dredge"); ok {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
+// tapeReplMayAsk is a board gate: a replacement on event that elects
+// (cards.ReplMayElect), or two of them at once (a CR 616.1 order choice),
+// can ask as the event happens. An Effect-created CreateToken replacement
+// always counts as electing. Read only for an
+// otherwise ask-free resolution that opens the gate, through the
+// replacement-source zone masks.
+func tapeReplMayAsk(e *Engine, event string) bool {
+	n, ask := 0, false
+	// Effect-created replacements (an Effect's ReplacementEffects$: Soul
+	// Echo's per-upkeep damage shield) live on the continuous effects.
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		if ce := &ceL[ceI]; ce.ReplacementEvent == event {
+			if n++; n > 1 || event == "CreateToken" || cards.ReplParamsMayElect(ce.ReplacementParams) {
+				return true
+			}
+		}
+	}
+	e.forEachReplacementSourceFor(replEventBit(event), func(id state.ObjID) {
+		o := e.G.Obj(id)
+		if ask || o == nil {
+			return
+		}
+		f := o.Face()
+		if f == nil {
+			return
+		}
+		for i := range f.Repls {
+			r := &f.Repls[i]
+			if r.Event != event {
+				continue
+			}
+			if n++; n > 1 || cards.ReplMayElect(r) {
+				ask = true
+				return
+			}
+		}
+	})
+	return ask
 }
 
 // saMayAskCached is cards.SAChainMayAsk over a face-owned root ability,
-// memoised on its facts record. An ability with no record (runtime-built) is
-// judged every time; a root's answer covers its whole SubAbility$ chain.
-func saMayAskCached(e *Engine, sa *cards.SA, self *cards.Face) bool {
+// memoised on its facts record as a cache state. An ability with no record
+// (runtime-built) is judged every time; a root's answer covers its whole
+// SubAbility$ chain.
+func saMayAskCached(e *Engine, sa *cards.SA, self *cards.Face) uint32 {
 	f := e.compiledText.factsOf(sa)
 	if f == nil {
-		return cards.SAChainMayAsk(sa, self.SVars, self, true)
+		return saMayAskState(sa, self.SVars, self)
 	}
-	switch atomic.LoadUint32(&f.MayAsk) {
-	case mayAskNo:
-		return false
-	case mayAskYes:
-		return true
+	if st := atomic.LoadUint32(&f.MayAsk); st != mayAskUnknown {
+		return st
 	}
-	v := cards.SAChainMayAsk(sa, self.SVars, self, true)
-	st := mayAskNo
-	if v {
-		st = mayAskYes
-	}
+	st := saMayAskState(sa, self.SVars, self)
 	atomic.StoreUint32(&f.MayAsk, st)
-	return v
+	return st
 }

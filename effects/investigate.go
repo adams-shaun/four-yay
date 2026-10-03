@@ -122,6 +122,9 @@ func investigateOptionalWalk(h Host, c *Ctx, sa *cards.SA, players []state.Playe
 	noted := false
 	for idx := int(c.InvestigateOptIdx); idx < len(players); idx++ {
 		p := players[idx]
+		// The re-entry's answered election (the "investigate_optional"
+		// arm's InvestigateOpt), or this pass's own ask below.
+		accepted := c.InvestigateOpt == "yes"
 		if c.InvestigateOpt == "" {
 			d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 1, Max: 1,
 				ResumeKind: "investigate_optional", ResumeSA: sa, ResumeTarget: idx,
@@ -137,17 +140,21 @@ func investigateOptionalWalk(h Host, c *Ctx, sa *cards.SA, players []state.Playe
 				{Index: 0, Kind: "yes", Label: "Yes — investigate", Player: p},
 				{Index: 1, Kind: "no", Label: "No", Player: p},
 			}
-			if Ask(h, d) == AskAsked {
+			if ans, ok := AskTape(h, d); ok {
+				// The answer in hand: a malformed or empty answer keeps the
+				// decline, as the arm reads it.
+				accepted = len(ans) > 0 && ans[0].Kind == "yes"
+			} else if Ask(h, d) == AskAsked {
 				return
-			}
-			c.InvestigateOpt = "yes"
-			if !noted {
-				noted = true
-				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-					Text: "Investigate: no host to ask the election; investigates (R-9 stand-in)"})
+			} else {
+				accepted = true
+				if !noted {
+					noted = true
+					h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+						Text: "Investigate: no host to ask the election; investigates (R-9 stand-in)"})
+				}
 			}
 		}
-		accepted := c.InvestigateOpt == "yes"
 		c.InvestigateOpt = "" // fx42 scoping: consumed once; the next player poses its own ask
 		c.InvestigateOptIdx = int32(idx + 1)
 		if accepted {

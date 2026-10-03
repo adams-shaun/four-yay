@@ -335,16 +335,16 @@ func (k *Kernel) closeWindows(l *events.Log) {
 // Host seam). ok false means the caller asks through the legacy path: there
 // is no tape run, the run is past its resolution, or a legacy decision is
 // outstanding.
-func (k *Kernel) Answer(b Board, d *decision.Decision) ([]decision.Option, bool) {
+func (k *Kernel) Answer(b Board, d *decision.Decision) (decision.Intent, bool) {
 	r := k.run
 	if r == nil {
 		if k.noCkpt && k.answerer != nil && b.Pending() == nil && !b.Busy() {
 			return k.inlineAnswer(b, d), true
 		}
-		return nil, false
+		return decision.Intent{}, false
 	}
 	if !r.inRes || b.Pending() != nil || b.Busy() {
-		return nil, false
+		return decision.Intent{}, false
 	}
 	r.converting = true
 	b.Pose(d)
@@ -365,18 +365,18 @@ func (k *Kernel) Answer(b Board, d *decision.Decision) ([]decision.Option, bool)
 		panic(Divergence{fmt.Sprintf("served answer %d refused by a %s ask: %v", r.cursor-1, d.Kind, err)})
 	}
 	stats.served.Add(1)
-	chosen := b.Record(d, in)
+	acted := b.Record(d, in)
 	if r.cursor == len(r.serve) && r.rerun {
 		// Past the recorded prefix: new territory, so the live observers
 		// see what the run does from here (spec §7.5).
 		b.Observe()
 	}
-	return chosen, true
+	return acted, true
 }
 
 // inlineAnswer poses d and answers it from the synchronous answerer,
 // recording exactly what a posed decision answered by Submit records.
-func (k *Kernel) inlineAnswer(b Board, d *decision.Decision) []decision.Option {
+func (k *Kernel) inlineAnswer(b Board, d *decision.Decision) decision.Intent {
 	stats.inline.Add(1)
 	k.inline = true
 	b.Pose(d)
@@ -407,6 +407,18 @@ func (k *Kernel) inject(b Board, r *run) {
 	for _, ev := range cp.inject {
 		b.Emit(ev)
 	}
+}
+
+// LegacyInRun reports whether a legacy ask reaching the engine's ask choke
+// point now ends a tape run (inRun), and whether it does so by aborting the
+// run (a tape ask already happened) rather than switching to legacy in
+// place. Observation only (the legacy-ask census); OnAsk acts on it.
+func (k *Kernel) LegacyInRun() (inRun, aborts bool) {
+	r := k.run
+	if r == nil || !r.inRes || r.converting {
+		return false, false
+	}
+	return true, !r.first || r.tapeAsked
 }
 
 // OnAsk runs at the engine's ask choke point while Watching. A legacy ask

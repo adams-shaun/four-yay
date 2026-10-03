@@ -264,7 +264,7 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 	ctx.AllTargets = e.chainTargetUnion(rp.obj, chainRoot, targets)
 	ctx.ModeTargets = e.resolutionTargets.modesFor(rp.obj, e.charmTargets[rp.obj])
 	ctx.Chosen, ctx.ChosenValid = append([]state.Target(nil), rp.choices...), rp.chosenValid
-	ctx.DigUntilMove, ctx.DigUntilMoveDone = rp.digUntilMove, rp.digUntilMoveDone
+	ctx.DigUntilMove = rp.digUntilMove
 	ctx.ClonePick, ctx.ClonePickDone = rp.clonePick, rp.clonePickDone
 	ctx.VillainousVictims = append([]state.Target(nil), rp.villainousVictims...)
 	ctx.VillainousIndex = rp.villainousIndex
@@ -393,6 +393,9 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 		ctx.X = rp.winPaidX
 		ctx.XAnnounced = true
 	}
+	// The chain's roll publications at the ask (effects.RollRide), after
+	// every X binding above: a publication named X is the resolution's X.
+	ctx.ResumeRollRide(rp.rolls.ride)
 	var svars map[string]string
 	if o.Ability != nil {
 		// A triggered or activated ability: mirror resolveTop's ability
@@ -649,6 +652,9 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 		}
 	}
 	effects.SetSVars(ctx, svars)
+	// The chain's published resolution-scoped bindings (ExcessSVar$) survive
+	// the suspension: the face table above does not carry them.
+	effects.RebindPublishedSVars(ctx, rp.publishedSVars)
 	// An accepted optional trigger may itself carry Cost$ (Mana Vault's
 	// "you may pay {4}; if you do" untap). The optional answer chooses to
 	// attempt the effect; payment is a separate resolution-time window with
@@ -828,6 +834,9 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			e.windowPaidX = savedWinX
 			e.villainousRemembered, e.villainousRememberedSet = savedVill, savedVillSet
 		}()
+		if resumeGatePassed(rp) {
+			ctx.ResumedGatePassed = rp.sa
+		}
 		e.contChainOwners++
 		effects.Resolve(e, ctx, rp.sa)
 		e.contChainOwners--
@@ -840,6 +849,13 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 		// in the skipped step; enter cleanup just as resolveTop does.
 		if e.endTurnRequested {
 			e.finishEndTurn()
+			// The pass branch's CR 117.3b reset marker, exactly as an
+			// unsuspended EndTurn resolution gets it from handlePriority
+			// once resolveTop returns: a resolution that suspended (an
+			// answered Optional$ EndTurn) and then ended the turn reaches
+			// its true end here, and skipping the completion tail below
+			// must not also skip the marker the two paths share.
+			e.emit(events.Event{Kind: events.Priority, Player: e.G.Active})
 			return
 		}
 		// A resolution is still suspended when EITHER the ordinary
@@ -887,7 +903,7 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			if rp.loopBound {
 				// Still inside the loop iteration this frame resumed: whatever
 				// suspended at this level continues with its Remembered.
-				e.bindLoopFrames(ctx.Remembered, ctx.VoteCounts)
+				e.bindLoopFrames(ctx.Remembered, ctx.VoteCounts, ctx.RepeatSubject)
 			}
 			e.resume.outer = e.buildContinuationChain(e.contChain, rp.obj, rp.outer)
 			// The continuation chain now owns the reported frames. Keep this
@@ -1012,4 +1028,17 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 		// completion marker, never before it.
 		e.askNextReplacementChoice()
 	}
+}
+
+// resumeGatePassed reports whether rp re-enters an SA that already passed its
+// Condition* gate on the pass that suspended: the SA that asked (every frame
+// Engine.Ask built) and a rest frame re-entering its own loop SA. A plain
+// continuation frame (kind "") re-enters a sub the walk has not reached yet,
+// and the frames that re-enter a trigger's root before it ever resolved (the
+// CR 603.5 optional yes/no, a trigger-cost window, madness, a deferred ask
+// or turn-up event, a copy's target ask) have passed nothing.
+func resumeGatePassed(rp *resumePoint) bool {
+	k := rp.kind
+	return rp.sa != nil && k != "" && k != "optional" && k != "effect_cost" && k != "effect_paid" &&
+		k != "madness" && k != "deferred_ask" && k != "turn_face_up_event" && k != "copy_targets"
 }

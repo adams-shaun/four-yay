@@ -249,3 +249,50 @@ func containsStr(list []string, want string) bool {
 	}
 	return false
 }
+
+// TestPsychicPaperIgnoresAnotherAttach pins the Attached replacement's
+// ValidCard$ frame: Psychic Paper's `ValidCard$ Card.Self` names the
+// ATTACHING object, so another Equipment becoming attached never poses the
+// paper's name ask (the matcher used to test the replacement source against
+// Card.Self, which always matched, so every Attach to a creature asked).
+func TestPsychicPaperIgnoresAnotherAttach(t *testing.T) {
+	t.Parallel()
+	paper := corpusAlternativeCard(t, "Psychic Paper")
+	blade := card(t, "Name:Tape Blade\nManaCost:1\nTypes:Artifact Equipment\nK:Equip:1\nOracle:x\n")
+	bear := card(t, "Name:Grizzly Bears\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
+	e, cfg, _ := corpusDeckEngine(t, nil, []*cards.Card{paper, blade, bear})
+	var bladeID, bearID state.ObjID
+	for i := range e.G.Objs {
+		o := &e.G.Objs[i]
+		if o.Zone != state.ZBattlefield {
+			continue
+		}
+		switch o.Card {
+		case blade:
+			bladeID = o.ID
+		case bear:
+			bearID = o.ID
+		}
+	}
+	if bladeID == 0 || bearID == 0 {
+		t.Fatalf("setup: blade=%d bear=%d", bladeID, bearID)
+	}
+	addMana(t, e, 0, "G")
+	submitChoices(t, e, abilityOption(t, e, bladeID, 0).Index)
+	d := e.Pending()
+	if d == nil || d.Kind != decision.KTarget {
+		t.Fatalf("equip target decision: %+v", d)
+	}
+	submitChoices(t, e, indexOfObjOption(d, bearID))
+	for i := 0; i < 30 && len(e.G.Stack) > 0; i++ {
+		d := e.Pending()
+		if d.Kind != decision.KPriority {
+			t.Fatalf("another Equipment attaching posed %s %q", d.Kind, d.Prompt)
+		}
+		submitChoices(t, e, passIndex(t, d))
+	}
+	if bo := e.G.Obj(bladeID); bo.AttachedTo != bearID {
+		t.Fatalf("blade attached to %d, want bear %d", bo.AttachedTo, bearID)
+	}
+	replayCheck(t, e, cfg)
+}

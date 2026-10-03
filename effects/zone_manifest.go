@@ -122,15 +122,7 @@ func effManifestDread(h Host, c *Ctx, sa *cards.SA) {
 		p = c.Controller
 	}
 	if done {
-		if o := g.Obj(picked); o != nil && o.Zone == state.ZLibrary && o.Owner == p {
-			window := []state.ObjID{picked}
-			for _, id := range g.Zone(state.ZLibrary, p) {
-				if id != picked && len(window) < 2 {
-					window = append(window, id)
-				}
-			}
-			manifestDreadMove(h, c, p, window, picked)
-		}
+		manifestDreadAnswered(h, c, p, picked)
 		return
 	}
 	p = c.Controller
@@ -154,6 +146,16 @@ func effManifestDread(h Host, c *Ctx, sa *cards.SA) {
 		}
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "manifest_dread", Label: label, Obj: id, Player: p})
 	}
+	if ans, ok := AskTape(h, d); ok {
+		// The resolution kernel's answer in hand: the "manifest_dread"
+		// re-entry's answered move.
+		var picked state.ObjID
+		if len(ans) > 0 {
+			picked = ans[0].Obj
+		}
+		manifestDreadAnswered(h, c, p, picked)
+		return
+	}
 	c.ManifestDreadPlayer = p
 	if Ask(h, d) == AskAsked {
 		return
@@ -161,6 +163,23 @@ func effManifestDread(h Host, c *Ctx, sa *cards.SA) {
 	h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: p,
 		Text: "manifests the top card (no engine host to ask)", Secret: true})
 	manifestDreadMove(h, c, p, window, window[0])
+}
+
+// manifestDreadAnswered applies player p's answered pick: the picked card
+// (still on top of p's library) and the next card form the window it
+// splits. The answer re-entry's branch, and the resolution kernel's served
+// answer alike.
+func manifestDreadAnswered(h Host, c *Ctx, p state.PlayerID, picked state.ObjID) {
+	g := h.Game()
+	if o := g.Obj(picked); o != nil && o.Zone == state.ZLibrary && o.Owner == p {
+		window := []state.ObjID{picked}
+		for _, id := range g.Zone(state.ZLibrary, p) {
+			if id != picked && len(window) < 2 {
+				window = append(window, id)
+			}
+		}
+		manifestDreadMove(h, c, p, window, picked)
+	}
 }
 
 // manifestDreadMove applies CR 701.61's two destinations. The chosen card's

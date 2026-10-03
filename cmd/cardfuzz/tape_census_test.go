@@ -10,30 +10,40 @@ import (
 	"github.com/adams-shaun/gorge/rules/resolve"
 )
 
-// The resolution kernel's predicate-miss census ratchet (W3 step 1; lasagna
-// spec §7.7 and the S3b results): a "miss" is a resolution the ask-free
+// The resolution kernel's predicate-miss census ratchet (W3; lasagna spec
+// §7.7 and the S3b results): a "miss" is a resolution the ask-free
 // predicate exempted from its checkpoint that asked anyway. Today a miss
-// costs nothing but the legacy path in place; once legacy is deleted
-// (§7.7 step 4) every miss costs a replay from the nearest retained
-// snapshot, so the target is 0.
+// costs nothing but the legacy path in place; once legacy is deleted (§7.7
+// step 4) every miss costs a replay from the nearest retained snapshot, so
+// the target is 0.
 //
-// tapeMissCeiling is the misses measured over the fixed sample below -- the
-// same games `cardfuzz -games 200 -batch 200 -seed 11101 -tape` plays from
-// an empty coverage state -- when the kernel landed. It is SHRINK-ONLY: a
-// predicate change that removes a miss class lowers it in the same commit;
-// NEVER raise it. A rise means a new resolution shape asks where the
-// predicate said it could not: fix the predicate at its root (cards/mayask.go
-// for text, rules/resolve_mayask.go for the stack object, or a board gate for
-// an engine-posed ask) rather than the constant. The test logs the census by
-// class (resolving shape -> decision kind/resume kind), the key a fix
-// targets. The run is also the dual run: every game plays on the kernel and
-// its replay is verified on the legacy resume path, so a "replay" failure is
-// a kernel divergence and fails the test outright.
+// The ratchet is on the CLASS SET, not a raw count. A class (resolving shape
+// -> decision kind/resume kind) is structural: it names a predicate gap that
+// exists whatever the games' trajectories, so a new class is always a real
+// finding. A raw count over a random-deck sample is not: an unrelated engine
+// change that shifts the bots' choices reshuffles which games reach a known
+// class and how often, and the count moved with no gap opened or closed. So:
+//
+//   - tapeMissClasses is a two-directional, SHRINK-ONLY allowlist. A class
+//     the sample shows that is not listed fails (fix the predicate at its
+//     root -- cards/mayask.go for text, rules/resolve_mayask.go for the stack
+//     object or a board gate -- never add it); a listed class the sample no
+//     longer shows fails as stale (delete the line in the same commit).
+//   - tapeMissCountCeiling is a generous ceiling on the total, a guard
+//     against a listed class blowing up, never the ratchet itself.
+//
+// The sample is the games `cardfuzz -games 1000 -batch 1000 -seed 11101
+// -tape` plays from an empty coverage state. The run is also the dual run:
+// every game plays on the kernel and its replay is verified on the legacy
+// resume path, so a "replay" failure is a kernel divergence and fails the
+// test outright.
+var tapeMissClasses = []string{}
+
 const (
-	tapeMissCeiling    = 10
-	tapeCensusGames    = 200
-	tapeCensusSeed     = 11101
-	tapeCensusMaxTurns = 100
+	tapeMissCountCeiling = 25
+	tapeCensusGames      = 1000
+	tapeCensusSeed       = 11101
+	tapeCensusMaxTurns   = 100
 )
 
 func TestTapeMissCensus(t *testing.T) {
@@ -101,20 +111,28 @@ func TestTapeMissCensus(t *testing.T) {
 		}
 	}
 	rows := census.rows()
+	allowed := make(map[string]bool, len(tapeMissClasses))
+	for _, c := range tapeMissClasses {
+		allowed[c] = true
+	}
+	seen := make(map[string]bool, len(rows))
 	total := 0
 	for _, r := range rows {
 		total += r.n
+		seen[r.class] = true
 		t.Logf("miss %4d  %s", r.n, r.class)
+		if !allowed[r.class] {
+			t.Errorf("predicate-miss class %q (%d) is not in tapeMissClasses: fix the predicate at its root "+
+				"(the allowlist is SHRINK-ONLY; adding a class is a MAJOR review finding)", r.class, r.n)
+		}
 	}
-	switch {
-	case total > tapeMissCeiling:
-		t.Errorf("predicate misses: %d over %d games, above the frozen ceiling of %d. This is a SHRINK-ONLY "+
-			"ratchet: fix the predicate for the new class at its root instead of raising "+
-			"tapeMissCeiling (a raised constant is a MAJOR review finding).", total, tapeCensusGames, tapeMissCeiling)
-	case total < tapeMissCeiling:
-		t.Logf("predicate misses: %d, below the ceiling of %d: lower tapeMissCeiling in "+
-			"cmd/cardfuzz/tape_census_test.go to %d in the same commit.", total, tapeMissCeiling, total)
-	default:
-		t.Logf("predicate misses: %d (at ceiling; target 0)", total)
+	for _, c := range tapeMissClasses {
+		if !seen[c] {
+			t.Errorf("tapeMissClasses lists %q but the sample no longer misses it: delete it in the same commit", c)
+		}
 	}
+	if total > tapeMissCountCeiling {
+		t.Errorf("predicate misses: %d over %d games, above the guard ceiling of %d", total, tapeCensusGames, tapeMissCountCeiling)
+	}
+	t.Logf("predicate misses: %d in %d classes (target 0)", total, len(rows))
 }

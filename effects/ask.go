@@ -84,7 +84,7 @@ func Ask(h Host, d *decision.Decision) AskOutcome {
 // ask_tape.go).
 type askSeam interface {
 	AskCount() uint64
-	TapeAnswer(d *decision.Decision) ([]decision.Option, bool)
+	TapeAnswer(d *decision.Decision) (decision.Intent, bool)
 }
 
 // askSeamOf is h's ask seam, nil for a host without one (a test double, whose

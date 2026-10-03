@@ -59,37 +59,7 @@ func effCipher(h Host, c *Ctx, sa *cards.SA) {
 	c.CipherPick = nil
 
 	if answered {
-		// The answer is settled. An empty pick is the decline; a pick naming
-		// an object that has since left the battlefield (or is not a legal
-		// creature any more) is a stale answer and encodes nothing.
-		if len(pick) == 0 {
-			return
-		}
-		// The spell must still be resolving (on the stack) for its encode to
-		// apply; a card that already left resolved elsewhere and encodes
-		// nothing.
-		if co.Zone != state.ZStack {
-			return
-		}
-		creature := pick[0].Obj
-		target := g.Obj(creature)
-		if target == nil || target.Zone != state.ZBattlefield ||
-			!MatchesSpecCtx(g, "Creature.YouCtrl", creature, c.SpecContext(controller)) {
-			h.Emit(events.Event{Kind: events.Note, Obj: card,
-				Text: "cipher encode found its chosen creature no longer on the battlefield"})
-			return
-		}
-		// "Encoded" means exiled AND associated (CR 702.99a). Move the card
-		// to exile from wherever it currently sits (the stack), then write the
-		// link. The Imprint event's IDs[0] is the encoded card; Apply appends
-		// it to the creature's EncodedCards.
-		h.Emit(events.Event{Kind: events.MoveZone, Obj: card, From: co.Zone, To: state.ZExile,
-			Text: "encoded"})
-		if co = g.Obj(card); co == nil || co.Zone != state.ZExile {
-			return // a replacement prevented the exile; nothing was encoded.
-		}
-		h.Emit(events.Event{Kind: events.Imprint, Obj: creature, IDs: []state.ObjID{card},
-			Text: "encoded"})
+		cipherEncode(h, c, card, controller, pick)
 		return
 	}
 
@@ -133,10 +103,65 @@ func effCipher(h Host, c *Ctx, sa *cards.SA) {
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "mode",
 			Label: label, Obj: id, Player: controller})
 	}
+	if ans, ok := AskTape(h, d); ok {
+		// The resolution kernel's answer in hand: the "cipher" re-entry's
+		// encode (an empty answer declines).
+		var picked []state.Target
+		for _, o := range ans {
+			if o.Obj != 0 {
+				picked = append(picked, state.Target{Obj: o.Obj})
+			}
+		}
+		cipherEncode(h, c, card, controller, picked)
+		return
+	}
 	if h.Ask(d) {
 		return // suspended; rules' "cipher" arm re-enters this walk with the answer.
 	}
 	// No host to ask (the R-9 fuzz/test contract): the deterministic decline.
 	h.Emit(events.Event{Kind: events.Note, Obj: card,
 		Text: "cipher encode resolved as the decline (no engine host to ask)"})
+}
+
+// cipherEncode applies an answered encode pick (the "cipher" answer: the
+// re-entry's and the resolution kernel's one home). An empty pick is the
+// decline; a pick naming an object that has since left the battlefield (or
+// is not a legal creature any more) is a stale answer and encodes nothing.
+func cipherEncode(h Host, c *Ctx, card state.ObjID, controller state.PlayerID, pick []state.Target) {
+	g := h.Game()
+	co := g.Obj(card)
+	if co == nil {
+		return
+	}
+	// The answer is settled. An empty pick is the decline; a pick naming
+	// an object that has since left the battlefield (or is not a legal
+	// creature any more) is a stale answer and encodes nothing.
+	if len(pick) == 0 {
+		return
+	}
+	// The spell must still be resolving (on the stack) for its encode to
+	// apply; a card that already left resolved elsewhere and encodes
+	// nothing.
+	if co.Zone != state.ZStack {
+		return
+	}
+	creature := pick[0].Obj
+	target := g.Obj(creature)
+	if target == nil || target.Zone != state.ZBattlefield ||
+		!MatchesSpecCtx(g, "Creature.YouCtrl", creature, c.SpecContext(controller)) {
+		h.Emit(events.Event{Kind: events.Note, Obj: card,
+			Text: "cipher encode found its chosen creature no longer on the battlefield"})
+		return
+	}
+	// "Encoded" means exiled AND associated (CR 702.99a). Move the card
+	// to exile from wherever it currently sits (the stack), then write the
+	// link. The Imprint event's IDs[0] is the encoded card; Apply appends
+	// it to the creature's EncodedCards.
+	h.Emit(events.Event{Kind: events.MoveZone, Obj: card, From: co.Zone, To: state.ZExile,
+		Text: "encoded"})
+	if co = g.Obj(card); co == nil || co.Zone != state.ZExile {
+		return // a replacement prevented the exile; nothing was encoded.
+	}
+	h.Emit(events.Event{Kind: events.Imprint, Obj: creature, IDs: []state.ObjID{card},
+		Text: "encoded"})
 }

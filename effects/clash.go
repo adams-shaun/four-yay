@@ -114,6 +114,16 @@ func effClash(h Host, c *Ctx, sa *cards.SA) {
 			continue
 		}
 		d := ClashPlacementDecision(p, c.Source, sa, players, revealed, winnerIdx, cursor, id)
+		if ans, ok := AskTape(h, d); ok {
+			// The "clash_placement" answer in hand: place this card as the
+			// re-entry does, then the walk goes on to the next clasher.
+			if len(ans) > 0 && ans[0].Kind == "top" {
+				clashMoveToTop(h, p, id)
+			} else {
+				clashMoveToBottom(h, p, id)
+			}
+			continue
+		}
 		if Ask(h, d) == AskAsked {
 			return
 		}

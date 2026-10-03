@@ -834,8 +834,8 @@ type Decision struct {
 	ResumeForgetOtherCleared  bool             `json:"-"`
 	// ResumeDigUntilMove carries an earlier OptionalFoundMove$ answer through
 	// a nested DigUntil Aura-bearer ask. It is runtime continuation state only.
-	ResumeDigUntilMove     string `json:"-"`
-	ResumeDigUntilMoveDone bool   `json:"-"`
+	// Empty until the election is answered.
+	ResumeDigUntilMove string `json:"-"`
 	// ResumeClonePick carries an earlier DB$ Clone Choices$ copy-source pick
 	// through a later Optional$ may-copy ask in the same walk, so the answered
 	// re-entry consumes the selection rather than posing the Choices$ ask
