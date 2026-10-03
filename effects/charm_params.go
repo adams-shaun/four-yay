@@ -62,6 +62,13 @@ type CharmParams struct {
 	TempRemember    bool
 	FallbackAbility string
 
+	// AtRandom$ (trimmed; GenericChoice): True or Urza makes the pick the
+	// engine's rng draw (effects/atrandom.go GenericChoiceAtRandom).
+	AtRandom string
+	// AILogic$ Random: the script's AI-picks-at-random marker, carried on
+	// the ask as decision.Decision.AIRandom for unattended bots.
+	AILogicRandom bool
+
 	// Unread are the parameters present on a Charm or GenericChoice ability
 	// that no reader of its resolution consumes (charmKnownKeys): effCharm
 	// Notes them (the loud-degrade contract). nil for the other modal
@@ -125,6 +132,8 @@ func compileCharm(sa *cards.SA) *CharmParams {
 	p.Defined = strings.TrimSpace(sa.ParamStr(cards.PKDefined))
 	p.TempRemember = strings.TrimSpace(sa.Params["TempRemember"]) != ""
 	p.FallbackAbility = strings.TrimSpace(sa.Params["FallbackAbility"])
+	p.AtRandom = strings.TrimSpace(sa.ParamStr(cards.PKAtRandom))
+	p.AILogicRandom = strings.TrimSpace(sa.ParamStr(cards.PKAILogic)) == "Random"
 	if isCharmAPI(sa) {
 		p.Unread = unreadKeys(sa, charmKnownKeys[:])
 	}
@@ -145,7 +154,7 @@ var charmKnownKeys = [...]string{
 	"ActivationGameTypes", "ActivationLimit", "ActivationPhases", "ActivationZone",
 	"Activator", "Adapt", "AddKeywords", "AddStaticAbilities", "AddType", "AddTypes",
 	"AdditionalDesc", "AdditionalDescription", "Affected", "AlternateCost",
-	"AlternativeCost", "Announce", "AnnounceTitle", "Boast", "CanRepeatModes",
+	"AlternativeCost", "Announce", "AnnounceTitle", "AtRandom", "Boast", "CanRepeatModes",
 	"ChangeTypeDesc", "CharacteristicDefining", "CharmNum", "CheckSVar",
 	"ChoiceRestriction", "ChoiceTitle", "ChoiceZone", "Choices", "ChooseFromList",
 	"ClassBand", "ClearImprinted", "Condition", "ConditionActivationLimit",
