@@ -1313,8 +1313,14 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 		// settled, so the primary LibraryPosition$ cannot be lost to the
 		// remainder's ordered-bottom ask.
 		primaryMoved := make([]state.ObjID, 0, len(top))
+		// tapeArranged: the resolution kernel served this target's
+		// ordered-bottom arrange from its tape, and the KArrange answer
+		// record (arrangeAnswerRecord's dig_bottom) already placed the
+		// primary pile -- the target is complete, exactly as the
+		// "dig_arrange" re-entry treats it.
+		tapeArranged := false
 		placePrimary := func() {
-			if dest != state.ZLibrary || len(primaryMoved) == 0 {
+			if tapeArranged || dest != state.ZLibrary || len(primaryMoved) == 0 {
 				return
 			}
 			switch primaryPos {
@@ -1434,6 +1440,14 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 					}
 					d.Options = append(d.Options, decision.Option{Index: i, Kind: "dig_bottom", Label: name, Obj: id, Player: p})
 				}
+				if _, ok := AskTapeIntent(h, d); ok {
+					// The resolution kernel served the order and its record
+					// applied it; the later targets keep the deterministic
+					// processing the arrange re-entry gives them.
+					tapeArranged = true
+					arrangeThrough = targetIndex
+					return false
+				}
 				if Ask(h, d) == AskAsked {
 					suspended = true // resolution suspended; the arrange re-enters.
 					return true
@@ -1462,6 +1476,34 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 			}
 			return false
 		}
+		// takeAnswered applies an answered take for this target, the one home
+		// of the "dig" answer (the re-entry below and the resolution
+		// kernel's tape answer): move exactly the answered cards that still
+		// sit in the ASKING target's window (a per-window filter keeps a
+		// stray answer from moving an object that left the window
+		// meanwhile), in the player's answer order; the rest of the window
+		// goes to the second destination. It reports a suspension.
+		takeAnswered := func(ans []state.ObjID) bool {
+			picked := make(map[state.ObjID]bool, len(ans))
+			for _, id := range ans {
+				if !containsID(top, id) {
+					continue
+				}
+				picked[id] = true
+				take(id)
+			}
+			restIDs := make([]state.ObjID, 0, len(top))
+			for _, id := range top {
+				if !picked[id] {
+					restIDs = append(restIDs, id)
+				}
+			}
+			if rest(restIDs) {
+				return true
+			}
+			placePrimary()
+			return false
+		}
 		if arrangeThrough >= 0 {
 			// The arrange re-entry: every target up to and including the one
 			// whose arrange was answered is complete.
@@ -1476,31 +1518,9 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 				continue
 			}
 			if digDone && targetIndex == digTarget {
-				// Re-entry: move exactly the answered cards that still sit in the
-				// ASKING target's window (a per-window filter keeps a stray answer
-				// from moving an object that left the window meanwhile), in the
-				// player's answer order; the rest of the window goes to the
-				// second destination.
-				picked := make(map[state.ObjID]bool, len(digAns))
-				moved := make([]state.ObjID, 0, len(digAns))
-				for _, id := range digAns {
-					if !containsID(top, id) {
-						continue
-					}
-					picked[id] = true
-					take(id)
-					moved = append(moved, id)
-				}
-				restIDs := make([]state.ObjID, 0, len(top))
-				for _, id := range top {
-					if !picked[id] {
-						restIDs = append(restIDs, id)
-					}
-				}
-				if rest(restIDs) {
+				if takeAnswered(digAns) {
 					return
 				}
-				placePrimary()
 				continue
 			}
 		}
@@ -1648,6 +1668,20 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 					opt.Value = manaValueOf(g, id)
 				}
 				d.Options = append(d.Options, opt)
+			}
+			if ans, ok := AskTape(h, d); ok {
+				// The resolution kernel's answer in hand: what the "dig"
+				// re-entry does with it. An empty answer to the
+				// optional-ability election declines the whole Dig for this
+				// target (the re-entry's skip at the top of the walk).
+				picks := answerObjs(ans)
+				if promptToSkipOptional && len(picks) == 0 {
+					continue
+				}
+				if takeAnswered(picks) {
+					return
+				}
+				continue
 			}
 			if Ask(h, d) == AskAsked {
 				suspended = true // resolution suspended; the answer re-enters with Ctx.Dig set.

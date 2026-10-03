@@ -145,3 +145,22 @@ func TestTapeConvertFlowDiscardUnlessEachTarget(t *testing.T) {
 			kinds: []string{"discard_unless", "discard"}, served: 2},
 	})
 }
+
+func TestTapeConvertFlowDig(t *testing.T) {
+	runTapeFlowCases(t, 33000, 3, []tapeFlowCase{
+		{name: "Tape Impulse", src: "A:SP$ Dig | DigNum$ 4 | ChangeNum$ 1 | SubAbility$ DBGain\nSVar:DBGain:DB$ GainLife | LifeAmount$ 2",
+			kinds: []string{"dig", "dig_arrange"}, served: 2},
+		{name: "Tape Each Dig", src: "A:SP$ Dig | Defined$ Player | DigNum$ 3 | ChangeNum$ 1",
+			kinds: []string{"dig", "dig_arrange"}, served: 2},
+		{name: "Tape Maybe Dig", src: "A:SP$ Dig | Defined$ Player | DigNum$ 3 | ChangeNum$ 1 | Optional$ True | DestinationZone$ Graveyard | DestinationZone2$ Library | LibraryPosition2$ 0",
+			kinds: []string{"dig"}, served: 2},
+		{name: "Tape Skip Dig", src: "A:SP$ Dig | DigNum$ 3 | ChangeNum$ 1 | PromptToSkipOptionalAbility$ True",
+			kinds: []string{"dig"}, served: 1},
+		{name: "Tape Library Dig", src: "A:SP$ Dig | DigNum$ 4 | ChangeNum$ 1 | DestinationZone$ Library | LibraryPosition$ 0",
+			kinds: []string{"dig", "dig_arrange"}, served: 2},
+		{name: "Tape Any Dig", src: "A:SP$ Dig | DigNum$ 3 | ChangeNum$ Any | DestinationZone$ Graveyard",
+			kinds: []string{"dig"}, served: 1},
+		{name: "Tape Bottom Dig", src: "A:SP$ Dig | Defined$ Player | DigNum$ 3 | ChangeNum$ 0",
+			kinds: []string{"dig_arrange"}, served: 1},
+	})
+}
