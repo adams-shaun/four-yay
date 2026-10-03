@@ -6,6 +6,7 @@
 //	oraclediff show [-cards .cards] -scenarios scenarios.jsonl -card NAME
 //	oraclediff triage [-cards .cards] [-apply]
 //	oraclediff refreeze [-cards .cards] [-apply]
+//	oraclediff impact [-cards .cards] [-top N] [-json]
 //
 // gen writes one level-A scenario per manifest card gorge fully supports
 // (skips go to <out>.skips.jsonl). plan splits them into the stale ones
@@ -22,6 +23,10 @@
 //
 // A passing row freezes only the fields its scenario changed (Frozen), not
 // a hash of the whole snapshot; refreeze converts legacy canon_sha rows.
+//
+// impact is the primitive impact table (compliance/adopt): every
+// unsupported primitive, the tournament cards it blocks in each target
+// format of compliance/formats.json and the sets it would unlock.
 package main
 
 import (
@@ -112,6 +117,13 @@ func main() {
 		apply := fs.Bool("apply", false, "write the converted rows")
 		fs.Parse(os.Args[2:])
 		err = runRefreeze(*dir, *apply)
+	case "impact":
+		fs := flag.NewFlagSet("impact", flag.ExitOnError)
+		dir := fs.String("cards", ".cards", "corpus dir")
+		top := fs.Int("top", 0, "tournament rows to print (0 = all)")
+		asJSON := fs.Bool("json", false, "one JSON row per primitive")
+		fs.Parse(os.Args[2:])
+		err = runImpact(*dir, *top, *asJSON)
 	case "show":
 		fs := flag.NewFlagSet("show", flag.ExitOnError)
 		dir := fs.String("cards", ".cards", "corpus dir")
@@ -129,7 +141,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: oraclediff gen|plan|diff|status|rule|triage|refreeze|show ...")
+	fmt.Fprintln(os.Stderr, "usage: oraclediff gen|plan|diff|status|rule|triage|refreeze|impact|show ...")
 	os.Exit(2)
 }
 
