@@ -908,15 +908,21 @@ func (r *oracleRun) do(st oracleStep) error {
 				for _, o := range choice.Options {
 					if o.Kind == "mana" {
 						manaOptions = true
-						if oracleLabelMatches(o.Label, st.Ability) {
+						break
+					}
+				}
+				// A queued answer owns the pending decision: fall back to label
+				// matching only when the scenario did not queue one, so a costed
+				// any-colour wheel behaves like every other colour wheel.
+				if manaOptions && !hasOracleAnswer(r.answers, choice.Kind) {
+					for _, o := range choice.Options {
+						if o.Kind == "mana" && oracleLabelMatches(o.Label, st.Ability) {
 							if err := r.submit(choice, []int{o.Index}, "mana ability"); err != nil {
 								return err
 							}
 							break
 						}
 					}
-				}
-				if manaOptions {
 					matched := false
 					for _, o := range choice.Options {
 						if o.Kind == "mana" && oracleLabelMatches(o.Label, st.Ability) {
@@ -924,7 +930,7 @@ func (r *oracleRun) do(st oracleStep) error {
 							break
 						}
 					}
-					if !matched && !hasOracleAnswer(r.answers, choice.Kind) {
+					if !matched {
 						return harnessf("mana ability %q not offered: %s", st.Ability, optionDump(choice))
 					}
 				}
