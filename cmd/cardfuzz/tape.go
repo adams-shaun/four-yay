@@ -2,7 +2,7 @@ package main
 
 // tape.go is cardfuzz's dual-run harness for the W3 resolution kernel
 // (rules/resolve; lasagna spec §7.7): -tape plays every game on the kernel
-// and verifies its replay on the legacy resume path, -tape-worlds forks a
+// and verifies its replay on the kernel, -tape-worlds forks a
 // redealt hypothetical world at every posed tape decision, and the
 // predicate-miss census classes every resolution the ask-free predicate
 // exempted that asked anyway (the census ratchet is TestTapeMissCensus).

@@ -342,7 +342,7 @@ func (e *Engine) askAttachedName(o *state.Object, repl *cards.Repl) bool {
 	d := &decision.Decision{Player: o.Controller, Kind: decision.KChoose, Min: 1, Max: 1,
 		Source: ch.source, Prompt: "Choose a creature card name", Options: opts}
 	e.choosing = chooseAttached
-	e.ask(d)
+	parkAsk(e, d)
 	return true
 }
 
@@ -374,7 +374,7 @@ func (e *Engine) askAttachedCard(o *state.Object, repl *cards.Repl) bool {
 	d := &decision.Decision{Player: o.Controller, Kind: decision.KChoose, Min: 1, Max: 1,
 		Source: ch.source, Prompt: "Choose an exiled card", Options: opts}
 	e.choosing = chooseAttached
-	e.ask(d)
+	parkAsk(e, d)
 	return true
 }
 
@@ -455,7 +455,7 @@ func (e *Engine) askAttachedColor(o *state.Object, repl *cards.Repl) bool {
 	d := &decision.Decision{Player: o.Controller, Kind: decision.KChoose, Min: 1, Max: 1,
 		Source: ch.source, Prompt: "Choose a color", Options: opts}
 	e.choosing = chooseAttached
-	e.ask(d)
+	parkAsk(e, d)
 	return true
 }
 
@@ -498,7 +498,7 @@ func (e *Engine) askAttachedType() bool {
 	d := &decision.Decision{Player: o.Controller, Kind: decision.KChoose, Min: 1, Max: 1,
 		Source: ch.source, Prompt: "Choose a creature type", Options: opts}
 	e.choosing = chooseAttached
-	e.ask(d)
+	parkAsk(e, d)
 	return true
 }
 

@@ -741,10 +741,11 @@ func playGame(reg *cards.Registry, decks []genDeck, seed uint64, maxTurns, maxIn
 					rerr = fmt.Errorf("replay panic: %v", r)
 				}
 			}()
-			// -tape: the game ran on the resolution kernel and the replay
-			// runs on the legacy resume path -- the dual run.
+			// The replay runs on the kernel the game ran on: since W3 step 5
+			// the kernel answers park-and-continue asks in place (lasagna
+			// spec §7.2), so a kernel game no longer replays on the legacy
+			// resume path byte for byte.
 			rcfg := cfg
-			rcfg.TapeKernel = false
 			var re *rules.Engine
 			re, rerr = replay.Replay(e.L, rcfg)
 			if rerr != nil && tapeDual && re != nil {
@@ -1071,7 +1072,7 @@ func main() {
 	journalPath := flag.String("journal", "", "append 'start <goroutine> <seed>' / 'end <seed>' around every game: a fatal runtime error (a stack overflow) kills the whole process past any recover, and the journal names the game the crashing goroutine was playing")
 	skipPath := flag.String("skip", "", "JSONL of games not to play ({seed, sig, diag} per line, from a -journal crash): each is recorded as a 'fatal' failure instead")
 	flag.Uint64Var(&dumpAt, "dump-at", 0, "with -repro: print the first pending decision whose Seq is at least this log index (options, payment actions, pool, battlefield)")
-	flag.BoolVar(&tapeDual, "tape", false, "play every game on the W3 resolution kernel (rules/resolve) and verify its replay on the legacy resume path (the dual run); prints the kernel counters and the predicate-miss census at the end")
+	flag.BoolVar(&tapeDual, "tape", false, "play every game on the W3 resolution kernel (rules/resolve) and verify its replay on the kernel; prints the kernel counters and the predicate-miss census at the end")
 	flag.BoolVar(&tapeWorlds, "tape-worlds", false, "with -tape: fork a redealt hypothetical world at every posed tape decision and drive it 6 random intents")
 	flag.BoolVar(&planFailures, "plan-failures", true, "record a game whose planned cast was reversed (kind planrev) or fell back to the manual window (planfb) as a failure")
 	maxStack := flag.Int("max-stack", 256<<20, "per-goroutine stack limit in bytes (runtime/debug.SetMaxStack): an unbounded recursion dies here instead of at Go's 1 GB default")
