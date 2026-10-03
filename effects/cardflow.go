@@ -2156,6 +2156,12 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 					}
 					ev := moveZoneEvent(c, id, state.ZLibrary, dest)
 					ev.Player, ev.Secret = p, true
+					if bearer != 0 {
+						// The revealed Aura's bearer is this effect's own
+						// (selected above): the marked entry attaches it as
+						// the Aura enters, with no second CR 303.4f choice.
+						events.MarkNamedAttachEntry(&ev, []state.ObjID{bearer})
+					}
 					h.Emit(ev)
 					if tapped {
 						h.Emit(events.Event{Kind: events.Tap, Obj: id, Player: p, Text: "entered tapped"})
@@ -2164,9 +2170,10 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 					if gainControl {
 						h.Emit(events.Event{Kind: events.ControlChange, Obj: id, Player: c.Controller})
 					}
-					if bearer != 0 {
+					if o := g.Obj(id); bearer != 0 && o != nil && o.Zone == state.ZBattlefield && o.AttachedTo == 0 {
 						// CR 303.4f: the selected permanent is the Aura's
-						// chosen bearer on this non-cast battlefield entry.
+						// chosen bearer on this non-cast battlefield entry
+						// (a host whose entry did not settle it).
 						emitAttach(h, id, bearer)
 					}
 					// StaticEffect$ on a DigUntil battlefield take: the same

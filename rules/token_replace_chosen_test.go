@@ -209,11 +209,10 @@ func TestMoonlitChosenTokenCopy(t *testing.T) {
 	bears := tokenReplCorpusCard(t, "Grizzly Bears")
 	maker := cardByName(t, tokenForgeSrc("g_1_1_squirrel"))
 	e, cfg := tokenReplGame(t, 71, moonlit, bears, maker)
-	moonlitID := moveSeededCard(t, e, 0, moonlit, state.ZBattlefield)
 	bearsID := moveSeededCard(t, e, 0, bears, state.ZBattlefield)
 	m := moveSeededCard(t, e, 0, maker, state.ZBattlefield)
-	// Attach the Aura through one real logged Attach event.
-	e.emit(events.Event{Kind: events.Attach, Obj: moonlitID, IDs: []state.ObjID{bearsID}})
+	// The Aura enters attached to the bear: one real logged Attach event.
+	moonlitID := stageAuraCard(t, e, 0, moonlit, bearsID)
 	if a := e.G.Obj(moonlitID); a == nil || a.AttachedTo != bearsID {
 		t.Fatalf("precondition: Moonlit not attached to the bear (%+v)", a)
 	}

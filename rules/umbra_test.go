@@ -23,14 +23,13 @@ import (
 const umbraBearerSrc = "Name:Umbra Bearer\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
 const umbraOppBearerSrc = "Name:Umbra Opp Bearer\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
 
-// attachCorpusAura places the corpus Aura card on seat p's battlefield and
-// attaches it to bearer with a real logged events.Attach (never a bare field
-// write, so the layer statics see it and a replay reproduces it).
+// attachCorpusAura places the corpus Aura card on seat p's battlefield
+// attached to bearer: a staged entry that names its bearer, so the engine
+// attaches it with a real logged events.Attach as it enters (never a bare
+// field write, so the layer statics see it and a replay reproduces it).
 func attachCorpusAura(t *testing.T, e *Engine, p state.PlayerID, c *cards.Card, bearer state.ObjID) state.ObjID {
 	t.Helper()
-	auraID := moveSeededCard(t, e, p, c, state.ZBattlefield)
-	e.emit(events.Event{Kind: events.Attach, Obj: auraID, IDs: []state.ObjID{bearer}})
-	return auraID
+	return stageAuraCard(t, e, p, c, bearer)
 }
 
 // castDestroyAt finds spellID's cast option in the pending priority, casts
@@ -66,10 +65,9 @@ func TestBearUmbraSavesBearerFromDestroySpell(t *testing.T) {
 	umbra := mustCorpusCard(t, reg, "Bear Umbra")
 	murder := mustCorpusCard(t, reg, "Murder")
 	e, cfg := tokenReplGame(t, 7, umbra, murder)
-	umbraID := moveSeededCard(t, e, 0, umbra, state.ZBattlefield)
 	murderID := moveSeededCard(t, e, 0, murder, state.ZHand)
 	bearer := putToken(t, e, 0, umbraBearerSrc, state.ZBattlefield)
-	e.emit(events.Event{Kind: events.Attach, Obj: umbraID, IDs: []state.ObjID{bearer}})
+	umbraID := attachCorpusAura(t, e, 0, umbra, bearer)
 	addMana(t, e, 0, "BBB") // Murder is {1}{B}{B}
 
 	castDestroyAt(t, e, murderID, bearer)
@@ -95,10 +93,9 @@ func TestUmbraArmorSaveIsOneShot(t *testing.T) {
 	umbra := mustCorpusCard(t, reg, "Snake Umbra") // {1}{G}, +1/+1 — bearer becomes 3/3
 	murder := mustCorpusCard(t, reg, "Murder")
 	e, _ := tokenReplGame(t, 11, umbra, murder)
-	umbraID := moveSeededCard(t, e, 0, umbra, state.ZBattlefield)
 	murderID := moveSeededCard(t, e, 0, murder, state.ZHand)
 	bearer := putToken(t, e, 0, umbraBearerSrc, state.ZBattlefield)
-	e.emit(events.Event{Kind: events.Attach, Obj: umbraID, IDs: []state.ObjID{bearer}})
+	attachCorpusAura(t, e, 0, umbra, bearer)
 	addMana(t, e, 0, "BBB") // Murder is {1}{B}{B}
 
 	castDestroyAt(t, e, murderID, bearer)
@@ -122,9 +119,8 @@ func TestUmbraArmorSavesBearerFromLethalDamage(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	umbra := mustCorpusCard(t, reg, "Bear Umbra")
 	e, _ := tokenReplGame(t, 13, umbra)
-	umbraID := moveSeededCard(t, e, 0, umbra, state.ZBattlefield)
 	bearer := putToken(t, e, 0, umbraBearerSrc, state.ZBattlefield)
-	e.emit(events.Event{Kind: events.Attach, Obj: umbraID, IDs: []state.ObjID{bearer}})
+	umbraID := attachCorpusAura(t, e, 0, umbra, bearer)
 
 	// The bearer is a 4/4 under Bear Umbra's +2/+2 static; four damage is
 	// exactly lethal.
@@ -153,10 +149,9 @@ func TestUmbraArmorSavesBearerFromDestroyAll(t *testing.T) {
 	umbra := mustCorpusCard(t, reg, "Bear Umbra")
 	wrath := mustCorpusCard(t, reg, "Wrath of God")
 	e, cfg := tokenReplGame(t, 17, umbra, wrath)
-	umbraID := moveSeededCard(t, e, 0, umbra, state.ZBattlefield)
 	wrathID := moveSeededCard(t, e, 0, wrath, state.ZHand)
 	bearer := putToken(t, e, 0, umbraBearerSrc, state.ZBattlefield)
-	e.emit(events.Event{Kind: events.Attach, Obj: umbraID, IDs: []state.ObjID{bearer}})
+	umbraID := attachCorpusAura(t, e, 0, umbra, bearer)
 	// A second creature with no umbra Aura dies normally.
 	plain := putToken(t, e, 0, umbraBearerSrc, state.ZBattlefield)
 	addMana(t, e, 0, "WWWW")

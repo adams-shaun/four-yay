@@ -127,7 +127,11 @@ func TestLivingWeaponCreatesAGermAndAttaches(t *testing.T) {
 func TestIllegalAttachmentsAreCleanedUp(t *testing.T) {
 	t.Parallel()
 	e, _, aura := newFixtureDeck(t, 64, "Name:Aura\nManaCost:G\nTypes:Enchantment Aura\nK:Enchant:Creature\nOracle:x\n")
-	e.emit(events.Event{Kind: events.MoveZone, Obj: aura, From: state.ZHand, To: state.ZBattlefield}) // attached to nothing
+	// CR 303.4g keeps an Aura with nothing to enchant from entering at all,
+	// so the fixture stages it on a creature and then makes it unattached.
+	bearer := putToken(t, e, 0, "Name:Aura Bearer\nTypes:Creature Bear\nPT:2/2\nOracle:x\n", state.ZBattlefield)
+	stageAuraEntry(t, e, aura, bearer)
+	e.emit(events.Event{Kind: events.Attach, Obj: aura}) // now attached to nothing
 	e.checkStateBased()
 	if e.G.Obj(aura).Zone != state.ZGraveyard {
 		t.Fatal("an Aura attached to nothing must go to the graveyard")
