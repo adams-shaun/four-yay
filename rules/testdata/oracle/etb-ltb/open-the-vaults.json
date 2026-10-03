@@ -1,0 +1,42 @@
+{
+ "card": "Open the Vaults",
+ "family": "etb-ltb",
+ "author": "cli-20261002T210434Z-cc1de00a (Oracle + CR only)",
+ "oracle_sha": "c428731832a3",
+ "scenarios": [
+  {
+   "name": "returns-all-artifacts-and-enchantments-from-all-graveyards",
+   "cr": ["608.2b", "400.7a"],
+   "why": "'Return all artifact and enchantment cards from all graveyards to the battlefield under their owners' control': the Sol Ring in seat 0's graveyard returns under seat 0 and the Ghostly Prison in seat 1's returns under seat 1.",
+   "setup": {
+    "p0": {"hand": ["Open the Vaults"], "graveyard": ["Sol Ring"]},
+    "p1": {"graveyard": ["Ghostly Prison"]}
+   },
+   "steps": [
+    {"op": "cast", "seat": 0, "card": "p0:Open the Vaults", "mana": "CCCCWW"},
+    {"op": "resolve"}
+   ],
+   "expect": [
+    {"card": "p0:Sol Ring", "zone": "battlefield"},
+    {"card": "p1:Ghostly Prison", "zone": "battlefield"}
+   ]
+  },
+  {
+   "name": "aura-with-nothing-to-enchant-stays-in-the-graveyard",
+   "cr": ["303.4f", "608.2b"],
+   "why": "An Aura card returning this way that has nothing legal to enchant remains in its graveyard, so Rancor stays there; the non-Aura Sol Ring returns.",
+   "setup": {
+    "p0": {"hand": ["Open the Vaults"], "graveyard": ["Sol Ring"]},
+    "p1": {"graveyard": ["Rancor"]}
+   },
+   "steps": [
+    {"op": "cast", "seat": 0, "card": "p0:Open the Vaults", "mana": "CCCCWW"},
+    {"op": "resolve"}
+   ],
+   "expect": [
+    {"card": "p0:Sol Ring", "zone": "battlefield"},
+    {"card": "p1:Rancor", "zone": "graveyard"}
+   ]
+  }
+ ]
+}

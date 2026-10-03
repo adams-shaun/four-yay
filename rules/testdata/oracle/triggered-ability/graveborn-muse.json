@@ -1,0 +1,68 @@
+{
+ "card": "Graveborn Muse",
+ "family": "triggered-ability",
+ "author": "cli-20261002T030326Z-79066444 (Oracle + CR only)",
+ "oracle_sha": "7027f6df8d08",
+ "scenarios": [
+  {
+   "name": "upkeep-draws-and-loses-for-each-zombie",
+   "cr": [
+    "603.2",
+    "121.1",
+    "118.2"
+   ],
+   "why": "At the beginning of your upkeep, X is the number of Zombies you control; Graveborn Muse is itself a Zombie, so X is 1: draw one card and lose 1 life. The setup trigger fires on turn 1 because setup precedes turn 1.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Graveborn Muse"
+     ]
+    }
+   },
+   "expect": [
+    {
+     "life": {
+      "p0": 19
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "card": "p0:Graveborn Muse",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "two-zombies-draw-two-lose-two",
+   "cr": [
+    "603.2",
+    "121.1"
+   ],
+   "why": "With two Zombies (Muse plus another Zombie) X is 2, so the controller draws two cards and loses 2 life.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Graveborn Muse",
+      "Dusk Legion Zealot"
+     ]
+    }
+   },
+   "expect": [
+    {
+     "life": {
+      "p0": 18
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    }
+   ]
+  }
+ ]
+}

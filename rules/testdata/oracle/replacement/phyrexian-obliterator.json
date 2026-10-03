@@ -1,0 +1,73 @@
+{
+ "card": "Phyrexian Obliterator",
+ "family": "replacement",
+ "author": "cli-20261002T030326Z-79066444 (Oracle + CR only)",
+ "oracle_sha": "a424c07c0258",
+ "scenarios": [
+  {
+   "name": "damage-source-controller-sacrifices-that-many-permanents",
+   "cr": [
+    "603.2",
+    "701.17",
+    "120.3"
+   ],
+   "why": "Whenever a source deals damage to Phyrexian Obliterator, that source's controller sacrifices that many permanents. A Lightning Bolt deals 3, so its controller (p0, the caster) must sacrifice three permanents; p0 has exactly three other permanents, so all of them go.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Phyrexian Obliterator",
+      "Grizzly Bears",
+      "Savannah Lions",
+      "Centaur Courser"
+     ],
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Phyrexian Obliterator"
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Grizzly Bears",
+        "p0:Savannah Lions",
+        "p0:Centaur Courser"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Phyrexian Obliterator",
+     "zone": "battlefield",
+     "damage": 3
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,27 @@
+{
+ "card": "Unexpected Windfall",
+ "family": "spell-conditional",
+ "author": "cli-20261002T210434Z-cc1de00a (Oracle + CR only)",
+ "oracle_sha": "7d087de48ce4",
+ "scenarios": [
+  {
+   "name": "additional-cost-discard-then-draw-two-and-two-treasures",
+   "cr": ["601.2h", "608.2c", "111.1"],
+   "why": "As an additional cost to cast the spell you discard a card; on resolution you draw two cards and create two Treasure tokens. The discarded Wastes is in the graveyard and two Treasure tokens are on the battlefield.",
+   "setup": {
+    "p0": {"hand": ["Unexpected Windfall", "Wastes"], "library_top": ["Forest", "Forest"]},
+    "p1": {}
+   },
+   "steps": [
+    {"op": "cast", "seat": 0, "card": "p0:Unexpected Windfall", "mana": "CCRR", "answers": [{"kind": "choose", "pick": ["Wastes"]}]},
+    {"op": "resolve"}
+   ],
+   "expect": [
+    {"count": {"seat": 0, "zone": "battlefield", "name": "Treasure", "token": true}, "eq": 2},
+    {"hand_size": {"p0": 2}},
+    {"card": "p0:Wastes", "zone": "graveyard"},
+    {"card": "p0:Unexpected Windfall", "zone": "graveyard"}
+   ]
+  }
+ ]
+}

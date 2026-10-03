@@ -1,0 +1,42 @@
+{
+ "card": "Seedborn Muse",
+ "family": "conditional-static",
+ "author": "cli-20261002T210434Z-cc1de00a (Oracle + CR only)",
+ "oracle_sha": "84ce2101743f",
+ "scenarios": [
+  {
+   "name": "your-permanents-untap-during-an-opponents-untap-step",
+   "cr": ["502.3", "603.2"],
+   "why": "'Untap all permanents you control during each other player's untap step': a creature of yours tapped by attacking stays tapped through your own turn end, then untaps in the opponent's untap step.",
+   "setup": {
+    "p0": {"battlefield": ["Seedborn Muse", "Grizzly Bears"]},
+    "p1": {}
+   },
+   "steps": [
+    {"op": "pass_to", "step": "upkeep", "active": "p0"},
+    {"op": "attack", "seat": 0, "attackers": ["p0:Grizzly Bears"], "defender": "p1"},
+    {"op": "pass_to", "step": "upkeep", "active": "p1"}
+   ],
+   "expect": [
+    {"card": "p0:Grizzly Bears", "tapped": false}
+   ]
+  },
+  {
+   "name": "without-the-muse-your-tapped-creature-stays-tapped-in-their-turn",
+   "cr": ["502.3"],
+   "why": "Control: with no Seedborn Muse on the battlefield the tapped attacker stays tapped during the opponent's upkeep (creatures only untap in their controller's untap step).",
+   "setup": {
+    "p0": {"battlefield": ["Grizzly Bears"]},
+    "p1": {}
+   },
+   "steps": [
+    {"op": "pass_to", "step": "upkeep", "active": "p0"},
+    {"op": "attack", "seat": 0, "attackers": ["p0:Grizzly Bears"], "defender": "p1"},
+    {"op": "pass_to", "step": "upkeep", "active": "p1"}
+   ],
+   "expect": [
+    {"card": "p0:Grizzly Bears", "tapped": true}
+   ]
+  }
+ ]
+}

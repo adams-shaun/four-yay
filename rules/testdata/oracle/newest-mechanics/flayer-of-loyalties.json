@@ -1,0 +1,33 @@
+{
+  "card": "Flayer of Loyalties",
+  "family": "newest-mechanics",
+  "author": "cli-20261002T230428Z-067d6538 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "printed-characteristics",
+      "cr": [
+        "208.3",
+        "702.19"
+      ],
+      "why": "Oracle gives Flayer of Loyalties printed power/toughness 10/10 and Trample. Those characteristics apply to this battlefield creature.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Flayer of Loyalties"
+          ]
+        }
+      },
+      "steps": [],
+      "expect": [
+        {
+          "card": "p0:Flayer of Loyalties",
+          "zone": "battlefield",
+          "pt": "10/10",
+          "keywords": [
+            "Trample"
+          ]
+        }
+      ]
+    }
+  ]
+}

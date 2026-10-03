@@ -32,11 +32,13 @@ func TestTriggerGameActivationLimitPhaseSurvivesTurnAndClone(t *testing.T) {
 	e.pendingTriggers = nil
 	clone := e.Clone()
 	cloneKey := triggerKey{Source: id, Idx: 0, Face: 0}
-	if clone.triggerGameFires == nil || clone.triggerGameFires[cloneKey] != 1 {
+	if clone.triggerGameFires == nil || clone.triggerGameFires[cloneKey].N != 1 {
 		t.Fatalf("clone did not preserve game trigger count: %+v", clone.triggerGameFires)
 	}
-	clone.triggerGameFires[cloneKey]++
-	if e.triggerGameFires[cloneKey] != 1 {
+	f := clone.triggerGameFires[cloneKey]
+	f.N++
+	clone.triggerGameFires[cloneKey] = f
+	if e.triggerGameFires[cloneKey].N != 1 {
 		t.Fatal("clone shares game trigger count map with original")
 	}
 
@@ -126,8 +128,8 @@ func TestTriggerGameActivationLimitBlocksEmptyEventDoesNotConsumeUse(t *testing.
 	if got := queuedPhaseTriggers(e, blk); got != 0 {
 		t.Fatalf("empty-pair declare-blockers queued %d triggers, want 0", got)
 	}
-	if e.triggerGameFires[key] != 0 {
-		t.Fatalf("empty-pair declare-blockers consumed a game use: gameFires=%d", e.triggerGameFires[key])
+	if e.triggerGameFires[key].N != 0 {
+		t.Fatalf("empty-pair declare-blockers consumed a game use: gameFires=%d", e.triggerGameFires[key].N)
 	}
 
 	// Second event: a matching pair. The trigger queues exactly once and
@@ -136,8 +138,8 @@ func TestTriggerGameActivationLimitBlocksEmptyEventDoesNotConsumeUse(t *testing.
 	if got := queuedPhaseTriggers(e, blk); got != 1 {
 		t.Fatalf("matching declare-blockers queued %d triggers, want 1", got)
 	}
-	if e.triggerGameFires[key] != 1 {
-		t.Fatalf("matching declare-blockers did not consume its game use: gameFires=%d", e.triggerGameFires[key])
+	if e.triggerGameFires[key].N != 1 {
+		t.Fatalf("matching declare-blockers did not consume its game use: gameFires=%d", e.triggerGameFires[key].N)
 	}
 	e.pendingTriggers = nil
 
@@ -191,8 +193,8 @@ func TestTriggerGameActivationLimitWithPerTurnLimitKeepsGameUseAcrossTurn(t *tes
 	if got := queuedPhaseTriggers(e, id); got != 0 {
 		t.Fatalf("second same-turn tap queued %d triggers, want 0 (per-turn limit)", got)
 	}
-	if e.triggerGameFires[key] != 1 {
-		t.Fatalf("rejected same-turn match consumed a game use: gameFires=%d", e.triggerGameFires[key])
+	if e.triggerGameFires[key].N != 1 {
+		t.Fatalf("rejected same-turn match consumed a game use: gameFires=%d", e.triggerGameFires[key].N)
 	}
 	e.pendingTriggers = nil
 
@@ -204,7 +206,7 @@ func TestTriggerGameActivationLimitWithPerTurnLimitKeepsGameUseAcrossTurn(t *tes
 	}
 	e.emit(events.Event{Kind: events.Tap, Obj: id})
 	if got := queuedPhaseTriggers(e, id); got != 1 {
-		t.Fatalf("turn-2 tap queued %d triggers, want 1 (gameFires=%d: a rejected match must not spend the second game use)", got, e.triggerGameFires[key])
+		t.Fatalf("turn-2 tap queued %d triggers, want 1 (gameFires=%d: a rejected match must not spend the second game use)", got, e.triggerGameFires[key].N)
 	}
 	e.pendingTriggers = nil
 	e.emit(events.Event{Kind: events.Tap, Obj: id})

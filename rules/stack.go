@@ -184,7 +184,7 @@ func (e *Engine) resolveTop() {
 		if spec := e.triggerContexts[id].OptionalSpec; spec != "" {
 			resSpec = spec
 		} else if triggered {
-			resSpec = rt.ParamStr(cards.PKOptionalDecider)
+			resSpec = triggerOptionalSpec(rt)
 		}
 		if resSpec != "" {
 			who, askable := e.deciderFromSpec(resSpec, o.Controller, o.Remembered, e.triggerContexts[id])
