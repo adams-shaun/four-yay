@@ -287,7 +287,9 @@ func wordPredicate(p string) (wordKind, string) {
 	if p == "sameName" {
 		return wordSameName, ""
 	}
-	if p == "controllerWasDealtCombatDamageByThisTurn" {
+	// FORGE_REF fb4d809 respells the same predicate as a player filter on the
+	// object's controller (Steel Hellkite); the two forms mean one thing.
+	if p == "controllerWasDealtCombatDamageByThisTurn" || p == "ControlledBy Player.wasDealtCombatDamageThisTurnBySource" {
 		return wordControllerDealtCombatDamageBySource, ""
 	}
 	// Forge's inZone<Zone> property (CardProperty inZone<Zone>): the object

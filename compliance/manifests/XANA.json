@@ -1,0 +1,23 @@
+{"code":"XANA","name":"Arena New Player Experience Extras","released":"2018-07-14","set_type":"MAGIC_ARENA","xmage_ref":"6b602a1c85e8ed738a4b40b1ef44c54845b57f68",
+"cards": [
+{"name":"Ambition's Cost","numbers":["25"],"rarity":"UNCOMMON"},
+{"name":"Cruel Cut","numbers":["26"],"rarity":"COMMON"},
+{"name":"Divination","numbers":["14"],"rarity":"COMMON"},
+{"name":"Doublecast","numbers":["37"],"rarity":"UNCOMMON"},
+{"name":"Forest","numbers":["55"],"rarity":"LAND"},
+{"name":"Goblin Gang Leader","numbers":["40"],"rarity":"UNCOMMON"},
+{"name":"Island","numbers":["52"],"rarity":"LAND"},
+{"name":"Loxodon Line Breaker","numbers":["7"],"rarity":"COMMON"},
+{"name":"Miasmic Mummy","numbers":["29"],"rarity":"COMMON"},
+{"name":"Mountain","numbers":["54"],"rarity":"LAND"},
+{"name":"Nimble Pilferer","numbers":["31"],"rarity":"COMMON"},
+{"name":"Overflowing Insight","numbers":["16"],"rarity":"MYTHIC"},
+{"name":"Plains","numbers":["51"],"rarity":"LAND"},
+{"name":"Rise from the Grave","numbers":["34"],"rarity":"UNCOMMON"},
+{"name":"Rumbling Baloth","numbers":["47"],"rarity":"COMMON"},
+{"name":"Soulhunter Rakshasa","numbers":["35"],"rarity":"RARE"},
+{"name":"Swamp","numbers":["53"],"rarity":"LAND"},
+{"name":"Take Vengeance","numbers":["13"],"rarity":"COMMON"},
+{"name":"Volcanic Dragon","numbers":["45"],"rarity":"UNCOMMON"},
+{"name":"Waterknot","numbers":["22"],"rarity":"COMMON"}
+]}

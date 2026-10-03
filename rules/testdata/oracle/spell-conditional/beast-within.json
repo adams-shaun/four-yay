@@ -1,0 +1,66 @@
+{
+ "card": "Beast Within",
+ "family": "spell-conditional",
+ "author": "cli-20261003T024459Z-db45bede (Oracle + CR only)",
+ "oracle_sha": "b22d3ad5f620",
+ "scenarios": [
+  {
+   "name": "destroys-a-permanent-and-its-controller-makes-a-beast",
+   "cr": [
+    "608.2c",
+    "111.1",
+    "701.7a"
+   ],
+   "why": "Beast Within destroys the target permanent and its controller creates a 3/3 green Beast. p1's Forest is destroyed and p1 gets the Beast token.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Beast Within"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Beast Within",
+     "mana": "CGC",
+     "targets": [
+      "p1:Forest"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Forest",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Beast",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p1:token:Beast",
+     "pt": "3/3",
+     "types": [
+      "Creature"
+     ],
+     "keywords": []
+    }
+   ]
+  }
+ ]
+}

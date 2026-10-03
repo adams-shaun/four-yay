@@ -1,0 +1,132 @@
+{
+ "card": "Mana Leak",
+ "family": "spell-conditional",
+ "author": "cli-20261003T024459Z-db45bede (Oracle + CR only)",
+ "oracle_sha": "d9c333febe90",
+ "scenarios": [
+  {
+   "name": "opponent-does-not-pay-countered",
+   "cr": [
+    "601.2c",
+    "608.2c"
+   ],
+   "why": "Mana Leak counters the target spell unless its controller pays {3}. p0 declines, so the Grizzly Bears is countered and goes to the graveyard without resolving.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Mana Leak"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "CG"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Mana Leak",
+     "mana": "CU",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "no"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Mana Leak",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "controller-pays-three-not-countered",
+   "cr": [
+    "601.2c",
+    "608.2c"
+   ],
+   "why": "When p0 pays the {3}, Mana Leak does nothing and the Grizzly Bears resolves onto the battlefield.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Mana Leak"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "CGCCC"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Mana Leak",
+     "mana": "CU",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "yes"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Mana Leak",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

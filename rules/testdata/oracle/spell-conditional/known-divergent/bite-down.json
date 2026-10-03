@@ -1,0 +1,9 @@
+{
+  "card": "Bite Down",
+  "rows": {
+    "second-target-is-chosen-on-cast": "CR 601.2c: both the caster's creature and the opposing creature or planeswalker are targets announced on cast. Observed: only the first target is asked on cast; the opposing permanent is posed as a resolution-time choose, so the object named on cast (Craw Wurm) is ignored and the default choice (Grizzly Bears) takes the 3 damage. Expected Wurm damage 3 and Bears untouched. Found by the FDN audit; no ticket yet.",
+    "no-opposing-creature-or-planeswalker-not-castable": "CR 601.2c: with no creature or planeswalker the caster doesn't control there is no legal second target, so the spell cannot be cast. Observed: the cast is offered (the second target is not a cast-time target in the engine). Same root as second-target-is-chosen-on-cast.",
+    "second-target-gone-other-creature-unharmed": "CR 608.2b: when the opposing target (Savannah Lions) is gone on resolution no damage is dealt to anything else. Observed: the engine picks the opposing permanent on resolution, so the surviving Grizzly Bears is chosen and killed. Same root as second-target-is-chosen-on-cast.",
+    "targeting-a-ward-creature-triggers-ward": "CR 702.21a: an opposing Tolarian Terror named as Bite Down's second target becomes the target of an opponent's spell, so ward {2} triggers and, unpaid, counters the spell. Observed: no ward trigger on cast (stack holds only Bite Down) and the Terror takes 3 damage, because the opposing permanent is never a target. Same root as second-target-is-chosen-on-cast."
+  }
+}

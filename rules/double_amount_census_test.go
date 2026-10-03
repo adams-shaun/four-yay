@@ -21,9 +21,9 @@ import (
 // tests): a `FORGE_REF` move that changes it is a real corpus change and this
 // test is where it is noticed -- re-measure with `make compile-cards` and
 // update the constant in the same commit. Measured at FORGE_REF
-// 95f04e8a04c8925fa97cb226fc3341cabcc90a53: 36 card files.
+// fb4d8091126051b0c579db5f3bfdcb7e03aae63d: 37 card files (36 at 95f04e8).
 func TestDoubleAmountCarrierCensus(t *testing.T) {
-	const doubleCarrierFiles = 36
+	const doubleCarrierFiles = 37
 	reg := testutil.CorpusRegistry(t)
 	var carriers, bad []string
 	for _, c := range reg.Cards {

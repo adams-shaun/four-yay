@@ -1047,6 +1047,12 @@ func (s *scan) scanRangeWhitelist(t *testing.T, fset *token.FileSet, fi *fnInfo,
 		if pkg == "effects" && fname == "abilityReferencesX" {
 			return
 		}
+		// disableTriggersUnread dynamically validates every parameter name
+		// against the DisableTriggers grammar. This is a structural key scan,
+		// not a card-parameter consumer to attribute to a primitive bucket.
+		if pkg == "rules" && fname == "disableTriggersUnread" {
+			return
+		}
 		// A copy loop (`for k, v := range src.Params { dst.Params[k] = v }`)
 		// is not a read: every use of the key sits in a write-position index.
 		if rangeKeyIsWriteOnly(rs, keyIdent.Name, writes) {
@@ -3073,7 +3079,6 @@ var knownUnsupportedParams = map[string][]string{
 	"Earthbender Ascension": {"param:api:PutCounter.RememberAmount"},
 	"Glacial Chasm":         {"param:api:Sacrifice.ChangeNum"},
 	"Green Sun's Zenith":    {"param:api:ChangeZone.AIXMax"},
-	"Natural Order":         {"param:api:ChangeZone.AISearchGoal"},
 	// The Science! (pip) Commander precon import (2026-09-26,
 	// internal/testutil/decks/science-pip.json). Its 90 distinct cards expose
 	// exactly one parameter gap, measured by the first ratchet run; the deck

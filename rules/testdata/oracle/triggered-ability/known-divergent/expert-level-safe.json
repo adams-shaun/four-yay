@@ -1,0 +1,8 @@
+{
+  "card": "Expert-Level Safe",
+  "rows": {
+    "enters-exiling-top-two-face-down": "'When Expert-Level Safe enters, exile the top two cards of your library face down' never happens: the library stays at its seeded 37 cards (CR 603.2, 708.5). No ask and no zone move -- the ETB trigger either never matches or its exile is a silent no-op.",
+    "matched-secret-choices-sacrifice-and-return": "The {1},{T} secret-choice ability stops after the controller's choice: p0 is asked (and answers 2), but the opponent is never asked, no reveal happens, the Safe is never sacrificed, and the two cards exiled with it are never returned to hand. Observed: library 37, hand 0, Safe on the battlefield; expected (CR 602.2, 701.6): both players choose, the match is revealed, the Safe goes to the graveyard and Forest+Island return to hand (library 35).",
+    "mismatched-secret-choices-exile-top-card": "Same stop after the controller's choice as the sibling row, for the mismatch path: the opponent is never asked, and the mismatch's 'exile the top card of your library face down' never happens. Observed: library stays 37 and the Safe stays on the battlefield; expected (CR 602.2, 701.15): library 34."
+  }
+}

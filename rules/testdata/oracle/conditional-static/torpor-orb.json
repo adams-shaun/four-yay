@@ -1,147 +1,94 @@
 {
- "card": "Torpor Orb",
- "family": "conditional-static",
- "author": "cli-20261002T202458Z-c8f54b81 (Oracle + CR only)",
- "oracle_sha": "2fdc036d01c4",
- "scenarios": [
-  {
-   "name": "enters-triggers-suppressed",
-   "cr": [
-    "603.3b",
-    "614.1c"
-   ],
-   "why": "Creatures entering don't cause abilities to trigger: with Torpor Orb on the battlefield, Aether Adept's enters ability never triggers, so its controller's other creature is not returned.",
-   "setup": {
-    "p0": {
-     "battlefield": [
-      "Torpor Orb",
-      "Grizzly Bears"
-     ],
-     "hand": [
-      "Aether Adept"
-     ]
+  "card": "Torpor Orb",
+  "family": "conditional-static",
+  "oracle_sha": "2fdc036d01c4",
+  "author": "agent-20261003T002630Z-960d2519; cli-20261002T202458Z-c8f54b81 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "orb-controller-creature-etb-suppressed",
+      "cr": ["603.2", "603.10"],
+      "why": "A creature entering under Torpor Orb does not cause its enter-the-battlefield ability to trigger: Aether Adept's bounce never goes on the stack, so the targeted Grizzly Bears stays on the battlefield.",
+      "setup": {
+        "p0": {"battlefield": ["Torpor Orb"], "hand": ["Aether Adept"]},
+        "p1": {"battlefield": ["Grizzly Bears"]}
+      },
+      "steps": [
+        {"op": "move", "seat": 0, "card": "p0:Aether Adept", "to": "battlefield", "targets": ["p1:Grizzly Bears"]}
+      ],
+      "expect": [
+        {"card": "p1:Grizzly Bears", "zone": "battlefield"},
+        {"stack_size": 0}
+      ]
     },
-    "p1": {
-     "battlefield": [
-      "Centaur Courser"
-     ]
+    {
+      "name": "opponent-creature-etb-suppressed",
+      "cr": ["603.2", "603.10"],
+      "why": "Torpor Orb suppresses an opponent's creature entering as well as its controller's: p1's Aether Adept ETB does not trigger against p0's Grizzly Bears.",
+      "setup": {
+        "p0": {"battlefield": ["Torpor Orb", "Grizzly Bears"]},
+        "p1": {"hand": ["Aether Adept"]}
+      },
+      "steps": [
+        {"op": "move", "seat": 1, "card": "p1:Aether Adept", "to": "battlefield", "targets": ["p0:Grizzly Bears"]}
+      ],
+      "expect": [
+        {"card": "p0:Torpor Orb", "zone": "battlefield"},
+        {"card": "p0:Grizzly Bears", "zone": "battlefield"},
+        {"stack_size": 0}
+      ]
+    },
+    {
+      "name": "without-torpor-orb-the-trigger-fires",
+      "cr": ["603.2"],
+      "why": "Without the static, Aether Adept's enter-the-battlefield trigger fires and returns the opposing creature.",
+      "setup": {
+        "p0": {"hand": ["Aether Adept"]},
+        "p1": {"battlefield": ["Grizzly Bears"]}
+      },
+      "steps": [
+        {"op": "move", "seat": 0, "card": "p0:Aether Adept", "to": "battlefield", "targets": ["p1:Grizzly Bears"]},
+        {"op": "resolve", "seat": 0}
+      ],
+      "expect": [
+        {"card": "p1:Grizzly Bears", "zone": "hand"}
+      ]
+    },
+    {
+      "name": "enters-triggers-suppressed-by-cast",
+      "cr": ["603.3b", "614.1c"],
+      "why": "The cast path also suppresses the entering creature's trigger while Torpor Orb is on the battlefield.",
+      "setup": {
+        "p0": {"battlefield": ["Torpor Orb", "Grizzly Bears"], "hand": ["Aether Adept"]},
+        "p1": {"battlefield": ["Centaur Courser"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Aether Adept", "mana": "UUCC"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Aether Adept", "zone": "battlefield"},
+        {"card": "p0:Grizzly Bears", "zone": "battlefield"},
+        {"card": "p1:Centaur Courser", "zone": "battlefield"},
+        {"stack_size": 0}
+      ]
+    },
+    {
+      "name": "opponents-creature-triggers-also-suppressed-by-cast",
+      "cr": ["603.3b"],
+      "why": "Torpor Orb's static is not controller-limited: it also suppresses an opponent's creature entering through the cast path.",
+      "setup": {
+        "p0": {"battlefield": ["Torpor Orb"]},
+        "p1": {"hand": ["Aether Adept"], "battlefield": ["Savannah Lions"]}
+      },
+      "steps": [
+        {"op": "pass_to", "step": "main1", "active": "p1"},
+        {"op": "cast", "seat": 1, "card": "p1:Aether Adept", "mana": "UUCC"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Aether Adept", "zone": "battlefield"},
+        {"card": "p1:Savannah Lions", "zone": "battlefield"}
+      ]
     }
-   },
-   "steps": [
-    {
-     "op": "cast",
-     "seat": 0,
-     "card": "p0:Aether Adept",
-     "mana": "UUCC"
-    },
-    {
-     "op": "resolve"
-    }
-   ],
-   "expect": [
-    {
-     "card": "p0:Aether Adept",
-     "zone": "battlefield"
-    },
-    {
-     "card": "p0:Grizzly Bears",
-     "zone": "battlefield"
-    },
-    {
-     "card": "p1:Centaur Courser",
-     "zone": "battlefield"
-    },
-    {
-     "stack_size": 0
-    }
-   ]
-  },
-  {
-   "name": "without-torpor-orb-the-trigger-fires",
-   "cr": [
-    "603.2"
-   ],
-   "why": "The control: without Torpor Orb the same enters ability triggers and returns the creature.",
-   "setup": {
-    "p0": {
-     "hand": [
-      "Aether Adept"
-     ]
-    },
-    "p1": {
-     "battlefield": [
-      "Grizzly Bears"
-     ]
-    }
-   },
-   "steps": [
-    {
-     "op": "cast",
-     "seat": 0,
-     "card": "p0:Aether Adept",
-     "mana": "UUCC"
-    },
-    {
-     "op": "resolve",
-     "targets": [
-      "p1:Grizzly Bears"
-     ]
-    }
-   ],
-   "expect": [
-    {
-     "card": "p1:Grizzly Bears",
-     "zone": "hand"
-    }
-   ]
-  },
-  {
-   "name": "opponents-creature-triggers-also-suppressed",
-   "cr": [
-    "603.3b"
-   ],
-   "why": "Torpor Orb's static is not controller-limited: it is each creature entering that stops triggering, so an opponent's enters ability is suppressed too.",
-   "setup": {
-    "p0": {
-     "battlefield": [
-      "Torpor Orb"
-     ]
-    },
-    "p1": {
-     "hand": [
-      "Aether Adept"
-     ],
-     "battlefield": [
-      "Savannah Lions"
-     ]
-    }
-   },
-   "steps": [
-    {
-     "op": "pass_to",
-     "step": "main1",
-     "active": "p1"
-    },
-    {
-     "op": "cast",
-     "seat": 1,
-     "card": "p1:Aether Adept",
-     "mana": "UUCC"
-    },
-    {
-     "op": "resolve"
-    }
-   ],
-   "expect": [
-    {
-     "card": "p1:Aether Adept",
-     "zone": "battlefield"
-    },
-    {
-     "card": "p1:Savannah Lions",
-     "zone": "battlefield"
-    }
-   ]
-  }
- ]
+  ]
 }

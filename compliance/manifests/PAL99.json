@@ -1,0 +1,12 @@
+{"code":"PAL99","name":"Arena League 1999","released":"1999-01-01","set_type":"PROMOTIONAL","xmage_ref":"6b602a1c85e8ed738a4b40b1ef44c54845b57f68",
+"cards": [
+{"name":"Forest","numbers":["1"],"rarity":"LAND"},
+{"name":"Island","numbers":["3","3+"],"rarity":"LAND"},
+{"name":"Karn, Silver Golem","numbers":["8"],"rarity":"RARE"},
+{"name":"Mountain","numbers":["5"],"rarity":"LAND"},
+{"name":"Plains","numbers":["7"],"rarity":"LAND"},
+{"name":"Pouncing Jaguar","numbers":["2"],"rarity":"RARE"},
+{"name":"Rewind","numbers":["6"],"rarity":"RARE"},
+{"name":"Skittering Skirge","numbers":["4"],"rarity":"RARE"},
+{"name":"Swamp","numbers":["9"],"rarity":"LAND"}
+]}

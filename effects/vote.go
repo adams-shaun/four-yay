@@ -201,9 +201,10 @@ func emitVoteFinished(h Host, c *Ctx, ballots []VoteBallot, ballotExisted, secre
 // option list casts no vote at all (Forge's `if (voteOpts.isEmpty()) continue;`),
 // recorded as a zero Target so the picks stay aligned with the voter list.
 //
-// SECRECY: the pending decision belongs only to its voter; Secretly$ ballots
-// never emit per-voter Notes, and their completion marker carries no picks.
-// Nonsecret ballots emit Notes after everyone has answered. The canonical
+// SECRECY: the pending decision belongs only to its voter, and no ballot is
+// revealed until every voter has answered; then each is revealed as a Note
+// (secret council: "then those votes are revealed"). A Secretly$ ballot's
+// completion marker still carries no picks. The canonical
 // vote-finished carrier (emitVoteFinished) is emitted last.
 //
 // The tally is published behind StoreVoteNum$ True, the parameter Forge
@@ -260,19 +261,18 @@ func effPlayerVote(h Host, c *Ctx, sa *cards.SA) {
 	}
 	c.VotePicks, c.VoteTarget, c.VoteDone, c.VoteAnswer = nil, 0, false, nil
 
-	// Nonsecret ballots publish the entry's deck identity once everyone has
-	// voted. Secret ballots keep their answers private even after completion.
+	// Every ballot publishes the entry's deck identity once everyone has
+	// voted -- secret ones too: secret council votes are cast privately,
+	// "then those votes are revealed".
 	ballots := make([]VoteBallot, len(voters))
 	for k, t := range voters {
 		voter := t
 		pick := ballotPickIndex(universe, picks, k)
-		if !strings.EqualFold(strings.TrimSpace(sa.Params["Secretly"]), "True") {
-			label := "nothing"
-			if pick >= 0 {
-				label = votePlayerLabel(g, universe[pick])
-			}
-			h.Emit(events.Event{Kind: events.Note, Player: voter, Text: "votes for " + label})
+		label := "nothing"
+		if pick >= 0 {
+			label = votePlayerLabel(g, universe[pick])
 		}
+		h.Emit(events.Event{Kind: events.Note, Player: voter, Text: "votes for " + label})
 		ballots[k] = VoteBallot{Player: voter, Pick: pick}
 	}
 	if strings.EqualFold(strings.TrimSpace(sa.Params["StoreVoteNum"]), "True") {

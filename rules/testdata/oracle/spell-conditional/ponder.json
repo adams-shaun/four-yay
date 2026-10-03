@@ -1,0 +1,63 @@
+{
+ "card": "Ponder",
+ "family": "spell-conditional",
+ "author": "cli-20261003T024459Z-db45bede (Oracle + CR only)",
+ "oracle_sha": "feeeb322307f",
+ "scenarios": [
+  {
+   "name": "reorders-top-three-then-draws-one",
+   "cr": [
+    "701.20a",
+    "121.1"
+   ],
+   "why": "Ponder looks at the top three cards, puts them back in any order (the offered order is kept), declines the optional shuffle, then draws a card: the top card Forest comes to hand.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Ponder"
+     ],
+     "library_top": [
+      "Forest",
+      "Island",
+      "Mountain"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Ponder",
+     "mana": "U"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "no"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Forest",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "card": "p0:Ponder",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

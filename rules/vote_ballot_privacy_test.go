@@ -44,9 +44,12 @@ func TestSecretVoteTriggerRetainsReferentsWithoutLoggingBallots(t *testing.T) {
 				t.Fatalf("secret completion leaked ballots or lost ballot existence: %+v", ev)
 			}
 		}
-		if strings.HasPrefix(ev.Text, "votes for ") {
-			t.Fatalf("secret per-voter note leaked: %+v", ev)
-		}
+	}
+	// Secret council: each player votes secretly, "then those votes are
+	// revealed" -- once every ballot is in, never before (the completion
+	// marker above still carries no picks).
+	if got := countVoteReveals(e); got != len(votes) {
+		t.Fatalf("secret vote revealed %d ballots after completion, want %d", got, len(votes))
 	}
 	if !found {
 		t.Fatal("no vote-finished emission with trigger on battlefield")
@@ -92,6 +95,9 @@ func TestVaultVoteMessageAndUpToWithSecretBallot(t *testing.T) {
 		if len(d.Options) == 0 || d.Options[0].Obj != creature {
 			t.Fatalf("voter %d: battlefield creature not offered: %+v", i, d.Options)
 		}
+		if got := countVoteReveals(e); got != 0 {
+			t.Fatalf("voter %d: %d secret ballots revealed before every vote was cast", i, got)
+		}
 		// UpTo$ allows a real empty answer even with an eligible creature.
 		submitChoices(t, e)
 	}
@@ -106,11 +112,22 @@ func TestVaultVoteMessageAndUpToWithSecretBallot(t *testing.T) {
 				t.Fatalf("secret vote leaked: %+v", ev)
 			}
 		}
-		if strings.HasPrefix(ev.Text, "votes for ") {
-			t.Fatalf("secret vote leaked through note: %+v", ev)
-		}
 	}
 	if !found {
 		t.Fatal("vote never completed")
 	}
+	if got := countVoteReveals(e); got != 3 {
+		t.Fatalf("secret ballots revealed after completion = %d, want 3 (one per voter)", got)
+	}
+}
+
+// countVoteReveals counts the per-voter "votes for" reveal Notes so far.
+func countVoteReveals(e *Engine) int {
+	n := 0
+	for _, ev := range e.L.Events {
+		if ev.Kind == events.Note && strings.HasPrefix(ev.Text, "votes for ") {
+			n++
+		}
+	}
+	return n
 }

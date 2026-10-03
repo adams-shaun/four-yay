@@ -111,7 +111,7 @@ func ParseBytes(path string, src []byte) (*Card, []Diag) {
 			p := parseParams(val)
 			cur.Triggers = append(cur.Triggers, Trigger{Mode: p["Mode"], Params: p})
 		case "S":
-			p := parseParams(val)
+			p := parseStaticParams(val)
 			for _, mode := range splitStaticModes(p["Mode"]) {
 				cur.Statics = append(cur.Statics, Static{Mode: mode, Params: p})
 			}
@@ -239,7 +239,7 @@ func resplitStatics(sts []Static) []Static {
 // no Mode$ at all (an ability body or a Count$ expression an SVar walk
 // handed in by mistake).
 func ParseStaticLine(body string) (Static, bool) {
-	p := parseParams(body)
+	p := parseStaticParams(body)
 	mode := strings.TrimSpace(p["Mode"])
 	if mode == "" {
 		return Static{}, false
@@ -255,7 +255,7 @@ func ParseStaticLine(body string) (Static, bool) {
 // Mode=="Continuous" call sites; the two comma-aware call sites (kw_class
 // grants and rules/layers.go's static grant walk) range over this one.
 func ParseStaticLines(body string) ([]Static, bool) {
-	p := parseParams(body)
+	p := parseStaticParams(body)
 	modes := splitStaticModes(p["Mode"])
 	if len(modes) == 0 || modes[0] == "" {
 		return nil, false

@@ -678,6 +678,20 @@ type Object struct {
 	// implemented in the turn scan, never in effects.TryUntap.
 	ExertSkipUntap bool
 
+	// CantUntapNextStep records CR 611.2b's runtime keyword grant "This card
+	// doesn't untap during your next untap step." (Forge delivers it as
+	// `KW$ HIDDEN This card doesn't untap during your next untap step.` from a
+	// Pump/PumpAll, read by cards.IsHiddenUntapNextStepKeyword). Like
+	// ExertSkipUntap it is a one-shot window that spans the turn boundary
+	// (TurnChange fires between the granting turn's cleanup and the next untap
+	// step), so TurnChange does NOT reset it; it is consumed at use -- the
+	// untap-step scan (rules/turn.go finishUntapStep) skips the untap and emits
+	// an AlterAttribute with Amount -1, whose fold clears the flag -- and it is
+	// cleared with ExertSkipUntap when the permanent leaves the battlefield
+	// (CR 400.7). Untap effects are unaffected: CR 611.2b names only the untap
+	// step, so the gate lives in the turn scan, never in effects.TryUntap.
+	CantUntapNextStep bool
+
 	// EnlistedTurn and EnlistedCombat stamp the CR 702.160 enlist action (the
 	// `K:Enlist` keyword, task enlist1): the turn and combat phase in which
 	// this attacking creature last enlisted another creature. They are set
