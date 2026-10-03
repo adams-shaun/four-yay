@@ -666,7 +666,7 @@ func (ps *ParamSet) bound(m map[string]string) bool {
 }
 
 func (ps *ParamSet) get(k ParamKey) (string, bool) {
-	w := int(k >> 6)
+	w := int(k) >> 6
 	if w >= paramMaskWords {
 		// Outside the vocabulary: absent, as an unset bit would be. The
 		// test also lets the compiler drop the has/rank bounds checks.
