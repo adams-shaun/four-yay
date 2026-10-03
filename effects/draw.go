@@ -81,6 +81,13 @@ func effDraw(h Host, c *Ctx, sa *cards.SA) {
 	if decider := dp.OptionalDecider; decider != "" && total > 0 {
 		answered := c.DrawOpt
 		c.DrawOpt = "" // fx42 scoping: consumed once; a nested optional draw poses its own ask
+		if answered == "" && c.DrawDone > 0 {
+			// A Dredge re-entry mid-draw (the "dredge" arm restored the draw
+			// cursor): draws happen only after the decider said yes, so the
+			// election is already made -- re-posing it would ask again and,
+			// on a second yes, restart the draws from zero.
+			answered = "yes"
+		}
 		if answered == "" {
 			canDraw := false
 			for _, t := range targets {

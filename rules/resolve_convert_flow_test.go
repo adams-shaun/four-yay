@@ -219,3 +219,17 @@ func TestTapeConvertFlowDraw(t *testing.T) {
 			kinds: []string{"dredge", "discard"}, served: 2, extra: dredger, setup: inYard, checkpointAll: true},
 	})
 }
+
+// OptionalDecider$ over a Dredge-replaced draw (Mystic Remora's "may draw"
+// with a dredger in the graveyard): the decider is asked once. Before the
+// fix the legacy dredge re-entry re-posed the draw_optional election and a
+// second yes restarted the draws from zero; the tape path, continuing past
+// the dredged draw, never re-asked, so the two diverged.
+func TestTapeConvertFlowDredgeOptionalDraw(t *testing.T) {
+	inYard := func(t *testing.T, e *Engine) { moveByName(t, e, 0, "Tape Dredger", state.ZGraveyard) }
+	dredger := []string{tapeDredgerSrc}
+	runTapeFlowCases(t, 37500, 3, []tapeFlowCase{
+		{name: "Tape Dredge Remora", src: "A:SP$ Draw | NumCards$ 2 | OptionalDecider$ You",
+			kinds: []string{"draw_optional", "dredge"}, served: 2, extra: dredger, setup: inYard},
+	})
+}
