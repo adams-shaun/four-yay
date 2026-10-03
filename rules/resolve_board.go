@@ -68,7 +68,7 @@ func (e *Engine) TapeAnswer(d *decision.Decision) (decision.Intent, bool) {
 	if tapeForceLegacy != nil && tapeForceLegacy(d) {
 		return decision.Intent{}, false
 	}
-	if e.applyingReplacement {
+	if e.applyingReplacement && !e.ownEntryReplacementAsk(d) {
 		// A ReplaceWith$ body's ask: legacy suspends the body but the effect
 		// whose move the replacement intercepted keeps running (a mass
 		// return enters the next creature before Devour's sacrifice is
@@ -84,6 +84,19 @@ func (e *Engine) TapeAnswer(d *decision.Decision) (decision.Intent, bool) {
 		return decision.Intent{}, false
 	}
 	return e.tape.Answer(asResolve(e), d)
+}
+
+// ownEntryReplacementAsk reports whether d is asked by the resolving
+// permanent spell's own entry replacement body after its move took it off
+// the stack (Sower of Discord's shape): the entry is the last thing the
+// resolution does, so nothing the legacy park would let run on precedes the
+// answer, and the kernel serves it in line.
+func (e *Engine) ownEntryReplacementAsk(d *decision.Decision) bool {
+	if e.resume != nil || e.resolvingObj == 0 || d.Source != e.resolvingObj || len(e.contChain) != 0 {
+		return false
+	}
+	o := e.G.Obj(d.Source)
+	return o != nil && o.Zone != state.ZStack
 }
 
 // tapeForceLegacy (tests only) makes a converted ask site decline the tape,

@@ -244,3 +244,21 @@ func TestTapeConvertWard(t *testing.T) {
 		})
 	}
 }
+
+// A resolving permanent spell's own entry replacement body asks after its
+// move took it off the stack: served from the tape in line.
+func TestTapeConvertOwnEntryReplacement(t *testing.T) {
+	srcs := []string{
+		"Name:Tape Sower\nManaCost:B\nTypes:Creature Bear\nPT:2/2\nK:ETBReplacement:Other:DBChoose\nSVar:DBChoose:DB$ ChooseCard | Defined$ You | Choices$ Land.YouCtrl | ChoiceZone$ Battlefield | Mandatory$ True\nOracle:x\n",
+		"Name:Tape Charm Gate\nManaCost:B\nTypes:Creature Bear\nPT:2/2\nK:ETBReplacement:Other:DBCharm\nSVar:DBCharm:DB$ Charm | Choices$ DBA,DBB\nSVar:DBA:DB$ GainLife | LifeAmount$ 1 | SpellDescription$ a\nSVar:DBB:DB$ GainLife | LifeAmount$ 2 | SpellDescription$ b\nOracle:x\n",
+	}
+	for i, src := range srcs {
+		name := strings.TrimPrefix(strings.SplitN(src, "\n", 2)[0], "Name:")
+		t.Run(name, func(t *testing.T) {
+			_, st := tapeDual(t, 2, 13700+uint64(i), tapeUnlessScenario(name, "B", 2, tapePick), src)
+			if st.Served < 1 || st.LegacySwitch != 0 || st.Aborts != 0 {
+				t.Fatalf("the entry replacement's ask was not served from the tape: %+v", st)
+			}
+		})
+	}
+}
