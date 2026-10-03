@@ -209,14 +209,36 @@ func TestTapeConvertETBChoice(t *testing.T) {
 func TestTapeConvertWard(t *testing.T) {
 	const wardBear = "Name:Tape Ward Bear\nManaCost:G\nTypes:Creature Bear\nPT:2/2\nK:Ward:1\nOracle:x\n"
 	const pump = "Name:Tape Pump\nManaCost:B\nTypes:Instant\nA:SP$ Pump | ValidTgts$ Creature | NumAtt$ +1\nOracle:x\n"
-	for i, pay := range []bool{true, false} {
-		t.Run(map[bool]string{true: "pay", false: "decline"}[pay], func(t *testing.T) {
+	cases := []struct {
+		name, mana string
+		lands      int
+		pay        bool
+		served     int64
+	}{
+		{name: "pay", mana: "BR", pay: true, served: 1},
+		{name: "decline", mana: "BR", served: 1},
+		{name: "window", mana: "B", lands: 2, pay: true, served: 3},
+	}
+	for i, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			base := tapeUnlessPick(tc.pay)
+			pick := func(d *decision.Decision) []int {
+				if d.ResumeKind == "ward_mana" {
+					for _, o := range d.Options {
+						if o.Kind == "activate" {
+							return []int{o.Index}
+						}
+					}
+					return []int{len(d.Options) - 1}
+				}
+				return base(d)
+			}
 			_, st := tapeDual(t, 2, 13600+uint64(i), func(t *testing.T, e *Engine) {
 				bear := moveByName(t, e, 0, "Tape Ward Bear", state.ZBattlefield)
 				e.emit(events.Event{Kind: events.ControlChange, Obj: bear, Player: 1})
-				tapeUnlessScenario("Tape Pump", "BR", 0, tapeUnlessPick(pay))(t, e)
+				tapeUnlessScenario("Tape Pump", tc.mana, tc.lands, pick)(t, e)
 			}, wardBear, pump)
-			if st.Served < 1 || st.LegacySwitch != 0 || st.Aborts != 0 {
+			if st.Served < tc.served || st.LegacySwitch != 0 || st.Aborts != 0 {
 				t.Fatalf("the ward election was not served from the tape: %+v", st)
 			}
 		})

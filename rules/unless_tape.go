@@ -162,27 +162,40 @@ func unlessAnswerSettle(e *Engine, d *decision.Decision, chosen []decision.Optio
 // reaches the engine's ask, which ends the tape run there (the kernel's
 // legacy replay).
 func tapeUnlessWindow(e *Engine, ctx *effects.Ctx, sa *cards.SA, obj state.ObjID, payer state.PlayerID, cost Cost, target int) {
-	wm := &wardManaPayment{payer: payer, cost: cost, obj: obj, sa: sa, target: target,
-		resumeKind: unlessManaKind, prompt: unlessManaPrompt, unless: true}
+	tapeManaWindow(e, ctx, &wardManaPayment{payer: payer, cost: cost, obj: obj, sa: sa, target: target,
+		resumeKind: unlessManaKind, prompt: unlessManaPrompt, unless: true})
+}
+
+// tapeManaWindow runs wm's mana window in line (the unless window above, and
+// Ward's CR 702.21a window, askWardMana inside a tape run): Done charges the
+// cost -- the unless cost's own payment, or Ward's plain mana charge -- the
+// legacy answerWardMana's exact arms.
+func tapeManaWindow(e *Engine, ctx *effects.Ctx, wm *wardManaPayment) {
 	for {
 		d := wardManaDecision(e, wm)
 		in, ok := e.TapeAnswer(d)
 		if !ok {
-			tapeUnservable(e, "unless window")
+			tapeUnservable(e, "mana window")
 		}
 		chosen := d.Chosen(in)
 		if len(chosen) == 1 && chosen[0].Kind == "done" {
+			paid := false
+			if wm.unless {
+				paid = e.payUnlessCost(wm.payer, wm.cost, ctx, wm.obj)
+			} else {
+				paid = e.payMana(wm.payer, wm.cost)
+			}
 			ctx.UnlessPay = "decline"
-			if e.payUnlessCost(payer, cost, ctx, obj) {
+			if paid {
 				ctx.UnlessPay = "pay"
 			}
 			return
 		}
-		if len(chosen) != 1 || chosen[0].Kind != "activate" || !e.untappedManaSource(payer, chosen[0].Obj) {
+		if len(chosen) != 1 || chosen[0].Kind != "activate" || !e.untappedManaSource(wm.payer, chosen[0].Obj) {
 			ctx.UnlessPay = "decline"
 			return
 		}
-		e.activateManaPayment(payer, chosen[0].Obj, false)
+		e.activateManaPayment(wm.payer, chosen[0].Obj, false)
 	}
 }
 
@@ -207,6 +220,8 @@ func wardAnswerSettle(e *Engine, ctx *effects.Ctx, sa *cards.SA, obj state.ObjID
 	if _, chosePay := unlessPayChoice(chosen); !chosePay {
 		return
 	}
+	// asked: the CR 702.21a mana window ran in line (askWardMana) and set
+	// ctx.UnlessPay itself.
 	if paid, _ := e.beginWardPayment(&resumePoint{kind: "unless_pay", obj: obj, sa: sa}, ctx); paid {
 		ctx.UnlessPay = "pay"
 	}
