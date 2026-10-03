@@ -15,6 +15,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/rules/chars"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -215,11 +216,11 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						// 1/1 Insect creature in all other zones"). An exclusion with no
 						// explicit EffectZone$ REPLACES the battlefield default: the static
 						// is live in every other zone -- exactly the CR 604.3 every-zone
-						// CDA reading minus the excluded zone(s). staticZoneAdmits (below)
+						// CDA reading minus the excluded zone(s). chars.StaticZoneAdmits (below)
 						// is the ONE read both this gate and cdaPTStatic make, so the
 						// emitted characteristic grant and the layer-7a P/T claim can
 						// never disagree about where the static is live.
-						if !e.stackSelfStaticOK(st, o) && !staticZoneAdmits(st.ParamStr(cards.PKExcludeZone), st.ParamStr(cards.PKEffectZone), o.Zone) {
+						if !e.stackSelfStaticOK(st, o) && !chars.StaticZoneAdmits(st.ParamStr(cards.PKExcludeZone), st.ParamStr(cards.PKEffectZone), o.Zone) {
 							continue
 						}
 						affects := st.ParamStr(cards.PKAffected)

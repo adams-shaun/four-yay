@@ -3,9 +3,9 @@ package rules
 import (
 	"fmt"
 	"math"
-	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/rules/chars"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -431,47 +431,7 @@ func (e *Engine) manaFeasiblePricedP(p state.PlayerID, id state.ObjID, ability b
 // (the same fail-closed direction every unparseable static qualifier takes),
 // because wrongly applying a hand-or-library static is exactly the class of
 // over-reach the zone gate exists to prevent.
-func effectZoneOK(v string, z state.Zone) bool {
-	v = strings.TrimSpace(v)
-	if v == "" {
-		return z == state.ZBattlefield
-	}
-	for name := range strings.SplitSeq(v, ",") {
-		switch strings.TrimSpace(name) {
-		case "All":
-			return true
-		case "Battlefield":
-			if z == state.ZBattlefield {
-				return true
-			}
-		case "Stack":
-			if z == state.ZStack {
-				return true
-			}
-		case "Graveyard":
-			if z == state.ZGraveyard {
-				return true
-			}
-		case "Hand":
-			if z == state.ZHand {
-				return true
-			}
-		case "Library":
-			if z == state.ZLibrary {
-				return true
-			}
-		case "Exile":
-			if z == state.ZExile {
-				return true
-			}
-		case "Command":
-			if z == state.ZCommand {
-				return true
-			}
-		}
-	}
-	return false
-}
+func effectZoneOK(v string, z state.Zone) bool { return chars.EffectZoneOK(v, z) }
 
 // composedPoolFloor is composeFeasibleP(m, c, taxGeneric, delve)
 // .PoolUnitsFloor(). Under the zero composition (costModsZero) on a cost

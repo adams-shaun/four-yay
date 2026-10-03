@@ -43,6 +43,7 @@ import (
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/rules/chars"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -356,7 +357,7 @@ func (cz *autopayCensus) buildBase() {
 	driveToStep(t, e, 1, 0, state.StepMain1)
 	// The layer-4 land-type grant path is armed by the corpus vocabulary, the
 	// way a universe-backed match arms it.
-	e.landTypeWords = corpusLandTypeWords(cz.r.Cards)
+	e.landTypeWords = chars.CorpusLandTypeWords(cz.r.Cards)
 	for _, k := range []string{"relic", "relic", "relic", "charm", "charm", "elf", "elf", "legend"} {
 		id := censusPlace(e, cz.support[k], 0, state.ZBattlefield, 0)
 		if k == "legend" {

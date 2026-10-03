@@ -202,7 +202,7 @@ func BlockRestricted(b Board, blocker, attacker state.ObjID) bool {
 		if !b.MatchesStaticSpec(attackerSpec, attacker, sv) {
 			continue
 		}
-		spec, ok := sv.Params["ValidBlocker"]
+		spec, ok := sv.Param(cards.PKValidBlocker)
 		if !ok {
 			return true
 		}
@@ -406,7 +406,7 @@ func AttackBlocked(b Board, id state.ObjID, defender state.PlayerID, attacked st
 		if spec == "" || !b.MatchesSpec(spec, id, sv.Source, sv.Controller, nil, nil) {
 			continue
 		}
-		if !RestrictionTargetMatches(b.Game(), sv.Params["Target"], defender, sv.Controller, sv.Source, nil, attacked) {
+		if !RestrictionTargetMatches(b.Game(), sv.ParamStr(cards.PKTarget), defender, sv.Controller, sv.Source, nil, attacked) {
 			continue
 		}
 		return true

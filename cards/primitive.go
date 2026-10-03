@@ -116,12 +116,12 @@ func (f *Face) EachRawEffectChild(visit func(EffectChild)) {
 		}
 		seen[sa] = true
 		if sa.API == "Effect" {
-			for _, name := range rawEffectNames(sa.Params["Triggers"]) {
+			for _, name := range rawEffectNames(sa.ParamStr(PKTriggers)) {
 				if t, ok := ParseTriggerLine(f.SVars[name]); ok {
 					visit(EffectChild{Trigger: &t})
 				}
 			}
-			for _, name := range rawEffectNames(sa.Params["StaticAbilities"]) {
+			for _, name := range rawEffectNames(sa.ParamStr(PKStaticAbilities)) {
 				for _, s := range parseRawStatics(f.SVars[name]) {
 					visit(EffectChild{Static: &s})
 				}

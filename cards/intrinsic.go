@@ -58,7 +58,7 @@ func (f *Face) ApplyIntrinsics() {
 	}
 	have := map[string]bool{}
 	for _, a := range f.ManaAbilities() {
-		have[a.Params["Produced"]] = true
+		have[a.ParamStr(PKProduced)] = true
 	}
 	// Iterate the fixed slice, not a map, so ability order is deterministic.
 	for _, b := range basicLandMana {

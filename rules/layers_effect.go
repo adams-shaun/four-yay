@@ -40,24 +40,6 @@ const (
 	SubSwitch   = state.SubSwitch
 )
 
-// Derived is a permanent's current characteristics after every applicable
-// continuous effect has been applied in CR 613 order. Nothing outside this
-// file may read printed power, toughness or keywords directly — Derived (or
-// the Power/Toughness/HasKeyword/Keywords accessors below) is the only path.
-type derivedPTSnapshot struct {
-	id                                         state.ObjID
-	power, toughness, basePower, baseToughness int32
-	// preCounterPower/preCounterToughness are the same running value WITHOUT
-	// the layer-7d counters. A layer-7c static whose amount reads the P/T of
-	// an object the walk is currently deriving (Snowblind's AddToughness$
-	// -NotAttackingY, sized from the enchanted creature's own toughness) must
-	// see the value before this effect; CR 613.4 orders counters after every
-	// 7c modify, so that value excludes them while power/toughness -- the
-	// counter-inclusive pair FilterDerivedPT hands to Count$Valid -- includes
-	// them.
-	preCounterPower, preCounterToughness int32
-}
-
 // Derived is rules' name for effects.Chars, the one characteristics record
 // (rules-engine refactor spec W1d): the layer walk builds it, Host.Chars
 // serves it, and effects reads the same type, so a characteristic added to

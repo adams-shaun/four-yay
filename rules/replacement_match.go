@@ -424,7 +424,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// ValidActivator$ You: the player adding the mana (whoever activated
 		// the mana ability) must be the replacement controller's side of the
 		// spec. MatchesPlayerSpec fails closed on unknown qualifiers.
-		if va, ok := r.Params["ValidActivator"]; ok &&
+		if va, ok := r.Param(cards.PKValidActivator); ok &&
 			!effects.MatchesPlayerSpec(e.G, va, ev.Player, you) {
 			return false
 		}
@@ -588,7 +588,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// controller, while the token's controller is ev.Player — exactly how
 		// Divine Visitation's "creature tokens under YOUR control" must read.
 		// An unknown token key fails closed to no match.
-		if v, ok := r.Params["ValidToken"]; ok {
+		if v, ok := r.Param(cards.PKValidToken); ok {
 			tok := tokenOverride
 			if tok == nil {
 				tok = e.tokenSnapshot(ev)
@@ -662,7 +662,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// mean.
 		spec := strings.TrimSpace(r.ParamStr(cards.PKValidCard))
 		if spec == "" {
-			spec = strings.TrimSpace(r.Params["ValidObject"])
+			spec = strings.TrimSpace(r.ParamStr(cards.PKValidObject))
 		}
 		if spec != "" {
 			if ev.Kind != events.CounterChange {
@@ -779,7 +779,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// Archangel -- is the out-of-scope Lich family, never a "can't").
 		// gameEventCantHappen already pre-filters on it; repeating it here
 		// keeps this matcher self-consistent for any future caller.
-		if !strings.EqualFold(strings.TrimSpace(r.Params["Layer"]), "CantHappen") {
+		if !strings.EqualFold(strings.TrimSpace(r.ParamStr(cards.PKLayer)), "CantHappen") {
 			return false
 		}
 		if r.Event == "GameLoss" {

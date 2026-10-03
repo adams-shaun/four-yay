@@ -1317,7 +1317,7 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 	// The variant params (see the comment block above the function for what
 	// each means and which corpus card carries it).
 	revealWin := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKReveal)), "True") &&
-		!strings.EqualFold(strings.TrimSpace(sa.Params["NoReveal"]), "True")
+		!strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKNoReveal)), "True")
 	noLooking := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKNoLooking)), "True")
 	forceReveal := strings.EqualFold(strings.TrimSpace(sa.Params["ForceRevealToController"]), "True")
 	skipReorder := strings.EqualFold(strings.TrimSpace(sa.Params["SkipReorder"]), "True")
@@ -2056,7 +2056,7 @@ func digDestPhrase(dest state.Zone) string {
 // implemented for the library-bottom return (h.Rand, seeded and replay-exact);
 // a stay-in-place placement keeps the existing order behind one loud Note.
 func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
-	spec := sa.Params["Valid"]
+	spec := sa.ParamStr(cards.PKValid)
 	if spec == "" {
 		spec = "Card"
 	}
@@ -2965,7 +2965,7 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 		if n == 0 {
 			continue
 		}
-		if strings.EqualFold(strings.TrimSpace(sa.Params["NoReveal"]), "True") {
+		if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKNoReveal)), "True") {
 			// NoReveal$ True (Mishra's Bauble: "Look at the top card of target
 			// player's library" — a look, never a reveal): the identity goes
 			// to the ACTIVATOR alone through emitLook, the one private-look
@@ -3692,10 +3692,10 @@ func effNameCard(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	valid := sa.ParamStr(cards.PKValidCards)
-	chooseFromList := sa.Params["ChooseFromList"]
+	chooseFromList := sa.ParamStr(cards.PKChooseFromList)
 	chooseFromDefined := sa.Params["ChooseFromDefinedCards"]
 	universeBacked := len(h.Game().NameUniverse) > 0
-	random := strings.EqualFold(sa.Params["AtRandom"], "True")
+	random := strings.EqualFold(sa.ParamStr(cards.PKAtRandom), "True")
 	// The resolving context's numeric-RHS resolver (paid X, a published
 	// StoreSVar) is threaded into the eligible-name filter so a dynamic
 	// ValidCards$ such as `Creature.cmcEQX` restricts against the resolution
@@ -3706,7 +3706,7 @@ func effNameCard(h Host, c *Ctx, sa *cards.SA) {
 	// would feed unrevealed names into the intersection below - a remembered
 	// Forest with ValidCards$ Card.nonLand over a land-only universe offered
 	// Forest. AtRandom already passes strict for the same reason.
-	names := NameChoicesFromListCtx(h.Game(), valid, sa.Params["ValidDescription"], chooseFromList, &sc, random || chooseFromDefined != "")
+	names := NameChoicesFromListCtx(h.Game(), valid, sa.ParamStr(cards.PKValidDescription), chooseFromList, &sc, random || chooseFromDefined != "")
 	if chooseFromDefined != "" {
 		// This selector narrows the normal ValidCards name universe to the
 		// printed names of the Defined referents. Resolve through

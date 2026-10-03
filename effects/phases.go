@@ -120,7 +120,7 @@ func effPhases(h Host, c *Ctx, sa *cards.SA) {
 // back in), the plain phase-out reads getCardsIn and sees only phased-in
 // permanents.
 func phasesAffectedObjects(h Host, c *Ctx, sa *cards.SA, includePhasedOut bool) []state.ObjID {
-	if spec := strings.TrimSpace(sa.Params["AllValid"]); spec != "" {
+	if spec := strings.TrimSpace(sa.ParamStr(cards.PKAllValid)); spec != "" {
 		g := h.Game()
 		sc := c.SpecContext(c.Controller)
 		var out []state.ObjID

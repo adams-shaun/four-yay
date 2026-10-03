@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/rules/chars"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -62,7 +63,7 @@ import (
 // or memo-bypassing probe in progress: derivedMemoUsable) and only when active() is already
 // exactly current, so it never builds active() at a moment the full path
 // would not have -- it reads the same list the full path would read, and
-// writes nothing but the derivedKW scratch the full path rewrites too.
+// writes nothing but the charsWalk.KW scratch the full path rewrites too.
 //
 // printedCharsVerify (the rules test binary, or derivedMemoVerifyFlag at
 // link time for a botbench run) recomputes every fast answer through
@@ -272,7 +273,7 @@ func gateSpecParse(spec string) gateSpec {
 // carries no intrinsic, marker-counter or status keyword -- the base list is
 // then exactly the printed one -- and is never written to engine scratch, so
 // it stays valid across any later derivation. Otherwise, with scratchOK, it
-// is built into the derivedKW scratch exactly as derivedCompute builds it
+// is built into the charsWalk.KW scratch exactly as derivedCompute builds it
 // (Characteristics' documented aliasing); without scratchOK the call
 // declines.
 func (e *Engine) printedCharacteristics(id state.ObjID, scratchOK bool) (power, toughness int32, keywords []string, ok bool) {
@@ -285,11 +286,11 @@ func (e *Engine) printedCharacteristics(id state.ObjID, scratchOK bool) (power, 
 		if !scratchOK {
 			return 0, 0, nil, false
 		}
-		kw = derivedBaseKeywords(e.derivedKW, o, f, false)
+		kw = chars.BaseKeywords(e.charsWalk.KW, o, f, false)
 		if kw == nil {
 			kw = []string{}
 		}
-		e.derivedKW = kw
+		e.charsWalk.KW = kw
 	}
 	dp, dt := o.CounterPTTotals()
 	power, toughness = int32(f.Power())+dp, int32(f.Toughness())+dt
@@ -298,11 +299,11 @@ func (e *Engine) printedCharacteristics(id state.ObjID, scratchOK bool) (power, 
 		e.verifyPrintedChars(id, power, toughness, got, "")
 		if !own {
 			// The recompute rewrote the scratch; rebuild the answer into it.
-			kw = derivedBaseKeywords(e.derivedKW, o, f, false)
+			kw = chars.BaseKeywords(e.charsWalk.KW, o, f, false)
 			if kw == nil {
 				kw = []string{}
 			}
-			e.derivedKW = kw
+			e.charsWalk.KW = kw
 		}
 	}
 	return power, toughness, kw, true

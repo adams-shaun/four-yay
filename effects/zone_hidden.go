@@ -338,7 +338,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 			}
 			continue
 		}
-		prompt := strings.TrimSpace(sa.Params["SelectPrompt"])
+		prompt := strings.TrimSpace(sa.ParamStr(cards.PKSelectPrompt))
 		// OptionalPrompt$ is the script's own wording for the optional pick
 		// (Cass's "Select any number of Aura cards that were attached to
 		// it"); it wins the default text, the same precedence the

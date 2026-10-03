@@ -76,8 +76,8 @@ func untapBattlefieldCondition(h Host, c *Ctx, sa *cards.SA) bool {
 			}
 		}
 	}
-	op, want, ok := parseConditionCompare(sa.Params["ConditionCompare"])
-	if sa.Params["ConditionCompare"] == "" {
+	op, want, ok := parseConditionCompare(sa.ParamStr(cards.PKConditionCompare))
+	if sa.ParamStr(cards.PKConditionCompare) == "" {
 		return n > 0
 	}
 	if !ok {

@@ -35,7 +35,7 @@ import (
 // derivedColorTable returns the entries for the battlefield objects whose
 // derived colours differ from their printed ones, nil when there are none.
 func (e *Engine) derivedColorTable() []effects.ObjectColors {
-	if e.colorsBuilding || e.derivedDepth != 0 {
+	if e.colorsBuilding || e.charsWalk.Depth != 0 {
 		// Mid-derivation (a layer-7 amount counting by colour, or this very
 		// build's Derived reads): the table is not readable; the printed
 		// read stands, as it did before the table existed.

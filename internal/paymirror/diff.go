@@ -56,10 +56,10 @@ var excluded = map[excludedField]bool{
 	{"rules.Engine", "derivedMemoTail"}:      true,
 	{"rules.Engine", "derivedMemoAliasFrom"}: true,
 	{"rules.Engine", "derivedMemoAliasTo"}:   true,
-	{"rules.Engine", "derivedKW"}:            true,
-	{"rules.Engine", "derivedTypes"}:         true,
-	{"rules.Engine", "derivedDepth"}:         true,
-	{"rules.Engine", "derivedPTFrames"}:      true,
+	// The rules/chars layer walk's per-call scratch (chars.Scratch: keyword
+	// and type buffers, re-entry depth, in-progress P/T frames, colour
+	// stash): rebuilt every call; Clone copies none.
+	{"rules.Engine", "charsWalk"}: true,
 	// Engine.Chars's answer record (host_read.go): overwritten by every Chars
 	// call outside a memo scope and valid only until the next one; Clone
 	// resets it. The trigger matchers read characteristics through Chars

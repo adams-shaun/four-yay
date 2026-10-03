@@ -1,13 +1,12 @@
 package rules
 
 import (
-	"math"
-	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/rules/chars"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -22,32 +21,6 @@ import (
 // creature spell's "creatures you control get +1/+1") still stays
 // battlefield-only. PresentZone$ is a comma list in the grammar, hence the
 // substring read.
-// staticZoneAdmits is the source-zone admission a Continuous static's
-// ExcludeZone$ and EffectZone$ parameters jointly express, the ONE read
-// staticEffects' gate and cdaPTStatic's layer-7a CDA claim both make. With
-// no ExcludeZone$ the ordinary EffectZone$ gate stands unchanged (empty =
-// battlefield). With one, the named zones are excluded and -- absent an
-// explicit EffectZone$ -- every OTHER zone admits, which is what lets a
-// zone-conditional CDA (Grist) live exactly off the battlefield. An
-// unrecognised word excludes NOTHING (the mirror-image direction of
-// affectedZoneOK's fail-closed deny): the unparseable exclusion degrades to
-// the ordinary gate, today's applies-as-gated behaviour, rather than going
-// silent.
-func staticZoneAdmits(exclude, effectZone string, z state.Zone) bool {
-	exclude = strings.TrimSpace(exclude)
-	if exclude == "" {
-		return effectZoneOK(effectZone, z)
-	}
-	zones, all, ok := effects.ParseZones(exclude)
-	if !ok {
-		return effectZoneOK(effectZone, z)
-	}
-	if all || slices.Contains(zones, z) {
-		return false
-	}
-	return effectZone == "" || effectZoneOK(effectZone, z)
-}
-
 func (e *Engine) stackSelfStaticOK(st cards.Static, o *state.Object) bool {
 	if o == nil || o.Zone != state.ZStack || st.ParamStr(cards.PKEffectZone) != "" {
 		return false
@@ -226,104 +199,15 @@ func parseSVarGrant(raw string) (name, value string, ok bool) {
 }
 
 // cdaPTStatic resolves ONE static's characteristic-defining P/T claim
-// (CharacteristicDefining$ True), the layer-7a base cdaSetPT applies in
-// every zone (CR 613.4a, CR 604.3/208.2). A static carrying any parameter
-// beyond the implemented shape's whitelist fails closed (no claim -- the
-// explicit-whitelist rule adjustLandPlaysGrant documents), as does one
-// scoped to anything but the card itself, and one whose SetPower$/
-// SetToughness$ value is neither a literal nor an SVar/inline Count$
-// expression the evaluator resolves (EvalCountOK's verdict -- e.g.
-// LifePaidOnETB's paid-life shape). Iterating st.Params only yields the
-// whitelist boolean, so map order never reaches a value -- determinism is
-// preserved.
+// (chars.CDAPTStatic) with the engine as the count evaluator's host.
 func (e *Engine) cdaPTStatic(st cards.Static, ctx *effects.Ctx) (p, t int32, hasP, hasT bool) {
-	for key := range st.Params {
-		switch key {
-		case "Mode", "CharacteristicDefining", "SetPower", "SetToughness", "Affected", "Description", "ExcludeZone":
-			// The keys the implemented CDA shape (and only it) carries.
-		default:
-			return 0, 0, false, false
-		}
-	}
-	if aff := strings.TrimSpace(st.ParamStr(cards.PKAffected)); aff != "" && aff != "Card.Self" {
-		return 0, 0, false, false
-	}
-	// ExcludeZone$ narrows the claim's zones (Grist, the Hunger Tide): the CDA
-	// read is every zone by CR 604.3/208.2, minus the ones the static names --
-	// and beside any explicit EffectZone$, exactly as the emission gate reads
-	// the pair. The same staticZoneAdmits helper, so the layer-7a claim and
-	// any emitted fallback ce cannot disagree about where the static is live.
-	// A source object already gone carries no zone to admit.
-	if raw := strings.TrimSpace(st.ParamStr(cards.PKExcludeZone)); raw != "" {
-		if oz := e.G.Obj(ctx.Source); oz == nil || !staticZoneAdmits(raw, st.ParamStr(cards.PKEffectZone), oz.Zone) {
-			return 0, 0, false, false
-		}
-	}
-	if raw, ok := st.Param(cards.PKSetPower); ok {
-		if n, ok := e.cdaValue(ctx, raw); ok {
-			p, hasP = n, true
-		}
-	}
-	if raw, ok := st.Param(cards.PKSetToughness); ok {
-		if n, ok := e.cdaValue(ctx, raw); ok {
-			t, hasT = n, true
-		}
-	}
-	return p, t, hasP, hasT
-}
-
-// cdaValue resolves one CDA P/T value: a literal integer, else the SVar
-// named on the card's own face, else an inline Count$ expression -- each
-// through effects.EvalCountOK's resolvability verdict, so an unmodelled
-// count body fails closed (no claim) instead of degrading to a silent zero.
-func (e *Engine) cdaValue(ctx *effects.Ctx, raw string) (int32, bool) {
-	raw = strings.TrimSpace(raw)
-	if n, err := strconv.Atoi(raw); err == nil {
-		return int32(n), true
-	}
-	// A runtime SVar write (api:StoreSVar) shadows the printed body of the
-	// same name: Minion of the Wastes / Nameless Race store the life paid as
-	// they entered under LifePaidOnETB, whose printed default is Number$0, so
-	// the stored value must be checked BEFORE the face table is consulted.
-	if o := e.G.Obj(ctx.Source); o != nil {
-		if v, ok := o.RuntimeSVars[raw]; ok {
-			return v, true
-		}
-	}
-	if strings.HasPrefix(raw, "Count$") {
-		return effects.EvalCountOK(e, ctx, raw)
-	}
-	if body, ok := ctx.SVars[raw]; ok {
-		return effects.EvalCountOK(e, ctx, body)
-	}
-	return 0, false
+	return chars.CDAPTStatic(e, st, ctx)
 }
 
 // cdaSetPT is the object's own layer-7a characteristic-defining P/T
-// (CR 613.4a): the first usable CDA static on the current face (script
-// order) resolves the base power and toughness cdaPTStatic's whitelist
-// admits. CR 604.3/208.2 put the ability in EVERY zone, which is exactly
-// why it is read directly off the face in derivedScalar rather than emitted
-// from the battlefield-only static scan. A face with no usable CDA degrades
-// to no claim (the printed P/T stands).
+// (chars.CDASetPT) over the engine's Board.
 func (e *Engine) cdaSetPT(o *state.Object) (p, t int32, hasP, hasT bool) {
-	f := o.Face()
-	if f == nil {
-		return 0, 0, false, false
-	}
-	var ctx *effects.Ctx // built only for a face that has a CDA static
-	for _, st := range f.Statics {
-		if st.Mode != "Continuous" || strings.TrimSpace(st.ParamStr(cards.PKCharacteristicDefining)) == "" {
-			continue
-		}
-		if ctx == nil {
-			ctx = e.cdaEvalCtx(o, f)
-		}
-		if pp, tt, hp, ht := e.cdaPTStatic(st, ctx); hp || ht {
-			return pp, tt, hp, ht
-		}
-	}
-	return 0, 0, false, false
+	return chars.CDASetPT(asChars(e), o)
 }
 
 // GrantedSVar reports the named variable a live static grant (AddSVar$ on a
@@ -572,20 +456,6 @@ func (e *Engine) staticAmountOn(ce *ContinuousEffect, expr string, anchor state.
 		ctx.Layers.DerivedTypes = e.EffectiveTypes()
 	}
 	return effects.Num(e, ctx, sa, "Amount", 0)
-}
-
-// addPT saturates instead of allowing a large static expression to wrap a
-// characteristic through zero. Forge's calculateAmount is int-bounded too;
-// keeping the clamp at this boundary makes all P/T additions deterministic.
-func addPT(a, b int32) int32 {
-	n := int64(a) + int64(b)
-	if n > math.MaxInt32 {
-		return math.MaxInt32
-	}
-	if n < math.MinInt32 {
-		return math.MinInt32
-	}
-	return int32(n)
 }
 
 // statKeywords parses AddKeyword$ through the shared Forge keyword-list

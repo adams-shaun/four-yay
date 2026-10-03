@@ -7,6 +7,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/rules/chars"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -51,7 +52,7 @@ func TestFaceStaticProbesAreConservative(t *testing.T) {
 				if st.Mode != "Continuous" {
 					continue
 				}
-				if !e.stackSelfStaticOK(st, o) && !staticZoneAdmits(st.Params["ExcludeZone"], st.Params["EffectZone"], z) {
+				if !e.stackSelfStaticOK(st, o) && !chars.StaticZoneAdmits(st.Params["ExcludeZone"], st.Params["EffectZone"], z) {
 					continue
 				}
 				if !onBF && !f.ContinuousStaticsMayFunctionOffBattlefield() {

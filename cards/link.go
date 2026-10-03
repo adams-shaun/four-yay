@@ -40,14 +40,14 @@ func (f *Face) link(path string) []Diag {
 		sa, d := parseSA(path, body)
 		diags = append(diags, d...)
 		if sa != nil {
-			sa.Sub = resolve(sa.Params["SubAbility"], depth+1)
+			sa.Sub = resolve(sa.ParamStr(PKSubAbility), depth+1)
 		}
 		return sa
 	}
 	walk := func(sa *SA) {
 		for d := 0; sa != nil && d <= maxSVarDepth; d++ {
 			if sa.Sub == nil {
-				sa.Sub = resolve(sa.Params["SubAbility"], d+1)
+				sa.Sub = resolve(sa.ParamStr(PKSubAbility), d+1)
 			}
 			sa = sa.Sub
 		}
@@ -57,7 +57,7 @@ func (f *Face) link(path string) []Diag {
 		walk(a)
 	}
 	for i := range f.Triggers {
-		f.Triggers[i].Effect = resolve(f.Triggers[i].Params["Execute"], 0)
+		f.Triggers[i].Effect = resolve(f.Triggers[i].ParamStr(PKExecute), 0)
 		walk(f.Triggers[i].Effect)
 	}
 	for i := range f.Repls {
@@ -195,7 +195,7 @@ func resolveSVar(svars map[string]string, name string, depth int) *SA {
 	// shared parse to a fresh one over the corpus.
 	sa := new(SA)
 	*sa = *tmpl
-	sa.Sub = resolveSVar(svars, sa.Params["SubAbility"], depth+1)
+	sa.Sub = resolveSVar(svars, sa.ParamStr(PKSubAbility), depth+1)
 	return sa
 }
 

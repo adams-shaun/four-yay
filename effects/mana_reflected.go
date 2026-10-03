@@ -62,7 +62,7 @@ func ManaReflectedCandidates(h Host, c *Ctx, sa *cards.SA) []string {
 	if property != "Produce" && property != "Is" {
 		return nil
 	}
-	spec := strings.TrimSpace(sa.Params["Valid"])
+	spec := strings.TrimSpace(sa.ParamStr(cards.PKValid))
 	if spec == "" {
 		return nil
 	}

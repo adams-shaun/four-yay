@@ -222,7 +222,7 @@ func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 	defined := strings.TrimSpace(sa.ParamStr(cards.PKConditionDefined))
 	present := strings.TrimSpace(sa.Params["ConditionPresent"])
 	notPresent := strings.TrimSpace(sa.Params["ConditionNotPresent"])
-	compare := strings.TrimSpace(sa.Params["ConditionCompare"])
+	compare := strings.TrimSpace(sa.ParamStr(cards.PKConditionCompare))
 	// PresentDefined$/IsPresent$/PresentCompare$ are the DB-body spellings of
 	// the same defined-group presence gate ConditionDefined$/
 	// ConditionPresent$/ConditionCompare$ express. Normalize here so every

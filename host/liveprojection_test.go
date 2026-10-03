@@ -4,8 +4,8 @@ package host
 // match starting/rewinding while clients watch, could crash its table with
 // an intermittent module-gate panic in rules.(*Engine).Derived /
 // FilterDerivedPT. view.ProjectFor MUTATES the engine while it builds a
-// View (rules/layers.go appends to e.derivedPTFrames and defers a
-// truncation, writes derivedDepth/scratch, and reuses the active()
+// View (rules/layers.go appends to e.charsWalk.PTFrames and defers a
+// truncation, writes charsWalk.Depth/scratch, and reuses the active()
 // continuous-effect cache), so two projections of the same live engine
 // running concurrently corrupt each other's in-progress layer-7 P/T frames.
 //

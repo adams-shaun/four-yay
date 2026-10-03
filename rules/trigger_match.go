@@ -740,7 +740,7 @@ func (e *Engine) reserveTriggerLimits(t cards.Trigger, key triggerKey) {
 // whole map is dropped the first time it is consulted in a new turn, so it
 // holds only the current turn's lines rather than growing for the match.
 func (e *Engine) dieRollNumberAllows(t cards.Trigger, key triggerKey) bool {
-	raw, present := t.Params["Number"]
+	raw, present := t.Param(cards.PKNumber)
 	if !present {
 		return true
 	}
@@ -1082,7 +1082,7 @@ func (e *Engine) checkExertTriggers(ev events.Event) {
 		if sv.Source != ev.Obj {
 			continue
 		}
-		if vc := sv.Params["ValidCard"]; vc != "" &&
+		if vc := sv.ParamStr(cards.PKValidCard); vc != "" &&
 			!e.matchesSpecFrom(vc, ev.Obj, o.Controller, sv.Source) {
 			continue
 		}
@@ -1344,7 +1344,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 				// DamageDoneOnce pair, Wooden Stake's blocks-or-is-blocked-by
 				// pair). A secondary whose primary did not fire for this event
 				// still fires on its own. See secondaryYields for the pairing.
-				if strings.EqualFold(t.Params["Secondary"], "True") &&
+				if strings.EqualFold(t.ParamStr(cards.PKSecondary), "True") &&
 					e.secondaryYields(observer, fc.face, ti, t, id, *ev, objLKI) {
 					continue
 				}
@@ -2629,7 +2629,7 @@ func (e *Engine) notThisAbilityExcludes(t cards.Trigger, source state.ObjID) boo
 // needs a yield; none gets one.
 func (e *Engine) secondaryYields(observer *Engine, face *cards.Face, ti int, t cards.Trigger, source state.ObjID, ev events.Event, lki *state.Object) bool {
 	for j, sib := range face.Triggers {
-		if j == ti || strings.EqualFold(sib.Params["Secondary"], "True") {
+		if j == ti || strings.EqualFold(sib.ParamStr(cards.PKSecondary), "True") {
 			continue
 		}
 		if sib.ParamStr(cards.PKExecute) != t.ParamStr(cards.PKExecute) {

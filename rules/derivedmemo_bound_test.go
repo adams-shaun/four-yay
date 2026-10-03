@@ -64,11 +64,11 @@ func TestDerivedKeywordsBoundBeforeScratchGrows(t *testing.T) {
 	id := onBoard(t, e, 0, "Name:Hidden Flyer\nManaCost:3 U\nTypes:Creature Bird\nPT:3/3\nK:Flying\nOracle:x\n")
 	e.G.Obj(id).FaceDown = true
 	for _, eng := range []*Engine{e.Clone(), e} {
-		eng.derivedKW, eng.derivedTypes = nil, nil
+		eng.charsWalk.KW, eng.charsWalk.Types = nil, nil
 		if kw := eng.Derived(id).Keywords; kw == nil || len(kw) != 0 {
 			t.Fatalf("face-down derived keywords = %#v, want a bound empty list", kw)
 		}
-		eng.derivedKW, eng.derivedTypes = nil, nil
+		eng.charsWalk.KW, eng.charsWalk.Types = nil, nil
 		if n := eng.countPresent("Creature.withFlying", id, 0); n != 0 {
 			t.Fatalf("a face-down 2/2 matched withFlying through its printed face (%d)", n)
 		}

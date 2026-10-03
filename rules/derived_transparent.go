@@ -8,6 +8,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/chars"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -504,7 +505,7 @@ func localPredicate(p string) bool {
 // subtype or one of the common non-creature subtypes: a predicate the filter
 // answers from the candidate's own type list.
 func localTypeWord(w string) bool {
-	if isCardType(w) || isSupertype(w) || effects.CreatureTypeWords(w) {
+	if chars.IsCardType(w) || chars.IsSupertype(w) || effects.CreatureTypeWords(w) {
 		return true
 	}
 	switch w {
