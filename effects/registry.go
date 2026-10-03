@@ -2297,11 +2297,11 @@ type targetableObjectsHost interface {
 
 func prefetchRememberedChangeZoneTarget(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool, bool) {
 	if c == nil || sa == nil || sa.API != "Effect" ||
-		strings.TrimSpace(sa.Params["ValidTgts"]) != "" {
+		strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) != "" {
 		return nil, false, false
 	}
 	remembersTargeted := false
-	for _, member := range strings.Split(sa.Params["RememberObjects"], "&") {
+	for _, member := range strings.Split(sa.ParamStr(cards.PKRememberObjects), "&") {
 		member = strings.TrimSpace(member)
 		if member == "Targeted" || member == "ThisTargetedCard" {
 			remembersTargeted = true
@@ -2311,10 +2311,10 @@ func prefetchRememberedChangeZoneTarget(h Host, c *Ctx, sa *cards.SA) ([]state.T
 	if !remembersTargeted {
 		return nil, false, false
 	}
-	childName := strings.TrimSpace(sa.Params["SubAbility"])
+	childName := strings.TrimSpace(sa.ParamStr(cards.PKSubAbility))
 	child := cards.ResolveSVar(c.SVars, childName)
 	if child == nil || child.API != "ChangeZone" ||
-		strings.TrimSpace(child.Params["ValidTgts"]) == "" {
+		strings.TrimSpace(child.ParamStr(cards.PKValidTgts)) == "" {
 		return nil, false, false
 	}
 	// The root Effect has no target of its own, so a generic placement marker
@@ -2624,7 +2624,7 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 				// record its outcome on the ask's own resume point so the
 				// answered re-entry consumes it instead of re-posing the pay
 				// ask.
-				if strings.TrimSpace(sa.Params["UnlessCost"]) != "" {
+				if strings.TrimSpace(sa.ParamStr(cards.PKUnlessCost)) != "" {
 					h.SuspendUnless(sa, paid)
 				}
 				return
@@ -2648,7 +2648,7 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 			// so this cannot repoint a sub's explicit Defined$ Targeted away
 			// from what it meant.
 			if next := sa.Sub; len(c.Targets) == 0 && next != nil &&
-				strings.TrimSpace(next.Params["ValidTgts"]) == "" {
+				strings.TrimSpace(next.ParamStr(cards.PKValidTgts)) == "" {
 				c.Targets = append([]state.Target(nil), ts...)
 			}
 			fn(h, c, sa)
@@ -2673,7 +2673,7 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		if !tokensSuspended {
 			imprint(h, c, sa)
 		}
-		if !tokensSuspended && strings.EqualFold(sa.Params["ClearImprinted"], "True") && c.Source != 0 {
+		if !tokensSuspended && strings.EqualFold(sa.ParamStr(cards.PKClearImprinted), "True") && c.Source != 0 {
 			// Only a real clear is an event (the ClearRemembered$
 			// discipline effCleanup documents): clearing lists that are
 			// already empty is a no-op, and logging it as a state change hid

@@ -33,6 +33,7 @@ package combat
 import (
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
@@ -69,9 +70,9 @@ func AttackAllowedThroughDefender(b Board, id state.ObjID, defender state.Player
 		if !b.StaticGateHolds(sv) {
 			continue
 		}
-		spec := sv.Params["ValidCard"]
+		spec := sv.ParamStr(cards.PKValidCard)
 		if spec == "" {
-			spec = sv.Params["ValidCards"]
+			spec = sv.ParamStr(cards.PKValidCards)
 		}
 		if spec == "" || !b.MatchesSpec(spec, id, sv.Source, sv.Controller, nil, nil) {
 			continue

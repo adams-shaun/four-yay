@@ -1111,7 +1111,7 @@ func (e *Engine) payerGrantsPayLifeInsteadOfB(p state.PlayerID) bool {
 			!slices.Contains(cards.SplitKeywordList(raw), "PayLifeInsteadOf:B") {
 			continue
 		}
-		if effects.MatchesPlayerSpec(e.G, sv.Params["Affected"], p, sv.Controller) {
+		if effects.MatchesPlayerSpec(e.G, sv.ParamStr(cards.PKAffected), p, sv.Controller) {
 			return true
 		}
 	}

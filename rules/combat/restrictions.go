@@ -177,7 +177,7 @@ func BlockRestricted(b Board, blocker, attacker state.ObjID) bool {
 		if !b.StaticGateHolds(sv) {
 			continue
 		}
-		if b.MatchesStaticSpec(sv.Params["ValidCard"], blocker, sv) {
+		if b.MatchesStaticSpec(sv.ParamStr(cards.PKValidCard), blocker, sv) {
 			return true
 		}
 	}
@@ -197,7 +197,7 @@ func BlockRestricted(b Board, blocker, attacker state.ObjID) bool {
 		// matches nothing).
 		attackerSpec := sv.Params["ValidAttacker"]
 		if attackerSpec == "" {
-			attackerSpec = sv.Params["ValidCard"]
+			attackerSpec = sv.ParamStr(cards.PKValidCard)
 		}
 		if !b.MatchesStaticSpec(attackerSpec, attacker, sv) {
 			continue
@@ -309,10 +309,10 @@ func MinMaxBlockerBounds(b Board, attacker state.ObjID) (min, max int, minOK, ma
 		if !b.StaticGateHolds(sv) {
 			continue
 		}
-		if !b.MatchesStaticSpec(sv.Params["ValidCard"], attacker, sv) {
+		if !b.MatchesStaticSpec(sv.ParamStr(cards.PKValidCard), attacker, sv) {
 			continue
 		}
-		if raw, ok := sv.Params["Min"]; ok {
+		if raw, ok := sv.Param(cards.PKMin); ok {
 			if strings.EqualFold(strings.TrimSpace(raw), "All") {
 				all = true
 				continue
@@ -321,7 +321,7 @@ func MinMaxBlockerBounds(b Board, attacker state.ObjID) (min, max int, minOK, ma
 				min, minOK = n, true
 			}
 		}
-		if raw, ok := sv.Params["Max"]; ok {
+		if raw, ok := sv.Param(cards.PKMax); ok {
 			if n, ok := literalBlockCount(raw); ok && (!maxOK || n < max) {
 				max, maxOK = n, true
 			}
@@ -402,7 +402,7 @@ func AttackBlocked(b Board, id state.ObjID, defender state.PlayerID, attacked st
 			effects.UnlessDefenderHolds(b.Game(), spec, defender, sv.Controller, sv.Source) {
 			continue
 		}
-		spec := sv.Params["ValidCard"]
+		spec := sv.ParamStr(cards.PKValidCard)
 		if spec == "" || !b.MatchesSpec(spec, id, sv.Source, sv.Controller, nil, nil) {
 			continue
 		}

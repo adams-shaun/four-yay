@@ -46,7 +46,7 @@ func effSeek(h Host, c *Ctx, sa *cards.SA) {
 		}
 		owner := target.Player
 		pool := zoneOf(g, state.ZLibrary, owner)
-		if raw := strings.TrimSpace(sa.Params["DefinedCards"]); raw != "" {
+		if raw := strings.TrimSpace(sa.ParamStr(cards.PKDefinedCards)); raw != "" {
 			if raw != "Top_10_OfLibrary" {
 				h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 					Text: "Seek withholds DefinedCards$ " + raw + "; no cards moved"})

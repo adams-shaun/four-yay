@@ -3,6 +3,7 @@ package rules
 import (
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -26,19 +27,19 @@ import (
 // once-per-permanent-per-turn limit.
 func (e *Engine) loyaltyAtInstantSpeed(p state.PlayerID, id state.ObjID) bool {
 	for _, sv := range e.activeStatics("CastWithFlash") {
-		if !loyaltyFlashValidSA(sv.Params["ValidSA"]) {
+		if !loyaltyFlashValidSA(sv.ParamStr(cards.PKValidSA)) {
 			continue
 		}
 		if !e.actorMatches(sv, "Caster", p) || !e.staticTimingGate(sv) {
 			continue
 		}
-		if az, ok := sv.Params["EffectZone"]; ok {
+		if az, ok := sv.Param(cards.PKEffectZone); ok {
 			src := e.G.Obj(sv.Source)
 			if src == nil || !affectedZoneOK(az, src.Zone) {
 				continue
 			}
 		}
-		if e.matchesSpec(sv.Params["ValidCard"], id, e.staticSpecCtx(sv)) {
+		if e.matchesSpec(sv.ParamStr(cards.PKValidCard), id, e.staticSpecCtx(sv)) {
 			return true
 		}
 	}

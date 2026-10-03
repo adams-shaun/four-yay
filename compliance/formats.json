@@ -1,0 +1,12 @@
+{
+ "comment": "Certification targets (docs/superpowers/specs/2026-10-03-rules-engine-lasagna-design.md section 11.3 C5/C7/C8). formats are in declared-target order: the impact table ranks primitives by the cards they block in each format in this order. A format lists its sets explicitly (sets) or by XMage set type and release date (set_types, from). A tournament format excludes non_tournament_set_types; a card is non-tournament when its front face carries a non_tournament_card_types type, every set printing it is a non-tournament set type, or it carries a non_tournament_primitives primitive. A primitive every one of whose blocked cards is non-tournament is excluded from the All target.",
+ "formats": [
+  {"name": "Standard", "sets": ["BIG", "BLB", "DFT", "DSK", "ECL", "EOE", "FDN", "FIN", "FRA", "HOB", "LCI", "MKM", "MSH", "OTJ", "SOS", "SPM", "TDM", "TLA", "TMT", "WOE"]},
+  {"name": "Pioneer", "from": "2012-10-05", "set_types": ["EXPANSION", "CORE", "SUPPLEMENTAL_STANDARD_LEGAL", "SUPPLEMENTAL_MODERN_LEGAL"]},
+  {"name": "Modern", "from": "2003-07-28", "set_types": ["EXPANSION", "CORE", "SUPPLEMENTAL_STANDARD_LEGAL", "SUPPLEMENTAL_MODERN_LEGAL"]},
+  {"name": "All", "tournament": true}
+ ],
+ "non_tournament_set_types": ["JOKE_SET", "CUSTOM_SET", "MAGIC_ARENA"],
+ "non_tournament_card_types": ["Plane", "Phenomenon", "Scheme", "Conspiracy", "Vanguard", "Dungeon", "Attraction", "Contraption", "Stickers"],
+ "non_tournament_primitives": ["api:MakeCard", "api:Draft"]
+}

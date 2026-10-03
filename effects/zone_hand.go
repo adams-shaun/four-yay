@@ -18,7 +18,7 @@ import (
 // instead: evaluating SVar/Count$ count expressions here is a scoped-out
 // follow-up, not part of handmove1.
 func handChangeNum(sa *cards.SA) (int32, bool) {
-	v, present := sa.Params["ChangeNum"]
+	v, present := sa.Param(cards.PKChangeNum)
 	if !present || v == "" {
 		return 1, true
 	}
@@ -42,7 +42,7 @@ func handChangeNum(sa *cards.SA) (int32, bool) {
 // Only a literal ChangeNum$ (or its absent default 1) reaches here: the
 // routing in effChangeZone Notes a non-literal before this is ever called.
 func forgetOtherRemembered(h Host, c *Ctx, sa *cards.SA) {
-	if strings.EqualFold(strings.TrimSpace(sa.Params["ForgetOtherRemembered"]), "True") && !c.ForgetOtherCleared {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKForgetOtherRemembered)), "True") && !c.ForgetOtherCleared {
 		c.Remembered = nil
 		clearEventRemembered(h, c)
 		if c.ForgetOtherReady {
@@ -61,7 +61,7 @@ func forgetOtherRemembered(h Host, c *Ctx, sa *cards.SA) {
 // re-runs on re-entry (effDigUntil's re-scan). A walk whose answered
 // revalidation instead reads the ask's ResumeRemembered ride never arms it.
 func initForgetOtherSnapshot(h Host, c *Ctx, sa *cards.SA, owners []state.PlayerID, minOwners int) {
-	if len(owners) < minOwners || c.ForgetOtherReady || !strings.EqualFold(strings.TrimSpace(sa.Params["ForgetOtherRemembered"]), "True") {
+	if len(owners) < minOwners || c.ForgetOtherReady || !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKForgetOtherRemembered)), "True") {
 		return
 	}
 	c.ForgetOtherReady = true
@@ -124,7 +124,7 @@ type handMoveCount struct {
 // resolving context. Anything else returns false and the caller is loud (a
 // Note) rather than degrading to a silent zero-count no-op.
 func handMoveCountOf(h Host, c *Ctx, sa *cards.SA) (handMoveCount, bool) {
-	raw := strings.TrimSpace(sa.Params["ChangeNum"])
+	raw := strings.TrimSpace(sa.ParamStr(cards.PKChangeNum))
 	if raw == "" {
 		return handMoveCount{fixed: 1}, true
 	}
@@ -194,7 +194,7 @@ func effChangeZoneHandOwners(h Host, c *Ctx, sa *cards.SA, to state.Zone) {
 	count, ok := handMoveCountOf(h, c, sa)
 	if !ok {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-			Text: "cannot choose ChangeNum$ " + strings.TrimSpace(sa.Params["ChangeNum"]) +
+			Text: "cannot choose ChangeNum$ " + strings.TrimSpace(sa.ParamStr(cards.PKChangeNum)) +
 				" cards from a selected hand (a count this engine cannot evaluate)"})
 		return
 	}
@@ -203,7 +203,7 @@ func effChangeZoneHandOwners(h Host, c *Ctx, sa *cards.SA, to state.Zone) {
 		ch, ok := handMoveChooserFor(h, c, sa, owner)
 		if !ok {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-				Text: "Chooser$ " + strings.TrimSpace(sa.Params["Chooser"]) +
+				Text: "Chooser$ " + strings.TrimSpace(sa.ParamStr(cards.PKChooser)) +
 					" is not a chooser this engine can resolve; no hand card moves"})
 			return
 		}
@@ -275,7 +275,7 @@ func handMoveOwners(h Host, c *Ctx, sa *cards.SA) ([]state.PlayerID, bool) {
 // unmodelled value fails closed (ok=false) so the caller is loud rather than
 // handing the ask to a guessed seat.
 func handMoveChooserFor(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID) (state.PlayerID, bool) {
-	switch strings.TrimSpace(sa.Params["Chooser"]) {
+	switch strings.TrimSpace(sa.ParamStr(cards.PKChooser)) {
 	case "", "Owner":
 		return owner, true
 	case "You":
@@ -343,7 +343,7 @@ func handMoveChooserFor(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID) (sta
 func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []state.PlayerID,
 	count handMoveCount, random bool, chooserFor func(Host, *Ctx, *cards.SA, state.PlayerID) (state.PlayerID, bool),
 	eventPlayer bool) {
-	spec := sa.Params["ChangeType"]
+	spec := sa.ParamStr(cards.PKChangeType)
 	if spec == "" {
 		spec = "Card" // the whole hand: Brainstorm, Jace's [0], Sawtooth Loon
 	}
@@ -380,7 +380,7 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 	confirmYes := strings.EqualFold(c.HandMoveConfirm, "yes")
 	confirmTarget := c.HandMoveConfirmTarget
 	c.HandMoveConfirm, c.HandMoveConfirmDone, c.HandMoveConfirmTarget = "", false, 0
-	withKind := sa.Params["WithCountersType"]
+	withKind := sa.ParamStr(cards.PKWithCountersType)
 	var withAmt int32
 	if withKind != "" && counterDestination(to) {
 		withAmt = withCounterAmount(h, c, sa)
@@ -517,7 +517,7 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 				continue
 			}
 			if !confirmDone {
-				prompt := strings.TrimSpace(sa.Params["OptionalPrompt"])
+				prompt := strings.TrimSpace(sa.ParamStr(cards.PKOptionalPrompt))
 				if prompt == "" {
 					prompt = "Proceed with moving a card from hand?"
 				}
@@ -554,7 +554,7 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 			// markerless may-shape, or an accepted Optional$ confirmation)
 			// clears its remembered set: Forge clears before the choose and
 			// does not require a nonempty fetchList.
-			if strings.EqualFold(strings.TrimSpace(sa.Params["ForgetOtherRemembered"]), "True") {
+			if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKForgetOtherRemembered)), "True") {
 				forgetOtherRemembered(h, c, sa)
 			}
 			continue
@@ -564,7 +564,7 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 		// Great Aurora). Its count semantics settle optionality even when the
 		// script has neither marker nor explanatory text; preserve an explicit
 		// Optional$ marker should a future script carry one.
-		intrinsicAll := count.perOwner && strings.TrimSpace(sa.ParamStr(cards.PKOptional)) == "" && strings.TrimSpace(sa.Params["Mandatory"]) == ""
+		intrinsicAll := count.perOwner && strings.TrimSpace(sa.ParamStr(cards.PKOptional)) == "" && strings.TrimSpace(sa.ParamStr(cards.PKMandatory)) == ""
 		optional, optionalKnown := handTakeOptional(h, c, sa, to)
 		if intrinsicAll {
 			optional, optionalKnown = false, true
@@ -772,7 +772,7 @@ func hiddenPickConfirms(sa *cards.SA) bool {
 // Oviya, Volcanic Spite); text we cannot classify fails closed and loudly at
 // the caller rather than granting an invented decline.
 func handTakeOptional(h Host, c *Ctx, sa *cards.SA, to state.Zone) (optional, known bool) {
-	if strings.EqualFold(strings.TrimSpace(sa.Params["Mandatory"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKMandatory)), "True") {
 		return false, true
 	}
 	if o := strings.TrimSpace(sa.ParamStr(cards.PKOptional)); o != "" {
@@ -948,7 +948,7 @@ func handMovePhraseMentionsHand(text, phrase string) bool {
 func handMovePromptFor(sa *cards.SA, to state.Zone, n int, own bool) string {
 	dest := handDestPhrase(to)
 	if to == state.ZLibrary {
-		if strings.TrimSpace(sa.Params["LibraryPosition"]) == "-1" {
+		if strings.TrimSpace(sa.ParamStr(cards.PKLibraryPosition)) == "-1" {
 			dest = "the bottom of your library"
 		} else {
 			dest = "the top of your library"
@@ -958,7 +958,7 @@ func handMovePromptFor(sa *cards.SA, to state.Zone, n int, own bool) string {
 	if !own {
 		whose = "that player's hand"
 		if to == state.ZLibrary {
-			if strings.TrimSpace(sa.Params["LibraryPosition"]) == "-1" {
+			if strings.TrimSpace(sa.ParamStr(cards.PKLibraryPosition)) == "-1" {
 				dest = "the bottom of that player's library"
 			} else {
 				dest = "the top of that player's library"
@@ -984,16 +984,16 @@ func handLibraryTail(h Host, _ *state.Game, sa *cards.SA, source state.ObjID, ow
 	// destination choice this engine cannot yet ask: the alternative is named
 	// in a Note and the primary destination/position is taken
 	// deterministically, so the unsupported shape is never silent.
-	if alt := strings.TrimSpace(sa.Params["DestinationAlternative"]); alt != "" || strings.TrimSpace(sa.Params["LibraryPositionAlternative"]) != "" {
+	if alt := strings.TrimSpace(sa.ParamStr(cards.PKDestinationAlternative)); alt != "" || strings.TrimSpace(sa.Params["LibraryPositionAlternative"]) != "" {
 		h.Emit(events.Event{Kind: events.Note, Obj: source, Player: owner,
 			Text: "DestinationAlternative$ " + alt + " is not a choice this engine can ask; the cards take the primary destination"})
 	}
-	if strings.EqualFold(strings.TrimSpace(sa.Params["Shuffle"]), "True") &&
-		!strings.EqualFold(strings.TrimSpace(sa.Params["NoShuffle"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKShuffle)), "True") &&
+		!strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKNoShuffle)), "True") {
 		shuffleLibraryExplicit(h, sa, owner)
 		return // a shuffled library has no meaningful LibraryPosition$
 	}
-	position := strings.TrimSpace(sa.Params["LibraryPosition"])
+	position := strings.TrimSpace(sa.ParamStr(cards.PKLibraryPosition))
 	if position != "" && position != "0" && position != "-1" {
 		h.Emit(events.Event{Kind: events.Note, Obj: source, Player: owner,
 			Text: "LibraryPosition$ " + position + " is not implemented; the cards go on top"})
@@ -1053,7 +1053,7 @@ func counterDestination(to state.Zone) bool {
 // RememberChanged$ True) has nothing to measure yet and keeps the loud
 // default rather than a silent zero.
 func withCounterAmount(h Host, c *Ctx, sa *cards.SA) int32 {
-	v := strings.TrimSpace(sa.Params["WithCountersAmount"])
+	v := strings.TrimSpace(sa.ParamStr(cards.PKWithCountersAmount))
 	if v == "" {
 		return 1
 	}

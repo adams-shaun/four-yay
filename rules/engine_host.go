@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/deck"
 	"github.com/adams-shaun/gorge/effects"
@@ -151,7 +152,7 @@ func (e *Engine) searchControlRedirect(d *decision.Decision) {
 		if sv.Controller == d.Player {
 			continue
 		}
-		if spec := sv.Params["Affected"]; spec != "" &&
+		if spec := sv.ParamStr(cards.PKAffected); spec != "" &&
 			!effects.MatchesPlayerSpec(e.G, spec, d.Player, sv.Controller) {
 			continue
 		}

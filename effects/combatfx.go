@@ -194,7 +194,7 @@ func effTap(h Host, c *Ctx, sa *cards.SA) {
 			tapper = ps[0]
 		}
 	}
-	entering := strings.EqualFold(sa.Params["ETB"], "True")
+	entering := strings.EqualFold(sa.ParamStr(cards.PKETB), "True")
 	for _, t := range Defined(h, c, sa) {
 		if t.IsPlayer {
 			continue
@@ -392,7 +392,7 @@ func effPump(h Host, c *Ctx, sa *cards.SA) {
 		// object must actually be on the battlefield to be pumped, and only a
 		// pumped target is remembered, so the Remembered set names exactly
 		// what the spell acted on.
-		if strings.EqualFold(strings.TrimSpace(sa.Params["RememberTargets"]), "True") {
+		if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberTargets)), "True") {
 			c.Remembered = append(c.Remembered, t)
 			eventRemember(h, c, t.Obj)
 		}
@@ -563,7 +563,7 @@ func pumpStatAmount(h Host, c *Ctx, sa *cards.SA, key string) (int32, bool) {
 }
 
 func registerPumpEffects(h Host, c *Ctx, id state.ObjID, att, def int32, doublePower, doubleToughness bool, sa *cards.SA, zone string, chosenKW []string) {
-	kws := cards.SplitKeywordList(sa.Params["KW"])
+	kws := cards.SplitKeywordList(sa.ParamStr(cards.PKKW))
 	kws = append(kws, chosenKW...)
 	// Suspend is unusual among keyword grants: its target is commonly an
 	// exiled card, and the later upkeep/cast/filter machinery needs a replayed
@@ -613,7 +613,7 @@ func registerPumpEffects(h Host, c *Ctx, id state.ObjID, att, def int32, doubleP
 	// card when it later re-enters (CR 400.7).
 	var exileOn string
 	var remembered []state.ObjID
-	if lr, lw := leaveExileLifetime(id, sa.Params["LeaveBattlefield"]); lw != "" {
+	if lr, lw := leaveExileLifetime(id, sa.ParamStr(cards.PKLeaveBattlefield)); lw != "" {
 		exileOn, remembered = lw, lr
 	} else if permanent {
 		if o := h.Game().Obj(id); o != nil {
@@ -648,7 +648,7 @@ func registerPumpEffects(h Host, c *Ctx, id state.ObjID, att, def int32, doubleP
 	// granting body's own duration, one registration per object -- the same
 	// helper the Animate site uses, so an unsupported rider value takes that
 	// helper's loud-Note behaviour.
-	registerLeaveExile(h, c, id, sa.Params["LeaveBattlefield"], sa.ParamStr(cards.PKDuration), permanent)
+	registerLeaveExile(h, c, id, sa.ParamStr(cards.PKLeaveBattlefield), sa.ParamStr(cards.PKDuration), permanent)
 }
 
 // effAnimate does not require the target to already be on the battlefield --
@@ -685,7 +685,7 @@ func effAnimate(h Host, c *Ctx, sa *cards.SA) {
 	// targets has targets to remember.
 	_, targeted := sa.Param(cards.PKValidTgts)
 	rememberTargets := targeted && !rememberAnimated &&
-		strings.EqualFold(strings.TrimSpace(sa.Params["RememberTargets"]), "True")
+		strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberTargets)), "True")
 	var ateotIDs []state.ObjID
 	for _, t := range Defined(h, c, sa) {
 		if t.IsPlayer {
@@ -831,7 +831,7 @@ func parseAnimateGrant(h Host, c *Ctx, sa *cards.SA) animateGrant {
 	ag := animateGrant{
 		duration:  sa.ParamStr(cards.PKDuration),
 		colorsRaw: strings.TrimSpace(sa.Params["Colors"]),
-		zone:      strings.TrimSpace(sa.Params["Zone"]),
+		zone:      strings.TrimSpace(sa.ParamStr(cards.PKZone)),
 	}
 	// Name$ is a literal replacement name (The Curse of Fenric's "named
 	// Fenric", Awakening of Vitu-Ghazi's "named Vitu-Ghazi"); a value the
@@ -928,7 +928,7 @@ func parseAnimateGrant(h Host, c *Ctx, sa *cards.SA) animateGrant {
 	// or carries no Mode$ fails closed under one loud note per name
 	// (triggersUnread), never a silently inert half.
 	ag.triggerGrantor = svarTableOwner(h, c)
-	for nm := range strings.SplitSeq(sa.Params["Triggers"], ",") {
+	for nm := range strings.SplitSeq(sa.ParamStr(cards.PKTriggers), ",") {
 		if nm = strings.TrimSpace(nm); nm == "" {
 			continue
 		}
@@ -945,7 +945,7 @@ func parseAnimateGrant(h Host, c *Ctx, sa *cards.SA) animateGrant {
 	// layer-6 ability strip the static Humility carries, delivered here by
 	// the Animate-param path. See animateGrant.removeAbilities.
 	ag.removeAbilities = strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRemoveAllAbilities)), "True")
-	ag.leaveExile = strings.TrimSpace(sa.Params["LeaveBattlefield"])
+	ag.leaveExile = strings.TrimSpace(sa.ParamStr(cards.PKLeaveBattlefield))
 	// Replacements$ names (comma-separated) SVars on THIS face's table whose
 	// bodies are R:-shaped replacements the animated object gains for the
 	// animation's own lifetime (Spirit-Sister's Call's ReplaceLeaves). Each
@@ -964,7 +964,7 @@ func parseAnimateGrant(h Host, c *Ctx, sa *cards.SA) animateGrant {
 	}
 	// Forge uses the lower-case spelling on Animate bodies. Accept the
 	// canonical spelling too so parser-produced and hand-authored SAs agree.
-	for _, raw := range []string{sa.Params["staticAbilities"], sa.Params["StaticAbilities"]} {
+	for _, raw := range []string{sa.Params["staticAbilities"], sa.ParamStr(cards.PKStaticAbilities)} {
 		for _, nm := range strings.FieldsFunc(raw, func(r rune) bool {
 			return r == ',' || r == ' ' || r == '\t' || r == '\n'
 		}) {

@@ -23,7 +23,7 @@ func damageReplacementPrevents(r cards.Repl) bool {
 	// classifier must too — a non-canonical `Prevent$ true` bodyless
 	// registration would otherwise be admitted to the competition and then
 	// silently erased by the With==nil CantHappen drop arm.
-	if strings.EqualFold(r.Params["Prevent"], "True") {
+	if strings.EqualFold(r.ParamStr(cards.PKPrevent), "True") {
 		return true
 	}
 	return r.With != nil && r.With.API == "ReplaceDamage"
@@ -220,7 +220,7 @@ func (e *Engine) runPreventionShieldRider(m replMatch, name string,
 	for k, v := range sub.Params {
 		rsub.Params[k] = v
 	}
-	if strings.TrimSpace(rsub.Params["NumDmg"]) == "PreventedDamage" {
+	if strings.TrimSpace(rsub.ParamStr(cards.PKNumDmg)) == "PreventedDamage" {
 		rsub.Params["NumDmg"] = strconv.Itoa(int(prevented))
 	}
 	if strings.TrimSpace(rsub.ParamStr(cards.PKDefined)) == "ShieldEffectTarget" {
@@ -508,7 +508,7 @@ func (e *Engine) applyChosenDamageReplacement(ev *events.Event, m replMatch) boo
 	if damageReplacementPrevents(*m.repl) && e.cantPreventDamage(e.damaging, ev.Obj) {
 		return false
 	}
-	if strings.EqualFold(m.repl.Params["Prevent"], "True") {
+	if strings.EqualFold(m.repl.ParamStr(cards.PKPrevent), "True") {
 		// The ordered path's full prevention is terminal — the held event
 		// never lands — so this re-entrant Note is the prevention's only log
 		// record, the same shape applyNonMoveReplacements' Prevent$ arm

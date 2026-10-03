@@ -146,7 +146,7 @@ func (e *Engine) staticGateDep(sv staticView) uint8 {
 		if chk == "" || table[chk] != "Count$YourLifeTotal" {
 			return staticGateDepAny
 		}
-		if name := lifeGateThresholdName(sv.Params["SVarCompare"]); name != "" {
+		if name := lifeGateThresholdName(sv.ParamStr(cards.PKSVarCompare)); name != "" {
 			if body, found := table[name]; !found || !startingLifeBody(body) {
 				return staticGateDepAny
 			}

@@ -35,6 +35,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
@@ -505,7 +506,7 @@ func (e *Engine) exertOfferHolds(id state.ObjID) bool {
 		// The static's own ValidCard$ (uniformly Card.Self over the corpus's
 		// 28 carriers, verified in triage) must still admit the attacker;
 		// an unparseable spec fails closed.
-		if vc := sv.Params["ValidCard"]; vc != "" &&
+		if vc := sv.ParamStr(cards.PKValidCard); vc != "" &&
 			!e.matchesSpecFrom(vc, id, o.Controller, sv.Source) {
 			continue
 		}
@@ -2351,7 +2352,7 @@ func (e *Engine) maxHandSizeFor(p state.PlayerID) int {
 		if raw == "" {
 			continue
 		}
-		if !effects.MatchesPlayerSpecFrom(e.G, sv.Params["Affected"], p, sv.Controller, sv.Source) {
+		if !effects.MatchesPlayerSpecFrom(e.G, sv.ParamStr(cards.PKAffected), p, sv.Controller, sv.Source) {
 			continue
 		}
 		if n, ok := effects.HandSizeValueOK(raw); ok {

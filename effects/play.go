@@ -232,7 +232,7 @@ func effPlay(h Host, c *Ctx, sa *cards.SA) {
 	// grammar's numericPred uses -- so Rashmi and Ragavan's
 	// `Spell.cmcLTX` reads the resolution's SVar:X (Count$Valid
 	// Artifact.YouCtrl) instead of failing every candidate closed.
-	if spec := strings.TrimSpace(sa.Params["ValidSA"]); spec != "" {
+	if spec := strings.TrimSpace(sa.ParamStr(cards.PKValidSA)); spec != "" {
 		resolve := func(name string) (int32, bool) { return c.resolveNumericRHS(name) }
 		var kept []state.ObjID
 		for _, id := range uniq {
@@ -287,7 +287,7 @@ func effPlay(h Host, c *Ctx, sa *cards.SA) {
 	// corpus-unreachable: no carrier combines Amount$ with a non-You
 	// Controller$).
 	playCtl := c.Controller
-	if ctl := strings.TrimSpace(sa.Params["Controller"]); ctl != "" {
+	if ctl := strings.TrimSpace(sa.ParamStr(cards.PKController)); ctl != "" {
 		_, ok := knownDefinedTargets(h, c, ctl)
 		if !ok {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,

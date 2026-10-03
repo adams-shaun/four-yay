@@ -106,7 +106,7 @@ func (e *Engine) paymentPlanManaConvertName(p state.PlayerID) string {
 	}
 	first := state.ObjID(0)
 	for _, sv := range views {
-		if vp, ok := sv.Params["ValidPlayer"]; ok && !effects.MatchesPlayerSpec(e.G, vp, p, sv.Controller) {
+		if vp, ok := sv.Param(cards.PKValidPlayer); ok && !effects.MatchesPlayerSpec(e.G, vp, p, sv.Controller) {
 			continue
 		}
 		if strings.Contains(sv.Params["ManaConversion"], "<-") {

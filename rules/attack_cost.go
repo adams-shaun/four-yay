@@ -85,7 +85,7 @@ func cantAttackUnlessParamsReadable(params map[string]string) bool {
 // whose pair is being priced, or 0 for the block direction (a CantBlockUnless
 // static has no RememberingAttacker$ carrier in the corpus).
 func (e *Engine) attackUnlessCharge(sv staticView, attacker state.ObjID) (blockCharge, bool) {
-	raw := strings.TrimSpace(sv.Params["Cost"])
+	raw := strings.TrimSpace(sv.ParamStr(cards.PKCost))
 	if raw == "" {
 		return blockCharge{}, false
 	}
@@ -142,7 +142,7 @@ func (e *Engine) attackPairCharge(id state.ObjID, defender state.PlayerID, attac
 		if !e.continuousGateHolds(sv) {
 			continue
 		}
-		spec := sv.Params["ValidCard"]
+		spec := sv.ParamStr(cards.PKValidCard)
 		if spec == "" {
 			// Every corpus carrier states ValidCard$; a static without one
 			// has no readable shape here. Skip, never blanket.
@@ -176,7 +176,7 @@ func (e *Engine) attackPairCharge(id state.ObjID, defender state.PlayerID, attac
 		if !cantAttackUnlessParamsReadable(sv.Params) || !e.continuousGateHolds(sv) {
 			continue
 		}
-		spec := sv.Params["ValidCard"]
+		spec := sv.ParamStr(cards.PKValidCard)
 		if spec == "" {
 			continue
 		}
@@ -338,7 +338,7 @@ func (e *Engine) chargeFromCost(c Cost, source state.ObjID) (blockCharge, bool) 
 // unresolvable SVar -- returns ok=false, marking the matching pair
 // unpriceable rather than allowing a free block.
 func (e *Engine) blockUnlessCharge(sv staticView) (blockCharge, bool) {
-	raw := strings.TrimSpace(sv.Params["Cost"])
+	raw := strings.TrimSpace(sv.ParamStr(cards.PKCost))
 	if raw == "" {
 		return blockCharge{}, false
 	}
@@ -374,7 +374,7 @@ func (e *Engine) blockUnlessCharge(sv staticView) (blockCharge, bool) {
 // every blocker against its enchanted attacker; War Cadence scopes neither
 // and prices every blocker in the game).
 func (e *Engine) blockStaticMatches(sv staticView, sc effects.SpecContext, blocker, attacker state.ObjID) bool {
-	if spec := sv.Params["ValidCard"]; spec != "" && !e.matchesSpec(spec, blocker, sc) {
+	if spec := sv.ParamStr(cards.PKValidCard); spec != "" && !e.matchesSpec(spec, blocker, sc) {
 		return false
 	}
 	if spec := sv.Params["Attacker"]; spec != "" && !e.matchesSpec(spec, attacker, sc) {
@@ -1202,7 +1202,7 @@ func (e *Engine) attackChoiceManaSources(p state.PlayerID) []attackManaSource {
 			continue
 		}
 		for _, ma := range e.availableManaAbilitiesForWindow(p, id, false) {
-			if strings.TrimSpace(ma.Params["RestrictValid"]) != "" {
+			if strings.TrimSpace(ma.ParamStr(cards.PKRestrictValid)) != "" {
 				continue
 			}
 			if !manaFreeCost(e.parseCost(ma.ParamStr(cards.PKCost))) {

@@ -336,17 +336,17 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 							// (both parameters are activated-ability vocabulary).
 							gg := base
 							gg.Layer = LAbilities
-							gg.GainedZones = strings.TrimSpace(st.Params["GainsAbilitiesOfZones"])
-							gg.GainsValidAbilities = strings.TrimSpace(st.Params["GainsValidAbilities"])
+							gg.GainedZones = strings.TrimSpace(st.ParamStr(cards.PKGainsAbilitiesOfZones))
+							gg.GainsValidAbilities = strings.TrimSpace(st.ParamStr(cards.PKGainsValidAbilities))
 							gg.GainsLimitPerTurn = gainsLimitPerTurn(st)
-							if spec := strings.TrimSpace(st.Params["GainsAbilitiesOf"]); spec != "" {
+							if spec := strings.TrimSpace(st.ParamStr(cards.PKGainsAbilitiesOf)); spec != "" {
 								gg.GainedFaces = e.gainedFacesForSpec(st, spec, id, o.Controller)
 							}
-							if spec := strings.TrimSpace(st.Params["GainsAbilitiesOfDefined"]); spec != "" {
+							if spec := strings.TrimSpace(st.ParamStr(cards.PKGainsAbilitiesOfDefined)); spec != "" {
 								ctx := effects.NewCtxPtr(id, o.Controller, effects.CtxInit{})
 								gg.GainedFaces = append(gg.GainedFaces, effects.GainedFacesOfDefined(e, ctx, spec)...)
 							}
-							if spec := strings.TrimSpace(st.Params["GainsTriggerAbsOf"]); spec != "" {
+							if spec := strings.TrimSpace(st.ParamStr(cards.PKGainsTriggerAbsOf)); spec != "" {
 								gg.GainedTriggerFaces = e.gainedFacesForSpec(st, spec, id, o.Controller)
 							}
 							if len(gg.GainedFaces) > 0 || len(gg.GainedTriggerFaces) > 0 {
@@ -368,7 +368,7 @@ func (e *Engine) staticEffectsWalk(dst []ContinuousEffect, skip bool) []Continuo
 						// an AddType$ (Luxior's equipped walker stops being a planeswalker
 						// and becomes a creature) but STANDS ALONE on the devotion gods,
 						// so the emission cannot gate on the AddType family.
-						if st.HasParam(cards.PKAddType) || st.HasParam(cards.PKAddTypes) || st.HasParam(cards.PKAddAllCreatureTypes) || strings.TrimSpace(st.Params["RemoveType"]) != "" {
+						if st.HasParam(cards.PKAddType) || st.HasParam(cards.PKAddTypes) || st.HasParam(cards.PKAddAllCreatureTypes) || strings.TrimSpace(st.ParamStr(cards.PKRemoveType)) != "" {
 							ty := base
 							ty.Layer = LType
 							ty.AddTypes = statList(st, "AddTypes")

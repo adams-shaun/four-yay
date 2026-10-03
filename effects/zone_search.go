@@ -53,7 +53,7 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, to state.Zone, zones []state
 	var cfdPool map[state.ObjID]bool
 	cfdActive := false
 	cfdResolved := true
-	if raw := strings.TrimSpace(sa.Params["ChooseFromDefined"]); raw != "" {
+	if raw := strings.TrimSpace(sa.ParamStr(cards.PKChooseFromDefined)); raw != "" {
 		cfdActive = true
 		var ok bool
 		if cfdPool, ok = chooseFromDefinedPool(h, c, raw); !ok {
@@ -93,7 +93,7 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, to state.Zone, zones []state
 			}
 			if !searchConfirmDone && !resumingAnswer {
 				chooser := searchChooser(h, c, sa)
-				prompt := strings.TrimSpace(sa.Params["OptionalPrompt"])
+				prompt := strings.TrimSpace(sa.ParamStr(cards.PKOptionalPrompt))
 				if prompt == "" {
 					prompt = "Proceed with searching a library?"
 				}
@@ -128,8 +128,8 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, to state.Zone, zones []state
 			lib = nil
 		}
 		lookWindow := searchLibraryWindow(h, c, sa, lib)
-		if len(lookWindow) < len(lib) && !strings.EqualFold(strings.TrimSpace(sa.Params["NoLooking"]), "True") {
-			if strings.EqualFold(strings.TrimSpace(sa.Params["Reveal"]), "True") {
+		if len(lookWindow) < len(lib) && !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKNoLooking)), "True") {
+			if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKReveal)), "True") {
 				h.Emit(events.Event{Kind: events.Note, Player: owner, IDs: append([]state.ObjID(nil), lookWindow...)})
 			} else {
 				emitLook(h, []state.PlayerID{searchChooser(h, c, sa)}, state.ZLibrary, lookWindow,
@@ -156,7 +156,7 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, to state.Zone, zones []state
 			continue
 		}
 
-		rawSpec := sa.Params["ChangeType"]
+		rawSpec := sa.ParamStr(cards.PKChangeType)
 		if rawSpec == "" {
 			rawSpec = "Card"
 		}
@@ -335,7 +335,7 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, to state.Zone, zones []state
 		// IsRemembered legs of the Cultivate family and the seek-style shapes
 		// route here; without this read the option labels leaked the library's
 		// order one look at a time.
-		noLooking := strings.EqualFold(strings.TrimSpace(sa.Params["NoLooking"]), "True")
+		noLooking := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKNoLooking)), "True")
 		// DifferentNames$ True (Realms Uncharted): the picked cards must have
 		// distinct names. One option per card name carries that name in Group, so
 		// Decision.Validate's mutual-exclusion rule refuses any answer naming the
@@ -443,7 +443,7 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, to state.Zone, zones []state
 		// Forge Mandatory$ removes the CR 701.23b fail-to-find option: if
 		// eligible cards (or EACH groups) exist, the search must take the
 		// requested number. Apply this after the EACH shape sets its bounds.
-		if strings.EqualFold(strings.TrimSpace(sa.Params["Mandatory"]), "True") {
+		if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKMandatory)), "True") {
 			min = max
 			if hasBudget && !eachStructured {
 				// Respect the cumulative budget's feasible deterministic count;
@@ -677,7 +677,7 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, to state.Zone) bool
 	answer := c.DefinedLibraryMove
 	c.DefinedLibraryMove = "" // fx42 scoping: a nested fetch asks for itself.
 	if optional && answer == "" {
-		prompt := strings.TrimSpace(sa.Params["OptionalPrompt"])
+		prompt := strings.TrimSpace(sa.ParamStr(cards.PKOptionalPrompt))
 		if prompt == "" {
 			prompt = "Move the selected card(s)?"
 		}
@@ -704,7 +704,7 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, to state.Zone) bool
 	// Optional$ confirmation returned above without clearing.
 	forgetOtherRemembered(h, c, sa)
 
-	withKind := sa.Params["WithCountersType"]
+	withKind := sa.ParamStr(cards.PKWithCountersType)
 	var withAmt int32
 	if withKind != "" && counterDestination(to) {
 		withAmt = withCounterAmount(h, c, sa)
@@ -731,7 +731,7 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, to state.Zone) bool
 			eventForgetChanged(h, c, sa, id)
 			moved = append(moved, id)
 			ateotMoved = append(ateotMoved, id)
-			if to == state.ZBattlefield && strings.EqualFold(sa.Params["Tapped"], "True") {
+			if to == state.ZBattlefield && strings.EqualFold(sa.ParamStr(cards.PKTapped), "True") {
 				h.Emit(events.Event{Kind: events.Tap, Obj: id, Player: f.owner, Text: "entered tapped"})
 			}
 		}
@@ -741,7 +741,7 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, to state.Zone) bool
 		// whenever Reveal$ names the effect, defined or not): the same public
 		// Note payload applyLibrarySearch emits -- no auto-reveal here, since
 		// a Defined$ list is never revealed by default.
-		if strings.EqualFold(strings.TrimSpace(sa.Params["Reveal"]), "True") && len(moved) > 0 {
+		if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKReveal)), "True") && len(moved) > 0 {
 			h.Emit(events.Event{Kind: events.Note, Player: f.owner, IDs: moved})
 		}
 	}
@@ -843,7 +843,7 @@ func chooserPlayer(h Host, c *Ctx, spec string) (state.PlayerID, bool) {
 // searchChooser resolves who answers the search prompt. A known Chooser$
 // selector wins; an unbound or unknown selector falls back to the controller.
 func searchChooser(h Host, c *Ctx, sa *cards.SA) state.PlayerID {
-	if spec := strings.TrimSpace(sa.Params["Chooser"]); spec != "" {
+	if spec := strings.TrimSpace(sa.ParamStr(cards.PKChooser)); spec != "" {
 		if p, ok := chooserPlayer(h, c, spec); ok {
 			return p
 		}
@@ -926,7 +926,7 @@ func hiddenPickPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 // wins; an unbound or unknown selector falls back to the fetch owner. With no
 // selector, the owner remains the decider.
 func hiddenPickChooser(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID) state.PlayerID {
-	if spec := strings.TrimSpace(sa.Params["Chooser"]); spec != "" {
+	if spec := strings.TrimSpace(sa.ParamStr(cards.PKChooser)); spec != "" {
 		if p, ok := chooserPlayer(h, c, spec); ok {
 			return p
 		}
@@ -1102,7 +1102,7 @@ func applyLibrarySearch(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, to s
 		defer b.EndLibrarySearch()
 	}
 	g := h.Game()
-	spec := sa.Params["ChangeType"]
+	spec := sa.ParamStr(cards.PKChangeType)
 	if spec == "" {
 		spec = "Card"
 	}
@@ -1174,7 +1174,7 @@ func applyLibrarySearch(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, to s
 	// already noted; this is the bypass guard).
 	var cfdPool map[state.ObjID]bool
 	cfdActive := false
-	if raw := strings.TrimSpace(sa.Params["ChooseFromDefined"]); raw != "" {
+	if raw := strings.TrimSpace(sa.ParamStr(cards.PKChooseFromDefined)); raw != "" {
 		if pool, ok := chooseFromDefinedPool(h, c, raw); ok {
 			cfdPool, cfdActive = pool, true
 		} else {
@@ -1245,8 +1245,8 @@ func applyLibrarySearch(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, to s
 		if o.Zone != state.ZLibrary {
 			withKind := ""
 			var withAmt int32
-			if sa.Params["WithCountersType"] != "" && counterDestination(to) {
-				withKind = sa.Params["WithCountersType"]
+			if sa.ParamStr(cards.PKWithCountersType) != "" && counterDestination(to) {
+				withKind = sa.ParamStr(cards.PKWithCountersType)
 				withAmt = withCounterAmount(h, c, sa)
 			}
 			settleChangeZoneMoveAs(h, c, sa, id, o.Zone, to, withKind, withAmt, owner, true, &rider)
@@ -1272,7 +1272,7 @@ func applyLibrarySearch(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, to s
 				eventRemember(h, c, id)
 			}
 			eventForgetChanged(h, c, sa, id)
-			if to == state.ZBattlefield && strings.EqualFold(sa.Params["Tapped"], "True") {
+			if to == state.ZBattlefield && strings.EqualFold(sa.ParamStr(cards.PKTapped), "True") {
 				h.Emit(events.Event{Kind: events.Tap, Obj: id, Player: owner, Text: "entered tapped"})
 			}
 			continue
@@ -1294,9 +1294,9 @@ func applyLibrarySearch(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, to s
 		// the object's post-move zone before the id is recorded, so a skipped
 		// candidate (an Origin$ miss, an in-flight replacement) is never
 		// imprinted.
-		if strings.EqualFold(strings.TrimSpace(sa.Params["Imprint"]), "True") && c.Source != 0 {
+		if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKImprint)), "True") && c.Source != 0 {
 			if o := g.Obj(id); o != nil && o.Zone == to && !o.IsToken {
-				if strings.EqualFold(strings.TrimSpace(sa.Params["ImprintLast"]), "True") {
+				if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKImprintLast)), "True") {
 					clearChangeZoneImprint(h, c)
 					h.Emit(events.Event{Kind: events.Imprint, Obj: c.Source, IDs: []state.ObjID{id}})
 				} else {
@@ -1305,9 +1305,9 @@ func applyLibrarySearch(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, to s
 			}
 		}
 		moved = append(moved, id)
-		if sa.Params["WithCountersType"] != "" && counterDestination(to) {
+		if sa.ParamStr(cards.PKWithCountersType) != "" && counterDestination(to) {
 			h.Emit(events.Event{Kind: events.CounterChange, Obj: id,
-				Counter: sa.Params["WithCountersType"], Amount: withCounterAmount(h, c, sa)})
+				Counter: sa.ParamStr(cards.PKWithCountersType), Amount: withCounterAmount(h, c, sa)})
 		}
 		// GainControl$ on a library search (Act on Impulse's "you may play
 		// those cards" family's put-onto-battlefield relatives): same settle
@@ -1333,7 +1333,7 @@ func applyLibrarySearch(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, to s
 			eventRemember(h, c, id)
 		}
 		eventForgetChanged(h, c, sa, id)
-		if to == state.ZBattlefield && strings.EqualFold(sa.Params["Tapped"], "True") {
+		if to == state.ZBattlefield && strings.EqualFold(sa.ParamStr(cards.PKTapped), "True") {
 			// This establishes the object's entry state; it is not the CR
 			// 701.21a event of becoming tapped. Text is part of the replayed
 			// event payload, so rules can distinguish it from an ordinary Tap
@@ -1371,12 +1371,12 @@ func applyLibrarySearch(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, to s
 	// Reveal primitive emits (a public Note carrying the ids; no Text --
 	// view.Describe renders the names), emitted after the moves exactly where
 	// Forge's own reveal call sits.
-	reveal := strings.EqualFold(strings.TrimSpace(sa.Params["Reveal"]), "True") ||
+	reveal := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKReveal)), "True") ||
 		(to != state.ZBattlefield && spec != "Card" &&
 			strings.TrimSpace(sa.ParamStr(cards.PKDefined)) == "" &&
 			!strings.EqualFold(strings.TrimSpace(sa.Params["NoReveal"]), "True"))
 	if strings.EqualFold(strings.TrimSpace(sa.Params["Hidden"]), "True") &&
-		!strings.EqualFold(strings.TrimSpace(sa.Params["Reveal"]), "True") {
+		!strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKReveal)), "True") {
 		reveal = false
 	}
 	if reveal && len(moved) > 0 {
@@ -1405,7 +1405,7 @@ func applyLibrarySearch(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, to s
 				}
 			}
 		}
-		if !strings.EqualFold(strings.TrimSpace(sa.Params["NoLooking"]), "True") {
+		if !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKNoLooking)), "True") {
 			chooser := searchChooser(h, c, sa)
 			for _, id := range moved {
 				c.SearchKnown = append(c.SearchKnown, state.Target{Obj: id, Player: chooser})

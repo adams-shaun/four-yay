@@ -95,6 +95,17 @@ func (sv Static) ParamStr(k cards.ParamKey) string {
 	return v
 }
 
+// Param is Params[k] and whether k is present, through the compiled set.
+func (sv Static) Param(k cards.ParamKey) (string, bool) {
+	return cards.ParamSetParam(sv.PS, sv.Params, k)
+}
+
+// HasParam reports whether k is present, through the compiled set.
+func (sv Static) HasParam(k cards.ParamKey) bool {
+	_, ok := cards.ParamSetParam(sv.PS, sv.Params, k)
+	return ok
+}
+
 // Keyword names a keyword the combat predicates test. Board.HasKW resolves it
 // to the engine's precompiled head, so a keyword read stays a bitset test.
 type Keyword uint8

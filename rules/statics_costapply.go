@@ -178,7 +178,7 @@ func (e *Engine) costStaticGateFull(sv staticView, mode string, p state.PlayerID
 	// discount under its first-strike Continuous, a Class level's granted
 	// reduction. No corpus cost static marked Secondary$ duplicates an
 	// identically gated sibling, so applying it never double-counts.
-	if sv.Params["Relative"] == "True" && !(mode == "ReduceCost" && xBound) {
+	if sv.ParamStr(cards.PKRelative) == "True" && !(mode == "ReduceCost" && xBound) {
 		// Relative$ Amount$ scales with something the composition point does
 		// not yet know (IncreaseCost per target beyond the first, or a game
 		// state the offer-time read cannot price) — a per-target shape no
@@ -230,7 +230,7 @@ func (e *Engine) costStaticGateFull(sv staticView, mode string, p state.PlayerID
 // integer literal stands as itself. See the call site's SECOND EXCEPTION for
 // the measured blast radius (notofthisworld1).
 func (e *Engine) relativeAmountResolves(sv staticView, sub costSubject, targets []state.Target) bool {
-	raw := strings.TrimSpace(sv.Params["Amount"])
+	raw := strings.TrimSpace(sv.ParamStr(cards.PKAmount))
 	if raw == "" {
 		return false
 	}
@@ -322,7 +322,7 @@ func (e *Engine) costAffectedZone(id state.ObjID, scope costScope) (state.Zone, 
 // "during your end step" is Phases$ End of Turn + PlayerTurn$ You). An
 // unrecognised value denies, the gate chain's fail-closed direction.
 func (e *Engine) costTurnGateHolds(sv staticView) bool {
-	if turn := strings.TrimSpace(sv.Params["PlayerTurn"]); turn != "" {
+	if turn := strings.TrimSpace(sv.ParamStr(cards.PKPlayerTurn)); turn != "" {
 		switch turn {
 		case "True", "You":
 			if e.G.Active != sv.Controller {
@@ -355,7 +355,7 @@ func (e *Engine) costTurnGateHolds(sv staticView) bool {
 // discount that silently always applies is a wrong cost, the same fail-closed
 // direction the ValidSpell$ shapes take.
 func (e *Engine) costConditionHolds(sv staticView, p state.PlayerID) bool {
-	cond, ok := sv.Params["Condition"]
+	cond, ok := sv.Param(cards.PKCondition)
 	if !ok {
 		return true
 	}
@@ -411,7 +411,7 @@ func (e *Engine) checkSVarHolds(sv staticView) bool {
 // Tezzeret's Count$ThisTurnActivated_ gates count) and the announced
 // targets. A zero subject is the plain static read.
 func (e *Engine) checkSVarHoldsFor(sv staticView, sub costSubject, targets []state.Target) bool {
-	raw, ok := sv.Params["CheckSVar"]
+	raw, ok := sv.Param(cards.PKCheckSVar)
 	if !ok {
 		return true
 	}
@@ -431,7 +431,7 @@ func (e *Engine) checkSVarHoldsFor(sv staticView, sub costSubject, targets []sta
 	}
 	ctx := effects.NewCtxPtr(sv.Source, sv.Controller, effects.CtxInit{SVars: svars, Targets: targets})
 	ctx.AffectedObj, ctx.AffectedAbility = sub.id, sub.ab
-	holds, evaluated := effects.CheckSVarHolds(e, ctx, raw, sv.Params["SVarCompare"])
+	holds, evaluated := effects.CheckSVarHolds(e, ctx, raw, sv.ParamStr(cards.PKSVarCompare))
 	if !evaluated {
 		// The statics' shipped convention: an unreadable gate body (an
 		// unmodelled count head, an unparseable compare) degrades to zero and

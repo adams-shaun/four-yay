@@ -57,7 +57,7 @@ func staticGoadLines(b Board) []staticGoadLine {
 		if !strings.EqualFold(strings.TrimSpace(sv.ParamStr(cards.PKGoad)), "True") {
 			continue
 		}
-		spec := sv.Params["Affected"]
+		spec := sv.ParamStr(cards.PKAffected)
 		if spec == "" {
 			spec = "Card.Self"
 		}

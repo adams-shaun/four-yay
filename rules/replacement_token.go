@@ -90,8 +90,8 @@ func tokenReplApplies(m replMatch) bool {
 	if body == nil || body.API != "ReplaceToken" {
 		return false
 	}
-	chosenShape := strings.EqualFold(strings.TrimSpace(body.Params["TokenScript"]), "Chosen") ||
-		strings.TrimSpace(body.Params["ValidChoices"]) != ""
+	chosenShape := strings.EqualFold(strings.TrimSpace(body.ParamStr(cards.PKTokenScript)), "Chosen") ||
+		strings.TrimSpace(body.ParamStr(cards.PKValidChoices)) != ""
 	if !chosenShape && strings.EqualFold(m.repl.ParamStr(cards.PKOptional), "True") {
 		return false
 	}
@@ -207,8 +207,8 @@ func (e *Engine) driveTokenReplacements(ev events.Event, matches []replMatch, pl
 			// the mint stands (the fail-safe direction).
 			continue
 		}
-		chosenShape := strings.EqualFold(strings.TrimSpace(body.Params["TokenScript"]), "Chosen") ||
-			strings.TrimSpace(body.Params["ValidChoices"]) != ""
+		chosenShape := strings.EqualFold(strings.TrimSpace(body.ParamStr(cards.PKTokenScript)), "Chosen") ||
+			strings.TrimSpace(body.ParamStr(cards.PKValidChoices)) != ""
 		if !chosenShape && strings.EqualFold(m.repl.ParamStr(cards.PKOptional), "True") {
 			// A "may" replacement with no copy source to point at: pose the
 			// bare apply/decline election. The chosen-copy bodies below pose
@@ -274,7 +274,7 @@ func (e *Engine) driveTokenReplacements(ev events.Event, matches []replMatch, pl
 // rather than overwrite an outstanding ask.
 func (e *Engine) poseChosenTokenReplacement(ev events.Event, matches []replMatch, plan []tokenPlanMint, idx int, m replMatch) ([]tokenPlanMint, bool) {
 	you := e.controllerOf(m.id)
-	cands := e.tokenChosenCandidates(strings.TrimSpace(m.repl.With.Params["ValidChoices"]), m.id, you)
+	cands := e.tokenChosenCandidates(strings.TrimSpace(m.repl.With.ParamStr(cards.PKValidChoices)), m.id, you)
 	optional := strings.EqualFold(m.repl.ParamStr(cards.PKOptional), "True")
 	if len(cands) == 0 {
 		return plan, false
@@ -608,7 +608,7 @@ func (e *Engine) applyTokenReplacementToPlan(ev events.Event, plan []tokenPlanMi
 		// each matched mint is replaced by one mint per script in the CSV
 		// (Academy Manufactor's one Clue -> Clue+Food+Treasure; Divine
 		// Visitation's squirrel -> angel).
-		scripts := e.knownTokenScripts(m.id, body.Params["TokenScript"])
+		scripts := e.knownTokenScripts(m.id, body.ParamStr(cards.PKTokenScript))
 		if len(scripts) == 0 {
 			return plan
 		}
@@ -640,7 +640,7 @@ func (e *Engine) applyTokenReplacementToPlan(ev events.Event, plan []tokenPlanMi
 			}
 			n = v
 		}
-		extra := e.knownTokenScripts(m.id, body.Params["TokenScript"])
+		extra := e.knownTokenScripts(m.id, body.ParamStr(cards.PKTokenScript))
 		if len(extra) == 0 {
 			return plan
 		}
@@ -682,7 +682,7 @@ func (e *Engine) applyTokenReplacementToPlan(ev events.Event, plan []tokenPlanMi
 		p, ok := e.tokenNewController(m, ev)
 		if !ok {
 			e.emit(events.Event{Kind: events.Note, Obj: m.id, Player: ev.Player,
-				Text: "ReplaceToken NewController$ " + strings.TrimSpace(body.Params["NewController"]) + " is not implemented; the token is created unchanged"})
+				Text: "ReplaceToken NewController$ " + strings.TrimSpace(body.ParamStr(cards.PKNewController)) + " is not implemented; the token is created unchanged"})
 			return plan
 		}
 		out := make([]tokenPlanMint, 0, len(plan))
@@ -838,7 +838,7 @@ func (e *Engine) tokenReplacementAmount(m replMatch, ev events.Event, raw string
 // unrecognised, or playerless selector reports not-ok and the match is
 // skipped with a loud Note, never guessed onto a seat.
 func (e *Engine) tokenNewController(m replMatch, ev events.Event) (state.PlayerID, bool) {
-	raw := strings.TrimSpace(m.repl.With.Params["NewController"])
+	raw := strings.TrimSpace(m.repl.With.ParamStr(cards.PKNewController))
 	if raw == "" {
 		return 0, false
 	}

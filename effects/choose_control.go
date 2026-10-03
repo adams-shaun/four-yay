@@ -34,13 +34,13 @@ func choiceBounds(h Host, c *Ctx, sa *cards.SA, cardChoice bool) (int, int) {
 		max = 0
 	}
 	min := max
-	if cardChoice && !strings.EqualFold(sa.Params["Mandatory"], "True") {
+	if cardChoice && !strings.EqualFold(sa.ParamStr(cards.PKMandatory), "True") {
 		min = 0
 	}
 	if _, ok := sa.Params["MinAmount"]; ok {
 		min = int(Num(h, c, sa, "MinAmount", 0))
 	}
-	if strings.EqualFold(sa.Params["Mandatory"], "False") || strings.EqualFold(sa.ParamStr(cards.PKOptional), "True") {
+	if strings.EqualFold(sa.ParamStr(cards.PKMandatory), "False") || strings.EqualFold(sa.ParamStr(cards.PKOptional), "True") {
 		min = 0
 	}
 	if min < 0 {
@@ -56,7 +56,7 @@ func choiceZones(sa *cards.SA) map[state.Zone]bool {
 	if strings.EqualFold(sa.Params["AllCards"], "True") {
 		return nil
 	}
-	s := strings.TrimSpace(sa.Params["ChoiceZone"])
+	s := strings.TrimSpace(sa.ParamStr(cards.PKChoiceZone))
 	if s == "" {
 		return map[state.Zone]bool{state.ZBattlefield: true}
 	}
@@ -149,7 +149,7 @@ func chooseCardControl(sa *cards.SA) string {
 	if v := strings.TrimSpace(sa.Params["ControlledByPlayer"]); v != "" {
 		return v
 	}
-	if strings.TrimSpace(sa.ParamStr(cards.PKChoices)) != "" || strings.TrimSpace(sa.Params["DefinedCards"]) != "" {
+	if strings.TrimSpace(sa.ParamStr(cards.PKChoices)) != "" || strings.TrimSpace(sa.ParamStr(cards.PKDefinedCards)) != "" {
 		return ""
 	}
 	if strings.EqualFold(strings.TrimSpace(sa.Params["AllCards"]), "True") {
@@ -166,12 +166,12 @@ func cardChoices(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID) []state.T
 	control := chooseCardControl(sa)
 	var candidates []state.Target
 	zones := choiceZones(sa)
-	if raw := strings.TrimSpace(sa.Params["DefinedCards"]); raw != "" {
+	if raw := strings.TrimSpace(sa.ParamStr(cards.PKDefinedCards)); raw != "" {
 		var qualifier string
 		candidates, qualifier = definedCardPool(g, c, raw)
 		// A DefinedCards$ set already supplies its zone. ChoiceZone$, when
 		// present, remains an additional restriction on that set.
-		if _, explicit := sa.Params["ChoiceZone"]; !explicit {
+		if !sa.HasParam(cards.PKChoiceZone) {
 			zones = nil
 		}
 		out := candidates[:0]
@@ -513,7 +513,7 @@ func effChooseCard(h Host, c *Ctx, sa *cards.SA) {
 	// answered re-entry and on the no-host fallback below — so every seat
 	// learns the kept set before the next chooser picks. Player entries
 	// (a ChoosePlayer follow-up) reveal nothing: a player is not hidden.
-	reveal := strings.EqualFold(strings.TrimSpace(sa.Params["Reveal"]), "True")
+	reveal := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKReveal)), "True")
 	each := chooseEachGroups(sa)
 	groups := 1
 	if each != nil {
@@ -619,7 +619,7 @@ func effChooseCard(h Host, c *Ctx, sa *cards.SA) {
 			chooseCardRecord(h, c, sa, randomChoices(h, choices, max))
 			continue
 		}
-		d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Source: c.Source, Min: min, Max: max, ResumeKind: "choice", ResumeSA: sa, ResumeTarget: i, ResumeChoices: append([]state.Target(nil), c.Chosen...), ResumeChosenValid: c.ChosenValid, ResumeRemembered: append([]state.Target(nil), c.Remembered...), Prompt: sa.Params["ChoiceTitle"]}
+		d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Source: c.Source, Min: min, Max: max, ResumeKind: "choice", ResumeSA: sa, ResumeTarget: i, ResumeChoices: append([]state.Target(nil), c.Chosen...), ResumeChosenValid: c.ChosenValid, ResumeRemembered: append([]state.Target(nil), c.Remembered...), Prompt: sa.ParamStr(cards.PKChoiceTitle)}
 		// The ForgetOtherRemembered$ pre-clear snapshot rides the ask: a later
 		// chooser's pool (the cardChoices read above re-runs on every resumed
 		// pass) still matches the pre-clear candidates after the clear.
@@ -785,7 +785,7 @@ func effChooseSource(h Host, c *Ctx, sa *cards.SA) {
 			ResumeChoices:     append([]state.Target(nil), c.Chosen...),
 			ResumeChosenValid: c.ChosenValid,
 			ResumeRemembered:  append([]state.Target(nil), c.Remembered...),
-			Prompt:            sa.Params["ChoiceTitle"]}
+			Prompt:            sa.ParamStr(cards.PKChoiceTitle)}
 		for j, t := range choices {
 			d.Options = append(d.Options, decision.Option{Index: j, Kind: "card", Obj: t.Obj, Player: choosers[i]})
 		}
@@ -890,11 +890,11 @@ func effChoosePlayer(h Host, c *Ctx, sa *cards.SA) {
 		if min > max {
 			min = max
 		}
-		if strings.EqualFold(sa.Params["Random"], "True") {
+		if strings.EqualFold(sa.ParamStr(cards.PKRandom), "True") {
 			choiceRecord(h, c, sa, randomChoices(h, choices, max), true)
 			continue
 		}
-		d := &decision.Decision{Player: choosers[i], Kind: decision.KChoose, Source: c.Source, Min: min, Max: max, ResumeKind: "choice", ResumeSA: sa, ResumeTarget: i, ResumeChoices: append([]state.Target(nil), c.Chosen...), ResumeChosenValid: c.ChosenValid, ResumeRemembered: append([]state.Target(nil), c.Remembered...), Prompt: sa.Params["ChoiceTitle"]}
+		d := &decision.Decision{Player: choosers[i], Kind: decision.KChoose, Source: c.Source, Min: min, Max: max, ResumeKind: "choice", ResumeSA: sa, ResumeTarget: i, ResumeChoices: append([]state.Target(nil), c.Chosen...), ResumeChosenValid: c.ChosenValid, ResumeRemembered: append([]state.Target(nil), c.Remembered...), Prompt: sa.ParamStr(cards.PKChoiceTitle)}
 		for j, t := range choices {
 			d.Options = append(d.Options, decision.Option{Index: j, Kind: "player", Player: t.Player})
 		}
@@ -985,7 +985,7 @@ func playerTargetIn(ts []state.Target) (state.PlayerID, bool) {
 // control of target creature"), where that is correct.
 func controlPlayer(h Host, c *Ctx, sa *cards.SA) (state.PlayerID, bool) {
 	g := h.Game()
-	v := strings.TrimSpace(sa.Params["NewController"])
+	v := strings.TrimSpace(sa.ParamStr(cards.PKNewController))
 	switch v {
 	case "":
 		if p, ok := playerTargetIn(c.PickedTargets); ok {
@@ -1143,7 +1143,7 @@ func effGainControl(h Host, c *Ctx, sa *cards.SA) {
 				return
 			}
 			if len(choices) > 1 {
-				d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Source: c.Source, Min: 1, Max: 1, ResumeKind: "choice", ResumeSA: sa, ResumeChoices: append([]state.Target(nil), c.Chosen...), ResumeChosenValid: c.ChosenValid, ResumeRemembered: append([]state.Target(nil), c.Remembered...), Prompt: sa.Params["ChoiceTitle"]}
+				d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Source: c.Source, Min: 1, Max: 1, ResumeKind: "choice", ResumeSA: sa, ResumeChoices: append([]state.Target(nil), c.Chosen...), ResumeChosenValid: c.ChosenValid, ResumeRemembered: append([]state.Target(nil), c.Remembered...), Prompt: sa.ParamStr(cards.PKChoiceTitle)}
 				for i, t := range choices {
 					d.Options = append(d.Options, decision.Option{Index: i, Kind: "card", Obj: t.Obj, Player: chooser})
 				}
@@ -1172,7 +1172,7 @@ func effGainControl(h Host, c *Ctx, sa *cards.SA) {
 	}
 	p, ok := controlPlayer(h, c, sa)
 	if !ok {
-		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "GainControl NewController$ " + sa.Params["NewController"] + " names no player"})
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "GainControl NewController$ " + sa.ParamStr(cards.PKNewController) + " names no player"})
 		return
 	}
 	for _, t := range ts {
@@ -1532,7 +1532,7 @@ func effControlSpell(h Host, c *Ctx, sa *cards.SA) {
 	// unrecognised value is a loud Note and no transfer, the fail-closed
 	// direction — a control change applied to the wrong kind of object is
 	// not recoverable.
-	mode := strings.TrimSpace(sa.Params["Mode"])
+	mode := strings.TrimSpace(sa.ParamStr(cards.PKMode))
 	switch mode {
 	case "", "Gain":
 	default:
@@ -1542,7 +1542,7 @@ func effControlSpell(h Host, c *Ctx, sa *cards.SA) {
 	}
 	p, ok := controlPlayer(h, c, sa)
 	if !ok {
-		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "ControlSpell NewController$ " + sa.Params["NewController"] + " names no player"})
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "ControlSpell NewController$ " + sa.ParamStr(cards.PKNewController) + " names no player"})
 		return
 	}
 	for _, t := range Defined(h, c, sa) {
@@ -1633,7 +1633,7 @@ func recordTargets(h Host, obj state.ObjID, ts []state.Target) {
 }
 
 func changeTargetChooser(h Host, c *Ctx, sa *cards.SA) state.PlayerID {
-	v := strings.TrimSpace(sa.Params["Chooser"])
+	v := strings.TrimSpace(sa.ParamStr(cards.PKChooser))
 	if v == "" || v == "You" {
 		return c.Controller
 	}
@@ -1837,7 +1837,7 @@ func repeatPlayers(h Host, c *Ctx, spec string) ([]state.PlayerID, bool) {
 }
 
 func repeatedCards(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
-	if spec := strings.TrimSpace(sa.Params["DefinedCards"]); spec != "" {
+	if spec := strings.TrimSpace(sa.ParamStr(cards.PKDefinedCards)); spec != "" {
 		switch strings.Split(spec, ".")[0] {
 		case "Targeted":
 			return objectsOf(c.Targets), true
@@ -1853,7 +1853,7 @@ func repeatedCards(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
 		return nil, false
 	}
 	zones := map[state.Zone]bool{state.ZBattlefield: true}
-	if raw := strings.TrimSpace(sa.Params["Zone"]); raw != "" {
+	if raw := strings.TrimSpace(sa.ParamStr(cards.PKZone)); raw != "" {
 		zones = map[state.Zone]bool{}
 		for z := range strings.SplitSeq(raw, ",") {
 			switch strings.TrimSpace(z) {

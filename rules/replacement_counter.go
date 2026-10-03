@@ -392,7 +392,7 @@ func (e *Engine) counterReplacementMatchesAll(target, cause state.ObjID) []replM
 		if t == nil || src == nil {
 			continue
 		}
-		if spec := r.Params["ValidSA"]; spec != "" && !e.counterValidSA(t, spec, e.controllerOf(ce.Source), ce.Source) {
+		if spec := r.ParamStr(cards.PKValidSA); spec != "" && !e.counterValidSA(t, spec, e.controllerOf(ce.Source), ce.Source) {
 			continue
 		}
 		matches = append(matches, replMatch{id: ce.Source, repl: &r,
@@ -458,7 +458,7 @@ func (e *Engine) counterReplacementMatches(r cards.Repl, source, target, cause s
 	if !e.replacementConditionHolds(r, source, o.Controller) {
 		return false
 	}
-	return e.counterValidSA(t, r.Params["ValidSA"], o.Controller, source)
+	return e.counterValidSA(t, r.ParamStr(cards.PKValidSA), o.Controller, source)
 }
 
 // counterValidSA is the Spell/Activated/Triggered subset used by R:Event$

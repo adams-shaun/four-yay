@@ -187,13 +187,13 @@ func chooseColorOptions(sa *cards.SA) (opts []decision.Option, askable bool, exo
 	if strings.TrimSpace(sa.Params["OrColors"]) != "" {
 		return nil, false, "OrColors$"
 	}
-	if strings.TrimSpace(sa.Params["UpTo"]) != "" {
+	if strings.TrimSpace(sa.ParamStr(cards.PKUpTo)) != "" {
 		return nil, false, "UpTo$"
 	}
 	if strings.TrimSpace(sa.Params["ColorsFrom"]) != "" {
 		return nil, false, "ColorsFrom$"
 	}
-	if strings.TrimSpace(sa.Params["Random"]) != "" {
+	if strings.TrimSpace(sa.ParamStr(cards.PKRandom)) != "" {
 		// The silent die-roll shape: unaskable, but no Note (see the
 		// chooseColorUnaskable doc above).
 		return nil, false, ""
@@ -301,7 +301,7 @@ func effChooseNumber(h Host, c *Ctx, sa *cards.SA) {
 	unmatchedAbility := strings.TrimSpace(sa.Params["UnmatchedAbility"])
 	if matchedAbility != "" || unmatchedAbility != "" {
 		effChooseNumberElection(h, c, sa, matchedAbility, unmatchedAbility,
-			strings.EqualFold(strings.TrimSpace(sa.Params["Secretly"]), "True"))
+			strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKSecretly)), "True"))
 		return
 	}
 	chooser := c.Controller
@@ -320,10 +320,10 @@ func effChooseNumber(h Host, c *Ctx, sa *cards.SA) {
 		// not be logged as a Max$ problem (the note is the one record an
 		// operator sees).
 		text := "ChooseNumber"
-		if mx := strings.TrimSpace(sa.Params["Max"]); mx != "" {
+		if mx := strings.TrimSpace(sa.ParamStr(cards.PKMax)); mx != "" {
 			text += " Max$ " + mx
 		}
-		if mn := strings.TrimSpace(sa.Params["Min"]); mn != "" {
+		if mn := strings.TrimSpace(sa.ParamStr(cards.PKMin)); mn != "" {
 			text += " Min$ " + mn
 		}
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,

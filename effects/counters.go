@@ -243,7 +243,7 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 	// carrier pairs it with CounterNum$, so the read is a fallback, never a
 	// competition. An unresolvable body degrades to 0, Num's convention.
 	n := int32(1)
-	if strings.TrimSpace(sa.Params["CounterNum"]) != "" {
+	if strings.TrimSpace(sa.ParamStr(cards.PKCounterNum)) != "" {
 		n = Num(h, c, sa, "CounterNum", 1)
 	} else if strings.TrimSpace(sa.Params["Adapt"]) != "" {
 		n = Num(h, c, sa, "Adapt", 1)
@@ -376,7 +376,7 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 	// MinChoiceAmount$/ChoiceAmount$; without Choices$ the recipients are the
 	// ordinary chosen targets (ValidTgts$, already asked by the targeting
 	// machinery).
-	divided := strings.TrimSpace(sa.Params["DividedAsYouChoose"]) != ""
+	divided := strings.TrimSpace(sa.ParamStr(cards.PKDividedAsYouChoose)) != ""
 	// fx45 scoping: capture and clear the answered Choices$ pick BEFORE the
 	// branch, so a nested PutCounter below cannot inherit the outer answer
 	// (the fx42 discipline every answered field follows).
@@ -405,7 +405,7 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 	// body after the entry move in the ordinary flow, but a body reached
 	// while the object is still mid-entry must place the counters anyway,
 	// not skip on the battlefield precondition.
-	etb := strings.EqualFold(strings.TrimSpace(sa.Params["ETB"]), "True")
+	etb := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKETB)), "True")
 	// CounterType$ EachFromSource (task eachfromsource): the copy-each-kind
 	// shape -- the target(s) take a counter of each kind the EachFromSource$
 	// source carried. Not a real counter kind, so the ordinary loop below
@@ -529,7 +529,7 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 			if p := PlayerOf(h, c, t); int(p) >= 0 && int(p) < len(h.Game().Players) {
 				emitPutCounterChange(h, c, sa, events.Event{Kind: events.PlayerCounterChange, Player: p,
 					Counter: kind, Amount: n})
-				if n > 0 && strings.EqualFold(strings.TrimSpace(sa.Params["RememberPut"]), "True") {
+				if n > 0 && strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberPut)), "True") {
 					placed = append(placed, state.Target{Player: p, IsPlayer: true})
 				}
 			}
@@ -684,7 +684,7 @@ func putCounterEachFromSource(h Host, c *Ctx, sa *cards.SA, etb bool, ref string
 	// The CounterNum$ multiplier (default 1): present-but-unresolvable
 	// degrades to 0 -- nothing is placed, the Num convention.
 	mult := int32(1)
-	if strings.TrimSpace(sa.Params["CounterNum"]) != "" {
+	if strings.TrimSpace(sa.ParamStr(cards.PKCounterNum)) != "" {
 		mult = Num(h, c, sa, "CounterNum", 1)
 	}
 	var placed []state.Target
@@ -832,7 +832,7 @@ func putCounterWouldPlace(h Host, c *Ctx, sa *cards.SA) bool {
 			return false
 		}
 		defMax := int32(1)
-		if strings.TrimSpace(sa.Params["DividedAsYouChoose"]) != "" {
+		if strings.TrimSpace(sa.ParamStr(cards.PKDividedAsYouChoose)) != "" {
 			defMax = Num(h, c, sa, "CounterNum", 1)
 		}
 		return Num(h, c, sa, "ChoiceAmount", defMax) >= 1
@@ -862,7 +862,7 @@ func putCounterWouldPlace(h Host, c *Ctx, sa *cards.SA) bool {
 // creatures without any event-backed persistence.
 func rememberPlaced(c *Ctx, sa *cards.SA, placed []state.Target) {
 	if len(placed) == 0 || (!strings.EqualFold(strings.TrimSpace(sa.Params["RememberCards"]), "True") &&
-		!strings.EqualFold(strings.TrimSpace(sa.Params["RememberPut"]), "True")) {
+		!strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberPut)), "True")) {
 		return
 	}
 	c.Remembered = append(c.Remembered, placed...)
@@ -1040,10 +1040,10 @@ func putCounterChoose(h Host, c *Ctx, sa *cards.SA, n int32, kind string, ans []
 		putCounterChooseApply(h, c, sa, n, kind, ans, kinds, kindAns, kindDone)
 		return
 	}
-	chooser, ok := putCounterChooserFor(h, c, strings.TrimSpace(sa.Params["Chooser"]))
+	chooser, ok := putCounterChooserFor(h, c, strings.TrimSpace(sa.ParamStr(cards.PKChooser)))
 	if !ok {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-			Text: "PutCounter Chooser$ unresolvable (" + sa.Params["Chooser"] + ")"})
+			Text: "PutCounter Chooser$ unresolvable (" + sa.ParamStr(cards.PKChooser) + ")"})
 		return
 	}
 	var eligible []state.ObjID
@@ -1094,7 +1094,7 @@ func putCounterChoose(h Host, c *Ctx, sa *cards.SA, n int32, kind string, ans []
 		Source:     c.Source,
 		ResumeKind: "counter_pick",
 		ResumeSA:   sa,
-		Prompt:     sa.Params["ChoiceTitle"]}
+		Prompt:     sa.ParamStr(cards.PKChoiceTitle)}
 	for _, id := range eligible {
 		name := "a creature"
 		if o := g.Obj(id); o != nil && o.Face() != nil {
@@ -1307,7 +1307,7 @@ func putCounterSupport(h Host, c *Ctx, sa *cards.SA, kind string, ans []state.Ob
 		Source:     c.Source,
 		ResumeKind: "counter_pick",
 		ResumeSA:   sa,
-		Prompt:     sa.Params["ChoiceTitle"]}
+		Prompt:     sa.ParamStr(cards.PKChoiceTitle)}
 	for _, id := range eligible {
 		name := "a creature"
 		if o := g.Obj(id); o != nil && o.Face() != nil {
@@ -1640,13 +1640,13 @@ func effRemoveCounter(h Host, c *Ctx, sa *cards.SA) {
 		removeCounterChoose(h, c, sa, pickAns, pickDone)
 		return
 	}
-	if strings.TrimSpace(sa.Params["ChoiceOptional"]) != "" {
+	if strings.TrimSpace(sa.ParamStr(cards.PKChoiceOptional)) != "" {
 		exotic = append(exotic, "ChoiceOptional$")
 	}
-	if strings.TrimSpace(sa.Params["UpTo"]) != "" {
+	if strings.TrimSpace(sa.ParamStr(cards.PKUpTo)) != "" {
 		exotic = append(exotic, "UpTo$")
 	}
-	if strings.EqualFold(strings.TrimSpace(sa.Params["CounterNum"]), "Any") {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKCounterNum)), "Any") {
 		exotic = append(exotic, "CounterNum$ Any")
 	}
 	if strings.TrimSpace(sa.Params["CounterNumShared"]) != "" {
@@ -1673,7 +1673,7 @@ func effRemoveCounter(h Host, c *Ctx, sa *cards.SA) {
 	allKinds := strings.EqualFold(kind, "All")
 	numAll := false
 	n := int32(1)
-	if raw := strings.TrimSpace(sa.Params["CounterNum"]); raw != "" {
+	if raw := strings.TrimSpace(sa.ParamStr(cards.PKCounterNum)); raw != "" {
 		if strings.EqualFold(raw, "All") {
 			numAll = true
 		} else {
@@ -1818,22 +1818,22 @@ func removeCounterChoose(h Host, c *Ctx, sa *cards.SA, ans []state.ObjID, done b
 	if strings.EqualFold(kind, "Any") || strings.EqualFold(kind, "All") {
 		loud = append(loud, "CounterType$ "+kind)
 	}
-	if strings.EqualFold(strings.TrimSpace(sa.Params["CounterNum"]), "Any") {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKCounterNum)), "Any") {
 		loud = append(loud, "CounterNum$ Any")
 	}
-	if strings.TrimSpace(sa.Params["UpTo"]) != "" {
+	if strings.TrimSpace(sa.ParamStr(cards.PKUpTo)) != "" {
 		loud = append(loud, "UpTo$")
 	}
 	if strings.TrimSpace(sa.Params["CounterNumShared"]) != "" {
 		loud = append(loud, "CounterNumShared$")
 	}
 	zone := state.ZBattlefield
-	switch strings.TrimSpace(sa.Params["ChoiceZone"]) {
+	switch strings.TrimSpace(sa.ParamStr(cards.PKChoiceZone)) {
 	case "", "Battlefield":
 	case "Exile":
 		zone = state.ZExile
 	default:
-		loud = append(loud, "ChoiceZone$ "+strings.TrimSpace(sa.Params["ChoiceZone"]))
+		loud = append(loud, "ChoiceZone$ "+strings.TrimSpace(sa.ParamStr(cards.PKChoiceZone)))
 	}
 	if len(loud) > 0 {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
@@ -1863,7 +1863,7 @@ func removeCounterChoose(h Host, c *Ctx, sa *cards.SA, ans []state.ObjID, done b
 		exact = 0
 	}
 	minv, maxv := exact, exact
-	if strings.EqualFold(strings.TrimSpace(sa.Params["ChoiceOptional"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKChoiceOptional)), "True") {
 		// Forge's "each of any number": Min 0, and — with no explicit
 		// ChoiceNum$ bounding it (both reachable carriers) — Max the whole
 		// eligible pool, so Garnet's two Sagas can BOTH be chosen. An
@@ -2222,14 +2222,14 @@ func effMoveCounter(h Host, c *Ctx, sa *cards.SA) {
 	c.MoveCounterN, c.MoveCounterNDone = 0, false
 
 	kindParam := strings.TrimSpace(sa.ParamStr(cards.PKCounterType))
-	numParam := strings.TrimSpace(sa.Params["CounterNum"])
+	numParam := strings.TrimSpace(sa.ParamStr(cards.PKCounterNum))
 
 	// Loud-degrade the shapes the core cannot express, before anything moves.
 	var exotic []string
 	if zone := strings.TrimSpace(sa.ParamStr(cards.PKTgtZone)); zone != "" && !strings.EqualFold(zone, "Battlefield") {
 		exotic = append(exotic, "TgtZone$ "+zone)
 	}
-	if raw, present := sa.Params["CounterNum"]; present && numParam != "" && !strings.EqualFold(numParam, "All") && !strings.EqualFold(numParam, "Any") {
+	if raw, present := sa.Param(cards.PKCounterNum); present && numParam != "" && !strings.EqualFold(numParam, "All") && !strings.EqualFold(numParam, "Any") {
 		if _, ok := NumResolved(h, c, sa, "CounterNum", 1); !ok {
 			// A body Num cannot price (a bare SVar name the face lacks, an
 			// exotic Count$ head) would silently move zero; name it instead.
@@ -2374,7 +2374,7 @@ func effMoveCounter(h Host, c *Ctx, sa *cards.SA) {
 	// is DISTRIBUTED across the destinations (CR 122.5 -- see the walk).
 	// RememberPut$ appends the destinations that actually received a counter;
 	// RememberAmount$ appends the origin once per counter moved.
-	rememberPut := strings.EqualFold(strings.TrimSpace(sa.Params["RememberPut"]), "True")
+	rememberPut := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberPut)), "True")
 	rememberAmount := strings.EqualFold(strings.TrimSpace(sa.Params["RememberAmount"]), "True")
 	var rememberedDests []state.Target
 	var amountIDs []state.ObjID
@@ -2752,7 +2752,7 @@ func effProliferate(h Host, c *Ctx, sa *cards.SA) {
 // zone-guard stance.
 func applyProliferate(h Host, c *Ctx, sa *cards.SA, picks []state.Target, n int32) {
 	g := h.Game()
-	remember := strings.EqualFold(strings.TrimSpace(sa.Params["RememberPut"]), "True")
+	remember := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberPut)), "True")
 	var placed []state.Target
 	for _, t := range picks {
 		if t.IsPlayer {

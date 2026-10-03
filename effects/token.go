@@ -469,7 +469,7 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 	// target; an object that has left play by resolution time attaches
 	// nothing (the token simply enters unattached, the Aura's unattached
 	// state).
-	attachedTo := strings.TrimSpace(sa.Params["AttachedTo"])
+	attachedTo := strings.TrimSpace(sa.ParamStr(cards.PKAttachedTo))
 	var attachTo state.ObjID
 	if attachedTo != "" {
 		sub := *sa
@@ -528,16 +528,16 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 	// visibly rather than a silent wrong count. The riders below run once per
 	// mint EmitTokenCreate returned, so a CreateToken replacement's extras
 	// each enter with the counters too -- not just the first mint.
-	withKind := strings.TrimSpace(sa.Params["WithCountersType"])
+	withKind := strings.TrimSpace(sa.ParamStr(cards.PKWithCountersType))
 	var withAmt int32
 	var withOK bool
 	if withKind != "" {
-		if _, present := sa.Params["WithCountersAmount"]; present {
+		if sa.HasParam(cards.PKWithCountersAmount) {
 			if v, ok := NumResolved(h, c, sa, "WithCountersAmount", 1); ok {
 				withAmt, withOK = v, true
 			} else {
 				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-					Text: "WithCountersAmount$ " + strings.TrimSpace(sa.Params["WithCountersAmount"]) +
+					Text: "WithCountersAmount$ " + strings.TrimSpace(sa.ParamStr(cards.PKWithCountersAmount)) +
 						" is not implemented; the token enters with no " + withKind + " counters"})
 			}
 		} else {
@@ -755,7 +755,7 @@ type tokenRestHost interface {
 func runTokenMints(h Host, c *Ctx, sa *cards.SA, job *TokenJob, resumeAt int, parked, minted []state.ObjID) {
 	g := h.Game()
 	unit := -1
-	for key := range strings.SplitSeq(sa.Params["TokenScript"], ",") {
+	for key := range strings.SplitSeq(sa.ParamStr(cards.PKTokenScript), ",") {
 		key = strings.TrimSpace(key)
 		if key == "" {
 			continue

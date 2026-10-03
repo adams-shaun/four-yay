@@ -130,7 +130,7 @@ func effSetState(h Host, c *Ctx, sa *cards.SA) {
 	// top, so a nested SetState in the same chain poses its own ask.
 	optAns := c.SetStateOpt
 	c.SetStateOpt = ""
-	mode := sa.Params["Mode"]
+	mode := sa.ParamStr(cards.PKMode)
 	turnUp := strings.EqualFold(strings.TrimSpace(mode), "TurnFaceUp")
 	turnDown := strings.EqualFold(strings.TrimSpace(mode), "TurnFaceDown")
 	unspecialize := strings.EqualFold(strings.TrimSpace(mode), "Unspecialize")
@@ -429,7 +429,7 @@ func effCounter(h Host, c *Ctx, sa *cards.SA) {
 // registration event. Event-matched bodies are stored inline because a
 // DelayedTrigger SA is not itself an SVar that events.Apply could resolve.
 func effDelayedTrigger(h Host, c *Ctx, sa *cards.SA) {
-	mode := strings.TrimSpace(sa.Params["Mode"])
+	mode := strings.TrimSpace(sa.ParamStr(cards.PKMode))
 	if mode == "SpellCast" {
 		effDelayedTriggerSpellCast(h, c, sa)
 		return
@@ -465,7 +465,7 @@ func effDelayedTrigger(h Host, c *Ctx, sa *cards.SA) {
 	// value is loud and preserves the historical chain-capture fallback.
 	remembered := c.Remembered
 	replacedRemembered := false
-	if spec := strings.TrimSpace(sa.Params["RememberObjects"]); spec != "" && spec != "RememberedLKI" {
+	if spec := strings.TrimSpace(sa.ParamStr(cards.PKRememberObjects)); spec != "" && spec != "RememberedLKI" {
 		if ts, known := knownDefinedTargets(h, c, spec); known {
 			remembered = copyTargets(ts)
 			replacedRemembered = true
@@ -510,7 +510,7 @@ func effDelayedTrigger(h Host, c *Ctx, sa *cards.SA) {
 		if zone := strings.TrimSpace(sa.ParamStr(cards.PKPresentZone)); zone != "" {
 			text += "|PZ=" + zone
 		}
-		if cmp := strings.TrimSpace(sa.Params["PresentCompare"]); cmp != "" {
+		if cmp := strings.TrimSpace(sa.ParamStr(cards.PKPresentCompare)); cmp != "" {
 			text += "|PC=" + cmp
 		}
 	}
@@ -549,7 +549,7 @@ func effDelayedTrigger(h Host, c *Ctx, sa *cards.SA) {
 			return
 		}
 		eventText := mode + ":" + delayedTriggerBody(sa)
-		if strings.EqualFold(strings.TrimSpace(sa.Params["ThisTurn"]), "True") {
+		if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKThisTurn)), "True") {
 			eventText += "|TT=" + strconv.Itoa(int(h.Game().Turn))
 		}
 		h.Emit(events.Event{Kind: events.DelayedRegister, Obj: c.Source,
@@ -574,7 +574,7 @@ func effDelayedTrigger(h Host, c *Ctx, sa *cards.SA) {
 func delayedTriggerBody(sa *cards.SA) string {
 	// Literal keys at both the read and append sites keep the parameter census
 	// attributable; call order fixes the registration's replay-visible bytes.
-	parts := []string{"Mode$ " + strings.TrimSpace(sa.Params["Mode"])}
+	parts := []string{"Mode$ " + strings.TrimSpace(sa.ParamStr(cards.PKMode))}
 	add := func(prefix, value string) {
 		if v := strings.TrimSpace(value); v != "" {
 			parts = append(parts, prefix+v)
@@ -596,14 +596,14 @@ func delayedTriggerBody(sa *cards.SA) string {
 	add("ValidOriginalController$ ", sa.Params["ValidOriginalController"])
 	add("ValidActivatingPlayer$ ", sa.Params["ValidActivatingPlayer"])
 	add("PlayerTurn$ ", sa.ParamStr(cards.PKPlayerTurn))
-	add("ValidSA$ ", sa.Params["ValidSA"])
+	add("ValidSA$ ", sa.ParamStr(cards.PKValidSA))
 	add("TriggerZones$ ", sa.ParamStr(cards.PKTriggerZones))
 	add("ActiveZones$ ", sa.ParamStr(cards.PKActiveZones))
-	add("ThisTurn$ ", sa.Params["ThisTurn"])
-	add("Static$ ", sa.Params["Static"])
+	add("ThisTurn$ ", sa.ParamStr(cards.PKThisTurn))
+	add("Static$ ", sa.ParamStr(cards.PKStatic))
 	add("IsPresent$ ", sa.ParamStr(cards.PKIsPresent))
-	add("PresentDefined$ ", sa.Params["PresentDefined"])
-	add("PresentCompare$ ", sa.Params["PresentCompare"])
+	add("PresentDefined$ ", sa.ParamStr(cards.PKPresentDefined))
+	add("PresentCompare$ ", sa.ParamStr(cards.PKPresentCompare))
 	add("PresentZone$ ", sa.ParamStr(cards.PKPresentZone))
 	return strings.Join(parts, " | ")
 }
@@ -628,7 +628,7 @@ func delayedTriggerBody(sa *cards.SA) string {
 // the carrier and a future non-True value gets the loud Note the
 // fail-closed convention takes.
 func effDelayedTriggerSpellCast(h Host, c *Ctx, sa *cards.SA) {
-	if st := strings.TrimSpace(sa.Params["Static"]); st != "" && !strings.EqualFold(st, "True") {
+	if st := strings.TrimSpace(sa.ParamStr(cards.PKStatic)); st != "" && !strings.EqualFold(st, "True") {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "unmodelled DelayedTrigger Static$ " + st})
 	}
@@ -657,14 +657,14 @@ func effDelayedTriggerSpellCast(h Host, c *Ctx, sa *cards.SA) {
 	if v := strings.TrimSpace(sa.ParamStr(cards.PKPlayerTurn)); v != "" {
 		body += " | PlayerTurn$ " + v
 	}
-	if v := strings.TrimSpace(sa.Params["ValidSA"]); v != "" {
+	if v := strings.TrimSpace(sa.ParamStr(cards.PKValidSA)); v != "" {
 		body += " | ValidSA$ " + v
 	}
-	if v := strings.TrimSpace(sa.Params["Static"]); v != "" {
+	if v := strings.TrimSpace(sa.ParamStr(cards.PKStatic)); v != "" {
 		body += " | Static$ " + v
 	}
 	text := "SpellCast:" + body
-	if strings.EqualFold(strings.TrimSpace(sa.Params["ThisTurn"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKThisTurn)), "True") {
 		text += "|TT=" + strconv.Itoa(int(h.Game().Turn))
 	}
 	h.Emit(events.Event{Kind: events.DelayedRegister, Obj: c.Source,

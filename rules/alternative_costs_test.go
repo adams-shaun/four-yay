@@ -702,7 +702,14 @@ func TestCastWithFlashHonorsScriptGates(t *testing.T) {
 	if !hasCastOption(e.legalActions(0), spell) {
 		t.Fatal("met IsPresent$ did not grant flash")
 	}
-	source.Card.Faces[0].Statics[0].Params["ValidSA"] = "Activated.Equip"
+	// The same static scoped to an activation only. A compiled node's Params
+	// is immutable once its ParamSet is bound (cards/params.go), so the
+	// variant is its own card rather than an in-place edit of the first.
+	source.Zone = state.ZGraveyard
+	equipOnly := e.G.AddObject(card(t, "Name:Equip Flash\nTypes:Artifact\nS:Mode$ CastWithFlash | ValidCard$ Card | ValidSA$ Activated.Equip | Caster$ You | IsPresent$ Creature.YouCtrl\nOracle:x\n"), 0)
+	equipOnly.Zone = state.ZBattlefield
+	e.G.SetZone(state.ZBattlefield, 0, []state.ObjID{equipOnly.ID, creature.ID})
+	e.G.SetZone(state.ZGraveyard, 0, []state.ObjID{source.ID})
 	if hasCastOption(e.legalActions(0), spell) {
 		t.Fatal("activation-only ValidSA$ incorrectly granted spell flash")
 	}

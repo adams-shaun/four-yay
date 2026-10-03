@@ -244,8 +244,8 @@ func effCloak(h Host, c *Ctx, sa *cards.SA) {
 	if amount <= 0 {
 		return
 	}
-	tapped := strings.EqualFold(strings.TrimSpace(sa.Params["Tapped"]), "True")
-	shuffle := strings.EqualFold(strings.TrimSpace(sa.Params["Shuffle"]), "True")
+	tapped := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKTapped)), "True")
+	shuffle := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKShuffle)), "True")
 	remember := strings.EqualFold(strings.TrimSpace(sa.Params["RememberCloaked"]), "True")
 	g := h.Game()
 	shuffled := make(map[state.PlayerID]bool)
