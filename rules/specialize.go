@@ -6,6 +6,7 @@ import (
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -107,10 +108,10 @@ func (e *Engine) specializeLegalPriced(p state.PlayerID, id state.ObjID, faceIdx
 		return Cost{}, false
 	}
 	if hyp == nil {
-		if !e.costPayableOther(p, id, cost) {
+		if !pay.CostPayableOther(asPayer(e), p, id, cost) {
 			return Cost{}, false
 		}
-	} else if !e.costPayablePool(p, id, false, cost, *hyp, e.G.Players[p].ManaUnits()) {
+	} else if !pay.CostPayablePool(asPayer(e), p, id, false, cost, *hyp, e.G.Players[p].ManaUnits()) {
 		return Cost{}, false
 	}
 	for _, kw := range o.Face().Keywords {
@@ -143,7 +144,7 @@ func (e *Engine) specialize(p state.PlayerID, opt decision.Option) {
 		return
 	}
 	e.emit(events.Event{Kind: events.Priority, Player: e.G.Priority, Amount: 0})
-	if !e.payMana(p, cost) {
+	if !pay.PayMana(asPayer(e), p, cost) {
 		return
 	}
 	e.emit(events.Event{Kind: events.Specialize, Obj: opt.Obj, Amount: int32(i)})

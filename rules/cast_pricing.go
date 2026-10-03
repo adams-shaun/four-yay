@@ -8,6 +8,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -421,8 +422,8 @@ func (e *Engine) affordableTargetCandidates(pc *pendingCast, candidates []target
 		// (convokeAbsorbs), so the fold is the payment's own arithmetic,
 		// probed, never charged.
 		convoked := e.applyConvoke(pc, cost)
-		pay := paymentForCast(pc, convoked)
-		if e.manaFeasibleDescriptor(pc.player, pay, convoked, costMods{}, 0, 0, pipRider{AnyColor: pc.mayPlayIgnore, AnyType: pc.mayPlayIgnoreType}) {
+		desc := paymentForCast(pc, convoked)
+		if e.manaFeasibleDescriptor(pc.player, desc, convoked, costMods{}, 0, 0, pipRider{AnyColor: pc.mayPlayIgnore, AnyType: pc.mayPlayIgnoreType}) {
 			out = append(out, candidate)
 			continue
 		}
@@ -436,9 +437,9 @@ func (e *Engine) affordableTargetCandidates(pc *pendingCast, candidates []target
 			// the difference. Probe the window's concrete free productions,
 			// one alternative per source, instead of offering a target whose
 			// activation will abort at payment (CR 601.2h).
-			av := e.manaAvailableFor(pc.player, pay)
-			if e.castWindowReachable(pc.player, convoked, av.pool, pl.Snow, av.typed, pl.Life,
-				e.paymentConv(pc.player, pay.id, pay.class == paymentActivated), windowUnits) {
+			av := pay.AvailableFor(asPayer(e), pc.player, desc)
+			if e.castWindowReachable(pc.player, convoked, av.Pool, pl.Snow, av.Typed, pl.Life,
+				asPayer(e).Conv(pc.player, desc.ID, desc.Class == paymentActivated), windowUnits) {
 				out = append(out, candidate)
 			}
 		} else if e.hasUntappedManaSource(pc.player) {

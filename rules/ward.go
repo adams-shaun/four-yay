@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/rules/resolve"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -91,7 +92,7 @@ func (e *Engine) beginWardPayment(rp *resumePoint, ctx *effects.Ctx) (paid, aske
 				need = 0
 			}
 			if need == 0 {
-				return e.payMana(payer, Cost{Generic: int32(n)}), false
+				return pay.PayMana(asPayer(e), payer, Cost{Generic: int32(n)}), false
 			}
 			ids := e.wardPermanents(payer, ctx.Source, "Artifact,Creature", true)
 			if len(ids) < need {
@@ -145,7 +146,7 @@ func (e *Engine) beginWardPayment(rp *resumePoint, ctx *effects.Ctx) (paid, aske
 				chosen = append(chosen, ids[pick])
 				ids = append(ids[:pick], ids[pick+1:]...)
 			}
-			if !e.payMana(payer, wardManaCost(cost)) {
+			if !pay.PayMana(asPayer(e), payer, wardManaCost(cost)) {
 				return false, false
 			}
 			for _, id := range chosen {
@@ -162,7 +163,7 @@ func (e *Engine) beginWardPayment(rp *resumePoint, ctx *effects.Ctx) (paid, aske
 		}
 		return e.askWardObjects(rp, ctx, payer, "ward_tap", "Choose a permanent to tap for ward", 1, 1, ids)
 	}
-	if e.payMana(payer, cost) {
+	if pay.PayMana(asPayer(e), payer, cost) {
 		return true, false
 	}
 	// CR 702.21a payment is a mana-payment window, not a check of only
@@ -245,7 +246,7 @@ func (e *Engine) settleWardPayment(kind string, sa *cards.SA, ctx *effects.Ctx, 
 		}
 		if chosen[0].Kind == "ward_mana" {
 			_, manaRaw, _ := strings.Cut(raw, ">:")
-			return e.payMana(payer, e.parseCost(manaRaw))
+			return pay.PayMana(asPayer(e), payer, e.parseCost(manaRaw))
 		}
 		if chosen[0].Kind != "ward_discard" || len(ids) != 1 || !slices.Contains(e.G.Zone(state.ZHand, payer), ids[0]) {
 			return false
@@ -290,7 +291,7 @@ func (e *Engine) settleWardPayment(kind string, sa *cards.SA, ctx *effects.Ctx, 
 		m := wardSpecialCost.FindStringSubmatch(raw)
 		n, _ := strconv.Atoi(m[2])
 		remaining := n - len(ids)
-		if remaining < 0 || !e.payMana(payer, Cost{Generic: int32(remaining)}) {
+		if remaining < 0 || !pay.PayMana(asPayer(e), payer, Cost{Generic: int32(remaining)}) {
 			return false
 		}
 		for _, id := range ids {
@@ -328,7 +329,7 @@ func (e *Engine) settleWardPayment(kind string, sa *cards.SA, ctx *effects.Ctx, 
 				return false
 			}
 		}
-		if !e.payMana(payer, wardManaCost(cost)) {
+		if !pay.PayMana(asPayer(e), payer, wardManaCost(cost)) {
 			return false
 		}
 		toText := "discarded for ward"
@@ -411,8 +412,8 @@ func wardManaDecision(e *Engine, wm *wardManaPayment) *decision.Decision {
 	// the window (unlessManaWindowNeeded / advanceUnlessPayment): a {B} pip
 	// K'rrik's grant could settle with life must NOT mark the cost payable
 	// here, or the window would offer only Done and hide the untapped source.
-	payable := wm.cost.Priceable() && e.costPayableClassLife(wm.payer,
-		paymentDescriptor{id: wm.obj, class: paymentOther, cost: &wm.cost}, pipRider{}, wm.cost, false)
+	payable := wm.cost.Priceable() && pay.CostPayableClassLife(asPayer(e), wm.payer,
+		paymentDescriptor{ID: wm.obj, Class: paymentOther, Cost: &wm.cost}, pipRider{}, wm.cost, false)
 	if !payable {
 		for _, id := range e.G.Zone(state.ZBattlefield, wm.payer) {
 			if e.untappedManaSource(wm.payer, id) {

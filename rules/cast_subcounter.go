@@ -8,6 +8,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -334,7 +335,7 @@ func (e *Engine) xAsk() bool {
 		// The descriptor carries the announced-X marker: WithX folded this
 		// payment's X into Generic, and a CostContainsX batch must still see
 		// an X payment here or every X announcement would be unpayable.
-		payable := e.costPayableClass(pc.player, paymentForCast(pc, wx),
+		payable := pay.CostPayableClass(asPayer(e), pc.player, paymentForCast(pc, wx),
 			pipRider{AnyColor: pc.mayPlayIgnore, AnyType: pc.mayPlayIgnoreType}, wx)
 		if !payable {
 			// A target-dependent reduction is absent from the nil-target
@@ -481,7 +482,7 @@ func (e *Engine) xTargetPotentialMods(pc *pendingCast, x int32, statics costStat
 	return e.potentialCostModsUsing(statics, pc.player, pc.card, scope, targets, x, func(m costMods) bool {
 		w := e.paymentManaXUsing(pc, x, m)
 		w.Generic -= e.delveCredit(pc.player, pc.card, w.Generic)
-		return e.costPayableClass(pc.player, paymentForCast(pc, w),
+		return pay.CostPayableClass(asPayer(e), pc.player, paymentForCast(pc, w),
 			pipRider{AnyColor: pc.mayPlayIgnore, AnyType: pc.mayPlayIgnoreType}, w)
 	})
 }

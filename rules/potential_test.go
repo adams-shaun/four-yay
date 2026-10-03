@@ -6,6 +6,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -107,7 +108,7 @@ func restrictedBearBoard(t *testing.T, valid string) (*Engine, state.ObjID) {
 func TestCastableExcludesNonMatchingRestrictedMana(t *testing.T) {
 	t.Parallel()
 	e, bear := restrictedBearBoard(t, "Spell.Artifact")
-	if e.costPayable(0, bear, false, ParseCost("2")) {
+	if pay.CostPayable(asPayer(e), 0, bear, false, ParseCost("2")) {
 		t.Fatal("costPayable admitted a restricted batch the payment would refuse")
 	}
 	if e.castable(0, bear, ParseCost("2"), false) {
@@ -133,7 +134,7 @@ func TestCastableExcludesNonMatchingRestrictedMana(t *testing.T) {
 
 	// Contrast: the matching class admits the batch at every gate.
 	e2, bear2 := restrictedBearBoard(t, "Spell.Creature")
-	if !e2.costPayable(0, bear2, false, ParseCost("2")) {
+	if !pay.CostPayable(asPayer(e2), 0, bear2, false, ParseCost("2")) {
 		t.Fatal("matching restricted batch must pay a creature cast")
 	}
 	if !e2.castable(0, bear2, ParseCost("2"), false) {

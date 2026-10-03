@@ -5,7 +5,10 @@ package rules
 // the "extort" resume arm, shared by that arm and the resolution kernel's
 // Record so both paths charge the pip from one home.
 
-import "github.com/adams-shaun/gorge/decision"
+import (
+	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/rules/pay"
+)
 
 // extortAnswerRecord charges Extort's {W/B} pip on a "pay" answer (option 0)
 // and reports whether it was paid: a pool lacking both colours declines
@@ -13,5 +16,5 @@ import "github.com/adams-shaun/gorge/decision"
 // resume arm binds the result into Ctx.Extort; on the kernel's path effExtort
 // reads the charge off the pool.
 func extortAnswerRecord(e *Engine, chosen []decision.Option) bool {
-	return len(chosen) > 0 && chosen[0].Index == 0 && e.payExtortPip(chosen[0].Player)
+	return len(chosen) > 0 && chosen[0].Index == 0 && pay.PayExtortPip(asPayer(e), chosen[0].Player)
 }

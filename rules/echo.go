@@ -5,6 +5,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -174,7 +175,7 @@ func (e *Engine) echoElectionAsk() {
 	}
 	payable := false
 	if ef.action == nil {
-		payable = announced.Priceable() && e.costPayableOther(ef.player, ef.source, announced)
+		payable = announced.Priceable() && pay.CostPayableOther(asPayer(e), ef.player, ef.source, announced)
 	} else {
 		shim := &cumulativeUpkeep{player: ef.player, source: ef.source,
 			action: ef.action, actionRemaining: 1}
@@ -220,7 +221,7 @@ func (e *Engine) echoAnswer(chosen []decision.Option) {
 		}
 		announced := ef.pips.fold(ef.amount)
 		if announced.Priceable() &&
-			e.payManaConv(ef.player, announced, e.paymentConv(ef.player, ef.source, false)) {
+			pay.PayManaConv(asPayer(e), ef.player, announced, asPayer(e).Conv(ef.player, ef.source, false)) {
 			e.finishEcho()
 			return
 		}

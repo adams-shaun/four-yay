@@ -7,6 +7,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -191,8 +192,8 @@ func (e *Engine) unlessCostPayable(p state.PlayerID, raw string, ctx *effects.Ct
 		return false
 	}
 	player := e.G.Players[p]
-	d := paymentDescriptor{id: stackObj, class: paymentOther, cost: &cost}
-	if e.costPayableClass(p, d, pipRider{}, cost) {
+	d := paymentDescriptor{ID: stackObj, Class: paymentOther, Cost: &cost}
+	if pay.CostPayableClass(asPayer(e), p, d, pipRider{}, cost) {
 		return true
 	}
 	if !cost.HasManaPayment() {
@@ -204,7 +205,7 @@ func (e *Engine) unlessCostPayable(p state.PlayerID, raw string, ctx *effects.Ct
 		return true
 	}
 	return e.unlessManaReachable(p, cost, player.Pool, player.Snow, player.ManaUnits(), player.Life,
-		e.paymentConv(p, stackObj, false), e.windowManaUnits(p))
+		asPayer(e).Conv(p, stackObj, false), e.windowManaUnits(p))
 }
 
 // unlessFoldDynamic folds the unless cost's DYNAMIC life tokens to concrete
@@ -447,18 +448,18 @@ func (e *Engine) advanceUnlessPayment() {
 	// declining: the payer taps until the pool covers the charge, then the
 	// ordinary path below pays it. The window is only opened while a source
 	// remains that the budget counted.
-	d := paymentDescriptor{id: u.stackObj, class: paymentOther, cost: &u.cost}
+	d := paymentDescriptor{ID: u.stackObj, Class: paymentOther, Cost: &u.cost}
 	// Open the window only when the POOL ALONE cannot pay (lifeGrant false:
 	// a {B} pip K'rrik's grant could settle with 2 life must not close it)
 	// AND a window source remains. The ordinary grant-bearing check below is
 	// retained: when no source can help (or the payer answers Done with the
 	// pool already covering the charge) the granted life still pays it.
-	if !e.costPayableClassLife(u.payer, d, pipRider{}, u.cost, false) &&
+	if !pay.CostPayableClassLife(asPayer(e), u.payer, d, pipRider{}, u.cost, false) &&
 		u.cost.HasManaPayment() && len(e.windowManaUnits(u.payer)) > 0 {
 		e.askUnlessMana()
 		return
 	}
-	if !e.costPayableClass(u.payer, d, pipRider{}, u.cost) {
+	if !pay.CostPayableClass(asPayer(e), u.payer, d, pipRider{}, u.cost) {
 		e.finishUnlessPayment(false)
 		return
 	}
@@ -536,7 +537,7 @@ func (e *Engine) advanceUnlessPayment() {
 		}
 		drawers[i] = players
 	}
-	if !e.payManaConv(u.payer, u.cost, e.paymentConv(u.payer, u.stackObj, false)) { // guarded above; retain totality if state changes.
+	if !pay.PayManaConv(asPayer(e), u.payer, u.cost, asPayer(e).Conv(u.payer, u.stackObj, false)) { // guarded above; retain totality if state changes.
 		e.finishUnlessPayment(false)
 		return
 	}
@@ -670,7 +671,7 @@ func (e *Engine) askUnlessMana() {
 			rest = append(rest, units[si+1:]...)
 			for ai, a := range src.alts {
 				if safe != (e.unlessManaReachable(u.payer, u.cost, manaAdd(pool, a.mana()), snow, typed, life,
-					e.paymentConv(u.payer, u.stackObj, false), rest)) {
+					asPayer(e).Conv(u.payer, u.stackObj, false), rest)) {
 					continue
 				}
 				name := "a mana source"

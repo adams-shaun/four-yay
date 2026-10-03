@@ -6,6 +6,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/rules/chars"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -334,9 +335,9 @@ func (m costMods) feasibleAny(c Cost, pool, snow state.Mana, typed [7]state.Mana
 // where the offer and the payment both admit it.
 func (e *Engine) manaFeasibleDescriptor(p state.PlayerID, d paymentDescriptor, c Cost, mods costMods, taxGeneric, delve int32, rider pipRider) bool {
 	pl := e.G.Players[p]
-	av := e.manaAvailableFor(p, d)
-	return mods.feasibleAny(c, av.pool, pl.Snow, av.typed, pl.Life, taxGeneric, delve,
-		e.payerGrantsPayLifeInsteadOfB(p), rider, e.paymentConv(p, d.id, d.class == paymentActivated))
+	av := pay.AvailableFor(asPayer(e), p, d)
+	return mods.feasibleAny(c, av.Pool, pl.Snow, av.Typed, pl.Life, taxGeneric, delve,
+		e.payerGrantsPayLifeInsteadOfB(p), rider, asPayer(e).Conv(p, d.ID, d.Class == paymentActivated))
 }
 
 // manaFeasiblePool is manaFeasible priced against an EXPLICIT pool instead of
@@ -366,7 +367,7 @@ func (e *Engine) manaFeasiblePoolP(p state.PlayerID, id state.ObjID, ability boo
 	return mods.feasibleAny(*c, pool, pl.Snow, typed, pl.Life, taxGeneric, delve,
 		e.payerGrantsPayLifeInsteadOfB(p),
 		pipRider{AnyColor: e.payerGrantsIgnoreColor(p, id), AnyType: e.payerGrantsIgnoreType(p, id)},
-		e.paymentConv(p, id, ability))
+		asPayer(e).Conv(p, id, ability))
 }
 
 // manaFeasiblePriced is manaFeasible's priced-mode entry: hyp nil keeps the
@@ -393,8 +394,8 @@ func (e *Engine) manaFeasiblePricedP(p state.PlayerID, id state.ObjID, ability b
 	case len(pl.RestrictedMana) == 0:
 		pool, typed = pl.Pool, pl.ManaUnits()
 	default:
-		av := e.manaAvailableFor(p, paymentFor(id, ability, *c))
-		pool, typed = av.pool, av.typed
+		av := pay.AvailableFor(asPayer(e), p, paymentFor(id, ability, *c))
+		pool, typed = av.Pool, av.Typed
 	}
 	return e.manaFeasiblePoolP(p, id, ability, c, mods, taxGeneric, delve, pool, typed)
 }

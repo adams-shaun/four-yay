@@ -13,6 +13,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -183,7 +184,7 @@ func tapeManaWindow(e *Engine, ctx *effects.Ctx, wm *wardManaPayment) {
 			if wm.unless {
 				paid = e.payUnlessCost(wm.payer, wm.cost, ctx, wm.obj)
 			} else {
-				paid = e.payMana(wm.payer, wm.cost)
+				paid = pay.PayMana(asPayer(e), wm.payer, wm.cost)
 			}
 			ctx.UnlessPay = "decline"
 			if paid {

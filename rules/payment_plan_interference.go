@@ -64,7 +64,7 @@ func (e *Engine) paymentPlanGlobalManaEffect(p state.PlayerID, id state.ObjID) (
 			return true, "global_mana_effect:" + e.paymentPlanObjName(ce.Source)
 		}
 	}
-	if conv := e.paymentConv(p, id, false); conv != nil && paymentPlanConvRestricts(conv) {
+	if conv := asPayer(e).Conv(p, id, false); conv != nil && paymentPlanConvRestricts(conv) {
 		return true, "global_mana_effect:" + e.paymentPlanManaConvertName(p)
 	}
 	return false, ""

@@ -10,6 +10,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -1384,9 +1385,9 @@ func (e *Engine) manaCostPayable(p state.PlayerID, o *state.Object, source state
 
 // manaCostPayableFull is the full cost walk of manaCostPayable.
 func (e *Engine) manaCostPayableFull(p state.PlayerID, o *state.Object, source state.ObjID, cost Cost, hyp *state.Mana) bool {
-	av := e.manaAvailableFor(p, paymentFor(source, true, cost))
-	pool := av.pool
-	typed := av.typed
+	av := pay.AvailableFor(asPayer(e), p, paymentFor(source, true, cost))
+	pool := av.Pool
+	typed := av.Typed
 	if hyp != nil {
 		pool = *hyp
 		// A hypothetical bound is a pure mana bound that may include
@@ -1395,7 +1396,7 @@ func (e *Engine) manaCostPayableFull(p state.PlayerID, o *state.Object, source s
 		typed = e.G.Players[p].ManaUnits()
 	}
 	if cost.X != 0 || len(cost.Reveal) > 0 || len(cost.RevealOrChoose) > 0 || len(cost.RevealChosen) > 0 || len(cost.Behold) > 0 ||
-		len(cost.Blight) > 0 || activationTapCostUnavailable(o, &cost) || !e.costPayablePool(p, source, true, cost, pool, typed) {
+		len(cost.Blight) > 0 || activationTapCostUnavailable(o, &cost) || !pay.CostPayablePool(asPayer(e), p, source, true, cost, pool, typed) {
 		return false
 	}
 	// A Forage cost is payable when the payer's graveyard holds three cards OR
@@ -1967,7 +1968,7 @@ func (e *Engine) continueManaDiscard() {
 
 func (e *Engine) commitManaDiscard() {
 	md := e.manaDiscardActivation
-	if md == nil || !e.payManaConvFor(md.player, md.source, true, md.cost, e.paymentConv(md.player, md.source, true)) {
+	if md == nil || !pay.PayManaConvFor(asPayer(e), md.player, md.source, true, md.cost, asPayer(e).Conv(md.player, md.source, true)) {
 		e.manaDiscardActivation = nil
 		e.choosing = chooseNone
 		return

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -294,10 +295,10 @@ func (e *Engine) announceFeasible(pc *pendingCast, alt pipAlt, pool, snow state.
 	if !charged.HasManaPayment() {
 		return false
 	}
-	av := e.manaAvailableFor(pc.player, payment)
-	return e.manaReachable(pc.player, charged, av.pool, e.G.Players[pc.player].Snow,
-		av.typed, e.G.Players[pc.player].Life, rider,
-		e.paymentConv(pc.player, payment.id, payment.class == paymentActivated), e.castWindowUnits(pc))
+	av := pay.AvailableFor(asPayer(e), pc.player, payment)
+	return e.manaReachable(pc.player, charged, av.Pool, e.G.Players[pc.player].Snow,
+		av.Typed, e.G.Players[pc.player].Life, rider,
+		asPayer(e).Conv(pc.player, payment.ID, payment.Class == paymentActivated), e.castWindowUnits(pc))
 }
 
 // manaAsk offers the player's payment choice for the next unsettled hybrid or

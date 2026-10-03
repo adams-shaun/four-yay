@@ -338,7 +338,7 @@ func (e *Engine) manaWindowAsk() bool {
 	// and let the payer choose an untapped source over the life. Answering
 	// "done" still spends the life through the ordinary payment, which keeps
 	// the grant.
-	if e.costPayableClassLife(pc.player, paymentForCast(pc, mana),
+	if pay.CostPayableClassLife(asPayer(e), pc.player, paymentForCast(pc, mana),
 		pipRider{AnyColor: pc.mayPlayIgnore, AnyType: pc.mayPlayIgnoreType}, mana, false) {
 		return false
 	}

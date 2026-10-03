@@ -7,6 +7,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -118,8 +119,8 @@ func (e *Engine) payCast() {
 		// The descriptor carries the announced-X marker (the ability's own
 		// {X} cost was folded), so a CostContainsX batch sees this activation
 		// as an X payment exactly as the offer did.
-		ok, _, spentMana, _, _ := e.payManaDescriptorForSpent(pc.player, paymentForCast(pc, mana), mana,
-			e.paymentConv(pc.player, pc.card, true), pipRider{})
+		ok, _, spentMana, _, _ := pay.PayManaDescriptorForSpent(asPayer(e), pc.player, paymentForCast(pc, mana), mana,
+			asPayer(e).Conv(pc.player, pc.card, true), pipRider{})
 		if !ok {
 			e.abortCast(pc, "activation aborted: cost no longer payable", true)
 			return
