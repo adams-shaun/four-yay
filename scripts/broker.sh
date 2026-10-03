@@ -93,7 +93,7 @@ reap() {
 	while IFS= read -r f; do
 		pid=$(lease_pid "$f")
 		if ! alive "$pid"; then
-			rm -f "$f" "$(lease_field "$f" pause_file)"
+			rm -f "$f" "$(lease_field "$f" pause_file)" "$f.paused_at" "$f.stopped" "$f.supervised" "$f.parked"
 			n=$((n + 1))
 		fi
 	done < <(lease_files)
@@ -141,7 +141,7 @@ resume_class() {
 		pf=$(lease_field "$f" pause_file)
 		pid=$(lease_pid "$f")
 		[ -n "$pf" ] && rm -f "$pf"
-		rm -f "$f.paused_at"
+		rm -f "$f.paused_at" "$f.parked"
 		# Undo a SIGSTOP escalation if enforce applied one.
 		alive "$pid" && kill -CONT "-$pid" 2>/dev/null || true
 		n=$((n + 1))
@@ -153,14 +153,25 @@ enforce() {
 	reap
 	local f pid at waited pf
 	# 1. A paused lease that is still running after the grace gets SIGSTOP.
+	#    A HEAVY lease launched through heavy.sh carries a `.supervised` marker:
+	#    heavy.sh itself stops that job's group (after the same grace, so a
+	#    checkpoint loop still parks first), so the pause is already handled and
+	#    escalating it here would only record `gate_starved_minutes` for a job
+	#    that WAS pausable -- a full stability veto for a handled pause
+	#    (2026-10-03 head 2d4e01009). Defer to the supervisor; the broker's
+	#    fallback still covers probe leases and any lease without the marker.
 	while IFS= read -r f; do
 		[ -e "$f.paused_at" ] || continue
+		[ -e "$f.stopped" ] && continue
+		if [ -e "$f.supervised" ]; then
+			say "$(lease_field "$f" class) pid $(lease_pid "$f") is supervised by heavy.sh; not escalating"
+			continue
+		fi
 		pid=$(lease_pid "$f")
 		alive "$pid" || continue
 		at=$(cat "$f.paused_at" 2>/dev/null || echo 0)
 		waited=$(($(epoch) - at))
 		[ "$waited" -lt "$PAUSE_GRACE_S" ] && continue
-		[ -e "$f.stopped" ] && continue
 		kill -STOP "-$pid" 2>/dev/null || kill -STOP "$pid" 2>/dev/null || continue
 		: >"$f.stopped"
 		say "SIGSTOP $(lease_field "$f" class) pid $pid after ${waited}s (ignored its pause file)"
@@ -188,7 +199,7 @@ enforce() {
 			sleep 5
 			alive "$pid" && { kill -KILL "-$pid" 2>/dev/null || kill -KILL "$pid" 2>/dev/null; }
 			record_stability broker_kills 1 "memory floor ${mb}MiB"
-			rm -f "$newest" "$newest.paused_at" "$newest.stopped"
+			rm -f "$newest" "$newest.paused_at" "$newest.stopped" "$newest.parked"
 		else
 			say "available memory ${mb}MiB under floor and no heavy lease to shed"
 		fi
