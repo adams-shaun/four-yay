@@ -62,6 +62,13 @@ type CharmParams struct {
 	TempRemember    bool
 	FallbackAbility string
 
+	// AtRandom$ (trimmed; GenericChoice): True or Urza makes the pick the
+	// engine's rng draw (effects/atrandom.go GenericChoiceAtRandom).
+	AtRandom string
+	// AILogic$ Random: the script's AI-picks-at-random marker, carried on
+	// the ask as decision.Decision.AIRandom for unattended bots.
+	AILogicRandom bool
+
 	// Unread are the parameters present on a Charm or GenericChoice ability
 	// that no reader of its resolution consumes (charmKnownKeys): effCharm
 	// Notes them (the loud-degrade contract). nil for the other modal
@@ -125,6 +132,8 @@ func compileCharm(sa *cards.SA) *CharmParams {
 	p.Defined = strings.TrimSpace(sa.ParamStr(cards.PKDefined))
 	p.TempRemember = strings.TrimSpace(sa.Params["TempRemember"]) != ""
 	p.FallbackAbility = strings.TrimSpace(sa.Params["FallbackAbility"])
+	p.AtRandom = strings.TrimSpace(sa.ParamStr(cards.PKAtRandom))
+	p.AILogicRandom = strings.TrimSpace(sa.ParamStr(cards.PKAILogic)) == "Random"
 	if isCharmAPI(sa) {
 		p.Unread = unreadKeys(sa, charmKnownKeys[:])
 	}
@@ -143,17 +152,17 @@ var charmKnownKeys = [...]string{
 	"AILifeThreshold", "AILogic", "AINoRecursiveCheck", "AIPhyrexianPayment", "AITgts",
 	"Activation", "ActivationAfterBlockers", "ActivationFirstCombat",
 	"ActivationGameTypes", "ActivationLimit", "ActivationPhases", "ActivationZone",
-	"Activator", "Adapt", "AddKeywords", "AddStaticAbilities", "AddType", "AddTypes",
+	"Activator", "AddKeywords", "AddStaticAbilities", "AddType", "AddTypes",
 	"AdditionalDesc", "AdditionalDescription", "Affected", "AlternateCost",
-	"AlternativeCost", "Announce", "AnnounceTitle", "Boast", "CanRepeatModes",
+	"AlternativeCost", "Announce", "AnnounceTitle", "AtRandom", "Boast", "CanRepeatModes",
 	"ChangeTypeDesc", "CharacteristicDefining", "CharmNum", "CheckSVar",
 	"ChoiceRestriction", "ChoiceTitle", "ChoiceZone", "Choices", "ChooseFromList",
 	"ClassBand", "ClearImprinted", "Condition", "ConditionActivationLimit",
 	"ConditionCheckSVar", "ConditionCompare", "ConditionDefined", "ConditionDescription",
 	"ConditionFirstCombat", "ConditionNotPresent", "ConditionPhases",
 	"ConditionPlayerTurn", "ConditionPresent", "ConditionSVarCompare", "CopyCard", "Cost",
-	"CostDesc", "CounterTypePerDefined", "Defined", "DefinedCards", "DefinedTarget",
-	"Description", "EffectOwner", "Exclude", "Exhaust", "FallbackAbility",
+	"CostDesc", "Defined", "DefinedCards", "DefinedTarget",
+	"Description", "Exclude", "Exhaust", "FallbackAbility",
 	"GameActivationLimit", "Image", "ImprintCards", "ImprintPlayed", "InstantSpeed",
 	"IntoPlayTapped", "IsCurse", "IsPresent", "KW", "Keyword", "KeywordLine",
 	"MaxTotalTargetCMC", "MaxTotalTargetPower", "Mentor", "MinCharmNum", "ModeCost",
@@ -164,7 +173,7 @@ var charmKnownKeys = [...]string{
 	"ReplaceGraveyard", "ReplaceGraveyardValid", "ReplaceMana", "ReplaceOnly",
 	"ReplaceType", "RestrictValid", "SVarCompare", "SelectPrompt", "SetChosenMode",
 	"SetColor", "ShowCards", "SorcerySpeed", "SpellDescription", "StackDescription",
-	"StaticAbilities", "SubAbility", "TargetMax", "TargetMin", "TargetType",
+	"SubAbility", "TargetMax", "TargetMin", "TargetType",
 	"TargetUnique", "TargetValidTargeting", "TargetingPlayer", "TargetingPlayerControls",
 	"TargetsForEachPlayer", "TargetsWithControllerProperty",
 	"TargetsWithDefinedController", "TargetsWithDifferentCMC",

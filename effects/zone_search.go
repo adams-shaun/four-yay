@@ -304,6 +304,21 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 		if hasBudget && min > int32(len(greedy)) {
 			min = int32(len(greedy))
 		}
+		// AtRandom$ True (Geist of Regret, Tezzeret's Reckoning, Junkyard
+		// Scrapper): the ENGINE picks max eligible cards from its seeded rng
+		// -- Forge's changeHiddenOriginResolve takes Aggregates.random per
+		// pick, with no fail-to-find choice -- so no player is asked and the
+		// pick replays. The EACH, WithTotalCMC$ and DifferentNames$ shapes
+		// keep the ask (measured: no AtRandom$ carrier uses them).
+		if cz.AtRandom && !hasBudget && !cz.DifferentNames {
+			if _, each := eachAlternatives(spec); !each {
+				c.LibraryTarget = targetIndex
+				if applyLibrarySearch(h, c, sa, cz, owner, to, randomObjIDs(h, budgetEligible, int(max)), zones) {
+					return
+				}
+				continue
+			}
+		}
 		// The prompt is built AFTER the Mandatory$ clamp below (and after the
 		// EACH branch's own bounds), so the count it states can never disagree
 		// with the decision's final Min/Max, and SelectPrompt$ replaces the

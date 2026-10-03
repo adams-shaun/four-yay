@@ -173,6 +173,10 @@ func LegacyDecide(b Board, d *decision.Decision, r *rand.Rand) decision.Intent {
 		}
 
 	case decision.KModes:
+		if c := aiRandomPick(d, r); c != nil {
+			in.Choices = c
+			return Clamp(d, in)
+		}
 		for j := 0; j < len(d.Options) && j < d.Min; j++ {
 			in.Choices = append(in.Choices, d.Options[j].Index)
 		}

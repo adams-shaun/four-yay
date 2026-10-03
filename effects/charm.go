@@ -654,54 +654,52 @@ func charmGenericPlayersRun(h Host, c *Ctx, sa *cards.SA, choices []string) bool
 			c.GenericChooserIndex++
 			continue
 		}
-		d := &decision.Decision{Player: chooser.Player, Kind: decision.KModes,
-			Min: 1, Max: 1, Source: c.Source, ResumeKind: "generic_players", ResumeSA: sa,
-			ResumeModes:               append([]string(nil), available...),
-			ResumeRemembered:          append([]state.Target(nil), c.Remembered...),
-			ResumeGenericChoosers:     append([]state.Target(nil), c.GenericChoosers...),
-			ResumeGenericChooserIndex: c.GenericChooserIndex,
-			Prompt:                    "Choose 1 to 1 mode(s)"}
-		for i, name := range available {
-			d.Options = append(d.Options, decision.Option{Index: i, Kind: "mode",
-				Label: CharmModeLabel(cards.ResolveSVar(c.SVars, name), name),
-				Obj:   c.Source, Player: chooser.Player})
-		}
-		if ans, ok := AskTape(h, d); ok {
-			// The resolution kernel's answer in hand: run this chooser's
-			// chosen body (the "generic_players" arm's choice, ResumeModes
-			// order) exactly as the answered re-entry does, then go on to
-			// the next chooser.
-			name := ""
-			if len(ans) > 0 && ans[0].Index >= 0 && ans[0].Index < len(available) {
-				name = available[ans[0].Index]
+		var pick string
+		if GenericChoiceAtRandom(sa) {
+			// param:api:GenericChoice.AtRandom: the engine picks for this
+			// chooser from its seeded rng; the chooser is never asked.
+			if pick = genericChoiceRandomPick(h, c, sa, chooser.Player, available); pick == "" {
+				c.GenericChooserIndex++
+				continue
 			}
-			// The legacy re-entry re-runs effCharm from its first line, which
-			// emits the unread-parameter Note again; mirror it (see effCharm).
-			noteUnreadParams(h, c, sa.API, p.Unread)
-			if tempRemember {
-				c.Remembered = []state.Target{chooser}
+		} else {
+			d := &decision.Decision{Player: chooser.Player, Kind: decision.KModes,
+				Min: 1, Max: 1, Source: c.Source, ResumeKind: "generic_players", ResumeSA: sa,
+				ResumeModes:               append([]string(nil), available...),
+				ResumeRemembered:          append([]state.Target(nil), c.Remembered...),
+				ResumeGenericChoosers:     append([]state.Target(nil), c.GenericChoosers...),
+				ResumeGenericChooserIndex: c.GenericChooserIndex,
+				Prompt:                    "Choose 1 to 1 mode(s)", AIRandom: aiLogicRandom(sa)}
+			for i, name := range available {
+				d.Options = append(d.Options, decision.Option{Index: i, Kind: "mode",
+					Label: CharmModeLabel(cards.ResolveSVar(c.SVars, name), name),
+					Obj:   c.Source, Player: chooser.Player})
 			}
-			suspended := runBody(name)
-			c.Remembered = append([]state.Target(nil), baselineRemembered...)
-			if suspended {
-				h.SuspendGenericChoiceRest(sa, GenericChoiceRest{
-					Choosers:   append([]state.Target(nil), c.GenericChoosers...),
-					Next:       c.GenericChooserIndex + 1,
-					Remembered: append([]state.Target(nil), baselineRemembered...)})
-				return true
+			if ans, ok := AskTape(h, d); ok {
+				// The resolution kernel's answer in hand: this chooser's
+				// chosen body (the "generic_players" arm's choice,
+				// ResumeModes order), run below exactly as the answered
+				// re-entry runs it. The legacy re-entry re-runs effCharm from
+				// its first line, which emits the unread-parameter Note
+				// again; mirror it (see effCharm).
+				pick = ""
+				if len(ans) > 0 && ans[0].Index >= 0 && ans[0].Index < len(available) {
+					pick = available[ans[0].Index]
+				}
+				noteUnreadParams(h, c, sa.API, p.Unread)
+			} else {
+				if Ask(h, d) == AskAsked {
+					return true
+				}
+				// R-9: an effects-only host has no chooser, so deterministically
+				// take the first option for this chooser and continue to the next.
+				pick = available[0]
 			}
-			c.GenericChooserIndex++
-			continue
 		}
-		if Ask(h, d) == AskAsked {
-			return true
-		}
-		// R-9: an effects-only host has no chooser, so deterministically take
-		// the first option for this chooser and continue to the next.
 		if tempRemember {
 			c.Remembered = []state.Target{chooser}
 		}
-		suspended := runBody(available[0])
+		suspended := runBody(pick)
 		c.Remembered = append([]state.Target(nil), baselineRemembered...)
 		if suspended {
 			// Preserve both cursor and outer remembered set across the nested ask.
@@ -838,6 +836,10 @@ func effCharm(h Host, c *Ctx, sa *cards.SA) {
 	// (measured corpus-unreachable -- every Random$ carrier, 5 files, is
 	// single-slot), because a multi-pick cannot share this suspension-free
 	// path.
+	if GenericChoiceAtRandom(sa) {
+		genericChoiceRandomRun(h, c, sa, choices)
+		return
+	}
 	if CharmRandomChosen(h, c, sa) && min == 1 && max == 1 && !repeat {
 		idx := h.Rand(len(choices))
 		label := charmModeLabel(choices, subs, idx)
@@ -851,7 +853,7 @@ func effCharm(h Host, c *Ctx, sa *cards.SA) {
 	d := &decision.Decision{Player: c.Controller, Kind: decision.KModes,
 		Min: min, Max: max, Source: c.Source, Repeatable: repeat,
 		ResumeKind: "modes", ResumeSA: sa,
-		Prompt: "Choose " + strconv.Itoa(min) + " to " + strconv.Itoa(max) + " mode(s)"}
+		Prompt: "Choose " + strconv.Itoa(min) + " to " + strconv.Itoa(max) + " mode(s)", AIRandom: aiLogicRandom(sa)}
 	for i, name := range choices {
 		d.Options = append(d.Options, decision.Option{
 			Index: i, Kind: "mode", Label: CharmModeLabel(subs[i], name),

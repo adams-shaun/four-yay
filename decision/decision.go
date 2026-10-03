@@ -732,6 +732,14 @@ type Decision struct {
 	// forever ends after one hand-over. Runtime-only policy context, like
 	// EffectOptional: not a legal-answer or wire rule.
 	CopyOfCopy bool `json:"-"`
+	// AIRandom marks a choice the card script says an AI makes at random
+	// (AILogic$ Random on an api:GenericChoice: Face to Face's rock, paper
+	// or scissors throw, Liar's Pendulum's guess). Unattended bots answer it
+	// from their own seeded rng instead of the fixed first-option policy, so
+	// two bots throwing Rock forever cannot tie a best-of-three match
+	// endlessly. Runtime-only policy context, like CopyOfCopy: not a
+	// legal-answer or wire rule.
+	AIRandom bool `json:"-"`
 	// AffordableTargets is a cast-time target ask's engine-computed hint:
 	// the largest number of targets whose total cost (a Strive spell's
 	// per-extra-target additional cost, CR 702.52a) the caster can provably
