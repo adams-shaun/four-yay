@@ -298,3 +298,88 @@ func TestAuraTokenWithNothingToEnchantIsNotCreated(t *testing.T) {
 	}
 	replayCheck(t, e, cfg)
 }
+
+// TestReplenishAurasChooseTheirBearers drives ChangeZoneAll -- Replenish's
+// mass return ("Auras with nothing to enchant remain in your graveyard") --
+// through the entry: with two creatures on the battlefield the returned
+// Pacifisms are asked of their controller, every Pacifism lands attached to
+// a legal creature, Wild Growth (no land on the battlefield) stays in the
+// graveyard, and the game replays from its log.
+//
+// ChangeZoneAll emits its whole sweep in one pass and does not suspend
+// between members, so only the FIRST as-enters election of a sweep can be
+// posed; a later member entering while that ask is outstanding takes the
+// deterministic first legal bearer (the same limit every as-enters choice
+// has inside a mass move). The test pins that shape: exactly one ask.
+func TestReplenishAurasChooseTheirBearers(t *testing.T) {
+	t.Parallel()
+	e, cfg, _ := altCostEngine(t, 1011, []string{"Replenish", "Pacifism", "Pacifism", "Wild Growth"},
+		nil, []string{altDragonSrc, auraHexproofFoeSrc})
+	toMain1(t, e)
+	dragon := moveSeeded(t, e, 1, altDragonSrc, state.ZBattlefield)
+	foe := moveSeeded(t, e, 1, auraHexproofFoeSrc, state.ZBattlefield)
+	p1 := auraMoveCorpusCard(t, e, 0, "Pacifism", state.ZGraveyard)
+	p2 := auraMoveCorpusCard(t, e, 0, "Pacifism", state.ZGraveyard)
+	growth := auraMoveCorpusCard(t, e, 0, "Wild Growth", state.ZGraveyard)
+	e.priorityRound()
+	replenish := findAndMoveToHand(t, e, 0, "Replenish")
+	addMana(t, e, 0, "WWWW")
+	submitChoices(t, e, castOptionFor(t, e, replenish).Index)
+	asks := 0
+	for i := 0; i < 60; i++ {
+		d := e.Pending()
+		if d == nil {
+			break
+		}
+		if d.Kind == decision.KPriority {
+			if len(e.G.Stack) == 0 {
+				break
+			}
+			submitChoices(t, e, passIndex(t, d))
+			continue
+		}
+		if d.Kind == decision.KTarget || d.Player != 0 {
+			t.Fatalf("unexpected ask during Replenish: %+v", d)
+		}
+		// Answer the first Pacifism onto the dragon, the second onto the
+		// hexproof creature.
+		want := dragon
+		if asks > 0 {
+			want = foe
+		}
+		idx := -1
+		for _, opt := range d.Options {
+			if opt.Obj == want {
+				idx = opt.Index
+			}
+		}
+		if idx < 0 {
+			t.Fatalf("bearer %d not offered: %+v", want, d.Options)
+		}
+		asks++
+		submitChoices(t, e, idx)
+	}
+	if asks != 1 {
+		t.Fatalf("%d bearer asks, want 1 (the sweep's first member; see the doc comment)", asks)
+	}
+	for _, id := range []state.ObjID{p1, p2} {
+		o := e.G.Obj(id)
+		if o == nil || o.Zone != state.ZBattlefield {
+			t.Fatalf("Pacifism %d zone = %v, want battlefield", id, zoneOf(o))
+		}
+		if o.AttachedTo != dragon && o.AttachedTo != foe {
+			t.Fatalf("Pacifism %d attached to %d, want a creature (%d or %d)", id, o.AttachedTo, dragon, foe)
+		}
+	}
+	answered := false
+	for _, id := range []state.ObjID{p1, p2} {
+		answered = answered || e.G.Obj(id).AttachedTo == dragon
+	}
+	if !answered {
+		t.Fatal("the answered bearer (the dragon) carries no Pacifism")
+	}
+	if o := e.G.Obj(growth); o == nil || o.Zone != state.ZGraveyard {
+		t.Fatalf("Wild Growth zone = %v, want graveyard", zoneOf(o))
+	}
+	replayCheck(t, e, cfg)
+}
