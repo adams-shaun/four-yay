@@ -30,518 +30,17 @@ package rules
 
 import (
 	"fmt"
-	"math"
 	"slices"
 	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/combat"
 	"github.com/adams-shaun/gorge/state"
 )
-
-// canAttack reports whether id may be declared as an attacker against SOME
-// defender (CR 508.1a): a creature under the active player's control, untapped,
-// either not summoning sick or hasty, and not walled by Defender (CR 702.3b)
-// -- unless a CanAttackDefender static lifts the wall against some defender
-// (rules/attack_defender.go). A reconfigure card while attached is not a
-// creature (CR 702.150c): the derived type switch (reconfigureTypeSwitch)
-// already dropped Creature, so IsCreature answers false here with no extra
-// gate. The pair-precise read is canAttackPair; this defender-blind form is
-// only for callers that genuinely have no defender in hand
-// (mustAttackRequired's creature-shaped gates, whose per-pair half is
-// attackPairAvailable, and validateAttackers' belt check, whose precise half
-// is the offered-pair membership test).
-func (e *Engine) canAttack(id state.ObjID) bool {
-	o, ok := e.attackableCreature(id)
-	if !ok {
-		return false
-	}
-	if !e.hasKeywordH(id, kwhDefender) {
-		return true
-	}
-	for _, d := range e.G.AliveFrom(0) {
-		if d != o.Controller && e.attackAllowedThroughDefender(id, d) {
-			return true
-		}
-	}
-	return false
-}
-
-// canAttackPair is the (attacker, defender) pair reading of canAttack: the
-// same checks with the Defender wall lifted exactly when a CanAttackDefender
-// static applies to THIS pair (CR 702.3b) -- the pair-precise half the offer
-// list (attackOffers), the validator and the encore requirement read. A
-// ValidAttacked$-scoped static lifts the wall only against the defenders the
-// spec admits, so a Defender creature may be attackable against one defender
-// and walled against the rest.
-func (e *Engine) canAttackPair(id state.ObjID, defender state.PlayerID) bool {
-	if _, ok := e.attackableCreature(id); !ok {
-		return false
-	}
-	if e.hasKeywordH(id, kwhDefender) && !e.attackAllowedThroughDefender(id, defender) {
-		return false
-	}
-	return true
-}
-
-// attackableCreature is the defender-blind half both reads share: the object
-// exists, is a battlefield creature of the active player (the DERIVED type,
-// layer 4 -- an animated land attacks, while its printed face is a Land, and
-// everything the printed face admits the derived walk admits too, so ordinary
-// creatures are unchanged; a bestowed card stays excluded, BestowedAttached),
-// untapped, and either not summoning sick or hasty.
-func (e *Engine) attackableCreature(id state.ObjID) (*state.Object, bool) {
-	o := e.G.Obj(id)
-	if o == nil || o.Zone != state.ZBattlefield || o.Controller != e.G.Active {
-		return nil, false
-	}
-	if o.PhasedOut {
-		// CR 702.25b/d: a phased-out permanent is treated as though it does
-		// not exist, so it cannot attack. The one gate both canAttack and
-		// canAttackPair share.
-		return nil, false
-	}
-	f := o.Face()
-	if f == nil || !e.IsCreature(id) || o.BestowedAttached() {
-		return nil, false
-	}
-	if o.Tapped {
-		return nil, false
-	}
-	if o.SummonSick && !e.hasKeywordH(id, kwhHaste) {
-		return nil, false
-	}
-	return o, true
-}
-
-// encoreAttackDefender reports the opponent an encore token must attack this
-// turn if able. The requirement expires by turn number and becomes impossible
-// (therefore nonbinding) if that opponent has left the game.
-func (e *Engine) encoreAttackDefender(id state.ObjID) (state.PlayerID, bool) {
-	o := e.G.Obj(id)
-	if o == nil || o.EncoreAttackTurn == 0 || o.EncoreAttackTurn != e.G.Turn ||
-		int(o.EncoreAttackDefender) >= len(e.G.Players) || e.G.Players[o.EncoreAttackDefender].Lost ||
-		!e.canAttackPair(id, o.EncoreAttackDefender) {
-		return 0, false
-	}
-	return o.EncoreAttackDefender, true
-}
-
-// attackRequirementSet is every requirement binding ONE creature's attack this
-// combat (CR 508.1d's "attacks if able" duties). A requirement is either
-// NAMED (it names a specific defending player) or BROAD (any defender
-// satisfies it), and a goad is a requirement to attack a non-goader when one
-// is available.
-//
-// The set is the ONE home for "what must this creature attack": attackOffers
-// derives its pair list from it (dropping every pair that satisfies fewer
-// named requirements than the best available defender -- CR 508.1d's
-// "satisfy as many requirements as possible"), and mustAttackRequired reads
-// its emptiness as "is this creature required at all". A requirement whose
-// player reference this build cannot resolve contributes nothing (fail
-// closed, the safe direction for a requirement), exactly the convention
-// MustAttackParamsReadable documents.
-type attackRequirementSet struct {
-	// named counts, per defending player, how many named requirements that
-	// defender satisfies. A pair attacking the defender satisfies every one of
-	// them. nil when no named requirement applies.
-	named map[state.PlayerID]int
-	// broad is set by an unconditional MustAttack static (no MustAttack$
-	// player reference): every defender satisfies it.
-	broad bool
-	// goad is set by a live goad (CR 701.38b): the creature must attack a
-	// player, preferably a non-goader. goadMayAttack handles the player
-	// preference; satisfiedByOffer excludes battles from satisfying this duty.
-	goad bool
-}
-
-// any reports whether at least one requirement binds the creature.
-func (s attackRequirementSet) any() bool {
-	return len(s.named) > 0 || s.broad || s.goad
-}
-
-// addNamed records one named requirement for defender.
-func (s *attackRequirementSet) addNamed(defender state.PlayerID) {
-	if s.named == nil {
-		s.named = make(map[state.PlayerID]int, 2)
-	}
-	s.named[defender]++
-}
-
-// satisfiedBy reports how many NAMED requirements the given player defender
-// satisfies. The broad requirement contributes uniformly across all pairs;
-// goad is scored separately by satisfiedByOffer for player attacks only.
-func (s attackRequirementSet) satisfiedBy(defender state.PlayerID) int {
-	return s.named[defender]
-}
-
-// satisfiedByOffer distinguishes attacking a player from attacking a battle
-// that player protects. Named-player and goad duties are discharged only by
-// attacking a player; the protector field on a battle offer is not itself
-// the defender of the attack. Goad's non-goader preference is enforced by
-// goadMayAttack when enumerating the legal player pairs.
-func (s attackRequirementSet) satisfiedByOffer(of attackOffer) int {
-	if of.battle != 0 {
-		return 0
-	}
-	n := s.satisfiedBy(of.def)
-	if s.goad {
-		n++
-	}
-	return n
-}
-
-// maxNamed is the greatest number of named requirements any single defender
-// satisfies at once -- the best any offered pair can do against the named
-// half of the requirement set.
-func (s attackRequirementSet) maxNamed() int {
-	best := 0
-	for _, n := range s.named {
-		if n > best {
-			best = n
-		}
-	}
-	return best
-}
-
-// attackRequirements collects every requirement binding creature id this
-// combat: the encore designation, each applicable Effect-registered and face
-// Mode$ MustAttack static, and a live goad. Multiple named requirements are
-// kept SEPARATELY (a map count per defender) rather than collapsed to the
-// first, so two simultaneous "attacks that player" duties are both honoured
-// and neither silently wins.
-func (e *Engine) attackRequirements(id state.ObjID) attackRequirementSet {
-	var s attackRequirementSet
-	o := e.G.Obj(id)
-	if o == nil {
-		return s
-	}
-	if p, ok := e.encoreAttackDefender(id); ok {
-		s.addNamed(p)
-	}
-	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
-		ce := &ceL[ceI]
-		if ce.Restriction != "MustAttack" {
-			continue
-		}
-		if !e.mustAttackLineSelects(ce.RestrictParams["ValidCreature"], id, ce.Source, ce.Controller, ce.Remembered) {
-			continue
-		}
-		spec := strings.TrimSpace(ce.RestrictParams["MustAttack"])
-		if spec == "" {
-			s.broad = true
-			continue
-		}
-		if p, ok := e.requirementDefender(spec, ce.Source, ce.Controller, ce.RememberedPlayers); ok {
-			s.addNamed(p)
-		}
-	}
-	for _, sv := range e.activeStatics("MustAttack") {
-		if !MustAttackParamsReadableForRules(sv.Params) || !e.continuousGateHolds(sv) {
-			continue
-		}
-		if !e.mustAttackLineSelects(sv.Params["ValidCreature"], id, sv.Source, sv.Controller, nil) {
-			continue
-		}
-		spec := strings.TrimSpace(sv.Params["MustAttack"])
-		if spec == "" {
-			s.broad = true
-			continue
-		}
-		if p, ok := e.requirementDefender(spec, sv.Source, sv.Controller, nil); ok {
-			s.addNamed(p)
-		}
-	}
-	if e.hasActiveGoad(o) {
-		s.goad = true
-	}
-	return s
-}
-
-// mustAttackLineSelects resolves a MustAttack line's ValidCreature$ against
-// the candidate creature, with the registration's remembered set bound for
-// the Card.IsRemembered family (Knight Rampager, Ursine Monstrosity, Raving
-// Dead, Ruhan of the Fomori all scope the requirement to a remembered self).
-// An absent ValidCreature$ is Forge's Card.Self default, the same default
-// attackRequirements applies.
-func (e *Engine) mustAttackLineSelects(spec string, id state.ObjID, source state.ObjID, controller state.PlayerID, remembered []state.ObjID) bool {
-	v := strings.TrimSpace(spec)
-	if v == "" {
-		v = "Card.Self"
-	}
-	sc := e.specCtx(source, controller)
-	for _, r := range remembered {
-		sc.Remembered = append(sc.Remembered, state.Target{Obj: r})
-	}
-	return e.matchesSpec(v, id, sc)
-}
-
-// MustAttackParamsReadableForRules is the face S:-line half of
-// effects.MustAttackParamsReadable, and DELEGATES to
-// effects.MustAttackParamsReadableForRules so the face and Effect routes can
-// never diverge on what is enforceable: rules imports effects (the package
-// order is effects -> rules), so there is one whitelist home, not a copy kept
-// in step by hand. The face list is the Effect registration list EXTENDED by
-// exactly the condition-gate keys -- the gate evaluator,
-// continuousGateHolds, is rules-side, so the face route can evaluate those
-// gates while the Effect-delivered registration path cannot.
-func MustAttackParamsReadableForRules(params map[string]string) bool {
-	return effects.MustAttackParamsReadableForRules(params)
-}
-
-// CantAttackParamsReadableForRules is the face S:-line half of
-// effects.CantRestrictionParamsReadable, and DELEGATES to
-// effects.CantAttackParamsReadableForRules so the face reader and the
-// whitelist can never diverge on what is enforceable. The face list is the
-// CantRestrictionParamsReadable core EXTENDED by exactly the conditional
-// parameter family attackBlocked reads -- UnlessDefender$ (through
-// effects.UnlessDefenderHolds) and CheckSVar$/SVarCompare$/Condition$
-// (through continuousGateHolds): the face route can evaluate those, the
-// Effect-delivered registration path cannot, so a gate-bearing line is
-// face-readable while the Effect whitelist stays at the core set (a
-// gate-bearing Effect body must not register blanket). The delegation is one
-// whitelist home, not a copy kept in step by hand.
-func CantAttackParamsReadableForRules(params map[string]string) bool {
-	return effects.CantAttackParamsReadableForRules(params)
-}
-
-// requirementDefender resolves a MustAttack$ player reference to the
-// defending player it names, from the requirement registration's own
-// bindings. ChosenPlayer/Player.Chosen reads the source object's event-backed
-// Chosen list (the ChoosePlayer answer, which survives from the begin-combat
-// trigger to the declare-attackers step because choiceRecord emits it on the
-// source). RememberedPlayer/Player.IsRemembered reads the registration's
-// captured PLAYERS (state.ContinuousEffect.RememberedPlayers), and
-// Remembered.NonActive additionally requires that player not be the active
-// one. You binds to the controller captured by the registration. Remembered
-// binds only when exactly one player was captured; ambiguous registrations
-// fail closed. Other references need bindings or evaluators this build does
-// not carry and therefore fail closed.
-func (e *Engine) requirementDefender(spec string, source state.ObjID, controller state.PlayerID, rememberedPlayers []state.PlayerID) (state.PlayerID, bool) {
-	switch strings.TrimSpace(spec) {
-	case "ChosenPlayer", "Player.Chosen":
-		if o := e.G.Obj(source); o != nil {
-			for _, t := range o.Chosen {
-				if t.IsPlayer {
-					return t.Player, true
-				}
-			}
-		}
-	case "RememberedPlayer", "Player.IsRemembered":
-		if len(rememberedPlayers) > 0 {
-			return rememberedPlayers[0], true
-		}
-	case "You":
-		return controller, true
-	case "Remembered":
-		if len(rememberedPlayers) == 1 {
-			return rememberedPlayers[0], true
-		}
-	case "Remembered.NonActive":
-		for _, p := range rememberedPlayers {
-			if p != e.G.Active {
-				return p, true
-			}
-		}
-	}
-	return 0, false
-}
-
-// canBlock reports whether blocker may be declared against attacker (CR
-// 509.1a): an untapped creature controlled by the defending player, gated by
-// Flying/Reach (CR 702.9b), Horsemanship (CR 702.31b), Fear, Shadow and by
-// any CantBlock/CantBlockBy static (blockRestricted, statics.go).
-func (e *Engine) canBlock(blocker, attacker state.ObjID) bool {
-	b, a := e.G.Obj(blocker), e.G.Obj(attacker)
-	if b == nil || a == nil || !a.IsAttacking {
-		return false
-	}
-	if b.Zone != state.ZBattlefield || a.Zone != state.ZBattlefield {
-		return false
-	}
-	if b.PhasedOut || a.PhasedOut {
-		// CR 702.25b/d: a phased-out permanent is treated as though it does
-		// not exist, so it can neither block nor be blocked.
-		return false
-	}
-	bf := b.Face()
-	// Derived, not printed -- see canAttack (an animated manland blocks).
-	if bf == nil || !e.IsCreature(blocker) || b.BestowedAttached() {
-		return false
-	}
-	if b.Tapped || b.Controller != a.Attacking {
-		return false
-	}
-	// CR 702.157b: a suspected creature can't block. The designation is the
-	// declaration-legality rule itself, checked here where every other
-	// can't-block gate lives (Flying, Shadow, blockRestricted), so the ask's
-	// options and the validator's recompute share one oracle.
-	if b.Suspected {
-		return false
-	}
-	// CR 702.86 (kw:Unleash): a creature with unleash can't block while it
-	// has a +1/+1 counter on it. The keyword rides the derived list (printed
-	// plus layer-6 granted -- Tesak's "Other Dogs you control have unleash"),
-	// and the counter is live state, so both halves are read here, the same
-	// status-gate shape the Suspected check above practises.
-	if e.hasKeywordH(blocker, kwhUnleash) && b.Counter("P1P1") > 0 {
-		return false
-	}
-	// CR 509.1a / 702.16j: a creature that the attacker is protected from
-	// cannot block it.
-	if e.protectedFrom(attacker, blocker) {
-		return false
-	}
-	// CR 702.27/702.28: Shadow creatures can block only Shadow creatures,
-	// and a Shadow creature is blockable only by one. Fear permits only an
-	// artifact or black creature to block it.
-	if e.hasKeywordH(attacker, kwhShadow) != e.hasKeywordH(blocker, kwhShadow) {
-		return false
-	}
-	if e.hasKeywordH(attacker, kwhFear) && !bf.IsArtifact() && !strings.ContainsRune(e.objColors(b), 'B') {
-		return false
-	}
-	// CR 702.13a: an Intimidate attacker can be blocked only by artifact
-	// creatures and/or creatures that share a colour with it -- the Fear
-	// predicate generalised from one fixed colour (black) to a colour
-	// INTERSECTION. Attacker-keyed and per-pair like Fear/Shadow/Skulk, with
-	// derived (layer-5) colours on both sides; a colourless Intimidate
-	// attacker has no colour to share, so only an artifact creature blocks
-	// it.
-	if e.hasKeywordH(attacker, kwhIntimidate) {
-		attColors, blockColors := e.objColors(a), e.objColors(b)
-		shared := false
-		for i := 0; i < len(attColors); i++ {
-			if strings.ContainsRune(blockColors, rune(attColors[i])) {
-				shared = true
-				break
-			}
-		}
-		if !bf.IsArtifact() && !shared {
-			return false
-		}
-	}
-	// CR 702.31b: a creature with horsemanship can be blocked only by a
-	// creature with horsemanship. The rule is asymmetric and attacker-keyed
-	// -- unlike Shadow, a horsemanship creature MAY block a creature without
-	// horsemanship -- so only the attacker side is gated here.
-	if e.hasKeywordH(attacker, kwhHorsemanship) && !e.hasKeywordH(blocker, kwhHorsemanship) {
-		return false
-	}
-	if e.hasKeywordH(attacker, kwhFlying) && !e.hasKeywordH(blocker, kwhFlying) && !e.hasKeywordH(blocker, kwhReach) {
-		return false
-	}
-	// CR 702.14: a creature with landwalk can't be blocked as long as the
-	// defending player controls a land of the specified type. Unlike Shadow
-	// or Horsemanship, this is not a blocker-keyword comparison at all: the
-	// gate reads the DEFENDER's controlled lands, via the same real
-	// characteristic filter (land subtypes, supertypes, nonBasic) the rest of
-	// the engine uses. Attacker-keyed and per-pair; checked here where every
-	// other can't-block rule lives so the ask's options and the validator's
-	// recompute share one oracle.
-	if e.landwalkEvades(attacker) {
-		return false
-	}
-	// CR 702.110a: a creature with skulk can't be blocked by creatures with
-	// greater power. Attacker-keyed and per-pair like Fear/Shadow; DERIVED
-	// power, never printed PT (a +1/+1'd or pumped blocker's real power is
-	// what the CR means). CR 509.1h: this is a declaration-legality rule,
-	// checked here at CR 509.1a -- a blocker's power growing past the
-	// attacker's after declaration does not unblock it, and no re-check runs.
-	if e.hasKeywordH(attacker, kwhSkulk) && e.Derived(blocker).Power > e.Derived(attacker).Power {
-		return false
-	}
-	if e.blockRestricted(blocker, attacker) {
-		return false
-	}
-	return true
-}
-
-// landwalkSpec returns the land filter a single keyword line names when that
-// line is a `Landwalk` keyword, and false for any other keyword. Forge spells
-// the parameter as the filter over the defending player's lands that makes the
-// creature unblockable (`Landwalk:Island`, `Landwalk:Swamp.Snow`,
-// `Landwalk:Land.Legendary`, `Landwalk:Land.nonBasic`, `Landwalk:Desert`). A
-// second colon introduces the human-readable description Forge carries
-// (`Landwalk:Land.Snow:snow Land`) and is NOT part of the spec; a line with no
-// parameter yields the empty spec, which the caller treats as no evasion
-// rather than as a universal one.
-func landwalkSpec(k string) (string, bool) {
-	if !strings.EqualFold(cardsKeywordHead(k), "Landwalk") {
-		return "", false
-	}
-	i := strings.IndexByte(k, ':')
-	if i < 0 {
-		return "", true
-	}
-	spec := k[i+1:]
-	if j := strings.IndexByte(spec, ':'); j >= 0 {
-		spec = spec[:j]
-	}
-	return strings.TrimSpace(spec), true
-}
-
-// landwalkEvades reports whether attacker carries a Landwalk keyword whose
-// land filter matches at least one land the defending player controls
-// (CR 702.14). The defending player is the seat the attacker was declared
-// against (state.Object.Attacking, which canBlock already pairs the blocker to).
-//
-// The filter is evaluated with the engine's ordinary land characteristics --
-// layer-4 derived types and supertypes, so a type-changing effect (Yavimaya,
-// Cradle of Growth making every land a Forest) is honoured, not the printed
-// name alone. Matching goes through effects.MatchesSpecCtx: the parameter is a
-// complete Forge filter spec, whose base carries the land subtype (`Island`,
-// `Swamp.Snow`) or `Land` with a supertype/qualifier predicate
-// (`Land.Legendary`, `Land.nonBasic`, `Land.Snow`). The SpecContext binds the
-// layer-4 derived-type table the way every other live-object rules read does
-// (see specCtx in statics.go), so a granted land type matches too. An empty or
-// unrecognised parameter fails CLOSED -- the spec matches no land, so the
-// creature stays ordinarily blockable rather than becoming universally
-// unblockable. Walk order is the defender's deterministic battlefield zone
-// slice, never a map.
-func (e *Engine) landwalkEvades(attacker state.ObjID) bool {
-	a := e.G.Obj(attacker)
-	if a == nil {
-		return false
-	}
-	defender := a.Attacking
-	// Read the attacker's characteristics FIRST: Derived runs active()'s static
-	// scan, which is what ARMS layer4InPool when the only type-changing carrier
-	// is a permanent placed outside the genesis deck pool (a fixture's direct
-	// AddObject, a token or a copy). Only then can the refresh below be gated
-	// correctly; checking the flag before this read would skip the refresh on
-	// exactly that board and read a stale derived-type table. The call is
-	// allocation-free (layers_test.go pins AllocsPerRun == 0), so the second
-	// Derived in the range header below is a cheap cached re-read, not a copy.
-	_ = e.Derived(attacker)
-	// Keep the layer-4 table in step with the board before reading it (a
-	// direct AddObject placement in a fixture emits nothing, so the epoch guard
-	// inside would otherwise stay a stale cache hit). Gated so a match with no
-	// type-changing carrier pays one branch.
-	if e.layer4InPool {
-		e.refreshDerivedTypes()
-	}
-	// withNames is the ONE seam for a hand-built rules SpecContext (setname.go):
-	// it binds the layer-3 rename set and the layer-4 derived type table, so this
-	// land filter ages with the layer walk instead of hand-copying one table.
-	sc := e.withNames(effects.NewSpecContext(defender, attacker))
-	for _, k := range e.Derived(attacker).Keywords {
-		spec, isLandwalk := landwalkSpec(k)
-		if !isLandwalk || spec == "" {
-			continue
-		}
-		for _, land := range e.G.Zone(state.ZBattlefield, defender) {
-			if effects.MatchesSpecCtx(e.G, spec, land, sc) {
-				return true
-			}
-		}
-	}
-	return false
-}
 
 // askAttackers builds a KAttackers decision, one option per (attacker,
 // defender) pair: every creature passing canAttack, offered once against
@@ -569,7 +68,7 @@ func (e *Engine) askAttackers() {
 	p := e.G.Active
 	var attackers []state.ObjID
 	for _, id := range e.G.Zone(state.ZBattlefield, p) {
-		if e.canAttack(id) {
+		if combat.CanAttack(asBoard(e), id) {
 			attackers = append(attackers, id)
 		}
 	}
@@ -748,7 +247,7 @@ func (e *Engine) askAttackers() {
 	// maxAttackers returns the int maximum and the clamp is inert
 	// (Max == len(opts), today's value).
 	maxOpts := len(opts)
-	if ceil := e.maxAttackers(); ceil < maxOpts {
+	if ceil := combat.MaxAttackers(asBoard(e)); ceil < maxOpts {
 		maxOpts = ceil
 	}
 	maxSum := 0
@@ -1132,7 +631,7 @@ func (e *Engine) validateAttackers(d *decision.Decision, in decision.Intent) err
 	// (validateAttackDeclaration's included).
 	chosen := d.Chosen(in)
 	for _, o := range chosen {
-		if !e.canAttackPair(o.Obj, o.Player) {
+		if !combat.CanAttackPair(asBoard(e), o.Obj, o.Player) {
 			return fmt.Errorf("object %d cannot attack", o.Obj)
 		}
 		if o.Battle != 0 && !e.canAttackBattle(o.Battle, d.Player) {
@@ -1141,7 +640,7 @@ func (e *Engine) validateAttackers(d *decision.Decision, in decision.Intent) err
 		if seen[o.Obj] {
 			return fmt.Errorf("attacker %d declared against more than one defender", o.Obj)
 		}
-		if e.attackBlocked(o.Obj, o.Player, o.Battle) {
+		if combat.AttackBlocked(asBoard(e), o.Obj, o.Player, o.Battle) {
 			return fmt.Errorf("attacker %d cannot attack player %d", o.Obj, o.Player)
 		}
 		// A required creature's named duty is enforced by the offered-pair set
@@ -1189,7 +688,7 @@ func (e *Engine) validateAttackers(d *decision.Decision, in decision.Intent) err
 // mustAttackRequired reports whether id is a creature that must attack this
 // combat (CR 508.1d), under the active player's control and able to attack.
 //
-// A creature is required when its attackRequirementSet is non-empty (an
+// A creature is required when its combat.RequirementSet is non-empty (an
 // encore designation, any applicable Effect-registered or face Mode$
 // MustAttack static, or a live goad) AND at least one offered pair actually
 // DISCHARGES one of those duties (attackDutyDischargeable) -- CR 508.1d's
@@ -1210,11 +709,11 @@ func (e *Engine) mustAttackRequired(id state.ObjID) bool {
 		return false
 	}
 	f := o.Face()
-	if f == nil || !e.canAttack(id) {
+	if f == nil || !combat.CanAttack(asBoard(e), id) {
 		return false
 	}
-	s := e.attackRequirements(id)
-	if !s.any() {
+	s := combat.AttackRequirements(asBoard(e), id)
+	if !s.Any() {
 		return false
 	}
 	// CR 508.1d counts a requirement only when the creature can actually
@@ -1257,227 +756,18 @@ func (e *Engine) mustAttackRequired(id state.ObjID) bool {
 // budget serialization are all the offer list's own rules, so the requirement
 // solver, the option list and validateAttackDeclaration can never disagree
 // about which pairs exist or which of them discharge a duty.
-func (e *Engine) attackDutyDischargeable(id state.ObjID, s attackRequirementSet) bool {
+func (e *Engine) attackDutyDischargeable(id state.ObjID, s combat.RequirementSet) bool {
 	anyPair := false
 	for _, of := range e.attackOffers() {
 		if of.id != id {
 			continue
 		}
-		if s.satisfiedByOffer(of) > 0 {
+		if s.SatisfiedByOffer(of.def, of.battle) > 0 {
 			return true
 		}
 		anyPair = true
 	}
-	return anyPair && s.broad
-}
-
-// maxAttackers reports the global attacker ceiling. Defender-scoped ceilings
-// are enforced per defender by validateAttackDeclaration; they cannot be
-// represented by the KAttackers decision's single Max value.
-// goadMayAttack implements the defender half of CR 701.38b. Every goad is
-// a separate requirement: a goaded creature attacks a player other than EACH
-// player who goaded it if one is available. If all possible defenders are
-// goaders, no declaration can satisfy every requirement, so each remains
-// legal and the creature still has to attack if able.
-func (e *Engine) goadMayAttack(id state.ObjID, defender state.PlayerID) bool {
-	o := e.G.Obj(id)
-	if o == nil || !e.goadedBy(o, defender) {
-		return true
-	}
-	for _, p := range e.G.AliveFrom(0) {
-		if p != o.Controller && !e.goadedBy(o, p) {
-			return false
-		}
-	}
-	return true
-}
-
-// staticGoadLine is one live Goad$ True static: a printed S: line on a
-// battlefield permanent (activeStatics' walk) or a granted one — the
-// DB$ Effect StaticAbilities$ registrations (Hot Pursuit's IsGoaded body,
-// Immortal Obligation's Static) and the DB$ Clone AddStaticAbilities$ grant
-// (Mocking Doppelganger's FamilyTease) effEffect/effClone register into the
-// continuous registry. The Affected$ spec is matched against the BEARER; a
-// granted line carries its Effect's Remembered set for the
-// `Creature.IsRemembered` spelling.
-type staticGoadLine struct {
-	source     state.ObjID
-	controller state.PlayerID
-	spec       string
-	remembered []state.ObjID
-}
-
-// staticGoadLines collects every live Goad$ True static, both delivery
-// routes, in one deterministic pass: printed statics in activeStatics' APNAP
-// order, then the continuous registry's Goad restrictions in registry order.
-// The goad is a requirement, not a layer effect: like every other S:
-// restriction read by activeStatics it is re-derived on demand from the
-// current board (rebuilding on replay), so the goad ends when the source
-// leaves the battlefield, moves to another bearer, or an "as long as" gate
-// flips -- no lifetime bookkeeping. A granted static's lifetime is the
-// registration's own (the registry machinery expires it), so this reader
-// needs none.
-func (e *Engine) staticGoadLines() []staticGoadLine {
-	var out []staticGoadLine
-	for _, sv := range e.activeStatics("Continuous") {
-		if !strings.EqualFold(strings.TrimSpace(sv.ParamStr(cards.PKGoad)), "True") {
-			continue
-		}
-		spec := sv.Params["Affected"]
-		if spec == "" {
-			spec = "Card.Self"
-		}
-		out = append(out, staticGoadLine{source: sv.Source, controller: sv.Controller, spec: spec})
-	}
-	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
-		ce := &ceL[ceI]
-		if ce.Restriction != "Goad" {
-			continue
-		}
-		spec := strings.TrimSpace(ce.RestrictParams["Affected"])
-		if spec == "" {
-			spec = "Card.Self"
-		}
-		out = append(out, staticGoadLine{source: ce.Source, controller: ce.Controller,
-			spec: spec, remembered: ce.Remembered})
-	}
-	return out
-}
-
-// goadLineMatches reports whether one live Goad$ True static goads o: its
-// Affected$ spec matched with the static's own source, controller and
-// remembered set bound (the Affected$ default is Card.Self, mirroring
-// staticEffects, so a Goad$ line without Affected$ fails closed to its own
-// source rather than to every creature). The goadProbe bracket keeps an
-// IsGoaded-conditioned Affected$ spec from re-entering the derivation (see
-// the engine field).
-func (e *Engine) goadLineMatches(l staticGoadLine, o *state.Object) bool {
-	if o == nil {
-		return false
-	}
-	sc := e.specCtx(l.source, l.controller)
-	for _, r := range l.remembered {
-		sc.Remembered = append(sc.Remembered, state.Target{Obj: r})
-	}
-	e.goadProbe++
-	defer func() { e.goadProbe-- }()
-	return e.matchesSpec(l.spec, o.ID, sc)
-}
-
-// staticGoaders returns the controllers of every live Goad$ True static
-// whose Affected$ spec matches o (CR 701.38b: a goad's goader is the
-// permanent's controller, so a static goad's goader is the static's own
-// controller), printed or granted alike.
-func (e *Engine) staticGoaders(o *state.Object) []state.PlayerID {
-	var out []state.PlayerID
-	for _, l := range e.staticGoadLines() {
-		if e.goadLineMatches(l, o) {
-			out = append(out, l.controller)
-		}
-	}
-	return out
-}
-
-// staticallyGoaded derives the static-goad SET the effects tier's IsGoaded
-// predicate reads (SpecContext.Layers.StaticGoads, published through the
-// layerTablesHost seam and bound in matchesSpec): every battlefield object any
-// live Goad$ True static currently goads, printed or granted. One board walk,
-// AliveFrom(0) order, so the table is deterministic; nil when no goad static
-// is live, which keeps the per-Resolve publication free for every board
-// without one.
-func (e *Engine) staticallyGoaded() map[state.ObjID]bool {
-	return e.staticallyGoadedWithLKI(nil)
-}
-
-// staticallyGoadedWithLKI derives the live battlefield set and, when supplied,
-// evaluates the just-departed battlefield object's LKI against those same
-// live static sources. Trigger ValidCard$ filters run after the zone move, so
-// deriving only from the current battlefield would lose a static goad that
-// applied immediately before the object left.
-func (e *Engine) staticallyGoadedWithLKI(lki *state.Object) map[state.ObjID]bool {
-	lines := e.staticGoadLines()
-	if len(lines) == 0 {
-		return nil
-	}
-	out := map[state.ObjID]bool{}
-	for _, p := range e.G.AliveFrom(0) {
-		for _, id := range e.G.Zone(state.ZBattlefield, p) {
-			o := e.G.Obj(id)
-			if o == nil {
-				continue
-			}
-			for _, l := range lines {
-				if e.goadLineMatches(l, o) {
-					out[id] = true
-					break
-				}
-			}
-		}
-	}
-	if lki != nil && lki.Zone == state.ZBattlefield {
-		for _, l := range lines {
-			if e.goadLineMatches(l, lki) {
-				out[lki.ID] = true
-				break
-			}
-		}
-	}
-	return out
-}
-
-func (e *Engine) hasActiveGoad(o *state.Object) bool {
-	for _, ge := range o.Goads {
-		if e.activeGoad(o, ge) {
-			return true
-		}
-	}
-	return len(e.staticGoaders(o)) > 0
-}
-
-func (e *Engine) goadedBy(o *state.Object, p state.PlayerID) bool {
-	for _, ge := range o.Goads {
-		if ge.Player == p && e.activeGoad(o, ge) {
-			return true
-		}
-	}
-	for _, goader := range e.staticGoaders(o) {
-		if goader == p {
-			return true
-		}
-	}
-	return false
-}
-
-func (e *Engine) activeGoad(o *state.Object, ge state.GoadEffect) bool {
-	if o.Zone != state.ZBattlefield {
-		return false
-	}
-	switch ge.Duration {
-	case "AsLongAsInPlay":
-		src := e.G.Obj(ge.Source)
-		return src != nil && src.Zone == state.ZBattlefield
-	case "AsLongAsControl":
-		return o.Controller == ge.Controller
-	default:
-		return true
-	}
-}
-
-func (e *Engine) maxAttackers() int {
-	const huge = int(^uint(0) >> 1)
-	maxAllowed := huge
-	for _, sv := range e.attackRestrictStatics() {
-		if strings.TrimSpace(sv.Params["ValidDefender"]) != "" || !e.continuousGateHolds(sv) {
-			continue
-		}
-		// parseAmount defaults an absent/invalid MaxAttackers$ to the maximum
-		// int32, so an unparseable restriction contributes no ceiling.
-		n := parseAmount(sv.Params["MaxAttackers"], math.MaxInt32)
-		if int(n) < maxAllowed {
-			maxAllowed = int(n)
-		}
-	}
-	return maxAllowed
+	return anyPair && s.Broad
 }
 
 // validateAttackDeclaration enforces CR 508.1c/d on the chosen attacker set.
@@ -1494,7 +784,7 @@ func (e *Engine) validateAttackDeclaration(d *decision.Decision, in decision.Int
 // validateAttackDeclarationChosen is validateAttackDeclaration over
 // chosen = d.Chosen(in), already resolved by the caller (validateAttackers).
 func (e *Engine) validateAttackDeclarationChosen(d *decision.Decision, in decision.Intent, chosen []decision.Option) error {
-	maxAllowed := e.maxAttackers()
+	maxAllowed := combat.MaxAttackers(asBoard(e))
 	// CR 508.1d: the declaration must include as many required creatures as
 	// possible. The options carry the requirement (Option.Required, set from
 	// mustAttackRequired in askAttackers), the attack-prop budget
@@ -1521,41 +811,12 @@ func (e *Engine) validateAttackDeclarationChosen(d *decision.Decision, in decisi
 		}
 	}
 	for defender, count := range counts {
-		limit, ok := e.attackRestrictLimit(defender)
+		limit, ok := combat.AttackRestrictLimit(asBoard(e), defender)
 		if ok && count > limit {
 			return fmt.Errorf("declared %d attackers at defender %d, more than the allowed %d", count, defender, limit)
 		}
 	}
 	return nil
-}
-
-func (e *Engine) attackRestrictStatics() []staticView {
-	return e.activeStatics("AttackRestrict")
-}
-
-// attackRestrictLimit returns the tightest active, gated AttackRestrict
-// ceiling that applies to attacks at defender, and whether any applies.
-// Multiple restrictions can name one defender; the smallest ceiling binds
-// (CR 508.1c), and validateAttackDeclaration, the option Group cap and the
-// decision's per-Group limit all derive from this one read so the engine's
-// declaration check and the wire's repair rule cannot disagree.
-func (e *Engine) attackRestrictLimit(defender state.PlayerID) (int, bool) {
-	limit := 0
-	found := false
-	for _, sv := range e.attackRestrictStatics() {
-		if !e.continuousGateHolds(sv) {
-			continue
-		}
-		spec := strings.TrimSpace(sv.Params["ValidDefender"])
-		if spec == "" || !effects.MatchesPlayerSpecCtx(e.G, spec, defender, sv.Controller, e.playerSpecCtx(sv.Source)) {
-			continue
-		}
-		n := int(parseAmount(sv.Params["MaxAttackers"], math.MaxInt32))
-		if !found || n < limit {
-			limit, found = n, true
-		}
-	}
-	return limit, found
 }
 
 // attackRestrictGroup marks options at a defender constrained by an active
@@ -1566,7 +827,7 @@ func (e *Engine) attackRestrictLimit(defender state.PlayerID) (int, bool) {
 // you") rides GroupLimits while the ordinary at-most-one-per-Group rule covers
 // the limit-one shape byte-identically.
 func (e *Engine) attackRestrictGroup(defender state.PlayerID) (string, int) {
-	limit, ok := e.attackRestrictLimit(defender)
+	limit, ok := combat.AttackRestrictLimit(asBoard(e), defender)
 	if !ok {
 		return "", 0
 	}
@@ -1626,7 +887,7 @@ func (e *Engine) validateBlockers(d *decision.Decision, in decision.Intent) erro
 		if byAttacker[o.Attacker] == 1 && e.hasKeywordH(o.Attacker, kwhMenace) {
 			return fmt.Errorf("attacker %d with menace must be blocked by at least two creatures", o.Attacker)
 		}
-		if err := e.validateMinMaxBlockers(o.Attacker, byAttacker[o.Attacker], d.Player); err != nil {
+		if err := combat.ValidateMinMaxBlockers(asBoard(e), o.Attacker, byAttacker[o.Attacker], d.Player); err != nil {
 			return err
 		}
 	}
@@ -1652,7 +913,7 @@ func (e *Engine) blockPairScopeFor(defender state.PlayerID) blockPairScope {
 		bounds:        make(map[state.ObjID][2]int),
 	}
 	for _, aid := range scope.attackers {
-		min, max, minOK, maxOK, all := e.minMaxBlockerBounds(aid)
+		min, max, minOK, maxOK, all := combat.MinMaxBlockerBounds(asBoard(e), aid)
 		// CR 702.111b: Menace is the same whole-declaration floor as a
 		// MinMaxBlocker Min$ 2 ("can't be blocked except by two or more
 		// creatures"), so it is folded into the published bound. A client
@@ -1678,14 +939,14 @@ func (e *Engine) blockPairScopeFor(defender state.PlayerID) blockPairScope {
 			// at all, so the attacker's pairs are not offered; otherwise
 			// the bounds publish the required all-team and a client unable
 			// to field it drops the block.
-			required := e.defenderCreatureCount(defender)
-			if e.legalBlockerCount(aid, defender) < required ||
+			required := combat.DefenderCreatureCount(asBoard(e), defender)
+			if combat.LegalBlockerCount(asBoard(e), aid, defender) < required ||
 				(required < 2 && e.hasKeywordH(aid, kwhMenace)) {
 				scope.minImpossible[aid] = true
 			} else {
 				b = [2]int{required, required}
 			}
-		} else if minOK && (e.legalBlockerCount(aid, defender) < min || (maxOK && max < min)) {
+		} else if minOK && (combat.LegalBlockerCount(asBoard(e), aid, defender) < min || (maxOK && max < min)) {
 			scope.minImpossible[aid] = true
 		}
 		if b[0] != 0 || b[1] != 0 {
@@ -1705,7 +966,7 @@ func (e *Engine) admissiblePair(scope *blockPairScope, defender state.PlayerID, 
 	if scope.minImpossible[attacker] {
 		return false
 	}
-	if !e.canBlock(blocker, attacker) {
+	if !combat.CanBlock(asBoard(e), blocker, attacker) {
 		return false
 	}
 	charge := e.blockPairCharge(blocker, attacker)
@@ -1713,109 +974,6 @@ func (e *Engine) admissiblePair(scope *blockPairScope, defender state.PlayerID, 
 		return false
 	}
 	return true
-}
-
-// mustBlockCandidates returns every creature with an active blocking duty.
-// The decision's whole-team solver determines which of these duties are
-// actually satisfiable together over the offered pairs (CR 509.1c).
-func (e *Engine) mustBlockCandidates(defender state.PlayerID) map[state.ObjID]bool {
-	required := make(map[state.ObjID]bool)
-	matches := func(spec string, source state.ObjID, controller state.PlayerID, id state.ObjID) bool {
-		return spec == "" || e.matchesSpec(spec, id, e.specCtx(source, controller))
-	}
-	for _, id := range e.G.Zone(state.ZBattlefield, defender) {
-		if !e.IsCreature(id) {
-			continue
-		}
-		for _, sv := range e.activeStatics("MustBlock") {
-			if matches(sv.Params["ValidCreature"], sv.Source, sv.Controller, id) {
-				required[id] = true
-				break
-			}
-		}
-		if required[id] {
-			continue
-		}
-		for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
-			ce := &ceL[ceI]
-			if ce.Restriction == "MustBlock" && e.restrictionApplies(ce, id) {
-				required[id] = true
-				break
-			}
-		}
-	}
-	return required
-}
-
-// validateMinMaxBlockers enforces CR 509.1a's MinMaxBlocker bounds on ONE
-// attacker's declared blocker count n (already non-zero). A Min$ bound admits
-// only 0 or at least min blockers; a Max$ bound admits only at most max; Min$
-// All admits only a declaration every one of the defending player's legal
-// blockers takes part in. The count of legal blockers for the All case is
-// recomputed with canBlock, the same oracle askBlockers' options use, so the
-// solver and the option list can never disagree about which creatures could
-// have blocked.
-func (e *Engine) validateMinMaxBlockers(attacker state.ObjID, n int, defender state.PlayerID) error {
-	min, max, minOK, maxOK, all := e.minMaxBlockerBounds(attacker)
-	if !minOK && !maxOK && !all {
-		return nil
-	}
-	if all {
-		if n == 0 {
-			// An unblocked declaration is always legal: the restriction
-			// constrains WHO may block, never forces a block.
-			return nil
-		}
-		// Min$ All (Tromokratis: "can't be blocked unless all creatures
-		// defending player controls block it" -- the oracle's own
-		// parenthetical: if ANY creature that player controls doesn't
-		// block it, it can't be blocked). The declaration must therefore
-		// match the defender's WHOLE creature count, not merely the legal
-		// subset: a creature that cannot block does not block, so one such
-		// creature makes every blocking declaration illegal.
-		if n != e.defenderCreatureCount(defender) {
-			return fmt.Errorf("attacker %d can't be blocked unless all %d of the defender's creatures block it (declared %d)", attacker, e.defenderCreatureCount(defender), n)
-		}
-		return nil
-	}
-	if minOK && n < min {
-		return fmt.Errorf("attacker %d can't be blocked by fewer than %d creatures (declared %d)", attacker, min, n)
-	}
-	if maxOK && n > max {
-		return fmt.Errorf("attacker %d can't be blocked by more than %d creatures (declared %d)", attacker, max, n)
-	}
-	return nil
-}
-
-// legalBlockerCount counts the defending player's creatures that could block
-// attacker (canBlock's own oracle). askBlockers uses it to drop an attacker
-// whose Min$ bound cannot possibly be met -- a declaration nobody could make
-// legally is a decision worth not posing -- and it is the reachable half of a
-// Min$ All bound (see defenderCreatureCount).
-func (e *Engine) legalBlockerCount(attacker state.ObjID, defender state.PlayerID) int {
-	n := 0
-	for _, bid := range e.G.Zone(state.ZBattlefield, defender) {
-		if e.canBlock(bid, attacker) {
-			n++
-		}
-	}
-	return n
-}
-
-// defenderCreatureCount counts every creature permanent the defending player
-// controls -- the denominator of a Min$ All bound, which the oracle defines
-// as "all creatures defending player controls" rather than the legal subset:
-// a creature that cannot block still does not block, so its presence makes a
-// Min$ All blocking declaration impossible (only the unblocked declaration is
-// legal). Creature-ness is the same derived test canBlock uses.
-func (e *Engine) defenderCreatureCount(defender state.PlayerID) int {
-	n := 0
-	for _, id := range e.G.Zone(state.ZBattlefield, defender) {
-		if o := e.G.Obj(id); o != nil && o.EffectiveIsCreature() && !o.BestowedAttached() && !o.ReconfiguredAttached() {
-			n++
-		}
-	}
-	return n
 }
 
 // blockerRound is the declare-blockers step's plain-value cursor, the same
@@ -1883,7 +1041,7 @@ func (e *Engine) askBlockers() {
 		// slice through every doubling.
 		var optBuf [16]decision.Option
 		built := optBuf[:0]
-		requiredBlockers := e.mustBlockCandidates(defender)
+		requiredBlockers := combat.MustBlockCandidates(asBoard(e), defender)
 		// The attacker-oriented CR 509.1c requirements: every attacker the
 		// defender is being asked about that carries "CARDNAME must be blocked
 		// if able.". The requirement is satisfied by ANY one legal blocker
@@ -1894,7 +1052,7 @@ func (e *Engine) askBlockers() {
 		// "if able" half is decided by the offer, never asserted here.
 		mustBeBlocked := make(map[state.ObjID]bool, len(scope.attackers))
 		for _, aid := range scope.attackers {
-			if e.hasMustBeBlockedKeyword(aid) {
+			if combat.HasMustBeBlockedKeyword(asBoard(e), aid) {
 				mustBeBlocked[aid] = true
 			}
 		}

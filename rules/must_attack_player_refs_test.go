@@ -56,11 +56,11 @@ func TestMustAttackYouBindsRegistrationController(t *testing.T) {
 	}
 
 	rs := e.attackRequirements(token)
-	if !rs.any() || rs.named[0] != 1 {
+	if !rs.Any() || rs.Named[0] != 1 {
 		t.Fatalf("MustAttack$ You should require the registration controller 0, got %+v", rs)
 	}
-	if rs.named[1] != 0 || !e.requiredForDefender(token, 0) || e.requiredForDefender(token, 1) {
-		t.Fatalf("precondition/assertion: controller and opponent must differ; requirements=%+v", rs.named)
+	if rs.Named[1] != 0 || !e.requiredForDefender(token, 0) || e.requiredForDefender(token, 1) {
+		t.Fatalf("precondition/assertion: controller and opponent must differ; requirements=%+v", rs.Named)
 	}
 }
 
@@ -83,11 +83,11 @@ func TestMustAttackYouStaticUsesSourceController(t *testing.T) {
 		t.Fatal("precondition: static controller and affected creature controller must differ")
 	}
 	rs := e.attackRequirements(creature)
-	if !rs.any() || rs.named[0] != 1 || rs.named[1] != 0 {
-		t.Fatalf("static MustAttack$ You should name source controller 0: %+v", rs.named)
+	if !rs.Any() || rs.Named[0] != 1 || rs.Named[1] != 0 {
+		t.Fatalf("static MustAttack$ You should name source controller 0: %+v", rs.Named)
 	}
 	if !e.requiredForDefender(creature, 0) || e.requiredForDefender(creature, 1) {
-		t.Fatalf("static requirement names wrong defender: %+v", rs.named)
+		t.Fatalf("static requirement names wrong defender: %+v", rs.Named)
 	}
 }
 
@@ -141,10 +141,10 @@ func TestMustAttackRememberedBindsUniqueCapturedPlayer(t *testing.T) {
 		t.Fatalf("expected one MustAttack registration, got %d", regs)
 	}
 	rs := e.attackRequirements(token)
-	if !rs.any() || rs.named[2] != 1 || rs.named[0] != 0 {
+	if !rs.Any() || rs.Named[2] != 1 || rs.Named[0] != 0 {
 		t.Fatalf("MustAttack$ Remembered should require distinct captured player 2, got %+v", rs)
 	}
 	if !e.requiredForDefender(token, 2) || e.requiredForDefender(token, 0) {
-		t.Fatalf("wrong defender required: %+v", rs.named)
+		t.Fatalf("wrong defender required: %+v", rs.Named)
 	}
 }

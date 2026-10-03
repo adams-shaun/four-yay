@@ -301,6 +301,12 @@ type scan struct {
 	// apiSpecificRulesSA staleness check only makes sense there -- a probe's
 	// synthetic scan deliberately contains none of the real functions.
 	complete bool
+	// filePkg is the package clause of the file being scanned. The rules
+	// tree includes its lasagna subpackages (sourceFilesUnder walks "."
+	// recursively), which are attributed in the rules namespace; filePkg
+	// tells a rules/combat file apart so its Board calls resolve to rules'
+	// combatBoard adapter (see scanCall).
+	filePkg string
 }
 
 // newScan builds an empty scan; scanPackages and the synthetic-source probes
@@ -353,6 +359,7 @@ func (s *scan) scanSource(t *testing.T, path, pkg, src string) {
 	if err != nil {
 		t.Fatalf("paramcensus: parse %s: %v", path, err)
 	}
+	s.filePkg = af.Name.Name
 	for _, decl := range af.Decls {
 		fd, ok := decl.(*ast.FuncDecl)
 		if !ok || fd.Body == nil {
@@ -875,6 +882,17 @@ func (s *scan) scanCall(t *testing.T, fset *token.FileSet, fi *fnInfo, fname str
 		if id, ok := fun.X.(*ast.Ident); ok {
 			if id.Name == "e" && pkg == "rules" {
 				callee = "Engine." + fun.Sel.Name
+			} else if id.Name == "b" && pkg == "rules" && s.filePkg == "combat" {
+				// rules/combat's predicates read the game through their
+				// combat.Board parameter b, which rules implements as
+				// combatBoard (rules/combat_board.go): the call is an edge
+				// to that adapter method, which forwards to the Engine
+				// reader the predicate called before it moved.
+				callee = "combatBoard." + fun.Sel.Name
+			} else if id.Name == "combat" && pkg == "rules" && s.filePkg == "rules" {
+				// rules' calls into rules/combat, whose files are scanned
+				// into the rules namespace under their own function names.
+				callee = fun.Sel.Name
 			} else if strings.HasPrefix(fname, id.Name+".") {
 				// a method calling another method on the same receiver
 				callee = id.Name + "." + fun.Sel.Name
@@ -887,7 +905,7 @@ func (s *scan) scanCall(t *testing.T, fset *token.FileSet, fi *fnInfo, fname str
 	default:
 		return
 	}
-	if (callee == "Engine.activeStatics" || callee == "Engine.assignmentStatics") && pkg == "rules" {
+	if (callee == "Engine.activeStatics" || callee == "Engine.assignmentStatics" || callee == "combatBoard.Statics") && pkg == "rules" {
 		if len(ce.Args) > 0 {
 			if lit, ok := ce.Args[0].(*ast.BasicLit); ok && lit.Kind == token.STRING {
 				if mode, err := strconv.Unquote(lit.Value); err == nil {
@@ -1867,6 +1885,15 @@ var genericSAExcludes = map[string][]string{
 	"Engine.abilityPresentHolds": {"Mana", "ManaReflected"},
 }
 
+// statPassThrough names the collectors that forward a CALLER's literal mode to
+// activeStatics: their own non-literal activeStatics call is not a root, the
+// literal-mode call sites of the collector are (scanCall records those like
+// activeStatics literals). Each entry carries its justification.
+var statPassThrough = map[string]string{
+	"combatBoard.Statics": "rules/combat's Board.Statics (rules/combat_board.go) re-views activeStatics(mode) " +
+		"as combat.Static values; every rules/combat caller passes a literal mode, recorded as that mode's root",
+}
+
 // handRoots declares ATTRIBUTION (which function to read for a primitive) for
 // the few roots the code does not state via Register / the dispatch switch /
 // activeStatics literals. The reads still come from the scanned bodies.
@@ -1915,12 +1942,6 @@ var handRoots = struct {
 		// mustAttackRequired scans MustAttack statics directly, with no
 		// activeStatics call; its Params reads are the whitelist switch.
 		"MustAttack": {"Engine.mustAttackRequired"},
-		// AttackRestrict: attackRestrictStatics is the literal activeStatics
-		// root the scan already attributes; maxAttackers and attackRestrictLimit
-		// are its callers and carry the mode's ValidDefender$/MaxAttackers$
-		// reads, so they are declared here too (a caller of a collector root is
-		// not reachable FROM that root).
-		"AttackRestrict": {"Engine.attackRestrictStatics", "Engine.maxAttackers", "Engine.attackRestrictLimit"},
 		// untapOtherStaticsMatch scans UntapOtherPlayer statics directly over
 		// the face's Statics slice (Endbringer's foreign-untap shape), with
 		// no activeStatics call -- the same direct-scan shape
@@ -2266,6 +2287,9 @@ func (s *scan) rotGuard(t *testing.T) {
 	// Every non-literal activeStatics call site must be covered by a
 	// handRoots.stat declaration naming its function.
 	for fname, sites := range s.ambiguousStat {
+		if statPassThrough[fname] != "" {
+			continue
+		}
 		covered := false
 		for _, fns := range handRoots.stat {
 			for _, f := range fns {

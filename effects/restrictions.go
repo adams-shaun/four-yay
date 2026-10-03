@@ -692,7 +692,7 @@ func CostStaticParamsReadable(params map[string]string) bool {
 
 // CanAttackDefenderParamsReadable is the parameter whitelist a FACE
 // CanAttackDefender static must pass before rules' attacker-legality read
-// (rules/attack_defender.go attackAllowedThroughDefender) enforces it. It is
+// (rules/combat/defender.go AttackAllowedThroughDefender) enforces it. It is
 // the grant list above PLUS the gate family (IsPresent$/IsPresent2$/
 // CheckSVar$/SVarCompare$/Condition$), which the face read evaluates through
 // the shared continuousGateHolds grammar — the same shape

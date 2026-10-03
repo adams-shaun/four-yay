@@ -37,6 +37,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/combat"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -150,7 +151,7 @@ func (e *Engine) attackPairCharge(id state.ObjID, defender state.PlayerID, attac
 		if !e.matchesSpec(spec, id, e.specCtxSVars(sv.Source, sv.Controller, sv.SVars)) {
 			continue
 		}
-		if !restrictionPlayerTargetMatches(e.G, sv.Params["Target"], defender, sv.Controller, sv.Source, nil, attacked) {
+		if !combat.RestrictionTargetMatches(e.G, sv.Params["Target"], defender, sv.Controller, sv.Source, nil, attacked) {
 			continue
 		}
 		ch, ok := e.attackUnlessCharge(sv, id)
@@ -186,7 +187,7 @@ func (e *Engine) attackPairCharge(id state.ObjID, defender state.PlayerID, attac
 		if !e.matchesSpec(spec, id, sc) {
 			continue
 		}
-		if !restrictionPlayerTargetMatches(e.G, sv.Params["Target"], defender, ce.Controller, ce.Source, nil, attacked) {
+		if !combat.RestrictionTargetMatches(e.G, sv.Params["Target"], defender, ce.Controller, ce.Source, nil, attacked) {
 			continue
 		}
 		if ch, ok := e.attackUnlessCharge(sv, id); ok {
@@ -1533,10 +1534,10 @@ func (e *Engine) attackOffersCompute() []attackOffer {
 	// One requirement set per creature, computed once from the board (never
 	// per pair), keyed by ObjID and read by lookup only -- no map iteration
 	// reaches the offer list order.
-	reqs := make(map[state.ObjID]attackRequirementSet)
+	reqs := make(map[state.ObjID]combat.RequirementSet)
 	for _, id := range e.G.Zone(state.ZBattlefield, p) {
-		if e.canAttack(id) {
-			reqs[id] = e.attackRequirements(id)
+		if combat.CanAttack(asBoard(e), id) {
+			reqs[id] = combat.AttackRequirements(asBoard(e), id)
 		}
 	}
 	// Each (creature able to attack, defending player) pair is at most one
@@ -1553,7 +1554,7 @@ func (e *Engine) attackOffersCompute() []attackOffer {
 			}
 		}
 		for _, id := range e.G.Zone(state.ZBattlefield, p) {
-			if !e.canAttackPair(id, d) || !e.goadMayAttack(id, d) || e.attackBlocked(id, d, 0) {
+			if !combat.CanAttackPair(asBoard(e), id, d) || !combat.GoadMayAttack(asBoard(e), id, d) || combat.AttackBlocked(asBoard(e), id, d, 0) {
 				continue
 			}
 			charge := e.attackPairCharge(id, d, 0)
@@ -1567,7 +1568,7 @@ func (e *Engine) attackOffersCompute() []attackOffer {
 			// planeswalkers). The walk happens in the planeswalker's
 			// controller's zone order, and d IS that controller here.
 			for _, wid := range walkerTargets {
-				if e.attackBlocked(id, d, wid) {
+				if combat.AttackBlocked(asBoard(e), id, d, wid) {
 					continue
 				}
 				walkerCharge := e.attackPairCharge(id, d, wid)
@@ -1584,13 +1585,13 @@ func (e *Engine) attackOffersCompute() []attackOffer {
 				continue
 			}
 			for _, id := range e.G.Zone(state.ZBattlefield, p) {
-				if !e.canAttackPair(id, d) {
+				if !combat.CanAttackPair(asBoard(e), id, d) {
 					continue
 				}
-				if !e.goadMayAttack(id, d) {
+				if !combat.GoadMayAttack(asBoard(e), id, d) {
 					continue
 				}
-				if e.attackBlocked(id, d, b.id) {
+				if combat.AttackBlocked(asBoard(e), id, d, b.id) {
 					continue
 				}
 				charge := e.attackPairCharge(id, d, b.id)
@@ -1604,14 +1605,14 @@ func (e *Engine) attackOffersCompute() []attackOffer {
 	// Best player-attack duty satisfaction per creature over surviving pairs.
 	best := make(map[state.ObjID]int)
 	for _, of := range out {
-		if n := reqs[of.id].satisfiedByOffer(of); n > best[of.id] {
+		if n := reqs[of.id].SatisfiedByOffer(of.def, of.battle); n > best[of.id] {
 			best[of.id] = n
 		}
 	}
 	keep := out[:0]
 	for _, of := range out {
 		rs := reqs[of.id]
-		if rs.any() && rs.satisfiedByOffer(of) < best[of.id] {
+		if rs.Any() && rs.SatisfiedByOffer(of.def, of.battle) < best[of.id] {
 			continue
 		}
 		keep = append(keep, of)
