@@ -140,6 +140,16 @@ func effChooseColor(h Host, c *Ctx, sa *cards.SA) {
 		d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Min: 1, Max: 1,
 			ResumeKind: "choosecolor", ResumeSA: sa, Prompt: "Choose a color", Source: c.Source}
 		d.Options = opts
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand: the same Choose event
+			// the "choosecolor" resume arm's re-entry emits.
+			letter := colourLetter(ans[0].Label)
+			if !chooseColorOffers(opts, letter) {
+				letter = colourLetter(opts[0].Label)
+			}
+			h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "color", Text: string(letter)})
+			return
+		}
 		if Ask(h, d) == AskAsked {
 			return
 		}

@@ -38,6 +38,7 @@ func (e *Engine) handlePriority(d *decision.Decision, in decision.Intent) {
 		if passes >= int32(e.G.AliveCount()) {
 			if len(e.G.Stack) > 0 {
 				e.resolveTop()
+				e.tape.ResolutionDone()
 				// CR 117.5: nobody receives priority in the middle of a
 				// resolution. A resolution that suspends on a mid-resolution
 				// ask (a modal spell's KModes, an as-enters choose, an

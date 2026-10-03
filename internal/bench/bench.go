@@ -143,6 +143,14 @@ type Hooks struct {
 	NeedBoard   bool
 	HonestRoot  bool
 	RootRefused func(seatIdx int, d *decision.Decision, reason string)
+	// SyncAnswer installs the resolution kernel's synchronous answerer
+	// (rules.SetTapeAnswerer) when every seat is a plain board seat and no
+	// hook observes or consumes decisions: a converted mid-resolution ask is
+	// answered inline by its seat, so a kernel-on engine takes no checkpoint
+	// for it. It changes no event (the posed state of a stop-ask is the
+	// state at the ask point). Inline answers are not counted in
+	// Outcome.Intents. With the kernel off it changes nothing.
+	SyncAnswer bool
 }
 
 // PlayGame plays one game between the given per-seat seats to completion, or
@@ -159,8 +167,18 @@ func PlayGame(cfg rules.Config, seats []seat.Seat, maxTurns, maxIntents int, hoo
 	if hooks.Setup != nil {
 		hooks.Setup(e)
 	}
-	e.Advance()
 	board := botpolicy.NewBoard(len(seats))
+	if hooks.SyncAnswer && hooks.Decision == nil && hooks.Submit == nil && allPlainBoardSeats(seats) {
+		rules.SetTapeAnswerer(e, func(d *decision.Decision, reject error) (decision.Intent, bool) {
+			if reject != nil {
+				return decision.Intent{}, false
+			}
+			b := botpolicy.BoardFromGameInto(e.G, e, d.Player, &board)
+			in, err := seats[d.Player].(seat.BoardSeat).DecideBoard(context.Background(), b, *d)
+			return in, err == nil
+		})
+	}
+	e.Advance()
 	// leanViews are the per-seat reusable Views of view.LeanReader seats;
 	// rounds folds the board clock incrementally over the append-only log.
 	leanViews := make([]view.View, len(seats))
@@ -811,4 +829,19 @@ func playOnePairWithPool(baseSeed uint64, pos, games int, pd PairDef, a, b SeatC
 		}
 	}
 	return r, nil
+}
+
+// allPlainBoardSeats reports whether every seat answers from the board
+// alone (a seat.BoardSeat that is not a search seat): the seats a
+// synchronous answerer can ask inline.
+func allPlainBoardSeats(seats []seat.Seat) bool {
+	for _, s := range seats {
+		if _, ok := s.(seat.BoardSeat); !ok {
+			return false
+		}
+		if _, ok := s.(searchseat.SearchSeat); ok {
+			return false
+		}
+	}
+	return true
 }
