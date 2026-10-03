@@ -197,12 +197,20 @@ func cardChoices(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID) []state.T
 		if !controlledByChoicePlayer(g, c, control, chooser, o) {
 			continue
 		}
-		// The choice's filter is evaluated from the chooser's perspective:
-		// `Choices$ Card.YouOwn` means the chooser's card, not the spell's
-		// controller's card.
-		cc := *c
-		cc.Controller = chooser
-		if spec == "" || choiceSpecAdmits(h, g, &cc, spec, o) {
+		// The choice's filter is evaluated from the ACTIVATOR's perspective,
+		// not the chooser's (Forge's ChooseCardEffect validates Choices$
+		// against sa.getActivatingPlayer()): `Choices$ Card.YouOwn` asked of
+		// the target opponent is the CASTER's graveyard card (Forgotten Lore,
+		// Shrouded Lore, Rejoin the Fight), `Permanent.YouCtrl` asked of the
+		// chosen opponent is the caster's permanent (Wormfang Crab, Demonic
+		// Hordes). Every one of the 19 corpus lines whose chooser can differ
+		// from the controller and whose Choices$ reads You means the
+		// controller; the chooser's own cards are spelled through
+		// ControlledByPlayer$/TargetControls$ or a Remembered/Targeted
+		// player predicate instead. Reading the chooser here offered those
+		// choosers an empty or wrong pool (Shrouded Lore's opponent was never
+		// asked at all).
+		if spec == "" || choiceSpecAdmits(h, g, c, spec, o) {
 			out = append(out, t)
 		}
 	}

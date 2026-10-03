@@ -51,7 +51,12 @@ import (
 //     forever -- net zero mana, board unchanged, one decision per cycle
 //     (measured: seed 0 of the ulalek-eldrazi commander deck spun past
 //     60,000 intents on turn 5 with only Tap/ManaAdd/AbilityPush events in
-//     the window). The budget is bot-quality advice, never a rules gate: a
+//     the window). The census is public and filled for EVERY battlefield
+//     source, the seat's own and its opponents' alike: an "any player may
+//     activate" ability (Activator$ Player) is offered on a permanent the
+//     seat does not control, and with the foreign census zeroed the free
+//     {0} of an opponent's Lethal Vapors was re-activated forever (cardfuzz
+//     seed 8880833984888918124). The budget is bot-quality advice, never a rules gate: a
 //     human seat's offers are unlimited (CR 605.1a) and the engine never
 //     withholds anything for it. Four activations per source per turn is
 //     generous for real repeat uses (double equip triggers, repeated land

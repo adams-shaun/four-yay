@@ -117,7 +117,24 @@ type FlipRest struct {
 	Iter        int32
 	Amount      int32
 	UntilLose   bool
+	// NoCallSide is non-zero when the suspension happened in a NoCall$
+	// True line's DEFERRED outcome calls, after every flip was made:
+	// NoCallWin while the heads branch was being called, NoCallLose for the
+	// tails branch. NoCallNext is the next call index on that side, and
+	// Wins/Losses the flip tallies the deferred calls are counted from. The
+	// resumed primitive flips nothing and continues those calls (then the
+	// tails side, when the heads side was in progress).
+	NoCallSide int8
+	NoCallNext int32
+	Wins       int32
+	Losses     int32
 }
+
+// NoCallSide values of FlipRest.
+const (
+	NoCallWin  int8 = 1
+	NoCallLose int8 = 2
+)
 
 // VillainousRest is a VillainousChoice's continuation once its chosen body
 // has completed: Victims is the ordered Defined$ player set and Next is the

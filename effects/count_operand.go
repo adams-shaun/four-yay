@@ -24,7 +24,7 @@ func applyCountOpOperand(h Host, c *Ctx, n int32, op string, depth int) int32 {
 // verdict to fail closed instead of treating an unknown suffix as their base
 // literal (for example Mathemagics' unsupported Number$2/Pow.X).
 func applyCountOpOperandOK(h Host, c *Ctx, n int32, op string, depth int) (int32, bool) {
-	for _, prefix := range []string{"Plus.", "Minus.", "Times."} {
+	for _, prefix := range countOperandOps {
 		operand, ok := strings.CutPrefix(op, prefix)
 		if !ok {
 			continue
@@ -33,21 +33,47 @@ func applyCountOpOperandOK(h Host, c *Ctx, n int32, op string, depth int) (int32
 		if _, err := strconv.Atoi(operand); err == nil {
 			return applyCountOp(n, op), true
 		}
-		if strings.HasPrefix(operand, "Count$") {
-			value, resolved := evalCountExprOK(h, c, operand, depth+1)
-			if resolved {
-				return applyCountOp(n, prefix+strconv.FormatInt(int64(value), 10)), true
-			}
-		}
-		if c != nil && c.SVars != nil {
-			if body, exists := c.SVars[operand]; exists {
-				value, _ := evalCountExprOK(h, c, body, depth+1)
-				return applyCountOp(n, prefix+strconv.FormatInt(int64(value), 10)), true
-			}
+		if value, resolved := countOperandValue(h, c, operand, depth); resolved {
+			return applyCountOp(n, prefix+strconv.FormatInt(int64(value), 10)), true
 		}
 		return applyCountOp(n, op), true
 	}
 	return 0, false
+}
+
+// countOperandOps are the arithmetic suffixes whose operand may be a name
+// rather than a literal: Plus./Minus./Times. (Alrund's SVar$X/Plus.Y,
+// Forgotten Lore's SVar$ChoiceNum/Times.CheckNotPaid) and Forge's clamp
+// pair LimitMax./LimitMin. (Face to Face's SVar$Wins/LimitMin.Losses,
+// Snowblind's SVar$EnchantedDef/LimitMax.AttackingX).
+var countOperandOps = [...]string{"Plus.", "Minus.", "Times.", "LimitMax.", "LimitMin."}
+
+// countOperandValue resolves a named arithmetic operand, in the order the
+// SVar$ head reads a name: a Count$ expression; a runtime write
+// (api:StoreSVar) on the source, which shadows the printed body of the same
+// name (Face to Face's Losses exists ONLY as a runtime write; Forgotten
+// Lore's CheckNotPaid is printed Number$1 and rewritten to 0); the face's
+// printed SVar body; a RollDice/Vote publication of this resolution.
+// resolved is false when the name is none of those.
+func countOperandValue(h Host, c *Ctx, operand string, depth int) (int32, bool) {
+	if strings.HasPrefix(operand, "Count$") {
+		return evalCountExprOK(h, c, operand, depth+1)
+	}
+	if c == nil {
+		return 0, false
+	}
+	if h != nil {
+		if v, ok := sourceRuntimeSVar(h.Game(), c, operand); ok {
+			return v, true
+		}
+	}
+	if c.SVars != nil {
+		if body, exists := c.SVars[operand]; exists {
+			value, _ := evalCountExprOK(h, c, body, depth+1)
+			return value, true
+		}
+	}
+	return runtimePublished(c, operand)
 }
 
 // countDistinctLimitMax answers whether op is a LimitMax.<n> clamp on a
@@ -283,10 +309,28 @@ func modelledCountOp(c *Ctx, op string) bool {
 	if validConvokedCountOp(op) {
 		return true
 	}
-	for _, prefix := range []string{"Plus.", "Minus.", "Times."} {
+	for _, prefix := range countOperandOps {
 		if operand, ok := strings.CutPrefix(op, prefix); ok && c != nil && c.SVars != nil {
 			_, named := c.SVars[strings.TrimSpace(operand)]
 			return named
+		}
+	}
+	return false
+}
+
+// modelledGateOp reports whether op, the arithmetic suffix of a gate SVar's
+// body, is one the evaluator applies: a literal op, or a named operand that
+// resolves (countOperandValue) -- including a runtime StoreSVar write the
+// printed table never names (Face to Face's /LimitMin.Losses).
+func modelledGateOp(h Host, c *Ctx, op string) bool {
+	op = strings.TrimSpace(op)
+	if validConvokedCountOp(op) {
+		return true
+	}
+	for _, prefix := range countOperandOps {
+		if operand, ok := strings.CutPrefix(op, prefix); ok {
+			_, resolved := countOperandValue(h, c, strings.TrimSpace(operand), 0)
+			return resolved
 		}
 	}
 	return false
@@ -297,7 +341,7 @@ func validConvokedCountOp(op string) bool {
 	case "Twice", "Thrice", "HalfDown", "HalfUp", "ThirdUp", "Negative":
 		return true
 	}
-	for _, prefix := range []string{"Plus.", "Minus.", "NMinus.", "Times.", "Divide.", "DivideEvenly.", "DivideEvenlyUp.", "DivideEvenlyDown."} {
+	for _, prefix := range []string{"Plus.", "Minus.", "NMinus.", "Times.", "Divide.", "DivideEvenly.", "DivideEvenlyUp.", "DivideEvenlyDown.", "LimitMax.", "LimitMin."} {
 		if operand, ok := strings.CutPrefix(op, prefix); ok {
 			n, err := strconv.Atoi(operand)
 			return err == nil && (!strings.HasPrefix(prefix, "Divide") || n > 0)
@@ -338,6 +382,19 @@ func applyCountOp(n int32, op string) int32 {
 	case strings.HasPrefix(op, "Times."):
 		if x, err := strconv.Atoi(op[len("Times."):]); err == nil {
 			v *= int64(x)
+		}
+	case strings.HasPrefix(op, "LimitMax."):
+		// Forge's clamp pair (AbilityUtils.doXMath): LimitMax.N caps the
+		// value at N -- min(v, N), Sword of Hours' TriggerCount$DamageAmount/
+		// LimitMax.11, the Sanctuaries' Count$Valid .../LimitMax.1 presence
+		// bits -- and LimitMin.N floors it -- max(v, N), Equipoise's
+		// SVar$ExcessLand/LimitMin.0, Triumphant Chomp's .../LimitMin.2.
+		if x, err := strconv.Atoi(op[len("LimitMax."):]); err == nil && v > int64(x) {
+			v = int64(x)
+		}
+	case strings.HasPrefix(op, "LimitMin."):
+		if x, err := strconv.Atoi(op[len("LimitMin."):]); err == nil && v < int64(x) {
+			v = int64(x)
 		}
 	case op == "Twice":
 		v *= 2

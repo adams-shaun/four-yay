@@ -219,9 +219,12 @@ func (e *Engine) buildAskResume(d *decision.Decision, obj state.ObjID, direct bo
 	// 83 of the 120 asking sites in effects/ ride nothing (spike S3's
 	// Remembered-across-a-suspension class). A VillainousChoice ask's ride is
 	// its victim list, never the chain's, so an empty one stays empty.
-	remembered := d.ResumeRemembered
+	remembered := append([]state.Target(nil), d.ResumeRemembered...)
 	if remembered == nil && e.resolutionCtx != nil && kind != "villainous" {
-		remembered = e.resolutionCtx.Remembered
+		// The chain's set as it stood, EMPTY included: a chain that cleared
+		// its Remembered (Cleanup ClearRemembered$) before asking must not
+		// resume with the stack object's stale seed (a trigger capture).
+		remembered = append([]state.Target{}, e.resolutionCtx.Remembered...)
 	}
 	return &resumePoint{kind: kind, obj: obj, sa: d.ResumeSA, replSource: replSource,
 		replacement: e.applyingReplacement, replaced: e.replReplaced, action: e.replAction,
@@ -235,7 +238,7 @@ func (e *Engine) buildAskResume(d *decision.Decision, obj state.ObjID, direct bo
 		chosenDirection: chosenDirectionForResume(e.resolutionCtx),
 		direct:          direct, ownResolution: ownResolution, rolls: d.Rolls, clash: cloneClashResume(d.ResumeClash),
 		choices:     append([]state.Target(nil), d.ResumeChoices...),
-		chosenValid: d.ResumeChosenValid, remembered: append([]state.Target(nil), remembered...),
+		chosenValid: d.ResumeChosenValid, remembered: remembered,
 		pendingDamage:       effects.ClonePendingDamage(e.resolutionPendingDamage()),
 		parentLinks:         parentLinks,
 		linkAnswer:          linkAnswer,
