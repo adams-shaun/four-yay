@@ -290,3 +290,47 @@ func TestTapeConvertWindowManaChoices(t *testing.T) {
 		})
 	}
 }
+
+// A copy's CR 707.10c new-target choice (AskCopyTargets) is served from the
+// tape and its continuation resolves the copy in line.
+func TestTapeConvertCopyTargets(t *testing.T) {
+	const bolt = "Name:Tape Bolt\nManaCost:R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1\nOracle:x\n"
+	const twin = "Name:Tape Twincast\nManaCost:U\nTypes:Instant\nA:SP$ CopySpellAbility | ValidTgts$ Card | TgtZone$ Stack | TargetType$ Spell | MayChooseTarget$ True\nOracle:x\n"
+	_, st := tapeDual(t, 2, 13900, func(t *testing.T, e *Engine) {
+		addMana(t, e, 0, "RU")
+		submitChoices(t, e, castOptionFor(t, e, fixtureInHand(t, e, "Tape Bolt")).Index)
+		for i := 0; i < 10; i++ {
+			d := e.Pending()
+			if d == nil || d.Kind == decision.KPriority {
+				break
+			}
+			submitChoices(t, e, tapePick(d)...)
+		}
+		submitChoices(t, e, castOptionFor(t, e, fixtureInHand(t, e, "Tape Twincast")).Index)
+		tapeUnlessScenarioResolve(t, e, tapePick)
+	}, bolt, twin)
+	if st.Served < 1 || st.LegacySwitch != 0 || st.Aborts != 0 {
+		t.Fatalf("the copy's new-target choice was not served from the tape: %+v", st)
+	}
+}
+
+func tapeUnlessScenarioResolve(t *testing.T, e *Engine, pick func(d *decision.Decision) []int) {
+	t.Helper()
+	for i := 0; i < 400; i++ {
+		d := e.Pending()
+		if d == nil || e.G.Over {
+			return
+		}
+		if d.Kind == decision.KPriority {
+			if len(e.G.Stack) == 0 {
+				return
+			}
+			submitChoices(t, e, tapePassIndex(d))
+			continue
+		}
+		if err := e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: pick(d)}); err != nil {
+			t.Fatalf("submit %s/%s: %v", d.Kind, d.ResumeKind, err)
+		}
+	}
+	t.Fatal("stack never drained")
+}

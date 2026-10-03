@@ -984,6 +984,19 @@ func (e *Engine) AskCopyTargets() bool {
 		e.copyTargetStage = make(map[state.ObjID]int)
 	}
 	e.copyTargetStage[o.ID] = stage + 1
+	if in, ok := e.TapeAnswer(d); ok {
+		// The resolution kernel's answer in hand (W3 step 4j): run the
+		// legacy answer's continuation (resumeResolution's copy_targets
+		// arm: record, or ask the next declaration, then resolveTop) now.
+		e.resumeResolution(&resumePoint{kind: "copy_targets", obj: o.ID, sa: sa}, d.Chosen(in))
+		if !e.Suspended() {
+			// The legacy answer's continuation logs no CR 117.3b reset of
+			// its own (the next grant is Advance's), so handlePriority must
+			// not log one either.
+			e.tapeGranted = true
+		}
+		return true
+	}
 	e.Ask(d)
 	return true
 }
