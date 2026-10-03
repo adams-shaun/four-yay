@@ -68,3 +68,23 @@ func (s NameSet) Has(name string) bool {
 	_, ok := slices.BinarySearch(s.names, name)
 	return ok
 }
+
+// StrCodes maps a closed string vocabulary to dense uint16 codes (1-based; 0
+// is "not in the vocabulary"), built once at package init. A string switch
+// whose arms do real work dispatches on the code with an integer switch, so
+// the string compare happens once, in one binary search, and the vocabulary
+// is named in one table.
+type StrCodes struct {
+	t StrTable[uint16]
+}
+
+// NewStrCodes builds the vocabulary from key -> code rows.
+func NewStrCodes(entries ...StrEntry[uint16]) StrCodes {
+	return StrCodes{t: NewStrTable(entries...)}
+}
+
+// Code returns key's code, or 0 when key is outside the vocabulary.
+func (c StrCodes) Code(key string) uint16 {
+	v, _ := c.t.Get(key)
+	return v
+}
