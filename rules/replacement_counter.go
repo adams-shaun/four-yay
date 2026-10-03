@@ -161,7 +161,7 @@ func (e *Engine) counterReplaceOp(source state.ObjID, body *cards.SA) (string, b
 	if o == nil || o.Face() == nil {
 		return "", false
 	}
-	expr := strings.TrimSpace(body.Params["Amount"])
+	expr := strings.TrimSpace(body.ParamStr(cards.PKAmount))
 	if v, ok := o.Face().SVars[expr]; ok {
 		expr = v
 	}
@@ -445,14 +445,14 @@ func (e *Engine) counterReplacementMatches(r cards.Repl, source, target, cause s
 	if !e.commandReplZoneAdmits(r, source) {
 		return false
 	}
-	if active := r.Params["ActiveZones"]; active != "" && !zoneSpecContains(active, o.Zone) {
+	if active := r.ParamStr(cards.PKActiveZones); active != "" && !zoneSpecContains(active, o.Zone) {
 		return false
 	}
-	if v := r.Params["ValidCard"]; v != "" &&
+	if v := r.ParamStr(cards.PKValidCard); v != "" &&
 		!e.matchesSpecFrom(v, target, o.Controller, source) {
 		return false
 	}
-	if v := r.Params["ValidCause"]; v != "" && !e.replacementCauseMatches(v, source, cause) {
+	if v := r.ParamStr(cards.PKValidCause); v != "" && !e.replacementCauseMatches(v, source, cause) {
 		return false
 	}
 	if !e.replacementConditionHolds(r, source, o.Controller) {

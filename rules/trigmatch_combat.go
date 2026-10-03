@@ -46,7 +46,7 @@ func (e *Engine) attacksMatches(t cards.Trigger, source state.ObjID, ev events.E
 		if src == nil || src.Face() == nil {
 			return false
 		}
-		sa := cards.ResolveSVar(src.Face().SVars, t.Params["Execute"])
+		sa := cards.ResolveSVar(src.Face().SVars, t.ParamStr(cards.PKExecute))
 		if sa == nil || sa.API != "Myriad" {
 			return false
 		}
@@ -95,7 +95,7 @@ func (e *Engine) attacksMatches(t cards.Trigger, source state.ObjID, ev events.E
 	// gate is fire-time only: the resolution-time CR 603.4 recheck cannot
 	// re-derive the attacked player from the event, the same scope every
 	// other event-relative matcher gate here keeps.
-	if strings.EqualFold(strings.TrimSpace(t.Params["Condition"]), "AttackedPlayerWithMostLife") {
+	if strings.EqualFold(strings.TrimSpace(t.ParamStr(cards.PKCondition)), "AttackedPlayerWithMostLife") {
 		if !e.playerHasMostLife(ev.Player) {
 			return false
 		}
@@ -139,7 +139,7 @@ func (e *Engine) attacksMatches(t cards.Trigger, source state.ObjID, ev events.E
 	// matching runs on the FOLDED event, so the test is count == 1, never 0.
 	// A non-first attacker must not veto the match either: an event may name
 	// several attackers and another one may still be first.
-	spec, ok := t.Params["ValidCard"]
+	spec, ok := t.Param(cards.PKValidCard)
 	if !ok {
 		for _, id := range ev.IDs {
 			if id == source {
@@ -293,7 +293,7 @@ func (e *Engine) attackerBlockedCandidates(t cards.Trigger, source state.ObjID, 
 			continue
 		}
 		seen[a] = true
-		if v := t.Params["ValidCard"]; v != "" && !e.matchesSpec(v, a, e.specCtx(source, ctrl)) {
+		if v := t.ParamStr(cards.PKValidCard); v != "" && !e.matchesSpec(v, a, e.specCtx(source, ctrl)) {
 			continue
 		}
 		out = append(out, a)
@@ -330,7 +330,7 @@ func (e *Engine) attackerBlockedByPairCandidates(t cards.Trigger, source state.O
 		if pr[0] != source {
 			continue
 		}
-		if v := t.Params["ValidCard"]; v != "" {
+		if v := t.ParamStr(cards.PKValidCard); v != "" {
 			asc := sc
 			asc.ExtraKeywords = e.Derived(pr[0]).Keywords
 			asc.PredicatePrograms = nil
@@ -382,7 +382,7 @@ func flankingTrigger() cards.Trigger {
 // per DERIVED instance, not once per line -- and a creature granted flanking
 // with no printed line fires through the synthesized path instead.
 func isFlankingMarker(t cards.Trigger) bool {
-	return t.Mode == "AttackerBlockedByCreature" && strings.EqualFold(strings.TrimSpace(t.Params["Keyword"]), "Flanking")
+	return t.Mode == "AttackerBlockedByCreature" && strings.EqualFold(strings.TrimSpace(t.ParamStr(cards.PKKeyword)), "Flanking")
 }
 
 // flankingInstances is the number of DERIVED flanking instances an object has
@@ -586,7 +586,7 @@ func (e *Engine) queueAttackerBlockedTrigger(t cards.Trigger, source state.ObjID
 					SA:         t.Effect,
 					Granted:    granted,
 					Grantor:    grantor,
-					Execute:    t.Params["Execute"],
+					Execute:    t.ParamStr(cards.PKExecute),
 					Ctx: effects.NewCtx(source, controller, effects.CtxInit{
 						Remembered: []state.Target{{Obj: bid}},
 						Captured:   []state.Target{{Obj: bid}},
@@ -614,7 +614,7 @@ func (e *Engine) queueAttackerBlockedTrigger(t cards.Trigger, source state.ObjID
 			SA:         t.Effect,
 			Granted:    granted,
 			Grantor:    grantor,
-			Execute:    t.Params["Execute"],
+			Execute:    t.ParamStr(cards.PKExecute),
 			Ctx: effects.NewCtx(source, controller, effects.CtxInit{
 				Remembered: []state.Target{{Obj: aid}},
 				Captured:   []state.Target{{Obj: aid}},
@@ -658,7 +658,7 @@ func (e *Engine) checkGrantedAttackerBlockedTriggers(ev events.Event) {
 			continue
 		}
 		t := *ce.AddTrigger
-		t.Effect = grantedTriggerExecute(grantor, t.Params["Execute"])
+		t.Effect = grantedTriggerExecute(grantor, t.ParamStr(cards.PKExecute))
 		if t.Effect == nil {
 			continue
 		}
@@ -718,11 +718,11 @@ func (e *Engine) checkGrantedAttackerUnblockedTriggers(ev events.Event) {
 			continue
 		}
 		t := *ce.AddTrigger
-		grantFace := grantedTriggerFace(grantor, t.Params["Execute"])
+		grantFace := grantedTriggerFace(grantor, t.ParamStr(cards.PKExecute))
 		if grantFace == nil {
 			continue
 		}
-		t.Effect = cards.ResolveSVar(grantFace.SVars, t.Params["Execute"])
+		t.Effect = cards.ResolveSVar(grantFace.SVars, t.ParamStr(cards.PKExecute))
 		if t.Effect == nil {
 			continue
 		}
@@ -768,7 +768,7 @@ func (e *Engine) queueAttackerUnblockedTrigger(t cards.Trigger, source state.Obj
 			if a == nil || !a.IsAttacking || len(a.BlockedBy) != 0 {
 				continue
 			}
-			if v := t.Params["ValidCard"]; v != "" {
+			if v := t.ParamStr(cards.PKValidCard); v != "" {
 				// The IsGoaded static route (staticgoad1), bound inline -- the
 				// same shape matchesSpec keeps (this walk runs per attacker per
 				// Attacks event, so the context must not escape through a
@@ -791,7 +791,7 @@ func (e *Engine) queueAttackerUnblockedTrigger(t cards.Trigger, source state.Obj
 			e.triggerFireCount[key]++
 			e.pendingTriggers = append(e.pendingTriggers, pendingTrigger{
 				Source: source, Controller: controller, Idx: idx, SA: t.Effect,
-				Granted: granted, Grantor: grantor, Execute: t.Params["Execute"],
+				Granted: granted, Grantor: grantor, Execute: t.ParamStr(cards.PKExecute),
 				Ctx: effects.NewCtx(source, controller, effects.CtxInit{
 					Remembered: []state.Target{{Obj: aid}}, Captured: []state.Target{{Obj: aid}},
 					TriggerContext: effects.TriggerContext{
@@ -965,7 +965,7 @@ func (e *Engine) blocksCandidates(t cards.Trigger, source state.ObjID, ev events
 	ctrl := e.controllerOf(source)
 	var out [][2]state.ObjID
 	for _, pr := range ev.Pairs {
-		if v := t.Params["ValidCard"]; v != "" && !e.matchesSpec(v, pr[1], e.specCtx(source, ctrl)) {
+		if v := t.ParamStr(cards.PKValidCard); v != "" && !e.matchesSpec(v, pr[1], e.specCtx(source, ctrl)) {
 			continue
 		}
 		if v := t.Params["ValidBlocked"]; v != "" && !e.matchesSpec(v, pr[0], e.specCtx(source, ctrl)) {
@@ -1094,7 +1094,7 @@ func (e *Engine) exertedMatches(t cards.Trigger, source state.ObjID, ev events.E
 		return false
 	}
 	ctrl := e.controllerOf(source)
-	if v := t.Params["ValidCard"]; v != "" &&
+	if v := t.ParamStr(cards.PKValidCard); v != "" &&
 		!e.matchesSpec(v, ev.Obj, e.specCtx(source, ctrl)) {
 		return false
 	}
@@ -1146,7 +1146,7 @@ func (e *Engine) damageMatchesWithCapture(t cards.Trigger, source state.ObjID, e
 		return false
 	}
 	ctrl := e.controllerOf(source)
-	if v, ok := t.Params["ValidSource"]; ok {
+	if v, ok := t.Param(cards.PKValidSource); ok {
 		// The damage's source, through the ONE shared dealer resolution
 		// (damageEventSource, whose doc carries the full priority rationale:
 		// the published override, e.damaging during combat's assignment loop,
@@ -1156,7 +1156,7 @@ func (e *Engine) damageMatchesWithCapture(t cards.Trigger, source state.ObjID, e
 			return false
 		}
 	}
-	if v, ok := t.Params["ValidTarget"]; ok {
+	if v, ok := t.Param(cards.PKValidTarget); ok {
 		if ev.Obj != 0 {
 			if !e.matchesSpec(v, ev.Obj, delayedSpecCtx(e.specCtx(source, ctrl), remembered)) {
 				return false
@@ -1248,7 +1248,7 @@ func (e *Engine) damagePreventedMatches(t cards.Trigger, source state.ObjID, ev 
 		return false
 	}
 	ctrl := e.controllerOf(source)
-	if v, ok := t.Params["ValidTarget"]; ok {
+	if v, ok := t.Param(cards.PKValidTarget); ok {
 		if ev.Obj != 0 {
 			if !e.matchesSpec(v, ev.Obj, e.specCtx(source, ctrl)) {
 				return false

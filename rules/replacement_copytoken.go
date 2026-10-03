@@ -3,6 +3,7 @@ package rules
 import (
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -72,7 +73,7 @@ func (e *Engine) continueCopyTokenProposal(ev events.Event, matches []replMatch)
 		}
 		if strings.EqualFold(strings.TrimSpace(body.Params["TokenScript"]), "Chosen") ||
 			strings.TrimSpace(body.Params["ValidChoices"]) != "" ||
-			strings.EqualFold(m.repl.Params["Optional"], "True") {
+			strings.EqualFold(m.repl.ParamStr(cards.PKOptional), "True") {
 			continue
 		}
 		plan = e.applyTokenReplacementToPlan(ev, plan, m)

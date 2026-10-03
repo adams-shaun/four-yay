@@ -129,7 +129,7 @@ func (e *Engine) announcedAbilityColours(p state.PlayerID, id state.ObjID, ma *c
 	if ma == nil || ma.API != "Mana" {
 		return nil
 	}
-	raw := strings.TrimSpace(ma.Params["Produced"])
+	raw := strings.TrimSpace(ma.ParamStr(cards.PKProduced))
 	if raw != "Any" && raw != "ColorIdentity" && !paymentPlanChoiceShape(raw) {
 		return nil
 	}
@@ -250,7 +250,7 @@ func (e *Engine) announcedActivate(pc *pendingCast, opt decision.Option) {
 	ab := abilities[opt.Ability]
 	normal := false
 	if tier, _, _ := e.paymentPlanAbilityTier(p, src, ab); tier == paymentTierNormal &&
-		paymentPlanTapOnlyCost(e.parseCost(ab.Params["Cost"])) {
+		paymentPlanTapOnlyCost(e.parseCost(ab.ParamStr(cards.PKCost))) {
 		normal = true
 	}
 	gained := e.gainedManaRefFor(p, src, ab)

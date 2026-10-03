@@ -40,7 +40,7 @@ func choiceBounds(h Host, c *Ctx, sa *cards.SA, cardChoice bool) (int, int) {
 	if _, ok := sa.Params["MinAmount"]; ok {
 		min = int(Num(h, c, sa, "MinAmount", 0))
 	}
-	if strings.EqualFold(sa.Params["Mandatory"], "False") || strings.EqualFold(sa.Params["Optional"], "True") {
+	if strings.EqualFold(sa.Params["Mandatory"], "False") || strings.EqualFold(sa.ParamStr(cards.PKOptional), "True") {
 		min = 0
 	}
 	if min < 0 {
@@ -149,20 +149,20 @@ func chooseCardControl(sa *cards.SA) string {
 	if v := strings.TrimSpace(sa.Params["ControlledByPlayer"]); v != "" {
 		return v
 	}
-	if strings.TrimSpace(sa.Params["Choices"]) != "" || strings.TrimSpace(sa.Params["DefinedCards"]) != "" {
+	if strings.TrimSpace(sa.ParamStr(cards.PKChoices)) != "" || strings.TrimSpace(sa.Params["DefinedCards"]) != "" {
 		return ""
 	}
 	if strings.EqualFold(strings.TrimSpace(sa.Params["AllCards"]), "True") {
 		return ""
 	}
-	if _, ok := sa.Params["ValidTgts"]; ok {
+	if _, ok := sa.Param(cards.PKValidTgts); ok {
 		return ""
 	}
 	return "Chooser"
 }
 
 func cardChoices(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID) []state.Target {
-	g, spec := h.Game(), sa.Params["Choices"]
+	g, spec := h.Game(), sa.ParamStr(cards.PKChoices)
 	control := chooseCardControl(sa)
 	var candidates []state.Target
 	zones := choiceZones(sa)
@@ -339,7 +339,7 @@ func choiceMatches(h Host, g *state.Game, c *Ctx, spec string, o *state.Object) 
 func choiceChoosers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 	seen := map[state.PlayerID]bool{}
 	var out []state.PlayerID
-	plainRemembered := plainRememberedSelector(sa.Params["Defined"])
+	plainRemembered := plainRememberedSelector(sa.ParamStr(cards.PKDefined))
 	for _, t := range Defined(h, c, sa) {
 		// Forge's getDefinedPlayers("Remembered") adds only remembered
 		// PLAYERS; a remembered CARD contributes its controller/owner only
@@ -357,7 +357,7 @@ func choiceChoosers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 			out = append(out, p)
 		}
 	}
-	if len(out) == 0 && sa.Params["Defined"] == "" {
+	if len(out) == 0 && sa.ParamStr(cards.PKDefined) == "" {
 		return []state.PlayerID{c.Controller}
 	}
 	return out
@@ -717,7 +717,7 @@ func budgetGreedyTake(h Host, pool []state.Target, max, budget int) []state.Targ
 // Emblem half of the corpus's `Card,Emblem`, or a `Card.SharesColorWith`
 // qualifier) simply contributes no option: the matcher fails closed.
 func sourceChoices(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID) []state.Target {
-	g, spec := h.Game(), sa.Params["Choices"]
+	g, spec := h.Game(), sa.ParamStr(cards.PKChoices)
 	var out []state.Target
 	for i := range g.Objs {
 		o := &g.Objs[i]
@@ -821,10 +821,10 @@ func emitChosenReveal(h Host, chooser state.PlayerID, picked []state.Target) {
 // ValidTgts$ (Bill Ferny's "Choose an opponent": ValidTgts$ Opponent). With
 // neither, the empty spec means every living player (Valleymaker).
 func choosePlayerSpec(sa *cards.SA) string {
-	if spec := strings.TrimSpace(sa.Params["Choices"]); spec != "" {
+	if spec := strings.TrimSpace(sa.ParamStr(cards.PKChoices)); spec != "" {
 		return spec
 	}
-	return strings.TrimSpace(sa.Params["ValidTgts"])
+	return strings.TrimSpace(sa.ParamStr(cards.PKValidTgts))
 }
 
 func effChoosePlayer(h Host, c *Ctx, sa *cards.SA) {
@@ -841,7 +841,7 @@ func effChoosePlayer(h Host, c *Ctx, sa *cards.SA) {
 	// the ability was put on the stack (Bill Ferny's "target opponent"): the
 	// choice is that target, if it is still a matching player.
 	var targeted map[state.PlayerID]bool
-	if _, ok := sa.Params["ValidTgts"]; ok && sa.Params["Choices"] == "" {
+	if _, ok := sa.Param(cards.PKValidTgts); ok && sa.ParamStr(cards.PKChoices) == "" {
 		for _, t := range c.Targets {
 			if t.IsPlayer && int(t.Player) < len(g.Players) && MatchesPlayerSpecWithSVars(h, c, spec, t.Player, c.Controller) {
 				if targeted == nil {
@@ -1130,7 +1130,7 @@ func effGainControl(h Host, c *Ctx, sa *cards.SA) {
 	}
 
 	var ts []state.Target
-	if strings.TrimSpace(sa.Params["Choices"]) != "" {
+	if strings.TrimSpace(sa.ParamStr(cards.PKChoices)) != "" {
 		if c.ChoiceDone {
 			ts = append([]state.Target(nil), c.Choice...)
 			choiceRecord(h, c, sa, ts, false)
@@ -1731,7 +1731,7 @@ func effChangeTargets(h Host, c *Ctx, sa *cards.SA) {
 	}
 
 	min, max := count, count
-	if strings.EqualFold(sa.Params["Optional"], "True") {
+	if strings.EqualFold(sa.ParamStr(cards.PKOptional), "True") {
 		min = 0
 	}
 	if max > len(candidates) {

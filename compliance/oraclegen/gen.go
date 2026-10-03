@@ -1,8 +1,12 @@
-// Package oraclegen generates level-A oracle scenarios for one card
-// (spec 2026-10-02-xmage-compliance-oracle-design section 6): play a land,
-// or cast a spell with exactly its mana in pool and resolve it, with legal
-// targets set up on the board. Scenarios use the rules/testdata/oracle
-// schema, so gorge's runner and the XMage driver both replay them.
+// Package oraclegen is the shared core of the level-A oracle scenario
+// generator: the scenario types, fixtures, gorge-side settling and the
+// XMage answer scripting. Each template (play a land, cast and resolve,
+// counter a spell) lives in its own file under oraclegen/templates with its
+// own version; templates.Generate picks one per card (spec
+// 2026-10-02-xmage-compliance-oracle-design section 6; the split is
+// 2026-10-03-rules-engine-lasagna-design section 11.3 C3). Scenarios use
+// the rules/testdata/oracle schema, so gorge's runner and the XMage driver
+// both replay them.
 //
 // The generator may run gorge to choose a fixture (which target to offer,
 // how many resolves the stack needs). That does not bias the verdict: the
@@ -21,10 +25,6 @@ import (
 
 // xValue is the X every generated X spell is cast with.
 const xValue = 2
-
-// Version is part of every scenario id: bump it when a template's output
-// changes, so cached XMage results are not reused across versions.
-const Version = 1
 
 // Seat is one player's setup.
 type Seat struct {
@@ -101,111 +101,6 @@ type Skip struct {
 	Reason string `json:"reason"`
 }
 
-// Generate builds the level-A scenario for one card, or says why not.
-func Generate(reg *cards.Registry, name string) (Item, *Skip) {
-	c, ok := reg.Lookup(name)
-	if !ok || len(c.Faces) == 0 {
-		return Item{}, &Skip{name, "not in corpus"}
-	}
-	f := c.Faces[0]
-	if hasType(f, "Land") {
-		it := item(name, "play-land", Scenario{
-			Setup: map[string]Seat{"p0": {Hand: []string{name}}},
-			Steps: []Step{{Op: "play", Seat: 0, Card: "p0:" + name}},
-		})
-		return it, nil
-	}
-	mana, why := poolFor(f.ManaCost)
-	if why != "" {
-		return Item{}, &Skip{name, why}
-	}
-	// A charm is generated mode by mode: the first mode some fixture can
-	// cast, with the mode scripted so both engines take it.
-	type plan struct {
-		slots   []string
-		answers []Answer
-	}
-	var xAns []Answer
-	if strings.Contains(" "+f.ManaCost+" ", " X ") {
-		xAns = []Answer{{Kind: "choose", Pick: []string{fmt.Sprintf("X = %d", xValue)}}}
-	}
-	plans := []plan{{slots: targetSlots(f), answers: xAns}}
-	if modes := charmModes(f); len(modes) > 0 {
-		plans = nil
-		for _, m := range modes {
-			plans = append(plans, plan{slots: chainSlots(f, m.svar), answers: append([]Answer{{Kind: "modes", Pick: []string{m.label}}}, xAns...)})
-		}
-	}
-	if targetsSpell(f) {
-		// A counterspell: cast a spell of our own, then counter it while
-		// holding priority (CR 117.3c).
-		// The extra {1} covers an optional additional cost ("behold or pay
-		// {1}"), tried only when the bare cost cannot cast.
-		for _, m := range []string{mana, mana + "C"} {
-			for _, pre := range precasts {
-				if it, ok := counterWith(reg, f, name, m, pre, xAns); ok {
-					return it, nil
-				}
-			}
-		}
-		return Item{}, &Skip{name, "no spell fixture gorge can counter"}
-	}
-	for _, m := range []string{mana, mana + "C"} {
-		for _, pl := range plans {
-			if it, ok := castWith(reg, f, name, m, pl.slots, pl.answers); ok {
-				return it, nil
-			}
-		}
-	}
-	return Item{}, &Skip{name, fmt.Sprintf("no fixture gorge can cast (targets %v)", plans[0].slots)}
-}
-
-// castWith tries every fixture for one target plan.
-func castWith(reg *cards.Registry, f *cards.Face, name, mana string, slots []string, answers []Answer) (Item, bool) {
-	// Extras satisfy casting conditions the target fixture does not: a
-	// threshold graveyard, a creature of your own to sacrifice for a cost.
-	extras := []func(*fixture){
-		func(*fixture) {},
-		func(fx *fixture) { fx.p0.Graveyard = append(fx.p0.Graveyard, repeat("Wastes", 7)...) },
-		func(fx *fixture) { fx.p0.Battlefield = append(fx.p0.Battlefield, "Llanowar Elves") },
-	}
-	var all []fixture
-	for _, extra := range extras {
-		for _, fx := range fixtures(slots) {
-			extra(&fx)
-			all = append(all, fx)
-		}
-	}
-	for _, fx := range all {
-		sc := Scenario{
-			Setup: map[string]Seat{"p0": fx.p0, "p1": fx.p1},
-			Steps: []Step{{Op: "cast", Seat: 0, Card: "p0:" + name, Mana: mana, Targets: fx.targets, Answers: answers}},
-		}
-		sc.Setup["p0"] = withHand(sc.Setup["p0"], name)
-		baseline(sc.Setup, f)
-		if n, res, ok := settle(reg, sc); ok {
-			for i := 0; i < n; i++ {
-				sc.Steps = append(sc.Steps, Step{Op: "resolve"})
-			}
-			// "May" is answered yes (spec section 6): a declined optional
-			// pick is re-scripted to take the first offered option, and the
-			// scenario kept only if gorge still plays it through.
-			if yes, changed := mayYes(sc, res.Decisions); changed {
-				if res2, ok2 := playsThrough(reg, yes); ok2 {
-					sc, res = yes, res2
-				}
-			}
-			it := item(name, "cast-resolve", sc)
-			it.XAnswers = xanswers(res.Decisions, len(sc.Steps), modeNumbers(f))
-			if searchesLibrary(f) || strings.Contains(strings.ToLower(f.Oracle), "shuffle") {
-				it.Ignore = []string{"library_top"}
-			}
-			return it, true
-		}
-	}
-	return Item{}, false
-}
-
 // mayYes queues, on the step that posed it, an answer taking option 0 for
 // every decision gorge's fallback left empty although it offered options.
 func mayYes(sc Scenario, ds []rules.OracleDecision) (Scenario, bool) {
@@ -234,57 +129,6 @@ func playsThrough(reg *cards.Registry, sc Scenario) (rules.OracleResult, bool) {
 		return res, false
 	}
 	return res, len(res.Snapshots[len(res.Snapshots)-1].Stack) == 0
-}
-
-// targetsSpell reports whether the spell's first target is a spell on the
-// stack (TargetType$ Spell, a Counter).
-func targetsSpell(f *cards.Face) bool {
-	for _, sa := range f.Abilities {
-		if sa.Kind == "SP" {
-			return sa.Params["TargetType"] == "Spell" || (sa.API == "Counter" && sa.Params["ValidTgts"] != "")
-		}
-	}
-	return false
-}
-
-type precast struct {
-	card, mana string
-	targets    []string
-}
-
-// precasts are the spells a counterspell scenario counters, one per
-// colour and type a counter's filter commonly names.
-var precasts = []precast{
-	{"Disfigure", "B", []string{"p1:Grizzly Bears"}},
-	{"Raise the Alarm", "CW", nil},
-	{"Shock", "R", []string{"p1"}},
-	{"Opt", "U", nil},
-	{"Giant Growth", "G", []string{"p1:Grizzly Bears"}},
-	{"Grizzly Bears", "CG", nil},
-	{"Ornithopter", "", nil},
-	{"Serra Angel", "CCCWW", nil},
-}
-
-func counterWith(reg *cards.Registry, f *cards.Face, name, mana string, pre precast, answers []Answer) (Item, bool) {
-	sc := Scenario{
-		Setup: map[string]Seat{"p0": {Hand: []string{name, pre.card}}, "p1": {}},
-		Steps: []Step{
-			{Op: "cast", Seat: 0, Card: "p0:" + pre.card, Mana: pre.mana, Targets: pre.targets},
-			{Op: "cast", Seat: 0, Card: "p0:" + name, Mana: mana, Targets: []string{"p0:" + pre.card}, Answers: answers},
-			{Op: "resolve"},
-		},
-	}
-	baseline(sc.Setup, f)
-	res, ok := playsThrough(reg, sc)
-	if !ok {
-		return Item{}, false
-	}
-	// The countered spell must have left the stack without resolving.
-	last := res.Snapshots[len(res.Snapshots)-1]
-	_ = last
-	it := item(name, "counter-spell", sc)
-	it.XAnswers = xanswers(res.Decisions, len(sc.Steps), modeNumbers(f))
-	return it, true
 }
 
 type charmMode struct{ svar, label string }
@@ -329,11 +173,14 @@ func chainSlots(f *cards.Face, svar string) []string {
 	return out
 }
 
-func item(card, template string, sc Scenario) Item {
-	sc.Name = fmt.Sprintf("gen%d-%s", Version, template)
+// NewItem names a template's scenario. The template's version is part of
+// the id and the scenario name, so bumping one template's version stales
+// only that template's verdicts (compliance/oraclegen/templates).
+func NewItem(card, template string, version int, sc Scenario) Item {
+	sc.Name = fmt.Sprintf("gen%d-%s", version, template)
 	sc.CR = []string{"601.2"}
 	sc.Why = "generated level-A scenario"
-	return Item{ID: fmt.Sprintf("%s/%s/v%d", card, template, Version), Card: card, Template: template, Scenario: sc}
+	return Item{ID: fmt.Sprintf("%s/%s/v%d", card, template, version), Card: card, Template: template, Scenario: sc}
 }
 
 // baseline gives every cast scenario something for "up to one target"

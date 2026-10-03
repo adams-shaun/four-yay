@@ -165,7 +165,7 @@ func (e *Engine) replacementCondition(source state.ObjID, r *cards.Repl) bool {
 	if o == nil || o.Face() == nil {
 		return false
 	}
-	if spec := r.Params["IsPresent"]; spec != "" {
+	if spec := r.ParamStr(cards.PKIsPresent); spec != "" {
 		found := false
 		for _, p := range e.G.AliveFrom(0) {
 			for _, id := range e.G.Zone(state.ZBattlefield, p) {
@@ -182,7 +182,7 @@ func (e *Engine) replacementCondition(source state.ObjID, r *cards.Repl) bool {
 			return false
 		}
 	}
-	name := r.Params["CheckSVar"]
+	name := r.ParamStr(cards.PKCheckSVar)
 	if name == "" {
 		return true
 	}
@@ -243,7 +243,7 @@ func replacementActive(e *Engine, source state.ObjID, r *cards.Repl) bool {
 	if !e.commandReplZoneAdmits(*r, source) {
 		return false
 	}
-	active, ok := r.Params["ActiveZones"]
+	active, ok := r.Param(cards.PKActiveZones)
 	if !ok {
 		return true
 	}
@@ -255,6 +255,6 @@ func replacementPlayerMatches(e *Engine, source state.ObjID, r *cards.Repl, p st
 	if int(p) >= len(e.G.Players) {
 		return false
 	}
-	v := r.Params["ValidPlayer"]
+	v := r.ParamStr(cards.PKValidPlayer)
 	return v == "" || effects.MatchesPlayerSpec(e.G, v, p, e.controllerOf(source))
 }

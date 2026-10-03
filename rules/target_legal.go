@@ -185,13 +185,13 @@ func (e *Engine) resolvedTargetBoundsWithGift(p state.PlayerID, source state.Obj
 	}
 	ctx.X = x
 	ctx.PromisedGiftOverride = promised
-	if v, ok := sa.Params["TargetMin"]; ok && !isLiteralBound(v) {
+	if v, ok := sa.Param(cards.PKTargetMin); ok && !isLiteralBound(v) {
 		if n, resolved := effects.NumResolvedStrict(e, ctx, sa, "TargetMin", 1); resolved {
 			min = int(n)
 		}
 	}
 	resolvedMax := false
-	if v, ok := sa.Params["TargetMax"]; ok && !isLiteralBound(v) {
+	if v, ok := sa.Param(cards.PKTargetMax); ok && !isLiteralBound(v) {
 		if n, resolved := effects.NumResolvedStrict(e, ctx, sa, "TargetMax", 1); resolved {
 			max = int(n)
 			resolvedMax = true
@@ -364,14 +364,14 @@ func originImpliedTargetZone(sa *cards.SA) (state.Zone, bool) {
 		if sa.API != "Attach" {
 			return 0, false
 		}
-		if _, ok := attachValidTgtsZones(sa.Params["ValidTgts"]); !ok {
+		if _, ok := attachValidTgtsZones(sa.ParamStr(cards.PKValidTgts)); !ok {
 			return 0, false
 		}
 	}
 	if sa.ParamStr(cards.PKTgtZone) != "" || targetsStackObjects(sa.ParamStr(cards.PKTargetType)) {
 		return 0, false
 	}
-	if targetsPlayers(sa.Params["ValidTgts"]) {
+	if targetsPlayers(sa.ParamStr(cards.PKValidTgts)) {
 		return 0, false
 	}
 	zones, all, ok := effects.ParseZones(sa.ParamStr(cards.PKOrigin))
@@ -798,7 +798,7 @@ func targetRemoval(sa *cards.SA) *decision.RemovalEffect {
 	case "Sacrifice", "SacrificeAll":
 		return &decision.RemovalEffect{Kind: "sacrifice"}
 	case "ChangeZone", "ChangeZoneAll":
-		destination := strings.ToLower(strings.TrimSpace(sa.Params["Destination"]))
+		destination := strings.ToLower(strings.TrimSpace(sa.ParamStr(cards.PKDestination)))
 		kind := destination
 		switch destination {
 		case "exile":
@@ -1054,7 +1054,7 @@ zoneLoop:
 			// Spell -- the pre-fix behaviour, kept for every spec that never
 			// said otherwise (the default stays the narrow one, never
 			// widened).
-			toks := stackTargetKindTokens(sa.Params["TargetType"])
+			toks := stackTargetKindTokens(sa.ParamStr(cards.PKTargetType))
 			for _, oid := range e.G.Zone(state.ZStack, 0) {
 				o := e.G.Obj(oid)
 				// CR 115.5: a spell or ability on the stack is an illegal

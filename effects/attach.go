@@ -212,7 +212,7 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 	// rules/legal.go withholds the ability, so this is only reachable on a
 	// stale or malformed answer) refuses with the same Note convention the
 	// illegal-destination refusals use, deterministically and observably.
-	if strings.EqualFold(strings.TrimSpace(sa.Params["Unattach"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKUnattach)), "True") {
 		if src := h.Game().Obj(c.Source); src == nil || src.AttachedTo == 0 {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "cannot unattach: not attached"})
 			return
@@ -298,7 +298,7 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 	// time restriction the target offer already enforced (kwEnchant mints
 	// `ValidTgts$ Opponent`); this branch re-checks the restriction so a
 	// stale/malformed resolution can never enchant the controller.
-	if sa.Params["Keyword"] == "Enchant" && sa.Params["Object"] == "Self" {
+	if sa.ParamStr(cards.PKKeyword) == "Enchant" && sa.Params["Object"] == "Self" {
 		if aura := h.Game().Obj(obj); aura != nil && aura.Face() != nil {
 			if param, ok := aura.Face().KeywordParam("Enchant"); ok {
 				spec, _, _ := strings.Cut(param, ":")
@@ -468,7 +468,7 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 	// card carrying either takes this branch, finds its wrong-zone or
 	// wrong-chooser pool empty, and emits the deterministic "cannot attach:
 	// no legal target" refusal -- silently inert, not working.
-	if spec := strings.TrimSpace(sa.Params["Choices"]); spec != "" {
+	if spec := strings.TrimSpace(sa.ParamStr(cards.PKChoices)); spec != "" {
 		pool := battlefieldValidTargets(h, c, spec)
 		// The answered attach_choice re-entry (fx42 scoping: already consumed
 		// and cleared at the top). With no Object$ the answer names the
@@ -522,7 +522,7 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 				return
 			}
 			max := 1
-			if strings.EqualFold(strings.TrimSpace(sa.Params["Optional"]), "True") {
+			if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True") {
 				max = 0
 			}
 			if max == 1 && len(dest) == 1 {
@@ -554,7 +554,7 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 		// not against the resolving source. Keep only destinations legal for
 		// every offered object; the chosen candidate can then use the saved
 		// destination list safely after the ask suspends resolution.
-		optional := strings.EqualFold(strings.TrimSpace(sa.Params["Optional"]), "True")
+		optional := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True")
 		var eligiblePool []state.Target
 		for _, candidate := range pool {
 			candidateDests := destCandidatesFor(candidate.Obj)
@@ -660,7 +660,7 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 	for _, t := range legalT {
 		legal = append(legal, t.Obj)
 	}
-	if strings.EqualFold(strings.TrimSpace(sa.Params["Optional"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True") {
 		// fx42 scoping: consume and clear the answered election at the top,
 		// so a nested Attach in the same chain poses its own ask.
 		ans := c.AttachOpt

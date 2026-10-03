@@ -92,10 +92,10 @@ func tokenReplApplies(m replMatch) bool {
 	}
 	chosenShape := strings.EqualFold(strings.TrimSpace(body.Params["TokenScript"]), "Chosen") ||
 		strings.TrimSpace(body.Params["ValidChoices"]) != ""
-	if !chosenShape && strings.EqualFold(m.repl.Params["Optional"], "True") {
+	if !chosenShape && strings.EqualFold(m.repl.ParamStr(cards.PKOptional), "True") {
 		return false
 	}
-	if strings.TrimSpace(body.Params["Type"]) == "ReplaceController" {
+	if strings.TrimSpace(body.ParamStr(cards.PKType)) == "ReplaceController" {
 		return false
 	}
 	return true
@@ -128,9 +128,9 @@ func tokenReplacementsCommute(cands []replMatch) bool {
 			return false
 		}
 		cls := ""
-		switch strings.TrimSpace(body.Params["Type"]) {
+		switch strings.TrimSpace(body.ParamStr(cards.PKType)) {
 		case "Amount":
-			raw := strings.TrimSpace(body.Params["Amount"])
+			raw := strings.TrimSpace(body.ParamStr(cards.PKAmount))
 			if raw == "" {
 				raw = "Twice"
 			}
@@ -209,7 +209,7 @@ func (e *Engine) driveTokenReplacements(ev events.Event, matches []replMatch, pl
 		}
 		chosenShape := strings.EqualFold(strings.TrimSpace(body.Params["TokenScript"]), "Chosen") ||
 			strings.TrimSpace(body.Params["ValidChoices"]) != ""
-		if !chosenShape && strings.EqualFold(m.repl.Params["Optional"], "True") {
+		if !chosenShape && strings.EqualFold(m.repl.ParamStr(cards.PKOptional), "True") {
 			// A "may" replacement with no copy source to point at: pose the
 			// bare apply/decline election. The chosen-copy bodies below pose
 			// their own election and so never take this arm.
@@ -275,7 +275,7 @@ func (e *Engine) driveTokenReplacements(ev events.Event, matches []replMatch, pl
 func (e *Engine) poseChosenTokenReplacement(ev events.Event, matches []replMatch, plan []tokenPlanMint, idx int, m replMatch) ([]tokenPlanMint, bool) {
 	you := e.controllerOf(m.id)
 	cands := e.tokenChosenCandidates(strings.TrimSpace(m.repl.With.Params["ValidChoices"]), m.id, you)
-	optional := strings.EqualFold(m.repl.Params["Optional"], "True")
+	optional := strings.EqualFold(m.repl.ParamStr(cards.PKOptional), "True")
 	if len(cands) == 0 {
 		return plan, false
 	}
@@ -602,7 +602,7 @@ func (e *Engine) applyChosenToPlan(ev events.Event, m replMatch, plan []tokenPla
 // with the match's own ValidToken$ re-checked against each mint's script.
 func (e *Engine) applyTokenReplacementToPlan(ev events.Event, plan []tokenPlanMint, m replMatch) []tokenPlanMint {
 	body := m.repl.With
-	switch strings.TrimSpace(body.Params["Type"]) {
+	switch strings.TrimSpace(body.ParamStr(cards.PKType)) {
 	case "ReplaceToken":
 		// "... instead create those tokens as <scripts>" — a pure rewrite:
 		// each matched mint is replaced by one mint per script in the CSV
@@ -628,7 +628,7 @@ func (e *Engine) applyTokenReplacementToPlan(ev events.Event, plan []tokenPlanMi
 		// creation event; absent Amount$ means "that many" (one per matched
 		// mint), as on Chatterfang. Append fixed extras at plan end so their
 		// replay-visible mint order is deterministic. (cli-20260927T005250Z-c5ac2e83)
-		raw := strings.TrimSpace(body.Params["Amount"])
+		raw := strings.TrimSpace(body.ParamStr(cards.PKAmount))
 		fixed := raw != ""
 		n := int32(1)
 		if fixed {
@@ -698,7 +698,7 @@ func (e *Engine) applyTokenReplacementToPlan(ev events.Event, plan []tokenPlanMi
 		// "Amount" (and an absent Type$ — the corpus always names one, Amount
 		// is the natural default for the "twice that many" doubler family):
 		// each matched mint becomes replCountOp(1, Amount$) copies of itself.
-		raw := strings.TrimSpace(body.Params["Amount"])
+		raw := strings.TrimSpace(body.ParamStr(cards.PKAmount))
 		if raw == "" {
 			raw = "Twice"
 		}
@@ -759,7 +759,7 @@ func (e *Engine) tokenReplacementMatchesMint(ev events.Event, m replMatch, mint 
 		return false
 	}
 	if m.repl.With != nil {
-		if v := strings.TrimSpace(m.repl.With.Params["ValidCard"]); v != "" {
+		if v := strings.TrimSpace(m.repl.With.ParamStr(cards.PKValidCard)); v != "" {
 			if tok == nil {
 				return false
 			}

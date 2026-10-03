@@ -68,7 +68,7 @@ func (e *Engine) AvailableMana(p state.PlayerID) state.Mana {
 		}
 		var free []*cards.SA
 		for _, ma := range e.availableManaAbilities(p, id) {
-			cost := e.parseCost(ma.Params["Cost"])
+			cost := e.parseCost(ma.ParamStr(cards.PKCost))
 			if manaFreeCost(cost) && !activationTapCostUnavailable(o, &cost) {
 				free = append(free, ma)
 			}
@@ -350,7 +350,7 @@ func manaAdd(a, b state.Mana) state.Mana {
 // five-colour superset for a bare "Chosen" because it has no source object;
 // the substitution here is what supplies the source-aware answer.
 func addAvailable(m *state.Mana, ma *cards.SA, chosen string) {
-	raw := strings.TrimSpace(ma.Params["Produced"])
+	raw := strings.TrimSpace(ma.ParamStr(cards.PKProduced))
 	produced := substituteChosenProduced(raw, chosen)
 	// ProducedCounts intentionally has no source and therefore exposes the
 	// WUBRG superset for a raw Chosen token. This source-aware projection has
@@ -373,7 +373,7 @@ func addAvailable(m *state.Mana, ma *cards.SA, chosen string) {
 // anything else is a value the projection cannot statically price, so it
 // returns 0 -- never a count the pool is not guaranteed to receive.
 func availableAmount(ma *cards.SA) int32 {
-	raw := strings.TrimSpace(ma.Params["Amount"])
+	raw := strings.TrimSpace(ma.ParamStr(cards.PKAmount))
 	if raw == "" {
 		return 1
 	}

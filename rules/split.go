@@ -19,7 +19,7 @@ func (e *Engine) splitCastTargetsAvailable(p state.PlayerID, id state.ObjID, f *
 	}
 	xPending := costAnnouncesX(e.faceCost(f))
 	if ab := f.SpellAbility(); ab != nil {
-		xPending = xPending || costAnnouncesX(e.parseCost(ab.Params["Cost"]))
+		xPending = xPending || costAnnouncesX(e.parseCost(ab.ParamStr(cards.PKCost)))
 	}
 	return e.targetsAvailable(p, id, id, f.SpellAbility(), xPending)
 }
@@ -163,7 +163,7 @@ func (e *Engine) resolveFused(o *state.Object) (*resumePoint, bool) {
 		if sa == nil {
 			continue
 		}
-		spec := strings.TrimSpace(sa.Params["ValidTgts"])
+		spec := strings.TrimSpace(sa.ParamStr(cards.PKValidTgts))
 		if spec != "" {
 			// The half's OWN stage slice when the payment published one --
 			// exactly the targets chosen for THIS half, never a target the
@@ -251,7 +251,7 @@ func (e *Engine) runFusedHalves(o *state.Object, halves []*cards.Face, sas []*ca
 		e.damaging = o.ID
 		ctx := effects.NewCtxPtr(o.ID, o.Controller, effects.CtxInit{Targets: legalByHalf[i]})
 		ctx.ResolvingObj = o.ID
-		if strings.TrimSpace(sa.Params["ValidTgts"]) != "" {
+		if strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) != "" {
 			ctx.TargetsOffered = true
 			ctx.OfferedSA = sa
 		}

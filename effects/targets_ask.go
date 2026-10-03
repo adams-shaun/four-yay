@@ -72,7 +72,7 @@ import (
 // carrier (Kaya, Spirits' Justice's exile-each; mega_flare,
 // tasha_the_witch_queen, geths_summons) reaches its ask here.
 func chosenTargetsFor(h Host, c *Ctx, sa *cards.SA, atRoot bool) ([]state.Target, bool) {
-	defined := strings.TrimSpace(sa.Params["Defined"])
+	defined := strings.TrimSpace(sa.ParamStr(cards.PKDefined))
 	if strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) == "" ||
 		(defined != "" && definedIsTargetReuse(defined) && sa.API != "Fight") {
 		return nil, false
@@ -145,7 +145,7 @@ func chosenTargetsFor(h Host, c *Ctx, sa *cards.SA, atRoot bool) ([]state.Target
 	}
 	min := Num(h, c, sa, "TargetMin", 1)
 	max := Num(h, c, sa, "TargetMax", 1)
-	if strings.EqualFold(strings.TrimSpace(sa.Params["TargetsForEachPlayer"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKTargetsForEachPlayer)), "True") {
 		// pfpe1: OneEach is the distinct-controller count of the eligible
 		// set (Forge's TargetRestrictions.setForEachPlayer), not a literal
 		// Num can read -- and a dynamic bound (TargetMax$ X with
@@ -154,10 +154,10 @@ func chosenTargetsFor(h Host, c *Ctx, sa *cards.SA, atRoot bool) ([]state.Target
 		for _, t := range candidates {
 			owners[targetOwnerOf(h, t)] = true
 		}
-		if strings.EqualFold(sa.Params["TargetMin"], "OneEach") {
+		if strings.EqualFold(sa.ParamStr(cards.PKTargetMin), "OneEach") {
 			min = int32(len(owners))
 		}
-		if strings.EqualFold(sa.Params["TargetMax"], "OneEach") {
+		if strings.EqualFold(sa.ParamStr(cards.PKTargetMax), "OneEach") {
 			max = int32(len(owners))
 		}
 	}
@@ -298,7 +298,7 @@ func poseTargetsAsk(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID,
 	// enforces one pick per controller whatever host answers. The bot's
 	// KChoose default arm plus Clamp's group-aware top-up answers it
 	// validly (first offer, topped up one per new group).
-	forEach := strings.EqualFold(strings.TrimSpace(sa.Params["TargetsForEachPlayer"]), "True")
+	forEach := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKTargetsForEachPlayer)), "True")
 	for _, t := range candidates {
 		o := decision.Option{Index: len(d.Options)}
 		owner := state.PlayerID(0)

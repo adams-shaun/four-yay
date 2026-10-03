@@ -140,6 +140,7 @@
 //	activeSum                          active()'s per-build digest keyed by activeBuildSeq
 //	charsSum                           the printed fast path's digest, keyed the same way
 //	lossProof                          the no-ability-loss proof, the trigGrant shape
+//	lossMemo                           abilityLoss's per-build answer memo, generation-stamped
 //	layer5Colors, colorsEpoch/Version/ the on-demand derived-colour table and its key,
 //	Objs/Valid/Building                validated on every use; Clone copies none
 //	replZones/Ep, replArena            replacement-walk zone summaries, validated on every use,

@@ -62,14 +62,14 @@ func GainedFacesOfDefined(h Host, c *Ctx, spec string) []state.GainedFace {
 }
 
 func Defined(h Host, c *Ctx, sa *cards.SA) []state.Target {
-	if ts, ok := knownDefinedTargets(h, c, sa.Params["Defined"]); ok {
+	if ts, ok := knownDefinedTargets(h, c, sa.ParamStr(cards.PKDefined)); ok {
 		return ts
 	}
 	// Keep Defined's historical per-member fallback for a mixed known/unknown
 	// expression. knownDefinedTargets is deliberately stricter for callers
 	// that need a fail-closed fetch-list classification, not a new public
 	// contract for ordinary effects.
-	if sa.Params["Defined"] == "Imprinted" || sa.Params["Defined"] == "ImprintedLKI" {
+	if sa.ParamStr(cards.PKDefined) == "Imprinted" || sa.ParamStr(cards.PKDefined) == "ImprintedLKI" {
 		// Ordinary (non-fetch-list) Imprinted resolution: the source's
 		// Imprinted association. knownDefinedTargets deliberately does NOT
 		// recognise this selector (TestImprintedDefinedLibraryFetchFailsClosed
@@ -88,9 +88,9 @@ func Defined(h Host, c *Ctx, sa *cards.SA) []state.Target {
 		}
 		return nil
 	}
-	if strings.Contains(sa.Params["Defined"], " & ") {
+	if strings.Contains(sa.ParamStr(cards.PKDefined), " & ") {
 		var out []state.Target
-		for part := range strings.SplitSeq(sa.Params["Defined"], " & ") {
+		for part := range strings.SplitSeq(sa.ParamStr(cards.PKDefined), " & ") {
 			copy := *sa
 			copy.Params = make(map[string]string, len(sa.Params))
 			for k, v := range sa.Params {
@@ -108,7 +108,7 @@ func Defined(h Host, c *Ctx, sa *cards.SA) []state.Target {
 	// controller as You; an unmodelled predicate fails closed to an empty set
 	// like every filter. (ValidStack is knownDefinedTargets' own prefix above
 	// and never reaches here.)
-	if spec := sa.Params["Defined"]; spec == "Valid" || strings.HasPrefix(spec, "Valid ") {
+	if spec := sa.ParamStr(cards.PKDefined); spec == "Valid" || strings.HasPrefix(spec, "Valid ") {
 		return battlefieldValidTargets(h, c, strings.TrimSpace(strings.TrimPrefix(spec, "Valid")))
 	}
 	// Forge's rule: an ability that names targets acts on them; one that
@@ -1606,7 +1606,7 @@ func definedPlayerIDs(h Host, c *Ctx, selector string) []state.PlayerID {
 // SA's own Defined$ selector through the full SA (so a ValidTgts$ fallback
 // still applies) with the same plain-Remembered rule.
 func definedPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
-	return playerIDsFromTargets(h, c, sa.Params["Defined"], Defined(h, c, sa))
+	return playerIDsFromTargets(h, c, sa.ParamStr(cards.PKDefined), Defined(h, c, sa))
 }
 
 // EffectOwnerPlayers resolves an Effect's EffectOwner$ selector to the seats
@@ -1753,12 +1753,12 @@ func imprint(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	var ids []state.ObjID
-	for _, t := range Defined(h, c, &cards.SA{Params: map[string]string{"Defined": sa.Params["ImprintCards"]}}) {
+	for _, t := range Defined(h, c, &cards.SA{Params: map[string]string{"Defined": sa.ParamStr(cards.PKImprintCards)}}) {
 		if t.IsPlayer {
 			continue
 		}
 		id := t.Obj
-		if sa.Params["ImprintCards"] == "TargetedSource" {
+		if sa.ParamStr(cards.PKImprintCards) == "TargetedSource" {
 			if o := h.Game().Obj(id); o != nil && o.Source != 0 {
 				id = o.Source
 			}

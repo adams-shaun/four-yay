@@ -343,25 +343,30 @@ func (e *Engine) scanActiveStatics(mode string, out []staticView) []staticView {
 			if f == nil {
 				continue
 			}
-			if e.printedAbilitiesGone(o) {
-				// CR 708.8: a face-down permanent's printed statics do not
-				// exist while it is face down (the shared gate in layers.go);
-				// CR 613.1f: nor do those of one that lost all abilities.
-				continue
-			}
 			if o.PhasedOut {
 				// CR 702.25b/d: a phased-out permanent is treated as though it
 				// does not exist, so its statics do not function (and it is not
 				// an affected permanent either).
 				continue
 			}
-			for si, sn := 0, o.PileStaticCount(); si < sn; si++ {
+			// CR 708.8: a face-down permanent's printed statics do not exist
+			// while it is face down (the shared gate in layers.go); CR
+			// 613.1f: nor do those of one that lost all abilities. Read at
+			// the first static of the mode: most permanents carry none, and
+			// the gate is a pure read.
+			gone, goneRead := false, false
+			for si, sn := 0, o.PileStaticCount(); si < sn && !gone; si++ {
 				pst, ok := o.PileStaticAt(si)
 				if !ok {
 					continue
 				}
 				st := pst.Static
 				if st.Mode == mode {
+					if !goneRead {
+						if gone, goneRead = e.printedAbilitiesGone(o), true; gone {
+							continue
+						}
+					}
 					// The battlefield-only walk honours each static's own
 					// EffectZone$: a static whose EffectZone$ excludes the
 					// battlefield (Anger's graveyard-scoped haste grant) must
@@ -433,8 +438,10 @@ func (e *Engine) matchesSpec(spec string, id state.ObjID, sc effects.SpecContext
 	// supplies its keywords-so-far snapshot directly.
 	if e.activeDepth == 0 {
 		// specReadsDerived: a spec that cannot read the bound keyword list or
-		// P/T skips the Derived walk the bind costs (specderived.go).
-		if o := e.G.Obj(id); o != nil && (specDerivedVerify || specReadsDerived(spec)) {
+		// P/T skips the Derived walk the bind costs (specderived.go). One
+		// cached lookup answers every textual bind test below.
+		facts := specBindFacts(spec)
+		if o := e.G.Obj(id); o != nil && (specDerivedVerify || facts.reads) {
 			d := e.Derived(id)
 			sc.ExtraKeywords = d.Keywords
 			// The numeric power/basePower predicates read the same derived
@@ -450,7 +457,9 @@ func (e *Engine) matchesSpec(spec string, id state.ObjID, sc effects.SpecContext
 		// The one shared bind every seam that can reach greatestPower goes
 		// through: the whole comparison set reads layer-derived power, not
 		// only the candidate's DerivedPower above.
-		sc.DerivedPTs = append(sc.DerivedPTs, effects.GreatestPowerDerivedPTs(e.G, spec, e)...)
+		if facts.greatest {
+			sc.DerivedPTs = append(sc.DerivedPTs, effects.GreatestPowerDerivedPTs(e.G, spec, e)...)
+		}
 		// The IsGoaded predicate's static route (staticgoad1): a spec that
 		// consults IsGoaded binds the live static-goad table, so EVERY
 		// rules-side read (trigger ValidCard$/ValidSource$, a CantBlock
@@ -463,17 +472,17 @@ func (e *Engine) matchesSpec(spec string, id state.ObjID, sc effects.SpecContext
 		// bindStaticGoads: the helper call moves this hot matcher past its
 		// inlining budget and heap-allocates the context on every candidate
 		// (TestLegalActionsReusesActionStaticMembership's pin).
-		if e.goadProbe == 0 && strings.Contains(spec, "IsGoaded") {
+		if e.goadProbe == 0 && facts.goaded {
 			sc.Layers.StaticGoads = e.staticallyGoaded()
 		}
 		// The colour predicates' layer-5 bind (layer5colors.go): a spec that
 		// names a colour word reads the derived colours, so a creature a
 		// continuous effect recoloured matches by what it is now. Nil on a
 		// board with no live colour effect.
-		if specReadsColors(spec) {
+		if facts.colors {
 			sc.Layers.DerivedColors = e.derivedColorTable()
 		}
-		if specDerivedVerify && !specReadsDerived(spec) {
+		if specDerivedVerify && !facts.reads {
 			return e.verifySpecDerivedSkip(spec, id, sc)
 		}
 	}

@@ -49,7 +49,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 	// only when the origin holds no hidden-info zone and no fetch player was
 	// named (Kor Skyfisher's ChangeType$ filter does the scoping).
 	gameWide := !zoneIn(originZones, state.ZHand) && !zoneIn(originZones, state.ZLibrary) &&
-		strings.TrimSpace(sa.Params["DefinedPlayer"]) == ""
+		strings.TrimSpace(sa.ParamStr(cards.PKDefinedPlayer)) == ""
 	spec := sa.Params["ChangeType"]
 	if spec == "" {
 		spec = "Card"
@@ -163,7 +163,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 				changeZoneAttachedTo(h, c, sa, id)
 			}
 			moved = append(moved, id)
-			if strings.EqualFold(sa.Params["RememberChanged"], "True") {
+			if strings.EqualFold(sa.ParamStr(cards.PKRememberChanged), "True") {
 				// settleChangeZoneMoveAs recorded the resolution-local half;
 				// persist the same moved object for later resolutions.
 				eventRemember(h, c, id)

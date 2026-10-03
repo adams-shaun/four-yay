@@ -62,3 +62,7 @@ __pycache__/
 /searchteacher
 /searchbench
 /testtime
+
+# `make coverage` output (cmd/forgec coverage): generated card-support tables,
+# published by the `card coverage` CI job, never committed.
+.coverage/

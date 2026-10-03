@@ -1,0 +1,11 @@
+{
+  "id": "xmage-omits-cave-subtype",
+  "status": "xmage_wrong",
+  "match": {
+    "field": "permanents",
+    "diff": "$CARD types gorge+[cave] xmage+[]"
+  },
+  "ruling": "XMage omits the Cave subtype from a land whose printed type line is Land - Cave; gorge keeps it",
+  "cr": ["205.3i", "205.3m"],
+  "source": "Room of Refuge (play-land), hand-triaged 2026-10-02"
+}

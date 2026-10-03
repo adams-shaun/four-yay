@@ -312,7 +312,7 @@ func (e *Engine) scanBoardStaticsPrintedLists(out boardStatics, lists []boardSca
 					case "OptionalCost":
 						dst = &out.cost.optional
 					case "ManaConvert":
-						if !effectZoneOK(st.Params["EffectZone"], o.Zone) {
+						if !effectZoneOK(st.ParamStr(cards.PKEffectZone), o.Zone) {
 							continue
 						}
 						out.manaConv = append(out.manaConv, manaConvSource{sv: staticView{Source: id,
@@ -398,7 +398,7 @@ func (e *Engine) scanManaConvSources(out []manaConvSource) []manaConvSource {
 				}
 				for si, sn := 0, o.PileStaticCount(); si < sn; si++ {
 					pst, ok := o.PileStaticAt(si)
-					if !ok || pst.Static.Mode != "ManaConvert" || !effectZoneOK(pst.Static.Params["EffectZone"], o.Zone) {
+					if !ok || pst.Static.Mode != "ManaConvert" || !effectZoneOK(pst.Static.ParamStr(cards.PKEffectZone), o.Zone) {
 						continue
 					}
 					out = append(out, manaConvSource{sv: staticView{Source: oid, Controller: o.Controller,
@@ -581,7 +581,7 @@ func offBattlefieldStaticsInert(z state.Zone, o *state.Object) bool {
 	}
 	if walkCacheVerify {
 		for si, sn := 0, o.PileStaticCount(); si < sn; si++ {
-			if pst, ok := o.PileStaticAt(si); ok && effectZoneOK(pst.Static.Params["EffectZone"], o.Zone) {
+			if pst, ok := o.PileStaticAt(si); ok && effectZoneOK(pst.Static.ParamStr(cards.PKEffectZone), o.Zone) {
 				panic(fmt.Sprintf("rules: off-battlefield static skip hid a live %s static on obj %d", pst.Static.Mode, o.ID))
 			}
 		}

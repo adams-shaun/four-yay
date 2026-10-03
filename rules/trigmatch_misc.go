@@ -58,7 +58,7 @@ func (e *Engine) commitCrimeMatches(t cards.Trigger, source state.ObjID, ev even
 			}
 		}
 	}
-	if v := t.Params["ValidPlayer"]; v != "" {
+	if v := t.ParamStr(cards.PKValidPlayer); v != "" {
 		return effects.MatchesPlayerSpec(e.G, v, actor, e.controllerOf(source))
 	}
 	return true
@@ -97,10 +97,10 @@ func (e *Engine) targetCommitsCrime(target state.Target, actor state.PlayerID) b
 // on action triggers. The player is the player who performed the action.
 func (e *Engine) eventCardAndPlayerMatch(t cards.Trigger, source, card state.ObjID, player state.PlayerID) bool {
 	ctrl := e.controllerOf(source)
-	if v := t.Params["ValidCard"]; v != "" && !e.matchesSpec(v, card, e.specCtx(source, ctrl)) {
+	if v := t.ParamStr(cards.PKValidCard); v != "" && !e.matchesSpec(v, card, e.specCtx(source, ctrl)) {
 		return false
 	}
-	if v := t.Params["ValidPlayer"]; v != "" && !effects.MatchesPlayerSpec(e.G, v, player, ctrl) {
+	if v := t.ParamStr(cards.PKValidPlayer); v != "" && !effects.MatchesPlayerSpec(e.G, v, player, ctrl) {
 		return false
 	}
 	return true
@@ -144,7 +144,7 @@ func (e *Engine) flippedCoinMatches(t cards.Trigger, source state.ObjID, ev even
 	// Note's Player, through the shared player-spec grammar with the trigger's
 	// own controller as You. The two "whenever a player wins" lines carry no
 	// ValidPlayer$ and fire on any flipper.
-	if v, ok := t.Params["ValidPlayer"]; ok {
+	if v, ok := t.Param(cards.PKValidPlayer); ok {
 		if !effects.MatchesPlayerSpecFrom(e.G, v, flipper, e.controllerOf(source), source) {
 			return false
 		}
@@ -180,12 +180,12 @@ func (e *Engine) attachedMatches(t cards.Trigger, source state.ObjID, ev events.
 		return false
 	}
 	ctrl := e.controllerOf(source)
-	if v, ok := t.Params["ValidSource"]; ok {
+	if v, ok := t.Param(cards.PKValidSource); ok {
 		if !e.matchesSpec(v, ev.Obj, e.specCtx(source, ctrl)) {
 			return false
 		}
 	}
-	if v, ok := t.Params["ValidTarget"]; ok {
+	if v, ok := t.Param(cards.PKValidTarget); ok {
 		return e.matchesSpec(v, ev.IDs[0], e.specCtx(source, ctrl))
 	}
 	return false
@@ -206,12 +206,12 @@ func (e *Engine) ringTemptsMatches(t cards.Trigger, source state.ObjID, ev event
 		return false
 	}
 	ctrl := e.controllerOf(source)
-	if v, ok := t.Params["ValidPlayer"]; ok {
+	if v, ok := t.Param(cards.PKValidPlayer); ok {
 		if !effects.MatchesPlayerSpec(e.G, v, ev.Player, ctrl) {
 			return false
 		}
 	}
-	if v := t.Params["ValidCard"]; v != "" {
+	if v := t.ParamStr(cards.PKValidCard); v != "" {
 		if ev.Obj == 0 {
 			return false // no creature became the Ring-bearer
 		}
@@ -235,7 +235,7 @@ func (e *Engine) becomesTargetMatches(t cards.Trigger, source state.ObjID, ev ev
 	if ev.Kind != events.TargetsChosen {
 		return false
 	}
-	if v, ok := t.Params["ValidSource"]; ok {
+	if v, ok := t.Param(cards.PKValidSource); ok {
 		// ValidSource$ names the spell or ability doing the targeting: the
 		// TargetsChosen event's Obj, the stack object whose target decision
 		// this event answers (commitCrimeMatches reads the same field as the
@@ -247,7 +247,7 @@ func (e *Engine) becomesTargetMatches(t cards.Trigger, source state.ObjID, ev ev
 			return false
 		}
 	}
-	if v, ok := t.Params["ValidTarget"]; ok {
+	if v, ok := t.Param(cards.PKValidTarget); ok {
 		for _, id := range ev.IDs {
 			if e.matchesSpec(v, id, e.specCtx(source, e.controllerOf(source))) {
 				// CR 702.21a compares the Ward permanent's controller with the
@@ -317,12 +317,12 @@ func (e *Engine) becomesTargetOnceMatches(t cards.Trigger, source state.ObjID, e
 	}
 	you := e.controllerOf(source)
 	sc := e.specCtx(source, you)
-	if v, ok := t.Params["ValidSource"]; ok {
+	if v, ok := t.Param(cards.PKValidSource); ok {
 		if !e.becomesTargetSourceMatches(v, ev.Obj, sc) {
 			return false
 		}
 	}
-	if v, ok := t.Params["ValidTarget"]; ok {
+	if v, ok := t.Param(cards.PKValidTarget); ok {
 		matched := false
 		for _, id := range ev.IDs {
 			if e.matchesSpec(v, id, sc) {
@@ -337,7 +337,7 @@ func (e *Engine) becomesTargetOnceMatches(t cards.Trigger, source state.ObjID, e
 			return false
 		}
 	}
-	if v, ok := t.Params["ValidCause"]; ok {
+	if v, ok := t.Param(cards.PKValidCause); ok {
 		cause := e.protectionSource(ev.Obj)
 		if cause == 0 || !e.matchesSpec(v, cause, sc) {
 			return false
@@ -417,7 +417,7 @@ func (e *Engine) landPlayedMatches(t cards.Trigger, source state.ObjID, ev event
 	if obj == nil || obj.Face() == nil || !obj.Face().IsLand() {
 		return false
 	}
-	if v, ok := t.Params["ValidCard"]; ok {
+	if v, ok := t.Param(cards.PKValidCard); ok {
 		return e.matchesSpec(v, ev.Obj, e.specCtx(source, e.controllerOf(source)))
 	}
 	return true
@@ -502,7 +502,7 @@ func (e *Engine) phaseMatches(t cards.Trigger, source state.ObjID, ev events.Eve
 	if ev.Kind != events.StepChange {
 		return false
 	}
-	if v, ok := t.Params["ValidPlayer"]; ok {
+	if v, ok := t.Param(cards.PKValidPlayer); ok {
 		// StepChange carries no Player of its own -- a step always belongs
 		// to the current active player.
 		if !effects.MatchesPlayerSpecCtx(e.G, v, e.G.Active, e.controllerOf(source), e.playerSpecCtx(source)) {
@@ -598,7 +598,7 @@ func (e *Engine) rolledDieCommon(t cards.Trigger, source state.ObjID, roller sta
 	if v, present := t.Params["ValidResult"]; present && !dieResultMatches(v, matched, natural, sides) {
 		return false
 	}
-	if v, present := t.Params["ValidPlayer"]; present {
+	if v, present := t.Param(cards.PKValidPlayer); present {
 		if !effects.MatchesPlayerSpecFrom(e.G, v, roller, e.controllerOf(source), source) {
 			return false
 		}

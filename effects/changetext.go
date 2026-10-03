@@ -204,7 +204,7 @@ func effChangeText(h Host, c *Ctx, sa *cards.SA) {
 		if t.IsPlayer {
 			continue
 		}
-		registerTextSubstitution(h, c, t.Obj, from, to, sa.Params["Duration"])
+		registerTextSubstitution(h, c, t.Obj, from, to, sa.ParamStr(cards.PKDuration))
 	}
 }
 
@@ -301,8 +301,8 @@ func effExchangeTextBox(h Host, c *Ctx, sa *cards.SA) {
 	textA, kwA := ca.Text, append([]string(nil), ca.Keywords...)
 	cb := h.Chars(b)
 	textB, kwB := cb.Text, append([]string(nil), cb.Keywords...)
-	registerTextSet(h, c, a, textB, kwB, sa.Params["Duration"])
-	registerTextSet(h, c, b, textA, kwA, sa.Params["Duration"])
+	registerTextSet(h, c, a, textB, kwB, sa.ParamStr(cards.PKDuration))
+	registerTextSet(h, c, b, textA, kwA, sa.ParamStr(cards.PKDuration))
 }
 
 // registerTextSet registers one exchanged text box on id: a layer-3 TextSet

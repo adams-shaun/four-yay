@@ -24,7 +24,7 @@ func (e *Engine) becomeMonstrousMatches(t cards.Trigger, source state.ObjID, ev 
 	}
 	ctrl := e.controllerOf(source)
 	sc := e.specCtx(source, ctrl)
-	if v := t.Params["ValidCard"]; v != "" && !e.matchesSpec(v, ev.Obj, sc) {
+	if v := t.ParamStr(cards.PKValidCard); v != "" && !e.matchesSpec(v, ev.Obj, sc) {
 		return false
 	}
 	return true

@@ -36,15 +36,15 @@ import (
 // Turning a face-down permanent face up (CR 708.6) is not implemented
 // anywhere (AGENTS.md's manifest row).
 func effManifest(h Host, c *Ctx, sa *cards.SA) {
-	if strings.TrimSpace(sa.Params["Defined"]) != "" ||
-		strings.TrimSpace(sa.Params["Choices"]) != "" ||
+	if strings.TrimSpace(sa.ParamStr(cards.PKDefined)) != "" ||
+		strings.TrimSpace(sa.ParamStr(cards.PKChoices)) != "" ||
 		strings.EqualFold(strings.TrimSpace(sa.Params["RememberManifested"]), "True") {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "unimplemented API Manifest"})
 		return
 	}
 	amount := int32(1)
-	if raw, present := sa.Params["Amount"]; present {
+	if raw, present := sa.Param(cards.PKAmount); present {
 		// X/Y (and any body Num's grammar cannot resolve) are out of scope:
 		// loud, never a degraded count silently moving a wrong number of
 		// cards.
@@ -101,14 +101,14 @@ func effManifest(h Host, c *Ctx, sa *cards.SA) {
 // silently look at the wrong count, the wrong player's library, or lose the
 // remembered card a rider needs.
 func effManifestDread(h Host, c *Ctx, sa *cards.SA) {
-	if strings.TrimSpace(sa.Params["DefinedPlayer"]) != "" ||
+	if strings.TrimSpace(sa.ParamStr(cards.PKDefinedPlayer)) != "" ||
 		strings.EqualFold(strings.TrimSpace(sa.Params["RememberManifested"]), "True") ||
-		sa.Params["Choices"] != "" {
+		sa.ParamStr(cards.PKChoices) != "" {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "unimplemented API ManifestDread"})
 		return
 	}
-	if raw, present := sa.Params["Amount"]; present && strings.TrimSpace(raw) != "2" {
+	if raw, present := sa.Param(cards.PKAmount); present && strings.TrimSpace(raw) != "2" {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "unimplemented API ManifestDread"})
 		return
@@ -219,14 +219,14 @@ func effCloak(h Host, c *Ctx, sa *cards.SA) {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "unimplemented API Cloak"})
 	}
-	defined := strings.TrimSpace(sa.Params["Defined"])
-	if strings.TrimSpace(sa.Params["Choices"]) != "" ||
+	defined := strings.TrimSpace(sa.ParamStr(cards.PKDefined))
+	if strings.TrimSpace(sa.ParamStr(cards.PKChoices)) != "" ||
 		strings.Contains(defined, "ValidLibrary") {
 		loud()
 		return
 	}
 	amount := int32(1)
-	if raw, present := sa.Params["Amount"]; present {
+	if raw, present := sa.Param(cards.PKAmount); present {
 		// X/Y (and any body Num's grammar cannot resolve) are out of scope:
 		// loud, never a degraded count silently moving a wrong number of
 		// cards.
@@ -277,7 +277,7 @@ func effCloak(h Host, c *Ctx, sa *cards.SA) {
 		}
 		shuffled[o.Owner] = true
 	}
-	if strings.TrimSpace(sa.Params["DefinedPlayer"]) != "" {
+	if strings.TrimSpace(sa.ParamStr(cards.PKDefinedPlayer)) != "" {
 		// The per-player top-card shape (unexplained_absence's
 		// "Defined$ TopOfLibrary | DefinedPlayer$ RememberedController"):
 		// each listed player's OWN top Amount$ cards -- searchPlayers's

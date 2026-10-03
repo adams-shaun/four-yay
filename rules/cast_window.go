@@ -130,7 +130,7 @@ func (e *Engine) castWindowProbeUnits(pc *pendingCast, windowUnits []windowManaU
 			if strings.TrimSpace(ma.Params["RestrictValid"]) != "" {
 				continue
 			}
-			cost := e.parseCost(ma.Params["Cost"])
+			cost := e.parseCost(ma.ParamStr(cards.PKCost))
 			if activationTapCostUnavailable(o, &cost) {
 				continue
 			}
@@ -163,7 +163,7 @@ func (e *Engine) castWindowProbeUnits(pc *pendingCast, windowUnits []windowManaU
 			// offers R/G only, never the raw parser's WUBRG superset. Without
 			// a record it produces no colour and stays out of this window
 			// (the same fail-closed direction the shared walk takes).
-			produced := strings.TrimSpace(ma.Params["Produced"])
+			produced := strings.TrimSpace(ma.ParamStr(cards.PKProduced))
 			if producedNeedsChosen(produced) {
 				chosen := e.chosenProducedColour(id)
 				if chosen == "" {
@@ -230,7 +230,7 @@ func (e *Engine) castWindowProbeAbilities(p state.PlayerID, id state.ObjID) []*c
 // A body that does not resolve deterministically, or resolves to zero or
 // less, is not priced.
 func (e *Engine) castWindowAmount(p state.PlayerID, source state.ObjID, o *state.Object, ma *cards.SA) (int32, bool) {
-	raw := strings.TrimSpace(ma.Params["Amount"])
+	raw := strings.TrimSpace(ma.ParamStr(cards.PKAmount))
 	if raw == "" {
 		return 1, true
 	}

@@ -71,10 +71,10 @@ func pureGrantKeywords(ab *cards.SA) []string {
 	if ab.Sub != nil {
 		return nil
 	}
-	switch ab.Params["Defined"] {
+	switch ab.ParamStr(cards.PKDefined) {
 	case "Self", "Parent":
 	case "":
-		if _, targeted := ab.Params["ValidTgts"]; targeted {
+		if _, targeted := ab.Param(cards.PKValidTgts); targeted {
 			return nil
 		}
 	default:
@@ -148,7 +148,7 @@ func grantSetsEqual(a, b []string) bool {
 // names zone in its ActivationZone$.
 func faceHasActivationZone(f *cards.Face, zone string) bool {
 	for _, ab := range f.Abilities {
-		if ab != nil && ab.Kind == "AB" && strings.TrimSpace(ab.Params["ActivationZone"]) == zone {
+		if ab != nil && ab.Kind == "AB" && strings.TrimSpace(ab.ParamStr(cards.PKActivationZone)) == zone {
 			return true
 		}
 	}

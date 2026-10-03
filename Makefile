@@ -56,6 +56,7 @@ help:
 	@echo "  make report         — print card coverage against implemented primitives"
 	@echo "  make compliance-manifests — regenerate compliance/manifests from XMage set classes at XMAGE_REF"
 	@echo "  make xmage-oracle-setup — build XMage at XMAGE_REF out of tree (heavy; run alone)"
+	@echo "  make compliance-pass SETS='FRA BLB' — XMage compliance pass over the sets (default: every printed list); reruns only stale verdicts, under the heavy-job lock"
 	@echo "  make sim            — build mtgsim and play 20 verified 4-seat games"
 	@echo "  make gorged         — run the M2a table server (browser client at the addr)"
 	@echo "  make deploy-demo    — rebuild and (re)serve the demo on :8080 (bot tables omniscient)"
@@ -166,6 +167,14 @@ compliance-manifests:
 .PHONY: xmage-oracle-setup
 xmage-oracle-setup:
 	XMAGE_REF=$(XMAGE_REF) XMAGE_ORACLE_DIR=$(XMAGE_ORACLE_DIR) scripts/xmage-oracle-setup.sh
+
+# compliance-pass runs the XMage compliance pass (gen, plan, XMage replay of
+# the stale scenarios only, diff -write into compliance/verdicts, summary)
+# over SETS, under the heavy-job lock. Needs the xmage-oracle-setup build.
+SETS ?=
+.PHONY: compliance-pass
+compliance-pass:
+	XMAGE_REF=$(XMAGE_REF) XMAGE_ORACLE_DIR=$(XMAGE_ORACLE_DIR) scripts/compliance-pass.sh $(SETS)
 
 .PHONY: report
 report: $(BIN_DIR)/forgec
@@ -376,16 +385,11 @@ ledger:
 	  > .ds4/lane-rules.txt || true
 	go run ./cmd/ledger -lane .ds4/lane-rules.txt -out .ds4/ledger.json
 
-# coverage regenerates the published card-support tables: docs/coverage.md in
-# full, plus the summary block README.md carries between its COVERAGE markers.
-# Output is deterministic (no wall clock; every table sorted), so a run over an
-# unchanged corpus rewrites nothing and the refresh workflow commits nothing.
-# `make coverage-check` is the read-only half: it fails when the committed
-# tables no longer match the corpus at FORGE_REF.
+# coverage writes the card-support tables -- .coverage/summary.md and
+# .coverage/coverage.md -- into the gitignored .coverage/. They are generated,
+# never committed: the `card coverage` workflow publishes them on its run page
+# (job summary + artifact). Output is deterministic (no wall clock; every table
+# sorted), so two runs over the same corpus and tree are byte-identical.
 .PHONY: coverage
 coverage: $(BIN_DIR)/forgec
-	$(BIN_DIR)/forgec coverage -dir $(CARDS_DIR)
-
-.PHONY: coverage-check
-coverage-check: $(BIN_DIR)/forgec
-	$(BIN_DIR)/forgec coverage -dir $(CARDS_DIR) -check
+	$(BIN_DIR)/forgec coverage -dir $(CARDS_DIR) -out .coverage

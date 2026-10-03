@@ -1,0 +1,2 @@
+{"shape":{"template":"cast-resolve","op":"resolve","field":"permanents","diff":"Grizzly Bears gorge+[4/4, counters=P1P1=1] xmage+[3/3]"},"key":"cast-resolve | resolve | permanents | Grizzly Bears gorge+[4/4, counters=P1P1=1] xmage+[3/3]","cards":1}
+{"card":"Throw from the Saddle","template":"cast-resolve","status":"diverge","api":"Pump+PutCounter+DealDamage","sets":["OTJ"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 Grizzly Bears [bear creature] {G} 4/4 counters=P1P1=1\", xmage \"c0 o0 Grizzly Bears [bear creature] {G} 3/3\""}

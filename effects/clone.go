@@ -121,7 +121,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 	// from the become pool. Zero on every other source route (there is no
 	// chosen object to exclude).
 	var chosenPick state.ObjID
-	spec := strings.TrimSpace(sa.Params["Defined"])
+	spec := strings.TrimSpace(sa.ParamStr(cards.PKDefined))
 	switch {
 	case chosenName != "":
 		// A name has no source ObjID. The copied face is resolved in Apply
@@ -140,14 +140,14 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 			return
 		}
 		source = ts
-	case strings.TrimSpace(sa.Params["Choices"]) != "":
+	case strings.TrimSpace(sa.ParamStr(cards.PKChoices)) != "":
 		// Choices$ <filter> is Forge's mid-resolution chooser for the copy
 		// source (CR 706.2): "you may have this creature enter as a copy of
 		// any creature on the battlefield". A real host gets the per-player
 		// pick over the eligible pool; a no-host run (an effects test double,
 		// a fuzz run) keeps the deterministic first-eligible stand-in under a
 		// Note (the R-9 no-ask contract).
-		spec := strings.TrimSpace(sa.Params["Choices"])
+		spec := strings.TrimSpace(sa.ParamStr(cards.PKChoices))
 		// ChoiceZone$ names the zone the Choices$ pick draws from. An absent
 		// value keeps the historical battlefield pool byte-for-byte; a value
 		// this build does not implement (or a filter head that cannot resolve
@@ -316,7 +316,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 	// keeps the deterministic take stand-in the pre-election build shipped,
 	// byte-identical (the same convention the optional-discard family
 	// records) -- a "may" that cannot ask never wedges.
-	if !c.CloneETB && strings.EqualFold(strings.TrimSpace(sa.Params["Optional"]), "True") {
+	if !c.CloneETB && strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True") {
 		if !cloneDone {
 			prompt := "You may have a permanent become a copy?"
 			if ob := g.Obj(pairs[0].become.Obj); ob != nil && ob.Face() != nil {
@@ -345,7 +345,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 
 	// Collect the modifier registrations once; every become object shares
 	// them. An unreadable modifier is one Note per call (never per object).
-	addTypes := splitAmp(strings.TrimSpace(sa.Params["AddTypes"]))
+	addTypes := splitAmp(strings.TrimSpace(sa.ParamStr(cards.PKAddTypes)))
 	setCreatureTypes := splitAmp(strings.TrimSpace(sa.Params["SetCreatureTypes"]))
 	if len(setCreatureTypes) > 0 {
 		addTypes = append(addTypes, setCreatureTypes...)
@@ -371,7 +371,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 	for _, name := range cloneNames(sa.Params["AddTriggers"]) {
 		if raw, ok := grantTable[name]; ok {
 			if tr, ok := cards.ParseTriggerLine(raw); ok {
-				if execute := strings.TrimSpace(tr.Params["Execute"]); execute != "" {
+				if execute := strings.TrimSpace(tr.ParamStr(cards.PKExecute)); execute != "" {
 					tr.Effect = cards.ResolveSVar(grantTable, execute)
 				}
 				grantTriggers = append(grantTriggers, &tr)
@@ -390,11 +390,11 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 	pumpDuration := strings.TrimSpace(sa.Params["PumpDuration"])
 	newName := strings.TrimSpace(sa.Params["NewName"])
 	gainThisAbility := strings.EqualFold(strings.TrimSpace(sa.Params["GainThisAbility"]), "True")
-	removeCardTypes := strings.EqualFold(strings.TrimSpace(sa.Params["RemoveCardTypes"]), "True")
-	removeCreatureTypes := strings.EqualFold(strings.TrimSpace(sa.Params["RemoveCreatureTypes"]), "True")
+	removeCardTypes := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRemoveCardTypes)), "True")
+	removeCreatureTypes := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRemoveCreatureTypes)), "True")
 	setPowerPresent, setPower := clonePT(h, c, sa, "SetPower")
 	setToughPresent, setTough := clonePT(h, c, sa, "SetToughness")
-	colorSpec := strings.TrimSpace(sa.Params["SetColor"])
+	colorSpec := strings.TrimSpace(sa.ParamStr(cards.PKSetColor))
 	var setColors []string
 	var setColorPresent bool
 	if colorSpec != "" {
@@ -469,7 +469,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 			Text: "Clone does not read: " + strings.Join(unread, ", ")})
 	}
 
-	dur := strings.TrimSpace(sa.Params["Duration"])
+	dur := strings.TrimSpace(sa.ParamStr(cards.PKDuration))
 	// permanent is the "no Duration$/Permanent" classification; every clone
 	// effect is registered with Permanent=false (see reg below), so the flag
 	// itself is not carried onto the effects -- the no-duration case is simply
@@ -775,7 +775,7 @@ func cloneETBTemplateLegal(g *state.Game, c *Ctx, sa *cards.SA) bool {
 	if o == nil || o.Zone != state.ZBattlefield || o.Face() == nil {
 		return false
 	}
-	spec := strings.TrimSpace(sa.Params["Choices"])
+	spec := strings.TrimSpace(sa.ParamStr(cards.PKChoices))
 	if spec == "" {
 		spec = "Creature.Other"
 	}

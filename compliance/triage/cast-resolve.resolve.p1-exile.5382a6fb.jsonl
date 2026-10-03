@@ -1,0 +1,2 @@
+{"shape":{"template":"cast-resolve","op":"resolve","field":"p1.exile","diff":"gorge+[Grizzly Bears] xmage+[]"},"key":"cast-resolve | resolve | p1.exile | gorge+[Grizzly Bears] xmage+[]","cards":1}
+{"card":"Celebrate the Mountain-king","template":"cast-resolve","status":"diverge","api":"ChangesZone:ChangeZone+ChangesZone:Recruit","sets":["HOB"],"detail":"step 1 (resolve) p1.exile: gorge \"[Grizzly Bears]\", xmage \"[]\""}

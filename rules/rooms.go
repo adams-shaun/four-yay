@@ -119,13 +119,13 @@ func (e *Engine) queueUnlockTriggers(o *state.Object, face *cards.Face) {
 		if t.Mode != "UnlockDoor" {
 			continue
 		}
-		if vp := t.Params["ValidPlayer"]; vp != "" && vp != "You" {
+		if vp := t.ParamStr(cards.PKValidPlayer); vp != "" && vp != "You" {
 			continue
 		}
 		if td := t.Params["ThisDoor"]; td != "" && !strings.EqualFold(td, "True") {
 			continue
 		}
-		exec := t.Params["Execute"]
+		exec := t.ParamStr(cards.PKExecute)
 		if exec == "" || t.Effect == nil {
 			continue
 		}

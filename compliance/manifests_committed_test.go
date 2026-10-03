@@ -52,3 +52,30 @@ func TestCommittedManifestsAreWellFormed(t *testing.T) {
 		}
 	}
 }
+
+// TestVerdictsCarryFieldLevelExpectations: every passing committed verdict
+// row freezes its changed fields (section 11.3 C3); no row is back on the
+// whole-snapshot canon_sha that one unrelated engine change staled across
+// whole sets. `oraclediff refreeze -apply` converts a legacy row.
+func TestVerdictsCarryFieldLevelExpectations(t *testing.T) {
+	all, err := LoadVerdicts(filepath.Join("..", VerdictDir))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(all) == 0 {
+		t.Fatal("no committed verdicts found")
+	}
+	for card, byT := range all {
+		for tmpl, r := range byT {
+			passing := r.Status == StatusAgree || r.Status == StatusXMageWrong
+			switch {
+			case r.CanonSHA != "":
+				t.Errorf("%s (%s): legacy canon_sha; run oraclediff refreeze -apply", card, tmpl)
+			case passing && len(r.Frozen) == 0:
+				t.Errorf("%s (%s): %s with no frozen expectation", card, tmpl, r.Status)
+			case !passing && len(r.Frozen) > 0:
+				t.Errorf("%s (%s): %s row carries a frozen expectation", card, tmpl, r.Status)
+			}
+		}
+	}
+}

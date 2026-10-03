@@ -1,0 +1,2 @@
+{"shape":{"template":"counter-spell","op":"harness","field":"xmage","diff":"AssertionError: Can't find ability to activate command: Cast $CARD"},"key":"counter-spell | harness | xmage | AssertionError: Can't find ability to activate command: Cast $CARD","cards":1}
+{"card":"Long River's Pull","template":"counter-spell","status":"harness","api":"Counter","sets":["BLB"],"detail":"xmage: AssertionError: Can't find ability to activate command: Cast Long River's Pull$target=Disfigure$spellOnStack=Disfigure"}

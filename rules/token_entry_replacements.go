@@ -75,7 +75,7 @@ func (e *Engine) applyTokenEntryUpdates(id state.ObjID) {
 		}
 		for i := range f.Repls {
 			r := &f.Repls[i]
-			if r.Event != "Moved" || r.With == nil || !tokenEntryBody(r.Params["ReplacementResult"], r.Params["Destination"], r.With) {
+			if r.Event != "Moved" || r.With == nil || !tokenEntryBody(r.Params["ReplacementResult"], r.ParamStr(cards.PKDestination), r.With) {
 				continue
 			}
 			if e.replacementMatches(*r, src, ev) {

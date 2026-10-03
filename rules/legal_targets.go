@@ -52,8 +52,8 @@ func (e *Engine) targetSAAvailable(p state.PlayerID, id, excludeSelf state.ObjID
 	// settled value. SVar-backed bounds remain readable now and are checked.
 	// Read by literal key: the param census's rot guard rejects a dynamic
 	// Params key that is not a function parameter.
-	if xPending && (strings.EqualFold(strings.TrimSpace(sa.Params["TargetMin"]), "X") ||
-		strings.EqualFold(strings.TrimSpace(sa.Params["TargetMax"]), "X")) {
+	if xPending && (strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKTargetMin)), "X") ||
+		strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKTargetMax)), "X")) {
 		return true
 	}
 	min, _ := e.resolvedTargetBounds(p, id, sa, x)
@@ -76,7 +76,7 @@ func (e *Engine) targetSAAvailable(p state.PlayerID, id, excludeSelf state.ObjID
 	if min <= 0 {
 		return true
 	}
-	if xPending && specNamesXBound(sa.Params["ValidTgts"]) {
+	if xPending && specNamesXBound(sa.ParamStr(cards.PKValidTgts)) {
 		return true
 	}
 	if capCMC, capped := e.maxTotalTargetCMC(p, id, sa, x); capped {
@@ -195,14 +195,14 @@ func (e *Engine) charmTargetsAvailable(p state.PlayerID, id state.ObjID, sa *car
 	if o == nil || o.Face() == nil {
 		return true
 	}
-	choices := strings.Split(sa.Params["Choices"], ",")
+	choices := strings.Split(sa.ParamStr(cards.PKChoices), ",")
 	ctx := effects.NewCtxPtr(id, p, effects.CtxInit{})
 	effects.SetSVars(ctx, o.Face().SVars)
 	legal := make([]string, 0, len(choices))
 	for _, name := range choices {
 		name = strings.TrimSpace(name)
 		sub := cards.ResolveSVar(o.Face().SVars, name)
-		if sub != nil && strings.TrimSpace(sub.Params["ValidTgts"]) != "" &&
+		if sub != nil && strings.TrimSpace(sub.ParamStr(cards.PKValidTgts)) != "" &&
 			!e.targetSAAvailable(p, id, id, sub, 0, xPending) {
 			continue
 		}
@@ -227,7 +227,7 @@ func targetsReadXPending(sa *cards.SA) bool {
 	if sa == nil {
 		return false
 	}
-	if sa.API == "Charm" && strings.TrimSpace(sa.Params["Choices"]) != "" {
+	if sa.API == "Charm" && strings.TrimSpace(sa.ParamStr(cards.PKChoices)) != "" {
 		return true
 	}
 	if strings.TrimSpace(sa.ParamStr(cards.PKAnnounce)) == "" && strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) != "" {
@@ -275,7 +275,7 @@ func (e *Engine) chainTargetsAvailable(p state.PlayerID, id, excludeSelf state.O
 	var svars map[string]string
 	svarsRead := false
 	for _, sub := range e.collectSubTargetPreAsks(sa) {
-		if cond := strings.TrimSpace(sub.Params["Condition"]); strings.EqualFold(cond, "Kicked") ||
+		if cond := strings.TrimSpace(sub.ParamStr(cards.PKCondition)); strings.EqualFold(cond, "Kicked") ||
 			strings.EqualFold(cond, "OptionalCost") {
 			continue
 		}
@@ -303,7 +303,7 @@ func (e *Engine) chainTargetsAvailable(p state.PlayerID, id, excludeSelf state.O
 }
 
 func (e *Engine) rootTargetsAvailable(p state.PlayerID, id, excludeSelf state.ObjID, sa *cards.SA, xPending bool) bool {
-	if sa.API == "Charm" && strings.TrimSpace(sa.Params["Choices"]) != "" {
+	if sa.API == "Charm" && strings.TrimSpace(sa.ParamStr(cards.PKChoices)) != "" {
 		return e.charmTargetsAvailable(p, id, sa, xPending)
 	}
 	// An Announce$ value can change the target restriction itself; its value
@@ -400,7 +400,7 @@ func (e *Engine) castTargetsAvailable(p state.PlayerID, id state.ObjID, sa *card
 	if o := e.G.Obj(id); o != nil && o.Face() != nil {
 		xPending = costAnnouncesXRef(&e.faceCompiledCost(o.Face()).Cost)
 		if ab := o.Face().SpellAbility(); ab != nil {
-			xPending = xPending || costAnnouncesXRef(e.costRef(ab.Params["Cost"]))
+			xPending = xPending || costAnnouncesXRef(e.costRef(ab.ParamStr(cards.PKCost)))
 		}
 	}
 	return e.targetsAvailable(p, id, id, sa, xPending)
@@ -429,5 +429,5 @@ func (e *Engine) abilityTargetsAvailable(p state.PlayerID, id state.ObjID, ab *c
 		// xPending is never read for this shape (targetsReadXPending).
 		return e.targetsAvailable(p, id, excludeSelf, ab, false)
 	}
-	return e.targetsAvailable(p, id, excludeSelf, ab, costAnnouncesX(e.parseCost(ab.Params["Cost"])))
+	return e.targetsAvailable(p, id, excludeSelf, ab, costAnnouncesX(e.parseCost(ab.ParamStr(cards.PKCost))))
 }

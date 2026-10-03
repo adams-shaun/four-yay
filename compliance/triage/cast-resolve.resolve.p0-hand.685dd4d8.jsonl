@@ -1,0 +1,2 @@
+{"shape":{"template":"cast-resolve","op":"resolve","field":"p0.hand","diff":"gorge+[] xmage+[Grizzly Bears]"},"key":"cast-resolve | resolve | p0.hand | gorge+[] xmage+[Grizzly Bears]","cards":1}
+{"card":"Fang-Druid Summoner","template":"cast-resolve","status":"diverge","api":"ChangesZone:ChangeZone","sets":["DFT"],"detail":"step 1 (resolve) p0.hand: gorge \"[]\", xmage \"[Grizzly Bears]\""}

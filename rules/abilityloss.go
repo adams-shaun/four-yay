@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"fmt"
 	"slices"
 	"strings"
 
@@ -216,12 +217,26 @@ func (e *Engine) pruneLostSourceAbilities(list []ContinuousEffect) []ContinuousE
 // During a layer scan (active() mid-build) it stands down and reports no
 // loss, the same stand-down matchesSpec's Derived bind takes.
 func (e *Engine) abilityLoss(o *state.Object) (uint32, bool) {
-	if o == nil || o.Zone != state.ZBattlefield || o.Face() == nil || e.activeDepth != 0 || !e.abilityLossPossible() {
+	if o == nil || o.Zone != state.ZBattlefield || o.Face() == nil {
 		return 0, false
 	}
-	act := e.active()
-	if !e.activeSummaryOf(act).hasRemoveAbilities {
+	// The board-wide early outs (mid-build stand-down, the sticky proof, a
+	// list with no remover), answered once per active() build
+	// (abilityloss_memo.go).
+	m := &e.lossMemo
+	act, live := m.boardLive(e)
+	if !live {
 		return 0, false
+	}
+	// Memoized per object too, except while a derivation guard is live;
+	// verify mode recomputes every hit.
+	memo := e.derivedMemoUsable()
+	gen := m.gen
+	var hit abilityLossEnt
+	if memo && int(o.ID) < len(m.ents) && m.ents[o.ID].gen == gen {
+		if hit = m.ents[o.ID]; !abilityLossMemoVerify {
+			return hit.ts, hit.lost
+		}
 	}
 	var types []string
 	typed := false
@@ -241,6 +256,16 @@ func (e *Engine) abilityLoss(o *state.Object) (uint32, bool) {
 				latest = r.Timestamp
 			}
 		}
+	}
+	if hit.gen != 0 && (hit.ts != latest || hit.lost != lost) {
+		panic(fmt.Sprintf("rules: ability-loss memo stale for obj %d at build %d: cached (%d, %v), fresh (%d, %v)",
+			o.ID, m.seq, hit.ts, hit.lost, latest, lost))
+	}
+	// The walk is a pure read, but a nested read inside it could in
+	// principle rebuild active(); boardLive would then have moved to a new
+	// generation, and an answer read off the old list is not recorded.
+	if memo && m.gen == gen && m.seq == e.activeBuildSeq {
+		m.store(o.ID, gen, latest, lost, cap(e.G.Objs)+1)
 	}
 	return latest, lost
 }
