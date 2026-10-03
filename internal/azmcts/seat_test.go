@@ -103,3 +103,42 @@ func TestNewSeatValidates(t *testing.T) {
 		t.Fatal("invalid options accepted")
 	}
 }
+
+// A seat with tree reuse plays a whole game reproducibly, its searches carry
+// visits from one decision to the next, and every searched decision counts
+// a hit or a miss.
+func TestSeatReusesItsTree(t *testing.T) {
+	cfg := testConfig(t, "mono-red-prowess", "mono-blue-tempo", testSeed)
+	sc := DefaultSeatConfig()
+	sc.Search.Sims, sc.Search.ReuseTree = 40, true
+	sc.Source = testSeatSource
+	var diags []Diag
+	prev := Watch
+	Watch = func(d Diag) { diags = append(diags, d) }
+	t.Cleanup(func() { Watch = prev })
+	heads := make([]string, 2)
+	for i := range heads {
+		az, err := NewSeat(cfg.Seed^1, nil, sc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if heads[i], err = playAZ(t, cfg, az, 300); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if heads[0] != heads[1] {
+		t.Fatalf("replay diverged: %s vs %s", heads[0], heads[1])
+	}
+	var st Stats
+	for _, d := range diags {
+		if d.Searched {
+			st.Add(d.Stats)
+		}
+	}
+	tried := st.ReuseHits + st.ReuseMissNoTree + st.ReuseMissState + st.ReuseMissCandidates
+	if st.Searched == 0 || tried != st.Searched || st.ReuseHits == 0 || st.ReuseCarried == 0 {
+		t.Fatalf("reuse stats over %d searches: %+v", st.Searched, st)
+	}
+	t.Logf("%d searches: %d hits (%d partial), misses no-tree %d state %d candidates %d, %d visits carried",
+		st.Searched, st.ReuseHits, st.ReusePartial, st.ReuseMissNoTree, st.ReuseMissState, st.ReuseMissCandidates, st.ReuseCarried)
+}

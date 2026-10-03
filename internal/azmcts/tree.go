@@ -141,6 +141,13 @@ type node struct {
 	clk pathClock
 	// opp is the point's owner (Point.opp): an opponent node.
 	opp bool
+	// v0 is the node's own evaluation, the leaf value it was expanded with
+	// (the root's: its first simulation's root evaluation); mark is what
+	// tree reuse needs to make this node a later search's root
+	// (Options.ReuseTree, reuse.go), nil with the switch off and at every
+	// opponent node.
+	v0   float64
+	mark *reuseMark
 }
 
 type edge struct {
@@ -156,6 +163,11 @@ type edge struct {
 	end *Leaf
 	// endClk is the engine clock where that walk ended.
 	endClk pathClock
+	// wUp sums the backed-up values this edge's simulations gave its
+	// PARENT node (w is what they gave the child): equal to w without a
+	// discount. Only tree reuse reads it, to re-total a carried root whose
+	// children were dropped; it is kept only with Options.ReuseTree.
+	wUp float64
 }
 
 func newNode(pt *Point) *node {
@@ -282,13 +294,22 @@ func runTree(ctx context.Context, root *Point, src EnvSource, opts Options, st *
 	if root == nil || len(root.Keys) == 0 || len(root.Prior) != len(root.Keys) {
 		return nil, fmt.Errorf("azmcts: a root point needs keys and a parallel prior")
 	}
-	top := newNode(root)
+	return runTreeFrom(ctx, newNode(root), root, src, opts, opts.Sims, st), nil
+}
+
+// runTreeFrom runs sims simulations from top, a fresh node built from root
+// or a carried one (tree reuse: its children are root's keys in order, its
+// statistics kept), and returns it.
+func runTreeFrom(ctx context.Context, top *node, root *Point, src EnvSource, opts Options, sims int, st *Stats) *node {
 	var cache *nodeCache
 	if ns, ok := src.(NodeStateSource); ok && opts.NodeCache > 0 {
 		top.pt = root
 		cache = &nodeCache{src: ns, max: opts.NodeCache}
+		if opts.ReuseTree {
+			cache.stored = carriedStates(top)
+		}
 	}
-	for i := 0; i < opts.Sims; i++ {
+	for i := 0; i < sims; i++ {
 		if ctx != nil {
 			if err := ctx.Err(); err != nil {
 				// The armed wall-clock bail-out (Search's doc): stop
@@ -317,7 +338,7 @@ func runTree(ctx context.Context, root *Point, src EnvSource, opts Options, st *
 		}
 		st.Completed++
 	}
-	return top, nil
+	return top
 }
 
 // simulate is one simulation. Availability marks, visits and values are
@@ -334,7 +355,7 @@ func simulate(top *node, env Env, opts Options, st *Stats) error {
 		if l.Err != nil {
 			return l.Err
 		}
-		top.n, top.w = 1, l.V
+		top.n, top.w, top.v0 = 1, l.V, l.V
 	}
 	var (
 		nodes   []*node
@@ -411,10 +432,13 @@ func simulate(top *node, env Env, opts Options, st *Stats) error {
 				return l.Err
 			}
 			sel.next = newNode(next)
-			sel.next.n, sel.next.w = 1, l.V
+			sel.next.n, sel.next.w, sel.next.v0 = 1, l.V, l.V
 			st.Expanded++
 			if next.opp {
 				st.OppExpanded++
+			}
+			if opts.ReuseTree {
+				markNode(sel.next, env)
 			}
 			commit(nodes, path, marks, append(clock, now()), l.V, opts, st)
 			st.Unavailable += unavail
@@ -465,6 +489,9 @@ func commit(nodes []*node, path, marks []*edge, clock []pathClock, v float64, op
 	for i, e := range path {
 		e.n++
 		e.w += at(i + 1)
+		if opts.ReuseTree {
+			e.wUp += at(i)
+		}
 	}
 	for _, e := range marks {
 		e.avail++

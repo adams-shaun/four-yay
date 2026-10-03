@@ -40,6 +40,14 @@ type Root struct {
 	Macros []Macro
 	BotKey Key
 	NoBot  bool
+
+	// Reuse is the seat's tree carrier (Options.ReuseTree; required with
+	// the switch on, refused without it): the search adopts the stored
+	// node that is this position, if any, and stores its own tree back
+	// when its move comes from the tree. The caller must then play
+	// Result.Choice's candidate (or Result.Intent) before the seat's next
+	// search.
+	Reuse *Reuse
 }
 
 // Result is one Search. Candidates, Keys, Labels, Visits, Avail, Prior and
@@ -127,6 +135,10 @@ func (o Options) Validate(net *policynet.Model) error {
 		return errors.New("azmcts: opponent nodes need one fixed world; RootPerWorld re-derives the root per world")
 	case o.swapFrame && !o.OpponentNodes:
 		return errors.New("azmcts: the swapped value frame needs opponent nodes")
+	case o.ReuseTree && o.RootPerWorld:
+		return errors.New("azmcts: tree reuse needs the one real world; RootPerWorld re-derives the root per world")
+	case o.ReuseTree && o.swapFrame:
+		return errors.New("azmcts: tree reuse with the swapped value frame is not supported")
 	}
 	if net != nil {
 		if !net.HasValue() {
@@ -172,6 +184,9 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 		if err := checkOpponentGame(root); err != nil {
 			return res, err
 		}
+	}
+	if opts.ReuseTree != (root.Reuse != nil) {
+		return res, errors.New("azmcts: Options.ReuseTree and Root.Reuse go together: the switch needs the seat's carrier, and a carrier needs the switch")
 	}
 	var envBoard, enumBoard boardScratch
 	views := searchViews.Get().(*viewScratch)
@@ -221,6 +236,9 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 			return res, err
 		}
 	}
+	if opts.ReuseTree && !isReal(src) {
+		return res, errors.New("azmcts: tree reuse needs the real world source (the clairvoyant clone, a RealWorldSource); a redeal, IS-MCTS, PIMC or re-seeded chance world need not be the position the real game reaches")
+	}
 	res.Stats.Searched = 1
 	res.Stats.KindSearched[kindIndex(kind)]++
 	rng := rand.New(rand.NewPCG(opts.Seed, opts.Seed^0x9e3779b97f4a7c15))
@@ -246,9 +264,19 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 	if opts.NodeCache > 0 && isFixed(src) {
 		envs = &fixedEnvs{worldEnvs: envs.(*worldEnvs)}
 	}
-	top, err := runTree(ctx, rootPt, envs, opts, &res.Stats)
-	if err != nil {
-		return res, err
+	if searchCfgHook != nil {
+		searchCfgHook(cfg)
+	}
+	var top *node
+	carried := 0
+	if opts.ReuseTree {
+		top, carried = root.Reuse.adopt(root.Engine, cands, rootPt, cfg, &res.Stats)
+		top = runTreeFrom(ctx, top, rootPt, envs, opts, max(0, opts.Sims-carried), &res.Stats)
+	} else {
+		var err error
+		if top, err = runTree(ctx, rootPt, envs, opts, &res.Stats); err != nil {
+			return res, err
+		}
 	}
 	if searchTreeHook != nil {
 		searchTreeHook(top)
@@ -261,7 +289,7 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 		return res, nil
 	}
 	res.Visits, res.Q, res.Avail, res.RootValue = tr.Visits, tr.Q, tr.Avail, tr.RootValue
-	if res.Stats.Completed == 0 {
+	if res.Stats.Completed == 0 && carried == 0 {
 		res.Stats.AllFailed = 1
 		return res, nil
 	}
@@ -269,12 +297,20 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 	if res.Choice != 0 || !botFound {
 		res.Intent = cands[res.Choice].in
 	}
+	if opts.ReuseTree {
+		root.Reuse.keep(top, res.Choice, cfg)
+	}
 	return res, nil
 }
 
 // searchTreeHook, when set, sees every Search's whole tree once it is built
 // (the opponent-node tests read below the root). Nil outside tests.
 var searchTreeHook func(top *node)
+
+// searchCfgHook, when set, sees every Search's walk configuration before
+// the tree runs (the reuse tests drive the real engine with it). Nil
+// outside tests.
+var searchCfgHook func(cfg *walkConfig)
 
 // DecisionSeed is the per-decision seed of spec §2: a mix of the seat's seed
 // (itself derived from the game seed, internal/bench.RunPairs) and the

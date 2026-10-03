@@ -68,6 +68,11 @@ func (c *clairvoyant) World(int) (azmcts.World, error) {
 // (azmcts.FixedWorldSource).
 func (c *clairvoyant) FixedWorld() bool { return true }
 
+// RealWorld is true: every world is a clone of the real engine, generator
+// included, and gets its own observer clone (tree reuse,
+// azmcts.RealWorldSource).
+func (c *clairvoyant) RealWorld() bool { return true }
+
 // Source is the SeatConfig.Source a bench or training command injects for
 // the clairvoyant world: NewClairvoyant on the decision's root engine and
 // observer. azmcts itself never links this package, so a seat configured

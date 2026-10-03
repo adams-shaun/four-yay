@@ -98,6 +98,54 @@ func (c *nodeCache) save(nd *node, env Env, final bool, st *Stats) {
 	st.NodeSaves++
 }
 
+// saveRoot stores the root's state as stored[0], which is never evicted.
+// A carried tree (Options.ReuseTree) arrives with its stored states already
+// listed; the root goes in front of them, and when that overfills the cap
+// the least-visited of them goes.
+func (c *nodeCache) saveRoot(top *node, env Env, st *Stats) {
+	c.save(top, env, false, st)
+	n := len(c.stored)
+	if n < 2 || c.stored[n-1] != top {
+		return
+	}
+	copy(c.stored[1:], c.stored[:n-1])
+	c.stored[0] = top
+	if n <= c.max {
+		return
+	}
+	victim := 1
+	for i := 2; i < n; i++ {
+		if c.stored[i].n < c.stored[victim].n {
+			victim = i
+		}
+	}
+	c.stored[victim].snap = nil
+	c.stored = append(c.stored[:victim], c.stored[victim+1:]...)
+	st.NodeEvicts++
+}
+
+// carriedStates lists the nodes below top that hold a stored state, breadth
+// first in child order: a tree carried from the seat's last search keeps
+// the states its played subtree stored (Reuse.keep). Empty for a fresh
+// root.
+func carriedStates(top *node) []*node {
+	var out []*node
+	queue := []*node{top}
+	for len(queue) > 0 {
+		nd := queue[0]
+		queue = queue[1:]
+		if nd != top && nd.snap != nil {
+			out = append(out, nd)
+		}
+		for _, k := range nd.kids {
+			if k.next != nil {
+				queue = append(queue, k.next)
+			}
+		}
+	}
+	return out
+}
+
 // offer stores env's state at nd, an unstored tree node the walk has just
 // reached, if there is room or a less-visited node to evict.
 func (c *nodeCache) offer(nd *node, env Env, final bool, st *Stats) {
@@ -146,7 +194,7 @@ func (c *nodeCache) simulate(top *node, sim int, opts Options, st *Stats) error 
 			if l.Err != nil {
 				return l.Err
 			}
-			top.n, top.w = 1, l.V
+			top.n, top.w, top.v0 = 1, l.V, l.V
 		}
 		top.pt = env.Root()
 		if !validPoint(top.pt) {
@@ -158,7 +206,7 @@ func (c *nodeCache) simulate(top *node, sim int, opts Options, st *Stats) error 
 			return errOwner
 		}
 		top.clk = clockOf(env, 0)
-		c.save(top, env, false, st)
+		c.saveRoot(top, env, st)
 	}
 	var (
 		nodes   []*node
@@ -271,10 +319,13 @@ func (c *nodeCache) simulate(top *node, sim int, opts Options, st *Stats) error 
 		}
 		sel.next = newNode(next)
 		sel.next.pt, sel.next.clk = next, clockOf(env, len(path))
-		sel.next.n, sel.next.w = 1, l.V
+		sel.next.n, sel.next.w, sel.next.v0 = 1, l.V, l.V
 		st.Expanded++
 		if next.opp {
 			st.OppExpanded++
+		}
+		if opts.ReuseTree {
+			markNode(sel.next, env)
 		}
 		commit(nodes, path, marks, append(clock, sel.next.clk), l.V, opts, st)
 		st.Unavailable += unavail

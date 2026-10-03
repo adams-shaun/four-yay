@@ -157,6 +157,36 @@ type Options struct {
 	// bot's answer first; 0 is Limit.
 	OpponentLimit int
 
+	// ReuseTree keeps the search tree from one of the seat's decisions to
+	// the next (reuse.go), as upstream MageZero does
+	// (ComputerPlayerMCTS2.getNextAction: root = root.getMatchingState(...)):
+	// the next Search looks below the candidate the seat played for the
+	// stored node whose world is the real position now -- the same event
+	// chain head, event count and RNG draw count, the identity package
+	// replay verifies -- and, when one is found, carries that node's
+	// statistics into the new root: every root candidate whose intent is
+	// one of the node's candidates keeps that child's visits, values and
+	// subtree; any other root candidate starts fresh. The caller hands the
+	// carrier in as Root.Reuse (one per seat and game) and plays the
+	// returned choice; a miss, or a search that does not choose from its
+	// tree, builds or drops the tree as without reuse.
+	//
+	// The budget is upstream's (ComputerPlayerMCTS2.applyMCTS: search until
+	// root.getVisits() >= searchBudget): Sims is the root's visit target,
+	// so a root that already holds k visits from the reused subtree runs
+	// only Sims - k new simulations (none when k >= Sims, and the move is
+	// then the carried statistics' own). Stats.Simulations counts the new
+	// ones; Result.Visits include the carried ones, as upstream's recorded
+	// visit counts do.
+	//
+	// Search refuses it unless the world source is the real one
+	// (RealWorldSource: the clairvoyant clone, whose future chance is the
+	// real game's): a redeal, IS-MCTS, PIMC or any re-seeded chance source
+	// describes a world the real game need not follow. Validate refuses it
+	// with RootPerWorld. Off (the default), nothing here runs and every
+	// search is byte-identical to one before reuse existed.
+	ReuseTree bool
+
 	// swapFrame is a test-only knob (TestOpponentNodesEngineSymmetry): the
 	// value frame is the opponent's instead of the searching seat's, so
 	// the root is an opponent node, the searching seat's in-walk points
@@ -281,6 +311,26 @@ type Stats struct {
 	OppPoints   int
 	OppExpanded int
 
+	// ReuseHits counts the searches whose root carried a stored node's
+	// statistics (Options.ReuseTree), ReusePartial the hits where the
+	// root's candidates and the node's differed (some root candidates
+	// started fresh, or some of the node's children were dropped), and
+	// ReuseCarried the root visits carried over. The ReuseMiss counters
+	// split the searches that built a fresh tree with the switch on by why:
+	// NoTree, no stored tree (the seat's first search, or its last tree was
+	// dropped because the move did not come from it); State, no stored node
+	// is the real position (hidden information or chance came out
+	// differently, or a player left the tree); Candidates, a node is the
+	// real position but none of its children is a root candidate. All stay
+	// 0 with the switch off, and omitempty keeps a switched-off Result's
+	// JSON byte-identical to one from before reuse existed.
+	ReuseHits           int `json:",omitempty"`
+	ReusePartial        int `json:",omitempty"`
+	ReuseCarried        int `json:",omitempty"`
+	ReuseMissNoTree     int `json:",omitempty"`
+	ReuseMissState      int `json:",omitempty"`
+	ReuseMissCandidates int `json:",omitempty"`
+
 	// KindSearched splits Searched by kind (KindNames order).
 	KindSearched [NumKinds]int
 	// KindSkipped splits Skipped by kind and reason: every skip is counted
@@ -388,6 +438,12 @@ func (s *Stats) Add(o Stats) {
 	s.NodeEvicts += o.NodeEvicts
 	s.OppPoints += o.OppPoints
 	s.OppExpanded += o.OppExpanded
+	s.ReuseHits += o.ReuseHits
+	s.ReusePartial += o.ReusePartial
+	s.ReuseCarried += o.ReuseCarried
+	s.ReuseMissNoTree += o.ReuseMissNoTree
+	s.ReuseMissState += o.ReuseMissState
+	s.ReuseMissCandidates += o.ReuseMissCandidates
 	for k := range s.KindSearched {
 		s.KindSearched[k] += o.KindSearched[k]
 		for r := range s.KindSkipped[k] {
