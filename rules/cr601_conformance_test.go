@@ -27,6 +27,7 @@ func TestCR601NoMandatoryCounterCastOnEmptyStack(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	for _, seats := range []int{2, 4, 6, 8} {
 		t.Run(seatCount(seats), func(t *testing.T) {
+			t.Parallel()
 			all := testutil.LegacyDeckNames()
 			names := make([]string, seats)
 			decks := make([][]*cards.Card, seats)
@@ -107,6 +108,7 @@ func TestCR601TargetsPrecedeManaPayment(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	for _, name := range []string{"Lightning Bolt", "Shock", "Incinerate"} {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 			c, ok := reg.Lookup(name)
 			if !ok {
 				t.Fatalf("CR 601.2c/601.2h fixture: missing corpus card %q", name)

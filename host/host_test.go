@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -133,6 +134,7 @@ func TestHostedPoliciesReplayDeterministically(t *testing.T) {
 		policy  string
 		autoPay bool
 	}
+	var mu sync.Mutex
 	results := make(map[string]runResult, 8)
 	for _, tc := range []policyCase{
 		{name: "default", policy: ""},
@@ -145,6 +147,7 @@ func TestHostedPoliciesReplayDeterministically(t *testing.T) {
 		{name: CastProfilePolicy + "-auto-pay", policy: CastProfilePolicy, autoPay: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			a, b := run(tc.policy, tc.autoPay), run(tc.policy, tc.autoPay)
 			for _, got := range []runResult{a, b} {
 				if got.info.State != protocol.MatchFinished || (got.info.Result != "win" && got.info.Result != "draw") || (got.info.Result == "win") != (got.info.Winner != nil) {
@@ -166,22 +169,28 @@ func TestHostedPoliciesReplayDeterministically(t *testing.T) {
 					t.Fatalf("%q auto-pay run has no planned DecisionMade event", tc.name)
 				}
 			}
+			mu.Lock()
 			results[tc.name] = a
+			mu.Unlock()
 		})
 	}
-	defaultRun, explicitBot := results["default"], results[BotPolicy]
-	if !reflect.DeepEqual(defaultRun.log.Events, explicitBot.log.Events) || !reflect.DeepEqual(defaultRun.log.Intents, explicitBot.log.Intents) || defaultRun.info.Head != explicitBot.info.Head || defaultRun.info.Result != explicitBot.info.Result || !reflect.DeepEqual(defaultRun.info.Winner, explicitBot.info.Winner) {
-		t.Fatalf("omitted policy and explicit %q differ: %+v vs %+v", BotPolicy, defaultRun.info, explicitBot.info)
-	}
-	// The cast-profile policy on the embedded default profile is
-	// intent-identical to the production bot over a whole hosted match (the
-	// same weights, pinned equal by botpolicy's profile tests) -- so its
-	// event log, intents, head, result and winner must all match the
-	// explicit-bot run exactly.
-	castProfileRun := results[CastProfilePolicy]
-	if !reflect.DeepEqual(castProfileRun.log.Events, explicitBot.log.Events) || !reflect.DeepEqual(castProfileRun.log.Intents, explicitBot.log.Intents) || castProfileRun.info.Head != explicitBot.info.Head || castProfileRun.info.Result != explicitBot.info.Result || !reflect.DeepEqual(castProfileRun.info.Winner, explicitBot.info.Winner) {
-		t.Fatalf("%q on the default profile and explicit %q differ: %+v vs %+v", CastProfilePolicy, BotPolicy, castProfileRun.info, explicitBot.info)
-	}
+	t.Cleanup(func() {
+		mu.Lock()
+		defer mu.Unlock()
+		defaultRun, explicitBot := results["default"], results[BotPolicy]
+		if !reflect.DeepEqual(defaultRun.log.Events, explicitBot.log.Events) || !reflect.DeepEqual(defaultRun.log.Intents, explicitBot.log.Intents) || defaultRun.info.Head != explicitBot.info.Head || defaultRun.info.Result != explicitBot.info.Result || !reflect.DeepEqual(defaultRun.info.Winner, explicitBot.info.Winner) {
+			t.Fatalf("omitted policy and explicit %q differ: %+v vs %+v", BotPolicy, defaultRun.info, explicitBot.info)
+		}
+		// The cast-profile policy on the embedded default profile is
+		// intent-identical to the production bot over a whole hosted match (the
+		// same weights, pinned equal by botpolicy's profile tests) -- so its
+		// event log, intents, head, result and winner must all match the
+		// explicit-bot run exactly.
+		castProfileRun := results[CastProfilePolicy]
+		if !reflect.DeepEqual(castProfileRun.log.Events, explicitBot.log.Events) || !reflect.DeepEqual(castProfileRun.log.Intents, explicitBot.log.Intents) || castProfileRun.info.Head != explicitBot.info.Head || castProfileRun.info.Result != explicitBot.info.Result || !reflect.DeepEqual(castProfileRun.info.Winner, explicitBot.info.Winner) {
+			t.Fatalf("%q on the default profile and explicit %q differ: %+v vs %+v", CastProfilePolicy, BotPolicy, castProfileRun.info, explicitBot.info)
+		}
+	})
 }
 
 func TestAPerpetualTableStartsTheNextMatchWithTheDerivedSeed(t *testing.T) {
