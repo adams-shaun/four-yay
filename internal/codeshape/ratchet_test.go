@@ -18,7 +18,8 @@ import (
 const (
 	// maxFuncLinesOver300 is the number of non-test functions in rules/ and
 	// effects/ spanning more than 300 lines.
-	maxFuncLinesOver300 = 54
+	// W4 step 3's ChangeZoneAll compiler shrank effChangeZoneAll: 54 -> 53.
+	maxFuncLinesOver300 = 53
 	// engineMethodCount is the number of non-test methods on rules.Engine.
 	// W5 E5 moved combat legality onto rules/combat's Board (2159 -> 2126)
 	// and W5 E3 the trigger matchers onto rules/trigmatch's: -> 2022. W5 E4
@@ -85,6 +86,10 @@ const (
 	// read of a ChangeZone-only key elsewhere (codeshape.ChangeZoneFiles,
 	// codeshape.ChangeZoneOnlyKeys). It landed at zero.
 	changeZoneParamLeaks = 0
+	// changeZoneAllParamLeaks is the same census for api:ChangeZoneAll's
+	// compiler, effects/changezoneall_params.go (codeshape.ChangeZoneAllFiles,
+	// codeshape.ChangeZoneAllOnlyKeys). It landed at zero.
+	changeZoneAllParamLeaks = 0
 )
 
 func measureRepo(t *testing.T) Metrics {
@@ -193,6 +198,11 @@ func TestCodeShapeOnlyShrinks(t *testing.T) {
 				"(add a field to compileChangeZone in effects/changezone_params.go) instead " +
 				"of reading the ability's Params in a ChangeZone file or a ChangeZone-only " +
 				"key elsewhere. Leaks: " + strings.Join(m.ChangeZoneLeaks, ", ")},
+		{"changeZoneAllParamLeaks", m.ChangeZoneAllParamLeaks, changeZoneAllParamLeaks,
+			"Read the parameter through effects.ChangeZoneAllOf's compiled ChangeZoneAllParams " +
+				"(add a field to compileChangeZoneAll in effects/changezoneall_params.go) instead " +
+				"of reading the ability's Params in effects/zone_changeall.go or a " +
+				"ChangeZoneAll-only key elsewhere. Leaks: " + strings.Join(m.ChangeZoneAllLeaks, ", ")},
 		{"triggerContextLiterals", m.TriggerContextLiterals, triggerContextLiterals,
 			"Derive trigger referents from the firing event (rules' triggerReferents) or " +
 				"copy an existing TriggerContext and set the fields that differ; a " +

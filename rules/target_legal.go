@@ -830,7 +830,8 @@ func targetRemoval(sa *cards.SA) *decision.RemovalEffect {
 		}
 		return &decision.RemovalEffect{Kind: kind, Destination: cz.Destination.String()}
 	case "ChangeZoneAll":
-		destination := strings.ToLower(strings.TrimSpace(sa.ParamStr(cards.PKDestination)))
+		// ChangeZoneAll's Destination$ through its compiled parameters.
+		destination := effects.ChangeZoneAllOf(sa).DestinationLower
 		kind := destination
 		switch destination {
 		case "exile":

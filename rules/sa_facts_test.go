@@ -58,6 +58,9 @@ func TestEveryConfiguredAbilityHasItsFactsRecord(t *testing.T) {
 			if (f.ChangeZone != nil) != (sa.CompiledAPI() == cards.APIChangeZone || sa.API == "ChangeZone") {
 				t.Errorf("%s: %q (API %s): ChangeZone half present=%v", c.Path, sa.Line, sa.API, f.ChangeZone != nil)
 			}
+			if (f.ChangeZoneAll != nil) != (sa.CompiledAPI() == cards.APIChangeZoneAll || sa.API == "ChangeZoneAll") {
+				t.Errorf("%s: %q (API %s): ChangeZoneAll half present=%v", c.Path, sa.Line, sa.API, f.ChangeZoneAll != nil)
+			}
 		}
 	}
 	visit := func(c *cards.Card) {

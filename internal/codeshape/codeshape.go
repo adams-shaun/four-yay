@@ -70,6 +70,28 @@ var ChangeZoneOnlyKeys = []string{
 	"Unimprint", "WithMayLook", "WithTotalCardTypes",
 }
 
+// ChangeZoneAllCompilerFile is api:ChangeZoneAll's parameter compiler (W4
+// step 3): the one file allowed to read a ChangeZoneAll ability's parameters.
+const ChangeZoneAllCompilerFile = "effects/changezoneall_params.go"
+
+// ChangeZoneAllFiles are ChangeZoneAll's own resolution files (the sweep):
+// they carry no parameter read of any key.
+var ChangeZoneAllFiles = []string{"effects/zone_changeall.go"}
+
+// ChangeZoneAllOnlyKeys are the parameter keys only ChangeZoneAll's compiler
+// reads.
+var ChangeZoneAllOnlyKeys = []string{"RandomOrder", "UseAllOriginZones"}
+
+// TypedParamCompiler names one API's parameter compiler for the leak census
+// (Metrics.ChangeZoneParamLeaks and its siblings): the compiler file, the
+// API's own resolution files (no parameter read of any key there) and the
+// keys only that compiler may read anywhere in rules/ or effects/.
+type TypedParamCompiler struct {
+	CompilerFile string
+	Files        []string
+	OnlyKeys     []string
+}
+
 // effectsImportPath is the import path whose Ctx, SpecContext and
 // TriggerContext types the context-literal census counts.
 const effectsImportPath = "github.com/adams-shaun/gorge/effects"
@@ -149,6 +171,10 @@ type Metrics struct {
 	// ("file:line key"), sorted.
 	ChangeZoneParamLeaks int      `json:"change_zone_param_leaks"`
 	ChangeZoneLeaks      []string `json:"change_zone_leaks"`
+	// ChangeZoneAllParamLeaks is the same census for api:ChangeZoneAll
+	// (ChangeZoneAllCompilerFile, ChangeZoneAllFiles, ChangeZoneAllOnlyKeys).
+	ChangeZoneAllParamLeaks int      `json:"change_zone_all_param_leaks"`
+	ChangeZoneAllLeaks      []string `json:"change_zone_all_leaks"`
 	// TrigmatchBoardMethods counts the methods trigmatch.Board declares
 	// (rules/trigmatch/board.go): the read-only view the trigger matchers
 	// reach the engine through (W5 E3). Zero when the package is absent.
@@ -249,7 +275,10 @@ func Measure(root string) (Metrics, error) {
 				}
 			}
 			inEffects := dir == "effects"
-			countChangeZoneLeaks(fset, f, rel, &m)
+			m.ChangeZoneLeaks = append(m.ChangeZoneLeaks, paramLeaks(fset, f, rel,
+				TypedParamCompiler{ChangeZoneCompilerFile, ChangeZoneFiles, ChangeZoneOnlyKeys})...)
+			m.ChangeZoneAllLeaks = append(m.ChangeZoneAllLeaks, paramLeaks(fset, f, rel,
+				TypedParamCompiler{ChangeZoneAllCompilerFile, ChangeZoneAllFiles, ChangeZoneAllOnlyKeys})...)
 			ast.Inspect(f, func(n ast.Node) bool {
 				switch x := n.(type) {
 				case *ast.TypeAssertExpr:
@@ -302,11 +331,8 @@ func Measure(root string) (Metrics, error) {
 		}
 	}
 	m.StringParamKeys = len(keys)
-	m.ChangeZoneParamLeaks = len(m.ChangeZoneLeaks)
-	sort.Strings(m.ChangeZoneLeaks)
-	if m.ChangeZoneLeaks == nil {
-		m.ChangeZoneLeaks = []string{}
-	}
+	m.ChangeZoneParamLeaks, m.ChangeZoneLeaks = finishLeaks(m.ChangeZoneLeaks)
+	m.ChangeZoneAllParamLeaks, m.ChangeZoneAllLeaks = finishLeaks(m.ChangeZoneAllLeaks)
 	m.FuncsOver300 = len(m.LongFuncs)
 	sort.Slice(m.LongFuncs, func(i, j int) bool {
 		a, b := m.LongFuncs[i], m.LongFuncs[j]
@@ -528,20 +554,31 @@ func structFields(ts *ast.TypeSpec, rel string) (named, embeds int, err error) {
 	return named, embeds, nil
 }
 
-// countChangeZoneLeaks appends f's ChangeZone parameter reads outside the
-// compiler (see Metrics.ChangeZoneParamLeaks).
-func countChangeZoneLeaks(fset *token.FileSet, f *ast.File, rel string, m *Metrics) {
-	if rel == ChangeZoneCompilerFile {
-		return
+// finishLeaks sorts a leak list and returns its count, never a nil list.
+func finishLeaks(l []string) (int, []string) {
+	sort.Strings(l)
+	if l == nil {
+		l = []string{}
 	}
+	return len(l), l
+}
+
+// paramLeaks returns f's parameter reads that leak past tc's compiler (see
+// Metrics.ChangeZoneParamLeaks): any read in one of tc's own files, and a read
+// of one of tc's only-keys anywhere else.
+func paramLeaks(fset *token.FileSet, f *ast.File, rel string, tc TypedParamCompiler) []string {
+	if rel == tc.CompilerFile {
+		return nil
+	}
+	var out []string
 	own := false
-	for _, cz := range ChangeZoneFiles {
+	for _, cz := range tc.Files {
 		if rel == cz {
 			own = true
 		}
 	}
 	only := map[string]bool{}
-	for _, k := range ChangeZoneOnlyKeys {
+	for _, k := range tc.OnlyKeys {
 		only[k] = true
 	}
 	writes := map[ast.Node]bool{}
@@ -555,7 +592,7 @@ func countChangeZoneLeaks(fset *token.FileSet, f *ast.File, rel string, m *Metri
 	})
 	leak := func(pos token.Pos, key string) {
 		if own || only[key] {
-			m.ChangeZoneLeaks = append(m.ChangeZoneLeaks, fmt.Sprintf("%s:%d %s", rel, fset.Position(pos).Line, key))
+			out = append(out, fmt.Sprintf("%s:%d %s", rel, fset.Position(pos).Line, key))
 		}
 	}
 	ast.Inspect(f, func(n ast.Node) bool {
@@ -593,6 +630,7 @@ func countChangeZoneLeaks(fset *token.FileSet, f *ast.File, rel string, m *Metri
 		}
 		return true
 	})
+	return out
 }
 
 // isParams reports whether expr names a string-keyed parameter map: an
