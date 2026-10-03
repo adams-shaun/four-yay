@@ -1,0 +1,58 @@
+{
+ "card": "Ohran Frostfang",
+ "family": "conditional-static",
+ "author": "cli-20261002T210434Z-cc1de00a (Oracle + CR only)",
+ "oracle_sha": "4ae05583bba2",
+ "scenarios": [
+  {
+   "name": "attacking-creature-gains-deathtouch",
+   "cr": ["613.1f", "604.3", "702.2b"],
+   "why": "'Attacking creatures you control have deathtouch' is a static ability: while Ohran Frostfang attacks, it has deathtouch (from its own ability).",
+   "setup": {
+    "p0": {"battlefield": ["Ohran Frostfang"]},
+    "p1": {}
+   },
+   "steps": [
+    {"op": "pass_to", "step": "upkeep", "active": "p0"},
+    {"op": "attack", "seat": 0, "attackers": ["p0:Ohran Frostfang"], "defender": "p1"}
+   ],
+   "expect": [
+    {"card": "p0:Ohran Frostfang", "pt": "2/6", "keywords": ["Deathtouch"]}
+   ]
+  },
+  {
+   "name": "nonattacker-does-not-gain-deathtouch",
+   "cr": ["613.1f"],
+   "why": "The grant is only to attacking creatures: a second, non-attacking creature you control has no deathtouch.",
+   "setup": {
+    "p0": {"battlefield": ["Ohran Frostfang", "Grizzly Bears"]},
+    "p1": {}
+   },
+   "steps": [
+    {"op": "pass_to", "step": "upkeep", "active": "p0"},
+    {"op": "attack", "seat": 0, "attackers": ["p0:Ohran Frostfang"], "defender": "p1"}
+   ],
+   "expect": [
+    {"card": "p0:Ohran Frostfang", "keywords": ["Deathtouch"]},
+    {"card": "p0:Grizzly Bears", "no_keywords": ["Deathtouch"]}
+   ]
+  },
+  {
+   "name": "combat-damage-to-a-player-draws-a-card",
+   "cr": ["603.2", "510.2"],
+   "why": "'Whenever a creature you control deals combat damage to a player, draw a card': an unblocked attacker deals damage and its controller draws one card.",
+   "setup": {
+    "p0": {"battlefield": ["Ohran Frostfang"], "library_top": ["Forest"]},
+    "p1": {"life": 20}
+   },
+   "steps": [
+    {"op": "attack", "seat": 0, "attackers": ["p0:Ohran Frostfang"], "defender": "p1"},
+    {"op": "pass_to", "step": "end"}
+   ],
+   "expect": [
+    {"life": {"p1": 18}},
+    {"hand_size": {"p0": 1}}
+   ]
+  }
+ ]
+}

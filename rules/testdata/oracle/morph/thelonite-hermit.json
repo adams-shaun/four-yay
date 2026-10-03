@@ -1,0 +1,46 @@
+{
+ "card": "Thelonite Hermit",
+ "family": "morph",
+ "author": "cli-20261002T210434Z-cc1de00a (Oracle + CR only)",
+ "oracle_sha": "8363cd28f123",
+ "scenarios": [
+  {
+   "name": "turned-face-up-creates-four-pumped-saprolings",
+   "cr": ["708.6", "603.2"],
+   "why": "Turning it face up triggers 'create four 1/1 green Saproling creature tokens'; the Hermit itself is a 1/1 and its static 'All Saprolings get +1/+1' applies to itself? No -- the Hermit is an Elf Shaman, not a Saproling, so it is 1/1 while each Saproling is pumped to 2/2.",
+   "setup": {
+    "p0": {"hand": ["Thelonite Hermit"]},
+    "p1": {}
+   },
+   "steps": [
+    {"op": "cast", "seat": 0, "card": "p0:Thelonite Hermit", "cast_mode": "morphed", "mana": "CCC"},
+    {"op": "resolve"},
+    {"op": "mana", "seat": 0, "mana": "CCCGG"},
+    {"op": "activate", "seat": 0, "card": "p0:Thelonite Hermit", "ability": "Turn face up"},
+    {"op": "resolve"}
+   ],
+   "expect": [
+    {"card": "p0:Thelonite Hermit", "zone": "battlefield", "pt": "1/1"},
+    {"count": {"seat": 0, "zone": "battlefield", "name": "Saproling", "token": true}, "eq": 4},
+    {"card": "p0:token:Saproling", "zone": "battlefield", "pt": "2/2"}
+   ]
+  },
+  {
+   "name": "saproling-made-later-is-pumped",
+   "cr": ["613.1f", "604.3"],
+   "why": "'All Saprolings get +1/+1' is a static ability: a 1/1 Saproling created by Sprout while the Hermit is on the battlefield is a 2/2.",
+   "setup": {
+    "p0": {"hand": ["Sprout"], "battlefield": ["Thelonite Hermit"]},
+    "p1": {}
+   },
+   "steps": [
+    {"op": "cast", "seat": 0, "card": "p0:Sprout", "mana": "G"},
+    {"op": "resolve"}
+   ],
+   "expect": [
+    {"card": "p0:token:Saproling", "zone": "battlefield", "pt": "2/2"},
+    {"count": {"seat": 0, "zone": "battlefield", "name": "Saproling", "token": true}, "eq": 1}
+   ]
+  }
+ ]
+}
