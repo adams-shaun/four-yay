@@ -2577,8 +2577,15 @@ func (e *Engine) triggerMatchesWithSVars(t cards.Trigger, source state.ObjID, ev
 		return false
 	}
 	// PlayerTurn$ True: only during the turn of the source's controller
-	// (Forge Trigger.requirementsCheck), scoped to actionTriggerModes.
-	if actionTriggerModes[t.Mode] && strings.EqualFold(t.ParamStr(cards.PKPlayerTurn), "True") &&
+	// (Forge Trigger.requirementsCheck). Applied to EVERY mode, as Forge does
+	// and as the OpponentTurn$ mirror below always was. It used to be scoped
+	// to actionTriggerModes, which left 31 corpus T: lines on unlisted modes
+	// (SpellCast 12, ChangesZone 9, DamageDealtOnce 2 -- Quilled Greatwurm's
+	// "deals combat damage during your turn" --, Saddled, Crewed, Drawn,
+	// CounterAddedOnce, ...) firing on every player's turn, the over-fire
+	// direction. LifeLost/LifeGained keep their own per-mode reads, which
+	// agree with this one.
+	if strings.EqualFold(t.ParamStr(cards.PKPlayerTurn), "True") &&
 		e.G.Active != e.controllerOf(source) {
 		return false
 	}
