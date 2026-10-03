@@ -48,8 +48,10 @@ const (
 	// ctxFieldCount is the number of named fields in effects.Ctx; embeds are
 	// ratcheted separately by ctxEmbedCount.
 	// W1d folded EffectiveNames, EffectiveTypes, StaticGoads and the embedded
-	// LayerTables into the one named Layers field: 293/2 -> 291/1.
-	ctxFieldCount = 121
+	// LayerTables into the one named Layers field: 293/2 -> 291/1. W3 clean
+	// grouped the LKI snapshot set, the replacement context, clone-as-enters,
+	// mana, kicker and the per-primitive cursors (effects/ctx_groups.go): 121 -> 73.
+	ctxFieldCount = 73
 	ctxEmbedCount = 1
 	// resumePointFieldCount is the number of fields in rules' resumePoint.
 	resumePointFieldCount = 5

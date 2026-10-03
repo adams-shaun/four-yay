@@ -473,7 +473,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 	if qual, ok := strings.CutPrefix(spec, "ReplacedCards."); ok {
 		qual = strings.TrimSpace(qual)
 		var out []state.Target
-		for _, id := range c.ReplacedCards {
+		for _, id := range c.Repl.Cards {
 			if o := g.Obj(id); o != nil && definedCardQualifierMatches(h, g, c, qual, o) {
 				out = append(out, state.Target{Obj: id})
 			}
@@ -1102,8 +1102,8 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 	case definedSpecf8b1ReplacedCard:
 		// The card a zone-change replacement is acting on. Outside such a
 		// replacement (or after the object ceased to exist), resolve nothing.
-		if c.Replaced != 0 && g.Obj(c.Replaced) != nil {
-			return []state.Target{{Obj: c.Replaced}}, true
+		if c.Repl.Replaced != 0 && g.Obj(c.Repl.Replaced) != nil {
+			return []state.Target{{Obj: c.Repl.Replaced}}, true
 		}
 		return nil, true
 	case definedSpecf8b1ReplacedCards:
@@ -1111,7 +1111,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 		// the dotted `ReplacedCards <qualifier>` arm above). An absent or
 		// empty batch is a known-empty result, never a source fallback.
 		var out []state.Target
-		for _, id := range c.ReplacedCards {
+		for _, id := range c.Repl.Cards {
 			if id != 0 && g.Obj(id) != nil {
 				out = append(out, state.Target{Obj: id})
 			}
@@ -1120,31 +1120,31 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 	case definedSpecf8b1ReplacedTarget:
 		// Damage replacements may affect either an object or a player. Preserve
 		// that distinction rather than deriving a player through object zero.
-		if c.ReplacementTarget.IsPlayer {
-			if int(c.ReplacementTarget.Player) < len(g.Players) {
-				return []state.Target{c.ReplacementTarget}, true
+		if c.Repl.Target.IsPlayer {
+			if int(c.Repl.Target.Player) < len(g.Players) {
+				return []state.Target{c.Repl.Target}, true
 			}
 			return nil, true
 		}
-		if c.ReplacementTarget.Obj != 0 && g.Obj(c.ReplacementTarget.Obj) != nil {
-			return []state.Target{c.ReplacementTarget}, true
+		if c.Repl.Target.Obj != 0 && g.Obj(c.Repl.Target.Obj) != nil {
+			return []state.Target{c.Repl.Target}, true
 		}
 		return nil, true
 	case definedSpecf8b1ReplacedSource:
-		if c.ReplacementSource != 0 && g.Obj(c.ReplacementSource) != nil {
-			return []state.Target{{Obj: c.ReplacementSource}}, true
+		if c.Repl.Source != 0 && g.Obj(c.Repl.Source) != nil {
+			return []state.Target{{Obj: c.Repl.Source}}, true
 		}
 		return nil, true
 	case definedSpecf8b1ReplacedSourceController:
-		if o := g.Obj(c.ReplacementSource); o != nil && int(o.Controller) < len(g.Players) {
+		if o := g.Obj(c.Repl.Source); o != nil && int(o.Controller) < len(g.Players) {
 			return []state.Target{{Player: o.Controller, IsPlayer: true}}, true
 		}
 		return nil, true
 	case definedSpecf8b1ReplacedTargetController:
-		if c.ReplacementTarget.IsPlayer {
-			return []state.Target{c.ReplacementTarget}, true
+		if c.Repl.Target.IsPlayer {
+			return []state.Target{c.Repl.Target}, true
 		}
-		if o := g.Obj(c.ReplacementTarget.Obj); o != nil && int(o.Controller) < len(g.Players) {
+		if o := g.Obj(c.Repl.Target.Obj); o != nil && int(o.Controller) < len(g.Players) {
 			return []state.Target{{Player: o.Controller, IsPlayer: true}}, true
 		}
 		return nil, true
@@ -1243,19 +1243,19 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 		// The draw-er of the replaced Draw event (Breathstealer's Crypt draws
 		// and reveals for "that player"). Set only on a Draw replacement's
 		// own context; nil outside one.
-		if c.ReplacedPlayer.IsPlayer {
-			return []state.Target{{Player: c.ReplacedPlayer.Player, IsPlayer: true}}, true
+		if c.Repl.Player.IsPlayer {
+			return []state.Target{{Player: c.Repl.Player.Player, IsPlayer: true}}, true
 		}
 		return nil, true
 	case definedSpecf8b1NonReplacedPlayer:
 		// Every OTHER player (Zur's Weirding: "any other player may pay 2
 		// life"), in AliveFrom order, excluding the draw-er.
-		if !c.ReplacedPlayer.IsPlayer {
+		if !c.Repl.Player.IsPlayer {
 			return nil, true
 		}
 		var out []state.Target
 		for _, p := range g.AliveFrom(0) {
-			if p != c.ReplacedPlayer.Player {
+			if p != c.Repl.Player.Player {
 				out = append(out, state.Target{Player: p, IsPlayer: true})
 			}
 		}
@@ -1512,7 +1512,7 @@ func lkiControllerFor(c *Ctx, id state.ObjID) (state.PlayerID, bool) {
 	if id == 0 {
 		return 0, false
 	}
-	for _, e := range c.ChangeZoneLKI {
+	for _, e := range c.Snap.ChangeZone {
 		if e.Obj == id {
 			return e.Controller, true
 		}

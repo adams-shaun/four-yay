@@ -697,9 +697,7 @@ func (e *Engine) checkGrantedWardTriggers(observer *Engine, id state.ObjID, o *s
 				Remembered:     triggerRemembered(ev, id),
 				Captured:       triggerRemembered(ev, id),
 				LKI:            objLKI,
-				LKIPower:       lkiPower,
-				LKIToughness:   lkiToughness,
-				LKIPTValid:     objLKI != nil && lkiPTValid,
+				Snap:           effects.LKISnapshots{Power: lkiPower, Toughness: lkiToughness, PTValid: objLKI != nil && lkiPTValid},
 				TriggerContext: observer.triggerReferents(t, id, ev, objLKI),
 			}),
 		})
@@ -838,9 +836,7 @@ func (e *Engine) checkGrantedStaticTriggersUsing(observer *Engine, statics []*Co
 						Remembered:     triggerRememberedMode(t, ev, id),
 						Captured:       triggerRememberedMode(t, ev, id),
 						LKI:            objLKI,
-						LKIPower:       lkiPower,
-						LKIToughness:   lkiToughness,
-						LKIPTValid:     objLKI != nil && lkiPTValid,
+						Snap:           effects.LKISnapshots{Power: lkiPower, Toughness: lkiToughness, PTValid: objLKI != nil && lkiPTValid},
 						TriggerContext: observer.triggerReferents(t, id, ev, objLKI),
 					}),
 				})
@@ -929,9 +925,7 @@ func (e *Engine) checkGrantedStaticTriggersUsing(observer *Engine, statics []*Co
 			Ctx: effects.NewCtx(id, o.Controller, effects.CtxInit{
 				Remembered:     triggerRememberedMode(t, ev, id),
 				LKI:            objLKI,
-				LKIPower:       lkiPower,
-				LKIToughness:   lkiToughness,
-				LKIPTValid:     objLKI != nil && lkiPTValid,
+				Snap:           effects.LKISnapshots{Power: lkiPower, Toughness: lkiToughness, PTValid: objLKI != nil && lkiPTValid},
 				TriggerContext: observer.triggerReferents(t, id, ev, objLKI),
 			}),
 		})

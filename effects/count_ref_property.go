@@ -80,7 +80,7 @@ func evalRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 			// TriggerPush wrapper to both initial and resumed resolution.
 			o = c.LKI
 		} else if ref == "Remembered" {
-			for _, rememberedLKI := range c.ChangeZoneLKI {
+			for _, rememberedLKI := range c.Snap.ChangeZone {
 				if rememberedLKI.Obj == t.Obj && rememberedLKI.Snapshot.Card != nil {
 					snapshot := rememberedLKI.Snapshot
 					o = &snapshot
@@ -108,8 +108,8 @@ func evalRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 			}
 		case prop == "CardPower":
 			if f != nil {
-				if lki && c.LKIPTValid {
-					n += c.LKIPower
+				if lki && c.Snap.PTValid {
+					n += c.Snap.Power
 				} else if pt, ok := targetPTLKI(c, o); ok && !lki {
 					n += pt.Power
 				} else {
@@ -118,8 +118,8 @@ func evalRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 			}
 		case prop == "CardToughness":
 			if f != nil {
-				if lki && c.LKIPTValid {
-					n += c.LKIToughness
+				if lki && c.Snap.PTValid {
+					n += c.Snap.Toughness
 				} else if pt, ok := targetPTLKI(c, o); ok && !lki {
 					n += pt.Toughness
 				} else {
@@ -255,14 +255,14 @@ func evalRefProperty(h Host, c *Ctx, expr string) (int32, bool) {
 				case diffKind == diffPower:
 					// The derived power, with the zone-change snapshot when one
 					// is carried -- the CardPower case's exact read.
-					if lki && c.LKIPTValid {
-						seenDiffValues[c.LKIPower] = true
+					if lki && c.Snap.PTValid {
+						seenDiffValues[c.Snap.Power] = true
 					} else {
 						seenDiffValues[refPower(h, o, lki)] = true
 					}
 				case diffKind == diffToughness:
-					if lki && c.LKIPTValid {
-						seenDiffValues[c.LKIToughness] = true
+					if lki && c.Snap.PTValid {
+						seenDiffValues[c.Snap.Toughness] = true
 					} else {
 						seenDiffValues[refToughness(h, o, lki)] = true
 					}

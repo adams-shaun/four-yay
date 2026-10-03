@@ -35,7 +35,7 @@ func TestConditionGateTargetedCountersUseLKI(t *testing.T) {
 	}
 
 	// Resolution's pre-move snapshot restores the counters it had.
-	ctx.TargetCountersLKI = map[state.ObjID][]state.Counter{
+	ctx.Snap.TargetCounters = map[state.ObjID][]state.Counter{
 		ids[3]: {{Kind: "P1P1", N: 2}},
 	}
 	if met, resolved := conditionMet(h, ctx, gate); !met || !resolved {
@@ -55,12 +55,12 @@ func TestConditionGateTargetedCountersUseLKI(t *testing.T) {
 	// same look-back.
 	target.Zone = state.ZGraveyard
 	amount := &Ctx{Controller: 0, Source: ids[3], Targets: []state.Target{{Obj: ids[3]}},
-		TargetCountersLKI: map[state.ObjID][]state.Counter{ids[3]: {{Kind: "P1P1", N: 2}, {Kind: "CHARGE", N: 1}}}}
+		Snap: LKISnapshots{TargetCounters: map[state.ObjID][]state.Counter{ids[3]: {{Kind: "P1P1", N: 2}, {Kind: "CHARGE", N: 1}}}}}
 	if got := EvalCount(h, amount, "Targeted$CardCounters.ALL"); got != 3 {
 		t.Fatalf("Targeted$CardCounters.ALL from LKI = %d, want 3", got)
 	}
 	// One named kind, through the same snapshot.
-	amount.TargetCountersLKI = map[state.ObjID][]state.Counter{ids[3]: {{Kind: "P1P1", N: 2}}}
+	amount.Snap.TargetCounters = map[state.ObjID][]state.Counter{ids[3]: {{Kind: "P1P1", N: 2}}}
 	if got := EvalCount(h, amount, "Targeted$CardCounters.P1P1"); got != 2 {
 		t.Fatalf("Targeted$CardCounters.P1P1 from LKI = %d, want 2", got)
 	}

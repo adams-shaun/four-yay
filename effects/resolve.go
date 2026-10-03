@@ -406,9 +406,9 @@ func effCounter(h Host, c *Ctx, sa *cards.SA) {
 		}
 		if rememberCMC {
 			if f := o.Face(); f != nil {
-				c.RememberedCMC += f.Cmc()
+				c.Num.RememberedCMC += f.Cmc()
 			}
-			c.RememberedCMCBound = true
+			c.Num.RememberedCMCBound = true
 		}
 		h.Emit(events.Event{Kind: events.MoveZone, Obj: o.ID,
 			From: state.ZStack, To: to, Text: "countered"})

@@ -73,8 +73,8 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 		// announcement ask reads a TimesKicked bound BEFORE payment has
 		// stamped the object (Comet Storm's TargetMin/Max$ TargetsNum); a
 		// COPY of the spell was never kicked and reads 0.
-		if c.TimesKicked != 0 {
-			return c.TimesKicked, true, true
+		if c.Kicker.TimesKicked != 0 {
+			return c.Kicker.TimesKicked, true, true
 		}
 		if o := g.Obj(c.Source); o != nil {
 			return o.TimesKicked, true, true
@@ -168,8 +168,8 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 		// (void's cmcEQX through resolveNumericRHS) never matches -- instead
 		// of enforcing a meaningless zero. A bound zero is a real binding and
 		// evaluates (torgal with no Dogs/Wolves on the board).
-		if c.ChosenNumberBound {
-			return c.ChosenNumber, true, true
+		if c.Num.ChosenBound {
+			return c.Num.Chosen, true, true
 		}
 		// The Choose-event population (effects/choose.go's ChooseNumber,
 		// the as-enters number choice): the answer lives on the SOURCE
@@ -262,8 +262,8 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 		// A RememberCounteredCMC$ binding takes the same precedence: the
 		// remembered number is the countered spell's mana VALUE (a counter
 		// rider sizes off it), not a count of remembered entries.
-		if c.RememberedCMCBound {
-			return c.RememberedCMC, true, true
+		if c.Num.RememberedCMCBound {
+			return c.Num.RememberedCMC, true, true
 		}
 		return int32(len(rememberedExcludingCapture(h, c))), true, true
 	case evalCountBodyPaidc5b1RememberedSize:

@@ -99,12 +99,11 @@ func TestRememberedNumberCaptureExcluded(t *testing.T) {
 	// RememberedCMCBound precedence survives too: the countered spell's mana
 	// value, not a count of remembered entries.
 	cmcCtx := &Ctx{
-		Source:             so.ID,
-		Controller:         0,
-		Remembered:         []state.Target{{Obj: so.ID}},
-		Captured:           []state.Target{{Obj: so.ID}},
-		RememberedCMC:      7,
-		RememberedCMCBound: true,
+		Source:     so.ID,
+		Controller: 0,
+		Remembered: []state.Target{{Obj: so.ID}},
+		Captured:   []state.Target{{Obj: so.ID}},
+		Num:        NumberInputs{RememberedCMC: 7, RememberedCMCBound: true},
 	}
 	if n, ok := EvalCountOK(h, cmcCtx, "Count$RememberedNumber"); !ok || n != 7 {
 		t.Fatalf("RememberedCMCBound Count$RememberedNumber = %d ok=%v, want 7 true (CMC precedence)", n, ok)

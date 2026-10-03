@@ -674,15 +674,15 @@ func unlessPayerTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
 		// The draw-er of a replaced Draw event, and its complement (Zur's
 		// Weirding's "any other player may pay 2 life"). Set only on a Draw
 		// replacement's own context — fail closed outside one.
-		if !c.ReplacedPlayer.IsPlayer {
+		if !c.Repl.Player.IsPlayer {
 			return nil, false
 		}
 		if spec == "ReplacedPlayer" {
-			add(c.ReplacedPlayer.Player)
+			add(c.Repl.Player.Player)
 			break
 		}
 		for _, p := range g.AliveFrom(0) {
-			if p != c.ReplacedPlayer.Player {
+			if p != c.Repl.Player.Player {
 				add(p)
 			}
 		}

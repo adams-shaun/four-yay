@@ -19,7 +19,7 @@ func RollRideOf(c *Ctx) RollRide {
 	if c == nil {
 		return RollRide{}
 	}
-	return RollRide{Last: c.LastRoll, Name: c.LastRollName, Pubs: append([]RollPub(nil), c.RollPubs...)}
+	return RollRide{Last: c.Roll.Last, Name: c.Roll.LastName, Pubs: append([]RollPub(nil), c.Roll.Pubs...)}
 }
 
 // ResumeRollRide restores a captured ride onto a rebuilt Ctx, binding X
@@ -29,8 +29,8 @@ func (c *Ctx) ResumeRollRide(r RollRide) {
 	if r.Name == "" && len(r.Pubs) == 0 {
 		return
 	}
-	c.LastRoll, c.LastRollName = r.Last, r.Name
-	c.RollPubs = append([]RollPub(nil), r.Pubs...)
+	c.Roll.Last, c.Roll.LastName = r.Last, r.Name
+	c.Roll.Pubs = append([]RollPub(nil), r.Pubs...)
 	for _, p := range r.Pubs {
 		if p.Name == "X" {
 			c.X = p.Value

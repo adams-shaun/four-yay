@@ -206,7 +206,7 @@ func (e *Engine) applyAddCounterBody(ev events.Event, m replMatch, amount int32)
 	}
 	body := m.repl.With
 	ctx := e.replCtx(m, ev)
-	ctx.ReplacementAmount = amount
+	ctx.Repl.Amount = amount
 	// The body APPLIES from here on. A sub-ability chain on a ReplaceCounter
 	// body is part of the replacement (Forge resolves it as the replaced
 	// event happens): Melira, the Living Cure's lock ("and you can't get
@@ -335,7 +335,7 @@ func (e *Engine) emitAddCounterReplacement(ev events.Event, adderPlusOne state.P
 // NumResolved's verdict distinguishes an unmodelled frame (fail the match)
 // from a legitimate zero.
 func (e *Engine) replaceCounterAmount(body *cards.SA, ctx *effects.Ctx, base int32) (int32, bool) {
-	ctx.ReplacementAmount = base
+	ctx.Repl.Amount = base
 	return effects.NumResolved(e, ctx, body, "Amount", base)
 }
 

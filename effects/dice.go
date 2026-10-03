@@ -470,7 +470,7 @@ func effRollDice(h Host, c *Ctx, sa *cards.SA) {
 		if name == "" {
 			return
 		}
-		c.RollPubs = append(c.RollPubs, RollPub{Name: name, Value: v})
+		c.Roll.Pubs = append(c.Roll.Pubs, RollPub{Name: name, Value: v})
 		if name == "X" {
 			c.X = v
 		}
@@ -514,7 +514,7 @@ func effRollDice(h Host, c *Ctx, sa *cards.SA) {
 		publish(chosenName, chosenSum)
 		publish(otherName, otherSum)
 		if chosenName != "" {
-			c.LastRoll, c.LastRollName = chosenSum, chosenName
+			c.Roll.Last, c.Roll.LastName = chosenSum, chosenName
 		}
 	}
 	if done {
@@ -610,7 +610,7 @@ func effRollDice(h Host, c *Ctx, sa *cards.SA) {
 	}
 	resultName := strings.TrimSpace(sa.ParamStr(cards.PKResultSVar))
 	if resultName != "" {
-		c.LastRoll, c.LastRollName = pub, resultName
+		c.Roll.Last, c.Roll.LastName = pub, resultName
 		publish(resultName, pub)
 	}
 	// MaxRollsResults$ / EvenOddResults$ (Luck Bobblehead): the counts a
@@ -677,14 +677,14 @@ func effRollDice(h Host, c *Ctx, sa *cards.SA) {
 		}
 		publish(chosenName, retained[0])
 		publish(otherName, other)
-		c.LastRoll, c.LastRollName = retained[0], chosenName
+		c.Roll.Last, c.Roll.LastName = retained[0], chosenName
 		return
 	}
 	if chosenName != "" && len(retained) == 1 {
 		// A single-die choose is vacuous: that die is the chosen result; the
 		// other value has no die to name and publishes nothing.
 		publish(chosenName, retained[0])
-		c.LastRoll, c.LastRollName = retained[0], chosenName
+		c.Roll.Last, c.Roll.LastName = retained[0], chosenName
 	}
 }
 
@@ -730,8 +730,8 @@ func runtimePublished(c *Ctx, name string) (int32, bool) {
 	if v, ok := runtimeSVar(c, name); ok {
 		return v, true
 	}
-	if c.VotePublishedSet && name == "Votes" {
-		return c.VotePublished, true
+	if c.Vote.PublishedSet && name == "Votes" {
+		return c.Vote.Published, true
 	}
 	// A DB$ FlipCoin's per-flip Wins/Losses SVars (Forge's FlipCoinEffect: 1
 	// to the side the current flip landed on, 0 to the other), read back by a
@@ -746,10 +746,10 @@ func runtimePublished(c *Ctx, name string) (int32, bool) {
 			return c.FlipMemory.CurLoss, true
 		}
 	}
-	if c.LastRollName != "" && c.LastRollName == name {
-		return c.LastRoll, true
+	if c.Roll.LastName != "" && c.Roll.LastName == name {
+		return c.Roll.Last, true
 	}
-	for _, p := range c.RollPubs {
+	for _, p := range c.Roll.Pubs {
 		if p.Name == name {
 			return p.Value, true
 		}

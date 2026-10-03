@@ -12,22 +12,22 @@ import (
 
 func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.Zone, zones []state.Zone) {
 	players := searchPlayersFor(h, c, cz.fetch())
-	if c.ForgetOtherReady {
-		players = c.ForgetOtherOwners
+	if c.Forget.Ready {
+		players = c.Forget.Owners
 	}
 	if len(players) == 0 {
 		return
 	}
 	initForgetOther(h, c, cz.Riders.ForgetOtherRemembered, players, 2)
-	searchTarget := c.LibraryTarget
+	searchTarget := c.Search.Target
 	searchDone := false
 	chosen := append([]state.ObjID(nil), ([]state.ObjID)(nil)...)
-	shuffleAnswer := c.SearchShuffle
+	shuffleAnswer := c.Search.Shuffle
 	shufflePending := shuffleAnswer != ""
-	shuffleTarget := c.LibraryTarget
-	shuffleMoved := append([]state.ObjID(nil), c.SearchShuffleMoved...)
+	shuffleTarget := c.Search.Target
+	shuffleMoved := append([]state.ObjID(nil), c.Search.ShuffleMoved...)
 
-	c.SearchShuffle, c.SearchShuffleMoved = "", nil
+	c.Search.Shuffle, c.Search.ShuffleMoved = "", nil
 	// fx42 scoping for the Optional$ confirmation answer: consumed and
 	// cleared before anything else so a nested search poses its own
 	// confirmation.
@@ -57,7 +57,7 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 		if targetIndex < start {
 			continue
 		}
-		c.LibraryTarget = targetIndex
+		c.Search.Target = targetIndex
 		// Forge's explicit Optional$ confirmation (ChangeZoneEffect's
 		// confirmAction gate, which runs BEFORE the fetch list is consulted):
 		// a hidden-origin search whose script carries the marker asks this
@@ -118,10 +118,10 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 		}
 		lib, lookWindow := searchLook(h, c, cz, owner, zones)
 		if shufflePending && targetIndex == shuffleTarget {
-			c.SearchShuffle = shuffleAnswer
+			c.Search.Shuffle = shuffleAnswer
 			// Restore the answered tail just long enough for the shared helper
 			// to consume it. The answer's owner is this target, not players[0].
-			c.SearchShuffleMoved = shuffleMoved
+			c.Search.ShuffleMoved = shuffleMoved
 			if searchShuffleTail(h, c, sa, cz, owner, nil, to) {
 				return
 			}
@@ -129,7 +129,7 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 			continue
 		}
 		if searchDone && targetIndex == searchTarget {
-			c.LibraryTarget = targetIndex
+			c.Search.Target = targetIndex
 			if applyLibrarySearch(h, c, sa, cz, owner, to, chosen, zones) {
 				return
 			}
@@ -262,7 +262,7 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 			// objects do not leak into its SubAbility chain. Preserve that existing
 			// continuation contract while omitting the otherwise meaningless ask.
 			c.Remembered = nil
-			c.LibraryTarget = targetIndex
+			c.Search.Target = targetIndex
 			if applyLibrarySearch(h, c, sa, cz, owner, to, nil, zones) {
 				return
 			}
@@ -308,7 +308,7 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 		// keep the ask (measured: no AtRandom$ carrier uses them).
 		if cz.AtRandom && !hasBudget && !cz.DifferentNames {
 			if _, each := eachAlternatives(spec); !each {
-				c.LibraryTarget = targetIndex
+				c.Search.Target = targetIndex
 				if applyLibrarySearch(h, c, sa, cz, owner, to, randomObjIDs(h, budgetEligible, int(max)), zones) {
 					return
 				}
@@ -487,7 +487,7 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 			// answered ordered subset applies exactly as that re-entry's
 			// SearchDone branch applies it.
 			searchReentryEcho(h, c, cz, owner, zones, true)
-			c.LibraryTarget = targetIndex
+			c.Search.Target = targetIndex
 			if applyLibrarySearch(h, c, sa, cz, owner, to, tapeAnswerObjs(ans), zones) {
 				return
 			}
@@ -573,7 +573,7 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: chooser,
 				Text: "finds no card (no engine host to ask)"})
 		}
-		c.LibraryTarget = targetIndex
+		c.Search.Target = targetIndex
 		if applyLibrarySearch(h, c, sa, cz, owner, to, picked, zones) {
 			return
 		}
@@ -876,7 +876,7 @@ func searchKnownTo(c *Ctx, p state.PlayerID, id state.ObjID) bool {
 	if c == nil {
 		return false
 	}
-	for _, t := range c.SearchKnown {
+	for _, t := range c.Search.Known {
 		if t.Obj == id && t.Player == p && !t.IsPlayer {
 			return true
 		}
@@ -1393,14 +1393,14 @@ func applyLibrarySearch(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, owne
 		if reveal {
 			for _, id := range moved {
 				for p := range g.Players {
-					c.SearchKnown = append(c.SearchKnown, state.Target{Obj: id, Player: state.PlayerID(p)})
+					c.Search.Known = append(c.Search.Known, state.Target{Obj: id, Player: state.PlayerID(p)})
 				}
 			}
 		}
 		if !cz.NoLooking {
 			chooser := searchChooser(h, c, cz)
 			for _, id := range moved {
-				c.SearchKnown = append(c.SearchKnown, state.Target{Obj: id, Player: chooser})
+				c.Search.Known = append(c.Search.Known, state.Target{Obj: id, Player: chooser})
 			}
 		}
 	}

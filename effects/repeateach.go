@@ -258,11 +258,11 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 			// runtimePublished's "Votes" arm. An unvoted subject binds 0: Forge
 			// leaves VoteNum<subject> unset for it and the body reads 0, never a
 			// fallback to the source's own SVar table.
-			cc.VotePublished = 0
+			cc.Vote.Published = 0
 			if n, ok := voteCountFor(c, t); ok {
-				cc.VotePublished = int32(n)
+				cc.Vote.Published = int32(n)
 			}
-			cc.VotePublishedSet = true
+			cc.Vote.PublishedSet = true
 		}
 		Resolve(h, &cc, sub)
 		// A loop body runs on a Ctx copy. Its first FlipCoin may allocate

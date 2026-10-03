@@ -259,9 +259,6 @@ type Ctx struct {
 	// is an ability's source (nil for a spell): the in-flight activation a
 	// Count$ThisTurnActivated_ gate counts alongside this turn's earlier ones.
 	AffectedAbility *cards.SA
-	// PromisedGiftOverride is bound only by rules' pre-election target-feasibility
-	// census, which must consider either branch before the player elects Gift.
-	PromisedGiftOverride *bool
 	// NameChoice carries a mid-resolution NameCard answer across re-entry.
 	NameChoice string
 
@@ -321,54 +318,6 @@ type Ctx struct {
 	// re-binds it, the same shape rp.fusedTargets uses for a fused half.
 	CharmModeScope []state.Target
 	CharmModeSA    *cards.SA
-	// TargetControllerLKI captures each object target's controller at the
-	// start of resolution. A target may leave the battlefield before a
-	// chained TokenOwner$ TargetedController is evaluated; events.Apply then
-	// resets its live Controller to Owner, so the live object is no longer the
-	// CR 608.2h last-known controller.
-	TargetControllerLKI map[state.ObjID]state.PlayerID
-	// TargetCountersLKI captures each object target's counters for the CR
-	// 608.2b/h look-back. The authoritative capture is at the DEPARTURE
-	// boundary: rules' Engine.emit refreshes the entry -- overwriting this
-	// resolution-start snapshot -- on the MoveZone that actually moves a
-	// target off the battlefield, so a chain that changed a target's counters
-	// earlier in the same resolution reads the counters as they were
-	// immediately before the zone change (Dismantle's DBPutCounter is the
-	// corpus shape). Keyed by target ObjID, carried across a suspension the
-	// same way as TargetControllerLKI (rules' resumePoint). The
-	// resolution-start capture here is the fallback for a departure this
-	// host did not see (a test host folding events without Engine.emit):
-	// only battlefield objects carrying at least one counter are captured at
-	// entry; an object already off the battlefield, or with no counters to
-	// look back at, needs no entry.
-	TargetCountersLKI map[state.ObjID][]state.Counter
-	// TargetPTLKI is the power/toughness half of the same CR 608.2h
-	// look-back: each object target's LAYER-DERIVED power and toughness as it
-	// last existed on the battlefield. Captured, overwritten and carried
-	// exactly like TargetCountersLKI (rules refreshes it at the departure
-	// boundary; the resolution-start capture below is the fallback). Condemn's
-	// "its controller gains life equal to its toughness" and Swords to
-	// Plowshares' "equal to its power" read it once the target is in the
-	// library or exile, where the live object answers only the printed face.
-	TargetPTLKI map[state.ObjID]TargetPT
-	// TargetSpellLKI records which object targets were SPELLS on the stack at
-	// the instant this Resolve chain began. The count ref SpellTargeted (Forge
-	// AbilityUtils.calcX's `calcX[0].equals("SpellTargeted")` arm, which reads
-	// getDefinedSpellAbilities' target SPELLS) names the target that WAS a
-	// spell; a target chosen as a battlefield permanent is not one. The target
-	// object's live zone cannot answer that after resolution begins: a Counter
-	// or a ChangeZone moves the spell off the stack and events.Apply's Move
-	// leaves no "was a spell" marker, so a later sub-ability reading
-	// SpellTargeted$CardManaCostLKI (Reject Imperfection's proliferate gate,
-	// Gale's Redirection's roll modifier, Press the Enemy's Z) would read the
-	// moved target as a non-spell and return 0. The mana VALUE itself survives
-	// the move -- a face's converted cost is printed and the object id is
-	// stable -- so only the stack-kind needs the snapshot. Captured at Resolve
-	// entry (keep an existing map on re-entry: after a move the target is no
-	// longer on the stack, so a re-capture would wrongly lose it) and carried
-	// across a suspension the same way as TargetControllerLKI (rules'
-	// resumePoint). Nil when the chain's targets were never spells.
-	TargetSpellLKI map[state.ObjID]bool
 	Remembered     []state.Target
 	// ExchangeLife publishes numeric riders to Count$RememberedNumber for
 	// the remainder of the resolution (not the source's remembered objects).
@@ -378,13 +327,6 @@ type Ctx struct {
 	// settle) stays visible to the chained SubAbility$ reader across a
 	// suspension and its Ctx rebuild.
 	ExchangeMemory *ExchangeMemory
-	// ForgetOtherSnapshot retains the pre-clear IsRemembered candidates across
-	// a multi-owner ChangeZone pick/search and its mid-resolution asks. It is
-	// resolution-local; only the actual remembered set is event-backed.
-	ForgetOtherSnapshot []state.Target
-	ForgetOtherOwners   []state.PlayerID
-	ForgetOtherReady    bool
-	ForgetOtherCleared  bool
 
 	// TargetsOffered marks that the resolution's OWN ValidTgts$ targeting was
 	// already offered at announcement (rules' resolveTop sets it on both the
@@ -429,25 +371,6 @@ type Ctx struct {
 	// neither in a host's remembered list, so a RepeatEach over players does
 	// not carry these into its iterations.
 	Captured []state.Target
-	// SourceLifelinkLKI is the source permanent's derived lifelink state at
-	// the last moment it existed on the battlefield. The validity bit is
-	// separate because "it did not have lifelink" is authoritative LKI too.
-	// Rules seeds this on independently resolving abilities; damage uses it
-	// only after the source has departed, and continues to read the live
-	// derived source while it remains a permanent.
-	SourceLifelinkLKI      bool
-	SourceLifelinkLKIValid bool
-	// SourceControllerLKI is the source permanent's controller immediately
-	// before it left the battlefield. Move resets Controller to Owner, so an
-	// independently resolving lifelink ability needs this companion snapshot
-	// to credit its last controller rather than its owner.
-	SourceControllerLKI      state.PlayerID
-	SourceControllerLKIValid bool
-	// DamageSourceLKI preserves lifelink and controller LKI by object id for
-	// a distinct DamageSource$ object that left while this resolution waited.
-	// Rules transports it with the stack object; DamageSource$ consults it only
-	// after that named object is no longer a battlefield permanent.
-	DamageSourceLKI map[state.ObjID]DamageSourceLKI
 	// Sacrificed carries the last-known-information snapshot of every object
 	// this resolving spell/ability sacrificed, as it was at the instant of the
 	// sacrifice (state.SacrificedInfo). Built two ways, feeding one field: a
@@ -473,16 +396,6 @@ type Ctx struct {
 	// chosen targets.
 	Exiled   []state.ObjID
 	Revealed []state.ObjID
-	// ChangeZoneLKI is the resolution's last-known-information table for
-	// ChangeZoneRememberLKI$ moves: one entry per object the move captured,
-	// holding the controller/owner it had at that instant. events.Apply's Move
-	// resets a battlefield departure's controller to its owner (CR 400.7), so
-	// the live object can no longer answer "the exiled creature's controller"
-	// -- exactly Forge's reason for storing a Card LKI copy in Remembered
-	// (ChangeZoneEffect's CardCopyService.getLKICopy). A RepeatEach body's
-	// TokenOwner$ ImprintedController / Defined$ ImprintedController reads it
-	// for the current iteration subject (Curse of the Swine's Boars).
-	ChangeZoneLKI []state.LKIObject
 	// ResolvingObj is the stack-object WRAPPER of the spell/ability currently
 	// resolving -- rules' e.resolvingObj (resolveTop's ability and spell
 	// branches) and rp.obj (resumeResolution) -- set at those two ctx
@@ -513,63 +426,6 @@ type Ctx struct {
 	// never-announced, and an UnlessCost$ X on a zero-X cast (Power Sink
 	// announced 0) would stay an unpriceable raw token instead of {0}.
 	XAnnounced bool
-	// TimesKicked is the pending cast's settled multikicker payment count
-	// (CR 702.43), seeded by rules' targetBoundCtx when the spell's OWN
-	// announcement ask resolves a Count$TimesKicked bound BEFORE payment has
-	// stamped the stack object (Comet Storm's TargetMin/Max$ TargetsNum).
-	// Everywhere else it is zero and the TimesKicked count head falls back to
-	// the source object's stamped field -- the same priority the xPaid head
-	// gives ctx.X over the object read.
-	TimesKicked int32
-	// PendingKicked is the pending cast's CHOSEN kicked mode (CR 702.4/702.33),
-	// seeded by rules' targetBoundCtx when the spell's OWN announcement ask
-	// resolves a Count$Kicked body BEFORE payment has stamped the stack
-	// object's CastFlags. Tear Asunder's kicked main SA is
-	// TargetMin$ X | TargetMax$ X over SVar:X:Count$Kicked.0.1, so pre-payment
-	// the object reads Kicked false and X stays 1 -- the ask then demands an
-	// artifact/enchantment the kicked spell must not take. The Kicked count
-	// head ORs this bit with the object's FlagKicked, so a mid-resolution read
-	// (no pending cast, the flag actually stamped) is unaffected. Zero (false)
-	// everywhere else; it is derived data, never event-encoded.
-	PendingKicked bool
-	// ChosenNumber is the Effect's SetChosenNumber$ binding (task
-	// wildgrowth1): the number the Effect resolved at creation, threaded into
-	// a registered replacement's body Ctx by rules' replCtx so the body's
-	// Count$ChosenNumber head (evalCountBody) reads the frozen binding rather
-	// than re-deriving. Zero wherever nothing bound -- the same number a
-	// failed binding degrades to.
-	ChosenNumber int32
-	// ChosenNumberBound marks a Ctx whose ChosenNumber IS a real
-	// SetChosenNumber$ binding (rules' seedEffectReplCtx sets it exactly when
-	// the match is effect-created, m.key != ""). It is the Count$ChosenNumber
-	// head's verdict: bound means evaluated (the value reads, zero
-	// legitimately), unbound means the head is UNRESOLVED so the
-	// EvalCountOK consumers keep their pre-wildgrowth fail direction --
-	// CheckSVarHolds fails open, a numeric filter RHS (cmcEQX via
-	// resolveNumericRHS) never matches -- instead of enforcing a meaningless
-	// zero on the Choose-event corpus population (77 files whose binding
-	// lives on state.Object.ChosenNumber via effects/choose.go, never on
-	// Ctx). A zero binding with the flag set is still bound (torgal with no
-	// Dogs); only the flag distinguishes the two.
-	ChosenNumberBound bool
-	// RememberedCMC is the mana value the Counter primitive's
-	// RememberCounteredCMC$ rider remembered (task counter-cmc: Electrosiphon's
-	// "an amount of {E} equal to its mana value", Overwhelming Intellect's
-	// draw-equal-to-mana-value family -- 14 corpus carriers). effCounter sums
-	// every countered CARD's mana value into it (an ability has none and
-	// contributes nothing); the Count$RememberedNumber head reads it in
-	// preference to the list-length channel, because the number is a VALUE,
-	// not a count of remembered entries. Resolution-scratch like
-	// Ctx.Remembered -- never event-encoded; a replay re-derives it by
-	// replaying the same resolution.
-	RememberedCMC int32
-	// RememberedCMCBound marks a Ctx whose RememberedCMC IS a real
-	// RememberCounteredCMC$ binding. It is the Count$RememberedNumber head's
-	// verdict, the same shape ChosenNumberBound gives Count$ChosenNumber:
-	// bound means evaluated (a zero mana value reads as zero), unbound means
-	// the head falls through to the list-length read every pre-existing
-	// consumer keeps.
-	RememberedCMCBound bool
 	// PendingDamage holds the damage a DealDamage with DamageMap$ True MARKED
 	// for this chain's later DB$ DamageResolve flush instead of dealing it
 	// (Forge's mark-then-resolve damage pattern). It is resolution-scratch
@@ -616,52 +472,12 @@ type Ctx struct {
 	// (never matches), the documented unresolvable-RHS contract. Not
 	// event-backed, not state: resolution-scratch like Targets or SVars.
 	resolvingRHS bool
-	// ExcludeFromBattlefieldCount is the entrant of a battlefield MoveZone
-	// replacement. Count$Valid bodies evaluating the Updated entry must use
-	// the pre-entry battlefield population (CR 614.12), even though the move
-	// has already been folded before the body runs. Zero outside that context.
-	ExcludeFromBattlefieldCount state.ObjID
-	// Replaced is the object the replaced event was about (Defined$ ReplacedCard):
-	// the card a "would go to the graveyard from anywhere, exile it instead"
-	// replacement is acting ON. Set by rules/replacement.go on the context it
-	// builds for a matching ReplaceWith$; zero outside a replacement, and nil for
-	// a zero (or gone) object when Defined resolves it. It is context, not state
-	// -- it drives the replacement's own resolution but is never itself persisted
-	// to the event log.
-	Replaced state.ObjID
-	// ReplacedCards is the ordered plural batch a replaced INSTRUCTION was
-	// about (Defined$ ReplacedCards / ReplacedCards.<qual>): the cascade
-	// instruction's exiled cards, which Averna, the Chaos Bloom picks a land
-	// from. It is the plural counterpart of Replaced, set by
-	// rules/replacement.go on the ReplaceWith$ context of a Cascade
-	// proposal and carried through a suspension; empty outside one, and an
-	// empty batch resolves to nobody (fail closed). Context, never state.
-	ReplacedCards []state.ObjID
-	// ReplacedPlayer is the player a replaced DRAW event was about — the
-	// draw-er (Breathstealer's Crypt draws/reveals/discards "that player",
-	// Zur's Weirding's other players pay relative to them). Set only on a
-	// Draw replacement's own context, like Replaced; zero outside one.
-	ReplacedPlayer state.Target
-	// ReplacementTarget, ReplacementSource and
-	// ReplacementAmount carry the corresponding roles of an in-flight damage
-	// ReplacementAmount carry the corresponding roles of an in-flight damage
-	// event. They are resolution context, never persisted state; rules seeds
-	// them before resolving ReplaceWith$ so ReplacedTarget/ReplacedSource and
-	// ReplaceCount$DamageAmount are available to every replacement body API.
-	ReplacementTarget state.Target
-	ReplacementSource state.ObjID
-	ReplacementAmount int32
 	// LKI is the object a zone-change trigger fired for, as it was just
 	// before the move (CR 603.10 "look back in time"): Move resets counters,
 	// tapped state and damage on the way out, so a "dies" condition such as
 	// Undying's "if it had no +1/+1 counters" must read this, not the live
 	// object. nil for every other trigger.
 	LKI *state.Object
-	// LKIPower/LKIToughness are that snapshot's derived battlefield P/T,
-	// captured before the move removes continuous effects. The validity bit
-	// distinguishes a real zero from a non-battlefield/no-characteristic LKI.
-	LKIPower, LKIToughness int32
-	LKIPTValid             bool
 	// Modes is the answered modal choice on a re-entered mid-resolution
 	// resolution (M2d-2): the SVar names of the chosen Choices$ sub-abilities,
 	// in execution order. rules' resumeResolution sets it from the recorded
@@ -755,50 +571,6 @@ type Ctx struct {
 	// carries the iteration's Remembered. Zero outside a loop iteration, and
 	// the Imprinted/ImprintedController selectors fail closed on zero.
 	RepeatSubject state.Target
-	// VillainousVictims is the ordered Defined$ player set for a
-	// VillainousChoice. The index advances only after the current victim's
-	// chosen body has completed.
-	VillainousVictims []state.Target
-	VillainousIndex   int
-	// GenericChoosers is the ordered Defined$ player set for a multi-player
-	// api:GenericChoice resolution (each opponent chooses one of the same
-	// Choices$), and GenericChooserIndex is the index of the chooser being
-	// asked. The index advances only after the current chooser's chosen body
-	// has completed, so the remaining choosers are asked once the body's own
-	// nested ask (if any) finishes. Nil outside the per-player path, which
-	// keeps the single-controller Charm/GenericChoice ask unchanged.
-	GenericChoosers     []state.Target
-	GenericChooserIndex int
-
-	// LibraryTarget is the index in the deterministic per-library target list
-	// whose answer is being resumed. Search, KArrange and their follow-up
-	// confirms share this cursor so a suspended walk continues with the next
-	// library instead of restarting at the first one.
-	LibraryTarget int
-	// SearchShuffle is the answered ShuffleNonMandatory$ may-shuffle confirm
-	// ("yes"/"no") on a re-entered ChangeZone search; SearchShuffleMoved
-	// carries the objects the search's first pass moved, so the re-entry can
-	// run the LibraryPosition$ placement after the answered shuffle. Both
-	// ride the ask (the moved list via Decision.ResumeMoved, the same
-	// runtime-continuation class as ResumeRemembered) and are consumed and
-	// cleared at the re-entry's top (fx42 scoping), so a nested search poses
-	// its own confirm.
-	SearchShuffle      string
-	SearchShuffleMoved []state.ObjID
-	// SearchKnown names, per choosing player, the library cards whose identity
-	// that player has legitimately learned during this resolution's search
-	// chain (effects/zone.go applyLibrarySearch): a card the head ask publicly
-	// revealed is known to every seat, and a card the head ask offered BY NAME
-	// is known to the player who picked it. A Cultivate-family placement leg
-	// (NoLooking$ True, ChangeType$ ...IsRemembered) must label its options
-	// with those real names -- the blind "a card" label would hide information
-	// the chooser already holds -- while an option the chooser genuinely never
-	// saw stays fail-closed blind. It rides the ask via Decision
-	// .ResumeSearchKnown, because the first leg's own suspension rebuilds a
-	// fresh Ctx and a plain field would be lost before the second leg asks.
-	// Resolution-scratch like Remembered -- never event-encoded; a replay
-	// re-derives the same set by replaying the same resolution.
-	SearchKnown []state.Target
 
 	// Play is the answered card a resolved Play effect chose to play from a
 	// zone (CR 701.23): the object the controller selected among the offered
@@ -808,20 +580,6 @@ type Ctx struct {
 	// from the first pass.
 	Play     state.ObjID
 	PlayDone bool
-	// DrawDone is the number of individual draws a multi-card Draw has already
-	// completed. A dredge choice suspends between draws; rules restores this
-	// cursor after applying the selected replacement so the enclosing Draw
-	// continues rather than restarting or abandoning its remaining cards.
-	DrawDone int32
-
-	// CloneETB carries the cast/replacement ETB copy election into DB$ Clone.
-	// The answer is event-backed on the entering object, so replacement-time
-	// resolution and log-only replay use the same selected permanent.
-	CloneETB         bool
-	CloneChoice      state.ObjID
-	CloneChoiceValid bool
-	CloneBecome      state.ObjID
-	CloneBecomeValid bool
 
 	// UnlessNext is the index of the UnlessPayer$ payer whose answered
 	// unless-pay choice this re-entry applies (0 on a first pass). The
@@ -844,71 +602,6 @@ type Ctx struct {
 
 	ManifestDreadPlayer state.PlayerID
 
-	// ManaAmount and ManaType are the in-flight unit of mana a ProduceMana
-	// replacement modifies. rules seeds them from a ManaAdd event and then
-	// emits the transformed event, so ReplaceMana never writes game state
-	// directly and replay records the final mana production normally.
-	ManaAmount int32
-	ManaType   string
-	// ManaChoice is the W/U/B/R/G answer to a choice-valued ReplaceMana
-	// body (ReplaceType$ Any, ReplaceColor$ Chosen, ReplaceMana$ Any).
-	// Rules parks the ManaAdd and supplies this on resume.
-	ManaChoice string
-	// ManaChoices is the allocation chosen for Produced$ Combo with Amount$ >
-	// 1. Each entry is one W/U/B/R/G unit; effMana consumes it with Amount 1
-	// so a split such as U,R produces one of each rather than doubling both.
-	ManaChoices []string
-
-	// ETBColorRecorded marks the ONE ChooseColor invocation that must not
-	// ask: the as-enters ENTRY-choice body (K:ETBReplacement:Other:
-	// ChooseColor). The entry machinery (rules' applyETBChoiceReplacement ->
-	// resumeETBEntry) already posed the entry ask and recorded the answer on
-	// the entering object before this body runs at the re-emitted MoveZone,
-	// so rules' replCtx flags that invocation and effChooseColor keeps the
-	// historical no-op for it alone. Without the flag an unconditional
-	// o.ChosenColor guard also suppressed a FRESH resolution-time ask after
-	// an earlier ChooseColor had set the field (a second sequential SA in
-	// one resolution, or an ability activation on an already-chosen
-	// permanent) -- the stale-source-state bug the same ticket's review
-	// named. Consumed and cleared by the effect (the fx42 scoping
-	// discipline), so a nested ChooseColor deeper in the same chain poses
-	// its own fresh ask.
-	ETBColorRecorded bool
-
-	// ETBNumberRecorded marks the ONE ChooseNumber invocation that must not
-	// ask: the as-enters ENTRY-choice body (K:ETBReplacement:Other:
-	// ChooseNumber). The entry machinery (rules' applyETBChoiceReplacement ->
-	// resumeETBEntry) already posed the entry ask and recorded the answer on
-	// the entering object before this body runs at the re-emitted MoveZone, so
-	// rules' replCtx flags that invocation and effChooseNumber keeps the
-	// historical no-op for it alone. Without the flag an unconditional
-	// o.ChosenNumber guard also suppressed a FRESH resolution-time ask after an
-	// earlier ChooseNumber had set the field -- the stale-source-state bug the
-	// sibling colour ticket's review named. The flag is what makes the entry
-	// no-op exact even when the recorded entry answer is 0 (the value a bare
-	// o.ChosenNumber guard cannot distinguish from unset). Consumed and cleared
-	// by the effect (the fx42 scoping discipline), so a nested ChooseNumber
-	// deeper in the same chain poses its own fresh ask.
-	ETBNumberRecorded bool
-
-	// ETBEvenOddRecorded marks the ChooseEvenOdd body of an ETB replacement:
-	// the entry boundary already asked and recorded the answer on the entering
-	// permanent, so this invocation must not ask a second time.
-	ETBEvenOddRecorded bool
-
-	// DrawUptoIdx/DrawUptoCount/DrawUptoAnswered carry an Upto$ Draw's
-	// per-target continuation (Arcane Denial, Truce): Idx is the Defined$
-	// target index whose "draw up to N" ask or answered batch is in flight,
-	// Count the answered count for it, Answered distinguishes an answered
-	// ZERO (draw nothing) from a target not yet asked. rules' draw_upto
-	// resume arm sets all three from the recorded answer (Count = the
-	// number of chosen card options), and the dredge arm restores them
-	// across a Dredge choice parked inside the batch (riding the ask's
-	// ResumeUpto rider). effDraw consumes the three as it completes each
-	// target, so the next target poses its own ask (fx42 scoping).
-	DrawUptoIdx      int32
-	DrawUptoCount    int32
-	DrawUptoAnswered bool
 	// InvestigateOptIdx/InvestigateOpt carry an Optional$ True Investigate's
 	// per-player continuation (Will the Wise's "each opponent may
 	// investigate", Nick Valentine, Private Eye's "you may investigate"):
@@ -935,56 +628,6 @@ type Ctx struct {
 	// their own fresh path.
 	ExploreObj state.ObjID
 
-	// LastRoll/LastRollName carry the result of a DB$ RollDice this same
-	// resolution just made (effects/dice.go), under the SVar name its
-	// ResultSVar$ parameter named (usually "Result" or "X"). evalCountExpr's
-	// SVar$ head resolves a body of the form "SVar$<name>" against them, so
-	// a chained sub's own SVar body (Velukan Dragon's
-	// "SVar:X:SVar$Result/Minus.1") and a ConditionCheckSVar$ can read the
-	// roll. Zero/"" on any resolution that did not roll, and the values are
-	// never persisted beyond the resolution; a mid-resolution ask carries them
-	// across its suspension (effects.RollRide on the resume point). RollPubs is
-	// the general form of the same publication (both are read through
-	// effects.dice.go's rollPublished, and this slot stays the primary
-	// result's mirror for the existing readers).
-	LastRoll     int32
-	LastRollName string
-	// RollPub is one name→value publication a DB$ RollDice of this
-	// resolution made, beyond the primary ResultSVar$ slot above:
-	// ChosenSVar$/OtherSVar$ (the Endeavor cycle's choose-one-result), and
-	// the MaxRollsResults$/EvenOddResults$ counts ("MaxRolls",
-	// "EvenResults", "OddResults" -- Luck Bobblehead). Read by Name's
-	// bare-name fallback and evalCountExpr's SVar$ head through
-	// rollPublished, and by Ctx.SpecContext's numeric-RHS resolver, so a
-	// chained sub's filter spec (Valiant Endeavor's Creature.powerGEX,
-	// Arcane Endeavor's Instant.cmcLEY) reads the roll too. Carried across a
-	// suspension with LastRoll (effects.RollRide); the chosen/other
-	// publications are rebuilt from the answered decision on the roll resume
-	// (Ctx.RollResults/RollPick).
-	RollPubs []RollPub
-
-	// VoteCounts is the per-subject tally the most recent api:Vote left for
-	// this resolution's AmountFromVotes$ readers (effects/choose_control.go's
-	// effRepeatEach): one entry per ballot subject -- every player the
-	// player-ballot universe admitted, or every permanent a card ballot
-	// admitted -- with the votes it received. Forge's VoteEffect stores the
-	// same tally as VoteNum<SVar>s on the vote ability and RepeatEachEffect's
-	// setVoteAmount reads it back per loop subject; this is the engine's
-	// per-resolution form of that side channel, read through voteCountFor. It
-	// is built on the pass the ballot completes and lives on the resolution
-	// Ctx, so the chained SubAbility$ (Mob Verdict's DBRepeatOpp) sees it; a
-	// vote with no ballot publishes nothing (the field stays nil).
-	VoteCounts []VoteCount
-	// VotePublished/VotePublishedSet are the per-iteration binding the
-	// AmountFromVotes$ RepeatEach writes before resolving one loop body: the
-	// vote count of the iteration's subject, resolved by the reserved name
-	// "Votes" through runtimePublished -- the same seam Ctx.RollPubs serves
-	// for DB$ RollDice, and the name Forge's setVoteAmount sets
-	// (sa.setSVar("Votes", "Number$<n>")). Set only on an
-	// AmountFromVotes$ loop's per-iteration Ctx copy, so an ordinary SVar
-	// table is never shadowed outside one loop body.
-	VotePublished    int32
-	VotePublishedSet bool
 	// FlipMemory is this resolution's coin-flip memory (nil until a flip
 	// happens). It is a POINTER so a Ctx copy -- a RepeatEach iteration's
 	// cc := *c, or the fresh Ctx a resume rebuilds -- shares the SAME memory:
@@ -1010,6 +653,32 @@ type Ctx struct {
 	// Targets/SVars -- never event-encoded (the marker carries the same bit
 	// in Amount), a replay re-derives the same value.
 	ClashWon bool
+	// Snap is the last-known-information snapshots a resolution reads (target controllers, counters and P/T, the source's lifelink and controller, damage sources, zone-change records and the source's derived P/T).
+	Snap LKISnapshots
+	// Repl is the replacement-effect context a replacement's body resolves under (the replaced object, cards, player, the redirect target, source and amount).
+	Repl ReplacementInputs
+	// CloneEnter is the as-enters Clone inputs rules records for a clone replacement.
+	CloneEnter CloneAsEnters
+	// Mana is the mana a replacement or reflected-mana effect reads and a Mana colour choice records.
+	Mana ManaInputs
+	// Kicker is the kicker and gift state a count reads.
+	Kicker KickerInputs
+	// Vote is a Vote's tally and the RollPub-style publication state its sub-abilities read.
+	Vote VoteInputs
+	// Roll is the last die roll and the roll publications a roll's sub-abilities read.
+	Roll RollInputs
+	// Forget is the ForgetOtherRemembered$ pre-clear snapshot a choose walk keeps across its choosers.
+	Forget ForgetOtherInputs
+	// Choosers is the victim and chooser lists a VillainousChoice or GenericChoice walks.
+	Choosers ChooserCursors
+	// Search is a library search's per-target index, shuffle answer, moved list and known set.
+	Search SearchInputs
+	// Num is the chosen and remembered numbers a Count$ reads.
+	Num NumberInputs
+	// Draw is an Upto$ Draw's per-target answer and the cards drawn so far.
+	Draw DrawInputs
+	// ETB is which as-enters answers rules has already recorded on the entering object.
+	ETB ETBRecords
 }
 
 // VoteCount is one ballot subject's tally (see Ctx.VoteCounts).
@@ -1317,10 +986,10 @@ func CloneTargetPTLKI(m map[state.ObjID]TargetPT) map[state.ObjID]TargetPT {
 // power/toughness, when this chain captured one and the object is no longer
 // on the battlefield; a live permanent (or an uncaptured object) reads live.
 func targetPTLKI(c *Ctx, o *state.Object) (TargetPT, bool) {
-	if c == nil || c.TargetPTLKI == nil || o == nil || o.Zone == state.ZBattlefield {
+	if c == nil || c.Snap.TargetPT == nil || o == nil || o.Zone == state.ZBattlefield {
 		return TargetPT{}, false
 	}
-	pt, ok := c.TargetPTLKI[o.ID]
+	pt, ok := c.Snap.TargetPT[o.ID]
 	return pt, ok
 }
 
@@ -1612,14 +1281,14 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		// Capture target controllers before the first effect can move a target.
 		// Keep an existing map on re-entry: it is the earlier battlefield state,
 		// not the current (possibly reset) object, that TokenOwner needs.
-		if c.TargetControllerLKI == nil {
-			c.TargetControllerLKI = make(map[state.ObjID]state.PlayerID)
+		if c.Snap.TargetController == nil {
+			c.Snap.TargetController = make(map[state.ObjID]state.PlayerID)
 			for _, target := range c.Targets {
 				if target.IsPlayer {
 					continue
 				}
 				if object := h.Game().Obj(target.Obj); object != nil {
-					c.TargetControllerLKI[target.Obj] = object.Controller
+					c.Snap.TargetController[target.Obj] = object.Controller
 				}
 			}
 		}
@@ -1628,31 +1297,31 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		// events.Apply's Move fold, so a chained condition gate or amount read
 		// (Dismantle's `ConditionPresent$ Card.HasCounters` and
 		// `X:Targeted$CardCounters.ALL`) must read the counters from here.
-		if c.TargetCountersLKI == nil {
-			c.TargetCountersLKI = make(map[state.ObjID][]state.Counter)
+		if c.Snap.TargetCounters == nil {
+			c.Snap.TargetCounters = make(map[state.ObjID][]state.Counter)
 			for _, target := range c.Targets {
 				if target.IsPlayer {
 					continue
 				}
 				if object := h.Game().Obj(target.Obj); object != nil &&
 					object.Zone == state.ZBattlefield && len(object.Counters) > 0 {
-					c.TargetCountersLKI[target.Obj] = append([]state.Counter(nil), object.Counters...)
+					c.Snap.TargetCounters[target.Obj] = append([]state.Counter(nil), object.Counters...)
 				}
 			}
 		}
 		// The P/T half of the same entry capture (the fallback for a
 		// departure the host did not see; rules refreshes it at the move).
-		if c.TargetPTLKI == nil {
+		if c.Snap.TargetPT == nil {
 			for _, target := range c.Targets {
 				if target.IsPlayer {
 					continue
 				}
 				if object := h.Game().Obj(target.Obj); object != nil && object.Zone == state.ZBattlefield &&
 					object.Face() != nil {
-					if c.TargetPTLKI == nil {
-						c.TargetPTLKI = make(map[state.ObjID]TargetPT)
+					if c.Snap.TargetPT == nil {
+						c.Snap.TargetPT = make(map[state.ObjID]TargetPT)
 					}
-					c.TargetPTLKI[target.Obj] = TargetPT{Power: h.Power(target.Obj), Toughness: h.Toughness(target.Obj)}
+					c.Snap.TargetPT[target.Obj] = TargetPT{Power: h.Power(target.Obj), Toughness: h.Toughness(target.Obj)}
 				}
 			}
 		}
@@ -1665,15 +1334,15 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		// a resumed chain's target has already left the stack, so a re-capture
 		// would wrongly answer "never a spell". The refTargetUnion set is what
 		// SpellTargeted itself enumerates, so both bindings are captured.
-		if c.TargetSpellLKI == nil {
-			c.TargetSpellLKI = make(map[state.ObjID]bool)
+		if c.Snap.TargetSpell == nil {
+			c.Snap.TargetSpell = make(map[state.ObjID]bool)
 			captureTargetSpells := func(ts []state.Target) {
 				for _, target := range ts {
 					if target.IsPlayer || target.Obj == 0 {
 						continue
 					}
 					if object := h.Game().Obj(target.Obj); object != nil && object.Zone == state.ZStack {
-						c.TargetSpellLKI[target.Obj] = true
+						c.Snap.TargetSpell[target.Obj] = true
 					}
 				}
 			}
@@ -1687,7 +1356,7 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		// the same Ctx) carries it onto the resumePoint. Restored on return:
 		// the map belongs to THIS chain, and an enclosing chain must not see
 		// it after a nested one has finished.
-		prev := h.SetResolutionTargetControllerLKI(c.TargetControllerLKI)
+		prev := h.SetResolutionTargetControllerLKI(c.Snap.TargetController)
 		defer h.SetResolutionTargetControllerLKI(prev)
 		// Publish the live Ctx for the whole of this chain (the same
 		// restore-on-return bracket), so any ask posed by any of its effects --

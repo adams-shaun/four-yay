@@ -85,8 +85,8 @@ func effConnive(h Host, c *Ctx, sa *cards.SA) {
 	// would connive twice.
 	start := 0
 
-	if c.DrawDone > 0 && n > 0 {
-		start = int((c.DrawDone - 1) / n)
+	if c.Draw.Done > 0 && n > 0 {
+		start = int((c.Draw.Done - 1) / n)
 		if start >= len(tgts) {
 			start = len(tgts) - 1
 		}
@@ -102,8 +102,8 @@ func effConnive(h Host, c *Ctx, sa *cards.SA) {
 		// global cursor the Dredge resume arm restored. Every target after
 		// the first processed on this pass starts its own draws at zero.
 		done := int32(0)
-		if first && c.DrawDone > 0 {
-			done = c.DrawDone - int32(i)*n
+		if first && c.Draw.Done > 0 {
+			done = c.Draw.Done - int32(i)*n
 			if done < 0 {
 				done = 0
 			}
@@ -111,7 +111,7 @@ func effConnive(h Host, c *Ctx, sa *cards.SA) {
 				done = n
 			}
 		}
-		c.DrawDone = 0 // consumed: a chained sub-Draw starts its own cursor
+		c.Draw.Done = 0 // consumed: a chained sub-Draw starts its own cursor
 		first = false
 		if conniveOnce(h, c, sa, t.Obj, int32(i), n, done) {
 			// The ask was posted; the resolution is suspended. Nothing after
@@ -122,7 +122,7 @@ func effConnive(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 
-	c.DrawDone = 0
+	c.Draw.Done = 0
 }
 
 // conniveOnce runs one connive process for conniver and reports whether the

@@ -51,9 +51,9 @@ func objectPathShuffleOwed(cz *ChangeZoneParams) bool {
 // is served in place and the tail completes here; it still returns true,
 // because the legacy re-entry it mirrors ends effChangeZone after the tail.
 func objectPathShuffleTail(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, moved []state.ObjID) bool {
-	if c.SearchShuffle != "" {
-		ans, placed := c.SearchShuffle, c.SearchShuffleMoved
-		c.SearchShuffle, c.SearchShuffleMoved = "", nil
+	if c.Search.Shuffle != "" {
+		ans, placed := c.Search.Shuffle, c.Search.ShuffleMoved
+		c.Search.Shuffle, c.Search.ShuffleMoved = "", nil
 		if ans == "yes" {
 			objectPathShuffleOwners(h, placed)
 		}
@@ -130,12 +130,12 @@ func objectPathShuffleOwners(h Host, moved []state.ObjID) {
 // to. Returns true when the confirm suspended the resolution (the caller
 // must stop; the re-entry owns the tail), false when the tail completed.
 func searchShuffleTail(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, owner state.PlayerID, moved []state.ObjID, to state.Zone) bool {
-	if c.SearchShuffle != "" {
+	if c.Search.Shuffle != "" {
 		// Re-entry after the answered confirm: the moves happened in the
 		// first pass, so this pass places only. Consume and clear before
 		// continuing (fx42 scoping), so a nested search poses its own confirm.
-		ans, placed := c.SearchShuffle, c.SearchShuffleMoved
-		c.SearchShuffle, c.SearchShuffleMoved = "", nil
+		ans, placed := c.Search.Shuffle, c.Search.ShuffleMoved
+		c.Search.Shuffle, c.Search.ShuffleMoved = "", nil
 		if ans == "yes" {
 			shuffleLibraryOrder(h, owner)
 		}
@@ -149,7 +149,7 @@ func searchShuffleTail(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, owner
 	}
 	d := &decision.Decision{Player: owner, Kind: decision.KChoose, Min: 1, Max: 1,
 		Source: c.Source, ResumeKind: "search_mayshuffle", ResumeSA: sa,
-		ResumeTarget: c.LibraryTarget,
+		ResumeTarget: c.Search.Target,
 		Prompt:       "Shuffle your library?",
 		Options: []decision.Option{
 			{Index: 0, Kind: "yes", Label: "Yes — shuffle", Player: owner},

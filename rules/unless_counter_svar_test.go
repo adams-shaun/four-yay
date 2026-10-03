@@ -112,16 +112,15 @@ func classifyCounterUnlessSVarLines(t *testing.T, reg *cards.Registry) []string 
 				t.Fatalf("census hand has no %q", card.Faces[0].Name)
 			}
 			ctx := &effects.Ctx{
-				Source:            id,
-				Controller:        0,
-				Targets:           []state.Target{{Obj: id}},
-				Remembered:        []state.Target{{Obj: id}},
-				Sacrificed:        []state.SacrificedInfo{{Obj: id, Power: 3}},
-				SVars:             face.SVars,
-				X:                 2,
-				ChosenNumber:      2,
-				ChosenNumberBound: true,
-				TriggerContext:    effects.TriggerContext{TriggerCard: id},
+				Source:         id,
+				Controller:     0,
+				Targets:        []state.Target{{Obj: id}},
+				Remembered:     []state.Target{{Obj: id}},
+				Sacrificed:     []state.SacrificedInfo{{Obj: id, Power: 3}},
+				SVars:          face.SVars,
+				X:              2,
+				Num:            effects.NumberInputs{Chosen: 2, ChosenBound: true},
+				TriggerContext: effects.TriggerContext{TriggerCard: id},
 			}
 			for _, ln := range lines {
 				verdict := "decline"

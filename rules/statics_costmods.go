@@ -101,7 +101,7 @@ func (e *Engine) costAmountCtx(sv staticView, sub costSubject, x int32, targets 
 	// (chosenNumberBound): the Count$ChosenNumber head reads it rather than
 	// the source object's own logged choice.
 	ctx := effects.NewCtxPtr(sv.Source, you, effects.CtxInit{SVars: svars, X: x,
-		ChosenNumber: sv.ChosenNumber, ChosenNumberBound: sv.chosenNumberBound, Targets: targets})
+		Num: effects.NumberInputs{Chosen: sv.ChosenNumber, ChosenBound: sv.chosenNumberBound}, Targets: targets})
 	ctx.AffectedObj, ctx.AffectedAbility = sub.id, sub.ab
 	return ctx, svars, true
 }

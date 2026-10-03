@@ -41,8 +41,8 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.
 
 	hiddenPickOriginNote(h, c, originValid, from)
 	players := hiddenPickPlayers(h, c, cz.fetch())
-	if c.ForgetOtherReady {
-		players = c.ForgetOtherOwners
+	if c.Forget.Ready {
+		players = c.Forget.Owners
 	}
 	initForgetOther(h, c, cz.Riders.ForgetOtherRemembered, players, 2)
 	// Forge branches on the origin zones, not on the fetch player: game-wide

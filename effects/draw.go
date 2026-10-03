@@ -81,7 +81,7 @@ func effDraw(h Host, c *Ctx, sa *cards.SA) {
 	if decider := dp.OptionalDecider; decider != "" && total > 0 {
 		answered := string("")
 
-		if answered == "" && c.DrawDone > 0 {
+		if answered == "" && c.Draw.Done > 0 {
 			// A Dredge re-entry mid-draw (the "dredge" arm restored the draw
 			// cursor): draws happen only after the decider said yes, so the
 			// election is already made -- re-posing it would ask again and,
@@ -170,16 +170,16 @@ func effDraw(h Host, c *Ctx, sa *cards.SA) {
 	// mandatory draw event that would mill a player the card only offered
 	// to draw).
 	if dp.Upto {
-		for idx := int(c.DrawUptoIdx); idx < len(targets); idx++ {
+		for idx := int(c.Draw.UptoIdx); idx < len(targets); idx++ {
 			p := targets[idx]
-			if !c.DrawUptoAnswered {
+			if !c.Draw.UptoAnswered {
 				lib := zoneOf(h.Game(), state.ZLibrary, p)
 				m := n
 				if int32(len(lib)) < m {
 					m = int32(len(lib))
 				}
 				if m <= 0 {
-					c.DrawUptoIdx = int32(idx + 1)
+					c.Draw.UptoIdx = int32(idx + 1)
 					continue
 				}
 				d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 0, Max: int(m),
@@ -208,25 +208,25 @@ func effDraw(h Host, c *Ctx, sa *cards.SA) {
 				if ans, ok := AskTape(h, d); ok {
 					// The resolution kernel's answer in hand: the count the
 					// "draw_upto" arm binds, drawn for this target now.
-					c.DrawUptoCount, c.DrawUptoAnswered = int32(len(ans)), true
+					c.Draw.UptoCount, c.Draw.UptoAnswered = int32(len(ans)), true
 					tapeReentry()
 				} else {
 
 					// No-host (R-9): the pre-ask mandatory draw of what was offered.
-					c.DrawUptoCount, c.DrawUptoAnswered = m, true
+					c.Draw.UptoCount, c.Draw.UptoAnswered = m, true
 				}
 
 			}
-			for c.DrawDone < c.DrawUptoCount {
+			for c.Draw.Done < c.Draw.UptoCount {
 				var lib []state.ObjID
 				if remember {
 					lib = zoneOf(h.Game(), state.ZLibrary, p)
 				}
-				if drawFor(h, p, int(c.DrawDone), sa, drawUptoRider{idx: idx, count: c.DrawUptoCount}) {
+				if drawFor(h, p, int(c.Draw.Done), sa, drawUptoRider{idx: idx, count: c.Draw.UptoCount}) {
 					// A tape-served Dredge answer, already applied: on past
 					// this draw, as the "dredge" re-entry continues.
 					tapeReentry()
-					c.DrawDone++
+					c.Draw.Done++
 					continue
 				}
 				if h.Suspended() {
@@ -238,25 +238,25 @@ func effDraw(h Host, c *Ctx, sa *cards.SA) {
 				if remember && len(lib) > 0 {
 					c.Remembered = append(c.Remembered, state.Target{Obj: lib[0]})
 				}
-				c.DrawDone++
+				c.Draw.Done++
 			}
-			c.DrawDone = 0
-			c.DrawUptoIdx = int32(idx + 1)
-			c.DrawUptoCount, c.DrawUptoAnswered = 0, false
+			c.Draw.Done = 0
+			c.Draw.UptoIdx = int32(idx + 1)
+			c.Draw.UptoCount, c.Draw.UptoAnswered = 0, false
 		}
 		return
 	}
-	for c.DrawDone < total {
-		p := targets[c.DrawDone/n]
+	for c.Draw.Done < total {
+		p := targets[c.Draw.Done/n]
 		var lib []state.ObjID
 		if remember {
 			lib = zoneOf(h.Game(), state.ZLibrary, p)
 		}
-		if drawFor(h, p, int(c.DrawDone), sa, drawUptoRider{}) {
+		if drawFor(h, p, int(c.Draw.Done), sa, drawUptoRider{}) {
 			// A tape-served Dredge answer, already applied: on past this
 			// draw, as the "dredge" re-entry continues.
 			tapeReentry()
-			c.DrawDone++
+			c.Draw.Done++
 			continue
 		}
 		if h.Suspended() {
@@ -268,8 +268,8 @@ func effDraw(h Host, c *Ctx, sa *cards.SA) {
 		if remember && len(lib) > 0 {
 			c.Remembered = append(c.Remembered, state.Target{Obj: lib[0]})
 		}
-		c.DrawDone++
+		c.Draw.Done++
 	}
 	// DrawDone is scoped to this primitive like the other Ctx answer fields.
-	c.DrawDone = 0
+	c.Draw.Done = 0
 }

@@ -14,15 +14,15 @@ func effReplaceMana(_ Host, c *Ctx, sa *cards.SA) {
 	if c == nil {
 		return
 	}
-	if only := strings.TrimSpace(sa.ParamStr(cards.PKReplaceOnly)); only != "" && only != c.ManaType {
+	if only := strings.TrimSpace(sa.ParamStr(cards.PKReplaceOnly)); only != "" && only != c.Mana.Type {
 		return
 	}
 	if n := Num(nil, c, sa, "ReplaceAmount", 1); n > 0 {
-		c.ManaAmount *= n
+		c.Mana.Amount *= n
 	}
 	kind := strings.TrimSpace(sa.ParamStr(cards.PKReplaceMana))
 	if kind != "" {
-		c.ManaAmount = 1
+		c.Mana.Amount = 1
 	}
 	if kind == "" {
 		kind = strings.TrimSpace(sa.ParamStr(cards.PKReplaceType))
@@ -45,10 +45,10 @@ func effReplaceMana(_ Host, c *Ctx, sa *cards.SA) {
 	case effReplaceMana1b71Green:
 		kind = "G"
 	case effReplaceMana1b71Any:
-		kind = c.ManaChoice
+		kind = c.Mana.Choice
 	}
 	if len(kind) == 1 && strings.ContainsRune(ManaSymbols, rune(kind[0])) {
-		c.ManaType = kind
+		c.Mana.Type = kind
 	}
 }
 

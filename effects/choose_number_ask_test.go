@@ -80,7 +80,7 @@ func TestChooseNumberEntryBodyStaysTheNoOp(t *testing.T) {
 	h.g = state.NewGame(names(2))
 	src := chooseNumberSrc(t, &h.fakeHost)
 	h.Emit(events.Event{Kind: events.Choose, Obj: src, Counter: "number", Amount: 0})
-	ctx := &Ctx{Source: src, Controller: 0, ETBNumberRecorded: true}
+	ctx := &Ctx{Source: src, Controller: 0, ETB: ETBRecords{NumberRecorded: true}}
 	before := len(h.log)
 	Resolve(h, ctx, sa(t, "DB$ ChooseNumber"))
 	if len(h.asks) != 0 {
@@ -89,7 +89,7 @@ func TestChooseNumberEntryBodyStaysTheNoOp(t *testing.T) {
 	if len(h.log) != before {
 		t.Fatalf("the entry body emitted %d event(s), want none", len(h.log)-before)
 	}
-	if ctx.ETBNumberRecorded {
+	if ctx.ETB.NumberRecorded {
 		t.Fatalf("the entry-body flag was not consumed")
 	}
 	// A fresh resolution after the entry body still asks (the flag is gone).

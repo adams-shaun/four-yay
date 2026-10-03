@@ -299,7 +299,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 	// the answered tail -- consume the answer, shuffle on "yes" -- and stop:
 	// re-resolving targets would re-run the move pass and re-pose the
 	// pre-asks below against objects that have left their origin zone.
-	if c.SearchShuffle != "" && objectPathShuffleOwed(cz) {
+	if c.Search.Shuffle != "" && objectPathShuffleOwed(cz) {
 		objectPathShuffleTail(h, c, sa, cz, nil)
 		return
 	}
@@ -595,7 +595,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 		// battlefield departure's controller to its owner (CR 400.7), so this
 		// is the last point the pre-move controller is readable.
 		if cz.RememberLKI {
-			c.ChangeZoneLKI = append(c.ChangeZoneLKI, state.LKIObject{Obj: o.ID, Controller: o.Controller, Owner: o.Owner})
+			c.Snap.ChangeZone = append(c.Snap.ChangeZone, state.LKIObject{Obj: o.ID, Controller: o.Controller, Owner: o.Owner})
 		}
 		if to == state.ZExile && len(ev.IDs) == 0 && (faceStaticsNameExiledWithSource(h, c.Source) || cz.Imprint) {
 			ev.IDs = []state.ObjID{c.Source}
@@ -1347,7 +1347,7 @@ func settleChangeZoneMoveAs(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, 
 	ev := moveZoneEvent(c, id, from, to)
 	if cz.RememberLKI {
 		if o := h.Game().Obj(id); o != nil {
-			c.ChangeZoneLKI = append(c.ChangeZoneLKI, state.LKIObject{Obj: id, Controller: o.Controller, Owner: o.Owner})
+			c.Snap.ChangeZone = append(c.Snap.ChangeZone, state.LKIObject{Obj: id, Controller: o.Controller, Owner: o.Owner})
 		}
 	}
 	if to == state.ZExile && len(ev.IDs) == 0 && (faceStaticsNameExiledWithSource(h, c.Source) || cz.Imprint) {

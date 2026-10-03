@@ -1751,9 +1751,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 						Remembered:     e.triggerRememberedFor(t, *ev, id),
 						Captured:       e.triggerRememberedFor(t, *ev, id),
 						LKI:            objLKI,
-						LKIPower:       lkiPower,
-						LKIToughness:   lkiToughness,
-						LKIPTValid:     objLKI != nil && lkiPTValid,
+						Snap:           effects.LKISnapshots{Power: lkiPower, Toughness: lkiToughness, PTValid: objLKI != nil && lkiPTValid},
 						TriggerContext: observer.triggerReferents(t, id, *ev, objLKI),
 					}),
 				}

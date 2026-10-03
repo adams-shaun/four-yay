@@ -74,14 +74,14 @@ func (e *Engine) applyOneManaReplacement(ev events.Event, m replMatch, color str
 		return ev
 	}
 	ctx := effects.NewCtxPtr(m.id, e.controllerOf(m.id), effects.CtxInit{})
-	ctx.ManaAmount, ctx.ManaType, ctx.ManaChoice = ev.Amount, ev.Counter, color
+	ctx.Mana.Amount, ctx.Mana.Type, ctx.Mana.Choice = ev.Amount, ev.Counter, color
 	if m.face != nil {
 		effects.SetSVars(ctx, m.face.SVars)
 	}
 	// The producer is contextual (not ManaAdd.Obj), but ReplaceWith$ still
 	// resolves against that object for Defined$/Remembered$ references.
 	e.runReplaceWith(ctx, e.manaProducer, m.repl.With, nil)
-	ev.Amount, ev.Counter = ctx.ManaAmount, ctx.ManaType
+	ev.Amount, ev.Counter = ctx.Mana.Amount, ctx.Mana.Type
 	return ev
 }
 

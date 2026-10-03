@@ -487,8 +487,8 @@ func (e *Engine) releaseSpecEnv() { e.specEnvDepth-- }
 func (r *specResolveEnv) countCtx() *effects.Ctx {
 	if r.ctx == nil {
 		r.ctx = effects.NewCtxPtr(r.source, r.you, effects.CtxInit{TriggerContext: r.tcx,
-			Remembered: r.remembered, SVars: r.svars, LKI: r.lki, LKIPower: r.lkiPower,
-			LKIToughness: r.lkiToughness, LKIPTValid: r.lkiPTValid, X: r.x})
+			Remembered: r.remembered, SVars: r.svars, LKI: r.lki, Snap: effects.LKISnapshots{Power: r.lkiPower, Toughness: r.lkiToughness, PTValid: r.lkiPTValid},
+			X: r.x})
 		r.ctx.Host = r.e
 	}
 	return r.ctx

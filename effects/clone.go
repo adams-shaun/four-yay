@@ -75,10 +75,10 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 		// noted on its first pass.
 		noteUnreadParams(h, c, "Clone", cp.Unread)
 	}
-	if c.CloneETB {
+	if c.CloneEnter.ETB {
 		// The ETB election is answered before the move. A decline is a real
 		// answer, not the deterministic Choices$ fallback.
-		if !c.CloneChoiceValid {
+		if !c.CloneEnter.ChoiceValid {
 			// No recorded election: a non-cast entry (reanimation, blink,
 			// ChangeZone) of any carrier, or a cast whose body the ETB
 			// whitelist declined (an out-of-scope rider -- Vesuva's
@@ -90,7 +90,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 				Text: "unimplemented API " + sa.API})
 			return
 		}
-		if c.CloneChoice == 0 {
+		if c.CloneEnter.Choice == 0 {
 			return
 		}
 		// The election was made while the spell was announced, but a player
@@ -136,8 +136,8 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 		// A name has no source ObjID. The copied face is resolved in Apply
 		// from the universe carried by the game, keyed by this chosen name.
 		source = []state.Target{{Obj: c.Source}}
-	case c.CloneETB:
-		source = []state.Target{{Obj: c.CloneChoice}}
+	case c.CloneEnter.ETB:
+		source = []state.Target{{Obj: c.CloneEnter.Choice}}
 	case spec != "":
 		ts, ok := knownDefinedTargets(h, c, spec)
 		if !ok {
@@ -343,7 +343,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 	// keeps the deterministic take stand-in the pre-election build shipped,
 	// byte-identical (the same convention the optional-discard family
 	// records) -- a "may" that cannot ask never wedges.
-	if !c.CloneETB && cp.Optional {
+	if !c.CloneEnter.ETB && cp.Optional {
 		if !cloneDone {
 			prompt := "You may have a permanent become a copy?"
 			if ob := g.Obj(pairs[0].become.Obj); ob != nil && ob.Face() != nil {
@@ -462,7 +462,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 	if len(lostTriggers) > 0 {
 		unread = append(unread, "AddTriggers$ "+strings.Join(lostTriggers, ","))
 	}
-	if cp.IntoPlayTappedSet && !c.CloneETB {
+	if cp.IntoPlayTappedSet && !c.CloneEnter.ETB {
 		unread = append(unread, "IntoPlayTapped$ "+cp.IntoPlayTapped+" (no entry)")
 	}
 	// Preserve every named static's original body: the event fold installs
@@ -679,7 +679,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 		}
 		// A standalone copy did not enter. Entry tapping is applied by the
 		// replacement body only; ordinary Clone never changes tap status.
-		if c.CloneETB && cp.IntoPlayTappedTrue {
+		if c.CloneEnter.ETB && cp.IntoPlayTappedTrue {
 			h.Emit(events.Event{Kind: events.Tap, Obj: b.Obj})
 		}
 		// The layer-1 LCopy MARKER owns the copy's lifetime. It is always
@@ -738,8 +738,8 @@ func cloneNames(raw string) []string {
 // ability's own source object) -- "this permanent becomes a copy". The
 // named forms reuse the same Defined$ referent grammar the source half uses.
 func cloneBecome(h Host, c *Ctx, cp *CloneParams) ([]state.Target, bool) {
-	if c.CloneBecomeValid {
-		return []state.Target{{Obj: c.CloneBecome}}, true
+	if c.CloneEnter.BecomeValid {
+		return []state.Target{{Obj: c.CloneEnter.Become}}, true
 	}
 	spec := cp.CloneTarget
 	if spec == "" {
@@ -775,7 +775,7 @@ func cloneBecome(h Host, c *Ctx, cp *CloneParams) ([]state.Target, bool) {
 // (SpecNeedsResolver), so no election is ever recorded for one and this
 // revalidation only ever sees selectors the no-resolver matcher can decide.
 func cloneETBTemplateLegal(g *state.Game, c *Ctx, cp *CloneParams) bool {
-	o := g.Obj(c.CloneChoice)
+	o := g.Obj(c.CloneEnter.Choice)
 	if o == nil || o.Zone != state.ZBattlefield || o.Face() == nil {
 		return false
 	}
@@ -786,7 +786,7 @@ func cloneETBTemplateLegal(g *state.Game, c *Ctx, cp *CloneParams) bool {
 	if !strings.Contains(spec, ".") && !strings.HasPrefix(spec, "Card") {
 		spec = "Card." + spec
 	}
-	return c.MatchSpec(g, spec, c.CloneChoice, c.Controller)
+	return c.MatchSpec(g, spec, c.CloneEnter.Choice, c.Controller)
 }
 
 // cloneChoiceZone classifies ChoiceZone$, the zone a Choices$ pick draws its

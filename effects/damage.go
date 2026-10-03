@@ -253,7 +253,7 @@ func newDamageRider(h Host, c *Ctx, spec string, amount int32) damageRider {
 	}
 	controller := c.Controller
 	if !live {
-		lki, named := c.DamageSourceLKI[source]
+		lki, named := c.Snap.DamageSource[source]
 		if named {
 			// CR 113.7a covers the whole damage rider, not just lifelink: the
 			// same departure walk seeds this map for the resolution's OWN
@@ -263,10 +263,10 @@ func newDamageRider(h Host, c *Ctx, spec string, amount int32) damageRider {
 			hasInfect, hasWither, hasDeathtouch = lki.Infect, lki.Wither, lki.Deathtouch
 		}
 		switch {
-		case source == own && c.SourceLifelinkLKIValid:
-			hasLifelink = c.SourceLifelinkLKI
-			controller = c.SourceControllerLKI
-			if !c.SourceControllerLKIValid {
+		case source == own && c.Snap.SourceLifelinkValid:
+			hasLifelink = c.Snap.SourceLifelink
+			controller = c.Snap.SourceController
+			if !c.Snap.SourceControllerValid {
 				controller = c.Controller
 			}
 		case named:

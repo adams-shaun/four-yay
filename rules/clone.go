@@ -363,21 +363,21 @@ func clonePendingTriggers(src []pendingTrigger) []pendingTrigger {
 			}
 		}
 		pt.Ctx.Remembered = append([]state.Target(nil), pt.Ctx.Remembered...)
-		if pt.Ctx.TargetControllerLKI != nil {
-			m := make(map[state.ObjID]state.PlayerID, len(pt.Ctx.TargetControllerLKI))
-			for id, controller := range pt.Ctx.TargetControllerLKI {
+		if pt.Ctx.Snap.TargetController != nil {
+			m := make(map[state.ObjID]state.PlayerID, len(pt.Ctx.Snap.TargetController))
+			for id, controller := range pt.Ctx.Snap.TargetController {
 				m[id] = controller
 			}
-			pt.Ctx.TargetControllerLKI = m
+			pt.Ctx.Snap.TargetController = m
 		}
-		if pt.Ctx.TargetCountersLKI != nil {
-			pt.Ctx.TargetCountersLKI = effects.CloneTargetCountersLKI(pt.Ctx.TargetCountersLKI)
+		if pt.Ctx.Snap.TargetCounters != nil {
+			pt.Ctx.Snap.TargetCounters = effects.CloneTargetCountersLKI(pt.Ctx.Snap.TargetCounters)
 		}
-		if pt.Ctx.TargetPTLKI != nil {
-			pt.Ctx.TargetPTLKI = effects.CloneTargetPTLKI(pt.Ctx.TargetPTLKI)
+		if pt.Ctx.Snap.TargetPT != nil {
+			pt.Ctx.Snap.TargetPT = effects.CloneTargetPTLKI(pt.Ctx.Snap.TargetPT)
 		}
-		if pt.Ctx.TargetSpellLKI != nil {
-			pt.Ctx.TargetSpellLKI = effects.CloneTargetSpellLKI(pt.Ctx.TargetSpellLKI)
+		if pt.Ctx.Snap.TargetSpell != nil {
+			pt.Ctx.Snap.TargetSpell = effects.CloneTargetSpellLKI(pt.Ctx.Snap.TargetSpell)
 		}
 		if pt.Ctx.SVars != nil {
 			m := make(map[string]string, len(pt.Ctx.SVars))

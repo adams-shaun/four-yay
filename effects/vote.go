@@ -343,10 +343,10 @@ func voteCountsForObjects(options []state.ObjID, counts map[state.ObjID]int) []V
 // clears the field rather than leaving a previous vote's stale one in place.
 func publishVoteCounts(c *Ctx, counts []VoteCount) {
 	if len(counts) == 0 {
-		c.VoteCounts = nil
+		c.Vote.Counts = nil
 		return
 	}
-	c.VoteCounts = counts
+	c.Vote.Counts = counts
 }
 
 // voteCountFor resolves an AmountFromVotes$ loop subject's tally. ok=false
@@ -356,7 +356,7 @@ func voteCountFor(c *Ctx, subject state.Target) (int, bool) {
 	if c == nil {
 		return 0, false
 	}
-	return VoteCountForTarget(c.VoteCounts, subject)
+	return VoteCountForTarget(c.Vote.Counts, subject)
 }
 
 // VoteCountForTarget resolves a subject's tally out of a published

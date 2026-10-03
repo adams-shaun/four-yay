@@ -79,13 +79,13 @@ func (e *Engine) targetBoundCtx(p state.PlayerID, source state.ObjID) (*effects.
 	// exactly the `x` resolvedTargetBounds threads for a Count$xPaid bound.
 	if pc := e.cast; pc != nil && pc.card == source {
 		if pc.multikickSet {
-			ctx.TimesKicked = pc.multikickTimes
+			ctx.Kicker.TimesKicked = pc.multikickTimes
 		}
 		// The CHOSEN cast mode's kicked bit (Tear Asunder's kicked main SA is
 		// TargetMin$ X | TargetMax$ X over SVar:X:Count$Kicked.0.1): the same
 		// pre-payment gap TimesKicked closes, for the FlagKicked half. The
 		// mode was settled when the cast OPTION was picked, before this ask.
-		ctx.PendingKicked = modeIsKicked(pc.mode)
+		ctx.Kicker.PendingKicked = modeIsKicked(pc.mode)
 	}
 	if f := o.Face(); f != nil {
 		ctx.Source = source
@@ -161,7 +161,7 @@ func (e *Engine) resolvedTargetBoundsWithGift(p state.PlayerID, source state.Obj
 		return min, max
 	}
 	ctx.X = x
-	ctx.PromisedGiftOverride = promised
+	ctx.Kicker.PromisedGiftOverride = promised
 	tp := effects.TargetsOf(sa)
 	if tp.Min.Present && !isLiteralBound(tp.Min.Text) {
 		if n, resolved := effects.NumTextResolvedStrict(e, ctx, tp.Min, 1); resolved {

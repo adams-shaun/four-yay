@@ -1768,7 +1768,7 @@ func effRearrangeTopOfLibrary(h Host, c *Ctx, sa *cards.SA) {
 		if targetIndex < start {
 			continue
 		}
-		c.LibraryTarget = targetIndex
+		c.Search.Target = targetIndex
 		p := t
 		lib := zoneOf(g, state.ZLibrary, p)
 		k := n
@@ -2021,7 +2021,7 @@ func effLookAndArrange(h Host, c *Ctx, sa *cards.SA, n int32, kind, verb string,
 		if targetIndex < start {
 			continue
 		}
-		c.LibraryTarget = targetIndex
+		c.Search.Target = targetIndex
 		p := t
 		if !markSurveil && strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True") {
 			opt := string("")

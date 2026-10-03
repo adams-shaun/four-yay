@@ -47,11 +47,11 @@ func forgetOtherRemembered(h Host, c *Ctx, sa *cards.SA) {
 
 // forgetOther is forgetOtherRemembered over a compiled ForgetOtherRemembered$.
 func forgetOther(h Host, c *Ctx, forget bool) {
-	if forget && !c.ForgetOtherCleared {
+	if forget && !c.Forget.Cleared {
 		c.Remembered = nil
 		clearEventRemembered(h, c)
-		if c.ForgetOtherReady {
-			c.ForgetOtherCleared = true
+		if c.Forget.Ready {
+			c.Forget.Cleared = true
 		}
 	}
 }
@@ -72,27 +72,27 @@ func initForgetOtherSnapshot(h Host, c *Ctx, sa *cards.SA, owners []state.Player
 // initForgetOther is initForgetOtherSnapshot over a compiled
 // ForgetOtherRemembered$.
 func initForgetOther(h Host, c *Ctx, forget bool, owners []state.PlayerID, minOwners int) {
-	if len(owners) < minOwners || c.ForgetOtherReady || !forget {
+	if len(owners) < minOwners || c.Forget.Ready || !forget {
 		return
 	}
-	c.ForgetOtherReady = true
-	c.ForgetOtherOwners = append([]state.PlayerID(nil), owners...)
-	c.ForgetOtherSnapshot = append([]state.Target(nil), c.Remembered...)
+	c.Forget.Ready = true
+	c.Forget.Owners = append([]state.PlayerID(nil), owners...)
+	c.Forget.Snapshot = append([]state.Target(nil), c.Remembered...)
 	if src := h.Game().Obj(c.Source); src != nil {
-		c.ForgetOtherSnapshot = append(c.ForgetOtherSnapshot, src.Remembered...)
+		c.Forget.Snapshot = append(c.Forget.Snapshot, src.Remembered...)
 	}
 }
 
 func endForgetOtherSnapshot(c *Ctx) {
-	c.ForgetOtherSnapshot = nil
-	c.ForgetOtherOwners = nil
-	c.ForgetOtherReady, c.ForgetOtherCleared = false, false
+	c.Forget.Snapshot = nil
+	c.Forget.Owners = nil
+	c.Forget.Ready, c.Forget.Cleared = false, false
 }
 
 func forgetOtherSpecContext(c *Ctx) SpecContext {
 	sc := c.SpecContext(c.Controller)
-	if c.ForgetOtherReady {
-		sc.Remembered = append(append([]state.Target(nil), sc.Remembered...), c.ForgetOtherSnapshot...)
+	if c.Forget.Ready {
+		sc.Remembered = append(append([]state.Target(nil), sc.Remembered...), c.Forget.Snapshot...)
 	}
 	return sc
 }
@@ -106,7 +106,7 @@ func forgetOtherSpecContext(c *Ctx) SpecContext {
 // against memory the first move cleared. One read for every affected
 // primitive so the two carriers cannot drift.
 func forgetOtherPreClearContext(sel, c *Ctx) SpecContext {
-	if c.ForgetOtherReady {
+	if c.Forget.Ready {
 		return forgetOtherSpecContext(c)
 	}
 	return sel.SpecContext(sel.Controller)
@@ -187,8 +187,8 @@ func effChangeZoneHandOwners(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams,
 	// before handMoveOwnersWalk can restore the list -- dropping the later
 	// owner's already-answered move. handMoveOwnersWalk's own entry restores
 	// the same list; this restores it early enough to survive the guards.
-	owners, ok := c.ForgetOtherOwners, true
-	if !c.ForgetOtherReady {
+	owners, ok := c.Forget.Owners, true
+	if !c.Forget.Ready {
 		owners, ok = handMoveOwners(h, c, sa, cz)
 	}
 	if !ok {
@@ -371,8 +371,8 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to s
 	// The per-type groups an EACH ChangeType asks for, computed once: the
 	// sub-specs are a property of the SA, not of the hand owner.
 	eachSubs, isEach := eachAlternatives(spec)
-	if c.ForgetOtherReady {
-		owners = c.ForgetOtherOwners
+	if c.Forget.Ready {
+		owners = c.Forget.Owners
 	}
 	g := h.Game()
 	// fx42 scoping: capture and clear the answered pick (and the cursor that

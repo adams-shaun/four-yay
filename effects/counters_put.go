@@ -598,10 +598,10 @@ func targetCountersLKI(c *Ctx, id state.ObjID, o *state.Object) ([]state.Counter
 	if o != nil && o.Zone == state.ZBattlefield {
 		return nil, false
 	}
-	if c == nil || c.TargetCountersLKI == nil {
+	if c == nil || c.Snap.TargetCounters == nil {
 		return nil, false
 	}
-	cs, ok := c.TargetCountersLKI[id]
+	cs, ok := c.Snap.TargetCounters[id]
 	if !ok {
 		return nil, false
 	}

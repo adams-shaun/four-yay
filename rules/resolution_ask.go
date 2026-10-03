@@ -193,17 +193,17 @@ func (e *Engine) snapshotDepartingTargetCounters(oid state.ObjID) {
 	// the target has at this last battlefield instant (CR 608.2h -- a
 	// Giant Growth-pumped Condemn target's toughness, not the printed one).
 	if o.Face() != nil {
-		if c.TargetPTLKI == nil {
-			c.TargetPTLKI = make(map[state.ObjID]effects.TargetPT)
+		if c.Snap.TargetPT == nil {
+			c.Snap.TargetPT = make(map[state.ObjID]effects.TargetPT)
 		}
-		c.TargetPTLKI[oid] = effects.TargetPT{Power: e.Power(oid), Toughness: e.Toughness(oid)}
+		c.Snap.TargetPT[oid] = effects.TargetPT{Power: e.Power(oid), Toughness: e.Toughness(oid)}
 	}
 	if len(o.Counters) == 0 {
-		delete(c.TargetCountersLKI, oid)
+		delete(c.Snap.TargetCounters, oid)
 		return
 	}
-	if c.TargetCountersLKI == nil {
-		c.TargetCountersLKI = make(map[state.ObjID][]state.Counter)
+	if c.Snap.TargetCounters == nil {
+		c.Snap.TargetCounters = make(map[state.ObjID][]state.Counter)
 	}
-	c.TargetCountersLKI[oid] = append([]state.Counter(nil), o.Counters...)
+	c.Snap.TargetCounters[oid] = append([]state.Counter(nil), o.Counters...)
 }

@@ -124,13 +124,13 @@ func tokenOwnerPlayers(h Host, c *Ctx, spec string) ([]state.PlayerID, bool) {
 	// have been destroyed by the parent SA before this chained Token runs;
 	// events.Apply intentionally resets a departed object's live Controller to
 	// Owner, so prefer the controller captured when Resolve began.
-	if spec == "TargetedController" && c != nil && c.TargetControllerLKI != nil {
+	if spec == "TargetedController" && c != nil && c.Snap.TargetController != nil {
 		owners := make([]state.PlayerID, 0, len(c.Targets))
 		for _, target := range c.Targets {
 			if target.IsPlayer {
 				continue
 			}
-			if controller, ok := c.TargetControllerLKI[target.Obj]; ok {
+			if controller, ok := c.Snap.TargetController[target.Obj]; ok {
 				owners = append(owners, controller)
 				continue
 			}

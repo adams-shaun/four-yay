@@ -529,11 +529,11 @@ func effChooseCard(h Host, c *Ctx, sa *cards.SA) {
 	selection := *c // candidate filters read the pre-clear remembered set
 	initForgetOtherSnapshot(h, c, sa, choosers, 2)
 	forgetOtherRemembered(h, c, sa)
-	if c.ForgetOtherReady {
+	if c.Forget.Ready {
 		// The snapshot is authoritative across the asks: a resumed chooser's
 		// pool must still match the pre-clear candidates (plus anything
 		// re-remembered since) after the first move cleared the live set.
-		selection.Remembered = append(append([]state.Target(nil), selection.Remembered...), c.ForgetOtherSnapshot...)
+		selection.Remembered = append(append([]state.Target(nil), selection.Remembered...), c.Forget.Snapshot...)
 	}
 	// Reveal$ True (Planetary Annihilation's "each player chooses six lands
 	// they keep" is public knowledge — CR 701.x's open choice): each chooser's
@@ -667,8 +667,8 @@ func effChooseCard(h Host, c *Ctx, sa *cards.SA) {
 			// candidate selection from the Ctx as it stood at the ask (before
 			// this record), then records, reveals and re-reads the bounds.
 			selection = *c
-			if c.ForgetOtherReady {
-				selection.Remembered = append(append([]state.Target(nil), selection.Remembered...), c.ForgetOtherSnapshot...)
+			if c.Forget.Ready {
+				selection.Remembered = append(append([]state.Target(nil), selection.Remembered...), c.Forget.Snapshot...)
 			}
 			answered := ChoiceAnswerTargets(ans)
 			chooseCardRecord(h, c, sa, answered)

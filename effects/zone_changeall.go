@@ -196,7 +196,7 @@ func effChangeZoneAll(h Host, c *Ctx, sa *cards.SA) {
 		if cza.RememberLKI {
 			if o := g.Obj(id); o != nil {
 				snapshot := o.CloneDeep()
-				c.ChangeZoneLKI = append(c.ChangeZoneLKI, state.LKIObject{
+				c.Snap.ChangeZone = append(c.Snap.ChangeZone, state.LKIObject{
 					Obj: id, Controller: o.Controller, Owner: o.Owner, Snapshot: snapshot,
 				})
 			}

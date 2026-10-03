@@ -560,7 +560,7 @@ func refTargets(h Host, c *Ctx, ref string) ([]state.Target, bool) {
 			if t.IsPlayer || t.Obj == 0 {
 				continue
 			}
-			if c.TargetSpellLKI[t.Obj] {
+			if c.Snap.TargetSpell[t.Obj] {
 				return []state.Target{t}, true
 			}
 			if o := h.Game().Obj(t.Obj); o == nil || o.Zone != state.ZStack {

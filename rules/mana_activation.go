@@ -276,9 +276,9 @@ func (e *Engine) answerNestedManaColor(ma *manaColorActivation, chosen []decisio
 			continue
 		}
 		if len(chosen) == 1 {
-			ctx.ManaChoice = colour
+			ctx.Mana.Choice = colour
 		} else {
-			ctx.ManaChoices = append(ctx.ManaChoices, colour)
+			ctx.Mana.Choices = append(ctx.Mana.Choices, colour)
 		}
 	}
 	savedTap, savedProducer := e.manaFromTap, e.manaProducer

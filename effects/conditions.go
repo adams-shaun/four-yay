@@ -816,7 +816,7 @@ func targetedPermanentLKI(c *Ctx, present string, o *state.Object) *state.Object
 	oc := *o
 	oc.Zone = state.ZBattlefield
 	if c != nil {
-		if p, ok := c.TargetControllerLKI[o.ID]; ok {
+		if p, ok := c.Snap.TargetController[o.ID]; ok {
 			oc.Controller = p
 		}
 	}
@@ -921,7 +921,7 @@ func conditionMetBattlefield(h Host, c *Ctx, present, compare string) (met, reso
 		if o.Zone != state.ZBattlefield || o.Face() == nil {
 			continue
 		}
-		if c.Replaced != 0 && o.ID == c.Replaced {
+		if c.Repl.Replaced != 0 && o.ID == c.Repl.Replaced {
 			// The entering object is already a battlefield permanent (see the
 			// doc above): it is not an "other" permanent and must not count.
 			continue

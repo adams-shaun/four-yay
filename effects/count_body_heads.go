@@ -61,7 +61,7 @@ func evalCountBodyObjHeads(h Host, c *Ctx, g *state.Game, head, arg string, dept
 	// ORed with the object's FlagKicked; at resolution no pending cast exists
 	// and the object read is authoritative.
 	if rest, ok := strings.CutPrefix(head, "Kicked."); ok {
-		kicked := c.PendingKicked
+		kicked := c.Kicker.PendingKicked
 		if o := g.Obj(c.Source); o != nil && o.CastFlags&state.FlagKicked != 0 {
 			kicked = true
 		}
@@ -82,8 +82,8 @@ func evalCountBodyObjHeads(h Host, c *Ctx, g *state.Game, head, arg string, dept
 			return 0, false, true
 		}
 		promised := false
-		if c.PromisedGiftOverride != nil {
-			promised = *c.PromisedGiftOverride
+		if c.Kicker.PromisedGiftOverride != nil {
+			promised = *c.Kicker.PromisedGiftOverride
 		} else if o := g.Obj(c.Source); o != nil {
 			promised = o.CastFlags&state.FlagPromisedGift != 0
 		}

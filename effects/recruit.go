@@ -57,8 +57,8 @@ func effRecruit(h Host, c *Ctx, sa *cards.SA) {
 
 	// The draw. A non-zero DrawDone is a Dredge resume: the draw already
 	// completed and was replaced (CR 701.9 orders draw before discard).
-	drawDone := c.DrawDone
-	c.DrawDone = 0
+	drawDone := c.Draw.Done
+	c.Draw.Done = 0
 	if answered == nil && drawDone == 0 {
 		drawFor(h, ctrl, 0, sa, drawUptoRider{})
 		if h.Suspended() {

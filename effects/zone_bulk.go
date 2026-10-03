@@ -104,7 +104,7 @@ func effDestroy(h Host, c *Ctx, sa *cards.SA) {
 			if moved := h.Game().Obj(id); moved != nil && moved.Zone == state.ZGraveyard {
 				if rememberLKI {
 					c.LKI = lki
-					c.LKIPower, c.LKIToughness, c.LKIPTValid = lkiPower, lkiToughness, lkiValid
+					c.Snap.Power, c.Snap.Toughness, c.Snap.PTValid = lkiPower, lkiToughness, lkiValid
 				}
 				c.Remembered = append(c.Remembered, state.Target{Obj: id})
 				eventRemember(h, c, id)

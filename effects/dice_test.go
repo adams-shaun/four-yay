@@ -106,8 +106,8 @@ func TestBoomflingerPublishesTheDifferenceBetweenRolls(t *testing.T) {
 	if rolls := rollResults(t, h); len(rolls) != 2 || rolls[0] != 4 || rolls[1] != 2 {
 		t.Fatalf("roll Notes = %v, want [4 2]", rolls)
 	}
-	if ctx.LastRollName != "Result" || ctx.LastRoll != 2 {
-		t.Fatalf("publication = %s/%d, want Result/2 (|4-2|)", ctx.LastRollName, ctx.LastRoll)
+	if ctx.Roll.LastName != "Result" || ctx.Roll.Last != 2 {
+		t.Fatalf("publication = %s/%d, want Result/2 (|4-2|)", ctx.Roll.LastName, ctx.Roll.Last)
 	}
 	if got := life1 - g.Players[1].Life; got != 2 {
 		t.Fatalf("seat 1 took %d damage, want 2 (the difference, read through NumDmg$ Result)", got)
@@ -143,8 +143,8 @@ func TestNeverwinterHydraPublishesTheTotalOfXRolls(t *testing.T) {
 	if rolls := rollResults(t, h); len(rolls) != 3 || rolls[0] != 5 || rolls[1] != 2 || rolls[2] != 6 {
 		t.Fatalf("roll Notes = %v, want [5 2 6]", rolls)
 	}
-	if ctx.LastRollName != "Result" || ctx.LastRoll != 13 {
-		t.Fatalf("publication = %s/%d, want Result/13 (the total of 5+2+6)", ctx.LastRollName, ctx.LastRoll)
+	if ctx.Roll.LastName != "Result" || ctx.Roll.Last != 13 {
+		t.Fatalf("publication = %s/%d, want Result/13 (the total of 5+2+6)", ctx.Roll.LastName, ctx.Roll.Last)
 	}
 	if got := src.Counter("P1P1"); got != 13 {
 		t.Fatalf("the Hydra entered with %d +1/+1 counters, want 13", got)

@@ -312,20 +312,20 @@ func effVillainousChoice(h Host, c *Ctx, sa *cards.SA) {
 		if villainousRunChoice(h, c, sa, names) {
 			return
 		}
-		c.VillainousIndex++
+		c.Choosers.VictimIndex++
 	}
-	if c.VillainousVictims == nil {
+	if c.Choosers.Victims == nil {
 		for _, target := range Defined(h, c, sa) {
 			if target.IsPlayer {
-				c.VillainousVictims = append(c.VillainousVictims, target)
+				c.Choosers.Victims = append(c.Choosers.Victims, target)
 			}
 		}
 		// The trigger's original Remembered can already end in its victim
 		// (Attacks supplies the defender). That is not proof of a resumed
 		// body: the explicit VillainousRest cursor handles nested asks.
 	}
-	for c.VillainousIndex < len(c.VillainousVictims) {
-		victim := c.VillainousVictims[c.VillainousIndex]
+	for c.Choosers.VictimIndex < len(c.Choosers.Victims) {
+		victim := c.Choosers.Victims[c.Choosers.VictimIndex]
 		// The body is evaluated against this victim, not an earlier victim.
 		c.Remembered = []state.Target{victim}
 		d := &decision.Decision{Player: victim.Player, Kind: decision.KModes,
@@ -348,7 +348,7 @@ func effVillainousChoice(h Host, c *Ctx, sa *cards.SA) {
 			if villainousRunChoice(h, c, sa, names) {
 				return
 			}
-			c.VillainousIndex++
+			c.Choosers.VictimIndex++
 			continue
 		}
 
@@ -360,14 +360,14 @@ func effVillainousChoice(h Host, c *Ctx, sa *cards.SA) {
 		if h.Suspended() {
 			return
 		}
-		c.VillainousIndex++
+		c.Choosers.VictimIndex++
 	}
 	// Every victim has chosen: the cursor is spent. Reset it (the per-player
 	// GenericChoice loop's discipline), or a later VillainousChoice on the
 	// same Ctx -- the next iteration of an enclosing Repeat -- finds the
 	// exhausted cursor and asks nobody.
-	c.VillainousVictims = nil
-	c.VillainousIndex = 0
+	c.Choosers.Victims = nil
+	c.Choosers.VictimIndex = 0
 }
 
 // charmRestNote mirrors, on the resolution kernel's path, the one event the
@@ -489,7 +489,7 @@ func charmGenericPlayers(h Host, c *Ctx, sa *cards.SA) bool {
 	}
 	// A re-entry for an answered/continued chooser carries the cursor; the SA
 	// may be reached mid-resolution with c.Modes already naming the answer.
-	if c.GenericChoosers != nil {
+	if c.Choosers.Choosers != nil {
 		return charmGenericPlayersRun(h, c, sa, choices)
 	}
 	defined := p.Defined
@@ -525,8 +525,8 @@ func charmGenericPlayers(h Host, c *Ctx, sa *cards.SA) bool {
 			Text: "GenericChoice Defined$ " + defined + " resolved no players"})
 		return true
 	}
-	c.GenericChoosers = players
-	c.GenericChooserIndex = 0
+	c.Choosers.Choosers = players
+	c.Choosers.ChooserIndex = 0
 	return charmGenericPlayersRun(h, c, sa, choices)
 }
 
@@ -576,11 +576,11 @@ func charmGenericPlayersRun(h Host, c *Ctx, sa *cards.SA, choices []string) bool
 		if sub == nil {
 			return false
 		}
-		savedChoosers, savedIndex := c.GenericChoosers, c.GenericChooserIndex
-		c.GenericChoosers, c.GenericChooserIndex = nil, 0
+		savedChoosers, savedIndex := c.Choosers.Choosers, c.Choosers.ChooserIndex
+		c.Choosers.Choosers, c.Choosers.ChooserIndex = nil, 0
 		asks := askCount(h)
 		Resolve(h, c, sub)
-		c.GenericChoosers, c.GenericChooserIndex = savedChoosers, savedIndex
+		c.Choosers.Choosers, c.Choosers.ChooserIndex = savedChoosers, savedIndex
 		if h.Suspended() {
 			return true
 		}
@@ -590,7 +590,7 @@ func charmGenericPlayersRun(h Host, c *Ctx, sa *cards.SA, choices []string) bool
 	if c.Modes != nil {
 		names := c.Modes
 		c.Modes = nil
-		chooser := c.GenericChoosers[c.GenericChooserIndex-1]
+		chooser := c.Choosers.Choosers[c.Choosers.ChooserIndex-1]
 		for _, name := range names {
 			if tempRemember {
 				c.Remembered = []state.Target{chooser}
@@ -605,8 +605,8 @@ func charmGenericPlayersRun(h Host, c *Ctx, sa *cards.SA, choices []string) bool
 			return true
 		}
 	}
-	for c.GenericChooserIndex < len(c.GenericChoosers) {
-		chooser := c.GenericChoosers[c.GenericChooserIndex]
+	for c.Choosers.ChooserIndex < len(c.Choosers.Choosers) {
+		chooser := c.Choosers.Choosers[c.Choosers.ChooserIndex]
 		// The chosen body reads Defined$ Remembered as THIS chooser, and only
 		// when TempRemember$ asked for that binding.
 		if tempRemember {
@@ -631,7 +631,7 @@ func charmGenericPlayersRun(h Host, c *Ctx, sa *cards.SA, choices []string) bool
 				h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 					Text: "GenericChoice no payable choice and no FallbackAbility"})
 			}
-			c.GenericChooserIndex++
+			c.Choosers.ChooserIndex++
 			continue
 		}
 		var pick string
@@ -639,7 +639,7 @@ func charmGenericPlayersRun(h Host, c *Ctx, sa *cards.SA, choices []string) bool
 			// param:api:GenericChoice.AtRandom: the engine picks for this
 			// chooser from its seeded rng; the chooser is never asked.
 			if pick = genericChoiceRandomPick(h, c, sa, chooser.Player, available); pick == "" {
-				c.GenericChooserIndex++
+				c.Choosers.ChooserIndex++
 				continue
 			}
 		} else {
@@ -682,15 +682,15 @@ func charmGenericPlayersRun(h Host, c *Ctx, sa *cards.SA, choices []string) bool
 			// Preserve both cursor and outer remembered set across the nested ask.
 			return true
 		}
-		c.GenericChooserIndex++
+		c.Choosers.ChooserIndex++
 	}
 	if tempRemember {
 		// Forge restores the complete remembered set that preceded the
 		// temporary chooser binding, including any enclosing player remembers.
 		c.Remembered = append([]state.Target(nil), baselineRemembered...)
 	}
-	c.GenericChoosers = nil
-	c.GenericChooserIndex = 0
+	c.Choosers.Choosers = nil
+	c.Choosers.ChooserIndex = 0
 	return true
 }
 

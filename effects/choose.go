@@ -41,8 +41,8 @@ func init() {
 // cmcChosenEvenOdd filter. Its answer is recorded as the source's chosen type,
 // keeping the answer replayable through the existing Choose event.
 func effChooseEvenOdd(h Host, c *Ctx, sa *cards.SA) {
-	if c.ETBEvenOddRecorded {
-		c.ETBEvenOddRecorded = false
+	if c.ETB.EvenOddRecorded {
+		c.ETB.EvenOddRecorded = false
 		return
 	}
 	if answer := string(""); answer == "odd" || answer == "even" {
@@ -97,7 +97,7 @@ func effChooseEvenOdd(h Host, c *Ctx, sa *cards.SA) {
 func effChooseColor(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
 	opts, askable, exotic := chooseColorOptions(sa)
-	if c.ETBColorRecorded {
+	if c.ETB.ColorRecorded {
 		// The as-enters ENTRY-choice body (ETBColorRecorded, set by rules'
 		// replCtx for the K:ETBReplacement ChooseColor repl): the entry ask
 		// already recorded the answer on the object, so this pass is the
@@ -106,7 +106,7 @@ func effChooseColor(h Host, c *Ctx, sa *cards.SA) {
 		// deterministic fallback emit. The flag is consumed and cleared
 		// (fx42): a nested ChooseColor deeper in the same chain poses its
 		// own fresh ask.
-		c.ETBColorRecorded = false
+		c.ETB.ColorRecorded = false
 		if o := g.Obj(c.Source); o != nil && o.ChosenColor != "" {
 			return
 		}
@@ -284,11 +284,11 @@ func chooseColorOffers(opts []decision.Option, l byte) bool {
 // "never asked" on the object, but the flag is set precisely when the entry
 // machinery recorded one.
 func effChooseNumber(h Host, c *Ctx, sa *cards.SA) {
-	if c.ETBNumberRecorded {
+	if c.ETB.NumberRecorded {
 		// The as-enters ENTRY-choice body: resumeETBEntry already recorded
 		// the answer on the object, so this pass emits nothing (the fx42
 		// consume-and-clear).
-		c.ETBNumberRecorded = false
+		c.ETB.NumberRecorded = false
 		return
 	}
 

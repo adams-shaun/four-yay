@@ -534,8 +534,8 @@ func effectRemembered(h Host, c *Ctx, sa *cards.SA) []state.ObjID {
 				// RepExile → DBEffect: the found card the replacement just exiled
 				// is the one the may-play grant remembers). Outside a replacement
 				// (c.Replaced zero) or after the object ceased to exist, nothing.
-				if c.Replaced != 0 && h.Game().Obj(c.Replaced) != nil {
-					out = append(out, c.Replaced)
+				if c.Repl.Replaced != 0 && h.Game().Obj(c.Repl.Replaced) != nil {
+					out = append(out, c.Repl.Replaced)
 				}
 			case effectRememberedb5e1TriggeredCard:
 				// The card the firing trigger's event captured (Mistrise Village's

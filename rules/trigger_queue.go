@@ -1105,29 +1105,29 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 			}
 			lki := pt.Ctx.LKI.CloneDeep()
 			e.triggerLKI[id] = triggerObjectLKI{object: &lki,
-				power: pt.Ctx.LKIPower, toughness: pt.Ctx.LKIToughness,
-				ptValid: pt.Ctx.LKIPTValid}
+				power: pt.Ctx.Snap.Power, toughness: pt.Ctx.Snap.Toughness,
+				ptValid: pt.Ctx.Snap.PTValid}
 		}
-		if pt.Ctx.SourceLifelinkLKIValid {
+		if pt.Ctx.Snap.SourceLifelinkValid {
 			if e.sourceLifelinkLKI == nil {
 				e.sourceLifelinkLKI = make(map[state.ObjID]bool)
 			}
-			e.sourceLifelinkLKI[id] = pt.Ctx.SourceLifelinkLKI
+			e.sourceLifelinkLKI[id] = pt.Ctx.Snap.SourceLifelink
 		}
-		if pt.Ctx.SourceControllerLKIValid {
+		if pt.Ctx.Snap.SourceControllerValid {
 			if e.sourceControllerLKI == nil {
 				e.sourceControllerLKI = make(map[state.ObjID]state.PlayerID)
 			}
-			e.sourceControllerLKI[id] = pt.Ctx.SourceControllerLKI
+			e.sourceControllerLKI[id] = pt.Ctx.Snap.SourceController
 		}
 		if pt.sourceCharLKIValid {
 			e.setSourceCharLKI(id, pt.sourceCharLKI)
 		}
-		if pt.Ctx.DamageSourceLKI != nil {
+		if pt.Ctx.Snap.DamageSource != nil {
 			if e.damageSourceLKI == nil {
 				e.damageSourceLKI = make(map[state.ObjID]map[state.ObjID]effects.DamageSourceLKI)
 			}
-			e.damageSourceLKI[id] = cloneDamageSourceLKI(pt.Ctx.DamageSourceLKI)
+			e.damageSourceLKI[id] = cloneDamageSourceLKI(pt.Ctx.Snap.DamageSource)
 		}
 	}
 	// Task 7: a trigger that declares ValidTgts$ asks its controller for

@@ -518,7 +518,7 @@ func evalCountExprOK(h Host, c *Ctx, expr string, depth int) (int32, bool) {
 		if field != "DamageAmount" && field != "Amount" && field != "Number" && field != "CounterNum" {
 			return 0, false
 		}
-		n := c.ReplacementAmount
+		n := c.Repl.Amount
 		if hasOp {
 			// Resolve named operands consistently with the SVar$ head above.
 			// Runtime-published roll values are resolved on the live

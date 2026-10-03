@@ -763,7 +763,7 @@ func (e *Engine) tokenReplacementAmount(m replMatch, ev events.Event, raw string
 		return n, true
 	}
 	ctx := e.replCtx(m, ev)
-	ctx.ReplacementAmount = base
+	ctx.Repl.Amount = base
 	return effects.NumResolved(e, ctx, m.repl.With, "Amount", base)
 }
 

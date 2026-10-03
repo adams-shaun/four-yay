@@ -172,15 +172,15 @@ func effMana(h Host, c *Ctx, sa *cards.SA) {
 	// A resumed Combo allocation supplies one concrete symbol per unit.
 	// Consume it before walking the SA so the same choice is not posed again;
 	// its units carry Amount 1 below rather than being multiplied again.
-	allocation := len(c.ManaChoices) > 0
+	allocation := len(c.Mana.Choices) > 0
 	if allocation {
-		produced = strings.Join(c.ManaChoices, "")
-		c.ManaChoices = nil
+		produced = strings.Join(c.Mana.Choices, "")
+		c.Mana.Choices = nil
 		// A resumed colour ask supplies one concrete symbol. Consume the answer
 		// before walking the SA so the same choice is not posed again on re-entry.
-	} else if validManaChoice(c.ManaChoice) {
-		produced = c.ManaChoice
-		c.ManaChoice = ""
+	} else if validManaChoice(c.Mana.Choice) {
+		produced = c.Mana.Choice
+		c.Mana.Choice = ""
 	} else if o := h.Game().Obj(c.Source); o != nil {
 		// Chosen is normally stamped by an as-enters ChooseColor event.  A
 		// triggered/nested Mana effect does not pass through rules' activation

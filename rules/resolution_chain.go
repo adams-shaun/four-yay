@@ -255,7 +255,7 @@ func (e *Engine) payUnlessDamageCost(ctx *effects.Ctx, payer state.PlayerID, n i
 	controller := ctx.Controller
 	if o := e.G.Obj(source); o != nil && o.Zone == state.ZBattlefield {
 		controller = o.Controller
-	} else if lki, ok := ctx.DamageSourceLKI[source]; ok {
+	} else if lki, ok := ctx.Snap.DamageSource[source]; ok {
 		keywords = damageKeywordLKI{lifelink: lki.Lifelink, infect: lki.Infect,
 			wither: lki.Wither, deathtouch: lki.Deathtouch}
 		controller = lki.Controller

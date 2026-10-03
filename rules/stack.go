@@ -385,7 +385,7 @@ func (e *Engine) resolveTop() {
 		reflexiveCaptured(ctx)
 		if lki, ok := e.triggerLKI[id]; ok {
 			ctx.LKI = lki.object
-			ctx.LKIPower, ctx.LKIToughness, ctx.LKIPTValid =
+			ctx.Snap.Power, ctx.Snap.Toughness, ctx.Snap.PTValid =
 				lki.power, lki.toughness, lki.ptValid
 		}
 		// CR 107.3i: X is the value the activator chose for a Cost$ carrying
@@ -408,15 +408,15 @@ func (e *Engine) resolveTop() {
 		ctx.Exiled = e.castExiled[id]
 		ctx.Revealed = e.castRevealed[id]
 		if link, ok := e.sourceLifelinkLKI[id]; ok {
-			ctx.SourceLifelinkLKI = link
-			ctx.SourceLifelinkLKIValid = true
+			ctx.Snap.SourceLifelink = link
+			ctx.Snap.SourceLifelinkValid = true
 		}
 		if controller, ok := e.sourceControllerLKI[id]; ok {
-			ctx.SourceControllerLKI = controller
-			ctx.SourceControllerLKIValid = true
+			ctx.Snap.SourceController = controller
+			ctx.Snap.SourceControllerValid = true
 		}
 		if lki := e.damageSourceLKI[id]; lki != nil {
-			ctx.DamageSourceLKI = cloneDamageSourceLKI(lki)
+			ctx.Snap.DamageSource = cloneDamageSourceLKI(lki)
 		}
 		effects.SetSVars(ctx, svars)
 		// The Evolve keyword's own counter trigger (CR 702.99a) is identified
