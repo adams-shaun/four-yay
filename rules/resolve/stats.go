@@ -17,6 +17,7 @@ type Stats struct {
 	Exempt       int64 // resolution-starting passes run without S0 (predicate or answerer)
 	Misses       int64 // ... whose resolution met a legacy ask anyway (fallback taken)
 	Inline       int64 // converted asks answered by the synchronous answerer
+	Unservable   int64 // served answers whose next step went back to legacy (counted in Aborts too)
 }
 
 // Sub is s - o, field by field: the counters one run of work moved.
@@ -27,12 +28,13 @@ func (s Stats) Sub(o Stats) Stats {
 		Reruns: s.Reruns - o.Reruns, Served: s.Served - o.Served, Aborts: s.Aborts - o.Aborts,
 		PrefixEvents: s.PrefixEvents - o.PrefixEvents, MaxK: s.MaxK,
 		Exempt: s.Exempt - o.Exempt, Misses: s.Misses - o.Misses, Inline: s.Inline - o.Inline,
+		Unservable: s.Unservable - o.Unservable,
 	}
 }
 
 type statsT struct {
 	checkpoints, noAsk, legacySwitch, posed, reruns, served, aborts,
-	prefixEvents, maxK, exempt, misses, inline atomic.Int64
+	prefixEvents, maxK, exempt, misses, inline, unservable atomic.Int64
 }
 
 var stats statsT
@@ -55,5 +57,6 @@ func ReadStats() Stats {
 		Reruns: stats.reruns.Load(), Served: stats.served.Load(), Aborts: stats.aborts.Load(),
 		PrefixEvents: stats.prefixEvents.Load(), MaxK: stats.maxK.Load(),
 		Exempt: stats.exempt.Load(), Misses: stats.misses.Load(), Inline: stats.inline.Load(),
+		Unservable: stats.unservable.Load(),
 	}
 }

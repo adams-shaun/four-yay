@@ -409,6 +409,24 @@ func (k *Kernel) inject(b Board, r *run) {
 	}
 }
 
+// InRun reports whether a tape run is executing its resolution: the only
+// place a served answer's later step can still hand the resolution back to
+// legacy (Unservable).
+func (k *Kernel) InRun() bool { return k.run != nil && k.run.inRes }
+
+// Unservable ends the tape run at a step of a served answer the kernel
+// cannot serve yet -- an engine-posed payment continuation the asking code
+// would park on the legacy path. A tape ask has happened (the answer being
+// settled was served), so this is OnAsk's abort: S0 is restored and the
+// whole tape replays on the legacy path. Call it only while InRun.
+func (k *Kernel) Unservable() {
+	if r := k.run; r != nil && r.inRes {
+		stats.unservable.Add(1)
+		panic(abort{})
+	}
+	panic(Divergence{"unservable tape step outside a tape run"})
+}
+
 // LegacyInRun reports whether a legacy ask reaching the engine's ask choke
 // point now ends a tape run (inRun), and whether it does so by aborting the
 // run (a tape ask already happened) rather than switching to legacy in

@@ -324,18 +324,21 @@ func applyUnlessCostModifier(shown, op, arg string) string {
 }
 
 // unlessProceed reports whether the effect's body should run for this pass,
-// and whether the UnlessCost$ was paid. Called from Resolve immediately
-// before the dispatch, for every SA; a zero-cost SA returns (true, false)
+// whether the UnlessCost$ was paid, and whether its election was served
+// from the resolution kernel's tape (then nothing suspended: the answer was
+// settled in line and the gate re-read it, exactly as the legacy re-entry
+// does, so Resolve must not read the served ask as a suspension). Called
+// from Resolve immediately before the dispatch, for every SA; a zero-cost SA returns (true, false)
 // with no work. On the first pass (no recorded answer) it poses the pay
 // decision and reports (false, false) for the suspended pass; the answered
 // re-entry applies the orientation. The paid half feeds UnlessResolveSubs$
 // (Resolve gates the SubAbility$ walk on it); on every path where no cost
 // was charged — a decline, an unresolvable payer, a no-host fallback — it is
 // false.
-func unlessProceed(h Host, c *Ctx, sa *cards.SA) (bool, bool) {
+func unlessProceed(h Host, c *Ctx, sa *cards.SA) (run, paid, served bool) {
 	cost := UnlessCostResolved(h, c, sa)
 	if strings.TrimSpace(sa.ParamStr(cards.PKUnlessCost)) == "" {
-		return true, false
+		return true, false, false
 	}
 	if sa.API == "Ward" {
 		// effWard owns Ward's ask end to end: its payer is the CONTROLLING
@@ -346,7 +349,7 @@ func unlessProceed(h Host, c *Ctx, sa *cards.SA) (bool, bool) {
 		// (beginWardPayment) before the answer re-enters effWard. Gate it
 		// here and the generic ask would go to the wrong player and bypass
 		// those windows, so leave the shape to its own handler.
-		return true, false
+		return true, false, false
 	}
 	switched := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKUnlessSwitched)), "True")
 	// The answer and payer cursor are consumed (and cleared) at the top of
@@ -365,15 +368,15 @@ func unlessProceed(h Host, c *Ctx, sa *cards.SA) (bool, bool) {
 	// again. The recorded pay outcome feeds UnlessResolveSubs$ exactly as
 	// the original pass computed it.
 	if ans == "resolved-pay" {
-		return true, true
+		return true, true, false
 	}
 	if ans == "resolved-decline" {
-		return true, false
+		return true, false, false
 	}
 	// A paid answer is authoritative even if a re-entry fixture or nested
 	// continuation did not retain every transient payer binding from the ask.
 	if ans == "pay" {
-		return switched, true
+		return switched, true, false
 	}
 	// A DefinedTarget$ ChosenCard copy ask (Feather, Radiant Arbiter) with an
 	// EMPTY chosen set is not a decision anybody could answer differently:
@@ -391,7 +394,7 @@ func unlessProceed(h Host, c *Ctx, sa *cards.SA) (bool, bool) {
 			}
 		}
 		if n == 0 {
-			return !switched, false
+			return !switched, false, false
 		}
 	}
 	payers, payerKnown := unlessPayerTargets(h, c, sa)
@@ -401,7 +404,7 @@ func unlessProceed(h Host, c *Ctx, sa *cards.SA) (bool, bool) {
 	// does not. The unqualified default remains known even when it has no
 	// target, and retains its historical controller fallback below.
 	if !payerKnown {
-		return !switched, false
+		return !switched, false, false
 	}
 	switch ans {
 	case "decline":
@@ -411,11 +414,14 @@ func unlessProceed(h Host, c *Ctx, sa *cards.SA) (bool, bool) {
 		// a decline, so it must use that same orientation rather than running
 		// every switched effect (the old `!poseUnlessAsk` inverted this case).
 		if idx+1 < len(payers) {
-			if poseUnlessAsk(h, c, sa, cost, payers, idx+1) {
-				return false, false
+			switch poseUnlessAsk(h, c, sa, cost, payers, idx+1) {
+			case unlessAsked:
+				return false, false, false
+			case unlessServed:
+				return unlessReread(h, c, sa)
 			}
 		}
-		return !switched, false
+		return !switched, false, false
 	}
 	// First pass: pose the pay decision to the first payer. With no
 	// resolvable payer the resolving controller is asked — the same fallback
@@ -424,13 +430,43 @@ func unlessProceed(h Host, c *Ctx, sa *cards.SA) (bool, bool) {
 	if len(payers) == 0 {
 		payers = []state.Target{{Player: c.Controller, IsPlayer: true}}
 	}
-	if poseUnlessAsk(h, c, sa, cost, payers, 0) {
-		return false, false
+	switch poseUnlessAsk(h, c, sa, cost, payers, 0) {
+	case unlessAsked:
+		return false, false, false
+	case unlessServed:
+		return unlessReread(h, c, sa)
 	}
 	// No engine host means poseUnlessAsk deterministically declined. Apply
 	// exactly the same orientation as an answered decline.
-	return !switched, false
+	return !switched, false, false
 }
+
+// unlessReread is the gate's pass over an election the resolution kernel's
+// tape served and the host settled (Ctx.UnlessPay and Ctx.UnlessNext set):
+// the same read the legacy "unless_pay" re-entry makes when it re-enters
+// this SA -- a pay applies the orientation, a decline moves on to the next
+// payer -- marked served.
+func unlessReread(h Host, c *Ctx, sa *cards.SA) (bool, bool, bool) {
+	run, paid, _ := unlessProceed(h, c, sa)
+	return run, paid, true
+}
+
+// unlessAsk is what poseUnlessAsk did with the election.
+type unlessAsk uint8
+
+const (
+	// unlessNoHost: the host could not ask; the deterministic decline (R-9)
+	// applies.
+	unlessNoHost unlessAsk = iota
+	// unlessAsked: the ask was posed (or deferred) and the resolution
+	// suspended; the answer re-enters this SA.
+	unlessAsked
+	// unlessServed: the resolution kernel's tape served the answer, and the
+	// host's answer record settled it in line into the asking walk's Ctx
+	// (Ctx.UnlessPay, Ctx.UnlessNext) exactly as the legacy re-entry's
+	// resume arm does.
+	unlessServed
+)
 
 // unlessSubsRun reports whether the SA's SubAbility$ chain resolves for the
 // pay outcome. Forge's AbilityUtils.handleUnlessCost: the value is absent
@@ -453,11 +489,12 @@ func unlessSubsRun(sa *cards.SA, paid bool) bool {
 	return true
 }
 
-// poseUnlessAsk offers payer payers[i] the unless cost. Reports whether the
-// resolution suspended; a false return means the host could not ask (an
-// effects-package test double, R-9) and the deterministic decline applies —
-// with the Note the no-host path has always carried.
-func poseUnlessAsk(h Host, c *Ctx, sa *cards.SA, cost string, payers []state.Target, i int) bool {
+// poseUnlessAsk offers payer payers[i] the unless cost. It reports whether
+// the resolution suspended, the tape served and settled the answer, or the
+// host could not ask (an effects-package test double, R-9) and the
+// deterministic decline applies — with the Note the no-host path has always
+// carried.
+func poseUnlessAsk(h Host, c *Ctx, sa *cards.SA, cost string, payers []state.Target, i int) unlessAsk {
 	payer := c.Controller
 	if int(i) < len(payers) && payers[i].IsPlayer {
 		payer = payers[i].Player
@@ -553,14 +590,17 @@ func poseUnlessAsk(h Host, c *Ctx, sa *cards.SA, cost string, payers []state.Tar
 			{Index: 1, Kind: "mode", Label: declineLabel, Obj: c.Source, Player: payer, Mode: decision.ModeUnlessDecline},
 		}
 	}
+	if _, ok := AskTape(h, d); ok {
+		return unlessServed
+	}
 	if Ask(h, d) == AskAsked {
-		return true // resolution suspended; the answer re-enters this SA.
+		return unlessAsked // resolution suspended; the answer re-enters this SA.
 	}
 	// Fuzz/no-engine host: the deterministic decline (R-9). The pay was
 	// never posed, so resolve as if the player declined.
 	h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 		Text: "may pay declined (UnlessCost not asked on this host)"})
-	return false
+	return unlessNoHost
 }
 
 // UnlessPayers resolves the UnlessPayer$ selector to the players who get the
