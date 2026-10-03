@@ -1,6 +1,0 @@
-{
-  "card": "Oblivion Ring",
-  "rows": {
-    "exiles-an-opponents-creature-and-returns-it-when-it-leaves": "CR 603.6a/610.3: when Oblivion Ring leaves the battlefield its leave trigger must return the card it exiled. Observed: the enter trigger exiles the target, but after the Ring is moved to the graveyard the exiled Centaur Courser stays in exile (control: exiling the Ring controller's OWN Grizzly Bears also fails, so it is not an exile-zone/owner scoping issue). Root cause: Oblivion Ring's script exiles with `DB$ ChangeZone ... IsCurse$ True` and returns with `Defined$ ExiledWith`; effects/zone_change.go's exiledWithAssociation records the exiling source in the SOURCE's ExiledCards list (Imprint Text \"exiled-with\"), while effects/context.go's exiledWithSet resolves `Defined$ ExiledWith` from the exiled CARD's Object.ExiledWith scalar (set only from a MoveZone IDs payload, which ChangeZone leaves empty unless the source names ExiledWithSource). The two representations never meet, so the return finds nothing. Compare Journey to Nowhere, same text but `RememberTargets$ True` + `Defined$ Remembered`, which passes. Found by the cli-20261003T024459Z audit; row added by triage."
-  }
-}
