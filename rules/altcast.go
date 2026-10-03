@@ -331,14 +331,7 @@ func (e *Engine) askMadnessCast(ability *state.Object) bool {
 	}
 	d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "no",
 		Label: "Put " + name + " into its owner's graveyard", Obj: card.ID})
-	if e.tape.InRun() {
-		if in, ok := e.TapeAnswer(d); ok {
-			tapeMadnessAnswer(e, d, in, ability.ID)
-			return true
-		}
-	}
-	e.ask(d)
-	e.resume = &resumePoint{kind: "madness", obj: ability.ID}
+	tapeMadnessAnswer(e, d, tapeServe(e, d), ability.ID)
 	return true
 }
 

@@ -2039,37 +2039,23 @@ func (e *Engine) askTriggerOptional(who state.PlayerID, pt pendingTrigger) {
 // because the queued trigger has already been consumed by the drain.
 func (e *Engine) askOptionalAtResolution(who state.PlayerID, o *state.Object, sa *cards.SA, label string, effectOptional bool) {
 	d := optionalAtResolutionDecision(who, o, sa, label, effectOptional)
-	if in, ok := e.TapeAnswer(d); ok {
-		// The resolution kernel's answer in hand (W3 step 2d): run exactly
-		// the continuation handleTriggerOptional runs for the answer --
-		// resumeResolution's "optional" arm on a yes, finishResumption and
-		// the CR 117.3b reset on a no -- now, in line. Both complete the
-		// resolution and log its priority grant, so handlePriority must not
-		// log a second one (tapeGranted).
-		rp := &resumePoint{kind: "optional", obj: o.ID, sa: sa}
-		chosen := d.Chosen(in)
-		if len(chosen) == 1 && chosen[0].Kind == "yes" {
-			e.resumeResolution(rp, chosen)
-		} else {
-			e.finishResumption(rp.obj)
-			e.emit(events.Event{Kind: events.Priority, Player: e.G.Active})
-		}
-		if !e.Suspended() {
-			e.tapeGranted = true
-		}
-		return
+	// The resolution kernel's answer in hand: run exactly the continuation
+	// for the answer -- resumeResolution's "optional" arm on a yes,
+	// finishResumption and the CR 117.3b reset on a no -- now, in line. Both
+	// complete the resolution and log its priority grant, so handlePriority
+	// must not log a second one (tapeGranted).
+	in := tapeServe(e, d)
+	rp := &resumePoint{kind: "optional", obj: o.ID, sa: sa}
+	chosen := d.Chosen(in)
+	if len(chosen) == 1 && chosen[0].Kind == "yes" {
+		e.resumeResolution(rp, chosen)
+	} else {
+		e.finishResumption(rp.obj)
+		e.emit(events.Event{Kind: events.Priority, Player: e.G.Active})
 	}
-	e.ask(d)
-	// The resume point mirrors Engine.Ask's shape (rules/resolution.go): the
-	// suspended object is the top of stack, the sub-ability to resume is the
-	// ability's own effect, and the kind tags the switch in resumeResolution
-	// so the yes answer does not overwrite ctx.Modes (which was already
-	// seeded from ChosenModes for a modal trigger). A decision pending means
-	// nothing else can resolve between ask and answer, so the object cannot
-	// have moved. askOptionalAtResolution is only ever reached from a first-
-	// pass resolution (resolveTop's ability branch, not already suspended),
-	// so this is a fresh resume point, never stacked over an existing one.
-	e.resume = &resumePoint{kind: "optional", obj: o.ID, sa: sa}
+	if !e.Suspended() {
+		e.tapeGranted = true
+	}
 }
 
 // optionalAtResolutionDecision is CR 603.5's yes/no at resolution.
@@ -2105,24 +2091,6 @@ func (e *Engine) handleTriggerOptional(d *decision.Decision, in decision.Intent)
 	yes := false
 	if opts := d.Chosen(in); len(opts) == 1 {
 		yes = opts[0].Kind == "yes"
-	}
-	if e.resume != nil {
-		rp := e.resume
-		e.resume = nil
-		if rp.kind == "madness" {
-			e.resolveMadnessChoice(rp, yes)
-			return
-		}
-		if yes {
-			e.resumeResolution(rp, d.Chosen(in))
-		} else {
-			e.finishResumption(rp.obj)
-			// Mirror resumeResolution's own tail (CR 117.3b): a suspended
-			// resolution that completes -- even by doing nothing -- resets
-			// the pass count and returns priority to the active player.
-			e.emit(events.Event{Kind: events.Priority, Player: e.G.Active})
-		}
-		return
 	}
 	if pt, ok := e.takeAnsweredTrigger(d); ok {
 		if yes {

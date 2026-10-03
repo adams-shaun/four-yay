@@ -12,7 +12,10 @@ package rules
 // differs from the legacy park's wherever the chain did something after the
 // park.
 
-import "github.com/adams-shaun/gorge/decision"
+import (
+	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/rules/resolve"
+)
 
 // parkAsk poses the park-and-continue decision d (its flow marker already in
 // e.choosing). Inside a tape run, or with a synchronous answerer, it is
@@ -33,6 +36,18 @@ func parkAsk(e *Engine, d *decision.Decision) bool {
 // a tape run's resolution or a synchronous answerer.
 func parkTapeAnswer(e *Engine, d *decision.Decision) (decision.Intent, bool) {
 	return e.tape.Answer(asResolve(e), d)
+}
+
+// tapeServe answers the engine-flow ask d from the tape, failing hard when
+// nothing serves it: the asks that reach it happen only inside a tape run's
+// resolution (a resolution the ask-free predicate must not exempt), so an
+// unserved one is a closed conversion that is not (a Divergence).
+func tapeServe(e *Engine, d *decision.Decision) decision.Intent {
+	in, ok := e.TapeAnswer(d)
+	if !ok {
+		panic(resolve.Divergence{Msg: "an ask no tape run serves: " + string(d.Kind) + "/" + d.ResumeKind})
+	}
+	return in
 }
 
 // tapeCastAsk answers, in place, an ask of a cast begun inside a tape run's
