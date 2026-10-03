@@ -392,6 +392,7 @@ Rendered 2026-10-01 at merge of main@0b368ba80 into 078f1bb3d, with `--max-rows 
 … and 11 more; run the command for the live list
 
 Durable notes for files not shown above:
+- `rules/cast_commit.go`, `rules/clone.go`, `rules/testdata/oracle/activated-ability/known-divergent.json`, `rules/testdata/oracle/attack-triggers/known-divergent.json`, `rules/trigger_queue.go` — re-measured 2026-10-03 against main@2d4e01009: wt/fdn-fix5 and wt/fdn-fix6 share five changed paths, not only the three in the brief (exact intersection of their main-relative path sets). Their clone.go changes are additions within the same `Engine.cloneWith` deep-copy operation; each JSON file is a category's authoritative scenario-to-explanation map; cast_commit.go and trigger_queue.go are cohesive shared rules modules. No honest split: extracting subsections would split the clone integration or fragment cohesive modules/registry schema. Neither branch has a `.ds4/issues` ticket, so sequence manually: land fdn-fix5 before rebasing and landing fdn-fix6. Keep edits local to each branch's own functions, fields and oracle keys.
 - `rules/cast.go` — 12515 lines and the entry point for every cast-side ticket
 - `rules/layers.go`, `rules/statics.go` — every continuous-effect and keyword ticket lands here
 - `view/view.go` — every projection change; two ManaBrew/UI tickets collided on it
