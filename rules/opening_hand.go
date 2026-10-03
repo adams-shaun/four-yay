@@ -38,7 +38,7 @@ type openingRound struct {
 	// exileAsk is the Gemstone-shape mandatory hand-exile ask held back
 	// because the entry that precedes it posed a decision first; resumeOpening
 	// poses it once that decision is answered.
-	exileAsk *decision.Decision `clone:"share"`
+	exileAsk *decision.Decision `clone:"deep"`
 }
 
 type openingEffect struct {
@@ -93,6 +93,12 @@ func openingActionSVar(f *cards.Face, raw string) string {
 
 func cloneOpening(o openingRound) openingRound {
 	o.effects = append([]openingEffect(nil), o.effects...)
+	// The held-back exile ask is posed later (resumeOpening -> ask, which
+	// stamps it), so each engine must pose its own Decision, never a shared
+	// one -- the deferredAsks discipline.
+	if o.exileAsk != nil {
+		o.exileAsk = cloneDecision(o.exileAsk)
+	}
 	return o
 }
 
