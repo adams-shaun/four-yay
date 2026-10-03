@@ -17,7 +17,7 @@ type engineTriggerMaps struct {
 	// Per-stack-instance trigger provenance, derived while queuing/placing
 	// triggers, cloned at intent boundaries and removed when the stack object
 	// leaves. Never encoded in events or inferred from a resolving source.
-	triggerContexts map[state.ObjID]effects.TriggerContext
+	triggerContexts map[state.ObjID]effects.TriggerContext `clone:"deep"`
 	// triggerEffectFrames carries the source-scoped Effect frame an
 	// Effect-created delayed trigger body resolves under, keyed by the stack
 	// instance the trigger was placed into (the same key triggerContexts
@@ -27,7 +27,7 @@ type engineTriggerMaps struct {
 	// needs no map because it resolves the body inline. Resolution-scratch
 	// like triggerContexts: never event-encoded, cloned at intent boundaries
 	// and removed when the stack object leaves.
-	triggerEffectFrames map[state.ObjID]effects.EffectFrame
+	triggerEffectFrames map[state.ObjID]effects.EffectFrame `clone:"deep"`
 	// triggerLines maps a stack object id to the granted/delayed trigger line
 	// whose Execute$ body it resolves to. A granted (AddTrigger$) or delayed
 	// (Effect Triggers$) body is an SVar-named *cards.SA, and cards.ResolveSVar
@@ -39,11 +39,11 @@ type engineTriggerMaps struct {
 	// Replay-derived exactly like triggerContexts: pushTrigger folds the same
 	// lines in the same order. Appended to (not a redefinition of) the existing
 	// map fields so a zero Engine stays valid.
-	triggerLines map[state.ObjID]cards.Trigger
+	triggerLines map[state.ObjID]cards.Trigger `clone:"deep"`
 	// triggerLineSVars snapshots the owning script table of each recorded line.
 	// The recipient's face is not necessarily the grantor's, and a grant can
 	// disappear before the stack object resolves.
-	triggerLineSVars map[state.ObjID]map[string]string
+	triggerLineSVars map[state.ObjID]map[string]string `clone:"deep"`
 	// currentEffectFrame is the Effect-created continuous-effect registration
 	// the effects.Resolve walk currently running belongs to. effects.Resolve
 	// publishes it (through the optional effectFrameHost interface) for the
@@ -54,12 +54,12 @@ type engineTriggerMaps struct {
 	// a replay re-derives it by re-running the same walk -- and it is zero
 	// outside an Effect-created body, so every ordinary resolution is
 	// unchanged.
-	currentEffectFrame effects.EffectFrame
+	currentEffectFrame effects.EffectFrame `clone:"reset"`
 	// triggerLKI preserves the causing event's object snapshot from trigger
 	// match through placement and resolution. TriggerPush can log Remembered
 	// ids but not the pre-move object value (whose counters Move clears), so
 	// this replay-derived map is the LKI analogue of triggerContexts.
-	triggerLKI map[state.ObjID]triggerObjectLKI
+	triggerLKI map[state.ObjID]triggerObjectLKI `clone:"deep"`
 	// sacrificedLKI maps a stack object id to the last-known-information
 	// snapshot of every permanent that object sacrificed (as a cost), captured
 	// at the instant of the sacrifice (Task sac1). It is engine-only, never
@@ -69,7 +69,7 @@ type engineTriggerMaps struct {
 	// same reason triggerContexts is engine-only. Resolution reads it and
 	// builds effects.Ctx.Sacrificed; the entry is removed when the stack
 	// object leaves, mirroring triggerContexts.
-	sacrificedLKI map[state.ObjID][]state.SacrificedInfo
+	sacrificedLKI map[state.ObjID][]state.SacrificedInfo `clone:"deep"`
 	// castExiled / castRevealed map a stack object id to the cards its own
 	// cast/activation COST removed: the `ExileFromHand`/`ExileFromGrave`/
 	// `Exile` parts (Forge's CostExile, paid-list key "Exiled") and the
@@ -83,8 +83,8 @@ type engineTriggerMaps struct {
 	// inherits neither map -- referenced here is the deliberate reason the
 	// StackCopy branch does not carry them, unlike fuseTargets: a copy was
 	// never cast and paid no cost (CR 707.10).
-	castExiled   map[state.ObjID][]state.ObjID
-	castRevealed map[state.ObjID][]state.ObjID
+	castExiled   map[state.ObjID][]state.ObjID `clone:"deep"`
+	castRevealed map[state.ObjID][]state.ObjID `clone:"deep"`
 	// fuseTargets maps a fused (FlagFused) stack object id to its two target
 	// stages' own chosen targets (index 0 the front half's, index 1 the
 	// alternate half's). Recorded by payCast at payment, read by resolveFused
@@ -96,7 +96,7 @@ type engineTriggerMaps struct {
 	// with the engine at intent boundaries, removed with the stack object.
 	// StackCopy inherits this split alongside its flat targets when available;
 	// resolveFused uses its spec fallback only for copies without provenance.
-	fuseTargets map[state.ObjID][][]state.Target
+	fuseTargets map[state.ObjID][][]state.Target `clone:"deep"`
 	// copyTargetStage tracks the in-progress per-declaration copy-target
 	// election (CR 707.10c), keyed on the copying stack object: the value is
 	// the index of the NEXT declaration AskCopyTargets must ask. The
@@ -107,7 +107,7 @@ type engineTriggerMaps struct {
 	// scratch like fuseTargets: rebuilt by replay (the ask re-executes on the
 	// re-entered resolveTop), cloned with the engine, and removed with the
 	// stack object so a later object reusing the id never reads a stale stage.
-	copyTargetStage map[state.ObjID]int
+	copyTargetStage map[state.ObjID]int `clone:"deep"`
 	// copyAnswerTargets accumulates a multi-declaration copy-target election's
 	// PER-DECLARATION answers until every declaration has been asked, at which
 	// point the flattened list is recorded in one replace. Recording each
@@ -115,7 +115,7 @@ type engineTriggerMaps struct {
 	// election and lose a later declaration's inherited keep-current slots.
 	// Engine-only scratch, rebuilt by replay, cloned with the engine, removed
 	// with the stack object.
-	copyAnswerTargets map[state.ObjID][][]decision.Option
+	copyAnswerTargets map[state.ObjID][][]decision.Option `clone:"deep"`
 	// castSubTargets carries a cast or activation's CAST-TIME pre-asked
 	// SubAbility$ target answers (task alltargeted1), keyed by the stack
 	// object that will resolve the chain and then by the sub SA's Line.
@@ -130,16 +130,16 @@ type engineTriggerMaps struct {
 	// cast flow re-executes, cloned with the engine at intent boundaries,
 	// removed when the stack object leaves the stack. A stack COPY of the
 	// spell has no entry and falls back to the mid-resolution asking path.
-	castSubTargets map[state.ObjID]map[string][]state.Target
+	castSubTargets map[state.ObjID]map[string][]state.Target `clone:"deep"`
 	// trigSub is the in-flight CR 603.3d announcement of a triggered
 	// ability's SubAbility$ chain targets (rules/trigger_subtargets.go): set
 	// by pushTrigger, advanced by each "trig_sub" target answer, and
 	// installed into castSubTargets when the last link is answered. At most
 	// one exists (the drain places one trigger at a time). Engine scratch,
 	// rebuilt by replay, deep-copied by Clone.
-	trigSub *trigSubAsk
+	trigSub *trigSubAsk `clone:"deep"`
 	// charmTargets maps a modal stack object to the selected distinct modes'
 	// target groups, in target-bearing mode order. It is engine scratch like
 	// fuseTargets: the cast/placement target answer rebuilds it during replay.
-	charmTargets map[state.ObjID][][]state.Target
+	charmTargets map[state.ObjID][][]state.Target `clone:"deep"`
 }

@@ -9,12 +9,12 @@ package rules
 type engineDrain struct {
 	// pendingTriggers holds matched triggers not yet placed on the stack.
 	// checkTriggers appends; putTriggersOnStack drains. Task 20 (trigger.go).
-	pendingTriggers []pendingTrigger
+	pendingTriggers []pendingTrigger `clone:"deep"`
 	// trigQueueStale bounds the prefix of pendingTriggers' backing array that
 	// may hold entries a shrink left behind len (noteTrigShrink records each
 	// shrink's pre-shrink length): what the drained queue must zero so
 	// nothing stale stays pinned. Scratch hygiene, never game state.
-	trigQueueStale int
+	trigQueueStale int `clone:"reset"`
 
 	// orderedTriggers is how many LEADING entries of pendingTriggers have
 	// already had their order settled by an answered KTriggerOrder decision
@@ -28,12 +28,12 @@ type engineDrain struct {
 	// so a trigger that arrives mid-drain can neither be shuffled into a
 	// group the player has already ordered nor make them order the same
 	// triggers twice. Zero whenever pendingTriggers is empty.
-	orderedTriggers int
+	orderedTriggers int `clone:"deep"`
 	// applyingReplacement guards re-entrancy for the replaced event. Fresh
 	// counter placements emitted by its body still receive their own
 	// AddCounter replacement pass (unless already folded below).
-	applyingReplacement bool
+	applyingReplacement bool `clone:"deep"`
 	// counterReplacementFold marks the already-rewritten event's final emit;
 	// new counter events from a replacement body still take their own pass.
-	counterReplacementFold bool
+	counterReplacementFold bool `clone:"reset"`
 }

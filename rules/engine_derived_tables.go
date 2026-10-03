@@ -20,24 +20,24 @@ type engineDerivedTables struct {
 	// closure escape and allocates on every hot-path context construction.
 	// Clone copies the table (the clone's board is identical at the clone
 	// boundary) and the two key fields with it.
-	renames        []effects.ObjectName
-	renameEpoch    int
-	renameVersion  int
-	renameObjs     int
-	renameDSeq     uint64 // derivedSeq at the build; never cloned (0 = none)
-	renameBFSeq    uint64 // derivedBFSeq at the build; never cloned
-	renameBuilding bool
+	renames        []effects.ObjectName `clone:"deep"`
+	renameEpoch    int                  `clone:"deep"`
+	renameVersion  int                  `clone:"deep"`
+	renameObjs     int                  `clone:"deep"`
+	renameDSeq     uint64               `clone:"reset"` // derivedSeq at the build; never cloned (0 = none)
+	renameBFSeq    uint64               `clone:"reset"` // derivedBFSeq at the build; never cloned
+	renameBuilding bool                 `clone:"reset"`
 	// derivedTypes is the layer-4 derived type table (layer4types.go) the
 	// effects tier's ordinary type filters read through SpecContext.
 	// DerivedTypes. Exactly the shape (and rationale) of renames above: a
 	// field refreshed after each emitted event under active()'s key, gated on
 	// layer4InPool, and bound by a plain field read so specCtxSVars stays
 	// inlinable. Clone copies the table and its key fields.
-	layer4Types   []effects.ObjectTypes
-	typesEpoch    int
-	typesVersion  int
-	typesObjs     int
-	typesBuilding bool
+	layer4Types   []effects.ObjectTypes `clone:"deep"`
+	typesEpoch    int                   `clone:"deep"`
+	typesVersion  int                   `clone:"deep"`
+	typesObjs     int                   `clone:"deep"`
+	typesBuilding bool                  `clone:"reset"`
 	// The incremental layer-4 state (layer4types.go). typesIncrReady is set
 	// once a whole-board build has repopulated it; every refresh then first
 	// tries refreshDerivedTypesIncremental, which folds the events logged
@@ -50,37 +50,37 @@ type engineDerivedTables struct {
 	// boundary, so the candidate slice and source stamp describe it exactly
 	// and its next refresh can go incremental instead of rebuilding the
 	// whole board once per clone.
-	typesIncrReady bool
-	typesSelfOnly  bool
+	typesIncrReady bool `clone:"deep"`
+	typesSelfOnly  bool `clone:"deep"`
 	// typesDSeq is derivedSeq right after the last bounded build (active()
 	// current there), typesDSeqOK marks it set; the derived-quiet reuse
 	// (typesQuietReuse) compares it. Never cloned: a clone's derivedSeq is
 	// its own.
-	typesDSeq      uint64
-	typesDSeqOK    bool
-	typesSrcs      []state.ObjID
-	typesMayDiffer []state.ObjID
-	typesTouch     []state.ObjID
+	typesDSeq      uint64        `clone:"reset"`
+	typesDSeqOK    bool          `clone:"reset"`
+	typesSrcs      []state.ObjID `clone:"deep"`
+	typesMayDiffer []state.ObjID `clone:"deep"`
+	typesTouch     []state.ObjID `clone:"reset"`
 	// typesAct is the reusable live-LType-effect buffer the incremental build
 	// passes to typeCharacteristicsActive; typesVisited counts the objects the
 	// last build examined (the whole board on a full rebuild, the candidate
 	// set on an incremental one). The scaling pin reads typesVisited; the
 	// engine never does.
-	typesAct     []ContinuousEffect
-	typesVisited int
+	typesAct     []ContinuousEffect `clone:"reset"`
+	typesVisited int                `clone:"reset"`
 	// The staticsMayChangeTypes probe cache: per-object probe answers with
 	// the count of true ones, maintained by the same event-referent catch-up
 	// (see layer4types.go). typesProbe is dense by ObjID (index id-1):
 	// probeUnset for an object never probed, else probeNo/probeYes;
 	// typesProbeReady marks a populated cache.
-	typesProbe        []uint8
-	typesProbeReady   bool
-	typesProbeTrue    int
-	typesProbeEpoch   int
-	typesProbeVersion int
-	typesProbeObjs    int
+	typesProbe        []uint8 `clone:"deep"`
+	typesProbeReady   bool    `clone:"deep"`
+	typesProbeTrue    int     `clone:"deep"`
+	typesProbeEpoch   int     `clone:"deep"`
+	typesProbeVersion int     `clone:"deep"`
+	typesProbeObjs    int     `clone:"deep"`
 	// typesIncrBuilds counts successful incremental rebuilds; the scaling
 	// tests read it to prove the incremental path (not the whole-board
 	// fallback) served a refresh. Never read by the engine itself.
-	typesIncrBuilds int
+	typesIncrBuilds int `clone:"reset"`
 }

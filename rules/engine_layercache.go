@@ -14,11 +14,11 @@ import (
 type engineLayerCaches struct {
 	// ascend is checkBlessingGrants' incremental "could anything carry
 	// Ascend" arena scan (rules/ascend.go); a pure cache, zero = rescan.
-	ascend ascendScan
+	ascend ascendScan `clone:"reset"`
 
 	// storied is checkEnduringStoryGrants' incremental "could anything carry
 	// Storied" arena scan (rules/storied.go); a pure cache, zero = rescan.
-	storied storiedScan
+	storied storiedScan `clone:"reset"`
 
 	// staticContinuous memoizes the S:Mode$ Continuous statics on battlefield
 	// permanents (layers.go's staticEffects), keyed on staticEpoch. staticEpoch
@@ -33,13 +33,13 @@ type engineLayerCaches struct {
 	// clearing obsolete slots when it shrinks, but never reuse the nested
 	// keyword/type slices. activeBuf copies the effect values into distinct
 	// storage before sorting; neither buffer may alias a clone's scratch.
-	staticContinuous []ContinuousEffect
-	staticEpoch      int
+	staticContinuous []ContinuousEffect `clone:"deep"`
+	staticEpoch      int                `clone:"deep"`
 	// staticVersion/staticObjs are continuousVersion and len(e.G.Objs) at the
 	// last staticEffects build: layerInertSince's reuse across a run of
 	// layer-inert events (layercache.go) additionally requires both unchanged.
-	staticVersion int
-	staticObjs    int
+	staticVersion int `clone:"deep"`
+	staticObjs    int `clone:"deep"`
 	// staticMemoGated records whether the last full staticEffects build
 	// encountered any Continuous static carrying a continuousGateKeys param
 	// (IsPresent$/IsPresent2$/Condition$/CheckSVar$/ClassBand$), whether or
@@ -49,7 +49,7 @@ type engineLayerCaches struct {
 	// refused whenever this is true: only a gate-free build's output is
 	// invariant under a static-cold token entry. Reset at the top of each
 	// full staticEffectsWalk and set at the one gate site.
-	staticMemoGated bool
+	staticMemoGated bool `clone:"deep"`
 	// staticMemoStateRead records whether the last full staticEffects build
 	// made a read outside the static-quiet input (layercache.go's
 	// staticQuietKinds): a GainsAbilitiesOf$/GainsAbilitiesOfDefined$/
@@ -57,15 +57,15 @@ type engineLayerCaches struct {
 	// P/T count, or an ImprintedCreatureType lookup. Any of them can read
 	// state a quiet event writes, so staticSafeSince admits quiet events only
 	// when it is false. Reset and set exactly like staticMemoGated.
-	staticMemoStateRead bool
+	staticMemoStateRead bool `clone:"deep"`
 	// staticGates is every continuous gate the last full staticEffects build
 	// evaluated, in scan order, with its outcome (static_gatememo.go): a
 	// gated, state-read-free build is re-stamped across a quiet run when
 	// every one of them re-evaluates unchanged. staticGatesKnown says the
 	// list belongs to the current memo (a clone that did not carry it, or a
 	// fresh engine, has none). Reset at the top of each full walk.
-	staticGates      []staticGateRec
-	staticGatesKnown bool
+	staticGates      []staticGateRec `clone:"deep"`
+	staticGatesKnown bool            `clone:"deep"`
 	// staticBuildSeq counts staticEffects REBUILDS (never a layer-inert
 	// re-stamp or an exact hit). The memo is refreshable OUTSIDE active() --
 	// staticControlWants (control_static.go) calls refreshStaticContinuous
@@ -74,23 +74,23 @@ type engineLayerCaches struct {
 	// records the value active() built its buffer with, and both of active()'s
 	// hit paths require the pair to match, exactly as the Derived memo keys on
 	// activeBuildSeq. Never cloned: a clone's zero value rebuilds both.
-	staticBuildSeq  uint64
-	activeStaticSeq uint64
+	staticBuildSeq  uint64 `clone:"reset"`
+	activeStaticSeq uint64 `clone:"reset"`
 
 	// sbaQuiet is the state-based-action quiet key (rules/sbaquiet.go): the
 	// board at which the last checkStateBased pass loop applied nothing.
 	// sbaUnquiet is that loop's scratch flag for a no-op that depended on a
 	// non-event input. Clone() leaves both zero, so a clone never skips its
 	// first pass loop.
-	sbaQuiet   sbaQuietKey
-	sbaUnquiet bool
+	sbaQuiet   sbaQuietKey `clone:"deep"`
+	sbaUnquiet bool        `clone:"reset"`
 
 	// staticQueueBuf is staticEffects' AddStaticAbility$ work queue's reused
 	// backing array: truncated to zero at every scan, grown only when a
 	// static-grant fires (the warm-rescan allocation budget,
 	// static_effects_buffer_test, is why it is reused rather than re-made).
 	// Per-scan scratch, never cloned: a clone starts nil and grows its own.
-	staticQueueBuf []staticWork
+	staticQueueBuf []staticWork `clone:"reset"`
 
 	// activeBuf is the cached, fully CR-613-sorted result of layers.go's
 	// active(), the effect list every Derived() call ranges over for every
@@ -110,27 +110,27 @@ type engineLayerCaches struct {
 	// path, build a private list instead of clobbering the outer call's.
 	// Clone() copies none of these fields (see clone.go); a cloned engine
 	// starts with a zero key and rebuilds identically on its first Derived.
-	activeBuf []ContinuousEffect
+	activeBuf []ContinuousEffect `clone:"reset"`
 	// activeSrc is active()'s build scratch: pointers to the effects a build
 	// assembles, sorted before they are copied (layers.go). Cleared after
 	// every build; recycled through a Spare, never cloned.
-	activeSrc []*ContinuousEffect
+	activeSrc []*ContinuousEffect `clone:"reset"`
 	// activeKWHeads is the deduplicated KeywordHead of every AddKeywords
 	// entry across activeBuf, rebuilt with it (layers.go's active()) and read
 	// by keywordmay.go's exact Derived-keyword precheck. Never cloned, like
 	// activeBuf: a clone's zero key rebuilds both together.
-	activeKWHeads []string
+	activeKWHeads []string `clone:"reset"`
 	// activeKWHeadSet is activeKWHeads as interned keyword-head ordinals,
 	// valid (activeKWHeadSetOK) only when every head interned; set with
 	// activeKWHeads at each assignment (kwHeadSetOf).
-	activeKWHeadSet   cards.KeywordHeadSet
-	activeKWHeadSetOK bool
+	activeKWHeadSet   cards.KeywordHeadSet `clone:"reset"`
+	activeKWHeadSetOK bool                 `clone:"reset"`
 	// activeBuildSeq counts active()'s REBUILDS (never its exact or
 	// layer-inert hits). derivedmemo.go's cross-walk reuse keys on it: an
 	// unchanged count means no non-inert event, continuous-registry write,
 	// object-count change or explicit invalidation has reached active() since.
 	// Never cloned: a clone starts at zero with an empty memo.
-	activeBuildSeq uint64
+	activeBuildSeq uint64 `clone:"reset"`
 	// derivedSeq is the Derived memo's cross-walk key (derived_transparent.go):
 	// it moves with activeBuildSeq except across a rebuild that provably left
 	// every derivation unchanged. activeBufAlt is the other half of activeBuf's
@@ -138,29 +138,29 @@ type engineLayerCaches struct {
 	// rebuild can be compared with it), and derivedPrev* the key the previous
 	// build (or layer-inert re-stamp) was taken at. Never cloned: a clone's
 	// zero values make its first build move derivedSeq off zero.
-	derivedSeq         uint64
-	activeBufAlt       []ContinuousEffect
-	derivedPrevEpoch   int
-	derivedPrevVersion int
-	derivedPrevObjs    int
+	derivedSeq         uint64             `clone:"reset"`
+	activeBufAlt       []ContinuousEffect `clone:"reset"`
+	derivedPrevEpoch   int                `clone:"reset"`
+	derivedPrevVersion int                `clone:"reset"`
+	derivedPrevObjs    int                `clone:"reset"`
 	// derivedPrevEntered is len(e.G.Entered) at the same point (the zone
 	// ledger check of a battlefield-crossing transparent rebuild), and
 	// derivedBFSeq counts the transparent rebuilds whose run moved an object
 	// across the battlefield boundary or out of exile: derivedSeq alone no
 	// longer proves the battlefield's membership unchanged (setname.go's
 	// rename table keys on both). Never cloned.
-	derivedPrevEntered int
-	derivedBFSeq       uint64
+	derivedPrevEntered int    `clone:"reset"`
+	derivedBFSeq       uint64 `clone:"reset"`
 	// activeList records what activeBuf was assembled from (active_same.go);
 	// never cloned, so a clone's first build is a full one.
-	activeList     activeListKey
-	derivedTouched []state.ObjID
-	activeEpoch    int
-	activeVersion  int
-	activeDepth    int
+	activeList     activeListKey `clone:"reset"`
+	derivedTouched []state.ObjID `clone:"reset"`
+	activeEpoch    int           `clone:"reset"`
+	activeVersion  int           `clone:"reset"`
+	activeDepth    int           `clone:"reset"`
 	// activeObjs is len(e.G.Objs) at the last active() build, read only by
 	// the layer-inert reuse (layercache.go).
-	activeObjs int
+	activeObjs int `clone:"reset"`
 	// goadProbe is the static-goad derivation's re-entry guard (staticgoad1):
 	// staticallyGoaded matches each candidate's Affected$ spec through
 	// matchesSpec, and a spec that itself consults the IsGoaded predicate
@@ -169,6 +169,6 @@ type engineLayerCaches struct {
 	// predicate answers the event-backed half alone, so a (hypothetical)
 	// IsGoaded-conditioned goad static degrades instead of looping. Never
 	// cloned (clone.go copies none of the derivation caches).
-	goadProbe int
+	goadProbe int `clone:"reset"`
 	// renames is the layer-3 rename table (setname.go) the effects tier's
 }

@@ -20,11 +20,11 @@ import (
 const chooseOpening chooseFor = iota + 10
 
 type openingRound struct {
-	start     state.PlayerID
-	mulligans int
-	effects   []openingEffect
-	index     int
-	exile     state.ObjID
+	start     state.PlayerID  `clone:"deep"`
+	mulligans int             `clone:"deep"`
+	effects   []openingEffect `clone:"deep"`
+	index     int             `clone:"deep"`
+	exile     state.ObjID     `clone:"deep"`
 	// awaiting marks a round whose current effect's own work posed a
 	// decision of its own -- the card entering the battlefield from the
 	// opening hand asked an "as this enters" choice (Leyline of
@@ -34,11 +34,11 @@ type openingRound struct {
 	// guard: the pending answer would be orphaned); Submit's tail steps the
 	// round on (resumeOpening) once that decision and everything it handed
 	// on to has been answered.
-	awaiting bool
+	awaiting bool `clone:"deep"`
 	// exileAsk is the Gemstone-shape mandatory hand-exile ask held back
 	// because the entry that precedes it posed a decision first; resumeOpening
 	// poses it once that decision is answered.
-	exileAsk *decision.Decision
+	exileAsk *decision.Decision `clone:"share"`
 }
 
 type openingEffect struct {

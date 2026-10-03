@@ -26,8 +26,8 @@ type engineResolution struct {
 	// targets rather than both halves' (Flesh // Blood's DBPutCounter reads
 	// ParentTargeted$CardPower off this binding). Transient scratch, cleared
 	// when the half's resolve returns: rebuilt identically by replay.
-	fusedResolving    []state.Target
-	fusedResolvingSet bool
+	fusedResolving    []state.Target `clone:"reset"`
+	fusedResolvingSet bool           `clone:"reset"`
 	// fusedResolvingSVars is the SVar table of the fused half whose resolution
 	// is currently running -- the ALTERNATE half's table when Blood is the
 	// frame, never the object's front-face table. A fused spell keeps FaceIdx
@@ -36,7 +36,7 @@ type engineResolution struct {
 	// CardPower) would resolve against the wrong table. Set and restored
 	// alongside fusedResolving, captured by Ask onto the resumePoint. Nil
 	// outside a fused half's resolution.
-	fusedResolvingSVars map[string]string
+	fusedResolvingSVars map[string]string `clone:"reset"`
 	// resolvingTargetControllerLKI is the target-controller snapshot of the
 	// Resolve chain whose effect is CURRENTLY running, published by
 	// effects.Resolve through Host.SetResolutionTargetControllerLKI around
@@ -46,7 +46,7 @@ type engineResolution struct {
 	// controller a target had at the start of resolution (a target destroyed
 	// before a chained TokenOwner$ TargetedController resolves). Transient
 	// scratch: rebuilt identically by replay, nil outside a chain.
-	resolvingTargetControllerLKI map[state.ObjID]state.PlayerID
+	resolvingTargetControllerLKI map[state.ObjID]state.PlayerID `clone:"deep"`
 	// resolutionCtx is the live Ctx of the Resolve chain whose effect is
 	// CURRENTLY running, published by effects.Resolve through the optional
 	// resolutionCtxHost interface around the whole chain and restored on
@@ -58,7 +58,7 @@ type engineResolution struct {
 	// chose at the resumed Ctx's rebuild. Transient scratch: rebuilt
 	// identically by replay, nil outside a chain (combat, mulligan and other
 	// non-resolution asks).
-	resolutionCtx *effects.Ctx
+	resolutionCtx *effects.Ctx `clone:"reset"`
 	// resolvingFlipMemory is the coin-flip memory of the Resolve chain whose
 	// effect is CURRENTLY running, published by effects.Resolve (and by
 	// effFlipCoin when it lazily allocates the memory) through the optional
@@ -67,7 +67,7 @@ type engineResolution struct {
 	// SAME pointer and a chained Defined$ FlippedTails / Wins reader keeps
 	// every flip performed before the suspension. Transient scratch: rebuilt
 	// identically by replay, nil outside a chain or before any flip.
-	resolvingFlipMemory *effects.FlipMemory
+	resolvingFlipMemory *effects.FlipMemory `clone:"reset"`
 	// resolvingExchangeMemory is the ExchangeLife rider memory of the Resolve
 	// chain whose effect is CURRENTLY running, published by effects.Resolve
 	// (and by effExchangeLife when it lazily allocates the memory) through
@@ -77,7 +77,7 @@ type engineResolution struct {
 	// Count$RememberedNumber reader keeps the value the exchange transaction
 	// settled after the suspension. Transient scratch: rebuilt identically by
 	// replay, nil outside a chain or before any exchange rider.
-	resolvingExchangeMemory *effects.ExchangeMemory
+	resolvingExchangeMemory *effects.ExchangeMemory `clone:"reset"`
 	// villainousRemembered is the victim of the VillainousChoice whose chosen
 	// body is CURRENTLY resolving, kept as ambient engine state for the
 	// duration of that body's effects.Resolve — the fusedResolving pattern.
@@ -90,8 +90,8 @@ type engineResolution struct {
 	// villainous body in flight" case explicit). Transient scratch,
 	// restored with the same defer discipline as fusedResolving; rebuilt
 	// identically by replay.
-	villainousRemembered    []state.Target
-	villainousRememberedSet bool
+	villainousRemembered    []state.Target `clone:"reset"`
+	villainousRememberedSet bool           `clone:"reset"`
 	// windowPaidX is the X the triggered-cost window's payment announced
 	// (rules/cumulative.go's X fold, tc.xPaid at the pay arm), kept as AMBIENT
 	// engine state while the paid body resolves — the fusedResolving pattern:
@@ -104,7 +104,7 @@ type engineResolution struct {
 	// resumes with its X instead of rebuilding ctx.X from a trigger object
 	// that was never paid one (0). Transient scratch, restored with the same
 	// defer discipline as fusedResolving; rebuilt identically by replay.
-	windowPaidX int32
+	windowPaidX int32 `clone:"reset"`
 	// exploitedLKI maps an EXPLOITED creature's object id to the LKI snapshot
 	// of it at the instant it was sacrificed to pay an exploit (CR 702.58a),
 	// published by effects/exploit.go through Host.RememberExploitedLKI while
@@ -116,7 +116,7 @@ type engineResolution struct {
 	// Engine-only and replay-derived like the other LKI maps: replay re-runs
 	// the same effect resolution, so it repopulates identically, and the entry
 	// is removed when the exploited object leaves a zone.
-	exploitedLKI map[state.ObjID]state.SacrificedInfo
+	exploitedLKI map[state.ObjID]state.SacrificedInfo `clone:"deep"`
 	// sourceLifelinkLKI maps an independently resolving ability's stack object
 	// to its source permanent's derived lifelink state at the last moment that
 	// source existed on the battlefield. The map's presence is the validity
@@ -125,20 +125,20 @@ type engineResolution struct {
 	// pending abilities when their source later departs, cloned at intent
 	// boundaries, and removed with the stack object. Resolution copies it into
 	// effects.Ctx; effects uses it only when the source is no longer live.
-	sourceLifelinkLKI map[state.ObjID]bool
+	sourceLifelinkLKI map[state.ObjID]bool `clone:"deep"`
 	// sourceControllerLKI is the matching pre-departure controller snapshot.
 	// It is separate from sourceLifelinkLKI because false lifelink is still a
 	// valid snapshot, and a controller may be seat zero.
-	sourceControllerLKI map[state.ObjID]state.PlayerID
+	sourceControllerLKI map[state.ObjID]state.PlayerID `clone:"deep"`
 	// sourceCharLKI is the matching pre-departure snapshot of the source's
 	// power, toughness and counters, read by a source-relative target
 	// filter's CR 608.2b recheck (source_char_lki.go).
-	sourceCharLKI map[state.ObjID]sourceCharSnapshot
+	sourceCharLKI map[state.ObjID]sourceCharSnapshot `clone:"deep"`
 	// damageSourceLKI carries snapshots keyed first by the waiting stack
 	// object and then by a departed named DamageSource$ object. Unlike the
 	// own-source maps above, every waiting resolution receives departures: the
 	// named source can be TriggeredCard, Targeted, or Remembered.
-	damageSourceLKI map[state.ObjID]map[state.ObjID]effects.DamageSourceLKI
+	damageSourceLKI map[state.ObjID]map[state.ObjID]effects.DamageSourceLKI `clone:"deep"`
 	// moveCounterAsk carries a MoveCounter resolution's ANSWERED asks across
 	// the later suspensions of the same SA (the movecounter1 livelock fix).
 	// A MoveCounter sub the placement/announcement ask never covered poses
@@ -156,7 +156,7 @@ type engineResolution struct {
 	// Intents through the same arms, so the map re-derives identically and
 	// no event carries it. Never nil-checked on read outside recordAsk
 	// (which lazy-inits).
-	moveCounterAsk map[state.ObjID]*moveCounterPending
+	moveCounterAsk map[state.ObjID]*moveCounterPending `clone:"deep"`
 	// aorAsk carries an AddOrRemoveCounter resolution's ANSWERED per-kind
 	// elections across the later suspensions of the same SA (the
 	// moveCounterAsk discipline — counterchoice1). An EachExistingCounter$
@@ -170,10 +170,10 @@ type engineResolution struct {
 	// moveCounterAsk discipline: replay re-submits the recorded Intents
 	// through the same arms, so the map re-derives identically and no event
 	// carries it.
-	aorAsk map[state.ObjID]map[string]bool
+	aorAsk map[state.ObjID]map[string]bool `clone:"deep"`
 	// counterTypeAsk carries per-recipient comma-list PutCounter answers across
 	// suspensions. It is replay-derived engine scratch, never game state.
-	counterTypeAsk map[state.ObjID]*counterTypePending
+	counterTypeAsk map[state.ObjID]*counterTypePending `clone:"deep"`
 	// targetsPickAsk carries an ANSWERED generic ValidTgts$ pre-ask (the
 	// mvts1 "tgts" arm) across a LATER suspension of the same SA, for every
 	// API -- the general form of the moveCounterAsk cursor above, which
@@ -196,7 +196,7 @@ type engineResolution struct {
 	// in the moveCounterAsk discipline: replay re-submits the recorded
 	// Intents through the same arm, so the map re-derives identically and no
 	// event carries it.
-	targetsPickAsk map[state.ObjID]map[string][]state.Target
+	targetsPickAsk map[state.ObjID]map[string][]state.Target `clone:"deep"`
 
 	// replReplaced is the ev.Obj of the replacement applyReplacements is
 	// currently resolving — the object the replaced event was about. It is
@@ -207,7 +207,7 @@ type engineResolution struct {
 	// resolution and SVar:X Remembered$Amount gating see nothing and the
 	// completed move never happens (fx44, Mox Diamond). Zero whenever no
 	// replacement is in flight.
-	replReplaced state.ObjID
+	replReplaced state.ObjID `clone:"reset"`
 	// replReplacedCards is the ordered plural batch (Ctx.ReplacedCards) of the
 	// replacement currently resolving -- the cascade instruction's exiled
 	// cards, the counterpart of replReplaced for Averna's Defined$
@@ -215,25 +215,25 @@ type engineResolution struct {
 	// ReplaceWith$ body that suspends at its hidden pick re-resolves
 	// ReplacedCards.<qual> against the same batch. nil outside a Cascade
 	// replacement.
-	replReplacedCards []state.ObjID
+	replReplacedCards []state.ObjID `clone:"reset"`
 	// cascadeResidue is the synthetic SA effCascade wants run after a Cascade
 	// replacement body (bottom the non-found exiled cards, then the free-cast
 	// election). It is scoped to one ProposeCascadeReplacement call, the same
 	// scratch pattern as scrySA/scryTarget; nil outside one.
-	cascadeResidue *cards.SA
+	cascadeResidue *cards.SA `clone:"reset"`
 	// replacingEvent is the in-flight Damage event a DB$ ReplaceEffect body's
 	// ReplaceEvent call may rewrite (Amount/Affected). It exists only during
 	// emit, before the event is logged, so it is never part of
 	// cloned/replayed engine state.
-	replacingEvent  *events.Event
-	replacingSource state.ObjID
+	replacingEvent  *events.Event `clone:"reset"`
+	replacingSource state.ObjID   `clone:"reset"`
 	// replRemembered is the in-flight replacement body's remembered referents,
 	// visible to that one body and restored right after it, the same scratch
 	// pattern as replacingEvent. ReplaceEvent carries no Ctx, so the
 	// VarValue$ Remembered rewrite reads its binding here. Never part of
 	// cloned/replayed engine state: it lives only during the body run, before
 	// the held event is logged.
-	replRemembered []state.Target
+	replRemembered []state.Target `clone:"reset"`
 	// replAction is the action marker (events.ActionMarker) of the event the
 	// in-flight destination-changing replacement discarded: "sacrificed",
 	// "discarded" or "discarded as a cost". emit re-labels the replacement
@@ -241,13 +241,13 @@ type engineResolution struct {
 	// sacrifice or discard redirected by a replacement is still seen as that
 	// action by Sacrificed/Discarded triggers. Empty whenever no such
 	// replacement is in flight; threaded across a suspension by resumePoint.
-	replAction string
+	replAction string `clone:"reset"`
 	// replReplacedPlayer is the player a replaced DRAW event was about (the
 	// draw-er), threaded the same way replReplaced threads the replaced
 	// object: a ReplaceWith$ body over R:Event$ Draw poses mid-resolution
 	// asks (Breathstealer's Crypt's unless-pay discard) and the resume must
 	// restore Ctx.ReplacedPlayer. Only a Draw replacement sets it.
-	replReplacedPlayer state.Target
+	replReplacedPlayer state.Target `clone:"reset"`
 	// replRedirect is the destination-changing ("Replaced") move replacement
 	// whose ReplaceWith$ body is resolving, with every replacement already
 	// applied to that event (CR 614.5). A body move of the same object to a
@@ -255,9 +255,9 @@ type engineResolution struct {
 	// replacement pass that skips those (Engine.emit). Immutable once set;
 	// threaded across a suspension by resumePoint.redirect; nil at every
 	// intent boundary outside a suspended body.
-	replRedirect *replRedirect
+	replRedirect *replRedirect `clone:"reset"`
 	// replExclude is the applied set replRedirect carried into that one
 	// recheck pass: applyReplacementsDispatch drops those matches and
 	// applyReplacement extends it for a nested redirect. Nil otherwise.
-	replExclude []string
+	replExclude []string `clone:"reset"`
 }

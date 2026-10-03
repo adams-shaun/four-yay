@@ -16,8 +16,8 @@ type engineEmitCtx struct {
 	// names them (`Equipment.AttachedTo ParentTarget`) can be judged. Set and
 	// restored inside that one synchronous call; no ask suspends within it,
 	// so like damaging below Clone copies nothing of it.
-	subOfferParent []state.Target
-	subOfferBound  bool
+	subOfferParent []state.Target `clone:"reset"`
+	subOfferBound  bool           `clone:"reset"`
 
 	// costProvenanceSeen is the transient capture of the last cost-modifier
 	// pass (castprov3): true when that pass evaluated a cost static whose
@@ -33,7 +33,7 @@ type engineEmitCtx struct {
 	// same driven flow as the pass that set it, and no ask suspends between
 	// the pass and the read. Like noCounterSpend, Clone copies nothing of
 	// it.
-	costProvenanceSeen bool
+	costProvenanceSeen bool `clone:"reset"`
 
 	// damaging names the source object responsible for the damage emit
 	// currently in flight (CR 609.7a): the resolution source for a spell or
@@ -51,7 +51,7 @@ type engineEmitCtx struct {
 	// was still in flight, which is exactly the boundary Clone is prohibited
 	// from crossing. So the field is always zero at a clone boundary and
 	// copying it would copy a constant.
-	damaging state.ObjID
+	damaging state.ObjID `clone:"reset"`
 
 	// combatDamaging distinguishes a combat-damage Damage event from a
 	// noncombat one at trigger-match time (CombatDamage$ True/False, CR
@@ -68,7 +68,7 @@ type engineEmitCtx struct {
 	// DealDamage cast during the combat damage step is still NOT combat
 	// damage. Not copied by Clone, for the same reason as damaging above:
 	// always zero at a clone boundary.
-	combatDamaging bool
+	combatDamaging bool `clone:"reset"`
 
 	// declaredAttackers is the WHOLE of the current declare-attackers
 	// declaration: handleAttackers groups the chosen (attacker, defender)
@@ -84,35 +84,35 @@ type engineEmitCtx struct {
 	// deterministically. Not copied by Clone, for the same reason as
 	// damaging/combatDamaging above: it is always set-and-consumed inside one
 	// intent's driven flow, so it is stale-or-empty at a clone boundary.
-	declaredAttackers []state.ObjID
+	declaredAttackers []state.ObjID `clone:"reset"`
 	// Distinct opponents chosen in this declaration, ordered by first attack.
 	// Like declaredAttackers this exists only during finishAttackers' emits;
 	// the Melee trigger captures player refs into its logged stack object.
-	declaredDefenders []state.PlayerID
+	declaredDefenders []state.PlayerID `clone:"reset"`
 
 	// manaFromTap and manaProducer identify the mana ability currently
 	// resolving. They are synchronous context rather than ManaAdd fields.
-	manaFromTap  bool
-	manaProducer state.ObjID
+	manaFromTap  bool        `clone:"reset"`
+	manaProducer state.ObjID `clone:"reset"`
 	// paymentPlanCarriers memoises the objects whose faces carry a
 	// Taps/TapsForMana trigger or a ProduceMana replacement -- the only
 	// printed text the payment-plan source-interference check must run its
 	// matchers over (rules/payment_plan_interference.go). The key is the
 	// object-arena size plus the log head: a face or zone only changes through
 	// an event or a new object. A pure derived memo, never copied by Clone.
-	paymentPlanCarriers       []state.ObjID
-	paymentPlanCarriersObjs   int
-	paymentPlanCarriersEvents int
-	paymentPlanCarriersValid  bool
+	paymentPlanCarriers       []state.ObjID `clone:"reset"`
+	paymentPlanCarriersObjs   int           `clone:"reset"`
+	paymentPlanCarriersEvents int           `clone:"reset"`
+	paymentPlanCarriersValid  bool          `clone:"reset"`
 	// stepLeaving is the step transition currently offered to BeginPhase
 	// replacements (valid while stepLeavingSet); parked choices own a value
 	// copy. Held by value so a step change allocates nothing.
-	stepLeaving    state.Step
-	stepLeavingSet bool
+	stepLeaving    state.Step `clone:"reset"`
+	stepLeavingSet bool       `clone:"reset"`
 
 	// Tapping and damage provenance are likewise synchronous event context.
-	tappingForMana      state.ObjID
-	tappingManaProduced string
+	tappingForMana      state.ObjID `clone:"reset"`
+	tappingManaProduced string      `clone:"reset"`
 	// manaTapMark is the event-log length just after the most recent
 	// activated mana ability's Tap (rules/mana_activation.go's emitManaTap).
 	// resolveTriggeredManaAbilities scans e.L.Events from here for the
@@ -123,7 +123,7 @@ type engineEmitCtx struct {
 	// trigger-match time -- and consumed by the first batch resolution.
 	// Transient engine scratch, zero at every intent boundary (Clone builds a
 	// fresh Engine and never copies it). Zero means no pending activated tap.
-	manaTapMark int
+	manaTapMark int `clone:"reset"`
 	// manaTapPendingFrom is pendingTriggers' index boundary emitManaTap's Tap
 	// event queued from (the `before` snapshot) and manaTapSource the
 	// permanent that was tapped. stampTriggeredManaProduced binds the
@@ -133,11 +133,11 @@ type engineEmitCtx struct {
 	// batch is stamped with the triggers list resolveTriggeredManaAbilities
 	// receives. Transient engine scratch, zero at every intent boundary
 	// (Clone builds a fresh Engine and never copies it), like manaTapMark.
-	manaTapPendingFrom int
-	manaTapSource      state.ObjID
-	tapObj             state.ObjID
-	tapPlayer          state.PlayerID
-	tapEntering        bool
+	manaTapPendingFrom int            `clone:"reset"`
+	manaTapSource      state.ObjID    `clone:"reset"`
+	tapObj             state.ObjID    `clone:"reset"`
+	tapPlayer          state.PlayerID `clone:"reset"`
+	tapEntering        bool           `clone:"reset"`
 
 	// counterAdder is the player causing the CounterChange/PlayerCounterChange
 	// events currently in flight (the repl:AddCounter class's "who would put
@@ -149,5 +149,5 @@ type engineEmitCtx struct {
 	// restores its previous value before returning, so the field is always
 	// the unpublished zero at a clone boundary. Replay rebuilds it because
 	// replay re-executes the same setters.
-	counterAdder state.PlayerID
+	counterAdder state.PlayerID `clone:"reset"`
 }

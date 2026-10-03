@@ -2100,36 +2100,36 @@ func (e *Engine) handleBlockers(d *decision.Decision, in decision.Intent) {
 // reset to zero (combatRound{}) once both damage passes have dealt and the
 // step has moved to end combat.
 type combatRound struct {
-	hasFirst    bool // this combat damage step runs a first-strike pass (CR 510.3)
-	firstDone   bool // first-strike pass's damage dealt and priority granted
-	regularDone bool // regular pass's damage dealt
+	hasFirst    bool `clone:"deep"` // this combat damage step runs a first-strike pass (CR 510.3)
+	firstDone   bool `clone:"deep"` // first-strike pass's damage dealt and priority granted
+	regularDone bool `clone:"deep"` // regular pass's damage dealt
 
 	// priorityPending marks the between-passes priority round (CR 510.3/4) as
 	// owed: the first-strike pass's damage is dealt and its SBA tail posed an
 	// SBA decision (the CR 704.5j legend rule), so completeCombatPass deferred
 	// the round rather than displacing the ask. combatStep runs it once the
 	// answer lands. Zero in every no-decision game.
-	priorityPending bool
+	priorityPending bool `clone:"deep"`
 
 	// pass is true while a combat damage pass is being processed (true = the
 	// first-strike pass, false = the regular pass).
-	pass bool
+	pass bool `clone:"deep"`
 	// active is true while a pass has begun (divisions collected or asked) and
 	// has not yet finished dealing.
-	active bool
+	active bool `clone:"deep"`
 
 	// queue lists the attackers in this pass that still need a damage-division
 	// answer, in battlefield order. When empty, an ask is pending for
 	// askAttacker, or there were no divisions to ask at all.
-	queue []state.ObjID
+	queue []state.ObjID `clone:"deep"`
 	// done holds the divisions answered so far this pass, in answer order.
-	done []divChoice
+	done []divChoice `clone:"deep"`
 	// askAttacker names the attacker whose damage-division decision is
 	// currently pending (0 when none).
-	askAttacker state.ObjID
+	askAttacker state.ObjID `clone:"deep"`
 	// askOptions is parallel to the pending division Decision's Options:
 	// askOptions[i] is the per-blocker damage split the i-th option selects.
-	askOptions [][]int32
+	askOptions [][]int32 `clone:"deep"`
 
 	// electQueue lists this pass's attackers whose controller may elect to
 	// assign their combat damage as though they weren't blocked
@@ -2139,21 +2139,21 @@ type combatRound struct {
 	// defending player, so the attacker needs no division at all and is
 	// dropped from the queue when its election is accepted (a declined
 	// election leaves it in place for the ordinary division ask).
-	electQueue []state.ObjID
+	electQueue []state.ObjID `clone:"deep"`
 	// doneElect holds the attackers of this pass whose as-unblocked election
 	// was ACCEPTED (or whose matching static is mandatory, auto-accepted
 	// without an ask -- all printed corpus carriers are Optional$ True, so
 	// the mandatory reading is comment-only today). damageStep consults it
 	// through chosenElection before the ordinary assignment switch.
-	doneElect []state.ObjID
+	doneElect []state.ObjID `clone:"deep"`
 	// askElection marks the pending askAttacker ask as an election rather
 	// than a division, so the answer routes to the right handler.
-	askElection bool
+	askElection bool `clone:"deep"`
 	// assignments and damageNext preserve a combat pass when a replacement
 	// order decision parks one assignment. The remaining simultaneous pass
 	// cannot run (nor can its SBA/regular pass) until that event settles.
-	assignments []assignment
-	damageNext  int
+	assignments []assignment `clone:"deep"`
+	damageNext  int          `clone:"deep"`
 	// initHad/initHolder/initCtrls carry the CR 726.2 simultaneous-pass
 	// adjudication across a replacement-order suspension the same way:
 	// initHolder is the initiative-holder snapshot taken when the pass began
@@ -2162,9 +2162,9 @@ type combatRound struct {
 	// moves it), and initCtrls accumulates the distinct controllers of
 	// creatures whose hits LANDED on that snapshot holder. The one
 	// adjudication runs after the loop, once per completed pass.
-	initHad    bool
-	initHolder state.PlayerID
-	initCtrls  []state.PlayerID
+	initHad    bool             `clone:"deep"`
+	initHolder state.PlayerID   `clone:"deep"`
+	initCtrls  []state.PlayerID `clone:"deep"`
 	// dealing marks a pass whose damage has started being dealt (damageStep's
 	// fresh path stored its assignments) and whose completeCombatPass tail
 	// has not run yet. A decision that is NOT a replacement-order ask can be
@@ -2176,7 +2176,7 @@ type combatRound struct {
 	// to the pass's completion instead of beginning the SAME pass again,
 	// which re-dealt the already-dealt combat damage forever (cardfuzz batch5
 	// line 10: choose -> damage -> replacement ask -> ... repeated).
-	dealing bool
+	dealing bool `clone:"deep"`
 }
 
 // divChoice records one answered damage division: which attacker divided its

@@ -9,12 +9,12 @@ import (
 )
 
 type Engine struct {
-	G                *state.Game
-	deckManifests    []deck.Manifest
-	endTurnRequested bool
-	L                *events.Log
-	compiledText     *compiledText
-	landTypeWords    []string
+	G                *state.Game     `clone:"deep"`
+	deckManifests    []deck.Manifest `clone:"share"`
+	endTurnRequested bool            `clone:"reset"`
+	L                *events.Log     `clone:"deep"`
+	compiledText     *compiledText   `clone:"share"`
+	landTypeWords    []string        `clone:"share"`
 
 	// ManaAbilityHook, when non-nil, is called once per mana ability
 	// activation the engine resolves (resolveManaAbilityRefOriginal, the one
@@ -33,14 +33,14 @@ type Engine struct {
 	// emits nothing, mutates nothing, is
 	// not copied by Clone, and a nil hook -- every host, replay and test --
 	// leaves the event stream and every chain head byte-identical.
-	ManaAbilityHook func(p state.PlayerID, source state.ObjID, sa *cards.SA)
+	ManaAbilityHook func(p state.PlayerID, source state.ObjID, sa *cards.SA) `clone:"hook"`
 
 	// paymentStats is the optional auto-pay diagnostics sink
 	// (SetPaymentPlanStats, rules/payment_plan_stats.go). Like
 	// ManaAbilityHook it is a harness-only observer: nil by default, it emits
 	// nothing, never changes an offer, and Clone deliberately does not copy
 	// it (spec §7: no pointer is shared across engines).
-	paymentStats *PaymentPlanStats
+	paymentStats *PaymentPlanStats `clone:"hook"`
 
 	// format is the construction format New was configured with (Config.
 	// Format). It is the explicit gate the Commander rules (the tax, CR
@@ -51,10 +51,10 @@ type Engine struct {
 	// state-based-action pass for CR 903.10. Plain Format value; Clone
 	// copies it so a cloned Commander engine still gates its command-zone
 	// rules and keeps its commander-damage loss condition.
-	format Format
+	format Format `clone:"deep"`
 
-	rng     *rng
-	pending *decision.Decision
+	rng     *rng               `clone:"deep"`
+	pending *decision.Decision `clone:"deep"`
 
 	// deferGameOver is true only while New processes the opening deal. A
 	// library-empty draw still emits PlayerLost and runs every other SBA, but
@@ -63,12 +63,12 @@ type Engine struct {
 	// persisted-boundary contract) and lets an all-undersized opening deal
 	// reach the truthful no-survivor draw instead of accidentally crowning an
 	// undealt short deck.
-	deferGameOver bool
+	deferGameOver bool `clone:"reset"`
 
 	// continuous holds every registered continuous effect, live or expired.
 	// The layer system (layers.go) is the only reader and writer.
-	continuous   []ContinuousEffect
-	lifeExchange *lifeExchangeTransaction
+	continuous   []ContinuousEffect       `clone:"deep"`
+	lifeExchange *lifeExchangeTransaction `clone:"reset"`
 	// pendingLifeExchange parks an exchange transaction whose first or second
 	// life change suspended on a decision that is NOT a replacement-order ask
 	// (a consumed GainLife→Draw body that itself parked a Dredge ask). No
@@ -79,46 +79,46 @@ type Engine struct {
 	// It is only ever non-nil while a decision or a replacement-order queue is
 	// outstanding, so (like resume/replChoices/pending) no clone boundary can
 	// observe it.
-	pendingLifeExchange *lifeExchangeTransaction
+	pendingLifeExchange *lifeExchangeTransaction `clone:"reset"`
 	// controlGrants holds the GainControl effects that can still end (see
 	// rules/control.go). It is engine continuation state only; every take and
 	// return is a ControlChange event, so the log alone rebuilds Game state.
-	controlGrants []controlGrant
+	controlGrants []controlGrant `clone:"deep"`
 	// expiringControl guards expireControl against re-entry through the
 	// ControlChange events it emits.
-	expiringControl bool
+	expiringControl bool `clone:"reset"`
 	// reconcilingControlStatics guards reconcileControlStatics (rules/
 	// control_static.go) against re-entry through the ControlChange events
 	// IT emits; the same intent-boundary discipline as expiringControl.
-	reconcilingControlStatics bool
+	reconcilingControlStatics bool `clone:"reset"`
 
 	// mulligans is Config.Mulligans carried past genesis: the colour round's
 	// end (rules/commander_color.go) must re-enter the same mulligan/opening
 	// hand-off the genesis branch would have taken, and cfg is not otherwise
 	// retained. Plain int, so Clone copies it.
-	mulligans int
+	mulligans int `clone:"deep"`
 	// windowDiagnostics is the default-off, observer-only priority sidecar
 	// gate copied from genesis Config.
-	windowDiagnostics bool
+	windowDiagnostics bool `clone:"deep"`
 	// startingLife is Config.StartingLife with the 0-means-20 convention
 	// already resolved at genesis — the value state.NewGameLife opened the
 	// game with. It is the effects.Host StartingLife backing (the
 	// PlayerCountDefinedPlayer.PlayerUID_RelativePlayerUID$StartingLife read
 	// behind Anya, Merciless Angel's and Game Over's relative
 	// half-starting-life thresholds). Plain int32, so Clone copies it.
-	startingLife int32
+	startingLife int32 `clone:"deep"`
 	// setNameInPool is a genesis-time fact: does any card this match can put
 	// on the battlefield print a SetName$ static? False for almost every
 	// match, which reduces the per-event refresh to one predictable branch.
-	setNameInPool bool
+	setNameInPool bool `clone:"deep"`
 	// layer4InPool is the same genesis-time fact for a layer-4 type-changing
 	// effect (cards.ChangesTypes). False for most matches, which reduces the
 	// per-event refresh to one predictable branch.
-	layer4InPool bool
+	layer4InPool bool `clone:"deep"`
 	// controlStaticInPool is the same genesis-time fact for a GainControl$
 	// static (cards.MayCarryControlStatic). False for most matches, which
 	// reduces the per-event static-control reconcile to one branch.
-	controlStaticInPool bool
+	controlStaticInPool bool `clone:"deep"`
 	// continuousVersion is bumped by every direct mutation of e.continuous
 	// (layers.go's AddContinuous and EndOfTurnCleanup). It stands in for the
 	// events a board change would signal through the log head: while
@@ -127,7 +127,7 @@ type Engine struct {
 	// that drop (an UntilEOT pump expiring) even though the log head did not
 	// move. A zero value is never taken as a valid cache hit across rebuilds
 	// because active() guards hits on version as well.
-	continuousVersion int
+	continuousVersion int `clone:"reset"`
 
 	// searchingBy tracks the library search in flight, for the Opposition
 	// Agent class: repl:Moved's FoundSearchingLibrary$ matches only while a
@@ -137,8 +137,8 @@ type Engine struct {
 	// Synchronous engine-runtime state (set and cleared around one
 	// synchronous applyLibrarySearch), never folded from an event and never
 	// read across a suspension.
-	searchingBy state.PlayerID
-	searchDepth int
+	searchingBy state.PlayerID `clone:"reset"`
+	searchDepth int            `clone:"reset"`
 
 	// loop is the livelock watcher (rules/livelock.go): pure observation of
 	// the event stream this engine is logging, configured by Config.
@@ -148,7 +148,7 @@ type Engine struct {
 	// only happens at an intent boundary, where the watcher is idle
 	// anyway), so the clone and the original watch their own streams
 	// independently.
-	loop livelockWatcher
+	loop livelockWatcher `clone:"reset"`
 
 	// The struct's remaining field contracts live in the embedded clusters
 	// below: plain value sub-structs, each declared in its own focused file

@@ -27,13 +27,13 @@ import (
 // phase and true during the bottoming phase; cursor names the next seat to ask
 // in whichever phase.
 type mulliganRound struct {
-	seats         []state.PlayerID
-	kept          []bool
-	taken         []int
-	limit         int
-	freeMulligans int
-	bottom        bool
-	cursor        int
+	seats         []state.PlayerID `clone:"deep"`
+	kept          []bool           `clone:"deep"`
+	taken         []int            `clone:"deep"`
+	limit         int              `clone:"deep"`
+	freeMulligans int              `clone:"deep"`
+	bottom        bool             `clone:"deep"`
+	cursor        int              `clone:"deep"`
 }
 
 // PregameStarter supplies the resolved CR 103.1 starting seat while the

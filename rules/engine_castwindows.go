@@ -15,27 +15,27 @@ import (
 type engineCastWindows struct {
 	// Synchronous Scry proposal's continuation identity (never carried across
 	// a decision: the parked resume point owns its SA and target).
-	scrySA     *cards.SA
-	scryTarget int
+	scrySA     *cards.SA `clone:"reset"`
+	scryTarget int       `clone:"reset"`
 	// untapResume is set only around one Untap emission from finishUntapStep.
 	// If that event parks an Untap replacement choice, it moves into the queue.
-	untapResume *untapStep
+	untapResume *untapStep `clone:"deep"`
 	// untapChoiceObj is the permanent whose permanent-specific untap-step
 	// election is pending. The answer is folded onto the object before this
 	// cursor resumes, so clones and replay preserve the same choice.
-	untapChoiceObj state.ObjID
+	untapChoiceObj state.ObjID `clone:"deep"`
 	// madnessChoices parks discard moves while the card's owner decides whether
 	// to apply Madness's optional hand-to-exile replacement.
-	madnessChoices []events.Event
+	madnessChoices []events.Event `clone:"deep"`
 	// madnessSuspended marks that the FRONT madness ask was posed through
 	// Engine.Ask and so suspended the stack resolution whose discard it
 	// interrupted (e.resume is that suspension's frame). The last answer of
 	// the queue resumes it. A bool rather than the frame pointer so a clone,
 	// whose resume chain is deep-copied, still resumes its own frame.
-	madnessSuspended bool
+	madnessSuspended bool `clone:"deep"`
 	// applyingMadnessChoice suppresses only the Madness interposition while an
 	// answered choice emits its selected destination.
-	applyingMadnessChoice bool
+	applyingMadnessChoice bool `clone:"reset"`
 
 	// suppressedCast holds the card object ids whose cast option is held out
 	// of the current priority window because their cast attempt aborted
@@ -52,7 +52,7 @@ type engineCastWindows struct {
 	// comes back the moment the window ends or the mana/board changes. The
 	// id already names the one seat that holds it, so two different cards'
 	// declines never interact and two seats' never do either.
-	suppressedCast map[state.ObjID]bool
+	suppressedCast map[state.ObjID]bool `clone:"deep"`
 
 	// castAborts counts the no-progress cast/activation aborts per card so far
 	// in the current priority window (F05-2, CR 733.2): the held-out
@@ -65,7 +65,7 @@ type engineCastWindows struct {
 	// transient window bookkeeping on the Engine, never an event or a
 	// state.Game field, so a replay re-derives it by re-running the same
 	// aborts rather than reading it from the log.
-	castAborts map[state.ObjID]int32
+	castAborts map[state.ObjID]int32 `clone:"deep"`
 
 	// inertHeldOut holds the priority options the inert backstop
 	// (rules/priority_guard.go) caught changing nothing: each is left out of
@@ -73,7 +73,7 @@ type engineCastWindows struct {
 	// suppressedCast lifetime (cleared beside it in emit). Transient window
 	// bookkeeping like suppressedCast: a replay re-derives it by re-running
 	// the same inert answer, whose Note is in the log.
-	inertHeldOut map[inertKey]bool
+	inertHeldOut map[inertKey]bool `clone:"deep"`
 
 	// drainAwaitsTarget is true while a decision asked from inside the trigger
 	// drain is pending, so its answer resumes the drain rather than granting
@@ -86,7 +86,7 @@ type engineCastWindows struct {
 	// priority, so a later, unrelated trigger in the same batch is still
 	// placed before any player acts. Plain scalar, so Clone copies it like
 	// every other field here. (Tasks 7, 18.)
-	drainAwaitsTarget bool
+	drainAwaitsTarget bool `clone:"deep"`
 
 	// drainAwaitsModes is the CR 603.3c twin of drainAwaitsTarget: true while
 	// a modal triggered ability's KModes decision asked at placement
@@ -99,7 +99,7 @@ type engineCastWindows struct {
 	// or a CharmNum$ above an unrepeatable mode count -- and a stale true
 	// would misroute the next unrelated KModes ask through the placement
 	// branch), matching the invariant its name states.
-	drainAwaitsModes bool
+	drainAwaitsModes bool `clone:"deep"`
 
 	// deferCastTrigger is set only around the up-front cast push (CR 601.2a)
 	// emit in pushCast. While it is true, emit HOLDS the PutOnStack event's
@@ -112,7 +112,7 @@ type engineCastWindows struct {
 	// emit for another PutOnStack; a replacement that fires here (as for any
 	// PutOnStack) recurses on the OTHER kind, which falls to checkTriggers
 	// normally. Zero whenever no cast push is in flight, so Clone copies it.
-	deferCastTrigger bool
+	deferCastTrigger bool `clone:"deep"`
 
 	// deferredPush holds the up-front PutOnStack event of an in-flight cast
 	// whose cast trigger (CR 601.2i) is held back until the cast is complete
@@ -121,13 +121,13 @@ type engineCastWindows struct {
 	// aborted proposal drops it. Each is a pointer so a Clone taken with a
 	// cast in flight copies the held event (a replay re-derives the same
 	// trigger from the recorded PutOnStack).
-	deferredPush *events.Event
+	deferredPush *events.Event `clone:"deep"`
 
 	// deferredPushLKI is the LKI snapshot captured for deferredPush's own
 	// Obj when pushCast emitted it, threaded into the trigger walk so a
 	// ChangesZone trigger fired by the cast (see spellCastMatches) can read
 	// the card as it was just before the stack move.
-	deferredPushLKI *state.Object
+	deferredPushLKI *state.Object `clone:"share"`
 
 	// noCounterSpend is the transient capture of emitRestrictedManaSpend: the
 	// id of the SPELL whose payment just consumed a batch carrying
@@ -139,7 +139,7 @@ type engineCastWindows struct {
 	// replay re-derives the flag from the recorded event exactly like every
 	// other cast flag. Zero whenever no such spend is in flight, so Clone
 	// copies nothing of it.
-	noCounterSpend state.ObjID
+	noCounterSpend state.ObjID `clone:"reset"`
 
 	// manaSpentSources is the transient capture of emitRestrictedManaSpend's
 	// SPELL arm: the deduplicated Source of every restriction batch consumed
@@ -152,7 +152,7 @@ type engineCastWindows struct {
 	// capture and the read (it emits, never asks), and Clone copies nothing of
 	// it (like noCounterSpend), so a replay re-derives the same list from the
 	// recorded ManaAdd events.
-	manaSpentSources []state.ObjID
+	manaSpentSources []state.ObjID `clone:"reset"`
 
 	// manaSpentAddsCounters is the transient capture of emitRestrictedManaSpend's
 	// SPELL/ACTIVATED arm for the AddsCounters$ rider: every consumed
@@ -166,7 +166,7 @@ type engineCastWindows struct {
 	// (it emits, never asks), and Clone copies nothing of it, so a replay
 	// re-derives the same grants from the recorded ManaAdd/ManaRestriction
 	// events.
-	manaSpentAddsCounters []state.ManaAddsCounterGrant
+	manaSpentAddsCounters []state.ManaAddsCounterGrant `clone:"reset"`
 
 	// stackGrantCast is the in-flight cast whose OWN stack-grant walk is
 	// running (queueCascadeTriggers' cascadeInstances read, the only
@@ -183,7 +183,7 @@ type engineCastWindows struct {
 	// would make EQ0 fail for the very cast the grant is for). Counts read
 	// anywhere else stay inclusive (Vengevine's EQ2 "second creature
 	// spell" gate).
-	stackGrantCast state.ObjID
+	stackGrantCast state.ObjID `clone:"reset"`
 
 	// manaExpended is the per-seat, per-turn tally of mana spent CASTING
 	// spells this turn (trig:ManaExpend's "as you spend your Nth total mana
@@ -199,6 +199,6 @@ type engineCastWindows struct {
 	// it is deterministic), and Clone copies both so an intent-boundary clone
 	// resumes mid-turn with the original's tally. The window is any turn, not
 	// "your turn": an instant cast on an opponent's turn accumulates too.
-	manaExpended     []int32
-	manaExpendedTurn int32
+	manaExpended     []int32 `clone:"deep"`
+	manaExpendedTurn int32   `clone:"deep"`
 }

@@ -18,7 +18,7 @@ type engineRounds struct {
 	// tossChoice); step() dispatches to stepPregame (rules/mulligan.go)
 	// while it is true, and the round's end clears it and hands to
 	// beginTurn. Bool field, so Clone copies it like every other value field.
-	pregame bool
+	pregame bool `clone:"deep"`
 	// coloring is true while the CR 903.4b commander colour-choice round runs,
 	// BEFORE the London mulligan round (the choice is made "before the game
 	// begins", and the mulligan round is also pregame). New sets it only when
@@ -27,11 +27,11 @@ type engineRounds struct {
 	// while it is true, and the round's end opens the mulligan/opening round
 	// exactly as if the colour round were absent. Bool field, so Clone copies
 	// it like pregame does.
-	coloring bool
+	coloring bool `clone:"deep"`
 	// colorRound is the colour round's plain-value state (rules/
 	// commander_color.go): one qualifying (seat, commander) ask per entry and
 	// a cursor. Never a closure, so Clone copies it like the mulligan round.
-	colorRound colorRound
+	colorRound colorRound `clone:"share"`
 	// tossChoice is CR 103.1's second half's plain-value state (rules/
 	// starting_player_choice.go): the toss winner may still choose who takes
 	// the first turn. Only a tossAsk constructor (NewStartingPlayerChoice)
@@ -39,11 +39,11 @@ type engineRounds struct {
 	// exactly as the pre-choice engine did. active marks that the pregame
 	// rounds are still deferred until the choice is answered or defaulted.
 	// Never a closure, so Clone copies it.
-	tossChoice tossChoice
+	tossChoice tossChoice `clone:"deep"`
 	// mulligan is the round's plain-value state (rules/mulligan.go) -- seats,
 	// kept/taken counts and the phase cursor. Never a closure, so Clone copies
 	// it like cast/choosing.
-	mulligan mulliganRound
+	mulligan mulliganRound `clone:"deep"`
 	// opening is the optional opening-hand effects round, after the London
 	// mulligan round (a Gemstone Caverns may not be used from a hand its owner
 	// later mulliganed away) and before turn one. It holds only object IDs and parsed SVar names, so replay and
@@ -52,13 +52,13 @@ type engineRounds struct {
 	// and folds the designation into state.Game through events.StartingPlayer
 	// Change (effects/cardflow.go), so Count$StartingPlayer and the view's
 	// pregame projection read it before turn one.
-	opening openingRound
+	opening openingRound `clone:"deep"`
 	// blockerRound is the declare-blockers step's per-defender cursor
 	// (rules/combat.go, Task m34): an attack may be split across several
 	// defending players, and each declares its own blocks, one KBlockers
 	// decision at a time. Plain-value state (a defender list plus an index),
 	// never a closure, so Clone copies it like the mulligan round.
-	blockerRound blockerRound
+	blockerRound blockerRound `clone:"share"`
 
 	// exertAskState is the declare-attackers exert election's resumable
 	// state (rules/combat.go, task exert1): the deterministic offer list
@@ -67,7 +67,7 @@ type engineRounds struct {
 	// currently outstanding. Plain-value state, so Clone copies it like
 	// blockerRound; a log-driven replay re-derives the same list when it
 	// re-runs the recorded KAttackers answer through handleAttackers.
-	exertAskState exertAsk
+	exertAskState exertAsk `clone:"share"`
 
 	// enlistAskState is the declare-attackers enlist election's resumable
 	// state (rules/enlist.go, task enlist1): the answered KAttackers
@@ -77,14 +77,14 @@ type engineRounds struct {
 	// ask currently outstanding. Plain value, so Clone copies it like
 	// exertAskState; a log-driven replay re-derives the same list when it
 	// re-runs the recorded KAttackers answer through handleAttackers.
-	enlistAskState enlistAsk
+	enlistAskState enlistAsk `clone:"share"`
 
 	// stationing is the spacecraft a pending Station tap pick (rules/
 	// station.go) belongs to: the "station" priority option's object, held
 	// across the KChoose so the answer's charge counters land on the right
 	// permanent. Plain value, so Clone copies it like blockerRound; zero
 	// whenever no station ask is outstanding.
-	stationing state.ObjID
+	stationing state.ObjID `clone:"deep"`
 
 	// combatRound is the combat damage step's continuation state
 	// (rules/combat.go, Task jj-cmb): which damage passes are done, and any
@@ -93,5 +93,5 @@ type engineRounds struct {
 	// Plain-value data (slices plus scalars), never a closure, so Clone
 	// copies it like blockerRound and a log-driven replay re-derives the same
 	// branch. Zero whenever the combat damage step is not in progress.
-	combatRound combatRound
+	combatRound combatRound `clone:"deep"`
 }

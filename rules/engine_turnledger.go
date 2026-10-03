@@ -14,8 +14,8 @@ type engineTurnLedger struct {
 	// turnsTakenEpoch is the log length represented by the cache; emit advances
 	// both together, while an Engine assembled around an existing log lazily
 	// rebuilds on its first query.
-	turnsTaken      []int32
-	turnsTakenEpoch int
+	turnsTaken      []int32 `clone:"deep"`
+	turnsTakenEpoch int     `clone:"deep"`
 
 	// turnStartTurns caches, per player, the sorted turn numbers at which that
 	// player's turn began (rules.turnStartsFor). delayedRegistrationLive reads
@@ -23,8 +23,8 @@ type engineTurnLedger struct {
 	// it represents, so an Engine assembled around an existing log lazily
 	// rebuilds it once rather than rescanning the log per registration. Clone
 	// copies it like turnsTaken.
-	turnStartTurns [][]int32
-	turnStartEpoch int
+	turnStartTurns [][]int32 `clone:"deep"`
+	turnStartEpoch int       `clone:"deep"`
 
 	// combatHitsThisTurn is the per-turn combat-damage-to-players ledger
 	// captured at the combat-damage site (rules/combat.go's
@@ -36,16 +36,16 @@ type engineTurnLedger struct {
 	// cache-advance site below). It carries only damage that LANDED and only
 	// damage to a PLAYER; the object branch of runCombatAssignments records
 	// nothing. See effects.Host's CombatDamageToPlayersThisTurn.
-	combatHitsThisTurn  []effects.CombatDamageHit
-	counterAddsThisTurn []counterAddedThisTurn
+	combatHitsThisTurn  []effects.CombatDamageHit `clone:"deep"`
+	counterAddsThisTurn []counterAddedThisTurn    `clone:"deep"`
 	// activationsThisTurn and crimeSeatsThisTurn are two more per-turn
 	// NO-EVENT ledgers of the same kind (rules/turn_ledgers.go): this turn's
 	// activated-ability stack objects with the targets they chose, and the
 	// seats that committed a crime (CR 700.13). Re-derived by every rebuild,
 	// cleared on TurnChange, copied by Clone.
-	activationsThisTurn []activationThisTurn
-	crimeSeatsThisTurn  uint64
-	bendSeatsThisTurn   [64]uint8
+	activationsThisTurn []activationThisTurn `clone:"deep"`
+	crimeSeatsThisTurn  uint64               `clone:"deep"`
+	bendSeatsThisTurn   [64]uint8            `clone:"deep"`
 	// noncombatDamagedSeats / noncombatDamagedSeatsLast are the seats dealt
 	// NONCOMBAT damage this turn and during the previous turn (bit p = seat
 	// p): the Forge player properties wasDealtNonCombatDamageThisTurn /
@@ -54,6 +54,6 @@ type engineTurnLedger struct {
 	// like combatHitsThisTurn, they are NO-EVENT state recordTurnLedgers
 	// folds from each landed player Damage event, re-derived by every
 	// rebuild; emit rotates this turn's set into last turn's on TurnChange.
-	noncombatDamagedSeats     uint64
-	noncombatDamagedSeatsLast uint64
+	noncombatDamagedSeats     uint64 `clone:"deep"`
+	noncombatDamagedSeatsLast uint64 `clone:"deep"`
 }

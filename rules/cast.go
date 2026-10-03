@@ -73,31 +73,31 @@ const (
 // abilities) sets it to a real Face().Abilities index and reuses this same
 // flow for a cost with X/Sac/Delve of its own.
 type pendingCast struct {
-	player  state.PlayerID
-	card    state.ObjID
-	from    state.Zone
-	mode    string // "", "kicked", "surged", "flashback", "miracle", and the alternative-cost modes this file offers
-	ability int    // -1 for a spell (Task 10 uses >= 0)
+	player  state.PlayerID `clone:"deep"`
+	card    state.ObjID    `clone:"deep"`
+	from    state.Zone     `clone:"deep"`
+	mode    string         `clone:"deep"` // "", "kicked", "surged", "flashback", "miracle", and the alternative-cost modes this file offers
+	ability int            `clone:"deep"` // -1 for a spell (Task 10 uses >= 0)
 	// abilityMerged is the pile position of the activated ability pc.ability
 	// names: 0 for the top face, i+1 for the i-th card merged beneath it
 	// (CR 702.140d). It selects the SVar table a computed cost/limit resolves
 	// against, so an under-card ability reads its OWN table, never the pile
 	// top's. Zero for a spell and for every top-face ability.
-	abilityMerged int
+	abilityMerged int `clone:"deep"`
 
 	// payment is a privately-owned V1 witness selected at priority.  It stays
 	// on the ordinary cast continuation through target choices, then drives
 	// only CR 601.2g mana activations.  All resulting state changes remain in
 	// the established mana activation and payment paths.
-	payment         *plannedCastPayment
-	paymentNext     int
-	paymentFallback *decision.PaymentFallback
+	payment         *plannedCastPayment       `clone:"deep"`
+	paymentNext     int                       `clone:"deep"`
+	paymentFallback *decision.PaymentFallback `clone:"deep"`
 	// announced marks a cast begun by Intent.Announce (announce-then-pay
 	// spec, rules/announce_pay.go): its CR 601.2g window is the announced
 	// one. windowTaps records the activations made from that window, for
 	// Undo last tap and Cancel cast. Both are zero for every other cast.
-	announced  bool
-	windowTaps []windowTap
+	announced  bool        `clone:"deep"`
+	windowTaps []windowTap `clone:"deep"`
 
 	// grantSource / grantSVar (task grantcost1) anchor a GRANTED activation
 	// (rules/speed.go's beginGrantedActivation, reached from the max-speed
@@ -108,8 +108,8 @@ type pendingCast struct {
 	// printed/spell proposal; pc.ability stays -1 for a granted one. Both are
 	// plain values, so Clone's shallow copy carries them like every scalar
 	// above.
-	grantSource state.ObjID
-	grantSVar   string
+	grantSource state.ObjID `clone:"deep"`
+	grantSVar   string      `clone:"deep"`
 
 	// grantKeyword anchors a KEYWORD-GRANTED activation (CR 613.1f, the
 	// layer-6 AddKeyword$ Cycling/TypeCycling route): the body is synthesized
@@ -120,7 +120,7 @@ type pendingCast struct {
 	// function of the string, so replay-safe), and payCast's ability branch
 	// mints through events.KeywordAbilityPush, whose Counter carries the same
 	// line. Empty means not a keyword grant. Plain data, so Clone carries it.
-	grantKeyword string
+	grantKeyword string `clone:"deep"`
 
 	// gainedFrom / gainedIdx anchor a HAS-ALL-ABILITIES-OF activation
 	// (Forge's GainsAbilitiesOf$, rules/activation's gained branch): the body
@@ -128,8 +128,8 @@ type pendingCast struct {
 	// object id and gainedIdx the index of the SA in its Face().Abilities.
 	// Both are plain values carried through the same shallow Clone as the
 	// scalars above; a zero gainedFrom means no gained activation.
-	gainedFrom state.ObjID
-	gainedIdx  int
+	gainedFrom state.ObjID `clone:"deep"`
+	gainedIdx  int         `clone:"deep"`
 
 	// offSorcery (kw:MayFlashSac) is the CR 702.8 rider's condition captured
 	// at beginCast, before CR 601.2a pushes the spell: true when this cast was
@@ -137,7 +137,7 @@ type pendingCast struct {
 	// state.FlagMayFlashSac onto the pay-time CastInfo only when this is true
 	// AND the face carries the keyword, so a sorcery-timed cast of the same
 	// card registers no cleanup sacrifice. Plain data, so Clone carries it.
-	offSorcery bool
+	offSorcery bool `clone:"deep"`
 
 	// giftDone / giftPromise / giftTo are the CR 702.168 Gift election
 	// (Bloomburrow): the caster's optional promise of a gift to an opponent,
@@ -147,22 +147,22 @@ type pendingCast struct {
 	// already posed (the forageDone/replicateDone shape), giftPromise is the
 	// answer (false = declined, the plain-cast direction) and giftTo names
 	// the promised opponent. Plain data, so Clone carries them.
-	giftDone    bool
-	giftPromise bool
-	giftTo      state.PlayerID
+	giftDone    bool           `clone:"deep"`
+	giftPromise bool           `clone:"deep"`
+	giftTo      state.PlayerID `clone:"deep"`
 
-	cost Cost
+	cost Cost `clone:"deep"`
 
 	// mayPlayIgnore is the may-play grant's MayPlayIgnoreColor$ rider,
 	// recorded at beginCast from the offer gate that proved it (the card was
 	// still in the granted zone); the mana window and the payment keep the
 	// grant through it, since after the push (CR 601.2a) the card is on the
 	// stack and a zone re-derivation would wrongly drop the grant.
-	mayPlayIgnore bool
+	mayPlayIgnore bool `clone:"deep"`
 	// mayPlayIgnoreType is the grant's MayPlayIgnoreType$ rider (Rakdos, the
 	// Muscle): the same recorded-at-beginCast discipline as mayPlayIgnore,
 	// threading "mana of any type" through the same window and payment.
-	mayPlayIgnoreType bool
+	mayPlayIgnoreType bool `clone:"deep"`
 	// mayPlayRemembered records, at beginCast, the remembered-object bindings
 	// of the ManaConvert continuous effects that matched this card WHILE it
 	// was still in the granted zone, keyed by effect source. A may-play
@@ -171,36 +171,36 @@ type pendingCast struct {
 	// ValidCard$ Card.IsRemembered must keep resolving through the cost
 	// payment (CR 601.2h) -- the same recorded-at-beginCast discipline as
 	// mayPlayIgnore, and for the same reason. Nil for every ordinary cast.
-	mayPlayRemembered map[state.ObjID][]state.ObjID
+	mayPlayRemembered map[state.ObjID][]state.ObjID `clone:"deep"`
 	// mayPlayPerm is the MayPlayText$-typed permission a may-play cast
 	// consumes (rules/mayplay.go's mayPlayPermKey). Empty for an untyped
 	// grant. beginCast copies it off the option, the "mayplay" cost case
 	// prices exactly that static's free/RaiseCost$ riders, and payCast stamps
 	// it on the pay-time CastInfo (a "perm=<key>" token) so
 	// mayPlayTypedLimitReached can attribute the play to its static.
-	mayPlayPerm string
+	mayPlayPerm string `clone:"deep"`
 	// mayPlayHosts records, at beginCast, the hosts of the may-play
 	// permissions that covered this "mayplay" cast's card while it still sat
 	// in the granted zone (mayPlayHostsCovering). The cost chain's
 	// MayPlaySource reads (castRidesMayPlayOf) consult it after CR 601.2a's
 	// push, when the permission no longer covers the card on the stack.
 	// mayPlayHostsSet marks a captured (possibly empty) record.
-	mayPlayHosts    []state.ObjID
-	mayPlayHostsSet bool
+	mayPlayHosts    []state.ObjID `clone:"deep"`
+	mayPlayHostsSet bool          `clone:"deep"`
 	// costRemembered records, at beginCast, the captured Remembered set of
 	// every Effect-delivered cost-modifier static whose set held this card
 	// (costRememberedCapture): the "a spell cast this way" raise's
 	// Card.IsRemembered must keep naming the card after CR 601.2a moves it,
 	// although the Effect's ForgetOnMoved$ drops it from the live set at that
 	// move -- the mayPlayRemembered discipline, for cost statics.
-	costRemembered []costRememberedEntry
+	costRemembered []costRememberedEntry `clone:"deep"`
 
 	// replaceGraveyard is the Play SA's ReplaceGraveyard$ Exile rider
 	// (task replplay1): the played spell must not rest in the graveyard —
 	// payCast stamps state.FlagReplaceGraveyard onto the pay-time CastInfo
 	// and spellRestZone/spellFizzleZone read it. Per-SA provenance, so it
 	// rides pendingCast rather than the shared "play" mode.
-	replaceGraveyard bool
+	replaceGraveyard bool `clone:"deep"`
 
 	// faceDown marks the morph family's face-down cast (CR 702.37a
 	// Morph, 702.168a Megamorph, 702.169a Disguise): the {3} cast puts a
@@ -210,16 +210,16 @@ type pendingCast struct {
 	// (pushCast), and the pay-time CastInfo stamps the family flag
 	// (modeFlags) the resolution reader and a later turn-face-up action
 	// read. Plain data, so Clone carries it.
-	faceDown bool
+	faceDown bool `clone:"deep"`
 
-	x     int32
-	xDone bool
+	x     int32 `clone:"deep"`
+	xDone bool  `clone:"deep"`
 	// announceX is the alternative cost's Announce$ variable (the Shoal
 	// cycle's "X"): the X this cast announces is NOT a mana X — it is bound
 	// by the exile settlement's cmcEQX filter (xAsk's announce arm offers
 	// exactly the mana values some exilable card matches at; exAsk binds the
 	// announced value into that filter). Empty on every ordinary cast.
-	announceX string
+	announceX string `clone:"deep"`
 
 	// named / namedN / namedDone carry a NAMED announcement (Forge's
 	// Announce$ other than X) that a RaiseCost additional-cost part counts
@@ -229,47 +229,47 @@ type pendingCast struct {
 	// Tapped). namedAnnounceAsk poses it before any other cost stage, the
 	// part then pays exactly namedN, and the paired Relative$ ReduceCost
 	// reads the value through the SVar the name spells (namedAnnounceSVars).
-	named     string
-	namedN    int32
-	namedDone bool
+	named     string `clone:"deep"`
+	namedN    int32  `clone:"deep"`
+	namedDone bool   `clone:"deep"`
 
 	// suspendTimeX makes the chosen cast X also set the number of TIME
 	// counters; suspendMinX is Forge's XMin<N> lower bound.
-	suspendTimeX bool
-	suspendMinX  int32
+	suspendTimeX bool  `clone:"deep"`
+	suspendMinX  int32 `clone:"deep"`
 
-	delve     []state.ObjID
-	delveDone bool
+	delve     []state.ObjID `clone:"deep"`
+	delveDone bool          `clone:"deep"`
 
 	// replicateParam is the raw Replicate keyword parameter (CR 702.55a) a
 	// "replicated" cast re-parses at ask and answer time; replicateTimes is
 	// the answered payment count (0 = declined: no flag, a plain cast) and
 	// replicateDone marks the one ask already posed. Plain data, so Clone
 	// copies it like x/delve/sacs.
-	replicateParam string
-	replicateSet   bool
-	replicateTimes int32
-	replicateDone  bool
+	replicateParam string `clone:"deep"`
+	replicateSet   bool   `clone:"deep"`
+	replicateTimes int32  `clone:"deep"`
+	replicateDone  bool   `clone:"deep"`
 
 	// squadParam is the raw Squad keyword parameter (CR 702.66) a
 	// "squadded" cast re-parses at ask and answer time; squadTimes is the
 	// answered payment count (0 = declined: no flag, a plain cast) and
 	// squadDone marks the one ask already posed. The replicate fields' exact
 	// shape; plain data, so Clone copies it.
-	squadParam string
-	squadSet   bool
-	squadTimes int32
-	squadDone  bool
+	squadParam string `clone:"deep"`
+	squadSet   bool   `clone:"deep"`
+	squadTimes int32  `clone:"deep"`
+	squadDone  bool   `clone:"deep"`
 
 	// multikickParam is the raw Multikicker keyword parameter (CR 702.43) a
 	// "multikicked" cast re-parses at ask and answer time; multikickTimes is
 	// the answered payment count (0 = declined: no flag, a plain cast) and
 	// multikickDone marks the one ask already posed. Same shape as the
 	// replicate fields above; plain data, so Clone copies it.
-	multikickParam string
-	multikickSet   bool
-	multikickTimes int32
-	multikickDone  bool
+	multikickParam string `clone:"deep"`
+	multikickSet   bool   `clone:"deep"`
+	multikickTimes int32  `clone:"deep"`
+	multikickDone  bool   `clone:"deep"`
 
 	// escalateParam is the raw Escalate keyword parameter (the modal
 	// additional cost "pay this for each mode chosen beyond the first") a
@@ -277,9 +277,9 @@ type pendingCast struct {
 	// marks the one fold already applied. There is no separate cast option --
 	// unlike Kicker, Escalate rides the mode count of the plain cast. Plain
 	// data, so Clone copies it like the replicate/multikick fields above.
-	escalateParam string
-	escalateSet   bool
-	escalateDone  bool
+	escalateParam string `clone:"deep"`
+	escalateSet   bool   `clone:"deep"`
+	escalateDone  bool   `clone:"deep"`
 
 	// striveParam is the raw Strive keyword parameter (CR 702.52, "this
 	// spell costs <cost> more for each target beyond the first"). Strive
@@ -289,15 +289,15 @@ type pendingCast struct {
 	// how many payments are already priced (the ownReduce delta shape),
 	// making the fold idempotent across repriceForTargets' re-entries.
 	// Plain data, so Clone copies it like the escalate fields above.
-	striveParam string
-	striveSet   bool
-	striveUnits int32
+	striveParam string `clone:"deep"`
+	striveSet   bool   `clone:"deep"`
+	striveUnits int32  `clone:"deep"`
 
 	// Mutate (CR 702.140b): mutateTop is the answered over/under placement
 	// choice and mutatePlaceDone marks the one ask already posed. Plain data,
 	// so Clone copies them like the replicate/multikick fields above.
-	mutateTop       bool
-	mutatePlaceDone bool
+	mutateTop       bool `clone:"deep"`
+	mutatePlaceDone bool `clone:"deep"`
 	// Conspire (CR 702.78a) is a param-less keyword: the "conspired" cast
 	// mode marks the intent to tap two untapped creatures that share a colour
 	// with the spell, conspireDone marks the one election already posed, and
@@ -305,23 +305,23 @@ type pendingCast struct {
 	// recorded (the payCast provenance gate: a board that changed under the
 	// proposal, or a declined/plain cast, leaves it false and the cast stays
 	// byte-identical). Plain data, so Clone copies it.
-	conspireSet  bool
-	conspireDone bool
-	conspirePaid bool
+	conspireSet  bool `clone:"deep"`
+	conspireDone bool `clone:"deep"`
+	conspirePaid bool `clone:"deep"`
 
 	// Casualty's optional additional cost is a single power-qualified sacrifice.
 	// The chosen object is settled with the other sacrifice costs at payment.
-	casualtyN    int32
-	casualtyDone bool
-	casualtyPaid bool
+	casualtyN    int32 `clone:"deep"`
+	casualtyDone bool  `clone:"deep"`
+	casualtyPaid bool  `clone:"deep"`
 	// Casualty:X (the variable form, Ob Nixilis, the Adversary): the amount
 	// is the sacrificed creature's power (CR 702.249a), so no threshold
 	// gates the election (casualtyN reads 0, every creature qualifies) and
 	// casualtySac/casualtyX carry the chosen creature and the power read
 	// live at payment. Plain data, so Clone copies it like casualtyN.
-	casualtyVariable bool
-	casualtySac      state.ObjID
-	casualtyX        int32
+	casualtyVariable bool        `clone:"deep"`
+	casualtySac      state.ObjID `clone:"deep"`
+	casualtyX        int32       `clone:"deep"`
 
 	// converge (task converge1) is CR 107.4f-family's count of distinct
 	// colours (WUBRG) of mana actually spent to cast this spell, captured at
@@ -332,8 +332,8 @@ type pendingCast struct {
 	// player's battlefield permanent's trigger reads another spell's cast
 	// colours, so no game that casts neither changes an event. Plain data, so
 	// Clone copies it like replicateTimes.
-	convergeOn bool
-	converge   int32
+	convergeOn bool  `clone:"deep"`
+	converge   int32 `clone:"deep"`
 
 	// manaSpentOn/manaSpent (task castprov1) capture the TOTAL mana the
 	// cast's payment actually spent, from the same full spent delta
@@ -350,13 +350,13 @@ type pendingCast struct {
 	// gate, and each tag's total rides its OWN trailing CastInfo, so no two
 	// totals ever share an event. Plain data, so Clone copies it like
 	// converge.
-	manaSpentOn       bool
-	manaSpent         int32
-	manaSpentSnow     int32
-	manaSpentTreasure int32
-	manaSpentCave     int32
-	manaSpentDesert   int32
-	manaSpentArtifact int32
+	manaSpentOn       bool  `clone:"deep"`
+	manaSpent         int32 `clone:"deep"`
+	manaSpentSnow     int32 `clone:"deep"`
+	manaSpentTreasure int32 `clone:"deep"`
+	manaSpentCave     int32 `clone:"deep"`
+	manaSpentDesert   int32 `clone:"deep"`
+	manaSpentArtifact int32 `clone:"deep"`
 
 	// addsCounterGrants (task opalp) captures, right after payment, the
 	// AddsCounters$ rider grants the cast earned: the consumed batches'
@@ -367,11 +367,11 @@ type pendingCast struct {
 	// re-reading a source face). Empty for every cast that spent no
 	// rider-bearing mana, so unrelated casts stay byte-identical. Plain data,
 	// so Clone carries it like converge.
-	addsCounterGrants []state.ManaAddsCounterGrant
+	addsCounterGrants []state.ManaAddsCounterGrant `clone:"share"`
 
-	sacs    []state.ObjID
-	sacPart int
-	sacPaid int
+	sacs    []state.ObjID `clone:"deep"`
+	sacPart int           `clone:"deep"`
+	sacPaid int           `clone:"deep"`
 
 	// emerge / emergeDone mark an Emerge cast (CR 702.118a): beginCast's
 	// "emerged" arm sets emerge and composes the printed K:Emerge cost with
@@ -379,12 +379,12 @@ type pendingCast struct {
 	// creature's mana value out of pc.cost exactly once, guarded by
 	// emergeDone so a resumed mana window cannot subtract twice. Plain data,
 	// so Clone carries them like sacs/sacPart.
-	emerge     bool
-	emergeDone bool
-	emergeSac  state.ObjID
+	emerge     bool        `clone:"deep"`
+	emergeDone bool        `clone:"deep"`
+	emergeSac  state.ObjID `clone:"deep"`
 
-	discards    []state.ObjID
-	discardPart int
+	discards    []state.ObjID `clone:"deep"`
+	discardPart int           `clone:"deep"`
 
 	// subCounterPays records the counter-removal picks of every SubCounter
 	// part, each entry tagged with the part index it belongs to. A
@@ -396,16 +396,16 @@ type pendingCast struct {
 	// fixed-kind part before a wildcard part from mis-indexing the selected
 	// kind. subCounterPart walks the parts in cost order like sacPart. Plain
 	// data, so Clone copies it like sacs/discards.
-	subCounterPays []subCounterPay
-	subCounterPart int
+	subCounterPays []subCounterPay `clone:"deep"`
+	subCounterPart int             `clone:"deep"`
 
 	// convoke is the announced set of creatures paying Convoke or Harmonize.
 	// It is chosen after the complete mana cost exists and before the mana
 	// ability window; a committed creature is therefore unavailable to make
 	// mana as well as being tapped when payment is settled.
-	convoke          []convokePayment
-	convokeDone      bool
-	suspendCastClear bool
+	convoke          []convokePayment `clone:"share"`
+	convokeDone      bool             `clone:"deep"`
+	suspendCastClear bool             `clone:"deep"`
 
 	// payIdx / payColor / payLife / payGeneric carry the flexible-pip payment
 	// announcement (CR 601.2b/107.4e-f). manaAsk walks the cost's combined
@@ -414,10 +414,10 @@ type pendingCast struct {
 	// pips chose, payLife the life a Phyrexian face paid with two life costs,
 	// and payGeneric the generic a monocolour hybrid pip paid with its
 	// generic face. Plain data, so Clone copies it like x/delve/sacs/discards.
-	payIdx     int
-	payColor   state.Mana
-	payLife    int32
-	payGeneric int32
+	payIdx     int        `clone:"deep"`
+	payColor   state.Mana `clone:"deep"`
+	payLife    int32      `clone:"deep"`
+	payGeneric int32      `clone:"deep"`
 
 	// mods / taxGeneric carry the CR 601.2f cost composition: the evaluated
 	// RaiseCost/ReduceCost modifiers (computed in beginCast for a spell,
@@ -426,51 +426,51 @@ type pendingCast struct {
 	// applied to the mana cost only AFTER {X} is folded into Generic
 	// (manaToPay), so an {X} reduction is not lost and the tax (an additional
 	// cost) is never reduced -- increases before reductions, per 601.2f.
-	mods       costMods
-	taxGeneric int32
+	mods       costMods `clone:"deep"`
+	taxGeneric int32    `clone:"deep"`
 
 	// ownReduce is the amount the ability's own ReduceCost$ parameter folded
 	// into pc.cost at beginActivation (nil targets there: CR 601.2c has not
 	// run). repriceForTargets recomputes it target-aware and net-adjusts
 	// cost.Generic by the delta, so the folded amount is never applied twice
 	// and the net form is idempotent across a mana-window resume.
-	ownReduce int32
+	ownReduce int32 `clone:"deep"`
 
 	// windowDone is set when the 601.2g mana window was answered "done", so
 	// payCast proceeds straight to payment instead of re-offering it.
-	windowDone bool
+	windowDone bool `clone:"deep"`
 	// manaConvertDone records the Optional$ ManaConvert election. Before the
 	// election, feasibility uses the union so the cast remains offerable; after
 	// it, paymentConv uses only the selected optional contribution.
-	manaConvertDone bool
-	manaConvertUse  bool
+	manaConvertDone bool `clone:"deep"`
+	manaConvertUse  bool `clone:"deep"`
 	// modesDone is set once a modal spell's CR 601.2b mode question has been
 	// posed. modeChosen says its answer was recorded during this proposal;
 	// preModes is the object's value immediately before that answer, so
 	// abortCast can restore it under CR 733.1.
-	modesDone  bool
-	modeChosen bool
-	preModes   []string
+	modesDone  bool     `clone:"deep"`
+	modeChosen bool     `clone:"deep"`
+	preModes   []string `clone:"deep"`
 	// modeCostsDone is set once a Spree/Tiered cast has folded its chosen
 	// modes' ModeCost$ into cost, so a re-entry through continueCast cannot
 	// charge the per-mode additional cost twice.
-	modeCostsDone bool
+	modeCostsDone bool `clone:"deep"`
 
 	// passedTarget is set once the flow has moved past the 601.2c target
 	// choice into payCast, so a resume through continueCast (the mana-window
 	// re-entry) does not re-ask for targets.
-	passedTarget bool
+	passedTarget bool `clone:"deep"`
 
 	// targetStage is the CR 702.101b Fuse target stage: 0 asks the front
 	// half's targets, 1 the alternate half's. Always 0 for an ordinary cast
 	// (and for an ability), so their single target ask is byte-identical.
-	targetStage int
+	targetStage int `clone:"deep"`
 
 	// targets are the chosen cast-time targets while this proposal is live.
 	// They are copied from the target decision before payment so a ValidTarget$
 	// cost modifier can be recomputed after CR 601.2c and before 601.2h, even
 	// for an activated ability whose stack object is not minted until payment.
-	targets []state.Target
+	targets []state.Target `clone:"share"`
 
 	// stageTargets records each Fuse target stage's OWN chosen targets
 	// (index 0 the front half's, index 1 the alternate half's), so
@@ -478,13 +478,13 @@ type pendingCast struct {
 	// Indexed by stage, so a targetless stage the ask loop skipped never
 	// misaligns the slices. A Fuse-only field; always empty for every other
 	// cast. Published to Engine.fuseTargets at payment.
-	stageTargets [][]state.Target
+	stageTargets [][]state.Target `clone:"share"`
 	// charmTargets records one target slice for each distinct target-bearing
 	// mode selected by a modal spell. The stack object's ordinary Targets is
 	// retained as the flat event-sourced view; this scratch preserves the
 	// per-mode bindings for resolution and is rebuilt by the same answer path
 	// during replay.
-	charmTargets [][]state.Target
+	charmTargets [][]state.Target `clone:"deep"`
 
 	// subAsks / subAns / subStage carry the CAST-TIME pre-ask of the chain's
 	// targeting SubAbility$ bodies (task alltargeted1): Forge asks every
@@ -498,15 +498,15 @@ type pendingCast struct {
 	// so the ability arm's post-payment recordChosenTargets can run from the
 	// sub-answer tail (the ability object does not exist until payCast's
 	// AbilityPush). Plain data, so a Clone copies them.
-	subAsks      []*cards.SA
-	subAns       [][]state.Target
-	subStage     int
-	subCollected bool
-	rootOpts     []decision.Option
+	subAsks      []*cards.SA       `clone:"deep"`
+	subAns       [][]state.Target  `clone:"deep"`
+	subStage     int               `clone:"deep"`
+	subCollected bool              `clone:"deep"`
+	rootOpts     []decision.Option `clone:"deep"`
 	// targetedFinish is set for the duration of finishTargetedCast's payCast
 	// call (see there): the caller, not payCast, dispatches the ability's
 	// mana-spent rider.
-	targetedFinish bool
+	targetedFinish bool `clone:"deep"`
 
 	// evidence / evidenceN / evidenceResolved / evidenceSettled carry the
 	// CollectEvidence<N>/<NAME> cost component (task alltargeted1): the
@@ -517,20 +517,20 @@ type pendingCast struct {
 	// evidence owed" (a zero-target cast, or an unresolvable body, which
 	// degrades to 0 like every count head). Plain data, so a Clone copies
 	// it.
-	evidence         []state.ObjID
-	evidenceN        int32
-	evidenceResolved bool
-	evidenceSettled  bool
+	evidence         []state.ObjID `clone:"deep"`
+	evidenceN        int32         `clone:"deep"`
+	evidenceResolved bool          `clone:"deep"`
+	evidenceSettled  bool          `clone:"deep"`
 
 	// stackObj is the id of the object pushCast placed on the stack (the
 	// spell card itself, or an activated ability's AbilityPush-minted
 	// object). Zero until pushCast runs; handleTarget records the chosen
 	// targets onto it, because a zone change clears an object's Targets.
-	stackObj state.ObjID
+	stackObj state.ObjID `clone:"deep"`
 
 	// pushed is true once the object has reached the stack (post-pushCast).
 	// An aborted proposal reverses the push when it is set.
-	pushed bool
+	pushed bool `clone:"deep"`
 
 	// provenanceRepriced is true once the post-push provenance re-price has
 	// run for this proposal (castprov3: a provenance-keyed cost static is
@@ -538,7 +538,7 @@ type pendingCast struct {
 	// the push; the flag keeps the re-entries — a mana-window resume re-enters
 	// continueCast with pushed already true — from gathering the statics
 	// again). Plain data, so Clone copies it.
-	provenanceRepriced bool
+	provenanceRepriced bool `clone:"deep"`
 
 	// preSuppress is the suppressedCast set as it was just before pushCast's
 	// PutOnStack, captured so an aborted (reversed) cast can restore it:
@@ -546,13 +546,13 @@ type pendingCast struct {
 	// clears the held-out no-progress set, but an aborted cast is net no
 	// progress, so that set must come back. Nil when no cast push is in
 	// flight (an ability, or a spell aborted before the push).
-	preSuppress map[state.ObjID]bool
+	preSuppress map[state.ObjID]bool `clone:"deep"`
 
 	// faceBefore is non-nil only for a CR 309.4b alternate Room cast or a CR
 	// 714 Adventure-face cast (adventure_alt / adventure_recast). The
 	// proposal begins with an event-sourced FlipFace so all ordinary cast
 	// stages read the chosen door; an aborted proposal flips it back.
-	faceBefore *uint8
+	faceBefore *uint8 `clone:"share"`
 
 	// preAborts is the castAborts no-progress count map (engine.go) as it was
 	// just before pushCast's PutOnStack, captured and restored for exactly the
@@ -560,7 +560,7 @@ type pendingCast struct {
 	// treats as progress and clears the count, but an aborted cast is net no
 	// progress, so the count must come back across the push (F05-2). Nil when
 	// no cast push is in flight.
-	preAborts map[state.ObjID]int32
+	preAborts map[state.ObjID]int32 `clone:"deep"`
 
 	// proposalTriggers are the [start, end) pendingTriggers index ranges a
 	// pushed SPELL proposal's own TargetsChosen events queued (Ward, "becomes
@@ -573,7 +573,7 @@ type pendingCast struct {
 	// F05-2 no-progress suppression -- an endless cast/reverse cycle.
 	// Engine-side scratch rebuilt by replay (the same intents reach the same
 	// emits); nil outside a spell proposal with targets.
-	proposalTriggers [][2]int
+	proposalTriggers [][2]int `clone:"deep"`
 
 	// altAddParts are the alternative parts of the card's
 	// AlternateAdditionalCost keyword ("As an additional cost to cast this
@@ -581,24 +581,24 @@ type pendingCast struct {
 	// cast-announcement time (altAddAsk), and the chosen part's cost folded
 	// into cost for the ordinary cost stages to settle. Empty for a card
 	// without the keyword; altAddDone marks the one ask already posed.
-	altAddParts []string
-	altAddDone  bool
+	altAddParts []string `clone:"share"`
+	altAddDone  bool     `clone:"deep"`
 	// optionalCost is the selected self-spell OptionalCost additional part.
-	optionalCost Cost
+	optionalCost Cost `clone:"share"`
 
 	// exiles / exilePart carry the Exile cost parts (ExileFromHand /
 	// ExileFromGrave tokens: the evoke alternative cast's Fury/Grief shape,
 	// encore's "exile this card from your graveyard") through the same ask
 	// stage / commit shape sacAsk and sacs use. Nothing moves until payCast,
 	// so an abort cannot leave a partially paid exile on the board.
-	exiles    []state.ObjID
-	exilePart int
+	exiles    []state.ObjID `clone:"deep"`
+	exilePart int           `clone:"deep"`
 
 	// returns / returnPart carry the Return cost parts (Return<N/Spec>
 	// tokens: a permanent matching Spec returned to its OWNER's hand) through
 	// the same ask stage / commit shape the exile parts use.
-	returns    []state.ObjID
-	returnPart int
+	returns    []state.ObjID `clone:"deep"`
+	returnPart int           `clone:"deep"`
 
 	// moveGraves / moveGravePart carry the ExiledMoveToGrave cost parts
 	// (cards matching Spec moved from exile to their OWNER's graveyard --
@@ -606,8 +606,8 @@ type pendingCast struct {
 	// ability) through the same ask stage / commit shape the exile parts
 	// use. Nothing moves until payCast, so an abort cannot leave a partially
 	// paid graveyard move behind.
-	moveGraves    []state.ObjID
-	moveGravePart int
+	moveGraves    []state.ObjID `clone:"deep"`
+	moveGravePart int           `clone:"deep"`
 
 	// putToLibs / putToLibPart carry the PutToLib cost parts
 	// (PutCardToLibFrom<Zone><N/Pos/Spec> tokens: cards matching Spec moved
@@ -615,12 +615,12 @@ type pendingCast struct {
 	// their owner's library) through the same ask stage / commit shape the
 	// Return parts use. Nothing moves until payCast, so an abort cannot leave
 	// a partially paid library placement behind.
-	putToLibs    []state.ObjID
-	putToLibPart int
+	putToLibs    []state.ObjID `clone:"deep"`
+	putToLibPart int           `clone:"deep"`
 
-	reveals, beholds, taps, blights             []state.ObjID
-	revealPart, beholdPart, tapPart, blightPart int
-	forageDone                                  bool
+	reveals, beholds, taps, blights             []state.ObjID `clone:"deep"`
+	revealPart, beholdPart, tapPart, blightPart int           `clone:"deep"`
+	forageDone                                  bool          `clone:"deep"`
 
 	// revealOrChoosePart indexes pc.cost.RevealOrChoose through the same ask
 	// stage revealCostAsk drives for plain Reveal parts. reveals carries the
@@ -636,9 +636,9 @@ type pendingCast struct {
 	// EMPTY hand (CR 701.20a: revealing a hand with no cards is legal). The
 	// empty payment is still a public reveal, so emitChoiceCosts announces it
 	// loudly instead of the reveal silently vanishing from the log.
-	revealOrChoosePart int
-	revealHandArm      []bool
-	revealedEmptyHand  bool
+	revealOrChoosePart int    `clone:"deep"`
+	revealHandArm      []bool `clone:"deep"`
+	revealedEmptyHand  bool   `clone:"deep"`
 
 	// ninjutsuDefender is the defender (CR 702.49b: the player, planeswalker
 	// or battle the returned creature was attacking) captured when a
@@ -651,7 +651,7 @@ type pendingCast struct {
 	// Ctx's DefendingPlayer so effects/zone.go's Attacking$ True rider places
 	// the permanent tapped and attacking that same defender. Plain data, so a
 	// Clone copies it.
-	ninjutsuDefender state.PlayerID
+	ninjutsuDefender state.PlayerID `clone:"deep"`
 	// ninjutsuDefenderObject is the planeswalker or battle the returned
 	// creature was attacking (CR 702.49b's non-player defender), captured
 	// beside ninjutsuDefender. Zero when the returned creature attacked a
@@ -660,8 +660,8 @@ type pendingCast struct {
 	// rules/stack.go re-binds it to the resolving Ctx's DefendingBattle so
 	// effects/zone.go's Attacking$ True rider places the permanent attacking
 	// that same object. Plain data, so a Clone copies it.
-	ninjutsuDefenderObject state.ObjID
-	ninjutsuHasDefender    bool
+	ninjutsuDefenderObject state.ObjID `clone:"deep"`
+	ninjutsuHasDefender    bool        `clone:"deep"`
 
 	// sneakDefender is the defender (CR 702.190b: the player, planeswalker or
 	// battle the returned creature was attacking) captured when a K:Sneak
@@ -673,9 +673,9 @@ type pendingCast struct {
 	// preserves, so rules/altcast.go's entry hook can place the permanent
 	// tapped and attacking that same defender. Plain data, so a Clone copies
 	// it.
-	sneakDefender       state.PlayerID
-	sneakDefenderObject state.ObjID
-	sneakHasDefender    bool
+	sneakDefender       state.PlayerID `clone:"deep"`
+	sneakDefenderObject state.ObjID    `clone:"deep"`
+	sneakHasDefender    bool           `clone:"deep"`
 }
 
 // subCounterPay is one counter removed to pay a SubCounter cost part: the
