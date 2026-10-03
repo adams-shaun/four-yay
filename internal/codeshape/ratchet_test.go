@@ -63,7 +63,9 @@ const (
 	// DealDamage compiler (DamageSource$ read once): 624 -> 623. W4 step 3's
 	// PutCounter compiler (one read per key; the entry fold's presence gate
 	// and the rules-side CounterTypePerDefined$ read moved into it): 623 -> 621.
-	stringParamReads = 621
+	// W4 step 3's Effect compiler (ImprintOnHost$ read once, the opening
+	// hand's EffectOwner$ read moved into it): 621 -> 619.
+	stringParamReads = 619
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
 	// W4 step 3: Attach's Object$ switch compiled to a kind: 2886 -> 2883.
@@ -116,6 +118,10 @@ const (
 	// effects/putcounter_params.go (codeshape.PutCounterFiles,
 	// codeshape.PutCounterOnlyKeys). It landed at zero.
 	putCounterParamLeaks = 0
+	// effectParamLeaks is the same census for api:Effect's compiler,
+	// effects/effect_params.go (codeshape.EffectFiles,
+	// codeshape.EffectOnlyKeys). It landed at zero.
+	effectParamLeaks = 0
 )
 
 func measureRepo(t *testing.T) Metrics {
@@ -259,6 +265,11 @@ func TestCodeShapeOnlyShrinks(t *testing.T) {
 				"a field to compilePutCounter in effects/putcounter_params.go) instead of reading " +
 				"the ability's Params in effects/counters_put.go or a PutCounter-only key elsewhere. " +
 				"Leaks: " + strings.Join(m.PutCounterLeaks, ", ")},
+		{"effectParamLeaks", m.EffectParamLeaks, effectParamLeaks,
+			"Read the parameter through effects.EffectOf's compiled EffectParams (add a " +
+				"field to compileEffect in effects/effect_params.go) instead of reading the " +
+				"ability's Params in effects/effect.go or an Effect-only key elsewhere. " +
+				"Leaks: " + strings.Join(m.EffectLeaks, ", ")},
 		{"triggerContextLiterals", m.TriggerContextLiterals, triggerContextLiterals,
 			"Derive trigger referents from the firing event (rules' triggerReferents) or " +
 				"copy an existing TriggerContext and set the fields that differ; a " +

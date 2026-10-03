@@ -644,7 +644,7 @@ func staticModesFromSVars(sa *cards.SA, svars map[string]string) []string {
 	if sa == nil || sa.API != "Effect" || svars == nil {
 		return nil
 	}
-	names := strings.FieldsFunc(sa.ParamStr(cards.PKStaticAbilities), func(r rune) bool {
+	names := strings.FieldsFunc(effects.EffectOf(sa).StaticAbilities, func(r rune) bool {
 		return r == ',' || r == ' ' || r == '\t' || r == '\n'
 	})
 	if len(names) == 0 {

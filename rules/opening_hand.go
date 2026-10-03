@@ -275,7 +275,7 @@ func (e *Engine) resumeOpening() {
 func (e *Engine) registerOpeningEffectTriggers(ef openingEffect, first *cards.SA) {
 	for sa := first; sa != nil; {
 		if sa.API == "Effect" {
-			for name := range strings.FieldsSeq(sa.ParamStr(cards.PKTriggers)) {
+			for name := range strings.FieldsSeq(effects.EffectOf(sa).Triggers) {
 				o := e.G.Obj(ef.card)
 				if o == nil || o.Face() == nil {
 					return
@@ -341,7 +341,7 @@ func (e *Engine) registerOpeningEffectTriggers(ef openingEffect, first *cards.SA
 // selectors fail closed (an empty list registers nothing) rather than
 // guessing a player set.
 func (e *Engine) openingEffectOwners(sa *cards.SA, you state.PlayerID) []state.PlayerID {
-	ps, _ := effects.EffectOwnerPlayers(e, effects.NewCtxPtr(0, you, effects.CtxInit{}), sa.Params["EffectOwner"])
+	ps, _ := effects.EffectOwnerPlayers(e, effects.NewCtxPtr(0, you, effects.CtxInit{}), effects.EffectOf(sa).EffectOwner)
 	return ps
 }
 

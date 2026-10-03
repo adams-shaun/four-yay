@@ -131,6 +131,7 @@ func free()          {}
 		DrawLeaks:              []string{},
 		DealDamageLeaks:        []string{},
 		PutCounterLeaks:        []string{},
+		EffectLeaks:            []string{},
 		Files:                  4,
 		LongFuncs: []Func{
 			{Name: "deep", File: "rules/sub/deep.go", Line: 6, Lines: 402},

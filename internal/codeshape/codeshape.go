@@ -155,6 +155,21 @@ var PutCounterOnlyKeys = []string{"Adapt", "Bolster", "ChooseDifferent", "Counte
 	"CounterTypePerDefined", "Divided", "EachFromSource", "MinChoiceAmount", "PerDefined",
 	"RandomType", "RememberCards", "Renown", "Support"}
 
+// EffectCompilerFile is api:Effect's parameter compiler (W4 step 3): the one
+// file allowed to read an Effect ability's parameters (and its Triggers$
+// bodies' own, readEffectTriggerLine).
+const EffectCompilerFile = "effects/effect_params.go"
+
+// EffectFiles are Effect's own resolution files: they carry no parameter read
+// of any key.
+var EffectFiles = []string{"effects/effect.go"}
+
+// EffectOnlyKeys are the parameter keys only Effect's compiler reads (the
+// opening-hand Effect reads EffectOwner$ through it too).
+var EffectOnlyKeys = []string{"EffectOwner", "ExileOnMoved", "ForgetCounter", "ForgetOnCast",
+	"ForgetOnMoved", "ForgetOnPhasedIn", "ImprintOnHost", "ReplacementEffects", "SetChosenNumber",
+	"Stackable"}
+
 // TypedParamCompiler names one API's parameter compiler for the leak census
 // (Metrics.ChangeZoneParamLeaks and its siblings): the compiler file, the
 // API's own resolution files (no parameter read of any key there) and the
@@ -269,6 +284,10 @@ type Metrics struct {
 	// (PutCounterCompilerFile, PutCounterFiles, PutCounterOnlyKeys).
 	PutCounterParamLeaks int      `json:"put_counter_param_leaks"`
 	PutCounterLeaks      []string `json:"put_counter_leaks"`
+	// EffectParamLeaks is the same census for api:Effect (EffectCompilerFile,
+	// EffectFiles, EffectOnlyKeys).
+	EffectParamLeaks int      `json:"effect_param_leaks"`
+	EffectLeaks      []string `json:"effect_leaks"`
 	// TrigmatchBoardMethods counts the methods trigmatch.Board declares
 	// (rules/trigmatch/board.go): the read-only view the trigger matchers
 	// reach the engine through (W5 E3). Zero when the package is absent.
@@ -385,6 +404,8 @@ func Measure(root string) (Metrics, error) {
 				TypedParamCompiler{DealDamageCompilerFile, DealDamageFiles, DealDamageOnlyKeys})...)
 			m.PutCounterLeaks = append(m.PutCounterLeaks, paramLeaks(fset, f, rel,
 				TypedParamCompiler{PutCounterCompilerFile, PutCounterFiles, PutCounterOnlyKeys})...)
+			m.EffectLeaks = append(m.EffectLeaks, paramLeaks(fset, f, rel,
+				TypedParamCompiler{EffectCompilerFile, EffectFiles, EffectOnlyKeys})...)
 			ast.Inspect(f, func(n ast.Node) bool {
 				switch x := n.(type) {
 				case *ast.TypeAssertExpr:
@@ -445,6 +466,7 @@ func Measure(root string) (Metrics, error) {
 	m.DrawParamLeaks, m.DrawLeaks = finishLeaks(m.DrawLeaks)
 	m.DealDamageParamLeaks, m.DealDamageLeaks = finishLeaks(m.DealDamageLeaks)
 	m.PutCounterParamLeaks, m.PutCounterLeaks = finishLeaks(m.PutCounterLeaks)
+	m.EffectParamLeaks, m.EffectLeaks = finishLeaks(m.EffectLeaks)
 	m.FuncsOver300 = len(m.LongFuncs)
 	sort.Slice(m.LongFuncs, func(i, j int) bool {
 		a, b := m.LongFuncs[i], m.LongFuncs[j]
