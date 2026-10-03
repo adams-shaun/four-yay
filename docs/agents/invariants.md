@@ -74,14 +74,16 @@ clock.
 
 - `events.Kind` is **append-only**. Add a new kind after the last constant,
   never in between: inserting one renumbers the ordinals, which moves the hash
-  chain and invalidates every recorded log. Each kind needs a `kindNames`
-  entry and a trigger-interest mapping.
+  chain and invalidates every recorded log. Each kind needs one entry in
+  `events/kindinfo.go`'s `kindInfo` table (name, trigger class, optional
+  Describe template); names, rules' trigger interest and the template
+  transcript lines all derive from it.
 - `decision.Kind` is a **closed set** (`decision.Kinds`). Every seat, bot, the
   web client and the protocol must answer every kind. Concede is not a kind:
   it is an option on every priority decision.
 
 **Enforced by:**
-- `events/apply_test.go` `TestEveryKindHasAName`.
+- `events/kindinfo_test.go` `TestEveryKindHasADescriptor`.
 - `rules/trigger_eligibility_test.go`.
 - `decision/decision_test.go` `TestKindsListsEveryKindOnce`.
 - Golden replays.
