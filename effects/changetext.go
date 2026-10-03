@@ -181,15 +181,10 @@ func effChangeText(h Host, c *Ctx, sa *cards.SA) {
 			// "changetext" arm binds, read exactly as the re-entry reads them
 			// (a half the answer did not name keeps its deterministic word).
 			for _, o := range ans {
-				switch o.Kind {
-				case "changetext_from":
-					if isTextChooser(fromTok) {
-						from = o.Label
-					}
-				case "changetext_to":
-					if isTextChooser(toTok) {
-						to = o.Label
-					}
+				if o.Kind == "changetext_from" && isTextChooser(fromTok) {
+					from = o.Label
+				} else if o.Kind == "changetext_to" && isTextChooser(toTok) {
+					to = o.Label
 				}
 			}
 			fromNeeds = isTextChooser(fromTok) && from == ""
