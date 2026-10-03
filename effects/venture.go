@@ -90,7 +90,12 @@ func effVenture(h Host, c *Ctx, sa *cards.SA) {
 			continue
 		}
 		if id := g.Players[p].DungeonObj; id != 0 {
-			ventureAdvance(h, g, c, sa, p, i, id)
+			// A posed room choice suspends the walk exactly as a posed
+			// dungeon choice does: the later players venture after the
+			// answer, from the re-entry's cursor, never before it as well.
+			if ventureAdvance(h, g, c, sa, p, i, id) {
+				return
+			}
 		} else {
 			if ventureChoose(h, g, c, sa, p, i, quality) {
 				return
@@ -144,6 +149,16 @@ func ventureAdvance(h Host, g *state.Game, c *Ctx, sa *cards.SA, p state.PlayerI
 		d.Options = append(d.Options, decision.Option{Index: j, Kind: "room",
 			Label: DungeonRoomLabel(dungeon.Face(), nk), Key: nk, Player: p})
 	}
+	if ans, ok := AskTape(h, d); ok {
+		// The resolution kernel's answer in hand: the "venture_room" arm's
+		// room, moved to exactly as the re-entry moves the marker; the walk
+		// goes on with the next player. (The ask is Min 1, so a served
+		// answer names a room.)
+		if len(ans) > 0 && ans[0].Key != "" {
+			h.Emit(events.Event{Kind: events.DungeonRoom, Player: p, Obj: g.Players[p].DungeonObj, Text: ans[0].Key})
+		}
+		return false
+	}
 	switch Ask(h, d) {
 	case AskAsked:
 		c.VentureIdx = int32(i)
@@ -182,6 +197,15 @@ func ventureChoose(h Host, g *state.Game, c *Ctx, sa *cards.SA, p state.PlayerID
 			name = def.Faces[0].Name
 		}
 		d.Options = append(d.Options, decision.Option{Index: j, Kind: "dungeon", Label: name, Key: key, Player: p})
+	}
+	if ans, ok := AskTape(h, d); ok {
+		// The resolution kernel's answer in hand: the "venture_dungeon"
+		// arm's dungeon, entered exactly as the re-entry enters it; the walk
+		// goes on with the next player.
+		if len(ans) > 0 && ans[0].Key != "" {
+			ventureEnter(h, g, p, ans[0].Key)
+		}
+		return false
 	}
 	switch Ask(h, d) {
 	case AskAsked:

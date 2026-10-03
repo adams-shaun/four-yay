@@ -620,12 +620,8 @@ func (e *Engine) resumeAnswerBindingRest(rp *resumePoint, o *state.Object, ctx *
 		// colours deterministically declines (the drain never runs without
 		// the mana being genuinely paid). The re-entered effExtort reads
 		// Ctx.Extort and runs the drain only on "pay".
-		if len(chosen) > 0 && chosen[0].Index == 0 {
-			if e.payExtortPip(chosen[0].Player) {
-				ctx.Extort = "pay"
-			} else {
-				ctx.Extort = "decline"
-			}
+		if extortAnswerRecord(e, chosen) {
+			ctx.Extort = "pay"
 		} else {
 			ctx.Extort = "decline"
 		}

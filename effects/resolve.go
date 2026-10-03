@@ -153,8 +153,18 @@ func effSetState(h Host, c *Ctx, sa *cards.SA) {
 					{Index: 0, Kind: "yes", Label: "Yes", Player: c.Controller},
 					{Index: 1, Kind: "no", Label: "No", Player: c.Controller},
 				}}
-			_ = Ask(h, d)
-			return
+			ans, ok := AskTape(h, d)
+			if !ok {
+				_ = Ask(h, d)
+				return
+			}
+			// The resolution kernel's answer in hand: the
+			// "setstate_optional" arm's yes/no, consumed below as the
+			// re-entry consumes Ctx.SetStateOpt.
+			optAns = "no"
+			if len(ans) > 0 && ans[0].Kind == "yes" {
+				optAns = "yes"
+			}
 		}
 	}
 	if optional && optAns != "" && optAns != "yes" {

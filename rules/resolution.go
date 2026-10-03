@@ -842,6 +842,13 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 		// in the skipped step; enter cleanup just as resolveTop does.
 		if e.endTurnRequested {
 			e.finishEndTurn()
+			// The pass branch's CR 117.3b reset marker, exactly as an
+			// unsuspended EndTurn resolution gets it from handlePriority
+			// once resolveTop returns: a resolution that suspended (an
+			// answered Optional$ EndTurn) and then ended the turn reaches
+			// its true end here, and skipping the completion tail below
+			// must not also skip the marker the two paths share.
+			e.emit(events.Event{Kind: events.Priority, Player: e.G.Active})
 			return
 		}
 		// A resolution is still suspended when EITHER the ordinary

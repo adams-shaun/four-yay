@@ -42,4 +42,8 @@ func tapeAnswerRecord(e *Engine, d *decision.Decision, in decision.Intent) {
 	// shared with its arm.
 	switch d.ResumeKind {
 	}
+	// (An if-chain, not case arms: the stringCaseLiterals ratchet.)
+	if d.ResumeKind == "extort" {
+		extortAnswerRecord(e, d.Chosen(in))
+	}
 }

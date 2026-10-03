@@ -214,11 +214,24 @@ func effUntap(h Host, c *Ctx, sa *cards.SA) {
 				o := h.Game().Obj(id)
 				d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "untap", Obj: id, Label: o.Face().Name})
 			}
-			if h.Ask(d) {
+			if ans, ok := AskTape(h, d); ok {
+				// The resolution kernel's answer in hand: the "untap" arm's
+				// chosen permanents, untapped below exactly as the
+				// re-entry untaps Ctx.Untap.
+				chosen = make([]state.ObjID, 0, len(ans))
+				for _, o := range ans {
+					if o.Obj != 0 {
+						chosen = append(chosen, o.Obj)
+					}
+				}
+			} else if h.Ask(d) {
 				return
+			} else {
+				chosen = candidates[:n]
 			}
+		} else {
+			chosen = candidates[:n]
 		}
-		chosen = candidates[:n]
 	}
 	for _, id := range chosen {
 		TryUntap(h, id)

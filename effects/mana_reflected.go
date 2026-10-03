@@ -327,16 +327,7 @@ func effManaReflected(h Host, c *Ctx, sa *cards.SA) {
 		c.ManaReflectedColor = ""
 		// The answer is carried as the structured mana symbol, not the option
 		// label: labels are presentation-only (ManaSymbol on decision.Option).
-		col := answered
-		for _, cand := range cols {
-			if cand == col {
-				manaAdd(recipient, col)
-				return
-			}
-		}
-		if len(cols) > 0 {
-			manaAdd(recipient, cols[0])
-		}
+		manaReflectedAnswered(cols, answered, recipient, manaAdd)
 		return
 	}
 	switch len(cols) {
@@ -352,11 +343,36 @@ func effManaReflected(h Host, c *Ctx, sa *cards.SA) {
 		for i, col := range cols {
 			d.Options = append(d.Options, decision.Option{Index: i, Kind: "mana", Obj: c.Source, Label: "Add " + col, ManaSymbol: col})
 		}
-		if Ask(h, d) == AskAsked {
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand: the "manareflected"
+			// arm's colour, added exactly as the re-entry adds it (the ask
+			// is Min 1, so a served answer always names one option).
+			if len(ans) > 0 {
+				manaReflectedAnswered(cols, ans[0].ManaSymbol, recipient, manaAdd)
+			}
+			return
+		} else if Ask(h, d) == AskAsked {
 			return
 		}
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "chose first reflected colour " + cols[0] + " (no ask possible)"})
+		manaAdd(recipient, cols[0])
+	}
+}
+
+// manaReflectedAnswered adds the answered reflected colour: the colour when
+// this resolution still offers it, else (a malformed or off-list answer) the
+// first candidate rather than a colour the candidates never named. Shared by
+// the legacy re-entry (Ctx.ManaReflectedColor) and the resolution kernel's
+// in-hand answer.
+func manaReflectedAnswered(cols []string, col string, recipient state.PlayerID, manaAdd func(state.PlayerID, string)) {
+	for _, cand := range cols {
+		if cand == col {
+			manaAdd(recipient, col)
+			return
+		}
+	}
+	if len(cols) > 0 {
 		manaAdd(recipient, cols[0])
 	}
 }
