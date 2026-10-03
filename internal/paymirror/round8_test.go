@@ -25,8 +25,9 @@ import (
 //   - 8529 (random4, 34x control|mismatch|state_differs|discardAllFirstTime):
 //     rules.Engine.discardAllFirstTime is the DiscardedAll matcher's FirstTime$
 //     scratch, written on every match and read only right after it; Clone
-//     copies none of it by design, so it is excluded from the comparison like
-//     the other scratch fields (diff.go's excluded table).
+//     copies none of it by design, so it was excluded from the comparison like
+//     the other scratch fields. The field no longer exists: the matcher became
+//     a pure read (W5 E3) and the dispatcher reads the clause off the line.
 func TestRoundEightControlFindings(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)

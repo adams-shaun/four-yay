@@ -161,8 +161,6 @@
 //	graveCandBuf, hypSpares,
 //	targetCensusBuf, manaAbScratch,
 //	offStackSlots, offStackDepth
-//	discardAllFirstTime                the DiscardedAll matcher's FirstTime$ scratch: written on
-//	                                   every match and read only right after it; Clone copies none
 //	loop, askCount                    intent-stream watchdog and ask counter: they count the
 //	                                   route's decisions, not the game
 //	legalActionWalks                   legalActionsPriced's diagnostic call counter: the float

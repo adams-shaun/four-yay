@@ -403,16 +403,22 @@ func (e *Engine) discardedAllMatches(t cards.Trigger, source state.ObjID, ev eve
 	if spec := t.ParamStr(cards.PKValidCause); spec != "" && !e.discardCauseAdmits(spec, source, ev) {
 		return false
 	}
-	// FirstTime$ True (Veronica, Rielle: "for the first time each turn") is a
-	// BATCH-level fact the dispatcher's latch enforces, because batch identity
-	// lives in the latch and firstMarkerThisTurn's per-EVENT log scan cannot
-	// tell one discard batch from the next. The param is read HERE, in the
-	// matcher REGISTERED for DiscardedAll, rather than in the shared
-	// checkFaceTriggers dispatcher, so the parameter census attributes the read
-	// to mode DiscardedAll alone; the dispatcher captures this scratch value
-	// immediately after the match call and applies it at the queue point.
-	e.discardAllFirstTime = strings.EqualFold(t.Params["FirstTime"], "True")
 	return true
+}
+
+// discardedAllFirstTime reports a Mode$ DiscardedAll line's FirstTime$ True
+// clause (Veronica, Rielle: "for the first time each turn"). It is a
+// BATCH-level fact the dispatcher's latch enforces, because batch identity
+// lives in the latch and firstMarkerThisTurn's per-EVENT log scan cannot tell
+// one discard batch from the next, so checkFaceTriggers asks this at the
+// queue point. It is a pure read of the trigger line: discardedAllMatches
+// used to record the clause as engine scratch for the dispatcher to capture,
+// which made the matcher write; the matcher is now read-only. FirstTime$ is
+// already in the parameter census's shared trigger read set (measured: it is
+// attributed to ChangesZone and Attacks too), so moving this read out of the
+// matcher changes no census attribution.
+func discardedAllFirstTime(t cards.Trigger) bool {
+	return strings.EqualFold(t.Params["FirstTime"], "True")
 }
 
 // discardCauseAdmits evaluates a ValidCause$ stack spec against the spell or
