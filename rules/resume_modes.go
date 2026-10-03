@@ -1,10 +1,9 @@
 package rules
 
 import (
-	"strings"
-
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -34,12 +33,9 @@ func isModeAnswerKind(kind string) bool {
 // re-entry consumes them as the granted keywords).
 func modeAnswerNames(sa *cards.SA, chosen []decision.Option) []string {
 	eligible := []string(nil)
-	if strings.TrimSpace(sa.ParamStr(cards.PKChoices)) == "" {
-		if kw := strings.TrimSpace(sa.Params["KWChoice"]); kw != "" {
-			eligible = strings.Split(kw, ",")
-			for i := range eligible {
-				eligible[i] = strings.TrimSpace(eligible[i])
-			}
+	if !effects.CharmOf(sa).HasChoices {
+		if pp := effects.PumpOf(sa); pp.HasKWChoice {
+			eligible = pp.KWChoice
 		}
 	}
 	return modeChoiceNames(sa, chosen, eligible)

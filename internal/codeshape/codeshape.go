@@ -94,6 +94,40 @@ var AttachFiles = []string{"effects/attach.go"}
 // Reconfigure offer gate reads Unattach$ through it too).
 var AttachOnlyKeys = []string{"Object", "RememberAttached", "Unattach"}
 
+// CharmCompilerFile is the modal family's parameter compiler (W4 step 3):
+// the one file allowed to read a Charm/GenericChoice ability's own
+// parameters (the Choices$ mode list for every modal carrier).
+const CharmCompilerFile = "effects/charm_params.go"
+
+// CharmFiles are the modal family's own resolution files: they carry no
+// parameter read of any key (the mode BODIES' reads are in
+// effects/charm_modes.go, api:Vote's in effects/vote_effect.go).
+var CharmFiles = []string{"effects/charm.go"}
+
+// CharmOnlyKeys are the parameter keys only the Charm compiler reads.
+var CharmOnlyKeys = []string{"CanRepeatModes", "CharmNum", "ChoiceRestriction", "FallbackAbility",
+	"MinCharmNum", "RandomCompare", "RandomCompareSVar", "TempRemember"}
+
+// PumpCompilerFile is api:Pump's parameter compiler (W4 step 3), including
+// the KW$/Duration$/LeaveBattlefield$ grant PumpAll shares.
+const PumpCompilerFile = "effects/pump_params.go"
+
+// PumpFiles are Pump's own resolution files: no parameter read of any key.
+var PumpFiles = []string{"effects/pump.go"}
+
+// PumpOnlyKeys are the parameter keys only Pump's compiler reads.
+var PumpOnlyKeys = []string{"ClearNotedCardsFor", "ForgetImprinted", "KWChoice", "NoteCards",
+	"NoteCardsFor", "NoteNumber"}
+
+// DrawCompilerFile is api:Draw's parameter compiler (W4 step 3).
+const DrawCompilerFile = "effects/draw_params.go"
+
+// DrawFiles are Draw's own resolution files: no parameter read of any key.
+var DrawFiles = []string{"effects/draw.go"}
+
+// DrawOnlyKeys are the parameter keys only Draw's compiler reads.
+var DrawOnlyKeys = []string{"RememberDrawn", "Upto"}
+
 // TypedParamCompiler names one API's parameter compiler for the leak census
 // (Metrics.ChangeZoneParamLeaks and its siblings): the compiler file, the
 // API's own resolution files (no parameter read of any key there) and the
@@ -191,6 +225,15 @@ type Metrics struct {
 	// AttachFiles, AttachOnlyKeys).
 	AttachParamLeaks int      `json:"attach_param_leaks"`
 	AttachLeaks      []string `json:"attach_leaks"`
+	// CharmParamLeaks, PumpParamLeaks and DrawParamLeaks are the same census
+	// for the modal family, api:Pump and api:Draw (Charm*, Pump*, Draw*
+	// CompilerFile/Files/OnlyKeys).
+	CharmParamLeaks int      `json:"charm_param_leaks"`
+	CharmLeaks      []string `json:"charm_leaks"`
+	PumpParamLeaks  int      `json:"pump_param_leaks"`
+	PumpLeaks       []string `json:"pump_leaks"`
+	DrawParamLeaks  int      `json:"draw_param_leaks"`
+	DrawLeaks       []string `json:"draw_leaks"`
 	// TrigmatchBoardMethods counts the methods trigmatch.Board declares
 	// (rules/trigmatch/board.go): the read-only view the trigger matchers
 	// reach the engine through (W5 E3). Zero when the package is absent.
@@ -297,6 +340,12 @@ func Measure(root string) (Metrics, error) {
 				TypedParamCompiler{ChangeZoneAllCompilerFile, ChangeZoneAllFiles, ChangeZoneAllOnlyKeys})...)
 			m.AttachLeaks = append(m.AttachLeaks, paramLeaks(fset, f, rel,
 				TypedParamCompiler{AttachCompilerFile, AttachFiles, AttachOnlyKeys})...)
+			m.CharmLeaks = append(m.CharmLeaks, paramLeaks(fset, f, rel,
+				TypedParamCompiler{CharmCompilerFile, CharmFiles, CharmOnlyKeys})...)
+			m.PumpLeaks = append(m.PumpLeaks, paramLeaks(fset, f, rel,
+				TypedParamCompiler{PumpCompilerFile, PumpFiles, PumpOnlyKeys})...)
+			m.DrawLeaks = append(m.DrawLeaks, paramLeaks(fset, f, rel,
+				TypedParamCompiler{DrawCompilerFile, DrawFiles, DrawOnlyKeys})...)
 			ast.Inspect(f, func(n ast.Node) bool {
 				switch x := n.(type) {
 				case *ast.TypeAssertExpr:
@@ -352,6 +401,9 @@ func Measure(root string) (Metrics, error) {
 	m.ChangeZoneParamLeaks, m.ChangeZoneLeaks = finishLeaks(m.ChangeZoneLeaks)
 	m.ChangeZoneAllParamLeaks, m.ChangeZoneAllLeaks = finishLeaks(m.ChangeZoneAllLeaks)
 	m.AttachParamLeaks, m.AttachLeaks = finishLeaks(m.AttachLeaks)
+	m.CharmParamLeaks, m.CharmLeaks = finishLeaks(m.CharmLeaks)
+	m.PumpParamLeaks, m.PumpLeaks = finishLeaks(m.PumpLeaks)
+	m.DrawParamLeaks, m.DrawLeaks = finishLeaks(m.DrawLeaks)
 	m.FuncsOver300 = len(m.LongFuncs)
 	sort.Slice(m.LongFuncs, func(i, j int) bool {
 		a, b := m.LongFuncs[i], m.LongFuncs[j]
