@@ -80,6 +80,17 @@ func SearchLive(ctx context.Context, e *rules.Engine, botSeed uint64, net *polic
 // non-nil): one carrier per seat and game, and the caller plays the
 // returned choice before the seat's next search.
 func SearchLiveReuse(ctx context.Context, e *rules.Engine, botSeed uint64, net *policynet.Model, opts azmcts.Options, reuse *azmcts.Reuse) (LiveRoot, error) {
+	return SearchLiveCombat(ctx, e, botSeed, net, opts, reuse, nil)
+}
+
+// SearchLiveCombat is SearchLiveReuse at one creature of a split attack or
+// block declaration (azmcts.Options.CombatSteps): combat holds the answers
+// already given to the creatures before it (azmcts.Root.Combat). The
+// Result's Step describes the creature and StepAnswer is its answer; the
+// caller searches every creature in turn and submits
+// azmcts.CombatDeclaration after the last. Play must not be called on a
+// step.
+func SearchLiveCombat(ctx context.Context, e *rules.Engine, botSeed uint64, net *policynet.Model, opts azmcts.Options, reuse *azmcts.Reuse, combat []int) (LiveRoot, error) {
 	if e == nil || e.G.Over || e.Pending() == nil {
 		return LiveRoot{}, errors.New("searchbench: SearchLive needs an engine at a pending decision")
 	}
@@ -95,7 +106,7 @@ func SearchLiveReuse(ctx context.Context, e *rules.Engine, botSeed uint64, net *
 	if err != nil {
 		return LiveRoot{}, err
 	}
-	root := azmcts.Root{Engine: e, Decision: d, Bot: botAnswer(e, botSeed), Observer: obs, Reuse: reuse}
+	root := azmcts.Root{Engine: e, Decision: d, Bot: botAnswer(e, botSeed), Observer: obs, Reuse: reuse, Combat: combat}
 	var plan *rootPlan
 	if d.Kind == decision.KPriority && opts.AutoPayment {
 		p := planRoot(e, root.Bot, botSeed)
@@ -222,6 +233,9 @@ func liveActions(e *rules.Engine, d *decision.Decision, r azmcts.Result, macros 
 // diverged from the clone the macro was recorded on).
 func (l LiveRoot) Play(e *rules.Engine, choice int) (int, error) {
 	r := l.Result
+	if r.Step != nil {
+		return 0, errors.New("searchbench: a creature step is an answer, not a submit (azmcts.CombatDeclaration)")
+	}
 	if choice < 0 || choice >= len(r.Keys) || choice >= len(r.Candidates) {
 		return 0, fmt.Errorf("searchbench: root candidate %d of %d", choice, len(r.Keys))
 	}

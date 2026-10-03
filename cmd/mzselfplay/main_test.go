@@ -422,3 +422,39 @@ func TestRunReuseTree(t *testing.T) {
 		t.Setenv("MZ_REUSE_TREE", "")
 	}
 }
+
+// TestRunUpstreamSearch: -upstream-search (and MZ_UPSTREAM_SEARCH=1) turn on
+// every upstream switch for both seats -- opponent nodes, tree reuse and the
+// per-creature combat searches all show on the stats line; without it none
+// does.
+func TestRunUpstreamSearch(t *testing.T) {
+	longer := func(yml string) string { return strings.Replace(yml, "max_turns: 6", "max_turns: 14", 1) }
+	for _, k := range []string{"MZ_UPSTREAM_SEARCH", "MZ_OPPONENT_NODES", "MZ_REUSE_TREE"} {
+		t.Setenv(k, "")
+	}
+	f := newFixture(t, 2, 8, true, true, 50052, 50052, longer)
+	code, out, errOut := f.run(t)
+	if code != 0 {
+		t.Fatalf("exit %d\n%s\n%s", code, out, errOut)
+	}
+	if st := stats(t, out); st.CombatSteps != 0 || st.OppSelections != 0 || st.ReuseHits+st.ReuseMisses != 0 {
+		t.Fatalf("switch off: %+v", st)
+	}
+	for _, how := range []string{"flag", "env"} {
+		g := newFixture(t, 2, 8, true, true, 50052, 50052, longer)
+		var extra []string
+		if how == "flag" {
+			extra = []string{"-upstream-search"}
+		} else {
+			t.Setenv("MZ_UPSTREAM_SEARCH", "1")
+		}
+		code, out, errOut := g.run(t, extra...)
+		if code != 0 {
+			t.Fatalf("%s: exit %d\n%s\n%s", how, code, out, errOut)
+		}
+		if st := stats(t, out); st.CombatSteps == 0 || st.OppSelections == 0 || st.ReuseHits+st.ReuseMisses == 0 || st.Simulations == 0 {
+			t.Fatalf("%s: stats %+v", how, st)
+		}
+		t.Setenv("MZ_UPSTREAM_SEARCH", "")
+	}
+}

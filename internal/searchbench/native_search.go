@@ -320,7 +320,12 @@ func RunArm(ctx context.Context, in ArmInput) (ArmResult, error) {
 
 // chosen reports whether r's answer came from its tree.
 func chosen(r azmcts.Result) bool {
-	return r.Stats.Searched > 0 && r.Stats.Completed > 0 && r.Stats.DeadlineHits == 0 && r.Choice >= 0 && r.Choice < len(r.Keys)
+	// A search the armed deadline stopped answers from its tree only under
+	// azmcts.Options.DeadlineBestChild (Stats.DeadlineBest).
+	// A reused root whose carried visits already meet the budget runs no
+	// new simulation and chooses from what it carried (azmcts.Options
+	// .ReuseTree), as upstream's applyMCTS does.
+	return r.Stats.Searched > 0 && (r.Stats.Completed > 0 || r.Stats.ReuseCarried > 0) && (r.Stats.DeadlineHits == 0 || r.Stats.DeadlineBest > 0) && r.Choice >= 0 && r.Choice < len(r.Keys)
 }
 
 // answerWith plays root row choice of res.Table on the answer engine.

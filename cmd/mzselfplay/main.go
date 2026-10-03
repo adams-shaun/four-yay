@@ -31,6 +31,11 @@
 //	                   decisions (per seat: game.yml mcts.opponent_nodes)
 //	MZ_REUSE_TREE      1 lets both seats keep their search tree between
 //	                   decisions (per seat: game.yml mcts.reuse_tree)
+//	MZ_UPSTREAM_SEARCH 1 turns on every switch that makes both seats'
+//	                   search upstream MageZero's: opponent nodes, tree
+//	                   reuse, parent-visit PUCT, the deadline's best child,
+//	                   per-creature combat, optional triggers and modes
+//	                   searched (per seat: game.yml mcts.upstream_search)
 //
 // Exit status: 0 when every requested game was attempted and both shards
 // were written (a failed game is logged and skipped, as upstream skips it);
@@ -145,6 +150,7 @@ type runStats struct {
 	RowsPriority  int            `json:"rows_priority"`
 	RowsTarget    int            `json:"rows_target"`
 	RowsUse       int            `json:"rows_use"`
+	CombatSteps   int            `json:"combat_step_searches,omitempty"`
 	Turns         int            `json:"turns"`
 	Submits       int            `json:"submits"`
 	Searches      int            `json:"searches"`
@@ -193,6 +199,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	trace := fs.Bool("trace", os.Getenv("MZ_TRACE") == "1", "log every searched decision")
 	reuseTree := fs.Bool("reuse-tree", os.Getenv("MZ_REUSE_TREE") == "1", "both seats keep their search tree between decisions and the budget counts the visits a reused subtree already holds, as upstream MageZero does (MZ_REUSE_TREE=1; per seat: game.yml player_x.mcts.reuse_tree); off by default")
 	oppNodes := fs.Bool("opponent-nodes", os.Getenv("MZ_OPPONENT_NODES") == "1", "both seats' trees also branch on the opponent's searched decisions, valued from its side, as upstream MageZero's do (MZ_OPPONENT_NODES=1; per seat: game.yml player_x.mcts.opponent_nodes); off by default")
+	upstream := fs.Bool("upstream-search", os.Getenv("MZ_UPSTREAM_SEARCH") == "1", "both seats search as upstream MageZero does: opponent nodes, tree reuse, PUCT over the parent's visits, a decision deadline plays the best child so far, attack and block declarations searched one creature at a time, optional triggers and modal choices searched (MZ_UPSTREAM_SEARCH=1; per seat: game.yml player_x.mcts.upstream_search); off by default")
 	keepNPY := fs.Bool("keep-npy", false, "write the .npy shard files only, without converting to HDF5")
 	cpuprofile := fs.String("cpuprofile", "", "write a CPU profile")
 	checkPool := fs.Bool("check-pool", false, "resolve every deck of the pool files given as arguments against the corpus and report; play nothing")
@@ -384,6 +391,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 					out := mzplay.SeatSetup{Deck: d.Cards, DeckName: d.Stem, Budget: pc.SearchBudget, BackpropDiscount: pc.BackpropDiscount,
 						Lambda: pc.TDDiscount, SeeOpponentHand: pc.SeeOpponentHand, OpponentNodes: pc.OpponentNodes || *oppNodes,
 						ReuseTree: pc.ReuseTree || *reuseTree}
+					if pc.UpstreamSearch || *upstream {
+						out.SetUpstreamSearch()
+					}
 					if srv := seatServer[s]; srv != nil {
 						leaves[s] = mzplay.NewNetLeaf(srv, pc.SeeOpponentHand)
 						out.Leaf = leaves[s].Leaf
@@ -485,6 +495,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 
 	st.RowsA, st.RowsB = shards[0].Rows(), shards[1].Rows()
 	st.RowsPriority, st.RowsTarget, st.RowsUse = total.RowsPriority, total.RowsTarget, total.RowsUse
+	st.CombatSteps = total.CombatSteps
 	st.Submits, st.Searches, st.BotAnswers, st.Trivial = total.Submits, total.Searches, total.Bot, total.Trivial
 	st.BotByKind = map[string]int{}
 	for i, n := range total.BotByKind {

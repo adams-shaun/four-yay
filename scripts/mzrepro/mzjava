@@ -36,7 +36,10 @@
 # trees also branch on the opponent's decisions, as upstream's do; off by
 # default), MZ_REUSE_TREE=1 (both seats keep their tree between decisions and
 # the budget counts the visits a reused subtree holds, as upstream's do; off
-# by default).
+# by default), MZ_UPSTREAM_SEARCH=1 (every switch that makes both seats'
+# search upstream's: opponent nodes, tree reuse, PUCT over the parent's
+# visits, the deadline's best child, attack/block declarations searched one
+# creature at a time, optional triggers and modes searched; off by default).
 set -euo pipefail
 
 if [ "$#" -lt 1 ]; then
