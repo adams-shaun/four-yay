@@ -1,0 +1,111 @@
+{
+ "card": "Atsushi, the Blazing Sky",
+ "family": "death-triggers",
+ "author": "cli-20261002T030326Z-79066444 (Oracle + CR only)",
+ "oracle_sha": "23440d8c8e3c",
+ "scenarios": [
+  {
+   "name": "dies-makes-three-treasures",
+   "cr": [
+    "603.6c",
+    "111.1",
+    "701.19"
+   ],
+   "why": "When Atsushi dies, choosing the second mode creates three Treasure tokens; the other mode (exiling the top two cards) is not chosen.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Atsushi, the Blazing Sky"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "move",
+     "seat": 0,
+     "card": "p0:Atsushi, the Blazing Sky",
+     "to": "graveyard",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "Treasure"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Atsushi, the Blazing Sky",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Treasure",
+      "token": true
+     },
+     "eq": 3
+    }
+   ]
+  },
+  {
+   "name": "dies-exile-top-two-mode",
+   "cr": [
+    "603.6c",
+    "701.13"
+   ],
+   "why": "Choosing the first mode exiles the top two cards of the library; no Treasures are created.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Atsushi, the Blazing Sky"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "move",
+     "seat": 0,
+     "card": "p0:Atsushi, the Blazing Sky",
+     "to": "graveyard",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "Exile the top two"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Treasure",
+      "token": true
+     },
+     "eq": 0
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "exile",
+      "name": ""
+     },
+     "eq": 2
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,98 @@
+{
+ "card": "Battlegrace Angel",
+ "family": "attack-pump",
+ "author": "cli-20261002T030326Z-79066444 (Oracle + CR only)",
+ "oracle_sha": "f21f92c4a168",
+ "scenarios": [
+  {
+   "name": "attacks-alone-exalted-plus-lifelink",
+   "cr": [
+    "702.83a",
+    "702.15b",
+    "510.1"
+   ],
+   "why": "Exalted gives an attacking-alone creature +1/+1, and Battlegrace Angel's second ability separately grants that same lone attacker lifelink until end of turn; a 4/4 Angel attacking alone becomes a 5/5 with lifelink, dealing 5 and gaining 5.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Battlegrace Angel"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "defender": "p1",
+     "attackers": [
+      "p0:Battlegrace Angel"
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Battlegrace Angel",
+     "pt": "5/5",
+     "keywords": [
+      "Flying",
+      "Lifelink"
+     ]
+    },
+    {
+     "life": {
+      "p1": 15,
+      "p0": 25
+     }
+    }
+   ]
+  },
+  {
+   "name": "two-attackers-no-exalted-no-pump",
+   "cr": [
+    "702.83a"
+   ],
+   "why": "Exalted and the lifelink grant both require the creature to attack ALONE; with two attackers the Angel stays 4/4 and no life is gained.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Battlegrace Angel",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "defender": "p1",
+     "attackers": [
+      "p0:Battlegrace Angel",
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Battlegrace Angel",
+     "pt": "4/4"
+    },
+    {
+     "life": {
+      "p1": 14,
+      "p0": 20
+     }
+    }
+   ]
+  }
+ ]
+}

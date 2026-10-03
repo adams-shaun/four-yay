@@ -1,0 +1,140 @@
+{
+ "card": "Umezawa's Jitte",
+ "family": "equipment",
+ "author": "cli-20261002T030326Z-79066444 (Oracle + CR only)",
+ "oracle_sha": "3f9efabf9362",
+ "scenarios": [
+  {
+   "name": "combat-damage-puts-two-charge-counters",
+   "cr": [
+    "603.2",
+    "122.1",
+    "510.2"
+   ],
+   "why": "Whenever equipped creature deals combat damage, put two charge counters on Umezawa's Jitte. An unblocked equipped Grizzly Bears deals combat damage to p1, so the Jitte ends with exactly two charge counters.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Umezawa's Jitte",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Umezawa's Jitte",
+     "mana": "CC",
+     "ability": "equip",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "defender": "p1",
+     "attackers": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Umezawa's Jitte",
+     "zone": "battlefield",
+     "counters": {
+      "charge": 2
+     }
+    },
+    {
+     "life": {
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "remove-counter-mode-pumps-equipped",
+   "cr": [
+    "602.2b",
+    "700.2"
+   ],
+   "why": "Removing a charge counter lets you choose one -- here '+2/+2 until end of turn' on the equipped creature -- so after an unblocked attack the 2/2 Bears is a 4/4 in the postcombat main.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Umezawa's Jitte",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Umezawa's Jitte",
+     "mana": "CC",
+     "ability": "equip",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "defender": "p1",
+     "attackers": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Umezawa's Jitte",
+     "ability": "Umezawa's Jitte",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "+2/+2"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "4/4"
+    },
+    {
+     "card": "p0:Umezawa's Jitte",
+     "counters": {
+      "charge": 1
+     }
+    }
+   ]
+  }
+ ]
+}
