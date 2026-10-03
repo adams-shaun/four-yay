@@ -145,6 +145,7 @@ func (k *Kernel) Boundary() {
 	if r := k.run; r != nil && !r.converting {
 		r.inRes = false
 	}
+	k.noCkpt = false
 }
 
 // LogIntent appends in to the intent log, or, inside a re-execution's verify
@@ -404,7 +405,10 @@ func (k *Kernel) Unserved() bool {
 // OnAsk runs at the engine's ask choke point while Watching. An engine
 // decision no tape path serves inside a tape run's resolution is a closed
 // conversion that is not: it fails hard (a Divergence). One reaching an
-// exempted resolution is a predicate miss, reported to the caller.
+// exempted resolution is a predicate miss: the resolution has no checkpoint
+// to re-run from, so it fails hard too (the census sees it first through
+// the caller's observer; the predicate is held to this by the cardfuzz
+// miss census).
 func (k *Kernel) OnAsk() (miss bool) {
 	if k.Unserved() {
 		panic(Divergence{"an engine ask no tape path serves inside a resolution"})
@@ -415,6 +419,12 @@ func (k *Kernel) OnAsk() (miss bool) {
 		return true
 	}
 	return false
+}
+
+// MissFailure is the Divergence an engine ask that reaches an exempted
+// resolution fails with.
+func MissFailure(what string) Divergence {
+	return Divergence{"the ask-free predicate missed an ask: " + what}
 }
 
 // DbgState TEMP.

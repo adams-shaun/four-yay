@@ -46,6 +46,20 @@ const (
 // tapeMayAsk reports whether resolving the top of the stack may pose a
 // decision, judged from text and the stack object. true is always safe.
 func tapeMayAsk(e *Engine) bool {
+	return tapeTextMayAsk(e) || tapeBoardCompetes(e)
+}
+
+// tapeBoardCompetes is the board gate every otherwise ask-free resolution
+// meets: counters-put replacements competing for one event (CR 616.1's order
+// choice: a permanent entering with counters under Doubling Season and
+// Hardened Scales) and any replacement that elects or whose body asks. Each
+// test prunes on the replacement arena's event mask, so it costs a load when
+// no such line is in play.
+func tapeBoardCompetes(e *Engine) bool {
+	return tapeReplMayAsk(e, "AddCounter") || tapeAnyReplBodyMayAsk(e)
+}
+
+func tapeTextMayAsk(e *Engine) bool {
 	switch {
 	case tapeCheckpointAll:
 		return true

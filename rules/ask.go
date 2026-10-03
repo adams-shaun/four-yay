@@ -9,6 +9,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/resolve"
 )
 
 // chooseFor names the flow a pending KChoose decision belongs to. Task 9
@@ -28,7 +29,9 @@ func (e *Engine) ask(d *decision.Decision) {
 		if tapeCastAsk(e, d) {
 			return
 		}
-		if e.hostAsking == 0 && e.cast == nil && !e.Suspended() && e.offStackMana == nil {
+		boundary := e.hostAsking == 0 && e.cast == nil && !e.Suspended() && e.offStackMana == nil &&
+			e.resolvingObj == 0 && !e.applyingReplacement
+		if boundary {
 			// An engine flow's own decision, posed with no resolution
 			// continuation behind it (the next priority, a combat damage
 			// division, a CR 616.1 order from the turn structure): the
@@ -41,6 +44,7 @@ func (e *Engine) ask(d *decision.Decision) {
 		}
 		if e.tape.OnAsk() {
 			tapeMissed(e, d)
+			panic(resolve.MissFailure(string(d.Kind) + "/" + d.ResumeKind))
 		}
 	}
 	// CR 903.9 ordering: a commander's zone change parked mid-chain asks its
