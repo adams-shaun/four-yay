@@ -81,45 +81,34 @@ func TestByCountThenKeyDoesNotAliasInput(t *testing.T) {
 	}
 }
 
-func TestSpliceSummary(t *testing.T) {
-	readme := "# gorge\n\n" + readmeBeginMarker + "\nstale\n" + readmeEndMarker + "\n\n## Design\n"
-	section := readmeBeginMarker + "\nfresh\n" + readmeEndMarker
-	got, err := spliceSummary(readme, section)
-	if err != nil {
-		t.Fatal(err)
+// TestSummaryLinksTheDocBesideIt pins the relative link: summary.md and
+// coverage.md are written into the same directory, so the summary must not
+// point at the old committed docs/coverage.md path.
+func TestSummaryLinksTheDocBesideIt(t *testing.T) {
+	sum := renderSummary(sampleCoverage())
+	if !strings.Contains(sum, "[coverage.md](coverage.md)") {
+		t.Errorf("summary does not link coverage.md by a relative path:\n%s", sum)
 	}
-	want := "# gorge\n\n" + section + "\n\n## Design\n"
-	if got != want {
-		t.Fatalf("spliceSummary =\n%q\nwant\n%q", got, want)
-	}
-	// Idempotent: splicing the same section again changes nothing.
-	again, err := spliceSummary(got, section)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if again != got {
-		t.Error("spliceSummary is not idempotent")
-	}
-	for _, bad := range []string{
-		"# gorge\n",
-		"# gorge\n" + readmeBeginMarker + "\n",
-		"# gorge\n" + readmeEndMarker + "\n" + readmeBeginMarker + "\n",
-	} {
-		if _, err := spliceSummary(bad, section); err == nil {
-			t.Errorf("spliceSummary(%q) succeeded, want an error", bad)
-		}
+	if strings.Contains(sum, "docs/coverage.md") {
+		t.Errorf("summary still links the old committed path:\n%s", sum)
 	}
 }
 
-// TestRepoReadmeCarriesMarkers fails if someone removes the markers from the
-// committed README: the refresh job would then error out on every run instead
-// of quietly appending its block somewhere wrong.
-func TestRepoReadmeCarriesMarkers(t *testing.T) {
+// TestCoverageTablesAreNotCommitted holds the W2 decision: the coverage
+// tables are generated into the gitignored .coverage/ and published by CI,
+// never committed. A README coverage block or a docs/coverage.md in the tree
+// is the old refresh-by-commit scheme coming back.
+func TestCoverageTablesAreNotCommitted(t *testing.T) {
 	readme := readRepoFile(t, "README.md")
-	if !strings.Contains(readme, readmeBeginMarker) || !strings.Contains(readme, readmeEndMarker) {
-		t.Fatalf("README.md is missing the %s / %s markers", readmeBeginMarker, readmeEndMarker)
+	for _, marker := range []string{"<!-- BEGIN COVERAGE -->", "<!-- END COVERAGE -->"} {
+		if strings.Contains(readme, marker) {
+			t.Errorf("README.md carries %s: the coverage summary is generated into .coverage/, not committed", marker)
+		}
 	}
-	if _, err := spliceSummary(readme, renderSummary(sampleCoverage())); err != nil {
-		t.Fatal(err)
+	if _, err := os.Stat(filepath.Join("..", "..", "docs", "coverage.md")); err == nil {
+		t.Error("docs/coverage.md exists: the full breakdown is generated into .coverage/coverage.md, not committed")
+	}
+	if !strings.Contains(readRepoFile(t, ".gitignore"), "\n.coverage/\n") {
+		t.Error(".gitignore does not ignore .coverage/, where `make coverage` writes")
 	}
 }

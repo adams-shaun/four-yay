@@ -19,7 +19,9 @@ reward-probe.sh behind a broker lease.
                                                      # markdown, with the durable
                                                      # "why it collides" notes
                                                      # from scripts/hotfiles-notes.json
-                                                     # merged into each row
+                                                     # merged into each row (notes
+                                                     # for quiet files stay in the
+                                                     # JSON; one pointer line only)
     scripts/reward_collect.py --selftest
 """
 
@@ -560,6 +562,12 @@ def load_hotfiles_notes(repo: Path) -> list[dict]:
     ]
 
 
+QUIET_NOTES_POINTER = (
+    "Durable per-file notes, including those for files not shown above, live only in "
+    "`scripts/hotfiles-notes.json`; they are not mirrored here."
+)
+
+
 def render_hotspots_md(
     hs: list[tuple[str, list[str]]],
     notes: list[dict],
@@ -570,8 +578,9 @@ def render_hotspots_md(
     uses to keep its section small), each row's `why` cell taken from the
     first notes entry whose `files` list contains the file, else the
     mechanical default naming the live branches. Notes entries whose files
-    are not in the rendered rows are appended after the table so the durable
-    knowledge stays visible even when its file is quiet today.
+    are not in the rendered rows are NOT rendered: one pointer line to the
+    tracked notes file follows the table instead, so the durable prose has
+    exactly one home and the AGENTS.md embed stays small.
     """
 
     def cell(text: str) -> str:
@@ -593,11 +602,12 @@ def render_hotspots_md(
     shown_files = {f for f, _ in shown}
     quiet = [e for e in notes if not any(f in shown_files for f in e["files"])]
     if quiet:
+        # A pointer, never the prose: the notes file is the only home of the
+        # durable notes (W2 of the 2026-10-03 lasagna spec). Mirroring every
+        # quiet note into the AGENTS.md embed grew it by ~27 KB and made every
+        # notes seat collide on AGENTS.md as well as on the notes file.
         lines.append("")
-        lines.append("Durable notes for files not shown above:")
-        for e in quiet:
-            files = ", ".join(f"`{f}`" for f in e["files"])
-            lines.append(f"- {files} — {cell(e['note'])}")
+        lines.append(QUIET_NOTES_POINTER)
     return "\n".join(lines)
 
 
@@ -1683,8 +1693,12 @@ def selftest() -> int:
         check("a noted row shows the note", "| `a.go` | why a |" in md_mixed.splitlines(), md_mixed)
         check("an unnoted row shows the default",
               "| `b.go` | 2 live branches: y, z |" in md_mixed.splitlines(), md_mixed)
-        check("a quiet notes entry is appended so the durable knowledge survives",
-              "- `quiet.go` — a quiet seam today" in md_noted.splitlines(), md_noted)
+        check("a quiet notes entry is NOT mirrored into the rendered table",
+              "a quiet seam today" not in md_noted and "quiet.go" not in md_noted, md_noted)
+        check("a quiet notes entry leaves one pointer line to the notes file",
+              md_noted.splitlines()[-1] == QUIET_NOTES_POINTER, md_noted)
+        check("no quiet notes means no pointer line",
+              QUIET_NOTES_POINTER not in md_plain, md_plain)
         wide = [(f"f{i}.go", ["b1", "b2"]) for i in range(12)]
         md_wide = render_hotspots_md(wide, [])
         check("ALL rows render -- no 8-row truncation",
