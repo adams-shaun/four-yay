@@ -185,6 +185,9 @@ type runStats struct {
 	TargetHitV    int            `json:"target_vocab_hit_visits"`
 	MissedActions []string       `json:"missed_actions,omitempty"`
 	MissedTargets []string       `json:"missed_targets,omitempty"`
+	SeatTrees     [2]int         `json:"seat_searches"`
+	SeatSims      [2]int         `json:"seat_simulations"`
+	SeatCarried   [2]int         `json:"seat_carried_visits"`
 }
 
 func run(args []string, stdout, stderr io.Writer) int {
@@ -510,6 +513,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	st.ActionCands, st.ActionHits, st.ActionVisits, st.ActionHitV = total.ActionCands, total.ActionHits, total.ActionVisits, total.ActionHitV
 	st.TargetCands, st.TargetHits, st.TargetVisits, st.TargetHitV = total.TargetCands, total.TargetHits, total.TargetVisits, total.TargetHitV
 	st.MissedActions, st.MissedTargets = total.MissedActions, total.MissedTargets
+	st.SeatTrees, st.SeatSims, st.SeatCarried = total.SeatTrees, total.SeatSims, total.SeatCarried
 	st.SimPanics, st.SimSubmitErr, st.SimChance, st.SimBadWorlds = total.SimPanics, total.SimSubmitErrors, total.SimChance, total.SimBadWorlds
 	st.LeafEvals, st.NetFallbacks = leafEvals.Load(), netFallbacks.Load()
 	st.WallSeconds = time.Since(t0).Seconds()

@@ -158,6 +158,11 @@ type GameStats struct {
 	// MissedActions and MissedTargets list the labels with no slot, each
 	// once, in first-seen order (capped).
 	MissedActions, MissedTargets []string
+	// SeatTrees, SeatSims and SeatCarried split the search work by seat:
+	// trees built (every search call, chosen or not), fresh simulations run
+	// and root visits carried in by tree reuse. A head-to-head ablation
+	// reads one seat's fresh simulations per search from them.
+	SeatTrees, SeatSims, SeatCarried [2]int
 }
 
 // BotKindNames are the decision kinds Stats.BotByKind counts, in index
@@ -209,6 +214,11 @@ func (s *GameStats) Add(o GameStats) {
 	s.RowsTarget += o.RowsTarget
 	s.RowsUse += o.RowsUse
 	s.CombatSteps += o.CombatSteps
+	for i := range s.SeatTrees {
+		s.SeatTrees[i] += o.SeatTrees[i]
+		s.SeatSims[i] += o.SeatSims[i]
+		s.SeatCarried[i] += o.SeatCarried[i]
+	}
 	s.ActionCands += o.ActionCands
 	s.ActionHits += o.ActionHits
 	s.ActionVisits += o.ActionVisits
@@ -438,6 +448,9 @@ func PlayGame(gs GameSetup) (res GameResult, err error) {
 				return lr, fmt.Errorf("mzplay: game %d, decision %d: %w", gs.Index, d.Seq, serr)
 			}
 			res.Stats.addSearch(lr.Result.Stats)
+			res.Stats.SeatTrees[p]++
+			res.Stats.SeatSims[p] += lr.Result.Stats.Simulations
+			res.Stats.SeatCarried[p] += lr.Result.Stats.ReuseCarried
 			return lr, nil
 		}
 		if o.CombatSteps && (d.Kind == decision.KAttackers || d.Kind == decision.KBlockers) && azmcts.CombatStepCount(d) > 0 {
