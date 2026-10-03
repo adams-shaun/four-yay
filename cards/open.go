@@ -93,10 +93,7 @@ var sharedCorpora struct {
 // OpenCorpus, which passes the embedded CompilerFingerprint.
 func openCorpus(dir, fingerprint string) (*Registry, error) {
 	cache := cachePathFor(dir, fingerprint)
-	cacheInfo, cacheErr := os.Stat(cache)
-	lockInfo, lockErr := os.Stat(filepath.Join(dir, "cards.lock"))
-	stale := cacheErr != nil || (lockErr == nil && lockInfo.ModTime().After(cacheInfo.ModTime()))
-	if !stale {
+	if cacheFresh(dir, cache) {
 		if r, err := LoadRegistry(cache); err == nil {
 			rerootPaths(r, dir)
 			return r, nil
@@ -109,6 +106,50 @@ func openCorpus(dir, fingerprint string) (*Registry, error) {
 	_ = r.Save(cache)
 	PruneCaches(dir, cache)
 	return r, nil
+}
+
+// cacheFresh reports whether cache is a usable IR cache for dir: it exists
+// and is at least as new as every corpus input that is present. It is the ONE
+// home of the staleness rule -- openCorpus and the segment path in subset.go
+// both consult it, so the three sites cannot drift apart.
+//
+// The lock alone was the old rule, and fetchRepo's write order defeats it:
+// fetchRepo renames the new cardsfolder into place BEFORE it rewrites
+// cards.lock (cards/fetch.go), so for that window the cache is newer than the
+// old lock and the freshly renamed folder is newer than the cache. A reader
+// that compared only the lock served the OLD corpus silently; comparing the
+// corpus folders as well closes the window without hashing the corpus at open
+// time (which would recompile on every open).
+func cacheFresh(dir, cache string) bool {
+	ci, err := os.Stat(cache)
+	if err != nil {
+		return false
+	}
+	return !corpusInputNewerThan(dir, ci)
+}
+
+// corpusInputNewerThan reports whether any corpus input for dir is newer than
+// ref. The lock and the token-script folder are OPTIONAL -- older builds and
+// card-only fixtures lack them -- so an absent one does not by itself
+// invalidate a cache. cardsfolder is not optional: CompileDir reads it, so its
+// absence counts as newer than anything. That is deliberate during fetchRepo's
+// remove-then-rename gap: a reader then recompiles and fails loudly rather
+// than serving a coherent registry of the previous corpus.
+//
+// It takes an os.FileInfo (not a time.Time) so the cards package imports no
+// clock: see internal/archtest's TestTimeIsImportedOnlyByTheHost.
+func corpusInputNewerThan(dir string, ref os.FileInfo) bool {
+	refTime := ref.ModTime()
+	if fi, err := os.Stat(CorpusDir(dir)); err != nil || fi.ModTime().After(refTime) {
+		return true
+	}
+	if fi, err := os.Stat(TokensDir(dir)); err == nil && fi.ModTime().After(refTime) {
+		return true
+	}
+	if fi, err := os.Stat(lockPath(dir)); err == nil && fi.ModTime().After(refTime) {
+		return true
+	}
+	return false
 }
 
 // PruneCaches removes fingerprint-keyed sibling caches in dir, keeping the

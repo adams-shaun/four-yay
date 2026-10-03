@@ -475,7 +475,10 @@ func (s *subsetSource) lookup(key string) (*Card, bool) {
 func (r *Registry) IsSubset() bool { return r != nil && r.sub != nil }
 
 // segFresh applies OpenCorpus's staleness rule to the segment file: it must
-// exist and be no older than the cache it was written beside or cards.lock.
+// exist and be no older than the cache it was written beside, cards.lock, or
+// the corpus folders -- the segment is a derived artifact of all of them, so
+// it shares corpusInputNewerThan with cacheFresh rather than a second copy of
+// the comparison.
 func segFresh(dir, cache, seg string) bool {
 	si, err := os.Stat(seg)
 	if err != nil {
@@ -484,18 +487,13 @@ func segFresh(dir, cache, seg string) bool {
 	if ci, err := os.Stat(cache); err == nil && ci.ModTime().After(si.ModTime()) {
 		return false
 	}
-	if li, err := os.Stat(filepath.Join(dir, "cards.lock")); err == nil && li.ModTime().After(si.ModTime()) {
-		return false
-	}
-	return true
+	return !corpusInputNewerThan(dir, si)
 }
 
 // refreshSegments rebuilds seg: from the gob cache when that is fresh (a raw
 // decode, no compile), or by recompiling the corpus and saving both files.
 func refreshSegments(dir, cache, seg string) error {
-	ci, cerr := os.Stat(cache)
-	li, lerr := os.Stat(filepath.Join(dir, "cards.lock"))
-	if cerr == nil && (lerr != nil || !li.ModTime().After(ci.ModTime())) {
+	if cacheFresh(dir, cache) {
 		if cf, err := decodeCacheFile(cache); err == nil && cf.Version == cacheVersion {
 			return writeSegments(seg, cf.Cards, cf.Tokens)
 		}
