@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/effects"
 )
 
 // abilitySelfSkipTurns is the decision.Option.SelfSkipTurns fact for an
@@ -23,7 +24,7 @@ func abilitySelfSkipTurns(ab *cards.SA) int8 {
 		if sa.API != "SkipTurn" {
 			continue
 		}
-		if d := strings.TrimSpace(sa.ParamStr(cards.PKDefined)); d != "" && d != "You" {
+		if k := effects.DefinedRefOf(sa).Kind; k != effects.RefAbsent && k != effects.RefYou {
 			continue
 		}
 		k := 1
