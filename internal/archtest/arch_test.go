@@ -340,7 +340,8 @@ func TestNoLegacyMathRand(t *testing.T) {
 	}
 }
 
-// resumeFieldWriters walks the non-test rules/ sources and returns every
+// resumeFieldWriters walks the non-test rules/ sources (recursively, so a
+// rules/* subpackage stays in the census) and returns every
 // function that assigns to the Engine.resume state, keyed by the receiver-
 // qualified function name (e.g. "(*Engine).Ask") with the sites it writes.
 // A write reachable through the resume field is a write to the resume state:
@@ -352,18 +353,12 @@ func TestNoLegacyMathRand(t *testing.T) {
 func resumeFieldWriters(t *testing.T) map[string][]string {
 	t.Helper()
 	dir := filepath.Join("..", "..", "rules")
-	files, err := filepath.Glob(filepath.Join(dir, "*.go"))
-	if err != nil {
-		t.Fatalf("glob %s: %v", dir, err)
-	}
+	files := goSourcesUnder(t, dir)
 	if len(files) == 0 {
 		t.Fatalf("no rules sources found under %s (cwd %s)", dir, mustCwd())
 	}
 	out := map[string][]string{}
 	for _, file := range files {
-		if strings.HasSuffix(file, "_test.go") {
-			continue
-		}
 		fset := token.NewFileSet()
 		f, err := parser.ParseFile(fset, file, nil, parser.AllErrors)
 		if err != nil {
@@ -395,7 +390,11 @@ func resumeFieldWriters(t *testing.T) map[string][]string {
 			}
 			return best
 		}
-		rel := filepath.Join("rules", filepath.Base(file))
+		rel, err := filepath.Rel(filepath.Join("..", ".."), file)
+		if err != nil {
+			t.Fatalf("rel %s: %v", file, err)
+		}
+		rel = filepath.ToSlash(rel)
 		ast.Inspect(f, func(n ast.Node) bool {
 			check := func(target ast.Expr) {
 				resumeSel, ok := resumeSelectorInChain(target)
@@ -417,6 +416,36 @@ func resumeFieldWriters(t *testing.T) map[string][]string {
 		})
 	}
 	return out
+}
+
+// goSourcesUnder returns every non-test .go file under dir, RECURSIVELY
+// (testdata and dot/underscore directories excluded), sorted. A census that
+// globbed only dir/*.go would silently drop every file a refactor moves into
+// a subpackage (the rules-engine refactor spec's W5 package extraction).
+func goSourcesUnder(t *testing.T, dir string) []string {
+	t.Helper()
+	var files []string
+	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		name := d.Name()
+		if d.IsDir() {
+			if path != dir && (name == "testdata" || strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_")) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if strings.HasSuffix(name, ".go") && !strings.HasSuffix(name, "_test.go") {
+			files = append(files, path)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walk %s: %v", dir, err)
+	}
+	sort.Strings(files)
+	return files
 }
 
 // resumeSelectorInChain reports whether any selector in an assignment target's

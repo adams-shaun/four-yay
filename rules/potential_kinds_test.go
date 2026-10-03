@@ -4,7 +4,6 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"path/filepath"
 	"slices"
 	"sort"
 	"strconv"
@@ -52,9 +51,9 @@ var measuredLegalActionKinds = []string{
 // emitted kind is a literal it can read.
 func legalActionsPricedKinds(t *testing.T) []string {
 	t.Helper()
-	files, err := filepath.Glob("legal*.go")
-	if err != nil || len(files) == 0 {
-		t.Fatalf("glob rules/legal*.go: %v (%d files)", err, len(files))
+	files := sourceFilesUnder(t, ".", func(base string) bool { return strings.HasPrefix(base, "legal") })
+	if len(files) == 0 {
+		t.Fatal("no rules/legal*.go sources found")
 	}
 	fset := token.NewFileSet()
 	var bodies []*ast.BlockStmt
