@@ -15,7 +15,7 @@ import (
 // declarations are searched one creature at a time, each creature's search
 // recorded as its own yes/no or which-attacker row; the records stay well
 // formed (a root's recorded visits never exceed the budget; the score is
-// upstream's root mean, which may pass 1 by at most 1/budget).
+// upstream's root mean, clamped into [-1, 1]).
 func TestPlayGameUpstreamSearch(t *testing.T) {
 	gs := testSetup(t, "mono-green-stompy", "mono-white-equipment", 7, 12)
 	gs.MaxTurns = 10
@@ -56,8 +56,8 @@ func TestPlayGameUpstreamSearch(t *testing.T) {
 			if sum < 1 || sum > float32(budget) {
 				t.Fatalf("seat %d row %d: policy counts sum to %v with a budget of %d", seat, i, sum, budget)
 			}
-			if lim := 1 + 2/float64(budget); r.Score < -1 || r.Score > lim {
-				t.Fatalf("seat %d row %d: score %v", seat, i, r.Score)
+			if r.Score < -1 || r.Score > 1 || r.Value < -1 || r.Value > 1 {
+				t.Fatalf("seat %d row %d: score %v value %v", seat, i, r.Score, r.Value)
 			}
 		}
 	}
