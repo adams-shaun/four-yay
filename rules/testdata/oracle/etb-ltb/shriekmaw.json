@@ -1,0 +1,102 @@
+{
+ "card": "Shriekmaw",
+ "family": "etb-ltb",
+ "author": "cli-20261002T202458Z-c8f54b81 (Oracle + CR only)",
+ "oracle_sha": "74a2e93c0347",
+ "scenarios": [
+  {
+   "name": "etb-destroys-nonartifact-nonblack-creature",
+   "cr": [
+    "603.2",
+    "701.7a"
+   ],
+   "why": "Cast at its normal cost, the Shriekmaw enters as a 3/2 with fear and destroys target nonartifact, nonblack creature.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shriekmaw"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shriekmaw",
+     "mana": "BCCCC"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Shriekmaw",
+     "zone": "battlefield",
+     "pt": "3/2",
+     "keywords": [
+      "Fear"
+     ]
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "evoked-sacrificed-but-trigger-still-destroys",
+   "cr": [
+    "702.74a",
+    "603.2",
+    "603.10a"
+   ],
+   "why": "Cast for its evoke cost the Shriekmaw enters, its enters ability still triggers and destroys the target, then the evoke sacrifice trigger is put on top and it is sacrificed.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shriekmaw"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shriekmaw",
+     "mana": "BC",
+     "cast_mode": "evoked"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Shriekmaw",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}
