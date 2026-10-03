@@ -175,6 +175,21 @@ func TestDependencyOrderHolds(t *testing.T) {
 		{module + "/internal/azmcts", module + "/internal/azmcts/clairvoyant"},
 		{module + "/internal/spellbench/sbsearch", module + "/internal/azmcts/clairvoyant"},
 		{module + "/internal/searchseat", module + "/internal/azmcts/clairvoyant"},
+		// The lasagna layering (spec 2026-10-03 §3): rules/cost is the L2
+		// cost vocabulary leaf. It sits below effects and below every rules
+		// subsystem package, so none of them -- and never rules itself -- may
+		// be reachable from it. TestCostVocabularyIsALeaf pins its whole
+		// direct import set; these rows name the edges the layering forbids.
+		{module + "/rules/cost", module + "/rules"},
+		{module + "/rules/cost", module + "/effects"},
+		{module + "/rules/cost", module + "/events"},
+		{module + "/rules/cost", module + "/decision"},
+		{module + "/rules/cost", module + "/botpolicy"},
+		{module + "/rules/cost", module + "/rules/pay"},
+		{module + "/rules/cost", module + "/rules/chars"},
+		{module + "/rules/cost", module + "/rules/trigmatch"},
+		{module + "/rules/cost", module + "/rules/combat"},
+		{module + "/rules/cost", module + "/rules/resolve"},
 	}
 	for path, p := range pkgs {
 		if strings.HasPrefix(path, module+"/bots") {
