@@ -98,7 +98,7 @@ func runManifest(xmage, ref, out string) error {
 			return fmt.Errorf("set code %s in both %s and %s", m.Code, prev, filepath.Base(p))
 		}
 		seen[m.Code] = filepath.Base(p)
-		if err := os.WriteFile(filepath.Join(out, m.Code+".json"), m.MarshalLines(), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(out, compliance.ManifestFileName(m.Code)), m.MarshalLines(), 0o644); err != nil {
 			return err
 		}
 	}

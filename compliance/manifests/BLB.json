@@ -1,6 +1,5 @@
 {"code":"BLB","name":"Bloomburrow","released":"2024-08-02","set_type":"EXPANSION","xmage_ref":"6b602a1c85e8ed738a4b40b1ef44c54845b57f68",
 "cards": [
-{"name":"A-Heartfire Hero","numbers":["A-138"],"rarity":"UNCOMMON"},
 {"name":"Agate Assault","numbers":["122"],"rarity":"COMMON"},
 {"name":"Agate-Blade Assassin","numbers":["82"],"rarity":"COMMON"},
 {"name":"Alania's Pathmaker","numbers":["123"],"rarity":"COMMON"},
@@ -100,7 +99,6 @@
 {"name":"Heaped Harvest","numbers":["175"],"rarity":"COMMON"},
 {"name":"Heartfire Hero","numbers":["138"],"rarity":"UNCOMMON"},
 {"name":"Hearthborn Battler","numbers":["139","361"],"rarity":"RARE"},
-{"name":"Heirloom Epic","numbers":["246"],"rarity":"UNCOMMON"},
 {"name":"Helga, Skittish Seer","numbers":["217","332"],"rarity":"MYTHIC"},
 {"name":"Hidden Grotto","numbers":["254"],"rarity":"COMMON"},
 {"name":"High Stride","numbers":["176"],"rarity":"COMMON"},

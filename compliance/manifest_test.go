@@ -77,6 +77,76 @@ func TestParseSetClassRefusesUnparsedEntry(t *testing.T) {
 	}
 }
 
+// XMage comments a card out when it is not implemented yet: 227 such lines
+// across 22 set classes at 6b602a1c (Bloomburrow's Heirloom Epic). A
+// commented entry is not in the set's playable list, and a split card's
+// " // " inside a string literal is not a comment.
+func TestParseSetClassSkipsCommentedEntries(t *testing.T) {
+	src := `super("Fixture", "FXT", ExpansionSet.buildDate(2026, 1, 1), SetType.EXPANSION);
+        cards.add(new SetCardInfo("Fire // Ice", 9, Rarity.UNCOMMON, mage.cards.f.FireIce.class)); // trailing note
+        //cards.add(new SetCardInfo("Heirloom Epic", 246, Rarity.UNCOMMON, mage.cards.h.HeirloomEpic.class));
+        // cards.add(new SetCardInfo("Ghost", 3, Rarity.COMMON, mage.cards.g.Ghost.class));
+        /* cards.add(new SetCardInfo("Block Ghost", 4, Rarity.COMMON, mage.cards.b.BlockGhost.class));
+           cards.add(new SetCardInfo("Block Ghost 2", 5, Rarity.COMMON, mage.cards.b.BlockGhost2.class)); */
+        cards.add(new SetCardInfo("Zap /* not a comment */", 2, Rarity.COMMON, mage.cards.z.Zap.class));`
+	m, err := ParseSetClass([]byte(src), "r")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, c := range m.Cards {
+		got = append(got, c.Name)
+	}
+	if want := []string{"Fire // Ice", "Zap /* not a comment */"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("cards %q, want %q", got, want)
+	}
+}
+
+// HasCon2017 writes the constructor qualified: new ExpansionSet.SetCardInfo(.
+func TestParseSetClassAcceptsQualifiedConstructor(t *testing.T) {
+	src := `super("HasCon 2017", "H17", ExpansionSet.buildDate(2017, 9, 8), SetType.JOKE_SET);
+        cards.add(new ExpansionSet.SetCardInfo("Grimlock, Dinobot Leader", 1, Rarity.MYTHIC, mage.cards.g.GrimlockDinobotLeader.class));`
+	m, err := ParseSetClass([]byte(src), "r")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m.Cards) != 1 || m.Cards[0].Name != "Grimlock, Dinobot Leader" {
+		t.Fatalf("cards %+v", m.Cards)
+	}
+}
+
+// Any spelling of the constructor the row shape misses must still be
+// counted, so the file is refused rather than the card dropped.
+func TestParseSetClassRefusesUnknownQualifiedShape(t *testing.T) {
+	src := `super("Fixture", "FXT", ExpansionSet.buildDate(2026, 1, 1), SetType.EXPANSION);
+        cards.add(new mage.sets.Other.SetCardInfo(NAME, 1, Rarity.COMMON, mage.cards.z.Zap.class));`
+	if _, err := ParseSetClass([]byte(src), "r"); err == nil || !strings.Contains(err.Error(), "1 SetCardInfo entries but 0 parsed") {
+		t.Fatalf("err = %v, want a count mismatch", err)
+	}
+}
+
+func TestParseSetClassRefusesEmptySet(t *testing.T) {
+	src := `super("Fixture", "FXT", ExpansionSet.buildDate(2026, 1, 1), SetType.EXPANSION);`
+	if _, err := ParseSetClass([]byte(src), "r"); err == nil || !strings.Contains(err.Error(), "no SetCardInfo entries") {
+		t.Fatalf("err = %v, want an empty-set refusal", err)
+	}
+}
+
+// Go's module zip refuses a path element that is a Windows reserved device
+// name (golang.org/x/mod/module badWindowsNames), so CON.json would make the
+// whole module un-fetchable.
+func TestManifestFileNameAvoidsReservedNames(t *testing.T) {
+	for code, want := range map[string]string{
+		"CON": "CON_.json", "con": "con_.json", "PRN": "PRN_.json", "AUX": "AUX_.json",
+		"NUL": "NUL_.json", "COM1": "COM1_.json", "LPT9": "LPT9_.json",
+		"FRA": "FRA.json", "CONF": "CONF.json", "COM": "COM.json", "PCMD": "PCMD.json",
+	} {
+		if got := ManifestFileName(code); got != want {
+			t.Errorf("ManifestFileName(%q) = %q, want %q", code, got, want)
+		}
+	}
+}
+
 func TestParseSetClassRefusesMissingHeader(t *testing.T) {
 	_, err := ParseSetClass([]byte(`public final class X {}`), "r")
 	if err == nil || !strings.Contains(err.Error(), "no ExpansionSet super(...) header") {
