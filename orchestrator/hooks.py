@@ -37,21 +37,16 @@ def sim_all_replayed(output: str) -> bool:
 
 
 def apply_head_move(wt: Path, seat_count: int, new_hash: str, reason: str) -> bool:
-    """git_ops.py:172-192, verbatim: rewrite one seat count's golden in
-    rules/heads_test.go with a generated comment naming the cause."""
-    path = Path(wt) / "rules" / "heads_test.go"
-    text = path.read_text()
-    pattern = re.compile(rf'(\t)({seat_count}): "[0-9a-f]{{16}}",\n')
-    if not pattern.search(text):
+    """Re-pin one seat count's golden: rules/testdata/heads/<seats>.txt holds
+    the hash and a newline, nothing else. The cause is NOT written into the
+    tree (that prose, prepended to rules/heads_test.go on every move, was a
+    merge conflict by construction; its history is frozen in
+    docs/agents/heads-history.md) -- testheads_policy puts it in the commit
+    message instead; `reason` stays in the signature for its callers."""
+    path = Path(wt) / "rules" / "testdata" / "heads" / f"{seat_count}.txt"
+    if not path.exists():
         return False
-    comment = (
-        f'\t// {seat_count} seats moved to {new_hash} (autonomous orchestrator): {reason}\n'
-        f'\t// Auto-accepted: CR conformance lane 0 FAIL and `make sim` 20/20 replay OK,\n'
-        f'\t// the same proxy this repo has used by hand for every head move -- neither\n'
-        f'\t// check is sensitive to bot-choice quality, only engine correctness.\n'
-    )
-    replacement = f"{comment}\t{seat_count}: \"{new_hash}\",\n"
-    path.write_text(pattern.sub(replacement, text, count=1))
+    path.write_text(f"{new_hash}\n")
     return True
 
 
@@ -110,10 +105,19 @@ def testheads_policy(repo: Path, wt: Path, issue, passed: bool, results) -> bool
     sim_ok = next((r.ok for r in results if r.name == "make sim"), False)
     if not (cr_ok and sim_ok):
         return False
+    reason = f"resolving {issue.id} ({issue.title[:80]})"
+    moved = []
     for seat_count, new_hash in _HEAD_RE.findall(heads.output):
-        apply_head_move(wt, int(seat_count), new_hash, reason=f"resolving {issue.id} ({issue.title[:80]})")
+        if apply_head_move(wt, int(seat_count), new_hash, reason=reason):
+            moved.append(f"{seat_count} seats moved to {new_hash}")
         issue.log(f"auto-accepted {seat_count}-seat head move to {new_hash}")
     if not _heads_pass(wt):
         return False
-    _commit_all(wt, f"test(rules): pin the head(s) moved by {issue.id} (autonomous orchestrator)")
+    body = "\n".join(moved) + (
+        f"\n\nAutonomous orchestrator, {reason}.\n"
+        "Auto-accepted: CR conformance lane 0 FAIL and `make sim` 20/20 replay OK,\n"
+        "the same proxy this repo has used by hand for every head move -- neither\n"
+        "check is sensitive to bot-choice quality, only engine correctness.\n"
+        "The first diverging event was not named; find it with cmd/headdiff.")
+    _commit_all(wt, f"test(rules): pin the head(s) moved by {issue.id} (autonomous orchestrator)\n\n{body}")
     return passed
