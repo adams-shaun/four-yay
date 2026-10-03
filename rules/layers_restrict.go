@@ -3,6 +3,7 @@ package rules
 import (
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -226,7 +227,7 @@ func (e *Engine) sacrificeBlocked(id state.ObjID, forCost bool, cause costCause)
 		// identity instead (causeCostAdmits) -- a cost sacrifice is caused by
 		// the spell being cast or the ability being activated, never by the
 		// object already on the stack.
-		if spec := sv.Params["ValidCause"]; spec != "" {
+		if spec := sv.ParamStr(cards.PKValidCause); spec != "" {
 			if forCost {
 				if !causeCostAdmits(spec, cause) {
 					continue
@@ -235,7 +236,7 @@ func (e *Engine) sacrificeBlocked(id state.ObjID, forCost bool, cause costCause)
 				continue
 			}
 		}
-		if spec := sv.Params["ValidCard"]; spec != "" &&
+		if spec := sv.ParamStr(cards.PKValidCard); spec != "" &&
 			e.matchesSpec(spec, id, e.specCtx(sv.Source, sv.Controller)) {
 			return true
 		}
@@ -311,7 +312,7 @@ func (e *Engine) exileBlocked(id state.ObjID, forCost bool, cause costCause) boo
 				continue
 			}
 		}
-		if spec := sv.Params["ValidCause"]; spec != "" {
+		if spec := sv.ParamStr(cards.PKValidCause); spec != "" {
 			if forCost {
 				if !causeCostAdmits(spec, cause) {
 					continue
@@ -320,7 +321,7 @@ func (e *Engine) exileBlocked(id state.ObjID, forCost bool, cause costCause) boo
 				continue
 			}
 		}
-		if spec := sv.Params["ValidCard"]; spec != "" &&
+		if spec := sv.ParamStr(cards.PKValidCard); spec != "" &&
 			e.matchesSpec(spec, id, e.specCtx(sv.Source, sv.Controller)) {
 			return true
 		}
@@ -387,23 +388,23 @@ func (e *Engine) PutCounterBlocked(kind string, obj state.ObjID, player state.Pl
 		if !effects.CantPutCounterParamsReadable(sv.Params) {
 			continue
 		}
-		if !counterKindMatches(sv.Params["CounterType"], kind) {
+		if !counterKindMatches(sv.ParamStr(cards.PKCounterType), kind) {
 			continue
 		}
 		if playerForm {
-			if spec := strings.TrimSpace(sv.Params["ValidPlayer"]); spec != "" {
+			if spec := strings.TrimSpace(sv.ParamStr(cards.PKValidPlayer)); spec != "" {
 				// Source 0, same scope rule as the continuous-effect branch above.
 				if restrictionPlayerSpecMatches(e.G, spec, player, sv.Controller, 0, nil) {
 					return true
 				}
 				continue
 			}
-			if strings.TrimSpace(sv.Params["ValidCard"]) != "" || strings.TrimSpace(sv.Params["ValidObject"]) != "" {
+			if strings.TrimSpace(sv.ParamStr(cards.PKValidCard)) != "" || strings.TrimSpace(sv.Params["ValidObject"]) != "" {
 				continue
 			}
 			return true
 		}
-		spec := strings.TrimSpace(sv.Params["ValidCard"])
+		spec := strings.TrimSpace(sv.ParamStr(cards.PKValidCard))
 		if spec == "" {
 			spec = strings.TrimSpace(sv.Params["ValidObject"])
 		}
@@ -413,7 +414,7 @@ func (e *Engine) PutCounterBlocked(kind string, obj state.ObjID, player state.Pl
 			}
 			continue
 		}
-		if strings.TrimSpace(sv.Params["ValidPlayer"]) != "" {
+		if strings.TrimSpace(sv.ParamStr(cards.PKValidPlayer)) != "" {
 			continue
 		}
 		return true
@@ -489,7 +490,7 @@ func (e *Engine) attackBlocked(id state.ObjID, defender state.PlayerID, attacked
 			effects.UnlessDefenderHolds(e.G, spec, defender, sv.Controller, sv.Source) {
 			continue
 		}
-		spec := sv.Params["ValidCard"]
+		spec := sv.ParamStr(cards.PKValidCard)
 		if spec == "" || !e.matchesSpec(spec, id, e.specCtx(sv.Source, sv.Controller)) {
 			continue
 		}

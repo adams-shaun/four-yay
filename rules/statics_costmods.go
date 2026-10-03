@@ -312,7 +312,7 @@ func (e *Engine) costModifiersCompose(statics costStaticViews, p state.PlayerID,
 		mode := group.mode
 		for _, sv := range group.views {
 			if potential && mode == "RaiseCost" {
-				if _, targetConditional := sv.Params["ValidTarget"]; targetConditional {
+				if sv.HasParam(cards.PKValidTarget) {
 					continue
 				}
 			}
@@ -334,7 +334,7 @@ func (e *Engine) costModifiersCompose(statics costStaticViews, p state.PlayerID,
 				// exactly as it leaves every other target-conditional raise
 				// out; the chosen targets are repriced before payment.
 				raiseTargets := amountTargets
-				if potential && sv.Params["Relative"] == "True" {
+				if potential && sv.ParamStr(cards.PKRelative) == "True" {
 					raiseTargets = nil
 				}
 				// A RaiseCost Cost$ names the whole additional cost (Forge's
@@ -389,7 +389,7 @@ func (e *Engine) costModifiersCompose(statics costStaticViews, p state.PlayerID,
 	}
 	for _, sv := range statics.set {
 		if potential {
-			if _, targetConditional := sv.Params["ValidTarget"]; targetConditional {
+			if sv.HasParam(cards.PKValidTarget) {
 				continue
 			}
 		}
@@ -426,13 +426,13 @@ func (e *Engine) costModifiersWithTargetsUsing(statics costStaticViews, p state.
 func (e *Engine) optionalCostViews(statics costStaticViews, p state.PlayerID, id state.ObjID) []Cost {
 	var out []Cost
 	for _, sv := range statics.optional {
-		if strings.TrimSpace(sv.Params["ValidSA"]) != "Spell" ||
-			strings.TrimSpace(sv.Params["EffectZone"]) != "All" ||
-			!strings.Contains(sv.Params["ValidCard"], "Card.Self") ||
+		if strings.TrimSpace(sv.ParamStr(cards.PKValidSA)) != "Spell" ||
+			strings.TrimSpace(sv.ParamStr(cards.PKEffectZone)) != "All" ||
+			!strings.Contains(sv.ParamStr(cards.PKValidCard), "Card.Self") ||
 			sv.Source != id || !e.costStaticApplies(sv, "OptionalCost", p, id, spellScope(""), nil, false) {
 			continue
 		}
-		c := ParseCost(sv.Params["Cost"])
+		c := ParseCost(sv.ParamStr(cards.PKCost))
 		if len(c.Unknown) == 0 {
 			out = append(out, c)
 		}

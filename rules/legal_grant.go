@@ -86,10 +86,10 @@ func pureGrantKeywords(ab *cards.SA) []string {
 	if _, def := ab.Params["NumDef"]; def {
 		return nil
 	}
-	if strings.Contains(ab.Params["KW"], ":") {
+	if strings.Contains(ab.ParamStr(cards.PKKW), ":") {
 		return nil
 	}
-	return grantKeywords(ab.Params["KW"])
+	return grantKeywords(ab.ParamStr(cards.PKKW))
 }
 
 // grantKeywords splits a KW$ parameter's keyword list into head-stripped

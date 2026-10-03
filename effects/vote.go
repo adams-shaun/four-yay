@@ -278,7 +278,7 @@ func effPlayerVote(h Host, c *Ctx, sa *cards.SA) {
 	if strings.EqualFold(strings.TrimSpace(sa.Params["StoreVoteNum"]), "True") {
 		publishVoteCounts(c, voteCountsForPlayers(universe, picks))
 	}
-	emitVoteFinished(h, c, ballots, len(universe) > 0, strings.EqualFold(strings.TrimSpace(sa.Params["Secretly"]), "True"))
+	emitVoteFinished(h, c, ballots, len(universe) > 0, strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKSecretly)), "True"))
 }
 
 // playerBallotOptions is the ballot entry list one voter may pick from: the

@@ -45,8 +45,10 @@ const (
 	// resumePointFieldCount is the number of fields in rules' resumePoint.
 	resumePointFieldCount = 90
 	// stringParamReads is the number of <x>Params["literal"] index
-	// expressions in rules/ and effects/ non-test files.
-	stringParamReads = 1302
+	// expressions in rules/ and effects/ non-test files. W4 slice 3 (194
+	// ParamKeys, the 256-key mask) moved 488 reads onto the typed accessors:
+	// 1302 -> 814.
+	stringParamReads = 814
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
 	stringCaseLiterals = 2886

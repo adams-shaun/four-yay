@@ -148,28 +148,28 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	// is admitted; other Choices forms remain the source-blocking fail-closed
 	// path rather than silently copying the wrong object.
 	supportsChoice := strings.TrimSpace(sa.ParamStr(cards.PKChoices)) == "Creature.RememberedPlayerCtrl" &&
-		strings.TrimSpace(sa.Params["Chooser"]) == "Remembered" &&
-		strings.TrimSpace(sa.Params["Controller"]) == "Remembered"
+		strings.TrimSpace(sa.ParamStr(cards.PKChooser)) == "Remembered" &&
+		strings.TrimSpace(sa.ParamStr(cards.PKController)) == "Remembered"
 	if _, ok := sa.Param(cards.PKChoices); ok && !supportsChoice {
 		note("Choices$")
 		blocked = true
 	}
-	if _, ok := sa.Params["AddTriggers"]; ok {
+	if sa.HasParam(cards.PKAddTriggers) {
 		// copied below
 	}
-	if _, ok := sa.Params["AddSVars"]; ok {
+	if sa.HasParam(cards.PKAddSVars) {
 		// copied below
 	}
-	if _, ok := sa.Params["AddAbilities"]; ok {
+	if sa.HasParam(cards.PKAddAbilities) {
 		// copied below
 	}
 	if _, ok := sa.Params["WithDifferentNames"]; ok {
 		note("WithDifferentNames$")
 	}
-	if _, ok := sa.Params["AttachedTo"]; ok {
+	if sa.HasParam(cards.PKAttachedTo) {
 		// resolved and emitted after battlefield entry below
 	}
-	if _, ok := sa.Params["Chooser"]; ok && !supportsChoice {
+	if ok := sa.HasParam(cards.PKChooser); ok && !supportsChoice {
 		note("Chooser$")
 		blocked = true
 	}
@@ -325,12 +325,12 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	// Haste" is two). RemoveKeywords$ names keywords lost at layer 6. All three
 	// ride ONE LAbilities effect per mint so RemoveKeywords applies BEFORE the
 	// same effect's AddKeywords, whatever the timestamps order neighbours.
-	addKeywords := cards.SplitKeywordList(sa.Params["AddKeywords"])
+	addKeywords := cards.SplitKeywordList(sa.ParamStr(cards.PKAddKeywords))
 	pumpKeywords := cards.SplitKeywordList(sa.Params["PumpKeywords"])
 	removeKeywords := cards.SplitKeywordList(sa.Params["RemoveKeywords"])
-	if _, ok := sa.Params["AddKeywords"]; ok && len(addKeywords) == 0 {
+	if ok := sa.HasParam(cards.PKAddKeywords); ok && len(addKeywords) == 0 {
 		emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-			Text: "AddKeywords$ " + strings.TrimSpace(sa.Params["AddKeywords"]) + " resolved to no keyword; none added"})
+			Text: "AddKeywords$ " + strings.TrimSpace(sa.ParamStr(cards.PKAddKeywords)) + " resolved to no keyword; none added"})
 	}
 	// PumpDuration$ governs the PumpKeywords$ lifetime: absent means "for as
 	// long as the copy exists" (Permanent); EOT/EndOfTurn is dropped at this
@@ -368,16 +368,16 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	// SVar:Y:TriggerRemembered$CardCounters.P1P1/HalfDown); an unresolvable
 	// value is one loud Note per call and the counters are skipped -- the
 	// copy enters without them, never a silent wrong count.
-	withKind := strings.TrimSpace(sa.Params["WithCountersType"])
+	withKind := strings.TrimSpace(sa.ParamStr(cards.PKWithCountersType))
 	var withAmt int32
 	var withOK bool
 	if withKind != "" {
-		if _, present := sa.Params["WithCountersAmount"]; present {
+		if sa.HasParam(cards.PKWithCountersAmount) {
 			if v, ok := NumResolved(h, c, sa, "WithCountersAmount", 1); ok {
 				withAmt, withOK = v, true
 			} else {
 				emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-					Text: "WithCountersAmount$ " + strings.TrimSpace(sa.Params["WithCountersAmount"]) +
+					Text: "WithCountersAmount$ " + strings.TrimSpace(sa.ParamStr(cards.PKWithCountersAmount)) +
 						" is not implemented; the copy enters with no " + withKind + " counters"})
 			}
 		} else {
@@ -527,7 +527,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	owner := c.Controller
 	var owners []state.PlayerID
 	multiOwner := false
-	switch strings.TrimSpace(sa.Params["Controller"]) {
+	switch strings.TrimSpace(sa.ParamStr(cards.PKController)) {
 	case "", "You":
 	case "Targeted", "TargetedController", "TargetedPlayer":
 		if ps := controllersOf(g, targets); len(ps) > 0 {
@@ -550,7 +550,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 		}
 	case "NonRememberedController", "OppNonRememberedController":
 		multiOwner = true
-		ts, _ := definedSpec(h, c, strings.TrimSpace(sa.Params["Controller"]))
+		ts, _ := definedSpec(h, c, strings.TrimSpace(sa.ParamStr(cards.PKController)))
 		for _, t := range ts {
 			if t.IsPlayer {
 				owners = append(owners, t.Player)
@@ -558,7 +558,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 		}
 	default:
 		emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-			Text: "Controller$ " + strings.TrimSpace(sa.Params["Controller"]) +
+			Text: "Controller$ " + strings.TrimSpace(sa.ParamStr(cards.PKController)) +
 				" is not implemented; the copy is controlled by the resolving controller"})
 	}
 
@@ -597,7 +597,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	// fasten the copy to a non-battlefield object the attachment SBAs cannot
 	// reason about. The check is the same battlefield gate effAttach applies.
 	var attachTo state.ObjID
-	if raw := strings.TrimSpace(sa.Params["AttachedTo"]); raw != "" {
+	if raw := strings.TrimSpace(sa.ParamStr(cards.PKAttachedTo)); raw != "" {
 		sub := *sa
 		sub.Params = map[string]string{"Defined": raw}
 		for _, t := range Defined(h, c, &sub) {
@@ -625,7 +625,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 	var grantTriggers []*cards.Trigger
-	for name := range strings.SplitSeq(sa.Params["AddTriggers"], ",") {
+	for name := range strings.SplitSeq(sa.ParamStr(cards.PKAddTriggers), ",") {
 		name = strings.TrimSpace(name)
 		if name == "" {
 			continue
@@ -647,7 +647,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 	grantSVars := make(map[string]string)
-	for name := range strings.SplitSeq(sa.Params["AddSVars"], ",") {
+	for name := range strings.SplitSeq(sa.ParamStr(cards.PKAddSVars), ",") {
 		name = strings.TrimSpace(name)
 		if name != "" {
 			if raw, ok := sourceSVars[name]; ok {
@@ -656,7 +656,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 	var grantAbilities []string
-	for name := range strings.SplitSeq(sa.Params["AddAbilities"], ",") {
+	for name := range strings.SplitSeq(sa.ParamStr(cards.PKAddAbilities), ",") {
 		name = strings.TrimSpace(name)
 		if name != "" {
 			if _, ok := sourceSVars[name]; ok {
@@ -677,7 +677,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	}
 	var grantCostStatics []costGrant
 	var unreadStatics []string
-	for _, name := range strings.FieldsFunc(sa.Params["AddStaticAbilities"], func(r rune) bool {
+	for _, name := range strings.FieldsFunc(sa.ParamStr(cards.PKAddStaticAbilities), func(r rune) bool {
 		return r == ',' || r == ' ' || r == '\t' || r == '\n'
 	}) {
 		if _, ok := sourceSVars[name]; !ok {
@@ -698,7 +698,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	// A grant name that does not resolve is one loud Note per call -- the
 	// AddKeywords$ precedent -- never a silent drop.
 	var lostGrants []string
-	for _, raw := range []string{sa.Params["AddTriggers"], sa.Params["AddSVars"], sa.Params["AddAbilities"], sa.Params["AddStaticAbilities"]} {
+	for _, raw := range []string{sa.ParamStr(cards.PKAddTriggers), sa.ParamStr(cards.PKAddSVars), sa.ParamStr(cards.PKAddAbilities), sa.ParamStr(cards.PKAddStaticAbilities)} {
 		for name := range strings.SplitSeq(raw, ",") {
 			name = strings.TrimSpace(name)
 			if name == "" {

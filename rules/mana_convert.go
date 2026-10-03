@@ -3,6 +3,7 @@ package rules
 import (
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -219,22 +220,22 @@ func (e *Engine) manaConversionParts(p state.PlayerID, id state.ObjID, ability b
 	// `ValidCard$ Card.IsRemembered` conversion (Abstruse Appropriation's
 	// exiled card) resolves against the effect that created it.
 	apply := func(sv staticView, remembered []state.ObjID) {
-		if vp, ok := sv.Params["ValidPlayer"]; ok &&
+		if vp, ok := sv.Param(cards.PKValidPlayer); ok &&
 			!effects.MatchesPlayerSpec(e.G, vp, p, sv.Controller) {
 			return
 		}
-		if !e.manaConvAffectedZoneAdmits(sv.Params["AffectedZone"], id) {
+		if !e.manaConvAffectedZoneAdmits(sv.ParamStr(cards.PKAffectedZone), id) {
 			return
 		}
-		if vc, ok := sv.Params["ValidCard"]; ok && vc != "" &&
+		if vc, ok := sv.Param(cards.PKValidCard); ok && vc != "" &&
 			!e.matchesSpec(vc, id, e.manaConvSpecCtx(sv, p, remembered)) {
 			return
 		}
-		if vsa, ok := sv.Params["ValidSA"]; ok && !staticSAKindMatches(vsa, ability) {
+		if vsa, ok := sv.Param(cards.PKValidSA); ok && !staticSAKindMatches(vsa, ability) {
 			return
 		}
 		dst := &mandatory
-		if strings.EqualFold(strings.TrimSpace(sv.Params["Optional"]), "True") {
+		if strings.EqualFold(strings.TrimSpace(sv.ParamStr(cards.PKOptional)), "True") {
 			dst = &optional
 		}
 		for tok := range strings.FieldsSeq(sv.Params["ManaConversion"]) {

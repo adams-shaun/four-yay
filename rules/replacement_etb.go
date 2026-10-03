@@ -249,7 +249,7 @@ func attachedBodyPoses(sa *cards.SA) bool {
 		// The only corpus Attached ChooseCard is Pick-Axe's exiled-craft-card
 		// pick; its pool must be the source's own exile association. Any other
 		// DefinedCards$ role is a different pool this path does not read.
-		return strings.EqualFold(strings.TrimSpace(sa.Params["DefinedCards"]), "ExiledWith")
+		return strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKDefinedCards)), "ExiledWith")
 	case "ChooseColor":
 		return true
 	default:
@@ -371,10 +371,10 @@ func (e *Engine) askAttachedCard(o *state.Object, repl *cards.Repl) bool {
 // the shared exile zone, so a card this source did not exile is not offered.
 func (e *Engine) attachedCardOptions(source state.ObjID, repl *cards.Repl) []decision.Option {
 	src := e.G.Obj(source)
-	if src == nil || !strings.EqualFold(strings.TrimSpace(repl.With.Params["DefinedCards"]), "ExiledWith") {
+	if src == nil || !strings.EqualFold(strings.TrimSpace(repl.With.ParamStr(cards.PKDefinedCards)), "ExiledWith") {
 		return nil
 	}
-	zones := attachedChoiceZones(repl.With.Params["ChoiceZone"])
+	zones := attachedChoiceZones(repl.With.ParamStr(cards.PKChoiceZone))
 	out := make([]decision.Option, 0, len(src.ExiledCards))
 	for _, id := range src.ExiledCards {
 		co := e.G.Obj(id)

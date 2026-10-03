@@ -416,7 +416,7 @@ func (e *Engine) paymentPlanTargetDependentFor(statics costStaticViews, p state.
 		{"SetCost", statics.set},
 	} {
 		for _, sv := range group.views {
-			if strings.TrimSpace(sv.Params["ValidTarget"]) == "" {
+			if strings.TrimSpace(sv.ParamStr(cards.PKValidTarget)) == "" {
 				continue
 			}
 			params := make(map[string]string, len(sv.Params)-1)
@@ -1385,7 +1385,7 @@ func paymentPlanShapeTierOf(ma *cards.SA, cost Cost) (tier paymentAbilityTier, c
 		}
 		return deferred("source:param:" + key)
 	}
-	if strings.TrimSpace(ma.Params["RestrictValid"]) != "" {
+	if strings.TrimSpace(ma.ParamStr(cards.PKRestrictValid)) != "" {
 		return deferred("source:special_production")
 	}
 	if paymentPlanHasSpecialProductionParam(ma) {
@@ -1523,7 +1523,7 @@ func paymentPlanDamageBody(rider *cards.SA) (uint32, bool) {
 	if rider == nil || rider.API != "DealDamage" || strings.TrimSpace(rider.ParamStr(cards.PKDefined)) != "You" || strings.TrimSpace(rider.ParamStr(cards.PKSubAbility)) != "" {
 		return 0, false
 	}
-	n, err := strconv.ParseUint(strings.TrimSpace(rider.Params["NumDmg"]), 10, 32)
+	n, err := strconv.ParseUint(strings.TrimSpace(rider.ParamStr(cards.PKNumDmg)), 10, 32)
 	if err != nil || n == 0 {
 		return 0, false
 	}
@@ -1566,7 +1566,7 @@ func (e *Engine) paymentPlanParadiseRider(id state.ObjID, mana *cards.SA) bool {
 			return false
 		}
 	}
-	text := strings.ToLower(strings.Join([]string{rider.Params["KW"], rider.ParamStr(cards.PKSpellDescription), rider.Params["StackDescription"]}, " "))
+	text := strings.ToLower(strings.Join([]string{rider.ParamStr(cards.PKKW), rider.ParamStr(cards.PKSpellDescription), rider.Params["StackDescription"]}, " "))
 	return strings.Contains(text, "hidden") && strings.Contains(text, "return")
 }
 

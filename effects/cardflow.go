@@ -535,7 +535,7 @@ func rememberPlayerBothHalves(h Host, c *Ctx, p state.PlayerID) {
 // every one also Optional$ True), but the bounds themselves are one Forge
 // code path for all modes.
 func discardBounds(h Host, c *Ctx, sa *cards.SA, eligible int) (int, int) {
-	if strings.EqualFold(sa.Params["AnyNumber"], "True") {
+	if strings.EqualFold(sa.ParamStr(cards.PKAnyNumber), "True") {
 		return 0, eligible
 	}
 	n := int(Num(h, c, sa, "NumCards", 1))
@@ -679,7 +679,7 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 			}
 		}()
 	}
-	mode := sa.Params["Mode"]
+	mode := sa.ParamStr(cards.PKMode)
 	valid := sa.Params["DiscardValid"]
 	if valid == "" {
 		valid = "Card"
@@ -871,7 +871,7 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 			// in its own pick. A host that cannot ask keeps the prior R-9
 			// stand-in unchanged: straight on to the front-of-eligible
 			// discard below, with no extra event.
-			if askMin == 0 && !strings.EqualFold(sa.Params["AnyNumber"], "True") {
+			if askMin == 0 && !strings.EqualFold(sa.ParamStr(cards.PKAnyNumber), "True") {
 				if !mayElected {
 					d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 1, Max: 1,
 						Source: c.Source, ResumeKind: "discard_may", ResumeSA: sa, ResumeTarget: targetIndex,
@@ -888,7 +888,7 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 					askMin = 1
 				}
 			}
-			if strings.EqualFold(sa.Params["AnyNumber"], "True") {
+			if strings.EqualFold(sa.ParamStr(cards.PKAnyNumber), "True") {
 				// "discard any number of cards": any eligible count from zero
 				// up is a real choice the moment one eligible card exists, so
 				// the strict-supersets gate does not apply to it -- a hand with
@@ -1022,7 +1022,7 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 			// Only cards still in this target's hand move; everything else
 			// (already gone, or never theirs) is skipped. The old default arm
 			// ignored DefinedCards$ entirely and discarded the front of hand.
-			if dc := strings.TrimSpace(sa.Params["DefinedCards"]); dc != "" {
+			if dc := strings.TrimSpace(sa.ParamStr(cards.PKDefinedCards)); dc != "" {
 				for _, t := range discardDefinedCards(h, c, dc) {
 					if t.IsPlayer {
 						continue
@@ -1276,7 +1276,7 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 	}
 	changeNum := digNum
 	anyNum := false
-	if raw := sa.Params["ChangeNum"]; raw != "" && raw != "All" {
+	if raw := sa.ParamStr(cards.PKChangeNum); raw != "" && raw != "All" {
 		if raw == "Any" {
 			// Forge's any-number cap: the take is uncapped within the window
 			// and the answer may be empty -- a real choice whenever any
@@ -1316,12 +1316,12 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 		strings.TrimSpace(sa.Params["OptionalAbilityPrompt"]) != ""
 	// The variant params (see the comment block above the function for what
 	// each means and which corpus card carries it).
-	revealWin := strings.EqualFold(strings.TrimSpace(sa.Params["Reveal"]), "True") &&
+	revealWin := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKReveal)), "True") &&
 		!strings.EqualFold(strings.TrimSpace(sa.Params["NoReveal"]), "True")
-	noLooking := strings.EqualFold(strings.TrimSpace(sa.Params["NoLooking"]), "True")
+	noLooking := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKNoLooking)), "True")
 	forceReveal := strings.EqualFold(strings.TrimSpace(sa.Params["ForceRevealToController"]), "True")
 	skipReorder := strings.EqualFold(strings.TrimSpace(sa.Params["SkipReorder"]), "True")
-	tapped := strings.EqualFold(strings.TrimSpace(sa.Params["Tapped"]), "True")
+	tapped := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKTapped)), "True")
 	// FromBottom$ True (task scrybottom): the Dig window is the BOTTOM DigNum
 	// cards of the library rather than the top. The Temporal Anchor's
 	// "exile that many cards from the bottom of your library" is the corpus
@@ -1335,7 +1335,7 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 		lookText = "looks at the bottom of the library"
 		lookWhere = "bottom"
 	}
-	primaryPos := strings.TrimSpace(sa.Params["LibraryPosition"])
+	primaryPos := strings.TrimSpace(sa.ParamStr(cards.PKLibraryPosition))
 	dest2Name := strings.TrimSpace(sa.Params["DestinationZone2"])
 	pos2 := strings.TrimSpace(sa.Params["LibraryPosition2"])
 	// Forge's omitted second destination means bottom-of-library remainder.
@@ -1490,7 +1490,7 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 			// payload (Counter, Amount and nil IDs), while also stamping
 			// battlefield FaceDown$ entries.
 			h.Emit(ev)
-			if strings.EqualFold(strings.TrimSpace(sa.Params["Imprint"]), "True") && c.Source != 0 {
+			if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKImprint)), "True") && c.Source != 0 {
 				if moved := g.Obj(id); moved != nil && moved.Zone == dest && !moved.IsToken {
 					h.Emit(events.Event{Kind: events.Imprint, Obj: c.Source, IDs: []state.ObjID{id}})
 				}
@@ -2090,7 +2090,7 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 	optionalMove := strings.EqualFold(strings.TrimSpace(sa.Params["OptionalFoundMove"]), "True")
 	noMoveRevealed := strings.EqualFold(strings.TrimSpace(sa.Params["NoMoveRevealed"]), "True")
 	revealRandomOrder := strings.EqualFold(digUntilParamValue(sa, "RevealRandomOrder"), "True")
-	tapped := strings.EqualFold(strings.TrimSpace(sa.Params["Tapped"]), "True")
+	tapped := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKTapped)), "True")
 	gainControl := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKGainControl)), "True")
 	rememberFound := strings.EqualFold(strings.TrimSpace(sa.Params["RememberFound"]), "True")
 	rememberRevealed := strings.EqualFold(strings.TrimSpace(sa.Params["RememberRevealed"]), "True")
@@ -2709,7 +2709,7 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 	optional := strings.EqualFold(strings.TrimSpace(sa.Params["RevealOptional"]), "True") ||
 		strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True")
 	remember := strings.EqualFold(strings.TrimSpace(sa.Params["RememberRevealed"]), "True")
-	random := strings.EqualFold(strings.TrimSpace(sa.Params["Random"]), "True")
+	random := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRandom)), "True")
 	g := h.Game()
 	// Forge's RevealDefined$ is the reveal family's equivalent of Defined$.
 	// Copy the SA and translate only the target selector, so the common
@@ -2856,7 +2856,7 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 		pickable := zone == state.ZHand && !wholeHand && !random && !look && revealAllValid == ""
 		if pickable {
 			minPick, maxPick := n, n
-			if anyNumber := strings.EqualFold(strings.TrimSpace(sa.Params["AnyNumber"]), "True"); anyNumber {
+			if anyNumber := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKAnyNumber)), "True"); anyNumber {
 				minPick, maxPick = 0, int32(len(pool))
 			}
 			if maxPick > int32(len(pool)) {

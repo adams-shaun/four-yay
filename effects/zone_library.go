@@ -19,7 +19,7 @@ import (
 // helper is the mandatory path, and the confirm belongs to the search's own
 // tail, searchShuffleTail below.
 func shuffleLibrary(h Host, sa *cards.SA, owner state.PlayerID) {
-	if strings.EqualFold(sa.Params["NoShuffle"], "True") || strings.EqualFold(sa.Params["Shuffle"], "False") {
+	if strings.EqualFold(sa.ParamStr(cards.PKNoShuffle), "True") || strings.EqualFold(sa.ParamStr(cards.PKShuffle), "False") {
 		return
 	}
 	shuffleLibraryOrder(h, owner)
@@ -33,8 +33,8 @@ func shuffleLibrary(h Host, sa *cards.SA, owner state.PlayerID) {
 // it on top of your library" movers, which must not shuffle. NoShuffle$
 // True is honoured exactly as shuffleLibrary reads it.
 func objectPathShuffleOwed(sa *cards.SA) bool {
-	return strings.EqualFold(strings.TrimSpace(sa.Params["Shuffle"]), "True") &&
-		!strings.EqualFold(sa.Params["NoShuffle"], "True")
+	return strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKShuffle)), "True") &&
+		!strings.EqualFold(sa.ParamStr(cards.PKNoShuffle), "True")
 }
 
 // objectPathShuffleTail finishes an object-target ChangeZone that moved
@@ -162,8 +162,8 @@ func searchShuffleTail(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, moved
 }
 
 func shuffleLibraryExplicit(h Host, sa *cards.SA, owner state.PlayerID) {
-	if strings.EqualFold(sa.Params["Shuffle"], "True") &&
-		!strings.EqualFold(sa.Params["NoShuffle"], "True") {
+	if strings.EqualFold(sa.ParamStr(cards.PKShuffle), "True") &&
+		!strings.EqualFold(sa.ParamStr(cards.PKNoShuffle), "True") {
 		shuffleLibraryOrder(h, owner)
 	}
 }
@@ -191,7 +191,7 @@ func shuffleLibraryOrder(h Host, owner state.PlayerID) {
 // the ChangeZoneAll path apply, so the absent spelling places at position 0.
 func placeTargetedLibraryObjects(h Host, c *Ctx, sa *cards.SA, moved []state.ObjID) {
 	position := int32(0) // Forge's absent-LibraryPosition$ default is TOP
-	if raw := strings.TrimSpace(sa.Params["LibraryPosition"]); raw != "" {
+	if raw := strings.TrimSpace(sa.ParamStr(cards.PKLibraryPosition)); raw != "" {
 		p, ok := NumResolved(h, c, sa, "LibraryPosition", 0)
 		if !ok {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
@@ -245,7 +245,7 @@ func placeLibraryObjects(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, mov
 	// in both of its branches. Without it a searched card put back into its
 	// library (Knowledge Exploitation, the Kodama's Reach/Cultivate family)
 	// stayed at the MoveZone bottom append.
-	position := strings.TrimSpace(sa.Params["LibraryPosition"])
+	position := strings.TrimSpace(sa.ParamStr(cards.PKLibraryPosition))
 	if position == "" {
 		position = "0"
 	}

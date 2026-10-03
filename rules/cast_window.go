@@ -127,7 +127,7 @@ func (e *Engine) castWindowProbeUnits(pc *pendingCast, windowUnits []windowManaU
 			continue
 		}
 		for _, ma := range e.castWindowProbeAbilities(p, id) {
-			if strings.TrimSpace(ma.Params["RestrictValid"]) != "" {
+			if strings.TrimSpace(ma.ParamStr(cards.PKRestrictValid)) != "" {
 				continue
 			}
 			cost := e.parseCost(ma.ParamStr(cards.PKCost))

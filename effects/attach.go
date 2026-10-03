@@ -240,7 +240,7 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 	// a single object (the Enchant:Player destination, the Choices$ pool's
 	// object-side pick); the destination walks below loop over objs.
 	objs := []state.ObjID{c.Source}
-	switch sa.Params["Object"] {
+	switch sa.ParamStr(cards.PKObject) {
 	case "", "Self":
 		// Equip's kw:Equip expansion, Enchant's kw:Enchant and Living
 		// Weapon's Object$ Self all name the source: today's default, kept
@@ -269,7 +269,7 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 		// Chosen remembers BOTH the entering Aura and the Cat token, and only
 		// the Aura is the object to attach). Widening the first-take to every
 		// selector would attach the attachments to each other.
-		spec := sa.Params["Object"]
+		spec := sa.ParamStr(cards.PKObject)
 		if ts, ok := definedSpec(h, c, spec); ok {
 			os := objectsOf(ts)
 			if len(os) > 0 {
@@ -298,7 +298,7 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 	// time restriction the target offer already enforced (kwEnchant mints
 	// `ValidTgts$ Opponent`); this branch re-checks the restriction so a
 	// stale/malformed resolution can never enchant the controller.
-	if sa.ParamStr(cards.PKKeyword) == "Enchant" && sa.Params["Object"] == "Self" {
+	if sa.ParamStr(cards.PKKeyword) == "Enchant" && sa.ParamStr(cards.PKObject) == "Self" {
 		if aura := h.Game().Obj(obj); aura != nil && aura.Face() != nil {
 			if param, ok := aura.Face().KeywordParam("Enchant"); ok {
 				spec, _, _ := strings.Cut(param, ":")
@@ -481,7 +481,7 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 			if len(answered) == 0 {
 				return
 			}
-			if _, hasObject := sa.Params["Object"]; hasObject {
+			if sa.HasParam(cards.PKObject) {
 				// Object$ present: the answer names the DESTINATION. It is
 				// re-checked against the legal destination list recomputed
 				// here (the same rejections the asking pass applies), so a
@@ -509,7 +509,7 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 			attachTo(obj, answerDests[0])
 			return
 		}
-		if _, hasObject := sa.Params["Object"]; hasObject {
+		if sa.HasParam(cards.PKObject) {
 			var dest []state.ObjID
 			for _, t := range pool {
 				if !attachableBy(t.Obj) {
@@ -716,7 +716,7 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 // choicePrompt is a Choices$ Attach's ask prompt: the script's ChoiceTitle$
 // when it names one, else the generic default ChooseCard's ask falls back to.
 func choicePrompt(sa *cards.SA) string {
-	if p := strings.TrimSpace(sa.Params["ChoiceTitle"]); p != "" {
+	if p := strings.TrimSpace(sa.ParamStr(cards.PKChoiceTitle)); p != "" {
 		return p
 	}
 	return "Choose card"

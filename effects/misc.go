@@ -222,7 +222,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 	if dur == "" {
 		dur = "Permanent"
 	}
-	what := strings.TrimSpace(sa.Params["StaticAbilities"] + " " + sa.Params["Triggers"])
+	what := strings.TrimSpace(sa.ParamStr(cards.PKStaticAbilities) + " " + sa.ParamStr(cards.PKTriggers))
 	// Name$ is the effect's own display name (Sephiroth's emblem, Wrenn and
 	// Six's): the log names the effect after it wherever this function would
 	// otherwise print a bare mode list, and the registrations below carry it
@@ -283,7 +283,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 	// scan runs inside the Triggers$ loop below to skip the trigger's
 	// delayed registration (it has no effect token to exile).
 	if forgetOnCast == "" {
-		forgetOnCast = effectSelfExileOnCastSpec(h, c, sa.Params["Triggers"])
+		forgetOnCast = effectSelfExileOnCastSpec(h, c, sa.ParamStr(cards.PKTriggers))
 	}
 	// ImprintOnHost$ True (task param:api:Effect.ImprintOnHost): Forge's
 	// EffectEffect imprints the CREATED EFFECT TOKEN on the host card and
@@ -323,7 +323,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 	// the grant's Remembered does not depend on the RememberObjects$
 	// default. Any other value (an LKI grammar this build does not model —
 	// the LKI persistence a vanished card would need) is a loud Note.
-	if rl := strings.TrimSpace(sa.Params["RememberLKI"]); rl != "" {
+	if rl := strings.TrimSpace(sa.ParamStr(cards.PKRememberLKI)); rl != "" {
 		switch rl {
 		case "Targeted", "True":
 		default:
@@ -413,7 +413,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 	//     rides the registration ("|OD=<spec>") and rules' resolveTop poses
 	//     the yes/no to the named decider when the minted ability resolves.
 	//   - a body with no Execute$ has nothing to resolve.
-	for name := range strings.FieldsSeq(sa.Params["Triggers"]) {
+	for name := range strings.FieldsSeq(sa.ParamStr(cards.PKTriggers)) {
 		raw := ""
 		if o := h.Game().Obj(c.Source); o != nil && o.Face() != nil {
 			raw = o.Face().SVars[name]
@@ -490,7 +490,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 			// mandatorily. Withheld loudly (cli-20260923T060218Z round 2);
 			// the static firing arm carries a matching fail-closed guard so
 			// no future "|OD=" minter can misexecute there either.
-			if strings.TrimSpace(tr.Params["Static"]) != "" {
+			if strings.TrimSpace(tr.ParamStr(cards.PKStatic)) != "" {
 				h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 					Text: "unmodelled Effect trigger Static$ with OptionalDecider$ " + optionalSpec + " (not registered)"})
 				registered = true
@@ -551,7 +551,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 		}
 		// The Effect's own this-turn lifetime bounds ALL registered modes,
 		// not merely those with a ThisTurn$ rider on the trigger body.
-		if v := strings.TrimSpace(tr.Params["ThisTurn"]); v != "" && !strings.EqualFold(v, "True") {
+		if v := strings.TrimSpace(tr.ParamStr(cards.PKThisTurn)); v != "" && !strings.EqualFold(v, "True") {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 				Text: "unmodelled Effect trigger ThisTurn$ " + v + " (not registered)"})
 			registered = true
@@ -806,7 +806,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 				Text: "continuous replacement unimplemented (" + name + ")"})
 		}
 	}
-	for _, name := range strings.FieldsFunc(sa.Params["StaticAbilities"], func(r rune) bool {
+	for _, name := range strings.FieldsFunc(sa.ParamStr(cards.PKStaticAbilities), func(r rune) bool {
 		return r == ',' || r == ' ' || r == '\t' || r == '\n'
 	}) {
 		mode, params := parseStaticLine(c.SVars, name)
