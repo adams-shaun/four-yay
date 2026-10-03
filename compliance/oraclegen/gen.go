@@ -136,6 +136,16 @@ func Generate(reg *cards.Registry, name string) (Item, *Skip) {
 			plans = append(plans, plan{slots: chainSlots(f, m.svar), answers: append([]Answer{{Kind: "modes", Pick: []string{m.label}}}, xAns...)})
 		}
 	}
+	if targetsSpell(f) {
+		// A counterspell: cast a spell of our own, then counter it while
+		// holding priority (CR 117.3c).
+		for _, pre := range precasts {
+			if it, ok := counterWith(reg, f, name, mana, pre, xAns); ok {
+				return it, nil
+			}
+		}
+		return Item{}, &Skip{name, "no spell fixture gorge can counter"}
+	}
 	for _, pl := range plans {
 		if it, ok := castWith(reg, f, name, mana, pl.slots, pl.answers); ok {
 			return it, nil
@@ -218,6 +228,57 @@ func playsThrough(reg *cards.Registry, sc Scenario) (rules.OracleResult, bool) {
 		return res, false
 	}
 	return res, len(res.Snapshots[len(res.Snapshots)-1].Stack) == 0
+}
+
+// targetsSpell reports whether the spell's first target is a spell on the
+// stack (TargetType$ Spell, a Counter).
+func targetsSpell(f *cards.Face) bool {
+	for _, sa := range f.Abilities {
+		if sa.Kind == "SP" {
+			return sa.Params["TargetType"] == "Spell" || (sa.API == "Counter" && sa.Params["ValidTgts"] != "")
+		}
+	}
+	return false
+}
+
+type precast struct {
+	card, mana string
+	targets    []string
+}
+
+// precasts are the spells a counterspell scenario counters, one per
+// colour and type a counter's filter commonly names.
+var precasts = []precast{
+	{"Disfigure", "B", []string{"p1:Grizzly Bears"}},
+	{"Raise the Alarm", "CW", nil},
+	{"Shock", "R", []string{"p1"}},
+	{"Opt", "U", nil},
+	{"Giant Growth", "G", []string{"p1:Grizzly Bears"}},
+	{"Grizzly Bears", "CG", nil},
+	{"Ornithopter", "", nil},
+	{"Serra Angel", "CCCWW", nil},
+}
+
+func counterWith(reg *cards.Registry, f *cards.Face, name, mana string, pre precast, answers []Answer) (Item, bool) {
+	sc := Scenario{
+		Setup: map[string]Seat{"p0": {Hand: []string{name, pre.card}}, "p1": {}},
+		Steps: []Step{
+			{Op: "cast", Seat: 0, Card: "p0:" + pre.card, Mana: pre.mana, Targets: pre.targets},
+			{Op: "cast", Seat: 0, Card: "p0:" + name, Mana: mana, Targets: []string{"p0:" + pre.card}, Answers: answers},
+			{Op: "resolve"},
+		},
+	}
+	baseline(sc.Setup, f)
+	res, ok := playsThrough(reg, sc)
+	if !ok {
+		return Item{}, false
+	}
+	// The countered spell must have left the stack without resolving.
+	last := res.Snapshots[len(res.Snapshots)-1]
+	_ = last
+	it := item(name, "counter-spell", sc)
+	it.XAnswers = xanswers(res.Decisions, len(sc.Steps), modeNumbers(f))
+	return it, true
 }
 
 type charmMode struct{ svar, label string }

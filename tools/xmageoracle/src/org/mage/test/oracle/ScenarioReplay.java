@@ -112,6 +112,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
             skipInitShuffling();
             setStrictChooseMode(strict);
             sc0 = sc;
+            cast.clear();
             build(sc);
             runCode("setup", TURN, MAIN, playerA, (info, p, g) -> snaps.add(snapshot(info, g)));
             JsonArray steps = sc.has("steps") ? sc.getAsJsonArray("steps") : new JsonArray();
@@ -210,6 +211,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
     // ---- steps -----------------------------------------------------------
 
     private JsonObject sc0 = new JsonObject();
+    private final List<String> cast = new ArrayList<>();
 
     private void step(JsonObject st, String op) {
         int seatIdx = st.has("seat") ? st.get("seat").getAsInt() : 0;
@@ -237,6 +239,12 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     castSpell(TURN, MAIN, p, card, seat(seatOf(tg.get(0))));
                 } else if (tg.isEmpty()) {
                     castSpell(TURN, MAIN, p, card);
+                    cast.add(card);
+                    return;
+                } else if (tg.size() == 1 && cast.contains(tg.get(0))) {
+                    // Targeting a spell cast by an earlier step: wait for it
+                    // on the stack.
+                    castSpell(TURN, MAIN, p, card, tg.get(0), tg.get(0));
                 } else {
                     List<String> ts = new ArrayList<>();
                     for (String t : tg) {
@@ -244,6 +252,7 @@ public class ScenarioReplay extends CardTestPlayerBase {
                     }
                     castSpell(TURN, MAIN, p, card, String.join("^", ts));
                 }
+                cast.add(card);
                 return;
             }
             case "play":
