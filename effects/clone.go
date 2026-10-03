@@ -1,6 +1,7 @@
 package effects
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -66,6 +67,12 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 	clonePick := c.ClonePick
 	clonePickDone := c.ClonePickDone
 	c.ClonePick, c.ClonePickDone = 0, false
+	cp := CloneOf(sa)
+	if !cloneDone && !clonePickDone {
+		// Once per call: an answered re-entry (either flag set) already
+		// noted on its first pass.
+		noteUnreadParams(h, c, "Clone", cp.Unread)
+	}
 	if c.CloneETB {
 		// The ETB election is answered before the move. A decline is a real
 		// answer, not the deterministic Choices$ fallback.
@@ -90,7 +97,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 		// changed controller and no longer satisfy Choices$ Creature.OppCtrl.
 		// An invalidated optional template means the entering object simply
 		// enters as itself, never as a copy of an object from a former zone.
-		if !cloneETBTemplateLegal(g, c, sa) {
+		if !cloneETBTemplateLegal(g, c, cp) {
 			return
 		}
 	}
@@ -99,7 +106,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 	// equipment by NameCard, not a battlefield target. The universe is the
 	// same immutable card set the name decision offered.
 	chosenName := ""
-	if strings.EqualFold(sa.Params["CopyFromChosenName"], "True") {
+	if cp.CopyFromChosenName {
 		if o := g.Obj(c.Source); o != nil {
 			chosenName = o.ChosenName
 		}
@@ -121,7 +128,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 	// from the become pool. Zero on every other source route (there is no
 	// chosen object to exclude).
 	var chosenPick state.ObjID
-	spec := DefinedRefOf(sa).Text
+	spec := cp.Defined
 	switch {
 	case chosenName != "":
 		// A name has no source ObjID. The copied face is resolved in Apply
@@ -140,22 +147,22 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 			return
 		}
 		source = ts
-	case strings.TrimSpace(sa.ParamStr(cards.PKChoices)) != "":
+	case cp.Choices != "":
 		// Choices$ <filter> is Forge's mid-resolution chooser for the copy
 		// source (CR 706.2): "you may have this creature enter as a copy of
 		// any creature on the battlefield". A real host gets the per-player
 		// pick over the eligible pool; a no-host run (an effects test double,
 		// a fuzz run) keeps the deterministic first-eligible stand-in under a
 		// Note (the R-9 no-ask contract).
-		spec := strings.TrimSpace(sa.ParamStr(cards.PKChoices))
+		spec := cp.Choices
 		// ChoiceZone$ names the zone the Choices$ pick draws from. An absent
 		// value keeps the historical battlefield pool byte-for-byte; a value
 		// this build does not implement (or a filter head that cannot resolve
 		// over a plain card object) FAILS CLOSED: one loud Note and no copy,
 		// never a silent fall-through to a battlefield object (the CloneZone$
 		// convention -- a wrong copy is worse than none).
-		zone, zoneOK := cloneChoiceZone(strings.TrimSpace(sa.ParamStr(cards.PKChoiceZone)))
-		optional := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKChoiceOptional)), "True")
+		zone, zoneOK := cp.ChoiceZoneKind, cp.ChoiceZoneOK
+		optional := cp.ChoiceOptional
 		if clonePickDone {
 			// The answered re-entry: the selected object travels through
 			// Ctx.ClonePick, which rules' resumeResolution filled. A zero id is
@@ -175,7 +182,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 			chosenPick = clonePick
 		} else if !zoneOK {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-				Text: "Clone ChoiceZone$ " + strings.TrimSpace(sa.ParamStr(cards.PKChoiceZone)) +
+				Text: "Clone ChoiceZone$ " + cp.ChoiceZone +
 					" is not a zone this build can choose from; no copy"})
 			return
 		} else {
@@ -190,7 +197,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 				optionKind = "card"
 			}
 			prompt := "Choose an object to copy"
-			if title := strings.TrimSpace(sa.ParamStr(cards.PKChoiceTitle)); title != "" {
+			if title := cp.ChoiceTitle; title != "" {
 				prompt = title
 			}
 			min := 1
@@ -258,10 +265,10 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 	}
 
 	// BECOME operand(s).
-	become, ok := cloneBecome(h, c, sa)
+	become, ok := cloneBecome(h, c, cp)
 	if !ok {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-			Text: "Clone CloneTarget$ " + strings.TrimSpace(sa.Params["CloneTarget"]) +
+			Text: "Clone CloneTarget$ " + cp.CloneTarget +
 				" is not resolvable; no copy"})
 		return
 	}
@@ -275,7 +282,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 	// itself and takes a replay-visible self-copy ClonePermanent plus copy
 	// marker -- a wrong copy, not a harmless one. An emptied pool is no copy,
 	// recorded loudly (never a silent no-op).
-	if strings.EqualFold(strings.TrimSpace(sa.Params["ExcludeChosen"]), "True") && chosenPick != 0 {
+	if cp.ExcludeChosen && chosenPick != 0 {
 		kept := become[:0]
 		for _, b := range become {
 			if !b.IsPlayer && b.Obj == chosenPick {
@@ -312,7 +319,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 			if srcObj == nil || srcObj.Face() == nil {
 				continue
 			}
-			if zone := strings.TrimSpace(sa.Params["CloneZone"]); zone != "" && !strings.EqualFold(srcObj.Zone.String(), zone) {
+			if zone := cp.CloneZone; zone != "" && !strings.EqualFold(srcObj.Zone.String(), zone) {
 				continue
 			}
 		}
@@ -339,7 +346,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 	// keeps the deterministic take stand-in the pre-election build shipped,
 	// byte-identical (the same convention the optional-discard family
 	// records) -- a "may" that cannot ask never wedges.
-	if !c.CloneETB && strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True") {
+	if !c.CloneETB && cp.Optional {
 		if !cloneDone {
 			prompt := "You may have a permanent become a copy?"
 			if ob := g.Obj(pairs[0].become.Obj); ob != nil && ob.Face() != nil {
@@ -376,14 +383,12 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 
 	// Collect the modifier registrations once; every become object shares
 	// them. An unreadable modifier is one Note per call (never per object).
-	addTypes := splitAmp(strings.TrimSpace(sa.ParamStr(cards.PKAddTypes)))
-	setCreatureTypes := splitAmp(strings.TrimSpace(sa.Params["SetCreatureTypes"]))
-	if len(setCreatureTypes) > 0 {
-		addTypes = append(addTypes, setCreatureTypes...)
-	}
-	nonLegendary := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKNonLegendary)), "True")
-	removeSubTypes := strings.EqualFold(strings.TrimSpace(sa.Params["RemoveSubTypes"]), "True")
-	addAbilities := cloneNames(sa.ParamStr(cards.PKAddAbilities))
+	// The compiled lists are shared by every resolution, so each one handed
+	// to a continuous effect is cloned (no state object aliases the record).
+	addTypes := cp.TypeAdds
+	nonLegendary := cp.NonLegendary
+	removeSubTypes := cp.RemoveSubTypes
+	addAbilities := cp.AddAbilities
 	// Resolve the named grants against the resolving face before replacing its
 	// copy basis. A copied object's SVar table is not the grantor's table.
 	grantTable := c.SVars
@@ -393,23 +398,21 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 	grantSVars := make(map[string]string)
-	for _, name := range cloneNames(sa.ParamStr(cards.PKAddSVars)) {
+	for _, name := range cp.AddSVars {
 		if raw, ok := grantTable[name]; ok {
 			grantSVars[name] = raw
 		}
 	}
 	var grantTriggers []*cards.Trigger
-	for _, name := range cloneNames(sa.ParamStr(cards.PKAddTriggers)) {
+	for _, name := range cp.AddTriggers {
 		if raw, ok := grantTable[name]; ok {
 			if tr, ok := cards.ParseTriggerLine(raw); ok {
-				if execute := strings.TrimSpace(tr.ParamStr(cards.PKExecute)); execute != "" {
-					tr.Effect = cards.ResolveSVar(grantTable, execute)
-				}
+				linkGrantedTrigger(&tr, grantTable)
 				grantTriggers = append(grantTriggers, &tr)
 			}
 		}
 	}
-	addKeywords := cards.SplitKeywordList(sa.ParamStr(cards.PKAddKeywords))
+	addKeywords := cp.AddKeywords
 	// PumpKeywords$ is the Clone sibling of CopyPermanent's temporary-keyword
 	// rider: the copy gains the named keywords for the PumpDuration$ window,
 	// independent of Clone's own Duration$ (the copy's lifetime). Absent
@@ -417,20 +420,19 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 	// the copy unit's own lifetime; a present PumpDuration$ gets its own unit
 	// key so an EOT grant can expire while a permanent copy survives (The
 	// Fourteenth Doctor).
-	pumpKeywords := cards.SplitKeywordList(sa.ParamStr(cards.PKPumpKeywords))
-	pumpDuration := strings.TrimSpace(sa.ParamStr(cards.PKPumpDuration))
-	newName := strings.TrimSpace(sa.Params["NewName"])
-	gainThisAbility := strings.EqualFold(strings.TrimSpace(sa.Params["GainThisAbility"]), "True")
-	removeCardTypes := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRemoveCardTypes)), "True")
-	removeCreatureTypes := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRemoveCreatureTypes)), "True")
-	setPowerPresent, setPower := clonePT(h, c, sa, "SetPower")
-	setToughPresent, setTough := clonePT(h, c, sa, "SetToughness")
-	colorSpec := strings.TrimSpace(sa.ParamStr(cards.PKSetColor))
+	pumpKeywords := cp.PumpKeywords
+	pumpDuration := cp.PumpDuration
+	newName := cp.NewName
+	gainThisAbility := cp.GainThisAbility
+	removeCardTypes := cp.RemoveCardTypes
+	removeCreatureTypes := cp.RemoveCreatureTypes
+	setPowerPresent, setPower := clonePT(h, c, cp.SetPower)
+	setToughPresent, setTough := clonePT(h, c, cp.SetToughness)
+	colorSpec := cp.SetColor
 	var setColors []string
 	var setColorPresent bool
 	if colorSpec != "" {
-		letters, ok := colorLetters(colorSpec)
-		if !ok {
+		if !cp.SetColorOK {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 				Text: "Clone SetColor$ " + colorSpec + " is not a colour this build can set; the copy keeps its colours"})
 		} else {
@@ -440,24 +442,19 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 			// PRESENCE bit is tracked separately from the letters for exactly
 			// that case: keying the registration on len(setColors) would make
 			// SetColor$ Colorless a silent no-op.
-			setColors = letters
+			setColors = cp.SetColors
 			setColorPresent = true
 		}
 	}
 	// Unknown rider values stay loud rather than pretending to apply.
 	var unread []string
-	for _, key := range cloneUnreadModifiers {
-		if v := cloneParamValue(sa, key); v != "" {
-			unread = append(unread, key+"$ "+v)
-		}
-	}
 	var lostSVars, lostTriggers []string
-	for _, name := range cloneNames(sa.ParamStr(cards.PKAddSVars)) {
+	for _, name := range cp.AddSVars {
 		if _, ok := grantSVars[name]; !ok {
 			lostSVars = append(lostSVars, name)
 		}
 	}
-	for _, name := range cloneNames(sa.ParamStr(cards.PKAddTriggers)) {
+	for _, name := range cp.AddTriggers {
 		raw, ok := grantTable[name]
 		if !ok {
 			lostTriggers = append(lostTriggers, name)
@@ -471,15 +468,13 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 	if len(lostTriggers) > 0 {
 		unread = append(unread, "AddTriggers$ "+strings.Join(lostTriggers, ","))
 	}
-	if strings.TrimSpace(sa.ParamStr(cards.PKIntoPlayTapped)) != "" && !c.CloneETB {
-		unread = append(unread, "IntoPlayTapped$ "+sa.ParamStr(cards.PKIntoPlayTapped)+" (no entry)")
+	if cp.IntoPlayTappedSet && !c.CloneETB {
+		unread = append(unread, "IntoPlayTapped$ "+cp.IntoPlayTapped+" (no entry)")
 	}
 	// Preserve every named static's original body: the event fold installs
 	// it on the copy face, where ALL static readers use the printed S: path.
 	var staticBodies []string
-	for _, name := range strings.FieldsFunc(sa.ParamStr(cards.PKAddStaticAbilities), func(r rune) bool {
-		return r == ',' || r == ' ' || r == '\t' || r == '\n'
-	}) {
+	for _, name := range cp.StaticNames {
 		raw := grantTable[name]
 		if CloneStaticGrantReadable(grantTable, name) {
 			staticBodies = append(staticBodies, raw)
@@ -500,7 +495,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 			Text: "Clone does not read: " + strings.Join(unread, ", ")})
 	}
 
-	dur := strings.TrimSpace(sa.ParamStr(cards.PKDuration))
+	dur := cp.Duration
 	// permanent is the "no Duration$/Permanent" classification; every clone
 	// effect is registered with Permanent=false (see reg below), so the flag
 	// itself is not carried onto the effects -- the no-duration case is simply
@@ -630,9 +625,9 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 		reg := func(ce state.ContinuousEffect) {
 			regDur(ce, dur, untilEOT, untilTurn)
 		}
-		if len(addTypes) > 0 || removeCardTypes || removeCreatureTypes || nonLegendary || removeSubTypes || len(setCreatureTypes) > 0 {
-			reg(state.ContinuousEffect{Layer: state.LType, AddTypes: addTypes,
-				RemoveCardTypes: removeCardTypes, RemoveCreatureTypes: removeCreatureTypes, SetCreatureTypes: len(setCreatureTypes) > 0,
+		if len(addTypes) > 0 || removeCardTypes || removeCreatureTypes || nonLegendary || removeSubTypes || cp.SetCreatureTypes {
+			reg(state.ContinuousEffect{Layer: state.LType, AddTypes: slices.Clone(addTypes),
+				RemoveCardTypes: removeCardTypes, RemoveCreatureTypes: removeCreatureTypes, SetCreatureTypes: cp.SetCreatureTypes,
 				RemoveLegendary: nonLegendary, RemoveSubTypes: removeSubTypes})
 		}
 		if len(grantSVars) > 0 || len(grantTriggers) > 0 {
@@ -648,17 +643,17 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 			// The source table belongs to the become object's original face,
 			// not the copied face. Capture it before ClonePermanent replaces
 			// that face; the grant expires with the same copy unit.
-			reg(state.ContinuousEffect{Layer: state.LAbilities, AddAbilities: addAbilities,
+			reg(state.ContinuousEffect{Layer: state.LAbilities, AddAbilities: slices.Clone(addAbilities),
 				SVars: abilitySVars})
 		}
 		if setColorPresent {
-			reg(state.ContinuousEffect{Layer: state.LColor, AddColors: setColors, OverwriteColors: true})
+			reg(state.ContinuousEffect{Layer: state.LColor, AddColors: slices.Clone(setColors), OverwriteColors: true})
 		}
 		if len(addKeywords) > 0 {
-			reg(state.ContinuousEffect{Layer: state.LAbilities, AddKeywords: addKeywords})
+			reg(state.ContinuousEffect{Layer: state.LAbilities, AddKeywords: slices.Clone(addKeywords)})
 		}
 		if len(pumpKeywords) > 0 {
-			regDur(state.ContinuousEffect{Layer: state.LAbilities, AddKeywords: pumpKeywords}, pumpDur, pumpEOT, pumpTurn)
+			regDur(state.ContinuousEffect{Layer: state.LAbilities, AddKeywords: slices.Clone(pumpKeywords)}, pumpDur, pumpEOT, pumpTurn)
 		}
 		if setPowerPresent || setToughPresent {
 			reg(state.ContinuousEffect{Layer: state.LPT, Sub: state.SubSet, HasSet: true,
@@ -666,7 +661,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 				SetPowerPresent: setPowerPresent, SetToughnessPresent: setToughPresent,
 				StaticSet: true})
 		}
-		if raw := strings.TrimSpace(sa.ParamStr(cards.PKAttachedTo)); raw != "" {
+		if raw := cp.AttachedTo; raw != "" {
 			attached := false
 			for _, target := range DefinedSpec(h, c, raw) {
 				if target.IsPlayer || target.Obj == 0 {
@@ -682,15 +677,15 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 				h.Emit(events.Event{Kind: events.Note, Obj: b.Obj, Text: "Clone AttachedTo$ has no battlefield bearer"})
 			}
 		}
-		if strings.EqualFold(sa.ParamStr(cards.PKFaceDown), "True") && !obj.FaceDown {
+		if cp.FaceDown && !obj.FaceDown {
 			h.Emit(events.Event{Kind: events.TurnFaceDown, Obj: b.Obj})
 		}
-		if strings.EqualFold(sa.Params["KeepFacedown"], "False") && obj.FaceDown {
+		if cp.KeepFacedownFalse && obj.FaceDown {
 			h.Emit(events.Event{Kind: events.TurnFaceUp, Obj: b.Obj})
 		}
 		// A standalone copy did not enter. Entry tapping is applied by the
 		// replacement body only; ordinary Clone never changes tap status.
-		if c.CloneETB && strings.EqualFold(sa.ParamStr(cards.PKIntoPlayTapped), "True") {
+		if c.CloneETB && cp.IntoPlayTappedTrue {
 			h.Emit(events.Event{Kind: events.Tap, Obj: b.Obj})
 		}
 		// The layer-1 LCopy MARKER owns the copy's lifetime. It is always
@@ -726,10 +721,6 @@ func cloneChainContains(root, sa *cards.SA) bool {
 	return false
 }
 
-// No Clone modifiers remain unread; unknown parameter values fail closed
-// at their individual gates instead of falling back to an unrelated effect.
-var cloneUnreadModifiers = []string{}
-
 // CloneStaticGrantReadable is shared by the ETB offer gate and the clone
 // resolver. A named static must parse as an actual S: body; the fold installs
 // its entire mode/parameter set through the ordinary printed-static path.
@@ -749,25 +740,14 @@ func cloneNames(raw string) []string {
 	return names
 }
 
-// cloneParamValue is the unread-modifier keys' trimmed value read (the
-// paramcensus's dynamic-key rule: the key is this helper's own parameter,
-// and every call site passes a string literal). Empty means absent-or-False.
-func cloneParamValue(sa *cards.SA, key string) string {
-	v := strings.TrimSpace(sa.Params[key])
-	if strings.EqualFold(v, "False") {
-		return ""
-	}
-	return v
-}
-
 // cloneBecome resolves CloneTarget$. Absent means Self (the resolving
 // ability's own source object) -- "this permanent becomes a copy". The
 // named forms reuse the same Defined$ referent grammar the source half uses.
-func cloneBecome(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
+func cloneBecome(h Host, c *Ctx, cp *CloneParams) ([]state.Target, bool) {
 	if c.CloneBecomeValid {
 		return []state.Target{{Obj: c.CloneBecome}}, true
 	}
-	spec := strings.TrimSpace(sa.Params["CloneTarget"])
+	spec := cp.CloneTarget
 	if spec == "" {
 		if c.Source == 0 {
 			return nil, true
@@ -800,12 +780,12 @@ func cloneBecome(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
 // papered over: rules' etbCloneWhitelist refuses such a body outright
 // (SpecNeedsResolver), so no election is ever recorded for one and this
 // revalidation only ever sees selectors the no-resolver matcher can decide.
-func cloneETBTemplateLegal(g *state.Game, c *Ctx, sa *cards.SA) bool {
+func cloneETBTemplateLegal(g *state.Game, c *Ctx, cp *CloneParams) bool {
 	o := g.Obj(c.CloneChoice)
 	if o == nil || o.Zone != state.ZBattlefield || o.Face() == nil {
 		return false
 	}
-	spec := strings.TrimSpace(sa.ParamStr(cards.PKChoices))
+	spec := cp.Choices
 	if spec == "" {
 		spec = "Creature.Other"
 	}
@@ -872,15 +852,16 @@ func cloneChoiceCandidates(h Host, c *Ctx, spec string, zone state.Zone) []state
 	return out
 }
 
-// clonePT reads a SetPower$/SetToughness$ modifier through the shared numeric
-// grammar (literal, X, or an SVar name). present reports whether the
-// parameter was given at all, so a setter that names only one characteristic
-// leaves the other alone (the continuous-effect StaticSet contract).
-func clonePT(h Host, c *Ctx, sa *cards.SA, key string) (present bool, value int32) {
-	if _, ok := sa.Params[key]; !ok {
+// clonePT resolves a compiled SetPower$/SetToughness$ modifier through the
+// shared numeric grammar (literal, X, or an SVar name). present reports
+// whether the parameter was given at all, so a setter that names only one
+// characteristic leaves the other alone (the continuous-effect StaticSet
+// contract).
+func clonePT(h Host, c *Ctx, p ParamText) (present bool, value int32) {
+	if !p.Present {
 		return false, 0
 	}
-	return true, Num(h, c, sa, key, 0)
+	return true, numText(h, c, p, 0)
 }
 
 // cloneDuration maps a DB$ Clone Duration$ value onto the continuous-effect

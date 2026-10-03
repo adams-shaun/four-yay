@@ -111,6 +111,18 @@ func TestEveryConfiguredAbilityHasItsFactsRecord(t *testing.T) {
 					defined++
 				}
 			}
+			if (f.Clone != nil) != (sa.API == "Clone") {
+				t.Errorf("%s: %q (API %s): Clone half present=%v", c.Path, sa.Line, sa.API, f.Clone != nil)
+			}
+			if (f.Dig != nil) != (sa.CompiledAPI() == cards.APIDig || sa.API == "Dig") {
+				t.Errorf("%s: %q (API %s): Dig half present=%v", c.Path, sa.Line, sa.API, f.Dig != nil)
+			}
+			if (f.DigUntil != nil) != (sa.API == "DigUntil") {
+				t.Errorf("%s: %q (API %s): DigUntil half present=%v", c.Path, sa.Line, sa.API, f.DigUntil != nil)
+			}
+			if (f.RemoveCounter != nil) != (sa.API == "RemoveCounter") {
+				t.Errorf("%s: %q (API %s): RemoveCounter half present=%v", c.Path, sa.Line, sa.API, f.RemoveCounter != nil)
+			}
 		}
 	}
 	visit := func(c *cards.Card) {

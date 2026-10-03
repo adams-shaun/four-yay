@@ -141,6 +141,10 @@ func free()          {}
 		DefinedLeaks:        []string{"effects/registry.go:42 Defined", "effects/registry.go:43 Defined"},
 		DelayedTriggerLeaks: []string{},
 		CopyPermanentLeaks:  []string{},
+		CloneLeaks:          []string{},
+		DigLeaks:            []string{},
+		DigUntilLeaks:       []string{},
+		RemoveCounterLeaks:  []string{},
 		Files:               4,
 		LongFuncs: []Func{
 			{Name: "deep", File: "rules/sub/deep.go", Line: 6, Lines: 402},

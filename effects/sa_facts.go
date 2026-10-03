@@ -12,7 +12,7 @@ import (
 // claim on it fails silently, so every compiled per-ability fact lives in this
 // one struct hung on the slot and nothing competes for it: the per-API typed
 // parameter structs (ChangeZone, ChangeZoneAll, Attach, DealDamage,
-// PutCounter, Effect, DelayedTrigger, CopyPermanent) and the rules tier's private half (the
+// PutCounter, Effect, DelayedTrigger, CopyPermanent, Clone, Dig, DigUntil, RemoveCounter) and the rules tier's private half (the
 // mana walk's gate facts, opaque here).
 //
 // The record is defined in effects, not rules, because resolution reads it
@@ -93,6 +93,19 @@ type SAFacts struct {
 	// Defined is the generic Defined-reference tier's compiled parameter set
 	// (defined_params.go), non-nil for EVERY ability whatever its API.
 	Defined *DefinedParams
+	// Clone is api:Clone's compiled parameter set (clone_params.go),
+	// non-nil exactly when the API is Clone.
+	Clone *CloneParams
+	// Dig is api:Dig's compiled parameter set (dig_params.go), non-nil
+	// exactly when the API is Dig.
+	Dig *DigParams
+	// DigUntil is api:DigUntil's compiled parameter set
+	// (diguntil_params.go), non-nil exactly when the API is DigUntil.
+	DigUntil *DigUntilParams
+	// RemoveCounter is api:RemoveCounter's compiled parameter set
+	// (removecounter_params.go), non-nil exactly when the API is
+	// RemoveCounter.
+	RemoveCounter *RemoveCounterParams
 }
 
 // NewSAFacts compiles sa's typed halves into a fresh record naming sa. The
