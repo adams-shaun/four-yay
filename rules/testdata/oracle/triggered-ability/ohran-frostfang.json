@@ -11,12 +11,15 @@
     "603.2",
     "510.1"
    ],
-   "why": "Attacking creatures you control have deathtouch while attacking, and whenever a creature you control deals combat damage to a player you draw a card. A 2/2 attacking deals 2 and draws one.",
+   "why": "Attacking creatures you control have deathtouch while attacking, and whenever a creature you control deals combat damage to a player you draw a card. A 2/2 attacking deals 2 and draws one, which the named Forest on top of the library shows.",
    "setup": {
     "p0": {
      "battlefield": [
       "Ohran Frostfang",
       "Grizzly Bears"
+     ],
+     "library_top": [
+      "Forest"
      ]
     }
    },
@@ -48,20 +51,33 @@
      "life": {
      "p1": 18
      }
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
     }
    ]
   },
   {
    "name": "nonattacking-creature-has-no-deathtouch",
    "cr": [
-    "611.3a"
+    "611.3a",
+    "603.2"
    ],
-   "why": "The grant applies to attacking creatures: a creature that is not attacking has no deathtouch.",
+   "why": "The grant applies to attacking creatures: a creature that is not attacking has no deathtouch, and with no combat damage dealt its controller draws nothing, so the named Forest stays on top of the library.",
    "setup": {
     "p0": {
      "battlefield": [
       "Ohran Frostfang",
       "Grizzly Bears"
+     ],
+     "library_top": [
+      "Forest"
      ]
     }
    },
@@ -79,6 +95,15 @@
      "no_keywords": [
       "Deathtouch"
      ]
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
     }
    ]
   }

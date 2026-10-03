@@ -125,7 +125,7 @@
     "603.3b",
     "118.12"
    ],
-   "why": "Whenever its controller casts a creature spell they may pay {G}; if they do they draw a card. With a green source and accepting the optional pay, casting a creature draws one.",
+   "why": "Whenever its controller casts a creature spell they may pay {G}; if they do they draw a card. With a green source and accepting the optional pay, casting a creature draws one: the named Forest on top of the library lands in hand.",
    "setup": {
     "p0": {
      "battlefield": [
@@ -133,6 +133,9 @@
      ],
      "hand": [
       "Grizzly Bears"
+     ],
+     "library_top": [
+      "Forest"
      ]
     }
    },
@@ -141,24 +144,95 @@
      "op": "cast",
      "seat": 0,
      "card": "p0:Grizzly Bears",
-     "mana": "GCCC",
+     "mana": "GGCC"
+    },
+    {
+     "op": "resolve",
      "answers": [
       {
        "kind": "any",
        "pick": [
         "yes"
        ]
+      },
+      {
+       "kind": "choose",
+       "pick": [
+        "trigger_cost_pay"
+       ]
       }
      ]
-    },
-    {
-     "op": "resolve"
     }
    ],
    "expect": [
     {
      "card": "p0:Grizzly Bears",
      "zone": "battlefield"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "creature-spell-decline-pay-draws-nothing",
+   "cr": [
+    "603.2",
+    "603.3b",
+    "118.12"
+   ],
+   "why": "The {G} payment is optional: declining it means no card is drawn, so the named Forest stays on top of the library and the hand holds only the cast creature.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Lifecrafter's Bestiary"
+     ],
+     "hand": [
+      "Grizzly Bears"
+     ],
+     "library_top": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "GCC"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "no"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
     }
    ]
   }

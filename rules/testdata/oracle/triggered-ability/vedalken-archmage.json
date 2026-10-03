@@ -10,7 +10,7 @@
     "603.2",
     "301.1"
    ],
-   "why": "Whenever its controller casts an artifact spell, the Archmage draws a card. Ornithopter is an artifact creature spell, so casting it draws one.",
+   "why": "Whenever its controller casts an artifact spell, the Archmage draws a card. Ornithopter is an artifact creature spell, so casting it draws one: the named Forest on top of the library lands in hand.",
    "setup": {
     "p0": {
      "battlefield": [
@@ -18,6 +18,9 @@
      ],
      "hand": [
       "Ornithopter"
+     ],
+     "library_top": [
+      "Forest"
      ]
     }
    },
@@ -36,6 +39,15 @@
     {
      "card": "p0:Ornithopter",
      "zone": "battlefield"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
     }
    ]
   },
@@ -44,7 +56,7 @@
    "cr": [
     "603.2"
    ],
-   "why": "Only an artifact spell triggers it: a green creature spell draws nothing.",
+   "why": "Only an artifact spell triggers it: a green creature spell draws nothing, so the named Forest stays on top of the library.",
    "setup": {
     "p0": {
      "battlefield": [
@@ -52,6 +64,9 @@
      ],
      "hand": [
       "Grizzly Bears"
+     ],
+     "library_top": [
+      "Forest"
      ]
     }
    },
@@ -70,6 +85,15 @@
     {
      "card": "p0:Grizzly Bears",
      "zone": "battlefield"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
     }
    ]
   }
