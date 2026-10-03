@@ -210,10 +210,10 @@ func emitVoteFinished(h Host, c *Ctx, ballots []VoteBallot, ballotExisted, secre
 // The tally is published behind StoreVoteNum$ True, the parameter Forge
 // requires before it stores VoteNum<SVar>s; an AmountFromVotes$ RepeatEach on
 // a vote without it therefore reads 0, matching Forge's unset read.
-func effPlayerVote(h Host, c *Ctx, sa *cards.SA) {
+func effPlayerVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams) {
 	g := h.Game()
-	spec := strings.TrimSpace(sa.Params["VotePlayer"])
-	other := strings.EqualFold(spec, "Other")
+	spec := vp.Player
+	other := vp.PlayerOther
 	var universe []state.PlayerID
 	for _, p := range g.AliveFrom(c.Controller) {
 		if other || MatchesPlayerSpec(g, spec, p, c.Controller) {
@@ -289,10 +289,10 @@ func effPlayerVote(h Host, c *Ctx, sa *cards.SA) {
 		h.Emit(events.Event{Kind: events.Note, Player: voter, Text: "votes for " + label})
 		ballots[k] = VoteBallot{Player: voter, Pick: pick}
 	}
-	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKStoreVoteNum)), "True") {
+	if vp.StoreVoteNum {
 		publishVoteCounts(c, voteCountsForPlayers(universe, picks))
 	}
-	emitVoteFinished(h, c, ballots, len(universe) > 0, strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKSecretly)), "True"))
+	emitVoteFinished(h, c, ballots, len(universe) > 0, vp.Secretly)
 }
 
 // playerBallotOptions is the ballot entry list one voter may pick from: the

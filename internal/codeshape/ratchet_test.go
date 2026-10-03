@@ -84,7 +84,9 @@ const (
 	// CounterNumShared$/ChoiceNum$/RememberRemoved$ read once): 568 -> 564.
 	// The Token compiler (effToken's literal reads compiled once; the
 	// TokenRemembered$ helper takes each compiler's value): 564 -> 563.
-	stringParamReads = 563
+	// The Vote compiler (the three ballots' literal reads compiled once):
+	// 563 -> 562.
+	stringParamReads = 562
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
 	// W4 step 3: Attach's Object$ switch compiled to a kind: 2886 -> 2883.
@@ -188,6 +190,10 @@ const (
 	// effects/token_params.go (codeshape.TokenFiles, codeshape.TokenOnlyKeys). It landed at
 	// zero.
 	tokenParamLeaks = 0
+	// voteParamLeaks is the same census for api:Vote's compiler,
+	// effects/vote_params.go (codeshape.VoteFiles, codeshape.VoteOnlyKeys). It landed at
+	// zero.
+	voteParamLeaks = 0
 )
 
 func measureRepo(t *testing.T) Metrics {
@@ -397,6 +403,11 @@ func TestCodeShapeOnlyShrinks(t *testing.T) {
 				"field to compileToken in effects/token_params.go) instead of reading the ability's Params in " +
 				"effects/token.go or a Token-only key elsewhere. " +
 				"Leaks: " + strings.Join(m.TokenLeaks, ", ")},
+		{"voteParamLeaks", m.VoteParamLeaks, voteParamLeaks,
+			"Read the parameter through effects.VoteOf's compiled VoteParams (add a " +
+				"field to compileVote in effects/vote_params.go) instead of reading the ability's Params in " +
+				"effects/vote.go or effects/vote_effect.go or a Vote-only key elsewhere. " +
+				"Leaks: " + strings.Join(m.VoteLeaks, ", ")},
 		{"triggerContextLiterals", m.TriggerContextLiterals, triggerContextLiterals,
 			"Derive trigger referents from the firing event (rules' triggerReferents) or " +
 				"copy an existing TriggerContext and set the fields that differ; a " +
