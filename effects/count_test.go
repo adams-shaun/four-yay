@@ -946,3 +946,37 @@ func TestEvalCountValidZoneScanIsAllocationFree(t *testing.T) {
 		t.Fatalf("warm Ctx built inside the region allocated %d objects/op; want zero (a caller-built Ctx must not escape through the count scan -- the layer walk builds one per object)", warm.AllocsPerOp())
 	}
 }
+
+// TestCountDottedBranchesResolveSVarNames pins the dotted yes/no branch heads'
+// operand grammar: a branch may name an SVar on the same face, not only a
+// literal. Divine Resilience's TargetMax$ Y is SVar:Y:Count$Kicked.Z.1 with
+// Z the creatures you control; the literal-only read answered 0 for the
+// named branch, so the kicked cast was bounded at zero targets and asked
+// nothing.
+func TestCountDottedBranchesResolveSVarNames(t *testing.T) {
+	h, c := fixtureHost(t)
+	src := h.Game().Obj(c.Source)
+	c.SVars = map[string]string{"Z": "Count$Compare 1 GE1.3.0", "Y": "2"}
+	if n := EvalCount(h, c, "Count$Kicked.Z.1"); n != 1 {
+		t.Fatalf("not kicked Count$Kicked.Z.1 = %d, want the literal 1", n)
+	}
+	src.CastFlags = state.FlagKicked
+	if n := EvalCount(h, c, "Count$Kicked.Z.1"); n != 3 {
+		t.Fatalf("kicked Count$Kicked.Z.1 = %d, want Z's 3", n)
+	}
+	if n := EvalCount(h, c, "Count$Kicked.Y.Z"); n != 2 {
+		t.Fatalf("kicked Count$Kicked.Y.Z = %d, want Y's 2", n)
+	}
+	src.CastFlags = 0
+	c.PendingKicked = true
+	if n := EvalCount(h, c, "Count$Kicked.Y.Z"); n != 2 {
+		t.Fatalf("pending-kicked Count$Kicked.Y.Z = %d, want Y's 2", n)
+	}
+	c.PendingKicked = false
+	if n := EvalCount(h, c, "Count$Kicked.Y.Z"); n != 3 {
+		t.Fatalf("unkicked Count$Kicked.Y.Z = %d, want Z's 3", n)
+	}
+	if n := EvalCount(h, c, "Count$StartingPlayer.Y.Z"); n != 2 && n != 3 {
+		t.Fatalf("Count$StartingPlayer.Y.Z = %d, want a named branch (2 or 3)", n)
+	}
+}

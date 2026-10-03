@@ -396,6 +396,7 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 		}
 		ctx.Remembered = o.Remembered
 		ctx.Captured = o.Remembered
+		reflexiveCaptured(ctx)
 		if lki, ok := e.triggerLKI[rp.obj]; ok {
 			ctx.LKI = lki.object
 			ctx.LKIPower, ctx.LKIToughness, ctx.LKIPTValid =

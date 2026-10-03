@@ -754,8 +754,27 @@ func (e *Engine) mayPlayAltCosts(p state.PlayerID, id state.ObjID) []Cost {
 			continue
 		}
 		raw := strings.TrimSpace(sv.ParamStr(cards.PKMayPlayAltManaCost))
-		if raw == "" || strings.TrimSpace(sv.Params["MayPlay"]) != "True" || mayPlayGateRejected(sv.Params) ||
+		// MayPlayWithoutManaCost$ True over a card in HAND (Omniscience's
+		// "You may cast spells from your hand without paying their mana
+		// costs", Fires of Invention, Dracogenesis): casting without paying
+		// the mana cost is itself an alternative cost (CR 118.9), and the
+		// hand cast walk -- this function's only consumer zone -- is where
+		// it is delivered, as a free alternative. The may-play zone walks
+		// cover graveyard, exile and library and price their own free
+		// shape (mayPlayGrant), so the hand gate keeps the two from ever
+		// offering the same free cast twice.
+		free := raw == "" && o.Zone == state.ZHand &&
+			strings.EqualFold(strings.TrimSpace(sv.Params["MayPlayWithoutManaCost"]), "True")
+		if (raw == "" && !free) || strings.TrimSpace(sv.Params["MayPlay"]) != "True" || mayPlayGateRejected(sv.Params) ||
 			!e.mayPlayConditionGateHolds(sv.Params, sv.Source, sv.Controller) {
+			continue
+		}
+		// A battlefield static's permission is its controller's alone (the
+		// mayPlayGrant rule): MayPlayPlayer$ is rejected above, so no
+		// static here grants another player anything, and an Affected$ with
+		// no YouOwn/YouCtrl qualifier (Fires of Invention's
+		// Card.nonLand+cmcLEX) must not reach an opponent's hand.
+		if i < len(bf) && sv.Controller != p {
 			continue
 		}
 		// Condition$ PlayerTurn ("during each of your turns"): the static's
@@ -796,6 +815,10 @@ func (e *Engine) mayPlayAltCosts(p state.PlayerID, id state.ObjID) []Cost {
 			if n, err := strconv.Atoi(rawLimit); err == nil && n > 0 && e.mayPlayLimitReached(id, n) {
 				continue
 			}
+		}
+		if free {
+			out = append(out, Cost{})
+			continue
 		}
 		alt, ok := e.altCostParse(id, raw)
 		if !ok {

@@ -1,7 +1,0 @@
-{
-  "card": "Divine Resilience",
-  "rows": {
-    "kicked-any-number-of-targets": "CR 702.33d/601.2c: kicked, 'any number of target creatures you control gain indestructible instead'; both named creatures should have indestructible. Observed: the kicked cast poses no target choice at all and resolves doing nothing (neither creature gains indestructible). The unkicked single-target mode works (its scenarios pass). Confidence high. New root, found by the FDN audit batch 6; no ticket yet.",
-    "kicked-targets-survive-a-wrath": "Same root as kicked-any-number-of-targets: the kicked cast gives nothing indestructible, so Day of Judgment destroys the two creatures that should have survived (only the untargeted Hill Giant should die)."
-  }
-}

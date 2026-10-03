@@ -216,6 +216,7 @@ func effChangeZoneAll(h Host, c *Ctx, sa *cards.SA) {
 		applyFaceDownMarker(h, sa, c, &ev, to)
 		h.Emit(ev)
 		moved = append(moved, id)
+		exiledWithAssociation(h, c, id, to)
 		// Tapped$ True (Splendid Reclamation's "Return all land cards
 		// ... tapped"): a battlefield entry is followed by the same
 		// "entered tapped" Tap event every other Tapped$ zone-change
