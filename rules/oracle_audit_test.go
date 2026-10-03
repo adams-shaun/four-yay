@@ -1332,6 +1332,21 @@ func (r *oracleRun) stackDump() string {
 	return "[" + strings.Join(parts, ", ") + "]"
 }
 
+// oracleUnconsumedMarker tags the fail a step raises when its declared
+// `answers` queue still holds entries after the step finished: the fixture
+// declared a decision this step never posed (or posed on a later step), so
+// nothing matched it and the engine fell back. It is distinct from a known
+// engine divergence so the audit can excuse exactly these rows via the
+// shrinking oracleUnconsumed ratchet without hiding a real failure.
+const oracleUnconsumedMarker = "unconsumed answer(s) for this step:"
+
+// oracleUnconsumedFail formats the one fail a step gets for leftovers: the
+// step index, the op, and every leftover answer verbatim (kind + pick).
+func oracleUnconsumedFail(step int, op string, answers []oracleAnswer) string {
+	j, _ := json.Marshal(answers)
+	return fmt.Sprintf("step %d (%s): %s %s", step, op, oracleUnconsumedMarker, j)
+}
+
 // runOracleScenario plays one scenario and returns its mismatches (nil =
 // pass), a transcript, and the run (for the replay check; its engine is nil
 // when setup failed before genesis).
@@ -1350,6 +1365,14 @@ func runOracleScenario(reg *cards.Registry, sc oracleScenario) (fails []string, 
 	for i, st := range sc.Steps {
 		if err := r.do(st); err != nil {
 			return append(fails, fmt.Sprintf("step %d (%s): %v", i, st.Op, err)), r.log, r
+		}
+		// A step's answers are consumed lazily by r.answer as decisions are
+		// posed. A leftover means no decision on THIS step matched it: either
+		// the fixture declares a decision the engine never asks, or the answer
+		// was written on the wrong step. Fail loudly -- the engine's fallback
+		// otherwise masks the stale fixture.
+		if len(r.answers) > 0 {
+			fails = append(fails, oracleUnconsumedFail(i, st.Op, r.answers))
 		}
 		for _, msg := range r.extraFails {
 			fails = append(fails, fmt.Sprintf("after step %d (%s): %s", i, st.Op, msg))
@@ -1475,6 +1498,40 @@ func oracleDivergent(t *testing.T) map[string]oracleDivergentRow {
 	return out
 }
 
+// oracleUnconsumedFile is the shrinking ratchet for step `answers` that no
+// decision matched: one flat JSON object, "<card>/<scenario>" -> the
+// one-line leftover observation (the step index, op and answer that no
+// decision consumed). It is a top-level file, not a family directory, and
+// loadOracleFiles's */*.json glob does not match it.
+//
+// A listed scenario must still leave an answer unconsumed; a fixed one is
+// stale and fails the build until its row is deleted. An unlisted scenario
+// that leaves one fails loudly. Rows are only ever deleted, never added by
+// the scenario author.
+const oracleUnconsumedFile = "known-unconsumed-answers.json"
+
+// oracleUnconsumed reads the leftover-answer ratchet. It needs no corpus, so
+// TestOracleScenarioFilesWellFormed holds it to its shape where the author
+// works. A malformed row fails the build.
+func oracleUnconsumed(t *testing.T) map[string]string {
+	t.Helper()
+	p := filepath.Join("testdata", "oracle", oracleUnconsumedFile)
+	raw, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatalf("%s: %v", p, err)
+	}
+	var rows map[string]string
+	if err := json.Unmarshal(raw, &rows); err != nil {
+		t.Fatalf("%s: want one JSON object of \"<card>/<scenario>\": \"reason\" rows: %v", p, err)
+	}
+	for k, v := range rows {
+		if !strings.Contains(k, "/") || strings.TrimSpace(v) == "" {
+			t.Errorf("%s: row %q needs a \"<card>/<scenario>\" key and a non-empty reason", p, k)
+		}
+	}
+	return rows
+}
+
 func loadOracleFiles(t *testing.T) map[string]oracleFile {
 	t.Helper()
 	paths, err := filepath.Glob(filepath.Join("testdata", "oracle", "*", "*.json"))
@@ -1540,6 +1597,11 @@ func TestOracleScenarioFilesWellFormed(t *testing.T) {
 			t.Errorf("ratchet row %q is in %s but the scenario is family %q", key, row.src, fam)
 		}
 	}
+	for key := range oracleUnconsumed(t) {
+		if _, ok := scenarioFamily[key]; !ok {
+			t.Errorf("%s row %q names no scenario", oracleUnconsumedFile, key)
+		}
+	}
 	checkRef := func(where, ref string) {
 		if ref == "" {
 			return
@@ -1596,12 +1658,14 @@ func TestOracleAudit(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	files := loadOracleFiles(t)
 	divergent := oracleDivergent(t)
+	unconsumed := oracleUnconsumed(t)
 	paths := make([]string, 0, len(files))
 	for p := range files {
 		paths = append(paths, p)
 	}
 	sort.Strings(paths)
 	seen := map[string]bool{}
+	seenUnconsumed := map[string]bool{}
 	for _, p := range paths {
 		f := files[p]
 		c, ok := reg.Lookup(f.Card)
@@ -1634,6 +1698,28 @@ func TestOracleAudit(t *testing.T) {
 				if os.Getenv("ORACLE_AUDIT_TRACE") != "" {
 					t.Logf("transcript:\n    %s", strings.Join(transcript, "\n    "))
 				}
+				// Split the fail list: a leftover step answer is excused only by
+				// the shrinking unconsumed ratchet, and only the leftover itself.
+				// Any other fail on the same scenario is still reported.
+				var leftovers, otherFails []string
+				for _, f := range fails {
+					if strings.Contains(f, oracleUnconsumedMarker) {
+						leftovers = append(leftovers, f)
+					} else {
+						otherFails = append(otherFails, f)
+					}
+				}
+				uncReason, isUnc := unconsumed[key]
+				seenUnconsumed[key] = true
+				if isUnc && len(leftovers) == 0 {
+					t.Errorf("stale unconsumed-answer row (the scenario now consumes every step answer; delete its row from %s): %s", oracleUnconsumedFile, uncReason)
+				}
+				if isUnc && len(leftovers) > 0 {
+					t.Logf("known unconsumed answer: %s\n  observed: %s", uncReason, strings.Join(leftovers, "\n  observed: "))
+				} else {
+					otherFails = append(otherFails, leftovers...)
+				}
+				fails = otherFails
 				switch {
 				case len(fails) == 0 && isKnown:
 					t.Errorf("stale known divergence (the scenario now passes; delete its row from %s): %s", row.src, known)
@@ -1653,6 +1739,11 @@ func TestOracleAudit(t *testing.T) {
 				where = "oracleKnownDivergent"
 			}
 			t.Errorf("%s row %q names no scenario", where, key)
+		}
+	}
+	for key := range unconsumed {
+		if !seenUnconsumed[key] {
+			t.Errorf("%s row %q names no scenario", oracleUnconsumedFile, key)
 		}
 	}
 }
