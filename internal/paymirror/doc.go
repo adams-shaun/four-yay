@@ -109,7 +109,8 @@
 //	pending                            compared by (2.) with Seq-bound identities masked
 //	derivedMemo*, derivedKW/Types/     per-walk Derived memo and scratch, keyed by an epoch
 //	Depth/PTFrames, boardStaticsCache, that advances with every ask; Clone copies none
-//	activeStaticsCache, mayPlaysCache
+//	activeStaticsCache, mayPlaysCache,
+//	combatStatics
 //	potentialWalk, potentialAskSerial, a posed decision's shared potential walk, keyed by
 //	potentialWalkDepth/FullDemand      an ask serial and the log; Clone copies none
 //	crossWalkRetires                   retireCrossWalkMemo's call count (a cache key); Clone

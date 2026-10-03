@@ -35,7 +35,7 @@ func TestBattleDoesNotSatisfyGoadPlayerAttackDuty(t *testing.T) {
 	}
 
 	e.emit(events.Event{Kind: events.Goad, Obj: attacker, Player: goader})
-	if !e.attackRequirements(attacker).goad || !e.goadedBy(e.G.Obj(attacker), goader) {
+	if !e.attackRequirements(attacker).Goad || !e.goadedBy(e.G.Obj(attacker), goader) {
 		t.Fatal("precondition: creature must have an active goad")
 	}
 	e.askAttackers()

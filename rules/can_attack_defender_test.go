@@ -4,7 +4,7 @@ package rules
 // attack as though it didn't have defender"). Before this primitive the
 // attacker-legality read refused any creature with K:Defender unconditionally,
 // so every Defender wall stayed walled even under Arcades the Strategist's
-// own static. The read (rules/attack_defender.go attackAllowedThroughDefender)
+// own static. The read (rules/combat/defender.go AttackAllowedThroughDefender)
 // is consulted per (attacker, defender) pair through canAttackPair from the
 // offer list, the validator and the encore gate, and it covers both routes
 // the corpus spells:

@@ -191,7 +191,7 @@ func TestTerritorialHellkiteNoCandidateTaps(t *testing.T) {
 		t.Fatalf("no-candidate arm recorded a chosen player: %+v", e.G.Obj(hk).Chosen)
 	}
 	// No per-player requirement may survive the failed choice.
-	if e.attackRequirements(hk).any() {
+	if e.attackRequirements(hk).Any() {
 		t.Fatal("a failed choice still registered a MustAttack requirement")
 	}
 	replayCheck(t, e, cfg)
@@ -203,7 +203,7 @@ func TestTerritorialHellkiteNoCandidateTaps(t *testing.T) {
 // engine's own attackRequirements collector).
 func (e *Engine) requiredForDefender(id state.ObjID, defender state.PlayerID) bool {
 	rs := e.attackRequirements(id)
-	return rs.named[defender] > 0 && rs.satisfiedBy(defender) == rs.maxNamed()
+	return rs.Named[defender] > 0 && rs.SatisfiedBy(defender) == rs.MaxNamed()
 }
 
 // attackRequiresDefender reports whether id is required to attack AND the
@@ -211,17 +211,17 @@ func (e *Engine) requiredForDefender(id state.ObjID, defender state.PlayerID) bo
 // Hellkite and the single-named-requirement tests want).
 func (e *Engine) attackRequiresDefender(id state.ObjID, defender state.PlayerID) bool {
 	rs := e.attackRequirements(id)
-	if !rs.any() {
+	if !rs.Any() {
 		return false
 	}
-	if rs.satisfiedBy(defender) != rs.maxNamed() || rs.satisfiedBy(defender) == 0 {
+	if rs.SatisfiedBy(defender) != rs.MaxNamed() || rs.SatisfiedBy(defender) == 0 {
 		return false
 	}
 	// No OTHER defender may be equally maximal (the strict single-destination
 	// case); a tie is legal but not what this helper asserts.
 	n := 0
-	for _, c := range rs.named {
-		if c == rs.maxNamed() {
+	for _, c := range rs.Named {
+		if c == rs.MaxNamed() {
 			n++
 		}
 	}
@@ -347,11 +347,11 @@ func TestMustAttackTwoNamedRequirementsKeepBothDefenders(t *testing.T) {
 		})
 	}
 	rs := e.attackRequirements(hk)
-	if !rs.any() {
+	if !rs.Any() {
 		t.Fatalf("precondition: the two named requirements did not bind the dragon: %+v", rs)
 	}
-	if rs.satisfiedBy(1) != 1 || rs.satisfiedBy(2) != 1 || rs.maxNamed() != 1 {
-		t.Fatalf("precondition: requirements should name 1 and 2 once each, got %+v", rs.named)
+	if rs.SatisfiedBy(1) != 1 || rs.SatisfiedBy(2) != 1 || rs.MaxNamed() != 1 {
+		t.Fatalf("precondition: requirements should name 1 and 2 once each, got %+v", rs.Named)
 	}
 	if !e.requiredForDefender(hk, 1) || !e.requiredForDefender(hk, 2) {
 		t.Fatal("precondition: both named defenders must be maximal")
@@ -505,11 +505,11 @@ func TestMustAttackRememberedPlayerBindsThroughRealEffectRegistration(t *testing
 	// (ValidCreature$ Card.IsRemembered selects the Effect's own remembered
 	// token, not an arbitrary board object).
 	rs := e.attackRequirements(token)
-	if !rs.any() {
+	if !rs.Any() {
 		t.Fatalf("registered requirement did not bind the remembered token: %+v", rs)
 	}
-	if rs.named[1] != 1 {
-		t.Fatalf("requirement names = %+v, want player 1 required once", rs.named)
+	if rs.Named[1] != 1 {
+		t.Fatalf("requirement names = %+v, want player 1 required once", rs.Named)
 	}
 	if !e.requiredForDefender(token, 1) {
 		t.Fatal("remembered token is not required to attack the remembered player 1")
@@ -517,7 +517,7 @@ func TestMustAttackRememberedPlayerBindsThroughRealEffectRegistration(t *testing
 	if e.requiredForDefender(token, 2) {
 		t.Fatal("remembered token must not be required against player 2")
 	}
-	if rsDragon := e.attackRequirements(dragon); rsDragon.any() {
+	if rsDragon := e.attackRequirements(dragon); rsDragon.Any() {
 		t.Fatalf("a creature outside the Effect's remembered set must not be required: %+v", rsDragon)
 	}
 }
@@ -567,7 +567,7 @@ func TestMustAttackNamedDefenderBlockedLeavesAlternateOptional(t *testing.T) {
 	if e.attackBlocked(hk, 2, 0) {
 		t.Fatal("precondition: the alternate defender's pair must stay legal")
 	}
-	if rs := e.attackRequirements(hk); rs.satisfiedBy(1) != 1 || rs.satisfiedBy(2) != 0 || rs.broad || rs.goad {
+	if rs := e.attackRequirements(hk); rs.SatisfiedBy(1) != 1 || rs.SatisfiedBy(2) != 0 || rs.Broad || rs.Goad {
 		t.Fatalf("precondition: expected exactly one named duty on player 1, got %+v", rs)
 	}
 	if e.mustAttackRequired(hk) {
@@ -633,7 +633,7 @@ func TestMustAttackBlockedNamedDutyStillRequiredWhenBroad(t *testing.T) {
 	} {
 		e.AddContinuous(ce)
 	}
-	if rs := e.attackRequirements(hk); !rs.broad || rs.satisfiedBy(1) != 1 {
+	if rs := e.attackRequirements(hk); !rs.Broad || rs.SatisfiedBy(1) != 1 {
 		t.Fatalf("precondition: expected a broad duty beside the named one, got %+v", rs)
 	}
 	if !e.mustAttackRequired(hk) {

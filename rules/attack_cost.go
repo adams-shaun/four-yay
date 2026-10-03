@@ -37,6 +37,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/combat"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -84,7 +85,7 @@ func cantAttackUnlessParamsReadable(params map[string]string) bool {
 // whose pair is being priced, or 0 for the block direction (a CantBlockUnless
 // static has no RememberingAttacker$ carrier in the corpus).
 func (e *Engine) attackUnlessCharge(sv staticView, attacker state.ObjID) (blockCharge, bool) {
-	raw := strings.TrimSpace(sv.Params["Cost"])
+	raw := strings.TrimSpace(sv.ParamStr(cards.PKCost))
 	if raw == "" {
 		return blockCharge{}, false
 	}
@@ -141,7 +142,7 @@ func (e *Engine) attackPairCharge(id state.ObjID, defender state.PlayerID, attac
 		if !e.continuousGateHolds(sv) {
 			continue
 		}
-		spec := sv.Params["ValidCard"]
+		spec := sv.ParamStr(cards.PKValidCard)
 		if spec == "" {
 			// Every corpus carrier states ValidCard$; a static without one
 			// has no readable shape here. Skip, never blanket.
@@ -150,7 +151,7 @@ func (e *Engine) attackPairCharge(id state.ObjID, defender state.PlayerID, attac
 		if !e.matchesSpec(spec, id, e.specCtxSVars(sv.Source, sv.Controller, sv.SVars)) {
 			continue
 		}
-		if !restrictionPlayerTargetMatches(e.G, sv.Params["Target"], defender, sv.Controller, sv.Source, nil, attacked) {
+		if !combat.RestrictionTargetMatches(e.G, sv.Params["Target"], defender, sv.Controller, sv.Source, nil, attacked) {
 			continue
 		}
 		ch, ok := e.attackUnlessCharge(sv, id)
@@ -175,7 +176,7 @@ func (e *Engine) attackPairCharge(id state.ObjID, defender state.PlayerID, attac
 		if !cantAttackUnlessParamsReadable(sv.Params) || !e.continuousGateHolds(sv) {
 			continue
 		}
-		spec := sv.Params["ValidCard"]
+		spec := sv.ParamStr(cards.PKValidCard)
 		if spec == "" {
 			continue
 		}
@@ -186,7 +187,7 @@ func (e *Engine) attackPairCharge(id state.ObjID, defender state.PlayerID, attac
 		if !e.matchesSpec(spec, id, sc) {
 			continue
 		}
-		if !restrictionPlayerTargetMatches(e.G, sv.Params["Target"], defender, ce.Controller, ce.Source, nil, attacked) {
+		if !combat.RestrictionTargetMatches(e.G, sv.Params["Target"], defender, ce.Controller, ce.Source, nil, attacked) {
 			continue
 		}
 		if ch, ok := e.attackUnlessCharge(sv, id); ok {
@@ -337,7 +338,7 @@ func (e *Engine) chargeFromCost(c Cost, source state.ObjID) (blockCharge, bool) 
 // unresolvable SVar -- returns ok=false, marking the matching pair
 // unpriceable rather than allowing a free block.
 func (e *Engine) blockUnlessCharge(sv staticView) (blockCharge, bool) {
-	raw := strings.TrimSpace(sv.Params["Cost"])
+	raw := strings.TrimSpace(sv.ParamStr(cards.PKCost))
 	if raw == "" {
 		return blockCharge{}, false
 	}
@@ -373,7 +374,7 @@ func (e *Engine) blockUnlessCharge(sv staticView) (blockCharge, bool) {
 // every blocker against its enchanted attacker; War Cadence scopes neither
 // and prices every blocker in the game).
 func (e *Engine) blockStaticMatches(sv staticView, sc effects.SpecContext, blocker, attacker state.ObjID) bool {
-	if spec := sv.Params["ValidCard"]; spec != "" && !e.matchesSpec(spec, blocker, sc) {
+	if spec := sv.ParamStr(cards.PKValidCard); spec != "" && !e.matchesSpec(spec, blocker, sc) {
 		return false
 	}
 	if spec := sv.Params["Attacker"]; spec != "" && !e.matchesSpec(spec, attacker, sc) {
@@ -1201,7 +1202,7 @@ func (e *Engine) attackChoiceManaSources(p state.PlayerID) []attackManaSource {
 			continue
 		}
 		for _, ma := range e.availableManaAbilitiesForWindow(p, id, false) {
-			if strings.TrimSpace(ma.Params["RestrictValid"]) != "" {
+			if strings.TrimSpace(ma.ParamStr(cards.PKRestrictValid)) != "" {
 				continue
 			}
 			if !manaFreeCost(e.parseCost(ma.ParamStr(cards.PKCost))) {
@@ -1533,10 +1534,10 @@ func (e *Engine) attackOffersCompute() []attackOffer {
 	// One requirement set per creature, computed once from the board (never
 	// per pair), keyed by ObjID and read by lookup only -- no map iteration
 	// reaches the offer list order.
-	reqs := make(map[state.ObjID]attackRequirementSet)
+	reqs := make(map[state.ObjID]combat.RequirementSet)
 	for _, id := range e.G.Zone(state.ZBattlefield, p) {
-		if e.canAttack(id) {
-			reqs[id] = e.attackRequirements(id)
+		if combat.CanAttack(asBoard(e), id) {
+			reqs[id] = combat.AttackRequirements(asBoard(e), id)
 		}
 	}
 	// Each (creature able to attack, defending player) pair is at most one
@@ -1553,7 +1554,7 @@ func (e *Engine) attackOffersCompute() []attackOffer {
 			}
 		}
 		for _, id := range e.G.Zone(state.ZBattlefield, p) {
-			if !e.canAttackPair(id, d) || !e.goadMayAttack(id, d) || e.attackBlocked(id, d, 0) {
+			if !combat.CanAttackPair(asBoard(e), id, d) || !combat.GoadMayAttack(asBoard(e), id, d) || combat.AttackBlocked(asBoard(e), id, d, 0) {
 				continue
 			}
 			charge := e.attackPairCharge(id, d, 0)
@@ -1567,7 +1568,7 @@ func (e *Engine) attackOffersCompute() []attackOffer {
 			// planeswalkers). The walk happens in the planeswalker's
 			// controller's zone order, and d IS that controller here.
 			for _, wid := range walkerTargets {
-				if e.attackBlocked(id, d, wid) {
+				if combat.AttackBlocked(asBoard(e), id, d, wid) {
 					continue
 				}
 				walkerCharge := e.attackPairCharge(id, d, wid)
@@ -1584,13 +1585,13 @@ func (e *Engine) attackOffersCompute() []attackOffer {
 				continue
 			}
 			for _, id := range e.G.Zone(state.ZBattlefield, p) {
-				if !e.canAttackPair(id, d) {
+				if !combat.CanAttackPair(asBoard(e), id, d) {
 					continue
 				}
-				if !e.goadMayAttack(id, d) {
+				if !combat.GoadMayAttack(asBoard(e), id, d) {
 					continue
 				}
-				if e.attackBlocked(id, d, b.id) {
+				if combat.AttackBlocked(asBoard(e), id, d, b.id) {
 					continue
 				}
 				charge := e.attackPairCharge(id, d, b.id)
@@ -1604,14 +1605,14 @@ func (e *Engine) attackOffersCompute() []attackOffer {
 	// Best player-attack duty satisfaction per creature over surviving pairs.
 	best := make(map[state.ObjID]int)
 	for _, of := range out {
-		if n := reqs[of.id].satisfiedByOffer(of); n > best[of.id] {
+		if n := reqs[of.id].SatisfiedByOffer(of.def, of.battle); n > best[of.id] {
 			best[of.id] = n
 		}
 	}
 	keep := out[:0]
 	for _, of := range out {
 		rs := reqs[of.id]
-		if rs.any() && rs.satisfiedByOffer(of) < best[of.id] {
+		if rs.Any() && rs.SatisfiedByOffer(of.def, of.battle) < best[of.id] {
 			continue
 		}
 		keep = append(keep, of)
