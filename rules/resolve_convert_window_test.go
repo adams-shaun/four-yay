@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -196,6 +197,25 @@ func TestTapeConvertETBChoice(t *testing.T) {
 			_, st := tapeDual(t, 2, 13500+uint64(i), tapeUnlessScenario(name, "B", 0, tapePick), src)
 			if st.Served < 1 || st.LegacySwitch != 0 || st.Aborts != 0 {
 				t.Fatalf("the as-enters choice was not served from the tape: %+v", st)
+			}
+		})
+	}
+}
+
+// Ward's pay-or-countered election (effWard) is served from the tape and
+// settled in line when the payment needs no further ask.
+func TestTapeConvertWard(t *testing.T) {
+	const wardBear = "Name:Tape Ward Bear\nManaCost:G\nTypes:Creature Bear\nPT:2/2\nK:Ward:1\nOracle:x\n"
+	const pump = "Name:Tape Pump\nManaCost:B\nTypes:Instant\nA:SP$ Pump | ValidTgts$ Creature | NumAtt$ +1\nOracle:x\n"
+	for i, pay := range []bool{true, false} {
+		t.Run(map[bool]string{true: "pay", false: "decline"}[pay], func(t *testing.T) {
+			_, st := tapeDual(t, 2, 13600+uint64(i), func(t *testing.T, e *Engine) {
+				bear := moveByName(t, e, 0, "Tape Ward Bear", state.ZBattlefield)
+				e.emit(events.Event{Kind: events.ControlChange, Obj: bear, Player: 1})
+				tapeUnlessScenario("Tape Pump", "BR", 0, tapeUnlessPick(pay))(t, e)
+			}, wardBear, pump)
+			if st.Served < 1 || st.LegacySwitch != 0 || st.Aborts != 0 {
+				t.Fatalf("the ward election was not served from the tape: %+v", st)
 			}
 		})
 	}

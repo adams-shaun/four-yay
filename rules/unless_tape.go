@@ -140,6 +140,10 @@ func unlessAnswerSettle(e *Engine, d *decision.Decision, chosen []decision.Optio
 	if n := len(e.G.Stack); n > 0 {
 		obj = e.G.Stack[n-1] // Engine.Ask's resume object: the resolving one
 	}
+	if sa.API == "Ward" {
+		wardAnswerSettle(e, ctx, sa, obj, chosen)
+		return
+	}
 	next, payer, cost := settleUnlessElection(e, ctx, sa, obj, chosen)
 	switch next {
 	case unlessOpenWindow:
@@ -190,4 +194,20 @@ func tapeUnservable(e *Engine, step string) {
 		(*f)("abort  unservable " + step + "  [" + tapeShape(e) + "]")
 	}
 	e.tape.Unservable()
+}
+
+// wardAnswerSettle is the tape-served Ward election's settlement, the legacy
+// "unless_pay" arm's Ward branch: a payment that needs no further ask (a
+// floating-mana charge, poison counters, a random discard) settles in line;
+// one that asks (an object pick, the CR 702.21a mana window) reaches the
+// engine's ask choke point as a legacy ask after a tape ask, which aborts the
+// run and hands the resolution back to legacy.
+func wardAnswerSettle(e *Engine, ctx *effects.Ctx, sa *cards.SA, obj state.ObjID, chosen []decision.Option) {
+	ctx.UnlessPay = "decline"
+	if _, chosePay := unlessPayChoice(chosen); !chosePay {
+		return
+	}
+	if paid, _ := e.beginWardPayment(&resumePoint{kind: "unless_pay", obj: obj, sa: sa}, ctx); paid {
+		ctx.UnlessPay = "pay"
+	}
 }
