@@ -17,9 +17,29 @@ import (
 // key it stops reading must leave it (else the Note goes silent on a real
 // gap).
 func TestChangeZoneKnownKeysMatchTheCensus(t *testing.T) {
+	checkKnownKeysMatchTheCensus(t, "ChangeZone", effects.ChangeZoneKnownKeys())
+}
+
+// TestChangeZoneAllKnownKeysMatchTheCensus is the same check for
+// api:ChangeZoneAll (effects.changeZoneAllKnownKeys).
+func TestChangeZoneAllKnownKeysMatchTheCensus(t *testing.T) {
+	checkKnownKeysMatchTheCensus(t, "ChangeZoneAll", effects.ChangeZoneAllKnownKeys())
+}
+
+// TestAttachKnownKeysMatchTheCensus is the same check for api:Attach
+// (effects.attachKnownKeys).
+func TestAttachKnownKeysMatchTheCensus(t *testing.T) {
+	checkKnownKeysMatchTheCensus(t, "Attach", effects.AttachKnownKeys())
+}
+
+// checkKnownKeysMatchTheCensus holds an API compiler's known-key table equal
+// to the census's measured read set for api plus its ignored and structural
+// keys.
+func checkKnownKeysMatchTheCensus(t *testing.T, api string, got []string) {
+	t.Helper()
 	_, d := measureParamCensus(t, nil)
 	want := map[string]bool{}
-	for k := range d.api["ChangeZone"] {
+	for k := range d.api[api] {
 		want[k] = true
 	}
 	for k := range ignoredParamKeys {
@@ -33,7 +53,6 @@ func TestChangeZoneKnownKeysMatchTheCensus(t *testing.T) {
 		wantList = append(wantList, k)
 	}
 	sort.Strings(wantList)
-	got := effects.ChangeZoneKnownKeys()
 	if !slices.Equal(got, wantList) {
 		var missing, extra []string
 		for _, k := range wantList {
@@ -46,6 +65,6 @@ func TestChangeZoneKnownKeysMatchTheCensus(t *testing.T) {
 				extra = append(extra, k)
 			}
 		}
-		t.Fatalf("effects.changeZoneKnownKeys disagrees with the census: add %v, remove %v", missing, extra)
+		t.Fatalf("effects' %s known-key table disagrees with the census: add %q, remove %q", api, missing, extra)
 	}
 }

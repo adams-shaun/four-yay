@@ -255,7 +255,7 @@ var changeZoneKnownKeys = [...]string{
 	"TargetsWithEqualToughness", "TargetsWithSameCardType", "TargetsWithSameController",
 	"TargetsWithSameCreatureType", "TargetsWithSharedCardType", "TargetsWithSharedTypes",
 	"TgtPrompt", "TgtZone", "TokenScript", "Transformed", "TriggerDescription",
-	"Triggers", "TriggersWhenSpent", "Type", "Ultimate", "Unattach", "Unearth",
+	"Triggers", "TriggersWhenSpent", "Type", "Ultimate", "Unearth",
 	"Unimprint", "UnlessAI", "UnlessCost", "UnlessPayer", "UnlessResolveSubs",
 	"UnlessSwitched", "ValidCard", "ValidCards", "ValidCardsDesc", "ValidChoices",
 	"ValidCounterType", "ValidDescription", "ValidTgts", "VarName", "VarValue",
