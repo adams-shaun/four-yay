@@ -149,6 +149,10 @@ type Metrics struct {
 	// ("file:line key"), sorted.
 	ChangeZoneParamLeaks int      `json:"change_zone_param_leaks"`
 	ChangeZoneLeaks      []string `json:"change_zone_leaks"`
+	// TypedParamLeaks is the per-API typed-param leak census of TypedParamAPIs
+	// (typedparams.go): for each compiled API, its parameter reads outside its
+	// compiler, "file:line key", sorted.
+	TypedParamLeaks map[string][]string `json:"typed_param_leaks"`
 	// TrigmatchBoardMethods counts the methods trigmatch.Board declares
 	// (rules/trigmatch/board.go): the read-only view the trigger matchers
 	// reach the engine through (W5 E3). Zero when the package is absent.
@@ -250,6 +254,7 @@ func Measure(root string) (Metrics, error) {
 			}
 			inEffects := dir == "effects"
 			countChangeZoneLeaks(fset, f, rel, &m)
+			countTypedParamLeaks(fset, f, rel, &m)
 			ast.Inspect(f, func(n ast.Node) bool {
 				switch x := n.(type) {
 				case *ast.TypeAssertExpr:
@@ -303,6 +308,7 @@ func Measure(root string) (Metrics, error) {
 	}
 	m.StringParamKeys = len(keys)
 	m.ChangeZoneParamLeaks = len(m.ChangeZoneLeaks)
+	sortTypedParamLeaks(&m)
 	sort.Strings(m.ChangeZoneLeaks)
 	if m.ChangeZoneLeaks == nil {
 		m.ChangeZoneLeaks = []string{}

@@ -366,7 +366,7 @@ func (e *Engine) targetAsk() bool {
 	// mode while omitting another.
 	if pc.targetStage == 0 && !pc.isAbility() && f != nil {
 		if root := f.SpellAbility(); root != nil {
-			choices := strings.Split(root.ParamStr(cards.PKChoices), ",")
+			choices := effects.CharmOf(root).Modes
 			if status, _ := effects.CharmCrossModeShape(f.SVars, choices); status == effects.CharmUniqueSupported {
 				var tbms []*cards.SA
 				for _, name := range o.ChosenModes {

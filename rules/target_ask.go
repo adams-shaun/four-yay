@@ -925,7 +925,7 @@ func (e *Engine) recheckCharmTargets(o *state.Object) ([][]state.Target, []state
 // bool marker alone is not carried (task mvts1).
 func offeredTargetSA(o *state.Object, svars map[string]string) *cards.SA {
 	if o.Ability != nil {
-		if len(o.ChosenModes) > 0 && strings.TrimSpace(o.Ability.ParamStr(cards.PKChoices)) != "" {
+		if len(o.ChosenModes) > 0 && effects.CharmOf(o.Ability).HasChoices {
 			for _, name := range o.ChosenModes {
 				if sub := cards.ResolveSVar(svars, name); sub != nil &&
 					strings.TrimSpace(sub.ParamStr(cards.PKValidTgts)) != "" {

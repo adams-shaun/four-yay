@@ -37,6 +37,11 @@ type SAFacts struct {
 	// Rules is the rules tier's private half, opaque here: the mana walk's
 	// gate facts for an AB$ ability, nil otherwise.
 	Rules unsafe.Pointer
+
+	// W4 step 3, the Charm/Pump/Draw compilers (charm_params.go,
+	// pump_params.go, draw_params.go): each is non-nil exactly when the
+	// ability's API is one its compiler serves.
+	Charm *CharmParams
 }
 
 // NewSAFacts compiles sa's typed halves into a fresh record naming sa. The
@@ -46,6 +51,7 @@ func NewSAFacts(sa *cards.SA) *SAFacts {
 	if isChangeZoneSA(sa) {
 		f.ChangeZone = compileChangeZone(sa)
 	}
+	compileTypedHalves(f, sa)
 	return f
 }
 

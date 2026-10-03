@@ -5,6 +5,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -34,7 +35,7 @@ func isModeAnswerKind(kind string) bool {
 // re-entry consumes them as the granted keywords).
 func modeAnswerNames(sa *cards.SA, chosen []decision.Option) []string {
 	eligible := []string(nil)
-	if strings.TrimSpace(sa.ParamStr(cards.PKChoices)) == "" {
+	if !effects.CharmOf(sa).HasChoices {
 		if kw := strings.TrimSpace(sa.Params["KWChoice"]); kw != "" {
 			eligible = strings.Split(kw, ",")
 			for i := range eligible {
