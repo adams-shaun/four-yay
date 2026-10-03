@@ -240,6 +240,17 @@ var DelayedTriggerFiles = []string{"effects/delayed_trigger.go"}
 // DelayedTriggerOnlyKeys are the parameter keys only DelayedTrigger's compiler reads.
 var DelayedTriggerOnlyKeys = []string{"NextTurn", "RememberChain"}
 
+// CopyPermanentCompilerFile is api:CopyPermanent's parameter compiler (W4 step 3): the
+// one file allowed to read a CopyPermanent ability's parameters.
+const CopyPermanentCompilerFile = "effects/copypermanent_params.go"
+
+// CopyPermanentFiles are CopyPermanent's own resolution files: they carry no parameter
+// read of any key.
+var CopyPermanentFiles = []string{"effects/copypermanent.go"}
+
+// CopyPermanentOnlyKeys are the parameter keys only CopyPermanent's compiler reads.
+var CopyPermanentOnlyKeys = []string{"AtEOTTrig", "DefinedName", "NumCopies", "Pawprint", "Populate", "RandomCopied", "RandomNum", "ValidSupportedCopy", "WithDifferentNames"}
+
 // TypedParamCompiler names one API's parameter compiler for the leak census
 // (Metrics.ChangeZoneParamLeaks and its siblings): the compiler file, the
 // API's own resolution files (no parameter read of any key there) and the
@@ -379,6 +390,10 @@ type Metrics struct {
 	// DelayedTriggerFiles, DelayedTriggerOnlyKeys).
 	DelayedTriggerParamLeaks int      `json:"delayed_trigger_param_leaks"`
 	DelayedTriggerLeaks      []string `json:"delayed_trigger_leaks"`
+	// CopyPermanentParamLeaks is the same census for api:CopyPermanent (CopyPermanentCompilerFile,
+	// CopyPermanentFiles, CopyPermanentOnlyKeys).
+	CopyPermanentParamLeaks int      `json:"copy_permanent_param_leaks"`
+	CopyPermanentLeaks      []string `json:"copy_permanent_leaks"`
 	// TrigmatchBoardMethods counts the methods trigmatch.Board declares
 	// (rules/trigmatch/board.go): the read-only view the trigger matchers
 	// reach the engine through (W5 E3). Zero when the package is absent.
@@ -507,6 +522,8 @@ func Measure(root string) (Metrics, error) {
 				TypedParamCompiler{TargetCompilerFile, nil, TargetOnlyKeys})...)
 			m.DelayedTriggerLeaks = append(m.DelayedTriggerLeaks, paramLeaks(fset, f, rel,
 				TypedParamCompiler{DelayedTriggerCompilerFile, DelayedTriggerFiles, DelayedTriggerOnlyKeys})...)
+			m.CopyPermanentLeaks = append(m.CopyPermanentLeaks, paramLeaks(fset, f, rel,
+				TypedParamCompiler{CopyPermanentCompilerFile, CopyPermanentFiles, CopyPermanentOnlyKeys})...)
 			ast.Inspect(f, func(n ast.Node) bool {
 				switch x := n.(type) {
 				case *ast.TypeAssertExpr:
@@ -573,6 +590,7 @@ func Measure(root string) (Metrics, error) {
 	m.EffectParamLeaks, m.EffectLeaks = finishLeaks(m.EffectLeaks)
 	m.TargetParamLeaks, m.TargetLeaks = finishLeaks(m.TargetLeaks)
 	m.DelayedTriggerParamLeaks, m.DelayedTriggerLeaks = finishLeaks(m.DelayedTriggerLeaks)
+	m.CopyPermanentParamLeaks, m.CopyPermanentLeaks = finishLeaks(m.CopyPermanentLeaks)
 	m.FuncsOver300 = len(m.LongFuncs)
 	sort.Slice(m.LongFuncs, func(i, j int) bool {
 		a, b := m.LongFuncs[i], m.LongFuncs[j]

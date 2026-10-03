@@ -93,6 +93,9 @@ func TestEveryConfiguredAbilityHasItsFactsRecord(t *testing.T) {
 			if (f.DelayedTrigger != nil) != (sa.CompiledAPI() == cards.APIDelayedTrigger || sa.API == "DelayedTrigger") {
 				t.Errorf("%s: %q (API %s): DelayedTrigger half present=%v", c.Path, sa.Line, sa.API, f.DelayedTrigger != nil)
 			}
+			if (f.CopyPermanent != nil) != (sa.API == "CopyPermanent") {
+				t.Errorf("%s: %q (API %s): CopyPermanent half present=%v", c.Path, sa.Line, sa.API, f.CopyPermanent != nil)
+			}
 		}
 	}
 	visit := func(c *cards.Card) {
