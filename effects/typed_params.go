@@ -56,10 +56,10 @@ func compileTypedHalves(f *SAFacts, sa *cards.SA) {
 		f.ManaReflected = compileManaReflected(sa)
 	}
 	if isDealDamageSA(sa) {
-		f.DealDamage = compileDealDamage(sa, f.Targets)
+		f.DealDamage = compileDealDamage(sa)
 	}
 	if isPutCounterSA(sa) {
-		f.PutCounter = compilePutCounter(sa, f.Targets)
+		f.PutCounter = compilePutCounter(sa)
 	}
 	if isEffectSA(sa) {
 		f.Effect = compileEffect(sa)

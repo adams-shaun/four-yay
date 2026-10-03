@@ -168,7 +168,7 @@ func PutCounterOf(sa *cards.SA) *PutCounterParams {
 	if p := slot.Load(); p != nil && p.boundTo(sa.Params) {
 		return p
 	}
-	p := compilePutCounter(sa, TargetsOf(sa))
+	p := compilePutCounter(sa)
 	if sa.Params != nil {
 		slot.Store(p)
 	}
@@ -191,7 +191,7 @@ func (p *PutCounterParams) CounterNumValue(h Host, c *Ctx) int32 {
 }
 
 // compilePutCounter is the one reader of a PutCounter ability's parameters.
-func compilePutCounter(sa *cards.SA, tp *TargetParams) *PutCounterParams {
+func compilePutCounter(sa *cards.SA) *PutCounterParams {
 	p := &PutCounterParams{paramBinding: bindParams(sa)}
 	// Each key is read by its literal name (the parameter census attributes
 	// a read by the key the call spells).
@@ -219,7 +219,8 @@ func compilePutCounter(sa *cards.SA, tp *TargetParams) *PutCounterParams {
 	p.Bolster = ParamText{Text: bolster, Present: bolsterOK}
 	support, supportOK := sa.Params["Support"]
 	p.Support = ParamText{Text: support, Present: supportOK}
-	p.Divided = tp.Has(TgtDivided)
+	divided, dividedOK := dividedParam(sa)
+	p.Divided = dividedOK
 	choices, choicesOK := sa.Param(cards.PKChoices)
 	p.Choices = strings.TrimSpace(choices)
 	p.Chooser = sa.ParamStr(cards.PKChooser)
@@ -239,7 +240,7 @@ func compilePutCounter(sa *cards.SA, tp *TargetParams) *PutCounterParams {
 	p.RememberPut = isTrue(sa.ParamStr(cards.PKRememberPut))
 	p.RememberCards = isTrue(sa.Params["RememberCards"])
 
-	p.EntryFoldBlocked = optionalOK || choicesOK || rawParamText(sa, "Divided").Present || tp.Divided.Present ||
+	p.EntryFoldBlocked = optionalOK || choicesOK || rawParamText(sa, "Divided").Present || divided.Present ||
 		randomOK || bolsterOK || supportOK || p.Adapt.Present || p.Monstrosity.Present || renownOK ||
 		perNumOK || perTypeOK || eachFromOK || rawParamText(sa, "PerDefined").Present
 

@@ -21,7 +21,7 @@ func effExchangeControl(h Host, c *Ctx, sa *cards.SA) {
 	// receives the chosen side through the ordinary target transport and must
 	// not second-guess it. Confusion in the Ranks is exactly that shape
 	// (`Defined$ TriggeredCard | TargetingPlayer$ TriggeredCardController`).
-	if TargetsOf(sa).Has(TgtAtRandom) {
+	if targetsAtRandomParam(sa) {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "ExchangeControl TargetsAtRandom$ is unimplemented"})
 		return
 	}

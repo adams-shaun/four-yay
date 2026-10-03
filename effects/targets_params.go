@@ -16,9 +16,8 @@ import (
 // section 8: "start with APIs whose params are read on more than one path").
 // The targeting parameters -- ValidTgts$, TgtPrompt$, TargetMin$/TargetMax$,
 // TgtZone$, TargetType$, TargetUnique$, the TargetsWith*$ set constraints,
-// TargetingPlayer$/TargetingPlayerControls$, TargetValidTargeting$,
-// MaxTotalTarget*$, DividedAsYouChoose$ and TargetsAtRandom$ -- are not one
-// API's: every targeting ability carries them whatever its API, and they were
+// TargetingPlayer$/TargetingPlayerControls$, TargetValidTargeting$ and
+// MaxTotalTarget*$ -- are not one API's: every targeting ability carries them whatever its API, and they were
 // read on five paths (the offer census, the target ask, the resolution
 // recheck, the payment planner and the resolution itself) by ~140 literal
 // reads in ~45 files. compileTargets is now their ONLY reader: every path
@@ -28,10 +27,11 @@ import (
 // rules/ or effects/ outside this file.
 //
 // The per-API compilers that need a targeting fact (ChangeZone's ValidTgts$
-// and bounds, ChangeZoneAll's targeting flag, Attach's inZone<X> zones,
-// DealDamage's and PutCounter's DividedAsYouChoose$) take it from the
-// TargetParams NewSAFacts compiled first, so each key still has exactly one
-// reader.
+// and bounds, ChangeZoneAll's targeting flag, Attach's inZone<X> zones) take
+// it from the TargetParams NewSAFacts compiled first, so each key still has
+// exactly one reader. The two API-scoped riders (DividedAsYouChoose$,
+// TargetsAtRandom$) have their own single readers here (dividedParam,
+// targetsAtRandomParam).
 
 // TargetFlag is one compiled boolean fact of an ability's targeting.
 type TargetFlag uint32
@@ -66,10 +66,6 @@ const (
 	// TgtNonTriggeredController: TargetsWithDefinedController$
 	// NonTriggeredCardController.
 	TgtNonTriggeredController
-	// TgtDivided: DividedAsYouChoose$ is non-empty.
-	TgtDivided
-	// TgtAtRandom: TargetsAtRandom$ is set and not False.
-	TgtAtRandom
 	// TgtTypeStack: TargetType$ names a stack-object kind.
 	TgtTypeStack
 	// TgtValidStack: ValidTgts$ names a stack-object kind.
@@ -144,8 +140,6 @@ type TargetParams struct {
 	// MaxTotalCMC and MaxTotalPower are MaxTotalTargetCMC$ and
 	// MaxTotalTargetPower$ as written.
 	MaxTotalCMC, MaxTotalPower ParamText
-	// Divided is DividedAsYouChoose$ as written (TgtDivided: non-empty).
-	Divided ParamText
 }
 
 // Has reports whether every flag in f is set.
@@ -293,19 +287,32 @@ func compileTargets(sa *cards.SA) *TargetParams {
 	p.MaxTotalCMC = ParamText{Text: cmc, Present: cmcOK}
 	pow, powOK := sa.Params["MaxTotalTargetPower"]
 	p.MaxTotalPower = ParamText{Text: pow, Present: powOK}
-	div, divOK := sa.Param(cards.PKDividedAsYouChoose)
-	p.Divided = ParamText{Text: div, Present: divOK}
-	if strings.TrimSpace(div) != "" {
-		p.Flags |= TgtDivided
-	}
-	if v := strings.TrimSpace(sa.Params["TargetsAtRandom"]); v != "" && !strings.EqualFold(v, "False") {
-		p.Flags |= TgtAtRandom
-	}
 	if p.ValidTgts != "" || p.Prompt != "" || p.TargetType != "" || strings.TrimSpace(tmin) != "" ||
 		strings.TrimSpace(tmax) != "" || p.ZoneText != "" {
 		p.Flags |= TgtDeclares
 	}
 	return p
+}
+
+// DividedAsYouChoose$ and TargetsAtRandom$ are targeting riders that only
+// some APIs honour (DealDamage, PutCounter and PreventDamage divide; only
+// ExchangeControl refuses TargetsAtRandom$ loudly), so compileTargets -- which
+// every ability's resolution reaches -- does not read them: the parameter
+// census attributes a read to the APIs whose code reaches it, and a generic
+// read would mark both keys read for every API. Each has one reader below,
+// called only from those APIs' paths.
+
+// dividedParam is DividedAsYouChoose$ as written; ok reports it non-empty
+// (the ability divides its amount among its targets).
+func dividedParam(sa *cards.SA) (p ParamText, ok bool) {
+	v, present := sa.Param(cards.PKDividedAsYouChoose)
+	return ParamText{Text: v, Present: present}, strings.TrimSpace(v) != ""
+}
+
+// targetsAtRandomParam reports TargetsAtRandom$ set and not False.
+func targetsAtRandomParam(sa *cards.SA) bool {
+	v := strings.TrimSpace(sa.Params["TargetsAtRandom"])
+	return v != "" && !strings.EqualFold(v, "False")
 }
 
 // literalTargetBounds is the literal-only bound pair (TargetParams.BoundMin/
