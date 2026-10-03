@@ -27,7 +27,7 @@ func abilitySelfSkipTurns(ab *cards.SA) int8 {
 			continue
 		}
 		k := 1
-		if v, err := strconv.Atoi(strings.TrimSpace(sa.Params["NumTurns"])); err == nil && v > 0 {
+		if v, err := strconv.Atoi(strings.TrimSpace(sa.ParamStr(cards.PKNumTurns))); err == nil && v > 0 {
 			k = v
 		}
 		n += k
