@@ -233,7 +233,7 @@ func (e *Engine) filterTargetingPlayerControls(out []targetCandidate, sa *cards.
 // leaving the stack (the zone-change clear), so the next targeting cycle on
 // a fresh object never sees a stale seat.
 func (e *Engine) recordTpControlsChooser(obj state.ObjID, sa *cards.SA, chooser state.PlayerID) {
-	if sa == nil || obj == 0 || !strings.EqualFold(strings.TrimSpace(sa.Params["TargetingPlayerControls"]), "True") {
+	if sa == nil || obj == 0 || !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKTargetingPlayerControls)), "True") {
 		return
 	}
 	if e.tpCtlChooser == nil {
@@ -925,16 +925,16 @@ func (e *Engine) recheckCharmTargets(o *state.Object) ([][]state.Target, []state
 // bool marker alone is not carried (task mvts1).
 func offeredTargetSA(o *state.Object, svars map[string]string) *cards.SA {
 	if o.Ability != nil {
-		if len(o.ChosenModes) > 0 && strings.TrimSpace(o.Ability.Params["Choices"]) != "" {
+		if len(o.ChosenModes) > 0 && strings.TrimSpace(o.Ability.ParamStr(cards.PKChoices)) != "" {
 			for _, name := range o.ChosenModes {
 				if sub := cards.ResolveSVar(svars, name); sub != nil &&
-					strings.TrimSpace(sub.Params["ValidTgts"]) != "" {
+					strings.TrimSpace(sub.ParamStr(cards.PKValidTgts)) != "" {
 					return sub
 				}
 			}
 			return nil
 		}
-		if strings.TrimSpace(o.Ability.Params["ValidTgts"]) != "" {
+		if strings.TrimSpace(o.Ability.ParamStr(cards.PKValidTgts)) != "" {
 			return o.Ability
 		}
 		return nil
@@ -948,7 +948,7 @@ func offeredTargetSA(o *state.Object, svars map[string]string) *cards.SA {
 		return nil
 	}
 	targetSA := modalTargetSA(f, sa, o.ChosenModes)
-	if targetSA != nil && strings.TrimSpace(targetSA.Params["ValidTgts"]) != "" {
+	if targetSA != nil && strings.TrimSpace(targetSA.ParamStr(cards.PKValidTgts)) != "" {
 		return targetSA
 	}
 	return nil

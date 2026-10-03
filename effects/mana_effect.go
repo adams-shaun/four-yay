@@ -509,7 +509,7 @@ func eachColorAmongExiledWith(h Host, c *Ctx) string {
 // no activator fallback): Valleymaker's Defined$ ChosenPlayer must not hand the
 // mana to its controller when no player was chosen.
 func ManaRecipients(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
-	if strings.TrimSpace(sa.Params["Defined"]) == "" {
+	if strings.TrimSpace(sa.ParamStr(cards.PKDefined)) == "" {
 		return []state.PlayerID{c.Controller}
 	}
 	// definedPlayers applies Forge's getDefinedPlayers rule: a remembered CARD

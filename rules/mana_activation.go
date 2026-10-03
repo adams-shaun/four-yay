@@ -316,7 +316,7 @@ func (e *Engine) answerNestedManaColor(ma *manaColorActivation, chosen []decisio
 	}
 	savedTap, savedProducer := e.manaFromTap, e.manaProducer
 	if ma.trigger == nil && ma.ability != nil {
-		e.manaFromTap = e.costRef(ma.ability.Params["Cost"]).Tap
+		e.manaFromTap = e.costRef(ma.ability.ParamStr(cards.PKCost)).Tap
 		e.manaProducer = ma.source
 	}
 	template := *ma
@@ -411,7 +411,7 @@ func (e *Engine) manaReflectedPresentHolds(p state.PlayerID, source state.ObjID,
 	if !e.classBandGateHolds(ma.ParamStr(cards.PKClassBand), source) {
 		return false
 	}
-	spec, ok := ma.Params["IsPresent"]
+	spec, ok := ma.Param(cards.PKIsPresent)
 	if !ok || strings.TrimSpace(spec) == "" {
 		return true
 	}
@@ -627,7 +627,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 				!e.activationConditionOK(p, ma) || !e.manaActivationGateHolds(p, id, ma) {
 				continue
 			}
-			cc = e.compiledCostOf(ma.Params["Cost"])
+			cc = e.compiledCostOf(ma.ParamStr(cards.PKCost))
 		}
 		// The cost is looked up once for the CR 302.6 tap-sick gate and the
 		// payability gate (manaAbilityPayable's own tap-sick re-check is the
@@ -651,7 +651,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 			// gate, with the printed identity (flat pile index, no SVar).
 			if mf != nil && mf.noLimit {
 				// Neither limit parameter: nothing to check.
-			} else if _, limited := ma.Params["ActivationLimit"]; limited || ma.Params["GameActivationLimit"] != "" {
+			} else if _, limited := ma.Param(cards.PKActivationLimit); limited || ma.ParamStr(cards.PKGameActivationLimit) != "" {
 				idx, merged, found := pileAbilityRefOf(o, ma)
 				if found && e.activationLimitBlocked(p, id, ma, idx, "", merged) {
 					continue
@@ -685,7 +685,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 		// Face contexts are shared across abilities; never let one cost's
 		// elected candidates leak into a sibling ManaReflected ability.
 		c := *ctx()
-		cost := e.parseCost(ma.Params["Cost"])
+		cost := e.parseCost(ma.ParamStr(cards.PKCost))
 		if len(cost.UntapPermanent) > 0 {
 			claimed := map[state.ObjID]bool{}
 			if cost.Tap {
@@ -856,7 +856,7 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 // fail-OPEN on an unevaluable body is the mana contract too -- an unreadable
 // gate never silently removes a card's activation.
 func (e *Engine) manaSVarGateOK(o *state.Object, p state.PlayerID, id state.ObjID, ma *cards.SA) bool {
-	if _, ok := ma.Params["CheckSVar"]; !ok {
+	if _, ok := ma.Param(cards.PKCheckSVar); !ok {
 		return true
 	}
 	merged := 0
@@ -891,7 +891,7 @@ func (e *Engine) manaActivationGateHolds(p state.PlayerID, id state.ObjID, ma *c
 	if !e.activationPhasesOK(p, ma) {
 		return false
 	}
-	if spec, ok := ma.Params["IsPresent"]; ok && strings.TrimSpace(spec) != "" {
+	if spec, ok := ma.Param(cards.PKIsPresent); ok && strings.TrimSpace(spec) != "" {
 		n := e.countPresent(strings.TrimSpace(spec), id, p)
 		if cmp := strings.TrimSpace(ma.Params["PresentCompare"]); cmp != "" {
 			if !comparePresent(n, e.presentCompareFor(cmp, id, p)) {
@@ -1082,7 +1082,7 @@ func manaAbilityComboColours(ma *cards.SA, chosen string) ([]string, bool) {
 	if ma == nil || ma.API != "Mana" {
 		return nil, false
 	}
-	produced := substituteChosenProduced(strings.TrimSpace(ma.Params["Produced"]), chosen)
+	produced := substituteChosenProduced(strings.TrimSpace(ma.ParamStr(cards.PKProduced)), chosen)
 	cols, ok := effects.ComboColours(produced)
 	if !ok || len(cols) <= 1 {
 		return nil, false
@@ -1123,7 +1123,7 @@ func manaAbilityLabel(ma *cards.SA, chosen string) string {
 }
 
 func manaProducedLabel(ma *cards.SA, chosen string) string {
-	produced := substituteChosenProduced(strings.TrimSpace(ma.Params["Produced"]), chosen)
+	produced := substituteChosenProduced(strings.TrimSpace(ma.ParamStr(cards.PKProduced)), chosen)
 	switch produced {
 	case "Any", "Combo Any":
 		// A literal amount above one is named so a source whose abilities
@@ -1133,7 +1133,7 @@ func manaProducedLabel(ma *cards.SA, chosen string) string {
 		// payer could not choose the larger ability on purpose (task
 		// mana-wheel-amount-labels). The two shapes keep the distinct
 		// wording their stage-2 prompt uses (manaColourPrompt).
-		if n, ok := literalManaAmount(ma.Params["Amount"]); ok && n > 1 {
+		if n, ok := literalManaAmount(ma.ParamStr(cards.PKAmount)); ok && n > 1 {
 			if produced == "Combo Any" {
 				return "Add " + manaNumberWord(n) + " mana in any combination of colors"
 			}
@@ -1166,7 +1166,7 @@ func manaAmountPips(ma *cards.SA, pip string) string {
 	if len(pip) != 1 || !strings.Contains("WUBRGC", pip) {
 		return pip
 	}
-	raw, ok := ma.Params["Amount"]
+	raw, ok := ma.Param(cards.PKAmount)
 	if !ok {
 		return pip
 	}
@@ -1358,7 +1358,7 @@ func (e *Engine) manaAbilityTapSick(source state.ObjID, ma *cards.SA) bool {
 	if ma == nil {
 		return false
 	}
-	c := e.costRef(ma.Params["Cost"])
+	c := e.costRef(ma.ParamStr(cards.PKCost))
 	return e.tapFlagsSick(source, c.Tap, c.Untap)
 }
 
@@ -2241,7 +2241,7 @@ func (e *Engine) isTriggeredManaAbility(pt pendingTrigger) bool {
 		return false
 	}
 	for sa := pt.SA; sa != nil; sa = sa.Sub {
-		if strings.TrimSpace(sa.Params["ValidTgts"]) != "" {
+		if strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) != "" {
 			return false
 		}
 	}
@@ -2409,7 +2409,7 @@ func (e *Engine) resolveTriggeredManaOffStack(pt pendingTrigger, rest []pendingT
 // carries one).
 func (e *Engine) rewriteChosenMana(pt pendingTrigger) pendingTrigger {
 	for sa, d := pt.SA, 0; sa != nil && d < 32; sa, d = sa.Sub, d+1 {
-		if sa.API != "Mana" || strings.TrimSpace(sa.Params["Produced"]) != "Chosen" {
+		if sa.API != "Mana" || strings.TrimSpace(sa.ParamStr(cards.PKProduced)) != "Chosen" {
 			continue
 		}
 		o := e.G.Obj(pt.Source)
@@ -2441,7 +2441,7 @@ func (e *Engine) askTriggeredManaColor(pt pendingTrigger, rest []pendingTrigger,
 		chooser = ps[0]
 	}
 	amount := effects.Num(e, &pt.Ctx, mana, "Amount", 1)
-	allocation := strings.HasPrefix(strings.TrimSpace(mana.Params["Produced"]), "Combo ") && amount > 1
+	allocation := strings.HasPrefix(strings.TrimSpace(mana.ParamStr(cards.PKProduced)), "Combo ") && amount > 1
 	min, max := 1, 1
 	if allocation {
 		min, max = int(amount), int(amount)
@@ -2469,7 +2469,7 @@ func triggeredManaColourChoice(sa *cards.SA) (*cards.SA, []string) {
 		if sa.API != "Mana" {
 			continue
 		}
-		produced := strings.TrimSpace(sa.Params["Produced"])
+		produced := strings.TrimSpace(sa.ParamStr(cards.PKProduced))
 		if produced == "Any" || produced == "Combo Any" {
 			return sa, []string{"W", "U", "B", "R", "G"}
 		}
@@ -2624,7 +2624,7 @@ func (e *Engine) resolveManaAbilityRef(p state.PlayerID, source state.ObjID, ma 
 // on an immutable copy, but the limit census is keyed to the compiled ability
 // in the source pile, not that copy.
 func (e *Engine) resolveManaAbilityRefOriginal(p state.PlayerID, source state.ObjID, ma, original *cards.SA, gained gainedManaRef, cast, payment, interactive bool) {
-	if !interactive && costHasDynamicXTap(e.costRef(ma.Params["Cost"])) {
+	if !interactive && costHasDynamicXTap(e.costRef(ma.ParamStr(cards.PKCost))) {
 		return
 	}
 	if !e.manaAbilityPayable(p, source, ma) {
@@ -2648,7 +2648,7 @@ func (e *Engine) resolveManaAbilityRefOriginal(p state.PlayerID, source state.Ob
 	// attribution, so an ability that carries EITHER limit records its
 	// activation here (events.ManaActivate's own comment). Emitted only for a
 	// limit-bearing ability so no existing game's log shape changes.
-	if _, limited := original.Params["ActivationLimit"]; limited || original.Params["GameActivationLimit"] != "" ||
+	if _, limited := original.Param(cards.PKActivationLimit); limited || original.ParamStr(cards.PKGameActivationLimit) != "" ||
 		chainGatesOnActivationCount(original) {
 		// The flat pile index (top face first, then under-cards) is the SAME
 		// identity availableManaAbilitiesUsing's limit gate checks, so an
@@ -2874,7 +2874,7 @@ func (e *Engine) askManaUnlessDecision() {
 	if m == nil || m.next >= len(m.payers) {
 		return
 	}
-	raw := strings.TrimSpace(m.ability.Params["UnlessCost"])
+	raw := strings.TrimSpace(m.ability.ParamStr(cards.PKUnlessCost))
 	cost := capitaliseFirst(costPhrase(ParseCost(raw)))
 	if cost == "" {
 		// A cost costPhrase cannot render (a malformed or entirely
@@ -2903,7 +2903,7 @@ func (e *Engine) answerManaUnless(chosen []decision.Option) bool {
 	payer := m.payers[m.next]
 	paid := false
 	if len(chosen) == 1 && chosen[0].Index == 0 {
-		if cost, ok := ParseUnlessCost(m.ability.Params["UnlessCost"]); ok {
+		if cost, ok := ParseUnlessCost(m.ability.ParamStr(cards.PKUnlessCost)); ok {
 			if len(cost.Sac) > 0 || len(cost.Discard) > 0 || len(cost.Reveal) > 0 || len(cost.Behold) > 0 || len(cost.RevealChosen) > 0 || len(cost.Return) > 0 {
 				// Activated mana stays off stack, but a sacrifice/discard/return/
 				// reveal/behold in its unless cost is still a real payer choice. The
@@ -2955,7 +2955,7 @@ func (e *Engine) finishManaUnlessPayment(paid bool) {
 // fixed set. Any selects one colour for the whole Amount$; Combo allocates
 // one option per mana unit, so Combo Any Amount 2 can select U then R.
 func (e *Engine) askManaColor(p state.PlayerID, source state.ObjID, ma *cards.SA, cast, cumulative bool, triggers []pendingTrigger, colours []string, gained gainedManaRef, amount int32, sacs []state.ObjID) {
-	allocation := strings.HasPrefix(strings.TrimSpace(ma.Params["Produced"]), "Combo ") && amount > 1
+	allocation := strings.HasPrefix(strings.TrimSpace(ma.ParamStr(cards.PKProduced)), "Combo ") && amount > 1
 	min, max := 1, 1
 	if allocation {
 		min, max = int(amount), int(amount)
@@ -2994,12 +2994,12 @@ func (e *Engine) askManaColor(p state.PlayerID, source state.ObjID, ma *cards.SA
 // the commander-identity restriction.
 func manaColourPrompt(ma *cards.SA) string {
 	generic := "Choose a colour of mana"
-	shape := strings.TrimSpace(ma.Params["Produced"])
+	shape := strings.TrimSpace(ma.ParamStr(cards.PKProduced))
 	identity := isColourIdentityProduced(shape)
 	if identity {
 		generic = "Choose a colour in your commander's color identity"
 	}
-	raw, ok := ma.Params["Amount"]
+	raw, ok := ma.Param(cards.PKAmount)
 	if !ok {
 		// No Amount$ param: stay generic — the prompt must not invent an
 		// amount the script never stated.
@@ -3076,7 +3076,7 @@ func (e *Engine) resolveManaEffectColor(p state.PlayerID, source state.ObjID, ma
 	// replay chain head). A sacrifice-only KCI activation therefore identifies
 	// its source but is not tap-produced.
 	savedTap, savedProducer := e.manaFromTap, e.manaProducer
-	e.manaFromTap = e.costRef(ma.Params["Cost"]).Tap
+	e.manaFromTap = e.costRef(ma.ParamStr(cards.PKCost)).Tap
 	e.manaProducer = source
 	// A gained mana ability's body resolves its SVars (Amount$ X) against
 	// the FOREIGN face it was compiled on, never the recipient's.

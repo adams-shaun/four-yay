@@ -83,7 +83,7 @@ func (e *Engine) spellCastEval(t cards.Trigger, source state.ObjID, ev events.Ev
 	// the two can never disagree (the Each arm below reads only the alts this
 	// block computed).
 	var castAlts []triggerCastAlt
-	if v, ok := t.Params["ValidCard"]; ok {
+	if v, ok := t.Param(cards.PKValidCard); ok {
 		alts, ok2 := e.triggerCastAlternatives(v, source, ev.Obj)
 		if !ok2 {
 			return false
@@ -306,7 +306,7 @@ func (e *Engine) spellAbilityCastSpellMatches(t cards.Trigger, source state.ObjI
 			return false
 		}
 	}
-	if v, ok := t.Params["ValidCard"]; ok {
+	if v, ok := t.Param(cards.PKValidCard); ok {
 		// The delayed-registration mirror's ValidCard$ grammar
 		// (eventDelayedSpellCastMatches): the provenance strip, then the
 		// ordinary object filter over the cast spell on the stack. The
@@ -462,7 +462,7 @@ func (e *Engine) abilityCastMatches(t cards.Trigger, source state.ObjID, ev even
 	// ValidCard$ scopes AbilityCast to the permanent whose ability was
 	// activated. It is distinct from the trigger source: Avalanche of Sector
 	// 7's Artifact restriction must reject an ability from a non-artifact.
-	if v, ok := t.Params["ValidCard"]; ok {
+	if v, ok := t.Param(cards.PKValidCard); ok {
 		if !e.matchesSpec(v, obj.ID, e.specCtx(source, ctrl)) {
 			return false
 		}
@@ -613,7 +613,7 @@ func (e *Engine) activationCountersRemoved(ev events.Event, ab *cards.SA) int32 
 		return -1
 	}
 	var n int32
-	for _, part := range ParseCost(ab.Params["Cost"]).SubCounter {
+	for _, part := range ParseCost(ab.ParamStr(cards.PKCost)).SubCounter {
 		if part.Announced {
 			return -1
 		}
@@ -652,7 +652,7 @@ func hasXManaCostGate(params map[string]string, faceCost string, ab *cards.SA) b
 		return false
 	}
 	if ab != nil {
-		return ParseCost(ab.Params["Cost"]).X > 0
+		return ParseCost(ab.ParamStr(cards.PKCost)).X > 0
 	}
 	return ParseCost(faceCost).X > 0
 }
@@ -1012,7 +1012,7 @@ func (e *Engine) manaExpendMatches(t cards.Trigger, source state.ObjID, ev event
 	if !effects.MatchesPlayerSpecCtx(e.G, player, ev.Player, ctrl, e.playerSpecCtx(source)) {
 		return false
 	}
-	n, ok := e.manaExpendAmount(source, t.Params["Amount"], ctrl)
+	n, ok := e.manaExpendAmount(source, t.ParamStr(cards.PKAmount), ctrl)
 	if !ok || n <= 0 {
 		// An unreadable or non-positive Amount$ is a threshold this engine
 		// cannot evaluate: fail closed, never fire wide.

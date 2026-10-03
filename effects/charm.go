@@ -39,7 +39,7 @@ func CharmModeBounds(h Host, c *Ctx, sa *cards.SA, choices int) (min, max int, r
 	if _, ok := sa.Params["MinCharmNum"]; ok {
 		min = int(Num(h, c, sa, "MinCharmNum", int32(min)))
 	}
-	if strings.EqualFold(sa.Params["Optional"], "True") {
+	if strings.EqualFold(sa.ParamStr(cards.PKOptional), "True") {
 		min = 0
 	}
 	if !repeat && max > choices {
@@ -169,12 +169,12 @@ func charmUniquePlayerSpec(spec string) bool {
 // combined ask.
 func charmUniqueBounds(sa *cards.SA) (min, max int) {
 	min, max = 1, 1
-	if v, ok := sa.Params["TargetMin"]; ok {
+	if v, ok := sa.Param(cards.PKTargetMin); ok {
 		if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
 			min = n
 		}
 	}
-	if v, ok := sa.Params["TargetMax"]; ok {
+	if v, ok := sa.Param(cards.PKTargetMax); ok {
 		if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
 			max = n
 		}
@@ -208,7 +208,7 @@ func CharmCrossModeShape(svars map[string]string, modes []string) (CharmUniqueSt
 		if sub == nil {
 			continue
 		}
-		s := strings.TrimSpace(sub.Params["ValidTgts"])
+		s := strings.TrimSpace(sub.ParamStr(cards.PKValidTgts))
 		if s == "" {
 			continue
 		}
@@ -252,7 +252,7 @@ func CharmCrossModeShape(svars map[string]string, modes []string) (CharmUniqueSt
 // Returns false when the shape does not apply and the caller must keep the
 // historical shared-target loop.
 func charmCrossModeRun(h Host, c *Ctx, sa *cards.SA, names []string) bool {
-	choices := strings.Split(sa.Params["Choices"], ",")
+	choices := strings.Split(sa.ParamStr(cards.PKChoices), ",")
 	for i := range choices {
 		choices[i] = strings.TrimSpace(choices[i])
 	}
@@ -261,7 +261,7 @@ func charmCrossModeRun(h Host, c *Ctx, sa *cards.SA, names []string) bool {
 	}
 	var tbmIdx []int
 	for i, name := range names {
-		if sub := cards.ResolveSVar(c.SVars, name); sub != nil && strings.TrimSpace(sub.Params["ValidTgts"]) != "" {
+		if sub := cards.ResolveSVar(c.SVars, name); sub != nil && strings.TrimSpace(sub.ParamStr(cards.PKValidTgts)) != "" {
 			tbmIdx = append(tbmIdx, i)
 		}
 	}
@@ -326,7 +326,7 @@ func charmCrossModeRun(h Host, c *Ctx, sa *cards.SA, names []string) bool {
 // the chosen body runs, so Defined$ Remembered and Player.IsRemembered in the
 // body refer to the victim.
 func effVillainousChoice(h Host, c *Ctx, sa *cards.SA) {
-	choices := strings.Split(sa.Params["Choices"], ",")
+	choices := strings.Split(sa.ParamStr(cards.PKChoices), ",")
 	if len(choices) == 0 || c.SVars == nil {
 		return
 	}
@@ -408,7 +408,7 @@ func charmDistinctTargetRun(h Host, c *Ctx, sa *cards.SA, names []string) bool {
 	}
 	offset := 0
 	for _, name := range c.ModesSeen {
-		if sub := cards.ResolveSVar(c.SVars, name); sub != nil && strings.TrimSpace(sub.Params["ValidTgts"]) != "" {
+		if sub := cards.ResolveSVar(c.SVars, name); sub != nil && strings.TrimSpace(sub.ParamStr(cards.PKValidTgts)) != "" {
 			offset++
 		}
 	}
@@ -419,7 +419,7 @@ func charmDistinctTargetRun(h Host, c *Ctx, sa *cards.SA, names []string) bool {
 		}
 		savedTargets, savedOffered, savedMarker := c.Targets, c.OfferedSA, c.TargetsOffered
 		savedScope, savedScopeSA := c.CharmModeScope, c.CharmModeSA
-		if strings.TrimSpace(sub.Params["ValidTgts"]) != "" {
+		if strings.TrimSpace(sub.ParamStr(cards.PKValidTgts)) != "" {
 			if offset >= len(c.ModeTargets) {
 				return false
 			}
@@ -476,7 +476,7 @@ func charmGenericPlayers(h Host, c *Ctx, sa *cards.SA) bool {
 	if sa.API != "GenericChoice" {
 		return false
 	}
-	choices := strings.Split(sa.Params["Choices"], ",")
+	choices := strings.Split(sa.ParamStr(cards.PKChoices), ",")
 	if len(choices) == 0 {
 		return false
 	}
@@ -488,7 +488,7 @@ func charmGenericPlayers(h Host, c *Ctx, sa *cards.SA) bool {
 	if c.GenericChoosers != nil {
 		return charmGenericPlayersRun(h, c, sa, choices)
 	}
-	defined := strings.TrimSpace(sa.Params["Defined"])
+	defined := strings.TrimSpace(sa.ParamStr(cards.PKDefined))
 	if defined == "" {
 		return false
 	}
@@ -700,7 +700,7 @@ func genericChoiceAvailable(h Host, c *Ctx, payer state.PlayerID, choices []stri
 			out = append(out, name)
 			continue
 		}
-		raw := strings.TrimSpace(sub.Params["UnlessCost"])
+		raw := strings.TrimSpace(sub.ParamStr(cards.PKUnlessCost))
 		if raw == "" || checker.UnlessCostPayableFromCtx(payer, raw, c) {
 			out = append(out, name)
 		}
@@ -721,7 +721,7 @@ func effCharm(h Host, c *Ctx, sa *cards.SA) {
 	if charmGenericPlayers(h, c, sa) {
 		return
 	}
-	choices := strings.Split(sa.Params["Choices"], ",")
+	choices := strings.Split(sa.ParamStr(cards.PKChoices), ",")
 	if len(choices) == 0 {
 		return
 	}
@@ -790,7 +790,7 @@ func effCharm(h Host, c *Ctx, sa *cards.SA) {
 				savedOffered, savedTargets, savedMark := c.OfferedSA, c.Targets, c.TargetsOffered
 				first := !seen[name]
 				seen[name] = true
-				if modalOffered && strings.TrimSpace(sub.Params["ValidTgts"]) != "" {
+				if modalOffered && strings.TrimSpace(sub.ParamStr(cards.PKValidTgts)) != "" {
 					if first {
 						c.OfferedSA = sub
 					} else {
@@ -955,11 +955,11 @@ func CharmModeLabel(sub *cards.SA, fallback string) string {
 	if sub == nil {
 		return fallback
 	}
-	if d := strings.TrimSpace(sub.Params["SpellDescription"]); d != "" {
+	if d := strings.TrimSpace(sub.ParamStr(cards.PKSpellDescription)); d != "" {
 		return d
 	}
 	for s := sub.Sub; s != nil; s = s.Sub {
-		if d := strings.TrimSpace(s.Params["SpellDescription"]); d != "" {
+		if d := strings.TrimSpace(s.ParamStr(cards.PKSpellDescription)); d != "" {
 			return d
 		}
 	}
@@ -1216,7 +1216,7 @@ func voteWinner(counts []int) (int, bool) {
 // with empty entries dropped. Shared by both vote shapes so the option list
 // the tally indexes is parsed one way.
 func voteChoiceNames(sa *cards.SA) []string {
-	raw := sa.Params["Choices"]
+	raw := sa.ParamStr(cards.PKChoices)
 	if strings.TrimSpace(raw) == "" {
 		return nil
 	}

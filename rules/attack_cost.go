@@ -1204,14 +1204,14 @@ func (e *Engine) attackChoiceManaSources(p state.PlayerID) []attackManaSource {
 			if strings.TrimSpace(ma.Params["RestrictValid"]) != "" {
 				continue
 			}
-			if !manaFreeCost(e.parseCost(ma.Params["Cost"])) {
+			if !manaFreeCost(e.parseCost(ma.ParamStr(cards.PKCost))) {
 				continue
 			}
 			amt := availableAmount(ma)
 			if amt <= 0 {
 				continue
 			}
-			produced := strings.TrimSpace(ma.Params["Produced"])
+			produced := strings.TrimSpace(ma.ParamStr(cards.PKProduced))
 			if produced == "" {
 				// The shared walk's domain: the executor's deterministic one-
 				// colourless default, already counted there. Admitting it here

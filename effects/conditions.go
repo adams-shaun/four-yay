@@ -239,16 +239,16 @@ func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 			return false, false
 		}
 		defined = presentDefined
-		present = strings.TrimSpace(sa.Params["IsPresent"])
+		present = strings.TrimSpace(sa.ParamStr(cards.PKIsPresent))
 		compare = presentCompare
 	}
 	check := strings.TrimSpace(sa.Params["ConditionCheckSVar"])
 	svarCmp := strings.TrimSpace(sa.Params["ConditionSVarCompare"])
-	bare := strings.TrimSpace(sa.Params["Condition"])
+	bare := strings.TrimSpace(sa.ParamStr(cards.PKCondition))
 	playerTurn := strings.TrimSpace(sa.Params["ConditionPlayerTurn"])
 	phases := strings.TrimSpace(sa.Params["ConditionPhases"])
 	firstCombat := strings.TrimSpace(sa.Params["ConditionFirstCombat"])
-	activationLimit := strings.TrimSpace(sa.Params["ConditionActivationLimit"])
+	activationLimit := strings.TrimSpace(sa.ParamStr(cards.PKConditionActivationLimit))
 	if defined == "" && present == "" && notPresent == "" && compare == "" && check == "" && bare == "" &&
 		playerTurn == "" && phases == "" && firstCombat == "" && activationLimit == "" {
 		return true, false // not gated (a lone ConditionSVarCompare$ compares nothing)
@@ -575,7 +575,7 @@ func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 		// DBPrevent is the one measured carrier (a DB sub of an ACTIVATED
 		// ability, reached by no placement or charm ask).
 		group = targetedGateGroup(c, sa)
-		if len(group) == 0 && strings.TrimSpace(sa.Params["ValidTgts"]) != "" &&
+		if len(group) == 0 && strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) != "" &&
 			!targetedAskCovered(c, sa) {
 			return false, false
 		}

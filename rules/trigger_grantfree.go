@@ -134,7 +134,7 @@ func faceGrantsTriggers(f *cards.Face) bool {
 	}
 	for i := range f.Statics {
 		st := &f.Statics[i]
-		if strings.TrimSpace(st.ParamStr(cards.PKAddTrigger)) != "" || strings.TrimSpace(st.Params["GainsTriggerAbsOf"]) != "" {
+		if strings.TrimSpace(st.ParamStr(cards.PKAddTrigger)) != "" || strings.TrimSpace(st.ParamStr(cards.PKGainsTriggerAbsOf)) != "" {
 			return true
 		}
 	}

@@ -204,7 +204,7 @@ func computeWalkFaceFacts(f *cards.Face) walkFaceFacts {
 			ff.manaAllTap, ff.manaControllerOnly = false, false
 			break
 		}
-		if !ParseCost(ma.Params["Cost"]).Tap {
+		if !ParseCost(ma.ParamStr(cards.PKCost)).Tap {
 			ff.manaAllTap = false
 		}
 		if !blankActivator(ma) {
@@ -223,7 +223,7 @@ func computeWalkFaceFacts(f *cards.Face) walkFaceFacts {
 // parsed directly rather than read through the engine's compiled-cost table,
 // which holds the same frozen parse.
 func loyaltyAbilityText(ab *cards.SA) bool {
-	raw := ab.Params["Cost"]
+	raw := ab.ParamStr(cards.PKCost)
 	if !containsLoyaltyFold(raw) {
 		return isLoyaltyMarked(ab)
 	}
@@ -232,7 +232,7 @@ func loyaltyAbilityText(ab *cards.SA) bool {
 }
 
 func blankActivator(ab *cards.SA) bool {
-	v, ok := ab.Params["Activator"]
+	v, ok := ab.Param(cards.PKActivator)
 	if !ok {
 		return true
 	}

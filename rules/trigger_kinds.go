@@ -150,7 +150,7 @@ func lineTrigSig(t *cards.Trigger, valid func(string) bool) trigSig {
 		return sig
 	}
 	// zoneChangeMatchesWithCapture's own reads, in its order.
-	if o, ok := t.Params["Origin"]; ok {
+	if o, ok := t.Param(cards.PKOrigin); ok {
 		zones, all, listOK := effects.ParseZones(o)
 		switch {
 		case !listOK:
@@ -166,7 +166,7 @@ func lineTrigSig(t *cards.Trigger, valid func(string) bool) trigSig {
 			}
 		}
 	}
-	if d, ok := t.Params["Destination"]; ok && d != "Any" {
+	if d, ok := t.Param(cards.PKDestination); ok && d != "Any" {
 		if z := effects.ParseZone(d); z < 32 {
 			sig.zcTo = 1 << z
 		}
@@ -274,9 +274,9 @@ func lineReferentOnly(t *cards.Trigger) bool {
 	if t.Mode != "ChangesZone" && t.Mode != "ChangesZoneAll" {
 		return false
 	}
-	v, ok := t.Params["ValidCards"]
+	v, ok := t.Param(cards.PKValidCards)
 	if !ok {
-		v, ok = t.Params["ValidCard"]
+		v, ok = t.Param(cards.PKValidCard)
 	}
 	return ok && selfOnlySpec(v)
 }

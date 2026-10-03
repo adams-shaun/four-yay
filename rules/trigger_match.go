@@ -585,7 +585,7 @@ var actionTriggerModes = map[string]bool{
 // reports (0, true) so the gate denies it (fail closed), matching
 // triggerActivationLimitAllows's malformed handling.
 func triggerGameLimitFor(t cards.Trigger) (limit int, present bool) {
-	raw, present := t.Params["GameActivationLimit"]
+	raw, present := t.Param(cards.PKGameActivationLimit)
 	if !present {
 		return 0, false
 	}
@@ -663,7 +663,7 @@ func (e *Engine) reserveTriggerGameActivationLimit(t cards.Trigger, key triggerK
 // applies; a malformed or negative value reports (0, true) so the gate denies
 // it (fail closed).
 func triggerTurnLimitFor(t cards.Trigger) (limit int, present bool) {
-	raw, ok := t.Params["ActivationLimit"]
+	raw, ok := t.Param(cards.PKActivationLimit)
 	if !ok {
 		// The Once mode's implicit limit reuses triggerTurnFires (which Clone
 		// already deep-copies) instead of a second latch field, keeping the two
@@ -1764,11 +1764,11 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 				switch {
 				case fc.merged > 0:
 					pt.Merged = fc.merged
-					pt.Execute = t.Params["Execute"]
+					pt.Execute = t.ParamStr(cards.PKExecute)
 				case !fc.active:
 					pt.Delayed = true
 					pt.DelayedID = ^uint32(0)
-					pt.Execute = t.Params["Execute"]
+					pt.Execute = t.ParamStr(cards.PKExecute)
 				}
 				if t.Mode == "Exploited" {
 					// CR 702.58c's "that creature" is the exploited one, not the
@@ -2410,7 +2410,7 @@ func (e *Engine) triggerRememberedFor(t cards.Trigger, ev events.Event, source s
 	if t.Mode == "Always" {
 		return stateTriggerRemembered(source)
 	}
-	if ev.Kind == events.DeclareAttackers && t.Params["Keyword"] == "Melee" {
+	if ev.Kind == events.DeclareAttackers && t.ParamStr(cards.PKKeyword) == "Melee" {
 		return e.meleeRemembered(ev)
 	}
 	if ev.Kind == events.DeclareAttackers && attackersDeclaredBatch(t) && len(e.declaredAttackers) > 0 {
@@ -2559,7 +2559,7 @@ func (e *Engine) triggerMatchesWithSVars(t cards.Trigger, source state.ObjID, ev
 	// controller's own turn too, the over-fire direction. A value this build
 	// cannot read as True is unreadable and fails closed, the convention the
 	// PlayerTurn$ gate and the condition clauses share.
-	if v, ok := t.Params["OpponentTurn"]; ok {
+	if v, ok := t.Param(cards.PKOpponentTurn); ok {
 		if !strings.EqualFold(strings.TrimSpace(v), "True") || e.G.Active == e.controllerOf(source) {
 			return false
 		}
@@ -2669,7 +2669,7 @@ func (e *Engine) secondaryYields(observer *Engine, face *cards.Face, ti int, t c
 		if j == ti || strings.EqualFold(sib.Params["Secondary"], "True") {
 			continue
 		}
-		if sib.Params["Execute"] != t.Params["Execute"] {
+		if sib.ParamStr(cards.PKExecute) != t.ParamStr(cards.PKExecute) {
 			continue
 		}
 		if observer.triggerMatches(sib, source, ev, lki) {
@@ -2717,9 +2717,9 @@ func phaseOutAllMatches(e *Engine, t cards.Trigger, source state.ObjID, ev event
 	if ev.Kind != events.PhaseOut || ev.Amount < 1 || ev.Obj == 0 {
 		return false
 	}
-	spec := strings.TrimSpace(t.Params["ValidCards"])
+	spec := strings.TrimSpace(t.ParamStr(cards.PKValidCards))
 	if spec == "" {
-		spec = strings.TrimSpace(t.Params["ValidCard"])
+		spec = strings.TrimSpace(t.ParamStr(cards.PKValidCard))
 	}
 	if spec == "" {
 		return true

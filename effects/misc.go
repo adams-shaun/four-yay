@@ -56,7 +56,7 @@ func effGoad(h Host, c *Ctx, sa *cards.SA) {
 				h.Emit(events.Event{Kind: events.Goad, Obj: o.ID, Amount: -1})
 				continue
 			}
-			duration := sa.Params["Duration"]
+			duration := sa.ParamStr(cards.PKDuration)
 			if duration == "" {
 				duration = "UntilYourNextTurn"
 			}
@@ -152,7 +152,7 @@ func effWard(h Host, c *Ctx, sa *cards.SA) {
 		// The prompt is player-facing text: render the raw UnlessCost$
 		// (PayLife<2>, Sac<1/Creature>) through unlessPayPhrase, never
 		// verbatim. Display only; the charge is rules' unless-payment path.
-		pay := unlessPayPhrase(sa.Params["UnlessCost"])
+		pay := unlessPayPhrase(sa.ParamStr(cards.PKUnlessCost))
 		d := &decision.Decision{Player: o.Controller, Kind: decision.KModes, Min: 1, Max: 1,
 			Prompt: pay + " for ward?", ResumeKind: "unless_pay", ResumeSA: sa,
 			Options: []decision.Option{{Index: 0, Kind: "mode", Label: pay, Player: o.Controller, Mode: decision.ModeUnlessPay}, {Index: 1, Kind: "mode", Label: "Don't pay", Player: o.Controller, Mode: decision.ModeUnlessDecline}}}
@@ -217,7 +217,7 @@ func effectContinuous(h Host, ce state.ContinuousEffect) {
 }
 
 func effEffect(h Host, c *Ctx, sa *cards.SA) {
-	rawDur := sa.Params["Duration"]
+	rawDur := sa.ParamStr(cards.PKDuration)
 	dur := rawDur
 	if dur == "" {
 		dur = "Permanent"
@@ -441,7 +441,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 			// registering it would only add an inert DelayedTrigger.
 			continue
 		}
-		exec := strings.TrimSpace(tr.Params["Execute"])
+		exec := strings.TrimSpace(tr.ParamStr(cards.PKExecute))
 		if exec == "" {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 				Text: "Effect trigger " + name + " names no Execute"})
@@ -479,7 +479,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 		// DelayedRegister decode -> state.DelayedTrigger.OptionalSpec ->
 		// checkDelayedTriggers/checkEventDelayedTriggers ->
 		// effects.TriggerContext.OptionalSpec).
-		optionalSpec := strings.TrimSpace(tr.Params["OptionalDecider"])
+		optionalSpec := strings.TrimSpace(tr.ParamStr(cards.PKOptionalDecider))
 		odSuffix := ""
 		if optionalSpec != "" {
 			// A Static$ True body cannot carry the election: rules'
@@ -648,10 +648,10 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 			if !resolveOwners() {
 				continue
 			}
-			set, unknown := state.ParsePhases(tr.Params["Phase"])
+			set, unknown := state.ParsePhases(tr.ParamStr(cards.PKPhase))
 			if len(unknown) > 0 {
 				h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-					Text: "Effect trigger " + name + " at unrecognized phase " + tr.Params["Phase"]})
+					Text: "Effect trigger " + name + " at unrecognized phase " + tr.ParamStr(cards.PKPhase)})
 				registered = true
 				continue
 			}
@@ -662,8 +662,8 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 				registered = true
 				continue
 			}
-			text := tr.Params["Phase"] + expiry + odSuffix
-			if vp := strings.TrimSpace(tr.Params["ValidPlayer"]); vp != "" {
+			text := tr.ParamStr(cards.PKPhase) + expiry + odSuffix
+			if vp := strings.TrimSpace(tr.ParamStr(cards.PKValidPlayer)); vp != "" {
 				text += "|VP=" + vp
 			}
 			for _, owner := range owners {
@@ -783,7 +783,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 			// damageReplacementPrevents and stores the prevention Note whose
 			// Amount Mode$ DamagePreventedOnce triggers read.
 			untilEOT := effectUntilEOT(h, c.Source, rawDur)
-			if event == "DamageDone" && sa.Params["Duration"] == "" {
+			if event == "DamageDone" && sa.ParamStr(cards.PKDuration) == "" {
 				// This family's oracle text is always "this turn" (Selfless
 				// Squire, Kurbis, the Fog spells) and none of its bodyless lines
 				// names Duration$: a prevent from a PERMANENT source with no
@@ -1156,7 +1156,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 				break
 			}
 			ceUntilEOT := effectUntilEOT(h, c.Source, rawDur)
-			if absentDurationMeansThisTurn(mode) && sa.Params["Duration"] == "" {
+			if absentDurationMeansThisTurn(mode) && sa.ParamStr(cards.PKDuration) == "" {
 				// A restriction body whose oracle lifetime is THIS TURN but whose
 				// script writes no inline Duration$ gets UntilEOT, matching the
 				// general absent-Duration default. For a restriction the Permanent reading is the
@@ -1256,7 +1256,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 			// unchanged, with the Effect's remembered targets bound by the
 			// assignment view.
 			untilEOT := effectUntilEOT(h, c.Source, rawDur)
-			if sa.Params["Duration"] == "" && absentDurationMeansThisTurn(mode) {
+			if sa.ParamStr(cards.PKDuration) == "" && absentDurationMeansThisTurn(mode) {
 				untilEOT = true
 			}
 			ce := state.ContinuousEffect{

@@ -284,7 +284,7 @@ func (e *Engine) startCumulativeUpkeep(stackObj, source state.ObjID, sa *cards.S
 		return
 	}
 	e.emit(events.Event{Kind: events.CounterChange, Obj: source, Counter: "AGE", Amount: 1})
-	label := sa.Params["Cost"]
+	label := sa.ParamStr(cards.PKCost)
 	parsed := e.parseCost(label)
 	action, actionOK := parseCumulativeAction(label)
 	// The triggered ability's controller was captured when it was placed on
@@ -331,16 +331,16 @@ func (e *Engine) startCumulativeUpkeep(stackObj, source state.ObjID, sa *cards.S
 //     tapXType election (yotia_declares_war's "Mandatory tapXType<X/Artifact>")
 //     -- the tap election is the payment there, so the window stays right.
 func (e *Engine) triggerBodyNeedsCostWindow(sa *cards.SA) bool {
-	if sa == nil || sa.Params["Cost"] == "" || sa.API == "Mana" || sa.API == "CopySpellAbility" {
+	if sa == nil || sa.ParamStr(cards.PKCost) == "" || sa.API == "Mana" || sa.API == "CopySpellAbility" {
 		return false
 	}
-	if !strings.HasPrefix(sa.Params["Cost"], "Mandatory") {
+	if !strings.HasPrefix(sa.ParamStr(cards.PKCost), "Mandatory") {
 		return true
 	}
 	if sa.API == "Untap" || sa.API == "ImmediateTrigger" {
 		return true
 	}
-	c := e.parseCost(sa.Params["Cost"])
+	c := e.parseCost(sa.ParamStr(cards.PKCost))
 	// The dynamic tapXType heads (rules/mana.go's dynTapCost): the tap
 	// election is the payment, the empty election the decline.
 	if costCarriesDynTap(c) {
@@ -430,7 +430,7 @@ func (e *Engine) startTriggeredEffectCost(rp *resumePoint, source state.ObjID) {
 	if o == nil || o.Zone != state.ZStack || rp.sa == nil {
 		return
 	}
-	label := rp.sa.Params["Cost"]
+	label := rp.sa.ParamStr(cards.PKCost)
 	amount := e.parseCost(label)
 	e.triggerCost = &triggeredEffectCost{resume: rp, source: source,
 		player: o.Controller, amount: amount, costLabel: costPhrase(amount),

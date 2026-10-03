@@ -30,7 +30,7 @@ func charmTargetSlots(svars map[string]string, root *cards.SA, modes []string) [
 			return nil
 		}
 		seen[name] = true
-		if sub := cards.ResolveSVar(svars, name); sub != nil && strings.TrimSpace(sub.Params["ValidTgts"]) != "" {
+		if sub := cards.ResolveSVar(svars, name); sub != nil && strings.TrimSpace(sub.ParamStr(cards.PKValidTgts)) != "" {
 			slots = append(slots, name)
 		}
 	}
@@ -81,7 +81,7 @@ func (e *Engine) askCharmModeTargets(p state.PlayerID, source state.ObjID, svars
 	if len(slots) < 2 {
 		return false, false
 	}
-	choices := strings.Split(root.Params["Choices"], ",")
+	choices := strings.Split(root.ParamStr(cards.PKChoices), ",")
 	if status, _ := effects.CharmCrossModeShape(svars, choices); status != effects.CharmUniqueNone {
 		// The already-implemented TargetUnique family has a different wire
 		// contract (one target per mode AND one different player per target).
@@ -446,7 +446,7 @@ func (e *Engine) candidateControllerSeat(candidate targetCandidate) state.Player
 // callers can reject a mandatory ask without exposing an unsatisfiable
 // decision.
 func (e *Engine) sameControllerTargetBounds(sa *cards.SA, candidates []targetCandidate, min, max int) (int, int, int, bool) {
-	if !strings.EqualFold(sa.Params["TargetsWithSameController"], "True") {
+	if !strings.EqualFold(sa.ParamStr(cards.PKTargetsWithSameController), "True") {
 		return min, max, 0, false
 	}
 	counts := map[state.PlayerID]int{}
@@ -485,10 +485,10 @@ func (e *Engine) oneEachTargetBounds(sa *cards.SA, candidates []targetCandidate,
 	// equivalent flags is present. Before this only the
 	// TargetsForEachPlayer$ spelling was read and Mysterious Stranger asked
 	// for ONE target (Min 1 / Max 1) instead of one per represented player.
-	if strings.EqualFold(sa.Params["TargetMin"], "OneEach") {
+	if strings.EqualFold(sa.ParamStr(cards.PKTargetMin), "OneEach") {
 		min = distinct
 	}
-	if strings.EqualFold(sa.Params["TargetMax"], "OneEach") {
+	if strings.EqualFold(sa.ParamStr(cards.PKTargetMax), "OneEach") {
 		max = distinct
 	}
 	// Cap the maximum at the distinct-controller count for BOTH shapes: a
@@ -869,7 +869,7 @@ func (e *Engine) AskCopyTargets() bool {
 		return false
 	}
 	sa := decls[stage]
-	if sa == nil || strings.TrimSpace(sa.Params["ValidTgts"]) == "" {
+	if sa == nil || strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) == "" {
 		return false
 	}
 	candidates := e.legalTargetCandidates(controller, o.ID, o.ID, sa)
@@ -1015,7 +1015,7 @@ func (e *Engine) copyTargetDeclarations(o *state.Object) []*cards.SA {
 		for _, hf := range []*cards.Face{ff, fa} {
 			if modes := copyCharmModes(hf, hf.SpellAbility(), o.ChosenModes); len(modes) > 0 {
 				out = append(out, modes...)
-			} else if sa := hf.SpellAbility(); sa != nil && strings.TrimSpace(sa.Params["ValidTgts"]) != "" {
+			} else if sa := hf.SpellAbility(); sa != nil && strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) != "" {
 				out = append(out, sa)
 			}
 		}
@@ -1032,12 +1032,12 @@ func (e *Engine) copyTargetDeclarations(o *state.Object) []*cards.SA {
 }
 
 func copyCharmModes(f *cards.Face, sa *cards.SA, names []string) []*cards.SA {
-	if f == nil || sa == nil || sa.API != "Charm" || len(names) == 0 || sa.Params["ValidTgts"] != "" {
+	if f == nil || sa == nil || sa.API != "Charm" || len(names) == 0 || sa.ParamStr(cards.PKValidTgts) != "" {
 		return nil
 	}
 	var out []*cards.SA
 	for _, name := range names {
-		if sub := cards.ResolveSVar(f.SVars, name); sub != nil && strings.TrimSpace(sub.Params["ValidTgts"]) != "" {
+		if sub := cards.ResolveSVar(f.SVars, name); sub != nil && strings.TrimSpace(sub.ParamStr(cards.PKValidTgts)) != "" {
 			out = append(out, sub)
 		}
 	}
@@ -1058,7 +1058,7 @@ func (e *Engine) copyInheritedForDeclaration(o *state.Object, decls []*cards.SA,
 	if stages, ok := e.fuseTargets[o.ID]; ok {
 		index := stage
 		if ff, _ := fusedSplitFaces(o); ff != nil {
-			if sa := ff.SpellAbility(); sa == nil || strings.TrimSpace(sa.Params["ValidTgts"]) == "" {
+			if sa := ff.SpellAbility(); sa == nil || strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) == "" {
 				index++ // the first fused half has no target declaration
 			}
 		}

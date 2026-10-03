@@ -472,7 +472,7 @@ func (e *Engine) offerSacXMods(p state.PlayerID, id state.ObjID, ability bool, b
 // yet and therefore conservatively contribute no potential discount.
 func (e *Engine) costPotentialTargets(p state.PlayerID, id state.ObjID, scope costScope) []state.Target {
 	sa := e.costTargetingSA(id, scope)
-	if sa == nil || sa.Params["ValidTgts"] == "" || sa.Params["Choices"] != "" {
+	if sa == nil || sa.ParamStr(cards.PKValidTgts) == "" || sa.ParamStr(cards.PKChoices) != "" {
 		return nil
 	}
 	var excludeSelf state.ObjID
@@ -570,7 +570,7 @@ func (e *Engine) SpellEffectiveCost(p state.PlayerID, id state.ObjID) string {
 	}
 	// The own-cost projection does not price alternate cast faces or extra
 	// costs. The ordinary face spell shape is the only supported case here.
-	if f.SpellAbility().Params["AlternativeCost"] != "" || f.SpellAbility().Params["Cost"] != "" {
+	if f.SpellAbility().Params["AlternativeCost"] != "" || f.SpellAbility().ParamStr(cards.PKCost) != "" {
 		return ""
 	}
 	mods := e.costModifiersWithTargetsUsing(e.collectCostStatics(), p, id, spellScope(""), nil, false)
@@ -654,7 +654,7 @@ func (e *Engine) manaActivationCostMarker(abilities []*cards.SA) string {
 		if mf := e.manaFactsOf(ma); mf != nil {
 			cc = mf.cost
 		} else {
-			cc = e.compiledCostOf(ma.Params["Cost"])
+			cc = e.compiledCostOf(ma.ParamStr(cards.PKCost))
 		}
 		if cc.beyondTap {
 			return cc.formatted()

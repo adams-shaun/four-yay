@@ -37,7 +37,7 @@ func (e *Engine) tapsMatches(t cards.Trigger, source state.ObjID, ev events.Even
 		return false
 	}
 	actor := e.tapActor(ev)
-	if v := t.Params["Activator"]; v != "" && !effects.MatchesPlayerSpec(e.G, v, actor, e.controllerOf(source)) {
+	if v := t.ParamStr(cards.PKActivator); v != "" && !effects.MatchesPlayerSpec(e.G, v, actor, e.controllerOf(source)) {
 		return false
 	}
 	if v := t.Params["Attacker"]; v != "" {
@@ -52,7 +52,7 @@ func (e *Engine) tapsMatches(t cards.Trigger, source state.ObjID, ev events.Even
 	if strings.EqualFold(t.Params["FirstTime"], "True") && e.becameTappedThisTurn(ev.Obj) {
 		return false
 	}
-	if forMana && !tapsForManaProduced(t.Params["Produced"], e.tappingManaProduced) {
+	if forMana && !tapsForManaProduced(t.ParamStr(cards.PKProduced), e.tappingManaProduced) {
 		return false
 	}
 	return e.eventCardAndPlayerMatch(t, source, ev.Obj, actor)

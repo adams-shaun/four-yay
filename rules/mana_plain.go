@@ -50,16 +50,16 @@ func plainManaShape(ab *cards.SA) (byte, int32) {
 	if ab == nil || ab.API != "Mana" || ab.Sub != nil {
 		return 0, 0
 	}
-	produced, ok := ab.Params["Produced"]
+	produced, ok := ab.Param(cards.PKProduced)
 	if !ok {
 		return 0, 0
 	}
 	// Each key spelled out, so the parameter census sees static keys.
 	n := 1
-	if _, ok := ab.Params["Cost"]; ok {
+	if _, ok := ab.Param(cards.PKCost); ok {
 		n++
 	}
-	if _, ok := ab.Params["SpellDescription"]; ok {
+	if _, ok := ab.Param(cards.PKSpellDescription); ok {
 		n++
 	}
 	if _, ok := ab.Params["AILogic"]; ok {
@@ -78,7 +78,7 @@ func plainManaShape(ab *cards.SA) (byte, int32) {
 		n++
 	}
 	amt := int32(1)
-	if raw, ok := ab.Params["Amount"]; ok {
+	if raw, ok := ab.Param(cards.PKAmount); ok {
 		n++
 		v, err := strconv.Atoi(strings.TrimSpace(raw))
 		if err != nil || v < 1 || v > 1<<20 {

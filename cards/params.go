@@ -51,17 +51,23 @@ const (
 	PKCharacteristicDefining
 	PKCheckSVar
 	PKCheckSecondSVar
+	PKChoices
 	PKClassBand
 	PKCondition
 	PKConditionActivationLimit
 	PKConditionDefined
 	PKCost
+	PKCounterType
+	PKDefined
+	PKDefinedPlayer
 	PKDestination
 	PKDiscard
+	PKDuration
 	PKEffectOnly
 	PKEffectZone
 	PKEvolve
 	PKExcludeZone
+	PKExecute
 	PKExhaust
 	PKFirstForetell
 	PKFoundSearchingLibrary
@@ -85,6 +91,7 @@ const (
 	PKNotThisAbility
 	PKOnlyFirstSpell
 	PKOpponentTurn
+	PKOptional
 	PKOptionalDecider
 	PKOrigin
 	PKPhase
@@ -105,6 +112,8 @@ const (
 	PKSetPower
 	PKSetToughness
 	PKSorcerySpeed
+	PKSpellDescription
+	PKSubAbility
 	PKTargetMax
 	PKTargetMin
 	PKTargetType
@@ -126,8 +135,11 @@ const (
 	PKUnattach
 	PKUnlessCost
 	PKValidCard
+	PKValidCards
 	PKValidCause
 	PKValidLKI
+	PKValidPlayer
+	PKValidSource
 	PKValidSpell
 	PKValidTarget
 	PKValidTgts
@@ -171,17 +183,23 @@ var paramKeyNames = [paramKeyCount]string{
 	PKCharacteristicDefining:          "CharacteristicDefining",
 	PKCheckSVar:                       "CheckSVar",
 	PKCheckSecondSVar:                 "CheckSecondSVar",
+	PKChoices:                         "Choices",
 	PKClassBand:                       "ClassBand",
 	PKCondition:                       "Condition",
 	PKConditionActivationLimit:        "ConditionActivationLimit",
 	PKConditionDefined:                "ConditionDefined",
 	PKCost:                            "Cost",
+	PKCounterType:                     "CounterType",
+	PKDefined:                         "Defined",
+	PKDefinedPlayer:                   "DefinedPlayer",
 	PKDestination:                     "Destination",
 	PKDiscard:                         "Discard",
+	PKDuration:                        "Duration",
 	PKEffectOnly:                      "EffectOnly",
 	PKEffectZone:                      "EffectZone",
 	PKEvolve:                          "Evolve",
 	PKExcludeZone:                     "ExcludeZone",
+	PKExecute:                         "Execute",
 	PKExhaust:                         "Exhaust",
 	PKFirstForetell:                   "FirstForetell",
 	PKFoundSearchingLibrary:           "FoundSearchingLibrary",
@@ -205,6 +223,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKNotThisAbility:                  "NotThisAbility",
 	PKOnlyFirstSpell:                  "OnlyFirstSpell",
 	PKOpponentTurn:                    "OpponentTurn",
+	PKOptional:                        "Optional",
 	PKOptionalDecider:                 "OptionalDecider",
 	PKOrigin:                          "Origin",
 	PKPhase:                           "Phase",
@@ -225,6 +244,8 @@ var paramKeyNames = [paramKeyCount]string{
 	PKSetPower:                        "SetPower",
 	PKSetToughness:                    "SetToughness",
 	PKSorcerySpeed:                    "SorcerySpeed",
+	PKSpellDescription:                "SpellDescription",
+	PKSubAbility:                      "SubAbility",
 	PKTargetMax:                       "TargetMax",
 	PKTargetMin:                       "TargetMin",
 	PKTargetType:                      "TargetType",
@@ -246,8 +267,11 @@ var paramKeyNames = [paramKeyCount]string{
 	PKUnattach:                        "Unattach",
 	PKUnlessCost:                      "UnlessCost",
 	PKValidCard:                       "ValidCard",
+	PKValidCards:                      "ValidCards",
 	PKValidCause:                      "ValidCause",
 	PKValidLKI:                        "ValidLKI",
+	PKValidPlayer:                     "ValidPlayer",
+	PKValidSource:                     "ValidSource",
 	PKValidSpell:                      "ValidSpell",
 	PKValidTarget:                     "ValidTarget",
 	PKValidTgts:                       "ValidTgts",

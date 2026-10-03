@@ -266,7 +266,7 @@ func (e *Engine) forEachShardCount(word string, id state.ObjID, scope costScope)
 		if ab == nil {
 			return 0, true
 		}
-		c = ParseCost(ab.Params["Cost"])
+		c = ParseCost(ab.ParamStr(cards.PKCost))
 	} else {
 		o := e.G.Obj(id)
 		if o == nil || o.Face() == nil {
@@ -411,7 +411,7 @@ func faceAnnounces(sa *cards.SA) []string {
 		return nil
 	}
 	var out []string
-	for name := range strings.SplitSeq(sa.Params["Announce"], ",") {
+	for name := range strings.SplitSeq(sa.ParamStr(cards.PKAnnounce), ",") {
 		if name = strings.TrimSpace(name); name != "" && name != "X" {
 			out = append(out, name)
 		}

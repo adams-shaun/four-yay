@@ -182,7 +182,7 @@ func effChangeZoneHandOwners(h Host, c *Ctx, sa *cards.SA, to state.Zone) {
 	}
 	if !ok {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-			Text: "cannot resolve the hand owner (DefinedPlayer$ " + strings.TrimSpace(sa.Params["DefinedPlayer"]) +
+			Text: "cannot resolve the hand owner (DefinedPlayer$ " + strings.TrimSpace(sa.ParamStr(cards.PKDefinedPlayer)) +
 				"); no hand card moves"})
 		return
 	}
@@ -235,13 +235,13 @@ func ownerIndex(owners []state.PlayerID, owner state.PlayerID) int {
 // resolving controller's hand would move (and reveal) cards from the WRONG
 // player's hidden hand, which is worse than moving none.
 func handMoveOwners(h Host, c *Ctx, sa *cards.SA) ([]state.PlayerID, bool) {
-	if spec := strings.TrimSpace(sa.Params["DefinedPlayer"]); spec != "" {
+	if spec := strings.TrimSpace(sa.ParamStr(cards.PKDefinedPlayer)); spec != "" {
 		if _, modelled := definedSpec(h, c, spec); !modelled {
 			return nil, false
 		}
 		return searchPlayers(h, c, sa), true
 	}
-	if plainRememberedSelector(sa.Params["Defined"]) {
+	if plainRememberedSelector(sa.ParamStr(cards.PKDefined)) {
 		// A remembered PLAYER is a legitimate hand owner; the plain family no
 		// longer drops it just because a remembered CARD coexists in the set.
 		return definedPlayers(h, c, sa), true
@@ -419,7 +419,7 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 			forgot = true
 		}
 		settleChangeZoneMoveAs(h, c, sa, id, state.ZHand, to, withKind, withAmt, owner, eventPlayer, &rider)
-		if strings.EqualFold(sa.Params["RememberChanged"], "True") {
+		if strings.EqualFold(sa.ParamStr(cards.PKRememberChanged), "True") {
 			eventRemember(h, c, id)
 		}
 	}
@@ -564,7 +564,7 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 		// Great Aurora). Its count semantics settle optionality even when the
 		// script has neither marker nor explanatory text; preserve an explicit
 		// Optional$ marker should a future script carry one.
-		intrinsicAll := count.perOwner && strings.TrimSpace(sa.Params["Optional"]) == "" && strings.TrimSpace(sa.Params["Mandatory"]) == ""
+		intrinsicAll := count.perOwner && strings.TrimSpace(sa.ParamStr(cards.PKOptional)) == "" && strings.TrimSpace(sa.Params["Mandatory"]) == ""
 		optional, optionalKnown := handTakeOptional(h, c, sa, to)
 		if intrinsicAll {
 			optional, optionalKnown = false, true
@@ -739,7 +739,7 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 // deliberately NOT this marker: it names the pick's own cardinality (the
 // Min-0 may-pick default), not a yes/no gate.
 func optionalConfirmMarker(sa *cards.SA) bool {
-	o := strings.TrimSpace(sa.Params["Optional"])
+	o := strings.TrimSpace(sa.ParamStr(cards.PKOptional))
 	return strings.EqualFold(o, "True") || strings.EqualFold(o, "You")
 }
 
@@ -775,10 +775,10 @@ func handTakeOptional(h Host, c *Ctx, sa *cards.SA, to state.Zone) (optional, kn
 	if strings.EqualFold(strings.TrimSpace(sa.Params["Mandatory"]), "True") {
 		return false, true
 	}
-	if o := strings.TrimSpace(sa.Params["Optional"]); o != "" {
+	if o := strings.TrimSpace(sa.ParamStr(cards.PKOptional)); o != "" {
 		return strings.EqualFold(o, "True") || strings.EqualFold(o, "You"), true
 	}
-	text := sa.Params["SpellDescription"]
+	text := sa.ParamStr(cards.PKSpellDescription)
 	if o := h.Game().Obj(c.Source); o != nil && o.Face() != nil {
 		text += "\n" + o.Face().Oracle
 	}
@@ -1089,7 +1089,7 @@ func withCounterAmountDefined(c *Ctx, v string) bool {
 // the move itself is about to remember: a Remembered$ body (direct, or behind
 // an SVar name) on a RememberChanged$ True line.
 func withCounterAmountReadsMoved(c *Ctx, sa *cards.SA, v string) bool {
-	if !strings.EqualFold(strings.TrimSpace(sa.Params["RememberChanged"]), "True") {
+	if !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberChanged)), "True") {
 		return false
 	}
 	if c != nil && c.SVars != nil {

@@ -129,10 +129,10 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		if ev.Kind != events.Attach || len(ev.IDs) == 0 {
 			return false
 		}
-		if v := r.Params["ValidCard"]; v != "" && !e.matchesSpecFrom(v, source, you, source) {
+		if v := r.ParamStr(cards.PKValidCard); v != "" && !e.matchesSpecFrom(v, source, you, source) {
 			return false
 		}
-		if v := r.Params["ValidTarget"]; v != "" && !e.matchesSpecFrom(v, ev.IDs[0], you, source) {
+		if v := r.ParamStr(cards.PKValidTarget); v != "" && !e.matchesSpecFrom(v, ev.IDs[0], you, source) {
 			return false
 		}
 		return e.replacementConditionHolds(r, source, you)
@@ -150,7 +150,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		if ev.Kind != events.TurnFaceUp || ev.Obj == 0 {
 			return false
 		}
-		if v, ok := r.Params["ValidCard"]; ok && v != "" {
+		if v, ok := r.Param(cards.PKValidCard); ok && v != "" {
 			if !e.matchesSpec(v, ev.Obj, e.rememberedSpecContext(you, source, remembered)) {
 				return false
 			}
@@ -165,7 +165,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// caller's counterValidSA read (shared with the printed-Repls path);
 		// no ActiveZones read — an Effect's lifetime is active()'s, not its
 		// source's zone.
-		if v, ok := r.Params["ValidCard"]; ok {
+		if v, ok := r.Param(cards.PKValidCard); ok {
 			if !e.matchesSpec(v, ev.Obj, e.rememberedSpecContext(you, source, remembered)) {
 				return false
 			}
@@ -259,7 +259,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// matched by value. CastSa qualifiers are evaluated from the paid cast's
 		// CastInfo before the remaining card spec is matched, just as at the
 		// other rules-side provenance sites.
-		if v, ok := r.Params["ValidLKI"]; ok {
+		if v, ok := r.Param(cards.PKValidLKI); ok {
 			mo := e.G.Obj(ev.Obj)
 			if mo == nil {
 				return false
@@ -304,7 +304,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		if ev.Kind != events.StepChange {
 			return false
 		}
-		if ph, ok := r.Params["Phase"]; ok {
+		if ph, ok := r.Param(cards.PKPhase); ok {
 			step, known := phaseStep(ph)
 			if !known || step != ev.Step {
 				return false
@@ -313,7 +313,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// ValidPlayer$ You scopes "skip YOUR draw step" to the replacement
 		// controller's own turn; a line with no ValidPlayer$ (Sands of Time's
 		// "players skip their untap step") applies every turn.
-		if vp, ok := r.Params["ValidPlayer"]; ok &&
+		if vp, ok := r.Param(cards.PKValidPlayer); ok &&
 			!effects.MatchesPlayerSpec(e.G, vp, e.G.Active, you) {
 			return false
 		}
@@ -351,7 +351,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// replacement's controller (Trouble in Pairs, Stranglehold); a line
 		// with no ValidPlayer$ (Ugin's Nexus, Gerrard's Hourglass Pendant)
 		// applies to ANY player's extra turn, the controller's own included.
-		if vp, ok := r.Params["ValidPlayer"]; ok &&
+		if vp, ok := r.Param(cards.PKValidPlayer); ok &&
 			!effects.MatchesPlayerSpec(e.G, vp, ev.Player, you) {
 			return false
 		}
@@ -366,7 +366,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// The "as this transforms" replacement is written on the destination
 		// face and applies to its own card's flip; replacementFace already
 		// scanned the destination face for this event.
-		if v, ok := r.Params["ValidCard"]; ok &&
+		if v, ok := r.Param(cards.PKValidCard); ok &&
 			!e.matchesSpecFrom(v, ev.Obj, you, source) {
 			return false
 		}
@@ -375,7 +375,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		if ev.Kind != events.LifeChange || ev.Amount <= 0 {
 			return false
 		}
-		if vp := strings.TrimSpace(r.Params["ValidPlayer"]); vp != "" {
+		if vp := strings.TrimSpace(r.ParamStr(cards.PKValidPlayer)); vp != "" {
 			if vp == "Player.IsRemembered" {
 				found := false
 				for _, p := range rememberedPlayers {
@@ -404,7 +404,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 			!e.damageReplacementMatches(r, source, ev, remembered, rememberedPlayers) {
 			return false
 		}
-		if v, ok := r.Params["ValidCard"]; ok &&
+		if v, ok := r.Param(cards.PKValidCard); ok &&
 			!e.matchesSpecFrom(v, ev.Obj, you, source) {
 			return false
 		}
@@ -416,7 +416,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		if ev.Kind != events.ManaAdd || e.manaProducer == 0 || ev.Amount <= 0 || !e.manaFromTap {
 			return false
 		}
-		if v, ok := r.Params["ValidCard"]; ok &&
+		if v, ok := r.Param(cards.PKValidCard); ok &&
 			!e.matchesSpecFrom(v, e.manaProducer, you, source) {
 			return false
 		}
@@ -473,7 +473,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		if ev.Kind != events.Scry {
 			return false
 		}
-		if v, ok := r.Params["ValidPlayer"]; ok &&
+		if v, ok := r.Param(cards.PKValidPlayer); ok &&
 			!effects.MatchesPlayerSpec(e.G, v, ev.Player, you) {
 			return false
 		}
@@ -491,7 +491,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		if ev.Kind != events.RollDice {
 			return false
 		}
-		if v, ok := r.Params["ValidPlayer"]; ok &&
+		if v, ok := r.Param(cards.PKValidPlayer); ok &&
 			!effects.MatchesPlayerSpec(e.G, v, ev.Player, you) {
 			return false
 		}
@@ -508,7 +508,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// source is already on the battlefield — there is no entering case,
 		// a card cannot replace the draw of the event that would put it into
 		// play).
-		if v, ok := r.Params["ValidPlayer"]; ok &&
+		if v, ok := r.Param(cards.PKValidPlayer); ok &&
 			!effects.MatchesPlayerSpec(e.G, v, ev.Player, you) {
 			return false
 		}
@@ -558,7 +558,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// resolution happens while that ability is still there. An absent or
 		// empty spec keeps the replacement unscoped; an ordinary draw with
 		// nothing on the stack is not caused by anything and so never admits.
-		if spec := strings.TrimSpace(r.Params["ValidCause"]); spec != "" &&
+		if spec := strings.TrimSpace(r.ParamStr(cards.PKValidCause)); spec != "" &&
 			!e.drawCauseAdmits(spec, source, ev) {
 			return false
 		}
@@ -597,7 +597,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 				return false
 			}
 		}
-		if vp, ok := r.Params["ValidPlayer"]; ok &&
+		if vp, ok := r.Param(cards.PKValidPlayer); ok &&
 			!effects.MatchesPlayerSpecFrom(e.G, vp, ev.Player, you, source) {
 			return false
 		}
@@ -646,7 +646,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// form gate a ValidPlayer$ You line reduces to ev.Player == you ->
 		// 0 == 0 -> true and fires on every object placement (Winding
 		// Constrictor has both an object line and a ValidPlayer$ You line).
-		if vp, ok := r.Params["ValidPlayer"]; ok {
+		if vp, ok := r.Param(cards.PKValidPlayer); ok {
 			if ev.Kind != events.PlayerCounterChange ||
 				!effects.MatchesPlayerSpec(e.G, vp, ev.Player, you) {
 				return false
@@ -659,7 +659,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// which is what the "any counters / any permanent or player" shapes
 		// (Doubling Season's ValidCard$ Permanent, Vorinclex's ValidObject$)
 		// mean.
-		spec := strings.TrimSpace(r.Params["ValidCard"])
+		spec := strings.TrimSpace(r.ParamStr(cards.PKValidCard))
 		if spec == "" {
 			spec = strings.TrimSpace(r.Params["ValidObject"])
 		}
@@ -682,7 +682,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// half). This is the Vorinclex source scope: one placement has exactly
 		// one adder, so its "you" and "opponent" lines are mutually exclusive
 		// and never compete.
-		if vs := strings.TrimSpace(r.Params["ValidSource"]); vs != "" {
+		if vs := strings.TrimSpace(r.ParamStr(cards.PKValidSource)); vs != "" {
 			adder, ok := e.inFlightCounterAdder()
 			if !ok || !effects.MatchesPlayerSpec(e.G, vs, adder, you) {
 				return false
@@ -692,7 +692,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// "a modular triggered ability would put ..."): the resolving stack
 		// object, exactly the provenance the Moved case's ValidCause$ reads.
 		// An absent cause (0) fails closed in replacementCauseMatches.
-		if vc := strings.TrimSpace(r.Params["ValidCause"]); vc != "" {
+		if vc := strings.TrimSpace(r.ParamStr(cards.PKValidCause)); vc != "" {
 			if !e.replacementCauseMatches(vc, source, e.actionCause()) {
 				return false
 			}
@@ -711,7 +711,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		// hand-built identity stamp. A resolving TRIGGERED ability's instruction
 		// (a cumulative-upkeep age counter, rules/cumulative.go) IS an effect
 		// (CR 609.1), so it still qualifies.
-		if r.Params["EffectOnly"] == "True" && e.actionCause() == 0 {
+		if r.ParamStr(cards.PKEffectOnly) == "True" && e.actionCause() == 0 {
 			// A replacement BODY's counter placement (the K:etbCounter entry
 			// body's DB$ PutCounter) also has no stack cause by the time it
 			// emits -- the entry move has already applied and the wrapper is
@@ -736,7 +736,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		if ev.Kind != events.PlanarRoll {
 			return false
 		}
-		if vp, ok := r.Params["ValidPlayer"]; ok &&
+		if vp, ok := r.Param(cards.PKValidPlayer); ok &&
 			!effects.MatchesPlayerSpec(e.G, vp, ev.Player, you) {
 			return false
 		}
@@ -750,7 +750,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		if ev.Kind != events.Cascade {
 			return false
 		}
-		if vp, ok := r.Params["ValidPlayer"]; ok &&
+		if vp, ok := r.Param(cards.PKValidPlayer); ok &&
 			!effects.MatchesPlayerSpec(e.G, vp, ev.Player, you) {
 			return false
 		}
@@ -792,7 +792,7 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		} else if ev.Kind != events.GameOver {
 			return false
 		}
-		if vp, ok := r.Params["ValidPlayer"]; ok &&
+		if vp, ok := r.Param(cards.PKValidPlayer); ok &&
 			!effects.MatchesPlayerSpec(e.G, vp, ev.Player, you) {
 			return false
 		}
@@ -819,20 +819,20 @@ func (e *Engine) replacementConditionHolds(r cards.Repl, source state.ObjID, you
 	if !e.classBandGateHolds(r.ParamStr(cards.PKClassBand), source) {
 		return false
 	}
-	if spec, ok := r.Params["IsPresent"]; ok {
+	if spec, ok := r.Param(cards.PKIsPresent); ok {
 		cmp := r.Params["PresentCompare"]
 		if cmp == "" {
 			cmp = "GE1"
 		}
 		var n int
-		if _, hasZone := r.Params["PresentZone"]; hasZone || r.Params["PresentDefined"] != "" {
+		if _, hasZone := r.Param(cards.PKPresentZone); hasZone || r.Params["PresentDefined"] != "" {
 			// A damage/counter/CantPreventDamage line's IsPresent$ can name a
 			// non-battlefield zone (PresentZone$) or a defined subject
 			// (PresentDefined$ Self, "is this exact permanent still present");
 			// countPresentInZone generalises past countPresent's fixed
 			// battlefield scan for exactly those two params.
 			zone := state.ZBattlefield
-			if z := r.Params["PresentZone"]; z != "" {
+			if z := r.ParamStr(cards.PKPresentZone); z != "" {
 				zone = effects.ParseZone(z)
 			}
 			n = e.countPresentInZone(spec, source, you, zone, r.Params["PresentDefined"])
@@ -848,13 +848,13 @@ func (e *Engine) replacementConditionHolds(r cards.Repl, source state.ObjID, you
 	// CantPreventDamage text (the Moved/Untap/BeginPhase/Transform/
 	// ProduceMana cases above never carry them in the corpus, so folding them
 	// in here rather than duplicating the switch costs those cases nothing).
-	if strings.EqualFold(r.Params["PlayerTurn"], "True") && e.G.Active != you {
+	if strings.EqualFold(r.ParamStr(cards.PKPlayerTurn), "True") && e.G.Active != you {
 		return false
 	}
 	if strings.EqualFold(r.Params["Hellbent"], "True") && len(e.G.Zone(state.ZHand, you)) != 0 {
 		return false
 	}
-	if strings.EqualFold(r.Params["Revolt"], "True") && !e.revoltThisTurn(you) {
+	if strings.EqualFold(r.ParamStr(cards.PKRevolt), "True") && !e.revoltThisTurn(you) {
 		return false
 	}
 	if strings.EqualFold(r.Params["Delirium"], "True") && e.graveyardCardTypeCount(you) < 4 {
@@ -887,7 +887,7 @@ func (e *Engine) replacementConditionHolds(r cards.Repl, source state.ObjID, you
 		// represented, so fail closed instead of preventing damage always.
 		return false
 	}
-	if check, ok := r.Params["CheckSVar"]; ok {
+	if check, ok := r.Param(cards.PKCheckSVar); ok {
 		n := e.replacementCheckValue(source, check)
 		if cmp := r.Params["SVarCompare"]; cmp != "" {
 			op, rhs, valid := splitCompare(strings.TrimSpace(cmp))

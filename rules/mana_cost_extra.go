@@ -147,7 +147,7 @@ func (e *Engine) manaSubCounterStage(md *manaDiscardActivation) bool {
 // untouched. Copy-on-write keeps every other activation of the same card
 // unchanged.
 func manaAbilityWithSubX(ma *cards.SA, x int32) *cards.SA {
-	if ma == nil || !strings.EqualFold(strings.TrimSpace(ma.Params["Amount"]), "x") {
+	if ma == nil || !strings.EqualFold(strings.TrimSpace(ma.ParamStr(cards.PKAmount)), "x") {
 		return ma
 	}
 	return manaAbilityWithPaidX(ma, x)

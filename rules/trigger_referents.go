@@ -147,7 +147,7 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 			// Attacks reads ValidCard$; the AttackersDeclared family reads
 			// ValidAttackers$ -- the same per-attacker filter under its own
 			// name.
-			spec := t.Params["ValidCard"]
+			spec := t.ParamStr(cards.PKValidCard)
 			if spec == "" && t.Mode == "AttackersDeclared" {
 				spec = t.Params["ValidAttackers"]
 			}

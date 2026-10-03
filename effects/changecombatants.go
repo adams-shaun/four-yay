@@ -110,7 +110,7 @@ func effChangeCombatants(h Host, c *Ctx, sa *cards.SA) {
 	answerDone := c.ChoiceDone
 	answerIndex := c.ChoiceTarget
 	c.Choice, c.ChoiceDone, c.ChoiceTarget = nil, false, 0
-	if !answerDone && strings.EqualFold(strings.TrimSpace(sa.Params["Optional"]), "True") {
+	if !answerDone && strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True") {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "ChangeCombatants Optional$ True read as mandatory (no may-reselect ask)"})
 	}

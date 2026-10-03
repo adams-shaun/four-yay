@@ -44,7 +44,7 @@ func (e *Engine) becomeMonarchMatches(t cards.Trigger, source state.ObjID, ev ev
 		return false
 	}
 	ctrl := e.controllerOf(source)
-	if v := t.Params["ValidPlayer"]; v != "" && !effects.MatchesPlayerSpec(e.G, v, ev.Player, ctrl) {
+	if v := t.ParamStr(cards.PKValidPlayer); v != "" && !effects.MatchesPlayerSpec(e.G, v, ev.Player, ctrl) {
 		return false
 	}
 	if v := strings.TrimSpace(t.Params["BeginTurn"]); v != "" {

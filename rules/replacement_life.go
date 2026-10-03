@@ -193,7 +193,7 @@ func (e *Engine) lifeReplacementApplies(ev events.Event, source state.ObjID, r *
 		if strings.EqualFold(r.Params["Prevent"], "True") {
 			return true
 		}
-		if !e.replacementCondition(source, r) || r.Params["ValidSource"] != "" {
+		if !e.replacementCondition(source, r) || r.ParamStr(cards.PKValidSource) != "" {
 			return false
 		}
 		if _, ok := e.replaceCount(source, r, "LifeGained", ev.Amount); ok {
@@ -204,7 +204,7 @@ func (e *Engine) lifeReplacementApplies(ev events.Event, source state.ObjID, r *
 	if strings.EqualFold(r.Params["IsDamage"], "True") && ev.Kind != events.Damage {
 		return false
 	}
-	if strings.EqualFold(r.Params["PlayerTurn"], "True") && e.G.Active != e.controllerOf(source) {
+	if strings.EqualFold(r.ParamStr(cards.PKPlayerTurn), "True") && e.G.Active != e.controllerOf(source) {
 		return false
 	}
 	if !e.replacementCondition(source, r) {
