@@ -8,6 +8,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/compliance"
+	"github.com/adams-shaun/gorge/internal/testutil"
 )
 
 // TestDeclaredSetsCompliant is the compliance claim (spec section 8): every
@@ -51,6 +52,34 @@ func TestDeclaredFileIsWellFormed(t *testing.T) {
 		}
 		if strings.ToUpper(set) != set {
 			t.Errorf("declared set %q: codes are upper case", set)
+		}
+	}
+}
+
+// TestGateRefusesSetWithoutPrintedList is section 11.3 C7: a set with no
+// compliance/printed list cannot be declared, because the XMage manifest
+// the gate would fall back to omits the cards XMage lacks. Every other
+// problem is still reported, so status stays useful for such a set.
+func TestGateRefusesSetWithoutPrintedList(t *testing.T) {
+	reg := testutil.CorpusRegistry(t)
+	root := filepath.Join("..", "..")
+	if _, err := compliance.LoadPrinted(filepath.Join(root, "compliance", "printed"), "G00"); err == nil {
+		t.Fatal("G00 has a printed list; pick a set without one")
+	}
+	probs, err := Check(reg, root, "G00", "A")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(probs) == 0 || probs[0].Card != "*" || !strings.Contains(probs[0].Reason, "no printed list") {
+		t.Fatalf("G00 without a printed list: problems %v, want a leading \"*\" no-printed-list refusal", probs)
+	}
+	if fra, err := Check(reg, root, "FRA", "A"); err != nil {
+		t.Fatal(err)
+	} else {
+		for _, p := range fra {
+			if strings.Contains(p.Reason, "no printed list") {
+				t.Errorf("FRA has a printed list but was refused: %v", p)
+			}
 		}
 	}
 }
