@@ -95,7 +95,7 @@ func (e *Engine) echoGateHolds(source state.ObjID) bool {
 // loudly, exactly as before. A cost with no announcement pip is never
 // announceable here.
 func echoAnnounceableCost(c Cost) bool {
-	if c.annPipCount() == 0 {
+	if c.AnnPipCount() == 0 {
 		return false
 	}
 	c.Hybrid = nil

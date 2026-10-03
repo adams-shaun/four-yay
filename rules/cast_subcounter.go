@@ -549,19 +549,6 @@ func (e *Engine) delveAsk() bool {
 	return true
 }
 
-// subCounterTargetsSource reports whether a SubCounter part's removal-target
-// field names the paying source itself: the empty field (the original
-// two-field SubCounter<N/Kind> token, which has always removed from the
-// source) and Forge's payCostFromSource spellings CARDNAME/NICKNAME. Any
-// other value is a filter matched against the payer's battlefield.
-func subCounterTargetsSource(target string) bool {
-	switch strings.ToUpper(strings.TrimSpace(target)) {
-	case "", "CARDNAME", "NICKNAME":
-		return true
-	}
-	return false
-}
-
 // subCounterAvailable reports how many counters of the part's kind the object
 // could give up: the kind's own count, or the object's TOTAL counter count
 // for the "Any" kind (Forge's Any removes that many counters regardless of

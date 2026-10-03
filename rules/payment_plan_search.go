@@ -623,7 +623,7 @@ func (s *paymentPlanSearch) complete() bool {
 		return true
 	}
 	chosen := s.materialize()
-	paid, ok := s.cost.resolveManaWith(manaAdd(s.pool, s.produced), state.Mana{}, [7]state.Mana{}, s.life, false, pipRider{}, nil)
+	paid, ok := resolveManaWith(s.cost, manaAdd(s.pool, s.produced), state.Mana{}, [7]state.Mana{}, s.life, false, pipRider{}, nil)
 	if !ok {
 		return false
 	}

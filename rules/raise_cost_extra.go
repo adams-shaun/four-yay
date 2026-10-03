@@ -84,8 +84,8 @@ func raiseAnnounceName(name string, svars map[string]string, announces []string)
 func resolveRaiseCostText(raw string, svars map[string]string, announces []string, eval func(body string) (int32, bool)) (string, []string) {
 	var out []string
 	var withheld []string
-	for toks := (costTokenIter{s: strings.TrimSpace(raw)}); ; {
-		sym, more := toks.next()
+	for toks := newCostTokenIter(strings.TrimSpace(raw)); ; {
+		sym, more := toks.Next()
 		if !more {
 			break
 		}
@@ -133,9 +133,6 @@ type raiseExtraCost struct {
 	extra Cost
 }
 
-// waterbendCost matches the Waterbend<N> / Waterbend<X> additional cost.
-var waterbendCost = regexp.MustCompile(`^Waterbend<(X|\d+)>$`)
-
 // discardXCost matches Discard<X/Spec[/desc]> with the announced X.
 var discardXCost = regexp.MustCompile(`^Discard<X/([^/>]+)(?:/([^>]*))?>$`)
 
@@ -148,8 +145,8 @@ var raiseAnnouncePart = regexp.MustCompile(`^([A-Za-z]+)<@([A-Za-z][A-Za-z0-9]*)
 func parseRaiseExtra(text string, withheld []string) raiseExtraCost {
 	var r raiseExtraCost
 	var plain []string
-	for toks := (costTokenIter{s: text}); ; {
-		sym, more := toks.next()
+	for toks := newCostTokenIter(text); ; {
+		sym, more := toks.Next()
 		if !more {
 			break
 		}
@@ -162,12 +159,12 @@ func parseRaiseExtra(text string, withheld []string) raiseExtraCost {
 		// same head for the shapes this one never sees (an ability's own
 		// Cost$, a self-spell OptionalCost), folding the {N} into Generic and
 		// annotating it with Cost.Waterbend/WaterbendX.
-		if m := waterbendCost.FindStringSubmatch(sym); m != nil {
-			if m[1] == "X" {
+		if amount, ok := matchWaterbend(sym); ok {
+			if amount == "X" {
 				r.x++
 				continue
 			}
-			n, err := strconv.ParseInt(m[1], 10, 32)
+			n, err := strconv.ParseInt(amount, 10, 32)
 			if err != nil || n < 0 {
 				withheld = append(withheld, "Waterbend")
 				continue
@@ -350,7 +347,7 @@ func (e *Engine) composeRaiseCost(mods *costMods, sv staticView, id state.ObjID,
 	if r.x > 0 {
 		mods.waterbendX = true
 	}
-	if r.extra.isZeroExtra() {
+	if isZeroExtra(r.extra) {
 		return true
 	}
 	for range times {
@@ -403,7 +400,7 @@ func raiseExtraResolve(raw string, svars map[string]string, announces []string, 
 }
 
 // isZeroExtra reports whether c carries nothing a fold would add.
-func (c Cost) isZeroExtra() bool {
+func isZeroExtra(c Cost) bool {
 	return paymentPlanCostDetail(c) == "" && len(c.Withheld) == 0
 }
 

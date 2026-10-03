@@ -65,7 +65,7 @@ func TestCR602HybridActivationCostsRequireColor(t *testing.T) {
 				}
 				checked++
 				pool[state.MC] += int32(2 * hybrids)
-				if ParseCost(sa.Params["Cost"]).CanPay(pool) {
+				if poolCanPay(ParseCost(sa.Params["Cost"]), pool) {
 					wrong++
 					if wrong <= 8 {
 						t.Errorf("CR 602.2b/107.4e %q seq 0: activation %s cost %q accepts %v with no color left for hybrid", f.Name, sa.API, sa.Params["Cost"], pool)

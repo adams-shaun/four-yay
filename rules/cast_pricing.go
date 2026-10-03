@@ -18,7 +18,7 @@ import (
 // valid-option set) and castAnswer (recording the choice) consult, so the
 // option offered and the recorded choice always agree. Snow pips are not
 // announcement pips: a {S} pip has no alternative payment to announce.
-func (c Cost) announcePip(i int) []pipAlt {
+func announcePip(c Cost, i int) []pipAlt {
 	if i < len(c.Hybrid) {
 		p := c.Hybrid[i]
 		return []pipAlt{{color: p.A}, {color: p.B}}
@@ -128,15 +128,6 @@ func (e *Engine) cyclingKeyword(pc *pendingCast) string {
 	default:
 		return ""
 	}
-}
-
-// hybrids, the monocolour hybrids, the Phyrexian pips and the
-// hybrid-Phyrexian pips (snow pips have nothing to announce).
-func (c Cost) annPipCount() int { return c.annPipCountP() }
-
-// annPipCountP is annPipCount without the receiver copy.
-func (c *Cost) annPipCountP() int {
-	return len(c.Hybrid) + len(c.Twobrid) + len(c.Phyrexian) + len(c.HybridPhyrexian)
 }
 
 // resolvedMana returns the cost the announced payment actually commits: X
@@ -434,7 +425,7 @@ func (e *Engine) affordableTargetCandidates(pc *pendingCast, candidates []target
 			out = append(out, candidate)
 			continue
 		}
-		if !cost.hasManaPayment() {
+		if !cost.HasManaPayment() {
 			continue
 		}
 		if targetDiscount {
