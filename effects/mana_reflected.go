@@ -138,7 +138,7 @@ func producibleSymbols(o *state.Object) string {
 	}
 	var set uint8
 	for _, ma := range f.ManaAbilities() {
-		p := strings.TrimSpace(ma.ParamStr(cards.PKProduced))
+		p := ManaOf(ma).Produced
 		switch {
 		case p == "" || p == "Any" || p == "Combo Any":
 			for _, r := range "WUBRG" {

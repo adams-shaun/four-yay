@@ -141,6 +141,19 @@ var ReplaceEffectFiles = []string{"effects/replacement.go"}
 // them through it).
 var ReplaceEffectOnlyKeys = []string{"VarName", "VarValue"}
 
+// ManaCompilerFile is api:Mana's production-parameter compiler (W4 step 3).
+const ManaCompilerFile = "effects/mana_params.go"
+
+// ManaFiles are Mana's own resolution files: no parameter read of any key.
+var ManaFiles = []string{"effects/mana_effect.go"}
+
+// ManaOnlyKeys are the parameter keys only Mana's compiler reads (the
+// production riders; Produced$/Amount$/RestrictValid$ are read through it by
+// every mana path too, but ManaReflected's compiler and the TapsForMana
+// trigger matcher read their own keys of the same names).
+var ManaOnlyKeys = []string{"AddsCounters", "AddsNoCounter", "PersistentMana",
+	"PersistentUntilEndOfCombat", "TriggersWhenSpent"}
+
 // TypedParamCompiler names one API's parameter compiler for the leak census
 // (Metrics.ChangeZoneParamLeaks and its siblings): the compiler file, the
 // API's own resolution files (no parameter read of any key there) and the
@@ -251,6 +264,10 @@ type Metrics struct {
 	// (ReplaceEffect* CompilerFile/Files/OnlyKeys).
 	ReplaceEffectParamLeaks int      `json:"replace_effect_param_leaks"`
 	ReplaceEffectLeaks      []string `json:"replace_effect_leaks"`
+	// ManaParamLeaks is the same census for api:Mana (Mana* CompilerFile/
+	// Files/OnlyKeys).
+	ManaParamLeaks int      `json:"mana_param_leaks"`
+	ManaLeaks      []string `json:"mana_leaks"`
 	// TrigmatchBoardMethods counts the methods trigmatch.Board declares
 	// (rules/trigmatch/board.go): the read-only view the trigger matchers
 	// reach the engine through (W5 E3). Zero when the package is absent.
@@ -365,6 +382,8 @@ func Measure(root string) (Metrics, error) {
 				TypedParamCompiler{DrawCompilerFile, DrawFiles, DrawOnlyKeys})...)
 			m.ReplaceEffectLeaks = append(m.ReplaceEffectLeaks, paramLeaks(fset, f, rel,
 				TypedParamCompiler{ReplaceEffectCompilerFile, ReplaceEffectFiles, ReplaceEffectOnlyKeys})...)
+			m.ManaLeaks = append(m.ManaLeaks, paramLeaks(fset, f, rel,
+				TypedParamCompiler{ManaCompilerFile, ManaFiles, ManaOnlyKeys})...)
 			ast.Inspect(f, func(n ast.Node) bool {
 				switch x := n.(type) {
 				case *ast.TypeAssertExpr:
@@ -424,6 +443,7 @@ func Measure(root string) (Metrics, error) {
 	m.PumpParamLeaks, m.PumpLeaks = finishLeaks(m.PumpLeaks)
 	m.DrawParamLeaks, m.DrawLeaks = finishLeaks(m.DrawLeaks)
 	m.ReplaceEffectParamLeaks, m.ReplaceEffectLeaks = finishLeaks(m.ReplaceEffectLeaks)
+	m.ManaParamLeaks, m.ManaLeaks = finishLeaks(m.ManaLeaks)
 	m.FuncsOver300 = len(m.LongFuncs)
 	sort.Slice(m.LongFuncs, func(i, j int) bool {
 		a, b := m.LongFuncs[i], m.LongFuncs[j]

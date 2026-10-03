@@ -194,7 +194,7 @@ var pumpKnownKeys = [...]string{
 	"PrecostDesc", "PresentCompare", "PresentDefined", "PresentZone", "PumpZone",
 	"ReduceAmount", "ReduceCost", "RememberCostMana", "RememberObjects", "RememberPumped",
 	"RememberTargets", "ReplaceColor", "ReplaceGraveyard", "ReplaceGraveyardValid",
-	"ReplaceMana", "ReplaceOnly", "ReplaceType", "RestrictValid", "SVarCompare",
+	"ReplaceMana", "ReplaceOnly", "ReplaceType", "SVarCompare",
 	"Secondary", "SelectPrompt", "SetChosenMode", "SetColor", "ShowCards", "SorcerySpeed",
 	"SpellDescription", "StackDescription", "StaticAbilities", "SubAbility", "TargetMax",
 	"TargetMin", "TargetType", "TargetUnique", "TargetValidTargeting", "TargetingPlayer",
@@ -203,8 +203,7 @@ var pumpKnownKeys = [...]string{
 	"TargetsWithDifferentControllers", "TargetsWithDifferentNames",
 	"TargetsWithEqualToughness", "TargetsWithSameCardType", "TargetsWithSameController",
 	"TargetsWithSameCreatureType", "TargetsWithSharedCardType", "TargetsWithSharedTypes",
-	"TgtPrompt", "TgtZone", "TokenScript", "TriggerDescription", "TriggersWhenSpent",
-	"Type", "Ultimate", "UnlessAI", "UnlessCost", "UnlessPayer", "UnlessResolveSubs",
+	"TgtPrompt", "TgtZone", "TokenScript", "TriggerDescription", "Type", "Ultimate", "UnlessAI", "UnlessCost", "UnlessPayer", "UnlessResolveSubs",
 	"UnlessSwitched", "ValidCard", "ValidCards", "ValidCardsDesc", "ValidChoices",
 	"ValidCounterType", "ValidDescription", "ValidTgts", "VoteMessage", "WithoutManaCost", "XMax", "XMin",
 }

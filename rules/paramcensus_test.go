@@ -1085,6 +1085,19 @@ func (s *scan) scanRangeWhitelist(t *testing.T, fset *token.FileSet, fi *fnInfo,
 		if pkg == "rules" && fname == "disableTriggersUnread" {
 			return
 		}
+		// unreadKeys (effects/changezoneall_params.go) is the typed parameter
+		// compilers' unread report: a structural key scan against a known-key
+		// table, not a card-parameter consumer.
+		if pkg == "effects" && fname == "unreadKeys" {
+			return
+		}
+		// plainManaParams (effects/mana_params.go) is the same kind of
+		// structural scan: a subset test of the ability's keys against the
+		// plain-production table (Produced$/Amount$, which compileMana reads
+		// by key, plus Cost$ and presentation/AI keys). Recognition only.
+		if pkg == "effects" && fname == "plainManaParams" {
+			return
+		}
 		// A copy loop (`for k, v := range src.Params { dst.Params[k] = v }`)
 		// is not a read: every use of the key sits in a write-position index.
 		if rangeKeyIsWriteOnly(rs, keyIdent.Name, writes) {
@@ -1581,135 +1594,43 @@ func (s *scan) closureReads(fi *fnInfo, exclude map[string]bool, visited map[str
 // params); a NEW api-specialised path must be added here or its reads
 // over-suppress every other API's real gaps.
 var apiSpecificRulesSA = map[string][]string{
-	// The mana-ability chain: the ability-choose wheel's Produced$ label read
-	// (manaAbilityLabel, called from activateManaFor which itself no longer
-	// touches SA params), the flattened combo wheel's per-colour expansion
-	// read (manaAbilityComboColours -- both call sites, activateManaFor and
-	// answerManaActivation, guard on ma.API == "Mana" before calling, so the
-	// Produced$ read never executes for another api), manaAbilityPayablePool's
-	// offer/payment path (the pool-parameterized core manaAbilityPayable
-	// delegates to; the potential-action walk calls it directly with the
-	// hypothetical bound), the AvailableMana projection, and
-	// activatedMatchesValidSA's Produced$-based mana-ability recognition --
-	// all run on mana abilities (api:Mana) only.
-	"Engine.manaAbilityPayablePool": {"Mana"},
-	"manaProducedLabel":             {"Mana"},
-	"manaAmountPips":                {"Mana"},
-	"manaAbilityCostPrefix":         {"Mana"},
-	// The intrinsic-append dedup read (rules/mana_activation.go): the CR 305.6
-	// all-land-types walk reads a mana ability's Produced$ ONLY, so left in
-	// the generic union it would mask every other API's unread Produced$
-	// (measured: api:Sacrifice/api:DealDamage).
-	"manaAbilityProduced":     {"Mana"},
-	"manaAbilityComboColours": {"Mana"},
-	// The potential pool's mana-ability readers (rules/potential.go): they
-	// read a mana ability's Produced$/Amount$ ONLY, and PotentialMana is
-	// reachable from the viewer's projection on every priority decision, so
-	// without this entry their reads would join the generic union and mask
-	// Sacrifice's unread Produced$/DealDamage's unread Produced$.
-	"addPotentialMana":        {"Mana"},
-	"computePotentialManaAdd": {"Mana"},
-	"potentialAmount":         {"Mana"},
-	// The potential-play planner's relaxed census proof (rules/
-	// potential_plan.go): it reads a missed MANA ability's Cost$/Produced$/
-	// ActivationLimit$ (it returns at once for any other API), so its reads
-	// must not mask another API's unread Produced$.
+	// The mana-ability chain. Since W4 step 3 a mana ability's production
+	// parameters (Produced$, Amount$, RestrictValid$, the riders) are read
+	// once, by effects.compileMana, reached through effMana; the entries below
+	// are the remaining mana-only rules functions that still read the
+	// activation tier's own keys (Cost$, UnlessCost$, ActivationLimit$,
+	// IsPresent$, ...) on a mana ability, so those reads must not join the
+	// generic union. Each runs on mana abilities (api:Mana) only:
+	// manaAbilityPayablePool's offer/payment path (the pool-parameterized
+	// core manaAbilityPayable delegates to; the potential-action walk calls
+	// it directly with the hypothetical bound), the wheel's cost prefix, the
+	// potential-play planner's relaxed census proof (it returns at once for
+	// any other API), the plain-Mana activation gate (Shrine of the Forsaken
+	// Gods' IsPresent$/PresentCompare$, Urza's Workshop's Activation$
+	// Metalcraft), the triggered-mana recognition, the resolution chain, the
+	// AvailableMana projection, the attack-prop and cast-window payment
+	// windows (availableManaAbilitiesForWindow / castWindowProbeAbilities
+	// only ever yield mana abilities) and the payment-plan source
+	// interference check (reached only from paymentPlanAbilityTier, i.e. for
+	// an AB$ Mana candidate).
+	"Engine.manaAbilityPayablePool":         {"Mana"},
+	"manaAbilityCostPrefix":                 {"Mana"},
 	"Engine.paymentPlanRelaxedAlternatives": {"Mana"},
+	"Engine.manaActivationGateHolds":        {"Mana"},
+	"Engine.isTriggeredManaAbility":         {"Mana"},
+	"Engine.resolveManaAbilityRefOriginal":  {"Mana"},
+	"Engine.resolveManaEffect":              {"Mana"},
+	"Engine.AvailableMana":                  {"Mana"},
+	"Engine.attackChoiceManaSources":        {"Mana"},
+	"Engine.castWindowProbeUnits":           {"Mana"},
+	"Engine.paymentPlanSourceInterference":  {"Mana"},
 	// The ManaReflected activation gate: only a reflected-mana ability's
 	// offer consults IsPresent$/PresentCompare$ on the SA itself (Tazri's
 	// "another activated ability" condition). A plain AB$ Mana ability's
-	// IsPresent$ gate is read separately, by manaActivationGateHolds below
+	// IsPresent$ gate is read separately, by manaActivationGateHolds above
 	// (the Verge lands, Temple of the False God, Shrine of the Forsaken
 	// Gods), so this entry must not swallow it.
 	"Engine.manaReflectedPresentHolds": {"ManaReflected"},
-	// The plain-Mana activation gate (Shrine of the Forsaken Gods'
-	// IsPresent$/PresentCompare$, Urza's Workshop's Activation$ Metalcraft):
-	// only a plain AB$ Mana ability's offer runs it.
-	"Engine.manaActivationGateHolds": {"Mana"},
-	"Engine.emitManaTap":             {"Mana"},
-	"Engine.isTriggeredManaAbility":  {"Mana"},
-	// askTriggeredManaColor reads the first resolved Mana sub-ability's
-	// Amount$/Produced$ to build its allocation; that local is bSA but this
-	// path only ever reaches api:Mana.
-	"Engine.askTriggeredManaColor": {"Mana"},
-	"Engine.askManaColor":          {"Mana"},
-	"triggeredManaColourChoice":    {"Mana"},
-	// rewriteChosenMana (rules/mana_activation.go) executes only inside
-	// resolveTriggeredManaAbilities, so its Produced$ read belongs to
-	// api:Mana alone -- left in the generic union it would mask every
-	// other API's unread Produced$.
-	"Engine.rewriteChosenMana":             {"Mana"},
-	"Engine.resolveManaAbilityRefOriginal": {"Mana"},
-	"Engine.resolveManaEffect":             {"Mana"},
-	"manaColourPrompt":                     {"Mana"},
-	"Engine.AvailableMana":                 {"Mana"},
-	"addAvailable":                         {"Mana"},
-	"availableAmount":                      {"Mana"},
-	"activatedMatchesValidSA":              {"Mana"},
-	// The attack-prop and unless-cost payment windows' affordability input
-	// (rules/mana_available.go windowManaUnits, called by
-	// rules/attack_cost.go attackManaSources and
-	// rules/unless_payment.go unlessManaBudget): it walks the payer's
-	// battlefield and reads each window-usable mana ability's Produced$
-	// (and Amount$, via availableAmount above) to count the units the
-	// window can tap. The walk only ever inspects api:Mana abilities
-	// (availableManaAbilitiesForWindow), so its Reads belong to api:Mana
-	// alone -- left in the generic union they would mask every other
-	// API's unread Produced$ (measured: api:Sacrifice/api:DealDamage).
-	// The reads live in computeManaStaticFacts, the census's per-ability
-	// text facts (rules/mana_safacts.go), which the census and the payment
-	// planner's alternatives read instead of the Params.
-	"computeManaStaticFacts": {"Mana"},
-	// The attack-prop payment window's choice-shaped membership
-	// (rules/attack_cost.go attackChoiceManaSources): it walks the payer's
-	// battlefield and reads each window-usable mana ability's Produced$ (plus
-	// Cost$/RestrictValid$) to decide whether an "Any"/"Combo"/"Chosen"
-	// source can pay a generic attack tax, and pins the colour it will be
-	// tapped for. Like windowManaUnits above it only ever inspects api:Mana
-	// abilities (availableManaAbilitiesForWindow), so its reads belong to
-	// api:Mana alone -- left in the generic union they mask every other API's
-	// unread Produced$ (measured: api:Sacrifice/api:DealDamage).
-	"Engine.attackChoiceManaSources": {"Mana"},
-	// The announced select-mana window's per-colour flattening
-	// (rules/announce_pay.go, announce-then-pay spec §4.2): its Produced$
-	// read sits behind an explicit ma.API == "Mana" guard, so it belongs to
-	// api:Mana alone -- left in the generic union it masks api:Sacrifice's
-	// and api:DealDamage's unread Produced$.
-	"Engine.announcedAbilityColours": {"Mana"},
-	// The cast-payment window's activation-cost layer: castWindowProbeUnits
-	// walks untapped api:Mana abilities (with the live-pool payability gate
-	// lifted, so a fee an earlier same-window activation funds is priced) and
-	// reads each ability's Cost$/RestrictValid$/Produced$, while
-	// castWindowAmount reads its Amount$ (and the SVar body behind it). Both
-	// are cast-window-only readers of api:Mana abilities, so their reads
-	// belong to api:Mana alone -- left in the generic union they mask every
-	// other API's unread Amount$/Produced$ (measured:
-	// api:ChangeZone/api:Sacrifice/api:DealDamage).
-	"Engine.castWindowProbeUnits": {"Mana"},
-	"Engine.castWindowAmount":     {"Mana"},
-	// manaAbilityWithSubX (rules/mana_cost_extra.go) rewrites the activated
-	// mana ability's production Amount$ to the announced SubCounter X -- the
-	// mana twin of manaAbilityWithPaidX's copy-on-write (which only WRITES
-	// Amount$ and so never counted as a read). Its ma.Params["Amount"] read
-	// recognises the literal "X" before delegating, so it belongs to
-	// api:Mana alone -- left in the generic union it would mask every other
-	// API's unread Amount$ (measured: api:ChangeZone).
-	"manaAbilityWithSubX": {"Mana"},
-	// The payment-plan offer is another mana-only source walk.  It obtains
-	// windowManaUnit alternatives exclusively from AB$ Mana abilities, then
-	// reads Produced$/RestrictValid$/Cost$ (and the Amount$ helper) to build a
-	// replayable tap witness.  These reads cannot make those parameters appear
-	// implemented on unrelated resolving APIs such as Sacrifice or DealDamage.
-	"Engine.paymentPlanManaUnitsOnlyCompute": {"Mana"},
-	"Engine.paymentPlanChoiceColours":        {"Mana"},
-	// The payment-plan source-interference check (ticket
-	// aph-interference-scope, rules/payment_plan_interference.go) is reached
-	// only from paymentPlanAbilityTier, i.e. for an AB$ Mana candidate: it
-	// reads that ability's Cost$ (does it tap?) and Produced$ (the concrete
-	// productions its hypothetical tap proposes to the trigger and
-	// replacement matchers), never another API's.
-	"Engine.paymentPlanSourceInterference": {"Mana"},
-	"Engine.paymentPlanProductions":        {"Mana"},
 	// The Charm mode paths: the CR 601.2b cast-time modes ask (castModeAsk)
 	// and the per-mode target declaration (modalTargetSA) read the MODE
 	// bodies' targeting. The Charm's own Choices$/CharmNum$ reads are
@@ -1793,7 +1714,6 @@ var apiSpecificRulesSA = map[string][]string{
 	// plainManaShape (rules/mana_plain.go) returns at once unless the
 	// ability is api:Mana, so its Produced$/Amount$/Cost$ reads belong to
 	// api:Mana alone.
-	"plainManaShape": {"Mana"},
 }
 
 // apiSpecificRulesStat is the stat-bucket twin of apiSpecificRulesSA: it

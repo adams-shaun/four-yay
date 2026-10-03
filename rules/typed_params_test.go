@@ -30,3 +30,8 @@ func TestDrawKnownKeysMatchTheCensus(t *testing.T) {
 func TestReplaceEffectKnownKeysMatchTheCensus(t *testing.T) {
 	checkKnownKeysMatchTheCensus(t, "ReplaceEffect", effects.ReplaceEffectKnownKeys())
 }
+
+// TestManaKnownKeysMatchTheCensus is the same check for api:Mana.
+func TestManaKnownKeysMatchTheCensus(t *testing.T) {
+	checkKnownKeysMatchTheCensus(t, "Mana", effects.ManaKnownKeys())
+}

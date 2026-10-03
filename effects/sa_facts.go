@@ -60,6 +60,10 @@ type SAFacts struct {
 	// (replaceeffect_params.go), non-nil exactly when the API is
 	// ReplaceEffect.
 	ReplaceEffect *ReplaceEffectParams
+	// Mana is api:Mana's compiled production parameters (mana_params.go),
+	// non-nil exactly when the API is Mana; rules' mana half (Rules) is
+	// derived from it.
+	Mana *ManaParams
 }
 
 // NewSAFacts compiles sa's typed halves into a fresh record naming sa. The
