@@ -1000,8 +1000,8 @@ func triggerManaColorMask(mana string) ColorMask {
 //	TriggeredProduced's empty set takes.
 //
 //	Every other spelling -- MostProminentColor, Imprinted, Equipped,
-//	TopOfLibrary, Sacrificed, LastCastThisTurn, the bare form,
-//	SharesColorWithOther, and the `Valid <spec>` unit (alternative-level,
+//	TopOfLibrary, Sacrificed, LastCastThisTurn, the bare form, and the
+//	`Valid <spec>` unit (alternative-level,
 //	sharesColorShape) -- returns ok=false here, so a token carrying one fails
 //	closed exactly as it did before these referents were bound.
 func matchSharesColorWith(g *state.Game, p string, o *state.Object, sc SpecContext) (result, ok bool) {
@@ -1054,7 +1054,7 @@ func positiveRecognised(p string) bool {
 	// <spec>` spelling is recognised at the ALTERNATIVE level, sharesColorShape
 	// (the IsTargeting precedent). Every other spelling (MostProminentColor,
 	// Imprinted, Equipped, TopOfLibrary, Sacrificed, LastCastThisTurn, the bare
-	// form, SharesColorWithOther) stays unrecognised: those carriers keep
+	// form) stays unrecognised: those carriers keep
 	// today's fail-open/closed behaviour, and UnknownPredicates keeps reporting
 	// them.
 	if arg, has := strings.CutPrefix(p, "SharesColorWith "); has {
