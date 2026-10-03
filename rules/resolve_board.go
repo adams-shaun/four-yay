@@ -58,6 +58,14 @@ func (e *Engine) TapeAnswer(d *decision.Decision) (decision.Intent, bool) {
 	if tapeForceLegacy != nil && tapeForceLegacy(d) {
 		return decision.Intent{}, false
 	}
+	if e.applyingReplacement {
+		// A ReplaceWith$ body's ask: legacy suspends the body but the effect
+		// whose move the replacement intercepted keeps running (a mass
+		// return enters the next creature before Devour's sacrifice is
+		// answered), so the answer lands after events an inline answer
+		// would precede. Not a shape the kernel serves; legacy takes it.
+		return decision.Intent{}, false
+	}
 	return e.tape.Answer(asResolve(e), d)
 }
 

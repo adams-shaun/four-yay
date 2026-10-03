@@ -313,3 +313,21 @@ func TestTapeNestedAskKeepsRepeatSubject(t *testing.T) {
 		t.Fatalf("the loop's asks were not served from the tape: %+v", st)
 	}
 }
+
+// A converted ask inside a ReplaceWith$ body stays legacy (the Caldera
+// Hellion shape the dual-run fuzz caught): Devour's sacrifice is asked from
+// the entry replacement while a mass return keeps moving the next creature,
+// so legacy answers it after moves an inline answer would precede.
+func TestTapeReplacementBodyAskStaysLegacy(t *testing.T) {
+	devourer := "Name:Tape Devourer\nManaCost:B\nTypes:Creature Hellion\nPT:1/1\nK:Devour:1\nOracle:x\n"
+	raise := tapeZoneSorcery("Tape Mass Raise", "A:SP$ ChangeZoneAll | ChangeType$ Creature | Origin$ Graveyard | Destination$ Battlefield")
+	_, st := tapeDual(t, 2, 33201, func(t *testing.T, e *Engine) {
+		moveByName(t, e, 0, "Tape Devourer", state.ZGraveyard)
+		moveByName(t, e, 0, "ParentLink Bear", state.ZGraveyard)
+		moveByName(t, e, 0, "ParentLink Angel", state.ZBattlefield)
+		tapeCastAndResolve(t, e, "Tape Mass Raise", "B")
+	}, raise, devourer, ptResumeBearSrc, ptResumeAngelSrc)
+	if st.Served != 0 {
+		t.Fatalf("a replacement body's ask was served from the tape: %+v", st)
+	}
+}
