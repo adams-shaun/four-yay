@@ -20,10 +20,10 @@ type plannedCastPayment struct {
 // The spec §6 PaymentFallback vocabulary. It is closed: a plan that stops
 // names exactly one of these on the manual window the cast returns to.
 const (
-	paymentFallbackCostChanged       = "cost_changed"
-	paymentFallbackSourceChanged     = "source_changed"
-	paymentFallbackProductionChanged = "production_changed"
-	paymentFallbackChoiceRequired    = "choice_required"
+	paymentFallbackCostChanged       = pay.FallbackCostChanged
+	paymentFallbackSourceChanged     = pay.FallbackSourceChanged
+	paymentFallbackProductionChanged = pay.FallbackProductionChanged
+	paymentFallbackChoiceRequired    = pay.FallbackChoiceRequired
 )
 
 // paymentPlanFallback stops automation for the rest of the cast: the witness
@@ -35,7 +35,7 @@ func (e *Engine) paymentPlanFallback(pc *pendingCast, reason string) {
 		return
 	}
 	pc.paymentFallback = &decision.PaymentFallback{PlanID: pc.payment.plan.ID, Reason: reason}
-	e.paymentStats.recordFallback(reason)
+	e.paymentStats.RecordFallback(reason)
 	pc.payment = nil
 	pc.paymentNext = 0
 }

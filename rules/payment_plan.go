@@ -21,16 +21,6 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// PaymentPlanOutcome describes a pure planner query.  Reason is deliberately
-// a small machine-readable vocabulary so callers can distinguish an ordinary
-// shortage from a V1 shape it must leave to manual payment.
-type PaymentPlanOutcome struct {
-	Plan   *decision.PaymentPlan
-	Reason string // "", "unsupported", "insufficient", or "search_limit"
-	Detail string // deterministic unsupported/source diagnostic
-	Nodes  int
-}
-
 func paymentActionFor(d *decision.Decision, id string) (decision.PaymentAction, bool) {
 	if d == nil {
 		return decision.PaymentAction{}, false
@@ -526,10 +516,10 @@ func (e *Engine) paymentActionsForPriority(p, idSeat state.PlayerID, seq uint64,
 	// account for (planCastPaymentChecked), and that verdict reads only the
 	// player, so no walk can change the empty result.
 	if !paymentPlanPoolOK(&e.G.Players[p]) {
-		e.paymentStats.recordBuild(true)
+		e.paymentStats.RecordBuild(true)
 		return nil
 	}
-	e.paymentStats.recordBuild(false)
+	e.paymentStats.RecordBuild(false)
 	// The builder's potential walk is what the priority walk's block record
 	// serves (walk_block_reuse.go): record from now on.
 	e.walkRecDemand = true
@@ -582,7 +572,7 @@ func (e *Engine) paymentActionsForPriority(p, idSeat state.PlayerID, seq uint64,
 		}
 		cast := decision.PlannedCast{Object: opt.Obj, Face: 0, Origin: origin}
 		got := e.planCastPaymentMemo(p, cast, &statics, &legal)
-		e.paymentStats.recordOutcome(got)
+		e.paymentStats.RecordOutcome(got)
 		if got.Plan == nil {
 			continue
 		}
@@ -623,7 +613,7 @@ func (e *Engine) paymentActionsForPriority(p, idSeat state.PlayerID, seq uint64,
 			}
 		}
 		out = append(out, a)
-		e.paymentStats.recordOffered(len(a.Plans))
+		e.paymentStats.RecordOffered(len(a.Plans))
 	}
 	return out
 }
