@@ -44,7 +44,7 @@ import (
 // Submit can express it at this point, and a 3-seat game keeps playing on
 // after the loss.
 func TestDepartedChooserResumptionEventStreamIsDeterministic(t *testing.T) {
-	t.Parallel()
+	tapeLegacyOnly(t)
 	reg := testutil.CorpusRegistry(t)
 	cfg := Config{Seed: 42, Tokens: reg.Tokens}
 	for _, n := range []string{"ur-delver", "death-n-taxes", "ur-delver"} {

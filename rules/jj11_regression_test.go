@@ -98,7 +98,7 @@ func TestSwordsTokenCeasesFromExile(t *testing.T) {
 // contract they always certified (the shuffle arm itself is pinned in
 // rules/ponder_test.go).
 func TestPonderArrangeResumesDrawExactlyOnce(t *testing.T) {
-	t.Parallel()
+	tapeLegacyOnly(t)
 	e := crResolutionEngine(t, []string{"Ponder"}, nil)
 	id := crAbortMove(t, e, 0, "Ponder", state.ZHand)
 	sa := e.G.Obj(id).Face().SpellAbility()

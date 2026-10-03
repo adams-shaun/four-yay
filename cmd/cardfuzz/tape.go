@@ -2,7 +2,7 @@ package main
 
 // tape.go is cardfuzz's dual-run harness for the W3 resolution kernel
 // (rules/resolve; lasagna spec §7.7): -tape plays every game on the kernel
-// and verifies its replay on the legacy resume path, -tape-worlds forks a
+// and verifies its replay on the kernel, -tape-worlds forks a
 // redealt hypothetical world at every posed tape decision, and the
 // predicate-miss census classes every resolution the ask-free predicate
 // exempted that asked anyway (the census ratchet is TestTapeMissCensus).
@@ -177,7 +177,7 @@ func tapeDualContext(tape, legacy *rules.Engine, seq int) string {
 // differ, with the kernel's activity per intent up to there.
 func tapeLockstep(cfg rules.Config, log *events.Log) string {
 	tcfg, lcfg := cfg, cfg
-	tcfg.TapeKernel, lcfg.TapeKernel = true, false
+	tcfg.LegacyResume, lcfg.LegacyResume = false, true
 	te, le := rules.New(tcfg), rules.New(lcfg)
 	te.Advance()
 	le.Advance()

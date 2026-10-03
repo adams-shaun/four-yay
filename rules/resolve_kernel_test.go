@@ -36,7 +36,7 @@ func tapeFixture(t *testing.T, seats int, seed uint64, tape bool, srcs ...string
 	}
 	decks[0] = append(append([]*cards.Card(nil), fixtures...), mountainDeck(t, 40-len(fixtures))...)
 	cfg := seatZeroStart(Config{Seed: seed, Names: names, Decks: decks, Tokens: map[string]*cards.Card{}})
-	cfg.TapeKernel = tape
+	cfg.LegacyResume = !tape
 	// The legacy arm stays legacy even under GORGE_TAPE_KERNEL=1.
 	prev := tapeKernelEnv
 	tapeKernelEnv = tapeKernelEnv && tape
@@ -560,4 +560,17 @@ func TestTapeWorldsInFuzzGames(t *testing.T) {
 	ks := resolve.ReadStats().Sub(before)
 	t.Logf("%d games, %d intents, %d clones; %d tape worlds, %d world intents; kernel %+v",
 		st.games.Load(), st.intents.Load(), st.clones.Load(), worlds, steps, ks)
+}
+
+// tapeLegacyOnly runs the calling test on the legacy resume path (opted out
+// of the default kernel, as Config.LegacyResume does): the test pins that
+// path's own machinery -- its suspension records, resume frames and park
+// shapes -- which the kernel replaces. The process-wide default is switched
+// for the test's duration, so the caller must not be parallel (top-level
+// parallel tests run only after every sequential one has finished).
+func tapeLegacyOnly(t *testing.T) {
+	t.Helper()
+	prev := tapeKernelEnv
+	tapeKernelEnv = false
+	t.Cleanup(func() { tapeKernelEnv = prev })
 }

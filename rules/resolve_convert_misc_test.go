@@ -200,7 +200,7 @@ func tapeDualTokens(t *testing.T, seats int, seed uint64, tokens map[string]*car
 		}
 		decks[0] = append(append([]*cards.Card(nil), fixtures...), mountainDeck(t, 40-len(fixtures))...)
 		cfg := seatZeroStart(Config{Seed: seed, Names: names, Decks: decks, Tokens: tokens})
-		cfg.TapeKernel = tape
+		cfg.LegacyResume = !tape
 		prev := tapeKernelEnv
 		tapeKernelEnv = tapeKernelEnv && tape
 		e := New(cfg)

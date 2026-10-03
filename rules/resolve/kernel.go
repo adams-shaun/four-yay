@@ -12,7 +12,7 @@ import (
 // walks them): a clone keeps the switch and shares a posed checkpoint by
 // pointer, and starts every in-flight field zero (ForClone).
 type Kernel struct {
-	// on is Config.TapeKernel: the kernel handles this engine's
+	// on is !Config.LegacyResume: the kernel handles this engine's
 	// resolutions.
 	on bool `clone:"deep"`
 	// posed is non-nil while a tape resolution is posed: the immutable
@@ -35,6 +35,14 @@ type Kernel struct {
 	answerer Answerer `clone:"reset"`
 	// inline marks the Pose an inline answer makes.
 	inline bool `clone:"reset"`
+	// posedLen is the event log's length when the posed tape decision was
+	// posed. Anything logged past it before the answering Submit was
+	// appended from outside the engine's own flow while the decision was
+	// posed (a hypothetical world's redeal, a test probe's emit); the
+	// answer records it as an injection, re-applied at exactly that point
+	// by every re-run. A clone at the posed decision has the same log, so it
+	// keeps the length.
+	posedLen int `clone:"deep"`
 }
 
 // Checkpoint is S0 and where the resolution's tape starts.
@@ -50,13 +58,20 @@ type Checkpoint struct {
 	// k0 is the index in the intent log of the resolution-starting pass;
 	// base is the event log's length at S0.
 	k0, base int
-	// forkAt (> 0) is a world's log length when it was forked at this posed
-	// resolution; inject is what the world's builder appended there before
-	// its first Submit (a redeal's Secret events). A re-run re-applies it at
-	// exactly that point, so the re-executed world is the REDEALT posed
-	// state, never the true one.
-	forkAt int
-	inject []events.Event
+	// injects are the events appended from outside the engine's flow while
+	// one of this resolution's tape decisions was posed (Kernel.posedLen):
+	// a redealt world's Secret events, a test probe's emits. A re-run
+	// re-applies each at exactly the log length it was appended at, so the
+	// re-executed engine is the injected posed state (for a world, the
+	// REDEALT one, never the true one). Copy-on-write: a checkpoint is shared
+	// by pointer with every clone.
+	injects []injection
+}
+
+// injection is one batch of events appended at log length at.
+type injection struct {
+	at  int
+	evs []events.Event
 }
 
 // run is one execution of a tape resolution.
@@ -73,8 +88,9 @@ type run struct {
 	tapeAsked bool
 	// first: the live engine's first run (S0 was just taken), where a legacy
 	// ask before any tape ask can switch to legacy in place.
-	first    bool
-	injected bool
+	first bool
+	// injected counts the checkpoint's injections already re-applied.
+	injected int
 	// rerun marks a re-execution from S0, whose observers are parked until
 	// the run passes the recorded prefix.
 	rerun bool
@@ -96,7 +112,7 @@ type Divergence struct{ Msg string }
 
 func (d Divergence) Error() string { return "resolve: tape kernel divergence: " + d.Msg }
 
-// SetOn turns the kernel on or off for this engine (Config.TapeKernel).
+// SetOn turns the kernel on or off for this engine (!Config.LegacyResume).
 func (k *Kernel) SetOn(on bool) { k.on = on }
 
 // On reports whether the kernel handles this engine's resolutions.
@@ -109,16 +125,19 @@ func (k *Kernel) Posed() bool { return k.posed != nil }
 func (k *Kernel) SetAnswerer(f Answerer) { k.answerer = f }
 
 // ForClone is the kernel state a clone of the engine starts with: the switch
-// and the posed checkpoint (shared), nothing in flight.
-func (k *Kernel) ForClone() Kernel { return Kernel{on: k.on, posed: k.posed} }
+// and the posed checkpoint (shared) at the same posed log length, nothing in
+// flight.
+func (k *Kernel) ForClone() Kernel { return Kernel{on: k.on, posed: k.posed, posedLen: k.posedLen} }
 
 // Fork gives a hypothetical world forked at a posed tape resolution its own
-// checkpoint copy: the world's RNG splice and the fork point for the
-// builder's injected events (spec §7.3). Call it only when Posed.
+// checkpoint copy carrying the world's RNG splice; forkAt is the world's log
+// length, where whatever its builder appends before its first Submit (a
+// redeal's Secret events) is injected (spec §7.3). Call it only when Posed.
 func (k *Kernel) Fork(world any, forkAt int) {
 	cp := *k.posed
-	cp.World, cp.forkAt, cp.inject = world, forkAt, nil
+	cp.World = world
 	k.posed = &cp
+	k.posedLen = forkAt
 }
 
 // Watching reports whether the engine's ask choke point must call OnAsk.
@@ -191,6 +210,7 @@ func (k *Kernel) firstRun(b Board, d *decision.Decision, in decision.Intent) {
 	switch {
 	case posed:
 		k.run, k.posed = nil, cp
+		k.posedLen = len(l.Events)
 		stats.posed.Add(1)
 	case k.run == nil:
 		b.Drop(cp.S0) // switched to legacy in place (counted in OnAsk)
@@ -241,12 +261,13 @@ func sentinel(p any) (posed, aborted bool) {
 func (k *Kernel) resubmit(b Board, in decision.Intent) {
 	cp := k.posed
 	l := b.Log()
-	if cp.forkAt > 0 && cp.inject == nil && len(l.Events) > cp.forkAt {
-		// A world's first Submit since its fork: everything logged since the
-		// fork is what its builder injected (nothing else runs while a
-		// decision is posed). Record it on the world's own checkpoint copy.
+	if n := len(l.Events); n > k.posedLen && k.posedLen >= cp.base {
+		// Logged while the decision was posed, from outside the engine's
+		// flow (nothing of its own runs while a decision is posed): record it
+		// on this engine's own checkpoint copy as an injection.
 		ncp := *cp
-		ncp.inject = append([]events.Event(nil), l.Events[cp.forkAt:]...)
+		ncp.injects = append(append([]injection(nil), cp.injects...),
+			injection{at: k.posedLen, evs: append([]events.Event(nil), l.Events[k.posedLen:]...)})
 		cp = &ncp
 		k.posed = cp
 	}
@@ -276,6 +297,7 @@ func (k *Kernel) resubmit(b Board, in decision.Intent) {
 	b.Observe()
 	if posed {
 		k.posed = cp
+		k.posedLen = len(l.Events)
 	} else {
 		k.posed = nil
 	}
@@ -289,15 +311,15 @@ func (k *Kernel) legacyReplay(b Board, cp *Checkpoint, tape []decision.Intent, l
 	k.restore(b, cp, liveLen, liveIntents)
 	k.on, k.posed = false, nil
 	l := b.Log()
-	injected := false
+	injected := 0
 	for i, t := range tape {
-		if len(cp.inject) > 0 && !injected && len(l.Events) == cp.forkAt {
-			// A redealt world: re-apply the builder's events where the world
-			// was forked, before the answer to the decision posed there.
-			injected = true
-			for _, ev := range cp.inject {
+		for injected < len(cp.injects) && len(l.Events) == cp.injects[injected].at {
+			// Re-apply what was injected where the decision this intent
+			// answers was posed, before the answer.
+			for _, ev := range cp.injects[injected].evs {
 				b.Emit(ev)
 			}
+			injected++
 		}
 		if err := b.Submit(t); err != nil {
 			panic(Divergence{fmt.Sprintf("legacy replay refused tape intent %d: %v", i, err)})
@@ -396,16 +418,16 @@ func (k *Kernel) inlineAnswer(b Board, d *decision.Decision) decision.Intent {
 	}
 }
 
-// inject re-applies a world's injected events when a re-run reaches the
-// fork point (right after the posed ask's DecisionAsk).
+// inject re-applies the checkpoint's injected events when a re-run reaches
+// the log length they were appended at (right after the posed ask's
+// DecisionAsk).
 func (k *Kernel) inject(b Board, r *run) {
 	cp := r.cp
-	if len(cp.inject) == 0 || r.injected || len(b.Log().Events) != cp.forkAt {
-		return
-	}
-	r.injected = true
-	for _, ev := range cp.inject {
-		b.Emit(ev)
+	for r.injected < len(cp.injects) && len(b.Log().Events) == cp.injects[r.injected].at {
+		for _, ev := range cp.injects[r.injected].evs {
+			b.Emit(ev)
+		}
+		r.injected++
 	}
 }
 

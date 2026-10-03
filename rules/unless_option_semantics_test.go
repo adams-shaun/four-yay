@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -38,7 +39,9 @@ func TestUnlessPayDeclineRemainsDeclineWhenCostBecomesPayable(t *testing.T) {
 	// Change the gate after the option list has been posed. The pool value is
 	// now enough for Mana Leak's {3}; choosing the sole offered decline must
 	// not charge it.
-	e.G.Players[0].Pool[state.MG] = 3
+	for i := 0; i < 3; i++ {
+		e.emit(events.Event{Kind: events.ManaAdd, Player: 0, Counter: "G", Amount: 1})
+	}
 	if !e.UnlessCostPayable(0, "3") {
 		t.Fatal("precondition: Mana Leak cost should now be payable")
 	}

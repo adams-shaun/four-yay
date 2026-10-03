@@ -108,7 +108,7 @@ func flipAskFlipAtAsk(t *testing.T, reg *cards.Registry, asker *cards.Card, seed
 }
 
 func TestCloneOwnsTheSuspendedResolutionsFlipMemory(t *testing.T) {
-	t.Parallel()
+	tapeLegacyOnly(t)
 	reg := testutil.CorpusRegistry(t)
 	asker := card(t, flipAskFlipSrc)
 	exercised := false

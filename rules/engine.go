@@ -106,14 +106,14 @@ type Config struct {
 	// engine reads.
 	LoopGuard *LoopGuard
 
-	// TapeKernel opts this game into the W3 resolution kernel
-	// (rules/resolve): checkpoint at the pass that begins a resolution and
-	// answer its mid-resolution decisions by re-executing it from the
-	// checkpoint with the recorded intents as an answer tape. It never
-	// changes an event (the dual-run harness holds it to byte identity with
-	// the legacy resume path, which stays the default); the
-	// GORGE_TAPE_KERNEL=1 environment switch turns it on for every engine.
-	TapeKernel bool
+	// LegacyResume opts this game out of the W3 resolution kernel
+	// (rules/resolve), which is the default: the kernel checkpoints at the
+	// pass that begins a resolution and answers its mid-resolution decisions
+	// by re-executing it from the checkpoint with the recorded intents as an
+	// answer tape, and it answers a park-and-continue ask in place (lasagna
+	// spec §7.2), so a game logged on one path replays only on that path. The
+	// GORGE_TAPE_KERNEL=0 environment switch opts every engine out.
+	LegacyResume bool
 
 	// Spare, when non-nil, is a finished game's storage (Engine.Release)
 	// the new engine reuses for its log and object arena. It never changes
@@ -174,7 +174,7 @@ func (e *Engine) Submit(in decision.Intent) error {
 	if err := submitValidate(e, d, in); err != nil {
 		return err
 	}
-	// The resolution kernel (rules/resolve, behind Config.TapeKernel): a
+	// The resolution kernel (rules/resolve; Config.LegacyResume opts out): a
 	// posed tape resolution re-executes from its checkpoint, and a pass that
 	// begins a resolution takes the checkpoint first.
 	if e.tape.On() && e.tape.Submit(asResolve(e), d, in) {

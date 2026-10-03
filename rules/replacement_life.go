@@ -33,6 +33,11 @@ type lifeExchangeTransaction struct {
 	rememberMemory *effects.ExchangeMemory `clone:"deep"`
 	controllerLife int32                   `clone:"deep"`
 	staged         []events.Event          `clone:"deep"`
+	// done marks a settled transaction: under the resolution kernel a CR
+	// 616.1 life replacement is answered in place, inside the very emit the
+	// exchange is waiting on, so the answer's settle and the exchange's own
+	// tail both reach finishLifeExchange; only the first settles.
+	done bool `clone:"deep"`
 }
 
 // applyLifeReplacements evaluates the GainLife and LifeReduced replacements

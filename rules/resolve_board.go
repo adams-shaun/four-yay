@@ -16,11 +16,11 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// tapeKernelEnv turns the kernel on for every engine (GORGE_TAPE_KERNEL=1, or
-// baked into a bench binary with
-// -ldflags "-X github.com/adams-shaun/gorge/rules.tapeKernelBuild=1"). Read
-// once; it is configuration, never game state.
-var tapeKernelEnv = os.Getenv("GORGE_TAPE_KERNEL") == "1" || tapeKernelBuild == "1"
+// tapeKernelEnv is the process default for the kernel: on, unless
+// GORGE_TAPE_KERNEL=0 (or a binary built with
+// -ldflags "-X github.com/adams-shaun/gorge/rules.tapeKernelBuild=0") opts
+// every engine out. Read once; it is configuration, never game state.
+var tapeKernelEnv = os.Getenv("GORGE_TAPE_KERNEL") != "0" && tapeKernelBuild != "0"
 
 var tapeKernelBuild string
 
@@ -50,13 +50,13 @@ type engineResolveKernel struct {
 	// through the kernel (windowAsk): its own holder is open by design, so
 	// Busy looks past it. Transient within one ask.
 	tapeWindowAsking bool `clone:"reset"`
-	// tapeETBServed names the entering object whose as-enters choice the
-	// kernel served in line this resolution (applyETBChoiceReplacement):
-	// its entry replacement body's ask then stays legacy, because the
-	// legacy path chains that body's frame behind the as-enters frame and
-	// completes it without the CR 117.3b grant -- an order the in-line
-	// answer does not reproduce.
-	tapeETBServed state.ObjID `clone:"reset"`
+	// tapeEpoch counts the kernel's restores of this engine. A restore
+	// rewinds the engine's state in place under the same Game and Log
+	// pointers and the re-run then logs past the recorded prefix again, so a
+	// reader that caches derived facts by log position (botpolicy's
+	// incremental board, through BoardReadKey) cannot see the rewind; the
+	// epoch is part of that key.
+	tapeEpoch uint32 `clone:"deep"`
 }
 
 // resolveBoard is the Engine itself under the kernel's method set: asResolve
@@ -75,14 +75,6 @@ func (e *Engine) TapeAnswer(d *decision.Decision) (decision.Intent, bool) {
 	if tapeForceLegacy != nil && tapeForceLegacy(d) {
 		return decision.Intent{}, false
 	}
-	if e.applyingReplacement && !ownEntryReplacementAsk(e, d) {
-		// A ReplaceWith$ body's ask: legacy suspends the body but the effect
-		// whose move the replacement intercepted keeps running (a mass
-		// return enters the next creature before Devour's sacrifice is
-		// answered), so the answer lands after events an inline answer
-		// would precede. Not a shape the kernel serves; legacy takes it.
-		return decision.Intent{}, false
-	}
 	if d.ResumeKind == "unless_pay" && !e.tape.InRun() {
 		// An UnlessCost$ election settles in line (unlessAnswerSettle), and
 		// its component step can only hand the resolution back to legacy
@@ -91,20 +83,6 @@ func (e *Engine) TapeAnswer(d *decision.Decision) (decision.Intent, bool) {
 		return decision.Intent{}, false
 	}
 	return e.tape.Answer(asResolve(e), d)
-}
-
-// ownEntryReplacementAsk reports whether d is asked by the resolving
-// permanent spell's own entry replacement body after its move took it off
-// the stack (Sower of Discord's shape): the entry is the last thing the
-// resolution does, so nothing the legacy park would let run on precedes the
-// answer, and the kernel serves it in line.
-func ownEntryReplacementAsk(e *Engine, d *decision.Decision) bool {
-	if e.resume != nil || e.resolvingObj == 0 || d.Source != e.resolvingObj || len(e.contChain) != 0 ||
-		e.tapeETBServed == d.Source {
-		return false
-	}
-	o := e.G.Obj(d.Source)
-	return o != nil && o.Zone != state.ZStack
 }
 
 // tapeForceLegacy (tests only) makes a converted ask site decline the tape,
@@ -135,6 +113,13 @@ func (b *resolveBoard) Busy() bool {
 	if e.tapeWindowAsking && e.resume == nil && e.offStackMana == nil &&
 		(e.unlessPayment == nil || e.unlessPayment.tape) {
 		// windowAsk's own window: the holder it asks for is open by design.
+		return false
+	}
+	if u := e.unlessPayment; u != nil && u.tape && e.resume == nil && e.offStackMana == nil &&
+		e.cumulative == nil && e.triggerCost == nil && e.echo == nil {
+		// A tape-driven unless payment is the kernel's own, not a legacy
+		// suspension: an ask its component walk reaches (a discard's
+		// madness election) is served in place.
 		return false
 	}
 	return e.resume != nil || e.Suspended() || e.offStackMana != nil
@@ -178,13 +163,21 @@ func (b *resolveBoard) Restore(cp *resolve.Checkpoint, evEnd int) {
 	s0 := cp.S0.(*Engine)
 	g, l := e.G, e.L
 	arenaOn := e.decArena != nil && e.decArena.owner == e && e.decArena.on
-	kernel := e.tape
+	kernel, epoch := e.tape, e.tapeEpoch+1
 	hook, stats := e.ManaAbilityHook, e.paymentStats
 	if hook == nil && stats == nil {
 		hook, stats = e.tapeHeldHook, e.tapeHeldStats // already parked
 	}
 	evs, ints := l.Events, l.Intents
 	l.Events, l.Intents = nil, nil
+	// The decision arena stays out of the release: Release clears its
+	// chunks for reuse, and every decision it posed must keep its Options
+	// for the engine's whole life (a host holds them past the answer).
+	arena := e.decArena
+	if arena != nil && arena.owner != e {
+		arena = nil
+	}
+	e.decArena = nil
 	sp := e.Release()
 	l.Events, l.Intents = evs, ints
 	sc := s0.CloneInto(&sp)
@@ -200,7 +193,10 @@ func (b *resolveBoard) Restore(cp *resolve.Checkpoint, evEnd int) {
 	sc.L = l
 	*e = *sc
 	e.G, e.L = g, l
-	e.tape = kernel
+	e.tape, e.tapeEpoch = kernel, epoch
+	if arena != nil {
+		e.decArena = arena
+	}
 	e.tapeHeldHook, e.tapeHeldStats = hook, stats
 	tapeRebindOwner(e, sc, arenaOn)
 }

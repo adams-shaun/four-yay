@@ -74,7 +74,7 @@ func crResolutionPlayerTarget(t *testing.T, e *Engine, p state.PlayerID) {
 }
 
 func TestCR608CompletedSpellLeavesStackAfterDepartedPayer(t *testing.T) {
-	t.Parallel()
+	tapeLegacyOnly(t)
 	// MEASURED at 88ea57a+fx9: the concession below leaves e.resume non-nil
 	// forever. Suspended() tests ANY non-nil resume, so every LATER stack
 	// object skips completion -- seat 0's Bolt below deals its 3 damage and

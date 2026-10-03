@@ -50,7 +50,7 @@ func arrangeDecision(t *testing.T, e *Engine, id state.ObjID) *decision.Decision
 // resolution suspended -- the spell stays on the stack, the asking effect has
 // returned, and nothing before the ask re-runs until the answer arrives.
 func TestArrangePosesDecisionAndSuspends(t *testing.T) {
-	t.Parallel()
+	tapeLegacyOnly(t)
 	e, _, id := arrangeFixture(t, 100)
 	d := arrangeDecision(t, e, id)
 	if d.Min != 3 || d.Max != 3 {

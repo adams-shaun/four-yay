@@ -968,8 +968,12 @@ func stripTransientAbilities(base, g *state.Game) {
 
 func diffGames(a, b *state.Game) string {
 	var diffs []string
-	if !reflect.DeepEqual(a.Players, b.Players) {
-		diffs = append(diffs, fmt.Sprintf("players: %+v vs %+v", a.Players, b.Players))
+	// Players compare by value with nil and empty slices alike (the
+	// formatted text): a spent RestrictedMana batch list is an empty slice
+	// after events.Apply and nil after a Clone, and the resolution kernel's
+	// restore is a clone.
+	if ap, bp := fmt.Sprintf("%+v", a.Players), fmt.Sprintf("%+v", b.Players); ap != bp {
+		diffs = append(diffs, fmt.Sprintf("players: %s vs %s", ap, bp))
 	}
 	n := len(a.Objs)
 	if len(b.Objs) > n {

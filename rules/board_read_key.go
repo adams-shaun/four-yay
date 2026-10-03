@@ -32,7 +32,10 @@ func (e *Engine) BoardReadKey() (lineage *events.Log, seq uint64, version, objs 
 		return e.L, 0, 0, 0, false
 	}
 	e.active()
-	return e.L, e.derivedSeq, e.continuousVersion, len(e.G.Objs), e.derivedSeq != 0
+	// The kernel's restore epoch rides the version: a restore rewinds state
+	// under the same log, which the caller's log-position bookkeeping cannot
+	// see.
+	return e.L, e.derivedSeq, e.continuousVersion ^ int(e.tapeEpoch)<<40, len(e.G.Objs), e.derivedSeq != 0
 }
 
 // CharacteristicsReusable reports whether id's derivation may be reused

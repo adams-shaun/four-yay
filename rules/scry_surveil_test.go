@@ -62,7 +62,7 @@ func surveilDecision(t *testing.T, e *Engine, id state.ObjID) *decision.Decision
 // one option per top card in top-down order, Option.Kind "bottom", and the
 // resolution suspended.
 func TestScryPosesArrangeAndSuspends(t *testing.T) {
-	t.Parallel()
+	tapeLegacyOnly(t)
 	e, _, id := scryFixture(t, 201)
 	d := scryDecision(t, e, id)
 	if d.Min != 0 || d.Max != 3 {
@@ -257,7 +257,7 @@ func TestSurveilEmptyReplaysByteIdentically(t *testing.T) {
 // decision is mutated to disagree and answered, and the Note plus the
 // Options[0] ("bottom") routing must both hold.
 func TestArrangeMixedKindDegradesWithNote(t *testing.T) {
-	t.Parallel()
+	tapeLegacyOnly(t)
 	e, _, id := scryFixture(t, 205)
 	d := scryDecision(t, e, id)
 	top := []state.ObjID{d.Options[0].Obj, d.Options[1].Obj, d.Options[2].Obj}

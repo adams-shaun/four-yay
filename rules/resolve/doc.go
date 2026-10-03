@@ -41,7 +41,9 @@
 // No state is mutated outside events.Apply: the kernel only checkpoints,
 // restores, and runs the ordinary engine code.
 //
-// The legacy resume machinery stays the default. The kernel runs only on an
-// engine configured with rules.Config.TapeKernel (or the GORGE_TAPE_KERNEL
-// switch), and its dual run holds it to byte identity with legacy.
+// The kernel is the default; rules.Config.LegacyResume (or
+// GORGE_TAPE_KERNEL=0) opts an engine out onto the legacy resume machinery,
+// which is also the kernel's run-time fallback for an ask site it cannot
+// serve. Park-and-continue asks are answered in place on the kernel (spec
+// §7.2), so the two paths differ exactly there.
 package resolve

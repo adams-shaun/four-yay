@@ -208,6 +208,7 @@ func TestParentTargetEmptyLinkSurvivesASuspension(t *testing.T) {
 // must own the parent-link record, and both engines must still resume to the
 // nearest targeting link when the SAME answer is served to each.
 func TestParentTargetLinkRecordClonesWithSuspension(t *testing.T) {
+	tapeLegacyOnly(t)
 	e, _, _ := newFixtureDeck(t, 7103, parentTargetBetweenScript(),
 		ptResumeBearSrc, ptResumeAngelSrc)
 	bear := moveByName(t, e, 0, "ParentLink Bear", state.ZBattlefield)

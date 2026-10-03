@@ -42,7 +42,7 @@ import (
 // the game keeps running while the ask sits (a two-seat game would end when
 // the damage completes).
 func TestResumeTriggerDrainIsInertWhileAResolutionIsSuspended(t *testing.T) {
-	t.Parallel()
+	tapeLegacyOnly(t)
 	reg := testutil.CorpusRegistry(t)
 	cfg := Config{Seed: 42, Tokens: reg.Tokens}
 	for _, n := range []string{"ur-delver", "death-n-taxes", "ur-delver"} {

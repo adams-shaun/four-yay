@@ -33,7 +33,7 @@ import (
 // then the original -- requiring each to run every continuation and both to
 // land on the same chain head.
 func TestCloneResumeChainIndependence(t *testing.T) {
-	t.Parallel()
+	tapeLegacyOnly(t)
 	charm := "Name:PiNCLONE\nManaCost:R\nTypes:Instant\n" +
 		"A:SP$ Charm | Choices$ DoRepeat,DoGain | SubAbility$ Out\n" +
 		"SVar:DoRepeat:SP$ Repeat | RepeatSubAbility$ DoDiscard | RepeatNum$ 1 | SubAbility$ Mid\n" +

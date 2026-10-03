@@ -214,7 +214,7 @@ func drainToEnd(t *testing.T, e *Engine, limit int) {
 // original engine would fail exactly here (the clone would resume into
 // nothing), which is the whole reason the field is structured this way.
 func TestSuspendedResolutionSurvivesAClone(t *testing.T) {
-	t.Parallel()
+	tapeLegacyOnly(t)
 	charm := "Name:PiC\nManaCost:R\nTypes:Instant\nA:SP$ Charm | Choices$ DoDiscard,DoGain\n" +
 		"SVar:DoDiscard:DB$ Discard | Defined$ You | Mode$ TgtChoose | NumCards$ 1 | SpellDescription$ Discard a card\n" +
 		"SVar:DoGain:DB$ GainLife | Defined$ You | LifeAmount$ 5 | SpellDescription$ Gain 5 life\nOracle:x\n"
