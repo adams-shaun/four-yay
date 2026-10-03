@@ -343,28 +343,52 @@ func TestReproOnFreshSnapshot(t *testing.T) {
 	}
 }
 
+// emitScratch creates a fresh scratch package directory for an -emit-test
+// probe and returns its absolute path and its repo-root-relative name (the
+// form -emit-test and `go test ./<name>` take). With pkgName set it seeds a
+// doc.go declaring that package; it is removed on cleanup.
+//
+// The directory sits at the repo root -- inside the module, so the emitted
+// skeleton can import internal/testutil/feedback and feedback.Root (git
+// rev-parse from the working directory) still finds the repo and its corpus
+// -- but under a `_`-prefixed name, which the go tool's `./...` wildcard
+// never matches. A plain root-level scratch package was a real package of
+// the module for as long as it existed, so any concurrent `go list ./...`
+// (internal/archtest's package census, the 32-bit build) listed it, then
+// failed with `go list: exit status 1` when the probe deleted it mid-load.
+// An explicitly named `./_dir` still builds and tests normally. os.MkdirTemp
+// makes the name unique, so two concurrent runs of this package (two
+// worktrees' gates on one checkout) cannot collide either.
+func emitScratch(t *testing.T, root, prefix, pkgName string) (dir, rel string) {
+	t.Helper()
+	dir, err := os.MkdirTemp(root, "_"+prefix+"-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(dir) })
+	if pkgName != "" {
+		if err := os.WriteFile(filepath.Join(dir, "doc.go"), []byte("package "+pkgName+"\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return dir, filepath.Base(dir)
+}
+
 // TestReproEmitTestSkeletonCompilesAndFailsOnTODO: -emit-test copies the
 // snapshot into the target package's testdata and writes a test that
 // compiles and fails only on its TODO. The target is a scratch package
-// under the repo root (a real package the go tool builds), removed on
-// cleanup.
+// (emitScratch: a real package the go tool builds, invisible to `./...`),
+// removed on cleanup.
 func TestReproEmitTestSkeletonCompilesAndFailsOnTODO(t *testing.T) {
 	requireCorpus(t)
 	root, err := feedback.Root()
 	if err != nil {
 		t.Skipf("no repo root: %v", err)
 	}
-	scratch := filepath.Join(root, "zzrepro-emittest")
-	t.Cleanup(func() { os.RemoveAll(scratch) })
-	if err := os.MkdirAll(scratch, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(scratch, "doc.go"), []byte("package emittmp\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	scratch, rel := emitScratch(t, root, "zzrepro-emittest", "emittmp")
 
 	var out bytes.Buffer
-	if code := run([]string{"-emit-test", "zzrepro-emittest", fixtureRel}, &out, io.Discard); code != 0 {
+	if code := run([]string{"-emit-test", rel, fixtureRel}, &out, io.Discard); code != 0 {
 		t.Fatalf("emit exit %d, output:\n%s", code, out.String())
 	}
 	if _, err := os.Stat(filepath.Join(scratch, "testdata", "feedback", fixtureID, "match.json")); err != nil {
@@ -385,7 +409,7 @@ func TestReproEmitTestSkeletonCompilesAndFailsOnTODO(t *testing.T) {
 	}
 
 	// The generated test compiles and fails on its TODO, not on load.
-	cmd := exec.Command("go", "test", "./zzrepro-emittest", "-run", "TestFeedbackRepro20260914T120000Z_fb01")
+	cmd := exec.Command("go", "test", "./"+rel, "-run", "TestFeedbackRepro20260914T120000Z_fb01")
 	cmd.Dir = root
 	raw2, err := cmd.CombinedOutput()
 	if err == nil {
@@ -404,8 +428,8 @@ func TestReproEmitTestSkeletonCompilesAndFailsOnTODO(t *testing.T) {
 // rules-shaped engine target must compile and fail only on the TODO.
 //
 // The target is a runtime CLONE of the rules package (its non-test sources
-// copied verbatim into zzrepro-emitrules at the repo root, so the package
-// is still named rules and every import stays inside the module), not the
+// copied verbatim into an emitScratch directory, so the package is still
+// named rules and every import stays inside the module), not the
 // real rules/ directory. Writing the skeleton into the real rules dir made
 // this probe a hazard to every other build of ./rules: a gate process
 // killed between emit and cleanup left the skeleton (and its snapshot)
@@ -413,11 +437,11 @@ func TestReproEmitTestSkeletonCompilesAndFailsOnTODO(t *testing.T) {
 // exists; not overwriting" -> exit 2 with a discarded stderr) while its
 // cleanup deleted that stale file out from under a concurrently loading
 // rules build ("open rules/repro_feedback_..._test.go: no such file or
-// directory") — both seen in one gate run. A root-level scratch directory
-// is never in `go test ./...`'s package list (enumerated before the tests
-// run), and archtest's 32-bit build filters zzrepro-* out of its list, so
-// nothing can race it or inherit residue. The cycle premise is asserted statically instead of by mutating
-// the real tree.
+// directory") — both seen in one gate run. An emitScratch directory is
+// `_`-prefixed, so no `./...` pattern -- `go test ./...`'s package list, a
+// concurrent `go list ./...` -- ever names it, nothing can race it, and its
+// unique name leaves no residue for a later run to trip on. The cycle
+// premise is asserted statically instead of by mutating the real tree.
 func TestReproEmitTestIntoRulesCompilesAndFailsOnTODO(t *testing.T) {
 	requireCorpus(t)
 	root, err := feedback.Root()
@@ -438,11 +462,7 @@ func TestReproEmitTestIntoRulesCompilesAndFailsOnTODO(t *testing.T) {
 		t.Fatalf("premise lost: internal/testutil/feedback no longer imports the rules package:\n%s", depsOut)
 	}
 
-	target := filepath.Join(root, "zzrepro-emitrules")
-	t.Cleanup(func() { os.RemoveAll(target) })
-	if err := os.MkdirAll(target, 0o755); err != nil {
-		t.Fatal(err)
-	}
+	target, rel := emitScratch(t, root, "zzrepro-emitrules", "")
 	ents, err := os.ReadDir(filepath.Join(root, "rules"))
 	if err != nil {
 		t.Fatal(err)
@@ -462,7 +482,7 @@ func TestReproEmitTestIntoRulesCompilesAndFailsOnTODO(t *testing.T) {
 
 	san := sanitize(fixtureID)
 	var out bytes.Buffer
-	if code := run([]string{"-emit-test", "zzrepro-emitrules", fixtureRel}, &out, io.Discard); code != 0 {
+	if code := run([]string{"-emit-test", rel, fixtureRel}, &out, io.Discard); code != 0 {
 		t.Fatalf("emit exit %d, output:\n%s", code, out.String())
 	}
 	raw, err := os.ReadFile(filepath.Join(target, "repro_feedback_"+san+"_test.go"))
@@ -472,7 +492,7 @@ func TestReproEmitTestIntoRulesCompilesAndFailsOnTODO(t *testing.T) {
 	if !strings.Contains(string(raw), "package rules_test") {
 		t.Fatalf("skeleton emitted into the rules clone is not the external test package:\n%s", raw)
 	}
-	cmd := exec.Command("go", "test", "./zzrepro-emitrules", "-run", "^TestFeedbackRepro20260914T120000Z_fb01$")
+	cmd := exec.Command("go", "test", "./"+rel, "-run", "^TestFeedbackRepro20260914T120000Z_fb01$")
 	cmd.Dir = root
 	res, err := cmd.CombinedOutput()
 	if err == nil {
@@ -491,16 +511,9 @@ func TestReproEmitTestRefusesOverwrite(t *testing.T) {
 	if err != nil {
 		t.Skipf("no repo root: %v", err)
 	}
-	scratch := filepath.Join(root, "zzrepro-emittest2")
-	t.Cleanup(func() { os.RemoveAll(scratch) })
-	if err := os.MkdirAll(scratch, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(scratch, "doc.go"), []byte("package emittmp\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	scratch, rel := emitScratch(t, root, "zzrepro-emittest2", "emittmp")
 	var out bytes.Buffer
-	if code := run([]string{"-emit-test", "zzrepro-emittest2", fixtureRel}, &out, io.Discard); code != 0 {
+	if code := run([]string{"-emit-test", rel, fixtureRel}, &out, io.Discard); code != 0 {
 		t.Fatalf("first emit exit %d:\n%s", code, out.String())
 	}
 	// Simulate a filled-in test and a hand-refreshed snapshot: the refused
@@ -517,7 +530,7 @@ func TestReproEmitTestRefusesOverwrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	out.Reset()
-	if code := run([]string{"-emit-test", "zzrepro-emittest2", fixtureRel}, &out, io.Discard); code == 0 {
+	if code := run([]string{"-emit-test", rel, fixtureRel}, &out, io.Discard); code == 0 {
 		t.Fatalf("second emit overwrote the first:\n%s", out.String())
 	}
 	if got, _ := os.ReadFile(testPath); !bytes.Equal(got, filledTest) {
@@ -538,19 +551,12 @@ func TestReproEmitTestRejectsTamperedCapture(t *testing.T) {
 	if err != nil {
 		t.Skipf("no repo root: %v", err)
 	}
-	scratch := filepath.Join(root, "zzrepro-emittest3")
-	t.Cleanup(func() { os.RemoveAll(scratch) })
-	if err := os.MkdirAll(scratch, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(scratch, "doc.go"), []byte("package emittmp\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	scratch, rel := emitScratch(t, root, "zzrepro-emittest3", "emittmp")
 	dir := tamperFixture(t, func(lg map[string]any) {
 		lg["head"] = "deadbeefdeadbeef"
 	})
 	var out bytes.Buffer
-	if code := run([]string{"-emit-test", "zzrepro-emittest3", dir}, &out, io.Discard); code == 0 {
+	if code := run([]string{"-emit-test", rel, dir}, &out, io.Discard); code == 0 {
 		t.Fatalf("tampered capture emitted with exit 0:\n%s", out.String())
 	}
 	if !strings.Contains(out.String(), "DIVERGED") {
@@ -579,14 +585,7 @@ func TestReproEmitTestStripsTokenScriptsFromLiveCapture(t *testing.T) {
 	if err != nil {
 		t.Skipf("no repo root: %v", err)
 	}
-	scratch := filepath.Join(root, "zzrepro-stripemittest")
-	t.Cleanup(func() { os.RemoveAll(scratch) })
-	if err := os.MkdirAll(scratch, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(scratch, "doc.go"), []byte("package striped\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
+	scratch, rel := emitScratch(t, root, "zzrepro-stripemittest", "striped")
 
 	// A live capture, not the committed fixture: match.json carries tokens.
 	advance, r := gatedFixtureRegistry(t)
@@ -610,7 +609,7 @@ func TestReproEmitTestStripsTokenScriptsFromLiveCapture(t *testing.T) {
 	decodeLiveCaptureTokens(t, src)
 
 	var out bytes.Buffer
-	if code := run([]string{"-emit-test", "zzrepro-stripemittest", src}, &out, io.Discard); code != 0 {
+	if code := run([]string{"-emit-test", rel, src}, &out, io.Discard); code != 0 {
 		t.Fatalf("emit exit %d, output:\n%s", code, out.String())
 	}
 

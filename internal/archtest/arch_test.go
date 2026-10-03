@@ -643,26 +643,13 @@ func TestResumeStateOwnedOnlyByTheResolutionMachinery(t *testing.T) {
 // GOARCH=386 is the narrowest target the toolchain always ships; CGO is off
 // because nothing in the module uses it and a 386 C toolchain is not assumed.
 //
-// The package list is enumerated first and cmd/repro's transient scratch
-// packages (zzrepro-*, created and deleted at the repo root by its emit-test
-// probes, which run concurrently under `go test ./...`) are dropped: building
-// `./...` directly raced them, failing with "cannot find package" or a
-// vanished source file whenever a probe cleaned up mid-build.
+// cmd/repro's emit-test probes create scratch packages at the repo root while
+// `go test ./...` runs; they are `_`-prefixed (cmd/repro's emitScratch), so
+// the `/...` pattern never names them and this build cannot race their
+// cleanup.
 func TestEngineCompilesFor32Bit(t *testing.T) {
 	env := append(os.Environ(), "GOOS=linux", "GOARCH=386", "CGO_ENABLED=0")
-	list := exec.Command("go", "list", "-e", module+"/...")
-	list.Env = env
-	raw, err := list.Output()
-	if err != nil {
-		t.Fatalf("go list %s/...: %v", module, err)
-	}
-	args := []string{"build"}
-	for _, p := range strings.Fields(string(raw)) {
-		if !strings.Contains(p, "/zzrepro-") {
-			args = append(args, p)
-		}
-	}
-	cmd := exec.Command("go", args...)
+	cmd := exec.Command("go", "build", module+"/...")
 	cmd.Env = env
 	out, err := cmd.CombinedOutput()
 	if err != nil {

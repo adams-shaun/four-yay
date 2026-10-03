@@ -434,12 +434,10 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			ctx.DamageSourceLKI = cloneDamageSourceLKI(lki)
 		}
 		// CR 603.3c: keep the placement-announced mode choice across the
-		// suspension, so the resumed resolution of a modal trigger runs
-		// exactly the modes chosen when the ability was put on the stack
-		// rather than re-asking. The switch below overrides it (with the
-		// NESTED answer) only for a nested "modes" resume, which is the
-		// correct scoping -- a nested Charm below this one poses its own ask.
-		ctx.Modes = o.ChosenModes
+		// suspension -- but only for a frame that re-enters the ability's own
+		// root (rules/resume_modes.go). The switch below overrides it (with
+		// the NESTED answer) only for a nested "modes" resume.
+		ctx.Modes = resumeChosenModes(rp, o)
 		if rp.kind == "villainous" {
 			if rp.villainousChoice != "" {
 				ctx.Modes = []string{rp.villainousChoice}
