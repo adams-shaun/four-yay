@@ -148,6 +148,10 @@ type node struct {
 	// opponent node.
 	v0   float64
 	mark *reuseMark
+	// rootEval marks a fresh search root whose n counts its own evaluation
+	// (simulate's first step): upstream backs that evaluation up with no
+	// visit (MCTSNode2.evaluate, n = 0), which Options.ParentVisits reads.
+	rootEval bool
 }
 
 type edge struct {
@@ -241,18 +245,50 @@ func selectEdge(nd *node, pt *Point, opts Options) *edge {
 				q = 1 - q
 			}
 		}
-		if s := puctScore(q, kid.prior, kid.avail+1, kid.n, opts.CPUCT); best == nil || s > bestScore {
+		avail := kid.avail + 1
+		if opts.ParentVisits {
+			avail = upstreamVisits(nd)
+		}
+		if s := puctScore(q, kid.prior, avail, kid.n, opts.CPUCT); best == nil || s > bestScore {
 			best, bestScore = kid, s
 		}
 	}
 	return best
 }
 
+// upstreamVisits is nd's visit count as upstream's MCTSNode counts it
+// (Options.ParentVisits): every visit gorge counts, less a fresh root's own
+// evaluation (MCTSNode2.evaluate backs a node's evaluation up with n = 0;
+// below the root the expansion's virtual visit, ComputerPlayerMCTS2
+// .applyMCTS's backpropagate(-1), is the visit gorge counts as the node's
+// own). So upstream's root PUCT reads sqrt(simulations) where gorge's
+// default reads sqrt(simulations + 1), and is 0 at the first selection.
+func upstreamVisits(nd *node) int {
+	if nd.rootEval {
+		return nd.n - 1
+	}
+	return nd.n
+}
+
+// rootValue is the root's mean value as Result.RootValue reports it: q(),
+// or under Options.ParentVisits upstream's getMeanScore -- the summed value
+// (the root's own evaluation included, MCTSNode2.evaluate adds 1 + score
+// with no visit) over upstreamVisits. On upstream's [-1, 1] scale that sum
+// is 1 + v0 + sum(v_i) over N simulations; mapped onto [0, 1] it is
+// w / (n - 1), which can exceed 1 by up to 1/N, as upstream's can.
+func rootValue(top *node, opts Options) float64 {
+	if opts.ParentVisits && top.rootEval && top.n > 1 {
+		return top.w / float64(top.n-1)
+	}
+	return top.q()
+}
+
 // RunTree runs opts.Sims simulations from root over src and returns the
 // root's statistics. A ctx that is done -- checked between simulations --
 // stops the loop where it is and increments st.DeadlineHits; Search then
-// plays the bot's answer (Search's doc). A live context runs every
-// simulation, unchanged.
+// plays the bot's answer, or under Options.DeadlineBestChild the partial
+// tree's best child (Search's doc). A live context runs every simulation,
+// unchanged.
 //
 // Each simulation takes a fresh Env, walks the tree by
 // PUCT, expands exactly one new node (or stops where the walk ended),
@@ -269,7 +305,9 @@ func RunTree(ctx context.Context, root *Point, src EnvSource, opts Options, st *
 	if err != nil {
 		return TreeResult{}, err
 	}
-	return treeResult(root, top), nil
+	res := treeResult(root, top)
+	res.RootValue = rootValue(top, opts)
+	return res, nil
 }
 
 // treeResult is the root's statistics of a tree runTree built from root.
@@ -355,7 +393,7 @@ func simulate(top *node, env Env, opts Options, st *Stats) error {
 		if l.Err != nil {
 			return l.Err
 		}
-		top.n, top.w, top.v0 = 1, l.V, l.V
+		top.n, top.w, top.v0, top.rootEval = 1, l.V, l.V, true
 	}
 	var (
 		nodes   []*node

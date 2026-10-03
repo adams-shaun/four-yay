@@ -162,6 +162,10 @@ func enumerateLimit(obs *searchprobe.Collector, e *rules.Engine, d *decision.Dec
 		kind = "target"
 	case d.Kind == decision.KPriority && kinds.Priority:
 		kind = "priority"
+	case d.Kind == decision.KTriggerOptional && kinds.Optional:
+		kind = "optional"
+	case d.Kind == decision.KModes && kinds.Modes:
+		kind = "modes"
 	default:
 		return nil, "", 0, false
 	}
@@ -190,6 +194,8 @@ func enumerateLimit(obs *searchprobe.Collector, e *rules.Engine, d *decision.Dec
 		ins = searchprobe.BlockCandidates(d, bot, limit, legal)
 	case "target":
 		ins = searchprobe.TargetCandidates(d, bot, limit)
+	case "optional", "modes":
+		ins = choiceCandidates(d, bot, limit)
 	case "priority":
 		var one [1]searchprobe.Action
 		base, err := obs.AppendIntentActions(one[:0], d, bot)
@@ -216,6 +222,87 @@ func enumerateLimit(obs *searchprobe.Collector, e *rules.Engine, d *decision.Dec
 		out = append(out, cand{key: Key(key), in: in})
 	}
 	return out, kind, 0, true
+}
+
+// choiceCandidates enumerates the answers of a small choice decision (an
+// optional trigger's yes/no, a modal pick: Kinds.Optional, Kinds.Modes):
+// every answer of between Min and Max distinct options, in lexicographic
+// option order, that d.Validate accepts, the bot's own answer first and the
+// list capped at limit. A repeatable decision (a mode that may fill several
+// slots) is enumerated only when it takes exactly one option. nil when the
+// bot's answer is not one of them (a bot answer outside the vocabulary is
+// played, never searched).
+func choiceCandidates(d *decision.Decision, bot decision.Intent, limit int) []decision.Intent {
+	if d == nil || limit < 2 || bot.Payment != nil || bot.Announce != nil || len(bot.Rest) > 0 || d.HasBudget() {
+		return nil
+	}
+	lo, hi := max(d.Min, 0), min(d.Max, len(d.Options))
+	if lo > hi || (d.Repeatable && hi > 1) {
+		return nil
+	}
+	botSorted := append([]int(nil), bot.Choices...)
+	sort.Ints(botSorted)
+	var all [][]int
+	var walk func(start int, cur []int)
+	walk = func(start int, cur []int) {
+		if len(all) > 4*limit+len(d.Options) {
+			return // a combinatorial explosion is cut; the bot's answer is kept below
+		}
+		if len(cur) >= lo {
+			all = append(all, append([]int(nil), cur...))
+		}
+		if len(cur) == hi {
+			return
+		}
+		for i := start; i < len(d.Options); i++ {
+			walk(i+1, append(cur, d.Options[i].Index))
+		}
+	}
+	walk(0, nil)
+	in := func(choices []int) decision.Intent {
+		x := decision.Intent{Seq: d.Seq, Player: d.Player}
+		if len(choices) > 0 {
+			x.Choices = choices
+		}
+		return x
+	}
+	var out []decision.Intent
+	botAt := -1
+	for i, c := range all {
+		if sameIntList(c, botSorted) {
+			botAt = i
+			break
+		}
+	}
+	if botAt < 0 || d.Validate(in(all[botAt])) != nil {
+		return nil
+	}
+	out = append(out, in(all[botAt]))
+	for i, c := range all {
+		if len(out) >= limit {
+			break
+		}
+		if i == botAt || d.Validate(in(c)) != nil {
+			continue
+		}
+		out = append(out, in(c))
+	}
+	if len(out) < 2 {
+		return nil
+	}
+	return out
+}
+
+func sameIntList(a, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // payKeyPrefix marks a payment candidate's key: "pay:" then the semantic

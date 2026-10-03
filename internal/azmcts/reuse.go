@@ -82,6 +82,10 @@ type worldPrint struct {
 	head   string
 	draws  uint64
 	seq    uint64
+	// combat is the split-declaration progress (Options.CombatSteps,
+	// combatWalk.printTag): the creature steps of one decision share the
+	// engine's print and differ only here. Empty outside one.
+	combat string
 }
 
 func printOf(e *rules.Engine) worldPrint {
@@ -106,6 +110,10 @@ type reuseMark struct {
 	opp    *rand.PCG
 	steps  int
 	plies  int
+	// combat is the walk's split-declaration progress at the point
+	// (Options.CombatSteps), nil outside one: its plan's keys are the ones
+	// the stored subtree's creature steps were built with.
+	combat *combatWalk
 }
 
 // reuseMarker is an Env that can mark the point it stands at.
@@ -133,9 +141,12 @@ func (e *engineEnv) reuseMark() *reuseMark {
 	if e.e == nil || e.cur == nil || e.capped {
 		return nil
 	}
+	pr := printOf(e.e)
+	pr.combat = e.combat.printTag()
 	m := &reuseMark{
-		print: printOf(e.e), cands: e.cands, obs: e.obs, oppObs: e.oppObs,
+		print: pr, cands: e.cands, obs: e.obs, oppObs: e.oppObs,
 		pcgs: make([]rand.PCG, len(e.pcgs)), steps: e.steps, plies: e.plies,
+		combat: e.combat.clone(),
 	}
 	for i, p := range e.pcgs {
 		m.pcgs[i] = *p
@@ -224,6 +235,7 @@ func sameInts(a, b []int) bool {
 // fresh node.
 func (r *Reuse) adopt(real *rules.Engine, cands []cand, rootPt *Point, cfg *walkConfig, st *Stats) (*node, int) {
 	p := printOf(real)
+	p.combat = cfg.rootCombat.printTag()
 	fresh := newNode(rootPt)
 	if r.sub == nil {
 		st.ReuseMissNoTree++
@@ -289,6 +301,13 @@ func (r *Reuse) adopt(real *rules.Engine, cands []cand, rootPt *Point, cfg *walk
 	rebaseSteps(top, m.steps)
 	m.steps = 0
 	cfg.resume = m
+	if m.combat != nil {
+		// The carried root is a creature step: the walks go on with the
+		// stored walk's plan, whose keys (named by the stored observer
+		// lineage) are the carried subtree's. Equal prints mean equal
+		// answers so far.
+		cfg.rootCombat = m.combat.clone()
+	}
 	cfg.rootRefs = r.rootRefs
 	if cfg.oppNodes {
 		cfg.oppObs, cfg.oppRootRefs = m.oppObs, r.oppRootRefs

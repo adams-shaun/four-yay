@@ -19,8 +19,15 @@ type LeafFunc func(e *rules.Engine, actor state.PlayerID) float64
 // Kinds are the searched decision kinds (spec §1). Every other decision --
 // and a decision of a searched kind whose candidates cannot be built -- is
 // answered by the bot.
+//
+// Optional and Modes are upstream's micro-decisions beyond the spec's set
+// (MCTSPlayer.chooseUse and chooseMode, both tree nodes upstream): an
+// optional trigger's yes/no (decision.KTriggerOptional) and a modal choice
+// (decision.KModes). Neither is in AllKinds, so a search that does not ask
+// for them is unchanged.
 type Kinds struct {
 	Priority, Attackers, Blockers, Target bool
+	Optional, Modes                       bool
 }
 
 // AllKinds is the spec's searched set.
@@ -40,8 +47,12 @@ func ParseKinds(s string) (Kinds, error) {
 			k.Blockers = true
 		case "target":
 			k.Target = true
+		case "optional":
+			k.Optional = true
+		case "modes":
+			k.Modes = true
 		default:
-			return Kinds{}, fmt.Errorf("unknown searched kind %q (want priority, attackers, blockers, target)", p)
+			return Kinds{}, fmt.Errorf("unknown searched kind %q (want priority, attackers, blockers, target, optional, modes)", p)
 		}
 	}
 	return k, nil
@@ -187,6 +198,41 @@ type Options struct {
 	// search is byte-identical to one before reuse existed.
 	ReuseTree bool
 
+	// ParentVisits counts visits as upstream MageZero's MCTSNode does
+	// (MCTSNode.select: sqrtN = sqrt(getVisits())): PUCT's exploration term
+	// reads sqrt of the PARENT's visit count instead of sqrt(N_avail + 1),
+	// identical in a fixed world but at the search root; a fresh search root's own
+	// evaluation is not a visit (MCTSNode2.evaluate backs it up with n = 0),
+	// so the root's first selection is the prior-blind first child and
+	// RootValue is the root's summed value over its simulations; and under
+	// ReuseTree a carried root's own expansion visit counts toward the budget
+	// (applyMCTS stops at root.getVisits() >= searchBudget). Off (the
+	// default) leaves every search byte-identical.
+	ParentVisits bool
+
+	// DeadlineBestChild plays the partial tree's best child when the armed
+	// wall-clock bail-out (Search's ctx) stops the tree, as upstream's
+	// applyMCTS does on its searchTimeout (bestChild: the most-visited root
+	// child), instead of the bot's answer. The choice is a pure function of
+	// the tree as it stands (choose over the root visits, ties to the lower
+	// index, Sample's draw from the seeded stream), so nothing but the count
+	// of simulations the deadline let run depends on the clock. A tree with
+	// no root visit (the context was done at the call) still plays the bot.
+	// Stats.DeadlineBest counts the searches it answered. Off (the default)
+	// leaves every search byte-identical.
+	DeadlineBestChild bool
+
+	// CombatSteps splits an attack or block declaration into upstream's
+	// per-creature decisions (combat.go; ComputerPlayer.selectAttackersOne
+	// AtATime / selectBlockersOneAtATime): one tree point per potential
+	// attacker (no / yes, attacking the defending player) and per potential
+	// blocker (no block / which attacker), in object order, the declaration
+	// submitted after the last creature. It applies to the root (Root.Combat
+	// names the step) and to every in-walk attackers or blockers decision of
+	// a searched seat (the opponent's too under OpponentNodes). Off (the
+	// default) leaves every search byte-identical.
+	CombatSteps bool
+
 	// swapFrame is a test-only knob (TestOpponentNodesEngineSymmetry): the
 	// value frame is the opponent's instead of the searching seat's, so
 	// the root is an opponent node, the searching seat's in-walk points
@@ -331,6 +377,22 @@ type Stats struct {
 	ReuseMissState      int `json:",omitempty"`
 	ReuseMissCandidates int `json:",omitempty"`
 
+	// DeadlineBest counts the searches the armed bail-out stopped whose move
+	// is the partial tree's best child (Options.DeadlineBestChild); each is
+	// also a DeadlineHits. OptionalSearched, ModesSearched and the Skipped
+	// pair split Searched and Skipped for the kinds outside KindNames
+	// (Kinds.Optional, Kinds.Modes); CombatSteps counts the searches whose
+	// root is one creature of a split declaration (Options.CombatSteps,
+	// Result.Step), each also counted under its kind. All stay 0 with their
+	// switches off, and omitempty keeps a switched-off Result's JSON
+	// byte-identical.
+	DeadlineBest     int `json:",omitempty"`
+	OptionalSearched int `json:",omitempty"`
+	OptionalSkipped  int `json:",omitempty"`
+	ModesSearched    int `json:",omitempty"`
+	ModesSkipped     int `json:",omitempty"`
+	CombatSteps      int `json:",omitempty"`
+
 	// KindSearched splits Searched by kind (KindNames order).
 	KindSearched [NumKinds]int
 	// KindSkipped splits Skipped by kind and reason: every skip is counted
@@ -365,6 +427,35 @@ func kindIndex(kind string) int {
 		}
 	}
 	return -1
+}
+
+// countSearched counts one searched decision of kind: in KindSearched for
+// the spec's kinds, in the omitempty counters for the others.
+func (s *Stats) countSearched(kind string) {
+	if k := kindIndex(kind); k >= 0 {
+		s.KindSearched[k]++
+		return
+	}
+	switch kind {
+	case "optional":
+		s.OptionalSearched++
+	case "modes":
+		s.ModesSearched++
+	}
+}
+
+// countExtraSkipped counts one skipped decision of a kind outside
+// KindNames, reporting whether kind is one.
+func (s *Stats) countExtraSkipped(kind string) bool {
+	switch kind {
+	case "optional":
+		s.OptionalSkipped++
+	case "modes":
+		s.ModesSkipped++
+	default:
+		return false
+	}
+	return true
 }
 
 // SkipReason is why a decision of a searched kind was not searched.
@@ -444,6 +535,12 @@ func (s *Stats) Add(o Stats) {
 	s.ReuseMissNoTree += o.ReuseMissNoTree
 	s.ReuseMissState += o.ReuseMissState
 	s.ReuseMissCandidates += o.ReuseMissCandidates
+	s.DeadlineBest += o.DeadlineBest
+	s.OptionalSearched += o.OptionalSearched
+	s.OptionalSkipped += o.OptionalSkipped
+	s.ModesSearched += o.ModesSearched
+	s.ModesSkipped += o.ModesSkipped
+	s.CombatSteps += o.CombatSteps
 	for k := range s.KindSearched {
 		s.KindSearched[k] += o.KindSearched[k]
 		for r := range s.KindSkipped[k] {

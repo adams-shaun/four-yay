@@ -48,6 +48,14 @@ type Root struct {
 	// Result.Choice's candidate (or Result.Intent) before the seat's next
 	// search.
 	Reuse *Reuse
+
+	// Combat is the answers already given to the earlier creatures of a
+	// split declaration (Options.CombatSteps; required nil without it): with
+	// the switch on, an attackers or blockers root is creature
+	// len(Combat)'s step (Result.Step), and Combat[k] is creature k's answer
+	// (the option index its step played, -1 for none). The caller searches
+	// each creature in turn and submits CombatDeclaration after the last.
+	Combat []int
 }
 
 // Result is one Search. Candidates, Keys, Labels, Visits, Avail, Prior and
@@ -65,6 +73,11 @@ type Result struct {
 	Choice     int
 	Intent     decision.Intent // the answer to play
 	Stats      Stats
+	// Step, set when the root is one creature of a split declaration
+	// (Options.CombatSteps), describes it; Intent is then that creature's
+	// answer (StepAnswer), never a submit, and Choice 0 is the "no" answer
+	// rather than the bot's.
+	Step *CombatStep `json:",omitempty"`
 }
 
 // RootRow is one root child of a Search: its semantic key, a
@@ -139,6 +152,8 @@ func (o Options) Validate(net *policynet.Model) error {
 		return errors.New("azmcts: tree reuse needs the one real world; RootPerWorld re-derives the root per world")
 	case o.ReuseTree && o.swapFrame:
 		return errors.New("azmcts: tree reuse with the swapped value frame is not supported")
+	case o.CombatSteps && o.RootPerWorld:
+		return errors.New("azmcts: per-creature combat needs one fixed world; RootPerWorld re-derives the root per world")
 	}
 	if net != nil {
 		if !net.HasValue() {
@@ -169,7 +184,9 @@ func (o Options) Validate(net *policynet.Model) error {
 // bot's intent is played exactly as on a search that never built;
 // Stats.DeadlineHits counts it and the partial tree's choice is never taken
 // (how many simulations complete under load is not reproducible, so arming
-// it gives up the determinism contract below by construction). A live
+// it gives up the determinism contract below by construction) -- unless
+// Options.DeadlineBestChild asks for upstream's best child so far, which is
+// then a pure function of the partial tree (Stats.DeadlineBest). A live
 // context -- context.Background(), what every benchmark, replay and
 // determinism test passes -- never arms it.
 func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Model, opts Options) (Result, error) {
@@ -188,10 +205,35 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 	if opts.ReuseTree != (root.Reuse != nil) {
 		return res, errors.New("azmcts: Options.ReuseTree and Root.Reuse go together: the switch needs the seat's carrier, and a carrier needs the switch")
 	}
+	if root.Combat != nil && !(opts.CombatSteps && combatSearched(root.Decision, opts.Kinds)) {
+		return res, errors.New("azmcts: Root.Combat names a creature step, which needs Options.CombatSteps and a searched attackers or blockers root")
+	}
 	var envBoard, enumBoard boardScratch
 	views := searchViews.Get().(*viewScratch)
 	defer searchViews.Put(views)
-	cands, kind, why, ok, cut, botFound := rootCands(root.Observer, root, opts.Kinds, opts.Limit, opts.AutoPayment, &enumBoard)
+	var (
+		cands      []cand
+		kind       string
+		why        SkipReason
+		ok, cut    bool
+		botFound   bool
+		rootCombat *combatWalk
+	)
+	if opts.CombatSteps && combatSearched(root.Decision, opts.Kinds) {
+		var err error
+		cands, kind, why, ok, cut, rootCombat, err = combatRoot(root, opts)
+		if err != nil {
+			return res, err
+		}
+		if rootCombat != nil {
+			k := len(root.Combat)
+			st := rootCombat.plan.steps[k]
+			res.Step = &CombatStep{Index: k, Steps: len(rootCombat.plan.steps), Obj: st.obj, Block: rootCombat.plan.block, Answers: append([]int(nil), st.answers...)}
+			res.Intent = answerIntent(root.Decision, rootCombat.plan.botAnswer(k, root.Bot))
+		}
+	} else {
+		cands, kind, why, ok, cut, botFound = rootCands(root.Observer, root, opts.Kinds, opts.Limit, opts.AutoPayment, &enumBoard)
+	}
 	res.Kind = kind
 	if cut {
 		res.Stats.Truncated, res.Stats.RootTruncated = 1, 1
@@ -203,6 +245,8 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 			if k == KindPriority {
 				res.Stats.PrioritySkipped[priorityBase(root.Decision, root.Bot)][why]++
 			}
+		} else if res.Stats.countExtraSkipped(kind) {
+			res.Stats.Skipped = 1
 		}
 		return res, nil
 	}
@@ -220,7 +264,14 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 	if opts.UniformPrior {
 		priorNet = nil
 	}
-	prior, fell := priors(priorNet, root.Engine, root.Decision, root.Bot, kind, cands, &views.prior)
+	var prior []float64
+	var fell bool
+	if rootCombat != nil {
+		// A creature step's prior is uniform (combat.go).
+		prior = uniform(len(cands))
+	} else {
+		prior, fell = priors(priorNet, root.Engine, root.Decision, root.Bot, kind, cands, &views.prior)
+	}
 	if fell {
 		res.Stats.PriorFallbacks++
 	}
@@ -236,11 +287,17 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 			return res, err
 		}
 	}
+	if opts.CombatSteps && !isFixed(src) {
+		return res, errors.New("azmcts: per-creature combat needs a fixed world source (the clairvoyant clone or FixedChance): a step's creature list is one world's")
+	}
 	if opts.ReuseTree && !isReal(src) {
 		return res, errors.New("azmcts: tree reuse needs the real world source (the clairvoyant clone, a RealWorldSource); a redeal, IS-MCTS, PIMC or re-seeded chance world need not be the position the real game reaches")
 	}
 	res.Stats.Searched = 1
-	res.Stats.KindSearched[kindIndex(kind)]++
+	res.Stats.countSearched(kind)
+	if rootCombat != nil {
+		res.Stats.CombatSteps = 1
+	}
 	rng := rand.New(rand.NewPCG(opts.Seed, opts.Seed^0x9e3779b97f4a7c15))
 	treePrior := prior
 	if opts.Noise {
@@ -254,6 +311,7 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 		nameKeys: opts.NameKeys, rootRefs: root.Observer.Introduced(),
 		root: rootPt, rootCands: cands, rootDec: root.Decision, stats: &res.Stats,
 		envBoard: &envBoard, enumBoard: &enumBoard, views: views,
+		combatSteps: opts.CombatSteps, rootCombat: rootCombat,
 	}
 	if opts.OpponentNodes {
 		if err := prepareOpponent(cfg, root, opts); err != nil {
@@ -271,7 +329,14 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 	carried := 0
 	if opts.ReuseTree {
 		top, carried = root.Reuse.adopt(root.Engine, cands, rootPt, cfg, &res.Stats)
-		top = runTreeFrom(ctx, top, rootPt, envs, opts, max(0, opts.Sims-carried), &res.Stats)
+		need := opts.Sims - carried
+		if opts.ParentVisits && carried > 0 {
+			// Upstream's budget counts the carried root's own expansion
+			// visit too (root.getVisits() >= searchBudget; upstreamVisits
+			// of a carried root is 1 + carried).
+			need = opts.Sims - upstreamVisits(top)
+		}
+		top = runTreeFrom(ctx, top, rootPt, envs, opts, max(0, need), &res.Stats)
 	} else {
 		var err error
 		if top, err = runTree(ctx, rootPt, envs, opts, &res.Stats); err != nil {
@@ -285,10 +350,15 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 	if res.Stats.DeadlineHits > 0 {
 		// The armed bail-out fired (ctx done at the call or between
 		// simulations): the tree stopped where it was and the bot's answer
-		// is played -- the partial tree's choice is never taken.
-		return res, nil
+		// is played -- the partial tree's choice is never taken -- unless
+		// Options.DeadlineBestChild asks for upstream's best child so far
+		// and the tree has a visited root child to choose from.
+		if !opts.DeadlineBestChild || !anyVisit(tr.Visits) {
+			return res, nil
+		}
+		res.Stats.DeadlineBest = 1
 	}
-	res.Visits, res.Q, res.Avail, res.RootValue = tr.Visits, tr.Q, tr.Avail, tr.RootValue
+	res.Visits, res.Q, res.Avail, res.RootValue = tr.Visits, tr.Q, tr.Avail, rootValue(top, opts)
 	if res.Stats.Completed == 0 && carried == 0 {
 		res.Stats.AllFailed = 1
 		return res, nil
@@ -301,6 +371,54 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 		root.Reuse.keep(top, res.Choice, cfg)
 	}
 	return res, nil
+}
+
+// combatRoot is a split declaration's root (Options.CombatSteps): creature
+// len(root.Combat)'s step candidates, in upstream's order, and the walk
+// state every world starts from. A declaration that asks about no creature,
+// or cannot be observed, is not searched (the bot's declaration is played);
+// a Combat prefix the declaration does not have is an error.
+func combatRoot(root Root, opts Options) (cands []cand, kind string, why SkipReason, ok, cut bool, cw *combatWalk, err error) {
+	d := root.Decision
+	kind = "attackers"
+	if d.Kind == decision.KBlockers {
+		kind = "blockers"
+	}
+	plan, perr := newCombatPlan(root.Observer, root.Engine, d, opts.Limit)
+	switch {
+	case perr != nil:
+		return nil, kind, SkipTranslate, false, false, nil, nil
+	case plan == nil:
+		if len(root.Combat) > 0 {
+			return nil, kind, 0, false, false, nil, fmt.Errorf("azmcts: Root.Combat has %d answers, the declaration asks about no creature", len(root.Combat))
+		}
+		return nil, kind, SkipFewCandidates, false, false, nil, nil
+	}
+	k := len(root.Combat)
+	if k >= len(plan.steps) {
+		return nil, kind, 0, false, false, nil, fmt.Errorf("azmcts: Root.Combat has %d answers, the declaration asks about %d creatures", k, len(plan.steps))
+	}
+	for i, a := range root.Combat {
+		found := false
+		for _, x := range plan.steps[i].answers {
+			found = found || x == a
+		}
+		if !found {
+			return nil, kind, 0, false, false, nil, fmt.Errorf("azmcts: Root.Combat[%d] = %d is not an answer of that creature's step", i, a)
+		}
+	}
+	cw = &combatWalk{plan: plan, answers: append([]int(nil), root.Combat...), opp: opts.swapFrame}
+	return plan.stepCands(k), kind, 0, true, plan.steps[k].cut, cw, nil
+}
+
+// anyVisit reports whether some root child holds a visit.
+func anyVisit(visits []int) bool {
+	for _, v := range visits {
+		if v > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // searchTreeHook, when set, sees every Search's whole tree once it is built
