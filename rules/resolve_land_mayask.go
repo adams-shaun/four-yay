@@ -7,6 +7,7 @@ package rules
 
 import (
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -30,7 +31,48 @@ func tapeLandMayAsk(e *Engine, obj state.ObjID) bool {
 			}
 		}
 	}
-	return tapeReplMayAsk(e, "Moved")
+	return tapeLandReplMayAsk(e, obj)
+}
+
+// tapeLandReplMayAsk is tapeReplMayAsk(e, "Moved") narrowed to the lines that
+// can apply to land obj's own entry: a line movedLineRejects for that move
+// (a self-only ValidCard$ on another object -- an ETB-tapped land or an
+// etbCounter creature sitting in a library or hand -- or another
+// Destination$) never matches the event, so it neither elects nor competes
+// in a CR 616.1 order choice. Every board in a deck with two such cards
+// otherwise checkpointed every land play.
+func tapeLandReplMayAsk(e *Engine, obj state.ObjID) bool {
+	n := 0
+	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
+		if ce := &ceL[ceI]; ce.ReplacementEvent == "Moved" {
+			if n++; n > 1 || cards.ReplParamsMayElect(ce.ReplacementParams) {
+				return true
+			}
+		}
+	}
+	ev := events.Event{Obj: obj, To: state.ZBattlefield}
+	ask := false
+	e.forEachReplacementSourceFor(replEventBit("Moved"), func(id state.ObjID) {
+		o := e.G.Obj(id)
+		if ask || o == nil {
+			return
+		}
+		f := o.Face()
+		if f == nil {
+			return
+		}
+		for i := range f.Repls {
+			r := &f.Repls[i]
+			if r.Event != "Moved" || movedLineRejects(r, id, ev) {
+				continue
+			}
+			if n++; n > 1 || cards.ReplMayElect(r) {
+				ask = true
+				return
+			}
+		}
+	})
+	return ask
 }
 
 // tapeStepMayAsk reports whether the pass that ends the current step (empty
