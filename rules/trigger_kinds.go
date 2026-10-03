@@ -231,15 +231,8 @@ func modeTrigKinds(mode string) trigKinds {
 //
 // A mode not listed keeps every high kind (the fail-open reading).
 func modeRejectsHighKinds(mode string) bool {
-	switch mode {
-	case "ChangesZone", "ChangesZoneAll", "SpellCast", "SpellCastOrCopy", "SpellCopy",
-		"Attacks", "AttackersDeclared", "AttackersDeclaredOneTarget", "Untaps", "Taps", "TapsForMana",
-		"Sacrificed", "Discarded", "DiscardedAll", "Milled", "MilledAll", "LandPlayed", "Explores",
-		"BecomeMonarch", "CommitCrime", "BecomesTarget", "BecomesTargetOnce", "Attached", "Exerted",
-		"DamageDone", "DamageDealtOnce", "DamageDoneOnce", "DamageAll",
-		"CounterAdded", "CounterAddedOnce", "ClassLevelGained", "Transformed",
-		"TokenCreated", "TokenCreatedOnce", "Drawn", "LifeLost", "LifeGained", "Phase":
-		return true
+	if v, ok := modeRejectsHighKindsTab1.Get(mode); ok {
+		return v
 	}
 	return false
 }
@@ -469,3 +462,44 @@ func (e *Engine) lookBackNoopBoard() bool {
 	}
 	return true
 }
+
+var modeRejectsHighKindsTab1 = cards.NewStrTable[bool](
+	cards.StrEntry[bool]{Key: "ChangesZone", Val: true},
+	cards.StrEntry[bool]{Key: "ChangesZoneAll", Val: true},
+	cards.StrEntry[bool]{Key: "SpellCast", Val: true},
+	cards.StrEntry[bool]{Key: "SpellCastOrCopy", Val: true},
+	cards.StrEntry[bool]{Key: "SpellCopy", Val: true},
+	cards.StrEntry[bool]{Key: "Attacks", Val: true},
+	cards.StrEntry[bool]{Key: "AttackersDeclared", Val: true},
+	cards.StrEntry[bool]{Key: "AttackersDeclaredOneTarget", Val: true},
+	cards.StrEntry[bool]{Key: "Untaps", Val: true},
+	cards.StrEntry[bool]{Key: "Taps", Val: true},
+	cards.StrEntry[bool]{Key: "TapsForMana", Val: true},
+	cards.StrEntry[bool]{Key: "Sacrificed", Val: true},
+	cards.StrEntry[bool]{Key: "Discarded", Val: true},
+	cards.StrEntry[bool]{Key: "DiscardedAll", Val: true},
+	cards.StrEntry[bool]{Key: "Milled", Val: true},
+	cards.StrEntry[bool]{Key: "MilledAll", Val: true},
+	cards.StrEntry[bool]{Key: "LandPlayed", Val: true},
+	cards.StrEntry[bool]{Key: "Explores", Val: true},
+	cards.StrEntry[bool]{Key: "BecomeMonarch", Val: true},
+	cards.StrEntry[bool]{Key: "CommitCrime", Val: true},
+	cards.StrEntry[bool]{Key: "BecomesTarget", Val: true},
+	cards.StrEntry[bool]{Key: "BecomesTargetOnce", Val: true},
+	cards.StrEntry[bool]{Key: "Attached", Val: true},
+	cards.StrEntry[bool]{Key: "Exerted", Val: true},
+	cards.StrEntry[bool]{Key: "DamageDone", Val: true},
+	cards.StrEntry[bool]{Key: "DamageDealtOnce", Val: true},
+	cards.StrEntry[bool]{Key: "DamageDoneOnce", Val: true},
+	cards.StrEntry[bool]{Key: "DamageAll", Val: true},
+	cards.StrEntry[bool]{Key: "CounterAdded", Val: true},
+	cards.StrEntry[bool]{Key: "CounterAddedOnce", Val: true},
+	cards.StrEntry[bool]{Key: "ClassLevelGained", Val: true},
+	cards.StrEntry[bool]{Key: "Transformed", Val: true},
+	cards.StrEntry[bool]{Key: "TokenCreated", Val: true},
+	cards.StrEntry[bool]{Key: "TokenCreatedOnce", Val: true},
+	cards.StrEntry[bool]{Key: "Drawn", Val: true},
+	cards.StrEntry[bool]{Key: "LifeLost", Val: true},
+	cards.StrEntry[bool]{Key: "LifeGained", Val: true},
+	cards.StrEntry[bool]{Key: "Phase", Val: true},
+)

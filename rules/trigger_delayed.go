@@ -672,9 +672,8 @@ func effectDelayedFrame(dt *state.DelayedTrigger) effects.EffectFrame {
 // a delayed-registration matcher of its own. Every other mode an Effect
 // registration may name falls through to the generic trigMatchers dispatch.
 func delayedEventModeHandled(mode string) bool {
-	switch mode {
-	case "SpellCast", "ChangesController", "DamageDone", "AttackersDeclared":
-		return true
+	if v, ok := delayedEventModeHandledTab1.Get(mode); ok {
+		return v
 	}
 	return false
 }
@@ -848,3 +847,10 @@ func (e *Engine) clearEffectMatchScope() {
 	e.effectMatchRemembered = nil
 	e.effectMatchOverride = false
 }
+
+var delayedEventModeHandledTab1 = cards.NewStrTable[bool](
+	cards.StrEntry[bool]{Key: "SpellCast", Val: true},
+	cards.StrEntry[bool]{Key: "ChangesController", Val: true},
+	cards.StrEntry[bool]{Key: "DamageDone", Val: true},
+	cards.StrEntry[bool]{Key: "AttackersDeclared", Val: true},
+)

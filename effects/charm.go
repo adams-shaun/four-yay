@@ -547,10 +547,8 @@ func charmGenericPlayers(h Host, c *Ctx, sa *cards.SA) bool {
 // TriggeredTarget, ParentTarget, Valid <filter>, Remembered, ...) is NOT, so an
 // empty resolution there keeps the existing path unchanged.
 func playerRoleDefined(defined string) bool {
-	switch defined {
-	case "Opponent", "Player", "Player.Opponent", "Player.Other", "You",
-		"TriggeredPlayer", "TriggeredDefendingPlayer":
-		return true
+	if v, ok := playerRoleDefinedTab1.Get(defined); ok {
+		return v
 	}
 	return false
 }
@@ -1051,3 +1049,13 @@ func charmModeLabel(choices []string, subs []*cards.SA, idx int) string {
 	}
 	return CharmModeLabel(subs[idx], choices[idx])
 }
+
+var playerRoleDefinedTab1 = cards.NewStrTable[bool](
+	cards.StrEntry[bool]{Key: "Opponent", Val: true},
+	cards.StrEntry[bool]{Key: "Player", Val: true},
+	cards.StrEntry[bool]{Key: "Player.Opponent", Val: true},
+	cards.StrEntry[bool]{Key: "Player.Other", Val: true},
+	cards.StrEntry[bool]{Key: "You", Val: true},
+	cards.StrEntry[bool]{Key: "TriggeredPlayer", Val: true},
+	cards.StrEntry[bool]{Key: "TriggeredDefendingPlayer", Val: true},
+)

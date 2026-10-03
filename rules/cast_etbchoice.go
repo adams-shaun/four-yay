@@ -13,19 +13,8 @@ import (
 )
 
 func etbChoiceKind(api string) string {
-	switch api {
-	case "NameCard":
-		return "name"
-	case "ChooseType":
-		return "type"
-	case "ChooseNumber":
-		return "number"
-	case "ChooseColor":
-		return "color"
-	case "ChooseEvenOdd":
-		return "evenodd"
-	case "Clone":
-		return "copy"
+	if v, ok := etbChoiceKindTab1.Get(api); ok {
+		return v
 	}
 	return ""
 }
@@ -506,23 +495,8 @@ func (e *Engine) TypeChoices(chooser state.PlayerID, category string) []decision
 // etbChoicePrompt names the kind of an "as this enters" choice for a client
 // prompt; a cosmetic suffix on the shared "Choose" heading.
 func etbChoicePrompt(kind string) string {
-	switch kind {
-	case "name":
-		return " a card name"
-	case "type":
-		return " a creature type"
-	case "evenodd":
-		return " odd or even"
-	case "color":
-		return " a color"
-	case "riot":
-		return " how this creature enters (counter or haste)"
-	case "unleash":
-		return " how this creature enters (with a +1/+1 counter or without)"
-	case "copy":
-		return " a creature to copy"
-	case "paylife":
-		return " how much life to pay"
+	if v, ok := etbChoicePromptTab2.Get(kind); ok {
+		return v
 	}
 	return " a number"
 }
@@ -561,3 +535,23 @@ func etbCloneWhitelist(sa *cards.SA, svars map[string]string) bool {
 	}
 	return true
 }
+
+var etbChoiceKindTab1 = cards.NewStrTable[string](
+	cards.StrEntry[string]{Key: "NameCard", Val: "name"},
+	cards.StrEntry[string]{Key: "ChooseType", Val: "type"},
+	cards.StrEntry[string]{Key: "ChooseNumber", Val: "number"},
+	cards.StrEntry[string]{Key: "ChooseColor", Val: "color"},
+	cards.StrEntry[string]{Key: "ChooseEvenOdd", Val: "evenodd"},
+	cards.StrEntry[string]{Key: "Clone", Val: "copy"},
+)
+
+var etbChoicePromptTab2 = cards.NewStrTable[string](
+	cards.StrEntry[string]{Key: "name", Val: " a card name"},
+	cards.StrEntry[string]{Key: "type", Val: " a creature type"},
+	cards.StrEntry[string]{Key: "evenodd", Val: " odd or even"},
+	cards.StrEntry[string]{Key: "color", Val: " a color"},
+	cards.StrEntry[string]{Key: "riot", Val: " how this creature enters (counter or haste)"},
+	cards.StrEntry[string]{Key: "unleash", Val: " how this creature enters (with a +1/+1 counter or without)"},
+	cards.StrEntry[string]{Key: "copy", Val: " a creature to copy"},
+	cards.StrEntry[string]{Key: "paylife", Val: " how much life to pay"},
+)

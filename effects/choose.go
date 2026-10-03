@@ -635,15 +635,8 @@ func isCreatureCategory(cat string) bool {
 
 // chooseTypePrompt names the category for a client prompt.
 func chooseTypePrompt(cat string) string {
-	switch strings.ToLower(cat) {
-	case "", "creature", "creatureintargeteddeck":
-		return "Choose a creature type"
-	case "basic land", "land", "nonbasic land":
-		return "Choose a land type"
-	case "card", "shared":
-		return "Choose a card type"
-	case "planeswalker":
-		return "Choose a planeswalker type"
+	if v, ok := chooseTypePromptTab1.Get(strings.ToLower(cat)); ok {
+		return v
 	}
 	return "Choose a type"
 }
@@ -681,3 +674,15 @@ func creatureTypeFallback(g *state.Game, controller state.PlayerID) string {
 // shares the positive vocabulary Changeling uses, so a cast-time type choice
 // cannot offer a spell, plane, or planeswalker subtype as a creature type.
 func CreatureTypeWords(t string) bool { return creatureSubtypeWords[t] }
+
+var chooseTypePromptTab1 = cards.NewStrTable[string](
+	cards.StrEntry[string]{Key: "", Val: "Choose a creature type"},
+	cards.StrEntry[string]{Key: "creature", Val: "Choose a creature type"},
+	cards.StrEntry[string]{Key: "creatureintargeteddeck", Val: "Choose a creature type"},
+	cards.StrEntry[string]{Key: "basic land", Val: "Choose a land type"},
+	cards.StrEntry[string]{Key: "land", Val: "Choose a land type"},
+	cards.StrEntry[string]{Key: "nonbasic land", Val: "Choose a land type"},
+	cards.StrEntry[string]{Key: "card", Val: "Choose a card type"},
+	cards.StrEntry[string]{Key: "shared", Val: "Choose a card type"},
+	cards.StrEntry[string]{Key: "planeswalker", Val: "Choose a planeswalker type"},
+)

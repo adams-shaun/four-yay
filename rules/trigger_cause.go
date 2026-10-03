@@ -259,9 +259,7 @@ func (e *Engine) causeSpecAdmits(spec string, source state.ObjID) bool {
 func causeSpecQualifiersKnown(alt string) bool {
 	_, rest, _ := strings.Cut(alt, ".")
 	for q := range strings.SplitSeq(rest, ".") {
-		switch q {
-		case "", "YouCtrl", "OppCtrl", "Instant", "Sorcery":
-		default:
+		if !causeSpecQualifiersKnownKeys1.Has(q) {
 			return false
 		}
 	}
@@ -319,3 +317,5 @@ func causeCostAdmits(spec string, cause costCause) bool {
 	}
 	return false
 }
+
+var causeSpecQualifiersKnownKeys1 = cards.NewNameSet("", "YouCtrl", "OppCtrl", "Instant", "Sorcery")

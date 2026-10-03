@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -66,9 +67,8 @@ func countersAddedThisTurnArgsKnown(kind, actor, object string) bool {
 	if actor != "You" && actor != "Player" {
 		return false
 	}
-	switch object {
-	case "Creature", "Creature.YouCtrl", "Permanent.YouCtrl", "Card.Self", "Card.EffectSource":
-		return true
+	if v, ok := countersAddedThisTurnArgsKnownTab1.Get(object); ok {
+		return v
 	}
 	return false
 }
@@ -275,9 +275,8 @@ func objectProperty(g *state.Game, id state.ObjID, prop string) int32 {
 // same conservative no-op every unmodelled head here takes — and a gate over
 // one must fail open rather than enforce that zero.
 func modeledProperty(prop string) bool {
-	switch strings.TrimSpace(prop) {
-	case "CardPower", "CardToughness", "CardManaCost":
-		return true
+	if v, ok := modeledPropertyTab2.Get(strings.TrimSpace(prop)); ok {
+		return v
 	}
 	return false
 }
@@ -529,11 +528,7 @@ func unreadZoneSpec(spec string) bool {
 		if base == "" {
 			return true
 		}
-		switch base {
-		case "Any", "Card", "Permanent", "PermanentCard", "Spell", "SpellAbility", "CARDNAME", "Affinity":
-			// matchesBase's own special bases (and the CARDNAME base
-			// matchesZoneSpecCtx binds to the resolving source).
-		default:
+		if !unreadZoneSpecKeys3.Has(base) {
 			if !cardTypeWords[base] && !CreatureTypeWords(base) {
 				return true
 			}
@@ -727,9 +722,8 @@ func playerMemberProperty(h Host, g *state.Game, c *Ctx, m state.PlayerID, prop 
 // accepts cannot be rejected by the other (a bare `ThisTurnEntered_` prefix
 // or an unknown zone word is NOT modelled, however well it prefixes).
 func playerPropertyModelled(prop string) bool {
-	switch strings.TrimSpace(prop) {
-	case "LifeTotal", "CardsDrawn", "CardsDiscardedThisTurn", "SpellsCastThisTurn":
-		return true
+	if v, ok := playerPropertyModelledTab4.Get(strings.TrimSpace(prop)); ok {
+		return v
 	}
 	if rest, ok := strings.CutPrefix(strings.TrimSpace(prop), "ThisTurnEntered_"); ok {
 		_, _, _, parsed := parseThisTurnEnteredSpec(rest)
@@ -881,3 +875,26 @@ func playerCountExtreme(h Host, g *state.Game, c *Ctx, players []state.PlayerID,
 	}
 	return best, true
 }
+
+var countersAddedThisTurnArgsKnownTab1 = cards.NewStrTable[bool](
+	cards.StrEntry[bool]{Key: "Creature", Val: true},
+	cards.StrEntry[bool]{Key: "Creature.YouCtrl", Val: true},
+	cards.StrEntry[bool]{Key: "Permanent.YouCtrl", Val: true},
+	cards.StrEntry[bool]{Key: "Card.Self", Val: true},
+	cards.StrEntry[bool]{Key: "Card.EffectSource", Val: true},
+)
+
+var modeledPropertyTab2 = cards.NewStrTable[bool](
+	cards.StrEntry[bool]{Key: "CardPower", Val: true},
+	cards.StrEntry[bool]{Key: "CardToughness", Val: true},
+	cards.StrEntry[bool]{Key: "CardManaCost", Val: true},
+)
+
+var unreadZoneSpecKeys3 = cards.NewNameSet("Any", "Card", "Permanent", "PermanentCard", "Spell", "SpellAbility", "CARDNAME", "Affinity")
+
+var playerPropertyModelledTab4 = cards.NewStrTable[bool](
+	cards.StrEntry[bool]{Key: "LifeTotal", Val: true},
+	cards.StrEntry[bool]{Key: "CardsDrawn", Val: true},
+	cards.StrEntry[bool]{Key: "CardsDiscardedThisTurn", Val: true},
+	cards.StrEntry[bool]{Key: "SpellsCastThisTurn", Val: true},
+)

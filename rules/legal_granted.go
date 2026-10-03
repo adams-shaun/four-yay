@@ -207,9 +207,7 @@ func (e *Engine) mayDeriveKeywordLine(id state.ObjID) bool {
 func (e *Engine) grantedKeywordLinesFull(id state.ObjID) []string {
 	var out []string
 	for _, k := range e.Derived(id).Keywords {
-		switch cards.KeywordHead(k) {
-		case "Cycling", "TypeCycling", "Saddle", "Crew":
-		default:
+		if !grantedKeywordLinesFullKeys1.Has(cards.KeywordHead(k)) {
 			continue
 		}
 		dup := false
@@ -357,3 +355,5 @@ func (e *Engine) gainedActivationsThisTurn(id, foreign state.ObjID, idx int) int
 func existsOnBattlefield(o *state.Object) bool {
 	return o != nil && o.Zone == state.ZBattlefield && !o.PhasedOut
 }
+
+var grantedKeywordLinesFullKeys1 = cards.NewNameSet("Cycling", "TypeCycling", "Saddle", "Crew")

@@ -515,9 +515,8 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 // scenario drives them through `activate` plus the option's label, exactly
 // as a named ability is driven; they are not a separate op.
 func oracleActivateKind(kind string) bool {
-	switch kind {
-	case "ability", "activate", "station", "unlock", "turn_face_up":
-		return true
+	if v, ok := oracleActivateKindTab1.Get(kind); ok {
+		return v
 	}
 	return false
 }
@@ -1110,11 +1109,8 @@ func (r *oracleRun) do(st oracleStep) error {
 }
 
 func normCounter(k string) string {
-	switch strings.ReplaceAll(strings.ToLower(k), " ", "") {
-	case "+1/+1", "p1p1":
-		return "P1P1"
-	case "-1/-1", "m1m1":
-		return "M1M1"
+	if v, ok := normCounterTab2.Get(strings.ReplaceAll(strings.ToLower(k), " ", "")); ok {
+		return v
 	}
 	return strings.ToUpper(k)
 }
@@ -1433,3 +1429,18 @@ func seatZeroStart(cfg Config) Config {
 		cfg.Seed++
 	}
 }
+
+var oracleActivateKindTab1 = cards.NewStrTable[bool](
+	cards.StrEntry[bool]{Key: "ability", Val: true},
+	cards.StrEntry[bool]{Key: "activate", Val: true},
+	cards.StrEntry[bool]{Key: "station", Val: true},
+	cards.StrEntry[bool]{Key: "unlock", Val: true},
+	cards.StrEntry[bool]{Key: "turn_face_up", Val: true},
+)
+
+var normCounterTab2 = cards.NewStrTable[string](
+	cards.StrEntry[string]{Key: "+1/+1", Val: "P1P1"},
+	cards.StrEntry[string]{Key: "p1p1", Val: "P1P1"},
+	cards.StrEntry[string]{Key: "-1/-1", Val: "M1M1"},
+	cards.StrEntry[string]{Key: "m1m1", Val: "M1M1"},
+)

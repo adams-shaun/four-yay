@@ -270,11 +270,7 @@ func BlockRestricted(b Board, blocker, attacker state.ObjID) bool {
 // continuousGateHolds evaluates them (fail-closed).
 func minMaxBlockerParamsReadable(params map[string]string) bool {
 	for k := range params {
-		switch k {
-		case "Mode", "ValidCard", "Min", "Max", "Description", "Secondary",
-			"Condition", "IsPresent", "IsPresent2", "PresentCompare", "PresentZone",
-			"CheckSVar", "SVarCompare", "AffectedZone":
-		default:
+		if !minMaxBlockerParamsReadableKeys1.Has(k) {
 			return false
 		}
 	}
@@ -497,3 +493,5 @@ func printedHasType(o *state.Object, typ string) bool {
 	}
 	return false
 }
+
+var minMaxBlockerParamsReadableKeys1 = cards.NewNameSet("Mode", "ValidCard", "Min", "Max", "Description", "Secondary", "Condition", "IsPresent", "IsPresent2", "PresentCompare", "PresentZone", "CheckSVar", "SVarCompare", "AffectedZone")

@@ -822,9 +822,8 @@ func unlessPayerTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
 // family whose absent target is deliberately charged to c.Controller. Every
 // other selector must bind a real role or fail closed.
 func unlessPayerControllerFallback(spec string) bool {
-	switch spec {
-	case "", "TargetedController", "TargetedPlayer", "ThisTargetedController", "TargetedOrController", "Targeted", "ParentTarget":
-		return true
+	if v, ok := unlessPayerControllerFallbackTab1.Get(spec); ok {
+		return v
 	}
 	return false
 }
@@ -959,3 +958,13 @@ func payLifeAmount(f string) (int, bool) {
 	n, err := strconv.Atoi(inner)
 	return n, err == nil
 }
+
+var unlessPayerControllerFallbackTab1 = cards.NewStrTable[bool](
+	cards.StrEntry[bool]{Key: "", Val: true},
+	cards.StrEntry[bool]{Key: "TargetedController", Val: true},
+	cards.StrEntry[bool]{Key: "TargetedPlayer", Val: true},
+	cards.StrEntry[bool]{Key: "ThisTargetedController", Val: true},
+	cards.StrEntry[bool]{Key: "TargetedOrController", Val: true},
+	cards.StrEntry[bool]{Key: "Targeted", Val: true},
+	cards.StrEntry[bool]{Key: "ParentTarget", Val: true},
+)

@@ -2898,10 +2898,8 @@ func SearchStatesQuality(spec string) bool {
 // direction: it preserves 701.23b's fail-to-find allowance rather than making
 // a stated-quality search mandatory).
 func possessionPredicate(p string) bool {
-	switch p {
-	case "YouOwn", "YouCtrl", "YouControl", "YourControl", "YouControlled",
-		"OppOwn", "OppCtrl", "OpponentOwns", "OpponentControls":
-		return true
+	if v, ok := possessionPredicateTab1.Get(p); ok {
+		return v
 	}
 	return false
 }
@@ -3095,3 +3093,15 @@ func objectHasAbility(o *state.Object, sub string) bool {
 	}
 	return false
 }
+
+var possessionPredicateTab1 = cards.NewStrTable[bool](
+	cards.StrEntry[bool]{Key: "YouOwn", Val: true},
+	cards.StrEntry[bool]{Key: "YouCtrl", Val: true},
+	cards.StrEntry[bool]{Key: "YouControl", Val: true},
+	cards.StrEntry[bool]{Key: "YourControl", Val: true},
+	cards.StrEntry[bool]{Key: "YouControlled", Val: true},
+	cards.StrEntry[bool]{Key: "OppOwn", Val: true},
+	cards.StrEntry[bool]{Key: "OppCtrl", Val: true},
+	cards.StrEntry[bool]{Key: "OpponentOwns", Val: true},
+	cards.StrEntry[bool]{Key: "OpponentControls", Val: true},
+)

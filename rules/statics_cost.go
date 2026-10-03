@@ -45,9 +45,8 @@ func specialActionScope(mode string) costScope { return costScope{kind: "Static"
 // constraint shares with the cast flow's own faceDown mark (beginCast sets
 // pendingCast.faceDown for exactly these modes).
 func modeIsCastFaceDown(mode string) bool {
-	switch mode {
-	case "morphed", "megamorphed", "disguised":
-		return true
+	if v, ok := modeIsCastFaceDownTab1.Get(mode); ok {
+		return v
 	}
 	return false
 }
@@ -442,3 +441,9 @@ func composedPoolFloor(m *costMods, c *Cost, taxGeneric, delve int32) int64 {
 	}
 	return n
 }
+
+var modeIsCastFaceDownTab1 = cards.NewStrTable[bool](
+	cards.StrEntry[bool]{Key: "morphed", Val: true},
+	cards.StrEntry[bool]{Key: "megamorphed", Val: true},
+	cards.StrEntry[bool]{Key: "disguised", Val: true},
+)

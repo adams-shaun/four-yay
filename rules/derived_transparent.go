@@ -465,12 +465,8 @@ func letterWord(s string) bool {
 }
 
 func localPredicate(p string) bool {
-	switch p {
-	case "Self", "Other", "YouCtrl", "OppCtrl", "YouOwn", "OppOwn", "EnchantedBy", "EquippedBy",
-		"ChosenColor", "IsRemembered", "ChosenCard", "token", "nonToken",
-		"White", "Blue", "Black", "Red", "Green", "Colorless", "MultiColor", "MonoColor",
-		"nonWhite", "nonBlue", "nonBlack", "nonRed", "nonGreen", "nonColorless", "nonMultiColor":
-		return true
+	if v, ok := localPredicateTab1.Get(p); ok {
+		return v
 	}
 	// A type word (Creature.Elf, Card.nonLand) tests the candidate's own
 	// derived type list.
@@ -484,9 +480,7 @@ func localPredicate(p string) bool {
 		if len(rest) < 4 {
 			return false
 		}
-		switch rest[:2] {
-		case "LT", "LE", "GT", "GE", "EQ", "NE":
-		default:
+		if !localPredicateKeys2.Has(rest[:2]) {
 			return false
 		}
 		num, kind, ok := strings.Cut(rest[2:], "_")
@@ -508,10 +502,8 @@ func localTypeWord(w string) bool {
 	if chars.IsCardType(w) || chars.IsSupertype(w) || effects.CreatureTypeWords(w) {
 		return true
 	}
-	switch w {
-	case "Equipment", "Aura", "Vehicle", "Food", "Treasure", "Clue", "Saga",
-		"Plains", "Island", "Swamp", "Mountain", "Forest":
-		return true
+	if v, ok := localTypeWordTab3.Get(w); ok {
+		return v
 	}
 	return false
 }
@@ -548,3 +540,51 @@ func faceHasCDAStatic(o *state.Object) bool {
 	}
 	return false
 }
+
+var localPredicateTab1 = cards.NewStrTable[bool](
+	cards.StrEntry[bool]{Key: "Self", Val: true},
+	cards.StrEntry[bool]{Key: "Other", Val: true},
+	cards.StrEntry[bool]{Key: "YouCtrl", Val: true},
+	cards.StrEntry[bool]{Key: "OppCtrl", Val: true},
+	cards.StrEntry[bool]{Key: "YouOwn", Val: true},
+	cards.StrEntry[bool]{Key: "OppOwn", Val: true},
+	cards.StrEntry[bool]{Key: "EnchantedBy", Val: true},
+	cards.StrEntry[bool]{Key: "EquippedBy", Val: true},
+	cards.StrEntry[bool]{Key: "ChosenColor", Val: true},
+	cards.StrEntry[bool]{Key: "IsRemembered", Val: true},
+	cards.StrEntry[bool]{Key: "ChosenCard", Val: true},
+	cards.StrEntry[bool]{Key: "token", Val: true},
+	cards.StrEntry[bool]{Key: "nonToken", Val: true},
+	cards.StrEntry[bool]{Key: "White", Val: true},
+	cards.StrEntry[bool]{Key: "Blue", Val: true},
+	cards.StrEntry[bool]{Key: "Black", Val: true},
+	cards.StrEntry[bool]{Key: "Red", Val: true},
+	cards.StrEntry[bool]{Key: "Green", Val: true},
+	cards.StrEntry[bool]{Key: "Colorless", Val: true},
+	cards.StrEntry[bool]{Key: "MultiColor", Val: true},
+	cards.StrEntry[bool]{Key: "MonoColor", Val: true},
+	cards.StrEntry[bool]{Key: "nonWhite", Val: true},
+	cards.StrEntry[bool]{Key: "nonBlue", Val: true},
+	cards.StrEntry[bool]{Key: "nonBlack", Val: true},
+	cards.StrEntry[bool]{Key: "nonRed", Val: true},
+	cards.StrEntry[bool]{Key: "nonGreen", Val: true},
+	cards.StrEntry[bool]{Key: "nonColorless", Val: true},
+	cards.StrEntry[bool]{Key: "nonMultiColor", Val: true},
+)
+
+var localPredicateKeys2 = cards.NewNameSet("LT", "LE", "GT", "GE", "EQ", "NE")
+
+var localTypeWordTab3 = cards.NewStrTable[bool](
+	cards.StrEntry[bool]{Key: "Equipment", Val: true},
+	cards.StrEntry[bool]{Key: "Aura", Val: true},
+	cards.StrEntry[bool]{Key: "Vehicle", Val: true},
+	cards.StrEntry[bool]{Key: "Food", Val: true},
+	cards.StrEntry[bool]{Key: "Treasure", Val: true},
+	cards.StrEntry[bool]{Key: "Clue", Val: true},
+	cards.StrEntry[bool]{Key: "Saga", Val: true},
+	cards.StrEntry[bool]{Key: "Plains", Val: true},
+	cards.StrEntry[bool]{Key: "Island", Val: true},
+	cards.StrEntry[bool]{Key: "Swamp", Val: true},
+	cards.StrEntry[bool]{Key: "Mountain", Val: true},
+	cards.StrEntry[bool]{Key: "Forest", Val: true},
+)

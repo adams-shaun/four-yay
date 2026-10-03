@@ -407,9 +407,7 @@ func goadStaticGrantReadable(params map[string]string) bool {
 		return false
 	}
 	for key := range params {
-		switch key {
-		case "Mode", "Affected", "Description", "Goad":
-		default:
+		if !goadStaticGrantReadableKeys1.Has(key) {
 			return false
 		}
 	}
@@ -426,9 +424,7 @@ func goadStaticGrantReadable(params map[string]string) bool {
 // evaluate, so the caller fails closed to its honest unimplemented Note.
 func NumLoyaltyActParamsReadable(params map[string]string) bool {
 	for key := range params {
-		switch key {
-		case "Mode", "ValidCard", "Twice", "Additional", "OnlySourceAbs", "Description":
-		default:
+		if !numLoyaltyActParamsReadableKeys2.Has(key) {
 			return false
 		}
 	}
@@ -737,3 +733,7 @@ func effectRememberedPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 // the permissive direction for a restriction. Secondary$ is allowed: it marks
 // a Forge-side duplicate for modifier composition, and a boolean restriction
 // cannot be applied twice.
+
+var goadStaticGrantReadableKeys1 = cards.NewNameSet("Mode", "Affected", "Description", "Goad")
+
+var numLoyaltyActParamsReadableKeys2 = cards.NewNameSet("Mode", "ValidCard", "Twice", "Additional", "OnlySourceAbs", "Description")

@@ -4,6 +4,7 @@ import (
 	"math/bits"
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -20,17 +21,8 @@ func colourLetter(s string) byte {
 		}
 		return 0
 	}
-	switch s {
-	case "WHITE":
-		return 'W'
-	case "BLUE":
-		return 'U'
-	case "BLACK":
-		return 'B'
-	case "RED":
-		return 'R'
-	case "GREEN":
-		return 'G'
+	if v, ok := colourLetterTab1.Get(s); ok {
+		return v
 	}
 	return 0
 }
@@ -309,9 +301,8 @@ var countAllZones = []state.Zone{
 // family -- is deliberately NOT admitted here and keeps the whole-token
 // fail-closed read.
 func isExtremeProperty(prop string) bool {
-	switch prop {
-	case "GreatestCardPower", "GreatestCardToughness", "GreatestCardManaCost", "LeastCardPower":
-		return true
+	if v, ok := isExtremePropertyTab2.Get(prop); ok {
+		return v
 	}
 	return false
 }
@@ -347,17 +338,8 @@ const (
 // verdict from drifting apart. A spelling outside this set returns diffNone
 // and keeps the pre-existing behaviour.
 func differentPropertyKindOf(prop string) differentPropertyKind {
-	switch prop {
-	case "DifferentCardManaCost":
-		return diffManaCost
-	case "DifferentCardPower":
-		return diffPower
-	case "DifferentCardToughness":
-		return diffToughness
-	case "DifferentCardNames":
-		return diffName
-	case "DifferentColorPair":
-		return diffColorPair
+	if v, ok := differentPropertyKindOfTab3.Get(prop); ok {
+		return v
 	}
 	return diffNone
 }
@@ -484,3 +466,26 @@ func hasSubtype(o *state.Object, sub string) bool {
 	}
 	return false
 }
+
+var colourLetterTab1 = cards.NewStrTable[byte](
+	cards.StrEntry[byte]{Key: "WHITE", Val: 'W'},
+	cards.StrEntry[byte]{Key: "BLUE", Val: 'U'},
+	cards.StrEntry[byte]{Key: "BLACK", Val: 'B'},
+	cards.StrEntry[byte]{Key: "RED", Val: 'R'},
+	cards.StrEntry[byte]{Key: "GREEN", Val: 'G'},
+)
+
+var isExtremePropertyTab2 = cards.NewStrTable[bool](
+	cards.StrEntry[bool]{Key: "GreatestCardPower", Val: true},
+	cards.StrEntry[bool]{Key: "GreatestCardToughness", Val: true},
+	cards.StrEntry[bool]{Key: "GreatestCardManaCost", Val: true},
+	cards.StrEntry[bool]{Key: "LeastCardPower", Val: true},
+)
+
+var differentPropertyKindOfTab3 = cards.NewStrTable[differentPropertyKind](
+	cards.StrEntry[differentPropertyKind]{Key: "DifferentCardManaCost", Val: diffManaCost},
+	cards.StrEntry[differentPropertyKind]{Key: "DifferentCardPower", Val: diffPower},
+	cards.StrEntry[differentPropertyKind]{Key: "DifferentCardToughness", Val: diffToughness},
+	cards.StrEntry[differentPropertyKind]{Key: "DifferentCardNames", Val: diffName},
+	cards.StrEntry[differentPropertyKind]{Key: "DifferentColorPair", Val: diffColorPair},
+)

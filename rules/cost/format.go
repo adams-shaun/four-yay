@@ -6,6 +6,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -391,26 +392,10 @@ func SpecNoun(spec, defNoun string) string {
 	if i := strings.IndexAny(base, ".+, ;"); i >= 0 {
 		base = base[:i]
 	}
-	switch strings.ToLower(base) {
-	case "creature":
-		return "creature"
-	case "artifact":
-		return "artifact"
-	case "enchantment":
-		return "enchantment"
-	case "land":
-		return "land"
-	case "planeswalker":
-		return "planeswalker"
-	case "permanent":
-		return "permanent"
-	case "card":
-		return "card"
-	case "token":
-		return "token"
-	default:
-		return defNoun
+	if v, ok := specNounTab1.Get(strings.ToLower(base)); ok {
+		return v
 	}
+	return defNoun
 }
 
 // zoneNoun names the origin zone a PutCardToLib part pays from, for the
@@ -505,3 +490,14 @@ func ManaCostBeyondTap(c Cost) bool {
 	}
 	return c.HasNonMana()
 }
+
+var specNounTab1 = cards.NewStrTable[string](
+	cards.StrEntry[string]{Key: "creature", Val: "creature"},
+	cards.StrEntry[string]{Key: "artifact", Val: "artifact"},
+	cards.StrEntry[string]{Key: "enchantment", Val: "enchantment"},
+	cards.StrEntry[string]{Key: "land", Val: "land"},
+	cards.StrEntry[string]{Key: "planeswalker", Val: "planeswalker"},
+	cards.StrEntry[string]{Key: "permanent", Val: "permanent"},
+	cards.StrEntry[string]{Key: "card", Val: "card"},
+	cards.StrEntry[string]{Key: "token", Val: "token"},
+)

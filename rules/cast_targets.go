@@ -19,9 +19,8 @@ import (
 // CastStatic match and targetBoundCtx's pre-payment Count$Kicked binding, so
 // the three spellings cannot drift.
 func modeIsKicked(mode string) bool {
-	switch mode {
-	case "kicked", "kicked1", "kicked2", "kickedboth", "multikicked":
-		return true
+	if v, ok := modeIsKickedTab1.Get(mode); ok {
+		return v
 	}
 	return false
 }
@@ -1475,3 +1474,11 @@ func (e *Engine) recheckIllegal(pc *pendingCast) bool {
 	}
 	return false
 }
+
+var modeIsKickedTab1 = cards.NewStrTable[bool](
+	cards.StrEntry[bool]{Key: "kicked", Val: true},
+	cards.StrEntry[bool]{Key: "kicked1", Val: true},
+	cards.StrEntry[bool]{Key: "kicked2", Val: true},
+	cards.StrEntry[bool]{Key: "kickedboth", Val: true},
+	cards.StrEntry[bool]{Key: "multikicked", Val: true},
+)

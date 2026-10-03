@@ -217,13 +217,7 @@ func effectStaticGrantReadable(params map[string]string, g staticGrant) bool {
 		return false
 	}
 	for key := range params {
-		switch key {
-		case "Mode", "Affected", "AffectedZone", "Description", "AddTypes", "AddType",
-			"AddAllCreatureTypes", "RemoveCreatureTypes", "RemoveCardTypes",
-			"AddColor", "AddColors", "SetColor", "SetColors", "AddKeyword",
-			"AddAbility", "AddAbilities", "RemoveAllAbilities", "SetPower",
-			"SetToughness", "AddPower", "AddToughness":
-		default:
+		if !effectStaticGrantReadableKeys1.Has(key) {
 			return false
 		}
 	}
@@ -507,3 +501,5 @@ func AffectedXStaticAmount(expr string) bool {
 	}
 	return expr == "AffectedX"
 }
+
+var effectStaticGrantReadableKeys1 = cards.NewNameSet("Mode", "Affected", "AffectedZone", "Description", "AddTypes", "AddType", "AddAllCreatureTypes", "RemoveCreatureTypes", "RemoveCardTypes", "AddColor", "AddColors", "SetColor", "SetColors", "AddKeyword", "AddAbility", "AddAbilities", "RemoveAllAbilities", "SetPower", "SetToughness", "AddPower", "AddToughness")

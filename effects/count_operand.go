@@ -4,6 +4,8 @@ import (
 	"math"
 	"strconv"
 	"strings"
+
+	"github.com/adams-shaun/gorge/cards"
 )
 
 // applyCountOpOperand applies a Count$ arithmetic suffix. Besides numeric
@@ -337,9 +339,8 @@ func modelledGateOp(h Host, c *Ctx, op string) bool {
 }
 
 func validConvokedCountOp(op string) bool {
-	switch op {
-	case "Twice", "Thrice", "HalfDown", "HalfUp", "ThirdUp", "Negative":
-		return true
+	if v, ok := validConvokedCountOpTab1.Get(op); ok {
+		return v
 	}
 	for _, prefix := range []string{"Plus.", "Minus.", "NMinus.", "Times.", "Divide.", "DivideEvenly.", "DivideEvenlyUp.", "DivideEvenlyDown.", "LimitMax.", "LimitMin."} {
 		if operand, ok := strings.CutPrefix(op, prefix); ok {
@@ -494,3 +495,12 @@ func divideCountOp(v, x int64, ceil bool) int64 {
 func ApplyCountOp(n int32, op string) int32 {
 	return applyCountOp(n, op)
 }
+
+var validConvokedCountOpTab1 = cards.NewStrTable[bool](
+	cards.StrEntry[bool]{Key: "Twice", Val: true},
+	cards.StrEntry[bool]{Key: "Thrice", Val: true},
+	cards.StrEntry[bool]{Key: "HalfDown", Val: true},
+	cards.StrEntry[bool]{Key: "HalfUp", Val: true},
+	cards.StrEntry[bool]{Key: "ThirdUp", Val: true},
+	cards.StrEntry[bool]{Key: "Negative", Val: true},
+)

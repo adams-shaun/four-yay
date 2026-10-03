@@ -413,17 +413,8 @@ func activationZoneMask(az ParamText) uint32 {
 	if !az.Present {
 		return 1 << state.ZBattlefield
 	}
-	switch az.Text {
-	case "Battlefield":
-		return 1 << state.ZBattlefield
-	case "Graveyard":
-		return 1 << state.ZGraveyard
-	case "Hand":
-		return 1 << state.ZHand
-	case "Exile":
-		return 1 << state.ZExile
-	case "Stack":
-		return 1 << state.ZStack
+	if v, ok := activationZoneMaskTab1.Get(az.Text); ok {
+		return v
 	}
 	return 0
 }
@@ -470,3 +461,11 @@ func ActivationTierKeys() []string {
 		"UnlessCost", "UnlessPayer", "UnlessSwitched",
 	}
 }
+
+var activationZoneMaskTab1 = cards.NewStrTable[uint32](
+	cards.StrEntry[uint32]{Key: "Battlefield", Val: 1 << state.ZBattlefield},
+	cards.StrEntry[uint32]{Key: "Graveyard", Val: 1 << state.ZGraveyard},
+	cards.StrEntry[uint32]{Key: "Hand", Val: 1 << state.ZHand},
+	cards.StrEntry[uint32]{Key: "Exile", Val: 1 << state.ZExile},
+	cards.StrEntry[uint32]{Key: "Stack", Val: 1 << state.ZStack},
+)

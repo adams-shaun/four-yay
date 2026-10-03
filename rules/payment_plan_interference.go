@@ -212,9 +212,7 @@ func paymentPlanNoUntapShape(r cards.Repl) bool {
 		return false
 	}
 	for _, k := range slices.Sorted(maps.Keys(r.Params)) {
-		switch k {
-		case "Event", "ValidCard", "Layer", "ValidStepTurnToController", "ActiveZones", "Description":
-		default:
+		if !paymentPlanNoUntapShapeKeys1.Has(k) {
 			return false
 		}
 	}
@@ -638,3 +636,5 @@ func paymentPlanSpellTargets(f *cards.Face) bool {
 	}
 	return walk(f.SpellAbility(), 0)
 }
+
+var paymentPlanNoUntapShapeKeys1 = cards.NewNameSet("Event", "ValidCard", "Layer", "ValidStepTurnToController", "ActiveZones", "Description")

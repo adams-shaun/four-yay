@@ -358,9 +358,8 @@ func saturatingPotentialMana(have, add int32) int32 {
 // production (the round-2 finding that granted 99 of every colour to a
 // blank-Produced$ source).
 func producedOpen(raw string) bool {
-	switch raw {
-	case "", "Any", "Combo Any", "Chosen":
-		return true
+	if v, ok := producedOpenTab1.Get(raw); ok {
+		return v
 	}
 	s := potentialProducedStrip.Replace(raw)
 	for _, r := range s {
@@ -448,9 +447,26 @@ func (e *Engine) PotentialActions(p state.PlayerID) []decision.PotentialAction {
 //
 // The excluded kinds are "activate" (the mana tap), "pass" and "concede".
 func potentialPlayKind(kind string) bool {
-	switch kind {
-	case "cast", "ability", "play_land", "granted", "unlock", "turn_face_up", "specialize", "station":
-		return true
+	if v, ok := potentialPlayKindTab2.Get(kind); ok {
+		return v
 	}
 	return false
 }
+
+var producedOpenTab1 = cards.NewStrTable[bool](
+	cards.StrEntry[bool]{Key: "", Val: true},
+	cards.StrEntry[bool]{Key: "Any", Val: true},
+	cards.StrEntry[bool]{Key: "Combo Any", Val: true},
+	cards.StrEntry[bool]{Key: "Chosen", Val: true},
+)
+
+var potentialPlayKindTab2 = cards.NewStrTable[bool](
+	cards.StrEntry[bool]{Key: "cast", Val: true},
+	cards.StrEntry[bool]{Key: "ability", Val: true},
+	cards.StrEntry[bool]{Key: "play_land", Val: true},
+	cards.StrEntry[bool]{Key: "granted", Val: true},
+	cards.StrEntry[bool]{Key: "unlock", Val: true},
+	cards.StrEntry[bool]{Key: "turn_face_up", Val: true},
+	cards.StrEntry[bool]{Key: "specialize", Val: true},
+	cards.StrEntry[bool]{Key: "station", Val: true},
+)

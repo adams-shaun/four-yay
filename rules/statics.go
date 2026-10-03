@@ -73,9 +73,7 @@ func (e *Engine) costRememberedCapture(id state.ObjID) []costRememberedEntry {
 	var out []costRememberedEntry
 	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
 		ce := &ceL[ceI]
-		switch ce.CostStaticMode {
-		case "RaiseCost", "ReduceCost", "SetCost":
-		default:
+		if !costRememberedCaptureKeys1.Has(ce.CostStaticMode) {
 			continue
 		}
 		if ce.CostStaticGranted || !slices.Contains(ce.Remembered, id) {
@@ -694,3 +692,5 @@ func (sv staticView) HasParam(k cards.ParamKey) bool {
 	_, ok := cards.ParamSetParam(sv.PS, sv.Params, k)
 	return ok
 }
+
+var costRememberedCaptureKeys1 = cards.NewNameSet("RaiseCost", "ReduceCost", "SetCost")

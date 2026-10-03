@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -155,9 +156,8 @@ func isBarePlayerProperty(clause string) bool {
 		// grammar, so the census gate's knownBase consults this same list.
 		return true
 	}
-	switch clause {
-	case "IsRemembered", "Chosen", "ChosenPlayer", "IsCorrupted":
-		return true
+	if v, ok := isBarePlayerPropertyTab1.Get(clause); ok {
+		return v
 	}
 	return false
 }
@@ -194,9 +194,7 @@ func matchesPlayerSingleSpec(g *state.Game, spec string, p, you state.PlayerID, 
 			// negated -- an unread one would otherwise invert its fail-closed
 			// false into admitting every seat -- and a source-anchored one
 			// fails closed with no source bound.
-			switch inner {
-			case "CardOwner", "Owner", "IsRemembered", "EnchantedBy":
-			default:
+			if !matchesPlayerSingleSpecKeys2.Has(inner) {
 				continue
 			}
 			if inner != "EnchantedBy" && g.Obj(pc.Source) == nil {
@@ -838,3 +836,12 @@ func playerCompare(have int32, op string, want int32) bool {
 	}
 	return false
 }
+
+var isBarePlayerPropertyTab1 = cards.NewStrTable[bool](
+	cards.StrEntry[bool]{Key: "IsRemembered", Val: true},
+	cards.StrEntry[bool]{Key: "Chosen", Val: true},
+	cards.StrEntry[bool]{Key: "ChosenPlayer", Val: true},
+	cards.StrEntry[bool]{Key: "IsCorrupted", Val: true},
+)
+
+var matchesPlayerSingleSpecKeys2 = cards.NewNameSet("CardOwner", "Owner", "IsRemembered", "EnchantedBy")

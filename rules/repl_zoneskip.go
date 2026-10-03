@@ -68,39 +68,8 @@ func faceReplHot(f *cards.Face) bool { return f != nil && len(f.Repls) > 0 }
 // replacementEventNameMatches accepts). A name replacementEvent never
 // returns gets no bit: no event can match it.
 func replEventBit(name string) uint32 {
-	switch name {
-	case "Attached":
-		return 1 << 0
-	case "Moved":
-		return 1 << 1
-	case "Untap":
-		return 1 << 2
-	case "BeginPhase":
-		return 1 << 3
-	case "Transform":
-		return 1 << 4
-	case "ProduceMana":
-		return 1 << 5
-	case "DamageDone":
-		return 1 << 6
-	case "Draw", "DrawCards":
-		return 1 << 7
-	case "CreateToken":
-		return 1 << 8
-	case "Explore":
-		return 1 << 9
-	case "Cascade":
-		return 1 << 10
-	case "Scry":
-		return 1 << 11
-	case "RollDice":
-		return 1 << 12
-	case "RollPlanarDice":
-		return 1 << 13
-	case "AddCounter":
-		return 1 << 14
-	case "TurnFaceUp":
-		return 1 << 15
+	if v, ok := replEventBitTab1.Get(name); ok {
+		return v
 	}
 	return 0
 }
@@ -405,3 +374,23 @@ func copyReplZones(dst, src []replZoneSummary) []replZoneSummary {
 	}
 	return dst
 }
+
+var replEventBitTab1 = cards.NewStrTable[uint32](
+	cards.StrEntry[uint32]{Key: "Attached", Val: 1 << 0},
+	cards.StrEntry[uint32]{Key: "Moved", Val: 1 << 1},
+	cards.StrEntry[uint32]{Key: "Untap", Val: 1 << 2},
+	cards.StrEntry[uint32]{Key: "BeginPhase", Val: 1 << 3},
+	cards.StrEntry[uint32]{Key: "Transform", Val: 1 << 4},
+	cards.StrEntry[uint32]{Key: "ProduceMana", Val: 1 << 5},
+	cards.StrEntry[uint32]{Key: "DamageDone", Val: 1 << 6},
+	cards.StrEntry[uint32]{Key: "Draw", Val: 1 << 7},
+	cards.StrEntry[uint32]{Key: "DrawCards", Val: 1 << 7},
+	cards.StrEntry[uint32]{Key: "CreateToken", Val: 1 << 8},
+	cards.StrEntry[uint32]{Key: "Explore", Val: 1 << 9},
+	cards.StrEntry[uint32]{Key: "Cascade", Val: 1 << 10},
+	cards.StrEntry[uint32]{Key: "Scry", Val: 1 << 11},
+	cards.StrEntry[uint32]{Key: "RollDice", Val: 1 << 12},
+	cards.StrEntry[uint32]{Key: "RollPlanarDice", Val: 1 << 13},
+	cards.StrEntry[uint32]{Key: "AddCounter", Val: 1 << 14},
+	cards.StrEntry[uint32]{Key: "TurnFaceUp", Val: 1 << 15},
+)

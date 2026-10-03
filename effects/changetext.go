@@ -66,9 +66,8 @@ func textSubstitutionWords(raw string) (from, to string, ok bool) {
 // chooser spellings are Choose (a colour word), ChooseCreatureType and
 // ChooseBasicLandType.
 func isTextChooser(token string) bool {
-	switch strings.ToLower(strings.TrimSpace(token)) {
-	case "choose", "choosecreaturetype", "choosebasiclandtype":
-		return true
+	if v, ok := isTextChooserTab1.Get(strings.ToLower(strings.TrimSpace(token))); ok {
+		return v
 	}
 	return false
 }
@@ -360,3 +359,9 @@ func registerTextSet(h Host, c *Ctx, id state.ObjID, text string, keywordGrant [
 	h.AddContinuous(ce)
 	h.AddContinuous(ceAbilities)
 }
+
+var isTextChooserTab1 = cards.NewStrTable[bool](
+	cards.StrEntry[bool]{Key: "choose", Val: true},
+	cards.StrEntry[bool]{Key: "choosecreaturetype", Val: true},
+	cards.StrEntry[bool]{Key: "choosebasiclandtype", Val: true},
+)

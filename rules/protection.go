@@ -274,17 +274,8 @@ func hasEnemyColorPair(colors string) bool {
 // protecColourLetter maps a colour quality word to its WUBRG letter, 0
 // when q is not a colour word.
 func protecColourLetter(q string) rune {
-	switch strings.ToLower(q) {
-	case "white":
-		return 'W'
-	case "blue":
-		return 'U'
-	case "black":
-		return 'B'
-	case "red":
-		return 'R'
-	case "green":
-		return 'G'
+	if v, ok := protecColourLetterTab1.Get(strings.ToLower(q)); ok {
+		return v
 	}
 	return 0
 }
@@ -406,3 +397,11 @@ func (e *Engine) permanentCastThisTurn(id state.ObjID) bool {
 	}
 	return false
 }
+
+var protecColourLetterTab1 = cards.NewStrTable[rune](
+	cards.StrEntry[rune]{Key: "white", Val: 'W'},
+	cards.StrEntry[rune]{Key: "blue", Val: 'U'},
+	cards.StrEntry[rune]{Key: "black", Val: 'B'},
+	cards.StrEntry[rune]{Key: "red", Val: 'R'},
+	cards.StrEntry[rune]{Key: "green", Val: 'G'},
+)

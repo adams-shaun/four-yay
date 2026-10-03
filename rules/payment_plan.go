@@ -1495,15 +1495,10 @@ func paymentPlanKnownManaParam(key string) bool {
 	if strings.HasPrefix(key, "AddsKeywords") {
 		return true
 	}
-	switch key {
-	case "API", "Cost", "Produced", "Amount", "SubAbility", "SpellDescription", "StackDescription", "AILogic", "PrecostDesc",
-		"Activation", "Activator", "ActivationPhases", "PlayerTurn", "OpponentTurn", "ActivationFirstCombat", "ActivationAfterBlockers",
-		"IsPresent", "PresentCompare", "CheckSVar", "SVarCompare", "ActivationLimit", "GameActivationLimit", "InstantSpeed",
-		"RestrictValid", "TriggersWhenSpent", "AddsCounters", "AddsKeywords", "AddsKeywordsAll", "AddsNoCounter", "PersistentMana", "UnlessCost", "Defined":
-		return true
-	default:
-		return false
+	if v, ok := paymentPlanKnownManaParamTab1.Get(key); ok {
+		return v
 	}
+	return false
 }
 
 func paymentPlanSelfCost(part CostPart, id state.ObjID) bool {
@@ -1732,9 +1727,8 @@ func paymentConsequenceEqual(c pay.Consequence, w *decision.PaymentConsequence) 
 // naming no plain colour, an empty commander identity) is
 // paymentPlanChoiceColours' fail-closed answer, not this predicate's.
 func paymentPlanChoiceShape(raw string) bool {
-	switch raw {
-	case "Chosen", "ChosenColor", "ComboChosen":
-		return true
+	if v, ok := paymentPlanChoiceShapeTab2.Get(raw); ok {
+		return v
 	}
 	return strings.HasPrefix(raw, "Combo ")
 }
@@ -1983,3 +1977,44 @@ func costPips(c Cost) [5]int {
 	}
 	return d
 }
+
+var paymentPlanKnownManaParamTab1 = cards.NewStrTable[bool](
+	cards.StrEntry[bool]{Key: "API", Val: true},
+	cards.StrEntry[bool]{Key: "Cost", Val: true},
+	cards.StrEntry[bool]{Key: "Produced", Val: true},
+	cards.StrEntry[bool]{Key: "Amount", Val: true},
+	cards.StrEntry[bool]{Key: "SubAbility", Val: true},
+	cards.StrEntry[bool]{Key: "SpellDescription", Val: true},
+	cards.StrEntry[bool]{Key: "StackDescription", Val: true},
+	cards.StrEntry[bool]{Key: "AILogic", Val: true},
+	cards.StrEntry[bool]{Key: "PrecostDesc", Val: true},
+	cards.StrEntry[bool]{Key: "Activation", Val: true},
+	cards.StrEntry[bool]{Key: "Activator", Val: true},
+	cards.StrEntry[bool]{Key: "ActivationPhases", Val: true},
+	cards.StrEntry[bool]{Key: "PlayerTurn", Val: true},
+	cards.StrEntry[bool]{Key: "OpponentTurn", Val: true},
+	cards.StrEntry[bool]{Key: "ActivationFirstCombat", Val: true},
+	cards.StrEntry[bool]{Key: "ActivationAfterBlockers", Val: true},
+	cards.StrEntry[bool]{Key: "IsPresent", Val: true},
+	cards.StrEntry[bool]{Key: "PresentCompare", Val: true},
+	cards.StrEntry[bool]{Key: "CheckSVar", Val: true},
+	cards.StrEntry[bool]{Key: "SVarCompare", Val: true},
+	cards.StrEntry[bool]{Key: "ActivationLimit", Val: true},
+	cards.StrEntry[bool]{Key: "GameActivationLimit", Val: true},
+	cards.StrEntry[bool]{Key: "InstantSpeed", Val: true},
+	cards.StrEntry[bool]{Key: "RestrictValid", Val: true},
+	cards.StrEntry[bool]{Key: "TriggersWhenSpent", Val: true},
+	cards.StrEntry[bool]{Key: "AddsCounters", Val: true},
+	cards.StrEntry[bool]{Key: "AddsKeywords", Val: true},
+	cards.StrEntry[bool]{Key: "AddsKeywordsAll", Val: true},
+	cards.StrEntry[bool]{Key: "AddsNoCounter", Val: true},
+	cards.StrEntry[bool]{Key: "PersistentMana", Val: true},
+	cards.StrEntry[bool]{Key: "UnlessCost", Val: true},
+	cards.StrEntry[bool]{Key: "Defined", Val: true},
+)
+
+var paymentPlanChoiceShapeTab2 = cards.NewStrTable[bool](
+	cards.StrEntry[bool]{Key: "Chosen", Val: true},
+	cards.StrEntry[bool]{Key: "ChosenColor", Val: true},
+	cards.StrEntry[bool]{Key: "ComboChosen", Val: true},
+)

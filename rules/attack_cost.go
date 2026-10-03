@@ -1282,9 +1282,8 @@ func (e *Engine) attackChoiceManaSources(p state.PlayerID) []attackManaSource {
 // source's recorded as-enters colour before it can be priced.
 func producedNeedsChosen(produced string) bool {
 	for tok := range strings.FieldsSeq(produced) {
-		switch strings.Trim(tok, "{}") {
-		case "Chosen", "ChosenColor", "ComboChosen":
-			return true
+		if v, ok := producedNeedsChosenTab1.Get(strings.Trim(tok, "{}")); ok {
+			return v
 		}
 	}
 	return false
@@ -1919,3 +1918,9 @@ func (e *Engine) attackPayAnswer(d *decision.Decision, in decision.Intent) {
 		e.completeAttackPay(st.chosen, plan)
 	}
 }
+
+var producedNeedsChosenTab1 = cards.NewStrTable[bool](
+	cards.StrEntry[bool]{Key: "Chosen", Val: true},
+	cards.StrEntry[bool]{Key: "ChosenColor", Val: true},
+	cards.StrEntry[bool]{Key: "ComboChosen", Val: true},
+)

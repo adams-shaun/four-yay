@@ -194,9 +194,8 @@ func definedIsTargetReuse(defined string) bool {
 		if i := strings.IndexByte(tok, '.'); i >= 0 {
 			tok = tok[:i]
 		}
-		switch tok {
-		case "Targeted", "ParentTarget", "ParentTargeted", "ThisTargetedCard", "AllTargeted":
-			return true
+		if v, ok := definedIsTargetReuseTab1.Get(tok); ok {
+			return v
 		}
 	}
 	return false
@@ -337,3 +336,11 @@ func poseTargetsAsk(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID,
 
 	return candidates[:max], true, false
 }
+
+var definedIsTargetReuseTab1 = cards.NewStrTable[bool](
+	cards.StrEntry[bool]{Key: "Targeted", Val: true},
+	cards.StrEntry[bool]{Key: "ParentTarget", Val: true},
+	cards.StrEntry[bool]{Key: "ParentTargeted", Val: true},
+	cards.StrEntry[bool]{Key: "ThisTargetedCard", Val: true},
+	cards.StrEntry[bool]{Key: "AllTargeted", Val: true},
+)

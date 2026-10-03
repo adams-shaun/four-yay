@@ -99,8 +99,10 @@ const (
 	stringParamReads = 20
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
-	// W4 step 3: Attach: 2886 -> 2883. RepeatEach: 2883 -> 2876.
-	stringCaseLiterals = 2876
+	// W4 step 3: Attach: 2886 -> 2883. RepeatEach: 2883 -> 2876. W4 cases:
+	// constant-returning switches and param whitelists became cards.StrTable /
+	// cards.NameSet (sorted dense slices, built once at init): 2876 -> 2046.
+	stringCaseLiterals = 2046
 	// ctxLiterals, specContextLiterals and triggerContextLiterals are the
 	// effects.Ctx / SpecContext / TriggerContext composite literals in rules/
 	// and effects/ non-test files outside codeshape.CtxConstructorFiles (W1c,

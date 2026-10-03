@@ -159,9 +159,8 @@ func (e *Engine) moveAffectedPlayer(ev events.Event) (state.PlayerID, bool) {
 // Remembered), so composing the record before or after a tap/untap/counter
 // rider changes nothing. Any other API fails closed (the caller poses).
 func updatedNeutralBody(sa *cards.SA) bool {
-	switch sa.API {
-	case "Reveal", "ChooseColor", "ChooseType", "ChooseNumber", "ChooseCard", "Cleanup", "Hideaway":
-		return true
+	if v, ok := updatedNeutralBodyTab1.Get(sa.API); ok {
+		return v
 	}
 	return false
 }
@@ -288,3 +287,13 @@ func (e *Engine) resumeUpdatedComposition(rc replChoice, selected int) {
 		e.finishLandPlay(rc.ev.Obj)
 	}
 }
+
+var updatedNeutralBodyTab1 = cards.NewStrTable[bool](
+	cards.StrEntry[bool]{Key: "Reveal", Val: true},
+	cards.StrEntry[bool]{Key: "ChooseColor", Val: true},
+	cards.StrEntry[bool]{Key: "ChooseType", Val: true},
+	cards.StrEntry[bool]{Key: "ChooseNumber", Val: true},
+	cards.StrEntry[bool]{Key: "ChooseCard", Val: true},
+	cards.StrEntry[bool]{Key: "Cleanup", Val: true},
+	cards.StrEntry[bool]{Key: "Hideaway", Val: true},
+)

@@ -2171,18 +2171,10 @@ func effLookAndArrange(h Host, c *Ctx, sa *cards.SA, n int32, kind, verb string,
 // it mirrors the Option.Kind vocabulary so the prompt and the wire never
 // disagree.
 func destinationPhrase(kind string) string {
-	switch kind {
-	case "bottom":
-		return "the bottom of your library"
-	case "graveyard":
-		return "your graveyard"
-	case "exile":
-		return "exile"
-	case "hand":
-		return "your hand"
-	default:
-		return "their destination"
+	if v, ok := destinationPhraseTab1.Get(kind); ok {
+		return v
 	}
+	return "their destination"
 }
 
 // effNameCard records a card-name choice. The real name is asked at cast
@@ -2416,3 +2408,10 @@ func discardDefinedCards(h Host, c *Ctx, spec string) []state.Target {
 	}
 	return DefinedSpec(h, c, spec)
 }
+
+var destinationPhraseTab1 = cards.NewStrTable[string](
+	cards.StrEntry[string]{Key: "bottom", Val: "the bottom of your library"},
+	cards.StrEntry[string]{Key: "graveyard", Val: "your graveyard"},
+	cards.StrEntry[string]{Key: "exile", Val: "exile"},
+	cards.StrEntry[string]{Key: "hand", Val: "your hand"},
+)
