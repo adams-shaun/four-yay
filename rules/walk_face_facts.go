@@ -288,13 +288,19 @@ func buildWalkFaceTable(faces []*cards.Face) walkFaceTable {
 		}
 	}
 	// Publish each entry on its face (cards.ExtSlot), so a read follows the
-	// face's pointer instead of hashing it. The table is never resized, so
-	// every published pointer stays valid; the first table to publish a
+	// face's pointer instead of hashing it. The first table to publish a
 	// face wins, and every table's entry for it is the same pure function of
-	// the face.
+	// the face. The published entry is a copy, not a pointer into t.slots:
+	// the slot is write-once and lives as long as the registry, so an
+	// interior pointer kept the WHOLE first table (every configured face,
+	// token scripts included) alive for every face it was first for. An
+	// embedder building one configuration per card (the compliance gate,
+	// cardfuzz) grew ~1 MB per distinct card: 24 sets in one process went
+	// 0.6 GB -> 3.3 GB, the full corpus past 15 GB.
 	for i := range t.slots {
-		if f := t.slots[i].face; f != nil {
-			f.ExtSlot().Store(unsafe.Pointer(&t.slots[i]))
+		if f := t.slots[i].face; f != nil && f.ExtSlot().Load() == nil {
+			ff := t.slots[i]
+			f.ExtSlot().Store(unsafe.Pointer(&ff))
 		}
 	}
 	return t
