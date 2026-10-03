@@ -731,8 +731,8 @@ func (e *Engine) handleReplacement(d *decision.Decision, in decision.Intent) {
 			var plan []tokenPlanMint
 			var parked bool
 			if body := m.repl.With; body != nil &&
-				(strings.EqualFold(strings.TrimSpace(body.Params["TokenScript"]), "Chosen") ||
-					strings.TrimSpace(body.Params["ValidChoices"]) != "") {
+				(strings.EqualFold(strings.TrimSpace(body.ParamStr(cards.PKTokenScript)), "Chosen") ||
+					strings.TrimSpace(body.ParamStr(cards.PKValidChoices)) != "") {
 				// A chosen-copy match: the election the scan-order drive poses for
 				// it (driveTokenReplacements' chosenShape arm), with the remaining
 				// matches and the plan as they stand. idx -1 makes the pose's resume

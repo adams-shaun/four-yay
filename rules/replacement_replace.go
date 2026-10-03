@@ -187,7 +187,7 @@ func (e *Engine) replacementCondition(source state.ObjID, r *cards.Repl) bool {
 		return true
 	}
 	value := effects.EvalCount(e, effects.NewCtxPtr(source, o.Controller, effects.CtxInit{SVars: o.Face().SVars}), o.Face().SVars[name])
-	return compareLife(value, r.Params["SVarCompare"])
+	return compareLife(value, r.ParamStr(cards.PKSVarCompare))
 }
 
 // replaceCount evaluates ReplaceEffect's ReplaceCount$Amount/LifeGained

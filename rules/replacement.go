@@ -451,7 +451,7 @@ func (e *Engine) applyNonMoveReplacements(ev events.Event, matches []replMatch) 
 				// may touch damage that cannot be prevented (Spider-Punk).
 				continue
 			}
-			if strings.EqualFold(m.repl.Params["Prevent"], "True") {
+			if strings.EqualFold(m.repl.ParamStr(cards.PKPrevent), "True") {
 				// Stored through a re-entrant emit (the ReplaceDamage arm's
 				// shape, task dponce1): the log record IS the prevention's
 				// occurrence, so Mode$ DamagePreventedOnce triggers fire off it

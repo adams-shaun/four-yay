@@ -64,9 +64,9 @@ func effTwoPiles(h Host, c *Ctx, sa *cards.SA) {
 			return
 		}
 	}
-	spec := strings.TrimSpace(sa.Params["DefinedCards"])
+	spec := strings.TrimSpace(sa.ParamStr(cards.PKDefinedCards))
 	if spec == "" {
-		if v := strings.TrimSpace(sa.Params["Zone"]); v != "" {
+		if v := strings.TrimSpace(sa.ParamStr(cards.PKZone)); v != "" {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 				Text: "unimplemented TwoPiles shape: Zone$ " + v})
 			return
@@ -120,7 +120,7 @@ func effTwoPiles(h Host, c *Ctx, sa *cards.SA) {
 	// The players. Separator$ (absent → the Chooser$ player) splits;
 	// Chooser$ (absent → Defined$) picks.
 	sepSpec := strings.TrimSpace(sa.Params["Separator"])
-	chooseSpec := strings.TrimSpace(sa.Params["Chooser"])
+	chooseSpec := strings.TrimSpace(sa.ParamStr(cards.PKChooser))
 	if chooseSpec == "" {
 		chooseSpec = strings.TrimSpace(sa.ParamStr(cards.PKDefined))
 	}
@@ -271,7 +271,7 @@ func noShuffleBody(sub *cards.SA) *cards.SA {
 	if sub == nil {
 		return nil
 	}
-	if strings.TrimSpace(sub.Params["Shuffle"]) != "" || strings.TrimSpace(sub.Params["NoShuffle"]) != "" {
+	if strings.TrimSpace(sub.ParamStr(cards.PKShuffle)) != "" || strings.TrimSpace(sub.ParamStr(cards.PKNoShuffle)) != "" {
 		return sub
 	}
 	cp := *sub

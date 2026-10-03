@@ -71,8 +71,8 @@ func (e *Engine) continueCopyTokenProposal(ev events.Event, matches []replMatch)
 		if body == nil || body.API != "ReplaceToken" {
 			continue
 		}
-		if strings.EqualFold(strings.TrimSpace(body.Params["TokenScript"]), "Chosen") ||
-			strings.TrimSpace(body.Params["ValidChoices"]) != "" ||
+		if strings.EqualFold(strings.TrimSpace(body.ParamStr(cards.PKTokenScript)), "Chosen") ||
+			strings.TrimSpace(body.ParamStr(cards.PKValidChoices)) != "" ||
 			strings.EqualFold(m.repl.ParamStr(cards.PKOptional), "True") {
 			continue
 		}

@@ -85,10 +85,10 @@ func chooseNumberAsk(h Host, c *Ctx, sa *cards.SA) (opts []decision.Option, prom
 	if title := strings.TrimSpace(sa.Params["ListTitle"]); title != "" {
 		prompt = title
 	}
-	_, hasMax := sa.Params["Max"]
-	if !hasMax || strings.TrimSpace(sa.Params["Max"]) == "" {
+	hasMax := sa.HasParam(cards.PKMax)
+	if !hasMax || strings.TrimSpace(sa.ParamStr(cards.PKMax)) == "" {
 		lo := int32(0)
-		if _, hasMin := sa.Params["Min"]; hasMin {
+		if sa.HasParam(cards.PKMin) {
 			n, resolvable := NumResolvedStrict(h, c, sa, "Min", 0)
 			if !resolvable || n > chooseNumberMaxOffer {
 				return nil, prompt, false
@@ -100,7 +100,7 @@ func chooseNumberAsk(h Host, c *Ctx, sa *cards.SA) (opts []decision.Option, prom
 		return boundedNumberChoices(lo, chooseNumberMaxOffer), prompt, true
 	}
 	lo := int32(0)
-	if _, hasMin := sa.Params["Min"]; hasMin {
+	if sa.HasParam(cards.PKMin) {
 		n, resolvable := NumResolvedStrict(h, c, sa, "Min", 0)
 		if !resolvable {
 			return nil, prompt, false

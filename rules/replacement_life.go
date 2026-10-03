@@ -190,7 +190,7 @@ func lifeReplacementApplied(applied []replMatch, candidate replMatch) bool {
 // a candidate, so it never occupies an order choice.
 func (e *Engine) lifeReplacementApplies(ev events.Event, source state.ObjID, r *cards.Repl, p state.PlayerID, loss int32) bool {
 	if r.Event == "GainLife" {
-		if strings.EqualFold(r.Params["Prevent"], "True") {
+		if strings.EqualFold(r.ParamStr(cards.PKPrevent), "True") {
 			return true
 		}
 		if !e.replacementCondition(source, r) || r.ParamStr(cards.PKValidSource) != "" {
@@ -237,7 +237,7 @@ func (e *Engine) lifeReplacementsCommute(ev events.Event, cands []replMatch) boo
 		}
 		k := ""
 		switch op, ok := e.replaceCountOp(m.id, m.repl, name); {
-		case m.repl.Event == "GainLife" && strings.EqualFold(m.repl.Params["Prevent"], "True"):
+		case m.repl.Event == "GainLife" && strings.EqualFold(m.repl.ParamStr(cards.PKPrevent), "True"):
 			k = "prevent"
 		case ok && op == "/Twice":
 			k = "twice"
@@ -260,7 +260,7 @@ func (e *Engine) lifeReplacementsCommute(ev events.Event, cands []replMatch) boo
 func (e *Engine) applyLifeReplacement(ev events.Event, m replMatch) (events.Event, bool) {
 	r := m.repl
 	if r.Event == "GainLife" {
-		if strings.EqualFold(r.Params["Prevent"], "True") {
+		if strings.EqualFold(r.ParamStr(cards.PKPrevent), "True") {
 			e.emit(events.Event{Kind: events.Note, Player: ev.Player, Text: "prevented: cannot gain life"})
 			return ev, true
 		}
@@ -353,7 +353,7 @@ func (e *Engine) emitLifeReplacement(ev events.Event) (events.Event, bool) {
 // empty spec means all players, the printed loop's own convention.
 func (e *Engine) lifeGainForbidden(p state.PlayerID) bool {
 	for _, sv := range e.activeStatics("CantGainLife") {
-		if spec := sv.Params["ValidPlayer"]; spec == "" ||
+		if spec := sv.ParamStr(cards.PKValidPlayer); spec == "" ||
 			effects.MatchesPlayerSpec(e.G, spec, p, sv.Controller) {
 			return true
 		}
@@ -381,7 +381,7 @@ func (e *Engine) lifeGainForbidden(p state.PlayerID) bool {
 // skipping that static, as with other unread static parameters in this file.
 func (e *Engine) drawForbidden(p state.PlayerID) bool {
 	for _, sv := range e.activeStatics("CantDraw") {
-		if spec := sv.Params["ValidPlayer"]; spec != "" &&
+		if spec := sv.ParamStr(cards.PKValidPlayer); spec != "" &&
 			!effects.MatchesPlayerSpec(e.G, spec, p, sv.Controller) {
 			continue
 		}

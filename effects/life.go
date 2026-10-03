@@ -115,7 +115,7 @@ func effExchangeLifeVariant(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 
-	mode := sa.Params["Mode"]
+	mode := sa.ParamStr(cards.PKMode)
 	var oldCharacteristic int32
 	var setPower, setToughness bool
 	switch mode {

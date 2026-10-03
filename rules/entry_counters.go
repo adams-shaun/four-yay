@@ -195,7 +195,7 @@ func (e *Engine) entryBodyCandidates(ev events.Event) bool {
 	for i := range f.Repls {
 		r := &f.Repls[i]
 		if r.Event == "Moved" && r.With != nil && r.With.API == "PutCounter" &&
-			strings.EqualFold(strings.TrimSpace(r.With.Params["ETB"]), "True") &&
+			strings.EqualFold(strings.TrimSpace(r.With.ParamStr(cards.PKETB)), "True") &&
 			entryBodyKindEncodable(r.With) {
 			return true
 		}
@@ -241,7 +241,7 @@ func entryBodyKindEncodable(sa *cards.SA) bool {
 // ordinary body path -- the conservative direction, so a body this build
 // cannot fully fold never loses its own resolution.
 func entryBodyAbsorbable(sa *cards.SA) bool {
-	if sa == nil || sa.API != "PutCounter" || !strings.EqualFold(strings.TrimSpace(sa.Params["ETB"]), "True") {
+	if sa == nil || sa.API != "PutCounter" || !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKETB)), "True") {
 		return false
 	}
 	if sa.Sub != nil {
@@ -250,7 +250,7 @@ func entryBodyAbsorbable(sa *cards.SA) bool {
 	if strings.TrimSpace(sa.ParamStr(cards.PKDefined)) != "Self" {
 		return false
 	}
-	if _, ok := sa.Params["CounterNum"]; !ok {
+	if !sa.HasParam(cards.PKCounterNum) {
 		return false
 	}
 	if saHasParam(sa, "Optional") || saHasParam(sa, "Choices") || saHasParam(sa, "Divided") ||
@@ -330,7 +330,7 @@ func (e *Engine) entryBodyCounterGrants(ev events.Event, entrant state.ObjID) ([
 	for i := range f.Repls {
 		r := &f.Repls[i]
 		if r.Event != "Moved" || r.With == nil || r.With.API != "PutCounter" ||
-			!strings.EqualFold(strings.TrimSpace(r.With.Params["ETB"]), "True") {
+			!strings.EqualFold(strings.TrimSpace(r.With.ParamStr(cards.PKETB)), "True") {
 			continue
 		}
 		absorb(replMatch{id: entrant, face: f, repl: r})

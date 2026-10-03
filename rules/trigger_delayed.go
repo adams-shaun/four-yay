@@ -561,7 +561,7 @@ func (e *Engine) checkEventDelayedTriggers(ev events.Event, lki *state.Object) {
 			remembered: remembered,
 			referents:  refs,
 			svars:      src.Face().SVars,
-			static:     strings.TrimSpace(t.Params["Static"]) != "",
+			static:     strings.TrimSpace(t.ParamStr(cards.PKStatic)) != "",
 		})
 	}
 	// The LAST registration the loop processed leaves its scope armed
@@ -807,7 +807,7 @@ func (e *Engine) eventDelayedSpellCastMatches(t cards.Trigger, dt *state.Delayed
 			return false
 		}
 	}
-	if v, ok := t.Params["ValidSA"]; ok {
+	if v, ok := t.Param(cards.PKValidSA); ok {
 		if !e.validSAMatches(dt.Source, ev, dt.Controller, v) {
 			return false
 		}

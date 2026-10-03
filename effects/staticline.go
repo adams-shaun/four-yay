@@ -484,7 +484,7 @@ func GoadStaticGrantReadable(params map[string]string) bool {
 // then applies to nothing. The player half of the same capture lives in
 // effectRememberedPlayers below.
 func effectRemembered(h Host, c *Ctx, sa *cards.SA) []state.ObjID {
-	ro := sa.Params["RememberObjects"]
+	ro := sa.ParamStr(cards.PKRememberObjects)
 	if ro == "" {
 		ro = "Targeted"
 	}
@@ -617,7 +617,7 @@ func appendEffectRememberedObjects(h Host, out []state.ObjID, ts []state.Target)
 // registers a restriction with an empty player set (its IsRemembered target
 // clauses match nobody — fail closed). Deduplicated, first-capture order.
 func effectRememberedPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
-	ro := sa.Params["RememberObjects"]
+	ro := sa.ParamStr(cards.PKRememberObjects)
 	if ro == "" {
 		return nil
 	}

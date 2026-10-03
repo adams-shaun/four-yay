@@ -308,12 +308,12 @@ func costShardsOf(c Cost, letter byte) int {
 // evaluated read). It reports false when the static carries no Cost$,
 // leaving the caller's Amount$-as-generic raise in charge.
 func (e *Engine) composeRaiseCost(mods *costMods, sv staticView, id state.ObjID, scope costScope, x int32, targets []state.Target, amount int32) bool {
-	raw, hasCost := sv.Params["Cost"]
+	raw, hasCost := sv.Param(cards.PKCost)
 	if !hasCost {
 		return false
 	}
 	times := 1
-	if _, hasAmt := sv.Params["Amount"]; hasAmt {
+	if sv.HasParam(cards.PKAmount) {
 		// Cost$ with Amount$ is Forge's "that cost, Amount$ times"
 		// (CostAdjustment's RaiseCost branch adds the Cost$ once per unit):
 		// Officious Interrogation's {W}{U} per target beyond the first, the

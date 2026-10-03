@@ -33,6 +33,7 @@ package rules
 import (
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
@@ -69,9 +70,9 @@ func (e *Engine) attackAllowedThroughDefender(id state.ObjID, defender state.Pla
 		if !e.continuousGateHolds(sv) {
 			continue
 		}
-		spec := sv.Params["ValidCard"]
+		spec := sv.ParamStr(cards.PKValidCard)
 		if spec == "" {
-			spec = sv.Params["ValidCards"]
+			spec = sv.ParamStr(cards.PKValidCards)
 		}
 		if spec == "" || !e.matchesSpec(spec, id, e.specCtx(sv.Source, sv.Controller)) {
 			continue

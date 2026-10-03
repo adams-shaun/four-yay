@@ -3,6 +3,7 @@ package rules
 import (
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
@@ -97,7 +98,7 @@ func (e *Engine) panharmoniconEchoes(observer *Engine, src state.ObjID, ev event
 		// cast's cause is the moved/cast card; an attack's is the single
 		// declared attacker (a multi-attacker event has no singular cause);
 		// a damage event's cause is not modelled -- fail closed.
-		if spec := sv.Params["ValidCause"]; spec != "" {
+		if spec := sv.ParamStr(cards.PKValidCause); spec != "" {
 			cause := state.ObjID(0)
 			switch ev.Kind {
 			case events.MoveZone, events.Draw, events.PutOnStack:
@@ -113,22 +114,22 @@ func (e *Engine) panharmoniconEchoes(observer *Engine, src state.ObjID, ev event
 		}
 		// Origin$ is a zone SET (single name or comma list); Any/All is a
 		// wildcard and an unknown token fails closed.
-		if o := sv.Params["Origin"]; o != "" {
+		if o := sv.ParamStr(cards.PKOrigin); o != "" {
 			zones, all, listOK := effects.ParseZones(o)
 			if !listOK || (!all && !zoneIn(ev.From, zones)) {
 				continue
 			}
 		}
-		if sv.Params["Destination"] != "" && effects.ParseZone(sv.Params["Destination"]) != ev.To {
+		if sv.ParamStr(cards.PKDestination) != "" && effects.ParseZone(sv.ParamStr(cards.PKDestination)) != ev.To {
 			continue
 		}
-		if spec := sv.Params["ValidSource"]; spec != "" {
+		if spec := sv.ParamStr(cards.PKValidSource); spec != "" {
 			if ev.Kind != events.Damage || e.damaging == 0 ||
 				!observer.matchesSpecFrom(spec, e.damaging, sv.Controller, sv.Source) {
 				continue
 			}
 		}
-		if spec := sv.Params["ValidTarget"]; spec != "" {
+		if spec := sv.ParamStr(cards.PKValidTarget); spec != "" {
 			switch {
 			case ev.Kind == events.Damage && ev.Obj != 0:
 				if !observer.matchesSpecFrom(spec, ev.Obj, sv.Controller, sv.Source) {
@@ -152,7 +153,7 @@ func (e *Engine) panharmoniconEchoes(observer *Engine, src state.ObjID, ev event
 				continue
 			}
 		}
-		if spec := sv.Params["ValidPlayer"]; spec != "" {
+		if spec := sv.ParamStr(cards.PKValidPlayer); spec != "" {
 			if (ev.Kind != events.LifeChange && ev.Kind != events.Draw) ||
 				!effects.MatchesPlayerSpec(g, spec, ev.Player, sv.Controller) {
 				continue
@@ -174,7 +175,7 @@ func (e *Engine) panharmoniconEchoes(observer *Engine, src state.ObjID, ev event
 				continue
 			}
 		}
-		spec := sv.Params["ValidCard"]
+		spec := sv.ParamStr(cards.PKValidCard)
 		if spec == "" {
 			continue
 		}

@@ -30,12 +30,12 @@ func (e *Engine) combatDamageNegatePowerMatches(id state.ObjID) bool {
 		if !e.classBandGateHolds(sv.ParamStr(cards.PKClassBand), sv.Source) {
 			continue
 		}
-		if spec := strings.TrimSpace(sv.Params["IsPresent"]); spec != "" {
+		if spec := strings.TrimSpace(sv.ParamStr(cards.PKIsPresent)); spec != "" {
 			if e.countPresent(spec, sv.Source, sv.Controller) <= 0 {
 				continue
 			}
 		}
-		if !e.matchesSpec(sv.Params["ValidCard"], id, e.assignmentStaticSpecCtx(sv)) {
+		if !e.matchesSpec(sv.ParamStr(cards.PKValidCard), id, e.assignmentStaticSpecCtx(sv)) {
 			continue
 		}
 		return true

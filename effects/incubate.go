@@ -95,7 +95,7 @@ func effIncubate(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 	key := incubatorTokenKey
-	if ts := strings.TrimSpace(sa.Params["TokenScript"]); ts != "" {
+	if ts := strings.TrimSpace(sa.ParamStr(cards.PKTokenScript)); ts != "" {
 		key = ts
 	}
 	if _, ok := g.Tokens[key]; !ok {

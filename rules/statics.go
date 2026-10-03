@@ -376,7 +376,7 @@ func (e *Engine) scanActiveStatics(mode string, out []staticView) []staticView {
 					// a static naming a hidden zone is collected from there by
 					// staticEffects/collectActionStatics/collectCostStatics
 					// instead.
-					if !effectZoneOK(st.Params["EffectZone"], o.Zone) {
+					if !effectZoneOK(st.ParamStr(cards.PKEffectZone), o.Zone) {
 						continue
 					}
 					out = append(out, staticView{Source: id, Controller: o.Controller, Params: st.Params, PS: st.ParamSetOf(), SVars: pst.Face.SVars})

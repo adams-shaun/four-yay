@@ -427,13 +427,13 @@ func (e *Engine) manaReflectedPresentHolds(p state.PlayerID, source state.ObjID,
 				n++
 			}
 		}
-		if cmp := strings.TrimSpace(ma.Params["PresentCompare"]); cmp != "" {
+		if cmp := strings.TrimSpace(ma.ParamStr(cards.PKPresentCompare)); cmp != "" {
 			return comparePresent(n, cmp)
 		}
 		return n > 0
 	}
 	n := e.countPresent(spec, source, p)
-	if cmp := strings.TrimSpace(ma.Params["PresentCompare"]); cmp != "" {
+	if cmp := strings.TrimSpace(ma.ParamStr(cards.PKPresentCompare)); cmp != "" {
 		return comparePresent(n, e.presentCompareFor(cmp, source, p))
 	}
 	return n > 0
@@ -893,7 +893,7 @@ func (e *Engine) manaActivationGateHolds(p state.PlayerID, id state.ObjID, ma *c
 	}
 	if spec, ok := ma.Param(cards.PKIsPresent); ok && strings.TrimSpace(spec) != "" {
 		n := e.countPresent(strings.TrimSpace(spec), id, p)
-		if cmp := strings.TrimSpace(ma.Params["PresentCompare"]); cmp != "" {
+		if cmp := strings.TrimSpace(ma.ParamStr(cards.PKPresentCompare)); cmp != "" {
 			if !comparePresent(n, e.presentCompareFor(cmp, id, p)) {
 				return false
 			}
@@ -2237,7 +2237,7 @@ func (e *Engine) isTriggeredManaAbility(pt pendingTrigger) bool {
 	if !ok {
 		return false
 	}
-	if t.Mode != "TapsForMana" || !strings.EqualFold(t.Params["Static"], "True") {
+	if t.Mode != "TapsForMana" || !strings.EqualFold(t.ParamStr(cards.PKStatic), "True") {
 		return false
 	}
 	for sa := pt.SA; sa != nil; sa = sa.Sub {
@@ -2925,7 +2925,7 @@ func (e *Engine) finishManaUnlessPayment(paid bool) {
 	if m == nil {
 		return
 	}
-	switched := strings.EqualFold(strings.TrimSpace(m.ability.Params["UnlessSwitched"]), "True")
+	switched := strings.EqualFold(strings.TrimSpace(m.ability.ParamStr(cards.PKUnlessSwitched)), "True")
 	if paid || m.next+1 == len(m.payers) {
 		e.manaUnlessActivation = nil
 		e.choosing = chooseNone

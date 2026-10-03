@@ -180,7 +180,7 @@ func (e *Engine) blockRestricted(blocker, attacker state.ObjID) bool {
 		if !e.continuousGateHolds(sv) {
 			continue
 		}
-		if e.matchesSpec(sv.Params["ValidCard"], blocker, e.staticSpecCtx(sv)) {
+		if e.matchesSpec(sv.ParamStr(cards.PKValidCard), blocker, e.staticSpecCtx(sv)) {
 			return true
 		}
 	}
@@ -200,7 +200,7 @@ func (e *Engine) blockRestricted(blocker, attacker state.ObjID) bool {
 		// matches nothing).
 		attackerSpec := sv.Params["ValidAttacker"]
 		if attackerSpec == "" {
-			attackerSpec = sv.Params["ValidCard"]
+			attackerSpec = sv.ParamStr(cards.PKValidCard)
 		}
 		if !e.matchesSpec(attackerSpec, attacker, e.staticSpecCtx(sv)) {
 			continue
@@ -316,10 +316,10 @@ func (e *Engine) minMaxBlockerBounds(attacker state.ObjID) (min, max int, minOK,
 		if !e.continuousGateHolds(sv) {
 			continue
 		}
-		if !e.matchesSpec(sv.Params["ValidCard"], attacker, e.staticSpecCtx(sv)) {
+		if !e.matchesSpec(sv.ParamStr(cards.PKValidCard), attacker, e.staticSpecCtx(sv)) {
 			continue
 		}
-		if raw, ok := sv.Params["Min"]; ok {
+		if raw, ok := sv.Param(cards.PKMin); ok {
 			if strings.EqualFold(strings.TrimSpace(raw), "All") {
 				all = true
 				continue
@@ -328,7 +328,7 @@ func (e *Engine) minMaxBlockerBounds(attacker state.ObjID) (min, max int, minOK,
 				min, minOK = n, true
 			}
 		}
-		if raw, ok := sv.Params["Max"]; ok {
+		if raw, ok := sv.Param(cards.PKMax); ok {
 			if n, ok := literalBlockCount(raw); ok && (!maxOK || n < max) {
 				max, maxOK = n, true
 			}

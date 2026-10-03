@@ -348,7 +348,7 @@ func unlessProceed(h Host, c *Ctx, sa *cards.SA) (bool, bool) {
 		// those windows, so leave the shape to its own handler.
 		return true, false
 	}
-	switched := strings.EqualFold(strings.TrimSpace(sa.Params["UnlessSwitched"]), "True")
+	switched := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKUnlessSwitched)), "True")
 	// The answer and payer cursor are consumed (and cleared) at the top of
 	// every pass — the fx42 scoping discipline: an unless SA reached below a
 	// consuming SA in the same walk poses its own ask instead of inheriting
@@ -469,7 +469,7 @@ func poseUnlessAsk(h Host, c *Ctx, sa *cards.SA, cost string, payers []state.Tar
 		prompt = pay + " to save the spell, or decline"
 		payLabel = pay + " — don't counter"
 	case "CopySpellAbility":
-		if strings.EqualFold(strings.TrimSpace(sa.Params["UnlessSwitched"]), "True") {
+		if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKUnlessSwitched)), "True") {
 			prompt = pay + " to copy the spell, or decline"
 			payLabel = pay + " — make a copy"
 		} else {
@@ -490,7 +490,7 @@ func poseUnlessAsk(h Host, c *Ctx, sa *cards.SA, cost string, payers []state.Tar
 				name = o.Face().Name
 			}
 			payLabel = "Take " + strconv.Itoa(n) + " damage"
-			if strings.EqualFold(strings.TrimSpace(sa.Params["UnlessSwitched"]), "True") {
+			if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKUnlessSwitched)), "True") {
 				prompt = name + " deals " + strconv.Itoa(n) + " damage to you — accept?"
 				declineLabel = "Refuse — it stays"
 			} else {
