@@ -199,5 +199,13 @@ func (e *Engine) CloneHypotheticalInto(seed uint64, sp *Spare) *Engine {
 	r := newRNG(seed)
 	r.chance = &chanceState{}
 	c.rng = r
+	if c.tape.Posed() {
+		// A world forked at a posed tape resolution re-runs that resolution
+		// from S0, which holds the TRUE hidden cards and RNG: give the world
+		// its own checkpoint copy whose re-run draws S0's values only up to
+		// the fork and the world's own after it, and re-applies the world's
+		// redeal at the fork point (lasagna spec §7.3).
+		c.tape.Fork(&rngSplice{at: e.rng.Draws, next: c.rng.clone()}, len(c.L.Events))
+	}
 	return c
 }

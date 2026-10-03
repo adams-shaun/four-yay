@@ -21,6 +21,12 @@ const chooseNone chooseFor = iota
 // commanderCardLegal reports whether ONE card may be a commander under
 
 func (e *Engine) ask(d *decision.Decision) {
+	// The resolution kernel (rules/resolve): a legacy ask inside a tape run
+	// ends it (legacy in place, or abort and legacy replay), and one during
+	// an exempted resolution is a predicate miss.
+	if e.tape.Watching() && e.tape.OnAsk() {
+		tapeMissed(e, d)
+	}
 	// CR 903.9 ordering: a commander's zone change parked mid-chain asks its
 	// owner at once (parkCommanderZoneMove), but the chain that parked it
 	// keeps running -- Path to Exile's exile parks Rakdos, then the same
@@ -226,7 +232,7 @@ func decisionMadePaymentText(kind decision.Kind, choices []int, payment *decisio
 // posed through ask exactly as it would have been, so its DecisionAsk event,
 // Seq and any search-control redirect reflect the moment it is actually put
 // to a seat.
-func (e *Engine) drainDeferredAsks() {
+func drainDeferredAsks(e *Engine) {
 	for e.pending == nil && len(e.deferredAsks) > 0 {
 		d := e.deferredAsks[0]
 		e.deferredAsks = e.deferredAsks[1:]

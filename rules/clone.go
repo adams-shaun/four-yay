@@ -155,6 +155,13 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	}
 	// A spent engine's zeroed pendingCast storage (cast_pool.go).
 	c.castFree = sp.cast
+	// The resolution kernel (rules/resolve): the switch, and a posed tape
+	// resolution's immutable checkpoint, shared by pointer (lasagna spec
+	// §7.1); a spent engine's dropped checkpoint storage is recycled.
+	c.tape = e.tape.ForClone()
+	if sp.tapeCkpt != nil {
+		c.tapeSpare = *sp.tapeCkpt
+	}
 	c.orderedTriggers = e.orderedTriggers
 	c.applyingReplacement = e.applyingReplacement
 	c.choosing = e.choosing
