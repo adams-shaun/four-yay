@@ -165,6 +165,9 @@ type oracleRun struct {
 	answers    []oracleAnswer
 	log        []string
 	extraFails []string
+	snaps      []OracleSnapshot
+	decisions  []OracleDecision
+	noSnapshot bool // set by callers that only want pass/fail
 }
 
 func (r *oracleRun) logf(format string, a ...any) {
@@ -433,6 +436,9 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 		}
 	}
 	r.logf("  [%s] p%d %s -> %q", why, d.Player, d.Kind, labels)
+	if kind, ok := oracleDecisionKind(d.Kind); ok {
+		r.decisions = append(r.decisions, OracleDecision{Seat: int(d.Player), Kind: kind, Options: len(d.Options), Picks: labels})
+	}
 	if err := r.e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: choices}); err != nil {
 		return harnessf("submit %s %v: %v (options %s)", d.Kind, choices, err, optionDump(d))
 	}
@@ -1277,9 +1283,15 @@ func runOracleScenario(reg *cards.Registry, sc oracleScenario) (fails []string, 
 	if err := r.build(sc); err != nil {
 		return []string{err.Error()}, r.log, r
 	}
+	if !r.noSnapshot {
+		r.snaps = append(r.snaps, r.snapshot("setup"))
+	}
 	for i, st := range sc.Steps {
 		if err := r.do(st); err != nil {
 			return append(fails, fmt.Sprintf("step %d (%s): %v", i, st.Op, err)), r.log, r
+		}
+		if !r.noSnapshot {
+			r.snaps = append(r.snaps, r.snapshot(fmt.Sprintf("step %d (%s)", i, st.Op)))
 		}
 		for _, msg := range r.extraFails {
 			fails = append(fails, fmt.Sprintf("after step %d (%s): %s", i, st.Op, msg))
