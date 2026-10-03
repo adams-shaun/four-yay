@@ -339,8 +339,6 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	}
 	c.etbNext = e.etbNext
 	c.auraEntry = e.auraEntry
-	c.attachedEntry = attachedEntryState{obj: e.attachedEntry.obj,
-		among: append([]state.Target(nil), e.attachedEntry.among...)}
 	c.etbLandPlay, c.etbLandObj, c.etbLandPlayer = e.etbLandPlay, e.etbLandObj, e.etbLandPlayer
 	if e.riotMove != nil {
 		ev := *e.riotMove

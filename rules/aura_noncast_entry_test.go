@@ -3,6 +3,7 @@ package rules
 import (
 	"testing"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
@@ -382,4 +383,69 @@ func TestReplenishAurasChooseTheirBearers(t *testing.T) {
 		t.Fatalf("Wild Growth zone = %v, want graveyard", zoneOf(o))
 	}
 	replayCheck(t, e, cfg)
+}
+
+// stageAuraEntry is the test-staging entry for an Aura already on the
+// battlefield attached to bearer: it moves id from its current zone onto the
+// battlefield through a MoveZone marked with bearer as the effect-named
+// bearer (events.MarkNamedAttachEntry), so the engine's CR 303.4f/g entry
+// gate attaches it as it enters -- the logged Attach a replay reproduces --
+// instead of posing the "what does it enchant" choice (or withholding the
+// entry) a bare staging move now gets. bearer must already be a legal bearer:
+// an object on the battlefield, or a seat via state.PlayerRef.
+func stageAuraEntry(t *testing.T, e *Engine, id, bearer state.ObjID) {
+	t.Helper()
+	o := e.G.Obj(id)
+	if o == nil {
+		t.Fatalf("stageAuraEntry: no object %d", id)
+	}
+	ev := events.Event{Kind: events.MoveZone, Obj: id, From: o.Zone, To: state.ZBattlefield}
+	events.MarkNamedAttachEntry(&ev, []state.ObjID{bearer})
+	e.emit(ev)
+	if o.Zone != state.ZBattlefield {
+		t.Fatalf("staged Aura %d did not enter attached to %d (zone %v)", id, bearer, o.Zone)
+	}
+	// A non-Aura attachment (an Equipment) is not settled by the entry: it
+	// takes the plain logged Attach a staging fixture always used.
+	if p, isPlayer := bearer.PlayerRef(); isPlayer {
+		if !o.HasAttachedPlayer || o.AttachedPlayer != p {
+			e.emit(events.Event{Kind: events.Attach, Obj: id, Player: p, Text: "attach to player"})
+		}
+	} else if o.AttachedTo != bearer {
+		e.emit(events.Event{Kind: events.Attach, Obj: id, IDs: []state.ObjID{bearer}})
+	}
+}
+
+// stageAuraCard stages seat p's seeded copy of c (library or hand) onto the
+// battlefield attached to bearer through stageAuraEntry.
+func stageAuraCard(t *testing.T, e *Engine, p state.PlayerID, c *cards.Card, bearer state.ObjID) state.ObjID {
+	t.Helper()
+	toMain1(t, e)
+	name := c.Faces[0].Name
+	for _, z := range []state.Zone{state.ZLibrary, state.ZHand} {
+		for _, id := range e.G.Zone(z, p) {
+			if o := e.G.Obj(id); o != nil && o.Face() != nil && o.Face().Name == name {
+				stageAuraEntry(t, e, id, bearer)
+				e.pending = nil
+				return id
+			}
+		}
+	}
+	t.Fatalf("seeded card %q not found in seat %d's library or hand", name, p)
+	return 0
+}
+
+// stageRawEntry folds a hand-built battlefield placement of id straight into
+// the game (events.Emit, the raw fold a log replay uses): no CR 303.4f/g entry
+// gate, no replacement, no trigger. It is for a fixture that builds a board
+// state no game action could reach in one step -- an Aura sitting unattached,
+// or attached by a later hand-written Attach to a bearer its printed enchant
+// would not admit at entry (Animate Dead's post-reanimate state).
+func stageRawEntry(t *testing.T, e *Engine, id state.ObjID) {
+	t.Helper()
+	o := e.G.Obj(id)
+	if o == nil {
+		t.Fatalf("stageRawEntry: no object %d", id)
+	}
+	events.Emit(e.G, e.L, events.Event{Kind: events.MoveZone, Obj: id, From: o.Zone, To: state.ZBattlefield})
 }

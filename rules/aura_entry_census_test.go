@@ -18,8 +18,8 @@ import (
 // mover is covered by construction as long as (a) it reaches the battlefield
 // through Engine.emit (effects only ever hold Host.Emit; the rules side's raw
 // events.Emit sites are pinned below), and (b) a mover that attaches the
-// entering card ITSELF announces that bearer before the move
-// (Host.ClaimAttachedEntry), so the engine settles the Aura's bearer from
+// entering card ITSELF marks that bearer on the move
+// (events.MarkNamedAttachEntry), so the engine settles the Aura's bearer from
 // the effect's named set rather than posing a CR 303.4f choice the effect
 // already answered.
 //
@@ -74,7 +74,7 @@ func auraCensusScan(t *testing.T, dir string) map[string]auraCensusFacts {
 						facts.mover = true
 					case "changeZoneAttachedTo", "changeZoneAttachedToPlayer", "emitAttach":
 						facts.attach = true
-					case "ClaimAttachedEntry", "claimChangeZoneAttach":
+					case "MarkNamedAttachEntry", "markChangeZoneAttach":
 						facts.mark = true
 					}
 					if sel, ok := x.Fun.(*ast.SelectorExpr); ok {
@@ -198,7 +198,7 @@ func TestAuraEntryCensusPrint(t *testing.T) {
 //	               bearer of its own -- the emit gate and the CR 303.4f choice
 //	               cover it.
 //	marks:         puts a card onto the battlefield AND attaches it itself;
-//	               must call Host.ClaimAttachedEntry / claimChangeZoneAttach
+//	               must call events.MarkNamedAttachEntry / markChangeZoneAttach
 //	               (asserted: mark is measured true).
 //	marked-by X:   attaches after a battlefield move made by callee X, which
 //	               marks (asserted: X is classified marks:).
@@ -238,7 +238,7 @@ var auraEntryCensusEffects = map[string]string{
 	"zone_change.go:changeZoneAttachedTo":       "attach: AttachedTo$ helper (callers mark before the move)",
 	"zone_change.go:changeZoneAttachedToPlayer": "attach: AttachedToPlayer$ helper (callers mark before the move)",
 	"zone_change.go:effChangeZone":              "marks: object-target loop marks before its inlined move",
-	"zone_change.go:claimChangeZoneAttach":      "attach: the ChangeZone claim helper itself (resolves the named set before the move)",
+	"zone_change.go:markChangeZoneAttach":       "attach: the ChangeZone marking helper itself (resolves the named set before the move)",
 	"zone_change.go:settleChangeZoneMoveAs":     "marks: the shared ChangeZone settle (no attach of its own; callers attach)",
 	"zone_changeall.go:effChangeZoneAll":        "gate: ChangeZoneAll has no AttachedTo$; every entry takes the CR 303.4f choice",
 	"zone_hidden.go:effHiddenPick":              "marked-by zone_change.go:settleChangeZoneMoveAs",
@@ -249,7 +249,7 @@ var auraEntryCensusEffects = map[string]string{
 }
 
 var auraEntryCensusRules = map[string]string{
-	"aura_entry.go:Engine.settleAuraEntry":                      "attach: the CR 303.4f post-fold attach itself",
+	"aura_entry.go:settleAuraEntry":                             "attach: the CR 303.4f post-fold attach itself",
 	"cast_commit.go:Engine.abortCast":                           "stack: CR 733.1 reversal",
 	"cast_commit.go:Engine.payCast":                             "stack: cast",
 	"emit.go:Engine.emitBookkeeping":                            "raw: priority bookkeeping kinds only",
@@ -299,7 +299,7 @@ func TestAuraEntryCensus(t *testing.T) {
 			}
 			switch {
 			case tag == "marks" && !f.mark:
-				t.Errorf("%s/%s is classified marks: but never calls ClaimAttachedEntry/claimChangeZoneAttach", dir, k)
+				t.Errorf("%s/%s is classified marks: but never calls MarkNamedAttachEntry/markChangeZoneAttach", dir, k)
 			case strings.HasPrefix(tag, "marked-by "):
 				callee := strings.TrimPrefix(tag, "marked-by ")
 				if c := table[callee]; !strings.HasPrefix(c, "marks:") {

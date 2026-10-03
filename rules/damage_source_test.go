@@ -56,7 +56,15 @@ func dsBoardWith(t *testing.T, reg *cards.Registry, seat1 *cards.Card,
 			continue
 		}
 		if o.Zone != state.ZBattlefield {
-			e.emit(events.Event{Kind: events.MoveZone, Obj: o.ID, From: o.Zone, To: state.ZBattlefield})
+			if f := o.Face(); f != nil && faceIsAura(f) {
+				// A hand-built board: the Aura is placed unattached and
+				// the test attaches it (or relies on it being unattached);
+				// a real entry would pose CR 303.4f or, with nothing to
+				// enchant yet, keep it out of play (CR 303.4g).
+				stageRawEntry(t, e, o.ID)
+			} else {
+				e.emit(events.Event{Kind: events.MoveZone, Obj: o.ID, From: o.Zone, To: state.ZBattlefield})
+			}
 		}
 		ids[n] = o.ID
 	}
@@ -678,8 +686,7 @@ func TestSpitefulShadowsUsesTriggeredTargetAsDamageSource(t *testing.T) {
 	creature := onBoard(t, e, 1, "Name:Linked Giant\nTypes:Creature Giant\nPT:2/5\nK:Lifelink\nOracle:x\n")
 	pinger := onBoard(t, e, 0, "Name:Spark Source\nTypes:Creature Wizard\nPT:1/1\nOracle:x\n")
 	auraObj := e.G.AddObject(mustCorpusCard(t, reg, "Spiteful Shadows"), 0)
-	e.emit(events.Event{Kind: events.MoveZone, Obj: auraObj.ID, From: auraObj.Zone, To: state.ZBattlefield})
-	e.emit(events.Event{Kind: events.Attach, Obj: auraObj.ID, IDs: []state.ObjID{creature}})
+	stageAuraEntry(t, e, auraObj.ID, creature)
 	e.pending, e.pendingTriggers = nil, nil
 
 	effects.Resolve(e, &effects.Ctx{Source: pinger, Controller: 0,

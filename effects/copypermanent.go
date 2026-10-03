@@ -946,11 +946,13 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 				// attached to it, or not created when it is no longer
 				// something the Aura can enchant -- and postEntry then
 				// finds it already attached.
-				var among []state.Target
-				if attachTo != 0 {
-					among = []state.Target{{Obj: attachTo}}
+				if o := g.Obj(want); o != nil && hasType(o, "Aura") {
+					var named []state.ObjID
+					if attachTo != 0 {
+						named = []state.ObjID{attachTo}
+					}
+					events.MarkNamedAttachEntry(&entry, named)
 				}
-				h.ClaimAttachedEntry(entry, among)
 			}
 			entered := h.EmitTokenCreate(entry)
 			if !wasSuspended && h.Suspended() && len(entered) == 0 {

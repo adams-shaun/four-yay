@@ -154,8 +154,8 @@ func (e *Engine) emit(ev events.Event) events.Event {
 	// CR 303.4g: a non-cast Aura with nothing it can legally enchant never
 	// enters -- it stays in its zone, ahead of every replacement, staging,
 	// fold and trigger (rules/aura_entry.go).
-	if (ev.Kind == events.MoveZone && ev.To == state.ZBattlefield && e.auraEntryGate(ev)) ||
-		(ev.Kind == events.TokenCreate && e.auraTokenGate(ev)) {
+	if (ev.Kind == events.MoveZone && ev.To == state.ZBattlefield && auraEntryGate(e, &ev)) ||
+		(ev.Kind == events.TokenCreate && auraTokenGate(e, &ev)) {
 		return events.Event{Kind: events.Note, Obj: ev.Obj, Player: ev.Player,
 			Text: "aura entry withheld (CR 303.4g)"}
 	}
@@ -348,7 +348,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 	e.expireClonesOnEvent(stored, wasTapped)
 	// CR 303.4f: a non-cast Aura enters attached to its chosen bearer.
 	if stored.Kind == events.MoveZone {
-		e.settleAuraEntry(stored)
+		settleAuraEntry(e, &stored)
 	}
 	// CR 310.10: every Battle whose recorded protector has just left the game
 	// gets a fresh living opponent as its protector. PlayerLost is the one

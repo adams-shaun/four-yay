@@ -569,7 +569,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 		if to == state.ZBattlefield {
 			applyTransformed(h, c, cz.Riders.Transformed, o.ID)
 		}
-		claimChangeZoneAttach(h, c, sa, cz, ev)
+		markChangeZoneAttach(h, c, sa, cz, &ev)
 		h.Emit(ev)
 		moved = append(moved, o.ID)
 		exiledWithAssociation(h, c, o.ID, to)
@@ -817,26 +817,34 @@ func changeZoneChosenTargetsFor(h Host, c *Ctx, sa *cards.SA, cz *changeZoneTarg
 	return poseTargetsAsk(h, c, sa, chooser, candidates, min, max, "choice")
 }
 
-// claimChangeZoneAttach hands a ChangeZone battlefield entry's
-// AttachedTo$/AttachedToPlayer$ named bearers to the engine BEFORE the move is
-// emitted (Host.ClaimAttachedEntry). For a non-cast Aura the engine then owns
-// the attachment -- the first named bearer the Aura can legally enchant, or
-// the Aura stays in its zone when none is (CR 303.4f/g, rules/aura_entry.go)
-// -- and the claim is recorded on c so changeZoneAttachedTo, which runs after
-// the move, does not attach it a second time. Anything else (an Equipment, a
-// face-down entry) is not claimed and keeps the post-move rider. Every
+// markChangeZoneAttach marks a ChangeZone battlefield entry of an Aura with
+// its AttachedTo$/AttachedToPlayer$ named bearers, resolved BEFORE the move
+// (events.MarkNamedAttachEntry). The engine's entry gate then settles the
+// Aura: it enters attached to the first named bearer it can legally enchant,
+// or stays in its zone when none is (CR 303.4f/g, rules/aura_entry.go), and
+// changeZoneAttachedTo, which runs after the move, finds it already attached
+// (or not on the battlefield) and leaves it. Anything else (an Equipment, a
+// face-down entry) is not marked and keeps the post-move rider. Every
 // ChangeZone mover that follows its move with changeZoneAttachedTo calls this
 // first; rules/aura_entry_census_test.go pins the pairing.
-func claimChangeZoneAttach(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, ev events.Event) {
-	if ev.To != state.ZBattlefield || (cz.AttachedTo == "" && cz.AttachedToPlayer == "") {
+func markChangeZoneAttach(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, ev *events.Event) {
+	if ev.To != state.ZBattlefield || (cz.AttachedTo == "" && cz.AttachedToPlayer == "") ||
+		ev.Counter != "" {
 		return
 	}
 	if o := h.Game().Obj(ev.Obj); o == nil || !hasType(o, "Aura") {
 		return
 	}
-	if h.ClaimAttachedEntry(ev, changeZoneAttachTargets(h, c, sa, cz)) {
-		c.AttachClaimed = ev.Obj
+	targets := changeZoneAttachTargets(h, c, sa, cz)
+	named := make([]state.ObjID, 0, len(targets))
+	for _, t := range targets {
+		if t.IsPlayer {
+			named = append(named, state.PlayerRef(t.Player))
+		} else {
+			named = append(named, t.Obj)
+		}
 	}
+	events.MarkNamedAttachEntry(ev, named)
 }
 
 // changeZoneAttachTargets resolves the named bearers in order: the living
@@ -900,10 +908,10 @@ func changeZoneAttachedTo(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, mo
 	if moved == 0 || (val == "" && playerVal == "") {
 		return
 	}
-	if c.AttachClaimed == moved {
-		// The engine settled this non-cast Aura's bearer as it entered
-		// (claimChangeZoneAttach).
-		c.AttachClaimed = 0
+	if o := h.Game().Obj(moved); o == nil || o.Zone != state.ZBattlefield ||
+		o.AttachedTo != 0 || o.HasAttachedPlayer {
+		// Already attached as it entered (the engine settled a marked
+		// non-cast Aura, markChangeZoneAttach), or never entered.
 		return
 	}
 	if playerVal != "" {
@@ -1343,7 +1351,7 @@ func settleChangeZoneMoveAs(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, 
 	if to == state.ZBattlefield {
 		applyTransformed(h, c, cz.Riders.Transformed, id)
 	}
-	claimChangeZoneAttach(h, c, sa, cz, ev)
+	markChangeZoneAttach(h, c, sa, cz, &ev)
 	h.Emit(ev)
 	if to == state.ZExile {
 		recordExileReturnFor(h, c, cz.Riders.Duration, id, from, to)

@@ -1264,7 +1264,7 @@ func applyLibrarySearch(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, owne
 		ev := moveZoneEvent(c, id, state.ZLibrary, to)
 		ev.Player = owner
 		applyMoveFaceDown(h, c, &cz.Riders.FaceDownRiders, &ev, to)
-		claimChangeZoneAttach(h, c, sa, cz, ev)
+		markChangeZoneAttach(h, c, sa, cz, &ev)
 		h.Emit(ev)
 		if to == state.ZExile && c.Source != 0 {
 			if o := g.Obj(id); o != nil && !o.IsToken {

@@ -278,6 +278,11 @@ func (e *Engine) resumeETBEntry(chosen []decision.Option) state.ObjID {
 	}
 	move := *e.etbMove
 	opt := chosen[0]
+	// CR 303.4f: a non-cast Aura's "what it enchants" answer (its first
+	// as-enters election) is recorded on the entry record, which the
+	// re-emitted move's fold attaches (rules/aura_entry.go); the Attach event
+	// is the logged record. No option kind of its own reaches the switch.
+	answerAuraEntry(e, &move, &opt)
 	switch opt.Kind {
 	case "name":
 		e.emit(events.Event{Kind: events.Choose, Obj: move.Obj, Counter: "name", Text: opt.Label})
@@ -317,11 +322,6 @@ func (e *Engine) resumeETBEntry(chosen []decision.Option) state.ObjID {
 			ids = []state.ObjID{opt.Obj}
 		}
 		e.emit(events.Event{Kind: events.Choose, Obj: move.Obj, Counter: "clone", IDs: ids})
-	case "enchant", "enchant_player":
-		// CR 303.4f: the non-cast Aura's chosen bearer. Recorded on the
-		// transient entry record; the re-emitted move's fold attaches it
-		// (rules/aura_entry.go), and the Attach event is the logged record.
-		e.answerAuraEntry(move, opt)
 	case "paylife":
 		// The announced life payment of an "as CARDNAME enters, pay any amount
 		// of life" replacement (Minion of the Wastes / Phyrexian Processor /
