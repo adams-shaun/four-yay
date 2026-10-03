@@ -1,7 +1,0 @@
-{
-  "card": "Faebloom Trick",
-  "rows": {
-    "tap-is-a-reflexive-trigger-after-the-tokens": "CR 603.12: 'When you do, tap target creature an opponent controls' is a reflexive triggered ability put on the stack with its target after the tokens are created. Observed: no trigger ever reaches the stack; the tap happens inside the spell's own resolution as an untargeted resolution-time choose (stack empty and Centaur Courser already tapped when priority returns), so nobody can respond between the tokens and the tap. Found by the FDN audit batch 2; no ticket yet.",
-    "tap-targets-so-ward-triggers": "CR 603.12/702.21a: the reflexive trigger targets, so aiming it at an opposing Tolarian Terror triggers ward {2} and, unpaid, it is countered. Observed: the Terror is chosen (not targeted) at resolution and tapped with no ward trigger. Same root as tap-is-a-reflexive-trigger-after-the-tokens."
-  }
-}

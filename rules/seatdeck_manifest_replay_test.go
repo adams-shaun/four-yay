@@ -10,6 +10,7 @@ package rules_test
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"testing"
 
@@ -111,10 +112,20 @@ func TestSeatDeckManifestStaticThroughFullGameAndReplay(t *testing.T) {
 
 	// The manifest is genesis data, so a replay at every recorded prefix
 	// carries the identical manifest, while the library underneath moves.
+	//
+	// Walk rebuilds the engine ONCE and calls visit at every intent boundary
+	// (the same state ReplayTo(l, cfg, k) returns at boundary k, via the same
+	// internal walk), so this checks the identical-manifest invariant at every
+	// prefix -- what the previous ReplayTo-per-prefix loop did -- in O(n)
+	// rather than O(n^2) rebuilds. That loop made this the single slowest test
+	// in the module gate; the endpoints are still rebuilt through ReplayTo so
+	// the public /undo path stays exercised here, and replay/replay_test.go
+	// covers ReplayTo's clamping and resume behaviour independently.
 	if len(e.L.Intents) == 0 {
 		t.Fatal("precondition: no recorded intents to replay")
 	}
-	for k := 0; k <= len(e.L.Intents); k++ {
+	total := len(e.L.Intents)
+	for _, k := range []int{0, total / 2, total} {
 		r, err := replay.ReplayTo(e.L, cfg, k)
 		if err != nil {
 			t.Fatalf("ReplayTo intent %d: %v", k, err)
@@ -122,6 +133,14 @@ func TestSeatDeckManifestStaticThroughFullGameAndReplay(t *testing.T) {
 		if got := r.OwnDeck(0); !sameManifest(got, genesis) {
 			t.Fatalf("replay at intent %d manifest = %#v, want %#v", k, got, genesis)
 		}
+	}
+	if _, err := replay.Walk(e.L, cfg, total, func(r *rules.Engine, k int) error {
+		if got := r.OwnDeck(0); !sameManifest(got, genesis) {
+			return fmt.Errorf("replay at intent %d manifest = %#v, want %#v", k, got, genesis)
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("Walk: %v", err)
 	}
 
 	// The library the manifest describes is NOT static: the same sequence

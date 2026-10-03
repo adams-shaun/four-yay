@@ -297,13 +297,15 @@ var predicates = map[string]predFn{
 		return chosenCtrlMatches(g, o, src)
 	},
 	// An object records this association in events.Apply when an effect moves
-	// it to exile with moveZoneEvent. Both spellings use the same tracked
-	// provenance; LKI refinements are outside this narrow association.
-	"ExiledWithSource": func(_ *state.Game, o *state.Object, _ state.PlayerID, src state.ObjID) bool {
-		return src != 0 && o.ExiledWith == src
+	// it to exile with moveZoneEvent, or in the source's forward ExiledCards
+	// list via exiledWithAssociation. Both spellings read the one shared
+	// exiledBySource helper; LKI refinements are outside this narrow
+	// association.
+	"ExiledWithSource": func(g *state.Game, o *state.Object, _ state.PlayerID, src state.ObjID) bool {
+		return exiledBySource(g, o, src)
 	},
-	"ExiledWithSourceLKI": func(_ *state.Game, o *state.Object, _ state.PlayerID, src state.ObjID) bool {
-		return src != 0 && o.ExiledWith == src
+	"ExiledWithSourceLKI": func(g *state.Game, o *state.Object, _ state.PlayerID, src state.ObjID) bool {
+		return exiledBySource(g, o, src)
 	},
 	// escaped is the CastFlags provenance of an escape cast (CR 702.42a): the
 	// "sacrifice it unless it escaped" ETB family reads it through

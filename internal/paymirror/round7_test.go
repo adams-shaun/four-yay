@@ -37,8 +37,13 @@ import (
 // Eldrazi Monument from seq 7684 to 7696 and seed 6191's Roaming Throne cast
 // from seq 9956 to 9969. lifeLost1's replay-visible AFLifeLost publication
 // then moves seed 6191's Roaming Throne cast further, to seq 9979 on the
-// merged tree (9969 under the ETB fix alone, 9966 under lifeLost1 alone);
-// its float-trigger verdict stays.
+// merged tree (9969 under the ETB fix alone, 9966 under lifeLost1 alone); its
+// float-trigger verdict stays. agent-20261003T030241Z-d3324728 (the exiled-with
+// fix: `Defined$ ExiledWith` and `Card.ExiledWithSource` now read the source's
+// forward ExiledCards list over every seat, and ChangeZoneAll records it)
+// moves the same cast from seq 9979 to 9983: foundations-calling-all-angels
+// runs Oblivion Ring, whose leave-the-battlefield trigger now returns the card
+// it exiled, changing the trajectory. The Roaming Throne verdict is unchanged.
 func TestRoundSevenFindingsMirror(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	d, err := LoadDecks(reg)
@@ -54,7 +59,7 @@ func TestRoundSevenFindingsMirror(t *testing.T) {
 	}{
 		{4038, []string{"ulalek-eldrazi", "rakdos-muscle-scam-exe", "vivi-ornitier-cedh", "foundations-calling-all-angels"}, true, 7696, ""},
 		{6085, []string{"vivi-ornitier-cedh", "ulalek-eldrazi", "deadly-disguise", "rakdos-muscle-scam-exe"}, true, 173, "expected:float_then_cast:float_removed_every_target"},
-		{6191, []string{"foundations-wretched-ranks", "avengers-assemble", "ulalek-eldrazi", "hearthhull-worldseed-landfall"}, true, 9979, "expected:float_then_cast:float_trigger_precedes_cast"},
+		{6191, []string{"foundations-wretched-ranks", "avengers-assemble", "ulalek-eldrazi", "hearthhull-worldseed-landfall"}, true, 9983, "expected:float_then_cast:float_trigger_precedes_cast"},
 		{5108, []string{"eldrazi-stompy", "mono-red-prowess"}, false, 675, "expected:float_then_cast:float_removed_every_target"},
 	} {
 		reports := round6Game(t, d, GameSpec{Seed: tc.seed, Decks: tc.decks, Commander: tc.commander, Policy: "bot"})

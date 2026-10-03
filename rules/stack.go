@@ -400,6 +400,7 @@ func (e *Engine) resolveTop() {
 			ctx.TargetsOffered = true
 			ctx.OfferedSA = offeredSA
 		}
+		reflexiveCaptured(ctx)
 		if lki, ok := e.triggerLKI[id]; ok {
 			ctx.LKI = lki.object
 			ctx.LKIPower, ctx.LKIToughness, ctx.LKIPTValid =

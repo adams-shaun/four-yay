@@ -148,10 +148,9 @@ func TestForumFilibusterUpkeepAsksAndAttaches(t *testing.T) {
 		t.Fatalf("%d TokenCreate events at the upkeep, want 1 (log tail %+v)", n, tailEmit(e, 8))
 	}
 	var token state.ObjID
-	for _, ev := range e.L.Events {
-		if ev.Kind == events.TokenCreate {
-			token = e.G.NextID - 1
-			break
+	for _, id := range e.G.Zone(state.ZBattlefield, 0) {
+		if o := e.G.Obj(id); o != nil && o.IsToken {
+			token = id
 		}
 	}
 	to := e.G.Obj(token)
@@ -159,10 +158,12 @@ func TestForumFilibusterUpkeepAsksAndAttaches(t *testing.T) {
 		t.Fatalf("minted token %d = %+v, want the white-and-black Inkling Token", token, to)
 	}
 
-	// (2) the "when you do" ask: ONE KChoose over the graveyard Aura, up to
-	// one (Min 0 / Max 1), addressed to the controller.
-	if d.Kind != decision.KChoose || d.Min != 0 || d.Max != 1 {
-		t.Fatalf("when-you-do ask = %+v, want a KChoose Min 0 Max 1", d)
+	// (2) the "when you do" ask: CR 603.12 makes that half a reflexive
+	// triggered ability, so this is its placement target ask (KTarget) over
+	// the graveyard Aura, up to one (Min 0 / Max 1), addressed to the
+	// controller.
+	if d.Kind != decision.KTarget || d.Player != 0 || d.Min != 0 || d.Max != 1 {
+		t.Fatalf("when-you-do ask = %+v, want the reflexive ability's KTarget Min 0 Max 1", d)
 	}
 	auraIdx := -1
 	for _, o := range d.Options {
@@ -174,8 +175,12 @@ func TestForumFilibusterUpkeepAsksAndAttaches(t *testing.T) {
 		t.Fatalf("the graveyard Aura was not offered: %+v", d.Options)
 	}
 	submitChoices(t, e, auraIdx)
+	if o := e.G.Obj(aura); o == nil || o.Zone != state.ZGraveyard {
+		t.Fatalf("the Aura moved before the reflexive ability resolved (obj %+v)", o)
+	}
+	passUntilStackEmpty(t, e, 20)
 
-	// (3) the answered ChangeZone moved the Aura onto the battlefield and the
+	// (3) the resolved ChangeZone moved the Aura onto the battlefield and the
 	// AttachedTo$ leg fastened it to the token -- one real Attach event.
 	moved := e.G.Obj(aura)
 	if moved == nil || moved.Zone != state.ZBattlefield {
@@ -216,14 +221,17 @@ func TestDiregrafHordeDividesTokensIntoOneInstance(t *testing.T) {
 	grave := searchMoveByName(t, e, "Divine Favor", state.ZGraveyard)
 
 	d := passUntilAsk(t, e)
-	if d == nil || d.Kind != decision.KChoose {
-		t.Fatalf("when-you-do ask = %+v, want one KChoose over the graveyards", d)
+	if d == nil || d.Kind != decision.KTarget {
+		t.Fatalf("when-you-do ask = %+v, want the one reflexive ability's KTarget over the graveyards", d)
 	}
 	if n := countEmitKind(e, events.TokenCreate); n != 2 {
 		t.Fatalf("%d Zombie tokens minted, want 2", n)
 	}
-	if d.Min != 0 || d.Max != 1 {
-		t.Fatalf("ask bounds Min %d Max %d, want 0/1 (one DivideEvenlyDown.2 instance)", d.Min, d.Max)
+	if d.Min != 0 || d.Max != 2 {
+		t.Fatalf("ask bounds Min %d Max %d, want 0/2 (up to two target cards)", d.Min, d.Max)
+	}
+	if len(e.G.Stack) != 1 {
+		t.Fatalf("stack depth = %d, want 1 (one DivideEvenlyDown.2 instance)", len(e.G.Stack))
 	}
 	graveIdx := -1
 	for _, o := range d.Options {
@@ -235,11 +243,12 @@ func TestDiregrafHordeDividesTokensIntoOneInstance(t *testing.T) {
 		t.Fatalf("the graveyard card was not offered: %+v", d.Options)
 	}
 	submitChoices(t, e, graveIdx)
-	if got := e.G.Obj(grave); got == nil || got.Zone != state.ZExile {
-		t.Fatalf("the answered exile did not move %d to exile (obj %+v)", grave, got)
+	if next := e.Pending(); next == nil || next.Kind != decision.KPriority || len(e.G.Stack) != 1 {
+		t.Fatalf("a second when-you-do ability followed the answer: %+v, stack %v (DivideEvenlyDown.2 read the un-divided amount)", next, e.G.Stack)
 	}
-	if next := e.Pending(); next != nil && next.Kind == decision.KChoose && next.Min == 0 && next.Max == 1 {
-		t.Fatalf("a second when-you-do ask followed the answer: %+v (DivideEvenlyDown.2 read the un-divided amount)", next)
+	passUntilStackEmpty(t, e, 20)
+	if got := e.G.Obj(grave); got == nil || got.Zone != state.ZExile {
+		t.Fatalf("the resolved exile did not move %d to exile (obj %+v)", grave, got)
 	}
 }
 
@@ -331,14 +340,33 @@ func TestSpeedYoungAvengerImmediateTrigger(t *testing.T) {
 			// AB root declares no targets), so task mvts1's pre-ask poses its
 			// own KChoose here; the census's withHaste candidates are non-empty
 			// (Speed itself has haste), so the ask is real. Answer it.
+			// CR 603.12: the paid half is a reflexive triggered ability, so
+			// the ask is its placement target ask and the Effect registers
+			// when it resolves.
 			dt := passUntilAsk(t, e)
-			if dt == nil || dt.Kind != decision.KChoose || dt.ResumeKind != "tgts" {
-				t.Fatalf("post-pay ask = %+v, want the Effect sub's KChoose with ResumeKind tgts", dt)
+			if dt == nil || dt.Kind != decision.KTarget {
+				t.Fatalf("post-pay ask = %+v, want the reflexive ability's KTarget", dt)
 			}
 			if len(dt.Options) == 0 || dt.Options[0].Obj != speed {
 				t.Fatalf("options %+v, want Speed offered (the haste creature)", dt.Options)
 			}
 			submitChoices(t, e, 0)
+			for i := 0; i < 20; i++ {
+				d := e.Pending()
+				if d == nil || d.Kind != decision.KPriority {
+					t.Fatalf("unexpected decision while the reflexive ability waits: %+v", d)
+				}
+				reflexive := false
+				for _, id := range e.G.Stack {
+					if o := e.G.Obj(id); o != nil && o.Ability != nil {
+						reflexive = true
+					}
+				}
+				if !reflexive {
+					break
+				}
+				passPriority(t, e)
+			}
 		}
 
 		// The paid body is TrigEffect (DB$ Effect | StaticAbilities$ KWPump),
