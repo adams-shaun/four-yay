@@ -141,7 +141,7 @@ type engineTriggerBatches struct {
 	targetBatchOpen  bool                `clone:"reset"`
 	targetBatchFired map[triggerKey]bool `clone:"reset"`
 	// phaseUnknownNoted memoizes the Phase$ specs whose names this engine has
-	// already reported as unresolvable (rules.trigger_match.go's phaseMatches
+	// already reported as unresolvable (rules/trigmatch/actions.go's PhaseMatches
 	// reporting), so one spec emits exactly one Note per game no matter how
 	// often its trigger is walked. Cloned like the other bookkeeping maps so
 	// a branch that becomes live cannot re-emit the same Note.

@@ -243,7 +243,7 @@ func TestCostStaticCensus(t *testing.T) {
 		}
 		// A `Permanent` base on a spell-scoped static is live: costStaticApplies
 		// reads it as the printed permanent TYPE under a Spell scope
-		// (spellCastPermanentSpec), since the priced object is never on the
+		// (trigmatch.SpellCastPermanentSpec), since the priced object is never on the
 		// battlefield. spellOnly is kept for the callers' signature.
 		_ = spellOnly
 		var unk []string

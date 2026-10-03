@@ -5,8 +5,8 @@ package rules
 // toughness, put a +1/+1 counter on this creature."
 //
 // cards/kw_increment.go expands the bare `K:Increment` line into an ordinary
-// Mode$ SpellCast trigger on the source, and rules/trigmatch_cast.go's
-// incrementAdmits evaluates the event-relative spend-vs-power/toughness
+// Mode$ SpellCast trigger on the source, and rules/trigmatch/cast.go's
+// trigmatch.incrementAdmits evaluates the event-relative spend-vs-power/toughness
 // condition. These tests pin the census over the corpus carriers and the
 // mechanism's two halves (the spend must EXCEED, and either power or
 // toughness admitting is enough).

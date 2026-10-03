@@ -13,7 +13,7 @@ import (
 // Mode$ Attacks' Attacked$ scopes the trigger to the DECLARED DEFENDER
 // (CR 508.1c): Revenge of Ravens' "Whenever a creature attacks you or a
 // planeswalker you control" is Attacked$ You,Planeswalker.YouCtrl. Before
-// attacksMatches read the param, the trigger fired on every DeclareAttackers
+// trigmatch.AttacksMatches read the param, the trigger fired on every DeclareAttackers
 // event at the table -- right in a two-player game, over-broad in every
 // multiplayer one.
 

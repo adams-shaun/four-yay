@@ -15,7 +15,7 @@ import (
 // one Note per voting player; this file adds the ONE canonical "players
 // finished voting" Note a Mode$ Vote trigger fires on, the same shape
 // api:FlipCoin's FlipCoinNote/FlipNoteResult pair serves for
-// trig:FlippedCoin (rules/trigger_match.go's flippedCoinMatches).
+// trig:FlippedCoin (rules/trigmatch/actions.go's flippedCoinMatches).
 //
 // Encoding (no events.Event schema change). A public vote carrier carries raw
 // ballots; a secret carrier contains only the completion marker, while the

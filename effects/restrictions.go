@@ -21,7 +21,7 @@ func CantRestrictionParamsReadable(params map[string]string) bool {
 
 // CantAttackParamsReadableForRules is the FACE S:-line whitelist for a
 // CantAttack static: the shared CantRestrictionParamsReadable core EXTENDED by
-// exactly the conditional parameter family rules' attackBlocked reads --
+// exactly the conditional parameter family combat.AttackBlocked reads --
 // UnlessDefender$ (through effects.UnlessDefenderHolds) and the shared
 // rules-side continuous gate rules/layers.go continuousGateHolds, which
 // evaluates CheckSVar$ / SVarCompare$ / Condition$ / ClassBand$ and the
@@ -38,9 +38,9 @@ func CantRestrictionParamsReadable(params map[string]string) bool {
 // the split makes a compound line's CantAttack half inherit the SHARED Params
 // map, so an `S:Mode$ CantAttack,CantBlock | ... | IsPresent$ Creature.YouCtrl
 // | PresentCompare$ LE2` line (Bast, Panther Goddess) now reaches
-// attackBlocked as a CantAttack static carrying IsPresent. The gate machinery
+// combat.AttackBlocked as a CantAttack static carrying IsPresent. The gate machinery
 // already evaluates it, so excluding the keys only skipped the attack half
-// whole while the block half (blockRestricted's CantBlock loop, which runs
+// whole while the block half (combat.BlockRestricted's CantBlock loop, which runs
 // continuousGateHolds with no whitelist) bound at runtime -- the asymmetry
 // this ticket fixes.
 //
@@ -312,7 +312,7 @@ func unlessDefenderTypeCount(g *state.Game, z state.Zone, p state.PlayerID, card
 // it (task cbb1; the same discipline CantRestrictionParamsReadable enforces
 // for CantAttack/CantSacrifice, so the registration and consultation paths
 // cannot disagree): the two-side specs the continuous consultation reads
-// (rules/statics.go blockRestricted's registered-effects walk: ValidAttacker$
+// (rules/combat/restrictions.go BlockRestricted's registered-effects walk: ValidAttacker$
 // against the ATTACKER, ValidBlocker$ against the would-be blocker, the
 // historical ValidCard$ fallback), plus display text. A body carrying a
 // condition or scoping parameter this build's continuous path does not
@@ -371,7 +371,7 @@ func MustAttackParamsReadable(params map[string]string) bool {
 // continuousGateHolds) evaluates -- IsPresent$, IsPresent2$, PresentCompare$,
 // PresentZone$, CheckSVar$, SVarCompare$, Condition$ and ClassBand$. It
 // lives here, beside MustAttackParamsReadable, so the two lists cannot drift
-// apart unseen: the face route (rules' attackRequirements) CAN evaluate those
+// apart unseen: the face route (combat.AttackRequirements) CAN evaluate those
 // gates -- the evaluator, continuousGateHolds, is rules-side, which is why
 // this function cannot simply be MustAttackParamsReadable -- while the
 // Effect-delivered route (effEffect's registration above) cannot, so its
@@ -425,7 +425,7 @@ func CantBlockUnlessRestrictionParamsReadable(params map[string]string) bool {
 // readable. The readable parameters are the mode, the two combat specs the
 // attack-prop reader resolves (ValidCard$ against the attacking creature,
 // Target$ against the defending player/planeswalker -- the same list
-// restrictionPlayerTargetMatches reads), the Cost$ the reader prices
+// combat.RestrictionTargetMatches reads), the Cost$ the reader prices
 // (rules' attackUnlessCharge), the gate parameters the shared
 // continuousGateHolds grammar evaluates, RememberingAttacker$ (which binds
 // the attacking creature into the pricing SVar context), and display text

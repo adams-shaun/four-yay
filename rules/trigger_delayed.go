@@ -6,7 +6,7 @@
 //
 // Split out of trigger_match.go so tickets touching different modes stop
 // colliding on one file. Registration is at the bottom; a duplicate mode
-// panics (registerTrigMatcher).
+// panics (trigmatch.registerTrigMatcher).
 
 package rules
 
@@ -208,7 +208,7 @@ func (e *Engine) checkDelayedTriggers(ev events.Event) {
 		// ValidPlayer$ (Necropotence's "at the beginning of YOUR next end
 		// step"): the registering DelayedTrigger SA's ValidPlayer$ filter,
 		// carried on the registration and evaluated at the phase occurrence
-		// the way phaseMatches evaluates a Mode$ Phase T: line's own
+		// the way trigmatch.PhaseMatches evaluates a Mode$ Phase T: line's own
 		// ValidPlayer$ -- the step just entered always belongs to the current
 		// active player, so the gate asks MatchesPlayerSpec about e.G.Active
 		// against the REGISTRATION's controller. A gate the step fails leaves
@@ -450,7 +450,7 @@ func (e *Engine) checkEventDelayedTriggers(ev events.Event, lki *state.Object) {
 		} else if dt.EventMode == "ChangesZone" {
 			// The Earthbend return promise. destinationAdmits handles the
 			// comma-separated Destination$ list (Graveyard,Exile) that
-			// zoneChangeMatches reads with the single-word effects.ParseZone
+			// trigmatch.ZoneChangeMatches reads with the single-word effects.ParseZone
 			// -- the engine-wide comma-Destination$ defect, ledgered
 			// separately. The special case is local to delayed
 			// registrations, so a face trigger keeps the existing single-word
@@ -750,7 +750,7 @@ func (e *Engine) delayedChangesControllerMatches(t cards.Trigger, dt *state.Dela
 }
 
 // eventDelayedSpellCastMatches is the event-matched registration's validity
-// evaluation, mirroring spellCastMatches' clause grammar (ValidCard$,
+// evaluation, mirroring trigmatch.spellCastMatches' clause grammar (ValidCard$,
 // ValidActivatingPlayer$, PlayerTurn$) with one deliberate difference: the
 // "you" every player clause is measured against is dt.Controller, the
 // registration's effect owner, not the source card's controller (see
@@ -760,7 +760,7 @@ func (e *Engine) eventDelayedSpellCastMatches(t cards.Trigger, dt *state.Delayed
 		return false
 	}
 	// Casting a spell means an actual card entering the stack (Ruling F3,
-	// the same guard spellCastMatches carries).
+	// the same guard trigmatch.spellCastMatches carries).
 	obj := e.G.Obj(ev.Obj)
 	if obj == nil || obj.Face() == nil {
 		return false
@@ -774,7 +774,7 @@ func (e *Engine) eventDelayedSpellCastMatches(t cards.Trigger, dt *state.Delayed
 	// carries OpponentTurn$ True fires only during an opponent's turn of its
 	// effect owner. No corpus registration carries it today (the 23 raw
 	// carriers are all printed T: lines), but the stored grammar mirrors
-	// spellCastMatches' clauses one for one so a future registration cannot
+	// trigmatch.spellCastMatches' clauses one for one so a future registration cannot
 	// widen silently, the same reason the target-shape mirror below exists.
 	if v, ok := t.Param(cards.PKOpponentTurn); ok {
 		if !strings.EqualFold(strings.TrimSpace(v), "True") || e.G.Active == dt.Controller {
@@ -784,7 +784,7 @@ func (e *Engine) eventDelayedSpellCastMatches(t cards.Trigger, dt *state.Delayed
 	if v, ok := t.Param(cards.PKValidCard); ok {
 		// The cast-provenance qualifiers (castprov1/2/3 — narset's
 		// `ValidCard$ Instant.wasCastFromYourHand,Sorcery.wasCastFromYourHand`)
-		// split out BEFORE spellCastPermanentSpec rewrites the base: the strip
+		// split out BEFORE trigmatch.SpellCastPermanentSpec rewrites the base: the strip
 		// helpers match the raw Forge spec's predicate chain. The spell is on
 		// the stack (this is the PutOnStack event), so the log read is honest.
 		v, ok := e.castProvenanceAdmits(v, ev.Obj, dt.Controller)
@@ -800,7 +800,7 @@ func (e *Engine) eventDelayedSpellCastMatches(t cards.Trigger, dt *state.Delayed
 			return false
 		}
 	}
-	// The same cast-condition clauses spellCastMatches evaluates, mirrored
+	// The same cast-condition clauses trigmatch.spellCastMatches evaluates, mirrored
 	// so a stored body carrying either stays fire-time-correct (the "you"
 	// the activator clauses measure is the event's caster either way).
 	if v, ok := t.Params["ActivatorThisTurnCast"]; ok {
@@ -817,7 +817,7 @@ func (e *Engine) eventDelayedSpellCastMatches(t cards.Trigger, dt *state.Delayed
 	// carrier combines a delayed SpellCast registration with either param
 	// (measured: the two files carrying both a DelayedTrigger and a
 	// target-shape param carry only Mode$ Phase bodies), but the stored
-	// grammar mirrors spellCastMatches' clauses one for one and the read is
+	// grammar mirrors trigmatch.spellCastMatches' clauses one for one and the read is
 	// honest here -- the spell is already on the stack with its recorded
 	// targets, so a future registration cannot widen silently.
 	if !trigmatch.TargetShapeMatches(boardOf(e), t, obj.Targets, dt.Source, dt.Controller) {

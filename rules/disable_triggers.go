@@ -83,7 +83,7 @@ func disableTriggersUnread(sv staticView) []string {
 func (e *Engine) disableTriggersExcludes(t cards.Trigger, source state.ObjID, ev events.Event) bool {
 	// A token mint (TokenCreate/CardToken) carries no move zones of its own:
 	// its fold moves the token straight onto the battlefield, so it is read
-	// as Library -> Battlefield here exactly as zoneChangeMatches reads it --
+	// as Library -> Battlefield here exactly as trigmatch.ZoneChangeMatches reads it --
 	// otherwise a creature TOKEN entering would escape Karn, Argent
 	// Defender's / Torpor Orb's Destination$ Battlefield while still firing
 	// the ETB trigger it should suppress.

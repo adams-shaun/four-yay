@@ -88,7 +88,7 @@ func AttacksMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Even
 	// corpus's one carrier of this spelling on a trigger line): the
 	// "if it's attacking the player with the most life or tied for most
 	// life" intervening-if. It is the SAME gate Dethrone reads -- one shared
-	// playerHasMostLife helper, so the two cannot drift -- evaluated on the
+	// PlayerHasMostLife helper, so the two cannot drift -- evaluated on the
 	// event's declared defender, which is why it lives in the per-mode
 	// matcher beside Dethrone and not in the shared triggerConditionHolds
 	// walk (no event there to name the defender). Mirroring Dethrone, the
@@ -221,7 +221,7 @@ func AttackersDeclaredBatch(t cards.Trigger) bool {
 // (and an AttackersDeclared line carrying AttackedTarget$) is keyed to a
 // defending player: handleAttackers emits one DeclareAttackers event per
 // defender, so it fires once for each attacked player -- correct as it stands.
-// A BATCH line (attackersDeclaredBatch) is keyed to the DECLARATION, which
+// A BATCH line (AttackersDeclaredBatch) is keyed to the DECLARATION, which
 // CR 508.1 makes a single turn-based action however many defenders are
 // attacked, so its attacker set and its ValidAttackersAmount$ count are read
 // from the WHOLE declaration (Engine.declaredAttackers, set by finishAttackers
@@ -330,7 +330,7 @@ func DamageMatchesWithCapture(e Board, t cards.Trigger, source state.ObjID, ev e
 	ctrl := e.ControllerOf(source)
 	if v, ok := t.Param(cards.PKValidSource); ok {
 		// The damage's source, through the ONE shared dealer resolution
-		// (damageEventSource, whose doc carries the full priority rationale:
+		// (DamageEventSource, whose doc carries the full priority rationale:
 		// the published override, e.damaging during combat's assignment loop,
 		// else the resolving stack object).
 		src := DamageEventSource(e)
@@ -473,10 +473,10 @@ func damageSource(e Board) state.ObjID {
 }
 
 // DamageEventSource is the ONE dealer resolution for a just-emitted Damage
-// event, shared by the ValidSource$ match (damageMatches), the DamageDealtOnce
+// event, shared by the ValidSource$ match (DamageMatches), the DamageDealtOnce
 // latch and the DamageAll batch-set capture, so a captured batch set can never
 // name a source the matcher would not have matched. The priority is the
-// damageMatches comment's three: an explicit published override
+// DamageMatches comment's three: an explicit published override
 // (rules.Engine.SetDamageSource -- DamageSource$ names the PERMANENT that
 // dealt it, never the ability wrapper resolving it) wins over the dealing
 // creature during combat's assignment loop (e.damaging -- the stack is

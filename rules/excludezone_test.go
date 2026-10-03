@@ -14,7 +14,7 @@ import (
 // source-zone exclusion a static's ExcludeZone$ names is read at the ONE
 // gate every characteristic emission passes through (staticEffects, which
 // walks every staticSourceZones zone) and at the layer-7a CDA read
-// (cdaPTStatic, via the same staticZoneAdmits helper). Grist, the Hunger
+// (cdaPTStatic, via the same chars.StaticZoneAdmits helper). Grist, the Hunger
 // Tide is the corpus's ONLY carrier (measured, 1 file):
 //
 //	S:Mode$ Continuous | Affected$ Card.Self | ExcludeZone$ Battlefield |

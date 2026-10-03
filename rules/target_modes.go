@@ -710,7 +710,7 @@ func (e *Engine) maxTotalTargetPower(p state.PlayerID, source state.ObjID, sa *c
 // The power read is the DERIVED power (Engine.Power), not the printed
 // face: a characteristic-defining P/T applies in EVERY zone (CR 208.2 --
 // Lord of Extinction counts the graveyards from its own graveyard, which
-// derivedScalarFrom's CDA read covers), and the printed Face().Power()
+// chars.PT's CDA read covers), and the printed Face().Power()
 // returns 0 for such a face -- the first cut of this read undercounted a
 // CDA creature as a free target.
 func (e *Engine) totalPowerCappedCandidates(candidates []targetCandidate, p state.PlayerID, source state.ObjID, sa *cards.SA, x int32) ([]targetCandidate, int, bool) {

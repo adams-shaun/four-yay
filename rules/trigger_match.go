@@ -1,7 +1,8 @@
 // trigger_match.go is the read-only half of the split: checkTriggers walks
-// every object once per event and triggerMatches (with its per-kind helpers
-// below -- zoneGate, zoneChangeMatches, spellCastMatches, attacksMatches,
-// damageMatches, becomesTargetMatches, landPlayedMatches, phaseMatches)
+// every object once per event and triggerMatches (with zoneGate in
+// trigger_zone_gate.go and the per-mode matchers in rules/trigmatch --
+// ZoneChangeMatches, spellCastMatches, AttacksMatches, DamageMatches,
+// becomesTargetMatches, landPlayedMatches, PhaseMatches, ...)
 // decides whether a given T: line fires for it. init() registers those
 // trigger kinds, and repl:Moved (replacement.go's own kind), as non-API so
 // effects.Supported does not mistake them for something a card SVar could
@@ -448,7 +449,7 @@ var actionTriggerModes = map[string]bool{
 	// trigger-level parameters Forge scopes to every event mode --
 	// PlayerTurn$, ActivationLimit$, and an unevaluable CheckDefinedPlayer$
 	// predicate failing closed -- apply from day one. Its own ValidPlayer$ /
-	// Won$ gate is read by clashMatches, not by this map.
+	// Won$ gate is read by trigmatch.ClashMatches, not by this map.
 	"Clashed":                    true,
 	"AttackersDeclaredOneTarget": true, "AttackersDeclared": true, "AttackerUnblocked": true, "Sacrificed": true, "Discarded": true,
 	"CommitCrime": true, "Taps": true, "TapsForMana": true, "Untaps": true,
@@ -463,7 +464,7 @@ var actionTriggerModes = map[string]bool{
 	"BecomesTargetOnce": true,
 	// DamagePreventedOnce joins them for the same reason: it is an event mode
 	// registered from the start (rules/trigger_match.go's
-	// damagePreventedMatches), so the trigger-level parameters Forge scopes
+	// trigmatch.DamagePreventedMatches), so the trigger-level parameters Forge scopes
 	// to every event mode -- PlayerTurn$, ActivationLimit$, and an
 	// unevaluable CheckDefinedPlayer$ predicate failing closed -- apply from
 	// day one. No Once latch rides it: each stored prevention Note is one
@@ -471,7 +472,7 @@ var actionTriggerModes = map[string]bool{
 	// the DamageDealtOnce/DamageDoneOnce batch latch exists because combat
 	// batches several Damage events).
 	// TokenCreated/TokenCreatedOnce are event modes registered from the start
-	// (rules/trigger_match.go's tokenCreatedMatches), so the trigger-level
+	// (rules/trigmatch/zone.go's tokenCreatedMatches), so the trigger-level
 	// parameters Forge scopes to every event mode -- PlayerTurn$,
 	// ActivationLimit$, and an unevaluable CheckDefinedPlayer$ predicate
 	// failing closed -- apply from day one, and the Once mode's implicit
@@ -486,7 +487,7 @@ var actionTriggerModes = map[string]bool{
 	// for a mode registered from the start.
 	// FlippedCoin joins them for the same reason: it is an event mode
 	// registered from the start (rules/trigger_match.go's
-	// flippedCoinMatches, firing off the canonical coin-flip result Note
+	// trigmatch.flippedCoinMatches, firing off the canonical coin-flip result Note
 	// both api:FlipCoin and the cumulative-upkeep cost action emit), so the
 	// trigger-level parameters Forge scopes to every event mode --
 	// PlayerTurn$, ActivationLimit$, and an unevaluable CheckDefinedPlayer$
@@ -495,7 +496,7 @@ var actionTriggerModes = map[string]bool{
 	"FlippedCoin": true,
 	// RolledDie/RolledDieOnce join them for the same reason: both are event
 	// modes registered from the start (rules/trigmatch/actions.go's
-	// rolledDieMatches / rolledDieOnceMatches, firing off the canonical roll
+	// trigmatch.rolledDieMatches / trigmatch.rolledDieOnceMatches, firing off the canonical roll
 	// Notes effects/dice.go emits), so the trigger-level parameters Forge
 	// scopes to every event mode -- PlayerTurn$, ActivationLimit$, and an
 	// unevaluable CheckDefinedPlayer$ predicate failing closed -- apply from
@@ -504,31 +505,31 @@ var actionTriggerModes = map[string]bool{
 	"RolledDie": true, "RolledDieOnce": true,
 	"ChangesZoneAll": true,
 	// Attached is an event mode registered from the start
-	// (attachedMatches over events.Attach), so the trigger-level parameters
+	// (trigmatch.attachedMatches over events.Attach), so the trigger-level parameters
 	// Forge scopes to every event mode -- PlayerTurn$, ActivationLimit$, and
 	// an unevaluable CheckDefinedPlayer$ predicate failing closed -- apply
 	// from day one (Inchblade Companion carries ActivationLimit$ 1).
 	"Attached": true,
 	// LifeGained joins them for the same reason: it is an event mode
-	// registered from the start (lifeGainedMatches over events.LifeChange,
+	// registered from the start (trigmatch.lifeGainedMatches over events.LifeChange,
 	// the api:RemoveCounter ticket's Prize Pig pin), so the trigger-level
 	// parameters Forge scopes to every event mode -- PlayerTurn$ (5 corpus
 	// lines: Vampire Scrivener, Wax//Wane Witness, Moonstone Harbinger,
 	// Cat Collector), ActivationLimit$ (2 lines) and an unevaluable
-	// CheckDefinedPlayer$ predicate failing closed -- apply. lifeGainedMatches
+	// CheckDefinedPlayer$ predicate failing closed -- apply. trigmatch.lifeGainedMatches
 	// itself reads FirstTime$ (8 lines over 7 files: Attended Healer,
 	// Deathless Knight, Vanguard Seraph, Gourmand's Talent, ...), the
-	// once-per-turn latch lifeLostMatches implements without the map.
+	// once-per-turn latch trigmatch.lifeLostMatches implements without the map.
 	// LifeGained joins them for the same reason: it is an event mode
-	// registered from the start (lifeGainedMatches over events.LifeChange,
+	// registered from the start (trigmatch.lifeGainedMatches over events.LifeChange,
 	// the api:RemoveCounter ticket's Prize Pig pin), so the trigger-level
 	// parameters Forge scopes to every event mode -- PlayerTurn$ (5 corpus
 	// lines: Vampire Scrivener, Wax//Wane Witness, Moonstone Harbinger,
 	// Cat Collector), ActivationLimit$ (2 lines) and an unevaluable
-	// CheckDefinedPlayer$ predicate failing closed -- apply. lifeGainedMatches
+	// CheckDefinedPlayer$ predicate failing closed -- apply. trigmatch.lifeGainedMatches
 	// itself reads FirstTime$ (8 lines over 7 files: Attended Healer,
 	// Deathless Knight, Vanguard Seraph, Gourmand's Talent, ...), the
-	// once-per-turn latch lifeLostMatches implements without the map.
+	// once-per-turn latch trigmatch.lifeLostMatches implements without the map.
 	"LifeGained": true,
 	// Discover and SeekAll join them: both are event modes registered with
 	// their own marker Kinds (events.Discover/events.Seek, task trigdisc1)
@@ -539,17 +540,17 @@ var actionTriggerModes = map[string]bool{
 	// both gates must apply from day one.
 	"Discover": true, "SeekAll": true,
 	// Surveil joins them for the same reason: it is an event mode registered
-	// from the start (surveilMatches over events.Surveil, the marker Kind
+	// from the start (trigmatch.surveilMatches over events.Surveil, the marker Kind
 	// api:Surveil emits, task trig-surveil), so the trigger-level parameters
 	// Forge scopes to every event mode -- PlayerTurn$, ActivationLimit$
 	// (Prudent Fateseer's "This ability triggers only once each turn" on its
 	// scry-or-surveil line) and an unevaluable CheckDefinedPlayer$ predicate
-	// failing closed -- apply from day one. surveilMatches itself reads
+	// failing closed -- apply from day one. trigmatch.surveilMatches itself reads
 	// FirstTime$ (Whispering Snitch's "for the first time each turn")
-	// through the shared firstMarkerThisTurn log scan.
+	// through the shared trigmatch.firstMarkerThisTurn log scan.
 	"Surveil": true,
 	// Milled/MilledAll join them for the same reason: both are event modes
-	// registered from the start (milledMatches over events.Mill, task
+	// registered from the start (trigmatch.milledMatches over events.Mill, task
 	// trig-milled), so the trigger-level parameters Forge scopes to every
 	// event mode apply from day one -- ActivationLimit$ (Mirelurk Queen's
 	// "This ability triggers only once each turn" on its MilledAll line),
@@ -559,7 +560,7 @@ var actionTriggerModes = map[string]bool{
 	// the batch's single queue slot.
 	"Milled": true, "MilledAll": true,
 	// DiscardedAll joins them for the same reason: it is an event mode
-	// registered from the start (discardedAllMatches over the discard
+	// registered from the start (trigmatch.discardedAllMatches over the discard
 	// MoveZone marker, task DiscardedAll), so the trigger-level parameters
 	// Forge scopes to every event mode apply from day one -- ActivationLimit$
 	// ("This ability triggers only once each turn" on a DiscardedAll line),
@@ -1416,7 +1417,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 					// whole batch if at least one matching SOURCE dealt damage to
 					// at least one matching TARGET, not once per pair. Its latch
 					// therefore keys on the trigger line ALONE (all=true, no
-					// referent): damageMatches already requires BOTH ValidSource$
+					// referent): trigmatch.DamageMatches already requires BOTH ValidSource$
 					// and ValidTarget$ to match the SAME event, so the first such
 					// event queues the single instance and every later matching
 					// pair in the batch accumulates into it -- the "one or more"
@@ -1436,9 +1437,9 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 							// match several sources in one batch, so never collapse
 							// non-combat sources onto ObjID zero. Same priority order as
 							// the ValidSource$ match above: an explicit override always
-							// wins, e.damaging is combat-only, damageSource is the
+							// wins, e.damaging is combat-only, trigmatch.damageSource is the
 							// non-combat fallback. Through the ONE shared resolution
-							// (damageEventSource) so the latch and the match agree.
+							// (trigmatch.DamageEventSource) so the latch and the match agree.
 							bk.obj = trigmatch.DamageEventSource(boardOf(e))
 						} else if !bk.all {
 							// DamageDoneOnce: the per-damaged-referent latch key.
@@ -1586,7 +1587,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 				// LATER batch is not accumulated into the earlier open entry
 				// either (the check is before the entry lookup). It is read here,
 				// not in the matcher, because batch identity lives in the latch;
-				// firstMarkerThisTurn's per-EVENT scan cannot tell one batch from
+				// trigmatch.firstMarkerThisTurn's per-EVENT scan cannot tell one batch from
 				// the next. The stamp is the trigger line's turn only, exact for
 				// every corpus carrier (their ValidPlayer$ is the source's own
 				// controller).
@@ -1603,7 +1604,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 					// nothing while the SAME batch's further matching cards still
 					// accumulate into the count (Rielle's "draw that many" needs a
 					// multi-card first batch's full size). Batch identity lives in
-					// the latch; firstMarkerThisTurn's per-EVENT scan cannot tell one
+					// the latch; trigmatch.firstMarkerThisTurn's per-EVENT scan cannot tell one
 					// discard batch from the next. The stamp is the trigger line's
 					// turn only, exact for every corpus carrier (their ValidPlayer$
 					// is the source's own controller).
@@ -2211,7 +2212,7 @@ func (e *Engine) closeDiscardBatch() {
 }
 
 // openZoneBatch opens a zone batch: the zone-change events (MoveZone,
-// Draw, PutOnStack -- the kinds zoneChangeMatches consults) emitted until
+// Draw, PutOnStack -- the kinds trigmatch.ZoneChangeMatches consults) emitted until
 // the matching closeZoneBatch are one simultaneous batch for ChangesZoneAll.
 // Reentrant brackets belong to the same nested-batch discipline as the
 // damage batch: depth makes an inner close consume only its own begin. A
@@ -2274,7 +2275,7 @@ func (e *Engine) closeZoneBatch() {
 // Self/You), so this is deliberately one simple, general rule rather than a
 // mode-specific one -- except DeclareAttackers, which carries every attacker
 // declared against one defending player in Event.IDs rather than a single
-// Event.Obj (see attacksMatches): Remembered there is every declared
+// Event.Obj (see trigmatch.AttacksMatches): Remembered there is every declared
 // attacker, in order, followed by one more entry for that event's defending
 // player. ev.Player is set by handleAttackers (rules/combat.go); since Task
 // m34 an attack may split across several defenders, so the engine emits ONE
@@ -2302,11 +2303,11 @@ func (e *Engine) closeZoneBatch() {
 // seat 3 there). Exalted's DB$ Pump | Defined$ TriggeredAttacker resolves
 // through effects/context.go's objectsOf(c.Remembered): Remembered is every
 // declared attacker (plus the defending player). On top of FL-48 (task 16),
-// attacksMatches honours Alone$ True, so the trigger now fires only when
+// trigmatch.AttacksMatches honours Alone$ True, so the trigger now fires only when
 // exactly one attacker is declared and pumps that single attacker -- which is
 // the measured cause of the four-seat chain-head move 81a8a100641b5442's
 // successor (see commit 75be2a3's merge note); before FL-48, Remembered listed
-// several attackers and attacksMatches, ignoring Alone$, pumped every one.
+// several attackers and trigmatch.AttacksMatches, ignoring Alone$, pumped every one.
 // Goblin Guide and Goblin Piledriver never fire in the 8-seat game, and
 // Ulamog is in the tron deck, which is never dealt at 2/4/6/8 seats: neither
 // is a cause.
@@ -2660,7 +2661,7 @@ func init() {
 		// CARDNAME is turned face up" (CR 702.36e for morph/megamorph,
 		// CR 708.6 for manifest/cloak; Master of Pearls, Kheru
 		// Spellsnatcher and the mode's 125 corpus carriers). Matched by
-		// turnFaceUpMatches (rules/trigmatch/faceup.go) off the
+		// trigmatch.turnFaceUpMatches (rules/trigmatch/faceup.go) off the
 		// events.TurnFaceUp marker the morph-family special action and
 		// effSetState's Mode$ TurnFaceUp arm emit; proved by
 		// rules/turnup_replacement_test.go's
@@ -2673,7 +2674,7 @@ func init() {
 		"trig:PhaseOutAll",
 		// trig-proliferate: "Whenever you proliferate ..." (CR 701.27; the 6
 		// corpus carriers at the pin, Voidwing Hybrid and Ezuri Stalker of
-		// Spheres among them). Matched by proliferateMatches on the
+		// Spheres among them). Matched by trigmatch.proliferateMatches on the
 		// events.Proliferate marker effProliferate emits once per completed
 		// action.
 		"trig:Proliferate",
@@ -2688,7 +2689,7 @@ func init() {
 		// The rest of the same registration class, found by sweeping the
 		// modes triggerModeEvents maps against this list: each matches and
 		// carries its own proof file, and none was registered.
-		// trig:DamagePreventedOnce (damagePreventedMatches,
+		// trig:DamagePreventedOnce (trigmatch.DamagePreventedMatches,
 		// damage_prevented_once_test.go: TestDamagePreventedOnceFiresPer
 		// Prevention) and trig:RingTemptsYou (ring_test.go:
 		// TestCR701RingTemptsYouCallOfTheRingUpkeep).
@@ -2704,13 +2705,13 @@ func init() {
 		"kw:Undying", "kw:Persist", "kw:Evolve", "kw:Exalted", "kw:Dethrone", "kw:Prowess", "kw:Riot", "kw:Hideaway", "kw:Extort", "kw:Myriad", "kw:Soulbond", "kw:Dredge",
 		// Increment (CR 702.XX, task kw:Increment): a SpellCast self-trigger
 		// (cards/kw_increment.go) whose event-relative "mana spent > power or
-		// toughness" condition is read by incrementAdmits. Registered here so
+		// toughness" condition is read by trigmatch.incrementAdmits. Registered here so
 		// the coverage walk stops naming kw:Increment as a gap now that the
 		// expansion supplies the whole rule.
 		"kw:Increment",
 		// CR 702.70 Training: an Attacks trigger (cards/kw_training.go) whose
 		// "with another creature with greater power" condition is read by
-		// attacksMatches (the Dethrone precedent), with a granted-keyword
+		// trigmatch.AttacksMatches (the Dethrone precedent), with a granted-keyword
 		// synthesis (checkGrantedTrainingTriggers) for the layer-6 grant.
 		"kw:Training",
 		// CR 702.121 Melee: snapshot distinct attacked opponents at declaration

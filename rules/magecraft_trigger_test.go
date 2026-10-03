@@ -17,7 +17,7 @@ import (
 // trigger silently never queued. The copy half is a second, distinct gap:
 // copies do not re-enter the stack as a PutOnStack -- effects/copy.go emits
 // events.StackCopy naming the ORIGINAL spell -- so even a SpellCastOrCopy
-// case that delegated everything to spellCastMatches would have kept the
+// case that delegated everything to trigmatch.spellCastMatches would have kept the
 // copy half dead.
 
 // magecraftSrc is the corpus family's exact trigger shape on a synthetic

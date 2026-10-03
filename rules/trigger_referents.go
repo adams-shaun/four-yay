@@ -79,7 +79,7 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 		// and the same read on a plain CounterAdded line): one CounterChange
 		// event carries the whole placement batch in Amount, and ev.Obj is
 		// the permanent the counters landed on. Both modes are dispatched by
-		// the same matcher (counterAddedMatches), so both must bind the same
+		// the same matcher (trigmatch.counterAddedMatches), so both must bind the same
 		// batch role -- the crossing gate is the matcher's job, the amount the
 		// body reads is this one, and a plain CounterAdded trigger that reads
 		// "that many" had nothing to read before this case named it.
@@ -230,7 +230,7 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 		}
 	case "Attached":
 		// ev.Obj is the attaching Aura/Equipment, ev.IDs[0] the bearer it
-		// became attached to (attachedMatches guarantees a bearer-bearing
+		// became attached to (trigmatch.attachedMatches guarantees a bearer-bearing
 		// Attach event reached this mode). The TriggerTarget role serves the
 		// TriggeredTarget/TriggeredTargetController spellings (Bramble
 		// Elemental's token owner); TriggerBearer -- a field ONLY this case
@@ -332,7 +332,7 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 		// TriggeredActivator is the player who tapped the permanent for mana --
 		// the role Mana Flare's "that player adds ..." reads. The Tap payload
 		// carries no Player (emitTap emits the object only), so the actor comes
-		// from emitTap's synchronous provenance through tapActor, exactly as
+		// from emitTap's synchronous provenance through trigmatch.TapActor, exactly as
 		// the Taps case above binds it; a Tap emitted outside emitTap falls
 		// back to the permanent's controller.
 		c.TriggerPlayer = player(ev.Player)
@@ -353,7 +353,7 @@ func (e *Engine) triggerReferents(t cards.Trigger, source state.ObjID, ev events
 		// TriggeredOpponentVotedSame/TriggeredOpponentVotedDiff and the count
 		// ref TriggeredPlayersOpponentVotedDiff$Amount -- read them long after
 		// the event, from this per-stack capture. List$ gates the BINDING (the
-		// referent scope, never the firing -- see voteMatches): a spelling
+		// referent scope, never the firing -- see trigmatch.voteMatches): a spelling
 		// whose List$ does not name it binds empty.
 		if _, ballots, ballotExisted, ok := effects.VoteFinishedResult(ev); ok {
 			if e.secretVoteBallots != nil {

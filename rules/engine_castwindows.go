@@ -125,7 +125,7 @@ type engineCastWindows struct {
 
 	// deferredPushLKI is the LKI snapshot captured for deferredPush's own
 	// Obj when pushCast emitted it, threaded into the trigger walk so a
-	// ChangesZone trigger fired by the cast (see spellCastMatches) can read
+	// ChangesZone trigger fired by the cast (see trigmatch.spellCastMatches) can read
 	// the card as it was just before the stack move.
 	deferredPushLKI *state.Object `clone:"share"`
 
@@ -192,7 +192,7 @@ type engineCastWindows struct {
 	// before a ManaExpend carrier entered the battlefield, which emit no
 	// FlagManaExpendCast event (the emission gate keeps games without a
 	// carrier byte-identical, heads safety). payCast updates it
-	// unconditionally on every paid cast; manaExpendMatches reads it for the
+	// unconditionally on every paid cast; trigmatch.ManaExpendMatches reads it for the
 	// crossing test. manaExpendedTurn is the e.G.Turn the slice belongs to:
 	// payCast zeroes the slice and re-stamps when the turn has moved on (the
 	// tally is rebuilt by replay's payCast re-execution in the same order, so

@@ -6,7 +6,7 @@
 // DealDamage`, body `DB$ DealDamage | NumDmg$ 2 | Defined$ Opponent`): the
 // per-turn cast-spend tally folds from the pay-time FlagManaExpendCast
 // CastInfo (rules/cast.go's payCast), the crossing matcher is
-// manaExpendMatches (rules/trigmatch_cast.go), and the emission gate is
+// trigmatch.ManaExpendMatches (rules/trigmatch/cast.go), and the emission gate is
 // manaExpendReaderOut.
 package rules
 

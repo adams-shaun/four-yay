@@ -855,7 +855,7 @@ func (e *Engine) payCast() {
 	// ManaExpend (trig:ManaExpend): fold this cast's pool spend into the
 	// per-turn engine tally UNCONDITIONALLY -- including casts made before a
 	// carrier entered the battlefield, which emit no FlagManaExpendCast event
-	// under the gate below. The tally is what manaExpendMatches reads for the
+	// under the gate below. The tally is what trigmatch.ManaExpendMatches reads for the
 	// crossing test (a cast that moves it from below Amount$ N to at-or-above
 	// it fires once; a cast that starts at-or-above fires nothing); a
 	// gated-only tally would undercount the pre-entry base and misfire BOTH

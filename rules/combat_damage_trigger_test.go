@@ -11,7 +11,7 @@ import (
 )
 
 // This file pins the CombatDamage$ trigger gate (rules/trigger_match.go's
-// damageMatches) on real combat: a Damage event emitted by dealCombatDamage's
+// trigmatch.DamageMatches) on real combat: a Damage event emitted by dealCombatDamage's
 // assignment loop (combat.go) satisfies CombatDamage$ True, every non-combat
 // DealDamage site does not, and a prevented (protection) combat hit -- which
 // emit substitutes with a Note -- never fires one. Mode$ DamageDoneOnce gets

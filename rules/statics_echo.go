@@ -190,7 +190,7 @@ func (e *Engine) panharmoniconEchoes(observer *Engine, src state.ObjID, ev event
 // family it can serve as a triggering event for -- the same event-to-mode
 // correspondence trigger_match.go's per-mode matchers test one mode at a
 // time, stated once here for a ValidMode$ list to check against. A MoveZone
-// with the card played from hand also serves LandPlayed (landPlayedMatches
+// with the card played from hand also serves LandPlayed (trigmatch.landPlayedMatches
 // matches the same event), the way the corpus spells multi-family statics.
 func panharmoniconModes(ev events.Event) []string {
 	switch ev.Kind {

@@ -86,7 +86,7 @@ func TestSatyrFiredancerDamageTriggerMatchesOpponentOnly(t *testing.T) {
 
 			// The damage-dealing spell a ValidSource$ Instant.YouCtrl source
 			// must be: an instant the Satyr's controller controls, on the stack
-			// so damageSource() finds it behind the Damage event.
+			// so trigmatch.damageSource() finds it behind the Damage event.
 			src := card(t, "Name:TestRedBolt\nManaCost:1 R\nTypes:Instant\nOracle:x\n")
 			srcID := e.G.AddObject(src, 0).ID
 			e.G.Stack = append(e.G.Stack, srcID)

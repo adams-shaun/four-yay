@@ -1,9 +1,9 @@
 package rules
 
 // effect_zone_lookback_test.go pins the recurring-Effect matching overlay's
-// reach into zoneChangeMatches' CR 603.10a look-back branch. When the
+// reach into trigmatch.ZoneChangeMatches' CR 603.10a look-back branch. When the
 // trigger's OWN source is the permanent that left the battlefield
-// (source == ev.Obj), zoneChangeMatches used to overwrite the overlay's
+// (source == ev.Obj), trigmatch.ZoneChangeMatches used to overwrite the overlay's
 // virtual controller with lki.Controller, so a source-controller-relative
 // predicate ("a creature YOU control dies") was matched against the creating
 // card's last-known controller instead of the registration's owner.

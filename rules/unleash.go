@@ -18,7 +18,7 @@ import (
 // Apply's Move folds the answer ("counter" -> a +1/+1 counter) on battlefield
 // entry (events/apply.go), so every entry path and a log-only replay agree.
 //
-// The can't-block half is read in canBlock (rules/combat.go) beside the
+// The can't-block half is read in combat.CanBlock (rules/combat/block.go) beside the
 // Suspected designation -- the blocker-side gate every option and validation
 // path already shares.
 
