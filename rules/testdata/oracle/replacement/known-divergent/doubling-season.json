@@ -1,0 +1,6 @@
+{
+  "card": "Doubling Season",
+  "rows": {
+    "token-copy-doubled": "CR 614.1a/111.1: 'If an effect would create one or more tokens under your control, it creates twice that many'; Self-Reflection's token copy is such an effect, so two copies of Grizzly Bears are created (three Bears). Observed: one copy (two Bears). Controls: Dragon Fodder's two Goblins become four (passes), so ordinary token creation is doubled but copy-token creation is not. Confidence high. New root, found by the FDN audit batch 6; no ticket yet."
+  }
+}

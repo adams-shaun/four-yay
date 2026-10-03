@@ -1,0 +1,6 @@
+{
+  "card": "Mirror Entity",
+  "rows": {
+    "effect-expires-and-types-return": "The {X} 'until end of turn' effect (base power and toughness X/X plus all creature types, CR 613.3c, 611.3a) persists past the end-of-turn cleanup: at the next turn's main phase the Bears are still 4/4 carrying every creature type (incl. Dragon) and Mirror Entity itself is still 4/4. The {X} pump itself is correct while it lasts (the sibling scenario pins it), so the divergence is the expiry of activated-ability-registered continuous effects specifically (effectUntilEOT in effects/misc.go vs the AGENTS.md Effect row that claims absent-Duration$ expires correctly)."
+  }
+}

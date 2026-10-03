@@ -249,6 +249,30 @@ def _mutual_merge_head(
     return max(group, key=lambda e: (ahead(e[1]), e[0]))
 
 
+def _merge_conflict_paths(repo: Path, left: str, right: str) -> set[str] | None:
+    """Return paths that conflict when two live branch tips are merged.
+
+    `None` means Git could not produce a merge result; callers fail open and
+    retain the overlap rather than hiding a possible conflict.
+    """
+    p = subprocess.run(
+        ["git", "-C", str(repo), "merge-tree", "--write-tree", "--name-only", left, right],
+        capture_output=True, text=True, timeout=120,
+    )
+    if p.returncode == 0:
+        return set()
+    if p.returncode != 1:
+        return None
+    # --name-only emits the conflicted paths between the result tree id and
+    # the blank line that starts the informational merge messages.
+    lines = p.stdout.splitlines()
+    try:
+        end = lines.index("")
+    except ValueError:
+        return None
+    return set(lines[1:end])
+
+
 def live_branch_files(repo: Path) -> dict[str, list[str]]:
     """Files several live task branches change AWAY from main, keyed by file.
 
@@ -438,7 +462,23 @@ def live_branch_files(repo: Path) -> dict[str, list[str]]:
             seen.add(blob)
             kept.append(name)
         if kept:
-            files[f] = kept
+            # A shared path is only a resolver hotspot when at least one pair
+            # of independent editors actually conflicts in Git's merge. Clean
+            # overlaps are still recorded in the durable notes when useful,
+            # but do not consume a merge_fix round and should not inflate the
+            # live conflict metric.
+            refs = {name: ref for name, ref, _blob in branch_set}
+            conflict = len(kept) < 2
+            for i, left in enumerate(kept):
+                for right in kept[i + 1:]:
+                    conflicts = _merge_conflict_paths(repo, refs[left], refs[right])
+                    if conflicts is None or f in conflicts:
+                        conflict = True
+                        break
+                if conflict:
+                    break
+            if conflict:
+                files[f] = kept
     return files
 
 
@@ -1482,7 +1522,8 @@ def selftest() -> int:
         hrun("config", "user.email", "t@t")
         hrun("config", "user.name", "t")
         (hr / "base.txt").write_text("base\n")
-        hrun("add", "base.txt")
+        (hr / "clean.txt").write_text("one\ntwo\nthree\nfour\n")
+        hrun("add", "base.txt", "clean.txt")
         hrun("commit", "-qm", "init")
         base = hrun("rev-parse", "HEAD").stdout.strip()
 
@@ -1528,6 +1569,26 @@ def selftest() -> int:
         check("the landed-identical branch is still excluded",
               "dup" not in two.get("shared.txt", []), two.get("shared.txt"))
         check("hotspots reports it", any(f == "shared.txt" for f, _ in hotspots(hr)), hotspots(hr))
+
+        # Two branches append distinct, non-overlapping lines to the same
+        # tracked file. They share an edited path, but Git merges the edits
+        # cleanly, so this is not a resolver hotspot.
+        clean_refs = []
+        for name, line in (("clean-a", "left"), ("clean-b", "right")):
+            wt_clean = Path(td) / f"hot-{name}"
+            hrun("worktree", "add", "-q", "-b", f"wt/{name}", str(wt_clean), base)
+            content = "ONE\ntwo\nthree\nfour\n" if line == "left" else "one\ntwo\nthree\nFOUR\n"
+            (wt_clean / "clean.txt").write_text(content)
+            subprocess.run(["git", "-C", str(wt_clean), "add", "clean.txt"], capture_output=True)
+            hcommit(wt_clean, f"append {line}")
+            clean_refs.append(f"wt/{name}")
+        check("precondition: clean branch edits really overlap on clean.txt",
+              "clean.txt" in git(hr, "diff", "--name-only", "main...wt/clean-a").split()
+              and "clean.txt" in git(hr, "diff", "--name-only", "main...wt/clean-b").split())
+        check("precondition: clean edits auto-merge",
+              _merge_conflict_paths(hr, *clean_refs) == set())
+        check("a cleanly merging shared path is not a hotspot",
+              "clean.txt" not in live_branch_files(hr), live_branch_files(hr))
 
         # The hot-file table as a GENERATED artifact (agent-20261001T011159Z-
         # 80a8b059): `--format md` renders one markdown row per hotspots()
