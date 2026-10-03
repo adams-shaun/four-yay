@@ -335,6 +335,15 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.
 			}
 			continue
 		}
+		// AtRandom$ True (Make a Wish, Ghoulraiser, Arcane Bombardment): the
+		// ENGINE picks m eligible cards from its seeded rng -- Forge's
+		// changeHiddenOriginResolve takes Aggregates.random per pick -- so no
+		// player is asked and the pick replays. The EACH and WithTotalCMC$
+		// shapes keep the ask (measured: no AtRandom$ carrier uses either).
+		if cz.AtRandom && !isEach && !hasBudget {
+			apply(owner, randomObjIDs(h, budgetEligible, int(m)))
+			continue
+		}
 		prompt := cz.SelectPrompt
 		// OptionalPrompt$ is the script's own wording for the optional pick
 		// (Cass's "Select any number of Aura cards that were attached to
