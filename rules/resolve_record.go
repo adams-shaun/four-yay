@@ -25,4 +25,10 @@ func tapeAnswerRecord(e *Engine, d *decision.Decision, in decision.Intent) {
 	case decision.KArrange:
 		arrangeAnswerRecord(e, d, in, d.ResumeSA)
 	}
+	// Per-resume-kind records: the events a resume arm
+	// (resumeAnswerBinding) emits before re-entering, for the arms whose
+	// answer the asking effect cannot apply itself. Each is a free function
+	// shared with its arm.
+	switch d.ResumeKind {
+	}
 }
