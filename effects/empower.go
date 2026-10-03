@@ -162,7 +162,6 @@ func empowerCandidates(h Host, c *Ctx, typ string) []state.ObjID {
 // resolution's published type table does not show yet); otherwise the
 // candidates are re-read from the battlefield. done/ans is the answered pick.
 func empowerPlace(h Host, c *Ctx, sa *cards.SA, typ string, n int32, minted, ans []state.ObjID, done bool) {
-	g := h.Game()
 	if n <= 0 {
 		// Nothing to place (empower 0 still created its token above): no
 		// zero CounterChange, so no "counters put" trigger can see one.
@@ -173,14 +172,7 @@ func empowerPlace(h Host, c *Ctx, sa *cards.SA, typ string, n int32, minted, ans
 		cands = empowerCandidates(h, c, typ)
 	}
 	if done {
-		for _, id := range ans {
-			if o := g.Obj(id); o != nil && o.Zone == state.ZBattlefield && o.Controller == c.Controller {
-				h.Emit(events.Event{Kind: events.CounterChange, Obj: id, Counter: "LOYALTY", Amount: n})
-				return
-			}
-		}
-		// The chosen token left while the decision was outstanding: no
-		// counters (the counter_pick zone-guard convention).
+		empowerPlaceAnswered(h, c, n, ans)
 		return
 	}
 	if len(cands) == 0 {
@@ -196,9 +188,28 @@ func empowerPlace(h Host, c *Ctx, sa *cards.SA, typ string, n int32, minted, ans
 			d.Options = append(d.Options, decision.Option{Index: len(d.Options),
 				Kind: "counter_pick", Label: typ + " Token", Obj: id, Player: c.Controller})
 		}
+		if ans, ok := AskTape(h, d); ok {
+			// The "counter_pick" answer in hand: the re-entry's placement.
+			empowerPlaceAnswered(h, c, n, counterAnswerObjs(ans))
+			return
+		}
 		if Ask(h, d) == AskAsked {
 			return // suspended; the answer re-enters with Ctx.CounterPick set.
 		}
 	}
 	h.Emit(events.Event{Kind: events.CounterChange, Obj: cands[0], Counter: "LOYALTY", Amount: n})
+}
+
+// empowerPlaceAnswered places the n loyalty counters on the first answered
+// token still on the battlefield under the empowering player's control. A
+// chosen token that left while the decision was outstanding takes no
+// counters (the counter_pick zone-guard convention).
+func empowerPlaceAnswered(h Host, c *Ctx, n int32, ans []state.ObjID) {
+	g := h.Game()
+	for _, id := range ans {
+		if o := g.Obj(id); o != nil && o.Zone == state.ZBattlefield && o.Controller == c.Controller {
+			h.Emit(events.Event{Kind: events.CounterChange, Obj: id, Counter: "LOYALTY", Amount: n})
+			return
+		}
+	}
 }

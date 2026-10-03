@@ -95,17 +95,7 @@ func effBlight(h Host, c *Ctx, sa *cards.SA) {
 				continue
 			}
 			if targetIndex == blightTarget {
-				for _, id := range blightPicks {
-					// Zone and controller checks keep a stray or stale
-					// answer from counting a creature the chooser no longer
-					// controls (the same guard the sacrifice re-entry uses).
-					o := g.Obj(id)
-					if o == nil || o.Zone != state.ZBattlefield || o.Controller != p {
-						continue
-					}
-					h.Emit(events.Event{Kind: events.CounterChange, Obj: id,
-						Counter: "M1M1", Amount: n})
-				}
+				blightApply(h, p, n, blightPicks)
 				continue
 			}
 		}
@@ -139,6 +129,12 @@ func effBlight(h Host, c *Ctx, sa *cards.SA) {
 				d.Options = append(d.Options, decision.Option{Index: len(d.Options),
 					Kind: "blight", Label: name, Obj: id, Player: p})
 			}
+			if ans, ok := AskTape(h, d); ok {
+				// The "blight" answer in hand: this player's counters,
+				// then the walk goes on to the next target.
+				blightApply(h, p, n, counterAnswerObjs(ans))
+				continue
+			}
 			if Ask(h, d) == AskAsked {
 				return // resolution suspended; the answer re-enters with Ctx.BlightPicks set.
 			}
@@ -150,5 +146,21 @@ func effBlight(h Host, c *Ctx, sa *cards.SA) {
 			h.Emit(events.Event{Kind: events.CounterChange, Obj: eligible[0],
 				Counter: "M1M1", Amount: n})
 		}
+	}
+}
+
+// blightApply puts n -1/-1 counters on each answered creature for player p.
+// Zone and controller checks keep a stray or stale answer from counting a
+// creature the chooser no longer controls (the same guard the sacrifice
+// re-entry uses).
+func blightApply(h Host, p state.PlayerID, n int32, picks []state.ObjID) {
+	g := h.Game()
+	for _, id := range picks {
+		o := g.Obj(id)
+		if o == nil || o.Zone != state.ZBattlefield || o.Controller != p {
+			continue
+		}
+		h.Emit(events.Event{Kind: events.CounterChange, Obj: id,
+			Counter: "M1M1", Amount: n})
 	}
 }

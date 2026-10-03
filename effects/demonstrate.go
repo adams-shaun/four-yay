@@ -99,13 +99,7 @@ func effDemonstrate(h Host, c *Ctx, sa *cards.SA) {
 				return
 			}
 		} else {
-			// The opponent clause was answered: emit both copies, the
-			// caster's first. An unanswered pick (a malformed resume) keeps
-			// only the caster's copy.
-			h.Emit(events.Event{Kind: events.StackCopy, Obj: spell, Player: c.Controller})
-			if opp != 0 {
-				h.Emit(events.Event{Kind: events.StackCopy, Obj: spell, Player: opp})
-			}
+			demonstrateCopies(h, spell, c.Controller, opp)
 			return
 		}
 	} else {
@@ -117,14 +111,22 @@ func effDemonstrate(h Host, c *Ctx, sa *cards.SA) {
 		d.Options = append(d.Options,
 			decision.Option{Index: 0, Kind: "yes", Label: "Yes — copy", Player: c.Controller},
 			decision.Option{Index: 1, Kind: "no", Label: "No", Player: c.Controller})
-		if Ask(h, d) == AskAsked {
+		if ans, ok := AskTape(h, d); ok {
+			// The election's answer in hand (the "demonstrate" arm's
+			// stage 0): a decline ends the trigger, a yes goes on to the
+			// opponent clause below, as the re-entry does.
+			if len(ans) == 0 || ans[0].Kind != "yes" {
+				return
+			}
+		} else if Ask(h, d) == AskAsked {
+			return
+		} else {
+			// No host to ask (the R-9 fuzz/test contract): the deterministic
+			// decline -- a may-copy the engine cannot ask is never copied.
+			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+				Text: "demonstrate copy resolved as the decline (no engine host to ask)"})
 			return
 		}
-		// No host to ask (the R-9 fuzz/test contract): the deterministic
-		// decline -- a may-copy the engine cannot ask is never copied.
-		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-			Text: "demonstrate copy resolved as the decline (no engine host to ask)"})
-		return
 	}
 
 	// The opponent choice: "choose an opponent to also copy it". The
@@ -158,6 +160,17 @@ func effDemonstrate(h Host, c *Ctx, sa *cards.SA) {
 		d.Options = append(d.Options, decision.Option{Index: j, Kind: "player",
 			Player: p, Label: g.Players[p].Name})
 	}
+	if ans, ok := AskTape(h, d); ok {
+		// The opponent pick in hand (the "demonstrate" arm's stage 1).
+		var picked []state.Target
+		for _, o := range ans {
+			if o.Kind == "player" {
+				picked = append(picked, state.Target{Player: o.Player, IsPlayer: true})
+			}
+		}
+		demonstrateCopies(h, spell, c.Controller, demonstratePlayer(picked))
+		return
+	}
 	if Ask(h, d) == AskAsked {
 		return
 	}
@@ -165,6 +178,16 @@ func effDemonstrate(h Host, c *Ctx, sa *cards.SA) {
 		Text: "demonstrate opponent resolved as the first opponent (no engine host to ask)"})
 	h.Emit(events.Event{Kind: events.StackCopy, Obj: spell, Player: c.Controller})
 	h.Emit(events.Event{Kind: events.StackCopy, Obj: spell, Player: opps[0]})
+}
+
+// demonstrateCopies emits the answered opponent clause's copies, the
+// caster's first. An unanswered pick (a malformed resume) keeps only the
+// caster's copy.
+func demonstrateCopies(h Host, spell state.ObjID, caster, opp state.PlayerID) {
+	h.Emit(events.Event{Kind: events.StackCopy, Obj: spell, Player: caster})
+	if opp != 0 {
+		h.Emit(events.Event{Kind: events.StackCopy, Obj: spell, Player: opp})
+	}
 }
 
 // demonstratePlayer is the first player Target of an answered pick list

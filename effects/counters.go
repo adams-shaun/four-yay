@@ -318,13 +318,22 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 						{Index: 0, Kind: "yes", Label: "Yes — put the counter", Player: c.Controller},
 						{Index: 1, Kind: "no", Label: "No", Player: c.Controller},
 					}}
-				// AskAsked suspends; the answer re-enters with Ctx.PutOpt set.
-				// AskNoHost is the deterministic decline stand-in (R-9) — the
-				// same class the Attach election falls back to (the clamp-
-				// answered bot path answers option 0 = "yes", so a bot game
-				// stays byte-identical to the pre-ask silent always-put).
-				_ = Ask(h, d)
-				return
+				if ans, ok := AskTape(h, d); ok {
+					// The resolution kernel's answer in hand (the
+					// "put_optional" arm's PutOpt): a decline places
+					// nothing, a yes falls through to the placement paths.
+					if len(ans) == 0 || ans[0].Kind != "yes" {
+						return
+					}
+				} else {
+					// AskAsked suspends; the answer re-enters with Ctx.PutOpt set.
+					// AskNoHost is the deterministic decline stand-in (R-9) — the
+					// same class the Attach election falls back to (the clamp-
+					// answered bot path answers option 0 = "yes", so a bot game
+					// stays byte-identical to the pre-ask silent always-put).
+					_ = Ask(h, d)
+					return
+				}
 			}
 			// optAns == "yes" (or nothing to place): fall through to the
 			// ordinary placement paths.
@@ -453,10 +462,14 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 				for i, k := range counterKinds {
 					d.Options = append(d.Options, decision.Option{Index: i, Kind: "counter_kinds", Label: k, Player: c.Controller})
 				}
-				if Ask(h, d) == AskAsked {
+				if ans, ok := AskTape(h, d); ok {
+					// The "counter_kinds" arm's answer, in hand.
+					kindsAns = counterAnswerLabels(ans)
+				} else if Ask(h, d) == AskAsked {
 					return
+				} else {
+					kindsAns = append([]string(nil), counterKinds[:2]...)
 				}
-				kindsAns = append([]string(nil), counterKinds[:2]...)
 				kindsDone = true
 			}
 			counterKinds = append([]string(nil), kindsAns...)
@@ -467,10 +480,14 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 			for i, k := range counterKinds {
 				d.Options = append(d.Options, decision.Option{Index: i, Kind: "counter", Label: k, Player: c.Controller})
 			}
-			if Ask(h, d) == AskAsked {
+			if ans, ok := AskTape(h, d); ok {
+				// The "counter_kind" arm's answer, in hand.
+				kindAns = counterAnswerLabel(ans)
+			} else if Ask(h, d) == AskAsked {
 				return
+			} else {
+				kindAns = counterKinds[0]
 			}
-			kindAns = counterKinds[0]
 			kindDone = true
 		}
 		if kindDone && !perKind {
@@ -509,13 +526,18 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 				for i, k := range counterKinds {
 					d.Options = append(d.Options, decision.Option{Index: i, Kind: "counter", Label: k, Player: c.Controller})
 				}
-				if Ask(h, d) == AskAsked {
+				// The no-host fallback is the same first option botpolicy takes;
+				// no persistent state is needed because it did not suspend. A
+				// tape-served answer (the "counter_kind" arm's kind for this
+				// recipient) continues the walk the same way.
+				pick := counterKinds[0]
+				if ans, ok := AskTape(h, d); ok {
+					pick = counterAnswerLabel(ans)
+				} else if Ask(h, d) == AskAsked {
 					return
 				}
-				// The no-host fallback is the same first option botpolicy takes;
-				// no persistent state is needed because it did not suspend.
 				kindAnswers = append(kindAnswers, make([]string, ti-len(kindAnswers)+1)...)
-				kindAnswers[ti] = counterKinds[0]
+				kindAnswers[ti] = pick
 			}
 			kind = kindAnswers[ti]
 		}
@@ -893,12 +915,7 @@ func putCounterPickDistribute(h Host, c *Ctx, sa *cards.SA, total int32, kind st
 	g := h.Game()
 	spec := strings.TrimSpace(sa.ParamStr(cards.PKChoices))
 	if ansDone {
-		// Re-entry: the answered pick, in answer order. A recipient that left
-		// the battlefield while the decision was outstanding takes nothing
-		// (its share is lost, not redistributed -- the same totality stance
-		// the target-based split takes).
-		placed := putCounterSplit(h, total, kind, objTargets(ans))
-		rememberPlaced(c, sa, placed)
+		putCounterDistApply(h, c, sa, total, kind, ans)
 		return
 	}
 	var eligible []state.ObjID
@@ -959,10 +976,25 @@ func putCounterPickDistribute(h Host, c *Ctx, sa *cards.SA, total int32, kind st
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options),
 			Kind: "counter_dist", Label: name, Obj: id, Player: c.Controller})
 	}
+	if ans, ok := AskTape(h, d); ok {
+		putCounterDistApply(h, c, sa, total, kind, counterAnswerObjs(ans))
+		return
+	}
 	if Ask(h, d) == AskAsked {
 		return // resolution suspended; the answer re-enters with Ctx.CounterDist set.
 	}
 	fallback()
+}
+
+// putCounterDistApply places an answered DividedAsYouChoose$ Choices$ pick
+// (the "counter_dist" answer, in answer order) -- the legacy re-entry and the
+// resolution kernel's tape-served answer share it. A recipient that left the
+// battlefield while the decision was outstanding takes nothing (its share is
+// lost, not redistributed -- the same totality stance the target-based split
+// takes).
+func putCounterDistApply(h Host, c *Ctx, sa *cards.SA, total int32, kind string, ans []state.ObjID) {
+	placed := putCounterSplit(h, total, kind, objTargets(ans))
+	rememberPlaced(c, sa, placed)
 }
 
 // putCounterSplit divides the CounterNum$ total among the recipients
@@ -1103,6 +1135,11 @@ func putCounterChoose(h Host, c *Ctx, sa *cards.SA, n int32, kind string, ans []
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options),
 			Kind: "counter_pick", Label: name, Obj: id, Player: chooser})
 	}
+	if ans, ok := AskTape(h, d); ok {
+		// The "counter_pick" answer in hand: the re-entry's continuation.
+		putCounterChooseApply(h, c, sa, n, kind, counterAnswerObjs(ans), kinds, kindAns, kindDone)
+		return
+	}
 	if Ask(h, d) == AskAsked {
 		return // resolution suspended; the answer re-enters with Ctx.CounterPick set.
 	}
@@ -1122,10 +1159,15 @@ func putCounterChooseApply(h Host, c *Ctx, sa *cards.SA, n int32, kind string, p
 		for i, k := range kinds {
 			d.Options = append(d.Options, decision.Option{Index: i, Kind: "counter", Label: k, Player: c.Controller})
 		}
-		if Ask(h, d) == AskAsked {
+		if ans, ok := AskTape(h, d); ok {
+			// The "counter_kind" answer in hand (its arm's ResumeChoices
+			// ride is the picks this call already holds).
+			kindAns = counterAnswerLabel(ans)
+		} else if Ask(h, d) == AskAsked {
 			return
+		} else {
+			kindAns = kinds[0]
 		}
-		kindAns = kinds[0]
 		kindDone = true
 	}
 	if kindDone {
@@ -1226,6 +1268,11 @@ func putCounterBolster(h Host, c *Ctx, sa *cards.SA, kind string, ans []state.Ob
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options),
 			Kind: "counter_pick", Label: name, Obj: id, Player: c.Controller})
 	}
+	if ans, ok := AskTape(h, d); ok {
+		// The "counter_pick" answer in hand: the re-entry's placement.
+		putCounterPickApply(h, c, sa, n, kind, counterAnswerObjs(ans))
+		return
+	}
 	if Ask(h, d) == AskAsked {
 		return // resolution suspended; the answer re-enters with Ctx.CounterPick set.
 	}
@@ -1315,6 +1362,11 @@ func putCounterSupport(h Host, c *Ctx, sa *cards.SA, kind string, ans []state.Ob
 		}
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options),
 			Kind: "counter_pick", Label: name, Obj: id, Player: c.Controller})
+	}
+	if ans, ok := AskTape(h, d); ok {
+		// The "counter_pick" answer in hand: the re-entry's placement.
+		putCounterPickApply(h, c, sa, 1, kind, counterAnswerObjs(ans))
+		return
 	}
 	if Ask(h, d) == AskAsked {
 		return // resolution suspended; the answer re-enters with Ctx.CounterPick set.
@@ -1907,6 +1959,12 @@ func removeCounterChoose(h Host, c *Ctx, sa *cards.SA, ans []state.ObjID, done b
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options),
 			Kind: "counter_pick", Label: name, Obj: id, Player: c.Controller})
 	}
+	if ans, ok := AskTape(h, d); ok {
+		// The "counter_pick" answer in hand: the re-entry's removal, with
+		// the count read exactly as the re-entry reads it.
+		removeCounterPickApply(h, c, sa, zone, kind, Num(h, c, sa, "CounterNum", 1), counterAnswerObjs(ans))
+		return
+	}
 	if Ask(h, d) == AskAsked {
 		return // resolution suspended; the answer re-enters with Ctx.CounterPick set.
 	}
@@ -2095,6 +2153,12 @@ func effAddOrRemoveCounter(h Host, c *Ctx, sa *cards.SA) {
 			d.Options = append(d.Options, decision.Option{Index: len(d.Options),
 				Kind: "aor_skip", Label: "Do nothing", Obj: target.ID, Player: decider})
 		}
+		if ans, ok := AskTape(h, d); ok {
+			// The "aor_elect" answer in hand: the re-entry's application
+			// (its multi-target Note first, as the re-entered walk emits it).
+			aorTapeApply(h, c, sa, target, ans, amount, objTargets > 1)
+			return
+		}
 		if Ask(h, d) == AskAsked {
 			return // resolution suspended; the answer re-enters with Ctx.AorElect/AorKind set.
 		}
@@ -2119,12 +2183,55 @@ func effAddOrRemoveCounter(h Host, c *Ctx, sa *cards.SA) {
 			d.Options = append(d.Options, decision.Option{Index: len(d.Options),
 				Kind: "aor_skip:" + k, Label: "Do nothing", Obj: target.ID, Player: decider})
 		}
+		if ans, ok := AskTape(h, d); ok {
+			// The "aor_elect" answer in hand: apply it and walk on to the
+			// next kind, as the re-entered walk does.
+			aorTapeApply(h, c, sa, target, ans, amount, objTargets > 1)
+			continue
+		}
 		if Ask(h, d) == AskAsked {
 			return // resolution suspended; the answer re-enters with Ctx.AorElect/AorKind set.
 		}
 		// No-host fallback (R-9): the first option — remove — the exact mirror
 		// of botpolicy's first-option KChoose answer.
 		aorApplyAct(h, c, sa, target, k, "remove", amount)
+	}
+}
+
+// aorAnswer decodes an "aor_elect" answer exactly as rules' resume arm does:
+// the election ("remove", "put" or "skip") and its kind, parsed out of the
+// answered option's own encoding ("aor_remove:<kind>"). A malformed answer
+// elects remove with no kind.
+func aorAnswer(ans []decision.Option) (elect, kind string) {
+	elect = "remove"
+	if len(ans) == 0 {
+		return elect, ""
+	}
+	if ans[0].Kind == "aor_skip" {
+		return "skip", ""
+	}
+	if strings.HasPrefix(ans[0].Kind, "aor_put:") {
+		elect = "put"
+	} else if strings.HasPrefix(ans[0].Kind, "aor_skip:") {
+		elect = "skip"
+	}
+	if _, k, found := strings.Cut(ans[0].Kind, ":"); found {
+		kind = k
+	}
+	return elect, kind
+}
+
+// aorTapeApply applies a tape-served "aor_elect" answer the way the legacy
+// re-entry does: the re-entered walk re-emits its multi-target Note, then
+// applies the answered election (a skip applies nothing).
+func aorTapeApply(h Host, c *Ctx, sa *cards.SA, target *state.Object, ans []decision.Option, amount int32, multi bool) {
+	if multi {
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+			Text: "unimplemented AddOrRemoveCounter shape: multiple targets; acted on the first"})
+	}
+	elect, akind := aorAnswer(ans)
+	if akind != "" && elect != "skip" {
+		aorApplyAct(h, c, sa, target, akind, elect, amount)
 	}
 }
 
@@ -2306,12 +2413,20 @@ func effMoveCounter(h Host, c *Ctx, sa *cards.SA) {
 					d.Options = append(d.Options, decision.Option{Index: len(d.Options),
 						Kind: "move_counter_kind", Label: k})
 				}
-				if Ask(h, d) == AskAsked {
+				if ans, ok := AskTape(h, d); ok {
+					// The "move_counter_kind" answer in hand; an empty
+					// one moves nothing, as the re-entry reads it.
+					chosenKind = counterAnswerLabel(ans)
+					if chosenKind == "" {
+						return
+					}
+				} else if Ask(h, d) == AskAsked {
 					return
+				} else {
+					// No host (R-9): the deterministic first-kind stand-in, the
+					// same pick botpolicy's arm takes.
+					chosenKind = kinds[0]
 				}
-				// No host (R-9): the deterministic first-kind stand-in, the same
-				// pick botpolicy's arm takes.
-				chosenKind = kinds[0]
 			} else if len(kinds) == 1 {
 				chosenKind = kinds[0]
 			} else {
@@ -2350,6 +2465,8 @@ func effMoveCounter(h Host, c *Ctx, sa *cards.SA) {
 		}
 		if !nDone {
 			maxN := origins[0].Counter(chosenKind)
+			// No host (R-9): the deterministic take-all stand-in.
+			num = maxN
 			if maxN > 0 {
 				chooser := c.Controller
 				d := &decision.Decision{Player: chooser, Kind: decision.KChoose,
@@ -2359,12 +2476,17 @@ func effMoveCounter(h Host, c *Ctx, sa *cards.SA) {
 					d.Options = append(d.Options, decision.Option{Index: len(d.Options),
 						Kind: "move_counter", Label: fmt.Sprintf("%d", i), Amount: i})
 				}
-				if Ask(h, d) == AskAsked {
+				if ans, ok := AskTape(h, d); ok {
+					// The "move_counter" amount in hand (0 is a decline;
+					// a malformed answer moves nothing).
+					num = 0
+					if len(ans) > 0 {
+						num = int32(ans[0].Amount)
+					}
+				} else if Ask(h, d) == AskAsked {
 					return
 				}
 			}
-			// No host (R-9): the deterministic take-all stand-in.
-			num = maxN
 		} else {
 			num = nAns
 		}
@@ -2732,6 +2854,12 @@ func effProliferate(h Host, c *Ctx, sa *cards.SA) {
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options),
 			Kind: "proliferate", Label: label, Obj: t.Obj, Player: owner})
 	}
+	if ans, ok := AskTape(h, d); ok {
+		// The "proliferate" answer in hand: the re-entry's application.
+		applyProliferate(h, c, sa, proliferateAnswer(ans), n)
+		h.Emit(events.Event{Kind: events.Proliferate, Obj: c.Source, Player: c.Controller})
+		return
+	}
 	if Ask(h, d) == AskAsked {
 		return // resolution suspended; the answer re-enters with Ctx.Proliferate set.
 	}
@@ -2796,4 +2924,51 @@ func effRegenerate(h Host, c *Ctx, sa *cards.SA) {
 		}
 		h.Emit(events.Event{Kind: events.CounterChange, Obj: o.ID, Counter: "Shield", Amount: 1})
 	}
+}
+
+// proliferateAnswer decodes a "proliferate" answer exactly as rules' resume
+// arm does: an object recipient carries Obj, a player recipient carries
+// Player with Obj 0.
+func proliferateAnswer(ans []decision.Option) []state.Target {
+	out := make([]state.Target, 0, len(ans))
+	for _, o := range ans {
+		if o.Obj != 0 {
+			out = append(out, state.Target{Obj: o.Obj})
+			continue
+		}
+		out = append(out, state.Target{Player: o.Player, IsPlayer: true})
+	}
+	return out
+}
+
+// counterAnswerObjs is the object list an answered pick names, in answer
+// order (the "counter_pick"/"counter_dist" arms' decode: options with no
+// object are dropped).
+func counterAnswerObjs(ans []decision.Option) []state.ObjID {
+	out := make([]state.ObjID, 0, len(ans))
+	for _, o := range ans {
+		if o.Obj != 0 {
+			out = append(out, o.Obj)
+		}
+	}
+	return out
+}
+
+// counterAnswerLabel is a one-pick answer's Label ("" for a malformed empty
+// answer), the "counter_kind"/"move_counter_kind" arms' decode.
+func counterAnswerLabel(ans []decision.Option) string {
+	if len(ans) == 0 {
+		return ""
+	}
+	return ans[0].Label
+}
+
+// counterAnswerLabels is every answered option's Label, the "counter_kinds"
+// arm's decode.
+func counterAnswerLabels(ans []decision.Option) []string {
+	var out []string
+	for _, o := range ans {
+		out = append(out, o.Label)
+	}
+	return out
 }
