@@ -72,6 +72,13 @@ func (e *Engine) TapeAnswer(d *decision.Decision) (decision.Intent, bool) {
 		// would precede. Not a shape the kernel serves; legacy takes it.
 		return decision.Intent{}, false
 	}
+	if d.ResumeKind == "unless_pay" && !e.tape.InRun() {
+		// An UnlessCost$ election settles in line (unlessAnswerSettle), and
+		// its component step can only hand the resolution back to legacy
+		// from a tape run's checkpoint: an inline answerer keeps the legacy
+		// ask.
+		return decision.Intent{}, false
+	}
 	return e.tape.Answer(asResolve(e), d)
 }
 

@@ -204,7 +204,7 @@ func askFixedVote(h Host, c *Ctx, sa *cards.SA, choices []string, voters []state
 		}
 		d := &decision.Decision{Player: voter, Kind: decision.KChoose, Source: c.Source,
 			Min: min, Max: 1, ResumeKind: "vote", ResumeSA: sa, ResumeTarget: i,
-			ResumeChoices: append([]state.Target(nil), picks...), Prompt: prompt}
+			ResumeChoices: PayloadTargets(picks), Prompt: prompt}
 		for j, name := range choices {
 			d.Options = append(d.Options, decision.Option{Index: j, Kind: "vote", Label: name, Obj: state.ObjID(j + 1)})
 		}
@@ -305,7 +305,7 @@ func askCardVote(h Host, c *Ctx, sa *cards.SA, options []state.ObjID, voters []s
 			prompt = "Vote for a permanent"
 		}
 		d := &decision.Decision{Player: voter, Kind: decision.KChoose, Source: c.Source, Min: min, Max: 1,
-			ResumeKind: "vote", ResumeSA: sa, ResumeTarget: i, ResumeChoices: append([]state.Target(nil), picks...), Prompt: prompt}
+			ResumeKind: "vote", ResumeSA: sa, ResumeTarget: i, ResumeChoices: PayloadTargets(picks), Prompt: prompt}
 		for j, id := range options {
 			label := "permanent"
 			var controller state.PlayerID

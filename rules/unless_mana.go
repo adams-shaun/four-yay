@@ -40,6 +40,12 @@ func (e *Engine) unlessManaWindowNeeded(p state.PlayerID, cost Cost, obj state.O
 // as the arm's ordinary pool-only charge does.
 func (e *Engine) askUnlessWardMana(payer state.PlayerID, cost Cost, rp *resumePoint) {
 	e.askWardMana(rp, &wardManaPayment{payer: payer, cost: cost, target: rp.target,
-		resumeKind: "unless_mana", prompt: "Activate mana abilities to pay the unless cost",
-		unless: true})
+		resumeKind: unlessManaKind, prompt: unlessManaPrompt, unless: true})
 }
+
+// unlessManaKind and unlessManaPrompt are the unless-cost mana window's
+// resume kind and prompt (the legacy window and the kernel's in-line one).
+const (
+	unlessManaKind   = "unless_mana"
+	unlessManaPrompt = "Activate mana abilities to pay the unless cost"
+)

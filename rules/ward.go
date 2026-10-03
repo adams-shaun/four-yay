@@ -392,8 +392,25 @@ func (e *Engine) askWardMana(rp *resumePoint, wm *wardManaPayment) {
 	wm.obj, wm.sa = rp.obj, rp.sa
 	wm.outer, wm.replacement, wm.replaced, wm.before = rp.outer, rp.replacement, rp.replaced, rp.before
 	e.wardMana = wm
+	d := wardManaDecision(e, wm)
+	e.Ask(d)
+	// Ask sees the correct stack object but this payment window began while a
+	// prior frame was resuming, so preserve that frame's continuation and
+	// replacement snapshot explicitly.
+	e.resume.outer = wm.outer
+	e.resume.replacement = wm.replacement
+	e.resume.replaced = wm.replaced
+	e.resume.before = wm.before
+	e.resume.target = wm.target
+}
+
+// wardManaDecision is the mana window's decision for wm (its obj and sa
+// bound): the one builder the legacy window (askWardMana) and the
+// resolution kernel's in-line unless window (tapeUnlessWindow) share, so the
+// two pose identical decisions.
+func wardManaDecision(e *Engine, wm *wardManaPayment) *decision.Decision {
 	d := &decision.Decision{Player: wm.payer, Kind: decision.KChoose, Min: 1, Max: 1,
-		Prompt: wm.prompt, ResumeKind: wm.resumeKind, ResumeSA: rp.sa, ResumeTarget: wm.target}
+		Prompt: wm.prompt, ResumeKind: wm.resumeKind, ResumeSA: wm.sa, ResumeTarget: wm.target}
 	// Sources are offered only while the pool cannot yet pay the charge --
 	// the same predicate that opened the window (unlessManaWindowNeeded) and
 	// the one the cast and cumulative windows close on. Once the pool covers
@@ -407,7 +424,7 @@ func (e *Engine) askWardMana(rp *resumePoint, wm *wardManaPayment) {
 	// K'rrik's grant could settle with life must NOT mark the cost payable
 	// here, or the window would offer only Done and hide the untapped source.
 	payable := wm.cost.Priceable() && e.costPayableClassLife(wm.payer,
-		paymentDescriptor{id: rp.obj, class: paymentOther, cost: &wm.cost}, pipRider{}, wm.cost, false)
+		paymentDescriptor{id: wm.obj, class: paymentOther, cost: &wm.cost}, pipRider{}, wm.cost, false)
 	if !payable {
 		for _, id := range e.G.Zone(state.ZBattlefield, wm.payer) {
 			if e.untappedManaSource(wm.payer, id) {
@@ -423,15 +440,7 @@ func (e *Engine) askWardMana(rp *resumePoint, wm *wardManaPayment) {
 		}
 	}
 	d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "done", Label: "Done"})
-	e.Ask(d)
-	// Ask sees the correct stack object but this payment window began while a
-	// prior frame was resuming, so preserve that frame's continuation and
-	// replacement snapshot explicitly.
-	e.resume.outer = wm.outer
-	e.resume.replacement = wm.replacement
-	e.resume.replaced = wm.replaced
-	e.resume.before = wm.before
-	e.resume.target = wm.target
+	return d
 }
 
 // continueWardMana reopens the payment window after one mana ability has

@@ -2611,14 +2611,16 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		// the pre-gate state instead of the raw predicate.
 		wasSuspended := h.Suspended()
 		asksBefore := askCount(h)
+		unlessServed := false
 		if strings.TrimSpace(sa.ParamStr(cards.PKUnlessCost)) != "" {
-			runBody, paid = unlessProceed(h, c, sa)
+			runBody, paid, unlessServed = unlessProceed(h, c, sa)
 		}
 		// askCount catches the gate ask the host DEFERRED behind an
 		// already-suspended resolution (rules' Engine.Ask: a second shock
 		// land's pay-2-life ask while the first one's is still pending),
-		// which leaves Suspended() unchanged.
-		if (!wasSuspended && h.Suspended()) || askCount(h) != asksBefore {
+		// which leaves Suspended() unchanged. A tape-served election counts
+		// as an ask taken but suspended nothing.
+		if !unlessServed && ((!wasSuspended && h.Suspended()) || askCount(h) != asksBefore) {
 			// The gate posed the unless-pay ask and suspended the
 			// resolution: stop here exactly as an asking effect body
 			// would. The resume re-enters THIS SA (the ask's ResumeSA),

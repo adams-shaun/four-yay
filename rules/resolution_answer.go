@@ -152,10 +152,13 @@ func (e *Engine) resumeAnswerBinding(rp *resumePoint, o *state.Object, ctx *effe
 				AfterBody: true, Count: int32(cur.count)}
 		}
 	case "unless_pay":
-		payOption, chosePay := unlessPayChoice(chosen)
+		_, chosePay := unlessPayChoice(chosen)
 		if rp.unlessPay != "" {
+			// The component continuation's settled outcome
+			// (finishUnlessPayment): the payer cursor is the gate's, not the
+			// body's (see the election's own UnlessNext below).
 			ctx.UnlessPay = rp.unlessPay
-			ctx.UnlessNext = rp.target
+			ctx.UnlessNext, ctx.ChoiceTarget = rp.target, 0
 			if len(rp.unlessDiscards) > 0 {
 				ctx.UnlessDiscarded = make([]state.Target, 0, len(rp.unlessDiscards))
 				for _, id := range rp.unlessDiscards {
@@ -188,121 +191,28 @@ func (e *Engine) resumeAnswerBinding(rp *resumePoint, o *state.Object, ctx *effe
 			}
 			break
 		}
-		// Sacrifice's damage-payment offer (Vexing Devil's UnlessCost$
-		// DamageYou<4>, UnlessPayer$ Opponent, UnlessSwitched$ True):
-		// "paying" is TAKING THE DAMAGE, which the mana path below cannot
-		// express — ParseCost silently substitutes an unknown spelling for
-		// a flat {1} and would charge one floating mana for four damage.
-		// Payment happens HERE, in rules (the same split that owns
-		// payMana's events): the accepting opponent's Damage event is
-		// emitted from the offering permanent, and the answered
-		// UnlessPay re-enters effSacrifice, which then sacrifices (the
-		// switched orientation: paying CAUSES the sacrifice). The resume
-		// point's target cursor travels with the answer so the effect can
-		// offer the next opponent after a decline.
-		if rp.sa.API == "Sacrifice" {
-			if n, dmg := effects.ParseDamageUnlessCost(rp.sa.ParamStr(cards.PKUnlessCost)); dmg {
-				if chosePay {
-					e.payUnlessDamageCost(ctx, payOption.Player, n)
-					ctx.UnlessPay = "pay"
-				} else {
-					ctx.UnlessPay = "decline"
-				}
-				// The answering payer's cursor travels in UnlessNext (the
-				// same field every other unless-pay answer uses): a decline
-				// re-entry resumes the offer at payers[idx+1], and the last
-				// decline ends the ask. (UnlessPayTarget was a vestigial
-				// second cursor nothing read — its one write is this line —
-				// so a second opponent's decline re-offered payers[1]
-				// forever.)
-				ctx.UnlessNext = rp.target
-				break
-			}
-			// A plain-mana UnlessCost$ (the echo / cumulative-upkeep
-			// family) falls through to the shared mana path below, exactly
-			// like a Counter's: paid spares the permanent, decline
-			// sacrifices it. The unimplemented non-mana shapes never
-			// reach the ask, so they never reach this arm.
+		// Every other election settles through the one home the resolution
+		// kernel's tape path shares (rules/unless_tape.go): an immediate pay
+		// or decline, or the CR 601.2g mana window, or the choice-bearing
+		// payment continuation, both of which park this frame.
+		next, payer, cost := settleUnlessElection(e, ctx, rp.sa, rp.obj, chosen)
+		if next == unlessOpenWindow {
+			e.askUnlessWardMana(payer, cost, rp)
+			return true, true
 		}
-		// deterministically.
-		// UnlessCostResolved first: an UnlessCost$ naming an SVar whose
-		// count body resolves folds its numeric result into a generic
-		// amount (Feather, Radiant Arbiter's SVar:CopyCost:Count$ChosenSize/
-		// Times.2 -- "{2} for each of those creatures"), the same string
-		// unlessProceed's ask label showed, so the offer and the charge can
-		// never disagree. An SVar the ctx's table lacks or whose body does
-		// not resolve passes through raw and lands in the same hard
-		// decline as before.
-		rawUnlessCost := effects.UnlessCostResolved(e, ctx, rp.sa)
-		paid, ok := ParseUnlessCost(rawUnlessCost)
-		if !ok {
-			// I-5: an unless-cost the payment API cannot price is a hard
-			// DECLINE. ParseCost("X") is {Generic:0, X:1}; payMana never
-			// charges the unfolded X, so an empty pool "pays" it for free
-			// and the counterspell stays inert. An unpriceable cost must
-			// decline, never resolve at zero. This is the conservative
-			// correct behaviour: a cleared counter is closer to the card
-			// than a no-op. The named dynamic shapes close against the
-			// resolution context: the announced-X binding (CR 601.2b,
-			// including an announced zero), the resolvable SVar bodies (the
-			// Counter/CopySpellAbility folds and every other API), the
-			// DefinedCost_/DefinedSACost_ card-anchored mana values, the
-			// energy parts (PayEnergy<N>/<X>, charged from the payer's
-			// counters), the Return<N/Spec> choice parts (the payer's pick,
-			// the beginUnlessPayment continuation) and LifeTotalHalfUp (the
-			// payer's own life, folded at the gate and the charge).
-			// ParseUnlessCost is still the strict parser: ExileFromGrave<...>,
-			// Behold<...>, tapXType<...>, CopyCost, and every remaining
-			// dynamic or unmodelled token declines here rather than
-			// ParseCost's flat {1} substitution buying it for one generic.
-			// The ask is still posed to the payer (the answer is recorded by
-			// ModeChosen) but cannot succeed. Declining here (rather than
-			// suppressing the ask in effects, which cannot import rules'
-			// cost type) keeps the decision on the wire for hosts to observe
-			// while never letting an empty pool satisfy it.
-			ctx.UnlessPay = "decline"
-		} else if chosePay && e.unlessCostPayable(payOption.Player, rawUnlessCost, ctx, rp.obj) {
-			if len(paid.Sac) > 0 || len(paid.Discard) > 0 || len(paid.Reveal) > 0 || len(paid.Behold) > 0 || len(paid.RevealChosen) > 0 || len(paid.Return) > 0 || len(paid.Exile) > 0 {
-				// Sacrifice, discard, reveal, behold, return and exile are
-				// choice-bearing costs.
-				// Park this resume before any mutation and let the payer
-				// select every component; finishUnlessPayment re-enters
-				// with unlessPay set, so this arm never charges it twice.
-				e.beginUnlessPayment(payOption.Player, paid, ctx, rp.obj, rp)
-				return true, true
-			}
-			// CR 601.2g: a mana-only unless cost gives the payer the same
-			// chance to activate mana abilities before the charge as a cast
-			// or a Ward does, so a converted colour (stat:ManaConvert) can be
-			// produced by tapping. The window only opens when the pool
-			// (under the payment's conversion) cannot already pay and an
-			// untapped source exists; otherwise the charge below is
-			// unchanged.
-			if e.unlessManaWindowNeeded(payOption.Player, paid, rp.obj) {
-				e.askUnlessWardMana(payOption.Player, paid, rp)
-				return true, true
-			}
-			if e.payUnlessCost(payOption.Player, paid, ctx, rp.obj) {
-				ctx.UnlessPay = "pay"
-			} else if paid.HasManaPayment() && len(e.windowManaUnits(payOption.Player)) > 0 {
-				// A failed pool-only attempt is not a decline: open the
-				// CR 601.2g mana-ability window and resume this exact frame
-				// after the payer has assembled enough floating mana. The
-				// offer gate proved the budget reachable before Pay was
-				// offered, so sources remain while the charge is unmet.
-				e.beginUnlessPayment(payOption.Player, paid, ctx, rp.obj, rp)
-				return true, true
-			} else {
-				ctx.UnlessPay = "decline"
-			}
-		} else {
-			ctx.UnlessPay = "decline"
+		if next == unlessPayComponents {
+			e.beginUnlessPayment(payer, cost, ctx, rp.obj, rp)
+			return true, true
 		}
 		// The payer whose answer this is (the unlessProceed gate moves a
 		// decline on to the next UnlessPayer$ payer, and a pay ends the
 		// ask), threaded through the decision's ResumeTarget via the
 		// resume point — the same channel the "choice" and "dig" arms use.
-		ctx.UnlessNext = rp.target
+		// That cursor is the gate's alone: the body of the re-entered SA has
+		// not run, so its own chooser walk (Ctx.ChoiceTarget, which the
+		// rebuild seeded from the same ResumeTarget) starts at zero, as it
+		// does on the first pass.
+		ctx.UnlessNext, ctx.ChoiceTarget = rp.target, 0
 	case "sacrifice_optional":
 		// Optional$ + StrictAmount$ is a disjoint choice (decline, or
 		// exactly Amount) that KChoose cannot represent. Its first KModes
@@ -337,6 +247,9 @@ func (e *Engine) resumeAnswerBinding(rp *resumePoint, o *state.Object, ctx *effe
 			return true, true
 		}
 	case "unless_mana":
+		// The window's ResumeTarget is the gate's payer cursor too: the
+		// re-entered body's chooser walk starts at zero.
+		ctx.ChoiceTarget = 0
 		if e.answerWardMana(rp, chosen, ctx) {
 			return true, true
 		}
