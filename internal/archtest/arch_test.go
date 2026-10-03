@@ -190,6 +190,20 @@ func TestDependencyOrderHolds(t *testing.T) {
 		{module + "/rules/cost", module + "/rules/trigmatch"},
 		{module + "/rules/cost", module + "/rules/combat"},
 		{module + "/rules/cost", module + "/rules/resolve"},
+		// rules/combat is an L5 subsystem package (W5 step E5): attack and
+		// block legality behind combat.Board. It never reaches back into
+		// rules (Go forbids the direct cycle once rules imports it; these
+		// rows also forbid the transitive one), never into a sibling
+		// subsystem package or the resolution kernel above it, and never
+		// into the bot layer. (decision is reachable through effects, so it
+		// is not a transitive row; TestCombatImportsStayBelowRules pins the
+		// direct import set, which keeps decision -- and with it the asks
+		// and validators of the declaration flow -- out of the package.)
+		{module + "/rules/combat", module + "/rules"},
+		{module + "/rules/combat", module + "/rules/pay"},
+		{module + "/rules/combat", module + "/rules/trigmatch"},
+		{module + "/rules/combat", module + "/rules/resolve"},
+		{module + "/rules/combat", module + "/botpolicy"},
 	}
 	for path, p := range pkgs {
 		if strings.HasPrefix(path, module+"/bots") {
