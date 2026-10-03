@@ -169,6 +169,7 @@ type oracleRun struct {
 	snaps      []OracleSnapshot
 	decisions  []OracleDecision
 	noSnapshot bool // runOracleScenarioWith's switch
+	step       int  // the scenario step being played; -1 during setup
 }
 
 func (r *oracleRun) logf(format string, a ...any) {
@@ -438,7 +439,22 @@ func (r *oracleRun) submit(d *decision.Decision, choices []int, why string) erro
 	}
 	r.logf("  [%s] p%d %s -> %q", why, d.Player, d.Kind, labels)
 	if kind, ok := oracleDecisionKind(d.Kind); ok {
-		r.decisions = append(r.decisions, OracleDecision{Seat: int(d.Player), Kind: kind, Options: len(d.Options), Picks: labels})
+		od := OracleDecision{Step: r.step, Seat: int(d.Player), Kind: kind, Options: len(d.Options), Picks: labels,
+			PickIdx: append([]int{}, choices...), PickRefs: []string{}, Via: why}
+		for _, c := range choices {
+			if c < 0 || c >= len(d.Options) {
+				continue
+			}
+			switch o := d.Options[c]; {
+			case o.Obj != 0:
+				od.PickRefs = append(od.PickRefs, r.objRef(r.e.G.Obj(o.Obj)))
+			case strings.Contains(o.Kind, "player"):
+				od.PickRefs = append(od.PickRefs, fmt.Sprintf("p%d", o.Player))
+			default:
+				od.PickRefs = append(od.PickRefs, o.Label)
+			}
+		}
+		r.decisions = append(r.decisions, od)
 	}
 	if err := r.e.Submit(decision.Intent{Seq: d.Seq, Player: d.Player, Choices: choices}); err != nil {
 		return harnessf("submit %s %v: %v (options %s)", d.Kind, choices, err, optionDump(d))
@@ -1305,7 +1321,7 @@ func runOracleScenario(reg *cards.Registry, sc oracleScenario) (fails []string, 
 // runOracleScenarioWith is runOracleScenario with snapshots switched off
 // when noSnapshot is set (the A/B check that snapshotting is read-only).
 func runOracleScenarioWith(reg *cards.Registry, sc oracleScenario, noSnapshot bool) (fails []string, transcript []string, run *oracleRun) {
-	r := &oracleRun{reg: reg, refs: map[string]state.ObjID{}, noSnapshot: noSnapshot}
+	r := &oracleRun{reg: reg, refs: map[string]state.ObjID{}, noSnapshot: noSnapshot, step: -1}
 	run = r
 	defer func() {
 		if p := recover(); p != nil {
@@ -1320,6 +1336,7 @@ func runOracleScenarioWith(reg *cards.Registry, sc oracleScenario, noSnapshot bo
 		r.snaps = append(r.snaps, r.snapshot("setup"))
 	}
 	for i, st := range sc.Steps {
+		r.step = i
 		if err := r.do(st); err != nil {
 			return append(fails, fmt.Sprintf("step %d (%s): %v", i, st.Op, err)), r.log, r
 		}
