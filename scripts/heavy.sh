@@ -138,7 +138,7 @@ fi
 PAUSE_FILE=$STATE/pause-$$.flag
 LEASE=$LEASES/$$.json
 cleanup() {
-	rm -f "$LEASE" "$LEASE.paused_at" "$LEASE.stopped" "$PAUSE_FILE"
+	rm -f "$LEASE" "$LEASE.paused_at" "$LEASE.stopped" "$LEASE.supervised" "$LEASE.parked" "$PAUSE_FILE"
 }
 trap cleanup EXIT INT TERM
 
@@ -159,7 +159,56 @@ printf '{"class":"%s","name":"%s","pid":%s,"started":"%s","pause_file":"%s","sli
 	"$CLASS" "$NAME" "$job" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$PAUSE_FILE" "$SLICE" "$MEM" "$cmdline" >"$LEASE"
 
 printf 'heavy.sh: %s lease %s pid %s slice %s mem %s\n' "$CLASS" "$(basename "$LEASE")" "$job" "$SLICE" "$MEM"
+
+# 4. Cooperative pause supervision for the HEAVY class. heavy.sh is the one
+#    place every heavy job runs through, so it is where "heavy leases must be
+#    pausable throughout" is guaranteed: the job needs no pause loop of its
+#    own. Without this, a long CPU-bound heavy command (`go test ./...`
+#    -timeout 120m) ignores its pause file, `broker.sh enforce` SIGSTOPs it
+#    after the grace and records `gate_starved_minutes`, and that single
+#    escalation is a full stability veto (2026-10-03 head 2d4e01009).
+#
+#    The supervisor waits out PAUSE_GRACE_S so a heavy job with its own
+#    checkpoint loop parks itself first (nothing is signalled mid-step), then
+#    stops the job's process group and drops `$LEASE.parked`; it continues the
+#    group when the pause file disappears. `$LEASE.supervised` is written at
+#    lease time and is what makes broker.sh defer to this supervisor instead
+#    of escalating: the pause is handled, so it is not starvation. The probe
+#    class stays on the broker's fallback -- a probe is short and bounded, and
+#    broker_smoke.sh still exercises the fallback through a probe lease.
+PAUSE_GRACE_S=${PAUSE_GRACE_S:-60}
+if [ "$CLASS" = heavy ]; then
+	: >"$LEASE.supervised"
+	(
+		# Do not hold the class lock for the supervisor's lifetime: it is
+		# inherited from heavy.sh's fd 9, and the job itself is the lock's
+		# owner. (The historical `flock -o` note is about that fd leaking into
+		# a caller's child; here we only drop it in our own subshell.)
+		exec 9>&-
+		while kill -0 "$job" 2>/dev/null; do
+			if [ -e "$PAUSE_FILE" ]; then
+				if [ ! -e "$LEASE.parked" ]; then
+					sleep "$PAUSE_GRACE_S"
+					# The pause may have ended during the grace (a short gate).
+					# Do not stop a job that is no longer asked to pause.
+					[ -e "$PAUSE_FILE" ] || continue
+					kill -0 "$job" 2>/dev/null || break
+					kill -STOP "-$job" 2>/dev/null || kill -STOP "$job" 2>/dev/null || true
+					: >"$LEASE.parked"
+				fi
+			elif [ -e "$LEASE.parked" ]; then
+				kill -CONT "-$job" 2>/dev/null || true
+				rm -f "$LEASE.parked"
+			fi
+			sleep 1
+		done
+		rm -f "$LEASE.parked"
+	) &
+	SUPERVISOR=$!
+fi
+
 wait "$job"
 rc=$?
+[ -n "${SUPERVISOR:-}" ] && kill "$SUPERVISOR" 2>/dev/null
 printf 'heavy.sh: %s finished rc=%s\n' "$NAME" "$rc"
 exit "$rc"
