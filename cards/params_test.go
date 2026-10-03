@@ -78,7 +78,7 @@ func TestParamSetFallsBackOnReplacedMap(t *testing.T) {
 var benchParamKeys = [...]ParamKey{
 	PKActivation, PKAffected, PKCost, PKDefined, PKOrigin, PKSubAbility,
 	PKValidCard, PKValidTgts, PKAmount, PKDuration, PKTargetMax, PKType,
-	paramKeyCount - 1, paramKeyCount / 2, paramKeyCount / 3, paramKeyCount * 2 / 3,
+	paramKeyCount - 1, paramKeyCount / 2, paramKeyCount / 3, ParamKey(int(paramKeyCount) * 2 / 3),
 }
 
 // BenchmarkParamStr reads a bound ParamSet through ParamStr: the compiled
