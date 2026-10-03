@@ -102,24 +102,24 @@ func (b *resolveBoard) Busy() bool {
 	// stack) routes its asks through its own activation continuation
 	// (askOffStackMana), not the resolution's: a converted site inside one
 	// asks through the legacy path.
-	if e.tapeWindowAsking && e.resume == nil && (e.offStackMana == nil || e.tapeOffStackAsking) &&
+	if e.tapeWindowAsking && (e.offStackMana == nil || e.tapeOffStackAsking) &&
 		(e.unlessPayment == nil || e.unlessPayment.tape) {
 		// windowAsk's own window: the holder it asks for is open by design.
 		return false
 	}
-	if u := e.unlessPayment; u != nil && u.tape && e.resume == nil && e.offStackMana == nil &&
+	if u := e.unlessPayment; u != nil && u.tape && e.offStackMana == nil &&
 		e.cumulative == nil && e.triggerCost == nil && e.echo == nil {
 		// A tape-driven unless payment is the kernel's own, not a legacy
 		// suspension: an ask its component walk reaches (a discard's
 		// madness election) is served in place.
 		return false
 	}
-	return e.resume != nil || e.Suspended() || e.offStackMana != nil
+	return e.Suspended() || e.offStackMana != nil
 }
 
 func (b *resolveBoard) StartsResolution(d *decision.Decision, in decision.Intent) bool {
 	e := (*Engine)(b)
-	if d.Kind == decision.KChoose && e.choosing == chooseOpening && !e.Suspended() && e.resume == nil {
+	if d.Kind == decision.KChoose && e.choosing == chooseOpening && !e.Suspended() {
 		// A pregame "begin the game with" effect: its entry is asked inside
 		// this one Submit.
 		return len(in.Choices) > 0 && firstChosen(d, in).Kind == "opening_yes"
@@ -127,7 +127,7 @@ func (b *resolveBoard) StartsResolution(d *decision.Decision, in decision.Intent
 	if d.Kind != decision.KPriority || in.Payment != nil || in.Announce != nil {
 		return false
 	}
-	if e.resume != nil || e.Suspended() {
+	if e.Suspended() {
 		return false // a legacy suspension is in flight; never nest a tape run in it
 	}
 	switch firstChosen(d, in).Kind {

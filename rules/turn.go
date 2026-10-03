@@ -1301,35 +1301,11 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 	}
 	if e.choosing == chooseETBEntry {
 		// The entry-boundary ask was posed from inside emit (replacement.go's
-		// applyETBChoiceReplacement), so Engine.Ask parked whatever resolution
-		// that entry interrupted on this very decision. Take that frame BEFORE
-		// re-emitting the entry and hand it back afterwards: dropping it leaves
-		// the interrupted spell on the stack with nothing to finish it, and
-		// resolveTop then resolves it again from the top -- unbounded for an
-		// effect that re-selects the same card (Retether returning an Aura the
-		// CR 704.5m SBA sweeps straight back into the graveyard).
-		rp := e.resume
-		e.resume = nil
-		// The election may have parked a resolving DB$ Token's mint entry
-		// (e.pendingMintSink names the collector SuspendTokenRest tagged it
-		// with): re-emitting the parked entry under withMintSink lets
-		// publishTokenEntry land the minted id in that collector, so the
-		// waiting "token_rest" frame re-enters with the copy and applies its
-		// per-mint riders. 0 (or a spent collector) runs unchanged.
-		var entry state.ObjID
-		e.withMintSink(e.pendingMintSink, func() { entry = e.resumeETBEntry(chosen) })
-		if e.resume != nil {
-			// The re-emitted entry asked again (a second as-enters choice on
-			// the same object, or a replacement body of its own). Chain the
-			// interrupted resolution behind the new frame so it still runs
-			// once the inner question is answered, exactly as a nested
-			// mid-resolution ask chains its outer continuation.
-			if rp != nil && e.resume.outer == nil {
-				e.resume.outer = rp
-			}
-			return
-		}
-		e.continueAfterETBEntry(rp, entry)
+		// applyETBChoiceReplacement). The election may have parked a resolving
+		// DB$ Token's mint entry (e.pendingMintSink names the collector): re-emitting
+		// the parked entry under withMintSink lets publishTokenEntry land the minted
+		// id in it. 0 (or a spent collector) runs unchanged.
+		e.withMintSink(e.pendingMintSink, func() { e.resumeETBEntry(chosen) })
 		return
 	}
 	if e.choosing == chooseOppPick {
@@ -1341,28 +1317,6 @@ func (e *Engine) handleChoose(d *decision.Decision, in decision.Intent) {
 		// through resumeResolution would consume it as the resolution's ask
 		// answer.
 		e.answerOppPick(d, chosen)
-		return
-	}
-	// Every KChoose carrying a resume point is a mid-resolution effect ask,
-	// regardless of its ResumeKind (search, dig, imprint, untap selection,
-	// reveal-optional, defined-library-optional, ward windows, hand_move,
-	// sacrifice, roll, and future siblings). Dispatch by role rather than an
-	// allowlist: the asking effect already recorded the exact SA and answer
-	// interpretation in e.resume, while cast/cleanup flows never do (the
-	// kinds that bypass this check -- madness, optional triggers, their
-	// Cost$ windows -- are answered through KTriggerOptional and the
-	// chooseTriggeredCost/chooseCumulative arms, never KChoose). This is the
-	// structural guard against silently dropping the next KChoose-based
-	// primitive merely because its string was not added here. An empty chosen
-	// slice is the legitimate "fail to find" / Optional-decline answer (for
-	// "roll" a malformed empty answer falls back to the first die inside
-	// the effect).
-	if e.resume != nil {
-		rp := e.resume
-		// The name-answer binding lives in resumeResolution, the one home
-		// every resume-point consumer shares.
-		e.resume = nil
-		e.resumeResolution(rp, chosen)
 		return
 	}
 	if e.choosing == chooseTurnUp {

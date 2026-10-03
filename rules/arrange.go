@@ -65,23 +65,11 @@ import (
 // ask; it degrades with a Note rather than panicking, the same totality
 // stance every handler takes.
 func (e *Engine) handleArrange(d *decision.Decision, in decision.Intent) {
-	if ma, rp := e.takeOffStackManaRider(); ma != nil {
-		e.resume = rp
-		template := *ma
-		template.nestedResume = nil
-		asked := e.withOffStackMana(template, func() { e.handleArrange(d, in) })
-		e.finishOffStackManaRider(ma, asked)
-		return
-	}
-	if e.resume == nil {
-		e.emit(events.Event{Kind: events.Note, Player: in.Player,
-			Text: "arrange answered with no resolution suspended"})
-		return
-	}
-	rp := e.resume
-	e.resume = nil
-	arrangeAnswerRecord(e, d, in, rp.sa)
-	e.resumeResolution(rp, d.Chosen(in))
+	// Every KArrange is posed inside a tape run's resolution, whose answer the
+	// kernel serves (resolveBoard.Record -> arrangeAnswerRecord); one
+	// answered through Submit has no resolution behind it.
+	e.emit(events.Event{Kind: events.Note, Player: in.Player,
+		Text: "arrange answered with no resolution suspended"})
 }
 
 // arrangeAnswerRecord applies an answered KArrange (handleArrange's contract

@@ -613,9 +613,6 @@ func (e *Engine) askTarget(p state.PlayerID, source state.ObjID, sa *cards.SA) {
 func (e *Engine) handleTarget(d *decision.Decision, in decision.Intent) {
 	chosen := d.Chosen(in)
 	if d.ResumeKind == "copy_targets" {
-		if e.resume != nil {
-			e.resumeResolution(e.resume, chosen)
-		}
 		return
 	}
 	if d.ResumeKind == "charm_targets" {

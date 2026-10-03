@@ -225,7 +225,7 @@ func (e *Engine) askMadnessReplacement(owner state.PlayerID) {
 	// effects.Resolve loops record their continuation, and the last madness
 	// answer resumes it (handleMadnessReplacement). A pose already under a
 	// resume record, or with nothing resolving, keeps the plain ask.
-	if e.resume == nil && e.pending == nil && (e.resolvingObj != 0 || e.applyingReplacement) {
+	if e.pending == nil && (e.resolvingObj != 0 || e.applyingReplacement) {
 		d.ResumeKind = "replacement"
 		// Under the resolution kernel the election is answered in place (W3
 		// step 5): the discard moves, to exile or the graveyard, at the point
@@ -234,9 +234,6 @@ func (e *Engine) askMadnessReplacement(owner state.PlayerID) {
 			e.handle(d, in)
 			return
 		}
-		e.Ask(d)
-		e.madnessSuspended = e.resume != nil
-		return
 	}
 	e.ask(d)
 }
@@ -256,15 +253,6 @@ func (e *Engine) handleMadnessReplacement(d *decision.Decision, in decision.Inte
 	e.emit(ev)
 	e.applyingMadnessChoice = false
 	e.askNextReplacementChoice()
-	// The last madness answer of a queue whose first ask suspended a
-	// resolution resumes it (askMadnessReplacement). While more choices are
-	// outstanding the frame stays parked on e.resume.
-	if e.madnessSuspended && e.pending == nil && len(e.madnessChoices) == 0 && len(e.replChoices) == 0 {
-		e.madnessSuspended = false
-		// The token election's answer tail is the same settle: resume the
-		// frame still parked on e.resume once nothing else is outstanding.
-		e.settleTokenElection(e.resume)
-	}
 }
 
 // offerMadness queues the triggered ability created by accepting madness's

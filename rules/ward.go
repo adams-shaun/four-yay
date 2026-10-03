@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/adams-shaun/gorge/rules/resolve"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
@@ -54,12 +56,7 @@ func (e *Engine) beginWardPayment(rp *resumePoint, ctx *effects.Ctx) (paid, aske
 		if len(d.Options) == 0 {
 			return false, false
 		}
-		if in, ok := e.wardTapeAnswer(d, ctx); ok {
-			return e.settleWardPayment("ward_alt", rp.sa, ctx, d.Chosen(in)), false
-		}
-		e.Ask(d)
-		e.resume.outer = rp.outer
-		return false, true
+		return e.settleWardPayment("ward_alt", rp.sa, ctx, d.Chosen(tapeServe(e, d))), false
 	}
 
 	if m := wardSpecialCost.FindStringSubmatch(raw); m != nil {
@@ -190,23 +187,8 @@ func (e *Engine) askWardObjects(rp *resumePoint, ctx *effects.Ctx, payer state.P
 		}
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: kind, Obj: id, Label: label})
 	}
-	if in, ok := e.wardTapeAnswer(d, ctx); ok {
-		// A tape-served Ward election settles in line: the pick is the
-		// payment (the legacy "ward_*" resume arm's settleWardPayment).
-		return e.settleWardPayment(kind, rp.sa, ctx, d.Chosen(in)), false
-	}
-	e.Ask(d)
-	e.resume.outer = rp.outer
-	return false, true
-}
-
-// wardTapeAnswer serves a Ward payment ask from the tape inside a tape run's
-// Ward election (wardAnswerSettle).
-func (e *Engine) wardTapeAnswer(d *decision.Decision, ctx *effects.Ctx) (decision.Intent, bool) {
-	if !e.tape.InRun() || e.resolutionCtx != ctx {
-		return decision.Intent{}, false
-	}
-	return e.TapeAnswer(d)
+	// A tape-served Ward election settles in line: the pick is the payment.
+	return e.settleWardPayment(kind, rp.sa, ctx, d.Chosen(tapeServe(e, d))), false
 }
 
 func (e *Engine) wardPayer(ctx *effects.Ctx) (state.PlayerID, bool) {
@@ -407,25 +389,12 @@ type wardManaPayment struct {
 // writing e.resume itself.
 func (e *Engine) askWardMana(rp *resumePoint, wm *wardManaPayment) {
 	wm.obj, wm.sa = rp.obj, rp.sa
-	if e.tape.InRun() && e.resolutionCtx != nil {
-		// Only a tape-served Ward election reaches here inside a tape run
-		// (wardAnswerSettle): the window runs in line and settles the live
-		// Ctx; the caller's "asked" leaves that settlement alone.
-		tapeManaWindow(e, e.resolutionCtx, wm)
-		return
+	if !e.tape.InRun() || e.resolutionCtx == nil {
+		panic(resolve.Divergence{Msg: "a mana window outside a tape run's resolution"})
 	}
-	wm.outer, wm.replacement, wm.replaced, wm.before = rp.outer, rp.replacement, rp.replaced, rp.before
-	e.wardMana = wm
-	d := wardManaDecision(e, wm)
-	e.Ask(d)
-	// Ask sees the correct stack object but this payment window began while a
-	// prior frame was resuming, so preserve that frame's continuation and
-	// replacement snapshot explicitly.
-	e.resume.outer = wm.outer
-	e.resume.replacement = wm.replacement
-	e.resume.replaced = wm.replaced
-	e.resume.before = wm.before
-	e.resume.target = wm.target
+	// The window runs in line and settles the live Ctx; the caller's "asked"
+	// leaves that settlement alone.
+	tapeManaWindow(e, e.resolutionCtx, wm)
 }
 
 // wardManaDecision is the mana window's decision for wm (its obj and sa

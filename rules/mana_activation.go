@@ -155,7 +155,6 @@ type manaColorActivation struct {
 type offStackManaFrame struct {
 	act             manaColorActivation
 	asked           bool
-	baseResume      *resumePoint
 	baseUnless      bool
 	baseCumulative  bool
 	baseTriggerCost bool
@@ -175,7 +174,7 @@ func (e *Engine) withOffStackMana(act manaColorActivation, run func()) bool {
 		f = new(offStackManaFrame)
 	}
 	e.offStackDepth++
-	*f = offStackManaFrame{act: act, baseResume: e.resume, baseUnless: e.unlessPayment != nil,
+	*f = offStackManaFrame{act: act, baseUnless: e.unlessPayment != nil,
 		baseCumulative: e.cumulative != nil, baseTriggerCost: e.triggerCost != nil}
 	e.offStackMana = f
 	// A mana ability's own chain is not a contChain-draining pass: an ask it
@@ -247,7 +246,7 @@ func (e *Engine) takeOffStackManaRider() (*manaColorActivation, *resumePoint) {
 // finishOffStackManaRider drains the remainder of a mana activation after its
 // ordinary decision handler has re-entered the parked rider.
 func (e *Engine) finishOffStackManaRider(ma *manaColorActivation, asked bool) {
-	if !asked && e.pending == nil && e.resume == nil {
+	if !asked && e.pending == nil {
 		e.resolveTriggeredManaAbilities(ma.triggers, ma.cast, ma.cumulative)
 		e.continueManaPaymentWindow(ma.cumulative)
 	}
@@ -255,7 +254,7 @@ func (e *Engine) finishOffStackManaRider(ma *manaColorActivation, asked bool) {
 
 // offStackSuspended is Suspended() inside an offStackManaFrame.
 func (f *offStackManaFrame) suspended(e *Engine) bool {
-	return f.asked || (e.resume != nil && e.resume != f.baseResume) ||
+	return f.asked ||
 		(e.unlessPayment != nil && !f.baseUnless) ||
 		(e.cumulative != nil && !f.baseCumulative) ||
 		(e.triggerCost != nil && !f.baseTriggerCost)
@@ -3104,7 +3103,7 @@ func (e *Engine) answerManaColor(chosen []decision.Option) bool {
 		if asked {
 			return ma.cast
 		}
-		if e.pending == nil && e.resume == nil {
+		if e.pending == nil {
 			e.resolveTriggeredManaAbilities(ma.triggers, ma.cast, ma.cumulative)
 			e.continueManaPaymentWindow(ma.cumulative)
 		}

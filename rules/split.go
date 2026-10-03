@@ -277,30 +277,6 @@ func (e *Engine) runFusedHalves(o *state.Object, halves []*cards.Face, sas []*ca
 		effects.Resolve(e, ctx, sa)
 		e.contChainOwners--
 		e.damaging = 0
-		if e.resume != nil {
-			// Suspended mid-half: the resumed frame completes this half through
-			// the ordinary continuation chain, and any halves still to run
-			// follow it as a fuse-rest continuation carrying their own
-			// CR 608.2b-filtered target slices. A suspension on the LAST half
-			// chains no fuse-rest frame -- there is nothing left to run, and the
-			// generic completion it falls back to is byte-identical: the asking
-			// frame's own fusedTargets binding (resumeResolution) already
-			// supplies the half's targets and suppresses the spurious
-			// ValidTgts$ re-ask an empty tail was originally added to cover.
-			// `outer` is the continuation the frame whose halves were running was
-			// itself carrying.
-			tail := outer
-			if i+1 < len(halves) {
-				rest := &resumePoint{obj: o.ID,
-					fuseAlt: &fusedRest{from: i + 1, halves: halves, sas: sas, targets: legalByHalf}}
-				rest.outer = outer
-				tail = rest
-			}
-			cont := e.buildContinuationChain(e.contChain, o.ID, tail)
-			e.contChain = e.contChain[:0]
-			e.fusedResolving, e.fusedResolvingSet, e.fusedResolvingSVars = savedFused, savedFusedSet, savedSVars
-			return cont, true
-		}
 		e.contChain = e.contChain[:0]
 		e.fusedResolving, e.fusedResolvingSet, e.fusedResolvingSVars = savedFused, savedFusedSet, savedSVars
 	}

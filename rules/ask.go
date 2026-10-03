@@ -28,7 +28,7 @@ func (e *Engine) ask(d *decision.Decision) {
 		if tapeCastAsk(e, d) {
 			return
 		}
-		if e.hostAsking == 0 && e.resume == nil && e.cast == nil && !e.Suspended() && e.offStackMana == nil {
+		if e.hostAsking == 0 && e.cast == nil && !e.Suspended() && e.offStackMana == nil {
 			// An engine flow's own decision, posed with no resolution
 			// continuation behind it (the next priority, a combat damage
 			// division, a CR 616.1 order from the turn structure): the
@@ -101,10 +101,6 @@ func (e *Engine) ask(d *decision.Decision) {
 	// and an emit that poses an ask is then the probe's intent -- the
 	// priority ask it displaces is re-granted by the same Submit tail. That
 	// displacement is engine-unreachable and probe-owned.
-	if e.resume != nil && e.pending != nil {
-		panic(fmt.Sprintf("rules: ask overwrote a suspended resolution's pending decision (%s, seat %d) with %s for seat %d",
-			e.pending.Kind, e.pending.Player, d.Kind, d.Player))
-	}
 	if effects.OnlyEmptyAnswer(d) {
 		panic(fmt.Sprintf("rules: decision %s for seat %d posed with only the empty answer legal (Min %d Max %d, %d options) -- asking primitives must resolve this shape silently (effects.Ask), never post it",
 			d.Kind, d.Player, d.Min, d.Max, len(d.Options)))

@@ -51,7 +51,7 @@ func (e *Engine) SuspendTokenRest(sa *cards.SA, rest effects.TokenRest) bool {
 	from := e.mintParkFrom - 1
 	election := e.mintParkElection
 	e.mintParkFrom, e.mintParkElection = 0, false
-	if from < 0 || e.resume == nil || from > len(e.replChoices) {
+	if from < 0 || from > len(e.replChoices) {
 		return false
 	}
 	e.mintSinkSeq++
@@ -59,7 +59,7 @@ func (e *Engine) SuspendTokenRest(sa *cards.SA, rest effects.TokenRest) bool {
 	// A fresh election is the one this park posed: its suspension record is
 	// the resume frame the park created.
 	var choice *tokenChoiceState
-	if tc := e.tokenChoice; tc != nil && tc.mintSink == 0 && tc.parkedResume == e.resume {
+	if tc := e.tokenChoice; tc != nil && tc.mintSink == 0 && tc.parkedResume == nil {
 		choice = tc
 	}
 	tagged := e.tagMintContinuations(id, from, choice)

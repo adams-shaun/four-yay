@@ -451,24 +451,10 @@ func (e *Engine) resolveTop() {
 		// (e.resume != nil) is left to the resumed pass, which reaches this
 		// same tail again. The counter read is the body's own P1P1 kind
 		// (cards/kw_evolve.go's CounterType$ P1P1).
-		if evolveWatch && e.resume == nil {
+		if evolveWatch {
 			if src := e.G.Obj(o.Source); src != nil && src.Counter("P1P1") > evolveCountersBefore {
 				e.emit(events.Event{Kind: events.Evolved, Obj: o.Source, Player: o.Controller})
 			}
-		}
-		if e.resume != nil {
-			// A placement-announced modal ability can reach a nested ask during
-			// this initial pass. Preserve every enclosing continuation exactly as
-			// resumeResolution does for a nested ask reached on re-entry.
-			e.resume.outer = e.buildContinuationChain(e.contChain, id, nil)
-			e.contChain = e.contChain[:0]
-			// A mid-resolution ask (M2d-2): the effect that asked has set a
-			// decision pending and recorded a resume point. The object stays
-			// on the stack waiting for the answer -- entering the exile exit
-			// below would discard it mid-resolution. The answered decision
-			// re-enters the suspended effect through resumeResolution
-			// (rules/resolution.go), which runs the rest of this same tail.
-			return
 		}
 		e.contChain = e.contChain[:0]
 		e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: state.ZStack, To: state.ZExile})
@@ -521,9 +507,7 @@ func (e *Engine) resolveTop() {
 		// continuation (the rest of that half plus a fuse-rest frame for any
 		// unrun half); link it onto the ask's fresh resume point here, the
 		// resolution machinery's own write (ruling T21-e).
-		if cont, suspended := e.resolveFused(o); suspended && e.resume != nil {
-			e.resume.outer = cont
-		}
+		e.resolveFused(o)
 		return
 	}
 	targets := o.Targets
@@ -697,18 +681,6 @@ func (e *Engine) resolveTop() {
 		e.damaging = 0
 		if e.endTurnRequested {
 			e.finishEndTurn()
-			return
-		}
-		if e.resume != nil {
-			// The cast-announced outer mode may itself contain an asking effect.
-			// This is an initial resolution pass rather than a resume re-entry,
-			// but its enclosing SubAbility continuations have the same lifetime.
-			e.resume.outer = e.buildContinuationChain(e.contChain, id, nil)
-			e.contChain = e.contChain[:0]
-			// A mid-resolution ask (M2d-2): same as the ability branch above
-			// — the resolution is suspended with the object still on the
-			// stack, and the answered decision re-enters it through
-			// resumeResolution instead of this tail.
 			return
 		}
 		e.contChain = e.contChain[:0]

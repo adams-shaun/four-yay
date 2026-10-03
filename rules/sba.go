@@ -1495,19 +1495,5 @@ func (e *Engine) releasePendingDecisionOfDepartedPlayer() {
 	}
 	e.pending = nil
 	e.dropDepartedFlow(d)
-	if e.resume != nil {
-		// CR 800.4f: the departed player does not make the outstanding
-		// choice. Resume with an empty answer so the asking instruction gets
-		// no selection (or no payment) and the rest of the effect chain still
-		// runs. Clearing only resume would leave the half-resolved object on
-		// the stack, where a later resolution could replay its completed
-		// prefix; moving the object off the stack here would instead discard
-		// any suffix after the unanswered instruction. resumeResolution runs
-		// the remaining instructions and then performs CR 608.2n's ordinary
-		// completion tail.
-		rp := e.resume
-		e.resume = nil
-		e.resumeResolution(rp, nil)
-	}
 	e.resumeTriggerDrain()
 }

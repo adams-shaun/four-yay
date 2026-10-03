@@ -98,7 +98,7 @@ func (e *Engine) landEntryParked(id state.ObjID) bool {
 			return true
 		}
 	}
-	return e.resume != nil
+	return false
 }
 
 // settleLandPlayIfDone is the terminal-path settle: called wherever a land

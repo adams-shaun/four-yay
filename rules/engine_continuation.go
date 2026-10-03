@@ -46,21 +46,6 @@ type engineContinuation struct {
 	// the restriction against exactly the seat that answered. Clone copies it.
 	tpCtlChooser map[state.ObjID]tpCtlAnswer `clone:"deep"`
 
-	// resume is non-nil while a mid-resolution decision is pending: an effect
-	// (a nested effCharm pick, effCopySpellAbility's UnlessCost$ may-pay,
-	// effDiscard's mode choices — M2d-2) asked through effects.Host.Ask and
-	// the resolution of the top-of-stack object is suspended with the object
-	// still on the stack. It chains every suspended continuation, innermost
-	// first, via resumePoint.outer (fx34): a nested ask no longer overwrites
-	// its enclosing continuation, so the outer chain runs once everything
-	// inside it resolves. It is plain value/pointer data (kind, obj, the
-	// shared-immutable *cards.SA and the linked outer chain), never a
-	// closure, so Clone copies it like cast/choosing and a replay re-derives
-	// the same branch. resolveTop checks it after each resolution pass;
-	// handleModes clears it and calls resumeResolution (rules/resolution.go)
-	// with the recorded answer. Nil whenever no resolution is suspended.
-	resume *resumePoint `clone:"deep"`
-
 	// contChain accumulates the enclosing-loop suspension points reported by
 	// effects.Resolve during the current resumeResolution re-entry (through
 	// effects.Host.SuspendContinuation), so resumeResolution can link them as

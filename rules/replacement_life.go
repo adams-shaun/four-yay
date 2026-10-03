@@ -317,10 +317,6 @@ func (e *Engine) applyLifeReplacement(ev events.Event, m replMatch) (events.Even
 func (e *Engine) lifeReplacementDraw(p state.PlayerID, n int32) {
 	for i := int32(0); i < n; i++ {
 		effects.DrawFor(e, p)
-		if e.Suspended() {
-			e.resume.lifeDraws = n - (i + 1)
-			return
-		}
 	}
 }
 

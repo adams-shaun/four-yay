@@ -35,29 +35,10 @@ func (e *Engine) EmitTokenCreate(ev events.Event) []state.ObjID {
 	e.tokenMintSink = &ids
 	savedID := e.tokenMintSinkID
 	e.tokenMintSinkID = 0 // the local buffer is never a named collector
-	electionsBefore := [4]bool{e.etbMove != nil, e.riotMove != nil, e.unleashMove != nil, e.siegeMove != nil}
-	queued, resumeBefore, choiceBefore := len(e.replChoices), e.resume, e.tokenChoice
 	e.mintParkFrom = 0
 	e.mintParkElection = false
 	e.emit(ev)
 	e.tokenMintSink, e.tokenMintSinkID = saved, savedID
-	if e.resume != nil && e.resume != resumeBefore &&
-		(len(e.replChoices) > queued || (e.tokenChoice != nil && e.tokenChoice != choiceBefore)) {
-		// The mint (or a later mint of its plan) parked this resolution
-		// behind a replacement-order ask or a CreateToken election: report
-		// it so the caller can record its continuation (SuspendTokenRest).
-		e.mintParkFrom = queued + 1
-	}
-	if e.resume != nil && e.resume != resumeBefore && e.etbElectionParked(electionsBefore) {
-		// The mint's own entry parked on an as-enters election (a Riot,
-		// Unleash, Siege or generic as-enter choice posed from inside the
-		// emit): the election is the continuation the collector rides, not a
-		// queued competition. Report it too, with the election marker
-		// SuspendTokenRest consumes (it tags the election through
-		// e.pendingMintSink instead of the queue).
-		e.mintParkFrom = queued + 1
-		e.mintParkElection = true
-	}
 	return ids
 }
 

@@ -394,17 +394,6 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 			c.deferredAsks[i] = cloneDecision(d)
 		}
 	}
-	if e.resume != nil {
-		// Plain value data (kind/obj plus a *cards.SA into the shared
-		// immutable corpus — the same pointer class every other field here
-		// shares), so one struct copy is a faithful clone (M2d-2). A clone
-		// made while a mid-resolution decision is pending sees the same
-		// suspended resolution the original does. The outer continuation
-		// chain (fx34) is a linked list of these same value frames, so it is
-		// deep-copied per-link to keep the clone independent of the
-		// original's list.
-		c.resume = remap.resume(e.resume)
-	}
 	c.controlGrants = append([]controlGrant(nil), e.controlGrants...)
 	// A parked ExchangeLife transaction (life_exchange.go): parked exactly
 	// when a side's life change suspended on a decision, so it is live at the

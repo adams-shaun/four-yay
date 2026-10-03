@@ -622,9 +622,6 @@ func (e *Engine) applySiegeProtector(ev events.Event) bool {
 // the moving effect keep running past the parked entry, while the kernel
 // answers it in place and the entry happens where the effect made it.
 func etbTapeAnswer(e *Engine, d *decision.Decision, obj state.ObjID) (decision.Intent, bool) {
-	if e.resume != nil {
-		return decision.Intent{}, false
-	}
 	n := len(e.G.Stack)
 	if n > 0 && e.G.Stack[n-1] == obj {
 		return e.TapeAnswer(d)

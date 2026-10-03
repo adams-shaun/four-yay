@@ -138,9 +138,6 @@ func (e *Engine) Scry(p state.PlayerID, source state.ObjID, count int32, sa *car
 	if !handled {
 		return count, true, false // no replacement matched
 	}
-	if e.pending != nil && len(e.replChoices) > 0 && e.replChoices[0].kind == replChoiceScry {
-		return 0, false, true // proposal parked; do not inspect the library
-	}
 	if ev.Kind != events.Scry {
 		return 0, false, false // replaced whole: nothing is looked at
 	}
@@ -181,23 +178,17 @@ func (e *Engine) continueScryReplacements(ev events.Event, matches []replMatch, 
 		if len(applicable) == 0 {
 			return ev, true
 		}
-		if len(applicable) > 1 && int(ev.Player) < len(e.G.Players) && !e.G.Players[ev.Player].Lost {
-			if sa == nil {
-				sa, target = e.scrySA, e.scryTarget
-			}
-			e.replChoices = append([]replChoice{{kind: replChoiceScry, ev: ev, cands: matches,
-				applied: used, applicable: applicable, before: e.retainTriggerBefore(), player: ev.Player}}, e.replChoices...)
-			if e.pending == nil {
-				d := e.scryReplacementDecision(e.replChoices[0], sa, target)
-				if e.resume == nil {
-					e.Ask(d)
-				} else {
-					e.ask(d)
-				}
-			}
-			return ev, true
-		}
 		i := applicable[0]
+		if len(applicable) > 1 && int(ev.Player) < len(e.G.Players) && !e.G.Players[ev.Player].Lost {
+			// CR 616.1: competing Scry replacements are ordered by the scrying
+			// player; the election is answered in place and the chosen one
+			// applies first.
+			rc := replChoice{kind: replChoiceScry, ev: ev, cands: matches, applicable: applicable, player: ev.Player}
+			d := e.scryReplacementDecision(rc, sa, target)
+			if chosen := d.Chosen(tapeServe(e, d)); len(chosen) == 1 && chosen[0].Index >= 0 && chosen[0].Index < len(applicable) {
+				i = applicable[chosen[0].Index]
+			}
+		}
 		used[i] = true
 		m := matches[i]
 		// CR 616.1e: the recheck uses the same matcher class the collection
