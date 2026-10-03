@@ -962,8 +962,7 @@ func manaExpendAmount(e Board, source state.ObjID, raw string, controller state.
 	if body, ok := svars[raw]; ok {
 		raw = body
 	}
-	ctx := effects.NewCtxPtr(source, controller, effects.CtxInit{SVars: svars})
-	return e.EvalCountOK(ctx, raw)
+	return e.EvalCount(source, controller, svars, raw)
 }
 
 // triggerCastAlt is one surviving ValidCard$ alternative of a Mode$

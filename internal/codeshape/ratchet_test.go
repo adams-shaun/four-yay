@@ -75,7 +75,7 @@ const (
 	// interface): 29 -> 28. W5 cleanup moved IsManaAbilityAPI into cards
 	// (a pure function of the API word): 28 -> 27. It then swapped the Host()
 	// escape hatch (the whole engine as an effects.Host) for the one narrow
-	// EvalCountOK the matchers needed: 27 -> 27.
+	// EvalCount the matchers needed: 27 -> 27.
 	trigmatchBoardMethods = 27
 )
 

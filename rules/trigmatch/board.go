@@ -15,7 +15,7 @@ import (
 // and Log hand out the live match state and event log for reading only --
 // the same contract as effects.HostRead.Game -- and a matcher must never
 // write through them. The board never hands out the whole engine as an
-// effects.Host: EvalCountOK is the one Host-taking effects evaluator a matcher
+// effects.Host: EvalCount is the one Host-taking effects evaluator a matcher
 // needs, run by the implementation against the engine, and the SVar-threshold
 // player filter takes it as its count evaluator
 // (effects.MatchesPlayerSpecWithCounts).
@@ -34,10 +34,10 @@ type Board interface {
 	// keeps beside the event being matched rather than on it (damage source,
 	// tapper, the declare-attackers batch, the life-loss batch).
 	Facts() Facts
-	// EvalCountOK is effects.EvalCountOK against the engine: a Count$/SVar
-	// amount expression evaluated in ctx, false when this engine cannot read
-	// it.
-	EvalCountOK(ctx *effects.Ctx, expr string) (int32, bool)
+	// EvalCount is effects.EvalCountOK against the engine, for a context
+	// anchored on source under controller with svars as its script table:
+	// false when this engine cannot read expr. It is an effects.CountEval.
+	EvalCount(source state.ObjID, controller state.PlayerID, svars map[string]string, expr string) (int32, bool)
 
 	// ControllerOf is the object's current controller (rules' controllerOf).
 	ControllerOf(id state.ObjID) state.PlayerID

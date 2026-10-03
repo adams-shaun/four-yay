@@ -700,21 +700,29 @@ func MatchesPlayerSpecWithSVars(h Host, c *Ctx, spec string, p, you state.Player
 	if h == nil || c == nil {
 		return false
 	}
-	return MatchesPlayerSpecWithCounts(h.Game(), func(c *Ctx, expr string) (int32, bool) {
-		return EvalCountOK(h, c, expr)
-	}, c, spec, p, you)
+	return matchesPlayerSpecSVars(h.Game(), h, nil, c, spec, p, you)
 }
 
-// MatchesPlayerSpecWithCounts is MatchesPlayerSpecWithSVars for a caller that
-// holds no effects.Host: eval is the Count$ evaluator a symbolic threshold's
-// SVar body is read through (effects.EvalCountOK's contract). rules/trigmatch
-// reaches it through trigmatch.Board, whose EvalCountOK method value serves as
-// eval. eval is only called, never retained, so a method value or closure
-// passed here stays on the caller's stack.
-func MatchesPlayerSpecWithCounts(g *state.Game, eval func(c *Ctx, expr string) (int32, bool), c *Ctx, spec string, p, you state.PlayerID) bool {
+// CountEval evaluates a Count$/SVar amount expression for source under
+// controller, with svars as the script table: effects.EvalCountOK's contract
+// for a caller that holds no effects.Host (rules/trigmatch passes its Board's
+// EvalCount). It takes the context's scalars rather than the *Ctx so a
+// caller-built Ctx never escapes through the dynamic call.
+type CountEval func(source state.ObjID, controller state.PlayerID, svars map[string]string, expr string) (int32, bool)
+
+// MatchesPlayerSpecWithCounts is MatchesPlayerSpecWithSVars with eval in place
+// of a Host's EvalCountOK for a symbolic threshold's SVar body.
+func MatchesPlayerSpecWithCounts(g *state.Game, eval CountEval, c *Ctx, spec string, p, you state.PlayerID) bool {
 	if g == nil || eval == nil || c == nil {
 		return false
 	}
+	return matchesPlayerSpecSVars(g, nil, eval, c, spec, p, you)
+}
+
+// matchesPlayerSpecSVars is the shared body: exactly one of h and eval is
+// set. The Host branch keeps a static EvalCountOK call so its *Ctx leaks
+// only its content, as before the split.
+func matchesPlayerSpecSVars(g *state.Game, h Host, eval CountEval, c *Ctx, spec string, p, you state.PlayerID) bool {
 	for alt := range strings.SplitSeq(spec, ",") {
 		clauses := strings.Split(strings.TrimSpace(alt), "+")
 		resolved := true
@@ -745,7 +753,12 @@ func MatchesPlayerSpecWithCounts(g *state.Game, eval func(c *Ctx, expr string) (
 				resolved = false
 				break
 			}
-			threshold, ok := eval(c, body)
+			var threshold int32
+			if h != nil {
+				threshold, ok = EvalCountOK(h, c, body)
+			} else {
+				threshold, ok = eval(c.Source, c.Controller, c.SVars, body)
+			}
 			if !ok {
 				resolved = false
 				break
