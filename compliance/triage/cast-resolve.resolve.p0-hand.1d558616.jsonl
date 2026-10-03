@@ -1,0 +1,2 @@
+{"shape":{"template":"cast-resolve","op":"resolve","field":"p0.hand","diff":"gorge+[] xmage+[Forest, Glorious Anthem, Grizzly Bears, Shock]"},"key":"cast-resolve | resolve | p0.hand | gorge+[] xmage+[Forest, Glorious Anthem, Grizzly Bears, Shock]","cards":1}
+{"card":"Intrude on the Mind","template":"cast-resolve","status":"diverge","api":"PeekAndReveal+TwoPiles","sets":["MKM"],"detail":"step 1 (resolve) p0.hand: gorge \"[Jace Beleren]\", xmage \"[Forest, Glorious Anthem, Grizzly Bears, Jace Beleren, Shock]\""}

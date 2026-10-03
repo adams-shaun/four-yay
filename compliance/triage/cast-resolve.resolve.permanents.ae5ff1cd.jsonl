@@ -1,0 +1,2 @@
+{"shape":{"template":"cast-resolve","op":"resolve","field":"permanents","diff":"Grizzly Bears gorge+[tapped] xmage+[]"},"key":"cast-resolve | resolve | permanents | Grizzly Bears gorge+[tapped] xmage+[]","cards":1}
+{"card":"Vibrant Outburst","template":"cast-resolve","status":"diverge","api":"DealDamage+Tap","sets":["SOS"],"detail":"step 1 (resolve) permanents: gorge \"c1 o1 Grizzly Bears [bear creature] {G} 2/2 tapped\", xmage \"c1 o1 Grizzly Bears [bear creature] {G} 2/2\""}

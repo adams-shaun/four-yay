@@ -1,0 +1,6 @@
+{"shape":{"template":"cast-resolve","op":"harness","field":"xmage","diff":"IllegalArgumentException: […] Couldn't find a card: $CARD"},"key":"cast-resolve | harness | xmage | IllegalArgumentException: […] Couldn't find a card: $CARD","cards":5}
+{"card":"Decorum Dissertation","template":"cast-resolve","status":"harness","api":"Draw+LoseLife","sets":["SOS"],"detail":"xmage: IllegalArgumentException: [TEST] Couldn't find a card: Decorum Dissertation"}
+{"card":"Echocasting Symposium","template":"cast-resolve","status":"harness","api":"Pump+CopyPermanent","sets":["SOS"],"detail":"xmage: IllegalArgumentException: [TEST] Couldn't find a card: Echocasting Symposium"}
+{"card":"Germination Practicum","template":"cast-resolve","status":"harness","api":"PutCounterAll","sets":["SOS"],"detail":"xmage: IllegalArgumentException: [TEST] Couldn't find a card: Germination Practicum"}
+{"card":"Improvisation Capstone","template":"cast-resolve","status":"harness","api":"DigUntil+Play+Cleanup","sets":["SOS"],"detail":"xmage: IllegalArgumentException: [TEST] Couldn't find a card: Improvisation Capstone"}
+{"card":"Restoration Seminar","template":"cast-resolve","status":"harness","api":"ChangeZone","sets":["SOS"],"detail":"xmage: IllegalArgumentException: [TEST] Couldn't find a card: Restoration Seminar"}

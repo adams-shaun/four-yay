@@ -185,7 +185,16 @@ func Check(reg *cards.Registry, root, set, level string) ([]Problem, error) {
 			bad(name, "no verdict for %s", it.ID)
 			continue
 		case r.Status != compliance.StatusAgree && r.Status != compliance.StatusXMageWrong:
-			bad(name, "verdict %s (%s): %s", r.Status, it.Template, r.Detail)
+			if r.RulingID != "" {
+				bad(name, "verdict %s (%s) [ruling %s]: %s", r.Status, it.Template, r.RulingID, r.Detail)
+			} else {
+				bad(name, "verdict %s (%s): %s", r.Status, it.Template, r.Detail)
+			}
+			continue
+		case r.RulingID != "" && r.Review == "pending":
+			// One automatic classification in ten waits for a human check
+			// before it counts (shape.Sampled).
+			bad(name, "automatic ruling %s sampled for review; check it, then oraclediff rule -card %q -confirm", r.RulingID, name)
 			continue
 		case r.ScenarioSHA != ItemSHA(it):
 			bad(name, "verdict is for an older scenario (%s); re-run the XMage pass", it.ID)

@@ -1,0 +1,2 @@
+{"shape":{"template":"cast-resolve","op":"resolve","field":"permanents","diff":"$CARD gorge+[4/3] xmage+[2/3]"},"key":"cast-resolve | resolve | permanents | $CARD gorge+[4/3] xmage+[2/3]","cards":1}
+{"card":"Bard's Company","template":"cast-resolve","status":"diverge","api":"ChangesZone:Recruit+Attacks:Recruit","sets":["HOB"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 Bard's Company [citizen creature human] {WU} 4/3\", xmage \"c0 o0 Bard's Company [citizen creature human] {WU} 2/3\""}

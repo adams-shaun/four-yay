@@ -18,7 +18,9 @@
 #                          into compliance/verdicts; the cache keeps XMage's
 #                          results, so a later pass replays nothing it has
 #                          already seen
-# then a summary (scripts/compliance-summary.py) and `oraclediff status` per set.
+# then oraclediff triage -apply (shape rulings, section 11.3 C2: rows a
+# compliance/rulings/<id>.json ruling matches are classified, the rest are
+# clustered by shape under compliance/triage/), a summary (scripts/compliance-summary.py) and `oraclediff status` per set.
 #
 # The pass runs under the heavy-job lock (scripts/heavy.sh heavy) unless it
 # already holds it (GORGE_BROKER_CLASS is set) or COMPLIANCE_PASS_LOCK=none.
@@ -94,6 +96,12 @@ for s in "$@"; do
 	echo "$s: $(head -1 "$d/plan.log")"
 done
 
+if [ "${COMPLIANCE_PASS_NO_WRITE:-}" != 1 ]; then
+	# Re-apply the shape rulings to every row and rewrite the clusters
+	# (compliance/triage/): what remains is one triage item per shape.
+	"$od" triage -apply >"$out/triage.txt" 2>&1 || rc=1
+	sed -n '1,/^open:/p' "$out/triage.txt"
+fi
 python3 scripts/compliance-summary.py "$out" "$@"
 for s in "$@"; do
 	"$od" status -set "$s" >"$out/$s/status.txt" 2>&1 || rc=1

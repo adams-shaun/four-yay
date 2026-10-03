@@ -33,6 +33,12 @@ type VerdictRow struct {
 	CanonSHA    string `json:"canon_sha,omitempty"` // gorge's canonical snapshots at agree/xmage_wrong
 	Detail      string `json:"detail,omitempty"`    // first difference or harness message
 	Ruling      string `json:"ruling,omitempty"`    // triage note: who is wrong and why (CR cite)
+	// RulingID names the compliance/rulings/<id>.json shape ruling that
+	// classified this row automatically; empty for a hand ruling.
+	RulingID string `json:"ruling_id,omitempty"`
+	// Review is "pending" on an automatic classification sampled for a
+	// human check (one in ten) until someone confirms it ("confirmed").
+	Review string `json:"review,omitempty"`
 }
 
 // VerdictDir is the committed verdict directory, relative to the repo root.
@@ -113,6 +119,27 @@ func MergeVerdicts(dir string, rows []VerdictRow) error {
 		}
 		all[r.Card][r.Template] = r
 	}
+	return writeVerdicts(dir, all)
+}
+
+// ReplaceVerdicts writes rows into dir, replacing any row with the same
+// card and template unconditionally (a re-triage, where MergeVerdicts'
+// keep-the-triaged-row policy would undo the change).
+func ReplaceVerdicts(dir string, rows []VerdictRow) error {
+	all, err := LoadVerdicts(dir)
+	if err != nil {
+		return err
+	}
+	for _, r := range rows {
+		if all[r.Card] == nil {
+			all[r.Card] = map[string]VerdictRow{}
+		}
+		all[r.Card][r.Template] = r
+	}
+	return writeVerdicts(dir, all)
+}
+
+func writeVerdicts(dir string, all map[string]map[string]VerdictRow) error {
 	shards := map[string][]VerdictRow{}
 	for card, byT := range all {
 		for _, r := range byT {

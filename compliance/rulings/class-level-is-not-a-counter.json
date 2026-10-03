@@ -1,0 +1,12 @@
+{
+  "id": "class-level-is-not-a-counter",
+  "status": "gorge_wrong",
+  "match": {
+    "field": "permanents",
+    "diff": "$CARD gorge+[counters=LEVEL=*] xmage+[]"
+  },
+  "ruling": "gorge models a Class's level as LEVEL counters; a Class's level is a designation, not a counter, and a Class with no level-up is level 1",
+  "cr": ["716.2b", "716.2d", "716.4"],
+  "ticket": "wt/std-perm (Standard class-cluster triage; in flight 2026-10-03)",
+  "source": "Standard class cluster (15 cards), triaged in wt/std-perm"
+}

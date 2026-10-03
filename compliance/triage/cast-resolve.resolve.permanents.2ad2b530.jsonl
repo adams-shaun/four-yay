@@ -1,0 +1,2 @@
+{"shape":{"template":"cast-resolve","op":"resolve","field":"permanents","diff":"Grizzly Bears gorge+[5/5] xmage+[2/2]"},"key":"cast-resolve | resolve | permanents | Grizzly Bears gorge+[5/5] xmage+[2/2]","cards":1}
+{"card":"Karai's Technique","template":"cast-resolve","status":"diverge","api":"Charm","sets":["TMT"],"detail":"step 1 (resolve) permanents: gorge \"c1 o1 Grizzly Bears [bear creature] {G} 5/5\", xmage \"c1 o1 Grizzly Bears [bear creature] {G} 2/2\""}
