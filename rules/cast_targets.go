@@ -417,6 +417,11 @@ func (e *Engine) targetAsk() bool {
 	// busts the cap stays offered: the wire contract rejects the combination.
 	candidates, powerCap, powerCapped := e.totalPowerCappedCandidates(candidates, pc.player, pc.card, sa, pc.x)
 	candidates, cmcCap, cmcCapped := e.totalCMCCappedCandidates(candidates, pc.player, pc.card, sa, pc.x)
+	// CR 601.2c/733.1: a root target whose choice leaves a later
+	// TargetUnique$ chain link ("another target creature") no distinct legal
+	// target can only end in the reversal; withhold it like an unaffordable
+	// one (uniqueChainViableCandidates).
+	candidates = uniqueChainViableCandidates(e, pc, castSubAskLinks(e, pc, sa), 0, nil, min, candidates)
 	// Forge's per-controller selection shapes (TargetsForEachPlayer$ one per
 	// player; TargetsWithDifferentControllers$ one per controller): the same
 	// bounds/group/capacity read the trigger-path askTarget uses, so a OneEach
@@ -762,13 +767,7 @@ func (e *Engine) subTargetAsk(pc *pendingCast) bool {
 		//     chain is a target at all.
 		//   - a link the census cannot judge yet (castSubPreAskable), which
 		//     also keeps its mid-resolution ask.
-		if pc.mode != "fuse" && pc.mode != "overloaded" {
-			for _, sub := range e.collectSubTargetPreAsks(root) {
-				if e.castSubPreAskable(pc, sub) {
-					pc.subAsks = append(pc.subAsks, sub)
-				}
-			}
-		}
+		pc.subAsks = castSubAskLinks(e, pc, root)
 		pc.subAns = make([][]state.Target, len(pc.subAsks))
 	}
 	for pc.subStage < len(pc.subAsks) {
@@ -803,6 +802,10 @@ func (e *Engine) subTargetAsk(pc *pendingCast) bool {
 				}
 			}
 			candidates = filtered
+			// A later unique link must avoid this answer too: withhold a
+			// candidate that leaves it nothing (uniqueChainViableCandidates).
+			subMin, _ := e.resolvedTargetBounds(pc.player, pc.card, sub, pc.x)
+			candidates = uniqueChainViableCandidates(e, pc, pc.subAsks, pc.subStage+1, chosen, subMin, candidates)
 		}
 		min, max := e.resolvedTargetBounds(pc.player, pc.card, sub, pc.x)
 		if min > 0 && len(candidates) < min {
