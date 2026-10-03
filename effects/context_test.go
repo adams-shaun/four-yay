@@ -110,9 +110,10 @@ type fakeHost struct {
 	// flipRests records every SuspendFlipRest call, so the effects-level
 	// FlipUntilYouLose$ resume test can assert the loop cursor was reported
 	// rather than the loop being abandoned.
-	flipRests            []FlipRest
-	repeatOptionalNext   int32
-	repeatOptionalCalled bool
+	flipRests        []FlipRest
+	repeatBodyNext   int32
+	repeatBodyCount  int32
+	repeatBodyCalled bool
 	// repeatSuspensions records every SuspendRepeat call, so the effects-level
 	// RepeatEach RepeatOptionalForEachPlayer$ test can assert the per-subject
 	// election parked the loop cursor with Election set and the offered index.
@@ -594,10 +595,12 @@ func (h *fakeHost) EmitDamage(e events.Event) events.Event {
 }
 func (h *fakeHost) CounterAllowed(state.ObjID, state.ObjID) bool { return true }
 
-// SuspendRepeatOptional is a no-op for the same reason as SuspendContinuation.
-func (h *fakeHost) SuspendRepeatOptional(_ *cards.SA, next int32) {
-	h.repeatOptionalCalled = true
-	h.repeatOptionalNext = next
+// SuspendRepeatBody records the cursor and count the Repeat reported; it is
+// otherwise inert for the same reason as SuspendContinuation.
+func (h *fakeHost) SuspendRepeatBody(_ *cards.SA, next, count int32) {
+	h.repeatBodyCalled = true
+	h.repeatBodyNext = next
+	h.repeatBodyCount = count
 }
 
 // SuspendRepeat records the loop cursor the RepeatEach reported (the
