@@ -165,9 +165,8 @@ func askFixedVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams, choices []string
 			picks = append(picks, pick)
 			continue
 		}
-		if Ask(h, d) == AskAsked {
-			return nil, false
-		}
+		_ = Ask(h, d)
+
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "vote resolved as the first ballot entry (no engine host to ask)"})
 		picks = append(picks, state.Target{Obj: 1})
 	}
@@ -253,9 +252,8 @@ func askCardVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams, options []state.O
 			picks = append(picks, pick)
 			continue
 		}
-		if Ask(h, d) == AskAsked {
-			return nil, false
-		}
+		_ = Ask(h, d)
+
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "card vote resolved as the first ballot entry (no engine host to ask)"})
 		picks = append(picks, state.Target{Obj: options[0]})
 	}

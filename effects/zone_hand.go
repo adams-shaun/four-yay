@@ -558,9 +558,10 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to s
 					if !tapeAnswerYes(ans) {
 						continue
 					}
-				} else if Ask(h, cd) == AskAsked {
-					return
+				} else {
+					_ = Ask(h, cd)
 				}
+
 				// R-9: no host to ask -- play "may" as "do" deterministically,
 				// the same fallback moveDefinedLibraryObjects applies.
 			} else if i == confirmTarget && !confirmYes {

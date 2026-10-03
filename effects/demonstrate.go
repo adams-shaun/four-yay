@@ -116,15 +116,16 @@ func effDemonstrate(h Host, c *Ctx, sa *cards.SA) {
 			if len(ans) == 0 || ans[0].Kind != "yes" {
 				return
 			}
-		} else if Ask(h, d) == AskAsked {
-			return
 		} else {
+			_ = Ask(h, d)
+
 			// No host to ask (the R-9 fuzz/test contract): the deterministic
 			// decline -- a may-copy the engine cannot ask is never copied.
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 				Text: "demonstrate copy resolved as the decline (no engine host to ask)"})
 			return
 		}
+
 	}
 
 	// The opponent choice: "choose an opponent to also copy it". The
@@ -169,9 +170,8 @@ func effDemonstrate(h Host, c *Ctx, sa *cards.SA) {
 		demonstrateCopies(h, spell, c.Controller, demonstratePlayer(picked))
 		return
 	}
-	if Ask(h, d) == AskAsked {
-		return
-	}
+	_ = Ask(h, d)
+
 	h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 		Text: "demonstrate opponent resolved as the first opponent (no engine host to ask)"})
 	h.Emit(events.Event{Kind: events.StackCopy, Obj: spell, Player: c.Controller})

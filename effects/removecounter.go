@@ -282,9 +282,8 @@ func removeCounterChoose(h Host, c *Ctx, sa *cards.SA, rp *RemoveCounterParams, 
 		removeCounterPickApply(h, c, rp, zone, kind, numText(h, c, rp.CounterNum, 1), counterAnswerObjs(ans))
 		return
 	}
-	if Ask(h, d) == AskAsked {
-		return // resolution suspended; the answer re-enters with Ctx.CounterPick set.
-	}
+	_ = Ask(h, d)
+
 	fallback()
 }
 

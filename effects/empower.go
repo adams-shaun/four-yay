@@ -193,9 +193,8 @@ func empowerPlace(h Host, c *Ctx, sa *cards.SA, typ string, n int32, minted, ans
 			empowerPlaceAnswered(h, c, n, counterAnswerObjs(ans))
 			return
 		}
-		if Ask(h, d) == AskAsked {
-			return // suspended; the answer re-enters with Ctx.CounterPick set.
-		}
+		_ = Ask(h, d)
+
 	}
 	h.Emit(events.Event{Kind: events.CounterChange, Obj: cands[0], Counter: "LOYALTY", Amount: n})
 }

@@ -88,15 +88,16 @@ func effPump(h Host, c *Ctx, sa *cards.SA) {
 						chosenKW = append(chosenKW, choices[o.Index])
 					}
 				}
-			} else if Ask(h, d) == AskAsked {
-				return
 			} else {
+				_ = Ask(h, d)
+
 				// No engine host (R-9): the deterministic first candidate, with
 				// the Note that records why the richer path did not run.
 				h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 					Text: "chose its first keyword (no engine host to ask)"})
 				chosenKW = choices[:1]
 			}
+
 		}
 	}
 	zone := p.PumpZone

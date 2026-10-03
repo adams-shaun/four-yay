@@ -153,17 +153,13 @@ func effDealDamage(h Host, c *Ctx, sa *cards.SA) {
 					// unresolvable DamageSource$ re-emits its Note there).
 					split = damageSplitAnswer(ans)
 					rider = newDamageRider(h, c, dp.DamageSource, n)
-				} else if Ask(h, d) == AskAsked {
-					// Suspended: rules' "damage_split" resume arm fills
-					// Ctx.DamageSplit from the answered multiset and re-enters
-					// this SA, which then emits with the player's shares. The
-					// damage batch is not open yet, so the suspension leaves
-					// nothing half-emitted.
-					return
 				} else {
+					_ = Ask(h, d)
+
 					// No host (R-9): the deterministic round-robin stand-in.
 					split = roundRobinSplit(len(divTargets), total)
 				}
+
 			} else if len(divTargets) == 1 && total > 0 {
 				// The sole target must receive the whole total: filling the
 				// split directly keeps the positional emission loop below

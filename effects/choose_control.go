@@ -684,9 +684,8 @@ func effChooseCard(h Host, c *Ctx, sa *cards.SA) {
 			minBase, maxBase = choiceBounds(h, c, sa, true)
 			continue
 		}
-		if Ask(h, d) == AskAsked {
-			return
-		}
+		_ = Ask(h, d)
+
 		recorded := choices[:min]
 		if hasBudget {
 			recorded = greedy
@@ -835,9 +834,8 @@ func effChooseSource(h Host, c *Ctx, sa *cards.SA) {
 			minBase, maxBase = choiceBounds(h, c, sa, false)
 			continue
 		}
-		if Ask(h, d) == AskAsked {
-			return
-		}
+		_ = Ask(h, d)
+
 		choiceRecord(h, c, sa, choices[:min], false)
 	}
 }
@@ -947,9 +945,8 @@ func effChoosePlayer(h Host, c *Ctx, sa *cards.SA) {
 			minBase, maxBase = choiceBounds(h, c, sa, false)
 			continue
 		}
-		if Ask(h, d) == AskAsked {
-			return
-		}
+		_ = Ask(h, d)
+
 		choiceRecord(h, c, sa, choices[:min], true)
 	}
 	// Forge's ChoosePlayerEffect then runs one of the two chained riders: a
@@ -1194,10 +1191,10 @@ func effGainControl(h Host, c *Ctx, sa *cards.SA) {
 			}
 			ans, ok := AskTape(h, d)
 			if !ok {
-				if Ask(h, d) != AskAsked {
-					h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "GainControl Choices$ requires a player choice"})
-					return
-				}
+				_ = Ask(h, d)
+				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "GainControl Choices$ requires a player choice"})
+				return
+
 				return
 			}
 			// The resolution kernel's answer in hand: the "choice"
@@ -1553,9 +1550,8 @@ func gainControlVariantAskLoop(h Host, c *Ctx, sa *cards.SA, base ControlGrant,
 			picks = append(picks[:len(picks):len(picks)], pick)
 			continue
 		}
-		if Ask(h, d) == AskAsked {
-			return
-		}
+		_ = Ask(h, d)
+
 		picks = append(picks, state.Target{Obj: pool[0]})
 		c.Chosen = picks
 	}
@@ -1795,13 +1791,8 @@ func effChangeTargets(h Host, c *Ctx, sa *cards.SA) {
 		changeTargetsApply(h, sa, target, ChoiceAnswerTargets(ans))
 		return
 	}
-	if Ask(h, d) == AskAsked {
-		return
-	}
-	// A no-ask host (or a redirect with no legal new target) takes the
-	// conservative Optional answer: no target changes. It must not leave
-	// ChoiceDone set, which a later choice in the same chain would read as
-	// its own answer.
+	_ = Ask(h, d)
+
 }
 
 // changeTargetsApply records an answered ChangeTargets redirect: the chosen
@@ -2231,9 +2222,9 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 // the loop continues. RepeatOptionalMessage$ is the prompt when the line
 // carries one.
 func poseRepeatEachElection(h Host, c *Ctx, sa *cards.SA, subj state.Target, idx int, subjects []state.Target, msg string) bool {
-	if Ask(h, repeatEachElectionDecision(h, c, sa, subj, idx, msg)) != AskAsked {
-		return false
-	}
+	_ = Ask(h, repeatEachElectionDecision(h, c, sa, subj, idx, msg))
+	return false
+
 	// The loop cursor rides the existing RepeatEach suspension so the subjects
 	// captured when the loop started (never re-derived mid-flight) and the
 	// loop's own accumulated bindings survive the election. Outer is the
@@ -2284,17 +2275,8 @@ func repeatEachChooseOrder(h Host, c *Ctx, sa *cards.SA, subjects []state.Target
 		// offered order), and run the loop in that order.
 		return repeatChooseOrderApply(subjects, ans), false
 	}
-	if Ask(h, d) == AskAsked {
-		h.SuspendRepeat(RepeatSuspension{
-			RepeatCursor: RepeatCursor{SA: sa, Subjects: copyTargets(subjects), Next: 0, ChooseOrder: true},
-			Body:         copyTargets(c.Remembered),
-			Outer:        copyTargets(c.Remembered),
-			Chosen:       copyTargets(c.Chosen),
-			ChosenValid:  c.ChosenValid,
-			VoteCounts:   append([]VoteCount(nil), c.VoteCounts...),
-		})
-		return nil, true
-	}
+	_ = Ask(h, d)
+
 	return subjects, false
 }
 

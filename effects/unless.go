@@ -593,9 +593,8 @@ func poseUnlessAsk(h Host, c *Ctx, sa *cards.SA, cost string, payers []state.Tar
 	if _, ok := AskTape(h, d); ok {
 		return unlessServed
 	}
-	if Ask(h, d) == AskAsked {
-		return unlessAsked // resolution suspended; the answer re-enters this SA.
-	}
+	_ = Ask(h, d)
+
 	// Fuzz/no-engine host: the deterministic decline (R-9). The pay was
 	// never posed, so resolve as if the player declined.
 	h.Emit(events.Event{Kind: events.Note, Obj: c.Source,

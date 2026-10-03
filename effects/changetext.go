@@ -191,9 +191,10 @@ func effChangeText(h Host, c *Ctx, sa *cards.SA) {
 			}
 			fromNeeds = isTextChooser(fromTok) && from == ""
 			toNeeds = isTextChooser(toTok) && to == ""
-		} else if Ask(h, d) == AskAsked {
-			return
+		} else {
+			_ = Ask(h, d)
 		}
+
 	}
 	if fromNeeds {
 		from = deterministicTextWord(textChooserLabels(h, chooser, fromTok, ""))

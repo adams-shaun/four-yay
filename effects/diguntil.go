@@ -247,14 +247,15 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 				if answerYes(ans) {
 					moveAns = "yes"
 				}
-			} else if Ask(h, d) == AskAsked {
-				return // resolution suspended; the answer re-enters with Ctx.DigUntilMove set.
 			} else {
+				_ = Ask(h, d)
+
 				// Fuzz/no-engine host: the deterministic decline (R-9) — the
 				// found card(s) join the decline destination.
 				moveDone = true
 				moveAns = "no"
 			}
+
 		}
 		switch {
 		case rememberRevealed:
@@ -336,13 +337,14 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 									answered = ans[0].Obj
 								}
 								bearer = auraAnsweredBearer(bearers, answered)
-							} else if Ask(h, d) == AskAsked {
-								return
 							} else {
+								_ = Ask(h, d)
+
 								// R-9: a host without an answer takes the
 								// deterministic first candidate.
 								bearer = bearers[0]
 							}
+
 						}
 					}
 					if isAuraFace && bearer == 0 {

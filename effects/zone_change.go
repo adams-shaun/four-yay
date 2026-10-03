@@ -429,14 +429,15 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 					objectPathMoveEcho(h, c, cz, to)
 					altBottom = len(ans) > 0 && ans[0].Label == "bottom"
 					altEngaged = true
-				} else if Ask(h, d) == AskAsked {
-					return
 				} else {
+					_ = Ask(h, d)
+
 					// R-9 no-ask host: the primary placement, deterministically.
 					altAnswer = "top"
 					altBottom = false
 					altEngaged = true
 				}
+
 			} else {
 				altBottom = altAnswer == "bottom"
 				altEngaged = true

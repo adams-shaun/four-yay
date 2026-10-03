@@ -158,9 +158,8 @@ func effManifestDread(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	c.ManifestDreadPlayer = p
-	if Ask(h, d) == AskAsked {
-		return
-	}
+	_ = Ask(h, d)
+
 	h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: p,
 		Text: "manifests the top card (no engine host to ask)", Secret: true})
 	manifestDreadMove(h, c, p, window, window[0])

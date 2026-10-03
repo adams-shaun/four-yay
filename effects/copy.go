@@ -249,12 +249,10 @@ func effCopySpellAbility(h Host, c *Ctx, sa *cards.SA) {
 				if len(ans) == 0 || ans[0].Kind != "yes" {
 					return
 				}
-			} else if Ask(h, d) == AskAsked {
-				// The election was posted and suspended the resolution; the
-				// answered copy_optional re-entry (rules' resume arm) carries
-				// Ctx.CopyOpt back into this same SA.
-				return
+			} else {
+				_ = Ask(h, d)
 			}
+
 			// AskNoHost (an effects-package double, a fuzz run) and AskEmpty
 			// (unreachable with a two-option Min-1 ask) keep the deterministic
 			// pre-ask stand-in the doc comment above records: the copy is made.

@@ -137,9 +137,10 @@ func effDraw(h Host, c *Ctx, sa *cards.SA) {
 							answered = "yes"
 						}
 						tapeReentry()
-					} else if Ask(h, d) == AskAsked {
-						return
+					} else {
+						_ = Ask(h, d)
 					}
+
 				}
 			} else {
 				answered = "no"
@@ -211,12 +212,13 @@ func effDraw(h Host, c *Ctx, sa *cards.SA) {
 					// "draw_upto" arm binds, drawn for this target now.
 					c.DrawUptoCount, c.DrawUptoAnswered = int32(len(ans)), true
 					tapeReentry()
-				} else if Ask(h, d) == AskAsked {
-					return
 				} else {
+					_ = Ask(h, d)
+
 					// No-host (R-9): the pre-ask mandatory draw of what was offered.
 					c.DrawUptoCount, c.DrawUptoAnswered = m, true
 				}
+
 			}
 			for c.DrawDone < c.DrawUptoCount {
 				var lib []state.ObjID

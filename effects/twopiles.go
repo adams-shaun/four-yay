@@ -238,9 +238,10 @@ func effTwoPiles(h Host, c *Ctx, sa *cards.SA) {
 		pileA := []state.ObjID{ids[0]}
 		if ans, ok := AskTape(h, d); ok {
 			pileA = counterAnswerObjs(ans)
-		} else if Ask(h, d) == AskAsked {
-			return
+		} else {
+			_ = Ask(h, d)
 		}
+
 		pileA, pileB := splitSet(ids, pileA)
 		pickB, suspended := twoPilesPosePick(h, c, sa, chooser, pileA, ids)
 		if suspended {

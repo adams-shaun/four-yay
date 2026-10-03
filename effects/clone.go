@@ -370,9 +370,8 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 					return
 				}
 			} else {
-				if Ask(h, d) == AskAsked {
-					return // resolution suspended; the answer re-enters with Ctx.Clone set.
-				}
+				_ = Ask(h, d)
+
 				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 					Text: "Clone Optional$ resolved as take (no engine host to ask)"})
 			}

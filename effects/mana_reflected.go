@@ -350,9 +350,10 @@ func effManaReflected(h Host, c *Ctx, sa *cards.SA) {
 				manaReflectedAnswered(cols, ans[0].ManaSymbol, recipient, manaAdd)
 			}
 			return
-		} else if Ask(h, d) == AskAsked {
-			return
+		} else {
+			_ = Ask(h, d)
 		}
+
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "chose first reflected colour " + cols[0] + " (no ask possible)"})
 		manaAdd(recipient, cols[0])

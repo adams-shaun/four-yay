@@ -485,14 +485,15 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 								ask = true
 								minv, maxv = amount, amount
 							}
-						} else if Ask(h, d) == AskAsked {
-							return
 						} else {
+							_ = Ask(h, d)
+
 							// R-9 no-host fallback: preserve the old deterministic pick,
 							// but only as a complete strict batch.
 							h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: t.Player,
 								Text: "sacrifices the first matching permanent(s) (no engine host to ask)", Secret: true})
 						}
+
 					case int32(len(eligible)) < amount:
 						n = 0
 					}
@@ -544,9 +545,8 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 					sacrificeAnswered(picks)
 					continue
 				}
-				if Ask(h, d) == AskAsked {
-					return // resolution suspended; the answer re-enters with Ctx.SacPicks set.
-				}
+				_ = Ask(h, d)
+
 				// Fuzz/no-engine host: the deterministic stand-in (R-9) keeps
 				// the pre-ask behaviour — the first Amount$ eligible permanents
 				// in zone order, so an Optional$ "may sacrifice" plays "do".
@@ -621,9 +621,8 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 				}
 				continue
 			}
-			if Ask(h, d) == AskAsked {
-				return
-			}
+			_ = Ask(h, d)
+
 			// No-host stand-in: the mandatory sacrifice the pre-ask engine
 			// made, with the Note that records why the richer path did not run.
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: o.Controller,

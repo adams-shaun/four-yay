@@ -257,11 +257,12 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 				if ans, ok := AskTape(h, d); ok {
 					// The "counter_kinds" arm's answer, in hand.
 					kindsAns = counterAnswerLabels(ans)
-				} else if Ask(h, d) == AskAsked {
-					return
 				} else {
+					_ = Ask(h, d)
+
 					kindsAns = append([]string(nil), counterKinds[:2]...)
 				}
+
 				kindsDone = true
 			}
 			counterKinds = append([]string(nil), kindsAns...)
@@ -275,11 +276,12 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 			if ans, ok := AskTape(h, d); ok {
 				// The "counter_kind" arm's answer, in hand.
 				kindAns = counterAnswerLabel(ans)
-			} else if Ask(h, d) == AskAsked {
-				return
 			} else {
+				_ = Ask(h, d)
+
 				kindAns = counterKinds[0]
 			}
+
 			kindDone = true
 		}
 		if kindDone && !perKind {
@@ -325,9 +327,10 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 				pick := counterKinds[0]
 				if ans, ok := AskTape(h, d); ok {
 					pick = counterAnswerLabel(ans)
-				} else if Ask(h, d) == AskAsked {
-					return
+				} else {
+					_ = Ask(h, d)
 				}
+
 				kindAnswers = append(kindAnswers, make([]string, ti-len(kindAnswers)+1)...)
 				kindAnswers[ti] = pick
 			}
@@ -776,9 +779,8 @@ func putCounterPickDistribute(h Host, c *Ctx, sa *cards.SA, total int32, kind st
 		putCounterDistApply(h, c, sa, total, kind, counterAnswerObjs(ans))
 		return
 	}
-	if Ask(h, d) == AskAsked {
-		return // resolution suspended; the answer re-enters with Ctx.CounterDist set.
-	}
+	_ = Ask(h, d)
+
 	fallback()
 }
 
@@ -979,9 +981,8 @@ func putCounterChoose(h Host, c *Ctx, sa *cards.SA, n int32, kind string, ans []
 		putCounterChooseApply(h, c, sa, n, kind, counterAnswerObjs(ans), kinds, kindAns, kindDone)
 		return
 	}
-	if Ask(h, d) == AskAsked {
-		return // resolution suspended; the answer re-enters with Ctx.CounterPick set.
-	}
+	_ = Ask(h, d)
+
 	fallback()
 }
 
@@ -1002,11 +1003,12 @@ func putCounterChooseApply(h Host, c *Ctx, sa *cards.SA, n int32, kind string, p
 			// The "counter_kind" answer in hand (its arm's ResumeChoices
 			// ride is the picks this call already holds).
 			kindAns = counterAnswerLabel(ans)
-		} else if Ask(h, d) == AskAsked {
-			return
 		} else {
+			_ = Ask(h, d)
+
 			kindAns = kinds[0]
 		}
+
 		kindDone = true
 	}
 	if kindDone {
@@ -1112,9 +1114,8 @@ func putCounterBolster(h Host, c *Ctx, sa *cards.SA, kind string, ans []state.Ob
 		putCounterPickApply(h, c, sa, n, kind, counterAnswerObjs(ans))
 		return
 	}
-	if Ask(h, d) == AskAsked {
-		return // resolution suspended; the answer re-enters with Ctx.CounterPick set.
-	}
+	_ = Ask(h, d)
+
 	// The R-9 no-host fallback: the first tied creature in zone order -- the
 	// exact mirror of botpolicy's "counter_pick" first-option answer.
 	putCounterPickApply(h, c, sa, n, kind, cands[:1])
@@ -1208,9 +1209,8 @@ func putCounterSupport(h Host, c *Ctx, sa *cards.SA, kind string, ans []state.Ob
 		putCounterPickApply(h, c, sa, 1, kind, counterAnswerObjs(ans))
 		return
 	}
-	if Ask(h, d) == AskAsked {
-		return // resolution suspended; the answer re-enters with Ctx.CounterPick set.
-	}
+	_ = Ask(h, d)
+
 	// The no-host stand-in (R-9): the first max eligible creatures in zone
 	// order -- the exact mirror of botpolicy's "counter_pick" arm, so a
 	// bot-answered ask emits the same placement events the silent fallback

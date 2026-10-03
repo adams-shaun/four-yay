@@ -110,9 +110,8 @@ func effTimeTravel(h Host, c *Ctx, sa *cards.SA) {
 			idx++
 			continue
 		}
-		if Ask(h, d) == AskAsked {
-			return
-		}
+		_ = Ask(h, d)
+
 		// R-9/no-host fallback: decline the optional election. This still
 		// traverses every affected object and never emits an unimplemented note.
 		applyTimeTravel(h, id, "time_travel_skip")

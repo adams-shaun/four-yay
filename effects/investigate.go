@@ -145,9 +145,9 @@ func investigateOptionalWalk(h Host, c *Ctx, sa *cards.SA, players []state.Playe
 			// The answer in hand: a malformed or empty answer keeps the
 			// decline, as the arm reads it.
 			accepted = len(ans) > 0 && ans[0].Kind == "yes"
-		} else if Ask(h, d) == AskAsked {
-			return
 		} else {
+			_ = Ask(h, d)
+
 			accepted = true
 			if !noted {
 				noted = true

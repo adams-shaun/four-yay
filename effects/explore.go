@@ -149,14 +149,8 @@ func exploreOnce(h Host, c *Ctx, sa *cards.SA, explorer state.ObjID, done int32)
 		applyNonlandExplore(h, explorer, top, len(ans) == 0 || ans[0].Kind != "top")
 		return false
 	}
-	if Ask(h, d) == AskAsked {
-		// Park the mid-explore state (documenting; the resume arm is what
-		// actually re-seeds it — the suspended Ctx is discarded) and report
-		// the suspension.
-		c.ExploreObj = explorer
+	_ = Ask(h, d)
 
-		return true
-	}
 	// No host (an effects-package test double, a fuzz run): option 0, the
 	// state-changing choice — the exact mirror of botpolicy's clamp answer.
 	applyNonlandExplore(h, explorer, top, true)

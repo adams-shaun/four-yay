@@ -321,9 +321,10 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.
 					if !tapeAnswerYes(ans) {
 						continue
 					}
-				} else if Ask(h, cd) == AskAsked {
-					return
+				} else {
+					_ = Ask(h, cd)
 				}
+
 				// R-9: no host to ask -- play "may" as "do" deterministically,
 				// the same fallback the hand walk's confirmation applies.
 			} else if i == confirmTarget && !confirmYes {

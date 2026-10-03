@@ -59,9 +59,10 @@ func effChooseDirection(h Host, c *Ctx, sa *cards.SA) {
 				return
 			}
 		}
-	} else if Ask(h, d) == AskAsked {
-		return
+	} else {
+		_ = Ask(h, d)
 	}
+
 	c.ChosenDirection = directionLeft
 }
 

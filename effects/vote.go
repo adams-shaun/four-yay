@@ -252,9 +252,8 @@ func effPlayerVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams) {
 			picks = append(picks, pick)
 			continue
 		}
-		if Ask(h, d) == AskAsked {
-			return
-		}
+		_ = Ask(h, d)
+
 		// No host to ask (the R-9 fuzz/test contract): the deterministic first
 		// admissible entry -- the same pick the pre-ask stand-in made -- under
 		// the R-9 degradation Note every other asking site records.

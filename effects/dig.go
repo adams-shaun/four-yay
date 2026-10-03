@@ -435,10 +435,8 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 					arrangeThrough = targetIndex
 					return false
 				}
-				if Ask(h, d) == AskAsked {
-					suspended = true // resolution suspended; the arrange re-enters.
-					return true
-				}
+				_ = Ask(h, d)
+
 				// R-9 no-host stand-in: the OFFERED order is the bottom order --
 				// the exact permutation botpolicy's clamp top-up answers, so the
 				// two deterministic readers cannot drift.
@@ -670,10 +668,8 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 				}
 				continue
 			}
-			if Ask(h, d) == AskAsked {
-				suspended = true // resolution suspended; the answer re-enters with Ctx.Dig set.
-				return
-			}
+			_ = Ask(h, d)
+
 			// Fuzz/no-engine host: the deterministic stand-in (R-9) takes the
 			// greedy affordable set -- the exact mirror of the budget-aware bot
 			// arm -- with the Note that records why the richer path did not run.

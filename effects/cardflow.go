@@ -534,10 +534,8 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 				discardAnswered(h, c, riders, hand, answerObjs(ans), p)
 				continue
 			}
-			if Ask(h, d) == AskAsked {
-				suspended = true
-				return // resolution suspended; the answer re-enters with Ctx.Discard set.
-			}
+			_ = Ask(h, d)
+
 			// Fuzz/no-engine host: the deterministic front-of-ELIGIBLE-hand
 			// stand-in (R-9) for the chooser, with the Note that records why
 			// the richer path did not run.
@@ -657,10 +655,8 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 						discardAnswered(h, c, riders, hand, answerObjs(ans), p)
 						continue
 					}
-					if Ask(h, d) == AskAsked {
-						suspended = true
-						return // resolution suspended; the answer re-enters with Ctx.Discard set.
-					}
+					_ = Ask(h, d)
+
 					h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 						Text: "discards its first " + unlessSpec + " card (no engine host to ask)"})
 					discardAndRemember(h, c, riders, picks[0], p)
@@ -687,10 +683,8 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 					}
 					goto tgtChoose
 				}
-				if Ask(h, d) == AskAsked {
-					suspended = true
-					return // resolution suspended; the answer re-enters with Ctx.UnlessElected set.
-				}
+				_ = Ask(h, d)
+
 				// Fuzz/no-engine host: the deterministic stand-in takes the
 				// unless alternative's first card -- Forge's AI does the same
 				// thing (PlayerControllerAi.chooseCardsToDiscardUnlessType
@@ -735,10 +729,8 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 						}
 						goto tgtChoose
 					}
-					if Ask(h, d) == AskAsked {
-						suspended = true
-						return // resolution suspended; the answer re-enters with Ctx.DiscardVote set.
-					}
+					_ = Ask(h, d)
+
 				} else {
 					askMin = 1
 				}
@@ -781,10 +773,8 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 				discardAnswered(h, c, riders, zoneOf(g, state.ZHand, p), answerObjs(ans), p)
 				continue
 			}
-			if Ask(h, d) == AskAsked {
-				suspended = true
-				return // resolution suspended; the answer re-enters with Ctx.Discard set.
-			}
+			_ = Ask(h, d)
+
 			// Fuzz/no-engine host: the deterministic front-of-ELIGIBLE-hand
 			// stand-in (R-9) for the discarding player, with the Note that
 			// records why the richer path did not run. AskEmpty is
@@ -853,10 +843,8 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 					}
 					continue
 				}
-				if Ask(h, d) == AskAsked {
-					suspended = true
-					return // resolution suspended; the answer re-enters with Ctx.DiscardVote set.
-				}
+				_ = Ask(h, d)
+
 				// Fuzz/no-engine host: the deterministic stand-in takes the
 				// discard (R-9), with the Note that records why the richer path
 				// did not run.
@@ -1493,9 +1481,10 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 						pool = revealPickSelected(pool, answerObjs(ans))
 						n = int32(len(pool))
 						pickForTarget = true
-					} else if Ask(h, d) == AskAsked {
-						return // resolution suspended; the answer re-enters with Ctx.RevealPick set.
+					} else {
+						_ = Ask(h, d)
 					}
+
 					// No host to ask (R-9): fall through with n unchanged, so
 					// the reveal takes the same first maxPick cards the pre-pick
 					// build did -- the reveal family's existing no-host
@@ -1654,14 +1643,8 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 				}
 				goto revealTarget
 			}
-			if Ask(h, d) == AskAsked {
-				return
-			}
-			// No host to ask (R-9), or the ask was skipped: fall through to the
-			// mandatory reveal below, deterministic run to run. (A
-			// reveal_optional decision is Min == Max == 1 over two options, so
-			// AskEmpty is unreachable by construction; the shared helper owns
-			// the guard either way.)
+			_ = Ask(h, d)
+
 		}
 		if optional && answerForTarget == "no" {
 			// Declined: no Note, and RememberRevealed$ finds nothing —
@@ -1852,9 +1835,8 @@ func effRearrangeTopOfLibrary(h Host, c *Ctx, sa *cards.SA) {
 			}
 			continue
 		}
-		if Ask(h, d) == AskAsked {
-			return // resolution suspended; the answer re-enters with Ctx.Arrange set.
-		}
+		_ = Ask(h, d)
+
 		// Fuzz/no-engine host: the deterministic stand-in keeps the existing
 		// order -- pile A = the offered options in offered order (J3) -- with
 		// the LibraryOrder recording that the order was (re)set unchanged.
@@ -1972,9 +1954,10 @@ func effSurveil(h Host, c *Ctx, sa *cards.SA) {
 				// that same marker, read here and carried on.
 				if picks, ok := AskTape(h, d); ok {
 					ans = SurveilLookOptAnswer(picks)
-				} else if Ask(h, d) == AskAsked {
-					return
+				} else {
+					_ = Ask(h, d)
 				}
+
 			}
 		}
 	}
@@ -2161,9 +2144,8 @@ func effLookAndArrange(h Host, c *Ctx, sa *cards.SA, n int32, kind, verb string,
 			// the next library.
 			continue
 		}
-		if Ask(h, d) == AskAsked {
-			return // resolution suspended; the answer re-enters with Ctx.Arrange set.
-		}
+		_ = Ask(h, d)
+
 		// Fuzz/no-engine host: the deterministic stand-in keeps every card
 		// on top in its existing order (pile B empty for a Scry, nothing to
 		// the graveyard for a Surveil), with the LibraryOrder recording that
@@ -2411,11 +2393,12 @@ func effNameCard(h Host, c *Ctx, sa *cards.SA) {
 			if len(ans) == 1 {
 				c.NameChoice = ans[0].Label
 			}
-		} else if Ask(h, d) == AskAsked {
-			return
 		} else {
+			_ = Ask(h, d)
+
 			c.NameChoice = names[0]
 		}
+
 	}
 	h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "name", Text: c.NameChoice})
 }

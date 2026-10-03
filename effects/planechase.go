@@ -67,12 +67,13 @@ func effPlaneswalk(h Host, c *Ctx, sa *cards.SA) {
 				if len(ans) > 0 && ans[0].Kind == "yes" {
 					answer = "yes"
 				}
-			} else if Ask(h, d) == AskAsked {
-				return
 			} else {
+				_ = Ask(h, d)
+
 				// R-9: a host without a decision channel deterministically declines.
 				answer = "no"
 			}
+
 		}
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 			Text: "planeswalk election: " + answer})

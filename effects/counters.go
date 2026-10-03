@@ -544,9 +544,8 @@ func effAddOrRemoveCounter(h Host, c *Ctx, sa *cards.SA) {
 			aorTapeApply(h, c, sa, target, ans, amount, objTargets > 1)
 			return
 		}
-		if Ask(h, d) == AskAsked {
-			return // resolution suspended; the answer re-enters with Ctx.AorElect/AorKind set.
-		}
+		_ = Ask(h, d)
+
 		// No-host fallback (R-9): the first option — remove the first kind —
 		// the exact mirror of botpolicy's first-option KChoose answer.
 		aorApplyAct(h, c, sa, target, kinds[0], "remove", amount)
@@ -574,9 +573,8 @@ func effAddOrRemoveCounter(h Host, c *Ctx, sa *cards.SA) {
 			aorTapeApply(h, c, sa, target, ans, amount, objTargets > 1)
 			continue
 		}
-		if Ask(h, d) == AskAsked {
-			return // resolution suspended; the answer re-enters with Ctx.AorElect/AorKind set.
-		}
+		_ = Ask(h, d)
+
 		// No-host fallback (R-9): the first option — remove — the exact mirror
 		// of botpolicy's first-option KChoose answer.
 		aorApplyAct(h, c, sa, target, k, "remove", amount)
@@ -804,13 +802,14 @@ func effMoveCounter(h Host, c *Ctx, sa *cards.SA) {
 					if chosenKind == "" {
 						return
 					}
-				} else if Ask(h, d) == AskAsked {
-					return
 				} else {
+					_ = Ask(h, d)
+
 					// No host (R-9): the deterministic first-kind stand-in, the
 					// same pick botpolicy's arm takes.
 					chosenKind = kinds[0]
 				}
+
 			} else if len(kinds) == 1 {
 				chosenKind = kinds[0]
 			} else {
@@ -867,9 +866,10 @@ func effMoveCounter(h Host, c *Ctx, sa *cards.SA) {
 					if len(ans) > 0 {
 						num = int32(ans[0].Amount)
 					}
-				} else if Ask(h, d) == AskAsked {
-					return
+				} else {
+					_ = Ask(h, d)
 				}
+
 			}
 		} else {
 			num = nAns
@@ -1225,9 +1225,8 @@ func effProliferate(h Host, c *Ctx, sa *cards.SA) {
 		h.Emit(events.Event{Kind: events.Proliferate, Obj: c.Source, Player: c.Controller})
 		return
 	}
-	if Ask(h, d) == AskAsked {
-		return // resolution suspended; the answer re-enters with Ctx.Proliferate set.
-	}
+	_ = Ask(h, d)
+
 	// The no-host (R-9) and empty-answer stand-in takes ALL eligible, the
 	// exact mirror of botpolicy's "proliferate" arm, so a bot-answered ask
 	// emits the same events the silent build would.

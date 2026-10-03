@@ -190,10 +190,8 @@ func conniveOnce(h Host, c *Ctx, sa *cards.SA, conniver state.ObjID, targetIdx, 
 			applyConniveDiscard(h, conniver, counterAnswerObjs(ans))
 			return false
 		}
-		if Ask(h, d) == AskAsked {
+		_ = Ask(h, d)
 
-			return true
-		}
 		applyConniveDiscard(h, conniver, hand[:n2])
 		return false
 	}

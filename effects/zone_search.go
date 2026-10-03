@@ -110,9 +110,10 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 					if !tapeAnswerYes(ans) {
 						continue
 					}
-				} else if Ask(h, cd) == AskAsked {
-					return
+				} else {
+					_ = Ask(h, cd)
 				}
+
 				// R-9: no host to ask -- play "may" as "do" deterministically,
 				// then let the search path apply its own no-host pick policy.
 			} else if searchConfirmDone && targetIndex == searchConfirmTarget && !searchConfirmYes {
@@ -708,13 +709,14 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 			if tapeAnswerYes(ans) {
 				answer = "yes"
 			}
-		} else if Ask(h, d) == AskAsked {
-			return true
 		} else {
+			_ = Ask(h, d)
+
 			// AskNoHost cannot represent a decline. Preserve the prior direct-move
 			// fallback rather than leaving a headless resolution suspended.
 			answer = "yes"
 		}
+
 	}
 	if optional && answer == "no" {
 		return true

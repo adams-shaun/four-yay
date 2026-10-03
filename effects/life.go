@@ -241,9 +241,8 @@ func effSetLife(h Host, c *Ctx, sa *cards.SA) {
 				choiceRecord(h, c, sa, ChoiceAnswerTargets(ans), false)
 				continue
 			}
-			if Ask(h, d) == AskAsked {
-				return
-			}
+			_ = Ask(h, d)
+
 			// No host: keep the recipient's own total (identity). No
 			// assignment is applied until all answers have been collected.
 			c.Chosen = append(c.Chosen, state.Target{IsPlayer: true, Player: recipient})

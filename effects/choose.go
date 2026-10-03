@@ -60,9 +60,10 @@ func effChooseEvenOdd(h Host, c *Ctx, sa *cards.SA) {
 			h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "type", Text: ans[0].Label})
 			return
 		}
-	} else if Ask(h, d) == AskAsked {
-		return
+	} else {
+		_ = Ask(h, d)
 	}
+
 	h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "type", Text: "odd"})
 }
 
@@ -151,9 +152,8 @@ func effChooseColor(h Host, c *Ctx, sa *cards.SA) {
 			h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "color", Text: string(letter)})
 			return
 		}
-		if Ask(h, d) == AskAsked {
-			return
-		}
+		_ = Ask(h, d)
+
 	}
 	fallback := "W"
 	if len(opts) > 0 {
@@ -349,9 +349,8 @@ func effChooseNumber(h Host, c *Ctx, sa *cards.SA) {
 			h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "number", Amount: n})
 			return
 		}
-		if Ask(h, d) == AskAsked {
-			return
-		}
+		_ = Ask(h, d)
+
 	}
 	// The no-ask fallback: the deterministic first legal value of the list the
 	// ask derived — for the historical fixed list and for every measured
@@ -439,9 +438,8 @@ func effChooseNumberElection(h Host, c *Ctx, sa *cards.SA, matched, unmatched st
 			}
 			continue
 		}
-		if Ask(h, d) == AskAsked {
-			return
-		}
+		_ = Ask(h, d)
+
 		// R-9 no-ask host: take the deterministic first legal value for this
 		// chooser and continue to the next.
 		picks = append(picks, int32(opts[0].Amount))
@@ -576,9 +574,10 @@ func effChooseType(h Host, c *Ctx, sa *cards.SA) {
 				h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "type", Text: ans[0].Label})
 				return
 			}
-		} else if Ask(h, d) == AskAsked {
-			return
+		} else {
+			_ = Ask(h, d)
 		}
+
 	}
 	// The no-ask fallback. A category with an option list records that list's
 	// deterministic first entry; a category whose list is empty (an
