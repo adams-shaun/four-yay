@@ -247,8 +247,10 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, to state.Zone, zones []state
 		// match wedges. Exactly$ True ("exactly two cards ... with different
 		// names": Extrapolate the Impossible, Burning-Rune Demon, Turtles
 		// Forever) is all-or-nothing: when fewer than the requested number of
-		// distinct names exist, the player cannot find exactly that many, so
-		// none is found (the fail-to-find tail below).
+		// eligible cards (or of distinct names) exist, the player cannot find
+		// exactly that many, so none is found (the fail-to-find tail below);
+		// when they do exist, the ask below admits exactly that many or none
+		// (Decision.AllowNone).
 		if differentNamesEnabled(sa) {
 			names := make(map[string]bool, len(budgetEligible))
 			for _, id := range budgetEligible {
@@ -259,9 +261,9 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, to state.Zone, zones []state
 			if distinct := int32(len(names)); max > distinct {
 				max = distinct
 			}
-			if strings.EqualFold(strings.TrimSpace(sa.Params["Exactly"]), "True") && max < requested {
-				max = 0
-			}
+		}
+		if exactlySearch(sa) && max < requested {
+			max = 0
 		}
 		// CR 701.23b/701.23d decide the minimum: a search whose card filter states
 		// only a quantity must find that many (or as many as the zone holds), so
@@ -450,6 +452,19 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, to state.Zone, zones []state
 			}
 		}
 		d.Min = int(min)
+		// Exactly$ True ("you may reveal exactly two cards ... with different
+		// names": Extrapolate the Impossible, Burning-Rune Demon, Turtles
+		// Forever) is all or nothing: the find is exactly the requested number
+		// (max already fell to 0 above when that many cannot exist, so this
+		// ask is only posed when it can), or nothing at all -- never a partial
+		// find, and never a forced one. Min == Max carries the "exactly";
+		// Decision.AllowNone carries the decline, the one shape a Min/Max pair
+		// alone cannot say. The flat (non-EACH) shape only: no corpus carrier
+		// pairs Exactly$ with the EACH grammar.
+		if exactlySearch(sa) && !eachStructured && !hasBudget && max > 0 {
+			d.Min = int(max)
+			d.AllowNone = true
+		}
 		// The prompt is built here, AFTER the Mandatory$ clamp and the EACH
 		// branch's own bounds, so its stated count always matches the decision's
 		// final Min/Max -- a mandatory leg with Min == Max == 1 must not advertise
@@ -459,6 +474,8 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, to state.Zone, zones []state
 		// "Select a card to put onto the battlefield".
 		if sp := strings.TrimSpace(sa.Params["SelectPrompt"]); sp != "" {
 			d.Prompt = sp
+		} else if d.AllowNone {
+			d.Prompt = "Search a library: choose exactly " + strconv.Itoa(d.Max) + " card(s), or none"
 		} else if d.Min == d.Max {
 			d.Prompt = "Search a library: choose " + strconv.Itoa(d.Max) + " card(s)"
 		} else {
@@ -916,6 +933,13 @@ func hiddenPickChooser(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID) state
 		return owner
 	}
 	return owner
+}
+
+// exactlySearch reports Forge's Exactly$ True: the search finds exactly its
+// ChangeNum$ cards or none (effSearchLibrary's all-or-nothing clamp and its
+// Decision.AllowNone ask).
+func exactlySearch(sa *cards.SA) bool {
+	return strings.EqualFold(strings.TrimSpace(sa.Params["Exactly"]), "True")
 }
 
 // differentNamesEnabled is the one DifferentNames$ read shared by the two

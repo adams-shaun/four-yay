@@ -689,6 +689,17 @@ type Decision struct {
 	// strict rule. omitempty: a non-repeatable decision carries no field, so
 	// every existing payload serialises byte-identically.
 	Repeatable bool `json:"repeatable,omitempty"`
+	// AllowNone makes the EMPTY answer legal beside the Min..Max range: the
+	// legal answer sizes are {0} and Min..Max. It is the "you may ... exactly
+	// N" shape -- Forge's Exactly$ True search ("You may reveal exactly two
+	// cards you own with different names", Extrapolate the Impossible) is all
+	// or nothing, so Min == Max == N carries the "exactly" and AllowNone the
+	// "you may". No Min/Max pair alone can say it: Min 0 would admit one card,
+	// Min N would refuse the decline. Validate is the rule's one home; a
+	// client that ignores the field only loses the decline (its Min..Max
+	// answers stay legal). omitempty: every other decision serialises
+	// byte-identically.
+	AllowNone bool `json:"allow_none,omitempty"`
 	// Source names the object this decision resolves for -- the spell whose
 	// {X} is being chosen, the card whose "as it enters" choice is pending
 	// -- so a prompt can always name its source (survey #18) without the
@@ -1302,7 +1313,10 @@ func (d *Decision) Validate(in Intent) error {
 	if in.Payment != nil {
 		return d.validatePayment(in)
 	}
-	if len(in.Choices) < d.Min || len(in.Choices) > d.Max {
+	if (len(in.Choices) < d.Min && !(d.AllowNone && len(in.Choices) == 0)) || len(in.Choices) > d.Max {
+		if d.AllowNone {
+			return fmt.Errorf("expected 0 or %d..%d choices, got %d", d.Min, d.Max, len(in.Choices))
+		}
 		return fmt.Errorf("expected %d..%d choices, got %d", d.Min, d.Max, len(in.Choices))
 	}
 	// Map-free bookkeeping (Validate runs per candidate answer in search):
