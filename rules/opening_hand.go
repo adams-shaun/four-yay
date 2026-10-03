@@ -179,11 +179,12 @@ func (e *Engine) applyOpeningEffect(ef openingEffect) {
 	e.emit(events.Event{Kind: events.MoveZone, Obj: ef.card, From: state.ZHand, To: state.ZBattlefield, Text: "opening hand effect"})
 	sub := sa.Sub
 	if sub != nil && sub.API == "PutCounter" {
-		n := effects.Num(e, effects.NewCtxPtr(ef.card, ef.player, effects.CtxInit{}), sub, "CounterNum", 1)
+		pc := effects.PutCounterOf(sub)
+		n := pc.CounterNumValue(e, effects.NewCtxPtr(ef.card, ef.player, effects.CtxInit{}))
 		// A pregame opening-hand counter is put by the effect's player, with
 		// no stack cause: publish the adder for the AddCounter class.
 		prevAdder := e.SetCounterAdder(ef.player)
-		e.emit(events.Event{Kind: events.CounterChange, Obj: ef.card, Counter: sub.ParamStr(cards.PKCounterType), Amount: n})
+		e.emit(events.Event{Kind: events.CounterChange, Obj: ef.card, Counter: pc.CounterType, Amount: n})
 		e.SetCounterAdder(prevAdder)
 		sa = sub
 		sub = sub.Sub
@@ -274,7 +275,7 @@ func (e *Engine) resumeOpening() {
 func (e *Engine) registerOpeningEffectTriggers(ef openingEffect, first *cards.SA) {
 	for sa := first; sa != nil; {
 		if sa.API == "Effect" {
-			for name := range strings.FieldsSeq(sa.ParamStr(cards.PKTriggers)) {
+			for name := range strings.FieldsSeq(effects.EffectOf(sa).Triggers) {
 				o := e.G.Obj(ef.card)
 				if o == nil || o.Face() == nil {
 					return
@@ -340,7 +341,7 @@ func (e *Engine) registerOpeningEffectTriggers(ef openingEffect, first *cards.SA
 // selectors fail closed (an empty list registers nothing) rather than
 // guessing a player set.
 func (e *Engine) openingEffectOwners(sa *cards.SA, you state.PlayerID) []state.PlayerID {
-	ps, _ := effects.EffectOwnerPlayers(e, effects.NewCtxPtr(0, you, effects.CtxInit{}), sa.Params["EffectOwner"])
+	ps, _ := effects.EffectOwnerPlayers(e, effects.NewCtxPtr(0, you, effects.CtxInit{}), effects.EffectOf(sa).EffectOwner)
 	return ps
 }
 
