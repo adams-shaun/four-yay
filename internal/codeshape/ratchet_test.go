@@ -19,9 +19,18 @@ const (
 	// effects/ spanning more than 300 lines.
 	maxFuncLinesOver300 = 54
 	// engineMethodCount is the number of non-test methods on rules.Engine.
-	engineMethodCount = 2162
-	// hostMethodCount is the number of methods in the effects.Host interface.
-	hostMethodCount = 96
+	engineMethodCount = 2159
+	// hostMethodCount is the number of methods in the effects.Host interface
+	// (its whole method set, roles included). W1d replaced ObjectText,
+	// ObjectKeywords and BasePower with the one Chars query: 96 -> 94.
+	hostMethodCount = 94
+	// hostDirectMethodCount is the number of methods effects.Host declares
+	// itself rather than takes from a role interface (W1d split it into
+	// roles; host_roles.go).
+	hostDirectMethodCount = 0
+	// hostRoleMaxMethods is the method-set size of effects.Host's largest
+	// role interface (HostTurnLedger at the W1d split).
+	hostRoleMaxMethods = 18
 	// ctxFieldCount is the number of named fields in effects.Ctx; embeds are
 	// ratcheted separately by ctxEmbedCount.
 	ctxFieldCount = 293
@@ -97,8 +106,14 @@ func TestCodeShapeOnlyShrinks(t *testing.T) {
 				"receiver (a feature struct holding what it needs) or a free function, or " +
 				"remove an Engine method in the same change."},
 		{"hostMethodCount", m.HostMethods, hostMethodCount,
-			"effects.Host is to become role interfaces of <= 20 methods; derive what you " +
-				"need from an existing method, or replace one, instead of adding another."},
+			"effects.Host is the union of narrow role interfaces; derive what you " +
+				"need from an existing method (Chars carries every characteristic), or replace one, instead of adding another."},
+		{"hostDirectMethodCount", m.HostDirectMethods, hostDirectMethodCount,
+			"effects.Host is the union of the role interfaces in effects/host_roles.go; " +
+				"add a new method to the one role it belongs to, not to Host itself."},
+		{"hostRoleMaxMethods", m.HostRoleMaxMethods, hostRoleMaxMethods,
+			"A Host role is to stay narrow (<= 20 methods); split a role that grows by " +
+				"concern rather than widening it, or replace an existing method."},
 		{"ctxFieldCount", m.CtxFields, ctxFieldCount,
 			"effects.Ctx fields are mostly per-primitive ask/resume cursors; keep a " +
 				"primitive's cursor in its own resume record instead of widening Ctx."},

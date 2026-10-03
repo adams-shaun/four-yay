@@ -60,6 +60,8 @@ func run(w io.Writer, root string, table bool, top int) error {
 		{"Engine methods (rules)", m.EngineMethods},
 		{"effects.Host methods", m.HostMethods},
 		{"effects.Host embeds", m.HostEmbeds},
+		{"effects.Host direct methods", m.HostDirectMethods},
+		{"effects.Host largest role", m.HostRoleMaxMethods},
 		{"effects.Ctx named fields", m.CtxFields},
 		{"effects.Ctx embeds", m.CtxEmbeds},
 		{"resumePoint fields", m.ResumePointFields},

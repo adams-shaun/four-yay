@@ -449,7 +449,7 @@ func evalCountBodyPaid(h Host, c *Ctx, g *state.Game, head, arg string, depth in
 		return 0, true, true
 	case "CardBasePower":
 		if o := g.Obj(c.Source); o != nil && o.Face() != nil {
-			return h.BasePower(c.Source), true, true
+			return h.Chars(c.Source).BasePower, true, true
 		}
 		return 0, true, true
 	case "CardToughness":

@@ -34,8 +34,18 @@ type Other struct{}
 
 type Host interface {
 	Game() int
+	ReadRole
+}
+
+type ReadRole interface {
 	A(int) int
 	B()
+	Nested
+}
+
+type Nested interface {
+	B()
+	C()
 }
 
 type Ctx struct {
@@ -92,7 +102,10 @@ func free()          {}
 	want := Metrics{
 		FuncsOver300:       2,
 		EngineMethods:      4, // A, B, C and the subpackage's D; never the test file's T
-		HostMethods:        3,
+		HostMethods:        4, // Game, A, B (declared twice, counted once), C
+		HostEmbeds:         1,
+		HostDirectMethods:  1,
+		HostRoleMaxMethods: 3,
 		CtxFields:          3,
 		CtxEmbeds:          2,
 		ResumePointFields:  4,

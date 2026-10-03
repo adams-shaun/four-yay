@@ -19,31 +19,6 @@ import (
 func (e *Engine) Game() *state.Game                   { return e.G }
 func (e *Engine) ObjectColors(o *state.Object) string { return e.objColors(o) }
 
-// ObjectText is effects.Host's derived-text read (CR 613.1d): the object's
-// printed Oracle after every layer-3 text effect already registered on it, in
-// timestamp order. It is the same render Engine.Text exposes, so
-// api:ExchangeTextBox exchanges each object's text AS IT CURRENTLY READS
-// rather than its printed face, carrying an earlier ChangeText substitution
-// across the swap instead of discarding it.
-func (e *Engine) ObjectText(o *state.Object) string {
-	if o == nil {
-		return ""
-	}
-	return e.Text(o.ID)
-}
-
-// ObjectKeywords is effects.Host's derived-keyword read (CR 613.1f): the
-// object's current keyword list, printed and granted alike, copied so the
-// caller never aliases Derived's scratch buffer (Engine.Keywords' own
-// documented hazard). api:ExchangeTextBox carries the other box's keywords
-// across a text-box exchange through this read, so the grant is the partner's
-// AS-IT-READS list rather than its printed face.
-func (e *Engine) ObjectKeywords(o *state.Object) []string {
-	if o == nil {
-		return nil
-	}
-	return append([]string(nil), e.Derived(o.ID).Keywords...)
-}
 func (e *Engine) Emit(ev events.Event) { e.emit(ev) }
 
 // CastProhibited is effects' optional castProhibitedHost read (task

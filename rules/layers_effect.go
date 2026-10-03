@@ -58,35 +58,11 @@ type derivedPTSnapshot struct {
 	preCounterPower, preCounterToughness int32
 }
 
-type Derived struct {
-	Power, Toughness int32
-	// BasePower/BaseToughness are the object's BASE power and toughness: the
-	// value through layer 7b (CR 613.4) -- the printed or characteristic-
-	// defining value, after a 7b setting effect, and BEFORE any 7c modify or
-	// any 7d counter. The base filter predicates (`basePowerEQ1`,
-	// `powerGTbasePower`) read these; a 7c pump or a +1/+1 counter must move
-	// Power/Toughness but never BasePower/BaseToughness. A face-down
-	// battlefield permanent's base is its CR 708.5 face-down P/T (or a
-	// FaceDownPower$ override), the same basis the walk starts from.
-	BasePower, BaseToughness int32
-	Keywords                 []string
-	Types                    []string
-	// Name is the current layer-3 name. SetName$ overwrites the printed name.
-	Name string
-	// Text is the object's current CR 613.1d text: its printed Oracle text
-	// ("" while a battlefield object is face down, CR 708.5) after every
-	// applicable layer-3 effect in timestamp order -- a TextSet outright
-	// replacement (api:ExchangeTextBox) then each TextFrom/TextTo
-	// whole-word substitution (api:ChangeText). It is the one place the
-	// engine renders an object's changed rules text.
-	Text string
-	// Colors is the object's current colour set as WUBRG letters (CR 613.1e):
-	// its face's colours (effects.ColorsOf, which already applies Devoid)
-	// then every applicable layer-5 effect in timestamp order -- an
-	// OverwriteColors grant replaces the set so far, a plain one extends it.
-	// "" is a colourless object, not "no read": a battlefield land reads "".
-	Colors string
-}
+// Derived is rules' name for effects.Chars, the one characteristics record
+// (rules-engine refactor spec W1d): the layer walk builds it, Host.Chars
+// serves it, and effects reads the same type, so a characteristic added to
+// the record reaches every reader at once.
+type Derived = effects.Chars
 
 // AddContinuous registers one continuous effect. A zero Timestamp is
 // stamped from the game clock, so callers that do not care about relative
