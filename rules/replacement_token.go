@@ -28,6 +28,9 @@ import (
 // compositions are reachable in Commander, but no repo deck carries any of
 // this family, so no golden game exercises one).
 func (e *Engine) continueCreateTokenReplacements(ev events.Event, matches []replMatch) (events.Event, bool) {
+	if isCopyTokenProposal(ev) {
+		return e.continueCopyTokenProposal(ev, matches)
+	}
 	plan, parked := e.driveTokenReplacements(ev, matches, []tokenPlanMint{{script: ev.Text}}, 0)
 	if parked {
 		// A mid-drive ask is outstanding: either the CR 616.1 order choice
@@ -866,6 +869,10 @@ func (e *Engine) mintSnapshot(mintEv events.Event, mint tokenPlanMint) *state.Ob
 // the game — a value snapshot like StackCopy's discipline. A nil return
 // (unknown token key) fails the caller's match closed.
 func (e *Engine) tokenSnapshot(ev events.Event) *state.Object {
+	if isCopyTokenProposal(ev) {
+		// ProposeCopyTokens' would-be token is a copy of ev.Obj (CR 706.2).
+		return e.chosenCopySnapshot(ev.Obj, ev.Player)
+	}
 	def := e.G.Tokens[ev.Text]
 	if def == nil {
 		return nil
