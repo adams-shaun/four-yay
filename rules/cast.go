@@ -697,4 +697,7 @@ type subCounterPay struct {
 type etbChoice struct {
 	kind    string
 	options []decision.Option
+	// prompt, when set, is the client prompt's suffix in place of
+	// etbChoicePrompt(kind) (the CR 303.4f Aura choice carries its own).
+	prompt string
 }

@@ -218,9 +218,16 @@ func TestPrintedContinuousAddAbilityCorpusBarbedField(t *testing.T) {
 	mountain := mustCorpusCard(t, reg, "Mountain")
 
 	e := printedAddabilityEngine(t, barbed, mountain)
-	auraID := moveCardToBattlefield(t, e, barbed)
 	landID := moveCardToBattlefield(t, e, mountain)
-	e.emit(events.Event{Kind: events.Attach, Obj: auraID, IDs: []state.ObjID{landID}})
+	// The Aura enters attached to the land (a staged effect-named entry).
+	var auraID state.ObjID
+	for i := range e.G.Objs {
+		if o := &e.G.Objs[i]; o.Owner == 0 && o.Card == barbed && (o.Zone == state.ZLibrary || o.Zone == state.ZHand) {
+			auraID = o.ID
+			break
+		}
+	}
+	stageAuraEntry(t, e, auraID, landID)
 	addMana(t, e, 0, "")
 
 	opt, ok := findSVarOption(t, e, landID, "Damage")
