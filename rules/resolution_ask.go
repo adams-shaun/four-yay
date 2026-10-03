@@ -181,6 +181,7 @@ func (e *Engine) buildAskResume(d *decision.Decision, obj state.ObjID, direct bo
 	// exception this build adds is an effect invoked outside stack
 	// resolution (direct), whose resume must find its own source.
 	var replSource state.ObjID
+	ownResolution := false
 	if e.applyingReplacement && d.Source != 0 {
 		replSource = d.Source
 		// The resume must rebuild from the replacement's host in exactly two
@@ -202,6 +203,7 @@ func (e *Engine) buildAskResume(d *decision.Decision, obj state.ObjID, direct bo
 		if so := e.G.Obj(d.Source); so != nil && so.Zone != state.ZStack &&
 			(e.resolvingObj == 0 || d.Source == e.resolvingObj) {
 			obj = d.Source
+			ownResolution = e.resolvingObj != 0
 		}
 	}
 	return &resumePoint{kind: kind, obj: obj, sa: d.ResumeSA, replSource: replSource,
@@ -214,7 +216,7 @@ func (e *Engine) buildAskResume(d *decision.Decision, obj state.ObjID, direct bo
 		effectFrame:       e.currentEffectFrame,
 		before:            e.retainTriggerBefore(), target: d.ResumeTarget, player: d.Player,
 		chosenDirection: e.chosenDirectionForResume(),
-		direct:          direct, rolls: d.Rolls, clash: cloneClashResume(d.ResumeClash),
+		direct:          direct, ownResolution: ownResolution, rolls: d.Rolls, clash: cloneClashResume(d.ResumeClash),
 		choices:     append([]state.Target(nil), d.ResumeChoices...),
 		chosenValid: d.ResumeChosenValid, remembered: append([]state.Target(nil), d.ResumeRemembered...),
 		pendingDamage:       effects.ClonePendingDamage(e.resolutionPendingDamage()),
