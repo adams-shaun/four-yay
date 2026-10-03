@@ -16,6 +16,18 @@ type rng struct {
 	Draws  uint64
 	seed   [2]uint64
 	chance *chanceState // nil for ordinary games; owned by hypothetical clones
+	// splice (the resolution kernel, lasagna spec §7.3): once Draws reaches
+	// splice.at, continue on a copy of splice.next instead -- a hypothetical
+	// world's re-execution of a recorded resolution prefix switches from
+	// S0's generator to the world's own at the draw count the world was
+	// forked at. Immutable, shared by clones; nil for every ordinary game.
+	splice *rngSplice
+}
+
+// rngSplice is where a re-executed prefix switches generators.
+type rngSplice struct {
+	at   uint64
+	next *rng
 }
 
 func (r *rng) forcePermutation(current, desired []state.ObjID) error {
@@ -76,10 +88,14 @@ func (r *rng) clone() *rng {
 	if err := pcg.UnmarshalBinary(raw); err != nil {
 		panic("rules: PCG UnmarshalBinary: " + err.Error())
 	}
-	return &rng{src: rand.New(pcg), pcg: pcg, Draws: r.Draws, seed: r.seed, chance: r.chance.clone()}
+	return &rng{src: rand.New(pcg), pcg: pcg, Draws: r.Draws, seed: r.seed, chance: r.chance.clone(), splice: r.splice}
 }
 
 func (r *rng) IntN(n int) int {
+	if r.splice != nil && r.Draws >= r.splice.at {
+		nx := r.splice.next.clone()
+		r.src, r.pcg, r.seed, r.chance, r.splice = nx.src, nx.pcg, nx.seed, nx.chance, nil
+	}
 	if r.chance != nil {
 		r.chance.check(n)
 	}

@@ -920,6 +920,17 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 				ResumeRemembered: copyTargets(c.Remembered),
 				Prompt:           "Choose " + strconv.Itoa(askMin) + ".." + strconv.Itoa(askMax) + " card(s) to discard",
 				Options:          opts}
+			if ans, ok := AskTape(h, d); ok {
+				// The resolution kernel's answer in hand: discard exactly
+				// what the re-entry above discards for this target.
+				hand = zoneOf(g, state.ZHand, p)
+				for _, o := range ans {
+					if containsID(hand, o.Obj) {
+						discardAndRemember(h, c, riders, o.Obj, p)
+					}
+				}
+				continue
+			}
 			if Ask(h, d) == AskAsked {
 				suspended = true
 				return // resolution suspended; the answer re-enters with Ctx.Discard set.

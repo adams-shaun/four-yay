@@ -207,6 +207,9 @@ func playCloneFuzzGame(t *testing.T, cfg Config, label string, o cloneFuzzOpts, 
 	n := 0
 	for ; !e.G.Over && e.Pending() != nil && (o.maxIntents == 0 || n < o.maxIntents); n++ {
 		d := e.Pending()
+		if cloneFuzzTapeWorldHook != nil {
+			cloneFuzzTapeWorldHook(t, e, r)
+		}
 		if o.every <= 1 || r.IntN(o.every) == 0 {
 			st.clones.Add(1)
 			var c *Engine
@@ -280,6 +283,10 @@ func playCloneFuzzGame(t *testing.T, cfg Config, label string, o cloneFuzzOpts, 
 	st.games.Add(1)
 	st.intents.Add(int64(n))
 }
+
+// cloneFuzzTapeWorldHook (the resolution kernel's world probe,
+// resolve_kernel_test.go) runs at every decision of a fuzz game when set.
+var cloneFuzzTapeWorldHook func(t *testing.T, e *Engine, r *rand.Rand)
 
 // cloneFuzzDiverge clones e, drives the clone down a different path (a
 // random accepted intent, then up to m more) and reports how e changed.

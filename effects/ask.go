@@ -72,20 +72,32 @@ func Ask(h Host, d *decision.Decision) AskOutcome {
 	return AskNoHost
 }
 
-// askCounter is the optional host seam counting the mid-resolution asks the
-// host has taken, posed or deferred. rules' Engine may DEFER a second ask
-// posed while an earlier ask of the same resolution pass is still pending
-// (it rides the resume chain and is posed once the earlier one resolves), so
-// Suspended() alone cannot tell a caller that its own ask was taken.
-type askCounter interface {
+// askSeam is the optional host seam of rules' mid-resolution ask machinery.
+//
+// AskCount counts the mid-resolution asks the host has taken, posed or
+// deferred. rules' Engine may DEFER a second ask posed while an earlier ask
+// of the same resolution pass is still pending (it rides the resume chain
+// and is posed once the earlier one resolves), so Suspended() alone cannot
+// tell a caller that its own ask was taken.
+//
+// TapeAnswer is the resolution kernel's converted ask boundary (AskTape,
+// ask_tape.go).
+type askSeam interface {
 	AskCount() uint64
+	TapeAnswer(d *decision.Decision) ([]decision.Option, bool)
 }
 
-// askCount is h's ask count, or 0 for a host without the seam (whose asks
-// are always visible through Suspended()).
+// askSeamOf is h's ask seam, nil for a host without one (a test double, whose
+// asks are always visible through Suspended() and which has no tape).
+func askSeamOf(h Host) askSeam {
+	s, _ := h.(askSeam)
+	return s
+}
+
+// askCount is h's ask count, or 0 for a host without the seam.
 func askCount(h Host) uint64 {
-	if ac, ok := h.(askCounter); ok {
-		return ac.AskCount()
+	if s := askSeamOf(h); s != nil {
+		return s.AskCount()
 	}
 	return 0
 }

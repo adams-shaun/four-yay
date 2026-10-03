@@ -9,6 +9,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/rules/resolve"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -63,6 +64,9 @@ var clonePolicyTypes = []reflect.Type{
 	reflect.TypeOf(mulliganRound{}),
 	reflect.TypeOf(openingRound{}),
 	reflect.TypeOf(lifeExchangeTransaction{}),
+	// The resolution kernel's per-engine state (rules/resolve): its fields
+	// carry their own tags, and cloneWith copies Kernel.ForClone().
+	reflect.TypeOf(resolve.Kernel{}),
 }
 
 var clonePolicies = map[string]bool{"deep": true, "share": true, "reset": true, "hook": true}
