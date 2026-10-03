@@ -149,3 +149,152 @@ func TestRestorationSeminarAuraChoiceIsAskedOfController(t *testing.T) {
 	}
 	replayCheck(t, e, cfg)
 }
+
+// auraMoveCorpusCard moves the named corpus card from seat p's library or hand
+// to zone `to` through a logged MoveZone (setup, not a game action).
+func auraMoveCorpusCard(t *testing.T, e *Engine, p state.PlayerID, name string, to state.Zone) state.ObjID {
+	t.Helper()
+	for _, z := range []state.Zone{state.ZLibrary, state.ZHand} {
+		for _, id := range e.G.Zone(z, p) {
+			if o := e.G.Obj(id); o != nil && o.Face() != nil && o.Face().Name == name {
+				e.emit(events.Event{Kind: events.MoveZone, Obj: id, From: z, To: to})
+				e.pending = nil
+				return id
+			}
+		}
+	}
+	t.Fatalf("%s not in seat %d's library or hand", name, p)
+	return 0
+}
+
+// TestRetetherRestrictsTheAurasLegalBearers pins the effect-named half of
+// CR 303.4f/g with a real card. Retether ("Return each Aura card from your
+// graveyard to the battlefield. Only creatures can be enchanted this way.
+// (Aura cards that can't enchant a creature on the battlefield remain in your
+// graveyard.)") is a ChangeZone with `AttachedTo$ Creature`: Pacifism enters
+// attached to a creature with no choice asked, while Wild Growth (Enchant
+// land) stays in the graveyard even though a land is on the battlefield --
+// the effect's restriction leaves it nothing legal.
+func TestRetetherRestrictsTheAurasLegalBearers(t *testing.T) {
+	t.Parallel()
+	e, cfg, _ := altCostEngine(t, 1006, []string{"Retether", "Pacifism", "Wild Growth"}, []string{altDragonSrc}, nil)
+	toMain1(t, e)
+	dragon := moveSeeded(t, e, 0, altDragonSrc, state.ZBattlefield)
+	land := auraMoveCorpusCard(t, e, 0, "Mountain", state.ZBattlefield)
+	pacifism := auraMoveCorpusCard(t, e, 0, "Pacifism", state.ZGraveyard)
+	growth := auraMoveCorpusCard(t, e, 0, "Wild Growth", state.ZGraveyard)
+	e.priorityRound()
+	retether := findAndMoveToHand(t, e, 0, "Retether")
+	addMana(t, e, 0, "WWWW")
+	submitChoices(t, e, castOptionFor(t, e, retether).Index)
+	mark := len(e.L.Events)
+	for i := 0; i < 40 && len(e.G.Stack) > 0; i++ {
+		d := e.Pending()
+		if d == nil {
+			break
+		}
+		if d.Kind != decision.KPriority {
+			t.Fatalf("Retether's returns posed an ask (the effect names the bearer): %+v", d)
+		}
+		submitChoices(t, e, passIndex(t, d))
+	}
+	if o := e.G.Obj(pacifism); o == nil || o.Zone != state.ZBattlefield || o.AttachedTo != dragon {
+		t.Fatalf("Pacifism = %+v, want on the battlefield attached to the creature %d", o, dragon)
+	}
+	if o := e.G.Obj(growth); o == nil || o.Zone != state.ZGraveyard {
+		t.Fatalf("Wild Growth zone = %v, want graveyard (it can't enchant a creature)", zoneOf(o))
+	}
+	for _, ev := range e.L.Events[mark:] {
+		if ev.Kind == events.MoveZone && ev.Obj == growth {
+			t.Errorf("Wild Growth moved (%v -> %v) though it never legally enters", ev.From, ev.To)
+		}
+	}
+	if e.G.Obj(land).Zone != state.ZBattlefield {
+		t.Fatal("precondition: the land left the battlefield")
+	}
+	replayCheck(t, e, cfg)
+}
+
+// TestReanimatedAnimateDeadEnchantsAGraveyardCreature pins the
+// graveyard-enchant family through the same entry: Restoration Seminar
+// returns Animate Dead ("Enchant creature card in a graveyard"), which enters
+// attached to the only creature card in a graveyard, and its own ETB trigger
+// then returns that creature with Animate Dead attached.
+func TestReanimatedAnimateDeadEnchantsAGraveyardCreature(t *testing.T) {
+	t.Parallel()
+	e, cfg, _ := altCostEngine(t, 1007, []string{"Restoration Seminar", "Animate Dead"}, []string{altDragonSrc}, nil)
+	dragon := moveSeeded(t, e, 0, altDragonSrc, state.ZGraveyard)
+	aura, _ := auraSeminarCast(t, e, "Animate Dead")
+	passUntilStackEmpty(t, e, 20)
+	o := e.G.Obj(aura)
+	if o == nil || o.Zone != state.ZBattlefield {
+		t.Fatalf("Animate Dead zone = %v, want battlefield", zoneOf(o))
+	}
+	if d := e.G.Obj(dragon); d == nil || d.Zone != state.ZBattlefield || o.AttachedTo != dragon {
+		t.Fatalf("dragon zone = %v, Animate Dead attached to %d; want the dragon reanimated with Animate Dead on it", zoneOf(d), o.AttachedTo)
+	}
+	replayCheck(t, e, cfg)
+}
+
+// TestReanimatedAnimateDeadWithNoGraveyardCreatureStays: with no creature
+// card in any graveyard, Animate Dead has nothing it can legally enchant and
+// stays in the graveyard (CR 303.4g).
+func TestReanimatedAnimateDeadWithNoGraveyardCreatureStays(t *testing.T) {
+	t.Parallel()
+	e, cfg, _ := altCostEngine(t, 1008, []string{"Restoration Seminar", "Animate Dead"}, nil, nil)
+	aura, _ := auraSeminarCast(t, e, "Animate Dead")
+	passUntilStackEmpty(t, e, 20)
+	if o := e.G.Obj(aura); o == nil || o.Zone != state.ZGraveyard {
+		t.Fatalf("Animate Dead zone = %v, want graveyard", zoneOf(o))
+	}
+	replayCheck(t, e, cfg)
+}
+
+// TestRoleTokenIsNotCreatedWhenItsCreatureLeft pins CR 303.4g's token
+// sentence with a real card: Cursed Courtier's "When it enters, create a
+// Cursed Role token attached to it" resolving after the Courtier has left the
+// battlefield creates no Role (an Aura token with nothing it can legally
+// enchant isn't created), where it used to mint the Role unattached for the
+// CR 704.5m SBA to sweep.
+func TestRoleTokenIsNotCreatedWhenItsCreatureLeft(t *testing.T) {
+	t.Parallel()
+	e, cfg, _ := altCostEngine(t, 1009, []string{"Cursed Courtier"}, nil, nil)
+	toMain1(t, e)
+	courtier := auraMoveCorpusCard(t, e, 0, "Cursed Courtier", state.ZBattlefield)
+	if len(e.pendingTriggers) == 0 {
+		t.Fatal("precondition: Cursed Courtier's ETB trigger did not queue")
+	}
+	e.emit(events.Event{Kind: events.MoveZone, Obj: courtier, From: state.ZBattlefield, To: state.ZGraveyard})
+	before := len(e.G.Objs)
+	e.priorityRound()
+	passUntilStackEmpty(t, e, 20)
+	for i := before; i < len(e.G.Objs); i++ {
+		if o := &e.G.Objs[i]; o.IsToken && o.Face() != nil && o.Face().Name == "Cursed Role" {
+			t.Fatalf("a Cursed Role was created (zone %v) though its creature had left", o.Zone)
+		}
+	}
+	if !hasNote(e, "isn't created (CR 303.4g)") {
+		t.Error("no CR 303.4g note for the withheld Role token")
+	}
+	replayCheck(t, e, cfg)
+}
+
+// TestAuraTokenWithNothingToEnchantIsNotCreated pins the TokenCreate gate:
+// a Role token minted with no creature anywhere is not created.
+func TestAuraTokenWithNothingToEnchantIsNotCreated(t *testing.T) {
+	t.Parallel()
+	e, cfg, _ := altCostEngine(t, 1010, nil, nil, nil)
+	toMain1(t, e)
+	if _, ok := e.G.Tokens["role_cursed"]; !ok {
+		t.Skip("role_cursed token script not in the corpus")
+	}
+	before := e.G.NextID
+	e.emit(events.Event{Kind: events.TokenCreate, Player: 0, Text: "role_cursed"})
+	if e.G.NextID != before {
+		t.Fatalf("an Aura token was minted with nothing to enchant (NextID %d -> %d)", before, e.G.NextID)
+	}
+	if !hasNote(e, "isn't created (CR 303.4g)") {
+		t.Error("no CR 303.4g note for the withheld token")
+	}
+	replayCheck(t, e, cfg)
+}

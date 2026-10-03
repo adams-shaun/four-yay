@@ -569,7 +569,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 		if to == state.ZBattlefield {
 			applyTransformed(h, c, cz.Riders.Transformed, o.ID)
 		}
-		expectChangeZoneAttach(h, cz, o.ID, to)
+		claimChangeZoneAttach(h, c, sa, cz, ev)
 		h.Emit(ev)
 		moved = append(moved, o.ID)
 		exiledWithAssociation(h, c, o.ID, to)
@@ -817,18 +817,63 @@ func changeZoneChosenTargetsFor(h Host, c *Ctx, sa *cards.SA, cz *changeZoneTarg
 	return poseTargetsAsk(h, c, sa, chooser, candidates, min, max, "choice")
 }
 
-// expectChangeZoneAttach announces, BEFORE a ChangeZone mover emits a
-// battlefield entry, that its AttachedTo$/AttachedToPlayer$ rider names the
-// moved card's bearer (changeZoneAttachedTo runs after the move). A non-cast
-// Aura so announced skips the engine's CR 303.4f "what does it enchant"
-// choice, which belongs only to an entry whose effect names no bearer
-// (rules/aura_entry.go). Every ChangeZone mover that follows its move with
-// changeZoneAttachedTo calls this first; the attachment-entry census
-// (rules/aura_entry_census_test.go) pins the pairing.
-func expectChangeZoneAttach(h Host, cz *ChangeZoneParams, moved state.ObjID, to state.Zone) {
-	if to == state.ZBattlefield && (cz.AttachedTo != "" || cz.AttachedToPlayer != "") {
-		h.ExpectAttachedEntry(moved)
+// claimChangeZoneAttach hands a ChangeZone battlefield entry's
+// AttachedTo$/AttachedToPlayer$ named bearers to the engine BEFORE the move is
+// emitted (Host.ClaimAttachedEntry). For a non-cast Aura the engine then owns
+// the attachment -- the first named bearer the Aura can legally enchant, or
+// the Aura stays in its zone when none is (CR 303.4f/g, rules/aura_entry.go)
+// -- and the claim is recorded on c so changeZoneAttachedTo, which runs after
+// the move, does not attach it a second time. Anything else (an Equipment, a
+// face-down entry) is not claimed and keeps the post-move rider. Every
+// ChangeZone mover that follows its move with changeZoneAttachedTo calls this
+// first; rules/aura_entry_census_test.go pins the pairing.
+func claimChangeZoneAttach(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, ev events.Event) {
+	if ev.To != state.ZBattlefield || (cz.AttachedTo == "" && cz.AttachedToPlayer == "") {
+		return
 	}
+	if o := h.Game().Obj(ev.Obj); o == nil || !hasType(o, "Aura") {
+		return
+	}
+	if h.ClaimAttachedEntry(ev, changeZoneAttachTargets(h, c, sa, cz)) {
+		c.AttachClaimed = ev.Obj
+	}
+}
+
+// changeZoneAttachTargets resolves the named bearers in order: the living
+// seats AttachedToPlayer$ names, else the objects AttachedTo$ names (the
+// same Defined$ resolution, card-filter fallback included, the post-move
+// rider below uses).
+func changeZoneAttachTargets(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams) []state.Target {
+	var out []state.Target
+	sub := *sa
+	if cz.AttachedToPlayer != "" {
+		sub.Params = map[string]string{"Defined": cz.AttachedToPlayer}
+		for _, t := range Defined(h, c, &sub) {
+			if t.IsPlayer && int(t.Player) < len(h.Game().Players) && !h.Game().Players[t.Player].Lost {
+				out = append(out, t)
+			}
+		}
+		return out
+	}
+	sub.Params = map[string]string{"Defined": changeZoneAttachSelector(h, c, cz.AttachedTo)}
+	for _, t := range Defined(h, c, &sub) {
+		if !t.IsPlayer && t.Obj != 0 && h.Game().Obj(t.Obj) != nil {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+// changeZoneAttachSelector is AttachedTo$'s Defined$ spelling: a bare card
+// filter the Defined$ grammar cannot classify resolves as a battlefield
+// filter ("Valid <filter>"); see changeZoneAttachedTo.
+func changeZoneAttachSelector(h Host, c *Ctx, val string) string {
+	if val != "Valid" && !strings.HasPrefix(val, "Valid ") {
+		if _, ok := knownDefinedTargets(h, c, val); !ok {
+			return "Valid " + val
+		}
+	}
+	return val
 }
 
 // changeZoneAttachedTo implements ChangeZone's AttachedTo$ param: "the moved
@@ -855,12 +900,17 @@ func changeZoneAttachedTo(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, mo
 	if moved == 0 || (val == "" && playerVal == "") {
 		return
 	}
+	if c.AttachClaimed == moved {
+		// The engine settled this non-cast Aura's bearer as it entered
+		// (claimChangeZoneAttach).
+		c.AttachClaimed = 0
+		return
+	}
 	if playerVal != "" {
 		changeZoneAttachedToPlayer(h, c, sa, moved, playerVal)
 		return
 	}
 	sub := *sa
-	sub.Params = map[string]string{"Defined": val}
 	// A bare card-filter spelling ("Creature" -- Retether's mass return;
 	// "Creature.YouCtrl" -- One Last Job, Storm Herald, Nomad Mythmaker;
 	// "Creature.sharesCreatureTypeWith <ref>" -- Runed Crown) is not a
@@ -871,14 +921,8 @@ func changeZoneAttachedTo(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, mo
 	// cannot classify the value, resolve it as a battlefield card filter --
 	// the same walk the Valid-prefixed branch runs -- so a spelling this
 	// grammar cannot evaluate fails closed to the loud Note below, never to
-	// a guessed attach. A value that is already the Valid-prefixed filter
-	// form (Mantle of the Ancients' "Valid Creature.EnchantedBy") keeps its
-	// own branch.
-	if val != "Valid" && !strings.HasPrefix(val, "Valid ") {
-		if _, ok := knownDefinedTargets(h, c, val); !ok {
-			sub.Params["Defined"] = "Valid " + val
-		}
-	}
+	// a guessed attach (changeZoneAttachSelector).
+	sub.Params = map[string]string{"Defined": changeZoneAttachSelector(h, c, val)}
 	var to state.ObjID
 	for _, t := range Defined(h, c, &sub) {
 		if !t.IsPlayer {
@@ -1299,7 +1343,7 @@ func settleChangeZoneMoveAs(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, 
 	if to == state.ZBattlefield {
 		applyTransformed(h, c, cz.Riders.Transformed, id)
 	}
-	expectChangeZoneAttach(h, cz, id, to)
+	claimChangeZoneAttach(h, c, sa, cz, ev)
 	h.Emit(ev)
 	if to == state.ZExile {
 		recordExileReturnFor(h, c, cz.Riders.Duration, id, from, to)

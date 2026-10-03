@@ -36,10 +36,18 @@ import (
 //
 // An effect that DOES specify the bearer (ChangeZone's AttachedTo$ /
 // AttachedToPlayer$, DigUntil's revealed-Aura bearer, a copy token's
-// AttachedTo$) announces it through Host.ExpectAttachedEntry before it emits
-// the move; the entry then skips the choice and the effect's own Attach
-// follows, exactly as before. The CR 303.4g legality gate still applies to
-// it: with nothing legal anywhere, the named bearer is not legal either.
+// AttachedTo$) hands its resolved named set to Host.ClaimAttachedEntry
+// before it emits the move. For a non-cast Aura the engine then owns the
+// attachment: no choice is posed, the entry attaches to the FIRST member of
+// the named set that the Aura can legally enchant, and when no member is
+// legal the Aura stays in its zone -- CR 303.4g read through the effect's own
+// restriction, which is exactly Retether's reminder text ("Aura cards that
+// can't enchant a creature on the battlefield remain in your graveyard") and
+// the Boonweaver Giant / Academy Researchers rulings (the named creature has
+// left: the Aura can't be put onto the battlefield). The claiming effect
+// does not attach the Aura itself; for anything else (an Equipment, a
+// face-down entry) the claim answers false and the effect attaches as
+// before.
 //
 // The bearer test is the enchant ability's legality, never targeting: an
 // opponent's hexproof or shroud creature is a legal answer (CR 702.11b and
@@ -66,10 +74,25 @@ type auraEntryCand struct {
 	toPlayer bool
 }
 
-// ExpectAttachedEntry implements effects.HostEmit: the effect about to move
-// obj onto the battlefield attaches it itself, so its entry poses no CR 303.4f
-// choice and records no default bearer. Cleared by obj's next folded move.
-func (e *Engine) ExpectAttachedEntry(obj state.ObjID) { e.attachedEntry = obj }
+// attachedEntryState is a claimed entry's effect-named bearer set
+// (ClaimAttachedEntry), held from the claim to the entry's gate.
+type attachedEntryState struct {
+	obj   state.ObjID
+	among []state.Target
+}
+
+// ClaimAttachedEntry implements effects.HostEmit (see the file comment): ev
+// is the battlefield entry the effect is about to emit and among its
+// resolved, ordered named bearers. True when ev is a non-cast Aura entry,
+// whose attachment the engine now settles; the effect must not attach it.
+// Cleared by the object's next folded move or withheld entry.
+func (e *Engine) ClaimAttachedEntry(ev events.Event, among []state.Target) bool {
+	if e.nonCastAuraEntrant(ev) == nil {
+		return false
+	}
+	e.attachedEntry = attachedEntryState{obj: ev.Obj, among: append([]state.Target(nil), among...)}
+	return true
+}
 
 // nonCastAuraEntrant returns the object of a MoveZone that puts a face-up
 // Aura card onto the battlefield other than by resolving as an Aura spell
@@ -112,9 +135,9 @@ func faceIsAura(f *cards.Face) bool {
 // "Player", "Creature.inZoneGraveyard"). An Aura with no Enchant keyword
 // (none in the corpus) may enchant any permanent, the convention
 // auraStillMatchesEnchant keeps for the SBA.
-func auraEnchantSpec(o *state.Object) string {
+func auraEnchantSpec(f *cards.Face) string {
 	spec := "Permanent"
-	if param, ok := o.Face().KeywordParam("Enchant"); ok && strings.TrimSpace(param) != "" {
+	if param, ok := f.KeywordParam("Enchant"); ok && strings.TrimSpace(param) != "" {
 		spec, _, _ = strings.Cut(param, ":")
 	}
 	return strings.TrimSpace(spec)
@@ -129,15 +152,22 @@ func auraEnchantSpec(o *state.Object) string {
 // events.Move puts it onto the battlefield under). Not targeting: hexproof
 // and shroud are not consulted; protection is (CR 702.16c).
 func (e *Engine) auraEntryCandidates(o *state.Object, out []auraEntryCand) []auraEntryCand {
+	return e.auraEnchantCandidates(o.Face(), o.ID, o.Controller, out)
+}
+
+// auraEnchantCandidates is auraEntryCandidates over a face, the entering
+// object's id (0 for a token not yet minted: it can then be neither a
+// candidate itself nor a protection source) and the controller it enters
+// under.
+func (e *Engine) auraEnchantCandidates(f *cards.Face, id state.ObjID, you state.PlayerID, out []auraEntryCand) []auraEntryCand {
 	out = out[:0]
-	you := o.Controller
-	spec := auraEnchantSpec(o)
+	spec := auraEnchantSpec(f)
 	if spec == "Player" || spec == "Opponent" {
 		for _, p := range e.G.AliveFrom(0) {
 			if spec == "Opponent" && p == you {
 				continue
 			}
-			if !effects.MatchesPlayerSpecFrom(e.G, spec, p, you, o.ID) || e.playerProtectedFrom(p, o.ID) {
+			if !effects.MatchesPlayerSpecFrom(e.G, spec, p, you, id) || e.playerProtectedFrom(p, id) {
 				continue
 			}
 			out = append(out, auraEntryCand{player: p, toPlayer: true})
@@ -153,17 +183,17 @@ func (e *Engine) auraEntryCandidates(o *state.Object, out []auraEntryCand) []aur
 		}
 	}
 	for _, p := range e.G.AliveFrom(0) {
-		for _, id := range e.G.Zone(zone, p) {
-			if id == o.ID {
+		for _, bid := range e.G.Zone(zone, p) {
+			if bid == id {
 				continue
 			}
-			if !e.matchesSpecFrom(spec, id, you, o.ID) {
+			if !e.matchesSpecFrom(spec, bid, you, id) {
 				continue
 			}
-			if zone == state.ZBattlefield && e.protectedFrom(id, o.ID) {
+			if zone == state.ZBattlefield && e.protectedFrom(bid, id) {
 				continue
 			}
-			out = append(out, auraEntryCand{obj: id})
+			out = append(out, auraEntryCand{obj: bid})
 		}
 	}
 	return out
@@ -175,7 +205,8 @@ func (e *Engine) auraEntryCandidates(o *state.Object, out []auraEntryCand) []aur
 // leaves one Note (Secret when the move was) and nothing else -- no MoveZone,
 // no replacement, no trigger. Otherwise it records the default bearer the
 // fold will attach (the first candidate), unless the entering effect named
-// its own bearer (ExpectAttachedEntry) or the controller already answered.
+// its own bearer set (ClaimAttachedEntry: the first legal member) or the
+// controller already answered.
 func (e *Engine) auraEntryGate(ev events.Event) bool {
 	o := e.nonCastAuraEntrant(ev)
 	if o == nil {
@@ -183,26 +214,75 @@ func (e *Engine) auraEntryGate(ev events.Event) bool {
 	}
 	cands := e.auraEntryCandidates(o, e.auraEntryCands)
 	e.auraEntryCands = cands
+	named := e.attachedEntry.obj == ev.Obj
+	if named {
+		// The effect named the bearer: the legal answers are its named
+		// set's members the Aura can enchant, in the effect's order.
+		cands = filterAuraCandidates(cands, e.attachedEntry.among)
+	}
 	if len(cands) == 0 {
-		if e.attachedEntry == ev.Obj {
-			e.attachedEntry = 0
+		if named {
+			e.attachedEntry = attachedEntryState{}
 		}
 		if e.auraEntry.obj == ev.Obj {
 			e.auraEntry = auraEntryState{}
 		}
-		e.emit(events.Event{Kind: events.Note, Obj: ev.Obj, Player: o.Controller, Secret: ev.Secret,
-			Text: "nothing the Aura can legally enchant: it stays in its zone (CR 303.4g)"})
+		text := "nothing the Aura can legally enchant: it stays in its zone (CR 303.4g)"
+		if named {
+			text = "nothing the effect names is something the Aura can legally enchant: it stays in its zone (CR 303.4g)"
+		}
+		e.emit(events.Event{Kind: events.Note, Obj: ev.Obj, Player: o.Controller, Secret: ev.Secret, Text: text})
 		return true
-	}
-	if e.attachedEntry == ev.Obj {
-		return false
 	}
 	if e.auraEntry.obj == ev.Obj && e.auraEntry.answered {
 		return false
 	}
 	c := cands[0]
-	e.auraEntry = auraEntryState{obj: ev.Obj, bearer: c.obj, player: c.player, toPlayer: c.toPlayer}
+	e.auraEntry = auraEntryState{obj: ev.Obj, bearer: c.obj, player: c.player, toPlayer: c.toPlayer, answered: named}
 	return false
+}
+
+// filterAuraCandidates keeps, in among's order, the named bearers that are
+// legal candidates. It rewrites cands' storage in place (the scratch
+// buffer), so the result never allocates.
+func filterAuraCandidates(cands []auraEntryCand, among []state.Target) []auraEntryCand {
+	n := 0
+	for _, t := range among {
+		for i := n; i < len(cands); i++ {
+			c := cands[i]
+			if (t.IsPlayer && c.toPlayer && c.player == t.Player) ||
+				(!t.IsPlayer && !c.toPlayer && t.Obj != 0 && c.obj == t.Obj) {
+				cands[n], cands[i] = cands[i], cands[n]
+				n++
+				break
+			}
+		}
+	}
+	return cands[:n]
+}
+
+// auraTokenGate is auraEntryGate's TokenCreate half: CR 303.4g's "If the
+// Aura is a token, it isn't created" when nothing on the board is a legal
+// answer for the token's enchant ability. Every corpus Aura token is minted
+// with an AttachedTo$ bearer (effects' auraTokenWithheld refuses the mint
+// when that bearer is gone), so this is the class backstop for a mint whose
+// script names no bearer at all.
+func (e *Engine) auraTokenGate(ev events.Event) bool {
+	def := e.G.Tokens[ev.Text]
+	if def == nil || len(def.Faces) == 0 || !faceIsAura(def.Faces[0]) {
+		return false
+	}
+	if int(ev.Player) >= len(e.G.Players) {
+		return false
+	}
+	cands := e.auraEnchantCandidates(def.Faces[0], 0, ev.Player, e.auraEntryCands)
+	e.auraEntryCands = cands
+	if len(cands) > 0 {
+		return false
+	}
+	e.emit(events.Event{Kind: events.Note, Player: ev.Player,
+		Text: "nothing the Aura token " + ev.Text + " can legally enchant: it isn't created (CR 303.4g)"})
+	return true
 }
 
 // auraEntryChoice is entryETBChoice's CR 303.4f arm: the "enchant" election
@@ -212,7 +292,7 @@ func (e *Engine) auraEntryGate(ev events.Event) bool {
 // already recorded it.
 func (e *Engine) auraEntryChoice(ev events.Event) ([]decision.Option, bool) {
 	o := e.nonCastAuraEntrant(ev)
-	if o == nil || e.attachedEntry == ev.Obj {
+	if o == nil || e.attachedEntry.obj == ev.Obj {
 		return nil, false
 	}
 	cands := e.auraEntryCandidates(o, e.auraEntryCands)
@@ -258,8 +338,8 @@ func (e *Engine) settleAuraEntry(stored events.Event) {
 	if stored.Kind != events.MoveZone {
 		return
 	}
-	if e.attachedEntry == stored.Obj {
-		e.attachedEntry = 0
+	if e.attachedEntry.obj == stored.Obj {
+		e.attachedEntry = attachedEntryState{}
 	}
 	st := e.auraEntry
 	if st.obj == 0 || st.obj != stored.Obj {

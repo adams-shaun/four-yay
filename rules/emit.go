@@ -154,7 +154,8 @@ func (e *Engine) emit(ev events.Event) events.Event {
 	// CR 303.4g: a non-cast Aura with nothing it can legally enchant never
 	// enters -- it stays in its zone, ahead of every replacement, staging,
 	// fold and trigger (rules/aura_entry.go).
-	if ev.Kind == events.MoveZone && ev.To == state.ZBattlefield && e.auraEntryGate(ev) {
+	if (ev.Kind == events.MoveZone && ev.To == state.ZBattlefield && e.auraEntryGate(ev)) ||
+		(ev.Kind == events.TokenCreate && e.auraTokenGate(ev)) {
 		return events.Event{Kind: events.Note, Obj: ev.Obj, Player: ev.Player,
 			Text: "aura entry withheld (CR 303.4g)"}
 	}
