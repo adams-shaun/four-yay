@@ -157,6 +157,7 @@ const (
 	PKNonLegendary
 	PKNotThisAbility
 	PKNumDmg
+	PKNumTurns
 	PKNumber
 	PKObject
 	PKOnlyFirstSpell
@@ -436,6 +437,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKNonLegendary:                    "NonLegendary",
 	PKNotThisAbility:                  "NotThisAbility",
 	PKNumDmg:                          "NumDmg",
+	PKNumTurns:                        "NumTurns",
 	PKNumber:                          "Number",
 	PKObject:                          "Object",
 	PKOnlyFirstSpell:                  "OnlyFirstSpell",
