@@ -3244,7 +3244,13 @@ func effRearrangeTopOfLibrary(h Host, c *Ctx, sa *cards.SA) {
 						{Index: 0, Kind: "yes", Label: "Yes — shuffle", Player: p},
 						{Index: 1, Kind: "no", Label: "No — keep the order", Player: p},
 					}}
-				if Ask(h, d) == AskAsked {
+				if ans, ok := AskTape(h, d); ok {
+					// The resolution kernel's answer in hand: the shuffle the
+					// "arrange_mayshuffle" arm emits, then the walk goes on.
+					if len(ans) > 0 && ans[0].Kind == "yes" {
+						shuffleLibraryOrder(h, p)
+					}
+				} else if Ask(h, d) == AskAsked {
 					return // resolution suspended; the answer re-enters with Ctx.MayShuffle set.
 				}
 			}
@@ -3293,6 +3299,15 @@ func effRearrangeTopOfLibrary(h Host, c *Ctx, sa *cards.SA) {
 		// exact wedge shape. AskEmpty (and AskNoHost alike) resolves through
 		// the stand-in below: the order is (re)set unchanged and the
 		// resolution completes.
+		if _, ok := AskTapeIntent(h, d); ok {
+			// The resolution kernel served the answer and its record applied
+			// the arrangement (the KArrange answer record handleArrange
+			// shares); the re-entry's MayShuffle$ election follows here.
+			if mayShuffle && rearrangeMayShuffleTape(h, c, sa, p, targetIndex) {
+				return
+			}
+			continue
+		}
 		if Ask(h, d) == AskAsked {
 			return // resolution suspended; the answer re-enters with Ctx.Arrange set.
 		}
@@ -3303,6 +3318,29 @@ func effRearrangeTopOfLibrary(h Host, c *Ctx, sa *cards.SA) {
 			IDs:    append([]state.ObjID(nil), lib...),
 			Secret: true})
 	}
+}
+
+// rearrangeMayShuffleTape is effRearrangeTopOfLibrary's MayShuffle$ election
+// on the resolution kernel's path, after the arrange answer for target
+// index i was served: the same ask the arrange re-entry poses, answered from
+// the tape (or, with the tape exhausted, posed and unwound). It reports a
+// legacy suspension (the kernel declined the ask, so the legacy ask took it
+// and the run falls back), on which the caller returns.
+func rearrangeMayShuffleTape(h Host, c *Ctx, sa *cards.SA, p state.PlayerID, i int) bool {
+	d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 1, Max: 1,
+		Source: c.Source, ResumeKind: "arrange_mayshuffle", ResumeSA: sa,
+		ResumeTarget: i, Prompt: "Shuffle your library?",
+		Options: []decision.Option{
+			{Index: 0, Kind: "yes", Label: "Yes — shuffle", Player: p},
+			{Index: 1, Kind: "no", Label: "No — keep the order", Player: p},
+		}}
+	if ans, ok := AskTape(h, d); ok {
+		if len(ans) > 0 && ans[0].Kind == "yes" {
+			shuffleLibraryOrder(h, p)
+		}
+		return false
+	}
+	return Ask(h, d) == AskAsked
 }
 
 // effScry implements the Scry prompt API (CR 701.18): look at the top
@@ -3489,12 +3527,20 @@ func effLookAndArrange(h Host, c *Ctx, sa *cards.SA, n int32, kind, verb string,
 						{Index: 0, Kind: "yes", Label: "Yes", Player: p},
 						{Index: 1, Kind: "no", Label: "No", Player: p},
 					}}
-				if Ask(h, d) != AskNoHost {
+				if ans, ok := AskTape(h, d); ok {
+					// The resolution kernel's answer in hand (the
+					// "scry_optional" arm's ScryOpt): a decline skips this
+					// library, a yes scries it now.
+					if len(ans) == 0 || ans[0].Kind != "yes" {
+						continue
+					}
+				} else if Ask(h, d) != AskNoHost {
 					return
+				} else {
+					// R-9: an unavailable host deterministically declines an
+					// optional election; never treat an unanswered ask as consent.
+					continue
 				}
-				// R-9: an unavailable host deterministically declines an
-				// optional election; never treat an unanswered ask as consent.
-				continue
 			} else if opt != "yes" {
 				continue
 			}
@@ -3555,6 +3601,12 @@ func effLookAndArrange(h Host, c *Ctx, sa *cards.SA, n int32, kind, verb string,
 		// options -- the exact wedge shape. AskEmpty (and AskNoHost alike)
 		// resolves through the stand-in below: every zero cards keep their
 		// place and the resolution completes.
+		if _, ok := AskTapeIntent(h, d); ok {
+			// The resolution kernel served the answer and its record applied
+			// it (the KArrange answer record handleArrange shares): on to
+			// the next library.
+			continue
+		}
 		if Ask(h, d) == AskAsked {
 			return // resolution suspended; the answer re-enters with Ctx.Arrange set.
 		}

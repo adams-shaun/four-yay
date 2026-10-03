@@ -55,8 +55,16 @@ func asResolve(e *Engine) *resolveBoard { return (*resolveBoard)(e) }
 // answered from the tape or the run unwinds; with a synchronous answerer it
 // is posed and answered inline. ok false: ask through the legacy path.
 func (e *Engine) TapeAnswer(d *decision.Decision) (decision.Intent, bool) {
+	if tapeForceLegacy != nil && tapeForceLegacy(d) {
+		return decision.Intent{}, false
+	}
 	return e.tape.Answer(asResolve(e), d)
 }
+
+// tapeForceLegacy (tests only) makes a converted ask site decline the tape,
+// so the kernel's legacy fallbacks (the in-place switch, the abort and
+// legacy replay) stay exercised as the conversion closes every real site.
+var tapeForceLegacy func(d *decision.Decision) bool
 
 // SetTapeAnswerer installs (nil removes) e's synchronous answerer: an engine
 // whose every seat is a policy answers a converted mid-resolution ask inline,
@@ -203,13 +211,7 @@ func (b *resolveBoard) Record(d *decision.Decision, in decision.Intent) decision
 	ad, _ := actingView(d, logged)
 	acted := logged
 	acted.Player = ad.Player
-	if d.Kind == decision.KModes {
-		obj := d.Source
-		if n := len(e.G.Stack); n > 0 {
-			obj = e.G.Stack[n-1] // the resolving object stays on the stack
-		}
-		recordModesAnswer(e, ad, acted.Player, d.Chosen(acted), obj)
-	}
+	tapeAnswerRecord(e, ad, acted)
 	return acted
 }
 
