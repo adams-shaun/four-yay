@@ -537,7 +537,7 @@ func faceWantsConvoked(f *cards.Face) bool {
 		}
 	}
 	for _, a := range f.Abilities {
-		if strings.EqualFold(strings.TrimSpace(a.ParamStr(cards.PKDefined)), "Convoked") {
+		if strings.EqualFold(effects.DefinedRefOf(a).Text, "Convoked") {
 			return true
 		}
 		if abilityParamsUseConvoked(a.Params) {

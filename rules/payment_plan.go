@@ -1590,7 +1590,7 @@ func (e *Engine) paymentPlanDamageRider(id state.ObjID, mana *cards.SA) (uint32,
 // paymentPlanDamageBody reports N when rider is exactly `DealDamage |
 // Defined$ You | NumDmg$ <literal N>` with no further parameter or sub.
 func paymentPlanDamageBody(rider *cards.SA) (uint32, bool) {
-	if rider == nil || rider.API != "DealDamage" || strings.TrimSpace(rider.ParamStr(cards.PKDefined)) != "You" || strings.TrimSpace(rider.ParamStr(cards.PKSubAbility)) != "" {
+	if rider == nil || rider.API != "DealDamage" || !effects.DefinedRefOf(rider).Is(effects.RefYou) || strings.TrimSpace(rider.ParamStr(cards.PKSubAbility)) != "" {
 		return 0, false
 	}
 	n, err := strconv.ParseUint(strings.TrimSpace(effects.DealDamageOf(rider).NumDmg.Text), 10, 32)
@@ -1628,7 +1628,7 @@ func (e *Engine) paymentPlanParadiseRider(id state.ObjID, mana *cards.SA) bool {
 		return false
 	}
 	rider := cards.ResolveSVar(o.Face().SVars, strings.TrimSpace(mana.ParamStr(cards.PKSubAbility)))
-	if rider == nil || rider.API != "Pump" || rider.ParamStr(cards.PKDefined) != "Self" {
+	if rider == nil || rider.API != "Pump" || effects.DefinedRefOf(rider).Raw != "Self" {
 		return false
 	}
 	for _, key := range slices.Sorted(maps.Keys(rider.Params)) {

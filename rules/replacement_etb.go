@@ -3,6 +3,7 @@ package rules
 import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 	"strconv"
@@ -249,7 +250,7 @@ func attachedBodyPoses(sa *cards.SA) bool {
 		// The only corpus Attached ChooseCard is Pick-Axe's exiled-craft-card
 		// pick; its pool must be the source's own exile association. Any other
 		// DefinedCards$ role is a different pool this path does not read.
-		return strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKDefinedCards)), "ExiledWith")
+		return strings.EqualFold(effects.DefinedOf(sa).Cards.Text, "ExiledWith")
 	case "ChooseColor":
 		return true
 	default:
@@ -371,7 +372,7 @@ func (e *Engine) askAttachedCard(o *state.Object, repl *cards.Repl) bool {
 // the shared exile zone, so a card this source did not exile is not offered.
 func (e *Engine) attachedCardOptions(source state.ObjID, repl *cards.Repl) []decision.Option {
 	src := e.G.Obj(source)
-	if src == nil || !strings.EqualFold(strings.TrimSpace(repl.With.ParamStr(cards.PKDefinedCards)), "ExiledWith") {
+	if src == nil || !strings.EqualFold(effects.DefinedOf(repl.With).Cards.Text, "ExiledWith") {
 		return nil
 	}
 	zones := attachedChoiceZones(repl.With.ParamStr(cards.PKChoiceZone))
