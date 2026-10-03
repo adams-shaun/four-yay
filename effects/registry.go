@@ -2612,7 +2612,7 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		wasSuspended := h.Suspended()
 		asksBefore := askCount(h)
 		unlessServed := false
-		if strings.TrimSpace(sa.ParamStr(cards.PKUnlessCost)) != "" {
+		if ActivationOf(sa).Unless() {
 			runBody, paid, unlessServed = unlessProceed(h, c, sa)
 		}
 		// askCount catches the gate ask the host DEFERRED behind an
@@ -2675,7 +2675,7 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 				// record its outcome on the ask's own resume point so the
 				// answered re-entry consumes it instead of re-posing the pay
 				// ask.
-				if strings.TrimSpace(sa.ParamStr(cards.PKUnlessCost)) != "" {
+				if ActivationOf(sa).Unless() {
 					h.SuspendUnless(sa, paid)
 				}
 				return
@@ -2757,7 +2757,7 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 			// outcome so the answer's re-entry pass consumes it instead of
 			// re-posing the pay ask (the asking-body-under-UnlessCost$
 			// livelock — Rhystic Study's pay-or-draw was the live carrier).
-			if strings.TrimSpace(sa.ParamStr(cards.PKUnlessCost)) != "" {
+			if ActivationOf(sa).Unless() {
 				h.SuspendUnless(sa, paid)
 			}
 			return
@@ -2766,7 +2766,7 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		// resolves the subs iff (paid && WhenPaid-or-default) or
 		// (!paid && WhenNotPaid-or-default), independent of the orientation —
 		// a paid unswitched body both runs AND suppresses a WhenNotPaid chain.
-		if strings.TrimSpace(sa.ParamStr(cards.PKUnlessCost)) != "" && !unlessSubsRun(sa, paid) {
+		if ActivationOf(sa).Unless() && !unlessSubsRun(sa, paid) {
 			return
 		}
 	}

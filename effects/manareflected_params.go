@@ -41,7 +41,7 @@ type ManaReflectedParams struct {
 	RestrictValid string
 	// Defined$, trimmed: the Produced shape's recipient role.
 	Defined string
-	// The activation gate: ClassBand$ as written, IsPresent$ as written
+	// The activation gate: ClassBand$ as written, IsPresent$ trimmed
 	// (blank = no gate) and PresentCompare$ trimmed.
 	ClassBand      string
 	IsPresent      string
@@ -72,7 +72,7 @@ func ManaReflectedOf(sa *cards.SA) *ManaReflectedParams {
 	if p := slot.Load(); p != nil && p.boundTo(sa.Params) {
 		return p
 	}
-	p := compileManaReflected(sa, DefinedOf(sa))
+	p := compileManaReflected(sa, DefinedOf(sa), ActivationOf(sa))
 	if sa.Params != nil {
 		slot.Store(p)
 	}
@@ -85,7 +85,7 @@ var manaReflectedFront [1 << 10]atomic.Pointer[ManaReflectedParams]
 
 // compileManaReflected is the one reader of a reflected-mana ability's own
 // parameters.
-func compileManaReflected(sa *cards.SA, dp *DefinedParams) *ManaReflectedParams {
+func compileManaReflected(sa *cards.SA, dp *DefinedParams, ap *ActivationParams) *ManaReflectedParams {
 	p := &ManaReflectedParams{paramBinding: bindParams(sa)}
 	p.ReflectProperty = strings.TrimSpace(sa.Params["ReflectProperty"])
 	p.WidenType = strings.TrimSpace(sa.Params["ColorOrType"]) == "Type"
@@ -96,10 +96,8 @@ func compileManaReflected(sa *cards.SA, dp *DefinedParams) *ManaReflectedParams 
 	p.RestrictValid = strings.TrimSpace(sa.ParamStr(cards.PKRestrictValid))
 	p.Defined = dp.Defined.Text
 	p.ClassBand = sa.ParamStr(cards.PKClassBand)
-	if spec, ok := sa.Param(cards.PKIsPresent); ok && strings.TrimSpace(spec) != "" {
-		p.IsPresent = spec
-	}
-	p.PresentCompare = strings.TrimSpace(sa.ParamStr(cards.PKPresentCompare))
+	p.IsPresent = ap.IsPresent.Text
+	p.PresentCompare = ap.PresentCompare.Text
 	if sa.API == "ManaReflected" {
 		p.Unread = unreadKeys(sa, manaReflectedKnownKeys[:])
 	}

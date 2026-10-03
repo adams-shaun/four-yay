@@ -54,7 +54,7 @@ func compileTypedHalves(f *SAFacts, sa *cards.SA) {
 		f.Mana = compileMana(sa, f.Defined)
 	}
 	if sa.API == "ManaReflected" {
-		f.ManaReflected = compileManaReflected(sa, f.Defined)
+		f.ManaReflected = compileManaReflected(sa, f.Defined, f.Activation)
 	}
 	if isDealDamageSA(sa) {
 		f.DealDamage = compileDealDamage(sa)
@@ -66,7 +66,7 @@ func compileTypedHalves(f *SAFacts, sa *cards.SA) {
 		f.Effect = compileEffect(sa)
 	}
 	if isDelayedTriggerSA(sa) {
-		f.DelayedTrigger = compileDelayedTrigger(sa)
+		f.DelayedTrigger = compileDelayedTrigger(sa, f.Activation)
 	}
 	if isCopyPermanentSA(sa) {
 		f.CopyPermanent = compileCopyPermanent(sa, f.Defined)

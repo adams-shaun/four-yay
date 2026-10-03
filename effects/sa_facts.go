@@ -106,12 +106,16 @@ type SAFacts struct {
 	// (removecounter_params.go), non-nil exactly when the API is
 	// RemoveCounter.
 	RemoveCounter *RemoveCounterParams
+	// Activation is the generic activation/condition tier's compiled
+	// parameter set (activation_params.go), non-nil for EVERY ability
+	// whatever its API.
+	Activation *ActivationParams
 }
 
 // NewSAFacts compiles sa's typed halves into a fresh record naming sa. The
 // caller (rules' configured binding) adds its own half and publishes it.
 func NewSAFacts(sa *cards.SA) *SAFacts {
-	f := &SAFacts{SA: sa, Targets: compileTargets(sa), Defined: compileDefined(sa)}
+	f := &SAFacts{SA: sa, Targets: compileTargets(sa), Defined: compileDefined(sa), Activation: compileActivation(sa)}
 	if isChangeZoneSA(sa) {
 		f.ChangeZone = compileChangeZone(sa, f.Targets, f.Defined)
 	} else if isChangeZoneAllSA(sa) {

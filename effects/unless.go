@@ -77,7 +77,7 @@ func UnlessCostResolved(h Host, c *Ctx, sa *cards.SA) string {
 	if sa == nil {
 		return ""
 	}
-	raw := strings.TrimSpace(sa.ParamStr(cards.PKUnlessCost))
+	raw := strings.TrimSpace(ActivationOf(sa).UnlessCost)
 	if raw == "" || c == nil {
 		return raw
 	}
@@ -337,7 +337,7 @@ func applyUnlessCostModifier(shown, op, arg string) string {
 // false.
 func unlessProceed(h Host, c *Ctx, sa *cards.SA) (run, paid, served bool) {
 	cost := UnlessCostResolved(h, c, sa)
-	if strings.TrimSpace(sa.ParamStr(cards.PKUnlessCost)) == "" {
+	if !ActivationOf(sa).Unless() {
 		return true, false, false
 	}
 	if sa.API == "Ward" {
@@ -351,7 +351,7 @@ func unlessProceed(h Host, c *Ctx, sa *cards.SA) (run, paid, served bool) {
 		// those windows, so leave the shape to its own handler.
 		return true, false, false
 	}
-	switched := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKUnlessSwitched)), "True")
+	switched := ActivationOf(sa).Has(ActUnlessSwitched)
 	// The answer and payer cursor are consumed (and cleared) at the top of
 	// every pass — the fx42 scoping discipline: an unless SA reached below a
 	// consuming SA in the same walk poses its own ask instead of inheriting
@@ -506,7 +506,7 @@ func poseUnlessAsk(h Host, c *Ctx, sa *cards.SA, cost string, payers []state.Tar
 		prompt = pay + " to save the spell, or decline"
 		payLabel = pay + " — don't counter"
 	case "CopySpellAbility":
-		if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKUnlessSwitched)), "True") {
+		if ActivationOf(sa).Has(ActUnlessSwitched) {
 			prompt = pay + " to copy the spell, or decline"
 			payLabel = pay + " — make a copy"
 		} else {
@@ -527,7 +527,7 @@ func poseUnlessAsk(h Host, c *Ctx, sa *cards.SA, cost string, payers []state.Tar
 				name = o.Face().Name
 			}
 			payLabel = "Take " + strconv.Itoa(n) + " damage"
-			if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKUnlessSwitched)), "True") {
+			if ActivationOf(sa).Has(ActUnlessSwitched) {
 				prompt = name + " deals " + strconv.Itoa(n) + " damage to you — accept?"
 				declineLabel = "Refuse — it stays"
 			} else {
@@ -623,7 +623,7 @@ func unlessPayerTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
 	if g == nil {
 		return nil, false
 	}
-	spec := strings.TrimSpace(sa.Params["UnlessPayer"])
+	spec := ActivationOf(sa).UnlessPayer
 	var out []state.Target
 	seen := map[state.PlayerID]bool{}
 	add := func(p state.PlayerID) {
