@@ -1,0 +1,154 @@
+{
+ "card": "Hapatra, the Desert Fang",
+ "family": "etb-ltb",
+ "author": "xo-hand (Oracle + CR only)",
+ "oracle_sha": "150bc9e757ea",
+ "scenarios": [
+  {
+   "name": "enters-puts-greatest-graveyard-mana-value-counters",
+   "cr": [
+    "603.3d",
+    "202.3",
+    "122.1"
+   ],
+   "why": "X is the greatest mana value among cards in Hapatra's controller's graveyard: Grizzly Bears (2) beats Lightning Bolt (1), so the opponent's Serra Angel gets two -1/-1 counters and is a 2/2.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Hapatra, the Desert Fang"
+     ],
+     "graveyard": [
+      "Grizzly Bears",
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Serra Angel"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Hapatra, the Desert Fang",
+     "mana": "CCBBG"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Serra Angel"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Hapatra, the Desert Fang",
+     "zone": "battlefield",
+     "pt": "3/3"
+    },
+    {
+     "card": "p1:Serra Angel",
+     "zone": "battlefield",
+     "pt": "2/2",
+     "counters": {
+      "-1/-1": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "counters-equal-to-toughness-kill-the-target",
+   "cr": [
+    "603.3d",
+    "704.5f"
+   ],
+   "why": "With Serra Angel (mana value 5) in Hapatra's controller's graveyard X is 5: the opponent's 4/4 Serra Angel gets five -1/-1 counters and dies to state-based actions.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Hapatra, the Desert Fang"
+     ],
+     "graveyard": [
+      "Serra Angel"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Serra Angel"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Hapatra, the Desert Fang",
+     "mana": "CCBBG"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Serra Angel"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Serra Angel",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Serra Angel",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "empty-graveyard-puts-no-counters",
+   "cr": [
+    "603.3d",
+    "107.3",
+    "122.1"
+   ],
+   "why": "With no cards in Hapatra's controller's graveyard X is 0, so the targeted Bears gets no counters and stays a 2/2.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Hapatra, the Desert Fang"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Hapatra, the Desert Fang",
+     "mana": "CCBBG"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield",
+     "pt": "2/2",
+     "counters": {
+      "-1/-1": 0
+     }
+    }
+   ]
+  }
+ ]
+}

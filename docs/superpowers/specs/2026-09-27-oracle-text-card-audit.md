@@ -161,7 +161,7 @@ The decoder rejects unknown fields.
     "why": "A permanent seat 0 controlled left the battlefield this turn, so ...",
     "format": "constructed | commander",
     "setup": {"p0": {"hand": [...], "battlefield": [...], "graveyard": [...], "library": [...],
-                     "library_top": [...], "exile": [...], "command": [...], "life": 27},
+                     "library_top": [...], "exile": [...], "command": [...], "sideboard": [...], "life": 27},
               "p1": {...}},
     "setup_answers": [{"kind": "any", "pick": ["yes"]}],
     "steps": [

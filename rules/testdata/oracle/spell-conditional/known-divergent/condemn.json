@@ -1,6 +1,0 @@
-{
-  "card": "Condemn",
-  "rows": {
-    "uses-current-toughness": "CR 608.2h/113.7a: 'Its controller gains life equal to its toughness' uses the creature's last known toughness on the battlefield. Expected: the attacker pumped by Giant Growth to 6/6 gives its controller 6 (26). Observed: 3 (23), the printed toughness of the card now in the library. The unpumped scenario passes. Confidence high. Likely the same last-known-information class as Ravenous Amulet (a value read from the card in its new zone instead of as it last existed on the battlefield); recorded as a new instance, found by the FDN audit batch 6."
-  }
-}

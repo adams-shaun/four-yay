@@ -1,0 +1,135 @@
+{
+ "card": "Uldaros Theorix",
+ "family": "trigger-condition",
+ "author": "xo-hand (Oracle + CR only)",
+ "oracle_sha": "1d1779186667",
+ "scenarios": [
+  {
+   "name": "cast-exiles-and-casts-copies-for-free",
+   "cr": [
+    "603.4",
+    "707.12",
+    "601.2",
+    "111.1"
+   ],
+   "why": "Uldaros was cast, so its trigger exiles the instant Lightning Bolt and the creature Grizzly Bears from its controller's graveyard. Copies are cast free (total mana value 3, within 6): the Bolt copy deals 3 to the opponent, and the Bears copy (a permanent spell) becomes a token. The two cards stay exiled.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Uldaros Theorix"
+     ],
+     "graveyard": [
+      "Lightning Bolt",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Uldaros Theorix",
+     "mana": "CCCUBB"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1"
+     ],
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      },
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Lightning Bolt"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Uldaros Theorix",
+     "zone": "battlefield",
+     "pt": "5/5",
+     "keywords": [
+      "Flying"
+     ]
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "exile"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "exile"
+    },
+    {
+     "life": {
+      "p1": 17
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Grizzly Bears",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "not-cast-no-trigger",
+   "cr": [
+    "603.4"
+   ],
+   "why": "Put onto the battlefield without being cast, the intervening-if fails: the graveyard is untouched.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Uldaros Theorix"
+     ],
+     "graveyard": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "move",
+     "seat": 0,
+     "card": "p0:Uldaros Theorix",
+     "to": "battlefield"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Uldaros Theorix",
+     "zone": "battlefield",
+     "keywords": [
+      "Flying"
+     ]
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p1": 20
+     }
+    }
+   ]
+  }
+ ]
+}

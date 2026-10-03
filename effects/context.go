@@ -465,7 +465,17 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 	switch spec {
 	case "":
 		return nil, false
-	case "Self", "Parent", "EffectSource", "OriginalHost", "CorrectedSelf":
+	case "OriginalHost":
+		// The card that originally generated the ability: for a granted
+		// activated ability (Fishing Pole's bait counter, Blazing Torch's
+		// damage source) that is the GRANTOR, not the recipient the ability
+		// was activated from; for an ability of the source itself it is
+		// the source, like Self.
+		if c.Grantor != 0 {
+			return []state.Target{{Obj: c.Grantor}}, true
+		}
+		return []state.Target{{Obj: c.Source}}, true
+	case "Self", "Parent", "EffectSource", "CorrectedSelf":
 		// EffectSource/OriginalHost name the ability's own source object --
 		// the permanent that pushed the resolving ability, or the card that
 		// originally generated it before any copies. newDamageRider unwraps
@@ -913,7 +923,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			return []state.Target{c.TriggerTarget}, true
 		}
 		return copyTargets(c.Targets), true
-	case "TriggeredSource", "TriggeredSources":
+	case "TriggeredSource", "TriggeredSources", "TriggeredSourceLKICopy":
 		// The damage source the causing event recorded (pg2's
 		// TriggerContext.TriggerSource): a DamageDone execute's "that source
 		// deals ..." reading, and its PLURAL batch spelling (Zurgo and
@@ -923,8 +933,13 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 		// Prefer the event role when the firing trigger captured one -- for a
 		// DamageDone trigger Remembered holds the
 		// DAMAGED object, so the old objectsOf fallback names the recipient,
-		// not the dealer. No corpus card uses Defined$ TriggeredSource (the
-		// 6 DamageSource$ TriggeredSource lines are the only users), and the
+		// not the dealer. TriggeredSourceLKICopy is the LKI spelling of the
+		// same role (47 corpus Defined$ lines over 42 files: Quilled
+		// Greatwurm's "put that many +1/+1 counters on it", the DamageDone
+		// "destroy that creature" family). It used to be unrecognised, so
+		// Defined fell back to the ability's SOURCE and the counters or the
+		// destroy landed on the trigger's host instead of the dealer; M1 reads
+		// the live object, as the TriggeredCardLKICopy spelling does. The
 		// fallback keeps a non-trigger context behaving exactly as before.
 		if c.TriggerSource != 0 {
 			return []state.Target{{Obj: c.TriggerSource}}, true

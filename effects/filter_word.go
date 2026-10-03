@@ -93,6 +93,11 @@ const (
 	// "sharesCardTypeWithOther <X>": the card-type intersection, excluding
 	// the candidate itself (The Tale of Tamiyo's mill gate).
 	wordSharesCardTypeOther
+	// "SharesColorWithOther <X>": the colour twin of sharesCardTypeWithOther
+	// -- the candidate shares at least one colour with an OTHER object the
+	// referent names (Sphinx's Tutelage's and Grindstone's "two cards that
+	// share a color were milled this way" repeat gate).
+	wordSharesColorOther
 	// "sharesAllCardTypesWithOther <X>": same referent switch, but the
 	// candidate must share EVERY one of its card types with some OTHER
 	// object the referent names (Demonic Covenant's "two cards that share
@@ -487,6 +492,8 @@ func wordPredicate(p string) (wordKind, string) {
 			return wordSharesCreatureType, arg
 		case "sharesCardTypeWithOther":
 			return wordSharesCardTypeOther, arg
+		case "SharesColorWithOther":
+			return wordSharesColorOther, arg
 		case "sharesAllCardTypesWithOther":
 			return wordSharesAllCardTypes, arg
 		}
@@ -558,6 +565,8 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 		return sharesCardTypeWith(g, o, sc, key)
 	case wordSharesCardTypeOther:
 		return sharesCardTypeWithOther(g, o, sc, key)
+	case wordSharesColorOther:
+		return sharesColorWithOther(g, o, &sc, key)
 	case wordSharesCreatureType:
 		return sharesCreatureTypeWith(g, o, sc, key)
 	case wordSharesAllCardTypes:

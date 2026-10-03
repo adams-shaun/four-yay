@@ -1,0 +1,190 @@
+{
+ "card": "Hapatra, the Desert Frost",
+ "family": "etb-ltb",
+ "author": "xo-hand (Oracle + CR only)",
+ "oracle_sha": "69b836fc8d58",
+ "scenarios": [
+  {
+   "name": "enters-taps-and-stuns-opponent-creature",
+   "cr": [
+    "603.3d",
+    "701.26a",
+    "122.1d",
+    "502.3"
+   ],
+   "why": "When Hapatra enters, up to one target creature the opponent controls is tapped and gets a stun counter. On that player's next untap step the stun counter is removed instead of the creature untapping (CR 122.1d), so the Bears is still tapped with no stun counter at p1's upkeep.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Hapatra, the Desert Frost"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Hapatra, the Desert Frost",
+     "mana": "CCCU"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Grizzly Bears"
+     ],
+     "expect": [
+      {
+       "card": "p0:Hapatra, the Desert Frost",
+       "zone": "battlefield",
+       "pt": "4/3"
+      },
+      {
+       "card": "p1:Grizzly Bears",
+       "zone": "battlefield",
+       "tapped": true,
+       "counters": {
+        "stun": 1
+       }
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield",
+     "tapped": true,
+     "counters": {
+      "stun": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "activated-untap-target-creature",
+   "cr": [
+    "602.2",
+    "701.26b"
+   ],
+   "why": "{2}{U}: Untap target creature. A Bears that attacked (and so is tapped) is untapped by the ability in main 2.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Hapatra, the Desert Frost",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "expect": [
+      {
+       "card": "p0:Grizzly Bears",
+       "tapped": true
+      },
+      {
+       "life": {
+        "p1": 18
+       }
+      }
+     ]
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Hapatra, the Desert Frost",
+     "mana": "CCU",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "tapped": false
+    }
+   ]
+  },
+  {
+   "name": "untapping-a-stunned-creature-removes-the-stun-counter-instead",
+   "cr": [
+    "122.1d",
+    "701.26b"
+   ],
+   "why": "The {2}{U} untap aimed at the Bears Hapatra just stunned does not untap it: one stun counter is removed instead (CR 122.1d), so it stays tapped with no stun counter.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Hapatra, the Desert Frost"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Hapatra, the Desert Frost",
+     "mana": "CCCU"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Hapatra, the Desert Frost",
+     "mana": "CCU",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield",
+     "tapped": true,
+     "counters": {
+      "stun": 0
+     }
+    }
+   ]
+  }
+ ]
+}
