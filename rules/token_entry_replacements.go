@@ -53,7 +53,7 @@ func (e *Engine) applyTokenEntryUpdates(id state.ObjID) {
 				continue
 			}
 			with := replacementBodySA(ce.ReplacementBody)
-			if with == nil || !tokenEntryBody(ce.ReplacementParams, with) {
+			if with == nil || !tokenEntryBody(ce.ReplacementParams["ReplacementResult"], ce.ReplacementParams["Destination"], with) {
 				continue
 			}
 			r := &cards.Repl{Event: ce.ReplacementEvent, Params: ce.ReplacementParams, With: with}
@@ -75,7 +75,7 @@ func (e *Engine) applyTokenEntryUpdates(id state.ObjID) {
 		}
 		for i := range f.Repls {
 			r := &f.Repls[i]
-			if r.Event != "Moved" || r.With == nil || !tokenEntryBody(r.Params, r.With) {
+			if r.Event != "Moved" || r.With == nil || !tokenEntryBody(r.Params["ReplacementResult"], r.Params["Destination"], r.With) {
 				continue
 			}
 			if e.replacementMatches(*r, src, ev) {
@@ -94,8 +94,8 @@ func (e *Engine) applyTokenEntryUpdates(id state.ObjID) {
 
 // tokenEntryBody reports whether a Moved line is an Updated battlefield-entry
 // replacement whose body applyTokenEntryUpdates runs on a folded token.
-func tokenEntryBody(params map[string]string, with *cards.SA) bool {
-	if params["ReplacementResult"] != "Updated" || params["Destination"] != "Battlefield" {
+func tokenEntryBody(result, destination string, with *cards.SA) bool {
+	if result != "Updated" || destination != "Battlefield" {
 		return false
 	}
 	switch with.API {
