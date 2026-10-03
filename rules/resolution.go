@@ -395,6 +395,9 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 		ctx.X = rp.winPaidX
 		ctx.XAnnounced = true
 	}
+	// The chain's roll publications at the ask (effects.RollRide), after
+	// every X binding above: a publication named X is the resolution's X.
+	ctx.ResumeRollRide(rp.rolls.ride)
 	var svars map[string]string
 	if o.Ability != nil {
 		// A triggered or activated ability: mirror resolveTop's ability

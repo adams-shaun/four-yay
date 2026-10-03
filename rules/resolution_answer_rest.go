@@ -242,7 +242,7 @@ func (e *Engine) resumeAnswerBindingRest(rp *resumePoint, o *state.Object, ctx *
 		// publishes ChosenSVar$ = the sum of the picked dice's results,
 		// OtherSVar$ = the sum of the rest, and consumes and clears all
 		// three Ctx fields at its top (the fx42 scoping discipline).
-		ctx.RollResults = rp.rolls
+		ctx.RollResults = rp.rolls.dice
 		pick := make([]int, 0, len(chosen))
 		for _, o := range chosen {
 			pick = append(pick, o.Index)

@@ -1692,8 +1692,8 @@ type Ctx struct {
 	// a chained sub's own SVar body (Velukan Dragon's
 	// "SVar:X:SVar$Result/Minus.1") and a ConditionCheckSVar$ can read the
 	// roll. Zero/"" on any resolution that did not roll, and the values are
-	// never persisted -- a roll that suspends and resumes loses them, the
-	// same per-resolution lifetime every other Ctx field has. RollPubs is
+	// never persisted beyond the resolution; a mid-resolution ask carries them
+	// across its suspension (effects.RollRide on the resume point). RollPubs is
 	// the general form of the same publication (both are read through
 	// effects.dice.go's rollPublished, and this slot stays the primary
 	// result's mirror for the existing readers).
@@ -1707,10 +1707,10 @@ type Ctx struct {
 	// bare-name fallback and evalCountExpr's SVar$ head through
 	// rollPublished, and by Ctx.SpecContext's numeric-RHS resolver, so a
 	// chained sub's filter spec (Valiant Endeavor's Creature.powerGEX,
-	// Arcane Endeavor's Instant.cmcLEY) reads the roll too. Never persisted
-	// across a suspension -- the chosen/other publications are rebuilt from
-	// the answered decision on the roll resume (Ctx.RollResults/RollPick),
-	// the same per-resolution lifetime as LastRoll.
+	// Arcane Endeavor's Instant.cmcLEY) reads the roll too. Carried across a
+	// suspension with LastRoll (effects.RollRide); the chosen/other
+	// publications are rebuilt from the answered decision on the roll resume
+	// (Ctx.RollResults/RollPick).
 	RollPubs []RollPub
 	// RollResults/RollPick/RollDone carry the ANSWERED choose-one-result ask
 	// on a re-entered mid-resolution RollDice (rules/resolution.go's "roll"

@@ -165,6 +165,7 @@ func (e *Engine) buildContinuationChain(frames []contFrame, obj state.ObjID, tai
 		// pointer copy — never a value clone — keeps every frame live.
 		if e.resume != nil {
 			f.flipMemory = e.resume.flipMemory
+			f.rolls.ride = e.resume.rolls.ride
 			f.exchangeMemory = e.resume.exchangeMemory
 		}
 		if e.replacingEvent != nil && e.replacingEvent.Kind == events.Damage {

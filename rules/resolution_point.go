@@ -395,7 +395,12 @@ type resumePoint struct {
 	// re-draw the seeded generator and answer a different question. Plain
 	// value data, cloned with the point; a replay re-derives the same rolls
 	// from the same seeded draws. Nil for every other ask.
-	rolls []int32               `clone:"share"`
+	//
+	// rolls.ride is the resolving chain's DB$ RollDice publications at ANY
+	// ask (effects.RollRide): the resume rebuilds a fresh Ctx, so a chained
+	// reader of the roll (NumCards$ Result) after the ask gets them back.
+	// Immutable once captured (both ends copy), so frames share it.
+	rolls rollResume            `clone:"share"`
 	clash *decision.ClashResume `clone:"deep"`
 	// replSource is the host of the replacement whose body asked (the
 	// ReplaceWith$ body's own Ctx.Source); zero outside a replacement.
@@ -547,4 +552,12 @@ type contFrame struct {
 // forget-other-remembered cursor's two flags, re-bound on the resumed Ctx.
 type forgetOtherRide struct {
 	ready, cleared bool
+}
+
+// rollResume is the roll state a resume point carries: the asked dice of a
+// choose-one-result RollDice ask, and the chain's roll publications at the
+// ask (resumePoint.rolls).
+type rollResume struct {
+	dice []int32
+	ride effects.RollRide
 }

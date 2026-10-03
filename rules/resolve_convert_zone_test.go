@@ -239,3 +239,20 @@ func TestTapeConvertZoneElectionsBothWays(t *testing.T) {
 		}
 	}
 }
+
+// A roll published before a mid-resolution target ask is still published
+// after it (the Numbing Jellyfish shape the dual-run fuzz caught): the legacy
+// resume used to rebuild its Ctx without the roll, so the target milled
+// nothing on legacy and the die's result on the kernel. Both mill it now.
+func TestTapeRollSurvivesTargetAsk(t *testing.T) {
+	src := tapeZoneETB("Tape Jelly", "SVar:TrigBody:DB$ RollDice | ResultSVar$ Result | SubAbility$ DBMill\nSVar:DBMill:DB$ Mill | ValidTgts$ Player | NumCards$ Result")
+	for _, tape := range []bool{false, true} {
+		e, _ := tapeFixture(t, 2, 33001, tape, src)
+		before := len(e.G.Zone(state.ZGraveyard, 0)) + len(e.G.Zone(state.ZGraveyard, 1))
+		tapeCastAndResolve(t, e, "Tape Jelly", "B")
+		if milled := len(e.G.Zone(state.ZGraveyard, 0)) + len(e.G.Zone(state.ZGraveyard, 1)) - before; milled == 0 {
+			t.Fatalf("tape=%v: the rolled result milled nothing", tape)
+		}
+	}
+	tapeZoneCase(t, 2, 33001, 1, nil, "Tape Jelly", src)
+}
