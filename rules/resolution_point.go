@@ -221,7 +221,10 @@ type resumePoint struct {
 	// rebuilds a fresh Ctx, so it must re-attach this same pointer or a chained
 	// Defined$ FlippedTails / Wins reader loses every flip performed before the
 	// suspension (Goblin Assassin's per-loser sacrifice ask is the live shape).
-	flipMemory *effects.FlipMemory `clone:"share"`
+	// The memory is mutated in place after the suspension, so Clone gives the
+	// clone ONE copy per memory, shared by all of the clone's frames
+	// (cloneRemap); an intra-engine frame copy keeps the pointer.
+	flipMemory *effects.FlipMemory `clone:"deep"`
 	// exchangeMemory is the resolving chain's shared ExchangeLife rider memory
 	// at the ask (Engine.resolvingExchangeMemory, published by effects.Resolve
 	// and re-published by effExchangeLife when it lazily allocates the
@@ -229,7 +232,10 @@ type resumePoint struct {
 	// pointer or a chained Count$RememberedNumber reader loses the value the
 	// exchange transaction settled (Mister Negative's draw rider under a Lich
 	// suspension is the live shape). Nil for every non-ExchangeLife ask.
-	exchangeMemory *effects.ExchangeMemory `clone:"share"`
+	// Copied once per clone like flipMemory, and the clone's parked
+	// ExchangeLife transaction (lifeExchangeTransaction.rememberMemory) is
+	// re-pointed at the same copy, so the clone's settle feeds its own reader.
+	exchangeMemory *effects.ExchangeMemory `clone:"deep"`
 	// villainousRemembered is the VICTIM of the VillainousChoice whose chosen
 	// body is resolving, carried on every ask the body's chain poses (the
 	// ambient binding Engine.villainousRemembered captures into Ask). The
