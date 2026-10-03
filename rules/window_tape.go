@@ -1,0 +1,108 @@
+package rules
+
+// window_tape.go puts the engine-posed resolution-time payment windows on
+// the W3 resolution kernel (lasagna spec §7.7, the suspension holders): the
+// triggered-effect Cost$ window (e.triggerCost), its mandatory component
+// walk, cumulative upkeep (e.cumulative) and echo (e.echo). Every one of
+// them asks through windowAsk. Inside a tape run the decision is posed and
+// answered from the tape, and the flow's own answer handler -- exactly the
+// one the legacy Submit dispatches to (turn.go's chooseFor arms) -- runs in
+// line; its re-asks come back here, and its completion (the resumed body,
+// or finishResumption and the CR 117.3b grant) runs in line too. The
+// holder stays set while the window is open, exactly as on the legacy path,
+// so every gate that reads it (Suspended, the off-stack mana frame's base
+// bits) sees the same state; only the kernel's Busy test looks past it while
+// the window itself is asking (tapeWindowAsking).
+
+import "github.com/adams-shaun/gorge/decision"
+
+// tapeWindowFlow reports whether flow's window is served from the tape.
+func tapeWindowFlow(e *Engine, flow chooseFor) bool {
+	switch flow {
+	case chooseTriggeredCost, chooseTriggeredMandatory, chooseCumulative, chooseEcho:
+		return true
+	case chooseMana, chooseManaColor:
+		// A mana activation's ability wheel and colour choice inside a tape
+		// run: posed from a window the kernel drives (or a resolution's own
+		// mana activation); the turn.go arm's continuation runs in line.
+		return e.tape.InRun()
+	case chooseUnlessCost, chooseUnlessMana:
+		// Only the tape-driven unless payment (tapeUnlessComponents); the
+		// legacy one parks its frame.
+		return e.unlessPayment != nil && e.unlessPayment.tape
+	}
+	return false
+}
+
+// windowAsk poses the window decision d for flow: from the tape when a tape
+// run (or an inline answerer) serves it, else on the legacy path.
+func windowAsk(e *Engine, d *decision.Decision, flow chooseFor) {
+	e.choosing = flow
+	if tapeWindowFlow(e, flow) {
+		e.tapeWindowAsking = true
+		in, ok := e.TapeAnswer(d)
+		e.tapeWindowAsking = false
+		if ok {
+			windowAnswer(e, flow, d.Chosen(in))
+			if tapeWindowCompletes(flow) && !e.Suspended() {
+				// The handler's continuation completed the resolution and
+				// logged its priority grant (finishResumption's tail or the
+				// resumed body's): handlePriority must not log a second.
+				e.tapeGranted = true
+			}
+			return
+		}
+	}
+	e.ask(d)
+}
+
+// windowAnswer is the legacy Submit's chooseFor dispatch for the window
+// flows (turn.go).
+func windowAnswer(e *Engine, flow chooseFor, chosen []decision.Option) {
+	switch flow {
+	case chooseTriggeredCost:
+		e.triggeredCostAnswer(chosen)
+	case chooseTriggeredMandatory:
+		e.triggeredMandatoryAnswer(chosen)
+	case chooseCumulative:
+		e.cumulativeAnswer(chosen)
+	case chooseEcho:
+		e.echoAnswer(chosen)
+	case chooseUnlessCost:
+		e.answerUnlessPayment(chosen)
+	case chooseUnlessMana:
+		e.answerUnlessMana(chosen)
+	case chooseMana:
+		cast := e.answerManaActivation(chosen)
+		if e.pending == nil && !e.manaCostChoicePending() {
+			if e.wardMana != nil {
+				e.continueWardMana()
+			} else if cast {
+				e.continueCast()
+			}
+		}
+	case chooseManaColor:
+		cast := e.answerManaColor(chosen)
+		if e.pending == nil && e.choosing != chooseManaColor {
+			if e.wardMana != nil {
+				e.continueWardMana()
+			} else if cast {
+				e.continueCast()
+			}
+		}
+	default:
+		panic("rules: windowAnswer for a non-window flow")
+	}
+}
+
+// tapeWindowCompletes reports whether flow's answer continuation is the one
+// that completes the resolution (the trigger-cost, cumulative upkeep and
+// echo windows end in finishResumption or the resumed body): only then does
+// a settled window owe handlePriority its tapeGranted.
+func tapeWindowCompletes(flow chooseFor) bool {
+	switch flow {
+	case chooseTriggeredCost, chooseTriggeredMandatory, chooseCumulative, chooseEcho:
+		return true
+	}
+	return false
+}

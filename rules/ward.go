@@ -390,6 +390,13 @@ type wardManaPayment struct {
 // writing e.resume itself.
 func (e *Engine) askWardMana(rp *resumePoint, wm *wardManaPayment) {
 	wm.obj, wm.sa = rp.obj, rp.sa
+	if e.tape.InRun() && e.resolutionCtx != nil {
+		// Only a tape-served Ward election reaches here inside a tape run
+		// (wardAnswerSettle): the window runs in line and settles the live
+		// Ctx; the caller's "asked" leaves that settlement alone.
+		tapeManaWindow(e, e.resolutionCtx, wm)
+		return
+	}
 	wm.outer, wm.replacement, wm.replaced, wm.before = rp.outer, rp.replacement, rp.replaced, rp.before
 	e.wardMana = wm
 	d := wardManaDecision(e, wm)

@@ -46,6 +46,17 @@ type engineResolveKernel struct {
 	// grant: handlePriority consumes it instead of logging a second one.
 	// Transient within one Submit.
 	tapeGranted bool `clone:"reset"`
+	// tapeWindowAsking is set while a resolution-time payment window asks
+	// through the kernel (windowAsk): its own holder is open by design, so
+	// Busy looks past it. Transient within one ask.
+	tapeWindowAsking bool `clone:"reset"`
+	// tapeETBServed names the entering object whose as-enters choice the
+	// kernel served in line this resolution (applyETBChoiceReplacement):
+	// its entry replacement body's ask then stays legacy, because the
+	// legacy path chains that body's frame behind the as-enters frame and
+	// completes it without the CR 117.3b grant -- an order the in-line
+	// answer does not reproduce.
+	tapeETBServed state.ObjID `clone:"reset"`
 }
 
 // resolveBoard is the Engine itself under the kernel's method set: asResolve
@@ -64,7 +75,7 @@ func (e *Engine) TapeAnswer(d *decision.Decision) (decision.Intent, bool) {
 	if tapeForceLegacy != nil && tapeForceLegacy(d) {
 		return decision.Intent{}, false
 	}
-	if e.applyingReplacement {
+	if e.applyingReplacement && !ownEntryReplacementAsk(e, d) {
 		// A ReplaceWith$ body's ask: legacy suspends the body but the effect
 		// whose move the replacement intercepted keeps running (a mass
 		// return enters the next creature before Devour's sacrifice is
@@ -80,6 +91,20 @@ func (e *Engine) TapeAnswer(d *decision.Decision) (decision.Intent, bool) {
 		return decision.Intent{}, false
 	}
 	return e.tape.Answer(asResolve(e), d)
+}
+
+// ownEntryReplacementAsk reports whether d is asked by the resolving
+// permanent spell's own entry replacement body after its move took it off
+// the stack (Sower of Discord's shape): the entry is the last thing the
+// resolution does, so nothing the legacy park would let run on precedes the
+// answer, and the kernel serves it in line.
+func ownEntryReplacementAsk(e *Engine, d *decision.Decision) bool {
+	if e.resume != nil || e.resolvingObj == 0 || d.Source != e.resolvingObj || len(e.contChain) != 0 ||
+		e.tapeETBServed == d.Source {
+		return false
+	}
+	o := e.G.Obj(d.Source)
+	return o != nil && o.Zone != state.ZStack
 }
 
 // tapeForceLegacy (tests only) makes a converted ask site decline the tape,
@@ -107,6 +132,11 @@ func (b *resolveBoard) Busy() bool {
 	// stack) routes its asks through its own activation continuation
 	// (askOffStackMana), not the resolution's: a converted site inside one
 	// asks through the legacy path.
+	if e.tapeWindowAsking && e.resume == nil && e.offStackMana == nil &&
+		(e.unlessPayment == nil || e.unlessPayment.tape) {
+		// windowAsk's own window: the holder it asks for is open by design.
+		return false
+	}
 	return e.resume != nil || e.Suspended() || e.offStackMana != nil
 }
 

@@ -324,9 +324,31 @@ func (e *Engine) askMadnessCast(ability *state.Object) bool {
 	}
 	d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "no",
 		Label: "Put " + name + " into its owner's graveyard", Obj: card.ID})
+	if e.tape.InRun() {
+		if in, ok := e.TapeAnswer(d); ok {
+			tapeMadnessAnswer(e, d, in, ability.ID)
+			return true
+		}
+	}
 	e.ask(d)
 	e.resume = &resumePoint{kind: "madness", obj: ability.ID}
 	return true
+}
+
+// tapeMadnessAnswer runs the legacy madness answer (resolveMadnessChoice)
+// in line for a tape-served cast-or-not choice (W3 step 4l). Both arms log
+// their own completion -- the decline's CR 117.3b reset, or the begun
+// cast's -- so handlePriority adds none. A cast that asks (a target, a
+// payment window) reaches the ask choke point as a legacy ask and aborts the
+// run; one still in flight without a question hands the resolution back to
+// legacy.
+func tapeMadnessAnswer(e *Engine, d *decision.Decision, in decision.Intent, ability state.ObjID) {
+	chosen := d.Chosen(in)
+	e.resolveMadnessChoice(&resumePoint{kind: "madness", obj: ability}, len(chosen) == 1 && chosen[0].Kind == "yes")
+	if e.cast != nil || e.pending != nil || e.Suspended() {
+		tapeUnservable(e, "madness cast")
+	}
+	e.tapeGranted = true
 }
 
 func (e *Engine) resolveMadnessChoice(rp *resumePoint, yes bool) {

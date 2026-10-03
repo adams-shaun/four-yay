@@ -187,10 +187,9 @@ func (e *Engine) echoElectionAsk() {
 	}
 	opts = append(opts, decision.Option{Index: len(opts), Kind: "echo_sac", Obj: ef.source,
 		Label: "Sacrifice " + o.Face().Name})
-	e.choosing = chooseEcho
-	e.ask(&decision.Decision{Player: ef.player, Kind: decision.KChoose, Min: 1, Max: 1,
+	windowAsk(e, &decision.Decision{Player: ef.player, Kind: decision.KChoose, Min: 1, Max: 1,
 		Prompt: o.Face().Name + " — echo: " + ef.costLabel + " or sacrifice",
-		Source: ef.source, Options: opts})
+		Source: ef.source, Options: opts}, chooseEcho)
 }
 
 // echoAnswer handles the election (and the mana window feeding it). The
@@ -274,8 +273,7 @@ func (e *Engine) echoActionAsk() {
 		}
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: kind, Obj: id, Label: label})
 	}
-	e.choosing = chooseEcho
-	e.ask(d)
+	windowAsk(e, d, chooseEcho)
 }
 
 // echoActionExecute applies the answered object choice — one move per chosen

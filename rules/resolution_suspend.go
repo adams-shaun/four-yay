@@ -48,7 +48,7 @@ func (e *Engine) Suspended() bool {
 		return f.suspended(e)
 	}
 	resumed := e.resume != nil && !(e.resume == e.answerParked && e.pending == nil)
-	return resumed || e.unlessPayment != nil || e.cumulative != nil || e.triggerCost != nil
+	return resumed || e.unlessPayment != nil || e.cumulative != nil || e.triggerCost != nil || e.echo != nil
 }
 
 // SuspendContinuation implements effects.Host.SuspendContinuation: an

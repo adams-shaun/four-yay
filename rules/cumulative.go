@@ -496,8 +496,7 @@ func (e *Engine) paymentManaAskClass(player state.PlayerID, source state.ObjID, 
 			Cost:  e.manaActivationCostMarker(e.availableManaAbilities(player, id))})
 	}
 	d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "done", Label: "Done"})
-	e.choosing = flow
-	e.ask(d)
+	windowAsk(e, d, flow)
 	return true
 }
 
@@ -532,9 +531,8 @@ func (e *Engine) cumulativePaymentAsk() {
 	}
 	opts = append(opts, decision.Option{Index: len(opts), Kind: "cumulative_sac", Obj: cu.source,
 		Label: "Sacrifice " + o.Face().Name})
-	e.choosing = chooseCumulative
-	e.ask(&decision.Decision{Player: cu.player, Kind: decision.KChoose, Min: 1, Max: 1,
-		Prompt: o.Face().Name + " — cumulative upkeep: pay or sacrifice", Source: cu.source, Options: opts})
+	windowAsk(e, &decision.Decision{Player: cu.player, Kind: decision.KChoose, Min: 1, Max: 1,
+		Prompt: o.Face().Name + " — cumulative upkeep: pay or sacrifice", Source: cu.source, Options: opts}, chooseCumulative)
 }
 
 // cumulativeSacObjects is the Sac arm's candidate walk, shared by every
@@ -620,8 +618,7 @@ func (e *Engine) cumulativeObjectDecision(cu *cumulativeUpkeep, ids []state.ObjI
 		}
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: kind, Obj: id, Label: label})
 	}
-	e.choosing = chooseCumulative
-	e.ask(d)
+	windowAsk(e, d, chooseCumulative)
 }
 
 func (e *Engine) continueCumulativeAction() {
@@ -712,8 +709,7 @@ func (e *Engine) continueCumulativeAction() {
 			d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "cumulative_action_life",
 				Player: p, Label: seatFacingName(e.G, p)})
 		}
-		e.choosing = chooseCumulative
-		e.ask(d)
+		windowAsk(e, d, chooseCumulative)
 	case "PutCardToLibFromSameGrave":
 		var owners []state.PlayerID
 		for _, p := range e.G.AliveFrom(0) {
@@ -733,8 +729,7 @@ func (e *Engine) continueCumulativeAction() {
 			d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "cumulative_action_grave",
 				Player: p, Label: seatFacingName(e.G, p) + "'s graveyard"})
 		}
-		e.choosing = chooseCumulative
-		e.ask(d)
+		windowAsk(e, d, chooseCumulative)
 	}
 }
 
@@ -904,9 +899,8 @@ func (e *Engine) triggeredCostXAsk(tc *triggeredEffectCost) bool {
 	if o := e.G.Obj(tc.source); o != nil && o.Face() != nil {
 		name = o.Face().Name
 	}
-	e.choosing = chooseTriggeredCost
-	e.ask(&decision.Decision{Player: tc.player, Kind: decision.KChoose, Min: 1, Max: 1,
-		Prompt: name + " — choose a value for X", Source: tc.source, Options: opts})
+	windowAsk(e, &decision.Decision{Player: tc.player, Kind: decision.KChoose, Min: 1, Max: 1,
+		Prompt: name + " — choose a value for X", Source: tc.source, Options: opts}, chooseTriggeredCost)
 	return true
 }
 
@@ -1029,8 +1023,7 @@ func (e *Engine) pipAnnounceAsk(player state.PlayerID, source state.ObjID, amoun
 		// guard keeps a malformed one from posing an empty decision.
 		return false
 	}
-	e.choosing = flow
-	e.ask(d)
+	windowAsk(e, d, flow)
 	return true
 }
 
@@ -1291,9 +1284,8 @@ func (e *Engine) triggeredCostPaymentAsk() {
 		// option Index must equal its position.
 		opts = []decision.Option{{Index: 0, Kind: "trigger_cost_decline", Obj: tc.source, Label: "Do not pay"}}
 	}
-	e.choosing = chooseTriggeredCost
-	e.ask(&decision.Decision{Player: tc.player, Kind: decision.KChoose, Min: 1, Max: 1,
-		Prompt: name + " — " + tc.costLabel + "?", Source: tc.source, Options: opts})
+	windowAsk(e, &decision.Decision{Player: tc.player, Kind: decision.KChoose, Min: 1, Max: 1,
+		Prompt: name + " — " + tc.costLabel + "?", Source: tc.source, Options: opts}, chooseTriggeredCost)
 }
 
 func (e *Engine) cumulativeAnswer(chosen []decision.Option) {
@@ -1766,8 +1758,7 @@ func (e *Engine) advanceTriggeredMandatory(tc *triggeredEffectCost) {
 			label := e.targetName(id)
 			d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: kind, Obj: id, Label: label})
 		}
-		e.choosing = chooseTriggeredMandatory
-		e.ask(d)
+		windowAsk(e, d, chooseTriggeredMandatory)
 		return
 	}
 	e.settleTriggeredMandatory(tc)
@@ -1912,8 +1903,7 @@ func (e *Engine) triggeredTapAsk(tc *triggeredEffectCost, part CostPart) {
 	for _, id := range candidates {
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "trigger_cost_tap", Obj: id, Label: e.targetName(id)})
 	}
-	e.choosing = chooseTriggeredCost
-	e.ask(d)
+	windowAsk(e, d, chooseTriggeredCost)
 }
 
 // triggeredTapAnswer settles one tap election: the chosen permanents tap

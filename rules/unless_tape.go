@@ -128,9 +128,9 @@ func settleUnlessElection(e *Engine, ctx *effects.Ctx, sa *cards.SA, obj state.O
 // it, into the asking walk's live Ctx (the chain effects.Resolve published,
 // whose gate then re-reads Ctx.UnlessPay and Ctx.UnlessNext as the legacy
 // re-entry does). The CR 601.2g mana window runs in line
-// (tapeUnlessWindow); the choice-bearing component continuation is not on
-// the tape yet, so it hands the resolution back to legacy. Ward's election
-// is effWard's own legacy ask and never reaches here.
+// (tapeUnlessWindow), and so does the choice-bearing component
+// continuation (tapeUnlessComponents). Ward's election settles through
+// wardAnswerSettle.
 func unlessAnswerSettle(e *Engine, d *decision.Decision, chosen []decision.Option) {
 	ctx, sa := e.resolutionCtx, d.ResumeSA
 	if ctx == nil || sa == nil {
@@ -140,12 +140,16 @@ func unlessAnswerSettle(e *Engine, d *decision.Decision, chosen []decision.Optio
 	if n := len(e.G.Stack); n > 0 {
 		obj = e.G.Stack[n-1] // Engine.Ask's resume object: the resolving one
 	}
+	if sa.API == "Ward" {
+		wardAnswerSettle(e, ctx, sa, obj, chosen)
+		return
+	}
 	next, payer, cost := settleUnlessElection(e, ctx, sa, obj, chosen)
 	switch next {
 	case unlessOpenWindow:
 		tapeUnlessWindow(e, ctx, sa, obj, payer, cost, d.ResumeTarget)
 	case unlessPayComponents:
-		tapeUnservable(e, "unless components")
+		tapeUnlessComponents(e, ctx, payer, cost, obj)
 	}
 	ctx.UnlessNext = d.ResumeTarget
 }
@@ -158,27 +162,40 @@ func unlessAnswerSettle(e *Engine, d *decision.Decision, chosen []decision.Optio
 // reaches the engine's ask, which ends the tape run there (the kernel's
 // legacy replay).
 func tapeUnlessWindow(e *Engine, ctx *effects.Ctx, sa *cards.SA, obj state.ObjID, payer state.PlayerID, cost Cost, target int) {
-	wm := &wardManaPayment{payer: payer, cost: cost, obj: obj, sa: sa, target: target,
-		resumeKind: unlessManaKind, prompt: unlessManaPrompt, unless: true}
+	tapeManaWindow(e, ctx, &wardManaPayment{payer: payer, cost: cost, obj: obj, sa: sa, target: target,
+		resumeKind: unlessManaKind, prompt: unlessManaPrompt, unless: true})
+}
+
+// tapeManaWindow runs wm's mana window in line (the unless window above, and
+// Ward's CR 702.21a window, askWardMana inside a tape run): Done charges the
+// cost -- the unless cost's own payment, or Ward's plain mana charge -- the
+// legacy answerWardMana's exact arms.
+func tapeManaWindow(e *Engine, ctx *effects.Ctx, wm *wardManaPayment) {
 	for {
 		d := wardManaDecision(e, wm)
 		in, ok := e.TapeAnswer(d)
 		if !ok {
-			tapeUnservable(e, "unless window")
+			tapeUnservable(e, "mana window")
 		}
 		chosen := d.Chosen(in)
 		if len(chosen) == 1 && chosen[0].Kind == "done" {
+			paid := false
+			if wm.unless {
+				paid = e.payUnlessCost(wm.payer, wm.cost, ctx, wm.obj)
+			} else {
+				paid = e.payMana(wm.payer, wm.cost)
+			}
 			ctx.UnlessPay = "decline"
-			if e.payUnlessCost(payer, cost, ctx, obj) {
+			if paid {
 				ctx.UnlessPay = "pay"
 			}
 			return
 		}
-		if len(chosen) != 1 || chosen[0].Kind != "activate" || !e.untappedManaSource(payer, chosen[0].Obj) {
+		if len(chosen) != 1 || chosen[0].Kind != "activate" || !e.untappedManaSource(wm.payer, chosen[0].Obj) {
 			ctx.UnlessPay = "decline"
 			return
 		}
-		e.activateManaPayment(payer, chosen[0].Obj, false)
+		e.activateManaPayment(wm.payer, chosen[0].Obj, false)
 	}
 }
 
@@ -190,4 +207,59 @@ func tapeUnservable(e *Engine, step string) {
 		(*f)("abort  unservable " + step + "  [" + tapeShape(e) + "]")
 	}
 	e.tape.Unservable()
+}
+
+// wardAnswerSettle is the tape-served Ward election's settlement, the legacy
+// "unless_pay" arm's Ward branch: a payment that needs no further ask (a
+// floating-mana charge, poison counters, a random discard) settles in line;
+// one that asks (an object pick, the CR 702.21a mana window) reaches the
+// engine's ask choke point as a legacy ask after a tape ask, which aborts the
+// run and hands the resolution back to legacy.
+func wardAnswerSettle(e *Engine, ctx *effects.Ctx, sa *cards.SA, obj state.ObjID, chosen []decision.Option) {
+	ctx.UnlessPay = "decline"
+	if _, chosePay := unlessPayChoice(chosen); !chosePay {
+		return
+	}
+	// asked: the CR 702.21a mana window ran in line (askWardMana) and set
+	// ctx.UnlessPay itself.
+	if paid, _ := e.beginWardPayment(&resumePoint{kind: "unless_pay", obj: obj, sa: sa}, ctx); paid {
+		ctx.UnlessPay = "pay"
+	}
+}
+
+// tapeUnlessComponents is the choice-bearing unless payment continuation
+// (beginUnlessPayment) driven in line: the holder is the legacy one, marked
+// tape, so its component picks and mana window ask through windowAsk and are
+// served from the tape, and finishUnlessPayment settles into the live Ctx
+// (tapeUnlessSettled) instead of resuming a parked frame.
+func tapeUnlessComponents(e *Engine, ctx *effects.Ctx, payer state.PlayerID, cost Cost, obj state.ObjID) {
+	cost, ok := e.unlessFoldDynamic(payer, cost, ctx)
+	e.unlessPayment = &unlessPayment{payer: payer, ctx: cloneUnlessCtx(*ctx), stackObj: obj, tape: true}
+	if !ok {
+		e.finishUnlessPayment(false)
+		return
+	}
+	e.unlessPayment.cost = cost
+	e.advanceUnlessPayment()
+}
+
+// tapeUnlessSettled is finishUnlessPayment for a tape-driven payment: the
+// legacy unless_pay arm's re-entry reads (Ctx.UnlessPay, the settled
+// Discard picks as Ctx.UnlessDiscarded) written straight into the asking
+// walk's Ctx.
+func tapeUnlessSettled(e *Engine, u *unlessPayment, paid bool) {
+	ctx := e.resolutionCtx
+	if ctx == nil {
+		panic("rules: a tape-driven unless payment outside a resolution chain")
+	}
+	ctx.UnlessPay = "decline"
+	if paid {
+		ctx.UnlessPay = "pay"
+		if len(u.discards) > 0 {
+			ctx.UnlessDiscarded = make([]state.Target, 0, len(u.discards))
+			for _, id := range u.discards {
+				ctx.UnlessDiscarded = append(ctx.UnlessDiscarded, state.Target{Obj: id})
+			}
+		}
+	}
 }

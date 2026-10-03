@@ -1042,8 +1042,7 @@ func (e *Engine) activateManaFor(p state.PlayerID, source state.ObjID, cast, cum
 		gained[i] = e.gainedManaRefFor(p, source, ma)
 	}
 	e.manaActivation = &manaActivation{player: p, source: source, abilities: abilities, gained: gained, cast: cast, cumulative: cumulative}
-	e.choosing = chooseMana
-	e.ask(d)
+	windowAsk(e, d, chooseMana)
 }
 
 // manaAbilityLabel renders a mana ability's Produced$ value as the label the
@@ -2455,8 +2454,7 @@ func (e *Engine) askTriggeredManaColor(pt pendingTrigger, rest []pendingTrigger,
 	parked := pt
 	e.manaColorActivation = &manaColorActivation{player: chooser, source: pt.Source, ability: mana,
 		cast: cast, cumulative: cumulative, triggers: rest, trigger: &parked, allocation: allocation}
-	e.choosing = chooseManaColor
-	e.ask(d)
+	windowAsk(e, d, chooseManaColor)
 	return true
 }
 
@@ -2975,8 +2973,7 @@ func (e *Engine) askManaColor(p state.PlayerID, source state.ObjID, ma *cards.SA
 		}
 	}
 	e.manaColorActivation = &manaColorActivation{player: p, source: source, ability: ma, cast: cast, cumulative: cumulative, triggers: triggers, gained: gained, sacs: append([]state.ObjID(nil), sacs...), allocation: allocation}
-	e.choosing = chooseManaColor
-	e.ask(d)
+	windowAsk(e, d, chooseManaColor)
 }
 
 // manaColourPrompt names the amount of mana the ability adds when the script

@@ -155,8 +155,12 @@ func effWard(h Host, c *Ctx, sa *cards.SA) {
 		d := &decision.Decision{Player: o.Controller, Kind: decision.KModes, Min: 1, Max: 1,
 			Prompt: pay + " for ward?", ResumeKind: "unless_pay", ResumeSA: sa,
 			Options: []decision.Option{{Index: 0, Kind: "mode", Label: pay, Player: o.Controller, Mode: decision.ModeUnlessPay}, {Index: 1, Kind: "mode", Label: "Don't pay", Player: o.Controller, Mode: decision.ModeUnlessDecline}}}
-		h.Ask(d)
-		return
+		if _, ok := AskTape(h, d); !ok {
+			h.Ask(d)
+			return
+		}
+		// Served from the resolution kernel's tape: the host's answer record
+		// settled the payment into c.UnlessPay (rules' unlessAnswerSettle).
 	}
 	paid := c.UnlessPay == "pay"
 	c.UnlessPay = ""

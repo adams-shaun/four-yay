@@ -4,8 +4,8 @@ package rules
 // served from the tape and settled in line -- an immediate pay or decline,
 // the next payer after a decline, and the CR 601.2g mana window as a
 // multi-intent answer (one served intent per source activated, then Done).
-// The choice-bearing component continuation is not on the tape yet: its
-// step hands the resolution back to legacy (Unservable). Every case runs on
+// The choice-bearing component continuation is driven in line too (W3 step
+// 4e). Every case runs on
 // legacy and on the kernel and must stay byte-identical.
 
 import (
@@ -137,16 +137,16 @@ func TestTapeConvertUnlessPay(t *testing.T) {
 	}
 }
 
-// A choice-bearing unless cost: the served election's component step hands
-// the resolution back to legacy, which replays the whole tape.
-func TestTapeUnlessComponentsGoLegacy(t *testing.T) {
+// A choice-bearing unless cost: the served election's component step is
+// driven in line (tapeUnlessComponents), its pick served from the tape too.
+func TestTapeConvertUnlessComponents(t *testing.T) {
 	src := tapeUnlessSorcery("Tape Discard Tithe",
 		"A:SP$ GainLife | LifeAmount$ 3 | UnlessCost$ Discard<1/Card> | UnlessPayer$ You | UnlessSwitched$ True")
 	_, st := tapeDual(t, 2, 13150, func(t *testing.T, e *Engine) {
 		moveByName(t, e, 0, "Mountain", state.ZHand)
 		tapeUnlessScenario("Tape Discard Tithe", "B", 0, tapeUnlessPick(true))(t, e)
 	}, src)
-	if st.Unservable == 0 || st.Aborts == 0 {
-		t.Fatalf("the component step did not go back to legacy: %+v", st)
+	if st.Served < 2 || st.LegacySwitch != 0 || st.Aborts != 0 || st.Unservable != 0 {
+		t.Fatalf("the component step was not served from the tape: %+v", st)
 	}
 }

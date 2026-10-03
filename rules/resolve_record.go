@@ -47,6 +47,9 @@ func tapeAnswerRecord(e *Engine, d *decision.Decision, in decision.Intent) {
 	if d.ResumeKind == "extort" {
 		extortAnswerRecord(e, d.Chosen(in))
 	}
+	if d.ResumeKind == "play" {
+		playAnswerSettle(e, d, d.Chosen(in))
+	}
 	if d.ResumeKind == "unless_pay" {
 		unlessAnswerSettle(e, d, d.Chosen(in))
 	}
