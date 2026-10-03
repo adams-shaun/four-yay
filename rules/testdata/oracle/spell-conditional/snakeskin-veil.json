@@ -1,0 +1,448 @@
+{
+ "card": "Snakeskin Veil",
+ "family": "spell-conditional",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "7592c78e7307",
+ "scenarios": [
+  {
+   "name": "counter-and-hexproof-until-end-of-turn",
+   "cr": [
+    "122.1a",
+    "702.11b",
+    "611.2"
+   ],
+   "why": "The target gets a +1/+1 counter and gains hexproof until end of turn; next turn the counter remains and the hexproof is gone.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Snakeskin Veil"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Snakeskin Veil",
+     "mana": "G",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Grizzly Bears",
+       "pt": "3/3",
+       "keywords": [
+        "Hexproof"
+       ],
+       "counters": {
+        "+1/+1": 1
+       }
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "3/3",
+     "no_keywords": [
+      "Hexproof"
+     ],
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "card": "p0:Snakeskin Veil",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "in-response-makes-the-opposing-spell-fizzle",
+   "cr": [
+    "608.2b",
+    "702.11b"
+   ],
+   "why": "Cast in response to an opponent's Lightning Bolt on the creature, the Bolt's target is illegal on resolution: no damage.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Snakeskin Veil"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Snakeskin Veil",
+     "mana": "G",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "pt": "3/3",
+     "damage": 0
+    },
+    {
+     "card": "p1:Lightning Bolt",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "opponent-cannot-target-the-hexproof-creature",
+   "cr": [
+    "702.11b",
+    "601.2c"
+   ],
+   "why": "While hexproof, the creature is not a legal target for the opponent: with it the only creature on the battlefield the opponent's Murder cannot be cast.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Snakeskin Veil"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Snakeskin Veil",
+     "mana": "G",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "mana",
+     "seat": 1,
+     "mana": "CBB"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 1,
+      "kind": "cast",
+      "card": "p1:Murder"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "opponent-can-target-it-without-the-veil",
+   "cr": [
+    "601.2c"
+   ],
+   "why": "Control for the hexproof scenario: without Snakeskin Veil the same Murder is castable.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Snakeskin Veil"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "mana",
+     "seat": 1,
+     "mana": "CBB"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 1,
+      "kind": "cast",
+      "card": "p1:Murder"
+     },
+     "want": true
+    }
+   ]
+  },
+  {
+   "name": "hexproof-ends-so-it-can-be-killed-next-turn",
+   "cr": [
+    "611.2",
+    "514.2"
+   ],
+   "why": "Hexproof lasts only until end of turn: on the opponent's turn Murder can target and destroy the creature.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Snakeskin Veil"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Snakeskin Veil",
+     "mana": "G",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "controller-can-still-target-it",
+   "cr": [
+    "702.11b"
+   ],
+   "why": "Hexproof stops only opponents: its controller's Giant Growth still targets it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Snakeskin Veil",
+      "Giant Growth"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Snakeskin Veil",
+     "mana": "G",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Giant Growth",
+     "mana": "G",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "6/6"
+    }
+   ]
+  },
+  {
+   "name": "cannot-target-an-opponents-creature",
+   "cr": [
+    "601.2c"
+   ],
+   "why": "The target must be a creature its caster controls: with only an opposing creature it cannot be cast.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Snakeskin Veil"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "G"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Snakeskin Veil"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "target-gone-no-counter-anywhere",
+   "cr": [
+    "608.2b"
+   ],
+   "why": "The target is destroyed in response: the spell does nothing and its controller's other creature gets nothing.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Snakeskin Veil"
+     ],
+     "battlefield": [
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Snakeskin Veil",
+     "mana": "G",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "pt": "2/1",
+     "no_keywords": [
+      "Hexproof"
+     ]
+    }
+   ]
+  }
+ ]
+}

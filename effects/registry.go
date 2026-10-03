@@ -173,6 +173,12 @@ type Host interface {
 	// Redirect effects use this shared census rather than duplicating target
 	// legality below rules (protection and continuous restrictions included).
 	LegalTargets(chooser state.PlayerID, source state.ObjID, sa *cards.SA) []state.Target
+	// LegalSubTargets is LegalTargets for a SubAbility$'s OWN ValidTgts$ asked
+	// while its parent resolves: parent is the parent ability's already-chosen
+	// target list, which the census binds for the Targeted*/ParentTarget
+	// referents (SpecContext.ParentTargets) -- "exile up to one target
+	// Equipment attached to THAT creature".
+	LegalSubTargets(chooser state.PlayerID, source state.ObjID, sa *cards.SA, parent []state.Target) []state.Target
 	// ChooserFor resolves the seat that answers a target ask declared by sa,
 	// per Forge's TargetingPlayer$ ("an opponent chooses the target"). The
 	// mid-resolution ValidTgts$ asks (chosenTargetsFor, changeZoneChosenTargets)
@@ -1025,6 +1031,12 @@ type Ctx struct {
 	// state.Game into rules. An effects test double whose Host does not
 	// implement typeTableHost leaves it nil and reads the printed face.
 	EffectiveTypes []ObjectTypes
+	// EffectiveColors is the layer-5 derived-colour table (SetColor$,
+	// AddColor$, an Animate's Colors$), published by rules for a body that
+	// names a colour word and bound onto every SpecContext
+	// (*Ctx).SpecContext builds, so a resolving effect's colour filter
+	// ("destroy all nonblack creatures") agrees with the layer walk.
+	EffectiveColors []ObjectColors
 	// StaticGoads is the live static-goad table (staticgoad1), published by
 	// rules for resolution-time IsGoaded filters.
 	StaticGoads map[state.ObjID]bool
@@ -2928,6 +2940,26 @@ type goadTableHost interface {
 	StaticallyGoaded() map[state.ObjID]bool
 }
 
+// colorTableHost publishes rules' layer-5 derived-colour table for resolving
+// filters. Optional, like goadTableHost; it is asked only for a body that
+// names a colour word, because rules builds the table on demand.
+type colorTableHost interface {
+	EffectiveColors() []ObjectColors
+}
+
+// saMentionsColors reports whether any parameter of sa can name a colour
+// predicate (the capitalised fragments every colour word of the filter
+// grammar contains).
+func saMentionsColors(sa *cards.SA) bool {
+	for _, v := range sa.Params {
+		if strings.Contains(v, "Color") || strings.Contains(v, "Black") || strings.Contains(v, "White") ||
+			strings.Contains(v, "Blue") || strings.Contains(v, "Red") || strings.Contains(v, "Green") {
+			return true
+		}
+	}
+	return false
+}
+
 func saMentionsGoaded(sa *cards.SA) bool {
 	for _, v := range sa.Params {
 		if strings.Contains(v, "IsGoaded") {
@@ -3053,6 +3085,11 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		} else {
 			c.StaticGoads = nil
 		}
+		if ch, ok := h.(colorTableHost); ok && sa != nil && saMentionsColors(sa) {
+			c.EffectiveColors = ch.EffectiveColors()
+		} else {
+			c.EffectiveColors = nil
+		}
 		if th, ok := h.(targetableObjectsHost); ok {
 			c.TargetableObjects = th.TargetableObjects(c.TriggerCard)
 		} else {
@@ -3149,6 +3186,11 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 			c.StaticGoads = gh.StaticallyGoaded()
 		} else {
 			c.StaticGoads = nil
+		}
+		if ch, ok := h.(colorTableHost); ok && saMentionsColors(sa) {
+			c.EffectiveColors = ch.EffectiveColors()
+		} else {
+			c.EffectiveColors = nil
 		}
 		if th, ok := h.(targetableObjectsHost); ok {
 			c.TargetableObjects = th.TargetableObjects(c.TriggerCard)

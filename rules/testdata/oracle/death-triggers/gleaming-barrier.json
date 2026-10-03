@@ -1,0 +1,464 @@
+{
+ "card": "Gleaming Barrier",
+ "family": "death-triggers",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "8c8fa5bb0ed1",
+ "scenarios": [
+  {
+   "name": "dies-creates-a-treasure",
+   "cr": [
+    "700.4",
+    "603.6c"
+   ],
+   "why": "When it dies its controller creates a Treasure token.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Gleaming Barrier"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p0:Gleaming Barrier"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Gleaming Barrier",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Treasure",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Treasure"
+     },
+     "eq": 0
+    },
+    {
+     "card": "p0:token:Treasure",
+     "types": [
+      "Artifact",
+      "Treasure"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "zero-four-defender-artifact-creature",
+   "cr": [
+    "702.3b",
+    "208.1"
+   ],
+   "why": "A 0/4 artifact creature Wall with defender.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Gleaming Barrier"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Gleaming Barrier",
+     "pt": "0/4",
+     "keywords": [
+      "Defender"
+     ],
+     "types": [
+      "Artifact",
+      "Creature",
+      "Wall"
+     ]
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Treasure"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "treasure-makes-one-mana-of-any-color",
+   "cr": [
+    "111.10a",
+    "605.1a"
+   ],
+   "why": "The Treasure is sacrificed for one mana of any colour.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lightning Bolt",
+      "Shock",
+      "Giant Growth"
+     ],
+     "battlefield": [
+      "Gleaming Barrier",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Gleaming Barrier"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Gleaming Barrier",
+       "zone": "battlefield",
+       "damage": 3
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p0:Gleaming Barrier"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "count": {
+        "seat": 0,
+        "zone": "battlefield",
+        "name": "Treasure",
+        "token": true
+       },
+       "eq": 1
+      }
+     ]
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:token:Treasure",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "G"
+       ]
+      }
+     ],
+     "expect": [
+      {
+       "pool": {
+        "p0": "G"
+       }
+      },
+      {
+       "count": {
+        "seat": 0,
+        "zone": "battlefield",
+        "name": "Treasure"
+       },
+       "eq": 0
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Giant Growth",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "5/5"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    },
+    {
+     "card": "p0:Gleaming Barrier",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "dies-in-combat-creates-a-treasure",
+   "cr": [
+    "700.4",
+    "704.5g"
+   ],
+   "why": "Lethal combat damage is dying.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Gleaming Barrier"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Craw Wurm"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p0:Gleaming Barrier",
+       "p1:Craw Wurm"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Gleaming Barrier",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Treasure",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "life": {
+      "p0": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "sacrificed-creates-a-treasure",
+   "cr": [
+    "700.4",
+    "701.21a"
+   ],
+   "why": "Being sacrificed is dying.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Blasphemous Edict"
+     ],
+     "battlefield": [
+      "Gleaming Barrier"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Blasphemous Edict",
+     "mana": "CCCBB"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Gleaming Barrier",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Treasure",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "exiled-no-treasure",
+   "cr": [
+    "700.4"
+   ],
+   "why": "Exile is not dying.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Gleaming Barrier"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Swords to Plowshares"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Swords to Plowshares",
+     "mana": "W",
+     "targets": [
+      "p0:Gleaming Barrier"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Gleaming Barrier",
+     "zone": "exile"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Treasure"
+     },
+     "eq": 0
+    },
+    {
+     "life": {
+      "p0": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "bounced-no-treasure",
+   "cr": [
+    "700.4"
+   ],
+   "why": "Returning to hand is not dying.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Gleaming Barrier"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Unsummon"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Unsummon",
+     "mana": "U",
+     "targets": [
+      "p0:Gleaming Barrier"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Gleaming Barrier",
+     "zone": "hand"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Treasure"
+     },
+     "eq": 0
+    }
+   ]
+  }
+ ]
+}

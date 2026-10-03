@@ -1,0 +1,336 @@
+{
+ "card": "Stroke of Midnight",
+ "family": "spell-conditional",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "8830dc9a25a5",
+ "scenarios": [
+  {
+   "name": "destroys-and-controller-gets-a-human",
+   "cr": [
+    "701.8a",
+    "111.2"
+   ],
+   "why": "Destroys the opponent's creature; its controller creates a 1/1 white Human.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Stroke of Midnight"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Hill Giant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Stroke of Midnight",
+     "mana": "WCC",
+     "targets": [
+      "p1:Hill Giant"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Hill Giant",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Human",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p1:token:Human",
+     "pt": "1/1"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Human"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "destroys-noncreature-permanent",
+   "cr": [
+    "701.8a"
+   ],
+   "why": "Any nonland permanent: destroying the opponent's enchantment still gives them a Human.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Stroke of Midnight"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Anthem of Champions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Stroke of Midnight",
+     "mana": "WCC",
+     "targets": [
+      "p1:Anthem of Champions"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Anthem of Champions",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Human",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "own-permanent-gives-you-the-human",
+   "cr": [
+    "111.2"
+   ],
+   "why": "On its controller's own creature, they create the Human.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Stroke of Midnight"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Stroke of Midnight",
+     "mana": "WCC",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Human",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "land-is-not-a-legal-target",
+   "cr": [
+    "115.1",
+    "601.2c"
+   ],
+   "why": "Nonland only: with only lands it cannot be cast.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Stroke of Midnight"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "WCC"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Stroke of Midnight"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "indestructible-target-still-gives-a-human",
+   "cr": [
+    "702.12b",
+    "608.2c"
+   ],
+   "why": "An indestructible target is not destroyed, but its controller still creates the Human.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Stroke of Midnight"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Divine Resilience"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Stroke of Midnight",
+     "mana": "WCC",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Divine Resilience",
+     "mana": "W",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Human",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "target-gone-no-human",
+   "cr": [
+    "608.2b"
+   ],
+   "why": "If the target leaves in response the spell does nothing: no Human.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Stroke of Midnight"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Unsummon"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Stroke of Midnight",
+     "mana": "WCC",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Unsummon",
+     "mana": "U",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Human"
+     },
+     "eq": 0
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Human"
+     },
+     "eq": 0
+    }
+   ]
+  }
+ ]
+}

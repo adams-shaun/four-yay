@@ -1,0 +1,331 @@
+{
+ "card": "Spectral Sailor",
+ "family": "activated-ability",
+ "author": "fdn-audit-2 (Oracle + CR only)",
+ "oracle_sha": "bdcda41a1129",
+ "scenarios": [
+  {
+   "name": "flash-cast-on-opponents-turn",
+   "cr": [
+    "702.8a"
+   ],
+   "why": "Flash: castable on the opponent's turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Spectral Sailor"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Spectral Sailor",
+     "mana": "U"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Spectral Sailor",
+     "zone": "battlefield",
+     "pt": "1/1",
+     "keywords": [
+      "Flying"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "four-mana-draws-a-card",
+   "cr": [
+    "602.2",
+    "121.1"
+   ],
+   "why": "{3}{U}: its controller draws one card; the ability has no tap cost.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Spectral Sailor"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Spectral Sailor",
+     "mana": "CCCU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 1,
+      "p1": 0
+     }
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    },
+    {
+     "card": "p0:Spectral Sailor",
+     "zone": "battlefield",
+     "tapped": false
+    }
+   ]
+  },
+  {
+   "name": "needs-blue-and-four-mana",
+   "cr": [
+    "602.2b",
+    "107.4"
+   ],
+   "why": "The cost is {3}{U}: four colourless (no blue) or three mana including blue is not enough.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Spectral Sailor"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCC",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Spectral Sailor"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "active": "p0"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCU",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Spectral Sailor"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "activate",
+        "card": "p0:Spectral Sailor"
+       },
+       "want": true
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "activates-twice-in-a-turn",
+   "cr": [
+    "602.2"
+   ],
+   "why": "Nothing limits it to once: paying twice draws two cards.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Spectral Sailor"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Spectral Sailor",
+     "mana": "CCCU"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Spectral Sailor",
+     "mana": "CCCU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "flying-evasion",
+   "cr": [
+    "702.9b"
+   ],
+   "why": "A creature without flying or reach cannot block it; a flyer can.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Spectral Sailor",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Wind Drake"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Spectral Sailor",
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p1:Grizzly Bears",
+        "attacker": "p0:Spectral Sailor"
+       },
+       "want": false
+      },
+      {
+       "can_block": {
+        "blocker": "p1:Wind Drake",
+        "attacker": "p0:Spectral Sailor"
+       },
+       "want": true
+      },
+      {
+       "can_block": {
+        "blocker": "p1:Grizzly Bears",
+        "attacker": "p0:Grizzly Bears"
+       },
+       "want": true
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Spectral Sailor",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "usable-on-opponents-turn-while-summoning-sick",
+   "cr": [
+    "302.6",
+    "602.1"
+   ],
+   "why": "No {T} in the cost and no timing restriction: flashed in on the opponent's turn it can draw immediately.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Spectral Sailor"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Spectral Sailor",
+     "mana": "U"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Spectral Sailor",
+     "mana": "CCCU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  }
+ ]
+}

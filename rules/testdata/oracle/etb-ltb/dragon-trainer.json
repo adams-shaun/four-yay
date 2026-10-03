@@ -1,0 +1,211 @@
+{
+ "card": "Dragon Trainer",
+ "family": "etb-ltb",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "36e28591003b",
+ "scenarios": [
+  {
+   "name": "enters-creating-a-flying-dragon",
+   "cr": [
+    "603.6a",
+    "111.1"
+   ],
+   "why": "Entering creates one 4/4 Dragon creature token with flying; the Trainer itself is 1/1.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Dragon Trainer"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Dragon Trainer",
+     "mana": "CCCRR",
+     "expect": [
+      {
+       "stack_size": 1
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Dragon Trainer",
+     "zone": "battlefield",
+     "pt": "1/1",
+     "no_keywords": [
+      "Flying"
+     ]
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Dragon",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:token:Dragon",
+     "pt": "4/4",
+     "keywords": [
+      "Flying"
+     ],
+     "types": [
+      "Creature",
+      "Dragon"
+     ]
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Dragon"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "dragon-stays-when-the-trainer-dies",
+   "cr": [
+    "111.1"
+   ],
+   "why": "The token is independent of the Trainer: it stays after the Trainer is destroyed.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Dragon Trainer",
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Dragon Trainer",
+     "mana": "CCCRR"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p0:Dragon Trainer"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Dragon Trainer",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Dragon",
+      "token": true
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "dragon-attacks-over-a-ground-blocker",
+   "cr": [
+    "702.9b",
+    "302.6"
+   ],
+   "why": "Two turns later the token attacks; a creature without flying or reach cannot block it (a reach creature could), and unblocked it deals 4.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Dragon Trainer"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Giant Spider"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Dragon Trainer",
+     "mana": "CCCRR"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:token:Dragon"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p1:Grizzly Bears",
+        "attacker": "p0:token:Dragon"
+       },
+       "want": false
+      },
+      {
+       "can_block": {
+        "blocker": "p1:Giant Spider",
+        "attacker": "p0:token:Dragon"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 16
+     }
+    }
+   ]
+  }
+ ]
+}

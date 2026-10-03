@@ -1,0 +1,162 @@
+{
+ "card": "Campus Guide",
+ "family": "etb-ltb",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "6528bc107f8e",
+ "scenarios": [
+  {
+   "name": "search-puts-a-basic-land-on-top",
+   "cr": [
+    "701.23",
+    "603.5"
+   ],
+   "why": "Entering may search for a basic land card and put it on top of the library after shuffling: the Forest is then the next card drawn, ahead of the card that was on top.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Campus Guide"
+     ],
+     "library": [
+      "Forest"
+     ],
+     "library_top": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Campus Guide",
+     "mana": "CC"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Forest"
+       ]
+      }
+     ],
+     "expect": [
+      {
+       "card": "p0:Campus Guide",
+       "zone": "battlefield",
+       "pt": "2/1",
+       "types": [
+        "Artifact",
+        "Creature",
+        "Golem"
+       ]
+      },
+      {
+       "card": "p0:Forest",
+       "zone": "library"
+      },
+      {
+       "hand_size": {
+        "p0": 0
+       }
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Forest",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "may-decline-the-search",
+   "cr": [
+    "603.5"
+   ],
+   "why": "The search is optional: declining leaves the library alone, so the original top card is drawn next.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Campus Guide"
+     ],
+     "library": [
+      "Forest"
+     ],
+     "library_top": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Campus Guide",
+     "mana": "CC"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "trigger_optional",
+       "pick": [
+        "no"
+       ]
+      },
+      {
+       "kind": "choose",
+       "pick": []
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -274,7 +274,7 @@ func (e *Engine) scanActionStaticsMode(carriersOnly bool) actionStaticViews {
 				// activation's fresh activeStatics walk did not, so the
 				// offered "Activate ... for mana" was a silent no-op
 				// re-offered forever (cardfuzz batch9 line 1).
-				if e.faceDownPrintedHides(o) {
+				if e.printedAbilitiesGone(o) {
 					continue
 				}
 				for si, sn := 0, o.PileStaticCount(); si < sn; si++ {
@@ -343,9 +343,10 @@ func (e *Engine) scanActiveStatics(mode string, out []staticView) []staticView {
 			if f == nil {
 				continue
 			}
-			if e.faceDownPrintedHides(o) {
+			if e.printedAbilitiesGone(o) {
 				// CR 708.8: a face-down permanent's printed statics do not
-				// exist while it is face down (the shared gate in layers.go).
+				// exist while it is face down (the shared gate in layers.go);
+				// CR 613.1f: nor do those of one that lost all abilities.
 				continue
 			}
 			if o.PhasedOut {
@@ -465,6 +466,13 @@ func (e *Engine) matchesSpec(spec string, id state.ObjID, sc effects.SpecContext
 		// (TestLegalActionsReusesActionStaticMembership's pin).
 		if e.goadProbe == 0 && strings.Contains(spec, "IsGoaded") {
 			sc.StaticGoads = e.staticallyGoaded()
+		}
+		// The colour predicates' layer-5 bind (layer5colors.go): a spec that
+		// names a colour word reads the derived colours, so a creature a
+		// continuous effect recoloured matches by what it is now. Nil on a
+		// board with no live colour effect.
+		if specReadsColors(spec) {
+			sc.DerivedColors = e.derivedColorTable()
 		}
 		if specDerivedVerify && !specReadsDerived(spec) {
 			return e.verifySpecDerivedSkip(spec, id, sc)

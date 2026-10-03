@@ -1,3 +1,5 @@
+//go:build manabrew
+
 package manabrewhttp
 
 // MBX-2's Done-means test: a real 2-seat game (Goblin Guide's mandatory

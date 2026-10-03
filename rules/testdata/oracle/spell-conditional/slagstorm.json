@@ -1,0 +1,297 @@
+{
+ "card": "Slagstorm",
+ "family": "spell-conditional",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "9198105aa8a5",
+ "scenarios": [
+  {
+   "name": "creature-mode-three-to-each-creature",
+   "cr": [
+    "700.2a",
+    "120.3"
+   ],
+   "why": "First mode: 3 damage to each creature on both sides; players are untouched.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Slagstorm"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser",
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Slagstorm",
+     "mana": "CRR",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "creature"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "battlefield",
+     "damage": 3
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    },
+    {
+     "card": "p0:Slagstorm",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "player-mode-three-to-each-player",
+   "cr": [
+    "700.2a",
+    "120.3"
+   ],
+   "why": "Second mode: 3 damage to each player, including its caster; creatures are untouched.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Slagstorm"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Slagstorm",
+     "mana": "CRR",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "player"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 17,
+      "p1": 17
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "battlefield",
+     "damage": 0
+    }
+   ]
+  },
+  {
+   "name": "needs-two-red",
+   "cr": [
+    "601.2f",
+    "107.4"
+   ],
+   "why": "Three mana with one red cannot pay {1}{R}{R}.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Slagstorm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCR"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Slagstorm"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "creature-mode-with-no-creatures-resolves",
+   "cr": [
+    "608.2"
+   ],
+   "why": "With no creatures the first mode does nothing.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Slagstorm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Slagstorm",
+     "mana": "CRR",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "creature"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    },
+    {
+     "card": "p0:Slagstorm",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "sorcery-timing",
+   "cr": [
+    "307.1"
+   ],
+   "why": "Not castable on the opponent's turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Slagstorm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CRR"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Slagstorm"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "player-mode-can-finish-a-player",
+   "cr": [
+    "704.5a"
+   ],
+   "why": "A player at 3 life is reduced to 0 by the second mode.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Slagstorm"
+     ]
+    },
+    "p1": {
+     "life": 3
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Slagstorm",
+     "mana": "CRR",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "player"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 17,
+      "p1": 0
+     }
+    }
+   ]
+  }
+ ]
+}

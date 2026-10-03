@@ -1,0 +1,398 @@
+{
+ "card": "High Fae Trickster",
+ "family": "conditional-static",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "09ab7918326d",
+ "scenarios": [
+  {
+   "name": "flash-castable-on-opponents-turn",
+   "cr": [
+    "702.8a"
+   ],
+   "why": "Flash: castable during the opponent's upkeep. It is a 4/2 flier.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "High Fae Trickster"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:High Fae Trickster",
+     "mana": "CCCU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:High Fae Trickster",
+     "zone": "battlefield",
+     "pt": "4/2",
+     "keywords": [
+      "Flying"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "sorcery-castable-on-opponents-turn",
+   "cr": [
+    "601.3b",
+    "307.1"
+   ],
+   "why": "Its controller may cast spells as though they had flash: a sorcery is castable in the opponent's upkeep.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Divination"
+     ],
+     "battlefield": [
+      "High Fae Trickster"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCU",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Divination"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Divination"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    },
+    {
+     "card": "p0:Divination",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "control-sorcery-not-castable-on-opponents-turn-without-it",
+   "cr": [
+    "307.1"
+   ],
+   "why": "Control: without the Trickster a sorcery is not offered on the opponent's turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Divination"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCU"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Divination"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "creature-castable-on-opponents-turn",
+   "cr": [
+    "601.3b",
+    "302.1"
+   ],
+   "why": "A creature spell is castable at instant speed too.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Grizzly Bears"
+     ],
+     "battlefield": [
+      "High Fae Trickster"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "CG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "creature-castable-in-response-with-a-spell-on-the-stack",
+   "cr": [
+    "601.3b",
+    "117.1a"
+   ],
+   "why": "As though it had flash also covers a non-empty stack on its own turn: a creature spell can be cast in response to another spell.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Grizzly Bears",
+      "Shock"
+     ],
+     "battlefield": [
+      "High Fae Trickster"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "CG",
+     "expect": [
+      {
+       "stack_size": 2
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "life": {
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponent-does-not-get-the-permission",
+   "cr": [
+    "109.5",
+    "307.1"
+   ],
+   "why": "'You' is the Trickster's controller: the opponent cannot cast a sorcery on the controller's turn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "High Fae Trickster"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Divination"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "mana",
+     "seat": 1,
+     "mana": "CCU"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 1,
+      "kind": "cast",
+      "card": "p1:Divination"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "lands-are-not-spells",
+   "cr": [
+    "305.1",
+    "305.3"
+   ],
+   "why": "Playing a land is not casting a spell: a land still cannot be played on the opponent's turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Forest"
+     ],
+     "battlefield": [
+      "High Fae Trickster"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "play_land",
+      "card": "p0:Forest"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "permission-ends-when-it-leaves",
+   "cr": [
+    "611.3a"
+   ],
+   "why": "The permission is a static ability: once the Trickster is gone the sorcery is no longer castable at instant speed.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Divination"
+     ],
+     "battlefield": [
+      "High Fae Trickster"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Shock",
+     "mana": "R",
+     "targets": [
+      "p0:High Fae Trickster"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCU"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:High Fae Trickster",
+     "zone": "graveyard"
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Divination"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

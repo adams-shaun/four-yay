@@ -1,0 +1,261 @@
+{
+ "card": "Aegis Turtle",
+ "family": "base-characteristics",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "e3b0c44298fc",
+ "scenarios": [
+  {
+   "name": "zero-five-for-one-blue",
+   "cr": [
+    "208.1",
+    "202.1"
+   ],
+   "why": "A 0/5 Turtle for {U} with no abilities.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Aegis Turtle"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Aegis Turtle",
+     "mana": "U"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Aegis Turtle",
+     "zone": "battlefield",
+     "pt": "0/5",
+     "no_keywords": [
+      "Defender",
+      "Flying",
+      "Reach"
+     ],
+     "types": [
+      "Creature",
+      "Turtle"
+     ]
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "blocks-a-four-power-attacker-and-survives",
+   "cr": [
+    "510.1",
+    "704.5g"
+   ],
+   "why": "It blocks a 4/3, takes 4 and survives, dealing no damage back.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Aegis Turtle"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Zombie Goliath"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Zombie Goliath"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p0:Aegis Turtle",
+       "p1:Zombie Goliath"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Aegis Turtle",
+     "zone": "battlefield",
+     "damage": 4
+    },
+    {
+     "card": "p1:Zombie Goliath",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "life": {
+      "p0": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-defender-it-can-attack-for-zero",
+   "cr": [
+    "508.1",
+    "120.8"
+   ],
+   "why": "It has no defender, so it can attack; with power 0 it deals no damage and it taps.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Aegis Turtle"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Aegis Turtle"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 20
+     }
+    },
+    {
+     "card": "p0:Aegis Turtle",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "five-damage-kills-it",
+   "cr": [
+    "704.5g"
+   ],
+   "why": "Damage equal to its toughness destroys it: a 6/4 attacker it blocks kills it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Aegis Turtle"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Craw Wurm"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p0:Aegis Turtle",
+       "p1:Craw Wurm"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Aegis Turtle",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "needs-blue-mana",
+   "cr": [
+    "601.2f"
+   ],
+   "why": "Colourless mana cannot pay {U}.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Aegis Turtle"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Aegis Turtle"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

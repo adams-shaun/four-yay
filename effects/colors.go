@@ -255,3 +255,66 @@ func colorLetters(list string) ([]string, bool) {
 func ColorLetters(list string) ([]string, bool) {
 	return colorLetters(list)
 }
+
+// ObjectColors binds one object to its layer-5 derived colour set (CR
+// 613.1e). rules builds the table for the objects whose derived colours
+// differ from their printed ones and binds it on SpecContext.DerivedColors,
+// so a colour predicate agrees with the layer walk.
+type ObjectColors struct {
+	ID   state.ObjID
+	Mask ColorMask
+}
+
+// ColorMaskFromLetters is the mask of a WUBRG letter string (Derived.Colors).
+func ColorMaskFromLetters(letters string) ColorMask {
+	var m ColorMask
+	for i := 0; i < len(letters); i++ {
+		m |= colorBit(letters[i])
+	}
+	return m
+}
+
+// colorMaskCtx is the colour read every filter predicate takes: the bound
+// layer-5 derived colours when the context carries an entry for o, else the
+// printed read (ColorMaskOf). It returns a plain mask, never data sourced
+// from the context, so the context does not leak (see hasEffectiveName).
+func colorMaskCtx(o *state.Object, sc *SpecContext) ColorMask {
+	if o != nil {
+		for i := range sc.DerivedColors {
+			if sc.DerivedColors[i].ID == o.ID {
+				return sc.DerivedColors[i].Mask
+			}
+		}
+	}
+	return ColorMaskOf(o)
+}
+
+// colorsCtx is colorMaskCtx as WUBRG letters.
+func colorsCtx(o *state.Object, sc *SpecContext) string {
+	return colorMaskCtx(o, sc).String()
+}
+
+// hasDerivedColorEntryPtr reports whether the context binds derived colours
+// for o (the compiled predicate programs read the printed face, so such an
+// object takes the textual path, as a renamed or retyped one does).
+func hasDerivedColorEntryPtr(o *state.Object, sc *SpecContext) bool {
+	for i := range sc.DerivedColors {
+		if sc.DerivedColors[i].ID == o.ID {
+			return true
+		}
+	}
+	return false
+}
+
+// colourMapPredicate reports whether p is one of the legacy predicate-map
+// colour entries (the five colour names and nonBlack), whose map functions
+// read the printed colours and carry no context. With derived colours bound
+// the matcher skips the map for them and evaluates the same word through
+// wordMatches, which reads the context.
+func colourMapPredicate(p string) bool {
+	if p == "nonBlack" {
+		return true
+	}
+	_, is := colorLetter[p]
+	return is
+}

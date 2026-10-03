@@ -1,0 +1,144 @@
+{
+ "card": "Exsanguinate",
+ "family": "spell-conditional",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "c5df71917238",
+ "scenarios": [
+  {
+   "name": "x-four-drains-four",
+   "cr": [
+    "107.3",
+    "119.3"
+   ],
+   "why": "X=4: each opponent loses 4 life and its caster gains the 4 lost.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Exsanguinate"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Exsanguinate",
+     "mana": "BBCCCC",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "4"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 24,
+      "p1": 16
+     }
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "x-zero-does-nothing",
+   "cr": [
+    "107.3"
+   ],
+   "why": "X=0: nobody loses or gains life.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Exsanguinate"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Exsanguinate",
+     "mana": "BB",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "0"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "gain-equals-life-actually-lost",
+   "cr": [
+    "119.3",
+    "608.2c"
+   ],
+   "why": "The gain equals the life lost: an opponent at 3 (kept in the game by Herald of Eternal Dawn) loses all 5, so its caster gains 5.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Exsanguinate"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Herald of Eternal Dawn"
+     ],
+     "life": 3
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Exsanguinate",
+     "mana": "BBCCCCC",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "5"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 25,
+      "p1": -2
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -412,10 +412,18 @@ type combatFires struct {
 
 // actionTriggerModes are the event-trigger modes the sacrifice/discard/tap/
 // crime/attack-declaration ticket registered. The trigger-level parameters
-// only they honour -- ActivationLimit$, PlayerTurn$, and a CheckDefinedPlayer$
-// predicate this build cannot evaluate failing closed -- are scoped to these
-// modes, so no trigger of another mode that fired before stops firing or
-// fires less often.
+// only they honour -- PlayerTurn$ and a CheckDefinedPlayer$ predicate this
+// build cannot evaluate failing closed -- are scoped to these modes, so no
+// trigger of another mode that fired before stops firing or fires less
+// often. ActivationLimit$ ("This ability triggers only once each turn") is
+// NOT scoped by this set any more: it is honoured on EVERY trigger mode
+// (triggerActivationLimitAllows / reserveTriggerLimits), because scoping it
+// let the corpus trigger lines of unlisted modes (ChangesZone, SpellCast,
+// CounterAdded/CounterAddedOnce, BecomesTarget, AbilityCast, Scry, ...)
+// trigger every time (72 lines over 68 scripts at the FORGE_REF pin) --
+// Exemplar of Light drew on every counter. The entry
+// comments below that cite ActivationLimit$ as a membership reason predate
+// that and now explain only the PlayerTurn$/CheckDefinedPlayer$ half.
 var actionTriggerModes = map[string]bool{
 	// Clashed joins them for the same reason: it is an event mode registered
 	// with its own marker Kind (events.Clash, task clash1), so the
@@ -677,15 +685,12 @@ func (e *Engine) reserveTriggerActivationLimit(t cards.Trigger, key triggerKey) 
 }
 
 // reserveTriggerLimits commits BOTH trigger-limit counts for a queue that is
-// happening, so every queue site reserves the same pair under the same
-// actionTriggerModes scoping (GameActivationLimit$ on every mode,
-// ActivationLimit$ only on the action modes) and a future queue site cannot
-// forget one half.
+// happening, so every queue site reserves the same pair (GameActivationLimit$
+// and the per-turn ActivationLimit$, both on every trigger mode) and a future
+// queue site cannot forget one half.
 func (e *Engine) reserveTriggerLimits(t cards.Trigger, key triggerKey) {
 	e.reserveTriggerGameActivationLimit(t, key)
-	if actionTriggerModes[t.Mode] {
-		e.reserveTriggerActivationLimit(t, key)
-	}
+	e.reserveTriggerActivationLimit(t, key)
 }
 
 // dieRollNumberAllows enforces a RolledDie trigger's Number$ N ("whenever
@@ -910,6 +915,9 @@ func (e *Engine) checkTriggers(ev *events.Event, lki *state.Object,
 		*observer = Engine{G: e.triggerBefore.game, L: e.L,
 			continuous: e.triggerBefore.continuous, continuousVersion: e.continuousVersion,
 			setNameInPool: e.setNameInPool, layer4InPool: e.layer4InPool}
+		// The no-ability-loss proof covers every object and registration
+		// the snapshot can hold (abilityloss.go).
+		observer.lossProof = abilityLossProof{seen: e.abilityLossPossible(), objs: e.lossProof.objs, contLen: -1}
 		// The reused observer's static memo storage, and the live memo when
 		// it is still the snapshot board's (lookback_static.go).
 		observer.staticContinuous = staticBuf
@@ -1321,6 +1329,11 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 			// before.
 			walk = nil
 		}
+		if len(walk) != 0 && observer.printedAbilitiesLost(o) {
+			// CR 613.1f: a permanent that lost all abilities has no printed
+			// triggered ability; the granted walks below still run.
+			walk = nil
+		}
 		for _, fc := range walk {
 			if o.Unlocked && !e.objectFaceMayTrigger(id, fc.faceIdx, fc.face, ev.Kind) {
 				continue
@@ -1426,7 +1439,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 				if !e.triggerGameActivationLimitAllows(t, key) {
 					continue // GameActivationLimit$: already triggered enough this game.
 				}
-				if actionTriggerModes[t.Mode] && !e.triggerActivationLimitAllows(t, key) {
+				if !e.triggerActivationLimitAllows(t, key) {
 					continue // ActivationLimit$: already triggered enough this turn.
 				}
 				// ResolvedLimit$ ("Do this only once each turn."): scoped to EVERY

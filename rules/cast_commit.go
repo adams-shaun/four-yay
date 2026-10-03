@@ -265,7 +265,7 @@ func (e *Engine) payCast() {
 		// power/toughness/mana value" (CR 608.2g) against them.
 		var sacrificedLKI []state.SacrificedInfo
 		for _, id := range pc.sacs {
-			sacrificedLKI = append(sacrificedLKI, state.SacrificedInfoOf(e.G, id))
+			sacrificedLKI = append(sacrificedLKI, effects.SacrificedLKI(e, id))
 		}
 		for _, id := range pc.sacs {
 			e.emit(events.Sacrifice(id))
@@ -483,7 +483,7 @@ func (e *Engine) payCast() {
 	// comment): the sacrificed permanents are still on the battlefield here.
 	var sacrificedLKI []state.SacrificedInfo
 	for _, id := range pc.sacs {
-		sacrificedLKI = append(sacrificedLKI, state.SacrificedInfoOf(e.G, id))
+		sacrificedLKI = append(sacrificedLKI, effects.SacrificedLKI(e, id))
 	}
 	// Casualty:X (Ob Nixilis, the Adversary): the amount is the sacrificed
 	// creature's power, read live here -- the sacrifice settles with the

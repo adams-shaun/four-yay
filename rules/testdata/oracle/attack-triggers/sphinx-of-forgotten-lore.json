@@ -1,0 +1,601 @@
+{
+ "card": "Sphinx of Forgotten Lore",
+ "family": "attack-triggers",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "69b0f9900bee",
+ "scenarios": [
+  {
+   "name": "flash-three-three-flier",
+   "cr": [
+    "702.8a"
+   ],
+   "why": "Flash: castable in the opponent's upkeep. A 3/3 flier.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Sphinx of Forgotten Lore"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Sphinx of Forgotten Lore",
+     "mana": "CCUU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Sphinx of Forgotten Lore",
+     "zone": "battlefield",
+     "pt": "3/3",
+     "keywords": [
+      "Flying"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "attack-gives-an-instant-flashback-for-its-mana-cost",
+   "cr": [
+    "702.34a",
+    "603.2"
+   ],
+   "why": "On attacking, the targeted instant in its controller's graveyard gains flashback with a cost equal to its mana cost: it is cast from the graveyard for {R} and exiled afterwards.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sphinx of Forgotten Lore"
+     ],
+     "graveyard": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Sphinx of Forgotten Lore"
+     ],
+     "defender": "p1",
+     "targets": [
+      "p0:Lightning Bolt"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "cast_mode": "flashback",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 14
+     }
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "exile"
+    }
+   ]
+  },
+  {
+   "name": "control-no-flashback-without-the-attack",
+   "cr": [
+    "702.34a"
+   ],
+   "why": "Control: without the trigger the instant in the graveyard cannot be cast.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sphinx of Forgotten Lore"
+     ],
+     "graveyard": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "R"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Lightning Bolt"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "flashback-ends-at-end-of-turn",
+   "cr": [
+    "514.2"
+   ],
+   "why": "The card has flashback only until end of turn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sphinx of Forgotten Lore"
+     ],
+     "graveyard": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Sphinx of Forgotten Lore"
+     ],
+     "defender": "p1",
+     "targets": [
+      "p0:Lightning Bolt"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "R"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Lightning Bolt"
+     },
+     "want": false
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "flashback-cost-needs-the-right-colour",
+   "cr": [
+    "702.34a",
+    "107.4"
+   ],
+   "why": "The flashback cost equals the mana cost {R}: colourless mana cannot pay it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sphinx of Forgotten Lore"
+     ],
+     "graveyard": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Sphinx of Forgotten Lore"
+     ],
+     "defender": "p1",
+     "targets": [
+      "p0:Lightning Bolt"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Lightning Bolt"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "sorcery-with-flashback-is-still-sorcery-speed",
+   "cr": [
+    "702.34a",
+    "307.1"
+   ],
+   "why": "Flashback does not change timing: the sorcery cannot be cast during combat but can be in the second main phase, for its mana cost, and is then exiled.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sphinx of Forgotten Lore"
+     ],
+     "graveyard": [
+      "Divination"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Sphinx of Forgotten Lore"
+     ],
+     "defender": "p1",
+     "targets": [
+      "p0:Divination"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCU",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Divination"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Divination",
+     "mana": "CCU",
+     "cast_mode": "flashback"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    },
+    {
+     "card": "p0:Divination",
+     "zone": "exile"
+    }
+   ]
+  },
+  {
+   "name": "no-instant-or-sorcery-no-trigger",
+   "cr": [
+    "603.3d"
+   ],
+   "why": "With only a creature card in the graveyard there is no legal target; the attack goes on.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sphinx of Forgotten Lore"
+     ],
+     "graveyard": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Sphinx of Forgotten Lore"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Sphinx of Forgotten Lore",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 17
+     }
+    }
+   ]
+  },
+  {
+   "name": "only-the-targeted-card-gains-flashback",
+   "cr": [
+    "115.1"
+   ],
+   "why": "One target: the other instant in the graveyard does not gain flashback.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sphinx of Forgotten Lore"
+     ],
+     "graveyard": [
+      "Lightning Bolt",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Sphinx of Forgotten Lore"
+     ],
+     "defender": "p1",
+     "targets": [
+      "p0:Lightning Bolt"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "RR"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Lightning Bolt"
+     },
+     "want": true
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Shock"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "card-with-its-own-flashback-can-use-the-cheaper-granted-one",
+   "cr": [
+    "702.34a",
+    "113.2c"
+   ],
+   "why": "A card that already has flashback {2}{U} gains a second flashback ability costing its mana cost {1}{U}: two mana is enough.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sphinx of Forgotten Lore"
+     ],
+     "graveyard": [
+      "Think Twice"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CU",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Think Twice"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Sphinx of Forgotten Lore"
+     ],
+     "defender": "p1",
+     "targets": [
+      "p0:Think Twice"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CU"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Think Twice"
+     },
+     "want": true
+    }
+   ]
+  },
+  {
+   "name": "card-with-its-own-flashback-keeps-it",
+   "cr": [
+    "702.34a"
+   ],
+   "why": "Control: the card's printed flashback {2}{U} still works after the trigger; cast that way it draws a card and is exiled.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sphinx of Forgotten Lore"
+     ],
+     "graveyard": [
+      "Think Twice"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Sphinx of Forgotten Lore"
+     ],
+     "defender": "p1",
+     "targets": [
+      "p0:Think Twice"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Think Twice",
+     "mana": "CCU",
+     "cast_mode": "flashback"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "card": "p0:Think Twice",
+     "zone": "exile"
+    }
+   ]
+  },
+  {
+   "name": "sphinx-not-attacking-no-trigger",
+   "cr": [
+    "603.2",
+    "508.2a"
+   ],
+   "why": "It triggers only when the Sphinx itself attacks.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sphinx of Forgotten Lore",
+      "Grizzly Bears"
+     ],
+     "graveyard": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Sphinx of Forgotten Lore",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "R"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Lightning Bolt"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

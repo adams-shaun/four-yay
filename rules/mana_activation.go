@@ -490,8 +490,17 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 	// a plain CR 708.5 face-down 2/2 has no basic-land set type and
 	// contributes nothing.
 	faceDown := e.faceDownPrintedHides(o)
+	// CR 613.1f: a permanent that lost all abilities has no printed mana
+	// ability; one another effect grants it survives only when the grant is
+	// not older than the removal (abilityloss.go).
+	var lossStamp uint32
+	lost := false
+	if !faceDown {
+		lossStamp, lost = e.abilityLoss(o)
+	}
 	var manaAbilities []*cards.SA
 	switch {
+	case lost:
 	case faceDown:
 		for _, w := range o.FaceDownTypeWords() {
 			if ab, ok := cards.IntrinsicManaAbility(w); ok {
@@ -699,6 +708,9 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 	// resolves its own face's table. A single face the walk facts show
 	// carries none (walk_face_facts.go) has nothing for the scan to find.
 	pileFaces := o.PileFaceCount()
+	if lost {
+		pileFaces = 0
+	}
 	if pileFaces == 1 && !walkSkipVerify {
 		if ff := e.walkFaceFactsOf(f); ff != nil && !ff.manaReflected {
 			pileFaces = 0
@@ -766,6 +778,9 @@ func (e *Engine) appendAvailableManaAbilitiesGate(out []*cards.SA, statics *acti
 		}
 		source := e.G.Obj(sv.Source)
 		if source == nil || source.Face() == nil {
+			continue
+		}
+		if lost && lossStamp > source.Timestamp {
 			continue
 		}
 		ma := cards.ResolveSVar(source.Face().SVars, name)
@@ -3021,7 +3036,7 @@ func (e *Engine) manaEffectAmount(p state.PlayerID, source state.ObjID, ma *card
 	}
 	ctx := e.manaAmountCtx(p, source)
 	for _, id := range sacs {
-		ctx.Sacrificed = append(ctx.Sacrificed, state.SacrificedInfoOf(e.G, id))
+		ctx.Sacrificed = append(ctx.Sacrificed, effects.SacrificedLKI(e, id))
 	}
 	effects.SetSVars(ctx, gained.svars(o.Face().SVars))
 	amount := effects.Num(e, ctx, ma, "Amount", 1)

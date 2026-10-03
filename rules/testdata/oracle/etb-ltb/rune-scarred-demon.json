@@ -1,0 +1,338 @@
+{
+ "card": "Rune-Scarred Demon",
+ "family": "etb-ltb",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "d89789f560cd",
+ "scenarios": [
+  {
+   "name": "enters-searches-for-any-card",
+   "cr": [
+    "701.23a",
+    "603.6a"
+   ],
+   "why": "On entering its controller searches their library for a card and puts it into their hand. It is a 6/6 flier.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Rune-Scarred Demon"
+     ],
+     "library": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Rune-Scarred Demon",
+     "mana": "CCCCCBB"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Lightning Bolt"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "card": "p0:Rune-Scarred Demon",
+     "zone": "battlefield",
+     "pt": "6/6",
+     "keywords": [
+      "Flying"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "any-card-type-can-be-found",
+   "cr": [
+    "701.23d"
+   ],
+   "why": "The search has no quality: a land card can be taken.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Rune-Scarred Demon"
+     ],
+     "library": [
+      "Forest",
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Rune-Scarred Demon",
+     "mana": "CCCCCBB"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Forest"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Forest",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "search-for-a-card-must-find-one",
+   "cr": [
+    "701.23d"
+   ],
+   "why": "A search simply for 'a card' cannot fail to find: left to the default answer, one card still ends up in hand.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Rune-Scarred Demon"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Rune-Scarred Demon",
+     "mana": "CCCCCBB"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "put-onto-the-battlefield-without-casting-still-searches",
+   "cr": [
+    "603.6a"
+   ],
+   "why": "'Enters', not 'cast': returned from the graveyard it triggers.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Zombify"
+     ],
+     "graveyard": [
+      "Rune-Scarred Demon"
+     ],
+     "library": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Zombify",
+     "mana": "CCCB",
+     "targets": [
+      "p0:Rune-Scarred Demon"
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Lightning Bolt"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Rune-Scarred Demon",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "countered-demon-does-not-search",
+   "cr": [
+    "603.6a",
+    "701.6a"
+   ],
+   "why": "A countered Demon never enters: no search.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Rune-Scarred Demon"
+     ],
+     "library": [
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Cancel"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Rune-Scarred Demon",
+     "mana": "CCCCCBB"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Cancel",
+     "mana": "CUU",
+     "targets": [
+      "p0:Rune-Scarred Demon"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Rune-Scarred Demon",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "demon-killed-in-response-still-searches",
+   "cr": [
+    "113.7a"
+   ],
+   "why": "The ability is independent of its source: the Demon is destroyed with the trigger on the stack and the search still happens.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Rune-Scarred Demon"
+     ],
+     "library": [
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Rune-Scarred Demon",
+     "mana": "CCCCCBB"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "pass_to",
+     "decision": "priority"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p0:Rune-Scarred Demon"
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Lightning Bolt"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Rune-Scarred Demon",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "hand"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,329 @@
+{
+ "card": "Time Stop",
+ "family": "spell-conditional",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "c231d8c1da00",
+ "scenarios": [
+  {
+   "name": "exiles-spells-on-the-stack-and-itself",
+   "cr": [
+    "724.1b"
+   ],
+   "why": "Ending the turn exiles every object on the stack: the opponent's Lightning Bolt never resolves and Time Stop itself is exiled.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Time Stop"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Time Stop",
+     "mana": "UUCCCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Lightning Bolt",
+     "zone": "exile"
+    },
+    {
+     "card": "p0:Time Stop",
+     "zone": "exile"
+    },
+    {
+     "life": {
+      "p0": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "ends-opponents-turn-before-combat-damage",
+   "cr": [
+    "724.1d"
+   ],
+   "why": "Cast during the opponent's declare attackers step, the turn skips to cleanup: no combat damage, and the attacker stays tapped into the next turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Time Stop"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Craw Wurm"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Time Stop",
+     "mana": "UUCCCC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20
+     }
+    },
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "battlefield",
+     "tapped": true
+    },
+    {
+     "card": "p0:Time Stop",
+     "zone": "exile"
+    }
+   ]
+  },
+  {
+   "name": "removes-triggered-ability-from-the-stack",
+   "cr": [
+    "724.1b"
+   ],
+   "why": "Abilities on the stack are exiled too: the attack trigger of Drakuseth is removed and deals no damage.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Time Stop"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Drakuseth, Maw of Flames"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Drakuseth, Maw of Flames"
+     ],
+     "defender": "p0",
+     "targets": [
+      "p0"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Time Stop",
+     "mana": "UUCCCC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "until-end-of-turn-effects-end",
+   "cr": [
+    "724.1d",
+    "514.2"
+   ],
+   "why": "The cleanup step still happens: Giant Growth's bonus ends and damage is removed.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Time Stop"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ],
+     "hand": [
+      "Giant Growth",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Giant Growth",
+     "mana": "G",
+     "targets": [
+      "p1:Craw Wurm"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Shock",
+     "mana": "R",
+     "targets": [
+      "p1:Craw Wurm"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Time Stop",
+     "mana": "UUCCCC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Craw Wurm",
+     "pt": "6/4",
+     "damage": 0
+    }
+   ]
+  },
+  {
+   "name": "own-turn-goes-to-opponent-next",
+   "cr": [
+    "724.1d",
+    "500.1"
+   ],
+   "why": "Cast in its controller's own first main phase, the turn ends: the next main phase is the opponent's, with its controller's untapped creature never attacking.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Time Stop"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Time Stop",
+     "mana": "UUCCCC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 20
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "tapped": false
+    },
+    {
+     "card": "p0:Time Stop",
+     "zone": "exile"
+    }
+   ]
+  }
+ ]
+}

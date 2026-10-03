@@ -1,0 +1,218 @@
+{
+ "card": "Hidetsugu's Second Rite",
+ "family": "spell-conditional",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "f45123e3428a",
+ "scenarios": [
+  {
+   "name": "exactly-ten-deals-ten",
+   "cr": [
+    "608.2c",
+    "120.3"
+   ],
+   "why": "A target player at exactly 10 life is dealt 10 damage.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Hidetsugu's Second Rite"
+     ]
+    },
+    "p1": {
+     "life": 10
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Hidetsugu's Second Rite",
+     "mana": "RCCC",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "eleven-life-nothing",
+   "cr": [
+    "608.2c"
+   ],
+   "why": "At 11 life nothing happens.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Hidetsugu's Second Rite"
+     ]
+    },
+    "p1": {
+     "life": 11
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Hidetsugu's Second Rite",
+     "mana": "RCCC",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 11
+     }
+    },
+    {
+     "card": "p0:Hidetsugu's Second Rite",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "nine-life-nothing",
+   "cr": [
+    "608.2c"
+   ],
+   "why": "At 9 life nothing happens.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Hidetsugu's Second Rite"
+     ]
+    },
+    "p1": {
+     "life": 9
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Hidetsugu's Second Rite",
+     "mana": "RCCC",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 9
+     }
+    }
+   ]
+  },
+  {
+   "name": "life-checked-on-resolution",
+   "cr": [
+    "608.2c"
+   ],
+   "why": "The condition is checked as it resolves: the target at 10 on cast who gains 1 in response takes nothing.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Hidetsugu's Second Rite"
+     ]
+    },
+    "p1": {
+     "life": 10
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Hidetsugu's Second Rite",
+     "mana": "RCCC",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "life",
+     "seat": 1,
+     "amount": 1
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 11
+     }
+    }
+   ]
+  },
+  {
+   "name": "reaching-ten-in-response-counts",
+   "cr": [
+    "608.2c"
+   ],
+   "why": "Conversely, a target at 13 on cast who drops to 10 before it resolves takes 10.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Hidetsugu's Second Rite",
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {
+     "life": 13
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Hidetsugu's Second Rite",
+     "mana": "RCCC",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 0
+     }
+    }
+   ]
+  }
+ ]
+}

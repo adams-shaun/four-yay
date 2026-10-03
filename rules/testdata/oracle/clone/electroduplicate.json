@@ -1,0 +1,271 @@
+{
+ "card": "Electroduplicate",
+ "family": "clone",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "754d497c6282",
+ "scenarios": [
+  {
+   "name": "hasty-copy-attacks-this-turn",
+   "cr": [
+    "707.9b",
+    "702.10b"
+   ],
+   "why": "A token copy of the target creature with haste: it attacks the turn it is made.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Hill Giant"
+     ],
+     "hand": [
+      "Electroduplicate"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Electroduplicate",
+     "mana": "RCC",
+     "targets": [
+      "p0:Hill Giant"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:token:Hill Giant",
+       "pt": "3/3",
+       "keywords": [
+        "Haste"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:token:Hill Giant"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 17
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Hill Giant"
+     },
+     "eq": 2
+    }
+   ]
+  },
+  {
+   "name": "copy-sacrificed-at-end-step",
+   "cr": [
+    "603.2",
+    "701.21a"
+   ],
+   "why": "At the beginning of the end step the token is sacrificed; the original stays.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Hill Giant"
+     ],
+     "hand": [
+      "Electroduplicate"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Electroduplicate",
+     "mana": "RCC",
+     "targets": [
+      "p0:Hill Giant"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Hill Giant"
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:Hill Giant",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "flashback-then-exiled",
+   "cr": [
+    "702.34a"
+   ],
+   "why": "Flashback {2}{R}{R} from the graveyard, then exiled.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Hill Giant"
+     ],
+     "graveyard": [
+      "Electroduplicate"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Electroduplicate",
+     "mana": "RRCC",
+     "targets": [
+      "p0:Hill Giant"
+     ],
+     "cast_mode": "flashback"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Hill Giant"
+     },
+     "eq": 2
+    },
+    {
+     "card": "p0:Electroduplicate",
+     "zone": "exile"
+    }
+   ]
+  },
+  {
+   "name": "needs-a-creature-you-control",
+   "cr": [
+    "115.1",
+    "601.2c"
+   ],
+   "why": "'Target creature you control': with only an opponent's creature it cannot be cast.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Electroduplicate"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Hill Giant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "RCC"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Electroduplicate"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "target-gone-no-copy",
+   "cr": [
+    "608.2b"
+   ],
+   "why": "If the target dies in response, no token is made.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Electroduplicate"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Electroduplicate",
+     "mana": "RCC",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Grizzly Bears"
+     },
+     "eq": 0
+    }
+   ]
+  }
+ ]
+}

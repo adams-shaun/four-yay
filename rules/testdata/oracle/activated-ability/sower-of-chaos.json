@@ -1,0 +1,545 @@
+{
+ "card": "Sower of Chaos",
+ "family": "activated-ability",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "bba968e30c07",
+ "scenarios": [
+  {
+   "name": "target-creature-cannot-block-this-turn",
+   "cr": [
+    "602.2",
+    "509.1b"
+   ],
+   "why": "For {2}{R} the target creature cannot block this turn; another creature still can.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sower of Chaos"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Sower of Chaos",
+     "mana": "CCR",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Sower of Chaos"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    }
+   ],
+   "expect": [
+    {
+     "can_block": {
+      "blocker": "p1:Grizzly Bears",
+      "attacker": "p0:Sower of Chaos"
+     },
+     "want": false
+    },
+    {
+     "can_block": {
+      "blocker": "p1:Centaur Courser",
+      "attacker": "p0:Sower of Chaos"
+     },
+     "want": true
+    },
+    {
+     "card": "p0:Sower of Chaos",
+     "pt": "4/3"
+    }
+   ]
+  },
+  {
+   "name": "control-without-activation-it-can-block",
+   "cr": [
+    "509.1"
+   ],
+   "why": "Control: untouched, the creature can block.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sower of Chaos"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Sower of Chaos"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    }
+   ],
+   "expect": [
+    {
+     "can_block": {
+      "blocker": "p1:Grizzly Bears",
+      "attacker": "p0:Sower of Chaos"
+     },
+     "want": true
+    }
+   ]
+  },
+  {
+   "name": "effect-ends-at-end-of-turn",
+   "cr": [
+    "514.2"
+   ],
+   "why": "'This turn': on its controller's next turn the creature can block again.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sower of Chaos"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Sower of Chaos",
+     "mana": "CCR",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Sower of Chaos"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    }
+   ],
+   "expect": [
+    {
+     "can_block": {
+      "blocker": "p1:Grizzly Bears",
+      "attacker": "p0:Sower of Chaos"
+     },
+     "want": true
+    }
+   ]
+  },
+  {
+   "name": "two-activations-two-creatures",
+   "cr": [
+    "602.2"
+   ],
+   "why": "No tap in the cost: two activations stop both blockers and the Sower connects for 4.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sower of Chaos"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Sower of Chaos",
+     "mana": "CCR",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Sower of Chaos",
+     "mana": "CCR",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Sower of Chaos"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 16
+     }
+    },
+    {
+     "card": "p0:Sower of Chaos",
+     "zone": "battlefield",
+     "damage": 0
+    }
+   ]
+  },
+  {
+   "name": "after-blocks-it-does-not-undo-a-block",
+   "cr": [
+    "509.1",
+    "506.4"
+   ],
+   "why": "Activated after blockers are declared it does not remove the blocker: combat damage is dealt between them.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sower of Chaos"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Sower of Chaos"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Grizzly Bears",
+       "p0:Sower of Chaos"
+      ]
+     ]
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Sower of Chaos",
+     "mana": "CCR",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 20
+     }
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Sower of Chaos",
+     "zone": "battlefield",
+     "damage": 2
+    }
+   ]
+  },
+  {
+   "name": "usable-the-turn-it-is-cast",
+   "cr": [
+    "302.6",
+    "602.5a"
+   ],
+   "why": "No {T} in the cost: it can be activated the turn the Sower is cast.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Sower of Chaos"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Sower of Chaos",
+     "mana": "CCCR"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCR"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Sower of Chaos"
+     },
+     "want": true
+    }
+   ]
+  },
+  {
+   "name": "needs-red-mana",
+   "cr": [
+    "602.2b",
+    "107.4"
+   ],
+   "why": "Three colourless cannot pay {2}{R}.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sower of Chaos"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCC"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Sower of Chaos"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "works-for-another-attacker",
+   "cr": [
+    "509.1b"
+   ],
+   "why": "The creature cannot block at all, not just the Sower: it cannot block a different attacker either.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sower of Chaos",
+      "Savannah Lions"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Sower of Chaos",
+     "mana": "CCR",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Savannah Lions"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    }
+   ],
+   "expect": [
+    {
+     "can_block": {
+      "blocker": "p1:Grizzly Bears",
+      "attacker": "p0:Savannah Lions"
+     },
+     "want": false
+    },
+    {
+     "can_block": {
+      "blocker": "p1:Centaur Courser",
+      "attacker": "p0:Savannah Lions"
+     },
+     "want": true
+    }
+   ]
+  },
+  {
+   "name": "own-creature-can-be-targeted-on-the-opponents-turn",
+   "cr": [
+    "115.1",
+    "602.5d"
+   ],
+   "why": "Any creature at any time: on the opponent's turn its controller can stop their own creature from blocking, and it is then not offered as a blocker.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sower of Chaos",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Sower of Chaos",
+     "mana": "CCR",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Savannah Lions"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    }
+   ],
+   "expect": [
+    {
+     "can_block": {
+      "blocker": "p0:Grizzly Bears",
+      "attacker": "p1:Savannah Lions"
+     },
+     "want": false
+    },
+    {
+     "can_block": {
+      "blocker": "p0:Sower of Chaos",
+      "attacker": "p1:Savannah Lions"
+     },
+     "want": true
+    }
+   ]
+  }
+ ]
+}

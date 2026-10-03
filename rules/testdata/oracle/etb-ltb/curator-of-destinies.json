@@ -1,0 +1,452 @@
+{
+ "card": "Curator of Destinies",
+ "family": "etb-ltb",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "e86d367f0ef9",
+ "scenarios": [
+  {
+   "name": "cannot-be-countered",
+   "cr": [
+    "101.2",
+    "701.5"
+   ],
+   "why": "This spell can't be countered: an opponent's counterspell may target it but does nothing, and the Curator resolves.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Curator of Destinies"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Essence Scatter"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Curator of Destinies",
+     "mana": "CCCCUU"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Essence Scatter",
+     "mana": "CU",
+     "targets": [
+      "p0:Curator of Destinies"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Curator of Destinies",
+     "zone": "battlefield",
+     "pt": "5/5",
+     "keywords": [
+      "Flying"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "opponent-takes-the-first-pile",
+   "cr": [
+    "603.6a",
+    "700.3"
+   ],
+   "why": "Its controller splits the top five into two piles (one face up, one face down); the opponent chooses the pile holding two of the cards: those go to its controller's hand and the other three to the graveyard. The sixth card is untouched.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Curator of Destinies"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Shock",
+      "Grizzly Bears",
+      "Opt",
+      "Divination",
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Curator of Destinies",
+     "mana": "CCCCUU"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Continue"
+       ]
+      },
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Lightning Bolt",
+        "p0:Shock"
+       ]
+      },
+      {
+       "kind": "choose",
+       "pick": [
+        "First pile"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Opt",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Divination",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Murder",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    },
+    {
+     "graveyard_size": {
+      "p0": 3
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponent-takes-the-other-pile",
+   "cr": [
+    "700.3"
+   ],
+   "why": "The opponent choosing the other pile instead puts its three cards into hand and the two-card pile into the graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Curator of Destinies"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Shock",
+      "Grizzly Bears",
+      "Opt",
+      "Divination",
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Curator of Destinies",
+     "mana": "CCCCUU"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Continue"
+       ]
+      },
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Lightning Bolt",
+        "p0:Shock"
+       ]
+      },
+      {
+       "kind": "choose",
+       "pick": [
+        "Second pile"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Opt",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Divination",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 3
+     }
+    },
+    {
+     "graveyard_size": {
+      "p0": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "a-pile-may-be-empty",
+   "cr": [
+    "700.3"
+   ],
+   "why": "A pile may have no cards: with all five in one pile and the opponent choosing the empty pile, nothing goes to hand and all five go to the graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Curator of Destinies"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Shock",
+      "Grizzly Bears",
+      "Opt",
+      "Divination",
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Curator of Destinies",
+     "mana": "CCCCUU"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Continue"
+       ]
+      },
+      {
+       "kind": "choose",
+       "pick": []
+      },
+      {
+       "kind": "choose",
+       "pick": [
+        "First pile"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    },
+    {
+     "graveyard_size": {
+      "p0": 5
+     }
+    },
+    {
+     "card": "p0:Murder",
+     "zone": "library"
+    }
+   ]
+  },
+  {
+   "name": "five-cards-always-leave-the-library",
+   "cr": [
+    "603.6a"
+   ],
+   "why": "Whatever the split, exactly five cards leave the library and are divided between hand and graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Curator of Destinies"
+     ],
+     "library_top": [
+      "Lightning Bolt",
+      "Shock",
+      "Grizzly Bears",
+      "Opt",
+      "Divination",
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Curator of Destinies",
+     "mana": "CCCCUU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Murder",
+     "zone": "library"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "library",
+      "name": "Lightning Bolt"
+     },
+     "eq": 0
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "library",
+      "name": "Shock"
+     },
+     "eq": 0
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "library",
+      "name": "Grizzly Bears"
+     },
+     "eq": 0
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "library",
+      "name": "Opt"
+     },
+     "eq": 0
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "library",
+      "name": "Divination"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "flying-5-5",
+   "cr": [
+    "702.9b"
+   ],
+   "why": "A 5/5 flier.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Curator of Destinies"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Wind Drake"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Curator of Destinies"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p1:Grizzly Bears",
+        "attacker": "p0:Curator of Destinies"
+       },
+       "want": false
+      },
+      {
+       "can_block": {
+        "blocker": "p1:Wind Drake",
+        "attacker": "p0:Curator of Destinies"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": []
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 15
+     }
+    }
+   ]
+  }
+ ]
+}

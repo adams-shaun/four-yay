@@ -1,0 +1,402 @@
+{
+ "card": "Mocking Sprite",
+ "family": "cost-modifier",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "47aa7f6ff5e6",
+ "scenarios": [
+  {
+   "name": "sorcery-costs-one-less",
+   "cr": [
+    "601.2f"
+   ],
+   "why": "A {2}{U} sorcery costs {1}{U} with the Sprite: castable from two mana, emptying the pool.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Divination"
+     ],
+     "battlefield": [
+      "Mocking Sprite"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CU",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Divination"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Divination",
+     "expect": [
+      {
+       "pool": {
+        "p0": ""
+       }
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    },
+    {
+     "card": "p0:Mocking Sprite",
+     "pt": "2/1",
+     "keywords": [
+      "Flying"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "without-the-sprite-two-mana-is-not-enough",
+   "cr": [
+    "601.2f"
+   ],
+   "why": "Control: no Sprite, no reduction.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Divination"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CU",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Divination"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Divination",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "instant-costs-one-less",
+   "cr": [
+    "601.2f"
+   ],
+   "why": "A {1}{U} instant costs {U}.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Think Twice"
+     ],
+     "battlefield": [
+      "Mocking Sprite"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "U",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Think Twice"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Think Twice"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "creature-spell-is-not-reduced",
+   "cr": [
+    "601.2f"
+   ],
+   "why": "Only instants and sorceries: a {2}{G} creature still needs three mana.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Centaur Courser"
+     ],
+     "battlefield": [
+      "Mocking Sprite"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CG",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Centaur Courser"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Centaur Courser"
+       },
+       "want": true
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "opponents-sprite-does-not-reduce",
+   "cr": [
+    "601.2f"
+   ],
+   "why": "Only spells cast by the Sprite's controller are reduced.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Divination"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Mocking Sprite"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CU",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Divination"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Divination",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "coloured-cost-is-not-reduced",
+   "cr": [
+    "601.2f",
+    "118.7c"
+   ],
+   "why": "Only generic mana is reduced: {R} for Shock is still required, and Divination still needs its {U}.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Shock",
+      "Divination"
+     ],
+     "battlefield": [
+      "Mocking Sprite"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CC",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Shock"
+       },
+       "want": false
+      },
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Divination"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Shock",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "two-sprites-reduce-by-two",
+   "cr": [
+    "601.2f"
+   ],
+   "why": "Each Sprite applies: Divination costs just {U}.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Divination"
+     ],
+     "battlefield": [
+      "Mocking Sprite",
+      "Mocking Sprite"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "U",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Divination"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Divination"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "one-sprite-one-blue-is-not-enough",
+   "cr": [
+    "601.2f"
+   ],
+   "why": "Control for the pair: a single Sprite does not make Divination cost {U}.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Divination"
+     ],
+     "battlefield": [
+      "Mocking Sprite"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "U",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Divination"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Divination",
+     "zone": "hand"
+    }
+   ]
+  }
+ ]
+}

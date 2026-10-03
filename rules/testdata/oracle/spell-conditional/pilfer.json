@@ -1,0 +1,325 @@
+{
+ "card": "Pilfer",
+ "family": "spell-conditional",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "daed12d3769f",
+ "scenarios": [
+  {
+   "name": "discards-the-chosen-nonland-card",
+   "cr": [
+    "701.9a",
+    "608.2"
+   ],
+   "why": "The opponent reveals their hand; the caster chooses a nonland card and that player discards it. The land stays.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Pilfer"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Grizzly Bears",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Pilfer",
+     "mana": "CB",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Grizzly Bears"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Forest",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p1": 1
+     }
+    },
+    {
+     "card": "p0:Pilfer",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "caster-picks-which-nonland",
+   "cr": [
+    "608.2"
+   ],
+   "why": "With two nonland cards the caster's pick (the second) is the one discarded.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Pilfer"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Grizzly Bears",
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Pilfer",
+     "mana": "CB",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Lightning Bolt"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "only-lands-nothing-discarded",
+   "cr": [
+    "608.2d"
+   ],
+   "why": "A hand of only lands has no nonland card to choose: nothing is discarded.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Pilfer"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Forest",
+      "Island"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Pilfer",
+     "mana": "CB",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p1": 2
+     }
+    },
+    {
+     "graveyard_size": {
+      "p1": 0
+     }
+    },
+    {
+     "card": "p0:Pilfer",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "empty-hand-still-castable-does-nothing",
+   "cr": [
+    "601.2c"
+   ],
+   "why": "The only target is the opponent, so it is castable against an empty hand and simply does nothing.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Pilfer"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Pilfer",
+     "mana": "CB",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p1": 0
+     }
+    },
+    {
+     "graveyard_size": {
+      "p1": 0
+     }
+    },
+    {
+     "card": "p0:Pilfer",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "caster-keeps-own-hand",
+   "cr": [
+    "608.2"
+   ],
+   "why": "Only the targeted opponent discards; the caster's other card stays.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Pilfer",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Pilfer",
+     "mana": "CB",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "card": "p1:Lightning Bolt",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "sorcery-timing",
+   "cr": [
+    "307.1"
+   ],
+   "why": "A sorcery: castable in its caster's main phase with an empty stack, not during the opponent's turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Pilfer"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CB",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Pilfer"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CB"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Pilfer"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

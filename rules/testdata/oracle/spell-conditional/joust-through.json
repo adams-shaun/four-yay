@@ -1,0 +1,458 @@
+{
+ "card": "Joust Through",
+ "family": "spell-conditional",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "d92748e1c1fb",
+ "scenarios": [
+  {
+   "name": "kills-an-attacking-creature-and-gains-one",
+   "cr": [
+    "506.4",
+    "120.3"
+   ],
+   "why": "3 damage to a target attacking creature kills a 3/3 attacker; the caster gains 1 life and takes no combat damage.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Joust Through"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Centaur Courser"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Joust Through",
+     "mana": "W",
+     "targets": [
+      "p0:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 21
+     }
+    },
+    {
+     "card": "p1:Joust Through",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "kills-a-blocking-creature",
+   "cr": [
+    "509.1",
+    "506.4"
+   ],
+   "why": "A blocking creature is a legal target: the 3/3 blocker dies, the attacker stays blocked and deals no damage to the player, and the caster gains 1.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Joust Through"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Centaur Courser",
+       "p0:Grizzly Bears"
+      ]
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Joust Through",
+     "mana": "W",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "life": {
+      "p0": 21,
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "three-damage-marked-on-a-bigger-attacker-life-still-gained",
+   "cr": [
+    "120.3"
+   ],
+   "why": "3 damage does not kill a 6/4; the life is gained anyway and the attacker connects for 6.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Joust Through"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Craw Wurm"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Joust Through",
+     "mana": "W",
+     "targets": [
+      "p0:Craw Wurm"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Craw Wurm",
+       "damage": 3
+      },
+      {
+       "life": {
+        "p0": 20,
+        "p1": 21
+       }
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 15
+     }
+    },
+    {
+     "card": "p0:Craw Wurm",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "not-castable-outside-combat",
+   "cr": [
+    "601.2c",
+    "506.4"
+   ],
+   "why": "With no attacking or blocking creature there is no legal target, so it cannot be cast in a main phase even with creatures on both sides.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Joust Through"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "W"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Joust Through"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "castable-once-a-creature-attacks",
+   "cr": [
+    "601.2c"
+   ],
+   "why": "Positive control: the same hand and board once a creature is attacking.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Joust Through"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "W"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Joust Through"
+     },
+     "want": true
+    }
+   ]
+  },
+  {
+   "name": "target-gone-no-life",
+   "cr": [
+    "608.2b"
+   ],
+   "why": "Its only target left the battlefield in response: the spell does not resolve, so no life is gained.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Unsummon"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Joust Through"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Joust Through",
+     "mana": "W",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Unsummon",
+     "mana": "U",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    },
+    {
+     "card": "p1:Joust Through",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "not-castable-after-combat",
+   "cr": [
+    "506.4",
+    "601.2c"
+   ],
+   "why": "A creature stops being an attacking creature when combat ends: in the second main phase there is no legal target.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Joust Through"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": []
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "W"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Joust Through"
+     },
+     "want": false
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 18
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,289 @@
+{
+ "card": "Heroic Reinforcements",
+ "family": "spell-conditional",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "99b9ecac9181",
+ "scenarios": [
+  {
+   "name": "two-soldiers-and-team-pump-with-haste",
+   "cr": [
+    "608.2c",
+    "613.4c"
+   ],
+   "why": "Two 1/1 Soldier tokens are created first, then creatures its controller controls (the new tokens included) get +1/+1 and haste; the opponent's creature is unaffected.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Heroic Reinforcements"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Heroic Reinforcements",
+     "mana": "CCRW"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Soldier",
+      "token": true
+     },
+     "eq": 2
+    },
+    {
+     "card": "p0:token:Soldier",
+     "pt": "2/2",
+     "keywords": [
+      "Haste"
+     ],
+     "types": [
+      "Soldier"
+     ]
+    },
+    {
+     "card": "p0:token:Soldier#2",
+     "pt": "2/2",
+     "keywords": [
+      "Haste"
+     ]
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "3/3",
+     "keywords": [
+      "Haste"
+     ]
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "pt": "3/3",
+     "no_keywords": [
+      "Haste"
+     ]
+    },
+    {
+     "card": "p0:Heroic Reinforcements",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "hasty-tokens-attack-this-turn",
+   "cr": [
+    "702.10b"
+   ],
+   "why": "With haste the new tokens attack the turn they were created, each dealing 2.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Heroic Reinforcements"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Heroic Reinforcements",
+     "mana": "CCRW"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:token:Soldier",
+      "p0:token:Soldier#2"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 16
+     }
+    }
+   ]
+  },
+  {
+   "name": "bonus-ends-at-end-of-turn-tokens-stay",
+   "cr": [
+    "514.2"
+   ],
+   "why": "The +1/+1 and haste end with the turn; the tokens remain as 1/1s.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Heroic Reinforcements"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Heroic Reinforcements",
+     "mana": "CCRW"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Soldier",
+      "token": true
+     },
+     "eq": 2
+    },
+    {
+     "card": "p0:token:Soldier",
+     "pt": "1/1",
+     "no_keywords": [
+      "Haste"
+     ]
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2",
+     "no_keywords": [
+      "Haste"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "creature-entering-later-gets-nothing",
+   "cr": [
+    "611.2c"
+   ],
+   "why": "The set of affected creatures is fixed as the spell resolves: a creature that enters afterwards gets neither the bonus nor haste.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Heroic Reinforcements",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Heroic Reinforcements",
+     "mana": "CCRW"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "CG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "pt": "2/2",
+     "no_keywords": [
+      "Haste"
+     ]
+    },
+    {
+     "card": "p0:token:Soldier",
+     "pt": "2/2",
+     "keywords": [
+      "Haste"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "sorcery-not-castable-on-opponents-turn",
+   "cr": [
+    "307.1"
+   ],
+   "why": "It is a sorcery: not castable during the opponent's turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Heroic Reinforcements"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCRW",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Heroic Reinforcements"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Heroic Reinforcements",
+     "zone": "hand"
+    }
+   ]
+  }
+ ]
+}

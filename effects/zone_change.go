@@ -78,6 +78,9 @@ func clearChangeZoneImprint(h Host, c *Ctx) {
 }
 
 func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
+	if exileHostGone(h, c, sa) {
+		return
+	}
 	// Unimprint is a pre-move operation, even when no candidate is moved.
 	// Re-entering after a choice may clear an already empty list; the fold
 	// remains replayable and the later successful move supplies the new card.
@@ -1271,6 +1274,19 @@ func exiledWithAssociation(h Host, c *Ctx, id state.ObjID, to state.Zone) {
 	if o := h.Game().Obj(id); o != nil && !o.IsToken {
 		h.Emit(events.Event{Kind: events.Imprint, Obj: c.Source, IDs: []state.ObjID{id}, Text: "exiled-with"})
 	}
+}
+
+// exileHostGone reports whether this is an "until CARDNAME leaves the
+// battlefield" move whose host has already left: the duration ended before it
+// began, so nothing is moved at all (CR 610.3b) -- Banishing Light destroyed
+// in response to its own trigger exiles nothing, rather than exiling its
+// target forever.
+func exileHostGone(h Host, c *Ctx, sa *cards.SA) bool {
+	if !strings.EqualFold(strings.TrimSpace(sa.Params["Duration"]), "UntilHostLeavesPlay") || c.Source == 0 {
+		return false
+	}
+	o := h.Game().Obj(c.Source)
+	return o == nil || o.Zone != state.ZBattlefield
 }
 
 // recordExileReturn reads ChangeZone's Duration$ parameter. The corpus's

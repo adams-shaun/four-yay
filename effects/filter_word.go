@@ -561,7 +561,7 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 	case wordSharesAllCardTypes:
 		return sharesAllCardTypesWithOther(g, o, sc, key)
 	case wordColor:
-		return strings.Contains(ColorsOf(o), key)
+		return strings.Contains(colorsCtx(o, &sc), key)
 	case wordChosenColor:
 		if source == 0 {
 			return false
@@ -571,11 +571,11 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 			return false
 		}
 		chosen := colourLetter(src.ChosenColor)
-		return chosen != 0 && strings.Contains(ColorsOf(o), string(chosen))
+		return chosen != 0 && strings.Contains(colorsCtx(o, &sc), string(chosen))
 	case wordType:
 		return hasTypePredicateCtx(o, key, sc)
 	case wordColorless:
-		return ColorsOf(o) == ""
+		return colorMaskCtx(o, &sc) == 0
 	case wordControllerDealtCombatDamageBySource:
 		if source == 0 || o.Controller < 0 {
 			return false
@@ -615,11 +615,11 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 		// unnoted object simply does not match.
 		return slices.Contains(o.Notes, key)
 	case wordMultiColor:
-		return len(ColorsOf(o)) > 1
+		return len(colorsCtx(o, &sc)) > 1
 	case wordMonoColor:
-		return len(ColorsOf(o)) == 1
+		return len(colorsCtx(o, &sc)) == 1
 	case wordWorthy:
-		colors := ColorsOf(o)
+		colors := colorsCtx(o, &sc)
 		return hasTypeCtx(o, "Legendary", sc) && !hasTypeCtx(o, "Villain", sc) &&
 			(strings.Contains(colors, "R") || strings.Contains(colors, "W"))
 	case wordWasCast:
@@ -909,7 +909,8 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 		// contextPredicateBound's: outside a resolution the predicate is
 		// unbound and refused beneath '!' rather than inverting an absence
 		// into an always-true match.
-		for _, t := range sc.ResolutionTargets {
+		bound, _ := sc.TargetBinding()
+		for _, t := range bound {
 			if !t.IsPlayer && t.Obj == o.ID {
 				return false
 			}
@@ -1087,7 +1088,7 @@ func wordMatches(kind wordKind, key string, g *state.Game, o *state.Object, sc S
 func contextPredicateBound(g *state.Game, kind wordKind, key string, sc SpecContext) bool {
 	switch kind {
 	case wordNotDefinedTargeted:
-		return sc.Resolving
+		return sc.Resolving || sc.ParentBound
 	case wordDefenderCtrl:
 		return sc.DefendingPlayer.IsPlayer
 	case wordEnchantedControllerCtrl:

@@ -1102,7 +1102,7 @@ func (e *Engine) resolveAbilitySacrificing(source state.ObjID, controller state.
 	ctx := e.arenaCtx()
 	*ctx = effects.Ctx{Source: source, Controller: controller, Targets: targets}
 	for _, id := range sacs {
-		ctx.Sacrificed = append(ctx.Sacrificed, state.SacrificedInfoOf(e.G, id))
+		ctx.Sacrificed = append(ctx.Sacrificed, effects.SacrificedLKI(e, id))
 	}
 	// Forge's Count$ResolvedThisTurn: the same (source, root Ability$ body)
 	// tally resolveTop's ability branch binds, so a DBTransform gated on the

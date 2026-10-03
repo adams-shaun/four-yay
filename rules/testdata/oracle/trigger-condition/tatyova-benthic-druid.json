@@ -1,0 +1,346 @@
+{
+ "card": "Tatyova, Benthic Druid",
+ "family": "trigger-condition",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "c923e79654c8",
+ "scenarios": [
+  {
+   "name": "land-played-gains-one-and-draws",
+   "cr": [
+    "603.2",
+    "207.2c"
+   ],
+   "why": "Landfall: a land entering under its controller's control triggers; on resolution that player gains 1 life and draws a card.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Forest"
+     ],
+     "battlefield": [
+      "Tatyova, Benthic Druid"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Forest",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Tatyova, Benthic Druid",
+       "want": true
+      },
+      {
+       "life": {
+        "p0": 20
+       }
+      },
+      {
+       "hand_size": {
+        "p0": 0
+       }
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 21,
+      "p1": 20
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-land-does-not-trigger",
+   "cr": [
+    "603.2",
+    "109.5"
+   ],
+   "why": "Only lands its controller controls count.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Tatyova, Benthic Druid"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "play",
+     "seat": 1,
+     "card": "p1:Forest",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Tatyova, Benthic Druid",
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "land-put-onto-battlefield-by-a-spell-triggers",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Any land entering counts, not just a land played: a land fetched by a spell triggers it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Rampant Growth"
+     ],
+     "battlefield": [
+      "Tatyova, Benthic Druid"
+     ],
+     "library": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Rampant Growth",
+     "mana": "CG"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Forest"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Forest",
+     "zone": "battlefield"
+    },
+    {
+     "life": {
+      "p0": 21,
+      "p1": 20
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "two-lands-two-triggers",
+   "cr": [
+    "603.2c"
+   ],
+   "why": "Two lands entering together trigger twice: 2 life and two cards.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Grow from the Ashes"
+     ],
+     "battlefield": [
+      "Tatyova, Benthic Druid"
+     ],
+     "library": [
+      "Forest",
+      "Mountain"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grow from the Ashes",
+     "mana": "CCCCG",
+     "kicked": true
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Forest",
+        "p0:Mountain"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 22,
+      "p1": 20
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "nonland-permanent-does-not-trigger",
+   "cr": [
+    "603.2"
+   ],
+   "why": "A creature entering is not a land.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Grizzly Bears"
+     ],
+     "battlefield": [
+      "Tatyova, Benthic Druid"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "CG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "gain-land-adds-its-own-life",
+   "cr": [
+    "603.2"
+   ],
+   "why": "A land with its own enter trigger: 1 life from the land and 1 life plus a card from Tatyova.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Tranquil Cove"
+     ],
+     "battlefield": [
+      "Tatyova, Benthic Druid"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Tranquil Cove"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 22,
+      "p1": 20
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "tatyova-is-a-3-3-with-no-keywords",
+   "cr": [
+    "208.1"
+   ],
+   "why": "A plain 3/3 in combat.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Tatyova, Benthic Druid"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Tatyova, Benthic Druid"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "card": "p0:Tatyova, Benthic Druid",
+       "pt": "3/3",
+       "tapped": true
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 17
+     }
+    }
+   ]
+  }
+ ]
+}

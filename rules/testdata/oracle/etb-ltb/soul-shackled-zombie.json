@@ -1,0 +1,457 @@
+{
+ "card": "Soul-Shackled Zombie",
+ "family": "etb-ltb",
+ "author": "fdn-audit-3 (Oracle + CR only)",
+ "oracle_sha": "097dcfdd1748",
+ "scenarios": [
+  {
+   "name": "exiles-two-cards-and-drains-for-a-creature-card",
+   "cr": [
+    "603.6a",
+    "608.2c"
+   ],
+   "why": "Two target cards from the opponent's graveyard are exiled; one is a creature card, so each opponent loses 2 life and its controller gains 2.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Soul-Shackled Zombie"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Grizzly Bears",
+      "Lightning Bolt",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Soul-Shackled Zombie",
+     "mana": "CCCB"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Grizzly Bears",
+      "p1:Lightning Bolt"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Soul-Shackled Zombie",
+     "zone": "battlefield",
+     "pt": "4/2"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "exile"
+    },
+    {
+     "card": "p1:Lightning Bolt",
+     "zone": "exile"
+    },
+    {
+     "card": "p1:Shock",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 22,
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "two-creature-cards-still-drain-only-once",
+   "cr": [
+    "608.2c"
+   ],
+   "why": "The drain is a single 2-for-2 when at least one creature card was exiled, not per card.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Soul-Shackled Zombie"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Soul-Shackled Zombie",
+     "mana": "CCCB"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Grizzly Bears",
+      "p1:Savannah Lions"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "exile"
+    },
+    {
+     "card": "p1:Savannah Lions",
+     "zone": "exile"
+    },
+    {
+     "life": {
+      "p0": 22,
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "noncreature-cards-exiled-without-drain",
+   "cr": [
+    "608.2c"
+   ],
+   "why": "With no creature card exiled nobody gains or loses life.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Soul-Shackled Zombie"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Lightning Bolt",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Soul-Shackled Zombie",
+     "mana": "CCCB"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Lightning Bolt",
+      "p1:Forest"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Lightning Bolt",
+     "zone": "exile"
+    },
+    {
+     "card": "p1:Forest",
+     "zone": "exile"
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "up-to-two-may-choose-none",
+   "cr": [
+    "115.1d",
+    "603.3d"
+   ],
+   "why": "Up to two: choosing no target exiles nothing and drains nothing.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Soul-Shackled Zombie"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Soul-Shackled Zombie",
+     "mana": "CCCB"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "target",
+       "pick": []
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Soul-Shackled Zombie",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "one-card-from-own-graveyard-drains",
+   "cr": [
+    "115.1",
+    "608.2c"
+   ],
+   "why": "Any single graveyard may be chosen, including its controller's own; one creature card exiled is enough for the drain.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Soul-Shackled Zombie"
+     ],
+     "graveyard": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Soul-Shackled Zombie",
+     "mana": "CCCB"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Savannah Lions"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "exile"
+    },
+    {
+     "life": {
+      "p0": 22,
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "targets-must-share-one-graveyard",
+   "cr": [
+    "115.1",
+    "601.2c"
+   ],
+   "why": "Both targets must be in a single graveyard: after naming a card in the opponent's graveyard, a card in its controller's own graveyard is not a legal second target and stays put.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Soul-Shackled Zombie"
+     ],
+     "graveyard": [
+      "Savannah Lions"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Soul-Shackled Zombie",
+     "mana": "CCCB"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Lightning Bolt",
+      "p0:Savannah Lions"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Lightning Bolt",
+     "zone": "exile"
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "own-graveyard-may-be-chosen-while-the-opponents-has-cards",
+   "cr": [
+    "115.1",
+    "601.2c"
+   ],
+   "why": "The single graveyard is its controller's choice: with cards in both graveyards the two targets may both come from its controller's own.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Soul-Shackled Zombie"
+     ],
+     "graveyard": [
+      "Savannah Lions",
+      "Shock"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Soul-Shackled Zombie",
+     "mana": "CCCB"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Savannah Lions",
+      "p0:Shock"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "exile"
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "exile"
+    },
+    {
+     "card": "p1:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 22,
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "creature-target-gone-in-response-no-drain",
+   "cr": [
+    "608.2b",
+    "608.2c"
+   ],
+   "why": "The creature card leaves the graveyard in response, so only the instant is exiled this way and nobody gains or loses life.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Soul-Shackled Zombie"
+     ]
+    },
+    "p1": {
+     "graveyard": [
+      "Grizzly Bears",
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Soul-Shackled Zombie",
+     "mana": "CCCB"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "pass_to",
+     "decision": "priority",
+     "targets": [
+      "p1:Grizzly Bears",
+      "p1:Lightning Bolt"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Soul-Shackled Zombie",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "move",
+     "card": "p1:Grizzly Bears",
+     "to": "hand"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Lightning Bolt",
+     "zone": "exile"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,315 @@
+{
+ "card": "Sphinx's Tutelage",
+ "family": "triggered-ability",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "f98b25128eef",
+ "scenarios": [
+  {
+   "name": "draw-mills-two",
+   "cr": [
+    "603.2",
+    "701.17a"
+   ],
+   "why": "Drawing a card (Opt) makes the target opponent mill two; two lands share no color, so it stops.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sphinx's Tutelage"
+     ],
+     "hand": [
+      "Opt"
+     ]
+    },
+    "p1": {
+     "library_top": [
+      "Forest",
+      "Mountain",
+      "Island"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Opt",
+     "mana": "U"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "graveyard_size": {
+      "p1": 2
+     }
+    },
+    {
+     "card": "p1:Forest",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Mountain",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Island",
+     "zone": "library"
+    }
+   ]
+  },
+  {
+   "name": "two-same-color-nonlands-repeat",
+   "cr": [
+    "701.17a",
+    "105.2"
+   ],
+   "why": "Two milled nonland cards that share a color (two green creatures) repeat the process: two more are milled.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sphinx's Tutelage"
+     ],
+     "hand": [
+      "Opt"
+     ]
+    },
+    "p1": {
+     "library_top": [
+      "Grizzly Bears",
+      "Llanowar Elves",
+      "Forest",
+      "Island",
+      "Mountain"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Opt",
+     "mana": "U"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "graveyard_size": {
+      "p1": 4
+     }
+    },
+    {
+     "card": "p1:Island",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Mountain",
+     "zone": "library"
+    }
+   ]
+  },
+  {
+   "name": "different-colors-stop",
+   "cr": [
+    "105.2"
+   ],
+   "why": "Two nonland cards of different colors (green Bears, red Bolt) do not share a color: no repeat.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sphinx's Tutelage"
+     ],
+     "hand": [
+      "Opt"
+     ]
+    },
+    "p1": {
+     "library_top": [
+      "Grizzly Bears",
+      "Lightning Bolt",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Opt",
+     "mana": "U"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "graveyard_size": {
+      "p1": 2
+     }
+    },
+    {
+     "card": "p1:Forest",
+     "zone": "library"
+    }
+   ]
+  },
+  {
+   "name": "each-draw-triggers",
+   "cr": [
+    "603.2",
+    "121.2"
+   ],
+   "why": "Divination draws two cards: two triggers, four cards milled.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sphinx's Tutelage"
+     ],
+     "hand": [
+      "Divination"
+     ]
+    },
+    "p1": {
+     "library_top": [
+      "Forest",
+      "Mountain",
+      "Island",
+      "Plains",
+      "Swamp"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Divination",
+     "mana": "UCC"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1",
+      "p1"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "graveyard_size": {
+      "p1": 4
+     }
+    },
+    {
+     "card": "p1:Swamp",
+     "zone": "library"
+    }
+   ]
+  },
+  {
+   "name": "activated-loot-triggers-on-the-draw",
+   "cr": [
+    "602.2",
+    "603.2"
+   ],
+   "why": "{5}{U}: draw a card, then discard a card; the draw mills two.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sphinx's Tutelage"
+     ],
+     "hand": [
+      "Forest"
+     ]
+    },
+    "p1": {
+     "library_top": [
+      "Forest",
+      "Mountain"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Sphinx's Tutelage",
+     "mana": "UCCCCC",
+     "ability": "Draw a card"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1"
+     ],
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Forest"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "graveyard_size": {
+      "p1": 2
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "opponents-draw-does-not-trigger",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Only YOUR draws: the opponent's draw step mills nothing.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sphinx's Tutelage"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "graveyard_size": {
+      "p1": 0
+     }
+    }
+   ]
+  }
+ ]
+}

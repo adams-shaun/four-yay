@@ -1,0 +1,360 @@
+{
+ "card": "Essence Scatter",
+ "family": "spell-conditional",
+ "author": "fdn-audit-2 (Oracle + CR only)",
+ "oracle_sha": "610b3ff41023",
+ "scenarios": [
+  {
+   "name": "counters-a-creature-spell",
+   "cr": [
+    "701.6a",
+    "608.2b"
+   ],
+   "why": "The targeted creature spell is countered and put into its owner's graveyard; it never enters the battlefield.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Essence Scatter"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Grizzly Bears",
+     "mana": "CG"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CU",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Essence Scatter"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Essence Scatter",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Essence Scatter",
+     "zone": "graveyard"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "counters-an-artifact-creature-spell",
+   "cr": [
+    "300.2",
+    "701.6a"
+   ],
+   "why": "An artifact creature spell is a creature spell.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Essence Scatter"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Memnite"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Memnite"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Essence Scatter",
+     "mana": "CU",
+     "targets": [
+      "p1:Memnite"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Memnite",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "noncreature-spell-is-not-a-legal-target",
+   "cr": [
+    "115.1",
+    "601.2c"
+   ],
+   "why": "With only an instant on the stack there is no creature spell to target: Essence Scatter cannot be cast.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Essence Scatter"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Shock",
+     "mana": "R",
+     "targets": [
+      "p0"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CU",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Essence Scatter"
+       },
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 18
+     }
+    },
+    {
+     "card": "p0:Essence Scatter",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "creature-on-the-battlefield-is-not-a-spell",
+   "cr": [
+    "115.1",
+    "112.1"
+   ],
+   "why": "A creature permanent is not a creature spell: with an empty stack it cannot be cast.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Essence Scatter"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CU",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "cast",
+        "card": "p0:Essence Scatter"
+       },
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Essence Scatter",
+     "zone": "hand"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "counters-own-creature-spell",
+   "cr": [
+    "115.1"
+   ],
+   "why": "No controller restriction: it can counter its caster's own creature spell.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Essence Scatter",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "CG"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Essence Scatter",
+     "mana": "CU",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Essence Scatter",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "countered-creature-enters-trigger-never-happens",
+   "cr": [
+    "701.6a",
+    "603.6a"
+   ],
+   "why": "A countered creature spell never enters, so its enters trigger does not happen (no card drawn).",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Essence Scatter"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Elvish Visionary"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Elvish Visionary",
+     "mana": "CG"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Essence Scatter",
+     "mana": "CU",
+     "targets": [
+      "p1:Elvish Visionary"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Elvish Visionary",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p1": 1
+     }
+    }
+   ]
+  }
+ ]
+}

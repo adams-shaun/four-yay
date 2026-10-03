@@ -1,0 +1,640 @@
+{
+ "card": "Loot, Exuberant Explorer",
+ "family": "activated-ability",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "c60b9b2867c5",
+ "scenarios": [
+  {
+   "name": "two-lands-in-one-turn-not-three",
+   "cr": [
+    "305.2",
+    "305.2a"
+   ],
+   "why": "Its controller may play an additional land each turn: two land plays are legal, a third is not.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Forest",
+      "Mountain",
+      "Swamp"
+     ],
+     "battlefield": [
+      "Loot, Exuberant Explorer"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Forest"
+    },
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Mountain"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Forest",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Mountain",
+     "zone": "battlefield"
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "play_land",
+      "card": "p0:Swamp"
+     },
+     "want": false
+    },
+    {
+     "card": "p0:Loot, Exuberant Explorer",
+     "pt": "1/4"
+    }
+   ]
+  },
+  {
+   "name": "control-one-land-without-loot",
+   "cr": [
+    "305.2"
+   ],
+   "why": "Control: without Loot a second land is not offered.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Forest",
+      "Mountain"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Forest"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "play_land",
+      "card": "p0:Mountain"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "land-then-loot-then-another-land",
+   "cr": [
+    "305.2a"
+   ],
+   "why": "The count is compared when the land is played: after one land, casting Loot allows a second land that turn.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Forest",
+      "Mountain",
+      "Loot, Exuberant Explorer"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Forest"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Loot, Exuberant Explorer",
+     "mana": "CCG"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "offered": {
+        "seat": 0,
+        "kind": "play_land",
+        "card": "p0:Mountain"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Mountain"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Mountain",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "extra-land-is-lost-when-loot-leaves",
+   "cr": [
+    "305.2a",
+    "611.3a"
+   ],
+   "why": "The permission is a static ability: with Loot destroyed after the first land, a second is not offered.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Forest",
+      "Mountain"
+     ],
+     "battlefield": [
+      "Loot, Exuberant Explorer"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Forest"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Murder",
+     "mana": "CBB",
+     "targets": [
+      "p0:Loot, Exuberant Explorer"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Loot, Exuberant Explorer",
+     "zone": "graveyard"
+    },
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "play_land",
+      "card": "p0:Mountain"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "opponent-gets-no-extra-land",
+   "cr": [
+    "109.5",
+    "305.2"
+   ],
+   "why": "'You': the opponent still plays one land a turn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Loot, Exuberant Explorer"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Forest",
+      "Mountain"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "play",
+     "seat": 1,
+     "card": "p1:Forest"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 1,
+      "kind": "play_land",
+      "card": "p1:Mountain"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "activation-puts-a-creature-within-the-land-count-onto-the-battlefield",
+   "cr": [
+    "602.2",
+    "202.3",
+    "608.2c"
+   ],
+   "why": "With three lands, a mana-value-3 creature card among the top six is put onto the battlefield; the other five go to the bottom, so the seventh card is drawn next.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Loot, Exuberant Explorer",
+      "Forest",
+      "Forest",
+      "Forest"
+     ],
+     "library_top": [
+      "Shock",
+      "Centaur Courser",
+      "Craw Wurm",
+      "Lightning Bolt",
+      "Mountain",
+      "Swamp",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Loot, Exuberant Explorer",
+     "mana": "CCCCGG"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Centaur Courser"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Craw Wurm",
+     "zone": "library"
+    },
+    {
+     "card": "p0:Shock",
+     "zone": "library"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "may-decline-and-all-six-go-to-the-bottom",
+   "cr": [
+    "608.2d",
+    "401.4"
+   ],
+   "why": "'May': choosing nothing puts all six on the bottom; the seventh card is drawn next.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Loot, Exuberant Explorer",
+      "Forest",
+      "Forest",
+      "Forest"
+     ],
+     "library_top": [
+      "Shock",
+      "Centaur Courser",
+      "Craw Wurm",
+      "Lightning Bolt",
+      "Mountain",
+      "Swamp",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Loot, Exuberant Explorer",
+     "mana": "CCCCGG"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": []
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "library"
+    },
+    {
+     "card": "p0:Craw Wurm",
+     "zone": "library"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Loot, Exuberant Explorer",
+     "tapped": false
+    }
+   ]
+  },
+  {
+   "name": "six-lands-allow-a-six-drop",
+   "cr": [
+    "202.3"
+   ],
+   "why": "With six lands a mana-value-6 creature card can be put onto the battlefield.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Loot, Exuberant Explorer",
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest"
+     ],
+     "library_top": [
+      "Shock",
+      "Centaur Courser",
+      "Craw Wurm",
+      "Lightning Bolt",
+      "Mountain",
+      "Swamp",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Loot, Exuberant Explorer",
+     "mana": "CCCCGG"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Craw Wurm"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Craw Wurm",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "library"
+    },
+    {
+     "card": "p0:Loot, Exuberant Explorer",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "no-lands-allows-a-zero-drop",
+   "cr": [
+    "202.3"
+   ],
+   "why": "With no lands the limit is 0: a mana-value-0 creature card qualifies.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Loot, Exuberant Explorer"
+     ],
+     "library_top": [
+      "Memnite",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Loot, Exuberant Explorer",
+     "mana": "CCCCGG"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Memnite"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Memnite",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "summoning-sick-cannot-activate",
+   "cr": [
+    "302.6"
+   ],
+   "why": "The cost includes {T}: cast this turn it cannot be activated.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Loot, Exuberant Explorer"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Loot, Exuberant Explorer",
+     "mana": "CCG"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCCGG"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Loot, Exuberant Explorer"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "needs-two-green",
+   "cr": [
+    "602.2b",
+    "107.4"
+   ],
+   "why": "Six mana with only one green cannot pay {4}{G}{G}.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Loot, Exuberant Explorer"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCCCCG"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Loot, Exuberant Explorer"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "usable-on-opponents-turn",
+   "cr": [
+    "602.5d"
+   ],
+   "why": "No timing restriction: it can be activated in the opponent's upkeep.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Loot, Exuberant Explorer",
+      "Forest",
+      "Forest",
+      "Forest"
+     ],
+     "library_top": [
+      "Shock",
+      "Centaur Courser",
+      "Craw Wurm",
+      "Lightning Bolt",
+      "Mountain",
+      "Swamp",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Loot, Exuberant Explorer",
+     "mana": "CCCCGG"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Centaur Courser"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "battlefield"
+    }
+   ]
+  }
+ ]
+}

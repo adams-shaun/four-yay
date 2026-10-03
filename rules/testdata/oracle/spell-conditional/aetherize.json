@@ -1,0 +1,363 @@
+{
+ "card": "Aetherize",
+ "family": "spell-conditional",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "5f6e42d648b5",
+ "scenarios": [
+  {
+   "name": "returns-all-attackers-not-the-rest",
+   "cr": [
+    "506.4",
+    "400.3"
+   ],
+   "why": "All attacking creatures return to their owner's hand; a creature that stayed home and the defender's creatures do not.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Centaur Courser",
+      "Craw Wurm"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Aetherize"
+     ],
+     "battlefield": [
+      "Hill Giant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears",
+      "p0:Centaur Courser"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Aetherize",
+     "mana": "CCCU"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Craw Wurm",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Hill Giant",
+     "zone": "battlefield"
+    },
+    {
+     "life": {
+      "p1": 20
+     }
+    },
+    {
+     "card": "p1:Aetherize",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "outside-combat-does-nothing",
+   "cr": [
+    "608.2",
+    "506.4"
+   ],
+   "why": "Cast with no attacking creatures it returns nothing.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Aetherize"
+     ],
+     "battlefield": [
+      "Hill Giant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Aetherize",
+     "mana": "CCCU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Hill Giant",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Aetherize",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "after-blocks-blockers-stay",
+   "cr": [
+    "506.4",
+    "510.1c"
+   ],
+   "why": "Cast after blockers are declared: the attacker returns to hand, the blocking creature stays and no combat damage is dealt.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Aetherize"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Craw Wurm"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Grizzly Bears",
+       "p0:Craw Wurm"
+      ]
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Aetherize",
+     "mana": "CCCU"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Craw Wurm",
+     "zone": "hand"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "life": {
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "attacking-token-ceases-to-exist",
+   "cr": [
+    "111.7",
+    "704.5d"
+   ],
+   "why": "A token returned to hand ceases to exist.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Raise the Alarm"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Aetherize"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Raise the Alarm",
+     "mana": "CW"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:token:Soldier",
+      "p0:token:Soldier#2"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Aetherize",
+     "mana": "CCCU"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Soldier"
+     },
+     "eq": 0
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "life": {
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "caster-returns-own-attackers",
+   "cr": [
+    "608.2"
+   ],
+   "why": "It is not limited to opposing creatures: cast by the attacking player it returns that player's own attackers.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Aetherize"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Aetherize",
+     "mana": "CCCU"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "life": {
+      "p1": 20
+     }
+    }
+   ]
+  }
+ ]
+}

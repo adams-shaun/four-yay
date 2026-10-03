@@ -1,0 +1,559 @@
+{
+ "card": "Nine-Lives Familiar",
+ "family": "etb-ltb",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "bcc0a65e182d",
+ "scenarios": [
+  {
+   "name": "cast-enters-with-eight-revival-counters",
+   "cr": [
+    "614.1c",
+    "122.6"
+   ],
+   "why": "Cast, it enters with eight revival counters. It is a 1/1.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Nine-Lives Familiar"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Nine-Lives Familiar",
+     "mana": "CBB"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Nine-Lives Familiar",
+     "zone": "battlefield",
+     "pt": "1/1",
+     "counters": {
+      "revival": 8
+     }
+    }
+   ]
+  },
+  {
+   "name": "not-cast-enters-with-no-counters",
+   "cr": [
+    "614.1c"
+   ],
+   "why": "'If you cast it': returned from the graveyard by a spell it enters with no counters.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Zombify"
+     ],
+     "graveyard": [
+      "Nine-Lives Familiar"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Zombify",
+     "mana": "CCCB",
+     "targets": [
+      "p0:Nine-Lives Familiar"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Nine-Lives Familiar",
+     "zone": "battlefield",
+     "counters": {
+      "revival": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "dies-with-counters-returns-at-end-step-with-seven",
+   "cr": [
+    "603.6c",
+    "603.7",
+    "603.10a"
+   ],
+   "why": "It died with revival counters, so at the beginning of the next end step it returns with one fewer: seven.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Nine-Lives Familiar",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Nine-Lives Familiar",
+     "mana": "CBB"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p0:Nine-Lives Familiar"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Nine-Lives Familiar",
+       "zone": "graveyard"
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Nine-Lives Familiar",
+     "zone": "battlefield",
+     "pt": "1/1",
+     "counters": {
+      "revival": 7
+     }
+    }
+   ]
+  },
+  {
+   "name": "stays-in-graveyard-until-the-end-step",
+   "cr": [
+    "603.7"
+   ],
+   "why": "The return waits for the end step: in the second main phase it is still in the graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Nine-Lives Familiar",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Nine-Lives Familiar",
+     "mana": "CBB"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p0:Nine-Lives Familiar"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Nine-Lives Familiar",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "dies-without-counters-stays-dead",
+   "cr": [
+    "603.4"
+   ],
+   "why": "Intervening if: with no revival counter it does not return.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Zombify",
+      "Shock"
+     ],
+     "graveyard": [
+      "Nine-Lives Familiar"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Zombify",
+     "mana": "CCCB",
+     "targets": [
+      "p0:Nine-Lives Familiar"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p0:Nine-Lives Familiar"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "end",
+     "expect": [
+      {
+       "stack_size": 0
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Nine-Lives Familiar",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "second-death-returns-with-six",
+   "cr": [
+    "603.6c",
+    "400.7"
+   ],
+   "why": "The returned Familiar has seven counters; dying again it returns at the next end step with six.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Nine-Lives Familiar",
+      "Shock",
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Nine-Lives Familiar",
+     "mana": "CBB"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p0:Nine-Lives Familiar"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Nine-Lives Familiar"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Nine-Lives Familiar",
+       "zone": "graveyard"
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "end",
+     "active": "p1"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Nine-Lives Familiar",
+     "zone": "battlefield",
+     "counters": {
+      "revival": 6
+     }
+    }
+   ]
+  },
+  {
+   "name": "exiled-from-graveyard-before-the-end-step-does-not-return",
+   "cr": [
+    "603.7c",
+    "400.7"
+   ],
+   "why": "If the card leaves the graveyard before the end step the delayed ability cannot find it.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Nine-Lives Familiar",
+      "Shock"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Cremate"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Nine-Lives Familiar",
+     "mana": "CBB"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p0:Nine-Lives Familiar"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Cremate",
+     "mana": "B",
+     "targets": [
+      "p0:Nine-Lives Familiar"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Nine-Lives Familiar",
+     "zone": "exile"
+    }
+   ]
+  },
+  {
+   "name": "exiled-instead-of-dying-does-not-return",
+   "cr": [
+    "700.4"
+   ],
+   "why": "Exile is not dying.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Nine-Lives Familiar"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Swords to Plowshares"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Nine-Lives Familiar",
+     "mana": "CBB"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Swords to Plowshares",
+     "mana": "W",
+     "targets": [
+      "p0:Nine-Lives Familiar"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Nine-Lives Familiar",
+     "zone": "exile"
+    },
+    {
+     "life": {
+      "p0": 21
+     }
+    }
+   ]
+  },
+  {
+   "name": "countered-familiar-does-not-return",
+   "cr": [
+    "700.4",
+    "701.6a"
+   ],
+   "why": "A countered spell goes to the graveyard from the stack: it did not die.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Nine-Lives Familiar"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Cancel"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Nine-Lives Familiar",
+     "mana": "CBB"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Cancel",
+     "mana": "CUU",
+     "targets": [
+      "p0:Nine-Lives Familiar"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Nine-Lives Familiar",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

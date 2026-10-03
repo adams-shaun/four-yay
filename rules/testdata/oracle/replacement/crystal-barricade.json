@@ -1,0 +1,404 @@
+{
+ "card": "Crystal Barricade",
+ "family": "replacement",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "bffd1985172d",
+ "scenarios": [
+  {
+   "name": "cast-defender-zero-four",
+   "cr": [
+    "702.3a"
+   ],
+   "why": "Cast for {1}{W}: a 0/4 Wall with defender.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Crystal Barricade"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Crystal Barricade",
+     "mana": "WC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Crystal Barricade",
+     "zone": "battlefield",
+     "pt": "0/4",
+     "keywords": [
+      "Defender"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "controller-has-hexproof",
+   "cr": [
+    "702.11d",
+    "115.1"
+   ],
+   "why": "Its controller has hexproof: an opponent's 'target opponent' spell (Duress) has no legal target and cannot be cast.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Crystal Barricade"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Duress"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "mana",
+     "seat": 1,
+     "mana": "B"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 1,
+      "kind": "cast",
+      "card": "p1:Duress"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "hexproof-control-without-barricade",
+   "cr": [
+    "115.1"
+   ],
+   "why": "Control: without the Barricade the same Duress can be cast at its controller.",
+   "setup": {
+    "p1": {
+     "hand": [
+      "Duress"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "mana",
+     "seat": 1,
+     "mana": "B"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 1,
+      "kind": "cast",
+      "card": "p1:Duress"
+     },
+     "want": true
+    }
+   ]
+  },
+  {
+   "name": "controller-can-still-target-themselves",
+   "cr": [
+    "702.11d"
+   ],
+   "why": "Hexproof stops only opponents: its controller may target themselves (Sign in Blood).",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Crystal Barricade"
+     ],
+     "hand": [
+      "Sign in Blood"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Sign in Blood",
+     "mana": "BB",
+     "targets": [
+      "p0"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    },
+    {
+     "life": {
+      "p0": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "prevents-noncombat-damage-to-other-creatures",
+   "cr": [
+    "615.1a"
+   ],
+   "why": "The opponent's Lightning Bolt at its controller's Grizzly Bears is prevented.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Crystal Barricade",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 0
+    }
+   ]
+  },
+  {
+   "name": "prevents-own-noncombat-damage-too",
+   "cr": [
+    "615.1a"
+   ],
+   "why": "Any source: its controller's own Seismic Rupture deals no damage to their Bears, while the opponent's Bears dies.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Crystal Barricade",
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Seismic Rupture"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Seismic Rupture",
+     "mana": "RCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "barricade-itself-not-protected",
+   "cr": [
+    "615.1a"
+   ],
+   "why": "'Other creatures': the Barricade itself takes the Bolt's 3.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Crystal Barricade"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Crystal Barricade"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Crystal Barricade",
+     "zone": "battlefield",
+     "damage": 3
+    }
+   ]
+  },
+  {
+   "name": "combat-damage-not-prevented",
+   "cr": [
+    "615.1a",
+    "510.2"
+   ],
+   "why": "Only noncombat damage: its controller's Bears blocking a Hill Giant dies.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Crystal Barricade",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Hill Giant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Hill Giant"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "blocks": [
+      [
+       "p0:Grizzly Bears",
+       "p1:Hill Giant"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Hill Giant",
+     "damage": 2
+    }
+   ]
+  },
+  {
+   "name": "player-damage-not-prevented",
+   "cr": [
+    "615.1a"
+   ],
+   "why": "Damage to its controller (not a creature) is not prevented by the third ability.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Crystal Barricade"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Boltwave"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Boltwave",
+     "mana": "R"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 17
+     }
+    }
+   ]
+  }
+ ]
+}

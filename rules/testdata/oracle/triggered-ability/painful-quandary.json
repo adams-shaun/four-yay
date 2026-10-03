@@ -1,0 +1,294 @@
+{
+ "card": "Painful Quandary",
+ "family": "triggered-ability",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "87cc83a0b53e",
+ "scenarios": [
+  {
+   "name": "empty-handed-caster-loses-five",
+   "cr": [
+    "603.2",
+    "118.12"
+   ],
+   "why": "An opponent casting a spell with no card left to discard loses 5 life.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Painful Quandary"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Painful Quandary",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 15,
+      "p0": 17
+     }
+    }
+   ]
+  },
+  {
+   "name": "discarding-avoids-the-loss",
+   "cr": [
+    "118.12"
+   ],
+   "why": "'Unless they discard a card': the opponent discards their Forest and loses nothing.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Painful Quandary"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0"
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "yes"
+       ]
+      },
+      {
+       "kind": "any",
+       "pick": [
+        "p1:Forest"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 20
+     }
+    },
+    {
+     "card": "p1:Forest",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "declining-to-discard-loses-five",
+   "cr": [
+    "118.12"
+   ],
+   "why": "The opponent may keep the card and lose 5 instead.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Painful Quandary"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0"
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "no"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 15
+     }
+    },
+    {
+     "card": "p1:Forest",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "own-spells-do-not-trigger",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Only an opponent's spell.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Painful Quandary"
+     ],
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ],
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Painful Quandary",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 17
+     }
+    }
+   ]
+  },
+  {
+   "name": "each-spell-triggers",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Two spells, two triggers: empty-handed after both, the opponent loses 10.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Painful Quandary"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0"
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "no"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Shock",
+     "mana": "R",
+     "targets": [
+      "p0"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 10
+     }
+    }
+   ]
+  }
+ ]
+}

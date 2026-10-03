@@ -1,0 +1,340 @@
+{
+ "card": "Midnight Snack",
+ "family": "triggered-ability",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "3c7fd8631794",
+ "scenarios": [
+  {
+   "name": "raid-attacked-makes-food",
+   "cr": [
+    "603.4",
+    "603.2"
+   ],
+   "why": "At the beginning of its controller's end step, having attacked this turn, a Food token is created.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Midnight Snack",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "end",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Midnight Snack",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Food",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "life": {
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-attack-no-food",
+   "cr": [
+    "603.4"
+   ],
+   "why": "Without an attack the intervening 'if' fails: no trigger, no Food.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Midnight Snack",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "end",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Midnight Snack",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Food"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "not-on-opponents-end-step",
+   "cr": [
+    "603.2"
+   ],
+   "why": "'Your end step': the opponent attacking in their turn makes no Food.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Midnight Snack"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Grizzly Bears"
+     ],
+     "defender": "p0"
+    },
+    {
+     "op": "pass_to",
+     "step": "end",
+     "active": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Midnight Snack",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Food"
+     },
+     "eq": 0
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Food"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "sacrifice-drains-life-gained-this-turn",
+   "cr": [
+    "602.2",
+    "119.3"
+   ],
+   "why": "{2}{B}, sacrifice: target opponent loses X life, X = life its controller gained this turn: eating the Food (3 life) then sacrificing Snack drains 3.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Midnight Snack",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:token:Food",
+     "mana": "CC",
+     "ability": "gain 3"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Midnight Snack",
+     "mana": "BCC",
+     "targets": [
+      "p1"
+     ],
+     "ability": "loses X"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 23,
+      "p1": 15
+     }
+    },
+    {
+     "card": "p0:Midnight Snack",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Food"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "no-life-gained-drains-nothing",
+   "cr": [
+    "107.3",
+    "602.2"
+   ],
+   "why": "With no life gained this turn X is 0: the opponent loses nothing; the Snack is still sacrificed.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Midnight Snack"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Midnight Snack",
+     "mana": "BCC",
+     "targets": [
+      "p1"
+     ],
+     "ability": "loses X"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 20
+     }
+    },
+    {
+     "card": "p0:Midnight Snack",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "life-gained-from-a-trigger-counts",
+   "cr": [
+    "119.3",
+    "603.2"
+   ],
+   "why": "Any life gained this turn counts: Bloodthirsty Conqueror's 2 life from a Shock to the opponent makes X 2; the drain itself is life lost by the opponent, so the Conqueror gains 2 more.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Midnight Snack",
+      "Bloodthirsty Conqueror"
+     ],
+     "hand": [
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Midnight Snack",
+     "mana": "BCC",
+     "targets": [
+      "p1"
+     ],
+     "ability": "loses X"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 24,
+      "p1": 16
+     }
+    }
+   ]
+  }
+ ]
+}

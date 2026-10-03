@@ -1,0 +1,418 @@
+{
+ "card": "Juggernaut",
+ "family": "combat-restriction",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "2f7fe0a0b518",
+ "scenarios": [
+  {
+   "name": "five-three-artifact-creature-attacks-for-five",
+   "cr": [
+    "208.1",
+    "508.1"
+   ],
+   "why": "A 5/3 artifact creature; unblocked it deals 5.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Juggernaut"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Juggernaut"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 15
+     }
+    },
+    {
+     "card": "p0:Juggernaut",
+     "pt": "5/3",
+     "types": [
+      "Artifact",
+      "Creature",
+      "Juggernaut"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "walls-cannot-block-it",
+   "cr": [
+    "509.1b"
+   ],
+   "why": "It cannot be blocked by Walls; a non-Wall can block it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Juggernaut"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Wall of Stone",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Juggernaut"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    }
+   ],
+   "expect": [
+    {
+     "can_block": {
+      "blocker": "p1:Wall of Stone",
+      "attacker": "p0:Juggernaut"
+     },
+     "want": false
+    },
+    {
+     "can_block": {
+      "blocker": "p1:Grizzly Bears",
+      "attacker": "p0:Juggernaut"
+     },
+     "want": true
+    }
+   ]
+  },
+  {
+   "name": "non-wall-with-high-toughness-can-block",
+   "cr": [
+    "509.1b"
+   ],
+   "why": "The restriction is about the Wall creature type, not about toughness or defender: a 0/5 Turtle blocks it and survives.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Juggernaut"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Aegis Turtle"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Juggernaut"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p1:Aegis Turtle",
+        "attacker": "p0:Juggernaut"
+       },
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": [
+      [
+       "p1:Aegis Turtle",
+       "p0:Juggernaut"
+      ]
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 20
+     }
+    },
+    {
+     "card": "p1:Aegis Turtle",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Juggernaut",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "wall-can-block-another-attacker",
+   "cr": [
+    "509.1b"
+   ],
+   "why": "The restriction belongs to the Juggernaut only: the same Wall can block another attacker.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Juggernaut",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Wall of Stone"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Juggernaut",
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    }
+   ],
+   "expect": [
+    {
+     "can_block": {
+      "blocker": "p1:Wall of Stone",
+      "attacker": "p0:Juggernaut"
+     },
+     "want": false
+    },
+    {
+     "can_block": {
+      "blocker": "p1:Wall of Stone",
+      "attacker": "p0:Grizzly Bears"
+     },
+     "want": true
+    }
+   ]
+  },
+  {
+   "name": "animated-land-with-all-creature-types-is-a-wall",
+   "cr": [
+    "509.1b",
+    "205.3m"
+   ],
+   "why": "A land animated with all creature types is a Wall and cannot block it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Juggernaut"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Soulstone Sanctuary",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Juggernaut"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "activate",
+     "seat": 1,
+     "card": "p1:Soulstone Sanctuary",
+     "mana": "CCCC",
+     "ability": "becomes"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    }
+   ],
+   "expect": [
+    {
+     "can_block": {
+      "blocker": "p1:Soulstone Sanctuary",
+      "attacker": "p0:Juggernaut"
+     },
+     "want": false
+    },
+    {
+     "can_block": {
+      "blocker": "p1:Grizzly Bears",
+      "attacker": "p0:Juggernaut"
+     },
+     "want": true
+    }
+   ]
+  },
+  {
+   "name": "cast-this-turn-it-is-not-able-to-attack",
+   "cr": [
+    "508.1d",
+    "302.6"
+   ],
+   "why": "'If able': cast this turn it cannot attack, so the turn passes combat with no attack.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Juggernaut"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Juggernaut",
+     "mana": "CCCC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 20
+     }
+    },
+    {
+     "card": "p0:Juggernaut",
+     "zone": "battlefield",
+     "tapped": false
+    }
+   ]
+  },
+  {
+   "name": "tapped-it-is-not-able-to-attack",
+   "cr": [
+    "508.1d",
+    "508.1a"
+   ],
+   "why": "'If able': a tapped Juggernaut cannot attack, so no attack is required. It attacks on turn 1, is stunned while tapped on the opponent's turn, stays tapped through its controller's next untap step and that turn passes with no attack.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Juggernaut"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Forest"
+     ],
+     "battlefield": [
+      "Grappling Kraken"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Juggernaut"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers"
+    },
+    {
+     "op": "block",
+     "seat": 0,
+     "blocks": []
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "play",
+     "seat": 1,
+     "card": "p1:Forest",
+     "targets": [
+      "p0:Juggernaut"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Juggernaut",
+       "tapped": true,
+       "counters": {
+        "stun": 1
+       }
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 15
+     }
+    },
+    {
+     "card": "p0:Juggernaut",
+     "tapped": true,
+     "counters": {
+      "stun": 0
+     }
+    }
+   ]
+  }
+ ]
+}

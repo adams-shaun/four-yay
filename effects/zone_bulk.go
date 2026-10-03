@@ -1,6 +1,7 @@
 package effects
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 
@@ -77,6 +78,9 @@ func changeZoneAllPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 }
 
 func effChangeZoneAll(h Host, c *Ctx, sa *cards.SA) {
+	if exileHostGone(h, c, sa) {
+		return
+	}
 	from, all, valid := ParseZones(sa.Params["Origin"])
 	if !valid {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
@@ -181,6 +185,15 @@ func effChangeZoneAll(h Host, c *Ctx, sa *cards.SA) {
 	// and are not touched here.
 	randomOrder := strings.EqualFold(strings.TrimSpace(sa.Params["RandomOrder"]), "True")
 	rider := classifyAttackingEntry(c, sa, to)
+	// A sweep off the battlefield is one simultaneous departure (CR 603.10a):
+	// every member's leaves-the-battlefield triggers look back at the same
+	// pre-sweep board. The id list is empty -- the sweep emits as it scans --
+	// so only the shared board is parked; the per-object lifelink capture
+	// keeps its live read.
+	if to != state.ZBattlefield && slices.Contains(from, state.ZBattlefield) {
+		h.BatchDepartures(nil)
+		defer h.EndBatchDepartures()
+	}
 	emitMove := func(id state.ObjID, z state.Zone, p state.PlayerID) {
 		// A CantExile restriction withholds the object from a battlefield exile
 		// before the MoveZone (and the moved bookkeeping) is produced -- the
@@ -637,7 +650,7 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 	// to. Idempotent per call site; called exactly once per sacrificed object.
 	rememberLKICapture := func(id state.ObjID) {
 		if remember {
-			c.Sacrificed = append(c.Sacrificed, state.SacrificedInfoOf(g, id))
+			c.Sacrificed = append(c.Sacrificed, SacrificedLKI(h, id))
 			// Forge's RememberSacrificed$ also remembers the card, which is
 			// what a following ConditionDefined$ Remembered, Remembered$Amount
 			// or RememberedCard reads (Braids, Scapeshift, Victimize).
@@ -1101,7 +1114,7 @@ func changeZoneChosenTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool
 	// Legality stays referenced to the ability controller; only the
 	// decision's Player moves to the TargetingPlayer$ chooser (the same
 	// resolver every rules-tier target ask uses).
-	candidates := h.LegalTargets(c.Controller, c.Source, sa)
+	candidates := subAskCandidates(h, c, sa)
 	chooser := h.ChooserFor(c, sa)
 	if ch, posed := opponentPick(h, c, sa, chooser); posed {
 		// The controller's which-opponent selection ask was posted: the walk
@@ -1124,7 +1137,7 @@ func changeZoneChosenTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool
 	}
 	if max <= 0 {
 		// Nothing eligible (or an explicitly zero bound): no ask, no move.
-		return nil, false
+		return noSubTargets(c, sa)
 	}
 	return poseTargetsAsk(h, c, sa, chooser, candidates, min, max, "choice")
 }

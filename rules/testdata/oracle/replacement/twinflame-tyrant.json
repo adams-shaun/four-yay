@@ -1,0 +1,321 @@
+{
+ "card": "Twinflame Tyrant",
+ "family": "replacement",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "8375c63906c3",
+ "scenarios": [
+  {
+   "name": "cast-flying-three-five",
+   "cr": [
+    "702.9a"
+   ],
+   "why": "Cast for {3}{R}{R}: a 3/5 flier.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Twinflame Tyrant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Twinflame Tyrant",
+     "mana": "RRCCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Twinflame Tyrant",
+     "zone": "battlefield",
+     "pt": "3/5",
+     "keywords": [
+      "Flying"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "burn-to-opponent-is-doubled",
+   "cr": [
+    "614.1a",
+    "120.3"
+   ],
+   "why": "A source you control dealing damage to an opponent deals double: Lightning Bolt deals 6.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Twinflame Tyrant"
+     ],
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 14
+     }
+    }
+   ]
+  },
+  {
+   "name": "burn-to-opponents-creature-is-doubled",
+   "cr": [
+    "614.1a"
+   ],
+   "why": "Damage to a permanent an opponent controls is doubled: Bolt deals 6 to a 6/4, which dies.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Twinflame Tyrant"
+     ],
+     "hand": [
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1:Craw Wurm"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "damage-to-yourself-not-doubled",
+   "cr": [
+    "614.1a"
+   ],
+   "why": "Only opponents and their permanents: Bolting yourself deals 3.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Twinflame Tyrant"
+     ],
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 17
+     }
+    }
+   ]
+  },
+  {
+   "name": "damage-to-own-creature-not-doubled",
+   "cr": [
+    "614.1a"
+   ],
+   "why": "Bolting your own 6/4 deals 3; it survives.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Twinflame Tyrant",
+      "Craw Wurm"
+     ],
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Craw Wurm"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Craw Wurm",
+     "zone": "battlefield",
+     "damage": 3
+    }
+   ]
+  },
+  {
+   "name": "own-combat-damage-doubled",
+   "cr": [
+    "614.1a",
+    "510.2"
+   ],
+   "why": "Its own 3 unblocked combat damage is doubled to 6.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Twinflame Tyrant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Twinflame Tyrant"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 14
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-source-not-doubled",
+   "cr": [
+    "614.1a"
+   ],
+   "why": "Only sources you control: the opponent's Bolt to its controller deals 3.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Twinflame Tyrant"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 17
+     }
+    }
+   ]
+  },
+  {
+   "name": "two-tyrants-quadruple",
+   "cr": [
+    "616.1",
+    "614.1a"
+   ],
+   "why": "Two such replacement effects both apply: Bolt deals 3 x 2 x 2 = 12.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Twinflame Tyrant",
+      "Twinflame Tyrant"
+     ],
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 8
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,376 @@
+{
+ "card": "Armasaur Guide",
+ "family": "attack-triggers",
+ "author": "fdn-audit-5 (Oracle + CR only)",
+ "oracle_sha": "d278e603621c",
+ "scenarios": [
+  {
+   "name": "three-attackers-counter-on-target-creature",
+   "cr": [
+    "603.2",
+    "508.1"
+   ],
+   "why": "Attacking with three creatures puts a +1/+1 counter on target creature its controller controls. Vigilance keeps the Guide untapped.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Armasaur Guide",
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Armasaur Guide",
+      "p0:Grizzly Bears",
+      "p0:Savannah Lions"
+     ],
+     "defender": "p1",
+     "targets": [
+      "p0:Savannah Lions"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Savannah Lions",
+     "pt": "3/2",
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "card": "p0:Armasaur Guide",
+     "pt": "4/4",
+     "keywords": [
+      "Vigilance"
+     ],
+     "tapped": false
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "tapped": true,
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "two-attackers-no-trigger",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Two attackers are not three.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Armasaur Guide",
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Armasaur Guide",
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Armasaur Guide",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Armasaur Guide",
+     "counters": {
+      "+1/+1": 0
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "counters": {
+      "+1/+1": 0
+     }
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "guide-need-not-attack",
+   "cr": [
+    "603.2"
+   ],
+   "why": "'Whenever you attack with three or more creatures': the Guide can stay home and still trigger.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Armasaur Guide",
+      "Grizzly Bears",
+      "Savannah Lions",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears",
+      "p0:Savannah Lions",
+      "p0:Centaur Courser"
+     ],
+     "defender": "p1",
+     "targets": [
+      "p0:Armasaur Guide"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Armasaur Guide",
+     "pt": "5/5",
+     "tapped": false,
+     "counters": {
+      "+1/+1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "target-may-be-a-non-attacking-creature",
+   "cr": [
+    "115.1"
+   ],
+   "why": "The target is any creature its controller controls.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Armasaur Guide",
+      "Grizzly Bears",
+      "Savannah Lions",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Armasaur Guide",
+      "p0:Grizzly Bears",
+      "p0:Savannah Lions"
+     ],
+     "defender": "p1",
+     "targets": [
+      "p0:Centaur Courser"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Centaur Courser",
+     "pt": "4/4",
+     "tapped": false,
+     "counters": {
+      "+1/+1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "four-attackers-one-trigger",
+   "cr": [
+    "603.2c"
+   ],
+   "why": "Four attackers is one attack: one counter.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Armasaur Guide",
+      "Grizzly Bears",
+      "Savannah Lions",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Armasaur Guide",
+      "p0:Grizzly Bears",
+      "p0:Savannah Lions",
+      "p0:Centaur Courser"
+     ],
+     "defender": "p1",
+     "targets": [
+      "p0:Armasaur Guide"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Armasaur Guide",
+     "pt": "5/5",
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "counters": {
+      "+1/+1": 0
+     }
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "counters": {
+      "+1/+1": 0
+     }
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "counters": {
+      "+1/+1": 0
+     }
+    },
+    {
+     "stack_size": 0
+    }
+   ]
+  },
+  {
+   "name": "counter-lands-before-damage",
+   "cr": [
+    "508.2",
+    "510.1"
+   ],
+   "why": "The trigger resolves in the declare attackers step: the Guide attacks as a 5/5 and three attackers deal 5+2+2.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Armasaur Guide",
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Armasaur Guide",
+      "p0:Grizzly Bears",
+      "p0:Savannah Lions"
+     ],
+     "defender": "p1",
+     "targets": [
+      "p0:Armasaur Guide"
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 11
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-attack-does-not-trigger",
+   "cr": [
+    "603.2",
+    "109.5"
+   ],
+   "why": "Only its controller attacking counts.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Armasaur Guide"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Savannah Lions",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "attack",
+     "seat": 1,
+     "attackers": [
+      "p1:Grizzly Bears",
+      "p1:Savannah Lions",
+      "p1:Centaur Courser"
+     ],
+     "defender": "p0",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Armasaur Guide",
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Armasaur Guide",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  }
+ ]
+}

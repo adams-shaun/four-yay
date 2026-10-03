@@ -1,0 +1,373 @@
+{
+ "card": "Zimone, Paradox Sculptor",
+ "family": "triggered-ability",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "caad0a5b6951",
+ "scenarios": [
+  {
+   "name": "begin-combat-counters-on-two",
+   "cr": [
+    "603.2",
+    "115.1d",
+    "122.1"
+   ],
+   "why": "At the beginning of combat on its controller's turn, a +1/+1 counter on each of up to two target creatures they control.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Zimone, Paradox Sculptor",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "begin-combat"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Grizzly Bears",
+      "p0:Zimone, Paradox Sculptor"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "3/3",
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "card": "p0:Zimone, Paradox Sculptor",
+     "pt": "2/5",
+     "counters": {
+      "+1/+1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "begin-combat-one-target",
+   "cr": [
+    "115.1d"
+   ],
+   "why": "'Up to two': choosing just one target puts one counter.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Zimone, Paradox Sculptor",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "begin-combat"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "counters": {
+      "+1/+1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "not-on-opponents-combat",
+   "cr": [
+    "603.2"
+   ],
+   "why": "'On your turn': nothing at the beginning of the opponent's combat.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Zimone, Paradox Sculptor",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "pass_to",
+     "step": "begin-combat",
+     "active": "p1",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Zimone, Paradox Sculptor",
+       "want": false
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "counters": {
+      "+1/+1": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "activated-doubles-counters",
+   "cr": [
+    "602.2",
+    "701.10e"
+   ],
+   "why": "{G}{U}, {T}: double the number of each kind of counter on up to two target creatures: 1 +1/+1 counter becomes 2.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Zimone, Paradox Sculptor",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "begin-combat"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Zimone, Paradox Sculptor",
+     "mana": "GU",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "ability": "Double"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "4/4",
+     "counters": {
+      "+1/+1": 2
+     }
+    },
+    {
+     "card": "p0:Zimone, Paradox Sculptor",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "activated-doubles-two-targets",
+   "cr": [
+    "602.2",
+    "701.10e"
+   ],
+   "why": "Two targets each have their counters doubled.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Zimone, Paradox Sculptor",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "begin-combat"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Grizzly Bears",
+      "p0:Zimone, Paradox Sculptor"
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Zimone, Paradox Sculptor",
+     "mana": "GU",
+     "targets": [
+      "p0:Grizzly Bears",
+      "p0:Zimone, Paradox Sculptor"
+     ],
+     "ability": "Double"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "counters": {
+      "+1/+1": 2
+     }
+    },
+    {
+     "card": "p0:Zimone, Paradox Sculptor",
+     "counters": {
+      "+1/+1": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "activated-doubles-counters-on-an-artifact",
+   "cr": [
+    "701.10e",
+    "122.1"
+   ],
+   "why": "Artifacts too, any kind of counter: Banner of Kinship (Bear chosen, two Bears) has two fellowship counters, doubled to four, so each Bear gets +4/+4.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Zimone, Paradox Sculptor",
+      "Grizzly Bears",
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Banner of Kinship"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Banner of Kinship",
+     "mana": "CCCCC",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Bear"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Bear"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Zimone, Paradox Sculptor",
+     "mana": "GU",
+     "targets": [
+      "p0:Banner of Kinship"
+     ],
+     "ability": "Double"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Banner of Kinship",
+     "counters": {
+      "fellowship": 4
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "6/6"
+    }
+   ]
+  },
+  {
+   "name": "summoning-sick-zimone-cannot-activate",
+   "cr": [
+    "302.6"
+   ],
+   "why": "The {T} ability needs Zimone under control since the turn began.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Zimone, Paradox Sculptor"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Zimone, Paradox Sculptor",
+     "mana": "GUCC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "GU"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Zimone, Paradox Sculptor",
+      "label": "Double"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

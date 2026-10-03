@@ -563,3 +563,34 @@ func TestDigUntilTunnelVisionNoneFoundShufflesAndKeepsLibrary(t *testing.T) {
 		t.Fatalf("revealed rest zone = %s, want graveyard (RevealedDestination$ Graveyard)", o.Zone)
 	}
 }
+
+// TestDigUntilFoundCardFollowsRevealedDestination drives the REAL Consuming
+// Aberration Grind SA (Defined$ Player.Opponent | Valid$ Land |
+// RevealedDestination$ Graveyard, no FoundDestination$): "reveals cards ...
+// until they reveal a land card, then puts THOSE cards into their graveyard"
+// -- the land included. The found card used to default to Hand.
+func TestDigUntilFoundCardFollowsRevealedDestination(t *testing.T) {
+	_, sa, svars := corpusRiderSA(t, "Consuming Aberration", "Grind")
+	if sa.API != "DigUntil" || sa.Params["FoundDestination"] != "" || sa.Params["RevealedDestination"] != "Graveyard" {
+		t.Fatalf("precondition: Grind = API %q Found %q Revealed %q, want DigUntil with only RevealedDestination$ Graveyard",
+			sa.API, sa.Params["FoundDestination"], sa.Params["RevealedDestination"])
+	}
+	h, src, _ := riderBoard(t)
+	var ids []state.ObjID
+	for _, s := range []string{riderBear, riderSurge, riderLand, riderBear} {
+		ids = append(ids, h.g.AddObject(mkCard(t, s), 1).ID)
+	}
+	h.g.SetZone(state.ZLibrary, 1, ids)
+	Resolve(h, &Ctx{Source: src, Controller: 0, SVars: svars}, sa)
+	for _, id := range ids[:3] {
+		if o := h.g.Obj(id); o.Zone != state.ZGraveyard {
+			t.Fatalf("revealed card %d zone = %s, want graveyard (the found land too)", id, o.Zone)
+		}
+	}
+	if o := h.g.Obj(ids[3]); o.Zone != state.ZLibrary {
+		t.Fatalf("card after the land zone = %s, want library", o.Zone)
+	}
+	if n := len(h.g.Zone(state.ZHand, 1)); n != 0 {
+		t.Fatalf("opponent hand = %d cards, want 0", n)
+	}
+}

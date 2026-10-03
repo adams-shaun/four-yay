@@ -55,6 +55,20 @@ func (e *Engine) counterAddedMatches(t cards.Trigger, source state.ObjID, ev eve
 	if !e.eventCardAndPlayerMatch(t, source, ev.Obj, o.Controller) {
 		return false
 	}
+	// ValidSource$ names the player PUTTING the counters ("whenever YOU put
+	// one or more +1/+1 counters on this creature": Exemplar of Light,
+	// Hapatra, Nest of Scarabs -- every corpus CounterAdded/CounterAddedOnce
+	// carrier spells it `You`). The CounterChange event records only the
+	// recipient, so the putter is read from the same in-flight adder
+	// counterPlayerAddedAllMatches and the AddCounter replacement class use;
+	// an unattributed placement fails the line closed rather than matching
+	// an opponent's Battlegrowth (CR 109.5: "you" is the controller).
+	if vs := strings.TrimSpace(t.Params["ValidSource"]); vs != "" {
+		adder, ok := e.inFlightCounterAdder()
+		if !ok || !effects.MatchesPlayerSpec(e.G, vs, adder, e.controllerOf(source)) {
+			return false
+		}
+	}
 	if cmp := t.Params["CounterAmount"]; cmp != "" {
 		op, n, ok := splitCompare(strings.TrimSpace(cmp))
 		if !ok {

@@ -1,0 +1,330 @@
+{
+ "card": "Scrawling Crawler",
+ "family": "triggered-ability",
+ "author": "fdn-audit-4 (Oracle + CR only)",
+ "oracle_sha": "bfcce8bcf56f",
+ "scenarios": [
+  {
+   "name": "upkeep-each-player-draws-and-the-opponent-loses-one",
+   "cr": [
+    "503.1a",
+    "603.2"
+   ],
+   "why": "Set up before turn 1, it triggers in its controller's first upkeep: each player draws a card, and the opponent's draw costs them 1 life. Its controller's own draw costs nothing.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Scrawling Crawler"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 1,
+      "p1": 1
+     }
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 19
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-draw-step-costs-one-life",
+   "cr": [
+    "504.1",
+    "603.2"
+   ],
+   "why": "The opponent's draw-step card is a card an opponent draws: 1 more life. The opponent's upkeep is not its controller's upkeep, so nobody draws extra.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Scrawling Crawler"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 1,
+      "p1": 2
+     }
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponent-drawing-two-loses-two",
+   "cr": [
+    "603.2c",
+    "121.2"
+   ],
+   "why": "It triggers once per card: the opponent's Divination costs 2 life.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Scrawling Crawler"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Divination"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Divination",
+     "mana": "CCU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 16
+     }
+    },
+    {
+     "hand_size": {
+      "p1": 4
+     }
+    }
+   ]
+  },
+  {
+   "name": "controllers-own-draws-cost-nothing",
+   "cr": [
+    "109.5"
+   ],
+   "why": "Its controller drawing two cards loses no life.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Divination"
+     ],
+     "battlefield": [
+      "Scrawling Crawler"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Divination",
+     "mana": "CCU"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 19
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 3
+     }
+    }
+   ]
+  },
+  {
+   "name": "second-upkeep-triggers-again",
+   "cr": [
+    "503.1a"
+   ],
+   "why": "At its controller's next upkeep each player draws again: by then the opponent has drawn three cards (two upkeep triggers and one draw step).",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Scrawling Crawler"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 17
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 3,
+      "p1": 3
+     }
+    }
+   ]
+  },
+  {
+   "name": "draw-loss-is-a-trigger-on-the-stack",
+   "cr": [
+    "603.3"
+   ],
+   "why": "The life loss is a triggered ability: after the opponent's Divination resolves the triggers are on the stack and no life has been lost for those cards yet.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Scrawling Crawler"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Divination"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Divination",
+     "mana": "CCU"
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "pass_to",
+     "decision": "priority",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Scrawling Crawler",
+       "want": true
+      },
+      {
+       "life": {
+        "p0": 20,
+        "p1": 18
+       }
+      },
+      {
+       "hand_size": {
+        "p1": 4
+       }
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 16
+     }
+    }
+   ]
+  },
+  {
+   "name": "cast-after-upkeep-does-not-draw-this-turn",
+   "cr": [
+    "603.2",
+    "503.1a"
+   ],
+   "why": "Cast in the main phase, the upkeep has passed: nothing is drawn this turn. It is a 3/2 artifact creature.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Scrawling Crawler"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Scrawling Crawler",
+     "mana": "CCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 0,
+      "p1": 0
+     }
+    },
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    },
+    {
+     "card": "p0:Scrawling Crawler",
+     "pt": "3/2",
+     "types": [
+      "Artifact",
+      "Creature"
+     ]
+    }
+   ]
+  }
+ ]
+}
