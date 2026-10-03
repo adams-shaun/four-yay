@@ -310,23 +310,7 @@ func (e *Engine) resolveTop() {
 		// ordinary trigger finds its own (top) face there, so its table is
 		// unchanged, and an activated ability finds no trigger at all and
 		// falls through to Face() exactly as before.
-		var svars map[string]string
-		if src := e.G.Obj(o.Source); src != nil {
-			if _, mf, ok := e.findTriggerForAbilityFace(o.Source, o.Ability); ok && mf != nil {
-				svars = mf.SVars
-			} else if mf, ok := e.pileFaceForSA(o.Source, o.Ability); ok && mf != nil {
-				// An activated ability of a MUTATED pile (CR 702.140d): o.Ability
-				// is the under-card's SA, so the table its body reads is the
-				// under-card's own -- Porcuparrot's `NumDmg$ X` resolves X from
-				// the pile's Count$TimesMutated on ITS face, not the top card's.
-				svars = mf.SVars
-			} else if sf := src.Face(); sf != nil {
-				svars = sf.SVars
-			}
-		}
-		if owned, ok := e.triggerLineSVars[id]; ok {
-			svars = owned
-		}
+		svars := e.abilityResolutionSVars(id, o)
 		// Ruling T20-b: Source must be o.Source (the permanent that has this
 		// ability), not id (the transient stack-object wrapper) -- Defined$
 		// Self, the most common Defined$ value in real trigger scripts,
@@ -372,25 +356,7 @@ func (e *Engine) resolveTop() {
 		// defender. Only a ninjutsu activation carries the tag, so no other
 		// resolution's Remembered player is reinterpreted as a defending
 		// player.
-		if ab := o.Ability; ab != nil && saHasKeyword(ab, "Ninjutsu") {
-			for _, rem := range o.Remembered {
-				if rem.IsPlayer {
-					ctx.DefendingPlayer = rem
-					continue
-				}
-				// The AbilityPush IDs carry the planeswalker/battle object as a
-				// real id after the player (events.Apply's rememberedFrom decodes
-				// it to a {Obj} target). Surface it so the Attacking$ True rider
-				// can place the permanent attacking the same object (CR
-				// 702.49b). An unrelated remembered object (none exists on a
-				// ninjutsu activation) would leak here, but only a ninjutsu
-				// activation carries the tag and only the capture writes a
-				// non-player id.
-				if rem.Obj != 0 {
-					ctx.DefendingBattle = rem.Obj
-				}
-			}
-		}
+		bindNinjutsuDefender(ctx, o)
 		// The SA whose targeting the placement ask actually offered, not
 		// blindly the resolving SA: for a non-modal ability that is the outer
 		// SA's own ValidTgts$ (pushTrigger's askTarget), for a modal one it is
@@ -421,7 +387,7 @@ func (e *Engine) resolveTop() {
 		// trigger fired on (a cast/magecraft trigger), which triggerPaidX
 		// reads off the causing event's card.
 		ctx.X = o.X
-		ctx.XAnnounced = stackXAnnounced(o) || ctx.X != 0
+		ctx.XAnnounced = abilityXAnnounced(o)
 		if ctx.X == 0 {
 			ctx.X = e.triggerPaidX(id, o)
 		}

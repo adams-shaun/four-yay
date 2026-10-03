@@ -143,6 +143,14 @@ type resumePoint struct {
 	choices     []state.Target `clone:"deep"`
 	chosenValid bool           `clone:"deep"`
 	remembered  []state.Target `clone:"deep"`
+	// inheritsRemembered marks a plain continuation frame whose loop walked
+	// the SAME Ctx as the frame before it in the chain on the pass that
+	// suspended (buildContinuationChain). That first pass shared one
+	// Remembered between them, so when the frame before it completes it
+	// hands its Remembered on through this frame's `remembered` ride
+	// (resumeResolution) instead of this frame rebuilding the stack
+	// object's.
+	inheritsRemembered bool `clone:"deep"`
 	// pendingDamage is the DamageMap$ True mark set of the resolution that
 	// posed this ask (effects.Ctx.PendingDamage at suspension time): the
 	// resumed Ctx is rebuilt from scratch, so without this ride a mark left
@@ -154,12 +162,12 @@ type resumePoint struct {
 	// across a planted placement leg's own suspension (Decision
 	// .ResumeSearchKnown): the leg's answer rebuilds a fresh Ctx, and the next
 	// leg must still see which library cards the chooser already knew.
-	searchKnown                          []state.Target   `clone:"share"`
-	forgetOtherSnapshot                  []state.Target   `clone:"deep"`
-	forgetOtherOwners                    []state.PlayerID `clone:"deep"`
-	forgetOtherReady, forgetOtherCleared bool             `clone:"deep"`
-	digUntilMove                         string           `clone:"deep"`
-	digUntilMoveDone                     bool             `clone:"deep"`
+	searchKnown         []state.Target   `clone:"share"`
+	forgetOtherSnapshot []state.Target   `clone:"deep"`
+	forgetOtherOwners   []state.PlayerID `clone:"deep"`
+	forgetOther         forgetOtherRide  `clone:"deep"`
+	digUntilMove        string           `clone:"deep"`
+	digUntilMoveDone    bool             `clone:"deep"`
 	// clonePick/clonePickDone ride a DB$ Clone's answered Choices$ pick across
 	// a later Optional$ may-copy ask in the same walk (the Decision.ResumeClonePick
 	// rider, Ask copies them here): the re-entry's Choices$ branch consumes
@@ -521,4 +529,18 @@ type contFrame struct {
 	// re-posed (SuspendUnless).
 	tokenRest      *effects.TokenRest `clone:"deep"`
 	unlessResolved string             `clone:"deep"`
+	// ctx is the Ctx of the Resolve loop that reported this frame (the live
+	// Engine.resolutionCtx at the report), compared by identity only, while
+	// the same pass builds its chain, to mark the frame inheritsRemembered.
+	// askMarker marks the entry Engine.Ask appends when it poses an ask
+	// inside a draining pass: no frame, only the asking walk's ctx. Neither
+	// is ever carried onto a resumePoint.
+	ctx       *effects.Ctx `clone:"reset"`
+	askMarker bool         `clone:"reset"`
+}
+
+// forgetOtherRide is Decision.ResumeForgetOtherReady/Cleared: the
+// forget-other-remembered cursor's two flags, re-bound on the resumed Ctx.
+type forgetOtherRide struct {
+	ready, cleared bool
 }

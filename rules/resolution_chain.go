@@ -88,7 +88,15 @@ func (e *Engine) buildContinuationChain(frames []contFrame, obj state.ObjID, tai
 	var head, prev *resumePoint
 	var carry []state.Target
 	carrySet := false
+	// prevCtx is the Ctx of the frame the next kept frame follows: the
+	// posed ask's walk (its askMarker) for the head, then each kept frame's
+	// own loop.
+	var prevCtx *effects.Ctx
 	for _, cf := range frames {
+		if cf.askMarker {
+			prevCtx = cf.ctx
+			continue
+		}
 		sa := cf.sa
 		if cf.isPlain() && (sa == nil || sa.Sub == nil) {
 			if cf.bound {
@@ -215,6 +223,10 @@ func (e *Engine) buildContinuationChain(frames []contFrame, obj state.ObjID, tai
 			}
 			f.choices, f.chosenValid = cf.choices, cf.chosenValid
 		}
+		if cf.isPlain() && cf.ctx != nil && cf.ctx == prevCtx {
+			f.inheritsRemembered = true
+		}
+		prevCtx = cf.ctx
 		if carrySet {
 			handOnRemembered(f, carry)
 			carry, carrySet = nil, false
@@ -584,6 +596,17 @@ func (e *Engine) applyCastModes(d *decision.Decision, player state.PlayerID, cho
 // re-enter sa itself (repeat, charm/villainous/generic-choice/flip/token
 // rests) or pose a deferred ask.
 func (cf *contFrame) isPlain() bool {
-	return cf.deferredAsk == nil && cf.charmRest == nil && !cf.villainousRest &&
+	return !cf.askMarker && cf.deferredAsk == nil && cf.charmRest == nil && !cf.villainousRest &&
 		!cf.genericChoiceRest && !cf.flipRest && cf.tokenRest == nil && cf.repeat == nil
+}
+
+// handsOnChainRemembered reports whether a completed frame's Ctx.Remembered
+// is the chain's own, so it may be handed to an inheritsRemembered next
+// frame: a frame that ran a chain (sa != nil) or re-bound the chain's
+// captured Remembered (an as-enters or replacement-order answer, which runs
+// no SA), outside a replacement body, and not one whose Remembered is a
+// VillainousChoice victim or a GenericChoice chooser binding.
+func (rp *resumePoint) handsOnChainRemembered() bool {
+	return (rp.sa != nil || rp.remembered != nil) && !rp.replacement && !rp.villainousRememberedSet && rp.kind != "villainous" &&
+		len(rp.villainousVictims) == 0 && len(rp.genericChoosers) == 0
 }

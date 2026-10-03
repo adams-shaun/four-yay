@@ -405,8 +405,17 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 		if !rp.replacement {
 			ctx.TriggerContext = e.triggerContexts[rp.obj]
 		}
-		ctx.Remembered = o.Remembered
+		// The same seeds resolveTop's ability branch gives the first pass
+		// (rules/resolution_ability_ctx.go): the Phase-trigger Remembered
+		// rule, the grantor a granted ability's Defined$ OriginalHost names,
+		// the ninjutsu defender, and the announced-X rule.
+		ctx.Remembered = e.resolvingRemembered(o)
 		ctx.Captured = o.Remembered
+		ctx.Grantor = o.GrantedBy
+		bindNinjutsuDefender(ctx, o)
+		if !rp.replacement && abilityXAnnounced(o) {
+			ctx.XAnnounced = true
+		}
 		reflexiveCaptured(ctx)
 		if lki, ok := e.triggerLKI[rp.obj]; ok {
 			ctx.LKI = lki.object
@@ -455,19 +464,12 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 		// trigger's owning face IS the top face, and an activated ability
 		// matches no trigger and falls through to Face(), so both are
 		// unchanged.
-		if src := e.G.Obj(o.Source); src != nil {
-			if _, mf, ok := e.findTriggerForAbilityFace(o.Source, o.Ability); ok && mf != nil {
-				svars = mf.SVars
-			} else if mf, ok := e.pileFaceForSA(o.Source, o.Ability); ok && mf != nil {
-				// An under-card ACTIVATED ability whose resolution SUSPENDED (an
-				// asking sub-ability): the resume reads the under-card's own SVar
-				// table, the same owning-face rule resolveTop's ability branch
-				// applies -- never the pile top's.
-				svars = mf.SVars
-			} else if sf := src.Face(); sf != nil {
-				svars = sf.SVars
-			}
-		}
+		// The same table resolveTop's first pass read: the owning face of a
+		// pile's under-card ability, and above all a granted or delayed
+		// trigger's recorded line table -- the GRANTOR's SVars, which the
+		// recipient's face does not carry (spike S3: Ninja's Blades on a Hero
+		// token resumed its discard with X undefined and drained 0).
+		svars = e.abilityResolutionSVars(rp.obj, o)
 	} else if f := o.Face(); f != nil {
 		svars = f.SVars
 	}
@@ -575,7 +577,7 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 	}
 	ctx.ForgetOtherSnapshot = append([]state.Target(nil), rp.forgetOtherSnapshot...)
 	ctx.ForgetOtherOwners = append([]state.PlayerID(nil), rp.forgetOtherOwners...)
-	ctx.ForgetOtherReady, ctx.ForgetOtherCleared = rp.forgetOtherReady, rp.forgetOtherCleared
+	ctx.ForgetOtherReady, ctx.ForgetOtherCleared = rp.forgetOther.ready, rp.forgetOther.cleared
 	// The TargetUnique$ accumulator, captured at ask time: the resumed Ctx
 	// re-binds it so a LATER TargetUnique$ rider in the same chain still
 	// excludes the targets earlier riders chose (a fresh Ctx would otherwise
@@ -956,6 +958,13 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			// enclosed the loop -- and takes it as is, so what the loop
 			// remembered is not lost to the stack object's stale Remembered.
 			handOnRemembered(rp.outer, ctx.Remembered)
+		} else if next := rp.outer; next.inheritsRemembered && rp.handsOnChainRemembered() {
+			// The next frame's loop walked this frame's Ctx on the pass that
+			// suspended, so it continues with the Remembered this frame
+			// finished with -- what the chain remembered before the ask and
+			// what the answered re-entry added -- not the stack object's
+			// (spike S3's Remembered-across-a-suspension class).
+			next.remembered = append([]state.Target(nil), ctx.Remembered...)
 		}
 		if parkedDraws {
 			// CR 608.2c: a resolution's SubAbility$ continuation runs only after
