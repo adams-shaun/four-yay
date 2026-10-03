@@ -141,3 +141,18 @@ func ChooseTypeAtRandom(sa *cards.SA) bool {
 func aiLogicRandom(sa *cards.SA) bool {
 	return sa != nil && CharmOf(sa).AILogicRandom
 }
+
+// aiRandomNoAskPick is the R-9 no-ask answer for a single-pick ask of n
+// options: the first option, except for an AILogic$ Random ask (Face to
+// Face's throw), which draws from the engine's seeded rng instead. A
+// Repeat that re-poses a random choice until the answers differ (Face to
+// Face replays a tied throw) must see fresh draws on every pass: the fixed
+// first option would throw Rock against Rock to the Repeat cap. A
+// one-option (or non-random) ask consumes no rng, so every other no-ask
+// answer -- and every replay over one -- is unchanged.
+func aiRandomNoAskPick(h Host, sa *cards.SA, n int) int {
+	if n < 2 || !aiLogicRandom(sa) {
+		return 0
+	}
+	return h.Rand(n)
+}

@@ -420,6 +420,20 @@ type Option struct {
 	// no-op and was never activated. Filled by rules/legal.go from the
 	// compiled ability, never on the wire.
 	Attach bool `json:"-"`
+	// SelfSkipTurns is server-side only (json:"-"): on an "ability" option,
+	// how many of the ACTIVATOR's own turns the activation makes them skip
+	// (an api:SkipTurn with Defined$ You, or no Defined$, on the ability's
+	// SubAbility$ chain -- Lethal Vapors, Chronatog, Chronosavant). The bot
+	// policy prices it (botpolicy A6): before it existed a free {0} with
+	// the rider ranked as the cheapest ability on the board, and the bot
+	// threw away a turn per activation of an opponent's Lethal Vapors.
+	// Filled by rules/legal.go from the printed ability, never on the wire.
+	SelfSkipTurns int8 `json:"-"`
+	// ForeignSource is server-side only (json:"-"): the "ability" option's
+	// source is controlled by a player other than the deciding seat (an
+	// "any player may activate" ability, Activator$ Player). Filled by
+	// rules/legal.go alongside SelfSkipTurns, never on the wire.
+	ForeignSource bool `json:"-"`
 	// GrantSource is server-side only (json:"-") and names the object that
 	// GRANTS an "ability" option's SVar body when that grantor differs from
 	// the option's Obj (the ability's own source/recipient). It is set by

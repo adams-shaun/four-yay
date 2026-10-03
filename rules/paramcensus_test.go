@@ -1641,6 +1641,10 @@ var apiSpecificRulesSA = map[string][]string{
 	// TargetParams, so they carry no read of their own. The Charm's own
 	// Choices$/CharmNum$ reads are effects.compileCharm's, reached through
 	// effCharm.
+	// The activation offer's self-harm fact (decision.Option.SelfSkipTurns,
+	// botpolicy A6): abilitySelfSkipTurns reads Defined$/NumTurns$ only on
+	// the api:SkipTurn links of an offered ability's Sub chain.
+	"abilitySelfSkipTurns": {"SkipTurn"},
 	// The unless-pay resume arm: only effCounter and effCopySpellAbility
 	// suspend with an UnlessCost$ ask, so resumeResolution's UnlessCost$
 	// read belongs to those two APIs alone. api:Play joins them for the
