@@ -75,7 +75,7 @@ func validPoint(pt *Point) bool {
 // samePoint reports whether a replayed walk reached the point nd was
 // expanded from: the fixed-world promise, checked on every replayed edge.
 func samePoint(pt *Point, nd *node) bool {
-	if pt == nil || nd.pt == nil || len(pt.Keys) != len(nd.pt.Keys) {
+	if pt == nil || nd.pt == nil || len(pt.Keys) != len(nd.pt.Keys) || pt.opp != nd.pt.opp {
 		return false
 	}
 	for i, k := range pt.Keys {
@@ -153,6 +153,10 @@ func (c *nodeCache) simulate(top *node, sim int, opts Options, st *Stats) error 
 			top.pt = nil
 			return fmt.Errorf("%w: a world offered a malformed point", ErrSubmit)
 		}
+		if top.pt.opp != top.opp {
+			top.pt = nil
+			return errOwner
+		}
 		top.clk = clockOf(env, 0)
 		c.save(top, env, false, st)
 	}
@@ -184,6 +188,9 @@ func (c *nodeCache) simulate(top *node, sim int, opts Options, st *Stats) error 
 			}
 		}
 		sel := selectEdge(nd, pt, opts)
+		if nd.opp {
+			st.OppPoints++
+		}
 		nodes, path = append(nodes, nd), append(path, sel)
 		if sel.next == nil {
 			break
@@ -266,6 +273,9 @@ func (c *nodeCache) simulate(top *node, sim int, opts Options, st *Stats) error 
 		sel.next.pt, sel.next.clk = next, clockOf(env, len(path))
 		sel.next.n, sel.next.w = 1, l.V
 		st.Expanded++
+		if next.opp {
+			st.OppExpanded++
+		}
 		commit(nodes, path, marks, append(clock, sel.next.clk), l.V, opts, st)
 		st.Unavailable += unavail
 		c.offer(sel.next, env, true, st)
@@ -326,6 +336,11 @@ type envState struct {
 	// actor is the auto-pay actor bot's source (engineEnv.actorPCG); nil
 	// without autoPayment.
 	actor *rand.PCG
+	// oppObs and opp are the opponent's observer and auto-pay bot source
+	// (Options.OpponentNodes); nil with the switch off (opp also without
+	// autoPayment).
+	oppObs *searchprobe.Collector
+	opp    *rand.PCG
 }
 
 func (f *fixedEnvs) Save(env Env, final bool) (snap any, err error) {
@@ -341,9 +356,15 @@ func (f *fixedEnvs) Save(env Env, final bool) (snap any, err error) {
 		a := *ee.actorPCG
 		s.actor = &a
 	}
+	s.oppObs = ee.oppObs
+	if ee.oppPCG != nil {
+		o := *ee.oppPCG
+		s.opp = &o
+	}
 	if final {
 		// The walk is over: the state is ee's own engine, kept as it stands.
 		ee.e, ee.obs, ee.cur, ee.cands = nil, nil, nil, nil
+		ee.oppObs = nil
 		if f.prev == ee {
 			f.prev = nil
 		}
@@ -358,6 +379,9 @@ func (f *fixedEnvs) Save(env Env, final bool) (snap any, err error) {
 	// the engine it stood on.
 	c := s.e.CloneInto(&f.spare)
 	ee.e, ee.obs = c, s.obs.Clone()
+	if s.oppObs != nil {
+		ee.oppObs = s.oppObs.Clone()
+	}
 	ee.cur = c.Pending()
 	f.prev = ee
 	return s, nil
@@ -403,6 +427,14 @@ func (f *fixedEnvs) Resume(snap any) (env Env, err error) {
 		a := *s.actor
 		ee.actorPCG = &a
 		ee.actorBot = seat.NewBotOn(ee.actorPCG).EnableAutoPayMana()
+	}
+	if s.oppObs != nil {
+		ee.oppObs = s.oppObs.Clone()
+	}
+	if s.opp != nil {
+		o := *s.opp
+		ee.oppPCG = &o
+		ee.oppBot = seat.NewBotOn(ee.oppPCG).EnableAutoPayMana()
 	}
 	f.prev = ee
 	return ee, nil

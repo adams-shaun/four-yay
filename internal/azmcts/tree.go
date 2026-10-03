@@ -1,9 +1,12 @@
 // Package azmcts is the AlphaZero-style tree search of
 // docs/superpowers/specs/2026-09-27-alphazero-mcts-design.md: a PUCT tree
 // over ONE seat's searched decisions (single perspective: every value is
-// that seat's win probability, no sign flips), whose leaf is a value -- the
-// policynet value head, or the frozen heuristic searchprobe.LeafValue for
-// generation 0 -- never a rollout.
+// that seat's win probability), whose leaf is a value -- the policynet value
+// head, or the frozen heuristic searchprobe.LeafValue for generation 0 --
+// never a rollout. Under Options.OpponentNodes the tree also branches on the
+// opponent's searched decisions; every stored value is still the searching
+// seat's, and only selection at an opponent node reads it from the
+// opponent's side (selectEdge).
 //
 // The package is pure search. It reads no clock (internal/archtest), ranges
 // no map whose order could reach a choice, and draws randomness only from
@@ -45,6 +48,10 @@ type Point struct {
 	// a stored point without producing it again, counts them exactly as a
 	// re-walk would have.
 	cut, fell bool
+	// opp marks the opponent's decision (Options.OpponentNodes): the node
+	// expanded from it selects for the opponent. A world that offers a
+	// node's decision to the other seat than the tree holds is an error.
+	opp bool
 }
 
 // Leaf is the value of the position a walk stopped at, for the searching
@@ -132,6 +139,8 @@ type node struct {
 	// clk is the engine clock at the node's point (PathEnv), which the
 	// discount and the leaf-depth counters read; the node cache's.
 	clk pathClock
+	// opp is the point's owner (Point.opp): an opponent node.
+	opp bool
 }
 
 type edge struct {
@@ -150,7 +159,7 @@ type edge struct {
 }
 
 func newNode(pt *Point) *node {
-	nd := &node{kids: make([]*edge, len(pt.Keys))}
+	nd := &node{kids: make([]*edge, len(pt.Keys)), opp: pt.opp}
 	for i, k := range pt.Keys {
 		nd.kids[i] = &edge{key: k, prior: pt.Prior[i]}
 	}
@@ -193,8 +202,17 @@ func puctScore(q, prior float64, avail, n int, c float64) float64 {
 // unvisited child's Q is the parent's Q minus FPU, or the constant
 // opts.UnvisitedQ under opts.AbsoluteUnvisitedQ. Strict > keeps the lower
 // index on a tie: candidate 0, the bot's answer, wins ties.
+//
+// At an opponent node (nd.opp) the mover is the opponent, so every Q is read
+// in the mover's frame: the parent's is 1 - q, a visited child's 1 - w/n,
+// first-play urgency subtracts FPU from the mover's parent Q, and the
+// constant UnvisitedQ is taken as the mover's own. The stored values stay
+// the searching seat's.
 func selectEdge(nd *node, pt *Point, opts Options) *edge {
 	parentQ := nd.q()
+	if nd.opp {
+		parentQ = 1 - parentQ
+	}
 	var best *edge
 	bestScore := math.Inf(-1)
 	for _, kid := range nd.kids {
@@ -207,6 +225,9 @@ func selectEdge(nd *node, pt *Point, opts Options) *edge {
 		}
 		if kid.n > 0 {
 			q = kid.w / float64(kid.n)
+			if nd.opp {
+				q = 1 - q
+			}
 		}
 		if s := puctScore(q, kid.prior, kid.avail+1, kid.n, opts.CPUCT); best == nil || s > bestScore {
 			best, bestScore = kid, s
@@ -232,8 +253,34 @@ func selectEdge(nd *node, pt *Point, opts Options) *edge {
 // Children are kept in root order and ties go to the lower index, so
 // root.Keys[0] -- the bot's answer -- wins every tie. No map is ranged.
 func RunTree(ctx context.Context, root *Point, src EnvSource, opts Options, st *Stats) (TreeResult, error) {
+	top, err := runTree(ctx, root, src, opts, st)
+	if err != nil {
+		return TreeResult{}, err
+	}
+	return treeResult(root, top), nil
+}
+
+// treeResult is the root's statistics of a tree runTree built from root.
+func treeResult(root *Point, top *node) TreeResult {
+	res := TreeResult{
+		Visits: make([]int, len(root.Keys)), Q: make([]float64, len(root.Keys)),
+		Avail: make([]int, len(root.Keys)), RootValue: top.q(),
+	}
+	for i := range root.Keys {
+		k := top.kids[i]
+		res.Visits[i], res.Avail[i] = k.n, k.avail
+		if k.n > 0 {
+			res.Q[i] = k.w / float64(k.n)
+		}
+	}
+	return res
+}
+
+// runTree is RunTree's loop, returning the whole tree (the opponent-node
+// tests read below the root).
+func runTree(ctx context.Context, root *Point, src EnvSource, opts Options, st *Stats) (*node, error) {
 	if root == nil || len(root.Keys) == 0 || len(root.Prior) != len(root.Keys) {
-		return TreeResult{}, fmt.Errorf("azmcts: a root point needs keys and a parallel prior")
+		return nil, fmt.Errorf("azmcts: a root point needs keys and a parallel prior")
 	}
 	top := newNode(root)
 	var cache *nodeCache
@@ -270,18 +317,7 @@ func RunTree(ctx context.Context, root *Point, src EnvSource, opts Options, st *
 		}
 		st.Completed++
 	}
-	res := TreeResult{
-		Visits: make([]int, len(root.Keys)), Q: make([]float64, len(root.Keys)),
-		Avail: make([]int, len(root.Keys)), RootValue: top.q(),
-	}
-	for i := range root.Keys {
-		k := top.kids[i]
-		res.Visits[i], res.Avail[i] = k.n, k.avail
-		if k.n > 0 {
-			res.Q[i] = k.w / float64(k.n)
-		}
-	}
-	return res, nil
+	return top, nil
 }
 
 // simulate is one simulation. Availability marks, visits and values are
@@ -321,6 +357,9 @@ func simulate(top *node, env Env, opts Options, st *Stats) error {
 		if pt == nil || len(pt.Keys) == 0 || len(pt.Prior) != len(pt.Keys) {
 			return fmt.Errorf("%w: a world offered a malformed point", ErrSubmit)
 		}
+		if pt.opp != nd.opp {
+			return errOwner
+		}
 		for _, kid := range nd.kids {
 			if hasKey(pt.Keys, kid.key) {
 				marks = append(marks, kid)
@@ -336,6 +375,9 @@ func simulate(top *node, env Env, opts Options, st *Stats) error {
 			}
 		}
 		sel := selectEdge(nd, pt, opts)
+		if nd.opp {
+			st.OppPoints++
+		}
 		clock = append(clock, now())
 		nodes, path = append(nodes, nd), append(path, sel)
 		replay, steps0 := sel.next != nil || sel.n > 0, st.EnvSteps
@@ -371,6 +413,9 @@ func simulate(top *node, env Env, opts Options, st *Stats) error {
 			sel.next = newNode(next)
 			sel.next.n, sel.next.w = 1, l.V
 			st.Expanded++
+			if next.opp {
+				st.OppExpanded++
+			}
 			commit(nodes, path, marks, append(clock, now()), l.V, opts, st)
 			st.Unavailable += unavail
 			return nil
@@ -378,6 +423,11 @@ func simulate(top *node, env Env, opts Options, st *Stats) error {
 		nd, pt = sel.next, next
 	}
 }
+
+// errOwner is a world offering a tree node's decision to the other seat
+// than the node was expanded for (Point.opp): the world broke the tree's
+// shape, and the simulation is discarded.
+var errOwner = fmt.Errorf("%w: a world offered a node's decision to the other seat", ErrSubmit)
 
 // pathClock is the engine clock at one point of a walk (PathEnv).
 type pathClock struct{ plies, turn int }

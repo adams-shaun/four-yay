@@ -132,6 +132,9 @@ func NewSeat(seed uint64, net *policynet.Model, cfg SeatConfig) (*Seat, error) {
 	}
 	switch cfg.World {
 	case WorldRedeal:
+		if cfg.Search.OpponentNodes {
+			return nil, errors.New("azmcts: opponent nodes need a fixed world; the redeal source deals a different world per simulation")
+		}
 	case "", WorldClairvoyant:
 		if cfg.Source == nil {
 			return nil, errors.New("azmcts: the clairvoyant world is not linked (internal/azmcts/clairvoyant)")
@@ -290,10 +293,20 @@ func (s *Seat) redealSource(env searchseat.Env, obs *searchprobe.Collector, seed
 	return NewRedeal(in, obs, seed, s.cfg.Worlds)
 }
 
-// worldName is the record's world source name.
+// worldName is the record's world source name, suffixed OppWorldSuffix
+// when the tree held opponent nodes (Options.OpponentNodes), so a corpus
+// never mixes the two searches under one name.
 func (s *Seat) worldName() string {
-	if s.cfg.World == "" {
-		return WorldClairvoyant
+	w := s.cfg.World
+	if w == "" {
+		w = WorldClairvoyant
 	}
-	return s.cfg.World
+	if s.cfg.Search.OpponentNodes {
+		w += OppWorldSuffix
+	}
+	return w
 }
+
+// OppWorldSuffix tags a visit record's World (and a bench's ledger name)
+// when the search held opponent nodes: "clairvoyant+opp".
+const OppWorldSuffix = "+opp"
