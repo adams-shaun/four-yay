@@ -464,7 +464,7 @@ func (e *Engine) paymentManaAsk(player state.PlayerID, source state.ObjID, amoun
 }
 
 func (e *Engine) paymentManaAskClass(player state.PlayerID, source state.ObjID, amount Cost, windowDone bool, prompt string, flow chooseFor, class paymentClass) bool {
-	rider := pipRider{AnyColor: e.payerGrantsIgnoreColor(player, source), AnyType: e.payerGrantsIgnoreType(player, source)}
+	rider := asPayer(e).MayPlayRider(player, source)
 	// A pool that already pays the announced amount needs no window. The
 	// check deliberately suspends the payer's PayLifeInsteadOf:B grant
 	// (costPayableClassLife's lifeGrant false, the same suspension the CR
@@ -524,7 +524,7 @@ func (e *Engine) cumulativePaymentAsk() {
 	var opts []decision.Option
 	payable := cu.action != nil && e.cumulativeActionPayable(cu)
 	if cu.action == nil {
-		payable = announced.Priceable() && pay.CostPayableClass(asPayer(e), cu.player, paymentDescriptor{ID: cu.source, Class: paymentCumulativeUpkeep, Cost: &announced}, pipRider{AnyColor: e.payerGrantsIgnoreColor(cu.player, cu.source), AnyType: e.payerGrantsIgnoreType(cu.player, cu.source)}, announced)
+		payable = announced.Priceable() && pay.CostPayableClass(asPayer(e), cu.player, paymentDescriptor{ID: cu.source, Class: paymentCumulativeUpkeep, Cost: &announced}, asPayer(e).MayPlayRider(cu.player, cu.source), announced)
 	}
 	if payable {
 		opts = append(opts, decision.Option{Index: 0, Kind: "cumulative_pay", Obj: cu.source,

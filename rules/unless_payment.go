@@ -93,7 +93,7 @@ func (e *Engine) unlessManaReachable(p state.PlayerID, cost Cost, pool, snow sta
 func (e *Engine) manaReachable(p state.PlayerID, cost Cost, pool, snow state.Mana, typed [7]state.Mana, life int32, rider pipRider, conv *manaConv, units []windowManaUnit) bool {
 	payable := func(pool state.Mana, lifeNow int32) bool {
 		_, ok := resolveManaWith(cost, pool, snow, typed, lifeNow,
-			e.payerGrantsPayLifeInsteadOfB(p), rider, conv)
+			asPayer(e).PayLifeInsteadOfB(p), rider, conv)
 
 		return ok
 	}

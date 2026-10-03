@@ -183,13 +183,6 @@ func paymentFor(id state.ObjID, ability bool, cost Cost) paymentDescriptor {
 func (pe *payer) Game() *state.Game                 { return pe.G }
 func (pe *payer) Emit(ev events.Event) events.Event { return (*Engine)(pe).emit(ev) }
 func (pe *payer) Verify() bool                      { return walkCacheVerify }
-func (pe *payer) PayLifeInsteadOfB(p state.PlayerID) bool {
-	return (*Engine)(pe).payerGrantsPayLifeInsteadOfB(p)
-}
-func (pe *payer) MayPlayRider(p state.PlayerID, id state.ObjID) pipRider {
-	e := (*Engine)(pe)
-	return pipRider{AnyColor: e.payerGrantsIgnoreColor(p, id), AnyType: e.payerGrantsIgnoreType(p, id)}
-}
 func (pe *payer) MatchesSpecFrom(spec string, id state.ObjID, you state.PlayerID, source state.ObjID) bool {
 	return (*Engine)(pe).matchesSpecFrom(spec, id, you, source)
 }

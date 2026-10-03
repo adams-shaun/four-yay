@@ -7,7 +7,7 @@ package rules
 // every plain {B} pip in every cost the granting player pays also accepts 2
 // life, under the same deterministic prefer-mana-then-life assignment the
 // printed {B/P} pips use. The offer gate (castable), the X bounds, the mana
-// window and payMana all go through payerPayable/payerGrantsPayLifeInsteadOfB,
+// window and payMana all go through payerPayable/PayLifeInsteadOfB,
 // so a cost payable only by life is offered and charged consistently.
 //
 // K'rrik's own printed {B/P} pips were already native; this is the GRANTED

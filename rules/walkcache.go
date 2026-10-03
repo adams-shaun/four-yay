@@ -36,7 +36,7 @@ import (
 //     and subject, and that part still runs per call.
 //   - activeStatics(mode): the battlefield S:Mode$ <mode> statics, one list
 //     per mode. Every cost/restriction/grant reader re-walked the battlefield
-//     piles for it (payerGrantsPayLifeInsteadOfB alone does so on every
+//     piles for it (PayLifeInsteadOfB alone does so on every
 //     payability check). Returned CLIPPED, so a caller that appends to it
 //     (castRestrictionSources) reallocates instead of writing the cache.
 //   - mayPlaysThisTurn(p): the per-turn may-play count, a backward log scan

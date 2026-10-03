@@ -672,12 +672,13 @@ func (e *Engine) energyPayable(p state.PlayerID, c *Cost) bool {
 	return total == 0 || e.G.Players[p].Counter("ENERGY") >= total
 }
 
-// payerGrantsPayLifeInsteadOfB reports whether p's side of the battlefield
+// PayLifeInsteadOfB (pay.Engine) reports whether p's side of the battlefield
 // carries a Continuous static granting PayLifeInsteadOf:B to p (K'rrik's
 // "Affected$ You | AddKeyword$ PayLifeInsteadOf:B"). Every mana payment and
 // every cast/activation offer gate consults it, so a plain {B} pip is
 // payable with 2 life anywhere K'rrik is in play under its controller.
-func (e *Engine) payerGrantsPayLifeInsteadOfB(p state.PlayerID) bool {
+func (pe *payer) PayLifeInsteadOfB(p state.PlayerID) bool {
+	e := (*Engine)(pe)
 	for _, sv := range e.activeStatics("Continuous") {
 		// A member equal to the keyword needs the keyword as a substring, so
 		// the allocation-free substring test rejects every other static
@@ -693,39 +694,33 @@ func (e *Engine) payerGrantsPayLifeInsteadOfB(p state.PlayerID) bool {
 	return false
 }
 
-// payerGrantsIgnoreColor reports whether an active may-play grant of p's
-// carrying MayPlayIgnoreColor$ True selects the card id being cast: the
-// grant is p's, its AffectedZone names the card's CURRENT zone (so a card
-// being cast the ordinary way from hand never inherits an exile grant), and
-// the Affected$ spec matches the card. The IsRemembered predicate inside a
-// grant's spec is matched against the CONTINUOUS EFFECT's Remembered set
-// (the cards the delivering Effect captured), through the SpecContext the
-// ordinary filter grammar already carries -- the same direct-list reading
-// restrictionApplies uses for Effect-delivered CantTarget/CantRegenerate.
-func (e *Engine) payerGrantsIgnoreColor(p state.PlayerID, id state.ObjID) bool {
-	return e.payerGrantsMayPlayRider(p, id, func(ce ContinuousEffect) bool { return ce.MayPlayIgnoreColor })
-}
-
-// payerGrantsIgnoreType is payerGrantsIgnoreColor for the MayPlayIgnoreType$
-// rider (Rakdos, the Muscle's "mana of any type can be spent to cast those
-// spells"): the same zone/Affects/remembered-set reading, keyed on the wider
-// rider.
-func (e *Engine) payerGrantsIgnoreType(p state.PlayerID, id state.ObjID) bool {
-	return e.payerGrantsMayPlayRider(p, id, func(ce ContinuousEffect) bool { return ce.MayPlayIgnoreType })
-}
-
-// payerGrantsMayPlayRider is the shared body of the two may-play payment
-// riders: it walks the active may-play grants of p's and reports whether one
-// carrying the asked rider selects the card id being cast.
-func (e *Engine) payerGrantsMayPlayRider(p state.PlayerID, id state.ObjID, rider func(ContinuousEffect) bool) bool {
+// MayPlayRider (pay.Engine) reports the may-play payment riders an active
+// may-play grant of p's extends to the card id being cast: AnyColor for
+// MayPlayIgnoreColor$ True, AnyType for MayPlayIgnoreType$ (Rakdos, the
+// Muscle's "mana of any type can be spent to cast those spells"). A rider
+// counts when its grant is p's, its AffectedZone names the card's CURRENT
+// zone (so a card being cast the ordinary way from hand never inherits an
+// exile grant), and the Affected$ spec matches the card. The IsRemembered
+// predicate inside a grant's spec is matched against the CONTINUOUS
+// EFFECT's Remembered set (the cards the delivering Effect captured),
+// through the SpecContext the ordinary filter grammar already carries -- the
+// same direct-list reading restrictionApplies uses for Effect-delivered
+// CantTarget/CantRegenerate.
+func (pe *payer) MayPlayRider(p state.PlayerID, id state.ObjID) pipRider {
+	e := (*Engine)(pe)
+	var r pipRider
 	o := e.G.Obj(id)
 	if o == nil {
-		return false
+		return r
 	}
 	ces := e.active()
 	for i := range ces {
 		ce := &ces[i]
-		if !ce.MayPlay || !rider(*ce) || ce.Controller != p {
+		if !ce.MayPlay || ce.Controller != p {
+			continue
+		}
+		color, typ := ce.MayPlayIgnoreColor && !r.AnyColor, ce.MayPlayIgnoreType && !r.AnyType
+		if !color && !typ {
 			continue
 		}
 		if ce.MayPlayPlayerTurn && e.G.Active != p {
@@ -739,10 +734,14 @@ func (e *Engine) payerGrantsMayPlayRider(p state.PlayerID, id state.ObjID, rider
 			continue
 		}
 		if e.matchesSpec(ce.Affects, id, e.effectGrantSpecContext(ce)) {
-			return true
+			r.AnyColor = r.AnyColor || color
+			r.AnyType = r.AnyType || typ
+			if r.AnyColor && r.AnyType {
+				return r
+			}
 		}
 	}
-	return false
+	return r
 }
 
 // rememberedTargets lifts a ContinuousEffect's Remembered object ids into

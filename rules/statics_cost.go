@@ -323,7 +323,7 @@ func (m costMods) feasibleAny(c Cost, pool, snow state.Mana, typed [7]state.Mana
 
 // manaFeasibleGrant is manaFeasible with the may-play ignore-colour rider
 // passed explicitly (a pendingCast's pc.mayPlayIgnore, or the offer-side
-// payerGrantsIgnoreColor derivation), and the payer's PayLifeInsteadOf:B
+// MayPlayRider derivation), and the payer's PayLifeInsteadOf:B
 // grant derived here. Both widen the leaf payable check the same way the
 // payment (resolveManaWith) widens it, so an offered cast, an offered
 // announcement face and the charged total can never disagree on a
@@ -337,7 +337,7 @@ func (e *Engine) manaFeasibleDescriptor(p state.PlayerID, d paymentDescriptor, c
 	pl := e.G.Players[p]
 	av := pay.AvailableFor(asPayer(e), p, d)
 	return mods.feasibleAny(c, av.Pool, pl.Snow, av.Typed, pl.Life, taxGeneric, delve,
-		e.payerGrantsPayLifeInsteadOfB(p), rider, asPayer(e).Conv(p, d.ID, d.Class == paymentActivated))
+		asPayer(e).PayLifeInsteadOfB(p), rider, asPayer(e).Conv(p, d.ID, d.Class == paymentActivated))
 }
 
 // manaFeasiblePool is manaFeasible priced against an EXPLICIT pool instead of
@@ -365,8 +365,8 @@ func (e *Engine) manaFeasiblePoolP(p state.PlayerID, id state.ObjID, ability boo
 	}
 	pl := &e.G.Players[p]
 	return mods.feasibleAny(*c, pool, pl.Snow, typed, pl.Life, taxGeneric, delve,
-		e.payerGrantsPayLifeInsteadOfB(p),
-		pipRider{AnyColor: e.payerGrantsIgnoreColor(p, id), AnyType: e.payerGrantsIgnoreType(p, id)},
+		asPayer(e).PayLifeInsteadOfB(p),
+		asPayer(e).MayPlayRider(p, id),
 		asPayer(e).Conv(p, id, ability))
 }
 

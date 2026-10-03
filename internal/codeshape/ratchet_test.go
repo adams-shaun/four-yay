@@ -27,8 +27,8 @@ const (
 	// and W5 E3 the trigger matchers onto rules/trigmatch's: -> 2022. W5 E4
 	// moved the layer walk onto rules/chars: -> 2019. W3 clean deleted the
 	// Suspend* no-ops: -> 1965. W5 E7 moved mana payment onto rules/pay:
-	// -> 1944.
-	engineMethodCount = 1944
+	// -> 1944. Slice 4 made the payer grants pay.Engine adapter methods: -> 1940.
+	engineMethodCount = 1940
 	// hostMethodCount is the number of methods in the effects.Host interface
 	// (its whole method set, roles included). W1d replaced ObjectText,
 	// ObjectKeywords and BasePower with the one Chars query: 96 -> 94. W3 clean

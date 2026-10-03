@@ -369,7 +369,7 @@ func (e *Engine) castWindowReachable(p state.PlayerID, cost Cost, spellPool, sno
 	typed [7]state.Mana, life int32, conv *manaConv, units []windowManaUnit) bool {
 	payable := func(pool, snowPool state.Mana, lifeNow int32) bool {
 		_, ok := resolveManaWith(cost, pool, snowPool, typed, lifeNow,
-			e.payerGrantsPayLifeInsteadOfB(p), pipRider{}, conv)
+			asPayer(e).PayLifeInsteadOfB(p), pipRider{}, conv)
 
 		return ok
 	}
