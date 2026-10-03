@@ -1206,6 +1206,12 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 		spec string
 	}
 	var phaseNotes []phaseNote
+	// disableNotes collects the DisableTriggers statics carrying an unread
+	// parameter (live walks only, like phaseNotes): the static fails open, so
+	// the walk must report it once per game rather than suppress silently. The
+	// observer is a scratch Engine that must never emit, and its walk is the
+	// leaving one, so the filter below skips it.
+	var disableNotes []state.ObjID
 	// Granted triggers inspect the same active-static list for every object
 	// this event visits. Matching cannot emit or mutate continuous effects;
 	// phase diagnostics emit only after the walk, so this snapshot is stable
@@ -1366,6 +1372,22 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 								e.phaseUnknownNoted[spec] = true
 								phaseNotes = append(phaseNotes, phaseNote{id: id, spec: spec})
 							}
+						}
+					}
+					// A DisableTriggers static with an unread parameter fails open.
+					// Report it once per static per game, from the live walk only, so
+					// the scratch observer never emits.
+					for _, dsv := range e.activeStatics("DisableTriggers") {
+						if len(disableTriggersUnread(dsv)) == 0 {
+							continue
+						}
+						key := fmt.Sprintf("dt:%d", dsv.Source)
+						if e.disableTriggersNoted == nil {
+							e.disableTriggersNoted = map[string]bool{}
+						}
+						if !e.disableTriggersNoted[key] {
+							e.disableTriggersNoted[key] = true
+							disableNotes = append(disableNotes, dsv.Source)
 						}
 					}
 				}
@@ -1980,6 +2002,17 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 	for _, n := range phaseNotes {
 		e.emit(events.Event{Kind: events.Note, Obj: n.id,
 			Text: "Phase$ " + n.spec + " names no engine step; the trigger never fires"})
+	}
+	for _, src := range disableNotes {
+		params := ""
+		for _, sv := range e.activeStatics("DisableTriggers") {
+			if sv.Source == src {
+				params = strings.Join(disableTriggersUnread(sv), ",")
+				break
+			}
+		}
+		e.emit(events.Event{Kind: events.Note, Obj: src,
+			Text: "unmodelled DisableTriggers parameters: " + params})
 	}
 }
 
