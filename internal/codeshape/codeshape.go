@@ -67,9 +67,12 @@ type Metrics struct {
 	// literal key is the debt). StringParamKeys is the distinct-key count.
 	StringParamReads int `json:"string_param_reads"`
 	StringParamKeys  int `json:"string_param_keys"`
-	// StringCaseLiterals counts string literals in switch case lists in
-	// rules/ and effects/ non-test files; each literal of a multi-literal
-	// case counts.
+	// StringCaseLiterals counts, in rules/ and effects/ non-test files, the
+	// string literals appearing directly in a case clause's expression list:
+	// each such literal counts once (`case "A", "B":` is 2). A literal
+	// nested deeper inside a case expression (`case f("A"):`) or in the
+	// clause body is NOT counted -- unlike the spec's grep figures, which
+	// counted string literals on case lines.
 	StringCaseLiterals int `json:"string_case_literals"`
 	// Files is how many non-test .go files were parsed.
 	Files int `json:"files"`
