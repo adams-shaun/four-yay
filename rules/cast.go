@@ -403,7 +403,7 @@ type pendingCast struct {
 	// It is chosen after the complete mana cost exists and before the mana
 	// ability window; a committed creature is therefore unavailable to make
 	// mana as well as being tapped when payment is settled.
-	convoke          []convokePayment `clone:"share"`
+	convoke          []convokePayment `clone:"deep"`
 	convokeDone      bool             `clone:"deep"`
 	suspendCastClear bool             `clone:"deep"`
 
@@ -470,7 +470,7 @@ type pendingCast struct {
 	// They are copied from the target decision before payment so a ValidTarget$
 	// cost modifier can be recomputed after CR 601.2c and before 601.2h, even
 	// for an activated ability whose stack object is not minted until payment.
-	targets []state.Target `clone:"share"`
+	targets []state.Target `clone:"deep"`
 
 	// stageTargets records each Fuse target stage's OWN chosen targets
 	// (index 0 the front half's, index 1 the alternate half's), so
@@ -478,7 +478,7 @@ type pendingCast struct {
 	// Indexed by stage, so a targetless stage the ask loop skipped never
 	// misaligns the slices. A Fuse-only field; always empty for every other
 	// cast. Published to Engine.fuseTargets at payment.
-	stageTargets [][]state.Target `clone:"share"`
+	stageTargets [][]state.Target `clone:"deep"`
 	// charmTargets records one target slice for each distinct target-bearing
 	// mode selected by a modal spell. The stack object's ordinary Targets is
 	// retained as the flat event-sourced view; this scratch preserves the

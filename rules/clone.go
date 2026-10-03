@@ -968,6 +968,18 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 			}
 		}
 		pc.rootOpts = append([]decision.Option(nil), e.cast.rootOpts...)
+		// The chosen targets, the Fuse per-stage target slices and the convoke
+		// taps all grow by append while the cast's target and payment asks are
+		// answered, so a clone sharing their backing arrays would let either
+		// engine's next answer write the other's spare-capacity slot.
+		pc.targets = append([]state.Target(nil), e.cast.targets...)
+		if e.cast.stageTargets != nil {
+			pc.stageTargets = make([][]state.Target, len(e.cast.stageTargets))
+			for i, ts := range e.cast.stageTargets {
+				pc.stageTargets[i] = append([]state.Target(nil), ts...)
+			}
+		}
+		pc.convoke = append([]convokePayment(nil), e.cast.convoke...)
 		pc.evidence = append([]state.ObjID(nil), e.cast.evidence...)
 		pc.preModes = append([]string(nil), e.cast.preModes...)
 		if e.cast.charmTargets != nil {
