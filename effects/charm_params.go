@@ -31,9 +31,10 @@ import (
 type CharmParams struct {
 	paramBinding
 
-	// Choices$: the text, whether it is non-blank, and Modes -- the text
-	// split on commas with each name trimmed, exactly the list every reader
-	// built by hand before (an absent Choices$ is the one-name list [""]).
+	// Choices$: the text, whether it is non-blank, and Modes --
+	// cards.SplitModeNames of it, the one split the resolution kernel's
+	// ask-free predicate (cards.SAChainMayAsk) walks too: exactly the list
+	// every reader built by hand before (an absent Choices$ is [""]).
 	// Modes is shared and read-only: its capacity is clipped, so an append
 	// copies, and no caller writes through it.
 	ChoicesText string
@@ -108,11 +109,7 @@ func compileCharm(sa *cards.SA) *CharmParams {
 	p := &CharmParams{paramBinding: bindParams(sa)}
 	p.ChoicesText = sa.ParamStr(cards.PKChoices)
 	p.HasChoices = strings.TrimSpace(p.ChoicesText) != ""
-	p.Modes = strings.Split(p.ChoicesText, ",")
-	for i := range p.Modes {
-		p.Modes[i] = strings.TrimSpace(p.Modes[i])
-	}
-	p.Modes = slices.Clip(p.Modes)
+	p.Modes = slices.Clip(cards.SplitModeNames(p.ChoicesText))
 
 	cn, cnOK := sa.Params["CharmNum"]
 	p.CharmNum = ParamText{Text: cn, Present: cnOK}
