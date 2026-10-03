@@ -182,3 +182,21 @@ func TestTapeConvertUpkeepWindows(t *testing.T) {
 		})
 	}
 }
+
+// An "as this enters" choice (replacement_etb.go) is served from the tape:
+// the entry is re-emitted with the answer in line, never parked.
+func TestTapeConvertETBChoice(t *testing.T) {
+	srcs := []string{
+		"Name:Tape Prism Bear\nManaCost:B\nTypes:Creature Bear\nPT:2/2\nK:ETBReplacement:Other:ChooseColor\nSVar:ChooseColor:DB$ ChooseColor\nOracle:x\n",
+		"Name:Tape Totem\nManaCost:B\nTypes:Artifact\nK:ETBReplacement:Other:ChooseCT\nSVar:ChooseCT:DB$ ChooseType | Type$ Creature\nOracle:x\n",
+	}
+	for i, src := range srcs {
+		name := strings.TrimPrefix(strings.SplitN(src, "\n", 2)[0], "Name:")
+		t.Run(name, func(t *testing.T) {
+			_, st := tapeDual(t, 2, 13500+uint64(i), tapeUnlessScenario(name, "B", 0, tapePick), src)
+			if st.Served < 1 || st.LegacySwitch != 0 || st.Aborts != 0 {
+				t.Fatalf("the as-enters choice was not served from the tape: %+v", st)
+			}
+		})
+	}
+}
