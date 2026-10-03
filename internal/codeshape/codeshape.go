@@ -297,6 +297,17 @@ var DigUntilFiles = []string{"effects/diguntil.go"}
 // DigUntilOnlyKeys are the parameter keys only DigUntil's compiler reads.
 var DigUntilOnlyKeys = []string{"DigZone", "FoundDestination", "FoundLibraryPosition", "ImprintRevealed", "NoMoveFound", "NoMoveRevealed", "NoneFoundDestination", "NoneFoundLibraryPosition", "OptionalFoundMove", "OptionalNoDestination", "RevealRandomOrder", "RevealedDestination", "RevealedLibraryPosition", "ShuffleCondition"}
 
+// RemoveCounterCompilerFile is api:RemoveCounter's parameter compiler (W4 step 3): the one
+// file allowed to read a RemoveCounter ability's parameters.
+const RemoveCounterCompilerFile = "effects/removecounter_params.go"
+
+// RemoveCounterFiles are RemoveCounter's own resolution files: they carry no parameter
+// read of any key.
+var RemoveCounterFiles = []string{"effects/removecounter.go"}
+
+// RemoveCounterOnlyKeys are the parameter keys only RemoveCounter's compiler reads.
+var RemoveCounterOnlyKeys = []string{"ChoiceNum", "CounterNumShared", "RememberRemoved"}
+
 // TypedParamCompiler names one API's parameter compiler for the leak census
 // (Metrics.ChangeZoneParamLeaks and its siblings): the compiler file, the
 // API's own resolution files (no parameter read of any key there) and the
@@ -457,6 +468,10 @@ type Metrics struct {
 	// DigUntilFiles, DigUntilOnlyKeys).
 	DigUntilParamLeaks int      `json:"dig_until_param_leaks"`
 	DigUntilLeaks      []string `json:"dig_until_leaks"`
+	// RemoveCounterParamLeaks is the same census for api:RemoveCounter (RemoveCounterCompilerFile,
+	// RemoveCounterFiles, RemoveCounterOnlyKeys).
+	RemoveCounterParamLeaks int      `json:"remove_counter_param_leaks"`
+	RemoveCounterLeaks      []string `json:"remove_counter_leaks"`
 	// TrigmatchBoardMethods counts the methods trigmatch.Board declares
 	// (rules/trigmatch/board.go): the read-only view the trigger matchers
 	// reach the engine through (W5 E3). Zero when the package is absent.
@@ -595,6 +610,8 @@ func Measure(root string) (Metrics, error) {
 				TypedParamCompiler{DigCompilerFile, DigFiles, DigOnlyKeys})...)
 			m.DigUntilLeaks = append(m.DigUntilLeaks, paramLeaks(fset, f, rel,
 				TypedParamCompiler{DigUntilCompilerFile, DigUntilFiles, DigUntilOnlyKeys})...)
+			m.RemoveCounterLeaks = append(m.RemoveCounterLeaks, paramLeaks(fset, f, rel,
+				TypedParamCompiler{RemoveCounterCompilerFile, RemoveCounterFiles, RemoveCounterOnlyKeys})...)
 			ast.Inspect(f, func(n ast.Node) bool {
 				switch x := n.(type) {
 				case *ast.TypeAssertExpr:
@@ -666,6 +683,7 @@ func Measure(root string) (Metrics, error) {
 	m.CloneParamLeaks, m.CloneLeaks = finishLeaks(m.CloneLeaks)
 	m.DigParamLeaks, m.DigLeaks = finishLeaks(m.DigLeaks)
 	m.DigUntilParamLeaks, m.DigUntilLeaks = finishLeaks(m.DigUntilLeaks)
+	m.RemoveCounterParamLeaks, m.RemoveCounterLeaks = finishLeaks(m.RemoveCounterLeaks)
 	m.FuncsOver300 = len(m.LongFuncs)
 	sort.Slice(m.LongFuncs, func(i, j int) bool {
 		a, b := m.LongFuncs[i], m.LongFuncs[j]

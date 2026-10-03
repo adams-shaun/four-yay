@@ -80,7 +80,9 @@ const (
 	// compiled once): 593 -> 581.
 	// The DigUntil compiler (effDigUntil moved to diguntil.go; its literal
 	// reads and withheld-rider list compiled once): 581 -> 568.
-	stringParamReads = 568
+	// The RemoveCounter compiler (effRemoveCounter moved to removecounter.go;
+	// CounterNumShared$/ChoiceNum$/RememberRemoved$ read once): 568 -> 564.
+	stringParamReads = 564
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
 	// W4 step 3: Attach's Object$ switch compiled to a kind: 2886 -> 2883.
@@ -176,6 +178,10 @@ const (
 	// effects/diguntil_params.go (codeshape.DigUntilFiles, codeshape.DigUntilOnlyKeys). It landed at
 	// zero.
 	digUntilParamLeaks = 0
+	// removeCounterParamLeaks is the same census for api:RemoveCounter's compiler,
+	// effects/removecounter_params.go (codeshape.RemoveCounterFiles, codeshape.RemoveCounterOnlyKeys). It landed at
+	// zero.
+	removeCounterParamLeaks = 0
 )
 
 func measureRepo(t *testing.T) Metrics {
@@ -375,6 +381,11 @@ func TestCodeShapeOnlyShrinks(t *testing.T) {
 				"field to compileDigUntil in effects/diguntil_params.go) instead of reading the ability's Params in " +
 				"effects/diguntil.go or a DigUntil-only key elsewhere. " +
 				"Leaks: " + strings.Join(m.DigUntilLeaks, ", ")},
+		{"removeCounterParamLeaks", m.RemoveCounterParamLeaks, removeCounterParamLeaks,
+			"Read the parameter through effects.RemoveCounterOf's compiled RemoveCounterParams (add a " +
+				"field to compileRemoveCounter in effects/removecounter_params.go) instead of reading the ability's Params in " +
+				"effects/removecounter.go or a RemoveCounter-only key elsewhere. " +
+				"Leaks: " + strings.Join(m.RemoveCounterLeaks, ", ")},
 		{"triggerContextLiterals", m.TriggerContextLiterals, triggerContextLiterals,
 			"Derive trigger referents from the firing event (rules' triggerReferents) or " +
 				"copy an existing TriggerContext and set the fields that differ; a " +
