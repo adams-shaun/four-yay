@@ -140,6 +140,37 @@ type Options struct {
 	// and NaN reads 0.5; a panic inside it discards the simulation
 	// (Stats.Panics). Nil leaves every search exactly as it was.
 	Leaf LeafFunc
+
+	// OpponentNodes makes the tree branch on the opponent's searched
+	// decisions too (oppnodes.go), as upstream MageZero's tree does: a
+	// decision of the other seat of a searched kind with at least two
+	// candidates is an opponent node, valued from the opponent's side
+	// (selectEdge picks the child best for the mover), instead of being
+	// answered by the bot. Every stored value stays the searching seat's.
+	// Off (the default) leaves every search byte-identical to a search
+	// before opponent nodes existed (TestOpponentNodesOffIsByteIdentical).
+	// Search refuses it unless the game has two players and the world
+	// source is fixed (FixedWorldSource: the clairvoyant clone,
+	// FixedChance), and Validate refuses it with RootPerWorld.
+	OpponentNodes bool
+	// OpponentLimit caps the candidates at an opponent node, the opponent
+	// bot's answer first; 0 is Limit.
+	OpponentLimit int
+
+	// swapFrame is a test-only knob (TestOpponentNodesEngineSymmetry): the
+	// value frame is the opponent's instead of the searching seat's, so
+	// the root is an opponent node, the searching seat's in-walk points
+	// are opponent nodes, the opponent's are not, and every leaf is the
+	// opponent's value. Requires OpponentNodes.
+	swapFrame bool
+}
+
+// oppLimit is the candidate cap at an opponent node.
+func (o Options) oppLimit() int {
+	if o.OpponentLimit > 0 {
+		return o.OpponentLimit
+	}
+	return o.Limit
 }
 
 // DiscountUnit is what one step of the backup discount counts.
@@ -242,6 +273,13 @@ type Stats struct {
 	NodeSaves   int // node states the cache stored
 	NodeResumes int // simulations that resumed from a stored node state below the root
 	NodeEvicts  int // stored node states dropped for a more-visited node (the cache was full)
+
+	// OppPoints counts the selections made at opponent nodes
+	// (Options.OpponentNodes) by the simulations' walks, and OppExpanded
+	// the opponent nodes created (its share of Expanded). Both stay 0 with
+	// the switch off.
+	OppPoints   int
+	OppExpanded int
 
 	// KindSearched splits Searched by kind (KindNames order).
 	KindSearched [NumKinds]int
@@ -348,6 +386,8 @@ func (s *Stats) Add(o Stats) {
 	s.NodeSaves += o.NodeSaves
 	s.NodeResumes += o.NodeResumes
 	s.NodeEvicts += o.NodeEvicts
+	s.OppPoints += o.OppPoints
+	s.OppExpanded += o.OppExpanded
 	for k := range s.KindSearched {
 		s.KindSearched[k] += o.KindSearched[k]
 		for r := range s.KindSkipped[k] {

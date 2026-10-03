@@ -60,6 +60,18 @@ type walkConfig struct {
 	// and the prior's reusable views, refilled per leaf and per point.
 	// Nil (a hand-built config) projects into fresh views.
 	views *viewScratch
+
+	// The opponent half (Options.OpponentNodes, oppnodes.go), all zero with
+	// the switch off: opp is the other seat, oppLimit its candidate cap,
+	// oppObs its root observer (cloned into every world) and oppRootRefs
+	// that observer's NameKeys boundary. swapFrame is the test-only frame
+	// swap (Options.swapFrame).
+	oppNodes    bool
+	swapFrame   bool
+	opp         state.PlayerID
+	oppLimit    int
+	oppObs      *searchprobe.Collector
+	oppRootRefs int
 }
 
 // priorNet is the network in-walk priors read: nil under uniformPrior.
@@ -162,6 +174,12 @@ type engineEnv struct {
 	// actorPCG is actorBot's source, which the node cache saves and
 	// restores with pcgs.
 	actorPCG *rand.PCG
+	// oppObs is the opponent's observer and oppBot / oppPCG its auto-pay
+	// bot and that bot's source (Options.OpponentNodes; oppBot only under
+	// autoPayment). All nil with the switch off.
+	oppObs *searchprobe.Collector
+	oppBot *seat.Bot
+	oppPCG *rand.PCG
 }
 
 func newEngineEnv(w World, cfg *walkConfig) (*engineEnv, error) {
@@ -195,6 +213,9 @@ func newEngineEnv(w World, cfg *walkConfig) (*engineEnv, error) {
 	if cfg.autoPayment {
 		env.actorPCG = seat.BotSource(splitmix(cfg.envSeed ^ 0x6163746f722d6270 ^ uint64(cfg.actor)))
 		env.actorBot = seat.NewBotOn(env.actorPCG).EnableAutoPayMana()
+	}
+	if cfg.oppNodes {
+		env.initOpponent()
 	}
 	if cfg.rootPerWorld {
 		if err := env.matchRoot(); err != nil {
@@ -338,6 +359,14 @@ func (e *engineEnv) advance() (*Point, error) {
 				e.e.EnsurePaymentActions()
 			}
 			in, _ = e.actorBot.DecideBoard(context.Background(), b, *pd)
+		} else if e.oppBot != nil && pd.Player == e.cfg.opp {
+			// The opponent's auto-pay bot (opponent nodes under autoPayment),
+			// the mirror of the actor's.
+			b := botpolicy.BoardFromGameInto(g, e.e, pd.Player, e.board)
+			if pd.Kind == decision.KPriority {
+				e.e.EnsurePaymentActions()
+			}
+			in, _ = e.oppBot.DecideBoard(context.Background(), b, *pd)
 		} else {
 			// A decision whose bot answer reads no board (a priority window
 			// offering nothing but pass, or only mana activations outside a main
@@ -367,7 +396,11 @@ func (e *engineEnv) advance() (*Point, error) {
 				for i, c := range cands {
 					keys[i] = c.key
 				}
-				return &Point{Keys: keys, Prior: prior, cut: cut, fell: fell}, nil
+				return &Point{Keys: keys, Prior: prior, cut: cut, fell: fell, opp: e.cfg.swapFrame}, nil
+			}
+		} else if e.cfg.oppNodes && pd.Player == e.cfg.opp {
+			if pt, ok := e.oppPoint(pd, in); ok {
+				return pt, nil
 			}
 		}
 		if e.steps >= e.cfg.maxSteps {
@@ -425,19 +458,19 @@ func (e *engineEnv) Leaf() (l Leaf) {
 		switch {
 		case g.Draw:
 			v = 0.5
-		case g.Winner == e.cfg.actor:
+		case g.Winner == e.cfg.frame():
 			v = 1
 		}
 		return Leaf{V: v, Terminal: true}
 	}
 	if e.cfg.leaf != nil {
-		return Leaf{V: clampLeaf(e.cfg.leaf(e.e, e.cfg.actor)), Capped: e.capped}
+		return Leaf{V: clampLeaf(e.cfg.leaf(e.e, e.cfg.frame())), Capped: e.capped}
 	}
 	leafNet := e.cfg.net
 	if e.cfg.heuristicLeaf {
 		leafNet = nil
 	}
-	return Leaf{V: leafValue(leafNet, e.e, e.cfg.actor, e.cfg.views), Capped: e.capped}
+	return Leaf{V: leafValue(leafNet, e.e, e.cfg.frame(), e.cfg.views), Capped: e.capped}
 }
 
 // clampLeaf is a caller-supplied leaf's value as the tree takes it: clamped

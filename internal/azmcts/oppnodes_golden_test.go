@@ -1,6 +1,7 @@
 package azmcts
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -39,6 +40,11 @@ type oppGoldenCase struct {
 func goldenHeuristicLeaf(e *rules.Engine, actor state.PlayerID) float64 {
 	return heuristicLeafValue(e, actor)
 }
+
+// oppStatsJSON is the opponent-node counters as a switched-off search's
+// Result encodes them (Stats field order), which the golden, captured
+// before they existed, does not hold.
+var oppStatsJSON = []byte(`,"OppPoints":0,"OppExpanded":0`)
 
 // oppGoldenRun runs every pinned configuration over a fixed root list.
 func oppGoldenRun(t *testing.T) []oppGoldenCase {
@@ -87,6 +93,13 @@ func oppGoldenRun(t *testing.T) []oppGoldenCase {
 			if err != nil {
 				t.Fatalf("%s %s: %v", r.name, c.name, err)
 			}
+			// The golden predates the opponent-node counters: with the
+			// switch off they must be zero, and the Result's encoding
+			// without them must be the one captured.
+			if n := bytes.Count(raw, oppStatsJSON); n != 1 {
+				t.Fatalf("%s %s: the opponent-node counters are not both zero exactly once (%d) in %s", r.name, c.name, n, raw)
+			}
+			raw = bytes.Replace(raw, oppStatsJSON, nil, 1)
 			sum := sha256.Sum256(raw)
 			out = append(out, oppGoldenCase{
 				Name: fmt.Sprintf("%s|%s", r.name, c.name), Choice: res.Choice,

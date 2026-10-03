@@ -121,6 +121,12 @@ func (o Options) Validate(net *policynet.Model) error {
 		return fmt.Errorf("azmcts: unknown discount unit %d", o.DiscountUnit)
 	case o.AbsoluteUnvisitedQ && (o.UnvisitedQ < 0 || o.UnvisitedQ > 1 || o.UnvisitedQ != o.UnvisitedQ):
 		return fmt.Errorf("azmcts: unvisited Q %g must be in [0,1]", o.UnvisitedQ)
+	case o.OpponentLimit < 0 || o.OpponentLimit == 1:
+		return fmt.Errorf("azmcts: opponent candidate limit %d must be 0 (the candidate limit) or >= 2", o.OpponentLimit)
+	case o.OpponentNodes && o.RootPerWorld:
+		return errors.New("azmcts: opponent nodes need one fixed world; RootPerWorld re-derives the root per world")
+	case o.swapFrame && !o.OpponentNodes:
+		return errors.New("azmcts: the swapped value frame needs opponent nodes")
 	}
 	if net != nil {
 		if !net.HasValue() {
@@ -161,6 +167,11 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 	}
 	if root.Engine == nil || root.Decision == nil || root.Observer == nil {
 		return res, errors.New("azmcts: Search needs the root engine, decision and observer")
+	}
+	if opts.OpponentNodes {
+		if err := checkOpponentGame(root); err != nil {
+			return res, err
+		}
 	}
 	var envBoard, enumBoard boardScratch
 	views := searchViews.Get().(*viewScratch)
@@ -205,6 +216,11 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 	if src == nil {
 		return res, errors.New("azmcts: Search needs a world source")
 	}
+	if opts.OpponentNodes {
+		if err := checkOpponentSource(src); err != nil {
+			return res, err
+		}
+	}
 	res.Stats.Searched = 1
 	res.Stats.KindSearched[kindIndex(kind)]++
 	rng := rand.New(rand.NewPCG(opts.Seed, opts.Seed^0x9e3779b97f4a7c15))
@@ -212,7 +228,7 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 	if opts.Noise {
 		treePrior = noisyPrior(prior, rng, opts.DirichletAlpha, opts.DirichletEps)
 	}
-	rootPt := &Point{Keys: res.Keys, Prior: treePrior}
+	rootPt := &Point{Keys: res.Keys, Prior: treePrior, opp: opts.swapFrame}
 	cfg := &walkConfig{
 		net: net, heuristicLeaf: opts.HeuristicLeaf, leaf: opts.Leaf, kinds: opts.Kinds, limit: opts.Limit, maxSteps: opts.MaxSteps,
 		envSeed: splitmix(opts.Seed ^ 0x656e762d73656564), actor: root.Decision.Player, autoPayment: opts.AutoPayment,
@@ -221,14 +237,23 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 		root: rootPt, rootCands: cands, rootDec: root.Decision, stats: &res.Stats,
 		envBoard: &envBoard, enumBoard: &enumBoard, views: views,
 	}
+	if opts.OpponentNodes {
+		if err := prepareOpponent(cfg, root, opts); err != nil {
+			return res, err
+		}
+	}
 	var envs EnvSource = &worldEnvs{src: src, cfg: cfg}
 	if opts.NodeCache > 0 && isFixed(src) {
 		envs = &fixedEnvs{worldEnvs: envs.(*worldEnvs)}
 	}
-	tr, err := RunTree(ctx, rootPt, envs, opts, &res.Stats)
+	top, err := runTree(ctx, rootPt, envs, opts, &res.Stats)
 	if err != nil {
 		return res, err
 	}
+	if searchTreeHook != nil {
+		searchTreeHook(top)
+	}
+	tr := treeResult(rootPt, top)
 	if res.Stats.DeadlineHits > 0 {
 		// The armed bail-out fired (ctx done at the call or between
 		// simulations): the tree stopped where it was and the bot's answer
@@ -246,6 +271,10 @@ func Search(ctx context.Context, root Root, src WorldSource, net *policynet.Mode
 	}
 	return res, nil
 }
+
+// searchTreeHook, when set, sees every Search's whole tree once it is built
+// (the opponent-node tests read below the root). Nil outside tests.
+var searchTreeHook func(top *node)
 
 // DecisionSeed is the per-decision seed of spec §2: a mix of the seat's seed
 // (itself derived from the game seed, internal/bench.RunPairs) and the

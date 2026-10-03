@@ -19,12 +19,14 @@ type fakeNode struct {
 	terminal bool
 	capped   bool
 	err      error // Play into this path always fails with err
+	opp      bool  // the opponent's decision (Point.opp)
 }
 
 type fakeGame struct {
 	nodes    map[string]fakeNode
 	failOnce map[string]error     // Play into this path fails once, then plays normally
 	rootFor  func(sim int) *Point // per-world root offer (availability); nil = nodes[""]
+	oppFlip  map[string]bool      // Play into this path offers the other seat's decision from sim 1 on
 }
 
 type fakeEnv struct {
@@ -38,7 +40,7 @@ func (f *fakeEnv) Root() *Point {
 		return f.g.rootFor(f.sim)
 	}
 	n := f.g.nodes[""]
-	return &Point{Keys: n.keys, Prior: n.prior}
+	return &Point{Keys: n.keys, Prior: n.prior, opp: n.opp}
 }
 
 func (f *fakeEnv) Play(k Key) (*Point, error) {
@@ -57,7 +59,11 @@ func (f *fakeEnv) Play(k Key) (*Point, error) {
 	if n.terminal || n.capped {
 		return nil, nil
 	}
-	return &Point{Keys: n.keys, Prior: n.prior}, nil
+	opp := n.opp
+	if f.g.oppFlip[f.path] && f.sim > 0 {
+		opp = !opp
+	}
+	return &Point{Keys: n.keys, Prior: n.prior, opp: opp}, nil
 }
 
 func (f *fakeEnv) Leaf() Leaf {
@@ -81,7 +87,7 @@ func (s *fakeSource) Env(sim int) (Env, error) {
 
 func rootOf(g *fakeGame) *Point {
 	n := g.nodes[""]
-	return &Point{Keys: n.keys, Prior: n.prior}
+	return &Point{Keys: n.keys, Prior: n.prior, opp: n.opp}
 }
 
 func treeOpts(sims int) Options {
