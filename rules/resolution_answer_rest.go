@@ -375,6 +375,12 @@ func (e *Engine) resumeAnswerBindingRest(rp *resumePoint, o *state.Object, ctx *
 		if len(chosen) > 0 && chosen[0].Kind == "unless" {
 			ctx.UnlessElected = "unless"
 		}
+		// The per-target cursor (the discard_may pattern): the election
+		// belongs to the acting player it was posed for, so the re-entered
+		// walk skips the targets processed before it instead of handing
+		// target 0 a later target's election (Bandit's Talent's Defined$
+		// Opponent over two opponents re-ran opponent 0's discard).
+		ctx.DiscardTarget = rp.target
 	case "hideaway_pick":
 		// Hideaway's first ask chooses exactly one of the looked-at cards.
 		// The effect validates it remains in the library before moving it,

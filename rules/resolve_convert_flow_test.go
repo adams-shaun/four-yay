@@ -133,3 +133,15 @@ func TestTapeConvertFlowDiscard(t *testing.T) {
 			kinds: []string{"discard"}, served: 1},
 	})
 }
+
+// A multi-target UnlessType$ discard (Bandit's Talent's Defined$ Opponent,
+// Compulsive Research's Defined$ Targeted): each target's election applies
+// to that target alone. Before the discard_unless cursor the legacy
+// re-entry handed target 0 a later target's election and re-ran its
+// discard; the tape path never could, so the two diverged.
+func TestTapeConvertFlowDiscardUnlessEachTarget(t *testing.T) {
+	runTapeFlowCases(t, 32500, 3, []tapeFlowCase{
+		{name: "Tape Each Thirst", src: "A:SP$ Discard | Defined$ Player | Mode$ TgtChoose | NumCards$ 2 | UnlessType$ Land",
+			kinds: []string{"discard_unless", "discard"}, served: 2},
+	})
+}

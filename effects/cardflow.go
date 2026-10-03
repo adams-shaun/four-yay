@@ -427,6 +427,13 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 	vote := c.DiscardVote
 	answered := answers != nil
 	voted := vote != ""
+	// The UnlessType$ election's cursor: an answered "discard_unless"
+	// re-entry carries the asking target's index in Ctx.DiscardTarget, and
+	// the targets before it were fully processed on the pass that asked.
+	electedTarget := -1
+	if c.UnlessElected != "" {
+		electedTarget = answerTarget
+	}
 	c.Discard = nil
 	c.DiscardTarget = 0
 	c.DiscardVote = ""
@@ -556,6 +563,9 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 			// the card pick with the zero-card answer removed.
 			if voted && targetIndex < answerTarget {
 				continue
+			}
+			if targetIndex < electedTarget {
+				continue // fully processed before a later target's election
 			}
 			elVote := ""
 			if voted && targetIndex == answerTarget {
