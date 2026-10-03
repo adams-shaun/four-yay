@@ -130,7 +130,11 @@ func (e *Engine) replacementMatchesRememberedUngatedBy(r cards.Repl, source stat
 		if ev.Kind != events.Attach || len(ev.IDs) == 0 {
 			return false
 		}
-		if v := r.ParamStr(cards.PKValidCard); v != "" && !e.matchesSpecFrom(v, source, you, source) {
+		// ValidCard$ names the ATTACHING object (ev.Obj) in the replacement
+		// source's frame: Psychic Paper's `ValidCard$ Card.Self` is "as
+		// CARDNAME becomes attached", so another Equipment or an Aura
+		// attaching never poses its choice.
+		if v := r.ParamStr(cards.PKValidCard); v != "" && !e.matchesSpecFrom(v, ev.Obj, you, source) {
 			return false
 		}
 		if v := r.ParamStr(cards.PKValidTarget); v != "" && !e.matchesSpecFrom(v, ev.IDs[0], you, source) {

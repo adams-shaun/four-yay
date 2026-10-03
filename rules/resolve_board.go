@@ -54,7 +54,7 @@ func asResolve(e *Engine) *resolveBoard { return (*resolveBoard)(e) }
 // converted ask sites: inside a tape run the decision is posed and either
 // answered from the tape or the run unwinds; with a synchronous answerer it
 // is posed and answered inline. ok false: ask through the legacy path.
-func (e *Engine) TapeAnswer(d *decision.Decision) ([]decision.Option, bool) {
+func (e *Engine) TapeAnswer(d *decision.Decision) (decision.Intent, bool) {
 	return e.tape.Answer(asResolve(e), d)
 }
 
@@ -191,22 +191,26 @@ func (b *resolveBoard) Submit(in decision.Intent) error { return (*Engine)(b).Su
 
 func (b *resolveBoard) Pose(d *decision.Decision) { (*Engine)(b).ask(d) }
 
-func (b *resolveBoard) Record(d *decision.Decision, in decision.Intent) []decision.Option {
+func (b *resolveBoard) Record(d *decision.Decision, in decision.Intent) decision.Intent {
 	e := (*Engine)(b)
-	in = cloneIntentForLog(in)
+	logged := cloneIntentForLog(in)
 	e.potentialAskSerial++
-	e.tape.LogIntent(e.L, in)
-	e.emit(events.Event{Kind: events.DecisionMade, Player: in.Player, Text: decisionMadeText(d.Kind, in.Choices)})
+	e.tape.LogIntent(e.L, logged)
+	e.emit(events.Event{Kind: events.DecisionMade, Player: logged.Player, Text: decisionMadeText(d.Kind, logged.Choices)})
 	e.pending = nil
-	chosen := d.Chosen(in)
+	// The asking code acts for the seat the decision is asked OF (a CR 722
+	// redirect), exactly as submitCommit re-seats a handler's intent.
+	ad, _ := actingView(d, logged)
+	acted := logged
+	acted.Player = ad.Player
 	if d.Kind == decision.KModes {
 		obj := d.Source
 		if n := len(e.G.Stack); n > 0 {
 			obj = e.G.Stack[n-1] // the resolving object stays on the stack
 		}
-		recordModesAnswer(e, d, in.Player, chosen, obj)
+		recordModesAnswer(e, ad, acted.Player, d.Chosen(acted), obj)
 	}
-	return chosen
+	return acted
 }
 
 func (b *resolveBoard) Emit(ev events.Event) { events.Emit(b.G, b.L, ev) }
