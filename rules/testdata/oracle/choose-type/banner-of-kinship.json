@@ -1,0 +1,510 @@
+{
+ "card": "Banner of Kinship",
+ "family": "choose-type",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "4c6e6e51e3f8",
+ "scenarios": [
+  {
+   "name": "counters-for-each-creature-of-chosen-type",
+   "cr": [
+    "614.1c",
+    "614.12"
+   ],
+   "why": "As it enters, Bear is chosen: two Bears give two fellowship counters, and each Bear gets +2/+2.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Grizzly Bears",
+      "Savannah Lions"
+     ],
+     "hand": [
+      "Banner of Kinship"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Banner of Kinship",
+     "mana": "CCCCC",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Bear"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Bear"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Banner of Kinship",
+     "zone": "battlefield",
+     "counters": {
+      "fellowship": 2
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "4/4"
+    },
+    {
+     "card": "p0:Grizzly Bears#2",
+     "pt": "4/4"
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "pt": "2/1"
+    }
+   ]
+  },
+  {
+   "name": "opponents-creatures-neither-counted-nor-pumped",
+   "cr": [
+    "614.12"
+   ],
+   "why": "Only creatures YOU control: the opponent's Bears neither add counters nor get the bonus.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Banner of Kinship"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Banner of Kinship",
+     "mana": "CCCCC",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Bear"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Bear"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Banner of Kinship",
+     "counters": {
+      "fellowship": 1
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "3/3"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "pt": "2/2"
+    }
+   ]
+  },
+  {
+   "name": "later-creature-of-type-gets-bonus-counters-fixed",
+   "cr": [
+    "611.3a",
+    "122.6"
+   ],
+   "why": "The counter count is fixed at entry; a Bear cast later gets the current bonus (+2/+2) but adds no counter.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Banner of Kinship",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Banner of Kinship",
+     "mana": "CCCCC",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Bear"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Bear"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears#3",
+     "mana": "GC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Banner of Kinship",
+     "counters": {
+      "fellowship": 2
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears#3",
+     "pt": "4/4"
+    }
+   ]
+  },
+  {
+   "name": "no-creature-of-type-no-counters",
+   "cr": [
+    "614.1c"
+   ],
+   "why": "With no creature of the chosen type it enters with no counters and pumps nothing.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Savannah Lions"
+     ],
+     "hand": [
+      "Banner of Kinship"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Banner of Kinship",
+     "mana": "CCCCC",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Bear"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Bear"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Banner of Kinship",
+     "counters": {
+      "fellowship": 0
+     }
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "pt": "2/1"
+    }
+   ]
+  },
+  {
+   "name": "chosen-type-only-opponent-has-no-counters",
+   "cr": [
+    "614.1c",
+    "614.12"
+   ],
+   "why": "Bear chosen while only the opponent controls Bears: no fellowship counters and nothing is pumped (its controller's Cat stays 2/1).",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Savannah Lions"
+     ],
+     "hand": [
+      "Banner of Kinship"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Banner of Kinship",
+     "mana": "CCCCC",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Bear"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Bear"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Banner of Kinship",
+     "counters": {
+      "fellowship": 0
+     }
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "pt": "2/1"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "pt": "2/2"
+    }
+   ]
+  },
+  {
+   "name": "minority-type-can-be-chosen",
+   "cr": [
+    "614.12"
+   ],
+   "why": "The choice is the player's: Bear may be chosen even though Cats are the majority, pumping the one Bear only.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Savannah Lions",
+      "Savannah Lions"
+     ],
+     "hand": [
+      "Banner of Kinship"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Banner of Kinship",
+     "mana": "CCCCC",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Bear"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Bear"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Banner of Kinship",
+     "counters": {
+      "fellowship": 1
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "3/3"
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "pt": "2/1"
+    }
+   ]
+  },
+  {
+   "name": "active-player-gets-priority-after-it-resolves",
+   "cr": [
+    "117.3b",
+    "608.2n"
+   ],
+   "why": "After the Banner resolves (its controller choosing Bear from Bear and Cat), the active player receives priority and can cast a creature in the same main phase.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Savannah Lions"
+     ],
+     "hand": [
+      "Banner of Kinship",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Banner of Kinship",
+     "mana": "CCCCC"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Bear"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears#2",
+     "mana": "GC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears#2",
+     "zone": "battlefield",
+     "pt": "4/4"
+    }
+   ]
+  },
+  {
+   "name": "other-type-chosen-pumps-that-type",
+   "cr": [
+    "614.12"
+   ],
+   "why": "Choosing Cat counts and pumps the Cat, not the Bear.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Savannah Lions"
+     ],
+     "hand": [
+      "Banner of Kinship"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Banner of Kinship",
+     "mana": "CCCCC",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Cat"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "Cat"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Banner of Kinship",
+     "counters": {
+      "fellowship": 1
+     }
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "pt": "3/2"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2"
+    }
+   ]
+  }
+ ]
+}

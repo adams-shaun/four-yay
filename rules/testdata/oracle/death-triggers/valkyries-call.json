@@ -1,0 +1,362 @@
+{
+ "card": "Valkyrie's Call",
+ "family": "death-triggers",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "4f4a2bbbfe2d",
+ "scenarios": [
+  {
+   "name": "dead-creature-returns-as-flying-angel",
+   "cr": [
+    "603.6c",
+    "603.2",
+    "611.2a"
+   ],
+   "why": "A nontoken non-Angel creature you control dies: it returns with a +1/+1 counter, has flying and is an Angel in addition to its other types.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Valkyrie's Call",
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "pt": "3/3",
+     "keywords": [
+      "Flying"
+     ],
+     "types": [
+      "Angel",
+      "Bear",
+      "Creature"
+     ],
+     "damage": 0,
+     "counters": {
+      "+1/+1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "returned-angel-does-not-return-again",
+   "cr": [
+    "603.10a",
+    "400.7"
+   ],
+   "why": "The returned creature is an Angel now: when it dies again it stays in the graveyard.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Valkyrie's Call",
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Lightning Bolt",
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Murder",
+     "mana": "BBC",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "token-does-not-return",
+   "cr": [
+    "603.2",
+    "111.7"
+   ],
+   "why": "Nontoken only: a Goblin token that dies is not returned.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Valkyrie's Call"
+     ],
+     "hand": [
+      "Dragon Fodder",
+      "Shock"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Dragon Fodder",
+     "mana": "RC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p0:token:Goblin"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Goblin"
+     },
+     "eq": 1
+    }
+   ]
+  },
+  {
+   "name": "angel-does-not-return",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Non-Angel only: Serra Angel dying stays dead.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Valkyrie's Call",
+      "Serra Angel"
+     ],
+     "hand": [
+      "Murder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Murder",
+     "mana": "BBC",
+     "targets": [
+      "p0:Serra Angel"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Serra Angel",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "opponents-creature-does-not-return",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Only creatures you control: the opponent's dying creature stays in their graveyard.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Valkyrie's Call"
+     ],
+     "hand": [
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "wrath-returns-each-creature",
+   "cr": [
+    "603.2",
+    "603.3"
+   ],
+   "why": "Day of Judgment: each nontoken non-Angel creature of its controller triggers and returns; the opponent's does not.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Valkyrie's Call",
+      "Grizzly Bears",
+      "Savannah Lions"
+     ],
+     "hand": [
+      "Day of Judgment"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Hill Giant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Day of Judgment",
+     "mana": "WWCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "battlefield",
+     "types": [
+      "Angel"
+     ],
+     "counters": {
+      "+1/+1": 1
+     }
+    },
+    {
+     "card": "p1:Hill Giant",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "angel-and-flying-stay-after-call-leaves",
+   "cr": [
+    "611.2a",
+    "611.2c"
+   ],
+   "why": "The flying and Angel type come from the resolved trigger with no duration, so they remain after Valkyrie's Call is destroyed.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Valkyrie's Call",
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Lightning Bolt",
+      "Disenchant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Disenchant",
+     "mana": "WC",
+     "targets": [
+      "p0:Valkyrie's Call"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "keywords": [
+      "Flying"
+     ],
+     "types": [
+      "Angel"
+     ]
+    }
+   ]
+  }
+ ]
+}

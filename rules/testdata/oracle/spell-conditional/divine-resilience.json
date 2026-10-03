@@ -1,0 +1,376 @@
+{
+ "card": "Divine Resilience",
+ "family": "spell-conditional",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "348c678aace8",
+ "scenarios": [
+  {
+   "name": "unkicked-target-survives-lethal-damage",
+   "cr": [
+    "702.12b",
+    "704.5g"
+   ],
+   "why": "Unkicked ({W}): the target creature you control gains indestructible, so lethal damage from Lightning Bolt doesn't destroy it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Divine Resilience",
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Divine Resilience",
+     "mana": "W",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Grizzly Bears",
+       "keywords": [
+        "Indestructible"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "damage": 3
+    }
+   ]
+  },
+  {
+   "name": "indestructible-ends-at-end-of-turn",
+   "cr": [
+    "514.2"
+   ],
+   "why": "'Until end of turn': next turn the creature no longer has indestructible.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Divine Resilience"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Divine Resilience",
+     "mana": "W",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "no_keywords": [
+      "Indestructible"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "kicked-any-number-of-targets",
+   "cr": [
+    "702.33d",
+    "601.2c"
+   ],
+   "why": "Kicked ({W} + {2}{W}): any number of target creatures you control gain indestructible; both targets get it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Savannah Lions"
+     ],
+     "hand": [
+      "Divine Resilience"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Divine Resilience",
+     "mana": "WWCC",
+     "targets": [
+      "p0:Grizzly Bears",
+      "p0:Savannah Lions"
+     ],
+     "kicked": true
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "keywords": [
+      "Indestructible"
+     ]
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "keywords": [
+      "Indestructible"
+     ]
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "kicked-targets-survive-a-wrath",
+   "cr": [
+    "702.12b",
+    "701.8"
+   ],
+   "why": "Kicked on two creatures, Day of Judgment destroys only the untargeted third creature.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Savannah Lions",
+      "Hill Giant"
+     ],
+     "hand": [
+      "Divine Resilience",
+      "Day of Judgment"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Divine Resilience",
+     "mana": "WWCC",
+     "targets": [
+      "p0:Grizzly Bears",
+      "p0:Savannah Lions"
+     ],
+     "kicked": true
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Day of Judgment",
+     "mana": "WWCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Hill Giant",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "unkicked-only-one-target",
+   "cr": [
+    "601.2c",
+    "702.33d"
+   ],
+   "why": "Unkicked, it has exactly one target: a wrath still destroys the second creature.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Savannah Lions"
+     ],
+     "hand": [
+      "Divine Resilience",
+      "Day of Judgment"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Divine Resilience",
+     "mana": "W",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Day of Judgment",
+     "mana": "WWCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "needs-a-creature-you-control",
+   "cr": [
+    "601.2c",
+    "115.1"
+   ],
+   "why": "'Target creature you control': with only an opponent's creature it cannot be cast.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Divine Resilience"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "W"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Divine Resilience"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "instant-on-opponents-turn",
+   "cr": [
+    "304.1"
+   ],
+   "why": "As an instant it can be cast in the opponent's turn, saving a blocker... here, in response to their Bolt.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Divine Resilience"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass",
+     "seat": 1
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Divine Resilience",
+     "mana": "W",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,546 @@
+{
+ "card": "Liliana, Dreadhorde General",
+ "family": "activated-ability",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "deaf36b0ffff",
+ "scenarios": [
+  {
+   "name": "enters-with-six-loyalty",
+   "cr": [
+    "306.5b"
+   ],
+   "why": "Cast for {4}{B}{B}: six loyalty counters.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Liliana, Dreadhorde General"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Liliana, Dreadhorde General",
+     "mana": "BBCCCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Liliana, Dreadhorde General",
+     "zone": "battlefield",
+     "counters": {
+      "loyalty": 6
+     }
+    }
+   ]
+  },
+  {
+   "name": "own-creature-dies-draws",
+   "cr": [
+    "603.2",
+    "700.4"
+   ],
+   "why": "A creature its controller controls dying draws a card.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Liliana, Dreadhorde General",
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-creature-dying-draws-nothing",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Only creatures YOU control: an opponent's creature dying draws nothing.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Liliana, Dreadhorde General"
+     ],
+     "hand": [
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "plus-one-zombie-token",
+   "cr": [
+    "606.4",
+    "111.1"
+   ],
+   "why": "+1: loyalty 7 and a 2/2 black Zombie creature token.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Liliana, Dreadhorde General"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Liliana, Dreadhorde General",
+     "ability": "Zombie"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Liliana, Dreadhorde General",
+     "counters": {
+      "loyalty": 7
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Zombie",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "card": "p0:token:Zombie",
+     "pt": "2/2"
+    }
+   ]
+  },
+  {
+   "name": "token-dying-draws-too",
+   "cr": [
+    "603.2",
+    "700.4",
+    "111.7"
+   ],
+   "why": "A token creature dies too (it goes to the graveyard before ceasing to exist): its controller draws.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Liliana, Dreadhorde General"
+     ],
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Liliana, Dreadhorde General",
+     "ability": "Zombie"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:token:Zombie"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Zombie"
+     },
+     "eq": 0
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "minus-four-each-player-sacrifices-two",
+   "cr": [
+    "606.4",
+    "701.21",
+    "101.4"
+   ],
+   "why": "-4: each player sacrifices two creatures of their choice; its controller draws a card for each of their own two.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Liliana, Dreadhorde General",
+      "Grizzly Bears",
+      "Savannah Lions",
+      "Hill Giant"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Craw Wurm",
+      "Serra Angel"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Liliana, Dreadhorde General",
+     "ability": "sacrifices two"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Grizzly Bears",
+        "p0:Savannah Lions"
+       ]
+      },
+      {
+       "kind": "any",
+       "pick": [
+        "p1:Grizzly Bears",
+        "p1:Craw Wurm"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Liliana, Dreadhorde General",
+     "counters": {
+      "loyalty": 2
+     }
+    },
+    {
+     "card": "p0:Hill Giant",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Serra Angel",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "minus-four-fewer-than-two-sacrifices-all",
+   "cr": [
+    "701.21a"
+   ],
+   "why": "A player with only one creature sacrifices that one; a player with none sacrifices nothing.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Liliana, Dreadhorde General"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Craw Wurm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Liliana, Dreadhorde General",
+     "ability": "sacrifices two"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Craw Wurm",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Liliana, Dreadhorde General",
+     "counters": {
+      "loyalty": 2
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "ultimate-not-offered-at-six",
+   "cr": [
+    "606.6"
+   ],
+   "why": "-9 needs nine loyalty: not offered at six.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Liliana, Dreadhorde General"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Liliana, Dreadhorde General",
+      "label": "sacrifices the rest"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "ultimate-keeps-one-of-each-permanent-type",
+   "cr": [
+    "606.4",
+    "110.4",
+    "701.21"
+   ],
+   "why": "After three +1s (loyalty 9), -9: the opponent keeps one permanent of each type they choose (a land and a creature) and sacrifices the rest.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Liliana, Dreadhorde General"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Forest",
+      "Mountain",
+      "Grizzly Bears",
+      "Hill Giant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Liliana, Dreadhorde General",
+     "ability": "Zombie"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Liliana, Dreadhorde General",
+     "ability": "Zombie"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Liliana, Dreadhorde General",
+     "ability": "Zombie"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0",
+     "expect": [
+      {
+       "card": "p0:Liliana, Dreadhorde General",
+       "counters": {
+        "loyalty": 9
+       }
+      }
+     ]
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Liliana, Dreadhorde General",
+     "ability": "sacrifices the rest"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p1:Hill Giant"
+       ]
+      },
+      {
+       "kind": "any",
+       "pick": [
+        "p1:Forest"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Forest",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Hill Giant",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p1:Mountain",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Zombie"
+     },
+     "eq": 3
+    }
+   ]
+  }
+ ]
+}

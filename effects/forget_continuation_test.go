@@ -232,7 +232,7 @@ func TestDigUntilForgetOtherRememberedAsk(t *testing.T) {
 	h.g.SetZone(state.ZExile, 0, []state.ObjID{stale.ID})
 	stale.Zone = state.ZExile
 	seedRemembered(h, src, found.ID, stale.ID)
-	body := sa(t, "DB$ DigUntil | Valid$ Creature.IsRemembered | OptionalFoundMove$ True | RememberFound$ True | ForgetOtherRemembered$ True")
+	body := sa(t, "DB$ DigUntil | Valid$ Creature.IsRemembered | OptionalFoundMove$ True | FoundDestination$ Hand | RememberFound$ True | ForgetOtherRemembered$ True")
 	if body.API != "DigUntil" {
 		t.Fatalf("precondition: fixture SA parsed as %q, want DigUntil", body.API)
 	}

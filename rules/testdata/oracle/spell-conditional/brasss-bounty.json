@@ -1,0 +1,196 @@
+{
+ "card": "Brass's Bounty",
+ "family": "spell-conditional",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "5f6271d42c04",
+ "scenarios": [
+  {
+   "name": "treasure-per-land",
+   "cr": [
+    "111.10a",
+    "608.2c"
+   ],
+   "why": "Three lands: three Treasure tokens.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Forest",
+      "Mountain",
+      "Island"
+     ],
+     "hand": [
+      "Brass's Bounty"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Brass's Bounty",
+     "mana": "RCCCCCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Treasure",
+      "token": true
+     },
+     "eq": 3
+    }
+   ]
+  },
+  {
+   "name": "opponents-lands-do-not-count",
+   "cr": [
+    "608.2c"
+   ],
+   "why": "Only lands you control.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Forest"
+     ],
+     "hand": [
+      "Brass's Bounty"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Forest",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Brass's Bounty",
+     "mana": "RCCCCCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Treasure",
+      "token": true
+     },
+     "eq": 1
+    },
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Treasure"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "no-lands-no-treasure",
+   "cr": [
+    "608.2c"
+   ],
+   "why": "With no lands it creates nothing.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Brass's Bounty"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Brass's Bounty",
+     "mana": "RCCCCCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Treasure"
+     },
+     "eq": 0
+    }
+   ]
+  },
+  {
+   "name": "treasure-sacrifices-for-any-color",
+   "cr": [
+    "111.10a",
+    "605.1a"
+   ],
+   "why": "A Treasure: {T}, sacrifice it: add one mana of any color.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Forest"
+     ],
+     "hand": [
+      "Brass's Bounty"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Brass's Bounty",
+     "mana": "RCCCCCC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:token:Treasure",
+     "ability": "for mana",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "B"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": "B"
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Treasure"
+     },
+     "eq": 0
+    }
+   ]
+  }
+ ]
+}

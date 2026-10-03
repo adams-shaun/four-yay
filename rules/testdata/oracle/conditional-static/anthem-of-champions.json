@@ -1,0 +1,228 @@
+{
+ "card": "Anthem of Champions",
+ "family": "conditional-static",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "ce0bb963a8a0",
+ "scenarios": [
+  {
+   "name": "own-creatures-get-plus-one",
+   "cr": [
+    "613.4c",
+    "611.3a"
+   ],
+   "why": "Creatures you control get +1/+1; an opponent's creature does not.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Anthem of Champions",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "3/3"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "pt": "2/2"
+    }
+   ]
+  },
+  {
+   "name": "creature-entering-later-is-pumped",
+   "cr": [
+    "611.3a"
+   ],
+   "why": "A static ability affects creatures that enter later too.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Anthem of Champions"
+     ],
+     "hand": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "GC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "3/3"
+    }
+   ]
+  },
+  {
+   "name": "bonus-ends-when-it-leaves",
+   "cr": [
+    "611.3a"
+   ],
+   "why": "When the Anthem leaves the battlefield the bonus is gone.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Anthem of Champions",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "move",
+     "card": "p0:Anthem of Champions",
+     "to": "graveyard"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2"
+    }
+   ]
+  },
+  {
+   "name": "damaged-creature-dies-when-anthem-leaves",
+   "cr": [
+    "704.5g",
+    "611.3a"
+   ],
+   "why": "A 3/3 (with the Anthem) survives Shock; when the Anthem leaves it is a 2/2 with 2 damage and dies.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Anthem of Champions",
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Shock",
+      "Disenchant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Shock",
+     "mana": "R",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Grizzly Bears",
+       "zone": "battlefield"
+      }
+     ]
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Disenchant",
+     "mana": "WC",
+     "targets": [
+      "p0:Anthem of Champions"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "two-anthems-stack",
+   "cr": [
+    "613.4c"
+   ],
+   "why": "Two copies each give +1/+1: 4/4.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Anthem of Champions",
+      "Anthem of Champions",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "4/4"
+    }
+   ]
+  },
+  {
+   "name": "tokens-are-pumped",
+   "cr": [
+    "111.1",
+    "613.4c"
+   ],
+   "why": "Creature tokens you control get the bonus: Liliana's Zombie is 3/3.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Anthem of Champions",
+      "Liliana, Dreadhorde General"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Liliana, Dreadhorde General",
+     "ability": "Zombie"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:token:Zombie",
+     "pt": "3/3"
+    }
+   ]
+  }
+ ]
+}

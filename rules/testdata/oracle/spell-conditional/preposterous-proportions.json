@@ -1,0 +1,211 @@
+{
+ "card": "Preposterous Proportions",
+ "family": "spell-conditional",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "242726b08b3f",
+ "scenarios": [
+  {
+   "name": "own-creatures-plus-ten-and-vigilance",
+   "cr": [
+    "611.2c",
+    "613.4c"
+   ],
+   "why": "Creatures you control get +10/+10 and gain vigilance; the opponent's are unchanged.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears",
+      "Savannah Lions"
+     ],
+     "hand": [
+      "Preposterous Proportions"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Preposterous Proportions",
+     "mana": "GGCCCCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "12/12",
+     "keywords": [
+      "Vigilance"
+     ]
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "pt": "12/11",
+     "keywords": [
+      "Vigilance"
+     ]
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "pt": "2/2",
+     "no_keywords": [
+      "Vigilance"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "creature-arriving-later-unaffected",
+   "cr": [
+    "611.2c"
+   ],
+   "why": "The affected set is fixed on resolution: a creature cast afterwards is a plain 2/2.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Savannah Lions"
+     ],
+     "hand": [
+      "Preposterous Proportions",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Preposterous Proportions",
+     "mana": "GGCCCCC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "GC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2",
+     "no_keywords": [
+      "Vigilance"
+     ]
+    },
+    {
+     "card": "p0:Savannah Lions",
+     "pt": "12/11"
+    }
+   ]
+  },
+  {
+   "name": "vigilant-attack-for-twelve",
+   "cr": [
+    "702.20b",
+    "510.2"
+   ],
+   "why": "The pumped Bears attacks without tapping and deals 12.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Preposterous Proportions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Preposterous Proportions",
+     "mana": "GGCCCCC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 8
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "tapped": false
+    }
+   ]
+  },
+  {
+   "name": "ends-at-end-of-turn",
+   "cr": [
+    "514.2"
+   ],
+   "why": "'Until end of turn'.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Preposterous Proportions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Preposterous Proportions",
+     "mana": "GGCCCCC"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "2/2",
+     "no_keywords": [
+      "Vigilance"
+     ]
+    }
+   ]
+  }
+ ]
+}

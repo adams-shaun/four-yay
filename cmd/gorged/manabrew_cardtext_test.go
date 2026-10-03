@@ -1,3 +1,5 @@
+//go:build manabrew
+
 package main
 
 import (

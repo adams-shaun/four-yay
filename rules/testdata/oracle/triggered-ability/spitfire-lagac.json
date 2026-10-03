@@ -1,0 +1,170 @@
+{
+ "card": "Spitfire Lagac",
+ "family": "triggered-ability",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "f6f268de3e1f",
+ "scenarios": [
+  {
+   "name": "cast-three-four",
+   "cr": [
+    "302.1"
+   ],
+   "why": "Cast for {3}{R}: a 3/4.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Spitfire Lagac"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Spitfire Lagac",
+     "mana": "RCCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Spitfire Lagac",
+     "zone": "battlefield",
+     "pt": "3/4"
+    }
+   ]
+  },
+  {
+   "name": "landfall-one-damage-to-each-opponent",
+   "cr": [
+    "603.2",
+    "120.3"
+   ],
+   "why": "A land you control entering deals 1 damage to each opponent.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Spitfire Lagac"
+     ],
+     "hand": [
+      "Mountain"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Mountain",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Spitfire Lagac",
+       "want": true
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 19,
+      "p0": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "two-lands-two-damage",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Two lands entering (one played, one put onto the battlefield) deal 2.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Spitfire Lagac"
+     ],
+     "hand": [
+      "Mountain",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Mountain"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "move",
+     "card": "p0:Forest",
+     "to": "battlefield"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 18
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-land-does-nothing",
+   "cr": [
+    "603.2"
+   ],
+   "why": "Only lands YOU control.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Spitfire Lagac"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Mountain"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "play",
+     "seat": 1,
+     "card": "p1:Mountain",
+     "expect": [
+      {
+       "trigger_on_stack": "p0:Spitfire Lagac",
+       "want": false
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 20,
+      "p1": 20
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,321 @@
+{
+ "card": "Progenitus",
+ "family": "replacement",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "37a6f3365da6",
+ "scenarios": [
+  {
+   "name": "cast-ten-ten-protection-from-everything",
+   "cr": [
+    "702.16a"
+   ],
+   "why": "Cast for {W}{W}{U}{U}{B}{B}{R}{R}{G}{G}: a 10/10.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Progenitus"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Progenitus",
+     "mana": "WWUUBBRRGG"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Progenitus",
+     "zone": "battlefield",
+     "pt": "10/10"
+    }
+   ]
+  },
+  {
+   "name": "own-spells-cannot-target-it",
+   "cr": [
+    "702.16b",
+    "702.16j"
+   ],
+   "why": "Protection from everything includes its controller's own spells: Giant Growth has no legal target.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Progenitus"
+     ],
+     "hand": [
+      "Giant Growth"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "G"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "cast",
+      "card": "p0:Giant Growth"
+     },
+     "want": false
+    }
+   ]
+  },
+  {
+   "name": "destroyed-shuffles-into-library",
+   "cr": [
+    "614.1a",
+    "701.8a"
+   ],
+   "why": "Destroyed by Day of Judgment, it would go to the graveyard: it is shuffled into its owner's library instead.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Progenitus"
+     ],
+     "hand": [
+      "Day of Judgment"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Day of Judgment",
+     "mana": "WWCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Progenitus",
+     "zone": "library"
+    },
+    {
+     "graveyard_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "discarded-shuffles-into-library",
+   "cr": [
+    "614.1a",
+    "701.9"
+   ],
+   "why": "'From anywhere': discarded by the opponent's Mind Rot, it goes to the library, not the graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Progenitus",
+      "Forest"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Mind Rot"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Mind Rot",
+     "mana": "BCC",
+     "targets": [
+      "p0"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Progenitus",
+     "zone": "library"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "countered-shuffles-into-library",
+   "cr": [
+    "614.1a",
+    "701.6a"
+   ],
+   "why": "A countered Progenitus spell would go to the graveyard from the stack: it is shuffled into the library instead.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Progenitus"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Counterspell"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Progenitus",
+     "mana": "WWUUBBRRGG"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Counterspell",
+     "mana": "UU",
+     "targets": [
+      "p0:Progenitus"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Progenitus",
+     "zone": "library"
+    }
+   ]
+  },
+  {
+   "name": "cannot-be-blocked",
+   "cr": [
+    "702.16f"
+   ],
+   "why": "Protection from everything: no creature can block it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Progenitus",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Hill Giant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Progenitus",
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p1:Hill Giant",
+        "attacker": "p0:Progenitus"
+       },
+       "want": false
+      },
+      {
+       "can_block": {
+        "blocker": "p1:Hill Giant",
+        "attacker": "p0:Grizzly Bears"
+       },
+       "want": true
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "damage-is-prevented",
+   "cr": [
+    "702.16e"
+   ],
+   "why": "All damage to it is prevented: Slagstorm's 3 to each creature leaves it undamaged while the Bears dies.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Progenitus",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Slagstorm"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Slagstorm",
+     "mana": "RRC",
+     "answers": [
+      {
+       "kind": "modes",
+       "pick": [
+        "creature"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Progenitus",
+     "zone": "battlefield",
+     "damage": 0
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

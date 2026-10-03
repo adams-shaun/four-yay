@@ -1,0 +1,287 @@
+{
+ "card": "Bulk Up",
+ "family": "spell-conditional",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "4cea900d145a",
+ "scenarios": [
+  {
+   "name": "doubles-power",
+   "cr": [
+    "701.10b"
+   ],
+   "why": "Doubling Hill Giant's 3 power gives +3/+0: 6/3.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Hill Giant"
+     ],
+     "hand": [
+      "Bulk Up"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bulk Up",
+     "mana": "RC",
+     "targets": [
+      "p0:Hill Giant"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Hill Giant",
+     "pt": "6/3"
+    },
+    {
+     "card": "p0:Bulk Up",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "doubles-current-pumped-power",
+   "cr": [
+    "701.10b"
+   ],
+   "why": "Doubling uses the power as it resolves: after Giant Growth (6/6) it becomes 12/6.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Hill Giant"
+     ],
+     "hand": [
+      "Giant Growth",
+      "Bulk Up"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Giant Growth",
+     "mana": "G",
+     "targets": [
+      "p0:Hill Giant"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bulk Up",
+     "mana": "RC",
+     "targets": [
+      "p0:Hill Giant"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Hill Giant",
+     "pt": "12/6"
+    }
+   ]
+  },
+  {
+   "name": "later-pump-not-doubled",
+   "cr": [
+    "701.10a",
+    "701.10b"
+   ],
+   "why": "The bonus is fixed at +3/+0: a Giant Growth afterwards adds only its +3/+3 (9/6).",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Hill Giant"
+     ],
+     "hand": [
+      "Giant Growth",
+      "Bulk Up"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bulk Up",
+     "mana": "RC",
+     "targets": [
+      "p0:Hill Giant"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Giant Growth",
+     "mana": "G",
+     "targets": [
+      "p0:Hill Giant"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Hill Giant",
+     "pt": "9/6"
+    }
+   ]
+  },
+  {
+   "name": "ends-at-end-of-turn",
+   "cr": [
+    "514.2"
+   ],
+   "why": "'Until end of turn'.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Hill Giant"
+     ],
+     "hand": [
+      "Bulk Up"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bulk Up",
+     "mana": "RC",
+     "targets": [
+      "p0:Hill Giant"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Hill Giant",
+     "pt": "3/3"
+    }
+   ]
+  },
+  {
+   "name": "flashback-then-exiled",
+   "cr": [
+    "702.34a"
+   ],
+   "why": "Flashback {4}{R}{R} from the graveyard, then exiled; may target any creature, here an opponent's.",
+   "setup": {
+    "p0": {
+     "graveyard": [
+      "Bulk Up"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Hill Giant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bulk Up",
+     "mana": "RRCCCC",
+     "targets": [
+      "p1:Hill Giant"
+     ],
+     "cast_mode": "flashback"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Hill Giant",
+     "pt": "6/3"
+    },
+    {
+     "card": "p0:Bulk Up",
+     "zone": "exile"
+    }
+   ]
+  },
+  {
+   "name": "instant-in-combat",
+   "cr": [
+    "304.1",
+    "510.2"
+   ],
+   "why": "As an instant on an unblocked attacker it doubles the combat damage: 6.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Hill Giant"
+     ],
+     "hand": [
+      "Bulk Up"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Hill Giant"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bulk Up",
+     "mana": "RC",
+     "targets": [
+      "p0:Hill Giant"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 14
+     }
+    }
+   ]
+  }
+ ]
+}

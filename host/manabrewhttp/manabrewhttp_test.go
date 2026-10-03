@@ -1,3 +1,5 @@
+//go:build manabrew
+
 package manabrewhttp
 
 // MB-10's Done-means fixtures: a tiny 4-seat table (bots fill every non-human

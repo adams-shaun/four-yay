@@ -1,0 +1,302 @@
+{
+ "card": "Rogue's Passage",
+ "family": "evasion",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "676c36326c26",
+ "scenarios": [
+  {
+   "name": "taps-for-colorless",
+   "cr": [
+    "106.1",
+    "605.1a"
+   ],
+   "why": "{T}: Add {C}.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Rogue's Passage"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Rogue's Passage",
+     "ability": "for mana"
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": "C"
+     }
+    },
+    {
+     "card": "p0:Rogue's Passage",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "target-creature-cannot-be-blocked",
+   "cr": [
+    "509.1b"
+   ],
+   "why": "{4}, {T}: the target creature can't be blocked this turn.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Rogue's Passage",
+      "Grizzly Bears",
+      "Savannah Lions"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Hill Giant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Rogue's Passage",
+     "mana": "CCCC",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "ability": "can't be blocked"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears",
+      "p0:Savannah Lions"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p1:Hill Giant",
+        "attacker": "p0:Grizzly Bears"
+       },
+       "want": false
+      },
+      {
+       "can_block": {
+        "blocker": "p1:Hill Giant",
+        "attacker": "p0:Savannah Lions"
+       },
+       "want": true
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Rogue's Passage",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "control-unaffected-creature-can-be-blocked",
+   "cr": [
+    "509.1a"
+   ],
+   "why": "Control: without the activation the same attacker can be blocked.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Rogue's Passage",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Hill Giant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p1:Hill Giant",
+        "attacker": "p0:Grizzly Bears"
+       },
+       "want": true
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "unblockable-only-this-turn",
+   "cr": [
+    "514.2",
+    "611.2a"
+   ],
+   "why": "'This turn': on its controller's next turn the creature can be blocked again.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Rogue's Passage",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Hill Giant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Rogue's Passage",
+     "mana": "CCCC",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "ability": "can't be blocked"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p0"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p1:Hill Giant",
+        "attacker": "p0:Grizzly Bears"
+       },
+       "want": true
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "can-target-any-creature",
+   "cr": [
+    "115.1"
+   ],
+   "why": "'Target creature' is any creature, including an opponent's.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Rogue's Passage"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Hill Giant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Rogue's Passage",
+     "mana": "CCCC",
+     "targets": [
+      "p1:Hill Giant"
+     ],
+     "ability": "can't be blocked"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Rogue's Passage",
+     "tapped": true
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "needs-four-mana-and-untapped",
+   "cr": [
+    "602.2",
+    "601.2g"
+   ],
+   "why": "With only three mana available the ability cannot be activated.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Rogue's Passage",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "CCC"
+    }
+   ],
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Rogue's Passage",
+      "label": "can't be blocked"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

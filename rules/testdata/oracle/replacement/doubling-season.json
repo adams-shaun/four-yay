@@ -1,0 +1,351 @@
+{
+ "card": "Doubling Season",
+ "family": "replacement",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "807fb987063c",
+ "scenarios": [
+  {
+   "name": "tokens-doubled",
+   "cr": [
+    "614.1a",
+    "111.1"
+   ],
+   "why": "An effect creating two Goblin tokens under its controller's control creates four.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Doubling Season"
+     ],
+     "hand": [
+      "Dragon Fodder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Dragon Fodder",
+     "mana": "RC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Goblin",
+      "token": true
+     },
+     "eq": 4
+    }
+   ]
+  },
+  {
+   "name": "opponents-tokens-not-doubled",
+   "cr": [
+    "614.1a"
+   ],
+   "why": "Only tokens under YOUR control.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Doubling Season"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Dragon Fodder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main1",
+     "active": "p1"
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Dragon Fodder",
+     "mana": "RC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 1,
+      "zone": "battlefield",
+      "name": "Goblin",
+      "token": true
+     },
+     "eq": 2
+    }
+   ]
+  },
+  {
+   "name": "token-copy-doubled",
+   "cr": [
+    "614.1a",
+    "707.2"
+   ],
+   "why": "A token copy effect (Self-Reflection) makes two copies.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Doubling Season",
+      "Grizzly Bears"
+     ],
+     "hand": [
+      "Self-Reflection"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Self-Reflection",
+     "mana": "UUCCCC",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Grizzly Bears"
+     },
+     "eq": 3
+    }
+   ]
+  },
+  {
+   "name": "counter-effect-doubled",
+   "cr": [
+    "614.1a",
+    "122.1"
+   ],
+   "why": "Ajani's +1 puts two +1/+1 counters on its controller's creature.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Doubling Season",
+      "Ajani, Caller of the Pride",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ajani, Caller of the Pride",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "ability": "+1/+1 counter"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "4/4",
+     "counters": {
+      "+1/+1": 2
+     }
+    }
+   ]
+  },
+  {
+   "name": "loyalty-cost-counters-not-doubled",
+   "cr": [
+    "606.4",
+    "118.3",
+    "614.1a"
+   ],
+   "why": "The +1 loyalty counter is a COST, not an effect: Ajani goes from 4 to 5, not 6.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Doubling Season",
+      "Ajani, Caller of the Pride",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ajani, Caller of the Pride",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "ability": "+1/+1 counter"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Ajani, Caller of the Pride",
+     "counters": {
+      "loyalty": 5
+     }
+    }
+   ]
+  },
+  {
+   "name": "planeswalker-enters-with-double-loyalty",
+   "cr": [
+    "306.5b",
+    "614.1c"
+   ],
+   "why": "A planeswalker entering with loyalty counters gets twice as many: Ajani enters with 8.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Doubling Season"
+     ],
+     "hand": [
+      "Ajani, Caller of the Pride"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Ajani, Caller of the Pride",
+     "mana": "WWC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Ajani, Caller of the Pride",
+     "counters": {
+      "loyalty": 8
+     }
+    }
+   ]
+  },
+  {
+   "name": "opponents-permanent-counters-not-doubled",
+   "cr": [
+    "614.1a"
+   ],
+   "why": "Only permanents YOU control: Ajani's +1 on the opponent's creature puts one counter.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Doubling Season",
+      "Ajani, Caller of the Pride"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ajani, Caller of the Pride",
+     "targets": [
+      "p1:Grizzly Bears"
+     ],
+     "ability": "+1/+1 counter"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "counters": {
+      "+1/+1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "enters-with-counters-and-doubling-doubled",
+   "cr": [
+    "614.1c",
+    "701.10e"
+   ],
+   "why": "Mossborn Hydra enters with 2 counters; its landfall 'double' puts 2 more, which Doubling Season makes 4: 6 counters.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Doubling Season"
+     ],
+     "hand": [
+      "Mossborn Hydra",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Mossborn Hydra",
+     "mana": "GCC"
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Mossborn Hydra",
+       "counters": {
+        "+1/+1": 2
+       }
+      }
+     ]
+    },
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Forest"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Mossborn Hydra",
+     "pt": "6/6",
+     "counters": {
+      "+1/+1": 6
+     }
+    }
+   ]
+  }
+ ]
+}

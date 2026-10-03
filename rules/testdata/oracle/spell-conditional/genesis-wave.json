@@ -1,0 +1,239 @@
+{
+ "card": "Genesis Wave",
+ "family": "spell-conditional",
+ "author": "fdn-audit-6 (Oracle + CR only)",
+ "oracle_sha": "50ecc72259d2",
+ "scenarios": [
+  {
+   "name": "x-three-puts-permanents-rest-to-graveyard",
+   "cr": [
+    "107.3",
+    "701.20",
+    "608.2c"
+   ],
+   "why": "X=3: reveal three; Grizzly Bears (MV 2) and Forest (MV 0) go onto the battlefield, the revealed Lightning Bolt to the graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Genesis Wave"
+     ],
+     "library_top": [
+      "Grizzly Bears",
+      "Forest",
+      "Lightning Bolt",
+      "Hill Giant"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Genesis Wave",
+     "mana": "GGGCCC",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "3"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Grizzly Bears",
+        "p0:Forest"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Hill Giant",
+     "zone": "library"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "mana-value-above-x-goes-to-graveyard",
+   "cr": [
+    "202.3",
+    "608.2c"
+   ],
+   "why": "X=2: Hill Giant (MV 4) cannot go onto the battlefield and is put into the graveyard; the Forest goes onto the battlefield.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Genesis Wave"
+     ],
+     "library_top": [
+      "Hill Giant",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Genesis Wave",
+     "mana": "GGGCC",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "2"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Forest"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Hill Giant",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "any-number-may-leave-one-behind",
+   "cr": [
+    "608.2c"
+   ],
+   "why": "'Any number': choosing only the Forest puts the eligible Bears into the graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Genesis Wave"
+     ],
+     "library_top": [
+      "Grizzly Bears",
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Genesis Wave",
+     "mana": "GGGCC",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "2"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Forest"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "battlefield"
+    }
+   ]
+  },
+  {
+   "name": "x-zero-does-nothing",
+   "cr": [
+    "107.3"
+   ],
+   "why": "X=0 reveals nothing: the top card stays in the library.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Genesis Wave"
+     ],
+     "library_top": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Genesis Wave",
+     "mana": "GGG",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "0"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Forest",
+     "zone": "library"
+    },
+    {
+     "graveyard_size": {
+      "p0": 1
+     }
+    }
+   ]
+  }
+ ]
+}
