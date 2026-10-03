@@ -43,6 +43,7 @@ type SAFacts struct {
 	// ability's API is one its compiler serves.
 	Charm *CharmParams
 	Pump  *PumpParams
+	Draw  *DrawParams
 }
 
 // NewSAFacts compiles sa's typed halves into a fresh record naming sa. The

@@ -72,4 +72,7 @@ func compileTypedHalves(f *SAFacts, sa *cards.SA) {
 	if sa.API == "Pump" {
 		f.Pump = compilePump(sa)
 	}
+	if sa.API == "Draw" {
+		f.Draw = compileDraw(sa)
+	}
 }

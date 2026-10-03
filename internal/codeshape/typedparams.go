@@ -40,6 +40,12 @@ var TypedParamAPIs = []TypedParamAPI{
 		OnlyKeys: []string{"ClearNotedCardsFor", "ForgetImprinted", "KWChoice", "NoteCards",
 			"NoteCardsFor", "NoteNumber"},
 	},
+	{
+		Name:         "Draw",
+		CompilerFile: "effects/draw_params.go",
+		Files:        []string{"effects/draw.go"},
+		OnlyKeys:     []string{"RememberDrawn", "Upto"},
+	},
 }
 
 // countTypedParamLeaks appends f's reads that leak past each TypedParamAPIs

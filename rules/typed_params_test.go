@@ -66,4 +66,5 @@ func TestTypedParamKnownKeysMatchTheCensus(t *testing.T) {
 	checkKnownKeys(t, "charmKnownKeys (api:Charm)", effects.CharmKnownKeys(), censusKnownKeys(d, "Charm"))
 	checkKnownKeys(t, "charmKnownKeys (api:GenericChoice)", effects.CharmKnownKeys(), censusKnownKeys(d, "GenericChoice"))
 	checkKnownKeys(t, "pumpKnownKeys (api:Pump)", effects.PumpKnownKeys(), censusKnownKeys(d, "Pump"))
+	checkKnownKeys(t, "drawKnownKeys (api:Draw)", effects.DrawKnownKeys(), censusKnownKeys(d, "Draw"))
 }
