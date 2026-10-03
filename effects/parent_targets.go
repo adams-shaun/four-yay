@@ -54,6 +54,42 @@ func noteLinkAnswer(c *Ctx, ts []state.Target) {
 	c.linkAnswer, c.linkAnswered = ts, true
 }
 
+// ParentLinkRide returns a deep copy of the walk's parent-link record and the
+// pending in-walk link answer (parentLinks, linkAnswer, linkAnswered), so the
+// resolution machinery -- which cannot see these unexported fields -- can carry
+// them across a suspension. The record is otherwise scoped to one Resolve walk
+// (Resolve's defer), so a resolution that suspends at a later link and re-enters
+// with a fresh Ctx would lose it and fall back to the root's targets. The
+// answered flag is returned separately so an empty (Min-0) parent survives the
+// ride as a RECORDED empty, not as "unset".
+func (c *Ctx) ParentLinkRide() ([][]state.Target, []state.Target, bool) {
+	links := make([][]state.Target, len(c.parentLinks))
+	for i, ts := range c.parentLinks {
+		links[i] = copyTargets(ts)
+	}
+	if !c.linkAnswered {
+		return links, nil, false
+	}
+	return links, copyTargets(c.linkAnswer), true
+}
+
+// ResumeParentLinks re-binds a ride captured by ParentLinkRide onto a rebuilt
+// Ctx, so a later untargeted link's ParentTarget/ParentTargeted still names the
+// NEAREST targeting ancestor (parentLinkTargets) rather than falling back to
+// Ctx.Targets, the root's list. Each recorded entry is copied so the Ctx owns
+// its own storage; a recorded empty (Min-0) entry stays a recorded empty.
+func (c *Ctx) ResumeParentLinks(links [][]state.Target, answer []state.Target, answered bool) {
+	if len(links) > 0 {
+		c.parentLinks = make([][]state.Target, len(links))
+		for i, ts := range links {
+			c.parentLinks[i] = copyTargets(ts)
+		}
+	}
+	if answered {
+		c.linkAnswer, c.linkAnswered = copyTargets(answer), true
+	}
+}
+
 // recordParentLink records the targets the just-dispatched link chose.
 // fromPreAsk is the generic pre-ask's answer (nil when the pre-ask did not
 // handle the link); a body-consumed answer (noteLinkAnswer) is taken
