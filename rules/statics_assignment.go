@@ -162,11 +162,18 @@ func (e *Engine) combatDamageToughnessMatches(id state.ObjID) bool {
 // A creature whose effective amount is at most zero assigns no combat damage
 // (an assignment of zero is not a decision and deals nothing), matching the
 // power gate it replaces; callers that need the amount also read its sign.
+//
+// A NEGATIVE power assigns as though it were positive -- its absolute value
+// -- while a CombatDamageNegatePower static applies (Loot, the Anomaly).
 func (e *Engine) combatDamageAmount(id state.ObjID) int32 {
 	if e.combatDamageToughnessMatches(id) {
 		return e.Toughness(id)
 	}
-	return e.Power(id)
+	p := e.Power(id)
+	if p < 0 && e.combatDamageNegatePowerMatches(id) {
+		return -p
+	}
+	return p
 }
 
 // tapPowerValueStatics collects every printed TapPowerValue static on the

@@ -272,32 +272,65 @@ func isCardType(t string) bool {
 // appendLandTypes expands Forge's all-land-type tokens against the parsed
 // corpus vocabulary. Additive types remain in their original order; the
 // vocabulary itself is sorted to keep derived characteristics deterministic.
+// A word the list already carries is not appended again (CR 205.1b: an
+// object has a type or it does not; CR 613.1d's "in addition to its other
+// types" adds only what is missing) -- Puppet Crafting's AddType$ Creature
+// over an artifact creature derived "Creature" twice before this. Every
+// layer-4 type grant, printed static or effect-registered (api:Animate's
+// Types$), funnels through here, so the set semantics hold for all of them.
 func appendLandTypes(types, grants, nonBasic []string) []string {
 	for _, grant := range grants {
 		switch {
 		case strings.EqualFold(grant, "AllBasicLandType"):
-			types = append(types, "Plains", "Island", "Swamp", "Mountain", "Forest")
+			for _, w := range [...]string{"Plains", "Island", "Swamp", "Mountain", "Forest"} {
+				types = appendTypeOnce(types, w)
+			}
 		case strings.EqualFold(grant, "AllNonBasicLandType"):
-			types = append(types, nonBasic...)
+			for _, w := range nonBasic {
+				types = appendTypeOnce(types, w)
+			}
 		default:
-			types = append(types, grant)
+			types = appendTypeOnce(types, grant)
 		}
 	}
 	return types
 }
 
+// appendTypeOnce appends word unless types already carries it
+// (case-insensitively, the comparison every type reader uses).
+func appendTypeOnce(types []string, word string) []string {
+	for _, t := range types {
+		if strings.EqualFold(t, word) {
+			return types
+		}
+	}
+	return append(types, word)
+}
+
 // appendAllCreatureTypes materialises the layer-4 "all creature types"
 // grant (CR 613.1c alongside AddTypes) into the walk's type list: every
 // creature-subtype word the shared CreatureTypeWords vocabulary knows, in
-// sorted (deterministic) order. Duplicates of a word the printed face or an
-// earlier effect already carry are harmless -- every consumer reads the
-// list with EqualFold scans or Contains -- so the helper does not pay for
-// a dedupe pass. The effects filter's type predicates (hasTypeCtx) answer
-// every creature-subtype predicate and base from this list through
-// ExtraTypes, exactly as Changeling's intrinsic CDA is answered through
-// hasType.
+// sorted (deterministic) order. A word the printed face or an earlier effect
+// already carries is skipped (CR 205.1b, the appendTypeOnce rule): the
+// vocabulary itself has no repeats, so only the creature subtypes present
+// BEFORE this grant need checking, and those are gathered once up front --
+// the common case (a printed Thopter, a granted Elf) compares each
+// vocabulary word against one or two words, not the whole growing list.
+// The effects filter's type predicates (hasTypeCtx) answer every
+// creature-subtype predicate and base from this list through ExtraTypes,
+// exactly as Changeling's intrinsic CDA is answered through hasType.
 func appendAllCreatureTypes(types []string) []string {
+	var buf [8]string
+	had := buf[:0]
+	for _, t := range types {
+		if effects.CreatureTypeWords(t) {
+			had = append(had, t)
+		}
+	}
 	for _, w := range effects.CreatureTypeWordList() {
+		if len(had) > 0 && slices.ContainsFunc(had, func(t string) bool { return strings.EqualFold(t, w) }) {
+			continue
+		}
 		types = append(types, w)
 	}
 	return types

@@ -444,6 +444,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		e.activationsThisTurn = nil
 		e.crimeSeatsThisTurn = 0
 		e.bendSeatsThisTurn = [64]uint8{}
+		e.noncombatDamagedSeatsLast, e.noncombatDamagedSeats = e.noncombatDamagedSeats, 0
 	}
 	e.loop.observeFrom(&stored, e.damaging, len(e.G.Objs))
 	// setname.go: keep the layer-3 rename table the filter tier reads in step

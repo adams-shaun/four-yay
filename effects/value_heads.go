@@ -80,6 +80,8 @@ var modelledValueHeads = []string{
 	"PlayerCountOpponents$HasPropertyLostLifeThisTurn",
 	"PlayerCountOpponents$HasPropertywasDealtCombatDamageThisTurn",
 	"PlayerCountOpponents$HasPropertywasDealtDamageThisTurn",
+	"PlayerCountOpponents$HasPropertywasDealtNonCombatDamageLastTurn",
+	"PlayerCountOpponents$HasPropertywasDealtNonCombatDamageThisTurn",
 	"PlayerCountOpponents$HighestCardsDrawn",
 	"PlayerCountOpponents$HighestCardsInGraveyard",
 	"PlayerCountOpponents$HighestCardsInHand",

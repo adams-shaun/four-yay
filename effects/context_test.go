@@ -431,6 +431,11 @@ func (h *fakeHost) CardsDrawnThisTurn(p state.PlayerID) int32 {
 func (h *fakeHost) ScriedThisTurn(_ state.PlayerID) int32     { return 0 }
 func (h *fakeHost) SurveilledThisTurn(_ state.PlayerID) int32 { return 0 }
 
+// WasDealtNoncombatDamageThisTurn / ...LastTurn have no damage ledger here;
+// the double reports false.
+func (h *fakeHost) WasDealtNoncombatDamageThisTurn(_ state.PlayerID) bool { return false }
+func (h *fakeHost) WasDealtNoncombatDamageLastTurn(_ state.PlayerID) bool { return false }
+
 // SpellsCastThisTurnBy has no event log here; the double reports the
 // h.castsBy map the eval-level PlayerCount condition tests configure (nil
 // reads zero).

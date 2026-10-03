@@ -528,6 +528,14 @@ type Host interface {
 	// Count$YouScryThisTurn and Count$YouSurveilThisTurn.
 	ScriedThisTurn(p state.PlayerID) int32
 	SurveilledThisTurn(p state.PlayerID) int32
+	// WasDealtNoncombatDamageThisTurn / WasDealtNoncombatDamageLastTurn
+	// report whether player p was dealt noncombat damage (any landed damage
+	// outside a combat damage assignment) during the current turn / the
+	// previous turn. They back the player properties
+	// HasPropertywasDealtNonCombatDamageThisTurn / ...LastTurn (Grim
+	// Repriser, Whiplash Wordsmith, Command the Stage).
+	WasDealtNoncombatDamageThisTurn(p state.PlayerID) bool
+	WasDealtNoncombatDamageLastTurn(p state.PlayerID) bool
 	// SpellsCastThisTurnBy counts the spells put on the stack this turn by
 	// player p — the per-caster projection of CastThisTurn, derived from the
 	// event log so a replay derives the same number. This is the
