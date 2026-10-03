@@ -515,6 +515,12 @@ type Ctx struct {
 	// Both are bound by the rules package when it builds the context.
 	SVars map[string]string
 	X     int32
+	// PublishedSVars records, in publication order, the resolution-scoped
+	// SVar bindings an effect published into SVars for a chained
+	// SubAbility$ to read (DealDamage's ExcessSVar$). It rides a suspended
+	// resolution's resume point, so the rebuilt Ctx re-binds them over the
+	// face table (RebindPublishedSVars) instead of losing them across an ask.
+	PublishedSVars []SVarBinding
 	// XAnnounced marks that X above IS a real CR 601.2b/107.3i announcement
 	// (the resolving spell or ability paid a {X} cost, possibly zero), set by
 	// the rules package at the same sites that bind X from the stack object's
@@ -1051,13 +1057,13 @@ type Ctx struct {
 	// OptionalNoDestination$ when the SA carries one, else the found card
 	// joins the revealed pile (RevealedDestination$). rules' resumeResolution
 	// sets it from the recorded answer before re-running the suspended
-	// sub-ability, and DigUntilMoveDone distinguishes "answered" from the
-	// first pass (it also suppresses the reveal Note and the withheld-params
-	// Note a re-entry would otherwise re-emit). The asking effect consumes
-	// and clears both at the top of its own walk (the fx42 scoping
-	// discipline), so a nested DigUntil cannot inherit the outer answer.
-	DigUntilMove     string
-	DigUntilMoveDone bool
+	// sub-ability; a non-empty value is the "answered" marker that
+	// distinguishes a re-entry from the first pass (it also suppresses the
+	// reveal Note and the withheld-params Note a re-entry would otherwise
+	// re-emit). The asking effect consumes and clears it at the top of its
+	// own walk (the fx42 scoping discipline), so a nested DigUntil cannot
+	// inherit the outer answer.
+	DigUntilMove string
 	// DigUntilAuraBearer is the selected bearer for a non-cast Aura entering
 	// from DigUntil. DigUntilAuraDone distinguishes an answered bearer choice
 	// from the first pass; both are consumed at the top of the effect so a

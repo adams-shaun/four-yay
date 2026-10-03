@@ -166,8 +166,7 @@ type resumePoint struct {
 	forgetOtherSnapshot []state.Target   `clone:"deep"`
 	forgetOtherOwners   []state.PlayerID `clone:"deep"`
 	forgetOther         forgetOtherRide  `clone:"deep"`
-	digUntilMove        string           `clone:"deep"`
-	digUntilMoveDone    bool             `clone:"deep"`
+	digUntilMove        string           `clone:"deep"` // "" until answered
 	// clonePick/clonePickDone ride a DB$ Clone's answered Choices$ pick across
 	// a later Optional$ may-copy ask in the same walk (the Decision.ResumeClonePick
 	// rider, Ask copies them here): the re-entry's Choices$ branch consumes
@@ -216,6 +215,11 @@ type resumePoint struct {
 	// resumed Ctx re-binds both so the answered pick is appended and the next
 	// chooser is asked. Nil for every other ask.
 	numberPicks []int32 `clone:"deep"`
+	// publishedSVars are the resolution-scoped SVar bindings the asking
+	// chain had published (effects.Ctx.PublishedSVars: DealDamage's
+	// ExcessSVar$, read by Nahiri's Warcrafting's DigNum$ X after its own
+	// ask). The resume re-binds them over the rebuilt SVar table.
+	publishedSVars []effects.SVarBinding `clone:"deep"`
 	// flipCursor is the DB$ FlipCoin loop position a kind "flip_rest" frame
 	// re-enters with (the remaining flips a per-flip sub-ability's nested ask
 	// left unrun).

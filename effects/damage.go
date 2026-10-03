@@ -221,7 +221,7 @@ func effDealDamage(h Host, c *Ctx, sa *cards.SA) {
 		if excess < 0 {
 			excess = 0
 		}
-		c.SVars[excessName] = strconv.Itoa(int(excess))
+		publishSVar(c, excessName, strconv.Itoa(int(excess)))
 	}
 	// A DamageSource$ spec that resolves to SEVERAL objects makes each of
 	// them a separate damager (emitFromEachSource below); a resolved set of

@@ -41,6 +41,9 @@ func tapeAnswerRecord(e *Engine, d *decision.Decision, in decision.Intent) {
 	// answer the asking effect cannot apply itself. Each is a free function
 	// shared with its arm. (An if-chain, not case arms: the
 	// stringCaseLiterals ratchet.)
+	if d.ResumeKind == resumeKindDredge {
+		dredgeAnswerApply(e, d.Acting(), d.Chosen(in))
+	}
 	if d.ResumeKind == "extort" {
 		extortAnswerRecord(e, d.Chosen(in))
 	}
