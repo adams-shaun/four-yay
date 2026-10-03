@@ -850,6 +850,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 				grant.ExileOnMoved = exileOn
 				grant.ForgetCounter = forgetCounter
 				grant.ImprintOnHost = imprintOnHost
+				grant.Chosen, grant.ChosenBound = effectChosenSnapshot(h, c, grant.Affects)
 				effectContinuous(h, grant)
 				registered = true
 			} else if grant, ok := mayPlayFreeGrantFromLine(params); ok {
@@ -875,6 +876,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 				grant.ExileOnMoved = exileOn
 				grant.ForgetCounter = forgetCounter
 				grant.ImprintOnHost = imprintOnHost
+				grant.Chosen, grant.ChosenBound = effectChosenSnapshot(h, c, grant.Affects)
 				effectContinuous(h, grant)
 				registered = true
 			} else if kws, affected, zone, ok := cascadeKeywordGrantFromLine(params); ok {
@@ -1402,6 +1404,30 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 	// every Effect-created registration from the source (Host.EndEffectSource)
 	// while leaving the source's printed statics alone.
 	c.EffectFrame = EffectFrame{Source: c.Source}
+}
+
+// effectChosenSnapshot captures the resolution's chosen-card set for an
+// Effect-delivered may-play grant whose Affected$ reads it (Card.ChosenCard):
+// Forge's EffectEffect copies the host's chosen cards onto the effect card it
+// creates, so the grant keeps naming the card chosen at creation after the
+// chain's own `DB$ Cleanup | ClearChosenCard$ True` wipes the source's list
+// (Strongbox Raider, Chandra, Flameshaper, Feldon, Ronom Excavator, Party
+// Thrasher, End-Blaze Epiphany, Case of the Burning Masks, Jaya, Fiery
+// Negotiator). Without the snapshot rules' grant walk had no chosen binding
+// at all and the ChosenCard predicate failed closed: the chosen card was
+// never playable. A grant whose spec does not read the chosen set takes no
+// snapshot.
+func effectChosenSnapshot(h Host, c *Ctx, affects string) ([]state.ObjID, bool) {
+	if !strings.Contains(affects, "ChosenCard") {
+		return nil, false
+	}
+	var out []state.ObjID
+	for _, t := range resolutionChosenCards(h.Game(), c) {
+		if !t.IsPlayer && t.Obj != 0 {
+			out = append(out, t.Obj)
+		}
+	}
+	return out, true
 }
 
 // mayPlayGrantFromLine builds the may-play ContinuousEffect from one parsed

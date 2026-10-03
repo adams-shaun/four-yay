@@ -1,0 +1,41 @@
+{
+ "card": "Amulet of Vigor",
+ "family": "trigger-condition",
+ "author": "cli-20261002T210434Z-cc1de00a (Oracle + CR only)",
+ "oracle_sha": "ff09b8e1cbe9",
+ "scenarios": [
+  {
+   "name": "untaps-a-permanent-that-enters-tapped",
+   "cr": ["603.2", "614.1", "110.5b"],
+   "why": "'Whenever a permanent you control enters tapped, untap it': Tranquil Cove enters tapped, so Amulet of Vigor's trigger untaps it. Its own enters trigger still gains 1 life.",
+   "setup": {
+    "p0": {"hand": ["Tranquil Cove"], "battlefield": ["Amulet of Vigor"]},
+    "p1": {}
+   },
+   "steps": [
+    {"op": "play", "seat": 0, "card": "p0:Tranquil Cove"},
+    {"op": "resolve"}
+   ],
+   "expect": [
+    {"card": "p0:Tranquil Cove", "zone": "battlefield", "tapped": false},
+    {"life": {"p0": 21}}
+   ]
+  },
+  {
+   "name": "without-the-amulet-a-tapland-stays-tapped",
+   "cr": ["110.5b"],
+   "why": "Control: with no Amulet of Vigor the tapland remains tapped after entering.",
+   "setup": {
+    "p0": {"hand": ["Tranquil Cove"]},
+    "p1": {}
+   },
+   "steps": [
+    {"op": "play", "seat": 0, "card": "p0:Tranquil Cove"},
+    {"op": "resolve"}
+   ],
+   "expect": [
+    {"card": "p0:Tranquil Cove", "zone": "battlefield", "tapped": true}
+   ]
+  }
+ ]
+}

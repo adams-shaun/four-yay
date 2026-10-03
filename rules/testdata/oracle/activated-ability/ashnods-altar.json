@@ -1,0 +1,83 @@
+{
+ "card": "Ashnod's Altar",
+ "family": "activated-ability",
+ "author": "cli-20261002T030326Z-79066444 (Oracle + CR only)",
+ "oracle_sha": "864a3c21c92c",
+ "scenarios": [
+  {
+   "name": "sacrifice-creature-for-two-colourless",
+   "cr": [
+    "602.2b",
+    "605.3",
+    "701.17"
+   ],
+   "why": "'Sacrifice a creature: Add {C}{C}' is a mana ability whose cost is sacrificing a creature, so sacrificing the 2/2 Bears leaves the creature in the graveyard and adds exactly two colourless mana to the pool.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ashnod's Altar",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Ashnod's Altar",
+     "ability": "Sacrifice",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "pool": {
+      "p0": "CC"
+     }
+    },
+    {
+     "card": "p0:Ashnod's Altar",
+     "zone": "battlefield",
+     "tapped": false
+    }
+   ]
+  },
+  {
+   "name": "no-other-creature-no-offer",
+   "cr": [
+    "602.5b",
+    "602.2b"
+   ],
+   "why": "The cost is a creature sacrifice; with no creature other than the (non-creature) Altar on the battlefield the ability has no legal way to be activated and must not be offered.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ashnod's Altar"
+     ]
+    }
+   },
+   "expect": [
+    {
+     "offered": {
+      "seat": 0,
+      "kind": "activate",
+      "card": "p0:Ashnod's Altar",
+      "label": "Sacrifice"
+     },
+     "want": false
+    }
+   ]
+  }
+ ]
+}

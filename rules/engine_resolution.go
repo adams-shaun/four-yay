@@ -130,6 +130,10 @@ type engineResolution struct {
 	// It is separate from sourceLifelinkLKI because false lifelink is still a
 	// valid snapshot, and a controller may be seat zero.
 	sourceControllerLKI map[state.ObjID]state.PlayerID
+	// sourceCharLKI is the matching pre-departure snapshot of the source's
+	// power, toughness and counters, read by a source-relative target
+	// filter's CR 608.2b recheck (source_char_lki.go).
+	sourceCharLKI map[state.ObjID]sourceCharSnapshot
 	// damageSourceLKI carries snapshots keyed first by the waiting stack
 	// object and then by a departed named DamageSource$ object. Unlike the
 	// own-source maps above, every waiting resolution receives departures: the
