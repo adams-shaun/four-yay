@@ -17,9 +17,11 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/compliance"
+	"github.com/adams-shaun/gorge/compliance/gate"
 	"github.com/adams-shaun/gorge/compliance/oraclediff"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
 	"github.com/adams-shaun/gorge/effects"
@@ -45,8 +47,17 @@ func main() {
 		scen := fs.String("scenarios", "", "scenario JSONL")
 		xm := fs.String("xmage", "", "XMage driver output JSONL")
 		out := fs.String("out", "", "verdict JSONL")
+		write := fs.String("write", "", "merge verdict rows into this directory (compliance/verdicts)")
+		ref := fs.String("xmage-ref", "", "XMAGE_REF the XMage results came from (required with -write)")
 		fs.Parse(os.Args[2:])
-		err = runDiff(*dir, *scen, *xm, *out)
+		err = runDiff(*dir, *scen, *xm, *out, *write, *ref)
+	case "status":
+		fs := flag.NewFlagSet("status", flag.ExitOnError)
+		dir := fs.String("cards", ".cards", "corpus dir")
+		set := fs.String("set", "", "set code")
+		level := fs.String("level", "A", "level")
+		fs.Parse(os.Args[2:])
+		err = runStatus(*dir, *set, *level)
 	case "show":
 		fs := flag.NewFlagSet("show", flag.ExitOnError)
 		dir := fs.String("cards", ".cards", "corpus dir")
@@ -164,10 +175,14 @@ func readLines(path string, each func([]byte) error) error {
 	return sc.Err()
 }
 
-func runDiff(dir, scen, xm, out string) error {
+func runDiff(dir, scen, xm, out, write, ref string) error {
 	if scen == "" || xm == "" || out == "" {
 		return fmt.Errorf("diff needs -scenarios, -xmage and -out")
 	}
+	if write != "" && ref == "" {
+		return fmt.Errorf("-write needs -xmage-ref")
+	}
+	var rows []compliance.VerdictRow
 	reg, err := loadReg(dir)
 	if err != nil {
 		return err
@@ -204,6 +219,20 @@ func runDiff(dir, scen, xm, out string) error {
 			g, gerr := rules.RunOracleScenarioJSON(reg, it.Raw())
 			row.Verdict = oraclediff.Compare(g, gerr, x)
 			row.XMageMS = x.MS
+			vr := compliance.VerdictRow{Card: it.Card, Template: it.Template, ID: it.ID,
+				ScenarioSHA: gate.ItemSHA(it), XMageRef: ref}
+			switch row.Verdict.Status {
+			case oraclediff.Agree:
+				vr.Status = compliance.StatusAgree
+				vr.CanonSHA = gate.Hash([]byte(oraclediff.Canonical(g.Snapshots)))
+			case oraclediff.Diverge:
+				vr.Status = compliance.StatusDiverge
+				vr.Detail = fmt.Sprintf("%s %s: gorge %q, xmage %q", row.Verdict.Checkpoint, row.Verdict.Field, row.Verdict.Gorge, row.Verdict.XMage)
+			default:
+				vr.Status = compliance.StatusHarness
+				vr.Detail = row.Verdict.Engine + ": " + firstLine(row.Verdict.Msg)
+			}
+			rows = append(rows, vr)
 		}
 		key := string(row.Verdict.Status)
 		if row.Verdict.Status == oraclediff.Diverge {
@@ -216,6 +245,12 @@ func runDiff(dir, scen, xm, out string) error {
 	}); err != nil {
 		return err
 	}
+	if write != "" {
+		if err := compliance.MergeVerdicts(write, rows); err != nil {
+			return err
+		}
+		fmt.Printf("merged %d verdict rows into %s\n", len(rows), write)
+	}
 	keys := make([]string, 0, len(counts))
 	for k := range counts {
 		keys = append(keys, k)
@@ -224,6 +259,43 @@ func runDiff(dir, scen, xm, out string) error {
 	for _, k := range keys {
 		fmt.Printf("%-28s %d\n", k, counts[k])
 	}
+	return nil
+}
+
+func firstLine(s string) string {
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
+		s = s[:i]
+	}
+	if len(s) > 300 {
+		s = s[:300]
+	}
+	return s
+}
+
+// runStatus prints what keeps a set from a level (the CI gate's check).
+func runStatus(dir, set, level string) error {
+	if set == "" {
+		return fmt.Errorf("status needs -set")
+	}
+	reg, err := loadReg(dir)
+	if err != nil {
+		return err
+	}
+	probs, err := gate.Check(reg, ".", set, level)
+	if err != nil {
+		return err
+	}
+	total := 0
+	if pr, err := compliance.LoadPrinted("compliance/printed", set); err == nil {
+		total = len(pr.Cards)
+	} else {
+		m, _ := compliance.LoadManifest("compliance/manifests", set)
+		total = len(m.Cards)
+	}
+	for _, p := range probs {
+		fmt.Printf("%-40s %s\n", p.Card, p.Reason)
+	}
+	fmt.Printf("%s:%s -- %d of %d printed cards outstanding\n", set, level, len(probs), total)
 	return nil
 }
 

@@ -208,12 +208,11 @@ public class ScenarioReplay extends CardTestPlayerBase {
                 } else if (tg.isEmpty()) {
                     castSpell(TURN, MAIN, p, card);
                 } else {
+                    List<String> ts = new ArrayList<>();
                     for (String t : tg) {
-                        if (isSeatRef(t)) {
-                            throw new IllegalArgumentException("mixed player/object targets unsupported");
-                        }
+                        ts.add(isSeatRef(t) ? "targetPlayer=" + seat(seatOf(t)).getName() : t);
                     }
-                    castSpell(TURN, MAIN, p, card, String.join("^", tg));
+                    castSpell(TURN, MAIN, p, card, String.join("^", ts));
                 }
                 return;
             }

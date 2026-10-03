@@ -76,59 +76,77 @@ func Compare(g rules.OracleResult, gerr error, x XResult) Verdict {
 	return Verdict{Status: Agree}
 }
 
-func compareSnap(g, x rules.OracleSnapshot) (Verdict, bool) {
-	cp := g.Checkpoint
-	diff := func(field, gv, xv string) (Verdict, bool) {
-		return Verdict{Status: Diverge, Checkpoint: cp, Field: field, Gorge: gv, XMage: xv}, false
+// field is one compared value of a checkpoint, already normalized.
+type field struct{ name, value string }
+
+// fields renders a snapshot as the ordered, normalized field list the
+// comparator compares; xmage selects XMage's step vocabulary. Two
+// snapshots agree exactly when their field lists are equal, so the list
+// doubles as the frozen expectation (Canonical).
+func fields(s rules.OracleSnapshot, xmage bool) []field {
+	step := s.Step
+	if xmage {
+		step = XMageStep(step)
 	}
+	out := []field{
+		{"turn", fmt.Sprint(s.Turn)}, {"step", step},
+		{"active", fmt.Sprint(s.Active)}, {"over", fmt.Sprint(s.Over)},
+		{"players", fmt.Sprint(len(s.Players))},
+	}
+	for i, p := range s.Players {
+		pf := func(f string) string { return fmt.Sprintf("p%d.%s", i, f) }
+		out = append(out,
+			field{pf("life"), fmt.Sprint(p.Life)},
+			field{pf("counters"), counters(p.Counters)},
+			field{pf("hand"), list(p.Hand, true)},
+			field{pf("graveyard"), list(p.Graveyard, false)},
+			field{pf("exile"), list(p.Exile, true)},
+			field{pf("library_count"), fmt.Sprint(p.LibraryCount)},
+			field{pf("library_top"), list(p.LibraryTop, false)},
+			field{pf("pool"), sortMana(p.Pool)},
+		)
+	}
+	out = append(out,
+		field{"permanents", strings.Join(permKeys(s.Permanents), "\n")},
+		field{"stack", stackKeys(s.Stack)},
+	)
+	return out
+}
+
+func compareSnap(g, x rules.OracleSnapshot) (Verdict, bool) {
 	if g.Checkpoint != x.Checkpoint {
 		return Verdict{Status: Harness, Engine: "both", Msg: fmt.Sprintf("checkpoint %q vs %q", g.Checkpoint, x.Checkpoint)}, false
 	}
-	if g.Turn != x.Turn {
-		return diff("turn", fmt.Sprint(g.Turn), fmt.Sprint(x.Turn))
-	}
-	if gs, xs := g.Step, XMageStep(x.Step); gs != xs {
-		return diff("step", gs, xs)
-	}
-	if g.Active != x.Active {
-		return diff("active", fmt.Sprint(g.Active), fmt.Sprint(x.Active))
-	}
-	if g.Over != x.Over {
-		return diff("over", fmt.Sprint(g.Over), fmt.Sprint(x.Over))
-	}
-	if len(g.Players) != len(x.Players) {
-		return diff("players", fmt.Sprint(len(g.Players)), fmt.Sprint(len(x.Players)))
-	}
-	for i := range g.Players {
-		gp, xp := g.Players[i], x.Players[i]
-		pf := func(f string) string { return fmt.Sprintf("p%d.%s", i, f) }
-		for _, c := range []struct {
-			f      string
-			gv, xv string
-		}{
-			{"life", fmt.Sprint(gp.Life), fmt.Sprint(xp.Life)},
-			{"counters", counters(gp.Counters), counters(xp.Counters)},
-			{"hand", list(gp.Hand, true), list(xp.Hand, true)},
-			{"graveyard", list(gp.Graveyard, false), list(xp.Graveyard, false)},
-			{"exile", list(gp.Exile, true), list(xp.Exile, true)},
-			{"library_count", fmt.Sprint(gp.LibraryCount), fmt.Sprint(xp.LibraryCount)},
-			{"library_top", list(gp.LibraryTop, false), list(xp.LibraryTop, false)},
-			{"pool", sortMana(gp.Pool), sortMana(xp.Pool)},
-		} {
-			if c.gv != c.xv {
-				return diff(pf(c.f), c.gv, c.xv)
+	gf, xf := fields(g, false), fields(x, true)
+	for k := range gf {
+		if k >= len(xf) || gf[k].value != xf[k].value {
+			xv := ""
+			if k < len(xf) {
+				xv = xf[k].value
 			}
+			gv := gf[k].value
+			if gf[k].name == "permanents" {
+				onlyG, onlyX := symDiff(strings.Split(gv, "\n"), strings.Split(xv, "\n"))
+				gv, xv = strings.Join(onlyG, "; "), strings.Join(onlyX, "; ")
+			}
+			return Verdict{Status: Diverge, Checkpoint: g.Checkpoint, Field: gf[k].name, Gorge: gv, XMage: xv}, false
 		}
 	}
-	gperm, xperm := permKeys(g.Permanents), permKeys(x.Permanents)
-	if strings.Join(gperm, "\n") != strings.Join(xperm, "\n") {
-		onlyG, onlyX := symDiff(gperm, xperm)
-		return diff("permanents", strings.Join(onlyG, "; "), strings.Join(onlyX, "; "))
-	}
-	if gs, xs := stackKeys(g.Stack), stackKeys(x.Stack); gs != xs {
-		return diff("stack", gs, xs)
-	}
 	return Verdict{}, true
+}
+
+// Canonical is gorge's side of a scenario in the comparator's normalized
+// form: equal to XMage's exactly when the two agree. A verdict row freezes
+// its hash, so the CI gate can re-check gorge without Java.
+func Canonical(snaps []rules.OracleSnapshot) string {
+	var b strings.Builder
+	for _, s := range snaps {
+		fmt.Fprintf(&b, "== %s\n", s.Checkpoint)
+		for _, f := range fields(s, false) {
+			fmt.Fprintf(&b, "%s: %s\n", f.name, f.value)
+		}
+	}
+	return b.String()
 }
 
 // XMageStep maps an XMage PhaseStep name onto gorge's step name.

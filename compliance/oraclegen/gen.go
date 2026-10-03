@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/rules"
 )
 
@@ -29,6 +30,7 @@ type Seat struct {
 	Graveyard   []string `json:"graveyard,omitempty"`
 	Exile       []string `json:"exile,omitempty"`
 	Library     []string `json:"library,omitempty"`
+	LibraryTop  []string `json:"library_top,omitempty"`
 }
 
 // Step is one scenario step (a subset of the runner's op set).
@@ -125,12 +127,13 @@ func Generate(reg *cards.Registry, name string) (Item, *Skip) {
 			Steps: []Step{{Op: "cast", Seat: 0, Card: "p0:" + name, Mana: mana, Targets: fx.targets}},
 		}
 		sc.Setup["p0"] = withHand(sc.Setup["p0"], name)
+		baseline(sc.Setup, f)
 		if n, res, ok := settle(reg, sc); ok {
 			for i := 0; i < n; i++ {
 				sc.Steps = append(sc.Steps, Step{Op: "resolve"})
 			}
 			it := item(name, "cast-resolve", sc)
-			it.XAnswers = xanswers(res.Decisions, len(sc.Steps))
+			it.XAnswers = xanswers(res.Decisions, len(sc.Steps), modeNumbers(f))
 			return it, nil
 		}
 	}
@@ -142,6 +145,49 @@ func item(card, template string, sc Scenario) Item {
 	sc.CR = []string{"601.2"}
 	sc.Why = "generated level-A scenario"
 	return Item{ID: fmt.Sprintf("%s/%s/v%d", card, template, Version), Card: card, Template: template, Scenario: sc}
+}
+
+// baseline gives every cast scenario something for "up to one target"
+// triggers and library searches to find: XMage poses those decisions even
+// with no legal choice (and strict mode then needs a scripted skip), while
+// gorge skips them. An opposing creature and a varied library top make
+// both engines ask.
+func baseline(setup map[string]Seat, f *cards.Face) {
+	p1 := setup["p1"]
+	has := false
+	for _, n := range p1.Battlefield {
+		if n == "Grizzly Bears" {
+			has = true
+		}
+	}
+	if !has {
+		p1.Battlefield = append(p1.Battlefield, "Grizzly Bears")
+	}
+	setup["p1"] = p1
+	if searchesLibrary(f) {
+		p0 := setup["p0"]
+		p0.LibraryTop = []string{"Jace Beleren", "Grizzly Bears", "Forest", "Glorious Anthem", "Shock", "Plains", "Ornithopter"}
+		setup["p0"] = p0
+	}
+}
+
+func searchesLibrary(f *cards.Face) bool {
+	for _, sa := range f.Abilities {
+		if strings.Contains(sa.Line, "Origin$ Library") {
+			return true
+		}
+	}
+	for _, body := range f.SVars {
+		if strings.Contains(body, "Origin$ Library") {
+			return true
+		}
+	}
+	for _, t := range f.Triggers {
+		if t.Effect != nil && strings.Contains(t.Effect.Line, "Origin$ Library") {
+			return true
+		}
+	}
+	return false
 }
 
 func repeat(s string, n int) []string {
@@ -187,7 +233,7 @@ func settle(reg *cards.Registry, sc Scenario) (int, rules.OracleResult, bool) {
 
 // xanswers turns gorge's recorded decisions into XMage's scripted answers,
 // grouped by the step that posed them.
-func xanswers(ds []rules.OracleDecision, steps int) [][]XAnswer {
+func xanswers(ds []rules.OracleDecision, steps int, modes map[string]int) [][]XAnswer {
 	out := make([][]XAnswer, steps)
 	any := false
 	for _, d := range ds {
@@ -209,8 +255,16 @@ func xanswers(ds []rules.OracleDecision, steps int) [][]XAnswer {
 				as = append(as, XAnswer{d.Seat, "target", "[target_skip]"})
 			}
 		case "mode":
-			for _, i := range d.PickIdx {
-				as = append(as, XAnswer{d.Seat, "mode", fmt.Sprint(i + 1)})
+			// gorge offers only the modes with legal targets, so an option
+			// index is not the mode number; the label is.
+			for k, i := range d.PickIdx {
+				n := i + 1
+				if k < len(d.Picks) {
+					if m, ok := modes[d.Picks[k]]; ok {
+						n = m
+					}
+				}
+				as = append(as, XAnswer{d.Seat, "mode", fmt.Sprint(n)})
 			}
 		case "yesno":
 			yes := len(d.PickIdx) > 0 && d.PickIdx[0] == 0
@@ -220,15 +274,39 @@ func xanswers(ds []rules.OracleDecision, steps int) [][]XAnswer {
 			}
 			as = append(as, XAnswer{d.Seat, "choice", map[bool]string{true: "yes", false: "no"}[yes]})
 		case "choose_n":
+			if payment(d.Picks) {
+				// Hybrid/phyrexian halves are payment UI; XMage pays from
+				// the pool without asking.
+				continue
+			}
+			if yn, ok := yesNo(d); ok {
+				as = append(as, XAnswer{d.Seat, "choice", yn})
+				break
+			}
 			for k, ref := range d.PickRefs {
-				if k < len(d.Picks) && ref == d.Picks[k] {
-					as = append(as, XAnswer{d.Seat, "choice", ref})
+				label := ""
+				if k < len(d.Picks) {
+					label = d.Picks[k]
+				}
+				// An option naming an object is a card pick (XMage: a
+				// target); one whose Obj is only the source is a labelled
+				// choice.
+				if name := oraclediffRefName(ref); ref != label && strings.HasPrefix(label, name) {
+					as = append(as, XAnswer{d.Seat, "target", name})
 				} else {
-					as = append(as, XAnswer{d.Seat, "target", oraclediffRefName(ref)})
+					as = append(as, XAnswer{d.Seat, "choice", label})
 				}
 			}
 			if len(d.PickRefs) == 0 {
-				as = append(as, XAnswer{d.Seat, "choice", "[choice_skip]"})
+				as = append(as, XAnswer{d.Seat, "target", "[target_skip]"})
+			}
+		case "order":
+			// Scry/surveil (arrange): XMage asks which cards to move; keeping
+			// every card where it is is a skip.
+			if d.Via != "" && len(d.PickIdx) == d.Options {
+				as = append(as, XAnswer{d.Seat, "target", "[target_skip]"})
+			} else {
+				continue
 			}
 		default:
 			continue
@@ -240,6 +318,65 @@ func xanswers(ds []rules.OracleDecision, steps int) [][]XAnswer {
 		return nil
 	}
 	return out
+}
+
+// modeNumbers maps each charm mode's label (as gorge's mode decision
+// shows it) to its 1-based position in its Choices$ list, for every Charm
+// on the face -- the spell's own and any modal trigger's.
+func modeNumbers(f *cards.Face) map[string]int {
+	out := map[string]int{}
+	add := func(choices string) {
+		for i, name := range strings.Split(choices, ",") {
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+			out[effects.CharmModeLabel(cards.ResolveSVar(f.SVars, name), name)] = i + 1
+		}
+	}
+	for _, sa := range f.Abilities {
+		if sa.API == "Charm" {
+			add(sa.Params["Choices"])
+		}
+	}
+	for _, body := range f.SVars {
+		if strings.Contains(body, "Charm") {
+			if c := svarParams(body)["Choices"]; c != "" {
+				add(c)
+			}
+		}
+	}
+	return out
+}
+
+// yesNo recognises a two-way "do it / don't" choice and returns XMage's
+// boolean answer for gorge's pick.
+func yesNo(d rules.OracleDecision) (string, bool) {
+	if d.Options != 2 || len(d.Picks) != 1 {
+		return "", false
+	}
+	l := strings.ToLower(d.Picks[0])
+	for _, neg := range []string{"do not", "don't", "no", "decline", "skip"} {
+		if strings.HasPrefix(l, neg) {
+			return "no", true
+		}
+	}
+	if len(d.PickIdx) == 1 && d.PickIdx[0] == 0 && !strings.Contains(l, "(") {
+		return "yes", true
+	}
+	return "", false
+}
+
+func payment(picks []string) bool {
+	if len(picks) == 0 {
+		return false
+	}
+	for _, p := range picks {
+		if !strings.HasPrefix(p, "Pay ") {
+			return false
+		}
+	}
+	return true
 }
 
 func isSeat(s string) bool {
@@ -507,6 +644,6 @@ func clone(s Seat) Seat {
 	return Seat{
 		Battlefield: append([]string(nil), s.Battlefield...), Hand: append([]string(nil), s.Hand...),
 		Graveyard: append([]string(nil), s.Graveyard...), Exile: append([]string(nil), s.Exile...),
-		Library: append([]string(nil), s.Library...),
+		Library: append([]string(nil), s.Library...), LibraryTop: append([]string(nil), s.LibraryTop...),
 	}
 }
