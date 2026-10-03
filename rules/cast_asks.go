@@ -924,7 +924,7 @@ func (e *Engine) castModeAsk() bool {
 	}
 	f := o.Face()
 	sa := f.SpellAbility()
-	if sa == nil || sa.API != "Charm" || strings.TrimSpace(sa.ParamStr(cards.PKChoices)) == "" {
+	if sa == nil || sa.API != "Charm" || !effects.CharmOf(sa).HasChoices {
 		return false
 	}
 	ctx := effects.NewCtxPtr(pc.card, pc.player, effects.CtxInit{})
@@ -941,7 +941,7 @@ func (e *Engine) castModeAsk() bool {
 		// narrows the pool the rng would pick from.
 		return false
 	}
-	choices := strings.Split(sa.ParamStr(cards.PKChoices), ",")
+	choices := effects.CharmOf(sa).Modes
 	// The potential pool (a pure read) is the colour-aware upper bound the
 	// per-mode cost filter below prices against: at this point in the cast no
 	// mana has been floated yet (the CR 601.2g window is in payCast), so the
