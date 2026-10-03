@@ -1420,7 +1420,7 @@ func (e *Engine) checkGameOver() {
 // priority: the proposal as a cast "in flight", the marker read by the next
 // KChoose answer's dispatch and by the legend-rule SBA gate.
 func (e *Engine) dropDepartedFlow(d *decision.Decision) {
-	if e.cast != nil && e.cast.player == d.Player {
+	if e.cast != nil && (e.cast.player == d.Player || e.cast.player == d.Acting()) {
 		e.cast = nil
 		e.deferredPush, e.deferredPushLKI = nil, nil
 		if e.choosing == chooseCast {
@@ -1487,7 +1487,10 @@ func (e *Engine) releasePendingDecisionOfDepartedPlayer() {
 	if d == nil || e.G.Over {
 		return
 	}
-	if int(d.Player) >= len(e.G.Players) || !e.G.Players[d.Player].Lost {
+	// A CR 722-redirected decision is stranded when EITHER seat departed:
+	// the answering controller, or the controlled seat it acts for.
+	departed := func(p state.PlayerID) bool { return int(p) < len(e.G.Players) && e.G.Players[p].Lost }
+	if int(d.Player) >= len(e.G.Players) || !(departed(d.Player) || departed(d.Acting())) {
 		return
 	}
 	e.pending = nil

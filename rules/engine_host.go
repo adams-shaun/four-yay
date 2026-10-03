@@ -62,7 +62,7 @@ func (e *Engine) EnsurePaymentActions() []decision.PaymentAction {
 		// instead of re-deriving the whole board. A dead tail opens a fresh
 		// generation exactly as the build's own scope always did.
 		e.BeginDerivedReads()
-		actions := e.paymentActionsForPriority(d.Player, d.Seq, d.Options)
+		actions := e.paymentActionsForPriority(d.Acting(), d.Player, d.Seq, d.Options)
 		e.EndDerivedReads()
 		// The builder's actions are this decision's own: every Plans,
 		// Activations, Consequence and BaseOptionIndex it returns is built
@@ -156,7 +156,7 @@ func (e *Engine) searchControlRedirect(d *decision.Decision) {
 			!effects.MatchesPlayerSpec(e.G, spec, d.Player, sv.Controller) {
 			continue
 		}
-		d.Player = sv.Controller
+		d.RedirectTo(sv.Controller)
 		return
 	}
 }
@@ -197,7 +197,12 @@ func (e *Engine) controlPlayerRedirect(d *decision.Decision) {
 	if _, loop := e.G.ControlledBy[ctl]; loop {
 		return
 	}
-	d.Player = ctl
+	// The controller ANSWERS; the decision is still asked OF the controlled
+	// seat, whose options it carries and for whom the answer acts (CR 722.1).
+	// Submit hands its validators and handlers the acting view
+	// (actingView), so they never read the answering seat as the
+	// player taking the action.
+	d.RedirectTo(ctl)
 }
 
 func (e *Engine) GetCurrentEffectFrame() effects.EffectFrame {

@@ -61,7 +61,9 @@ func (e *Engine) validatePriorityChoice(d *decision.Decision, in decision.Intent
 		return nil
 	}
 	opt := d.Options[in.Choices[0]]
-	if reason := e.priorityOptionStale(in.Player, opt); reason != "" {
+	// The options were built for the seat the decision is asked OF; under a
+	// CR 722 redirect that is not the answering seat (Decision.Acting).
+	if reason := e.priorityOptionStale(d.Acting(), opt); reason != "" {
 		return fmt.Errorf("priority option %d (%s %q) cannot be performed: %s", opt.Index, opt.Kind, opt.Label, reason)
 	}
 	return nil
