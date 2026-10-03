@@ -162,6 +162,7 @@ func (e *Engine) applyETBChoiceReplacement(ev events.Event) bool {
 		// this emit -- the continuation the legacy arm hands back to the
 		// parked frame (continueAfterETBEntry).
 		e.choosing = chooseNone
+		e.tapeETBServed = ev.Obj
 		chosen := d.Chosen(in)
 		e.withMintSink(e.pendingMintSink, func() { e.resumeETBEntry(chosen) })
 		return true

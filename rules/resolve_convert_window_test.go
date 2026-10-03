@@ -262,3 +262,12 @@ func TestTapeConvertOwnEntryReplacement(t *testing.T) {
 		})
 	}
 }
+
+// Riptide Replicator's shape: an as-enters colour choice, then the entry
+// replacement body's own ask. The second stays legacy (the run aborts to the
+// legacy replay) and the two kernels still agree.
+func TestTapeETBThenEntryReplacementGoesLegacy(t *testing.T) {
+	src := "Name:Tape Replicator\nManaCost:B\nTypes:Artifact\nK:ETBReplacement:Other:ChooseColor\nSVar:ChooseColor:DB$ ChooseColor\n" +
+		"K:ETBReplacement:Other:DBChoose\nSVar:DBChoose:DB$ ChooseCard | Defined$ You | Choices$ Land.YouCtrl | ChoiceZone$ Battlefield | Mandatory$ True\nOracle:x\n"
+	tapeDual(t, 2, 13750, tapeUnlessScenario("Tape Replicator", "B", 2, tapePick), src)
+}

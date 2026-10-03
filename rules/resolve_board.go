@@ -50,6 +50,13 @@ type engineResolveKernel struct {
 	// through the kernel (windowAsk): its own holder is open by design, so
 	// Busy looks past it. Transient within one ask.
 	tapeWindowAsking bool `clone:"reset"`
+	// tapeETBServed names the entering object whose as-enters choice the
+	// kernel served in line this resolution (applyETBChoiceReplacement):
+	// its entry replacement body's ask then stays legacy, because the
+	// legacy path chains that body's frame behind the as-enters frame and
+	// completes it without the CR 117.3b grant -- an order the in-line
+	// answer does not reproduce.
+	tapeETBServed state.ObjID `clone:"reset"`
 }
 
 // resolveBoard is the Engine itself under the kernel's method set: asResolve
@@ -92,7 +99,8 @@ func (e *Engine) TapeAnswer(d *decision.Decision) (decision.Intent, bool) {
 // resolution does, so nothing the legacy park would let run on precedes the
 // answer, and the kernel serves it in line.
 func (e *Engine) ownEntryReplacementAsk(d *decision.Decision) bool {
-	if e.resume != nil || e.resolvingObj == 0 || d.Source != e.resolvingObj || len(e.contChain) != 0 {
+	if e.resume != nil || e.resolvingObj == 0 || d.Source != e.resolvingObj || len(e.contChain) != 0 ||
+		e.tapeETBServed == d.Source {
 		return false
 	}
 	o := e.G.Obj(d.Source)
