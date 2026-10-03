@@ -47,7 +47,7 @@ func ctrFixture(t *testing.T, s ctrSetup, tape bool) (*Engine, Config) {
 		tokens = map[string]*cards.Card{}
 	}
 	cfg := seatZeroStart(Config{Seed: s.seed, Names: names, Decks: decks, Tokens: tokens})
-	cfg.TapeKernel = tape
+	cfg.LegacyResume = !tape
 	prev := tapeKernelEnv
 	tapeKernelEnv = tapeKernelEnv && tape
 	e := New(cfg)

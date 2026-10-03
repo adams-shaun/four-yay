@@ -6,7 +6,6 @@ package bench_test
 // legacy resume path logs.
 
 import (
-	"os"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -20,9 +19,6 @@ import (
 func TestSyncAnswerMatchesLegacy(t *testing.T) {
 	if testing.Short() {
 		t.Skip("plays 18 games twice")
-	}
-	if os.Getenv("GORGE_TAPE_KERNEL") == "1" {
-		t.Skip("GORGE_TAPE_KERNEL=1 puts the legacy arm on the kernel too")
 	}
 	reg := testutil.CorpusRegistry(t)
 	pairs := [][2]string{
@@ -44,7 +40,7 @@ func TestSyncAnswerMatchesLegacy(t *testing.T) {
 			cfg := rules.Config{Seed: 4100 + g, Names: p[:], Decks: [][]*cards.Card{da, db}, Tokens: reg.Tokens}
 			play := func(tape bool) *rules.Engine {
 				c := cfg
-				c.TapeKernel = tape
+				c.LegacyResume = !tape
 				seats := []seat.Seat{seat.NewBot(c.Seed ^ 1), seat.NewBot(c.Seed ^ 2)}
 				_, e, err := bench.PlayGame(c, seats, 60, 4000, bench.Hooks{SyncAnswer: tape})
 				if err != nil {

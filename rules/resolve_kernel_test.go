@@ -36,7 +36,7 @@ func tapeFixture(t *testing.T, seats int, seed uint64, tape bool, srcs ...string
 	}
 	decks[0] = append(append([]*cards.Card(nil), fixtures...), mountainDeck(t, 40-len(fixtures))...)
 	cfg := seatZeroStart(Config{Seed: seed, Names: names, Decks: decks, Tokens: map[string]*cards.Card{}})
-	cfg.TapeKernel = tape
+	cfg.LegacyResume = !tape
 	// The legacy arm stays legacy even under GORGE_TAPE_KERNEL=1.
 	prev := tapeKernelEnv
 	tapeKernelEnv = tapeKernelEnv && tape

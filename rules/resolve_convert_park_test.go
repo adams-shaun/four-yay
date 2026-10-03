@@ -185,7 +185,6 @@ func TestTapeParkTokenElection(t *testing.T) {
 	}
 	decks := [][]*cards.Card{append(fixtures, mountainDeck(t, 40-len(fixtures))...), mountainDeck(t, 40)}
 	cfg := seatZeroStart(Config{Seed: 14100, Names: []string{"p0", "p1"}, Decks: decks, Tokens: tokens})
-	cfg.TapeKernel = true
 	e := New(cfg)
 	e.Advance()
 	moveByName(t, e, 0, "Tape Copier", state.ZBattlefield)

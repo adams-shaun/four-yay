@@ -12,7 +12,7 @@ import (
 // walks them): a clone keeps the switch and shares a posed checkpoint by
 // pointer, and starts every in-flight field zero (ForClone).
 type Kernel struct {
-	// on is Config.TapeKernel: the kernel handles this engine's
+	// on is !Config.LegacyResume: the kernel handles this engine's
 	// resolutions.
 	on bool `clone:"deep"`
 	// posed is non-nil while a tape resolution is posed: the immutable
@@ -96,7 +96,7 @@ type Divergence struct{ Msg string }
 
 func (d Divergence) Error() string { return "resolve: tape kernel divergence: " + d.Msg }
 
-// SetOn turns the kernel on or off for this engine (Config.TapeKernel).
+// SetOn turns the kernel on or off for this engine (!Config.LegacyResume).
 func (k *Kernel) SetOn(on bool) { k.on = on }
 
 // On reports whether the kernel handles this engine's resolutions.

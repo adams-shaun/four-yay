@@ -16,11 +16,11 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// tapeKernelEnv turns the kernel on for every engine (GORGE_TAPE_KERNEL=1, or
-// baked into a bench binary with
-// -ldflags "-X github.com/adams-shaun/gorge/rules.tapeKernelBuild=1"). Read
-// once; it is configuration, never game state.
-var tapeKernelEnv = os.Getenv("GORGE_TAPE_KERNEL") == "1" || tapeKernelBuild == "1"
+// tapeKernelEnv is the process default for the kernel: on, unless
+// GORGE_TAPE_KERNEL=0 (or a binary built with
+// -ldflags "-X github.com/adams-shaun/gorge/rules.tapeKernelBuild=0") opts
+// every engine out. Read once; it is configuration, never game state.
+var tapeKernelEnv = os.Getenv("GORGE_TAPE_KERNEL") != "0" && tapeKernelBuild != "0"
 
 var tapeKernelBuild string
 

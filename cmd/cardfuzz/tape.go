@@ -177,7 +177,7 @@ func tapeDualContext(tape, legacy *rules.Engine, seq int) string {
 // differ, with the kernel's activity per intent up to there.
 func tapeLockstep(cfg rules.Config, log *events.Log) string {
 	tcfg, lcfg := cfg, cfg
-	tcfg.TapeKernel, lcfg.TapeKernel = true, false
+	tcfg.LegacyResume, lcfg.LegacyResume = false, true
 	te, le := rules.New(tcfg), rules.New(lcfg)
 	te.Advance()
 	le.Advance()
