@@ -1,0 +1,62 @@
+{
+  "card": "Leonin Relic-Warder",
+  "family": "etb-ltb",
+  "oracle_sha": "4796c1580da4",
+  "author": "cli-20261003T014432Z-24102604 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enters-exiles-target-artifact",
+      "cr": ["603.2", "610.3"],
+      "why": "The enters trigger exiles a target artifact or enchantment, here an opponent's artifact; the artifact leaves the battlefield for exile.",
+      "setup": {
+        "p0": {"hand": ["Leonin Relic-Warder"], "battlefield": ["Grizzly Bears"]},
+        "p1": {"battlefield": ["Sol Ring", "Centaur Courser"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Leonin Relic-Warder", "mana": "WW"},
+        {"op": "resolve", "targets": ["p1:Sol Ring"]}
+      ],
+      "expect": [
+        {"card": "p0:Leonin Relic-Warder", "zone": "battlefield", "pt": "2/2"},
+        {"card": "p1:Sol Ring", "zone": "exile"},
+        {"card": "p1:Centaur Courser", "zone": "battlefield"}
+      ]
+    },
+    {
+      "name": "leaving-returns-exiled-card",
+      "cr": ["610.3", "610.3c"],
+      "why": "When the Relic-Warder leaves the battlefield the exiled card returns to the battlefield under its owner's control as a new object.",
+      "setup": {
+        "p0": {"hand": ["Leonin Relic-Warder"], "graveyard": []},
+        "p1": {"battlefield": ["Centaur Courser", "Sol Ring"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Leonin Relic-Warder", "mana": "WW"},
+        {"op": "resolve", "targets": ["p1:Sol Ring"]},
+        {"op": "move", "seat": 0, "card": "p0:Leonin Relic-Warder", "to": "graveyard"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Leonin Relic-Warder", "zone": "graveyard"},
+        {"card": "p1:Sol Ring", "zone": "battlefield"}
+      ]
+    },
+    {
+      "name": "exiles-enchantment-not-just-artifact",
+      "cr": ["603.2", "610.3"],
+      "why": "The target is \"artifact or enchantment\"; an opponent's enchantment is a legal target and is exiled.",
+      "setup": {
+        "p0": {"hand": ["Leonin Relic-Warder"]},
+        "p1": {"battlefield": ["Banishing Light"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Leonin Relic-Warder", "mana": "WW"},
+        {"op": "resolve", "targets": ["p1:Banishing Light"]}
+      ],
+      "expect": [
+        {"card": "p1:Banishing Light", "zone": "exile"},
+        {"card": "p0:Leonin Relic-Warder", "zone": "battlefield"}
+      ]
+    }
+  ]
+}

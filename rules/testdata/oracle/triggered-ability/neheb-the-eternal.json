@@ -1,7 +1,7 @@
 {
  "card": "Neheb, the Eternal",
  "family": "triggered-ability",
- "author": "cli-20261002T030326Z-79066444 (Oracle + CR only)",
+ "author": "cli-20261002T030326Z-79066444 (Oracle + CR only) + cli-20261002T202458Z-c8f54b81 (Oracle + CR only)",
  "oracle_sha": "3ddbcaf07dc4",
  "scenarios": [
   {
@@ -85,6 +85,84 @@
     {
      "pool": {
       "p0": "RRRR"
+     }
+    }
+   ]
+  },
+  {
+   "name": "postcombat-main-adds-red-per-life-opponents-lost",
+   "cr": [
+    "603.2",
+    "106.4"
+   ],
+   "why": "At the beginning of each of Neheb's controller's postcombat main phases, add {R} for each 1 life the opponents have lost this turn. An opponent who lost 3 life this turn yields {R}{R}{R}.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Neheb, the Eternal"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "life",
+     "seat": 1,
+     "amount": -3
+    },
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "active": "p0"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": "RRR"
+     }
+    },
+    {
+     "life": {
+      "p1": 17
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-life-lost-adds-nothing",
+   "cr": [
+    "603.2"
+   ],
+   "why": "With no life lost by an opponent this turn, the postcombat main trigger adds no mana.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Neheb, the Eternal"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "active": "p0"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": ""
+     }
+    },
+    {
+     "life": {
+      "p1": 20
      }
     }
    ]

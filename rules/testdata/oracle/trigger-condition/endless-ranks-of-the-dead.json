@@ -1,0 +1,38 @@
+{
+  "card": "Endless Ranks of the Dead",
+  "family": "trigger-condition",
+  "oracle_sha": "af6b750c5c5c",
+  "author": "cli-20261003T014432Z-24102604 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "upkeep-creates-half-the-zombies-rounded-down",
+      "cr": ["603.2", "107.1b"],
+      "why": "At the controller's upkeep it creates X 2/2 Zombie tokens where X is half the Zombies you control rounded down. With three other Zombies controlled, X is 1.",
+      "setup": {
+        "p0": {"battlefield": ["Endless Ranks of the Dead", "Walking Corpse", "Walking Corpse", "Walking Corpse"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "pass_to", "seat": 0, "step": "end"}
+      ],
+      "expect": [
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Zombie", "token": true}, "eq": 1}
+      ]
+    },
+    {
+      "name": "no-other-zombies-creates-none",
+      "cr": ["107.1b"],
+      "why": "With zero other Zombies, half of zero rounded down is zero, so no tokens are created even though the trigger resolves.",
+      "setup": {
+        "p0": {"battlefield": ["Endless Ranks of the Dead"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "pass_to", "seat": 0, "step": "end"}
+      ],
+      "expect": [
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Zombie", "token": true}, "eq": 0}
+      ]
+    }
+  ]
+}

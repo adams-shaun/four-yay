@@ -22,6 +22,7 @@ package rules
 // the corpus is read at run time (the GPL boundary, AGENTS.md).
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -855,15 +856,21 @@ func (r *oracleRun) do(st oracleStep) error {
 				for _, o := range choice.Options {
 					if o.Kind == "mana" {
 						manaOptions = true
-						if oracleLabelMatches(o.Label, st.Ability) {
+						break
+					}
+				}
+				// A queued answer owns the pending decision: fall back to label
+				// matching only when the scenario did not queue one, so a costed
+				// any-colour wheel behaves like every other colour wheel.
+				if manaOptions && !hasOracleAnswer(r.answers, choice.Kind) {
+					for _, o := range choice.Options {
+						if o.Kind == "mana" && oracleLabelMatches(o.Label, st.Ability) {
 							if err := r.submit(choice, []int{o.Index}, "mana ability"); err != nil {
 								return err
 							}
 							break
 						}
 					}
-				}
-				if manaOptions {
 					matched := false
 					for _, o := range choice.Options {
 						if o.Kind == "mana" && oracleLabelMatches(o.Label, st.Ability) {
@@ -871,7 +878,7 @@ func (r *oracleRun) do(st oracleStep) error {
 							break
 						}
 					}
-					if !matched && !hasOracleAnswer(r.answers, choice.Kind) {
+					if !matched {
 						return harnessf("mana ability %q not offered: %s", st.Ability, optionDump(choice))
 					}
 				}
@@ -1273,6 +1280,21 @@ func (r *oracleRun) stackDump() string {
 	return "[" + strings.Join(parts, ", ") + "]"
 }
 
+// oracleUnconsumedMarker tags the fail a step raises when its declared
+// `answers` queue still holds entries after the step finished: the fixture
+// declared a decision this step never posed (or posed on a later step), so
+// nothing matched it and the engine fell back. It is distinct from a known
+// engine divergence so the audit can excuse exactly these rows via the
+// shrinking oracleUnconsumed ratchet without hiding a real failure.
+const oracleUnconsumedMarker = "unconsumed answer(s) for this step:"
+
+// oracleUnconsumedFail formats the one fail a step gets for leftovers: the
+// step index, the op, and every leftover answer verbatim (kind + pick).
+func oracleUnconsumedFail(step int, op string, answers []oracleAnswer) string {
+	j, _ := json.Marshal(answers)
+	return fmt.Sprintf("step %d (%s): %s %s", step, op, oracleUnconsumedMarker, j)
+}
+
 // runOracleScenario plays one scenario and returns its mismatches (nil =
 // pass), a transcript, and the run (for the replay check; its engine is nil
 // when setup failed before genesis).
@@ -1303,6 +1325,14 @@ func runOracleScenarioWith(reg *cards.Registry, sc oracleScenario, noSnapshot bo
 		}
 		if !r.noSnapshot {
 			r.snaps = append(r.snaps, r.snapshot(fmt.Sprintf("step %d (%s)", i, st.Op)))
+		}
+		// A step's answers are consumed lazily by r.answer as decisions are
+		// posed. A leftover means no decision on THIS step matched it: either
+		// the fixture declares a decision the engine never asks, or the answer
+		// was written on the wrong step. Fail loudly -- the engine's fallback
+		// otherwise masks the stale fixture.
+		if len(r.answers) > 0 {
+			fails = append(fails, oracleUnconsumedFail(i, st.Op, r.answers))
 		}
 		for _, msg := range r.extraFails {
 			fails = append(fails, fmt.Sprintf("after step %d (%s): %s", i, st.Op, msg))

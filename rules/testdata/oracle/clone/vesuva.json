@@ -1,0 +1,54 @@
+{
+ "card": "Vesuva",
+ "family": "clone",
+ "author": "cli-20261002T202458Z-c8f54b81 (Oracle + CR only)",
+ "oracle_sha": "7a4500e9d72b",
+ "scenarios": [
+  {
+   "name": "enters-as-a-copy-of-a-land",
+   "cr": [
+    "707.2",
+    "614.5"
+   ],
+   "why": "Vesuva's controller may have it enter as a copy of any land on the battlefield (it enters tapped). Chosen to copy a Forest, it is a second Forest under that player's control.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Forest"
+     ],
+     "hand": [
+      "Vesuva"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "play",
+     "seat": 0,
+     "card": "p0:Vesuva"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Forest"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "count": {
+      "seat": 0,
+      "zone": "battlefield",
+      "name": "Forest"
+     },
+     "eq": 2
+    }
+   ]
+  }
+ ]
+}

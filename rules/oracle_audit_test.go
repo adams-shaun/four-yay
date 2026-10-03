@@ -41,13 +41,15 @@ import (
 // until its row is deleted); an unlisted failure fails the build. Rows are
 // only ever added by the triage step, never by the scenario author.
 //
-// NEW rows go in the family's own oracleDivergentFile
-// (testdata/oracle/<family>/known-divergent.json), not here: every audit
-// ticket appending to this one map made each merge conflict with every other
-// in-flight audit branch, and each conflict cost a merge-fix round plus a full
-// re-gate. The two sources are merged by oracleDivergent; a key in both, or a
-// file row naming a scenario of another family, fails the build. Rows here are
-// legacy and may be moved into the family files.
+// NEW rows go in the card's own file under oracleDivergentDir
+// (testdata/oracle/<family>/known-divergent/<slug>.json), not here and not in
+// a family aggregate: every audit ticket appending to one shared file made
+// each merge conflict with every other in-flight audit branch editing it, and
+// each conflict cost a merge-fix round plus a full re-gate. The three sources
+// (this map, the family aggregate, the per-card files) are merged by
+// oracleDivergent; a key in two of them, or a row naming a scenario of another
+// family, fails the build. Rows here are legacy and may be moved into the
+// per-card files.
 var oracleKnownDivergent = map[string]string{
 	// (The Purphoros and Mogis rows retired when rules/layers.go's type-static
 	// emission read stat:Continuous RemoveType$ -- the devotion gods' "isn't
@@ -89,25 +91,56 @@ var oracleKnownDivergent = map[string]string{
 	"Earthbender Ascension/fourth-landfall-reaches-quest-threshold": "4 quest counters reached, but target gets no +1/+1 counter or Trample (reflexive trigger chain lost)",
 }
 
-// oracleDivergentFile is a family directory's ratchet rows: one flat JSON
-// object, "<card>/<scenario>" -> the one-line observed-vs-expected reason.
-// It is not a scenario file; loadOracleFiles skips it.
+// oracleDivergentFile is a family directory's legacy ratchet aggregate: one
+// flat JSON object, "<card>/<scenario>" -> the one-line observed-vs-expected
+// reason. It is not a scenario file; loadOracleFiles skips it.
+//
+// NEW rows never go here. Every audit ticket appending to a family aggregate
+// made each merge conflict with every other in-flight audit branch editing
+// that family (fdn-fix5 and fdn-fix6 both deleted rows from
+// activated-ability/known-divergent.json in 2026-10-02); the aggregate is
+// legacy and may only shrink. New rows go in the card's own file under
+// oracleDivergentDir, so two audit tickets touch two files.
 const oracleDivergentFile = "known-divergent.json"
 
-// oracleDivergentRow is one ratchet row and where it came from: the family of
-// the file that holds it, or "" for the legacy oracleKnownDivergent map.
-type oracleDivergentRow struct {
-	reason, family string
+// oracleDivergentDir is the per-card home for ratchet rows:
+// testdata/oracle/<family>/known-divergent/<slug>.json, one file per card,
+// {"card": "<Card>", "rows": {"<scenario>": "<reason>"}}. Splitting the
+// family aggregate by card is the same move that took this ratchet from the
+// single oracleKnownDivergent map to per-family files: the collision always
+// follows the coarsest key a family shares, and two audits of different cards
+// in one family then collide on the family file.
+const oracleDivergentDir = "known-divergent"
+
+// oracleDivergentPerCard is the schema of one file under oracleDivergentDir.
+type oracleDivergentPerCard struct {
+	Card string            `json:"card"`
+	Rows map[string]string `json:"rows"`
 }
 
-// oracleDivergent merges the legacy oracleKnownDivergent map with every
-// family's oracleDivergentFile. It needs no corpus, so the scenario-schema
-// test holds the files to their shape where the author works.
+// oracleDivergentRow is one ratchet row and where it came from: the family of
+// the file that holds it, or "" for the legacy oracleKnownDivergent map, plus
+// the source path for error messages.
+type oracleDivergentRow struct {
+	reason, family, src string
+}
+
+// oracleDivergent merges the legacy oracleKnownDivergent map, every family's
+// oracleDivergentFile aggregate, and every card's oracleDivergentDir file. It
+// needs no corpus, so the scenario-schema test holds the files to their shape
+// where the author works.
 func oracleDivergent(t *testing.T) map[string]oracleDivergentRow {
 	t.Helper()
 	out := make(map[string]oracleDivergentRow, len(oracleKnownDivergent))
 	for k, v := range oracleKnownDivergent {
-		out[k] = oracleDivergentRow{reason: v}
+		out[k] = oracleDivergentRow{reason: v, src: "oracleKnownDivergent"}
+	}
+	add := func(p, k, reason, fam string) {
+		if prev, dup := out[k]; dup {
+			t.Errorf("%s: row %q is also listed in %s", p, k, prev.src)
+			return
+		}
+		out[k] = oracleDivergentRow{reason: reason, family: fam, src: p}
 	}
 	paths, err := filepath.Glob(filepath.Join("testdata", "oracle", "*", oracleDivergentFile))
 	if err != nil {
@@ -128,18 +161,76 @@ func oracleDivergent(t *testing.T) map[string]oracleDivergentRow {
 				t.Errorf("%s: row %q needs a \"<card>/<scenario>\" key and a non-empty reason", p, k)
 				continue
 			}
-			if prev, dup := out[k]; dup {
-				where := "oracleKnownDivergent"
-				if prev.family != "" {
-					where = filepath.Join(prev.family, oracleDivergentFile)
-				}
-				t.Errorf("%s: row %q is also listed in %s", p, k, where)
+			add(p, k, v, fam)
+		}
+	}
+	cards, err := filepath.Glob(filepath.Join("testdata", "oracle", "*", oracleDivergentDir, "*.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cardFile := map[string]string{}
+	for _, p := range cards {
+		raw, err := os.ReadFile(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var pc oracleDivergentPerCard
+		if err := json.Unmarshal(raw, &pc); err != nil {
+			t.Fatalf("%s: want {\"card\": \"<Card>\", \"rows\": {\"<scenario>\": \"<reason>\"}}: %v", p, err)
+		}
+		fam := filepath.Base(filepath.Dir(filepath.Dir(p)))
+		if strings.TrimSpace(pc.Card) == "" {
+			t.Errorf("%s: card is required", p)
+			continue
+		}
+		if prev, dup := cardFile[fam+"/"+pc.Card]; dup {
+			t.Errorf("%s: card %q already has a divergent file at %s", p, pc.Card, prev)
+			continue
+		}
+		cardFile[fam+"/"+pc.Card] = p
+		for sc, reason := range pc.Rows {
+			if strings.TrimSpace(sc) == "" || strings.TrimSpace(reason) == "" {
+				t.Errorf("%s: row %q needs a non-empty scenario and reason", p, sc)
 				continue
 			}
-			out[k] = oracleDivergentRow{reason: v, family: fam}
+			add(p, pc.Card+"/"+sc, reason, fam)
 		}
 	}
 	return out
+}
+
+// oracleUnconsumedFile is the shrinking ratchet for step `answers` that no
+// decision matched: one flat JSON object, "<card>/<scenario>" -> the
+// one-line leftover observation (the step index, op and answer that no
+// decision consumed). It is a top-level file, not a family directory, and
+// loadOracleFiles's */*.json glob does not match it.
+//
+// A listed scenario must still leave an answer unconsumed; a fixed one is
+// stale and fails the build until its row is deleted. An unlisted scenario
+// that leaves one fails loudly. Rows are only ever deleted, never added by
+// the scenario author.
+const oracleUnconsumedFile = "known-unconsumed-answers.json"
+
+// oracleUnconsumed reads the leftover-answer ratchet. It needs no corpus, so
+// TestOracleScenarioFilesWellFormed holds it to its shape where the author
+// works. A malformed row fails the build.
+func oracleUnconsumed(t *testing.T) map[string]string {
+	t.Helper()
+	p := filepath.Join("testdata", "oracle", oracleUnconsumedFile)
+	raw, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatalf("%s: %v", p, err)
+	}
+	var rows map[string]string
+	if err := json.Unmarshal(raw, &rows); err != nil {
+		t.Fatalf("%s: want one JSON object of \"<card>/<scenario>\": \"reason\" rows: %v", p, err)
+	}
+	for k, v := range rows {
+		if !strings.Contains(k, "/") || strings.TrimSpace(v) == "" {
+			t.Errorf("%s: row %q needs a \"<card>/<scenario>\" key and a non-empty reason", p, k)
+		}
+	}
+	return rows
 }
 
 func loadOracleFiles(t *testing.T) map[string]oracleFile {
@@ -204,7 +295,12 @@ func TestOracleScenarioFilesWellFormed(t *testing.T) {
 		case !ok:
 			t.Errorf("ratchet row %q names no scenario", key)
 		case row.family != "" && row.family != fam:
-			t.Errorf("ratchet row %q is in %s/%s but the scenario is family %q", key, row.family, oracleDivergentFile, fam)
+			t.Errorf("ratchet row %q is in %s but the scenario is family %q", key, row.src, fam)
+		}
+	}
+	for key := range oracleUnconsumed(t) {
+		if _, ok := scenarioFamily[key]; !ok {
+			t.Errorf("%s row %q names no scenario", oracleUnconsumedFile, key)
 		}
 	}
 	checkRef := func(where, ref string) {
@@ -263,12 +359,14 @@ func TestOracleAudit(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	files := loadOracleFiles(t)
 	divergent := oracleDivergent(t)
+	unconsumed := oracleUnconsumed(t)
 	paths := make([]string, 0, len(files))
 	for p := range files {
 		paths = append(paths, p)
 	}
 	sort.Strings(paths)
 	seen := map[string]bool{}
+	seenUnconsumed := map[string]bool{}
 	for _, p := range paths {
 		f := files[p]
 		c, ok := reg.Lookup(f.Card)
@@ -296,14 +394,36 @@ func TestOracleAudit(t *testing.T) {
 				row, isKnown := divergent[key]
 				known := row.reason
 				if isKnown && row.family != "" && row.family != f.Family {
-					t.Errorf("ratchet row for %s is in %s/%s but the scenario is family %q", key, row.family, oracleDivergentFile, f.Family)
+					t.Errorf("ratchet row for %s is in %s but the scenario is family %q", key, row.src, f.Family)
 				}
 				if os.Getenv("ORACLE_AUDIT_TRACE") != "" {
 					t.Logf("transcript:\n    %s", strings.Join(transcript, "\n    "))
 				}
+				// Split the fail list: a leftover step answer is excused only by
+				// the shrinking unconsumed ratchet, and only the leftover itself.
+				// Any other fail on the same scenario is still reported.
+				var leftovers, otherFails []string
+				for _, f := range fails {
+					if strings.Contains(f, oracleUnconsumedMarker) {
+						leftovers = append(leftovers, f)
+					} else {
+						otherFails = append(otherFails, f)
+					}
+				}
+				uncReason, isUnc := unconsumed[key]
+				seenUnconsumed[key] = true
+				if isUnc && len(leftovers) == 0 {
+					t.Errorf("stale unconsumed-answer row (the scenario now consumes every step answer; delete its row from %s): %s", oracleUnconsumedFile, uncReason)
+				}
+				if isUnc && len(leftovers) > 0 {
+					t.Logf("known unconsumed answer: %s\n  observed: %s", uncReason, strings.Join(leftovers, "\n  observed: "))
+				} else {
+					otherFails = append(otherFails, leftovers...)
+				}
+				fails = otherFails
 				switch {
 				case len(fails) == 0 && isKnown:
-					t.Errorf("stale known divergence (the scenario now passes; delete its row from %s/%s or oracleKnownDivergent): %s", f.Family, oracleDivergentFile, known)
+					t.Errorf("stale known divergence (the scenario now passes; delete its row from %s): %s", row.src, known)
 				case len(fails) > 0 && isKnown:
 					t.Logf("known divergence: %s\n  observed: %s", known, strings.Join(fails, "\n  observed: "))
 				case len(fails) > 0:
@@ -315,11 +435,16 @@ func TestOracleAudit(t *testing.T) {
 	}
 	for key, row := range divergent {
 		if !seen[key] {
-			where := "oracleKnownDivergent"
-			if row.family != "" {
-				where = filepath.Join(row.family, oracleDivergentFile)
+			where := row.src
+			if where == "" {
+				where = "oracleKnownDivergent"
 			}
 			t.Errorf("%s row %q names no scenario", where, key)
+		}
+	}
+	for key := range unconsumed {
+		if !seenUnconsumed[key] {
+			t.Errorf("%s row %q names no scenario", oracleUnconsumedFile, key)
 		}
 	}
 }

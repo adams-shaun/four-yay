@@ -197,6 +197,7 @@ func (e *Engine) captureSourceLifelinkLKI(ev events.Event) (bool, damageKeywordL
 		kw = e.damageKeywordsOf(ev.Obj)
 	}
 	controller := e.G.Obj(ev.Obj).Controller
+	e.captureSourceCharLKI(ev.Obj)
 	for _, id := range e.G.Stack {
 		if o := e.G.Obj(id); o != nil && o.Ability != nil && o.Source == ev.Obj {
 			if e.sourceLifelinkLKI == nil {

@@ -1,0 +1,42 @@
+{
+  "card": "Zombie Apocalypse",
+  "family": "spell-conditional",
+  "oracle_sha": "ce3012c93e3a",
+  "author": "cli-20261003T014432Z-24102604 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "returns-zombies-tapped-and-destroys-humans",
+      "cr": ["608.2c", "701.7a", "701.20b"],
+      "why": "All Zombie creature cards in the caster's graveyard return to the battlefield tapped, then all Humans are destroyed. A Human noted in the caster's graveyard stays a graveyard card (only Zombies return), and the Zombie returns tapped.",
+      "setup": {
+        "p0": {"hand": ["Zombie Apocalypse"], "graveyard": ["Walking Corpse"]},
+        "p1": {"battlefield": ["Precinct Captain"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Zombie Apocalypse", "mana": "BBBCCC"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Walking Corpse", "zone": "battlefield", "tapped": true},
+        {"card": "p1:Precinct Captain", "zone": "graveyard"}
+      ]
+    },
+    {
+      "name": "no-zombies-in-graveyard-and-no-humans-leaves-board",
+      "cr": ["608.2c"],
+      "why": "With no Zombie cards in the caster's graveyard and no Humans on the battlefield, the spell resolves doing nothing.",
+      "setup": {
+        "p0": {"hand": ["Zombie Apocalypse"], "graveyard": ["Lightning Bolt"]},
+        "p1": {"battlefield": ["Grizzly Bears"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Zombie Apocalypse", "mana": "BBBCCC"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p1:Grizzly Bears", "zone": "battlefield"},
+        {"card": "p0:Lightning Bolt", "zone": "graveyard"}
+      ]
+    }
+  ]
+}

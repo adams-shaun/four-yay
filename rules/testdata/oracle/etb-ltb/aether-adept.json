@@ -1,0 +1,98 @@
+{
+ "card": "Aether Adept",
+ "family": "etb-ltb",
+ "author": "cli-20261002T202458Z-c8f54b81 (Oracle + CR only)",
+ "oracle_sha": "c34043f30268",
+ "scenarios": [
+  {
+   "name": "etb-bounces-target-creature",
+   "cr": [
+    "603.2",
+    "400.7"
+   ],
+   "why": "When the Adept enters, its controller returns target creature to its OWNER's hand. Bouncing the opponent's Grizzly Bears moves it to the opponent's hand.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Aether Adept"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Aether Adept",
+     "mana": "UUCC"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Aether Adept",
+     "zone": "battlefield",
+     "pt": "2/2"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p1": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "the-adept-may-target-itself",
+   "cr": [
+    "115.1d",
+    "603.3c"
+   ],
+   "why": "The enters trigger reads 'target creature', which includes the Adept itself: with no other creature on the battlefield the trigger still has a legal target (the Adept) and returns the Adept to hand.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Aether Adept"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Aether Adept",
+     "mana": "UUCC"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Aether Adept"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Aether Adept",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  }
+ ]
+}

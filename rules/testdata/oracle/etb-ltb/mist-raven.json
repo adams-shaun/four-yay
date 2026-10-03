@@ -1,0 +1,97 @@
+{
+ "card": "Mist Raven",
+ "family": "etb-ltb",
+ "author": "cli-20261002T202458Z-c8f54b81 (Oracle + CR only)",
+ "oracle_sha": "1f3ae302a203",
+ "scenarios": [
+  {
+   "name": "etb-bounces-creature-and-has-flying",
+   "cr": [
+    "603.2",
+    "702.9a"
+   ],
+   "why": "The Raven is a 2/2 flier; on entering it returns target creature to its owner's hand.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Mist Raven"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Mist Raven",
+     "mana": "UUCC"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Centaur Courser"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Mist Raven",
+     "zone": "battlefield",
+     "pt": "2/2",
+     "keywords": [
+      "Flying"
+     ]
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "bouncing-own-creature-is-allowed",
+   "cr": [
+    "115.1d"
+   ],
+   "why": "Target creature is any creature, not just an opponent's: the Raven may return its controller's own creature.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Mist Raven"
+     ],
+     "battlefield": [
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Mist Raven",
+     "mana": "UUCC"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p0:Savannah Lions"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Savannah Lions",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Mist Raven",
+     "zone": "battlefield"
+    }
+   ]
+  }
+ ]
+}

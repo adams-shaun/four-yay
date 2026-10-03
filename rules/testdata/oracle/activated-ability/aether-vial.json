@@ -1,0 +1,65 @@
+{
+  "card": "Aether Vial",
+  "family": "activated-ability",
+  "oracle_sha": "0e5ca53a1470",
+  "author": "cli-20261003T014432Z-24102604 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "upkeep-may-add-charge-counter",
+      "cr": ["603.2", "122.1"],
+      "why": "At the controller's upkeep the Vial's controller may put a charge counter on it; accepting adds one charge counter.",
+      "setup": {
+        "p0": {"battlefield": ["Aether Vial"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "pass_to", "seat": 0, "decision": "priority"}
+      ],
+      "setup_answers": [
+        {"kind": "trigger_optional", "pick": ["yes"]}
+      ],
+      "expect": [
+        {"card": "p0:Aether Vial", "counters": {"charge": 1}}
+      ]
+    },
+    {
+      "name": "puts-creature-with-mana-value-equal-to-charge-counters",
+      "cr": ["602.2b", "202.3a"],
+      "why": "With one charge counter, {T} may put a creature card with mana value 1 from hand onto the battlefield. Savannah Lions (mana value 1) is eligible; the mana value 2 Grizzly Bears is not.",
+      "setup": {
+        "p0": {"battlefield": ["Aether Vial"], "hand": ["Savannah Lions", "Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Aether Vial", "ability": "put a creature card with mana value"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["yes"]}, {"kind": "any", "pick": ["p0:Savannah Lions"]}]}
+      ],
+      "setup_answers": [
+        {"kind": "trigger_optional", "pick": ["yes"]}
+      ],
+      "expect": [
+        {"card": "p0:Savannah Lions", "zone": "battlefield"},
+        {"card": "p0:Grizzly Bears", "zone": "hand"},
+        {"card": "p0:Aether Vial", "counters": {"charge": 1}}
+      ]
+    },
+    {
+      "name": "declining-upkeep-adds-no-counter",
+      "cr": ["603.3d"],
+      "why": "The upkeep trigger is optional; declining leaves the Vial with zero charge counters.",
+      "setup": {
+        "p0": {"battlefield": ["Aether Vial"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "pass_to", "seat": 0, "decision": "priority"}
+      ],
+      "setup_answers": [
+        {"kind": "trigger_optional", "pick": ["no"]}
+      ],
+      "expect": [
+        {"card": "p0:Aether Vial", "counters": {"charge": 0}}
+      ]
+    }
+  ]
+}

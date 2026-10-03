@@ -1,0 +1,42 @@
+{
+ "card": "Return of the Wildspeaker",
+ "family": "spell-conditional",
+ "author": "cli-20261002T210434Z-cc1de00a (Oracle + CR only)",
+ "oracle_sha": "05e6fe93c48f",
+ "scenarios": [
+  {
+   "name": "draw-mode-draws-the-greatest-non-human-power",
+   "cr": ["700.2", "608.2b"],
+   "why": "The first mode draws cards equal to the greatest power among non-Human creatures you control: Craw Wurm (power 6) is the greatest, so six cards are drawn. The Human Elite Vanguard (power 2) does not count.",
+   "setup": {
+    "p0": {"hand": ["Return of the Wildspeaker"], "battlefield": ["Craw Wurm", "Elite Vanguard"], "library_top": ["Forest", "Forest", "Forest", "Forest", "Forest", "Forest", "Forest"]},
+    "p1": {}
+   },
+   "steps": [
+    {"op": "cast", "seat": 0, "card": "p0:Return of the Wildspeaker", "mana": "CCCCG", "answers": [{"kind": "modes", "pick": ["Draw cards equal"]}]},
+    {"op": "resolve"}
+   ],
+   "expect": [
+    {"hand_size": {"p0": 6}},
+    {"card": "p0:Craw Wurm", "pt": "6/4"}
+   ]
+  },
+  {
+   "name": "pump-mode-pumps-non-humans-only",
+   "cr": ["700.2", "613.4c"],
+   "why": "The second mode gives non-Human creatures you control +3/+3 until end of turn: Craw Wurm becomes 9/7 and the Human Elite Vanguard stays 2/1.",
+   "setup": {
+    "p0": {"hand": ["Return of the Wildspeaker"], "battlefield": ["Craw Wurm", "Elite Vanguard"]},
+    "p1": {}
+   },
+   "steps": [
+    {"op": "cast", "seat": 0, "card": "p0:Return of the Wildspeaker", "mana": "CCCCG", "answers": [{"kind": "modes", "pick": ["+3/+3 until end of turn"]}]},
+    {"op": "resolve"}
+   ],
+   "expect": [
+    {"card": "p0:Craw Wurm", "pt": "9/7"},
+    {"card": "p0:Elite Vanguard", "pt": "2/1"}
+   ]
+  }
+ ]
+}

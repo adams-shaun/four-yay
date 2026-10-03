@@ -1,0 +1,45 @@
+{
+  "card": "Precinct Captain",
+  "family": "attack-triggers",
+  "oracle_sha": "c7ce858c6714",
+  "author": "cli-20261003T014432Z-24102604 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "combat-damage-to-player-creates-soldier",
+      "cr": ["603.2", "510.1"],
+      "why": "When the Captain deals combat damage to a player, its controller creates a 1/1 white Soldier token; the Captain also has first strike.",
+      "setup": {
+        "p0": {"battlefield": ["Precinct Captain"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:Precinct Captain"], "defender": "p1"},
+        {"op": "pass_to", "seat": 0, "step": "end"}
+      ],
+      "expect": [
+        {"card": "p0:Precinct Captain", "keywords": ["First Strike"]},
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Soldier", "token": true}, "eq": 1},
+        {"life": {"p1": 18}}
+      ]
+    },
+    {
+      "name": "blocked-and-dealt-damage-to-creature-creates-no-token",
+      "cr": ["603.2", "510.1"],
+      "why": "The trigger watches combat damage to a PLAYER. When the Captain is blocked and deals damage only to a creature, no Soldier token is created.",
+      "setup": {
+        "p0": {"battlefield": ["Precinct Captain"]},
+        "p1": {"battlefield": ["Centaur Courser"]}
+      },
+      "steps": [
+        {"op": "attack", "seat": 0, "attackers": ["p0:Precinct Captain"], "defender": "p1"},
+        {"op": "pass_to", "seat": 0, "decision": "blockers"},
+        {"op": "block", "seat": 1, "blocks": [["p1:Centaur Courser", "p0:Precinct Captain"]]},
+        {"op": "pass_to", "seat": 0, "step": "end"}
+      ],
+      "expect": [
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Soldier", "token": true}, "eq": 0},
+        {"life": {"p1": 20}}
+      ]
+    }
+  ]
+}

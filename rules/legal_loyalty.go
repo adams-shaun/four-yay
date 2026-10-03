@@ -299,20 +299,21 @@ func (e *Engine) loyaltyAbilityLimit(id state.ObjID) int {
 //
 // thisTurn bounds the walk at the latest TurnChange: the per-turn limit's
 // window (CR 606.3's "this turn", and Forge's ActivationLimit$, which
-// ActivationTable resets each turn). The per-game walk deliberately does NOT
-// break there, and deliberately does not reset on a zone change either:
-// Forge keys the count on the host CARD (Card.numberGameActivations, read
-// through SpellAbility.getActivationsThisGame), which survives a battlefield
-// departure, so a permanent that leaves and returns has still spent its
-// once-per-game activation.
+// ActivationTable resets each turn). The per-game walk does NOT break there.
+// Both walks stop at the object's latest zone change (objectStintStart):
+// under CR 400.7 a permanent that leaves and returns -- bounced and recast,
+// flickered -- is a new object, and "Activate only once" (CR 602.5b),
+// "only once each turn", Exhaust and Power-up all belong to the object, so
+// the new object's ability is available again (Mild-Mannered Librarian).
 func (e *Engine) activationUsedCount(id state.ObjID, ability int, svar string, thisTurn bool) int {
 	if !thisTurn {
-		// The whole game's count, folded on incrementally
+		// The whole stint's count, folded on incrementally
 		// (activation_count_index.go).
 		return e.gameActivationsUsed(id, ability, svar)
 	}
 	used := 0
-	for i := len(e.L.Events) - 1; i >= 0; i-- {
+	stint := e.objectStintStart(id)
+	for i := len(e.L.Events) - 1; i >= stint; i-- {
 		ev := e.L.Events[i]
 		if thisTurn && ev.Kind == events.TurnChange {
 			break
@@ -419,7 +420,8 @@ func (e *Engine) additionalActivationLimit(id state.ObjID, actor state.PlayerID,
 // mana walk in mana_activation.go all funnel through it. svar is the
 // granted-ability identity ("" for a printed ability); merged selects the face
 // a computed limit resolves against. The per-GAME count is scanned with the
-// same identity shapes and no turn or stint boundary (see activationUsedCount).
+// same identity shapes and no turn boundary, but only over the object's
+// current zone stint (see activationUsedCount).
 //
 // A limit that resolves to zero or to fewer activations than already used
 // withholds; an unresolvable expression stays unenforced, exactly as the
@@ -442,9 +444,10 @@ func (e *Engine) activationLimitBlocked(p state.PlayerID, id state.ObjID, sa *ca
 			}
 		}
 	}
-	// Exhaust$ True and PowerUp$ True use the same host-card, per-game
-	// counter as GameActivationLimit$: leaving and returning does not re-arm
-	// either restriction. Activations statics raise this finite ceiling; they
+	// Exhaust$ True and PowerUp$ True use the same per-object counter as
+	// GameActivationLimit$: it spans the whole game but not a zone change
+	// (CR 400.7 -- a permanent that leaves and returns is a new object whose
+	// exhaust ability can be activated again). Activations statics raise this finite ceiling; they
 	// never make the ability unlimited unless a supported static explicitly
 	// has a negative MinLimit; those conditional/unbounded statics are not modeled.
 	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKExhaust)), "True") ||
@@ -482,7 +485,10 @@ func (e *Engine) boastGateOK(id state.ObjID, ability int, svar string) bool {
 		return false
 	}
 	used := 0
-	for i := len(e.L.Events) - 1; i >= 0; i-- {
+	// CR 400.7: only this object's own activations count (see
+	// activationUsedCount).
+	stint := e.objectStintStart(id)
+	for i := len(e.L.Events) - 1; i >= stint; i-- {
 		ev := e.L.Events[i]
 		if ev.Kind == events.TurnChange {
 			break
