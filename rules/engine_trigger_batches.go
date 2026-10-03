@@ -77,10 +77,10 @@ type engineTriggerBatches struct {
 	// drain, for the same reason as the damage batch. Outside a
 	// ChangeZoneTable loop the bracket is never open, so the per-move
 	// batch-of-one reading is untouched.
-	zoneBatchOpen  bool                 `clone:"reset"`
-	zoneBatchDepth int                  `clone:"reset"`
-	zoneBatchIdx   map[zoneBatchKey]int `clone:"reset"`
-	zoneBatchLog   []zoneBatchEntry     `clone:"reset"`
+	zoneBatchOpen  bool                 `clone:"deep"`
+	zoneBatchDepth int                  `clone:"deep"`
+	zoneBatchIdx   map[zoneBatchKey]int `clone:"deep"`
+	zoneBatchLog   []zoneBatchEntry     `clone:"deep"`
 	// millBatch (effects' api:Mill): one api:Mill resolution is ONE mill
 	// action, so the Mode$ MilledAll "whenever one or more cards are milled"
 	// trigger fires once for the whole call, not once per milled card. The
@@ -114,10 +114,10 @@ type engineTriggerBatches struct {
 	// action into two batches. Never opened across a drain: pendingTriggers
 	// is append-only while the batch is open, so the recorded index stays
 	// valid.
-	discardBatchOpen  bool                `clone:"reset"`
-	discardBatchDepth int                 `clone:"reset"`
-	discardBatchIdx   map[triggerKey]int  `clone:"reset"`
-	discardBatchLog   []discardBatchEntry `clone:"reset"`
+	discardBatchOpen  bool                `clone:"deep"`
+	discardBatchDepth int                 `clone:"deep"`
+	discardBatchIdx   map[triggerKey]int  `clone:"deep"`
+	discardBatchLog   []discardBatchEntry `clone:"deep"`
 	// discardAllTurn is the Mode$ DiscardedAll FirstTime$ latch: one trigger
 	// LINE's most recent batch turn, so "for the first time each turn" admits
 	// only the first qualifying discard batch per turn. Recorded at queue

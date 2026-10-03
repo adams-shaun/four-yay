@@ -685,6 +685,35 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 			}
 		}
 	}
+	// The ChangeZoneTable$ zone batch and the api:Discard discard batch stay
+	// OPEN across a mid-resolution suspension (a RepeatEach/Dig loop body's
+	// ask, effDiscard's choice): the first pass opens the bracket and the pass
+	// that completes the action closes it. A clone taken at that intent
+	// boundary must carry the open bracket and its entries -- the damage
+	// batch's class -- or its resumed pass queues per move and never patches
+	// the triggers the first pass queued.
+	if e.zoneBatchOpen {
+		c.zoneBatchOpen, c.zoneBatchDepth = true, e.zoneBatchDepth
+		c.zoneBatchIdx = cloneBatchIdx(e.zoneBatchIdx)
+		if e.zoneBatchLog != nil {
+			c.zoneBatchLog = make([]zoneBatchEntry, len(e.zoneBatchLog))
+			for i, ent := range e.zoneBatchLog {
+				ent.moved = append([]state.Target(nil), ent.moved...)
+				c.zoneBatchLog[i] = ent
+			}
+		}
+	}
+	if e.discardBatchOpen {
+		c.discardBatchOpen, c.discardBatchDepth = true, e.discardBatchDepth
+		c.discardBatchIdx = cloneBatchIdx(e.discardBatchIdx)
+		if e.discardBatchLog != nil {
+			c.discardBatchLog = make([]discardBatchEntry, len(e.discardBatchLog))
+			for i, ent := range e.discardBatchLog {
+				ent.discarded = append([]state.Target(nil), ent.discarded...)
+				c.discardBatchLog[i] = ent
+			}
+		}
+	}
 	if e.phaseUnknownNoted != nil {
 		c.phaseUnknownNoted = make(map[string]bool, len(e.phaseUnknownNoted))
 		for k, v := range e.phaseUnknownNoted {
@@ -1391,4 +1420,17 @@ func cloneDecision(p *decision.Decision) *decision.Decision {
 	d.ResumeTargetsUnique = append([]state.Target(nil), p.ResumeTargetsUnique...)
 	d.ResumeDigPrimary = append([]state.ObjID(nil), p.ResumeDigPrimary...)
 	return &d
+}
+
+// cloneBatchIdx copies an open trigger batch's line index (the zone and
+// discard batches), preserving nil.
+func cloneBatchIdx[K comparable](m map[K]int) map[K]int {
+	if m == nil {
+		return nil
+	}
+	out := make(map[K]int, len(m))
+	for k, v := range m {
+		out[k] = v
+	}
+	return out
 }
