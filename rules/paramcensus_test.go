@@ -1636,13 +1636,11 @@ var apiSpecificRulesSA = map[string][]string{
 	"Engine.attackChoiceManaSources":        {"Mana"},
 	"Engine.castWindowProbeUnits":           {"Mana"},
 	"Engine.paymentPlanSourceInterference":  {"Mana"},
-	// The Charm mode paths: the per-mode target predicate the CR 601.2b
-	// cast-time modes ask and the offer census share (modeTargetsAvailable)
-	// and the per-mode target declaration (modalTargetSA) read the MODE
-	// bodies' targeting. The Charm's own Choices$/CharmNum$ reads are
-	// effects.compileCharm's (W4 step 3), reached through effCharm.
-	"modeTargetsAvailable": {"Charm"},
-	"modalTargetSA":        {"Charm"},
+	// The Charm mode paths (modeTargetsAvailable, modalTargetSA) read the
+	// MODE bodies' targeting through effects.TargetsOf's compiled
+	// TargetParams, so they carry no read of their own. The Charm's own
+	// Choices$/CharmNum$ reads are effects.compileCharm's, reached through
+	// effCharm.
 	// The unless-pay resume arm: only effCounter and effCopySpellAbility
 	// suspend with an UnlessCost$ ask, so resumeResolution's UnlessCost$
 	// read belongs to those two APIs alone. api:Play joins them for the
