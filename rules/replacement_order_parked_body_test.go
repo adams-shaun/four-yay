@@ -37,7 +37,7 @@ const parkedOrderZap = "Name:Zap\nManaCost:R\nTypes:Instant\n" +
 	"A:SP$ DealDamage | Defined$ Player.Opponent | NumDmg$ 1 | SpellDescription$ Zap each opponent.\nOracle:x\n"
 
 func TestReplacementOrderAnswerRunsBodyChainOutsideParkedResolution(t *testing.T) {
-	t.Parallel()
+	tapeLegacyOnly(t)
 	for _, first := range []string{"Doubler", "Amplifier"} {
 		t.Run(first+"_first", func(t *testing.T) {
 			e, cfg, _ := newFixtureDeck(t, 91, parkedOrderZap, parkedOrderDoubler, parkedOrderAmplifier)

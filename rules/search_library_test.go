@@ -183,7 +183,7 @@ func searchEvents(log []events.Event, start int, player state.PlayerID) []events
 }
 
 func TestEvolvingWildsSearchPosesHiddenChooseAndSuspends(t *testing.T) {
-	t.Parallel()
+	tapeLegacyOnly(t)
 	reg := searchTestRegistry(t)
 	e, _ := searchEngine(t, reg, "Evolving Wilds")
 	wilds := searchMoveByName(t, e, "Evolving Wilds", state.ZBattlefield)

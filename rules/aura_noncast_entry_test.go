@@ -307,11 +307,11 @@ func TestAuraTokenWithNothingToEnchantIsNotCreated(t *testing.T) {
 // a legal creature, Wild Growth (no land on the battlefield) stays in the
 // graveyard, and the game replays from its log.
 //
-// ChangeZoneAll emits its whole sweep in one pass and does not suspend
-// between members, so only the FIRST as-enters election of a sweep can be
-// posed; a later member entering while that ask is outstanding takes the
-// deterministic first legal bearer (the same limit every as-enters choice
-// has inside a mass move). The test pins that shape: exactly one ask.
+// Under the resolution kernel (the default) each member's as-enters election
+// is answered in place as it enters (W3 step 5, lasagna spec §7.2), so both
+// Pacifisms are asked. (The legacy park could pose only the FIRST election
+// of a sweep: a later member entering while that ask was outstanding took
+// the deterministic first legal bearer.)
 func TestReplenishAurasChooseTheirBearers(t *testing.T) {
 	t.Parallel()
 	e, cfg, _ := altCostEngine(t, 1011, []string{"Replenish", "Pacifism", "Pacifism", "Wild Growth"},
@@ -360,8 +360,8 @@ func TestReplenishAurasChooseTheirBearers(t *testing.T) {
 		asks++
 		submitChoices(t, e, idx)
 	}
-	if asks != 1 {
-		t.Fatalf("%d bearer asks, want 1 (the sweep's first member; see the doc comment)", asks)
+	if asks != 2 {
+		t.Fatalf("%d bearer asks, want 2 (one per returned Pacifism; see the doc comment)", asks)
 	}
 	for _, id := range []state.ObjID{p1, p2} {
 		o := e.G.Obj(id)
@@ -372,12 +372,12 @@ func TestReplenishAurasChooseTheirBearers(t *testing.T) {
 			t.Fatalf("Pacifism %d attached to %d, want a creature (%d or %d)", id, o.AttachedTo, dragon, foe)
 		}
 	}
-	answered := false
+	bearers := map[state.ObjID]bool{}
 	for _, id := range []state.ObjID{p1, p2} {
-		answered = answered || e.G.Obj(id).AttachedTo == dragon
+		bearers[e.G.Obj(id).AttachedTo] = true
 	}
-	if !answered {
-		t.Fatal("the answered bearer (the dragon) carries no Pacifism")
+	if !bearers[dragon] || !bearers[foe] {
+		t.Fatalf("the answered bearers (the dragon and the hexproof creature) do not each carry a Pacifism: %v", bearers)
 	}
 	if o := e.G.Obj(growth); o == nil || o.Zone != state.ZGraveyard {
 		t.Fatalf("Wild Growth zone = %v, want graveyard", zoneOf(o))

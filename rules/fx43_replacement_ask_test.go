@@ -66,7 +66,7 @@ import (
 // back across the suspension. The guard below is therefore removed and the
 // test joins the ordinary suite.
 func TestReplacementMidResolutionAskResumes(t *testing.T) {
-	t.Parallel()
+	tapeLegacyOnly(t)
 	reg := testutil.CorpusRegistry(t)
 	cfg := Config{Seed: 42, Tokens: reg.Tokens}
 	cfg.Names = []string{"caster", "opponent"}
