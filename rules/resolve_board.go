@@ -6,8 +6,6 @@ package rules
 // the kernel drives the engine without holding it.
 
 import (
-	"runtime"
-	"strings"
 	"sync/atomic"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -347,30 +345,7 @@ func tapeLegacyAsked(e *Engine, d *decision.Decision, aborts bool) {
 		}
 		class += " \"" + p + "\""
 	}
-	var pcs [40]uintptr
-	n := runtime.Callers(3, pcs[:])
-	fr := runtime.CallersFrames(pcs[:n])
-	stk := ""
-	for i := 0; i < 40; i++ {
-		f, more := fr.Next()
-		nm := f.Function
-		if j := strings.LastIndex(nm, "/rules."); j >= 0 {
-			nm = nm[j+7:]
-		}
-		if strings.HasPrefix(nm, "(*Engine).") {
-			nm = nm[10:]
-		}
-		if strings.Contains(nm, "Submit") || strings.Contains(nm, "Advance") {
-			break
-		}
-		if i >= 2 && !strings.Contains(nm, "effects.") && !strings.Contains(nm, "ask") && !strings.Contains(nm, "Ask") {
-			stk += nm + "<"
-		}
-		if !more || len(stk) > 160 {
-			break
-		}
-	}
-	(*f)(class + "  [" + tapeShape(e) + "] " + e.tape.DbgState() + " via " + dbgSubmit + " :: " + stk)
+	(*f)(class + "  [" + tapeShape(e) + "]")
 }
 
 // tapeMissed reports a predicate miss to the observer, classed by the
