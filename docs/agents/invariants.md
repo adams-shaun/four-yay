@@ -27,7 +27,10 @@ pinned as they land: `rules/cost`, the cost vocabulary leaf, imports only
 subsystem package. `rules/combat`, attack/block legality, imports only
 `cards`, `state`, `events` and `effects` (`TestCombatImportsStayBelowRules`)
 and reads the game through `combat.Board`, whose method count only shrinks
-(`TestCombatBoardOnlyShrinks`).
+(`TestCombatBoardOnlyShrinks`). `rules/chars`, the CR 613 layer walk, imports
+only `cards`, `state` and `effects` and never `rules` or an L5 subsystem
+package (`TestCharsImportsStayBelowRules`), and reads the game through
+`chars.Board`, whose method count only shrinks (`TestCharsBoardOnlyShrinks`).
 
 - **Why:** the engine core stays testable without the server, and a client can
   never be handed rules knowledge.
