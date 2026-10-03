@@ -48,8 +48,7 @@ func effEndTurn(h Host, c *Ctx, sa *cards.SA) {
 			}
 			d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Min: 1, Max: 1,
 				Source: c.Source, ResumeKind: "endturn_optional", ResumeSA: sa,
-				ResumeRemembered: append([]state.Target(nil), c.Remembered...),
-				Prompt:           "End the turn?", Options: []decision.Option{
+				Prompt: "End the turn?", Options: []decision.Option{
 					{Index: 0, Kind: "yes", Label: "Yes", Player: chooser},
 					{Index: 1, Kind: "no", Label: "No", Player: chooser},
 				}}

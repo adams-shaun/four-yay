@@ -414,10 +414,7 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 					// ask that can suspend this walk: a later window's
 					// eligibility and the answered window's own re-entry still
 					// match the pre-clear candidates after the clear.
-					ResumeForgetOtherSnapshot: copyTargets(c.ForgetOtherSnapshot),
-					ResumeForgetOtherOwners:   append([]state.PlayerID(nil), c.ForgetOtherOwners...),
-					ResumeForgetOtherReady:    c.ForgetOtherReady,
-					ResumeForgetOtherCleared:  c.ForgetOtherCleared}
+				}
 				for i, id := range ids {
 					name := "a card"
 					if !noLooking || revealWin {
@@ -625,10 +622,7 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 				// The ForgetOtherRemembered$ pre-clear snapshot rides the ask: the
 				// resumed walk's later windows (and any re-entry revalidation)
 				// still match the candidates the first pass offered under.
-				ResumeForgetOtherSnapshot: copyTargets(c.ForgetOtherSnapshot),
-				ResumeForgetOtherOwners:   append([]state.PlayerID(nil), c.ForgetOtherOwners...),
-				ResumeForgetOtherReady:    c.ForgetOtherReady,
-				ResumeForgetOtherCleared:  c.ForgetOtherCleared}
+			}
 			for _, id := range budgetEligible {
 				name := "a card"
 				if !noLooking || revealWin {

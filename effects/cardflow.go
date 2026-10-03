@@ -111,15 +111,8 @@ func drawFor(h Host, p state.PlayerID, cursor int, resumeSA *cards.SA, upto draw
 	if candidates := dredgeCandidates(g, p); len(candidates) > 0 {
 		// Pose every legal replacement plus the ordinary draw. A player with
 		// several dredgers chooses which replacement applies (CR 616.1).
-		// The upto rider travels so the dredge resume restores the answered
-		// up-to batch instead of re-asking its decision.
-		riderIdx, riderCount := -1, int32(0)
-		if upto.idx >= 0 {
-			riderIdx, riderCount = upto.idx, upto.count
-		}
 		d := &decision.Decision{Player: p, Kind: decision.KModes, Min: 1, Max: 1,
 			ResumeKind: "dredge", ResumeTarget: cursor, ResumeSA: resumeSA,
-			ResumeUptoIdx: riderIdx, ResumeUptoCount: riderCount,
 			Prompt: "Replace draw with Dredge?"}
 		for _, candidate := range candidates {
 			d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "dredge",
@@ -757,9 +750,8 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 			d := &decision.Decision{Player: p, Kind: decision.KModes,
 				Min: askMin, Max: askMax, Source: c.Source,
 				ResumeKind: "discard", ResumeSA: sa, ResumeTarget: targetIndex,
-				ResumeRemembered: copyTargets(c.Remembered),
-				Prompt:           "Choose " + strconv.Itoa(askMin) + ".." + strconv.Itoa(askMax) + " card(s) to discard",
-				Options:          opts}
+				Prompt:  "Choose " + strconv.Itoa(askMin) + ".." + strconv.Itoa(askMax) + " card(s) to discard",
+				Options: opts}
 			if ans, ok := AskTape(h, d); ok {
 				// The resolution kernel's answer in hand: discard exactly
 				// what the re-entry above discards for this target.

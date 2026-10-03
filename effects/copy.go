@@ -235,9 +235,8 @@ func effCopySpellAbility(h Host, c *Ctx, sa *cards.SA) {
 		default:
 			d := &decision.Decision{Player: controller, Kind: decision.KChoose, Min: 1, Max: 1,
 				Source: c.Source, ResumeKind: "copy_optional", ResumeSA: sa,
-				CopyOfCopy:       copyOfCopy(g, spell),
-				ResumeRemembered: copyTargets(c.Remembered),
-				Prompt:           "Copy it?",
+				CopyOfCopy: copyOfCopy(g, spell),
+				Prompt:     "Copy it?",
 				Options: []decision.Option{
 					{Index: 0, Kind: "yes", Label: "Yes — copy", Player: controller},
 					{Index: 1, Kind: "no", Label: "No", Player: controller},

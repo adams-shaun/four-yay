@@ -147,8 +147,7 @@ func effSetState(h Host, c *Ctx, sa *cards.SA) {
 		if setStateWouldChange(h, c, sa, turnUp, turnDown, unspecialize) {
 			d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: 1, Max: 1,
 				Source: c.Source, ResumeKind: "setstate_optional", ResumeSA: sa,
-				ResumeRemembered: copyTargets(c.Remembered),
-				Prompt:           "Change this permanent's face?",
+				Prompt: "Change this permanent's face?",
 				Options: []decision.Option{
 					{Index: 0, Kind: "yes", Label: "Yes", Player: c.Controller},
 					{Index: 1, Kind: "no", Label: "No", Player: c.Controller},
@@ -558,7 +557,6 @@ func effRepeat(h Host, c *Ctx, sa *cards.SA) {
 			// Hailfire, Remorseless Punishment, Struggle for Sanity) re-enters
 			// at body i+1 after its gate. Without it the enclosing loop fell
 			// through to Repeat.Sub and every later iteration was dropped.
-			h.SuspendRepeatBody(sa, i+1, n)
 			return
 		}
 		if gated {
@@ -652,7 +650,6 @@ func repeatOptionalDecision(c *Ctx, sa *cards.SA, next int32) *decision.Decision
 	d := &decision.Decision{Player: player, Kind: decision.KChoose,
 		Min: 1, Max: 1, Prompt: "Repeat this process?", Source: c.Source,
 		ResumeKind: "repeat_optional", ResumeSA: sa,
-		ResumeRepeatNext: next,
 		Options: []decision.Option{{Index: 0, Kind: "yes", Label: "Repeat", Player: player},
 			{Index: 1, Kind: "no", Label: "Stop", Player: player}}}
 	return d

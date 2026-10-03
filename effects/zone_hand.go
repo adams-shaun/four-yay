@@ -539,12 +539,7 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to s
 				cd := &decision.Decision{Player: chooser, Kind: decision.KChoose,
 					Min: 1, Max: 1, Source: c.Source,
 					ResumeKind: "hand_move_confirm", ResumeSA: sa, ResumeTarget: i,
-					ResumeRemembered:          copyTargets(c.Remembered),
-					ResumeForgetOtherSnapshot: copyTargets(c.ForgetOtherSnapshot),
-					ResumeForgetOtherOwners:   append([]state.PlayerID(nil), c.ForgetOtherOwners...),
-					ResumeForgetOtherReady:    c.ForgetOtherReady,
-					ResumeForgetOtherCleared:  c.ForgetOtherCleared,
-					Prompt:                    prompt,
+					Prompt: prompt,
 					Options: []decision.Option{
 						{Index: 0, Kind: "yes", Label: "Yes", Player: chooser},
 						{Index: 1, Kind: "no", Label: "No", Player: chooser},
@@ -667,12 +662,7 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to s
 			// LATER owner's pool (and any answered revalidation after an
 			// earlier owner's settle cleared the live set) still reads the
 			// candidates the walk started with.
-			ResumeRemembered:          copyTargets(c.Remembered),
-			ResumeForgetOtherSnapshot: copyTargets(c.ForgetOtherSnapshot),
-			ResumeForgetOtherOwners:   append([]state.PlayerID(nil), c.ForgetOtherOwners...),
-			ResumeForgetOtherReady:    c.ForgetOtherReady,
-			ResumeForgetOtherCleared:  c.ForgetOtherCleared,
-			Prompt:                    handMovePromptFor(cz, to, int(n), chooser == owner)}
+			Prompt: handMovePromptFor(cz, to, int(n), chooser == owner)}
 		for _, id := range eligible {
 			name := "a card"
 			if o := g.Obj(id); o != nil && o.Face() != nil {

@@ -25,12 +25,14 @@ const (
 	// engineMethodCount is the number of non-test methods on rules.Engine.
 	// W5 E5 moved combat legality onto rules/combat's Board (2159 -> 2126)
 	// and W5 E3 the trigger matchers onto rules/trigmatch's: -> 2022. W5 E4
-	// moved the layer walk onto rules/chars: -> 2019.
-	engineMethodCount = 1973
+	// moved the layer walk onto rules/chars: -> 2019. W3 clean deleted the
+	// Suspend* no-ops: -> 1965.
+	engineMethodCount = 1965
 	// hostMethodCount is the number of methods in the effects.Host interface
 	// (its whole method set, roles included). W1d replaced ObjectText,
-	// ObjectKeywords and BasePower with the one Chars query: 96 -> 94.
-	hostMethodCount = 94
+	// ObjectKeywords and BasePower with the one Chars query: 96 -> 94. W3 clean
+	// deleted the eight Suspend* no-ops: 94 -> 86.
+	hostMethodCount = 86
 	// hostDirectMethodCount is the number of methods effects.Host declares
 	// itself rather than takes from a role interface (W1d split it into
 	// roles; host_roles.go).

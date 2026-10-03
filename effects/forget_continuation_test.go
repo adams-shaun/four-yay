@@ -36,15 +36,3 @@ func clearRememberedCount(h *fakeHost, src state.ObjID) int {
 type forgetRide struct {
 	d *decision.Decision
 }
-
-func (r forgetRide) ctx(base *Ctx) *Ctx {
-	c := base
-	c.Remembered = append([]state.Target(nil), r.d.ResumeRemembered...)
-	c.Chosen = append([]state.Target(nil), r.d.ResumeChoices...)
-	c.ChosenValid = r.d.ResumeChosenValid
-	c.ForgetOtherSnapshot = append([]state.Target(nil), r.d.ResumeForgetOtherSnapshot...)
-	c.ForgetOtherOwners = append([]state.PlayerID(nil), r.d.ResumeForgetOtherOwners...)
-	c.ForgetOtherReady = r.d.ResumeForgetOtherReady
-	c.ForgetOtherCleared = r.d.ResumeForgetOtherCleared
-	return c
-}

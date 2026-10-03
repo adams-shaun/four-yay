@@ -195,8 +195,7 @@ func effDraw(h Host, c *Ctx, sa *cards.SA) {
 					// player or for nobody. The ability-object resume path
 					// restores the same set from o.Remembered; this covers
 					// every other frame.
-					ResumeRemembered: append([]state.Target(nil), c.Remembered...),
-					Prompt:           "Draw up to " + strconv.Itoa(int(n)) + " card(s)?"}
+					Prompt: "Draw up to " + strconv.Itoa(int(n)) + " card(s)?"}
 				for i := int32(0); i < m; i++ {
 					id := lib[i]
 					label := "a card"

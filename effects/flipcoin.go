@@ -339,30 +339,6 @@ func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 			if !noCall && name != "" && c.SVars != nil {
 				Resolve(h, c, cards.ResolveSVar(c.SVars, name))
 				if h.Suspended() {
-					// Only a suspension with flips still owed needs a cursor. A
-					// losing flip of an until-lose loop ends it, and the last
-					// iteration of an Amount$ loop is the last; if no later
-					// flipper remains, there is nothing to resume and the host
-					// gets no frame (the pre-existing shape for a terminal
-					// suspension).
-					moreIter := (untilLose && win) || (!untilLose && i+1 < amount)
-					nextPlayer, nextIter := pi, i+1
-					if untilLose && !win {
-						// A losing until-lose flip finishes this player's loop. If
-						// its lose branch asked, resume at the NEXT ForEachPlayer$
-						// flipper, not at this player with Iter+1 (untilLose would
-						// otherwise ignore that bound and flip the loser again).
-						nextPlayer, nextIter = pi+1, 0
-					}
-					if moreIter || pi+1 < len(players) {
-						h.SuspendFlipRest(sa, FlipRest{
-							Players:     append([]state.PlayerID(nil), players...),
-							PlayerIndex: nextPlayer,
-							Iter:        nextIter,
-							Amount:      amount,
-							UntilLose:   untilLose,
-						})
-					}
 					return
 				}
 			}
@@ -384,7 +360,6 @@ func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 		if noCallSide == 0 {
 			noCallSide = NoCallWin
 		}
-		loseOwed := loseName != "" && losses > 0
 		resolveOutcome := func(side int8, name string, count, start int32) bool {
 			if name == "" || count == 0 {
 				return false
@@ -401,20 +376,6 @@ func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 			for i := start; i < calls; i++ {
 				Resolve(h, c, branch)
 				if h.Suspended() {
-					// Owed: a later call on this side, else the whole tails
-					// side after the heads side. Nothing owed reports no frame
-					// (the plain continuation walks the FlipCoin's Sub).
-					owed, nextSide, next := i+1 < calls, side, i+1
-					if !owed && side == NoCallWin && loseOwed {
-						owed, nextSide, next = true, NoCallLose, 0
-					}
-					if owed {
-						h.SuspendFlipRest(sa, FlipRest{
-							Players: append([]state.PlayerID(nil), players...), PlayerIndex: len(players),
-							Amount: amount, UntilLose: untilLose,
-							NoCallSide: nextSide, NoCallNext: next, Wins: wins, Losses: losses,
-						})
-					}
 					return true
 				}
 			}

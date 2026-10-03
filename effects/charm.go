@@ -287,7 +287,6 @@ func charmCrossModeRun(h Host, c *Ctx, sa *cards.SA, names []string) bool {
 			// still reported, so the Charm re-enters and walks its own Sub
 			// instead of the enclosing loop recording a plain continuation
 			// that resumes at a nil Sub and emits a false degradation Note.
-			h.SuspendCharmRest(sa, names[i+1:])
 			return true
 		}
 		charmRestNote(h, c, sa, asks)
@@ -332,10 +331,7 @@ func effVillainousChoice(h Host, c *Ctx, sa *cards.SA) {
 		d := &decision.Decision{Player: victim.Player, Kind: decision.KModes,
 			Min: 1, Max: 1, Source: c.Source, ResumeKind: "villainous",
 			ResumeSA: sa, ResumeModes: append([]string(nil), choices...),
-			ResumeRemembered:        append([]state.Target(nil), c.Remembered...),
-			ResumeVillainousVictims: append([]state.Target(nil), c.VillainousVictims...),
-			ResumeVillainousIndex:   c.VillainousIndex,
-			Prompt:                  "Choose a villainous option"}
+			Prompt: "Choose a villainous option"}
 		for i, name := range choices {
 			d.Options = append(d.Options, decision.Option{Index: i, Kind: "mode",
 				Label: CharmModeLabel(cards.ResolveSVar(c.SVars, name), name),
@@ -402,9 +398,6 @@ func villainousRunChoice(h Host, c *Ctx, sa *cards.SA, names []string) bool {
 			Resolve(h, c, sub)
 		}
 		if h.Suspended() {
-			h.SuspendVillainousRest(sa, VillainousRest{
-				Victims: append([]state.Target(nil), c.VillainousVictims...),
-				Next:    c.VillainousIndex + 1})
 			return true
 		}
 	}
@@ -424,7 +417,7 @@ func charmDistinctTargetRun(h Host, c *Ctx, sa *cards.SA, names []string) bool {
 			offset++
 		}
 	}
-	for i, name := range names {
+	for _, name := range names {
 		sub := cards.ResolveSVar(c.SVars, name)
 		if sub == nil {
 			continue
@@ -450,7 +443,6 @@ func charmDistinctTargetRun(h Host, c *Ctx, sa *cards.SA, names []string) bool {
 		c.Targets, c.OfferedSA, c.TargetsOffered = savedTargets, savedOffered, savedMarker
 		c.CharmModeScope, c.CharmModeSA = savedScope, savedScopeSA
 		if h.Suspended() {
-			h.SuspendCharmRest(sa, names[i+1:])
 			return true
 		}
 		charmRestNote(h, c, sa, asks)
@@ -610,10 +602,6 @@ func charmGenericPlayersRun(h Host, c *Ctx, sa *cards.SA, choices []string) bool
 			}
 			// Preserve the enclosing remembered set as well as the chooser
 			// cursor while the chosen body's nested ask is suspended.
-			h.SuspendGenericChoiceRest(sa, GenericChoiceRest{
-				Choosers:   append([]state.Target(nil), c.GenericChoosers...),
-				Next:       c.GenericChooserIndex,
-				Remembered: append([]state.Target(nil), baselineRemembered...)})
 			return true
 		}
 	}
@@ -637,10 +625,6 @@ func charmGenericPlayersRun(h Host, c *Ctx, sa *cards.SA, choices []string) bool
 				suspended := runBody(fallback)
 				c.Remembered = append([]state.Target(nil), baselineRemembered...)
 				if suspended {
-					h.SuspendGenericChoiceRest(sa, GenericChoiceRest{
-						Choosers:   append([]state.Target(nil), c.GenericChoosers...),
-						Next:       c.GenericChooserIndex + 1,
-						Remembered: append([]state.Target(nil), baselineRemembered...)})
 					return true
 				}
 			} else {
@@ -661,11 +645,8 @@ func charmGenericPlayersRun(h Host, c *Ctx, sa *cards.SA, choices []string) bool
 		} else {
 			d := &decision.Decision{Player: chooser.Player, Kind: decision.KModes,
 				Min: 1, Max: 1, Source: c.Source, ResumeKind: "generic_players", ResumeSA: sa,
-				ResumeModes:               append([]string(nil), available...),
-				ResumeRemembered:          append([]state.Target(nil), c.Remembered...),
-				ResumeGenericChoosers:     append([]state.Target(nil), c.GenericChoosers...),
-				ResumeGenericChooserIndex: c.GenericChooserIndex,
-				Prompt:                    "Choose 1 to 1 mode(s)", AIRandom: aiLogicRandom(sa)}
+				ResumeModes: append([]string(nil), available...),
+				Prompt:      "Choose 1 to 1 mode(s)", AIRandom: aiLogicRandom(sa)}
 			for i, name := range available {
 				d.Options = append(d.Options, decision.Option{Index: i, Kind: "mode",
 					Label: CharmModeLabel(cards.ResolveSVar(c.SVars, name), name),
@@ -699,10 +680,6 @@ func charmGenericPlayersRun(h Host, c *Ctx, sa *cards.SA, choices []string) bool
 		c.Remembered = append([]state.Target(nil), baselineRemembered...)
 		if suspended {
 			// Preserve both cursor and outer remembered set across the nested ask.
-			h.SuspendGenericChoiceRest(sa, GenericChoiceRest{
-				Choosers:   append([]state.Target(nil), c.GenericChoosers...),
-				Next:       c.GenericChooserIndex + 1,
-				Remembered: append([]state.Target(nil), baselineRemembered...)})
 			return true
 		}
 		c.GenericChooserIndex++
@@ -960,7 +937,7 @@ func charmRunModes(h Host, c *Ctx, sa *cards.SA, names []string) {
 	for _, n := range ([]string)(nil) {
 		seen[n] = true
 	}
-	for i, name := range names {
+	for _, name := range names {
 		asks := askCount(h)
 		if sub := cards.ResolveSVar(c.SVars, name); sub != nil {
 			savedOffered, savedTargets, savedMark := c.OfferedSA, c.Targets, c.TargetsOffered
@@ -990,7 +967,6 @@ func charmRunModes(h Host, c *Ctx, sa *cards.SA, names []string) {
 			// walk its own Sub instead of the enclosing loop recording a
 			// plain continuation that degrades to a false no-sub-ability
 			// Note.
-			h.SuspendCharmRest(sa, names[i+1:])
 			return
 		}
 		charmRestNote(h, c, sa, asks)

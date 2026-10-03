@@ -183,12 +183,6 @@ func effImmediateTrigger(h Host, c *Ctx, sa *cards.SA) {
 		}
 		Resolve(h, &cc, sub)
 		if h.Suspended() {
-			h.SuspendRepeat(RepeatSuspension{
-				RepeatCursor: RepeatCursor{SA: sa, Subjects: copyTargets(subjects), Next: i + 1},
-				Body:         copyTargets(cc.Remembered),
-				Subject:      subjects[i],
-				Outer:        copyTargets(c.Remembered),
-			})
 			return
 		}
 	}

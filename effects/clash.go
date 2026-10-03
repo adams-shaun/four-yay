@@ -50,63 +50,37 @@ func init() {
 // controller's first living opponent -- Forge's own "choose an opponent"
 // fallback, made deterministic rather than random. The resolving controller
 // is always the first clashing player.
-//
-// Placement choices resume from the saved reveal and winner snapshot, so an
-// answer never repeats a reveal, comparison, earlier placement, marker, or branch.
 func effClash(h Host, c *Ctx, sa *cards.SA) {
-	// Consume the answered snapshot before nested effects can run another Clash.
-	continuation, top := (*decision.ClashResume)(nil), false
-
-	var players []state.PlayerID
-	var revealed []state.ObjID
+	players := clashParticipants(h, c, sa)
+	if len(players) == 0 {
+		return
+	}
 	winnerIdx, cursor := -1, 0
-	if continuation != nil {
-		r := continuation
-		players = append([]state.PlayerID(nil), r.Players...)
-		revealed = append([]state.ObjID(nil), r.Revealed...)
-		winnerIdx, cursor = r.Winner, r.Cursor
-		if cursor < len(players) && revealed[cursor] != 0 {
-			if top {
-				clashMoveToTop(h, players[cursor], revealed[cursor])
-			} else {
-				clashMoveToBottom(h, players[cursor], revealed[cursor])
-			}
+	revealed := make([]state.ObjID, len(players))
+	cmc := make([]int, len(players))
+	for i, p := range players {
+		cmc[i] = -1
+		lib := zoneOf(h.Game(), state.ZLibrary, p)
+		if len(lib) == 0 {
+			continue
 		}
-		cursor++
-	} else {
-		players = clashParticipants(h, c, sa)
-		if len(players) == 0 {
-			return
-		}
-		revealed = make([]state.ObjID, len(players))
-		cmc := make([]int, len(players))
-		for i, p := range players {
-			cmc[i] = -1
-			lib := zoneOf(h.Game(), state.ZLibrary, p)
-			if len(lib) == 0 {
-				continue
-			}
-			revealed[i], cmc[i] = lib[0], manaValueOf(h.Game(), lib[0])
-			h.Emit(events.Event{Kind: events.Note, Player: p, IDs: []state.ObjID{lib[0]}})
-		}
-		for i := range cmc {
-			best := cmc[i] >= 0
-			for j := range cmc {
-				if j != i && cmc[j] >= cmc[i] {
-					best = false
-					break
-				}
-			}
-			if best {
-				winnerIdx = i
+		revealed[i], cmc[i] = lib[0], manaValueOf(h.Game(), lib[0])
+		h.Emit(events.Event{Kind: events.Note, Player: p, IDs: []state.ObjID{lib[0]}})
+	}
+	for i := range cmc {
+		best := cmc[i] >= 0
+		for j := range cmc {
+			if j != i && cmc[j] >= cmc[i] {
+				best = false
 				break
 			}
 		}
+		if best {
+			winnerIdx = i
+			break
+		}
 	}
 	c.ClashWon = winnerIdx == 0
-	if winnerIdx >= 0 {
-
-	}
 	for ; cursor < len(players); cursor++ {
 		p, id := players[cursor], revealed[cursor]
 		if id == 0 {
@@ -216,9 +190,8 @@ func clashParticipants(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 func ClashPlacementDecision(p state.PlayerID, source state.ObjID, sa *cards.SA, players []state.PlayerID, revealed []state.ObjID, winner, cursor int, id state.ObjID) *decision.Decision {
 	return &decision.Decision{Player: p, Kind: decision.KChoose, Min: 1, Max: 1, Source: source,
 		ResumeKind: "clash_placement", ResumeSA: sa,
-		ResumeClash: &decision.ClashResume{Players: append([]state.PlayerID(nil), players...), Revealed: append([]state.ObjID(nil), revealed...), Winner: winner, Cursor: cursor},
-		Prompt:      "Put the revealed card on top or bottom of your library",
-		Options:     []decision.Option{{Index: 0, Kind: "bottom", Label: "Put it on the bottom", Obj: id, Player: p}, {Index: 1, Kind: "top", Label: "Keep it on top", Obj: id, Player: p}}}
+		Prompt:  "Put the revealed card on top or bottom of your library",
+		Options: []decision.Option{{Index: 0, Kind: "bottom", Label: "Put it on the bottom", Obj: id, Player: p}, {Index: 1, Kind: "top", Label: "Keep it on top", Obj: id, Player: p}}}
 }
 
 // clashMoveToBottom puts id on the BOTTOM of player p's library as one Secret

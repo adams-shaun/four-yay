@@ -65,8 +65,7 @@ func objectPathShuffleTail(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, m
 	}
 	d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: 1, Max: 1,
 		Source: c.Source, ResumeKind: "search_mayshuffle", ResumeSA: sa,
-		ResumeMoved: append([]state.ObjID(nil), moved...),
-		Prompt:      "Shuffle your library?",
+		Prompt: "Shuffle your library?",
 		Options: []decision.Option{
 			{Index: 0, Kind: "yes", Label: "Yes — shuffle", Player: c.Controller},
 			{Index: 1, Kind: "no", Label: "No — keep the order", Player: c.Controller},
@@ -150,12 +149,8 @@ func searchShuffleTail(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, owner
 	}
 	d := &decision.Decision{Player: owner, Kind: decision.KChoose, Min: 1, Max: 1,
 		Source: c.Source, ResumeKind: "search_mayshuffle", ResumeSA: sa,
-		ResumeTarget: c.LibraryTarget, ResumeRemembered: copyTargets(c.Remembered),
-		ResumeForgetOtherSnapshot: copyTargets(c.ForgetOtherSnapshot),
-		ResumeForgetOtherOwners:   append([]state.PlayerID(nil), c.ForgetOtherOwners...),
-		ResumeForgetOtherReady:    c.ForgetOtherReady, ResumeForgetOtherCleared: c.ForgetOtherCleared,
-		ResumeMoved: append([]state.ObjID(nil), moved...),
-		Prompt:      "Shuffle your library?",
+		ResumeTarget: c.LibraryTarget,
+		Prompt:       "Shuffle your library?",
 		Options: []decision.Option{
 			{Index: 0, Kind: "yes", Label: "Yes — shuffle", Player: owner},
 			{Index: 1, Kind: "no", Label: "No — keep the order", Player: owner},

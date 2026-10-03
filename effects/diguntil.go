@@ -229,11 +229,7 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 				// The ForgetOtherRemembered$ pre-clear snapshot rides the ask:
 				// the answered re-entry re-runs the scan filter against the
 				// pre-clear candidates after the clear.
-				ResumeForgetOtherSnapshot: copyTargets(c.ForgetOtherSnapshot),
-				ResumeForgetOtherOwners:   append([]state.PlayerID(nil), c.ForgetOtherOwners...),
-				ResumeForgetOtherReady:    c.ForgetOtherReady,
-				ResumeForgetOtherCleared:  c.ForgetOtherCleared,
-				Prompt:                    "Put the revealed matching card(s) onto " + verb + "?",
+				Prompt: "Put the revealed matching card(s) onto " + verb + "?",
 				Options: []decision.Option{
 					{Index: 0, Kind: "yes", Label: "Yes — put into " + verb, Player: p},
 					{Index: 1, Kind: "no", Label: "No", Player: p},
@@ -318,12 +314,7 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 						default:
 							d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 1, Max: 1,
 								Source: c.Source, ResumeKind: "diguntil_aura", ResumeSA: sa,
-								ResumeDigUntilMove:        digUntilMoveRider(moveAns, moveDone),
-								ResumeForgetOtherSnapshot: copyTargets(c.ForgetOtherSnapshot),
-								ResumeForgetOtherOwners:   append([]state.PlayerID(nil), c.ForgetOtherOwners...),
-								ResumeForgetOtherReady:    c.ForgetOtherReady,
-								ResumeForgetOtherCleared:  c.ForgetOtherCleared,
-								Prompt:                    "Choose a permanent for the revealed Aura to enchant"}
+								Prompt: "Choose a permanent for the revealed Aura to enchant"}
 							for i, candidate := range bearers {
 								d.Options = append(d.Options, decision.Option{Index: i, Kind: "card", Obj: candidate, Player: p})
 							}

@@ -641,13 +641,7 @@ func effChooseCard(h Host, c *Ctx, sa *cards.SA) {
 			chooseCardRecord(h, c, sa, randomChoices(h, choices, max))
 			continue
 		}
-		d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Source: c.Source, Min: min, Max: max, ResumeKind: "choice", ResumeSA: sa, ResumeTarget: i, ResumeChoices: append([]state.Target(nil), c.Chosen...), ResumeChosenValid: c.ChosenValid, ResumeRemembered: append([]state.Target(nil), c.Remembered...), Prompt: sa.ParamStr(cards.PKChoiceTitle)}
-		// The ForgetOtherRemembered$ pre-clear snapshot rides the ask: a later
-		// chooser's pool (the cardChoices read above re-runs on every resumed
-		// pass) still matches the pre-clear candidates after the clear.
-		d.ResumeForgetOtherSnapshot = copyTargets(c.ForgetOtherSnapshot)
-		d.ResumeForgetOtherOwners = append([]state.PlayerID(nil), c.ForgetOtherOwners...)
-		d.ResumeForgetOtherReady, d.ResumeForgetOtherCleared = c.ForgetOtherReady, c.ForgetOtherCleared
+		d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Source: c.Source, Min: min, Max: max, ResumeKind: "choice", ResumeSA: sa, ResumeTarget: i, Prompt: sa.ParamStr(cards.PKChoiceTitle)}
 		if hasBudget {
 			d.MaxSum, d.Budgeted = int(budget), true
 		}
@@ -816,10 +810,7 @@ func effChooseSource(h Host, c *Ctx, sa *cards.SA) {
 		}
 		d := &decision.Decision{Player: choosers[i], Kind: decision.KChoose, Source: c.Source,
 			Min: min, Max: max, ResumeKind: "choice", ResumeSA: sa, ResumeTarget: i,
-			ResumeChoices:     append([]state.Target(nil), c.Chosen...),
-			ResumeChosenValid: c.ChosenValid,
-			ResumeRemembered:  append([]state.Target(nil), c.Remembered...),
-			Prompt:            sa.ParamStr(cards.PKChoiceTitle)}
+			Prompt: sa.ParamStr(cards.PKChoiceTitle)}
 		for j, t := range choices {
 			d.Options = append(d.Options, decision.Option{Index: j, Kind: "card", Obj: t.Obj, Player: choosers[i]})
 		}
@@ -929,7 +920,7 @@ func effChoosePlayer(h Host, c *Ctx, sa *cards.SA) {
 			choiceRecord(h, c, sa, randomChoices(h, choices, max), true)
 			continue
 		}
-		d := &decision.Decision{Player: choosers[i], Kind: decision.KChoose, Source: c.Source, Min: min, Max: max, ResumeKind: "choice", ResumeSA: sa, ResumeTarget: i, ResumeChoices: append([]state.Target(nil), c.Chosen...), ResumeChosenValid: c.ChosenValid, ResumeRemembered: append([]state.Target(nil), c.Remembered...), Prompt: sa.ParamStr(cards.PKChoiceTitle)}
+		d := &decision.Decision{Player: choosers[i], Kind: decision.KChoose, Source: c.Source, Min: min, Max: max, ResumeKind: "choice", ResumeSA: sa, ResumeTarget: i, Prompt: sa.ParamStr(cards.PKChoiceTitle)}
 		for j, t := range choices {
 			d.Options = append(d.Options, decision.Option{Index: j, Kind: "player", Player: t.Player})
 		}
@@ -1177,7 +1168,7 @@ func effGainControl(h Host, c *Ctx, sa *cards.SA) {
 			return
 		}
 		if len(choices) > 1 {
-			d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Source: c.Source, Min: 1, Max: 1, ResumeKind: "choice", ResumeSA: sa, ResumeChoices: append([]state.Target(nil), c.Chosen...), ResumeChosenValid: c.ChosenValid, ResumeRemembered: append([]state.Target(nil), c.Remembered...), Prompt: sa.ParamStr(cards.PKChoiceTitle)}
+			d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Source: c.Source, Min: 1, Max: 1, ResumeKind: "choice", ResumeSA: sa, Prompt: sa.ParamStr(cards.PKChoiceTitle)}
 			for i, t := range choices {
 				d.Options = append(d.Options, decision.Option{Index: i, Kind: "card", Obj: t.Obj, Player: chooser})
 			}
@@ -1528,7 +1519,7 @@ func gainControlVariantAskLoop(h Host, c *Ctx, sa *cards.SA, base ControlGrant,
 		c.ChoiceTarget, c.Chosen = i, picks
 		d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Min: 1, Max: 1,
 			Source: c.Source, ResumeKind: "choice", ResumeSA: sa, ResumeTarget: i,
-			ResumeChoices: append([]state.Target(nil), picks...), Prompt: prompt}
+			Prompt: prompt}
 		for j, id := range pool {
 			d.Options = append(d.Options, decision.Option{Index: j, Kind: "card", Obj: id, Player: chooser})
 		}

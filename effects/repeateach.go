@@ -286,19 +286,6 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 			}
 		}
 		if h.Suspended() {
-			h.SuspendRepeat(RepeatSuspension{
-				RepeatCursor: RepeatCursor{SA: sa, Subjects: copyTargets(subjects), Next: i + 1},
-				Body:         copyTargets(cc.Remembered),
-				Subject:      t,
-				Outer:        copyTargets(c.Remembered),
-				Chosen:       copyTargets(c.Chosen),
-				ChosenValid:  c.ChosenValid,
-				// The tally rides the suspension so the re-entered body and the
-				// loop's remaining iterations re-derive "Votes" after the fresh
-				// Ctx a resume rebuilds (the vote is a PRIOR chain link, so the
-				// table cannot be re-derived from the resumed SA).
-				VoteCounts: append([]VoteCount(nil), c.VoteCounts...),
-			})
 			return
 		}
 		c.Remembered = rememberIteration(c.Remembered, cc.Remembered, base, t)
@@ -361,7 +348,7 @@ func repeatEachElectionDecision(h Host, c *Ctx, sa *cards.SA, subj state.Target,
 	player := PlayerOf(h, c, subj)
 	return &decision.Decision{Player: player, Kind: decision.KChoose, Min: 1, Max: 1,
 		Prompt: msg, Source: c.Source,
-		ResumeKind: "repeat_each_optional", ResumeSA: sa, ResumeRepeatNext: int32(idx),
+		ResumeKind: "repeat_each_optional", ResumeSA: sa,
 		Options: []decision.Option{
 			{Index: 0, Kind: "yes", Label: "Yes", Player: player},
 			{Index: 1, Kind: "no", Label: "No", Player: player},

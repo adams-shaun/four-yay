@@ -137,8 +137,8 @@ func exploreOnce(h Host, c *Ctx, sa *cards.SA, explorer state.ObjID, done int32)
 	// stream; the recorded election precedes it).
 	d := &decision.Decision{Player: ctrl, Kind: decision.KChoose, Min: 1, Max: 1,
 		Source: c.Source, ResumeKind: "explore", ResumeSA: sa,
-		ResumeTarget: int(explorer), ResumeExploreDone: done,
-		Prompt: "Put the revealed card back on top of your library or into your graveyard?"}
+		ResumeTarget: int(explorer),
+		Prompt:       "Put the revealed card back on top of your library or into your graveyard?"}
 	d.Options = []decision.Option{
 		{Index: 0, Kind: "graveyard", Label: "Put it into your graveyard", Obj: top, Player: ctrl},
 		{Index: 1, Kind: "top", Label: "Put it back on top of your library", Obj: top, Player: ctrl},

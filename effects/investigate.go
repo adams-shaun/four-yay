@@ -134,9 +134,8 @@ func investigateOptionalWalk(h Host, c *Ctx, sa *cards.SA, players []state.Playe
 			// from Defined$, and a Remembered-valued selector must see
 			// the set the first pass read, or the cursor would index a
 			// DIFFERENT list than the one the election was posed for.
-			ResumeRemembered: append([]state.Target(nil), c.Remembered...),
-			Source:           c.Source,
-			Prompt:           "Investigate?"}
+			Source: c.Source,
+			Prompt: "Investigate?"}
 		d.Options = []decision.Option{
 			{Index: 0, Kind: "yes", Label: "Yes — investigate", Player: p},
 			{Index: 1, Kind: "no", Label: "No", Player: p},

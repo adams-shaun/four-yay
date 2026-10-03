@@ -218,8 +218,7 @@ func effTwoPiles(h Host, c *Ctx, sa *cards.SA) {
 		d := &decision.Decision{Player: sep, Kind: decision.KChoose,
 			Min: 0, Max: len(ids), Source: c.Source,
 			ResumeKind: "twopiles_split", ResumeSA: sa,
-			ResumeRemembered: twoPilesTargets(ids),
-			Prompt:           "Separate these cards into two piles: pick the cards of the first pile (the rest form the second)"}
+			Prompt: "Separate these cards into two piles: pick the cards of the first pile (the rest form the second)"}
 		for _, id := range ids {
 			name := "a card"
 			if o := g.Obj(id); o != nil && o.Face() != nil {
@@ -296,11 +295,9 @@ func noShuffleBody(sub *cards.SA) *cards.SA {
 func twoPilesPosePick(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID, pileA, ids []state.ObjID) (pickB bool) {
 	d := &decision.Decision{Player: chooser, Kind: decision.KChoose,
 		Min: 1, Max: 1, Source: c.Source,
-		ResumeKind:       "twopiles_pick",
-		ResumeSA:         sa,
-		ResumeRemembered: twoPilesTargets(ids),
-		ResumeChoices:    twoPilesTargets(pileA),
-		Prompt:           "Choose a pile"}
+		ResumeKind: "twopiles_pick",
+		ResumeSA:   sa,
+		Prompt:     "Choose a pile"}
 	d.Options = append(d.Options,
 		decision.Option{Index: 0, Kind: "pile-a", Label: "First pile", Player: chooser},
 		decision.Option{Index: 1, Kind: "pile-b", Label: "Second pile", Player: chooser})

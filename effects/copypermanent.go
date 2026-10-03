@@ -421,7 +421,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 		pick := DefinedSpec(h, c, "Valid Creature.RememberedPlayerCtrl")
 		d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Min: 1, Max: 1,
 			Source: c.Source, ResumeKind: "copypermanent_choice", ResumeSA: sa,
-			ResumeRemembered: append([]state.Target(nil), c.Remembered...), Prompt: "Choose a creature to copy"}
+			Prompt: "Choose a creature to copy"}
 		for i, t := range pick {
 			if t.IsPlayer || t.Obj == 0 {
 				continue

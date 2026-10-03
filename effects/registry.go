@@ -1794,7 +1794,6 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 			// where the gate consumes the answer and the loop walks
 			// sa.Sub — so this loop's own continuation is dropped, like
 			// any asking loop's (SuspendContinuation's innermost rule).
-			h.SuspendContinuation(sa)
 			return
 		}
 		if !runBody {
@@ -1825,7 +1824,6 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		rememberedSubTargets, prefetchedRememberedSub, suspendedForRememberedSub :=
 			prefetchRememberedChangeZoneTarget(h, c, sa)
 		if suspendedForRememberedSub {
-			h.SuspendContinuation(sa)
 			return
 		}
 		if ts, done := chosenTargetsFor(h, c, sa, d == 0); done {
@@ -1836,14 +1834,12 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 				// the "tgts" arm fills Ctx.TargetsPick, and the re-entered
 				// pass consumes the answer and dispatches with it visible to
 				// Defined for this SA.
-				h.SuspendContinuation(sa)
 				// The same asking-body-under-UnlessCost$ class as the body
 				// path below: when the gate already resolved on THIS pass,
 				// record its outcome on the ask's own resume point so the
 				// answered re-entry consumes it instead of re-posing the pay
 				// ask.
 				if ActivationOf(sa).Unless() {
-					h.SuspendUnless(sa, paid)
 				}
 				return
 			}
@@ -1919,13 +1915,11 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 			// carrying — fx32's defect. The host keeps the enclosing levels as
 			// outer continuations and drops this one when it is the asking
 			// loop's own level, which re-enters sa.Sub itself.
-			h.SuspendContinuation(sa)
 			// The gate had already resolved when the body asked: record the
 			// outcome so the answer's re-entry pass consumes it instead of
 			// re-posing the pay ask (the asking-body-under-UnlessCost$
 			// livelock — Rhystic Study's pay-or-draw was the live carrier).
 			if ActivationOf(sa).Unless() {
-				h.SuspendUnless(sa, paid)
 			}
 			return
 		}

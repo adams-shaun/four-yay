@@ -158,7 +158,6 @@ func TestObservationDropsChoiceIndicesAndInternalContinuation(t *testing.T) {
 	head := e.L.Head()
 	clone := e.Clone()
 	clone.Pending().ResumeKind = "unobserved"
-	clone.Pending().ResumeRemembered = []state.Target{{Obj: 999}}
 	clone.Pending().Rolls = []int32{999}
 	d := NewCollector(0)
 	after, err := d.Capture(clone, clone.L.Events)

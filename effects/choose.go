@@ -415,8 +415,7 @@ func effChooseNumberElection(h Host, c *Ctx, sa *cards.SA, matched, unmatched st
 	for ; i < len(choosers); i++ {
 		d := &decision.Decision{Player: choosers[i], Kind: decision.KChoose, Min: 1, Max: 1,
 			ResumeKind: "choosenumbermulti", ResumeSA: sa, ResumeTarget: i,
-			ResumeNumberPicks: append([]int32(nil), picks...),
-			Prompt:            prompt, Source: c.Source}
+			Prompt: prompt, Source: c.Source}
 		d.Options = opts
 		if ans, ok := AskTape(h, d); ok {
 			// The resolution kernel's answer in hand: the pick the

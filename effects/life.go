@@ -218,7 +218,7 @@ func effSetLife(h Host, c *Ctx, sa *cards.SA) {
 			d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Source: c.Source,
 				Min: 1, Max: 1, Prompt: fmt.Sprintf("Choose a life total for %s", g.Players[recipient].Name),
 				ResumeKind: "choice", ResumeSA: sa, ResumeTarget: 1 + i,
-				ResumeChoices: append([]state.Target(nil), c.Chosen...), ResumeChosenValid: c.ChosenValid}
+			}
 			for _, src := range c.Chosen[:subsetSize] {
 				used := false
 				for _, pick := range c.Chosen[subsetSize:] {

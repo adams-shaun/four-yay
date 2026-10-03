@@ -271,7 +271,7 @@ func poseTargetsAsk(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID,
 	d := &decision.Decision{Player: chooser, Kind: decision.KChoose,
 		Min: int(min), Max: int(max), Source: c.Source,
 		ResumeKind: resumeKind, ResumeSA: resumeSA,
-		ResumeRemembered: copyTargets(c.Remembered), Prompt: prompt}
+		Prompt: prompt}
 	// The TargetUnique accumulator rides EVERY ask through the ask boundary
 	// (Engine.Ask stamps the live chain Ctx's accumulator onto any decision
 	// that did not already carry one, which is what makes it survive a
@@ -281,7 +281,6 @@ func poseTargetsAsk(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID,
 	// double). Copied as a fresh slice -- the walk may append to it after this
 	// ask is parked.
 	if len(c.TargetsUnique) > 0 {
-		d.ResumeTargetsUnique = copyTargets(c.TargetsUnique)
 	}
 	// pfpe1: the TargetsForEachPlayer$ shape binds each option to its
 	// controller's Group -- the same label rules' ask sites attach (askTarget

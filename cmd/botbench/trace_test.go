@@ -46,8 +46,6 @@ func TestTraceBoardProjectionIsSortedAndRedacted(t *testing.T) {
 		}},
 		ResumeKind: "SECRET_RESUME", ResumeSA: &cards.SA{Kind: "SP", API: "SECRET_API"},
 		ResumeModes: []string{"SECRET_MODE"}, ResumeTarget: 17, Rolls: []int32{6},
-		ResumeChoices: []state.Target{{Obj: 23}}, ResumeChosenValid: true,
-		ResumeRemembered: []state.Target{{Player: 1, IsPlayer: true}}, ResumeMoved: []state.ObjID{7},
 	}
 	g := newGameTrace()
 	if err := g.record(d, decision.Intent{Seq: 12, Player: 0, Choices: []int{0}}, &b, traceDecisionMeta{PairIndex: 4, Pair: "a:b", GameIndex: 6, Seed: 10, Policy: "bot"}); err != nil {

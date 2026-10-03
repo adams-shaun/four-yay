@@ -367,7 +367,7 @@ func effPlay(h Host, c *Ctx, sa *cards.SA) {
 		// RememberObjects$ RememberedCard) seeds the registered may-play
 		// grant from an empty list -- the "if you don't cast it this way"
 		// static would match nothing and never offer the fall-back cast.
-		ResumeRemembered: copyTargets(c.Remembered)}
+	}
 	for _, id := range candidates {
 		label := "Play it"
 		if o := g.Obj(id); o != nil && o.Face() != nil {

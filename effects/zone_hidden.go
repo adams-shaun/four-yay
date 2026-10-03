@@ -302,12 +302,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.
 				cd := &decision.Decision{Player: chooser, Kind: decision.KChoose,
 					Min: 1, Max: 1, Source: c.Source,
 					ResumeKind: "hidden_pick_confirm", ResumeSA: sa, ResumeTarget: i,
-					ResumeRemembered:          copyTargets(c.Remembered),
-					ResumeForgetOtherSnapshot: copyTargets(c.ForgetOtherSnapshot),
-					ResumeForgetOtherOwners:   append([]state.PlayerID(nil), c.ForgetOtherOwners...),
-					ResumeForgetOtherReady:    c.ForgetOtherReady,
-					ResumeForgetOtherCleared:  c.ForgetOtherCleared,
-					Prompt:                    prompt,
+					Prompt: prompt,
 					Options: []decision.Option{
 						{Index: 0, Kind: "yes", Label: "Yes", Player: chooser},
 						{Index: 1, Kind: "no", Label: "No", Player: chooser},
@@ -374,12 +369,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.
 			// re-entered effHiddenPick revalidates against ChangeType$, which
 			// can be a ctx-Remembered predicate.
 			ResumeKind: "hidden_pick", ResumeSA: sa, ResumeTarget: i,
-			ResumeRemembered:          copyTargets(c.Remembered),
-			ResumeForgetOtherSnapshot: copyTargets(c.ForgetOtherSnapshot),
-			ResumeForgetOtherOwners:   append([]state.PlayerID(nil), c.ForgetOtherOwners...),
-			ResumeForgetOtherReady:    c.ForgetOtherReady,
-			ResumeForgetOtherCleared:  c.ForgetOtherCleared,
-			Prompt:                    prompt}
+			Prompt: prompt}
 		if mandatory {
 			d.Min = int(m)
 		} else if mayPick {

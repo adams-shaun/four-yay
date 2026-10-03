@@ -98,7 +98,6 @@ var cloneTypeCopiers = map[string]string{
 	"*effects.ExchangeMemory":        "%[1]s = remap.exchangeMemory(%[2]s)",
 	"effects.Ctx":                    "%[1]s = remap.unlessCtx(%[2]s)",
 	"*decision.Decision":             "if %[2]s != nil {\n%[1]s = cloneDecision(%[2]s)\n}",
-	"*decision.ClashResume":          "%[1]s = cloneClashResume(%[2]s)",
 	"*state.Object":                  "if %[2]s != nil {\ncp := %[2]s.CloneDeep()\n%[1]s = &cp\n}",
 	"cost.Cost":                      "%[1]s = cloneCost(%[2]s)",
 	"[]rules.pendingTrigger":         "%[1]s = clonePendingTriggers(%[2]s)",

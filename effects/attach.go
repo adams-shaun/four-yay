@@ -373,8 +373,7 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 		}
 		d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: 1, Max: 1,
 			Source: c.Source, ResumeKind: "attach_player_choice", ResumeSA: sa,
-			ResumeRemembered: copyTargets(c.Remembered),
-			Prompt:           ap.ChoicePrompt}
+			Prompt: ap.ChoicePrompt}
 		for i, p := range pool {
 			d.Options = append(d.Options, decision.Option{Index: i, Kind: "player", Player: p})
 		}
@@ -565,8 +564,7 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 			}
 			d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: max, Max: 1,
 				Source: c.Source, ResumeKind: "attach_choice", ResumeSA: sa,
-				ResumeRemembered: copyTargets(c.Remembered),
-				Prompt:           ap.ChoicePrompt}
+				Prompt: ap.ChoicePrompt}
 			// The options are the LEGAL destinations, not the raw pool sweep:
 			// the pool can hold objects destCandidates' rejection would refuse,
 			// including obj itself (aura_graft's Choices$ Permanent admits the
@@ -662,12 +660,10 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 		}
 		d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: min, Max: 1,
 			Source: c.Source, ResumeKind: "attach_choice", ResumeSA: sa,
-			ResumeRemembered: copyTargets(c.Remembered),
 			// The resolved destination list rides the ask: a RepeatEach
 			// body's Defined$ Imprinted binding does not survive the
 			// suspension, so the re-entry never re-derives it.
-			ResumeChoices: PayloadTargets(legalT),
-			Prompt:        ap.ChoicePrompt}
+			Prompt: ap.ChoicePrompt}
 		for i, t := range pool {
 			d.Options = append(d.Options, decision.Option{Index: i, Kind: "card", Obj: t.Obj, Player: c.Controller})
 		}
@@ -738,8 +734,7 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 			}
 			d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: 1, Max: 1,
 				Source: c.Source, ResumeKind: "attach_optional", ResumeSA: sa,
-				ResumeRemembered: copyTargets(c.Remembered),
-				Prompt:           "Attach it?",
+				Prompt: "Attach it?",
 				Options: []decision.Option{
 					{Index: 0, Kind: "yes", Label: "Yes — attach", Player: c.Controller},
 					{Index: 1, Kind: "no", Label: "No", Player: c.Controller},

@@ -572,14 +572,6 @@ func (h *fakeHost) TypeChoices(_ state.PlayerID, _ string) []decision.Option {
 // Engine.Suspended reports e.resume != nil.
 func (h *fakeHost) Suspended() bool { return h.suspendAfterAsk }
 
-// SuspendContinuation is a no-op: an effects-package test double never
-// suspends (its Ask returns false), so effects.Resolve never reaches the
-// suspended branch that would call it. Kept to satisfy the Host interface.
-func (h *fakeHost) SuspendContinuation(*cards.SA) {}
-
-// SuspendUnless is a no-op for the same reason as SuspendContinuation.
-func (h *fakeHost) SuspendUnless(*cards.SA, bool) {}
-
 // SetResolutionTargetControllerLKI keeps the no-op shape: this double never
 // suspends, so the map it publishes is never consumed. Returns nil as the
 // "previous" value, which the caller restores on return.
@@ -594,35 +586,6 @@ func (h *fakeHost) EmitDamage(e events.Event) events.Event {
 	return e
 }
 func (h *fakeHost) CounterAllowed(state.ObjID, state.ObjID) bool { return true }
-
-// SuspendRepeatBody records the cursor and count the Repeat reported; it is
-// otherwise inert for the same reason as SuspendContinuation.
-func (h *fakeHost) SuspendRepeatBody(_ *cards.SA, next, count int32) {
-	h.repeatBodyCalled = true
-	h.repeatBodyNext = next
-	h.repeatBodyCount = count
-}
-
-// SuspendRepeat records the loop cursor the RepeatEach reported (the
-// effects-level ReadRepeatEach tests assert the election's own cursor) and is
-// otherwise inert: an effects-package test double never really resumes.
-func (h *fakeHost) SuspendRepeat(s RepeatSuspension) {
-	h.repeatSuspensions = append(h.repeatSuspensions, s)
-}
-
-// SuspendCharmRest is a no-op for the same reason as SuspendContinuation.
-func (h *fakeHost) SuspendCharmRest(*cards.SA, []string) {}
-
-// SuspendVillainousRest is a no-op for the same reason as
-// SuspendContinuation.
-func (h *fakeHost) SuspendVillainousRest(*cards.SA, VillainousRest) {}
-
-// SuspendGenericChoiceRest is a no-op for the same reason as
-// SuspendContinuation.
-func (h *fakeHost) SuspendGenericChoiceRest(*cards.SA, GenericChoiceRest) {}
-func (h *fakeHost) SuspendFlipRest(_ *cards.SA, rest FlipRest) {
-	h.flipRests = append(h.flipRests, rest)
-}
 
 // SetDamageSource records the published damage source on the double (the
 // last value wins) and returns the previous one, mirroring the engine's

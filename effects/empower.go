@@ -182,8 +182,7 @@ func empowerPlace(h Host, c *Ctx, sa *cards.SA, typ string, n int32, minted, ans
 		d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose,
 			Min: 1, Max: 1, Source: c.Source,
 			ResumeKind: "counter_pick", ResumeSA: sa,
-			ResumeRemembered: copyTargets(c.Remembered),
-			Prompt:           "Empower " + typ + " " + strconv.Itoa(int(n)) + " — choose a " + typ + " token you control"}
+			Prompt: "Empower " + typ + " " + strconv.Itoa(int(n)) + " — choose a " + typ + " token you control"}
 		for _, id := range cands {
 			d.Options = append(d.Options, decision.Option{Index: len(d.Options),
 				Kind: "counter_pick", Label: typ + " Token", Obj: id, Player: c.Controller})

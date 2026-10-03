@@ -352,7 +352,6 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 			d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: 1, Max: 1,
 				Source:     c.Source,
 				ResumeKind: "clone", ResumeSA: sa,
-				ResumeClonePick: clonePick, ResumeClonePickDone: clonePickDone,
 				Prompt: prompt,
 				Options: []decision.Option{
 					{Index: 0, Kind: "yes", Label: "Yes — make the copy", Player: c.Controller},

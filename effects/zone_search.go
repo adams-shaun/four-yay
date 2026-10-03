@@ -91,13 +91,7 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 				cd := &decision.Decision{Player: chooser, Kind: decision.KChoose,
 					Min: 1, Max: 1, Source: c.Source,
 					ResumeKind: "search_confirm", ResumeSA: sa, ResumeTarget: targetIndex,
-					ResumeRemembered:          copyTargets(c.Remembered),
-					ResumeSearchKnown:         copyTargets(c.SearchKnown),
-					ResumeForgetOtherSnapshot: copyTargets(c.ForgetOtherSnapshot),
-					ResumeForgetOtherOwners:   append([]state.PlayerID(nil), c.ForgetOtherOwners...),
-					ResumeForgetOtherReady:    c.ForgetOtherReady,
-					ResumeForgetOtherCleared:  c.ForgetOtherCleared,
-					Prompt:                    prompt,
+					Prompt: prompt,
 					Options: []decision.Option{
 						{Index: 0, Kind: "yes", Label: "Yes", Player: chooser},
 						{Index: 1, Kind: "no", Label: "No", Player: chooser},
@@ -381,15 +375,10 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 			// search resumes in the same resolution too, so the fetch list built
 			// by a preceding search stays available to Card.IsRemembered and
 			// Defined$ Remembered in the rest of this chain.
-			ResumeRemembered: copyTargets(c.Remembered),
 			// The known-card set rides the ask too: this leg's answer rebuilds a
 			// fresh Ctx, and the NEXT leg (or a chained sub that asks again) must
 			// still label its options with the names the chooser already learned.
-			ResumeSearchKnown:         copyTargets(c.SearchKnown),
-			ResumeForgetOtherSnapshot: copyTargets(c.ForgetOtherSnapshot),
-			ResumeForgetOtherOwners:   append([]state.PlayerID(nil), c.ForgetOtherOwners...),
-			ResumeForgetOtherReady:    c.ForgetOtherReady,
-			ResumeForgetOtherCleared:  c.ForgetOtherCleared}
+		}
 		if eachStructured {
 			eachPerType = max
 			if eachPerType > 1 {
@@ -691,7 +680,7 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 		}
 		d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: 1, Max: 1,
 			Source: c.Source, ResumeKind: "defined_library_optional", ResumeSA: sa,
-			ResumeRemembered: append([]state.Target(nil), c.Remembered...), Prompt: prompt,
+			Prompt: prompt,
 			Options: []decision.Option{
 				{Index: 0, Kind: "yes", Label: "Yes", Player: c.Controller},
 				{Index: 1, Kind: "no", Label: "No", Player: c.Controller},

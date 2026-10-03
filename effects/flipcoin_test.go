@@ -4,8 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/adams-shaun/gorge/cards"
-	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -111,41 +109,4 @@ func targetsEqual(a, b []state.Target) bool {
 		}
 	}
 	return true
-}
-
-// TestFlipCoinUntilYouLoseResumesOnSuspendedWinBranch pins the loop-resume fix
-// structurally: when a WIN branch of a FlipUntilYouLose$ loop suspends on a
-// mid-resolution ask, effFlipCoin must report the remaining cursor through
-// SuspendFlipRest instead of abandoning the loop. Before the fix the suspended
-// branch simply returned and no cursor was ever reported.
-func TestFlipCoinUntilYouLoseResumesOnSuspendedWinBranch(t *testing.T) {
-	Register("TestFlipSuspendAsk", func(h Host, _ *Ctx, _ *cards.SA) {
-		if fh, ok := h.(*fakeHost); ok {
-			fh.suspendAfterAsk = true
-		}
-		h.Ask(&decision.Decision{Kind: decision.KPriority, Player: 0})
-	})
-	t.Cleanup(func() { unregister("TestFlipSuspendAsk") })
-
-	h, c := fixtureHost(t)
-	c.SVars = map[string]string{"WinAsk": "DB$ TestFlipSuspendAsk"}
-	Resolve(h, c, sa(t, "DB$ FlipCoin | Flipper$ You | FlipUntilYouLose$ True | RememberResult$ True | WinSubAbility$ WinAsk"))
-
-	// Precondition: the win branch really ran and really suspended.
-	if h.askCount == 0 {
-		t.Fatal("precondition: the win branch never posed an ask")
-	}
-	if len(c.FlipMemory.Results) != 1 || !c.FlipMemory.Results[0].Heads {
-		t.Fatalf("precondition: want exactly one winning flip, got %+v", c.FlipMemory)
-	}
-	if len(h.flipRests) != 1 {
-		t.Fatalf("a suspended win branch must report exactly one flip cursor, got %d", len(h.flipRests))
-	}
-	rest := h.flipRests[0]
-	if !rest.UntilLose {
-		t.Fatalf("the cursor must carry the until-lose loop, got %+v", rest)
-	}
-	if rest.Iter != 1 || rest.PlayerIndex != 0 || len(rest.Players) != 1 || rest.Players[0] != c.Controller {
-		t.Fatalf("cursor = %+v, want the next iteration (Iter=1) for the controller", rest)
-	}
 }

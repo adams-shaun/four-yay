@@ -90,7 +90,7 @@ func effCipher(h Host, c *Ctx, sa *cards.SA) {
 	}
 	d := &decision.Decision{Player: controller, Kind: decision.KModes,
 		Min: 0, Max: 1, Source: card, ResumeKind: "cipher", ResumeSA: sa,
-		Prompt: "Encode " + name + " on a creature you control?", ResumeRemembered: copyTargets(c.Remembered)}
+		Prompt: "Encode " + name + " on a creature you control?"}
 	for _, id := range candidates {
 		label := "Encode"
 		if o := g.Obj(id); o != nil && o.Face() != nil {

@@ -90,10 +90,8 @@ func effTimeTravel(h Host, c *Ctx, sa *cards.SA) {
 			// build, so the two cannot share one). ResumeObjects carries the
 			// snapshot itself, so a removal that shrinks the live eligible
 			// set cannot shift this cursor.
-			ResumeTarget:  idx,
-			ResumeRound:   round,
-			ResumeObjects: append([]state.ObjID(nil), objects...),
-			Prompt:        "Time travel: add or remove a time counter?"}
+			ResumeTarget: idx,
+			Prompt:       "Time travel: add or remove a time counter?"}
 		d.Options = append(d.Options,
 			decision.Option{Index: 0, Kind: "time_travel_skip", Label: "Skip", Obj: id},
 			decision.Option{Index: 1, Kind: "time_travel_add", Label: "Add a time counter", Obj: id},

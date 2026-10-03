@@ -448,20 +448,7 @@ func cloneCost(c Cost) Cost {
 // clone's answer path never writes through to the original's.
 func cloneDecision(p *decision.Decision) *decision.Decision {
 	d := *p.Clone()
-	d.ResumeClash = cloneClashResume(p.ResumeClash)
 	d.ResumeModes = append([]string(nil), p.ResumeModes...)
-	d.ResumeChoices = append([]state.Target(nil), p.ResumeChoices...)
-	d.ResumeChosenValid = p.ResumeChosenValid
-	d.ResumeRemembered = append([]state.Target(nil), p.ResumeRemembered...)
-	d.ResumeSearchKnown = append([]state.Target(nil), p.ResumeSearchKnown...)
-	d.ResumeForgetOtherSnapshot = append([]state.Target(nil), p.ResumeForgetOtherSnapshot...)
-	d.ResumeForgetOtherOwners = append([]state.PlayerID(nil), p.ResumeForgetOtherOwners...)
-	d.ResumeVillainousVictims = append([]state.Target(nil), p.ResumeVillainousVictims...)
-	d.ResumeVillainousIndex = p.ResumeVillainousIndex
-	d.ResumeGenericChoosers = append([]state.Target(nil), p.ResumeGenericChoosers...)
-	d.ResumeGenericChooserIndex = p.ResumeGenericChooserIndex
-	d.ResumeNumberPicks = append([]int32(nil), p.ResumeNumberPicks...)
-	d.ResumeTargetsUnique = append([]state.Target(nil), p.ResumeTargetsUnique...)
 	d.ResumeDigPrimary = append([]state.ObjID(nil), p.ResumeDigPrimary...)
 	return &d
 }
@@ -504,11 +491,4 @@ func cloneTrigger(t cards.Trigger) cards.Trigger {
 		t.Params = params
 	}
 	return t
-}
-
-func cloneClashResume(r *decision.ClashResume) *decision.ClashResume {
-	if r == nil {
-		return nil
-	}
-	return &decision.ClashResume{Players: append([]state.PlayerID(nil), r.Players...), Revealed: append([]state.ObjID(nil), r.Revealed...), Winner: r.Winner, Cursor: r.Cursor}
 }
