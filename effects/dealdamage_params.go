@@ -90,7 +90,7 @@ var dealDamageKnownKeys = [...]string{
 	"PresentDefined", "PresentZone", "ReduceAmount", "ReduceCost", "RelativeTarget",
 	"RememberCostMana", "RememberDamaged", "RememberObjects", "ReplaceColor",
 	"ReplaceDyingDefined", "ReplaceGraveyard", "ReplaceGraveyardValid", "ReplaceMana",
-	"ReplaceOnly", "ReplaceType", "RestrictValid", "SVarCompare", "SelectPrompt",
+	"ReplaceOnly", "ReplaceType", "SVarCompare", "SelectPrompt",
 	"SetChosenMode", "SetColor", "ShowCards", "SorcerySpeed", "SpellDescription",
 	"StackDescription", "SubAbility", "TargetMax", "TargetMin",
 	"TargetType", "TargetUnique", "TargetValidTargeting", "TargetingPlayer",
@@ -101,10 +101,10 @@ var dealDamageKnownKeys = [...]string{
 	"TargetsWithSameCardType", "TargetsWithSameController",
 	"TargetsWithSameCreatureType", "TargetsWithSharedCardType",
 	"TargetsWithSharedTypes", "TgtPrompt", "TgtZone", "TokenScript",
-	"TriggerDescription", "TriggersWhenSpent", "Type", "Ultimate", "UnlessAI",
+	"TriggerDescription", "Type", "Ultimate", "UnlessAI",
 	"UnlessCost", "UnlessPayer", "UnlessResolveSubs", "UnlessSwitched", "ValidCard",
 	"ValidCards", "ValidCardsDesc", "ValidChoices", "ValidCounterType",
-	"ValidDescription", "ValidTgts", "VarName", "VarValue", "VoteMessage",
+	"ValidDescription", "ValidTgts", "VoteMessage",
 	"WithoutManaCost", "XMax", "XMin",
 }
 

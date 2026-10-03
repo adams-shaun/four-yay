@@ -24,3 +24,20 @@ func TestPumpKnownKeysMatchTheCensus(t *testing.T) {
 func TestDrawKnownKeysMatchTheCensus(t *testing.T) {
 	checkKnownKeysMatchTheCensus(t, "Draw", effects.DrawKnownKeys())
 }
+
+// TestReplaceEffectKnownKeysMatchTheCensus is the same check for
+// api:ReplaceEffect.
+func TestReplaceEffectKnownKeysMatchTheCensus(t *testing.T) {
+	checkKnownKeysMatchTheCensus(t, "ReplaceEffect", effects.ReplaceEffectKnownKeys())
+}
+
+// TestManaKnownKeysMatchTheCensus is the same check for api:Mana.
+func TestManaKnownKeysMatchTheCensus(t *testing.T) {
+	checkKnownKeysMatchTheCensus(t, "Mana", effects.ManaKnownKeys())
+}
+
+// TestManaReflectedKnownKeysMatchTheCensus is the same check for
+// api:ManaReflected.
+func TestManaReflectedKnownKeysMatchTheCensus(t *testing.T) {
+	checkKnownKeysMatchTheCensus(t, "ManaReflected", effects.ManaReflectedKnownKeys())
+}

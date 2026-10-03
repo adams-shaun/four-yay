@@ -1242,7 +1242,8 @@ func (e *Engine) paymentPlanManaUnitsOnlyCompute(p state.PlayerID, only []state.
 			if !ok {
 				continue
 			}
-			counts, any := cards.ProducedCounts(ma.ParamStr(cards.PKProduced))
+			mp := effects.ManaOf(ma)
+			counts, any := mp.Counts, mp.CountsAny
 			if any {
 				units = appendPaymentPlanUnitAlt(units, id, windowManaAlt{ma: ma, counts: counts, amt: amt, any: true})
 				continue
@@ -1454,7 +1455,7 @@ func paymentPlanShapeTierOf(ma *cards.SA, cost Cost) (tier paymentAbilityTier, c
 		}
 		return deferred("source:param:" + key)
 	}
-	if strings.TrimSpace(ma.ParamStr(cards.PKRestrictValid)) != "" {
+	if effects.ManaOf(ma).RestrictValid != "" {
 		return deferred("source:special_production")
 	}
 	if paymentPlanHasSpecialProductionParam(ma) {
@@ -1831,7 +1832,7 @@ func paymentPlanChoiceShape(raw string) bool {
 // empty commander identity all yield nil: V1 fails closed rather than
 // inventing a colour.
 func (e *Engine) paymentPlanChoiceColours(id state.ObjID, ma *cards.SA) []string {
-	raw := strings.TrimSpace(ma.ParamStr(cards.PKProduced))
+	raw := effects.ManaOf(ma).Produced
 	switch raw {
 	case "Any":
 		return []string{"W", "U", "B", "R", "G"}
