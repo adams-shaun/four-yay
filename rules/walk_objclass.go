@@ -288,7 +288,15 @@ func (e *Engine) walkClassOfSlow(id state.ObjID) *walkObjClass {
 		// The fingerprint is compared by the catch-up's touches, not here:
 		// a field it records may move without changing the class.
 		if fresh := e.computeWalkObjClass(&e.G.Objs[i]); fresh.withoutFP() != c.withoutFP() {
-			panic(fmt.Sprintf("rules: walk class of obj %d is stale (%+v, recomputed %+v)", id, *c, fresh))
+			// Faces are immutable once configured; a test that edits one in
+			// place (no event) is the only way a class moves under an
+			// unchanged fingerprint. Refresh it then; any other move is a
+			// missed input (see walkClassTouch, which tolerates the same
+			// case).
+			if !e.walkFacesEdited(&e.G.Objs[i]) {
+				panic(fmt.Sprintf("rules: walk class of obj %d is stale (%+v, recomputed %+v)", id, *c, fresh))
+			}
+			*c = fresh
 		}
 	}
 	return c
