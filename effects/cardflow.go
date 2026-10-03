@@ -131,9 +131,6 @@ func drawFor(h Host, p state.PlayerID, cursor int, resumeSA *cards.SA, upto draw
 				return true
 			}
 		}
-		if h.Ask(d) {
-			return false
-		}
 	}
 	h.Emit(events.Event{Kind: events.Draw, Player: p, Obj: lib[0],
 		From: state.ZLibrary, To: state.ZHand, Secret: true})
@@ -534,7 +531,6 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 				discardAnswered(h, c, riders, hand, answerObjs(ans), p)
 				continue
 			}
-			_ = Ask(h, d)
 
 			// Fuzz/no-engine host: the deterministic front-of-ELIGIBLE-hand
 			// stand-in (R-9) for the chooser, with the Note that records why
@@ -655,7 +651,6 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 						discardAnswered(h, c, riders, hand, answerObjs(ans), p)
 						continue
 					}
-					_ = Ask(h, d)
 
 					h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 						Text: "discards its first " + unlessSpec + " card (no engine host to ask)"})
@@ -683,7 +678,6 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 					}
 					goto tgtChoose
 				}
-				_ = Ask(h, d)
 
 				// Fuzz/no-engine host: the deterministic stand-in takes the
 				// unless alternative's first card -- Forge's AI does the same
@@ -729,7 +723,6 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 						}
 						goto tgtChoose
 					}
-					_ = Ask(h, d)
 
 				} else {
 					askMin = 1
@@ -773,7 +766,6 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 				discardAnswered(h, c, riders, zoneOf(g, state.ZHand, p), answerObjs(ans), p)
 				continue
 			}
-			_ = Ask(h, d)
 
 			// Fuzz/no-engine host: the deterministic front-of-ELIGIBLE-hand
 			// stand-in (R-9) for the discarding player, with the Note that
@@ -843,7 +835,6 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 					}
 					continue
 				}
-				_ = Ask(h, d)
 
 				// Fuzz/no-engine host: the deterministic stand-in takes the
 				// discard (R-9), with the Note that records why the richer path
@@ -1482,7 +1473,6 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 						n = int32(len(pool))
 						pickForTarget = true
 					} else {
-						_ = Ask(h, d)
 					}
 
 					// No host to ask (R-9): fall through with n unchanged, so
@@ -1558,13 +1548,7 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 				// The answered target: its ack's resume pass re-entered here, so
 				// fall through to the emit without re-asking.
 			} else if !random {
-				if poseLookAck(h, c, sa, c.Controller, p, zone, pool[:n], targetIndex) {
-					return
-				}
-				// No host to ask (R-9), or the ask was skipped: fall through
-				// and emit the look immediately — information is never lost to
-				// a host that cannot ask, the same deterministic degradation
-				// Scry/Surveil carry.
+				poseLookAck(h, c, sa, c.Controller, p, zone, pool[:n], targetIndex)
 			}
 			emitLook(h, []state.PlayerID{c.Controller}, zone, pool[:n], "")
 			if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberPeeked)), "True") {
@@ -1643,7 +1627,6 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 				}
 				goto revealTarget
 			}
-			_ = Ask(h, d)
 
 		}
 		if optional && answerForTarget == "no" {
@@ -1678,10 +1661,7 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 				// The same Random$ re-derivation guard the NoReveal$ arm
 				// carries (measured: zero corpus lines combine Random$ with
 				// Look$, so the guard is dormant groundwork).
-				if poseLookAck(h, c, sa, asker, p, zone, revealed, targetIndex) {
-					return
-				}
-				// R-9: no host to ask — emit immediately, deterministically.
+				poseLookAck(h, c, sa, asker, p, zone, revealed, targetIndex)
 			}
 			emitLook(h, []state.PlayerID{asker}, zone, revealed, "")
 		} else {
@@ -1830,12 +1810,11 @@ func effRearrangeTopOfLibrary(h Host, c *Ctx, sa *cards.SA) {
 			// The resolution kernel served the answer and its record applied
 			// the arrangement (the KArrange answer record handleArrange
 			// shares); the re-entry's MayShuffle$ election follows here.
-			if mayShuffle && rearrangeMayShuffleTape(h, c, sa, p, targetIndex) {
-				return
+			if mayShuffle {
+				rearrangeMayShuffleTape(h, c, sa, p, targetIndex)
 			}
 			continue
 		}
-		_ = Ask(h, d)
 
 		// Fuzz/no-engine host: the deterministic stand-in keeps the existing
 		// order -- pile A = the offered options in offered order (J3) -- with
@@ -1849,10 +1828,8 @@ func effRearrangeTopOfLibrary(h Host, c *Ctx, sa *cards.SA) {
 // rearrangeMayShuffleTape is effRearrangeTopOfLibrary's MayShuffle$ election
 // on the resolution kernel's path, after the arrange answer for target
 // index i was served: the same ask the arrange re-entry poses, answered from
-// the tape (or, with the tape exhausted, posed and unwound). It reports a
-// legacy suspension (the kernel declined the ask, so the legacy ask took it
-// and the run falls back), on which the caller returns.
-func rearrangeMayShuffleTape(h Host, c *Ctx, sa *cards.SA, p state.PlayerID, i int) bool {
+// the tape (or, with the tape exhausted, posed and unwound).
+func rearrangeMayShuffleTape(h Host, c *Ctx, sa *cards.SA, p state.PlayerID, i int) {
 	d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 1, Max: 1,
 		Source: c.Source, ResumeKind: "arrange_mayshuffle", ResumeSA: sa,
 		ResumeTarget: i, Prompt: "Shuffle your library?",
@@ -1864,9 +1841,7 @@ func rearrangeMayShuffleTape(h Host, c *Ctx, sa *cards.SA, p state.PlayerID, i i
 		if len(ans) > 0 && ans[0].Kind == "yes" {
 			shuffleLibraryOrder(h, p)
 		}
-		return false
 	}
-	return Ask(h, d) == AskAsked
 }
 
 // effScry implements the Scry prompt API (CR 701.18): look at the top
@@ -1955,7 +1930,6 @@ func effSurveil(h Host, c *Ctx, sa *cards.SA) {
 				if picks, ok := AskTape(h, d); ok {
 					ans = SurveilLookOptAnswer(picks)
 				} else {
-					_ = Ask(h, d)
 				}
 
 			}
@@ -2074,11 +2048,9 @@ func effLookAndArrange(h Host, c *Ctx, sa *cards.SA, n int32, kind, verb string,
 					if len(ans) == 0 || ans[0].Kind != "yes" {
 						continue
 					}
-				} else if Ask(h, d) != AskNoHost {
-					return
 				} else {
-					// R-9: an unavailable host deterministically declines an
-					// optional election; never treat an unanswered ask as consent.
+					// No answer served: an optional election is declined, never
+					// treated as consent.
 					continue
 				}
 			} else if opt != "yes" {
@@ -2144,7 +2116,6 @@ func effLookAndArrange(h Host, c *Ctx, sa *cards.SA, n int32, kind, verb string,
 			// the next library.
 			continue
 		}
-		_ = Ask(h, d)
 
 		// Fuzz/no-engine host: the deterministic stand-in keeps every card
 		// on top in its existing order (pile B empty for a Scry, nothing to
@@ -2219,9 +2190,6 @@ func effHideaway(h Host, c *Ctx, sa *cards.SA) {
 		hideawayPicked(h, c, sa, id)
 		return
 	}
-	if h.Ask(d) {
-		return
-	}
 	// The no-host degradation chooses the first card, then retains the offered
 	// order for the rest on the bottom.
 	h.Emit(events.Event{Kind: events.MoveZone, Obj: lib[0], From: state.ZLibrary, To: state.ZExile,
@@ -2267,9 +2235,6 @@ func hideawayBottom(h Host, c *Ctx, sa *cards.SA) {
 		// The resolution kernel served the order and its record (the
 		// KArrange answer record's hideaway_bottom) applied it: done, as the
 		// "hideaway_arrange" re-entry is.
-		return
-	}
-	if h.Ask(d) {
 		return
 	}
 	newLib := append(append([]state.ObjID(nil), lib[n:]...), lib[:n]...)
@@ -2386,7 +2351,6 @@ func effNameCard(h Host, c *Ctx, sa *cards.SA) {
 				c.NameChoice = ans[0].Label
 			}
 		} else {
-			_ = Ask(h, d)
 
 			c.NameChoice = names[0]
 		}

@@ -593,7 +593,6 @@ func poseUnlessAsk(h Host, c *Ctx, sa *cards.SA, cost string, payers []state.Tar
 	if _, ok := AskTape(h, d); ok {
 		return unlessServed
 	}
-	_ = Ask(h, d)
 
 	// Fuzz/no-engine host: the deterministic decline (R-9). The pay was
 	// never posed, so resolve as if the player declined.

@@ -89,7 +89,6 @@ func effPump(h Host, c *Ctx, sa *cards.SA) {
 					}
 				}
 			} else {
-				_ = Ask(h, d)
 
 				// No engine host (R-9): the deterministic first candidate, with
 				// the Note that records why the richer path did not run.

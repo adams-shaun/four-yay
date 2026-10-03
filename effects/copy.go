@@ -250,7 +250,6 @@ func effCopySpellAbility(h Host, c *Ctx, sa *cards.SA) {
 					return
 				}
 			} else {
-				_ = Ask(h, d)
 			}
 
 			// AskNoHost (an effects-package double, a fuzz run) and AskEmpty

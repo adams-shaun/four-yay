@@ -14,7 +14,6 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
-	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/state"
@@ -51,65 +50,6 @@ func bodyBecomeContains(h *fakeHost, body *cards.SA, id state.ObjID) bool {
 		}
 	}
 	return false
-}
-
-// TestCloneChoiceZoneExilePoolsTheExiledCards is the Lazav-style pin:
-// Choices$ Creature.ExiledWithSource | ChoiceZone$ Exile must offer the cards
-// exiled with the source, and must NOT offer a battlefield creature. A
-// battlefield-only pool must not silently win.
-func TestCloneChoiceZoneExilePoolsTheExiledCards(t *testing.T) {
-	reg := testutil.CorpusRegistry(t)
-	lazav, ok := reg.Lookup("Lazav, Wearer of Faces")
-	if !ok || lazav == nil {
-		t.Fatal("missing corpus card Lazav, Wearer of Faces")
-	}
-	h := &fakeHost{g: state.NewGame(names(2))}
-	battle := mkCard(t, "Name:Fixture Bystander Bear\nManaCost:1 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n")
-	exiled := mkCard(t, "Name:Fixture Exiled Ogre\nManaCost:2 R\nTypes:Creature Ogre\nPT:4/4\nOracle:x\n")
-	lazID := h.g.AddObject(lazav, 0).ID
-	battleID := h.g.AddObject(battle, 0).ID
-	exileID := h.g.AddObject(exiled, 0).ID
-	h.g.SetZone(state.ZBattlefield, 0, []state.ObjID{lazID, battleID})
-	h.g.Obj(lazID).Zone = state.ZBattlefield
-	h.g.Obj(battleID).Zone = state.ZBattlefield
-	h.g.SetZone(state.ZExile, 0, []state.ObjID{exileID})
-	h.g.Obj(exileID).Zone = state.ZExile
-	// The exile association ExiledWithSource reads: the card was exiled by the
-	// source (Lazav's TrigExile ChangeZone).
-	h.g.Obj(exileID).ExiledWith = lazID
-
-	body := cards.ResolveSVar(lazav.Faces[0].SVars, "TrigClone")
-	if body == nil || body.Params["ChoiceZone"] != "Exile" || body.Params["Choices"] != "Creature.ExiledWithSource" {
-		t.Fatalf("precondition: Lazav TrigClone shape %+v", body.Params)
-	}
-	if h.g.Obj(exileID).ExiledWith != lazID || h.g.Obj(battleID).ExiledWith != 0 {
-		t.Fatal("precondition: exile association not set as intended")
-	}
-
-	h.askResult = true
-	Resolve(h, &Ctx{Source: lazID, Controller: 0, SVars: lazav.Faces[0].SVars}, body)
-	d := h.lastAsk
-	if d == nil || d.Kind != decision.KChoose || d.ResumeKind != "clone_choice" {
-		t.Fatalf("expected the Choices$ clone_choice ask, got %+v", d)
-	}
-	sawExiled, sawBattlefield := false, false
-	for _, o := range d.Options {
-		switch o.Obj {
-		case exileID:
-			sawExiled = true
-			if o.Kind != "card" {
-				t.Fatalf("off-battlefield option kind = %q, want card", o.Kind)
-			}
-		case battleID:
-			sawBattlefield = true
-		}
-	}
-	if !sawExiled {
-		t.Fatalf("the exiled card is not offered: %+v", d.Options)
-	}
-	if sawBattlefield {
-		t.Fatalf("a battlefield creature was offered by the ChoiceZone$ Exile pool: %+v", d.Options)
-	}
 }
 
 // TestCloneChoiceZoneUnsupportedFailsClosed pins the fail-closed landing for a

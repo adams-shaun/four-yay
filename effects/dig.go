@@ -435,7 +435,6 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 					arrangeThrough = targetIndex
 					return false
 				}
-				_ = Ask(h, d)
 
 				// R-9 no-host stand-in: the OFFERED order is the bottom order --
 				// the exact permutation botpolicy's clamp top-up answers, so the
@@ -668,7 +667,6 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 				}
 				continue
 			}
-			_ = Ask(h, d)
 
 			// Fuzz/no-engine host: the deterministic stand-in (R-9) takes the
 			// greedy affordable set -- the exact mirror of the budget-aware bot

@@ -667,9 +667,6 @@ func effRollDice(h Host, c *Ctx, sa *cards.SA) {
 			publishChosen(d.Rolls, pick)
 			return
 		}
-		if h.Ask(d) {
-			return // resolution suspended; the answer re-enters with Ctx.RollResults/RollPick set.
-		}
 		// Fuzz/no-engine host (R-9): the deterministic stand-in keeps the
 		// first die -- the exact option botpolicy's clamp fallback takes.
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,

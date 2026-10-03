@@ -155,7 +155,6 @@ func effSetState(h Host, c *Ctx, sa *cards.SA) {
 				}}
 			ans, ok := AskTape(h, d)
 			if !ok {
-				_ = Ask(h, d)
 				return
 			}
 			// The resolution kernel's answer in hand: the
@@ -539,17 +538,9 @@ func effRepeat(h Host, c *Ctx, sa *cards.SA) {
 				// Pose the repeat election that iteration i's body has not
 				// yet earned (CR 608.2c's do/while). The election concerns
 				// iteration i, so a yes resumes the body at i, not i+1.
-				if yes, tape := repeatOptionalElectionTape(h, c, sa, i); tape {
-					// The resolution kernel's answer in hand: a yes runs
-					// iteration i's body now (the "repeat_optional" arm's
-					// continuation), a no ends the loop.
-					if !yes {
-						return
-					}
-				} else {
-					if !poseRepeatOptionalElection(h, c, sa, i) {
-						return // R-9: a host that cannot answer stops here.
-					}
+				// The resolution kernel's answer: a yes runs iteration i's
+				// body now, a no (or no answer) ends the loop.
+				if !repeatOptionalElectionYes(h, c, sa, i) {
 					return
 				}
 			}
@@ -606,19 +597,11 @@ func effRepeat(h Host, c *Ctx, sa *cards.SA) {
 					Text: "the repeated process changed nothing; it is not offered again"})
 				return
 			}
-			if yes, tape := repeatOptionalElectionTape(h, c, sa, i+1); tape {
-				// The resolution kernel's answer in hand: a yes runs
-				// iteration i+1's body (the "repeat_optional" arm's
-				// continuation), a no ends the loop.
-				if !yes {
-					return
-				}
-				continue
+			// A yes runs iteration i+1's body, a no (or no answer) ends the loop.
+			if !repeatOptionalElectionYes(h, c, sa, i+1) {
+				return
 			}
-			if !poseRepeatOptionalElection(h, c, sa, i+1) {
-				return // R-9: a host that cannot answer stops after one pass.
-			}
-			return
+			continue
 		}
 		if !gated {
 			continue
@@ -646,25 +629,13 @@ func repeatGateEvaluates(h Host, c *Ctx, sa *cards.SA, check, cmp, defined, pres
 	return holds && definedHolds, evaluated && definedEvaluated
 }
 
-// poseRepeatOptionalElection asks the RepeatOptional$ "Repeat this process?"
-// election for the iteration `next` whose body a yes would run, parking the
-// loop cursor on it (ResumeRepeatNext = next). RepeatOptionalDecider$
-// Remembered routes the ask to the remembered player when the line names
-// one. It returns h.Ask(d): false when the host cannot answer, the R-9
-// deterministic stop after one pass.
-func poseRepeatOptionalElection(h Host, c *Ctx, sa *cards.SA, next int32) bool {
-	return h.Ask(repeatOptionalDecision(c, sa, next))
-}
-
-// repeatOptionalElectionTape asks the same election through the resolution
-// kernel (AskTape): tape reports that the answer is in hand, and yes is it.
-// !tape means the caller takes the legacy ask.
-func repeatOptionalElectionTape(h Host, c *Ctx, sa *cards.SA, next int32) (yes, tape bool) {
+// repeatOptionalElectionYes asks the RepeatOptional$ "Repeat this process?"
+// election for the iteration next through the resolution kernel (AskTape)
+// and reports whether the answer is yes. RepeatOptionalDecider$ Remembered
+// routes the ask to the remembered player. No served answer is a stop.
+func repeatOptionalElectionYes(h Host, c *Ctx, sa *cards.SA, next int32) bool {
 	ans, ok := AskTape(h, repeatOptionalDecision(c, sa, next))
-	if !ok {
-		return false, false
-	}
-	return len(ans) > 0 && ans[0].Kind == "yes", true
+	return ok && len(ans) > 0 && ans[0].Kind == "yes"
 }
 
 // repeatOptionalDecision is the RepeatOptional$ election for iteration next.

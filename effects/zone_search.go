@@ -111,7 +111,6 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 						continue
 					}
 				} else {
-					_ = Ask(h, cd)
 				}
 
 				// R-9: no host to ask -- play "may" as "do" deterministically,
@@ -505,10 +504,7 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 			}
 			continue
 		}
-		oc := Ask(h, d)
-		if oc == AskAsked {
-			return
-		}
+		unposable := askUnposable(d)
 		// R-9: a host without a decision channel cannot ask a player, so it
 		// supplies a deterministic answer in the player's place. For a
 		// quantity-only search (CR 701.23d) the decision would refuse to find
@@ -539,7 +535,7 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 					picked = append(picked, ids[:n]...)
 				}
 			}
-			if oc == AskNoHost {
+			if !unposable {
 				if SearchStatesQuality(rawSpec) {
 					h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: chooser,
 						Text: "finds no card (no engine host to ask)"})
@@ -580,11 +576,11 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 					picked = append(picked, greedy[:n]...)
 				}
 			}
-			if oc == AskNoHost {
+			if !unposable {
 				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: chooser,
 					Text: "finds " + strconv.Itoa(n) + " card(s) (no engine host to ask)"})
 			}
-		} else if oc == AskNoHost {
+		} else if !unposable {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: chooser,
 				Text: "finds no card (no engine host to ask)"})
 		}
@@ -710,7 +706,6 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 				answer = "yes"
 			}
 		} else {
-			_ = Ask(h, d)
 
 			// AskNoHost cannot represent a decline. Preserve the prior direct-move
 			// fallback rather than leaving a headless resolution suspended.

@@ -135,7 +135,6 @@ func effRingTemptsYou(h Host, c *Ctx, sa *cards.SA) {
 		emit(ringAnsweredBearer(h, g, p, pick))
 		return
 	}
-	_ = Ask(h, d)
 
 	// R-9 no-host stand-in: the existing Ring-bearer when still controlled,
 	// otherwise the first eligible creature in zone order -- the same pick

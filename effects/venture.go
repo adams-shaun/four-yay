@@ -76,24 +76,20 @@ func effVenture(h Host, c *Ctx, sa *cards.SA) {
 			// A posed room choice suspends the walk exactly as a posed
 			// dungeon choice does: the later players venture after the
 			// answer, from the re-entry's cursor, never before it as well.
-			if ventureAdvance(h, g, c, sa, p, i, id) {
-				return
-			}
+			ventureAdvance(h, g, c, sa, p, i, id)
 		} else {
-			if ventureChoose(h, g, c, sa, p, i, quality) {
-				return
-			}
+			ventureChoose(h, g, c, sa, p, i, quality)
 		}
 	}
 }
 
 // ventureAdvance moves p's marker one room (CR 701.49b). It reports whether
 // the walk suspended (an ask was posted) so the caller can return.
-func ventureAdvance(h Host, g *state.Game, c *Ctx, sa *cards.SA, p state.PlayerID, i int, id state.ObjID) bool {
+func ventureAdvance(h Host, g *state.Game, c *Ctx, sa *cards.SA, p state.PlayerID, i int, id state.ObjID) {
 	quality := strings.TrimSpace(sa.ParamStr(cards.PKDungeon))
 	dungeon := g.Obj(id)
 	if dungeon == nil || dungeon.Face() == nil {
-		return false
+		return
 	}
 	room := g.Players[p].DungeonRoom
 	if room == "" {
@@ -103,10 +99,10 @@ func ventureAdvance(h Host, g *state.Game, c *Ctx, sa *cards.SA, p state.PlayerI
 		// marker resumes from the printed first room.
 		rooms := dungeonRooms(dungeon.Face())
 		if len(rooms) == 0 {
-			return false
+			return
 		}
 		h.Emit(events.Event{Kind: events.DungeonRoom, Player: p, Obj: id, Text: rooms[0]})
-		return false
+		return
 	}
 	nexts := DungeonNextRooms(dungeon.Face(), room)
 	switch {
@@ -120,10 +116,10 @@ func ventureAdvance(h Host, g *state.Game, c *Ctx, sa *cards.SA, p state.PlayerI
 		// new top room's ability exactly like any other marker entry.
 		h.Emit(events.Event{Kind: events.DungeonComplete, Player: p, Obj: id})
 		h.Emit(events.Event{Kind: events.DungeonRemove, Player: p, Obj: id})
-		return ventureChoose(h, g, c, sa, p, i, quality)
+		ventureChoose(h, g, c, sa, p, i, quality)
 	case len(nexts) == 1:
 		h.Emit(events.Event{Kind: events.DungeonRoom, Player: p, Obj: id, Text: nexts[0]})
-		return false
+		return
 	}
 	d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 1, Max: 1,
 		Source: c.Source, ResumeKind: "venture_room", ResumeSA: sa, ResumeTarget: i,
@@ -140,36 +136,28 @@ func ventureAdvance(h Host, g *state.Game, c *Ctx, sa *cards.SA, p state.PlayerI
 		if len(ans) > 0 && ans[0].Key != "" {
 			h.Emit(events.Event{Kind: events.DungeonRoom, Player: p, Obj: g.Players[p].DungeonObj, Text: ans[0].Key})
 		}
-		return false
+		return
 	}
-	switch Ask(h, d) {
-	case AskAsked:
-		_ = int32(i)
-		return true
-	default:
-		// R-9 (AskNoHost; AskEmpty cannot happen over non-empty options):
-		// follow the first printed arrow, loudly.
-		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-			Text: "Venture: room choice degraded to " + DungeonRoomLabel(dungeon.Face(), nexts[0]) + " (no engine host to ask)"})
-		h.Emit(events.Event{Kind: events.DungeonRoom, Player: p, Obj: id, Text: nexts[0]})
-		return false
-	}
+	// No answer served: follow the first printed arrow, loudly.
+	h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+		Text: "Venture: room choice degraded to " + DungeonRoomLabel(dungeon.Face(), nexts[0]) + " (no engine host to ask)"})
+	h.Emit(events.Event{Kind: events.DungeonRoom, Player: p, Obj: id, Text: nexts[0]})
 }
 
 // ventureChoose runs CR 701.49a's dungeon choice for p and reports whether
 // the walk suspended.
-func ventureChoose(h Host, g *state.Game, c *Ctx, sa *cards.SA, p state.PlayerID, i int, quality string) bool {
+func ventureChoose(h Host, g *state.Game, c *Ctx, sa *cards.SA, p state.PlayerID, i int, quality string) {
 	candidates := dungeonCandidates(g, quality)
 	if len(candidates) == 0 {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "Venture: no dungeon card" + ventureQualityText(quality) + " is available"})
-		return false
+		return
 	}
 	if len(candidates) == 1 {
 		// CR 701.49d: `venture into Undercity` -- the only dungeon of the
 		// named quality -- is entered without asking.
 		ventureEnter(h, g, p, candidates[0])
-		return false
+		return
 	}
 	d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 1, Max: 1,
 		Source: c.Source, ResumeKind: "venture_dungeon", ResumeSA: sa, ResumeTarget: i,
@@ -188,23 +176,16 @@ func ventureChoose(h Host, g *state.Game, c *Ctx, sa *cards.SA, p state.PlayerID
 		if len(ans) > 0 && ans[0].Key != "" {
 			ventureEnter(h, g, p, ans[0].Key)
 		}
-		return false
+		return
 	}
-	switch Ask(h, d) {
-	case AskAsked:
-		_ = int32(i)
-		return true
-	default:
-		// R-9 (AskNoHost): enter the first sorted candidate, loudly.
-		name := candidates[0]
-		if def := g.Tokens[name]; def != nil && len(def.Faces) > 0 && def.Faces[0].Name != "" {
-			name = def.Faces[0].Name
-		}
-		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-			Text: "Venture: dungeon choice degraded to " + name + " (no engine host to ask)"})
-		ventureEnter(h, g, p, candidates[0])
-		return false
+	// No answer served: enter the first sorted candidate, loudly.
+	name := candidates[0]
+	if def := g.Tokens[name]; def != nil && len(def.Faces) > 0 && def.Faces[0].Name != "" {
+		name = def.Faces[0].Name
 	}
+	h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+		Text: "Venture: dungeon choice degraded to " + name + " (no engine host to ask)"})
+	ventureEnter(h, g, p, candidates[0])
 }
 
 // ventureEnter puts the named dungeon into p's command zone and the marker

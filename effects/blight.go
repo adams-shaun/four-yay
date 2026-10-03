@@ -135,7 +135,6 @@ func effBlight(h Host, c *Ctx, sa *cards.SA) {
 				blightApply(h, p, n, counterAnswerObjs(ans))
 				continue
 			}
-			_ = Ask(h, d)
 
 			// R-9 no-host stand-in: the first eligible creature in zone
 			// order — the exact pick botpolicy's clamp fallback answers, so

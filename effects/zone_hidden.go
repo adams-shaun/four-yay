@@ -322,7 +322,6 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.
 						continue
 					}
 				} else {
-					_ = Ask(h, cd)
 				}
 
 				// R-9: no host to ask -- play "may" as "do" deterministically,
@@ -441,10 +440,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.
 			applyAnswered(owner, tapeAnswerObjs(ans))
 			continue
 		}
-		oc := Ask(h, d)
-		if oc == AskAsked {
-			return
-		}
+		unposable := askUnposable(d)
 		// R-9: a host without a decision channel cannot ask, so it takes the
 		// forced greedy take over the budget-eligible pool -- under a budget
 		// the cumulative cap decides which cards fit (effDig's exact mirror);
@@ -484,7 +480,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.
 		} else {
 			picked = append(picked, greedy...)
 		}
-		if oc == AskNoHost {
+		if !unposable {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: chooser,
 				Text: "picks " + strconv.Itoa(len(picked)) + " card(s) (no engine host to ask)"})
 		}

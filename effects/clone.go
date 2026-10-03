@@ -241,13 +241,8 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 				source = []state.Target{{Obj: pick}}
 				chosenPick = pick
 			} else {
-				switch Ask(h, d) {
-				case AskAsked:
-					return // resolution suspended; the answer re-enters with Ctx.ClonePick set.
-				case AskNoHost, AskEmpty:
-					h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-						Text: "Clone Choices$ picks the first eligible object (no engine host to ask)"})
-				}
+				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+					Text: "Clone Choices$ picks the first eligible object (no engine host to ask)"})
 				source = []state.Target{{Obj: cands[0].Obj}}
 				chosenPick = cands[0].Obj
 			}
@@ -370,7 +365,6 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 					return
 				}
 			} else {
-				_ = Ask(h, d)
 
 				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 					Text: "Clone Optional$ resolved as take (no engine host to ask)"})

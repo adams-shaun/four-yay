@@ -684,7 +684,6 @@ func effChooseCard(h Host, c *Ctx, sa *cards.SA) {
 			minBase, maxBase = choiceBounds(h, c, sa, true)
 			continue
 		}
-		_ = Ask(h, d)
 
 		recorded := choices[:min]
 		if hasBudget {
@@ -834,7 +833,6 @@ func effChooseSource(h Host, c *Ctx, sa *cards.SA) {
 			minBase, maxBase = choiceBounds(h, c, sa, false)
 			continue
 		}
-		_ = Ask(h, d)
 
 		choiceRecord(h, c, sa, choices[:min], false)
 	}
@@ -945,7 +943,6 @@ func effChoosePlayer(h Host, c *Ctx, sa *cards.SA) {
 			minBase, maxBase = choiceBounds(h, c, sa, false)
 			continue
 		}
-		_ = Ask(h, d)
 
 		choiceRecord(h, c, sa, choices[:min], true)
 	}
@@ -1189,7 +1186,6 @@ func effGainControl(h Host, c *Ctx, sa *cards.SA) {
 			}
 			ans, ok := AskTape(h, d)
 			if !ok {
-				_ = Ask(h, d)
 				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "GainControl Choices$ requires a player choice"})
 				return
 			}
@@ -1546,7 +1542,6 @@ func gainControlVariantAskLoop(h Host, c *Ctx, sa *cards.SA, base ControlGrant,
 			picks = append(picks[:len(picks):len(picks)], pick)
 			continue
 		}
-		_ = Ask(h, d)
 
 		picks = append(picks, state.Target{Obj: pool[0]})
 		c.Chosen = picks
@@ -1787,7 +1782,6 @@ func effChangeTargets(h Host, c *Ctx, sa *cards.SA) {
 		changeTargetsApply(h, sa, target, ChoiceAnswerTargets(ans))
 		return
 	}
-	_ = Ask(h, d)
 
 }
 

@@ -351,7 +351,6 @@ func effManaReflected(h Host, c *Ctx, sa *cards.SA) {
 			}
 			return
 		} else {
-			_ = Ask(h, d)
 		}
 
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,

@@ -117,7 +117,6 @@ func effDemonstrate(h Host, c *Ctx, sa *cards.SA) {
 				return
 			}
 		} else {
-			_ = Ask(h, d)
 
 			// No host to ask (the R-9 fuzz/test contract): the deterministic
 			// decline -- a may-copy the engine cannot ask is never copied.
@@ -170,7 +169,6 @@ func effDemonstrate(h Host, c *Ctx, sa *cards.SA) {
 		demonstrateCopies(h, spell, c.Controller, demonstratePlayer(picked))
 		return
 	}
-	_ = Ask(h, d)
 
 	h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 		Text: "demonstrate opponent resolved as the first opponent (no engine host to ask)"})

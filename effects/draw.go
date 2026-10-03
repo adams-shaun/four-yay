@@ -138,7 +138,6 @@ func effDraw(h Host, c *Ctx, sa *cards.SA) {
 						}
 						tapeReentry()
 					} else {
-						_ = Ask(h, d)
 					}
 
 				}
@@ -213,7 +212,6 @@ func effDraw(h Host, c *Ctx, sa *cards.SA) {
 					c.DrawUptoCount, c.DrawUptoAnswered = int32(len(ans)), true
 					tapeReentry()
 				} else {
-					_ = Ask(h, d)
 
 					// No-host (R-9): the pre-ask mandatory draw of what was offered.
 					c.DrawUptoCount, c.DrawUptoAnswered = m, true

@@ -332,7 +332,6 @@ func poseTargetsAsk(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID,
 		}
 		return ts, true, true
 	}
-	_ = Ask(h, d)
 
 	return candidates[:max], true, false
 }

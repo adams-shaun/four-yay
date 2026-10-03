@@ -196,11 +196,8 @@ func effSetLife(h Host, c *Ctx, sa *cards.SA) {
 				// subset the "choice" re-entry records below.
 				choice = ChoiceAnswerTargets(ans)
 			} else {
-				switch Ask(h, d) {
-				case AskAsked, AskNoHost:
-					// With no host, choose nobody: the identity permutation.
-					return
-				}
+				// No answer served: choose nobody (the identity permutation).
+				return
 			}
 
 			c.Chosen = nil // this effect owns the resumed choice list
@@ -241,7 +238,6 @@ func effSetLife(h Host, c *Ctx, sa *cards.SA) {
 				choiceRecord(h, c, sa, ChoiceAnswerTargets(ans), false)
 				continue
 			}
-			_ = Ask(h, d)
 
 			// No host: keep the recipient's own total (identity). No
 			// assignment is applied until all answers have been collected.

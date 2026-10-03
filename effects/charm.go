@@ -355,7 +355,6 @@ func effVillainousChoice(h Host, c *Ctx, sa *cards.SA) {
 			c.VillainousIndex++
 			continue
 		}
-		_ = Ask(h, d)
 
 		// R-9: an effects-only host has no chooser, so deterministically take
 		// the first option and continue to the next victim.
@@ -685,7 +684,6 @@ func charmGenericPlayersRun(h Host, c *Ctx, sa *cards.SA, choices []string) bool
 				}
 				noteUnreadParams(h, c, sa.API, p.Unread)
 			} else {
-				_ = Ask(h, d)
 
 				// R-9: an effects-only host has no chooser, so deterministically
 				// take the first option for this chooser and continue to the next
@@ -891,7 +889,6 @@ func effCharm(h Host, c *Ctx, sa *cards.SA) {
 		charmRunModes(h, c, sa, names)
 		return
 	}
-	_ = Ask(h, d)
 
 	// Fuzz/no-engine host: the deterministic first-mode default (R-9), with
 	// the Note that records why the richer path did not run. (AskEmpty is

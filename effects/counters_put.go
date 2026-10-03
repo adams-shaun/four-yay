@@ -111,7 +111,6 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 					// same class the Attach election falls back to (the clamp-
 					// answered bot path answers option 0 = "yes", so a bot game
 					// stays byte-identical to the pre-ask silent always-put).
-					_ = Ask(h, d)
 					return
 				}
 			}
@@ -258,7 +257,6 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 					// The "counter_kinds" arm's answer, in hand.
 					kindsAns = counterAnswerLabels(ans)
 				} else {
-					_ = Ask(h, d)
 
 					kindsAns = append([]string(nil), counterKinds[:2]...)
 				}
@@ -277,7 +275,6 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 				// The "counter_kind" arm's answer, in hand.
 				kindAns = counterAnswerLabel(ans)
 			} else {
-				_ = Ask(h, d)
 
 				kindAns = counterKinds[0]
 			}
@@ -328,7 +325,6 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 				if ans, ok := AskTape(h, d); ok {
 					pick = counterAnswerLabel(ans)
 				} else {
-					_ = Ask(h, d)
 				}
 
 				kindAnswers = append(kindAnswers, make([]string, ti-len(kindAnswers)+1)...)
@@ -779,7 +775,6 @@ func putCounterPickDistribute(h Host, c *Ctx, sa *cards.SA, total int32, kind st
 		putCounterDistApply(h, c, sa, total, kind, counterAnswerObjs(ans))
 		return
 	}
-	_ = Ask(h, d)
 
 	fallback()
 }
@@ -981,7 +976,6 @@ func putCounterChoose(h Host, c *Ctx, sa *cards.SA, n int32, kind string, ans []
 		putCounterChooseApply(h, c, sa, n, kind, counterAnswerObjs(ans), kinds, kindAns, kindDone)
 		return
 	}
-	_ = Ask(h, d)
 
 	fallback()
 }
@@ -1004,7 +998,6 @@ func putCounterChooseApply(h Host, c *Ctx, sa *cards.SA, n int32, kind string, p
 			// ride is the picks this call already holds).
 			kindAns = counterAnswerLabel(ans)
 		} else {
-			_ = Ask(h, d)
 
 			kindAns = kinds[0]
 		}
@@ -1114,7 +1107,6 @@ func putCounterBolster(h Host, c *Ctx, sa *cards.SA, kind string, ans []state.Ob
 		putCounterPickApply(h, c, sa, n, kind, counterAnswerObjs(ans))
 		return
 	}
-	_ = Ask(h, d)
 
 	// The R-9 no-host fallback: the first tied creature in zone order -- the
 	// exact mirror of botpolicy's "counter_pick" first-option answer.
@@ -1209,7 +1201,6 @@ func putCounterSupport(h Host, c *Ctx, sa *cards.SA, kind string, ans []state.Ob
 		putCounterPickApply(h, c, sa, 1, kind, counterAnswerObjs(ans))
 		return
 	}
-	_ = Ask(h, d)
 
 	// The no-host stand-in (R-9): the first max eligible creatures in zone
 	// order -- the exact mirror of botpolicy's "counter_pick" arm, so a

@@ -36,6 +36,10 @@ func AskTapeIntent(h Host, d *decision.Decision) (decision.Intent, bool) {
 	if s := askSeamOf(h); s != nil {
 		return s.TapeAnswer(d)
 	}
+	// A host with no tape seam (an effects-package test double) takes the
+	// ask as an observation and answers nothing: the site's deterministic
+	// stand-in applies.
+	h.Ask(d)
 	return decision.Intent{}, false
 }
 

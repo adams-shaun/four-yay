@@ -146,7 +146,6 @@ func investigateOptionalWalk(h Host, c *Ctx, sa *cards.SA, players []state.Playe
 			// decline, as the arm reads it.
 			accepted = len(ans) > 0 && ans[0].Kind == "yes"
 		} else {
-			_ = Ask(h, d)
 
 			accepted = true
 			if !noted {

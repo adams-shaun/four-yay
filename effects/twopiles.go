@@ -207,10 +207,7 @@ func effTwoPiles(h Host, c *Ctx, sa *cards.SA) {
 		var pileA, pileB []state.ObjID
 		pileA, pileB = splitSet(ids, splitAns)
 		// No host (or the stand-in): the chooser takes pile A.
-		pickB, suspended := twoPilesPosePick(h, c, sa, chooser, pileA, ids)
-		if suspended {
-			return
-		}
+		pickB := twoPilesPosePick(h, c, sa, chooser, pileA, ids)
 		runPiles(pickB, pileA, pileB)
 		return
 	}
@@ -238,23 +235,15 @@ func effTwoPiles(h Host, c *Ctx, sa *cards.SA) {
 		pileA := []state.ObjID{ids[0]}
 		if ans, ok := AskTape(h, d); ok {
 			pileA = counterAnswerObjs(ans)
-		} else {
-			_ = Ask(h, d)
 		}
 
 		pileA, pileB := splitSet(ids, pileA)
-		pickB, suspended := twoPilesPosePick(h, c, sa, chooser, pileA, ids)
-		if suspended {
-			return
-		}
+		pickB := twoPilesPosePick(h, c, sa, chooser, pileA, ids)
 		runPiles(pickB, pileA, pileB)
 		return
 	}
 	// One-card set: the split ask is skipped, the chooser is still asked.
-	pickB, suspended := twoPilesPosePick(h, c, sa, chooser, ids[:1], ids)
-	if suspended {
-		return
-	}
+	pickB := twoPilesPosePick(h, c, sa, chooser, ids[:1], ids)
 	runPiles(pickB, ids[:1], nil)
 }
 
@@ -304,7 +293,7 @@ func noShuffleBody(sub *cards.SA) *cards.SA {
 // suspended reports the ask suspended; otherwise pickB is the pick -- the
 // resolution kernel's tape-served answer (the "twopiles_pick" arm's decode:
 // only "pile-b" picks pile B), or the no-host stand-in's pile A.
-func twoPilesPosePick(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID, pileA, ids []state.ObjID) (pickB, suspended bool) {
+func twoPilesPosePick(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID, pileA, ids []state.ObjID) (pickB bool) {
 	d := &decision.Decision{Player: chooser, Kind: decision.KChoose,
 		Min: 1, Max: 1, Source: c.Source,
 		ResumeKind:       "twopiles_pick",
@@ -316,9 +305,9 @@ func twoPilesPosePick(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID, pile
 		decision.Option{Index: 0, Kind: "pile-a", Label: "First pile", Player: chooser},
 		decision.Option{Index: 1, Kind: "pile-b", Label: "Second pile", Player: chooser})
 	if ans, ok := AskTape(h, d); ok {
-		return len(ans) > 0 && ans[0].Kind == "pile-b", false
+		return len(ans) > 0 && ans[0].Kind == "pile-b"
 	}
-	return false, Ask(h, d) == AskAsked
+	return false
 }
 
 // twoPilesPlayer resolves one Separator$/Chooser$ selector to a single

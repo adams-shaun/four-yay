@@ -430,7 +430,6 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 					altBottom = len(ans) > 0 && ans[0].Label == "bottom"
 					altEngaged = true
 				} else {
-					_ = Ask(h, d)
 
 					// R-9 no-ask host: the primary placement, deterministically.
 					altAnswer = "top"
@@ -487,8 +486,6 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 				for _, id := range tapeAnswerObjs(ans) {
 					targets = append(targets, state.Target{Obj: id})
 				}
-			} else if h.Ask(d) {
-				return
 			} else {
 				targets = targets[:max]
 			}

@@ -205,10 +205,7 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 	// and the answer names a permutation of it. A no-host host (R-9) keeps
 	// that scan order as its deterministic stand-in.
 	if cardsSubjects && len(subjects) > 1 && rp.ChooseOrder != "" {
-		var suspended bool
-		if subjects, suspended = repeatEachChooseOrder(h, c, sa, rp, subjects); suspended {
-			return
-		}
+		subjects = repeatEachChooseOrder(h, c, sa, rp, subjects)
 	}
 	// RepeatOptionalForEachPlayer$ True (Tempting Contract, the Tempt cycle,
 	// Zagorka): each subject of the loop is offered its own yes/no election
@@ -240,10 +237,8 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 						continue
 					}
 				} else {
-					if !poseRepeatEachElection(h, c, sa, t, i, subjects, optionalMsg) {
-						continue
-					}
-					return
+					// No answer served: the subject is declined.
+					continue
 				}
 			}
 		}
@@ -322,43 +317,12 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 	}
 }
 
-// poseRepeatEachElection asks one subject of a RepeatEach
-// RepeatOptionalForEachPlayer$ loop for its own yes/no election, reporting
-// whether the resolution suspended on it. A true answer means the host took
-// the decision (rules sets a resume point and re-enters the loop with
-// Ctx.RepeatEachOptional carrying the answer); the caller returns and the
-// re-entry runs or skips the subject's body. A false is the R-9 no-ask
-// decline: the host has no decision channel, so the subject is declined and
-// the loop continues. RepeatOptionalMessage$ is the prompt when the line
-// carries one.
-func poseRepeatEachElection(h Host, c *Ctx, sa *cards.SA, subj state.Target, idx int, subjects []state.Target, msg string) bool {
-	if Ask(h, repeatEachElectionDecision(h, c, sa, subj, idx, msg)) != AskAsked {
-		return false
-	}
-	// The loop cursor rides the existing RepeatEach suspension so the subjects
-	// captured when the loop started (never re-derived mid-flight) and the
-	// loop's own accumulated bindings survive the election. Outer is the
-	// accumulated Remembered at election time; Body is this subject's initial
-	// iteration bindings, so an accept runs the body from the same base the
-	// first pass would compute.
-	h.SuspendRepeat(RepeatSuspension{
-		RepeatCursor: RepeatCursor{SA: sa, Subjects: copyTargets(subjects), Next: idx, Election: true},
-		Body:         append(copyTargets(iterationBase(c, subj)), subj),
-		Subject:      subj,
-		Outer:        copyTargets(c.Remembered),
-		Chosen:       copyTargets(c.Chosen),
-		ChosenValid:  c.ChosenValid,
-		VoteCounts:   append([]VoteCount(nil), c.VoteCounts...),
-	})
-	return true
-}
-
 // repeatEachChooseOrder poses a RepeatEach ChooseOrder$ ordering ask over
 // subjects (see effRepeatEach) and returns the loop order: the answered
 // permutation when the resolution kernel serves it, the offered order for a
 // no-host stand-in, or suspended after a legacy ask (the loop cursor parked
 // on SuspendRepeat).
-func repeatEachChooseOrder(h Host, c *Ctx, sa *cards.SA, rp *RepeatEachParams, subjects []state.Target) ([]state.Target, bool) {
+func repeatEachChooseOrder(h Host, c *Ctx, sa *cards.SA, rp *RepeatEachParams, subjects []state.Target) []state.Target {
 	chooser := c.Controller
 	if !strings.EqualFold(rp.ChooseOrder, "True") {
 		if ps := definedPlayerIDs(h, c, rp.ChooseOrder); len(ps) > 0 {
@@ -383,20 +347,9 @@ func repeatEachChooseOrder(h Host, c *Ctx, sa *cards.SA, rp *RepeatEachParams, s
 		// subjects exactly as the "repeat_choose_order" arm does (a
 		// malformed answer, unreachable past validation, keeps the
 		// offered order), and run the loop in that order.
-		return repeatChooseOrderApply(subjects, ans), false
+		return repeatChooseOrderApply(subjects, ans)
 	}
-	if Ask(h, d) == AskAsked {
-		h.SuspendRepeat(RepeatSuspension{
-			RepeatCursor: RepeatCursor{SA: sa, Subjects: copyTargets(subjects), Next: 0, ChooseOrder: true},
-			Body:         copyTargets(c.Remembered),
-			Outer:        copyTargets(c.Remembered),
-			Chosen:       copyTargets(c.Chosen),
-			ChosenValid:  c.ChosenValid,
-			VoteCounts:   append([]VoteCount(nil), c.VoteCounts...),
-		})
-		return nil, true
-	}
-	return subjects, false
+	return subjects
 }
 
 // repeatEachElectionDecision is subject subj's (loop index idx)

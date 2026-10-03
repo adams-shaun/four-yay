@@ -111,9 +111,6 @@ func effCipher(h Host, c *Ctx, sa *cards.SA) {
 		cipherEncode(h, c, card, controller, picked)
 		return
 	}
-	if h.Ask(d) {
-		return // suspended; rules' "cipher" arm re-enters this walk with the answer.
-	}
 	// No host to ask (the R-9 fuzz/test contract): the deterministic decline.
 	h.Emit(events.Event{Kind: events.Note, Obj: card,
 		Text: "cipher encode resolved as the decline (no engine host to ask)"})

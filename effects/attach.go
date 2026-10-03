@@ -398,7 +398,6 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 			}
 			return
 		}
-		_ = Ask(h, d)
 		return
 	}
 	var legalT []state.Target
@@ -591,7 +590,6 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 				}
 				return
 			}
-			_ = Ask(h, d)
 			return
 		}
 		// Object-side pool (Goldwardens' Gambit, unexpected_request, and
@@ -690,7 +688,6 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 			attachTo(picked[0], legal[0])
 			return
 		}
-		_ = Ask(h, d)
 		return
 	}
 	// No Choices$: the destination is the first legal Defined$ target. A
@@ -761,7 +758,6 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 			// AskNoHost is the deterministic decline stand-in (R-9) — the
 			// same class the search_mayshuffle confirm falls back to (the
 			// clamp-answered bot path below answers option 0 = "yes").
-			_ = Ask(h, d)
 			return
 		}
 	}

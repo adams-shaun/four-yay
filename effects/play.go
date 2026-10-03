@@ -394,9 +394,6 @@ func effPlay(h Host, c *Ctx, sa *cards.SA) {
 		effPlay(h, c, sa)
 		return
 	}
-	if h.Ask(d) {
-		return // resolution suspended; the answer re-enters rules' "play" arm.
-	}
 	// Fuzz/no-engine host: play the first candidate deterministically (R-9).
 	// PlayDone marks the answer consumed so a re-entry (there is none on
 	// this path, but the field must not be left half-set) reads it as one.

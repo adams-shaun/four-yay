@@ -80,7 +80,6 @@ func effTapOrUntap(h Host, c *Ctx, sa *cards.SA) {
 			applyTapOrUntap(h, o, answer, tapper)
 			continue
 		}
-		_ = Ask(h, d)
 
 		// No host (an effects-package test double, a fuzz run): option 0,
 		// the state-changing choice — the exact mirror of botpolicy's clamp

@@ -544,7 +544,6 @@ func effAddOrRemoveCounter(h Host, c *Ctx, sa *cards.SA) {
 			aorTapeApply(h, c, sa, target, ans, amount, objTargets > 1)
 			return
 		}
-		_ = Ask(h, d)
 
 		// No-host fallback (R-9): the first option — remove the first kind —
 		// the exact mirror of botpolicy's first-option KChoose answer.
@@ -573,7 +572,6 @@ func effAddOrRemoveCounter(h Host, c *Ctx, sa *cards.SA) {
 			aorTapeApply(h, c, sa, target, ans, amount, objTargets > 1)
 			continue
 		}
-		_ = Ask(h, d)
 
 		// No-host fallback (R-9): the first option — remove — the exact mirror
 		// of botpolicy's first-option KChoose answer.
@@ -803,7 +801,6 @@ func effMoveCounter(h Host, c *Ctx, sa *cards.SA) {
 						return
 					}
 				} else {
-					_ = Ask(h, d)
 
 					// No host (R-9): the deterministic first-kind stand-in, the
 					// same pick botpolicy's arm takes.
@@ -867,7 +864,6 @@ func effMoveCounter(h Host, c *Ctx, sa *cards.SA) {
 						num = int32(ans[0].Amount)
 					}
 				} else {
-					_ = Ask(h, d)
 				}
 
 			}
@@ -1225,7 +1221,6 @@ func effProliferate(h Host, c *Ctx, sa *cards.SA) {
 		h.Emit(events.Event{Kind: events.Proliferate, Obj: c.Source, Player: c.Controller})
 		return
 	}
-	_ = Ask(h, d)
 
 	// The no-host (R-9) and empty-answer stand-in takes ALL eligible, the
 	// exact mirror of botpolicy's "proliferate" arm, so a bot-answered ask

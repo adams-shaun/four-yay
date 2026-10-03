@@ -448,11 +448,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 				break
 			}
 		}
-		outcome := Ask(h, d)
-		if outcome == AskAsked {
-			return
-		}
-		if outcome == AskNoHost {
+		if !askUnposable(d) {
 			emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: chooser,
 				Text: "CopyPermanent Choices$ has no engine host; copying the first eligible creature"})
 		}

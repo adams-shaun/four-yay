@@ -149,7 +149,6 @@ func exploreOnce(h Host, c *Ctx, sa *cards.SA, explorer state.ObjID, done int32)
 		applyNonlandExplore(h, explorer, top, len(ans) == 0 || ans[0].Kind != "top")
 		return false
 	}
-	_ = Ask(h, d)
 
 	// No host (an effects-package test double, a fuzz run): option 0, the
 	// state-changing choice — the exact mirror of botpolicy's clamp answer.

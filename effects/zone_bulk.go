@@ -486,7 +486,6 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 								minv, maxv = amount, amount
 							}
 						} else {
-							_ = Ask(h, d)
 
 							// R-9 no-host fallback: preserve the old deterministic pick,
 							// but only as a complete strict batch.
@@ -545,7 +544,6 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 					sacrificeAnswered(picks)
 					continue
 				}
-				_ = Ask(h, d)
 
 				// Fuzz/no-engine host: the deterministic stand-in (R-9) keeps
 				// the pre-ask behaviour — the first Amount$ eligible permanents
@@ -621,7 +619,6 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 				}
 				continue
 			}
-			_ = Ask(h, d)
 
 			// No-host stand-in: the mandatory sacrifice the pre-ask engine
 			// made, with the Note that records why the richer path did not run.

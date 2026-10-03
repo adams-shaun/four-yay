@@ -248,7 +248,6 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 					moveAns = "yes"
 				}
 			} else {
-				_ = Ask(h, d)
 
 				// Fuzz/no-engine host: the deterministic decline (R-9) — the
 				// found card(s) join the decline destination.
@@ -338,7 +337,6 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 								}
 								bearer = auraAnsweredBearer(bearers, answered)
 							} else {
-								_ = Ask(h, d)
 
 								// R-9: a host without an answer takes the
 								// deterministic first candidate.

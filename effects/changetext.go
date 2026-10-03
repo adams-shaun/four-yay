@@ -191,7 +191,6 @@ func effChangeText(h Host, c *Ctx, sa *cards.SA) {
 			fromNeeds = isTextChooser(fromTok) && from == ""
 			toNeeds = isTextChooser(toTok) && to == ""
 		} else {
-			_ = Ask(h, d)
 		}
 
 	}

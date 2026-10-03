@@ -154,7 +154,6 @@ func effDealDamage(h Host, c *Ctx, sa *cards.SA) {
 					split = damageSplitAnswer(ans)
 					rider = newDamageRider(h, c, dp.DamageSource, n)
 				} else {
-					_ = Ask(h, d)
 
 					// No host (R-9): the deterministic round-robin stand-in.
 					split = roundRobinSplit(len(divTargets), total)

@@ -53,9 +53,6 @@ func effExtort(h Host, c *Ctx, sa *cards.SA) {
 			extortDrain(h, g, c.Controller)
 			return
 		}
-		if h.Ask(d) {
-			return // resolution suspended; the answer re-enters this effect.
-		}
 		// Fuzz/no-engine host: the deterministic decline (R-9).
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "Extort declined (no engine host to ask)"})

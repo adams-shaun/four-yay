@@ -196,23 +196,9 @@ func effChangeCombatants(h Host, c *Ctx, sa *cards.SA) {
 			}
 			continue
 		}
-		switch Ask(h, d) {
-		case AskAsked:
-			// Suspended: the answer re-enters this SA through the ordinary
-			// "choice" resume arm, lands in Ctx.Choice with Ctx.ChoiceTarget
-			// carrying idx, and the re-entrant pass above emits the event.
-			return
-		case AskNoHost:
-			// The R-9 stand-in: keep the original defender and record one
-			// Note — never guess a defender.
-			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: o.Controller,
-				Text: "no engine host: " + objName(g, o.ID) + " keeps attacking its current defender"})
-		}
-		// AskEmpty is unreachable when the guards leave len(candidates) >= 2
-		// (Min 1 has a non-empty option list); a SINGLETON candidate list
-		// different from the current defender (the two guards only exclude
-		// empty and current-defender singletons) still posts its one-option
-		// ask. If a future caller ever reaches AskEmpty the loop simply keeps
-		// the original defender — the same conservative read.
+		// No answer served: keep the original defender and record one Note,
+		// never guessing a defender.
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: o.Controller,
+			Text: "no engine host: " + objName(g, o.ID) + " keeps attacking its current defender"})
 	}
 }

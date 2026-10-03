@@ -559,7 +559,6 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to s
 						continue
 					}
 				} else {
-					_ = Ask(h, cd)
 				}
 
 				// R-9: no host to ask -- play "may" as "do" deterministically,
@@ -718,15 +717,12 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to s
 			applyAnswered(owner, zoneOf(g, state.ZHand, owner), eligible, tapeAnswerObjs(ans))
 			continue
 		}
-		oc := Ask(h, d)
-		if oc == AskAsked {
-			return // resolution suspended; the answer re-enters with Ctx.HandMove set.
-		}
+		unposable := askUnposable(d)
 		// R-9: a host without a decision channel cannot ask a player, so it
 		// supplies the deterministic answer in the player's place -- the first
 		// ChangeNum eligible cards in the same ordered eligible list the
 		// decision's options were built from.
-		if oc == AskNoHost {
+		if !unposable {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: chooser,
 				Text: "moves the first matching card(s) from hand (no engine host to ask)"})
 		}

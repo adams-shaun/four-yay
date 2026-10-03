@@ -81,7 +81,6 @@ func objectPathShuffleTail(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, m
 		}
 		return true
 	}
-	_ = Ask(h, d)
 
 	// No-host stand-in (R-9): decline the shuffle, keep the order.
 	return false
@@ -173,7 +172,6 @@ func searchShuffleTail(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, owner
 		placeLibraryObjects(h, c, cz, owner, moved, to)
 		return false
 	}
-	_ = Ask(h, d)
 
 	// No-host stand-in (R-9): decline the shuffle, keep the order.
 	placeLibraryObjects(h, c, cz, owner, moved, to)

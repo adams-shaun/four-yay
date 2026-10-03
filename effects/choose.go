@@ -61,7 +61,6 @@ func effChooseEvenOdd(h Host, c *Ctx, sa *cards.SA) {
 			return
 		}
 	} else {
-		_ = Ask(h, d)
 	}
 
 	h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "type", Text: "odd"})
@@ -152,7 +151,6 @@ func effChooseColor(h Host, c *Ctx, sa *cards.SA) {
 			h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "color", Text: string(letter)})
 			return
 		}
-		_ = Ask(h, d)
 
 	}
 	fallback := "W"
@@ -349,7 +347,6 @@ func effChooseNumber(h Host, c *Ctx, sa *cards.SA) {
 			h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "number", Amount: n})
 			return
 		}
-		_ = Ask(h, d)
 
 	}
 	// The no-ask fallback: the deterministic first legal value of the list the
@@ -438,7 +435,6 @@ func effChooseNumberElection(h Host, c *Ctx, sa *cards.SA, matched, unmatched st
 			}
 			continue
 		}
-		_ = Ask(h, d)
 
 		// R-9 no-ask host: take the deterministic first legal value for this
 		// chooser and continue to the next.
@@ -575,7 +571,6 @@ func effChooseType(h Host, c *Ctx, sa *cards.SA) {
 				return
 			}
 		} else {
-			_ = Ask(h, d)
 		}
 
 	}

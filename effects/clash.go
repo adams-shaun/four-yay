@@ -123,7 +123,6 @@ func effClash(h Host, c *Ctx, sa *cards.SA) {
 			}
 			continue
 		}
-		_ = Ask(h, d)
 
 		h.Emit(events.Event{Kind: events.Note, Player: p, Text: "Clash placement: no decision host; put revealed card on bottom"})
 		clashMoveToBottom(h, p, id)

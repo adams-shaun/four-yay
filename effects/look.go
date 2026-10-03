@@ -75,7 +75,7 @@ func emitLook(h Host, lookers []state.PlayerID, from state.Zone, ids []state.Obj
 // look immediately — information is never lost to a
 // host that cannot ask, the same deterministic degradation Scry/Surveil
 // carry.
-func poseLookAck(h Host, c *Ctx, sa *cards.SA, looker, owner state.PlayerID, zone state.Zone, ids []state.ObjID, targetIndex int) bool {
+func poseLookAck(h Host, c *Ctx, sa *cards.SA, looker, owner state.PlayerID, zone state.Zone, ids []state.ObjID, targetIndex int) {
 	zoneName := "library"
 	if zone == state.ZHand {
 		zoneName = "hand"
@@ -100,11 +100,7 @@ func poseLookAck(h Host, c *Ctx, sa *cards.SA, looker, owner state.PlayerID, zon
 		ResumeKind: "look_ack", ResumeSA: sa, Source: c.Source, ResumeTarget: targetIndex,
 		Prompt:  prompt,
 		Options: []decision.Option{{Index: 0, Kind: "yes", Label: "Continue", Player: looker}}}
-	if _, ok := AskTape(h, d); ok {
-		// The resolution kernel's answer in hand: any answer acknowledges
-		// (the "look_ack" arm's LookAck), so the caller emits the look now,
-		// exactly as the cursor target's re-entry does.
-		return false
-	}
-	return Ask(h, d) == AskAsked
+	// Any served answer acknowledges (the "look_ack" arm's LookAck), so the
+	// caller emits the look now.
+	AskTape(h, d)
 }

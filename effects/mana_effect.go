@@ -97,7 +97,7 @@ func askManaChoice(h Host, c *Ctx, sa *cards.SA, produced string) (string, bool,
 			return answered, units, false
 		}
 	}
-	if Ask(h, d) == AskAsked {
+	if !askUnposable(d) && h.Ask(d) {
 		return produced, false, true
 	}
 	return produced, false, false
