@@ -185,8 +185,9 @@ func (e *Engine) paymentPlanSourceInterference(id state.ObjID, ma *cards.SA) (pa
 // execute for ma: the fixed declaration itself, or each colour a choice
 // shape resolves to (the withProduced rewrite execution activates).
 func (e *Engine) paymentPlanProductions(id state.ObjID, ma *cards.SA) []string {
-	raw := strings.TrimSpace(ma.ParamStr(cards.PKProduced))
-	if _, any := cards.ProducedCounts(raw); any {
+	mp := effects.ManaOf(ma)
+	raw := mp.Produced
+	if mp.CountsAny {
 		return e.paymentPlanChoiceColours(id, ma)
 	}
 	return []string{raw}

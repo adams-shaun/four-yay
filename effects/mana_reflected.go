@@ -42,8 +42,9 @@ var manaReflectedReplacer = strings.NewReplacer("{", "", "}", "", " ", "")
 // An unknown element in either parameter degrades to an empty set, which the
 // executor reports as a Note rather than inventing mana.
 func ManaReflectedCandidates(h Host, c *Ctx, sa *cards.SA) []string {
-	property := strings.TrimSpace(sa.Params["ReflectProperty"])
-	widenType := strings.TrimSpace(sa.Params["ColorOrType"]) == "Type"
+	mr := ManaReflectedOf(sa)
+	property := mr.ReflectProperty
+	widenType := mr.WidenType
 	if property == "Produced" {
 		set := map[byte]bool{}
 		for _, r := range c.TriggerMana {
@@ -62,7 +63,7 @@ func ManaReflectedCandidates(h Host, c *Ctx, sa *cards.SA) []string {
 	if property != "Produce" && property != "Is" {
 		return nil
 	}
-	spec := strings.TrimSpace(sa.ParamStr(cards.PKValid))
+	spec := mr.Valid
 	if spec == "" {
 		return nil
 	}
@@ -138,7 +139,7 @@ func producibleSymbols(o *state.Object) string {
 	}
 	var set uint8
 	for _, ma := range f.ManaAbilities() {
-		p := strings.TrimSpace(ma.ParamStr(cards.PKProduced))
+		p := ManaOf(ma).Produced
 		switch {
 		case p == "" || p == "Any" || p == "Combo Any":
 			for _, r := range "WUBRG" {
@@ -248,12 +249,14 @@ func reflectedDefinedExtras(h Host, c *Ctx, sel string) ([]state.ObjID, bool) {
 // opponent land in play, or Chrome Mox with no imprinted card recorded, must
 // not invent a colour.
 func effManaReflected(h Host, c *Ctx, sa *cards.SA) {
-	produced := strings.TrimSpace(sa.ParamStr(cards.PKProduced))
-	amount := Num(h, c, sa, "Amount", 1)
+	mr := ManaReflectedOf(sa)
+	noteUnreadParams(h, c, "ManaReflected", mr.Unread)
+	produced := mr.Produced
+	amount := numText(h, c, mr.Amount, 1)
 	if amount < 0 {
 		amount = 0
 	}
-	restriction := strings.TrimSpace(sa.ParamStr(cards.PKRestrictValid))
+	restriction := mr.RestrictValid
 	// Producer-type provenance (task ctms): the tag is the ABILITY SOURCE's
 	// printed Treasure/Cave/Desert/Snow types -- the same tag effMana stamps --
 	// because "mana from a <Type>" is mana PRODUCED BY a permanent of that
@@ -287,13 +290,13 @@ func effManaReflected(h Host, c *Ctx, sa *cards.SA) {
 		h.Emit(ev)
 	}
 	recipient := c.Controller
-	if strings.TrimSpace(sa.Params["ReflectProperty"]) == "Produced" {
+	if mr.ReflectProperty == "Produced" {
 		// On this corpus shape Defined$ names who receives the additional
 		// mana (TriggeredActivator, TriggeredCardController, or You), unlike
 		// Produce/Is where Valid$ names reflected objects. Resolve those three
 		// roles locally so the ordinary Defined grammar is not widened for
 		// unrelated effects.
-		switch strings.TrimSpace(sa.ParamStr(cards.PKDefined)) {
+		switch mr.Defined {
 		case "TriggeredActivator":
 			if c.TriggerActivator.IsPlayer {
 				recipient = c.TriggerActivator.Player

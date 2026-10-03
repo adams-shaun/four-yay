@@ -103,7 +103,7 @@ var attachKnownKeys = [...]string{
 	"PresentZone", "ReduceAmount", "ReduceCost", "RememberAttached",
 	"RememberCostMana", "RememberObjects", "ReplaceColor", "ReplaceGraveyard",
 	"ReplaceGraveyardValid", "ReplaceMana", "ReplaceOnly", "ReplaceType",
-	"RestrictValid", "SVarCompare", "SelectPrompt", "SetChosenMode", "SetColor",
+	"SVarCompare", "SelectPrompt", "SetChosenMode", "SetColor",
 	"ShowCards", "SorcerySpeed", "SpellDescription", "StackDescription",
 	"SubAbility", "TargetMax", "TargetMin", "TargetType",
 	"TargetUnique", "TargetValidTargeting", "TargetingPlayer",
@@ -114,10 +114,10 @@ var attachKnownKeys = [...]string{
 	"TargetsWithSameCardType", "TargetsWithSameController",
 	"TargetsWithSameCreatureType", "TargetsWithSharedCardType",
 	"TargetsWithSharedTypes", "TgtPrompt", "TgtZone", "TokenScript",
-	"TriggerDescription", "TriggersWhenSpent", "Type", "Ultimate", "Unattach",
+	"TriggerDescription", "Type", "Ultimate", "Unattach",
 	"UnlessAI", "UnlessCost", "UnlessPayer", "UnlessResolveSubs", "UnlessSwitched",
 	"ValidCard", "ValidCards", "ValidCardsDesc", "ValidChoices", "ValidCounterType",
-	"ValidDescription", "ValidTgts", "VarName", "VarValue", "VoteMessage",
+	"ValidDescription", "ValidTgts", "VoteMessage",
 	"WithoutManaCost", "XMax", "XMin",
 }
 
