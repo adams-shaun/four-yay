@@ -231,6 +231,52 @@ func SetTapeMissObserver(f func(class string)) func(class string) {
 	return *prev
 }
 
+// tapeLegacyObserver receives one class string per legacy ask that ends a
+// tape run (resolve.Stats' LegacySwitch and Aborts): the census of ask sites
+// not yet converted onto the kernel (W3 step 2). Process-wide, like
+// tapeMissObserver.
+var tapeLegacyObserver atomic.Pointer[func(class string)]
+
+// SetTapeLegacyObserver installs (nil removes) the process-wide legacy-ask
+// observer and returns the previous one. f must be safe for concurrent use.
+func SetTapeLegacyObserver(f func(class string)) func(class string) {
+	var prev *func(string)
+	if f == nil {
+		prev = tapeLegacyObserver.Swap(nil)
+	} else {
+		prev = tapeLegacyObserver.Swap(&f)
+	}
+	if prev == nil {
+		return nil
+	}
+	return *prev
+}
+
+// tapeLegacyAsked reports a legacy ask inside a tape run to the observer,
+// classed by switch/abort and the decision (kind/resume kind, or the
+// prompt's first words for an engine-posed ask with no resume kind).
+func tapeLegacyAsked(e *Engine, d *decision.Decision, aborts bool) {
+	f := tapeLegacyObserver.Load()
+	if f == nil {
+		return
+	}
+	class := "switch "
+	if aborts {
+		class = "abort  "
+	}
+	class += string(d.Kind)
+	if d.ResumeKind != "" {
+		class += "/" + d.ResumeKind
+	} else {
+		p := d.Prompt
+		if len(p) > 40 {
+			p = p[:40]
+		}
+		class += " \"" + p + "\""
+	}
+	(*f)(class + "  [" + tapeShape(e) + "]")
+}
+
 // tapeMissed reports a predicate miss to the observer, classed by the
 // resolving object's shape and the decision that reached the ask choke
 // point.

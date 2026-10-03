@@ -409,6 +409,18 @@ func (k *Kernel) inject(b Board, r *run) {
 	}
 }
 
+// LegacyInRun reports whether a legacy ask reaching the engine's ask choke
+// point now ends a tape run (inRun), and whether it does so by aborting the
+// run (a tape ask already happened) rather than switching to legacy in
+// place. Observation only (the legacy-ask census); OnAsk acts on it.
+func (k *Kernel) LegacyInRun() (inRun, aborts bool) {
+	r := k.run
+	if r == nil || !r.inRes || r.converting {
+		return false, false
+	}
+	return true, !r.first || r.tapeAsked
+}
+
 // OnAsk runs at the engine's ask choke point while Watching. A legacy ask
 // inside a tape run ends the run: in place before any tape ask, by aborting
 // (and replaying the tape on the legacy path) after one. A legacy ask during

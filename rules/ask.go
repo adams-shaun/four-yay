@@ -24,8 +24,13 @@ func (e *Engine) ask(d *decision.Decision) {
 	// The resolution kernel (rules/resolve): a legacy ask inside a tape run
 	// ends it (legacy in place, or abort and legacy replay), and one during
 	// an exempted resolution is a predicate miss.
-	if e.tape.Watching() && e.tape.OnAsk() {
-		tapeMissed(e, d)
+	if e.tape.Watching() {
+		if in, aborts := e.tape.LegacyInRun(); in {
+			tapeLegacyAsked(e, d, aborts)
+		}
+		if e.tape.OnAsk() {
+			tapeMissed(e, d)
+		}
 	}
 	// CR 903.9 ordering: a commander's zone change parked mid-chain asks its
 	// owner at once (parkCommanderZoneMove), but the chain that parked it
