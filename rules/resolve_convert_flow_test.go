@@ -9,7 +9,6 @@ package rules
 // from the tape with no legacy switch, and its named resume kind posed.
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/adams-shaun/gorge/decision"
@@ -120,4 +119,17 @@ func TestTapeConvertFlowReveal(t *testing.T) {
 	})
 }
 
-var _ = strings.TrimSpace
+func TestTapeConvertFlowDiscard(t *testing.T) {
+	runTapeFlowCases(t, 32000, 3, []tapeFlowCase{
+		{name: "Tape Duress All", src: "A:SP$ Discard | Defined$ Player | Mode$ RevealYouChoose | NumCards$ 1 | RememberDiscarded$ True | SubAbility$ DBGain\nSVar:DBGain:DB$ GainLife | LifeAmount$ 2",
+			kinds: []string{"discard"}, served: 2},
+		{name: "Tape Thirst", src: "A:SP$ Discard | Defined$ You | Mode$ TgtChoose | NumCards$ 2 | UnlessType$ Land",
+			kinds: []string{"discard_unless", "discard"}, served: 2},
+		{name: "Tape Maybe Discard", src: "A:SP$ Discard | Defined$ Player | Mode$ TgtChoose | NumCards$ 1 | Optional$ True | SubAbility$ DBGain\nSVar:DBGain:DB$ GainLife | LifeAmount$ 2",
+			kinds: []string{"discard_may", "discard"}, served: 2},
+		{name: "Tape Wheel Maybe", src: "A:SP$ Discard | Defined$ Player | Mode$ Hand | Optional$ True | SubAbility$ DBDraw\nSVar:DBDraw:DB$ Draw | NumCards$ 1 | Defined$ Player",
+			kinds: []string{"discard_hand"}, served: 2},
+		{name: "Tape Recruit", src: "A:SP$ Recruit",
+			kinds: []string{"discard"}, served: 1},
+	})
+}

@@ -492,11 +492,7 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 				// Re-entry: the chooser's answer was recorded, so discard
 				// exactly those cards that still sit in this target's hand (a
 				// stray answer must not move an object that left meanwhile).
-				for _, id := range answers {
-					if containsID(hand, id) {
-						discardAndRemember(h, c, riders, id, p)
-					}
-				}
+				discardAnswered(h, c, riders, hand, answers, p)
 				continue
 			}
 			eligible := discardEligible(g, c, hand, valid)
@@ -505,6 +501,12 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 			}
 			askMin, askMax := discardBounds(h, c, sa, len(eligible))
 			d := discardAsk(g, c, sa, eligible, chooser, askMin, askMax, targetIndex)
+			if ans, ok := AskTape(h, d); ok {
+				// The resolution kernel's answer in hand: discard exactly
+				// what the re-entry above discards for this target.
+				discardAnswered(h, c, riders, hand, answerObjs(ans), p)
+				continue
+			}
 			if Ask(h, d) == AskAsked {
 				suspended = true
 				return // resolution suspended; the answer re-enters with Ctx.Discard set.
@@ -526,6 +528,13 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 
 		switch mode {
 		case "TgtChoose":
+			// The resolution kernel's tape-served elections for this target:
+			// the locals that stand for what the "discard_may" and
+			// "discard_unless" re-entries read off Ctx.DiscardVote and
+			// Ctx.UnlessElected. A served election re-walks this target from
+			// tgtChoose, exactly as its re-entry does.
+			tapeVote, tapeElected := "", ""
+		tgtChoose:
 			// Re-entry: the discarding player's choice was answered and the
 			// continuation set Ctx.Discard to the chosen object(s). Discard
 			// exactly those that sit in this target's hand (a per-hand filter
@@ -538,12 +547,7 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 				continue
 			}
 			if answered && targetIndex == answerTarget {
-				for _, id := range answers {
-					if !containsID(hand, id) {
-						continue
-					}
-					discardAndRemember(h, c, riders, id, p)
-				}
+				discardAnswered(h, c, riders, hand, answers, p)
 				continue
 			}
 			// The may-discard election (below) answered for this target:
@@ -553,8 +557,15 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 			if voted && targetIndex < answerTarget {
 				continue
 			}
-			mayElected := voted && targetIndex == answerTarget
-			if mayElected && vote != "yes" {
+			elVote := ""
+			if voted && targetIndex == answerTarget {
+				elVote = vote
+			}
+			if tapeVote != "" {
+				elVote = tapeVote
+			}
+			mayElected := elVote != ""
+			if mayElected && elVote != "yes" {
 				continue
 			}
 			// First pass: narrow the target's hand to the cards DiscardValid$
@@ -585,6 +596,9 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 			// cleared before any further ask this walk poses.
 			elected := c.UnlessElected
 			c.UnlessElected = ""
+			if tapeElected != "" {
+				elected = tapeElected
+			}
 			unlessSpec := strings.TrimSpace(sa.Params["UnlessType"])
 			if elected == "unless" && unlessSpec != "" {
 				picks := unlessTypeEligible(g, c, hand, unlessSpec)
@@ -607,6 +621,12 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 						ResumeKind: "discard", ResumeSA: sa, ResumeTarget: targetIndex,
 						Prompt:  "Discard one " + unlessSpec + " card instead",
 						Options: opts}
+					if ans, ok := AskTape(h, d); ok {
+						// The resolution kernel's answer in hand: the
+						// "discard" re-entry's discard for this target.
+						discardAnswered(h, c, riders, hand, answerObjs(ans), p)
+						continue
+					}
 					if Ask(h, d) == AskAsked {
 						suspended = true
 						return // resolution suspended; the answer re-enters with Ctx.Discard set.
@@ -627,6 +647,16 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 						{Index: 0, Kind: "unless", Label: "Yes — discard one " + unlessSpec, Player: p},
 						{Index: 1, Kind: "ordinary", Label: "No — discard normally", Player: p},
 					}}
+				if ans, ok := AskTape(h, d); ok {
+					// The resolution kernel's answer in hand (the
+					// "discard_unless" arm's UnlessElected): re-walk this
+					// target with the election, as its re-entry does.
+					tapeVote, tapeElected = "", "ordinary"
+					if len(ans) > 0 && ans[0].Kind == "unless" {
+						tapeElected = "unless"
+					}
+					goto tgtChoose
+				}
 				if Ask(h, d) == AskAsked {
 					suspended = true
 					return // resolution suspended; the answer re-enters with Ctx.UnlessElected set.
@@ -665,6 +695,16 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 							{Index: 0, Kind: "yes", Label: "Yes — discard", Player: p},
 							{Index: 1, Kind: "no", Label: "No — don't discard", Player: p},
 						}}
+					if ans, ok := AskTape(h, d); ok {
+						// The resolution kernel's answer in hand (the
+						// "discard_may" arm's DiscardVote): re-walk this
+						// target with the election, as its re-entry does.
+						tapeVote, tapeElected = "no", ""
+						if answerYes(ans) {
+							tapeVote = "yes"
+						}
+						goto tgtChoose
+					}
 					if Ask(h, d) == AskAsked {
 						suspended = true
 						return // resolution suspended; the answer re-enters with Ctx.DiscardVote set.
@@ -708,12 +748,7 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 			if ans, ok := AskTape(h, d); ok {
 				// The resolution kernel's answer in hand: discard exactly
 				// what the re-entry above discards for this target.
-				hand = zoneOf(g, state.ZHand, p)
-				for _, o := range ans {
-					if containsID(hand, o.Obj) {
-						discardAndRemember(h, c, riders, o.Obj, p)
-					}
-				}
+				discardAnswered(h, c, riders, zoneOf(g, state.ZHand, p), answerObjs(ans), p)
 				continue
 			}
 			if Ask(h, d) == AskAsked {
@@ -778,6 +813,16 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 						{Index: 0, Kind: "yes", Label: "Yes — discard your hand", Player: p},
 						{Index: 1, Kind: "no", Label: "No — keep it", Player: p},
 					}}
+				if ans, ok := AskTape(h, d); ok {
+					// The resolution kernel's answer in hand: the
+					// "discard_hand" re-entry's whole-hand discard (or decline).
+					if answerYes(ans) {
+						for _, id := range hand {
+							discardAndRemember(h, c, riders, id, p)
+						}
+					}
+					continue
+				}
 				if Ask(h, d) == AskAsked {
 					suspended = true
 					return // resolution suspended; the answer re-enters with Ctx.DiscardVote set.
@@ -861,6 +906,18 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 				}
 				discardAndRemember(h, c, riders, cur[0], p)
 			}
+		}
+	}
+}
+
+// discardAnswered discards the answered cards that still sit in hand, in
+// answer order (a stray answer must not move an object that left the hand
+// meanwhile): the one home of a "discard" answer, shared by the re-entry and
+// the resolution kernel's tape answer.
+func discardAnswered(h Host, c *Ctx, r discardRiders, hand, answers []state.ObjID, p state.PlayerID) {
+	for _, id := range answers {
+		if containsID(hand, id) {
+			discardAndRemember(h, c, r, id, p)
 		}
 	}
 }
