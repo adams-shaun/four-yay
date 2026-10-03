@@ -19,17 +19,13 @@ import "github.com/adams-shaun/gorge/decision"
 // tapeWindowFlow reports whether flow's window is served from the tape.
 func tapeWindowFlow(e *Engine, flow chooseFor) bool {
 	switch flow {
-	case chooseTriggeredCost, chooseTriggeredMandatory, chooseCumulative:
+	case chooseTriggeredCost, chooseTriggeredMandatory, chooseCumulative, chooseEcho:
 		return true
 	case chooseUnlessCost, chooseUnlessMana:
 		// Only the tape-driven unless payment (tapeUnlessComponents); the
 		// legacy one parks its frame.
 		return e.unlessPayment != nil && e.unlessPayment.tape
 	}
-	// chooseEcho stays legacy: e.echo is not a Suspended() holder, so the
-	// legacy resolution logs its CR 117.3b grant while the election is still
-	// outstanding (DecisionAsk, Priority, DecisionMade) -- an order an in-line
-	// answer cannot reproduce byte for byte.
 	return false
 }
 

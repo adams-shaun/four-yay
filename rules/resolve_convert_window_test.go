@@ -151,6 +151,8 @@ func TestTapeConvertUpkeepWindows(t *testing.T) {
 	}{
 		{name: "Tape Glacier", src: "Name:Tape Glacier\nManaCost:B\nTypes:Enchantment\nK:Cumulative upkeep:1\nOracle:x\n", lands: 2, pay: true, served: 2},
 		{name: "Tape Glacier Melts", src: "Name:Tape Glacier Melts\nManaCost:B\nTypes:Enchantment\nK:Cumulative upkeep:1\nOracle:x\n", served: 1, gone: true},
+		{name: "Tape Echo Bear", src: "Name:Tape Echo Bear\nManaCost:B\nTypes:Creature Bear\nPT:2/2\nK:Echo:2\nOracle:x\n", lands: 3, pay: true, served: 3},
+		{name: "Tape Echo Bear Sac", src: "Name:Tape Echo Bear Sac\nManaCost:B\nTypes:Creature Bear\nPT:2/2\nK:Echo:2\nOracle:x\n", served: 1, gone: true},
 	}
 	for i, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
