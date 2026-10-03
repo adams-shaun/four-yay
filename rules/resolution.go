@@ -270,6 +270,7 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 		// resolves the entries it names.
 		TargetControllerLKI: effects.CloneTargetControllerLKI(rp.targetControllerLKI),
 		TargetCountersLKI:   effects.CloneTargetCountersLKI(rp.targetCountersLKI),
+		TargetPTLKI:         effects.CloneTargetPTLKI(rp.targetPTLKI),
 		TargetSpellLKI:      effects.CloneTargetSpellLKI(rp.targetSpellLKI),
 		// The resolving stack-object wrapper, same anchor resolveTop's
 		// branches set: a SUSPENDED-then-resumed ability (Ulalek's pay ask is

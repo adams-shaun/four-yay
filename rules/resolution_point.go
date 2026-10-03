@@ -337,6 +337,9 @@ type resumePoint struct {
 	// (Dismantle's DBPutCounter). Immutable once captured, cloned with the
 	// frame. Nil when the resolution has no countered object targets.
 	targetCountersLKI map[state.ObjID][]state.Counter
+	// targetPTLKI is the power/toughness half (Ctx.TargetPTLKI), carried
+	// and cloned exactly like targetCountersLKI.
+	targetPTLKI map[state.ObjID]effects.TargetPT
 	// targetSpellLKI is the stack-kind half of the same snapshot: the object
 	// targets that were SPELLS on the stack when Resolve began. A resumed
 	// continuation rebuilds its Ctx from the stack object's targets, whose

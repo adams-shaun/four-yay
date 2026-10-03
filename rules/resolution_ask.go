@@ -252,6 +252,7 @@ func (e *Engine) buildAskResume(d *decision.Decision, obj state.ObjID, direct bo
 		// their owners) still sees the CR 608.2h last-known controller.
 		targetControllerLKI: effects.CloneTargetControllerLKI(e.resolvingTargetControllerLKI),
 		targetCountersLKI:   resolutionTargetCounters(e.resolutionCtx),
+		targetPTLKI:         resolutionTargetPT(e.resolutionCtx),
 		targetSpellLKI:      resolutionTargetSpells(e.resolutionCtx),
 		flipMemory:          e.resolvingFlipMemory,
 		exchangeMemory:      e.resolvingExchangeMemory}
@@ -328,6 +329,15 @@ func resolutionTargetCounters(c *effects.Ctx) map[state.ObjID][]state.Counter {
 	return effects.CloneTargetCountersLKI(c.TargetCountersLKI)
 }
 
+// resolutionTargetPT is the target P/T look-back a pending ask carries onto
+// its resume point, cloned like resolutionTargetCounters.
+func resolutionTargetPT(c *effects.Ctx) map[state.ObjID]effects.TargetPT {
+	if c == nil {
+		return nil
+	}
+	return effects.CloneTargetPTLKI(c.TargetPTLKI)
+}
+
 // resolutionTargetSpells is the target-spell snapshot a pending ask carries
 // onto its resume point: the live Resolve chain's resolution-start set of
 // object targets that were spells on the stack, cloned so the frame owns its
@@ -393,6 +403,15 @@ func (e *Engine) snapshotDepartingTargetCounters(oid state.ObjID) {
 	o := e.G.Obj(oid)
 	if o == nil || o.Zone != state.ZBattlefield {
 		return
+	}
+	// The P/T half (Ctx.TargetPTLKI): the layer-derived power and toughness
+	// the target has at this last battlefield instant (CR 608.2h -- a
+	// Giant Growth-pumped Condemn target's toughness, not the printed one).
+	if o.Face() != nil {
+		if c.TargetPTLKI == nil {
+			c.TargetPTLKI = make(map[state.ObjID]effects.TargetPT)
+		}
+		c.TargetPTLKI[oid] = effects.TargetPT{Power: e.Power(oid), Toughness: e.Toughness(oid)}
 	}
 	if len(o.Counters) == 0 {
 		delete(c.TargetCountersLKI, oid)

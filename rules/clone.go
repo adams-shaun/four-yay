@@ -1172,6 +1172,9 @@ func clonePendingTriggers(src []pendingTrigger) []pendingTrigger {
 		if pt.Ctx.TargetCountersLKI != nil {
 			pt.Ctx.TargetCountersLKI = effects.CloneTargetCountersLKI(pt.Ctx.TargetCountersLKI)
 		}
+		if pt.Ctx.TargetPTLKI != nil {
+			pt.Ctx.TargetPTLKI = effects.CloneTargetPTLKI(pt.Ctx.TargetPTLKI)
+		}
 		if pt.Ctx.TargetSpellLKI != nil {
 			pt.Ctx.TargetSpellLKI = effects.CloneTargetSpellLKI(pt.Ctx.TargetSpellLKI)
 		}
@@ -1294,6 +1297,7 @@ func cloneResume(rp *resumePoint) *resumePoint {
 	// two engines' pending frames independent.
 	cp.targetControllerLKI = effects.CloneTargetControllerLKI(rp.targetControllerLKI)
 	cp.targetCountersLKI = effects.CloneTargetCountersLKI(rp.targetCountersLKI)
+	cp.targetPTLKI = effects.CloneTargetPTLKI(rp.targetPTLKI)
 	cp.targetSpellLKI = effects.CloneTargetSpellLKI(rp.targetSpellLKI)
 	cp.targetsUnique = append([]state.Target(nil), rp.targetsUnique...)
 	// The VillainousChoice cursor and victim binding are sliced values the

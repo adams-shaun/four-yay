@@ -1086,6 +1086,15 @@ type Ctx struct {
 	// entry; an object already off the battlefield, or with no counters to
 	// look back at, needs no entry.
 	TargetCountersLKI map[state.ObjID][]state.Counter
+	// TargetPTLKI is the power/toughness half of the same CR 608.2h
+	// look-back: each object target's LAYER-DERIVED power and toughness as it
+	// last existed on the battlefield. Captured, overwritten and carried
+	// exactly like TargetCountersLKI (rules refreshes it at the departure
+	// boundary; the resolution-start capture below is the fallback). Condemn's
+	// "its controller gains life equal to its toughness" and Swords to
+	// Plowshares' "equal to its power" read it once the target is in the
+	// library or exile, where the live object answers only the printed face.
+	TargetPTLKI map[state.ObjID]TargetPT
 	// TargetSpellLKI records which object targets were SPELLS on the stack at
 	// the instant this Resolve chain began. The count ref SpellTargeted (Forge
 	// AbilityUtils.calcX's `calcX[0].equals("SpellTargeted")` arm, which reads
@@ -2829,6 +2838,35 @@ func CloneTargetCountersLKI(m map[state.ObjID][]state.Counter) map[state.ObjID][
 	return out
 }
 
+// TargetPT is one TargetPTLKI entry: a departed target's last battlefield
+// power and toughness.
+type TargetPT struct{ Power, Toughness int32 }
+
+// CloneTargetPTLKI returns an independent copy of a target P/T LKI map
+// threaded across a suspension (rules' resumePoint), for the reason
+// CloneTargetCountersLKI gives.
+func CloneTargetPTLKI(m map[state.ObjID]TargetPT) map[state.ObjID]TargetPT {
+	if m == nil {
+		return nil
+	}
+	out := make(map[state.ObjID]TargetPT, len(m))
+	for id, pt := range m {
+		out[id] = pt
+	}
+	return out
+}
+
+// targetPTLKI returns a departed object target's last battlefield
+// power/toughness, when this chain captured one and the object is no longer
+// on the battlefield; a live permanent (or an uncaptured object) reads live.
+func targetPTLKI(c *Ctx, o *state.Object) (TargetPT, bool) {
+	if c == nil || c.TargetPTLKI == nil || o == nil || o.Zone == state.ZBattlefield {
+		return TargetPT{}, false
+	}
+	pt, ok := c.TargetPTLKI[o.ID]
+	return pt, ok
+}
+
 // Resolve runs an ability and every sub-ability chained beneath it.
 // effectFrameHost is implemented by the rules engine to publish the Effect
 // registration identity a resolution is currently running under, so an ask
@@ -3157,6 +3195,22 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 				if object := h.Game().Obj(target.Obj); object != nil &&
 					object.Zone == state.ZBattlefield && len(object.Counters) > 0 {
 					c.TargetCountersLKI[target.Obj] = append([]state.Counter(nil), object.Counters...)
+				}
+			}
+		}
+		// The P/T half of the same entry capture (the fallback for a
+		// departure the host did not see; rules refreshes it at the move).
+		if c.TargetPTLKI == nil {
+			for _, target := range c.Targets {
+				if target.IsPlayer {
+					continue
+				}
+				if object := h.Game().Obj(target.Obj); object != nil && object.Zone == state.ZBattlefield &&
+					object.Face() != nil {
+					if c.TargetPTLKI == nil {
+						c.TargetPTLKI = make(map[state.ObjID]TargetPT)
+					}
+					c.TargetPTLKI[target.Obj] = TargetPT{Power: h.Power(target.Obj), Toughness: h.Toughness(target.Obj)}
 				}
 			}
 		}
