@@ -11,7 +11,8 @@ import (
 // 8). An ability has exactly one downstream slot (cards.ExtSlot) and a second
 // claim on it fails silently, so every compiled per-ability fact lives in this
 // one struct hung on the slot and nothing competes for it: the per-API typed
-// parameter structs (ChangeZone, ChangeZoneAll, Attach, DealDamage) and the rules tier's private half (the
+// parameter structs (ChangeZone, ChangeZoneAll, Attach, DealDamage,
+// PutCounter) and the rules tier's private half (the
 // mana walk's gate facts, opaque here).
 //
 // The record is defined in effects, not rules, because resolution reads it
@@ -52,6 +53,9 @@ type SAFacts struct {
 	// DealDamage is api:DealDamage's compiled parameter set
 	// (dealdamage_params.go), non-nil exactly when the API is DealDamage.
 	DealDamage *DealDamageParams
+	// PutCounter is api:PutCounter's compiled parameter set
+	// (putcounter_params.go), non-nil exactly when the API is PutCounter.
+	PutCounter *PutCounterParams
 }
 
 // NewSAFacts compiles sa's typed halves into a fresh record naming sa. The
@@ -66,6 +70,8 @@ func NewSAFacts(sa *cards.SA) *SAFacts {
 		f.Attach = compileAttach(sa)
 	} else if isDealDamageSA(sa) {
 		f.DealDamage = compileDealDamage(sa)
+	} else if isPutCounterSA(sa) {
+		f.PutCounter = compilePutCounter(sa)
 	}
 	return f
 }

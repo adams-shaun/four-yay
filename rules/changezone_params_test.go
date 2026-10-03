@@ -38,6 +38,12 @@ func TestDealDamageKnownKeysMatchTheCensus(t *testing.T) {
 	checkKnownKeysMatchTheCensus(t, "DealDamage", effects.DealDamageKnownKeys())
 }
 
+// TestPutCounterKnownKeysMatchTheCensus is the same check for
+// api:PutCounter (effects.putCounterKnownKeys).
+func TestPutCounterKnownKeysMatchTheCensus(t *testing.T) {
+	checkKnownKeysMatchTheCensus(t, "PutCounter", effects.PutCounterKnownKeys())
+}
+
 // checkKnownKeysMatchTheCensus holds an API compiler's known-key table equal
 // to the census's measured read set for api plus its ignored and structural
 // keys.

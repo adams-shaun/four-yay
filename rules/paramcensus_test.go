@@ -1752,8 +1752,9 @@ var apiSpecificRulesSA = map[string][]string{
 	// put-onto-battlefield shape, PutCounter for the counter rider, Effect
 	// for the delayed-trigger shape) -- left in the generic union they
 	// would mask every other API's unread Destination$ (measured:
-	// api:Counter on Force of Will and Remand).
-	"Engine.applyOpeningEffect":            {"ChangeZone", "PutCounter", "Effect"},
+	// api:Counter on Force of Will and Remand). applyOpeningEffect's own
+	// reads (the counter rider's CounterNum$/CounterType$) moved onto
+	// effects.PutCounterOf's compiled struct (W4 step 3).
 	"Engine.registerOpeningEffectTriggers": {"ChangeZone", "PutCounter", "Effect"},
 	"Engine.handleOpening":                 {"ChangeZone", "PutCounter", "Effect"},
 	// The token-creation replacement dispatch: these read the ReplaceWith$
@@ -1787,10 +1788,10 @@ var apiSpecificRulesSA = map[string][]string{
 	// withheld-modifier keys belong to api:PutCounter alone -- left in the
 	// generic union they would mark CounterType$/Optional$/ETB$ read for
 	// every other API (measured: api:Mill's World Shaper Optional$ gap).
-	"Engine.entryBodyCandidates":    {"PutCounter"},
-	"Engine.entryBodyCounterGrants": {"PutCounter"},
-	"entryBodyKindEncodable":        {"PutCounter"},
-	"entryBodyAbsorbable":           {"PutCounter"},
+	// W4 step 3 moved the ETB$/CounterNum$/CounterType$ and withheld-modifier
+	// reads onto effects.PutCounterOf's compiled struct; entryBodyAbsorbable
+	// keeps only its Defined$ Self read.
+	"entryBodyAbsorbable": {"PutCounter"},
 
 	// plainManaShape (rules/mana_plain.go) returns at once unless the
 	// ability is api:Mana, so its Produced$/Amount$/Cost$ reads belong to

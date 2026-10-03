@@ -67,6 +67,9 @@ func TestEveryConfiguredAbilityHasItsFactsRecord(t *testing.T) {
 			if (f.DealDamage != nil) != (sa.CompiledAPI() == cards.APIDealDamage || sa.API == "DealDamage") {
 				t.Errorf("%s: %q (API %s): DealDamage half present=%v", c.Path, sa.Line, sa.API, f.DealDamage != nil)
 			}
+			if (f.PutCounter != nil) != (sa.CompiledAPI() == cards.APIPutCounter || sa.API == "PutCounter") {
+				t.Errorf("%s: %q (API %s): PutCounter half present=%v", c.Path, sa.Line, sa.API, f.PutCounter != nil)
+			}
 		}
 	}
 	visit := func(c *cards.Card) {

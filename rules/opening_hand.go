@@ -179,11 +179,12 @@ func (e *Engine) applyOpeningEffect(ef openingEffect) {
 	e.emit(events.Event{Kind: events.MoveZone, Obj: ef.card, From: state.ZHand, To: state.ZBattlefield, Text: "opening hand effect"})
 	sub := sa.Sub
 	if sub != nil && sub.API == "PutCounter" {
-		n := effects.Num(e, effects.NewCtxPtr(ef.card, ef.player, effects.CtxInit{}), sub, "CounterNum", 1)
+		pc := effects.PutCounterOf(sub)
+		n := pc.CounterNumValue(e, effects.NewCtxPtr(ef.card, ef.player, effects.CtxInit{}))
 		// A pregame opening-hand counter is put by the effect's player, with
 		// no stack cause: publish the adder for the AddCounter class.
 		prevAdder := e.SetCounterAdder(ef.player)
-		e.emit(events.Event{Kind: events.CounterChange, Obj: ef.card, Counter: sub.ParamStr(cards.PKCounterType), Amount: n})
+		e.emit(events.Event{Kind: events.CounterChange, Obj: ef.card, Counter: pc.CounterType, Amount: n})
 		e.SetCounterAdder(prevAdder)
 		sa = sub
 		sub = sub.Sub
