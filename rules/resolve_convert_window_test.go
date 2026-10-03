@@ -334,3 +334,34 @@ func tapeUnlessScenarioResolve(t *testing.T, e *Engine, pick func(d *decision.De
 	}
 	t.Fatal("stack never drained")
 }
+
+// A Play whose cast commits synchronously (a free creature with no cast-time
+// asks) is served from the tape and begun in line; one whose cast asks (a
+// target) aborts to the legacy replay.
+func TestTapeConvertPlay(t *testing.T) {
+	const bear = "Name:Tape Free Bear\nManaCost:4 G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
+	const bolt = "Name:Tape Free Bolt\nManaCost:4 R\nTypes:Instant\nA:SP$ DealDamage | ValidTgts$ Any | NumDmg$ 1\nOracle:x\n"
+	const gain = "\nSVar:DBGain:DB$ GainLife | LifeAmount$ 2 | Defined$ You"
+	for i, tc := range []struct {
+		target string
+		aborts bool
+	}{{"Tape Free Bear", false}, {"Tape Free Bolt", true}} {
+		t.Run(tc.target, func(t *testing.T) {
+			src := tapeUnlessSorcery("Tape Conduit", "A:SP$ Play | Valid$ Card.namedTape Free Bear,Card.namedTape Free Bolt | ValidZone$ Hand | WithoutManaCost$ True | Optional$ True | SubAbility$ DBGain"+gain)
+			pick := func(d *decision.Decision) []int {
+				if d.ResumeKind == "play" {
+					for _, o := range d.Options {
+						if strings.Contains(o.Label, tc.target) {
+							return []int{o.Index}
+						}
+					}
+				}
+				return tapePick(d)
+			}
+			_, st := tapeDual(t, 2, 14000+uint64(i), tapeUnlessScenario("Tape Conduit", "B", 0, pick), src, bear, bolt)
+			if st.Served < 1 || st.LegacySwitch != 0 || (st.Aborts != 0) != tc.aborts {
+				t.Fatalf("the Play answer was not served as expected: %+v", st)
+			}
+		})
+	}
+}

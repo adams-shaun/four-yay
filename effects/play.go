@@ -387,6 +387,13 @@ func effPlay(h Host, c *Ctx, sa *cards.SA) {
 			Text: "Play found no card to play"})
 		return
 	}
+	if _, ok := AskTape(h, d); ok {
+		// Served from the resolution kernel's tape: the host's answer record
+		// began the plays (rules' playAnswerSettle) and set c.PlayDone, so
+		// this is the re-entry the legacy resume makes.
+		effPlay(h, c, sa)
+		return
+	}
 	if h.Ask(d) {
 		return // resolution suspended; the answer re-enters rules' "play" arm.
 	}
