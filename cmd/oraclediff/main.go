@@ -7,6 +7,7 @@
 //	oraclediff triage [-cards .cards] [-apply]
 //	oraclediff refreeze [-cards .cards] [-apply]
 //	oraclediff impact [-cards .cards] [-top N] [-json]
+//	oraclediff status [-cards .cards] -set S | -all [-out status.md] [-write-ratchet] [-json]
 //	oraclediff tickets [-cards .cards] [-out DIR] [-min-cards 10] [-any-in FORMAT] [-json]
 //
 // gen writes one level-A scenario per manifest card gorge fully supports
@@ -45,6 +46,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/compliance"
+	"github.com/adams-shaun/gorge/compliance/adopt"
 	"github.com/adams-shaun/gorge/compliance/gate"
 	"github.com/adams-shaun/gorge/compliance/oraclediff"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
@@ -104,7 +106,23 @@ func main() {
 		dir := fs.String("cards", ".cards", "corpus dir")
 		set := fs.String("set", "", "set code")
 		level := fs.String("level", "A", "level")
+		all := fs.Bool("all", false, "every committed set: format roll-ups and reason buckets")
+		out := fs.String("out", "", "with -all: write the generated dashboard here (never committed)")
+		ratchet := fs.Bool("write-ratchet", false, "with -all: record "+adopt.RatchetFile+" as the sets stand")
+		asJSON := fs.Bool("json", false, "with -all: one JSON line per set")
+		sets := fs.String("sets", "", "with -all: only these comma-separated set codes")
+		memprof := fs.String("memprofile", "", "with -all: write a heap profile here")
+		procs := fs.Int("procs", 2, "with -all: gate child processes at a time (at most 4)")
+		child := fs.Bool("child", false, "with -all -sets: run the gate in this process (a status child)")
 		fs.Parse(os.Args[2:])
+		if *all {
+			var only []string
+			if *sets != "" {
+				only = strings.Split(*sets, ",")
+			}
+			err = runStatusAll(*dir, *level, *out, *ratchet, *asJSON, only, *memprof, *procs, *child)
+			break
+		}
 		err = runStatus(*dir, *set, *level)
 	case "rule":
 		fs := flag.NewFlagSet("rule", flag.ExitOnError)
