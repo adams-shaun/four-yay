@@ -6,7 +6,7 @@
 // colliding on one file. Registration is at the bottom; a duplicate mode
 // panics (registerTrigMatcher).
 
-package rules
+package trigmatch
 
 import (
 	"strconv"
@@ -41,18 +41,18 @@ import (
 // EQ is the measured shape and GT/GE collapse onto it unmeasured. An absent
 // CounterAmount$ is Forge's plain "whenever a counter is put" -- every put
 // admits it.
-func (e *Engine) counterAddedMatches(t cards.Trigger, source state.ObjID, ev events.Event, lki *state.Object) bool {
+func counterAddedMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event, lki *state.Object) bool {
 	if ev.Kind != events.CounterChange || ev.Amount <= 0 {
 		return false
 	}
-	o := e.G.Obj(ev.Obj)
+	o := e.Game().Obj(ev.Obj)
 	if o == nil {
 		return false
 	}
 	if kind := t.ParamStr(cards.PKCounterType); kind != "" && !strings.EqualFold(kind, ev.Counter) {
 		return false
 	}
-	if !e.eventCardAndPlayerMatch(t, source, ev.Obj, o.Controller) {
+	if !eventCardAndPlayerMatch(e, t, source, ev.Obj, o.Controller) {
 		return false
 	}
 	// ValidSource$ names the player PUTTING the counters ("whenever YOU put
@@ -64,13 +64,13 @@ func (e *Engine) counterAddedMatches(t cards.Trigger, source state.ObjID, ev eve
 	// an unattributed placement fails the line closed rather than matching
 	// an opponent's Battlegrowth (CR 109.5: "you" is the controller).
 	if vs := strings.TrimSpace(t.ParamStr(cards.PKValidSource)); vs != "" {
-		adder, ok := e.inFlightCounterAdder()
-		if !ok || !effects.MatchesPlayerSpec(e.G, vs, adder, e.controllerOf(source)) {
+		adder, ok := e.InFlightCounterAdder()
+		if !ok || !effects.MatchesPlayerSpec(e.Game(), vs, adder, e.ControllerOf(source)) {
 			return false
 		}
 	}
 	if cmp := t.Params["CounterAmount"]; cmp != "" {
-		op, n, ok := splitCompare(strings.TrimSpace(cmp))
+		op, n, ok := SplitCompare(strings.TrimSpace(cmp))
 		if !ok {
 			return false
 		}
@@ -92,7 +92,7 @@ func (e *Engine) counterAddedMatches(t cards.Trigger, source state.ObjID, ev eve
 				return false
 			}
 		default:
-			if !applyCompare(int(after), op, n) {
+			if !ApplyCompare(int(after), op, n) {
 				return false
 			}
 		}
@@ -122,18 +122,18 @@ func (e *Engine) counterAddedMatches(t cards.Trigger, source state.ObjID, ev eve
 // "deals that much damage"; B.O.B. Bevy of Beebles; Regenerations Restored),
 // which the referent capture in trigger_referents.go supplies. No corpus
 // CounterRemovedOnce line carries CounterAmount$/NewCounterAmount$.
-func (e *Engine) counterRemovedMatches(t cards.Trigger, source state.ObjID, ev events.Event, lki *state.Object) bool {
+func counterRemovedMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event, lki *state.Object) bool {
 	if ev.Kind != events.CounterChange || ev.Amount >= 0 {
 		return false
 	}
-	o := e.G.Obj(ev.Obj)
+	o := e.Game().Obj(ev.Obj)
 	if o == nil {
 		return false
 	}
 	if kind := t.ParamStr(cards.PKCounterType); kind != "" && !strings.EqualFold(kind, ev.Counter) {
 		return false
 	}
-	if !e.eventCardAndPlayerMatch(t, source, ev.Obj, o.Controller) {
+	if !eventCardAndPlayerMatch(e, t, source, ev.Obj, o.Controller) {
 		return false
 	}
 	// Vanishing's last-counter trigger requires a positive-to-zero
@@ -200,7 +200,7 @@ func (e *Engine) counterRemovedMatches(t cards.Trigger, source state.ObjID, ev e
 // only corpus carrier is bold_plagiarist (Aragorn, Company Leader, whose
 // earlier census note named it here, in fact uses ValidObject$
 // Card.Self+inRealZoneBattlefield).
-func (e *Engine) counterPlayerAddedAllMatches(t cards.Trigger, source state.ObjID, ev events.Event, lki *state.Object) bool {
+func counterPlayerAddedAllMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event, lki *state.Object) bool {
 	if ev.Amount <= 0 {
 		return false
 	}
@@ -210,7 +210,7 @@ func (e *Engine) counterPlayerAddedAllMatches(t cards.Trigger, source state.ObjI
 	default:
 		return false
 	}
-	you := e.controllerOf(source)
+	you := e.ControllerOf(source)
 	if spec := strings.TrimSpace(t.Params["ValidObject"]); spec != "" {
 		matched := false
 		for alt := range strings.SplitSeq(spec, ",") {
@@ -219,13 +219,13 @@ func (e *Engine) counterPlayerAddedAllMatches(t cards.Trigger, source state.ObjI
 				continue
 			}
 			if ev.Kind == events.CounterChange {
-				if e.matchesSpecFrom(alt, ev.Obj, you, source) {
+				if e.MatchesSpec(alt, ev.Obj, source, you, SpecOpts{}) {
 					matched = true
 					break
 				}
 				continue
 			}
-			if effects.MatchesPlayerSpec(e.G, alt, ev.Player, you) {
+			if effects.MatchesPlayerSpec(e.Game(), alt, ev.Player, you) {
 				matched = true
 				break
 			}
@@ -235,8 +235,8 @@ func (e *Engine) counterPlayerAddedAllMatches(t cards.Trigger, source state.ObjI
 		}
 	}
 	if vs := strings.TrimSpace(t.ParamStr(cards.PKValidSource)); vs != "" {
-		adder, ok := e.inFlightCounterAdder()
-		if !ok || !effects.MatchesPlayerSpec(e.G, vs, adder, you) {
+		adder, ok := e.InFlightCounterAdder()
+		if !ok || !effects.MatchesPlayerSpec(e.Game(), vs, adder, you) {
 			return false
 		}
 	}
@@ -244,7 +244,7 @@ func (e *Engine) counterPlayerAddedAllMatches(t cards.Trigger, source state.ObjI
 		// Unimplemented recipient anchor (see the doc above): fail closed.
 		return false
 	}
-	if !e.eventCardAndPlayerMatch(t, source, ev.Obj, e.gainingPlayerOf(ev)) {
+	if !eventCardAndPlayerMatch(e, t, source, ev.Obj, gainingPlayerOf(e, ev)) {
 		return false
 	}
 	if kind := t.ParamStr(cards.PKCounterType); kind != "" && !strings.EqualFold(kind, ev.Counter) {
@@ -257,18 +257,18 @@ func (e *Engine) counterPlayerAddedAllMatches(t cards.Trigger, source state.ObjI
 // event's own player for a PlayerCounterChange put, else the recipient
 // object's controller -- the convention counterAddedMatches and
 // counterRemovedMatches both use for the same read.
-func (e *Engine) gainingPlayerOf(ev events.Event) state.PlayerID {
+func gainingPlayerOf(e Board, ev events.Event) state.PlayerID {
 	if ev.Kind == events.PlayerCounterChange {
 		return ev.Player
 	}
-	if o := e.G.Obj(ev.Obj); o != nil {
+	if o := e.Game().Obj(ev.Obj); o != nil {
 		return o.Controller
 	}
 	return 0
 }
 
 func init() {
-	registerTrigMatcher((*Engine).counterAddedMatches, "CounterAdded", "CounterAddedOnce")
-	registerTrigMatcher((*Engine).counterRemovedMatches, "CounterRemoved", "CounterRemovedOnce")
-	registerTrigMatcher((*Engine).counterPlayerAddedAllMatches, "CounterPlayerAddedAll")
+	registerTrigMatcher(counterAddedMatches, "CounterAdded", "CounterAddedOnce")
+	registerTrigMatcher(counterRemovedMatches, "CounterRemoved", "CounterRemovedOnce")
+	registerTrigMatcher(counterPlayerAddedAllMatches, "CounterPlayerAddedAll")
 }

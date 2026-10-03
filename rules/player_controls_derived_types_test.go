@@ -8,6 +8,7 @@ import (
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -59,7 +60,7 @@ func TestPlayerControlsCreatureSeesLayer4DerivedTypes(t *testing.T) {
 		"ValidPlayer": "Player.controlsCreature.Goblin_GE1",
 	}}
 	ev := events.Event{Kind: events.StepChange, Step: state.StepMain1}
-	if !e.phaseMatches(trig, source, ev) {
+	if !trigmatch.PhaseMatches(boardOf(e), trig, source, ev) {
 		t.Fatal("phaseMatches ValidPlayer$ controlsCreature.Goblin did not see the layer-4 granted Goblin")
 	}
 	// Non-vacuity: the same gate answers NO for a seat with no Goblin

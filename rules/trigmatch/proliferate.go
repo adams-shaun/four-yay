@@ -5,7 +5,7 @@
 // and matcher were all added together and the per-mode split exists so
 // tickets touching one mode stop colliding on a shared trigmatch_*.go.
 
-package rules
+package trigmatch
 
 import (
 	"strings"
@@ -30,26 +30,26 @@ import (
 // uses one, the surveilMatches shape). Trigger-level params the shared gates
 // already read (TriggerZones$, PlayerTurn$, ActivationLimit$, the
 // intervening-if) need nothing here.
-func (e *Engine) proliferateMatches(t cards.Trigger, source state.ObjID, ev events.Event, lki *state.Object) bool {
+func proliferateMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event, lki *state.Object) bool {
 	if ev.Kind != events.Proliferate {
 		return false
 	}
-	ctrl := e.controllerOf(source)
+	ctrl := e.ControllerOf(source)
 	if v := t.ParamStr(cards.PKValidCard); v != "" && ev.Obj != 0 &&
-		!e.matchesSpec(v, ev.Obj, e.specCtx(source, ctrl)) {
+		!e.MatchesSpec(v, ev.Obj, source, ctrl, SpecOpts{}) {
 		return false
 	}
 	if v := t.ParamStr(cards.PKValidPlayer); v != "" &&
-		!effects.MatchesPlayerSpec(e.G, v, ev.Player, ctrl) {
+		!effects.MatchesPlayerSpec(e.Game(), v, ev.Player, ctrl) {
 		return false
 	}
 	if strings.EqualFold(t.Params["FirstTime"], "True") &&
-		!e.firstMarkerThisTurn(events.Proliferate, ev.Player) {
+		!firstMarkerThisTurn(e, events.Proliferate, ev.Player) {
 		return false
 	}
 	return true
 }
 
 func init() {
-	registerTrigMatcher((*Engine).proliferateMatches, "Proliferate")
+	registerTrigMatcher(proliferateMatches, "Proliferate")
 }

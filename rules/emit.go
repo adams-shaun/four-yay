@@ -4,6 +4,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -252,7 +253,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 			}
 		}
 	case events.DoorUnlock:
-		// CR 709.5: Mode$ FullyUnlock (rules/trigmatch_room.go) must tell a
+		// CR 709.5: Mode$ FullyUnlock (rules/trigmatch/room.go) must tell a
 		// real locked->unlocked transition from a repeated DoorUnlock on an
 		// already-unlocked room (the latter no game action produces, but a
 		// direct emit can). Apply flips Unlocked before this event's triggers
@@ -547,6 +548,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		delete(e.copyTargetStage, ev.Obj)
 		delete(e.copyAnswerTargets, ev.Obj)
 		delete(e.castSubTargets, ev.Obj)
+		delete(e.resolutionTargets, ev.Obj)
 		delete(e.tpCtlChooser, ev.Obj)
 		delete(e.charmTargets, ev.Obj)
 		delete(e.sourceLifelinkLKI, ev.Obj)
@@ -657,7 +659,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		// PlanarWalk/ChaosEnsues events follow it in the log deterministically.
 		e.planarRollConsequences(stored)
 	}
-	if ev.Kind == events.Tap && !e.tapIsEntryState(ev) {
+	if ev.Kind == events.Tap && !trigmatch.TapIsEntryState(boardOf(e), ev) {
 		// Recorded after the triggers above were matched, so a FirstTime$
 		// trigger sees whether an EARLIER tap happened this turn.
 		if e.tappedTurn == nil {

@@ -60,6 +60,12 @@ var excluded = map[excludedField]bool{
 	// and type buffers, re-entry depth, in-progress P/T frames, colour
 	// stash): rebuilt every call; Clone copies none.
 	{"rules.Engine", "charsWalk"}: true,
+	// Engine.Chars's answer record (host_read.go): overwritten by every Chars
+	// call outside a memo scope and valid only until the next one; Clone
+	// resets it. The trigger matchers read characteristics through Chars
+	// since W5 E3 (trigmatch.Board), so a live engine holds the last read
+	// while its control clone holds none (round-9 paymirror, seed 8175).
+	{"rules.Engine", "charsScratch"}: true,
 	// combatBoard.Statics' per-mode conversion buffer (rules/combat_board.go):
 	// per-call scratch rewritten in full on every read; Clone copies none.
 	{"rules.Engine", "combatStatics"}:      true,
@@ -241,12 +247,6 @@ var excluded = map[excludedField]bool{
 	// one, so the recycled records a live engine keeps are not game state.
 	{"rules.Engine", "specEnvs"}:     true,
 	{"rules.Engine", "specEnvDepth"}: true,
-	// The DiscardedAll matcher's FirstTime$ scratch (rules/engine.go): written
-	// by discardedAllMatches on every match and read by the trigger dispatcher
-	// immediately after, never before a write; Clone copies it as false, so a
-	// live engine still holding the last match's value read "true vs false"
-	// against its control clone (round-8 paymirror random4, seed 8529).
-	{"rules.Engine", "discardAllFirstTime"}: true,
 	// Intent-stream watchdogs and counters: the manual route answers more
 	// decisions by construction, so these count the route, not the game.
 	{"rules.Engine", "loop"}:     true,

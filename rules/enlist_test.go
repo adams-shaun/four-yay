@@ -7,6 +7,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -296,12 +297,12 @@ func TestEnlistedMatchesValidEnlistedSpec(t *testing.T) {
 	if !found {
 		t.Fatal("fixture: Goblin Morale Sergeant's compiled face carries no Enlisted trigger")
 	}
-	if !e.enlistedMatches(tr, goblin,
+	if !trigmatch.EnlistedMatches(boardOf(e), tr, goblin,
 		events.Event{Kind: events.Enlist, Obj: goblin, IDs: []state.ObjID{giant}}, nil) {
 		t.Fatal("a real enlist action did not match Goblin Morale Sergeant's Enlisted trigger")
 	}
 	mtn := moveByName(t, e, 0, "Mountain", state.ZBattlefield)
-	if e.enlistedMatches(tr, goblin,
+	if trigmatch.EnlistedMatches(boardOf(e), tr, goblin,
 		events.Event{Kind: events.Enlist, Obj: goblin, IDs: []state.ObjID{mtn}}, nil) {
 		t.Fatal("enlisting a non-creature matched ValidEnlisted$ Creature.!token")
 	}

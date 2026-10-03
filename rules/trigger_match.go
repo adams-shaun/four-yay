@@ -23,6 +23,7 @@ import (
 	"github.com/adams-shaun/gorge/deck"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -453,7 +454,7 @@ var actionTriggerModes = map[string]bool{
 	"CommitCrime": true, "Taps": true, "TapsForMana": true, "Untaps": true,
 	// BecomesTargetOnce joins them for the same reason: it is an event mode
 	// registered from the start as an event-mode sibling of BecomesTarget
-	// (rules/trigmatch_misc.go's becomesTargetOnceMatches), so the trigger-
+	// (rules/trigmatch/actions.go's becomesTargetOnceMatches), so the trigger-
 	// level parameters Forge scopes to every event mode -- PlayerTurn$,
 	// ActivationLimit$ (Professor Hojo's "This ability triggers only once
 	// each turn"), and an unevaluable CheckDefinedPlayer$ predicate failing
@@ -493,7 +494,7 @@ var actionTriggerModes = map[string]bool{
 	// flip result Note is one occurrence.
 	"FlippedCoin": true,
 	// RolledDie/RolledDieOnce join them for the same reason: both are event
-	// modes registered from the start (rules/trigmatch_misc.go's
+	// modes registered from the start (rules/trigmatch/actions.go's
 	// rolledDieMatches / rolledDieOnceMatches, firing off the canonical roll
 	// Notes effects/dice.go emits), so the trigger-level parameters Forge
 	// scopes to every event mode -- PlayerTurn$, ActivationLimit$, and an
@@ -1336,11 +1337,6 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 				if !observer.triggerMatches(t, id, *ev, objLKI) {
 					continue
 				}
-				// Capture the DiscardedAll FirstTime$ clause the matcher just parsed
-				// (discardedAllMatches records it on its own receiver) BEFORE
-				// secondaryYields below -- which also drives this observer -- can
-				// overwrite the scratch value.
-				discardedAllFirstTime := t.Mode == "DiscardedAll" && observer.discardAllFirstTime
 				// Forge's Secondary$ True: a marked secondary is the second
 				// half of one card text, and it does not fire when the same
 				// event already fired its card's paired primary (the
@@ -1368,7 +1364,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 				// (AttackersDeclaredOneTarget, or AttackersDeclared carrying
 				// AttackedTarget$) are never stamped and keep firing per
 				// defender.
-				if attackersDeclaredBatch(t) {
+				if trigmatch.AttackersDeclaredBatch(t) {
 					stamp := combatFires{Turn: e.G.Turn, Combat: e.G.CombatsThisTurn}
 					if e.attackersDeclaredFired[key] == stamp {
 						continue // already fired this declare step.
@@ -1443,7 +1439,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 							// wins, e.damaging is combat-only, damageSource is the
 							// non-combat fallback. Through the ONE shared resolution
 							// (damageEventSource) so the latch and the match agree.
-							bk.obj = e.damageEventSource()
+							bk.obj = trigmatch.DamageEventSource(boardOf(e))
 						} else if !bk.all {
 							// DamageDoneOnce: the per-damaged-referent latch key.
 							if ev.Obj != 0 {
@@ -1460,7 +1456,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 							// a captured set can never contain a source the
 							// ValidSource$ match did not match (the match and the
 							// capture cannot drift).
-							allSrc = e.damageEventSource()
+							allSrc = trigmatch.DamageEventSource(boardOf(e))
 							if ev.Obj != 0 {
 								allTgt = state.Target{Obj: ev.Obj}
 							} else {
@@ -1601,10 +1597,9 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 				// count 1.
 				if t.Mode == "DiscardedAll" {
 					// FirstTime$ True (Veronica, Rielle: "for the first time each
-					// turn") is the batch-level once-per-turn gate. It was read by
-					// discardedAllMatches and captured above as
-					// discardedAllFirstTime; it is decided when a NEW batch entry is
-					// created and recorded then, so a later batch this turn queues
+					// turn") is the batch-level once-per-turn gate, read from the
+					// line by discardedAllFirstTime. It is decided when a NEW batch
+					// entry is created and recorded then, so a later batch this turn queues
 					// nothing while the SAME batch's further matching cards still
 					// accumulate into the count (Rielle's "draw that many" needs a
 					// multi-card first batch's full size). Batch identity lives in
@@ -1612,7 +1607,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 					// discard batch from the next. The stamp is the trigger line's
 					// turn only, exact for every corpus carrier (their ValidPlayer$
 					// is the source's own controller).
-					firstTime := discardedAllFirstTime
+					firstTime := trigmatch.DiscardedAllFirstTime(t)
 					if e.discardBatchOpen {
 						if entIdx, ok := e.discardBatchIdx[key]; ok {
 							ent := &e.discardBatchLog[entIdx]
@@ -1707,7 +1702,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 				// match the per-turn ActivationLimit$ rejects must keep its other
 				// game use for the next turn.
 				e.reserveTriggerLimits(t, key)
-				if attackersDeclaredBatch(t) {
+				if trigmatch.AttackersDeclaredBatch(t) {
 					if e.attackersDeclaredFired == nil {
 						e.attackersDeclaredFired = map[triggerKey]combatFires{}
 					}
@@ -2413,7 +2408,7 @@ func (e *Engine) triggerRememberedFor(t cards.Trigger, ev events.Event, source s
 	if ev.Kind == events.DeclareAttackers && t.ParamStr(cards.PKKeyword) == "Melee" {
 		return e.meleeRemembered(ev)
 	}
-	if ev.Kind == events.DeclareAttackers && attackersDeclaredBatch(t) && len(e.declaredAttackers) > 0 {
+	if ev.Kind == events.DeclareAttackers && trigmatch.AttackersDeclaredBatch(t) && len(e.declaredAttackers) > 0 {
 		out := make([]state.Target, 0, len(e.declaredAttackers)+1)
 		for _, id := range e.declaredAttackers {
 			out = append(out, state.Target{Obj: id})
@@ -2421,34 +2416,6 @@ func (e *Engine) triggerRememberedFor(t cards.Trigger, ev events.Event, source s
 		return append(out, state.Target{Player: ev.Player, IsPlayer: true})
 	}
 	return triggerRemembered(ev, source)
-}
-
-// trigMatcher answers whether one trigger fires for ev. lki is the event's LKI
-// snapshot (the moving object as it was a moment ago); a matcher that does not
-// need it ignores the parameter. The uniform signature is what lets every mode
-// live behind one table.
-type trigMatcher func(e *Engine, t cards.Trigger, source state.ObjID, ev events.Event, lki *state.Object) bool
-
-// trigMatchers maps Mode$ to its matcher. A mode with no entry never fires,
-// which is exactly what the switch this replaced did by falling off its end
-// with matched still false -- there was no default arm, and there must not be
-// one now.
-var trigMatchers = map[string]trigMatcher{}
-
-// registerTrigMatcher installs fn for each named mode. Called from init() in
-// the per-mode trigmatch_*.go files.
-//
-// A duplicate registration panics rather than silently replacing. The whole
-// point of the split is that many tickets edit different files at once; two
-// files claiming one mode is the merge accident that costs, so it must be loud
-// at startup and not a matcher that quietly stopped being reached.
-func registerTrigMatcher(fn trigMatcher, modes ...string) {
-	for _, mode := range modes {
-		if _, dup := trigMatchers[mode]; dup {
-			panic("rules: duplicate trigger matcher registered for Mode$ " + mode)
-		}
-		trigMatchers[mode] = fn
-	}
 }
 
 // triggerMatches decides whether one cards.Trigger fires for ev. lki is the
@@ -2505,11 +2472,7 @@ func (e *Engine) triggerMatchesWithSVars(t cards.Trigger, source state.ObjID, ev
 	if e.notThisAbilityExcludes(t, source) {
 		return false
 	}
-	var matched bool
-	if fn := trigMatchers[t.Mode]; fn != nil {
-		matched = fn(e, t, source, ev, lki)
-	}
-	if !matched {
+	if !trigmatch.Match(boardOf(e), t, source, ev, lki) {
 		return false
 	}
 	// FirstCombat$ True -- the "if it's the first combat phase of the turn"
@@ -2679,72 +2642,7 @@ func (e *Engine) secondaryYields(observer *Engine, face *cards.Face, ti int, t c
 	return false
 }
 
-// compareIntCount evaluates Forge's <OP><N> comparison grammar (EQ1, GT1,
-// EQ0, ...) against n. A value that is not a literal comparison (an X, a
-// bare word, an unknown operator) fails closed: a trigger condition the
-// engine cannot evaluate must stay silent, never fire wide.
-func compareIntCount(n int32, expr string) bool {
-	expr = strings.TrimSpace(expr)
-	for _, cand := range []struct {
-		op string
-		fn func(a, b int32) bool
-	}{{"EQ", func(a, b int32) bool { return a == b }},
-		{"NE", func(a, b int32) bool { return a != b }},
-		{"GE", func(a, b int32) bool { return a >= b }},
-		{"LE", func(a, b int32) bool { return a <= b }},
-		{"GT", func(a, b int32) bool { return a > b }},
-		{"LT", func(a, b int32) bool { return a < b }}} {
-		if rest := strings.TrimPrefix(expr, cand.op); rest != expr {
-			v, err := strconv.Atoi(strings.TrimSpace(rest))
-			if err != nil {
-				return false
-			}
-			return cand.fn(n, int32(v))
-		}
-	}
-	return false
-}
-
-// phaseOutAllMatches matches a Mode$ PhaseOutAll trigger (The War Doctor's
-// "whenever one or more other permanents phase out") against one PhaseOut
-// event. Only a phase-OUT (Amount >= 1) counts; a phase-IN (Amount -1) is the
-// opposite event. The line's ValidCards$/ValidCard$ filter is evaluated
-// against the phasing permanent with the trigger's source bound the way every
-// object matcher binds it, so `Permanent.phasedOutOther` can exclude the
-// source itself. The once-per-batch cadence is the latch in triggerMatches,
-// not this matcher.
-func phaseOutAllMatches(e *Engine, t cards.Trigger, source state.ObjID, ev events.Event, lki *state.Object) bool {
-	if ev.Kind != events.PhaseOut || ev.Amount < 1 || ev.Obj == 0 {
-		return false
-	}
-	spec := strings.TrimSpace(t.ParamStr(cards.PKValidCards))
-	if spec == "" {
-		spec = strings.TrimSpace(t.ParamStr(cards.PKValidCard))
-	}
-	if spec == "" {
-		return true
-	}
-	return e.matchesSpec(spec, ev.Obj, e.specCtx(source, e.controllerOf(source)))
-}
-
 func init() {
-	// CR 603.8 state trigger: the event under test is irrelevant; the trigger
-	// fires when its condition holds (see triggerConditionHolds) and no
-	// instance is outstanding (the checkTriggers latch).
-	registerTrigMatcher(func(*Engine, cards.Trigger, state.ObjID, events.Event, *state.Object) bool {
-		return true
-	}, "Always")
-
-	// PhaseOutAll (CR 702.25, phaseoutall1): the batch-level "whenever one or
-	// more other permanents phase out" trigger (The War Doctor). It matches
-	// the events.PhaseOut marker the api:Phases primitive emits, which existed
-	// before the mode did; the mode itself is new to the table. Registered
-	// through a func literal calling the pack-level matcher so the census can
-	// read the callee (registerTrigMatcher takes a method expression or a
-	// literal whose first call names the matcher).
-	registerTrigMatcher(func(e *Engine, t cards.Trigger, source state.ObjID, ev events.Event, lki *state.Object) bool {
-		return phaseOutAllMatches(e, t, source, ev, lki)
-	}, "PhaseOutAll")
 
 	effects.RegisterNonAPI(
 		"trig:ChangesZone", "trig:ChangesZoneAll", "trig:SpellCast", "trig:Attacks", "trig:AttackersDeclaredOneTarget",
@@ -2762,7 +2660,7 @@ func init() {
 		// CARDNAME is turned face up" (CR 702.36e for morph/megamorph,
 		// CR 708.6 for manifest/cloak; Master of Pearls, Kheru
 		// Spellsnatcher and the mode's 125 corpus carriers). Matched by
-		// turnFaceUpMatches (rules/trigmatch_faceup.go) off the
+		// turnFaceUpMatches (rules/trigmatch/faceup.go) off the
 		// events.TurnFaceUp marker the morph-family special action and
 		// effSetState's Mode$ TurnFaceUp arm emit; proved by
 		// rules/turnup_replacement_test.go's

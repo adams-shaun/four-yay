@@ -1,4 +1,4 @@
-package rules
+package trigmatch
 
 import (
 	"github.com/adams-shaun/gorge/cards"
@@ -36,29 +36,29 @@ import (
 // exactly as the Dig windows and the target census already do. A trigger
 // naming neither parameter is treated as self-scoped: an attachment-only
 // line fires for its own source rather than silently never firing.
-func (e *Engine) unattachedMatches(t cards.Trigger, source state.ObjID, ev events.Event, lki *state.Object) bool {
+func unattachedMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event, lki *state.Object) bool {
 	if ev.Kind != events.Unattached || ev.Obj == 0 || len(ev.IDs) == 0 {
 		return false
 	}
-	if t.Params["Static"] == "True" {
+	if t.ParamStr(cards.PKStatic) == "True" {
 		// Forge's "static effect expressed as a trigger" guard, the same one
 		// attachedMatches carries: a clone/continuous ETB shape must not fire
 		// on every detach.
 		return false
 	}
-	ctrl := e.controllerOf(source)
+	ctrl := e.ControllerOf(source)
 	if v, ok := t.Params["ValidAttachment"]; ok {
 		// ev.Obj is the attachment the event names, exactly as
 		// attachedMatches matches its ValidSource$ against ev.Obj. source is
 		// what Card.Self binds to in specCtx, so the corpus's Card.Self lines
 		// keep their meaning while an unrelated detach can no longer fire
 		// this face.
-		if !e.matchesSpec(v, ev.Obj, e.specCtx(source, ctrl)) {
+		if !e.MatchesSpec(v, ev.Obj, source, ctrl, SpecOpts{}) {
 			return false
 		}
 	}
 	if v, ok := t.Params["ValidObject"]; ok {
-		return e.matchesUnattachedBearer(v, ev.IDs[0], source, ctrl)
+		return matchesUnattachedBearer(e, v, ev.IDs[0], source, ctrl)
 	}
 	return true
 }
@@ -74,20 +74,19 @@ func (e *Engine) unattachedMatches(t cards.Trigger, source state.ObjID, ev event
 // The rewrite is inert for every non-Permanent base and for a live
 // permanent (its face is a permanent type too), so the retry cannot widen a
 // spec the live reading already decided.
-func (e *Engine) matchesUnattachedBearer(spec string, bearer, source state.ObjID, ctrl state.PlayerID) bool {
-	sc := e.specCtx(source, ctrl)
-	if e.matchesSpec(spec, bearer, sc) {
+func matchesUnattachedBearer(e Board, spec string, bearer, source state.ObjID, ctrl state.PlayerID) bool {
+	if e.MatchesSpec(spec, bearer, source, ctrl, SpecOpts{}) {
 		return true
 	}
-	o := e.G.Obj(bearer)
+	o := e.Game().Obj(bearer)
 	if o == nil || o.Zone == state.ZBattlefield {
 		return false
 	}
-	return e.matchesSpec(spellCastPermanentSpec(spec), bearer, sc)
+	return e.MatchesSpec(SpellCastPermanentSpec(spec), bearer, source, ctrl, SpecOpts{})
 }
 
 func init() {
-	registerTrigMatcher(func(e *Engine, t cards.Trigger, source state.ObjID, ev events.Event, lki *state.Object) bool {
-		return e.unattachedMatches(t, source, ev, lki)
+	registerTrigMatcher(func(e Board, t cards.Trigger, source state.ObjID, ev events.Event, lki *state.Object) bool {
+		return unattachedMatches(e, t, source, ev, lki)
 	}, "Unattached")
 }

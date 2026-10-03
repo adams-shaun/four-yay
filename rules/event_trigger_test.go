@@ -7,6 +7,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -130,16 +131,16 @@ func TestDiscardedTriggerValidCauseRejectsCosts(t *testing.T) {
 		t.Fatalf("unexpected Orvar discard trigger: %+v", tr)
 	}
 	cost := events.DiscardCost(orvar)
-	if e.discardedMatches(tr, orvar, cost) {
+	if trigmatch.DiscardedMatches(boardOf(e), tr, orvar, cost) {
 		t.Fatal("Orvar matched a discard cost with no opposing spell or ability")
 	}
 	cause := e.G.AddObject(mustCorpusCard(t, reg, "Lightning Bolt"), 1)
 	cause.Zone = state.ZStack
 	e.G.SetZone(state.ZStack, 0, []state.ObjID{cause.ID})
-	if e.discardedMatches(tr, orvar, cost) {
+	if trigmatch.DiscardedMatches(boardOf(e), tr, orvar, cost) {
 		t.Fatal("Orvar attributed a discard cost to an unrelated spell already on the stack")
 	}
-	if !e.discardedMatches(tr, orvar, events.Discard(orvar, 0)) {
+	if !trigmatch.DiscardedMatches(boardOf(e), tr, orvar, events.Discard(orvar, 0)) {
 		t.Fatal("Orvar did not match a discard caused by an opponent spell")
 	}
 }

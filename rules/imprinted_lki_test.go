@@ -5,6 +5,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -66,7 +67,7 @@ func TestImprintedChangesZoneLKIBranchMatchesLeavingExile(t *testing.T) {
 		t.Fatalf("precondition: live zone %v and LKI zone %v must actually differ", live.Zone, lki.Zone)
 	}
 
-	if !e.zoneChangeMatches(tr, linked.ID, ev, &lki) {
+	if !trigmatch.ZoneChangeMatches(boardOf(e), tr, linked.ID, ev, &lki) {
 		t.Fatal("ChangesZone ValidCard$ Card.IsImprinted did not match an imprinted card leaving exile against its LKI")
 	}
 
@@ -78,7 +79,7 @@ func TestImprintedChangesZoneLKIBranchMatchesLeavingExile(t *testing.T) {
 	if e.G.Obj(bystander.ID).Zone == bystanderLKI.Zone {
 		t.Fatal("precondition: bystander live and LKI zones must differ")
 	}
-	if e.zoneChangeMatches(tr, bystander.ID, ev2, &bystanderLKI) {
+	if trigmatch.ZoneChangeMatches(boardOf(e), tr, bystander.ID, ev2, &bystanderLKI) {
 		t.Error("ChangesZone ValidCard$ Card.IsImprinted matched a bystander that was never imprinted")
 	}
 }

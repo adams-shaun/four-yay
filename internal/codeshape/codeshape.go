@@ -19,6 +19,7 @@ import (
 	"go/types"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -110,6 +111,10 @@ type Metrics struct {
 	CtxLiterals            int `json:"ctx_literals"`
 	SpecContextLiterals    int `json:"spec_context_literals"`
 	TriggerContextLiterals int `json:"trigger_context_literals"`
+	// TrigmatchBoardMethods counts the methods trigmatch.Board declares
+	// (rules/trigmatch/board.go): the read-only view the trigger matchers
+	// reach the engine through (W5 E3). Zero when the package is absent.
+	TrigmatchBoardMethods int `json:"trigmatch_board_methods"`
 	// Files is how many non-test .go files were parsed.
 	Files int `json:"files"`
 	// LongFuncs lists every function counted by FuncsOver300, longest first
@@ -180,6 +185,17 @@ func Measure(root string) (Metrics, error) {
 							}
 							ctxFound = true
 							m.CtxFields, m.CtxEmbeds = named, embeds
+						case path.Dir(rel) == "rules/trigmatch" && ts.Name.Name == "Board":
+							it, ok := ts.Type.(*ast.InterfaceType)
+							if !ok {
+								return m, fmt.Errorf("codeshape: %s: trigmatch.Board is not an interface", rel)
+							}
+							for _, fld := range it.Methods.List {
+								if len(fld.Names) == 0 {
+									return m, fmt.Errorf("codeshape: %s: trigmatch.Board embeds %s; list its methods instead so the ratchet sees them", rel, types.ExprString(fld.Type))
+								}
+								m.TrigmatchBoardMethods += len(fld.Names)
+							}
 						case dir == "rules" && ts.Name.Name == "resumePoint":
 							named, embeds, err := structFields(ts, rel)
 							if err != nil {

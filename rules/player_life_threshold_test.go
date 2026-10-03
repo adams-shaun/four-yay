@@ -6,6 +6,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -44,13 +45,13 @@ func TestBreenaAttackTriggerReadsLifeGTX(t *testing.T) {
 		t.Fatal("setup: attacked opponent must have more life than the lowest opponent")
 	}
 	ev := events.Event{Kind: events.DeclareAttackers, Player: 2, IDs: []state.ObjID{attacker.ID}}
-	if !e.attackersDeclaredOneTargetMatches(trig, source.ID, ev) {
+	if !trigmatch.AttackersDeclaredOneTargetMatches(boardOf(e), trig, source.ID, ev) {
 		ctx := &effects.Ctx{Source: source.ID, Controller: 0, SVars: source.Face().SVars}
 		n, ok := effects.EvalCountOK(e, ctx, source.Face().SVars["X"])
 		t.Fatalf("Breena trigger did not match: params=%v sourceSVars=%v threshold=%d/%v filter=%v alive=%v ctrl=%d attacked=%d lives=%d/%d/%d", trig.Params, source.Face().SVars, n, ok, effects.MatchesPlayerSpecWithSVars(e, ctx, "Opponent.lifeGTX", 2, 0), e.G.AliveFrom(0), e.controllerOf(source.ID), ev.Player, e.G.Players[0].Life, e.G.Players[1].Life, e.G.Players[2].Life)
 	}
 	e.G.Players[1].Life, e.G.Players[2].Life = 25, 25
-	if e.attackersDeclaredOneTargetMatches(trig, source.ID, ev) {
+	if trigmatch.AttackersDeclaredOneTargetMatches(boardOf(e), trig, source.ID, ev) {
 		t.Fatal("Breena trigger matched when all opponents had equal life")
 	}
 }

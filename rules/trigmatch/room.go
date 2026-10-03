@@ -1,4 +1,4 @@
-package rules
+package trigmatch
 
 import (
 	"github.com/adams-shaun/gorge/cards"
@@ -36,12 +36,12 @@ import (
 // so a directly-emitted repeated DoorUnlock on an already-unlocked room --
 // which no game action produces -- fires nothing. That keeps "fully unlock"
 // honest without inventing a second event kind or a multi-door counter.
-func (e *Engine) fullyUnlockMatches(t cards.Trigger, source state.ObjID, ev events.Event, lki *state.Object) bool {
+func fullyUnlockMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event, lki *state.Object) bool {
 	if ev.Kind != events.DoorUnlock {
 		return false
 	}
-	room := e.G.Obj(ev.Obj)
-	if room == nil || room.Zone != state.ZBattlefield || !isRoom(room) || !room.Unlocked {
+	room := e.Game().Obj(ev.Obj)
+	if room == nil || room.Zone != state.ZBattlefield || !isRoomObject(room) || !room.Unlocked {
 		return false
 	}
 	// Transition gate: the room must have been locked immediately before the
@@ -50,12 +50,12 @@ func (e *Engine) fullyUnlockMatches(t cards.Trigger, source state.ObjID, ev even
 	if lki == nil || lki.ID != ev.Obj || lki.Unlocked {
 		return false
 	}
-	you := e.controllerOf(source)
+	you := e.ControllerOf(source)
 	// ValidPlayer$ names who fully unlocked the Room. The unlock activation is
 	// the Room controller's, so the unlocking player is room.Controller. An
 	// absent clause fires for any unlocker; a non-"You" value fails closed
 	// through the ordinary spec matcher.
-	if vp := t.ParamStr(cards.PKValidPlayer); vp != "" && !effects.MatchesPlayerSpec(e.G, vp, room.Controller, you) {
+	if vp := t.ParamStr(cards.PKValidPlayer); vp != "" && !effects.MatchesPlayerSpec(e.Game(), vp, room.Controller, you) {
 		return false
 	}
 	// ValidCard$ names the Room that was unlocked. Every corpus FullyUnlock
@@ -64,15 +64,21 @@ func (e *Engine) fullyUnlockMatches(t cards.Trigger, source state.ObjID, ev even
 	if spec == "" {
 		spec = "Card.Room"
 	}
-	if !e.matchesSpec(spec, ev.Obj, e.specCtx(source, you)) {
+	if !e.MatchesSpec(spec, ev.Obj, source, you, SpecOpts{}) {
 		return false
 	}
 	return true
 }
 
 func init() {
-	registerTrigMatcher(func(e *Engine, t cards.Trigger, source state.ObjID, ev events.Event, lki *state.Object) bool {
-		return e.fullyUnlockMatches(t, source, ev, lki)
+	registerTrigMatcher(func(e Board, t cards.Trigger, source state.ObjID, ev events.Event, lki *state.Object) bool {
+		return fullyUnlockMatches(e, t, source, ev, lki)
 	}, "FullyUnlock")
 	effects.RegisterNonAPI("trig:FullyUnlock")
+}
+
+// isRoomObject reports whether o is a Room permanent: rules' isRoom, read
+// through the card's front face (cards.Face.IsRoom owns the fact).
+func isRoomObject(o *state.Object) bool {
+	return o != nil && o.Card != nil && len(o.Card.Faces) > 0 && o.Card.Faces[0].IsRoom()
 }

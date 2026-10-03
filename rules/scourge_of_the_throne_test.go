@@ -6,6 +6,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -274,17 +275,17 @@ func TestAttacksConditionMostLifeMatcher(t *testing.T) {
 
 	// Strictly most: fires.
 	setLives(30, 20, 20)
-	if !e.attacksMatches(trig, scourge, evt(0)) {
+	if !trigmatch.AttacksMatches(boardOf(e), trig, scourge, evt(0)) {
 		t.Fatal("defender with strictly the most life must match")
 	}
 	// Tied for most: fires.
 	setLives(20, 20, 20)
-	if !e.attacksMatches(trig, scourge, evt(0)) {
+	if !trigmatch.AttacksMatches(boardOf(e), trig, scourge, evt(0)) {
 		t.Fatal("defender tied for the most life must match")
 	}
 	// A third seat strictly above the defender: must NOT match.
 	setLives(10, 20, 25)
-	if e.attacksMatches(trig, scourge, evt(0)) {
+	if trigmatch.AttacksMatches(boardOf(e), trig, scourge, evt(0)) {
 		t.Fatal("defender below another seat's life must not match")
 	}
 	// A dead seat holding the larger total must NOT veto: only LIVING seats
@@ -292,11 +293,11 @@ func TestAttacksConditionMostLifeMatcher(t *testing.T) {
 	// LIVING total; the dead seat 2 holds 35 above it.
 	setLives(30, 20, 35)
 	e.G.Players[2].Lost = true
-	if !e.attacksMatches(trig, scourge, evt(0)) {
+	if !trigmatch.AttacksMatches(boardOf(e), trig, scourge, evt(0)) {
 		t.Fatal("a dead player's larger total must not veto the trigger")
 	}
 	// A dead DEFENDER never matches.
-	if e.attacksMatches(trig, scourge, evt(2)) {
+	if trigmatch.AttacksMatches(boardOf(e), trig, scourge, evt(2)) {
 		t.Fatal("a dead defender must not match")
 	}
 	// The condition on a DIFFERENT mode's line is not this matcher's burden;
@@ -304,7 +305,7 @@ func TestAttacksConditionMostLifeMatcher(t *testing.T) {
 	// plain Attacks trigger).
 	trigPlain := cards.Trigger{Mode: "Attacks", Params: map[string]string{"ValidCard": "Creature.Self"}}
 	setLives(10, 20, 25)
-	if !e.attacksMatches(trigPlain, scourge, evt(0)) {
+	if !trigmatch.AttacksMatches(boardOf(e), trigPlain, scourge, evt(0)) {
 		t.Fatal("plain Attacks trigger (no Condition$) must still match a low-life defender")
 	}
 }

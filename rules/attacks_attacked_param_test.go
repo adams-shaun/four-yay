@@ -6,6 +6,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -196,17 +197,17 @@ func TestAttacksAttackedOpponentScopesToTheTriggersOpponent(t *testing.T) {
 
 	// Attacked$ Opponent: seat 2 is an opponent of the source's controller
 	// (seat 0), seat 0 is not.
-	if !e.attacksMatches(mk("Opponent"), trig, evt(2)) {
+	if !trigmatch.AttacksMatches(boardOf(e), mk("Opponent"), trig, evt(2)) {
 		t.Fatal("Attacked$ Opponent should match a defender that is an opponent of the controller")
 	}
-	if e.attacksMatches(mk("Opponent"), trig, evt(0)) {
+	if trigmatch.AttacksMatches(boardOf(e), mk("Opponent"), trig, evt(0)) {
 		t.Fatal("Attacked$ Opponent must not match the controller's own seat")
 	}
 	// Attacked$ You: the mirror image.
-	if !e.attacksMatches(mk("You"), trig, evt(0)) {
+	if !trigmatch.AttacksMatches(boardOf(e), mk("You"), trig, evt(0)) {
 		t.Fatal("Attacked$ You should match the controller's own seat")
 	}
-	if e.attacksMatches(mk("You"), trig, evt(2)) {
+	if trigmatch.AttacksMatches(boardOf(e), mk("You"), trig, evt(2)) {
 		t.Fatal("Attacked$ You must not match a third seat")
 	}
 }

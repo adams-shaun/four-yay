@@ -72,10 +72,38 @@ func (e *Engine) charmModeTarget(obj state.ObjID, sa *cards.SA) []state.Target {
 // given `tail` (the outer continuation of the frame being re-entered) onto
 // the end. The resulting head is the what the new pending point must run
 // after its own answer, or nil if there is nothing left to continue.
+//
+// A PLAIN report (no repeat/rest/deferred payload) whose SA is the last link
+// of its chain (sa.Sub == nil) has nothing left to run: the enclosing loop
+// finished at the link that suspended. It gets no frame. Before this rule it
+// became a frame with a nil SA, and resuming that frame logged the
+// "mid-resolution answer resumed with no sub-ability recorded" degradation
+// Note -- Devour Intellect's DB$ Branch, Capital Punishment's Vote and every
+// mass move whose as-enters choice parked all reached it (spike S3, 20 of the
+// 10k dual-run fuzz divergences). The frame's only effect on completion was
+// to hand its Remembered on to the next frame (resumeResolution's loopBound
+// rule); a bound empty report keeps that hand-off by applying it to the next
+// frame here, and an unbound one had nothing to hand on.
 func (e *Engine) buildContinuationChain(frames []contFrame, obj state.ObjID, tail *resumePoint) *resumePoint {
 	var head, prev *resumePoint
+	var carry []state.Target
+	carrySet := false
+	// prevCtx is the Ctx of the frame the next kept frame follows: the
+	// posed ask's walk (its askMarker) for the head, then each kept frame's
+	// own loop.
+	var prevCtx *effects.Ctx
 	for _, cf := range frames {
+		if cf.askMarker {
+			prevCtx = cf.ctx
+			continue
+		}
 		sa := cf.sa
+		if cf.isPlain() && (sa == nil || sa.Sub == nil) {
+			if cf.bound {
+				carry, carrySet = cf.remembered, true
+			}
+			continue
+		}
 		// fx44: a continuation frame is the rest of the same resolution that
 		// just suspended, so it carries the replacement context too — a body
 		// that asks again and then continues must keep emitting under the
@@ -195,6 +223,14 @@ func (e *Engine) buildContinuationChain(frames []contFrame, obj state.ObjID, tai
 			}
 			f.choices, f.chosenValid = cf.choices, cf.chosenValid
 		}
+		if cf.isPlain() && cf.ctx != nil && cf.ctx == prevCtx {
+			f.inheritsRemembered = true
+		}
+		prevCtx = cf.ctx
+		if carrySet {
+			handOnRemembered(f, carry)
+			carry, carrySet = nil, false
+		}
 		if head == nil {
 			head = f
 		} else {
@@ -202,12 +238,29 @@ func (e *Engine) buildContinuationChain(frames []contFrame, obj state.ObjID, tai
 		}
 		prev = f
 	}
+	if carrySet && tail != nil {
+		handOnRemembered(tail, carry)
+	}
 	if prev != nil {
 		prev.outer = tail
 	} else {
 		head = tail
 	}
 	return head
+}
+
+// handOnRemembered is the loopBound hand-off a completed frame makes to the
+// frame after it (resumeResolution): a repeat frame folds what the finished
+// iteration remembered into its cursor, and any other frame runs at the same
+// level and takes the Remembered as is.
+func handOnRemembered(next *resumePoint, remembered []state.Target) {
+	if next.kind == "repeat" && next.repeat != nil {
+		next.repeat.last = append([]state.Target(nil), remembered...)
+		next.repeat.hasLast = true
+		return
+	}
+	next.loopBound = true
+	next.loopRemembered = append([]state.Target(nil), remembered...)
 }
 
 // finishResumption is the shared tail of resolveTop and resumeResolution: a
@@ -536,4 +589,24 @@ func (e *Engine) applyCastModes(d *decision.Decision, player state.PlayerID, cho
 	e.emit(events.Event{Kind: events.ModeChosen, Obj: pc.stackObj, Player: player,
 		Text: strings.Join(labels, ",")})
 	e.continueCast()
+}
+
+// isPlain reports whether a continuation report is an ordinary Resolve loop's
+// (its frame resumes at sa.Sub) rather than one of the payload kinds that
+// re-enter sa itself (repeat, charm/villainous/generic-choice/flip/token
+// rests) or pose a deferred ask.
+func (cf *contFrame) isPlain() bool {
+	return !cf.askMarker && cf.deferredAsk == nil && cf.charmRest == nil && !cf.villainousRest &&
+		!cf.genericChoiceRest && !cf.flipRest && cf.tokenRest == nil && cf.repeat == nil
+}
+
+// handsOnChainRemembered reports whether a completed frame's Ctx.Remembered
+// is the chain's own, so it may be handed to an inheritsRemembered next
+// frame: a frame that ran a chain (sa != nil) or re-bound the chain's
+// captured Remembered (an as-enters or replacement-order answer, which runs
+// no SA), outside a replacement body, and not one whose Remembered is a
+// VillainousChoice victim or a GenericChoice chooser binding.
+func (rp *resumePoint) handsOnChainRemembered() bool {
+	return (rp.sa != nil || rp.remembered != nil) && !rp.replacement && !rp.villainousRememberedSet && rp.kind != "villainous" &&
+		len(rp.villainousVictims) == 0 && len(rp.genericChoosers) == 0
 }

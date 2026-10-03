@@ -1,4 +1,4 @@
-package rules
+package trigmatch
 
 import (
 	"github.com/adams-shaun/gorge/cards"
@@ -45,25 +45,24 @@ import (
 // TriggerZones$ Graveyard (its trigger lives in the graveyard) with a
 // PresentZone$/IsPresent$ intervening-if gate, both handled by the shared
 // zoneGate/triggerConditionHolds machinery before this matcher runs.
-func (e *Engine) milledMatches(t cards.Trigger, source state.ObjID, ev events.Event) bool {
+func milledMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event) bool {
 	if !events.IsMill(ev) {
 		return false
 	}
-	ctrl := e.controllerOf(source)
-	if v := t.ParamStr(cards.PKValidPlayer); v != "" && !effects.MatchesPlayerSpec(e.G, v, ev.Player, ctrl) {
+	ctrl := e.ControllerOf(source)
+	if v := t.ParamStr(cards.PKValidPlayer); v != "" && !effects.MatchesPlayerSpec(e.Game(), v, ev.Player, ctrl) {
 		return false
 	}
-	if v := t.ParamStr(cards.PKValidCard); v != "" && !e.matchesSpec(v, ev.Obj, e.specCtx(source, ctrl)) {
+	if v := t.ParamStr(cards.PKValidCard); v != "" && !e.MatchesSpec(v, ev.Obj, source, ctrl, SpecOpts{}) {
 		return false
 	}
 	return true
 }
 
 func init() {
-	registerTrigMatcher(func(e *Engine, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
-		return e.milledMatches(t, source, ev)
+	registerTrigMatcher(func(e Board, t cards.Trigger, source state.ObjID, ev events.Event, _ *state.Object) bool {
+		return milledMatches(e, t, source, ev)
 	}, "Milled", "MilledAll")
-
 	effects.RegisterNonAPI("trig:Milled")
 	effects.RegisterNonAPI("trig:MilledAll")
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -103,7 +104,7 @@ func TestKnowledgePoolImprintedDepartureLKI(t *testing.T) {
 	// Direct matcher route with the REAL printed trigger: the departure is
 	// judged against the pre-move candidate, so the imprinted Bear leaving
 	// exile matches.
-	if !e.zoneChangeMatches(*trigger, pool, ev, &lki) {
+	if !trigmatch.ZoneChangeMatches(boardOf(e), *trigger, pool, ev, &lki) {
 		t.Fatal("Knowledge Pool's printed ChangesZone Card.IsImprinted trigger did not match an imprinted card leaving exile")
 	}
 
@@ -134,7 +135,7 @@ func TestKnowledgePoolImprintedDepartureLKI(t *testing.T) {
 		t.Fatalf("bystander departure queued %d triggers, want 0", got)
 	}
 	// Belt and braces on the matcher too.
-	if e.zoneChangeMatches(*trigger, pool, evB, &lkiB) {
+	if trigmatch.ZoneChangeMatches(boardOf(e), *trigger, pool, evB, &lkiB) {
 		t.Error("the matcher matched a bystander that was never imprinted")
 	}
 
@@ -158,7 +159,7 @@ func TestKnowledgePoolImprintedDepartureLKI(t *testing.T) {
 	if liveE := e.G.Obj(entering.ID); liveE == nil || liveE.Zone != state.ZBattlefield || liveE.Zone == entryLKI.Zone {
 		t.Fatalf("precondition: the entering card must be on the battlefield with an exile LKI that differs")
 	}
-	if !e.zoneChangeMatches(entryTrigger, pool, evEnt, &entryLKI) {
+	if !trigmatch.ZoneChangeMatches(boardOf(e), entryTrigger, pool, evEnt, &entryLKI) {
 		t.Error("an entering-zone Permanent.YouCtrl predicate must match the LIVE entered object, not the exile LKI")
 	}
 }

@@ -204,6 +204,16 @@ func TestDependencyOrderHolds(t *testing.T) {
 		{module + "/rules/combat", module + "/rules/trigmatch"},
 		{module + "/rules/combat", module + "/rules/resolve"},
 		{module + "/rules/combat", module + "/botpolicy"},
+		// rules/trigmatch (W5 E3) is an L5 subsystem package: the trigger
+		// matchers read the engine through trigmatch.Board, never through
+		// *rules.Engine, so it may not reach rules, its sibling L5 packages
+		// (pay, combat) or the L6 resolution kernel. It may sit on rules/chars
+		// (L4) and rules/cost (L2). TestTrigmatchImportsStayBelowL5 pins its
+		// direct import set.
+		{module + "/rules/trigmatch", module + "/rules"},
+		{module + "/rules/trigmatch", module + "/rules/pay"},
+		{module + "/rules/trigmatch", module + "/rules/combat"},
+		{module + "/rules/trigmatch", module + "/rules/resolve"},
 	}
 	for path, p := range pkgs {
 		if strings.HasPrefix(path, module+"/bots") {

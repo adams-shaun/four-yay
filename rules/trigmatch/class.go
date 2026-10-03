@@ -5,7 +5,7 @@
 // colliding on one file. Registration is at the bottom; a duplicate mode
 // panics (registerTrigMatcher).
 
-package rules
+package trigmatch
 
 import (
 	"strconv"
@@ -27,18 +27,18 @@ import (
 // level already reached does not re-fire). ValidCard$/ValidPlayer$ ride the
 // shared eventCardAndPlayerMatch, and TriggerZones$ is the shared zoneGate the
 // matcher dispatch already ran.
-func (e *Engine) classLevelGainedMatches(t cards.Trigger, source state.ObjID, ev events.Event, lki *state.Object) bool {
+func classLevelGainedMatches(e Board, t cards.Trigger, source state.ObjID, ev events.Event, lki *state.Object) bool {
 	if ev.Kind != events.CounterChange || ev.Amount <= 0 {
 		return false
 	}
 	if !strings.EqualFold(ev.Counter, "LEVEL") {
 		return false
 	}
-	o := e.G.Obj(ev.Obj)
+	o := e.Game().Obj(ev.Obj)
 	if o == nil {
 		return false
 	}
-	if !e.eventCardAndPlayerMatch(t, source, ev.Obj, o.Controller) {
+	if !eventCardAndPlayerMatch(e, t, source, ev.Obj, o.Controller) {
 		return false
 	}
 	if raw := strings.TrimSpace(t.Params["ClassLevel"]); raw != "" {
@@ -59,5 +59,5 @@ func (e *Engine) classLevelGainedMatches(t cards.Trigger, source state.ObjID, ev
 }
 
 func init() {
-	registerTrigMatcher((*Engine).classLevelGainedMatches, "ClassLevelGained")
+	registerTrigMatcher(classLevelGainedMatches, "ClassLevelGained")
 }

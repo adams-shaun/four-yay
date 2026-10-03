@@ -25,6 +25,7 @@ import (
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
+	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -99,7 +100,7 @@ func targetOptionIdx(t *testing.T, e *Engine, obj state.ObjID) int {
 // coverage census can stop counting it a gap.
 func TestBecomesTargetOnceIsRegistered(t *testing.T) {
 	t.Parallel()
-	if trigMatchers["BecomesTargetOnce"] == nil {
+	if trigmatch.Lookup("BecomesTargetOnce") == nil {
 		t.Fatal("Mode$ BecomesTargetOnce has no registered matcher")
 	}
 	if !effects.Supported()["trig:BecomesTargetOnce"] {

@@ -19,7 +19,10 @@ const (
 	// effects/ spanning more than 300 lines.
 	maxFuncLinesOver300 = 54
 	// engineMethodCount is the number of non-test methods on rules.Engine.
-	engineMethodCount = 2123
+	// W5 E5 moved combat legality onto rules/combat's Board (2159 -> 2126)
+	// and W5 E3 the trigger matchers onto rules/trigmatch's: -> 2022. W5 E4
+	// moved the layer walk onto rules/chars: -> 2019.
+	engineMethodCount = 2019
 	// hostMethodCount is the number of methods in the effects.Host interface
 	// (its whole method set, roles included). W1d replaced ObjectText,
 	// ObjectKeywords and BasePower with the one Chars query: 96 -> 94.
@@ -47,8 +50,9 @@ const (
 	// stringParamReads is the number of <x>Params["literal"] index
 	// expressions in rules/ and effects/ non-test files. W4 slice 3 (194
 	// ParamKeys, the 256-key mask) moved 488 reads onto the typed accessors:
-	// 1302 -> 814.
-	stringParamReads = 805
+	// 1302 -> 814. The same rewrite over rules/trigmatch's moved matchers
+	// (W5 E3, ValidSA/Static): 805 -> 798.
+	stringParamReads = 798
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
 	stringCaseLiterals = 2886
@@ -60,6 +64,14 @@ const (
 	ctxLiterals            = 0
 	specContextLiterals    = 0
 	triggerContextLiterals = 14
+	// trigmatchBoardMethods is the method count of trigmatch.Board, the
+	// read-only view rules/trigmatch's matchers read the engine through (W5
+	// E3). It replaced 21 distinct *Engine methods, 15 Engine fields and
+	// pendingCast that the matcher closure reached directly. The move folded
+	// SpecCtx/MatchesSpec/MatchesSpecFrom into MatchesSpec/MatchesObject with
+	// SpecOpts (a SpecContext's Resolve closure must not cross the
+	// interface): 29 -> 28.
+	trigmatchBoardMethods = 28
 )
 
 func measureRepo(t *testing.T) Metrics {
@@ -105,6 +117,10 @@ func checkRatchets(t *testing.T, rs []ratchet) {
 
 func TestCodeShapeOnlyShrinks(t *testing.T) {
 	m := measureRepo(t)
+	if m.TrigmatchBoardMethods == 0 {
+		t.Error("trigmatch.Board measured no methods: rules/trigmatch/board.go's `type Board interface` " +
+			"moved or was renamed; update codeshape.Measure so the ratchet cannot read zero")
+	}
 	checkRatchets(t, []ratchet{
 		{"maxFuncLinesOver300", m.FuncsOver300, maxFuncLinesOver300,
 			"A function over 300 lines is a concern without a seam: extract the concern " +
@@ -154,6 +170,11 @@ func TestCodeShapeOnlyShrinks(t *testing.T) {
 			"Build a SpecContext with effects.NewSpecContext, derive it from a resolving " +
 				"Ctx with (*Ctx).SpecContext / (*Ctx).TableSpecContext, or bind rules' layer " +
 				"tables through Engine.withNames / specCtxSVars."},
+		{"trigmatchBoardMethods", m.TrigmatchBoardMethods, trigmatchBoardMethods,
+			"trigmatch.Board is the trigger matchers' whole view of the engine; derive a " +
+				"new fact from an existing method (Chars carries every characteristic, Facts " +
+				"every per-emit trigger context value) or pass it precomputed, instead of " +
+				"adding a method."},
 		{"triggerContextLiterals", m.TriggerContextLiterals, triggerContextLiterals,
 			"Derive trigger referents from the firing event (rules' triggerReferents) or " +
 				"copy an existing TriggerContext and set the fields that differ; a " +

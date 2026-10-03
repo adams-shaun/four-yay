@@ -16,6 +16,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -269,7 +270,7 @@ func (e *Engine) triggerConditionHoldsWithSVars(t cards.Trigger, source state.Ob
 		// documents (an unreadable condition must never let a trigger slip
 		// through).
 		if tc != nil {
-			if !tc.DefendingPlayer.IsPlayer || !e.playerHasMostLife(tc.DefendingPlayer.Player) {
+			if !tc.DefendingPlayer.IsPlayer || !trigmatch.PlayerHasMostLife(boardOf(e), tc.DefendingPlayer.Player) {
 				return false
 			}
 		}
@@ -510,18 +511,6 @@ func (e *Engine) countPresentCtx(spec string, source state.ObjID, you state.Play
 	return n
 }
 
-// compareLife compares a life total against a Forge comparison literal such as
-// GE40, EQ0, LE3. Any shape this build cannot fold (a non-numeric rhs, a
-// missing operator) is false, so an unreadable condition never fires a
-// trigger.
-func compareLife(have int32, cmp string) bool {
-	op, n, ok := splitCompare(strings.TrimSpace(cmp))
-	if !ok {
-		return false
-	}
-	return applyCompare(int(have), op, n)
-}
-
 // presentCompareFor folds a PresentCompare$ whose right-hand side names an
 // SVar (Zealots en-Dal's and Mob Mentality's EQX, X a Count$Valid over the
 // same set -- "if ALL nonland permanents you control are white") into the
@@ -551,50 +540,6 @@ func (e *Engine) presentCompareFor(cmp string, source state.ObjID, you state.Pla
 		return cmp
 	}
 	return cmp[:2] + strconv.Itoa(int(v))
-}
-
-// comparePresent compares a present-count against the same comparison literal
-// grammar. A non-numeric rhs (PresentCompare$ EQX) fails closed; callers
-// that hold a source fold an SVar rhs first (presentCompareFor).
-func comparePresent(have int, cmp string) bool {
-	op, n, ok := splitCompare(strings.TrimSpace(cmp))
-	if !ok {
-		return false
-	}
-	return applyCompare(have, op, n)
-}
-
-// splitCompare separates a Forge comparison literal ("GE40", "EQ0") into its
-// two-character operator and its numeric rhs. ok is false for anything that is
-// not a recognised operator followed by an integer.
-func splitCompare(cmp string) (op string, n int, ok bool) {
-	if len(cmp) < 3 {
-		return "", 0, false
-	}
-	op = cmp[:2]
-	num, err := strconv.Atoi(cmp[2:])
-	if err != nil {
-		return "", 0, false
-	}
-	return op, num, true
-}
-
-func applyCompare(have int, op string, n int) bool {
-	switch op {
-	case "GE":
-		return have >= n
-	case "LE":
-		return have <= n
-	case "EQ":
-		return have == n
-	case "GT":
-		return have > n
-	case "LT":
-		return have < n
-	case "NE":
-		return have != n
-	}
-	return false
 }
 
 // stateTriggerOutstanding reports whether a state trigger (Mode$ Always)

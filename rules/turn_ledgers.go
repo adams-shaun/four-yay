@@ -7,6 +7,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/trigmatch"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -74,7 +75,7 @@ func (e *Engine) recordTurnLedgers(stored events.Event, abilityMintWant state.Ob
 		}
 	}
 	actor := e.controllerOf(stored.Obj)
-	if actor >= 0 && actor < 64 && e.targetEventCommitsCrime(stored, actor) {
+	if actor >= 0 && actor < 64 && trigmatch.TargetEventCommitsCrime(boardOf(e), stored, actor) {
 		e.crimeSeatsThisTurn |= 1 << uint(actor)
 	}
 }

@@ -617,6 +617,14 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 			c.castSubTargets[id] = cm
 		}
 	}
+	if e.resolutionTargets != nil {
+		c.resolutionTargets = make(resolutionTargetMap, len(e.resolutionTargets))
+		for id, set := range e.resolutionTargets {
+			set.flat = append([]state.Target(nil), set.flat...)
+			set.modes = cloneCharmTargetGroups(set.modes)
+			c.resolutionTargets[id] = set
+		}
+	}
 	if e.copyTargetStage != nil {
 		c.copyTargetStage = make(map[state.ObjID]int, len(e.copyTargetStage))
 		for id, stage := range e.copyTargetStage {

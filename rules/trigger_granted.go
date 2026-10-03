@@ -1012,16 +1012,6 @@ func grantedTriggerFace(o *state.Object, execute string) *cards.Face {
 	return nil
 }
 
-// triggerCastAlt is one surviving ValidCard$ alternative of a Mode$
-// SpellCast trigger after the trigger-side self-cast exclusion was applied:
-// spec is the token-stripped filter text, exclSelf whether the alternative
-// carried the bare !CastSaSource token — its ActivatorThisTurnCastEach$
-// tally must also skip the trigger source's own printed-name casts.
-type triggerCastAlt struct {
-	spec     string
-	exclSelf bool
-}
-
 // checkGrantedCumulativeUpkeepTriggers synthesizes the beginning-of-upkeep
 // cumulative-upkeep trigger (CR 702.24a) for a permanent that currently HAS
 // the keyword but does not PRINT it: a layer-6 AddKeyword$ Cumulative
