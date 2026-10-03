@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -133,6 +134,7 @@ func TestHostedPoliciesReplayDeterministically(t *testing.T) {
 		policy  string
 		autoPay bool
 	}
+	var mu sync.Mutex
 	results := make(map[string]runResult, 8)
 	for _, tc := range []policyCase{
 		{name: "default", policy: ""},
@@ -167,10 +169,14 @@ func TestHostedPoliciesReplayDeterministically(t *testing.T) {
 					t.Fatalf("%q auto-pay run has no planned DecisionMade event", tc.name)
 				}
 			}
+			mu.Lock()
 			results[tc.name] = a
+			mu.Unlock()
 		})
 	}
 	t.Cleanup(func() {
+		mu.Lock()
+		defer mu.Unlock()
 		defaultRun, explicitBot := results["default"], results[BotPolicy]
 		if !reflect.DeepEqual(defaultRun.log.Events, explicitBot.log.Events) || !reflect.DeepEqual(defaultRun.log.Intents, explicitBot.log.Intents) || defaultRun.info.Head != explicitBot.info.Head || defaultRun.info.Result != explicitBot.info.Result || !reflect.DeepEqual(defaultRun.info.Winner, explicitBot.info.Winner) {
 			t.Fatalf("omitted policy and explicit %q differ: %+v vs %+v", BotPolicy, defaultRun.info, explicitBot.info)
