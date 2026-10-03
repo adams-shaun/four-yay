@@ -1063,7 +1063,9 @@ def validated_set(repo: Path) -> tuple[int, int, int]:
                         if n:
                             names.add(str(n))
     gaps = _table_entries(repo / "rules" / "acceptance_test.go", "knownUnsupported")
-    pgaps = _table_entries(repo / "rules" / "paramcensus_test.go", "knownUnsupportedParams")
+    # The param ratchet is one file per card since W2 (rules/testdata/paramcensus).
+    pdir = repo / "rules" / "testdata" / "paramcensus"
+    pgaps = len(list(pdir.glob("*.json"))) if pdir.is_dir() else 0
     return len(names), gaps, pgaps
 
 
@@ -1364,10 +1366,9 @@ def selftest() -> int:
             '\t"NorThisOne": "y",\n'
             "}\n"
         )
-        (repo / "rules" / "paramcensus_test.go").write_text(
-            "var knownUnsupportedParams = map[string][]string{\n"
-            '\t"Foo": {"param:Whatever"},\n'
-            "}\n"
+        (repo / "rules" / "testdata" / "paramcensus").mkdir(parents=True)
+        (repo / "rules" / "testdata" / "paramcensus" / "foo.json").write_text(
+            json.dumps({"card": "Foo", "labels": ["param:Whatever"]})
         )
         total, gaps, pgaps = validated_set(repo)
         check("the denominator counts DISTINCT deck cards", total == 5, (total, gaps, pgaps))
