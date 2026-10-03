@@ -110,13 +110,14 @@ func (e *Engine) derivedColorTable() []effects.ObjectColors {
 	return buf
 }
 
-// specReadsColors reports whether a filter spec can name a colour predicate,
+// computeSpecReadsColors reports whether a filter spec can name a colour predicate,
 // textually and as a superset: every colour word of the grammar -- the five
 // colour names (and their non<X> negations), Colorless, MultiColor,
 // MonoColor, ChosenColor, SharesColorWith, Worthy -- contains one of these
 // capitalised fragments. A spec containing none never reads a colour, so
-// binding the table for it would be dead work.
-func specReadsColors(spec string) bool {
+// binding the table for it would be dead work. matchesSpec asks it through
+// the cached front (specderived.go's specBindFacts).
+func computeSpecReadsColors(spec string) bool {
 	return strings.Contains(spec, "Color") || strings.Contains(spec, "Black") || strings.Contains(spec, "White") ||
 		strings.Contains(spec, "Blue") || strings.Contains(spec, "Red") || strings.Contains(spec, "Green") ||
 		strings.Contains(spec, "Worthy")
