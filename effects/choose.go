@@ -53,7 +53,14 @@ func effChooseEvenOdd(h Host, c *Ctx, sa *cards.SA) {
 	d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: 1, Max: 1,
 		ResumeKind: "chooseevenodd", ResumeSA: sa, Prompt: "Choose odd or even", Source: c.Source,
 		Options: []decision.Option{{Index: 0, Kind: "odd", Label: "odd"}, {Index: 1, Kind: "even", Label: "even"}}}
-	if Ask(h, d) == AskAsked {
+	if ans, ok := AskTape(h, d); ok {
+		// The resolution kernel's answer in hand: the Choose event the
+		// "chooseevenodd" resume arm's re-entry emits.
+		if len(ans) > 0 && (ans[0].Label == "odd" || ans[0].Label == "even") {
+			h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "type", Text: ans[0].Label})
+			return
+		}
+	} else if Ask(h, d) == AskAsked {
 		return
 	}
 	h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "type", Text: "odd"})
@@ -345,6 +352,17 @@ func effChooseNumber(h Host, c *Ctx, sa *cards.SA) {
 		d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Min: 1, Max: 1,
 			ResumeKind: "choosenumber", ResumeSA: sa, Prompt: prompt, Source: c.Source}
 		d.Options = opts
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand: the Choose event the
+			// "choosenumber" resume arm's re-entry emits (a malformed empty
+			// answer keeps the arm's 0).
+			n := int32(0)
+			if len(ans) > 0 {
+				n = int32(ans[0].Amount)
+			}
+			h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "number", Amount: n})
+			return
+		}
 		if Ask(h, d) == AskAsked {
 			return
 		}
@@ -388,7 +406,8 @@ func effChooseNumber(h Host, c *Ctx, sa *cards.SA) {
 // body is one loud Note and no branch, never a silent nothing.
 func effChooseNumberElection(h Host, c *Ctx, sa *cards.SA, matched, unmatched string, secretly bool) {
 	choosers, ok := repeatPlayers(h, c, strings.TrimSpace(sa.ParamStr(cards.PKDefined)))
-	if !ok || len(choosers) == 0 {
+	degraded := !ok || len(choosers) == 0
+	if degraded {
 		// The Defined$ selector is one this build cannot resolve to players;
 		// fall back to the resolving controller alone rather than guessing a
 		// second seat. A Note records the degrade.
@@ -422,6 +441,23 @@ func effChooseNumberElection(h Host, c *Ctx, sa *cards.SA, matched, unmatched st
 			ResumeNumberPicks: append([]int32(nil), picks...),
 			Prompt:            prompt, Source: c.Source}
 		d.Options = opts
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand: the pick the
+			// "choosenumbermulti" arm carries (a malformed empty answer keeps
+			// its 0), then the next chooser. The legacy re-entry re-runs the
+			// election from its first line, so its Defined$ degrade Note is
+			// emitted again before every answered chooser; so here.
+			pick := int32(0)
+			if len(ans) > 0 {
+				pick = int32(ans[0].Amount)
+			}
+			picks = append(picks, pick)
+			if degraded {
+				h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+					Text: "ChooseNumber election could not resolve Defined$ " + strings.TrimSpace(sa.ParamStr(cards.PKDefined)) + "; asking the controller"})
+			}
+			continue
+		}
 		if Ask(h, d) == AskAsked {
 			return
 		}
@@ -543,8 +579,17 @@ func effChooseType(h Host, c *Ctx, sa *cards.SA) {
 	for _, label := range labels {
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "type", Label: label})
 	}
-	if len(d.Options) > 1 && Ask(h, d) == AskAsked {
-		return
+	if len(d.Options) > 1 {
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand: the Choose event the
+			// "choosetype" resume arm's re-entry emits.
+			if len(ans) > 0 && ans[0].Label != "" {
+				h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "type", Text: ans[0].Label})
+				return
+			}
+		} else if Ask(h, d) == AskAsked {
+			return
+		}
 	}
 	// The no-ask fallback. A category with an option list records that list's
 	// deterministic first entry; a category whose list is empty (an

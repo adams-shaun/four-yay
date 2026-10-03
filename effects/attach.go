@@ -20,6 +20,18 @@ func init() {
 	RegisterNonAPI("kw:Equip", "kw:Enchant", "kw:Living Weapon", "kw:For Mirrodin", "kw:Job select", "kw:Reconfigure", "kw:Fortify")
 }
 
+// attachChoiceIDs is the "attach_choice" answer's id list: every chosen
+// option naming an object.
+func attachChoiceIDs(chosen []decision.Option) []state.ObjID {
+	out := make([]state.ObjID, 0, len(chosen))
+	for _, o := range chosen {
+		if o.Obj != 0 {
+			out = append(out, o.Obj)
+		}
+	}
+	return out
+}
+
 // emitAttach publishes "obj becomes attached to bearer" as events.Attach,
 // first publishing events.Unattached when obj was already attached to a
 // DIFFERENT permanent. CR 701.3b makes "becomes unattached" a real event
@@ -365,6 +377,26 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 		for i, p := range pool {
 			d.Options = append(d.Options, decision.Option{Index: i, Kind: "player", Player: p})
 		}
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand: what the
+			// "attach_player_choice" re-entry does -- it re-runs effAttach
+			// from its first line (so the unread-parameter Note again), then
+			// attaches to the answered seat if the live pool still holds it.
+			noteUnreadParams(h, c, "Attach", ap.Unread)
+			for _, o := range ans {
+				if o.Kind != "player" {
+					continue
+				}
+				for _, p := range pool {
+					if p == o.Player {
+						emitPlayerAttach(h, c, ap, obj, p)
+						return
+					}
+				}
+				break
+			}
+			return
+		}
 		_ = Ask(h, d)
 		return
 	}
@@ -547,6 +579,17 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 			for i, t := range dest {
 				d.Options = append(d.Options, decision.Option{Index: i, Kind: "card", Obj: t, Player: c.Controller})
 			}
+			if ans, ok := AskTape(h, d); ok {
+				// The resolution kernel's answer in hand: the
+				// "attach_choice" re-entry (after its unread-parameter Note):
+				// a decline attaches nothing; a DESTINATION still legal for
+				// an object gets them all.
+				noteUnreadParams(h, c, "Attach", ap.Unread)
+				if picked := attachChoiceIDs(ans); len(picked) > 0 && attachableBy(picked[0]) {
+					attachAll(picked[0])
+				}
+				return
+			}
 			_ = Ask(h, d)
 			return
 		}
@@ -629,6 +672,23 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 		for i, t := range pool {
 			d.Options = append(d.Options, decision.Option{Index: i, Kind: "card", Obj: t.Obj, Player: c.Controller})
 		}
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand: the "attach_choice"
+			// re-entry (after its unread-parameter Note): a decline
+			// attaches nothing; the answered OBJECT goes to the first
+			// destination of the list the ask carried.
+			noteUnreadParams(h, c, "Attach", ap.Unread)
+			picked := attachChoiceIDs(ans)
+			if len(picked) == 0 {
+				return
+			}
+			if len(legal) == 0 {
+				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "cannot attach: no legal target"})
+				return
+			}
+			attachTo(picked[0], legal[0])
+			return
+		}
 		_ = Ask(h, d)
 		return
 	}
@@ -686,6 +746,16 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 					{Index: 0, Kind: "yes", Label: "Yes — attach", Player: c.Controller},
 					{Index: 1, Kind: "no", Label: "No", Player: c.Controller},
 				}}
+			if ans, ok := AskTape(h, d); ok {
+				// The resolution kernel's answer in hand: the
+				// "attach_optional" re-entry (after its unread-parameter
+				// Note) attaches on a yes and declines otherwise.
+				noteUnreadParams(h, c, "Attach", ap.Unread)
+				if len(ans) == 0 || ans[0].Kind != "yes" {
+					return
+				}
+				break
+			}
 			// AskAsked suspends; the answer re-enters with Ctx.AttachOpt set.
 			// AskNoHost is the deterministic decline stand-in (R-9) — the
 			// same class the search_mayshuffle confirm falls back to (the

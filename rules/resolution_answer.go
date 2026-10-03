@@ -631,14 +631,7 @@ func (e *Engine) resumeAnswerBinding(rp *resumePoint, o *state.Object, ctx *effe
 		// ChooseCard, ChoosePlayer and ChangeTargets all use KChoose. Keep
 		// the concrete target shape rather than just an ObjID because player
 		// zero is a real target too.
-		ctx.Choice = make([]state.Target, 0, len(chosen))
-		for _, o := range chosen {
-			if o.Kind == "player" {
-				ctx.Choice = append(ctx.Choice, state.Target{Player: o.Player, IsPlayer: true})
-			} else if o.Obj != 0 {
-				ctx.Choice = append(ctx.Choice, state.Target{Obj: o.Obj})
-			}
-		}
+		ctx.Choice = effects.ChoiceAnswerTargets(chosen)
 		ctx.ChoiceDone = true
 	case "vote":
 		// api:Vote's PLAYER ballot (task votepb1): the answer to one

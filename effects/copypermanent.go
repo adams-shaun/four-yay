@@ -90,9 +90,15 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	// and controllers are the first pass's (frozen in the rest), and the
 	// first pass's one-per-call Notes are not repeated.
 	rest := resumingMint(c, sa)
+	// preNotes keeps the Notes emitted before the Choices$ ask: the legacy
+	// "copypermanent_choice" re-entry re-runs this walk from its first line
+	// and so emits them again, which the resolution kernel's tape branch
+	// reproduces.
+	var preNotes []events.Event
 	emitNote := func(ev events.Event) {
 		if rest == nil {
 			h.Emit(ev)
+			preNotes = append(preNotes, ev)
 		}
 	}
 
@@ -397,7 +403,8 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	}
 	var attacking bool
 	var defender state.PlayerID
-	if attack := strings.TrimSpace(sa.Params["TokenAttacking"]); attack != "" {
+	attack := strings.TrimSpace(sa.Params["TokenAttacking"])
+	if attack != "" {
 		attacking, defender = tokenAttackingRider(h, c, attack, "copy")
 	}
 
@@ -476,6 +483,23 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 		}
 		if len(d.Options) == 0 {
 			return
+		}
+		if attack == "" {
+			// (A TokenAttacking$ rider emits its own Notes before the ask,
+			// outside preNotes, so that shape stays on the legacy path.)
+			if ans, ok := AskTape(h, d); ok {
+				// The resolution kernel's answer in hand: the
+				// "copypermanent_choice" re-entry, after the Notes its re-run
+				// emits again; a zero pick copies nothing.
+				for _, ev := range preNotes {
+					h.Emit(ev)
+				}
+				if len(ans) == 0 || ans[0].Obj == 0 {
+					return
+				}
+				targets = []state.Target{{Obj: ans[0].Obj}}
+				break
+			}
 		}
 		outcome := Ask(h, d)
 		if outcome == AskAsked {
