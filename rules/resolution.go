@@ -237,7 +237,12 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 		chainRoot = f.SpellAbility()
 		e.recheckCastSubTargets(rp.obj, chainRoot, o.Controller, rp.obj)
 	}
-	ctx := effects.NewCtxPtr(rp.obj, o.Controller, effects.CtxInit{Targets: o.Targets, EffectFrame: rp.effectFrame})
+	// The list resolveTop resolved this object against (the overload census,
+	// the CR 608.2b-filtered set), not the raw recorded Targets: a per-target
+	// cursor carried across the ask indexes that list (rules/
+	// resolution_targets.go).
+	targets := e.resolutionTargets.flatFor(rp.obj, o.Targets)
+	ctx := effects.NewCtxPtr(rp.obj, o.Controller, effects.CtxInit{Targets: targets, EffectFrame: rp.effectFrame})
 	ctx.NameChoice, ctx.ChosenDirection = rp.name, rp.chosenDirection
 	// Forge's Count$ResolvedThisTurn: a chain that suspended at a
 	// mid-resolution ask and so re-enters HERE instead of through
@@ -258,8 +263,8 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 	// ModeTargets carries the per-mode groups instead: the two bindings
 	// are disjoint by construction, never competing for one chain.
 	ctx.SubPreAsk = e.castSubTargets[rp.obj]
-	ctx.AllTargets = e.chainTargetUnion(rp.obj, chainRoot, o.Targets)
-	ctx.ModeTargets = cloneCharmTargetGroups(e.charmTargets[rp.obj])
+	ctx.AllTargets = e.chainTargetUnion(rp.obj, chainRoot, targets)
+	ctx.ModeTargets = e.resolutionTargets.modesFor(rp.obj, e.charmTargets[rp.obj])
 	ctx.Chosen, ctx.ChosenValid = append([]state.Target(nil), rp.choices...), rp.chosenValid
 	ctx.DigUntilMove, ctx.DigUntilMoveDone = rp.digUntilMove, rp.digUntilMoveDone
 	ctx.ClonePick, ctx.ClonePickDone = rp.clonePick, rp.clonePickDone

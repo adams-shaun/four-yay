@@ -140,6 +140,7 @@ func (e *Engine) resolveTop() {
 			e.ensureLeftTheStack(id, state.ZExile, "all cast-time sub targets became illegal")
 			return
 		}
+		e.resolutionTargets.record(id, o.Targets, targets, e.charmTargets[id], charmModeTargets, charmHandled)
 		// CR 608.2m: a resolved ability just ceases to exist rather than
 		// moving to a card zone. This build has no "ceases to exist" zone,
 		// so it is parked in exile as the closest existing approximation.
@@ -642,6 +643,7 @@ func (e *Engine) resolveTop() {
 		e.ensureLeftTheStack(id, rest, "all cast-time sub targets became illegal")
 		return
 	}
+	e.resolutionTargets.record(id, o.Targets, targets, e.charmTargets[id], charmModeTargets, charmHandled)
 	e.emit(events.Event{Kind: events.Resolve, Obj: id, Text: f.Name})
 	// Ascend (CR 702.131a, the non-permanent case): an instant/sorcery with
 	// K:Ascend grants its controller the blessing BEFORE the spell's own

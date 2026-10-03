@@ -547,6 +547,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		delete(e.copyTargetStage, ev.Obj)
 		delete(e.copyAnswerTargets, ev.Obj)
 		delete(e.castSubTargets, ev.Obj)
+		delete(e.resolutionTargets, ev.Obj)
 		delete(e.tpCtlChooser, ev.Obj)
 		delete(e.charmTargets, ev.Obj)
 		delete(e.sourceLifelinkLKI, ev.Obj)
