@@ -158,7 +158,7 @@ var baseBuckets = map[string]bucket{
 	// alt.ma is payment-plan's one concrete mana-ability alternative.  It is
 	// a *cards.SA just like ma; the qualified name makes that type explicit
 	// to the census rather than allowing this planner read to evade it.
-	"alt.ma": bSA,
+	"alt.Ma": bSA,
 	// source.original is the attack window's choice-shaped mana source's
 	// compiled pile ability (attackManaSource.original, a *cards.SA like the
 	// bare "original" entry): the targeted-equip window probe (cast.go
