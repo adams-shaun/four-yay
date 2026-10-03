@@ -46,4 +46,14 @@ type engineTurnLedger struct {
 	activationsThisTurn []activationThisTurn
 	crimeSeatsThisTurn  uint64
 	bendSeatsThisTurn   [64]uint8
+	// noncombatDamagedSeats / noncombatDamagedSeatsLast are the seats dealt
+	// NONCOMBAT damage this turn and during the previous turn (bit p = seat
+	// p): the Forge player properties wasDealtNonCombatDamageThisTurn /
+	// LastTurn. The event log cannot answer them after the fact -- a Damage
+	// event carries no combat flag (combatDamaging is engine scratch) -- so,
+	// like combatHitsThisTurn, they are NO-EVENT state recordTurnLedgers
+	// folds from each landed player Damage event, re-derived by every
+	// rebuild; emit rotates this turn's set into last turn's on TurnChange.
+	noncombatDamagedSeats     uint64
+	noncombatDamagedSeatsLast uint64
 }

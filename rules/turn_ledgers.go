@@ -44,6 +44,13 @@ func cloneActivationsThisTurn(in []activationThisTurn) []activationThisTurn {
 // abilityMintWant is the object id an activation push was about to mint
 // (zero for any other event).
 func (e *Engine) recordTurnLedgers(stored events.Event, abilityMintWant state.ObjID) {
+	// CR 120 / 510: a landed player Damage event (Obj zero names a seat; a
+	// prevented hit is a Note and never reaches here) outside a combat
+	// damage assignment is noncombat damage.
+	if stored.Kind == events.Damage && stored.Obj == 0 && stored.Amount > 0 && !e.combatDamaging &&
+		stored.Player >= 0 && stored.Player < 64 {
+		e.noncombatDamagedSeats |= 1 << uint(stored.Player)
+	}
 	if stored.Kind == events.ElementalBend && stored.Player >= 0 && stored.Player < 64 {
 		bit := map[string]uint8{"water": 1, "earth": 2, "fire": 4, "air": 8}[strings.ToLower(stored.Text)]
 		e.bendSeatsThisTurn[stored.Player] |= bit
@@ -226,4 +233,18 @@ func (e *Engine) activationMatches(alt string, source state.ObjID, activator sta
 		}
 	}
 	return true, true
+}
+
+// WasDealtNoncombatDamageThisTurn satisfies effects.Host's method of the same
+// name: Forge's wasDealtNonCombatDamageThisTurn player property (Grim
+// Repriser's activation gate, Whiplash Wordsmith's flying and haste).
+func (e *Engine) WasDealtNoncombatDamageThisTurn(p state.PlayerID) bool {
+	return p >= 0 && p < 64 && e.noncombatDamagedSeats&(1<<uint(p)) != 0
+}
+
+// WasDealtNoncombatDamageLastTurn satisfies effects.Host's method of the same
+// name: Forge's wasDealtNonCombatDamageLastTurn (Command the Stage's upkeep
+// return) -- the previous turn's set, rotated in at TurnChange.
+func (e *Engine) WasDealtNoncombatDamageLastTurn(p state.PlayerID) bool {
+	return p >= 0 && p < 64 && e.noncombatDamagedSeatsLast&(1<<uint(p)) != 0
 }
