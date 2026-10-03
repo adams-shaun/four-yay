@@ -21,8 +21,7 @@ import (
 //
 // The machinery CopyPermanent shares with api:Token -- TokenRemembered$
 // (tokenRememberedTargets) and the TokenAttacking$ rider's defender pick --
-// still reads its own keys in token.go; the Defined$ resolver and the
-// targeting tier are the next tier.
+// lives in token.go and takes each compiler's compiled value.
 
 // CopyPermanentParams is one CopyPermanent ability's parameters, compiled
 // once. Text fields are trimmed unless noted; ParamText fields keep the raw
@@ -86,6 +85,9 @@ type CopyPermanentParams struct {
 	ImprintTokens  bool
 	// AttachedTo is AttachedTo$.
 	AttachedTo string
+	// TokenRemembered is TokenRemembered$: the Defined$ group bound to each
+	// copy's memory (tokenRememberedTargets, shared with api:Token).
+	TokenRemembered string
 	// The named grants, raw comma lists over the source's SVar table.
 	AddTriggers        string
 	AddSVars           string
@@ -124,7 +126,7 @@ var copyPermanentKnownKeys = [...]string{
 	"NewController", "NonLegendary", "NumCopies", "NumDmg", "OpponentTurn",
 	"Pawprint", "Planeswalker", "PlayCost", "PlayerTurn", "Populate", "PowerUp",
 	"PrecostDesc", "PresentCompare", "PresentDefined", "PresentZone", "PumpDuration",
-	"PumpKeywords", "RandomCopied", "RandomNum", "ReduceAmount", "ReduceCost",
+	"PumpKeywords", "RandomCopied", "RandomNum", "RandomNumTargets", "ReduceAmount", "ReduceCost",
 	"RememberCostMana", "RememberObjects", "RememberTokens", "RemoveCardTypes",
 	"RemoveCreatureTypes", "RemoveKeywords", "RemoveSubTypes", "ReplaceColor",
 	"ReplaceGraveyard", "ReplaceGraveyardValid", "ReplaceMana", "ReplaceOnly",
@@ -132,7 +134,7 @@ var copyPermanentKnownKeys = [...]string{
 	"SetCreatureTypes", "SetPower", "SetToughness", "ShowCards", "SorcerySpeed",
 	"SpellDescription", "StackDescription", "SubAbility", "TargetMax", "TargetMin",
 	"TargetType", "TargetUnique", "TargetValidTargeting", "TargetingPlayer",
-	"TargetingPlayerControls", "TargetsForEachPlayer",
+	"TargetingPlayerControls", "TargetsAtRandom", "TargetsForEachPlayer",
 	"TargetsWithControllerProperty", "TargetsWithDefinedController",
 	"TargetsWithDifferentCMC", "TargetsWithDifferentControllers",
 	"TargetsWithDifferentNames", "TargetsWithEqualToughness",
@@ -266,6 +268,7 @@ func compileCopyPermanent(sa *cards.SA, dp *DefinedParams) *CopyPermanentParams 
 	p.RememberTokens = isTrue(sa.Params["RememberTokens"])
 	p.ImprintTokens = isTrue(sa.Params["ImprintTokens"])
 	p.AttachedTo = strings.TrimSpace(sa.ParamStr(cards.PKAttachedTo))
+	p.TokenRemembered = strings.TrimSpace(sa.Params["TokenRemembered"])
 	p.AddTriggers = sa.ParamStr(cards.PKAddTriggers)
 	p.AddSVars = sa.ParamStr(cards.PKAddSVars)
 	p.AddAbilities = sa.ParamStr(cards.PKAddAbilities)

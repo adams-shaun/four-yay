@@ -115,6 +115,14 @@ import (
 // be an SVar name or an inline expression, resolved the same way). No cmp
 // means "nonzero" (Forge's default truthiness read).
 func CheckSVarHolds(h Host, c *Ctx, check, cmp string) (holds, evaluated bool) {
+	return CheckSVarCompare(h, c, check, CompareOf(cmp))
+}
+
+// CheckSVarCompare is CheckSVarHolds over a compiled comparison (the
+// activation tier's SVarCompare$/ConditionSVarCompare$): the operator is
+// matched ignoring case and a literal threshold is the compiled number; a
+// non-literal threshold is resolved as an SVar name or inline expression.
+func CheckSVarCompare(h Host, c *Ctx, check string, cmp Compare) (holds, evaluated bool) {
 	check = strings.TrimSpace(check)
 	if check == "" {
 		return true, false
@@ -155,18 +163,16 @@ func CheckSVarHolds(h Host, c *Ctx, check, cmp string) (holds, evaluated bool) {
 		}
 		val = v
 	}
-	cmp = strings.TrimSpace(cmp)
-	if cmp == "" {
+	if cmp.Text == "" {
 		return val != 0, true
 	}
-	if len(cmp) < 3 {
+	if len(cmp.Text) < 3 {
 		return false, false
 	}
-	op, rhs := strings.ToUpper(cmp[:2]), cmp[2:]
 	var threshold int32
-	switch n, err := strconv.ParseInt(rhs, 10, 64); {
-	case err == nil:
-		threshold = int32(n)
+	switch rhs := cmp.Rhs(); {
+	case cmp.Lit:
+		threshold = int32(cmp.N)
 	case c.SVars != nil:
 		if b, found := c.SVars[rhs]; found {
 			threshold = EvalCount(h, c, b)
@@ -179,24 +185,13 @@ func CheckSVarHolds(h Host, c *Ctx, check, cmp string) (holds, evaluated bool) {
 	default:
 		return false, false
 	}
-	switch op {
-	case "EQ":
-		return val == threshold, true
-	case "GE":
-		return val >= threshold, true
-	case "GT":
-		return val > threshold, true
-	case "LE":
-		return val <= threshold, true
-	case "LT":
-		return val < threshold, true
-	case "NE":
-		// Forge's CompareOperator NE. Four corpus carriers (Spark Fiend's
-		// upkeep roll gate `CheckSVar$ Safe | SVarCompare$ NE0`); unread, the
-		// compare failed closed and the trigger never fired.
-		return val != threshold, true
+	if cmp.Fold == CmpNone {
+		return false, false
 	}
-	return false, false
+	// CmpNE is Forge's CompareOperator NE. Four corpus carriers (Spark
+	// Fiend's upkeep roll gate `CheckSVar$ Safe | SVarCompare$ NE0`); unread,
+	// the compare failed closed and the trigger never fired.
+	return cmp.Fold.Apply(int(val), int(threshold)), true
 }
 
 // conditionMet evaluates sa's Condition* gate against the resolving
@@ -219,10 +214,12 @@ func CheckSVarHolds(h Host, c *Ctx, check, cmp string) (holds, evaluated bool) {
 // phase-name parser state.ParsePhases and AND-ed with whatever group gate
 // the SA also carries.
 func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
-	defined := strings.TrimSpace(sa.ParamStr(cards.PKConditionDefined))
-	present := strings.TrimSpace(sa.Params["ConditionPresent"])
-	notPresent := strings.TrimSpace(sa.Params["ConditionNotPresent"])
-	compare := strings.TrimSpace(sa.ParamStr(cards.PKConditionCompare))
+	ap := ActivationOf(sa)
+	cp := &ap.Cond
+	defined := cp.Defined
+	present := cp.Present.Text
+	notPresent := cp.NotPresent
+	compare := cp.Compare.Text
 	// PresentDefined$/IsPresent$/PresentCompare$ are the DB-body spellings of
 	// the same defined-group presence gate ConditionDefined$/
 	// ConditionPresent$/ConditionCompare$ express. Normalize here so every
@@ -232,23 +229,21 @@ func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 	// DBTurnFaceUp are the only two `DB$ ... PresentDefined$` lines in the
 	// corpus, and both carry IsPresent$); a bare Present$ key does not exist
 	// in the corpus, so it is deliberately NOT read here.
-	presentDefined := strings.TrimSpace(sa.ParamStr(cards.PKPresentDefined))
-	presentCompare := strings.TrimSpace(sa.ParamStr(cards.PKPresentCompare))
-	if presentDefined != "" {
+	if ap.PresentDefined != "" {
 		if defined != "" || present != "" || compare != "" {
 			return false, false
 		}
-		defined = presentDefined
-		present = strings.TrimSpace(sa.ParamStr(cards.PKIsPresent))
-		compare = presentCompare
+		defined = ap.PresentDefined
+		present = ap.IsPresent.Text
+		compare = ap.PresentCompare.Text
 	}
-	check := strings.TrimSpace(sa.Params["ConditionCheckSVar"])
-	svarCmp := strings.TrimSpace(sa.Params["ConditionSVarCompare"])
-	bare := strings.TrimSpace(sa.ParamStr(cards.PKCondition))
-	playerTurn := strings.TrimSpace(sa.Params["ConditionPlayerTurn"])
-	phases := strings.TrimSpace(sa.Params["ConditionPhases"])
-	firstCombat := strings.TrimSpace(sa.Params["ConditionFirstCombat"])
-	activationLimit := strings.TrimSpace(sa.ParamStr(cards.PKConditionActivationLimit))
+	check := cp.CheckSVar
+	svarCmp := cp.SVarCompare.Text
+	bare := cp.Bare
+	playerTurn := cp.PlayerTurn
+	phases := cp.Phases
+	firstCombat := cp.FirstCombat
+	activationLimit := cp.ActivationLimit
 	if defined == "" && present == "" && notPresent == "" && compare == "" && check == "" && bare == "" &&
 		playerTurn == "" && phases == "" && firstCombat == "" && activationLimit == "" {
 		return true, false // not gated (a lone ConditionSVarCompare$ compares nothing)
@@ -277,17 +272,8 @@ func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 	// bridge the pre-merge build carried as rememberedSacrificeCondition:
 	// Braids's `Defined$ Player.IsRemembered` legs with a `Remembered$Valid`
 	// SVar body evaluate through the same shared gate.)
-	for k := range sa.Params {
-		if !strings.HasPrefix(k, "Condition") || k == "ConditionDescription" {
-			continue
-		}
-		switch k {
-		case "ConditionDefined", "ConditionPresent", "ConditionNotPresent", "ConditionCompare",
-			"ConditionCheckSVar", "ConditionSVarCompare", "Condition",
-			"ConditionPlayerTurn", "ConditionPhases", "ConditionFirstCombat", "ConditionActivationLimit":
-		default:
-			return false, false
-		}
+	if ap.Has(ActConditionOther) {
+		return false, false
 	}
 	// The player-turn / phase preconditions (ConditionPlayerTurn$ True|False,
 	// ConditionPhases$ <phase-list>): the Unbreakable Formation Addendum
@@ -316,11 +302,10 @@ func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 		}
 	}
 	if phases != "" {
-		set, unknown := state.ParsePhases(phases)
-		if len(unknown) > 0 || set == 0 {
+		if !cp.PhasesOK {
 			return false, false
 		}
-		if !set.Has(g.Step) {
+		if !cp.PhaseSet.Has(g.Step) {
 			extraMet = false
 		}
 	}
@@ -360,7 +345,7 @@ func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 			playerTurn != "" || phases != "" || firstCombat != "" {
 			return false, false
 		}
-		holds, evaluated := CheckSVarHolds(h, c, check, svarCmp)
+		holds, evaluated := CheckSVarCompare(h, c, check, cp.SVarCompare)
 		if !evaluated {
 			// The gate's count body is not one the evaluator models: fail
 			// OPEN, the same run-anyway the other unsupported Condition*

@@ -41,7 +41,7 @@ type ManaReflectedParams struct {
 	RestrictValid string
 	// Defined$, trimmed: the Produced shape's recipient role.
 	Defined string
-	// The activation gate: ClassBand$ as written, IsPresent$ as written
+	// The activation gate: ClassBand$ as written, IsPresent$ trimmed
 	// (blank = no gate) and PresentCompare$ trimmed.
 	ClassBand      string
 	IsPresent      string
@@ -72,7 +72,7 @@ func ManaReflectedOf(sa *cards.SA) *ManaReflectedParams {
 	if p := slot.Load(); p != nil && p.boundTo(sa.Params) {
 		return p
 	}
-	p := compileManaReflected(sa, DefinedOf(sa))
+	p := compileManaReflected(sa, DefinedOf(sa), ActivationOf(sa))
 	if sa.Params != nil {
 		slot.Store(p)
 	}
@@ -85,7 +85,7 @@ var manaReflectedFront [1 << 10]atomic.Pointer[ManaReflectedParams]
 
 // compileManaReflected is the one reader of a reflected-mana ability's own
 // parameters.
-func compileManaReflected(sa *cards.SA, dp *DefinedParams) *ManaReflectedParams {
+func compileManaReflected(sa *cards.SA, dp *DefinedParams, ap *ActivationParams) *ManaReflectedParams {
 	p := &ManaReflectedParams{paramBinding: bindParams(sa)}
 	p.ReflectProperty = strings.TrimSpace(sa.Params["ReflectProperty"])
 	p.WidenType = strings.TrimSpace(sa.Params["ColorOrType"]) == "Type"
@@ -96,10 +96,8 @@ func compileManaReflected(sa *cards.SA, dp *DefinedParams) *ManaReflectedParams 
 	p.RestrictValid = strings.TrimSpace(sa.ParamStr(cards.PKRestrictValid))
 	p.Defined = dp.Defined.Text
 	p.ClassBand = sa.ParamStr(cards.PKClassBand)
-	if spec, ok := sa.Param(cards.PKIsPresent); ok && strings.TrimSpace(spec) != "" {
-		p.IsPresent = spec
-	}
-	p.PresentCompare = strings.TrimSpace(sa.ParamStr(cards.PKPresentCompare))
+	p.IsPresent = ap.IsPresent.Text
+	p.PresentCompare = ap.PresentCompare.Text
 	if sa.API == "ManaReflected" {
 		p.Unread = unreadKeys(sa, manaReflectedKnownKeys[:])
 	}
@@ -116,36 +114,35 @@ func compileManaReflected(sa *cards.SA, dp *DefinedParams) *ManaReflectedParams 
 // structural keys.
 var manaReflectedKnownKeys = [...]string{
 	"AILifeThreshold", "AILogic", "AINoRecursiveCheck", "AIPhyrexianPayment", "AITgts",
-	"Activation", "ActivationAfterBlockers", "ActivationFirstCombat",
-	"ActivationGameTypes", "ActivationLimit", "ActivationPhases", "ActivationZone",
-	"Activator", "AddType", "AddTypes",
-	"AdditionalDesc", "AdditionalDescription", "Affected", "AlternateCost",
+	"Activation", "ActivationAfterBlockers", "ActivationFirstCombat", "ActivationGameTypes",
+	"ActivationLimit", "ActivationPhases", "ActivationZone", "Activator", "AddType",
+	"AddTypes", "AdditionalDesc", "AdditionalDescription", "Affected", "AlternateCost",
 	"AlternativeCost", "Amount", "Announce", "AnnounceTitle", "Boast", "ChangeTypeDesc",
 	"CharacteristicDefining", "CheckSVar", "ChoiceTitle", "ChoiceZone", "Choices",
 	"ChooseFromList", "ClassBand", "ClearImprinted", "ColorOrType", "Condition",
 	"ConditionActivationLimit", "ConditionCheckSVar", "ConditionCompare",
 	"ConditionDefined", "ConditionDescription", "ConditionFirstCombat",
 	"ConditionNotPresent", "ConditionPhases", "ConditionPlayerTurn", "ConditionPresent",
-	"ConditionSVarCompare", "CopyCard", "Cost", "CostDesc", "Defined", "DefinedCards", "DefinedTarget", "Description", "Exclude",
-	"Exhaust", "GameActivationLimit", "Image", "ImprintCards", "ImprintPlayed",
-	"InstantSpeed", "IsCurse", "IsPresent", "KW", "Keyword",
-	"KeywordLine", "MaxTotalTargetCMC", "MaxTotalTargetPower", "Mentor", "ModeCost",
-	"Monstrosity", "NewController", "NumDmg", "OpponentTurn", "Planeswalker", "PlayCost",
-	"PlayerTurn", "PowerUp", "PrecostDesc", "PresentCompare", "PresentDefined",
-	"Produced", "ReduceAmount", "ReduceCost", "ReflectProperty",
-	"RememberCostMana", "RememberObjects", "ReplaceColor", "ReplaceGraveyard",
-	"ReplaceGraveyardValid", "ReplaceMana", "ReplaceOnly", "ReplaceType", "RestrictValid",
-	"SVarCompare", "SelectPrompt", "SetChosenMode", "SetColor", "ShowCards",
-	"SorcerySpeed", "SpellDescription", "StackDescription", "SubAbility", "TargetMax", "TargetMin", "TargetType", "TargetUnique",
-	"TargetValidTargeting", "TargetingPlayer", "TargetingPlayerControls",
-	"TargetsForEachPlayer", "TargetsWithControllerProperty",
-	"TargetsWithDefinedController", "TargetsWithDifferentCMC",
-	"TargetsWithDifferentControllers", "TargetsWithDifferentNames",
-	"TargetsWithEqualToughness", "TargetsWithSameCardType", "TargetsWithSameController",
-	"TargetsWithSameCreatureType", "TargetsWithSharedCardType", "TargetsWithSharedTypes",
-	"TgtPrompt", "TgtZone", "TokenScript", "TriggerDescription", "Type", "Ultimate",
-	"UnlessAI", "UnlessCost", "UnlessPayer", "UnlessResolveSubs", "UnlessSwitched",
-	"Valid", "ValidCard", "ValidCards", "ValidCardsDesc", "ValidChoices",
+	"ConditionSVarCompare", "CopyCard", "Cost", "CostDesc", "Defined", "DefinedCards",
+	"DefinedTarget", "Description", "Exclude", "Exhaust", "GameActivationLimit", "Image",
+	"ImprintCards", "ImprintPlayed", "InstantSpeed", "IsCurse", "IsPresent", "KW",
+	"Keyword", "KeywordLine", "MaxTotalTargetCMC", "MaxTotalTargetPower", "Mentor",
+	"ModeCost", "Monstrosity", "NewController", "NumDmg", "OpponentTurn", "Planeswalker",
+	"PlayCost", "PlayerTurn", "PowerUp", "PrecostDesc", "PresentCompare", "PresentDefined",
+	"PresentZone", "Produced", "RandomNumTargets", "ReduceAmount", "ReduceCost",
+	"ReflectProperty", "RememberCostMana", "RememberObjects", "ReplaceColor",
+	"ReplaceGraveyard", "ReplaceGraveyardValid", "ReplaceMana", "ReplaceOnly",
+	"ReplaceType", "RestrictValid", "SVarCompare", "SelectPrompt", "SetChosenMode",
+	"SetColor", "ShowCards", "SorcerySpeed", "SpellDescription", "StackDescription",
+	"SubAbility", "TargetMax", "TargetMin", "TargetType", "TargetUnique",
+	"TargetValidTargeting", "TargetingPlayer", "TargetingPlayerControls", "TargetsAtRandom",
+	"TargetsForEachPlayer", "TargetsWithControllerProperty", "TargetsWithDefinedController",
+	"TargetsWithDifferentCMC", "TargetsWithDifferentControllers",
+	"TargetsWithDifferentNames", "TargetsWithEqualToughness", "TargetsWithSameCardType",
+	"TargetsWithSameController", "TargetsWithSameCreatureType", "TargetsWithSharedCardType",
+	"TargetsWithSharedTypes", "TgtPrompt", "TgtZone", "TokenScript", "TriggerDescription",
+	"Type", "Ultimate", "UnlessAI", "UnlessCost", "UnlessPayer", "UnlessResolveSubs",
+	"UnlessSwitched", "Valid", "ValidCard", "ValidCards", "ValidCardsDesc", "ValidChoices",
 	"ValidCounterType", "ValidDescription", "ValidTgts", "VoteMessage", "WithoutManaCost",
 	"XMax", "XMin",
 }

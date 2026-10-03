@@ -558,7 +558,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	// Remembered (resolvedRemembered returns Ctx.Remembered raw when the
 	// source owns no persistent list), which would double each copy's
 	// memory entry. Dedupe it with the same rule the mint list uses.
-	tokenMemory := dedupeTargets(tokenRememberedTargets(h, c, sa))
+	tokenMemory := dedupeTargets(tokenRememberedTargets(h, c, cp.TokenRemembered))
 
 	// Resolve the named attachment endpoint before minting. The endpoint is
 	// intentionally a destination selector, not a bearer-choice feature. It

@@ -185,20 +185,18 @@ func TestExchangeControlGauntletsRememberedFollowUp(t *testing.T) {
 	}
 }
 
-func TestExchangeControlUnsupportedTargetingIsLoud(t *testing.T) {
-	// Power Struggle's DB body needs TargetsAtRandom$: the handler must
-	// refuse the exchange loudly rather than swap an arbitrary pair silently.
-	// (Confusion in the Ranks' TargetingPlayer$ is a target-time chooser
-	// redirect the engine already resolves, so it is deliberately NOT in this
-	// unsupported set -- its exchange is exercised in rules/.)
+func TestExchangeControlRandomTargetsExchange(t *testing.T) {
+	// Power Struggle's DB body carries TargetsAtRandom$: the random draw is
+	// made at the target ask (RandomTargetsAsk), so the effect receives an
+	// ordinary pair and exchanges it -- it no longer refuses.
 	_, ability := corpusSA(t, "Power Struggle", "DBExchangeControl")
-	if ability.Params["TargetsAtRandom"] != "True" {
+	if !TargetsOf(ability).Has(TgtAtRandom) {
 		t.Fatalf("Power Struggle fixture changed: %+v", ability)
 	}
 	h := newHost(t, 2)
 	src := h.g.AddObject(mkCard(t, "Name:Src\nTypes:Creature\nPT:1/1\nOracle:x\n"), 0)
 	a := h.g.AddObject(mkCard(t, "Name:A\nTypes:Artifact\nOracle:x\n"), 0)
-	b := h.g.AddObject(mkCard(t, "Name:B\nTypes:Creature\nPT:1/1\nOracle:x\n"), 1)
+	b := h.g.AddObject(mkCard(t, "Name:B\nTypes:Artifact\nOracle:x\n"), 1)
 	for _, o := range []*state.Object{src, a, b} {
 		h.Emit(events.Event{Kind: events.MoveZone, Obj: o.ID, From: state.ZLibrary, To: state.ZBattlefield})
 	}
@@ -206,14 +204,14 @@ func TestExchangeControlUnsupportedTargetingIsLoud(t *testing.T) {
 		Targets: []state.Target{{Obj: a.ID}}, PickedTargets: []state.Target{{Obj: b.ID}}}
 	Resolve(h, ctx, ability)
 	for _, ev := range h.log {
-		if ev.Kind == events.ControlChange {
-			t.Fatalf("random-target exchange silently changed control: %+v", h.log)
-		}
 		if ev.Kind == events.Note && strings.Contains(ev.Text, "TargetsAtRandom") {
-			return
+			t.Fatalf("random-target exchange still refused: %+v", h.log)
 		}
 	}
-	t.Fatalf("no loud unimplemented-TargetsAtRandom note: %+v", h.log)
+	if h.g.Obj(a.ID).Controller != 1 || h.g.Obj(b.ID).Controller != 0 {
+		t.Fatalf("controllers after the exchange = %d,%d, want 1,0: %+v",
+			h.g.Obj(a.ID).Controller, h.g.Obj(b.ID).Controller, h.log)
+	}
 }
 
 func TestExchangeControlNoOpBoundaries(t *testing.T) {

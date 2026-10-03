@@ -12,7 +12,7 @@ import (
 // claim on it fails silently, so every compiled per-ability fact lives in this
 // one struct hung on the slot and nothing competes for it: the per-API typed
 // parameter structs (ChangeZone, ChangeZoneAll, Attach, DealDamage,
-// PutCounter, Effect, DelayedTrigger, CopyPermanent, Clone, Dig, DigUntil, RemoveCounter) and the rules tier's private half (the
+// PutCounter, Effect, DelayedTrigger, CopyPermanent, Clone, Dig, DigUntil, RemoveCounter, Token, Vote) and the rules tier's private half (the
 // mana walk's gate facts, opaque here).
 //
 // The record is defined in effects, not rules, because resolution reads it
@@ -106,12 +106,22 @@ type SAFacts struct {
 	// (removecounter_params.go), non-nil exactly when the API is
 	// RemoveCounter.
 	RemoveCounter *RemoveCounterParams
+	// Activation is the generic activation/condition tier's compiled
+	// parameter set (activation_params.go), non-nil for EVERY ability
+	// whatever its API.
+	Activation *ActivationParams
+	// Token is api:Token's compiled parameter set (token_params.go),
+	// non-nil exactly when the API is Token.
+	Token *TokenParams
+	// Vote is api:Vote's compiled parameter set (vote_params.go),
+	// non-nil exactly when the API is Vote.
+	Vote *VoteParams
 }
 
 // NewSAFacts compiles sa's typed halves into a fresh record naming sa. The
 // caller (rules' configured binding) adds its own half and publishes it.
 func NewSAFacts(sa *cards.SA) *SAFacts {
-	f := &SAFacts{SA: sa, Targets: compileTargets(sa), Defined: compileDefined(sa)}
+	f := &SAFacts{SA: sa, Targets: compileTargets(sa), Defined: compileDefined(sa), Activation: compileActivation(sa)}
 	if isChangeZoneSA(sa) {
 		f.ChangeZone = compileChangeZone(sa, f.Targets, f.Defined)
 	} else if isChangeZoneAllSA(sa) {

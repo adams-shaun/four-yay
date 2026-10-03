@@ -306,11 +306,11 @@ func tokenAttackingRider(h Host, c *Ctx, attack, noun string) (bool, state.Playe
 	return true, seats[0]
 }
 
-// tokenRememberedTargets resolves the set TokenRemembered$ attaches to each
-// minted token. It is shared by Token and CopyPermanent, whose two mint paths
-// must persist the same event-backed memory.
-func tokenRememberedTargets(h Host, c *Ctx, sa *cards.SA) []state.Target {
-	name := strings.TrimSpace(sa.Params["TokenRemembered"])
+// tokenRememberedTargets resolves the set TokenRemembered$ (name, trimmed)
+// attaches to each minted token. It is shared by Token and CopyPermanent,
+// whose two mint paths must persist the same event-backed memory; each passes
+// its compiler's TokenRemembered$ value.
+func tokenRememberedTargets(h Host, c *Ctx, name string) []state.Target {
 	if name == "" {
 		return nil
 	}
@@ -322,16 +322,19 @@ func tokenRememberedTargets(h Host, c *Ctx, sa *cards.SA) []state.Target {
 
 // effToken creates the requested token scripts and applies their token riders.
 func effToken(h Host, c *Ctx, sa *cards.SA) {
+	tp := TokenOf(sa)
 	if rest := resumingMint(c, sa); rest != nil {
 		// A re-entry after a parked mint's answer (rules' "token_rest"
 		// frame): everything before the loop already ran on the first pass
 		// and its values are frozen in the job, so only the owed units run.
 		job := rest.Job
-		runTokenMints(h, c, sa, &job, rest.Next, rest.Parked, rest.Minted)
+		runTokenMints(h, c, sa, tp, &job, rest.Next, rest.Parked, rest.Minted)
 		return
 	}
+	// Once per call: a re-entry already noted on its first pass.
+	noteUnreadParams(h, c, "Token", tp.Unread)
 	g := h.Game()
-	n := Num(h, c, sa, "TokenAmount", 1)
+	n := numText(h, c, tp.Amount, 1)
 	// owners is the per-mint owner list: one entry for every shape the
 	// switch resolves, so the mint loop below can give EACH owner its own
 	// tokens when a spelling names several (trig:Vote's
@@ -339,7 +342,7 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 	// ... creates a Treasure"). Every pre-existing shape resolves exactly
 	// one owner, so the loop is byte-identical for them.
 	owners := []state.PlayerID{c.Controller}
-	switch v := sa.Params["TokenOwner"]; v {
+	switch v := tp.Owner; v {
 	case "", "You":
 		// The default: the controller, already set above.
 	case "Opponent":
@@ -456,8 +459,7 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 	// RememberOriginalTokens$ True mirrors RememberTokens$ exactly (see the
 	// doc above for the original-vs-replaced-mint note). The 8 carriers all
 	// chain a `DB$ ImmediateTrigger` "when you do" sub that reads this set.
-	remember := sa.Params["RememberTokens"] == "True" ||
-		sa.Params["RememberOriginalTokens"] == "True"
+	remember := tp.Remember
 	// AttachedTo$ names the permanent the token enters attached to (the Wicked
 	// Role of Charming Scoundrel's ETB, 50+ corpus lines): the value is a
 	// Defined$-grammar selector, resolved with the ordinary resolver against
@@ -467,7 +469,7 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 	// target; an object that has left play by resolution time attaches
 	// nothing (the token simply enters unattached, the Aura's unattached
 	// state).
-	attachedTo := strings.TrimSpace(sa.ParamStr(cards.PKAttachedTo))
+	attachedTo := tp.AttachedTo
 	var attachTo state.ObjID
 	if attachedTo != "" {
 		for _, t := range DefinedSpec(h, c, attachedTo) {
@@ -484,21 +486,21 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 	var setPow, setTgh int32
 	var hasPow, hasTgh bool
 	dynBad := ""
-	if raw, ok := sa.Params["TokenPower"]; ok {
-		if v, resolved := NumResolved(h, c, sa, "TokenPower", 0); resolved {
+	if tp.Power.Present {
+		if v, resolved := numResolvedText(h, c, tp.Power, 0); resolved {
 			setPow, hasPow = v, true
 		} else {
-			dynBad = "TokenPower$ " + raw
+			dynBad = "TokenPower$ " + tp.Power.Text
 		}
 	}
-	if raw, ok := sa.Params["TokenToughness"]; ok {
-		if v, resolved := NumResolved(h, c, sa, "TokenToughness", 0); resolved {
+	if tp.Toughness.Present {
+		if v, resolved := numResolvedText(h, c, tp.Toughness, 0); resolved {
 			setTgh, hasTgh = v, true
 		} else {
 			if dynBad != "" {
 				dynBad += ", "
 			}
-			dynBad += "TokenToughness$ " + raw
+			dynBad += "TokenToughness$ " + tp.Toughness.Text
 		}
 	}
 	if dynBad != "" {
@@ -524,16 +526,16 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 	// visibly rather than a silent wrong count. The riders below run once per
 	// mint EmitTokenCreate returned, so a CreateToken replacement's extras
 	// each enter with the counters too -- not just the first mint.
-	withKind := strings.TrimSpace(sa.ParamStr(cards.PKWithCountersType))
+	withKind := tp.WithCountersType
 	var withAmt int32
 	var withOK bool
 	if withKind != "" {
-		if sa.HasParam(cards.PKWithCountersAmount) {
-			if v, ok := NumResolved(h, c, sa, "WithCountersAmount", 1); ok {
+		if tp.WithCountersAmount.Present {
+			if v, ok := numResolvedText(h, c, tp.WithCountersAmount, 1); ok {
 				withAmt, withOK = v, true
 			} else {
 				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-					Text: "WithCountersAmount$ " + strings.TrimSpace(sa.ParamStr(cards.PKWithCountersAmount)) +
+					Text: "WithCountersAmount$ " + strings.TrimSpace(tp.WithCountersAmount.Text) +
 						" is not implemented; the token enters with no " + withKind + " counters"})
 			}
 		} else {
@@ -559,8 +561,8 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 	// (effectUntilEOT), so the turn-spanning forms get the identical
 	// AddContinuous UntilTurn boundary and Unknown spellings are one loud
 	// Note rather than a silent wrong lifetime.
-	pumpKeywords := cards.SplitKeywordList(sa.ParamStr(cards.PKPumpKeywords))
-	pumpDuration := strings.TrimSpace(sa.ParamStr(cards.PKPumpDuration))
+	pumpKeywords := tp.PumpKeywords
+	pumpDuration := tp.PumpDuration
 	pumpPermanent := false
 	pumpUntilEOT := false
 	if len(pumpKeywords) > 0 {
@@ -584,14 +586,14 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 			pumpPermanent = true
 		}
 	}
-	tapped := strings.EqualFold(strings.TrimSpace(sa.Params["TokenTapped"]), "True")
+	tapped := tp.Tapped
 	// TokenRemembered$ binds the newly-created token's persistent memory to
 	// the named Defined$ group.  ExiledCards is Forge's name for the cards
 	// exiled by the payment immediately before this Token effect; that set is
 	// already the resolution's Remembered set in this engine.  Other selector
 	// forms use the ordinary Defined resolver, so this remains extensible as
 	// Defined gains readers rather than special-casing individual cards.
-	tokenMemory := tokenRememberedTargets(h, c, sa)
+	tokenMemory := tokenRememberedTargets(h, c, tp.Remembered)
 	// All selectors (owner, bearer and memory) have read the old set.
 	forgetOtherRemembered(h, c, sa)
 
@@ -620,7 +622,7 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 	// value must not emit one Note per token.
 	attackCtx := false
 	var attackDefender state.PlayerID
-	if attack := strings.TrimSpace(sa.Params["TokenAttacking"]); attack != "" {
+	if attack := tp.Attacking; attack != "" {
 		attackCtx, attackDefender = tokenAttackingRider(h, c, attack, "token")
 	}
 
@@ -633,7 +635,7 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 		Tapped: tapped, TokenMemory: tokenMemory,
 		AttackCtx: attackCtx, AttackDefender: attackDefender,
 	}
-	runTokenMints(h, c, sa, &job, -1, nil, nil)
+	runTokenMints(h, c, sa, tp, &job, -1, nil, nil)
 }
 
 // TokenJob is one DB$ Token resolution's per-mint work, resolved ONCE before
@@ -779,14 +781,10 @@ type tokenRestHost interface {
 // answer minted for it and the mints already made. A unit is one mint or one
 // unknown-script Note, in the loop's own order, so a re-entry skips exactly
 // the units the first pass already performed.
-func runTokenMints(h Host, c *Ctx, sa *cards.SA, job *TokenJob, resumeAt int, parked, minted []state.ObjID) {
+func runTokenMints(h Host, c *Ctx, sa *cards.SA, tp *TokenParams, job *TokenJob, resumeAt int, parked, minted []state.ObjID) {
 	g := h.Game()
 	unit := -1
-	for key := range strings.SplitSeq(sa.ParamStr(cards.PKTokenScript), ",") {
-		key = strings.TrimSpace(key)
-		if key == "" {
-			continue
-		}
+	for _, key := range tp.Scripts {
 		if _, ok := g.Tokens[key]; !ok {
 			unit++
 			if unit > resumeAt {
@@ -865,7 +863,7 @@ func runTokenMints(h Host, c *Ctx, sa *cards.SA, job *TokenJob, resumeAt int, pa
 	// names the newly-created token -- the reverse association (token imprinted
 	// with the resolution's remembered cards) names the exiled cards instead
 	// and leaves every such sub-ability acting on nothing.
-	if strings.EqualFold(strings.TrimSpace(sa.Params["ImprintTokens"]), "True") && c.Source != 0 {
+	if tp.ImprintTokens && c.Source != 0 {
 		ids := make([]state.ObjID, 0, len(minted))
 		for _, id := range minted {
 			if g.Obj(id) != nil {

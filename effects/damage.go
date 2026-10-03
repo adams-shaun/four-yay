@@ -484,14 +484,11 @@ func excessConditionHolds(h Host, c *Ctx, cond string, o *state.Object) bool {
 // that creature would die this turn, exile it instead") reuses the shared
 // registerReplaceDying helper over everything this exchange damaged.
 func effFight(h Host, c *Ctx, sa *cards.SA) {
-	// Unread flags stay loud, never silent: TargetsAtRandom$ (Scab-Clan
-	// Giant's "chosen at random" -- the targeting ask above is the
-	// deterministic stand-in, never math/rand), TargetsWithoutSameCreatureType$
+	// Unread flags stay loud, never silent: TargetsWithoutSameCreatureType$
 	// (Rivals' Duel -- the pairwise share-no-types legality is not expressible
 	// in the per-candidate census, so the plain 2-target ask stands in), and
 	// ExcessSVar$/ExcessSVarCondition$ (rhinos_rampage, the_last_agni_kai --
 	// "excess damage becomes X").
-	fightUnreadNote(h, c, sa, "TargetsAtRandom")
 	fightUnreadNote(h, c, sa, "TargetsWithoutSameCreatureType")
 	fightUnreadNote(h, c, sa, "ExcessSVar")
 	fightUnreadNote(h, c, sa, "ExcessSVarCondition")

@@ -189,6 +189,14 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 		rememberPlaced(c, sa, placed)
 		return
 	}
+	if pc.DividedRandomly {
+		// DividedRandomly$ True: the total is distributed among the
+		// recipients at random (Orcish Catapult's "randomly distribute X
+		// -0/-1 counters"), one engine-rng draw per counter.
+		placed := putCounterSplitRandom(h, n, kind, Defined(h, c, sa))
+		rememberPlaced(c, sa, placed)
+		return
+	}
 	// ETB$ True (the K:etbCounter expansion's body, Wishclaw Talisman and
 	// every "enters with N counters" card): the counters are placed on the
 	// ENTERING object as it enters, so the target does not have to be a
@@ -814,6 +822,46 @@ func putCounterSplit(h Host, total int32, kind string, ts []state.Target) []stat
 	for _, id := range live {
 		if amt := shares[id]; amt > 0 {
 			h.Emit(events.Event{Kind: events.CounterChange, Obj: id, Counter: kind, Amount: amt})
+			placed = append(placed, state.Target{Obj: id})
+		}
+	}
+	return placed
+}
+
+// putCounterSplitRandom is putCounterSplit with a random division: each of
+// the total counters goes to a recipient drawn from the engine's seeded rng
+// (Host.Rand), so a log-only replay re-derives the split. A single live
+// recipient takes the whole total without consuming the rng. One
+// CounterChange per recipient that drew any, in recipient order.
+func putCounterSplitRandom(h Host, total int32, kind string, ts []state.Target) []state.Target {
+	if total <= 0 {
+		return nil
+	}
+	g := h.Game()
+	var live []state.ObjID
+	for _, t := range ts {
+		if t.IsPlayer {
+			continue
+		}
+		if o := g.Obj(t.Obj); o != nil && o.Zone == state.ZBattlefield {
+			live = append(live, t.Obj)
+		}
+	}
+	if len(live) == 0 {
+		return nil
+	}
+	shares := make([]int32, len(live))
+	if len(live) == 1 {
+		shares[0] = total
+	} else {
+		for i := int32(0); i < total; i++ {
+			shares[h.Rand(len(live))]++
+		}
+	}
+	var placed []state.Target
+	for i, id := range live {
+		if shares[i] > 0 {
+			h.Emit(events.Event{Kind: events.CounterChange, Obj: id, Counter: kind, Amount: shares[i]})
 			placed = append(placed, state.Target{Obj: id})
 		}
 	}

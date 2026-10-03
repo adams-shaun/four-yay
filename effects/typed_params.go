@@ -35,7 +35,7 @@ func (b *paramBinding) boundTo(m map[string]string) bool {
 
 // compileTypedHalves fills f's per-API typed parameter structs (Charm, Pump,
 // Draw, ReplaceEffect, Mana, ManaReflected, DealDamage, PutCounter, Effect,
-// DelayedTrigger, CopyPermanent, Clone, Dig, DigUntil, RemoveCounter) for the APIs their compilers serve
+// DelayedTrigger, CopyPermanent, Clone, Dig, DigUntil, RemoveCounter, Token, Vote) for the APIs their compilers serve
 // (NewSAFacts' second half).
 func compileTypedHalves(f *SAFacts, sa *cards.SA) {
 	if isModalSA(sa) {
@@ -54,7 +54,7 @@ func compileTypedHalves(f *SAFacts, sa *cards.SA) {
 		f.Mana = compileMana(sa, f.Defined)
 	}
 	if sa.API == "ManaReflected" {
-		f.ManaReflected = compileManaReflected(sa, f.Defined)
+		f.ManaReflected = compileManaReflected(sa, f.Defined, f.Activation)
 	}
 	if isDealDamageSA(sa) {
 		f.DealDamage = compileDealDamage(sa)
@@ -66,7 +66,7 @@ func compileTypedHalves(f *SAFacts, sa *cards.SA) {
 		f.Effect = compileEffect(sa)
 	}
 	if isDelayedTriggerSA(sa) {
-		f.DelayedTrigger = compileDelayedTrigger(sa)
+		f.DelayedTrigger = compileDelayedTrigger(sa, f.Activation)
 	}
 	if isCopyPermanentSA(sa) {
 		f.CopyPermanent = compileCopyPermanent(sa, f.Defined)
@@ -82,5 +82,11 @@ func compileTypedHalves(f *SAFacts, sa *cards.SA) {
 	}
 	if isRemoveCounterSA(sa) {
 		f.RemoveCounter = compileRemoveCounter(sa, f.Defined)
+	}
+	if isTokenSA(sa) {
+		f.Token = compileToken(sa)
+	}
+	if isVoteSA(sa) {
+		f.Vote = compileVote(sa)
 	}
 }

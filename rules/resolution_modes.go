@@ -235,6 +235,9 @@ func (e *Engine) handleModes(d *decision.Decision, in decision.Intent) {
 	e.resume = nil
 	chosen := d.Chosen(in)
 	recordModesAnswer(e, d, in.Player, chosen, rp.obj)
+	if isModeAnswerKind(rp.kind) {
+		chosen = modeAnswerInChoices(rp.sa, d.ResumeModes, chosen)
+	}
 	e.resumeResolution(rp, chosen)
 }
 

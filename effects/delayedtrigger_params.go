@@ -86,13 +86,13 @@ var delayedTriggerKnownKeys = [...]string{
 	"MaxTotalTargetPower", "Mentor", "Mode", "ModeCost", "Monstrosity",
 	"NewController", "NextTurn", "NumDmg", "OpponentTurn", "Origin", "Phase",
 	"Planeswalker", "PlayCost", "PlayerTurn", "PowerUp", "PrecostDesc",
-	"PresentCompare", "PresentDefined", "PresentZone", "ReduceAmount", "ReduceCost",
+	"PresentCompare", "PresentDefined", "PresentZone", "RandomNumTargets", "ReduceAmount", "ReduceCost",
 	"RememberChain", "RememberCostMana", "RememberObjects", "ReplaceColor",
 	"ReplaceGraveyard", "ReplaceGraveyardValid", "ReplaceMana", "ReplaceOnly",
 	"ReplaceType", "SVarCompare", "SelectPrompt", "SetChosenMode", "SetColor",
 	"ShowCards", "SorcerySpeed", "SpellDescription", "StackDescription", "Static",
 	"SubAbility", "TargetMax", "TargetMin", "TargetType", "TargetUnique",
-	"TargetValidTargeting", "TargetingPlayer", "TargetingPlayerControls",
+	"TargetValidTargeting", "TargetingPlayer", "TargetingPlayerControls", "TargetsAtRandom",
 	"TargetsForEachPlayer", "TargetsWithControllerProperty",
 	"TargetsWithDefinedController", "TargetsWithDifferentCMC",
 	"TargetsWithDifferentControllers", "TargetsWithDifferentNames",
@@ -127,7 +127,7 @@ func DelayedTriggerOf(sa *cards.SA) *DelayedTriggerParams {
 	if p := slot.Load(); p != nil && p.boundTo(sa.Params) {
 		return p
 	}
-	p := compileDelayedTrigger(sa)
+	p := compileDelayedTrigger(sa, ActivationOf(sa))
 	if sa.Params != nil {
 		slot.Store(p)
 	}
@@ -139,8 +139,10 @@ func DelayedTriggerOf(sa *cards.SA) *DelayedTriggerParams {
 var delayedTriggerFront [1 << 10]atomic.Pointer[DelayedTriggerParams]
 
 // compileDelayedTrigger is the one reader of a DelayedTrigger ability's
-// parameters.
-func compileDelayedTrigger(sa *cards.SA) *DelayedTriggerParams {
+// parameters. The presence and turn clauses it serializes (IsPresent$,
+// PresentZone$, PresentCompare$, PresentDefined$, PlayerTurn$) are the
+// activation tier's keys, taken from ap.
+func compileDelayedTrigger(sa *cards.SA, ap *ActivationParams) *DelayedTriggerParams {
 	p := &DelayedTriggerParams{paramBinding: bindParams(sa)}
 	p.Mode = strings.TrimSpace(sa.ParamStr(cards.PKMode))
 	p.Phase = sa.ParamStr(cards.PKPhase)
@@ -156,18 +158,18 @@ func compileDelayedTrigger(sa *cards.SA) *DelayedTriggerParams {
 	if vp := strings.TrimSpace(sa.ParamStr(cards.PKValidPlayer)); vp != "" {
 		text += "|VP=" + vp
 	}
-	if spec := strings.TrimSpace(sa.ParamStr(cards.PKIsPresent)); spec != "" {
+	if spec := ap.IsPresent.Text; spec != "" {
 		text += "|IP=" + spec
-		if zone := strings.TrimSpace(sa.ParamStr(cards.PKPresentZone)); zone != "" {
+		if zone := ap.PresentZone.Text; zone != "" {
 			text += "|PZ=" + zone
 		}
-		if cmp := strings.TrimSpace(sa.ParamStr(cards.PKPresentCompare)); cmp != "" {
+		if cmp := ap.PresentCompare.Text; cmp != "" {
 			text += "|PC=" + cmp
 		}
 	}
 	p.PhaseText = text
-	p.EventText = p.Mode + ":" + delayedTriggerBody(sa)
-	p.SpellCastText = "SpellCast:" + delayedSpellCastBody(sa)
+	p.EventText = p.Mode + ":" + delayedTriggerBody(sa, ap)
+	p.SpellCastText = "SpellCast:" + delayedSpellCastBody(sa, ap)
 	p.Unread = unreadKeys(sa, delayedTriggerKnownKeys[:])
 	return p
 }
@@ -175,7 +177,7 @@ func compileDelayedTrigger(sa *cards.SA) *DelayedTriggerParams {
 // delayedTriggerBody serializes the trigger parameters in a fixed order. A
 // map iteration here would make the event bytes (and therefore replay heads)
 // nondeterministic.
-func delayedTriggerBody(sa *cards.SA) string {
+func delayedTriggerBody(sa *cards.SA, ap *ActivationParams) string {
 	// Literal keys at both the read and append sites keep the parameter census
 	// attributable; call order fixes the registration's replay-visible bytes.
 	parts := []string{"Mode$ " + strings.TrimSpace(sa.ParamStr(cards.PKMode))}
@@ -199,16 +201,16 @@ func delayedTriggerBody(sa *cards.SA) string {
 	add("ValidPlayer$ ", sa.ParamStr(cards.PKValidPlayer))
 	add("ValidOriginalController$ ", sa.Params["ValidOriginalController"])
 	add("ValidActivatingPlayer$ ", sa.ParamStr(cards.PKValidActivatingPlayer))
-	add("PlayerTurn$ ", sa.ParamStr(cards.PKPlayerTurn))
+	add("PlayerTurn$ ", ap.PlayerTurn.Text)
 	add("ValidSA$ ", sa.ParamStr(cards.PKValidSA))
 	add("TriggerZones$ ", sa.ParamStr(cards.PKTriggerZones))
 	add("ActiveZones$ ", sa.ParamStr(cards.PKActiveZones))
 	add("ThisTurn$ ", sa.ParamStr(cards.PKThisTurn))
 	add("Static$ ", sa.ParamStr(cards.PKStatic))
-	add("IsPresent$ ", sa.ParamStr(cards.PKIsPresent))
-	add("PresentDefined$ ", sa.ParamStr(cards.PKPresentDefined))
-	add("PresentCompare$ ", sa.ParamStr(cards.PKPresentCompare))
-	add("PresentZone$ ", sa.ParamStr(cards.PKPresentZone))
+	add("IsPresent$ ", ap.IsPresent.Text)
+	add("PresentDefined$ ", ap.PresentDefined)
+	add("PresentCompare$ ", ap.PresentCompare.Text)
+	add("PresentZone$ ", ap.PresentZone.Text)
 	return strings.Join(parts, " | ")
 }
 
@@ -219,7 +221,7 @@ func delayedTriggerBody(sa *cards.SA) string {
 // -- Forge's static delayed trigger resolves its Execute IMMEDIATELY at fire
 // time (no stack push), which is what makes Mistrise's promise active before
 // the opponent can respond.
-func delayedSpellCastBody(sa *cards.SA) string {
+func delayedSpellCastBody(sa *cards.SA, ap *ActivationParams) string {
 	body := "Mode$ SpellCast"
 	if v := strings.TrimSpace(sa.ParamStr(cards.PKValidCard)); v != "" {
 		body += " | ValidCard$ " + v
@@ -230,7 +232,7 @@ func delayedSpellCastBody(sa *cards.SA) string {
 	if v := strings.TrimSpace(sa.ParamStr(cards.PKValidPlayer)); v != "" {
 		body += " | ValidPlayer$ " + v
 	}
-	if v := strings.TrimSpace(sa.ParamStr(cards.PKPlayerTurn)); v != "" {
+	if v := ap.PlayerTurn.Text; v != "" {
 		body += " | PlayerTurn$ " + v
 	}
 	if v := strings.TrimSpace(sa.ParamStr(cards.PKValidSA)); v != "" {

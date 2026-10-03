@@ -2,7 +2,6 @@ package effects
 
 import (
 	"strconv"
-	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
@@ -38,8 +37,14 @@ import (
 // cannot answer retains the R-9 first-option fallback. Both VoteCard$ and
 // VoteSubAbility$ are genuinely read on the ballot path.
 func effVote(h Host, c *Ctx, sa *cards.SA) {
-	if ballot := strings.TrimSpace(sa.Params["VoteCard"]); ballot != "" {
-		effCardVote(h, c, sa, ballot)
+	vp := VoteOf(sa)
+	if !c.VoteDone {
+		// Once per call: an answered ballot re-entry already noted on its
+		// first pass.
+		noteUnreadParams(h, c, "Vote", vp.Unread)
+	}
+	if vp.Card != "" {
+		effCardVote(h, c, sa, vp, vp.Card)
 		return
 	}
 	// The PLAYER ballot (task votepb1): VotePlayer$ with no Choices$ list
@@ -47,17 +52,17 @@ func effVote(h Host, c *Ctx, sa *cards.SA) {
 	// Choices$ keeps its precedence -- Forge's VoteEffect reads Choices first,
 	// then VoteCard$, then VotePlayer$ -- so this fires only when the vote
 	// carries no fixed option list.
-	if vp := strings.TrimSpace(sa.Params["VotePlayer"]); vp != "" && len(voteChoiceNames(sa)) == 0 {
-		effPlayerVote(h, c, sa)
+	if vp.Player != "" && len(vp.Choices) == 0 {
+		effPlayerVote(h, c, sa, vp)
 		return
 	}
-	choices := voteChoiceNames(sa)
+	choices := vp.Choices
 	voters := definedPlayers(h, c, sa)
 	// A live fixed-list ballot uses the same private, per-voter KChoose path as
 	// VotePlayer$. Keep Ctx.Votes as the small direct seam used by unit tests;
 	// real answers travel only through the decision's ResumeChoices.
 	if c.Votes == nil {
-		picks, complete := askFixedVote(h, c, sa, choices, voters)
+		picks, complete := askFixedVote(h, c, sa, vp, choices, voters)
 		if !complete {
 			return
 		}
@@ -77,13 +82,13 @@ func effVote(h Host, c *Ctx, sa *cards.SA) {
 			}
 		}
 		if len(choices) > 0 && len(voters) > 0 {
-			resolveVoteOutcomes(h, c, sa, choices, counts)
+			resolveVoteOutcomes(h, c, vp, choices, counts)
 		}
 		ballots := make([]VoteBallot, len(voters))
 		for i, t := range voters {
 			ballots[i] = VoteBallot{Player: t, Pick: int(picks[i].Obj) - 1}
 		}
-		emitVoteFinished(h, c, ballots, len(choices) > 0, strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKSecretly)), "True"))
+		emitVoteFinished(h, c, ballots, len(choices) > 0, vp.Secretly)
 		return
 	}
 	// Ctx.Votes is the answered per-voter choice list (a real per-player
@@ -119,7 +124,7 @@ func effVote(h Host, c *Ctx, sa *cards.SA) {
 		h.Emit(events.Event{Kind: events.Note, Player: t, Text: "votes for " + label})
 	}
 	if len(choices) > 0 && len(voters) > 0 {
-		resolveVoteOutcomes(h, c, sa, choices, counts)
+		resolveVoteOutcomes(h, c, vp, choices, counts)
 	}
 	// The canonical vote-finished carrier (trig:Vote, effects/vote.go):
 	// emitted AFTER the winning outcome resolved -- the vote (outcome
@@ -136,15 +141,15 @@ func effVote(h Host, c *Ctx, sa *cards.SA) {
 	for i, t := range voters {
 		ballots[i] = VoteBallot{Player: t, Pick: picks[i]}
 	}
-	emitVoteFinished(h, c, ballots, len(choices) > 0, strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKSecretly)), "True"))
+	emitVoteFinished(h, c, ballots, len(choices) > 0, vp.Secretly)
 }
 
 // resolveVoteOutcomes executes the winning option normally. StoreVoteNum$ is
 // the multi-outcome form: publish each option's tally as VoteNum in a private
 // copy of the source SVar table, then resolve every option body so its numeric
 // effects consume that option's count (including zero).
-func resolveVoteOutcomes(h Host, c *Ctx, sa *cards.SA, choices []string, counts []int) {
-	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKStoreVoteNum)), "True") {
+func resolveVoteOutcomes(h Host, c *Ctx, vp *VoteParams, choices []string, counts []int) {
+	if vp.StoreVoteNum {
 		for i, name := range choices {
 			count := 0
 			if i < len(counts) {
@@ -168,7 +173,7 @@ func resolveVoteOutcomes(h Host, c *Ctx, sa *cards.SA, choices []string, counts 
 	best, tied := voteWinner(counts)
 	name := choices[best]
 	if tied {
-		if alt := strings.TrimSpace(sa.Params["VoteTiedAbility"]); alt != "" {
+		if alt := vp.TiedAbility; alt != "" {
 			name = alt
 		}
 	}
@@ -180,7 +185,7 @@ func resolveVoteOutcomes(h Host, c *Ctx, sa *cards.SA, choices []string, counts 
 // askFixedVote poses one private KChoose per voter. The answer is encoded as
 // ObjID(index+1), avoiding a second answer channel while keeping ResumeChoices
 // decision-scoped. A host that cannot answer takes option zero (R-9).
-func askFixedVote(h Host, c *Ctx, sa *cards.SA, choices []string, voters []state.PlayerID) ([]state.Target, bool) {
+func askFixedVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams, choices []string, voters []state.PlayerID) ([]state.Target, bool) {
 	picks := append([]state.Target(nil), c.VotePicks...)
 	i := c.VoteTarget
 	if c.VoteDone {
@@ -195,10 +200,10 @@ func askFixedVote(h Host, c *Ctx, sa *cards.SA, choices []string, voters []state
 	for ; i < len(voters); i++ {
 		voter := voters[i]
 		min := 1
-		if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKUpTo)), "True") {
+		if vp.UpTo {
 			min = 0
 		}
-		prompt := voteMessage(sa)
+		prompt := vp.Message
 		if prompt == "" {
 			prompt = "Vote for an option"
 		}
@@ -258,31 +263,13 @@ func voteWinner(counts []int) (int, bool) {
 	return best, tied > 1
 }
 
-// voteChoiceNames splits a Vote's Choices$ into its SVar names, trimmed and
-// with empty entries dropped. Shared by both vote shapes so the option list
-// the tally indexes is parsed one way.
-func voteChoiceNames(sa *cards.SA) []string {
-	raw := sa.ParamStr(cards.PKChoices)
-	if strings.TrimSpace(raw) == "" {
-		return nil
-	}
-	parts := strings.Split(raw, ",")
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		if p = strings.TrimSpace(p); p != "" {
-			out = append(out, p)
-		}
-	}
-	return out
-}
-
 // effCardVote is effVote's card-ballot half: the battlefield permanents
 // VoteCard$ admits are the options, each voting player answers a private ask,
 // and the most-voted -- every
 // member of the tie -- is remembered for VoteSubAbility$, which runs once
 // at the end (Council's Judgment's "exile each permanent with the most
 // votes or tied for most votes").
-func askCardVote(h Host, c *Ctx, sa *cards.SA, options []state.ObjID, voters []state.PlayerID) ([]state.ObjID, bool) {
+func askCardVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams, options []state.ObjID, voters []state.PlayerID) ([]state.ObjID, bool) {
 	picks := append([]state.Target(nil), c.VotePicks...)
 	i := c.VoteTarget
 	if c.VoteDone {
@@ -297,10 +284,10 @@ func askCardVote(h Host, c *Ctx, sa *cards.SA, options []state.ObjID, voters []s
 	for ; i < len(voters); i++ {
 		voter := voters[i]
 		min := 1
-		if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKUpTo)), "True") {
+		if vp.UpTo {
 			min = 0
 		}
-		prompt := voteMessage(sa)
+		prompt := vp.Message
 		if prompt == "" {
 			prompt = "Vote for a permanent"
 		}
@@ -350,7 +337,7 @@ func askCardVote(h Host, c *Ctx, sa *cards.SA, options []state.ObjID, voters []s
 	return out, true
 }
 
-func effCardVote(h Host, c *Ctx, sa *cards.SA, ballot string) {
+func effCardVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams, ballot string) {
 	g := h.Game()
 	var options []state.ObjID
 	for i := range g.Players {
@@ -369,7 +356,7 @@ func effCardVote(h Host, c *Ctx, sa *cards.SA, ballot string) {
 		picks = append([]int(nil), c.Votes...)
 		c.Votes = nil
 	} else {
-		answered, complete := askCardVote(h, c, sa, options, voters)
+		answered, complete := askCardVote(h, c, sa, vp, options, voters)
 		if !complete {
 			return
 		}
@@ -417,8 +404,8 @@ func effCardVote(h Host, c *Ctx, sa *cards.SA, ballot string) {
 	// most-votes set instead of duplicating it (no corpus carrier combines
 	// the two without StoreVoteNum$, so the dedupe is the structural guard,
 	// not a behaviour change any carrier can see).
-	storeVoteNum := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKStoreVoteNum)), "True")
-	rememberVoted := strings.EqualFold(strings.TrimSpace(sa.Params["RememberVotedObjects"]), "True")
+	storeVoteNum := vp.StoreVoteNum
+	rememberVoted := vp.RememberVoted
 	if storeVoteNum {
 		publishVoteCounts(c, voteCountsForObjects(options, counts))
 	} else if max > 0 {
@@ -449,7 +436,7 @@ func effCardVote(h Host, c *Ctx, sa *cards.SA, ballot string) {
 	// VoteSubAbility$ resolves AFTER the tally publish and the remember, so a
 	// chained body sees Votes bound and the remembered set complete (fx42's
 	// consumers read before their own re-entries).
-	if sub := strings.TrimSpace(sa.Params["VoteSubAbility"]); sub != "" {
+	if sub := vp.SubAbility; sub != "" {
 		if resolved := cards.ResolveSVar(c.SVars, sub); resolved != nil {
 			Resolve(h, c, resolved)
 		}
@@ -468,7 +455,7 @@ func effCardVote(h Host, c *Ctx, sa *cards.SA, ballot string) {
 	for i, t := range voters {
 		ballots[i] = VoteBallot{Player: t, Pick: picks[i]}
 	}
-	emitVoteFinished(h, c, ballots, len(options) > 0, strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKSecretly)), "True"))
+	emitVoteFinished(h, c, ballots, len(options) > 0, vp.Secretly)
 }
 
 // effBecomeMonarch records the game-level designation as an event so a
@@ -484,7 +471,3 @@ func effCardVote(h Host, c *Ctx, sa *cards.SA, ballot string) {
 // BecomeMonarch (Custodi Lich resolving twice, two Peacekeeper Colossi, etc.).
 // Suppressing at the source rather than inventing a previous-monarch field
 // keeps events.Event's encoding untouched and replay-exact.
-
-// voteMessage is a Vote's VoteMessage$ prompt, trimmed: the one read both the
-// fixed-list and the card-ballot asks share.
-func voteMessage(sa *cards.SA) string { return strings.TrimSpace(sa.Params["VoteMessage"]) }

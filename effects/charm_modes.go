@@ -26,7 +26,7 @@ func modeTargetUnique(sub *cards.SA) bool {
 
 // modeUnlessCost is a mode body's UnlessCost$, trimmed.
 func modeUnlessCost(sub *cards.SA) string {
-	return strings.TrimSpace(sub.ParamStr(cards.PKUnlessCost))
+	return strings.TrimSpace(ActivationOf(sub).UnlessCost)
 }
 
 // charmUniqueBounds mirrors rules' targetBounds for the single-target check:

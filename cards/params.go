@@ -88,8 +88,16 @@ const (
 	PKCombatDamage
 	PKCondition
 	PKConditionActivationLimit
+	PKConditionCheckSVar
 	PKConditionCompare
 	PKConditionDefined
+	PKConditionFirstCombat
+	PKConditionNotPresent
+	PKConditionPhases
+	PKConditionPlayerTurn
+	PKConditionPresent
+	PKConditionSVarCompare
+	PKConditionZone
 	PKController
 	PKCost
 	PKCounterNum
@@ -104,6 +112,7 @@ const (
 	PKDifferentNames
 	PKDiscard
 	PKDividedAsYouChoose
+	PKDividedRandomly
 	PKDuration
 	PKETB
 	PKEffectOnly
@@ -130,6 +139,7 @@ const (
 	PKImprint
 	PKImprintCards
 	PKImprintLast
+	PKInstantSpeed
 	PKIntoPlayTapped
 	PKIsPresent
 	PKIsPresent2
@@ -157,6 +167,7 @@ const (
 	PKNonLegendary
 	PKNotThisAbility
 	PKNumDmg
+	PKNumRandomChoices
 	PKNumTurns
 	PKNumber
 	PKObject
@@ -178,6 +189,7 @@ const (
 	PKPumpDuration
 	PKPumpKeywords
 	PKRandom
+	PKRandomNumTargets
 	PKReduceCost
 	PKRelative
 	PKRememberAmount
@@ -223,6 +235,7 @@ const (
 	PKTargetValidTargeting
 	PKTargetingPlayer
 	PKTargetingPlayerControls
+	PKTargetsAtRandom
 	PKTargetsForEachPlayer
 	PKTargetsWithControllerProperty
 	PKTargetsWithDefinedController
@@ -244,6 +257,7 @@ const (
 	PKTypes
 	PKUnattach
 	PKUnlessCost
+	PKUnlessPayer
 	PKUnlessSwitched
 	PKUpTo
 	PKValid
@@ -368,8 +382,16 @@ var paramKeyNames = [paramKeyCount]string{
 	PKCombatDamage:                    "CombatDamage",
 	PKCondition:                       "Condition",
 	PKConditionActivationLimit:        "ConditionActivationLimit",
+	PKConditionCheckSVar:              "ConditionCheckSVar",
 	PKConditionCompare:                "ConditionCompare",
 	PKConditionDefined:                "ConditionDefined",
+	PKConditionFirstCombat:            "ConditionFirstCombat",
+	PKConditionNotPresent:             "ConditionNotPresent",
+	PKConditionPhases:                 "ConditionPhases",
+	PKConditionPlayerTurn:             "ConditionPlayerTurn",
+	PKConditionPresent:                "ConditionPresent",
+	PKConditionSVarCompare:            "ConditionSVarCompare",
+	PKConditionZone:                   "ConditionZone",
 	PKController:                      "Controller",
 	PKCost:                            "Cost",
 	PKCounterNum:                      "CounterNum",
@@ -384,6 +406,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKDifferentNames:                  "DifferentNames",
 	PKDiscard:                         "Discard",
 	PKDividedAsYouChoose:              "DividedAsYouChoose",
+	PKDividedRandomly:                 "DividedRandomly",
 	PKDuration:                        "Duration",
 	PKETB:                             "ETB",
 	PKEffectOnly:                      "EffectOnly",
@@ -410,6 +433,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKImprint:                         "Imprint",
 	PKImprintCards:                    "ImprintCards",
 	PKImprintLast:                     "ImprintLast",
+	PKInstantSpeed:                    "InstantSpeed",
 	PKIntoPlayTapped:                  "IntoPlayTapped",
 	PKIsPresent:                       "IsPresent",
 	PKIsPresent2:                      "IsPresent2",
@@ -437,6 +461,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKNonLegendary:                    "NonLegendary",
 	PKNotThisAbility:                  "NotThisAbility",
 	PKNumDmg:                          "NumDmg",
+	PKNumRandomChoices:                "NumRandomChoices",
 	PKNumTurns:                        "NumTurns",
 	PKNumber:                          "Number",
 	PKObject:                          "Object",
@@ -458,6 +483,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKPumpDuration:                    "PumpDuration",
 	PKPumpKeywords:                    "PumpKeywords",
 	PKRandom:                          "Random",
+	PKRandomNumTargets:                "RandomNumTargets",
 	PKReduceCost:                      "ReduceCost",
 	PKRelative:                        "Relative",
 	PKRememberAmount:                  "RememberAmount",
@@ -503,6 +529,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKTargetValidTargeting:            "TargetValidTargeting",
 	PKTargetingPlayer:                 "TargetingPlayer",
 	PKTargetingPlayerControls:         "TargetingPlayerControls",
+	PKTargetsAtRandom:                 "TargetsAtRandom",
 	PKTargetsForEachPlayer:            "TargetsForEachPlayer",
 	PKTargetsWithControllerProperty:   "TargetsWithControllerProperty",
 	PKTargetsWithDefinedController:    "TargetsWithDefinedController",
@@ -524,6 +551,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKTypes:                           "Types",
 	PKUnattach:                        "Unattach",
 	PKUnlessCost:                      "UnlessCost",
+	PKUnlessPayer:                     "UnlessPayer",
 	PKUnlessSwitched:                  "UnlessSwitched",
 	PKUpTo:                            "UpTo",
 	PKValid:                           "Valid",

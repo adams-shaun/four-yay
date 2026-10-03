@@ -1,9 +1,11 @@
 package effects
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -155,4 +157,148 @@ func aiRandomNoAskPick(h Host, sa *cards.SA, n int) int {
 		return 0
 	}
 	return h.Rand(n)
+}
+
+// RandomTargetsAsk is the one honouring site of TargetsAtRandom$ (and its
+// RandomNumTargets$ rider), whatever the carrying API: Forge's
+// TargetSelection draws a random-target ability's targets itself
+// (Aggregates.random over the legal candidates), and the chooser is never
+// consulted. Every target ask -- the cast/activation ask, the trigger
+// placement ask, the chained-sub asks and the mid-resolution ValidTgts$ ask
+// -- builds its ordinary decision over every legal candidate and then hands
+// it here just before posing it. For a random-target sa, the draw comes
+// from the engine's seeded rng (Host.Rand), so a log-only replay re-derives
+// it, and the decision is narrowed to exactly the drawn options (Min ==
+// Max == the drawn count): the seat confirms the draw and can answer
+// nothing else, and the logged intent names exactly what was drawn.
+//
+// The count is the decision's Max clamped to the candidates (Goblin Polka
+// Band's announced TgtNum, Goblin Test Pilot's one), or with
+// RandomNumTargets$ True a draw between the bounds (Orcish Catapult's "a
+// random number of random target creatures"; at least one, since a zero
+// draw would pose the empty-only ask and that no seat can answer).
+// Candidates are drawn one at a time without replacement and a draw that
+// would break a cross-candidate constraint the decision carries (a
+// per-controller Group, a set property, a total budget) is skipped, so
+// the narrowed decision always validates. A pool the count covers whole is
+// taken without consuming the rng. It reports whether d was narrowed; a
+// draw that cannot reach Min leaves d unchanged behind a Note -- the loud,
+// permissive direction.
+func RandomTargetsAsk(h Host, d *decision.Decision, sa *cards.SA) bool {
+	tp := TargetsOf(sa)
+	if d == nil || !tp.Has(TgtAtRandom) || len(d.Options) == 0 {
+		return false
+	}
+	n := len(d.Options)
+	lo, hi := d.Min, d.Max
+	if hi < 0 || hi > n {
+		hi = n
+	}
+	if lo < 0 {
+		lo = 0
+	}
+	if lo > hi {
+		lo = hi
+	}
+	count := hi
+	if tp.Has(TgtRandomNum) {
+		base := max(lo, 1)
+		if hi > base {
+			count = base + h.Rand(hi-base+1)
+		}
+	}
+	if count <= 0 {
+		return false
+	}
+	probe := *d
+	probe.Min, probe.AllowNone = 0, true
+	fits := func(picked []int) bool {
+		in := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: slices.Sorted(slices.Values(picked))}
+		return probe.Validate(in) == nil
+	}
+	var picked []int
+	if count >= n {
+		all := make([]int, n)
+		for i := range all {
+			all[i] = i
+		}
+		if fits(all) {
+			picked = all
+		}
+	}
+	if picked == nil {
+		rest := make([]int, n)
+		for i := range rest {
+			rest[i] = i
+		}
+		picked = make([]int, 0, count)
+		for len(picked) < count && len(rest) > 0 {
+			i := 0
+			if len(rest) > 1 {
+				i = h.Rand(len(rest))
+			}
+			idx := rest[i]
+			rest = append(rest[:i], rest[i+1:]...)
+			if fits(append(picked, idx)) {
+				picked = append(picked, idx)
+			}
+		}
+	}
+	if len(picked) == 0 || len(picked) < lo {
+		h.Emit(events.Event{Kind: events.Note, Obj: d.Source, Player: d.Player,
+			Text: "TargetsAtRandom$ found no valid random draw; the chooser picks"})
+		return false
+	}
+	slices.Sort(picked)
+	opts := make([]decision.Option, len(picked))
+	for i, idx := range picked {
+		opts[i] = d.Options[idx]
+		opts[i].Index = i
+	}
+	d.Options = opts
+	d.Min, d.Max, d.AllowNone = len(opts), len(opts), false
+	if d.AffordableTargets > len(opts) {
+		d.AffordableTargets = len(opts)
+	}
+	d.Prompt = "Targets chosen at random: " + d.Prompt
+	return true
+}
+
+// charmRandomOffer is NumRandomChoices$ (GenericChoice; Davriel, Soul
+// Broker's "accept one of Davriel's offers" over three of eight): of the
+// available choices (Choices$ order), only that many -- drawn without
+// replacement from the engine's seeded rng -- are offered to chooser, kept
+// in Choices$ order. A Note records the offer for the log. An absent,
+// non-positive or covering count returns choices unchanged and consumes no
+// rng. The draw is made at resolution, the same moment the ask is posed,
+// so a log-only replay re-derives it.
+func charmRandomOffer(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID, choices []string) []string {
+	p := CharmOf(sa)
+	if !p.NumRandomChoices.Present {
+		return choices
+	}
+	n := int(numText(h, c, p.NumRandomChoices, 0))
+	if n <= 0 || n >= len(choices) {
+		return choices
+	}
+	rest := make([]int, len(choices))
+	for i := range rest {
+		rest[i] = i
+	}
+	picked := make([]int, 0, n)
+	for len(picked) < n {
+		i := h.Rand(len(rest))
+		picked = append(picked, rest[i])
+		rest = append(rest[:i], rest[i+1:]...)
+	}
+	slices.Sort(picked)
+	out := make([]string, n)
+	labels := make([]string, n)
+	for i, idx := range picked {
+		out[i] = choices[idx]
+		labels[i] = CharmModeLabel(cards.ResolveSVar(c.SVars, out[i]), out[i])
+	}
+	h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: chooser,
+		Text: "offered at random: " + strings.Join(labels, "; ")})
+	return out
 }

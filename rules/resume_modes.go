@@ -65,3 +65,32 @@ func resumeChosenModes(rp *resumePoint, o *state.Object) []string {
 	}
 	return nil
 }
+
+// modeAnswerInChoices re-indexes a mode answer posed over an offered SUBSET
+// of sa's Choices$ (offered: the decision's ResumeModes -- a
+// NumRandomChoices$ draw, a ChoiceRestriction$ filter) onto the whole
+// Choices$ list, the vocabulary modeAnswerNames maps against, so the
+// re-entered reader runs the offered body the seat picked rather than the
+// one at the same position of the whole list. A nil offered list, or an SA
+// without Choices$ (a KWChoice$ pump), leaves chosen as it is; a name the
+// whole list lacks keeps its index (fail to the historic mapping).
+func modeAnswerInChoices(sa *cards.SA, offered []string, chosen []decision.Option) []decision.Option {
+	cp := effects.CharmOf(sa)
+	if offered == nil || !cp.HasChoices {
+		return chosen
+	}
+	out := make([]decision.Option, len(chosen))
+	for i, o := range chosen {
+		out[i] = o
+		if o.Index < 0 || o.Index >= len(offered) {
+			continue
+		}
+		for j, name := range cp.Modes {
+			if name == offered[o.Index] {
+				out[i].Index = j
+				break
+			}
+		}
+	}
+	return out
+}

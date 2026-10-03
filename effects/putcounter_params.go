@@ -60,6 +60,10 @@ type PutCounterParams struct {
 	Support ParamText
 	// Divided is a non-empty DividedAsYouChoose$.
 	Divided bool
+	// DividedRandomly is DividedRandomly$ True: the CounterNum$ total is
+	// divided among the recipients at random, one rng draw per counter
+	// (Orcish Catapult, Faerie Dragon), instead of placed on each.
+	DividedRandomly bool
 	// Choices$, trimmed; Chooser$ and ChoiceTitle$ as written.
 	Choices     string
 	Chooser     string
@@ -85,7 +89,7 @@ type PutCounterParams struct {
 	// EntryFoldBlocked reports that the ability carries an asking or
 	// per-recipient modifier the entry-counter fold must leave to the
 	// ordinary body path (entryBodyAbsorbable): Optional$, Choices$,
-	// Divided$, DividedAsYouChoose$, RandomType$, Bolster$, Support$, Adapt$,
+	// Divided$, DividedAsYouChoose$, DividedRandomly$, RandomType$, Bolster$, Support$, Adapt$,
 	// Monstrosity$, Renown$, CounterNumPerDefined$, CounterTypePerDefined$,
 	// EachFromSource$ or PerDefined$, present with any value.
 	EntryFoldBlocked bool
@@ -116,14 +120,14 @@ var putCounterKnownKeys = [...]string{
 	"ConditionPresent", "ConditionSVarCompare", "CopyCard", "Cost", "CostDesc",
 	"CounterNum", "CounterNumPerDefined", "CounterType", "CounterTypePerDefined",
 	"Defined", "DefinedCards", "DefinedTarget", "Description", "Divided",
-	"DividedAsYouChoose", "ETB", "EachFromSource", "Exclude",
+	"DividedAsYouChoose", "DividedRandomly", "ETB", "EachFromSource", "Exclude",
 	"Exhaust", "GameActivationLimit", "Image", "ImprintCards", "ImprintPlayed",
 	"InstantSpeed", "IsCurse", "IsPresent", "KW",
 	"Keyword", "KeywordLine", "MaxTotalTargetCMC", "MaxTotalTargetPower", "Mentor",
 	"MinChoiceAmount", "ModeCost", "Monstrosity", "NewController",
 	"NumDmg", "OpponentTurn", "Optional", "PerDefined",
 	"Placer", "Planeswalker", "PlayCost", "PlayerTurn", "PowerUp", "PrecostDesc",
-	"PresentCompare", "PresentDefined", "PresentZone", "RandomType", "ReduceAmount",
+	"PresentCompare", "PresentDefined", "PresentZone", "RandomNumTargets", "RandomType", "ReduceAmount",
 	"ReduceCost", "RememberCards", "RememberCostMana", "RememberObjects",
 	"RememberPut", "Renown", "ReplaceColor", "ReplaceGraveyard",
 	"ReplaceGraveyardValid", "ReplaceMana", "ReplaceOnly", "ReplaceType",
@@ -131,7 +135,7 @@ var putCounterKnownKeys = [...]string{
 	"ShowCards", "SorcerySpeed", "SpellDescription", "StackDescription",
 	"SubAbility", "Support", "TargetMax", "TargetMin",
 	"TargetType", "TargetUnique", "TargetValidTargeting", "TargetingPlayer",
-	"TargetingPlayerControls", "TargetsForEachPlayer",
+	"TargetingPlayerControls", "TargetsAtRandom", "TargetsForEachPlayer",
 	"TargetsWithControllerProperty", "TargetsWithDefinedController",
 	"TargetsWithDifferentCMC", "TargetsWithDifferentControllers",
 	"TargetsWithDifferentNames", "TargetsWithEqualToughness",
@@ -221,6 +225,8 @@ func compilePutCounter(sa *cards.SA) *PutCounterParams {
 	p.Support = ParamText{Text: support, Present: supportOK}
 	divided, dividedOK := dividedParam(sa)
 	p.Divided = dividedOK
+	dividedRandomly, dividedRandomlyOK := sa.Param(cards.PKDividedRandomly)
+	p.DividedRandomly = isTrue(dividedRandomly)
 	choices, choicesOK := sa.Param(cards.PKChoices)
 	p.Choices = strings.TrimSpace(choices)
 	p.Chooser = sa.ParamStr(cards.PKChooser)
@@ -240,7 +246,7 @@ func compilePutCounter(sa *cards.SA) *PutCounterParams {
 	p.RememberPut = isTrue(sa.ParamStr(cards.PKRememberPut))
 	p.RememberCards = isTrue(sa.Params["RememberCards"])
 
-	p.EntryFoldBlocked = optionalOK || choicesOK || rawParamText(sa, "Divided").Present || divided.Present ||
+	p.EntryFoldBlocked = optionalOK || choicesOK || rawParamText(sa, "Divided").Present || divided.Present || dividedRandomlyOK ||
 		randomOK || bolsterOK || supportOK || p.Adapt.Present || p.Monstrosity.Present || renownOK ||
 		perNumOK || perTypeOK || eachFromOK || rawParamText(sa, "PerDefined").Present
 

@@ -27,7 +27,7 @@ func TestCompileManaReflected(t *testing.T) {
 	p := ManaReflectedOf(sa)
 	if p.ReflectProperty != "Produce" || !p.WidenType || p.Valid != "Land.OppCtrl" || p.Produced != "R" ||
 		p.Amount != (ParamText{Text: "2", Present: true}) || p.RestrictValid != "Spell" || p.Defined != "You" ||
-		p.ClassBand != "2" || p.IsPresent != " Creature.YouCtrl" || p.PresentCompare != "GE2" {
+		p.ClassBand != "2" || p.IsPresent != "Creature.YouCtrl" || p.PresentCompare != "GE2" {
 		t.Fatalf("compiled = %+v", p)
 	}
 	if !slices.Equal(p.Unread, []string{"Bogus"}) {
