@@ -163,7 +163,7 @@ func effUntapAll(h Host, c *Ctx, sa *cards.SA) {
 // SA has neither selector.
 func allPlayersFor(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 	g := h.Game()
-	if strings.TrimSpace(sa.ParamStr(cards.PKDefined)) == "" {
+	if !DefinedRefOf(sa).Set() {
 		if !TargetsOf(sa).Has(TgtValidPresent) {
 			return g.AliveFrom(0)
 		}

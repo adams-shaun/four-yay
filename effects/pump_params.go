@@ -98,7 +98,7 @@ func PumpOf(sa *cards.SA) *PumpParams {
 	if p := slot.Load(); p != nil && p.boundTo(sa.Params) {
 		return p
 	}
-	p := compilePump(sa)
+	p := compilePump(sa, DefinedOf(sa))
 	if sa.Params != nil {
 		slot.Store(p)
 	}
@@ -110,7 +110,7 @@ func PumpOf(sa *cards.SA) *PumpParams {
 var pumpFront [1 << 10]atomic.Pointer[PumpParams]
 
 // compilePump is the one reader of a Pump ability's own parameters.
-func compilePump(sa *cards.SA) *PumpParams {
+func compilePump(sa *cards.SA, dp *DefinedParams) *PumpParams {
 	p := &PumpParams{paramBinding: bindParams(sa)}
 	nn, nnOK := sa.Params["NoteNumber"]
 	p.NoteNumber = ParamText{Text: nn, Present: nnOK}
@@ -118,7 +118,7 @@ func compilePump(sa *cards.SA) *PumpParams {
 	p.ClearNotedCardsFor = splitTrimList(sa.Params["ClearNotedCardsFor"])
 	p.NoteCardsFor = strings.TrimSpace(sa.Params["NoteCardsFor"])
 	p.NoteCards = strings.TrimSpace(sa.Params["NoteCards"])
-	p.Defined = strings.TrimSpace(sa.ParamStr(cards.PKDefined))
+	p.Defined = dp.Defined.Text
 	p.Secondary = isTrue(sa.ParamStr(cards.PKSecondary))
 	kw := strings.TrimSpace(sa.Params["KWChoice"])
 	p.HasKWChoice = kw != ""
@@ -175,7 +175,7 @@ var pumpKnownKeys = [...]string{
 	"AILifeThreshold", "AILogic", "AINoRecursiveCheck", "AIPhyrexianPayment", "AITgts",
 	"Activation", "ActivationAfterBlockers", "ActivationFirstCombat",
 	"ActivationGameTypes", "ActivationLimit", "ActivationPhases", "ActivationZone",
-	"Activator", "AddKeywords", "AddStaticAbilities", "AddType", "AddTypes",
+	"Activator", "AddType", "AddTypes",
 	"AdditionalDesc", "AdditionalDescription", "Affected", "AlternateCost",
 	"AlternativeCost", "Announce", "AnnounceTitle", "AtEOT", "Boast", "ChangeTypeDesc",
 	"CharacteristicDefining", "CheckSVar", "ChoiceTitle", "ChoiceZone", "Choices",
@@ -186,7 +186,7 @@ var pumpKnownKeys = [...]string{
 	"ConditionSVarCompare", "CopyCard", "Cost", "CostDesc",
 	"Defined", "DefinedCards", "DefinedTarget", "Description", "Duration",
 	"Exclude", "Exhaust", "ForgetImprinted", "GameActivationLimit", "Image",
-	"ImprintCards", "ImprintPlayed", "InstantSpeed", "IntoPlayTapped", "IsCurse",
+	"ImprintCards", "ImprintPlayed", "InstantSpeed", "IsCurse",
 	"IsPresent", "KW", "KWChoice", "Keyword", "KeywordLine", "LeaveBattlefield",
 	"MaxTotalTargetCMC", "MaxTotalTargetPower", "Mentor", "ModeCost", "Monstrosity",
 	"NewController", "NoteCards", "NoteCardsFor", "NoteNumber", "NumAtt", "NumDef",

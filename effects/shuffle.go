@@ -23,7 +23,7 @@ func init() { Register("Shuffle", effShuffle) }
 func effShuffle(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
 	var players []state.PlayerID
-	if sa.ParamStr(cards.PKDefined) == "" && !TargetsOf(sa).Targeted() {
+	if DefinedRefOf(sa).Raw == "" && !TargetsOf(sa).Targeted() {
 		players = append(players, c.Controller)
 	} else {
 		for _, t := range Defined(h, c, sa) {

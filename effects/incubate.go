@@ -82,7 +82,7 @@ func effIncubate(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	owner := c.Controller
-	if def := strings.TrimSpace(sa.ParamStr(cards.PKDefined)); def != "" {
+	if DefinedRefOf(sa).Set() {
 		for _, t := range Defined(h, c, sa) {
 			if t.IsPlayer {
 				owner = state.PlayerID(t.Player)

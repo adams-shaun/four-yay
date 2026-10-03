@@ -441,13 +441,15 @@ func (w *legalWalk) battlefieldWalk() {
 								Label: abFace.Name + ": " + ab.ParamStr(cards.PKSpellDescription), Obj: id, Ability: i,
 								Cost:  e.abilityOfferCost(p, id, ab),
 								Grant: e.abilityGrant(id, ab), Attach: ab.API == "Attach",
-								GrantStatics: staticModesFromSVars(ab, abFace.SVars)})
+								GrantStatics:  staticModesFromSVars(ab, abFace.SVars),
+								SelfSkipTurns: abilitySelfSkipTurns(ab), ForeignSource: o.Controller != p})
 						}
 						if altOK {
 							*out = append(*out, decision.Option{Index: len(*out), Kind: "ability",
 								Label: abFace.Name + ": " + ab.ParamStr(cards.PKSpellDescription) + " (alternate cost)",
 								Obj:   id, Ability: i, AltCostIndex: 1, Grant: e.abilityGrant(id, ab), Attach: ab.API == "Attach",
-								GrantStatics: staticModesFromSVars(ab, abFace.SVars)})
+								GrantStatics:  staticModesFromSVars(ab, abFace.SVars),
+								SelfSkipTurns: abilitySelfSkipTurns(ab), ForeignSource: o.Controller != p})
 						}
 					}
 					// Keyword-granted abilities (CR 613.1f): a layer-6 AddKeyword$

@@ -222,7 +222,7 @@ func (e *Engine) continueScryReplacements(ev events.Event, matches []replMatch, 
 			// (Defined$ You, or absent = the controller). Any other Defined$
 			// is unmodelled and fails loud below rather than drawing for the
 			// wrong seat.
-			if d := strings.TrimSpace(with.ParamStr(cards.PKDefined)); d != "" && !strings.EqualFold(d, "You") {
+			if d := effects.DefinedRefOf(with).Text; d != "" && !strings.EqualFold(d, "You") {
 				break
 			}
 			if n, ok := e.scryReplacementCount(ctx, effects.DrawOf(with).NumCards.Text, ev.Amount); ok {

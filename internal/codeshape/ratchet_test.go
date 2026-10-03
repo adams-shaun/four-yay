@@ -69,8 +69,20 @@ const (
 	// table scan): 619 -> 610. The ManaReflected compiler (ReflectProperty$
 	// read once): 610 -> 609. Measured slack on main (caa66ee75): 609 ->
 	// 608. The CopyPermanent compiler (SetCreatureTypes$, RemoveSubTypes$
-	// and NumCopies$ read once through rawParamText): 608 -> 605.
-	stringParamReads = 605
+	// and NumCopies$ read once through rawParamText): 608 -> 605. W4 step 4's
+	// Defined-reference tier (the compound Defined$ branch and RevealDefined$
+	// no longer rewrite a copied Params map's Defined$ entry; each selector
+	// is a compiled Ref): 605 -> 603. The Clone
+	// compiler (clone.go's CloneTarget$/ExcludeChosen$/CloneZone$/NewName$/
+	// GainThisAbility$/KeepFacedown$/CopyFromChosenName$/SetCreatureTypes$/
+	// RemoveSubTypes$ reads compiled once): 603 -> 593.
+	// The Dig compiler (effDig moved to dig.go; its twelve literal reads
+	// compiled once): 593 -> 581.
+	// The DigUntil compiler (effDigUntil moved to diguntil.go; its literal
+	// reads and withheld-rider list compiled once): 581 -> 568.
+	// The RemoveCounter compiler (effRemoveCounter moved to removecounter.go;
+	// CounterNumShared$/ChoiceNum$/RememberRemoved$ read once): 568 -> 564.
+	stringParamReads = 564
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
 	// W4 step 3: Attach's Object$ switch compiled to a kind: 2886 -> 2883.
@@ -141,6 +153,11 @@ const (
 	// targeting key is read anywhere in rules/ or effects/ outside it. It
 	// landed at zero.
 	targetParamLeaks = 0
+	// definedParamLeaks is the same census for the generic Defined-reference
+	// tier's compiler, effects/defined_params.go (codeshape.DefinedOnlyKeys):
+	// no Defined$/DefinedCards$/DefinedPlayer$/DefinedTarget$ read anywhere
+	// in rules/ or effects/ outside it. It landed at zero.
+	definedParamLeaks = 0
 	// delayedTriggerParamLeaks is the same census for api:DelayedTrigger's compiler,
 	// effects/delayedtrigger_params.go (codeshape.DelayedTriggerFiles, codeshape.DelayedTriggerOnlyKeys). It landed
 	// at zero.
@@ -149,6 +166,22 @@ const (
 	// effects/copypermanent_params.go (codeshape.CopyPermanentFiles, codeshape.CopyPermanentOnlyKeys). It landed
 	// at zero.
 	copyPermanentParamLeaks = 0
+	// cloneParamLeaks is the same census for api:Clone's compiler,
+	// effects/clone_params.go (codeshape.CloneFiles, codeshape.CloneOnlyKeys).
+	// It landed at zero.
+	cloneParamLeaks = 0
+	// digParamLeaks is the same census for api:Dig's compiler,
+	// effects/dig_params.go (codeshape.DigFiles, codeshape.DigOnlyKeys). It landed at
+	// zero.
+	digParamLeaks = 0
+	// digUntilParamLeaks is the same census for api:DigUntil's compiler,
+	// effects/diguntil_params.go (codeshape.DigUntilFiles, codeshape.DigUntilOnlyKeys). It landed at
+	// zero.
+	digUntilParamLeaks = 0
+	// removeCounterParamLeaks is the same census for api:RemoveCounter's compiler,
+	// effects/removecounter_params.go (codeshape.RemoveCounterFiles, codeshape.RemoveCounterOnlyKeys). It landed at
+	// zero.
+	removeCounterParamLeaks = 0
 )
 
 func measureRepo(t *testing.T) Metrics {
@@ -318,6 +351,11 @@ func TestCodeShapeOnlyShrinks(t *testing.T) {
 			"Read the targeting parameter through effects.TargetsOf's compiled TargetParams " +
 				"(add a field to compileTargets in effects/targets_params.go) instead of reading " +
 				"a targeting key from the ability's Params. Leaks: " + strings.Join(m.TargetLeaks, ", ")},
+		{"definedParamLeaks", m.DefinedParamLeaks, definedParamLeaks,
+			"Read the selector through effects.DefinedOf's compiled Ref (add a field to " +
+				"compileDefined in effects/defined_params.go, or resolve selector text with " +
+				"effects.RefOf/DefinedSpec) instead of reading a Defined key from the ability's " +
+				"Params. Leaks: " + strings.Join(m.DefinedLeaks, ", ")},
 		{"delayedTriggerParamLeaks", m.DelayedTriggerParamLeaks, delayedTriggerParamLeaks,
 			"Read the parameter through effects.DelayedTriggerOf's compiled DelayedTriggerParams (add a " +
 				"field to compileDelayedTrigger in effects/delayedtrigger_params.go) instead of reading the ability's Params in " +
@@ -328,6 +366,26 @@ func TestCodeShapeOnlyShrinks(t *testing.T) {
 				"field to compileCopyPermanent in effects/copypermanent_params.go) instead of reading the ability's Params in " +
 				"effects/copypermanent.go or a CopyPermanent-only key elsewhere. " +
 				"Leaks: " + strings.Join(m.CopyPermanentLeaks, ", ")},
+		{"cloneParamLeaks", m.CloneParamLeaks, cloneParamLeaks,
+			"Read the parameter through effects.CloneOf's compiled CloneParams (add a " +
+				"field to compileClone in effects/clone_params.go) instead of reading the ability's Params in " +
+				"effects/clone.go or a Clone-only key elsewhere. " +
+				"Leaks: " + strings.Join(m.CloneLeaks, ", ")},
+		{"digParamLeaks", m.DigParamLeaks, digParamLeaks,
+			"Read the parameter through effects.DigOf's compiled DigParams (add a " +
+				"field to compileDig in effects/dig_params.go) instead of reading the ability's Params in " +
+				"effects/dig.go or a Dig-only key elsewhere. " +
+				"Leaks: " + strings.Join(m.DigLeaks, ", ")},
+		{"digUntilParamLeaks", m.DigUntilParamLeaks, digUntilParamLeaks,
+			"Read the parameter through effects.DigUntilOf's compiled DigUntilParams (add a " +
+				"field to compileDigUntil in effects/diguntil_params.go) instead of reading the ability's Params in " +
+				"effects/diguntil.go or a DigUntil-only key elsewhere. " +
+				"Leaks: " + strings.Join(m.DigUntilLeaks, ", ")},
+		{"removeCounterParamLeaks", m.RemoveCounterParamLeaks, removeCounterParamLeaks,
+			"Read the parameter through effects.RemoveCounterOf's compiled RemoveCounterParams (add a " +
+				"field to compileRemoveCounter in effects/removecounter_params.go) instead of reading the ability's Params in " +
+				"effects/removecounter.go or a RemoveCounter-only key elsewhere. " +
+				"Leaks: " + strings.Join(m.RemoveCounterLeaks, ", ")},
 		{"triggerContextLiterals", m.TriggerContextLiterals, triggerContextLiterals,
 			"Derive trigger referents from the firing event (rules' triggerReferents) or " +
 				"copy an existing TriggerContext and set the fields that differ; a " +

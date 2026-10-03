@@ -137,7 +137,7 @@ func effSkipTurn(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	players := []state.PlayerID{c.Controller}
-	if strings.TrimSpace(sa.ParamStr(cards.PKDefined)) != "" {
+	if DefinedRefOf(sa).Set() {
 		players = nil
 		for _, target := range Defined(h, c, sa) {
 			if target.IsPlayer {
@@ -158,7 +158,7 @@ func effAddTurn(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	player := c.Controller
-	if sa.ParamStr(cards.PKDefined) != "" || TargetsOf(sa).Targeted() {
+	if DefinedRefOf(sa).Raw != "" || TargetsOf(sa).Targeted() {
 		for _, t := range Defined(h, c, sa) {
 			if t.IsPlayer {
 				player = t.Player
@@ -230,7 +230,7 @@ func effAddTurn(h Host, c *Ctx, sa *cards.SA) {
 // these lines anyway).
 func effLosesGame(h Host, c *Ctx, sa *cards.SA) {
 	player := c.Controller
-	if sa.ParamStr(cards.PKDefined) != "" {
+	if DefinedRefOf(sa).Raw != "" {
 		found := false
 		for _, t := range Defined(h, c, sa) {
 			if t.IsPlayer {
@@ -265,7 +265,7 @@ func effLosesGame(h Host, c *Ctx, sa *cards.SA) {
 // shared conditionMet gate ahead of the body, not here.
 func effWinsGame(h Host, c *Ctx, sa *cards.SA) {
 	player := c.Controller
-	if sa.ParamStr(cards.PKDefined) != "" {
+	if DefinedRefOf(sa).Raw != "" {
 		found := false
 		for _, t := range Defined(h, c, sa) {
 			if t.IsPlayer {

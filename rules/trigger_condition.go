@@ -446,7 +446,7 @@ func (e *Engine) presentClauseHolds(t cards.Trigger, source state.ObjID, you sta
 			resolverContext = *tc
 		}
 		ctx := effects.NewCtxPtr(source, you, effects.CtxInit{Remembered: remembered, TriggerContext: resolverContext})
-		group := effects.Defined(e, ctx, &cards.SA{Params: map[string]string{"Defined": pd}})
+		group := effects.DefinedSpec(e, ctx, pd)
 		n := 0
 		for _, target := range group {
 			if !target.IsPlayer && target.Obj != 0 && e.G.Obj(target.Obj) != nil &&

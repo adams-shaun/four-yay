@@ -28,7 +28,7 @@ func effExchangeControl(h Host, c *Ctx, sa *cards.SA) {
 
 	g := h.Game()
 	var targets []state.Target
-	if strings.TrimSpace(sa.ParamStr(cards.PKDefined)) != "" {
+	if DefinedRefOf(sa).Set() {
 		// Defined and the body's target list identify opposite sides in
 		// ParentTarget-plus-ValidTgts DB abilities. Resolve Defined without
 		// Defined's ordinary ValidTgts shortcut, which intentionally prefers

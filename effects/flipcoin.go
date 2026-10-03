@@ -59,7 +59,7 @@ func FlipNoteResult(ev events.Event) (flipper state.PlayerID, win bool, ok bool)
 func flipperPlayers(h Host, c *Ctx, sa *cards.SA) (players []state.Target, named bool) {
 	spec := strings.TrimSpace(sa.Params["Flipper"])
 	if spec == "" {
-		spec = strings.TrimSpace(sa.ParamStr(cards.PKDefined))
+		spec = DefinedRefOf(sa).Text
 	}
 	if spec == "" {
 		return nil, false

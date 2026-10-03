@@ -72,7 +72,7 @@ func ManaReflectedOf(sa *cards.SA) *ManaReflectedParams {
 	if p := slot.Load(); p != nil && p.boundTo(sa.Params) {
 		return p
 	}
-	p := compileManaReflected(sa)
+	p := compileManaReflected(sa, DefinedOf(sa))
 	if sa.Params != nil {
 		slot.Store(p)
 	}
@@ -85,7 +85,7 @@ var manaReflectedFront [1 << 10]atomic.Pointer[ManaReflectedParams]
 
 // compileManaReflected is the one reader of a reflected-mana ability's own
 // parameters.
-func compileManaReflected(sa *cards.SA) *ManaReflectedParams {
+func compileManaReflected(sa *cards.SA, dp *DefinedParams) *ManaReflectedParams {
 	p := &ManaReflectedParams{paramBinding: bindParams(sa)}
 	p.ReflectProperty = strings.TrimSpace(sa.Params["ReflectProperty"])
 	p.WidenType = strings.TrimSpace(sa.Params["ColorOrType"]) == "Type"
@@ -94,7 +94,7 @@ func compileManaReflected(sa *cards.SA) *ManaReflectedParams {
 	amt, amtOK := sa.Param(cards.PKAmount)
 	p.Amount = ParamText{Text: amt, Present: amtOK}
 	p.RestrictValid = strings.TrimSpace(sa.ParamStr(cards.PKRestrictValid))
-	p.Defined = strings.TrimSpace(sa.ParamStr(cards.PKDefined))
+	p.Defined = dp.Defined.Text
 	p.ClassBand = sa.ParamStr(cards.PKClassBand)
 	if spec, ok := sa.Param(cards.PKIsPresent); ok && strings.TrimSpace(spec) != "" {
 		p.IsPresent = spec
@@ -118,7 +118,7 @@ var manaReflectedKnownKeys = [...]string{
 	"AILifeThreshold", "AILogic", "AINoRecursiveCheck", "AIPhyrexianPayment", "AITgts",
 	"Activation", "ActivationAfterBlockers", "ActivationFirstCombat",
 	"ActivationGameTypes", "ActivationLimit", "ActivationPhases", "ActivationZone",
-	"Activator", "AddKeywords", "AddStaticAbilities", "AddType", "AddTypes",
+	"Activator", "AddType", "AddTypes",
 	"AdditionalDesc", "AdditionalDescription", "Affected", "AlternateCost",
 	"AlternativeCost", "Amount", "Announce", "AnnounceTitle", "Boast", "ChangeTypeDesc",
 	"CharacteristicDefining", "CheckSVar", "ChoiceTitle", "ChoiceZone", "Choices",
@@ -128,7 +128,7 @@ var manaReflectedKnownKeys = [...]string{
 	"ConditionNotPresent", "ConditionPhases", "ConditionPlayerTurn", "ConditionPresent",
 	"ConditionSVarCompare", "CopyCard", "Cost", "CostDesc", "Defined", "DefinedCards", "DefinedTarget", "Description", "Exclude",
 	"Exhaust", "GameActivationLimit", "Image", "ImprintCards", "ImprintPlayed",
-	"InstantSpeed", "IntoPlayTapped", "IsCurse", "IsPresent", "KW", "Keyword",
+	"InstantSpeed", "IsCurse", "IsPresent", "KW", "Keyword",
 	"KeywordLine", "MaxTotalTargetCMC", "MaxTotalTargetPower", "Mentor", "ModeCost",
 	"Monstrosity", "NewController", "NumDmg", "OpponentTurn", "Planeswalker", "PlayCost",
 	"PlayerTurn", "PowerUp", "PrecostDesc", "PresentCompare", "PresentDefined",

@@ -842,8 +842,7 @@ func (e *Engine) tokenNewController(m replMatch, ev events.Event) (state.PlayerI
 	if raw == "" {
 		return 0, false
 	}
-	sub := &cards.SA{Params: map[string]string{"Defined": raw}}
-	for _, t := range effects.Defined(e, e.replCtx(m, ev), sub) {
+	for _, t := range effects.DefinedSpec(e, e.replCtx(m, ev), raw) {
 		if t.IsPlayer {
 			return t.Player, true
 		}

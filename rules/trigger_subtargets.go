@@ -77,7 +77,7 @@ func (e *Engine) triggerChainPreAsks(root *cards.SA) []*cards.SA {
 		return nil
 	}
 	for _, sa := range subs {
-		if effects.TargetsOf(sa).TargetingPlayer != "" || strings.TrimSpace(sa.ParamStr(cards.PKDefined)) != "" {
+		if effects.TargetsOf(sa).TargetingPlayer != "" || effects.DefinedRefOf(sa).Set() {
 			return nil
 		}
 	}
@@ -89,7 +89,7 @@ func (e *Engine) triggerChainPreAsks(root *cards.SA) []*cards.SA {
 			continue
 		}
 		if seen && !effects.TargetsOf(sa).Targeted() &&
-			strings.TrimSpace(sa.ParamStr(cards.PKDefined)) == "Targeted" {
+			effects.DefinedRefOf(sa).Is(effects.RefTargeted) {
 			return subs
 		}
 	}

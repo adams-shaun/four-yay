@@ -387,9 +387,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 			targets = append(targets, state.Target{Obj: id})
 		}
 	case populate && spec == "" && !hasTgts:
-		sub := *sa
-		sub.Params = map[string]string{"Defined": "Valid Creature.token+YouCtrl"}
-		cands := Defined(h, c, &sub)
+		cands := DefinedSpec(h, c, "Valid Creature.token+YouCtrl")
 		if len(cands) > 1 {
 			emitNote(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 				Text: "Populate$ with several eligible creature tokens copies the first (no engine host to ask)"})
@@ -420,8 +418,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 		// by the remembered friend. Passing the bare filter as a Defined$
 		// selector would fall through Defined's per-member fallback to the
 		// resolving SOURCE, offering the chooser the spell itself.
-		pick := Defined(h, c, &cards.SA{Params: map[string]string{
-			"Defined": "Valid Creature.RememberedPlayerCtrl"}})
+		pick := DefinedSpec(h, c, "Valid Creature.RememberedPlayerCtrl")
 		d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Min: 1, Max: 1,
 			Source: c.Source, ResumeKind: "copypermanent_choice", ResumeSA: sa,
 			ResumeRemembered: append([]state.Target(nil), c.Remembered...), Prompt: "Choose a creature to copy"}
@@ -574,9 +571,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	attachedToRaw := cp.AttachedTo
 	attachedToNamed := attachedToRaw != ""
 	if raw := attachedToRaw; raw != "" {
-		sub := *sa
-		sub.Params = map[string]string{"Defined": raw}
-		for _, t := range Defined(h, c, &sub) {
+		for _, t := range DefinedSpec(h, c, raw) {
 			if t.IsPlayer || t.Obj == 0 {
 				continue
 			}

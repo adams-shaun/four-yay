@@ -96,7 +96,7 @@ func ManaOf(sa *cards.SA) *ManaParams {
 	if p := slot.Load(); p != nil && p.boundTo(sa.Params) {
 		return p
 	}
-	p := compileMana(sa)
+	p := compileMana(sa, DefinedOf(sa))
 	if sa.Params != nil {
 		slot.Store(p)
 	}
@@ -108,7 +108,7 @@ func ManaOf(sa *cards.SA) *ManaParams {
 var manaFront [1 << 10]atomic.Pointer[ManaParams]
 
 // compileMana is the one reader of a mana ability's production parameters.
-func compileMana(sa *cards.SA) *ManaParams {
+func compileMana(sa *cards.SA, dp *DefinedParams) *ManaParams {
 	p := &ManaParams{paramBinding: bindParams(sa)}
 	p.ProducedRaw, p.HasProduced = sa.Param(cards.PKProduced)
 	p.Produced = strings.TrimSpace(p.ProducedRaw)
@@ -127,7 +127,7 @@ func compileMana(sa *cards.SA) *ManaParams {
 	p.PersistentMana = strings.TrimSpace(sa.Params["PersistentMana"])
 	p.PersistentUntilEndOfCombat = strings.TrimSpace(sa.Params["PersistentUntilEndOfCombat"])
 	p.TriggersWhenSpent = strings.TrimSpace(sa.Params["TriggersWhenSpent"])
-	p.HasDefined = strings.TrimSpace(sa.ParamStr(cards.PKDefined)) != ""
+	p.HasDefined = dp.Defined.Set()
 
 	p.PlainSym, p.PlainAmt = plainManaParams(sa, p)
 	if sa.API == "Mana" {
@@ -189,7 +189,7 @@ var manaKnownKeys = [...]string{
 	"AILifeThreshold", "AILogic", "AINoRecursiveCheck", "AIPhyrexianPayment", "AITgts",
 	"Activation", "ActivationAfterBlockers", "ActivationFirstCombat",
 	"ActivationGameTypes", "ActivationLimit", "ActivationPhases", "ActivationZone",
-	"Activator", "AddKeywords", "AddStaticAbilities", "AddType", "AddTypes",
+	"Activator", "AddType", "AddTypes",
 	"AdditionalDesc", "AdditionalDescription", "AddsCounters", "AddsNoCounter", "Affected",
 	"AlternateCost", "AlternativeCost", "Amount", "Announce", "AnnounceTitle", "Boast",
 	"ChangeTypeDesc", "CharacteristicDefining", "CheckSVar", "ChoiceTitle", "ChoiceZone",
@@ -199,7 +199,7 @@ var manaKnownKeys = [...]string{
 	"ConditionNotPresent", "ConditionPhases", "ConditionPlayerTurn", "ConditionPresent",
 	"ConditionSVarCompare", "CopyCard", "Cost", "CostDesc", "Defined", "DefinedCards", "DefinedTarget", "Description", "Exclude",
 	"Exhaust", "GameActivationLimit", "Image", "ImprintCards", "ImprintPlayed",
-	"InstantSpeed", "IntoPlayTapped", "IsCurse", "IsPresent", "KW", "Keyword",
+	"InstantSpeed", "IsCurse", "IsPresent", "KW", "Keyword",
 	"KeywordLine", "MaxTotalTargetCMC", "MaxTotalTargetPower", "Mentor", "ModeCost",
 	"Monstrosity", "NewController", "NumDmg", "OpponentTurn", "PersistentMana",
 	"PersistentUntilEndOfCombat", "Planeswalker", "PlayCost", "PlayerTurn", "PowerUp",

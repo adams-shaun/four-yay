@@ -95,6 +95,9 @@ func (b Board) abilityScore(o decision.Option, me state.PlayerID) (score int32, 
 	if b.Cards.Get(o.Obj).Activated >= maxActivationsPerTurn {
 		return 0, false // A5: the repeatability budget is spent.
 	}
+	if o.SelfSkipTurns > 0 && !b.turnSkipWorthIt(o) {
+		return 0, false // A6: a skipped turn costs more than the ability gains.
+	}
 	// A2: cheaper ranks higher (only among worth-taking abilities; A1 above
 	// already returned for the no-op case).
 	return 1000 - abilityCost(o.Label), true
@@ -143,7 +146,8 @@ func (b Board) boonHasNoOwnTarget(o decision.Option, me state.PlayerID) bool {
 // AbilityWorthTaking reports whether the "ability" option o passes the
 // bot's own activation guards for seat me: A1 (not a provable no-op -- a
 // re-attach, an attach with no creature, a redundant keyword grant) and A5
-// (the per-source, per-turn repeatability budget). It is the SAME test
+// (the per-source, per-turn repeatability budget) and A6 (a turn-skip rider
+// priced at a whole turn, turnSkipWorthIt). It is the SAME test
 // chooseAbility applies, exported so a search seat that offers the bot's
 // alternatives as candidates (internal/azmcts) never offers one the bot's
 // termination guarantee rests on declining: a free re-equip picked over the
@@ -309,3 +313,47 @@ func (b Board) chooseAbility(d *decision.Decision) int {
 // enough that every legitimate repeat use this deck's cards ask for
 // (double-kicker triggers, repeated equip re-sites) still happens.
 const maxActivationsPerTurn = 4
+
+// turnSkipWorthIt is A6, the self-harm rider price: an "ability" option whose
+// activation makes the ACTIVATOR skip turns (decision.Option.SelfSkipTurns:
+// Lethal Vapors' "{0}: Destroy Lethal Vapors. You skip your next turn.",
+// Chronatog, Chronosavant) is charged a whole turn per skip. Before A6 the
+// free {0} ranked as the cheapest ability on the board (A2) and the bot
+// activated an opponent's Lethal Vapors up to A5's four times in one turn,
+// throwing away a turn each time. It is worth taking only when all hold:
+//
+//   - the source is another player's permanent (ForeignSource: an "any
+//     player may activate" removal of a hostile permanent). The seat's own
+//     riders (a +3/+3 pump, a graveyard return) never repay a turn;
+//   - it is the FIRST activation of that source this turn (Card.Activated,
+//     the public AbilityPush census, counts one still on the stack): the
+//     first resolution already removes the source, so every repeat only
+//     skips another turn;
+//   - it is the seat's own main phase, where the removal pays at once (the
+//     seat casts the creatures the Vapors would destroy this very turn,
+//     and the skip lands on the turn after);
+//   - the creature cards the removal frees are worth more than the lost
+//     turns: their total mana value in hand is at least turnSkipPrice per
+//     skipped turn.
+//
+// Bot-quality advice only, never an engine gate (CR 605.1a's unlimited
+// activations for a human seat are untouched). A pure function of the
+// option and the Board; consumes no rng; the fold is order-independent.
+func (b Board) turnSkipWorthIt(o decision.Option) bool {
+	if !o.ForeignSource || b.Cards.Get(o.Obj).Activated > 0 || !b.MyTurn || !b.IsMain {
+		return false
+	}
+	var freed int32
+	for _, c := range b.Cards.All() {
+		if c.Creature && c.Castable && !c.OnBattlefield {
+			freed += c.CMC
+		}
+	}
+	return freed >= turnSkipPrice*int32(o.SelfSkipTurns)
+}
+
+// turnSkipPrice is A6's price of one skipped turn, in mana value of the
+// creature cards an activation must free to repay it: a turn is an untap,
+// a draw, a land drop and an attack, so a single cheap creature never
+// covers it.
+const turnSkipPrice = 6
