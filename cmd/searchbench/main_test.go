@@ -69,14 +69,16 @@ func TestRunName(t *testing.T) {
 		u    azmcts.DiscountUnit
 		leaf string
 		seed uint64
+		opp  bool
 		want string
 	}{
-		{searchbench.ArmNoSearch, 0, 1, azmcts.DiscountPly, "heuristic", 0, "no-search"},
-		{searchbench.ArmPIMC4, 1000, 1, azmcts.DiscountPly, "heuristic", 0, "pimc-4-b1000"},
-		{searchbench.ArmClairvoyant, 1000, 0.99, azmcts.DiscountPly, "heuristic", 0, "clairvoyant-mcts-b1000-d0.99"},
-		{searchbench.ArmISMCTS, 300, 0.9, azmcts.DiscountAction, "x.ckpt", 2, "is-mcts-b300-d0.9-action-net-s2"},
+		{searchbench.ArmNoSearch, 0, 1, azmcts.DiscountPly, "heuristic", 0, false, "no-search"},
+		{searchbench.ArmPIMC4, 1000, 1, azmcts.DiscountPly, "heuristic", 0, false, "pimc-4-b1000"},
+		{searchbench.ArmClairvoyant, 1000, 0.99, azmcts.DiscountPly, "heuristic", 0, false, "clairvoyant-mcts-b1000-d0.99"},
+		{searchbench.ArmClairvoyant, 300, 0.99, azmcts.DiscountAction, "heuristic", 0, true, "clairvoyant-mcts-b300-d0.99-action-opp"},
+		{searchbench.ArmISMCTS, 300, 0.9, azmcts.DiscountAction, "x.ckpt", 2, false, "is-mcts-b300-d0.9-action-net-s2"},
 	} {
-		if got := runName(c.arm, c.sims, c.d, c.u, c.leaf, c.seed); got != c.want {
+		if got := runName(c.arm, c.sims, c.d, c.u, c.leaf, c.seed, c.opp); got != c.want {
 			t.Errorf("runName = %q, want %q", got, c.want)
 		}
 	}

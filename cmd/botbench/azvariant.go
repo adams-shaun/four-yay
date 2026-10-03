@@ -247,6 +247,9 @@ func (v *azVariant) displayName() string {
 	if v.cfg.PriorOnly {
 		return "az-prior-" + v.name
 	}
+	if v.cfg.Search.OpponentNodes {
+		return fmt.Sprintf("az-%s-sims%d%s-%s", world, v.cfg.Search.Sims, azOppLedgerSuffix, v.name)
+	}
 	return fmt.Sprintf("az-%s-sims%d-%s", world, v.cfg.Search.Sims, v.name)
 }
 
@@ -338,6 +341,12 @@ func azRunRecord() map[string]any {
 	}
 	if azCfg.Search.Discount != 0 {
 		rec["discount"] = azCfg.Search.Discount
+	}
+	if azCfg.Search.OpponentNodes {
+		rec["opponent_nodes"] = true
+		if azCfg.Search.OpponentLimit != 0 {
+			rec["opponent_candidates"] = azCfg.Search.OpponentLimit
+		}
 	}
 	return rec
 }

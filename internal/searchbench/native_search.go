@@ -232,6 +232,15 @@ func RunArm(ctx context.Context, in ArmInput) (ArmResult, error) {
 	default:
 		return res, fmt.Errorf("searchbench: unknown search arm %q", in.Arm)
 	}
+	if in.Options.OpponentNodes && (in.Arm == ArmISMCTS || in.FreshChance) {
+		// An opponent node's statistics must describe one world: IS-MCTS
+		// re-deals and fresh chance re-seeds every simulation.
+		what := string(in.Arm)
+		if in.Arm != ArmISMCTS {
+			what += " with fresh chance"
+		}
+		return res, fmt.Errorf("searchbench: opponent nodes need a fixed-world tree; %s changes the world every simulation", what)
+	}
 	if len(in.Worlds) < need {
 		return res, fmt.Errorf("searchbench: %s needs %d worlds, got %d", in.Arm, need, len(in.Worlds))
 	}

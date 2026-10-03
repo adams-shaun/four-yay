@@ -180,3 +180,40 @@ func TestAZPlaysPairMatrix(t *testing.T) {
 		t.Fatal("an az side accepted a checkpoint without a value head")
 	}
 }
+
+// -az-opponent-nodes runs only on the clairvoyant world, -az-opponent-
+// candidates needs it, and the ledger name and run record say so.
+func TestAZOpponentNodesFrontDoor(t *testing.T) {
+	saveAZ(t)
+	azWorldArg, azFlagsGiven, azKindsArg = "clairvoyant", true, "priority,attackers,blockers,target"
+	azCfg.Search.OpponentLimit = 3
+	if err := azFrontDoor("az", "bot", nil, azSeatsFromHosted); err == nil || !strings.Contains(err.Error(), "needs -az-opponent-nodes") {
+		t.Fatalf("-az-opponent-candidates alone: %v", err)
+	}
+	azCfg.Search.OpponentNodes = true
+	for _, tc := range []struct{ world, a, want string }{
+		{"redeal", "az", "clairvoyant world"},
+		{"", "az-redeal", "clairvoyant world"},
+		{"prior", "az", "builds no tree"},
+	} {
+		azWorldArg = tc.world
+		if err := azFrontDoor(tc.a, "bot", nil, azSeatsFromHosted); err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("-az-world %q policy %s: %v, want %q", tc.world, tc.a, err, tc.want)
+		}
+	}
+	azWorldArg = "clairvoyant"
+	if err := azFrontDoor("az", "bot", nil, azSeatsFromHosted); err != nil {
+		t.Fatalf("clairvoyant az with opponent nodes: %v", err)
+	}
+	if !azCfg.Search.OpponentNodes || azCfg.Search.OpponentLimit != 3 {
+		t.Fatalf("front door stored %+v", azCfg.Search)
+	}
+	azCfg.Search.Sims = 40
+	if got := sbDisplayName("az+passguard"); got != "az-clairvoyant-sims40-opp+passguard" {
+		t.Fatalf("ledger name %q", got)
+	}
+	rec := azRunRecord()
+	if rec["opponent_nodes"] != true || rec["opponent_candidates"] != 3 {
+		t.Fatalf("run record %v", rec)
+	}
+}
