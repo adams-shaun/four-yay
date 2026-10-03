@@ -279,7 +279,7 @@ func (e *Engine) classifyBattlefieldAbilities(p state.PlayerID, w *windowCollect
 				continue
 			}
 			ab := pa.SA
-			if isManaAbilityAPI(ab.API) && !e.isLoyaltyAbility(ab) {
+			if cards.IsManaAbilityAPI(ab.API) && !e.isLoyaltyAbility(ab) {
 				continue
 			}
 			// Gate order mirrors the printed activation loop.

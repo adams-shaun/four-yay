@@ -700,6 +700,29 @@ func MatchesPlayerSpecWithSVars(h Host, c *Ctx, spec string, p, you state.Player
 	if h == nil || c == nil {
 		return false
 	}
+	return matchesPlayerSpecSVars(h.Game(), h, nil, c, spec, p, you)
+}
+
+// CountEval evaluates a Count$/SVar amount expression for source under
+// controller, with svars as the script table: effects.EvalCountOK's contract
+// for a caller that holds no effects.Host (rules/trigmatch passes its Board's
+// EvalCount). It takes the context's scalars rather than the *Ctx so a
+// caller-built Ctx never escapes through the dynamic call.
+type CountEval func(source state.ObjID, controller state.PlayerID, svars map[string]string, expr string) (int32, bool)
+
+// MatchesPlayerSpecWithCounts is MatchesPlayerSpecWithSVars with eval in place
+// of a Host's EvalCountOK for a symbolic threshold's SVar body.
+func MatchesPlayerSpecWithCounts(g *state.Game, eval CountEval, c *Ctx, spec string, p, you state.PlayerID) bool {
+	if g == nil || eval == nil || c == nil {
+		return false
+	}
+	return matchesPlayerSpecSVars(g, nil, eval, c, spec, p, you)
+}
+
+// matchesPlayerSpecSVars is the shared body: exactly one of h and eval is
+// set. The Host branch keeps a static EvalCountOK call so its *Ctx leaks
+// only its content, as before the split.
+func matchesPlayerSpecSVars(g *state.Game, h Host, eval CountEval, c *Ctx, spec string, p, you state.PlayerID) bool {
 	for alt := range strings.SplitSeq(spec, ",") {
 		clauses := strings.Split(strings.TrimSpace(alt), "+")
 		resolved := true
@@ -722,7 +745,7 @@ func MatchesPlayerSpecWithSVars(h Host, c *Ctx, spec string, p, you state.Player
 			}
 			body, found := c.SVars[rhs]
 			if !found {
-				if o := h.Game().Obj(c.Source); o != nil && o.Face() != nil {
+				if o := g.Obj(c.Source); o != nil && o.Face() != nil {
 					body, found = o.Face().SVars[rhs]
 				}
 			}
@@ -730,7 +753,12 @@ func MatchesPlayerSpecWithSVars(h Host, c *Ctx, spec string, p, you state.Player
 				resolved = false
 				break
 			}
-			threshold, ok := EvalCountOK(h, c, body)
+			var threshold int32
+			if h != nil {
+				threshold, ok = EvalCountOK(h, c, body)
+			} else {
+				threshold, ok = eval(c.Source, c.Controller, c.SVars, body)
+			}
 			if !ok {
 				resolved = false
 				break
@@ -741,7 +769,7 @@ func MatchesPlayerSpecWithSVars(h Host, c *Ctx, spec string, p, you state.Player
 			}
 			clauses[i] = prefix + base + ".life" + op + strconv.FormatInt(int64(threshold), 10)
 		}
-		if resolved && MatchesPlayerSpecCtx(h.Game(), strings.Join(clauses, "+"), p, you, PlayerSpecCtx{
+		if resolved && MatchesPlayerSpecCtx(g, strings.Join(clauses, "+"), p, you, PlayerSpecCtx{
 			Source:     c.Source,
 			OpponentOf: c.Remembered,
 		}) {

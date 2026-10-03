@@ -76,8 +76,8 @@ var expandedHeads = []string{
 	"Partner with",
 	// Increment (CR 702.XX, task kw:Increment): the bare K:Increment line
 	// expanded into a SpellCast self-trigger whose event-relative "mana spent
-	// > power or toughness" condition is read by incrementAdmits
-	// (cards/kw_increment.go, rules/trigmatch_cast.go). Added after the split;
+	// > power or toughness" condition is read by trigmatch.incrementAdmits
+	// (cards/kw_increment.go, rules/trigmatch/cast.go). Added after the split;
 	// the pre-split switch never had it.
 	"Increment",
 	// Backup (CR 702.70, task kw-backup): a ChangesZone ETB trigger whose

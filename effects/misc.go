@@ -960,7 +960,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 				// Goad$ True`). Registered into the continuous registry as a
 				// Restriction ("Goad") the same shape the MustAttack and
 				// CanAttackDefender requirement grants use, so rules'
-				// staticGoaders -- the reader BOTH routes share -- matches its
+				// combat.staticGoaders -- the reader BOTH routes share -- matches its
 				// Affected$ spec against the registered Remembered set exactly
 				// like the layer walk binds one. The line must be entirely
 				// readable (Goad$ literal True, no condition gate, no extra
@@ -1220,7 +1220,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 				// defending player, and its ValidBlocker$
 				// Creature.RememberedPlayerCtrl clause resolves against the
 				// same set at the block consultation (rules/statics.go
-				// blockRestricted, via SpecContext.RememberedPlayers).
+				// combat.BlockRestricted, via SpecContext.RememberedPlayers).
 				//
 				// CantGainLife joins for the damage-trigger carriers: Screaming
 				// Nemesis's RememberObjects$ Player.IsRemembered (the damaged
@@ -1340,7 +1340,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 			// able"): Territory Hellkite's DBPump, and the four plain-
 			// SubAbility siblings Knight Rampager, Ursine Monstrosity, Raving
 			// Dead and Ruhan of the Fomori. It registers like the restriction
-			// modes above (rules' attackRequirements collector reads it from
+			// modes above (combat.AttackRequirements collector reads it from
 			// the continuous-effect registry beside the face statics), with the
 			// same readable-parameter gate so a conditional line fails closed
 			// instead of over-requiring. The chosen-/remembered-player binding
@@ -1373,7 +1373,7 @@ func effEffect(h Host, c *Ctx, sa *cards.SA) {
 			// of You a Gift, Furygale Flocking, City of the Daleks, Rotted
 			// Ones Lay Siege, The Brothers War) resolves it from
 			// ce.RememberedPlayers at consultation time (rules/combat.go
-			// requirementDefender). effectRemembered records objects only, so
+			// combat.requirementDefender). effectRemembered records objects only, so
 			// without this the captured player would silently vanish and the
 			// requirement would never be counted. Same read the adjacent
 			// CantAttack/CantSacrifice case makes.

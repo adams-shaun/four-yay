@@ -499,7 +499,7 @@ func TestTotalPowerCapOnAnAbilityTargetAsk(t *testing.T) {
 // TestTotalPowerCapReadsDerivedPowerInEveryZone: the cap prunes on the
 // DERIVED power, not the printed face. Lord of Extinction's printed P/T is
 // the characteristic-defining */* (Face().Power() reads 0 for it), but the
-// CDA applies in EVERY zone (CR 208.2; rules/layers.go derivedScalarFrom's
+// CDA applies in EVERY zone (CR 208.2; rules/chars/derive.go PT's
 // comment) -- with a populated graveyard its derived power is 13, over the
 // cap of 10, so it can never be part of any legal selection and must not be
 // offered. The first cut pruned on Face().Power(), read Lord as a free

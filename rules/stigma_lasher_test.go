@@ -48,7 +48,7 @@ func TestStigmaLasherLocksDamagedPlayerFromGainingLife(t *testing.T) {
 	// and Player=1, so its trigger's TriggeredTarget binds seat 1 (CR 121.6:
 	// the remembered player rides the trigger into the Effect's resolution).
 	// The damage source is published (SetDamageSource), the noncombat route
-	// damageMatches' ValidSource$ reads through damageEventSource.
+	// trigmatch.DamageMatches' ValidSource$ reads through trigmatch.DamageEventSource.
 	prev := e.SetDamageSource(lasher)
 	e.emit(events.Event{Kind: events.Damage, Player: 1, Amount: 2})
 	e.SetDamageSource(prev)

@@ -14,8 +14,8 @@ func kwIncrement(f *Face, i int, k, head, param string, has func(kind, line stri
 	// source whose body counters Self.
 	//
 	// The event-relative spend-vs-power/toughness comparison rides the
-	// trigger's Increment$ marker, read by rules' incrementAdmits at
-	// fire-time (rules/trigmatch_cast.go). It is a marker rather than a
+	// trigger's Increment$ marker, read by trigmatch.incrementAdmits at
+	// fire-time (rules/trigmatch/cast.go). It is a marker rather than a
 	// CheckSVar$/SVarCompare$ gate because SVarCompare$ compares an SVar
 	// against a literal, not against the SOURCE's current power/toughness,
 	// and because the spend is event-relative -- the mana paid for THIS
@@ -29,7 +29,7 @@ func kwIncrement(f *Face, i int, k, head, param string, has func(kind, line stri
 	// TriggerZones$ Battlefield is EXPLICIT because the zone gate's default
 	// has a SpellCast special case that admits a trigger with no explicit
 	// zones when the triggering event is the source's OWN cast
-	// (rules/trigmatch_zone.go: CR 601.2i's "when you cast this spell"
+	// (rules/trigger_zone_gate.go: CR 601.2i's "when you cast this spell"
 	// carve-out). Without it, casting the Increment creature itself fires its
 	// own trigger while it is a spell on the stack and puts a counter on it
 	// before it enters -- measured: Pensive Professor arrived as a 1/2. A

@@ -1892,7 +1892,7 @@ var statFamilyInternal = []string{
 // genericSAExcludes is the third attribution class: rules functions whose SA
 // reads genuinely run for every activated ability EXCEPT the named APIs --
 // the generic ability-offer loop (rules/legal.go legalActions) skips
-// isManaAbilityAPI abilities, so its abilityPresentHolds gate never executes
+// cards.IsManaAbilityAPI abilities, so its abilityPresentHolds gate never executes
 // for Mana/ManaReflected and must not mark those APIs' IsPresent$/
 // PresentCompare$ read (the Verge/Temple-of-the-False-God Mana.IsPresent set
 // is a separate, still-open gap). Each entry's keys are removed from the

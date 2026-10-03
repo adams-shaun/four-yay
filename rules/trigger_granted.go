@@ -5,7 +5,7 @@
 //
 // Split out of trigger_match.go so tickets touching different modes stop
 // colliding on one file. Registration is at the bottom; a duplicate mode
-// panics (registerTrigMatcher).
+// panics (trigmatch.registerTrigMatcher).
 
 package rules
 
@@ -161,7 +161,7 @@ func (e *Engine) checkGrantedDemonstrateTriggers(observer *Engine, id state.ObjI
 // walk -- because a Damage event dealt to a PLAYER has no object recipient
 // (ev.Obj == 0), so the live walk's zone-skip path would not visit the
 // dealing creature at all (trigMustVisit names only ev.Obj/ev.IDs/ev.Pairs).
-// The dealer is e.damaging, the same source resolution damageEventSource
+// The dealer is e.damaging, the same source resolution trigmatch.DamageEventSource
 // uses, and e.combatDamaging is the flag the combat assignment loop sets.
 // The scan is over battlefield permanents that actually carry an encoded
 // card, and the gate is exact: COMBAT damage (e.combatDamaging), dealt BY
@@ -389,7 +389,7 @@ func (e *Engine) checkGrantedDethroneTriggers(observer *Engine, id state.ObjID, 
 // exactly (Mode$ Attacks, ValidCard$ Card.Self, Training$ True, the P1P1
 // PutCounter body), so it is byte-identical to the printed path: the
 // event-relative power comparison and the declaration-wide attacker set are
-// both read by attacksMatches. It skips the object entirely when its printed
+// both read by trigmatch.AttacksMatches. It skips the object entirely when its printed
 // face already carries Training, so a token printing the keyword and also
 // granted it fires once (the Dethrone dedup). Read-only derived
 // characteristics; granting stays in the continuous-effect system. Like the

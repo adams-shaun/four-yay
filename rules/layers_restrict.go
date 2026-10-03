@@ -138,7 +138,7 @@ func (e *Engine) sacrificeBlockedForCost(id state.ObjID, cause costCause) bool {
 // object to attribute: an activated ability's costs are paid BEFORE its stack
 // object exists (cast.go pushCast's pc.isAbility() early return), so the
 // stack top would name whatever unrelated object was already there -- the
-// exact misattribution discardCauseAdmits guards against. The pending act of
+// exact misattribution trigmatch.DiscardCauseAdmits guards against. The pending act of
 // casting/activating is therefore the only honest cause where one is pending,
 // and the defined semantics per cost site (cantsac1 r2) are:
 //
@@ -345,7 +345,7 @@ func (e *Engine) exileBlocked(id state.ObjID, forCost bool, cause costCause) boo
 // names the kind (absent = all kinds), ValidPlayer$ scopes the player form,
 // ValidCard$/ValidObject$ scopes the object form. An unscoped line blocks
 // both forms. Both routes are consulted, mirroring SacrificeBlocked /
-// attackBlocked.
+// combat.AttackBlocked.
 func (e *Engine) PutCounterBlocked(kind string, obj state.ObjID, player state.PlayerID, playerForm bool) bool {
 	for ceI, ceL := 0, e.active(); ceI < len(ceL); ceI++ {
 		ce := &ceL[ceI]

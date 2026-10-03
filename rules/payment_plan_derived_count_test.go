@@ -30,7 +30,7 @@ func TestPaymentPlanPricesCountAmountWithDerivedTypes(t *testing.T) {
 	t.Parallel()
 	spellCard, post, nexus := card(t, planTwoSpell), card(t, planLocusPost), card(t, planEveryTypeLand)
 	// NameUniverse carries the land-subtype vocabulary AllNonBasicLandType
-	// expands against (corpusLandTypeWords), as a hosted match's corpus does.
+	// expands against (chars.CorpusLandTypeWords), as a hosted match's corpus does.
 	cfg := seatZeroStart(Config{Seed: 9413, Names: []string{"a", "b"},
 		Decks: [][]*cards.Card{
 			append([]*cards.Card{spellCard, post}, mountainDeck(t, 38)...),

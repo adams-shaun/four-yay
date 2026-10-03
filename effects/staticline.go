@@ -723,8 +723,8 @@ func effectRememberedPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 
 // CantRestrictionParamsReadable is the parameter whitelist a CantAttack /
 // CantSacrifice static must pass before this build enforces it — used BOTH by
-// the face-static readers (rules/layers.go's SacrificeBlocked/attackBlocked
-// activeStatics walks) and by effEffect's registration case (an Effect body
+// the face-static readers (rules/layers_restrict.go's SacrificeBlocked and
+// rules/combat's AttackBlocked activeStatics walks) and by effEffect's registration case (an Effect body
 // carrying an unreadable parameter must not register blanket, so the two
 // registration paths cannot disagree about what is readable): Mode$, the
 // ValidCard$ object spec, the Target$ player spec, and display text only.

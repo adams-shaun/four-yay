@@ -364,7 +364,7 @@ func ApplyPtr(g *state.Game, e *Event) {
 		// are their own preceding events, and this record exists only so
 		// "whenever you win/lose a clash" fires on a clash rather than on any
 		// reveal. Amount carries the Won$ orientation (1 = won, 0 = lost or
-		// tied), already read off the live event by clashMatches, so Apply
+		// tied), already read off the live event by trigmatch.ClashMatches, so Apply
 		// stores nothing.
 	case NoteNumber:
 		foldNoteNumber(g, e)

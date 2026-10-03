@@ -8,7 +8,7 @@
 //
 // The reading, one model for every carrier: a static whose ValidCard$ admits
 // the attacking creature and whose Target$ admits the defender (absent = every
-// defender, the same scoping attackBlocked gives CantAttack's Target$) charges
+// defender, the same scoping combat.AttackBlocked gives CantAttack's Target$) charges
 // the attacking creature's controller a composite price PER ATTACKING
 // CREATURE the static matches: mana (a literal, a Count$/SVar expression),
 // life (PayLife<N>), tapXType<N/Spec> obligations, Sac<N/Spec>/Return<N/Spec>
@@ -1426,7 +1426,7 @@ type attackOfferKey struct {
 // and validateAttackers share -- the one source of truth for which pairs exist
 // this combat. The enumeration and the ORDER are exactly askAttackers':
 // defender-major -- for each defender in AliveFrom(0) minus the active
-// player, for each canAttack-filtered battlefield creature in zone order,
+// player, for each combat.CanAttack-filtered battlefield creature in zone order,
 // through the goad/CantAttack filters. On top, the affordability
 // bound: a chargeable pair is admitted when its INDIVIDUAL price fits the
 // payer's attackBudget, so the list never offers an option the payer cannot
@@ -1449,7 +1449,7 @@ type attackOfferKey struct {
 // defender is dropped.
 // That is what keeps a named MustAttack$ duty and a goad from cancelling each
 // other out into "the creature attacks nobody": the earlier single-defender
-// filter removed the non-named pairs while goadMayAttack removed the named
+// filter removed the non-named pairs while combat.GoadMayAttack removed the named
 // one, so the offer list emptied and the requirement solver saw an unrequired
 // creature (the t2 review's defect). A creature with no requirement set keeps
 // every legal pair, so an ordinary declaration is byte-identical. When two

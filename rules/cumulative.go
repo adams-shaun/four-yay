@@ -676,7 +676,7 @@ func (e *Engine) continueCumulativeAction() {
 	case "FlipCoin":
 		// The canonical coin-flip result Note effects.FlipCoinNote emits —
 		// the ONE encoding the FlippedCoin trigger matcher
-		// (rules/trigger_match.go's flippedCoinMatches) reads, so a
+		// (rules/trigmatch/actions.go's flippedCoinMatches) reads, so a
 		// cost-side flip fires "whenever you win/lose a coin flip" exactly
 		// like an effect-side one (Karplusan Minotaur).
 		for i := 0; i < total; i++ {

@@ -68,7 +68,7 @@ func (e *Engine) spellsCastThisTurnMatching(you state.PlayerID, spec string, exc
 	// — so the backward walk carries a per-caster spend bucket: a negative
 	// ManaAdd (a spend event carries no Obj) belongs to the NEXT PutOnStack
 	// the walk reaches for its player — the cast it sits above in the log —
-	// exactly the window manaSpentForCast reads for the SA-level ValidSA$
+	// exactly the window trigmatch.ManaSpentForCast reads for the SA-level ValidSA$
 	// family. Specs without a CastSa token take the unchanged per-event
 	// chain call (their castProvenanceAdmits strip is event-local and
 	// stateless).
@@ -134,7 +134,7 @@ func (e *Engine) spellsCastThisTurnMatching(you state.PlayerID, spec string, exc
 		// This push closes the spend window of the cast it announces: the
 		// caster's bucket holds exactly the spends since the walk start,
 		// which are this cast's own (plus the caster's own post-payment
-		// floating — the manaSpentForCast convention). Take the facts and
+		// floating — the trigmatch.ManaSpentForCast convention). Take the facts and
 		// reset, so an older cast of the same object (a hand cast before a
 		// flashback) does not inherit them and the in-flight cast's window
 		// belongs to no counted cast.

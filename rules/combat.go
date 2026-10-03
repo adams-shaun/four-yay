@@ -44,7 +44,7 @@ import (
 )
 
 // askAttackers builds a KAttackers decision, one option per (attacker,
-// defender) pair: every creature passing canAttack, offered once against
+// defender) pair: every creature passing combat.CanAttack, offered once against
 // every living opponent of the active player (CR 506.2: each attacking
 // creature's controller announces which opponent it is attacking, one
 // independent choice per creature). Task m34 replaces M1's single fixed
@@ -179,7 +179,7 @@ func (e *Engine) askAttackers() {
 	// (Crawlspace's "no more than two creatures can attack you") cannot be
 	// expressed by the decision's single Max nor by the default
 	// at-most-one-per-Group rule, so each capped defender's Group names its
-	// own ceiling. Built from the same attackRestrictLimit read the engine's
+	// own ceiling. Built from the same combat.AttackRestrictLimit read the engine's
 	// declaration check uses.
 	groupLimits := map[string]int{}
 	for _, of := range offers {
@@ -245,7 +245,7 @@ func (e *Engine) askAttackers() {
 	// WHOLE declaration, so the decision's Max is the honest ceiling, not the
 	// option count: a client capped at Max can never assemble a declaration
 	// the engine would reject for size. Without a ceiling in force
-	// maxAttackers returns the int maximum and the clamp is inert
+	// combat.MaxAttackers returns the int maximum and the clamp is inert
 	// (Max == len(opts), today's value).
 	maxOpts := len(opts)
 	if ceil := combat.MaxAttackers(asBoard(e)); ceil < maxOpts {
@@ -700,7 +700,7 @@ func (e *Engine) validateAttackers(d *decision.Decision, in decision.Intent) err
 // ValidCreature$ Creature.EnchantedBy`, the Vow cycle's shape -- reaches the
 // enchanted creature, not just its bearer's own face. A MustAttack static
 // carrying a condition or any other parameter the requirement collector
-// cannot evaluate contributes nothing (attackRequirements skips it), the safe
+// cannot evaluate contributes nothing (combat.AttackRequirements skips it), the safe
 // direction for a requirement: erring toward requiring a creature that
 // already attacks changes nothing, while falsely requiring one that cannot
 // legitimately attack would make a legal declaration unanswerable.
@@ -958,7 +958,7 @@ func (e *Engine) blockPairScopeFor(defender state.PlayerID) blockPairScope {
 }
 
 // admissiblePair reports whether the declare-blockers offer actually offers
-// the (blocker, attacker) pair: canBlock, the attacker not ruled out by an
+// the (blocker, attacker) pair: combat.CanBlock, the attacker not ruled out by an
 // impossible block-count bound, and a per-pair price the defender can pay.
 // This is the ONE oracle of declarability: askBlockers' option build and
 // its MustBlock team solver read it, so a requirement cannot be counted on a
@@ -1012,7 +1012,7 @@ type blockerRound struct {
 // With no attackers this combat (declared 0, or all already gone), there is
 // nothing to block: the round is empty and the step skips straight to
 // combat damage. With attackers but zero legal blockers for them (every
-// candidate fails canBlock, e.g. a lone ground creature against a flier),
+// candidate fails combat.CanBlock, e.g. a lone ground creature against a flier),
 // the same reasoning skips each such defender.
 func (e *Engine) askBlockers() {
 	if e.blockerRound.order == nil {
@@ -1178,7 +1178,7 @@ func (e *Engine) askBlockers() {
 // reaching IsAttacking used to make it as far as the label build in the
 // single-defender askBlockers, which read e.G.Obj(aid).Face().Name
 // unconditionally: a nil-pointer panic, and therefore a remote kill of the
-// whole match (one goroutine runs it). canAttack already requires this for a
+// whole match (one goroutine runs it). combat.CanAttack already requires this for a
 // real attacker, so no legitimate attacker is excluded by requiring it here
 // too.
 func (e *Engine) blockAttackers(defender state.PlayerID) []state.ObjID {
@@ -2103,7 +2103,7 @@ func (e *Engine) runCombatAssignments() {
 		// before the next assignment.
 		e.damaging = x.from
 		// combatDamaging marks THIS assignment's Damage event as combat damage
-		// (see engine.go): damageMatches reads it inside the emit's
+		// (see engine.go): trigmatch.DamageMatches reads it inside the emit's
 		// synchronous checkTriggers, and a prevented hit (the protection Note
 		// substituted for the Damage event) never reaches it.
 		e.combatDamaging = true
@@ -2557,8 +2557,8 @@ func (e *Engine) discardCleanup(chosen []decision.Option) {
 }
 
 // Registered here: exactly the eight keywords this task actually implements
-// (Flying/Reach gate blocking in canBlock; Haste and Vigilance gate/modify
-// attacking in canAttack/handleAttackers; Deathtouch, Trample, Lifelink and
+// (Flying/Reach gate blocking in combat.CanBlock; Haste and Vigilance gate/modify
+// attacking in combat.CanAttack/handleAttackers; Deathtouch, Trample, Lifelink and
 // First Strike are all read directly in damageStep above and
 // destroyLethalDamage, sba.go), plus three the M2r ratchet adds, each with a
 // named proof test in keyword_registration_test.go: Flash (legal.go's
@@ -2582,12 +2582,12 @@ func init() {
 		"kw:Fear", "kw:Shadow", "kw:Horsemanship", "kw:Skulk",
 		// kw:Intimidate (CR 702.13a): an Intimidate attacker is blocked only
 		// by artifact creatures and/or creatures sharing a colour with it --
-		// read directly in canBlock as a colour-intersection generalisation
+		// read directly in combat.CanBlock as a colour-intersection generalisation
 		// of Fear. Proof test: TestIntimidateBlocksOnlyArtifactsAndSharedColors.
 		"kw:Intimidate",
 		// kw:Landwalk (CR 702.14): a walker can't be blocked while the
 		// defending player controls a land of the named type. The family is
-		// read directly in canBlock/landwalkEvades against the defender's
+		// read directly in combat.CanBlock/combat.LandwalkEvades against the defender's
 		// controlled lands, including the nonbasic/legendary/snow qualifier
 		// forms the corpus spells. Proof test: TestLandwalkEvadesDefenderLands.
 		"kw:Landwalk",

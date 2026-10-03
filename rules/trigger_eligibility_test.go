@@ -545,7 +545,7 @@ func TestTriggerEligibilityKeepsRoomAlternateFace(t *testing.T) {
 // BlessingChange 69, ClonePermanent 70, Mutate 71, MergedTriggerPush 72,
 // Discover 73, Seek 74 (NumKinds 75) -- is past it too. So mutate's two kinds are NOT a special
 // case: they fail open like every other kind past the bound, and trig:Mutates
-// is gated by the full matcher (mutatesMatches), not by the mask. An earlier
+// is gated by the full matcher (trigmatch.mutatesMatches), not by the mask. An earlier
 // version of this test asserted the opposite contract (an enumerated mask
 // classifying a known kind past the width EXACTLY, with the compiled side left
 // wider); main has since resolved the same question the other way, symmetric

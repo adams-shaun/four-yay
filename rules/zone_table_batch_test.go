@@ -5,7 +5,7 @@
 // triggerChangesZoneAll ONCE after the loop -- so a Mode$ ChangesZoneAll
 // "one or more" payoff observes the whole loop as one batch, while Mode$
 // ChangesZone keeps observing each individual move. Before the fix gorge
-// exposed each move separately (rules/trigmatch_zone.go registered
+// exposed each move separately (rules/trigmatch/zone.go registered
 // ChangesZoneAll to the same per-object matcher as ChangesZone,
 // "batch-of-one"), so a ChangesZoneAll payoff fired N times for an N-move
 // loop.

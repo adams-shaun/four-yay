@@ -18,8 +18,8 @@ import (
 // The type prefilters rest on typeCharacteristicsActive's no-layer-4 arm: with
 // no LType effect in the active list a battlefield permanent's derived type
 // list is its base list (the printed face, or the CR 708.5 face-down words)
-// put through CopyNonLegendary's Legendary strip, bestowedTypeSwitch (drops
-// Creature, adds Aura) and reconfigureTypeSwitch (drops Creature). None of the
+// put through CopyNonLegendary's Legendary strip, chars.bestowedTypeSwitch (drops
+// Creature, adds Aura) and chars.reconfigureTypeSwitch (drops Creature). None of the
 // three can ADD World or Legendary, and only the bestow switch can add Aura,
 // so on a face-up permanent the derived answer for those words is the face
 // answer (plus the bestow switch for Aura). A face-down permanent and any
