@@ -108,7 +108,7 @@ var drawKnownKeys = [...]string{
 	"PresentCompare", "PresentDefined", "PresentZone", "ReduceAmount", "ReduceCost",
 	"RememberCostMana", "RememberDrawn", "RememberObjects", "ReplaceColor",
 	"ReplaceGraveyard", "ReplaceGraveyardValid", "ReplaceMana", "ReplaceOnly",
-	"ReplaceType", "RestrictValid", "SVarCompare", "SelectPrompt", "SetChosenMode",
+	"ReplaceType", "SVarCompare", "SelectPrompt", "SetChosenMode",
 	"SetColor", "ShowCards", "SorcerySpeed", "SpellDescription", "StackDescription",
 	"SubAbility", "TargetMax", "TargetMin", "TargetType",
 	"TargetUnique", "TargetValidTargeting", "TargetingPlayer", "TargetingPlayerControls",
@@ -117,11 +117,9 @@ var drawKnownKeys = [...]string{
 	"TargetsWithDifferentControllers", "TargetsWithDifferentNames",
 	"TargetsWithEqualToughness", "TargetsWithSameCardType", "TargetsWithSameController",
 	"TargetsWithSameCreatureType", "TargetsWithSharedCardType", "TargetsWithSharedTypes",
-	"TgtPrompt", "TgtZone", "TokenScript", "TriggerDescription", "TriggersWhenSpent",
-	"Type", "Ultimate", "UnlessAI", "UnlessCost", "UnlessPayer", "UnlessResolveSubs",
+	"TgtPrompt", "TgtZone", "TokenScript", "TriggerDescription", "Type", "Ultimate", "UnlessAI", "UnlessCost", "UnlessPayer", "UnlessResolveSubs",
 	"UnlessSwitched", "Upto", "ValidCard", "ValidCards", "ValidCardsDesc", "ValidChoices",
-	"ValidCounterType", "ValidDescription", "ValidTgts", "VarName", "VarValue",
-	"VoteMessage", "WithoutManaCost", "XMax", "XMin",
+	"ValidCounterType", "ValidDescription", "ValidTgts", "VoteMessage", "WithoutManaCost", "XMax", "XMin",
 }
 
 // DrawKnownKeys is a copy of drawKnownKeys, for the census check.

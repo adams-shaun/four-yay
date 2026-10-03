@@ -15,6 +15,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -147,7 +148,7 @@ func (e *Engine) manaSubCounterStage(md *manaDiscardActivation) bool {
 // untouched. Copy-on-write keeps every other activation of the same card
 // unchanged.
 func manaAbilityWithSubX(ma *cards.SA, x int32) *cards.SA {
-	if ma == nil || !strings.EqualFold(strings.TrimSpace(ma.ParamStr(cards.PKAmount)), "x") {
+	if ma == nil || !strings.EqualFold(effects.ManaOf(ma).AmountTrim, "x") {
 		return ma
 	}
 	return manaAbilityWithPaidX(ma, x)

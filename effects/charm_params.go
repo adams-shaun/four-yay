@@ -171,7 +171,7 @@ var charmKnownKeys = [...]string{
 	"PresentDefined", "PresentZone", "Random", "RandomCompare", "RandomCompareSVar",
 	"ReduceAmount", "ReduceCost", "RememberCostMana", "RememberObjects", "ReplaceColor",
 	"ReplaceGraveyard", "ReplaceGraveyardValid", "ReplaceMana", "ReplaceOnly",
-	"ReplaceType", "RestrictValid", "SVarCompare", "SelectPrompt", "SetChosenMode",
+	"ReplaceType", "SVarCompare", "SelectPrompt", "SetChosenMode",
 	"SetColor", "ShowCards", "SorcerySpeed", "SpellDescription", "StackDescription",
 	"SubAbility", "TargetMax", "TargetMin", "TargetType",
 	"TargetUnique", "TargetValidTargeting", "TargetingPlayer", "TargetingPlayerControls",
@@ -181,10 +181,10 @@ var charmKnownKeys = [...]string{
 	"TargetsWithEqualToughness", "TargetsWithSameCardType", "TargetsWithSameController",
 	"TargetsWithSameCreatureType", "TargetsWithSharedCardType", "TargetsWithSharedTypes",
 	"TempRemember", "TgtPrompt", "TgtZone", "TokenScript", "TriggerDescription",
-	"TriggersWhenSpent", "Type", "Ultimate", "UnlessAI", "UnlessCost",
+	"Type", "Ultimate", "UnlessAI", "UnlessCost",
 	"UnlessPayer", "UnlessResolveSubs", "UnlessSwitched", "ValidCard", "ValidCards",
 	"ValidCardsDesc", "ValidChoices", "ValidCounterType", "ValidDescription", "ValidTgts",
-	"VarName", "VarValue", "VoteMessage", "WithoutManaCost", "XMax", "XMin",
+	"VoteMessage", "WithoutManaCost", "XMax", "XMin",
 }
 
 // CharmKnownKeys is a copy of charmKnownKeys, for the census check.

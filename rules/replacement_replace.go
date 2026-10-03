@@ -221,10 +221,14 @@ func (e *Engine) replaceCount(source state.ObjID, r *cards.Repl, name string, am
 // replaceCountOp returns the operator suffix ("/Twice", "/Plus.1", ...) of a
 // ReplaceEffect body's ReplaceCount$<name> value, following SVar indirection.
 func (e *Engine) replaceCountOp(source state.ObjID, r *cards.Repl, name string) (string, bool) {
-	if r.With == nil || r.With.API != "ReplaceEffect" || !strings.EqualFold(r.With.ParamStr(cards.PKVarName), name) {
+	if r.With == nil || r.With.API != "ReplaceEffect" {
 		return "", false
 	}
-	expr := r.With.ParamStr(cards.PKVarValue)
+	rp := effects.ReplaceEffectOf(r.With)
+	if !strings.EqualFold(rp.VarName, name) {
+		return "", false
+	}
+	expr := rp.VarValue.Text
 	o := e.G.Obj(source)
 	if o == nil || o.Face() == nil {
 		return "", false

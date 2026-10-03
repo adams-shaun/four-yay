@@ -405,11 +405,12 @@ type manaUnlessActivation struct {
 // native mana ability excludes itself, while a static-granted SVar (Tazri)
 // requires one printed activated ability on that creature.
 func (e *Engine) manaReflectedPresentHolds(p state.PlayerID, source state.ObjID, ma *cards.SA) bool {
-	if !e.classBandGateHolds(ma.ParamStr(cards.PKClassBand), source) {
+	mr := effects.ManaReflectedOf(ma)
+	if !e.classBandGateHolds(mr.ClassBand, source) {
 		return false
 	}
-	spec, ok := ma.Param(cards.PKIsPresent)
-	if !ok || strings.TrimSpace(spec) == "" {
+	spec := mr.IsPresent
+	if spec == "" {
 		return true
 	}
 	if strings.Contains(spec, "hasAbility Activated.otherAbility") {
@@ -424,13 +425,13 @@ func (e *Engine) manaReflectedPresentHolds(p state.PlayerID, source state.ObjID,
 				n++
 			}
 		}
-		if cmp := strings.TrimSpace(ma.ParamStr(cards.PKPresentCompare)); cmp != "" {
+		if cmp := mr.PresentCompare; cmp != "" {
 			return comparePresent(n, cmp)
 		}
 		return n > 0
 	}
 	n := e.countPresent(spec, source, p)
-	if cmp := strings.TrimSpace(ma.ParamStr(cards.PKPresentCompare)); cmp != "" {
+	if cmp := mr.PresentCompare; cmp != "" {
 		return comparePresent(n, e.presentCompareFor(cmp, source, p))
 	}
 	return n > 0
@@ -1079,7 +1080,7 @@ func manaAbilityComboColours(ma *cards.SA, chosen string) ([]string, bool) {
 	if ma == nil || ma.API != "Mana" {
 		return nil, false
 	}
-	produced := substituteChosenProduced(strings.TrimSpace(ma.ParamStr(cards.PKProduced)), chosen)
+	produced := substituteChosenProduced(effects.ManaOf(ma).Produced, chosen)
 	cols, ok := effects.ComboColours(produced)
 	if !ok || len(cols) <= 1 {
 		return nil, false
@@ -1094,7 +1095,7 @@ func manaAbilityComboColours(ma *cards.SA, chosen string) ([]string, bool) {
 // generic union it would mask every other API's unread Produced$ (measured:
 // api:Sacrifice/api:DealDamage).
 func manaAbilityProduced(ma *cards.SA) string {
-	return ma.ParamStr(cards.PKProduced)
+	return effects.ManaOf(ma).ProducedRaw
 }
 
 // manaAbilitiesProduce reports whether some ability of mas has Produced$
@@ -1120,7 +1121,8 @@ func manaAbilityLabel(ma *cards.SA, chosen string) string {
 }
 
 func manaProducedLabel(ma *cards.SA, chosen string) string {
-	produced := substituteChosenProduced(strings.TrimSpace(ma.ParamStr(cards.PKProduced)), chosen)
+	mp := effects.ManaOf(ma)
+	produced := substituteChosenProduced(mp.Produced, chosen)
 	switch produced {
 	case "Any", "Combo Any":
 		// A literal amount above one is named so a source whose abilities
@@ -1130,7 +1132,7 @@ func manaProducedLabel(ma *cards.SA, chosen string) string {
 		// payer could not choose the larger ability on purpose (task
 		// mana-wheel-amount-labels). The two shapes keep the distinct
 		// wording their stage-2 prompt uses (manaColourPrompt).
-		if n, ok := literalManaAmount(ma.ParamStr(cards.PKAmount)); ok && n > 1 {
+		if n, ok := literalManaAmount(mp); ok && n > 1 {
 			if produced == "Combo Any" {
 				return "Add " + manaNumberWord(n) + " mana in any combination of colors"
 			}
@@ -1163,11 +1165,11 @@ func manaAmountPips(ma *cards.SA, pip string) string {
 	if len(pip) != 1 || !strings.Contains("WUBRGC", pip) {
 		return pip
 	}
-	raw, ok := ma.Param(cards.PKAmount)
-	if !ok {
+	mp := effects.ManaOf(ma)
+	if !mp.Amount.Present {
 		return pip
 	}
-	n, ok := literalManaAmount(raw)
+	n, ok := literalManaAmount(mp)
 	if !ok || n <= 1 {
 		return pip
 	}
@@ -1196,12 +1198,11 @@ const manaPipRepeatLimit = 20
 // label for "Add 21 mana of any one color" must be as faithful as its
 // stage-2 prompt, not silently fall back to "Add any color". A wrong number
 // on the wheel is worse than none, but a refused large number is worse still.
-func literalManaAmount(raw string) (int, bool) {
-	n, err := strconv.Atoi(strings.TrimSpace(raw))
-	if err != nil || n <= 0 {
+func literalManaAmount(mp *effects.ManaParams) (int, bool) {
+	if !mp.AmountIsLit || mp.AmountLit <= 0 {
 		return 0, false
 	}
-	return n, true
+	return mp.AmountLit, true
 }
 
 // manaNumberWord is a literal mana amount in words, for the any-colour
@@ -2184,7 +2185,7 @@ func (e *Engine) emitManaTap(p state.PlayerID, source state.ObjID, sa *cards.SA)
 	// rebuilt by replay because replay takes the same activation path.
 	produced := ""
 	if sa != nil {
-		produced = strings.TrimSpace(sa.ParamStr(cards.PKProduced))
+		produced = effects.ManaOf(sa).Produced
 	}
 	before := len(e.pendingTriggers)
 	e.tappingForMana, e.tappingManaProduced = source, produced
@@ -2406,7 +2407,7 @@ func (e *Engine) resolveTriggeredManaOffStack(pt pendingTrigger, rest []pendingT
 // carries one).
 func (e *Engine) rewriteChosenMana(pt pendingTrigger) pendingTrigger {
 	for sa, d := pt.SA, 0; sa != nil && d < 32; sa, d = sa.Sub, d+1 {
-		if sa.API != "Mana" || strings.TrimSpace(sa.ParamStr(cards.PKProduced)) != "Chosen" {
+		if sa.API != "Mana" || effects.ManaOf(sa).Produced != "Chosen" {
 			continue
 		}
 		o := e.G.Obj(pt.Source)
@@ -2437,8 +2438,9 @@ func (e *Engine) askTriggeredManaColor(pt pendingTrigger, rest []pendingTrigger,
 	if ps := effects.ManaRecipients(e, &pt.Ctx, mana); len(ps) > 0 {
 		chooser = ps[0]
 	}
-	amount := effects.Num(e, &pt.Ctx, mana, "Amount", 1)
-	allocation := strings.HasPrefix(strings.TrimSpace(mana.ParamStr(cards.PKProduced)), "Combo ") && amount > 1
+	mp := effects.ManaOf(mana)
+	amount := mp.AmountNum(e, &pt.Ctx, 1)
+	allocation := strings.HasPrefix(mp.Produced, "Combo ") && amount > 1
 	min, max := 1, 1
 	if allocation {
 		min, max = int(amount), int(amount)
@@ -2466,7 +2468,7 @@ func triggeredManaColourChoice(sa *cards.SA) (*cards.SA, []string) {
 		if sa.API != "Mana" {
 			continue
 		}
-		produced := strings.TrimSpace(sa.ParamStr(cards.PKProduced))
+		produced := effects.ManaOf(sa).Produced
 		if produced == "Any" || produced == "Combo Any" {
 			return sa, []string{"W", "U", "B", "R", "G"}
 		}
@@ -2737,7 +2739,8 @@ func (e *Engine) resolveManaEffect(p state.PlayerID, source state.ObjID, ma *car
 		e.askManaUnless(p, source, ma, cast, cumulative, triggers, sacs, gained)
 		return
 	}
-	produced := strings.TrimSpace(ma.ParamStr(cards.PKProduced))
+	mp := effects.ManaOf(ma)
+	produced := mp.Produced
 	// A "Chosen" token (Quirion Elves' second activation: "Add one mana of
 	// the chosen color"; the Thriving-lands/gate family: "Add {R} or one mana
 	// of the chosen color") is a READ, not a choice: the colour was already
@@ -2783,7 +2786,7 @@ func (e *Engine) resolveManaEffect(p state.PlayerID, source state.ObjID, ma *car
 		}
 		return
 	}
-	if costHasDynamicXTap(e.costRef(ma.ParamStr(cards.PKCost))) && strings.TrimSpace(ma.ParamStr(cards.PKAmount)) == "0" {
+	if costHasDynamicXTap(e.costRef(ma.ParamStr(cards.PKCost))) && mp.AmountTrim == "0" {
 		// X=0 produces no mana and therefore has no meaningful colour
 		// allocation decision.
 		e.finishManaEffect(p, source, ma, produced, gained, sacs, cast, cumulative, triggers)
@@ -2952,7 +2955,7 @@ func (e *Engine) finishManaUnlessPayment(paid bool) {
 // fixed set. Any selects one colour for the whole Amount$; Combo allocates
 // one option per mana unit, so Combo Any Amount 2 can select U then R.
 func (e *Engine) askManaColor(p state.PlayerID, source state.ObjID, ma *cards.SA, cast, cumulative bool, triggers []pendingTrigger, colours []string, gained gainedManaRef, amount int32, sacs []state.ObjID) {
-	allocation := strings.HasPrefix(strings.TrimSpace(ma.ParamStr(cards.PKProduced)), "Combo ") && amount > 1
+	allocation := strings.HasPrefix(effects.ManaOf(ma).Produced, "Combo ") && amount > 1
 	min, max := 1, 1
 	if allocation {
 		min, max = int(amount), int(amount)
@@ -2991,19 +2994,19 @@ func (e *Engine) askManaColor(p state.PlayerID, source state.ObjID, ma *cards.SA
 // the commander-identity restriction.
 func manaColourPrompt(ma *cards.SA) string {
 	generic := "Choose a colour of mana"
-	shape := strings.TrimSpace(ma.ParamStr(cards.PKProduced))
+	mp := effects.ManaOf(ma)
+	shape := mp.Produced
 	identity := isColourIdentityProduced(shape)
 	if identity {
 		generic = "Choose a colour in your commander's color identity"
 	}
-	raw, ok := ma.Param(cards.PKAmount)
-	if !ok {
+	if !mp.Amount.Present {
 		// No Amount$ param: stay generic — the prompt must not invent an
 		// amount the script never stated.
 		return generic
 	}
-	n, err := strconv.Atoi(strings.TrimSpace(raw))
-	if err != nil || n <= 0 {
+	n := mp.AmountLit
+	if !mp.AmountIsLit || n <= 0 {
 		// A non-literal amount (X, Y, an SVar or inline Count$ expression)
 		// or a non-positive literal: the ask site cannot price it, and a
 		// wrong number in the prompt is worse than no number.
@@ -3036,7 +3039,7 @@ func (e *Engine) manaEffectAmount(p state.PlayerID, source state.ObjID, ma *card
 		ctx.Sacrificed = append(ctx.Sacrificed, effects.SacrificedLKI(e, id))
 	}
 	effects.SetSVars(ctx, gained.svars(o.Face().SVars))
-	amount := effects.Num(e, ctx, ma, "Amount", 1)
+	amount := effects.ManaOf(ma).AmountNum(e, ctx, 1)
 	if amount < 0 {
 		return 0
 	}

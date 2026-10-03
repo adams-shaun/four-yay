@@ -64,8 +64,11 @@ const (
 	// PutCounter compiler (one read per key; the entry fold's presence gate
 	// and the rules-side CounterTypePerDefined$ read moved into it): 623 -> 621.
 	// W4 step 3's Effect compiler (ImprintOnHost$ read once, the opening
-	// hand's EffectOwner$ read moved into it): 621 -> 619.
-	stringParamReads = 619
+	// hand's EffectOwner$ read moved into it): 621 -> 619. The Mana compiler
+	// (mana_params.go: each rider read once, the plain-shape key spelling a
+	// table scan): 619 -> 610. The ManaReflected compiler (ReflectProperty$
+	// read once): 610 -> 609.
+	stringParamReads = 609
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
 	// W4 step 3: Attach's Object$ switch compiled to a kind: 2886 -> 2883.
@@ -110,6 +113,15 @@ const (
 	charmParamLeaks = 0
 	pumpParamLeaks  = 0
 	drawParamLeaks  = 0
+	// replaceEffectParamLeaks is the same census for api:ReplaceEffect's
+	// compiler (effects/replaceeffect_params.go). It landed at zero.
+	replaceEffectParamLeaks = 0
+	// manaParamLeaks is the same census for api:Mana's production compiler
+	// (effects/mana_params.go). It landed at zero.
+	manaParamLeaks = 0
+	// manaReflectedParamLeaks is the same census for api:ManaReflected's
+	// compiler (effects/manareflected_params.go). It landed at zero.
+	manaReflectedParamLeaks = 0
 	// dealDamageParamLeaks is the same census for api:DealDamage's compiler,
 	// effects/dealdamage_params.go (codeshape.DealDamageFiles,
 	// codeshape.DealDamageOnlyKeys). It landed at zero.
@@ -260,6 +272,23 @@ func TestCodeShapeOnlyShrinks(t *testing.T) {
 				"field to compileDraw in effects/draw_params.go) instead of reading the " +
 				"ability's Params in effects/draw.go or a Draw-only key elsewhere. " +
 				"Leaks: " + strings.Join(m.DrawLeaks, ", ")},
+		{"replaceEffectParamLeaks", m.ReplaceEffectParamLeaks, replaceEffectParamLeaks,
+			"Read the parameter through effects.ReplaceEffectOf's compiled " +
+				"ReplaceEffectParams (add a field to compileReplaceEffect in " +
+				"effects/replaceeffect_params.go) instead of reading the ability's Params " +
+				"in effects/replacement.go or a ReplaceEffect-only key elsewhere. " +
+				"Leaks: " + strings.Join(m.ReplaceEffectLeaks, ", ")},
+		{"manaParamLeaks", m.ManaParamLeaks, manaParamLeaks,
+			"Read the parameter through effects.ManaOf's compiled ManaParams (add a " +
+				"field to compileMana in effects/mana_params.go) instead of reading the " +
+				"ability's Params in effects/mana_effect.go or a Mana-only rider key " +
+				"elsewhere. Leaks: " + strings.Join(m.ManaLeaks, ", ")},
+		{"manaReflectedParamLeaks", m.ManaReflectedParamLeaks, manaReflectedParamLeaks,
+			"Read the parameter through effects.ManaReflectedOf's compiled " +
+				"ManaReflectedParams (add a field to compileManaReflected in " +
+				"effects/manareflected_params.go) instead of reading the ability's Params " +
+				"in effects/mana_reflected.go or a ManaReflected-only key elsewhere. " +
+				"Leaks: " + strings.Join(m.ManaReflectedLeaks, ", ")},
 		{"dealDamageParamLeaks", m.DealDamageParamLeaks, dealDamageParamLeaks,
 			"Read the parameter through effects.DealDamageOf's compiled DealDamageParams (add " +
 				"a field to compileDealDamage in effects/dealdamage_params.go) instead of reading " +

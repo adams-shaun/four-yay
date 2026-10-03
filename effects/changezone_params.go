@@ -243,7 +243,7 @@ var changeZoneKnownKeys = [...]string{
 	"PresentZone", "ReduceAmount", "ReduceCost", "RememberChanged", "RememberCostMana",
 	"RememberLKI", "RememberObjects", "RememberSearched", "RememberTargets", "Reorder",
 	"ReplaceColor", "ReplaceGraveyard", "ReplaceGraveyardValid", "ReplaceMana",
-	"ReplaceOnly", "ReplaceType", "RestrictValid", "Reveal", "SVarCompare",
+	"ReplaceOnly", "ReplaceType", "Reveal", "SVarCompare",
 	"SelectPrompt", "SetChosenMode", "SetColor", "ShareLandType", "ShowCards", "Shuffle",
 	"ShuffleNonMandatory", "SorcerySpeed", "SpellDescription", "StackDescription",
 	"StaticEffect", "StaticEffectCheckSVar", "StaticEffectSVarCompare",
@@ -255,11 +255,10 @@ var changeZoneKnownKeys = [...]string{
 	"TargetsWithEqualToughness", "TargetsWithSameCardType", "TargetsWithSameController",
 	"TargetsWithSameCreatureType", "TargetsWithSharedCardType", "TargetsWithSharedTypes",
 	"TgtPrompt", "TgtZone", "TokenScript", "Transformed", "TriggerDescription",
-	"TriggersWhenSpent", "Type", "Ultimate", "Unearth",
+	"Type", "Ultimate", "Unearth",
 	"Unimprint", "UnlessAI", "UnlessCost", "UnlessPayer", "UnlessResolveSubs",
 	"UnlessSwitched", "ValidCard", "ValidCards", "ValidCardsDesc", "ValidChoices",
-	"ValidCounterType", "ValidDescription", "ValidTgts", "VarName", "VarValue",
-	"VoteMessage", "WithCountersAmount", "WithCountersType", "WithMayLook",
+	"ValidCounterType", "ValidDescription", "ValidTgts", "VoteMessage", "WithCountersAmount", "WithCountersType", "WithMayLook",
 	"WithTotalCMC", "WithTotalCardTypes", "WithoutManaCost", "XMax", "XMin",
 }
 

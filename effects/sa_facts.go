@@ -56,6 +56,19 @@ type SAFacts struct {
 	Charm *CharmParams
 	Pump  *PumpParams
 	Draw  *DrawParams
+
+	// ReplaceEffect is api:ReplaceEffect's compiled parameter set
+	// (replaceeffect_params.go), non-nil exactly when the API is
+	// ReplaceEffect.
+	ReplaceEffect *ReplaceEffectParams
+	// Mana is api:Mana's compiled production parameters (mana_params.go),
+	// non-nil exactly when the API is Mana; rules' mana half (Rules) is
+	// derived from it.
+	Mana *ManaParams
+	// ManaReflected is api:ManaReflected's compiled parameter set
+	// (manareflected_params.go), non-nil exactly when the API is
+	// ManaReflected.
+	ManaReflected *ManaReflectedParams
 	// DealDamage is api:DealDamage's compiled parameter set
 	// (dealdamage_params.go), non-nil exactly when the API is DealDamage.
 	DealDamage *DealDamageParams

@@ -33,9 +33,9 @@ func (b *paramBinding) boundTo(m map[string]string) bool {
 	return b.n == len(m) && cards.SameParamMap(b.src, m)
 }
 
-// compileTypedHalves fills f's Charm/Pump/Draw/DealDamage/PutCounter/Effect
-// typed parameter structs for the APIs their compilers serve (NewSAFacts'
-// second half).
+// compileTypedHalves fills f's per-API typed parameter structs (Charm, Pump,
+// Draw, ReplaceEffect, Mana, ManaReflected, DealDamage, PutCounter, Effect)
+// for the APIs their compilers serve (NewSAFacts' second half).
 func compileTypedHalves(f *SAFacts, sa *cards.SA) {
 	if isModalSA(sa) {
 		f.Charm = compileCharm(sa)
@@ -45,6 +45,15 @@ func compileTypedHalves(f *SAFacts, sa *cards.SA) {
 	}
 	if sa.API == "Draw" {
 		f.Draw = compileDraw(sa)
+	}
+	if sa.API == "ReplaceEffect" {
+		f.ReplaceEffect = compileReplaceEffect(sa)
+	}
+	if sa.API == "Mana" {
+		f.Mana = compileMana(sa)
+	}
+	if sa.API == "ManaReflected" {
+		f.ManaReflected = compileManaReflected(sa)
 	}
 	if isDealDamageSA(sa) {
 		f.DealDamage = compileDealDamage(sa, f.Targets)

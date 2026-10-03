@@ -98,7 +98,7 @@ var effectKnownKeys = [...]string{
 	"PresentCompare", "PresentDefined", "PresentZone", "ReduceAmount", "ReduceCost",
 	"RememberCostMana", "RememberLKI", "RememberObjects", "ReplaceColor",
 	"ReplaceGraveyard", "ReplaceGraveyardValid", "ReplaceMana", "ReplaceOnly",
-	"ReplaceType", "ReplacementEffects", "RestrictValid", "SVarCompare",
+	"ReplaceType", "ReplacementEffects", "SVarCompare",
 	"SelectPrompt", "SetChosenMode", "SetChosenNumber", "SetColor", "ShowCards",
 	"SorcerySpeed", "SpellDescription", "StackDescription", "Stackable", "Static",
 	"StaticAbilities", "SubAbility", "TargetMax", "TargetMin", "TargetType",
@@ -110,11 +110,10 @@ var effectKnownKeys = [...]string{
 	"TargetsWithSameCardType", "TargetsWithSameController",
 	"TargetsWithSameCreatureType", "TargetsWithSharedCardType",
 	"TargetsWithSharedTypes", "TgtPrompt", "TgtZone", "ThisTurn", "TokenScript",
-	"TriggerDescription", "Triggers", "TriggersWhenSpent", "Type", "Ultimate",
+	"TriggerDescription", "Triggers", "Type", "Ultimate",
 	"UnlessAI", "UnlessCost", "UnlessPayer", "UnlessResolveSubs", "UnlessSwitched",
 	"ValidCard", "ValidCards", "ValidCardsDesc", "ValidChoices", "ValidCounterType",
-	"ValidDescription", "ValidPlayer", "ValidTgts", "VarName", "VarValue",
-	"VoteMessage", "WithoutManaCost", "XMax", "XMin",
+	"ValidDescription", "ValidPlayer", "ValidTgts", "VoteMessage", "WithoutManaCost", "XMax", "XMin",
 }
 
 // isEffectSA reports whether sa resolves as api:Effect.
