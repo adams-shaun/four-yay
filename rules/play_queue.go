@@ -23,13 +23,13 @@ type queuedPlays struct {
 	cont *resumePoint
 }
 
-func (q *queuedPlays) clone() *queuedPlays {
+func (q *queuedPlays) clone(m *cloneRemap) *queuedPlays {
 	if q == nil {
 		return nil
 	}
 	c := *q
 	c.ids = append([]state.ObjID(nil), q.ids...)
-	c.cont = cloneResume(q.cont)
+	c.cont = cloneResumeWith(q.cont, m)
 	return &c
 }
 
