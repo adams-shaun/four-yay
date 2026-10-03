@@ -51,7 +51,10 @@ func (b Board) chooseBlockersSim(d *decision.Decision, p *AttackSimParams) []int
 		if !ok {
 			return base
 		}
-		if _, ok := b.Creatures.Lookup(o.Obj); !ok {
+		// The simulated world holds only me's and opp's creatures (as in
+		// chooseAttackersSim): a blocker the deciding seat does not control
+		// would index outside it.
+		if bc, ok := b.Creatures.Lookup(o.Obj); !ok || bc.Controller != me {
 			return base
 		}
 		if !oppSet {

@@ -509,18 +509,40 @@ func (d *Decision) requiredCoreRef() []int {
 	if life < 0 {
 		// No published charge bound: the ascending-Value prefix greedy is
 		// optimal for the count (the pre-charge contract) and byte-identical.
+		// Per-Group caps: a full Group's pick is replaced by the Obj's
+		// cheapest Required option in a Group with room (ties: lowest index).
 		var core []int
+		counts := map[string]int{}
+		admits := func(g string) bool { return g == "" || d.GroupAdmits(counts, g) }
 		sum := 0
 		for _, p := range order {
 			if len(core) >= d.maxChoices() {
 				break
 			}
-			v := d.Options[p.idx].Value
-			if d.HasBudget() && sum+v > d.MaxSum {
+			idx := p.idx
+			if !admits(d.Options[idx].Group) {
+				idx = -1
+				for j := range d.Options {
+					o := &d.Options[j]
+					if !o.Required || o.Obj != d.Options[p.idx].Obj || !admits(o.Group) ||
+						(d.HasBudget() && sum+o.Value > d.MaxSum) {
+						continue
+					}
+					if idx < 0 || o.Value < d.Options[idx].Value {
+						idx = j
+					}
+				}
+				if idx < 0 {
+					continue
+				}
+			} else if v := d.Options[idx].Value; d.HasBudget() && sum+v > d.MaxSum {
 				break // ascending: nothing later fits either
 			}
-			sum += v
-			core = append(core, p.idx)
+			sum += d.Options[idx].Value
+			if g := d.Options[idx].Group; g != "" {
+				counts[g]++
+			}
+			core = append(core, idx)
 		}
 		return core
 	}
@@ -606,7 +628,23 @@ func (d *Decision) requiredCoreRef() []int {
 			bestKey, bestCandidate, found = k, c, true
 		}
 	}
-	return bestCandidate.picks
+	// Drop picks past their Group's cap, in pick order.
+	counts := map[string]int{}
+	var kept []int
+	for _, ci := range bestCandidate.picks {
+		g := d.Options[ci].Group
+		if g != "" && !d.GroupAdmits(counts, g) {
+			continue
+		}
+		if g != "" {
+			counts[g]++
+		}
+		kept = append(kept, ci)
+	}
+	if len(kept) == len(bestCandidate.picks) {
+		return bestCandidate.picks
+	}
+	return kept
 }
 
 func (d *Decision) blockRequiredCoreRef() []int {
