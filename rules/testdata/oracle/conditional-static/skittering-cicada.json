@@ -1,0 +1,88 @@
+{
+ "card": "Skittering Cicada",
+ "family": "conditional-static",
+ "author": "cli-20261002T030326Z-79066444 (Oracle + CR only)",
+ "oracle_sha": "02b0b2f80205",
+ "scenarios": [
+  {
+   "name": "colorless-spell-pumps-and-grants-trample",
+   "cr": [
+    "603.2",
+    "613.3"
+   ],
+   "why": "Whenever you cast a colorless spell, until end of turn Skittering Cicada gains trample and gets +X/+X where X is that spell's mana value. Casting the colorless Chromatic Star (mana value 1) makes the 2/2 Cicada a 3/3 with trample.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Skittering Cicada"
+     ],
+     "hand": [
+      "Chromatic Star"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Chromatic Star",
+     "mana": "C"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Skittering Cicada",
+     "pt": "3/3",
+     "keywords": [
+      "Trample"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "coloured-spell-does-not-pump",
+   "cr": [
+    "105.2",
+    "603.2"
+   ],
+   "why": "The trigger cares only about COLORLESS spells; casting the red Lightning Bolt leaves the 2/2 Cicada without trample or a bonus.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Skittering Cicada"
+     ],
+     "hand": [
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Skittering Cicada",
+     "pt": "2/2",
+     "no_keywords": [
+      "Trample"
+     ]
+    }
+   ]
+  }
+ ]
+}

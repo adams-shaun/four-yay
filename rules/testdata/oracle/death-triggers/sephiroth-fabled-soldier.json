@@ -1,0 +1,56 @@
+{
+ "card": "Sephiroth, Fabled SOLDIER // Sephiroth, One-Winged Angel",
+ "family": "death-triggers",
+ "author": "cli-20261002T030326Z-79066444 (Oracle + CR only)",
+ "oracle_sha": "d998a9e732b8",
+ "scenarios": [
+  {
+   "name": "another-creature-dies-drains-one",
+   "cr": [
+    "603.6c",
+    "603.2",
+    "119.3"
+   ],
+   "why": "Whenever another creature dies, target opponent loses 1 life and you gain 1 life. Sephiroth is placed on the battlefield at setup, so its enters ability is declined; then moving the Grizzly Bears to the graveyard drains the lone opponent for 1.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sephiroth, Fabled SOLDIER",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "setup_answers": [
+    {
+     "kind": "choose",
+     "pick": [
+      "Do not pay"
+     ]
+    }
+   ],
+   "steps": [
+    {
+     "op": "move",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "to": "graveyard"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p0": 21,
+      "p1": 19
+     }
+    }
+   ]
+  }
+ ]
+}
