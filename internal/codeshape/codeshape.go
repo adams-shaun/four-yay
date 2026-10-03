@@ -208,6 +208,17 @@ var EffectOnlyKeys = []string{"EffectOwner", "ExileOnMoved", "ForgetCounter", "F
 	"ForgetOnMoved", "ForgetOnPhasedIn", "ImprintOnHost", "ReplacementEffects", "SetChosenNumber",
 	"Stackable"}
 
+// DelayedTriggerCompilerFile is api:DelayedTrigger's parameter compiler (W4 step 3): the
+// one file allowed to read a DelayedTrigger ability's parameters.
+const DelayedTriggerCompilerFile = "effects/delayedtrigger_params.go"
+
+// DelayedTriggerFiles are DelayedTrigger's own resolution files: they carry no parameter
+// read of any key.
+var DelayedTriggerFiles = []string{"effects/delayed_trigger.go"}
+
+// DelayedTriggerOnlyKeys are the parameter keys only DelayedTrigger's compiler reads.
+var DelayedTriggerOnlyKeys = []string{"NextTurn", "RememberChain"}
+
 // TypedParamCompiler names one API's parameter compiler for the leak census
 // (Metrics.ChangeZoneParamLeaks and its siblings): the compiler file, the
 // API's own resolution files (no parameter read of any key there) and the
@@ -338,6 +349,10 @@ type Metrics struct {
 	// EffectFiles, EffectOnlyKeys).
 	EffectParamLeaks int      `json:"effect_param_leaks"`
 	EffectLeaks      []string `json:"effect_leaks"`
+	// DelayedTriggerParamLeaks is the same census for api:DelayedTrigger (DelayedTriggerCompilerFile,
+	// DelayedTriggerFiles, DelayedTriggerOnlyKeys).
+	DelayedTriggerParamLeaks int      `json:"delayed_trigger_param_leaks"`
+	DelayedTriggerLeaks      []string `json:"delayed_trigger_leaks"`
 	// TrigmatchBoardMethods counts the methods trigmatch.Board declares
 	// (rules/trigmatch/board.go): the read-only view the trigger matchers
 	// reach the engine through (W5 E3). Zero when the package is absent.
@@ -462,6 +477,8 @@ func Measure(root string) (Metrics, error) {
 				TypedParamCompiler{PutCounterCompilerFile, PutCounterFiles, PutCounterOnlyKeys})...)
 			m.EffectLeaks = append(m.EffectLeaks, paramLeaks(fset, f, rel,
 				TypedParamCompiler{EffectCompilerFile, EffectFiles, EffectOnlyKeys})...)
+			m.DelayedTriggerLeaks = append(m.DelayedTriggerLeaks, paramLeaks(fset, f, rel,
+				TypedParamCompiler{DelayedTriggerCompilerFile, DelayedTriggerFiles, DelayedTriggerOnlyKeys})...)
 			ast.Inspect(f, func(n ast.Node) bool {
 				switch x := n.(type) {
 				case *ast.TypeAssertExpr:
@@ -526,6 +543,7 @@ func Measure(root string) (Metrics, error) {
 	m.DealDamageParamLeaks, m.DealDamageLeaks = finishLeaks(m.DealDamageLeaks)
 	m.PutCounterParamLeaks, m.PutCounterLeaks = finishLeaks(m.PutCounterLeaks)
 	m.EffectParamLeaks, m.EffectLeaks = finishLeaks(m.EffectLeaks)
+	m.DelayedTriggerParamLeaks, m.DelayedTriggerLeaks = finishLeaks(m.DelayedTriggerLeaks)
 	m.FuncsOver300 = len(m.LongFuncs)
 	sort.Slice(m.LongFuncs, func(i, j int) bool {
 		a, b := m.LongFuncs[i], m.LongFuncs[j]

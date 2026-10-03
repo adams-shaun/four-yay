@@ -73,6 +73,9 @@ func TestEveryConfiguredAbilityHasItsFactsRecord(t *testing.T) {
 			if (f.Effect != nil) != (sa.CompiledAPI() == cards.APIEffect || sa.API == "Effect") {
 				t.Errorf("%s: %q (API %s): Effect half present=%v", c.Path, sa.Line, sa.API, f.Effect != nil)
 			}
+			if (f.DelayedTrigger != nil) != (sa.CompiledAPI() == cards.APIDelayedTrigger || sa.API == "DelayedTrigger") {
+				t.Errorf("%s: %q (API %s): DelayedTrigger half present=%v", c.Path, sa.Line, sa.API, f.DelayedTrigger != nil)
+			}
 		}
 	}
 	visit := func(c *cards.Card) {
