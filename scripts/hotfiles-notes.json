@@ -206,6 +206,13 @@
   },
   {
     "files": [
+      "rules/potential_plan.go",
+      "rules/resolution_point.go"
+    ],
+    "note": "RESOLVED 2026-10-03: the briefed fdn-fix5 / fdn-fix8 contention on these two files is gone — fdn-fix5 landed into main as 942440a14 while this ticket ran, leaving fdn-fix8 the sole editor of both (hotspots requires >=2, so neither file is listed). The measured pair was file-level overcount, not a resolver conflict: at base 88674ece3 (shared merge-base 2d4e01009) both branches carried the same 1,027-line potential_plan.go and 489-line resolution_point.go (the resumePoint model) from their shared history, and their only distinct edits were fdn-fix5's flashback-cost helper in potentialModeBaseCost (e.flashbackCost -> e.flashbackCostFor(id, o)) and fdn-fix8's two tap-candidate call sites in planEachReservation / planLeavesCostPayable (e.costCandidates(...) -> e.tapCostCandidates(...)); resolution_point.go differed only by each branch adding its own rider field to the one resumePoint struct (fdn-fix5 playFirst, fdn-fix8 ownResolution). An in-memory `git merge-tree --write-tree wt/fdn-fix5 wt/fdn-fix8` auto-merged both files (the only conflict was the choose-type oracle fixture). NO HONEST SPLIT, and this is the durable half: potential_plan.go is the integrated potential-payment planner and the branch deltas touch existing cost/reservation logic; resolution_point.go defines the single resumePoint record, and distinct struct fields cannot live in different files without splitting the struct declaration itself. Neither branch had an issue file, so Depends-On chaining was unavailable — the controller sequenced the landings, which is what cleared the hotspot. Keep future edits to each file local to their own existing helper/field and remeasure after landing; do not restructure either file while a ticket is live in it."
+  },
+  {
+    "files": [
       "rules/cast_commit.go",
       "rules/clone.go",
       "rules/testdata/oracle/activated-ability/known-divergent.json",
