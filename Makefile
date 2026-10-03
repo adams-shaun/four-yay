@@ -54,6 +54,7 @@ help:
 	@echo "  make fetch-cards    — fetch Forge cardsfolder + tokenscripts at FORGE_REF into $(CARDS_DIR)"
 	@echo "  make compile-cards  — compile the fetched corpus into the IR cache"
 	@echo "  make report         — print card coverage against implemented primitives"
+	@echo "  make compliance-manifests — regenerate compliance/manifests from XMage set classes at XMAGE_REF"
 	@echo "  make sim            — build mtgsim and play 20 verified 4-seat games"
 	@echo "  make gorged         — run the M2a table server (browser client at the addr)"
 	@echo "  make deploy-demo    — rebuild and (re)serve the demo on :8080 (bot tables omniscient)"
@@ -156,6 +157,10 @@ fetch-cards: $(BIN_DIR)/forgec
 .PHONY: compile-cards
 compile-cards: $(BIN_DIR)/forgec
 	$(BIN_DIR)/forgec compile -dir $(CARDS_DIR)
+
+.PHONY: compliance-manifests
+compliance-manifests:
+	go run ./cmd/compliance manifest -xmage $(XMAGE_ORACLE_DIR)/sets-only -ref $(XMAGE_REF) -out compliance/manifests
 
 .PHONY: report
 report: $(BIN_DIR)/forgec

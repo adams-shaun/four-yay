@@ -1,0 +1,17 @@
+{"code":"YDMU","name":"Alchemy: Dominaria","released":"2022-10-05","set_type":"MAGIC_ARENA","xmage_ref":"6b602a1c85e8ed738a4b40b1ef44c54845b57f68",
+"cards": [
+{"name":"Ancestral Recall","numbers":["32"],"rarity":"MYTHIC"},
+{"name":"Black Lotus","numbers":["35"],"rarity":"MYTHIC"},
+{"name":"Marwyn's Kindred","numbers":["16"],"rarity":"MYTHIC"},
+{"name":"Mox Emerald","numbers":["36"],"rarity":"MYTHIC"},
+{"name":"Mox Jet","numbers":["37"],"rarity":"MYTHIC"},
+{"name":"Mox Pearl","numbers":["38"],"rarity":"MYTHIC"},
+{"name":"Mox Ruby","numbers":["39"],"rarity":"MYTHIC"},
+{"name":"Mox Sapphire","numbers":["40"],"rarity":"MYTHIC"},
+{"name":"Oracle of the Alpha","numbers":["4"],"rarity":"MYTHIC"},
+{"name":"Slimefoot, Thallid Transplant","numbers":["26"],"rarity":"RARE"},
+{"name":"Time Walk","numbers":["33"],"rarity":"MYTHIC"},
+{"name":"Timetwister","numbers":["34"],"rarity":"MYTHIC"},
+{"name":"Vinesoul Spider","numbers":["18"],"rarity":"UNCOMMON"},
+{"name":"Wandering Treefolk","numbers":["19"],"rarity":"UNCOMMON"}
+]}

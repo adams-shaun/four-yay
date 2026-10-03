@@ -1,0 +1,8 @@
+{"code":"PELP","name":"European Land Program","released":"2000-02-14","set_type":"PROMOTIONAL","xmage_ref":"6b602a1c85e8ed738a4b40b1ef44c54845b57f68",
+"cards": [
+{"name":"Forest","numbers":["1","11","6"],"rarity":"LAND"},
+{"name":"Island","numbers":["12","2","7"],"rarity":"LAND"},
+{"name":"Mountain","numbers":["13","3","8"],"rarity":"LAND"},
+{"name":"Plains","numbers":["14","4","9"],"rarity":"LAND"},
+{"name":"Swamp","numbers":["10","15","5"],"rarity":"LAND"}
+]}

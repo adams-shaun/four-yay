@@ -1,0 +1,16 @@
+{"code":"ANA","name":"Arena New Player Experience","released":"2018-07-14","set_type":"MAGIC_ARENA","xmage_ref":"6b602a1c85e8ed738a4b40b1ef44c54845b57f68",
+"cards": [
+{"name":"Forest","numbers":["10a","18","19","20","33","34","35","9a"],"rarity":"LAND"},
+{"name":"Island","numbers":["10","11","24","25","26","3a","4a","9"],"rarity":"LAND"},
+{"name":"Mountain","numbers":["15","16","17","30","31","32","7a","8a"],"rarity":"LAND"},
+{"name":"Plains","numbers":["1a","21","22","23","2a","6","7","8"],"rarity":"LAND"},
+{"name":"Rise from the Grave","numbers":["38"],"rarity":"UNCOMMON"},
+{"name":"Shorecomber Crab","numbers":["37"],"rarity":"COMMON"},
+{"name":"Snow-Covered Forest","numbers":["95850"],"rarity":"LAND"},
+{"name":"Snow-Covered Island","numbers":["95847"],"rarity":"LAND"},
+{"name":"Snow-Covered Mountain","numbers":["95849"],"rarity":"LAND"},
+{"name":"Snow-Covered Plains","numbers":["95846"],"rarity":"LAND"},
+{"name":"Snow-Covered Swamp","numbers":["95848"],"rarity":"LAND"},
+{"name":"Swamp","numbers":["12","13","14","27","28","29","5a","6a"],"rarity":"LAND"},
+{"name":"Urza's Bauble","numbers":["36"],"rarity":"UNCOMMON"}
+]}
