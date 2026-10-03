@@ -124,7 +124,7 @@ func untapTypeCandidates(h Host, c *Ctx, sa *cards.SA) []state.ObjID {
 			owners = ps
 		}
 	}
-	spec := sa.Params["UntapType"]
+	spec := sa.ParamStr(cards.PKUntapType)
 	var out []state.ObjID
 	for _, p := range owners {
 		for _, id := range g.Zone(state.ZBattlefield, p) {
@@ -148,11 +148,11 @@ func effUntap(h Host, c *Ctx, sa *cards.SA) {
 	// the activation's legality and effect are unchanged by its value. The
 	// recognition keeps the parameter census honest; the bot-policy half is
 	// named in the deck import report's Issues.
-	_ = sa.Params["AIManaPref"]
+	_ = sa.ParamStr(cards.PKAIManaPref)
 	if !untapBattlefieldCondition(h, c, sa) {
 		return
 	}
-	if sa.Params["UntapType"] == "" {
+	if sa.ParamStr(cards.PKUntapType) == "" {
 		// ETB$ True is the "enters untapped" replacement body (Horizon
 		// Explorer's lands-enter-untapped, the mirror of effTap's 804
 		// enters-tapped bodies). The entry-tap/untap pair's real composition
@@ -198,7 +198,7 @@ func effUntap(h Host, c *Ctx, sa *cards.SA) {
 	if n > len(candidates) {
 		n = len(candidates)
 	}
-	upTo := strings.EqualFold(sa.Params["UntapUpTo"], "True")
+	upTo := strings.EqualFold(sa.ParamStr(cards.PKUntapUpTo), "True")
 	needsAsk := upTo || len(candidates) > n
 	if needsAsk {
 		min := n

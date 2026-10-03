@@ -162,7 +162,7 @@ func (e *Engine) panharmoniconEchoes(observer *Engine, src state.ObjID, ev event
 		if sv.ParamStr(cards.PKCombatDamage) == "True" && !(ev.Kind == events.Damage && e.combatDamaging) {
 			continue
 		}
-		if spec := sv.Params["ValidTurned"]; spec != "" {
+		if spec := sv.ParamStr(cards.PKValidTurned); spec != "" {
 			// ValidTurned$ scopes the permanent that was turned face up
 			// (Panoptic Projektor: "if turning a face-down permanent face up
 			// causes ..."). It is a PAIR with ValidMode$ TurnFaceUp, and the

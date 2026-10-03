@@ -211,7 +211,7 @@ func (e *Engine) sortPendingTriggers() int {
 // the shape Arcane Bombardment and Captured by the Consulate carry). A line
 // that does not carry the flag keeps its natural discovery order.
 func triggerOrdersDuplicates(t cards.Trigger) bool {
-	return strings.EqualFold(strings.TrimSpace(t.Params["OrderDuplicates"]), "True")
+	return strings.EqualFold(strings.TrimSpace(t.ParamStr(cards.PKOrderDuplicates)), "True")
 }
 
 // printed reports whether pt is an ordinary printed face trigger -- one whose

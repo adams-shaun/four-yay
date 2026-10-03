@@ -116,3 +116,7 @@ func (m *cloneRemap) unlessCtx(in effects.Ctx) effects.Ctx {
 	out.ExchangeMemory = m.exchangeMemory(in.ExchangeMemory)
 	return out
 }
+
+// resume is the cross-engine copy of a resume point: it is immutable plain
+// data (the *cards.SA is shared corpus data), so the clone shares it.
+func (m *cloneRemap) resume(rp *resumePoint) *resumePoint { return rp }

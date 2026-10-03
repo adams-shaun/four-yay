@@ -34,7 +34,7 @@ import (
 // the event-matched delayed walker, the AttackerBlocked hook) keeps its own
 // check.
 func noResolvingCheck(t cards.Trigger) bool {
-	return strings.EqualFold(strings.TrimSpace(t.Params["NoResolvingCheck"]), "True")
+	return strings.EqualFold(strings.TrimSpace(t.ParamStr(cards.PKNoResolvingCheck)), "True")
 }
 
 // triggerResolvingCheckHolds is the resolution-time half of the CR 603.4
@@ -159,7 +159,7 @@ func (e *Engine) triggerConditionHoldsWithSVars(t cards.Trigger, source state.Ob
 		!e.presentClauseHolds(t, source, you, tc, "IsPresent2", "PresentCompare2", "PresentDefined2", "PresentZone2") {
 		return false
 	}
-	if v, ok := t.Params["Metalcraft"]; ok {
+	if v, ok := t.Param(cards.PKMetalcraft); ok {
 		// The trigger-side named condition (task trig-attacks-metalcraft):
 		// a value this build cannot read as True is an unreadable clause
 		// shape and fails closed like the other clauses above.
@@ -179,7 +179,7 @@ func (e *Engine) triggerConditionHoldsWithSVars(t cards.Trigger, source state.Ob
 			return false
 		}
 	}
-	if v, ok := t.Params["Blessing"]; ok {
+	if v, ok := t.Param(cards.PKBlessing); ok {
 		// Blessing$ True is the trigger-side city's-blessing gate (CR
 		// 702.131). It is evaluated for the trigger's "you" player, including
 		// delayed triggers whose controller is supplied explicitly. A malformed
@@ -217,7 +217,7 @@ func (e *Engine) triggerConditionHoldsWithSVars(t cards.Trigger, source state.Ob
 			return false
 		}
 	}
-	if v, ok := t.Params["Delirium"]; ok {
+	if v, ok := t.Param(cards.PKDelirium); ok {
 		// Delirium$ True (the CR 207.2c ability word, "four or more card
 		// types among cards in your graveyard"): the trigger-side gate,
 		// read through the SAME graveyardCardTypeCount census the
@@ -237,7 +237,7 @@ func (e *Engine) triggerConditionHoldsWithSVars(t cards.Trigger, source state.Ob
 			return false
 		}
 	}
-	if v, ok := t.Params["Threshold"]; ok {
+	if v, ok := t.Param(cards.PKThreshold); ok {
 		// Threshold$ True (the CR 207.2c ability word, "seven or more cards
 		// in your graveyard"): the trigger-side gate, read through the SAME
 		// thresholdHolds census the Continuous static gate reads
@@ -307,7 +307,7 @@ func (e *Engine) triggerConditionHoldsWithSVars(t cards.Trigger, source state.Ob
 			return false
 		}
 	}
-	if spec, ok := t.Params["CheckDefinedPlayer"]; ok {
+	if spec, ok := t.Param(cards.PKCheckDefinedPlayer); ok {
 		holds, supported := e.checkDefinedPlayerHolds(spec, you)
 		// A supported predicate is evaluated for every mode. An unsupported
 		// one fails closed only for actionTriggerModes; other modes keep
@@ -368,7 +368,7 @@ func (e *Engine) checkDefinedPlayerHolds(spec string, you state.PlayerID) (holds
 // checkEventDelayedTriggers).
 func (e *Engine) lifeConditionHoldsAs(t cards.Trigger, you state.PlayerID, amount string) bool {
 	who := you
-	if v, ok := t.Params["LifeTotal"]; ok {
+	if v, ok := t.Param(cards.PKLifeTotal); ok {
 		v = strings.TrimSpace(v)
 		switch v {
 		case "", "You":

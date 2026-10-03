@@ -89,7 +89,7 @@ func effExchangeControl(h Host, c *Ctx, sa *cards.SA) {
 	h.Emit(events.Event{Kind: events.ControlChange, Obj: second.ID, Player: firstController})
 	h.RegisterControl(firstGrant)
 	h.RegisterControl(secondGrant)
-	if strings.EqualFold(sa.Params["RememberExchanged"], "True") {
+	if strings.EqualFold(sa.ParamStr(cards.PKRememberExchanged), "True") {
 		for _, id := range []state.ObjID{first.ID, second.ID} {
 			target := state.Target{Obj: id}
 			if !targetIn(c.Remembered, target) {

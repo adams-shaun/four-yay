@@ -740,10 +740,10 @@ func (e *Engine) delayedChangesControllerMatches(t cards.Trigger, dt *state.Dela
 	if v := t.ParamStr(cards.PKValidCard); v != "" && !effects.MatchesObjectCtx(e.G, v, lki, delayedSpecCtx(e.specCtx(dt.Source, ctrl), dt.Remembered)) {
 		return false
 	}
-	if v := t.Params["ValidOriginalController"]; v != "" && !effects.MatchesPlayerSpec(e.G, v, lki.Controller, ctrl) {
+	if v := t.ParamStr(cards.PKValidOriginalController); v != "" && !effects.MatchesPlayerSpec(e.G, v, lki.Controller, ctrl) {
 		return false
 	}
-	if v := t.Params["ValidNewController"]; v != "" && !effects.MatchesPlayerSpec(e.G, v, ev.Player, ctrl) {
+	if v := t.ParamStr(cards.PKValidNewController); v != "" && !effects.MatchesPlayerSpec(e.G, v, ev.Player, ctrl) {
 		return false
 	}
 	return true

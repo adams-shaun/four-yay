@@ -99,7 +99,7 @@ func effPlaneswalk(h Host, c *Ctx, sa *cards.SA) {
 	// rotates as if no destination were given -- the loudest honest degrade
 	// for a shape no carrier uses.
 	if dests := planeswalkDestinations(h, c, sa); len(dests) > 0 {
-		dont := strings.EqualFold(strings.TrimSpace(sa.Params["DontPlaneswalkAway"]), "True")
+		dont := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKDontPlaneswalkAway)), "True")
 		h.Emit(events.Event{Kind: events.PlanarWalk, Player: c.Controller,
 			Obj: departingPlane(h, c.Controller), IDs: dests,
 			Amount: planeswalkAwayFlag(dont)})

@@ -303,7 +303,7 @@ func (e *Engine) cantPreventDamage(damageSource, target state.ObjID) bool {
 		if ce.Restriction != "CantPreventDamage" {
 			continue
 		}
-		spec := ce.RestrictParams["Affected"]
+		spec := ce.RestrictParam(cards.PKAffected)
 		if spec == "" {
 			return true
 		}
@@ -334,7 +334,7 @@ func (e *Engine) cantPreventDamage(damageSource, target state.ObjID) bool {
 				(damageSource == 0 || !e.matchesSpecFrom(v, damageSource, o.Controller, id)) {
 				continue
 			}
-			if combat := st.Params["IsCombat"]; (strings.EqualFold(combat, "True") && !e.combatDamaging) ||
+			if combat := st.ParamStr(cards.PKIsCombat); (strings.EqualFold(combat, "True") && !e.combatDamaging) ||
 				(strings.EqualFold(combat, "False") && e.combatDamaging) {
 				continue
 			}

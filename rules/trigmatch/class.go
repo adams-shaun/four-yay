@@ -41,7 +41,7 @@ func classLevelGainedMatches(e Board, t cards.Trigger, source state.ObjID, ev ev
 	if !eventCardAndPlayerMatch(e, t, source, ev.Obj, o.Controller) {
 		return false
 	}
-	if raw := strings.TrimSpace(t.Params["ClassLevel"]); raw != "" {
+	if raw := strings.TrimSpace(t.ParamStr(cards.PKClassLevel)); raw != "" {
 		n, err := strconv.Atoi(raw)
 		if err != nil {
 			return false

@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/adams-shaun/gorge/rules/pay"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/state"
@@ -55,8 +57,8 @@ type manaSAFacts struct {
 	// shape verdict (paymentPlanShapeTierOf) reads only its own Params and
 	// cost and is shapeTier/shapeCons/shapeDetail.
 	shapeKnown  bool
-	shapeTier   paymentAbilityTier
-	shapeCons   paymentConsequence
+	shapeTier   pay.Tier
+	shapeCons   pay.Consequence
 	shapeDetail string
 	// static is the payment census's per-ability text reads
 	// (manaStaticOf).

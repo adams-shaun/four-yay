@@ -53,7 +53,7 @@ func (e *Engine) applyTokenEntryUpdates(id state.ObjID) {
 				continue
 			}
 			with := replacementBodySA(ce.ReplacementBody)
-			if with == nil || !tokenEntryBody(ce.ReplacementParams["ReplacementResult"], ce.ReplacementParams["Destination"], with) {
+			if with == nil || !tokenEntryBody(ce.ReplacementParam(cards.PKReplacementResult), ce.ReplacementParam(cards.PKDestination), with) {
 				continue
 			}
 			r := &cards.Repl{Event: ce.ReplacementEvent, Params: ce.ReplacementParams, With: with}

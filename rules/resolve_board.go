@@ -56,7 +56,7 @@ type engineResolveKernel struct {
 	// reader that caches derived facts by log position (botpolicy's
 	// incremental board, through BoardReadKey) cannot see the rewind; the
 	// epoch is part of that key.
-	tapeEpoch uint32 `clone:"deep"`
+	tapeEpoch uint32 `clone:"reset"`
 }
 
 // resolveBoard is the Engine itself under the kernel's method set: asResolve

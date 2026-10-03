@@ -135,6 +135,6 @@ func gainControlVariantDirection(h Host, c *Ctx, sa *cards.SA) (string, bool) {
 		return dir, true
 	}
 	h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-		Text: "GainControlVariant " + sa.Params["ChangeController"] + " has no chosen direction"})
+		Text: "GainControlVariant " + sa.ParamStr(cards.PKChangeController) + " has no chosen direction"})
 	return "", false
 }

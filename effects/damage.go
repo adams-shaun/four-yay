@@ -651,7 +651,7 @@ func effDamageAll(h Host, c *Ctx, sa *cards.SA) {
 			}
 		}
 	}
-	for _, p := range validPlayers(h, c, sa.Params["ValidPlayers"]) {
+	for _, p := range validPlayers(h, c, sa.ParamStr(cards.PKValidPlayers)) {
 		emitPlayerDamage(rider, p)
 		damaged = append(damaged, state.Target{Player: p, IsPlayer: true})
 		if remember {
@@ -877,8 +877,8 @@ func validPlayersSelectorUnknown(spec string) bool {
 // so DamageDealtOnce/DamageDoneOnce latch per pass and LifeLostAll-style
 // triggers observe the group once.
 func effEachDamage(h Host, c *Ctx, sa *cards.SA) {
-	eachToItself := strings.TrimSpace(sa.Params["EachToItself"]) != ""
-	eachOtherRef := strings.TrimSpace(sa.Params["ToEachOther"])
+	eachToItself := strings.TrimSpace(sa.ParamStr(cards.PKEachToItself)) != ""
+	eachOtherRef := strings.TrimSpace(sa.ParamStr(cards.PKToEachOther))
 	hasDefined := DefinedRefOf(sa).Set()
 	hasTgts := TargetsOf(sa).Has(TgtValidPresent)
 
@@ -923,7 +923,7 @@ func effEachDamage(h Host, c *Ctx, sa *cards.SA) {
 			eachOtherSet = out
 			return out
 		}
-		if spec := strings.TrimSpace(sa.Params["DefinedDamagers"]); spec != "" {
+		if spec := strings.TrimSpace(sa.ParamStr(cards.PKDefinedDamagers)); spec != "" {
 			if unknown := eachDamagerUnknownPredicates(spec); len(unknown) > 0 {
 				eachDamageNote(h, c, "unresolved EachDamage damager predicate in "+spec)
 				return nil

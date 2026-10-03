@@ -64,7 +64,7 @@ func ZoneChangeMatchesWithCapture(e Board, t cards.Trigger, source state.ObjID, 
 	// "fizzled: ...", "reversed"), so the empty Text is the resolution. This
 	// keeps the gate out of the event shape itself -- no existing move changes
 	// its Text, so the hash chain is untouched.
-	if strings.EqualFold(strings.TrimSpace(t.Params["ResolvedOnly"]), "True") && ev.Text != "" {
+	if strings.EqualFold(strings.TrimSpace(t.ParamStr(cards.PKResolvedOnly)), "True") && ev.Text != "" {
 		return false
 	}
 	// Origin$ is a zone SET: either a single zone name or a comma list

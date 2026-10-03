@@ -4,7 +4,6 @@ package rules
 // offer-time witness; the planned executor lives in cast.go.
 
 import (
-	"cmp"
 	"fmt"
 	"maps"
 	"math/bits"
@@ -12,6 +11,8 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/adams-shaun/gorge/rules/pay"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
@@ -28,22 +29,6 @@ type PaymentPlanOutcome struct {
 	Reason string // "", "unsupported", "insufficient", or "search_limit"
 	Detail string // deterministic unsupported/source diagnostic
 	Nodes  int
-}
-
-type paymentAbilityTier uint8
-
-const (
-	paymentTierDeferred paymentAbilityTier = iota
-	paymentTierLastResort
-	paymentTierNormal
-)
-
-type paymentConsequence struct {
-	sacrifice    bool
-	life         uint32
-	damage       uint32
-	noUntap      bool
-	returnToHand bool
 }
 
 func paymentActionFor(d *decision.Decision, id string) (decision.PaymentAction, bool) {
@@ -84,7 +69,7 @@ func (e *Engine) CastPaymentCost(p state.PlayerID, id state.ObjID) (cost decisio
 		return decision.PaymentCost{}, false
 	}
 	base := withSpellAbilityExtras(o.Face(), e.rawBaseCost(p, id))
-	return paymentCost(e.offerCostFor(p, id, base, spellScope(""))), true
+	return pay.WireCost(e.offerCostFor(p, id, base, spellScope(""))), true
 }
 
 // planCastPaymentChecked is PlanCastPayment over caller-owned per-build
@@ -699,10 +684,10 @@ func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast
 		if !ok {
 			return fmt.Errorf("payment activation is no longer eligible")
 		}
-		pain += paymentPlanConsequencePain(step.consequence)
-		lastResort = lastResort || step.tier == paymentTierLastResort
-		pool = manaAdd(pool, step.mana)
-		produced = manaAdd(produced, step.mana)
+		pain += pay.ConsequencePain(step.Consequence)
+		lastResort = lastResort || step.Tier == pay.TierLastResort
+		pool = manaAdd(pool, step.Mana)
+		produced = manaAdd(produced, step.Mana)
 	}
 	// The lethal guard and the phase rule (spec 5): a witness never kills its
 	// caster, and it uses a last-resort source only when no plan from normal
@@ -715,8 +700,8 @@ func (e *Engine) ValidateCastPayment(p state.PlayerID, cast decision.PlannedCast
 	}
 	cost := e.offerCostFor(p, cast.Object, withSpellAbilityExtras(e.G.Obj(cast.Object).Face(), e.rawBaseCost(p, cast.Object)), spellScope(""))
 	payment, ok := resolveManaWith(cost, pool, state.Mana{}, [7]state.Mana{}, e.G.Players[p].Life, false, pipRider{}, nil)
-	expected := paymentWitness(cost, e.G.Players[p].Pool, produced, nil, payment.pool)
-	if !ok || paymentManaAmount(payment.pool) != plan.PoolAfter || expected.PoolSpend != plan.PoolSpend {
+	expected := pay.Witness(cost, e.G.Players[p].Pool, produced, nil, payment.pool)
+	if !ok || pay.ManaAmount(payment.pool) != plan.PoolAfter || expected.PoolSpend != plan.PoolSpend {
 		return fmt.Errorf("payment witness does not settle")
 	}
 	return nil
@@ -798,67 +783,14 @@ func paymentPlanPoolOK(p *state.Player) bool {
 	return true
 }
 
-func paymentManaAmount(m state.Mana) decision.ManaAmount {
-	var out decision.ManaAmount
-	for i, n := range m {
-		if n > 0 {
-			out[i] = uint32(n)
-		}
-	}
-	return out
-}
-
-func paymentCost(c Cost) decision.PaymentCost {
-	return decision.PaymentCost{Generic: uint32(c.Generic), Mana: paymentManaAmount(c.Colored)}
-}
-
-type plannedManaActivation struct {
-	activation decision.PaymentActivation
-	mana       state.Mana
-	creature   bool
-	// flex and colours describe the SOURCE, not this alternative: over every
-	// eligible alternative of the source, flex is the number of distinct mana
-	// types (W/U/B/R/G/C) it can produce and colours is the WUBRG bitmask
-	// (bit i = state.MW+i) of the colours it can produce. They feed rank keys
-	// 5 (flexibility consumed) and 7 (remainder diversity).
-	//
-	// Both are computed over the source's NORMAL alternatives (the phase-1
-	// view, and the "untapped normal remainder" keys 6 and 7 read); a source
-	// with only last-resort alternatives has colours 0. flexAll is the same
-	// count over every eligible alternative, normal and last resort, which
-	// is what key 5 reads in phase 2 (paymentPlanLastResortChoices).
-	flex    int
-	flexAll int
-	colours uint8
-	// ma is the exact ability this alternative activates. It is not part of
-	// the witness: every intrinsic ability shares one PaymentAbility
-	// identity ({intrinsic, basic_land}), so on a source with several (a
-	// dual land's {U} and {R}) the identity alone names no single ability.
-	// A witness step's Ability AND Produces together select exactly one
-	// alternative (paymentPlanStepAlternative), and execution activates
-	// that alternative's own ability.
-	ma *cards.SA
-	// execProduced names the exact ability to activate to realise this
-	// alternative: "" for fixed production (ma itself), and the selected
-	// colour of a choice-shaped production (Any/Combo/Chosen/ColorIdentity),
-	// recorded in the witness's Produces, whose withProduced copy of ma the
-	// executor activates (alternativeExec). The executor hands ma to the
-	// ordinary mana path as the original (for activation limits and replay
-	// identity), so no colour prompt is ever posed at execution. The copy is
-	// built only for the step that runs, never for the planner's census.
-	execProduced string
-	tier         paymentAbilityTier
-	consequence  paymentConsequence
-}
-
 // alternativeExec is the ability the executor activates for a: ma itself
 // for fixed production, else ma with its Produced$ rewritten to the
 // selected colour.
-func alternativeExec(a plannedManaActivation) *cards.SA {
-	if a.execProduced == "" {
-		return a.ma
+func alternativeExec(a pay.Alt) *cards.SA {
+	if a.ExecProduced == "" {
+		return a.Ma
 	}
-	return withProduced(a.ma, a.ma, a.execProduced)
+	return withProduced(a.Ma, a.Ma, a.ExecProduced)
 }
 
 func (e *Engine) planPaymentCost(p state.PlayerID, cast decision.PlannedCast, cost Cost) PaymentPlanOutcome {
@@ -962,8 +894,8 @@ func (e *Engine) planPaymentCostWithDemand(p state.PlayerID, demand [5]int, cost
 	defer e.paymentPlanQueryEnd(e.paymentPlanQueryBegin())
 	units := e.paymentPlanQueryUnits(p)
 	queryClasses := e.paymentPlanQueryClasses
-	ownClasses := func(_ state.PlayerID, _ paymentAbilityTier, choices [][]plannedManaActivation) []paymentPlanClass {
-		return paymentPlanClasses(choices)
+	ownClasses := func(_ state.PlayerID, _ pay.Tier, choices [][]pay.Alt) []pay.Class {
+		return pay.Classes(choices)
 	}
 	if len(gone) != 0 {
 		kept := make([]windowManaUnit, 0, len(units))
@@ -977,21 +909,21 @@ func (e *Engine) planPaymentCostWithDemand(p state.PlayerID, demand [5]int, cost
 	}
 	// withhold drops a tapped source's tapping alternatives and a kept
 	// source's consuming ones.
-	withhold := func(alts []plannedManaActivation) []plannedManaActivation {
+	withhold := func(alts []pay.Alt) []pay.Alt {
 		if len(alts) == 0 {
 			return alts
 		}
-		src := alts[0].activation.Source
+		src := alts[0].Activation.Source
 		tap, keep := slices.Contains(tapped, src), slices.Contains(kept, src)
 		if !tap && !keep {
 			return alts
 		}
-		var out []plannedManaActivation
+		var out []pay.Alt
 		for _, alt := range alts {
-			if tap && e.parseCost(alt.ma.ParamStr(cards.PKCost)).Tap {
+			if tap && e.parseCost(alt.Ma.ParamStr(cards.PKCost)).Tap {
 				continue
 			}
-			if keep && (alt.consequence.sacrifice || alt.consequence.returnToHand) {
+			if keep && (alt.Consequence.Sacrifice || alt.Consequence.ReturnToHand) {
 				continue
 			}
 			out = append(out, alt)
@@ -1003,7 +935,7 @@ func (e *Engine) planPaymentCostWithDemand(p state.PlayerID, demand [5]int, cost
 	}
 	// V1 accepts only fixed production.  A permissive window unit is useful to
 	// manual payment, but not proof an automatic choice will remain exact.
-	choices := make([][]plannedManaActivation, len(units))
+	choices := make([][]pay.Alt, len(units))
 	for i, u := range units {
 		choices[i] = withhold(e.paymentPlanQueryAlternatives(u))
 	}
@@ -1014,7 +946,7 @@ func (e *Engine) planPaymentCostWithDemand(p state.PlayerID, demand [5]int, cost
 		// ones it admits charged as generic.
 		cost.Generic += e.paymentPlanRelaxedFee
 		for _, alts := range e.paymentPlanRelaxed {
-			if len(alts) == 0 || slices.Contains(gone, alts[0].activation.Source) {
+			if len(alts) == 0 || slices.Contains(gone, alts[0].Activation.Source) {
 				continue
 			}
 			choices = append(choices, withhold(alts))
@@ -1024,29 +956,29 @@ func (e *Engine) planPaymentCostWithDemand(p state.PlayerID, demand [5]int, cost
 	// Phase 1 (spec 5): normal sources only. If it finds a complete plan,
 	// that is the offer and last-resort sources are never considered.
 	life := e.G.Players[p].Life
-	phase1 := paymentPlanPhaseChoices(choices, paymentTierNormal)
-	rankCtx := newPaymentPlanRankContext(choices, demand)
-	search := searchPaymentPlanInto(&e.hypPool().planSearch, cost, e.G.Players[p].Pool, life, rankCtx,
-		phase1, queryClasses(p, paymentTierNormal, phase1))
-	nodes := search.nodes
+	phase1 := pay.PhaseChoices(choices, pay.TierNormal)
+	rankCtx := pay.NewRankContext(choices, demand)
+	search := pay.SearchInto(&e.hypPool().planSearch, cost, e.G.Players[p].Pool, life, rankCtx,
+		phase1, queryClasses(p, pay.TierNormal, phase1), paymentSearchEnv())
+	nodes := search.Nodes
 	// Phase 2 runs only when phase 1 PROVES no plan exists (insufficient,
 	// not search_limit): normal plus last-resort alternatives, ranked by the
 	// irreversible-cost key, never a plan whose summed life + damage would
 	// reduce the caster to 0 or less. The rank context is phase 1's: keys 6
 	// and 7 read the untapped normal remainder in both phases.
-	if search.best == nil && !search.limited {
+	if search.Best == nil && !search.Limited {
 		if phase2 := paymentPlanLastResortChoices(choices, life); phase2 != nil {
-			search = searchPaymentPlanInto(&e.hypPool().planSearch, cost, e.G.Players[p].Pool, life, rankCtx,
-				phase2, queryClasses(p, paymentTierLastResort, phase2))
-			nodes += search.nodes
+			search = pay.SearchInto(&e.hypPool().planSearch, cost, e.G.Players[p].Pool, life, rankCtx,
+				phase2, queryClasses(p, pay.TierLastResort, phase2), paymentSearchEnv())
+			nodes += search.Nodes
 		}
 	}
 	switch {
-	case search.best != nil && search.limited:
-		return PaymentPlanOutcome{Plan: search.best, Nodes: nodes, Reason: "search_limit"}
-	case search.best != nil:
-		return PaymentPlanOutcome{Plan: search.best, Nodes: nodes}
-	case search.limited:
+	case search.Best != nil && search.Limited:
+		return PaymentPlanOutcome{Plan: search.Best, Nodes: nodes, Reason: "search_limit"}
+	case search.Best != nil:
+		return PaymentPlanOutcome{Plan: search.Best, Nodes: nodes}
+	case search.Limited:
 		return PaymentPlanOutcome{Reason: "search_limit", Nodes: nodes}
 	}
 	// The first source diagnostic is read only for the outcome that
@@ -1348,27 +1280,27 @@ func paymentPlanAltOK(a windowManaAlt) bool {
 // a deferring interference defers the source, and the source's own
 // fully determined consequence (City of Brass's damage, Mana Vault's
 // doesn't-untap) makes an otherwise normal source last resort.
-func (e *Engine) paymentPlanAbilityTier(p state.PlayerID, id state.ObjID, ma *cards.SA) (paymentAbilityTier, paymentConsequence, string) {
+func (e *Engine) paymentPlanAbilityTier(p state.PlayerID, id state.ObjID, ma *cards.SA) (pay.Tier, pay.Consequence, string) {
 	tier, c, detail := e.paymentPlanAbilityShapeTier(p, id, ma)
-	if tier == paymentTierDeferred {
+	if tier == pay.TierDeferred {
 		return tier, c, detail
 	}
 	// A last-resort step always discloses a consequence (spec §4: a present
 	// consequence sets at least one field); a shape that classified last
 	// resort without one is not a shape the witness can describe.
-	if tier == paymentTierLastResort && c == (paymentConsequence{}) {
-		return paymentTierDeferred, paymentConsequence{}, "source:last_resort"
+	if tier == pay.TierLastResort && c == (pay.Consequence{}) {
+		return pay.TierDeferred, pay.Consequence{}, "source:last_resort"
 	}
 	switch it, ic, idetail := e.paymentPlanSourceInterference(id, ma); it {
-	case paymentTierDeferred:
+	case pay.TierDeferred:
 		return it, ic, idetail
-	case paymentTierLastResort:
-		c.sacrifice = c.sacrifice || ic.sacrifice
-		c.life += ic.life
-		c.damage += ic.damage
-		c.noUntap = c.noUntap || ic.noUntap
-		c.returnToHand = c.returnToHand || ic.returnToHand
-		return paymentTierLastResort, c, "source:last_resort"
+	case pay.TierLastResort:
+		c.Sacrifice = c.Sacrifice || ic.Sacrifice
+		c.Life += ic.Life
+		c.Damage += ic.Damage
+		c.NoUntap = c.NoUntap || ic.NoUntap
+		c.ReturnToHand = c.ReturnToHand || ic.ReturnToHand
+		return pay.TierLastResort, c, "source:last_resort"
 	}
 	return tier, c, detail
 }
@@ -1381,7 +1313,7 @@ func (e *Engine) paymentPlanAbilityTier(p state.PlayerID, id state.ObjID, ma *ca
 // verdict is computed once with its configured facts (manaSAFacts.shape*)
 // instead of walking its parameter map on every census; verify mode
 // (manaSAFactsVerify) recomputes the facts on every hit.
-func (e *Engine) paymentPlanAbilityShapeTier(p state.PlayerID, id state.ObjID, ma *cards.SA) (paymentAbilityTier, paymentConsequence, string) {
+func (e *Engine) paymentPlanAbilityShapeTier(p state.PlayerID, id state.ObjID, ma *cards.SA) (pay.Tier, pay.Consequence, string) {
 	if ma != nil {
 		if f := e.manaFactsOf(ma); f != nil && f.shapeKnown {
 			if manaSAFactsVerify {
@@ -1401,8 +1333,8 @@ func (e *Engine) paymentPlanAbilityShapeTier(p state.PlayerID, id state.ObjID, m
 	if !rider {
 		return tier, c, detail
 	}
-	deferred := func(detail string) (paymentAbilityTier, paymentConsequence, string) {
-		return paymentTierDeferred, paymentConsequence{}, detail
+	deferred := func(detail string) (pay.Tier, pay.Consequence, string) {
+		return pay.TierDeferred, pay.Consequence{}, detail
 	}
 	if e.paymentPlanRiderHasTarget(id, ma) {
 		return deferred("source:target")
@@ -1411,10 +1343,10 @@ func (e *Engine) paymentPlanAbilityShapeTier(p state.PlayerID, id state.ObjID, m
 		return deferred("source:last_resort")
 	}
 	if d, ok := e.paymentPlanDamageRider(id, ma); ok {
-		return paymentTierLastResort, paymentConsequence{damage: d}, "source:last_resort"
+		return pay.TierLastResort, pay.Consequence{Damage: d}, "source:last_resort"
 	}
 	if e.paymentPlanParadiseRider(id, ma) {
-		return paymentTierLastResort, paymentConsequence{returnToHand: true}, "source:last_resort"
+		return pay.TierLastResort, pay.Consequence{ReturnToHand: true}, "source:last_resort"
 	}
 	return deferred("source:rider")
 }
@@ -1423,9 +1355,9 @@ func (e *Engine) paymentPlanAbilityShapeTier(p state.PlayerID, id state.ObjID, m
 // part over ma's Params and its parsed cost: the verdict, or rider true when
 // ma carries a SubAbility$ whose chain (read off the source's face) decides
 // it.
-func paymentPlanShapeTierOf(ma *cards.SA, cost Cost) (tier paymentAbilityTier, c paymentConsequence, detail string, rider bool) {
-	deferred := func(detail string) (paymentAbilityTier, paymentConsequence, string, bool) {
-		return paymentTierDeferred, paymentConsequence{}, detail, false
+func paymentPlanShapeTierOf(ma *cards.SA, cost Cost) (tier pay.Tier, c pay.Consequence, detail string, rider bool) {
+	deferred := func(detail string) (pay.Tier, pay.Consequence, string, bool) {
+		return pay.TierDeferred, pay.Consequence{}, detail, false
 	}
 	if ma == nil || ma.API != "Mana" {
 		return deferred("source:special_production")
@@ -1465,7 +1397,7 @@ func paymentPlanShapeTierOf(ma *cards.SA, cost Cost) (tier paymentAbilityTier, c
 		return deferred("source:last_resort")
 	}
 	if strings.TrimSpace(ma.ParamStr(cards.PKSubAbility)) != "" {
-		return paymentTierDeferred, paymentConsequence{}, "", true
+		return pay.TierDeferred, pay.Consequence{}, "", true
 	}
 	if cost.Sac != nil || cost.Life != 0 || cost.Return != nil {
 		// Every other cost part must be absent: the witness discloses only
@@ -1474,24 +1406,24 @@ func paymentPlanShapeTierOf(ma *cards.SA, cost Cost) (tier paymentAbilityTier, c
 			return deferred("source:last_resort")
 		}
 		if len(cost.Sac) > 0 && len(cost.Sac) == 1 && paymentPlanSelfCost(cost.Sac[0], 0) {
-			c.sacrifice = true
+			c.Sacrifice = true
 		} else if len(cost.Sac) > 0 {
 			return deferred("source:last_resort")
 		}
 		if cost.Life > 0 {
-			c.life = uint32(cost.Life)
+			c.Life = uint32(cost.Life)
 		}
 		if len(cost.Return) > 0 && len(cost.Return) == 1 && paymentPlanSelfCost(cost.Return[0], 0) {
-			c.returnToHand = true
+			c.ReturnToHand = true
 		} else if len(cost.Return) > 0 {
 			return deferred("source:last_resort")
 		}
-		return paymentTierLastResort, c, "source:last_resort", false
+		return pay.TierLastResort, c, "source:last_resort", false
 	}
 	if !paymentPlanTapOnlyCost(cost) {
 		return deferred("source:last_resort")
 	}
-	return paymentTierNormal, paymentConsequence{}, "", false
+	return pay.TierNormal, pay.Consequence{}, "", false
 }
 
 // paymentPlanLastResortCostOK reports whether a last-resort activation cost
@@ -1636,7 +1568,7 @@ func (e *Engine) paymentPlanParadiseRider(id state.ObjID, mana *cards.SA) bool {
 			return false
 		}
 	}
-	text := strings.ToLower(strings.Join([]string{rider.ParamStr(cards.PKKW), rider.ParamStr(cards.PKSpellDescription), rider.Params["StackDescription"]}, " "))
+	text := strings.ToLower(strings.Join([]string{rider.ParamStr(cards.PKKW), rider.ParamStr(cards.PKSpellDescription), rider.ParamStr(cards.PKStackDescription)}, " "))
 	return strings.Contains(text, "hidden") && strings.Contains(text, "return")
 }
 
@@ -1651,7 +1583,7 @@ func (e *Engine) paymentPlanParadiseRider(id state.ObjID, mana *cards.SA) bool {
 // allocation (amount > 1), Combo Any, and every open production remain
 // manual because they need a shape or source-state read the witness cannot
 // represent.
-func (e *Engine) paymentPlanUnitAlternatives(u windowManaUnit) []plannedManaActivation {
+func (e *Engine) paymentPlanUnitAlternatives(u windowManaUnit) []pay.Alt {
 	_, alts := e.appendUnitAlternatives(nil, u)
 	return alts
 }
@@ -1659,7 +1591,7 @@ func (e *Engine) paymentPlanUnitAlternatives(u windowManaUnit) []plannedManaActi
 // appendUnitAlternatives is paymentPlanUnitAlternatives appending into dst
 // (a query scope's alternative arena): it returns the grown dst and u's
 // alternatives as a capped span of it, or nil when u has none.
-func (e *Engine) appendUnitAlternatives(dst []plannedManaActivation, u windowManaUnit) (grown, alts []plannedManaActivation) {
+func (e *Engine) appendUnitAlternatives(dst []pay.Alt, u windowManaUnit) (grown, alts []pay.Alt) {
 	start := len(dst)
 	out := dst
 	// The source's payer, zone-entry sequence and creature bit are read once
@@ -1674,11 +1606,11 @@ func (e *Engine) appendUnitAlternatives(dst []plannedManaActivation, u windowMan
 	for _, alt := range u.alts {
 		tier, consequence, _ := e.paymentPlanAbilityTier(payer, u.id, alt.ma)
 		switch tier {
-		case paymentTierNormal:
+		case pay.TierNormal:
 			if !e.manaStaticOf(alt.ma).tapOnly {
 				continue
 			}
-		case paymentTierLastResort:
+		case pay.TierLastResort:
 			// The classifier vetted the whole cost and chain: {T} plus the
 			// disclosed self-sacrifice/life/self-return parts, or a tap-only
 			// cost with a disclosed rider, trigger or replacement.
@@ -1696,11 +1628,11 @@ func (e *Engine) appendUnitAlternatives(dst []plannedManaActivation, u windowMan
 		if paymentPlanAltOK(alt) {
 			m := alt.mana()
 			if out == nil {
-				out = make([]plannedManaActivation, 0, len(u.alts))
+				out = make([]pay.Alt, 0, len(u.alts))
 			}
-			out = append(out, plannedManaActivation{activation: decision.PaymentActivation{
-				Source: u.id, SourceZoneSeq: zoneSeq, Ability: ab, Produces: paymentManaAmount(m)},
-				mana: m, creature: creature, ma: alt.ma, tier: tier, consequence: consequence})
+			out = append(out, pay.Alt{Activation: decision.PaymentActivation{
+				Source: u.id, SourceZoneSeq: zoneSeq, Ability: ab, Produces: pay.ManaAmount(m)},
+				Mana: m, Creature: creature, Ma: alt.ma, Tier: tier, Consequence: consequence})
 			continue
 		}
 		if !alt.any || alt.amt <= 0 {
@@ -1714,11 +1646,11 @@ func (e *Engine) appendUnitAlternatives(dst []plannedManaActivation, u windowMan
 			var m state.Mana
 			m[i] = alt.amt
 			if out == nil {
-				out = make([]plannedManaActivation, 0, len(u.alts))
+				out = make([]pay.Alt, 0, len(u.alts))
 			}
-			out = append(out, plannedManaActivation{activation: decision.PaymentActivation{
-				Source: u.id, SourceZoneSeq: zoneSeq, Ability: ab, Produces: paymentManaAmount(m)},
-				mana: m, creature: creature, ma: alt.ma, execProduced: col, tier: tier, consequence: consequence})
+			out = append(out, pay.Alt{Activation: decision.PaymentActivation{
+				Source: u.id, SourceZoneSeq: zoneSeq, Ability: ab, Produces: pay.ManaAmount(m)},
+				Mana: m, Creature: creature, Ma: alt.ma, ExecProduced: col, Tier: tier, Consequence: consequence})
 		}
 	}
 	// Preserve flexible sources: rank each selected source by every eligible
@@ -1733,10 +1665,10 @@ func (e *Engine) appendUnitAlternatives(dst []plannedManaActivation, u windowMan
 	out = out[start:len(out):len(out)]
 	var types, all uint8 // bit i = mana index i (W/U/B/R/G/C)
 	for _, a := range out {
-		for i, n := range a.mana {
+		for i, n := range a.Mana {
 			if n > 0 {
 				all |= 1 << i
-				if a.tier == paymentTierNormal {
+				if a.Tier == pay.TierNormal {
 					types |= 1 << i
 				}
 			}
@@ -1745,9 +1677,9 @@ func (e *Engine) appendUnitAlternatives(dst []plannedManaActivation, u windowMan
 	flex, flexAll := bits.OnesCount8(types), bits.OnesCount8(all)
 	colours := types &^ (1 << state.MC)
 	for i := range out {
-		out[i].flex = flex
-		out[i].flexAll = flexAll
-		out[i].colours = colours
+		out[i].Flex = flex
+		out[i].FlexAll = flexAll
+		out[i].Colours = colours
 	}
 	return grown, out
 }
@@ -1760,21 +1692,21 @@ func (e *Engine) appendUnitAlternatives(dst []plannedManaActivation, u windowMan
 // the whole plan by the search). Unit positions are preserved. It returns
 // nil when no unit has a last-resort alternative left, so phase 2 cannot
 // differ from phase 1 and is skipped.
-func paymentPlanLastResortChoices(choices [][]plannedManaActivation, life int32) [][]plannedManaActivation {
-	out := make([][]plannedManaActivation, len(choices))
+func paymentPlanLastResortChoices(choices [][]pay.Alt, life int32) [][]pay.Alt {
+	out := make([][]pay.Alt, len(choices))
 	any := false
 	for i, alts := range choices {
 		for _, a := range alts {
-			if a.tier < paymentTierLastResort {
+			if a.Tier < pay.TierLastResort {
 				continue
 			}
-			if pain := paymentPlanConsequencePain(a.consequence); pain > 0 && pain >= int64(life) {
+			if pain := pay.ConsequencePain(a.Consequence); pain > 0 && pain >= int64(life) {
 				continue
 			}
-			if a.tier == paymentTierLastResort {
+			if a.Tier == pay.TierLastResort {
 				any = true
 			}
-			a.flex = a.flexAll
+			a.Flex = a.FlexAll
 			out[i] = append(out[i], a)
 		}
 	}
@@ -1784,24 +1716,9 @@ func paymentPlanLastResortChoices(choices [][]plannedManaActivation, life int32)
 	return out
 }
 
-// paymentPlanConsequencePain is the life a step costs its caster: life paid
-// plus damage dealt to its controller (the lethal guard's measure).
-func paymentPlanConsequencePain(c paymentConsequence) int64 {
-	return int64(c.life) + int64(c.damage)
-}
-
-// wire is the consequence as the witness discloses it: nil for a normal step.
-func (c paymentConsequence) wire() *decision.PaymentConsequence {
-	if c == (paymentConsequence{}) {
-		return nil
-	}
-	return &decision.PaymentConsequence{Sacrifice: c.sacrifice, Life: c.life, Damage: c.damage, NoUntap: c.noUntap, ReturnToHand: c.returnToHand}
-}
-
-// paymentConsequenceEqual reports whether a witness step's disclosed
 // consequence is exactly c.
-func paymentConsequenceEqual(c paymentConsequence, w *decision.PaymentConsequence) bool {
-	got := c.wire()
+func paymentConsequenceEqual(c pay.Consequence, w *decision.PaymentConsequence) bool {
+	got := c.Wire()
 	if got == nil || w == nil {
 		return got == nil && w == nil
 	}
@@ -1918,19 +1835,19 @@ func (e *Engine) paymentPlanController(id state.ObjID) state.PlayerID {
 // all resolve a step here, so the alternative validation priced is the one
 // execution activates; none of them may pair one alternative's identity with
 // another alternative's production.
-func (e *Engine) paymentPlanStepAlternative(units []windowManaUnit, pa decision.PaymentActivation) (plannedManaActivation, bool) {
+func (e *Engine) paymentPlanStepAlternative(units []windowManaUnit, pa decision.PaymentActivation) (pay.Alt, bool) {
 	for _, u := range units {
 		if u.id != pa.Source {
 			continue
 		}
 		for _, candidate := range e.paymentPlanQueryAlternatives(u) {
-			if candidate.ma != nil && candidate.activation.Ability == pa.Ability && candidate.activation.Produces == pa.Produces &&
-				paymentConsequenceEqual(candidate.consequence, pa.Consequence) {
+			if candidate.Ma != nil && candidate.Activation.Ability == pa.Ability && candidate.Activation.Produces == pa.Produces &&
+				paymentConsequenceEqual(candidate.Consequence, pa.Consequence) {
 				return candidate, true
 			}
 		}
 	}
-	return plannedManaActivation{}, false
+	return pay.Alt{}, false
 }
 
 func (e *Engine) paymentAbility(id state.ObjID, ma *cards.SA) (decision.PaymentAbility, bool) {
@@ -2008,88 +1925,6 @@ func (e *Engine) paymentPlanManaInterference() bool {
 	return false
 }
 
-// Irreversible-cost weights (spec 5 key 1, as amended 2026-09-26). They are
-// Arena-calibrated: two self-sacrificed Treasures (20) are cheaper than one
-// Mana Vault that does not untap (25), which is cheaper than three Treasures
-// (30); a point of damage or life (3) is cheaper than any sacrifice. The key
-// is summed per activated ability, so a source's painless ability always
-// beats its painful one for the same need.
-const (
-	paymentPlanCostSacrificeSelf         = 10 // sacrifice-self, non-creature source
-	paymentPlanCostSacrificeSelfCreature = 20 // sacrifice-self, creature source
-	paymentPlanCostNoUntap               = 25 // the source does not untap next untap step
-	paymentPlanCostPerLifeOrDamage       = 3  // per point of life paid or damage taken
-	paymentPlanCostReturnToHand          = 8  // the source returns to its owner's hand
-)
-
-// paymentPlanConsequenceCost is one activation's irreversible cost under the
-// weights above.
-func paymentPlanConsequenceCost(c paymentConsequence, creature bool) int64 {
-	var n int64
-	if c.sacrifice {
-		if creature {
-			n += paymentPlanCostSacrificeSelfCreature
-		} else {
-			n += paymentPlanCostSacrificeSelf
-		}
-	}
-	if c.noUntap {
-		n += paymentPlanCostNoUntap
-	}
-	n += paymentPlanCostPerLifeOrDamage * (int64(c.life) + int64(c.damage))
-	if c.returnToHand {
-		n += paymentPlanCostReturnToHand
-	}
-	return n
-}
-
-// paymentPlanRankContext is the per-query input the rank needs beyond one
-// plan: for each colour (WUBRG), how many untapped sources with an eligible
-// normal alternative can produce it, and the acting player's own hand's
-// colour demand. Both are computed once from the query, so a plan's
-// remainder is the census minus the plan's own chosen sources.
-type paymentPlanRankContext struct {
-	colourSources [5]int
-	// Key 6 inputs (spec 5 amended): handDemand[c] is the largest number of
-	// colour c's pips on any single nonland card in the acting player's own
-	// hand other than the cast card; demandOrder lists the colour indices by
-	// descending demand (WUBRG ties); reserveBase is max demand + 1, the
-	// digit base of the packed coverage. A zero reserveBase (a directly
-	// constructed context, or no demanded colour) leaves key 6 at 0 for
-	// every plan, the tie value the placeholder pinned.
-	handDemand  [5]int
-	demandOrder [5]int
-	reserveBase int
-}
-
-func newPaymentPlanRankContext(choices [][]plannedManaActivation, demand [5]int) paymentPlanRankContext {
-	var ctx paymentPlanRankContext
-	for _, alts := range choices {
-		if len(alts) == 0 {
-			continue
-		}
-		for c := range ctx.colourSources {
-			if alts[0].colours&(1<<c) != 0 {
-				ctx.colourSources[c]++
-			}
-		}
-	}
-	ctx.handDemand = demand
-	max := 0
-	for _, n := range demand {
-		if n > max {
-			max = n
-		}
-	}
-	ctx.reserveBase = max + 1
-	ctx.demandOrder = [5]int{0, 1, 2, 3, 4}
-	// Stable over the WUBRG seed order, so equal demands keep WUBRG order.
-	slices.SortStableFunc(ctx.demandOrder[:], func(a, b int) int {
-		return cmp.Compare(demand[b], demand[a])
-	})
-	return ctx
-}
-
 // paymentPlanHandDemand measures the acting player's OWN hand's colour
 // demand (spec 5 key 6): for each WUBRG colour, the largest number of that
 // colour's pips on any single nonland card in hand other than the card being
@@ -2147,171 +1982,4 @@ func costPips(c Cost) [5]int {
 		add(h.B)
 	}
 	return d
-}
-
-// paymentPlanRankStep is one witness step as the final tie-break compares it.
-type paymentPlanRankStep struct {
-	act         decision.PaymentActivation
-	consequence paymentConsequence
-}
-
-// paymentPlanRank is spec 5's lexicographic rank tuple (amended 2026-09-26);
-// less orders it, lower first, key by key in field order.
-type paymentPlanRank struct {
-	cost        int64 // 1. irreversible cost (0 for every normal-tier plan)
-	creatures   int   // 2. creature sources activated
-	sources     int   // 3. newly activated sources
-	surplus     int32 // 4. surplus mana left in the pool after paying
-	flex        int   // 5. distinct mana types the chosen sources could have made
-	handReserve int   // 6. packed hand-reserve coverage, MORE first (spec 5 amended; was a zero placeholder)
-	remainder   int   // 7. distinct colours the unused sources still make (MORE first)
-	steps       []paymentPlanRankStep
-}
-
-func (r paymentPlanRank) less(o paymentPlanRank) bool {
-	if r.cost != o.cost {
-		return r.cost < o.cost
-	}
-	if r.creatures != o.creatures {
-		return r.creatures < o.creatures
-	}
-	if r.sources != o.sources {
-		return r.sources < o.sources
-	}
-	if r.surplus != o.surplus {
-		return r.surplus < o.surplus
-	}
-	if r.flex != o.flex {
-		return r.flex < o.flex
-	}
-	// Key 6 (hand reserve) is MORE coverage first, like key 7's remainder.
-	if r.handReserve != o.handReserve {
-		return r.handReserve > o.handReserve
-	}
-	if r.remainder != o.remainder {
-		return r.remainder > o.remainder
-	}
-	return comparePaymentPlanSteps(r.steps, o.steps) < 0
-}
-
-// comparePaymentPlanSteps is key 8: the typed witness, compared numerically
-// step by step (source object ID, ability kind, face, index, intrinsic name,
-// produced vector, consequence), then by length. It replaces a fmt.Sprint
-// string compare that sorted object 10 before object 9.
-func comparePaymentPlanSteps(a, b []paymentPlanRankStep) int {
-	for i := 0; i < len(a) && i < len(b); i++ {
-		x, y := a[i], b[i]
-		if c := cmp.Compare(x.act.Source, y.act.Source); c != 0 {
-			return c
-		}
-		if c := cmp.Compare(x.act.Ability.Kind, y.act.Ability.Kind); c != 0 {
-			return c
-		}
-		if c := cmp.Compare(x.act.Ability.Face, y.act.Ability.Face); c != 0 {
-			return c
-		}
-		if c := cmp.Compare(x.act.Ability.Index, y.act.Ability.Index); c != 0 {
-			return c
-		}
-		if c := cmp.Compare(x.act.Ability.Intrinsic, y.act.Ability.Intrinsic); c != 0 {
-			return c
-		}
-		for k := range x.act.Produces {
-			if c := cmp.Compare(x.act.Produces[k], y.act.Produces[k]); c != 0 {
-				return c
-			}
-		}
-		if c := comparePaymentConsequence(x.consequence, y.consequence); c != 0 {
-			return c
-		}
-	}
-	return cmp.Compare(len(a), len(b))
-}
-
-func comparePaymentConsequence(a, b paymentConsequence) int {
-	flag := func(v bool) int {
-		if v {
-			return 1
-		}
-		return 0
-	}
-	if c := cmp.Compare(flag(a.sacrifice), flag(b.sacrifice)); c != 0 {
-		return c
-	}
-	if c := cmp.Compare(a.life, b.life); c != 0 {
-		return c
-	}
-	if c := cmp.Compare(a.damage, b.damage); c != 0 {
-		return c
-	}
-	if c := cmp.Compare(flag(a.noUntap), flag(b.noUntap)); c != 0 {
-		return c
-	}
-	return cmp.Compare(flag(a.returnToHand), flag(b.returnToHand))
-}
-
-// rankPaymentPlan computes plan p's rank. as is the plan's chosen
-// alternatives (one per source, in witness order), after the pool left once
-// the cost is paid, and ctx the query's source census.
-func rankPaymentPlan(ctx paymentPlanRankContext, p decision.PaymentPlan, as []plannedManaActivation, after state.Mana) paymentPlanRank {
-	r := paymentPlanRank{sources: len(as), surplus: after.Total(), steps: make([]paymentPlanRankStep, len(p.Activations))}
-	remaining := ctx.colourSources
-	for _, a := range as {
-		r.cost += paymentPlanConsequenceCost(a.consequence, a.creature)
-		if a.creature {
-			r.creatures++
-		}
-		r.flex += a.flex
-		for c := range remaining {
-			if a.colours&(1<<c) != 0 {
-				remaining[c]--
-			}
-		}
-	}
-	for _, n := range remaining {
-		if n > 0 {
-			r.remainder++
-		}
-	}
-	// Key 6: the packed hand-reserve coverage. Each digit is the plan's
-	// coverage min(untapped normal remainder, demand) for one colour, most
-	// significant digit first in the demand order, so the packed integer
-	// compares lexicographically in that order (less reads it larger first).
-	// Zero demand packs to 0 for every plan.
-	if ctx.reserveBase > 0 {
-		cov := 0
-		for _, c := range ctx.demandOrder {
-			n := remaining[c]
-			if d := ctx.handDemand[c]; n > d {
-				n = d
-			}
-			cov = cov*ctx.reserveBase + n
-		}
-		r.handReserve = cov
-	}
-	for i := range p.Activations {
-		r.steps[i].act = p.Activations[i]
-		if i < len(as) {
-			r.steps[i].consequence = as[i].consequence
-		}
-	}
-	return r
-}
-func paymentWitness(c Cost, initial, produced state.Mana, as []plannedManaActivation, after state.Mana) decision.PaymentPlan {
-	acts := make([]decision.PaymentActivation, len(as))
-	for i := range as {
-		acts[i] = as[i].activation
-		acts[i].Consequence = as[i].consequence.wire()
-	}
-	spend := decision.ManaAmount{}
-	for i := range initial {
-		totalSpent := initial[i] + produced[i] - after[i]
-		if totalSpent > initial[i] {
-			totalSpent = initial[i]
-		}
-		if totalSpent > 0 {
-			spend[i] = uint32(totalSpent)
-		}
-	}
-	return decision.PaymentPlan{Version: decision.PaymentPlanV1, Cost: paymentCost(c), Activations: acts, PoolSpend: spend, PoolAfter: paymentManaAmount(after)}
 }

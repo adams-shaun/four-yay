@@ -91,7 +91,7 @@ func FaceAttachMayAsk(f *Face) bool {
 	return false
 }
 
-// mayAskDenyKeys are vocabulary parameters that pose a decision on any API:
+// mayAskDenyKeys are parameters that pose a decision on any API:
 // the optional, unless and chooser riders, divided or announced amounts, a
 // counter-kind or "up to" pick.
 var mayAskDenyKeys = [...]ParamKey{
@@ -100,39 +100,18 @@ var mayAskDenyKeys = [...]ParamKey{
 	PKAnnounce, PKChooseOrder, PKMode, PKChangeType, PKChangeNum,
 	PKTargetingPlayer, PKTargetsWithDefinedController, PKAmount, PKImprint,
 	PKStatic, PKUpTo,
+	PKUnlessPayer, PKXChoice, PKTgtPrompt2, PKSorcerySpeed2, PKChoiceAmount, PKHidden, PKRememberChosen, PKChoose, PKDefinedPlayerChooses, PKChoiceNum, PKKWChoice, PKBolster, PKSupport, PKChooseCounter, PKCounterTypeChoice, PKUpto, PKPlayerChoices, PKAlternativeDecider, PKShuffleNonMandatory, PKUntapType, PKChooseDifferent, PKCounterTypePerDefined, PKPromptToSkipOptionalAbility, PKOptionalAbilityPrompt,
 }
 
 var mayAskDenyMask = ParamMaskOf(mayAskDenyKeys[:]...)
 
-// mayAskRawDeny are the same class of rider outside the ParamKey vocabulary
-// (see the file comment): presence tests only.
-var mayAskRawDeny = [...]string{
-	"UnlessPayer", "XChoice", "TgtPrompt2", "SorcerySpeed2", "ChoiceAmount",
-	"Hidden", "RememberChosen", "Choose", "DefinedPlayerChooses", "ChoiceNum",
-	"KWChoice", "Bolster", "Support", "ChooseCounter", "CounterTypeChoice",
-	"Upto", "PlayerChoices", "AlternativeDecider", "ShuffleNonMandatory",
-	"UntapType", "ChooseDifferent", "CounterTypePerDefined",
-	"PromptToSkipOptionalAbility", "OptionalAbilityPrompt",
-}
-
 // saDenied reports whether s carries a deny-listed parameter.
 func saDenied(s *SA) bool {
 	if s.ps.bound(s.Params) {
-		if s.MayHaveAnyParam(mayAskDenyMask) {
-			return true
-		}
-		if len(s.ps.vals) == len(s.Params) {
-			return false // every parameter is in the vocabulary: no raw key
-		}
-	} else {
-		for _, k := range mayAskDenyKeys {
-			if s.HasParam(k) {
-				return true
-			}
-		}
+		return s.MayHaveAnyParam(mayAskDenyMask)
 	}
-	for _, k := range mayAskRawDeny {
-		if _, ok := s.Params[k]; ok {
+	for _, k := range mayAskDenyKeys {
+		if s.HasParam(k) {
 			return true
 		}
 	}

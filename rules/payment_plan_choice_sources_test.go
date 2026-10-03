@@ -12,6 +12,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/adams-shaun/gorge/rules/pay"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/internal/testutil"
@@ -42,7 +44,7 @@ func choiceAlts(t *testing.T, e *Engine, id state.ObjID) []state.Mana {
 		}
 		var out []state.Mana
 		for _, a := range e.paymentPlanUnitAlternatives(u) {
-			out = append(out, a.mana)
+			out = append(out, a.Mana)
 		}
 		return out
 	}
@@ -239,12 +241,12 @@ func TestPaymentPlanChoiceSources(t *testing.T) {
 				continue
 			}
 			for _, a := range e.paymentPlanUnitAlternatives(u) {
-				switch a.tier {
-				case paymentTierNormal:
-					normal = append(normal, a.mana)
-				case paymentTierLastResort:
-					if a.consequence != (paymentConsequence{damage: 1}) {
-						t.Fatalf("pain half consequence = %+v, want damage:1", a.consequence)
+				switch a.Tier {
+				case pay.TierNormal:
+					normal = append(normal, a.Mana)
+				case pay.TierLastResort:
+					if a.Consequence != (pay.Consequence{Damage: 1}) {
+						t.Fatalf("pain half consequence = %+v, want damage:1", a.Consequence)
 					}
 				}
 			}

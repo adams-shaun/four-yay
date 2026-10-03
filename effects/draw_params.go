@@ -68,11 +68,11 @@ var drawFront [1 << 10]atomic.Pointer[DrawParams]
 // compileDraw is the one reader of a Draw ability's own parameters.
 func compileDraw(sa *cards.SA) *DrawParams {
 	p := &DrawParams{paramBinding: bindParams(sa)}
-	nc, ncOK := sa.Params["NumCards"]
+	nc, ncOK := sa.Param(cards.PKNumCards)
 	p.NumCards = ParamText{Text: nc, Present: ncOK}
-	p.RememberDrawn = strings.TrimSpace(sa.Params["RememberDrawn"]) != ""
+	p.RememberDrawn = strings.TrimSpace(sa.ParamStr(cards.PKRememberDrawn)) != ""
 	p.OptionalDecider = strings.TrimSpace(sa.ParamStr(cards.PKOptionalDecider))
-	p.Upto = isTrue(sa.Params["Upto"])
+	p.Upto = isTrue(sa.ParamStr(cards.PKUpto))
 	if sa.API == "Draw" {
 		p.Unread = unreadKeys(sa, drawKnownKeys[:])
 	}

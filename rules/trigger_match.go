@@ -767,7 +767,7 @@ func (e *Engine) dieRollNumberAllows(t cards.Trigger, key triggerKey) bool {
 // the gate denies it (fail closed), matching triggerActivationLimitAllows's
 // malformed handling.
 func resolvedLimitValue(t cards.Trigger) (int, bool) {
-	raw, present := t.Params["ResolvedLimit"]
+	raw, present := t.Param(cards.PKResolvedLimit)
 	if !present {
 		return 0, false
 	}
@@ -1087,7 +1087,7 @@ func (e *Engine) checkExertTriggers(ev events.Event) {
 			!e.matchesSpecFrom(vc, ev.Obj, o.Controller, sv.Source) {
 			continue
 		}
-		exec := sv.Params["Trigger"]
+		exec := sv.ParamStr(cards.PKTrigger)
 		if exec == "" {
 			continue
 		}
@@ -1722,7 +1722,7 @@ func (e *Engine) checkFaceTriggers(observer *Engine, ev *events.Event, lki *stat
 				// caused it. For a permanent leaving the battlefield, use that
 				// event's LKI: the live object has already returned to its owner.
 				if (t.Mode == "ChangesZone" || t.Mode == "ChangesZoneAll") &&
-					t.Params["TriggerController"] == "TriggeredCardController" &&
+					t.ParamStr(cards.PKTriggerController) == "TriggeredCardController" &&
 					objLKI != nil && leftBattlefield(*ev) {
 					controller = objLKI.Controller
 				}
@@ -2493,7 +2493,7 @@ func (e *Engine) triggerMatchesWithSVars(t cards.Trigger, source state.ObjID, ev
 	// from the Execute-side ConditionFirstCombat$ gate
 	// (effects/conditions.go, Raiyuu), which suppresses the BODY, not the
 	// trigger.
-	if strings.EqualFold(strings.TrimSpace(t.Params["FirstCombat"]), "True") && e.G.CombatsThisTurn != 1 {
+	if strings.EqualFold(strings.TrimSpace(t.ParamStr(cards.PKFirstCombat)), "True") && e.G.CombatsThisTurn != 1 {
 		return false
 	}
 	// PlayerTurn$ True: only during the turn of the source's controller
@@ -2544,7 +2544,7 @@ func (e *Engine) triggerMatchesWithSVars(t cards.Trigger, source state.ObjID, ev
 	// it existed when the event occurred, including its counters and
 	// characteristics. TriggerCardController separately records that event
 	// snapshot for filter referents asking for its controller.
-	if raw, ok := t.Params["CheckOnTriggeredCard"]; ok {
+	if raw, ok := t.Param(cards.PKCheckOnTriggeredCard); ok {
 		parts := strings.Fields(raw)
 		if len(parts) != 2 || ev.Obj == 0 {
 			return false

@@ -66,7 +66,7 @@ func (e *Engine) EnsurePaymentActions() []decision.PaymentAction {
 		e.EndDerivedReads()
 		// The builder's actions are this decision's own: every Plans,
 		// Activations, Consequence and BaseOptionIndex it returns is built
-		// for this decision (paymentWitness, searchPaymentPlan), so they are
+		// for this decision (pay.Witness, pay.Run), so they are
 		// kept as built rather than deep-copied. The one other holder is the
 		// decision's cast-plan memo (planCastPaymentMemo), which shares a
 		// plan's Activations read-only for the same decision and dies with
@@ -146,7 +146,7 @@ func (e *Engine) searchControlRedirect(d *decision.Decision) {
 		return
 	}
 	for _, sv := range e.activeStatics("Continuous") {
-		if strings.TrimSpace(sv.Params["ControlOpponentsSearchingLibrary"]) != "You" {
+		if strings.TrimSpace(sv.ParamStr(cards.PKControlOpponentsSearchingLibrary)) != "You" {
 			continue
 		}
 		if sv.Controller == d.Player {

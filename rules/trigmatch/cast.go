@@ -116,7 +116,7 @@ func SpellCastEval(e Board, t cards.Trigger, source state.ObjID, ev events.Event
 			return false
 		}
 	}
-	if v, ok := t.Params["ActivatorThisTurnCastEach"]; ok {
+	if v, ok := t.Param(cards.PKActivatorThisTurnCastEach); ok {
 		// The PER-ALTERNATIVE first-cast read (task castprov2, Alania,
 		// Divergent Storm — the corpus's one carrier): the trigger fires when
 		// the activator's cast is the FIRST this turn of at least ONE
@@ -183,7 +183,7 @@ func SpellCastEval(e Board, t cards.Trigger, source state.ObjID, ev events.Event
 	// filter over the cast spell). It lives here beside the other event-relative
 	// SpellCast gates, the Dethrone/Training precedent read by their own
 	// matchers.
-	if v, ok := t.Params["Increment"]; ok && strings.EqualFold(strings.TrimSpace(v), "True") {
+	if v, ok := t.Param(cards.PKIncrement); ok && strings.EqualFold(strings.TrimSpace(v), "True") {
 		if !incrementAdmits(e, source, ev) {
 			return false
 		}
@@ -230,7 +230,7 @@ func SpellCastEval(e Board, t cards.Trigger, source state.ObjID, ev events.Event
 // stays silent), per the repo's unreadable-condition convention; a param
 // absent leaves the trigger's behaviour unchanged.
 func TargetShapeMatches(e Board, t cards.Trigger, targets []state.Target, source state.ObjID, ctrl state.PlayerID) bool {
-	if v, ok := t.Params["IsSingleTarget"]; ok {
+	if v, ok := t.Param(cards.PKIsSingleTarget); ok {
 		if !strings.EqualFold(strings.TrimSpace(v), "True") {
 			return false
 		}
@@ -238,7 +238,7 @@ func TargetShapeMatches(e Board, t cards.Trigger, targets []state.Target, source
 			return false
 		}
 	}
-	if v, ok := t.Params["TargetsValid"]; ok {
+	if v, ok := t.Param(cards.PKTargetsValid); ok {
 		if len(targets) == 0 {
 			return false
 		}
@@ -928,7 +928,7 @@ func ManaExpendMatches(e Board, t cards.Trigger, source state.ObjID, ev events.E
 	// selector through the shared player-spec grammar either way: explicit
 	// Player$ Opponent/Player forms resolve here, and an absent one is spelled
 	// as You so the controller check is not skipped.
-	player := strings.TrimSpace(t.Params["Player"])
+	player := strings.TrimSpace(t.ParamStr(cards.PKPlayer))
 	if player == "" {
 		player = "You"
 	}

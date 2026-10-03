@@ -3,6 +3,8 @@ package rules
 import (
 	"strings"
 
+	"github.com/adams-shaun/gorge/rules/pay"
+
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
@@ -84,13 +86,13 @@ func (e *Engine) paymentPlanCheck(pc *pendingCast) string {
 // the executor's immediately following step resolution reuses both rather
 // than taking the identical census and resolving the identical step again at
 // the unchanged state.
-func (e *Engine) paymentPlanCheckUnits(pc *pendingCast) (string, []windowManaUnit, plannedManaActivation, bool) {
+func (e *Engine) paymentPlanCheckUnits(pc *pendingCast) (string, []windowManaUnit, pay.Alt, bool) {
 	// A pure read: one zone-entry index serves every remaining step.
 	defer e.paymentPlanQueryEnd(e.paymentPlanQueryBegin())
 	plan := pc.payment.plan
 	cost := e.castPaymentMana(pc)
-	if plan.Version != decision.PaymentPlanV1 || plan.Cost != paymentCost(cost) {
-		return paymentFallbackCostChanged, nil, plannedManaActivation{}, false
+	if plan.Version != decision.PaymentPlanV1 || plan.Cost != pay.WireCost(cost) {
+		return paymentFallbackCostChanged, nil, pay.Alt{}, false
 	}
 	next := pc.paymentNext
 	// The lethal guard, re-read before every step (spec §6): the remaining
@@ -100,13 +102,13 @@ func (e *Engine) paymentPlanCheckUnits(pc *pendingCast) (string, []windowManaUni
 	// step's consequence itself is re-derived with its alternative below
 	// (paymentPlanStepReady): a changed one is production_changed.
 	if pain := paymentPlanRemainingPain(plan, next); pain > 0 && pain >= int64(e.G.Players[pc.player].Life) {
-		return paymentFallbackCostChanged, nil, plannedManaActivation{}, false
+		return paymentFallbackCostChanged, nil, pay.Alt{}, false
 	}
 	if next == 0 && !paymentPlanPoolOK(&e.G.Players[pc.player]) {
-		return paymentFallbackProductionChanged, nil, plannedManaActivation{}, false
+		return paymentFallbackProductionChanged, nil, pay.Alt{}, false
 	}
 	if next > 0 && next < len(plan.Activations) && e.paymentPlanManaInterference() {
-		return paymentFallbackProductionChanged, nil, plannedManaActivation{}, false
+		return paymentFallbackProductionChanged, nil, pay.Alt{}, false
 	}
 	// Only the remaining steps' sources are resolved below (and the
 	// executor resolves the next of them), so the census is taken for those
@@ -124,14 +126,14 @@ func (e *Engine) paymentPlanCheckUnits(pc *pendingCast) (string, []windowManaUni
 	units := e.paymentPlanManaUnitsOnly(pc.player, only)
 	e.idsRelease(only)
 	pool := e.G.Players[pc.player].Pool
-	var first plannedManaActivation
+	var first pay.Alt
 	for i, pa := range plan.Activations {
 		// A source named twice is never a V1 witness (the planner taps each
 		// source at most once); the plans are a handful of steps, so a scan
 		// of the earlier steps replaces a set.
 		for _, prev := range plan.Activations[:i] {
 			if prev.Source == pa.Source {
-				return paymentFallbackSourceChanged, units, plannedManaActivation{}, false
+				return paymentFallbackSourceChanged, units, pay.Alt{}, false
 			}
 		}
 		if i < next {
@@ -139,16 +141,16 @@ func (e *Engine) paymentPlanCheckUnits(pc *pendingCast) (string, []windowManaUni
 		}
 		step, reason := e.paymentPlanStepReady(pc.player, units, pa)
 		if reason != "" {
-			return reason, units, plannedManaActivation{}, false
+			return reason, units, pay.Alt{}, false
 		}
 		if i == next {
 			first = step
 		}
-		pool = manaAdd(pool, step.mana)
+		pool = manaAdd(pool, step.Mana)
 	}
 	payment, ok := resolveManaWith(cost, pool, state.Mana{}, [7]state.Mana{}, e.G.Players[pc.player].Life, false, pipRider{}, nil)
-	if !ok || paymentManaAmount(payment.pool) != plan.PoolAfter {
-		return paymentFallbackProductionChanged, units, plannedManaActivation{}, false
+	if !ok || pay.ManaAmount(payment.pool) != plan.PoolAfter {
+		return paymentFallbackProductionChanged, units, pay.Alt{}, false
 	}
 	return "", units, first, next < len(plan.Activations)
 }
@@ -160,11 +162,11 @@ func (e *Engine) paymentPlanCheckUnits(pc *pendingCast) (string, []windowManaUni
 // identity -- is source_changed; the same untapped source still offering the
 // step's ability identity, but not the witnessed production, is
 // production_changed. It never names a substitute.
-func (e *Engine) paymentPlanStepReady(p state.PlayerID, units []windowManaUnit, pa decision.PaymentActivation) (plannedManaActivation, string) {
+func (e *Engine) paymentPlanStepReady(p state.PlayerID, units []windowManaUnit, pa decision.PaymentActivation) (pay.Alt, string) {
 	o := e.G.Obj(pa.Source)
 	if o == nil || o.Zone != state.ZBattlefield || o.Tapped || o.PhasedOut || o.Controller != p ||
 		pa.SourceZoneSeq != e.paymentSourceZoneSeq(pa.Source) {
-		return plannedManaActivation{}, paymentFallbackSourceChanged
+		return pay.Alt{}, paymentFallbackSourceChanged
 	}
 	if step, ok := e.paymentPlanStepAlternative(units, pa); ok {
 		return step, ""
@@ -174,12 +176,12 @@ func (e *Engine) paymentPlanStepReady(p state.PlayerID, units []windowManaUnit, 
 			continue
 		}
 		for _, alt := range e.paymentPlanQueryAlternatives(u) {
-			if alt.activation.Ability == pa.Ability {
-				return plannedManaActivation{}, paymentFallbackProductionChanged
+			if alt.Activation.Ability == pa.Ability {
+				return pay.Alt{}, paymentFallbackProductionChanged
 			}
 		}
 	}
-	return plannedManaActivation{}, paymentFallbackSourceChanged
+	return pay.Alt{}, paymentFallbackSourceChanged
 }
 
 // paymentPlanProducedExactly reports whether the mana p's pool gained from
@@ -197,7 +199,7 @@ func (e *Engine) paymentPlanProducedExactly(p state.PlayerID, from int, want dec
 		}
 		added[state.ManaSlot(ev.Counter)] += ev.Amount
 	}
-	return paymentManaAmount(added) == want
+	return pay.ManaAmount(added) == want
 }
 
 // executePlannedManaActivationUnits is executePlannedManaActivation over a
@@ -205,7 +207,7 @@ func (e *Engine) paymentPlanProducedExactly(p state.PlayerID, from int, want dec
 // with nothing run in between); nil takes a fresh one. ready reports that
 // the caller's check also resolved the step to run (checked), at the same
 // state and with the same census, so it is not resolved again.
-func (e *Engine) executePlannedManaActivationUnits(pc *pendingCast, units []windowManaUnit, checked plannedManaActivation, ready bool) bool {
+func (e *Engine) executePlannedManaActivationUnits(pc *pendingCast, units []windowManaUnit, checked pay.Alt, ready bool) bool {
 	pa := pc.payment.plan.Activations[pc.paymentNext]
 	// Activate the exact alternative the step names -- the one whose ability
 	// identity AND production equal the witness -- never the first ability
@@ -233,11 +235,11 @@ func (e *Engine) executePlannedManaActivationUnits(pc *pendingCast, units []wind
 			panic("payment plan executor: the checked step is stale")
 		}
 	}
-	ma := step.ma
+	ma := step.Ma
 	if pc.announced {
 		// An Auto-fill step of an announced window is an in-window
 		// activation too: Undo last tap and Cancel cast may reverse it.
-		e.beginWindowTap(pc, pa.Source, step.tier == paymentTierNormal)
+		e.beginWindowTap(pc, pa.Source, step.Tier == pay.TierNormal)
 	}
 	pc.paymentNext++ // a synchronous continuation may re-enter payCast.
 	// The planner already resolved the exact ability to run: the original for
@@ -281,11 +283,11 @@ func (e *Engine) executePlannedManaActivationUnits(pc *pendingCast, units []wind
 // paymentPlanSameStep compares two resolutions of one witness step at one
 // state: every field, the ability up to the identity of an ability built
 // per call (a CR 305.6 intrinsic).
-func paymentPlanSameStep(a, b plannedManaActivation) bool {
-	if !sameManaAbility(a.ma, b.ma) {
+func paymentPlanSameStep(a, b pay.Alt) bool {
+	if !sameManaAbility(a.Ma, b.Ma) {
 		return false
 	}
-	a.ma, b.ma = nil, nil
+	a.Ma, b.Ma = nil, nil
 	return a == b
 }
 

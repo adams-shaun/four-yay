@@ -280,7 +280,7 @@ func compileTargets(sa *cards.SA) *TargetParams {
 	p.ControllerProperty = strings.TrimSpace(sa.ParamStr(cards.PKTargetsWithControllerProperty))
 	p.ValidTargeting = strings.TrimSpace(sa.ParamStr(cards.PKTargetValidTargeting))
 	p.SharedCardType = strings.TrimSpace(sa.ParamStr(cards.PKTargetsWithSharedCardType))
-	p.SharedTypes = sharedTypesList(sa.Params["TargetsWithSharedTypes"])
+	p.SharedTypes = sharedTypesList(sa.ParamStr(cards.PKTargetsWithSharedTypes))
 
 	switch {
 	case strings.EqualFold(sa.ParamStr(cards.PKTargetsWithSameCardType), "True"):
@@ -291,13 +291,13 @@ func compileTargets(sa *cards.SA) *TargetParams {
 		p.SetProp, p.SetPropKind = decision.SetPropShared, "toughness"
 	case strings.EqualFold(sa.ParamStr(cards.PKTargetsWithDifferentCMC), "True"):
 		p.SetProp, p.SetPropKind = decision.SetPropDistinct, "cmc"
-	case strings.EqualFold(sa.Params["TargetsWithDifferentNames"], "True"):
+	case strings.EqualFold(sa.ParamStr(cards.PKTargetsWithDifferentNames), "True"):
 		p.SetProp, p.SetPropKind = decision.SetPropDistinct, "name"
 	}
 
 	cmc, cmcOK := sa.Param(cards.PKMaxTotalTargetCMC)
 	p.MaxTotalCMC = ParamText{Text: cmc, Present: cmcOK}
-	pow, powOK := sa.Params["MaxTotalTargetPower"]
+	pow, powOK := sa.Param(cards.PKMaxTotalTargetPower)
 	p.MaxTotalPower = ParamText{Text: pow, Present: powOK}
 	if p.ValidTgts != "" || p.Prompt != "" || p.TargetType != "" || strings.TrimSpace(tmin) != "" ||
 		strings.TrimSpace(tmax) != "" || p.ZoneText != "" {

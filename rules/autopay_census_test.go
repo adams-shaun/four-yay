@@ -38,6 +38,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/adams-shaun/gorge/rules/pay"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
@@ -1126,14 +1128,14 @@ func (cz *autopayCensus) v1Member(e *Engine, id state.ObjID, ma *cards.SA) bool 
 		for i, n := range counts {
 			m[state.ManaIndex(cards.ManaSymbol(i))] += n * availableAmount(ma)
 		}
-		want = paymentManaAmount(m)
+		want = pay.ManaAmount(m)
 	}
 	for _, u := range e.paymentPlanManaUnits(0) {
 		if u.id != id {
 			continue
 		}
 		for _, a := range e.paymentPlanUnitAlternatives(u) {
-			if a.activation.Ability == ab && (!intrinsic || a.activation.Produces == want) {
+			if a.Activation.Ability == ab && (!intrinsic || a.Activation.Produces == want) {
 				return true
 			}
 		}
@@ -1145,7 +1147,7 @@ func (cz *autopayCensus) v1Member(e *Engine, id state.ObjID, ma *cards.SA) bool 
 // for the board-independent part of the V1 contract and names the first one
 // that withholds the ability.
 func (cz *autopayCensus) v1Structural(e *Engine, id state.ObjID, ma *cards.SA) string {
-	if tier, _, detail := e.paymentPlanAbilityTier(0, id, ma); tier != paymentTierNormal {
+	if tier, _, detail := e.paymentPlanAbilityTier(0, id, ma); tier != pay.TierNormal {
 		return "paymentPlanAbilityTier (" + detail + ")"
 	}
 	if strings.TrimSpace(ma.Params["RestrictValid"]) != "" {

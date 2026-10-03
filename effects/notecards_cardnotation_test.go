@@ -186,7 +186,7 @@ func TestCardNotationTriggeredSourceNotesTheTriggerCard(t *testing.T) {
 	if repeat.Params["Zone"] != "Battlefield,Graveyard,Exile,Library,Hand" {
 		t.Fatalf("Maelstrom RepeatEach Zone$ = %q", repeat.Params["Zone"])
 	}
-	got, ok := repeatedCards(h, &Ctx{Controller: 0}, repeat)
+	got, ok := repeatedCards(h, &Ctx{Controller: 0}, RepeatEachOf(repeat))
 	if !ok {
 		t.Fatal("Maelstrom RepeatEach did not run its RepeatCards$ reader")
 	}

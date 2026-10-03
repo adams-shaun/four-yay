@@ -12,7 +12,7 @@ import (
 // claim on it fails silently, so every compiled per-ability fact lives in this
 // one struct hung on the slot and nothing competes for it: the per-API typed
 // parameter structs (ChangeZone, ChangeZoneAll, Attach, DealDamage,
-// PutCounter, Effect, DelayedTrigger, CopyPermanent, Clone, Dig, DigUntil, RemoveCounter, Token, Vote) and the rules tier's private half (the
+// PutCounter, Effect, DelayedTrigger, CopyPermanent, Clone, Dig, DigUntil, RemoveCounter, Token, Vote, RepeatEach) and the rules tier's private half (the
 // mana walk's gate facts, opaque here).
 //
 // The record is defined in effects, not rules, because resolution reads it
@@ -116,6 +116,9 @@ type SAFacts struct {
 	// Vote is api:Vote's compiled parameter set (vote_params.go),
 	// non-nil exactly when the API is Vote.
 	Vote *VoteParams
+	// RepeatEach is api:RepeatEach's compiled parameter set (repeateach_params.go),
+	// non-nil exactly when the API is RepeatEach.
+	RepeatEach *RepeatEachParams
 }
 
 // NewSAFacts compiles sa's typed halves into a fresh record naming sa. The

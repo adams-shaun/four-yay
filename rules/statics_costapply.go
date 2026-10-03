@@ -154,7 +154,7 @@ func (e *Engine) costStaticGateFull(sv staticView, mode string, p state.PlayerID
 		return false, false
 	}
 	if spec, ok := sv.Param(cards.PKValidTarget); ok {
-		if sv.Params["UnlessValidTarget"] == "True" {
+		if sv.ParamStr(cards.PKUnlessValidTarget) == "True" {
 			// UnlessValidTarget$ True inverts the test (Mavinda's "if that
 			// spell doesn't target a creature you control, it costs {8}
 			// more"): see costTargetsUnless for the offer-phase direction.
@@ -165,7 +165,7 @@ func (e *Engine) costStaticGateFull(sv staticView, mode string, p state.PlayerID
 			return false, false
 		}
 	}
-	if mode == "SetCost" && sv.Params["RaiseTo"] != "True" {
+	if mode == "SetCost" && sv.ParamStr(cards.PKRaiseTo) != "True" {
 		// Forge's SetCost carries RaiseTo$ True (Trinisphere) for the
 		// raise-to-N shape; any other SetCost shape is unimplemented and
 		// must not silently floor the cost.
@@ -337,7 +337,7 @@ func (e *Engine) costTurnGateHolds(sv staticView) bool {
 			return false
 		}
 	}
-	if phases := strings.TrimSpace(sv.Params["Phases"]); phases != "" {
+	if phases := strings.TrimSpace(sv.ParamStr(cards.PKPhases)); phases != "" {
 		pp := e.parsedPhaseSpec(phases)
 		if !pp.valid || !pp.set.Has(e.G.Step) {
 			return false

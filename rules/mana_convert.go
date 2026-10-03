@@ -227,7 +227,7 @@ func (e *Engine) manaConversionParts(p state.PlayerID, id state.ObjID, ability b
 		if strings.EqualFold(strings.TrimSpace(sv.ParamStr(cards.PKOptional)), "True") {
 			dst = &optional
 		}
-		for tok := range strings.FieldsSeq(sv.Params["ManaConversion"]) {
+		for tok := range strings.FieldsSeq(sv.ParamStr(cards.PKManaConversion)) {
 			if from, to, ok := strings.Cut(tok, "->"); ok {
 				if froms := manaColourFrom(from); froms != nil {
 					applyManaConversionTo(dst, froms, to)

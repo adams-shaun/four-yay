@@ -11,7 +11,7 @@ func init() {
 }
 
 func effElementalBend(h Host, c *Ctx, sa *cards.SA) {
-	verb := sa.Params["Verb"]
+	verb := sa.ParamStr(cards.PKVerb)
 	if verb != "water" && verb != "earth" && verb != "fire" && verb != "air" {
 		return
 	}

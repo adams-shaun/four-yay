@@ -248,7 +248,7 @@ func (e *Engine) printedKeywordCovered(id state.ObjID, line string) bool {
 			}
 		}
 		for _, ab := range pf.Face.Abilities {
-			if strings.EqualFold(ab.Params["KeywordLine"], line) {
+			if strings.EqualFold(ab.ParamStr(cards.PKKeywordLine), line) {
 				return true
 			}
 		}

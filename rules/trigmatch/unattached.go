@@ -47,7 +47,7 @@ func unattachedMatches(e Board, t cards.Trigger, source state.ObjID, ev events.E
 		return false
 	}
 	ctrl := e.ControllerOf(source)
-	if v, ok := t.Params["ValidAttachment"]; ok {
+	if v, ok := t.Param(cards.PKValidAttachment); ok {
 		// ev.Obj is the attachment the event names, exactly as
 		// attachedMatches matches its ValidSource$ against ev.Obj. source is
 		// what Card.Self binds to in specCtx, so the corpus's Card.Self lines

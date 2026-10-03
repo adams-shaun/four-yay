@@ -42,7 +42,7 @@ func init() { Register("StoreSVar", effStoreSVar) }
 // Spark-Fiend / Join-Forces family) resolves it through the object store the
 // fold just populated, exactly as the printed table would have.
 func effStoreSVar(h Host, c *Ctx, sa *cards.SA) {
-	name := strings.TrimSpace(sa.Params["SVar"])
+	name := strings.TrimSpace(sa.ParamStr(cards.PKSVar))
 	if name == "" {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "StoreSVar with no SVar$ name"})
@@ -63,7 +63,7 @@ func effStoreSVar(h Host, c *Ctx, sa *cards.SA) {
 	v, ok := NumResolved(h, c, sa, "Expression", 0)
 	if !ok {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-			Text: "StoreSVar Expression$ " + strings.TrimSpace(sa.Params["Expression"]) +
+			Text: "StoreSVar Expression$ " + strings.TrimSpace(sa.ParamStr(cards.PKExpression)) +
 				" is not resolvable (no value stored)"})
 		return
 	}

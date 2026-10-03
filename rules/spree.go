@@ -41,7 +41,7 @@ func modeCost(f *cards.Face, name string) (Cost, bool, bool) {
 	if sub == nil {
 		return Cost{}, false, false
 	}
-	raw := strings.TrimSpace(sub.Params["ModeCost"])
+	raw := strings.TrimSpace(sub.ParamStr(cards.PKModeCost))
 	if raw == "" {
 		return Cost{}, false, false
 	}

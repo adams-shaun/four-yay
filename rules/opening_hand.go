@@ -91,17 +91,6 @@ func openingActionSVar(f *cards.Face, raw string) string {
 	return ""
 }
 
-func cloneOpening(o openingRound) openingRound {
-	o.effects = append([]openingEffect(nil), o.effects...)
-	// The held-back exile ask is posed later (resumeOpening -> ask, which
-	// stamps it), so each engine must pose its own Decision, never a shared
-	// one -- the deferredAsks discipline.
-	if o.exileAsk != nil {
-		o.exileAsk = cloneDecision(o.exileAsk)
-	}
-	return o
-}
-
 func (e *Engine) newOpeningRound(start state.PlayerID, mulligans int) openingRound {
 	r := openingRound{start: start, mulligans: mulligans}
 	for _, p := range e.G.AliveFrom(start) {
@@ -226,7 +215,7 @@ func (e *Engine) handleOpening(d *decision.Decision, in decision.Intent) {
 		// Impatient Iguana's opening-hand effect changes the player who takes
 		// turn one. This round-local value is consumed by finishOpening.
 		if o := e.G.Obj(ef.card); o != nil && o.Face() != nil {
-			if sa := cards.ResolveSVar(o.Face().SVars, ef.svar); sa != nil && sa.Params["BecomeStartingPlayer"] == "True" {
+			if sa := cards.ResolveSVar(o.Face().SVars, ef.svar); sa != nil && sa.ParamStr(cards.PKBecomeStartingPlayer) == "True" {
 				e.opening.start = ef.player
 			}
 		}
@@ -282,7 +271,7 @@ func (e *Engine) registerOpeningEffectTriggers(ef openingEffect, first *cards.SA
 					return
 				}
 				t, ok := cards.ParseTriggerLine(o.Face().SVars[name])
-				if !ok || t.Params["OneOff"] != "True" || t.ParamStr(cards.PKOptionalDecider) != "" {
+				if !ok || t.ParamStr(cards.PKOneOff) != "True" || t.ParamStr(cards.PKOptionalDecider) != "" {
 					continue
 				}
 				exec := t.ParamStr(cards.PKExecute)

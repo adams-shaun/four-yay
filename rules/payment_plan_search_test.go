@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/adams-shaun/gorge/rules/pay"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
@@ -47,7 +49,7 @@ func srchSpell(cost string) string {
 // paymentPlanSearchOracle is the brute-force reference: every subset of the
 // planner's own source units x every alternative of each chosen unit, in
 // battlefield (unit) order, each complete candidate settled by the ordinary
-// solver and ranked by rankPaymentPlan, the best kept by paymentPlanRank.less.
+// solver and ranked by pay.RankPlan, the best kept by pay.Rank.less.
 // It has no node budget and no rank-based pruning. It never keeps a set
 // whose summed life + damage would kill the caster (the lethal guard). It
 // skips only sets that provably cannot pay or provably cannot win, by facts
@@ -69,8 +71,8 @@ func paymentPlanSearchOracle(e *Engine, p state.PlayerID, cast state.ObjID, cost
 // table (one entry per unit, in unit order) and hand demand (rank key 6;
 // the planner's is paymentPlanHandDemand of the acting player without the
 // cast card).
-func paymentPlanSearchOracleOver(e *Engine, p state.PlayerID, cost Cost, choices [][]plannedManaActivation, demand [5]int) (*decision.PaymentPlan, int) {
-	ctx := newPaymentPlanRankContext(choices, demand)
+func paymentPlanSearchOracleOver(e *Engine, p state.PlayerID, cost Cost, choices [][]pay.Alt, demand [5]int) (*decision.PaymentPlan, int) {
+	ctx := pay.NewRankContext(choices, demand)
 	pool := e.G.Players[p].Pool
 	life := e.G.Players[p].Life
 	need := cost.Generic + cost.Colored.Total()
@@ -81,8 +83,8 @@ func paymentPlanSearchOracleOver(e *Engine, p state.PlayerID, cost Cost, choices
 		var most int32
 		var mostOf state.Mana
 		for _, a := range choices[i] {
-			most = max(most, a.mana.Total())
-			for k, n := range a.mana {
+			most = max(most, a.Mana.Total())
+			for k, n := range a.Mana {
 				mostOf[k] = max(mostOf[k], n)
 			}
 		}
@@ -90,24 +92,24 @@ func paymentPlanSearchOracleOver(e *Engine, p state.PlayerID, cost Cost, choices
 		restTotal[i] = restTotal[i+1] + most
 	}
 	var best *decision.PaymentPlan
-	var bestRank paymentPlanRank
+	var bestRank pay.Rank
 	visited := 0
-	var walk func(int, state.Mana, []plannedManaActivation)
-	walk = func(at int, produced state.Mana, chosen []plannedManaActivation) {
+	var walk func(int, state.Mana, []pay.Alt)
+	walk = func(at int, produced state.Mana, chosen []pay.Alt) {
 		visited++
 		// The lethal guard (spec 5): a set whose summed life + damage is at
 		// least the caster's life is never a plan, nor is any superset.
 		var pain int64
 		for _, a := range chosen {
-			pain += paymentPlanConsequencePain(a.consequence)
+			pain += pay.ConsequencePain(a.Consequence)
 		}
 		if pain > 0 && pain >= int64(life) {
 			return
 		}
 		if paid, ok := resolveManaWith(cost, manaAdd(pool, produced), state.Mana{}, [7]state.Mana{}, life, false, pipRider{}, nil); ok {
-			plan := paymentWitness(cost, pool, produced, chosen, paid.pool)
-			r := rankPaymentPlan(ctx, plan, chosen, paid.pool)
-			if best == nil || r.less(bestRank) {
+			plan := pay.Witness(cost, pool, produced, chosen, paid.pool)
+			r := pay.RankPlan(ctx, plan, chosen, paid.pool)
+			if best == nil || r.Less(bestRank) {
 				best, bestRank = &plan, r
 			}
 			return
@@ -125,7 +127,7 @@ func paymentPlanSearchOracleOver(e *Engine, p state.PlayerID, cost Cost, choices
 		}
 		walk(at+1, produced, chosen)
 		for _, a := range choices[at] {
-			walk(at+1, manaAdd(produced, a.mana), append(chosen[:len(chosen):len(chosen)], a))
+			walk(at+1, manaAdd(produced, a.Mana), append(chosen[:len(chosen):len(chosen)], a))
 		}
 	}
 	walk(0, state.Mana{}, nil)
@@ -133,9 +135,9 @@ func paymentPlanSearchOracleOver(e *Engine, p state.PlayerID, cost Cost, choices
 }
 
 // paymentPlanQueryChoices is the planner's per-unit alternative table.
-func (e *Engine) paymentPlanQueryChoices(p state.PlayerID) [][]plannedManaActivation {
+func (e *Engine) paymentPlanQueryChoices(p state.PlayerID) [][]pay.Alt {
 	units := e.paymentPlanManaUnits(p)
-	choices := make([][]plannedManaActivation, len(units))
+	choices := make([][]pay.Alt, len(units))
 	for i, u := range units {
 		choices[i] = e.paymentPlanUnitAlternatives(u)
 	}
@@ -530,7 +532,7 @@ func TestPaymentPlanSearchBudgetExhaustionIsDeterministic(t *testing.T) {
 	for k := 0; k < 20; k++ {
 		onBoard(t, e, 0, srchDistinctRock(k))
 	}
-	if n := len(paymentPlanClasses(e.paymentPlanQueryChoices(0))); n != 20 {
+	if n := len(pay.Classes(e.paymentPlanQueryChoices(0))); n != 20 {
 		t.Fatalf("board has %d classes, want 20", n)
 	}
 	first := e.PlanCastPayment(0, paymentCast(spell))
@@ -603,26 +605,26 @@ func TestPaymentPlanSearchMatchesOracleOnRandomBoards(t *testing.T) {
 // the real classifier (paymentPlanAbilityTier, interference included)
 // reports. aph-last-resort-plans wires phase 2; this only lets the search's
 // irreversible-cost level be checked against the oracle with real tiers.
-func srchPhaseTwoChoices(t *testing.T, e *Engine, p state.PlayerID) [][]plannedManaActivation {
+func srchPhaseTwoChoices(t *testing.T, e *Engine, p state.PlayerID) [][]pay.Alt {
 	t.Helper()
 	units := e.paymentPlanManaUnits(p)
-	choices := make([][]plannedManaActivation, len(units))
+	choices := make([][]pay.Alt, len(units))
 	for i, u := range units {
-		var out []plannedManaActivation
+		var out []pay.Alt
 		for _, alt := range u.alts {
 			tier, consequence, _ := e.paymentPlanAbilityTier(p, u.id, alt.ma)
-			if tier == paymentTierDeferred || !paymentPlanTapOnlyCost(e.parseCost(alt.ma.Params["Cost"])) {
+			if tier == pay.TierDeferred || !paymentPlanTapOnlyCost(e.parseCost(alt.ma.Params["Cost"])) {
 				continue
 			}
 			ab, ok := e.paymentAbility(u.id, alt.ma)
 			if !ok {
 				continue
 			}
-			base := plannedManaActivation{activation: decision.PaymentActivation{Source: u.id, SourceZoneSeq: e.paymentSourceZoneSeq(u.id), Ability: ab},
-				creature: e.IsCreature(u.id), ma: alt.ma, tier: tier, consequence: consequence}
+			base := pay.Alt{Activation: decision.PaymentActivation{Source: u.id, SourceZoneSeq: e.paymentSourceZoneSeq(u.id), Ability: ab},
+				Creature: e.IsCreature(u.id), Ma: alt.ma, Tier: tier, Consequence: consequence}
 			if paymentPlanAltOK(alt) {
-				base.mana = alt.mana()
-				base.activation.Produces = paymentManaAmount(base.mana)
+				base.Mana = alt.mana()
+				base.Activation.Produces = pay.ManaAmount(base.Mana)
 				out = append(out, base)
 				continue
 			}
@@ -631,24 +633,24 @@ func srchPhaseTwoChoices(t *testing.T, e *Engine, p state.PlayerID) [][]plannedM
 			}
 			for _, col := range e.paymentPlanChoiceColours(u.id, alt.ma) {
 				a := base
-				a.mana = state.Mana{}
-				a.mana[strings.IndexByte("WUBRG", col[0])] = alt.amt
-				a.activation.Produces = paymentManaAmount(a.mana)
-				a.execProduced = col
+				a.Mana = state.Mana{}
+				a.Mana[strings.IndexByte("WUBRG", col[0])] = alt.amt
+				a.Activation.Produces = pay.ManaAmount(a.Mana)
+				a.ExecProduced = col
 				out = append(out, a)
 			}
 		}
 		var types uint8
 		for _, a := range out {
-			for k, n := range a.mana {
+			for k, n := range a.Mana {
 				if n > 0 {
 					types |= 1 << k
 				}
 			}
 		}
 		for k := range out {
-			out[k].flex = bits.OnesCount8(types)
-			out[k].colours = types &^ (1 << state.MC)
+			out[k].Flex = bits.OnesCount8(types)
+			out[k].Colours = types &^ (1 << state.MC)
 		}
 		choices[i] = out
 	}
@@ -674,15 +676,15 @@ func TestPaymentPlanSearchMatchesOracleWithLastResortTiers(t *testing.T) {
 	onBoardCard(t, e, 0, corpusCard(t, "City of Brass"))
 	onBoard(t, e, 0, srchVolcanic)
 	choices := srchPhaseTwoChoices(t, e, 0)
-	var consequences []paymentConsequence
+	var consequences []pay.Consequence
 	for _, alts := range choices {
 		for _, a := range alts {
-			if a.tier == paymentTierLastResort && !slices.Contains(consequences, a.consequence) {
-				consequences = append(consequences, a.consequence)
+			if a.Tier == pay.TierLastResort && !slices.Contains(consequences, a.Consequence) {
+				consequences = append(consequences, a.Consequence)
 			}
 		}
 	}
-	if !slices.Contains(consequences, paymentConsequence{damage: 1}) || !slices.Contains(consequences, paymentConsequence{noUntap: true}) {
+	if !slices.Contains(consequences, pay.Consequence{Damage: 1}) || !slices.Contains(consequences, pay.Consequence{NoUntap: true}) {
 		t.Fatalf("phase-2 table consequences = %+v, want damage:1 (City of Brass) and no_untap (Mana Vault)", consequences)
 	}
 	pool, life := e.G.Players[0].Pool, e.G.Players[0].Life
@@ -691,28 +693,28 @@ func TestPaymentPlanSearchMatchesOracleWithLastResortTiers(t *testing.T) {
 		cost := srchCost(t, s)
 		demand := e.paymentPlanHandDemand(0, 0)
 		want, _ := paymentPlanSearchOracleOver(e, 0, cost, choices, demand)
-		got := searchPaymentPlan(cost, pool, life, newPaymentPlanRankContext(choices, demand), choices, paymentPlanClasses(choices))
-		if got.limited {
+		got := pay.Run(cost, pool, life, pay.NewRankContext(choices, demand), choices, pay.Classes(choices), paymentSearchEnv())
+		if got.Limited {
 			t.Fatalf("{%s}: search hit the node budget", s)
 		}
 		if want == nil {
-			if got.best != nil {
-				t.Fatalf("{%s}: search found %+v, oracle none", s, got.best)
+			if got.Best != nil {
+				t.Fatalf("{%s}: search found %+v, oracle none", s, got.Best)
 			}
 			continue
 		}
-		if got.best == nil || !reflect.DeepEqual(*got.best, *want) {
-			t.Fatalf("{%s}: search differs from the oracle (%d nodes)\nsearch: %+v\noracle: %+v", s, got.nodes, got.best, want)
+		if got.Best == nil || !reflect.DeepEqual(*got.Best, *want) {
+			t.Fatalf("{%s}: search differs from the oracle (%d nodes)\nsearch: %+v\noracle: %+v", s, got.Nodes, got.Best, want)
 		}
-		if got.bestRank.cost > 0 {
+		if got.BestRank.Cost > 0 {
 			lastResort++
 		}
-		for _, a := range got.best.Activations {
+		for _, a := range got.Best.Activations {
 			if a.Source == vault {
 				vaultUsed++
 			}
 		}
-		t.Logf("{%s}: %d steps, irreversible cost %d, nodes %d", s, len(got.best.Activations), got.bestRank.cost, got.nodes)
+		t.Logf("{%s}: %d steps, irreversible cost %d, nodes %d", s, len(got.Best.Activations), got.BestRank.Cost, got.Nodes)
 	}
 	if lastResort == 0 || vaultUsed == 0 {
 		t.Fatalf("%d plans used a last-resort source, %d used the Vault: the cost level was not exercised", lastResort, vaultUsed)

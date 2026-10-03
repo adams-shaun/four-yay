@@ -61,9 +61,9 @@ func (e *Engine) restrictionBlocksTarget(id state.ObjID, actor state.PlayerID) b
 // to the same matcher so a restriction that names a quality (CantTarget with
 // ValidCard$ Creature, say) still works.
 func (e *Engine) restrictionApplies(ce *ContinuousEffect, id state.ObjID) bool {
-	spec := ce.RestrictParams["ValidCard"]
+	spec := ce.RestrictParam(cards.PKValidCard)
 	if spec == "" {
-		spec = ce.RestrictParams["ValidTarget"]
+		spec = ce.RestrictParam(cards.PKValidTarget)
 	}
 	if spec == "" {
 		// The ValidCards$ plural spelling: Forge allows both on a restriction
@@ -71,7 +71,7 @@ func (e *Engine) restrictionApplies(ce *ContinuousEffect, id state.ObjID) bool {
 		// `ValidCards$ Creature.YouCtrl+withDefender`) spells it. Corpus
 		// census: no Cant* body carries ValidCards$ without ValidCard$, so
 		// the fallback is unreachable for every pre-existing restriction.
-		spec = ce.RestrictParams["ValidCards"]
+		spec = ce.RestrictParam(cards.PKValidCards)
 	}
 	if spec == "" {
 		return len(ce.Remembered) > 0
@@ -89,7 +89,7 @@ func (e *Engine) restrictionApplies(ce *ContinuousEffect, id state.ObjID) bool {
 // controller (the caster of Vines). A restriction with no Activator$ applies
 // to any actor.
 func (e *Engine) restrictionActorMatches(ce *ContinuousEffect, actor state.PlayerID) bool {
-	spec, ok := ce.RestrictParams["Activator"]
+	spec, ok := ce.RestrictParamOk(cards.PKActivator)
 	if !ok {
 		return true
 	}
@@ -198,7 +198,7 @@ func (e *Engine) sacrificeBlocked(id state.ObjID, forCost bool, cause costCause)
 		// ValidCard match so an unevaluable shape stays skipped (the
 		// permissive direction) instead of blanket-blocking. ForCost$ True
 		// restricts only COST sacrifices; ForCost$ False never restricts one.
-		switch sv.Params["ForCost"] {
+		switch sv.ParamStr(cards.PKForCost) {
 		case "True":
 			if !forCost {
 				continue
@@ -290,7 +290,7 @@ func (e *Engine) exileBlocked(id state.ObjID, forCost bool, cause costCause) boo
 		// so an unevaluable shape stays skipped (the permissive direction)
 		// instead of blanket-blocking. ForCost$ True restricts only COST
 		// exiles; ForCost$ False never restricts one.
-		switch sv.Params["ForCost"] {
+		switch sv.ParamStr(cards.PKForCost) {
 		case "True":
 			if !forCost {
 				continue
@@ -340,11 +340,11 @@ func (e *Engine) PutCounterBlocked(kind string, obj state.ObjID, player state.Pl
 		if ce.Restriction != "CantPutCounter" {
 			continue
 		}
-		if !counterKindMatches(ce.RestrictParams["CounterType"], kind) {
+		if !counterKindMatches(ce.RestrictParam(cards.PKCounterType), kind) {
 			continue
 		}
 		if playerForm {
-			if spec := strings.TrimSpace(ce.RestrictParams["ValidPlayer"]); spec != "" {
+			if spec := strings.TrimSpace(ce.RestrictParam(cards.PKValidPlayer)); spec != "" {
 				// Source 0: Player.CardOwner resolution is scoped to CantAttack's
 				// Target$ walk; a CardOwner qualifier here fails closed, as before.
 				if restrictionPlayerSpecMatches(e.G, spec, player, ce.Controller, 0, ce.RememberedPlayers) {
@@ -352,14 +352,14 @@ func (e *Engine) PutCounterBlocked(kind string, obj state.ObjID, player state.Pl
 				}
 				continue
 			}
-			if strings.TrimSpace(ce.RestrictParams["ValidCard"]) != "" || strings.TrimSpace(ce.RestrictParams["ValidObject"]) != "" {
+			if strings.TrimSpace(ce.RestrictParam(cards.PKValidCard)) != "" || strings.TrimSpace(ce.RestrictParam(cards.PKValidObject)) != "" {
 				continue
 			}
 			return true
 		}
-		objSpec := ce.RestrictParams["ValidCard"]
+		objSpec := ce.RestrictParam(cards.PKValidCard)
 		if objSpec == "" {
-			objSpec = ce.RestrictParams["ValidObject"]
+			objSpec = ce.RestrictParam(cards.PKValidObject)
 		}
 		if strings.TrimSpace(objSpec) != "" {
 			if e.restrictionApplies(ce, obj) {
@@ -367,7 +367,7 @@ func (e *Engine) PutCounterBlocked(kind string, obj state.ObjID, player state.Pl
 			}
 			continue
 		}
-		if strings.TrimSpace(ce.RestrictParams["ValidPlayer"]) != "" {
+		if strings.TrimSpace(ce.RestrictParam(cards.PKValidPlayer)) != "" {
 			continue
 		}
 		return true

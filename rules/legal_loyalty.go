@@ -88,7 +88,7 @@ func isLoyaltyAbilityRef(ab *cards.SA, c *Cost) bool {
 // isLoyaltyMarked reports whether ab carries the Planeswalker$ True marker,
 // the half of isLoyaltyAbilityCost that reads no cost.
 func isLoyaltyMarked(ab *cards.SA) bool {
-	if v, ok := ab.Params["Planeswalker"]; ok && strings.EqualFold(strings.TrimSpace(v), "True") {
+	if v, ok := ab.Param(cards.PKPlaneswalker); ok && strings.EqualFold(strings.TrimSpace(v), "True") {
 		// Ultimate$ (Ugin, Eye of the Storms' [-X]: AB$ ChangeZone ...
 		// Ultimate$ True) marks the planeswalker's ultimate for Forge's
 		// deck-tooling and the client's loyalty-UI presentation; the rules
@@ -98,7 +98,7 @@ func isLoyaltyMarked(ab *cards.SA) bool {
 		// is discarded, so it is read only on this branch rather than on every
 		// ability the offer walk classifies); the presentation half is named
 		// in the deck import report's Issues.
-		_ = ab.Params["Ultimate"]
+		_ = ab.ParamStr(cards.PKUltimate)
 		return true
 	}
 	return false
@@ -394,7 +394,7 @@ func (e *Engine) additionalActivationLimit(id state.ObjID, actor state.PlayerID,
 		if !e.checkSVarHolds(sv) {
 			continue
 		}
-		min, err := strconv.Atoi(strings.TrimSpace(sv.Params["MinLimit"]))
+		min, err := strconv.Atoi(strings.TrimSpace(sv.ParamStr(cards.PKMinLimit)))
 		if err == nil && min > limit {
 			limit = min
 		}

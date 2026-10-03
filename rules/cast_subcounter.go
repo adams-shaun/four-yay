@@ -25,7 +25,7 @@ func xMinAbilityParam(ab *cards.SA) int32 {
 	if ab == nil {
 		return 0
 	}
-	n, err := strconv.ParseInt(ab.Params["XMin"], 10, 32)
+	n, err := strconv.ParseInt(ab.ParamStr(cards.PKXMin), 10, 32)
 	if err != nil || n <= 0 {
 		return 0
 	}

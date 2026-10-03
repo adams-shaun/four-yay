@@ -173,7 +173,7 @@ func effCascadeResidue(h Host, c *Ctx, sa *cards.SA) {
 	}
 	g := h.Game()
 	found := state.ObjID(0)
-	if strings.EqualFold(strings.TrimSpace(sa.Params["Found"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKFound)), "True") {
 		found = batch[len(batch)-1]
 	}
 	rest := batch

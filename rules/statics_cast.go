@@ -102,7 +102,7 @@ func (e *Engine) SurveilLookExtra(p state.PlayerID) (mandatory int32, optional [
 // A missing/empty Num$, an unresolvable SVar and a negative value all report
 // false.
 func (e *Engine) surveilNumValue(sv staticView) (int32, bool) {
-	raw := strings.TrimSpace(sv.Params["Num"])
+	raw := strings.TrimSpace(sv.ParamStr(cards.PKNum))
 	if raw == "" {
 		return 0, false
 	}
@@ -566,7 +566,7 @@ func (e *Engine) staticTimingGate(sv staticView) bool {
 	default:
 		return false
 	}
-	if phase := strings.TrimSpace(sv.Params["Phases"]); phase != "" && !(strings.Contains(phase, "End of Turn") && e.G.Step == state.StepEnd) {
+	if phase := strings.TrimSpace(sv.ParamStr(cards.PKPhases)); phase != "" && !(strings.Contains(phase, "End of Turn") && e.G.Step == state.StepEnd) {
 		return false
 	}
 	if turn := strings.TrimSpace(sv.ParamStr(cards.PKPlayerTurn)); turn != "" {

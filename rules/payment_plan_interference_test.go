@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/adams-shaun/gorge/rules/pay"
+
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -33,7 +35,7 @@ func interferencePlanSources(got PaymentPlanOutcome) []state.ObjID {
 
 // interferenceTier classifies every mana ability src's face prints and
 // returns the first classification, failing when the face prints none.
-func interferenceTier(t *testing.T, e *Engine, src state.ObjID) (paymentAbilityTier, paymentConsequence, string) {
+func interferenceTier(t *testing.T, e *Engine, src state.ObjID) (pay.Tier, pay.Consequence, string) {
 	t.Helper()
 	o := e.G.Obj(src)
 	abilities := o.Face().ManaAbilities()
@@ -100,7 +102,7 @@ func TestPaymentPlanInterferenceManabarbsDefersOnlyWhatItMatches(t *testing.T) {
 	if got.Plan != nil || got.Reason != "insufficient" || !strings.Contains(got.Detail, "Manabarbs") {
 		t.Fatalf("Island under Manabarbs = %+v, want insufficient naming Manabarbs", got)
 	}
-	if tier, _, detail := interferenceTier(t, e, island); tier != paymentTierDeferred || !strings.Contains(detail, "Manabarbs") {
+	if tier, _, detail := interferenceTier(t, e, island); tier != pay.TierDeferred || !strings.Contains(detail, "Manabarbs") {
 		t.Fatalf("Island tier = %d %q, want deferred naming Manabarbs", tier, detail)
 	}
 	rock := onBoard(t, e, 0, "Name:Blue Rock\nManaCost:2\nTypes:Artifact\nA:AB$ Mana | Cost$ T | Produced$ U | SpellDescription$ Add {U}.\nOracle:x\n")
@@ -127,10 +129,10 @@ func TestPaymentPlanInterferenceWildGrowthDefersOnlyEnchantedLand(t *testing.T) 
 	if srcs := interferencePlanSources(got); len(srcs) != 1 || srcs[0] != islandB {
 		t.Fatalf("plan = %+v (sources %v), want Island B %d only", got, srcs, islandB)
 	}
-	if tier, _, detail := interferenceTier(t, e, islandA); tier != paymentTierDeferred || !strings.Contains(detail, "Wild Growth") {
+	if tier, _, detail := interferenceTier(t, e, islandA); tier != pay.TierDeferred || !strings.Contains(detail, "Wild Growth") {
 		t.Fatalf("enchanted Island tier = %d %q, want deferred naming Wild Growth", tier, detail)
 	}
-	if tier, _, _ := interferenceTier(t, e, islandB); tier != paymentTierNormal {
+	if tier, _, _ := interferenceTier(t, e, islandB); tier != pay.TierNormal {
 		t.Fatalf("untouched Island tier = %d, want normal", tier)
 	}
 	// With B tapped, A is the only source: no plan, and the reason names the
@@ -151,7 +153,7 @@ func TestPaymentPlanInterferenceCryptGhastScopesByActivator(t *testing.T) {
 	swamp := onBoard(t, e, 0, interferenceSwamp)
 	island := onBoard(t, e, 0, interferenceIsland)
 	ghast := onBoardCard(t, e, 0, corpusCard(t, "Crypt Ghast"))
-	if tier, _, detail := interferenceTier(t, e, swamp); tier != paymentTierDeferred || !strings.Contains(detail, "Crypt Ghast") {
+	if tier, _, detail := interferenceTier(t, e, swamp); tier != pay.TierDeferred || !strings.Contains(detail, "Crypt Ghast") {
 		t.Fatalf("own Swamp under own Crypt Ghast tier = %d %q, want deferred", tier, detail)
 	}
 	got := e.PlanCastPayment(0, paymentCast(spell))
@@ -163,7 +165,7 @@ func TestPaymentPlanInterferenceCryptGhastScopesByActivator(t *testing.T) {
 	e.G.SetZone(state.ZBattlefield, 0, interferenceRemoveID(e.G.Zone(state.ZBattlefield, 0), ghast))
 	e.G.SetZone(state.ZBattlefield, 1, append(e.G.Zone(state.ZBattlefield, 1), ghast))
 	e.staticEpoch, e.activeEpoch = -1, -1
-	if tier, _, detail := interferenceTier(t, e, swamp); tier != paymentTierNormal {
+	if tier, _, detail := interferenceTier(t, e, swamp); tier != pay.TierNormal {
 		t.Fatalf("own Swamp under opponent's Crypt Ghast tier = %d %q, want normal", tier, detail)
 	}
 }
@@ -189,11 +191,11 @@ func TestPaymentPlanInterferenceOwnCityAndVaultAreLastResort(t *testing.T) {
 	vault := onBoardCard(t, e, 0, corpusCard(t, "Mana Vault"))
 	e.G.Obj(vault).SummonSick = false
 	tier, c, detail := interferenceTier(t, e, city)
-	if tier != paymentTierLastResort || c != (paymentConsequence{damage: 1}) || detail != "source:last_resort" {
+	if tier != pay.TierLastResort || c != (pay.Consequence{Damage: 1}) || detail != "source:last_resort" {
 		t.Fatalf("City of Brass = tier %d %+v %q, want last resort damage:1", tier, c, detail)
 	}
 	tier, c, detail = interferenceTier(t, e, vault)
-	if tier != paymentTierLastResort || c != (paymentConsequence{noUntap: true}) || detail != "source:last_resort" {
+	if tier != pay.TierLastResort || c != (pay.Consequence{NoUntap: true}) || detail != "source:last_resort" {
 		t.Fatalf("Mana Vault = tier %d %+v %q, want last resort no_untap", tier, c, detail)
 	}
 	if got := e.PlanCastPayment(0, paymentCast(spell)); got.Plan == nil || len(got.Plan.Activations) != 1 ||
@@ -223,7 +225,7 @@ func TestPaymentPlanInterferenceManaReflectionDefersControllerSources(t *testing
 	if got.Plan != nil || got.Reason != "insufficient" || !strings.Contains(got.Detail, "Mana Reflection") {
 		t.Fatalf("seat 0 under own Mana Reflection = %+v, want insufficient naming Mana Reflection", got)
 	}
-	if tier, _, detail := interferenceTier(t, e, island); tier != paymentTierDeferred || !strings.Contains(detail, "Mana Reflection") {
+	if tier, _, detail := interferenceTier(t, e, island); tier != pay.TierDeferred || !strings.Contains(detail, "Mana Reflection") {
 		t.Fatalf("seat 0 Island tier = %d %q, want deferred naming Mana Reflection", tier, detail)
 	}
 	oppIsland := onBoard(t, e, 1, interferenceIsland)
@@ -428,7 +430,7 @@ func TestPaymentPlanInterferenceDelayedTapTriggerDefersItsSources(t *testing.T) 
 	e, _, spell := newFixtureDeck(t, 9915, interferenceOneInstant)
 	swamp := onBoard(t, e, 0, interferenceSwamp)
 	island := onBoard(t, e, 0, interferenceIsland)
-	if tier, _, _ := interferenceTier(t, e, swamp); tier != paymentTierNormal {
+	if tier, _, _ := interferenceTier(t, e, swamp); tier != pay.TierNormal {
 		t.Fatalf("control: the Swamp is tier %v before Bubbling Muck", tier)
 	}
 
@@ -451,10 +453,10 @@ func TestPaymentPlanInterferenceDelayedTapTriggerDefersItsSources(t *testing.T) 
 	}
 
 	tier, _, detail := interferenceTier(t, e, swamp)
-	if tier != paymentTierDeferred || detail != "source:interference:Bubbling Muck" {
+	if tier != pay.TierDeferred || detail != "source:interference:Bubbling Muck" {
 		t.Fatalf("Swamp under Bubbling Muck = tier %v %q, want deferred by Bubbling Muck", tier, detail)
 	}
-	if tier, _, detail := interferenceTier(t, e, island); tier != paymentTierNormal {
+	if tier, _, detail := interferenceTier(t, e, island); tier != pay.TierNormal {
 		t.Fatalf("Island under Bubbling Muck = tier %v %q, want normal", tier, detail)
 	}
 	got := e.PlanCastPayment(0, paymentCast(spell))

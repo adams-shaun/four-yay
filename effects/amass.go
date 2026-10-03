@@ -157,7 +157,7 @@ func amassRiders(h Host, c *Ctx, sa *cards.SA, obj state.ObjID, controller state
 		AddTypes:   []string{typ},
 		Permanent:  true,
 	})
-	if sa.Params["RememberAmass"] != "" {
+	if sa.ParamStr(cards.PKRememberAmass) != "" {
 		c.Remembered = append(c.Remembered, state.Target{Obj: obj})
 	}
 	return true

@@ -570,7 +570,7 @@ func (e *Engine) SpellEffectiveCost(p state.PlayerID, id state.ObjID) string {
 	}
 	// The own-cost projection does not price alternate cast faces or extra
 	// costs. The ordinary face spell shape is the only supported case here.
-	if f.SpellAbility().Params["AlternativeCost"] != "" || f.SpellAbility().ParamStr(cards.PKCost) != "" {
+	if f.SpellAbility().ParamStr(cards.PKAlternativeCost) != "" || f.SpellAbility().ParamStr(cards.PKCost) != "" {
 		return ""
 	}
 	mods := e.costModifiersWithTargetsUsing(e.collectCostStatics(), p, id, spellScope(""), nil, false)

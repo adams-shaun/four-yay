@@ -15,6 +15,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/adams-shaun/gorge/rules/pay"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
@@ -318,10 +320,10 @@ func lrActs(got PaymentPlanOutcome) []decision.PaymentActivation {
 	return got.Plan.Activations
 }
 
-func lrUnitHasAlternative(e *Engine, choices [][]plannedManaActivation, id state.ObjID) bool {
+func lrUnitHasAlternative(e *Engine, choices [][]pay.Alt, id state.ObjID) bool {
 	for _, alts := range choices {
 		for _, a := range alts {
-			if a.activation.Source == id {
+			if a.Activation.Source == id {
 				return true
 			}
 		}
@@ -650,7 +652,7 @@ func TestPaymentPlanLastResortSearchMatchesOracle(t *testing.T) {
 		lrSetLife(e, 0, int32(1+rng.IntN(8)))
 		life := e.G.Players[0].Life
 		all := e.paymentPlanQueryChoices(0)
-		normalTable := paymentPlanPhaseChoices(all, paymentTierNormal)
+		normalTable := pay.PhaseChoices(all, pay.TierNormal)
 		table := paymentPlanLastResortChoices(all, life)
 		demand := e.paymentPlanHandDemand(0, spell)
 		for k := 0; k < 4; k++ {

@@ -266,7 +266,7 @@ func effPutCounterAll(h Host, c *Ctx, sa *cards.SA) {
 	if TargetsOf(sa).Has(TgtUniqueSet) {
 		exotic = append(exotic, "TargetUnique$")
 	}
-	if strings.TrimSpace(sa.Params["AmountByChosenMap"]) != "" {
+	if strings.TrimSpace(sa.ParamStr(cards.PKAmountByChosenMap)) != "" {
 		exotic = append(exotic, "AmountByChosenMap$")
 	}
 	if zone := strings.TrimSpace(sa.ParamStr(cards.PKValidZone)); zone != "" && !strings.EqualFold(zone, "Battlefield") {
@@ -285,8 +285,8 @@ func effPutCounterAll(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	putCounterAllSweep(h, c, sa, sa.ParamStr(cards.PKValidCards), sa.ParamStr(cards.PKCounterType), Num(h, c, sa, "CounterNum", 1))
-	if strings.TrimSpace(sa.Params["ValidCards2"]) != "" {
-		putCounterAllSweep(h, c, sa, sa.Params["ValidCards2"], sa.Params["CounterType2"], Num(h, c, sa, "CounterNum2", 1))
+	if strings.TrimSpace(sa.ParamStr(cards.PKValidCards2)) != "" {
+		putCounterAllSweep(h, c, sa, sa.ParamStr(cards.PKValidCards2), sa.ParamStr(cards.PKCounterType2), Num(h, c, sa, "CounterNum2", 1))
 	}
 }
 
@@ -350,7 +350,7 @@ func effRemoveCounterAll(h Host, c *Ctx, sa *cards.SA) {
 	if spec == "" {
 		spec = "Permanent"
 	}
-	all := sa.Params["AllCounters"] == "True"
+	all := sa.ParamStr(cards.PKAllCounters) == "True"
 	n := Num(h, c, sa, "CounterNum", 1)
 	if n < 0 {
 		n = 0
@@ -431,7 +431,7 @@ func effAddOrRemoveCounter(h Host, c *Ctx, sa *cards.SA) {
 
 	g := h.Game()
 	named := strings.TrimSpace(sa.ParamStr(cards.PKCounterType))
-	eachExisting := strings.EqualFold(strings.TrimSpace(sa.Params["EachExistingCounter"]), "True")
+	eachExisting := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKEachExistingCounter)), "True")
 	if eachExisting && named != "" {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "unimplemented AddOrRemoveCounter shape: EachExistingCounter$ with CounterType$ " + named})
@@ -467,7 +467,7 @@ func effAddOrRemoveCounter(h Host, c *Ctx, sa *cards.SA) {
 			Text: "unimplemented AddOrRemoveCounter shape: multiple targets; acted on the first"})
 	}
 	// The condition shape (named kind + RemoveConditionSVar$): no ask.
-	if cond := strings.TrimSpace(sa.Params["RemoveConditionSVar"]); cond != "" && named != "" {
+	if cond := strings.TrimSpace(sa.ParamStr(cards.PKRemoveConditionSVar)); cond != "" && named != "" {
 		n, ok := NumResolved(h, c, sa, "RemoveConditionSVar", 0)
 		if !ok {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
@@ -638,7 +638,7 @@ func aorApplyAct(h Host, c *Ctx, sa *cards.SA, o *state.Object, kind, act string
 			return
 		}
 		h.Emit(events.Event{Kind: events.CounterChange, Obj: o.ID, Counter: kind, Amount: -removed})
-		if strings.EqualFold(strings.TrimSpace(sa.Params["RememberRemovedCards"]), "True") && c.Source != 0 {
+		if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberRemovedCards)), "True") && c.Source != 0 {
 			h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "remembered",
 				IDs: []state.ObjID{o.ID}})
 		}
@@ -976,7 +976,7 @@ func moveCounterChosen(c *Ctx) []state.Target {
 // only for an explicit Source$ this build cannot resolve -- the fail-closed
 // direction, never a fallback to the source or the targets.
 func moveCounterOrigin(h Host, c *Ctx, sa *cards.SA) (ts []state.Target, fromTargets, ok bool) {
-	if src := strings.TrimSpace(sa.Params["Source"]); src != "" {
+	if src := strings.TrimSpace(sa.ParamStr(cards.PKSource)); src != "" {
 		t, resolved := definedSpec(h, c, src)
 		return t, false, resolved
 	}
@@ -998,7 +998,7 @@ func moveCounterOrigin(h Host, c *Ctx, sa *cards.SA) (ts []state.Target, fromTar
 // set or just target 0.
 func moveCounterNamesDestination(sa *cards.SA) bool {
 	return DefinedRefOf(sa).Set() ||
-		strings.TrimSpace(sa.Params["ValidDefined"]) != ""
+		strings.TrimSpace(sa.ParamStr(cards.PKValidDefined)) != ""
 }
 
 // moveCounterDest resolves the TO set: Defined$, else ValidDefined$, else the
@@ -1009,7 +1009,7 @@ func moveCounterDest(h Host, c *Ctx, sa *cards.SA, originFromTargets bool) []sta
 	if defined := DefinedRefOf(sa); defined.Set() {
 		return DefinedRef(h, c, defined, sa)
 	}
-	if filt := strings.TrimSpace(sa.Params["ValidDefined"]); filt != "" {
+	if filt := strings.TrimSpace(sa.ParamStr(cards.PKValidDefined)); filt != "" {
 		return battlefieldValidTargets(h, c, filt)
 	}
 	ts := moveCounterChosen(c)

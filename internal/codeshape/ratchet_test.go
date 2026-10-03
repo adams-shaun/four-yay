@@ -19,7 +19,9 @@ const (
 	// maxFuncLinesOver300 is the number of non-test functions in rules/ and
 	// effects/ spanning more than 300 lines.
 	// W4 step 3's ChangeZoneAll compiler shrank effChangeZoneAll: 54 -> 53.
-	maxFuncLinesOver300 = 53
+	// W1a generated Engine.cloneWith's field copies from the clone tags
+	// (rules/clone_gen.go): 53 -> 52.
+	maxFuncLinesOver300 = 52
 	// engineMethodCount is the number of non-test methods on rules.Engine.
 	// W5 E5 moved combat legality onto rules/combat's Board (2159 -> 2126)
 	// and W5 E3 the trigger matchers onto rules/trigmatch's: -> 2022. W5 E4
@@ -88,11 +90,17 @@ const (
 	// TokenRemembered$ helper takes each compiler's value): 563 -> 562.
 	// The Vote compiler (the three ballots' literal reads compiled once):
 	// 562 -> 561.
-	stringParamReads = 551
+	// The RepeatEach compiler (effRepeatEach moved to repeateach.go): reads
+	// compiled once, RepeatCards$ Zone$ switch a ZoneMask table.
+	// W4 tail: every remaining literal read in effects/ and rules/ went through
+	// the ParamKey accessors (state.ContinuousEffect.RestrictParam and kin for
+	// the continuous-effect maps); what is left is writes and rules/play_tape.go
+	// (left to its live branch): 549 -> 20.
+	stringParamReads = 20
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
-	// W4 step 3: Attach's Object$ switch compiled to a kind: 2886 -> 2883.
-	stringCaseLiterals = 2882
+	// W4 step 3: Attach: 2886 -> 2883. RepeatEach: 2883 -> 2876.
+	stringCaseLiterals = 2876
 	// ctxLiterals, specContextLiterals and triggerContextLiterals are the
 	// effects.Ctx / SpecContext / TriggerContext composite literals in rules/
 	// and effects/ non-test files outside codeshape.CtxConstructorFiles (W1c,
@@ -196,6 +204,10 @@ const (
 	// effects/vote_params.go (codeshape.VoteFiles, codeshape.VoteOnlyKeys). It landed at
 	// zero.
 	voteParamLeaks = 0
+	// repeatEachParamLeaks is the same census for api:RepeatEach's compiler,
+	// effects/repeateach_params.go (codeshape.RepeatEachFiles, codeshape.RepeatEachOnlyKeys). It landed at
+	// zero.
+	repeatEachParamLeaks = 0
 )
 
 func measureRepo(t *testing.T) Metrics {
@@ -410,6 +422,11 @@ func TestCodeShapeOnlyShrinks(t *testing.T) {
 				"field to compileVote in effects/vote_params.go) instead of reading the ability's Params in " +
 				"effects/vote.go or effects/vote_effect.go or a Vote-only key elsewhere. " +
 				"Leaks: " + strings.Join(m.VoteLeaks, ", ")},
+		{"repeatEachParamLeaks", m.RepeatEachParamLeaks, repeatEachParamLeaks,
+			"Read the parameter through effects.RepeatEachOf's compiled RepeatEachParams (add a " +
+				"field to compileRepeatEach in effects/repeateach_params.go) instead of reading the ability's Params in " +
+				"effects/repeateach.go or a RepeatEach-only key elsewhere. " +
+				"Leaks: " + strings.Join(m.RepeatEachLeaks, ", ")},
 		{"triggerContextLiterals", m.TriggerContextLiterals, triggerContextLiterals,
 			"Derive trigger referents from the firing event (rules' triggerReferents) or " +
 				"copy an existing TriggerContext and set the fields that differ; a " +

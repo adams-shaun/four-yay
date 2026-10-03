@@ -126,8 +126,8 @@ var voteFront [1 << 10]atomic.Pointer[VoteParams]
 // compileVote is the one reader of a Vote ability's parameters.
 func compileVote(sa *cards.SA) *VoteParams {
 	p := &VoteParams{paramBinding: bindParams(sa)}
-	p.Card = strings.TrimSpace(sa.Params["VoteCard"])
-	p.Player = strings.TrimSpace(sa.Params["VotePlayer"])
+	p.Card = strings.TrimSpace(sa.ParamStr(cards.PKVoteCard))
+	p.Player = strings.TrimSpace(sa.ParamStr(cards.PKVotePlayer))
 	p.PlayerOther = strings.EqualFold(p.Player, "Other")
 	if raw := sa.ParamStr(cards.PKChoices); strings.TrimSpace(raw) != "" {
 		parts := strings.Split(raw, ",")
@@ -141,10 +141,10 @@ func compileVote(sa *cards.SA) *VoteParams {
 	p.Secretly = isTrue(sa.ParamStr(cards.PKSecretly))
 	p.StoreVoteNum = isTrue(sa.ParamStr(cards.PKStoreVoteNum))
 	p.UpTo = isTrue(sa.ParamStr(cards.PKUpTo))
-	p.RememberVoted = isTrue(sa.Params["RememberVotedObjects"])
-	p.TiedAbility = strings.TrimSpace(sa.Params["VoteTiedAbility"])
-	p.SubAbility = strings.TrimSpace(sa.Params["VoteSubAbility"])
-	p.Message = strings.TrimSpace(sa.Params["VoteMessage"])
+	p.RememberVoted = isTrue(sa.ParamStr(cards.PKRememberVotedObjects))
+	p.TiedAbility = strings.TrimSpace(sa.ParamStr(cards.PKVoteTiedAbility))
+	p.SubAbility = strings.TrimSpace(sa.ParamStr(cards.PKVoteSubAbility))
+	p.Message = strings.TrimSpace(sa.ParamStr(cards.PKVoteMessage))
 	p.Unread = unreadKeys(sa, voteKnownKeys[:])
 	return p
 }

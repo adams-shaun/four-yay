@@ -170,7 +170,7 @@ func effAddTurn(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	text := "extra turn"
-	if strings.EqualFold(sa.Params["SkipUntap"], "True") {
+	if strings.EqualFold(sa.ParamStr(cards.PKSkipUntap), "True") {
 		// Text is an encoded Event field. The canonical marker is folded by
 		// events.Apply into the individual queued grant, so replay retains
 		// this turn-specific rider without extending Event's fixed schema.
@@ -192,7 +192,7 @@ func effAddTurn(h Host, c *Ctx, sa *cards.SA) {
 	// ResolveSVar path here never fired; Alchemist's Gambit's Upkeep
 	// registration is the live shape the reader fixes).
 	phase := state.StepEnd
-	if name := strings.TrimSpace(sa.Params["ExtraTurnDelayedTrigger"]); name != "" {
+	if name := strings.TrimSpace(sa.ParamStr(cards.PKExtraTurnDelayedTrigger)); name != "" {
 		if p, _, ok := delayedTriggerSpec(c, name); ok {
 			phase = p
 		}
@@ -203,12 +203,12 @@ func effAddTurn(h Host, c *Ctx, sa *cards.SA) {
 	// inspect what was cast) see the reduced spell. This build applies no
 	// rule that distinguishes a nonbasic cast yet, so the read documents the
 	// marker with the Note the MayChooseTarget$ precedent gates.
-	if strings.EqualFold(strings.TrimSpace(sa.Params["NonBasicSpell"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKNonBasicSpell)), "True") {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: player,
 			Text: "cast nonbasic (cleave): bracketed words removed"})
 	}
 	h.Emit(events.Event{Kind: events.ExtraTurn, Player: player, Amount: n,
-		Obj: c.Source, Counter: sa.Params["ExtraTurnDelayedTriggerExecute"], Text: text,
+		Obj: c.Source, Counter: sa.ParamStr(cards.PKExtraTurnDelayedTriggerExecute), Text: text,
 		IDs: []state.ObjID{state.ObjID(phase)}})
 }
 
@@ -462,8 +462,8 @@ func effRollDice(h Host, c *Ctx, sa *cards.SA) {
 	// own fresh proposal.
 	amount, ignoreLower = h.RollDiceProposed(c.Controller, c.Source, amount, ignoreLower)
 	modifier := Num(h, c, sa, "Modifier", 0)
-	chosenName := strings.TrimSpace(sa.Params["ChosenSVar"])
-	otherName := strings.TrimSpace(sa.Params["OtherSVar"])
+	chosenName := strings.TrimSpace(sa.ParamStr(cards.PKChosenSVar))
+	otherName := strings.TrimSpace(sa.ParamStr(cards.PKOtherSVar))
 
 	publish := func(name string, v int32) {
 		name = strings.TrimSpace(name)
@@ -525,7 +525,7 @@ func effRollDice(h Host, c *Ctx, sa *cards.SA) {
 
 	// First pass: roll the dice.
 	dice := make([]int32, 0, amount)
-	ranges := parseDieRanges(sa.Params["ResultSubAbilities"])
+	ranges := parseDieRanges(sa.ParamStr(cards.PKResultSubAbilities))
 	for i := int32(0); i < amount; i++ {
 		die := int32(h.Rand(int(sides))) + 1
 		result := die + modifier
@@ -557,7 +557,7 @@ func effRollDice(h Host, c *Ctx, sa *cards.SA) {
 	// the per-die Notes and the batch Note above remain the record of every
 	// die ROLLED. With no ignore (every plain corpus roll) the retained set
 	// is all dice, so this changes nothing for them.
-	retained := retainedDice(dice, ignoreLower, strings.EqualFold(sa.Params["UseHighestRoll"], "True"))
+	retained := retainedDice(dice, ignoreLower, strings.EqualFold(sa.ParamStr(cards.PKUseHighestRoll), "True"))
 
 	// ResultSubAbilities$ is evaluated only after selection: both modifiers
 	// name results, not dice to suppress rolling, so every die is still noted
@@ -602,20 +602,20 @@ func effRollDice(h Host, c *Ctx, sa *cards.SA) {
 		total += r
 	}
 	pub := total
-	if strings.EqualFold(sa.Params["UseDifferenceBetweenRolls"], "True") && len(retained) == 2 {
+	if strings.EqualFold(sa.ParamStr(cards.PKUseDifferenceBetweenRolls), "True") && len(retained) == 2 {
 		pub = retained[0] - retained[1]
 		if pub < 0 {
 			pub = -pub
 		}
 	}
-	resultName := strings.TrimSpace(sa.Params["ResultSVar"])
+	resultName := strings.TrimSpace(sa.ParamStr(cards.PKResultSVar))
 	if resultName != "" {
 		c.LastRoll, c.LastRollName = pub, resultName
 		publish(resultName, pub)
 	}
 	// MaxRollsResults$ / EvenOddResults$ (Luck Bobblehead): the counts a
 	// chained sub reads back through the published names.
-	if sa.Params["MaxRollsResults"] == "True" {
+	if sa.ParamStr(cards.PKMaxRollsResults) == "True" {
 		maxResult := sides + modifier
 		n := int32(0)
 		for _, r := range retained {
@@ -625,7 +625,7 @@ func effRollDice(h Host, c *Ctx, sa *cards.SA) {
 		}
 		publish("MaxRolls", n)
 	}
-	if sa.Params["EvenOddResults"] == "True" {
+	if sa.ParamStr(cards.PKEvenOddResults) == "True" {
 		even, odd := int32(0), int32(0)
 		for _, r := range retained {
 			if r%2 == 0 {

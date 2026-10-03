@@ -34,7 +34,7 @@ func effPair(h Host, c *Ctx, sa *cards.SA) {
 	// ChangesZone trigger). The keyword's own first-entry trigger (#self)
 	// carries no such restriction and keeps the broad scan.
 	var restrictTo state.ObjID
-	if strings.EqualFold(sa.Params["RestrictToRemembered"], "True") {
+	if strings.EqualFold(sa.ParamStr(cards.PKRestrictToRemembered), "True") {
 		for _, t := range c.Remembered {
 			if !t.IsPlayer && t.Obj != 0 {
 				restrictTo = t.Obj

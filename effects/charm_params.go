@@ -122,20 +122,20 @@ func compileCharm(sa *cards.SA, dp *DefinedParams) *CharmParams {
 	p.HasChoices = strings.TrimSpace(p.ChoicesText) != ""
 	p.Modes = slices.Clip(cards.SplitModeNames(p.ChoicesText))
 
-	cn, cnOK := sa.Params["CharmNum"]
+	cn, cnOK := sa.Param(cards.PKCharmNum)
 	p.CharmNum = ParamText{Text: cn, Present: cnOK}
-	mn, mnOK := sa.Params["MinCharmNum"]
+	mn, mnOK := sa.Param(cards.PKMinCharmNum)
 	p.MinCharmNum = ParamText{Text: mn, Present: mnOK}
 	p.OptionalTrue = strings.EqualFold(sa.ParamStr(cards.PKOptional), "True")
-	p.CanRepeatModes = isTrue(sa.Params["CanRepeatModes"])
-	p.ChoiceRestriction = strings.TrimSpace(sa.Params["ChoiceRestriction"])
+	p.CanRepeatModes = isTrue(sa.ParamStr(cards.PKCanRepeatModes))
+	p.ChoiceRestriction = strings.TrimSpace(sa.ParamStr(cards.PKChoiceRestriction))
 	p.Random = strings.TrimSpace(sa.ParamStr(cards.PKRandom))
-	p.RandomCompareSVar = sa.Params["RandomCompareSVar"]
-	p.RandomCompare = sa.Params["RandomCompare"]
+	p.RandomCompareSVar = sa.ParamStr(cards.PKRandomCompareSVar)
+	p.RandomCompare = sa.ParamStr(cards.PKRandomCompare)
 
 	p.Defined = dp.Defined.Text
-	p.TempRemember = strings.TrimSpace(sa.Params["TempRemember"]) != ""
-	p.FallbackAbility = strings.TrimSpace(sa.Params["FallbackAbility"])
+	p.TempRemember = strings.TrimSpace(sa.ParamStr(cards.PKTempRemember)) != ""
+	p.FallbackAbility = strings.TrimSpace(sa.ParamStr(cards.PKFallbackAbility))
 	p.AtRandom = strings.TrimSpace(sa.ParamStr(cards.PKAtRandom))
 	p.AILogicRandom = strings.TrimSpace(sa.ParamStr(cards.PKAILogic)) == "Random"
 	nrc, nrcOK := sa.Param(cards.PKNumRandomChoices)

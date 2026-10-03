@@ -1,12 +1,13 @@
 package rules
 
 import (
+	"strconv"
+	"strings"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
-	"strconv"
-	"strings"
 )
 
 // damageReplacementPrevents reports whether this replacement is a
@@ -162,12 +163,12 @@ func (e *Engine) applyReplaceDamageTail(m replMatch, prevented int32, ev *events
 	for i := range e.continuous {
 		ce := &e.continuous[i]
 		if ce.Source != source || ce.Timestamp != ts || ce.ReplacementEvent != "DamageDone" ||
-			!strings.EqualFold(strings.TrimSpace(ce.ReplacementParams["PreventionShield"]), "True") {
+			!strings.EqualFold(strings.TrimSpace(ce.ReplacementParam(cards.PKPreventionShield)), "True") {
 			continue
 		}
 		idx = i
 		ce.ChosenNumber -= prevented
-		rider = strings.TrimSpace(ce.ReplacementParams["PreventionSubAbility"])
+		rider = strings.TrimSpace(ce.ReplacementParam(cards.PKPreventionSubAbility))
 		objs = append([]state.ObjID(nil), ce.ShieldTargets...)
 		players = append([]state.PlayerID(nil), ce.ShieldTargetPlayers...)
 		break
@@ -260,7 +261,7 @@ func (e *Engine) damageReplacementMatches(r cards.Repl, source state.ObjID, ev e
 	// event-backed remembered list with the registration's capture, which
 	// would let unrelated remembered state widen the promise. A shield with
 	// neither list (unreachable from the registering primitive) fails closed.
-	if strings.EqualFold(strings.TrimSpace(r.Params["PreventionShield"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(r.ParamStr(cards.PKPreventionShield)), "True") {
 		if ev.Obj != 0 {
 			for _, id := range remembered {
 				if id == ev.Obj {
@@ -331,12 +332,12 @@ func (e *Engine) damageReplacementMatches(r cards.Repl, source state.ObjID, ev e
 			return false
 		}
 	}
-	if combat := strings.TrimSpace(r.Params["IsCombat"]); combat != "" &&
+	if combat := strings.TrimSpace(r.ParamStr(cards.PKIsCombat)); combat != "" &&
 		((strings.EqualFold(combat, "True") && !e.combatDamaging) ||
 			(strings.EqualFold(combat, "False") && e.combatDamaging)) {
 		return false
 	}
-	return e.replacementAmountMatches(r.Params["DamageAmount"], ev.Amount, e.replCtx(replMatch{id: source, repl: &r}, ev))
+	return e.replacementAmountMatches(r.ParamStr(cards.PKDamageAmount), ev.Amount, e.replCtx(replMatch{id: source, repl: &r}, ev))
 }
 
 // askReplacementChoice poses the CR 616.1 order choice for the FRONT parked
@@ -457,7 +458,7 @@ func (e *Engine) remainingDamageReplacements(ev events.Event, used []replMatch) 
 				out = append(out, m)
 			}
 		} else if ce.ReplacementBody == "" && ce.ReplacementEvent == "DamageDone" &&
-			strings.EqualFold(ce.ReplacementParams["Prevent"], "True") {
+			strings.EqualFold(ce.ReplacementParam(cards.PKPrevent), "True") {
 			// Mirror applyReplacementsDispatch's bodyless-Prevent admission
 			// (dponce1 r2): after a first NONTERMINAL application (a partial
 			// DB$ ReplaceDamage body reduced the held event), the recomputed

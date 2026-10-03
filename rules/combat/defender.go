@@ -58,7 +58,7 @@ func AttackAllowedThroughDefender(b Board, id state.ObjID, defender state.Player
 		// resolution is scoped to CantAttack's Target$ walk (Xantcha). A
 		// CardOwner qualifier in a ValidAttacked$ spec fails closed, exactly
 		// as it did before that fix.
-		if !attackedSpecHolds(b, ce.RestrictParams["ValidAttacked"], defender, ce.Controller, ce.RememberedPlayers) {
+		if !attackedSpecHolds(b, ce.RestrictParam(cards.PKValidAttacked), defender, ce.Controller, ce.RememberedPlayers) {
 			continue
 		}
 		return true
@@ -77,7 +77,7 @@ func AttackAllowedThroughDefender(b Board, id state.ObjID, defender state.Player
 		if spec == "" || !b.MatchesSpec(spec, id, sv.Source, sv.Controller, nil, nil) {
 			continue
 		}
-		if !attackedSpecHolds(b, sv.Params["ValidAttacked"], defender, sv.Controller, nil) {
+		if !attackedSpecHolds(b, sv.ParamStr(cards.PKValidAttacked), defender, sv.Controller, nil) {
 			continue
 		}
 		return true

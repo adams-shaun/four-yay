@@ -149,9 +149,9 @@ func BlockRestricted(b Board, blocker, attacker state.ObjID) bool {
 		if ce.Restriction != "CantBlockBy" {
 			continue
 		}
-		atkSpec := ce.RestrictParams["ValidAttacker"]
+		atkSpec := ce.RestrictParam(cards.PKValidAttacker)
 		if atkSpec == "" {
-			atkSpec = ce.RestrictParams["ValidCard"]
+			atkSpec = ce.RestrictParam(cards.PKValidCard)
 		}
 		// The registration's captured PLAYERS ride the consultation-time
 		// channel: a static consultation never has Resolving set, so the
@@ -162,7 +162,7 @@ func BlockRestricted(b Board, blocker, attacker state.ObjID) bool {
 		if !b.MatchesSpec(atkSpec, attacker, ce.Source, ce.Controller, ce.Remembered, ce.RememberedPlayers) {
 			continue
 		}
-		blkSpec, ok := ce.RestrictParams["ValidBlocker"]
+		blkSpec, ok := ce.RestrictParamOk(cards.PKValidBlocker)
 		if !ok {
 			return true
 		}
@@ -195,7 +195,7 @@ func BlockRestricted(b Board, blocker, attacker state.ObjID) bool {
 		// ValidCard$ read stays as the fallback so both grammars work, and an
 		// SA carrying neither fails closed exactly as before (the empty spec
 		// matches nothing).
-		attackerSpec := sv.Params["ValidAttacker"]
+		attackerSpec := sv.ParamStr(cards.PKValidAttacker)
 		if attackerSpec == "" {
 			attackerSpec = sv.ParamStr(cards.PKValidCard)
 		}
@@ -228,9 +228,9 @@ func BlockRestricted(b Board, blocker, attacker state.ObjID) bool {
 		if ce.Restriction != "CantBlockBy" {
 			continue
 		}
-		attackerSpec := ce.RestrictParams["ValidAttacker"]
+		attackerSpec := ce.RestrictParam(cards.PKValidAttacker)
 		if attackerSpec == "" {
-			attackerSpec = ce.RestrictParams["ValidCard"]
+			attackerSpec = ce.RestrictParam(cards.PKValidCard)
 		}
 		// The matches bind the same consultation-time player channel as the
 		// first walk above.
@@ -251,7 +251,7 @@ func BlockRestricted(b Board, blocker, attacker state.ObjID) bool {
 		} else if !b.MatchesSpec(attackerSpec, attacker, ce.Source, ce.Controller, ce.Remembered, ce.RememberedPlayers) {
 			continue
 		}
-		if spec, ok := ce.RestrictParams["ValidBlocker"]; ok {
+		if spec, ok := ce.RestrictParamOk(cards.PKValidBlocker); ok {
 			if !b.MatchesSpec(spec, blocker, ce.Source, ce.Controller, ce.Remembered, ce.RememberedPlayers) {
 				continue
 			}
@@ -389,7 +389,7 @@ func AttackBlocked(b Board, id state.ObjID, defender state.PlayerID, attacked st
 		if !b.RestrictionApplies(ce, id) {
 			continue
 		}
-		if !RestrictionTargetMatches(b.Game(), ce.RestrictParams["Target"], defender, ce.Controller, ce.Source, ce.RememberedPlayers, attacked) {
+		if !RestrictionTargetMatches(b.Game(), ce.RestrictParam(cards.PKTarget), defender, ce.Controller, ce.Source, ce.RememberedPlayers, attacked) {
 			continue
 		}
 		return true
@@ -398,7 +398,7 @@ func AttackBlocked(b Board, id state.ObjID, defender state.PlayerID, attacked st
 		if !effects.CantAttackParamsReadableForRules(sv.Params) || !b.StaticGateHolds(sv) {
 			continue
 		}
-		if spec := strings.TrimSpace(sv.Params["UnlessDefender"]); spec != "" &&
+		if spec := strings.TrimSpace(sv.ParamStr(cards.PKUnlessDefender)); spec != "" &&
 			effects.UnlessDefenderHolds(b.Game(), spec, defender, sv.Controller, sv.Source) {
 			continue
 		}

@@ -129,6 +129,9 @@ func TestEveryConfiguredAbilityHasItsFactsRecord(t *testing.T) {
 			if (f.Vote != nil) != (sa.API == "Vote") {
 				t.Errorf("%s: %q (API %s): Vote half present=%v", c.Path, sa.Line, sa.API, f.Vote != nil)
 			}
+			if (f.RepeatEach != nil) != (sa.API == "RepeatEach") {
+				t.Errorf("%s: %q (API %s): RepeatEach half present=%v", c.Path, sa.Line, sa.API, f.RepeatEach != nil)
+			}
 		}
 	}
 	visit := func(c *cards.Card) {

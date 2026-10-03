@@ -34,7 +34,7 @@ func effSeek(h Host, c *Ctx, sa *cards.SA) {
 	// The trigger referents survive in Ctx.Captured, the separate channel.
 	// Accumulate across the multi-player walk and assign once, so a second
 	// player's found cards do not clobber the first's.
-	rememberFound := strings.EqualFold(strings.TrimSpace(sa.Params["RememberFound"]), "True")
+	rememberFound := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberFound)), "True")
 	var seekRemembered []state.Target
 	defined := DefinedRefOf(sa)
 	players := DefinedRef(h, c, defined, sa)
@@ -105,7 +105,7 @@ func effSeek(h Host, c *Ctx, sa *cards.SA) {
 				eventRemember(h, c, id)
 			}
 		}
-		if strings.EqualFold(strings.TrimSpace(sa.Params["ImprintFound"]), "True") && c.Source != 0 {
+		if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKImprintFound)), "True") && c.Source != 0 {
 			// ImprintFound$ is Forge's seek imprint (SeekEffect writes
 			// imprintedCards). It rides the separate SeekFound list -- not the
 			// ordinary Imprinted one -- because the found cards sit in a hand

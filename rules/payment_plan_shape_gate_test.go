@@ -3,6 +3,8 @@ package rules
 import (
 	"testing"
 
+	"github.com/adams-shaun/gorge/rules/pay"
+
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
@@ -214,7 +216,7 @@ func TestPaymentPlanShapeGateAdditionalCostExecutorPays(t *testing.T) {
 			acts = append(acts, decision.PaymentActivation{
 				Source: id, SourceZoneSeq: e.paymentSourceZoneSeq(id),
 				Ability:  decision.PaymentAbility{Kind: decision.PaymentAbilityIntrinsic, Intrinsic: "basic_land"},
-				Produces: paymentManaAmount(m)})
+				Produces: pay.ManaAmount(m)})
 		}
 		return decision.PaymentPlan{Version: decision.PaymentPlanV1, Cost: cost, Activations: acts}
 	}

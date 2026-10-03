@@ -475,7 +475,7 @@ const (
 // carrying the parameter were unread before this gate existed; every other
 // UnlessCost$ line keeps the default either way.
 func unlessSubsRun(sa *cards.SA, paid bool) bool {
-	switch strings.TrimSpace(sa.Params["UnlessResolveSubs"]) {
+	switch strings.TrimSpace(sa.ParamStr(cards.PKUnlessResolveSubs)) {
 	case "", "Always":
 		return true
 	case "WhenPaid":

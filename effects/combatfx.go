@@ -52,7 +52,7 @@ func init() {
 // lines) is NOT read: making the attackers a removed blocker was blocking
 // become unblocked needs an operation no event currently expresses.
 func effRemoveFromCombat(h Host, c *Ctx, sa *cards.SA) {
-	remember := strings.EqualFold(strings.TrimSpace(sa.Params["RememberRemovedFromCombat"]), "True")
+	remember := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberRemovedFromCombat)), "True")
 	for _, t := range Defined(h, c, sa) {
 		if t.IsPlayer {
 			continue
@@ -84,13 +84,13 @@ func effTapAll(h Host, c *Ctx, sa *cards.SA) {
 	if spec == "" {
 		spec = "Permanent"
 	}
-	remember := strings.EqualFold(sa.Params["RememberTapped"], "True")
+	remember := strings.EqualFold(sa.ParamStr(cards.PKRememberTapped), "True")
 	if remember {
 		c.Remembered = nil
 		clearEventRemembered(h, c)
 	}
 	tapper := c.Controller
-	perCardTapper := strings.TrimSpace(sa.Params["TapperController"]) != ""
+	perCardTapper := strings.TrimSpace(sa.ParamStr(cards.PKTapperController)) != ""
 	players := allPlayersFor(h, c, sa)
 	for _, p := range players {
 		ids := append([]state.ObjID(nil), g.Zone(state.ZBattlefield, p)...)
@@ -129,9 +129,9 @@ func effUntapAll(h Host, c *Ctx, sa *cards.SA) {
 	if spec == "" {
 		spec = "Permanent"
 	}
-	remember := strings.EqualFold(sa.Params["RememberUntapped"], "True")
+	remember := strings.EqualFold(sa.ParamStr(cards.PKRememberUntapped), "True")
 	untapper := c.Controller
-	perCardUntapper := strings.TrimSpace(sa.Params["ControllerUntaps"]) != ""
+	perCardUntapper := strings.TrimSpace(sa.ParamStr(cards.PKControllerUntaps)) != ""
 	players := allPlayersFor(h, c, sa)
 	for _, p := range players {
 		ids := append([]state.ObjID(nil), g.Zone(state.ZBattlefield, p)...)
@@ -187,7 +187,7 @@ func allPlayersFor(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 // 603.2e), so EmitTap marks it and no Taps trigger runs.
 func effTap(h Host, c *Ctx, sa *cards.SA) {
 	tapper := c.Controller
-	if spec := strings.TrimSpace(sa.Params["Tapper"]); spec != "" {
+	if spec := strings.TrimSpace(sa.ParamStr(cards.PKTapper)); spec != "" {
 		if ps := definedPlayerIDs(h, c, spec); len(ps) > 0 {
 			tapper = ps[0]
 		}
@@ -241,7 +241,7 @@ func effPumpAll(h Host, c *Ctx, sa *cards.SA) {
 	// the walk covers the named zones instead of the battlefield, and the
 	// registered effects carry the AffectedZone scope so the grant applies
 	// only while the card sits there.
-	zone := strings.TrimSpace(sa.Params["PumpZone"])
+	zone := strings.TrimSpace(sa.ParamStr(cards.PKPumpZone))
 	grant := compilePumpGrant(sa)
 	g := h.Game()
 	var ateotIDs []state.ObjID
@@ -459,7 +459,7 @@ func effAnimate(h Host, c *Ctx, sa *cards.SA) {
 	// the source's event-backed persistent list -- the same two-half
 	// discipline effPumpAll's RememberTargets$ applies (eventRemember
 	// self-gates on a source-less ctx).
-	rememberAnimated := strings.EqualFold(strings.TrimSpace(sa.Params["RememberAnimated"]), "True")
+	rememberAnimated := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberAnimated)), "True")
 	// RememberTargets$ True (Flourishing Grapple's root Animate): the CHOSEN
 	// TARGETS join the ability's Remembered in both halves, the discipline
 	// effPump's RememberTargets$ applies -- Forge's handleRemembering adds
@@ -613,7 +613,7 @@ type animateGrant struct {
 func parseAnimateGrant(h Host, c *Ctx, sa *cards.SA) animateGrant {
 	ag := animateGrant{
 		duration:  sa.ParamStr(cards.PKDuration),
-		colorsRaw: strings.TrimSpace(sa.Params["Colors"]),
+		colorsRaw: strings.TrimSpace(sa.ParamStr(cards.PKColors)),
 		zone:      strings.TrimSpace(sa.ParamStr(cards.PKZone)),
 	}
 	// Name$ is a literal replacement name (The Curse of Fenric's "named
@@ -623,12 +623,12 @@ func parseAnimateGrant(h Host, c *Ctx, sa *cards.SA) animateGrant {
 	// object's name with a literal token word. Trimmed, and compared
 	// case-insensitively against the two chooser spellings so a stray
 	// "ChosenName" cannot leak onto the board as a name.
-	if raw := strings.TrimSpace(sa.Params["Name"]); raw != "" &&
+	if raw := strings.TrimSpace(sa.ParamStr(cards.PKName)); raw != "" &&
 		!strings.EqualFold(raw, "ChosenName") && !strings.EqualFold(raw, "Chosen") {
 		ag.name = raw
 	}
-	_, ag.hasPower = sa.Params["Power"]
-	_, ag.hasTough = sa.Params["Toughness"]
+	_, ag.hasPower = sa.Param(cards.PKPower)
+	_, ag.hasTough = sa.Param(cards.PKToughness)
 	ag.pw = Num(h, c, sa, "Power", 0)
 	ag.tf = Num(h, c, sa, "Toughness", 0)
 	ag.types = strings.Fields(strings.ReplaceAll(sa.ParamStr(cards.PKTypes), ",", " "))
@@ -647,19 +647,19 @@ func parseAnimateGrant(h Host, c *Ctx, sa *cards.SA) animateGrant {
 	// empty set, a no-op whose corpus lines (raging_spirit) intend "becomes
 	// colourless" -- is noted and skipped rather than silently registering a
 	// dead effect.
-	colors, colorsOK := colorLetters(sa.Params["Colors"])
+	colors, colorsOK := colorLetters(sa.ParamStr(cards.PKColors))
 	ag.colors = colors
-	ag.overwriteColors = ag.colorsRaw != "" && strings.EqualFold(strings.TrimSpace(sa.Params["OverwriteColors"]), "True")
+	ag.overwriteColors = ag.colorsRaw != "" && strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOverwriteColors)), "True")
 	ag.colorsGrant = ag.colorsRaw != "" && colorsOK && (len(colors) > 0 || ag.overwriteColors)
 	// Keywords$ is a "&"-separated keyword list (Celestial Colonnade's
 	// "Flying & Vigilance"), the same grammar Pump's KW$ uses.
-	ag.kws = cards.SplitKeywordList(sa.Params["Keywords"])
+	ag.kws = cards.SplitKeywordList(sa.ParamStr(cards.PKKeywords))
 	// HiddenKeywords$ is the SAME derived-keyword grammar (see
 	// animateGrant.hiddenKws): a HiddenKeywords$ value is one keyword line
 	// Forge simply does not print on the card, and rules' derived-keyword
 	// readers (combat.HasCantBlockKeyword/combat.HasCantAttackKeyword/
 	// combat.HasMustBeBlockedKeyword) consult the derived list alike.
-	ag.hiddenKws = cards.SplitKeywordList(sa.Params["HiddenKeywords"])
+	ag.hiddenKws = cards.SplitKeywordList(sa.ParamStr(cards.PKHiddenKeywords))
 	// RemoveKeywords$ (see animateGrant.removeKeywords): split with the same
 	// grammar, applied at layer 6 BEFORE this effect's own AddKeywords
 	// (rules' LAbilities walk), so one DB$ Animate both strips the old
@@ -676,7 +676,7 @@ func parseAnimateGrant(h Host, c *Ctx, sa *cards.SA) animateGrant {
 	ag.allCreatureTypes = strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKAddAllCreatureTypes)), "True")
 	// RemoveTypes$ names card types, supertypes or subtypes to strip before
 	// this animation's Types$ apply (Weeping Angel removes Creature).
-	for part := range strings.SplitSeq(sa.Params["RemoveTypes"], ",") {
+	for part := range strings.SplitSeq(sa.ParamStr(cards.PKRemoveTypes), ",") {
 		ag.removeTypes = append(ag.removeTypes, strings.Fields(part)...)
 	}
 	// RemoveCardTypes$ True (state.ContinuousEffect.RemoveCardTypes, the
@@ -693,7 +693,7 @@ func parseAnimateGrant(h Host, c *Ctx, sa *cards.SA) animateGrant {
 	// also what the object's own text obeys); any other Duration -- the
 	// corpus's animate-a-land-for-a-turn lines -- keeps the ordinary
 	// until-end-of-turn lifetime.
-	for nm := range strings.SplitSeq(sa.Params["Abilities"], ",") {
+	for nm := range strings.SplitSeq(sa.ParamStr(cards.PKAbilities), ",") {
 		if nm = strings.TrimSpace(nm); nm != "" {
 			ag.abilities = append(ag.abilities, nm)
 		}
@@ -735,19 +735,19 @@ func parseAnimateGrant(h Host, c *Ctx, sa *cards.SA) animateGrant {
 	// is resolved at registration time under this face's SVar context, so the
 	// named body -- not a parsed copy -- travels (effects'
 	// registerAnimateReplacements). AnimateAll clears the field.
-	for nm := range strings.SplitSeq(sa.Params["Replacements"], ",") {
+	for nm := range strings.SplitSeq(sa.ParamStr(cards.PKReplacements), ",") {
 		if nm = strings.TrimSpace(nm); nm != "" {
 			ag.replacements = append(ag.replacements, nm)
 		}
 	}
-	for nm := range strings.SplitSeq(sa.Params["sVars"], ",") {
+	for nm := range strings.SplitSeq(sa.ParamStr(cards.PKsVars), ",") {
 		if nm = strings.TrimSpace(nm); nm != "" {
 			ag.svars = append(ag.svars, nm)
 		}
 	}
 	// Forge uses the lower-case spelling on Animate bodies. Accept the
 	// canonical spelling too so parser-produced and hand-authored SAs agree.
-	for _, raw := range []string{sa.Params["staticAbilities"], sa.ParamStr(cards.PKStaticAbilities)} {
+	for _, raw := range []string{sa.ParamStr(cards.PKstaticAbilities), sa.ParamStr(cards.PKStaticAbilities)} {
 		for _, nm := range strings.FieldsFunc(raw, func(r rune) bool {
 			return r == ',' || r == ' ' || r == '\t' || r == '\n'
 		}) {
@@ -1038,10 +1038,10 @@ func animateAllUnreadNote(h Host, c *Ctx, sa *cards.SA) {
 	for _, key := range []struct{ name, val string }{
 		{"RemoveKeywords$", sa.ParamStr(cards.PKRemoveKeywords)},
 		{"RemoveAllAbilities$", sa.ParamStr(cards.PKRemoveAllAbilities)},
-		{"HiddenKeywords$", sa.Params["HiddenKeywords"]},
-		{"Replacements$", sa.Params["Replacements"]},
+		{"HiddenKeywords$", sa.ParamStr(cards.PKHiddenKeywords)},
+		{"Replacements$", sa.ParamStr(cards.PKReplacements)},
 		{"CantHaveKeyword$", sa.ParamStr(cards.PKCantHaveKeyword)},
-		{"RemoveLandTypes$", sa.Params["RemoveLandTypes"]},
+		{"RemoveLandTypes$", sa.ParamStr(cards.PKRemoveLandTypes)},
 	} {
 		if strings.TrimSpace(key.val) != "" {
 			unread = append(unread, key.name)
@@ -1134,7 +1134,7 @@ func effAnimateAll(h Host, c *Ctx, sa *cards.SA) {
 }
 
 func effProtection(h Host, c *Ctx, sa *cards.SA) {
-	gains := resolveGains(sa.Params["Gains"], sa.ParamStr(cards.PKChoices), h.Game().Obj(c.Source))
+	gains := resolveGains(sa.ParamStr(cards.PKGains), sa.ParamStr(cards.PKChoices), h.Game().Obj(c.Source))
 	if gains == "" {
 		return
 	}

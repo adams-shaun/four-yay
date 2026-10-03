@@ -6,6 +6,7 @@ import (
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/rules/chars"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -94,7 +95,7 @@ type engineScratch struct {
 	// executed alternatives for the mana abilities the planner census does
 	// not price, appended to every search while it is set. Pure per-query
 	// scratch: Clone copies none of it.
-	paymentPlanRelaxed [][]plannedManaActivation `clone:"reset"`
+	paymentPlanRelaxed [][]pay.Alt `clone:"reset"`
 	// paymentPlanRelaxedFee is the generic the relaxed proof charges on top
 	// of every planned cost for the paid relaxed abilities it admits.
 	paymentPlanRelaxedFee int32 `clone:"reset"`
