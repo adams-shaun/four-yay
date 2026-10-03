@@ -1,7 +1,7 @@
 {
  "card": "Sword of Fire and Ice",
  "family": "equipment",
- "author": "cli-20261002T030326Z-79066444 (Oracle + CR only)",
+ "author": "cli-20261002T030326Z-79066444 (Oracle + CR only) + cli-20261002T202458Z-c8f54b81 (Oracle + CR only)",
  "oracle_sha": "2cc53b87860a",
  "scenarios": [
   {
@@ -138,6 +138,128 @@
     }
    ],
    "expect": []
+  },
+  {
+   "name": "equipped-creature-gets-plus-two-and-protection",
+   "cr": [
+    "611.3a",
+    "702.16a"
+   ],
+   "why": "The equipped creature gets +2/+2 and has protection from red and from blue. A 2/2 Grizzly Bears becomes 4/4.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sword of Fire and Ice",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Sword of Fire and Ice",
+     "mana": "CC",
+     "ability": "Equip",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve",
+     "expect": [
+      {
+       "card": "p0:Grizzly Bears",
+       "pt": "4/4",
+       "keywords": [
+        "Protection from red",
+        "Protection from blue"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "4/4"
+    }
+   ]
+  },
+  {
+   "name": "combat-damage-deals-two-and-draws",
+   "cr": [
+    "603.2",
+    "510.1",
+    "120.3"
+   ],
+   "why": "Whenever the equipped creature deals combat damage to a player, the Sword deals 2 damage to any target and its controller draws a card. The 4/4 deals 4 to the player and the trigger deals 2 to the opponent's creature, killing a 2/2.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sword of Fire and Ice",
+      "Grizzly Bears"
+     ],
+     "library_top": [
+      "Island"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Sword of Fire and Ice",
+     "mana": "CC",
+     "ability": "Equip",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "answers": [
+      {
+       "kind": "target",
+       "pick": [
+        "p1:Grizzly Bears"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 16
+     }
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Island",
+     "zone": "hand"
+    }
+   ]
   }
  ]
 }

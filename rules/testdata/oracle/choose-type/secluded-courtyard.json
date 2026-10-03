@@ -90,6 +90,9 @@
      "mana": "R"
     },
     {
+     "op": "resolve"
+    },
+    {
      "op": "activate",
      "seat": 0,
      "card": "p0:Secluded Courtyard",
@@ -108,6 +111,9 @@
      "seat": 0,
      "card": "p0:Raging Goblin#2",
      "mana": ""
+    },
+    {
+     "op": "resolve"
     }
    ],
    "expect": [
@@ -119,6 +125,15 @@
      "card": "p0:Secluded Courtyard",
      "zone": "battlefield",
      "tapped": true
+    },
+    {
+     "card": "p0:Raging Goblin#2",
+     "zone": "battlefield"
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
     }
    ]
   }

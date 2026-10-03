@@ -1040,6 +1040,12 @@ func (s *scan) scanRangeWhitelist(t *testing.T, fset *token.FileSet, fi *fnInfo,
 		if pkg == "effects" && fname == "abilityReferencesX" {
 			return
 		}
+		// disableTriggersUnread dynamically validates every parameter name
+		// against the DisableTriggers grammar. This is a structural key scan,
+		// not a card-parameter consumer to attribute to a primitive bucket.
+		if pkg == "rules" && fname == "disableTriggersUnread" {
+			return
+		}
 		// A copy loop (`for k, v := range src.Params { dst.Params[k] = v }`)
 		// is not a read: every use of the key sits in a write-position index.
 		if rangeKeyIsWriteOnly(rs, keyIdent.Name, writes) {

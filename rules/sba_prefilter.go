@@ -241,17 +241,19 @@ func (e *Engine) mayHaveLegendPair() bool {
 //   - world: two or more World permanents (worldPermanents' derived test,
 //     answered through sbaTypeFast);
 //   - legend: mayHaveLegendPair's answer (some controller has two phased-in
-//     permanents with a printed Legendary face), legendGroups' own gate.
+//     permanents with a printed Legendary face), legendGroups' own gate;
+//   - combat: removeNoncombatants' gate -- some battlefield permanent is
+//     attacking, or some blocker list may be non-empty.
 type sbaBoardFacts struct {
 	at                                    int
 	pw, battle, saga, counterPair, attach bool
-	world, legend                         bool
+	world, legend, combat                 bool
 }
 
 // sbaFacts refreshes f when the log has moved since it was taken.
 func (e *Engine) sbaFacts(f *sbaBoardFacts) *sbaBoardFacts {
 	if n := len(e.L.Events); f.at != n {
-		*f = sbaBoardFacts{at: n}
+		*f = sbaBoardFacts{at: n, combat: e.G.BlockersLive()}
 		anyLType := e.activeHasLType()
 		worlds := 0
 		for _, p := range e.G.AliveFrom(0) {
@@ -260,6 +262,9 @@ func (e *Engine) sbaFacts(f *sbaBoardFacts) *sbaBoardFacts {
 				o := e.G.Obj(id)
 				if o == nil {
 					continue
+				}
+				if o.IsAttacking {
+					f.combat = true
 				}
 				face := o.Face()
 				if face != nil {

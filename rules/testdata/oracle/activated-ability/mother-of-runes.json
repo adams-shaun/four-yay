@@ -1,0 +1,122 @@
+{
+ "card": "Mother of Runes",
+ "family": "activated-ability",
+ "author": "cli-20261002T202458Z-c8f54b81 (Oracle + CR only)",
+ "oracle_sha": "6a6429f43200",
+ "scenarios": [
+  {
+   "name": "grants-protection-from-chosen-colour",
+   "cr": [
+    "702.16a",
+    "609.3"
+   ],
+   "why": "Tapping the Mother grants target creature its controller controls protection from the colour of their choice until end of turn. Choosing white gives it protection from white.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Mother of Runes",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Mother of Runes",
+     "ability": "protection",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "white"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "keywords": [
+      "Protection from white"
+     ]
+    },
+    {
+     "card": "p0:Mother of Runes",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "protection-is-specific-to-the-chosen-colour",
+   "cr": [
+    "702.16b"
+   ],
+   "why": "The granted protection is only from the chosen colour. With protection from white, a red Lightning Bolt is still a legal spell that deals 3 damage, so a 2/2 dies.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Mother of Runes",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "hand": [
+      "Lightning Bolt"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Mother of Runes",
+     "ability": "protection",
+     "targets": [
+      "p0:Grizzly Bears"
+     ],
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "white"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass",
+     "seat": 0
+    },
+    {
+     "op": "cast",
+     "seat": 1,
+     "card": "p1:Lightning Bolt",
+     "mana": "R",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}
