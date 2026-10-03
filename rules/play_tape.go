@@ -35,8 +35,8 @@ func playAnswerApply(e *Engine, ctx *effects.Ctx, sa *cards.SA, chosen []decisio
 	// shapes are without-mana-cost creature/spell plays, which commit
 	// synchronously). ctx.Play/PlayDone are set so the re-entered
 	// effPlay sees the answer as consumed either way.
-	free := strings.EqualFold(sa.Params["WithoutManaCost"], "True")
-	playCost := strings.TrimSpace(sa.Params["PlayCost"])
+	free := strings.EqualFold(sa.ParamStr(cards.PKWithoutManaCost), "True")
+	playCost := strings.TrimSpace(sa.ParamStr(cards.PKPlayCost))
 	// ReplaceGraveyard$ Exile (task replplay1): the Play SA's own
 	// rider — "if that spell would be put into your graveyard this
 	// turn, exile it instead" — stamps the played spell's pay-time
@@ -46,12 +46,12 @@ func playAnswerApply(e *Engine, ctx *effects.Ctx, sa *cards.SA, chosen []decisio
 	// Bilbo, Thief in the Night; Scholar of the Lost Trove) restricts
 	// the exile to named types and is unread — fail closed, keep the
 	// graveyard resting place for those.
-	replaceGraveyard := strings.EqualFold(strings.TrimSpace(sa.Params["ReplaceGraveyard"]), "Exile") &&
-		strings.TrimSpace(sa.Params["ReplaceGraveyardValid"]) == ""
+	replaceGraveyard := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKReplaceGraveyard)), "Exile") &&
+		strings.TrimSpace(sa.ParamStr(cards.PKReplaceGraveyardValid)) == ""
 	// CopyCard$ True casts an event-minted copy of the selected card,
 	// leaving the original in its source zone. False or absent keeps
 	// the ordinary Play path.
-	copyCard := strings.EqualFold(strings.TrimSpace(sa.Params["CopyCard"]), "True")
+	copyCard := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKCopyCard)), "True")
 	// ImprintPlayed$ True (task imprintplayed: Rashmi and Ragavan,
 	// Kefka, Beseech the Mirror, Soundwave, Smuggler's Buggy — 5 corpus
 	// files): every card the Play actually BEGINS to play is recorded
@@ -66,7 +66,7 @@ func playAnswerApply(e *Engine, ctx *effects.Ctx, sa *cards.SA, chosen []decisio
 	// the zone it started in. The emission sits before the suspension
 	// break so a cast suspended mid-transaction (a target ask inside
 	// the free cast) is still recorded as played.
-	imprintPlayed := strings.EqualFold(sa.Params["ImprintPlayed"], "True")
+	imprintPlayed := strings.EqualFold(sa.ParamStr(cards.PKImprintPlayed), "True")
 	// The play's own CONTROLLER rides the answer's options (effPlay set
 	// each option's Player to the Controller$-resolved seat): a
 	// Controller$ Play (Word of Command's TargetedPlayer, Wild
@@ -96,7 +96,7 @@ func playAnswerApply(e *Engine, ctx *effects.Ctx, sa *cards.SA, chosen []decisio
 			toPlay = append(toPlay, ch.Obj)
 		}
 	}
-	if show := strings.TrimSpace(sa.Params["ShowCards"]); show != "" && len(toPlay) > 0 {
+	if show := strings.TrimSpace(sa.ParamStr(cards.PKShowCards)); show != "" && len(toPlay) > 0 {
 		sc := ctx.SpecContext(player)
 		var ids []state.ObjID
 		seenShow := map[state.ObjID]bool{}

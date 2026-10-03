@@ -722,6 +722,13 @@ const (
 	PKCounterTypeChoice
 	PKPromptToSkipOptionalAbility
 	PKOptionalAbilityPrompt
+	PKSetChosenMode
+	PKWithoutManaCost
+	PKPlayCost
+	PKReplaceGraveyard
+	PKReplaceGraveyardValid
+	PKImprintPlayed
+	PKShowCards
 	paramKeyCount
 )
 
@@ -1446,6 +1453,13 @@ var paramKeyNames = [paramKeyCount]string{
 	PKCounterTypeChoice:                "CounterTypeChoice",
 	PKPromptToSkipOptionalAbility:      "PromptToSkipOptionalAbility",
 	PKOptionalAbilityPrompt:            "OptionalAbilityPrompt",
+	PKSetChosenMode:                    "SetChosenMode",
+	PKWithoutManaCost:                  "WithoutManaCost",
+	PKPlayCost:                         "PlayCost",
+	PKReplaceGraveyard:                 "ReplaceGraveyard",
+	PKReplaceGraveyardValid:            "ReplaceGraveyardValid",
+	PKImprintPlayed:                    "ImprintPlayed",
+	PKShowCards:                        "ShowCards",
 }
 
 // String is the key's Forge text.

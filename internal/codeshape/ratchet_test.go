@@ -95,8 +95,10 @@ const (
 	// W4 tail: every remaining literal read in effects/ and rules/ went through
 	// the ParamKey accessors (state.ContinuousEffect.RestrictParam and kin for
 	// the continuous-effect maps); what is left is writes and rules/play_tape.go
-	// (left to its live branch): 549 -> 20.
-	stringParamReads = 20
+	// (left to its live branch): 549 -> 20. W4 cases: play_tape.go and
+	// resolution_modes.go reads moved to ParamStr (7 new keys): 20 -> 12 (what
+	// is left are writes).
+	stringParamReads = 12
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
 	// W4 step 3: Attach: 2886 -> 2883. RepeatEach: 2883 -> 2876. W4 cases:

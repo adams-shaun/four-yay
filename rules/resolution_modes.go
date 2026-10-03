@@ -153,7 +153,7 @@ func (e *Engine) handleModes(d *decision.Decision, in decision.Intent) {
 // resolveBoard.Record): the SetChosenMode Choose, the ModeChosen marker on
 // the resolving object obj, and the ChoiceRestriction$ record.
 func recordModesAnswer(e *Engine, d *decision.Decision, p state.PlayerID, chosen []decision.Option, obj state.ObjID) {
-	if d.ResumeSA != nil && strings.EqualFold(d.ResumeSA.Params["SetChosenMode"], "True") && len(chosen) == 1 {
+	if d.ResumeSA != nil && strings.EqualFold(d.ResumeSA.ParamStr(cards.PKSetChosenMode), "True") && len(chosen) == 1 {
 		// An as-enters GenericChoice records its mode on the permanent via
 		// the event fold; the ModeChosen marker alone stores no object state.
 		if names := modeChoiceNames(d.ResumeSA, chosen, d.ResumeModes); len(names) == 1 {
