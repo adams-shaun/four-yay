@@ -8,9 +8,17 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
+// TestChangeZoneKnownKeysSorted: the unread lookup binary-searches the table.
+func TestChangeZoneKnownKeysSorted(t *testing.T) {
+	if !slices.IsSorted(changeZoneKnownKeys[:]) || len(slices.Compact(slices.Clone(changeZoneKnownKeys[:]))) != len(changeZoneKnownKeys) {
+		t.Fatal("changeZoneKnownKeys must be sorted and duplicate-free")
+	}
+}
+
 // TestCompileChangeZone pins the compiled shapes a sibling path reads: the
 // merged origin set and its mask, Origin$ alone, the destination zone, the
-// MANDATORY alternate-destination prefix and the hand chooser enum.
+// MANDATORY alternate-destination prefix, the hand chooser enum, and the
+// unread report.
 func TestCompileChangeZone(t *testing.T) {
 	sa := &cards.SA{API: "ChangeZone", Params: map[string]string{
 		"Origin": "Graveyard", "OriginAlternative": "Hand,Exile", "Destination": "Battlefield",
@@ -30,6 +38,9 @@ func TestCompileChangeZone(t *testing.T) {
 	}
 	if cz.handChooser != handChooserChosenPlayer || !cz.Hidden || !cz.OptionalYes || cz.OptionalTrue {
 		t.Fatalf("chooser/flags = %+v", cz)
+	}
+	if !slices.Equal(cz.Unread, []string{"ValidTgtsDesc"}) {
+		t.Fatalf("unread = %v, want [ValidTgtsDesc]", cz.Unread)
 	}
 	// The front cache answers the same map with the same record; a
 	// rewritten map recompiles.

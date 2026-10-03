@@ -2,6 +2,7 @@ package cards
 
 import (
 	"math/bits"
+	"slices"
 	"unsafe"
 )
 
@@ -618,6 +619,18 @@ func newParamSet(m map[string]string) *ParamSet {
 // the caller keeps, catching an in-place write).
 func SameParamMap(a, b map[string]string) bool {
 	return mapIdentity(a) == mapIdentity(b)
+}
+
+// ParamNames returns the ability's parameter keys, sorted (a fresh slice;
+// load-time compilers only -- a downstream unread-parameter check walks it
+// instead of ranging the map).
+func (sa *SA) ParamNames() []string {
+	out := make([]string, 0, len(sa.Params))
+	for k := range sa.Params {
+		out = append(out, k)
+	}
+	slices.Sort(out)
+	return out
 }
 
 // ParamMapIdentity is m's identity as an address, for a downstream cache

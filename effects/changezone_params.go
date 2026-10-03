@@ -1,10 +1,12 @@
 package effects
 
 import (
+	"slices"
 	"strings"
 	"sync/atomic"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -177,6 +179,11 @@ type ChangeZoneParams struct {
 	NoShuffle           bool
 	ShuffleNonMandatory bool
 	Reorder             bool
+
+	// Unread are the parameters present on the ability that no ChangeZone
+	// reader consumes (changeZoneUnread): the resolver Notes them once per
+	// resolution (noteUnread), the loud-degrade contract.
+	Unread []string
 }
 
 // changeZoneTargeting is the targeting half of a ChangeZone ability's
@@ -191,6 +198,97 @@ type changeZoneTargeting struct {
 	// Derived selector facts.
 	DefinedImprinted  bool // Defined$ Imprinted
 	DefinedRemembered bool // Defined$ Remembered
+}
+
+// changeZoneKnownKeys is every parameter key a ChangeZone ability's
+// resolution consumes or deliberately ignores, sorted: the keys
+// compileChangeZone reads, the keys the shared machinery its resolution runs
+// reads (the cast/activation/targeting tier, Resolve's Condition* gate, the
+// AtEOT$/StaticEffect$/ForgetChanged$ riders, the Defined$ resolver), the
+// presentation/AI-only keys and the structural SubAbility$/Keyword$ tags.
+// rules' TestChangeZoneKnownKeysMatchTheCensus holds it equal to the
+// parameter census's measured api:ChangeZone read set plus its ignored and
+// structural keys, so the compile-time unread detection below and the census
+// cannot disagree. It shrinks back into compileChangeZone's own reads as the
+// shared tier gets compiled records of its own.
+var changeZoneKnownKeys = [...]string{
+	"AILifeThreshold", "AILogic", "AINoRecursiveCheck", "AIPhyrexianPayment", "AITgts",
+	"Activation", "ActivationAfterBlockers", "ActivationFirstCombat",
+	"ActivationGameTypes", "ActivationLimit", "ActivationPhases", "ActivationZone",
+	"Activator", "Adapt", "AddKeywords", "AddStaticAbilities", "AddType", "AddTypes",
+	"AdditionalDesc", "AdditionalDescription", "Affected", "AffectedZone",
+	"AlternateCost", "AlternativeCost", "AlternativeDecider", "Announce", "AnnounceTitle",
+	"AtEOT", "AtRandom", "AttachedTo", "AttachedToPlayer", "Attacking",
+	"BecomeStartingPlayer", "Boast", "ChangeNum", "ChangeType", "ChangeTypeDesc",
+	"CharacteristicDefining", "CheckSVar", "ChoiceOptional", "ChoiceTitle", "ChoiceZone",
+	"Choices", "ChooseFromDefined", "ChooseFromList", "Chooser", "ClassBand",
+	"ClearImprinted", "Condition", "ConditionActivationLimit", "ConditionCheckSVar",
+	"ConditionCompare", "ConditionDefined", "ConditionDescription",
+	"ConditionFirstCombat", "ConditionNotPresent", "ConditionPhases",
+	"ConditionPlayerTurn", "ConditionPresent", "ConditionSVarCompare", "CopyCard", "Cost",
+	"CostDesc", "CounterType", "CounterTypePerDefined", "Defined", "DefinedCards",
+	"DefinedPlayer", "DefinedTarget", "Description", "DestAltSVar", "DestAltSVarCompare",
+	"Destination", "DestinationAlternative", "DifferentNames", "Duration", "EffectOwner",
+	"Exactly", "Exclude", "Exhaust", "ExileFaceDown", "FaceDown", "FaceDownPower",
+	"FaceDownSetType", "FaceDownToughness", "Foretold", "ForgetChanged",
+	"ForgetOtherRemembered", "ForgetOtherTargets", "GainControl", "GameActivationLimit",
+	"Hidden", "Image", "Imprint", "ImprintCards", "ImprintLast", "ImprintPlayed",
+	"InstantSpeed", "IntoPlayTapped", "IsCurse", "IsPresent", "KW", "KWChoice", "Keyword",
+	"KeywordLine", "LeaveBattlefield", "LibraryPosition", "LibraryPositionAlternative",
+	"Mandatory", "MaxRevealed", "MaxTotalTargetCMC", "MaxTotalTargetPower", "Mentor",
+	"ModeCost", "Monstrosity", "NewController", "NoLooking", "NoReveal", "NoShuffle",
+	"NumAtt", "NumCards", "NumDef", "NumDmg", "OpponentTurn", "Optional",
+	"OptionalPrompt", "Origin", "OriginAlternative", "Planeswalker", "PlayCost",
+	"PlayerTurn", "PowerUp", "PrecostDesc", "PresentCompare", "PresentDefined",
+	"PresentZone", "ReduceAmount", "ReduceCost", "RememberChanged", "RememberCostMana",
+	"RememberLKI", "RememberObjects", "RememberSearched", "RememberTargets", "Reorder",
+	"ReplaceColor", "ReplaceGraveyard", "ReplaceGraveyardValid", "ReplaceMana",
+	"ReplaceOnly", "ReplaceType", "RestrictValid", "Reveal", "SVarCompare",
+	"SelectPrompt", "SetChosenMode", "SetColor", "ShareLandType", "ShowCards", "Shuffle",
+	"ShuffleNonMandatory", "SorcerySpeed", "SpellDescription", "StackDescription",
+	"StaticAbilities", "StaticEffect", "StaticEffectCheckSVar", "StaticEffectSVarCompare",
+	"SubAbility", "Tapped", "TargetMax", "TargetMin", "TargetType", "TargetUnique",
+	"TargetValidTargeting", "TargetingPlayer", "TargetingPlayerControls",
+	"TargetsForEachPlayer", "TargetsWithControllerProperty",
+	"TargetsWithDefinedController", "TargetsWithDifferentCMC",
+	"TargetsWithDifferentControllers", "TargetsWithDifferentNames",
+	"TargetsWithEqualToughness", "TargetsWithSameCardType", "TargetsWithSameController",
+	"TargetsWithSameCreatureType", "TargetsWithSharedCardType", "TargetsWithSharedTypes",
+	"TgtPrompt", "TgtZone", "TokenScript", "Transformed", "TriggerDescription",
+	"Triggers", "TriggersWhenSpent", "Type", "Ultimate", "Unattach", "Unearth",
+	"Unimprint", "UnlessAI", "UnlessCost", "UnlessPayer", "UnlessResolveSubs",
+	"UnlessSwitched", "ValidCard", "ValidCards", "ValidCardsDesc", "ValidChoices",
+	"ValidCounterType", "ValidDescription", "ValidTgts", "VarName", "VarValue",
+	"VoteMessage", "WithCountersAmount", "WithCountersType", "WithMayLook",
+	"WithTotalCMC", "WithTotalCardTypes", "WithoutManaCost", "XMax", "XMin",
+}
+
+// changeZoneUnread lists, sorted, the keys present on sa that a ChangeZone
+// resolution never reads (compile time only: one map walk per ability).
+func changeZoneUnread(sa *cards.SA) []string {
+	var out []string
+	for _, k := range sa.ParamNames() {
+		if _, known := slices.BinarySearch(changeZoneKnownKeys[:], k); !known {
+			out = append(out, k)
+		}
+	}
+	return out
+}
+
+// noteUnread is the loud degrade for a parameter the compiler found no reader
+// for: one Note naming every such key, and the move resolves without them.
+func (p *ChangeZoneParams) noteUnread(h Host, c *Ctx) {
+	if len(p.Unread) == 0 {
+		return
+	}
+	text := "ChangeZone ignores unread parameter(s)"
+	for i, k := range p.Unread {
+		if i > 0 {
+			text += ","
+		}
+		text += " " + k + "$"
+	}
+	h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller, Text: text})
 }
 
 // FaceDownRiders are the face-down entry markers applyFaceDownMarker stamps:
@@ -401,6 +499,7 @@ func compileChangeZone(sa *cards.SA) *ChangeZoneParams {
 	p.NoShuffle = isTrue(sa.ParamStr(cards.PKNoShuffle))
 	p.ShuffleNonMandatory = isTrue(sa.Params["ShuffleNonMandatory"])
 	p.Reorder = isTrue(sa.Params["Reorder"])
+	p.Unread = changeZoneUnread(sa)
 	return p
 }
 
@@ -507,3 +606,6 @@ func fetchSelectorsParam(sa *cards.SA) fetchSelectors {
 	vt, vtOK := sa.Param(cards.PKValidTgts)
 	return fetchSelectors{DefinedPlayer: paramText(dp, dpOK), Defined: paramText(d, dOK), ValidTgts: paramText(vt, vtOK)}
 }
+
+// ChangeZoneKnownKeys is a copy of changeZoneKnownKeys, for the census check.
+func ChangeZoneKnownKeys() []string { return slices.Clone(changeZoneKnownKeys[:]) }

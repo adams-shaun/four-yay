@@ -72,6 +72,7 @@ func clearChangeZoneImprint(h Host, c *Ctx) {
 
 func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 	cz := ChangeZoneOf(sa)
+	cz.noteUnread(h, c)
 	if exileHostGoneFor(h, c, cz.Riders.Duration) {
 		return
 	}
