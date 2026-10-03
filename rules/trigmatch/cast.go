@@ -566,9 +566,9 @@ func abilityCastConstraintHolds(b Board, ab *cards.SA, constraint string, abCtrl
 		ok := false
 		switch term {
 		case "!ManaAbility":
-			ok = !b.IsManaAbilityAPI(ab.API)
+			ok = !cards.IsManaAbilityAPI(ab.API)
 		case "ManaAbility":
-			ok = b.IsManaAbilityAPI(ab.API)
+			ok = cards.IsManaAbilityAPI(ab.API)
 		case "YouCtrl":
 			ok = abCtrl == ctrl
 		case "OppCtrl":

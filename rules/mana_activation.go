@@ -394,9 +394,6 @@ type manaUnlessActivation struct {
 	gained     gainedManaRef
 }
 
-// isManaAbilityAPI reports the two supported activated mana ability APIs.
-func isManaAbilityAPI(api string) bool { return api == "Mana" || api == "ManaReflected" }
-
 // availableManaAbilities returns exactly the individual mana abilities that
 // p may activate from id now. Keeping the CantBeActivated gate here makes the
 // priority action, payment window, and the eventual chosen activation share

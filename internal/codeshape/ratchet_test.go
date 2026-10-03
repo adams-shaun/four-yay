@@ -70,8 +70,9 @@ const (
 	// pendingCast that the matcher closure reached directly. The move folded
 	// SpecCtx/MatchesSpec/MatchesSpecFrom into MatchesSpec/MatchesObject with
 	// SpecOpts (a SpecContext's Resolve closure must not cross the
-	// interface): 29 -> 28.
-	trigmatchBoardMethods = 28
+	// interface): 29 -> 28. W5 cleanup moved IsManaAbilityAPI into cards
+	// (a pure function of the API word): 28 -> 27.
+	trigmatchBoardMethods = 27
 )
 
 func measureRepo(t *testing.T) Metrics {

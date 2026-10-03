@@ -101,10 +101,10 @@ type Board interface {
 	SpellsCastThisTurn(p state.PlayerID) int
 	ManaExpendTotal(p state.PlayerID) int32
 
-	// IsLoyaltyAbility and IsManaAbilityAPI are rules' ability classifiers
-	// (a planeswalker loyalty ability; the mana-ability APIs).
+	// IsLoyaltyAbility is rules' planeswalker loyalty-ability classifier
+	// (CR 606). It stays behind the Board, unlike cards.IsManaAbilityAPI:
+	// its cost half parses Cost$ through rules/cost, which sits above cards.
 	IsLoyaltyAbility(ab *cards.SA) bool
-	IsManaAbilityAPI(api string) bool
 }
 
 // Facts is the per-emit trigger context rules keeps beside the event being

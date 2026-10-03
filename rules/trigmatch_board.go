@@ -136,4 +136,3 @@ func (b *trigBoard) SpellsCastThisTurn(p state.PlayerID) int { return b.eng().sp
 func (b *trigBoard) ManaExpendTotal(p state.PlayerID) int32  { return b.eng().manaExpendTotal(p) }
 
 func (b *trigBoard) IsLoyaltyAbility(ab *cards.SA) bool { return isLoyaltyAbility(ab) }
-func (b *trigBoard) IsManaAbilityAPI(api string) bool   { return isManaAbilityAPI(api) }
