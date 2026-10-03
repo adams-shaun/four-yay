@@ -3793,10 +3793,19 @@ func effNameCard(h Host, c *Ctx, sa *cards.SA) {
 		d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: 1, Max: 1,
 			Source: c.Source, ResumeKind: "name", ResumeSA: sa, Prompt: "Choose a card name"}
 		d.Options = NameOptions(names, c.Controller)
-		if Ask(h, d) == AskAsked {
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand: the name rules'
+			// resumeResolution binds from the "name" answer (the chosen
+			// option's Label; Min == Max == 1), which the rest of the chain
+			// reads off Ctx.NameChoice exactly as on the re-entry.
+			if len(ans) == 1 {
+				c.NameChoice = ans[0].Label
+			}
+		} else if Ask(h, d) == AskAsked {
 			return
+		} else {
+			c.NameChoice = names[0]
 		}
-		c.NameChoice = names[0]
 	}
 	h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "name", Text: c.NameChoice})
 }

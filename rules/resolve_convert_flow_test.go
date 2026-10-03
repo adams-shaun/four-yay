@@ -183,3 +183,10 @@ func TestTapeConvertFlowHideaway(t *testing.T) {
 			kinds: []string{"hideaway_pick", "hideaway_arrange"}, served: 2},
 	})
 }
+
+func TestTapeConvertFlowNameCard(t *testing.T) {
+	runTapeFlowCases(t, 36000, 2, []tapeFlowCase{
+		{name: "Tape Name", src: "A:SP$ NameCard | Defined$ You | SubAbility$ DBDig\nSVar:DBDig:DB$ Dig | DigNum$ 3 | ChangeNum$ 1 | ChangeValid$ Card.NamedCard",
+			kinds: []string{"name"}, served: 1},
+	})
+}
