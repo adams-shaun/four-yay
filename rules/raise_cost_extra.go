@@ -387,8 +387,8 @@ func (e *Engine) raiseExtraFor(sv staticView, raw string, x int32, targets []sta
 		if o == nil || o.Face() == nil {
 			return 0, false
 		}
-		ctx := &effects.Ctx{Source: sv.Source, Controller: sv.Controller, SVars: svars, X: x,
-			ChosenNumber: sv.ChosenNumber, ChosenNumberBound: sv.chosenNumberBound, Targets: targets}
+		ctx := effects.NewCtxPtr(sv.Source, sv.Controller, effects.CtxInit{SVars: svars, X: x,
+			ChosenNumber: sv.ChosenNumber, ChosenNumberBound: sv.chosenNumberBound, Targets: targets})
 		return effects.EvalCountOK(e, ctx, body)
 	}
 	return raiseExtraResolve(raw, svars, announces, eval)

@@ -528,7 +528,7 @@ func (e *Engine) landwalkEvades(attacker state.ObjID) bool {
 	// withNames is the ONE seam for a hand-built rules SpecContext (setname.go):
 	// it binds the layer-3 rename set and the layer-4 derived type table, so this
 	// land filter ages with the layer walk instead of hand-copying one table.
-	sc := e.withNames(effects.SpecContext{You: defender, Source: attacker})
+	sc := e.withNames(effects.NewSpecContext(defender, attacker))
 	for _, k := range e.Derived(attacker).Keywords {
 		spec, isLandwalk := landwalkSpec(k)
 		if !isLandwalk || spec == "" {

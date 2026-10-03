@@ -1096,8 +1096,8 @@ func (e *Engine) evidenceAmount(pc *pendingCast) int32 {
 		if !ok {
 			continue
 		}
-		ctx := &effects.Ctx{Source: pc.card, Controller: pc.player, SVars: svars,
-			Targets: pc.targets, AllTargets: pc.allTargets()}
+		ctx := effects.NewCtxPtr(pc.card, pc.player, effects.CtxInit{SVars: svars, Targets: pc.targets})
+		ctx.AllTargets = pc.allTargets()
 		if n, ok := effects.EvalCountOK(e, ctx, body); ok && n > 0 {
 			total = addClampedGeneric(total, int64(n))
 		}

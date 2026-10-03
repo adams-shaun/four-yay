@@ -219,7 +219,7 @@ func compilePred(raw string) compiledPred {
 	c.kp, c.hasKP = keywordPredicateFor(p)
 	c.named = p == "NamedCard"
 	c.fn = predicates[p]
-	_, c.num = numericPred(p, nil, &state.Object{}, SpecContext{})
+	_, c.num = numericPred(p, nil, &state.Object{}, NewSpecContext(0, 0))
 	c.nonK, c.nonV, c.nonOK = nonPredicate(p)
 	c.wordK, c.wordV = wordPredicate(p)
 	if c.hasKP || c.named || c.fn != nil || c.num || c.nonOK || c.wordK != wordUnknown {

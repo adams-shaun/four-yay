@@ -56,7 +56,7 @@ func (e *Engine) etbPayLifeBound(o *state.Object, with *cards.SA) (int, bool) {
 		bound = 0
 	}
 	if raw := strings.TrimSpace(with.Params["XMax"]); raw != "" {
-		ctx := &effects.Ctx{Source: o.ID, Controller: o.Controller, SVars: o.Face().SVars}
+		ctx := effects.NewCtxPtr(o.ID, o.Controller, effects.CtxInit{SVars: o.Face().SVars})
 		if cap, ok := effects.NumResolved(e, ctx, with, "XMax", 0); ok {
 			if cap < 0 {
 				cap = 0

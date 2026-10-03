@@ -196,7 +196,7 @@ func (e *Engine) charmTargetsAvailable(p state.PlayerID, id state.ObjID, sa *car
 		return true
 	}
 	choices := strings.Split(sa.Params["Choices"], ",")
-	ctx := &effects.Ctx{Source: id, Controller: p}
+	ctx := effects.NewCtxPtr(id, p, effects.CtxInit{})
 	effects.SetSVars(ctx, o.Face().SVars)
 	legal := make([]string, 0, len(choices))
 	for _, name := range choices {

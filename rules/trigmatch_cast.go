@@ -1039,6 +1039,6 @@ func (e *Engine) manaExpendAmount(source state.ObjID, raw string, controller sta
 	if body, ok := svars[raw]; ok {
 		raw = body
 	}
-	ctx := &effects.Ctx{Source: source, Controller: controller, SVars: svars}
+	ctx := effects.NewCtxPtr(source, controller, effects.CtxInit{SVars: svars})
 	return effects.EvalCountOK(e, ctx, raw)
 }

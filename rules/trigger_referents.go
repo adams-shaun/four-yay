@@ -485,9 +485,9 @@ func (e *Engine) releaseSpecEnv() { e.specEnvDepth-- }
 
 func (r *specResolveEnv) countCtx() *effects.Ctx {
 	if r.ctx == nil {
-		r.ctx = &effects.Ctx{Source: r.source, Controller: r.you, TriggerContext: r.tcx,
+		r.ctx = effects.NewCtxPtr(r.source, r.you, effects.CtxInit{TriggerContext: r.tcx,
 			Remembered: r.remembered, SVars: r.svars, LKI: r.lki, LKIPower: r.lkiPower,
-			LKIToughness: r.lkiToughness, LKIPTValid: r.lkiPTValid, X: r.x}
+			LKIToughness: r.lkiToughness, LKIPTValid: r.lkiPTValid, X: r.x})
 		r.ctx.Host = r.e
 	}
 	return r.ctx
@@ -589,9 +589,8 @@ func (e *Engine) targetSpecContext(source, stack state.ObjID, you state.PlayerID
 	*env = specResolveEnv{e: e, source: source, you: you, tcx: tcx, remembered: remembered,
 		svars: svars, lki: lki, lkiPower: lkiPower, lkiToughness: lkiToughness, lkiPTValid: lkiPTValid, x: x,
 		srcLKI: srcLKI, srcLKIValid: srcLKIValid, resolveFn: env.resolveFn}
-	sc := effects.SpecContext{You: you, Source: source, TriggerContext: tcx,
-		Remembered: remembered,
-		Resolve:    env.resolveFn}
+	sc := effects.NewSpecContext(you, source)
+	sc.TriggerContext, sc.Remembered, sc.Resolve = tcx, remembered, env.resolveFn
 	// The stack object's Remembered and fire-time LKI are bound above, beside
 	// TriggerContext, so placement-time numeric SVars read the same captured
 	// referents the resolving Ctx receives later.

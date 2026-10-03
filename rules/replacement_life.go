@@ -285,7 +285,7 @@ func (e *Engine) applyLifeReplacement(ev events.Event, m replMatch) (events.Even
 		// left): its replacement has nothing left to perform.
 		return ev, false
 	}
-	e.runReplaceWith(&effects.Ctx{Source: m.id, Controller: o.Controller, SVars: o.Face().SVars}, 0, r.With, nil)
+	e.runReplaceWith(effects.NewCtxPtr(m.id, o.Controller, effects.CtxInit{SVars: o.Face().SVars}), 0, r.With, nil)
 	return ev, true
 }
 

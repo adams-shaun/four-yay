@@ -249,8 +249,8 @@ func (e *Engine) runFusedHalves(o *state.Object, halves []*cards.Face, sas []*ca
 		}
 		hf := halves[i]
 		e.damaging = o.ID
-		ctx := &effects.Ctx{Source: o.ID, Controller: o.Controller,
-			Targets: legalByHalf[i], ResolvingObj: o.ID}
+		ctx := effects.NewCtxPtr(o.ID, o.Controller, effects.CtxInit{Targets: legalByHalf[i]})
+		ctx.ResolvingObj = o.ID
 		if strings.TrimSpace(sa.Params["ValidTgts"]) != "" {
 			ctx.TargetsOffered = true
 			ctx.OfferedSA = sa

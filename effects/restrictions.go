@@ -199,7 +199,7 @@ func unlessDefenderProperty(g *state.Game, property string, defender, you state.
 		if objSpec == "" {
 			return false, false
 		}
-		sc := SpecContext{You: you, Source: source}
+		sc := NewSpecContext(you, source)
 		n := int32(0)
 		for _, id := range g.Zone(state.ZBattlefield, defender) {
 			if MatchesObjectCtx(g, objSpec, g.Obj(id), sc) {

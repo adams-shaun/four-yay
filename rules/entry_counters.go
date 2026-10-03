@@ -431,7 +431,7 @@ func (e *Engine) riderCounterAmount(amount string, entrant state.ObjID, you stat
 	if n, err := strconv.Atoi(amount); err == nil {
 		return int32(n), true
 	}
-	ctx := &effects.Ctx{Source: entrant, Controller: you}
+	ctx := effects.NewCtxPtr(entrant, you, effects.CtxInit{})
 	return effects.EvalCountOK(e, ctx, amount)
 }
 

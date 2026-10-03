@@ -909,8 +909,7 @@ func (e *Engine) payCast() {
 	if pc.casualtyPaid && castEv.Kind == events.PutOnStack {
 		pt := pendingTrigger{
 			Source: pc.card, Controller: pc.player, Casualty: true,
-			Ctx: effects.Ctx{Source: pc.card, Controller: pc.player,
-				Remembered: []state.Target{{Obj: pc.card}}},
+			Ctx: effects.NewCtx(pc.card, pc.player, effects.CtxInit{Remembered: []state.Target{{Obj: pc.card}}}),
 		}
 		// Casualty:X's script riders (Ob Nixilis, the Adversary's
 		// NonLegendary$ True | SetLoyalty$ Casualty:...): the copy's
@@ -1137,11 +1136,9 @@ func (e *Engine) fireManaSpentTriggers(ev events.Event, lki *state.Object) {
 				SA:         sa,
 				Granted:    true,
 				Execute:    exec,
-				Ctx: effects.Ctx{
-					Source:         src,
-					Controller:     o.Controller,
+				Ctx: effects.NewCtx(src, o.Controller, effects.CtxInit{
 					TriggerContext: e.triggerReferents(t, src, ev, lki),
-				},
+				}),
 			})
 		}
 	}

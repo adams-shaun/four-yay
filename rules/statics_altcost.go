@@ -163,12 +163,13 @@ func (e *Engine) altCostXCandidates(p state.PlayerID, id state.ObjID, alt altCos
 			if seen[v] {
 				continue
 			}
-			sc := e.withNames(effects.SpecContext{You: p, Source: alt.src, Resolve: func(name string) (int32, bool) {
+			sc := e.withNames(effects.NewSpecContext(p, alt.src))
+			sc.Resolve = func(name string) (int32, bool) {
 				if name == alt.announce {
 					return v, true
 				}
 				return 0, false
-			}})
+			}
 			if e.matchesSpec(part.Spec, oid, sc) {
 				seen[v] = true
 				vals = append(vals, v)
@@ -248,7 +249,7 @@ func (e *Engine) alternativeCostScopeOK(params map[string]string, id, srcID stat
 	// CheckSVar$. An unresolvable body fails OPEN — the documented
 	// conditionMet convention — so a gate this build cannot evaluate never
 	// withholds the alternative by itself.
-	ctx := &effects.Ctx{Source: srcID, Controller: controller}
+	ctx := effects.NewCtxPtr(srcID, controller, effects.CtxInit{})
 	if o := e.G.Obj(srcID); o != nil && o.Face() != nil {
 		ctx.SVars = o.Face().SVars
 	}

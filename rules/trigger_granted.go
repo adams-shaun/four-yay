@@ -77,13 +77,11 @@ func (e *Engine) checkGrantedConspireTriggers(observer *Engine, id state.ObjID, 
 				// Remembered because Defined$ TriggeredSpellAbility reads
 				// the triggering spell off it.
 				Conspire: true,
-				Ctx: effects.Ctx{
-					Source:         id,
-					Controller:     o.Controller,
+				Ctx: effects.NewCtx(id, o.Controller, effects.CtxInit{
 					Remembered:     triggerRemembered(ev, id),
 					LKI:            objLKI,
 					TriggerContext: observer.triggerReferents(t, id, ev, objLKI),
-				},
+				}),
 			})
 		}
 	}
@@ -142,13 +140,11 @@ func (e *Engine) checkGrantedDemonstrateTriggers(observer *Engine, id state.ObjI
 				// cast spell rides Remembered because Defined$
 				// TriggeredSpellAbility reads the triggering spell off it.
 				Demonstrate: true,
-				Ctx: effects.Ctx{
-					Source:         id,
-					Controller:     o.Controller,
+				Ctx: effects.NewCtx(id, o.Controller, effects.CtxInit{
 					Remembered:     triggerRemembered(ev, id),
 					LKI:            objLKI,
 					TriggerContext: observer.triggerReferents(t, id, ev, objLKI),
-				},
+				}),
 			})
 		}
 	}
@@ -209,11 +205,9 @@ func (e *Engine) checkCipherTriggers(ev events.Event) {
 			Source:     id,
 			Controller: o.Controller,
 			Cipher:     card,
-			Ctx: effects.Ctx{
-				Source:     id,
-				Controller: o.Controller,
+			Ctx: effects.NewCtx(id, o.Controller, effects.CtxInit{
 				Remembered: []state.Target{{Obj: card}},
-			},
+			}),
 		})
 	}
 }
@@ -270,11 +264,9 @@ func (e *Engine) checkGrantedExploitTriggers(observer *Engine, id state.ObjID, o
 		Source:     id,
 		Controller: o.Controller,
 		Exploit:    true,
-		Ctx: effects.Ctx{
-			Source:         id,
-			Controller:     o.Controller,
+		Ctx: effects.NewCtx(id, o.Controller, effects.CtxInit{
 			TriggerContext: observer.triggerReferents(t, id, ev, objLKI),
-		},
+		}),
 	})
 }
 
@@ -340,11 +332,9 @@ func (e *Engine) checkGrantedOffspringTriggers(observer *Engine, id state.ObjID,
 		Source:     id,
 		Controller: o.Controller,
 		Offspring:  true,
-		Ctx: effects.Ctx{
-			Source:         id,
-			Controller:     o.Controller,
+		Ctx: effects.NewCtx(id, o.Controller, effects.CtxInit{
 			TriggerContext: observer.triggerReferents(t, id, ev, objLKI),
-		},
+		}),
 	})
 }
 
@@ -384,8 +374,8 @@ func (e *Engine) checkGrantedDethroneTriggers(observer *Engine, id state.ObjID, 
 		if e.triggerFireCount[key] < maxTriggerFires {
 			e.triggerFireCount[key]++
 			e.pendingTriggers = append(e.pendingTriggers, pendingTrigger{Source: id, Controller: o.Controller, Idx: -1, SA: t.Effect,
-				Ctx: effects.Ctx{Source: id, Controller: o.Controller, Remembered: triggerRemembered(ev, id), LKI: objLKI,
-					TriggerContext: observer.triggerReferents(t, id, ev, objLKI)}})
+				Ctx: effects.NewCtx(id, o.Controller, effects.CtxInit{Remembered: triggerRemembered(ev, id), LKI: objLKI,
+					TriggerContext: observer.triggerReferents(t, id, ev, objLKI)})})
 		}
 	}
 }
@@ -429,8 +419,8 @@ func (e *Engine) checkGrantedTrainingTriggers(observer *Engine, id state.ObjID, 
 		if e.triggerFireCount[key] < maxTriggerFires {
 			e.triggerFireCount[key]++
 			e.pendingTriggers = append(e.pendingTriggers, pendingTrigger{Source: id, Controller: o.Controller, Idx: -1, SA: t.Effect,
-				Ctx: effects.Ctx{Source: id, Controller: o.Controller, Remembered: triggerRemembered(ev, id), LKI: objLKI,
-					TriggerContext: observer.triggerReferents(t, id, ev, objLKI)}})
+				Ctx: effects.NewCtx(id, o.Controller, effects.CtxInit{Remembered: triggerRemembered(ev, id), LKI: objLKI,
+					TriggerContext: observer.triggerReferents(t, id, ev, objLKI)})})
 		}
 	}
 }
@@ -475,8 +465,8 @@ func (e *Engine) checkGrantedMentorTriggers(observer *Engine, id state.ObjID, o 
 		if e.triggerFireCount[key] < maxTriggerFires {
 			e.triggerFireCount[key]++
 			e.pendingTriggers = append(e.pendingTriggers, pendingTrigger{Source: id, Controller: o.Controller, Idx: -1, Mentor: true, SA: t.Effect,
-				Ctx: effects.Ctx{Source: id, Controller: o.Controller, Remembered: triggerRemembered(ev, id), LKI: objLKI,
-					TriggerContext: observer.triggerReferents(t, id, ev, objLKI)}})
+				Ctx: effects.NewCtx(id, o.Controller, effects.CtxInit{Remembered: triggerRemembered(ev, id), LKI: objLKI,
+					TriggerContext: observer.triggerReferents(t, id, ev, objLKI)})})
 		}
 	}
 }
@@ -528,8 +518,8 @@ func (e *Engine) checkGrantedFirebendingTriggers(observer *Engine, id state.ObjI
 		if e.triggerFireCount[key] < maxTriggerFires {
 			e.triggerFireCount[key]++
 			e.pendingTriggers = append(e.pendingTriggers, pendingTrigger{Source: id, Controller: o.Controller, Idx: -1, Firebending: param, SA: t.Effect,
-				Ctx: effects.Ctx{Source: id, Controller: o.Controller, Remembered: triggerRemembered(ev, id), LKI: objLKI,
-					TriggerContext: observer.triggerReferents(t, id, ev, objLKI)}})
+				Ctx: effects.NewCtx(id, o.Controller, effects.CtxInit{Remembered: triggerRemembered(ev, id), LKI: objLKI,
+					TriggerContext: observer.triggerReferents(t, id, ev, objLKI)})})
 		}
 	}
 }
@@ -636,9 +626,7 @@ func (e *Engine) checkGrantedAfflictTriggers(id state.ObjID, o *state.Object, f 
 				// SA cannot cross the log, and the TriggerPush -1 index
 				// sentinel is Dethrone's own.
 				Afflict: strconv.Itoa(amount),
-				Ctx: effects.Ctx{
-					Source:     id,
-					Controller: o.Controller,
+				Ctx: effects.NewCtx(id, o.Controller, effects.CtxInit{
 					Remembered: []state.Target{{Obj: aid}},
 					Captured:   []state.Target{{Obj: aid}},
 					TriggerContext: effects.TriggerContext{
@@ -647,7 +635,7 @@ func (e *Engine) checkGrantedAfflictTriggers(id state.ObjID, o *state.Object, f 
 						AttackingPlayer: pt(e.controllerOf(aid)),
 						DefendingPlayer: defender,
 					},
-				},
+				}),
 			})
 		}
 	}
@@ -705,9 +693,7 @@ func (e *Engine) checkGrantedWardTriggers(observer *Engine, id state.ObjID, o *s
 			Source:     id,
 			Controller: o.Controller,
 			Ward:       param,
-			Ctx: effects.Ctx{
-				Source:         id,
-				Controller:     o.Controller,
+			Ctx: effects.NewCtx(id, o.Controller, effects.CtxInit{
 				Remembered:     triggerRemembered(ev, id),
 				Captured:       triggerRemembered(ev, id),
 				LKI:            objLKI,
@@ -715,7 +701,7 @@ func (e *Engine) checkGrantedWardTriggers(observer *Engine, id state.ObjID, o *s
 				LKIToughness:   lkiToughness,
 				LKIPTValid:     objLKI != nil && lkiPTValid,
 				TriggerContext: observer.triggerReferents(t, id, ev, objLKI),
-			},
+			}),
 		})
 	}
 }
@@ -848,9 +834,7 @@ func (e *Engine) checkGrantedStaticTriggersUsing(observer *Engine, statics []*Co
 					Execute:      t.Params["Execute"],
 					Trigger:      t,
 					TriggerSVars: gf.Face.SVars,
-					Ctx: effects.Ctx{
-						Source:         id,
-						Controller:     o.Controller,
+					Ctx: effects.NewCtx(id, o.Controller, effects.CtxInit{
 						Remembered:     triggerRememberedMode(t, ev, id),
 						Captured:       triggerRememberedMode(t, ev, id),
 						LKI:            objLKI,
@@ -858,7 +842,7 @@ func (e *Engine) checkGrantedStaticTriggersUsing(observer *Engine, statics []*Co
 						LKIToughness:   lkiToughness,
 						LKIPTValid:     objLKI != nil && lkiPTValid,
 						TriggerContext: observer.triggerReferents(t, id, ev, objLKI),
-					},
+					}),
 				})
 			}
 		}
@@ -942,16 +926,14 @@ func (e *Engine) checkGrantedStaticTriggersUsing(observer *Engine, statics []*Co
 			Execute:      t.Params["Execute"],
 			Trigger:      t,
 			TriggerSVars: grantFace.SVars,
-			Ctx: effects.Ctx{
-				Source:         id,
-				Controller:     o.Controller,
+			Ctx: effects.NewCtx(id, o.Controller, effects.CtxInit{
 				Remembered:     triggerRememberedMode(t, ev, id),
 				LKI:            objLKI,
 				LKIPower:       lkiPower,
 				LKIToughness:   lkiToughness,
 				LKIPTValid:     objLKI != nil && lkiPTValid,
 				TriggerContext: observer.triggerReferents(t, id, ev, objLKI),
-			},
+			}),
 		})
 	}
 }
@@ -1160,12 +1142,10 @@ func (e *Engine) checkGrantedAtEOTTriggers(observer *Engine, id state.ObjID, o *
 		Execute:    body,
 		SA:         sa,
 		Trigger:    t,
-		Ctx: effects.Ctx{
-			Source:         id,
-			Controller:     o.Controller,
+		Ctx: effects.NewCtx(id, o.Controller, effects.CtxInit{
 			LKI:            objLKI,
 			TriggerContext: observer.triggerReferents(t, id, ev, objLKI),
-		},
+		}),
 	})
 }
 
@@ -1208,12 +1188,10 @@ func (e *Engine) checkGrantedCumulativeUpkeepTriggers(observer *Engine, id state
 			Source:     id,
 			Controller: o.Controller,
 			Cumulative: cost,
-			Ctx: effects.Ctx{
-				Source:         id,
-				Controller:     o.Controller,
+			Ctx: effects.NewCtx(id, o.Controller, effects.CtxInit{
 				LKI:            objLKI,
 				TriggerContext: observer.triggerReferents(t, id, ev, objLKI),
-			},
+			}),
 		})
 	}
 }

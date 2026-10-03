@@ -334,30 +334,32 @@ func (e *Engine) resolveTop() {
 		// lookup two lines above already gets this right by reading from
 		// o.Source; this was a one-line inconsistency, not a second design.
 		ctx := e.arenaCtx()
-		*ctx = effects.Ctx{Source: o.Source, Controller: o.Controller, Grantor: o.GrantedBy,
-			Targets: targets, ModeTargets: charmModeTargets, Remembered: e.resolvingRemembered(o), Captured: o.Remembered, TriggerContext: e.triggerContexts[id],
-			// Forge's Count$ResolvedThisTurn reads the per-ability tally the
-			// Resolve event's Apply folded: the count INCLUDES this resolution,
-			// because the Resolve event is emitted above before this Ctx is
-			// built (the Sephiroth "if this is the fourth time" gate).
-			ResolvedThisTurn:    e.resolvedAbilityTally(o),
-			ActivationsThisTurn: e.activationsThisTurnFor(o.Source, o.Ability),
+		*ctx = effects.NewCtx(o.Source, o.Controller, effects.CtxInit{
+			Targets: targets, Remembered: e.resolvingRemembered(o), Captured: o.Remembered, TriggerContext: e.triggerContexts[id],
 			// An Effect-created delayed trigger body resolves under the Effect's
 			// source-scoped frame (queued by rules' delayed-trigger fire), so the
 			// one-shot self-exile idiom it may run ends the Effect. Zero for every
 			// ordinary printed trigger.
-			EffectFrame: e.triggerEffectFrames[id],
-			// The resolving stack-object wrapper: ValidStack's otherAbility
-			// exclusion (Ulalek's sub-copy) anchors here, not on Source --
-			// Source is the source permanent (Ruling T20-b), which is not on
-			// the stack and would exclude nothing.
-			ResolvingObj: id,
-			// alltargeted1: the cast flow's pre-asked SubAbility$ target
-			// answers, consumed line by line by chosenTargetsFor.
-			SubPreAsk: e.castSubTargets[id],
-			// The root+chain target union an announced chain's Defined$
-			// Targeted reads (nil without one: rules/trigger_subtargets.go).
-			AllTargets: e.chainTargetUnion(id, o.Ability, targets)}
+			EffectFrame: e.triggerEffectFrames[id]})
+		ctx.Grantor = o.GrantedBy
+		ctx.ModeTargets = charmModeTargets
+		// Forge's Count$ResolvedThisTurn reads the per-ability tally the
+		// Resolve event's Apply folded: the count INCLUDES this resolution,
+		// because the Resolve event is emitted above before this Ctx is
+		// built (the Sephiroth "if this is the fourth time" gate).
+		ctx.ResolvedThisTurn = e.resolvedAbilityTally(o)
+		ctx.ActivationsThisTurn = e.activationsThisTurnFor(o.Source, o.Ability)
+		// The resolving stack-object wrapper: ValidStack's otherAbility
+		// exclusion (Ulalek's sub-copy) anchors here, not on Source --
+		// Source is the source permanent (Ruling T20-b), which is not on
+		// the stack and would exclude nothing.
+		ctx.ResolvingObj = id
+		// alltargeted1: the cast flow's pre-asked SubAbility$ target
+		// answers, consumed line by line by chosenTargetsFor.
+		ctx.SubPreAsk = e.castSubTargets[id]
+		// The root+chain target union an announced chain's Defined$
+		// Targeted reads (nil without one: rules/trigger_subtargets.go).
+		ctx.AllTargets = e.chainTargetUnion(id, o.Ability, targets)
 		// CR 702.49b: a K:Ninjutsu permanent enters attacking the same player
 		// (planeswalker or battle) the returned creature was attacking. The
 		// activator captured that defender when the Return cost was paid
@@ -686,13 +688,13 @@ func (e *Engine) resolveTop() {
 	if resolveSA != nil {
 		e.damaging = id
 		ctx := e.arenaCtx()
-		*ctx = effects.Ctx{Source: id, Controller: o.Controller, Targets: targets,
-			ModeTargets: charmModeTargets, ResolvingObj: id,
-			// alltargeted1: the cast flow's pre-asked SubAbility$ target
-			// answers, consumed line by line by chosenTargetsFor. Disjoint
-			// from ModeTargets: a modal root is never pre-asked.
-			SubPreAsk:  e.castSubTargets[id],
-			AllTargets: e.chainTargetUnion(id, sa, targets)}
+		*ctx = effects.NewCtx(id, o.Controller, effects.CtxInit{Targets: targets})
+		ctx.ModeTargets, ctx.ResolvingObj = charmModeTargets, id
+		// alltargeted1: the cast flow's pre-asked SubAbility$ target
+		// answers, consumed line by line by chosenTargetsFor. Disjoint
+		// from ModeTargets: a modal root is never pre-asked.
+		ctx.SubPreAsk = e.castSubTargets[id]
+		ctx.AllTargets = e.chainTargetUnion(id, sa, targets)
 		// Same marker as the ability branch: the cast-flow target ask
 		// (targetAsk's targetSA) offered exactly this spell's targeting.
 		if targetSA != nil && strings.TrimSpace(targetSA.ParamStr(cards.PKValidTgts)) != "" {
@@ -1110,7 +1112,7 @@ func (e *Engine) resolveAbility(source state.ObjID, controller state.PlayerID,
 func (e *Engine) resolveAbilitySacrificing(source state.ObjID, controller state.PlayerID,
 	targets []state.Target, sa *cards.SA, svars map[string]string, sacs []state.ObjID) {
 	ctx := e.arenaCtx()
-	*ctx = effects.Ctx{Source: source, Controller: controller, Targets: targets}
+	*ctx = effects.NewCtx(source, controller, effects.CtxInit{Targets: targets})
 	for _, id := range sacs {
 		ctx.Sacrificed = append(ctx.Sacrificed, effects.SacrificedLKI(e, id))
 	}

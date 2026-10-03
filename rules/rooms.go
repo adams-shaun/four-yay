@@ -136,10 +136,7 @@ func (e *Engine) queueUnlockTriggers(o *state.Object, face *cards.Face) {
 			DelayedID:  ^uint32(0),
 			Execute:    exec,
 			SA:         t.Effect,
-			Ctx: effects.Ctx{
-				Source:     o.ID,
-				Controller: o.Controller,
-			},
+			Ctx:        effects.NewCtx(o.ID, o.Controller, effects.CtxInit{}),
 		})
 	}
 }

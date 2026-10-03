@@ -365,12 +365,13 @@ func (e *Engine) affordableTargetCandidates(pc *pendingCast, candidates []target
 			if zone == 0 {
 				zone = state.ZHand
 			}
-			sc := e.withNames(effects.SpecContext{You: pc.player, Source: pc.card, Resolve: func(n string) (int32, bool) {
+			sc := e.withNames(effects.NewSpecContext(pc.player, pc.card))
+			sc.Resolve = func(n string) (int32, bool) {
 				if n == pc.announceX {
 					return pc.x, true
 				}
 				return 0, false
-			}})
+			}
 			n := 0
 			for _, oid := range e.G.Zone(zone, pc.player) {
 				if e.matchesSpec(part.Spec, oid, sc) {

@@ -209,7 +209,7 @@ func (e *Engine) arenaCtx() *effects.Ctx {
 	if a := e.activeArena(); a != nil {
 		return a.ctxs.one(arenaCtxChunk)
 	}
-	return &effects.Ctx{}
+	return new(effects.Ctx)
 }
 
 // arenaObject returns a pointer to a copy of *o (an LKI snapshot). o is

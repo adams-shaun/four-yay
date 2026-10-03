@@ -237,66 +237,67 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 		chainRoot = f.SpellAbility()
 		e.recheckCastSubTargets(rp.obj, chainRoot, o.Controller, rp.obj)
 	}
-	ctx := &effects.Ctx{Source: rp.obj, Controller: o.Controller, NameChoice: rp.name, ChosenDirection: rp.chosenDirection, Targets: o.Targets,
-		// Forge's Count$ResolvedThisTurn: a chain that suspended at a
-		// mid-resolution ask and so re-enters HERE instead of through
-		// resolveTop must keep the tally its first pass read. The Resolve event
-		// was emitted once, so the tally is unchanged across the ask, but a
-		// fresh Ctx defaults the field to zero and a gate would then read the
-		// wrong ordinal (Sephiroth would transform a turn early on the
-		// resumed pass). resolvedAbilityTally is the same read resolveTop's
-		// ability branch makes, in one home.
-		ResolvedThisTurn:    e.resolvedAbilityTally(o),
-		ClashContinuation:   cloneClashResume(rp.clash),
-		ActivationsThisTurn: e.activationsThisTurnFor(o.Source, o.Ability),
-		// alltargeted1: a re-entered walk keeps consuming the cast flow's
-		// pre-asked sub-ability target answers (kept until the stack object
-		// leaves, so both a later sub and a suspended body can use theirs).
-		// A modal root is excluded from the pre-ask whole
-		// (collectSubTargetPreAsks), so this map is empty exactly where
-		// ModeTargets carries the per-mode groups instead: the two bindings
-		// are disjoint by construction, never competing for one chain.
-		SubPreAsk:   e.castSubTargets[rp.obj],
-		AllTargets:  e.chainTargetUnion(rp.obj, chainRoot, o.Targets),
-		ModeTargets: cloneCharmTargetGroups(e.charmTargets[rp.obj]),
-		Chosen:      append([]state.Target(nil), rp.choices...), ChosenValid: rp.chosenValid,
-		DigUntilMove: rp.digUntilMove, DigUntilMoveDone: rp.digUntilMoveDone,
-		ClonePick: rp.clonePick, ClonePickDone: rp.clonePickDone,
-		VillainousVictims: append([]state.Target(nil), rp.villainousVictims...),
-		VillainousIndex:   rp.villainousIndex,
-		ChoiceTarget:      rp.target,
-		// The pre-move controller snapshot of this resolution's object
-		// targets, carried across the suspension: a resumed frame's Ctx is
-		// rebuilt from the LIVE objects (whose controllers any completed
-		// Destroy has already reset to their owners), so without this a
-		// chained TokenOwner$ TargetedController sees the wrong seat. The
-		// map is keyed by target ObjID, so a frame whose Targets are later
-		// narrowed (a fused half's slice, a Charm mode's target) still
-		// resolves the entries it names.
-		TargetControllerLKI: effects.CloneTargetControllerLKI(rp.targetControllerLKI),
-		TargetCountersLKI:   effects.CloneTargetCountersLKI(rp.targetCountersLKI),
-		TargetPTLKI:         effects.CloneTargetPTLKI(rp.targetPTLKI),
-		TargetSpellLKI:      effects.CloneTargetSpellLKI(rp.targetSpellLKI),
-		// The resolving stack-object wrapper, same anchor resolveTop's
-		// branches set: a SUSPENDED-then-resumed ability (Ulalek's pay ask is
-		// exactly such a suspension) keeps the ValidStack otherAbility
-		// exclusion pointed at its own wrapper on re-entry. The replacement
-		// arm below may rebind ctx.Source to the replacement's host;
-		// ResolvingObj stays rp.obj -- the wrapper whose resolution this
-		// frame is.
-		ResolvingObj: rp.obj, EffectFrame: rp.effectFrame,
-		// The shared coin-flip memory the chain had at the ask. Re-attached so
-		// a chained Defined$ FlippedTails / Wins reader keeps the flips
-		// performed before the suspension (Goblin Assassin's per-loser
-		// sacrifice asks once after the flips; without this the second loser's
-		// read saw an empty set and never sacrificed).
-		FlipMemory: rp.flipMemory,
-		// The shared ExchangeLife rider memory the chain had at the ask, the
-		// same pointer-ride as FlipMemory above: a chained Count$
-		// RememberedNumber reader (Mister Negative's SubAbility$ DBDraw) keeps
-		// the value the exchange transaction settles, no matter how many Ctx
-		// rebuilds the suspension's continuation chain goes through.
-		ExchangeMemory: rp.exchangeMemory}
+	ctx := effects.NewCtxPtr(rp.obj, o.Controller, effects.CtxInit{Targets: o.Targets, EffectFrame: rp.effectFrame})
+	ctx.NameChoice, ctx.ChosenDirection = rp.name, rp.chosenDirection
+	// Forge's Count$ResolvedThisTurn: a chain that suspended at a
+	// mid-resolution ask and so re-enters HERE instead of through
+	// resolveTop must keep the tally its first pass read. The Resolve event
+	// was emitted once, so the tally is unchanged across the ask, but a
+	// fresh Ctx defaults the field to zero and a gate would then read the
+	// wrong ordinal (Sephiroth would transform a turn early on the
+	// resumed pass). resolvedAbilityTally is the same read resolveTop's
+	// ability branch makes, in one home.
+	ctx.ResolvedThisTurn = e.resolvedAbilityTally(o)
+	ctx.ClashContinuation = cloneClashResume(rp.clash)
+	ctx.ActivationsThisTurn = e.activationsThisTurnFor(o.Source, o.Ability)
+	// alltargeted1: a re-entered walk keeps consuming the cast flow's
+	// pre-asked sub-ability target answers (kept until the stack object
+	// leaves, so both a later sub and a suspended body can use theirs).
+	// A modal root is excluded from the pre-ask whole
+	// (collectSubTargetPreAsks), so this map is empty exactly where
+	// ModeTargets carries the per-mode groups instead: the two bindings
+	// are disjoint by construction, never competing for one chain.
+	ctx.SubPreAsk = e.castSubTargets[rp.obj]
+	ctx.AllTargets = e.chainTargetUnion(rp.obj, chainRoot, o.Targets)
+	ctx.ModeTargets = cloneCharmTargetGroups(e.charmTargets[rp.obj])
+	ctx.Chosen, ctx.ChosenValid = append([]state.Target(nil), rp.choices...), rp.chosenValid
+	ctx.DigUntilMove, ctx.DigUntilMoveDone = rp.digUntilMove, rp.digUntilMoveDone
+	ctx.ClonePick, ctx.ClonePickDone = rp.clonePick, rp.clonePickDone
+	ctx.VillainousVictims = append([]state.Target(nil), rp.villainousVictims...)
+	ctx.VillainousIndex = rp.villainousIndex
+	ctx.ChoiceTarget = rp.target
+	// The pre-move controller snapshot of this resolution's object
+	// targets, carried across the suspension: a resumed frame's Ctx is
+	// rebuilt from the LIVE objects (whose controllers any completed
+	// Destroy has already reset to their owners), so without this a
+	// chained TokenOwner$ TargetedController sees the wrong seat. The
+	// map is keyed by target ObjID, so a frame whose Targets are later
+	// narrowed (a fused half's slice, a Charm mode's target) still
+	// resolves the entries it names.
+	ctx.TargetControllerLKI = effects.CloneTargetControllerLKI(rp.targetControllerLKI)
+	ctx.TargetCountersLKI = effects.CloneTargetCountersLKI(rp.targetCountersLKI)
+	ctx.TargetPTLKI = effects.CloneTargetPTLKI(rp.targetPTLKI)
+	ctx.TargetSpellLKI = effects.CloneTargetSpellLKI(rp.targetSpellLKI)
+	// The resolving stack-object wrapper, same anchor resolveTop's
+	// branches set: a SUSPENDED-then-resumed ability (Ulalek's pay ask is
+	// exactly such a suspension) keeps the ValidStack otherAbility
+	// exclusion pointed at its own wrapper on re-entry. The replacement
+	// arm below may rebind ctx.Source to the replacement's host;
+	// ResolvingObj stays rp.obj -- the wrapper whose resolution this
+	// frame is.
+	ctx.ResolvingObj = rp.obj
+	// The shared coin-flip memory the chain had at the ask. Re-attached so
+	// a chained Defined$ FlippedTails / Wins reader keeps the flips
+	// performed before the suspension (Goblin Assassin's per-loser
+	// sacrifice asks once after the flips; without this the second loser's
+	// read saw an empty set and never sacrificed).
+	ctx.FlipMemory = rp.flipMemory
+	// The shared ExchangeLife rider memory the chain had at the ask, the
+	// same pointer-ride as FlipMemory above: a chained Count$
+	// RememberedNumber reader (Mister Negative's SubAbility$ DBDraw) keeps
+	// the value the exchange transaction settles, no matter how many Ctx
+	// rebuilds the suspension's continuation chain goes through.
+	ctx.ExchangeMemory = rp.exchangeMemory
 	// The plural replaced-instruction batch (Ctx.ReplacedCards) follows the
 	// same rule as the singular Replaced below: a resumed frame that carries
 	// one restores it, so a Cascade body's hidden pick re-resolves

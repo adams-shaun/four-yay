@@ -74,7 +74,7 @@ func (e *Engine) targetBoundCtx(p state.PlayerID, source state.ObjID) (*effects.
 	if o == nil {
 		return nil, false
 	}
-	ctx := &effects.Ctx{Controller: p}
+	ctx := effects.NewCtxPtr(0, p, effects.CtxInit{})
 	// A trigger's dynamic target bound reading the causing event (Vitality
 	// Hunter's `TargetMax$ MaxTgts` with `SVar:MaxTgts:TriggerCount$Amount`,
 	// task agent-20260919T190014Z): the trigger context recorded for this
@@ -689,7 +689,7 @@ func staticModesFromSVars(sa *cards.SA, svars map[string]string) []string {
 func (e *Engine) targetDamageAmount(p state.PlayerID, source state.ObjID, sa *cards.SA, x int32) (int32, bool) {
 	ctx, ok := e.targetBoundCtx(p, source)
 	if !ok {
-		ctx = &effects.Ctx{Source: source, Controller: p}
+		ctx = effects.NewCtxPtr(source, p, effects.CtxInit{})
 		if o := e.G.Obj(source); o != nil && o.Face() != nil {
 			effects.SetSVars(ctx, o.Face().SVars)
 		}

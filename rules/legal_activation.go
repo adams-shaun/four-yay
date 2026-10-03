@@ -282,7 +282,7 @@ func (e *Engine) sVarGateOK(p state.PlayerID, id state.ObjID, ab *cards.SA, merg
 		return false
 	}
 	svars := e.pileSVars(id, merged)
-	ctx := &effects.Ctx{Source: id, Controller: p, SVars: svars}
+	ctx := effects.NewCtxPtr(id, p, effects.CtxInit{SVars: svars})
 	holds, evaluated := effects.CheckSVarHolds(e, ctx, check, ab.Params["SVarCompare"])
 	if !evaluated {
 		// The gate's count body is not one the evaluator models: fail OPEN —
@@ -340,7 +340,8 @@ func (e *Engine) ownReduceCost(p state.PlayerID, id state.ObjID, ab *cards.SA, t
 	if b, ok := svars[v]; ok {
 		body = b
 	}
-	ctx := &effects.Ctx{Source: id, Controller: p, SVars: svars, Targets: targets, AllTargets: allTargets}
+	ctx := effects.NewCtxPtr(id, p, effects.CtxInit{SVars: svars, Targets: targets})
+	ctx.AllTargets = allTargets
 	if n, ok := effects.EvalCountOK(e, ctx, body); ok && n > 0 {
 		return n
 	}
@@ -391,7 +392,7 @@ func (e *Engine) ownManaReduction(p state.PlayerID, id state.ObjID, ab *cards.SA
 			if b, found := svars[raw]; found {
 				body = b
 			}
-			v, evaluated := effects.EvalCountOK(e, &effects.Ctx{Source: id, Controller: p, SVars: svars, Targets: targets}, body)
+			v, evaluated := effects.EvalCountOK(e, effects.NewCtxPtr(id, p, effects.CtxInit{SVars: svars, Targets: targets}), body)
 			if !evaluated {
 				return costMod{}, false
 			}

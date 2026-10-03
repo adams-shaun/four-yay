@@ -495,61 +495,6 @@ func (e *Engine) verifySpecDerivedSkip(spec string, id state.ObjID, sc effects.S
 	return bound
 }
 
-// specCtxSVars is specCtx with an explicit SVar table: a static carried by a
-// card merged beneath a mutated pile's top resolves its Chosen*/SVar* terms
-// against that under-card's own table. A nil svars falls back to the source
-// object's top face, so every pre-existing caller is unchanged.
-func (e *Engine) specCtxSVars(source state.ObjID, you state.PlayerID, svars map[string]string) effects.SpecContext {
-	var predicates *effects.PredicatePrograms
-	if e.compiledText != nil {
-		predicates = e.compiledText.predicates
-	}
-	sc := effects.SpecContext{
-		You:               you,
-		Source:            source,
-		PredicatePrograms: predicates,
-		// setname.go: the layer-3 rename set, so a name filter rules
-		// evaluates agrees with the layer walk instead of the printed face.
-		// setname.go's layer-3 rename table. A FIELD READ, never a call: a
-		// call here breaks this constructor's inlining and heap-allocates the
-		// Resolve closure on every hot-path construction.
-		EffectiveNames: e.renames,
-		// layer4types.go's layer-4 derived type table. The same field-read
-		// discipline as EffectiveNames above: it makes the ordinary filter
-		// grammar (target offer, cost site, Count$Valid, CantTarget) see a
-		// type a continuous effect granted.
-		DerivedTypes: e.layer4Types,
-		Resolve: func(name string) (int32, bool) {
-			o := e.G.Obj(source)
-			if o == nil {
-				return 0, false
-			}
-			if name == "Chosen" {
-				return o.ChosenNumber, true
-			}
-			table := svars
-			if table == nil {
-				f := o.Face()
-				if f == nil {
-					return 0, false
-				}
-				table = f.SVars
-			}
-			if body, ok := table[name]; ok {
-				return effects.EvalCount(e, &effects.Ctx{Source: source, Controller: you, SVars: table}, body), true
-			}
-			return 0, false
-		},
-	}
-	// A recurring Effect's matcher reads the registration's captured objects,
-	// not the creating card's (possibly unrelated) event-backed memory. The
-	// override exists only on the read-only observer for that registration.
-	if e.effectMatchOverride && source == e.effectMatchSource {
-		sc.Remembered = e.effectMatchRemembered
-	}
-	return sc
-}
-
 // staticSpecCtx is the SpecContext a staticView's spec match resolves against:
 // its own SVar table when the view carries one (an under-card static), else the
 // source object's top face.

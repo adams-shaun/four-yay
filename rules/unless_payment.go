@@ -186,7 +186,7 @@ func (e *Engine) unlessCostPayable(p state.PlayerID, raw string, ctx *effects.Ct
 		return false
 	}
 	if ctx == nil {
-		ctx = &effects.Ctx{Controller: p}
+		ctx = effects.NewCtxPtr(0, p, effects.CtxInit{})
 	}
 	if !e.unlessComponentsPayable(p, cost, ctx, stackObj) {
 		return false

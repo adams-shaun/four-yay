@@ -66,10 +66,7 @@ func (e *Engine) checkDungeonRoomTriggers(ev events.Event) {
 		DelayedID:  ^uint32(0),
 		Execute:    ev.Text,
 		SA:         sa,
-		Ctx: effects.Ctx{
-			Source:     ev.Obj,
-			Controller: o.Owner,
-		},
+		Ctx:        effects.NewCtx(ev.Obj, o.Owner, effects.CtxInit{}),
 	})
 }
 

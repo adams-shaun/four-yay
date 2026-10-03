@@ -120,7 +120,7 @@ func CheckSVarHolds(h Host, c *Ctx, check, cmp string) (holds, evaluated bool) {
 		return true, false
 	}
 	if c == nil {
-		c = &Ctx{}
+		c = new(Ctx)
 	}
 	g := h.Game()
 	body := check

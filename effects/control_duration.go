@@ -131,7 +131,7 @@ func ControlGrantEnded(h Host, gr ControlGrant) bool {
 		if obj == nil || len(gr.Compare) < 3 {
 			return true
 		}
-		left := EvalCount(h, &Ctx{Source: gr.Obj, Controller: obj.Controller, SVars: gr.SVars}, gr.CheckSVar)
+		left := EvalCount(h, NewCtxPtr(gr.Obj, obj.Controller, CtxInit{SVars: gr.SVars}), gr.CheckSVar)
 		op, rhs := strings.ToUpper(gr.Compare[:2]), strings.TrimSpace(gr.Compare[2:])
 		right, err := strconv.Atoi(rhs)
 		if err != nil {
@@ -139,7 +139,7 @@ func ControlGrantEnded(h Host, gr ControlGrant) bool {
 			if !ok {
 				return true
 			}
-			right = int(EvalCount(h, &Ctx{Source: gr.Source, Controller: gr.You, SVars: gr.SVars}, body))
+			right = int(EvalCount(h, NewCtxPtr(gr.Source, gr.You, CtxInit{SVars: gr.SVars}), body))
 		}
 		if compareCount(op, int(left), right) {
 			return true
