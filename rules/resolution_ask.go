@@ -244,7 +244,7 @@ func (e *Engine) buildAskResume(d *decision.Decision, obj state.ObjID, direct bo
 		effectFrame:       e.currentEffectFrame,
 		before:            e.retainTriggerBefore(), target: d.ResumeTarget, player: d.Acting(),
 		chosenDirection: chosenDirectionForResume(e.resolutionCtx),
-		direct:          direct, ownResolution: ownResolution, rolls: d.Rolls, clash: cloneClashResume(d.ResumeClash),
+		direct:          direct, ownResolution: ownResolution, rolls: rollResume{dice: d.Rolls, ride: effects.RollRideOf(e.resolutionCtx)}, clash: cloneClashResume(d.ResumeClash),
 		choices:     append([]state.Target(nil), d.ResumeChoices...),
 		chosenValid: d.ResumeChosenValid, remembered: remembered,
 		pendingDamage:       effects.ClonePendingDamage(e.resolutionPendingDamage()),

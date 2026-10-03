@@ -395,6 +395,9 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 		ctx.X = rp.winPaidX
 		ctx.XAnnounced = true
 	}
+	// The chain's roll publications at the ask (effects.RollRide), after
+	// every X binding above: a publication named X is the resolution's X.
+	ctx.ResumeRollRide(rp.rolls.ride)
 	var svars map[string]string
 	if o.Ability != nil {
 		// A triggered or activated ability: mirror resolveTop's ability
@@ -896,7 +899,7 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			if rp.loopBound {
 				// Still inside the loop iteration this frame resumed: whatever
 				// suspended at this level continues with its Remembered.
-				e.bindLoopFrames(ctx.Remembered, ctx.VoteCounts)
+				e.bindLoopFrames(ctx.Remembered, ctx.VoteCounts, ctx.RepeatSubject)
 			}
 			e.resume.outer = e.buildContinuationChain(e.contChain, rp.obj, rp.outer)
 			// The continuation chain now owns the reported frames. Keep this

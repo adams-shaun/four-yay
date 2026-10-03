@@ -70,11 +70,16 @@ func clearChangeZoneImprint(h Host, c *Ctx) {
 	}
 }
 
-func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
-	cz := ChangeZoneOf(sa)
+// changeZonePrelude is effChangeZone's entry, up to the dispatch on Origin$:
+// the unread-parameter Note, the UntilHostLeavesPlay bail (stop), Unimprint's
+// pre-move clear, the DestAltSVar$ destination and the unrecognised
+// OriginAlternative$ Note. It is shared with the resolution kernel's answered
+// asks (changeZoneReentryEcho), which re-emit exactly what a legacy re-entry
+// of effChangeZone emits on its way back to the answered walk.
+func changeZonePrelude(h Host, c *Ctx, cz *ChangeZoneParams) (to state.Zone, stop bool) {
 	cz.noteUnread(h, c)
 	if exileHostGoneFor(h, c, cz.Riders.Duration) {
-		return
+		return 0, true
 	}
 	// Unimprint is a pre-move operation, even when no candidate is moved.
 	// Re-entering after a choice may clear an already empty list; the fold
@@ -82,7 +87,32 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 	if cz.Unimprint {
 		clearChangeZoneImprint(h, c)
 	}
-	to := changeZoneAltDestination(h, c, cz, cz.Destination)
+	to = changeZoneAltDestination(h, c, cz, cz.Destination)
+	if cz.OriginPresent && cz.OriginAltPresent && !cz.OriginAltOK {
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
+			Text: "unrecognised ChangeZone OriginAlternative " + cz.OriginAltText})
+	}
+	return to, false
+}
+
+// changeZoneDefinedPlayerNote is the object path's loud read of a Hand-origin
+// DefinedPlayer$ beside a Defined$ that already names the moved objects.
+func changeZoneDefinedPlayerNote(h Host, c *Ctx, cz *ChangeZoneParams, originZones []state.Zone, originAll bool) {
+	if len(originZones) == 1 && originZones[0] == state.ZHand && !originAll &&
+		cz.Defined != "" && cz.DefinedPlayer.Text != "" {
+		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+			Text: "DefinedPlayer$ " + cz.DefinedPlayer.Text +
+				" is unread next to Defined$ " + cz.Defined +
+				" (the move goes to the named objects alone)"})
+	}
+}
+
+func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
+	cz := ChangeZoneOf(sa)
+	to, stop := changeZonePrelude(h, c, cz)
+	if stop {
+		return
+	}
 	// Set only when an explicit multi-zone Origin$ including Hand falls
 	// through the dedicated walkers above to the object path; the diagnostic
 	// for a resolution that ends up moving nothing is emitted after the move
@@ -109,11 +139,8 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 		// whole effect (folding altValid into `valid`) would lose the library
 		// half of invasion_of_arcavios's "library, graveyard, and/or outside
 		// the game", a regression over the pre-OriginAlternative engine,
-		// which still searched the library.
-		if cz.OriginAltPresent && !cz.OriginAltOK {
-			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-				Text: "unrecognised ChangeZone OriginAlternative " + cz.OriginAltText})
-		}
+		// which still searched the library. (The unrecognised-word Note is
+		// emitted by changeZonePrelude.)
 		hidden := cz.Hidden
 		// ... and the branch excludes every origin the dedicated walkers own:
 		// exactly-Library is the search below, exactly-Hand the hand movers,
@@ -262,13 +289,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 		// ReplacedCard, 1 corpus line) keeps the object path -- the moved
 		// objects are already named -- but the owner parameter is unread
 		// there, so the shape is loud about it rather than silent.
-		if len(originZones) == 1 && originZones[0] == state.ZHand && !originAll &&
-			cz.Defined != "" && cz.DefinedPlayer.Text != "" {
-			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-				Text: "DefinedPlayer$ " + cz.DefinedPlayer.Text +
-					" is unread next to Defined$ " + cz.Defined +
-					" (the move goes to the named objects alone)"})
-		}
+		changeZoneDefinedPlayerNote(h, c, cz, originZones, originAll)
 	}
 	// Answered ShuffleNonMandatory$ confirm re-entry for the OBJECT path
 	// (searchmay1): a hidden-library search's own re-entry is handled inside
@@ -316,7 +337,12 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 	// count; a bound pair that admits nothing (Min == Max == 0, or no eligible
 	// candidate) poses no ask and moves nothing -- a decision nobody could
 	// answer differently is never emitted.
-	if ans, ok := changeZoneChosenTargetsFor(h, c, sa, &cz.changeZoneTargeting); ok {
+	if ans, ok, served := changeZoneChosenTargetsFor(h, c, sa, &cz.changeZoneTargeting); ok {
+		if served {
+			// The resolution kernel's answer in hand: the "choice"
+			// re-entry's own events come before it consumes the answer.
+			objectPathMoveEcho(h, c, cz, to)
+		}
 		targets = ans
 		// A suspension (nil answer, ok) leaves the chooser pending: the note
 		// below must wait for the answering re-entry, which moves the targets.
@@ -395,13 +421,22 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 						{Index: 0, Kind: "primary", Label: primaryLabel},
 						{Index: 1, Kind: "bottom", Label: "bottom"},
 					}}
-				if Ask(h, d) == AskAsked {
+				if ans, ok := AskTape(h, d); ok {
+					// The resolution kernel's answer in hand: the
+					// "changezone_alternative" re-entry's own events, then
+					// the answered position exactly as that re-entry reads
+					// the carried label.
+					objectPathMoveEcho(h, c, cz, to)
+					altBottom = len(ans) > 0 && ans[0].Label == "bottom"
+					altEngaged = true
+				} else if Ask(h, d) == AskAsked {
 					return
+				} else {
+					// R-9 no-ask host: the primary placement, deterministically.
+					altAnswer = "top"
+					altBottom = false
+					altEngaged = true
 				}
-				// R-9 no-ask host: the primary placement, deterministically.
-				altAnswer = "top"
-				altBottom = false
-				altEngaged = true
 			} else {
 				altBottom = altAnswer == "bottom"
 				altEngaged = true
@@ -446,10 +481,21 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 					o := h.Game().Obj(target.Obj)
 					d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "imprint", Obj: target.Obj, Label: o.Face().Name})
 				}
-				if h.Ask(d) {
+				if ans, ok := AskTape(h, d); ok {
+					// The resolution kernel's answer in hand: the "imprint"
+					// re-entry's own events, then the answered cards are
+					// the ones moved, exactly as that re-entry's ImprintDone
+					// branch reads them.
+					objectPathMoveEcho(h, c, cz, to)
+					targets = targets[:0]
+					for _, id := range tapeAnswerObjs(ans) {
+						targets = append(targets, state.Target{Obj: id})
+					}
+				} else if h.Ask(d) {
 					return
+				} else {
+					targets = targets[:max]
 				}
-				targets = targets[:max]
 			}
 		}
 	}
@@ -738,18 +784,20 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 // (R-9), which is exactly what botpolicy's clamp fallback answers with.
 func changeZoneChosenTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
 	t := compileChangeZoneTargeting(sa)
-	return changeZoneChosenTargetsFor(h, c, sa, &t)
+	ts, ok, _ := changeZoneChosenTargetsFor(h, c, sa, &t)
+	return ts, ok
 }
 
 // changeZoneChosenTargetsFor is changeZoneChosenTargets over sa's compiled
-// targeting half (effChangeZone passes its compiled record's).
-func changeZoneChosenTargetsFor(h Host, c *Ctx, sa *cards.SA, cz *changeZoneTargeting) ([]state.Target, bool) {
+// targeting half (effChangeZone passes its compiled record's). served
+// reports the resolution kernel's answer to the ask (poseTargetsAsk).
+func changeZoneChosenTargetsFor(h Host, c *Ctx, sa *cards.SA, cz *changeZoneTargeting) (ts []state.Target, ok bool, served bool) {
 	if !cz.ValidTgts.Present || cz.Defined != "" {
-		return nil, false
+		return nil, false, false
 	}
 	if c.SubPreAsk != nil {
 		if ts, ok := c.SubPreAsk[sa.Line]; ok {
-			return ts, true
+			return ts, true, false
 		}
 	}
 	if c.TargetsOffered && (c.OfferedSA == nil || sa.Line == c.OfferedSA.Line) {
@@ -759,7 +807,7 @@ func changeZoneChosenTargetsFor(h Host, c *Ctx, sa *cards.SA, cz *changeZoneTarg
 		// deeper sub's own targeting was never offered -- the same
 		// mvts1 boundary chosenTargetsFor's OfferedSA check draws -- so it
 		// falls through to its own ask below.
-		return nil, false
+		return nil, false, false
 	}
 	if c.ChoiceDone {
 		ans := c.Choice
@@ -767,7 +815,7 @@ func changeZoneChosenTargetsFor(h Host, c *Ctx, sa *cards.SA, cz *changeZoneTarg
 		if TargetUniqueRequested(sa) {
 			c.TargetsUnique = append(c.TargetsUnique, ans...)
 		}
-		return ans, true
+		return ans, true, false
 	}
 	if len(c.Targets) > 0 {
 		// Inherit ONLY when the targets genuinely belong to THIS SA -- the
@@ -782,7 +830,7 @@ func changeZoneChosenTargetsFor(h Host, c *Ctx, sa *cards.SA, cz *changeZoneTarg
 		// filter excludes the inherited parent target via TargetsAlreadyChosen,
 		// so it asks for ANOTHER target instead of inheriting blindly.
 		if c.OfferedSA != nil && sa.Line == c.OfferedSA.Line {
-			return nil, false
+			return nil, false, false
 		}
 	}
 	// Legality stays referenced to the ability controller; only the
@@ -794,7 +842,7 @@ func changeZoneChosenTargetsFor(h Host, c *Ctx, sa *cards.SA, cz *changeZoneTarg
 		// The controller's which-opponent selection ask was posted: the walk
 		// is suspended and re-enters this very SA, where the answered
 		// selection makes ChooserFor return the chosen seat.
-		return nil, true
+		return nil, true, false
 	} else if !posed {
 		chooser = ch
 	}
@@ -811,7 +859,8 @@ func changeZoneChosenTargetsFor(h Host, c *Ctx, sa *cards.SA, cz *changeZoneTarg
 	}
 	if max <= 0 {
 		// Nothing eligible (or an explicitly zero bound): no ask, no move.
-		return noSubTargets(c, sa)
+		ts, ok := noSubTargets(c, sa)
+		return ts, ok, false
 	}
 	return poseTargetsAsk(h, c, sa, chooser, candidates, min, max, "choice")
 }

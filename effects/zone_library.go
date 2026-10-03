@@ -47,7 +47,9 @@ func objectPathShuffleOwed(cz *ChangeZoneParams) bool {
 // suspended the resolution; the answer re-enters effChangeZone, whose
 // SearchShuffle early-return calls this again with moved == nil. A host that
 // cannot ask takes the deterministic decline (R-9), the same stand-in every
-// other may-shuffle confirm uses.
+// other may-shuffle confirm uses. On the resolution kernel's path the answer
+// is served in place and the tail completes here; it still returns true,
+// because the legacy re-entry it mirrors ends effChangeZone after the tail.
 func objectPathShuffleTail(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, moved []state.ObjID) bool {
 	if c.SearchShuffle != "" {
 		ans, placed := c.SearchShuffle, c.SearchShuffleMoved
@@ -69,6 +71,16 @@ func objectPathShuffleTail(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, m
 			{Index: 0, Kind: "yes", Label: "Yes — shuffle", Player: c.Controller},
 			{Index: 1, Kind: "no", Label: "No — keep the order", Player: c.Controller},
 		}}
+	if ans, ok := AskTape(h, d); ok {
+		// The resolution kernel's answer in hand: the "search_mayshuffle"
+		// re-entry's own events, then its answered tail -- and, as that
+		// re-entry returns straight after the tail, the caller stops too.
+		objectPathReentryEcho(h, c, cz)
+		if tapeAnswerYes(ans) {
+			objectPathShuffleOwners(h, moved)
+		}
+		return true
+	}
 	if Ask(h, d) == AskAsked {
 		return true
 	}
@@ -150,6 +162,18 @@ func searchShuffleTail(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, owner
 			{Index: 0, Kind: "yes", Label: "Yes — shuffle", Player: owner},
 			{Index: 1, Kind: "no", Label: "No — keep the order", Player: owner},
 		}}
+	if ans, ok := AskTape(h, d); ok {
+		// The resolution kernel's answer in hand: the "search_mayshuffle"
+		// re-entry's own events (its prelude and this library's look), then
+		// the answered tail exactly as the re-entry's SearchShuffle branch
+		// runs it.
+		searchReentryEcho(h, c, cz, owner, libraryOnlyZones, true)
+		if tapeAnswerYes(ans) {
+			shuffleLibraryOrder(h, owner)
+		}
+		placeLibraryObjects(h, c, cz, owner, moved, to)
+		return false
+	}
 	if Ask(h, d) == AskAsked {
 		return true // suspended; the answer re-enters with Ctx.SearchShuffle set.
 	}
