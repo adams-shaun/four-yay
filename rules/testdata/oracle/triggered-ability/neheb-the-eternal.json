@@ -1,0 +1,93 @@
+{
+ "card": "Neheb, the Eternal",
+ "family": "triggered-ability",
+ "author": "cli-20261002T030326Z-79066444 (Oracle + CR only)",
+ "oracle_sha": "3ddbcaf07dc4",
+ "scenarios": [
+  {
+   "name": "postcombat-main-adds-red-per-life-lost",
+   "cr": [
+    "603.2",
+    "500.2"
+   ],
+   "why": "... the opponent has lost 3 (a stand-in life loss) plus 4 from Neheb's unblocked combat damage = 7 life lost, so seven red mana is added.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Neheb, the Eternal"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "life",
+     "seat": 1,
+     "amount": -3
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "defender": "p1",
+     "attackers": [
+      "p0:Neheb, the Eternal"
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": "RRRRRRR"
+     }
+    }
+   ]
+  },
+  {
+   "name": "no-life-lost-no-mana",
+   "cr": [
+    "603.2",
+    "500.2"
+   ],
+   "why": "With no stand-in life loss but Neheb connecting for 4, the opponent has lost 4 life this turn, so the postcombat main adds four red mana.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Neheb, the Eternal"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "defender": "p1",
+     "attackers": [
+      "p0:Neheb, the Eternal"
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "pool": {
+      "p0": "RRRR"
+     }
+    }
+   ]
+  }
+ ]
+}

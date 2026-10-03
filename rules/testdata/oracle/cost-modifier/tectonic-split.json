@@ -1,0 +1,57 @@
+{
+ "card": "Tectonic Split",
+ "family": "cost-modifier",
+ "author": "cli-20261002T030326Z-79066444 (Oracle + CR only)",
+ "oracle_sha": "a697de7cc98d",
+ "scenarios": [
+  {
+   "name": "additional-cost-half-lands-rounded-up",
+   "cr": [
+    "601.2b",
+    "601.2f",
+    "107.1"
+   ],
+   "why": "'As an additional cost to cast this spell, sacrifice half the lands you control, rounded up': with four lands the cost is exactly two, so two lands must be sacrificed and two remain, which then have the granted '{T}: Add three mana of any one color.'",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Forest",
+      "Forest",
+      "Forest",
+      "Forest"
+     ],
+     "hand": [
+      "Tectonic Split"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Tectonic Split",
+     "mana": "CCCCGG",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Forest",
+        "p0:Forest#2"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "graveyard_size": {
+      "p0": 2
+     }
+    }
+   ]
+  }
+ ]
+}

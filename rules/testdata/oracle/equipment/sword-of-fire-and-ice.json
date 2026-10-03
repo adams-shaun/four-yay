@@ -1,0 +1,143 @@
+{
+ "card": "Sword of Fire and Ice",
+ "family": "equipment",
+ "author": "cli-20261002T030326Z-79066444 (Oracle + CR only)",
+ "oracle_sha": "2cc53b87860a",
+ "scenarios": [
+  {
+   "name": "equipped-attacker-bonus-and-combat-damage-trigger",
+   "cr": [
+    "301.5c",
+    "510.2",
+    "603.2"
+   ],
+   "why": "Equipped creature gets +2/+2, so a 2/2 Bears becomes 4/4; when it deals combat damage to a player the Sword deals 2 damage to any target and its controller draws a card.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sword of Fire and Ice",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Sword of Fire and Ice",
+     "mana": "CC",
+     "ability": "equip",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "defender": "p1",
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "targets": [
+      "p1"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "pt": "4/4"
+    },
+    {
+     "life": {
+      "p1": 14
+     }
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "protection-from-red-prevents-red-block",
+   "cr": [
+    "702.16a",
+    "702.16b",
+    "702.16e",
+    "301.5c"
+   ],
+   "why": "Equipped creature has protection from red, so a red creature can't block it (CR 702.16e) while a non-red creature still can; the control expectation (Centaur Courser CAN block) is what makes the false expectation meaningful.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Sword of Fire and Ice",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Raging Goblin",
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Sword of Fire and Ice",
+     "mana": "CC",
+     "ability": "equip",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "defender": "p1",
+     "attackers": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "pass_to",
+     "decision": "blockers",
+     "expect": [
+      {
+       "can_block": {
+        "blocker": "p1:Raging Goblin",
+        "attacker": "p0:Grizzly Bears"
+       },
+       "want": false
+      },
+      {
+       "can_block": {
+        "blocker": "p1:Centaur Courser",
+        "attacker": "p0:Grizzly Bears"
+       },
+       "want": true
+      }
+     ]
+    }
+   ],
+   "expect": []
+  }
+ ]
+}

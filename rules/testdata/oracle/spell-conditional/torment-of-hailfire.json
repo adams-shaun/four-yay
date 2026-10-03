@@ -1,0 +1,139 @@
+{
+ "card": "Torment of Hailfire",
+ "family": "spell-conditional",
+ "author": "cli-20261002T030326Z-79066444 (Oracle + CR only)",
+ "oracle_sha": "1b27913290ad",
+ "scenarios": [
+  {
+   "name": "x-zero-loses-nothing",
+   "cr": [
+    "601.2b",
+    "608.2c"
+   ],
+   "why": "X=0 means the process repeats zero times, so the opponent loses no life at all; this is the control that distinguishes an X-reading bug from a fixed three.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Torment of Hailfire"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Torment of Hailfire",
+     "mana": "BB",
+     "targets": [],
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "0"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "x-two-no-resources-loses-six",
+   "cr": [
+    "601.2b",
+    "608.2c",
+    "118.2"
+   ],
+   "why": "Torment repeats its process X times; with X=2 and p1 controlling no nonland permanent and holding no cards, p1 loses 3 life twice (6 total), and there is nothing to sacrifice or discard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Torment of Hailfire"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Torment of Hailfire",
+     "mana": "CBBC",
+     "targets": [],
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "2"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 14
+     }
+    }
+   ]
+  },
+  {
+   "name": "x-three-no-resources-loses-nine",
+   "cr": [
+    "601.2b",
+    "608.2c",
+    "118.2"
+   ],
+   "why": "With X=3 and no sacrifice or discard available, each of the three repetitions makes the opponent lose 3, for 9 total.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Torment of Hailfire"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Torment of Hailfire",
+     "mana": "CCCBB",
+     "targets": [],
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "3"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 11
+     }
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,33 @@
+{
+  "card": "Ulamog, the Ceaseless Hunger",
+  "family": "newest-mechanics",
+  "author": "cli-20261002T230428Z-067d6538 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "printed-characteristics",
+      "cr": [
+        "208.3",
+        "702.12"
+      ],
+      "why": "Oracle gives Ulamog, the Ceaseless Hunger printed power/toughness 10/10 and Indestructible. Those characteristics apply to this battlefield creature.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Ulamog, the Ceaseless Hunger"
+          ]
+        }
+      },
+      "steps": [],
+      "expect": [
+        {
+          "card": "p0:Ulamog, the Ceaseless Hunger",
+          "zone": "battlefield",
+          "pt": "10/10",
+          "keywords": [
+            "Indestructible"
+          ]
+        }
+      ]
+    }
+  ]
+}

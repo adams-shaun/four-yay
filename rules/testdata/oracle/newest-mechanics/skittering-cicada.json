@@ -1,0 +1,29 @@
+{
+  "card": "Skittering Cicada",
+  "family": "newest-mechanics",
+  "author": "cli-20261002T230428Z-067d6538 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "printed-characteristics",
+      "cr": [
+        "208.3"
+      ],
+      "why": "Oracle gives Skittering Cicada printed power/toughness 2/2. Those characteristics apply to this battlefield creature.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Skittering Cicada"
+          ]
+        }
+      },
+      "steps": [],
+      "expect": [
+        {
+          "card": "p0:Skittering Cicada",
+          "zone": "battlefield",
+          "pt": "2/2"
+        }
+      ]
+    }
+  ]
+}

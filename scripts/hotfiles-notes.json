@@ -183,5 +183,19 @@
       "docs/agents/repo-map.md"
     ],
     "note": "the 2026-10-01 docs/agents/repo-map.md contention was CLOSED by the per-domain split: repo-map.md is now the INDEX, and every package/path row lives in exactly one of repo-map-engine.md, repo-map-internal.md, repo-map-research.md or repo-map-paths.md. Future package-doc edits go to the editor's own domain file, so a docs-heavy workstream appends to a narrower file; repo-map.md itself changes only when a new DOMAIN appears, not when a package does. The hotspots tool renders per-FILE, so this note names both the new domain files and the old docs/agents/repo-map.md for dedupe; dedupe against cli-20261002T013609Z-24e33ade and the earlier cli-20261001T042757Z-fcbaaa35 / cli-20261001T022457Z-f9dc4b92 notes."
+  },
+  {
+    "files": [
+      "rules/cast_commit.go",
+      "rules/testdata/oracle/spell-conditional/known-divergent.json",
+      "state/object.go"
+    ],
+    "note": "Measured 2026-10-02 against main for the briefed cr601-subtargets / fdn-fix2 branches: cr601-subtargets changes all three paths; fdn-fix2 changes only the spell-conditional known-divergent fixture. There are no issue files to express a Depends-On chain, so the controller must sequence those branch landings. NO HONEST SPLIT: cast_commit.go is part of the cohesive cast-commit legality flow; known-divergent.json is one oracle fixture document and splitting it would fragment its schema; state/object.go owns the central Object representation, not an independent concern these two branches can be separated into. Re-measured on the current main snapshot, hotspots no longer lists state/object.go or this old branch pair; cast_commit.go and the fixture remain contended by newer live branches (cr601-ship/fdn-fix5/fdn-fix6 and cr601-ship/reflex-ship respectively), so sequence those landings too rather than moving code or dividing the fixture."
+  },
+  {
+    "files": [
+      "cmd/botbench/spellbench.go"
+    ],
+    "note": "the spellbench orchestration file: every bench-arm ticket lands its call-sites here — the per-arm logic lives in its own new file (ilgate.go for the il-* cast gate, azvariant.go for the az variants), but sbResult's fields, registerSpellbenchFlags' flag line, sbPlay's Setup/stats loops and spellbenchExit's load/report call sequence are one integration flow, so two arms' additions are adjacent by construction. Measured 2026-10-02 for ticket cli-20261002T194322Z-c325a34c (branches wt/il-enc tip 851ffb06e and the mz workstream (mzrepro tip 077f93821, whose live worktree head wt/mzplay tip 08d9341ef carries the same spellbench.go blob cd5c9caf9; mzrepro is an ancestor of wt/mzplay, so the tool drops mzrepro as a stacked editor and lists only wt/mzplay), main 2d4e01009): an in-memory `git merge-tree --write-tree` of the two tips CONFLICTS ONLY in cmd/botbench/spellbench.go (three hunks — the -il-gate-checkpoint vs -spellbench-first-game-only flag lines, sbResult's gate/gated vs vcorpus/vvisits fields, and sbPlay's il-gate SetPlanner/Setup vs azVariant recorders); cmd/botbench/main.go, spellbench_registry.go and internal/azmcts/candidates.go AUTO-MERGE clean. NO HONEST SPLIT: the remaining edits are call-sites inside sbPlay and spellbenchExit, which both arms must edit in sequence — a main-side carve-out would move exactly the lines both branches rebase onto and manufacture the resolver round it is meant to avoid (the deck/deck.go reasoning). OPERATING RULE: land the arms in sequence (the branches carry no ticket file, so no Depends-On chain is expressible — sequencing is a controller action), and keep each arm's spellbench.go change to its own flag line, its own sbResult fields and its own call inside the shared flow; put everything else in the arm's own file."
   }
 ]
