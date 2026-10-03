@@ -60,6 +60,12 @@ func (e *Engine) Ask(d *decision.Decision) bool {
 	}
 	e.ask(d)
 	e.resume = e.buildAskResume(d, obj, direct, kind)
+	if e.contChainOwners > 0 {
+		// Mark where the ask sits in this pass's reports, with the Ctx it was
+		// posed under, so buildContinuationChain can tell which enclosing
+		// loops walked the same Ctx (resumePoint.inheritsRemembered).
+		e.contChain = append(e.contChain, contFrame{askMarker: true, ctx: e.resolutionCtx})
+	}
 	e.lastDeferred = nil
 	e.askCount++
 	return true
@@ -129,11 +135,11 @@ func (e *Engine) StateChangedSince(mark int) bool {
 // for a resume point (empty when no chain is published, or none was chosen
 // yet). It is how a suspended mid-resolution ask keeps the ChooseDirection
 // answer its chained SubAbility reads after a freshly rebuilt Ctx.
-func (e *Engine) chosenDirectionForResume() string {
-	if e.resolutionCtx == nil {
+func chosenDirectionForResume(c *effects.Ctx) string {
+	if c == nil {
 		return ""
 	}
-	return e.resolutionCtx.ChosenDirection
+	return c.ChosenDirection
 }
 
 // buildAskResume builds the resume point of the mid-resolution ask d from
@@ -207,6 +213,16 @@ func (e *Engine) buildAskResume(d *decision.Decision, obj state.ObjID, direct bo
 		}
 	}
 	parentLinks, linkAnswer, linkAnswered := e.resolutionParentLinks()
+	// An asking site that rides no ResumeRemembered of its own resumes with
+	// the chain's Remembered as it stood when it asked: the first pass
+	// resolved in ONE Ctx whose Remembered the chain had already grown, and
+	// 83 of the 120 asking sites in effects/ ride nothing (spike S3's
+	// Remembered-across-a-suspension class). A VillainousChoice ask's ride is
+	// its victim list, never the chain's, so an empty one stays empty.
+	remembered := d.ResumeRemembered
+	if remembered == nil && e.resolutionCtx != nil && kind != "villainous" {
+		remembered = e.resolutionCtx.Remembered
+	}
 	return &resumePoint{kind: kind, obj: obj, sa: d.ResumeSA, replSource: replSource,
 		replacement: e.applyingReplacement, replaced: e.replReplaced, action: e.replAction,
 		replacedCards:     append([]state.ObjID(nil), e.replReplacedCards...),
@@ -216,10 +232,10 @@ func (e *Engine) buildAskResume(d *decision.Decision, obj state.ObjID, direct bo
 		replacementAmount: replacementAmount,
 		effectFrame:       e.currentEffectFrame,
 		before:            e.retainTriggerBefore(), target: d.ResumeTarget, player: d.Player,
-		chosenDirection: e.chosenDirectionForResume(),
+		chosenDirection: chosenDirectionForResume(e.resolutionCtx),
 		direct:          direct, ownResolution: ownResolution, rolls: d.Rolls, clash: cloneClashResume(d.ResumeClash),
 		choices:     append([]state.Target(nil), d.ResumeChoices...),
-		chosenValid: d.ResumeChosenValid, remembered: append([]state.Target(nil), d.ResumeRemembered...),
+		chosenValid: d.ResumeChosenValid, remembered: append([]state.Target(nil), remembered...),
 		pendingDamage:       effects.ClonePendingDamage(e.resolutionPendingDamage()),
 		parentLinks:         parentLinks,
 		linkAnswer:          linkAnswer,
@@ -227,8 +243,8 @@ func (e *Engine) buildAskResume(d *decision.Decision, obj state.ObjID, direct bo
 		searchKnown:         append([]state.Target(nil), d.ResumeSearchKnown...),
 		forgetOtherSnapshot: append([]state.Target(nil), d.ResumeForgetOtherSnapshot...),
 		forgetOtherOwners:   append([]state.PlayerID(nil), d.ResumeForgetOtherOwners...),
-		forgetOtherReady:    d.ResumeForgetOtherReady, forgetOtherCleared: d.ResumeForgetOtherCleared,
-		digUntilMove: d.ResumeDigUntilMove, digUntilMoveDone: d.ResumeDigUntilMoveDone,
+		forgetOther:         forgetOtherRide{ready: d.ResumeForgetOtherReady, cleared: d.ResumeForgetOtherCleared},
+		digUntilMove:        d.ResumeDigUntilMove, digUntilMoveDone: d.ResumeDigUntilMoveDone,
 		clonePick: d.ResumeClonePick, clonePickDone: d.ResumeClonePickDone,
 		moved:   append([]state.ObjID(nil), d.ResumeMoved...),
 		uptoIdx: d.ResumeUptoIdx, uptoCount: d.ResumeUptoCount, exploreDone: d.ResumeExploreDone,
