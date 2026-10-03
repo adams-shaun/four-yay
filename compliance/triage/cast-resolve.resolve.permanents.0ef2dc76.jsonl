@@ -1,0 +1,2 @@
+{"shape":{"template":"cast-resolve","op":"resolve","field":"permanents","diff":"$CARD gorge+[1/1] xmage+[7/7]; $CARD types gorge+[coward] xmage+[]"},"key":"cast-resolve | resolve | permanents | $CARD gorge+[1/1] xmage+[7/7]; $CARD types gorge+[coward] xmage+[]","cards":1}
+{"card":"Curious Colossus","template":"cast-resolve","status":"diverge","api":"ChangesZone:AnimateAll","sets":["ECL"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 Curious Colossus [coward creature giant warrior] {W} 1/1\", xmage \"c0 o0 Curious Colossus [creature giant warrior] {W} 7/7\""}

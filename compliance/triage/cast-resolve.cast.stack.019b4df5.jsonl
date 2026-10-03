@@ -1,0 +1,2 @@
+{"shape":{"template":"cast-resolve","op":"cast","field":"stack","diff":"gorge=[spell:$CARD@p0] xmage=[ability:$CARD@p0, spell:$CARD@p0]"},"key":"cast-resolve | cast | stack | gorge=[spell:$CARD@p0] xmage=[ability:$CARD@p0, spell:$CARD@p0]","cards":1}
+{"card":"Sage of the Skies","template":"cast-resolve","status":"diverge","api":"SpellCast:CopySpellAbility","sets":["TDM"],"detail":"step 0 (cast) stack: gorge \"[spell:Sage of the Skies@p0]\", xmage \"[ability:Sage of the Skies@p0, spell:Sage of the Skies@p0]\""}

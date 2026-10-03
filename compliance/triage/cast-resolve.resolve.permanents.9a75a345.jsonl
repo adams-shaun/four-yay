@@ -1,0 +1,2 @@
+{"shape":{"template":"cast-resolve","op":"resolve","field":"permanents","diff":"$CARD gorge+[3/2] xmage+[2/1, counters=M1M1=1]"},"key":"cast-resolve | resolve | permanents | $CARD gorge+[3/2] xmage+[2/1, counters=M1M1=1]","cards":1}
+{"card":"Dream Seizer","template":"cast-resolve","status":"diverge","api":"ChangesZone:Discard","sets":["ECL"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 Dream Seizer [creature faerie rogue] {B} 3/2\", xmage \"c0 o0 Dream Seizer [creature faerie rogue] {B} 2/1 counters=M1M1=1\""}

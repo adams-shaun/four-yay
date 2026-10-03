@@ -1,13 +1,27 @@
 // Command oraclediff runs the XMage compliance pipeline's gorge side.
 //
 //	oraclediff gen  [-cards .cards] -manifest compliance/manifests/FRA.json -out scenarios.jsonl
-//	oraclediff diff [-cards .cards] -scenarios scenarios.jsonl -xmage xmage.jsonl -out verdicts.jsonl
+//	oraclediff plan [-cards .cards] -scenarios scenarios.jsonl -xmage-ref REF -cache DIR -replay todo.jsonl -rediff rediff.jsonl
+//	oraclediff diff [-cards .cards] -scenarios scenarios.jsonl [-xmage xmage.jsonl] [-cache DIR] -out verdicts.jsonl
 //	oraclediff show [-cards .cards] -scenarios scenarios.jsonl -card NAME
+//	oraclediff triage [-cards .cards] [-apply]
+//	oraclediff refreeze [-cards .cards] [-apply]
 //
 // gen writes one level-A scenario per manifest card gorge fully supports
-// (skips go to <out>.skips.jsonl). The XMage driver (scripts/xmage-oracle-
-// run.sh) replays the same file; diff runs gorge on each scenario, compares
-// the two engines' snapshots and writes one verdict per scenario.
+// (skips go to <out>.skips.jsonl). plan splits them into the stale ones
+// (no passing verdict for this exact scenario and XMAGE_REF) and, of those,
+// the ones XMage has not replayed yet. The XMage driver (scripts/xmage-
+// oracle-run.sh) replays the latter; diff runs gorge on each scenario,
+// compares the two engines' snapshots and writes one verdict per scenario.
+// scripts/compliance-pass.sh (make compliance-pass) runs the whole pass.
+//
+// Disagreements are triaged by shape (compliance/shape): diff classifies a
+// new disagreement that a compliance/rulings/<id>.json ruling matches, and
+// triage re-applies the rulings to every committed row and writes what no
+// ruling covers as one cluster per shape under compliance/triage/.
+//
+// A passing row freezes only the fields its scenario changed (Frozen), not
+// a hash of the whole snapshot; refreeze converts legacy canon_sha rows.
 package main
 
 import (
@@ -24,6 +38,8 @@ import (
 	"github.com/adams-shaun/gorge/compliance/gate"
 	"github.com/adams-shaun/gorge/compliance/oraclediff"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
+	"github.com/adams-shaun/gorge/compliance/oraclegen/templates"
+	"github.com/adams-shaun/gorge/compliance/shape"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/rules"
 )
@@ -41,16 +57,38 @@ func main() {
 		out := fs.String("out", "", "scenario JSONL")
 		fs.Parse(os.Args[2:])
 		err = runGen(*dir, *manifest, *out)
+	case "plan":
+		fs := flag.NewFlagSet("plan", flag.ExitOnError)
+		dir := fs.String("cards", ".cards", "corpus dir")
+		scen := fs.String("scenarios", "", "scenario JSONL (from gen)")
+		verdicts := fs.String("verdicts", compliance.VerdictDir, "committed verdict directory")
+		ref := fs.String("xmage-ref", "", "XMAGE_REF of this pass")
+		cache := fs.String("cache", "", "XMage result cache directory for this XMAGE_REF and driver")
+		replay := fs.String("replay", "", "write the scenarios XMage must replay here")
+		rediff := fs.String("rediff", "", "write every stale scenario (replayed or cached) here")
+		fs.Parse(os.Args[2:])
+		err = runPlan(*dir, *scen, *verdicts, *ref, *cache, *replay, *rediff)
 	case "diff":
 		fs := flag.NewFlagSet("diff", flag.ExitOnError)
 		dir := fs.String("cards", ".cards", "corpus dir")
 		scen := fs.String("scenarios", "", "scenario JSONL")
 		xm := fs.String("xmage", "", "XMage driver output JSONL")
+		cache := fs.String("cache", "", "XMage result cache: results missing from -xmage are read from it, and -xmage's are stored in it")
 		out := fs.String("out", "", "verdict JSONL")
 		write := fs.String("write", "", "merge verdict rows into this directory (compliance/verdicts)")
 		ref := fs.String("xmage-ref", "", "XMAGE_REF the XMage results came from (required with -write)")
+		rulings := fs.String("rulings", shape.RulingDir, "shape rulings that classify a disagreement automatically")
 		fs.Parse(os.Args[2:])
-		err = runDiff(*dir, *scen, *xm, *out, *write, *ref)
+		err = runDiff(*dir, *scen, *xm, *cache, *out, *write, *ref, *rulings)
+	case "triage":
+		fs := flag.NewFlagSet("triage", flag.ExitOnError)
+		dir := fs.String("cards", ".cards", "corpus dir")
+		verdicts := fs.String("verdicts", compliance.VerdictDir, "verdict directory")
+		rulings := fs.String("rulings", shape.RulingDir, "shape rulings")
+		out := fs.String("out", shape.TriageDir, "cluster directory (rewritten with -apply)")
+		apply := fs.Bool("apply", false, "write the classifications and the clusters")
+		fs.Parse(os.Args[2:])
+		err = runTriage(*dir, *verdicts, *rulings, *out, *apply)
 	case "status":
 		fs := flag.NewFlagSet("status", flag.ExitOnError)
 		dir := fs.String("cards", ".cards", "corpus dir")
@@ -62,10 +100,18 @@ func main() {
 		fs := flag.NewFlagSet("rule", flag.ExitOnError)
 		dir := fs.String("cards", ".cards", "corpus dir")
 		card := fs.String("card", "", "card")
-		status := fs.String("status", "", "gorge_wrong or xmage_wrong")
+		status := fs.String("status", "", "gorge_wrong or xmage_wrong (harness too with -shape-id)")
 		ruling := fs.String("ruling", "", "who is wrong and why, citing the CR")
+		shapeID := fs.String("shape-id", "", "write the ruling as compliance/rulings/<id>.json matching this card's disagreement shape (then run triage -apply)")
+		confirm := fs.Bool("confirm", false, "confirm the card's automatic classification sampled for review")
 		fs.Parse(os.Args[2:])
-		err = runRule(*dir, *card, *status, *ruling)
+		err = runRule(*dir, *card, *status, *ruling, *shapeID, *confirm)
+	case "refreeze":
+		fs := flag.NewFlagSet("refreeze", flag.ExitOnError)
+		dir := fs.String("cards", ".cards", "corpus dir")
+		apply := fs.Bool("apply", false, "write the converted rows")
+		fs.Parse(os.Args[2:])
+		err = runRefreeze(*dir, *apply)
 	case "show":
 		fs := flag.NewFlagSet("show", flag.ExitOnError)
 		dir := fs.String("cards", ".cards", "corpus dir")
@@ -83,7 +129,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, "usage: oraclediff gen|diff ...")
+	fmt.Fprintln(os.Stderr, "usage: oraclediff gen|plan|diff|status|rule|triage|refreeze|show ...")
 	os.Exit(2)
 }
 
@@ -138,7 +184,7 @@ func runGen(dir, manifest, out string) error {
 			if u := reg.Unsupported(c, sup); len(u) > 0 {
 				skip = &oraclegen.Skip{Card: name, Reason: fmt.Sprintf("unsupported %v", u)}
 			} else {
-				it, skip = oraclegen.Generate(reg, name)
+				it, skip = templates.Generate(reg, name)
 			}
 		}
 		if skip != nil {
@@ -183,10 +229,11 @@ func readLines(path string, each func([]byte) error) error {
 	return sc.Err()
 }
 
-func runDiff(dir, scen, xm, out, write, ref string) error {
-	if scen == "" || xm == "" || out == "" {
-		return fmt.Errorf("diff needs -scenarios, -xmage and -out")
+func runDiff(dir, scen, xm, cacheDir, out, write, ref, rulingDir string) error {
+	if scen == "" || (xm == "" && cacheDir == "") || out == "" {
+		return fmt.Errorf("diff needs -scenarios, -xmage or -cache, and -out")
 	}
+	cache := oraclediff.Cache{Dir: cacheDir}
 	if write != "" && ref == "" {
 		return fmt.Errorf("-write needs -xmage-ref")
 	}
@@ -195,16 +242,23 @@ func runDiff(dir, scen, xm, out, write, ref string) error {
 	if err != nil {
 		return err
 	}
+	rs, err := shape.LoadRulings(rulingDir)
+	if err != nil {
+		return err
+	}
+	auto := map[string]int{}
 	xres := map[string]oraclediff.XResult{}
-	if err := readLines(xm, func(b []byte) error {
-		var x oraclediff.XResult
-		if err := json.Unmarshal(b, &x); err != nil {
+	if xm != "" {
+		if err := readLines(xm, func(b []byte) error {
+			var x oraclediff.XResult
+			if err := json.Unmarshal(b, &x); err != nil {
+				return err
+			}
+			xres[x.ID] = x
+			return nil
+		}); err != nil {
 			return err
 		}
-		xres[x.ID] = x
-		return nil
-	}); err != nil {
-		return err
 	}
 	of, err := os.Create(out)
 	if err != nil {
@@ -220,7 +274,15 @@ func runDiff(dir, scen, xm, out, write, ref string) error {
 			return err
 		}
 		row := Row{ID: it.ID, Card: it.Card, Template: it.Template}
+		sha := gate.ItemSHA(it)
 		x, ok := xres[it.ID]
+		if ok && cacheDir != "" {
+			if err := cache.Put(sha, x); err != nil {
+				return err
+			}
+		} else if !ok {
+			x, ok = cache.Get(sha)
+		}
 		if !ok {
 			row.Verdict = oraclediff.Verdict{Status: oraclediff.Harness, Engine: "xmage", Msg: "no XMage result"}
 		} else {
@@ -228,11 +290,11 @@ func runDiff(dir, scen, xm, out, write, ref string) error {
 			row.Verdict = oraclediff.Compare(g, gerr, x, it.Ignore...)
 			row.XMageMS = x.MS
 			vr := compliance.VerdictRow{Card: it.Card, Template: it.Template, ID: it.ID,
-				ScenarioSHA: gate.ItemSHA(it), XMageRef: ref}
+				ScenarioSHA: sha, XMageRef: ref}
 			switch row.Verdict.Status {
 			case oraclediff.Agree:
 				vr.Status = compliance.StatusAgree
-				vr.CanonSHA = gate.Hash([]byte(oraclediff.Canonical(g.Snapshots, it.Ignore...)))
+				vr.Frozen = oraclediff.Freeze(g, it.Ignore...)
 				if x.StrictMiss != "" {
 					vr.Detail = "xmage chose unscripted (gorge posed no such decision): " + firstLine(x.StrictMiss)
 				} else if x.Leftover != "" {
@@ -244,6 +306,12 @@ func runDiff(dir, scen, xm, out, write, ref string) error {
 			default:
 				vr.Status = compliance.StatusHarness
 				vr.Detail = row.Verdict.Engine + ": " + firstLine(row.Verdict.Msg)
+			}
+			if r, _, _ := shape.Classify(&vr, rs, cardAPI(reg, it.Card)); r != nil {
+				auto[r.ID]++
+				if vr.Status == compliance.StatusXMageWrong {
+					vr.Frozen = oraclediff.Freeze(g, it.Ignore...)
+				}
 			}
 			rows = append(rows, vr)
 		}
@@ -271,6 +339,74 @@ func runDiff(dir, scen, xm, out, write, ref string) error {
 	sort.Strings(keys)
 	for _, k := range keys {
 		fmt.Printf("%-28s %d\n", k, counts[k])
+	}
+	ids := make([]string, 0, len(auto))
+	for id := range auto {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		fmt.Printf("auto-classified by %s: %d\n", id, auto[id])
+	}
+	return nil
+}
+
+// runPlan reads gen's scenarios and writes the stale ones (section 11.3
+// C1): -rediff gets every scenario whose verdict must be recomputed,
+// -replay the subset XMage has no cached result for.
+func runPlan(dir, scen, verdictDir, ref, cacheDir, replay, rediff string) error {
+	if scen == "" || ref == "" || replay == "" || rediff == "" {
+		return fmt.Errorf("plan needs -scenarios, -xmage-ref, -replay and -rediff")
+	}
+	reg, err := loadReg(dir)
+	if err != nil {
+		return err
+	}
+	all, err := compliance.LoadVerdicts(verdictDir)
+	if err != nil {
+		return err
+	}
+	cache := oraclediff.Cache{Dir: cacheDir}
+	var outs [2]*bufio.Writer
+	for i, p := range []string{replay, rediff} {
+		f, err := os.Create(p)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		outs[i] = bufio.NewWriter(f)
+		defer outs[i].Flush()
+	}
+	counts := map[gate.Need]int{}
+	reasons := map[string]int{}
+	if err := readLines(scen, func(b []byte) error {
+		var it oraclegen.Item
+		if err := json.Unmarshal(b, &it); err != nil {
+			return err
+		}
+		row, have := all[it.Card][it.Template]
+		need, why := gate.PlanItem(reg, it, row, have, ref, cache)
+		counts[need]++
+		if need == gate.Fresh {
+			return nil
+		}
+		reasons[why]++
+		fmt.Fprintln(outs[1], string(b))
+		if need == gate.Replay {
+			fmt.Fprintln(outs[0], string(b))
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	fmt.Printf("plan: %d fresh, %d rediff from cache, %d to replay in XMage\n", counts[gate.Fresh], counts[gate.Rediff], counts[gate.Replay])
+	keys := make([]string, 0, len(reasons))
+	for k := range reasons {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		fmt.Printf("  stale: %-40s %d\n", k, reasons[k])
 	}
 	return nil
 }
@@ -313,11 +449,14 @@ func runStatus(dir, set, level string) error {
 }
 
 // runRule records a triage ruling on a card's generated-scenario verdict.
-// xmage_wrong freezes gorge's current canonical snapshots as the
-// expectation, so the gate holds gorge to the ruled behaviour.
-func runRule(dir, card, status, ruling string) error {
-	if card == "" || ruling == "" || (status != compliance.StatusGorgeWrong && status != compliance.StatusXMageWrong) {
-		return fmt.Errorf("rule needs -card, -ruling and -status gorge_wrong|xmage_wrong")
+// xmage_wrong freezes gorge's current result as the expectation, so the gate holds gorge to the ruled behaviour.
+//
+// -confirm instead marks the card's automatic classification, sampled for
+// review, as checked; -shape-id writes the ruling as a reusable shape
+// ruling instead of on this one row.
+func runRule(dir, card, status, ruling, shapeID string, confirm bool) error {
+	if card == "" {
+		return fmt.Errorf("rule needs -card")
 	}
 	reg, err := loadReg(dir)
 	if err != nil {
@@ -327,7 +466,43 @@ func runRule(dir, card, status, ruling string) error {
 	if err != nil {
 		return err
 	}
-	it, skip := oraclegen.Generate(reg, card)
+	if confirm {
+		var rows []compliance.VerdictRow
+		for _, r := range all[card] {
+			if r.Review == shape.ReviewPending {
+				r.Review = shape.ReviewConfirmed
+				rows = append(rows, r)
+			}
+		}
+		if len(rows) == 0 {
+			return fmt.Errorf("%s: no automatic classification is pending review", card)
+		}
+		return compliance.ReplaceVerdicts(compliance.VerdictDir, rows)
+	}
+	if shapeID != "" {
+		if ruling == "" || (status != compliance.StatusGorgeWrong && status != compliance.StatusXMageWrong && status != compliance.StatusHarness) {
+			return fmt.Errorf("rule -shape-id needs -ruling and -status gorge_wrong|xmage_wrong|harness")
+		}
+		var rows []compliance.VerdictRow
+		for _, r := range all[card] {
+			if _, ok := shape.Of(r); ok && (r.Status == compliance.StatusDiverge || r.Status == compliance.StatusHarness) {
+				rows = append(rows, r)
+			}
+		}
+		if len(rows) != 1 {
+			return fmt.Errorf("%s: %d untriaged disagreements to take a shape from, want 1", card, len(rows))
+		}
+		p, err := newShapeRuling(shape.RulingDir, shapeID, status, ruling, rows[0])
+		if err != nil {
+			return err
+		}
+		fmt.Printf("wrote %s; run oraclediff triage -apply to classify every row it matches\n", p)
+		return nil
+	}
+	if ruling == "" || (status != compliance.StatusGorgeWrong && status != compliance.StatusXMageWrong) {
+		return fmt.Errorf("rule needs -ruling and -status gorge_wrong|xmage_wrong")
+	}
+	it, skip := templates.Generate(reg, card)
 	if skip != nil {
 		return fmt.Errorf("%s: %s", card, skip.Reason)
 	}
@@ -338,9 +513,9 @@ func runRule(dir, card, status, ruling string) error {
 	if r.ScenarioSHA != gate.ItemSHA(it) {
 		return fmt.Errorf("%s: verdict is for an older scenario; re-run the XMage pass first", card)
 	}
-	r.Status, r.Ruling, r.CanonSHA = status, ruling, ""
+	r.Status, r.Ruling, r.CanonSHA, r.Frozen, r.RulingID, r.Review = status, ruling, "", nil, "", ""
 	if status == compliance.StatusXMageWrong {
-		if r.CanonSHA, err = gate.GorgeCanon(reg, it); err != nil {
+		if r.Frozen, err = gate.Freeze(reg, it); err != nil {
 			return err
 		}
 	}

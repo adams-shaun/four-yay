@@ -1,0 +1,2 @@
+{"shape":{"template":"play-land","op":"play","field":"p0.library","diff":"placement"},"key":"play-land | play | p0.library | placement","cards":1}
+{"card":"Clive's Hideaway","template":"play-land","status":"diverge","api":"-","sets":["FIN"],"detail":"step 0 (play) p0.exile: gorge \"[Wastes]\", xmage \"[]\""}

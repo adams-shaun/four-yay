@@ -1,0 +1,2 @@
+{"shape":{"template":"cast-resolve","op":"cast","field":"p0.pool","diff":"gorge= xmage=CCC"},"key":"cast-resolve | cast | p0.pool | gorge= xmage=CCC","cards":1}
+{"card":"Wistfulness","template":"cast-resolve","status":"diverge","api":"ChangesZone:ChangeZone+ChangesZone:Draw","sets":["ECL"],"detail":"step 0 (cast) p0.pool: gorge \"\", xmage \"CCC\""}

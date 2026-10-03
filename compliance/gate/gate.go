@@ -19,6 +19,7 @@ import (
 	"github.com/adams-shaun/gorge/compliance"
 	"github.com/adams-shaun/gorge/compliance/oraclediff"
 	"github.com/adams-shaun/gorge/compliance/oraclegen"
+	"github.com/adams-shaun/gorge/compliance/oraclegen/templates"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/rules"
 )
@@ -42,7 +43,8 @@ func ItemSHA(it oraclegen.Item) string {
 }
 
 // GorgeCanon replays a generated scenario in gorge and returns the hash of
-// its canonical snapshots.
+// its canonical snapshots: the legacy whole-snapshot expectation
+// (VerdictRow.CanonSHA), superseded by Freeze.
 func GorgeCanon(reg *cards.Registry, it oraclegen.Item) (string, error) {
 	res, err := rules.RunOracleScenarioJSON(reg, it.Raw())
 	if err != nil {
@@ -174,7 +176,7 @@ func Check(reg *cards.Registry, root, set, level string) ([]Problem, error) {
 			bad(name, "XMage does not implement it; needs a hand-authored oracle scenario")
 			continue
 		}
-		it, skip := oraclegen.Generate(reg, name)
+		it, skip := templates.Generate(reg, name)
 		if skip != nil {
 			bad(name, "no generated scenario (%s) and no hand oracle scenario", skip.Reason)
 			continue
@@ -185,19 +187,23 @@ func Check(reg *cards.Registry, root, set, level string) ([]Problem, error) {
 			bad(name, "no verdict for %s", it.ID)
 			continue
 		case r.Status != compliance.StatusAgree && r.Status != compliance.StatusXMageWrong:
-			bad(name, "verdict %s (%s): %s", r.Status, it.Template, r.Detail)
+			if r.RulingID != "" {
+				bad(name, "verdict %s (%s) [ruling %s]: %s", r.Status, it.Template, r.RulingID, r.Detail)
+			} else {
+				bad(name, "verdict %s (%s): %s", r.Status, it.Template, r.Detail)
+			}
+			continue
+		case r.RulingID != "" && r.Review == "pending":
+			// One automatic classification in ten waits for a human check
+			// before it counts (shape.Sampled).
+			bad(name, "automatic ruling %s sampled for review; check it, then oraclediff rule -card %q -confirm", r.RulingID, name)
 			continue
 		case r.ScenarioSHA != ItemSHA(it):
 			bad(name, "verdict is for an older scenario (%s); re-run the XMage pass", it.ID)
 			continue
 		}
-		canon, err := GorgeCanon(reg, it)
-		if err != nil {
-			bad(name, "gorge replay: %v", err)
-			continue
-		}
-		if canon != r.CanonSHA {
-			bad(name, "gorge no longer meets the frozen expectation of %s", it.ID)
+		if ok, why := StillMeets(reg, it, r); !ok {
+			bad(name, "%s (%s)", why, it.ID)
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Card < out[j].Card })

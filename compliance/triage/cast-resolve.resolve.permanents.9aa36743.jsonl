@@ -1,0 +1,2 @@
+{"shape":{"template":"cast-resolve","op":"resolve","field":"permanents","diff":"$CARD gorge+[4/5, counters=P1P1=1] xmage+[3/4]"},"key":"cast-resolve | resolve | permanents | $CARD gorge+[4/5, counters=P1P1=1] xmage+[3/4]","cards":1}
+{"card":"Driftgloom Coyote","template":"cast-resolve","status":"diverge","api":"ChangesZone:ChangeZone","sets":["BLB"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 Driftgloom Coyote [coyote creature elemental] {W} 4/5 counters=P1P1=1\", xmage \"c0 o0 Driftgloom Coyote [coyote creature elemental] {W} 3/4\""}

@@ -1,0 +1,2 @@
+{"shape":{"template":"cast-resolve","op":"resolve","field":"permanents","diff":"$CARD gorge+[5/5, counters=P1P1=2] xmage+[3/3]"},"key":"cast-resolve | resolve | permanents | $CARD gorge+[5/5, counters=P1P1=2] xmage+[3/3]","cards":1}
+{"card":"Putrid Pals","template":"cast-resolve","status":"diverge","api":"-","sets":["TMT"],"detail":"step 1 (resolve) permanents: gorge \"c0 o0 Putrid Pals [creature human mutant ooze] {BG} 5/5 counters=P1P1=2\", xmage \"c0 o0 Putrid Pals [creature human mutant ooze] {BG} 3/3\""}
