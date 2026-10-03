@@ -1,0 +1,65 @@
+{
+ "card": "Snapcaster Mage",
+ "family": "etb-ltb",
+ "author": "cli-20261002T030326Z-79066444 (Oracle + CR only)",
+ "oracle_sha": "5d9f3beaec51",
+ "scenarios": [
+  {
+   "name": "enters-grants-flashback-and-it-casts",
+   "cr": [
+    "603.6a",
+    "702.34a"
+   ],
+   "why": "Snapcaster Mage's enters trigger grants target instant or sorcery card in your graveyard flashback until end of turn, with the flashback cost equal to its mana cost; the Lightning Bolt can then be cast from the graveyard for {R} and is exiled on resolution.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Snapcaster Mage"
+     ],
+     "graveyard": [
+      "Lightning Bolt"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Snapcaster Mage",
+     "mana": "CU",
+     "targets": [
+      "p0:Lightning Bolt"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "cast_mode": "flashback",
+     "targets": [
+      "p1"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "exile"
+    },
+    {
+     "life": {
+      "p1": 17
+     }
+    }
+   ]
+  }
+ ]
+}

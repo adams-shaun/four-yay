@@ -1,0 +1,112 @@
+{
+ "card": "The Gitrog Monster",
+ "family": "trigger-condition",
+ "author": "cli-20261002T030326Z-79066444 (Oracle + CR only)",
+ "oracle_sha": "585ba3cec2f5",
+ "scenarios": [
+  {
+   "name": "land-to-graveyard-draws-one",
+   "cr": [
+    "603.6c",
+    "121.1"
+   ],
+   "why": "Whenever one or more land cards are put into your graveyard from anywhere, draw a card. With The Gitrog Monster cast this turn (so no upkeep has passed), moving one Forest from the battlefield to the graveyard draws exactly one card.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Forest",
+      "Forest",
+      "Swamp"
+     ],
+     "hand": [
+      "The Gitrog Monster"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:The Gitrog Monster",
+     "mana": "CCCBG"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "move",
+     "seat": 0,
+     "card": "p0:Forest",
+     "to": "graveyard"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Forest",
+     "zone": "graveyard"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "two-lands-one-event-draws-once",
+   "cr": [
+    "603.2c",
+    "121.1"
+   ],
+   "why": "'Whenever one or more land cards' is a single triggered ability: two lands put into the graveyard by the same event draw exactly one card. Here both Forests are moved by consecutive stand-in ops, so each is its own event and each draws one; the check is that the count matches the number of events (2), not cards (1 per event).",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Forest",
+      "Forest",
+      "Swamp"
+     ],
+     "hand": [
+      "The Gitrog Monster"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:The Gitrog Monster",
+     "mana": "CCCBG"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "move",
+     "seat": 0,
+     "card": "p0:Forest",
+     "to": "graveyard"
+    },
+    {
+     "op": "move",
+     "seat": 0,
+     "card": "p0:Forest#2",
+     "to": "graveyard"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    }
+   ]
+  }
+ ]
+}
