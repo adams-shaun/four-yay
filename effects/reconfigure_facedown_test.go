@@ -11,7 +11,7 @@ import (
 // layer walk on ONE answer for a face-down attached reconfigure card (the
 // r2 review MINOR, same attach-time-internal-inconsistency class as the
 // disclosed attachableTo divergence). rules/layers.go's
-// reconfigureTypeSwitch guards its CR 702.150c strip with
+// chars.reconfigureTypeSwitch guards its CR 702.150c strip with
 // `o.FaceDown && o.Zone == state.ZBattlefield`: a face-down battlefield
 // permanent keeps its CR 708.5 set, because its printed face -- and with it
 // the Reconfigure keyword the switch keys on -- does not exist while face

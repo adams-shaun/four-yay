@@ -111,7 +111,7 @@ func (e *Engine) grantedAbilities(p state.PlayerID, id state.ObjID) []grantedAbi
 		// granted-trigger walk reads only that). The face's `Abilities` slice
 		// holds only AB-kind SAs (cards' parser appends A: lines as AB/SP/ST
 		// kinds; a gained activated ability is the AB ones), matched by the
-		// same isManaAbilityAPI split the offer loop applies, so a gained
+		// same cards.IsManaAbilityAPI split the offer loop applies, so a gained
 		// mana ability flows through the payment path like any other. The
 		// grant's GainsValidAbilities$ filter (Sharkey's
 		// `Activated.!ManaAbility`, Nicol Bolas Dragon-God's
@@ -294,7 +294,7 @@ func (e *Engine) gainsValidAbilitiesAdmits(spec string, ab *cards.SA) bool {
 			case "":
 				// A trailing dot ("Activated."): no qualifier, vacuous.
 			case "!ManaAbility":
-				ok = ok && !isManaAbilityAPI(ab.API)
+				ok = ok && !cards.IsManaAbilityAPI(ab.API)
 			case "!Loyalty":
 				ok = ok && !e.isLoyaltyAbility(ab)
 			case "Loyalty":

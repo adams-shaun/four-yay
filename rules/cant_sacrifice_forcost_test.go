@@ -3,7 +3,7 @@ package rules
 // cantsac1: a CantSacrifice static's ForCost$ True is enforced on the COST
 // path (rules/layers.go sacrificeBlocked / sacrificeBlockedForCost), and its
 // ValidCause$ is evaluated there against the pending cast/activation
-// (rules/trigmatch_cards.go causeCostAdmits) instead of being skipped whole.
+// (rules/trigger_cause.go causeCostAdmits) instead of being skipped whole.
 //
 // vc-static1 whitelisted ForCost$/ValidCause$ but deliberately skipped every
 // ForCost$ True line (the cost call sites' pending cast/activation identity

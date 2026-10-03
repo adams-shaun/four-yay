@@ -174,23 +174,37 @@ type EffectFrame struct {
 	Stamp  uint32
 }
 
-// RepeatOptionalContinuation is the scoped continuation for RepeatOptional$.
-// It is carried only by the resolving Ctx; rules transports it across a
-// mid-resolution ask and it is never event state.
+// RepeatContinuation is the scoped continuation of an api:Repeat loop that
+// suspended: a RepeatOptional$ election's answer, or ANY Repeat whose body
+// posed a mid-resolution ask (CR 608.2c: the remaining iterations still run
+// once the answer is applied). It is carried only by the resolving Ctx;
+// rules transports it across a mid-resolution ask and it is never event
+// state. effRepeat consumes it (the first reader), so a later Repeat on the
+// same Ctx starts fresh.
 //
-// It represents two DISTINCT resume states, never conflated (fx42):
-//   - Continue false: the player answered "no" and the loop stops.
-//   - Continue true, AskElection false: a completed election was answered
-//     "yes", so the next body to run is iteration Next -- no further
-//     election is owed for it.
-//   - Continue true, AskElection true: a body of iteration Next-1 completed
-//     after its own suspension (a body ask), so the do/while election owed
-//     for iteration Next has NOT been posed yet and must be asked before
-//     that iteration's body runs.
-type RepeatOptionalContinuation struct {
-	Continue    bool
-	Next        int32
-	AskElection bool
+// It represents DISTINCT resume states, never conflated (fx42):
+//   - Continue false: the player answered a RepeatOptional$ "no" and the
+//     loop stops.
+//   - Continue true, AfterBody false: a completed RepeatOptional$ election
+//     was answered "yes", so the next body to run is iteration Next -- no
+//     further election is owed for it.
+//   - Continue true, AfterBody true: the body of iteration Next-1 completed
+//     after its own suspension (a body ask), so the between-iteration step
+//     owed before iteration Next has NOT run yet: the RepeatCheckSVar$/
+//     RepeatDefined$ gate, then -- for RepeatOptional$ only -- the do/while
+//     election. A non-optional Repeat whose gate holds (or that has none)
+//     runs iteration Next's body directly.
+//
+// Count is the iteration bound the suspended pass resolved (MaxRepeat$/
+// RepeatNum$, or the 1000 cap), so the resumed loop keeps the count Forge
+// computes once before the first iteration rather than re-reading a value
+// the body itself may have changed. Zero means "not recorded" (an election
+// answer): the bound is re-evaluated.
+type RepeatContinuation struct {
+	Continue  bool
+	Next      int32
+	AfterBody bool
+	Count     int32
 }
 
 // RepeatEachOptionalContinuation is the scoped answer of one subject's
@@ -359,9 +373,11 @@ type Ctx struct {
 	ForgetOtherOwners   []state.PlayerID
 	ForgetOtherReady    bool
 	ForgetOtherCleared  bool
-	// RepeatOptional is set only when a RepeatOptional$ answer is being
-	// resumed. A nil value means this is the first pass through the Repeat.
-	RepeatOptional *RepeatOptionalContinuation
+	// RepeatResume is set only when a suspended api:Repeat loop is being
+	// resumed (a RepeatOptional$ election answer, or the loop frame of a
+	// Repeat whose body asked). A nil value means this is the first pass
+	// through the Repeat.
+	RepeatResume *RepeatContinuation
 	// RepeatEachOptional is set only when a RepeatEach
 	// RepeatOptionalForEachPlayer$ election is being resumed. A nil value
 	// means no per-subject election answer is in flight. It is distinct from

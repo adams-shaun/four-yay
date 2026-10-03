@@ -13,7 +13,7 @@ import (
 // CR 702.70 Training: "Whenever this creature attacks with another creature
 // with greater power, put a +1/+1 counter on this creature." cards/kw_training.go
 // expands a printed K:Training into an Attacks trigger carrying Training$ True,
-// and rules/trigmatch_combat.go's attacksMatches reads the event-relative
+// and rules/trigmatch/combat.go's AttacksMatches reads the event-relative
 // condition. The granted (layer-6 AddKeyword$) form is synthesized by
 // checkGrantedTrainingTriggers, the Dethrone precedent.
 

@@ -293,7 +293,7 @@ func foldMyriadCopy(g *state.Game, e *Event) {
 	// other permanent's "creature enters" trigger) see it exactly as they
 	// would a cast or reanimated creature. A direct Move() here, as
 	// TokenCreate/CardToken use, would leave the entry invisible to
-	// zoneChangeMatches (Mode$ ChangesZone requires ev.Kind ==
+	// trigmatch.ZoneChangeMatches (Mode$ ChangesZone requires ev.Kind ==
 	// events.MoveZone).
 	src := g.Obj(e.Obj)
 	if validPlayer(g, e.Player) && src != nil && src.Face() != nil {

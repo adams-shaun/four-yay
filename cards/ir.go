@@ -165,7 +165,7 @@ var typeStaticParams = [...]string{"AddType", "AddTypes", "AddAllCreatureTypes",
 
 // staticMayChangeTypes reports whether one static carries a typeStaticParams
 // key, and whether it could function OFF the battlefield. The off-battlefield
-// half over-approximates rules' zone gate (staticZoneAdmits ||
+// half over-approximates rules' zone gate (chars.StaticZoneAdmits ||
 // stackSelfStaticOK): with no EffectZone$ and no ExcludeZone$ a static is
 // battlefield-only, unless it is the stack-self shape (PresentZone$ naming
 // Stack, or AffectedZone$ Stack). An AddStaticAbility$ grant's inner static
@@ -190,8 +190,8 @@ func staticMayChangeTypes(st *Static) (has, offBF bool) {
 }
 
 // staticMayFunctionOffBattlefield over-approximates rules' Continuous source
-// zone gate (staticZoneAdmits || stackSelfStaticOK) for a source NOT on the
-// battlefield: with no EffectZone$ and no ExcludeZone$ key, staticZoneAdmits
+// zone gate (chars.StaticZoneAdmits || stackSelfStaticOK) for a source NOT on the
+// battlefield: with no EffectZone$ and no ExcludeZone$ key, chars.StaticZoneAdmits
 // admits only the battlefield, and stackSelfStaticOK needs PresentZone$
 // naming Stack or AffectedZone$ Stack.
 func staticMayFunctionOffBattlefield(st *Static) bool {

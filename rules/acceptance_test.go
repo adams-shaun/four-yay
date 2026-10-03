@@ -108,7 +108,7 @@ var knownUnsupported = map[string][]string{
 	// implemented and is pinned in rules/msh_commander_trigger_test.go.
 	// Captain Marvel, Apex Avenger's trig:CounterPlayerAddedAll entry was
 	// deleted when the mode was registered (trigmatch_counters.go's
-	// counterPlayerAddedAllMatches) -- its own trigger's ValidObject$
+	// trigmatch.counterPlayerAddedAllMatches) -- its own trigger's ValidObject$
 	// Creature...+nonKree spec still fails closed on the unknown nonKree
 	// predicate (a filter-vocabulary gap, ledgered), so the trigger is
 	// primitive-supported but silent; the card's OTHER gap

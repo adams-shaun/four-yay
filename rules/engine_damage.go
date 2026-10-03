@@ -10,7 +10,7 @@ import (
 // published override when a damage emitter set one, else the resolution/combat
 // source e.damaging carries. Zero when neither is set (a Damage event with no
 // recorded source -- emit's protection check treats zero as "never prevent",
-// and damageMatches fails the ValidSource$ match).
+// and trigmatch.DamageMatches fails the ValidSource$ match).
 func (e *Engine) inFlightDamageSource() state.ObjID {
 	if e.dmgSrcOverride != 0 {
 		return e.dmgSrcOverride

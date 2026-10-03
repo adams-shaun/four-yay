@@ -771,7 +771,7 @@ func (e *Engine) manaExpendAdd(player state.PlayerID, spend int32) {
 
 // manaExpendTotal is the player's cumulative mana spent casting spells this
 // turn -- the current-turn tally, or zero when the tally belongs to an
-// earlier turn (no cast has stamped the new turn yet). manaExpendMatches
+// earlier turn (no cast has stamped the new turn yet). trigmatch.ManaExpendMatches
 // reads it for the crossing test.
 func (e *Engine) manaExpendTotal(player state.PlayerID) int32 {
 	if e.manaExpendedTurn != e.G.Turn || int(player) >= len(e.manaExpended) {

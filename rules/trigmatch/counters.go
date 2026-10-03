@@ -170,7 +170,7 @@ func counterRemovedMatches(e Board, t cards.Trigger, source state.ObjID, ev even
 // one matching event queues exactly one trigger however many counters that
 // one batch carried -- the "one or more" reading, the same
 // one-batch-per-action granularity the ChangesZoneAll registration shares
-// (rules/trigmatch_zone.go; the api:Dig/Phases/Mill/RepeatEach brackets open it). One activation hitting several recipients
+// (rules/trigmatch/zone.go; the api:Dig/Phases/Mill/RepeatEach brackets open it). One activation hitting several recipients
 // emits one event per recipient and queues one trigger per MATCHING
 // recipient event (each named by its own text); a batch that lands N
 // counters on ONE object queues one trigger, not N.

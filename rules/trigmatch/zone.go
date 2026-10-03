@@ -185,7 +185,7 @@ func LeftBattlefield(ev events.Event) bool {
 	return ev.Kind == events.MoveZone && ev.From == state.ZBattlefield && ev.To != state.ZBattlefield
 }
 
-// sacrificedMatches and discardedMatches identify the two actions from the
+// sacrificedMatches and DiscardedMatches identify the two actions from the
 // existing, replayed zone-change event. Discard producers use events.Discard
 // or events.DiscardCost, so the action marker and its cost provenance survive
 // a replacement changing the destination.

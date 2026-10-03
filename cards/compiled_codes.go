@@ -861,7 +861,7 @@ func triggerInterestForMode(mode string) TriggerInterest {
 		return TriggerInterestExplore
 	case "ManaExpend":
 		// The crossing trigger fires on its own pay-time FlagManaExpendCast
-		// CastInfo emission (rules' manaExpendMatches); the dedicated bit
+		// CastInfo emission (trigmatch.ManaExpendMatches); the dedicated bit
 		// keeps a ManaExpend-only face's scan set narrow instead of the
 		// fail-open default.
 		return TriggerInterestCastInfo
@@ -869,12 +869,12 @@ func triggerInterestForMode(mode string) TriggerInterest {
 		// trig:Foretell (task agent-20260923T032009Z-3b9d3432) fires on the
 		// {2} Foretell action's pay-time FlagForetold CastInfo and the
 		// effect-designation exile MoveZone marker (rules'
-		// foretellMatches); the two bits keep a Foretell-only face's scan
+		// trigmatch.foretellMatches); the two bits keep a Foretell-only face's scan
 		// set narrow instead of the fail-open Any default.
 		return TriggerInterestCastInfo | TriggerInterestZoneChange
 	case "BecomeMonarch":
 		// The monarch designation transition (events.MonarchChange), matched
-		// by rules' becomeMonarchMatches. The dedicated bit narrows a
+		// by trigmatch.BecomeMonarchMatches. The dedicated bit narrows a
 		// BecomeMonarch-only face's scan set to that kind.
 		return TriggerInterestMonarch
 	case "Taps", "TapsForMana":

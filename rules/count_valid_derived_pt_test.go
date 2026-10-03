@@ -11,7 +11,7 @@ import (
 
 // TestCountValidDerivationIsNotFactorial (general; the fuzzer's "hang"
 // records: every off-lane hang game profiled 98-99% under staticAmountOn ->
-// zoneCountFold.visit -> FilterDerivedPT -> derivedScalarFrom, and 4 of 7
+// zoneCountFold.visit -> FilterDerivedPT -> chars.PT, and 4 of 7
 // did not finish in 7 CPU-minutes): Count$Valid bound every battlefield
 // candidate's derived P/T (effects/count.go zoneCountFold.visit) even when
 // the spec reads none ("Artifact.YouCtrl"), so a P/T CDA that counts

@@ -18,7 +18,7 @@ import (
 // battlefield skip) against rules' OWN source-zone gate, over every face of
 // every corpus card and token script. For each zone staticEffects walks, a
 // Continuous static that passes the real gate (stackSelfStaticOK ||
-// staticZoneAdmits) off the battlefield must make the off-battlefield probe
+// chars.StaticZoneAdmits) off the battlefield must make the off-battlefield probe
 // answer true, and one that could reach the AddType branch (directly, or
 // through an AddStaticAbility$ grant) must make the type probe for that zone
 // class answer true. It also pins that the corpus faces come out of the

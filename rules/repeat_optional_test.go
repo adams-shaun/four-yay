@@ -13,7 +13,7 @@ package rules
 //   - Forbidden Ritual: the body SUSPENDS on its own ask. When that body
 //     completes after the answer, the next decision must be the repeat
 //     election for the NEXT iteration, not that iteration's body. This is
-//     the state RepeatOptionalContinuation.AskElection names.
+//     the state RepeatContinuation.AfterBody names.
 
 import (
 	"testing"

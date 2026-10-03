@@ -6,7 +6,7 @@
 //
 // Split out of trigger_match.go so tickets touching different modes stop
 // colliding on one file. Registration is at the bottom; a duplicate mode
-// panics (registerTrigMatcher).
+// panics (trigmatch.registerTrigMatcher).
 
 package rules
 
@@ -98,7 +98,7 @@ func (e *Engine) triggerConditionHoldsAs(t cards.Trigger, source state.ObjID, yo
 
 // triggerConditionHoldsCtx is the shared condition walk with the ability's
 // captured event roles supplied (nil at fire time, since the general gate has
-// no event to name a role and the per-mode matcher -- attacksMatches for
+// no event to name a role and the per-mode matcher -- trigmatch.AttacksMatches for
 // Condition$ AttackedPlayerWithMostLife -- owns the fire-time answer).
 func (e *Engine) triggerConditionHoldsCtx(t cards.Trigger, source state.ObjID, you state.PlayerID, tc *effects.TriggerContext) bool {
 	return e.triggerConditionHoldsWithSVars(t, source, you, tc, nil)
@@ -132,7 +132,7 @@ func (e *Engine) triggerConditionHoldsWithSVars(t cards.Trigger, source state.Ob
 		return false
 	}
 	// LifeLost's and LifeGained's LifeAmount$ are matched against the causing
-	// loss/gain by their matchers (lifeLostMatches/lifeGainedMatches), rather
+	// loss/gain by their matchers (trigmatch.lifeLostMatches/trigmatch.lifeGainedMatches), rather
 	// than against a player's current life total.
 	if v, ok := t.Param(cards.PKLifeAmount); ok && t.Mode != "LifeLost" && t.Mode != "LifeLostAll" && t.Mode != "LifeGained" {
 		if !e.lifeConditionHoldsAs(t, you, v) {
@@ -261,9 +261,9 @@ func (e *Engine) triggerConditionHoldsWithSVars(t cards.Trigger, source state.Ob
 		// player with the most life or tied for most life"): an
 		// event-RELATIVE clause, so it is re-evaluated here only when the
 		// ability's captured roles name the defender. A nil tc is the
-		// fire-time general gate, whose caller attacksMatches already
+		// fire-time general gate, whose caller trigmatch.AttacksMatches already
 		// evaluated the clause against the DeclareAttackers event against
-		// the SAME playerHasMostLife read -- skipping it here is what keeps
+		// the SAME trigmatch.PlayerHasMostLife read -- skipping it here is what keeps
 		// the two halves from double-gating a passing trigger. A non-nil tc
 		// (resolution) with no defender binding is a condition this build
 		// cannot confirm and fails closed, the convention every clause above

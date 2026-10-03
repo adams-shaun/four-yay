@@ -155,7 +155,7 @@ func TestSnowblindCounterExcludedFromAmount(t *testing.T) {
 // Self$CardToughness (the ref family the fatal crash signature named through
 // definedSpec), and an Equipment whose static pumps its bearer by
 // Equipped$CardToughness. With no guard either read re-enters
-// derivedScalarFrom for the same object and overflows the stack; with it, the
+// chars.PT for the same object and overflows the stack; with it, the
 // 2/2 basis adds its own pre-counter toughness 2 and the body is 2/4.
 func TestSelfReferentialPTTerminates(t *testing.T) {
 	t.Parallel()

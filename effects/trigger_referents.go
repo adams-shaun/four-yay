@@ -407,7 +407,7 @@ func controlReferentPlayers(g *state.Game, sc SpecContext, op, ref string) ([]st
 		// (Summon: Valefor, Chaos Defiler).
 		//
 		// The RememberedPlayers channel is the CONSULTATION-time half:
-		// rules' block consultation (blockRestricted) binds a registered
+		// rules' block consultation (combat.BlockRestricted) binds a registered
 		// restriction's captured players on a static that never resolves, so
 		// without it a ValidBlocker$ Creature.RememberedPlayerCtrl clause
 		// (The Motherlode, Excavator) would fail closed. Every

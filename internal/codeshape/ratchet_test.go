@@ -74,8 +74,11 @@ const (
 	// pendingCast that the matcher closure reached directly. The move folded
 	// SpecCtx/MatchesSpec/MatchesSpecFrom into MatchesSpec/MatchesObject with
 	// SpecOpts (a SpecContext's Resolve closure must not cross the
-	// interface): 29 -> 28.
-	trigmatchBoardMethods = 28
+	// interface): 29 -> 28. W5 cleanup moved IsManaAbilityAPI into cards
+	// (a pure function of the API word): 28 -> 27. It then swapped the Host()
+	// escape hatch (the whole engine as an effects.Host) for the one narrow
+	// EvalCount the matchers needed: 27 -> 27.
+	trigmatchBoardMethods = 27
 	// changeZoneParamLeaks is the number of ChangeZone parameter reads
 	// outside its compiler, effects/changezone_params.go (W4 step 3, spec
 	// section 8): any read in ChangeZone's own resolution files, plus any

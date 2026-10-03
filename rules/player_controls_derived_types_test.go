@@ -28,7 +28,7 @@ import (
 const controlsVictim = "Name:Controls Victim\nTypes:Creature Human\nPT:1/1\nOracle:x\n"
 
 // TestPlayerControlsCreatureSeesLayer4DerivedTypes drives the PRODUCTION
-// caller -- phaseMatches, the Mode$ Phase trigger's ValidPlayer$ gate, which
+// caller -- trigmatch.PhaseMatches, the Mode$ Phase trigger's ValidPlayer$ gate, which
 // builds its context through e.playerSpecCtx -- so the assertion is not just
 // the leaf grammar. Maskwood Nexus makes every creature every creature type;
 // a controlsCreature.Goblin trigger must therefore fire for the seat whose
@@ -64,7 +64,7 @@ func TestPlayerControlsCreatureSeesLayer4DerivedTypes(t *testing.T) {
 		t.Fatal("phaseMatches ValidPlayer$ controlsCreature.Goblin did not see the layer-4 granted Goblin")
 	}
 	// Non-vacuity: the same gate answers NO for a seat with no Goblin
-	// creature. phaseMatches always reads the active player, so assert the
+	// creature. trigmatch.PhaseMatches always reads the active player, so assert the
 	// seat scoping through the same context carrier it builds.
 	if effects.MatchesPlayerSpecCtx(e.G, "Player.controlsCreature.Goblin_GE1", 1, 0, e.playerSpecCtx(source)) {
 		t.Fatal("seat 1 controls no Goblin, yet controlsCreature matched")
