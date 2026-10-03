@@ -173,6 +173,15 @@ type Host interface {
 	// Redirect effects use this shared census rather than duplicating target
 	// legality below rules (protection and continuous restrictions included).
 	LegalTargets(chooser state.PlayerID, source state.ObjID, sa *cards.SA) []state.Target
+	// QueueReflexiveTrigger puts one CR 603.12 reflexive triggered ability
+	// ("When you do, ...": DB$/AB$ ImmediateTrigger's Execute$ body) into the
+	// trigger queue, so it goes on the stack with its own targets the next
+	// time a player would receive priority instead of resolving inside the
+	// ability that spawned it. remembered is the instance's remembered set.
+	// It reports false when the host cannot mint the ability from the log
+	// (the body is not the resolving source's own Execute$ SVar); the caller
+	// then keeps the inline resolution.
+	QueueReflexiveTrigger(c *Ctx, execute string, body *cards.SA, remembered []state.Target) bool
 	// LegalSubTargets is LegalTargets for a SubAbility$'s OWN ValidTgts$ asked
 	// while its parent resolves: parent is the parent ability's already-chosen
 	// target list, which the census binds for the Targeted*/ParentTarget

@@ -31,7 +31,6 @@
   "Elder Owyn Lyons/artifacts-have-ward-one": "step 1 (cast): [{\"kind\":\"choose\",\"pick\":[\"no\"]}]",
   "Elenda and Azor/attacking-pays-two-and-draws-two": "step 0 (attack): [{\"kind\":\"choose\",\"pick\":[\"2\"]},{\"kind\":\"choose\",\"pick\":[\"W\",\"U\",\"B\"]}]",
   "Exotic Orchard/opponents-mountain-produces-red": "step 1 (activate): [{\"kind\":\"any\",\"pick\":[\"R\"]}]",
-  "Faebloom Trick/tap-targets-so-ward-triggers": "step 1 (resolve): [{\"kind\":\"modes\",\"pick\":[\"no\"]}]",
   "Faithless Looting/draw-two-then-discard-two": "step 1 (resolve): [{\"kind\":\"choose\",\"pick\":[\"p0:Grizzly Bears\",\"p0:Forest\"]}]",
   "Faithless Looting/flashback-casts-from-graveyard-then-exiles": "step 1 (resolve): [{\"kind\":\"choose\",\"pick\":[\"p0:Grizzly Bears\",\"p0:Forest\"]}]",
   "Felling Blow/targeting-a-ward-creature-triggers-ward": "step 1 (resolve): [{\"kind\":\"modes\",\"pick\":[\"no\"]}]",

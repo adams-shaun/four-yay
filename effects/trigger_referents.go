@@ -42,6 +42,14 @@ type TriggerContext struct {
 	// capture a printed trigger of that mode makes -- so the two referents
 	// cannot share one slot.
 	DelayedRemembered []state.Target
+	// Reflexive marks a CR 603.12 reflexive triggered ability ("When you do,
+	// ...") minted by effImmediateTrigger through Host.QueueReflexiveTrigger.
+	// Its stack object's Remembered is the instance's OWN remembered set --
+	// real memory, not a fire-time event capture -- so the resolution binds
+	// Ctx.Captured from SpawnerCaptured (the spawning ability's capture, what
+	// the Spawner> chain reads) instead of from the object's Remembered.
+	Reflexive       bool
+	SpawnerCaptured []state.Target
 	// OptionalSpec is the OptionalDecider$ spec an api:Effect Triggers$
 	// body registered its delayed trigger with (state.DelayedTrigger.
 	// OptionalSpec). The registration carries it because a Mode$ Phase
