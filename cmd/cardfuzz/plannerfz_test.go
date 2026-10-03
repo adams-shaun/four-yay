@@ -20,6 +20,11 @@ import (
 //     offer census skipped every TargetUnique$ chain link and never walked a
 //     Charm mode's chain, so the planner offered casts the announcement then
 //     reversed (rules chainTargetsAvailable / modeTargetsAvailable).
+//   - planfb cost_changed (Call to Heel, Press the Enemy, Symbol of
+//     Unsummoning beside Battlefield Thaumaturge): the planner's
+//     target-dependence gate read only ValidTarget$, so a ReduceCost whose
+//     Amount$ counts the targeted creatures was witnessed at the untargeted
+//     price (rules costStaticReadsTargets).
 func TestPlannerFZFindings(t *testing.T) {
 	reg := testutil.CorpusRegistry(t)
 	f, err := os.Open("testdata/plannerfz.jsonl")
@@ -40,8 +45,8 @@ func TestPlannerFZFindings(t *testing.T) {
 	if err := sc.Err(); err != nil {
 		t.Fatal(err)
 	}
-	if len(recs) != 5 {
-		t.Fatalf("testdata holds %d records, want 5", len(recs))
+	if len(recs) != 8 {
+		t.Fatalf("testdata holds %d records, want 8", len(recs))
 	}
 	oldPlan := planFailures
 	t.Cleanup(func() { planFailures = oldPlan })

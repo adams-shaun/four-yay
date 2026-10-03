@@ -381,9 +381,12 @@ func paymentPlanCostDetail(c Cost) string {
 }
 
 // paymentPlanHasTargetDependentModifier finds a live cost static that would
-// apply to this ordinary spell except for ValidTarget$.  Its actual amount is
-// unknowable until CR 601.2c, after the plan has been selected, so V1 leaves
-// that cast to the normal target/payment flow.  A spell that announces no
+// apply to this ordinary spell except for ValidTarget$, or one that applies
+// and reads the announced targets in its amount, ValidSpell$ or CheckSVar$
+// (costStaticReadsTargets: Battlefield Thaumaturge's "{1} less for each
+// creature it targets").  Its actual amount is unknowable until CR 601.2c,
+// after the plan has been selected, so V1 leaves that cast to the normal
+// target/payment flow.  A spell that announces no
 // target cannot meet any ValidTarget$ clause, so it is never taxed and is not
 // declined (paymentPlanSpellTargets).  Copying the parameter map is
 // important: static views share compiled-card maps.
@@ -417,6 +420,22 @@ func (e *Engine) paymentPlanTargetDependentFor(statics costStaticViews, p state.
 	} {
 		for _, sv := range group.views {
 			if strings.TrimSpace(sv.ParamStr(cards.PKValidTarget)) == "" {
+				// No ValidTarget$, but its amount, ValidSpell$ or CheckSVar$
+				// may still read the announced targets (Battlefield
+				// Thaumaturge's "{1} less for each creature it targets"):
+				// such a static prices the cast per announcement unless a
+				// target-INDEPENDENT gate already denies it (costStaticGate's
+				// indepFail), so it declines the witness too.
+				// A self static (affinity, Card.Self) of another card never
+				// prices this one: skip it before the text census.
+				if id != sv.Source && sv.ParamStr(cards.PKValidCard) == "Card.Self" {
+					continue
+				}
+				if costStaticReadsTargets(sv) {
+					if ok, indepFail := e.costStaticGate(sv, group.mode, p, id, scope, nil, false); ok || !indepFail {
+						return true
+					}
+				}
 				continue
 			}
 			params := make(map[string]string, len(sv.Params)-1)
@@ -429,6 +448,49 @@ func (e *Engine) paymentPlanTargetDependentFor(statics costStaticViews, p state.
 			if e.costStaticApplies(sv, group.mode, p, id, scope, nil, false) {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+// costStaticReadsTargets reports whether a cost-modifier static WITHOUT
+// ValidTarget$ can still price a cast differently per target announcement:
+// a ValidSpell$ IsTargeting alternative (validSpellHasTargeting), or an
+// Amount$ / CheckSVar$ whose expression -- through the static face's SVar
+// table -- names a target reference (Targeted$, TargetedObjects$,
+// TargetedObjectsDistinct$, TargetedController$, TargetedByTarget$,
+// ParentTargeted$, AllTargeted$, SpellTargeted$, the targetedBy filter
+// family ...). Every target-reading count head and filter property spells
+// "target" (effects' ref switches), so the case-insensitive match over the
+// transitive body is the census; a plain integer literal never reads one.
+// The offer gate's markCostValidTarget is deliberately wider (any computed
+// amount arms its cheap potential-target retry); the planner, which would
+// decline the whole witness, keeps target-independent computed amounts
+// (affinity, Count$Valid ... YouCtrl) plannable.
+func costStaticReadsTargets(sv staticView) bool {
+	if validSpellHasTargeting(sv.ParamStr(cards.PKValidSpell)) {
+		return true
+	}
+	for _, v := range [...]string{sv.ParamStr(cards.PKAmount), sv.ParamStr(cards.PKCheckSVar)} {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			continue
+		}
+		if _, literal := parseInt10(v); literal {
+			continue
+		}
+		if bodyReadsRef(v, sv.SVars, 0, mentionsTarget) {
+			return true
+		}
+	}
+	return false
+}
+
+// mentionsTarget reports whether s names a target reference in any case.
+func mentionsTarget(s string) bool {
+	for i := 0; i+6 <= len(s); i++ {
+		if strings.EqualFold(s[i:i+6], "target") {
+			return true
 		}
 	}
 	return false
