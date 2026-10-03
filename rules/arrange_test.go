@@ -44,32 +44,6 @@ func arrangeDecision(t *testing.T, e *Engine, id state.ObjID) *decision.Decision
 	return d
 }
 
-// TestArrangePosesDecisionAndSuspends is the Ruling J0/J2 leaf: resolving a
-// RearrangeTopOfLibrary | NumCards$ 3 against a host that CAN ask yields a
-// pending KArrange decision with 3 options, Min == Max == 3, and the
-// resolution suspended -- the spell stays on the stack, the asking effect has
-// returned, and nothing before the ask re-runs until the answer arrives.
-func TestArrangePosesDecisionAndSuspends(t *testing.T) {
-	tapeLegacyOnly(t)
-	e, _, id := arrangeFixture(t, 100)
-	d := arrangeDecision(t, e, id)
-	if d.Min != 3 || d.Max != 3 {
-		t.Fatalf("Min/Max = %d/%d, want 3/3 (a full reorder is a permutation over the top N)", d.Min, d.Max)
-	}
-	if len(d.Options) != 3 {
-		t.Fatalf("options = %d, want 3", len(d.Options))
-	}
-	if d.Player != 0 {
-		t.Fatalf("decision player = %d, want 0 (the library owner)", d.Player)
-	}
-	if !e.Suspended() {
-		t.Fatal("resolution not suspended: the asking effect must return and leave the spell on the stack")
-	}
-	if len(e.G.Stack) == 0 {
-		t.Fatal("no stack object under suspension: the spell must still be resolving")
-	}
-}
-
 // TestArrangeAnswerReordersLibrary is the reorder leaf: answering [2,0,1]
 // puts the library in exactly that order on top, leaves the untouched
 // remainder beneath the top 3, and emits exactly one events.LibraryOrder

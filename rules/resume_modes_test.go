@@ -22,7 +22,6 @@ import (
 	"go/parser"
 	"go/token"
 	"io/fs"
-	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -216,101 +215,6 @@ var modeAnswerKinds = map[string]bool{
 	"villainous":      true,
 	"generic_players": true,
 	"charm_rest":      true,
-}
-
-// TestResumeModesBoundOnlyByModeAnswers is the class ratchet for the stale
-// Ctx.Modes defect: in resumeResolution and its two answer-binding switches,
-// every assignment of a non-nil value to ctx.Modes must sit in a case arm (or
-// an `rp.kind == "..."` branch) whose kinds are all modeAnswerKinds, under
-// an isModeAnswerKind guard, or be the root-scoped announcement seed
-// resumeChosenModes. A bare default arm may only clear it. A new resume kind
-// therefore cannot inherit a mode binding by falling through to a default --
-// the way "repeat_optional" and "name" did -- and isModeAnswerKind itself
-// may admit no resume kind the engine poses outside modeAnswerKinds.
-func TestResumeModesBoundOnlyByModeAnswers(t *testing.T) {
-	t.Parallel()
-	funcs := map[string]bool{"resumeResolution": true, "resumeAnswerBinding": true, "resumeAnswerBindingRest": true}
-	files := []string{"resolution.go", "resolution_answer.go", "resolution_answer_rest.go"}
-	fset := token.NewFileSet()
-	seen := map[string]bool{}
-	assignments := 0
-	var bad []string
-	for _, name := range files {
-		f, err := parser.ParseFile(fset, name, nil, 0)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, decl := range f.Decls {
-			fd, ok := decl.(*ast.FuncDecl)
-			if !ok || !funcs[fd.Name.Name] {
-				continue
-			}
-			seen[fd.Name.Name] = true
-			var path []ast.Node
-			ast.Inspect(fd.Body, func(n ast.Node) bool {
-				if n == nil {
-					path = path[:len(path)-1]
-					return true
-				}
-				path = append(path, n)
-				as, ok := n.(*ast.AssignStmt)
-				if !ok {
-					return true
-				}
-				for i, lhs := range as.Lhs {
-					sel, ok := lhs.(*ast.SelectorExpr)
-					if !ok || sel.Sel.Name != "Modes" {
-						continue
-					}
-					if x, ok := sel.X.(*ast.Ident); !ok || x.Name != "ctx" {
-						continue
-					}
-					assignments++
-					rhs := as.Rhs[0]
-					if len(as.Rhs) == len(as.Lhs) {
-						rhs = as.Rhs[i]
-					}
-					if id, ok := rhs.(*ast.Ident); ok && id.Name == "nil" {
-						continue
-					}
-					if call, ok := rhs.(*ast.CallExpr); ok {
-						if fn, ok := call.Fun.(*ast.Ident); ok && fn.Name == "resumeChosenModes" {
-							continue
-						}
-					}
-					if kinds, ok := enclosingKinds(path); !ok || !allModeAnswers(kinds) {
-						bad = append(bad, fset.Position(as.Pos()).String()+" (kinds "+strings.Join(kinds, ",")+")")
-					}
-				}
-				return true
-			})
-		}
-	}
-	for fn := range funcs {
-		if !seen[fn] {
-			t.Fatalf("%s not found: the ratchet no longer covers the resume answer binding", fn)
-		}
-	}
-	if assignments == 0 {
-		t.Fatal("no ctx.Modes assignment found: the ratchet is measuring nothing")
-	}
-	sort.Strings(bad)
-	for _, b := range bad {
-		t.Errorf("ctx.Modes bound outside a mode-answer kind at %s", b)
-	}
-
-	// The guard's own vocabulary: every resume kind literal the engine
-	// poses (rules and effects sources) that isModeAnswerKind admits must be
-	// a mode answer.
-	kinds := resumeKindLiterals(t)
-	if !kinds["repeat_optional"] || !kinds["name"] || !kinds["modes"] {
-		t.Fatalf("resume kind census lost its known members (got %d kinds)", len(kinds))
-	}
-	for k := range kinds {
-		if isModeAnswerKind(k) && !modeAnswerKinds[k] {
-			t.Errorf("isModeAnswerKind admits %q, which is not a mode answer", k)
-		}
-	}
 }
 
 // resumeKindLiterals collects the string literals assigned as a resume kind

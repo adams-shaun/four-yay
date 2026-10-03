@@ -1,10 +1,11 @@
 package rules
 
 import (
+	"testing"
+
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
-	"testing"
 )
 
 // Vesuva's real ETB-copy replacement must apply IntoPlayTapped$ to the

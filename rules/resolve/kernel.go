@@ -55,6 +55,9 @@ type Checkpoint struct {
 	// k0 is the index in the intent log of the resolution-starting pass;
 	// base is the event log's length at S0.
 	k0, base int
+	// probe, when set, is the function a test runs in place of an intent's
+	// commit (Kernel.Probe): a re-run re-executes it instead of a Submit.
+	probe func()
 	// injects are the events appended from outside the engine's flow while
 	// one of this resolution's tape decisions was posed (Kernel.posedLen):
 	// a redealt world's Secret events, a test probe's emits. A re-run
@@ -220,6 +223,49 @@ func (k *Kernel) runCommit(b Board, d *decision.Decision, in decision.Intent) (p
 	return false
 }
 
+// runFn is runCommit for a test probe's function.
+func (k *Kernel) runFn(f func()) (posed bool) {
+	defer func() {
+		if p := recover(); p != nil {
+			posed = sentinel(p)
+		}
+	}()
+	f()
+	return false
+}
+
+// Idle reports whether no tape run, posed resolution or exempted resolution
+// is in flight: the state in which a test may start a Probe.
+func (k *Kernel) Idle() bool { return k.run == nil && k.posed == nil && !k.noCkpt }
+
+// Probe runs f as a resolution-starting step under the kernel, for tests that
+// drive an engine's internals (resolveTop, an entry) instead of Submitting an
+// intent: f checkpoints the engine, runs, and a tape ask inside it poses its
+// decision and unwinds exactly as in a Submit. The answering Submit restores
+// the checkpoint and re-executes f with the recorded answers served, so f
+// must be repeatable from the checkpoint (it may only read what the engine
+// and the test captured before the probe). A probe nested in a run, or while
+// a decision is posed, just runs f.
+func (k *Kernel) Probe(b Board, f func()) {
+	if k.run != nil || k.posed != nil {
+		f()
+		return
+	}
+	l := b.Log()
+	cp := &Checkpoint{S0: b.Checkpoint(), k0: len(l.Intents), base: len(l.Events), probe: f}
+	stats.checkpoints.Add(1)
+	k.run = &run{cp: cp, inRes: true, first: true}
+	if k.runFn(f) {
+		k.run, k.posed = nil, cp
+		k.posedLen = len(l.Events)
+		stats.posed.Add(1)
+		return
+	}
+	k.run = nil
+	stats.noAsk.Add(1)
+	b.Drop(cp.S0)
+}
+
 // runSubmit is runCommit for a whole Submit.
 func (k *Kernel) runSubmit(b Board, in decision.Intent) (posed bool, err error) {
 	defer func() {
@@ -261,12 +307,22 @@ func (k *Kernel) resubmit(b Board, in decision.Intent) {
 	stats.reruns.Add(1)
 
 	k.restore(b, cp, liveLen, liveIntents)
-	r := &run{cp: cp, serve: tape[1:], inRes: true, rerun: true}
-	k.run = r
-	posed, err := k.runSubmit(b, tape[0])
-	k.run = nil
-	if err != nil {
-		panic(Divergence{fmt.Sprintf("re-executed pass refused: %v", err)})
+	var r *run
+	var posed bool
+	if cp.probe != nil {
+		r = &run{cp: cp, serve: tape, inRes: true, rerun: true}
+		k.run = r
+		posed = k.runFn(cp.probe)
+		k.run = nil
+	} else {
+		r = &run{cp: cp, serve: tape[1:], inRes: true, rerun: true}
+		k.run = r
+		var err error
+		posed, err = k.runSubmit(b, tape[0])
+		k.run = nil
+		if err != nil {
+			panic(Divergence{fmt.Sprintf("re-executed pass refused: %v", err)})
+		}
 	}
 	if r.cursor != len(r.serve) {
 		panic(Divergence{fmt.Sprintf("re-execution served %d of %d recorded answers", r.cursor, len(r.serve))})

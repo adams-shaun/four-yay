@@ -203,51 +203,6 @@ func TestParentTargetEmptyLinkSurvivesASuspension(t *testing.T) {
 	replayCheck(t, e, cfg)
 }
 
-// TestParentTargetLinkRecordClonesWithSuspension proves the ride is
-// DEEP-copied, not aliased: a Clone taken while the discard ask is pending
-// must own the parent-link record, and both engines must still resume to the
-// nearest targeting link when the SAME answer is served to each.
-func TestParentTargetLinkRecordClonesWithSuspension(t *testing.T) {
-	tapeLegacyOnly(t)
-	e, _, _ := newFixtureDeck(t, 7103, parentTargetBetweenScript(),
-		ptResumeBearSrc, ptResumeAngelSrc)
-	bear := moveByName(t, e, 0, "ParentLink Bear", state.ZBattlefield)
-	angel := moveByName(t, e, 0, "ParentLink Angel", state.ZBattlefield)
-	spell := fixtureInHand(t, e, "Parent Link Between")
-	addMana(t, e, 0, "R")
-	submitChoices(t, e, castOptionFor(t, e, spell).Index)
-	d := advanceToDiscardAsk(t, e, bear, angel)
-
-	// Precondition: the suspended frame carries a real record, so the clone
-	// has something to alias -- a clone with an empty record would prove
-	// nothing.
-	if e.resume == nil || len(e.resume.parentLinks) == 0 {
-		t.Fatalf("precondition: the pending discard frame carries no parent-link record: %+v", e.resume)
-	}
-	c := e.Clone()
-	if c.resume == nil || len(c.resume.parentLinks) != len(e.resume.parentLinks) {
-		t.Fatalf("clone lost the parent-link record: got %+v, want %d entries", c.resume, len(e.resume.parentLinks))
-	}
-	if len(c.resume.parentLinks[0]) > 0 && len(e.resume.parentLinks[0]) > 0 &&
-		&c.resume.parentLinks[0][0] == &e.resume.parentLinks[0][0] {
-		t.Fatal("clone aliases the parent-link backing array (shallow copy)")
-	}
-
-	// The same discard answer must drive both engines to the link target.
-	answerDiscard(t, e, d)
-	answerDiscard(t, c, d)
-	drainParentLink(t, e)
-	drainParentLink(t, c)
-	for name, eng := range map[string]*Engine{"original": e, "clone": c} {
-		if !eng.HasKeyword(angel, "Flying") {
-			t.Fatalf("%s: ParentLink Angel lacks Flying after the suspension", name)
-		}
-		if eng.HasKeyword(bear, "Flying") {
-			t.Fatalf("%s: ParentLink Bear gained Flying (fell back to the root's targets)", name)
-		}
-	}
-}
-
 // fixtureInHand returns the fixture card's id in seat 0's hand, failing if it
 // is not there -- a precondition for the cast, so a setup that silently
 // leaves the card in the library cannot pass.

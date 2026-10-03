@@ -15,12 +15,13 @@ type resumePoint struct {
 	// kind is "optional" (an optional trigger's yes), "effect_paid" (a
 	// triggered Cost$ window paid) or "copy_targets" (a copy's new-target
 	// election).
-	kind string
-	obj  state.ObjID
-	sa   *cards.SA
+	kind string      `clone:"deep"`
+	obj  state.ObjID `clone:"deep"`
+	sa   *cards.SA   `clone:"share"`
 	// tapPaidX is the count the triggered-cost window's dynamic tapXType<X/
 	// Spec> election paid; winPaidX is the X the window's X fold announced or
 	// fixed. Each seeds Ctx.X on the re-entry (the trigger object was never
 	// paid an X). Zero elsewhere.
-	tapPaidX, winPaidX int32
+	tapPaidX int32 `clone:"deep"`
+	winPaidX int32 `clone:"deep"`
 }

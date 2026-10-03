@@ -17,7 +17,6 @@ package rules
 import (
 	"testing"
 
-	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
@@ -89,39 +88,4 @@ func TestEmptyFrameKeepsLaterContinuation(t *testing.T) {
 		t.Fatalf("resume logged %d %q Notes, want 0", n, noSubAbilityNote)
 	}
 	replayCheck(t, e, cfg)
-}
-
-// TestBuildContinuationChainDropsEmptyPlainFrames pins the builder rule
-// directly: a plain report whose SA ends its chain makes no frame, a bound one
-// hands its Remembered on to the next frame (here the tail), and every other
-// report keeps its frame.
-func TestBuildContinuationChainDropsEmptyPlainFrames(t *testing.T) {
-	t.Parallel()
-	e := &Engine{}
-	last := &cards.SA{API: "Branch"}
-	next := &cards.SA{API: "LoseLife"}
-	withSub := &cards.SA{API: "Pump", Sub: next}
-	rem := []state.Target{{Obj: 42}}
-
-	tail := &resumePoint{kind: "", sa: next}
-	if head := e.buildContinuationChain([]contFrame{{sa: last, bound: true, remembered: rem}}, 7, tail); head != tail {
-		t.Fatalf("an empty plain report built a frame: head=%+v", head)
-	}
-	if !tail.loopBound || len(tail.loopRemembered) != 1 || tail.loopRemembered[0].Obj != 42 {
-		t.Fatalf("the dropped bound frame's Remembered was not handed on: %+v", tail)
-	}
-
-	head := e.buildContinuationChain([]contFrame{{sa: last}, {sa: withSub}}, 7, nil)
-	if head == nil || head.sa != next || head.outer != nil {
-		t.Fatalf("chain = %+v, want exactly one frame resuming at the non-empty report's Sub", head)
-	}
-	if head.loopBound {
-		t.Fatal("an unbound empty report bound the next frame")
-	}
-
-	rep := &cards.SA{API: "RepeatEach"}
-	head = e.buildContinuationChain([]contFrame{{sa: rep, repeat: &repeatCursor{}}}, 7, nil)
-	if head == nil || head.kind != "repeat" || head.sa != rep {
-		t.Fatalf("a payload report with no Sub was dropped: %+v", head)
-	}
 }

@@ -984,7 +984,8 @@ func (e *Engine) AskCopyTargets() bool {
 		e.copyTargetStage = make(map[state.ObjID]int)
 	}
 	e.copyTargetStage[o.ID] = stage + 1
-	if in, ok := e.TapeAnswer(d); ok {
+	{
+		in := tapeServe(e, d)
 		// The resolution kernel's answer in hand (W3 step 4j): run the
 		// legacy answer's continuation (resumeResolution's copy_targets
 		// arm: record, or ask the next declaration, then resolveTop) now.
@@ -1001,8 +1002,6 @@ func (e *Engine) AskCopyTargets() bool {
 		}
 		return true
 	}
-	e.Ask(d)
-	return true
 }
 
 // copyTargetDeclarations returns the target DECLARATIONS a copy must ask, in

@@ -472,8 +472,17 @@ func (e *Engine) OpponentPickAsk(c *effects.Ctx, sa *cards.SA) (state.PlayerID, 
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options),
 			Kind: "player", Label: e.G.Players[p].Name, Player: p})
 	}
-	e.Ask(d)
-	return 0, true
+	// The selection is answered in place from the tape; the pin is what the
+	// walk's later ChooserFor reads (midChooserCore).
+	var picked state.PlayerID = c.Controller
+	if ch := d.Chosen(tapeServe(e, d)); len(ch) == 1 {
+		picked = ch[0].Player
+	}
+	if e.oppPicksMid == nil {
+		e.oppPicksMid = make(map[string]state.PlayerID)
+	}
+	e.oppPicksMid[resumeSA.Line] = picked
+	return picked, false
 }
 
 // askTarget offers every legal target for a spell or ability. It deliberately

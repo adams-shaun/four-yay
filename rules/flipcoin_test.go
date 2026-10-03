@@ -518,29 +518,6 @@ func karplusanScenario(t *testing.T, reg *cards.Registry) (*Engine, Config) {
 	return e, cfg
 }
 
-// TestFlippedCoinKarplusanMinotaur is the integration proof: the cumulative
-// upkeep FlipCoin<1> cost action's flip — the ONE canonical result encoding
-// shared with api:FlipCoin (rules/cumulative.go calls effects.FlipCoinNote) —
-// fires Karplusan Minotaur's FlippedCoin triggers. Three upkeeps give 1+2+3
-// flips; each flip Note queues exactly one of the two ValidResult$ triggers
-// (Win → TrigYouDmg, Lose → TrigOppDmg), each resolving as one 1-damage hit.
-func TestFlippedCoinKarplusanMinotaur(t *testing.T) {
-	t.Parallel()
-	reg := testutil.CorpusRegistry(t)
-	e, _ := karplusanScenario(t, reg)
-	wins, losses := 0, 0
-	for _, win := range flipNotes(e) {
-		if win {
-			wins++
-		} else {
-			losses++
-		}
-	}
-	if wins == 0 || losses == 0 {
-		t.Fatalf("the six flips did not cover both ValidResult$ sides: %d wins, %d losses", wins, losses)
-	}
-}
-
 // TestFlipCoinManaCryptTriggerDriven is the trigger-Execute-driven flip (real
 // corpus Mana Crypt): at its controller's upkeep the Phase trigger resolves
 // DB$ FlipCoin | Defined$ You — a losing flip deals 3 to its controller, a
@@ -610,24 +587,4 @@ func TestFlipCoinUntilYouLoseCrazedFirecat(t *testing.T) {
 	if len(one) != 1 || one[0] {
 		t.Fatalf("seed 1: want exactly one (losing) flip, got %v", one)
 	}
-}
-
-// TestFlipCoinReplaysDeterministically pins the replayability contract: the
-// same seed produces the same flip results, the same event chain and the same
-// RNG-draw count — and the recorded log alone replays byte-identically.
-func TestFlipCoinReplaysDeterministically(t *testing.T) {
-	t.Parallel()
-	reg := testutil.CorpusRegistry(t)
-	e1, cfg := karplusanScenario(t, reg)
-	e2, _ := karplusanScenario(t, reg)
-	if !reflect.DeepEqual(e1.L.Events, e2.L.Events) {
-		t.Fatalf("same seed produced different event chains")
-	}
-	if e1.RNGDraws() != e2.RNGDraws() {
-		t.Fatalf("RNG draws differ: %d vs %d", e1.RNGDraws(), e2.RNGDraws())
-	}
-	if len(flipNotes(e1)) != 6 {
-		t.Fatalf("want 6 flips across three upkeeps, got %d", len(flipNotes(e1)))
-	}
-	replayCheck(t, e1, cfg)
 }

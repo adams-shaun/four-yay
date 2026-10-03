@@ -29,7 +29,6 @@ import (
 
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
-	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -114,32 +113,4 @@ func TestTargetsPickSurvivesALaterSuspension(t *testing.T) {
 		t.Fatalf("stack = %v after the arrange answer, want the resolution drained", e.G.Stack)
 	}
 	replayCheck(t, e, cfg)
-}
-
-// TestCloneCopiesTargetsPickCursor pins the deep copy of the new cursor
-// (rules/clone.go, the moveCounterAsk discipline it joins): a clone taken
-// while such a resolution is suspended on its second ask must carry the
-// answered pre-ask forward AND own its own storage, or the clone re-poses
-// the pre-ask and its decision stream diverges from the original's.
-func TestCloneCopiesTargetsPickCursor(t *testing.T) {
-	t.Parallel()
-	names, decks := testutil.SampleDecks(t, 2)
-	e := New(Config{Seed: 5, Names: names, Decks: decks})
-	e.Advance()
-	e.targetsPickAsk = map[state.ObjID]map[string][]state.Target{
-		7: {"DB$ Scry | ScryNum$ 2 | ValidTgts$ Player": {{Player: 1, IsPlayer: true}}},
-	}
-	c := e.Clone()
-	got := c.targetsPickAsk[7]["DB$ Scry | ScryNum$ 2 | ValidTgts$ Player"]
-	if len(got) != 1 || !got[0].IsPlayer || got[0].Player != 1 {
-		t.Fatalf("clone dropped or mangled the targetsPickAsk cursor: %+v", c.targetsPickAsk[7])
-	}
-	// In-place mutation of the clone's entries must never reach the original.
-	got[0] = state.Target{Obj: 99}
-	c.targetsPickAsk[7]["other line"] = nil
-	orig := e.targetsPickAsk[7]
-	if len(orig) != 1 || orig["DB$ Scry | ScryNum$ 2 | ValidTgts$ Player"][0].Obj != 0 ||
-		!orig["DB$ Scry | ScryNum$ 2 | ValidTgts$ Player"][0].IsPlayer {
-		t.Fatalf("clone shares the targetsPickAsk storage with the original: %+v", orig)
-	}
 }

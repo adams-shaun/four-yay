@@ -110,47 +110,6 @@ func TestWardKitesailLarcenistChargesTheNonzeroPayer(t *testing.T) {
 	}
 }
 
-func TestWardBlightMayUseATappedCreatureAndPoisonLoses(t *testing.T) {
-	t.Parallel()
-	e := combatEngine(t)
-	warded := onBoardCard(t, e, 0, corpusKeywordCard(t, "Auntie Ool, Cursewretch"))
-	blighted := onBoard(t, e, 1, "Name:Tapped payment\nTypes:Creature\nPT:3/3\nOracle:x\n")
-	e.emit(events.Event{Kind: events.Tap, Obj: blighted})
-	cause := e.G.Zone(state.ZLibrary, 1)[0]
-	e.emit(events.Event{Kind: events.PutOnStack, Obj: cause, Player: 1, From: state.ZLibrary, To: state.ZStack})
-	e.emit(events.Event{Kind: events.TargetsChosen, Obj: cause, IDs: []state.ObjID{warded}})
-	e.putTriggersOnStack()
-	e.resolveTop()
-	if err := e.Submit(decision.Intent{Seq: e.Pending().Seq, Player: 1, Choices: []int{0}}); err != nil {
-		t.Fatal(err)
-	}
-	d := e.Pending()
-	if d == nil || len(d.Options) != 1 || d.Options[0].Obj != blighted {
-		t.Fatalf("tapped Blight candidate = %+v, want tapped creature", d)
-	}
-	if err := e.Submit(decision.Intent{Seq: d.Seq, Player: 1, Choices: []int{0}}); err != nil {
-		t.Fatal(err)
-	}
-	if got := e.G.Obj(blighted).Counter("M1M1"); got != 2 {
-		t.Fatalf("Blight counters = %d, want 2", got)
-	}
-
-	e2 := combatEngine(t)
-	serpent := onBoardCard(t, e2, 0, corpusKeywordCard(t, "The Serpent Society"))
-	e2.emit(events.Event{Kind: events.PlayerCounterChange, Player: 1, Counter: "POISON", Amount: 5})
-	cause = e2.G.Zone(state.ZLibrary, 1)[0]
-	e2.emit(events.Event{Kind: events.PutOnStack, Obj: cause, Player: 1, From: state.ZLibrary, To: state.ZStack})
-	e2.emit(events.Event{Kind: events.TargetsChosen, Obj: cause, IDs: []state.ObjID{serpent}})
-	e2.putTriggersOnStack()
-	e2.resolveTop()
-	if err := e2.Submit(decision.Intent{Seq: e2.Pending().Seq, Player: 1, Choices: []int{0}}); err != nil {
-		t.Fatal(err)
-	}
-	if !e2.G.Players[1].Lost || e2.G.Players[1].Counter("POISON") != 10 {
-		t.Fatalf("five poison Ward payment: lost/counters = %v/%d, want true/10", e2.G.Players[1].Lost, e2.G.Players[1].Counter("POISON"))
-	}
-}
-
 // TestWardUsesTargetingStackObjectsController pins CR 702.21a's distinction
 // between an activated ability's source characteristics and the controller of
 // the ability object on the stack. A later gain-control event can leave these

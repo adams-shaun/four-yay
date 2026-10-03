@@ -347,4 +347,3 @@ func (e *Engine) applyCastModes(d *decision.Decision, player state.PlayerID, cho
 		Text: strings.Join(labels, ",")})
 	e.continueCast()
 }
-

@@ -8,9 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/adams-shaun/gorge/cards"
-	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/rules/resolve"
-	"github.com/adams-shaun/gorge/state"
 )
 
 // The clone policy is recorded on every field of the types Clone copies
@@ -43,22 +41,13 @@ const clonePolicyHelp = "every field of a type Clone copies field by field carri
 	"Pick the policy that matches what rules/clone.go does with the field, and add the matching copy line there when it is deep."
 
 // clonePolicyTypes are the types whose every field must carry a clone policy:
-// the Engine (through its embedded clusters), the resume chain cloneResume
-// copies and its repeat cursor, the continuation frame the chain is built
-// from, and the value types cloneWith deep-copies field by field (the pending
-// cast, the combat, mulligan and opening-hand rounds, and a parked
-// ExchangeLife transaction).
-//
-// contFrame never crosses a clone boundary (Engine.contChain is reset: it is
-// empty at every intent boundary); its tags record the policy each field
-// takes once buildContinuationChain turns the frame into a resumePoint, so
-// the two parallel structures stay in step. The behavioural test below does
-// not exercise it.
+// the Engine (through its embedded clusters), the resume point of a
+// rules-side payment window and the value types cloneWith deep-copies field
+// by field (the pending cast, the combat, mulligan and opening-hand rounds,
+// and a parked ExchangeLife transaction).
 var clonePolicyTypes = []reflect.Type{
 	reflect.TypeOf(Engine{}),
 	reflect.TypeOf(resumePoint{}),
-	reflect.TypeOf(contFrame{}),
-	reflect.TypeOf(repeatCursor{}),
 	reflect.TypeOf(pendingCast{}),
 	reflect.TypeOf(combatRound{}),
 	reflect.TypeOf(mulliganRound{}),
@@ -476,60 +465,6 @@ func cloneFillPolicyFields(v reflect.Value, typ reflect.Type, depth int) {
 			cloneFillPolicyFields(fv.Elem(), f.typ.Elem(), depth+1)
 		default:
 			cloneFillZero(fv, 0)
-		}
-	}
-}
-
-// TestClonePolicyHoldsOnAMidGameEngine checks the tags against what Clone
-// actually does, on a real mid-game engine whose otherwise-empty fields are
-// filled by reflection first:
-//
-//   - deep:  the clone's value equals the original's (an omitted copy line
-//     shows up as a zero), and a slice, map or pointer field -- or a struct
-//     field's own slice, map and pointer members -- holds storage of its own;
-//     fields of the policy types are checked recursively under their own
-//     tags.
-//   - share: the clone either drops the field or holds the very same
-//     reference (or an equal value).
-//   - reset: the clone never aliases the original's storage, and on a plain
-//     Clone a reset scalar comes back zero.
-//   - hook:  the clone's field is zero.
-//
-// The run is repeated on CloneInto with a Spare released by an earlier
-// clone, so recycled storage is held to the same no-alias rule.
-//
-// Limits: the fill is one element deep for slices and maps and bounded in
-// depth (four levels; resume chains three links), functions and interfaces
-// are never filled, and a deep field whose type is not a policy type is
-// alias-checked only at its own level (plus one level of members for
-// structs) -- what it points at follows its copier's own rules, checked by
-// equality but not for aliasing. Fields cloneWith copies only under a
-// condition (a cache built under the current registry, an open damage
-// batch, a pending cast) are covered only as far as the filled fixture meets
-// that condition.
-func TestClonePolicyHoldsOnAMidGameEngine(t *testing.T) {
-	names, decks := testutil.SampleDecks(t, 2)
-	e := New(Config{Seed: 3, Names: names, Decks: decks})
-	e.Advance()
-	drive(t, e, newTestBot(3), 30)
-	seedInternalQueues(t, e)
-	cloneFillPolicyFields(reflect.ValueOf(e).Elem(), engineType, 0)
-	// Make the version-keyed caches current, so cloneWith carries them (a
-	// stale key would just drop them and leave the copy lines unexercised).
-	e.staticVersion, e.atkOffersVer = e.continuousVersion, e.continuousVersion
-	e.ManaAbilityHook = func(state.PlayerID, state.ObjID, *cards.SA) {}
-
-	k := &clonePolicyChecker{t: t, zeroSpare: true, nonNilRef: map[string]bool{}}
-	c := e.Clone()
-	k.check("Engine.", reflect.ValueOf(e).Elem(), reflect.ValueOf(c).Elem(), engineType, 0)
-
-	sp := e.Clone().Release()
-	k2 := &clonePolicyChecker{t: t, nonNilRef: map[string]bool{}}
-	c2 := e.CloneInto(&sp)
-	k2.check("Engine(CloneInto).", reflect.ValueOf(e).Elem(), reflect.ValueOf(c2).Elem(), engineType, 0)
-	for _, p := range []string{"deep", "share", "reset", "hook"} {
-		if !k.nonNilRef[p] {
-			t.Errorf("the filled fixture holds no non-nil %s reference field: the fill did not run", p)
 		}
 	}
 }

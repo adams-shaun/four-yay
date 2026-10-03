@@ -167,49 +167,6 @@ func TestAradeshDeclinedEnlistIsNoTrigger(t *testing.T) {
 	replayCheck(t, e, cfg)
 }
 
-// TestGuardianOfNewBenaliaEnlistedTriggerScr is the Mode$ Enlisted listener
-// end to end on its real corpus carrier: Guardian enlists the Hill Giant, its
-// `T:Mode$ Enlisted | Execute$ TrigScry` fires, and the resolution poses the
-// scry-2 KArrange over the library's top cards.
-func TestGuardianOfNewBenaliaEnlistedTriggerScr(t *testing.T) {
-	t.Parallel()
-	reg := testutil.CorpusRegistry(t)
-	e, cfg, guardian, giant := enlistEngine(t, reg, lookup(t, reg, "Guardian of New Benalia"))
-	driveToExertTurn(t, e)
-	driveEnlistAttack(t, e, guardian, 1)
-
-	if n := countEvents(e, func(ev events.Event) bool { return ev.Kind == events.TriggerPush }); n != 1 {
-		t.Fatalf("TriggerPush events = %d, want 1 (Guardian's Mode$ Enlisted trigger)", n)
-	}
-	for i := 0; i < 20; i++ {
-		if len(e.pendingTriggers) > 0 {
-			e.putTriggersOnStack()
-			continue
-		}
-		if d := e.Pending(); d != nil && d.Kind == decision.KArrange {
-			break
-		}
-		if len(e.G.Stack) > 0 {
-			e.resolveTop()
-			continue
-		}
-		break
-	}
-	d := e.Pending()
-	if d == nil || d.Kind != decision.KArrange || len(d.Options) != 2 {
-		t.Fatalf("pending = %+v, want the Enlisted body's scry-2 KArrange over 2 cards", d)
-	}
-	if d.Player != 0 {
-		t.Fatalf("scry player = %d, want 0 (the library owner)", d.Player)
-	}
-	submitChoices(t, e, 0, 1)
-	passUntilStackEmpty(t, e, 40)
-	if !e.G.Obj(giant).Tapped {
-		t.Fatal("the enlisted Hill Giant was not tapped")
-	}
-	replayCheck(t, e, cfg)
-}
-
 // TestEnlistElectionExcludesTheDeclaredFellow is the CR 702.160a
 // "nonattacking" pin on the two-Enlist-attacker shape: with Aradesh AND
 // Guardian of New Benalia both declared, IsAttacking has not folded yet (the

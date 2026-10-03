@@ -24,7 +24,7 @@ const (
 	// W5 E5 moved combat legality onto rules/combat's Board (2159 -> 2126)
 	// and W5 E3 the trigger matchers onto rules/trigmatch's: -> 2022. W5 E4
 	// moved the layer walk onto rules/chars: -> 2019.
-	engineMethodCount = 2019
+	engineMethodCount = 1973
 	// hostMethodCount is the number of methods in the effects.Host interface
 	// (its whole method set, roles included). W1d replaced ObjectText,
 	// ObjectKeywords and BasePower with the one Chars query: 96 -> 94.
@@ -45,10 +45,10 @@ const (
 	// ratcheted separately by ctxEmbedCount.
 	// W1d folded EffectiveNames, EffectiveTypes, StaticGoads and the embedded
 	// LayerTables into the one named Layers field: 293/2 -> 291/1.
-	ctxFieldCount = 291
+	ctxFieldCount = 121
 	ctxEmbedCount = 1
 	// resumePointFieldCount is the number of fields in rules' resumePoint.
-	resumePointFieldCount = 90
+	resumePointFieldCount = 5
 	// stringParamReads is the number of <x>Params["literal"] index
 	// expressions in rules/ and effects/ non-test files. W4 slice 3 (194
 	// ParamKeys, the 256-key mask) moved 488 reads onto the typed accessors:

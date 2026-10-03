@@ -14,7 +14,6 @@ import (
 // `_extra2`, `_part3`, `_cont`, `_2`), or a grab-bag (`_helpers`, `_misc`,
 // `_util`). The old steward metric rewarded splitting a long file at a line
 // count, which scattered one concern over several files without adding a
-// boundary (rules/resolution_answer_rest.go is the second half of one switch
 // moved verbatim; rules/stack_helpers.go hosted 39 effects.Host methods until
 // W1d split it by role into rules/host_*.go).
 var sizeOnlyFileName = regexp.MustCompile(
@@ -25,11 +24,10 @@ var sizeOnlyFileName = regexp.MustCompile(
 // splitting one by concern behind a named seam deletes its entry here.
 // NEVER add an entry.
 var sizeOnlyFileNamesAllowed = map[string]bool{
-	"effects/misc.go":                 true,
-	"rules/mana_cost_extra.go":        true,
-	"rules/raise_cost_extra.go":       true,
-	"rules/resolution_answer_rest.go": true,
-	"rules/token_rest.go":             true,
+	"effects/misc.go":           true,
+	"rules/mana_cost_extra.go":  true,
+	"rules/raise_cost_extra.go": true,
+	"rules/token_rest.go":       true,
 }
 
 // TestNoNewSizeOnlyFileNames is the rules-engine refactor spec's W0 file-name
@@ -84,24 +82,23 @@ func TestNoNewSizeOnlyFileNames(t *testing.T) {
 
 func TestSizeOnlyFileNamePattern(t *testing.T) {
 	for name, want := range map[string]bool{
-		"resolution_answer_rest.go": true,
-		"stack_helpers.go":          true,
-		"stack_helper.go":           true,
-		"trigmatch_misc.go":         true,
-		"cast_more.go":              true,
-		"cast_extra2.go":            true,
-		"cast_part3.go":             true,
-		"cast_2.go":                 true,
-		"misc.go":                   true,
-		"helpers.go":                true,
-		"util.go":                   true,
-		"ward.go":                   false,
-		"replacement_life.go":       false,
-		"count_cov3.go":             false,
-		"restriction.go":            false,
-		"extra_turn.go":             false,
-		"helpers_test.go":           false, // a test file never reaches the lint anyway
-		"stack.go":                  false,
+		"stack_helpers.go":    true,
+		"stack_helper.go":     true,
+		"trigmatch_misc.go":   true,
+		"cast_more.go":        true,
+		"cast_extra2.go":      true,
+		"cast_part3.go":       true,
+		"cast_2.go":           true,
+		"misc.go":             true,
+		"helpers.go":          true,
+		"util.go":             true,
+		"ward.go":             false,
+		"replacement_life.go": false,
+		"count_cov3.go":       false,
+		"restriction.go":      false,
+		"extra_turn.go":       false,
+		"helpers_test.go":     false, // a test file never reaches the lint anyway
+		"stack.go":            false,
 	} {
 		got := sizeOnlyFileName.MatchString(name) && !strings.HasSuffix(name, "_test.go")
 		if got != want {

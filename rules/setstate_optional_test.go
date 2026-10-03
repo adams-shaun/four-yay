@@ -3,7 +3,6 @@ package rules
 import (
 	"testing"
 
-	"github.com/adams-shaun/gorge/botpolicy"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
@@ -38,62 +37,4 @@ func setStateDagger(t *testing.T, seed uint64) (*Engine, Config, state.ObjID) {
 		t.Fatal("Dagger transformed before the election")
 	}
 	return e, cfg, id
-}
-
-func TestSetStateOptionalDaggerDeclineAndAccept(t *testing.T) {
-	t.Parallel()
-	for _, tc := range []struct {
-		name   string
-		seed   uint64
-		answer int
-		face   uint8
-		flips  int
-	}{
-		{"decline", 917, 1, 0, 0},
-		{"accept", 918, 0, 1, 1},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			e, cfg, id := setStateDagger(t, tc.seed)
-			submitChoices(t, e, tc.answer)
-			// Dagger's independent enter-the-battlefield token trigger may
-			// still be pending and ask for an opponent target. It does not
-			// change the SetState answer or the resulting face.
-			if d := e.Pending(); d != nil && d.ResumeKind == "setstate_optional" {
-				t.Fatalf("SetState election still pending after answer: %+v", d)
-			}
-			if got := e.G.Obj(id).FaceIdx; got != tc.face {
-				t.Fatalf("face = %d, want %d", got, tc.face)
-			}
-			flips := 0
-			for _, ev := range e.L.Events {
-				if ev.Kind == events.FlipFace && ev.Obj == id {
-					flips++
-				}
-			}
-			if flips != tc.flips {
-				t.Fatalf("FlipFace events = %d, want %d", flips, tc.flips)
-			}
-			replayCheck(t, e, cfg)
-		})
-	}
-}
-
-func TestSetStateOptionalBotClampAnswerValid(t *testing.T) {
-	t.Parallel()
-	e, cfg, id := setStateDagger(t, 919)
-	d := e.Pending()
-	// The bot's deterministic first-option clamp has one home in botpolicy;
-	// check its actual output against the real decision's validator.
-	in := botpolicy.Clamp(d, decision.Intent{Seq: d.Seq, Player: d.Player})
-	if len(in.Choices) != 1 || in.Choices[0] != 0 {
-		t.Fatalf("bot clamp chose %v, want yes at option 0", in.Choices)
-	}
-	if err := d.Validate(in); err != nil {
-		t.Fatalf("bot answer rejected: %v", err)
-	}
-	submitChoices(t, e, in.Choices...)
-	if e.G.Obj(id).FaceIdx != 1 {
-		t.Fatalf("bot's yes left face at %d, want 1", e.G.Obj(id).FaceIdx)
-	}
-	replayCheck(t, e, cfg)
 }

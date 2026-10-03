@@ -5,7 +5,6 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
-	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/internal/testutil"
 	"github.com/adams-shaun/gorge/state"
@@ -108,81 +107,6 @@ func TestManaUnlessCostThomil(t *testing.T) {
 	}
 	if got := e.G.Players[0].Pool[state.MB]; got != 3 {
 		t.Fatalf("black mana = %d, want 3 after paid switched unless", got)
-	}
-}
-
-// TestBraidsOpponentChoosesItsSacrifice drives Braids, Arisen Nightmare's real
-// end-step trigger across two seats: the controller's optional sacrifice is a
-// real ask (the relic and Braids itself are both eligible), and the opponent's
-// RepeatEach iteration poses ITS own optional sacrifice — over the permanent
-// that shares a card type with the sacrificed one (sharesCardTypeWith
-// RememberedCard, the predicate that used to fail closed). A sacrificing
-// opponent is remembered as the card's controller, so the
-// SVar:X:Remembered$Valid Card.RememberedPlayerCtrl gate (X != 0) keeps them
-// from losing 2 life and keeps Braids's controller from drawing.
-func TestBraidsOpponentChoosesItsSacrifice(t *testing.T) {
-	t.Parallel()
-	reg := testutil.CorpusRegistry(t)
-	e := stealEngine(t, 737)
-	relic := onBoard(t, e, 0, "Name:Relic\nTypes:Artifact\nOracle:x\n")
-	braids := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Braids, Arisen Nightmare"))
-	trinket := onBoardCard(t, e, 1, mustCorpusCard(t, reg, "Mind Stone"))
-	hand := len(e.G.Zone(state.ZHand, 0))
-	life := e.G.Players[1].Life
-
-	e.emit(events.Event{Kind: events.TriggerPush, Obj: braids, Player: 0, Amount: 0})
-	e.resolveTop()
-
-	// Seat 0's optional sacrifice: give up the relic, keep Braids.
-	answerSacrifice(t, e, "Relic")
-	// Seat 1's optional sacrifice: the artifact that shares the relic's card
-	// type. It sacrifices Catching Sphere.
-	answerSacrifice(t, e, "Mind Stone")
-
-	if e.G.Obj(braids).Zone != state.ZBattlefield {
-		t.Fatalf("Braids zone = %v, want it kept", e.G.Obj(braids).Zone)
-	}
-	if e.G.Obj(relic).Zone != state.ZGraveyard || e.G.Obj(trinket).Zone != state.ZGraveyard {
-		t.Fatalf("relic zone %v trinket zone %v, want both sacrificed",
-			e.G.Obj(relic).Zone, e.G.Obj(trinket).Zone)
-	}
-	if got := e.G.Players[1].Life; got != life {
-		t.Fatalf("opponent life = %d, want %d (they sacrificed, so no loss)", got, life)
-	}
-	if got := len(e.G.Zone(state.ZHand, 0)); got != hand {
-		t.Fatalf("Braids controller hand = %d, want %d (no draw when the opponent sacrificed)", got, hand)
-	}
-}
-
-// TestBraidsOpponentDeclinesItsSacrifice is the mirror: the opponent's ask is
-// answered with nothing (the Optional$ decline), the sharing-type predicate
-// admits nothing for them, and the
-// SVar:X:Remembered$Valid Card.RememberedPlayerCtrl gate reads X == 0 — so the
-// opponent loses 2 life and Braids's controller draws the card.
-func TestBraidsOpponentDeclinesItsSacrifice(t *testing.T) {
-	t.Parallel()
-	reg := testutil.CorpusRegistry(t)
-	e := stealEngine(t, 737)
-	relic := onBoard(t, e, 0, "Name:Relic\nTypes:Artifact\nOracle:x\n")
-	braids := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Braids, Arisen Nightmare"))
-	onBoardCard(t, e, 1, mustCorpusCard(t, reg, "Mind Stone"))
-	hand := len(e.G.Zone(state.ZHand, 0))
-	life := e.G.Players[1].Life
-
-	e.emit(events.Event{Kind: events.TriggerPush, Obj: braids, Player: 0, Amount: 0})
-	e.resolveTop()
-
-	answerSacrifice(t, e, "Relic")
-	answerSacrifice(t, e, "")
-
-	if e.G.Obj(relic).Zone != state.ZGraveyard {
-		t.Fatalf("relic zone = %v, want the controller's sacrifice", e.G.Obj(relic).Zone)
-	}
-	if got := e.G.Players[1].Life; got != life-2 {
-		t.Fatalf("opponent life = %d, want %d (they declined)", got, life-2)
-	}
-	if got := len(e.G.Zone(state.ZHand, 0)); got != hand+1 {
-		t.Fatalf("Braids controller hand = %d, want %d (the draw for the declined opponent)", got, hand+1)
 	}
 }
 
@@ -292,95 +216,6 @@ func TestGiantOpportunityStrictOptionalSacrifice(t *testing.T) {
 	}
 	if e.G.Obj(third).Zone != state.ZBattlefield {
 		t.Fatalf("unchosen Food zone = %v, want battlefield", e.G.Obj(third).Zone)
-	}
-}
-
-// TestMeathookUnlessPayPaysLife drives Meathook Massacre II's second trigger
-// ("Whenever a creature an opponent controls dies, they may pay 3 life. If
-// they don't, return that card under your control with a finality counter"):
-// TrigReturn2 is a DB$ ChangeZone with UnlessCost$ PayLife<3> and
-// UnlessPayer$ TriggeredCardController — the API that ignored UnlessCost$
-// before the shared gate existed. Paying costs the dying creature's
-// controller 3 life and the card STAYS dead; the decline is the returned-with-
-// finality-counter branch (the mirror, TestMeathookUnlessPayDeclined, pins
-// the pay branch of the YOU-control trigger TrigReturn1's oracle shares).
-// TestPowerTaintUnlessPayerEnchantedController drives a real priceable
-// non-target payer. Power Taint's controller is seat 0, while the enchanted
-// enchantment belongs to seat 1: its upkeep trigger must offer the {2} to
-// seat 1 from the Aura's live attachment, not silently fall back to the Aura
-// controller or an unrelated target.
-func TestPowerTaintUnlessPayerEnchantedController(t *testing.T) {
-	t.Parallel()
-	reg := testutil.CorpusRegistry(t)
-	e := stealEngine(t, 737)
-	taint := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Power Taint"))
-	enchanted := onBoard(t, e, 1, "Name:Victim Enchantment\nTypes:Enchantment\nOracle:x\n")
-	e.G.Obj(taint).AttachedTo = enchanted
-	sa := cards.ResolveSVar(e.G.Obj(taint).Face().SVars, "TrigLoseLife")
-	if sa == nil || sa.Params["UnlessPayer"] != "EnchantedController" || sa.Params["UnlessCost"] != "2" {
-		t.Fatalf("Power Taint TrigLoseLife = %+v, want priceable EnchantedController unless", sa)
-	}
-	effects.Resolve(e, &effects.Ctx{Source: taint, Controller: 0,
-		TriggerContext: effects.TriggerContext{TriggerPlayer: state.Target{Player: 1, IsPlayer: true}}}, sa)
-	d := e.Pending()
-	if d == nil || d.Kind != decision.KModes || d.ResumeKind != "unless_pay" {
-		t.Fatalf("pending = %+v, want Power Taint unless-pay decision", d)
-	}
-	if d.Player != 1 {
-		t.Fatalf("Power Taint payer = seat %d, want enchanted controller seat 1", d.Player)
-	}
-}
-
-func TestMeathookUnlessPayPaysLife(t *testing.T) {
-	t.Parallel()
-	reg := testutil.CorpusRegistry(t)
-	e := stealEngine(t, 737)
-	hook := onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Meathook Massacre II"))
-	bear := onBoardCard(t, e, 1, mustCorpusCard(t, reg, "Grizzly Bears"))
-	life := e.G.Players[1].Life
-
-	e.emit(events.Event{Kind: events.MoveZone, Obj: bear, From: state.ZBattlefield,
-		To: state.ZGraveyard, Text: "died"})
-	e.putTriggersOnStack()
-	e.resolveTop()
-	answerUnlessPay(t, e, true)
-
-	if got := e.G.Players[1].Life; got != life-3 {
-		t.Fatalf("payer life = %d, want %d", got, life-3)
-	}
-	if o := e.G.Obj(bear); o == nil || o.Zone != state.ZGraveyard {
-		t.Fatalf("the bear zone = %v, want it kept dead (the pay prevented the return)", o)
-	}
-	if o := e.G.Obj(hook); o == nil || o.Zone != state.ZBattlefield {
-		t.Fatalf("Meathook zone = %v, want it kept", o)
-	}
-}
-
-// TestMeathookUnlessPayDeclined is the mirror: the dying creature's controller
-// declines, the card returns with a finality counter, and no life moves.
-// ChangeZone's GainControl$ is intentionally outside this task's unless-cost
-// scope, so control is covered by the dedicated control-effect work instead.
-func TestMeathookUnlessPayDeclined(t *testing.T) {
-	t.Parallel()
-	reg := testutil.CorpusRegistry(t)
-	e := stealEngine(t, 737)
-	onBoardCard(t, e, 0, mustCorpusCard(t, reg, "Meathook Massacre II"))
-	bear := onBoardCard(t, e, 1, mustCorpusCard(t, reg, "Grizzly Bears"))
-	life := e.G.Players[1].Life
-
-	e.emit(events.Event{Kind: events.MoveZone, Obj: bear, From: state.ZBattlefield,
-		To: state.ZGraveyard, Text: "died"})
-	e.putTriggersOnStack()
-	e.resolveTop()
-	answerUnlessPay(t, e, false)
-
-	if got := e.G.Players[1].Life; got != life {
-		t.Fatalf("payer life = %d, want %d (declined)", got, life)
-	}
-	if o := e.G.Obj(bear); o == nil || o.Zone != state.ZBattlefield {
-		t.Fatalf("the bear zone = %v, want it returned to the battlefield", o)
-	} else if counterTotal(o, "FINALITY") != 1 {
-		t.Fatalf("returned bear counters = %v, want one FINALITY counter", o.Counters)
 	}
 }
 

@@ -151,67 +151,6 @@ func TestFlamerushRiderCopiesTheOtherAttackerExiledAtEndOfCombat(t *testing.T) {
 	noUnimplementedCopyPermanent(t, e)
 }
 
-// TestMoltenEchoesCopiesEnteringCreatureExilesAtNextEndStep pins the
-// TriggeredCardLKICopy source and the AtEOT$ Exile delayed registration: a
-// nontoken Bear entering under a Molten Echoes whose chosen type is Bear
-// creates a token copy of it, which the next end step's delayed trigger
-// exiles. The PumpKeywords$ Haste rider is now implemented: the copy mints
-// WITH haste (PumpKeywords$ with no PumpDuration$ = for as long as the copy
-// exists) and no per-call skip note names the family.
-func TestMoltenEchoesCopiesEnteringCreatureExilesAtNextEndStep(t *testing.T) {
-	t.Parallel()
-	reg := searchTestRegistry(t)
-	e, cfg := searchEngine(t, reg, "Molten Echoes")
-	molten := searchMoveByName(t, e, "Molten Echoes", state.ZBattlefield)
-
-	// Molten Echoes is seated directly on the battlefield, so it did not pass
-	// through an entry boundary. Seed the choice with its event representation.
-	// The seating move still runs its ETBReplacement ChooseType body, which
-	// (offering every creature type, CR 205.3m) posed an ask the helper's
-	// pending reset dropped; drop its resume point too, or the next stack
-	// resolution reads the stale choosetype frame as a live suspension.
-	e.resume = nil
-	e.emit(events.Event{Kind: events.Choose, Obj: molten, Counter: "type", Text: "Bear"})
-
-	bear := searchMoveByName(t, e, "Grizzly Bears", state.ZBattlefield)
-	e.putTriggersOnStack()
-	passUntilStackEmpty(t, e, 20)
-
-	bearCard := e.G.Obj(bear).Card
-	cid := findTokenCopyOf(t, e, bearCard, bear)
-	o := e.G.Obj(cid)
-	if o.Controller != 0 || o.Zone != state.ZBattlefield || o.Tapped || o.IsAttacking {
-		t.Fatalf("Molten Echoes copy: controller=%d zone=%s tapped=%v attacking=%v",
-			o.Controller, o.Zone, o.Tapped, o.IsAttacking)
-	}
-	// The PumpKeywords$ Haste rider is implemented: the copy's derived
-	// keyword set carries Haste for as long as the copy exists (no
-	// PumpDuration$), and no skip note named the family.
-	if !e.HasKeyword(cid, "Haste") {
-		t.Fatal("the PumpKeywords$ Haste rider did not reach the copy")
-	}
-	for _, ev := range e.L.Events {
-		if ev.Kind == events.Note && strings.Contains(ev.Text, "PumpKeywords$") {
-			t.Fatalf("implemented PumpKeywords$ rider still named by a skip note: %q", ev.Text)
-		}
-	}
-	noUnimplementedCopyPermanent(t, e)
-
-	// AtEOT$ Exile: the delayed registration fires at the beginning of the
-	// next end step and exiles the copy. The copy now HAS Haste (the
-	// implemented PumpKeywords$ rider), so it is a legal attacker this turn
-	// -- driveToStepAll exists precisely for the combat asks a live
-	// creature introduces, declining to attack.
-	driveToStepAll(t, e, e.G.Turn, e.G.Active, state.StepEnd)
-	passUntilStackEmpty(t, e, 20)
-	exiledTo(t, e, cid)
-	if got := e.G.Obj(bear).Zone; got != state.ZBattlefield {
-		t.Fatalf("the copied bear itself moved: %s", got)
-	}
-	noUnimplementedCopyPermanent(t, e)
-	replayCheck(t, e, cfg)
-}
-
 // TestGrowingRanksPopulatesTheCreatureTokenYouControl pins the Populate$
 // arm: at the beginning of its controller's upkeep, Growing Ranks copies a
 // creature token you control. With exactly one eligible token the

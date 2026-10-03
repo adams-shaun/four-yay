@@ -166,7 +166,7 @@ func (e *Engine) applyETBChoiceReplacement(ev events.Event) bool {
 		e.withMintSink(e.pendingMintSink, func() { e.resumeETBEntry(chosen) })
 		return true
 	}
-	e.Ask(d)
+	e.ask(d)
 	return true
 }
 

@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -107,41 +106,6 @@ func flipAskFlipAtAsk(t *testing.T, reg *cards.Registry, asker *cards.Card, seed
 	return nil
 }
 
-func TestCloneOwnsTheSuspendedResolutionsFlipMemory(t *testing.T) {
-	tapeLegacyOnly(t)
-	reg := testutil.CorpusRegistry(t)
-	asker := card(t, flipAskFlipSrc)
-	exercised := false
-	for seed := uint64(1); seed <= 12; seed++ {
-		ref := flipAskFlipAtAsk(t, reg, asker, seed)
-		cloneMemDrain(t, ref, 100)
-
-		e := flipAskFlipAtAsk(t, reg, asker, seed)
-		if e.resume == nil || e.resume.flipMemory == nil {
-			t.Fatalf("seed %d precondition: the ask's resume frame carries no flip memory (%+v)", seed, e.resume)
-		}
-		mem := e.resume.flipMemory
-		before := *mem
-		before.Results = append([]effects.FlipResult(nil), mem.Results...)
-		c := e.Clone()
-		cloneMemDrain(t, c, 100)
-		if !reflect.DeepEqual(*mem, before) || e.resume == nil || e.resume.flipMemory != mem {
-			t.Fatalf("seed %d: driving the clone through its post-ask flip changed the ORIGINAL's flip memory: %+v -> %+v",
-				seed, before, *mem)
-		}
-		cloneMemDrain(t, e, 100)
-		if e.L.Head() != ref.L.Head() || c.L.Head() != ref.L.Head() {
-			t.Fatalf("seed %d: heads original %s clone %s uncloned reference %s", seed, e.L.Head(), c.L.Head(), ref.L.Head())
-		}
-		if len(flipNotes(ref)) == 2 && flipNotes(ref)[1] {
-			exercised = true
-		}
-	}
-	if !exercised {
-		t.Fatal("precondition: no seed's post-ask flip was a win, so the shared tally was never written")
-	}
-}
-
 // misterNegativeAtDredge drives the real Mister Negative ETB (with Lich and a
 // dredger on the opponent's side) to the first dredge ask the Lich-replaced
 // gain poses while the exchange transaction is parked mid-resolution.
@@ -172,62 +136,6 @@ func misterNegativeAtDredge(t *testing.T, reg *cards.Registry) *Engine {
 	}
 	t.Fatal("no dredge ask was posed")
 	return nil
-}
-
-// exchangeMemoriesOf collects every ExchangeLife rider memory the engine's
-// suspended resolution can write or read: each resume frame's and the parked
-// transaction's.
-func exchangeMemoriesOf(e *Engine) []*effects.ExchangeMemory {
-	var out []*effects.ExchangeMemory
-	for rp := e.resume; rp != nil; rp = rp.outer {
-		if rp.exchangeMemory != nil {
-			out = append(out, rp.exchangeMemory)
-		}
-	}
-	return out
-}
-
-func TestCloneOwnsTheSuspendedExchangeLifeMemory(t *testing.T) {
-	reg := testutil.CorpusRegistry(t)
-	ref := misterNegativeAtDredge(t, reg)
-	hand0 := len(ref.G.Zone(state.ZHand, 0))
-	cloneMemDrain(t, ref, 200)
-	if got := len(ref.G.Zone(state.ZHand, 0)) - hand0; got != 5 {
-		t.Fatalf("precondition: the uncloned rider drew %d, want 5", got)
-	}
-
-	e := misterNegativeAtDredge(t, reg)
-	mems := exchangeMemoriesOf(e)
-	if len(mems) == 0 {
-		t.Fatal("precondition: the suspended resolution carries no ExchangeLife memory")
-	}
-	if mems[0].Number != 0 {
-		t.Fatalf("precondition: the rider is already settled (%d) at the dredge ask", mems[0].Number)
-	}
-	c := e.Clone()
-	for _, m := range exchangeMemoriesOf(c) {
-		for _, om := range mems {
-			if m == om {
-				t.Fatal("the clone's resume frame shares the original's ExchangeLife memory")
-			}
-		}
-	}
-	cHand0 := len(c.G.Zone(state.ZHand, 0))
-	cloneMemDrain(t, c, 200)
-	for _, m := range mems {
-		if m.Number != 0 {
-			t.Fatalf("settling the CLONE's exchange wrote %d into the ORIGINAL's rider memory", m.Number)
-		}
-	}
-	// The clone's settle and its resumed rider must share ONE copy: the
-	// transaction's write is what the resumed SubAbility$ draw reads.
-	if got := len(c.G.Zone(state.ZHand, 0)) - cHand0; got != 5 {
-		t.Fatalf("the clone's rider drew %d, want 5 (its parked transaction and resume frame lost their shared memory)", got)
-	}
-	cloneMemDrain(t, e, 200)
-	if e.L.Head() != ref.L.Head() || c.L.Head() != ref.L.Head() {
-		t.Fatalf("heads original %s clone %s uncloned reference %s", e.L.Head(), c.L.Head(), ref.L.Head())
-	}
 }
 
 // exchangeAtLifeOrderAsk parks an ExchangeLife whose gaining side (seat 1)
@@ -291,36 +199,5 @@ func TestCloneOwnsTheParkedLifeChoicesExchange(t *testing.T) {
 	}
 	if mem.Number != refMem.Number {
 		t.Fatalf("original rider %d, uncloned reference %d", mem.Number, refMem.Number)
-	}
-}
-
-// TestClonePreservesResumeFrameIdentity pins the identity half of the remap:
-// handleReplacement compares a parked choice's resumeAtPose against
-// Engine.resume by POINTER (rules/replacement_choice.go), and a resumed
-// resolution's frames share one flip memory. A clone that copied each
-// reference separately -- or shared the original's -- would answer the
-// comparison differently from the original (or adopt the original's frame).
-func TestClonePreservesResumeFrameIdentity(t *testing.T) {
-	t.Parallel()
-	e := newSeats(t, 2)
-	mem := &effects.FlipMemory{Results: []effects.FlipResult{{Player: 0, Heads: true}}}
-	outer := &resumePoint{kind: "outer", flipMemory: mem}
-	rp := &resumePoint{kind: "inner", flipMemory: mem, outer: outer}
-	e.resume = rp
-	e.replChoices = []replChoice{{inResolution: true, resumeAtPose: rp}}
-	c := e.Clone()
-	if c.resume == rp || c.replChoices[0].resumeAtPose == rp {
-		t.Fatal("the clone shares the original's resume frame")
-	}
-	if c.replChoices[0].resumeAtPose != c.resume {
-		t.Fatal("the clone's parked choice no longer names the clone's own resume frame")
-	}
-	if c.resume.flipMemory == mem || c.resume.outer.flipMemory != c.resume.flipMemory {
-		t.Fatalf("flip memory: clone shares original's %v; clone's frames share one copy %v",
-			c.resume.flipMemory == mem, c.resume.outer.flipMemory == c.resume.flipMemory)
-	}
-	c.resume.flipMemory.Results = append(c.resume.flipMemory.Results, effects.FlipResult{Player: 1})
-	if len(mem.Results) != 1 {
-		t.Fatal("a write through the clone's flip memory reached the original's")
 	}
 }

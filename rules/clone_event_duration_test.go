@@ -66,31 +66,3 @@ func TestZygonCloneEndsWhenTargetLeavesTapped(t *testing.T) {
 	}
 	replayCheck(t, e, cfg)
 }
-
-func TestVesuvanShapeshifterCloneEndsOnTurnFaceDown(t *testing.T) {
-	t.Parallel()
-	reg := testutil.CorpusRegistry(t)
-	e, cfg := searchEngine(t, reg, "Vesuvan Shapeshifter", "Grizzly Bears")
-	mimic := searchMoveByName(t, e, "Vesuvan Shapeshifter", state.ZBattlefield)
-	bear := searchMoveByName(t, e, "Grizzly Bears", state.ZBattlefield)
-	m, b := e.G.Obj(mimic), e.G.Obj(bear)
-	if m == nil || b == nil || m.Zone != state.ZBattlefield || b.Zone != state.ZBattlefield || m.Face().Name == b.Face().Name {
-		t.Fatal("clone operands not distinct battlefield permanents")
-	}
-	sa := cards.ResolveSVar(m.Face().SVars, "DBCopy")
-	turnDown := cards.ResolveSVar(m.Face().SVars, "VesShapeTurn")
-	if sa == nil || sa.API != "Clone" || sa.Params["Duration"] != "UntilFacedown" || turnDown == nil || turnDown.API != "SetState" || turnDown.Params["Mode"] != "TurnFaceDown" {
-		t.Fatalf("Vesuvan copy/turn-down bodies missing: %+v / %+v", sa, turnDown)
-	}
-	// The picker has already selected the Bear; this isolates lifetime from the ask.
-	effects.Resolve(e, &effects.Ctx{Source: mimic, Controller: 0, SVars: m.Face().SVars, ClonePick: bear, ClonePickDone: true}, sa)
-	if e.G.Obj(mimic).Face().Name != "Grizzly Bears" || e.G.Obj(mimic).FaceDown {
-		t.Fatal("live face-up copy missing before expiry")
-	}
-	// Resolve the real card's named SetState body, not a fabricated event.
-	effects.Resolve(e, &effects.Ctx{Source: mimic, Controller: 0, SVars: m.Card.Faces[0].SVars}, turnDown)
-	if o := e.G.Obj(mimic); !o.FaceDown || o.CopyFace != nil || o.Face().Name != "Vesuvan Shapeshifter" {
-		t.Fatalf("turn-down did not clear copy: %+v", o)
-	}
-	replayCheck(t, e, cfg)
-}

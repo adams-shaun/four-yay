@@ -23,9 +23,9 @@ import (
 // pointer to remap: the tables are fixed arrays with an overflow slice, and
 // the common clone (no suspended resolution) never touches them.
 type cloneRemap struct {
-	flips   ptrRemap[effects.FlipMemory]
-	exchs   ptrRemap[effects.ExchangeMemory]
-	txs     ptrRemap[lifeExchangeTransaction]
+	flips ptrRemap[effects.FlipMemory]
+	exchs ptrRemap[effects.ExchangeMemory]
+	txs   ptrRemap[lifeExchangeTransaction]
 }
 
 // ptrRemap maps an original pointer to its clone's copy (linear search: a

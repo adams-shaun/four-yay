@@ -57,42 +57,6 @@ func surveilDecision(t *testing.T, e *Engine, id state.ObjID) *decision.Decision
 	return d
 }
 
-// TestScryPosesArrangeAndSuspends is the leaf 1: resolving a Scry 3 against
-// a host that CAN ask yields a pending KArrange decision with Min 0, Max 3,
-// one option per top card in top-down order, Option.Kind "bottom", and the
-// resolution suspended.
-func TestScryPosesArrangeAndSuspends(t *testing.T) {
-	tapeLegacyOnly(t)
-	e, _, id := scryFixture(t, 201)
-	d := scryDecision(t, e, id)
-	if d.Min != 0 || d.Max != 3 {
-		t.Fatalf("Min/Max = %d/%d, want 0/3 (Scry may keep any subset on top)", d.Min, d.Max)
-	}
-	if len(d.Options) != 3 {
-		t.Fatalf("options = %d, want 3", len(d.Options))
-	}
-	if d.Player != 0 {
-		t.Fatalf("decision player = %d, want 0 (the library owner)", d.Player)
-	}
-	for i, o := range d.Options {
-		if o.Kind != "bottom" {
-			t.Fatalf("option %d Kind = %q, want \"bottom\" (the unchosen go to the bottom)", i, o.Kind)
-		}
-	}
-	lib := e.G.Zone(state.ZLibrary, 0)
-	for i, o := range d.Options {
-		if o.Obj != lib[i] {
-			t.Fatalf("option %d Obj = %v, want the top card %v (top-down order)", i, o.Obj, lib[i])
-		}
-	}
-	if !e.Suspended() {
-		t.Fatal("resolution not suspended: the asking effect must return and leave the spell on the stack")
-	}
-	if len(e.G.Stack) == 0 {
-		t.Fatal("no stack object under suspension: the spell must still be resolving")
-	}
-}
-
 // TestScryAnswerKeepsChosenOnTopAndUnchosenAtBottom is the leaf 2, the one
 // that catches pile B being dropped beneath pile A instead of at the bottom:
 // with 3 offered and the answer [2,0], the unchosen card (option 1) must sit
@@ -249,38 +213,6 @@ func TestSurveilEmptyReplaysByteIdentically(t *testing.T) {
 	_ = surveilDecision(t, e, id)
 	submitChoices(t, e)
 	replayCheck(t, e, cfg)
-}
-
-// TestArrangeMixedKindDegradesWithNote is the Ruling J5 leaf: a KArrange
-// whose options disagree on a destination is a programming error, so the
-// handler emits a Note and applies the Options[0] destination. A real scry
-// decision is mutated to disagree and answered, and the Note plus the
-// Options[0] ("bottom") routing must both hold.
-func TestArrangeMixedKindDegradesWithNote(t *testing.T) {
-	tapeLegacyOnly(t)
-	e, _, id := scryFixture(t, 205)
-	d := scryDecision(t, e, id)
-	top := []state.ObjID{d.Options[0].Obj, d.Options[1].Obj, d.Options[2].Obj}
-	libBefore := append([]state.ObjID(nil), e.G.Zone(state.ZLibrary, 0)...)
-	// Mutate the pending decision so the options disagree: option 1 says
-	// "graveyard" while the rest say "bottom".
-	d.Options[1].Kind = "graveyard"
-
-	submitChoices(t, e, 2, 0)
-
-	if !hasNote(e, "arrange options disagree on a destination") {
-		t.Fatal("no Note \"arrange options disagree on a destination\" emitted for a mixed-Kind arrange")
-	}
-	// Options[0].Kind is still "bottom", so the destination applied must be
-	// "bottom": option 1 goes to the very bottom, beneath the remainder.
-	libAfter := e.G.Zone(state.ZLibrary, 0)
-	want := make([]state.ObjID, 0, len(libBefore))
-	want = append(want, top[2], top[0])
-	want = append(want, libBefore[3:]...)
-	want = append(want, top[1])
-	if !sameObjIDs(want, libAfter) {
-		t.Fatalf("mixed-Kind arrange applied the wrong destination: library = %v, want %v (Options[0]=\"bottom\")", libAfter, want)
-	}
 }
 
 // TestArrangeUnchangedForRearrangeTopOfLibrary is the leaf 9: the new

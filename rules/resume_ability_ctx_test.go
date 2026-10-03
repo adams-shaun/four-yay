@@ -15,10 +15,6 @@ package rules
 // undefined.
 
 import (
-	"go/ast"
-	"go/parser"
-	"go/token"
-	"sort"
 	"testing"
 
 	"github.com/adams-shaun/gorge/decision"
@@ -144,100 +140,4 @@ func TestChainRememberedReachesTheEnclosingContinuation(t *testing.T) {
 		t.Fatalf("opponent lost %d life, want the two remembered draws (2)", got)
 	}
 	replayCheck(t, e, cfg)
-}
-
-// TestResumeSeedsEveryCtxFieldTheFirstPassSeeds is the class ratchet: every
-// effects.Ctx field resolveTop seeds for a resolving stack object must also be
-// seeded by resumeResolution, or a chain that suspends re-enters under a
-// different Ctx than the one it asked from (the spike S3 defects: the granted
-// trigger's SVar table, the overloaded target census). It reads the two
-// functions' source: a field assigned as `ctx.F = ...`, keyed in their
-// CtxInit literals, or assigned by a package helper they call with ctx as an
-// argument. Value-level parity is the helpers' job (abilityResolutionSVars,
-// bindNinjutsuDefender, abilityXAnnounced, resolutionTargets.flatFor); this pins the
-// field set so a new first-pass seed cannot silently skip the resume.
-func TestResumeSeedsEveryCtxFieldTheFirstPassSeeds(t *testing.T) {
-	t.Parallel()
-	fset := token.NewFileSet()
-	funcs := map[string]*ast.FuncDecl{}
-	for _, file := range []string{"stack.go", "resolution.go", "resolution_ability_ctx.go"} {
-		f, err := parser.ParseFile(fset, file, nil, 0)
-		if err != nil {
-			t.Fatal(err)
-		}
-		for _, d := range f.Decls {
-			if fd, ok := d.(*ast.FuncDecl); ok {
-				funcs[fd.Name.Name] = fd
-			}
-		}
-	}
-	ctxFields := func(body ast.Node, ctxName string) map[string]bool {
-		out := map[string]bool{}
-		ast.Inspect(body, func(n ast.Node) bool {
-			switch n := n.(type) {
-			case *ast.AssignStmt:
-				for _, l := range n.Lhs {
-					if sel, ok := l.(*ast.SelectorExpr); ok {
-						if id, ok := sel.X.(*ast.Ident); ok && id.Name == ctxName {
-							out[sel.Sel.Name] = true
-						}
-					}
-				}
-			case *ast.CompositeLit:
-				if sel, ok := n.Type.(*ast.SelectorExpr); ok && sel.Sel.Name == "CtxInit" {
-					for _, el := range n.Elts {
-						if kv, ok := el.(*ast.KeyValueExpr); ok {
-							if k, ok := kv.Key.(*ast.Ident); ok {
-								out[k.Name] = true
-							}
-						}
-					}
-				}
-			}
-			return true
-		})
-		return out
-	}
-	seeded := func(name string) map[string]bool {
-		fd := funcs[name]
-		if fd == nil {
-			t.Fatalf("function %s not found", name)
-		}
-		out := ctxFields(fd.Body, "ctx")
-		ast.Inspect(fd.Body, func(n ast.Node) bool {
-			call, ok := n.(*ast.CallExpr)
-			if !ok {
-				return true
-			}
-			fn, ok := call.Fun.(*ast.Ident)
-			if !ok || funcs[fn.Name] == nil || len(call.Args) == 0 {
-				return true
-			}
-			if arg, ok := call.Args[0].(*ast.Ident); !ok || arg.Name != "ctx" {
-				return true
-			}
-			helper := funcs[fn.Name]
-			if params := helper.Type.Params.List; len(params) > 0 && len(params[0].Names) > 0 {
-				for f := range ctxFields(helper.Body, params[0].Names[0].Name) {
-					out[f] = true
-				}
-			}
-			return true
-		})
-		return out
-	}
-	first, resume := seeded("resolveTop"), seeded("resumeResolution")
-	if len(first) < 20 {
-		t.Fatalf("precondition: only %d first-pass Ctx seeds found, the source scan is broken", len(first))
-	}
-	var missing []string
-	for f := range first {
-		if !resume[f] {
-			missing = append(missing, f)
-		}
-	}
-	sort.Strings(missing)
-	if len(missing) > 0 {
-		t.Fatalf("resumeResolution does not seed Ctx fields resolveTop seeds: %v", missing)
-	}
 }

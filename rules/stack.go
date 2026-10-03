@@ -19,7 +19,18 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
+// testProbeResolveTop (tests only) makes a resolveTop call outside any run a
+// kernel probe, so a fixture that resolves the top of the stack directly gets
+// the same tape-served asks a Submit's resolution does.
+var testProbeResolveTop bool
+
 func (e *Engine) resolveTop() {
+	if testProbeResolveTop && e.tape.Idle() {
+		// Tests drive resolveTop directly, outside any Submit: run it as a
+		// kernel probe so its asks are posed and answered like a Submit's.
+		e.tape.Probe(asResolve(e), e.resolveTop)
+		return
+	}
 	id := e.G.Stack[len(e.G.Stack)-1]
 	o := e.G.Obj(id)
 	if o != nil && o.IsCopy && (o.CopyMayChooseTarget || (e.copyTargetStage != nil && e.copyTargetStage[id] > 0)) {

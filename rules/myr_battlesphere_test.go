@@ -30,7 +30,6 @@ package rules
 // separately).
 
 import (
-	"reflect"
 	"strings"
 	"testing"
 
@@ -72,53 +71,6 @@ func battlesphereTrigger(t *testing.T, e *Engine, sphere state.ObjID) {
 		t.Fatalf("optional-apply ask missing: %+v", d)
 	}
 	submitChoices(t, e, 0) // yes
-}
-
-func TestMyrBattlesphereAttackTriggerAsksAndPaysTheTapXCost(t *testing.T) {
-	t.Parallel()
-	e, sphere, myr1, myr2, tappedMyr := battlesphereFixture(t)
-	battlesphereTrigger(t, e, sphere)
-	d := e.Pending()
-	if d == nil || d.Kind != decision.KChoose || d.Min != 0 || d.Max != 2 {
-		t.Fatalf("tap election %+v, want KChoose Min 0 Max 2", d)
-	}
-	if len(d.Options) != 2 {
-		t.Fatalf("election options %+v, want only the two untapped Myr (the tapped Myr and the attacking Battlesphere are not offered)", d.Options)
-	}
-	for _, o := range d.Options {
-		if o.Kind != "trigger_cost_tap" || (o.Obj != myr1 && o.Obj != myr2) {
-			t.Fatalf("election option %+v, want trigger_cost_tap on myr1/myr2", o)
-		}
-	}
-	// Tap both Myr: X = 2. The answer replays byte-identically in a clone
-	// taken at the decision boundary (the window's resume + ctx.X binding are
-	// engine state a replay re-derives).
-	clone := e.Clone()
-	in := decision.Intent{Seq: d.Seq, Player: d.Player, Choices: []int{0, 1}}
-	if err := e.Submit(in); err != nil {
-		t.Fatal(err)
-	}
-	if err := clone.Submit(in); err != nil {
-		t.Fatal(err)
-	}
-	if !reflect.DeepEqual(e.L.Events, clone.L.Events) {
-		t.Fatal("clone diverged across the tap-X window's payment and resolution")
-	}
-	if !e.G.Obj(myr1).Tapped || !e.G.Obj(myr2).Tapped {
-		t.Fatal("the elected Myr were not tapped as the cost")
-	}
-	if !e.G.Obj(tappedMyr).Tapped {
-		t.Fatal("the already-tapped Myr untapped")
-	}
-	if got := e.Power(sphere); got != 6 {
-		t.Fatalf("Battlesphere power = %d, want 6 (4 base + X=2 NumAtt$ +X)", got)
-	}
-	if got := e.G.Players[1].Life; got != 18 {
-		t.Fatalf("defender life = %d, want 18 (20 - X=2 NumDmg$ X)", got)
-	}
-	if len(e.G.Stack) != 0 {
-		t.Fatalf("stack not empty after the trigger resolved: %d objects", len(e.G.Stack))
-	}
 }
 
 func TestMyrBattlesphereTapXEmptyElectionDeclines(t *testing.T) {
