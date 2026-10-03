@@ -1,0 +1,43 @@
+{
+  "card": "Ghoulcaller Gisa",
+  "family": "activated-ability",
+  "oracle_sha": "31661e211c36",
+  "author": "cli-20261003T014432Z-24102604 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "sacrifice-creature-creates-zombies-equal-to-power",
+      "cr": ["602.2b", "701.16a", "111.1"],
+      "why": "The {B},{T},Sacrifice another creature ability creates X 2/2 black Zombie tokens where X is the sacrificed creature's power; sacrificing a 3-power Centaur Courser makes three Zombies.",
+      "setup": {
+        "p0": {"battlefield": ["Ghoulcaller Gisa", "Centaur Courser"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "mana", "seat": 0, "mana": "B"},
+        {"op": "activate", "seat": 0, "card": "p0:Ghoulcaller Gisa", "ability": "Create X 2/2"},
+        {"op": "resolve", "targets": ["p0:Centaur Courser"]}
+      ],
+      "expect": [
+        {"card": "p0:Centaur Courser", "zone": "graveyard"},
+        {"card": "p0:Ghoulcaller Gisa", "tapped": true},
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Zombie", "token": true}, "eq": 3}
+      ]
+    },
+    {
+      "name": "cannot-sacrifice-itself-as-the-other-creature",
+      "cr": ["602.2b"],
+      "why": "The cost requires sacrificing ANOTHER creature. With only Gisa on the battlefield the activation is not offered.",
+      "setup": {
+        "p0": {"battlefield": ["Ghoulcaller Gisa"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "pass_to", "seat": 0, "decision": "priority"}
+      ],
+      "expect": [
+        {"offered": {"seat": 0, "kind": "activate", "card": "p0:Ghoulcaller Gisa", "label": "Create X 2/2"}, "want": false},
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Zombie", "token": true}, "eq": 0}
+      ]
+    }
+  ]
+}

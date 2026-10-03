@@ -1,0 +1,43 @@
+{
+  "card": "Kor Outfitter",
+  "family": "etb-ltb",
+  "oracle_sha": "a835766fc68b",
+  "author": "cli-20261003T014432Z-24102604 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enters-may-attach-equipment-to-a-creature",
+      "cr": ["603.2", "701.3a"],
+      "why": "The optional enters trigger may attach a target Equipment you control to a target creature you control; the chosen Equipment ends up attached, so the Bears are 4/2.",
+      "setup": {
+        "p0": {"hand": ["Kor Outfitter"], "battlefield": ["Bonesplitter", "Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Kor Outfitter", "mana": "WW"},
+        {"op": "resolve", "targets": ["p0:Bonesplitter", "p0:Grizzly Bears"]}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "pt": "4/2"},
+        {"card": "p0:Kor Outfitter", "zone": "battlefield"}
+      ]
+    },
+    {
+      "name": "attaches-to-a-creature-you-control-not-an-opponents",
+      "cr": ["603.2", "701.3a", "108.3"],
+      "why": "Both targets are restricted to permanents you control, so the opponent's Savannah Lions is never a legal creature target. With Bonesplitter and an own Grizzly Bears on the battlefield the trigger attaches the Equipment to the controller's own creature: the Bears become 4/2 and the opponent's Lions stay 2/1. This also fails if the attach does nothing at all (the Bears would stay 2/2), so it is not satisfied by an unperformed mechanic.",
+      "setup": {
+        "p0": {"hand": ["Kor Outfitter"], "battlefield": ["Bonesplitter", "Grizzly Bears"]},
+        "p1": {"battlefield": ["Savannah Lions"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Kor Outfitter", "mana": "WW"},
+        {"op": "resolve", "targets": ["p0:Bonesplitter"]}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "pt": "4/2"},
+        {"card": "p1:Savannah Lions", "pt": "2/1"},
+        {"card": "p0:Kor Outfitter", "zone": "battlefield", "pt": "2/2"}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "card": "Rishadan Port",
+  "family": "activated-ability",
+  "oracle_sha": "04c251522db2",
+  "author": "cli-20261003T014432Z-24102604 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "taps-an-opponents-land-for-one",
+      "cr": ["602.2b", "701.20b"],
+      "why": "{1},{T}: Tap target land. Paying one colourless and tapping the Port taps the targeted opponent's land.",
+      "setup": {
+        "p0": {"battlefield": ["Rishadan Port"]},
+        "p1": {"battlefield": ["Island"]}
+      },
+      "steps": [
+        {"op": "mana", "seat": 0, "mana": "C"},
+        {"op": "activate", "seat": 0, "card": "p0:Rishadan Port", "ability": "Tap target land", "targets": ["p1:Island"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Rishadan Port", "tapped": true},
+        {"card": "p1:Island", "tapped": true, "zone": "battlefield"}
+      ]
+    },
+    {
+      "name": "can-tap-own-land",
+      "cr": ["602.2b"],
+      "why": "The target is any land, including a land its controller controls; here the Port taps the controller's own Forest.",
+      "setup": {
+        "p0": {"battlefield": ["Rishadan Port", "Forest"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "mana", "seat": 0, "mana": "C"},
+        {"op": "activate", "seat": 0, "card": "p0:Rishadan Port", "ability": "Tap target land", "targets": ["p0:Forest"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Forest", "tapped": true},
+        {"card": "p0:Rishadan Port", "tapped": true}
+      ]
+    }
+  ]
+}

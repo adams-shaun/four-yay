@@ -1,0 +1,73 @@
+{
+  "card": "Khalni Heart Expedition",
+  "family": "activation-condition",
+  "oracle_sha": "2bb32bd7fc20",
+  "author": "cli-20261003T014432Z-24102604 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "landfall-adds-a-quest-counter",
+      "cr": ["603.2", "122.1"],
+      "why": "Landfall triggers whenever a land you control enters; the controller may put a quest counter on the Expedition.",
+      "setup": {
+        "p0": {"battlefield": ["Khalni Heart Expedition"], "hand": ["Forest"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "play", "seat": 0, "card": "p0:Forest"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["yes"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Khalni Heart Expedition", "counters": {"quest": 1}},
+        {"card": "p0:Forest", "zone": "battlefield"}
+      ]
+    },
+    {
+      "name": "three-counters-sacrifices-and-fetches-two-lands",
+      "cr": ["602.2b", "701.16a", "701.19a"],
+      "why": "With three quest counters the ability removes them, sacrifices the Expedition, and searches the library for up to two basic land cards put onto the battlefield tapped. Three lands enter (one played, two put onto the battlefield) to reach three quest counters, then the ability is activated and both basic lands are chosen.",
+      "setup": {
+        "p0": {
+          "battlefield": ["Khalni Heart Expedition"],
+          "hand": ["Forest", "Forest", "Forest"],
+          "library": ["Forest", "Forest", "Forest", "Forest", "Forest"]
+        },
+        "p1": {}
+      },
+      "steps": [
+        {"op": "play", "seat": 0, "card": "p0:Forest"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["yes"]}]},
+        {"op": "move", "seat": 0, "card": "p0:Forest#2", "to": "battlefield"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["yes"]}]},
+        {"op": "move", "seat": 0, "card": "p0:Forest#3", "to": "battlefield"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["yes"]}]},
+        {"op": "activate", "seat": 0, "card": "p0:Khalni Heart Expedition", "ability": "Search your library for up to two basic land cards"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["p0:Forest#4", "p0:Forest#5"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Khalni Heart Expedition", "zone": "graveyard"},
+        {"card": "p0:Forest#4", "zone": "battlefield", "tapped": true},
+        {"card": "p0:Forest#5", "zone": "battlefield", "tapped": true}
+      ]
+    },
+    {
+      "name": "fewer-than-three-counters-cannot-activate",
+      "cr": ["602.5a", "107.3"],
+      "why": "The activated ability's cost is removing three quest counters; with only two counters on it the ability is not offered. Two lands enter first to put exactly two quest counters on the Expedition.",
+      "setup": {
+        "p0": {"battlefield": ["Khalni Heart Expedition"], "hand": ["Forest", "Forest"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "play", "seat": 0, "card": "p0:Forest"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["yes"]}]},
+        {"op": "move", "seat": 0, "card": "p0:Forest#2", "to": "battlefield"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["yes"]}]},
+        {"op": "pass_to", "seat": 0, "decision": "priority"}
+      ],
+      "expect": [
+        {"card": "p0:Khalni Heart Expedition", "counters": {"quest": 2}},
+        {"offered": {"seat": 0, "kind": "activate", "card": "p0:Khalni Heart Expedition", "label": "Remove three quest counters"}, "want": false}
+      ]
+    }
+  ]
+}
