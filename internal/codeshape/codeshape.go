@@ -229,6 +229,19 @@ var TargetOnlyKeys = []string{
 	"TargetsWithSharedCardType", "TargetsWithSharedTypes", "TgtPrompt", "TgtZone", "ValidTgts",
 }
 
+// DefinedCompilerFile is the generic Defined-reference tier's parameter
+// compiler (W4 step 4's cross-API tier): the one file in rules/ and effects/
+// allowed to read a Defined-reference parameter, whatever the ability's API.
+const DefinedCompilerFile = "effects/defined_params.go"
+
+// DefinedOnlyKeys are the Defined-reference parameter keys: a read of one of
+// them anywhere in rules/ or effects/ outside DefinedCompilerFile is a path
+// interpreting a selector on its own (effects.DefinedOf serves every path the
+// compiled Ref). DefinedPlayer$ is read in the same file by its own single
+// reader (definedPlayerRef). The API-scoped DefinedName$, DefinedMagnet$,
+// DefinedDamagers$ and DefinedPiles$ are one API's each and are not listed.
+var DefinedOnlyKeys = []string{"Defined", "DefinedCards", "DefinedPlayer", "DefinedTarget"}
+
 // DelayedTriggerCompilerFile is api:DelayedTrigger's parameter compiler (W4 step 3): the
 // one file allowed to read a DelayedTrigger ability's parameters.
 const DelayedTriggerCompilerFile = "effects/delayedtrigger_params.go"
@@ -386,6 +399,11 @@ type Metrics struct {
 	// outside its compiler.
 	TargetParamLeaks int      `json:"target_param_leaks"`
 	TargetLeaks      []string `json:"target_leaks"`
+	// DefinedParamLeaks is the same census for the generic Defined-reference
+	// tier (DefinedCompilerFile, DefinedOnlyKeys): every read of a Defined
+	// key outside its compiler.
+	DefinedParamLeaks int      `json:"defined_param_leaks"`
+	DefinedLeaks      []string `json:"defined_leaks"`
 	// DelayedTriggerParamLeaks is the same census for api:DelayedTrigger (DelayedTriggerCompilerFile,
 	// DelayedTriggerFiles, DelayedTriggerOnlyKeys).
 	DelayedTriggerParamLeaks int      `json:"delayed_trigger_param_leaks"`
@@ -520,6 +538,8 @@ func Measure(root string) (Metrics, error) {
 				TypedParamCompiler{EffectCompilerFile, EffectFiles, EffectOnlyKeys})...)
 			m.TargetLeaks = append(m.TargetLeaks, paramLeaks(fset, f, rel,
 				TypedParamCompiler{TargetCompilerFile, nil, TargetOnlyKeys})...)
+			m.DefinedLeaks = append(m.DefinedLeaks, paramLeaks(fset, f, rel,
+				TypedParamCompiler{DefinedCompilerFile, nil, DefinedOnlyKeys})...)
 			m.DelayedTriggerLeaks = append(m.DelayedTriggerLeaks, paramLeaks(fset, f, rel,
 				TypedParamCompiler{DelayedTriggerCompilerFile, DelayedTriggerFiles, DelayedTriggerOnlyKeys})...)
 			m.CopyPermanentLeaks = append(m.CopyPermanentLeaks, paramLeaks(fset, f, rel,
@@ -589,6 +609,7 @@ func Measure(root string) (Metrics, error) {
 	m.PutCounterParamLeaks, m.PutCounterLeaks = finishLeaks(m.PutCounterLeaks)
 	m.EffectParamLeaks, m.EffectLeaks = finishLeaks(m.EffectLeaks)
 	m.TargetParamLeaks, m.TargetLeaks = finishLeaks(m.TargetLeaks)
+	m.DefinedParamLeaks, m.DefinedLeaks = finishLeaks(m.DefinedLeaks)
 	m.DelayedTriggerParamLeaks, m.DelayedTriggerLeaks = finishLeaks(m.DelayedTriggerLeaks)
 	m.CopyPermanentParamLeaks, m.CopyPermanentLeaks = finishLeaks(m.CopyPermanentLeaks)
 	m.FuncsOver300 = len(m.LongFuncs)

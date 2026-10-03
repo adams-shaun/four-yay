@@ -104,7 +104,7 @@ func effDraw(h Host, c *Ctx, sa *cards.SA) {
 				}
 				askable := true
 				if !strings.EqualFold(spec, "You") {
-					resolved := Defined(h, c, &cards.SA{Params: map[string]string{"Defined": spec}})
+					resolved := DefinedSpec(h, c, spec)
 					if len(resolved) == 0 || !resolved[0].IsPlayer {
 						// The decider's identity is unresolvable — a spec the
 						// selector grammar does not carry resolves to no player

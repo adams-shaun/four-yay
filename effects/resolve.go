@@ -743,9 +743,7 @@ func repeatDefinedGateHolds(h Host, c *Ctx, sa *cards.SA, defined, present, comp
 	if defined != "Remembered" && defined != "Imprinted" {
 		return false, false
 	}
-	copySA := *sa
-	copySA.Params = map[string]string{"Defined": defined}
-	objects := Defined(h, c, &copySA)
+	objects := DefinedSpec(h, c, defined)
 	if present != "" && len(UnknownPredicates(present)) != 0 {
 		return false, false
 	}

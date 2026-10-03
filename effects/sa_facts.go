@@ -90,16 +90,19 @@ type SAFacts struct {
 	// (copypermanent_params.go), non-nil exactly when the API is
 	// CopyPermanent.
 	CopyPermanent *CopyPermanentParams
+	// Defined is the generic Defined-reference tier's compiled parameter set
+	// (defined_params.go), non-nil for EVERY ability whatever its API.
+	Defined *DefinedParams
 }
 
 // NewSAFacts compiles sa's typed halves into a fresh record naming sa. The
 // caller (rules' configured binding) adds its own half and publishes it.
 func NewSAFacts(sa *cards.SA) *SAFacts {
-	f := &SAFacts{SA: sa, Targets: compileTargets(sa)}
+	f := &SAFacts{SA: sa, Targets: compileTargets(sa), Defined: compileDefined(sa)}
 	if isChangeZoneSA(sa) {
-		f.ChangeZone = compileChangeZone(sa, f.Targets)
+		f.ChangeZone = compileChangeZone(sa, f.Targets, f.Defined)
 	} else if isChangeZoneAllSA(sa) {
-		f.ChangeZoneAll = compileChangeZoneAll(sa, f.Targets)
+		f.ChangeZoneAll = compileChangeZoneAll(sa, f.Targets, f.Defined)
 	} else if isAttachSA(sa) {
 		f.Attach = compileAttach(sa, f.Targets)
 	}

@@ -72,7 +72,7 @@ func pureGrantKeywords(ab *cards.SA) []string {
 	if ab.Sub != nil {
 		return nil
 	}
-	switch ab.ParamStr(cards.PKDefined) {
+	switch effects.DefinedRefOf(ab).Raw {
 	case "Self", "Parent":
 	case "":
 		if effects.TargetsOf(ab).Has(effects.TgtValidPresent) {

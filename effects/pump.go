@@ -167,10 +167,8 @@ func effPump(h Host, c *Ctx, sa *cards.SA) {
 	// move (only exiledCards is), so without this read a returning Chrome
 	// Mox would read a stale imprint.
 	if spec := p.ForgetImprinted; spec != "" {
-		sub := *sa
-		sub.Params = map[string]string{"Defined": spec}
 		var ids []state.ObjID
-		for _, t := range Defined(h, c, &sub) {
+		for _, t := range DefinedSpec(h, c, spec) {
 			if !t.IsPlayer {
 				ids = append(ids, t.Obj)
 			}

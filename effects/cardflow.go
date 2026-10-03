@@ -252,7 +252,7 @@ func discardRidersOf(sa *cards.SA) discardRiders {
 // change (c.Controller == the source's controller unless a mid-resolution
 // control change moved it), so no golden game moves.
 func actingPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
-	if strings.TrimSpace(sa.ParamStr(cards.PKDefined)) != "" {
+	if DefinedRefOf(sa).Set() {
 		// definedPlayers applies Forge's getDefinedPlayers rule: the plain
 		// Remembered family contributes remembered PLAYERS only, never a
 		// remembered card's controller (Summon: Valefor's per-opponent loop).
@@ -887,7 +887,7 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 			// Only cards still in this target's hand move; everything else
 			// (already gone, or never theirs) is skipped. The old default arm
 			// ignored DefinedCards$ entirely and discarded the front of hand.
-			if dc := strings.TrimSpace(sa.ParamStr(cards.PKDefinedCards)); dc != "" {
+			if dc := DefinedOf(sa).Cards.Text; dc != "" {
 				for _, t := range discardDefinedCards(h, c, dc) {
 					if t.IsPlayer {
 						continue
@@ -2091,8 +2091,9 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 				Text: "DigUntil withholds " + param + "; the core move runs without it"})
 		}
 	}
-	targets := Defined(h, c, sa)
-	if sa.ParamStr(cards.PKDefined) == "" && !TargetsOf(sa).Targeted() {
+	defined := DefinedRefOf(sa)
+	targets := DefinedRef(h, c, defined, sa)
+	if defined.Raw == "" && !TargetsOf(sa).Targeted() {
 		// Forge's default for a reveal-until with no Defined$ and no targets:
 		// the resolving controller's own library (Songbirds' Blessing's
 		// trigger). Defined's source-object fallback is wrong here — the
@@ -2116,7 +2117,7 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 	// rather than against either of the two destinations the walk picks
 	// between.
 	rider := classifyAttackingEntry(c, sa, state.ZBattlefield)
-	players := playerIDsFromTargets(h, c, sa.ParamStr(cards.PKDefined), targets)
+	players := playerIDsFromTargets(h, c, defined.Raw, targets)
 	selection := *c // Valid$ Card.IsRemembered uses the pre-clear set.
 	// A DigUntil re-runs its scan filter on the answered re-entry too (the
 	// found-move election answers mid-walk), so the snapshot arms for any
@@ -2670,24 +2671,21 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 	// so it applies only where the walk's subjects are those targets: a
 	// targeting SA with no Defined$/RevealDefined$ override.
 	rememberTargets := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberTargets)), "True") &&
-		TargetsOf(sa).Targeted() && sa.ParamStr(cards.PKDefined) == "" && revealDefined == ""
+		TargetsOf(sa).Targeted() && DefinedRefOf(sa).Raw == "" && revealDefined == ""
 	random := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRandom)), "True")
 	g := h.Game()
-	// Forge's RevealDefined$ is the reveal family's equivalent of Defined$.
-	// Copy the SA and translate only the target selector, so the common
-	// resolver owns every Self/Targeted/Remembered spelling without mutating
-	// the shared compiled corpus. This matters for opening-hand reveals:
-	// Chancellor of the Tangle must reveal the chosen Chancellor, not an
-	// unrelated first card in its controller's hand.
-	revealSA := *sa
+	// Forge's RevealDefined$ is the reveal family's equivalent of Defined$:
+	// it replaces only the target selector, resolved over the same ability
+	// (its ValidTgts$ fallback included), so the common resolver owns every
+	// Self/Targeted/Remembered spelling without mutating the shared compiled
+	// corpus. This matters for opening-hand reveals: Chancellor of the Tangle
+	// must reveal the chosen Chancellor, not an unrelated first card in its
+	// controller's hand.
+	revealRef := DefinedRefOf(sa)
 	if spec := revealDefined; spec != "" {
-		revealSA.Params = make(map[string]string, len(sa.Params)+1)
-		for key, value := range sa.Params {
-			revealSA.Params[key] = value
-		}
-		revealSA.Params["Defined"] = spec
+		revealRef = RefOf(spec)
 	}
-	for targetIndex, t := range Defined(h, c, &revealSA) {
+	for targetIndex, t := range DefinedRef(h, c, revealRef, sa) {
 		if lookAck && targetIndex < lookAckTarget {
 			// The cursor skip: this target was fully processed (note emitted,
 			// RememberRevealed$ captured) on an earlier pass of this same
@@ -2725,7 +2723,7 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 		// its own target, exactly as the "reveal_optional" re-entry does for
 		// the cursor target (the answered yes may still pose the hand pick).
 	revealTarget:
-		if plainRememberedSelector(revealSA.ParamStr(cards.PKDefined)) && !t.IsPlayer {
+		if revealRef.Has(RefPlainRemembered) && !t.IsPlayer {
 			// Forge's getDefinedPlayers("Remembered") adds remembered PLAYERS
 			// only; a remembered card must not widen the reveal's library/hand
 			// scope to its controller (Summon: Valefor's per-opponent loop).
@@ -3880,5 +3878,5 @@ func discardDefinedCards(h Host, c *Ctx, spec string) []state.Target {
 	case "Targeted":
 		return objectsOf(c.Targets)
 	}
-	return Defined(h, c, &cards.SA{Params: map[string]string{"Defined": spec}})
+	return DefinedSpec(h, c, spec)
 }

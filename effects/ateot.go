@@ -96,7 +96,7 @@ func atEOTBody(value string) string {
 // Defined$ resolver removes a trigger referent that Forge's card list does not
 // remember; retain this guard as a defensive check for delayed riders.
 func atEOTInclude(h Host, c *Ctx, sa *cards.SA, id state.ObjID) bool {
-	if strings.TrimSpace(sa.ParamStr(cards.PKDefined)) != "Remembered" || id != c.Source {
+	if !DefinedRefOf(sa).Is(RefRemembered) || id != c.Source {
 		return true
 	}
 	if o := h.Game().Obj(c.Source); o != nil {

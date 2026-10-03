@@ -78,7 +78,7 @@ func effCopySpellAbility(h Host, c *Ctx, sa *cards.SA) {
 	// stack-arena order, each copied Amount$ times. It is nil for every other
 	// Defined form, whose established single-spell shape is unchanged.
 	var validStackSpells []state.ObjID
-	switch strings.TrimSpace(sa.ParamStr(cards.PKDefined)) {
+	switch DefinedRefOf(sa).Text {
 	case "TriggeredSpellAbility":
 		// The activation arm (abcopy1): the trigger context's TriggerAbility
 		// names the minted ability wrapper -- an AbilityPush's Obj is the
@@ -137,7 +137,7 @@ func effCopySpellAbility(h Host, c *Ctx, sa *cards.SA) {
 			// wrapper AND every instance or copy sharing (Source, Ability), the
 			// recorded livelock guard -- an id-only exclusion would let a copy
 			// of the wrapper be copied again and ask its pay question forever.
-			spec := strings.TrimSpace(sa.ParamStr(cards.PKDefined))
+			spec := DefinedRefOf(sa).Text
 			if stackSpec, ok := strings.CutPrefix(spec, "ValidStack"); ok {
 				for tok := range strings.SplitSeq(strings.TrimSpace(stackSpec), ",") {
 					if _, known := state.StackKindTokenOf(strings.TrimSpace(tok)); known {
@@ -337,7 +337,7 @@ func effCopySpellAbility(h Host, c *Ctx, sa *cards.SA) {
 		// no Note -- the resolution's sub-abilities (the cleanup chain) still
 		// run.
 	default:
-		if spec := strings.TrimSpace(sa.ParamStr(cards.PKDefinedTarget)); spec != "" {
+		if spec := DefinedOf(sa).Target.Text; spec != "" {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 				Text: "copy: DefinedTarget$ " + spec + " not resolved; copy keeps its targets"})
 		}
@@ -402,7 +402,7 @@ func emitCopy(h Host, c *Ctx, remember bool, ev events.Event) {
 // the caller can keep the historical copy-keeps-targets shape (under the
 // loud Note) instead of silently dropping the param.
 func copyDefinedTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
-	spec := strings.TrimSpace(sa.ParamStr(cards.PKDefinedTarget))
+	spec := DefinedOf(sa).Target.Text
 	if spec == "" {
 		return nil, false
 	}

@@ -150,7 +150,7 @@ func effChaosEnsues(h Host, c *Ctx, sa *cards.SA) {
 // Remembered order is preserved, which is what Spatial Merging's
 // "simultaneously planeswalk to both of them" needs.
 func planeswalkDestinations(h Host, c *Ctx, sa *cards.SA) []state.ObjID {
-	if !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKDefined)), "Remembered") {
+	if !strings.EqualFold(DefinedRefOf(sa).Text, "Remembered") {
 		return nil
 	}
 	return planarRememberedIDs(h, c)
@@ -160,7 +160,7 @@ func planeswalkDestinations(h Host, c *Ctx, sa *cards.SA) []state.ObjID {
 // Defined$ Remembered rider (The Fertile Lands of Saulvinia): the remembered
 // planes chaos ensues on.
 func chaosDestinations(h Host, c *Ctx, sa *cards.SA) []state.ObjID {
-	if !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKDefined)), "Remembered") {
+	if !strings.EqualFold(DefinedRefOf(sa).Text, "Remembered") {
 		return nil
 	}
 	return planarRememberedIDs(h, c)

@@ -121,7 +121,7 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 	// from the become pool. Zero on every other source route (there is no
 	// chosen object to exclude).
 	var chosenPick state.ObjID
-	spec := strings.TrimSpace(sa.ParamStr(cards.PKDefined))
+	spec := DefinedRefOf(sa).Text
 	switch {
 	case chosenName != "":
 		// A name has no source ObjID. The copied face is resolved in Apply
@@ -667,9 +667,8 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 				StaticSet: true})
 		}
 		if raw := strings.TrimSpace(sa.ParamStr(cards.PKAttachedTo)); raw != "" {
-			attach := &cards.SA{Params: map[string]string{"Defined": raw}}
 			attached := false
-			for _, target := range Defined(h, c, attach) {
+			for _, target := range DefinedSpec(h, c, raw) {
 				if target.IsPlayer || target.Obj == 0 {
 					continue
 				}

@@ -405,14 +405,15 @@ func effChooseNumber(h Host, c *Ctx, sa *cards.SA) {
 // rest of the effects package uses for a named body. A missing or unparseable
 // body is one loud Note and no branch, never a silent nothing.
 func effChooseNumberElection(h Host, c *Ctx, sa *cards.SA, matched, unmatched string, secretly bool) {
-	choosers, ok := repeatPlayers(h, c, strings.TrimSpace(sa.ParamStr(cards.PKDefined)))
+	defined := DefinedRefOf(sa).Text
+	choosers, ok := repeatPlayers(h, c, defined)
 	degraded := !ok || len(choosers) == 0
 	if degraded {
 		// The Defined$ selector is one this build cannot resolve to players;
 		// fall back to the resolving controller alone rather than guessing a
 		// second seat. A Note records the degrade.
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-			Text: "ChooseNumber election could not resolve Defined$ " + strings.TrimSpace(sa.ParamStr(cards.PKDefined)) + "; asking the controller"})
+			Text: "ChooseNumber election could not resolve Defined$ " + defined + "; asking the controller"})
 		choosers = []state.PlayerID{c.Controller}
 	}
 	opts, prompt, boundOK := chooseNumberAsk(h, c, sa)
@@ -454,7 +455,7 @@ func effChooseNumberElection(h Host, c *Ctx, sa *cards.SA, matched, unmatched st
 			picks = append(picks, pick)
 			if degraded {
 				h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-					Text: "ChooseNumber election could not resolve Defined$ " + strings.TrimSpace(sa.ParamStr(cards.PKDefined)) + "; asking the controller"})
+					Text: "ChooseNumber election could not resolve Defined$ " + defined + "; asking the controller"})
 			}
 			continue
 		}

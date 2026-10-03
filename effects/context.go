@@ -44,10 +44,9 @@ func GainedFacesOfDefined(h Host, c *Ctx, spec string) []state.GainedFace {
 	if c == nil || strings.TrimSpace(spec) == "" {
 		return nil
 	}
-	sa := &cards.SA{Params: map[string]string{"Defined": strings.TrimSpace(spec)}}
 	var out []state.GainedFace
 	seen := make(map[state.ObjID]bool)
-	for _, t := range Defined(h, c, sa) {
+	for _, t := range DefinedSpec(h, c, strings.TrimSpace(spec)) {
 		if t.IsPlayer || t.Obj == 0 || seen[t.Obj] {
 			continue
 		}
@@ -62,14 +61,29 @@ func GainedFacesOfDefined(h Host, c *Ctx, spec string) []state.GainedFace {
 }
 
 func Defined(h Host, c *Ctx, sa *cards.SA) []state.Target {
-	if ts, ok := knownDefinedTargets(h, c, sa.ParamStr(cards.PKDefined)); ok {
+	return DefinedRef(h, c, DefinedRefOf(sa), sa)
+}
+
+// DefinedSpec resolves Defined$-grammar selector text that is not sa's own
+// Defined$ (a synthetic selector, another parameter's value): Defined over an
+// ability naming only that selector, so an unrecognised one falls back to the
+// source.
+func DefinedSpec(h Host, c *Ctx, spec string) []state.Target {
+	return DefinedRef(h, c, RefOf(spec), nil)
+}
+
+// DefinedRef is Defined over a compiled reference r; sa (nil for none)
+// supplies only the no-selector fallback -- an ability declaring ValidTgts$
+// acts on its chosen targets, any other on its source.
+func DefinedRef(h Host, c *Ctx, r Ref, sa *cards.SA) []state.Target {
+	if ts, ok := knownDefinedTargets(h, c, r.Raw); ok {
 		return ts
 	}
 	// Keep Defined's historical per-member fallback for a mixed known/unknown
 	// expression. knownDefinedTargets is deliberately stricter for callers
 	// that need a fail-closed fetch-list classification, not a new public
 	// contract for ordinary effects.
-	if sa.ParamStr(cards.PKDefined) == "Imprinted" || sa.ParamStr(cards.PKDefined) == "ImprintedLKI" {
+	if r.Is(RefImprinted) || r.Is(RefImprintedLKI) {
 		// Ordinary (non-fetch-list) Imprinted resolution: the source's
 		// Imprinted association. knownDefinedTargets deliberately does NOT
 		// recognise this selector (TestImprintedDefinedLibraryFetchFailsClosed
@@ -88,16 +102,12 @@ func Defined(h Host, c *Ctx, sa *cards.SA) []state.Target {
 		}
 		return nil
 	}
-	if strings.Contains(sa.ParamStr(cards.PKDefined), " & ") {
+	if r.Has(RefCompound) {
+		// Each member resolves on its own over the same ability (its
+		// ValidTgts$ fallback included), in script order.
 		var out []state.Target
-		for part := range strings.SplitSeq(sa.ParamStr(cards.PKDefined), " & ") {
-			copy := *sa
-			copy.Params = make(map[string]string, len(sa.Params))
-			for k, v := range sa.Params {
-				copy.Params[k] = v
-			}
-			copy.Params["Defined"] = strings.TrimSpace(part)
-			out = append(out, Defined(h, c, &copy)...)
+		for part := range strings.SplitSeq(r.Raw, " & ") {
+			out = append(out, DefinedRef(h, c, RefOf(strings.TrimSpace(part)), sa)...)
 		}
 		return out
 	}
@@ -108,8 +118,8 @@ func Defined(h Host, c *Ctx, sa *cards.SA) []state.Target {
 	// controller as You; an unmodelled predicate fails closed to an empty set
 	// like every filter. (ValidStack is knownDefinedTargets' own prefix above
 	// and never reaches here.)
-	if spec := sa.ParamStr(cards.PKDefined); spec == "Valid" || strings.HasPrefix(spec, "Valid ") {
-		return battlefieldValidTargets(h, c, strings.TrimSpace(strings.TrimPrefix(spec, "Valid")))
+	if r.Has(RefValid) {
+		return battlefieldValidTargets(h, c, strings.TrimSpace(strings.TrimPrefix(r.Raw, "Valid")))
 	}
 	// Forge's rule: an ability that names targets acts on them; one that
 	// names none acts on its source. A sub-ability that wants its
@@ -1603,18 +1613,18 @@ func playerIDsFromTargets(h Host, c *Ctx, selector string, ts []state.Target) []
 // other selector an object still resolves to its controller (the pre-existing
 // PlayerOf contract -- Targeted, ChosenCardController, ...).
 func definedPlayerIDs(h Host, c *Ctx, selector string) []state.PlayerID {
-	// Key the plain-Remembered rule off the selector SPELLING, not the SA: a
-	// tiny temporary SA shares Defined's deterministic selector grammar
-	// without mutating the immutable compiled SA.
-	return playerIDsFromTargets(h, c, selector,
-		Defined(h, c, &cards.SA{Params: map[string]string{"Defined": selector}}))
+	// Key the plain-Remembered rule off the selector SPELLING, not the SA:
+	// DefinedSpec shares Defined's deterministic selector grammar without
+	// touching the immutable compiled SA.
+	return playerIDsFromTargets(h, c, selector, DefinedSpec(h, c, selector))
 }
 
 // definedPlayers is the SA-level spelling of definedPlayerIDs: it resolves the
 // SA's own Defined$ selector through the full SA (so a ValidTgts$ fallback
 // still applies) with the same plain-Remembered rule.
 func definedPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
-	return playerIDsFromTargets(h, c, sa.ParamStr(cards.PKDefined), Defined(h, c, sa))
+	r := DefinedRefOf(sa)
+	return playerIDsFromTargets(h, c, r.Raw, DefinedRef(h, c, r, sa))
 }
 
 // EffectOwnerPlayers resolves an Effect's EffectOwner$ selector to the seats
@@ -1812,7 +1822,7 @@ func imprint(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	var ids []state.ObjID
-	for _, t := range Defined(h, c, &cards.SA{Params: map[string]string{"Defined": sa.ParamStr(cards.PKImprintCards)}}) {
+	for _, t := range DefinedSpec(h, c, sa.ParamStr(cards.PKImprintCards)) {
 		if t.IsPlayer {
 			continue
 		}

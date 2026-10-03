@@ -784,7 +784,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 // move. A host that cannot ask takes the deterministic first-max stand-in
 // (R-9), which is exactly what botpolicy's clamp fallback answers with.
 func changeZoneChosenTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
-	t := compileChangeZoneTargeting(sa, TargetsOf(sa))
+	t := compileChangeZoneTargeting(TargetsOf(sa), DefinedOf(sa))
 	ts, ok, _ := changeZoneChosenTargetsFor(h, c, sa, &t)
 	return ts, ok
 }
@@ -902,18 +902,15 @@ func markChangeZoneAttach(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, ev
 // rider below uses).
 func changeZoneAttachTargets(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams) []state.Target {
 	var out []state.Target
-	sub := *sa
 	if cz.AttachedToPlayer != "" {
-		sub.Params = map[string]string{"Defined": cz.AttachedToPlayer}
-		for _, t := range Defined(h, c, &sub) {
+		for _, t := range DefinedSpec(h, c, cz.AttachedToPlayer) {
 			if t.IsPlayer && int(t.Player) < len(h.Game().Players) && !h.Game().Players[t.Player].Lost {
 				out = append(out, t)
 			}
 		}
 		return out
 	}
-	sub.Params = map[string]string{"Defined": changeZoneAttachSelector(h, c, cz.AttachedTo)}
-	for _, t := range Defined(h, c, &sub) {
+	for _, t := range DefinedSpec(h, c, changeZoneAttachSelector(h, c, cz.AttachedTo)) {
 		if !t.IsPlayer && t.Obj != 0 && h.Game().Obj(t.Obj) != nil {
 			out = append(out, t)
 		}
@@ -967,7 +964,6 @@ func changeZoneAttachedTo(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, mo
 		changeZoneAttachedToPlayer(h, c, sa, moved, playerVal)
 		return
 	}
-	sub := *sa
 	// A bare card-filter spelling ("Creature" -- Retether's mass return;
 	// "Creature.YouCtrl" -- One Last Job, Storm Herald, Nomad Mythmaker;
 	// "Creature.sharesCreatureTypeWith <ref>" -- Runed Crown) is not a
@@ -979,9 +975,8 @@ func changeZoneAttachedTo(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, mo
 	// the same walk the Valid-prefixed branch runs -- so a spelling this
 	// grammar cannot evaluate fails closed to the loud Note below, never to
 	// a guessed attach (changeZoneAttachSelector).
-	sub.Params = map[string]string{"Defined": changeZoneAttachSelector(h, c, val)}
 	var to state.ObjID
-	for _, t := range Defined(h, c, &sub) {
+	for _, t := range DefinedSpec(h, c, changeZoneAttachSelector(h, c, val)) {
 		if !t.IsPlayer {
 			to = t.Obj
 			break
@@ -1011,11 +1006,9 @@ func changeZoneAttachedTo(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, mo
 // enters unattached, never a guessed seat. Battlefield destinations only (the
 // caller gates on that); nothing can be attached in a hidden zone.
 func changeZoneAttachedToPlayer(h Host, c *Ctx, sa *cards.SA, moved state.ObjID, val string) {
-	sub := *sa
-	sub.Params = map[string]string{"Defined": val}
 	var seat state.PlayerID
 	found := false
-	for _, t := range Defined(h, c, &sub) {
+	for _, t := range DefinedSpec(h, c, val) {
 		if t.IsPlayer && int(t.Player) < len(h.Game().Players) && !h.Game().Players[t.Player].Lost {
 			seat, found = t.Player, true
 			break

@@ -341,7 +341,7 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 	// artifact, creature, ..."). Only a SacValid$ Self/Card.Self line (or no
 	// SacValid$ at all) sacrifices the source object itself. Corpus: 66 such
 	// lines, which previously sacrificed the source whatever its type.
-	if !TargetsOf(sa).Has(TgtValidPresent) && strings.TrimSpace(sa.ParamStr(cards.PKDefined)) == "" {
+	if !TargetsOf(sa).Has(TgtValidPresent) && !DefinedRefOf(sa).Set() {
 		if v := strings.TrimSpace(sa.Params["SacValid"]); v != "" && v != "Self" && v != "Card.Self" {
 			who = []state.Target{{Player: c.Controller, IsPlayer: true}}
 		}

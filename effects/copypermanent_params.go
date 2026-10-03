@@ -166,7 +166,7 @@ func CopyPermanentOf(sa *cards.SA) *CopyPermanentParams {
 	if p := slot.Load(); p != nil && p.boundTo(sa.Params) {
 		return p
 	}
-	p := compileCopyPermanent(sa)
+	p := compileCopyPermanent(sa, DefinedOf(sa))
 	if sa.Params != nil {
 		slot.Store(p)
 	}
@@ -179,7 +179,7 @@ var copyPermanentFront [1 << 10]atomic.Pointer[CopyPermanentParams]
 
 // compileCopyPermanent is the one reader of a CopyPermanent ability's
 // parameters.
-func compileCopyPermanent(sa *cards.SA) *CopyPermanentParams {
+func compileCopyPermanent(sa *cards.SA, dp *DefinedParams) *CopyPermanentParams {
 	p := &CopyPermanentParams{paramBinding: bindParams(sa)}
 
 	// The one-per-call skipped-family Note (see effCopyPermanent). Literally
@@ -260,7 +260,7 @@ func compileCopyPermanent(sa *cards.SA) *CopyPermanentParams {
 	p.TokenAttacking = strings.TrimSpace(sa.Params["TokenAttacking"])
 	p.NumCopies = rawParamText(sa, "NumCopies")
 
-	p.Defined = strings.TrimSpace(sa.ParamStr(cards.PKDefined))
+	p.Defined = dp.Defined.Text
 	p.HasTgts = TargetsOf(sa).Has(TgtValidPresent)
 	p.Populate = isTrue(sa.Params["Populate"])
 	p.RememberTokens = isTrue(sa.Params["RememberTokens"])

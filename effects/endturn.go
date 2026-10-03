@@ -43,7 +43,7 @@ func effEndTurn(h Host, c *Ctx, sa *cards.SA) {
 	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True") {
 		if answer == "" {
 			chooser := c.Controller
-			if strings.TrimSpace(sa.ParamStr(cards.PKDefined)) == "ActivePlayer" {
+			if DefinedRefOf(sa).Is(RefActivePlayer) {
 				chooser = g.Active
 			}
 			d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Min: 1, Max: 1,

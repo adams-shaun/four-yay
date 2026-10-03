@@ -862,8 +862,8 @@ func effAddOrRemoveCounter(h Host, c *Ctx, sa *cards.SA) {
 	// resolving controller. A chooser is never guessed: an unresolvable
 	// DefinedPlayer$ is one loud Note and nothing moves.
 	decider := c.Controller
-	if spec := strings.TrimSpace(sa.ParamStr(cards.PKDefinedPlayer)); spec != "" {
-		ts := Defined(h, c, &cards.SA{Params: map[string]string{"Defined": spec}})
+	if spec := definedPlayerRef(sa).Text; spec != "" {
+		ts := DefinedSpec(h, c, spec)
 		if len(ts) == 0 || !ts[0].IsPlayer {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 				Text: "AddOrRemoveCounter DefinedPlayer$ unresolvable (" + spec + ")"})
@@ -1363,7 +1363,7 @@ func moveCounterOrigin(h Host, c *Ctx, sa *cards.SA) (ts []state.Target, fromTar
 // explicitly, which decides whether the chosen targets are the whole origin
 // set or just target 0.
 func moveCounterNamesDestination(sa *cards.SA) bool {
-	return strings.TrimSpace(sa.ParamStr(cards.PKDefined)) != "" ||
+	return DefinedRefOf(sa).Set() ||
 		strings.TrimSpace(sa.Params["ValidDefined"]) != ""
 }
 
@@ -1372,8 +1372,8 @@ func moveCounterNamesDestination(sa *cards.SA) bool {
 // outstanding) -- the remaining targets after target 0 when the origin also
 // came from the chosen targets (the 2-target shapes), else all of them.
 func moveCounterDest(h Host, c *Ctx, sa *cards.SA, originFromTargets bool) []state.Target {
-	if strings.TrimSpace(sa.ParamStr(cards.PKDefined)) != "" {
-		return Defined(h, c, sa)
+	if defined := DefinedRefOf(sa); defined.Set() {
+		return DefinedRef(h, c, defined, sa)
 	}
 	if filt := strings.TrimSpace(sa.Params["ValidDefined"]); filt != "" {
 		return battlefieldValidTargets(h, c, filt)

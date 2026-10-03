@@ -1707,18 +1707,12 @@ var apiSpecificRulesSA = map[string][]string{
 	"Engine.counterReplaceOp":  {"ReplaceCounter"},
 	"tokenReplacementsCommute": {"ReplaceToken"},
 	"tokenReplApplies":         {"ReplaceToken"},
-	// The body-defined entry-counter fold (rules/entry_counters.go): these
-	// read the ReplaceWith$ body of an R:Event$ Moved replacement line ONLY,
-	// and only when its DB$ body is a PutCounter|ETB$ True ability (every
-	// reader short-circuits on `r.With.API == "PutCounter"` first), so the
-	// ETB$/Defined$/CounterNum$/CounterType$ reads plus entryBodyAbsorbable's
-	// withheld-modifier keys belong to api:PutCounter alone -- left in the
-	// generic union they would mark CounterType$/Optional$/ETB$ read for
-	// every other API (measured: api:Mill's World Shaper Optional$ gap).
-	// W4 step 3 moved the ETB$/CounterNum$/CounterType$ and withheld-modifier
-	// reads onto effects.PutCounterOf's compiled struct; entryBodyAbsorbable
-	// keeps only its Defined$ Self read.
-	"entryBodyAbsorbable": {"PutCounter"},
+	// The body-defined entry-counter fold (rules/entry_counters.go,
+	// entryBodyAbsorbable) carries no read of its own: W4 step 3 moved its
+	// ETB$/CounterNum$/CounterType$ and withheld-modifier reads onto
+	// effects.PutCounterOf's compiled struct, and W4 step 4 its Defined$
+	// Self read onto effects.DefinedOf's compiled Ref (the generic
+	// Defined-reference tier every API reads).
 
 	// plainManaShape (rules/mana_plain.go) returns at once unless the
 	// ability is api:Mana, so its Produced$/Amount$/Cost$ reads belong to

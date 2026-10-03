@@ -96,7 +96,7 @@ func ManaOf(sa *cards.SA) *ManaParams {
 	if p := slot.Load(); p != nil && p.boundTo(sa.Params) {
 		return p
 	}
-	p := compileMana(sa)
+	p := compileMana(sa, DefinedOf(sa))
 	if sa.Params != nil {
 		slot.Store(p)
 	}
@@ -108,7 +108,7 @@ func ManaOf(sa *cards.SA) *ManaParams {
 var manaFront [1 << 10]atomic.Pointer[ManaParams]
 
 // compileMana is the one reader of a mana ability's production parameters.
-func compileMana(sa *cards.SA) *ManaParams {
+func compileMana(sa *cards.SA, dp *DefinedParams) *ManaParams {
 	p := &ManaParams{paramBinding: bindParams(sa)}
 	p.ProducedRaw, p.HasProduced = sa.Param(cards.PKProduced)
 	p.Produced = strings.TrimSpace(p.ProducedRaw)
@@ -127,7 +127,7 @@ func compileMana(sa *cards.SA) *ManaParams {
 	p.PersistentMana = strings.TrimSpace(sa.Params["PersistentMana"])
 	p.PersistentUntilEndOfCombat = strings.TrimSpace(sa.Params["PersistentUntilEndOfCombat"])
 	p.TriggersWhenSpent = strings.TrimSpace(sa.Params["TriggersWhenSpent"])
-	p.HasDefined = strings.TrimSpace(sa.ParamStr(cards.PKDefined)) != ""
+	p.HasDefined = dp.Defined.Set()
 
 	p.PlainSym, p.PlainAmt = plainManaParams(sa, p)
 	if sa.API == "Mana" {

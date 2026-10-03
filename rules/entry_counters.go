@@ -244,7 +244,7 @@ func entryBodyAbsorbable(sa *cards.SA) bool {
 	if !pc.ETB || sa.Sub != nil {
 		return false
 	}
-	if strings.TrimSpace(sa.ParamStr(cards.PKDefined)) != "Self" {
+	if !effects.DefinedRefOf(sa).Is(effects.RefSelf) {
 		return false
 	}
 	if !pc.CounterNum.Present || pc.EntryFoldBlocked {
