@@ -1,7 +1,0 @@
-{
-  "card": "Torpor Orb",
-  "rows": {
-    "enters-triggers-suppressed": "Torpor Orb's printed static 'creatures entering don't cause abilities to trigger' is not enforced (CR 603.3b / 614.1c). With the Orb on the battlefield, Aether Adept's enters ability still triggers and returns the Adept's own Grizzly Bears to hand. Root cause: the Forge script encodes it as 'S:Mode$ DisableTriggers | ValidCause$ Creature | ValidMode$ ChangesZone,ChangesZoneAll | Destination$ Battlefield', and no engine code reads the DisableTriggers static mode (effects/misc.go effEffect registers only CantTarget/CantRegenerate/cost modes/BecomeMonarch). 7 corpus scripts carry Mode$ DisableTriggers. The control scenario without the Orb passes, and the sibling 'opponents-creature-triggers-also-suppressed' shows it is not even controller-limited.",
-    "opponents-creature-triggers-also-suppressed": "Same root as 'enters-triggers-suppressed': DisableTriggers is unread, so an opponent's enters ability is not suppressed either. The opponent casts Aether Adept with Torpor Orb (p0's) on the battlefield and its enters ability still triggers, returning the opponent's own Savannah Lions to hand. CR 603.3b: the static is global, not controller-limited."
-  }
-}
