@@ -65,4 +65,5 @@ func TestTypedParamKnownKeysMatchTheCensus(t *testing.T) {
 	_, d := measureParamCensus(t, nil)
 	checkKnownKeys(t, "charmKnownKeys (api:Charm)", effects.CharmKnownKeys(), censusKnownKeys(d, "Charm"))
 	checkKnownKeys(t, "charmKnownKeys (api:GenericChoice)", effects.CharmKnownKeys(), censusKnownKeys(d, "GenericChoice"))
+	checkKnownKeys(t, "pumpKnownKeys (api:Pump)", effects.PumpKnownKeys(), censusKnownKeys(d, "Pump"))
 }

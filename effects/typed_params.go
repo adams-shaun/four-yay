@@ -69,4 +69,7 @@ func compileTypedHalves(f *SAFacts, sa *cards.SA) {
 	if isModalSA(sa) {
 		f.Charm = compileCharm(sa)
 	}
+	if sa.API == "Pump" {
+		f.Pump = compilePump(sa)
+	}
 }

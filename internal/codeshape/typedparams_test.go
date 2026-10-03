@@ -14,6 +14,9 @@ const (
 	// effects/charm_params.go -- any read in effects/charm.go, plus any read
 	// of a Charm-only key elsewhere.
 	charmParamLeaks = 0
+	// pumpParamLeaks: api:Pump's reads outside effects/pump_params.go -- any
+	// read in effects/pump.go, plus any read of a Pump-only key elsewhere.
+	pumpParamLeaks = 0
 )
 
 func emptyTypedParamLeaks() map[string][]string {
@@ -26,7 +29,7 @@ func emptyTypedParamLeaks() map[string][]string {
 
 func TestTypedParamLeaksOnlyShrink(t *testing.T) {
 	m := measureRepo(t)
-	limits := map[string]int{"Charm": charmParamLeaks}
+	limits := map[string]int{"Charm": charmParamLeaks, "Pump": pumpParamLeaks}
 	var rs []ratchet
 	for _, api := range TypedParamAPIs {
 		limit, ok := limits[api.Name]

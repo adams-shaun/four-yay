@@ -5,6 +5,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -80,16 +81,14 @@ func pureGrantKeywords(ab *cards.SA) []string {
 	default:
 		return nil
 	}
-	if _, att := ab.Params["NumAtt"]; att {
+	pp := effects.PumpOf(ab)
+	if pp.NumAtt.Present || pp.NumDef.Present {
 		return nil
 	}
-	if _, def := ab.Params["NumDef"]; def {
+	if strings.Contains(pp.Grant.KWText, ":") {
 		return nil
 	}
-	if strings.Contains(ab.ParamStr(cards.PKKW), ":") {
-		return nil
-	}
-	return grantKeywords(ab.ParamStr(cards.PKKW))
+	return grantKeywords(pp.Grant.KWText)
 }
 
 // grantKeywords splits a KW$ parameter's keyword list into head-stripped

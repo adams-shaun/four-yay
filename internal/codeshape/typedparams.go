@@ -33,6 +33,13 @@ var TypedParamAPIs = []TypedParamAPI{
 		OnlyKeys: []string{"CanRepeatModes", "CharmNum", "ChoiceRestriction", "FallbackAbility",
 			"MinCharmNum", "RandomCompare", "RandomCompareSVar", "TempRemember"},
 	},
+	{
+		Name:         "Pump",
+		CompilerFile: "effects/pump_params.go",
+		Files:        []string{"effects/pump.go"},
+		OnlyKeys: []string{"ClearNotedCardsFor", "ForgetImprinted", "KWChoice", "NoteCards",
+			"NoteCardsFor", "NoteNumber"},
+	},
 }
 
 // countTypedParamLeaks appends f's reads that leak past each TypedParamAPIs

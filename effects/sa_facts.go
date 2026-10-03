@@ -42,6 +42,7 @@ type SAFacts struct {
 	// pump_params.go, draw_params.go): each is non-nil exactly when the
 	// ability's API is one its compiler serves.
 	Charm *CharmParams
+	Pump  *PumpParams
 }
 
 // NewSAFacts compiles sa's typed halves into a fresh record naming sa. The
