@@ -111,6 +111,9 @@ func TestEveryConfiguredAbilityHasItsFactsRecord(t *testing.T) {
 					defined++
 				}
 			}
+			if (f.Clone != nil) != (sa.API == "Clone") {
+				t.Errorf("%s: %q (API %s): Clone half present=%v", c.Path, sa.Line, sa.API, f.Clone != nil)
+			}
 		}
 	}
 	visit := func(c *cards.Card) {

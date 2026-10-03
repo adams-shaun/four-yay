@@ -62,6 +62,12 @@ func TestCopyPermanentKnownKeysMatchTheCensus(t *testing.T) {
 	checkKnownKeysMatchTheCensus(t, "CopyPermanent", effects.CopyPermanentKnownKeys())
 }
 
+// TestCloneKnownKeysMatchTheCensus is the same check for api:Clone
+// (effects.cloneKnownKeys).
+func TestCloneKnownKeysMatchTheCensus(t *testing.T) {
+	checkKnownKeysMatchTheCensus(t, "Clone", effects.CloneKnownKeys())
+}
+
 // checkKnownKeysMatchTheCensus holds an API compiler's known-key table equal
 // to the census's measured read set for api plus its ignored and structural
 // keys.

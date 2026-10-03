@@ -175,7 +175,7 @@ func (e *Engine) entryETBChoice(ev events.Event, ordinal int) (etbChoice, bool) 
 			// fallback when ValidCards$ is absent).
 			selector := r.With.ParamStr(cards.PKValidDescription)
 			if kind == "copy" {
-				selector = r.With.ParamStr(cards.PKChoices)
+				selector = effects.CloneOf(r.With).ChoicesRaw
 			}
 			var opts []decision.Option
 			if kind == "type" {
@@ -541,58 +541,23 @@ func etbChoicePrompt(kind string) string {
 // scope boundary); rules/etb_clone_whitelist_census_test.go pins the
 // classified population bidirectionally.
 func etbCloneWhitelist(sa *cards.SA, svars map[string]string) bool {
-	for k := range sa.Params {
-		switch k {
-		case "Choices", "AddKeywords", "AddTypes", "SpellDescription", "AddStaticAbilities", "IntoPlayTapped":
-			// supported: the copy-template selector, the CR 707.9e
-			// copy modifiers, and (staticgoad1) the granted Goad$ static
-			// effClone registers -- value-checked below.
-		default:
-			return false
-		}
-	}
-	// A supported KEY is not a supported VALUE. Two value shapes inside the
-	// key whitelist are withheld too, because admitting them offered a route
-	// that silently did the wrong thing:
-	//
-	//  - A Choices$ selector carrying a predicate whose right-hand side is an
-	//    SVar rather than a literal (Mockingbird's "Creature.Other+cmcLEY",
-	//    Y = Count$CastTotalManaSpent). Both the option build (etbOptions)
-	//    and the replacement-time revalidation (effects' cloneETBTemplateLegal)
-	//    match through MatchesSpecFrom, which has no resolver, so every such
-	//    predicate answers "recognised shape, never matches": the election
-	//    would offer nothing but the decline at every paid X. Supporting it
-	//    needs the choice deferred past payment with the cast's mana total
-	//    bound as the RHS resolver -- not this task.
-	//  - An AddKeywords$ member whose head is not a single word. Forge's
-	//    conditional modifier grammar rides that space ("IfNew Vanishing:3",
-	//    Flesh Duplicate: vanishing 3 only if the copied creature has no
-	//    vanishing), and effClone installs the raw member as a layer-6
-	//    AddKeywords grant, so cards.KeywordHead would read the head as
-	//    "IfNew Vanishing" -- no conditional test, no vanishing, no entry
-	//    time counters, silently. This is deliberately conservative: it also
-	//    withholds a body whose modifier is a legitimate multi-word keyword
-	//    ("First Strike"), a shape no ETB Clone carrier has today.
-	if effects.SpecNeedsResolver(strings.TrimSpace(sa.ParamStr(cards.PKChoices))) {
+	// The key whitelist and the text-only value checks are compiled once
+	// (effects.CloneParams.ETBShapeOK): a supported KEY is not a supported
+	// VALUE, so a Choices$ selector whose predicate needs an SVar resolver
+	// (Mockingbird's "Creature.Other+cmcLEY") and an AddKeywords$ member whose
+	// head is not a single word (Flesh Duplicate's "IfNew Vanishing:3") are
+	// withheld there too, as is any IntoPlayTapped$ other than True.
+	cp := effects.CloneOf(sa)
+	if !cp.ETBShapeOK {
 		return false
-	}
-	for _, kw := range cards.SplitKeywordList(sa.ParamStr(cards.PKAddKeywords)) {
-		if strings.ContainsAny(cards.KeywordHead(kw), " \t") {
-			return false
-		}
 	}
 	// A named static is installed on the cloned face by CloneStatic, so
 	// every static reader sees it through its normal printed-S: path. An
 	// unresolvable member still fails closed before posing the ETB election.
-	for _, name := range strings.FieldsFunc(sa.ParamStr(cards.PKAddStaticAbilities), func(r rune) bool {
-		return r == ',' || r == ' ' || r == '\t' || r == '\n'
-	}) {
+	for _, name := range cp.StaticNames {
 		if !effects.CloneStaticGrantReadable(svars, name) {
 			return false
 		}
-	}
-	if raw, ok := sa.Param(cards.PKIntoPlayTapped); ok && !strings.EqualFold(raw, "True") {
-		return false
 	}
 	return true
 }

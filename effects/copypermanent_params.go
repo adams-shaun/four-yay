@@ -119,7 +119,7 @@ var copyPermanentKnownKeys = [...]string{
 	"CostDesc", "Defined", "DefinedCards", "DefinedName", "DefinedTarget",
 	"Description", "Exclude", "Execute", "Exhaust", "GameActivationLimit", "Image",
 	"ImprintCards", "ImprintPlayed", "ImprintTokens", "InstantSpeed",
-	"IntoPlayTapped", "IsCurse", "IsPresent", "KW", "Keyword", "KeywordLine",
+	"IsCurse", "IsPresent", "KW", "Keyword", "KeywordLine",
 	"MaxTotalTargetCMC", "MaxTotalTargetPower", "Mentor", "ModeCost", "Monstrosity",
 	"NewController", "NonLegendary", "NumCopies", "NumDmg", "OpponentTurn",
 	"Pawprint", "Planeswalker", "PlayCost", "PlayerTurn", "Populate", "PowerUp",
