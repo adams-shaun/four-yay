@@ -141,6 +141,14 @@ func (e *Engine) emit(ev events.Event) events.Event {
 	if e.applyingReplacement {
 		ev = events.CarryAction(e.replAction, e.replReplaced, ev)
 	}
+	// CR 303.4g: a non-cast Aura with nothing it can legally enchant never
+	// enters -- it stays in its zone, ahead of every replacement, staging,
+	// fold and trigger (rules/aura_entry.go).
+	if (ev.Kind == events.MoveZone && ev.To == state.ZBattlefield && auraEntryGate(e, &ev)) ||
+		(ev.Kind == events.TokenCreate && auraTokenGate(e, &ev)) {
+		return events.Event{Kind: events.Note, Obj: ev.Obj, Player: ev.Player,
+			Text: "aura entry withheld (CR 303.4g)"}
+	}
 	// Entry-counter staging (task agent-20260923T084704Z-b2386c25): an entry
 	// whose characteristic counters compete under non-commuting AddCounter
 	// replacements stages behind CR 616.1's order choice, BEFORE anything
@@ -151,14 +159,6 @@ func (e *Engine) emit(ev events.Event) events.Event {
 	// and the re-drive after the answer runs the ordinary emit exactly once.
 	// A completed stage returns false and falls through: the fold below
 	// consumes it (rules/entry_counters.go).
-	// CR 303.4g: a non-cast Aura with nothing it can legally enchant never
-	// enters -- it stays in its zone, ahead of every replacement, staging,
-	// fold and trigger (rules/aura_entry.go).
-	if (ev.Kind == events.MoveZone && ev.To == state.ZBattlefield && auraEntryGate(e, &ev)) ||
-		(ev.Kind == events.TokenCreate && auraTokenGate(e, &ev)) {
-		return events.Event{Kind: events.Note, Obj: ev.Obj, Player: ev.Player,
-			Text: "aura entry withheld (CR 303.4g)"}
-	}
 	if ev.Kind == events.MoveZone && ev.To == state.ZBattlefield &&
 		e.entryCounterOrderParks(ev) {
 		return events.Event{Kind: events.Note, Obj: ev.Obj, Player: ev.Player,

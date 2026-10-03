@@ -597,8 +597,9 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	// fasten the copy to a non-battlefield object the attachment SBAs cannot
 	// reason about. The check is the same battlefield gate effAttach applies.
 	var attachTo state.ObjID
-	attachedToNamed := strings.TrimSpace(sa.ParamStr(cards.PKAttachedTo)) != ""
-	if raw := strings.TrimSpace(sa.ParamStr(cards.PKAttachedTo)); raw != "" {
+	attachedToRaw := strings.TrimSpace(sa.ParamStr(cards.PKAttachedTo))
+	attachedToNamed := attachedToRaw != ""
+	if raw := attachedToRaw; raw != "" {
 		sub := *sa
 		sub.Params = map[string]string{"Defined": raw}
 		for _, t := range Defined(h, c, &sub) {
