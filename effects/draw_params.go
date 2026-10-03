@@ -74,7 +74,7 @@ func compileDraw(sa *cards.SA) *DrawParams {
 	p.OptionalDecider = strings.TrimSpace(sa.ParamStr(cards.PKOptionalDecider))
 	p.Upto = isTrue(sa.Params["Upto"])
 	if sa.API == "Draw" {
-		p.Unread = unreadParams(sa, drawKnownKeys[:])
+		p.Unread = unreadKeys(sa, drawKnownKeys[:])
 	}
 	return p
 }
@@ -83,7 +83,7 @@ func compileDraw(sa *cards.SA) *DrawParams {
 // deliberately ignores, sorted: compileDraw's own reads, the shared
 // machinery's (the cast/activation/targeting tier, Resolve's Condition* gate,
 // the selector resolvers), the presentation/AI-only keys and the structural
-// SubAbility$/Keyword$ tags. rules' TestTypedParamKnownKeysMatchTheCensus
+// SubAbility$/Keyword$ tags. rules' TestDrawKnownKeysMatchTheCensus
 // holds it equal to the parameter census's measured api:Draw read set plus
 // the ignored and structural keys.
 var drawKnownKeys = [...]string{
@@ -99,14 +99,14 @@ var drawKnownKeys = [...]string{
 	"ConditionDefined", "ConditionDescription", "ConditionFirstCombat",
 	"ConditionNotPresent", "ConditionPhases", "ConditionPlayerTurn", "ConditionPresent",
 	"ConditionSVarCompare", "CopyCard", "Cost", "CostDesc", "CounterTypePerDefined",
-	"Defined", "DefinedCards", "DefinedTarget", "Description", "Destination",
-	"EffectOwner", "Exclude", "Exhaust", "GameActivationLimit", "Image", "ImprintCards",
-	"ImprintPlayed", "InstantSpeed", "IntoPlayTapped", "IsCurse", "IsPresent", "KW",
-	"Keyword", "KeywordLine", "MaxTotalTargetCMC", "MaxTotalTargetPower", "Mentor",
-	"ModeCost", "Monstrosity", "NewController", "NumCards", "NumDmg", "OpponentTurn",
-	"OptionalDecider", "Origin", "Planeswalker", "PlayCost", "PlayerTurn", "PowerUp",
-	"PrecostDesc", "PresentCompare", "PresentDefined", "PresentZone", "ReduceAmount",
-	"ReduceCost", "RememberCostMana", "RememberDrawn", "RememberObjects", "ReplaceColor",
+	"Defined", "DefinedCards", "DefinedTarget", "Description", "EffectOwner", "Exclude",
+	"Exhaust", "GameActivationLimit", "Image", "ImprintCards", "ImprintPlayed",
+	"InstantSpeed", "IntoPlayTapped", "IsCurse", "IsPresent", "KW", "Keyword",
+	"KeywordLine", "MaxTotalTargetCMC", "MaxTotalTargetPower", "Mentor", "ModeCost",
+	"Monstrosity", "NewController", "NumCards", "NumDmg", "OpponentTurn",
+	"OptionalDecider", "Planeswalker", "PlayCost", "PlayerTurn", "PowerUp", "PrecostDesc",
+	"PresentCompare", "PresentDefined", "PresentZone", "ReduceAmount", "ReduceCost",
+	"RememberCostMana", "RememberDrawn", "RememberObjects", "ReplaceColor",
 	"ReplaceGraveyard", "ReplaceGraveyardValid", "ReplaceMana", "ReplaceOnly",
 	"ReplaceType", "RestrictValid", "SVarCompare", "SelectPrompt", "SetChosenMode",
 	"SetColor", "ShowCards", "SorcerySpeed", "SpellDescription", "StackDescription",
@@ -118,10 +118,10 @@ var drawKnownKeys = [...]string{
 	"TargetsWithEqualToughness", "TargetsWithSameCardType", "TargetsWithSameController",
 	"TargetsWithSameCreatureType", "TargetsWithSharedCardType", "TargetsWithSharedTypes",
 	"TgtPrompt", "TgtZone", "TokenScript", "TriggerDescription", "TriggersWhenSpent",
-	"Type", "Ultimate", "Unattach", "UnlessAI", "UnlessCost", "UnlessPayer",
-	"UnlessResolveSubs", "UnlessSwitched", "Upto", "ValidCard", "ValidCards",
-	"ValidCardsDesc", "ValidChoices", "ValidCounterType", "ValidDescription", "ValidTgts",
-	"VarName", "VarValue", "VoteMessage", "WithoutManaCost", "XMax", "XMin",
+	"Type", "Ultimate", "UnlessAI", "UnlessCost", "UnlessPayer", "UnlessResolveSubs",
+	"UnlessSwitched", "Upto", "ValidCard", "ValidCards", "ValidCardsDesc", "ValidChoices",
+	"ValidCounterType", "ValidDescription", "ValidTgts", "VarName", "VarValue",
+	"VoteMessage", "WithoutManaCost", "XMax", "XMin",
 }
 
 // DrawKnownKeys is a copy of drawKnownKeys, for the census check.

@@ -11,7 +11,7 @@ import (
 // 8). An ability has exactly one downstream slot (cards.ExtSlot) and a second
 // claim on it fails silently, so every compiled per-ability fact lives in this
 // one struct hung on the slot and nothing competes for it: the per-API typed
-// parameter structs (ChangeZone today) and the rules tier's private half (the
+// parameter structs (ChangeZone, ChangeZoneAll, Attach) and the rules tier's private half (the
 // mana walk's gate facts, opaque here).
 //
 // The record is defined in effects, not rules, because resolution reads it
@@ -34,6 +34,12 @@ type SAFacts struct {
 	// ChangeZone is api:ChangeZone's compiled parameter set (changezone_params.go),
 	// non-nil exactly when the ability's API is ChangeZone.
 	ChangeZone *ChangeZoneParams
+	// ChangeZoneAll is api:ChangeZoneAll's compiled parameter set
+	// (changezoneall_params.go), non-nil exactly when the API is ChangeZoneAll.
+	ChangeZoneAll *ChangeZoneAllParams
+	// Attach is api:Attach's compiled parameter set (attach_params.go),
+	// non-nil exactly when the API is Attach.
+	Attach *AttachParams
 	// Rules is the rules tier's private half, opaque here: the mana walk's
 	// gate facts for an AB$ ability, nil otherwise.
 	Rules unsafe.Pointer
@@ -57,6 +63,10 @@ func NewSAFacts(sa *cards.SA) *SAFacts {
 	f := &SAFacts{SA: sa}
 	if isChangeZoneSA(sa) {
 		f.ChangeZone = compileChangeZone(sa)
+	} else if isChangeZoneAllSA(sa) {
+		f.ChangeZoneAll = compileChangeZoneAll(sa)
+	} else if isAttachSA(sa) {
+		f.Attach = compileAttach(sa)
 	}
 	compileTypedHalves(f, sa)
 	return f

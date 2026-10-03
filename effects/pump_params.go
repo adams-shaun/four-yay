@@ -136,7 +136,7 @@ func compilePump(sa *cards.SA) *PumpParams {
 	p.ForgetImprinted = strings.TrimSpace(sa.Params["ForgetImprinted"])
 	p.Grant = compilePumpGrant(sa)
 	if sa.API == "Pump" {
-		p.Unread = unreadParams(sa, pumpKnownKeys[:])
+		p.Unread = unreadKeys(sa, pumpKnownKeys[:])
 	}
 	return p
 }
@@ -169,7 +169,7 @@ func numForObjectText(h Host, c *Ctx, p ParamText, power bool, def int32, obj st
 // machinery's (the cast/activation/targeting tier, Resolve's Condition* gate,
 // the Defined$ resolver, the AtEOT$ rider), the presentation/AI-only keys and
 // the structural SubAbility$/Keyword$ tags. rules'
-// TestTypedParamKnownKeysMatchTheCensus holds it equal to the parameter
+// TestPumpKnownKeysMatchTheCensus holds it equal to the parameter
 // census's measured api:Pump read set plus the ignored and structural keys.
 var pumpKnownKeys = [...]string{
 	"AILifeThreshold", "AILogic", "AINoRecursiveCheck", "AIPhyrexianPayment", "AITgts",
@@ -184,31 +184,30 @@ var pumpKnownKeys = [...]string{
 	"ConditionDefined", "ConditionDescription", "ConditionFirstCombat",
 	"ConditionNotPresent", "ConditionPhases", "ConditionPlayerTurn", "ConditionPresent",
 	"ConditionSVarCompare", "CopyCard", "Cost", "CostDesc", "CounterTypePerDefined",
-	"Defined", "DefinedCards", "DefinedTarget", "Description", "Destination", "Duration",
-	"EffectOwner", "Exclude", "Exhaust", "ForgetImprinted", "GameActivationLimit",
-	"Image", "ImprintCards", "ImprintPlayed", "InstantSpeed", "IntoPlayTapped", "IsCurse",
+	"Defined", "DefinedCards", "DefinedTarget", "Description", "Duration", "EffectOwner",
+	"Exclude", "Exhaust", "ForgetImprinted", "GameActivationLimit", "Image",
+	"ImprintCards", "ImprintPlayed", "InstantSpeed", "IntoPlayTapped", "IsCurse",
 	"IsPresent", "KW", "KWChoice", "Keyword", "KeywordLine", "LeaveBattlefield",
 	"MaxTotalTargetCMC", "MaxTotalTargetPower", "Mentor", "ModeCost", "Monstrosity",
 	"NewController", "NoteCards", "NoteCardsFor", "NoteNumber", "NumAtt", "NumDef",
-	"NumDmg", "OpponentTurn", "Origin", "Planeswalker", "PlayCost", "PlayerTurn",
-	"PowerUp", "PrecostDesc", "PresentCompare", "PresentDefined", "PresentZone",
-	"PumpZone", "ReduceAmount", "ReduceCost", "RememberCostMana", "RememberObjects",
-	"RememberPumped", "RememberTargets", "ReplaceColor", "ReplaceGraveyard",
-	"ReplaceGraveyardValid", "ReplaceMana", "ReplaceOnly", "ReplaceType", "RestrictValid",
-	"SVarCompare", "Secondary", "SelectPrompt", "SetChosenMode", "SetColor", "ShowCards",
-	"SorcerySpeed", "SpellDescription", "StackDescription", "StaticAbilities",
-	"SubAbility", "TargetMax", "TargetMin", "TargetType", "TargetUnique",
-	"TargetValidTargeting", "TargetingPlayer", "TargetingPlayerControls",
-	"TargetsForEachPlayer", "TargetsWithControllerProperty",
+	"NumDmg", "OpponentTurn", "Planeswalker", "PlayCost", "PlayerTurn", "PowerUp",
+	"PrecostDesc", "PresentCompare", "PresentDefined", "PresentZone", "PumpZone",
+	"ReduceAmount", "ReduceCost", "RememberCostMana", "RememberObjects", "RememberPumped",
+	"RememberTargets", "ReplaceColor", "ReplaceGraveyard", "ReplaceGraveyardValid",
+	"ReplaceMana", "ReplaceOnly", "ReplaceType", "RestrictValid", "SVarCompare",
+	"Secondary", "SelectPrompt", "SetChosenMode", "SetColor", "ShowCards", "SorcerySpeed",
+	"SpellDescription", "StackDescription", "StaticAbilities", "SubAbility", "TargetMax",
+	"TargetMin", "TargetType", "TargetUnique", "TargetValidTargeting", "TargetingPlayer",
+	"TargetingPlayerControls", "TargetsForEachPlayer", "TargetsWithControllerProperty",
 	"TargetsWithDefinedController", "TargetsWithDifferentCMC",
 	"TargetsWithDifferentControllers", "TargetsWithDifferentNames",
 	"TargetsWithEqualToughness", "TargetsWithSameCardType", "TargetsWithSameController",
 	"TargetsWithSameCreatureType", "TargetsWithSharedCardType", "TargetsWithSharedTypes",
 	"TgtPrompt", "TgtZone", "TokenScript", "TriggerDescription", "TriggersWhenSpent",
-	"Type", "Ultimate", "Unattach", "UnlessAI", "UnlessCost", "UnlessPayer",
-	"UnlessResolveSubs", "UnlessSwitched", "ValidCard", "ValidCards", "ValidCardsDesc",
-	"ValidChoices", "ValidCounterType", "ValidDescription", "ValidTgts", "VarName",
-	"VarValue", "VoteMessage", "WithoutManaCost", "XMax", "XMin",
+	"Type", "Ultimate", "UnlessAI", "UnlessCost", "UnlessPayer", "UnlessResolveSubs",
+	"UnlessSwitched", "ValidCard", "ValidCards", "ValidCardsDesc", "ValidChoices",
+	"ValidCounterType", "ValidDescription", "ValidTgts", "VarName", "VarValue",
+	"VoteMessage", "WithoutManaCost", "XMax", "XMin",
 }
 
 // PumpKnownKeys is a copy of pumpKnownKeys, for the census check.

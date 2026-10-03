@@ -18,7 +18,8 @@ import (
 const (
 	// maxFuncLinesOver300 is the number of non-test functions in rules/ and
 	// effects/ spanning more than 300 lines.
-	maxFuncLinesOver300 = 54
+	// W4 step 3's ChangeZoneAll compiler shrank effChangeZoneAll: 54 -> 53.
+	maxFuncLinesOver300 = 53
 	// engineMethodCount is the number of non-test methods on rules.Engine.
 	// W5 E5 moved combat legality onto rules/combat's Board (2159 -> 2126)
 	// and W5 E3 the trigger matchers onto rules/trigmatch's: -> 2022. W5 E4
@@ -56,12 +57,14 @@ const (
 	// the 254 a uint8 ParamKey can name) and migrated rules/chars too:
 	// 798 -> 630. W4 step 3's ChangeZone compiler (one read per key,
 	// effects/changezone_params.go): 630 -> 628. loop-bugs: effReveal reads
-	// RevealDefined$ once: 628 -> 627. The Charm and Pump compilers
-	// (charm_params.go, pump_params.go): 627 -> 625.
-	stringParamReads = 625
+	// RevealDefined$ once: 628 -> 627. W4 step 3's Attach compiler
+	// (RememberAttached$ read once): 627 -> 626. The Charm and Pump
+	// compilers (charm_params.go, pump_params.go): 626 -> 624.
+	stringParamReads = 624
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
-	stringCaseLiterals = 2886
+	// W4 step 3: Attach's Object$ switch compiled to a kind: 2886 -> 2883.
+	stringCaseLiterals = 2883
 	// ctxLiterals, specContextLiterals and triggerContextLiterals are the
 	// effects.Ctx / SpecContext / TriggerContext composite literals in rules/
 	// and effects/ non-test files outside codeshape.CtxConstructorFiles (W1c,
@@ -87,6 +90,21 @@ const (
 	// read of a ChangeZone-only key elsewhere (codeshape.ChangeZoneFiles,
 	// codeshape.ChangeZoneOnlyKeys). It landed at zero.
 	changeZoneParamLeaks = 0
+	// changeZoneAllParamLeaks is the same census for api:ChangeZoneAll's
+	// compiler, effects/changezoneall_params.go (codeshape.ChangeZoneAllFiles,
+	// codeshape.ChangeZoneAllOnlyKeys). It landed at zero.
+	changeZoneAllParamLeaks = 0
+	// attachParamLeaks is the same census for api:Attach's compiler,
+	// effects/attach_params.go (codeshape.AttachFiles, codeshape.AttachOnlyKeys).
+	// It landed at zero.
+	attachParamLeaks = 0
+	// charmParamLeaks, pumpParamLeaks and drawParamLeaks are the same census
+	// for the modal family's compiler (effects/charm_params.go), api:Pump's
+	// (effects/pump_params.go) and api:Draw's (effects/draw_params.go). Each
+	// landed at zero.
+	charmParamLeaks = 0
+	pumpParamLeaks  = 0
+	drawParamLeaks  = 0
 )
 
 func measureRepo(t *testing.T) Metrics {
@@ -195,6 +213,31 @@ func TestCodeShapeOnlyShrinks(t *testing.T) {
 				"(add a field to compileChangeZone in effects/changezone_params.go) instead " +
 				"of reading the ability's Params in a ChangeZone file or a ChangeZone-only " +
 				"key elsewhere. Leaks: " + strings.Join(m.ChangeZoneLeaks, ", ")},
+		{"changeZoneAllParamLeaks", m.ChangeZoneAllParamLeaks, changeZoneAllParamLeaks,
+			"Read the parameter through effects.ChangeZoneAllOf's compiled ChangeZoneAllParams " +
+				"(add a field to compileChangeZoneAll in effects/changezoneall_params.go) instead " +
+				"of reading the ability's Params in effects/zone_changeall.go or a " +
+				"ChangeZoneAll-only key elsewhere. Leaks: " + strings.Join(m.ChangeZoneAllLeaks, ", ")},
+		{"attachParamLeaks", m.AttachParamLeaks, attachParamLeaks,
+			"Read the parameter through effects.AttachOf's compiled AttachParams (add a " +
+				"field to compileAttach in effects/attach_params.go) instead of reading the " +
+				"ability's Params in effects/attach.go or an Attach-only key elsewhere. " +
+				"Leaks: " + strings.Join(m.AttachLeaks, ", ")},
+		{"charmParamLeaks", m.CharmParamLeaks, charmParamLeaks,
+			"Read the parameter through effects.CharmOf's compiled CharmParams (add a " +
+				"field to compileCharm in effects/charm_params.go) instead of reading the " +
+				"ability's Params in effects/charm.go or a Charm-only key elsewhere. " +
+				"Leaks: " + strings.Join(m.CharmLeaks, ", ")},
+		{"pumpParamLeaks", m.PumpParamLeaks, pumpParamLeaks,
+			"Read the parameter through effects.PumpOf's compiled PumpParams (add a " +
+				"field to compilePump in effects/pump_params.go) instead of reading the " +
+				"ability's Params in effects/pump.go or a Pump-only key elsewhere. " +
+				"Leaks: " + strings.Join(m.PumpLeaks, ", ")},
+		{"drawParamLeaks", m.DrawParamLeaks, drawParamLeaks,
+			"Read the parameter through effects.DrawOf's compiled DrawParams (add a " +
+				"field to compileDraw in effects/draw_params.go) instead of reading the " +
+				"ability's Params in effects/draw.go or a Draw-only key elsewhere. " +
+				"Leaks: " + strings.Join(m.DrawLeaks, ", ")},
 		{"triggerContextLiterals", m.TriggerContextLiterals, triggerContextLiterals,
 			"Derive trigger referents from the firing event (rules' triggerReferents) or " +
 				"copy an existing TriggerContext and set the fields that differ; a " +

@@ -126,7 +126,7 @@ func compileCharm(sa *cards.SA) *CharmParams {
 	p.TempRemember = strings.TrimSpace(sa.Params["TempRemember"]) != ""
 	p.FallbackAbility = strings.TrimSpace(sa.Params["FallbackAbility"])
 	if isCharmAPI(sa) {
-		p.Unread = unreadParams(sa, charmKnownKeys[:])
+		p.Unread = unreadKeys(sa, charmKnownKeys[:])
 	}
 	return p
 }
@@ -153,11 +153,11 @@ var charmKnownKeys = [...]string{
 	"ConditionFirstCombat", "ConditionNotPresent", "ConditionPhases",
 	"ConditionPlayerTurn", "ConditionPresent", "ConditionSVarCompare", "CopyCard", "Cost",
 	"CostDesc", "CounterTypePerDefined", "Defined", "DefinedCards", "DefinedTarget",
-	"Description", "Destination", "EffectOwner", "Exclude", "Exhaust", "FallbackAbility",
+	"Description", "EffectOwner", "Exclude", "Exhaust", "FallbackAbility",
 	"GameActivationLimit", "Image", "ImprintCards", "ImprintPlayed", "InstantSpeed",
 	"IntoPlayTapped", "IsCurse", "IsPresent", "KW", "Keyword", "KeywordLine",
 	"MaxTotalTargetCMC", "MaxTotalTargetPower", "Mentor", "MinCharmNum", "ModeCost",
-	"Monstrosity", "NewController", "NumDmg", "OpponentTurn", "Optional", "Origin",
+	"Monstrosity", "NewController", "NumDmg", "OpponentTurn", "Optional",
 	"Planeswalker", "PlayCost", "PlayerTurn", "PowerUp", "PrecostDesc", "PresentCompare",
 	"PresentDefined", "PresentZone", "Random", "RandomCompare", "RandomCompareSVar",
 	"ReduceAmount", "ReduceCost", "RememberCostMana", "RememberObjects", "ReplaceColor",
@@ -172,7 +172,7 @@ var charmKnownKeys = [...]string{
 	"TargetsWithEqualToughness", "TargetsWithSameCardType", "TargetsWithSameController",
 	"TargetsWithSameCreatureType", "TargetsWithSharedCardType", "TargetsWithSharedTypes",
 	"TempRemember", "TgtPrompt", "TgtZone", "TokenScript", "TriggerDescription",
-	"TriggersWhenSpent", "Type", "Ultimate", "Unattach", "UnlessAI", "UnlessCost",
+	"TriggersWhenSpent", "Type", "Ultimate", "UnlessAI", "UnlessCost",
 	"UnlessPayer", "UnlessResolveSubs", "UnlessSwitched", "ValidCard", "ValidCards",
 	"ValidCardsDesc", "ValidChoices", "ValidCounterType", "ValidDescription", "ValidTgts",
 	"VarName", "VarValue", "VoteMessage", "WithoutManaCost", "XMax", "XMin",

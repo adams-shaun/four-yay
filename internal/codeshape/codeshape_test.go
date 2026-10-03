@@ -124,7 +124,11 @@ func free()          {}
 		StringParamKeys:        2,
 		StringCaseLiterals:     3,
 		ChangeZoneLeaks:        []string{},
-		TypedParamLeaks:        emptyTypedParamLeaks(),
+		ChangeZoneAllLeaks:     []string{},
+		AttachLeaks:            []string{},
+		CharmLeaks:             []string{},
+		PumpLeaks:              []string{},
+		DrawLeaks:              []string{},
 		Files:                  4,
 		LongFuncs: []Func{
 			{Name: "deep", File: "rules/sub/deep.go", Line: 6, Lines: 402},
