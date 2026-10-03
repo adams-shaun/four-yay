@@ -91,6 +91,9 @@ func askManaChoice(h Host, c *Ctx, sa *cards.SA, produced string) (string, bool,
 			break
 		}
 		if answered, units, ok := manaChoiceProduced(ans); ok {
+			// The legacy re-entry re-runs effMana from its first line,
+			// which emits the unread-parameter Note again; mirror it.
+			noteUnreadParams(h, c, "Mana", ManaOf(sa).Unread)
 			return answered, units, false
 		}
 	}

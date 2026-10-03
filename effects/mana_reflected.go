@@ -350,6 +350,9 @@ func effManaReflected(h Host, c *Ctx, sa *cards.SA) {
 			// The resolution kernel's answer in hand: the "manareflected"
 			// arm's colour, added exactly as the re-entry adds it (the ask
 			// is Min 1, so a served answer always names one option).
+			// The legacy re-entry re-runs effManaReflected from its first
+			// line, which emits the unread-parameter Note again; mirror it.
+			noteUnreadParams(h, c, "ManaReflected", ManaReflectedOf(sa).Unread)
 			if len(ans) > 0 {
 				manaReflectedAnswered(cols, ans[0].ManaSymbol, recipient, manaAdd)
 			}
