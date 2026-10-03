@@ -161,7 +161,7 @@ Measured 2026-09-28 on `main` (`go test ./rules/ -run
 - **`make sim`:** 20/20 `replay OK` over 20 verified 4-seat games.
 - **Corpus coverage** at the pin `95f04e8a04c8925fa97cb226fc3341cabcc90a53`
   (`FORGE_REF`): `make report` prints `cards: 33667  playable: 31005 (92.1%)`
-  and `tokens: 839`, matching the README's CI-generated coverage block. Since
+  and `tokens: 839`, matching the `card coverage` CI job's published summary. Since
   fuzz-cov3 (2026-09-24) the gate also counts the `count:<head>` value heads
   that a card's SVars read (`effects.modelledValueHeads`, held to the
   evaluator by `TestValueHeadRegistryMatchesEvaluator`). `repl:Untap` is out

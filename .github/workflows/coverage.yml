@@ -1,14 +1,16 @@
-# Refresh the published card-coverage tables after main moves.
+# Publish the card-coverage tables for every push to main.
 #
 # The measurement needs the Forge corpus, which is GPL-3.0 and is never
 # committed here: the job fetches it at the FORGE_REF pin into the gitignored
-# .cards/ and throws it away with the runner. Only the generated Markdown --
-# counts and percentages, no card text -- is committed back.
+# .cards/ and throws it away with the runner.
 #
-# `make coverage` is deterministic, so an unchanged corpus and an unchanged
-# primitive set produce byte-identical files and this job commits nothing. It
-# commits only when the numbers actually moved, and marks that commit
-# [skip ci] so it does not trigger itself.
+# The tables are generated, NEVER committed (W2 of the 2026-10-03 lasagna
+# spec). This job used to commit README.md and docs/coverage.md back to main
+# -- 90 bot commits in 14 days that every live branch rebased across. It now
+# publishes on the run page instead: .coverage/summary.md plus the full
+# .coverage/coverage.md as the job summary, and .coverage/ as the
+# `card-coverage` artifact. Only counts and percentages are published, no card
+# text. It needs no secrets and only read access to the repository.
 name: card coverage
 
 on:
@@ -17,24 +19,19 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
-# One refresh at a time, and never cancel one mid-push: two jobs committing to
-# main concurrently is the only way this workflow can lose work.
+# Only the newest push's tables matter, and nothing is written back, so an
+# in-flight run is safe to cancel.
 concurrency:
   group: card-coverage
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
-  refresh:
+  publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          # Full history: the commit-back step rebases onto main when another
-          # push landed while the corpus was being fetched, and a depth-1
-          # checkout has nothing to rebase onto.
-          fetch-depth: 0
 
       - uses: actions/setup-go@v5
         with:
@@ -45,22 +42,25 @@ jobs:
       - name: Fetch the Forge corpus
         run: make fetch-cards
 
-      - name: Regenerate the coverage tables
+      - name: Generate the coverage tables
         run: make coverage
 
-      - name: Commit the refreshed tables
+      - name: Publish the tables as the job summary
         run: |
           set -euo pipefail
-          if git diff --quiet -- README.md docs/coverage.md; then
-            echo "coverage tables unchanged; nothing to commit"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add README.md docs/coverage.md
-          git commit -m "docs: refresh card coverage table [skip ci]"
-          # main is pushed to often; rebase once onto whatever landed while
-          # this job ran rather than failing the whole refresh.
-          git fetch origin main
-          git rebase origin/main
-          git push origin HEAD:main
+          {
+            echo "# Card coverage"
+            echo
+            cat .coverage/summary.md
+            echo
+            echo "---"
+            echo
+            cat .coverage/coverage.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the tables
+        uses: actions/upload-artifact@v4
+        with:
+          name: card-coverage
+          path: .coverage/
+          if-no-files-found: error
