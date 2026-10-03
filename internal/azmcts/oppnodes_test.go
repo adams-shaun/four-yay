@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"math"
 	"math/rand/v2"
+	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
@@ -594,5 +597,55 @@ func TestOpponentNodesFindTheObviousReply(t *testing.T) {
 			t.Fatalf("%s: no opponent node below the attack whose most-visited reply blocks against its bot's answer", r.name)
 		}
 		t.Logf("%s: off %q Q %.2f; on %q (the attack's Q %.2f)", r.name, off.Labels[off.Choice], off.Q[off.Choice], on.Labels[on.Choice], on.Q[off.Choice])
+	}
+}
+
+// --- The cost report --------------------------------------------------------
+
+// TestOpponentNodesMeasure is the opponent nodes' cost report, not a check:
+// it runs only with AZ_MEASURE_OPP=1 (at GOMAXPROCS=1, so process CPU time
+// is the search's own). Over AZ_ROOTS roots (default 12) at AZ_SIMS
+// simulations (default 300), with mzplay's knobs (the benchmark's, the
+// action discount 0.99, a caller-supplied heuristic leaf, land macros at
+// the root, the node cache AZ_CACHE, default DefaultNodeCache), it searches every root with the switch
+// off and then on and reports simulations per second, env steps and plays
+// per simulation, opponent selections, and the leaf's depth.
+func TestOpponentNodesMeasure(t *testing.T) {
+	if os.Getenv("AZ_MEASURE_OPP") != "1" {
+		t.Skip("measurement only: AZ_MEASURE_OPP=1")
+	}
+	atoi := func(k string, d int) int {
+		if v, err := strconv.Atoi(os.Getenv(k)); err == nil {
+			return v
+		}
+		return d
+	}
+	sims, nroots, cache := atoi("AZ_SIMS", 300), atoi("AZ_ROOTS", 12), atoi("AZ_CACHE", DefaultNodeCache)
+	roots := measureRoots(t, nroots)
+	for _, on := range []bool{false, true} {
+		var tot Stats
+		var elapsed time.Duration
+		cpu0 := cpuTime()
+		for i, r := range roots {
+			o := oppOpts(true, sims, uint64(i)+1)
+			o.Leaf = goldenHeuristicLeaf
+			o.OpponentNodes = on
+			o.NodeCache = cache
+			start := time.Now()
+			res := oppSearch(t, r, "clairvoyant", o, true)
+			elapsed += time.Since(start)
+			tot.Add(res.Stats)
+		}
+		cpu := cpuTime() - cpu0
+		s := float64(max(tot.Simulations, 1))
+		c := float64(max(tot.Completed, 1))
+		t.Logf("opponent nodes %v: sims=%d cache=%d roots=%d searched=%d simulations=%d completed=%d", on, sims, cache, len(roots), tot.Searched, tot.Simulations, tot.Completed)
+		t.Logf("  sims/s=%.0f (wall)  cpu sims/s=%.0f  us/sim=%.1f", float64(tot.Simulations)/elapsed.Seconds(), float64(tot.Simulations)/cpu.Seconds(), float64(elapsed.Microseconds())/s)
+		t.Logf("  per sim: envSteps=%.2f plays=%.2f replaySteps=%.2f oppSelections=%.2f expanded=%.3f (opp %.3f) terminal=%.3f capped=%.3f",
+			float64(tot.EnvSteps)/s, float64(tot.Plays)/s, float64(tot.ReplaySteps)/s, float64(tot.OppPoints)/s,
+			float64(tot.Expanded)/s, float64(tot.OppExpanded)/s, float64(tot.Terminal)/s, float64(tot.StepCapped)/s)
+		t.Logf("  leaf depth per completed sim: plies=%.2f edges=%.2f turns=%.3f  truncated=%d failures=%d",
+			float64(tot.LeafPlies)/c, float64(tot.LeafEdges)/c, float64(tot.LeafTurns)/c, tot.Truncated,
+			tot.ChanceFailures+tot.Panics+tot.SubmitErrors+tot.BadWorlds+tot.NoWorld)
 	}
 }
