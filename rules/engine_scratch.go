@@ -271,6 +271,9 @@ type engineScratch struct {
 	// lossProof is the sticky no-"loses all abilities" proof
 	// (abilityloss.go). Clone and the look-back observer copy it.
 	lossProof abilityLossProof `clone:"deep"`
+	// lossMemo is abilityLoss's per-active()-build answer cache
+	// (abilityloss_memo.go). Clone leaves it zero.
+	lossMemo abilityLossMemo `clone:"reset"`
 	// layer5Colors is the on-demand layer-5 derived-colour table
 	// (layer5colors.go) and its key. Clone leaves it zero.
 	layer5Colors   []effects.ObjectColors `clone:"reset"`

@@ -165,7 +165,10 @@ var excluded = map[excludedField]bool{
 	// with its registry header reset, the trigGrant shape) and the on-demand
 	// layer-5 derived-colour table with its key (layer5colors.go, which
 	// Clone does not copy): scratch validated on every use.
-	{"rules.Engine", "lossProof"}:      true,
+	{"rules.Engine", "lossProof"}: true,
+	// abilityLoss's per-build answer memo (abilityloss_memo.go): keyed by
+	// activeBuildSeq with a generation stamp, recycled through Spare.
+	{"rules.Engine", "lossMemo"}:       true,
 	{"rules.Engine", "layer5Colors"}:   true,
 	{"rules.Engine", "colorsEpoch"}:    true,
 	{"rules.Engine", "colorsVersion"}:  true,

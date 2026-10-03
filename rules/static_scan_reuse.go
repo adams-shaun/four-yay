@@ -28,6 +28,16 @@ import "github.com/adams-shaun/gorge/state"
 // Effect-delivered cost statics boardStaticsWalk appends (active()'s
 // registry, appendEffectCostStatics) are recomputed on every reuse.
 //
+// Each scan also skips a battlefield object whose printed abilities a "loses
+// all abilities" effect removes (printedAbilitiesGone), and that verdict is
+// NOT an input of the object alone: the remover's applicability reads the
+// board (an Aura re-attached by an Attach event that touches no static-hot
+// fingerprint, a type change). So a record also keeps the visited objects
+// the verdict skipped (lost), read only while a remover is live
+// (abilityLossMemo.boardLive), and a reuse re-derives the verdict for every visited object and
+// requires the same set -- abilityLoss's per-build memo (abilityloss_memo.go)
+// answers those reads again for the walk that follows.
+//
 // Reuse happens only on the path that already rebuilds an entry from an
 // earlier outermost scope (whose arrays nobody ranges any more), never
 // inside a face or cast probe (those run with no memo scope, so the caches
@@ -53,13 +63,60 @@ type staticScanRec struct {
 	retires uint64
 	segs    []staticScanSeg
 	ids     []state.ObjID
+	// lost is the visited ids whose printed abilities were removed at the
+	// scan, in visit order.
+	lost []state.ObjID
 }
 
 func (r *staticScanRec) begin(e *Engine, gen, retires uint64) {
 	if r.owner != e {
-		r.owner, r.segs, r.ids = e, nil, nil
+		r.owner, r.segs, r.ids, r.lost = e, nil, nil, nil
 	}
 	r.ok, r.gen, r.retires, r.segs, r.ids = true, gen, retires, r.segs[:0], r.ids[:0]
+	r.lost = r.lost[:0]
+}
+
+// recordLoss records, after r's lists, which visited objects' printed
+// abilities are removed now. While no remover is live (boardLive) no
+// object's are, and nothing is read.
+func (r *staticScanRec) recordLoss(e *Engine) {
+	if _, live := e.lossMemo.boardLive(e); !live {
+		return
+	}
+	for _, id := range r.ids {
+		if o := e.G.Obj(id); scanLossMatters(o) && e.printedAbilitiesLost(o) {
+			r.lost = append(r.lost, id)
+		}
+	}
+}
+
+// lossUnchanged reports whether the visited objects whose printed abilities
+// are removed now are exactly r's recorded set. It runs only after the lists
+// and touch generation matched.
+func (r *staticScanRec) lossUnchanged(e *Engine) bool {
+	if _, live := e.lossMemo.boardLive(e); !live {
+		// No object loses its abilities now.
+		return len(r.lost) == 0
+	}
+	k := 0
+	for _, id := range r.ids {
+		if o := e.G.Obj(id); !scanLossMatters(o) || !e.printedAbilitiesLost(o) {
+			continue
+		}
+		if k >= len(r.lost) || r.lost[k] != id {
+			return false
+		}
+		k++
+	}
+	return k == len(r.lost)
+}
+
+// scanLossMatters reports whether o's loss of abilities can change a scan's
+// output: only its pile statics contribute. The count is a function of the
+// object's faces and pile, which a reuse has already held unchanged (the
+// touch generation), so record and check filter the same objects.
+func scanLossMatters(o *state.Object) bool {
+	return o != nil && o.PileStaticCount() > 0
 }
 
 func (r *staticScanRec) add(p state.PlayerID, z state.Zone, list []state.ObjID) {
@@ -148,7 +205,7 @@ func (e *Engine) boardScanMatches(r *staticScanRec, lists []boardScanList) bool 
 			return false
 		}
 	}
-	return c.done()
+	return c.done() && r.lossUnchanged(e)
 }
 
 // recordBoardScan records lists, the zone lists a printed board scan just
@@ -158,6 +215,7 @@ func (e *Engine) recordBoardScan(r *staticScanRec, lists []boardScanList) {
 	for _, l := range lists {
 		r.add(l.p, l.z, l.ids)
 	}
+	r.recordLoss(e)
 }
 
 // activeScanUnchanged reports whether r's fused battlefield scan is exactly
@@ -175,7 +233,7 @@ func (e *Engine) activeScanUnchanged(r *staticScanRec) bool {
 			return false
 		}
 	}
-	return c.done()
+	return c.done() && r.lossUnchanged(e)
 }
 
 // recordActiveScan records the battlefield lists the fused scan walked.
@@ -185,4 +243,5 @@ func (e *Engine) recordActiveScan(r *staticScanRec) {
 	for _, p := range e.G.AliveFrom(0) {
 		r.add(p, state.ZBattlefield, e.G.Zone(state.ZBattlefield, p))
 	}
+	r.recordLoss(e)
 }

@@ -95,6 +95,9 @@ type Spare struct {
 	activeBuf, activeBufAlt []ContinuousEffect
 	activeSrc               []*ContinuousEffect
 	pending                 []pendingTrigger
+	// lossMemo is the spent engine's ability-loss memo storage
+	// (abilityloss_memo.go), recycled so no stale entry can match.
+	lossMemo abilityLossMemo
 	// walkCls is a spent engine's object-class array (walk_objclass.go),
 	// copied into by the next clone.
 	walkCls []walkObjClass
@@ -180,6 +183,7 @@ func (e *Engine) Release() Spare {
 	sp.activeBuf, sp.activeBufAlt = clearedEffects(e.activeBuf), clearedEffects(e.activeBufAlt)
 	e.activeBuf, e.activeBufAlt = nil, nil
 	sp.activeSrc, e.activeSrc = e.activeSrc[:0], nil
+	sp.lossMemo, e.lossMemo = e.lossMemo.recycled(), abilityLossMemo{}
 	sp.pending = e.pendingTriggers[:cap(e.pendingTriggers)]
 	clear(sp.pending)
 	sp.pending, e.pendingTriggers = sp.pending[:0], nil
