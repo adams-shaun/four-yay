@@ -17,7 +17,7 @@ import (
 // "That land doesn't untap", Homesickness's and Stunning Shot's stun
 // counters, Glyph of Delusion's Animate, Rhino's trample grant and Cruel
 // Entertainment's Controller$ are the same shape (the census in
-// rules/parent_target_links_census_test.go).
+// rules/parent_target_nearest_test.go).
 //
 // The walk records each targeting link's answered set as it dispatches
 // (Resolve's recordParentLink), so a later link reads the latest record and
