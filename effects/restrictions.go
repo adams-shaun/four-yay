@@ -1046,3 +1046,92 @@ func effectUntilEOT(h Host, source state.ObjID, dur string) bool {
 // persists a Remembered/Imprinted list on an object yet (Ctx.Remembered is a
 // per-resolution parameter, not stored state), so there is nothing to
 // actually clear. The Note records that the step ran.
+
+// RestrictionPlayerSpecMatches resolves ONE player spec of a restriction's
+// Target$ against the defender, with the two extensions the ordinary
+// MatchesPlayerSpec grammar cannot answer because its public entry point
+// intentionally carries no source object: an IsRemembered clause (Player.
+// IsRemembered, and its ! negation and + compounds) resolves against the
+// registered effect's captured player set (state.ContinuousEffect.
+// RememberedPlayers — Call for Aid's RememberObjects$ TargetedPlayer), not
+// against a source object's event-backed list, which a one-shot sorcery
+// source does not carry; and a CardOwner clause (Player.CardOwner — Xantcha,
+// Sleeper Agent's "can't attack its owner", Alexios's and Elrond's ditto)
+// resolves the defender against the restriction source's OWNER, which is not
+// its current controller once the source has changed hands. A face static
+// passes an empty remembered set, so its IsRemembered clauses match nobody
+// (fail closed); a caller with no source (source 0) fails CardOwner closed
+// the same way. Today only CantAttack's Target$ walk passes a source: the
+// PutCounterBlocked ValidPlayer$ selectors and the CanAttackDefender
+// ValidAttacked$ selector deliberately pass 0, keeping their pre-CardOwner
+// behavior unchanged.
+func RestrictionPlayerSpecMatches(g *state.Game, spec string, defender, controller state.PlayerID, source state.ObjID, rememberedPlayers []state.PlayerID) bool {
+	if !strings.Contains(spec, "IsRemembered") && !strings.Contains(spec, "CardOwner") {
+		return MatchesPlayerSpec(g, spec, defender, controller)
+	}
+	for clause := range strings.SplitSeq(spec, "+") {
+		clause = strings.TrimSpace(clause)
+		if clause == "" {
+			continue
+		}
+		if neg, has := clauseIsRemembered(clause); has {
+			found := false
+			for _, p := range rememberedPlayers {
+				if p == defender {
+					found = true
+					break
+				}
+			}
+			if found == neg {
+				return false
+			}
+			continue
+		}
+		if clauseIsCardOwner(clause) {
+			if !playerIsSourceOwner(g, source, defender) {
+				return false
+			}
+			continue
+		}
+		if !MatchesPlayerSpec(g, clause, defender, controller) {
+			return false
+		}
+	}
+	return true
+}
+
+// clauseIsCardOwner reports whether one "+"-clause of a player spec is the
+// bare Player.CardOwner (or Any.CardOwner) property, which names the source
+// object's owner rather than the defending player.
+func clauseIsCardOwner(clause string) bool {
+	base, qualifier, ok := strings.Cut(strings.TrimSpace(clause), ".")
+	if !ok || !strings.EqualFold(strings.TrimSpace(qualifier), "CardOwner") {
+		return false
+	}
+	base = strings.TrimSpace(base)
+	return strings.EqualFold(base, "Player") || strings.EqualFold(base, "Any")
+}
+
+// playerIsSourceOwner reports whether p owns the restriction source object.
+// A source id with no object (the 0 sentinel a source-less caller passes)
+// fails closed.
+func playerIsSourceOwner(g *state.Game, source state.ObjID, p state.PlayerID) bool {
+	o := g.Obj(source)
+	return o != nil && o.Owner == p
+}
+
+// clauseIsRemembered reports whether one "+"-clause of a player spec carries
+// the IsRemembered qualifier (in either polarity, under the spec's own
+// dot-separated token grammar) and which polarity it is.
+func clauseIsRemembered(clause string) (neg, has bool) {
+	for tok := range strings.SplitSeq(clause, ".") {
+		tok = strings.TrimSpace(tok)
+		if strings.EqualFold(tok, "!IsRemembered") {
+			return true, true
+		}
+		if strings.EqualFold(tok, "IsRemembered") {
+			return false, true
+		}
+	}
+	return false, false
+}
