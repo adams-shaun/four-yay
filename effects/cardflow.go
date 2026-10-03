@@ -3338,8 +3338,11 @@ func effSurveil(h Host, c *Ctx, sa *cards.SA) {
 				// own no-host path inside effLookAndArrange applies the standing
 				// LibraryOrder stand-in (R-9). A real host's decline re-enters
 				// with the "no" marker and reaches the same fall-through through
-				// the ans != "" gate.
-				if Ask(h, d) == AskAsked {
+				// the ans != "" gate. The resolution kernel's tape answer is
+				// that same marker, read here and carried on.
+				if picks, ok := AskTape(h, d); ok {
+					ans = SurveilLookOptAnswer(picks)
+				} else if Ask(h, d) == AskAsked {
 					return
 				}
 			}
@@ -3386,6 +3389,21 @@ func effSurveil(h Host, c *Ctx, sa *cards.SA) {
 		return total
 	}
 	effLookAndArrange(h, c, sa, n, "graveyard", "Surveil", extraOf, true)
+}
+
+// SurveilLookOptAnswer is the "surveil_look_optional" answer marker
+// effSurveil reads: the accepted static ordinals as a CSV, or "no" for the
+// empty answer (the real decline of every static). One home for rules'
+// resume arm and the resolution kernel's tape answer.
+func SurveilLookOptAnswer(chosen []decision.Option) string {
+	if len(chosen) == 0 {
+		return "no"
+	}
+	parts := make([]string, 0, len(chosen))
+	for _, o := range chosen {
+		parts = append(parts, strconv.Itoa(o.Index))
+	}
+	return strings.Join(parts, ",")
 }
 
 // effLookAndArrange is the shared KArrange body behind effScry and

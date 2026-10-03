@@ -5,7 +5,6 @@
 package rules
 
 import (
-	"strconv"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -859,14 +858,7 @@ func (e *Engine) resumeAnswerBinding(rp *resumePoint, o *state.Object, ctx *effe
 		// answer is the real decline of every static ("no", the Min-0
 		// Optional answer); a malformed one keeps the decline, the
 		// conservative read attach_optional takes.
-		ctx.SurveilLookOpt = "no"
-		if len(chosen) > 0 {
-			parts := make([]string, 0, len(chosen))
-			for _, o := range chosen {
-				parts = append(parts, strconv.Itoa(o.Index))
-			}
-			ctx.SurveilLookOpt = strings.Join(parts, ",")
-		}
+		ctx.SurveilLookOpt = effects.SurveilLookOptAnswer(chosen)
 	case "attach_choice":
 		// A Choices$ Attach's card choice was answered (Goldwardens'
 		// Gambit's "for each of those tokens, you may attach an Equipment

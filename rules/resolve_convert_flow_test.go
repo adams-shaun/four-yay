@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/state"
 )
 
 // tapeFlowCase is one converted-site scenario: the sorcery's ability lines,
@@ -162,5 +163,16 @@ func TestTapeConvertFlowDig(t *testing.T) {
 			kinds: []string{"dig"}, served: 1},
 		{name: "Tape Bottom Dig", src: "A:SP$ Dig | Defined$ Player | DigNum$ 3 | ChangeNum$ 0",
 			kinds: []string{"dig_arrange"}, served: 1},
+	})
+}
+
+const tapeEnhancedSrc = "Name:Tape Enhanced\nManaCost:1 U\nTypes:Enchantment\n" +
+	"S:Mode$ SurveilNum | Num$ 2 | ValidPlayer$ You | Optional$ True | Description$ x\nOracle:x\n"
+
+func TestTapeConvertFlowSurveilLook(t *testing.T) {
+	onField := func(t *testing.T, e *Engine) { moveByName(t, e, 0, "Tape Enhanced", state.ZBattlefield) }
+	runTapeFlowCases(t, 34000, 3, []tapeFlowCase{
+		{name: "Tape Surveil Look", src: "A:SP$ Surveil | Amount$ 2 | SubAbility$ DBGain\nSVar:DBGain:DB$ GainLife | LifeAmount$ 2",
+			kinds: []string{"surveil_look_optional", "arrange"}, served: 2, extra: []string{tapeEnhancedSrc}, setup: onField},
 	})
 }
