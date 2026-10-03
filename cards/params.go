@@ -104,6 +104,7 @@ const (
 	PKDifferentNames
 	PKDiscard
 	PKDividedAsYouChoose
+	PKDividedRandomly
 	PKDuration
 	PKETB
 	PKEffectOnly
@@ -157,6 +158,7 @@ const (
 	PKNonLegendary
 	PKNotThisAbility
 	PKNumDmg
+	PKNumRandomChoices
 	PKNumTurns
 	PKNumber
 	PKObject
@@ -178,6 +180,7 @@ const (
 	PKPumpDuration
 	PKPumpKeywords
 	PKRandom
+	PKRandomNumTargets
 	PKReduceCost
 	PKRelative
 	PKRememberAmount
@@ -223,6 +226,7 @@ const (
 	PKTargetValidTargeting
 	PKTargetingPlayer
 	PKTargetingPlayerControls
+	PKTargetsAtRandom
 	PKTargetsForEachPlayer
 	PKTargetsWithControllerProperty
 	PKTargetsWithDefinedController
@@ -384,6 +388,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKDifferentNames:                  "DifferentNames",
 	PKDiscard:                         "Discard",
 	PKDividedAsYouChoose:              "DividedAsYouChoose",
+	PKDividedRandomly:                 "DividedRandomly",
 	PKDuration:                        "Duration",
 	PKETB:                             "ETB",
 	PKEffectOnly:                      "EffectOnly",
@@ -437,6 +442,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKNonLegendary:                    "NonLegendary",
 	PKNotThisAbility:                  "NotThisAbility",
 	PKNumDmg:                          "NumDmg",
+	PKNumRandomChoices:                "NumRandomChoices",
 	PKNumTurns:                        "NumTurns",
 	PKNumber:                          "Number",
 	PKObject:                          "Object",
@@ -458,6 +464,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKPumpDuration:                    "PumpDuration",
 	PKPumpKeywords:                    "PumpKeywords",
 	PKRandom:                          "Random",
+	PKRandomNumTargets:                "RandomNumTargets",
 	PKReduceCost:                      "ReduceCost",
 	PKRelative:                        "Relative",
 	PKRememberAmount:                  "RememberAmount",
@@ -503,6 +510,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKTargetValidTargeting:            "TargetValidTargeting",
 	PKTargetingPlayer:                 "TargetingPlayer",
 	PKTargetingPlayerControls:         "TargetingPlayerControls",
+	PKTargetsAtRandom:                 "TargetsAtRandom",
 	PKTargetsForEachPlayer:            "TargetsForEachPlayer",
 	PKTargetsWithControllerProperty:   "TargetsWithControllerProperty",
 	PKTargetsWithDefinedController:    "TargetsWithDefinedController",

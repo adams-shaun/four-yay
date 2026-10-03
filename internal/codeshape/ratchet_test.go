@@ -70,7 +70,9 @@ const (
 	// read once): 610 -> 609. Measured slack on main (caa66ee75): 609 ->
 	// 608. The CopyPermanent compiler (SetCreatureTypes$, RemoveSubTypes$
 	// and NumCopies$ read once through rawParamText): 608 -> 605.
-	stringParamReads = 605
+	// TargetsAtRandom$ compiled into TargetParams (TgtAtRandom) through
+	// PKTargetsAtRandom: 605 -> 604.
+	stringParamReads = 604
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
 	// W4 step 3: Attach's Object$ switch compiled to a kind: 2886 -> 2883.

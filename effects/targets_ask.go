@@ -330,6 +330,12 @@ func poseTargetsAsk(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID,
 		o.Label = label
 		d.Options = append(d.Options, o)
 	}
+	if RandomTargetsAsk(h, d, sa) {
+		// TargetsAtRandom$: the ask now offers exactly the rng's draw, which
+		// is also what a host that cannot ask takes below.
+		candidates = tapeAnswerTargets(d.Options)
+		max = int32(len(candidates))
+	}
 	if ans, ok := AskTape(h, d); ok {
 		// The resolution kernel's answer in hand: the target set the
 		// "tgts"/"choice" arm binds, consumed as the answered re-entry

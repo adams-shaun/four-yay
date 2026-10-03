@@ -12,19 +12,15 @@ import (
 // exchange is all-or-nothing: both battlefield objects and their controllers
 // are captured before either control-change event is emitted.
 func effExchangeControl(h Host, c *Ctx, sa *cards.SA) {
-	// TargetsAtRandom$ genuinely needs random-selection plumbing the engine
-	// does not have (Power Struggle's DB body): refuse loudly rather than
-	// swap an arbitrary pair. TargetingPlayer$ is deliberately NOT judged
+	// TargetsAtRandom$ (Power Struggle's DB body) is honoured at the target
+	// ask (RandomTargetsAsk), so the pair arrives already drawn at random.
+	// TargetingPlayer$ is deliberately NOT judged
 	// here: it is a target-time CHOOSER redirect that rules/stack.go's
 	// targetChooserCore already resolves at the ask site (trigger placement,
 	// cast, activation and the mid-resolution pre-ask alike), so the effect
 	// receives the chosen side through the ordinary target transport and must
 	// not second-guess it. Confusion in the Ranks is exactly that shape
 	// (`Defined$ TriggeredCard | TargetingPlayer$ TriggeredCardController`).
-	if targetsAtRandomParam(sa) {
-		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "ExchangeControl TargetsAtRandom$ is unimplemented"})
-		return
-	}
 
 	g := h.Game()
 	var targets []state.Target
