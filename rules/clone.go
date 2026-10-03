@@ -127,6 +127,10 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		layer4InPool:        e.layer4InPool,
 		controlStaticInPool: e.controlStaticInPool,
 	}
+	// The identity-preserving copy of the suspended resolution's memories,
+	// transactions and frames (clone_remap.go): stack-resident, allocating
+	// only when there is something to copy.
+	var remap cloneRemap
 	c.trigGrant = e.trigGrant.forClone()
 	// The no-ability-loss proof (abilityloss.go): same objects, its own
 	// registry copy, which it rechecks once.
@@ -272,7 +276,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	}
 	c.suspendedCasts = append([]state.ObjID(nil), e.suspendedCasts...)
 	c.defeatedCasts = append([]state.ObjID(nil), e.defeatedCasts...)
-	c.queuedPlays = e.queuedPlays.clone()
+	c.queuedPlays = e.queuedPlays.clone(&remap)
 	// attackOffers' memo (attack_cost.go), carried under the same identical-
 	// board argument as the tables below: a search clones the engine while
 	// its declare-attackers decision is pending, and the clone's
@@ -391,20 +395,17 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		// chain (fx34) is a linked list of these same value frames, so it is
 		// deep-copied per-link to keep the clone independent of the
 		// original's list.
-		c.resume = cloneResume(e.resume)
+		c.resume = remap.resume(e.resume)
 	}
 	c.controlGrants = append([]controlGrant(nil), e.controlGrants...)
 	// A parked ExchangeLife transaction (stack_helpers.go): parked exactly
 	// when a side's life change suspended on a decision, so it is live at the
 	// intent boundary that decision makes, and Submit's tail settles it
 	// (settlePendingLifeExchange). The clone owns the transaction and its
-	// staged sides; rememberCtx stays shared, like the resume frames'
-	// ExchangeMemory it is read for.
-	if e.pendingLifeExchange != nil {
-		tx := *e.pendingLifeExchange
-		tx.staged = append([]events.Event(nil), tx.staged...)
-		c.pendingLifeExchange = &tx
-	}
+	// staged sides, and its rider memory is the clone's one copy -- the same
+	// one the clone's resume frames carry (cloneRemap), so the clone's settle
+	// reaches its own resumed reader and never the original's.
+	c.pendingLifeExchange = remap.lifeExchange(e.pendingLifeExchange)
 	if e.counterTypeAsk != nil {
 		c.counterTypeAsk = make(map[state.ObjID]*counterTypePending, len(e.counterTypeAsk))
 		for id, p := range e.counterTypeAsk {
@@ -852,7 +853,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		// A routed off-stack-mana rider ask parks its resume chain here; the
 		// clone must own its own chain (the engine's own e.resume does too),
 		// or resuming the clone would traverse the original's outer links.
-		ma.nestedResume = cloneResume(e.manaColorActivation.nestedResume)
+		ma.nestedResume = remap.resume(e.manaColorActivation.nestedResume)
 		c.manaColorActivation = &ma
 	}
 	if e.manaDiscardActivation != nil {
@@ -890,8 +891,8 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		u.beholds = append([]state.ObjID(nil), e.unlessPayment.beholds...)
 		u.returns = append([]state.ObjID(nil), e.unlessPayment.returns...)
 		u.exiles = append([]state.ObjID(nil), e.unlessPayment.exiles...)
-		u.ctx = cloneUnlessCtx(e.unlessPayment.ctx)
-		u.rp = cloneResume(e.unlessPayment.rp)
+		u.ctx = remap.unlessCtx(e.unlessPayment.ctx)
+		u.rp = remap.resume(e.unlessPayment.rp)
 		c.unlessPayment = &u
 	}
 	if e.cumulative != nil {
@@ -905,7 +906,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	}
 	if e.triggerCost != nil {
 		tc := *e.triggerCost
-		tc.resume = cloneResume(e.triggerCost.resume)
+		tc.resume = remap.resume(e.triggerCost.resume)
 		tc.amount = cloneCost(e.triggerCost.amount)
 		tc.sacs = append([]state.ObjID(nil), e.triggerCost.sacs...)
 		tc.exiles = append([]state.ObjID(nil), e.triggerCost.exiles...)
@@ -1069,6 +1070,12 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 			rc.applied = append([]bool(nil), rc.applied...)
 			rc.appliedRepls = append([]replMatch(nil), rc.appliedRepls...)
 			rc.applicable = append([]int(nil), rc.applicable...)
+			// A parked life-replacement choice's ExchangeLife transaction is
+			// the same object pendingLifeExchange may hold, and resumeAtPose
+			// is compared against Engine.resume by identity: both go through
+			// the remap so the clone owns them and the identities survive.
+			rc.exchange = remap.lifeExchange(rc.exchange)
+			rc.resumeAtPose = remap.resume(rc.resumeAtPose)
 			if rc.untap != nil {
 				resume := *rc.untap
 				rc.untap = &resume
@@ -1361,11 +1368,31 @@ func cloneParentLinks(links [][]state.Target) [][]state.Target {
 	return out
 }
 
-func cloneResume(rp *resumePoint) *resumePoint {
+func cloneResume(rp *resumePoint) *resumePoint { return cloneResumeWith(rp, nil) }
+
+// cloneResumeWith is cloneResume with the cross-engine identity remap: m nil
+// is an intra-engine copy (a continuation frame of the same resolution, which
+// keeps sharing the resolution's memories); a non-nil m is Clone's, which
+// gives the clone its own copy of every memory and frame, each copied once.
+func cloneResumeWith(rp *resumePoint, m *cloneRemap) *resumePoint {
 	if rp == nil {
 		return nil
 	}
-	cp := *rp
+	if m != nil {
+		if q := m.resumes.find(rp); q != nil {
+			return q
+		}
+	}
+	cp := new(resumePoint)
+	*cp = *rp
+	if m != nil {
+		m.resumes.add(rp, cp)
+	}
+	// The resolution's coin-flip and ExchangeLife rider memories are mutated
+	// in place by the resolution after the suspension: a clone owns one copy
+	// of each, shared by all of its frames (cloneRemap).
+	cp.flipMemory = m.flipMemory(rp.flipMemory)
+	cp.exchangeMemory = m.exchangeMemory(rp.exchangeMemory)
 	cp.clash = cloneClashResume(rp.clash)
 	cp.choices = append([]state.Target(nil), rp.choices...)
 	cp.chosenValid = rp.chosenValid
@@ -1418,9 +1445,9 @@ func cloneResume(rp *resumePoint) *resumePoint {
 	if rp.deferredAsk != nil {
 		cp.deferredAsk = cloneDecision(rp.deferredAsk)
 	}
-	cp.deferredResume = cloneResume(rp.deferredResume)
-	cp.outer = cloneResume(rp.outer)
-	return &cp
+	cp.deferredResume = cloneResumeWith(rp.deferredResume, m)
+	cp.outer = cloneResumeWith(rp.outer, m)
+	return cp
 }
 
 // cloneDecision deep-copies a posed (or deferred) decision's slices, so a

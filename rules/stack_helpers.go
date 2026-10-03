@@ -216,14 +216,14 @@ func (e *Engine) finishLifeExchange(tx *lifeExchangeTransaction) {
 			e.emit(ev)
 		}
 		e.lifeExchange, e.applyingReplacement = prior, applying
-		if tx.rememberLoss && tx.rememberCtx != nil && tx.rememberCtx.ExchangeMemory != nil &&
+		if tx.rememberLoss && tx.rememberMemory != nil &&
 			int(tx.controller) < len(e.G.Players) {
 			if loss := tx.controllerLife - e.G.Players[tx.controller].Life; loss > 0 {
 				// The memory is the chain's SHARED pointer (Ctx.ExchangeMemory),
 				// so this write is visible to every Ctx a suspension rebuilt:
 				// the SubAbility$ continuation that reads Count$RememberedNumber
 				// holds the same memory no matter which frame it resumed from.
-				tx.rememberCtx.ExchangeMemory.Number = loss
+				tx.rememberMemory.Number = loss
 			}
 		}
 		return
@@ -261,7 +261,10 @@ func (e *Engine) consumeExchangeLifeSide(ev events.Event) {
 func (e *Engine) ExchangeLife(first, second events.Event, controller state.PlayerID, oldControllerLife int32, ctx *effects.Ctx, rememberLoss bool) {
 	tx := &lifeExchangeTransaction{source: first.Obj, controller: controller, player: first.Player,
 		lifeBefore: e.G.Players[first.Player].Life, second: second, rememberLoss: rememberLoss,
-		rememberCtx: ctx, controllerLife: oldControllerLife}
+		controllerLife: oldControllerLife}
+	if ctx != nil {
+		tx.rememberMemory = ctx.ExchangeMemory
+	}
 	e.lifeExchange = tx
 	e.emit(first)
 	e.lifeExchange = nil

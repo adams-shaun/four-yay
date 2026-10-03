@@ -253,30 +253,6 @@ func composeFeasibleP(m *costMods, c *Cost, taxGeneric, delve int32) Cost {
 	return cc
 }
 
-// poolUnitsFloor is a lower bound on the pool units every successful
-// resolveManaWith payment of c spends: its Generic plus one unit per strict
-// W/U/R/G/C pip. Each such pip is paid only by a colour alternative (the
-// anyColor/anyType riders and a conversion widen WHICH colour, never
-// whether a unit is taken), and takeUnit removes exactly one unit of the
-// remainder; the search then needs the remainder to cover a generic
-// requirement that only ever grows from c.Generic. A {B} pip is left out
-// (PayLifeInsteadOf:B may pay it with life), as is every hybrid, Phyrexian
-// and snow pip, so the bound holds whatever the payer's grants are. A pool
-// holding fewer units than this can pay nothing, which is exactly the
-// answer the search would give.
-func (c *Cost) poolUnitsFloor() int64 {
-	n := int64(c.Generic)
-	for _, letter := range pipLetters {
-		if letter == 'B' {
-			continue
-		}
-		if k := c.Colored[state.ManaIndex(letter)]; k > 0 {
-			n += int64(k)
-		}
-	}
-	return n
-}
-
 // feasibleAny is THE one shared mana-feasibility primitive of the cast flow.
 // It answers the CR 601.2b/601.2f question for a cost whose flexible pips may
 // still be unresolved — at the offer gate (offerCastable), at each CR 601.2b
@@ -312,21 +288,21 @@ func (m costMods) feasibleAny(c Cost, pool, snow state.Mana, typed [7]state.Mana
 		cc := m.composeFeasible(c, taxGeneric, delve)
 		// The pool-unit floor is a necessary condition of resolveManaWith's
 		// own search (poolUnitsFloor), decided without building its pips.
-		if int64(pool.Total()) < cc.poolUnitsFloor() {
+		if int64(pool.Total()) < cc.PoolUnitsFloor() {
 			return false
 		}
-		_, ok := cc.resolveManaWith(pool, snow, typed, life, bLifeOK, rider, conv)
+		_, ok := resolveManaWith(cc, pool, snow, typed, life, bLifeOK, rider, conv)
 		return ok
 	}
-	if !m.hasFloor() || c.annPipCount() == 0 {
+	if !m.hasFloor() || c.AnnPipCount() == 0 {
 		return composed(c)
 	}
 	var walk func(c Cost) bool
 	walk = func(c Cost) bool {
-		if c.annPipCount() == 0 {
+		if c.AnnPipCount() == 0 {
 			return composed(c)
 		}
-		for _, alt := range c.announcePip(0) {
+		for _, alt := range announcePip(c, 0) {
 			r := c
 			switch {
 			case alt.color != 0:
@@ -336,7 +312,7 @@ func (m costMods) feasibleAny(c Cost, pool, snow state.Mana, typed [7]state.Mana
 			case alt.life > 0:
 				r.Life = addClampedGeneric(r.Life, int64(alt.life))
 			}
-			if walk(r.dropAnnouncePrefix(1)) {
+			if walk(r.DropAnnouncePrefix(1)) {
 				return true
 			}
 		}
@@ -406,7 +382,7 @@ func (e *Engine) manaFeasiblePoolP(p state.PlayerID, id state.ObjID, ability boo
 	// Without an announcement walk feasibleAny is exactly its composed leaf,
 	// whose first answer is the pool-unit floor (poolUnitsFloor): decide that
 	// here, before the payer's grant and conversion reads the search needs.
-	if !mods.hasFloorP() || c.annPipCountP() == 0 {
+	if !mods.hasFloorP() || c.AnnPipCountP() == 0 {
 		if int64(pool.Total()) < composedPoolFloor(mods, c, taxGeneric, delve) {
 			return false
 		}
@@ -498,7 +474,7 @@ func effectZoneOK(v string, z state.Zone) bool {
 }
 
 // composedPoolFloor is composeFeasibleP(m, c, taxGeneric, delve)
-// .poolUnitsFloor(). Under the zero composition (costModsZero) on a cost
+// .PoolUnitsFloor(). Under the zero composition (costModsZero) on a cost
 // with no XMin and no negative Life/Snow, apply only clamps Generic and the
 // coloured pips at zero, so the floor is computed from *c directly instead
 // of materialising the composed Cost; walkSkipVerify checks it against the
@@ -506,7 +482,7 @@ func effectZoneOK(v string, z state.Zone) bool {
 func composedPoolFloor(m *costMods, c *Cost, taxGeneric, delve int32) int64 {
 	if !costModsZero(m) || c.XMin != 0 || c.Life < 0 || c.Snow < 0 {
 		cc := composeFeasibleP(m, c, taxGeneric, delve)
-		return cc.poolUnitsFloor()
+		return cc.PoolUnitsFloor()
 	}
 	g := addClampedGeneric(addClampedGeneric(c.Generic, 0), int64(taxGeneric))
 	if g > delve {
@@ -524,8 +500,8 @@ func composedPoolFloor(m *costMods, c *Cost, taxGeneric, delve int32) int64 {
 		}
 	}
 	if walkSkipVerify {
-		if cc := composeFeasibleP(m, c, taxGeneric, delve); cc.poolUnitsFloor() != n {
-			panic(fmt.Sprintf("rules: zero-composition pool floor %d disagrees with the composed %d", n, cc.poolUnitsFloor()))
+		if cc := composeFeasibleP(m, c, taxGeneric, delve); cc.PoolUnitsFloor() != n {
+			panic(fmt.Sprintf("rules: zero-composition pool floor %d disagrees with the composed %d", n, cc.PoolUnitsFloor()))
 		}
 	}
 	return n

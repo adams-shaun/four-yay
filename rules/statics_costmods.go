@@ -113,8 +113,8 @@ func (e *Engine) costAmountCtx(sv staticView, sub costSubject, x int32, targets 
 // Waterbend, AddCounter, tapXType, a named count) — reports false and is
 // priced by the additional-cost bridge instead (composeRaiseCost).
 func raiseFromCost(s string) (col state.Mana, gen, life int32, ok bool) {
-	for toks := (costTokenIter{s: s}); ; {
-		sym, more := toks.next()
+	for toks := newCostTokenIter(s); ; {
+		sym, more := toks.Next()
 		if !more {
 			break
 		}
@@ -128,8 +128,8 @@ func raiseFromCost(s string) (col state.Mana, gen, life int32, ok bool) {
 			}
 			gen = addClampedGeneric(gen, n)
 		default:
-			if m := lifeCost.FindStringSubmatch(sym); m != nil {
-				n, err := strconv.ParseInt(m[1], 10, 64)
+			if digits, ok := matchPayLife(sym); ok {
+				n, err := strconv.ParseInt(digits, 10, 64)
 				if err != nil || n < 0 || n > int64(math.MaxInt32) {
 					return col, 0, 0, false
 				}

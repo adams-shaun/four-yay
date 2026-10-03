@@ -877,7 +877,7 @@ func (e *Engine) triggeredCostXAsk(tc *triggeredEffectCost) bool {
 	// CostPayEnergy.getMaxAmountX). A fixed PayEnergy<N> part is charged as
 	// its N regardless of the announced X, but it must still be affordable
 	// for any offered value, so the total caps the bound too.
-	if tc.amount.energyCostX() {
+	if tc.amount.EnergyCostX() {
 		if energy := e.G.Players[tc.player].Counter("ENERGY"); bound < 0 || energy < bound {
 			bound = energy
 		}
@@ -989,10 +989,10 @@ func (pa *pipAnnounce) accept(kind string, amount int) bool {
 // in the decline-only pay ask, never a wedge. It returns true once it has
 // asked (and therefore suspended).
 func (e *Engine) pipAnnounceAsk(player state.PlayerID, source state.ObjID, amount Cost, pa *pipAnnounce, costLabel string, flow chooseFor) bool {
-	if pa.idx >= amount.annPipCount() {
+	if pa.idx >= amount.AnnPipCount() {
 		return false
 	}
-	alts := amount.announcePip(pa.idx)
+	alts := announcePip(amount, pa.idx)
 	name := "triggered ability"
 	if o := e.G.Obj(source); o != nil && o.Face() != nil {
 		name = o.Face().Name
@@ -1054,7 +1054,7 @@ func (e *Engine) triggeredCostPayable(tc *triggeredEffectCost) bool {
 	if !e.energyPayable(tc.player, &amt) {
 		return false
 	}
-	rest := amt.withoutEnergy()
+	rest := amt.WithoutEnergy()
 	if len(rest.Sac)+len(rest.Discard)+len(rest.Exile)+len(rest.MoveToGrave) > 0 {
 		// A component-bearing cost is payable ONLY through the settle gate
 		// (trigcost2): the Draw arm alone would offer "pay" while silently
@@ -1085,7 +1085,7 @@ func (e *Engine) triggeredCostPayable(tc *triggeredEffectCost) bool {
 func (e *Engine) triggeredCostManaHalfPayable(tc *triggeredEffectCost, rest Cost) bool {
 	mana := rest
 	mana.Sac, mana.Discard, mana.Exile, mana.Draw, mana.MoveToGrave = nil, nil, nil, nil, nil
-	if !mana.hasManaPayment() && mana.Life == 0 && mana.Snow == 0 &&
+	if !mana.HasManaPayment() && mana.Life == 0 && mana.Snow == 0 &&
 		len(mana.Hybrid) == 0 && len(mana.Phyrexian) == 0 &&
 		len(mana.Twobrid) == 0 && len(mana.HybridPhyrexian) == 0 {
 		return true
@@ -1192,7 +1192,7 @@ func (e *Engine) triggeredCostComponentsPayable(tc *triggeredEffectCost) bool {
 	mana := amt
 	mana.Sac, mana.Discard, mana.Exile, mana.Draw = nil, nil, nil, nil
 	mana.MoveToGrave = nil
-	if mana.hasManaPayment() || mana.Life > 0 || mana.Snow > 0 ||
+	if mana.HasManaPayment() || mana.Life > 0 || mana.Snow > 0 ||
 		len(mana.Hybrid) > 0 || len(mana.Phyrexian) > 0 ||
 		len(mana.Twobrid) > 0 || len(mana.HybridPhyrexian) > 0 {
 		if !e.costPayableOther(tc.player, tc.source, mana) {
@@ -1239,7 +1239,7 @@ func (e *Engine) triggeredCostPaymentAsk() {
 		// decline-only ask below (the corpus's dyn-tap trigger costs are all
 		// tap-only), exactly as before the X fold existed.
 		rest := withoutDynTaps(tc.amount)
-		if rest.Priceable() && !rest.hasManaPayment() && rest.Life == 0 && rest.Snow == 0 {
+		if rest.Priceable() && !rest.HasManaPayment() && rest.Life == 0 && rest.Snow == 0 {
 			if e.paymentManaAsk(tc.player, tc.source, rest, tc.windowDone,
 				"Activate mana abilities to "+tc.costLabel, chooseTriggeredCost) {
 				return
@@ -1482,7 +1482,7 @@ func (e *Engine) triggeredCostAnswer(chosen []decision.Option) {
 			// answer is never a partial payment. Any energy part is charged by
 			// the shared helper beside the mana (payMana ignores Energy).
 			draws, ok := e.triggeredCostDrawCounts(tc)
-			if ok && e.payManaConv(tc.player, announced.withoutEnergy(), e.paymentConv(tc.player, tc.source, false)) {
+			if ok && e.payManaConv(tc.player, announced.WithoutEnergy(), e.paymentConv(tc.player, tc.source, false)) {
 				paid = true
 				e.chargeEnergyCost(tc.player, tc.amount, tc.xPaid)
 				for i, part := range announced.Draw {
@@ -1498,7 +1498,7 @@ func (e *Engine) triggeredCostAnswer(chosen []decision.Option) {
 			// charged by the shared chargeEnergyCost helper (payMana ignores
 			// Energy). The gate offered "pay" only when both halves were
 			// covered, so a paid answer is never a partial payment.
-			lower := announced.withoutEnergy()
+			lower := announced.WithoutEnergy()
 			paid = lower.Priceable() &&
 				e.payManaConv(tc.player, lower, e.paymentConv(tc.player, tc.source, false))
 			if paid {
@@ -1826,8 +1826,8 @@ func (e *Engine) settleTriggeredMandatory(tc *triggeredEffectCost) {
 	stripped := tc.announcedCost()
 	stripped.Sac, stripped.Discard, stripped.Exile, stripped.Draw = nil, nil, nil, nil
 	stripped.MoveToGrave = nil
-	if (stripped.hasManaPayment() || stripped.Life > 0) &&
-		!e.payManaConv(tc.player, stripped.withoutEnergy(), e.paymentConv(tc.player, tc.source, false)) {
+	if (stripped.HasManaPayment() || stripped.Life > 0) &&
+		!e.payManaConv(tc.player, stripped.WithoutEnergy(), e.paymentConv(tc.player, tc.source, false)) {
 		e.triggeredCostDecline(tc)
 		return
 	}

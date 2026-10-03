@@ -146,7 +146,7 @@ func (e *Engine) paymentPlanCheckUnits(pc *pendingCast) (string, []windowManaUni
 		}
 		pool = manaAdd(pool, step.mana)
 	}
-	payment, ok := cost.resolveManaWith(pool, state.Mana{}, [7]state.Mana{}, e.G.Players[pc.player].Life, false, pipRider{}, nil)
+	payment, ok := resolveManaWith(cost, pool, state.Mana{}, [7]state.Mana{}, e.G.Players[pc.player].Life, false, pipRider{}, nil)
 	if !ok || paymentManaAmount(payment.pool) != plan.PoolAfter {
 		return paymentFallbackProductionChanged, units, plannedManaActivation{}, false
 	}
@@ -337,7 +337,7 @@ func (e *Engine) manaWindowAsk() bool {
 		}
 	}
 	mana := e.castPaymentMana(pc)
-	if !mana.hasManaPayment() {
+	if !mana.HasManaPayment() {
 		return false
 	}
 	// A pool that already pays the total cost needs no window (nothing to

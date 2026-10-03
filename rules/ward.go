@@ -43,8 +43,8 @@ func (e *Engine) beginWardPayment(rp *resumePoint, ctx *effects.Ctx) (paid, aske
 				Label: "Discard " + e.G.Obj(id).Face().Name})
 		}
 		mana := e.parseCost(manaRaw)
-		if mana.payable(e.G.Players[payer].Pool, e.G.Players[payer].Snow, e.G.Players[payer].ManaUnits(), e.G.Players[payer].Life) ||
-			(mana.hasManaPayment() && e.hasUntappedManaSource(payer)) {
+		if payable(mana, e.G.Players[payer].Pool, e.G.Players[payer].Snow, e.G.Players[payer].ManaUnits(), e.G.Players[payer].Life) ||
+			(mana.HasManaPayment() && e.hasUntappedManaSource(payer)) {
 			label := capitaliseFirst(costPhrase(mana))
 			if label == "" {
 				label = "Pay " + manaRaw
@@ -168,7 +168,7 @@ func (e *Engine) beginWardPayment(rp *resumePoint, ctx *effects.Ctx) (paid, aske
 	// CR 702.21a payment is a mana-payment window, not a check of only
 	// floating mana. Give the payer the same chance to activate each currently
 	// legal mana ability as during a cast before finally charging the Ward cost.
-	if !cost.hasManaPayment() || !e.hasUntappedManaSource(payer) {
+	if !cost.HasManaPayment() || !e.hasUntappedManaSource(payer) {
 		return false, false
 	}
 	e.askWardMana(rp, &wardManaPayment{payer: payer, cost: cost, resumeKind: "ward_mana",

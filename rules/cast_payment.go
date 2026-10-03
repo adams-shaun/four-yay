@@ -94,7 +94,7 @@ func (e *Engine) convokeAsk() bool {
 	// the subsequent xAsk prices the selected contributions against the real
 	// X total.
 	hasX := pc.cost.X > 0
-	if !mana.hasManaPayment() && !hasX {
+	if !mana.HasManaPayment() && !hasX {
 		return false
 	}
 	name := e.G.Obj(pc.card).Face().Name
@@ -229,55 +229,6 @@ func (e *Engine) manaToPayXUsing(pc *pendingCast, x int32, mods costMods) Cost {
 	return m
 }
 
-// hasManaPayment reports whether a cost's mana component is non-empty, per CR
-// 601.2g's "if the total cost includes a mana payment".
-func (c Cost) hasManaPayment() bool {
-	return c.Colored.Total() > 0 || c.Generic > 0
-}
-
-// dropAnnouncePrefix removes the first n announcement pips (in announcePip
-// order: two-colour hybrids, then monocolour hybrids, then Phyrexian, then
-// hybrid-Phyrexian) from the cost, leaving the rest as the cost's live
-// choices. It is how feasibleAny's per-level walk consumes one announcement
-// pip at a time after folding that pip's resolved face into the cost, so a
-// leaf never sees a pip slot twice.
-func (c Cost) dropAnnouncePrefix(n int) Cost {
-	drop := n
-	if drop < len(c.Hybrid) {
-		c.Hybrid = c.Hybrid[drop:]
-		drop = 0
-	} else {
-		drop -= len(c.Hybrid)
-		c.Hybrid = nil
-	}
-	if drop > 0 {
-		if drop < len(c.Twobrid) {
-			c.Twobrid = c.Twobrid[drop:]
-			drop = 0
-		} else {
-			drop -= len(c.Twobrid)
-			c.Twobrid = nil
-		}
-	}
-	if drop > 0 {
-		if drop < len(c.Phyrexian) {
-			c.Phyrexian = c.Phyrexian[drop:]
-			drop = 0
-		} else {
-			drop -= len(c.Phyrexian)
-			c.Phyrexian = nil
-		}
-	}
-	if drop > 0 {
-		if drop < len(c.HybridPhyrexian) {
-			c.HybridPhyrexian = c.HybridPhyrexian[drop:]
-		} else {
-			c.HybridPhyrexian = nil
-		}
-	}
-	return c
-}
-
 // announceCost is gone: its per-pip composition (mods applied to a cost that
 // still carried the unannounced pips, so a Color$ reduction saw no W pip it
 // could legally take and a floor priced an unresolved pip at its generic
@@ -320,7 +271,7 @@ func (e *Engine) announceFeasible(pc *pendingCast, alt pipAlt, pool, snow state.
 	// The pips 0..payIdx have been announced (their faces are folded in
 	// above), so their slots leave the cost; the pips after payIdx stay live
 	// for the shared primitive to enumerate.
-	c = c.dropAnnouncePrefix(pc.payIdx + 1)
+	c = c.DropAnnouncePrefix(pc.payIdx + 1)
 	payment := paymentForCast(pc, c)
 	rider := pipRider{anyColor: pc.mayPlayIgnore, anyType: pc.mayPlayIgnoreType}
 	if e.manaFeasibleDescriptor(pc.player, payment, c, pc.mods, pc.taxGeneric, delve, rider) {
@@ -340,7 +291,7 @@ func (e *Engine) announceFeasible(pc *pendingCast, alt pipAlt, pool, snow state.
 	if charged.Generic < 0 {
 		charged.Generic = 0
 	}
-	if !charged.hasManaPayment() {
+	if !charged.HasManaPayment() {
 		return false
 	}
 	av := e.manaAvailableFor(pc.player, payment)
@@ -372,10 +323,10 @@ func (e *Engine) announceFeasible(pc *pendingCast, alt pipAlt, pool, snow state.
 // payColor / payLife / payGeneric when every pip is settled.
 func (e *Engine) manaAsk() bool {
 	pc := e.cast
-	if pc == nil || pc.payIdx >= pc.cost.annPipCount() {
+	if pc == nil || pc.payIdx >= pc.cost.AnnPipCount() {
 		return false
 	}
-	alts := pc.cost.announcePip(pc.payIdx)
+	alts := announcePip(pc.cost, pc.payIdx)
 	// announceFeasible receives the full pool and life total because the
 	// commitments already made (and this candidate face) are folded into the
 	// cost it evaluates; nothing has been paid yet. Do not pre-filter a colour

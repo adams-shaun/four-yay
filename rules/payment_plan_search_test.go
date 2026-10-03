@@ -104,7 +104,7 @@ func paymentPlanSearchOracleOver(e *Engine, p state.PlayerID, cost Cost, choices
 		if pain > 0 && pain >= int64(life) {
 			return
 		}
-		if paid, ok := cost.resolveManaWith(manaAdd(pool, produced), state.Mana{}, [7]state.Mana{}, life, false, pipRider{}, nil); ok {
+		if paid, ok := resolveManaWith(cost, manaAdd(pool, produced), state.Mana{}, [7]state.Mana{}, life, false, pipRider{}, nil); ok {
 			plan := paymentWitness(cost, pool, produced, chosen, paid.pool)
 			r := rankPaymentPlan(ctx, plan, chosen, paid.pool)
 			if best == nil || r.less(bestRank) {

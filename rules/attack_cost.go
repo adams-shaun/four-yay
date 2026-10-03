@@ -689,8 +689,9 @@ func (e *Engine) manaSatisfied(pl *combatPayPlan) bool {
 	if cost.Generic == 0 && len(cost.Phyrexian) == 0 && cost.Colored.Total() == 0 {
 		return true
 	}
-	_, ok := cost.resolveManaWith(player.Pool, player.Snow, player.ManaUnits(),
+	_, ok := resolveManaWith(cost, player.Pool, player.Snow, player.ManaUnits(),
 		player.Life-pl.lifeExtra(), false, pipRider{}, e.paymentConv(pc, 0, false))
+
 	return ok
 }
 
