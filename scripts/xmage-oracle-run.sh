@@ -6,6 +6,9 @@
 # writes one snapshot line per scenario. Needs the out-of-tree build that
 # scripts/xmage-oracle-setup.sh makes. The driver is compiled against
 # Mage.Tests on first use and whenever its source changes.
+#
+# XMAGE_ORACLE_MEM caps the JVM's systemd scope (default 12G) and
+# XMAGE_ORACLE_HEAP its heap (default 10g).
 set -euo pipefail
 
 in=${1:?usage: xmage-oracle-run.sh IN.jsonl OUT.jsonl}
@@ -38,6 +41,6 @@ if [ ! -f "$stamp" ] || [ "$(cat "$stamp")" != "$sum" ]; then
 fi
 
 cd "$tests"
-exec systemd-run --user --scope --quiet -p MemoryMax=3G -- \
-  java -Xmx2500m -Dlog4j.configuration=file:/dev/null -cp "$classes:$cp" \
+exec systemd-run --user --scope --quiet -p MemoryMax="${XMAGE_ORACLE_MEM:-12G}" -- \
+  java -Xmx"${XMAGE_ORACLE_HEAP:-10g}" -Dlog4j.configuration=file:/dev/null -cp "$classes:$cp" \
   org.mage.test.oracle.ScenarioReplay "$in" "$out" >"$out.log" 2>&1

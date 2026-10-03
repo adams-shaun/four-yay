@@ -220,9 +220,39 @@ env = { GORGE_REWARD_DIR = "/home/sadams/projects/gorge/.ds4/reward" }
 # cgroup's cpu.max at process start, so the quota caps GOMAXPROCS, go test/build
 # -p and the cgroup scheduler at once. AllowedCPUs does NOT (measured on this
 # box: CPUQuota=200% -> GOMAXPROCS 2, AllowedCPUs=0-3 -> GOMAXPROCS 32; both
-# exit 0 in a user scope). 400% matches the module gate's own -p=4; the serial
-# gates (CR conformance, TestHeads, make sim) get 200%, ample for -p=1.
+# exit 0 in a user scope). 400% matches the go build gate; the serial gates (CR
+# conformance, TestHeads, make sim) get 200%, ample for -p=1.
+#
+# 2026-10-03 (cli-20261003T071718Z-870e76ee): the vet gate is raised to 800%
+# (GOMAXPROCS 6, -p=6). The cold vet is CPU-QUOTA-bound, not -p-bound: at a
+# fixed 400% quota, -p above 2 is noise or worse. Measured with a private
+# empty GOCACHE (the shared cache is warm and tells you nothing), each run in
+# the gate's own systemd scope under `MemoryMax=4G GOMEMLIMIT=1GiB`:
+#   -p=2 CPUQuota=400% GOMAXPROCS=4 -> 60.9s / 61.3s, 350% CPU, 1.90G maxRSS
+#   -p=4 CPUQuota=400% GOMAXPROCS=4 -> 57.8s,              383% CPU, 1.92G maxRSS
+#   -p=6 CPUQuota=400% GOMAXPROCS=4 -> 60.3s,              383% CPU, 1.93G maxRSS
+#   -p=8 CPUQuota=400% GOMAXPROCS=4 -> 66.6s,              378% CPU, 1.92G maxRSS
+#   -p=4 CPUQuota=800% GOMAXPROCS=4 -> 45.8s / 45.5s,      504% CPU, 1.93G maxRSS
+#   -p=6 CPUQuota=800% GOMAXPROCS=6 -> 38.4s / 40.2s,  616-624% CPU, 1.88G maxRSS
+#   -p=8 CPUQuota=800% GOMAXPROCS=8 -> 41.0s / 40.8s,  657-682% CPU, 1.87G maxRSS
+# -p=6 at 800% is the knee (~39s); -p=8 is no faster and burns more CPU. Peak
+# RSS stays ~1.9G, well under MemoryMax=4G. Net: ~61s -> ~39s cold. The module
+# gate keeps its own -p=4/800% (see the block above), unchanged by this.
 # GOMAXPROCS in env is the legible belt-and-braces for the parallel gates.
+#
+# 2026-10-03 (cli-20261003T052434Z-a1d15fb3): the module gate's CPUQuota is
+# raised to 800% (GOMAXPROCS 8, -p=4 kept). Measured, forced fresh
+# (`go test -p=4 -count=1 -skip ... ./...` in the systemd scope, both runs
+# with this tree):
+#   CPUQuota=400% GOMAXPROCS=4 -> 192.4s wall, 719.8s user, 0 FAIL
+#   CPUQuota=800% GOMAXPROCS=8 -> 114.1s wall, 722.9s user, 6.16G maxRSS, 0 FAIL
+# The gate was CPU-quota-bound, not memory-bound: it already spent ~3.7 of its
+# 4 quota-cores (719.8s user / 192.4s wall), so the extra 4 cores cut the wall
+# 40% with the SAME total work. -p=4 is kept, so at most four test binaries
+# are resident and peak RSS stays 6.16G under the existing 8G MemoryMax (the
+# box has 58G; two overlapping gates at 8G each fit). 8 vCPU is also well
+# under the 18-25 vCPU burst that motivated the 2026-09-30 ceilings, and the
+# broker's gate-begin pauses heavy/probe leases for the whole suite.
 
 [[gates]]
 name = "go build"
@@ -232,9 +262,9 @@ env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "4" }
 
 [[gates]]
 name = "go vet"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=400%", "go", "vet", "./..."]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=800%", "go", "vet", "-p=6", "./..."]
 timeout = 600
-env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "4" }
+env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "6" }
 
 # The whole module, not just ./effects ./rules ./cards: a merge that broke
 # internal/searchprobe and internal/archtest passed the old core-only gate
@@ -250,11 +280,34 @@ env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "4" }
 # The higher limit is faster AND lower-RSS; `seat`, `rules` and
 # spellbench/v2engine sit under 1.2G RSS and are unaffected by either value,
 # so no package that previously fit the 8G MemoryMax scope grows into it.
+#
+# CPUQuota 800% -> 1600% and -p 4 -> 8 (2026-10-03,
+# cli-20261003T074330Z-1a867e88). After the 800% raise the gate was no
+# longer quota-bound at the tail: a `go test -json ./...` schedule showed
+# rules starting only at t=60.9s (behind v2engine/paymirror/sbsearch) and
+# then setting the wall at 60.9 -> 111.4s, with the 8-core quota 95% busy
+# (844s user / 111s wall). The box has 32 cores and the broker's gate-begin
+# pauses heavy/probe for the whole suite, and gate runs never overlap
+# themselves (measured: 0 overlapping spans in the last 1684 gate runs), so
+# the extra cores are free during a gate. Measured on this tree, forced
+# fresh (`go test -count=1 -skip ... ./...` in the gate's own systemd scope,
+# `MemoryMax=8G GOMEMLIMIT=4GiB`, both 0 FAIL):
+#   CPUQuota=800%  GOMAXPROCS=8  -p=4 -> 112.6s wall, 708.7s user, 6.16G maxRSS
+#   CPUQuota=1200% GOMAXPROCS=12 -p=4 -> 101.8s wall, 784.1s user, 6.23G maxRSS
+#   CPUQuota=1600% GOMAXPROCS=16 -p=4 ->  99.1s wall, 871.0s user, 6.03G maxRSS
+#   CPUQuota=1600% GOMAXPROCS=16 -p=6 ->  84.5s wall, 903.7s user, 6.00G maxRSS
+#   CPUQuota=1600% GOMAXPROCS=16 -p=8 ->  82.6s wall, 978.8s user, 5.87G maxRSS
+#   CPUQuota=1200% GOMAXPROCS=12 -p=8 ->  92.5s wall, 896.3s user, 5.94G maxRSS
+# 1600%/-p=8 is the knee: -p=6 buys nearly all of it (84.5s) and -p=8 the
+# last 2s; 1200% leaves 10s on the table. Peak RSS FALLS (5.87G vs 6.16G)
+# because a faster gate holds fewer test binaries' heaps at once, so the
+# unchanged 8G MemoryMax still bounds it. Net module gate: ~113s -> ~83s
+# (-30s, -27%). The other gates are unchanged.
 [[gates]]
 name = "go test (module)"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=400%", "go", "test", "-p=4", "-skip", "^(TestHeads|TestInvariantsUnderSeedFuzz|TestLargeEliminationSweepDoesNotTripLivelockWatcher)$", "./..."]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=1600%", "go", "test", "-p=8", "-skip", "^(TestHeads|TestInvariantsUnderSeedFuzz|TestLargeEliminationSweepDoesNotTripLivelockWatcher)$", "./..."]
 timeout = 1200
-env = { GOMEMLIMIT = "4GiB", GOMAXPROCS = "4" }
+env = { GOMEMLIMIT = "4GiB", GOMAXPROCS = "16" }
 
 [[gates]]
 name = "CR conformance"
