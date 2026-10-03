@@ -42,6 +42,34 @@ var ScannedDirs = []string{"rules", "effects"}
 // composite literal is not counted. Repo-relative, slash-separated.
 var CtxConstructorFiles = []string{"effects/ctx_new.go", "rules/ctx_new.go"}
 
+// ChangeZoneCompilerFile is api:ChangeZone's parameter compiler (W4 step 3 of
+// the rules-engine refactor spec, section 8): the one file in rules/ and
+// effects/ allowed to read a ChangeZone ability's parameters.
+const ChangeZoneCompilerFile = "effects/changezone_params.go"
+
+// ChangeZoneFiles are ChangeZone's own resolution files. Every parameter read
+// there goes through the compiled ChangeZoneParams, so the files carry no
+// parameter read of any key.
+var ChangeZoneFiles = []string{
+	"effects/zone_change.go",
+	"effects/zone_hand.go",
+	"effects/zone_hidden.go",
+	"effects/zone_search.go",
+	"effects/zone_library.go",
+}
+
+// ChangeZoneOnlyKeys are the parameter keys only ChangeZone's compiler reads:
+// a read of one of them anywhere else in rules/ or effects/ is a sibling path
+// interpreting a ChangeZone parameter on its own.
+var ChangeZoneOnlyKeys = []string{
+	"AlternativeDecider", "AttachedToPlayer", "ChooseFromDefined", "DestAltSVar",
+	"DestAltSVarCompare", "DestinationAlternative", "DifferentNames", "Exactly",
+	"ExileFaceDown", "Foretold", "Hidden", "ImprintLast", "LibraryPositionAlternative",
+	"MaxRevealed", "OptionalPrompt", "OriginAlternative", "RememberSearched", "Reorder",
+	"SelectPrompt", "ShareLandType", "ShuffleNonMandatory", "Transformed", "Unearth",
+	"Unimprint", "WithMayLook", "WithTotalCardTypes",
+}
+
 // effectsImportPath is the import path whose Ctx, SpecContext and
 // TriggerContext types the context-literal census counts.
 const effectsImportPath = "github.com/adams-shaun/gorge/effects"
@@ -111,6 +139,16 @@ type Metrics struct {
 	CtxLiterals            int `json:"ctx_literals"`
 	SpecContextLiterals    int `json:"spec_context_literals"`
 	TriggerContextLiterals int `json:"trigger_context_literals"`
+	// ChangeZoneParamLeaks counts ChangeZone parameter reads outside its
+	// compiler (ChangeZoneCompilerFile): every parameter read in
+	// ChangeZoneFiles, plus every read of a ChangeZoneOnlyKeys key in any other
+	// rules/ or effects/ non-test file. A read is an index expression
+	// <x>Params["k"] that is not an assignment target, a Param/ParamStr/
+	// HasParam(cards.PK<k>) call, or a Num/NumResolved/NumResolvedStrict/
+	// NumForObject call with a literal key. ChangeZoneLeaks lists them
+	// ("file:line key"), sorted.
+	ChangeZoneParamLeaks int      `json:"change_zone_param_leaks"`
+	ChangeZoneLeaks      []string `json:"change_zone_leaks"`
 	// TrigmatchBoardMethods counts the methods trigmatch.Board declares
 	// (rules/trigmatch/board.go): the read-only view the trigger matchers
 	// reach the engine through (W5 E3). Zero when the package is absent.
@@ -211,6 +249,7 @@ func Measure(root string) (Metrics, error) {
 				}
 			}
 			inEffects := dir == "effects"
+			countChangeZoneLeaks(fset, f, rel, &m)
 			ast.Inspect(f, func(n ast.Node) bool {
 				switch x := n.(type) {
 				case *ast.TypeAssertExpr:
@@ -263,6 +302,11 @@ func Measure(root string) (Metrics, error) {
 		}
 	}
 	m.StringParamKeys = len(keys)
+	m.ChangeZoneParamLeaks = len(m.ChangeZoneLeaks)
+	sort.Strings(m.ChangeZoneLeaks)
+	if m.ChangeZoneLeaks == nil {
+		m.ChangeZoneLeaks = []string{}
+	}
 	m.FuncsOver300 = len(m.LongFuncs)
 	sort.Slice(m.LongFuncs, func(i, j int) bool {
 		a, b := m.LongFuncs[i], m.LongFuncs[j]
@@ -482,6 +526,73 @@ func structFields(ts *ast.TypeSpec, rel string) (named, embeds int, err error) {
 		}
 	}
 	return named, embeds, nil
+}
+
+// countChangeZoneLeaks appends f's ChangeZone parameter reads outside the
+// compiler (see Metrics.ChangeZoneParamLeaks).
+func countChangeZoneLeaks(fset *token.FileSet, f *ast.File, rel string, m *Metrics) {
+	if rel == ChangeZoneCompilerFile {
+		return
+	}
+	own := false
+	for _, cz := range ChangeZoneFiles {
+		if rel == cz {
+			own = true
+		}
+	}
+	only := map[string]bool{}
+	for _, k := range ChangeZoneOnlyKeys {
+		only[k] = true
+	}
+	writes := map[ast.Node]bool{}
+	ast.Inspect(f, func(n ast.Node) bool {
+		if as, ok := n.(*ast.AssignStmt); ok {
+			for _, l := range as.Lhs {
+				writes[l] = true
+			}
+		}
+		return true
+	})
+	leak := func(pos token.Pos, key string) {
+		if own || only[key] {
+			m.ChangeZoneLeaks = append(m.ChangeZoneLeaks, fmt.Sprintf("%s:%d %s", rel, fset.Position(pos).Line, key))
+		}
+	}
+	ast.Inspect(f, func(n ast.Node) bool {
+		switch x := n.(type) {
+		case *ast.IndexExpr:
+			if lit, ok := x.Index.(*ast.BasicLit); ok && lit.Kind == token.STRING && isParams(x.X) && !writes[x] {
+				if k, err := strconv.Unquote(lit.Value); err == nil {
+					leak(x.Pos(), k)
+				}
+			}
+		case *ast.CallExpr:
+			sel, ok := x.Fun.(*ast.SelectorExpr)
+			name := ""
+			if ok {
+				name = sel.Sel.Name
+			} else if id, isID := x.Fun.(*ast.Ident); isID {
+				name = id.Name
+			}
+			switch name {
+			case "Param", "ParamStr", "HasParam":
+				if len(x.Args) == 1 {
+					if ks, isSel := x.Args[0].(*ast.SelectorExpr); isSel && strings.HasPrefix(ks.Sel.Name, "PK") {
+						leak(x.Pos(), strings.TrimPrefix(ks.Sel.Name, "PK"))
+					}
+				}
+			case "Num", "NumResolved", "NumResolvedStrict", "NumForObject":
+				if len(x.Args) >= 4 {
+					if lit, isLit := x.Args[3].(*ast.BasicLit); isLit && lit.Kind == token.STRING {
+						if k, err := strconv.Unquote(lit.Value); err == nil {
+							leak(x.Pos(), k)
+						}
+					}
+				}
+			}
+		}
+		return true
+	})
 }
 
 // isParams reports whether expr names a string-keyed parameter map: an

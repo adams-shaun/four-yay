@@ -61,7 +61,7 @@ func TestPlaceLibraryObjectsNonZeroPosition(t *testing.T) {
 
 	src := lzAdd(t, h, 0, state.ZHand, mkCard(t, "Name:Placer\nTypes:Instant\nOracle:x\n"))
 	sa := sa(t, "DB$ ChangeZone | Origin$ Library | Destination$ Library | LibraryPosition$ 2")
-	placeLibraryObjects(h, &Ctx{Source: src, Controller: 0}, sa, 0, []state.ObjID{searched}, state.ZLibrary)
+	placeLibraryObjects(h, &Ctx{Source: src, Controller: 0}, ChangeZoneOf(sa), 0, []state.ObjID{searched}, state.ZLibrary)
 
 	lib = h.g.Zone(state.ZLibrary, 0)
 	want := []state.ObjID{fillers[0], fillers[1], searched, fillers[2], fillers[3]}
@@ -158,7 +158,7 @@ func TestPlaceLibraryObjectsUnresolvablePositionIsLoud(t *testing.T) {
 	}
 	src := lzAdd(t, h, 0, state.ZHand, mkCard(t, "Name:Placer\nTypes:Instant\nOracle:x\n"))
 	sa := sa(t, "DB$ ChangeZone | Origin$ Library | Destination$ Library | LibraryPosition$ TriggeredLKI")
-	placeLibraryObjects(h, &Ctx{Source: src, Controller: 0}, sa, 0, []state.ObjID{searched}, state.ZLibrary)
+	placeLibraryObjects(h, &Ctx{Source: src, Controller: 0}, ChangeZoneOf(sa), 0, []state.ObjID{searched}, state.ZLibrary)
 
 	lib := h.g.Zone(state.ZLibrary, 0)
 	if lib[len(lib)-1] != searched {

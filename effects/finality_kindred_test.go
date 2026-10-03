@@ -26,7 +26,8 @@ func TestWithTotalCardTypesCountsKindredAsCardType(t *testing.T) {
 	if !totalCardTypesSatisfied(g, ids, 4) {
 		t.Fatal("precondition: Kindred must count as a distinct card type")
 	}
-	applyLibrarySearch(h, &Ctx{Controller: 0, Source: ids[0]}, sa(t, "DB$ ChangeZone | Origin$ Graveyard | Destination$ Exile | ChangeNum$ 4 | ChangeType$ Card | WithTotalCardTypes$ 4"), 0, state.ZExile, ids, []state.Zone{state.ZGraveyard})
+	finality := sa(t, "DB$ ChangeZone | Origin$ Graveyard | Destination$ Exile | ChangeNum$ 4 | ChangeType$ Card | WithTotalCardTypes$ 4")
+	applyLibrarySearch(h, &Ctx{Controller: 0, Source: ids[0]}, finality, ChangeZoneOf(finality), 0, state.ZExile, ids, []state.Zone{state.ZGraveyard})
 	for _, id := range ids {
 		if got := g.Obj(id).Zone; got != state.ZExile {
 			t.Fatalf("four-type pick with Kindred left %d in %s", id, got)

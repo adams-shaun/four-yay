@@ -360,7 +360,8 @@ func attachValidTgtsZones(spec string) ([]state.Zone, bool) {
 // and effChangeZone's own Origin$ guard -- unchanged -- then accepts the
 // chosen graveyard object at resolution.
 func originImpliedTargetZone(sa *cards.SA) (state.Zone, bool) {
-	if sa.API != "ChangeZone" {
+	changeZone := sa.API == "ChangeZone"
+	if !changeZone {
 		if sa.API != "Attach" {
 			return 0, false
 		}
@@ -374,8 +375,16 @@ func originImpliedTargetZone(sa *cards.SA) (state.Zone, bool) {
 	if targetsPlayers(sa.ParamStr(cards.PKValidTgts)) {
 		return 0, false
 	}
+	if changeZone {
+		// ChangeZone's Origin$ is read through its compiled parameters, the
+		// same parse effChangeZone's Origin$ precondition applies.
+		if !effects.ChangeZoneOf(sa).OriginExactly(state.ZGraveyard) {
+			return 0, false
+		}
+		return state.ZGraveyard, true
+	}
 	zones, all, ok := effects.ParseZones(sa.ParamStr(cards.PKOrigin))
-	if !ok || all || len(zones) != 1 || (sa.API == "ChangeZone" && zones[0] != state.ZGraveyard) {
+	if !ok || all || len(zones) != 1 {
 		return 0, false
 	}
 	return zones[0], true
@@ -797,7 +806,30 @@ func targetRemoval(sa *cards.SA) *decision.RemovalEffect {
 		return &decision.RemovalEffect{Kind: "destroy"}
 	case "Sacrifice", "SacrificeAll":
 		return &decision.RemovalEffect{Kind: "sacrifice"}
-	case "ChangeZone", "ChangeZoneAll":
+	case "ChangeZone":
+		// ChangeZone's Destination$ through its compiled parameters: the
+		// zone the resolver moves to, named by its lower-case word.
+		cz := effects.ChangeZoneOf(sa)
+		if !cz.DestinationKnown {
+			return nil
+		}
+		var kind string
+		switch cz.Destination {
+		case state.ZExile:
+			kind = "exile"
+		case state.ZHand:
+			kind = "bounce"
+		case state.ZGraveyard:
+			kind = "graveyard"
+		case state.ZLibrary:
+			kind = "library"
+		case state.ZCommand:
+			kind = "command"
+		default:
+			return nil
+		}
+		return &decision.RemovalEffect{Kind: kind, Destination: cz.Destination.String()}
+	case "ChangeZoneAll":
 		destination := strings.ToLower(strings.TrimSpace(sa.ParamStr(cards.PKDestination)))
 		kind := destination
 		switch destination {
