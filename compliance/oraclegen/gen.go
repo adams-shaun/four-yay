@@ -139,16 +139,22 @@ func Generate(reg *cards.Registry, name string) (Item, *Skip) {
 	if targetsSpell(f) {
 		// A counterspell: cast a spell of our own, then counter it while
 		// holding priority (CR 117.3c).
-		for _, pre := range precasts {
-			if it, ok := counterWith(reg, f, name, mana, pre, xAns); ok {
-				return it, nil
+		// The extra {1} covers an optional additional cost ("behold or pay
+		// {1}"), tried only when the bare cost cannot cast.
+		for _, m := range []string{mana, mana + "C"} {
+			for _, pre := range precasts {
+				if it, ok := counterWith(reg, f, name, m, pre, xAns); ok {
+					return it, nil
+				}
 			}
 		}
 		return Item{}, &Skip{name, "no spell fixture gorge can counter"}
 	}
-	for _, pl := range plans {
-		if it, ok := castWith(reg, f, name, mana, pl.slots, pl.answers); ok {
-			return it, nil
+	for _, m := range []string{mana, mana + "C"} {
+		for _, pl := range plans {
+			if it, ok := castWith(reg, f, name, m, pl.slots, pl.answers); ok {
+				return it, nil
+			}
 		}
 	}
 	return Item{}, &Skip{name, fmt.Sprintf("no fixture gorge can cast (targets %v)", plans[0].slots)}
