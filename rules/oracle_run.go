@@ -470,12 +470,17 @@ func oracleLabelMatches(label, want string) bool {
 	return strings.Contains(normalize(label), normalize(want))
 }
 
+// oracleManaColourAliases maps a scenario's colour word or letter to the
+// mana symbol. Package-level, not a local: rules' param census scans every
+// non-test file in the package and classifies local map[string]string reads
+// as card-param reads.
+var oracleManaColourAliases = map[string]string{
+	"w": "W", "white": "W", "u": "U", "blue": "U", "b": "B", "black": "B",
+	"r": "R", "red": "R", "g": "G", "green": "G",
+}
+
 func oracleManaColourMatches(symbol, want string) bool {
-	aliases := map[string]string{
-		"w": "W", "white": "W", "u": "U", "blue": "U", "b": "B", "black": "B",
-		"r": "R", "red": "R", "g": "G", "green": "G",
-	}
-	wantSymbol, ok := aliases[strings.ToLower(strings.TrimSpace(want))]
+	wantSymbol, ok := oracleManaColourAliases[strings.ToLower(strings.TrimSpace(want))]
 	return ok && strings.EqualFold(symbol, wantSymbol)
 }
 
