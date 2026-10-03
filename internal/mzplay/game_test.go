@@ -276,3 +276,52 @@ func TestPlayGameAbort(t *testing.T) {
 		t.Fatalf("aborted game: %v, want ErrAborted", err)
 	}
 }
+
+// TestPlayGameOpponentNodes: a game whose seats search with opponent nodes
+// plays to its end reproducibly, its trees really select at opponent nodes,
+// and it is a different game from the same setup without them (whose
+// trees never do).
+func TestPlayGameOpponentNodes(t *testing.T) {
+	gs := testSetup(t, "mono-green-stompy", "mono-white-equipment", 7, 12)
+	gs.MaxTurns = 8
+	off, err := PlayGame(gs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if off.Stats.OppSelections != 0 {
+		t.Fatalf("switch off: %d opponent selections", off.Stats.OppSelections)
+	}
+	for i := range gs.Seats {
+		gs.Seats[i].OpponentNodes = true
+	}
+	a, err := PlayGame(gs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := PlayGame(gs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(a, b) {
+		t.Fatal("the same setup with opponent nodes played two different games")
+	}
+	if a.Stats.OppSelections == 0 || a.Stats.Searches < 10 || a.Stats.SimFailures > a.Stats.Simulations/10 {
+		t.Fatalf("opponent nodes: %+v", a.Stats)
+	}
+	if reflect.DeepEqual(a.Rows, off.Rows) {
+		t.Fatal("opponent nodes changed no record")
+	}
+	t.Logf("turns %d: %d searches, %d simulations (%d failed), %d opponent selections", a.Turns, a.Stats.Searches, a.Stats.Simulations, a.Stats.SimFailures, a.Stats.OppSelections)
+}
+
+// mcts.opponent_nodes is read per seat and defaults to off.
+func TestParseConfigOpponentNodes(t *testing.T) {
+	src := "player_a:\n  type: mcts\n  mcts:\n    opponent_nodes: true\nplayer_b:\n  type: mcts\ntraining:\n  games: 1\nserver:\n  port: 1\n"
+	c, err := ParseConfig(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !c.A.OpponentNodes || c.B.OpponentNodes {
+		t.Fatalf("opponent_nodes: a %v b %v", c.A.OpponentNodes, c.B.OpponentNodes)
+	}
+}

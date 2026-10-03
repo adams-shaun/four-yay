@@ -357,3 +357,42 @@ func TestRunArmRefusesInconsistentWorlds(t *testing.T) {
 		t.Fatal("worlds from another game were accepted")
 	}
 }
+
+// Opponent nodes run on every fixed-world arm (deterministically, with the
+// trees really holding opponent nodes) and are refused where the world
+// changes every simulation: is-mcts and fresh chance.
+func TestRunArmOpponentNodes(t *testing.T) {
+	clairvoyant.AllowClairvoyant()
+	p := newArmPosition(t, armSeed, 4)
+	for _, arm := range []SearchArm{ArmClairvoyant, ArmPIMC1, ArmPIMC4} {
+		in := p.input(arm, 24, 5)
+		in.Options.OpponentNodes = true
+		a, err := RunArm(context.Background(), in)
+		if err != nil {
+			t.Fatalf("%s: %v", arm, err)
+		}
+		b, err := RunArm(context.Background(), in)
+		if err != nil {
+			t.Fatalf("%s: %v", arm, err)
+		}
+		if !reflect.DeepEqual(a, b) {
+			t.Fatalf("%s: not deterministic", arm)
+		}
+		if !a.Searched || a.Stats.Completed == 0 || a.Stats.OppPoints == 0 {
+			t.Fatalf("%s: searched %v, stats %+v", arm, a.Searched, a.Stats)
+		}
+		if err := p.real.Pending().Validate(a.Intent); err != nil {
+			t.Fatalf("%s: the answer is not legal on the real engine: %v", arm, err)
+		}
+	}
+	in := p.input(ArmISMCTS, 4, 1)
+	in.Options.OpponentNodes = true
+	if _, err := RunArm(context.Background(), in); err == nil || !strings.Contains(err.Error(), "fixed-world") {
+		t.Fatalf("is-mcts with opponent nodes: %v", err)
+	}
+	in = p.input(ArmPIMC1, 4, 1)
+	in.Options.OpponentNodes, in.FreshChance = true, true
+	if _, err := RunArm(context.Background(), in); err == nil || !strings.Contains(err.Error(), "fresh chance") {
+		t.Fatalf("fresh chance with opponent nodes: %v", err)
+	}
+}

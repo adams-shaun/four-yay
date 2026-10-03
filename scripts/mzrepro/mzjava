@@ -32,7 +32,9 @@
 #                      threads run at once)
 #
 # Optional: MZ_EVAL_TIMEOUT_MS (one inference request's timeout, 30000),
-# MZ_TRACE=1 (log every searched decision).
+# MZ_TRACE=1 (log every searched decision), MZ_OPPONENT_NODES=1 (both seats'
+# trees also branch on the opponent's decisions, as upstream's do; off by
+# default).
 set -euo pipefail
 
 if [ "$#" -lt 1 ]; then

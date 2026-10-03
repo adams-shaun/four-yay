@@ -16,6 +16,15 @@
 # for a one-vCPU cap; an offline generation is then simply time-sliced). With several
 # game threads a network generation is not bit-reproducible: the server batches
 # whatever arrives together.
+#
+# Opponent nodes (upstream's tree branches on both players' decisions; gorge's search
+# answers the opponent with its bot unless told otherwise) are an ENGINE switch, not a key
+# of this file: draft-zero's loop ignores keys it does not know and never forwards this
+# file to the engine. Turn them on for every engine launch of a run with
+#   MZ_OPPONENT_NODES=1 scripts/mzrepro/dzrun.sh loop <run_root> --fresh
+# (the loop's engine processes inherit the environment), or per player with
+# `opponent_nodes: true` under a player's `mcts:` block in the run root's configs/game.yml,
+# which the loop passes through untouched. Off by default, as here.
 model: FDN_exp2
 version: 1
 curriculum: configs/curriculum_exp2.yml

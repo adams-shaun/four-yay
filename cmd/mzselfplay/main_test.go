@@ -358,3 +358,35 @@ func TestRunServerFailureFallsBack(t *testing.T) {
 	readShard(t, f.outA)
 	readShard(t, f.outB)
 }
+
+// TestRunOpponentNodes: -opponent-nodes (and MZ_OPPONENT_NODES=1) reach both
+// seats' searches, which the run's stats line shows; without it no tree
+// selects at an opponent node.
+func TestRunOpponentNodes(t *testing.T) {
+	f := newFixture(t, 1, 8, true, true, 50052, 50052, nil)
+	t.Setenv("MZ_OPPONENT_NODES", "")
+	code, out, errOut := f.run(t)
+	if code != 0 {
+		t.Fatalf("exit %d\n%s\n%s", code, out, errOut)
+	}
+	if st := stats(t, out); st.OppSelections != 0 {
+		t.Fatalf("switch off: %d opponent selections", st.OppSelections)
+	}
+	for _, how := range []string{"flag", "env"} {
+		g := newFixture(t, 1, 8, true, true, 50052, 50052, nil)
+		var extra []string
+		if how == "flag" {
+			extra = []string{"-opponent-nodes"}
+		} else {
+			t.Setenv("MZ_OPPONENT_NODES", "1")
+		}
+		code, out, errOut := g.run(t, extra...)
+		if code != 0 {
+			t.Fatalf("%s: exit %d\n%s\n%s", how, code, out, errOut)
+		}
+		if st := stats(t, out); st.OppSelections == 0 || st.Simulations == 0 {
+			t.Fatalf("%s: stats %+v", how, st)
+		}
+		t.Setenv("MZ_OPPONENT_NODES", "")
+	}
+}

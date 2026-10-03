@@ -42,6 +42,11 @@ type SeatSetup struct {
 	// Leaf is the seat's leaf evaluator: OfflineLeaf (mcts.offline_mode) or
 	// a NetLeaf's.
 	Leaf azmcts.LeafFunc
+	// OpponentNodes makes the seat's tree branch on the opponent's searched
+	// decisions too, valued from the opponent's side, as upstream's tree
+	// does (azmcts.Options.OpponentNodes); off, the opponent inside a
+	// simulation is the default bot. Off by default.
+	OpponentNodes bool
 }
 
 // GameSetup is one game.
@@ -94,7 +99,10 @@ type GameStats struct {
 	MacroFailed int
 	Simulations int
 	Completed   int
-	SimFailures int // simulations discarded, by class below
+	// OppSelections counts the simulations' selections at opponent nodes
+	// (azmcts.Stats.OppPoints): 0 unless a seat runs with OpponentNodes.
+	OppSelections int
+	SimFailures   int // simulations discarded, by class below
 	// SimPanics, SimSubmitErrors, SimChance and SimBadWorlds split
 	// SimFailures by azmcts's error classes (an engine panic in a world, a
 	// world that rejected a submit, a chance failure, a world not at the
@@ -147,6 +155,7 @@ func (s *GameStats) Add(o GameStats) {
 	s.MacroFailed += o.MacroFailed
 	s.Simulations += o.Simulations
 	s.Completed += o.Completed
+	s.OppSelections += o.OppSelections
 	s.SimFailures += o.SimFailures
 	s.SimPanics += o.SimPanics
 	s.SimSubmitErrors += o.SimSubmitErrors
@@ -212,9 +221,10 @@ var ErrAborted = errors.New("mzplay: game aborted (training.max_minutes)")
 // searched tree edge (MCTSNode.backpropagate multiplies by backpropDiscount
 // once per parent); budget simulations per decision.
 //
-// What does not match and cannot be set here: the tree holds only the
-// searching seat's decisions (the opponent inside a simulation is the
-// default bot, where upstream's tree has opponent nodes); there is no
+// What does not match and cannot be set here: by default the tree holds
+// only the searching seat's decisions (the opponent inside a simulation is
+// the default bot, where upstream's tree has opponent nodes;
+// SeatSetup.OpponentNodes turns them on, the caller sets it); there is no
 // subtree reuse between decisions (upstream's budget counts the visits the
 // reused subtree already holds); PUCT's exploration term reads the count of
 // simulations the child was available in plus one, not the parent's visits
@@ -317,6 +327,7 @@ func PlayGame(gs GameSetup) (res GameResult, err error) {
 		rec[i] = newRecorder(state.PlayerID(i), gs.Vocab, s.SeeOpponentHand, &res.Stats)
 		seatSeed[i] = splitmix(gs.Seed ^ (uint64(i)+1)*0x6d7a706c61792d73)
 		opts[i] = SearchOptions(s.Budget, s.BackpropDiscount, s.Leaf)
+		opts[i].OpponentNodes = s.OpponentNodes
 	}
 	submit := func(in decision.Intent) error {
 		res.Stats.Submits++
@@ -372,6 +383,7 @@ func PlayGame(gs GameSetup) (res GameResult, err error) {
 		st := lr.Result.Stats
 		res.Stats.Simulations += st.Simulations
 		res.Stats.Completed += st.Completed
+		res.Stats.OppSelections += st.OppPoints
 		res.Stats.SimFailures += st.Simulations - st.Completed
 		res.Stats.SimPanics += st.Panics
 		res.Stats.SimSubmitErrors += st.SubmitErrors

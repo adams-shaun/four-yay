@@ -243,11 +243,19 @@ func sbDisplayName(policy string) string {
 	if world == "redeal" && cfg.Worlds > 0 {
 		name += fmt.Sprintf("-k%d", cfg.Worlds)
 	}
+	if cfg.Search.OpponentNodes {
+		name += azOppLedgerSuffix
+	}
 	if rest := strings.TrimPrefix(policy, base); rest != "" {
 		name += rest
 	}
 	return name
 }
+
+// azOppLedgerSuffix marks an az seat whose tree holds opponent nodes
+// (-az-opponent-nodes) in its ledger name, ahead of any decorator, so the
+// two searches never share a rating.
+const azOppLedgerSuffix = "-opp"
 
 // basePolicy is a registry spec's base policy, dropping its decorators
 // ("az+passguard" -> "az"); az classification uses it so a decorated az

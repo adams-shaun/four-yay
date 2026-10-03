@@ -27,6 +27,8 @@
 //	MZ_SEED            the run seed (default: FNV-1a of the game.yml bytes)
 //	MZ_EVAL_TIMEOUT_MS one inference request's timeout (default 30000)
 //	MZ_TRACE           1 logs every searched decision
+//	MZ_OPPONENT_NODES  1 lets both seats' trees branch on the opponent's
+//	                   decisions (per seat: game.yml mcts.opponent_nodes)
 //
 // Exit status: 0 when every requested game was attempted and both shards
 // were written (a failed game is logged and skipped, as upstream skips it);
@@ -150,6 +152,7 @@ type runStats struct {
 	Timeouts      int            `json:"search_timeouts"`
 	MacroFailed   int            `json:"macro_failed"`
 	Simulations   int            `json:"simulations"`
+	OppSelections int            `json:"opponent_selections"`
 	SimFailures   int            `json:"simulation_failures"`
 	SimPanics     int            `json:"simulation_panics"`
 	SimSubmitErr  int            `json:"simulation_submit_errors"`
@@ -183,6 +186,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	seedText := fs.String("seed", os.Getenv("MZ_SEED"), "run seed (default: FNV-1a of the game.yml bytes)")
 	evalTimeout := fs.Int("eval-timeout-ms", envInt("MZ_EVAL_TIMEOUT_MS", 30000), "one inference request's timeout")
 	trace := fs.Bool("trace", os.Getenv("MZ_TRACE") == "1", "log every searched decision")
+	oppNodes := fs.Bool("opponent-nodes", os.Getenv("MZ_OPPONENT_NODES") == "1", "both seats' trees also branch on the opponent's searched decisions, valued from its side, as upstream MageZero's do (MZ_OPPONENT_NODES=1; per seat: game.yml player_x.mcts.opponent_nodes); off by default")
 	keepNPY := fs.Bool("keep-npy", false, "write the .npy shard files only, without converting to HDF5")
 	cpuprofile := fs.String("cpuprofile", "", "write a CPU profile")
 	checkPool := fs.Bool("check-pool", false, "resolve every deck of the pool files given as arguments against the corpus and report; play nothing")
@@ -372,7 +376,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 				var offline [2]int64
 				seat := func(s int, pc mzplay.PlayerConfig, d mzplay.ResolvedDeck) mzplay.SeatSetup {
 					out := mzplay.SeatSetup{Deck: d.Cards, DeckName: d.Stem, Budget: pc.SearchBudget, BackpropDiscount: pc.BackpropDiscount,
-						Lambda: pc.TDDiscount, SeeOpponentHand: pc.SeeOpponentHand}
+						Lambda: pc.TDDiscount, SeeOpponentHand: pc.SeeOpponentHand, OpponentNodes: pc.OpponentNodes || *oppNodes}
 					if srv := seatServer[s]; srv != nil {
 						leaves[s] = mzplay.NewNetLeaf(srv, pc.SeeOpponentHand)
 						out.Leaf = leaves[s].Leaf
@@ -482,6 +486,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 	st.Timeouts, st.MacroFailed, st.Simulations, st.SimFailures = total.Timeouts, total.MacroFailed, total.Simulations, total.SimFailures
+	st.OppSelections = total.OppSelections
 	st.ActionCands, st.ActionHits, st.ActionVisits, st.ActionHitV = total.ActionCands, total.ActionHits, total.ActionVisits, total.ActionHitV
 	st.TargetCands, st.TargetHits, st.TargetVisits, st.TargetHitV = total.TargetCands, total.TargetHits, total.TargetVisits, total.TargetHitV
 	st.MissedActions, st.MissedTargets = total.MissedActions, total.MissedTargets

@@ -315,6 +315,12 @@ type PlayerConfig struct {
 	TDDiscount       float64
 	BackpropDiscount float64
 	OfflineMode      bool
+	// OpponentNodes is mcts.opponent_nodes, a gorge-only key (MageZero's
+	// Config.java has none; draft-zero's runner passes every key it does not
+	// set through untouched): the seat's tree also branches on the
+	// opponent's searched decisions (azmcts.Options.OpponentNodes) instead
+	// of answering them with the bot. Default false.
+	OpponentNodes bool
 
 	Mulligans     bool
 	ManualTapping bool
@@ -383,6 +389,7 @@ func ParseConfig(src string) (Config, error) {
 			TDDiscount:       r.number(p+".mcts.td_discount", 0.95),
 			BackpropDiscount: r.number(p+".mcts.backprop_discount", 0.99),
 			OfflineMode:      r.boolean(p+".mcts.offline_mode", false),
+			OpponentNodes:    r.boolean(p+".mcts.opponent_nodes", false),
 			Mulligans:        r.boolean(p+".gameplay.mulligans_enabled", true),
 			ManualTapping:    r.boolean(p+".gameplay.manual_tapping", false),
 			SeeOpponentHand:  r.boolean(p+".hiddenInfo.see_opponent_hand", true),

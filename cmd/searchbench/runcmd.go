@@ -39,7 +39,7 @@ import (
 // runName is the result file's arm label: upstream's run-id convention
 // (method, budget, discount and unit unless the default ply, leaf tag, seed
 // unless 0), with gorge's arm names.
-func runName(arm searchbench.SearchArm, sims int, discount float64, unit azmcts.DiscountUnit, leaf string, seed uint64) string {
+func runName(arm searchbench.SearchArm, sims int, discount float64, unit azmcts.DiscountUnit, leaf string, seed uint64, opp bool) string {
 	if arm == searchbench.ArmNoSearch {
 		return string(arm)
 	}
@@ -52,6 +52,9 @@ func runName(arm searchbench.SearchArm, sims int, discount float64, unit azmcts.
 	}
 	if leaf != "" && leaf != "heuristic" {
 		s += "-net"
+	}
+	if opp {
+		s += "-opp"
 	}
 	if seed != 0 {
 		s += fmt.Sprintf("-s%d", seed)
@@ -79,6 +82,7 @@ func runArm(args []string, out io.Writer) error {
 	gcPercent := fs.Int("gc-percent", 0, "runtime GC percent (0: leave GOGC as the environment set it; negative: off)")
 	memLimit := fs.String("mem-limit", "", "runtime soft memory limit, e.g. 1500MiB or 2GiB (empty: leave GOMEMLIMIT)")
 	fullCorpus := fs.Bool("corpus-full", false, "open the whole compiled corpus instead of the items' cards (cards.OpenCorpusFor)")
+	oppNodes := fs.Bool("opponent-nodes", false, "the tree also branches on the opponent's searched decisions, valued from its side (upstream's opponent nodes); clairvoyant-mcts, pimc-1 and pimc-4 only; the default label gains -opp")
 	nodeCache := fs.Int("node-cache", azmcts.DefaultNodeCache, "tree nodes whose engine state a fixed-world tree (clairvoyant, pimc without fresh chance) stores so a simulation resumes there (0: off); results are identical either way, only EnvSteps changes")
 	if err := fs.Parse(args); err != nil || *manifestPath == "" || *storePath == "" || *armText == "" || *outPath == "" || *workers < 1 || *sims < 0 || *limit < 0 || *nodeCache < 0 || *discount < 0 || *discount > 1 || fs.NArg() != 0 {
 		return usage()
@@ -96,6 +100,9 @@ func runArm(args []string, out io.Writer) error {
 			return err
 		}
 		debug.SetMemoryLimit(n)
+	}
+	if *oppNodes && arm == searchbench.ArmISMCTS {
+		return fmt.Errorf("searchbench: -opponent-nodes needs a fixed-world arm; is-mcts re-deals every simulation")
 	}
 	if arm != searchbench.ArmNoSearch && *sims < 1 {
 		return fmt.Errorf("searchbench: %s needs -sims >= 1", arm)
@@ -130,9 +137,9 @@ func runArm(args []string, out io.Writer) error {
 	}
 	label := *name
 	if label == "" {
-		label = runName(arm, *sims, *discount, unit, *leaf, *seed)
+		label = runName(arm, *sims, *discount, unit, *leaf, *seed, *oppNodes)
 	}
-	cfg := searchbench.RunConfig{Arm: arm, Name: label, Sims: *sims, Discount: *discount, DiscountUnit: unit, NodeCache: *nodeCache, Seed: *seed, Digest: m.Digest}
+	cfg := searchbench.RunConfig{Arm: arm, Name: label, Sims: *sims, Discount: *discount, DiscountUnit: unit, NodeCache: *nodeCache, OpponentNodes: *oppNodes, Seed: *seed, Digest: m.Digest}
 	if *leaf != "heuristic" {
 		if cfg.Net, err = searchbench.LoadLeafNet(*leaf); err != nil {
 			return err
