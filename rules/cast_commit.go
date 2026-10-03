@@ -30,6 +30,18 @@ func (e *Engine) payCast() {
 		e.cast, e.choosing = nil, chooseNone
 		e.etbLandPlay, e.etbLandObj, e.etbLandPlayer = true, pc.card, pc.player
 		card := pc.card
+		// CR 305.1/110.2: the player who plays a land puts it onto the
+		// battlefield, under their control. A land another seat controls in
+		// its current zone (Tinybones's stashed opponent card, Gonti's or
+		// Opposition Agent's exiled card, an opponent's library top played
+		// through a may-play grant) comes under the player's control BEFORE
+		// the move, so it enters on that player's battlefield and their own
+		// landfall/enters triggers see it -- the land-play twin of the cast
+		// path's CR 601.2a ControlChange (cast_targets.go). An ordinary land
+		// play's card already answers to the player, so no event rides it.
+		if o := e.G.Obj(card); o != nil && o.Controller != pc.player {
+			e.emit(events.Event{Kind: events.ControlChange, Obj: card, Player: pc.player})
+		}
 		e.emit(events.Event{Kind: events.MoveZone, Obj: card, From: pc.from, To: state.ZBattlefield})
 		// The entry may never have happened: a ReplacementResult$ Replaced
 		// entry replacement discards the move entirely and the land stays in

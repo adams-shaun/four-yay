@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/adams-shaun/gorge/effects"
@@ -744,6 +745,10 @@ func (e *Engine) effectMoveSweep(ev events.Event) {
 			changed = true
 			continue // the effect ends: not kept
 		}
+		if ce.ChosenBound && mayPlayChosenLeftZone(&ce, ev) {
+			ce.Chosen = objIDWithout(ce.Chosen, ev.Obj)
+			changed = true
+		}
 		if forget == "" && exile == "" && mayPlayRememberedLeftZone(&ce, ev) {
 			ce.Remembered = objIDWithout(ce.Remembered, ev.Obj)
 			changed = true
@@ -783,6 +788,22 @@ func mayPlayRememberedLeftZone(ce *state.ContinuousEffect, ev events.Event) bool
 		}
 	}
 	return false
+}
+
+// mayPlayChosenLeftZone is mayPlayRememberedLeftZone for the chosen-card
+// snapshot a Card.ChosenCard may-play grant carries (state.ContinuousEffect.
+// Chosen): CR 400.7, the chosen card that leaves the grant's zone is a new
+// object the permission no longer names, so a Strongbox Raider card cast from
+// exile and later exiled again is not playable a second time.
+func mayPlayChosenLeftZone(ce *state.ContinuousEffect, ev events.Event) bool {
+	if !ce.MayPlay || ce.AffectedZone == "" || !objIDIn(ce.Chosen, ev.Obj) {
+		return false
+	}
+	zones, all, _ := effects.ParseZones(ce.AffectedZone)
+	if all {
+		return ev.From != ev.To
+	}
+	return slices.Contains(zones, ev.From)
 }
 
 // effectCastSweep is the cast-driven lifetime of Effect-created continuous

@@ -619,6 +619,11 @@ func (e *Engine) step() {
 	if e.startDefeatedCast() {
 		return
 	}
+	// CR 608.2g: the rest of an Amount$ Play answer whose earlier cast
+	// parked on its own question (rules/play_queue.go).
+	if e.startQueuedPlay() {
+		return
+	}
 	if e.G.Over {
 		return
 	}
