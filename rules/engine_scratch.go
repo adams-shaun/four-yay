@@ -31,6 +31,10 @@ type engineScratch struct {
 	// derivedPTFrames are the in-progress layer-7 snapshots exposed to
 	// effects-side Count$Valid scans, including nested candidate derivations.
 	derivedPTFrames []derivedPTSnapshot `clone:"reset"`
+	// charsScratch is the record Engine.Chars answers with outside a Derived
+	// memo scope (host_read.go): one Derived build copied here so the query
+	// can hand out a pointer. Pure per-call scratch; Clone copies none.
+	charsScratch Derived `clone:"reset"`
 
 	// derivedMemo / derivedMemoDepth / derivedMemoGen are Derived's per-object
 	// memo for ONE legal-actions walk (rules/derivedmemo.go): derivedMemoDepth

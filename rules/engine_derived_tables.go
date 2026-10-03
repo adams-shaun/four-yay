@@ -12,7 +12,7 @@ import (
 // through Go's field promotion. Clone's per-field copy classes
 // (rules/clone.go) are unchanged by the move.
 type engineDerivedTables struct {
-	// name filters read through SpecContext.EffectiveNames. It is refreshed
+	// name filters read through SpecContext.Layers.EffectiveNames. It is refreshed
 	// after each emitted event, under active()'s own (epoch, version) key,
 	// and only when setNameInPool says this match has a SetName$ carrier at
 	// all. It is a FIELD rather than a lazily-called derivation because

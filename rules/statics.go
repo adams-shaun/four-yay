@@ -421,9 +421,8 @@ func (e *Engine) specCtx(source state.ObjID, you state.PlayerID) effects.SpecCon
 // after each emitted event, exactly the values specCtx binds.
 func (e *Engine) playerSpecCtx(source state.ObjID) effects.PlayerSpecCtx {
 	return effects.PlayerSpecCtx{
-		Source:         source,
-		EffectiveNames: e.renames,
-		DerivedTypes:   e.layer4Types,
+		Source: source,
+		Layers: e.boardLayers(),
 	}
 }
 
@@ -474,14 +473,14 @@ func (e *Engine) matchesSpec(spec string, id state.ObjID, sc effects.SpecContext
 		// inlining budget and heap-allocates the context on every candidate
 		// (TestLegalActionsReusesActionStaticMembership's pin).
 		if e.goadProbe == 0 && facts.goaded {
-			sc.StaticGoads = e.staticallyGoaded()
+			sc.Layers.StaticGoads = e.staticallyGoaded()
 		}
 		// The colour predicates' layer-5 bind (layer5colors.go): a spec that
 		// names a colour word reads the derived colours, so a creature a
 		// continuous effect recoloured matches by what it is now. Nil on a
 		// board with no live colour effect.
 		if facts.colors {
-			sc.DerivedColors = e.derivedColorTable()
+			sc.Layers.DerivedColors = e.derivedColorTable()
 		}
 		if specDerivedVerify && !facts.reads {
 			return e.verifySpecDerivedSkip(spec, id, sc)

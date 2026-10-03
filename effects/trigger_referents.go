@@ -572,7 +572,7 @@ func matchTargetedPlayerField(g *state.Game, o *state.Object, sc SpecContext, op
 
 // MatchSpec evaluates a resolution-time filter with the chain's layer-3
 // rename table bound: MatchesSpecFrom's grammar (You/Source only, no
-// numeric-RHS resolver) PLUS Ctx.EffectiveNames, so a resolving effect's
+// numeric-RHS resolver) PLUS Ctx.Layers.EffectiveNames, so a resolving effect's
 // filter agrees with rules' layer walk. Prefer this over a bare
 // MatchesSpecFrom inside an effect body -- the bare form carries no renames
 // and reads the printed face.

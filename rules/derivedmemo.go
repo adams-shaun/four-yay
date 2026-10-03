@@ -368,7 +368,7 @@ func (e *Engine) verifyDerivedMemo(id state.ObjID, atStack state.Zone, got Deriv
 	if (got.Keywords == nil) != (want.Keywords == nil) || (got.Types == nil) != (want.Types == nil) ||
 		got.Power != want.Power || got.Toughness != want.Toughness ||
 		got.BasePower != want.BasePower || got.BaseToughness != want.BaseToughness ||
-		got.Name != want.Name ||
+		got.Name != want.Name || got.Text != want.Text || got.Controller != want.Controller ||
 		got.Colors != want.Colors || !slices.Equal(got.Keywords, want.Keywords) || !slices.Equal(got.Types, want.Types) {
 		panic(fmt.Sprintf("rules: derived memo stale for obj %d: cached %+v, fresh %+v", id, got, want))
 	}

@@ -29,8 +29,7 @@ func MatchesPlayerSpecFrom(g *state.Game, spec string, p, you state.PlayerID, so
 // against. DefendingPlayer is the defending-player role of the triggering
 // event, which Player.TriggeredDefendingPlayer names; it is absent (IsPlayer
 // false) outside a trigger that carries one, so that clause fails closed.
-// EffectiveNames and DerivedTypes are the SAME layer-3/layer-4 tables
-// SpecContext carries (see their doc comments there, including the
+// Layers is the SAME derived-characteristic table set SpecContext carries (see their doc comments there, including the
 // escape-analysis rationale for plain immutable slices): the
 // Player.controlsCreature / Player.controlsPermanent family evaluates its
 // object spec through a nested SpecContext, so without them a creature a
@@ -43,10 +42,9 @@ type PlayerSpecCtx struct {
 	DefendingPlayer   state.Target
 	DelayedRemembered []state.Target
 	OpponentOf        []state.Target
-	// EffectiveNames is the layer-3 rename set (SetName$, CR 613.1d).
-	EffectiveNames []ObjectName
-	// DerivedTypes is the layer-4 derived type list (CR 613.1d/613.1c).
-	DerivedTypes []ObjectTypes
+	// Layers is the board's derived-characteristic tables (LayerTables), the
+	// same value SpecContext.Layers carries.
+	Layers LayerTables
 }
 
 // MatchesPlayerSpecCtx is the full player-side filter: the same grammar as
@@ -580,7 +578,7 @@ func playerControlsMatches(g *state.Game, p state.PlayerID, you state.PlayerID, 
 	// derived characteristics every ordinary filter site does; a
 	// controlsCreature/controlsPermanent spec otherwise reads the
 	// printed face alone.
-	sc.EffectiveNames, sc.DerivedTypes = pc.EffectiveNames, pc.DerivedTypes
+	sc.Layers = pc.Layers
 	n := int32(0)
 	for _, id := range g.Zone(state.ZBattlefield, p) {
 		if MatchesObjectCtx(g, spec, g.Obj(id), sc) {

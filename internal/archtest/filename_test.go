@@ -15,7 +15,8 @@ import (
 // `_util`). The old steward metric rewarded splitting a long file at a line
 // count, which scattered one concern over several files without adding a
 // boundary (rules/resolution_answer_rest.go is the second half of one switch
-// moved verbatim; rules/stack_helpers.go hosts 39 effects.Host methods).
+// moved verbatim; rules/stack_helpers.go hosted 39 effects.Host methods until
+// W1d split it by role into rules/host_*.go).
 var sizeOnlyFileName = regexp.MustCompile(
 	`(^|_)(rest|more|extra|part|cont|continued|tail|remainder|overflow|helpers?|misc|utils?)\d*\.go$|_\d+\.go$`)
 
@@ -28,7 +29,6 @@ var sizeOnlyFileNamesAllowed = map[string]bool{
 	"rules/mana_cost_extra.go":        true,
 	"rules/raise_cost_extra.go":       true,
 	"rules/resolution_answer_rest.go": true,
-	"rules/stack_helpers.go":          true,
 	"rules/token_rest.go":             true,
 	"rules/trigmatch_misc.go":         true,
 }

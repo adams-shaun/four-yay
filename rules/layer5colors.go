@@ -18,7 +18,7 @@ import (
 // every direct colour read (protection, Fear, convoke), but not by the filter
 // grammar, so a black creature made green and white by Witness Protection was
 // still "nonBlack"-illegal for Doom Blade. matchesSpec binds this table on
-// SpecContext.DerivedColors for a spec that names a colour word, exactly as
+// SpecContext.Layers.DerivedColors for a spec that names a colour word, exactly as
 // DerivedTypes carries layer 4 and EffectiveNames layer 3.
 //
 // Unlike those two tables it is built ON DEMAND, not after every event: only
@@ -122,8 +122,3 @@ func computeSpecReadsColors(spec string) bool {
 		strings.Contains(spec, "Blue") || strings.Contains(spec, "Red") || strings.Contains(spec, "Green") ||
 		strings.Contains(spec, "Worthy")
 }
-
-// EffectiveColors publishes the table to the effects tier (effects'
-// colorTableHost), which asks at each resolving body that names a colour
-// word and binds it on the resolving Ctx.
-func (e *Engine) EffectiveColors() []effects.ObjectColors { return e.derivedColorTable() }

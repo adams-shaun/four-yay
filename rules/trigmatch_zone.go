@@ -152,7 +152,7 @@ func (e *Engine) zoneChangeMatchesWithCapture(t cards.Trigger, source state.ObjI
 			// event, so the context must not escape through a helper call).
 			sc := capture(e.specCtx(source, ctrl))
 			if e.goadProbe == 0 && strings.Contains(spec, "IsGoaded") {
-				sc.StaticGoads = e.staticallyGoadedWithLKI(lki)
+				sc.Layers.StaticGoads = e.staticallyGoadedWithLKI(lki)
 			}
 			if !ok || !effects.MatchesObjectCtx(e.G, spec, lki, sc) {
 				return false
@@ -358,7 +358,7 @@ func (e *Engine) sacrificedMatches(t cards.Trigger, source state.ObjID, ev event
 		// shape matchesSpec keeps.
 		sc := e.specCtx(source, ctrl)
 		if e.goadProbe == 0 && strings.Contains(v, "IsGoaded") {
-			sc.StaticGoads = e.staticallyGoadedWithLKI(lki)
+			sc.Layers.StaticGoads = e.staticallyGoadedWithLKI(lki)
 		}
 		if lki == nil || !effects.MatchesObjectCtx(e.G, v, lki, sc) {
 			return false

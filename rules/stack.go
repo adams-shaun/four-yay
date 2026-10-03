@@ -4,7 +4,8 @@
 //
 // It was split out of one 6.5k-line file into a handful of focused units; the
 // rest lives in mana_payment.go (mana payment and cost machinery),
-// stack_helpers.go (Engine accessors, per-turn counters, unless-cost),
+// the host_*.go files (effects.Host's per-role implementation: accessors,
+// emits, the cast and turn ledgers), unless_cost.go (unless-cost payment),
 // target_ask.go (asking a seat for targets), target_legal.go (target legality
 // and candidate construction) and target_modes.go (modal/charm target groups
 // and target bounds). The split is a pure move: no symbol was renamed and no
