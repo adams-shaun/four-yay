@@ -75,8 +75,17 @@ func TestTriggerEligibilityEventMatrix(t *testing.T) {
 	}
 }
 
+// TestTriggerEventInterestMapping pins the derived mapping for every Kind
+// that existed when the mapping moved into the events descriptor table
+// (events/kindinfo.go). It is a regression pin, not a lockstep list: a Kind
+// appended after interestPinnedThrough is classified in the table alone and
+// checked by events' TestEveryKindHasADescriptor plus
+// TestTriggerClassInterestCoversEveryClass below -- never edited in here.
+// Edit an arm only to reclassify an existing kind on purpose.
+const interestPinnedThrough = events.ElementalBend
+
 func TestTriggerEventInterestMapping(t *testing.T) {
-	for kind := events.Kind(0); int(kind) < events.NumKinds; kind++ {
+	for kind := events.Kind(0); kind <= interestPinnedThrough; kind++ {
 		var want cards.TriggerInterest
 		switch kind {
 		case events.MoveZone:
@@ -196,6 +205,31 @@ func TestTriggerEventInterestMapping(t *testing.T) {
 	}
 	if got := eventTriggerInterest(events.Kind(events.NumKinds)); got != cards.TriggerInterestAny {
 		t.Fatalf("future event interest = %x, want catch-all", got)
+	}
+}
+
+// TestTriggerClassInterestCoversEveryClass holds triggerClassInterest to the
+// events vocabulary: a class appended to events.TriggerClass without a row
+// here would silently read as the zero (TriggerNone) mapping and drop
+// triggers, so every class but TriggerNone must map to some bit, and every
+// Kind's derived interest must be its class's row.
+func TestTriggerClassInterestCoversEveryClass(t *testing.T) {
+	for c := events.TriggerClass(0); int(c) < events.NumTriggerClasses; c++ {
+		got := triggerClassInterest[c]
+		if c == events.TriggerNone {
+			if got != 0 {
+				t.Errorf("TriggerNone maps to %x, want 0", got)
+			}
+			continue
+		}
+		if got == 0 {
+			t.Errorf("events.TriggerClass(%d) has no triggerClassInterest row (rules/trigger_eligibility.go)", c)
+		}
+	}
+	for kind := events.Kind(0); int(kind) < events.NumKinds; kind++ {
+		if got, want := eventTriggerInterest(kind), triggerClassInterest[kind.Trigger()]; got != want {
+			t.Fatalf("kind %s interest = %x, want its class's %x", kind, got, want)
+		}
 	}
 }
 

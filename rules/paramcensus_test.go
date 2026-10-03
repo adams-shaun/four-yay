@@ -75,7 +75,6 @@ import (
 	"go/parser"
 	"go/token"
 	"os"
-	"path/filepath"
 	"slices"
 	"sort"
 	"strconv"
@@ -325,14 +324,11 @@ func scanPackages(t *testing.T) *scan {
 		{dir: ".", pkg: "rules"},
 		{dir: "../effects", pkg: "effects"},
 	} {
-		files, err := filepath.Glob(filepath.Join(spec.dir, "*.go"))
-		if err != nil || len(files) == 0 {
-			t.Fatalf("paramcensus: glob %s: %v", spec.dir, err)
+		files := sourceFilesUnder(t, spec.dir, nil)
+		if len(files) == 0 {
+			t.Fatalf("paramcensus: no sources under %s", spec.dir)
 		}
 		for _, f := range files {
-			if strings.HasSuffix(f, "_test.go") {
-				continue
-			}
 			src, err := os.ReadFile(f)
 			if err != nil {
 				t.Fatalf("paramcensus: read %s: %v", f, err)

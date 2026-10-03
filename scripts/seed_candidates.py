@@ -50,6 +50,7 @@ reward = _load("reward")
 # Expected cost is in seat-rounds: a round is what a ticket costs the fleet
 # whether it lands or not, so it is the denominator the ranking divides by.
 COST_SPLIT_FILE = 3.0
+COST_SEAM_SPLIT = 3.0
 COST_SEQUENCE = 1.0
 COST_ORACLE_BATCH = 2.0
 COST_PROFILE = 2.0
@@ -59,7 +60,24 @@ COST_GATE_TRIM = 2.0
 MERGE_FIX_RATE_ALARM = 0.25
 GATE_WALL_ALARM_S = 240.0
 CONTEXT_ALARM_BYTES = 80_000
-BIG_FILE_ALARM_LINES = 4000
+# A steward seam ticket is minted for the longest function in rules/ +
+# effects/ (cmd/codeshape) once it is at least this long. This replaced
+# BIG_FILE_ALARM_LINES (a 4000-line FILE), whose split tickets rewarded
+# size-only splits (rules-engine refactor spec, W0).
+LONG_FUNC_ALARM_LINES = 500
+
+# The funcs_over_300 note's entry shape: "<file>:<line> <name>(<lines>)".
+_LONG_FUNC_RE = re.compile(r"^(\S+):(\d+) (\S+)\((\d+)\)$")
+
+
+def long_funcs_from_note(note: str) -> list[tuple[str, int, str, int]]:
+    """(file, line, name, lines) for each long function a funcs_over_300 note lists."""
+    out = []
+    for part in note.split("|", 1)[0].split(";"):
+        m = _LONG_FUNC_RE.match(part.strip())
+        if m:
+            out.append((m.group(1), int(m.group(2)), m.group(3), int(m.group(4))))
+    return out
 
 
 def slug(s: str) -> str:
@@ -483,44 +501,60 @@ what moved where), and `go test ./internal/testutil` is green.
             )
         )
 
-    big = latest(rows, "steward", "oversized_files")
-    if big and big.note:
-        first = big.note.split(";")[0].strip()
-        m = re.match(r"(.+)\((\d+)\)", first)
-        if m and int(m.group(2)) >= BIG_FILE_ALARM_LINES:
-            path, lines = m.group(1), int(m.group(2))
-            out.append(
-                cand(
-                    f"steward-split-{slug(path)}",
-                    "steward",
-                    f"{path} is {lines} lines — split it along its seams",
-                    f"""# {path} is the largest file in the tree
+    shape = latest(rows, "steward", "funcs_over_300")
+    longs = long_funcs_from_note(shape.note) if shape and shape.note else []
+    if longs and longs[0][3] >= LONG_FUNC_ALARM_LINES:
+        path, line, name, lines = longs[0]
+        ratchets = shape.note.split("|", 1)[1].strip() if "|" in shape.note else ""
+        others = "\n".join(f"- `{n}` ({p}:{ln}, {nl} lines)" for p, ln, n, nl in longs[1:])
+        out.append(
+            cand(
+                f"steward-seam-{slug(path + '-' + name)}",
+                "steward",
+                f"{name} is {lines} lines — move a cohesive concern behind a named seam",
+                f"""# {name} ({path}:{line}) is the longest function in rules/ + effects/
 
-Measured: {lines} lines ({int(big.value)} files are over 1500). Every agent that
-changes one line of it pays for the whole file in context, and this repo's own
-design guidance treats a file this large as a unit doing too much.
+Measured by `go run ./cmd/codeshape -table`: `{name}` spans {lines} lines, and
+{int(shape.value)} non-test functions in rules/ and effects/ are over 300 lines.
+A function this long is a concern with no seam: every ticket that changes one
+case of it edits inside the same body, which is where sibling-path misses and
+merge conflicts come from. The next longest:
+
+{others or "- (none listed)"}
+
+Code-shape ratchets at measurement: {ratchets or "(not recorded)"}.
 
 ## Goal
 
-Split it along a real seam into focused files, moving code only — no behaviour
-change, no renamed exported symbols.
+Find ONE cohesive concern inside `{name}` -- a family of cases, a phase, a
+cursor and the code that drives it -- and move it behind a named seam: a
+function, method or small type named for what it owns, in a file named for the
+same concern. Behaviour is unchanged.
 
 ## Out of scope
 
-Any behaviour change, and any rename that touches another package.
+Splitting by size. Moving the second half of a switch into a `*_rest.go`, or
+helpers into a `*_helpers.go` / `*_misc.go`, is exactly what this replaces, and
+`internal/archtest` TestNoNewSizeOnlyFileNames rejects the name. No behaviour
+change, no renamed exported symbols.
 
 ## Done means
 
-`go build ./... && go test ./...` is green with no behaviour diff:
-`scripts/reward-probe.sh free` records the same or fewer `oversized_files`, and
-`go test ./rules -run TestHeads -v` still prints the pinned chain heads
-unchanged.
+- The change moves a cohesive concern behind a named seam (name it, and say in
+  the report why it is one concern).
+- `go run ./cmd/codeshape` reports `funcs_over_300` no higher than {int(shape.value)}
+  and no other ratchet higher than above (`go test ./internal/codeshape` green,
+  with any constant the change lowered lowered in the same commit).
+- `go test ./rules -run TestHeads -v` prints the pinned chain heads unchanged.
+- No new size-only file names: `go test ./internal/archtest -run
+  TestNoNewSizeOnlyFileNames` is green.
+- `go build ./... && go test ./...` is green.
 """,
-                    est_delta=lines / 1000.0,
-                    est_cost=COST_SPLIT_FILE,
-                    evidence=first,
-                )
+                est_delta=lines / 300.0,
+                est_cost=COST_SEAM_SPLIT,
+                evidence=f"{path}:{line} {name}({lines})",
             )
+        )
 
     # ---- eff (10x): profile what the throughput probe measures.
     ms = latest(rows, "eff", "ms_per_game")
@@ -627,6 +661,14 @@ def ticket_rows(cands: list[dict], ledger_path: Path, cand_path: Path, top: int)
     return rows
 
 
+def _steward_only(gen, repo: Path, state: Path, note: str) -> list[dict]:
+    """generate() over a ledger holding one funcs_over_300 row with this note."""
+    led = state / "steward-only.jsonl"
+    led.write_text(json.dumps({"ts": "2026-09-29T00:00:00", "git_head": "aaa", "axis": "steward",
+                               "metric": "funcs_over_300", "value": 9, "note": note}) + "\n")
+    return [c for c in gen(repo, state, led) if c["axis"] == "steward"]
+
+
 def selftest() -> int:
     fails = []
 
@@ -652,7 +694,9 @@ def selftest() -> int:
                         ("flow", "merge_fix_rate", 0.77, "626/814"),
                         ("steward", "gate_wall_s", 300.0, "median"),
                         ("steward", "agent_context_bytes", 120000, "AGENTS.md=..."),
-                        ("steward", "oversized_files", 40, "rules/cast.go(12515); x.go(2)"),
+                        ("steward", "funcs_over_300", 54,
+                         "effects/misc.go:219 effEffect(1200); rules/clone.go:103 (*Engine).cloneWith(970)"
+                         " | engine_methods=2162 host_methods=96"),
                         ("eff", "ms_per_game", 8.04, "grind"),
                         ("obs", "observable_facts_exposed", 0, "checklist.json absent — no denominator"),
                         ("audit", "cards_with_oracle_verdict", 190, ""),
@@ -747,7 +791,30 @@ def selftest() -> int:
               any(i.startswith("correct-defect-lightning-bolt") for i in ids), ids)
         check("a slow gate suite makes a steward candidate", any(i.startswith("steward-gate-wall") for i in ids), ids)
         check("a fat context makes a steward candidate", any(i.startswith("steward-context") for i in ids), ids)
-        check("the biggest file makes a split candidate", any(i.startswith("steward-split-rules-cast") for i in ids), ids)
+        check("the longest function makes a seam candidate",
+              any(i.startswith("steward-seam-effects-misc-go-effeffect") for i in ids), ids)
+        check("no file-size split candidate is minted any more",
+              not any(i.startswith("steward-split-") for i in ids), ids)
+        seam = next((c for c in cands if c["id"].startswith("steward-seam-")), None)
+        check("the seam ticket's done criteria reward a seam, not a size",
+              seam is not None
+              and "moves a cohesive concern behind a named seam" in seam["body"]
+              and "funcs_over_300" in seam["body"]
+              and "TestHeads" in seam["body"]
+              and "TestNoNewSizeOnlyFileNames" in seam["body"]
+              and "under 1500" not in seam["body"] and "oversized_files" not in seam["body"],
+              seam and seam["body"])
+        check("the seam ticket lists the next longest function and the ratchets",
+              seam is not None and "(*Engine).cloneWith" in seam["body"] and "engine_methods=2162" in seam["body"],
+              seam and seam["body"])
+        check("the note parser reads file, line, name and length",
+              long_funcs_from_note("a/b.go:12 (*Engine).x(501); c.go:3 y(400) | k=1")
+              == [("a/b.go", 12, "(*Engine).x", 501), ("c.go", 3, "y", 400)])
+        check("a longest function under the alarm mints no seam ticket",
+              not any(
+                  c["id"].startswith("steward-seam-")
+                  for c in _steward_only(generate, repo, state, "e.go:1 f(499) | k=1")
+              ))
         check("throughput makes an eff candidate", any(i.startswith("eff-profile") for i in ids), ids)
         check("a missing checklist makes the obs bootstrap candidate", "obs-checklist-bootstrap" in ids, ids)
         check("every candidate names a Done means",

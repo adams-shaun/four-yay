@@ -1143,11 +1143,68 @@ def gate_wall_seconds(repo: Path, runs: int = 5) -> float:
     return round(sorted(spans)[len(spans) // 2], 1)
 
 
-def collect_steward(repo: Path, context_file: Path | None = None) -> list[str]:
-    """The recurring tax: gate wall time, agent context size, oversized files.
+# The code-shape ratchets cmd/codeshape reports besides funcs_over_300. They
+# ride in the funcs_over_300 row's note (each is also pinned shrink-only by
+# internal/codeshape's TestCodeShapeOnlyShrinks), so the ledger keeps their
+# history without each becoming a separately scored steward metric.
+CODESHAPE_RATCHETS = (
+    "engine_methods",
+    "host_methods",
+    "ctx_fields",
+    "ctx_embeds",
+    "resume_point_fields",
+    "string_param_reads",
+    "string_case_literals",
+)
+
+
+def codeshape_metrics(repo: Path) -> dict | None:
+    """`go run ./cmd/codeshape` in repo, parsed; None if it cannot be measured.
+
+    cmd/codeshape depends only on the standard library and internal/codeshape,
+    so a peer's half-edited engine package cannot break the measurement. A
+    checkout from before cmd/codeshape existed (or a box with no Go toolchain)
+    yields None, and the caller records no row rather than a false zero.
+    """
+    if not (repo / "cmd" / "codeshape").is_dir():
+        return None
+    try:
+        p = subprocess.run(
+            ["go", "run", "./cmd/codeshape", "-root", str(repo)],
+            cwd=repo, capture_output=True, text=True, timeout=300,
+        )
+    except (OSError, subprocess.TimeoutExpired) as e:
+        print(f"reward_collect: codeshape: {e}", file=sys.stderr)
+        return None
+    if p.returncode != 0:
+        print(f"reward_collect: codeshape failed: {p.stderr.strip()[:400]}", file=sys.stderr)
+        return None
+    try:
+        return json.loads(p.stdout)
+    except ValueError:
+        print("reward_collect: codeshape printed no JSON", file=sys.stderr)
+        return None
+
+
+def codeshape_note(shape: dict, top: int = 6) -> str:
+    """The funcs_over_300 row's note: the longest functions, then the ratchets.
+
+    Format (seed_candidates.py parses the first entry):
+        <file>:<line> <name>(<lines>); ... | engine_methods=N host_methods=N ...
+    """
+    longs = "; ".join(
+        f"{f['file']}:{f['line']} {f['name']}({f['lines']})" for f in shape.get("long_funcs", [])[:top]
+    )
+    ratchets = " ".join(f"{k}={shape[k]}" for k in CODESHAPE_RATCHETS if k in shape)
+    return f"{longs} | {ratchets}"
+
+
+def collect_steward(repo: Path, context_file: Path | None = None, shape: dict | None = None) -> list[str]:
+    """The recurring tax: gate wall time, agent context size, code shape.
 
     Each is paid again on every future iteration, which is why they carry 100x
     and why they are measured as levels rather than as deltas of deltas.
+    `shape` overrides the cmd/codeshape measurement (the self-test's hook).
     """
     rows = [row(repo, "steward", "gate_wall_s", gate_wall_seconds(repo), note="median of last 5 gate runs")]
 
@@ -1164,40 +1221,20 @@ def collect_steward(repo: Path, context_file: Path | None = None) -> list[str]:
         )
     )
 
-    # An oversized source file is a stewardship cost with a measurable price:
-    # every agent that changes one line of it pays for the whole file in
-    # context, and the repo's own design guidance treats a file that has grown
-    # this far as a unit doing too much.
-    big = []
-    for f in repo.rglob("*.go"):
-        # Exclusion is by path components RELATIVE to the measured root, not by
-        # an absolute substring: a task agent runs this probe from inside its
-        # own `.worktrees/<id>` worktree, where every file's absolute path
-        # contains `/.worktrees/`, so an absolute test read 0 vacuously and
-        # hid real oversized-file regressions. Nested copies inside the
-        # measured root are still dropped — the landing checkout's
-        # `.worktrees/` trees (which would double-count sibling agent
-        # checkouts), the `.ds4` staging copy of the whole tree, the
-        # gitignored `.cards/` corpus, `vendor/` and `node_modules/`.
-        rel = f.relative_to(repo)
-        if any(part in (".worktrees", ".cards", ".ds4", "vendor", "node_modules") for part in rel.parts):
-            continue
-        try:
-            n = sum(1 for _ in f.open("rb"))
-        except OSError:
-            continue
-        if n > 1500:
-            big.append((n, str(rel)))
-    big.sort(reverse=True)
-    rows.append(
-        row(
-            repo,
-            "steward",
-            "oversized_files",
-            len(big),
-            note="; ".join(f"{p}({n})" for n, p in big[:6]),
-        )
-    )
+    # Code shape, not file size (rules-engine refactor spec, W0). The metric
+    # this replaced, `oversized_files` (files over 1500 lines, tests
+    # included), rewarded SIZE splits -- the second half of a switch moved
+    # verbatim into a *_rest.go, a grab-bag *_helpers.go -- which scatter one
+    # concern across files without adding a boundary. A function over 300
+    # lines is a concern with no seam, and only extracting that concern moves
+    # this number. The rest of cmd/codeshape's ratchets ride in the note.
+    # The steward history has no continuity across this change: old
+    # `oversized_files` rows stay in the ledger but are no longer scored
+    # (reward.py METRICS), and `funcs_over_300` starts its own series.
+    if shape is None:
+        shape = codeshape_metrics(repo)
+    if shape is not None and "funcs_over_300" in shape:
+        rows.append(row(repo, "steward", "funcs_over_300", shape["funcs_over_300"], note=codeshape_note(shape)))
     _, unsafe, _, unsafe_note = collect_gorged_hygiene()
     rows.append(row(repo, "steward", "unsafe_gorged_launches", unsafe, note=unsafe_note))
     return rows
@@ -1343,7 +1380,7 @@ def selftest() -> int:
         check("closed defects are counted separately",
               next(r for r in cor if r["metric"] == "validated_defects_closed_cum")["value"] == 1)
 
-        # steward: gate wall time from log mtimes, context bytes, oversized files.
+        # steward: gate wall time from log mtimes, context bytes, code shape.
         gd = repo / ".ds4" / "orchestrator" / "gates" / "issue-1" / "t0"
         gd.mkdir(parents=True)
         import os
@@ -1354,36 +1391,58 @@ def selftest() -> int:
         os.utime(gd / "b.log", (1090, 1090))
         check("gate wall time is the log-mtime spread", gate_wall_seconds(repo) == 90.0, gate_wall_seconds(repo))
         (repo / "AGENTS.md").write_text("a" * 1000)
-        (repo / "big.go").write_text("// line\n" * 1600)
-        (repo / "small.go").write_text("// line\n" * 10)
-        stw = [json.loads(r) for r in collect_steward(repo)]
+        shape = {
+            "funcs_over_300": 2,
+            "engine_methods": 2162,
+            "host_methods": 96,
+            "ctx_fields": 293,
+            "ctx_embeds": 2,
+            "resume_point_fields": 90,
+            "string_param_reads": 2142,
+            "string_case_literals": 2886,
+            "long_funcs": [
+                {"name": "effEffect", "file": "effects/misc.go", "line": 219, "lines": 1200},
+                {"name": "(*Engine).cloneWith", "file": "rules/clone.go", "line": 103, "lines": 970},
+            ],
+        }
+        stw = [json.loads(r) for r in collect_steward(repo, shape=shape)]
         check("agent context bytes counts AGENTS.md",
               next(r for r in stw if r["metric"] == "agent_context_bytes")["value"] == 1000, stw)
-        big = next(r for r in stw if r["metric"] == "oversized_files")
-        check("oversized files counts only the big one", big["value"] == 1 and "big.go" in big["note"], big)
-
-        # A second fixture whose ABSOLUTE path contains /.worktrees/ — the
-        # shape of a task-agent worktree, where the old absolute-substring
-        # exclusion dropped every file and the metric read 0 vacuously. The
-        # repo's own big.go must be counted; a NESTED .worktrees/ tree inside
-        # the measured root must stay excluded.
-        wtrepo = Path(td) / ".worktrees" / "agent-x"
-        (wtrepo / "rules").mkdir(parents=True)
-        (wtrepo / "big.go").write_text("// line\n" * 1600)
-        (wtrepo / "small.go").write_text("// line\n" * 10)
-        nested = wtrepo / ".worktrees" / "other" / "big.go"
-        nested.parent.mkdir(parents=True)
-        nested.write_text("// line\n" * 1600)
-        check("worktree fixture's absolute path really contains /.worktrees/",
-              "/.worktrees/" in str(wtrepo) + "/", str(wtrepo))
-        check("nested fixture file really exceeds the 1500-line threshold",
-              sum(1 for _ in nested.open("rb")) > 1500)
-        wst = [json.loads(r) for r in collect_steward(wtrepo)]
-        wbig = next(r for r in wst if r["metric"] == "oversized_files")
-        check("worktree-shaped repo counts its own big.go",
-              wbig["value"] == 1 and "big.go" in wbig["note"], wbig)
-        check("worktree-shaped repo does not count the nested .worktrees copy",
-              wbig["value"] == 1 and ".worktrees" not in wbig["note"], wbig)
+        check("the steward axis no longer records oversized_files",
+              not any(r["metric"] == "oversized_files" for r in stw), stw)
+        lf = next((r for r in stw if r["metric"] == "funcs_over_300"), None)
+        check("funcs_over_300 carries codeshape's count", lf is not None and lf["value"] == 2, lf)
+        check("funcs_over_300's note leads with the longest function",
+              lf is not None and lf["note"].startswith("effects/misc.go:219 effEffect(1200); "), lf)
+        check("funcs_over_300's note carries every ratchet",
+              lf is not None and all(f"{k}={shape[k]}" in lf["note"] for k in CODESHAPE_RATCHETS), lf)
+        # A checkout without cmd/codeshape (older main, a bare fixture) records
+        # no funcs_over_300 row rather than a false zero.
+        check("no cmd/codeshape means no funcs_over_300 row",
+              not any(json.loads(r)["metric"] == "funcs_over_300" for r in collect_steward(repo)))
+        # A stub `go` on PATH stands in for the toolchain: codeshape_metrics
+        # runs `go run ./cmd/codeshape -root <repo>` in the repo and parses its
+        # JSON, and a failing run yields None.
+        (repo / "cmd" / "codeshape").mkdir(parents=True)
+        stub = Path(td) / "stubbin"
+        stub.mkdir()
+        (stub / "go").write_text(
+            "#!/bin/sh\n"
+            "[ \"$1 $2 $3\" = \"run ./cmd/codeshape -root\" ] || exit 3\n"
+            f"[ \"$PWD\" = \"{repo}\" ] || exit 4\n"
+            "echo '{\"funcs_over_300\": 7, \"long_funcs\": []}'\n"
+        )
+        (stub / "go").chmod(0o755)
+        old_path = os.environ.get("PATH", "")
+        os.environ["PATH"] = f"{stub}:{old_path}"
+        try:
+            got = codeshape_metrics(repo)
+            check("codeshape_metrics parses cmd/codeshape's JSON",
+                  got is not None and got.get("funcs_over_300") == 7, got)
+            (stub / "go").write_text("#!/bin/sh\nexit 1\n")
+            check("a failing codeshape run yields None", codeshape_metrics(repo) is None)
+        finally:
+            os.environ["PATH"] = old_path
 
         # idle_branches over a real git repo with a real worktree: an unmerged
         # idle branch is listed, and one already contained in main is not.

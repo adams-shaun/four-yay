@@ -89,12 +89,21 @@ METRICS: tuple[MetricSpec, ...] = (
     # Stewardship: the recurring tax each landed change leaves on every future
     # iteration. Gate wall time is paid by every ticket that ever lands again;
     # the agent context is paid by every seat on every turn (it was 290 KB here
-    # once); an oversized file is paid by every agent that has to hold it in
-    # context to change one line. All three are levels, not events, so the loop
-    # is paid for driving them DOWN and charged for letting them grow.
+    # once); a function over 300 lines (cmd/codeshape, rules/ + effects/) is a
+    # concern with no seam, paid by every ticket that has to edit inside it.
+    # All three are levels, not events, so the loop is paid for driving them
+    # DOWN and charged for letting them grow.
+    #
+    # funcs_over_300 REPLACED `oversized_files` (files over 1500 lines, tests
+    # included) on 2026-10-03: a file count rewarded size-only splits that
+    # scatter one concern without adding a boundary (rules-engine refactor
+    # spec, W0). Old `oversized_files` rows stay in the ledger but are
+    # deliberately unscored -- leaving the spec here would keep re-paying its
+    # last delta forever, since a summed axis scores each metric's newest two
+    # heads -- and the new series starts without a delta.
     MetricSpec("steward", "gate_wall_s", -1, 5.0),
     MetricSpec("steward", "agent_context_bytes", -1, 512.0),
-    MetricSpec("steward", "oversized_files", -1, 1.0),
+    MetricSpec("steward", "funcs_over_300", -1, 1.0),
     # A gorged process reparented to init was launched detached from whatever
     # created it -- no trap, no supervising scope -- so nothing was ever going
     # to reap it. That is a launch-code defect, worth the stewardship weight
@@ -521,6 +530,22 @@ def selftest() -> int:
         )
     )
     check("trimming the agent context is positive", trim["score"] > 0, trim["score"])
+    longer = score(
+        _rows(
+            ("aaa", "steward", "funcs_over_300", 54.0),
+            ("bbb", "steward", "funcs_over_300", 55.0),
+        )
+    )
+    check("a new function over 300 lines is negative", longer["score"] < 0, longer["score"])
+    # The retired file-size metric must not score: its stale last delta would
+    # otherwise be re-paid on every later window.
+    retired = score(
+        _rows(
+            ("aaa", "steward", "oversized_files", 89.0),
+            ("bbb", "steward", "oversized_files", 40.0),
+        )
+    )
+    check("retired oversized_files rows are not scored", retired["score"] == 0.0, retired["score"])
 
     # A regression on the correct axis (a defect count that moves backwards
     # because a fix was reverted) must be negative, not merely flat.

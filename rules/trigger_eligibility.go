@@ -40,259 +40,49 @@ func (m triggerEventMask) allows(kind events.Kind) bool {
 	return kind >= triggerMaskKindBits || m&(1<<kind) != 0
 }
 
-// eventTriggerInterest maps replay-stable event kinds to cards-owned semantic
-// trigger classes. Every current irrelevant kind is named explicitly so a
-// future event reaches the conservative catch-all default until audited.
-func eventTriggerInterest(kind events.Kind) cards.TriggerInterest {
-	switch kind {
-	case events.MoveZone:
-		return cards.TriggerInterestZoneChange
-	case events.TokenCreate, events.CardToken:
-		// A token is minted straight onto the battlefield by these folds, so
-		// its entry is a zone change the ChangesZone/ChangesZoneAll matchers
-		// must see (see trigmatch_zone.go's mint override). CopyToken is NOT
-		// admitted here: foldCopyToken creates the copy in the library and a
-		// separate MoveZone performs the entry, which already reaches the
-		// matcher; admitting CopyToken would double-fire.
-		return cards.TriggerInterestZoneChange
-	case events.Draw:
-		return cards.TriggerInterestZoneChange | cards.TriggerInterestDraw
-	case events.LifeChange:
-		return cards.TriggerInterestLifeChange
-	case events.Damage:
-		return cards.TriggerInterestDamage
-	case events.Tap:
-		return cards.TriggerInterestTap
-	case events.StepChange:
-		return cards.TriggerInterestStepChange
-	case events.PutOnStack:
-		return cards.TriggerInterestZoneChange | cards.TriggerInterestStackPut
-	case events.DeclareAttackers, events.DeclareBlockers:
-		return cards.TriggerInterestAttackDeclaration
-	case events.TargetsChosen:
-		return cards.TriggerInterestTargetsChosen
-	case events.ElementalBend:
-		// ElementalBend is the completed-action marker for trig:ElementalBend;
-		// it must reach the full per-mode matcher.
-		return cards.TriggerInterestAny
-	case events.AbilityPush, events.KeywordAbilityPush:
-		return cards.TriggerInterestAbilityPush
-	case events.GameStart, events.Shuffle, events.Untap, events.TurnChange,
-		events.Priority, events.Resolve, events.ManaAdd, events.ManaClear,
-		events.CounterChange, events.PlayerLost, events.GameOver,
-		events.DecisionAsk, events.DecisionMade, events.Note, events.LandPlayed,
-		events.FlipFace, events.ClockTick, events.TriggerPush,
-		events.EndCombatReset, events.Choose,
-		events.StackCopy, events.ModeChosen,
-		events.CmdDamage, events.DelayedRegister, events.DelayedPush, events.DelayedRemove,
-		events.GrantAbilityPush,
-		events.LibraryOrder, events.ExtraTurn, events.DoorUnlock,
-		events.SpeedChange, events.ControlChange,
-		events.KeywordTriggerPush, events.Goad,
-		events.PlayerCounterChange, events.Imprint, events.StartingPlayerChange,
-		events.Pair, events.MyriadCopy, events.MyriadCleanup,
-		events.GrantTriggerPush, events.ManaActivate,
-		events.TokenAttacks, events.XChange, events.NoteNumber, events.ExtraPhase,
-		events.CopyToken, events.Exert, events.PlanarRoll,
-		events.CombatRetarget, events.RingTemptsYou, events.RingEmblemPush,
-		events.BlessingChange, events.ClonePermanent, events.CloneStatic, events.TurnFaceDown,
-		events.DamageProvenance, events.EnduringStoryChange,
-		events.Mutate, events.MergedTriggerPush,
-		events.Enlist, events.AlterAttribute, events.Unattached, events.PlayerNoted,
-		events.PlayerNoteCleared, events.CardNoted,
-		events.GainedAbilityPush, events.GainedTriggerPush,
-		events.StoreSVar, events.GiftPromise, events.GiveGift, events.PhaseOut, events.RollDice,
-		events.DelayedForget, events.Cascade, events.Clash,
-		events.PlanarDeckShuffle, events.PlanarReveal, events.PlanarWalk,
-		events.ChaosEnsues, events.ManaUndo, events.EndTurn,
-		events.DungeonCreate, events.DungeonRoom, events.DungeonComplete,
-		events.DungeonRemove, events.InitiativeChange, events.SkipTurn,
-		events.ControlPlayerChange, events.Crew:
-		// ManaUndo is the announced payment window's CR 733.1 reversal of a
-		// mana activation: nothing triggers from an undone action, so it
-		// carries no interest bits.
-		// Cascade is a never-emitted PROPOSAL (the cascade instruction's
-		// replacement boundary, events.Cascade): it is held out to the
-		// replacement matcher and logged nowhere, so no trigger mode can ever
-		// observe it and it carries no interest bits -- the zero mapping every
-		// other bookkeeping kind in this list has.
-		// Clash is matched by trig:Clashed through the full matcher
-		// (clashMatches) via the fail-open path, exactly like GiveGift;
-		// its ordinal sits past triggerMaskKindBits. Naming it here keeps
-		// the audit complete and out of the catch-all default.
-		// AlterAttribute (alterattr1) is the same shape past the bound as
-		// Enlist: the suspected designation (CR 702.157) is a status no
-		// trigger mode fires on -- the corpus reads it through filter
-		// predicates (Creature.IsSuspected on ValidAttackers$, AllValid$),
-		// never through an event -- and its ordinal sits past
-		// triggerMaskKindBits, so both classifiers fail open before this map
-		// is consulted. Naming it keeps the audit complete if the bound ever
-		// widens.
-		//
-		// DamageProvenance is the game-long bookkeeping fact Engine.emit emits
-		// beside a landed Damage event (the_fallen, diseased_vermin): it is a
-		// record of what already happened, matched only by the damage
-		// predicates' state read, never by a trigger mode -- the same reading
-		// CmdDamage, Imprint and Goad get. Without it here the default arm gave
-		// the kind TriggerInterestAny, so every point of damage ran a second
-		// full trigger scan.
-		//
-		// ClonePermanent is a characteristic change (the api:Clone layer-1
-		// CopyFace basis), not a game event any trigger mode fires on -- the
-		// same reading FlipFace and CardToken get. Without it here the
-		// default arm gave the kind TriggerInterestAny, so every clone and
-		// every clone expiry ran a full trigger scan.
-		//
-		// Mutate and MergedTriggerPush are named for the same documentary
-		// reason even though both currently sit PAST triggerMaskKindBits, so
-		// both classifiers fail open before this map is consulted: Mutate is
-		// matched by trig:Mutates through the full matcher (mutatesMatches),
-		// and MergedTriggerPush is a mint marker no mode fires on. Enlist is
-		// the same shape past the bound: trig:Enlisted matches the full
-		// events.Enlist carrier through enlistedMatches. GainedAbilityPush and
-		// GainedTriggerPush (gains1) are the has-all-abilities-of mint
-		// markers: the ability itself is matched on the event that caused it
-		// (an ordinary trigger scan), and the push only mints its stack
-		// object -- the GrantAbilityPush/GrantTriggerPush shape, and like
-		// those two past the bound so both classifiers fail open anyway.
-		// Naming them keeps the audit complete if the bound ever widens.
-		//
-		// PlayerNoted and PlayerNoteCleared are the two halves of the same
-		// player-notation bookkeeping (NoteCardsFor$ writes a label,
-		// ClearNotedCardsFor$ removes one): the label is read back by the
-		// `Player.NotedFor<X>` filter predicate at a later resolution, never
-		// by a trigger mode -- no T: line in the corpus fires on a note being
-		// written or cleared. Both ordinals (83, 84) sit past
-		// triggerMaskKindBits, so both classifiers fail open before this map
-		// is consulted; naming the clear half alongside the write half keeps
-		// the audit complete if the bound ever widens, and keeps it out of
-		// the catch-all default that would otherwise run a full trigger scan
-		// on every cleared label.
-		//
-		// CardNoted is the card-notation write (NoteCards$ Remembered /
-		// TriggeredSource | NoteCardsFor$ -- Volatile Chimera, Arcane Savant,
-		// Caller of the Untamed, Maelstrom Archangel Avatar), the object-side
-		// sibling of the PlayerNoted pair: the label is read back by the
-		// `Card.NotedFor<X>` filter predicate at a later resolution, never by
-		// a trigger mode. Its ordinal sits past triggerMaskKindBits, so both
-		// classifiers fail open before this map is consulted; naming it keeps
-		// it out of the catch-all default that would otherwise run a full
-		// trigger scan on every noted card.
-		//
-		// EnduringStoryChange (storied1) is CR 702.175's one-way "enduring
-		// story" designation latch -- the exact BlessingChange shape: a
-		// seat-status fact the corpus reads through the state predicate
-		// (rules/layers.go's `EnduringStory` SVar read; Dáin's Condition$
-		// EnduringStory; Balin Loremaster's "if you have an enduring story"
-		// trigger rider), never through a trigger mode -- no T: line in the
-		// corpus fires on the designation being GAINED. Its ordinal (94) sits
-		// past triggerMaskKindBits, so both classifiers fail open before this
-		// map is consulted; naming it keeps the audit complete if the bound
-		// ever widens and keeps it out of the catch-all default that would
-		// otherwise claim the kind trigger-relevant.
-		//
-		// PhaseOut (phases1) records CR 702.25's phased-out/phase-in status
-		// on a battlefield permanent. No trigger mode fires on it: the
-		// corpus's `Mode$ Phase` is the beginning-of-combat PHASE step
-		// (events.StepChange), never this status fold, and a phased-out
-		// permanent is read through state predicates, not a trigger. Its
-		// ordinal sits past triggerMaskKindBits, so both classifiers fail
-		// open before this map is consulted; naming it keeps the audit
-		// complete if the bound ever widens.
-		//
-		// PlanarDeckShuffle, PlanarReveal and PlanarWalk are the CR 901
-		// planar-deck lifecycle markers this foundation ticket adds. The
-		// deck shuffle is private bookkeeping and the reveal is the state
-		// move that turns the top plane face up; neither is matched by a
-		// Mode$ line. PlanarWalk IS matched now -- trig:PlaneswalkedTo and
-		// trig:PlaneswalkedFrom (rules/planar.go's planeswalkedToMatches /
-		// planeswalkedFromMatches) -- but through the per-event synthetic
-		// plane scan checkPlaneswalkTriggers, not the per-face prefilter
-		// this function feeds: a plane lives in the private ZPlanarDeck
-		// zone, which the per-face walk never visits, so this map's zero
-		// answer for PlanarWalk never gates a walk trigger. All three
-		// ordinals sit past triggerMaskKindBits, so both classifiers fail
-		// open before this map is consulted; naming them keeps the audit
-		// complete if the bound ever widens and keeps them out of the
-		// catch-all default that would otherwise claim the kinds
-		// trigger-relevant.
-		//
-		// DelayedForget (efftrig1) drops one remembered card from an Effect
-		// trigger registration (a ForgetOnMoved$/ForgetCounter$ trim). No
-		// trigger mode fires on it: it is the registration-local trim the
-		// continuous side also performs, and the trim is read back through the
-		// registration's Remembered list at the promise's own fire time, never
-		// through a T: line. It is the DelayedRemove shape (already zero-mapped
-		// above): bookkeeping about the delayed registry, not a game event a
-		// matcher consults.
-		//
-		// DungeonCreate/DungeonRoom/DungeonComplete/DungeonRemove are the CR
-		// 309 dungeon/venture lifecycle markers. No trigger mode fires on
-		// them today: a venture marker is a state fact the room choice reads
-		// back from state.Player, not an event a T: line consults (room
-		// triggers, when they arrive, will re-map DungeonRoom explicitly).
-		// All four ordinals sit past triggerMaskKindBits, so both classifiers
-		// fail open before this map is consulted; naming them keeps the audit
-		// complete if the bound ever widens and keeps them out of the
-		// catch-all default that would otherwise claim the kinds
-		// trigger-relevant.
-		// InitiativeChange is likewise a designation update read through
-		// IsInitiative by intervening-if predicates; no T: mode fires on
-		// the designation change itself.
-		//
-		// SkipTurn (CR 500.9) records the grant and the consumption of a
-		// skipped turn (rules/turn.go's boundary arithmetic, effects/dice.go's
-		// SkipTurn NumTurns$ grants): the pool is read back through
-		// state.Game.SkipTurns by the turn-boundary logic, never through a
-		// trigger mode -- no T: line in the corpus fires on a turn being
-		// skipped. Its ordinal (117) sits past triggerMaskKindBits, so both
-		// classifiers fail open before this map is consulted; naming it keeps
-		// the audit complete if the bound ever widens and keeps it out of the
-		// catch-all default that would otherwise claim the kind
-		// trigger-relevant.
-		//
-		// ControlPlayerChange (CR 720, api:ControlPlayer) records the grant
-		// and expiry of one player's control by another, the SkipTurn shape
-		// exactly: the interval is read back through state.Game.ControlledBy/
-		// ControlArmedTurn by the decision redirect and the turn-boundary
-		// arithmetic, never through a trigger mode -- no T: line in the corpus
-		// fires on a control designation being granted or ending. Its ordinal
-		// sits past triggerMaskKindBits, so both classifiers fail open before
-		// this map is consulted; naming it keeps the audit complete if the
-		// bound ever widens and keeps it out of the catch-all default that
-		// would otherwise claim the kind trigger-relevant and run a full
-		// trigger scan on every control grant and expiry.
-		//
-		// Crew (tmt-crewedthisturn) records one CR 702.122 crew action --
-		// which creature tapped to crew which Vehicle this turn. No trigger
-		// mode fires on it: the corpus reads the fact back through the
-		// `Creature.CrewedThisTurn` filter predicate (effects/filter.go),
-		// never through a T: line, exactly the Enlist/AlterAttribute shape.
-		// Its ordinal (119) sits past triggerMaskKindBits, so both
-		// classifiers fail open before this map is consulted; naming it here
-		// keeps the audit complete if the bound ever widens and keeps it out
-		// of the catch-all default that would otherwise run a full trigger
-		// scan on every crew action.
-		return 0
-	case events.Attach:
-		return cards.TriggerInterestAttach
-	case events.Explore:
-		return cards.TriggerInterestExplore
-	case events.CastInfo:
-		// manaexpend1: the pay-time CastInfo carries trig:ManaExpend's
-		// crossing read (rules/cast.go's FlagManaExpendCast emission), so it
-		// has its own interest bit rather than the fail-open default the
-		// default arm would give it -- a ManaExpend-only face's compiled
-		// scan set narrows to the one event kind it fires on.
-		return cards.TriggerInterestCastInfo
-	case events.MonarchChange:
-		// The monarch designation transition carries trig:BecomeMonarch
-		// (rules' becomeMonarchMatches), so it has its own interest bit rather
-		// than the zero mapping it carried while no mode matched it.
-		return cards.TriggerInterestMonarch
-	default:
-		return cards.TriggerInterestAny
+// triggerClassInterest maps events' trigger vocabulary (events.TriggerClass,
+// one class per Kind in events/kindinfo.go) onto the cards-owned semantic
+// interest bits a compiled face carries. It is the ONLY per-class list in
+// rules: a new Kind is classified in the events table and never edited here.
+// A row changes only when a class is added to the vocabulary itself.
+var triggerClassInterest = [events.NumTriggerClasses]cards.TriggerInterest{
+	// A missing descriptor fails open: it can only widen a scan.
+	events.TriggerUnset:             cards.TriggerInterestAny,
+	events.TriggerNone:              0,
+	events.TriggerFullMatch:         cards.TriggerInterestAny,
+	events.TriggerZoneChange:        cards.TriggerInterestZoneChange,
+	events.TriggerDraw:              cards.TriggerInterestZoneChange | cards.TriggerInterestDraw,
+	events.TriggerStackPut:          cards.TriggerInterestZoneChange | cards.TriggerInterestStackPut,
+	events.TriggerLifeChange:        cards.TriggerInterestLifeChange,
+	events.TriggerDamage:            cards.TriggerInterestDamage,
+	events.TriggerTap:               cards.TriggerInterestTap,
+	events.TriggerStepChange:        cards.TriggerInterestStepChange,
+	events.TriggerAttackDeclaration: cards.TriggerInterestAttackDeclaration,
+	events.TriggerTargetsChosen:     cards.TriggerInterestTargetsChosen,
+	events.TriggerAbilityPush:       cards.TriggerInterestAbilityPush,
+	events.TriggerAttach:            cards.TriggerInterestAttach,
+	events.TriggerExplore:           cards.TriggerInterestExplore,
+	events.TriggerCastInfo:          cards.TriggerInterestCastInfo,
+	events.TriggerMonarch:           cards.TriggerInterestMonarch,
+}
+
+// kindTriggerInterest is triggerClassInterest composed with the events
+// table, flattened once so the per-event lookup is one dense-array load.
+var kindTriggerInterest = func() (m [events.NumKinds]cards.TriggerInterest) {
+	for k := range m {
+		m[k] = triggerClassInterest[events.Kind(k).Trigger()]
 	}
+	return m
+}()
+
+// eventTriggerInterest maps replay-stable event kinds to cards-owned semantic
+// trigger classes, derived from each Kind's events.TriggerClass. A kind past
+// the table (a future or hostile ordinal) reaches the conservative catch-all.
+func eventTriggerInterest(kind events.Kind) cards.TriggerInterest {
+	if int(kind) < len(kindTriggerInterest) {
+		return kindTriggerInterest[kind]
+	}
+	return cards.TriggerInterestAny
 }
 
 // compiledTriggerInterestEvent is compiledTriggerInterestAllows' per-event

@@ -25,7 +25,7 @@ below; this file changes only when a DOMAIN appears, not when a package does.
 | Implement an `api:` effect | `effects/`, `effects.Register("Name", fn)` in an `init()`. If it needs more than `effects.Host` offers, it is rules work. |
 | Implement a keyword/trigger/static/replacement | `rules/`, `effects.RegisterNonAPI("kw:X", …)`. A keyword that expands to script lines is a `cards/kw_*.go` expander instead (moves the fingerprint). |
 | Add a `count:` value head | The evaluator arm in `effects/` **and** `effects.modelledValueHeads` (`TestValueHeadRegistryMatchesEvaluator`). |
-| Add an event kind | Append to `events/event.go` after the last constant, add a `kindNames` entry and the rules trigger-interest mapping. |
+| Add an event kind | Append to `events/event.go` after the last constant and add its one `kindInfo` entry in `events/kindinfo.go` (name, trigger class, optional Describe template). Behaviour (`events.Apply`, a custom `view.Describe` case) is separate. |
 | Add a decision kind | Don't, without an operator decision — the set is closed; every seat, bot, client and the protocol must answer it. |
 | Add a bot policy | Bench-only: `cmd/botbench`. Hosted: `host/bot_policy.go` (closed vocabulary). See the README's *Bot player training and adoption guidelines*. |
 | Add a repo deck | `internal/testutil/decks/*.json` via `cmd/deckimport`; it must be fully supported (the acceptance ratchet). |

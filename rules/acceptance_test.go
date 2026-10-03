@@ -249,15 +249,12 @@ func sameSet(a, b []string) bool {
 }
 
 // playAcceptance plays one deterministic acceptance game -- seats seats,
-// round-robined across the 12 pinned Legacy decks from
-// testutil.LegacyDeckNames() in order starting from deck 0, seed 42 driven
-// by newTestBot(7) -- to completion, replays it from its own recorded
+// testutil.AcceptanceDecks's seating, rules.AcceptanceConfig and
+// rules.PlayAcceptance (rules/acceptance_game.go, the non-test construction
+// cmd/headdiff shares) answered by testBot (botpolicy.GameBot) -- to
+// completion, replays it from its own recorded
 // (Config, Log) through the package-local replayFor helper, and Fatals if
-// the two chain Heads disagree. step, when non-nil, is called once right
-// after Advance (n==0, before any intent), once every 997 intents
-// thereafter, and once more after the game loop exits, so a caller that
-// wants per-checkpoint work (invariant checks, logging) can hook into the
-// one game loop instead of keeping a second copy of it.
+// the two chain Heads disagree. step is PlayAcceptance's per-checkpoint hook.
 //
 // TestRepoDecksPlayAtEverySeatCount and acceptanceHead (rules/heads_test.go's
 // TestHeads) both call this, so the games the invariant/replay guarantees
@@ -271,48 +268,14 @@ func sameSet(a, b []string) bool {
 // reason.
 func playAcceptance(t *testing.T, reg *cards.Registry, seats int, step func(e *Engine, n int)) string {
 	t.Helper()
-	all := testutil.LegacyDeckNames()
-	names := make([]string, seats)
-	decks := make([][]*cards.Card, seats)
-	for i := 0; i < seats; i++ {
-		names[i] = all[i%len(all)]
-		decks[i] = testutil.RepoDeck(t, reg, all[i%len(all)])
+	names, decks, err := testutil.AcceptanceDecks(reg, seats)
+	if err != nil {
+		t.Fatalf("%v", err)
 	}
-	cfg := Config{Seed: 42, Names: names, Decks: decks, Tokens: reg.Tokens, NameUniverse: reg.Cards,
-		// Ruling R-M1: the mulligan is NOT configurable off for the acceptance
-		// decks -- a mulligan the suite never exercises is a mulligan nobody
-		// tests. Mulligans = 1 makes the keep/mulligan and bottoming round run
-		// in every acceptance game (M2d-1), which is why the four chain heads
-		// in rules/heads_test.go move; standalone fixture Configs never set it,
-		// so the zero value leaves them byte-identical to before (R-8.4).
-		Mulligans: 1}
-	// CR 103.1's winner-chooses ask: the choice constructor defers the
-	// pregame rounds, and the pose lets the bot answer it, the same decision
-	// a real table conveys to the toss winner.
-	e := NewStartingPlayerChoice(cfg)
-	b := newTestBot(7)
-	e.AskStartingPlayer()
-	e.Advance()
-	if step != nil {
-		step(e, 0)
-	}
-	n := 0
-	for !e.G.Over && e.Pending() != nil && n < 400000 {
-		// answer builds the board off the engine itself (botpolicy.BoardFromGame);
-		// see rules/testbot_test.go's own doc.
-		if err := e.Submit(b.answer(e, e.Pending())); err != nil {
-			t.Fatalf("%d seats, intent %d: %v", seats, n, err)
-		}
-		if step != nil && n%997 == 0 {
-			step(e, n)
-		}
-		n++
-	}
-	if step != nil {
-		step(e, n)
-	}
-	if !e.G.Over {
-		t.Fatalf("%d-seat game did not finish (turn %d, %d intents)", seats, e.G.Turn, n)
+	cfg := AcceptanceConfig(reg, names, decks)
+	e, _, err := PlayAcceptance(cfg, acceptanceTestBot, step)
+	if err != nil {
+		t.Fatalf("%d seats: %v", seats, err)
 	}
 	re, err := replayFor(cfg, e.L)
 	if err != nil {
