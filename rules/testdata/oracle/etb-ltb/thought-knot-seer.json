@@ -7,38 +7,40 @@
     {
       "name": "enters-exiles-a-nonland-card-from-opponents-hand",
       "cr": ["603.2", "406.2"],
-      "why": "The enters trigger targets an opponent, that opponent reveals their hand, and a chosen nonland card is exiled; the opponent's hand shrinks by one and the card is in exile.",
+      "why": "The enters trigger targets an opponent, that opponent reveals their hand, and the controller chooses which nonland card is exiled; the opponent's hand shrinks by one and the CHOSEN card (Shock, not the first nonland) is exiled while Lightning Bolt stays in hand.",
       "setup": {
         "p0": {"hand": ["Thought-Knot Seer"]},
-        "p1": {"hand": ["Lightning Bolt", "Forest", "Island"]}
+        "p1": {"hand": ["Lightning Bolt", "Shock", "Forest", "Island"]}
       },
       "steps": [
         {"op": "cast", "seat": 0, "card": "p0:Thought-Knot Seer", "mana": "CCCC"},
-        {"op": "resolve", "targets": ["p1"], "answers": [{"kind": "any", "pick": ["Lightning Bolt"]}]}
+        {"op": "resolve", "targets": ["p1"], "answers": [{"kind": "any", "pick": ["Shock"]}]}
       ],
       "expect": [
         {"card": "p0:Thought-Knot Seer", "zone": "battlefield", "pt": "4/4"},
-        {"card": "p1:Lightning Bolt", "zone": "exile"},
-        {"hand_size": {"p1": 2, "p0": 0}}
+        {"card": "p1:Shock", "zone": "exile"},
+        {"card": "p1:Lightning Bolt", "zone": "hand"},
+        {"hand_size": {"p1": 3, "p0": 0}}
       ]
     },
     {
       "name": "leaves-battlefield-opponent-draws-a-card",
       "cr": ["603.6c", "121.1"],
-      "why": "When the Seer leaves the battlefield its second trigger has the targeted opponent draw a card, so that opponent's hand grows by one.",
+      "why": "When the Seer leaves the battlefield its second trigger has the targeted opponent draw a card, so that opponent's hand grows by one after the exile.",
       "setup": {
         "p0": {"hand": ["Thought-Knot Seer"]},
-        "p1": {"hand": ["Lightning Bolt", "Forest", "Island"], "library_top": ["Mountain"]}
+        "p1": {"hand": ["Lightning Bolt", "Shock", "Forest", "Island"], "library_top": ["Mountain"]}
       },
       "steps": [
         {"op": "cast", "seat": 0, "card": "p0:Thought-Knot Seer", "mana": "CCCC"},
-        {"op": "resolve", "targets": ["p1"], "answers": [{"kind": "any", "pick": ["Lightning Bolt"]}]},
+        {"op": "resolve", "targets": ["p1"], "answers": [{"kind": "any", "pick": ["Shock"]}]},
         {"op": "move", "seat": 0, "card": "p0:Thought-Knot Seer", "to": "graveyard"},
         {"op": "resolve", "targets": ["p1"]}
       ],
       "expect": [
         {"card": "p0:Thought-Knot Seer", "zone": "graveyard"},
-        {"hand_size": {"p1": 3}},
+        {"card": "p1:Shock", "zone": "exile"},
+        {"hand_size": {"p1": 4}},
         {"card": "p1:Mountain", "zone": "hand"}
       ]
     }

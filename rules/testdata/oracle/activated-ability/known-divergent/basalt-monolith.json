@@ -1,0 +1,6 @@
+{
+  "card": "Basalt Monolith",
+  "rows": {
+    "untap-ability-taps-for-three-then-untaps": "CR 602.2b: activating the {3}: Untap ability spends three colourless mana from the pool and untaps the artifact. Observed: after the ability is offered, submitted and resolved, p0's pool still holds CCC and the artifact stays tapped -- the generic cost is not paid and the effect does not run. Control: Rishadan Port's {1},{T} target ability pays a generic cost from the same pool correctly in the same runner, so generic-cost payment itself works. Found by the cli-20261003T014432Z audit; row added by triage."
+  }
+}
