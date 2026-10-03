@@ -36,14 +36,14 @@ func tapeWindowFlow(e *Engine, flow chooseFor) bool {
 
 // windowAsk poses the window decision d for flow: from the tape when a tape
 // run (or an inline answerer) serves it, else on the legacy path.
-func (e *Engine) windowAsk(d *decision.Decision, flow chooseFor) {
+func windowAsk(e *Engine, d *decision.Decision, flow chooseFor) {
 	e.choosing = flow
 	if tapeWindowFlow(e, flow) {
 		e.tapeWindowAsking = true
 		in, ok := e.TapeAnswer(d)
 		e.tapeWindowAsking = false
 		if ok {
-			e.windowAnswer(flow, d.Chosen(in))
+			windowAnswer(e, flow, d.Chosen(in))
 			if tapeWindowCompletes(flow) && !e.Suspended() {
 				// The handler's continuation completed the resolution and
 				// logged its priority grant (finishResumption's tail or the
@@ -58,7 +58,7 @@ func (e *Engine) windowAsk(d *decision.Decision, flow chooseFor) {
 
 // windowAnswer is the legacy Submit's chooseFor dispatch for the window
 // flows (turn.go).
-func (e *Engine) windowAnswer(flow chooseFor, chosen []decision.Option) {
+func windowAnswer(e *Engine, flow chooseFor, chosen []decision.Option) {
 	switch flow {
 	case chooseTriggeredCost:
 		e.triggeredCostAnswer(chosen)

@@ -88,11 +88,11 @@ const (
 	// TokenRemembered$ helper takes each compiler's value): 563 -> 562.
 	// The Vote compiler (the three ballots' literal reads compiled once):
 	// 562 -> 561.
-	stringParamReads = 561
+	stringParamReads = 551
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
 	// W4 step 3: Attach's Object$ switch compiled to a kind: 2886 -> 2883.
-	stringCaseLiterals = 2883
+	stringCaseLiterals = 2882
 	// ctxLiterals, specContextLiterals and triggerContextLiterals are the
 	// effects.Ctx / SpecContext / TriggerContext composite literals in rules/
 	// and effects/ non-test files outside codeshape.CtxConstructorFiles (W1c,

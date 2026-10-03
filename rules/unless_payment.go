@@ -516,7 +516,7 @@ func (e *Engine) advanceUnlessPayment() {
 			d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: kind,
 				Label: label, Obj: id, Player: u.payer})
 		}
-		e.windowAsk(d, chooseUnlessCost)
+		windowAsk(e, d, chooseUnlessCost)
 		return
 	}
 	// Resolve every drawer before charging any component. A Draw<N/Spec> may
@@ -686,7 +686,7 @@ func (e *Engine) askUnlessMana() {
 		}
 	}
 	d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "done", Label: "Done"})
-	e.windowAsk(d, chooseUnlessMana)
+	windowAsk(e, d, chooseUnlessMana)
 }
 
 // manaAltLabel renders an alt's production as a short " for {U}{R}" suffix,

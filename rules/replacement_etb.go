@@ -155,7 +155,7 @@ func (e *Engine) applyETBChoiceReplacement(ev events.Event) bool {
 		Min: 1, Max: 1, ResumeKind: "etb", Source: ev.Obj,
 		Prompt: "Choose" + choice.promptText(), Options: choice.options}
 	e.choosing = chooseETBEntry
-	if in, ok := e.etbTapeAnswer(d, ev.Obj); ok {
+	if in, ok := etbTapeAnswer(e, d, ev.Obj); ok {
 		// The resolution kernel's answer in hand (W3 step 4c): the entry is
 		// never parked. Re-emit it with the answer now, exactly as the legacy
 		// chooseETBEntry arm does, and let the interrupted code carry on from
@@ -622,7 +622,7 @@ func (e *Engine) applySiegeProtector(ev events.Event) bool {
 // mid-chain (a reanimation, a mass return, a token mint) stays legacy: the
 // legacy park lets the moving effect keep running past the parked entry, an
 // order an in-line answer would not reproduce.
-func (e *Engine) etbTapeAnswer(d *decision.Decision, obj state.ObjID) (decision.Intent, bool) {
+func etbTapeAnswer(e *Engine, d *decision.Decision, obj state.ObjID) (decision.Intent, bool) {
 	n := len(e.G.Stack)
 	if n == 0 || e.G.Stack[n-1] != obj || e.resume != nil {
 		return decision.Intent{}, false

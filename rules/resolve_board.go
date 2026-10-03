@@ -75,7 +75,7 @@ func (e *Engine) TapeAnswer(d *decision.Decision) (decision.Intent, bool) {
 	if tapeForceLegacy != nil && tapeForceLegacy(d) {
 		return decision.Intent{}, false
 	}
-	if e.applyingReplacement && !e.ownEntryReplacementAsk(d) {
+	if e.applyingReplacement && !ownEntryReplacementAsk(e, d) {
 		// A ReplaceWith$ body's ask: legacy suspends the body but the effect
 		// whose move the replacement intercepted keeps running (a mass
 		// return enters the next creature before Devour's sacrifice is
@@ -98,7 +98,7 @@ func (e *Engine) TapeAnswer(d *decision.Decision) (decision.Intent, bool) {
 // the stack (Sower of Discord's shape): the entry is the last thing the
 // resolution does, so nothing the legacy park would let run on precedes the
 // answer, and the kernel serves it in line.
-func (e *Engine) ownEntryReplacementAsk(d *decision.Decision) bool {
+func ownEntryReplacementAsk(e *Engine, d *decision.Decision) bool {
 	if e.resume != nil || e.resolvingObj == 0 || d.Source != e.resolvingObj || len(e.contChain) != 0 ||
 		e.tapeETBServed == d.Source {
 		return false
