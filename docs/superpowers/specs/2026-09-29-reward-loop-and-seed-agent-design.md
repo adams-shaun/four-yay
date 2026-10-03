@@ -68,7 +68,7 @@ and every axis except `eff` costs under a second to measure.
 | `correct` | `validated_defects_found_cum`, `validated_defects_closed_cum`, `validated_cards` | `.ds4/reward/defects.jsonl`, the two ratchet tables, `internal/testutil/decks/*.json` | **1000x (summed)** |
 | `flow` | `conflict_hotspots`, `merge_fix_rate`, `merge_fix_rounds_max` | `git worktree list` + `git diff main...<branch>`, `.ds4/orchestrator/journal.jsonl` | **1000x (summed)** |
 | `stability` | `oom_kills`, `gate_timeouts`, `gate_starved_minutes`, `broker_kills`, `swap_in_pages`, `provider_failures_24h` | `/proc/vmstat` deltas, the journal, `broker.sh`'s own interventions | **veto (100x)** |
-| `steward` | `gate_wall_s`, `agent_context_bytes`, `oversized_files` | gate log mtimes under `.ds4/orchestrator/gates/`, `AGENTS.md` + the dispatch context file, a line count over tracked `*.go` | **100x (summed)** |
+| `steward` | `gate_wall_s`, `agent_context_bytes`, `funcs_over_300` (replaced `oversized_files` on 2026-10-03; see the rules-engine refactor spec, W0) | gate log mtimes under `.ds4/orchestrator/gates/`, `AGENTS.md` + the dispatch context file, `go run ./cmd/codeshape` | **100x (summed)** |
 | `eff` | `elo_per_ms`, `ms_per_searched_decision_p50/p90`, `ms_per_game`, `sim_games_per_s` | `botbench -grind` (throughput), `sbsearchcost.go`, `decisioncost.go`, pprof | **10x** |
 | `win` | `champion_elo`, `champion_ci_lo` | `scripts/sb-gauntlet.sh` → `gauntlet/results.jsonl` | 1x |
 | `obs` | `observable_facts_exposed / observable_facts_total` | the observability checklist (§6) and its ratchet test | 1x |

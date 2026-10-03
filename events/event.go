@@ -17,6 +17,10 @@ import (
 // the counter because only EntryCounterNotice suppresses placement.
 const UntapReplacedByStunNotice = "__untap_replaced_by_stun_notice"
 
+// Kind is an event's type. The constants are append-only (a new kind goes
+// after the last one, never between). Each kind's metadata -- its name,
+// trigger-interest class and transcript template -- is its one entry in
+// kindinfo.go's kindInfo table.
 type Kind uint8
 
 const (
@@ -1209,37 +1213,6 @@ func DecodeExtraPhaseRiders(text string) ExtraPhaseRiders {
 		}
 	}
 	return r
-}
-
-// kindNames is declared with NumKinds's length, never [...] inferred, so
-// kindNames and the enum cannot drift apart: a Kind added without a name (or
-// a name added without a Kind) is a compile error, the same lockstep
-// zoneNames has with numZones.
-var kindNames = [NumKinds]string{"game_start", "shuffle", "move_zone", "draw",
-	"life", "damage", "tap", "untap", "step", "turn", "priority", "stack_push",
-	"stack_resolve", "mana_add", "mana_clear", "counter", "declare_attackers",
-	"declare_blockers", "player_lost", "game_over", "decision_ask",
-	"decision_made", "note", "land_played", "targets_chosen", "flip_face",
-	"clock_tick", "trigger_push", "end_combat_reset", "cast_info", "choose",
-	"token_create", "stack_copy", "attach", "ability_push", "mode_chosen", "commander_damage",
-	"delayed_register", "delayed_push", "library_order", "extra_turn", "door_unlock", "speed_change",
-	"monarch_change", "control_change", "card_token", "keyword_trigger_push", "goad", "player_counter", "imprint", "starting_player_change",
-	"pair", "myriad_copy", "myriad_cleanup", "grant_trigger_push", "mana_activate", "token_attacks",
-	"x_change", "note_number", "extra_phase", "copy_token", "exert", "planar_roll", "explore", "combat_retarget", "ring_tempts_you", "ring_emblem_push", "grant_ability_push", "investigate", "blessing_change", "clone_permanent", "mutate", "merged_trigger_push",
-	"discover", "seek", "connive", "enlist", "exploit", "alter_attribute",
-	"gained_ability_push", "gained_trigger_push", "surveil", "unattached", "player_noted", "player_note_cleared",
-	"delayed_remove", "turn_face_up", "searched_library", "keyword_ability_push", "scry", "store_svar", "turn_face_down", "clone_static",
-	"damage_provenance", "enduring_story_change", "phase_out", "gift_promise", "give_gift", "roll_dice",
-	"proliferate", "evolved", "delayed_forget", "card_noted", "cascade", "clash",
-	"planar_deck_shuffle", "planar_reveal", "planar_walk", "specialize", "chaos_ensues", "mana_undo", "end_turn",
-	"dungeon_create", "dungeon_room", "dungeon_complete", "dungeon_remove",
-	"initiative_change", "skip_turn", "control_player_change", "crew", "elemental_bend"}
-
-func (k Kind) String() string {
-	if int(k) < len(kindNames) {
-		return kindNames[k]
-	}
-	return "unknown"
 }
 
 // ExtraTurnSkipUntapText is the canonical Text marker on an ExtraTurn grant
