@@ -426,7 +426,7 @@ func TestDigUntilRidersEmitOnceAcrossTheOptionalAsk(t *testing.T) {
 		t.Fatalf("Shuffle events before the answer = %d, want 0 (the ask suspends first)", got)
 	}
 	// Second pass: the answered continuation completes the walk once.
-	ctx := &Ctx{Controller: 0, Source: src, DigUntilMove: "yes", DigUntilMoveDone: true}
+	ctx := &Ctx{Controller: 0, Source: src, DigUntilMove: "yes"}
 	Resolve(h, ctx, ability)
 	if o := h.g.Obj(ids[1]); o.Zone != state.ZBattlefield {
 		t.Fatalf("answered found Aura zone = %s, want battlefield", o.Zone)

@@ -43,8 +43,10 @@ func substituteManaChosen(produced, chosen string) string {
 // A false Ask is the R-9 no-host path: Any remains the historical colourless
 // fallback and a raw Combo list remains the historical full-listed-colours
 // fallback. A real host gets a KChoose and rules carries the answer back in
-// Ctx.ManaChoice or Ctx.ManaChoices.
-func askManaChoice(h Host, c *Ctx, sa *cards.SA, produced string) (string, bool) {
+// Ctx.ManaChoice or Ctx.ManaChoices. It returns the production (the
+// resolution kernel's answer when it served one), whether that answer is a
+// one-unit-per-symbol allocation, and whether the legacy ask suspended.
+func askManaChoice(h Host, c *Ctx, sa *cards.SA, produced string) (string, bool, bool) {
 	var colours []string
 	switch produced {
 	case "Any", "Combo Any":
@@ -55,12 +57,12 @@ func askManaChoice(h Host, c *Ctx, sa *cards.SA, produced string) (string, bool)
 		}
 	}
 	if len(colours) <= 1 {
-		return produced, false
+		return produced, false, false
 	}
 	amount := ManaOf(sa).AmountNum(h, c, 1)
 	allocation := strings.HasPrefix(produced, "Combo ") && amount > 1
 	if amount <= 0 {
-		return produced, false
+		return produced, false, false
 	}
 	min, max := 1, 1
 	if allocation {
@@ -79,10 +81,46 @@ func askManaChoice(h Host, c *Ctx, sa *cards.SA, produced string) (string, bool)
 				Label: "Add " + colour, ManaSymbol: colour, Obj: c.Source, Player: chooser})
 		}
 	}
-	if Ask(h, d) == AskAsked {
-		return produced, true
+	// The resolution kernel's answer in hand (lasagna spec §7): the
+	// "mana_color" arm's binding, applied here so effMana simply continues.
+	// An answer naming no valid colour is the arm's no-binding, on which the
+	// legacy re-entry poses the same ask again; so does this loop.
+	for {
+		ans, ok := AskTape(h, d)
+		if !ok {
+			break
+		}
+		if answered, units, ok := manaChoiceProduced(ans); ok {
+			// The legacy re-entry re-runs effMana from its first line,
+			// which emits the unread-parameter Note again; mirror it.
+			noteUnreadParams(h, c, "Mana", ManaOf(sa).Unread)
+			return answered, units, false
+		}
 	}
-	return produced, false
+	if Ask(h, d) == AskAsked {
+		return produced, false, true
+	}
+	return produced, false, false
+}
+
+// manaChoiceProduced is the "mana_color" answer's production, exactly as
+// the rules arm binds it and effMana's re-entry consumes it: one chosen
+// option is a single colour (Ctx.ManaChoice), several are an allocation of
+// one unit each (Ctx.ManaChoices). Options whose ManaSymbol is not one
+// colour are skipped; ok is false when nothing valid was chosen.
+func manaChoiceProduced(chosen []decision.Option) (produced string, allocation, ok bool) {
+	if len(chosen) == 1 {
+		if validManaChoice(chosen[0].ManaSymbol) {
+			return chosen[0].ManaSymbol, false, true
+		}
+		return "", false, false
+	}
+	for _, option := range chosen {
+		if validManaChoice(option.ManaSymbol) {
+			produced += option.ManaSymbol
+		}
+	}
+	return produced, true, produced != ""
 }
 
 // ManaProducerTag encodes producer provenance in one exclusive unit tag.
@@ -150,18 +188,22 @@ func effMana(h Host, c *Ctx, sa *cards.SA) {
 		produced = substituteManaChosen(produced, o.ChosenColor)
 	}
 	if produced == "Any" || produced == "Combo Any" {
-		if _, asked := askManaChoice(h, c, sa, produced); asked {
+		answered, units, asked := askManaChoice(h, c, sa, produced)
+		if asked {
 			return
 		}
+		produced, allocation = answered, allocation || units
 		if produced == "Any" || produced == "Combo Any" {
 			// R-9: an effects host without a decision channel retains the
 			// historical deterministic colourless result.
 			produced = "C"
 		}
 	} else if _, ok := ComboColours(produced); ok {
-		if _, asked := askManaChoice(h, c, sa, produced); asked {
+		answered, units, asked := askManaChoice(h, c, sa, produced)
+		if asked {
 			return
 		}
+		produced, allocation = answered, allocation || units
 	}
 	if produced == "" {
 		produced = "C"

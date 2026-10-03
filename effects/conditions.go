@@ -575,7 +575,7 @@ func conditionMet(h Host, c *Ctx, sa *cards.SA) (met bool, resolved bool) {
 		// DBPrevent is the one measured carrier (a DB sub of an ACTIVATED
 		// ability, reached by no placement or charm ask).
 		group = targetedGateGroup(c, sa)
-		if len(group) == 0 && strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) != "" &&
+		if len(group) == 0 && TargetsOf(sa).Targeted() &&
 			!targetedAskCovered(c, sa) {
 			return false, false
 		}

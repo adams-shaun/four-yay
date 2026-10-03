@@ -115,7 +115,7 @@ func distinctTargetsFeasible(slots []uniqueTargetSlot) bool {
 // demands nothing. gift is the Gift election being judged (nil: either).
 func uniqueChainTargetsFeasible(e *Engine, p state.PlayerID, id, excludeSelf state.ObjID, root *cards.SA, uniq []*cards.SA, x int32, xPending bool, gift *bool) bool {
 	slots := make([]uniqueTargetSlot, 0, len(uniq)+1)
-	if strings.TrimSpace(root.ParamStr(cards.PKValidTgts)) != "" && !announceShapesTargets(e, id, root) {
+	if effects.TargetsOf(root).Targeted() && !announceShapesTargets(e, id, root) {
 		if need, dynamic := targetOfferMin(e, p, id, root, x, xPending, gift); !dynamic && need > 0 {
 			slots = append(slots, uniqueTargetSlot{cands: e.legalTargetCandidates(p, id, excludeSelf, root), need: need})
 		}
@@ -146,7 +146,7 @@ func uniqueChainTargetsFeasible(e *Engine, p state.PlayerID, id, excludeSelf sta
 // both filter modes through it, so a mode the ask offers can always be
 // announced in full.
 func modeTargetsAvailable(e *Engine, p state.PlayerID, id state.ObjID, sub *cards.SA, x int32, xPending bool) bool {
-	if sub == nil || strings.TrimSpace(sub.ParamStr(cards.PKValidTgts)) == "" {
+	if sub == nil || !effects.TargetsOf(sub).Targeted() {
 		return true
 	}
 	return e.targetSAAvailable(p, id, id, sub, x, xPending) && e.chainTargetsAvailable(p, id, id, sub, x, xPending, nil)
@@ -288,15 +288,16 @@ func announceShapesTargets(e *Engine, id state.ObjID, sa *cards.SA) bool {
 	if o := e.G.Obj(id); o != nil && o.Face() != nil {
 		svars = o.Face().SVars
 	}
+	tp := effects.TargetsOf(sa)
 	for name := range strings.SplitSeq(ann, ",") {
 		name = strings.TrimSpace(name)
 		if name == "" {
 			continue
 		}
 		match := func(s string) bool { return strings.Contains(s, name) }
-		if bodyReadsRef(sa.ParamStr(cards.PKValidTgts), svars, 0, match) ||
-			bodyReadsRef(sa.ParamStr(cards.PKTargetMin), svars, 0, match) ||
-			bodyReadsRef(sa.ParamStr(cards.PKTargetMax), svars, 0, match) {
+		if bodyReadsRef(tp.ValidTgts, svars, 0, match) ||
+			bodyReadsRef(tp.Min.Text, svars, 0, match) ||
+			bodyReadsRef(tp.Max.Text, svars, 0, match) {
 			return true
 		}
 	}

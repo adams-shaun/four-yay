@@ -175,10 +175,10 @@ func TestDigUntilOptionalFoundMoveAsksAndHonoursBothBranches(t *testing.T) {
 	// Answered "no": the decline sends the found card to
 	// OptionalNoDestination$ Hand; the revealed rest still go to the bottom;
 	// the answer field is consumed and cleared (fx42 scoping).
-	ctx := &Ctx{Controller: 0, DigUntilMove: "no", DigUntilMoveDone: true}
+	ctx := &Ctx{Controller: 0, DigUntilMove: "no"}
 	Resolve(h, ctx, sa(t, songbirdsSA))
-	if ctx.DigUntilMove != "" || ctx.DigUntilMoveDone {
-		t.Fatal("re-entry left Ctx.DigUntilMove/DigUntilMoveDone set: the answer field must be consumed and cleared")
+	if ctx.DigUntilMove != "" {
+		t.Fatal("re-entry left Ctx.DigUntilMove set: the answer field must be consumed and cleared")
 	}
 	if o := h.g.Obj(ids[1]); o.Zone != state.ZHand {
 		t.Fatalf("declined found card zone = %s, want hand (OptionalNoDestination$)", o.Zone)
@@ -192,7 +192,7 @@ func TestDigUntilOptionalFoundMoveAsksAndHonoursBothBranches(t *testing.T) {
 	// public reveal and suspended on the ask, is the h board above), so the
 	// reveal must not be re-emitted: exactly zero public reveal Notes.
 	h2, ids2 := digUntilFixture(t)
-	Resolve(h2, &Ctx{Controller: 0, DigUntilMove: "yes", DigUntilMoveDone: true}, sa(t, songbirdsSA))
+	Resolve(h2, &Ctx{Controller: 0, DigUntilMove: "yes"}, sa(t, songbirdsSA))
 	if o := h2.g.Obj(ids2[1]); o.Zone != state.ZBattlefield || o.AttachedTo == 0 {
 		t.Fatalf("answered found card zone/attach = %s/%d, want battlefield/attached", o.Zone, o.AttachedTo)
 	}

@@ -182,6 +182,7 @@ func effSetLife(h Host, c *Ctx, sa *cards.SA) {
 		g := h.Game()
 		i := c.ChoiceTarget - 1
 		if c.ChoiceTarget == 0 {
+			choice := c.Choice
 			if !c.ChoiceDone {
 				pool := g.AliveFrom(c.Controller)
 				d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Source: c.Source,
@@ -190,14 +191,20 @@ func effSetLife(h Host, c *Ctx, sa *cards.SA) {
 				for j, p := range pool {
 					d.Options = append(d.Options, decision.Option{Index: j, Kind: "player", Player: p, Label: g.Players[p].Name})
 				}
-				switch Ask(h, d) {
-				case AskAsked, AskNoHost:
-					// With no host, choose nobody: the identity permutation.
-					return
+				if ans, ok := AskTape(h, d); ok {
+					// The resolution kernel's answer in hand: the recipient
+					// subset the "choice" re-entry records below.
+					choice = ChoiceAnswerTargets(ans)
+				} else {
+					switch Ask(h, d) {
+					case AskAsked, AskNoHost:
+						// With no host, choose nobody: the identity permutation.
+						return
+					}
 				}
 			}
 			c.Chosen = nil // this effect owns the resumed choice list
-			choiceRecord(h, c, sa, c.Choice, false)
+			choiceRecord(h, c, sa, choice, false)
 			c.ChoiceDone, c.Choice = false, nil
 			i = 0
 		} else {
@@ -231,6 +238,12 @@ func effSetLife(h Host, c *Ctx, sa *cards.SA) {
 					d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "player", Player: src.Player,
 						Label: fmt.Sprintf("%d life of %s", g.Players[src.Player].Life, g.Players[src.Player].Name)})
 				}
+			}
+			if ans, ok := AskTape(h, d); ok {
+				// The resolution kernel's answer in hand: the source total
+				// the "choice" re-entry records for this recipient.
+				choiceRecord(h, c, sa, ChoiceAnswerTargets(ans), false)
+				continue
 			}
 			if Ask(h, d) == AskAsked {
 				return

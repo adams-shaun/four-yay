@@ -34,8 +34,9 @@ func (b *paramBinding) boundTo(m map[string]string) bool {
 }
 
 // compileTypedHalves fills f's per-API typed parameter structs (Charm, Pump,
-// Draw, ReplaceEffect, Mana, ManaReflected, DealDamage, PutCounter, Effect)
-// for the APIs their compilers serve (NewSAFacts' second half).
+// Draw, ReplaceEffect, Mana, ManaReflected, DealDamage, PutCounter, Effect,
+// DelayedTrigger, CopyPermanent) for the APIs their compilers serve
+// (NewSAFacts' second half).
 func compileTypedHalves(f *SAFacts, sa *cards.SA) {
 	if isModalSA(sa) {
 		f.Charm = compileCharm(sa)
@@ -63,5 +64,11 @@ func compileTypedHalves(f *SAFacts, sa *cards.SA) {
 	}
 	if isEffectSA(sa) {
 		f.Effect = compileEffect(sa)
+	}
+	if isDelayedTriggerSA(sa) {
+		f.DelayedTrigger = compileDelayedTrigger(sa)
+	}
+	if isCopyPermanentSA(sa) {
+		f.CopyPermanent = compileCopyPermanent(sa)
 	}
 }

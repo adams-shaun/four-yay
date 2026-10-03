@@ -50,6 +50,18 @@ func TestEffectKnownKeysMatchTheCensus(t *testing.T) {
 	checkKnownKeysMatchTheCensus(t, "Effect", effects.EffectKnownKeys())
 }
 
+// TestDelayedTriggerKnownKeysMatchTheCensus is the same check for
+// api:DelayedTrigger (effects.delayedTriggerKnownKeys).
+func TestDelayedTriggerKnownKeysMatchTheCensus(t *testing.T) {
+	checkKnownKeysMatchTheCensus(t, "DelayedTrigger", effects.DelayedTriggerKnownKeys())
+}
+
+// TestCopyPermanentKnownKeysMatchTheCensus is the same check for
+// api:CopyPermanent (effects.copyPermanentKnownKeys).
+func TestCopyPermanentKnownKeysMatchTheCensus(t *testing.T) {
+	checkKnownKeysMatchTheCensus(t, "CopyPermanent", effects.CopyPermanentKnownKeys())
+}
+
 // checkKnownKeysMatchTheCensus holds an API compiler's known-key table equal
 // to the census's measured read set for api plus its ignored and structural
 // keys.

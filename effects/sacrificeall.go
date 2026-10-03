@@ -52,7 +52,7 @@ func effSacrificeAll(h Host, c *Ctx, sa *cards.SA) {
 		}
 		h.Emit(events.Sacrifice(id))
 	}
-	if def := sa.ParamStr(cards.PKDefined); def != "" || sa.ParamStr(cards.PKValidTgts) != "" {
+	if def := sa.ParamStr(cards.PKDefined); def != "" || TargetsOf(sa).Targeted() {
 		for _, t := range Defined(h, c, sa) {
 			if !t.IsPlayer {
 				// A Defined$-named object that is no longer on the battlefield

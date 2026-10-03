@@ -12,7 +12,7 @@ import (
 // claim on it fails silently, so every compiled per-ability fact lives in this
 // one struct hung on the slot and nothing competes for it: the per-API typed
 // parameter structs (ChangeZone, ChangeZoneAll, Attach, DealDamage,
-// PutCounter, Effect) and the rules tier's private half (the
+// PutCounter, Effect, DelayedTrigger, CopyPermanent) and the rules tier's private half (the
 // mana walk's gate facts, opaque here).
 //
 // The record is defined in effects, not rules, because resolution reads it
@@ -78,18 +78,30 @@ type SAFacts struct {
 	// Effect is api:Effect's compiled parameter set (effect_params.go),
 	// non-nil exactly when the API is Effect.
 	Effect *EffectParams
+	// Targets is the generic targeting tier's compiled parameter set
+	// (targets_params.go), non-nil for EVERY ability whatever its API
+	// (Targets.Targeted() reports whether it targets).
+	Targets *TargetParams
+	// DelayedTrigger is api:DelayedTrigger's compiled parameter set
+	// (delayedtrigger_params.go), non-nil exactly when the API is
+	// DelayedTrigger.
+	DelayedTrigger *DelayedTriggerParams
+	// CopyPermanent is api:CopyPermanent's compiled parameter set
+	// (copypermanent_params.go), non-nil exactly when the API is
+	// CopyPermanent.
+	CopyPermanent *CopyPermanentParams
 }
 
 // NewSAFacts compiles sa's typed halves into a fresh record naming sa. The
 // caller (rules' configured binding) adds its own half and publishes it.
 func NewSAFacts(sa *cards.SA) *SAFacts {
-	f := &SAFacts{SA: sa}
+	f := &SAFacts{SA: sa, Targets: compileTargets(sa)}
 	if isChangeZoneSA(sa) {
-		f.ChangeZone = compileChangeZone(sa)
+		f.ChangeZone = compileChangeZone(sa, f.Targets)
 	} else if isChangeZoneAllSA(sa) {
-		f.ChangeZoneAll = compileChangeZoneAll(sa)
+		f.ChangeZoneAll = compileChangeZoneAll(sa, f.Targets)
 	} else if isAttachSA(sa) {
-		f.Attach = compileAttach(sa)
+		f.Attach = compileAttach(sa, f.Targets)
 	}
 	compileTypedHalves(f, sa)
 	return f

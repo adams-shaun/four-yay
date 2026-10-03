@@ -201,6 +201,12 @@ func conniveOnce(h Host, c *Ctx, sa *cards.SA, conniver state.ObjID, targetIdx, 
 			ResumeTarget: int(conniver),
 			Prompt:       "Choose " + strconv.Itoa(int(n2)) + " card(s) to discard",
 			Options:      opts}
+		if ans, ok := AskTape(h, d); ok {
+			// The "connive" answer in hand: the re-entry's discard, counters
+			// and record, then the walk goes on to the next conniver.
+			applyConniveDiscard(h, conniver, counterAnswerObjs(ans))
+			return false
+		}
 		if Ask(h, d) == AskAsked {
 			// Park the mid-connive state (documenting; the resume arm is what
 			// actually re-seeds it — the suspended Ctx is discarded).

@@ -15,28 +15,13 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
+// targetBounds is the literal-only TargetMin$/TargetMax$ pair, compiled once
+// (effects.TargetParams.BoundMin/BoundMax): a literal bound is honoured, an
+// absent or dynamic one defaults to 1, then min < 0 -> 1, max < 1 -> 1,
+// max < min -> min.
 func targetBounds(sa *cards.SA) (int, int) {
-	min, max := 1, 1
-	if v, ok := sa.Param(cards.PKTargetMin); ok {
-		if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
-			min = n
-		}
-	}
-	if v, ok := sa.Param(cards.PKTargetMax); ok {
-		if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
-			max = n
-		}
-	}
-	if min < 0 {
-		min = 1
-	}
-	if max < 1 {
-		max = 1
-	}
-	if max < min {
-		max = min
-	}
-	return min, max
+	tp := effects.TargetsOf(sa)
+	return tp.BoundMin, tp.BoundMax
 }
 
 // isLiteralBound reports whether a raw TargetMin$/TargetMax$ token is a
@@ -48,17 +33,9 @@ func isLiteralBound(v string) bool {
 
 // targetBoundsDynamic reports whether either bound token is present and not
 // a literal -- the only shape resolvedTargetBounds does extra work for, so a
-// literal-only script never leaves the byte-identical fast path. (The two
-// reads are spelled out rather than looped over the keys so the paramcensus
-// rot guard sees two static Params keys.)
+// literal-only script never leaves the byte-identical fast path.
 func targetBoundsDynamic(sa *cards.SA) bool {
-	if v, ok := sa.Param(cards.PKTargetMin); ok && !isLiteralBound(v) {
-		return true
-	}
-	if v, ok := sa.Param(cards.PKTargetMax); ok && !isLiteralBound(v) {
-		return true
-	}
-	return false
+	return effects.TargetsOf(sa).Has(effects.TgtBoundsDynamic)
 }
 
 // targetBoundCtx binds the effects numeric grammar to the asking player and
@@ -185,14 +162,15 @@ func (e *Engine) resolvedTargetBoundsWithGift(p state.PlayerID, source state.Obj
 	}
 	ctx.X = x
 	ctx.PromisedGiftOverride = promised
-	if v, ok := sa.Param(cards.PKTargetMin); ok && !isLiteralBound(v) {
-		if n, resolved := effects.NumResolvedStrict(e, ctx, sa, "TargetMin", 1); resolved {
+	tp := effects.TargetsOf(sa)
+	if tp.Min.Present && !isLiteralBound(tp.Min.Text) {
+		if n, resolved := effects.NumTextResolvedStrict(e, ctx, tp.Min, 1); resolved {
 			min = int(n)
 		}
 	}
 	resolvedMax := false
-	if v, ok := sa.Param(cards.PKTargetMax); ok && !isLiteralBound(v) {
-		if n, resolved := effects.NumResolvedStrict(e, ctx, sa, "TargetMax", 1); resolved {
+	if tp.Max.Present && !isLiteralBound(tp.Max.Text) {
+		if n, resolved := effects.NumTextResolvedStrict(e, ctx, tp.Max, 1); resolved {
 			max = int(n)
 			resolvedMax = true
 		}
@@ -256,28 +234,18 @@ func (e *Engine) resolvedTargetMin(p state.PlayerID, source state.ObjID, sa *car
 // Graveyard resolution guard, so the ability could not do what it promises.
 // For that one unambiguous shape the Origin$ implies the target zone; see
 // originImpliedTargetZone for the four gates that admit it.
+//
+// The returned slice is shared and read-only: the TgtZone$/TargetType$ zones
+// are compiled once (effects.TargetParams.Zones), and every fallback is a
+// static single-zone slice, so the census and the recheck allocate nothing.
 func targetZones(sa *cards.SA) []state.Zone {
-	var zones []state.Zone
-	for z := range strings.SplitSeq(sa.ParamStr(cards.PKTgtZone), ",") {
-		switch strings.TrimSpace(z) {
-		case "Battlefield":
-			zones = appendUniqueZone(zones, state.ZBattlefield)
-		case "Graveyard":
-			zones = appendUniqueZone(zones, state.ZGraveyard)
-		case "Hand":
-			zones = appendUniqueZone(zones, state.ZHand)
-		case "Exile":
-			zones = appendUniqueZone(zones, state.ZExile)
-		case "Stack":
-			zones = appendUniqueZone(zones, state.ZStack)
-		}
-	}
-	// A stack-targeting TargetType$ adds the stack even when no TgtZone$ is
-	// present (the counterspell shape) and even alongside a TgtZone$
-	// Battlefield for a spell-or-permanent effect (TgtZone$ Stack,Battlefield).
-	if targetsStackObjects(sa.ParamStr(cards.PKTargetType)) {
-		zones = appendUniqueZone(zones, state.ZStack)
-	}
+	tp := effects.TargetsOf(sa)
+	// TgtZone$'s known tokens in order, then the stack when TargetType$ names
+	// a stack object: a stack-targeting TargetType$ adds the stack even when
+	// no TgtZone$ is present (the counterspell shape) and even alongside a
+	// TgtZone$ Battlefield for a spell-or-permanent effect (TgtZone$
+	// Stack,Battlefield).
+	zones := tp.Zones
 	if len(zones) == 0 {
 		// The graveyard-enchant Aura family (Animate Dead, Dance of the Dead;
 		// Spellweaver Volute for instants) casts its kw:Enchant attach spell
@@ -292,7 +260,7 @@ func targetZones(sa *cards.SA) []state.Zone {
 		// outside this API are untouched. An explicit Origin$ outranks this
 		// inference even when the two declarations disagree.
 		if z, ok := originImpliedTargetZone(sa); ok {
-			zones = []state.Zone{z}
+			zones = singleZone(z)
 		} else if sa.API == "Attach" {
 			// Attach's ValidTgts$ inZone<X> zones, compiled once
 			// (effects.AttachParams.ValidTgtsZones).
@@ -305,10 +273,10 @@ func targetZones(sa *cards.SA) []state.Zone {
 			// targets the stack; otherwise the battlefield remains the
 			// default. An explicit TgtZone$ whose tokens were unknown must
 			// not silently widen a target back to the stack.
-			if sa.ParamStr(cards.PKTgtZone) == "" && targetsStackObjects(sa.ParamStr(cards.PKValidTgts)) {
-				zones = []state.Zone{state.ZStack}
+			if tp.ZoneText == "" && tp.Has(effects.TgtValidStack) {
+				zones = singleZone(state.ZStack)
 			} else {
-				zones = []state.Zone{state.ZBattlefield}
+				zones = singleZone(state.ZBattlefield)
 			}
 		}
 	}
@@ -350,10 +318,11 @@ func originImpliedTargetZone(sa *cards.SA) (state.Zone, bool) {
 			return 0, false
 		}
 	}
-	if sa.ParamStr(cards.PKTgtZone) != "" || targetsStackObjects(sa.ParamStr(cards.PKTargetType)) {
+	tp := effects.TargetsOf(sa)
+	if tp.ZoneText != "" || tp.Has(effects.TgtTypeStack) {
 		return 0, false
 	}
-	if targetsPlayers(sa.ParamStr(cards.PKValidTgts)) {
+	if tp.Has(effects.TgtValidPlayers) {
 		return 0, false
 	}
 	if changeZone {
@@ -371,31 +340,21 @@ func originImpliedTargetZone(sa *cards.SA) (state.Zone, bool) {
 	return 0, false
 }
 
-// appendUniqueZone appends z to zones when it is not already present,
-// preserving the deterministic TgtZone$/TargetType$ order both askTarget and
-// legalTargets share (never a map, so no map iteration order reaches a wire
-// decision).
-func appendUniqueZone(zones []state.Zone, z state.Zone) []state.Zone {
-	for _, existing := range zones {
-		if existing == z {
-			return zones
-		}
+// singleZones backs singleZone: one shared one-element slice per zone.
+var singleZones = func() (out [16][1]state.Zone) {
+	for z := range out {
+		out[z][0] = state.Zone(z)
 	}
-	return append(zones, z)
-}
+	return out
+}()
 
-// targetsStackObjects reports whether a Forge TargetType$ or ValidTgts$
-// value names a target that lives on the stack: a spell (Spell/Instant/
-// Sorcery), or an activated/triggered/spell-ability object. The shared state
-// parser keeps this census aligned with stack target-kind legality, including
-// Forge's Ability alias.
-func targetsStackObjects(spec string) bool {
-	for token := range strings.SplitSeq(spec, ",") {
-		if _, ok := state.StackKindTokenOf(strings.TrimSpace(token)); ok {
-			return true
-		}
+// singleZone is the shared, read-only one-zone slice for z (targetZones'
+// fallbacks), allocated only for a zone ordinal past the table.
+func singleZone(z state.Zone) []state.Zone {
+	if int(z) < len(singleZones) {
+		return singleZones[z][:]
 	}
-	return false
+	return []state.Zone{z}
 }
 
 // stackObjKind classifies one stack object for TargetType$ legality. The
@@ -445,11 +404,11 @@ func stackTargetOptionKind(k stackObjKind) string {
 // derive.
 type targetTypeToken = state.StackKindToken
 
-// stackTargetKindTokens parses a TargetType$ value into its kind tokens.
-// A parameter that is absent -- or whose tokens name no stack kind at all --
-// defaults to Spell-only (today's behaviour, deliberately narrow: a spec
-// that never said it wants abilities does not get them).
-func stackTargetKindTokens(tt string) []targetTypeToken { return state.StackKindTokens(tt) }
+// A TargetType$ value's kind tokens are compiled once
+// (effects.TargetParams.TypeTokens, state.StackKindTokens): a parameter that
+// is absent -- or whose tokens name no stack kind at all -- defaults to
+// Spell-only (deliberately narrow: a spec that never said it wants abilities
+// does not get them).
 
 // stackKindAdmits reports whether any TargetType$ token admits the stack
 // object o (of kind k) controlled by controller, from chooser you's
@@ -972,17 +931,18 @@ func (e *Engine) candidatesCountForLimit(p state.PlayerID, source, excludeSelf s
 
 // candidatesForLimitInto is candidatesForLimit appending into dst[:0].
 func (e *Engine) candidatesForLimitInto(dst []targetCandidate, p state.PlayerID, source, excludeSelf state.ObjID, sa *cards.SA, targeting bool, limit int) []targetCandidate {
-	if limit > 0 && (strings.TrimSpace(sa.ParamStr(cards.PKTargetsWithDefinedController)) != "" ||
-		strings.TrimSpace(sa.ParamStr(cards.PKTargetValidTargeting)) != "" ||
-		strings.TrimSpace(sa.ParamStr(cards.PKTargetsWithControllerProperty)) != "" ||
+	tp := effects.TargetsOf(sa)
+	if limit > 0 && (tp.DefinedController != "" ||
+		tp.ValidTargeting != "" ||
+		tp.ControllerProperty != "" ||
 		// tpc1: TargetingPlayerControls$ True is also a DROPPING post-filter,
 		// so the census must not stop at limit before the whole search space
 		// (battlefield included) has been walked and filtered.
-		strings.TrimSpace(sa.ParamStr(cards.PKTargetingPlayerControls)) != "" ||
-		sharedCardTypeRef(sa) != "") {
+		tp.Has(effects.TgtPlayerControlsSet) ||
+		tp.SharedCardType != "") {
 		limit = 0
 	}
-	spec := sa.ParamStr(cards.PKValidTgts)
+	spec := tp.ValidTgts
 	// The spec-relative source (Self/Other/CARDNAME/sameName predicates read
 	// it) is the SOURCE PERMANENT when the ask belongs to a minted ability
 	// object -- the same object resolution-time recheck (legalTargets) already
@@ -1068,7 +1028,7 @@ zoneLoop:
 			// Spell -- the pre-fix behaviour, kept for every spec that never
 			// said otherwise (the default stays the narrow one, never
 			// widened).
-			toks := stackTargetKindTokens(sa.ParamStr(cards.PKTargetType))
+			toks := tp.TypeTokens
 			for _, oid := range e.G.Zone(state.ZStack, 0) {
 				o := e.G.Obj(oid)
 				// CR 115.5: a spell or ability on the stack is an illegal
@@ -1173,7 +1133,7 @@ zoneLoop:
 // trigger/activation roles this filter cannot see is never offered, never
 // wrongly offered).
 func (e *Engine) filterTargetValidTargeting(in []targetCandidate, sa *cards.SA, sc effects.SpecContext) []targetCandidate {
-	spec := strings.TrimSpace(sa.ParamStr(cards.PKTargetValidTargeting))
+	spec := effects.TargetsOf(sa).ValidTargeting
 	if spec == "" {
 		return in
 	}
@@ -1216,7 +1176,7 @@ func (e *Engine) filterTargetValidTargeting(in []targetCandidate, sa *cards.SA, 
 // offering every creature would widen "target creature that player controls"
 // to any player's, or "another player's permanent" to your own.
 func (e *Engine) filterTargetsWithDefinedController(in []targetCandidate, sa *cards.SA, sc effects.SpecContext) []targetCandidate {
-	ref := strings.TrimSpace(sa.ParamStr(cards.PKTargetsWithDefinedController))
+	ref := effects.TargetsOf(sa).DefinedController
 	if ref == "" {
 		return in
 	}

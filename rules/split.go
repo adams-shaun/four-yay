@@ -1,8 +1,6 @@
 package rules
 
 import (
-	"strings"
-
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
@@ -163,7 +161,7 @@ func (e *Engine) resolveFused(o *state.Object) (*resumePoint, bool) {
 		if sa == nil {
 			continue
 		}
-		spec := strings.TrimSpace(sa.ParamStr(cards.PKValidTgts))
+		spec := effects.TargetsOf(sa).ValidTgts
 		if spec != "" {
 			// The half's OWN stage slice when the payment published one --
 			// exactly the targets chosen for THIS half, never a target the
@@ -251,7 +249,7 @@ func (e *Engine) runFusedHalves(o *state.Object, halves []*cards.Face, sas []*ca
 		e.damaging = o.ID
 		ctx := effects.NewCtxPtr(o.ID, o.Controller, effects.CtxInit{Targets: legalByHalf[i]})
 		ctx.ResolvingObj = o.ID
-		if strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) != "" {
+		if effects.TargetsOf(sa).Targeted() {
 			ctx.TargetsOffered = true
 			ctx.OfferedSA = sa
 		}

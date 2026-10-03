@@ -46,7 +46,7 @@ func (e *Engine) charmModeTarget(obj state.ObjID, sa *cards.SA) []state.Target {
 	}
 	var tbms []*cards.SA
 	for _, name := range o.ChosenModes {
-		if sub := cards.ResolveSVar(svars, name); sub != nil && strings.TrimSpace(sub.ParamStr(cards.PKValidTgts)) != "" {
+		if sub := cards.ResolveSVar(svars, name); sub != nil && effects.TargetsOf(sub).Targeted() {
 			tbms = append(tbms, sub)
 		}
 	}
@@ -165,6 +165,7 @@ func (e *Engine) buildContinuationChain(frames []contFrame, obj state.ObjID, tai
 		// pointer copy — never a value clone — keeps every frame live.
 		if e.resume != nil {
 			f.flipMemory = e.resume.flipMemory
+			f.rolls.ride = e.resume.rolls.ride
 			f.exchangeMemory = e.resume.exchangeMemory
 		}
 		if e.replacingEvent != nil && e.replacingEvent.Kind == events.Damage {
@@ -488,17 +489,22 @@ func (e *Engine) payUnlessDamageCost(ctx *effects.Ctx, payer state.PlayerID, n i
 // this pass that no deeper RepeatEach already bound to remembered. votes is
 // the AmountFromVotes$ tally the current loop frame carries (nil outside such
 // a loop); it is bound to the same frames so a nested ask posed after the
-// resume restores the table too.
-func (e *Engine) bindLoopFrames(remembered []state.Target, votes []effects.VoteCount) {
+// resume restores the table too. subject is the iteration's RepeatEach
+// subject (Ctx.RepeatSubject), bound the same way: without it a nested ask's
+// answer re-entered the body with UseImprinted$'s Imprinted unbound (Wave of
+// Vitriol's ImprintedController search moved nothing).
+func (e *Engine) bindLoopFrames(remembered []state.Target, votes []effects.VoteCount, subject state.Target) {
 	snap := append([]state.Target(nil), remembered...)
 	if e.resume != nil && !e.resume.loopBound {
 		e.resume.loopBound, e.resume.loopRemembered = true, snap
 		e.resume.voteCounts = cloneVoteCounts(votes)
+		e.resume.repeatSubject = subject
 	}
 	for i := range e.contChain {
 		if !e.contChain[i].bound {
 			e.contChain[i].bound, e.contChain[i].remembered = true, snap
 			e.contChain[i].voteCounts = cloneVoteCounts(votes)
+			e.contChain[i].repeatSubject = subject
 		}
 	}
 }

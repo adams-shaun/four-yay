@@ -62,11 +62,7 @@ func effRingTemptsYou(h Host, c *Ctx, sa *cards.SA) {
 		// player's) falls back to the deterministic default rather than
 		// designating an illegal creature -- the same guard the sacrifice and
 		// blight re-entries use.
-		if o := g.Obj(pick); o != nil && o.Zone == state.ZBattlefield && o.Controller == p && h.IsCreature(pick) {
-			emit(pick)
-			return
-		}
-		emit(ringDefaultBearer(h, p, g))
+		emit(ringAnsweredBearer(h, g, p, pick))
 		return
 	}
 
@@ -129,6 +125,16 @@ func effRingTemptsYou(h Host, c *Ctx, sa *cards.SA) {
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options),
 			Kind: "ring_bearer", Label: name, Obj: id, Player: p})
 	}
+	if ans, ok := AskTape(h, d); ok {
+		// The resolution kernel's answer in hand: the "ring_bearer" arm's
+		// pick, designated exactly as the re-entry designates it.
+		pick := state.ObjID(0)
+		if len(ans) > 0 {
+			pick = ans[0].Obj
+		}
+		emit(ringAnsweredBearer(h, g, p, pick))
+		return
+	}
 	if Ask(h, d) == AskAsked {
 		return // resolution suspended; the answer re-enters with Ctx.RingBearerPick set.
 	}
@@ -139,6 +145,16 @@ func effRingTemptsYou(h Host, c *Ctx, sa *cards.SA) {
 	h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: p,
 		Text: "designates the default Ring-bearer (no engine host to ask)", Secret: true})
 	emit(defaultBearer)
+}
+
+// ringAnsweredBearer is the bearer an answered Ring-bearer choice
+// designates: the pick when it is still a creature p controls on the
+// battlefield, else (a stale or stray answer) the deterministic default.
+func ringAnsweredBearer(h Host, g *state.Game, p state.PlayerID, pick state.ObjID) state.ObjID {
+	if o := g.Obj(pick); o != nil && o.Zone == state.ZBattlefield && o.Controller == p && h.IsCreature(pick) {
+		return pick
+	}
+	return ringDefaultBearer(h, p, g)
 }
 
 // ringDefaultBearer is the deterministic bearer choice: the existing

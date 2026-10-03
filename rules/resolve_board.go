@@ -40,6 +40,12 @@ type engineResolveKernel struct {
 	// was already observed once. resolveBoard.Observe re-attaches them.
 	tapeHeldHook  func(p state.PlayerID, source state.ObjID, sa *cards.SA) `clone:"hook"`
 	tapeHeldStats *PaymentPlanStats                                        `clone:"hook"`
+	// tapeGranted is set when a converted engine-posed ask (the CR 603.5
+	// optional-trigger yes/no) completed its resolution in line through the
+	// legacy answer's continuation, whose tail already logged the CR 117.3b
+	// grant: handlePriority consumes it instead of logging a second one.
+	// Transient within one Submit.
+	tapeGranted bool `clone:"reset"`
 }
 
 // resolveBoard is the Engine itself under the kernel's method set: asResolve
@@ -54,9 +60,25 @@ func asResolve(e *Engine) *resolveBoard { return (*resolveBoard)(e) }
 // converted ask sites: inside a tape run the decision is posed and either
 // answered from the tape or the run unwinds; with a synchronous answerer it
 // is posed and answered inline. ok false: ask through the legacy path.
-func (e *Engine) TapeAnswer(d *decision.Decision) ([]decision.Option, bool) {
+func (e *Engine) TapeAnswer(d *decision.Decision) (decision.Intent, bool) {
+	if tapeForceLegacy != nil && tapeForceLegacy(d) {
+		return decision.Intent{}, false
+	}
+	if e.applyingReplacement {
+		// A ReplaceWith$ body's ask: legacy suspends the body but the effect
+		// whose move the replacement intercepted keeps running (a mass
+		// return enters the next creature before Devour's sacrifice is
+		// answered), so the answer lands after events an inline answer
+		// would precede. Not a shape the kernel serves; legacy takes it.
+		return decision.Intent{}, false
+	}
 	return e.tape.Answer(asResolve(e), d)
 }
+
+// tapeForceLegacy (tests only) makes a converted ask site decline the tape,
+// so the kernel's legacy fallbacks (the in-place switch, the abort and
+// legacy replay) stay exercised as the conversion closes every real site.
+var tapeForceLegacy func(d *decision.Decision) bool
 
 // SetTapeAnswerer installs (nil removes) e's synchronous answerer: an engine
 // whose every seat is a policy answers a converted mid-resolution ask inline,
@@ -74,7 +96,11 @@ func (b *resolveBoard) Pending() *decision.Decision { return b.pending }
 
 func (b *resolveBoard) Busy() bool {
 	e := (*Engine)(b)
-	return e.resume != nil || e.Suspended()
+	// An off-stack mana resolution (CR 605.3: a mana ability never uses the
+	// stack) routes its asks through its own activation continuation
+	// (askOffStackMana), not the resolution's: a converted site inside one
+	// asks through the legacy path.
+	return e.resume != nil || e.Suspended() || e.offStackMana != nil
 }
 
 func (b *resolveBoard) StartsResolution(d *decision.Decision, in decision.Intent) bool {
@@ -191,22 +217,24 @@ func (b *resolveBoard) Submit(in decision.Intent) error { return (*Engine)(b).Su
 
 func (b *resolveBoard) Pose(d *decision.Decision) { (*Engine)(b).ask(d) }
 
-func (b *resolveBoard) Record(d *decision.Decision, in decision.Intent) []decision.Option {
+func (b *resolveBoard) Record(d *decision.Decision, in decision.Intent) decision.Intent {
 	e := (*Engine)(b)
-	in = cloneIntentForLog(in)
+	logged := cloneIntentForLog(in)
 	e.potentialAskSerial++
-	e.tape.LogIntent(e.L, in)
-	e.emit(events.Event{Kind: events.DecisionMade, Player: in.Player, Text: decisionMadeText(d.Kind, in.Choices)})
+	e.tape.LogIntent(e.L, logged)
+	e.emit(events.Event{Kind: events.DecisionMade, Player: logged.Player, Text: decisionMadeText(d.Kind, logged.Choices)})
 	e.pending = nil
-	chosen := d.Chosen(in)
-	if d.Kind == decision.KModes {
-		obj := d.Source
-		if n := len(e.G.Stack); n > 0 {
-			obj = e.G.Stack[n-1] // the resolving object stays on the stack
-		}
-		recordModesAnswer(e, d, in.Player, chosen, obj)
-	}
-	return chosen
+	// An answered converted ask is an ask this engine took (effects' askSeam
+	// AskCount): a primitive that asks whether its body asked -- the legacy
+	// path's suspension -- sees the served one too.
+	e.askCount++
+	// The asking code acts for the seat the decision is asked OF (a CR 722
+	// redirect), exactly as submitCommit re-seats a handler's intent.
+	ad, _ := actingView(d, logged)
+	acted := logged
+	acted.Player = ad.Player
+	tapeAnswerRecord(e, ad, acted)
+	return acted
 }
 
 func (b *resolveBoard) Emit(ev events.Event) { events.Emit(b.G, b.L, ev) }
@@ -229,6 +257,52 @@ func SetTapeMissObserver(f func(class string)) func(class string) {
 		return nil
 	}
 	return *prev
+}
+
+// tapeLegacyObserver receives one class string per legacy ask that ends a
+// tape run (resolve.Stats' LegacySwitch and Aborts): the census of ask sites
+// not yet converted onto the kernel (W3 step 2). Process-wide, like
+// tapeMissObserver.
+var tapeLegacyObserver atomic.Pointer[func(class string)]
+
+// SetTapeLegacyObserver installs (nil removes) the process-wide legacy-ask
+// observer and returns the previous one. f must be safe for concurrent use.
+func SetTapeLegacyObserver(f func(class string)) func(class string) {
+	var prev *func(string)
+	if f == nil {
+		prev = tapeLegacyObserver.Swap(nil)
+	} else {
+		prev = tapeLegacyObserver.Swap(&f)
+	}
+	if prev == nil {
+		return nil
+	}
+	return *prev
+}
+
+// tapeLegacyAsked reports a legacy ask inside a tape run to the observer,
+// classed by switch/abort and the decision (kind/resume kind, or the
+// prompt's first words for an engine-posed ask with no resume kind).
+func tapeLegacyAsked(e *Engine, d *decision.Decision, aborts bool) {
+	f := tapeLegacyObserver.Load()
+	if f == nil {
+		return
+	}
+	class := "switch "
+	if aborts {
+		class = "abort  "
+	}
+	class += string(d.Kind)
+	if d.ResumeKind != "" {
+		class += "/" + d.ResumeKind
+	} else {
+		p := d.Prompt
+		if len(p) > 40 {
+			p = p[:40]
+		}
+		class += " \"" + p + "\""
+	}
+	(*f)(class + "  [" + tapeShape(e) + "]")
 }
 
 // tapeMissed reports a predicate miss to the observer, classed by the

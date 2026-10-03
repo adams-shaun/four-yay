@@ -1,7 +1,6 @@
 package rules
 
 import (
-	"regexp"
 	"slices"
 	"strings"
 
@@ -23,8 +22,7 @@ func targetBoundReadsPromisedGift(o *state.Object, sa *cards.SA) bool {
 	if o == nil || o.Face() == nil || sa == nil {
 		return false
 	}
-	if strings.Contains(sa.ParamStr(cards.PKTargetMin), "Count$PromisedGift") ||
-		strings.Contains(sa.ParamStr(cards.PKTargetMax), "Count$PromisedGift") {
+	if effects.TargetsOf(sa).Has(effects.TgtBoundPromisedGift) {
 		return true
 	}
 	for _, body := range o.Face().SVars {
@@ -54,7 +52,7 @@ func (e *Engine) targetSAAvailable(p state.PlayerID, id, excludeSelf state.ObjID
 // Pull: "counter target creature spell" unpromised, "instead counter target
 // spell" promised) are not offered on a board where neither election works.
 func targetSAAvailableGift(e *Engine, p state.PlayerID, id, excludeSelf state.ObjID, sa *cards.SA, x int32, xPending bool, gift *bool) bool {
-	if sa == nil || strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) == "" {
+	if sa == nil || !effects.TargetsOf(sa).Targeted() {
 		return true
 	}
 	min, dynamic := targetOfferMin(e, p, id, sa, x, xPending, gift)
@@ -133,14 +131,13 @@ func targetOfferMin(e *Engine, p state.PlayerID, id state.ObjID, sa *cards.SA, x
 	// settled value. SVar-backed bounds remain readable now and are checked.
 	// Read by literal key: the param census's rot guard rejects a dynamic
 	// Params key that is not a function parameter.
-	if xPending && (strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKTargetMin)), "X") ||
-		strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKTargetMax)), "X")) {
+	if xPending && effects.TargetsOf(sa).Has(effects.TgtBoundX) {
 		return 0, true
 	}
 	if gift != nil {
 		// One election, judged as made (targetSAAvailableGift).
 		min, _ = e.resolvedTargetBoundsWithGift(p, id, sa, x, gift)
-		if min > 0 && xPending && specNamesXBound(sa.ParamStr(cards.PKValidTgts)) {
+		if min > 0 && xPending && effects.TargetsOf(sa).Has(effects.TgtValidXBound) {
 			return 0, true
 		}
 		return min, false
@@ -160,7 +157,7 @@ func targetOfferMin(e *Engine, p state.PlayerID, id state.ObjID, sa *cards.SA, x
 			min = pmin
 		}
 	}
-	if min > 0 && xPending && specNamesXBound(sa.ParamStr(cards.PKValidTgts)) {
+	if min > 0 && xPending && effects.TargetsOf(sa).Has(effects.TgtValidXBound) {
 		return 0, true
 	}
 	return min, false
@@ -173,7 +170,7 @@ func targetOfferMin(e *Engine, p state.PlayerID, id state.ObjID, sa *cards.SA, x
 // (setPropTargetBounds). Each of those helpers is the identity on min when
 // its predicate here is false.
 func targetCrossConstrained(sa *cards.SA) bool {
-	if targetControllerExclusive(sa) || strings.EqualFold(sa.ParamStr(cards.PKTargetsWithSameController), "True") {
+	if targetControllerExclusive(sa) || effects.TargetsOf(sa).Has(effects.TgtSameController) {
 		return true
 	}
 	mode, _ := targetSetPropMode(sa)
@@ -257,13 +254,13 @@ func targetsReadXPending(sa *cards.SA) bool {
 	if sa.API == "Charm" && effects.CharmOf(sa).HasChoices {
 		return true
 	}
-	if strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) != "" {
+	if effects.TargetsOf(sa).Targeted() {
 		return true
 	}
 	// A targeting SubAbility$ link is censused too (chainTargetsAvailable),
 	// and its bounds or spec may read the pending X exactly as a root's do.
 	for sub := sa.Sub; sub != nil; sub = sub.Sub {
-		if strings.TrimSpace(sub.ParamStr(cards.PKValidTgts)) != "" {
+		if effects.TargetsOf(sub).Targeted() {
 			return true
 		}
 	}
@@ -362,7 +359,7 @@ func (e *Engine) rootTargetsAvailable(p state.PlayerID, id, excludeSelf state.Ob
 	if announceShapesTargets(e, id, sa) {
 		return true
 	}
-	if strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) == "" {
+	if !effects.TargetsOf(sa).Targeted() {
 		return true
 	}
 	return targetSAAvailableGift(e, p, id, excludeSelf, sa, 0, xPending, gift)
@@ -424,17 +421,6 @@ func costAnnouncesXRef(c *Cost) bool {
 		}
 	}
 	return false
-}
-
-// specNamesXBound reports whether a ValidTgts$ spec carries a numeric bound
-// whose right-hand side is the paid {X}: the <field><CMP>X family numericPred
-// resolves through SpecContext.Resolve (powerGEX, cmcEQX, toughnessLTX,
-// counters_GTX_<KIND>). Only these shapes are dynamic in X; a literal bound
-// (cmcGE3) is static and stays gated at offer time.
-var xBoundRe = regexp.MustCompile(`(?i)(power|toughness|cmc)(LE|GE|EQ|LT|GT)X|counters_(?:LE|GE|EQ|LT|GT)X_`)
-
-func specNamesXBound(spec string) bool {
-	return xBoundRe.MatchString(spec)
 }
 
 // castTargetsAvailable is the cast-offer guard: the spell card may not target

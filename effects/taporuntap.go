@@ -78,6 +78,17 @@ func effTapOrUntap(h Host, c *Ctx, sa *cards.SA) {
 			ResumeKind: "taporuntap", ResumeSA: sa, Source: c.Source,
 			Prompt: "Tap or untap " + o.Face().Name + "?"}
 		d.Options = opts
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand: the "taporuntap"
+			// arm's election for this target (an empty answer degrades to
+			// "tap", the arm's conservative read), then the next target.
+			answer := ""
+			if len(ans) > 0 {
+				answer = ans[0].Kind
+			}
+			applyTapOrUntap(h, o, answer, tapper)
+			continue
+		}
 		if Ask(h, d) == AskAsked {
 			return
 		}

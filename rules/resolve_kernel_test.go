@@ -286,13 +286,21 @@ func TestTapeEachPlayerDiscardLoop(t *testing.T) {
 	}
 }
 
-// A converted ask then a legacy one (Scry's KArrange): the re-run aborts and
+// A converted ask then a legacy one (Scry's KArrange, held legacy): the re-run aborts and
 // the legacy path replays the tape (§7.7 run-time fallback).
 const tapeMixedSrc = "Name:Tape Mixed\nManaCost:U\nTypes:Sorcery\n" +
 	"A:SP$ Discard | Defined$ You | Mode$ TgtChoose | NumCards$ 1 | SubAbility$ DBScry\n" +
 	"SVar:DBScry:DB$ Scry | ScryNum$ 2\nOracle:x\n"
 
+// tapeLegacyArrange keeps Scry's KArrange on the legacy path for a test (a
+// converted site declines the tape through tapeForceLegacy).
+func tapeLegacyArrange(t *testing.T) {
+	tapeForceLegacy = func(d *decision.Decision) bool { return d.Kind == decision.KArrange }
+	t.Cleanup(func() { tapeForceLegacy = nil })
+}
+
 func TestTapeAbortToLegacy(t *testing.T) {
+	tapeLegacyArrange(t)
 	_, st := tapeDual(t, 2, 9501, func(t *testing.T, e *Engine) {
 		tapeCastAndResolve(t, e, "Tape Mixed", "U")
 	}, tapeMixedSrc)
@@ -307,6 +315,7 @@ const tapeLegacyFirstSrc = "Name:Tape Legacy First\nManaCost:U\nTypes:Sorcery\n"
 	"SVar:DBColor:DB$ ChooseColor | Defined$ You\nOracle:x\n"
 
 func TestTapeLegacyFirstSwitch(t *testing.T) {
+	tapeLegacyArrange(t)
 	_, st := tapeDual(t, 2, 9601, func(t *testing.T, e *Engine) {
 		tapeCastAndResolve(t, e, "Tape Legacy First", "U")
 	}, tapeLegacyFirstSrc)

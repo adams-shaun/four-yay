@@ -11,8 +11,8 @@ package cards
 //
 // Every parameter in the ParamKey vocabulary is read through it. The
 // presence-only checks in mayAskRawDeny name parameters outside the
-// vocabulary (it is full: 250 of the 254 keys a uint8 ParamKey can name, and
-// W4 owns it); each moves to mayAskDenyKeys when its key is added. They are
+// vocabulary (W4 owns it); each moves to mayAskDenyKeys when its key is
+// added. They are
 // presence tests, not reads that honour the parameter, so they are kept out
 // of the rules parameter census on purpose: the predicate supports nothing.
 
@@ -75,6 +75,17 @@ func FaceEntryMayAsk(f *Face) bool {
 			if strings.HasPrefix(kw, p) {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+// FaceAttachMayAsk reports whether a face asks as it becomes attached: an
+// R:Event$ Attached replacement (its body is an election).
+func FaceAttachMayAsk(f *Face) bool {
+	for i := range f.Repls {
+		if f.Repls[i].Event == "Attached" {
+			return true
 		}
 	}
 	return false
@@ -160,6 +171,10 @@ func saChainMayAsk(sa *SA, svars map[string]string, self *Face, root bool, depth
 	if depth > maxMayAskDepth {
 		return true
 	}
+	// A spell's whole chain is targeted at cast (CR 601.2c, the cast-time
+	// sub-target pre-ask); an ability's sub-targets past its root are asked
+	// mid-resolution (the "tgts" ask).
+	spell := root && sa.Kind == "SP"
 	for s, first := sa, root; s != nil; s, first = s.Sub, false {
 		if !askFreeAPI(s.API) || saDenied(s) {
 			return true
@@ -186,6 +201,13 @@ func saChainMayAsk(sa *SA, svars map[string]string, self *Face, root bool, depth
 			if tgts == "" && s.ParamStr(PKDefined) == "" && !(first && s.Kind == "SP") {
 				return true // "attach to a permanent of your choice"
 			}
+			// The attaching object's own "as this becomes attached" choice
+			// (Psychic Paper, Sanctuary Blade, Pick-Axe: an R:Event$ Attached
+			// replacement) asks as the Attach applies. Only the source
+			// attaching itself has a known face.
+			if obj := s.ParamStr(PKObject); (obj != "" && obj != "Self") || self == nil || FaceAttachMayAsk(self) {
+				return true
+			}
 		case "PutCounter":
 			if strings.Contains(s.ParamStr(PKCounterType), ",") {
 				return true // a counter-kind pick
@@ -204,6 +226,9 @@ func saChainMayAsk(sa *SA, svars map[string]string, self *Face, root bool, depth
 			if strings.Contains(s.ParamStr(PKTokenScript), ",") {
 				return true // a token-kind pick
 			}
+		}
+		if !first && !spell && tgts != "" {
+			return true // a sub's own target set, asked mid-resolution
 		}
 		// A sub-target chained to its parent's target (ParentTarget) is asked
 		// mid-resolution (the c21c390de chain); Defined$ ParentTarget reuses
@@ -246,4 +271,73 @@ func changeZoneMayAsk(s *SA, self *Face) bool {
 		return s.ParamStr(PKLibraryPosition) == "" // a top/bottom order may ask
 	}
 	return false
+}
+
+// Board gates: the board-dependent asks an otherwise ask-free chain can
+// meet, which rules' object half reads off the replacement sources.
+const (
+	// GateTokens: the chain creates tokens, so a CreateToken replacement
+	// (an optional copy election, a CR 616.1 order choice) can ask.
+	GateTokens uint8 = 1 << iota
+	// GateDamage: the chain deals damage, so competing DamageDone
+	// replacements (CR 616.1) or an optional one can ask.
+	GateDamage
+	// GateDraw: the chain draws, so a Dredge card in the drawer's graveyard
+	// (CR 702.55) offers its replacement.
+	GateDraw
+)
+
+// SAChainBoardGates reports which board gates sa's SubAbility$ chain (and a
+// Charm's Choices$ bodies) opens through its allowlisted APIs.
+func SAChainBoardGates(sa *SA, svars map[string]string) uint8 {
+	return saChainBoardGates(sa, svars, 0)
+}
+
+func saChainBoardGates(sa *SA, svars map[string]string, depth int) uint8 {
+	if depth > maxMayAskDepth {
+		return GateTokens | GateDamage | GateDraw
+	}
+	var g uint8
+	for s := sa; s != nil; s = s.Sub {
+		switch s.API {
+		case "Token", "CopyPermanent":
+			g |= GateTokens
+		case "DealDamage", "DamageAll", "Fight":
+			g |= GateDamage
+		case "Draw":
+			g |= GateDraw
+		case "Charm":
+			choices, _ := s.Param(PKChoices)
+			for _, n := range strings.Split(choices, ",") {
+				if body := ResolveSVar(svars, strings.TrimSpace(n)); body != nil {
+					g |= saChainBoardGates(body, svars, depth+1)
+				}
+			}
+		}
+	}
+	return g
+}
+
+// ReplMayElect reports whether a replacement line's own text elects as it
+// applies: Optional$ / OptionalDecider$, or a CreateToken body other than a
+// plain ReplaceToken (a chosen-copy election: Esix, Moonlit Meditation's
+// ValidChoices$ / TokenScript$ Chosen). The board gate of the rules half;
+// a presence test, never a read that honours the parameter.
+func ReplMayElect(r *Repl) bool {
+	if r.HasParam(PKOptional) || r.HasParam(PKOptionalDecider) {
+		return true
+	}
+	if r.Event != "CreateToken" {
+		return false
+	}
+	return r.With == nil || r.With.API != "ReplaceToken" || r.With.HasParam(PKValidChoices) ||
+		strings.EqualFold(strings.TrimSpace(r.With.ParamStr(PKTokenScript)), "Chosen")
+}
+
+// ReplParamsMayElect is ReplMayElect's Optional$ test over an Effect-created
+// replacement's raw parameter map.
+func ReplParamsMayElect(params map[string]string) bool {
+	_, opt := params["Optional"]
+	_, dec := params["OptionalDecider"]
+	return opt || dec
 }

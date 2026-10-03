@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -616,7 +617,7 @@ func effDamageAll(h Host, c *Ctx, sa *cards.SA) {
 	// Defined/TargetedPlayerCtrl direction. ValidTgts$ Creature (a
 	// non-player spec) leaves scope nil, so the filter-only sweep stands.
 	var scope map[state.PlayerID]bool
-	if tg := strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)); tg != "" && playerSpecBaseKnown(tg) {
+	if tg := TargetsOf(sa).ValidTgts; tg != "" && playerSpecBaseKnown(tg) {
 		sc := c.SpecContext(c.Controller)
 		sc.ResolutionTargets = targetedGroup(c)
 		players, _ := controlReferentPlayers(h.Game(), sc, "ControlledBy", "TargetedPlayer")
@@ -882,7 +883,7 @@ func effEachDamage(h Host, c *Ctx, sa *cards.SA) {
 	eachToItself := strings.TrimSpace(sa.Params["EachToItself"]) != ""
 	eachOtherRef := strings.TrimSpace(sa.Params["ToEachOther"])
 	hasDefined := strings.TrimSpace(sa.ParamStr(cards.PKDefined)) != ""
-	_, hasTgts := sa.Param(cards.PKValidTgts)
+	hasTgts := TargetsOf(sa).Has(TgtValidPresent)
 
 	// LifeLostAll observes the affected group once, exactly as effDamageAll
 	// brackets its sweep.
@@ -1186,4 +1187,24 @@ func effDamageResolve(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 	registerReplaceDying(h, c, replaceDyingParam(sa), damaged)
+}
+
+// damageSplitAnswer decodes a "damage_split" answer exactly as rules' resume
+// arm does: the answer is a multiset over the target options, and each
+// option's multiplicity is the damage its target (the option's Index, the
+// target's Defined$ position) receives.
+func damageSplitAnswer(ans []decision.Option) []int32 {
+	n := 0
+	for _, o := range ans {
+		if o.Index+1 > n {
+			n = o.Index + 1
+		}
+	}
+	split := make([]int32, n)
+	for _, o := range ans {
+		if o.Index >= 0 && o.Index < len(split) {
+			split[o.Index]++
+		}
+	}
+	return split
 }

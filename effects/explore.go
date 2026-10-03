@@ -154,6 +154,12 @@ func exploreOnce(h Host, c *Ctx, sa *cards.SA, explorer state.ObjID, done int32)
 		{Index: 0, Kind: "graveyard", Label: "Put it into your graveyard", Obj: top, Player: ctrl},
 		{Index: 1, Kind: "top", Label: "Put it back on top of your library", Obj: top, Player: ctrl},
 	}
+	if ans, ok := AskTape(h, d); ok {
+		// The "explore" answer in hand: the re-entry's application (any
+		// answer but "top" sends the card to the graveyard).
+		applyNonlandExplore(h, explorer, top, len(ans) == 0 || ans[0].Kind != "top")
+		return false
+	}
 	if Ask(h, d) == AskAsked {
 		// Park the mid-explore state (documenting; the resume arm is what
 		// actually re-seeds it — the suspended Ctx is discarded) and report

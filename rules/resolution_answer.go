@@ -5,7 +5,6 @@
 package rules
 
 import (
-	"strconv"
 	"strings"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -34,11 +33,7 @@ func (e *Engine) resumeAnswerBinding(rp *resumePoint, o *state.Object, ctx *effe
 		// Draw cursor advances only after the replacement (or declined
 		// ordinary draw) completes; effDraw then re-enters at that cursor
 		// and performs all remaining draws before its SubAbility$.
-		if len(chosen) > 0 && chosen[0].Kind == "dredge" {
-			e.applyDredge(rp.player, chosen[0].Obj)
-		} else {
-			e.resumeOrdinaryDraw(rp.player)
-		}
+		dredgeAnswerApply(e, rp.player, chosen)
 		ctx.DrawDone = int32(rp.target + 1)
 		if rp.uptoIdx >= 0 {
 			// An Upto$ Draw's answered batch parked on this Dredge ask: the
@@ -631,14 +626,7 @@ func (e *Engine) resumeAnswerBinding(rp *resumePoint, o *state.Object, ctx *effe
 		// ChooseCard, ChoosePlayer and ChangeTargets all use KChoose. Keep
 		// the concrete target shape rather than just an ObjID because player
 		// zero is a real target too.
-		ctx.Choice = make([]state.Target, 0, len(chosen))
-		for _, o := range chosen {
-			if o.Kind == "player" {
-				ctx.Choice = append(ctx.Choice, state.Target{Player: o.Player, IsPlayer: true})
-			} else if o.Obj != 0 {
-				ctx.Choice = append(ctx.Choice, state.Target{Obj: o.Obj})
-			}
-		}
+		ctx.Choice = effects.ChoiceAnswerTargets(chosen)
 		ctx.ChoiceDone = true
 	case "vote":
 		// api:Vote's PLAYER ballot (task votepb1): the answer to one
@@ -859,14 +847,7 @@ func (e *Engine) resumeAnswerBinding(rp *resumePoint, o *state.Object, ctx *effe
 		// answer is the real decline of every static ("no", the Min-0
 		// Optional answer); a malformed one keeps the decline, the
 		// conservative read attach_optional takes.
-		ctx.SurveilLookOpt = "no"
-		if len(chosen) > 0 {
-			parts := make([]string, 0, len(chosen))
-			for _, o := range chosen {
-				parts = append(parts, strconv.Itoa(o.Index))
-			}
-			ctx.SurveilLookOpt = strings.Join(parts, ",")
-		}
+		ctx.SurveilLookOpt = effects.SurveilLookOptAnswer(chosen)
 	case "attach_choice":
 		// A Choices$ Attach's card choice was answered (Goldwardens'
 		// Gambit's "for each of those tokens, you may attach an Equipment
@@ -990,7 +971,6 @@ func (e *Engine) resumeAnswerBinding(rp *resumePoint, o *state.Object, ctx *effe
 				ctx.Imprint = append(ctx.Imprint, o.Obj)
 			}
 		}
-		ctx.ImprintDone = true
 	case "untap":
 		ctx.Untap = make([]state.ObjID, 0, len(chosen))
 		for _, o := range chosen {
@@ -1079,13 +1059,12 @@ func (e *Engine) resumeAnswerBinding(rp *resumePoint, o *state.Object, ctx *effe
 		// FoundDestination$, "no" — the decline — to OptionalNoDestination$
 		// or the revealed pile. A malformed or empty answer keeps the
 		// decline, the conservative read of an ambiguous one (the same
-		// attach_optional convention). DigUntilMoveDone also suppresses the
-		// re-entry's reveal Note, which the first pass already recorded.
+		// attach_optional convention). The non-empty answer also suppresses
+		// the re-entry's reveal Note, which the first pass already recorded.
 		ctx.DigUntilMove = "no"
 		if len(chosen) > 0 && chosen[0].Kind == "yes" {
 			ctx.DigUntilMove = "yes"
 		}
-		ctx.DigUntilMoveDone = true
 	case "diguntil_aura":
 		// CR 303.4f: an Aura entering without being cast chooses a
 		// permanent to enchant. The option's object is revalidated by

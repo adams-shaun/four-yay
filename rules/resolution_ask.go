@@ -210,6 +210,14 @@ func (e *Engine) buildAskResume(d *decision.Decision, obj state.ObjID, direct bo
 			(e.resolvingObj == 0 || d.Source == e.resolvingObj) {
 			obj = d.Source
 			ownResolution = e.resolvingObj != 0
+		} else if e.resolvingObj != 0 && d.Source == e.resolvingObj {
+			// The resolving permanent spell's own entry replacement asked
+			// BEFORE the move (an R:Event$ Moved ReplaceWith body still on
+			// the stack -- Pendant of Prosperity's "enters under the control
+			// of an opponent of your choice" ChoosePlayer): the resume keeps
+			// the top-of-stack frame, but the body moves the spell off the
+			// stack, so its completion owes the same CR 117.3b reset.
+			ownResolution = true
 		}
 	}
 	parentLinks, linkAnswer, linkAnswered := e.resolutionParentLinks()
@@ -236,7 +244,7 @@ func (e *Engine) buildAskResume(d *decision.Decision, obj state.ObjID, direct bo
 		effectFrame:       e.currentEffectFrame,
 		before:            e.retainTriggerBefore(), target: d.ResumeTarget, player: d.Acting(),
 		chosenDirection: chosenDirectionForResume(e.resolutionCtx),
-		direct:          direct, ownResolution: ownResolution, rolls: d.Rolls, clash: cloneClashResume(d.ResumeClash),
+		direct:          direct, ownResolution: ownResolution, rolls: rollResume{dice: d.Rolls, ride: effects.RollRideOf(e.resolutionCtx)}, clash: cloneClashResume(d.ResumeClash),
 		choices:     append([]state.Target(nil), d.ResumeChoices...),
 		chosenValid: d.ResumeChosenValid, remembered: remembered,
 		pendingDamage:       effects.ClonePendingDamage(e.resolutionPendingDamage()),
@@ -247,8 +255,8 @@ func (e *Engine) buildAskResume(d *decision.Decision, obj state.ObjID, direct bo
 		forgetOtherSnapshot: append([]state.Target(nil), d.ResumeForgetOtherSnapshot...),
 		forgetOtherOwners:   append([]state.PlayerID(nil), d.ResumeForgetOtherOwners...),
 		forgetOther:         forgetOtherRide{ready: d.ResumeForgetOtherReady, cleared: d.ResumeForgetOtherCleared},
-		digUntilMove:        d.ResumeDigUntilMove, digUntilMoveDone: d.ResumeDigUntilMoveDone,
-		clonePick: d.ResumeClonePick, clonePickDone: d.ResumeClonePickDone,
+		digUntilMove:        d.ResumeDigUntilMove,
+		clonePick:           d.ResumeClonePick, clonePickDone: d.ResumeClonePickDone,
 		moved:   append([]state.ObjID(nil), d.ResumeMoved...),
 		uptoIdx: d.ResumeUptoIdx, uptoCount: d.ResumeUptoCount, exploreDone: d.ResumeExploreDone,
 		villainousVictims:       append([]state.Target(nil), d.ResumeVillainousVictims...),
@@ -256,6 +264,7 @@ func (e *Engine) buildAskResume(d *decision.Decision, obj state.ObjID, direct bo
 		genericChoosers:         append([]state.Target(nil), d.ResumeGenericChoosers...),
 		genericChooserIndex:     d.ResumeGenericChooserIndex,
 		numberPicks:             append([]int32(nil), d.ResumeNumberPicks...),
+		publishedSVars:          effects.PublishedSVarsOf(e.resolutionCtx),
 		villainousRemembered:    append([]state.Target(nil), e.villainousRemembered...),
 		villainousRememberedSet: e.villainousRememberedSet,
 		targetsUnique:           e.targetsUniqueRide(d),

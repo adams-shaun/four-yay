@@ -16,11 +16,22 @@ import "github.com/adams-shaun/gorge/decision"
 // unwinds the run to its checkpoint, and re-executes it from there once the
 // answer is submitted.
 func AskTape(h Host, d *decision.Decision) ([]decision.Option, bool) {
-	if d == nil || OnlyEmptyAnswer(d) || len(d.Options) == 0 {
+	in, ok := AskTapeIntent(h, d)
+	if !ok {
 		return nil, false
+	}
+	return d.Chosen(in), true
+}
+
+// AskTapeIntent is AskTape for a site that reads more of the answer than its
+// chosen options (an arrange's Rest, the pile-B order): the intent the
+// asking code acts on, re-seated on the seat d is asked OF.
+func AskTapeIntent(h Host, d *decision.Decision) (decision.Intent, bool) {
+	if d == nil || OnlyEmptyAnswer(d) || len(d.Options) == 0 {
+		return decision.Intent{}, false
 	}
 	if s := askSeamOf(h); s != nil {
 		return s.TapeAnswer(d)
 	}
-	return nil, false
+	return decision.Intent{}, false
 }
