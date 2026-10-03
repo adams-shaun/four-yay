@@ -111,7 +111,8 @@ func (e *Engine) nonManaCastableP(p state.PlayerID, id state.ObjID, cost *Cost, 
 			if reserved[oid] || e.sacrificeBlockedForCost(oid, costCauseForAbility(ability)) { // an earlier Sac part already claimed this one; a CantSacrifice-blocked one can never pay
 				continue
 			}
-			if e.matchesSpecFrom(matchSpec, oid, p, id) {
+			if (part.Referent != 0 && oid == part.Referent) ||
+				(part.Referent == 0 && e.matchesSpecFrom(matchSpec, oid, p, id)) {
 				avail = append(avail, oid)
 			}
 		}
@@ -285,7 +286,7 @@ func (e *Engine) nonManaCastableP(p state.PlayerID, id state.ObjID, cost *Cost, 
 			if part.Dyn == "Any" {
 				avail := 0
 				var floorSum int32
-				for _, oid := range e.costCandidates(p, id, state.ZBattlefield, part.Spec, false, true) {
+				for _, oid := range e.tapCostCandidates(p, id, part) {
 					if reserved[oid] || (cost.Tap && oid == id) {
 						continue
 					}
@@ -310,7 +311,7 @@ func (e *Engine) nonManaCastableP(p state.PlayerID, id state.ObjID, cost *Cost, 
 			continue
 		}
 		var avail []state.ObjID
-		for _, oid := range e.costCandidates(p, id, state.ZBattlefield, part.Spec, false, true) {
+		for _, oid := range e.tapCostCandidates(p, id, part) {
 			if reserved[oid] || (cost.Tap && oid == id) {
 				continue
 			}
@@ -754,6 +755,23 @@ func (e *Engine) costCandidates(p state.PlayerID, source state.ObjID, zone state
 	return out
 }
 
+// tapCostCandidates is costCandidates for one TapPermanent (tapXType) part:
+// a part bound to a granted ability's grantor (bindGrantedCostReferents --
+// Fishing Pole's "Tap Fishing Pole") names exactly that permanent, offered
+// while the payer controls it untapped on the battlefield; every other part
+// is the ordinary untapped filter scan. Offer, planning and payment all read
+// this one helper, so they cannot disagree about who can pay.
+func (e *Engine) tapCostCandidates(p state.PlayerID, source state.ObjID, part CostPart) []state.ObjID {
+	if part.Referent == 0 {
+		return e.costCandidates(p, source, state.ZBattlefield, part.Spec, false, true)
+	}
+	o := e.G.Obj(part.Referent)
+	if o == nil || o.Zone != state.ZBattlefield || o.Controller != p || !existsOnBattlefield(o) || o.Tapped {
+		return nil
+	}
+	return []state.ObjID{part.Referent}
+}
+
 // revealOrChooseCandidates returns the objects that can pay one
 // RevealOrChoose<N/Spec> part, hand cards first (the REVEAL arm) then
 // battlefield permanents (the CHOOSE arm). The two arms' candidate lists are
@@ -795,6 +813,18 @@ func (e *Engine) sacrificeCostCandidates(p state.PlayerID, source state.ObjID, p
 	matchSpec := sacrificeMatchSpec(part.Spec)
 	cause := costCauseForAbility(ability)
 	var out []state.ObjID
+	if part.Referent != 0 {
+		// A granted ability's bound OriginalHost (bindGrantedCostReferents):
+		// exactly the grantor, and only while the payer controls it on the
+		// battlefield (CR 701.21a: only a permanent you control can be
+		// sacrificed).
+		r := part.Referent
+		if slices.Contains(e.G.Zone(state.ZBattlefield, p), r) && existsOnBattlefield(e.G.Obj(r)) &&
+			!e.sacrificeBlockedForCost(r, cause) {
+			out = append(out, r)
+		}
+		return out
+	}
 	if matchSpec == "CARDNAME" {
 		// A bare self-reference matches exactly the source (CR 201.5; the
 		// filter's CARDNAME base rejects every object whose ID is not

@@ -431,7 +431,17 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 	switch spec {
 	case "":
 		return nil, false
-	case "Self", "Parent", "EffectSource", "OriginalHost", "CorrectedSelf":
+	case "OriginalHost":
+		// The card that originally generated the ability: for a granted
+		// activated ability (Fishing Pole's bait counter, Blazing Torch's
+		// damage source) that is the GRANTOR, not the recipient the ability
+		// was activated from; for an ability of the source itself it is
+		// the source, like Self.
+		if c.Grantor != 0 {
+			return []state.Target{{Obj: c.Grantor}}, true
+		}
+		return []state.Target{{Obj: c.Source}}, true
+	case "Self", "Parent", "EffectSource", "CorrectedSelf":
 		// EffectSource/OriginalHost name the ability's own source object --
 		// the permanent that pushed the resolving ability, or the card that
 		// originally generated it before any copies. newDamageRider unwraps

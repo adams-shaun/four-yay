@@ -963,6 +963,10 @@ type Ctx struct {
 	ClashTop          bool
 	Source            state.ObjID
 	Controller        state.PlayerID
+	// Grantor is the object that GRANTED the resolving activated ability to
+	// Source (state.Object.GrantedBy): Forge's OriginalHost. Zero when the
+	// ability is Source's own, in which case OriginalHost is Source.
+	Grantor state.ObjID
 	// CostUntapped carries permanents untapped as an activation cost into
 	// effects whose Defined.Untapped selector refers to that paid target.
 	CostUntapped []state.ObjID
