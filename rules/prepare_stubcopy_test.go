@@ -63,6 +63,8 @@ func TestPrepareStubBackPreparedCopyCastable(t *testing.T) {
 		t.Fatalf("prepared copy face = %q %q %v ability=%v, want a resolved Raise Dead",
 			cp.Face().Name, cp.Face().ManaCost, cp.Face().Types, cp.Face().SpellAbility())
 	}
+	// The copy is cast, not cast free: Raise Dead's {B} is paid (CR 601.2f).
+	addMana(t, e, 0, "B")
 	idx := -1
 	for _, opt := range castOptions(t, e) {
 		if opt.Obj == copyID {
