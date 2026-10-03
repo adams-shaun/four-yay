@@ -1,6 +1,0 @@
-{
-  "card": "Progenitus",
-  "rows": {
-    "countered-shuffles-into-library": "CR 702.16b/614.1a/701.6a: protection applies only to permanents and players, so Counterspell can target and counter the Progenitus spell; the countered card would go to the graveyard and is shuffled into its owner's library instead. Observed: Counterspell resolves (to the graveyard) but Progenitus stays on the stack and then resolves onto the battlefield. Control: the same Counterspell counters Grizzly Bears normally. Either protection is treated as working on the stack (the target deemed illegal on resolution) or the 'from anywhere' graveyard replacement aborts the counter. Confidence fairly high. New root, found by the FDN audit batch 6; no ticket yet."
-  }
-}

@@ -836,12 +836,32 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 			targetObjs = append(targetObjs, t.Obj)
 		}
 	}
+	// Creating a token copy is creating a token (CR 111.1, 706.2), so the
+	// CreateToken replacements (Doubling Season's "twice that many", ...)
+	// size each destination's copy count. The host's proposal is taken once
+	// per creation: a resumed pass reads the first pass's counts back from
+	// its TokenRest, so the cursor below indexes the same units and a
+	// replacement's scripted extra mints are never created twice.
+	counts := make([]int32, len(destinations))
+	if rest != nil && len(rest.Counts) == len(destinations) {
+		copy(counts, rest.Counts)
+	} else {
+		for d, destination := range destinations {
+			counts[d] = n
+			if t := destination.target; !t.IsPlayer && g.Obj(t.Obj) != nil {
+				counts[d] = proposeCopyTokens(h, destination.owner, t.Obj, n)
+			}
+		}
+	}
+	base := 0
 	for d, destination := range destinations {
 		owner, t := destination.owner, destination.target
-		for i := int32(0); i < n; i++ {
+		first := base
+		base += int(counts[d])
+		for i := int32(0); i < counts[d]; i++ {
 			// unit is this copy's position in the call's deterministic
-			// destination x NumCopies order: the TokenRest cursor.
-			unit := d*int(n) + int(i)
+			// destination x copy-count order: the TokenRest cursor.
+			unit := first + int(i)
 			if rest != nil && unit < rest.Next {
 				continue
 			}
@@ -915,7 +935,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 				From: state.ZLibrary, To: state.ZBattlefield})
 			if !wasSuspended && h.Suspended() && len(entered) == 0 {
 				if suspendMint(h, c, TokenRest{SA: sa, Next: unit, Minted: minted,
-					Players: owners, Objs: targetObjs, Amount: n}) {
+					Players: owners, Objs: targetObjs, Amount: n, Counts: counts}) {
 					return
 				}
 			}

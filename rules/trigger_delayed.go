@@ -769,7 +769,7 @@ func (e *Engine) eventDelayedSpellCastMatches(t cards.Trigger, dt *state.Delayed
 	if obj == nil || obj.Face() == nil {
 		return false
 	}
-	if actionTriggerModes[t.Mode] && strings.EqualFold(t.Params["PlayerTurn"], "True") &&
+	if strings.EqualFold(t.Params["PlayerTurn"], "True") &&
 		e.G.Active != dt.Controller {
 		return false
 	}

@@ -352,6 +352,9 @@ func evalCountExprOK(h Host, c *Ctx, expr string, depth int) (int32, bool) {
 	// modelled family returns false and falls through to the heads below
 	// (evalRemembered still owns Remembered$Amount), so every shape that was
 	// zero before stays zero.
+	if body, ok := strings.CutPrefix(expr, "TriggerObjectsCurrentCastSpells$"); ok {
+		return evalTriggerCurrentCastSpellsOK(h, c, body)
+	}
 	if n, ok := evalRefProperty(h, c, expr); ok {
 		return n, true
 	}

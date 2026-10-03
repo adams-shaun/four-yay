@@ -244,14 +244,16 @@ func resolveCountOperand(h Host, c *Ctx, tok string, depth int) (int32, bool) {
 	return evalCountExprOK(h, c, tok, depth+1)
 }
 
-// splitDot splits an "a.b" pair into two integers, defaulting either side to
-// zero if it does not parse -- the same forgiving-not-panicking convention
-// applyCountOp already follows.
-func splitDot(s string) (a, b int32) {
-	x, y, _ := strings.Cut(s, ".")
-	av, _ := strconv.Atoi(x)
-	bv, _ := strconv.Atoi(y)
-	return int32(av), int32(bv)
+// dotBranch resolves a "<yes>.<no>" branch pair (Count$Kicked.<yes>.<no>,
+// Revolt, Morbid, Monarch, Blessing, UrzaLands, StartingPlayer) against the
+// head's predicate: each branch is a literal OR an SVar name, read through
+// countBranchOperand. A literal-only read (the former splitDot) answered 0
+// for a named branch, so Divine Resilience's TargetMax$ Y
+// (SVar:Y:Count$Kicked.Z.1, Z the creatures you control) bounded the kicked
+// cast at zero targets.
+func dotBranch(h Host, c *Ctx, s string, holds bool, depth int) int32 {
+	yes, no, _ := strings.Cut(s, ".")
+	return countBranchOperand(h, c, holds, yes, no, depth)
 }
 
 // countBranchOperand resolves one yes/no branch head's two branch tokens

@@ -584,7 +584,7 @@ func (c *Ctx) SpecContext(you state.PlayerID) SpecContext {
 		// resolving effect's ordinary type filter (target offer, Count$Valid,
 		// CantTarget) agrees with the layer walk. Also a field copy of
 		// immutable data.
-		DerivedTypes: c.EffectiveTypes, StaticGoads: c.StaticGoads, DerivedColors: c.EffectiveColors,
+		DerivedTypes: c.EffectiveTypes, StaticGoads: c.StaticGoads, LayerTables: c.LayerTables,
 		TargetableObjects:           c.TargetableObjects,
 		ExcludeFromBattlefieldCount: c.ExcludeFromBattlefieldCount}
 	// Numeric-RHS resolution for a resolution-time filter spec, in priority
@@ -638,7 +638,7 @@ func (c *Ctx) SpecContext(you state.PlayerID) SpecContext {
 func (c *Ctx) MatchSpec(g *state.Game, spec string, id state.ObjID, you state.PlayerID) bool {
 	return MatchesSpecCtx(g, spec, id, SpecContext{You: you, Source: c.Source,
 		EffectiveNames: c.EffectiveNames, DerivedTypes: c.EffectiveTypes, StaticGoads: c.StaticGoads,
-		DerivedColors: c.EffectiveColors})
+		LayerTables: c.LayerTables})
 }
 
 // resolveNumericRHS is the numeric-RHS resolver the gate in (*Ctx).SpecContext
