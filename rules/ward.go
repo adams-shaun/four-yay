@@ -54,6 +54,9 @@ func (e *Engine) beginWardPayment(rp *resumePoint, ctx *effects.Ctx) (paid, aske
 		if len(d.Options) == 0 {
 			return false, false
 		}
+		if in, ok := e.wardTapeAnswer(d, ctx); ok {
+			return e.settleWardPayment("ward_alt", rp.sa, ctx, d.Chosen(in)), false
+		}
 		e.Ask(d)
 		e.resume.outer = rp.outer
 		return false, true
@@ -77,14 +80,14 @@ func (e *Engine) beginWardPayment(rp *resumePoint, ctx *effects.Ctx) (paid, aske
 			// Blight's cost is "a creature you control gets -N/-N"; unlike
 			// Waterbend and a tap cost it does not require that creature to be
 			// untapped (Auntie Ool, Cursewretch).
-			return e.askWardObjects(rp, payer, "ward_blight", "Choose a creature to blight", 1, 1,
+			return e.askWardObjects(rp, ctx, payer, "ward_blight", "Choose a creature to blight", 1, 1,
 				e.wardPermanents(payer, ctx.Source, "Creature", false))
 		case "CollectEvidence":
 			ids := append([]state.ObjID(nil), e.G.Zone(state.ZGraveyard, payer)...)
 			if wardManaValue(e.G, ids) < int32(n) {
 				return false, false
 			}
-			return e.askWardObjects(rp, payer, "ward_evidence", "Exile evidence with total mana value "+strconv.Itoa(n), 1, len(ids), ids)
+			return e.askWardObjects(rp, ctx, payer, "ward_evidence", "Exile evidence with total mana value "+strconv.Itoa(n), 1, len(ids), ids)
 		case "Waterbend":
 			need := n - int(e.G.Players[payer].Pool.Total())
 			if need < 0 {
@@ -97,7 +100,7 @@ func (e *Engine) beginWardPayment(rp *resumePoint, ctx *effects.Ctx) (paid, aske
 			if len(ids) < need {
 				return false, false
 			}
-			return e.askWardObjects(rp, payer, "ward_waterbend", "Tap permanents to waterbend", need, need, ids)
+			return e.askWardObjects(rp, ctx, payer, "ward_waterbend", "Tap permanents to waterbend", need, need, ids)
 		}
 	}
 
@@ -130,7 +133,7 @@ func (e *Engine) beginWardPayment(rp *resumePoint, ctx *effects.Ctx) (paid, aske
 		if int32(len(ids)) < part.N {
 			return false, false
 		}
-		return e.askWardObjects(rp, payer, "ward_sac", "Choose permanents to sacrifice for ward", int(part.N), int(part.N), ids)
+		return e.askWardObjects(rp, ctx, payer, "ward_sac", "Choose permanents to sacrifice for ward", int(part.N), int(part.N), ids)
 	}
 	if len(cost.Discard) == 1 {
 		part := cost.Discard[0]
@@ -153,14 +156,14 @@ func (e *Engine) beginWardPayment(rp *resumePoint, ctx *effects.Ctx) (paid, aske
 			}
 			return true, false
 		}
-		return e.askWardObjects(rp, payer, "ward_discard", "Choose cards to discard for ward", int(part.N), int(part.N), ids)
+		return e.askWardObjects(rp, ctx, payer, "ward_discard", "Choose cards to discard for ward", int(part.N), int(part.N), ids)
 	}
 	if cost.Tap {
 		ids := e.wardPermanents(payer, ctx.Source, "Artifact,Creature", true)
 		if len(ids) == 0 {
 			return false, false
 		}
-		return e.askWardObjects(rp, payer, "ward_tap", "Choose a permanent to tap for ward", 1, 1, ids)
+		return e.askWardObjects(rp, ctx, payer, "ward_tap", "Choose a permanent to tap for ward", 1, 1, ids)
 	}
 	if e.payMana(payer, cost) {
 		return true, false
@@ -176,7 +179,7 @@ func (e *Engine) beginWardPayment(rp *resumePoint, ctx *effects.Ctx) (paid, aske
 	return false, true
 }
 
-func (e *Engine) askWardObjects(rp *resumePoint, payer state.PlayerID, kind, prompt string, min, max int, ids []state.ObjID) (bool, bool) {
+func (e *Engine) askWardObjects(rp *resumePoint, ctx *effects.Ctx, payer state.PlayerID, kind, prompt string, min, max int, ids []state.ObjID) (bool, bool) {
 	d := &decision.Decision{Player: payer, Kind: decision.KChoose, Min: min, Max: max,
 		Prompt: prompt, ResumeKind: kind, ResumeSA: rp.sa}
 	for _, id := range ids {
@@ -187,9 +190,23 @@ func (e *Engine) askWardObjects(rp *resumePoint, payer state.PlayerID, kind, pro
 		}
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: kind, Obj: id, Label: label})
 	}
+	if in, ok := e.wardTapeAnswer(d, ctx); ok {
+		// A tape-served Ward election settles in line: the pick is the
+		// payment (the legacy "ward_*" resume arm's settleWardPayment).
+		return e.settleWardPayment(kind, rp.sa, ctx, d.Chosen(in)), false
+	}
 	e.Ask(d)
 	e.resume.outer = rp.outer
 	return false, true
+}
+
+// wardTapeAnswer serves a Ward payment ask from the tape inside a tape run's
+// Ward election (wardAnswerSettle).
+func (e *Engine) wardTapeAnswer(d *decision.Decision, ctx *effects.Ctx) (decision.Intent, bool) {
+	if !e.tape.InRun() || e.resolutionCtx != ctx {
+		return decision.Intent{}, false
+	}
+	return e.TapeAnswer(d)
 }
 
 func (e *Engine) wardPayer(ctx *effects.Ctx) (state.PlayerID, bool) {

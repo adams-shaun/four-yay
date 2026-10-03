@@ -7,6 +7,8 @@ package rules
 
 import (
 	"os"
+	"runtime"
+	"strings"
 	"sync/atomic"
 
 	"github.com/adams-shaun/gorge/cards"
@@ -127,16 +129,31 @@ func (b *resolveBoard) Busy() bool {
 
 func (b *resolveBoard) StartsResolution(d *decision.Decision, in decision.Intent) bool {
 	e := (*Engine)(b)
-	if d.Kind != decision.KPriority || in.Payment != nil || in.Announce != nil || len(e.G.Stack) == 0 {
+	if d.Kind != decision.KPriority || in.Payment != nil || in.Announce != nil {
 		return false
 	}
 	if e.resume != nil || e.Suspended() {
 		return false // a legacy suspension is in flight; never nest a tape run in it
 	}
-	return firstChosen(d, in).Kind == "pass" && e.G.Passes+1 >= int32(e.G.AliveCount())
+	switch firstChosen(d, in).Kind {
+	case "play_land":
+		return true
+	case "pass":
+		if e.G.Passes+1 < int32(e.G.AliveCount()) {
+			return false
+		}
+		return len(e.G.Stack) > 0 || tapeStepMayAsk(e)
+	}
+	return false
 }
 
-func (b *resolveBoard) MayAsk() bool { return tapeMayAsk((*Engine)(b)) }
+func (b *resolveBoard) MayAsk(d *decision.Decision, in decision.Intent) bool {
+	e := (*Engine)(b)
+	if len(e.G.Stack) == 0 || firstChosen(d, in).Kind == "play_land" {
+		return tapeLandMayAsk(e, firstChosen(d, in).Obj)
+	}
+	return tapeMayAsk(e)
+}
 
 func (b *resolveBoard) Checkpoint() resolve.Snapshot {
 	e := (*Engine)(b)
@@ -335,7 +352,30 @@ func tapeLegacyAsked(e *Engine, d *decision.Decision, aborts bool) {
 		}
 		class += " \"" + p + "\""
 	}
-	(*f)(class + "  [" + tapeShape(e) + "]")
+	var pcs [40]uintptr
+	n := runtime.Callers(3, pcs[:])
+	fr := runtime.CallersFrames(pcs[:n])
+	stk := ""
+	for i := 0; i < 40; i++ {
+		f, more := fr.Next()
+		nm := f.Function
+		if j := strings.LastIndex(nm, "/rules."); j >= 0 {
+			nm = nm[j+7:]
+		}
+		if strings.HasPrefix(nm, "(*Engine).") {
+			nm = nm[10:]
+		}
+		if strings.Contains(nm, "Submit") || strings.Contains(nm, "Advance") {
+			break
+		}
+		if i >= 2 && !strings.Contains(nm, "effects.") && !strings.Contains(nm, "ask") && !strings.Contains(nm, "Ask") {
+			stk += nm + "<"
+		}
+		if !more || len(stk) > 160 {
+			break
+		}
+	}
+	(*f)(class + "  [" + tapeShape(e) + "] " + e.tape.DbgState() + " via " + dbgSubmit + " :: " + stk)
 }
 
 // tapeMissed reports a predicate miss to the observer, classed by the

@@ -39,11 +39,18 @@ func tapeWindowFlow(e *Engine, flow chooseFor) bool {
 func windowAsk(e *Engine, d *decision.Decision, flow chooseFor) {
 	e.choosing = flow
 	if tapeWindowFlow(e, flow) {
+		// The flag stays up through the answer's own continuation: an ask it
+		// reaches (a mana ability's cost pick, a colour choice) is served in
+		// place too, and its holder is open by design.
+		prev := e.tapeWindowAsking
 		e.tapeWindowAsking = true
 		in, ok := e.TapeAnswer(d)
-		e.tapeWindowAsking = false
+		if !ok {
+			e.tapeWindowAsking = prev
+		}
 		if ok {
 			windowAnswer(e, flow, d.Chosen(in))
+			e.tapeWindowAsking = prev
 			if tapeWindowCompletes(flow) && !e.Suspended() {
 				// The handler's continuation completed the resolution and
 				// logged its priority grant (finishResumption's tail or the

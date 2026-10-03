@@ -48,6 +48,11 @@ func zoneOf(g *state.Game, z state.Zone, p state.PlayerID) []state.ObjID {
 // draw step. Drawing from an empty library is a loss, checked by SBAs.
 func DrawFor(h Host, p state.PlayerID) { drawFor(h, p, -1, nil, drawUptoRider{}) }
 
+// DrawForTurn is DrawFor for the draw step's turn-based draw: a Dredge ask it
+// poses is served from the resolution kernel's tape when a tape run (begun by
+// the pass that ends the upkeep) serves it.
+func DrawForTurn(h Host, p state.PlayerID) { drawFor(h, p, -1, nil, drawUptoRider{turn: true}) }
+
 // drawUptoRider is the Upto$ Draw continuation an in-flight upto batch
 // carries across a Dredge ask (Arcane Denial's "may draw up to two" whose
 // draw parks on a Dredge replacement): idx is the Defined$ target index
@@ -58,6 +63,9 @@ func DrawFor(h Host, p state.PlayerID) { drawFor(h, p, -1, nil, drawUptoRider{})
 type drawUptoRider struct {
 	idx   int
 	count int32
+	// turn marks the draw step's own draw (DrawForTurn): the one bare draw
+	// whose Dredge ask the kernel serves.
+	turn bool
 }
 
 // drawFor is DrawFor with an optional enclosing Draw cursor. A nonnegative
@@ -118,7 +126,7 @@ func drawFor(h Host, p state.PlayerID, cursor int, resumeSA *cards.SA, upto draw
 				Label: "Dredge " + strconv.Itoa(int(candidate.n)) + " (mill, then return " + objName(g, candidate.id) + " to hand)", Obj: candidate.id, Player: p})
 		}
 		d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "draw", Label: "Draw card", Player: p})
-		if cursor >= 0 && resumeSA != nil {
+		if (cursor >= 0 && resumeSA != nil) || upto.turn {
 			if _, ok := AskTape(h, d); ok {
 				return true
 			}

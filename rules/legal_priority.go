@@ -121,6 +121,7 @@ func (e *Engine) handlePriority(d *decision.Decision, in decision.Intent) {
 		}
 		e.cast = e.newCast(in.Player, opt.Obj, from, "land", -1)
 		e.continueCast()
+		e.tape.ResolutionDone()
 
 	case "activate":
 		e.emit(events.Event{Kind: events.Priority, Player: e.G.Priority, Amount: 0})

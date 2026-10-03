@@ -21,6 +21,9 @@ import (
 // (which owns the continuation of the SA it was re-entering) links it once
 // effects.Resolve returns. Always returns true: this engine can always ask.
 func (e *Engine) Ask(d *decision.Decision) bool {
+	if in, _ := e.tape.LegacyInRun(); !in {
+		tapeLegacyAsked(e, d, false) // TEMP census
+	}
 	// An ask posed inside an off-stack mana resolution has no stack object to
 	// park on: carry it through the mana activation's own continuation instead.
 	if e.askOffStackMana(d) {

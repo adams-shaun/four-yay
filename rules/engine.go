@@ -174,6 +174,10 @@ func (e *Engine) Submit(in decision.Intent) error {
 	if err := submitValidate(e, d, in); err != nil {
 		return err
 	}
+	dbgSubmit = string(d.Kind) + "/" + d.ResumeKind
+	if len(in.Choices) > 0 && in.Choices[0] < len(d.Options) {
+		dbgSubmit += "/" + d.Options[in.Choices[0]].Kind
+	}
 	// The resolution kernel (rules/resolve; Config.LegacyResume opts out): a
 	// posed tape resolution re-executes from its checkpoint, and a pass that
 	// begins a resolution takes the checkpoint first.
@@ -389,6 +393,14 @@ func (e *Engine) drawCard(p state.PlayerID) {
 	e.checkStateBased()
 }
 
+// drawCardTurn is drawCard for the draw step's turn-based draw.
+func (e *Engine) drawCardTurn(p state.PlayerID) {
+	effects.DrawForTurn(e, p)
+	e.checkStateBased()
+}
+
 // cardsKeywordHead lets layers.go strip a keyword's parameters ("Equip:2" ->
 // "Equip") without importing cards itself for one call.
 func cardsKeywordHead(k string) string { return cards.KeywordHead(k) }
+
+var dbgSubmit string // TEMP

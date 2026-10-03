@@ -22,13 +22,15 @@ type Board interface {
 	// point, or an unless-cost, cumulative-upkeep, trigger-cost or
 	// off-stack mana window): the kernel never nests a tape run in one.
 	Busy() bool
-	// StartsResolution reports whether answering d with in is the last pass
-	// over a non-empty stack: the pass whose handler resolves the top object.
+	// StartsResolution reports whether answering d with in begins a tape
+	// run: the last pass over a non-empty stack (the pass whose handler
+	// resolves the top object), or a land play (its entry is asked inside
+	// the one Submit).
 	StartsResolution(d *decision.Decision, in decision.Intent) bool
 	// MayAsk is the ask-free predicate over the object about to resolve:
 	// false means its resolution provably poses no decision, so the kernel
 	// skips the checkpoint. true is always safe.
-	MayAsk() bool
+	MayAsk(d *decision.Decision, in decision.Intent) bool
 
 	// Checkpoint clones the engine (S0) into recycled storage. It is called
 	// only at an intent boundary.

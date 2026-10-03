@@ -175,7 +175,7 @@ func (k *Kernel) Submit(b Board, d *decision.Decision, in decision.Intent) bool 
 	if !b.StartsResolution(d, in) {
 		return false
 	}
-	if k.answerer != nil || !b.MayAsk() {
+	if k.answerer != nil || !b.MayAsk(d, in) {
 		k.exempt(b, d, in)
 		return true
 	}
@@ -481,4 +481,18 @@ func (k *Kernel) OnAsk() (miss bool) {
 		return true
 	}
 	return false
+}
+
+// DbgState TEMP.
+func (k *Kernel) DbgState() string {
+	if k.run == nil {
+		if k.noCkpt {
+			return "exempt"
+		}
+		return "norun"
+	}
+	if !k.run.inRes {
+		return "run-postres"
+	}
+	return "run"
 }

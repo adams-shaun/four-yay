@@ -396,7 +396,8 @@ func (e *Engine) drawStepTurnAction() bool {
 		e.G.Players[e.G.Active].Lost {
 		return false
 	}
-	e.drawCard(e.G.Active)
+	e.drawCardTurn(e.G.Active)
+	e.tape.ResolutionDone()
 	if e.G.Over {
 		return true
 	}

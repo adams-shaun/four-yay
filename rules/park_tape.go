@@ -47,7 +47,7 @@ func parkTapeAnswer(e *Engine, d *decision.Decision) (decision.Intent, bool) {
 // resolution that began it -- the shape a cast that asks nothing already
 // has. Reports whether d was served.
 func tapeCastAsk(e *Engine, d *decision.Decision) bool {
-	if e.cast == nil {
+	if e.cast == nil && !e.manaCostChoicePending() {
 		return false
 	}
 	if in, _ := e.tape.LegacyInRun(); !in {
