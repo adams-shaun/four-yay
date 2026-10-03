@@ -36,8 +36,8 @@ func (e *Engine) ask(d *decision.Decision) {
 			// ends here and the decision is posed as an ordinary one.
 			e.tape.Boundary()
 		}
-		if in, aborts := e.tape.LegacyInRun(); in {
-			tapeLegacyAsked(e, d, aborts)
+		if e.tape.Unserved() {
+			tapeLegacyAsked(e, d, true)
 		}
 		if e.tape.OnAsk() {
 			tapeMissed(e, d)

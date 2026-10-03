@@ -6,7 +6,6 @@ package rules
 // the kernel drives the engine without holding it.
 
 import (
-	"os"
 	"runtime"
 	"strings"
 	"sync/atomic"
@@ -17,14 +16,6 @@ import (
 	"github.com/adams-shaun/gorge/rules/resolve"
 	"github.com/adams-shaun/gorge/state"
 )
-
-// tapeKernelEnv is the process default for the kernel: on, unless
-// GORGE_TAPE_KERNEL=0 (or a binary built with
-// -ldflags "-X github.com/adams-shaun/gorge/rules.tapeKernelBuild=0") opts
-// every engine out. Read once; it is configuration, never game state.
-var tapeKernelEnv = os.Getenv("GORGE_TAPE_KERNEL") != "0" && tapeKernelBuild != "0"
-
-var tapeKernelBuild string
 
 // engineResolveKernel is the resolution kernel's Engine cluster.
 type engineResolveKernel struct {
@@ -81,9 +72,6 @@ func asResolve(e *Engine) *resolveBoard { return (*resolveBoard)(e) }
 // answered from the tape or the run unwinds; with a synchronous answerer it
 // is posed and answered inline. ok false: ask through the legacy path.
 func (e *Engine) TapeAnswer(d *decision.Decision) (decision.Intent, bool) {
-	if tapeForceLegacy != nil && tapeForceLegacy(d) {
-		return decision.Intent{}, false
-	}
 	if d.ResumeKind == "unless_pay" && !e.tape.InRun() {
 		// An UnlessCost$ election settles in line (unlessAnswerSettle), and
 		// its component step can only hand the resolution back to legacy
@@ -93,11 +81,6 @@ func (e *Engine) TapeAnswer(d *decision.Decision) (decision.Intent, bool) {
 	}
 	return e.tape.Answer(asResolve(e), d)
 }
-
-// tapeForceLegacy (tests only) makes a converted ask site decline the tape,
-// so the kernel's legacy fallbacks (the in-place switch, the abort and
-// legacy replay) stay exercised as the conversion closes every real site.
-var tapeForceLegacy func(d *decision.Decision) bool
 
 // SetTapeAnswerer installs (nil removes) e's synchronous answerer: an engine
 // whose every seat is a policy answers a converted mid-resolution ask inline,

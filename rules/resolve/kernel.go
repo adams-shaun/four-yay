@@ -12,9 +12,6 @@ import (
 // walks them): a clone keeps the switch and shares a posed checkpoint by
 // pointer, and starts every in-flight field zero (ForClone).
 type Kernel struct {
-	// on is !Config.LegacyResume: the kernel handles this engine's
-	// resolutions.
-	on bool `clone:"deep"`
 	// posed is non-nil while a tape resolution is posed: the immutable
 	// checkpoint, shared by pointer with every clone (a search world built
 	// at the posed decision re-runs from the same S0).
@@ -99,10 +96,6 @@ type run struct {
 // unwind is the sentinel a stop-ask with an exhausted tape panics with.
 type unwind struct{}
 
-// abort is the sentinel a legacy ask panics with after a tape ask already
-// happened in this run.
-type abort struct{}
-
 // Divergence is the failure a re-execution reports when its events do not
 // reproduce the recorded prefix, or a served answer is refused. The kernel
 // panics with it; in a hosted match the spec records a feedback snapshot
@@ -112,22 +105,15 @@ type Divergence struct{ Msg string }
 
 func (d Divergence) Error() string { return "resolve: tape kernel divergence: " + d.Msg }
 
-// SetOn turns the kernel on or off for this engine (!Config.LegacyResume).
-func (k *Kernel) SetOn(on bool) { k.on = on }
-
-// On reports whether the kernel handles this engine's resolutions.
-func (k *Kernel) On() bool { return k.on }
-
 // Posed reports whether a tape resolution is posed (S0 held).
 func (k *Kernel) Posed() bool { return k.posed != nil }
 
 // SetAnswerer installs (nil removes) the synchronous answerer.
 func (k *Kernel) SetAnswerer(f Answerer) { k.answerer = f }
 
-// ForClone is the kernel state a clone of the engine starts with: the switch
-// and the posed checkpoint (shared) at the same posed log length, nothing in
+// ForClone is the kernel state a clone of the engine starts with: the posed checkpoint (shared) at the same posed log length, nothing in
 // flight.
-func (k *Kernel) ForClone() Kernel { return Kernel{on: k.on, posed: k.posed, posedLen: k.posedLen} }
+func (k *Kernel) ForClone() Kernel { return Kernel{posed: k.posed, posedLen: k.posedLen} }
 
 // Fork gives a hypothetical world forked at a posed tape resolution its own
 // checkpoint copy carrying the world's RNG splice; forkAt is the world's log
@@ -174,7 +160,7 @@ func (k *Kernel) LogIntent(l *events.Log, in decision.Intent) {
 // Submit runs a validated intent through the kernel and reports whether it
 // handled it; false means the caller commits it as usual.
 func (k *Kernel) Submit(b Board, d *decision.Decision, in decision.Intent) bool {
-	if !k.on || k.run != nil {
+	if k.run != nil {
 		return false
 	}
 	if k.posed != nil {
@@ -210,57 +196,45 @@ func (k *Kernel) firstRun(b Board, d *decision.Decision, in decision.Intent) {
 	cp := &Checkpoint{S0: b.Checkpoint(), k0: len(l.Intents), base: len(l.Events)}
 	stats.checkpoints.Add(1)
 	k.run = &run{cp: cp, inRes: true, first: true}
-	posed, aborted := k.runCommit(b, d, in)
-	if aborted {
-		// Unreachable: the first run unwinds at its first tape ask, so no
-		// legacy ask can follow one inside it.
-		panic(Divergence{"abort during the first run"})
-	}
-	switch {
-	case posed:
+	if k.runCommit(b, d, in) {
 		k.run, k.posed = nil, cp
 		k.posedLen = len(l.Events)
 		stats.posed.Add(1)
-	case k.run == nil:
-		b.Drop(cp.S0) // switched to legacy in place (counted in OnAsk)
-	default:
-		k.run = nil
-		stats.noAsk.Add(1)
-		b.Drop(cp.S0)
+		return
 	}
+	k.run = nil
+	stats.noAsk.Add(1)
+	b.Drop(cp.S0)
 }
 
-// runCommit runs b.Commit and reports whether it unwound at a posed stop-ask
-// or aborted at a legacy ask. Any other panic propagates.
-func (k *Kernel) runCommit(b Board, d *decision.Decision, in decision.Intent) (posed, aborted bool) {
+// runCommit runs b.Commit and reports whether it unwound at a posed stop-ask.
+// Any other panic propagates.
+func (k *Kernel) runCommit(b Board, d *decision.Decision, in decision.Intent) (posed bool) {
 	defer func() {
 		if p := recover(); p != nil {
-			posed, aborted = sentinel(p)
+			posed = sentinel(p)
 		}
 	}()
 	b.Commit(d, in)
-	return false, false
+	return false
 }
 
 // runSubmit is runCommit for a whole Submit.
-func (k *Kernel) runSubmit(b Board, in decision.Intent) (posed, aborted bool, err error) {
+func (k *Kernel) runSubmit(b Board, in decision.Intent) (posed bool, err error) {
 	defer func() {
 		if p := recover(); p != nil {
-			posed, aborted = sentinel(p)
+			posed = sentinel(p)
 		}
 	}()
 	err = b.Submit(in)
-	return false, false, err
+	return false, err
 }
 
-// sentinel classifies a recovered panic: the kernel's own sentinels, or
+// sentinel classifies a recovered panic: the kernel's own unwind, or
 // anything else re-raised.
-func sentinel(p any) (posed, aborted bool) {
-	switch p.(type) {
-	case unwind:
-		return true, false
-	case abort:
-		return false, true
+func sentinel(p any) (posed bool) {
+	if _, ok := p.(unwind); ok {
+		return true
 	}
 	panic(p)
 }
@@ -288,14 +262,10 @@ func (k *Kernel) resubmit(b Board, in decision.Intent) {
 	k.restore(b, cp, liveLen, liveIntents)
 	r := &run{cp: cp, serve: tape[1:], inRes: true, rerun: true}
 	k.run = r
-	posed, aborted, err := k.runSubmit(b, tape[0])
+	posed, err := k.runSubmit(b, tape[0])
 	k.run = nil
 	if err != nil {
 		panic(Divergence{fmt.Sprintf("re-executed pass refused: %v", err)})
-	}
-	if aborted {
-		k.legacyReplay(b, cp, tape, liveLen, liveIntents)
-		return
 	}
 	if r.cursor != len(r.serve) {
 		panic(Divergence{fmt.Sprintf("re-execution served %d of %d recorded answers", r.cursor, len(r.serve))})
@@ -310,34 +280,6 @@ func (k *Kernel) resubmit(b Board, in decision.Intent) {
 	} else {
 		k.posed = nil
 	}
-}
-
-// legacyReplay is the run-time fallback (spec §7.7): a re-run met a legacy
-// ask after a tape ask, so restore S0 again and let the legacy path answer
-// the whole tape.
-func (k *Kernel) legacyReplay(b Board, cp *Checkpoint, tape []decision.Intent, liveLen, liveIntents int) {
-	stats.aborts.Add(1)
-	k.restore(b, cp, liveLen, liveIntents)
-	k.on, k.posed = false, nil
-	l := b.Log()
-	injected := 0
-	for i, t := range tape {
-		for injected < len(cp.injects) && len(l.Events) == cp.injects[injected].at {
-			// Re-apply what was injected where the decision this intent
-			// answers was posed, before the answer.
-			for _, ev := range cp.injects[injected].evs {
-				b.Emit(ev)
-			}
-			injected++
-		}
-		if err := b.Submit(t); err != nil {
-			panic(Divergence{fmt.Sprintf("legacy replay refused tape intent %d: %v", i, err)})
-		}
-	}
-	k.on = true
-	k.closeWindows(l)
-	stats.prefixEvents.Add(int64(liveLen - cp.base))
-	b.Observe()
 }
 
 // restore makes the engine S0 again with verify windows over the recorded
@@ -440,49 +382,32 @@ func (k *Kernel) inject(b Board, r *run) {
 	}
 }
 
-// InRun reports whether a tape run is executing its resolution: the only
-// place a served answer's later step can still hand the resolution back to
-// legacy (Unservable).
+// InRun reports whether a tape run is executing its resolution.
 func (k *Kernel) InRun() bool { return k.run != nil && k.run.inRes }
 
-// Unservable ends the tape run at a step of a served answer the kernel
-// cannot serve yet -- an engine-posed payment continuation the asking code
-// would park on the legacy path. A tape ask has happened (the answer being
-// settled was served), so this is OnAsk's abort: S0 is restored and the
-// whole tape replays on the legacy path. Call it only while InRun.
+// Unservable reports a step of a served answer the kernel cannot serve: an
+// engine-posed continuation nothing answers from the tape. It always fails
+// hard (a Divergence); it is an assertion that the conversion is closed.
 func (k *Kernel) Unservable() {
-	if r := k.run; r != nil && r.inRes {
-		stats.unservable.Add(1)
-		panic(abort{})
-	}
-	panic(Divergence{"unservable tape step outside a tape run"})
+	stats.unservable.Add(1)
+	panic(Divergence{"unservable tape step"})
 }
 
-// LegacyInRun reports whether a legacy ask reaching the engine's ask choke
-// point now ends a tape run (inRun), and whether it does so by aborting the
-// run (a tape ask already happened) rather than switching to legacy in
-// place. Observation only (the legacy-ask census); OnAsk acts on it.
-func (k *Kernel) LegacyInRun() (inRun, aborts bool) {
+// Unserved reports whether an engine decision reaching the ask choke point
+// now is an ask nothing serves inside a tape run's resolution (observation
+// only; OnAsk fails the run on it).
+func (k *Kernel) Unserved() bool {
 	r := k.run
-	if r == nil || !r.inRes || r.converting {
-		return false, false
-	}
-	return true, !r.first || r.tapeAsked
+	return r != nil && r.inRes && !r.converting
 }
 
-// OnAsk runs at the engine's ask choke point while Watching. A legacy ask
-// inside a tape run ends the run: in place before any tape ask, by aborting
-// (and replaying the tape on the legacy path) after one. A legacy ask during
-// an exempted resolution is a predicate miss, reported to the caller.
+// OnAsk runs at the engine's ask choke point while Watching. An engine
+// decision no tape path serves inside a tape run's resolution is a closed
+// conversion that is not: it fails hard (a Divergence). One reaching an
+// exempted resolution is a predicate miss, reported to the caller.
 func (k *Kernel) OnAsk() (miss bool) {
-	if r := k.run; r != nil && r.inRes && !r.converting {
-		if !r.first || r.tapeAsked {
-			panic(abort{})
-		}
-		// Nothing has been served or posed from the tape: the state is
-		// exactly the legacy path's, so continue as legacy from here.
-		k.run = nil
-		stats.legacySwitch.Add(1)
+	if k.Unserved() {
+		panic(Divergence{"an engine ask no tape path serves inside a resolution"})
 	}
 	if k.noCkpt && !k.inline {
 		k.noCkpt = false

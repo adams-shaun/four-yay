@@ -206,30 +206,19 @@ func (e *Engine) withOffStackMana(act manaColorActivation, run func()) bool {
 // mana source as a direct resolution, not the current stack top.
 func (e *Engine) askOffStackMana(d *decision.Decision) bool {
 	f := e.offStackMana
-	if f == nil {
+	if f == nil || d.ResumeKind != "mana_color" || d.ResumeSA == nil {
 		return false
 	}
 	act := f.act
-	act.nested = nil
+	act.nested = d.ResumeSA
 	act.nestedResume = nil
-	act.allocation = false
-	if d.ResumeKind == "mana_color" && d.ResumeSA != nil {
-		act.nested = d.ResumeSA
-		act.allocation = d.Max > 1
-	} else {
-		obj := act.source
-		kind := d.ResumeKind
-		if kind == "" {
-			kind = "modes"
-		}
-		act.nestedResume = e.buildAskResume(d, obj, true, kind)
-	}
+	act.allocation = d.Max > 1
 	act.triggers = append([]pendingTrigger(nil), f.act.triggers...)
 	e.manaColorActivation = &act
 	f.asked = true
-	if d.ResumeKind == "mana_color" && e.tape.InRun() {
+	if e.tape.InRun() {
 		// Inside a tape run the colour choice is answered in place: the
-		// activation's own continuation (answerManaColor) is what windowAnswer
+		// activation's own continuation (answerManaColor) is what windowAsk
 		// runs, and its holder (this frame) is open by design.
 		e.tapeOffStackAsking = true
 		windowAsk(e, d, chooseManaColor)

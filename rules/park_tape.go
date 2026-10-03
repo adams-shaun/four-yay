@@ -32,9 +32,6 @@ func parkAsk(e *Engine, d *decision.Decision) bool {
 // parkTapeAnswer is TapeAnswer for a park-and-continue ask: served only from
 // a tape run's resolution or a synchronous answerer.
 func parkTapeAnswer(e *Engine, d *decision.Decision) (decision.Intent, bool) {
-	if tapeForceLegacy != nil && tapeForceLegacy(d) {
-		return decision.Intent{}, false
-	}
 	return e.tape.Answer(asResolve(e), d)
 }
 
@@ -50,7 +47,7 @@ func tapeCastAsk(e *Engine, d *decision.Decision) bool {
 	if e.cast == nil && !e.manaCostChoicePending() {
 		return false
 	}
-	if in, _ := e.tape.LegacyInRun(); !in {
+	if !e.tape.Unserved() {
 		return false
 	}
 	ans, ok := parkTapeAnswer(e, d)

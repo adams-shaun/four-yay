@@ -11,69 +11,22 @@ import (
 	"github.com/adams-shaun/gorge/state"
 )
 
-// Ask implements effects.Host.Ask (rules' side of the interface, and the
-// only place a mid-resolution decision is born). It records the resume
-// point — the suspended object is always the top of stack, because a
-// decision is pending from this moment until it is answered and Advance's
-// loop never runs while one is, so nothing in between can resolve or move —
-// and hands the decision to the ordinary ask path. Its `outer` is nil here:
-// if a resume re-entry posed this nested ask, the enclosing resumeResolution
-// (which owns the continuation of the SA it was re-entering) links it once
-// effects.Resolve returns. Always returns true: this engine can always ask.
+// Ask implements effects.Host.Ask. Every effect ask is answered through
+// TapeAnswer (effects.AskTape) inside a tape run, so what reaches this method
+// is an ask no run serves: a resolution the ask-free predicate wrongly
+// exempted, or an engine driven with no run at all. It is refused with one
+// Note (the R-9 no-host degrade: the asking primitive takes its deterministic
+// default) and counted by the legacy-ask census. The one ask this engine
+// still poses itself is an off-stack mana ability's colour choice, which is
+// the activation's own flow (askOffStackMana).
 func (e *Engine) Ask(d *decision.Decision) bool {
-	if in, _ := e.tape.LegacyInRun(); !in && !(d.ResumeKind == "mana_color" && e.offStackMana != nil) {
-		tapeLegacyAsked(e, d, false) // TEMP census
-	}
-	e.hostAsking++
-	defer func() { e.hostAsking-- }()
-	// An ask posed inside an off-stack mana resolution has no stack object to
-	// park on: carry it through the mana activation's own continuation instead.
 	if e.askOffStackMana(d) {
 		return true
 	}
-	obj := state.ObjID(0)
-	direct := false
-	if n := len(e.G.Stack); n > 0 {
-		obj = e.G.Stack[n-1]
-	} else {
-		obj = d.Source
-		direct = true
-	}
-	kind := d.ResumeKind
-	if kind == "" {
-		kind = "modes"
-	}
-	if e.resume != nil && e.pending != nil && e.contChainOwners > 0 {
-		// A SECOND mid-resolution ask while an earlier one of the same
-		// resolution pass is still unanswered: the first ask was posed from
-		// inside a move the asking effect made (a ReplaceWith$ body -- a
-		// shock land's "you may pay 2 life" -- suspends the resolution, but
-		// the effect that moved the land keeps running its own body: the
-		// search reaches its may-shuffle confirm, a mass return moves the
-		// next shock land). Posing it now would overwrite the pending
-		// decision (Engine.ask's guard). Defer it instead: the fully built
-		// resume point rides a "deferred_ask" continuation frame appended to
-		// this pass's contChain, so it is posed exactly when the answered
-		// earlier frame (and every continuation reported before this ask)
-		// has run, and before the continuations the enclosing loops report
-		// after it. The asking caller sees an ordinary suspended ask.
-		rp := e.buildAskResume(d, obj, direct, kind)
-		e.contChain = append(e.contChain, contFrame{sa: d.ResumeSA, deferredAsk: d, deferredResume: rp})
-		e.lastDeferred = rp
-		e.askCount++
-		return true
-	}
-	e.ask(d)
-	e.resume = e.buildAskResume(d, obj, direct, kind)
-	if e.contChainOwners > 0 {
-		// Mark where the ask sits in this pass's reports, with the Ctx it was
-		// posed under, so buildContinuationChain can tell which enclosing
-		// loops walked the same Ctx (resumePoint.inheritsRemembered).
-		e.contChain = append(e.contChain, contFrame{askMarker: true, ctx: e.resolutionCtx})
-	}
-	e.lastDeferred = nil
-	e.askCount++
-	return true
+	tapeLegacyAsked(e, d, false)
+	e.emit(events.Event{Kind: events.Note, Player: d.Player,
+		Text: "ask answered with its default: no resolution run serves it (" + string(d.Kind) + "/" + d.ResumeKind + ")"})
+	return false
 }
 
 // AskCount implements effects' optional askSeam: the number of

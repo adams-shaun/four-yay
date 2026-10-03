@@ -688,20 +688,6 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 		return
 	}
 	if rp.sa != nil {
-		handled, stop := e.resumeAnswerBinding(rp, o, ctx, chosen)
-		if stop {
-			// The arm resolved further engine work itself (a nested ask, a
-			// parked payment): resumeResolution stops here, as the original
-			// switch's bare `return` arms did.
-			return
-		}
-		if !handled {
-			// The kind belongs to the rest of the switch; forward EXACTLY
-			// once — an owned-and-continuing kind must skip this, or its
-			// answer would be re-bound (rest-owned arms run their side
-			// effects twice) and helper2's default would clobber Ctx.Modes.
-			e.resumeAnswerBindingRest(rp, o, ctx, chosen)
-		}
 		// CR 608.2g: an Amount$ Play whose earlier cast parked on its own
 		// question left the rest of its chosen cards queued. The resolution
 		// waits for those casts: its continuation (the re-entered Play and

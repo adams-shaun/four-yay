@@ -144,7 +144,7 @@ func tapeWorldProbe(e *rules.Engine, r *rand.Rand) {
 	}
 }
 
-// tapeDualContext prints the recorded (kernel) and replayed (legacy) events
+// tapeDualContext prints the recorded and replayed events
 // around a dual-run divergence at seq.
 func tapeDualContext(tape, legacy *rules.Engine, seq int) string {
 	var b strings.Builder
@@ -170,46 +170,4 @@ func tapeDualContext(tape, legacy *rules.Engine, seq int) string {
 		fmt.Fprintf(&b, "%s %d\n   tape   %s\n   legacy %s\n", mark, i, t, l)
 	}
 	return b.String()
-}
-
-// tapeLockstep replays log's intents on a kernel and a legacy engine in
-// lockstep and reports the first intent after which their pending decisions
-// differ, with the kernel's activity per intent up to there.
-func tapeLockstep(cfg rules.Config, log *events.Log) string {
-	tcfg, lcfg := cfg, cfg
-	tcfg.LegacyResume, lcfg.LegacyResume = false, true
-	te, le := rules.New(tcfg), rules.New(lcfg)
-	te.Advance()
-	le.Advance()
-	optStr := func(e *rules.Engine) string {
-		d := e.Pending()
-		if d == nil {
-			return "<nil>"
-		}
-		var sb strings.Builder
-		fmt.Fprintf(&sb, "%s p%d min%d max%d:", d.Kind, d.Player, d.Min, d.Max)
-		for _, o := range d.Options {
-			fmt.Fprintf(&sb, " [%s %d %q]", o.Kind, o.Obj, o.Label)
-		}
-		return sb.String()
-	}
-	var hist []string
-	for i, in := range log.Intents {
-		before := resolve.ReadStats()
-		posedBefore := rules.TapePosed(te)
-		terr, lerr := te.Submit(in), le.Submit(in)
-		st := resolve.ReadStats().Sub(before)
-		if st.Checkpoints != 0 || st.Reruns != 0 {
-			hist = append(hist, fmt.Sprintf("intent %d (%v): posedBefore=%v posedAfter=%v %+v",
-				i, in.Choices, posedBefore, rules.TapePosed(te), st))
-		}
-		if (terr == nil) != (lerr == nil) || optStr(te) != optStr(le) || len(te.L.Events) != len(le.L.Events) {
-			if n := len(hist); n > 12 {
-				hist = hist[n-12:]
-			}
-			return fmt.Sprintf("LOCKSTEP: first difference after intent %d (tape err %v, legacy err %v)\n tape   %s\n legacy %s\n%s",
-				i, terr, lerr, optStr(te), optStr(le), strings.Join(hist, "\n"))
-		}
-	}
-	return "LOCKSTEP: no decision difference"
 }

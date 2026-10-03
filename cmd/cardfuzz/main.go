@@ -751,7 +751,7 @@ func playGame(reg *cards.Registry, decks []genDeck, seed uint64, maxTurns, maxIn
 			if rerr != nil && tapeDual && re != nil {
 				var dv *replay.Divergence
 				if errors.As(rerr, &dv) {
-					rerr = fmt.Errorf("%w\n%s\n%s", rerr, tapeDualContext(e, re, int(dv.Seq)), tapeLockstep(cfg, e.L))
+					rerr = fmt.Errorf("%w\n%s", rerr, tapeDualContext(e, re, int(dv.Seq)))
 				}
 			}
 		}()

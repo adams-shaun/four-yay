@@ -318,7 +318,6 @@ func newEngineShell(cfg Config, random *rng) *Engine {
 		windowDiagnostics: cfg.WindowDiagnostics,
 		startingLife:      life,
 	}
-	e.tape.SetOn(!cfg.LegacyResume && tapeKernelEnv)
 	// The embedded turn ledger's per-turn slices (engine_turnledger.go).
 	e.turnsTaken = make([]int32, len(cfg.Names))
 	// The per-turn ManaExpend tally (rules/cast.go) starts empty; payCast
