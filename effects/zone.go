@@ -37,7 +37,7 @@ func effSeek(h Host, c *Ctx, sa *cards.SA) {
 	rememberFound := strings.EqualFold(strings.TrimSpace(sa.Params["RememberFound"]), "True")
 	var seekRemembered []state.Target
 	players := Defined(h, c, sa)
-	if sa.Params["Defined"] == "" {
+	if sa.ParamStr(cards.PKDefined) == "" {
 		players = []state.Target{{Player: c.Controller, IsPlayer: true}}
 	}
 	for _, target := range players {
@@ -57,7 +57,7 @@ func effSeek(h Host, c *Ctx, sa *cards.SA) {
 			}
 		}
 
-		spec := strings.TrimSpace(sa.Params["Type"])
+		spec := strings.TrimSpace(sa.ParamStr(cards.PKType))
 		if spec == "" {
 			spec = "Card"
 		}

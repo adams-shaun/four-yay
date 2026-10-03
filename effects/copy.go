@@ -78,7 +78,7 @@ func effCopySpellAbility(h Host, c *Ctx, sa *cards.SA) {
 	// stack-arena order, each copied Amount$ times. It is nil for every other
 	// Defined form, whose established single-spell shape is unchanged.
 	var validStackSpells []state.ObjID
-	switch strings.TrimSpace(sa.Params["Defined"]) {
+	switch strings.TrimSpace(sa.ParamStr(cards.PKDefined)) {
 	case "TriggeredSpellAbility":
 		// The activation arm (abcopy1): the trigger context's TriggerAbility
 		// names the minted ability wrapper -- an AbilityPush's Obj is the
@@ -137,7 +137,7 @@ func effCopySpellAbility(h Host, c *Ctx, sa *cards.SA) {
 			// wrapper AND every instance or copy sharing (Source, Ability), the
 			// recorded livelock guard -- an id-only exclusion would let a copy
 			// of the wrapper be copied again and ask its pay question forever.
-			spec := strings.TrimSpace(sa.Params["Defined"])
+			spec := strings.TrimSpace(sa.ParamStr(cards.PKDefined))
 			if stackSpec, ok := strings.CutPrefix(spec, "ValidStack"); ok {
 				for tok := range strings.SplitSeq(strings.TrimSpace(stackSpec), ",") {
 					if _, known := state.StackKindTokenOf(strings.TrimSpace(tok)); known {
@@ -226,7 +226,7 @@ func effCopySpellAbility(h Host, c *Ctx, sa *cards.SA) {
 	// may-copy election is the SECOND ask in Forge's own sequence: posing it
 	// duplicates nothing and inverts nothing (the round-1 read that scoped
 	// this arm to UnlessCost$-free SAs was wrong, findings-r2).
-	if strings.EqualFold(strings.TrimSpace(sa.Params["Optional"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True") {
 		switch copyOpt {
 		case "yes":
 			// Answered yes: fall through to the copy below.

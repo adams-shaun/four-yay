@@ -12,10 +12,10 @@ func (e *Engine) elementalBendMatches(t cards.Trigger, source state.ObjID, ev ev
 		return false
 	}
 	ctrl := e.controllerOf(source)
-	if v := t.Params["ValidCard"]; v != "" && ev.Obj != 0 && !e.matchesSpec(v, ev.Obj, e.specCtx(source, ctrl)) {
+	if v := t.ParamStr(cards.PKValidCard); v != "" && ev.Obj != 0 && !e.matchesSpec(v, ev.Obj, e.specCtx(source, ctrl)) {
 		return false
 	}
-	if v := t.Params["ValidPlayer"]; v != "" && !effects.MatchesPlayerSpec(e.G, v, ev.Player, ctrl) {
+	if v := t.ParamStr(cards.PKValidPlayer); v != "" && !effects.MatchesPlayerSpec(e.G, v, ev.Player, ctrl) {
 		return false
 	}
 	return true

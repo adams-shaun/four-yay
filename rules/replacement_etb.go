@@ -319,7 +319,7 @@ func (e *Engine) askAttachedName(o *state.Object, repl *cards.Repl) bool {
 	// ValidDescription$ rides along exactly as it does at the cast-time ETB
 	// site (rules/cast.go): it is Forge prompt text, read by
 	// effects.NameChoices only as a safety fallback when ValidCards$ is absent.
-	opts := e.etbOptions(o.Controller, ch.source, "name", repl.With.Params["ValidCards"], repl.With.Params["ValidDescription"], "", "")
+	opts := e.etbOptions(o.Controller, ch.source, "name", repl.With.ParamStr(cards.PKValidCards), repl.With.Params["ValidDescription"], "", "")
 	if len(opts) <= 1 {
 		if len(opts) == 1 {
 			e.emit(events.Event{Kind: events.Choose, Obj: ch.source, Counter: "name", Text: opts[0].Label})

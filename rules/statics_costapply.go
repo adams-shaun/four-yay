@@ -289,7 +289,7 @@ func (e *Engine) costTargetsMatch(sv staticView, spec string, targets []state.Ta
 func (e *Engine) costTargetsUnless(sv staticView, spec string, id state.ObjID, scope costScope, targets []state.Target) bool {
 	if len(targets) == 0 {
 		sa := e.costTargetingSA(id, scope)
-		return sa == nil || strings.TrimSpace(sa.Params["ValidTgts"]) == ""
+		return sa == nil || strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) == ""
 	}
 	return !e.costTargetsMatch(sv, spec, targets)
 }
@@ -676,7 +676,7 @@ func (e *Engine) abilityConstraintMatches(scope costScope, p state.PlayerID, id 
 		return true
 	}
 	// Keyword-derived: the expansion's Keyword$ tag (comma list).
-	for kw := range strings.SplitSeq(ab.Params["Keyword"], ",") {
+	for kw := range strings.SplitSeq(ab.ParamStr(cards.PKKeyword), ",") {
 		if strings.EqualFold(strings.TrimSpace(kw), constraint) {
 			return true
 		}
@@ -707,13 +707,13 @@ func saFlagProperty(ab *cards.SA, property string) bool {
 	// census attributes each read.
 	switch property {
 	case "Boast":
-		v, ok = ab.Params["Boast"]
+		v, ok = ab.Param(cards.PKBoast)
 	case "Exhaust":
-		v, ok = ab.Params["Exhaust"]
+		v, ok = ab.Param(cards.PKExhaust)
 	case "PowerUp":
-		v, ok = ab.Params["PowerUp"]
+		v, ok = ab.Param(cards.PKPowerUp)
 	case "Monstrosity":
-		v, ok = ab.Params["Monstrosity"]
+		v, ok = ab.Param(cards.PKMonstrosity)
 	}
 	return ok && !strings.EqualFold(strings.TrimSpace(v), "False")
 }

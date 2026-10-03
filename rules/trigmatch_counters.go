@@ -49,7 +49,7 @@ func (e *Engine) counterAddedMatches(t cards.Trigger, source state.ObjID, ev eve
 	if o == nil {
 		return false
 	}
-	if kind := t.Params["CounterType"]; kind != "" && !strings.EqualFold(kind, ev.Counter) {
+	if kind := t.ParamStr(cards.PKCounterType); kind != "" && !strings.EqualFold(kind, ev.Counter) {
 		return false
 	}
 	if !e.eventCardAndPlayerMatch(t, source, ev.Obj, o.Controller) {
@@ -63,7 +63,7 @@ func (e *Engine) counterAddedMatches(t cards.Trigger, source state.ObjID, ev eve
 	// counterPlayerAddedAllMatches and the AddCounter replacement class use;
 	// an unattributed placement fails the line closed rather than matching
 	// an opponent's Battlegrowth (CR 109.5: "you" is the controller).
-	if vs := strings.TrimSpace(t.Params["ValidSource"]); vs != "" {
+	if vs := strings.TrimSpace(t.ParamStr(cards.PKValidSource)); vs != "" {
 		adder, ok := e.inFlightCounterAdder()
 		if !ok || !effects.MatchesPlayerSpec(e.G, vs, adder, e.controllerOf(source)) {
 			return false
@@ -130,7 +130,7 @@ func (e *Engine) counterRemovedMatches(t cards.Trigger, source state.ObjID, ev e
 	if o == nil {
 		return false
 	}
-	if kind := t.Params["CounterType"]; kind != "" && !strings.EqualFold(kind, ev.Counter) {
+	if kind := t.ParamStr(cards.PKCounterType); kind != "" && !strings.EqualFold(kind, ev.Counter) {
 		return false
 	}
 	if !e.eventCardAndPlayerMatch(t, source, ev.Obj, o.Controller) {
@@ -139,7 +139,7 @@ func (e *Engine) counterRemovedMatches(t cards.Trigger, source state.ObjID, ev e
 	// Vanishing's last-counter trigger requires a positive-to-zero
 	// transition, not merely a CounterChange whose clamped result is zero.
 	// The TIME-removal LKI is captured before Apply in Engine.emit.
-	if t.Params["Keyword"] == "Vanishing" && (lki == nil || lki.Counter("TIME") <= 0) {
+	if t.ParamStr(cards.PKKeyword) == "Vanishing" && (lki == nil || lki.Counter("TIME") <= 0) {
 		return false
 	}
 	if want := t.Params["NewCounterAmount"]; want != "" {
@@ -234,7 +234,7 @@ func (e *Engine) counterPlayerAddedAllMatches(t cards.Trigger, source state.ObjI
 			return false
 		}
 	}
-	if vs := strings.TrimSpace(t.Params["ValidSource"]); vs != "" {
+	if vs := strings.TrimSpace(t.ParamStr(cards.PKValidSource)); vs != "" {
 		adder, ok := e.inFlightCounterAdder()
 		if !ok || !effects.MatchesPlayerSpec(e.G, vs, adder, you) {
 			return false
@@ -247,7 +247,7 @@ func (e *Engine) counterPlayerAddedAllMatches(t cards.Trigger, source state.ObjI
 	if !e.eventCardAndPlayerMatch(t, source, ev.Obj, e.gainingPlayerOf(ev)) {
 		return false
 	}
-	if kind := t.Params["CounterType"]; kind != "" && !strings.EqualFold(kind, ev.Counter) {
+	if kind := t.ParamStr(cards.PKCounterType); kind != "" && !strings.EqualFold(kind, ev.Counter) {
 		return false
 	}
 	return true

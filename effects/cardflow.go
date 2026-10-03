@@ -201,7 +201,7 @@ func effDraw(h Host, c *Ctx, sa *cards.SA) {
 	// ask only fires when SOME target could actually draw; with none, no
 	// question is posed and nothing is drawn (an empty-library draw event is
 	// a no-op either way).
-	if decider := strings.TrimSpace(sa.Params["OptionalDecider"]); decider != "" && total > 0 {
+	if decider := strings.TrimSpace(sa.ParamStr(cards.PKOptionalDecider)); decider != "" && total > 0 {
 		answered := c.DrawOpt
 		c.DrawOpt = "" // fx42 scoping: consumed once; a nested optional draw poses its own ask
 		if answered == "" {
@@ -453,7 +453,7 @@ func discardRidersOf(sa *cards.SA) discardRiders {
 // change (c.Controller == the source's controller unless a mid-resolution
 // control change moved it), so no golden game moves.
 func actingPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
-	if strings.TrimSpace(sa.Params["Defined"]) != "" {
+	if strings.TrimSpace(sa.ParamStr(cards.PKDefined)) != "" {
 		// definedPlayers applies Forge's getDefinedPlayers rule: the plain
 		// Remembered family contributes remembered PLAYERS only, never a
 		// remembered card's controller (Summon: Valefor's per-opponent loop).
@@ -546,7 +546,7 @@ func discardBounds(h Host, c *Ctx, sa *cards.SA, eligible int) (int, int) {
 		n = eligible
 	}
 	min := n
-	if strings.EqualFold(sa.Params["Optional"], "True") {
+	if strings.EqualFold(sa.ParamStr(cards.PKOptional), "True") {
 		min = 0
 	}
 	return min, n
@@ -959,7 +959,7 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 			// "greatest number discarded" draw reads). The measured corpus
 			// population (108 raw lines) carries no NumCards$, DiscardValid$ or
 			// AnyNumber$, so none is read here.
-			if strings.EqualFold(sa.Params["Optional"], "True") {
+			if strings.EqualFold(sa.ParamStr(cards.PKOptional), "True") {
 				// "each player MAY discard their hand and draw N" (5 corpus
 				// lines): a real may-discard election. The answer is a yes/no per
 				// acting player, carried on Ctx.DiscardVote with the per-player
@@ -1311,7 +1311,7 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 		destName = "Hand"
 	}
 	dest := ParseZone(destName)
-	optional := sa.Params["Optional"] == "True"
+	optional := sa.ParamStr(cards.PKOptional) == "True"
 	promptToSkipOptional := strings.EqualFold(strings.TrimSpace(sa.Params["PromptToSkipOptionalAbility"]), "True") ||
 		strings.TrimSpace(sa.Params["OptionalAbilityPrompt"]) != ""
 	// The variant params (see the comment block above the function for what
@@ -1500,7 +1500,7 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 				h.Emit(events.Event{Kind: events.Tap, Obj: id, Player: p, Text: "entered tapped"})
 			}
 			rider.apply(h, c, id, p, dest)
-			if dest == state.ZBattlefield && strings.EqualFold(strings.TrimSpace(sa.Params["GainControl"]), "True") {
+			if dest == state.ZBattlefield && strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKGainControl)), "True") {
 				h.Emit(events.Event{Kind: events.ControlChange, Obj: id, Player: c.Controller})
 			}
 			// StaticEffect$ on a battlefield take (Arbiter of the Ideal's
@@ -1912,7 +1912,7 @@ func manaValueOf(g *state.Game, id state.ObjID) int {
 // (the corpus default) the walk adds nothing, so every pre-existing game
 // replays byte-identically.
 func digRemember(c *Ctx, sa *cards.SA, id state.ObjID) {
-	if strings.EqualFold(strings.TrimSpace(sa.Params["RememberChanged"]), "True") {
+	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberChanged)), "True") {
 		c.Remembered = append(c.Remembered, state.Target{Obj: id})
 	}
 }
@@ -2091,12 +2091,12 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 	noMoveRevealed := strings.EqualFold(strings.TrimSpace(sa.Params["NoMoveRevealed"]), "True")
 	revealRandomOrder := strings.EqualFold(digUntilParamValue(sa, "RevealRandomOrder"), "True")
 	tapped := strings.EqualFold(strings.TrimSpace(sa.Params["Tapped"]), "True")
-	gainControl := strings.EqualFold(strings.TrimSpace(sa.Params["GainControl"]), "True")
+	gainControl := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKGainControl)), "True")
 	rememberFound := strings.EqualFold(strings.TrimSpace(sa.Params["RememberFound"]), "True")
 	rememberRevealed := strings.EqualFold(strings.TrimSpace(sa.Params["RememberRevealed"]), "True")
 	amount := int32(1)
 	var withheld []string
-	if raw := strings.TrimSpace(sa.Params["Amount"]); raw != "" && raw != "1" {
+	if raw := strings.TrimSpace(sa.ParamStr(cards.PKAmount)); raw != "" && raw != "1" {
 		if n, err := strconv.Atoi(raw); err == nil && n > 1 && n <= 5 {
 			amount = int32(n)
 		} else if n, resolved := digUntilAmountSVar(h, c, raw); resolved {
@@ -2181,7 +2181,7 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 	targets := Defined(h, c, sa)
-	if sa.Params["Defined"] == "" && sa.Params["ValidTgts"] == "" {
+	if sa.ParamStr(cards.PKDefined) == "" && sa.ParamStr(cards.PKValidTgts) == "" {
 		// Forge's default for a reveal-until with no Defined$ and no targets:
 		// the resolving controller's own library (Songbirds' Blessing's
 		// trigger). Defined's source-object fallback is wrong here — the
@@ -2205,7 +2205,7 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 	// rather than against either of the two destinations the walk picks
 	// between.
 	rider := classifyAttackingEntry(c, sa, state.ZBattlefield)
-	players := playerIDsFromTargets(h, c, sa.Params["Defined"], targets)
+	players := playerIDsFromTargets(h, c, sa.ParamStr(cards.PKDefined), targets)
 	selection := *c // Valid$ Card.IsRemembered uses the pre-clear set.
 	// A DigUntil re-runs its scan filter on the answered re-entry too (the
 	// found-move election answers mid-walk), so the snapshot arms for any
@@ -2707,7 +2707,7 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 	// (the activator gains the information), a reveal of the player whose
 	// cards would be shown.
 	optional := strings.EqualFold(strings.TrimSpace(sa.Params["RevealOptional"]), "True") ||
-		strings.EqualFold(strings.TrimSpace(sa.Params["Optional"]), "True")
+		strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True")
 	remember := strings.EqualFold(strings.TrimSpace(sa.Params["RememberRevealed"]), "True")
 	random := strings.EqualFold(strings.TrimSpace(sa.Params["Random"]), "True")
 	g := h.Game()
@@ -2759,7 +2759,7 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 		// A pick answers the optional gate only for the target that posed it.
 		// Later Defined$ targets still need their own may-reveal choice.
 		pickForTarget := picks != nil && targetIndex == pickTarget
-		if plainRememberedSelector(revealSA.Params["Defined"]) && !t.IsPlayer {
+		if plainRememberedSelector(revealSA.ParamStr(cards.PKDefined)) && !t.IsPlayer {
 			// Forge's getDefinedPlayers("Remembered") adds remembered PLAYERS
 			// only; a remembered card must not widen the reveal's library/hand
 			// scope to its controller (Summon: Valefor's per-opponent loop).
@@ -3451,7 +3451,7 @@ func effLookAndArrange(h Host, c *Ctx, sa *cards.SA, n int32, kind, verb string,
 		}
 		c.LibraryTarget = targetIndex
 		p := t
-		if !markSurveil && strings.EqualFold(strings.TrimSpace(sa.Params["Optional"]), "True") {
+		if !markSurveil && strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True") {
 			opt := c.ScryOpt
 			c.ScryOpt = ""
 			if opt == "" {
@@ -3691,7 +3691,7 @@ func effNameCard(h Host, c *Ctx, sa *cards.SA) {
 	if o := h.Game().Obj(c.Source); o != nil && o.ChosenName != "" {
 		return
 	}
-	valid := sa.Params["ValidCards"]
+	valid := sa.ParamStr(cards.PKValidCards)
 	chooseFromList := sa.Params["ChooseFromList"]
 	chooseFromDefined := sa.Params["ChooseFromDefinedCards"]
 	universeBacked := len(h.Game().NameUniverse) > 0

@@ -30,7 +30,7 @@ const (
 	resumePointFieldCount = 90
 	// stringParamReads is the number of <x>Params["literal"] index
 	// expressions in rules/ and effects/ non-test files.
-	stringParamReads = 2142
+	stringParamReads = 1302
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
 	stringCaseLiterals = 2886

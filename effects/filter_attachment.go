@@ -3,6 +3,7 @@ package effects
 import (
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -485,15 +486,15 @@ func faceIsTheChosenType(r *state.Object) bool {
 		return false
 	}
 	for _, st := range r.Face().Statics {
-		if st.Mode != "Continuous" || !strings.Contains(st.Params["Affected"], "Self") {
+		if st.Mode != "Continuous" || !strings.Contains(st.ParamStr(cards.PKAffected), "Self") {
 			continue
 		}
-		for v := range strings.SplitSeq(st.Params["AddType"], ",") {
+		for v := range strings.SplitSeq(st.ParamStr(cards.PKAddType), ",") {
 			if strings.TrimSpace(v) == "ChosenType" {
 				return true
 			}
 		}
-		for v := range strings.SplitSeq(st.Params["AddTypes"], ",") {
+		for v := range strings.SplitSeq(st.ParamStr(cards.PKAddTypes), ",") {
 			if strings.TrimSpace(v) == "ChosenType" {
 				return true
 			}

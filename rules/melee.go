@@ -42,7 +42,7 @@ func (e *Engine) checkGrantedMeleeTriggers(observer *Engine, id state.ObjID, o *
 		}
 	}
 	for _, t := range f.Triggers {
-		if t.Mode == "Attacks" && t.Params["Keyword"] == "Melee" {
+		if t.Mode == "Attacks" && t.ParamStr(cards.PKKeyword) == "Melee" {
 			instances-- // this printed marker is queued by the ordinary trigger walk
 		}
 	}

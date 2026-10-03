@@ -77,7 +77,7 @@ func UnlessCostResolved(h Host, c *Ctx, sa *cards.SA) string {
 	if sa == nil {
 		return ""
 	}
-	raw := strings.TrimSpace(sa.Params["UnlessCost"])
+	raw := strings.TrimSpace(sa.ParamStr(cards.PKUnlessCost))
 	if raw == "" || c == nil {
 		return raw
 	}
@@ -334,7 +334,7 @@ func applyUnlessCostModifier(shown, op, arg string) string {
 // false.
 func unlessProceed(h Host, c *Ctx, sa *cards.SA) (bool, bool) {
 	cost := UnlessCostResolved(h, c, sa)
-	if strings.TrimSpace(sa.Params["UnlessCost"]) == "" {
+	if strings.TrimSpace(sa.ParamStr(cards.PKUnlessCost)) == "" {
 		return true, false
 	}
 	if sa.API == "Ward" {

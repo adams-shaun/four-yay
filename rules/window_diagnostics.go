@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -286,7 +287,7 @@ func (e *Engine) classifyBattlefieldAbilities(p state.PlayerID, w *windowCollect
 				w.record(id, windowKindActivation, wrActivationZone)
 				continue
 			}
-			if ab.Params["SorcerySpeed"] == "True" && !sorcery {
+			if ab.ParamStr(cards.PKSorcerySpeed) == "True" && !sorcery {
 				w.record(id, windowKindActivation, nonEmpty(e.sorcerySpeedReason(p), wrTimingNotMain))
 				continue
 			}
@@ -316,7 +317,7 @@ func (e *Engine) classifyBattlefieldAbilities(p state.PlayerID, w *windowCollect
 				w.record(id, windowKindActivation, wrActivationLimit)
 				continue
 			}
-			if strings.EqualFold(strings.TrimSpace(ab.Params["Boast"]), "True") && !e.boastGateOK(id, i, "") {
+			if strings.EqualFold(strings.TrimSpace(ab.ParamStr(cards.PKBoast)), "True") && !e.boastGateOK(id, i, "") {
 				w.record(id, windowKindActivation, wrActivationGate)
 				continue
 			}

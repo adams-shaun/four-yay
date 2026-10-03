@@ -150,7 +150,7 @@ func (e *Engine) paymentPlanSourceInterference(id state.ObjID, ma *cards.SA) (pa
 	// replacement naming another object (Claustrophobia's enchanted creature)
 	// is not about this source's tap at all.
 	for _, r := range src.Face().Repls {
-		if r.Event != "Untap" || !strings.HasPrefix(strings.TrimSpace(r.Params["ValidCard"]), "Card.Self") {
+		if r.Event != "Untap" || !strings.HasPrefix(strings.TrimSpace(r.ParamStr(cards.PKValidCard)), "Card.Self") {
 			continue
 		}
 		if !paymentPlanNoUntapShape(r) {
@@ -159,7 +159,7 @@ func (e *Engine) paymentPlanSourceInterference(id state.ObjID, ma *cards.SA) (pa
 		c.noUntap = true
 	}
 	controller := src.Controller
-	cost := e.parseCost(ma.Params["Cost"])
+	cost := e.parseCost(ma.ParamStr(cards.PKCost))
 	for _, produced := range e.paymentPlanProductions(id, ma) {
 		if cost.Tap {
 			dmg, by, ok := e.paymentPlanTapObservers(id, controller, produced)
@@ -184,7 +184,7 @@ func (e *Engine) paymentPlanSourceInterference(id state.ObjID, ma *cards.SA) (pa
 // execute for ma: the fixed declaration itself, or each colour a choice
 // shape resolves to (the withProduced rewrite execution activates).
 func (e *Engine) paymentPlanProductions(id state.ObjID, ma *cards.SA) []string {
-	raw := strings.TrimSpace(ma.Params["Produced"])
+	raw := strings.TrimSpace(ma.ParamStr(cards.PKProduced))
 	if _, any := cards.ProducedCounts(raw); any {
 		return e.paymentPlanChoiceColours(id, ma)
 	}
@@ -197,14 +197,14 @@ func (e *Engine) paymentPlanProductions(id state.ObjID, ma *cards.SA) []string {
 // You and presentation/zone keys only. Anything else is not a fully
 // determined consequence.
 func paymentPlanNoUntapShape(r cards.Repl) bool {
-	if r.With != nil || strings.TrimSpace(r.Params["ValidCard"]) != "Card.Self" ||
+	if r.With != nil || strings.TrimSpace(r.ParamStr(cards.PKValidCard)) != "Card.Self" ||
 		!strings.EqualFold(strings.TrimSpace(r.Params["Layer"]), "CantHappen") {
 		return false
 	}
 	if v, ok := r.Params["ValidStepTurnToController"]; ok && strings.TrimSpace(v) != "You" {
 		return false
 	}
-	if v, ok := r.Params["ActiveZones"]; ok && strings.TrimSpace(v) != "Battlefield" {
+	if v, ok := r.Param(cards.PKActiveZones); ok && strings.TrimSpace(v) != "Battlefield" {
 		return false
 	}
 	for _, k := range slices.Sorted(maps.Keys(r.Params)) {
@@ -222,10 +222,10 @@ func paymentPlanNoUntapShape(r cards.Repl) bool {
 // `DealDamage | Defined$ You | NumDmg$ <literal>` and nothing else (City of
 // Brass). f owns the trigger's Execute$ table.
 func paymentPlanSelfDamageTrigger(f *cards.Face, t cards.Trigger) (uint32, bool) {
-	if t.Mode != "Taps" || strings.TrimSpace(t.Params["ValidCard"]) != "Card.Self" {
+	if t.Mode != "Taps" || strings.TrimSpace(t.ParamStr(cards.PKValidCard)) != "Card.Self" {
 		return 0, false
 	}
-	if v, ok := t.Params["TriggerZones"]; ok && strings.TrimSpace(v) != "Battlefield" {
+	if v, ok := t.Param(cards.PKTriggerZones); ok && strings.TrimSpace(v) != "Battlefield" {
 		return 0, false
 	}
 	for _, k := range slices.Sorted(maps.Keys(t.Params)) {
@@ -237,7 +237,7 @@ func paymentPlanSelfDamageTrigger(f *cards.Face, t cards.Trigger) (uint32, bool)
 	}
 	body := t.Effect
 	if body == nil && f != nil {
-		body = cards.ResolveSVar(f.SVars, strings.TrimSpace(t.Params["Execute"]))
+		body = cards.ResolveSVar(f.SVars, strings.TrimSpace(t.ParamStr(cards.PKExecute)))
 	}
 	return paymentPlanDamageBody(body)
 }
@@ -304,7 +304,7 @@ func (e *Engine) paymentPlanTapObservers(id state.ObjID, activator state.PlayerI
 				grantor = ce.TriggerGrantor
 			}
 			var sv map[string]string
-			if f := grantedTriggerFace(e.G.Obj(grantor), t.Params["Execute"]); f != nil {
+			if f := grantedTriggerFace(e.G.Obj(grantor), t.ParamStr(cards.PKExecute)); f != nil {
 				sv = f.SVars
 			}
 			granted, svars = append(granted, t), append(svars, sv)
@@ -610,9 +610,9 @@ func paymentPlanSpellTargets(f *cards.Face) bool {
 		return true
 	}
 	targets := func(sa *cards.SA) bool {
-		return strings.TrimSpace(sa.Params["ValidTgts"]) != "" || strings.TrimSpace(sa.Params["TgtPrompt"]) != "" ||
-			strings.TrimSpace(sa.Params["TargetType"]) != "" || strings.TrimSpace(sa.Params["TargetMin"]) != "" ||
-			strings.TrimSpace(sa.Params["TargetMax"]) != "" || strings.TrimSpace(sa.Params["TgtZone"]) != ""
+		return strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) != "" || strings.TrimSpace(sa.Params["TgtPrompt"]) != "" ||
+			strings.TrimSpace(sa.ParamStr(cards.PKTargetType)) != "" || strings.TrimSpace(sa.ParamStr(cards.PKTargetMin)) != "" ||
+			strings.TrimSpace(sa.ParamStr(cards.PKTargetMax)) != "" || strings.TrimSpace(sa.ParamStr(cards.PKTgtZone)) != ""
 	}
 	var walk func(sa *cards.SA, depth int) bool
 	walk = func(sa *cards.SA, depth int) bool {
@@ -622,12 +622,12 @@ func paymentPlanSpellTargets(f *cards.Face) bool {
 		if targets(sa) || walk(sa.Sub, depth+1) {
 			return true
 		}
-		if name := strings.TrimSpace(sa.Params["SubAbility"]); name != "" && sa.Sub == nil {
+		if name := strings.TrimSpace(sa.ParamStr(cards.PKSubAbility)); name != "" && sa.Sub == nil {
 			if walk(cards.ResolveSVar(f.SVars, name), depth+1) {
 				return true
 			}
 		}
-		for mode := range strings.SplitSeq(sa.Params["Choices"], ",") {
+		for mode := range strings.SplitSeq(sa.ParamStr(cards.PKChoices), ",") {
 			if mode = strings.TrimSpace(mode); mode != "" && walk(cards.ResolveSVar(f.SVars, mode), depth+1) {
 				return true
 			}

@@ -122,7 +122,7 @@ func (e *Engine) cyclingKeyword(pc *pendingCast) string {
 	if ab == nil {
 		return ""
 	}
-	switch kw := strings.TrimSpace(ab.Params["Keyword"]); kw {
+	switch kw := strings.TrimSpace(ab.ParamStr(cards.PKKeyword)); kw {
 	case "Cycling", "TypeCycling":
 		return kw
 	default:
@@ -537,7 +537,7 @@ func faceWantsConvoked(f *cards.Face) bool {
 		}
 	}
 	for _, a := range f.Abilities {
-		if strings.EqualFold(strings.TrimSpace(a.Params["Defined"]), "Convoked") {
+		if strings.EqualFold(strings.TrimSpace(a.ParamStr(cards.PKDefined)), "Convoked") {
 			return true
 		}
 		if abilityParamsUseConvoked(a.Params) {

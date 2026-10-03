@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
@@ -93,12 +94,12 @@ func (e *Engine) alternativeCosts(p state.PlayerID, id state.ObjID) []altCostVie
 				if !e.alternativeCostScopeOK(st.Params, id, id, p, o.Controller) {
 					continue
 				}
-				cost, ok := e.altCostParse(id, st.Params["Cost"])
+				cost, ok := e.altCostParse(id, st.ParamStr(cards.PKCost))
 				if !ok {
 					continue
 				}
 				out = append(out, altCostView{cost: cost,
-					announce: strings.TrimSpace(st.Params["Announce"]), src: id})
+					announce: strings.TrimSpace(st.ParamStr(cards.PKAnnounce)), src: id})
 			}
 		}
 	}

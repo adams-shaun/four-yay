@@ -206,7 +206,7 @@ func (e *Engine) triggerConditionHoldsWithSVars(t cards.Trigger, source state.Ob
 			return false
 		}
 	}
-	if strings.EqualFold(strings.TrimSpace(t.Params["Condition"]), "Revolt") {
+	if strings.EqualFold(strings.TrimSpace(t.ParamStr(cards.PKCondition)), "Revolt") {
 		// The bare-Condition$ spelling of the same gate. No corpus trigger
 		// carries it today (the one bare Condition$ Revolt carrier,
 		// Decommission, is a DB$ GainLife sub the effects condition gate

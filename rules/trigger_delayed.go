@@ -435,7 +435,7 @@ func (e *Engine) checkEventDelayedTriggers(ev events.Event, lki *state.Object) {
 			// controller: seat 0's Jailer exiles seat 1's creature and seat
 			// 2 takes the crown, so the creature must return even though
 			// seat 2 does not control it.
-			if v := strings.TrimSpace(t.Params["ValidPlayer"]); strings.EqualFold(v, "Player.OpponentOf Remembered") {
+			if v := strings.TrimSpace(t.ParamStr(cards.PKValidPlayer)); strings.EqualFold(v, "Player.OpponentOf Remembered") {
 				if int(ev.Player) >= len(e.G.Players) || e.G.Players[ev.Player].Lost ||
 					!effects.MatchesPlayerSpec(e.G, "Opponent", ev.Player, dt.Controller) {
 					continue
@@ -454,7 +454,7 @@ func (e *Engine) checkEventDelayedTriggers(ev events.Event, lki *state.Object) {
 			// separately. The special case is local to delayed
 			// registrations, so a face trigger keeps the existing single-word
 			// reading; a single-zone string is not touched at all.
-			if d, ok := t.Params["Destination"]; ok && strings.Contains(d, ",") {
+			if d, ok := t.Param(cards.PKDestination); ok && strings.Contains(d, ",") {
 				if !zoneDelayedDestinationAdmits(d, ev.To) {
 					continue
 				}
@@ -463,7 +463,7 @@ func (e *Engine) checkEventDelayedTriggers(ev events.Event, lki *state.Object) {
 			if !e.zoneChangeMatchesWithCapture(t, dt.Source, ev, lki, dt.Remembered) {
 				continue
 			}
-			if vp := strings.TrimSpace(t.Params["ValidPlayer"]); vp != "" {
+			if vp := strings.TrimSpace(t.ParamStr(cards.PKValidPlayer)); vp != "" {
 				p, ok := e.delayedEventPlayer(t, ev, lki)
 				pc := e.playerSpecCtx(dt.Source)
 				pc.DelayedRemembered = dt.Remembered
@@ -477,7 +477,7 @@ func (e *Engine) checkEventDelayedTriggers(ev events.Event, lki *state.Object) {
 			// An EffectRepeat registration runs them through the scoped
 			// matching overlay, so the "you" every controller-relative clause reads
 			// is the Effect's owner, not the creating card's controller.
-			if vp := strings.TrimSpace(t.Params["ValidPlayer"]); vp != "" {
+			if vp := strings.TrimSpace(t.ParamStr(cards.PKValidPlayer)); vp != "" {
 				p, ok := e.delayedEventPlayer(t, ev, lki)
 				pc := e.playerSpecCtx(dt.Source)
 				pc.DelayedRemembered = dt.Remembered
@@ -736,7 +736,7 @@ func (e *Engine) delayedChangesControllerMatches(t cards.Trigger, dt *state.Dela
 		return false
 	}
 	ctrl := dt.Controller
-	if v := t.Params["ValidCard"]; v != "" && !effects.MatchesObjectCtx(e.G, v, lki, delayedSpecCtx(e.specCtx(dt.Source, ctrl), dt.Remembered)) {
+	if v := t.ParamStr(cards.PKValidCard); v != "" && !effects.MatchesObjectCtx(e.G, v, lki, delayedSpecCtx(e.specCtx(dt.Source, ctrl), dt.Remembered)) {
 		return false
 	}
 	if v := t.Params["ValidOriginalController"]; v != "" && !effects.MatchesPlayerSpec(e.G, v, lki.Controller, ctrl) {
@@ -764,7 +764,7 @@ func (e *Engine) eventDelayedSpellCastMatches(t cards.Trigger, dt *state.Delayed
 	if obj == nil || obj.Face() == nil {
 		return false
 	}
-	if strings.EqualFold(t.Params["PlayerTurn"], "True") &&
+	if strings.EqualFold(t.ParamStr(cards.PKPlayerTurn), "True") &&
 		e.G.Active != dt.Controller {
 		return false
 	}
@@ -775,12 +775,12 @@ func (e *Engine) eventDelayedSpellCastMatches(t cards.Trigger, dt *state.Delayed
 	// carriers are all printed T: lines), but the stored grammar mirrors
 	// spellCastMatches' clauses one for one so a future registration cannot
 	// widen silently, the same reason the target-shape mirror below exists.
-	if v, ok := t.Params["OpponentTurn"]; ok {
+	if v, ok := t.Param(cards.PKOpponentTurn); ok {
 		if !strings.EqualFold(strings.TrimSpace(v), "True") || e.G.Active == dt.Controller {
 			return false
 		}
 	}
-	if v, ok := t.Params["ValidCard"]; ok {
+	if v, ok := t.Param(cards.PKValidCard); ok {
 		// The cast-provenance qualifiers (castprov1/2/3 — narset's
 		// `ValidCard$ Instant.wasCastFromYourHand,Sorcery.wasCastFromYourHand`)
 		// split out BEFORE spellCastPermanentSpec rewrites the base: the strip

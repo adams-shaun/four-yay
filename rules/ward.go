@@ -24,7 +24,7 @@ func (e *Engine) beginWardPayment(rp *resumePoint, ctx *effects.Ctx) (paid, aske
 	if !ok {
 		return false, false
 	}
-	raw := strings.TrimSpace(rp.sa.Params["UnlessCost"])
+	raw := strings.TrimSpace(rp.sa.ParamStr(cards.PKUnlessCost))
 
 	// Titania's Forge spelling uses the suffix after ':' as an alternative:
 	// discard one card OR pay {2}.
@@ -229,7 +229,7 @@ func (e *Engine) settleWardPayment(kind string, sa *cards.SA, ctx *effects.Ctx, 
 	if !ok {
 		return false
 	}
-	raw := strings.TrimSpace(sa.Params["UnlessCost"])
+	raw := strings.TrimSpace(sa.ParamStr(cards.PKUnlessCost))
 	ids := make([]state.ObjID, 0, len(chosen))
 	seen := map[state.ObjID]bool{}
 	for _, opt := range chosen {

@@ -83,7 +83,7 @@ func init() { Register("ImmediateTrigger", effImmediateTrigger) }
 // shared unless gate; the AB forms' Cost$ is paid by rules' triggered-cost
 // window before this function ever runs (rules/stack.go's resolveTop gate).
 func effImmediateTrigger(h Host, c *Ctx, sa *cards.SA) {
-	execName := strings.TrimSpace(sa.Params["Execute"])
+	execName := strings.TrimSpace(sa.ParamStr(cards.PKExecute))
 	sub := cards.ResolveSVar(c.SVars, execName)
 	if sub == nil {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,

@@ -28,7 +28,7 @@ func effExchangeControl(h Host, c *Ctx, sa *cards.SA) {
 
 	g := h.Game()
 	var targets []state.Target
-	if strings.TrimSpace(sa.Params["Defined"]) != "" {
+	if strings.TrimSpace(sa.ParamStr(cards.PKDefined)) != "" {
 		// Defined and the body's target list identify opposite sides in
 		// ParentTarget-plus-ValidTgts DB abilities. Resolve Defined without
 		// Defined's ordinary ValidTgts shortcut, which intentionally prefers
@@ -55,7 +55,7 @@ func effExchangeControl(h Host, c *Ctx, sa *cards.SA) {
 			targets = append(targets, c.PickedTargets...)
 		} else if ts, ok := c.SubPreAsk[sa.Line]; ok {
 			targets = append(targets, ts...)
-		} else if _, hasTargetSpec := sa.Params["ValidTgts"]; hasTargetSpec {
+		} else if _, hasTargetSpec := sa.Param(cards.PKValidTgts); hasTargetSpec {
 			targets = append(targets, c.Targets...)
 		}
 	} else {

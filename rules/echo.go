@@ -121,7 +121,7 @@ func (e *Engine) startEcho(stackObj, source state.ObjID, sa *cards.SA) {
 	// transfer the already-triggered election (the Cumulative upkeep
 	// contract, CR 113.8).
 	ef := &echoFlow{stackObj: stackObj, source: source, player: stack.Controller}
-	label := sa.Params["Cost"]
+	label := sa.ParamStr(cards.PKCost)
 	if action, ok := parseCumulativeAction(label); ok {
 		// Non-mana echo cost (Discard<1/Card>, Sac<2/Land> — 3 corpus
 		// files): reuse the cumulative-upkeep action vocabulary and its

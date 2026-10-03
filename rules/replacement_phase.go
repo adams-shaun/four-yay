@@ -116,7 +116,7 @@ func (e *Engine) continuePhaseReplacements(ev events.Event, candidates []replMat
 		return ev, true
 	}
 	i := applicable[0]
-	if candidates[i].repl.Params["Optional"] == "True" && int(e.G.Active) < len(e.G.Players) &&
+	if candidates[i].repl.ParamStr(cards.PKOptional) == "True" && int(e.G.Active) < len(e.G.Players) &&
 		!e.G.Players[e.G.Active].Lost {
 		e.posePhaseOptionalChoice(ev, candidates, used, i)
 		return ev, true
@@ -170,7 +170,7 @@ func (e *Engine) resumeParkedPhase(rc replChoice) {
 		return
 	}
 	i := applicable[0]
-	if rc.cands[i].repl.Params["Optional"] == "True" && int(e.G.Active) < len(e.G.Players) &&
+	if rc.cands[i].repl.ParamStr(cards.PKOptional) == "True" && int(e.G.Active) < len(e.G.Players) &&
 		!e.G.Players[e.G.Active].Lost {
 		rc.kind = replChoicePhaseOptional
 		rc.selected = i
@@ -215,7 +215,7 @@ func (e *Engine) applyTurnFaceUpReplacements(ev events.Event, matches []replMatc
 				Text: "turn face up prevented by replacement effect"}), true
 		}
 	}
-	if len(matches) == 1 && strings.EqualFold(matches[0].repl.Params["Optional"], "True") {
+	if len(matches) == 1 && strings.EqualFold(matches[0].repl.ParamStr(cards.PKOptional), "True") {
 		e.replChoices = append(e.replChoices, replChoice{kind: replChoiceFaceUp, ev: ev, cands: matches, selected: 0})
 		if e.pending == nil {
 			e.askReplacementChoice(e.replacementOptionalDeciderOrController(matches[0]))
