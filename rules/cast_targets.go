@@ -366,11 +366,11 @@ func (e *Engine) targetAsk() bool {
 	// mode while omitting another.
 	if pc.targetStage == 0 && !pc.isAbility() && f != nil {
 		if root := f.SpellAbility(); root != nil {
-			choices := strings.Split(root.Params["Choices"], ",")
+			choices := strings.Split(root.ParamStr(cards.PKChoices), ",")
 			if status, _ := effects.CharmCrossModeShape(f.SVars, choices); status == effects.CharmUniqueSupported {
 				var tbms []*cards.SA
 				for _, name := range o.ChosenModes {
-					if sub := cards.ResolveSVar(f.SVars, name); sub != nil && strings.TrimSpace(sub.Params["ValidTgts"]) != "" {
+					if sub := cards.ResolveSVar(f.SVars, name); sub != nil && strings.TrimSpace(sub.ParamStr(cards.PKValidTgts)) != "" {
 						tbms = append(tbms, sub)
 					}
 				}
@@ -874,14 +874,14 @@ func (e *Engine) castSubPreAskable(pc *pendingCast, sub *cards.SA) bool {
 // declaration is relative to an EARLIER target of the same spell or ability:
 // its spec, its controller restriction, its chooser, or a dynamic bound.
 func subTargetingReadsRootTarget(sub *cards.SA, svars map[string]string) bool {
-	for _, v := range []string{sub.ParamStr(cards.PKValidTgts), sub.Params["TargetsWithDefinedController"],
+	for _, v := range []string{sub.ParamStr(cards.PKValidTgts), sub.ParamStr(cards.PKTargetsWithDefinedController),
 		sub.Params["TargetingPlayer"]} {
 		if strings.Contains(v, "Targeted") || strings.Contains(v, "ParentTarget") {
 			return true
 		}
 	}
-	return bodyReadsRootTarget(sub.Params["TargetMin"], svars, 0) ||
-		bodyReadsRootTarget(sub.Params["TargetMax"], svars, 0)
+	return bodyReadsRootTarget(sub.ParamStr(cards.PKTargetMin), svars, 0) ||
+		bodyReadsRootTarget(sub.ParamStr(cards.PKTargetMax), svars, 0)
 }
 
 // castSubTargetsOwed reports whether a chain link behind an optional
@@ -890,7 +890,7 @@ func subTargetingReadsRootTarget(sub *cards.SA, svars map[string]string) bool {
 // other Condition*$ (a later discard, a colour of mana spent, a board census)
 // is judged as the link resolves and never excuses the announcement.
 func castSubTargetsOwed(pc *pendingCast, sub *cards.SA) bool {
-	switch cond := strings.TrimSpace(sub.Params["Condition"]); {
+	switch cond := strings.TrimSpace(sub.ParamStr(cards.PKCondition)); {
 	case strings.EqualFold(cond, "Kicked"):
 		return modeIsKicked(pc.mode) || (pc.multikickSet && pc.multikickTimes > 0)
 	case strings.EqualFold(cond, "OptionalCost"):

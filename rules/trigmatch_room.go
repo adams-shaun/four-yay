@@ -55,12 +55,12 @@ func (e *Engine) fullyUnlockMatches(t cards.Trigger, source state.ObjID, ev even
 	// the Room controller's, so the unlocking player is room.Controller. An
 	// absent clause fires for any unlocker; a non-"You" value fails closed
 	// through the ordinary spec matcher.
-	if vp := t.Params["ValidPlayer"]; vp != "" && !effects.MatchesPlayerSpec(e.G, vp, room.Controller, you) {
+	if vp := t.ParamStr(cards.PKValidPlayer); vp != "" && !effects.MatchesPlayerSpec(e.G, vp, room.Controller, you) {
 		return false
 	}
 	// ValidCard$ names the Room that was unlocked. Every corpus FullyUnlock
 	// carrier says Card.Room; an absent clause defaults to that same filter.
-	spec := t.Params["ValidCard"]
+	spec := t.ParamStr(cards.PKValidCard)
 	if spec == "" {
 		spec = "Card.Room"
 	}

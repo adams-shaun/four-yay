@@ -51,7 +51,7 @@ func (e *Engine) staticPresentHolds(st cards.Static, source state.ObjID) bool {
 	if !e.classBandGateHolds(st.ParamStr(cards.PKClassBand), source) {
 		return false
 	}
-	spec, ok := st.Params["IsPresent"]
+	spec, ok := st.Param(cards.PKIsPresent)
 	if !ok {
 		return true
 	}
@@ -81,7 +81,7 @@ func (e *Engine) untapOtherStaticsMatch(subject state.ObjID) bool {
 			if st.Mode != "UntapOtherPlayer" || !e.staticPresentHolds(st, id) {
 				continue
 			}
-			spec := st.Params["ValidCard"]
+			spec := st.ParamStr(cards.PKValidCard)
 			if spec == "" {
 				spec = "Card.Self"
 			}

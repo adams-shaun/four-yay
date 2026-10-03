@@ -92,7 +92,7 @@ func surgeCost(f *cards.Face) (Cost, bool) {
 // cannot disagree about which faces are modal.
 func isCharmSpell(f *cards.Face) bool {
 	sa := f.SpellAbility()
-	return sa != nil && sa.API == "Charm" && strings.TrimSpace(sa.Params["Choices"]) != ""
+	return sa != nil && sa.API == "Charm" && strings.TrimSpace(sa.ParamStr(cards.PKChoices)) != ""
 }
 
 // replicateCost resolves the Replicate keyword's payment cost (CR 702.55a,

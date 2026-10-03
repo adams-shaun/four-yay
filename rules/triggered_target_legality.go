@@ -17,13 +17,13 @@ func (e *Engine) TargetableObjects(triggerCard state.ObjID) []state.ObjID {
 	}
 	var sa *cards.SA
 	if spell.Ability != nil {
-		if strings.TrimSpace(spell.Ability.Params["ValidTgts"]) != "" {
+		if strings.TrimSpace(spell.Ability.ParamStr(cards.PKValidTgts)) != "" {
 			sa = spell.Ability
 		}
 	} else if face := spell.Face(); face != nil {
 		sa = face.SpellAbility()
 	}
-	if sa == nil || strings.TrimSpace(sa.Params["ValidTgts"]) == "" {
+	if sa == nil || strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) == "" {
 		return nil
 	}
 	candidates := e.legalTargetCandidates(spell.Controller, spell.ID, spell.ID, sa)

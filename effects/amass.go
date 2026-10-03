@@ -68,7 +68,7 @@ func effAmass(h Host, c *Ctx, sa *cards.SA) {
 	if n <= 0 {
 		return
 	}
-	typ := strings.TrimSpace(sa.Params["Type"])
+	typ := strings.TrimSpace(sa.ParamStr(cards.PKType))
 	if typ == "" {
 		typ = "Army"
 	}

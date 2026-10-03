@@ -32,7 +32,7 @@ func effFog(h Host, c *Ctx, sa *cards.SA) {
 	h.AddContinuous(state.ContinuousEffect{
 		Source:      c.Source,
 		Controller:  c.Controller,
-		UntilEOT:    effectUntilEOT(h, c.Source, sa.Params["Duration"]),
+		UntilEOT:    effectUntilEOT(h, c.Source, sa.ParamStr(cards.PKDuration)),
 		Restriction: "PreventCombatDamage",
 		Duration:    "UntilEOT",
 	})

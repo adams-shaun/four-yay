@@ -38,8 +38,8 @@ func changeZoneAllPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 	if strings.EqualFold(strings.TrimSpace(sa.Params["UseAllOriginZones"]), "True") {
 		return g.AliveFrom(0)
 	}
-	_, targeting := sa.Params["ValidTgts"]
-	_, defined := sa.Params["Defined"]
+	_, targeting := sa.Param(cards.PKValidTgts)
+	_, defined := sa.Param(cards.PKDefined)
 	if !targeting && !defined {
 		return g.AliveFrom(0)
 	}
@@ -66,9 +66,9 @@ func changeZoneAllPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 		out = append(out, t.Player)
 	}
 	if len(out) == 0 {
-		sel := sa.Params["Defined"]
+		sel := sa.ParamStr(cards.PKDefined)
 		if targeting {
-			sel = sa.Params["ValidTgts"]
+			sel = sa.ParamStr(cards.PKValidTgts)
 		}
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 			Text: "ChangeZoneAll could not resolve a player scope from " + sel + "; sweeping all players"})
@@ -81,10 +81,10 @@ func effChangeZoneAll(h Host, c *Ctx, sa *cards.SA) {
 	if exileHostGone(h, c, sa) {
 		return
 	}
-	from, all, valid := ParseZones(sa.Params["Origin"])
+	from, all, valid := ParseZones(sa.ParamStr(cards.PKOrigin))
 	if !valid {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-			Text: "unrecognised ChangeZoneAll Origin " + sa.Params["Origin"]})
+			Text: "unrecognised ChangeZoneAll Origin " + sa.ParamStr(cards.PKOrigin)})
 		return
 	}
 	if all {
@@ -93,7 +93,7 @@ func effChangeZoneAll(h Host, c *Ctx, sa *cards.SA) {
 			state.ZExile, state.ZStack, state.ZCommand, state.ZCeased,
 		}
 	}
-	to := ParseZone(sa.Params["Destination"])
+	to := ParseZone(sa.ParamStr(cards.PKDestination))
 	spec := sa.Params["ChangeType"]
 	if spec == "" {
 		spec = "Card"
@@ -258,10 +258,10 @@ func effChangeZoneAll(h Host, c *Ctx, sa *cards.SA) {
 		// (Valakut Exploration); the persistent half is what the Mimeoplasm
 		// chain's IsRemembered/Remembered$CardPower reads need.
 		if strings.EqualFold(sa.Params["RememberLKI"], "True") &&
-			!strings.EqualFold(sa.Params["RememberChanged"], "True") {
+			!strings.EqualFold(sa.ParamStr(cards.PKRememberChanged), "True") {
 			c.Remembered = append(c.Remembered, state.Target{Obj: id})
 		}
-		if strings.EqualFold(sa.Params["RememberChanged"], "True") {
+		if strings.EqualFold(sa.ParamStr(cards.PKRememberChanged), "True") {
 			c.Remembered = append(c.Remembered, state.Target{Obj: id})
 			eventRemember(h, c, id)
 		}
@@ -489,7 +489,7 @@ func effDestroy(h Host, c *Ctx, sa *cards.SA) {
 }
 
 func effDestroyAll(h Host, c *Ctx, sa *cards.SA) {
-	spec := sa.Params["ValidCards"]
+	spec := sa.ParamStr(cards.PKValidCards)
 	if spec == "" {
 		spec = "Permanent"
 	}
@@ -636,7 +636,7 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 	if spec == "" {
 		spec = "Permanent"
 	}
-	validCard := strings.TrimSpace(sa.Params["ValidCard"])
+	validCard := strings.TrimSpace(sa.ParamStr(cards.PKValidCard))
 	// RememberSacrificed$ True drives the task's effect-driven sacrifice
 	// capture: it makes effSacrifice record the LKI snapshot (power,
 	// toughness, mana value) of each object it sacrifices, so a SubAbility$
@@ -676,7 +676,7 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 	if amount <= 0 {
 		return
 	}
-	optional := sa.Params["Optional"] == "True"
+	optional := sa.ParamStr(cards.PKOptional) == "True"
 	strict := optional && sa.Params["StrictAmount"] == "True"
 	// Optional + StrictAmount is not a 0..Amount range: it is specifically
 	// "none, or exactly Amount". The KModes answer is consumed below before a
@@ -698,7 +698,7 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 	// artifact, creature, ..."). Only a SacValid$ Self/Card.Self line (or no
 	// SacValid$ at all) sacrifices the source object itself. Corpus: 66 such
 	// lines, which previously sacrificed the source whatever its type.
-	if _, targeted := sa.Params["ValidTgts"]; !targeted && strings.TrimSpace(sa.Params["Defined"]) == "" {
+	if _, targeted := sa.Param(cards.PKValidTgts); !targeted && strings.TrimSpace(sa.ParamStr(cards.PKDefined)) == "" {
 		if v := strings.TrimSpace(sa.Params["SacValid"]); v != "" && v != "Self" && v != "Card.Self" {
 			who = []state.Target{{Player: c.Controller, IsPlayer: true}}
 		}
@@ -1013,7 +1013,7 @@ func sacrificePrompt(optional bool, n int32) string {
 // Count$, Sacrificed$ or X is an unknown shape and keeps the
 // pre-Amount$-reading behaviour (1) rather than degrading to zero.
 func sacrificeAmount(h Host, c *Ctx, sa *cards.SA) int32 {
-	raw, ok := sa.Params["Amount"]
+	raw, ok := sa.Param(cards.PKAmount)
 	if !ok {
 		return 1
 	}
@@ -1070,8 +1070,8 @@ func sacrificeAmount(h Host, c *Ctx, sa *cards.SA) int32 {
 // move. A host that cannot ask takes the deterministic first-max stand-in
 // (R-9), which is exactly what botpolicy's clamp fallback answers with.
 func changeZoneChosenTargets(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
-	if _, targeted := sa.Params["ValidTgts"]; !targeted ||
-		strings.TrimSpace(sa.Params["Defined"]) != "" {
+	if _, targeted := sa.Param(cards.PKValidTgts); !targeted ||
+		strings.TrimSpace(sa.ParamStr(cards.PKDefined)) != "" {
 		return nil, false
 	}
 	if c.SubPreAsk != nil {

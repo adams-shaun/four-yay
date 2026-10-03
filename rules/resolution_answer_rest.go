@@ -7,6 +7,7 @@ package rules
 import (
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
@@ -736,7 +737,7 @@ func (e *Engine) resumeAnswerBindingRest(rp *resumePoint, o *state.Object, ctx *
 		// chosen indexes map against THAT list (effects' effPump re-entry
 		// consumes them as the granted keywords).
 		eligible := []string(nil)
-		if strings.TrimSpace(rp.sa.Params["Choices"]) == "" {
+		if strings.TrimSpace(rp.sa.ParamStr(cards.PKChoices)) == "" {
 			if kw := strings.TrimSpace(rp.sa.Params["KWChoice"]); kw != "" {
 				eligible = strings.Split(kw, ",")
 				for i := range eligible {

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/state"
@@ -204,7 +205,7 @@ func (e *Engine) resumeAnswerBinding(rp *resumePoint, o *state.Object, ctx *effe
 		// point's target cursor travels with the answer so the effect can
 		// offer the next opponent after a decline.
 		if rp.sa.API == "Sacrifice" {
-			if n, dmg := effects.ParseDamageUnlessCost(rp.sa.Params["UnlessCost"]); dmg {
+			if n, dmg := effects.ParseDamageUnlessCost(rp.sa.ParamStr(cards.PKUnlessCost)); dmg {
 				if chosePay {
 					e.payUnlessDamageCost(ctx, payOption.Player, n)
 					ctx.UnlessPay = "pay"
@@ -348,7 +349,7 @@ func (e *Engine) resumeAnswerBinding(rp *resumePoint, o *state.Object, ctx *effe
 		// half even when it is not already floating; it receives the same
 		// CR 702.21a activation window as an ordinary numeric Ward.
 		if len(chosen) == 1 && chosen[0].Kind == "ward_mana" {
-			_, manaRaw, _ := strings.Cut(rp.sa.Params["UnlessCost"], ">:")
+			_, manaRaw, _ := strings.Cut(rp.sa.ParamStr(cards.PKUnlessCost), ">:")
 			cost := e.parseCost(manaRaw)
 			if e.payMana(chosen[0].Player, cost) {
 				ctx.UnlessPay = "pay"

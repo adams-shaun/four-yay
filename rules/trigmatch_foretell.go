@@ -81,11 +81,11 @@ func (e *Engine) foretellMatches(t cards.Trigger, source state.ObjID, ev events.
 		return false
 	}
 	ctrl := e.controllerOf(source)
-	if v := t.Params["ValidPlayer"]; v != "" &&
+	if v := t.ParamStr(cards.PKValidPlayer); v != "" &&
 		!effects.MatchesPlayerSpec(e.G, v, o.Controller, ctrl) {
 		return false
 	}
-	if v := t.Params["ValidCard"]; v != "" &&
+	if v := t.ParamStr(cards.PKValidCard); v != "" &&
 		!e.matchesSpec(v, ev.Obj, e.specCtx(source, ctrl)) {
 		return false
 	}

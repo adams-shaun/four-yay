@@ -116,13 +116,13 @@ func (e *Engine) maxSpeedAbilities(p state.PlayerID, id state.ObjID) []*cards.SA
 	}
 	var out []*cards.SA
 	for _, st := range f.Statics {
-		if st.Mode != "Continuous" || st.Params["AddAbility"] == "" {
+		if st.Mode != "Continuous" || st.ParamStr(cards.PKAddAbility) == "" {
 			continue
 		}
-		if st.Params["Condition"] != "MaxSpeed" {
+		if st.ParamStr(cards.PKCondition) != "MaxSpeed" {
 			continue
 		}
-		if ab := cards.ResolveSVar(f.SVars, st.Params["AddAbility"]); ab != nil && ab.Kind == "AB" {
+		if ab := cards.ResolveSVar(f.SVars, st.ParamStr(cards.PKAddAbility)); ab != nil && ab.Kind == "AB" {
 			out = append(out, ab)
 		}
 	}
@@ -155,7 +155,7 @@ func (e *Engine) beginGainedActivation(p state.PlayerID, opt decision.Option) {
 	if ab == nil {
 		return
 	}
-	cost, ok := e.fixLifeXCost(p, opt.Obj, e.parseCost(ab.Params["Cost"]))
+	cost, ok := e.fixLifeXCost(p, opt.Obj, e.parseCost(ab.ParamStr(cards.PKCost)))
 	if !ok {
 		return
 	}
@@ -222,7 +222,7 @@ func (e *Engine) beginGrantedActivation(p state.PlayerID, opt decision.Option) {
 	if ab == nil {
 		return
 	}
-	cost, ok := e.fixLifeXCost(p, opt.Obj, e.parseCost(ab.Params["Cost"]))
+	cost, ok := e.fixLifeXCost(p, opt.Obj, e.parseCost(ab.ParamStr(cards.PKCost)))
 	if !ok {
 		return
 	}
@@ -276,7 +276,7 @@ func (e *Engine) beginKeywordGrantedActivation(p state.PlayerID, opt decision.Op
 	if ab == nil {
 		return
 	}
-	cost, ok := e.fixLifeXCost(p, opt.Obj, e.parseCost(ab.Params["Cost"]))
+	cost, ok := e.fixLifeXCost(p, opt.Obj, e.parseCost(ab.ParamStr(cards.PKCost)))
 	if !ok {
 		return
 	}

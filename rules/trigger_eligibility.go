@@ -459,7 +459,7 @@ func triggerMaskForFace(f *cards.Face) triggerEventMask {
 		// Phase diagnostics are event-visible and run on unrelated events
 		// and in hidden zones too. Keep ALL Phase-bearing faces on the
 		// original path, without caching whether a diagnostic was emitted.
-		if strings.TrimSpace(t.Params["Phase"]) != "" {
+		if strings.TrimSpace(t.ParamStr(cards.PKPhase)) != "" {
 			return allTriggerEvents
 		}
 		m |= triggerModeEvents(t.Mode)

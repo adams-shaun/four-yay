@@ -62,7 +62,7 @@ func openingActionSVar(f *cards.Face, raw string) string {
 	}
 	if sa := cards.ResolveSVar(f.SVars, name); sa != nil &&
 		(strings.HasPrefix(name, "From") || strings.HasPrefix(name, "Exile") ||
-			strings.Contains(strings.ToLower(sa.Params["SpellDescription"]), "opening hand")) {
+			strings.Contains(strings.ToLower(sa.ParamStr(cards.PKSpellDescription)), "opening hand")) {
 		return name
 	}
 	keys := make([]string, 0, len(f.SVars))
@@ -72,14 +72,14 @@ func openingActionSVar(f *cards.Face, raw string) string {
 	sort.Strings(keys)
 	for _, key := range keys {
 		sa := cards.ResolveSVar(f.SVars, key)
-		if sa != nil && sa.Params["SubAbility"] == name &&
-			strings.Contains(strings.ToLower(sa.Params["SpellDescription"]), "opening hand") {
+		if sa != nil && sa.ParamStr(cards.PKSubAbility) == name &&
+			strings.Contains(strings.ToLower(sa.ParamStr(cards.PKSpellDescription)), "opening hand") {
 			return key
 		}
 	}
 	for _, key := range keys {
 		sa := cards.ResolveSVar(f.SVars, key)
-		if sa != nil && strings.Contains(strings.ToLower(sa.Params["SpellDescription"]), "opening hand") {
+		if sa != nil && strings.Contains(strings.ToLower(sa.ParamStr(cards.PKSpellDescription)), "opening hand") {
 			return key
 		}
 	}
@@ -165,7 +165,7 @@ func (e *Engine) applyOpeningEffect(ef openingEffect) {
 	if sa == nil {
 		return
 	}
-	if sa.API != "ChangeZone" || sa.Params["Origin"] != "Hand" || sa.Params["Destination"] != "Battlefield" {
+	if sa.API != "ChangeZone" || sa.ParamStr(cards.PKOrigin) != "Hand" || sa.ParamStr(cards.PKDestination) != "Battlefield" {
 		// Reveal, exile, token and delayed-effect opening scripts use the
 		// ordinary effect registry too. The FromHand battlefield shape below
 		// is split out only because Gemstone's mandatory follow-up needs its
@@ -183,12 +183,12 @@ func (e *Engine) applyOpeningEffect(ef openingEffect) {
 		// A pregame opening-hand counter is put by the effect's player, with
 		// no stack cause: publish the adder for the AddCounter class.
 		prevAdder := e.SetCounterAdder(ef.player)
-		e.emit(events.Event{Kind: events.CounterChange, Obj: ef.card, Counter: sub.Params["CounterType"], Amount: n})
+		e.emit(events.Event{Kind: events.CounterChange, Obj: ef.card, Counter: sub.ParamStr(cards.PKCounterType), Amount: n})
 		e.SetCounterAdder(prevAdder)
 		sa = sub
 		sub = sub.Sub
 	}
-	if sub != nil && sub.API == "ChangeZone" && sub.Params["Origin"] == "Hand" && sub.Params["Destination"] == "Exile" {
+	if sub != nil && sub.API == "ChangeZone" && sub.ParamStr(cards.PKOrigin) == "Hand" && sub.ParamStr(cards.PKDestination) == "Exile" {
 		e.opening.exile = ef.card
 		d := &decision.Decision{Player: ef.player, Kind: decision.KChoose, Min: 1, Max: 1,
 			Prompt: "Exile a card from your hand", Source: ef.card}
@@ -280,17 +280,17 @@ func (e *Engine) registerOpeningEffectTriggers(ef openingEffect, first *cards.SA
 					return
 				}
 				t, ok := cards.ParseTriggerLine(o.Face().SVars[name])
-				if !ok || t.Params["OneOff"] != "True" || t.Params["OptionalDecider"] != "" {
+				if !ok || t.Params["OneOff"] != "True" || t.ParamStr(cards.PKOptionalDecider) != "" {
 					continue
 				}
-				exec := t.Params["Execute"]
+				exec := t.ParamStr(cards.PKExecute)
 				if exec == "" || cards.ResolveSVar(o.Face().SVars, exec) == nil {
 					continue
 				}
 				switch t.Mode {
 				case "Phase":
 					var step state.Step
-					switch strings.TrimSpace(t.Params["Phase"]) {
+					switch strings.TrimSpace(t.ParamStr(cards.PKPhase)) {
 					case "Upkeep":
 						step = state.StepUpkeep
 					case "Main1":
@@ -302,7 +302,7 @@ func (e *Engine) registerOpeningEffectTriggers(ef openingEffect, first *cards.SA
 						continue
 					}
 					e.emit(events.Event{Kind: events.DelayedRegister, Obj: ef.card, Player: ef.player,
-						Step: step, Counter: exec, Text: t.Params["Phase"]})
+						Step: step, Counter: exec, Text: t.ParamStr(cards.PKPhase)})
 				case "SpellCast":
 					// Step carries the registration's decoding guard only
 					// (events.Apply requires a valid Step); an event-matched
@@ -319,9 +319,9 @@ func (e *Engine) registerOpeningEffectTriggers(ef openingEffect, first *cards.SA
 			}
 		}
 		next := sa.Sub
-		if next == nil && sa.Params["SubAbility"] != "" {
+		if next == nil && sa.ParamStr(cards.PKSubAbility) != "" {
 			if o := e.G.Obj(ef.card); o != nil && o.Face() != nil {
-				next = cards.ResolveSVar(o.Face().SVars, sa.Params["SubAbility"])
+				next = cards.ResolveSVar(o.Face().SVars, sa.ParamStr(cards.PKSubAbility))
 			}
 		}
 		sa = next

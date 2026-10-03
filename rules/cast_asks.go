@@ -924,7 +924,7 @@ func (e *Engine) castModeAsk() bool {
 	}
 	f := o.Face()
 	sa := f.SpellAbility()
-	if sa == nil || sa.API != "Charm" || strings.TrimSpace(sa.Params["Choices"]) == "" {
+	if sa == nil || sa.API != "Charm" || strings.TrimSpace(sa.ParamStr(cards.PKChoices)) == "" {
 		return false
 	}
 	ctx := effects.NewCtxPtr(pc.card, pc.player, effects.CtxInit{})
@@ -941,7 +941,7 @@ func (e *Engine) castModeAsk() bool {
 		// narrows the pool the rng would pick from.
 		return false
 	}
-	choices := strings.Split(sa.Params["Choices"], ",")
+	choices := strings.Split(sa.ParamStr(cards.PKChoices), ",")
 	// The potential pool (a pure read) is the colour-aware upper bound the
 	// per-mode cost filter below prices against: at this point in the cast no
 	// mana has been floated yet (the CR 601.2g window is in payCast), so the
@@ -951,7 +951,7 @@ func (e *Engine) castModeAsk() bool {
 	for _, name := range choices {
 		name = strings.TrimSpace(name)
 		sub := cards.ResolveSVar(f.SVars, name)
-		if sub != nil && sub.Params["ValidTgts"] != "" &&
+		if sub != nil && sub.ParamStr(cards.PKValidTgts) != "" &&
 			!e.targetSAAvailable(pc.player, pc.card, pc.card, sub, pc.x, false) {
 			continue
 		}
@@ -1086,7 +1086,7 @@ func modalTargetSA(f *cards.Face, sa *cards.SA, modes []string) *cards.SA {
 		return sa
 	}
 	for _, name := range modes {
-		if sub := cards.ResolveSVar(f.SVars, name); sub != nil && sub.Params["ValidTgts"] != "" {
+		if sub := cards.ResolveSVar(f.SVars, name); sub != nil && sub.ParamStr(cards.PKValidTgts) != "" {
 			return sub
 		}
 	}
