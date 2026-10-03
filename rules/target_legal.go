@@ -644,7 +644,7 @@ func staticModesFromSVars(sa *cards.SA, svars map[string]string) []string {
 	if sa == nil || sa.API != "Effect" || svars == nil {
 		return nil
 	}
-	names := strings.FieldsFunc(sa.ParamStr(cards.PKStaticAbilities), func(r rune) bool {
+	names := strings.FieldsFunc(effects.EffectOf(sa).StaticAbilities, func(r rune) bool {
 		return r == ',' || r == ' ' || r == '\t' || r == '\n'
 	})
 	if len(names) == 0 {
@@ -685,11 +685,11 @@ func (e *Engine) targetDamageAmount(p state.PlayerID, source state.ObjID, sa *ca
 		}
 	}
 	ctx.X = x
-	raw, present := sa.Param(cards.PKNumDmg)
-	if !present {
+	amt := effects.DamageAmount(sa)
+	if !amt.Present {
 		return 0, false
 	}
-	raw = strings.TrimSpace(raw)
+	raw := strings.TrimSpace(amt.Text)
 	if n, err := strconv.ParseInt(raw, 10, 32); err == nil {
 		return int32(n), true
 	}

@@ -128,6 +128,48 @@ var DrawFiles = []string{"effects/draw.go"}
 // DrawOnlyKeys are the parameter keys only Draw's compiler reads.
 var DrawOnlyKeys = []string{"RememberDrawn", "Upto"}
 
+// DealDamageCompilerFile is api:DealDamage's parameter compiler (W4 step 3):
+// the one file allowed to read a DealDamage ability's parameters.
+const DealDamageCompilerFile = "effects/dealdamage_params.go"
+
+// DealDamageFiles are DealDamage's own resolution files: they carry no
+// parameter read of any key.
+var DealDamageFiles = []string{"effects/damage_deal.go"}
+
+// DealDamageOnlyKeys are the parameter keys only DealDamage's compiler reads
+// (Fight's unread-parameter Note names ExcessSVar$ through a variable key,
+// not a read).
+var DealDamageOnlyKeys = []string{"ExcessSVar", "ExcessSVarCondition", "RelativeTarget"}
+
+// PutCounterCompilerFile is api:PutCounter's parameter compiler (W4 step 3):
+// the one file allowed to read a PutCounter ability's parameters.
+const PutCounterCompilerFile = "effects/putcounter_params.go"
+
+// PutCounterFiles are PutCounter's own resolution files: they carry no
+// parameter read of any key.
+var PutCounterFiles = []string{"effects/counters_put.go"}
+
+// PutCounterOnlyKeys are the parameter keys only PutCounter's compiler reads
+// (the entry-counter fold and the Adapt$ offer gate read them through it).
+var PutCounterOnlyKeys = []string{"Adapt", "Bolster", "ChooseDifferent", "CounterNumPerDefined",
+	"CounterTypePerDefined", "Divided", "EachFromSource", "MinChoiceAmount", "PerDefined",
+	"RandomType", "RememberCards", "Renown", "Support"}
+
+// EffectCompilerFile is api:Effect's parameter compiler (W4 step 3): the one
+// file allowed to read an Effect ability's parameters (and its Triggers$
+// bodies' own, readEffectTriggerLine).
+const EffectCompilerFile = "effects/effect_params.go"
+
+// EffectFiles are Effect's own resolution files: they carry no parameter read
+// of any key.
+var EffectFiles = []string{"effects/effect.go"}
+
+// EffectOnlyKeys are the parameter keys only Effect's compiler reads (the
+// opening-hand Effect reads EffectOwner$ through it too).
+var EffectOnlyKeys = []string{"EffectOwner", "ExileOnMoved", "ForgetCounter", "ForgetOnCast",
+	"ForgetOnMoved", "ForgetOnPhasedIn", "ImprintOnHost", "ReplacementEffects", "SetChosenNumber",
+	"Stackable"}
+
 // TypedParamCompiler names one API's parameter compiler for the leak census
 // (Metrics.ChangeZoneParamLeaks and its siblings): the compiler file, the
 // API's own resolution files (no parameter read of any key there) and the
@@ -234,6 +276,18 @@ type Metrics struct {
 	PumpLeaks       []string `json:"pump_leaks"`
 	DrawParamLeaks  int      `json:"draw_param_leaks"`
 	DrawLeaks       []string `json:"draw_leaks"`
+	// DealDamageParamLeaks is the same census for api:DealDamage
+	// (DealDamageCompilerFile, DealDamageFiles, DealDamageOnlyKeys).
+	DealDamageParamLeaks int      `json:"deal_damage_param_leaks"`
+	DealDamageLeaks      []string `json:"deal_damage_leaks"`
+	// PutCounterParamLeaks is the same census for api:PutCounter
+	// (PutCounterCompilerFile, PutCounterFiles, PutCounterOnlyKeys).
+	PutCounterParamLeaks int      `json:"put_counter_param_leaks"`
+	PutCounterLeaks      []string `json:"put_counter_leaks"`
+	// EffectParamLeaks is the same census for api:Effect (EffectCompilerFile,
+	// EffectFiles, EffectOnlyKeys).
+	EffectParamLeaks int      `json:"effect_param_leaks"`
+	EffectLeaks      []string `json:"effect_leaks"`
 	// TrigmatchBoardMethods counts the methods trigmatch.Board declares
 	// (rules/trigmatch/board.go): the read-only view the trigger matchers
 	// reach the engine through (W5 E3). Zero when the package is absent.
@@ -346,6 +400,12 @@ func Measure(root string) (Metrics, error) {
 				TypedParamCompiler{PumpCompilerFile, PumpFiles, PumpOnlyKeys})...)
 			m.DrawLeaks = append(m.DrawLeaks, paramLeaks(fset, f, rel,
 				TypedParamCompiler{DrawCompilerFile, DrawFiles, DrawOnlyKeys})...)
+			m.DealDamageLeaks = append(m.DealDamageLeaks, paramLeaks(fset, f, rel,
+				TypedParamCompiler{DealDamageCompilerFile, DealDamageFiles, DealDamageOnlyKeys})...)
+			m.PutCounterLeaks = append(m.PutCounterLeaks, paramLeaks(fset, f, rel,
+				TypedParamCompiler{PutCounterCompilerFile, PutCounterFiles, PutCounterOnlyKeys})...)
+			m.EffectLeaks = append(m.EffectLeaks, paramLeaks(fset, f, rel,
+				TypedParamCompiler{EffectCompilerFile, EffectFiles, EffectOnlyKeys})...)
 			ast.Inspect(f, func(n ast.Node) bool {
 				switch x := n.(type) {
 				case *ast.TypeAssertExpr:
@@ -404,6 +464,9 @@ func Measure(root string) (Metrics, error) {
 	m.CharmParamLeaks, m.CharmLeaks = finishLeaks(m.CharmLeaks)
 	m.PumpParamLeaks, m.PumpLeaks = finishLeaks(m.PumpLeaks)
 	m.DrawParamLeaks, m.DrawLeaks = finishLeaks(m.DrawLeaks)
+	m.DealDamageParamLeaks, m.DealDamageLeaks = finishLeaks(m.DealDamageLeaks)
+	m.PutCounterParamLeaks, m.PutCounterLeaks = finishLeaks(m.PutCounterLeaks)
+	m.EffectParamLeaks, m.EffectLeaks = finishLeaks(m.EffectLeaks)
 	m.FuncsOver300 = len(m.LongFuncs)
 	sort.Slice(m.LongFuncs, func(i, j int) bool {
 		a, b := m.LongFuncs[i], m.LongFuncs[j]
