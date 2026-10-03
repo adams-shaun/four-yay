@@ -700,6 +700,21 @@ func MatchesPlayerSpecWithSVars(h Host, c *Ctx, spec string, p, you state.Player
 	if h == nil || c == nil {
 		return false
 	}
+	return MatchesPlayerSpecWithCounts(h.Game(), func(c *Ctx, expr string) (int32, bool) {
+		return EvalCountOK(h, c, expr)
+	}, c, spec, p, you)
+}
+
+// MatchesPlayerSpecWithCounts is MatchesPlayerSpecWithSVars for a caller that
+// holds no effects.Host: eval is the Count$ evaluator a symbolic threshold's
+// SVar body is read through (effects.EvalCountOK's contract). rules/trigmatch
+// reaches it through trigmatch.Board, whose EvalCountOK method value serves as
+// eval. eval is only called, never retained, so a method value or closure
+// passed here stays on the caller's stack.
+func MatchesPlayerSpecWithCounts(g *state.Game, eval func(c *Ctx, expr string) (int32, bool), c *Ctx, spec string, p, you state.PlayerID) bool {
+	if g == nil || eval == nil || c == nil {
+		return false
+	}
 	for alt := range strings.SplitSeq(spec, ",") {
 		clauses := strings.Split(strings.TrimSpace(alt), "+")
 		resolved := true
@@ -722,7 +737,7 @@ func MatchesPlayerSpecWithSVars(h Host, c *Ctx, spec string, p, you state.Player
 			}
 			body, found := c.SVars[rhs]
 			if !found {
-				if o := h.Game().Obj(c.Source); o != nil && o.Face() != nil {
+				if o := g.Obj(c.Source); o != nil && o.Face() != nil {
 					body, found = o.Face().SVars[rhs]
 				}
 			}
@@ -730,7 +745,7 @@ func MatchesPlayerSpecWithSVars(h Host, c *Ctx, spec string, p, you state.Player
 				resolved = false
 				break
 			}
-			threshold, ok := EvalCountOK(h, c, body)
+			threshold, ok := eval(c, body)
 			if !ok {
 				resolved = false
 				break
@@ -741,7 +756,7 @@ func MatchesPlayerSpecWithSVars(h Host, c *Ctx, spec string, p, you state.Player
 			}
 			clauses[i] = prefix + base + ".life" + op + strconv.FormatInt(int64(threshold), 10)
 		}
-		if resolved && MatchesPlayerSpecCtx(h.Game(), strings.Join(clauses, "+"), p, you, PlayerSpecCtx{
+		if resolved && MatchesPlayerSpecCtx(g, strings.Join(clauses, "+"), p, you, PlayerSpecCtx{
 			Source:     c.Source,
 			OpponentOf: c.Remembered,
 		}) {

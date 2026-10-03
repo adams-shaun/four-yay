@@ -27,9 +27,12 @@ func boardOf(e *Engine) *trigBoard { return (*trigBoard)(e) }
 
 func (b *trigBoard) eng() *Engine { return (*Engine)(b) }
 
-func (b *trigBoard) Game() *state.Game  { return b.G }
-func (b *trigBoard) Log() *events.Log   { return b.L }
-func (b *trigBoard) Host() effects.Host { return b.eng() }
+func (b *trigBoard) Game() *state.Game { return b.G }
+func (b *trigBoard) Log() *events.Log  { return b.L }
+
+func (b *trigBoard) EvalCountOK(ctx *effects.Ctx, expr string) (int32, bool) {
+	return effects.EvalCountOK(b.eng(), ctx, expr)
+}
 
 func (b *trigBoard) Facts() trigmatch.Facts {
 	return trigmatch.Facts{

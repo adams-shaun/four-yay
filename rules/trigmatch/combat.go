@@ -244,10 +244,10 @@ func AttackersDeclaredOneTargetMatches(e Board, t cards.Trigger, source state.Ob
 	if src := e.Game().Obj(source); src != nil && src.Face() != nil {
 		ctx.SVars = src.Face().SVars
 	}
-	if v := t.Params["AttackingPlayer"]; v != "" && !effects.MatchesPlayerSpecWithSVars(e.Host(), ctx, v, attacker, ctrl) {
+	if v := t.Params["AttackingPlayer"]; v != "" && !effects.MatchesPlayerSpecWithCounts(e.Game(), e.EvalCountOK, ctx, v, attacker, ctrl) {
 		return false
 	}
-	if v := t.Params["AttackedTarget"]; v != "" && !effects.MatchesPlayerSpecWithSVars(e.Host(), ctx, v, ev.Player, ctrl) {
+	if v := t.Params["AttackedTarget"]; v != "" && !effects.MatchesPlayerSpecWithCounts(e.Game(), e.EvalCountOK, ctx, v, ev.Player, ctrl) {
 		return false
 	}
 	matches := 0
