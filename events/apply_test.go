@@ -478,11 +478,10 @@ func TestMoveZoneInvariantTableDriven(t *testing.T) {
 // purpose: a hand-typed list is exactly how this test used to miss coverage
 // -- the previous version of this loop enumerated every Kind up to ClockTick
 // and simply never mentioned TriggerPush, whose own Player-handling bug
-// (Ruling T20-e) this test would otherwise exist to catch. kindNames is the
-// one place already required to stay in lockstep with the Kind const block
-// (Kind.String() reads it, and every new Kind ships with its own
-// Test<Kind>KindString regression test asserting that mapping), so bounding
-// the loop by its length means a future appended Kind is covered here with
+// (Ruling T20-e) this test would otherwise exist to catch. kindInfo
+// (events/kindinfo.go) is the one table required to stay in lockstep with the
+// Kind const block (Kind.String() reads it, and TestEveryKindHasADescriptor
+// rejects a Kind without an entry), so bounding the loop by its length means a future appended Kind is covered here with
 // no edit to this test required -- exactly what "append-only, never
 // renumbered" should buy a totality test like this one.
 func TestApplyNeverPanics(t *testing.T) {
@@ -490,7 +489,7 @@ func TestApplyNeverPanics(t *testing.T) {
 	const badObj = state.ObjID(999999)
 	const badPlayer = state.PlayerID(250)
 
-	for k := Kind(0); int(k) < len(kindNames); k++ {
+	for k := Kind(0); int(k) < len(kindInfo); k++ {
 		t.Run(k.String(), func(t *testing.T) {
 			variants := []struct {
 				name string
@@ -886,25 +885,6 @@ func TestClockTickIncrementsClock(t *testing.T) {
 	Emit(g, l, Event{Kind: ClockTick})
 	if g.Clock != 2 {
 		t.Fatalf("Clock = %d after two ticks, want 2", g.Clock)
-	}
-}
-
-// TestEveryKindHasAName is the totality guard the per-Kind KindString
-// convention asks for: every Kind below NumKinds must carry a non-empty
-// kindNames entry. kindNames is declared [NumKinds]string, so a Kind appended
-// WITHOUT its name still compiles -- the literal simply fills the trailing
-// slot with the zero value and Kind.String() returns "" (the exact slip task
-// alterattr1 made, which the rules interest-mapping failure then printed as
-// `kind  interest`, a blank between the spaces). One assertion here cannot
-// miss the next Kind the way a remembered per-Kind test can.
-func TestEveryKindHasAName(t *testing.T) {
-	for k := Kind(0); int(k) < NumKinds; k++ {
-		if k.String() == "" {
-			t.Fatalf("Kind(%d).String() is empty: a Kind was appended without a kindNames entry", int(k))
-		}
-	}
-	if got, want := Kind(NumKinds).String(), "unknown"; got != want {
-		t.Fatalf("Kind(NumKinds).String() = %q, want %q", got, want)
 	}
 }
 

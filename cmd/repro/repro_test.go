@@ -98,7 +98,7 @@ func TestReproFixtureTamperedEventNamesFirstSeq(t *testing.T) {
 	dir := tamperFixture(t, func(lg map[string]any) {
 		evs := lg["events"].([]any)
 		// Kind is a JSON number (Kind carries no text encoding on the wire);
-		// kindNames orders game_start 0, shuffle 1, move_zone 2, draw 3, so
+		// the kindInfo table orders game_start 0, shuffle 1, move_zone 2, draw 3, so
 		// the first draw is the first event whose kind is 3.
 		for _, ev := range evs {
 			e := ev.(map[string]any)
