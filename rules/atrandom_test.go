@@ -76,6 +76,11 @@ func TestFaceToFaceNotifyIsNotAsked(t *testing.T) {
 				submitChoices(t, e, d.Options[0].Index)
 				continue
 			}
+			// AILogic$ Random rides the throw ask so unattended bots draw
+			// it from their rng (two first-option bots tie forever).
+			if !d.AIRandom {
+				t.Errorf("seat %d throw ask lacks AIRandom (AILogic$ Random)", d.Player)
+			}
 			want := "Rock"
 			if d.Player == 1 {
 				want = "Scissors"

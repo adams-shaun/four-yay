@@ -1126,6 +1126,14 @@ func decide(b Board, d *decision.Decision, r *rand.Rand, lethalPressure, combine
 				}
 			}
 		}
+		// AILogic$ Random (decision.Decision.AIRandom: Face to Face's throw):
+		// the script asks an AI to pick at random, so draw from the seat's
+		// own seeded rng. The fixed first-option policy below would have two
+		// bots throw Rock forever and tie the match endlessly.
+		if c := aiRandomPick(d, r); c != nil {
+			in.Choices = c
+			return Clamp(d, in)
+		}
 		// A modal announcement or mid-resolution pick: choose the first Min options
 		// in order — the recorded mirror of the engine-side first-mode
 		// stand-in, so bot-vs-bot behaviour is largely unchanged, and the
@@ -1569,4 +1577,14 @@ func setPropSharedChoices(d *decision.Decision, choices []int) []int {
 		return out
 	}
 	return nil
+}
+
+// aiRandomPick answers a single-pick AIRandom ask (AILogic$ Random) with one
+// option drawn from the seat's rng, or nil for every other ask -- including
+// a one-option ask, which consumes no rng.
+func aiRandomPick(d *decision.Decision, r *rand.Rand) []int {
+	if !d.AIRandom || r == nil || d.Min != 1 || d.Max != 1 || len(d.Options) < 2 || d.HasBudget() {
+		return nil
+	}
+	return []int{d.Options[r.IntN(len(d.Options))].Index}
 }

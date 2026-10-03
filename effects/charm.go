@@ -655,7 +655,7 @@ func charmGenericPlayersRun(h Host, c *Ctx, sa *cards.SA, choices []string) bool
 				ResumeRemembered:          append([]state.Target(nil), c.Remembered...),
 				ResumeGenericChoosers:     append([]state.Target(nil), c.GenericChoosers...),
 				ResumeGenericChooserIndex: c.GenericChooserIndex,
-				Prompt:                    "Choose 1 to 1 mode(s)"}
+				Prompt:                    "Choose 1 to 1 mode(s)", AIRandom: aiLogicRandom(sa)}
 			for i, name := range available {
 				d.Options = append(d.Options, decision.Option{Index: i, Kind: "mode",
 					Label: CharmModeLabel(cards.ResolveSVar(c.SVars, name), name),
@@ -899,7 +899,7 @@ func effCharm(h Host, c *Ctx, sa *cards.SA) {
 	d := &decision.Decision{Player: c.Controller, Kind: decision.KModes,
 		Min: min, Max: max, Source: c.Source, Repeatable: repeat,
 		ResumeKind: "modes", ResumeSA: sa,
-		Prompt: "Choose " + strconv.Itoa(min) + " to " + strconv.Itoa(max) + " mode(s)"}
+		Prompt: "Choose " + strconv.Itoa(min) + " to " + strconv.Itoa(max) + " mode(s)", AIRandom: aiLogicRandom(sa)}
 	for i, name := range choices {
 		d.Options = append(d.Options, decision.Option{
 			Index: i, Kind: "mode", Label: CharmModeLabel(subs[i], name),

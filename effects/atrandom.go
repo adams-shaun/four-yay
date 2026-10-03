@@ -133,3 +133,11 @@ func randomObjIDs(h Host, pool []state.ObjID, n int) []state.ObjID {
 func ChooseTypeAtRandom(sa *cards.SA) bool {
 	return sa != nil && sa.API == "ChooseType" && strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKAtRandom)), "True")
 }
+
+// aiLogicRandom reports AILogic$ Random: the script's note that an AI makes
+// this choice at random. It does not change the rules (a player still
+// chooses); it rides the ask as decision.Decision.AIRandom so unattended
+// bots answer from their own seeded rng.
+func aiLogicRandom(sa *cards.SA) bool {
+	return sa != nil && strings.TrimSpace(sa.ParamStr(cards.PKAILogic)) == "Random"
+}

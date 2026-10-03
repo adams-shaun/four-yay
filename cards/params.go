@@ -20,6 +20,7 @@ type ParamKey uint8
 
 const (
 	pkNone ParamKey = iota
+	PKAILogic
 	PKActivation
 	PKActivationAfterBlockers
 	PKActivationFirstCombat
@@ -285,6 +286,7 @@ const _ = uint(paramMaskWords*64 - int(paramKeyCount))
 
 // paramKeyNames maps each ParamKey to its Forge key text.
 var paramKeyNames = [paramKeyCount]string{
+	PKAILogic:                         "AILogic",
 	PKActivation:                      "Activation",
 	PKActivationAfterBlockers:         "ActivationAfterBlockers",
 	PKActivationFirstCombat:           "ActivationFirstCombat",
