@@ -210,6 +210,14 @@ func (e *Engine) buildAskResume(d *decision.Decision, obj state.ObjID, direct bo
 			(e.resolvingObj == 0 || d.Source == e.resolvingObj) {
 			obj = d.Source
 			ownResolution = e.resolvingObj != 0
+		} else if e.resolvingObj != 0 && d.Source == e.resolvingObj {
+			// The resolving permanent spell's own entry replacement asked
+			// BEFORE the move (an R:Event$ Moved ReplaceWith body still on
+			// the stack -- Pendant of Prosperity's "enters under the control
+			// of an opponent of your choice" ChoosePlayer): the resume keeps
+			// the top-of-stack frame, but the body moves the spell off the
+			// stack, so its completion owes the same CR 117.3b reset.
+			ownResolution = true
 		}
 	}
 	parentLinks, linkAnswer, linkAnswered := e.resolutionParentLinks()
