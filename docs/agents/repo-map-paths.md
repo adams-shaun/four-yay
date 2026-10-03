@@ -13,6 +13,7 @@ Part of the [repo map](repo-map.md) index. The engine chain is in
 | `gorged` | The server: perpetual bot tables, vs-bot games, web client. |
 | `mtgsim` | Headless self-play over the repo decks with replay verification (`make sim`). |
 | `repro` | Replays a player feedback snapshot; `-emit-test` writes a failing test. |
+| `headdiff` | Plays the `TestHeads` acceptance games; `-dump` records their event streams, `-against` names the first divergent event between two builds. |
 | `cardfuzz` | Random mono-colour decks over the supported corpus; hunts panics, livelocks, divergences. |
 | `testtime` / `gcgate` / `allocgate` | Test wall-time, GC-share and allocation/RSS budgets (`TEST_HISTORY.md`, `ALLOC_HISTORY.md`). |
 | `gentypes` | Regenerates `web/src/protocol.ts` (`make gentypes`; `-check` in lint). |

@@ -167,11 +167,12 @@ port_owner() {
 }
 
 lane_for() {
-	# The SHARED arm MUST come first: rules/heads_test.go is a golden owned by
-	# both threads and would otherwise be swallowed by the rules/* pattern in
-	# the engine arm. Order in a case statement is the whole classification.
+	# The SHARED arm MUST come first: rules/heads_test.go and the goldens in
+	# rules/testdata/heads/ are owned by both threads and would otherwise be
+	# swallowed by the rules/* pattern in the engine arm. Order in a case
+	# statement is the whole classification.
 	case "$1" in
-		Makefile|AGENTS.md|go.mod|go.sum|rules/heads_test.go|rules/acceptance_test.go) echo SHARED ;;
+		Makefile|AGENTS.md|go.mod|go.sum|rules/heads_test.go|rules/testdata/heads/*|rules/acceptance_test.go) echo SHARED ;;
 		rules/*|effects/*|state/*|events/*|cards/*|decision/*|view/*|replay/*|protocol/*|host/*|web/*|cmd/gorged/*|cmd/gentypes/*|scripts/*|.githooks/*) echo engine ;;
 		botpolicy/*|seat/*|cmd/botbench/*|internal/testutil/*|distill/*) echo distill ;;
 		*) echo unclaimed ;;

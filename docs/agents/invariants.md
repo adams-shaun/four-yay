@@ -157,11 +157,21 @@ message.
 
 ### 9. Golden chain heads move only with a named cause
 
-`rules/heads_test.go` `acceptanceHeads` pins the hash-chain head of the
-deterministic acceptance games at 2/4/6/8 seats. A legitimate behaviour
-change moves them. Update them and name the cause in the commit body: find
-the first diverging event by diffing the two event streams, not by reasoning
-about them.
+`TestHeads` (`rules/heads_test.go`) pins the hash-chain head of the
+deterministic acceptance games at 2/4/6/8 seats, one file per seat count:
+`rules/testdata/heads/<seats>.txt` holds the hash and nothing else. The game
+itself is non-test code (`rules/acceptance_game.go`,
+`testutil.AcceptanceDecks` and `botpolicy.GameBot`), so `cmd/headdiff` plays
+exactly the game the goldens pin. A legitimate behaviour change moves them:
+
+- Re-pin with `GORGE_UPDATE_HEADS=1 go test ./rules/ -run '^TestHeads$'`,
+  which rewrites the files.
+- Name the first diverging event and its cause in the **commit message**,
+  never in a file. Find the event by diffing the two event streams, not by
+  reasoning about them: `headdiff -dump` on the base, `headdiff -against` on
+  the branch (`go doc ./cmd/headdiff` has the reviewer recipe).
+- The rationale prose the goldens carried until 2026-10-03 is frozen in
+  [heads-history.md](heads-history.md). Do not add to it.
 
 - Only `legacyDeckNames` seat these games, so adding a deck file cannot move
   a head.

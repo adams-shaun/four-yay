@@ -62,7 +62,8 @@ so most of these hurt someone other than you.
   saying why in the commit. Don't leave a stale entry behind when you close
   one: the ratchets fail both ways.
 - **Don't move `TestHeads` goldens without naming the first diverging event**
-  in the commit body.
+  in the commit body (`cmd/headdiff` finds it), and don't write head-move
+  prose into `rules/testdata/heads/` or `docs/agents/heads-history.md`.
 - **Don't add a fuzz test to the default build.** A `Fuzz*` target or a
   seed-sweep test starts with `//go:build fuzz` and runs via `make fuzz` or
   `go test -tags fuzz`; the default suite and the pipeline gates skip it.

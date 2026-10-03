@@ -151,7 +151,7 @@ Measured 2026-09-28 on `main` (`go test ./rules/ -run
   deliberately excludes the Commander decks) round-robin across 2/4/6/8 seats
   (`TestRepoDecksPlayAtEverySeatCount`). They replay byte-identically
   (`TestRepoDeckGamesReplayExactly`), and `TestHeads` pins their chain heads
-  in `rules/heads_test.go` `acceptanceHeads`. That map is the authority. At
+  in `rules/testdata/heads/<seats>.txt`. Those files are the authority. At
   this date:
 
   | seats | 2 | 4 | 6 | 8 |
