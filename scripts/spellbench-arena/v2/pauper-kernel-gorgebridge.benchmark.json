@@ -1,0 +1,145 @@
+{
+  "schema": "spellbench-benchmark/v2",
+  "id": "pauper-kernel-gorgebridge",
+  "title": "Pauper · mtg-kernel (gorge bridge)",
+  "summary": "LOCAL, UNOFFICIAL: gorge entries rated on a reconstructed bridge. Same decks, pairs, seed, clocks, caps, mulligan and anchor as pauper-kernel; only the engine (gorge's clean-room agent_bridge_v2 over public RlEpisodeSessionV1, no --x-kernel-flat-v4) and the roster differ.",
+  "format": "pauper-bo1",
+  "engine": {
+    "name": "mtg-kernel",
+    "command": [
+      "/mnt/sata/gorge-training/sb-bridge2/target/release/agent_bridge_v2"
+    ]
+  },
+  "deck_pool": [
+    "Wildfire",
+    "Rally",
+    "Affinity",
+    "Elves",
+    "Spy",
+    "Burn",
+    "CawGates",
+    "Faeries"
+  ],
+  "pairs_per_deck": 4,
+  "stats_seed": 20260926,
+  "time_control": {
+    "startup_ms": 120000,
+    "game_start_ms": 60000,
+    "bank_ms": 600000,
+    "increment_ms": 2000,
+    "max_decision_ms": 30000,
+    "engine_step_ms": 120000
+  },
+  "bootstrap_replicates": 2000,
+  "workers": 20,
+  "bots": [
+    {
+      "name": "uniform",
+      "version": "2.0.0",
+      "type": "builtin",
+      "seed": 11,
+      "owner": "spellbench",
+      "training_style_tags": [
+        "baseline"
+      ],
+      "display": {
+        "label": "random",
+        "author": "Spellbench",
+        "description": "Picks uniformly at random among the offered actions. The anchor: its Elo is fixed at 1000.",
+        "url": null
+      }
+    },
+    {
+      "name": "heuristic",
+      "version": "2.0.0",
+      "type": "builtin",
+      "owner": "spellbench",
+      "training_style_tags": [
+        "heuristic"
+      ],
+      "display": {
+        "label": "heuristic",
+        "author": "Spellbench",
+        "description": "Fixed priorities: play a land, cast a spell, activate an ability; attacks with everything and never blocks.",
+        "url": null
+      }
+    },
+    {
+      "name": "first",
+      "version": "2.0.0",
+      "type": "builtin",
+      "owner": "spellbench",
+      "training_style_tags": [
+        "baseline"
+      ],
+      "display": {
+        "label": "first",
+        "author": "Spellbench",
+        "description": "Always takes the first offered action.",
+        "url": null
+      }
+    },
+    {
+      "name": "sb-search-lite-atk",
+      "version": "0.1.0",
+      "type": "subprocess",
+      "owner": "gorge",
+      "engine": "mtg-kernel",
+      "training_style_tags": [
+        "search"
+      ],
+      "command": [
+        "/mnt/sata/gorge-training/sb-bridge2/bin/sbagent",
+        "-policy",
+        "shadow-search-lite-atk",
+        "-name",
+        "sb-search-lite-atk",
+        "-version",
+        "0.1.0",
+        "-cards",
+        "/mnt/sata/gorge-training/sb-bridge2/bin/pool.gob.gz",
+        "-budget-ms",
+        "8000",
+        "-stats",
+        "-quiet"
+      ],
+      "display": {
+        "label": "sb-search-lite-atk",
+        "author": "gorge",
+        "description": "gorge sb-search (4 worlds, 2-turn horizon, attacks searched) inside a gorge shadow rebuilt from v2 observations.",
+        "url": null
+      }
+    },
+    {
+      "name": "sb-tactical",
+      "version": "0.1.0",
+      "type": "subprocess",
+      "owner": "gorge",
+      "engine": "mtg-kernel",
+      "training_style_tags": [
+        "heuristic"
+      ],
+      "command": [
+        "/mnt/sata/gorge-training/sb-bridge2/bin/sbagent",
+        "-policy",
+        "shadow-tactical",
+        "-name",
+        "sb-tactical",
+        "-version",
+        "0.1.0",
+        "-cards",
+        "/mnt/sata/gorge-training/sb-bridge2/bin/pool.gob.gz",
+        "-budget-ms",
+        "8000",
+        "-stats",
+        "-quiet"
+      ],
+      "display": {
+        "label": "sb-tactical",
+        "author": "gorge",
+        "description": "gorge sb-tactical inside a gorge shadow rebuilt from v2 observations.",
+        "url": null
+      }
+    }
+  ]
+}
