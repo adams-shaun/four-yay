@@ -30,7 +30,7 @@ func TestRunPrintsJSONAndTable(t *testing.T) {
 	if err := run(&tab, root, true, 3); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"funcs over 300 lines", "effects.Host methods", "functions over 300 lines:"} {
+	for _, want := range []string{"funcs over 300 lines", "effects.Host methods", "effects.Ctx literals", "functions over 300 lines:"} {
 		if !strings.Contains(tab.String(), want) {
 			t.Errorf("table output lacks %q:\n%s", want, tab.String())
 		}

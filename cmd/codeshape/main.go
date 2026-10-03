@@ -1,7 +1,9 @@
 // Command codeshape prints the rules engine's code-shape metrics
 // (internal/codeshape): functions over 300 lines in rules/ and effects/,
 // Engine method count, effects.Host width, effects.Ctx and resumePoint field
-// counts, and string-literal Params reads and case literals.
+// counts, string-literal Params reads and case literals, and the
+// effects.Ctx / SpecContext / TriggerContext composite literals outside the
+// context-constructor files.
 //
 //	go run ./cmd/codeshape            # JSON (the steward axis reads this)
 //	go run ./cmd/codeshape -table     # human table, long functions listed
@@ -64,6 +66,9 @@ func run(w io.Writer, root string, table bool, top int) error {
 		{"Params[\"lit\"] reads", m.StringParamReads},
 		{"Params distinct literal keys", m.StringParamKeys},
 		{"case \"lit\" literals", m.StringCaseLiterals},
+		{"effects.Ctx literals (outside constructors)", m.CtxLiterals},
+		{"effects.SpecContext literals (outside constructors)", m.SpecContextLiterals},
+		{"effects.TriggerContext literals (outside constructors)", m.TriggerContextLiterals},
 		{"files parsed", m.Files},
 	}
 	for _, r := range rows {

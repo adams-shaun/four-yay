@@ -110,6 +110,63 @@ func free()          {}
 	}
 }
 
+func TestMeasureCountsContextLiterals(t *testing.T) {
+	root := writeTree(t, map[string]string{
+		"effects/registry.go": effectsSrc,
+		// Bare names inside package effects: 3 Ctx (one pointer, two elided
+		// slice elements), 1 SpecContext, 1 TriggerContext; never Other{}.
+		"effects/use.go": `package effects
+
+func g() {
+	_ = &Ctx{Source: 1}
+	_ = []Ctx{{}, {Source: 2}}
+	_ = SpecContext{}
+	_ = TriggerContext{X: 1}
+	_ = Other{}
+}
+`,
+		// The designated constructor files are exempt.
+		"effects/ctx_new.go": "package effects\n\nfunc NewCtx() Ctx { return Ctx{} }\n",
+		"rules/ctx_new.go": `package rules
+
+import "github.com/adams-shaun/gorge/effects"
+
+func k() effects.Ctx { return effects.Ctx{} }
+`,
+		// Selector forms through the plain and an aliased import: 2 Ctx
+		// (one an elided map value), 1 SpecContext, 1 TriggerContext. A local
+		// type named Ctx in rules is not effects.Ctx.
+		"rules/engine.go": `package rules
+
+import (
+	"github.com/adams-shaun/gorge/effects"
+	fx "github.com/adams-shaun/gorge/effects"
+)
+
+type Ctx struct{}
+type resumePoint struct{ a int }
+
+func h() {
+	_ = effects.Ctx{Source: 1}
+	_ = map[int]*fx.Ctx{1: {}}
+	_ = fx.SpecContext{}
+	_ = &effects.TriggerContext{}
+	_ = Ctx{}
+}
+`,
+		// Test files are never counted.
+		"rules/engine_test.go": "package rules\n\nimport \"github.com/adams-shaun/gorge/effects\"\n\nvar _ = effects.Ctx{}\n",
+	})
+	m, err := Measure(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m.CtxLiterals != 5 || m.SpecContextLiterals != 2 || m.TriggerContextLiterals != 2 {
+		t.Errorf("context literals = Ctx %d, SpecContext %d, TriggerContext %d; want 5, 2, 2",
+			m.CtxLiterals, m.SpecContextLiterals, m.TriggerContextLiterals)
+	}
+}
+
 func TestMeasureFailsWhenAMeasuredTypeIsMissing(t *testing.T) {
 	root := writeTree(t, map[string]string{
 		"effects/registry.go": effectsSrc,
