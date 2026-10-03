@@ -28,7 +28,7 @@ import (
 // a set of NON-event engine runtime fields that the layer walk reads
 // transitively -- the rename table and its renameBuilding guard, the layer-4
 // type table and typesBuilding, the effectMatchOverride observer binding,
-// goadProbe, derivingColors*, activeDepth/derivedDepth, and whatever an
+// goadProbe, charsWalk.ColorsSet, activeDepth/charsWalk.Depth, and whatever an
 // EvalCount host method reads for a layer-7 amount. A global cache would have
 // to prove every one of those constant across an epoch (and tests mutate
 // e.G directly with no event at all). legalActionsPriced is documented and
@@ -51,7 +51,7 @@ import (
 //     in its own table (derivedMemoStack), keyed and guarded identically.
 //
 // Ownership: a cached result's Keywords/Types are copied out of the shared
-// derivedKW/derivedTypes scratch into the entry's own backing arrays, so a
+// charsWalk.KW/charsWalk.Types scratch into the entry's own backing arrays, so a
 // later Derived of ANOTHER object (which rewrites the scratch) can never
 // mutate a slice a caller is still ranging. An entry's arrays are rewritten
 // only when the same ObjID misses again, which within one walk cannot happen
@@ -249,8 +249,8 @@ func (e *Engine) endDerivedMemo() { e.derivedMemoDepth-- }
 // derivedMemoUsable reports whether this Derived call is a top-level read
 // whose every non-event input is the walk's fixed state (see above).
 func (e *Engine) derivedMemoUsable() bool {
-	return e.derivedDepth == 0 && e.activeDepth == 0 && !e.renameBuilding && !e.typesBuilding &&
-		!e.effectMatchOverride && e.goadProbe == 0 && !e.derivingColorsSet
+	return e.charsWalk.Depth == 0 && e.activeDepth == 0 && !e.renameBuilding && !e.typesBuilding &&
+		!e.effectMatchOverride && e.goadProbe == 0 && !e.charsWalk.ColorsSet
 }
 
 func (e *Engine) derivedMemoized(id state.ObjID) Derived {

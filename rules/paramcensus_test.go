@@ -304,8 +304,8 @@ type scan struct {
 	// filePkg is the package clause of the file being scanned. The rules
 	// tree includes its lasagna subpackages (sourceFilesUnder walks "."
 	// recursively), which are attributed in the rules namespace; filePkg
-	// tells a rules/combat file apart so its Board calls resolve to rules'
-	// combatBoard adapter (see scanCall).
+	// tells a rules/combat or rules/chars file apart so its Board calls
+	// resolve to rules' combatBoard / charsBoard adapter (see scanCall).
 	filePkg string
 }
 
@@ -889,9 +889,15 @@ func (s *scan) scanCall(t *testing.T, fset *token.FileSet, fi *fnInfo, fname str
 				// to that adapter method, which forwards to the Engine
 				// reader the predicate called before it moved.
 				callee = "combatBoard." + fun.Sel.Name
-			} else if id.Name == "combat" && pkg == "rules" && s.filePkg == "rules" {
-				// rules' calls into rules/combat, whose files are scanned
-				// into the rules namespace under their own function names.
+			} else if id.Name == "b" && pkg == "rules" && s.filePkg == "chars" {
+				// rules/chars' layer walk reads the game through its
+				// chars.Board parameter b, which rules implements as
+				// charsBoard (rules/chars_board.go): the same adapter edge.
+				callee = "charsBoard." + fun.Sel.Name
+			} else if (id.Name == "combat" || id.Name == "chars") && pkg == "rules" && s.filePkg == "rules" {
+				// rules' calls into rules/combat and rules/chars, whose files
+				// are scanned into the rules namespace under their own
+				// function names.
 				callee = fun.Sel.Name
 			} else if strings.HasPrefix(fname, id.Name+".") {
 				// a method calling another method on the same receiver

@@ -8,6 +8,7 @@ import (
 	"github.com/adams-shaun/gorge/deck"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/chars"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -302,7 +303,7 @@ func newEngineShell(cfg Config, random *rng) *Engine {
 		rng:               random,
 		loop:              newLivelockWatcherInto(cfg.LoopGuard, spare.loopSigs, spare.loopRecent, spare.loopPrev, spare.loopHeads, spare.loopHash),
 		compiledText:      newCompiledText(cfg),
-		landTypeWords:     corpusLandTypeWords(cfg.NameUniverse),
+		landTypeWords:     chars.CorpusLandTypeWords(cfg.NameUniverse),
 		mulligans:         cfg.Mulligans,
 		windowDiagnostics: cfg.WindowDiagnostics,
 		startingLife:      life,

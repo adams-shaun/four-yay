@@ -8,6 +8,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
+	"github.com/adams-shaun/gorge/rules/chars"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -147,7 +148,7 @@ func (e *Engine) setPropTokensFor(kind string, c targetCandidate) []string {
 func cardTypeTokens(types []string) []string {
 	var out []string
 	for _, t := range types {
-		if isCardType(t) {
+		if chars.IsCardType(t) {
 			out = append(out, strings.ToLower(t))
 		}
 	}
@@ -162,7 +163,7 @@ func cardTypeTokens(types []string) []string {
 func creatureTypeTokens(types []string) []string {
 	var out []string
 	for _, t := range types {
-		if !isCreatureSubtype(t) {
+		if !chars.IsCreatureSubtype(t) {
 			continue
 		}
 		out = append(out, strings.ToLower(t))

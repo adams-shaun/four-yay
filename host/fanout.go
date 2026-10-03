@@ -30,9 +30,9 @@ func head(m *match) uint64 {
 
 // projectLive runs fn with m.mu held EXCLUSIVELY, and is the ONLY sanctioned
 // way to project the LIVE engine. view.ProjectFor mutates the engine while it
-// builds a View: rules.(*Engine).Derived appends to e.derivedPTFrames and
-// defers a slice truncation (rules/layers.go derivedScalarFrom), writes
-// e.derivedDepth/scratch (layerWalk), and reuses the e.active()/activeBuf
+// builds a View: rules.(*Engine).Derived appends to e.charsWalk.PTFrames and
+// defers a slice truncation (rules/chars PT), writes e.charsWalk.Depth and
+// the walk's scratch, and reuses the e.active()/activeBuf
 // continuous-effect cache. Two concurrent projections therefore corrupt each
 // other's in-progress layer-7 P/T frames — the intermittent module-gate panic
 // in Derived/FilterDerivedPT that crashed a table mid-snapshot.

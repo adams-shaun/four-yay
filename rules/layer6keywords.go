@@ -22,7 +22,7 @@ import (
 // order; nil on the common board where nothing differs, and nil while a
 // layer walk is in progress (the printed read stands, as before).
 func (e *Engine) EffectiveKeywords() []effects.ObjectKeywords {
-	if e.activeDepth != 0 || e.derivedDepth != 0 {
+	if e.activeDepth != 0 || e.charsWalk.Depth != 0 {
 		return nil
 	}
 	var out []effects.ObjectKeywords

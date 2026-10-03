@@ -835,7 +835,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 	// the cloned engine misses the cache and rebuilds the identical,
 	// deterministic list on its first Derived after the clone boundary.
 	//
-	// derivedKW / derivedTypes / derivedDepth (engine.go, layers.go) are the
+	// charsWalk (chars.Scratch: KW / Types / Depth, engine_scratch.go) is the
 	// same class: Derived's reusable keyword/type scratch buffers and their
 	// re-entry guard. A clone starts with nil buffers and grows its own on its
 	// first full Derived, never aliasing the original's mutable scratch — the

@@ -19,7 +19,7 @@ const (
 	// effects/ spanning more than 300 lines.
 	maxFuncLinesOver300 = 54
 	// engineMethodCount is the number of non-test methods on rules.Engine.
-	engineMethodCount = 2126
+	engineMethodCount = 2123
 	// hostMethodCount is the number of methods in the effects.Host interface
 	// (its whole method set, roles included). W1d replaced ObjectText,
 	// ObjectKeywords and BasePower with the one Chars query: 96 -> 94.

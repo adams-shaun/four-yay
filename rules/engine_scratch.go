@@ -5,6 +5,7 @@ import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/chars"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -15,22 +16,20 @@ import (
 // through Go's field promotion. Clone's per-field copy classes
 // (rules/clone.go) are unchanged by the move.
 type engineScratch struct {
-	// derivedKW / derivedTypes are Derived's scratch keyword and type buffers
-	// (rules/layers.go): the full Derived(struct) build rewrites them in place
-	// so repeated derived-characteristic reads do not allocate. They are pure
-	// per-call scratch, rebuilt from the face and active() every call, so they
-	// carry no cross-call state beyond capacity; Clone() copies none of them
-	// (see clone.go), so a cloned engine grows its own — never aliasing the
-	// original's mutable scratch, exactly the A2 buffer / C3 digest precedent.
-	// derivedDepth is the re-entry guard for the reuse (the A2/active()
-	// pattern): a nested Derived mid-build owns private buffers instead of
-	// clobbering the outer build's.
-	derivedKW    []string `clone:"reset"`
-	derivedTypes []string `clone:"reset"`
-	derivedDepth int      `clone:"reset"`
-	// derivedPTFrames are the in-progress layer-7 snapshots exposed to
-	// effects-side Count$Valid scans, including nested candidate derivations.
-	derivedPTFrames []derivedPTSnapshot `clone:"reset"`
+	// charsWalk is the rules/chars layer walk's per-call state (chars.Scratch):
+	// Derived's scratch keyword and type buffers (KW/Types, rewritten in place
+	// so repeated derived-characteristic reads do not allocate), their re-entry
+	// guard (Depth: a nested Derived mid-build owns private buffers instead of
+	// clobbering the outer build's), the in-progress layer-7 snapshots exposed
+	// to effects-side Count$Valid scans (PTFrames), and the finished layer-5
+	// colour stash for the object mid-build (ColorsSet/ColorsID/Colors: Colors
+	// serves it to a layer-7 pump expression that counts the object's own
+	// colours, instead of re-entering Derived and recursing forever). All pure
+	// per-call scratch, rebuilt every call, carrying no cross-call state beyond
+	// capacity; Clone() copies none of it (see clone.go), so a cloned engine
+	// grows its own -- never aliasing the original's mutable scratch, exactly
+	// the A2 buffer / C3 digest precedent.
+	charsWalk chars.Scratch `clone:"reset"`
 	// charsScratch is the record Engine.Chars answers with outside a Derived
 	// memo scope (host_read.go): one Derived build copied here so the query
 	// can hand out a pointer. Pure per-call scratch; Clone copies none.
@@ -143,16 +142,6 @@ type engineScratch struct {
 	// graveCandBuf is the offer walk's graveyard-candidate scratch
 	// (legal_walk_grave_skip.go), taken for the section. Not cloned.
 	graveCandBuf []state.ObjID `clone:"reset"`
-
-	// derivingColorsSet/ID/Colors: the finished layer-5 colour answer for the
-	// object whose Derived is mid-build (set by derivedWith before its layer-7
-	// P/T walk, restored on the way out). Colors serves it to a layer-7 pump
-	// expression that counts the object's own colours, instead of re-entering
-	// Derived and recursing forever. Pure per-call scratch exactly like
-	// derivedDepth — Clone copies none of it (clone.go's scratch precedent).
-	derivingColorsSet bool        `clone:"reset"`
-	derivingColorsID  state.ObjID `clone:"reset"`
-	derivingColors    string      `clone:"reset"`
 
 	// secretVoteBallots is emission-scoped scratch, visible only while the
 	// public, ballot-free completion Note is scanned for Vote triggers.
