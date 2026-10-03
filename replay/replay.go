@@ -316,9 +316,38 @@ func compare(e *rules.Engine, l *events.Log, checked int) (int, error) {
 		if i >= len(l.Events) {
 			return i, &Divergence{Seq: uint64(i), Missing: true, Got: got[i]}
 		}
-		if string(got[i].Append(nil)) != string(l.Events[i].Append(nil)) {
+		if !sameEvent(l.Events[i], got[i]) {
 			return i, &Divergence{Seq: uint64(i), Want: l.Events[i], Got: got[i]}
 		}
 	}
 	return len(got), nil
+}
+
+// sameEvent is compare's byte-for-byte event equality (Event.Append, the
+// encoding the Head chain folds).
+func sameEvent(want, got events.Event) bool {
+	return string(want.Append(nil)) == string(got.Append(nil))
+}
+
+// FirstDivergence compares two complete event streams -- want the reference,
+// got the one under test -- with the same byte-for-byte comparison Replay
+// uses, and returns the first *Divergence, or nil when the streams are
+// identical. Unlike Replay it needs no Config and re-executes nothing: it is
+// for two games played independently (cmd/headdiff compares the acceptance
+// games of two builds this way). A got that runs past want's end is Missing;
+// a got that ends early with every event matching is Short.
+func FirstDivergence(want, got []events.Event) *Divergence {
+	n := min(len(want), len(got))
+	for i := 0; i < n; i++ {
+		if !sameEvent(want[i], got[i]) {
+			return &Divergence{Seq: uint64(i), Want: want[i], Got: got[i]}
+		}
+	}
+	switch {
+	case len(got) > n:
+		return &Divergence{Seq: uint64(n), Missing: true, Got: got[n]}
+	case len(want) > n:
+		return &Divergence{Seq: uint64(n), Short: true, Want: want[n]}
+	}
+	return nil
 }
