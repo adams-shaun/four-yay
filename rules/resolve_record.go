@@ -39,10 +39,8 @@ func tapeAnswerRecord(e *Engine, d *decision.Decision, in decision.Intent) {
 	// Per-resume-kind records: the events a resume arm
 	// (resumeAnswerBinding) emits before re-entering, for the arms whose
 	// answer the asking effect cannot apply itself. Each is a free function
-	// shared with its arm.
-	switch d.ResumeKind {
-	}
-	// (An if-chain, not case arms: the stringCaseLiterals ratchet.)
+	// shared with its arm. (An if-chain, not case arms: the
+	// stringCaseLiterals ratchet.)
 	if d.ResumeKind == "extort" {
 		extortAnswerRecord(e, d.Chosen(in))
 	}
