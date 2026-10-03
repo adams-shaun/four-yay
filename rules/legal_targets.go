@@ -223,7 +223,7 @@ func (e *Engine) charmTargetsAvailable(p state.PlayerID, id state.ObjID, sa *car
 	if o == nil || o.Face() == nil {
 		return true
 	}
-	choices := strings.Split(sa.ParamStr(cards.PKChoices), ",")
+	choices := effects.CharmOf(sa).Modes
 	ctx := effects.NewCtxPtr(id, p, effects.CtxInit{})
 	effects.SetSVars(ctx, o.Face().SVars)
 	legal := make([]string, 0, len(choices))
@@ -254,7 +254,7 @@ func targetsReadXPending(sa *cards.SA) bool {
 	if sa == nil {
 		return false
 	}
-	if sa.API == "Charm" && strings.TrimSpace(sa.ParamStr(cards.PKChoices)) != "" {
+	if sa.API == "Charm" && effects.CharmOf(sa).HasChoices {
 		return true
 	}
 	if strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) != "" {
@@ -350,7 +350,7 @@ func (e *Engine) chainTargetsAvailable(p state.PlayerID, id, excludeSelf state.O
 }
 
 func (e *Engine) rootTargetsAvailable(p state.PlayerID, id, excludeSelf state.ObjID, sa *cards.SA, xPending bool, gift *bool) bool {
-	if sa.API == "Charm" && strings.TrimSpace(sa.ParamStr(cards.PKChoices)) != "" {
+	if sa.API == "Charm" && effects.CharmOf(sa).HasChoices {
 		return e.charmTargetsAvailable(p, id, sa, xPending)
 	}
 	// An Announce$ value can change the target restriction itself; its value

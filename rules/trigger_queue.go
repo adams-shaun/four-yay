@@ -1841,8 +1841,14 @@ func (e *Engine) askTriggerModes(p state.PlayerID, obj state.ObjID, sa *cards.SA
 	// drain falls through to the target ask exactly as it does for
 	// VillainousChoice.
 	if sa.API == "GenericChoice" {
-		defined := strings.TrimSpace(sa.ParamStr(cards.PKDefined))
+		defined := effects.CharmOf(sa).Defined
 		if defined != "" && defined != "You" {
+			return false
+		}
+		// param:api:GenericChoice.AtRandom: the engine picks at resolution
+		// (effects.GenericChoiceAtRandom), never at placement, so the rng
+		// draw stays in the replay-exact resolution path.
+		if effects.GenericChoiceAtRandom(sa) {
 			return false
 		}
 	}
@@ -1869,9 +1875,8 @@ func (e *Engine) askTriggerModes(p state.PlayerID, obj state.ObjID, sa *cards.SA
 	if owned, ok := e.triggerLineSVars[obj]; ok {
 		svars = owned
 	}
-	choices := strings.Split(sa.ParamStr(cards.PKChoices), ",")
+	choices := effects.CharmOf(sa).Modes
 	for i := range choices {
-		choices[i] = strings.TrimSpace(choices[i])
 		if cards.ResolveSVar(svars, choices[i]) == nil {
 			return false // not modal: the primitive asks at resolution
 		}

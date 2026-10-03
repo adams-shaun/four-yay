@@ -81,7 +81,7 @@ func (e *Engine) askCharmModeTargets(p state.PlayerID, source state.ObjID, svars
 	if len(slots) < 2 {
 		return false, false
 	}
-	choices := strings.Split(root.ParamStr(cards.PKChoices), ",")
+	choices := effects.CharmOf(root).Modes
 	if status, _ := effects.CharmCrossModeShape(svars, choices); status != effects.CharmUniqueNone {
 		// The already-implemented TargetUnique family has a different wire
 		// contract (one target per mode AND one different player per target).
