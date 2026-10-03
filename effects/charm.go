@@ -652,6 +652,9 @@ func charmGenericPlayersRun(h Host, c *Ctx, sa *cards.SA, choices []string) bool
 			if len(ans) > 0 && ans[0].Index >= 0 && ans[0].Index < len(available) {
 				name = available[ans[0].Index]
 			}
+			// The legacy re-entry re-runs effCharm from its first line, which
+			// emits the unread-parameter Note again; mirror it (see effCharm).
+			noteUnreadParams(h, c, sa.API, p.Unread)
 			if tempRemember {
 				c.Remembered = []state.Target{chooser}
 			}
@@ -841,6 +844,10 @@ func effCharm(h Host, c *Ctx, sa *cards.SA) {
 				names = append(names, cp.Modes[o.Index])
 			}
 		}
+		// The legacy re-entry re-runs effCharm from its first line, which
+		// emits the unread-parameter Note again; mirror it so the logs stay
+		// identical (the duplicate goes when step 4 deletes the re-entry).
+		noteUnreadParams(h, c, sa.API, cp.Unread)
 		charmRunModes(h, c, sa, names)
 		return
 	}

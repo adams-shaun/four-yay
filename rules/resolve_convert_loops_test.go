@@ -32,6 +32,12 @@ func TestTapeConvertLoops(t *testing.T) {
 		{"Tape Generic Players", "A:SP$ GenericChoice | Defined$ Player | TempRemember$ Chooser | Choices$ DBA,DBB\n" +
 			"SVar:DBA:DB$ GainLife | Defined$ Remembered | LifeAmount$ 2 | SpellDescription$ gain\n" +
 			"SVar:DBB:DB$ Scry | Defined$ Remembered | ScryNum$ 1 | SpellDescription$ scry", 3, 3},
+		{"Tape Generic Show", "A:SP$ GenericChoice | ShowChoice$ True | Choices$ DBA,DBB\n" +
+			"SVar:DBA:DB$ GainLife | LifeAmount$ 2 | SpellDescription$ gain\n" +
+			"SVar:DBB:DB$ Draw | NumCards$ 1 | SpellDescription$ draw", 2, 1},
+		{"Tape Generic Players Show", "A:SP$ GenericChoice | Defined$ Player | ShowChoice$ True | Choices$ DBA,DBB\n" +
+			"SVar:DBA:DB$ GainLife | Defined$ You | LifeAmount$ 2 | SpellDescription$ gain\n" +
+			"SVar:DBB:DB$ Draw | Defined$ You | NumCards$ 1 | SpellDescription$ draw", 3, 3},
 		{"Tape Villainous", "A:SP$ VillainousChoice | Defined$ Opponent | Choices$ DBA,DBB\n" +
 			"SVar:DBA:DB$ LoseLife | Defined$ Remembered | LifeAmount$ 2 | SpellDescription$ lose\n" +
 			"SVar:DBB:DB$ Draw | Defined$ You | NumCards$ 1 | SpellDescription$ draw", 3, 2},
