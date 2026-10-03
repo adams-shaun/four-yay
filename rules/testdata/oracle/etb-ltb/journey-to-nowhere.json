@@ -1,0 +1,61 @@
+{
+ "card": "Journey to Nowhere",
+ "family": "etb-ltb",
+ "author": "cli-20261003T024459Z-db45bede (Oracle + CR only)",
+ "oracle_sha": "bc605f788a51",
+ "scenarios": [
+  {
+   "name": "exiles-a-creature-and-returns-it-when-it-leaves",
+   "cr": [
+    "603.6a",
+    "610.3"
+   ],
+   "why": "Journey to Nowhere's enter trigger exiles target creature; when it leaves the battlefield the exiled card returns under its owner's control. It exiles p1's Grizzly Bears, which returns after the Journey is moved to the graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Journey to Nowhere"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Journey to Nowhere",
+     "mana": "CW",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "move",
+     "seat": 0,
+     "card": "p0:Journey to Nowhere",
+     "to": "graveyard"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Journey to Nowhere",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "battlefield"
+    }
+   ]
+  }
+ ]
+}

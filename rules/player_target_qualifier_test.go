@@ -306,7 +306,7 @@ func TestValidTgtsPurePlayerCensusPinsThePlayerQualifierSets(t *testing.T) {
 	// binds one (src) to judge the game-long damage-by-source qualifier, so
 	// the source-anchored negation is evaluable here; unbound it fails closed
 	// (Crown of Doom's real offer binds one, TestCrownOfDoomTargetsANonOwner).
-	wantOffered := []string{"Any", "Any.NotDefinedParentTarget,Player", "Opponent", "Opponent.wasDealtDamageThisGameBy Self", "Player",
+	wantOffered := []string{"Any", "Any.!EnchantedBy", "Any.NotDefinedParentTarget,Player", "Opponent", "Opponent.wasDealtDamageThisGameBy Self", "Player",
 		"Player.!CardOwner", "Player.!EnchantedBy", "Player.!TriggeredActivator", "Player.!TriggeredCardController", "Player.Opponent", "Player.Other", "You"}
 	wantFailClosed := []string{
 		"Any.!Dinosaur", "Any.!Dragon", "Any.!IsCommander",
@@ -321,8 +321,8 @@ func TestValidTgtsPurePlayerCensusPinsThePlayerQualifierSets(t *testing.T) {
 		"Player.wasDealtCombatDamageThisTurnBySource",
 		"Player.wasDealtDamageThisTurnBySource",
 	}
-	if len(seen) != 25 {
-		t.Fatalf("census population moved: %d distinct pure-player values (was 25)", len(seen))
+	if len(seen) != 26 {
+		t.Fatalf("census population moved: %d distinct pure-player values (was 26)", len(seen))
 	}
 	if !equalStrings(offered, wantOffered) {
 		t.Fatalf("seat-offering values moved:\n got %v\nwant %v", offered, wantOffered)

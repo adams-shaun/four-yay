@@ -1,0 +1,9 @@
+{
+  "card": "Felling Blow",
+  "rows": {
+    "second-target-is-chosen-on-cast": "CR 601.2c: both the caster's creature and the opposing creature are targets announced on cast. Observed: only the first target is asked on cast; the opposing creature is posed as a resolution-time choose, so the creature named on cast (Craw Wurm) is ignored and the default choice (Savannah Lions) takes the 3 damage. Known root, same as Bite Down/second-target-is-chosen-on-cast (fixed on another branch, not yet on main).",
+    "no-opposing-creature-not-castable": "CR 601.2c: with no creature an opponent controls there is no legal second target, so the spell cannot be cast. Observed: the cast is offered. Same root as Bite Down/second-target-is-chosen-on-cast.",
+    "second-target-gone-counter-still-placed-nobody-else-hurt": "CR 608.2b: with the opposing target (Savannah Lions) returned to hand in response, no damage is dealt to anything else. Observed: the engine picks the opposing creature on resolution, so the remaining Centaur Courser is chosen and killed. Same root as Bite Down/second-target-is-chosen-on-cast.",
+    "targeting-a-ward-creature-triggers-ward": "CR 702.21a: an opposing Tolarian Terror named as the second target triggers ward {2} on cast and, unpaid, counters Felling Blow. Observed: no ward trigger (stack holds only Felling Blow), the counter is placed and the Terror takes 3 damage, because the opposing creature is never a target. Same root as Bite Down/second-target-is-chosen-on-cast."
+  }
+}

@@ -1,0 +1,64 @@
+{
+ "card": "Bone Splinters",
+ "family": "spell-conditional",
+ "author": "cli-20261003T024459Z-db45bede (Oracle + CR only)",
+ "oracle_sha": "271105d28258",
+ "scenarios": [
+  {
+   "name": "sacrifices-a-creature-and-destroys-a-creature",
+   "cr": [
+    "601.2b",
+    "701.16a",
+    "701.7a"
+   ],
+   "why": "As an additional cost p0 sacrifices a creature; on resolution Bone Splinters destroys the target creature. Both the sacrificed Grizzly Bears and p1's Centaur Courser end up in graveyards.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Bone Splinters"
+     ],
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Centaur Courser"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Bone Splinters",
+     "mana": "B",
+     "targets": [
+      "p1:Centaur Courser"
+     ],
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Grizzly Bears"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Centaur Courser",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

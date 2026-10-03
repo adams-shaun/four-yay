@@ -690,6 +690,12 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 			c.phaseUnknownNoted[k] = v
 		}
 	}
+	if e.disableTriggersNoted != nil {
+		c.disableTriggersNoted = make(map[string]bool, len(e.disableTriggersNoted))
+		for k, v := range e.disableTriggersNoted {
+			c.disableTriggersNoted[k] = v
+		}
+	}
 	// phaseSpecs, the unbound-face triggerEventMasks fallback and
 	// triggerObjectMasks are pure syntax caches. Leave them empty: each branch
 	// owns its writable caches, unlike diagnostic history.

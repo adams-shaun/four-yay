@@ -1,0 +1,9 @@
+{
+  "card": "Thousand-Year Storm",
+  "rows": {
+    "second-spell-copied-once": "CR 603.2/707.10: the second instant or sorcery its controller casts this turn is copied once. Expected: Bolt, then Shock plus one copy: opponent at 13. Observed: 15; the trigger goes on the stack (stack size 2 after the Shock is cast) but creates no copy -- the count of instant and sorcery spells cast before it this turn reads 0. Confidence high. New root, found by the FDN audit batch 6; no ticket yet.",
+    "third-spell-copied-twice": "Same root as second-spell-copied-once: neither Shock is copied (opponent 13, expected 7).",
+    "spells-before-storm-entered-count": "Same root as second-spell-copied-once: the Bolt cast before the Storm entered should make the Shock copied once (opponent 13); observed no copy (15). (Not separately distinguishable while no copies are made at all.)",
+    "copy-may-choose-new-target": "Same root as second-spell-copied-once: no copy of the second spell is created, so no copy can be redirected to Hill Giant (it survives)."
+  }
+}

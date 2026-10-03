@@ -1,0 +1,42 @@
+{
+  "card": "Karn, the Great Creator",
+  "family": "activated-ability",
+  "oracle_sha": "951d0fe18e8b",
+  "author": "cli-20261003T014432Z-24102604 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "plus-one-animates-a-noncreature-artifact",
+      "cr": ["606.3", "613.1a"],
+      "why": "The +1 loyalty ability turns up to one target noncreature artifact into an artifact creature with P/T each equal to its mana value; a mana value 1 Bonesplitter becomes a 1/1 artifact creature and Karn's loyalty rises to 6.",
+      "setup": {
+        "p0": {"battlefield": ["Karn, the Great Creator", "Bonesplitter"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Karn, the Great Creator", "ability": "Until your next turn", "targets": ["p0:Bonesplitter"]},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Bonesplitter", "pt": "1/1", "types": ["Creature", "Artifact"]},
+        {"card": "p0:Karn, the Great Creator", "counters": {"loyalty": 6}}
+      ]
+    },
+    {
+      "name": "minus-two-returns-an-artifact-from-exile",
+      "cr": ["606.3", "406.2"],
+      "why": "The -2 ability may choose a face-up artifact card you own in exile and put it into your hand; the chosen card leaves exile for the hand and Karn drops to 3 loyalty.",
+      "setup": {
+        "p0": {"battlefield": ["Karn, the Great Creator"], "exile": ["Sol Ring"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "activate", "seat": 0, "card": "p0:Karn, the Great Creator", "ability": "face-up artifact card"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["p0:Sol Ring"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Sol Ring", "zone": "hand"},
+        {"card": "p0:Karn, the Great Creator", "counters": {"loyalty": 3}}
+      ]
+    }
+  ]
+}

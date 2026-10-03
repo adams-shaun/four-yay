@@ -1,0 +1,70 @@
+{
+ "card": "Lead the Stampede",
+ "family": "spell-conditional",
+ "author": "cli-20261003T024459Z-db45bede (Oracle + CR only)",
+ "oracle_sha": "bff7143de61b",
+ "scenarios": [
+  {
+   "name": "takes-two-creatures-from-top-five",
+   "cr": [
+    "701.20a",
+    "701.19c"
+   ],
+   "why": "Lead the Stampede looks at the top five; any number of creature cards may be revealed and put into hand, the rest to the bottom. Two of the five are creatures, so the hand gains Grizzly Bears and Centaur Courser.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Lead the Stampede"
+     ],
+     "library_top": [
+      "Forest",
+      "Grizzly Bears",
+      "Centaur Courser",
+      "Island",
+      "Mountain"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lead the Stampede",
+     "mana": "CGG"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Grizzly Bears",
+        "p0:Centaur Courser"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 2
+     }
+    },
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "hand"
+    },
+    {
+     "card": "p0:Lead the Stampede",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

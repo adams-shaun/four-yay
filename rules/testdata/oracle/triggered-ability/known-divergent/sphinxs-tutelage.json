@@ -1,0 +1,6 @@
+{
+  "card": "Sphinx's Tutelage",
+  "rows": {
+    "two-same-color-nonlands-repeat": "CR 701.17a/105.2/608.2c: when the two milled cards are nonland cards that share a color (Grizzly Bears and Llanowar Elves, both green) the process repeats, milling two more (four total, Island into the graveyard). Observed: only two are milled; the repeat never happens. The single-mill and stop cases pass. Confidence high. New root, found by the FDN audit batch 6; no ticket yet."
+  }
+}

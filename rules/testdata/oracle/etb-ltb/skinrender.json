@@ -1,0 +1,59 @@
+{
+  "card": "Skinrender",
+  "family": "etb-ltb",
+  "oracle_sha": "3a564ba862dc",
+  "author": "cli-20261003T014432Z-24102604 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enters-puts-three-minus-one-counters",
+      "cr": ["603.2", "122.1"],
+      "why": "The mandatory enters trigger puts three -1/-1 counters on target creature; a 4/4 opponent creature becomes 1/1.",
+      "setup": {
+        "p0": {"hand": ["Skinrender"]},
+        "p1": {"battlefield": ["Centaur Courser"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Skinrender", "mana": "BBCC"},
+        {"op": "resolve", "targets": ["p1:Centaur Courser"]}
+      ],
+      "expect": [
+        {"card": "p1:Centaur Courser", "pt": "1/1", "counters": {"-1/-1": 3}},
+        {"card": "p0:Skinrender", "zone": "battlefield", "pt": "3/3"}
+      ]
+    },
+    {
+      "name": "own-creature-is-a-legal-target",
+      "cr": ["603.2", "115.1"],
+      "why": "The target is any creature, including one its controller controls; three -1/-1 counters on a 2/2 leave it dead by state-based actions.",
+      "setup": {
+        "p0": {"hand": ["Skinrender"], "battlefield": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Skinrender", "mana": "BBCC"},
+        {"op": "resolve", "targets": ["p0:Grizzly Bears"]}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "zone": "graveyard"},
+        {"card": "p0:Skinrender", "zone": "battlefield", "pt": "3/3"}
+      ]
+    },
+    {
+      "name": "counters-can-kill-a-small-creature",
+      "cr": ["122.3", "704.5f"],
+      "why": "Three -1/-1 counters on a 3/3 leave toughness 0, so state-based actions put it into the graveyard.",
+      "setup": {
+        "p0": {"hand": ["Skinrender"]},
+        "p1": {"battlefield": ["Grizzly Bears", "Centaur Courser"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Skinrender", "mana": "BBCC"},
+        {"op": "resolve", "targets": ["p1:Grizzly Bears"]}
+      ],
+      "expect": [
+        {"card": "p1:Grizzly Bears", "zone": "graveyard"},
+        {"card": "p1:Centaur Courser", "zone": "battlefield", "pt": "3/3"}
+      ]
+    }
+  ]
+}

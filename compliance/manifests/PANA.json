@@ -1,0 +1,20 @@
+{"code":"PANA","name":"MTG Arena Promos","released":"2020-02-15","set_type":"MAGIC_ARENA","xmage_ref":"6b602a1c85e8ed738a4b40b1ef44c54845b57f68",
+"cards": [
+{"name":"Bladewing the Risen","numbers":["104"],"rarity":"RARE"},
+{"name":"Duress","numbers":["6"],"rarity":"COMMON"},
+{"name":"Firemind's Research","numbers":["5"],"rarity":"RARE"},
+{"name":"Forest","numbers":["205","210","215","220","225","230","235","240","245"],"rarity":"LAND"},
+{"name":"Ghalta, Primal Hunger","numbers":["7"],"rarity":"RARE"},
+{"name":"Hanna, Ship's Navigator","numbers":["105"],"rarity":"RARE"},
+{"name":"Island","numbers":["202","207","212","217","222","227","232","237","242"],"rarity":"LAND"},
+{"name":"Llanowar Elves","numbers":["4"],"rarity":"COMMON"},
+{"name":"Mountain","numbers":["204","209","214","219","224","229","234","239","244"],"rarity":"LAND"},
+{"name":"Plains","numbers":["201","206","211","216","221","226","231","236","241"],"rarity":"LAND"},
+{"name":"Ral, Izzet Viceroy","numbers":["1"],"rarity":"MYTHIC"},
+{"name":"Rhys the Redeemed","numbers":["101"],"rarity":"RARE"},
+{"name":"Swamp","numbers":["203","208","213","218","223","228","233","238","243"],"rarity":"LAND"},
+{"name":"Talrand, Sky Summoner","numbers":["102"],"rarity":"RARE"},
+{"name":"Teferi, Hero of Dominaria","numbers":["2"],"rarity":"MYTHIC"},
+{"name":"The Gitrog Monster","numbers":["103"],"rarity":"MYTHIC"},
+{"name":"Vraska, Golgari Queen","numbers":["3"],"rarity":"MYTHIC"}
+]}

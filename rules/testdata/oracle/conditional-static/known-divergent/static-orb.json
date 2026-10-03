@@ -1,0 +1,6 @@
+{
+  "card": "Static Orb",
+  "rows": {
+    "more-than-two-tapped-only-two-untap": "'As long as Static Orb is untapped, players can't untap more than two permanents during their untap steps' is not enforced (CR 611.3c static): all three tapped Talismans untapped at the next untap step while the Orb was untapped. This is the conditional-static family's untap-step walk (rules/turn.go; Winter Orb, Kismet, Frozen Aether share it), so a fix there covers the class. The sibling scenario 'fewer-than-two-tapped-untap-freely' passes, pinning the normal untap."
+  }
+}

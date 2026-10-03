@@ -1,0 +1,43 @@
+{
+  "card": "Temur Sabertooth",
+  "family": "activated-ability",
+  "oracle_sha": "df4ab5d011cd",
+  "author": "cli-20261003T014432Z-24102604 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "bounce-another-creature-and-gain-indestructible",
+      "cr": ["602.2b", "702.12b"],
+      "why": "Paying {1}{G} may return another creature you control to its owner's hand; if you do, the Sabertooth gains indestructible until end of turn.",
+      "setup": {
+        "p0": {"battlefield": ["Temur Sabertooth", "Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "mana", "seat": 0, "mana": "GC"},
+        {"op": "activate", "seat": 0, "card": "p0:Temur Sabertooth", "ability": "return another creature"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["p0:Grizzly Bears"]}]}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "zone": "hand"},
+        {"card": "p0:Temur Sabertooth", "keywords": ["Indestructible"], "zone": "battlefield"}
+      ]
+    },
+    {
+      "name": "can-return-the-only-other-creature",
+      "cr": ["602.2b", "702.12b"],
+      "why": "With exactly two creatures the ability returns the other one (the Bears), leaving only the Sabertooth, which is indestructible.",
+      "setup": {
+        "p0": {"battlefield": ["Temur Sabertooth", "Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "mana", "seat": 0, "mana": "GC"},
+        {"op": "activate", "seat": 0, "card": "p0:Temur Sabertooth", "ability": "return another creature"},
+        {"op": "resolve", "answers": [{"kind": "any", "pick": ["p0:Grizzly Bears"]}]}
+      ],
+      "expect": [
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Grizzly Bears"}, "eq": 0}
+      ]
+    }
+  ]
+}

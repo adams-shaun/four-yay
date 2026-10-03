@@ -1,0 +1,10 @@
+{"code":"PF19","name":"MagicFest 2019","released":"2019-01-01","set_type":"PROMOTIONAL","xmage_ref":"6b602a1c85e8ed738a4b40b1ef44c54845b57f68",
+"cards": [
+{"name":"Forest","numbers":["6"],"rarity":"LAND"},
+{"name":"Island","numbers":["3"],"rarity":"LAND"},
+{"name":"Lightning Bolt","numbers":["1"],"rarity":"RARE"},
+{"name":"Mountain","numbers":["5"],"rarity":"LAND"},
+{"name":"Plains","numbers":["2"],"rarity":"LAND"},
+{"name":"Sol Ring","numbers":["7"],"rarity":"RARE"},
+{"name":"Swamp","numbers":["4"],"rarity":"LAND"}
+]}
