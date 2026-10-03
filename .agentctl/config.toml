@@ -220,8 +220,24 @@ env = { GORGE_REWARD_DIR = "/home/sadams/projects/gorge/.ds4/reward" }
 # cgroup's cpu.max at process start, so the quota caps GOMAXPROCS, go test/build
 # -p and the cgroup scheduler at once. AllowedCPUs does NOT (measured on this
 # box: CPUQuota=200% -> GOMAXPROCS 2, AllowedCPUs=0-3 -> GOMAXPROCS 32; both
-# exit 0 in a user scope). 400% matches the module gate's own -p=4; the serial
-# gates (CR conformance, TestHeads, make sim) get 200%, ample for -p=1.
+# exit 0 in a user scope). 400% matches the go build gate; the serial gates (CR
+# conformance, TestHeads, make sim) get 200%, ample for -p=1.
+#
+# 2026-10-03 (cli-20261003T071718Z-870e76ee): the vet gate is raised to 800%
+# (GOMAXPROCS 6, -p=6). The cold vet is CPU-QUOTA-bound, not -p-bound: at a
+# fixed 400% quota, -p above 2 is noise or worse. Measured with a private
+# empty GOCACHE (the shared cache is warm and tells you nothing), each run in
+# the gate's own systemd scope under `MemoryMax=4G GOMEMLIMIT=1GiB`:
+#   -p=2 CPUQuota=400% GOMAXPROCS=4 -> 60.9s / 61.3s, 350% CPU, 1.90G maxRSS
+#   -p=4 CPUQuota=400% GOMAXPROCS=4 -> 57.8s,              383% CPU, 1.92G maxRSS
+#   -p=6 CPUQuota=400% GOMAXPROCS=4 -> 60.3s,              383% CPU, 1.93G maxRSS
+#   -p=8 CPUQuota=400% GOMAXPROCS=4 -> 66.6s,              378% CPU, 1.92G maxRSS
+#   -p=4 CPUQuota=800% GOMAXPROCS=4 -> 45.8s / 45.5s,      504% CPU, 1.93G maxRSS
+#   -p=6 CPUQuota=800% GOMAXPROCS=6 -> 38.4s / 40.2s,  616-624% CPU, 1.88G maxRSS
+#   -p=8 CPUQuota=800% GOMAXPROCS=8 -> 41.0s / 40.8s,  657-682% CPU, 1.87G maxRSS
+# -p=6 at 800% is the knee (~39s); -p=8 is no faster and burns more CPU. Peak
+# RSS stays ~1.9G, well under MemoryMax=4G. Net: ~61s -> ~39s cold. The module
+# gate keeps its own -p=4/800% (see the block above), unchanged by this.
 # GOMAXPROCS in env is the legible belt-and-braces for the parallel gates.
 #
 # 2026-10-03 (cli-20261003T052434Z-a1d15fb3): the module gate's CPUQuota is
@@ -246,9 +262,9 @@ env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "4" }
 
 [[gates]]
 name = "go vet"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=400%", "go", "vet", "./..."]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=4G", "-p", "CPUQuota=800%", "go", "vet", "-p=6", "./..."]
 timeout = 600
-env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "4" }
+env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "6" }
 
 # The whole module, not just ./effects ./rules ./cards: a merge that broke
 # internal/searchprobe and internal/archtest passed the old core-only gate
