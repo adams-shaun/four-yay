@@ -233,3 +233,27 @@ func TestTapeConvertFlowDredgeOptionalDraw(t *testing.T) {
 			kinds: []string{"draw_optional", "dredge"}, served: 2, extra: dredger, setup: inYard},
 	})
 }
+
+const (
+	tapeAuraSrc  = "Name:Tape Aura\nManaCost:W\nTypes:Enchantment Aura\nK:Enchant creature\nA:SP$ Attach | Cost$ W | ValidTgts$ Creature | AILogic$ Pump\nOracle:x\n"
+	tapeBearASrc = "Name:Tape Bear A\nManaCost:G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
+	tapeBearBSrc = "Name:Tape Bear B\nManaCost:G\nTypes:Creature Bear\nPT:2/2\nOracle:x\n"
+)
+
+func TestTapeConvertFlowDigUntil(t *testing.T) {
+	auraBoard := func(t *testing.T, e *Engine) {
+		moveByName(t, e, 0, "Tape Aura", state.ZLibrary)
+		moveByName(t, e, 0, "Tape Bear A", state.ZBattlefield)
+		moveByName(t, e, 0, "Tape Bear B", state.ZBattlefield)
+	}
+	runTapeFlowCases(t, 38000, 3, []tapeFlowCase{
+		{name: "Tape Songbirds", src: "A:SP$ DigUntil | Valid$ Card.Land | FoundDestination$ Battlefield | OptionalFoundMove$ True | RevealedDestination$ Graveyard | RememberFound$ True | SubAbility$ DBGain\nSVar:DBGain:DB$ GainLife | LifeAmount$ 2",
+			kinds: []string{"diguntil_move"}, served: 1},
+		{name: "Tape Each Songbirds", src: "A:SP$ DigUntil | Defined$ Player | Valid$ Card.Land | FoundDestination$ Hand | OptionalFoundMove$ True | RevealedDestination$ Library | RevealedLibraryPosition$ -1",
+			kinds: []string{"diguntil_move"}, served: 1},
+		{name: "Tape Aura Dig", src: "A:SP$ DigUntil | Valid$ Card.Aura | FoundDestination$ Battlefield | RevealedDestination$ Library | RevealedLibraryPosition$ -1 | SubAbility$ DBGain\nSVar:DBGain:DB$ GainLife | LifeAmount$ 2",
+			kinds: []string{"diguntil_aura"}, served: 1, extra: []string{tapeAuraSrc, tapeBearASrc, tapeBearBSrc}, setup: auraBoard},
+		{name: "Tape Aura Maybe", src: "A:SP$ DigUntil | Valid$ Card.Aura | FoundDestination$ Battlefield | OptionalFoundMove$ True | RevealedDestination$ Graveyard",
+			kinds: []string{"diguntil_move"}, served: 1, extra: []string{tapeAuraSrc, tapeBearASrc, tapeBearBSrc}, setup: auraBoard},
+	})
+}

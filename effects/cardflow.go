@@ -2171,13 +2171,23 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 					{Index: 0, Kind: "yes", Label: "Yes — put into " + verb, Player: p},
 					{Index: 1, Kind: "no", Label: "No", Player: p},
 				}}
-			if Ask(h, d) == AskAsked {
+			if ans, ok := AskTape(h, d); ok {
+				// The resolution kernel's answer in hand (the
+				// "diguntil_move" arm's DigUntilMove): it governs this walk
+				// from here on, exactly as on the re-entry.
+				moveDone = true
+				moveAns = "no"
+				if answerYes(ans) {
+					moveAns = "yes"
+				}
+			} else if Ask(h, d) == AskAsked {
 				return // resolution suspended; the answer re-enters with Ctx.DigUntilMove set.
+			} else {
+				// Fuzz/no-engine host: the deterministic decline (R-9) — the
+				// found card(s) join the decline destination.
+				moveDone = true
+				moveAns = "no"
 			}
-			// Fuzz/no-engine host: the deterministic decline (R-9) — the found
-			// card(s) join the decline destination.
-			moveDone = true
-			moveAns = "no"
 		}
 		switch {
 		case rememberRevealed:
@@ -2232,13 +2242,7 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 						case auraDone:
 							// The answered bearer is revalidated against the
 							// current battlefield before it is used.
-							bearer = 0
-							for _, candidate := range bearers {
-								if candidate == auraBearer {
-									bearer = candidate
-									break
-								}
-							}
+							bearer = auraAnsweredBearer(bearers, auraBearer)
 							auraDone = false
 						case len(bearers) == 0:
 							bearer = 0
@@ -2256,12 +2260,22 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 							for i, candidate := range bearers {
 								d.Options = append(d.Options, decision.Option{Index: i, Kind: "card", Obj: candidate, Player: p})
 							}
-							if Ask(h, d) == AskAsked {
+							if ans, ok := AskTape(h, d); ok {
+								// The resolution kernel's answer in hand (the
+								// "diguntil_aura" arm's bearer), revalidated
+								// as the re-entry revalidates it.
+								answered := state.ObjID(0)
+								if len(ans) > 0 {
+									answered = ans[0].Obj
+								}
+								bearer = auraAnsweredBearer(bearers, answered)
+							} else if Ask(h, d) == AskAsked {
 								return
+							} else {
+								// R-9: a host without an answer takes the
+								// deterministic first candidate.
+								bearer = bearers[0]
 							}
-							// R-9: a host without an answer takes the
-							// deterministic first candidate.
-							bearer = bearers[0]
 						}
 					}
 					if isAuraFace && bearer == 0 {
@@ -2418,6 +2432,20 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 	if rememberFound {
 		c.Remembered = digRemembered
 	}
+}
+
+// auraAnsweredBearer revalidates an answered DigUntil Aura bearer against the
+// current eligible bearers: the answer if it is still one of them, else 0
+// (no bearer -- the Aura stays in the library). The one home of the
+// "diguntil_aura" answer, shared by the re-entry and the resolution kernel's
+// tape answer.
+func auraAnsweredBearer(bearers []state.ObjID, answered state.ObjID) state.ObjID {
+	for _, candidate := range bearers {
+		if candidate == answered {
+			return candidate
+		}
+	}
+	return 0
 }
 
 // digUntilParamValue is the withhold-list keys' trimmed value read (the
