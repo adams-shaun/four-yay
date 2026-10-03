@@ -423,6 +423,30 @@ func TestRunReuseTree(t *testing.T) {
 	}
 }
 
+// TestRunPerSeatCombatSteps: game.yml's mcts.combat_steps under one player
+// turns on that seat's per-creature combat searches alone -- no opponent
+// nodes, no tree reuse.
+func TestRunPerSeatCombatSteps(t *testing.T) {
+	for _, k := range []string{"MZ_UPSTREAM_SEARCH", "MZ_OPPONENT_NODES", "MZ_REUSE_TREE"} {
+		t.Setenv(k, "")
+	}
+	edit := func(yml string) string {
+		yml = strings.Replace(yml, "max_turns: 6", "max_turns: 14", 1)
+		return strings.Replace(yml, "    offline_mode: true\n", "    offline_mode: true\n    combat_steps: true\n", 1)
+	}
+	f := newFixture(t, 2, 8, true, true, 50052, 50052, edit)
+	if b, err := os.ReadFile(f.yml); err != nil || strings.Count(string(b), "combat_steps: true") != 1 {
+		t.Fatalf("fixture: combat_steps not set for exactly one player (%v)", err)
+	}
+	code, out, errOut := f.run(t)
+	if code != 0 {
+		t.Fatalf("exit %d\n%s\n%s", code, out, errOut)
+	}
+	if st := stats(t, out); st.CombatSteps == 0 || st.OppSelections != 0 || st.ReuseHits+st.ReuseMisses != 0 {
+		t.Fatalf("stats %+v", st)
+	}
+}
+
 // TestRunUpstreamSearch: -upstream-search (and MZ_UPSTREAM_SEARCH=1) turn on
 // every upstream switch for both seats -- opponent nodes, tree reuse and the
 // per-creature combat searches all show on the stats line; without it none

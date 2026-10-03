@@ -390,7 +390,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 				seat := func(s int, pc mzplay.PlayerConfig, d mzplay.ResolvedDeck) mzplay.SeatSetup {
 					out := mzplay.SeatSetup{Deck: d.Cards, DeckName: d.Stem, Budget: pc.SearchBudget, BackpropDiscount: pc.BackpropDiscount,
 						Lambda: pc.TDDiscount, SeeOpponentHand: pc.SeeOpponentHand, OpponentNodes: pc.OpponentNodes || *oppNodes,
-						ReuseTree: pc.ReuseTree || *reuseTree}
+						ReuseTree: pc.ReuseTree || *reuseTree, ParentVisits: pc.ParentVisits, DeadlineBestChild: pc.DeadlineBestChild,
+						CombatSteps: pc.CombatSteps, MicroKinds: pc.MicroKinds}
 					if pc.UpstreamSearch || *upstream {
 						out.SetUpstreamSearch()
 					}
