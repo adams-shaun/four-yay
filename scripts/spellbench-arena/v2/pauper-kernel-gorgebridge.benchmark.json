@@ -89,7 +89,7 @@
         "search"
       ],
       "command": [
-        "/mnt/sata/gorge-training/sb-bridge2/bin/sbagent",
+        "/mnt/sata/gorge-training/sb-bridge2/bin/sbagent-wrap.sh",
         "-policy",
         "shadow-search-lite-atk",
         "-name",
@@ -120,7 +120,7 @@
         "heuristic"
       ],
       "command": [
-        "/mnt/sata/gorge-training/sb-bridge2/bin/sbagent",
+        "/mnt/sata/gorge-training/sb-bridge2/bin/sbagent-wrap.sh",
         "-policy",
         "shadow-tactical",
         "-name",
