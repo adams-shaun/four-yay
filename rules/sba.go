@@ -1186,6 +1186,10 @@ type tokenCasualty struct {
 func (e *Engine) planeswalkerZeroLoyalty(tried *sbaAttempts) bool {
 	tried.rearm(e.G.AliveCount())
 	var dead []casualty
+	// stat:IgnorePlaneswalkerZeroLoyaltyRule (Sanctum Lurker): collected
+	// lazily, once per sweep, only when a zero-loyalty walker is found.
+	var exempt []staticView
+	exemptRead := false
 	for _, p := range e.G.AliveFrom(0) {
 		for _, id := range e.G.Zone(state.ZBattlefield, p) {
 			if tried.objs[id] {
@@ -1210,6 +1214,12 @@ func (e *Engine) planeswalkerZeroLoyalty(tried *sbaAttempts) bool {
 				continue
 			}
 			if o.Counter("LOYALTY") > 0 {
+				continue
+			}
+			if !exemptRead {
+				exempt, exemptRead = e.activeStatics("IgnorePlaneswalkerZeroLoyaltyRule"), true
+			}
+			if e.zeroLoyaltyExempt(exempt, id) {
 				continue
 			}
 			dead = append(dead, casualty{id, "zero loyalty"})
