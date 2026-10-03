@@ -69,8 +69,11 @@ const (
 	// table scan): 619 -> 610. The ManaReflected compiler (ReflectProperty$
 	// read once): 610 -> 609. Measured slack on main (caa66ee75): 609 ->
 	// 608. The CopyPermanent compiler (SetCreatureTypes$, RemoveSubTypes$
-	// and NumCopies$ read once through rawParamText): 608 -> 605.
-	stringParamReads = 605
+	// and NumCopies$ read once through rawParamText): 608 -> 605. W4 step 4's
+	// Defined-reference tier (the compound Defined$ branch and RevealDefined$
+	// no longer rewrite a copied Params map's Defined$ entry; each selector
+	// is a compiled Ref): 605 -> 603.
+	stringParamReads = 603
 	// stringCaseLiterals is the number of string literals in switch case
 	// lists in rules/ and effects/ non-test files.
 	// W4 step 3: Attach's Object$ switch compiled to a kind: 2886 -> 2883.

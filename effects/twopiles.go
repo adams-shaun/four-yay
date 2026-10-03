@@ -64,7 +64,7 @@ func effTwoPiles(h Host, c *Ctx, sa *cards.SA) {
 			return
 		}
 	}
-	spec := strings.TrimSpace(sa.ParamStr(cards.PKDefinedCards))
+	spec := DefinedOf(sa).Cards.Text
 	if spec == "" {
 		if v := strings.TrimSpace(sa.ParamStr(cards.PKZone)); v != "" {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
@@ -122,7 +122,7 @@ func effTwoPiles(h Host, c *Ctx, sa *cards.SA) {
 	sepSpec := strings.TrimSpace(sa.Params["Separator"])
 	chooseSpec := strings.TrimSpace(sa.ParamStr(cards.PKChooser))
 	if chooseSpec == "" {
-		chooseSpec = strings.TrimSpace(sa.ParamStr(cards.PKDefined))
+		chooseSpec = DefinedRefOf(sa).Text
 	}
 	if sepSpec == "" {
 		sepSpec = chooseSpec

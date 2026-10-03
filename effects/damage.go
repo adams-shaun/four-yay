@@ -882,7 +882,7 @@ func validPlayersSelectorUnknown(spec string) bool {
 func effEachDamage(h Host, c *Ctx, sa *cards.SA) {
 	eachToItself := strings.TrimSpace(sa.Params["EachToItself"]) != ""
 	eachOtherRef := strings.TrimSpace(sa.Params["ToEachOther"])
-	hasDefined := strings.TrimSpace(sa.ParamStr(cards.PKDefined)) != ""
+	hasDefined := DefinedRefOf(sa).Set()
 	hasTgts := TargetsOf(sa).Has(TgtValidPresent)
 
 	// LifeLostAll observes the affected group once, exactly as effDamageAll

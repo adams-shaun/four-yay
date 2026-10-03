@@ -36,8 +36,9 @@ func effSeek(h Host, c *Ctx, sa *cards.SA) {
 	// player's found cards do not clobber the first's.
 	rememberFound := strings.EqualFold(strings.TrimSpace(sa.Params["RememberFound"]), "True")
 	var seekRemembered []state.Target
-	players := Defined(h, c, sa)
-	if sa.ParamStr(cards.PKDefined) == "" {
+	defined := DefinedRefOf(sa)
+	players := DefinedRef(h, c, defined, sa)
+	if defined.Raw == "" {
 		players = []state.Target{{Player: c.Controller, IsPlayer: true}}
 	}
 	for _, target := range players {
@@ -46,7 +47,7 @@ func effSeek(h Host, c *Ctx, sa *cards.SA) {
 		}
 		owner := target.Player
 		pool := zoneOf(g, state.ZLibrary, owner)
-		if raw := strings.TrimSpace(sa.ParamStr(cards.PKDefinedCards)); raw != "" {
+		if raw := DefinedOf(sa).Cards.Text; raw != "" {
 			if raw != "Top_10_OfLibrary" {
 				h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 					Text: "Seek withholds DefinedCards$ " + raw + "; no cards moved"})

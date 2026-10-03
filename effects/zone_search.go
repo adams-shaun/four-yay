@@ -832,7 +832,7 @@ func searchPlayersFor(h Host, c *Ctx, sel fetchSelectors) []state.PlayerID {
 // when no chosen player is bound or the bound seat has left the game; callers
 // keep their own deterministic fallback rather than acting on a dead seat.
 func chooserChosenPlayer(h Host, c *Ctx) (state.PlayerID, bool) {
-	for _, t := range Defined(h, c, &cards.SA{Params: map[string]string{"Defined": "ChosenPlayer"}}) {
+	for _, t := range DefinedSpec(h, c, "ChosenPlayer") {
 		if !t.IsPlayer {
 			continue
 		}

@@ -149,7 +149,7 @@ func chooseCardControl(sa *cards.SA) string {
 	if v := strings.TrimSpace(sa.Params["ControlledByPlayer"]); v != "" {
 		return v
 	}
-	if strings.TrimSpace(sa.ParamStr(cards.PKChoices)) != "" || strings.TrimSpace(sa.ParamStr(cards.PKDefinedCards)) != "" {
+	if strings.TrimSpace(sa.ParamStr(cards.PKChoices)) != "" || DefinedOf(sa).Cards.Set() {
 		return ""
 	}
 	if strings.EqualFold(strings.TrimSpace(sa.Params["AllCards"]), "True") {
@@ -166,7 +166,7 @@ func cardChoices(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID) []state.T
 	control := chooseCardControl(sa)
 	var candidates []state.Target
 	zones := choiceZones(sa)
-	if raw := strings.TrimSpace(sa.ParamStr(cards.PKDefinedCards)); raw != "" {
+	if raw := DefinedOf(sa).Cards.Text; raw != "" {
 		var qualifier string
 		candidates, qualifier = definedCardPool(g, c, raw)
 		// A DefinedCards$ set already supplies its zone. ChoiceZone$, when
@@ -347,8 +347,9 @@ func choiceMatches(h Host, g *state.Game, c *Ctx, spec string, o *state.Object) 
 func choiceChoosers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 	seen := map[state.PlayerID]bool{}
 	var out []state.PlayerID
-	plainRemembered := plainRememberedSelector(sa.ParamStr(cards.PKDefined))
-	for _, t := range Defined(h, c, sa) {
+	defined := DefinedRefOf(sa)
+	plainRemembered := defined.Has(RefPlainRemembered)
+	for _, t := range DefinedRef(h, c, defined, sa) {
 		// Forge's getDefinedPlayers("Remembered") adds only remembered
 		// PLAYERS; a remembered CARD contributes its controller/owner only
 		// for the RememberedController/RememberedOwner spellings. PlayerOf
@@ -365,7 +366,7 @@ func choiceChoosers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 			out = append(out, p)
 		}
 	}
-	if len(out) == 0 && sa.ParamStr(cards.PKDefined) == "" {
+	if len(out) == 0 && defined.Raw == "" {
 		return []state.PlayerID{c.Controller}
 	}
 	return out
@@ -1137,7 +1138,7 @@ func controlPlayer(h Host, c *Ctx, sa *cards.SA) (state.PlayerID, bool) {
 		// not model; that is never a meaningful new controller.
 		return 0, false
 	}
-	ts := Defined(h, c, &cards.SA{Params: map[string]string{"Defined": v}})
+	ts := DefinedSpec(h, c, v)
 	// A player named directly wins over an object's controller ("target
 	// player gains control of target creature" lists both targets).
 	for _, t := range ts {
@@ -1761,7 +1762,7 @@ func effChangeTargets(h Host, c *Ctx, sa *cards.SA) {
 
 	if magnet := strings.TrimSpace(sa.Params["DefinedMagnet"]); magnet != "" {
 		var picked []state.Target
-		for _, t := range Defined(h, c, &cards.SA{Params: map[string]string{"Defined": magnet}}) {
+		for _, t := range DefinedSpec(h, c, magnet) {
 			if targetIn(candidates, t) {
 				picked = append(picked, t)
 				break
@@ -1922,7 +1923,7 @@ func repeatPlayers(h Host, c *Ctx, spec string) ([]state.PlayerID, bool) {
 }
 
 func repeatedCards(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
-	if spec := strings.TrimSpace(sa.ParamStr(cards.PKDefinedCards)); spec != "" {
+	if spec := DefinedOf(sa).Cards.Text; spec != "" {
 		switch strings.Split(spec, ".")[0] {
 		case "Targeted":
 			return objectsOf(c.Targets), true
@@ -1931,7 +1932,7 @@ func repeatedCards(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool) {
 		case "ChosenCard":
 			return objectsOf(c.Chosen), true
 		}
-		return objectsOf(Defined(h, c, &cards.SA{Params: map[string]string{"Defined": spec}})), true
+		return objectsOf(DefinedSpec(h, c, spec)), true
 	}
 	spec := strings.TrimSpace(sa.Params["RepeatCards"])
 	if spec == "" {

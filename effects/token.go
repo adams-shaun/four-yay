@@ -317,9 +317,7 @@ func tokenRememberedTargets(h Host, c *Ctx, sa *cards.SA) []state.Target {
 	if strings.EqualFold(name, "ExiledCards") {
 		return append([]state.Target(nil), c.Remembered...)
 	}
-	sub := *sa
-	sub.Params = map[string]string{"Defined": name}
-	return Defined(h, c, &sub)
+	return DefinedSpec(h, c, name)
 }
 
 // effToken creates the requested token scripts and applies their token riders.
@@ -387,7 +385,7 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 		// RememberLKI$ captured -- Curse of the Swine's Boar per exiled
 		// creature. A subject whose controller cannot be resolved leaves the
 		// controller default, the same silent degrade the other miss cases take.
-		for _, t := range Defined(h, c, &cards.SA{Params: map[string]string{"Defined": v}}) {
+		for _, t := range DefinedSpec(h, c, v) {
 			if t.IsPlayer {
 				owners = []state.PlayerID{t.Player}
 				break
@@ -472,9 +470,7 @@ func effToken(h Host, c *Ctx, sa *cards.SA) {
 	attachedTo := strings.TrimSpace(sa.ParamStr(cards.PKAttachedTo))
 	var attachTo state.ObjID
 	if attachedTo != "" {
-		sub := *sa
-		sub.Params = map[string]string{"Defined": attachedTo}
-		for _, t := range Defined(h, c, &sub) {
+		for _, t := range DefinedSpec(h, c, attachedTo) {
 			if !t.IsPlayer {
 				attachTo = t.Obj
 				break

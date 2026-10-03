@@ -72,7 +72,7 @@ import (
 // carrier (Kaya, Spirits' Justice's exile-each; mega_flare,
 // tasha_the_witch_queen, geths_summons) reaches its ask here.
 func chosenTargetsFor(h Host, c *Ctx, sa *cards.SA, atRoot bool) ([]state.Target, bool) {
-	defined := strings.TrimSpace(sa.ParamStr(cards.PKDefined))
+	defined := DefinedRefOf(sa).Text
 	if !TargetsOf(sa).Targeted() ||
 		(defined != "" && definedIsTargetReuse(defined) && sa.API != "Fight") {
 		return nil, false

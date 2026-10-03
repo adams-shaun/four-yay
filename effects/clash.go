@@ -182,7 +182,7 @@ func clashParticipants(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 		out = append(out, p)
 	}
 
-	if strings.TrimSpace(sa.ParamStr(cards.PKDefined)) != "" {
+	if DefinedRefOf(sa).Set() {
 		for _, p := range definedPlayers(h, c, sa) {
 			add(p)
 		}

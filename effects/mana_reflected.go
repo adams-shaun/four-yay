@@ -74,12 +74,10 @@ func ManaReflectedCandidates(h Host, c *Ctx, sa *cards.SA) []string {
 			objs = extras
 		} else {
 			// A "Defined.<name>" spec: resolve <name> through the ordinary
-			// Defined resolver against this resolution's own context. The scan
-			// copy carries only the Defined$ param, so the resolver cannot read
-			// anything else off the script line.
-			scan := *sa
-			scan.Params = map[string]string{"Defined": sel}
-			for _, t := range Defined(h, c, &scan) {
+			// Defined resolver against this resolution's own context.
+			// DefinedSpec resolves the selector alone, so the resolver cannot
+			// read anything else off the script line.
+			for _, t := range DefinedSpec(h, c, sel) {
 				if !t.IsPlayer {
 					objs = append(objs, t.Obj)
 				}

@@ -102,10 +102,9 @@ func effPlay(h Host, c *Ctx, sa *cards.SA) {
 		for _, t := range c.Targets {
 			candidates = append(candidates, t.Obj)
 		}
-	} else if spec, ok := sa.Param(cards.PKDefined); ok && strings.TrimSpace(spec) != "" {
+	} else if defined := DefinedRefOf(sa); defined.Set() {
 		// Population by Defined$ (ExiledWith / Remembered / ...).
-		dd := &cards.SA{Params: map[string]string{"Defined": spec}}
-		for _, t := range Defined(h, c, dd) {
+		for _, t := range DefinedSpec(h, c, defined.Raw) {
 			candidates = append(candidates, t.Obj)
 		}
 		// The trigger-capture exclusion (task castprov2, Amped Raptor's
@@ -121,7 +120,7 @@ func effPlay(h Host, c *Ctx, sa *cards.SA) {
 		// combine a trigger/replacement RememberObjects$ capture with a
 		// DB$ Play | Defined$ Remembered, so no carrier loses a legitimate
 		// candidate to this read.
-		base := strings.Split(strings.TrimSpace(spec), ".")[0]
+		base := strings.Split(defined.Text, ".")[0]
 		// Cipher's encoded card is deliberately captured by its damage trigger:
 		// unlike DigUntil's captured event roles, it IS the Play population.
 		if (base == "Remembered" || base == "RememberedLKI" || base == "RememberedCard" || base == "DirectRemembered") &&

@@ -46,7 +46,7 @@ func effTakeInitiative(h Host, c *Ctx, sa *cards.SA) {
 	// resolves through, carrying the taker selector across so a
 	// `Defined$ <player>` TakeInitiative ventures for the same player(s).
 	venture := &cards.SA{Kind: "DB", API: "Venture", Params: map[string]string{"Dungeon": "Undercity"}}
-	if d := sa.ParamStr(cards.PKDefined); d != "" {
+	if d := DefinedRefOf(sa).Raw; d != "" {
 		venture.Params["Defined"] = d
 	}
 	effVenture(h, c, venture)

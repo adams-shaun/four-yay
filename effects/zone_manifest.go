@@ -36,7 +36,7 @@ import (
 // Turning a face-down permanent face up (CR 708.6) is not implemented
 // anywhere (AGENTS.md's manifest row).
 func effManifest(h Host, c *Ctx, sa *cards.SA) {
-	if strings.TrimSpace(sa.ParamStr(cards.PKDefined)) != "" ||
+	if DefinedRefOf(sa).Set() ||
 		strings.TrimSpace(sa.ParamStr(cards.PKChoices)) != "" ||
 		strings.EqualFold(strings.TrimSpace(sa.Params["RememberManifested"]), "True") {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
@@ -101,7 +101,7 @@ func effManifest(h Host, c *Ctx, sa *cards.SA) {
 // silently look at the wrong count, the wrong player's library, or lose the
 // remembered card a rider needs.
 func effManifestDread(h Host, c *Ctx, sa *cards.SA) {
-	if strings.TrimSpace(sa.ParamStr(cards.PKDefinedPlayer)) != "" ||
+	if definedPlayerRef(sa).Set() ||
 		strings.EqualFold(strings.TrimSpace(sa.Params["RememberManifested"]), "True") ||
 		sa.ParamStr(cards.PKChoices) != "" {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
@@ -238,7 +238,7 @@ func effCloak(h Host, c *Ctx, sa *cards.SA) {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "unimplemented API Cloak"})
 	}
-	defined := strings.TrimSpace(sa.ParamStr(cards.PKDefined))
+	defined := DefinedRefOf(sa).Text
 	if strings.TrimSpace(sa.ParamStr(cards.PKChoices)) != "" ||
 		strings.Contains(defined, "ValidLibrary") {
 		loud()
@@ -296,7 +296,7 @@ func effCloak(h Host, c *Ctx, sa *cards.SA) {
 		}
 		shuffled[o.Owner] = true
 	}
-	if strings.TrimSpace(sa.ParamStr(cards.PKDefinedPlayer)) != "" {
+	if definedPlayerRef(sa).Set() {
 		// The per-player top-card shape (unexplained_absence's
 		// "Defined$ TopOfLibrary | DefinedPlayer$ RememberedController"):
 		// each listed player's OWN top Amount$ cards -- searchPlayers's
