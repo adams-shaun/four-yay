@@ -2561,6 +2561,10 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 		// A pick answers the optional gate only for the target that posed it.
 		// Later Defined$ targets still need their own may-reveal choice.
 		pickForTarget := picks != nil && targetIndex == pickTarget
+		// revealTarget is where a tape-served reveal_optional answer re-walks
+		// its own target, exactly as the "reveal_optional" re-entry does for
+		// the cursor target (the answered yes may still pose the hand pick).
+	revealTarget:
 		if plainRememberedSelector(revealSA.ParamStr(cards.PKDefined)) && !t.IsPlayer {
 			// Forge's getDefinedPlayers("Remembered") adds remembered PLAYERS
 			// only; a remembered card must not widen the reveal's library/hand
@@ -2723,7 +2727,13 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 						ResumeTarget: targetIndex,
 						Prompt:       prompt,
 						Options:      opts}
-					if Ask(h, d) == AskAsked {
+					if ans, ok := AskTape(h, d); ok {
+						// The resolution kernel's answer in hand: the same
+						// narrowing the "reveal_pick" re-entry applies below.
+						pool = revealPickSelected(pool, answerObjs(ans))
+						n = int32(len(pool))
+						pickForTarget = true
+					} else if Ask(h, d) == AskAsked {
 						return // resolution suspended; the answer re-enters with Ctx.RevealPick set.
 					}
 					// No host to ask (R-9): fall through with n unchanged, so
@@ -2739,16 +2749,7 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 					// payload in one place. minPick/maxPick are deliberately not
 					// re-enforced here: the resume rebuilt the pool from live state,
 					// and a client's validated answer is trusted.
-					selected := make([]state.ObjID, 0, len(picks))
-					for _, id := range picks {
-						for _, cand := range pool {
-							if cand == id {
-								selected = append(selected, id)
-								break
-							}
-						}
-					}
-					pool = selected
+					pool = revealPickSelected(pool, picks)
 					n = int32(len(pool))
 				}
 			}
@@ -2883,6 +2884,16 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 				ResumeTarget: targetIndex,
 				Prompt:       prompt,
 				Options:      options}
+			if ans, ok := AskTape(h, d); ok {
+				// The resolution kernel's answer in hand (the
+				// "reveal_optional" arm's RevealOpt): re-walk this target
+				// with it, as the cursor target's re-entry does.
+				answerForTarget = "no"
+				if answerYes(ans) {
+					answerForTarget = "yes"
+				}
+				goto revealTarget
+			}
 			if Ask(h, d) == AskAsked {
 				return
 			}
@@ -2977,6 +2988,23 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 			c.Remembered = next
 		}
 	}
+}
+
+// revealPickSelected narrows a hand-reveal pool to the answered picks, in
+// answer order: a card that left the pool meanwhile cannot be revealed. The
+// one home of the "reveal_pick" answer, shared by the re-entry and the
+// resolution kernel's tape answer.
+func revealPickSelected(pool, picks []state.ObjID) []state.ObjID {
+	selected := make([]state.ObjID, 0, len(picks))
+	for _, id := range picks {
+		for _, cand := range pool {
+			if cand == id {
+				selected = append(selected, id)
+				break
+			}
+		}
+	}
+	return selected
 }
 
 // effRearrangeTopOfLibrary looks at the top NumCards of Defined$'s library
