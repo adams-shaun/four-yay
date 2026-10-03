@@ -325,6 +325,10 @@ type PlayerConfig struct {
 	// the seat keeps its search tree between decisions
 	// (azmcts.Options.ReuseTree), as upstream always does. Default false.
 	ReuseTree bool
+	// UpstreamSearch is mcts.upstream_search, a gorge-only key like the two
+	// above: every upstream-fidelity switch of the seat's search at once
+	// (SeatSetup.SetUpstreamSearch). Default false.
+	UpstreamSearch bool
 
 	Mulligans     bool
 	ManualTapping bool
@@ -395,6 +399,7 @@ func ParseConfig(src string) (Config, error) {
 			OfflineMode:      r.boolean(p+".mcts.offline_mode", false),
 			OpponentNodes:    r.boolean(p+".mcts.opponent_nodes", false),
 			ReuseTree:        r.boolean(p+".mcts.reuse_tree", false),
+			UpstreamSearch:   r.boolean(p+".mcts.upstream_search", false),
 			Mulligans:        r.boolean(p+".gameplay.mulligans_enabled", true),
 			ManualTapping:    r.boolean(p+".gameplay.manual_tapping", false),
 			SeeOpponentHand:  r.boolean(p+".hiddenInfo.see_opponent_hand", true),

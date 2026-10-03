@@ -52,6 +52,27 @@ type SeatSetup struct {
 	// search carries the stored node that is the real position, and the
 	// budget counts the visits it already holds. Off by default.
 	ReuseTree bool
+	// ParentVisits, DeadlineBestChild and CombatSteps are azmcts's
+	// upstream-fidelity switches (azmcts.Options): PUCT over the parent's
+	// visit count as MCTSNode.select reads it; a decision deadline plays the
+	// partial tree's best child (and records it) instead of the bot's
+	// answer; attack and block declarations searched and recorded one
+	// creature at a time, each creature its own search. MicroKinds also
+	// searches optional triggers (recorded as CHOOSE_USE) and modal choices
+	// (searched, not recorded: upstream's CHOOSE_NUM has no policy head).
+	// All off by default; SetUpstreamSearch turns them on with the two
+	// switches above.
+	ParentVisits, DeadlineBestChild, CombatSteps, MicroKinds bool
+}
+
+// SetUpstreamSearch turns on every switch that makes the seat's search
+// upstream MageZero's: opponent nodes, tree reuse, parent-visit PUCT, the
+// deadline's best child, per-creature combat and the micro-decision kinds
+// (mzselfplay -upstream-search, MZ_UPSTREAM_SEARCH=1, game.yml
+// mcts.upstream_search).
+func (s *SeatSetup) SetUpstreamSearch() {
+	s.OpponentNodes, s.ReuseTree = true, true
+	s.ParentVisits, s.DeadlineBestChild, s.CombatSteps, s.MicroKinds = true, true, true, true
 }
 
 // GameSetup is one game.
@@ -75,8 +96,9 @@ type GameSetup struct {
 
 	// DecisionContext, when set, bounds one searched decision's wall time
 	// (mcts.timeout_ms). A search it stops plays the bot's answer and is not
-	// recorded. Nil never stops a search: the game is then a pure function
-	// of the setup.
+	// recorded -- unless the seat runs with DeadlineBestChild, when it plays
+	// and records the partial tree's best child, as upstream does. Nil never
+	// stops a search: the game is then a pure function of the setup.
 	DecisionContext func(seat int) (context.Context, context.CancelFunc)
 	// Abort, when set, is polled before every decision; true ends the game
 	// as failed (training.max_minutes).
@@ -123,6 +145,9 @@ type GameStats struct {
 	SimPanics, SimSubmitErrors, SimChance, SimBadWorlds int
 	// Rows by head, both seats.
 	RowsPriority, RowsTarget, RowsUse int
+	// CombatSteps counts the creature searches of split declarations
+	// (SeatSetup.CombatSteps), each also a Searches or a Bot.
+	CombatSteps int
 	// The action vocabulary's coverage of what was recorded: root candidates
 	// (and the visits on them) whose label has a slot of its own, against
 	// all of them. Everything else lands in the hashed tail.
@@ -183,6 +208,7 @@ func (s *GameStats) Add(o GameStats) {
 	s.RowsPriority += o.RowsPriority
 	s.RowsTarget += o.RowsTarget
 	s.RowsUse += o.RowsUse
+	s.CombatSteps += o.CombatSteps
 	s.ActionCands += o.ActionCands
 	s.ActionHits += o.ActionHits
 	s.ActionVisits += o.ActionVisits
@@ -240,17 +266,18 @@ var ErrAborted = errors.New("mzplay: game aborted (training.max_minutes)")
 // searched tree edge (MCTSNode.backpropagate multiplies by backpropDiscount
 // once per parent); budget simulations per decision.
 //
-// What does not match and cannot be set here: by default the tree holds
-// only the searching seat's decisions (the opponent inside a simulation is
-// the default bot, where upstream's tree has opponent nodes;
-// SeatSetup.OpponentNodes turns them on, the caller sets it); by default
-// there is no subtree reuse between decisions (upstream's budget counts the
-// visits the reused subtree already holds; SeatSetup.ReuseTree turns it on,
-// matching a node by the exact world rather than upstream's
-// perspective-redacted state string); PUCT's exploration term reads the count of
-// simulations the child was available in plus one, not the parent's visits
-// (identical in a fixed world except for the +1); a whole attack or block
-// declaration is one node.
+// What does not match by default, each with the SeatSetup switch that
+// makes it match (SetUpstreamSearch sets them all): the tree holds only the
+// searching seat's decisions (OpponentNodes); there is no subtree reuse
+// between decisions (ReuseTree, matching a node by the exact world rather
+// than upstream's perspective-redacted state string); PUCT's exploration
+// term reads the count of simulations the child was available in plus one,
+// not the parent's visits, and the root's own evaluation counts as a visit
+// (ParentVisits); a decision deadline plays the bot's answer rather than
+// the best child so far (DeadlineBestChild); a whole attack or block
+// declaration is one node, recorded as per-creature marginals (CombatSteps:
+// one search and one record per creature, as upstream asks them); optional
+// triggers and modal choices are answered by the bot (MicroKinds).
 func SearchOptions(budget int, backpropDiscount float64, leaf azmcts.LeafFunc) azmcts.Options {
 	o := searchbench.BenchOptions(budget)
 	o.Discount = backpropDiscount
@@ -350,6 +377,10 @@ func PlayGame(gs GameSetup) (res GameResult, err error) {
 		seatSeed[i] = splitmix(gs.Seed ^ (uint64(i)+1)*0x6d7a706c61792d73)
 		opts[i] = SearchOptions(s.Budget, s.BackpropDiscount, s.Leaf)
 		opts[i].OpponentNodes = s.OpponentNodes
+		opts[i].ParentVisits, opts[i].DeadlineBestChild, opts[i].CombatSteps = s.ParentVisits, s.DeadlineBestChild, s.CombatSteps
+		if s.MicroKinds {
+			opts[i].Kinds.Optional, opts[i].Kinds.Modes = true, true
+		}
 		if s.ReuseTree {
 			opts[i].ReuseTree, reuse[i] = true, azmcts.NewReuse()
 		}
@@ -396,32 +427,39 @@ func PlayGame(gs GameSetup) (res GameResult, err error) {
 		o := opts[p]
 		o.Seed = azmcts.DecisionSeed(seatSeed[p], d.Seq)
 		botSeed := splitmix(seatSeed[p] ^ splitmix(d.Seq^0x626f74))
-		ctx, cancel := context.Background(), context.CancelFunc(func() {})
-		if gs.DecisionContext != nil {
-			ctx, cancel = gs.DecisionContext(p)
+		search := func(combat []int) (searchbench.LiveRoot, error) {
+			ctx, cancel := context.Background(), context.CancelFunc(func() {})
+			if gs.DecisionContext != nil {
+				ctx, cancel = gs.DecisionContext(p)
+			}
+			defer cancel()
+			lr, serr := searchbench.SearchLiveCombat(ctx, e, botSeed, nil, o, reuse[p], combat)
+			if serr != nil {
+				return lr, fmt.Errorf("mzplay: game %d, decision %d: %w", gs.Index, d.Seq, serr)
+			}
+			res.Stats.addSearch(lr.Result.Stats)
+			return lr, nil
 		}
-		lr, serr := searchbench.SearchLiveReuse(ctx, e, botSeed, nil, o, reuse[p])
-		cancel()
+		if o.CombatSteps && (d.Kind == decision.KAttackers || d.Kind == decision.KBlockers) && azmcts.CombatStepCount(d) > 0 {
+			rows, n, cerr := playCombatSteps(e, d, gs, &res.Stats, rec[p], func(k int, combat []int) (searchbench.LiveRoot, error) {
+				// Each creature is its own search (upstream's successive
+				// chooseUse / makeChoice roots), seeded apart.
+				o.Seed = azmcts.DecisionSeed(seatSeed[p], d.Seq)
+				if k > 0 {
+					o.Seed = splitmix(o.Seed ^ uint64(k)*0x636f6d626174)
+				}
+				return search(combat)
+			})
+			res.Stats.Submits += n
+			if cerr != nil {
+				return res, fmt.Errorf("mzplay: game %d, decision %d: %w", gs.Index, d.Seq, cerr)
+			}
+			res.Rows[p] = append(res.Rows[p], rows...)
+			continue
+		}
+		lr, serr := search(nil)
 		if serr != nil {
-			return res, fmt.Errorf("mzplay: game %d, decision %d: %w", gs.Index, d.Seq, serr)
-		}
-		st := lr.Result.Stats
-		res.Stats.Simulations += st.Simulations
-		res.Stats.Completed += st.Completed
-		res.Stats.OppSelections += st.OppPoints
-		res.Stats.ReuseHits += st.ReuseHits
-		res.Stats.ReuseMisses += st.ReuseMissNoTree + st.ReuseMissState + st.ReuseMissCandidates
-		res.Stats.ReuseMissState += st.ReuseMissState
-		res.Stats.ReusePartial += st.ReusePartial
-		res.Stats.ReuseMissCandidates += st.ReuseMissCandidates
-		res.Stats.ReuseCarried += st.ReuseCarried
-		res.Stats.SimFailures += st.Simulations - st.Completed
-		res.Stats.SimPanics += st.Panics
-		res.Stats.SimSubmitErrors += st.SubmitErrors
-		res.Stats.SimChance += st.ChanceFailures
-		res.Stats.SimBadWorlds += st.BadWorlds + st.NoWorld
-		if st.DeadlineHits > 0 {
-			res.Stats.Timeouts++
+			return res, serr
 		}
 		if !lr.Chosen() {
 			res.Stats.Bot++
@@ -476,6 +514,133 @@ func PlayGame(gs GameSetup) (res GameResult, err error) {
 		LabelValues(res.Rows[i], SeatWon(i, res.Winner), gs.Seats[i].Lambda)
 	}
 	return res, nil
+}
+
+// addSearch adds one search's counters.
+func (s *GameStats) addSearch(st azmcts.Stats) {
+	s.Simulations += st.Simulations
+	s.Completed += st.Completed
+	s.OppSelections += st.OppPoints
+	s.ReuseHits += st.ReuseHits
+	s.ReuseMisses += st.ReuseMissNoTree + st.ReuseMissState + st.ReuseMissCandidates
+	s.ReuseMissState += st.ReuseMissState
+	s.ReusePartial += st.ReusePartial
+	s.ReuseMissCandidates += st.ReuseMissCandidates
+	s.ReuseCarried += st.ReuseCarried
+	s.SimFailures += st.Simulations - st.Completed
+	s.SimPanics += st.Panics
+	s.SimSubmitErrors += st.SubmitErrors
+	s.SimChance += st.ChanceFailures
+	s.SimBadWorlds += st.BadWorlds + st.NoWorld
+	if st.DeadlineHits > 0 {
+		s.Timeouts++
+	}
+}
+
+// playCombatSteps plays a split attack or block declaration
+// (SeatSetup.CombatSteps), upstream's selectAttackersOneAtATime /
+// selectBlockersOneAtATime: one search per creature (search(k, answers so
+// far)), each recorded as its own CHOOSE_USE (attack) or CHOOSE_TARGET
+// (block) row whose state carries the answers already given, then the
+// assembled declaration (azmcts.CombatDeclaration) submitted. A creature
+// whose search did not choose from its tree takes the bot's answer for it
+// and is not recorded. It returns the rows and the submits made.
+func playCombatSteps(e *rules.Engine, d *decision.Decision, gs GameSetup, stats *GameStats, rec *recorder, search func(k int, answers []int) (searchbench.LiveRoot, error)) ([]Row, int, error) {
+	var rows []Row
+	var answers []int
+	var hist mzbridge.MicroHistory
+	n := azmcts.CombatStepCount(d)
+	for k := 0; k < n; k++ {
+		lr, err := search(k, answers)
+		if err != nil {
+			return rows, 0, err
+		}
+		if lr.Result.Step == nil {
+			// The declaration could not be split (it could not be
+			// observed): the bot's whole declaration is played.
+			stats.Bot++
+			stats.BotByKind[botKind(d.Kind)]++
+			if err := e.Submit(lr.Result.Intent); err != nil {
+				return rows, 0, fmt.Errorf("the bot's declaration: %w", err)
+			}
+			return rows, 1, nil
+		}
+		stats.CombatSteps++
+		answer := lr.Result.StepAnswer()
+		if lr.Chosen() {
+			stats.Searches++
+			if gs.Trace != nil {
+				gs.Trace(traceLine(e, d, lr))
+			}
+			row, err := rec.stepRow(e, d, lr.Result, hist)
+			if err != nil {
+				return rows, 0, err
+			}
+			rows = append(rows, row)
+		} else {
+			stats.Bot++
+			stats.BotByKind[botKind(d.Kind)]++
+		}
+		if lr.Result.Step.Block {
+			if answer >= 0 {
+				hist.Targets = append(hist.Targets, objectName(e, d.Options[answer].Attacker))
+			}
+		} else {
+			hist.Uses = append(hist.Uses, answer >= 0)
+		}
+		answers = append(answers, answer)
+	}
+	in, err := azmcts.CombatDeclaration(e, d, answers)
+	if err != nil {
+		return rows, 0, err
+	}
+	if err := e.Submit(in); err != nil {
+		return rows, 0, fmt.Errorf("the split declaration %v: %w", in.Choices, err)
+	}
+	return rows, 1, nil
+}
+
+// stepRow is one creature step's record: an attacker's CHOOSE_USE (the "no"
+// and "yes" visits at the use indices) or a blocker's CHOOSE_TARGET (Stop
+// Choosing, then each attacker by entity name), its state carrying the
+// answers given to the creatures before it (hist).
+func (r *recorder) stepRow(e *rules.Engine, d *decision.Decision, res azmcts.Result, hist mzbridge.MicroHistory) (Row, error) {
+	st := res.Step
+	score := ScoreFromRootValue(res.RootValue)
+	name := objectName(e, st.Obj)
+	if !st.Block {
+		ids, err := r.encode(e, d, mzbridge.ChooseUse, attackText(name), hist)
+		if err != nil {
+			return Row{}, err
+		}
+		index := make([]int, len(st.Answers))
+		for i, a := range st.Answers {
+			index[i] = mzbridge.UseIndex(a >= 0)
+		}
+		r.stats.RowsUse++
+		return Row{IDs: ids, Score: score, Type: mzbridge.ChooseUse, Policy: policyFromVisits(index, res.Visits)}, nil
+	}
+	ids, err := r.encode(e, d, mzbridge.ChooseTarget, blockText(name), hist)
+	if err != nil {
+		return Row{}, err
+	}
+	index := make([]int, len(st.Answers))
+	for i, a := range st.Answers {
+		target := StopChoosing
+		if a >= 0 {
+			target = objectName(e, d.Options[a].Attacker)
+		}
+		index[i] = r.vocab.TargetIndex(target)
+		v := 0
+		if i < len(res.Visits) {
+			v = res.Visits[i]
+		}
+		if a >= 0 {
+			r.countTarget(target, v)
+		}
+	}
+	r.stats.RowsTarget++
+	return Row{IDs: ids, Score: score, Type: mzbridge.ChooseTarget, Policy: policyFromVisits(index, res.Visits)}, nil
 }
 
 // startingPlayerIntent answers CR 103.1's choice with seat who.
@@ -603,6 +768,30 @@ func (r *recorder) rows(e *rules.Engine, d *decision.Decision, lr searchbench.Li
 			r.stats.RowsTarget++
 		}
 		return out, nil
+	case "optional":
+		// An optional trigger is upstream's chooseUse: a CHOOSE_USE record,
+		// the yes and no visits at the use indices.
+		ids, err := r.encode(e, d, mzbridge.ChooseUse, d.Prompt, mzbridge.MicroHistory{})
+		if err != nil {
+			return nil, err
+		}
+		index := make([]int, len(res.Candidates))
+		for i, c := range res.Candidates {
+			yes := false
+			if len(c.Choices) == 1 {
+				if o, ok := optionAt(d, c.Choices[0]); ok {
+					yes = o.Kind == "yes"
+				}
+			}
+			index[i] = mzbridge.UseIndex(yes)
+		}
+		r.stats.RowsUse++
+		return []Row{{IDs: ids, Policy: policyFromVisits(index, res.Visits), Score: score, Type: mzbridge.ChooseUse}}, nil
+	case "modes":
+		// A modal choice is upstream's chooseMode -> CHOOSE_NUM, searched but
+		// never recorded (MCTSNode.getActionIndex is -1 for it, so
+		// getActionVec drops the state).
+		return nil, nil
 	case "target":
 		ids, err := r.encode(e, d, mzbridge.ChooseTarget, targetText(e, d), mzbridge.MicroHistory{})
 		if err != nil {

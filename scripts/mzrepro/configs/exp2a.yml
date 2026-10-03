@@ -35,6 +35,20 @@
 # (event chain, hidden zones, chance), so it carries less. In a fixed world, under that
 # budget rule, a fully matched carried subtree is the tree a fresh search would grow: the
 # switch saves simulations rather than raising the effective budget.
+#
+# Upstream search, all at once: one more engine switch turns on every gorge search option
+# that matches upstream's MCTS -- opponent nodes and tree reuse (above), PUCT over the
+# parent's visit count with the root's own evaluation not a visit (MCTSNode.select /
+# MCTSNode2.evaluate; this also makes the recorded score upstream's root getMeanScore),
+# a decision deadline (mcts.timeout_ms) playing and recording the best child so far
+# instead of the bot's answer (applyMCTS's searchTimeout), attack and block declarations
+# searched and recorded one creature at a time (selectAttackersOneAtATime /
+# selectBlockersOneAtATime: one search per creature), and optional triggers (recorded as
+# CHOOSE_USE) and modal choices (searched, not recorded) searched rather than answered by
+# the bot:
+#   MZ_UPSTREAM_SEARCH=1 scripts/mzrepro/dzrun.sh loop <run_root> --fresh
+# or `upstream_search: true` under a player's `mcts:` block in the run root's
+# configs/game.yml. Off by default, as here.
 model: FDN_exp2
 version: 1
 curriculum: configs/curriculum_exp2.yml
