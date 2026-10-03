@@ -20,7 +20,11 @@ imports `cards` only and is imported by `rules`, `host` and the test fixtures.
 never appear: `effects` never imports `rules` (effects reaches the engine only
 through `effects.Host`). `view`, `protocol` and `deck` never import `rules`.
 `botpolicy` never imports `view`, `rules` or `seat`. `host`, `host/httpapi`
-and `cmd/gorged` never import `internal/testutil`.
+and `cmd/gorged` never import `internal/testutil`. Inside the engine, the
+lasagna packages (spec `2026-10-03-rules-engine-lasagna-design.md` §3) are
+pinned as they land: `rules/cost`, the cost vocabulary leaf, imports only
+`state` (`TestCostVocabularyIsALeaf`) and never `rules`, `effects` or a rules
+subsystem package.
 
 - **Why:** the engine core stays testable without the server, and a client can
   never be handed rules knowledge.
