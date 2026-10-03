@@ -4,6 +4,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/adams-shaun/gorge/rules/pay"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
@@ -256,7 +258,7 @@ func (e *Engine) potentialPlayVerdictShared(p state.PlayerID, o decision.Option,
 
 // relaxedPaid is a missed paid ability's relaxed alternatives and fee.
 type relaxedPaid struct {
-	alts []plannedManaActivation
+	alts []pay.Alt
 	fee  int32
 }
 
@@ -284,7 +286,7 @@ func (e *Engine) paymentPlanRelaxProof(c paymentPlanCensus, verdict func() Payme
 			}
 		}
 		if len(relaxed) == 0 {
-			relaxed = [][]plannedManaActivation{nil} // the census alone, still a relaxed run
+			relaxed = [][]pay.Alt{nil} // the census alone, still a relaxed run
 		}
 		e.paymentPlanRelaxed, e.paymentPlanRelaxedFee = relaxed, fee
 		if got := verdict(); got.Reason != "insufficient" {
@@ -382,7 +384,7 @@ func (e *Engine) paymentPlanCensusTotal(p state.PlayerID) int32 {
 	for _, u := range e.paymentPlanQueryUnits(p) {
 		best := int32(0)
 		for _, a := range e.paymentPlanQueryAlternatives(u) {
-			best = max(best, a.mana.Total())
+			best = max(best, a.Mana.Total())
 		}
 		total += best
 	}
@@ -830,7 +832,7 @@ type paymentPlanCensus struct {
 	// relaxable: every ability the census misses has a relaxed
 	// alternative set (paymentPlanRelaxedAlternatives), held in relaxed.
 	relaxable bool
-	relaxed   [][]plannedManaActivation
+	relaxed   [][]pay.Alt
 	// paid holds the relaxed alternatives of the missed abilities whose
 	// cost includes mana (a filter: Heap Gate's "{1}, {T}: Add one mana of
 	// any color"), each with its fee; relaxed holds the free ones.
@@ -885,14 +887,14 @@ func (e *Engine) paymentPlanCensusOf(p state.PlayerID, hyp *state.Mana) paymentP
 		if len(abs) == 0 {
 			continue
 		}
-		var alts []plannedManaActivation
+		var alts []pay.Alt
 		if i, ok := at[id]; ok {
 			alts = e.paymentPlanQueryAlternatives(units[i])
 		}
 		for _, ma := range abs {
 			covered := false
 			for _, a := range alts {
-				if sameManaAbility(a.ma, ma) {
+				if sameManaAbility(a.Ma, ma) {
 					covered = true
 					break
 				}
@@ -946,7 +948,7 @@ func (e *Engine) paymentPlanCensusOf(p state.PlayerID, hyp *state.Mana) paymentP
 // proof charges it as generic on top of the play's cost whenever the
 // ability may be used (paymentPlanRelaxProof), so a filter is never counted
 // as fresh mana.
-func (e *Engine) paymentPlanRelaxedAlternatives(p state.PlayerID, id state.ObjID, ma *cards.SA, probe **Engine) ([]plannedManaActivation, int32, bool) {
+func (e *Engine) paymentPlanRelaxedAlternatives(p state.PlayerID, id state.ObjID, ma *cards.SA, probe **Engine) ([]pay.Alt, int32, bool) {
 	o := e.G.Obj(id)
 	if o == nil || ma == nil || ma.API != "Mana" {
 		return nil, 0, false
@@ -985,10 +987,10 @@ func (e *Engine) paymentPlanRelaxedAlternatives(p state.PlayerID, id state.ObjID
 	mp := effects.ManaOf(ma)
 	counts, any := mp.Counts, mp.CountsAny
 	creature := e.IsCreature(id)
-	var out []plannedManaActivation
+	var out []pay.Alt
 	add := func(m state.Mana) {
-		out = append(out, plannedManaActivation{activation: decision.PaymentActivation{Source: id},
-			mana: m, creature: creature, ma: ma, tier: paymentTierNormal, flex: 1, flexAll: 1})
+		out = append(out, pay.Alt{Activation: decision.PaymentActivation{Source: id},
+			Mana: m, Creature: creature, Ma: ma, Tier: pay.TierNormal, Flex: 1, FlexAll: 1})
 	}
 	if !any {
 		var m state.Mana

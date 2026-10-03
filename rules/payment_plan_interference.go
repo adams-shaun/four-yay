@@ -29,6 +29,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/adams-shaun/gorge/rules/pay"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
@@ -132,21 +134,21 @@ func (e *Engine) paymentPlanObjName(id state.ObjID) string {
 }
 
 // paymentPlanSourceInterference classifies what can act on activating ma on
-// source id: paymentTierNormal when nothing does, paymentTierLastResort with
-// the source's own fully determined consequence, or paymentTierDeferred with
+// source id: pay.TierNormal when nothing does, pay.TierLastResort with
+// the source's own fully determined consequence, or pay.TierDeferred with
 // "source:interference:<card name>" naming the object whose trigger or
 // replacement would apply. A choice-shaped production is checked for every
 // colour it can be planned as, so a trigger restricted to one colour defers
 // the whole source rather than one alternative.
-func (e *Engine) paymentPlanSourceInterference(id state.ObjID, ma *cards.SA) (paymentAbilityTier, paymentConsequence, string) {
+func (e *Engine) paymentPlanSourceInterference(id state.ObjID, ma *cards.SA) (pay.Tier, pay.Consequence, string) {
 	src := e.G.Obj(id)
 	if src == nil || src.Face() == nil || ma == nil {
-		return paymentTierDeferred, paymentConsequence{}, "source:interference"
+		return pay.TierDeferred, pay.Consequence{}, "source:interference"
 	}
-	deferredBy := func(obj state.ObjID) (paymentAbilityTier, paymentConsequence, string) {
-		return paymentTierDeferred, paymentConsequence{}, "source:interference:" + e.paymentPlanObjName(obj)
+	deferredBy := func(obj state.ObjID) (pay.Tier, pay.Consequence, string) {
+		return pay.TierDeferred, pay.Consequence{}, "source:interference:" + e.paymentPlanObjName(obj)
 	}
-	var c paymentConsequence
+	var c pay.Consequence
 	// The source's own "doesn't untap during your untap step". An Untap
 	// replacement naming another object (Claustrophobia's enchanted creature)
 	// is not about this source's tap at all.
@@ -157,7 +159,7 @@ func (e *Engine) paymentPlanSourceInterference(id state.ObjID, ma *cards.SA) (pa
 		if !paymentPlanNoUntapShape(r) {
 			return deferredBy(id)
 		}
-		c.noUntap = true
+		c.NoUntap = true
 	}
 	controller := src.Controller
 	cost := e.parseCost(ma.ParamStr(cards.PKCost))
@@ -169,16 +171,16 @@ func (e *Engine) paymentPlanSourceInterference(id state.ObjID, ma *cards.SA) (pa
 			}
 			// One activation fires the trigger once whichever colour it
 			// takes: the consequence is the largest, not the sum.
-			c.damage = max(c.damage, dmg)
+			c.Damage = max(c.Damage, dmg)
 		}
 		if by, ok := e.paymentPlanProductionReplaced(id, controller, produced, availableAmount(ma), cost.Tap); ok {
 			return deferredBy(by)
 		}
 	}
-	if c != (paymentConsequence{}) {
-		return paymentTierLastResort, c, "source:last_resort"
+	if c != (pay.Consequence{}) {
+		return pay.TierLastResort, c, "source:last_resort"
 	}
-	return paymentTierNormal, paymentConsequence{}, ""
+	return pay.TierNormal, pay.Consequence{}, ""
 }
 
 // paymentPlanProductions lists the concrete Produced$ values a plan can

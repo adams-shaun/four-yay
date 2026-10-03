@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/adams-shaun/gorge/rules/pay"
+
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
@@ -440,7 +442,7 @@ func TestPaymentPlanExecutionHonoursWitnessPoolSpend(t *testing.T) {
 		t.Fatalf("witness %#v, want pool-only", p)
 	}
 	ppSubmitPlan(t, e, d, a)
-	if got := paymentManaAmount(e.G.Players[0].Pool); got != p.PoolAfter {
+	if got := pay.ManaAmount(e.G.Players[0].Pool); got != p.PoolAfter {
 		t.Fatalf("pool after execution %v, witness pool_after %v (spend %v)", got, p.PoolAfter, p.PoolSpend)
 	}
 }

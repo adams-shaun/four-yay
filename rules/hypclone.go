@@ -3,6 +3,7 @@ package rules
 import (
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/pay"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -29,7 +30,7 @@ type hypSparePool struct {
 	pm potentialManaScratch
 	// planSearch is the payment-plan search's working storage
 	// (payment_plan_search.go).
-	planSearch paymentPlanSearchScratch
+	planSearch pay.SearchScratch
 	// zoneEntry backs the engine's zone-entry index (payment_zone_entry.go).
 	zoneEntry []zoneEntryRec
 	// ids is a stack of id lists read-only walks borrow (idsBorrow).

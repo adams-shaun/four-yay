@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/adams-shaun/gorge/rules/pay"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
@@ -134,7 +136,7 @@ func (e *Engine) announcedAbilityColours(p state.PlayerID, id state.ObjID, ma *c
 	if raw != "Any" && raw != "ColorIdentity" && !paymentPlanChoiceShape(raw) {
 		return nil
 	}
-	if tier, _, _ := e.paymentPlanAbilityTier(p, id, ma); tier != paymentTierNormal && tier != paymentTierLastResort {
+	if tier, _, _ := e.paymentPlanAbilityTier(p, id, ma); tier != pay.TierNormal && tier != pay.TierLastResort {
 		return nil
 	}
 	return e.paymentPlanChoiceColours(id, ma)
@@ -182,8 +184,8 @@ func (e *Engine) announcedManaWindowAsk(pc *pendingCast, mana Cost) bool {
 	pool := e.G.Players[p].Pool
 	d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 1, Max: 1,
 		Prompt: "Pay for " + name, Source: pc.card}
-	d.ManaPayment = &decision.ManaPaymentWindow{Card: pc.card, Cost: paymentCost(mana),
-		Owed: paymentOwed(mana, pool), Pool: paymentManaAmount(pool)}
+	d.ManaPayment = &decision.ManaPaymentWindow{Card: pc.card, Cost: pay.WireCost(mana),
+		Owed: paymentOwed(mana, pool), Pool: pay.ManaAmount(pool)}
 	if pc.paymentFallback != nil {
 		f := *pc.paymentFallback
 		d.PaymentFallback = &f
@@ -250,7 +252,7 @@ func (e *Engine) announcedActivate(pc *pendingCast, opt decision.Option) {
 	}
 	ab := abilities[opt.Ability]
 	normal := false
-	if tier, _, _ := e.paymentPlanAbilityTier(p, src, ab); tier == paymentTierNormal &&
+	if tier, _, _ := e.paymentPlanAbilityTier(p, src, ab); tier == pay.TierNormal &&
 		paymentPlanTapOnlyCost(e.parseCost(ab.ParamStr(cards.PKCost))) {
 		normal = true
 	}

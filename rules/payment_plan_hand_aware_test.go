@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/adams-shaun/gorge/rules/pay"
+
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -235,25 +237,25 @@ func TestPaymentPlanHandAwareCostKeysDominate(t *testing.T) {
 func TestPaymentPlanHandAwareRankKeyUnit(t *testing.T) {
 	t.Parallel()
 	// Demand {R:2, G:1}: demand order [R, G], digit base 3.
-	ctx := newPaymentPlanRankContext(nil, [5]int{state.MR: 2, state.MG: 1})
-	if ctx.demandOrder != [5]int{state.MR, state.MG, state.MW, state.MU, state.MB} {
-		t.Fatalf("demand order = %v, want R G then the untouched WUBRG tail", ctx.demandOrder)
+	ctx := pay.NewRankContext(nil, [5]int{state.MR: 2, state.MG: 1})
+	if ctx.DemandOrder != [5]int{state.MR, state.MG, state.MW, state.MU, state.MB} {
+		t.Fatalf("demand order = %v, want R G then the untouched WUBRG tail", ctx.DemandOrder)
 	}
-	if ctx.reserveBase != 3 {
-		t.Fatalf("reserve base = %d, want 3", ctx.reserveBase)
+	if ctx.ReserveBase != 3 {
+		t.Fatalf("reserve base = %d, want 3", ctx.ReserveBase)
 	}
 	// A context with colour supply: two red sources, one green, one blue.
-	ctx = newPaymentPlanRankContext(nil, [5]int{state.MR: 2, state.MG: 1})
-	ctx.colourSources = [5]int{1, 1, 0, 2, 1}
-	step := func(id state.ObjID, col int) plannedManaActivation {
-		return plannedManaActivation{activation: decision.PaymentActivation{Source: id}, flex: 1, colours: 1 << col}
+	ctx = pay.NewRankContext(nil, [5]int{state.MR: 2, state.MG: 1})
+	ctx.ColourSources = [5]int{1, 1, 0, 2, 1}
+	step := func(id state.ObjID, col int) pay.Alt {
+		return pay.Alt{Activation: decision.PaymentActivation{Source: id}, Flex: 1, Colours: 1 << col}
 	}
-	rank := func(as ...plannedManaActivation) paymentPlanRank {
+	rank := func(as ...pay.Alt) pay.Rank {
 		acts := make([]decision.PaymentActivation, len(as))
 		for i := range as {
-			acts[i] = as[i].activation
+			acts[i] = as[i].Activation
 		}
-		return rankPaymentPlan(ctx, decision.PaymentPlan{Activations: acts}, as, state.Mana{})
+		return pay.RankPlan(ctx, decision.PaymentPlan{Activations: acts}, as, state.Mana{})
 	}
 	// Consuming both reds leaves green+blue: coverage R=min(0,2)=0, G=min(1,1)=1;
 	// the zero-demand W/U/B digits are constant 0, so the packed value is 27.
@@ -262,37 +264,37 @@ func TestPaymentPlanHandAwareRankKeyUnit(t *testing.T) {
 	oneRed := rank(step(1, state.MR))
 	// Consuming green leaves both reds: coverage R=2, G=0 -> 162.
 	green := rank(step(3, state.MG))
-	if bothReds.handReserve != 27 || oneRed.handReserve != 108 || green.handReserve != 162 {
+	if bothReds.HandReserve != 27 || oneRed.HandReserve != 108 || green.HandReserve != 162 {
 		t.Fatalf("packed coverages = %d %d %d, want 27 108 162 (five digits: R G then the zero-demand W U B)",
-			bothReds.handReserve, oneRed.handReserve, green.handReserve)
+			bothReds.HandReserve, oneRed.HandReserve, green.HandReserve)
 	}
-	if !(bothReds.handReserve < oneRed.handReserve && oneRed.handReserve < green.handReserve) {
+	if !(bothReds.HandReserve < oneRed.HandReserve && oneRed.HandReserve < green.HandReserve) {
 		t.Fatal("precondition: coverage values not strictly ordered")
 	}
-	if !green.less(oneRed) || !oneRed.less(bothReds) {
+	if !green.Less(oneRed) || !oneRed.Less(bothReds) {
 		t.Fatal("key 6 must rank larger coverage first (consumes the least-demanded sources)")
 	}
 	// Keys 1-5 dominate: a costly single step beats a free two-creature plan
 	// with worse coverage.
-	costly := rank(plannedManaActivation{activation: decision.PaymentActivation{Source: 9}, flex: 1, colours: 1 << state.MR,
-		consequence: paymentConsequence{damage: 1}})
+	costly := rank(pay.Alt{Activation: decision.PaymentActivation{Source: 9}, Flex: 1, Colours: 1 << state.MR,
+		Consequence: pay.Consequence{Damage: 1}})
 	free := rank(step(4, state.MR), step(5, state.MR))
-	if !free.less(costly) || costly.less(free) {
+	if !free.Less(costly) || costly.Less(free) {
 		t.Fatalf("cost key must dominate key 6 (%+v vs %+v)", free, costly)
 	}
 	// Zero demand packs to 0 for every plan: the tie value the placeholder
 	// pinned, so boards without hand demand rank exactly as before.
-	plain := newPaymentPlanRankContext(nil, [5]int{})
-	plain.colourSources = [5]int{1, 1, 1, 1, 1}
-	zero := func(as ...plannedManaActivation) paymentPlanRank {
+	plain := pay.NewRankContext(nil, [5]int{})
+	plain.ColourSources = [5]int{1, 1, 1, 1, 1}
+	zero := func(as ...pay.Alt) pay.Rank {
 		acts := make([]decision.PaymentActivation, len(as))
 		for i := range as {
-			acts[i] = as[i].activation
+			acts[i] = as[i].Activation
 		}
-		return rankPaymentPlan(plain, decision.PaymentPlan{Activations: acts}, as, state.Mana{})
+		return pay.RankPlan(plain, decision.PaymentPlan{Activations: acts}, as, state.Mana{})
 	}
-	if z := zero(step(1, state.MW)); z.handReserve != 0 {
-		t.Fatalf("zero-demand hand reserve = %d, want 0", z.handReserve)
+	if z := zero(step(1, state.MW)); z.HandReserve != 0 {
+		t.Fatalf("zero-demand hand reserve = %d, want 0", z.HandReserve)
 	}
 }
 

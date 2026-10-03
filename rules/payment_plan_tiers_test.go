@@ -3,6 +3,8 @@ package rules
 import (
 	"testing"
 
+	"github.com/adams-shaun/gorge/rules/pay"
+
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
@@ -17,40 +19,40 @@ func TestPaymentPlanTiers(t *testing.T) {
 	t.Parallel()
 	testCases := []struct {
 		name   string
-		tier   paymentAbilityTier
+		tier   pay.Tier
 		detail string
-		check  func(paymentConsequence) bool
+		check  func(pay.Consequence) bool
 	}{
 		// Normal producers: the whole resolution is "tap, add the mana".
-		{"Island", paymentTierNormal, "", func(c paymentConsequence) bool { return c == (paymentConsequence{}) }},
-		{"Sol Ring", paymentTierNormal, "", func(c paymentConsequence) bool { return c == (paymentConsequence{}) }},
-		{"Birds of Paradise", paymentTierNormal, "", func(c paymentConsequence) bool { return c == (paymentConsequence{}) }},
-		{"Llanowar Elves", paymentTierNormal, "", func(c paymentConsequence) bool { return c == (paymentConsequence{}) }},
-		{"Gilded Lotus", paymentTierNormal, "", func(c paymentConsequence) bool { return c == (paymentConsequence{}) }},
-		{"Mind Stone", paymentTierNormal, "", func(c paymentConsequence) bool { return c == (paymentConsequence{}) }},
+		{"Island", pay.TierNormal, "", func(c pay.Consequence) bool { return c == (pay.Consequence{}) }},
+		{"Sol Ring", pay.TierNormal, "", func(c pay.Consequence) bool { return c == (pay.Consequence{}) }},
+		{"Birds of Paradise", pay.TierNormal, "", func(c pay.Consequence) bool { return c == (pay.Consequence{}) }},
+		{"Llanowar Elves", pay.TierNormal, "", func(c pay.Consequence) bool { return c == (pay.Consequence{}) }},
+		{"Gilded Lotus", pay.TierNormal, "", func(c pay.Consequence) bool { return c == (pay.Consequence{}) }},
+		{"Mind Stone", pay.TierNormal, "", func(c pay.Consequence) bool { return c == (pay.Consequence{}) }},
 		// Last resort: the normal shape plus one fully determined consequence.
-		{"Ancient Tomb", paymentTierLastResort, "source:last_resort", func(c paymentConsequence) bool { return c.damage == 2 }},
-		{"Tarnished Citadel", paymentTierLastResort, "source:last_resort", func(c paymentConsequence) bool { return c.damage == 3 }},
-		{"Adarkar Wastes", paymentTierLastResort, "source:last_resort", func(c paymentConsequence) bool { return c.damage == 1 }},
-		{"Elves of Deep Shadow", paymentTierLastResort, "source:last_resort", func(c paymentConsequence) bool { return c.damage == 1 }},
-		{"Mana Confluence", paymentTierLastResort, "source:last_resort", func(c paymentConsequence) bool { return c.life == 1 }},
-		{"Horizon Canopy", paymentTierLastResort, "source:last_resort", func(c paymentConsequence) bool { return c.life == 1 }},
-		{"Lotus Petal", paymentTierLastResort, "source:last_resort", func(c paymentConsequence) bool { return c.sacrifice }},
-		{"Undiscovered Paradise", paymentTierLastResort, "source:last_resort", func(c paymentConsequence) bool { return c.returnToHand }},
+		{"Ancient Tomb", pay.TierLastResort, "source:last_resort", func(c pay.Consequence) bool { return c.Damage == 2 }},
+		{"Tarnished Citadel", pay.TierLastResort, "source:last_resort", func(c pay.Consequence) bool { return c.Damage == 3 }},
+		{"Adarkar Wastes", pay.TierLastResort, "source:last_resort", func(c pay.Consequence) bool { return c.Damage == 1 }},
+		{"Elves of Deep Shadow", pay.TierLastResort, "source:last_resort", func(c pay.Consequence) bool { return c.Damage == 1 }},
+		{"Mana Confluence", pay.TierLastResort, "source:last_resort", func(c pay.Consequence) bool { return c.Life == 1 }},
+		{"Horizon Canopy", pay.TierLastResort, "source:last_resort", func(c pay.Consequence) bool { return c.Life == 1 }},
+		{"Lotus Petal", pay.TierLastResort, "source:last_resort", func(c pay.Consequence) bool { return c.Sacrifice }},
+		{"Undiscovered Paradise", pay.TierLastResort, "source:last_resort", func(c pay.Consequence) bool { return c.ReturnToHand }},
 		// Deferred: everything else, manual only.
-		{"Witch Engine", paymentTierDeferred, "source:target", func(c paymentConsequence) bool { return c == (paymentConsequence{}) }},
-		{"Cryptolith Fragment", paymentTierDeferred, "source:rider", func(c paymentConsequence) bool { return c == (paymentConsequence{}) }},
-		{"Mox Poison", paymentTierDeferred, "source:rider", func(c paymentConsequence) bool { return c == (paymentConsequence{}) }},
-		{"Rainbow Vale", paymentTierDeferred, "source:rider", func(c paymentConsequence) bool { return c == (paymentConsequence{}) }},
-		{"River of Tears", paymentTierDeferred, "source:conditional", func(c paymentConsequence) bool { return c == (paymentConsequence{}) }},
-		{"Gemstone Caverns", paymentTierDeferred, "source:conditional", func(c paymentConsequence) bool { return c == (paymentConsequence{}) }},
-		{"Pyromancer's Goggles", paymentTierDeferred, "source:special_production", func(c paymentConsequence) bool { return c == (paymentConsequence{}) }},
+		{"Witch Engine", pay.TierDeferred, "source:target", func(c pay.Consequence) bool { return c == (pay.Consequence{}) }},
+		{"Cryptolith Fragment", pay.TierDeferred, "source:rider", func(c pay.Consequence) bool { return c == (pay.Consequence{}) }},
+		{"Mox Poison", pay.TierDeferred, "source:rider", func(c pay.Consequence) bool { return c == (pay.Consequence{}) }},
+		{"Rainbow Vale", pay.TierDeferred, "source:rider", func(c pay.Consequence) bool { return c == (pay.Consequence{}) }},
+		{"River of Tears", pay.TierDeferred, "source:conditional", func(c pay.Consequence) bool { return c == (pay.Consequence{}) }},
+		{"Gemstone Caverns", pay.TierDeferred, "source:conditional", func(c pay.Consequence) bool { return c == (pay.Consequence{}) }},
+		{"Pyromancer's Goggles", pay.TierDeferred, "source:special_production", func(c pay.Consequence) bool { return c == (pay.Consequence{}) }},
 		// Chrome Mox's production is AB$ ManaReflected (a reflected-colour
 		// read of the imprinted card), not a plain Mana ability, so the
 		// classifier's closed-world API check defers it.
-		{"Chrome Mox", paymentTierDeferred, "source:special_production", func(c paymentConsequence) bool { return c == (paymentConsequence{}) }},
-		{"Ashnod's Altar", paymentTierDeferred, "source:last_resort", func(c paymentConsequence) bool { return c == (paymentConsequence{}) }},
-		{"Cavern of Souls", paymentTierDeferred, "source:special_production", func(c paymentConsequence) bool { return c == (paymentConsequence{}) }},
+		{"Chrome Mox", pay.TierDeferred, "source:special_production", func(c pay.Consequence) bool { return c == (pay.Consequence{}) }},
+		{"Ashnod's Altar", pay.TierDeferred, "source:last_resort", func(c pay.Consequence) bool { return c == (pay.Consequence{}) }},
+		{"Cavern of Souls", pay.TierDeferred, "source:special_production", func(c pay.Consequence) bool { return c == (pay.Consequence{}) }},
 	}
 	e, _, _ := newFixtureDeck(t, 9810, "Name:Probe\nManaCost:1\nTypes:Instant\nA:SP$ Draw | Num$ 1\nOracle:x\n")
 	for _, tc := range testCases {
@@ -108,7 +110,7 @@ func TestPaymentPlanTiersTokenAbilities(t *testing.T) {
 			found := false
 			for _, ma := range e.G.Obj(id).Face().ManaAbilities() {
 				tier, consequence, detail := e.paymentPlanAbilityTier(0, id, ma)
-				if tier == paymentTierLastResort && detail == "source:last_resort" && consequence.sacrifice {
+				if tier == pay.TierLastResort && detail == "source:last_resort" && consequence.Sacrifice {
 					found = true
 					break
 				}
@@ -161,7 +163,7 @@ func TestPaymentPlanNormalSourceRejectsRider(t *testing.T) {
 			t.Fatalf("precondition: expected Mana ability, got %q", ma.API)
 		}
 		tier, _, _ := e.paymentPlanAbilityTier(0, id, ma)
-		if tier == paymentTierNormal {
+		if tier == pay.TierNormal {
 			t.Fatalf("damage rider was classified normal: %v", ma.Params)
 		}
 	}
@@ -298,10 +300,10 @@ func TestPaymentPlanTiersFPHarmfulRiderFamily(t *testing.T) {
 			tierFillGraveyard(t, e, 7)
 			// Precondition: the card carries at least one non-normal mana ability
 			// (the rider/consequence this test is about), and collect its indices.
-			harmful := map[uint32]paymentAbilityTier{}
-			disclosed := map[uint32]paymentConsequence{}
+			harmful := map[uint32]pay.Tier{}
+			disclosed := map[uint32]pay.Consequence{}
 			for _, ma := range e.G.Obj(id).Face().ManaAbilities() {
-				if tier, c, detail := e.paymentPlanAbilityTier(0, id, ma); tier != paymentTierNormal {
+				if tier, c, detail := e.paymentPlanAbilityTier(0, id, ma); tier != pay.TierNormal {
 					for i, a := range e.G.Obj(id).Face().Abilities {
 						if a == ma {
 							harmful[uint32(i)] = tier
@@ -323,7 +325,7 @@ func TestPaymentPlanTiersFPHarmfulRiderFamily(t *testing.T) {
 				if !ok {
 					continue
 				}
-				if tier != paymentTierLastResort {
+				if tier != pay.TierLastResort {
 					t.Errorf("plan admits %s deferred ability %d", name, a.Ability.Index)
 					continue
 				}
