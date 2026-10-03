@@ -171,6 +171,9 @@ func (h *fakeHost) EmitTokenCreate(e events.Event) []state.ObjID {
 	return []state.ObjID{want}
 }
 
+// ExpectAttachedEntry: the double has no CR 303.4f entry choice to skip.
+func (h *fakeHost) ExpectAttachedEntry(state.ObjID) {}
+
 // EmitStackCopy mirrors rules.Engine's: the StackCopy fold mints exactly the
 // one copy object the event names (there is no CopySpell replacement in this
 // engine), and that id is the whole return. The empty return is the fold's

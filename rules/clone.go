@@ -338,6 +338,7 @@ func (e *Engine) cloneWith(sp Spare) *Engine {
 		c.etbMove = &ev
 	}
 	c.etbNext = e.etbNext
+	c.auraEntry, c.attachedEntry = e.auraEntry, e.attachedEntry
 	c.etbLandPlay, c.etbLandObj, c.etbLandPlayer = e.etbLandPlay, e.etbLandObj, e.etbLandPlayer
 	if e.riotMove != nil {
 		ev := *e.riotMove

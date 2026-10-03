@@ -317,6 +317,11 @@ func (e *Engine) resumeETBEntry(chosen []decision.Option) state.ObjID {
 			ids = []state.ObjID{opt.Obj}
 		}
 		e.emit(events.Event{Kind: events.Choose, Obj: move.Obj, Counter: "clone", IDs: ids})
+	case "enchant", "enchant_player":
+		// CR 303.4f: the non-cast Aura's chosen bearer. Recorded on the
+		// transient entry record; the re-emitted move's fold attaches it
+		// (rules/aura_entry.go), and the Attach event is the logged record.
+		e.answerAuraEntry(move, opt)
 	case "paylife":
 		// The announced life payment of an "as CARDNAME enters, pay any amount
 		// of life" replacement (Minion of the Wastes / Phyrexian Processor /

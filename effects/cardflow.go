@@ -2371,6 +2371,11 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 					}
 					ev := moveZoneEvent(c, id, state.ZLibrary, dest)
 					ev.Player, ev.Secret = p, true
+					if bearer != 0 {
+						// The revealed Aura's bearer is this effect's own
+						// (emitAttach below): no second CR 303.4f choice.
+						h.ExpectAttachedEntry(id)
+					}
 					h.Emit(ev)
 					if tapped {
 						h.Emit(events.Event{Kind: events.Tap, Obj: id, Player: p, Text: "entered tapped"})

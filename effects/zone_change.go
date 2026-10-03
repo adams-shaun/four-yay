@@ -569,6 +569,7 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 		if to == state.ZBattlefield {
 			applyTransformed(h, c, cz.Riders.Transformed, o.ID)
 		}
+		expectChangeZoneAttach(h, cz, o.ID, to)
 		h.Emit(ev)
 		moved = append(moved, o.ID)
 		exiledWithAssociation(h, c, o.ID, to)
@@ -814,6 +815,20 @@ func changeZoneChosenTargetsFor(h Host, c *Ctx, sa *cards.SA, cz *changeZoneTarg
 		return noSubTargets(c, sa)
 	}
 	return poseTargetsAsk(h, c, sa, chooser, candidates, min, max, "choice")
+}
+
+// expectChangeZoneAttach announces, BEFORE a ChangeZone mover emits a
+// battlefield entry, that its AttachedTo$/AttachedToPlayer$ rider names the
+// moved card's bearer (changeZoneAttachedTo runs after the move). A non-cast
+// Aura so announced skips the engine's CR 303.4f "what does it enchant"
+// choice, which belongs only to an entry whose effect names no bearer
+// (rules/aura_entry.go). Every ChangeZone mover that follows its move with
+// changeZoneAttachedTo calls this first; the attachment-entry census
+// (rules/aura_entry_census_test.go) pins the pairing.
+func expectChangeZoneAttach(h Host, cz *ChangeZoneParams, moved state.ObjID, to state.Zone) {
+	if to == state.ZBattlefield && (cz.AttachedTo != "" || cz.AttachedToPlayer != "") {
+		h.ExpectAttachedEntry(moved)
+	}
 }
 
 // changeZoneAttachedTo implements ChangeZone's AttachedTo$ param: "the moved
@@ -1284,6 +1299,7 @@ func settleChangeZoneMoveAs(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, 
 	if to == state.ZBattlefield {
 		applyTransformed(h, c, cz.Riders.Transformed, id)
 	}
+	expectChangeZoneAttach(h, cz, id, to)
 	h.Emit(ev)
 	if to == state.ZExile {
 		recordExileReturnFor(h, c, cz.Riders.Duration, id, from, to)

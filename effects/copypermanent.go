@@ -597,6 +597,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 	// fasten the copy to a non-battlefield object the attachment SBAs cannot
 	// reason about. The check is the same battlefield gate effAttach applies.
 	var attachTo state.ObjID
+	attachedToNamed := strings.TrimSpace(sa.ParamStr(cards.PKAttachedTo)) != ""
 	if raw := strings.TrimSpace(sa.ParamStr(cards.PKAttachedTo)); raw != "" {
 		sub := *sa
 		sub.Params = map[string]string{"Defined": raw}
@@ -931,6 +932,11 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 			// battlefield (rules' publishTokenEntry), and reports a park when
 			// the entry staged behind an entry-counter order ask.
 			wasSuspended := h.Suspended()
+			if attachedToNamed {
+				// AttachedTo$ names the copy's bearer (postEntry attaches
+				// it): a copied Aura poses no CR 303.4f entry choice.
+				h.ExpectAttachedEntry(want)
+			}
 			entered := h.EmitTokenCreate(events.Event{Kind: events.MoveZone, Obj: want,
 				From: state.ZLibrary, To: state.ZBattlefield})
 			if !wasSuspended && h.Suspended() && len(entered) == 0 {

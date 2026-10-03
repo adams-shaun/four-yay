@@ -111,6 +111,14 @@ type HostEmit interface {
 	// hash chain is unaffected; rules.Engine keeps the provenance as event
 	// context while the event's triggers are matched.
 	EmitTap(obj state.ObjID, tapper state.PlayerID, entering bool)
+	// ExpectAttachedEntry announces that the effect about to put obj onto
+	// the battlefield names what it enters attached to (ChangeZone's
+	// AttachedTo$/AttachedToPlayer$, DigUntil's revealed-Aura bearer, a copy
+	// token's AttachedTo$) and emits that Attach itself after the move. A
+	// non-cast Aura entry so announced poses no CR 303.4f "what does it
+	// enchant" choice; the CR 303.4g no-legal-bearer gate still applies
+	// (rules/aura_entry.go). It emits nothing.
+	ExpectAttachedEntry(obj state.ObjID)
 	// EmitScryRecord logs a COMPLETED scry instruction's events.Scry record
 	// (task scrybottom): the marker trig:Scry's ToBottom$ gate reads, carrying
 	// in Amount the number of cards actually put on the bottom. rules' ordinary

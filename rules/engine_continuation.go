@@ -129,6 +129,15 @@ type engineContinuation struct {
 	// boundary preserves the entry exactly.
 	etbMove *events.Event `clone:"deep"`
 	etbNext int           `clone:"deep"`
+	// auraEntry / attachedEntry are the CR 303.4f non-cast Aura entry's
+	// transient records (rules/aura_entry.go): the bearer the entry's fold
+	// attaches (default or answered), and the object whose entering effect
+	// names its own bearer. Plain data, set and consumed around one entry,
+	// carried across its "enchant" decision boundary. auraEntryCands is the
+	// candidate walk's scratch buffer.
+	auraEntry      auraEntryState  `clone:"deep"`
+	attachedEntry  state.ObjID     `clone:"deep"`
+	auraEntryCands []auraEntryCand `clone:"reset"`
 	// turnUpMove parks the events.TurnFaceUp marker of a morph-family
 	// turn-up while an "as this is turned face up" replacement body's own
 	// answer is outstanding (task cli-20260924T031747Z-6d0658fc): the
