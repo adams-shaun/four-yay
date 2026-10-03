@@ -12,7 +12,7 @@ import (
 // claim on it fails silently, so every compiled per-ability fact lives in this
 // one struct hung on the slot and nothing competes for it: the per-API typed
 // parameter structs (ChangeZone, ChangeZoneAll, Attach, DealDamage,
-// PutCounter, Effect) and the rules tier's private half (the
+// PutCounter, Effect, DelayedTrigger) and the rules tier's private half (the
 // mana walk's gate facts, opaque here).
 //
 // The record is defined in effects, not rules, because resolution reads it
@@ -82,6 +82,10 @@ type SAFacts struct {
 	// (targets_params.go), non-nil for EVERY ability whatever its API
 	// (Targets.Targeted() reports whether it targets).
 	Targets *TargetParams
+	// DelayedTrigger is api:DelayedTrigger's compiled parameter set
+	// (delayedtrigger_params.go), non-nil exactly when the API is
+	// DelayedTrigger.
+	DelayedTrigger *DelayedTriggerParams
 }
 
 // NewSAFacts compiles sa's typed halves into a fresh record naming sa. The

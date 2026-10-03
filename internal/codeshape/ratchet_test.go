@@ -139,6 +139,10 @@ const (
 	// targeting key is read anywhere in rules/ or effects/ outside it. It
 	// landed at zero.
 	targetParamLeaks = 0
+	// delayedTriggerParamLeaks is the same census for api:DelayedTrigger's compiler,
+	// effects/delayedtrigger_params.go (codeshape.DelayedTriggerFiles, codeshape.DelayedTriggerOnlyKeys). It landed
+	// at zero.
+	delayedTriggerParamLeaks = 0
 )
 
 func measureRepo(t *testing.T) Metrics {
@@ -308,6 +312,11 @@ func TestCodeShapeOnlyShrinks(t *testing.T) {
 			"Read the targeting parameter through effects.TargetsOf's compiled TargetParams " +
 				"(add a field to compileTargets in effects/targets_params.go) instead of reading " +
 				"a targeting key from the ability's Params. Leaks: " + strings.Join(m.TargetLeaks, ", ")},
+		{"delayedTriggerParamLeaks", m.DelayedTriggerParamLeaks, delayedTriggerParamLeaks,
+			"Read the parameter through effects.DelayedTriggerOf's compiled DelayedTriggerParams (add a " +
+				"field to compileDelayedTrigger in effects/delayedtrigger_params.go) instead of reading the ability's Params in " +
+				"effects/delayed_trigger.go or a DelayedTrigger-only key elsewhere. " +
+				"Leaks: " + strings.Join(m.DelayedTriggerLeaks, ", ")},
 		{"triggerContextLiterals", m.TriggerContextLiterals, triggerContextLiterals,
 			"Derive trigger referents from the firing event (rules' triggerReferents) or " +
 				"copy an existing TriggerContext and set the fields that differ; a " +

@@ -90,6 +90,9 @@ func TestEveryConfiguredAbilityHasItsFactsRecord(t *testing.T) {
 					targeted++
 				}
 			}
+			if (f.DelayedTrigger != nil) != (sa.CompiledAPI() == cards.APIDelayedTrigger || sa.API == "DelayedTrigger") {
+				t.Errorf("%s: %q (API %s): DelayedTrigger half present=%v", c.Path, sa.Line, sa.API, f.DelayedTrigger != nil)
+			}
 		}
 	}
 	visit := func(c *cards.Card) {
