@@ -21,7 +21,7 @@ import (
 // handled by their own walkers (Library's search, Hand's movers); this one
 // never offers a hidden card by name, and a public-origin pick never
 // shuffles (Forge's shuffle condition needs Library in the origin).
-func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []state.Zone, originAll bool, originValid bool, from string) {
+func effHiddenPick(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.Zone, originZones []state.Zone, originAll bool, originValid bool, from string) {
 	// fx42 scoping: capture and clear the answered pick (and the cursor that
 	// binds it to the fetch player that asked) before anything else, so a
 	// nested pick below cannot inherit them.
@@ -40,20 +40,17 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 			Text: "ChangeZone Origin$ " + from + " includes a zone this engine does not model (no outside-the-game cards exist); nothing is offered from it"})
 	}
-	players := hiddenPickPlayers(h, c, sa)
+	players := hiddenPickPlayers(h, c, cz.fetch())
 	if c.ForgetOtherReady {
 		players = c.ForgetOtherOwners
 	}
-	initForgetOtherSnapshot(h, c, sa, players, 2)
+	initForgetOther(h, c, cz.Riders.ForgetOtherRemembered, players, 2)
 	// Forge branches on the origin zones, not on the fetch player: game-wide
 	// only when the origin holds no hidden-info zone and no fetch player was
 	// named (Kor Skyfisher's ChangeType$ filter does the scoping).
 	gameWide := !zoneIn(originZones, state.ZHand) && !zoneIn(originZones, state.ZLibrary) &&
-		strings.TrimSpace(sa.ParamStr(cards.PKDefinedPlayer)) == ""
-	spec := sa.ParamStr(cards.PKChangeType)
-	if spec == "" {
-		spec = "Card"
-	}
+		cz.DefinedPlayer.Text == ""
+	spec := cz.ChangeType
 	// Away from the battlefield, Forge's Permanent base means a permanent
 	// card. Hidden graveyard/exile picks share the library search's rule;
 	// without it Winter's remembered permanent is never eligible for DBReturn.
@@ -63,19 +60,19 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 	// The per-type groups an EACH ChangeType asks for, computed once: the
 	// sub-specs are a property of the SA, not of the fetch player.
 	eachSubs, isEach := eachAlternatives(spec)
-	max := Num(h, c, sa, "ChangeNum", 1)
+	max := numText(h, c, cz.ChangeNum, 1)
 	if max < 0 {
 		max = 0
 	}
-	mandatory := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKMandatory)), "True")
+	mandatory := cz.Mandatory
 	// ChoiceOptional$ True explicitly names the Min-0 may-pick default here;
 	// it does not override Mandatory$ True. False/unset leave the default unchanged.
-	mayPick := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKChoiceOptional)), "True")
-	noLooking := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKNoLooking)), "True")
-	withKind := sa.ParamStr(cards.PKWithCountersType)
+	mayPick := cz.ChoiceOptional
+	noLooking := cz.NoLooking
+	withKind := cz.WithCountersType
 	var withAmt int32
 	if withKind != "" && counterDestination(to) {
-		withAmt = withCounterAmount(h, c, sa)
+		withAmt = withCounterAmount(h, c, cz)
 	}
 	// WithTotalCMC$ is the cumulative mana-value budget over the picked cards
 	// (Lively Dirge's DBReturn, Technomancer, Legion's Chant, Pair o' Dice
@@ -89,11 +86,11 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 	// and every read below is a no-op, so a non-budget pick emits
 	// byte-identically. Present but unresolvable degrades to budget 0 --
 	// Num's documented convention.
-	budget, hasBudget := NumResolved(h, c, sa, "WithTotalCMC", 0)
+	budget, hasBudget := numResolvedText(h, c, cz.WithTotalCMC, 0)
 	if budget < 0 {
 		budget = 0
 	}
-	rider := classifyAttackingEntry(c, sa, to)
+	rider := classifyAttackingEntryText(c, cz.Riders.Attacking, to)
 	// ChooseFromDefined$ narrows the offered pool to the objects a defined
 	// selector names -- Cass, Hand of Vengeance's `ChooseFromDefined$ AttachedTo
 	// TriggeredCardLKICopy.Aura` offers only the Aura cards that WERE attached
@@ -111,7 +108,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 	chooseFromDefined := make(map[state.ObjID]bool)
 	hasChooseFromDefined := false
 	chooseFromDefinedResolved := false
-	if raw := strings.TrimSpace(sa.ParamStr(cards.PKChooseFromDefined)); raw != "" {
+	if raw := cz.ChooseFromDefined; raw != "" {
 		hasChooseFromDefined = true
 		if pool, ok := chooseFromDefinedPool(h, c, raw); ok {
 			chooseFromDefinedResolved = true
@@ -120,7 +117,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 	}
 	if hasChooseFromDefined && !chooseFromDefinedResolved {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
-			Text: "ChangeZone ChooseFromDefined$ " + strings.TrimSpace(sa.ParamStr(cards.PKChooseFromDefined)) + " is not resolvable; nothing is offered"})
+			Text: "ChangeZone ChooseFromDefined$ " + cz.ChooseFromDefined + " is not resolvable; nothing is offered"})
 	}
 	apply := func(owner state.PlayerID, ids []state.ObjID) []state.ObjID {
 		g := h.Game()
@@ -142,7 +139,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 		// so an answered pick that moves nothing still clears. The valid set
 		// above was rechecked against the pre-clear snapshot, so a formerly
 		// remembered card remains admitted here.
-		forgetOtherRemembered(h, c, sa)
+		forgetOther(h, c, cz.Riders.ForgetOtherRemembered)
 		moved := make([]state.ObjID, 0, len(valid))
 		for _, id := range valid {
 			o := g.Obj(id)
@@ -151,7 +148,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 			if o == nil || !zoneIn(originZones, o.Zone) {
 				continue
 			}
-			settleChangeZoneMoveAs(h, c, sa, id, o.Zone, to, withKind, withAmt, o.Owner, true, &rider)
+			settleChangeZoneMoveAs(h, c, sa, cz, id, o.Zone, to, withKind, withAmt, o.Owner, true, &rider)
 			// AttachedTo$ on a hidden public-origin pick (Cass, Hand of
 			// Vengeance's returned `AttachedTo$ Targeted` Aura; Bruna,
 			// Stormkeld Curator, Sovereigns of Lost Alara): the same rider every
@@ -160,16 +157,16 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 			// runs -- silent for all 8 corpus Hidden$+AttachedTo$ lines, and
 			// the reason Cass's returned Auras would not sit on the target.
 			if to == state.ZBattlefield {
-				changeZoneAttachedTo(h, c, sa, id)
+				changeZoneAttachedTo(h, c, sa, cz, id)
 			}
 			moved = append(moved, id)
-			if strings.EqualFold(sa.ParamStr(cards.PKRememberChanged), "True") {
+			if cz.RememberChanged {
 				// settleChangeZoneMoveAs recorded the resolution-local half;
 				// persist the same moved object for later resolutions.
 				eventRemember(h, c, id)
 			}
 			eventForgetChanged(h, c, sa, id)
-			if to == state.ZBattlefield && strings.EqualFold(sa.ParamStr(cards.PKTapped), "True") {
+			if to == state.ZBattlefield && cz.Tapped {
 				h.Emit(events.Event{Kind: events.Tap, Obj: id, Player: o.Owner, Text: "entered tapped"})
 			}
 		}
@@ -177,7 +174,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 		// same public Note payload the library search's reveal emits. No
 		// default auto-reveal here: the pick's origin zones are public, so
 		// every offered name was already known.
-		if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKReveal)), "True") && len(moved) > 0 {
+		if cz.Reveal && len(moved) > 0 {
 			h.Emit(events.Event{Kind: events.Note, Player: owner, IDs: moved})
 		}
 		// AtEOT$ rides the pick's moved set as well (latent: no corpus carrier
@@ -189,7 +186,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 	// "Any number" (Cass's OptionalPrompt$ text) is the absent-ChangeNum$
 	// reading when ChooseFromDefined$ is present: the pool itself bounds the
 	// pick. A caller that names ChangeNum$ keeps it.
-	chooseFromAll := hasChooseFromDefined && strings.TrimSpace(sa.ParamStr(cards.PKChangeNum)) == ""
+	chooseFromAll := hasChooseFromDefined && cz.ChangeNum.Text == ""
 	for i, owner := range players {
 		var eligible []state.ObjID
 		addPool := func(ids []state.ObjID) {
@@ -264,7 +261,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 			continue
 		}
 		if done && i == cursor {
-			if raw, ok := totalCardTypesRequirement(sa); ok {
+			if raw, ok := totalCardTypesRequirement(cz); ok {
 				need, err := strconv.Atoi(raw)
 				if err != nil || need < 0 || !totalCardTypesSatisfied(h.Game(), ans, need) {
 					h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: owner,
@@ -275,7 +272,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 			apply(owner, ans)
 			continue
 		}
-		chooser := hiddenPickChooser(h, c, sa, owner)
+		chooser := hiddenPickChooser(h, c, cz, owner)
 		// Forge's Optional$ confirmation (the same confirmAction gate the
 		// hidden-hand walk poses, which runs BEFORE the card pick): a script
 		// that carries the marker asks the decider whether to proceed, even
@@ -286,7 +283,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 		// ChoiceOptional$ names the pick's cardinality, not a yes/no gate. An
 		// UNRESOLVED ChooseFromDefined$ failed closed above, so its
 		// nothing-to-offer continuation never becomes a confirmation.
-		if hiddenPickConfirms(sa) && !(hasChooseFromDefined && !chooseFromDefinedResolved) {
+		if hiddenPickConfirms(cz) && !(hasChooseFromDefined && !chooseFromDefinedResolved) {
 			if confirmDone && i < confirmTarget {
 				// This fetch player's confirmation was already answered on an
 				// earlier pass (declined, or accepted with its pick completed);
@@ -294,7 +291,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 				continue
 			}
 			if !confirmDone {
-				prompt := strings.TrimSpace(sa.ParamStr(cards.PKOptionalPrompt))
+				prompt := cz.OptionalPrompt
 				if prompt == "" {
 					prompt = "Proceed with moving a card?"
 				}
@@ -334,16 +331,16 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 			// for a fetch that happened. A public origin has no shuffle to fail
 			// to perform.
 			if !(hasChooseFromDefined && !chooseFromDefinedResolved) {
-				forgetOtherRemembered(h, c, sa)
+				forgetOther(h, c, cz.Riders.ForgetOtherRemembered)
 			}
 			continue
 		}
-		prompt := strings.TrimSpace(sa.ParamStr(cards.PKSelectPrompt))
+		prompt := cz.SelectPrompt
 		// OptionalPrompt$ is the script's own wording for the optional pick
 		// (Cass's "Select any number of Aura cards that were attached to
 		// it"); it wins the default text, the same precedence the
 		// library-search path gives it.
-		if op := strings.TrimSpace(sa.ParamStr(cards.PKOptionalPrompt)); op != "" {
+		if op := cz.OptionalPrompt; op != "" {
 			prompt = op
 		}
 		if prompt == "" {
@@ -438,7 +435,7 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, to state.Zone, originZones []st
 				}
 				picked = append(picked, ids[:n]...)
 			}
-		} else if differentNamesEnabled(sa) && !hasBudget {
+		} else if cz.DifferentNames && !hasBudget {
 			seen := make(map[string]bool, m)
 			for _, id := range eligible {
 				if len(picked) >= int(m) {

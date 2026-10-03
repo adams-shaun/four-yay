@@ -1096,8 +1096,7 @@ func (e *Engine) convokeAbsorbs(pc *pendingCast, m Cost, pays []convokePayment, 
 // that bypassed the wire, through the one shared classifier
 // effects.SharedLandTypes.
 func (e *Engine) validateSearch(d *decision.Decision, in decision.Intent) error {
-	if d.ResumeKind != "search" || d.ResumeSA == nil ||
-		!strings.EqualFold(strings.TrimSpace(d.ResumeSA.Params["ShareLandType"]), "True") {
+	if d.ResumeKind != "search" || d.ResumeSA == nil || !effects.ChangeZoneOf(d.ResumeSA).ShareLandType {
 		return nil
 	}
 	ids := make([]state.ObjID, 0, len(in.Choices))

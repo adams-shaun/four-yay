@@ -165,7 +165,7 @@ func (e *Engine) applyOpeningEffect(ef openingEffect) {
 	if sa == nil {
 		return
 	}
-	if sa.API != "ChangeZone" || sa.ParamStr(cards.PKOrigin) != "Hand" || sa.ParamStr(cards.PKDestination) != "Battlefield" {
+	if sa.API != "ChangeZone" || !effects.ChangeZoneOf(sa).OriginExactly(state.ZHand) || !effects.ChangeZoneOf(sa).DestinationIs(state.ZBattlefield) {
 		// Reveal, exile, token and delayed-effect opening scripts use the
 		// ordinary effect registry too. The FromHand battlefield shape below
 		// is split out only because Gemstone's mandatory follow-up needs its
@@ -188,7 +188,7 @@ func (e *Engine) applyOpeningEffect(ef openingEffect) {
 		sa = sub
 		sub = sub.Sub
 	}
-	if sub != nil && sub.API == "ChangeZone" && sub.ParamStr(cards.PKOrigin) == "Hand" && sub.ParamStr(cards.PKDestination) == "Exile" {
+	if sub != nil && sub.API == "ChangeZone" && effects.ChangeZoneOf(sub).OriginExactly(state.ZHand) && effects.ChangeZoneOf(sub).DestinationIs(state.ZExile) {
 		e.opening.exile = ef.card
 		d := &decision.Decision{Player: ef.player, Kind: decision.KChoose, Min: 1, Max: 1,
 			Prompt: "Exile a card from your hand", Source: ef.card}

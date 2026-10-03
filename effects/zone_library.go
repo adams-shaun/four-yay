@@ -1,8 +1,6 @@
 package effects
 
 import (
-	"strings"
-
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/events"
@@ -18,8 +16,8 @@ import (
 // keep the library order a search just taught them -- is NOT read here: this
 // helper is the mandatory path, and the confirm belongs to the search's own
 // tail, searchShuffleTail below.
-func shuffleLibrary(h Host, sa *cards.SA, owner state.PlayerID) {
-	if strings.EqualFold(sa.ParamStr(cards.PKNoShuffle), "True") || strings.EqualFold(sa.ParamStr(cards.PKShuffle), "False") {
+func shuffleLibrary(h Host, cz *ChangeZoneParams, owner state.PlayerID) {
+	if cz.NoShuffle || cz.ShuffleFalse {
 		return
 	}
 	shuffleLibraryOrder(h, owner)
@@ -32,9 +30,8 @@ func shuffleLibrary(h Host, sa *cards.SA, owner state.PlayerID) {
 // card into a library with no Shuffle$ parameter are LibraryPosition$ "put
 // it on top of your library" movers, which must not shuffle. NoShuffle$
 // True is honoured exactly as shuffleLibrary reads it.
-func objectPathShuffleOwed(sa *cards.SA) bool {
-	return strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKShuffle)), "True") &&
-		!strings.EqualFold(sa.ParamStr(cards.PKNoShuffle), "True")
+func objectPathShuffleOwed(cz *ChangeZoneParams) bool {
+	return cz.ShuffleTrue && !cz.NoShuffle
 }
 
 // objectPathShuffleTail finishes an object-target ChangeZone that moved
@@ -51,7 +48,7 @@ func objectPathShuffleOwed(sa *cards.SA) bool {
 // SearchShuffle early-return calls this again with moved == nil. A host that
 // cannot ask takes the deterministic decline (R-9), the same stand-in every
 // other may-shuffle confirm uses.
-func objectPathShuffleTail(h Host, c *Ctx, sa *cards.SA, moved []state.ObjID) bool {
+func objectPathShuffleTail(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, moved []state.ObjID) bool {
 	if c.SearchShuffle != "" {
 		ans, placed := c.SearchShuffle, c.SearchShuffleMoved
 		c.SearchShuffle, c.SearchShuffleMoved = "", nil
@@ -60,7 +57,7 @@ func objectPathShuffleTail(h Host, c *Ctx, sa *cards.SA, moved []state.ObjID) bo
 		}
 		return false
 	}
-	if !strings.EqualFold(strings.TrimSpace(sa.Params["ShuffleNonMandatory"]), "True") {
+	if !cz.ShuffleNonMandatory {
 		objectPathShuffleOwners(h, moved)
 		return false
 	}
@@ -123,7 +120,7 @@ func objectPathShuffleOwners(h Host, moved []state.ObjID) {
 // the order -- the same stand-in the arrange_mayshuffle confirm falls back
 // to. Returns true when the confirm suspended the resolution (the caller
 // must stop; the re-entry owns the tail), false when the tail completed.
-func searchShuffleTail(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, moved []state.ObjID, to state.Zone) bool {
+func searchShuffleTail(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, owner state.PlayerID, moved []state.ObjID, to state.Zone) bool {
 	if c.SearchShuffle != "" {
 		// Re-entry after the answered confirm: the moves happened in the
 		// first pass, so this pass places only. Consume and clear before
@@ -133,12 +130,12 @@ func searchShuffleTail(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, moved
 		if ans == "yes" {
 			shuffleLibraryOrder(h, owner)
 		}
-		placeLibraryObjects(h, c, sa, owner, placed, to)
+		placeLibraryObjects(h, c, cz, owner, placed, to)
 		return false
 	}
-	if !strings.EqualFold(strings.TrimSpace(sa.Params["ShuffleNonMandatory"]), "True") {
-		shuffleLibrary(h, sa, owner)
-		placeLibraryObjects(h, c, sa, owner, moved, to)
+	if !cz.ShuffleNonMandatory {
+		shuffleLibrary(h, cz, owner)
+		placeLibraryObjects(h, c, cz, owner, moved, to)
 		return false
 	}
 	d := &decision.Decision{Player: owner, Kind: decision.KChoose, Min: 1, Max: 1,
@@ -157,13 +154,12 @@ func searchShuffleTail(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, moved
 		return true // suspended; the answer re-enters with Ctx.SearchShuffle set.
 	}
 	// No-host stand-in (R-9): decline the shuffle, keep the order.
-	placeLibraryObjects(h, c, sa, owner, moved, to)
+	placeLibraryObjects(h, c, cz, owner, moved, to)
 	return false
 }
 
-func shuffleLibraryExplicit(h Host, sa *cards.SA, owner state.PlayerID) {
-	if strings.EqualFold(sa.ParamStr(cards.PKShuffle), "True") &&
-		!strings.EqualFold(sa.ParamStr(cards.PKNoShuffle), "True") {
+func shuffleLibraryExplicit(h Host, cz *ChangeZoneParams, owner state.PlayerID) {
+	if cz.ShuffleTrue && !cz.NoShuffle {
 		shuffleLibraryOrder(h, owner)
 	}
 }
@@ -189,10 +185,10 @@ func shuffleLibraryOrder(h Host, owner state.PlayerID) {
 // ChangeZoneEffect.changeKnownOriginResolve computes libPos = 0 when the
 // parameter is absent, the same default the hand path (handLibraryTail) and
 // the ChangeZoneAll path apply, so the absent spelling places at position 0.
-func placeTargetedLibraryObjects(h Host, c *Ctx, sa *cards.SA, moved []state.ObjID) {
+func placeTargetedLibraryObjects(h Host, c *Ctx, cz *ChangeZoneParams, moved []state.ObjID) {
 	position := int32(0) // Forge's absent-LibraryPosition$ default is TOP
-	if raw := strings.TrimSpace(sa.ParamStr(cards.PKLibraryPosition)); raw != "" {
-		p, ok := NumResolved(h, c, sa, "LibraryPosition", 0)
+	if raw := cz.LibraryPositionText; raw != "" {
+		p, ok := numResolvedText(h, c, cz.LibraryPosition, 0)
 		if !ok {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 				Text: "LibraryPosition$ " + raw + " is not implemented; the cards sit at the BOTTOM of their owners' libraries (the MoveZone append)"})
@@ -235,7 +231,7 @@ func placeTargetedLibraryObjects(h Host, c *Ctx, sa *cards.SA, moved []state.Obj
 // placement order: the branch below pins the chosen cards on top in exactly
 // the order the player's answer carried them (libraryOrderPlacement), never
 // a re-sorted one.
-func placeLibraryObjects(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, moved []state.ObjID, to state.Zone) {
+func placeLibraryObjects(h Host, c *Ctx, cz *ChangeZoneParams, owner state.PlayerID, moved []state.ObjID, to state.Zone) {
 	// An ABSENT LibraryPosition$ is Forge's TOP default on the searched-library
 	// path too (agent-20260928T191540Z): Forge computes libPos = 0 when the
 	// parameter is absent in BOTH resolvers -- changeKnownOriginResolve
@@ -245,11 +241,11 @@ func placeLibraryObjects(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, mov
 	// in both of its branches. Without it a searched card put back into its
 	// library (Knowledge Exploitation, the Kodama's Reach/Cultivate family)
 	// stayed at the MoveZone bottom append.
-	position := strings.TrimSpace(sa.ParamStr(cards.PKLibraryPosition))
+	position := cz.LibraryPositionText
 	if position == "" {
 		position = "0"
 	}
-	if strings.EqualFold(strings.TrimSpace(sa.Params["Reorder"]), "True") && to == state.ZLibrary {
+	if cz.Reorder && to == state.ZLibrary {
 		if len(moved) > 0 && (position == "0" || position == "-1") {
 			libraryOrderPlacement(h, owner, moved, position == "-1")
 		}
@@ -268,7 +264,7 @@ func placeLibraryObjects(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, mov
 	// libraryOrderPlacementAt (positive = zero-based from the top, negative =
 	// from the bottom). An unresolvable value is LOUD -- one Note, the
 	// MoveZone bottom append stands -- never a guessed placement.
-	p, ok := NumResolved(h, c, sa, "LibraryPosition", 0)
+	p, ok := numResolvedText(h, c, cz.LibraryPosition, 0)
 	if !ok {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
 			Text: "LibraryPosition$ " + position + " is not implemented; the cards sit at the BOTTOM of the library (the MoveZone append)"})
