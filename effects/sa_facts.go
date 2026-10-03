@@ -55,6 +55,11 @@ type SAFacts struct {
 	Charm *CharmParams
 	Pump  *PumpParams
 	Draw  *DrawParams
+
+	// ReplaceEffect is api:ReplaceEffect's compiled parameter set
+	// (replaceeffect_params.go), non-nil exactly when the API is
+	// ReplaceEffect.
+	ReplaceEffect *ReplaceEffectParams
 }
 
 // NewSAFacts compiles sa's typed halves into a fresh record naming sa. The

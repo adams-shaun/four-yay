@@ -206,8 +206,7 @@ var pumpKnownKeys = [...]string{
 	"TgtPrompt", "TgtZone", "TokenScript", "TriggerDescription", "TriggersWhenSpent",
 	"Type", "Ultimate", "UnlessAI", "UnlessCost", "UnlessPayer", "UnlessResolveSubs",
 	"UnlessSwitched", "ValidCard", "ValidCards", "ValidCardsDesc", "ValidChoices",
-	"ValidCounterType", "ValidDescription", "ValidTgts", "VarName", "VarValue",
-	"VoteMessage", "WithoutManaCost", "XMax", "XMin",
+	"ValidCounterType", "ValidDescription", "ValidTgts", "VoteMessage", "WithoutManaCost", "XMax", "XMin",
 }
 
 // PumpKnownKeys is a copy of pumpKnownKeys, for the census check.

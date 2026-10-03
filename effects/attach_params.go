@@ -117,7 +117,7 @@ var attachKnownKeys = [...]string{
 	"TriggerDescription", "TriggersWhenSpent", "Type", "Ultimate", "Unattach",
 	"UnlessAI", "UnlessCost", "UnlessPayer", "UnlessResolveSubs", "UnlessSwitched",
 	"ValidCard", "ValidCards", "ValidCardsDesc", "ValidChoices", "ValidCounterType",
-	"ValidDescription", "ValidTgts", "VarName", "VarValue", "VoteMessage",
+	"ValidDescription", "ValidTgts", "VoteMessage",
 	"WithoutManaCost", "XMax", "XMin",
 }
 

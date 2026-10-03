@@ -128,6 +128,19 @@ var DrawFiles = []string{"effects/draw.go"}
 // DrawOnlyKeys are the parameter keys only Draw's compiler reads.
 var DrawOnlyKeys = []string{"RememberDrawn", "Upto"}
 
+// ReplaceEffectCompilerFile is api:ReplaceEffect's parameter compiler (W4
+// step 3).
+const ReplaceEffectCompilerFile = "effects/replaceeffect_params.go"
+
+// ReplaceEffectFiles are ReplaceEffect's own resolution files: no parameter
+// read of any key.
+var ReplaceEffectFiles = []string{"effects/replacement.go"}
+
+// ReplaceEffectOnlyKeys are the parameter keys only ReplaceEffect's compiler
+// reads (rules' Scry and count-operator readers of a ReplaceWith$ body read
+// them through it).
+var ReplaceEffectOnlyKeys = []string{"VarName", "VarValue"}
+
 // TypedParamCompiler names one API's parameter compiler for the leak census
 // (Metrics.ChangeZoneParamLeaks and its siblings): the compiler file, the
 // API's own resolution files (no parameter read of any key there) and the
@@ -234,6 +247,10 @@ type Metrics struct {
 	PumpLeaks       []string `json:"pump_leaks"`
 	DrawParamLeaks  int      `json:"draw_param_leaks"`
 	DrawLeaks       []string `json:"draw_leaks"`
+	// ReplaceEffectParamLeaks is the same census for api:ReplaceEffect
+	// (ReplaceEffect* CompilerFile/Files/OnlyKeys).
+	ReplaceEffectParamLeaks int      `json:"replace_effect_param_leaks"`
+	ReplaceEffectLeaks      []string `json:"replace_effect_leaks"`
 	// TrigmatchBoardMethods counts the methods trigmatch.Board declares
 	// (rules/trigmatch/board.go): the read-only view the trigger matchers
 	// reach the engine through (W5 E3). Zero when the package is absent.
@@ -346,6 +363,8 @@ func Measure(root string) (Metrics, error) {
 				TypedParamCompiler{PumpCompilerFile, PumpFiles, PumpOnlyKeys})...)
 			m.DrawLeaks = append(m.DrawLeaks, paramLeaks(fset, f, rel,
 				TypedParamCompiler{DrawCompilerFile, DrawFiles, DrawOnlyKeys})...)
+			m.ReplaceEffectLeaks = append(m.ReplaceEffectLeaks, paramLeaks(fset, f, rel,
+				TypedParamCompiler{ReplaceEffectCompilerFile, ReplaceEffectFiles, ReplaceEffectOnlyKeys})...)
 			ast.Inspect(f, func(n ast.Node) bool {
 				switch x := n.(type) {
 				case *ast.TypeAssertExpr:
@@ -404,6 +423,7 @@ func Measure(root string) (Metrics, error) {
 	m.CharmParamLeaks, m.CharmLeaks = finishLeaks(m.CharmLeaks)
 	m.PumpParamLeaks, m.PumpLeaks = finishLeaks(m.PumpLeaks)
 	m.DrawParamLeaks, m.DrawLeaks = finishLeaks(m.DrawLeaks)
+	m.ReplaceEffectParamLeaks, m.ReplaceEffectLeaks = finishLeaks(m.ReplaceEffectLeaks)
 	m.FuncsOver300 = len(m.LongFuncs)
 	sort.Slice(m.LongFuncs, func(i, j int) bool {
 		a, b := m.LongFuncs[i], m.LongFuncs[j]

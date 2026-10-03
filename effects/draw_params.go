@@ -120,8 +120,7 @@ var drawKnownKeys = [...]string{
 	"TgtPrompt", "TgtZone", "TokenScript", "TriggerDescription", "TriggersWhenSpent",
 	"Type", "Ultimate", "UnlessAI", "UnlessCost", "UnlessPayer", "UnlessResolveSubs",
 	"UnlessSwitched", "Upto", "ValidCard", "ValidCards", "ValidCardsDesc", "ValidChoices",
-	"ValidCounterType", "ValidDescription", "ValidTgts", "VarName", "VarValue",
-	"VoteMessage", "WithoutManaCost", "XMax", "XMin",
+	"ValidCounterType", "ValidDescription", "ValidTgts", "VoteMessage", "WithoutManaCost", "XMax", "XMin",
 }
 
 // DrawKnownKeys is a copy of drawKnownKeys, for the census check.

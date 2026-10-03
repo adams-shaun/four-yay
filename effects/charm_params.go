@@ -175,7 +175,7 @@ var charmKnownKeys = [...]string{
 	"TriggersWhenSpent", "Type", "Ultimate", "UnlessAI", "UnlessCost",
 	"UnlessPayer", "UnlessResolveSubs", "UnlessSwitched", "ValidCard", "ValidCards",
 	"ValidCardsDesc", "ValidChoices", "ValidCounterType", "ValidDescription", "ValidTgts",
-	"VarName", "VarValue", "VoteMessage", "WithoutManaCost", "XMax", "XMin",
+	"VoteMessage", "WithoutManaCost", "XMax", "XMin",
 }
 
 // CharmKnownKeys is a copy of charmKnownKeys, for the census check.

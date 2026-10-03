@@ -21,11 +21,13 @@ func init() { Register("ReplaceEffect", effReplaceEffect) }
 // to zero, and the host's ReplaceEvent then leaves the event untouched rather
 // than erasing the damage).
 func effReplaceEffect(h Host, c *Ctx, sa *cards.SA) {
-	name := sa.ParamStr(cards.PKVarName)
+	p := ReplaceEffectOf(sa)
+	noteUnreadParams(h, c, "ReplaceEffect", p.Unread)
+	name := p.VarName
 	if name == "" {
 		return
 	}
-	raw := strings.TrimSpace(sa.ParamStr(cards.PKVarValue))
+	raw := strings.TrimSpace(p.VarValue.Text)
 	if c != nil && c.SVars != nil {
 		if body, ok := c.SVars[raw]; ok && strings.HasPrefix(body, "ReplaceCount$") {
 			raw = body
@@ -35,7 +37,7 @@ func effReplaceEffect(h Host, c *Ctx, sa *cards.SA) {
 		h.ReplaceEvent(name, rewriteReplaceCountOperand(h, c, raw), 0)
 		return
 	}
-	h.ReplaceEvent(name, raw, Num(h, c, sa, "VarValue", 0))
+	h.ReplaceEvent(name, raw, numText(h, c, p.VarValue, 0))
 }
 
 // rewriteReplaceCountOperand resolves a ReplaceCount$ operand the host's

@@ -105,6 +105,9 @@ const (
 	charmParamLeaks = 0
 	pumpParamLeaks  = 0
 	drawParamLeaks  = 0
+	// replaceEffectParamLeaks is the same census for api:ReplaceEffect's
+	// compiler (effects/replaceeffect_params.go). It landed at zero.
+	replaceEffectParamLeaks = 0
 )
 
 func measureRepo(t *testing.T) Metrics {
@@ -238,6 +241,12 @@ func TestCodeShapeOnlyShrinks(t *testing.T) {
 				"field to compileDraw in effects/draw_params.go) instead of reading the " +
 				"ability's Params in effects/draw.go or a Draw-only key elsewhere. " +
 				"Leaks: " + strings.Join(m.DrawLeaks, ", ")},
+		{"replaceEffectParamLeaks", m.ReplaceEffectParamLeaks, replaceEffectParamLeaks,
+			"Read the parameter through effects.ReplaceEffectOf's compiled " +
+				"ReplaceEffectParams (add a field to compileReplaceEffect in " +
+				"effects/replaceeffect_params.go) instead of reading the ability's Params " +
+				"in effects/replacement.go or a ReplaceEffect-only key elsewhere. " +
+				"Leaks: " + strings.Join(m.ReplaceEffectLeaks, ", ")},
 		{"triggerContextLiterals", m.TriggerContextLiterals, triggerContextLiterals,
 			"Derive trigger referents from the firing event (rules' triggerReferents) or " +
 				"copy an existing TriggerContext and set the fields that differ; a " +
