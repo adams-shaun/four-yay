@@ -61,12 +61,14 @@ func effClone(h Host, c *Ctx, sa *cards.SA) {
 	// The answered Optional$ may-copy election, consumed and cleared at the
 	// top of the walk (the fx42 scoping discipline): a nested Clone cannot
 	// inherit the outer answer.
-	cloneAns := c.Clone
-	cloneDone := c.CloneDone
-	c.Clone, c.CloneDone = "", false
-	clonePick := c.ClonePick
-	clonePickDone := c.ClonePickDone
-	c.ClonePick, c.ClonePickDone = 0, false
+	cloneAns := string("")
+
+	cloneDone := false
+
+	clonePick := state.ObjID(0)
+
+	clonePickDone := false
+
 	cp := CloneOf(sa)
 	if !cloneDone && !clonePickDone {
 		// Once per call: an answered re-entry (either flag set) already

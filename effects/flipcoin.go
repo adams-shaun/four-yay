@@ -253,8 +253,7 @@ func effFlipCoin(h Host, c *Ctx, sa *cards.SA) {
 
 	// Resume cursor (fx-style scoping): consumed and cleared here, so a
 	// nested FlipCoin poses its own loop.
-	rest := c.FlipRest
-	c.FlipRest = nil
+	rest := (*FlipRest)(nil)
 
 	var players []state.PlayerID
 	var playerIndex int

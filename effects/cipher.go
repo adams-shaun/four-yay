@@ -51,12 +51,8 @@ func effCipher(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 
-	answered := c.CipherDone
-	pick := c.CipherPick
-	// fx42 scoping: consume and clear the answered transport before anything
-	// below, so a nested Cipher never inherits this answer.
-	c.CipherDone = false
-	c.CipherPick = nil
+	answered := false
+	pick := ([]state.Target)(nil)
 
 	if answered {
 		cipherEncode(h, c, card, controller, pick)

@@ -84,14 +84,8 @@ func effConnive(h Host, c *Ctx, sa *cards.SA) {
 	// discard park would be absent on the draw park and earlier targets
 	// would connive twice.
 	start := 0
-	if c.ConniveDone {
-		for i, t := range tgts {
-			if t.Obj == c.ConniveObj {
-				start = i
-				break
-			}
-		}
-	} else if c.DrawDone > 0 && n > 0 {
+
+	if c.DrawDone > 0 && n > 0 {
 		start = int((c.DrawDone - 1) / n)
 		if start >= len(tgts) {
 			start = len(tgts) - 1
@@ -103,16 +97,7 @@ func effConnive(h Host, c *Ctx, sa *cards.SA) {
 		if t.IsPlayer {
 			continue
 		}
-		// The answered discard for THIS conniver: apply it (fx42 scoping —
-		// captured into a local and cleared before application, so the
-		// remaining targets pose their own fresh asks), then continue.
-		if c.ConniveDone && c.ConniveObj == t.Obj {
-			picks := c.ConniveDiscard
-			c.ConniveDone, c.ConniveObj, c.ConniveDiscard = false, 0, nil
-			applyConniveDiscard(h, t.Obj, picks)
-			first = false
-			continue
-		}
+
 		// Draws already completed for the in-flight target, read from the
 		// global cursor the Dredge resume arm restored. Every target after
 		// the first processed on this pass starts its own draws at zero.
@@ -138,7 +123,7 @@ func effConnive(h Host, c *Ctx, sa *cards.SA) {
 	}
 	// Leftover pending state no target consumed (the pending conniver left
 	// play, a malformed resume): consumed and cleared, never inherited.
-	c.ConniveDone, c.ConniveObj, c.ConniveDiscard = false, 0, nil
+	c.ConniveObj = 0
 	c.DrawDone = 0
 }
 

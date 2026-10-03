@@ -45,8 +45,8 @@ func effChooseEvenOdd(h Host, c *Ctx, sa *cards.SA) {
 		c.ETBEvenOddRecorded = false
 		return
 	}
-	if answer := c.ChosenType; answer == "odd" || answer == "even" {
-		c.ChosenType = ""
+	if answer := string(""); answer == "odd" || answer == "even" {
+
 		h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "type", Text: answer})
 		return
 	}
@@ -117,14 +117,8 @@ func effChooseColor(h Host, c *Ctx, sa *cards.SA) {
 		h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "color", Text: string(colourLetter(fallback))})
 		return
 	}
-	if answered := c.ChosenColor; answered != "" {
-		// The "choosecolor" resume arm's answer: emit the same Choose event
-		// the fallback emits, with the answered colour's WUBRG letter, so
-		// events.Apply records o.ChosenColor exactly the way every downstream
-		// reader (Card.ChosenColor filters, devotion) already reads. A
-		// malformed or off-list answer degrades to the deterministic pick
-		// rather than inventing a colour the option list never named.
-		c.ChosenColor = ""
+	if answered := string(""); answered != "" {
+
 		letter := colourLetter(answered)
 		if !chooseColorOffers(opts, letter) {
 			letter = 'W'
@@ -299,15 +293,7 @@ func effChooseNumber(h Host, c *Ctx, sa *cards.SA) {
 		c.ETBNumberRecorded = false
 		return
 	}
-	if c.ChosenNumberAnswered {
-		// The "choosenumber" resume arm's answer: emit the same Choose event
-		// the fallback emits, with the answered number.
-		c.ChosenNumberAnswered = false
-		n := c.ChosenNumberPick
-		c.ChosenNumberPick = 0
-		h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "number", Amount: n})
-		return
-	}
+
 	// The multi-chooser SECRET election (api:ChooseNumber's
 	// MatchedAbility$/UnmatchedAbility$ shape, Expert-Level Safe): a Defined$
 	// selector naming SEVERAL players (TargetedAndYou) asks each one secretly,
@@ -423,19 +409,13 @@ func effChooseNumberElection(h Host, c *Ctx, sa *cards.SA, matched, unmatched st
 		// election that could not be held did not match.
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "ChooseNumber election bound cannot be resolved in this context; the election did not match"})
-		c.ChooseNumberPicks, c.ChooseNumberAnswer, c.ChooseNumberDone, c.ChooseNumberIndex = nil, 0, false, 0
+
 		effChooseNumberElectionBranch(h, c, unmatched)
 		return
 	}
-	picks := append([]int32(nil), c.ChooseNumberPicks...)
-	i := c.ChooseNumberIndex
-	if c.ChooseNumberDone {
-		// The answer to chooser i's ask: its option's Amount (a legitimate
-		// ZERO is carried by the separate Done marker). Consume and clear.
-		picks = append(picks, c.ChooseNumberAnswer)
-		c.ChooseNumberAnswer, c.ChooseNumberDone = 0, false
-		i++
-	}
+	picks := append([]int32(nil), ([]int32)(nil)...)
+	i := int(0)
+
 	for ; i < len(choosers); i++ {
 		d := &decision.Decision{Player: choosers[i], Kind: decision.KChoose, Min: 1, Max: 1,
 			ResumeKind: "choosenumbermulti", ResumeSA: sa, ResumeTarget: i,
@@ -466,7 +446,7 @@ func effChooseNumberElection(h Host, c *Ctx, sa *cards.SA, matched, unmatched st
 		// chooser and continue to the next.
 		picks = append(picks, int32(opts[0].Amount))
 	}
-	c.ChooseNumberPicks, c.ChooseNumberAnswer, c.ChooseNumberDone, c.ChooseNumberIndex = nil, 0, false, 0
+
 	// The reveal: after every chooser has answered, name the chosen numbers so
 	// the secret picks become public at exactly the Oracle's "then those
 	// choices are revealed" point (never before). The controller's pick is also
@@ -558,11 +538,8 @@ func effChooseType(h Host, c *Ctx, sa *cards.SA) {
 		return
 	}
 	cat := strings.TrimSpace(sa.ParamStr(cards.PKType))
-	if answered := c.ChosenType; answered != "" {
-		// The "choosetype" resume arm's answer: emit the same Choose event the
-		// fallback emits, with the answered type, so events.Apply records
-		// o.ChosenType exactly the way every downstream reader already reads.
-		c.ChosenType = ""
+	if answered := string(""); answered != "" {
+
 		h.Emit(events.Event{Kind: events.Choose, Obj: c.Source, Counter: "type", Text: answered})
 		return
 	}

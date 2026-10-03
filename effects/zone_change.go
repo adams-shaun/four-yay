@@ -383,8 +383,8 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 	// pre-existing deterministic placement rather than silently offering a
 	// choice the script never posed.
 	altDecider := cz.AlternativeDecider
-	altAnswer := c.ChangeZoneAlternative
-	c.ChangeZoneAlternative = ""
+	altAnswer := string("")
+
 	altBottom := false
 	altEngaged := false
 	if altDecider != "" && len(targets) > 0 {
@@ -461,43 +461,38 @@ func effChangeZone(h Host, c *Ctx, sa *cards.SA) {
 	if len(targets) == 1 && targets[0].Obj == c.Source && !targets[0].IsPlayer &&
 		len(originZones) == 1 && originZones[0] == state.ZHand && !originAll && cz.Imprint {
 		targets = nil
-		if c.Imprint != nil {
-			for _, id := range c.Imprint {
+
+		spec := cz.ChangeType
+		for _, id := range h.Game().Zone(state.ZHand, c.Controller) {
+			if o := h.Game().Obj(id); o != nil && MatchesSpecCtx(h.Game(), spec, id, c.SpecContext(c.Controller)) {
 				targets = append(targets, state.Target{Obj: id})
 			}
-			c.Imprint = nil
-		} else {
-			spec := cz.ChangeType
-			for _, id := range h.Game().Zone(state.ZHand, c.Controller) {
-				if o := h.Game().Obj(id); o != nil && MatchesSpecCtx(h.Game(), spec, id, c.SpecContext(c.Controller)) {
+		}
+		max := numText(h, c, cz.ChangeNum, 1)
+		if int32(len(targets)) > max {
+			d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: int(max), Max: int(max), Source: c.Source,
+				ResumeKind: "imprint", ResumeSA: sa, Prompt: "Choose a card to imprint"}
+			for _, target := range targets {
+				o := h.Game().Obj(target.Obj)
+				d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "imprint", Obj: target.Obj, Label: o.Face().Name})
+			}
+			if ans, ok := AskTape(h, d); ok {
+				// The resolution kernel's answer in hand: the "imprint"
+				// re-entry's own events, then the answered cards are
+				// the ones moved, exactly as that re-entry's answered Imprint
+				// branch reads them.
+				objectPathMoveEcho(h, c, cz, to)
+				targets = targets[:0]
+				for _, id := range tapeAnswerObjs(ans) {
 					targets = append(targets, state.Target{Obj: id})
 				}
-			}
-			max := numText(h, c, cz.ChangeNum, 1)
-			if int32(len(targets)) > max {
-				d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: int(max), Max: int(max), Source: c.Source,
-					ResumeKind: "imprint", ResumeSA: sa, Prompt: "Choose a card to imprint"}
-				for _, target := range targets {
-					o := h.Game().Obj(target.Obj)
-					d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "imprint", Obj: target.Obj, Label: o.Face().Name})
-				}
-				if ans, ok := AskTape(h, d); ok {
-					// The resolution kernel's answer in hand: the "imprint"
-					// re-entry's own events, then the answered cards are
-					// the ones moved, exactly as that re-entry's answered Imprint
-					// branch reads them.
-					objectPathMoveEcho(h, c, cz, to)
-					targets = targets[:0]
-					for _, id := range tapeAnswerObjs(ans) {
-						targets = append(targets, state.Target{Obj: id})
-					}
-				} else if h.Ask(d) {
-					return
-				} else {
-					targets = targets[:max]
-				}
+			} else if h.Ask(d) {
+				return
+			} else {
+				targets = targets[:max]
 			}
 		}
+
 	}
 	var imprinted []state.ObjID
 	// Forge keeps every DB$ Effect in an implicit "effect" object in the
@@ -810,14 +805,7 @@ func changeZoneChosenTargetsFor(h Host, c *Ctx, sa *cards.SA, cz *changeZoneTarg
 		// falls through to its own ask below.
 		return nil, false, false
 	}
-	if c.ChoiceDone {
-		ans := c.Choice
-		c.ChoiceDone, c.Choice = false, nil
-		if TargetUniqueRequested(sa) {
-			c.TargetsUnique = append(c.TargetsUnique, ans...)
-		}
-		return ans, true, false
-	}
+
 	if len(c.Targets) > 0 {
 		// Inherit ONLY when the targets genuinely belong to THIS SA -- the
 		// OfferedSA marker names exactly the SA the placement/announcement ask

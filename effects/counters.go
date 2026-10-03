@@ -425,9 +425,9 @@ func dedupeKinds(kinds []string) []string {
 // EachExistingCounter$ per-kind cursor rides rules' aorAsk pending map (the
 // moveCounterAsk discipline), seeded into Ctx.AorAnswered.
 func effAddOrRemoveCounter(h Host, c *Ctx, sa *cards.SA) {
-	elect, akind := c.AorElect, c.AorKind
-	answered := c.AorAnswered
-	c.AorElect, c.AorKind, c.AorAnswered, c.AorDone = "", "", nil, false
+	elect, akind := string(""), string("")
+
+	answered := ([]string)(nil)
 
 	g := h.Game()
 	named := strings.TrimSpace(sa.ParamStr(cards.PKCounterType))
@@ -708,10 +708,9 @@ func effMoveCounter(h Host, c *Ctx, sa *cards.SA) {
 	// fx42 scoping: capture and clear the answered asks BEFORE the walk, so a
 	// nested MoveCounter below this one poses its own ask instead of
 	// inheriting the outer answer (the Proliferate discipline).
-	kindAns, kindDone := c.MoveCounterKind, c.MoveCounterKindDone
-	nAns, nDone := c.MoveCounterN, c.MoveCounterNDone
-	c.MoveCounterKind, c.MoveCounterKindDone = "", false
-	c.MoveCounterN, c.MoveCounterNDone = 0, false
+	kindAns, kindDone := string(""), false
+
+	nAns, nDone := int32(0), false
 
 	kindParam := strings.TrimSpace(sa.ParamStr(cards.PKCounterType))
 	numParam := strings.TrimSpace(sa.ParamStr(cards.PKCounterNum))
@@ -1098,9 +1097,9 @@ func effProliferate(h Host, c *Ctx, sa *cards.SA) {
 	// fx42 scoping: capture and clear the answered pick BEFORE the walk, so a
 	// nested Proliferate below this one poses its own ask instead of
 	// inheriting the outer answer (the BlightPicks discipline).
-	picks := c.Proliferate
-	done := c.ProliferateDone
-	c.Proliferate, c.ProliferateDone = nil, false
+	picks := ([]state.Target)(nil)
+
+	done := false
 
 	// Loud-fail-closed on any parameter outside the whitelist (the effBlight
 	// case-whitelist shape): Amount$/RememberPut$ read here, Defined$/

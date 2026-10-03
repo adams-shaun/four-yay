@@ -38,11 +38,11 @@ import (
 // VoteSubAbility$ are genuinely read on the ballot path.
 func effVote(h Host, c *Ctx, sa *cards.SA) {
 	vp := VoteOf(sa)
-	if !c.VoteDone {
-		// Once per call: an answered ballot re-entry already noted on its
-		// first pass.
-		noteUnreadParams(h, c, "Vote", vp.Unread)
-	}
+
+	// Once per call: an answered ballot re-entry already noted on its
+	// first pass.
+	noteUnreadParams(h, c, "Vote", vp.Unread)
+
 	if vp.Card != "" {
 		effCardVote(h, c, sa, vp, vp.Card)
 		return
@@ -58,90 +58,36 @@ func effVote(h Host, c *Ctx, sa *cards.SA) {
 	}
 	choices := vp.Choices
 	voters := definedPlayers(h, c, sa)
-	// A live fixed-list ballot uses the same private, per-voter KChoose path as
-	// VotePlayer$. Keep Ctx.Votes as the small direct seam used by unit tests;
-	// real answers travel only through the decision's ResumeChoices.
-	if c.Votes == nil {
-		picks, complete := askFixedVote(h, c, sa, vp, choices, voters)
-		if !complete {
-			return
-		}
-		for i, t := range voters {
-			label := ""
-			if i < len(picks) && picks[i].Obj > 0 && int(picks[i].Obj-1) < len(choices) {
-				label = choices[picks[i].Obj-1]
-			}
-			// Secret ballots are revealed here too: every vote is already in
-			// (secret council: "then those votes are revealed").
-			h.Emit(events.Event{Kind: events.Note, Player: t, Text: "votes for " + label})
-		}
-		counts := make([]int, len(choices))
-		for _, p := range picks {
-			if p.Obj > 0 && int(p.Obj-1) < len(choices) {
-				counts[p.Obj-1]++
-			}
-		}
-		if len(choices) > 0 && len(voters) > 0 {
-			resolveVoteOutcomes(h, c, vp, choices, counts)
-		}
-		ballots := make([]VoteBallot, len(voters))
-		for i, t := range voters {
-			ballots[i] = VoteBallot{Player: t, Pick: int(picks[i].Obj) - 1}
-		}
-		emitVoteFinished(h, c, ballots, len(choices) > 0, vp.Secretly)
+
+	picks, complete := askFixedVote(h, c, sa, vp, choices, voters)
+	if !complete {
 		return
 	}
-	// Ctx.Votes is the answered per-voter choice list (a real per-player
-	// ask's result, or a test seam): one option index per voter, in voter
-	// order. It is consumed and cleared at the top of the walk so a nested
-	// Vote cannot inherit it (fx42), the same scoping every other asking
-	// primitive uses. Absent, the deterministic stand-in applies: every
-	// voter takes the first option.
-	answered := c.Votes
-	c.Votes = nil
-	counts := make([]int, len(choices))
-	// picks records each voter's answered option index (-1: an out-of-range
-	// answer, i.e. a vote for nothing) so the canonical vote-finished Note's
-	// same/diff split below reads the votes that were actually cast -- the
-	// same data the tally uses, never a second answer source.
-	picks := make([]int, len(voters))
-	for i := range picks {
-		picks[i] = -1
-	}
 	for i, t := range voters {
-		choice := 0
-		if answered != nil && i < len(answered) {
-			choice = answered[i]
-		}
 		label := ""
-		if choice >= 0 && choice < len(choices) {
-			label = choices[choice]
-			counts[choice]++
-			picks[i] = choice
+		if i < len(picks) && picks[i].Obj > 0 && int(picks[i].Obj-1) < len(choices) {
+			label = choices[picks[i].Obj-1]
 		}
 		// Secret ballots are revealed here too: every vote is already in
 		// (secret council: "then those votes are revealed").
 		h.Emit(events.Event{Kind: events.Note, Player: t, Text: "votes for " + label})
 	}
+	counts := make([]int, len(choices))
+	for _, p := range picks {
+		if p.Obj > 0 && int(p.Obj-1) < len(choices) {
+			counts[p.Obj-1]++
+		}
+	}
 	if len(choices) > 0 && len(voters) > 0 {
 		resolveVoteOutcomes(h, c, vp, choices, counts)
 	}
-	// The canonical vote-finished carrier (trig:Vote, effects/vote.go):
-	// emitted AFTER the winning outcome resolved -- the vote (outcome
-	// included) finishes, then "whenever players finish voting" sees it. It
-	// carries the RAW ballots, not a pre-split: the List$ referent sets are
-	// relative to the TRIGGER SOURCE'S controller, which is only known on the
-	// rules side (rules/trigger_referents' Vote case re-splits with
-	// effects.VoteSplit against e.controllerOf(source)). It is emitted even
-	// when there was no ballot and/or no voter, the same always-fire reading
-	// the card-ballot shape takes; "whenever players finish voting" has no
-	// intervening-if. ballotExisted is false for an empty Choices$ ballot,
-	// which binds neither set.
 	ballots := make([]VoteBallot, len(voters))
 	for i, t := range voters {
-		ballots[i] = VoteBallot{Player: t, Pick: picks[i]}
+		ballots[i] = VoteBallot{Player: t, Pick: int(picks[i].Obj) - 1}
 	}
 	emitVoteFinished(h, c, ballots, len(choices) > 0, vp.Secretly)
+	return
+
 }
 
 // resolveVoteOutcomes executes the winning option normally. StoreVoteNum$ is
@@ -186,17 +132,9 @@ func resolveVoteOutcomes(h Host, c *Ctx, vp *VoteParams, choices []string, count
 // ObjID(index+1), avoiding a second answer channel while keeping ResumeChoices
 // decision-scoped. A host that cannot answer takes option zero (R-9).
 func askFixedVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams, choices []string, voters []state.PlayerID) ([]state.Target, bool) {
-	picks := append([]state.Target(nil), c.VotePicks...)
-	i := c.VoteTarget
-	if c.VoteDone {
-		if len(c.VoteAnswer) > 0 {
-			picks = append(picks, c.VoteAnswer[0])
-		} else {
-			picks = append(picks, state.Target{})
-		}
-		c.VoteDone, c.VoteAnswer = false, nil
-		i++
-	}
+	picks := append([]state.Target(nil), ([]state.Target)(nil)...)
+	i := int(0)
+
 	for ; i < len(voters); i++ {
 		voter := voters[i]
 		min := 1
@@ -233,7 +171,7 @@ func askFixedVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams, choices []string
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "vote resolved as the first ballot entry (no engine host to ask)"})
 		picks = append(picks, state.Target{Obj: 1})
 	}
-	c.VotePicks, c.VoteTarget, c.VoteDone, c.VoteAnswer = nil, 0, false, nil
+
 	return picks, true
 }
 
@@ -270,17 +208,9 @@ func voteWinner(counts []int) (int, bool) {
 // at the end (Council's Judgment's "exile each permanent with the most
 // votes or tied for most votes").
 func askCardVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams, options []state.ObjID, voters []state.PlayerID) ([]state.ObjID, bool) {
-	picks := append([]state.Target(nil), c.VotePicks...)
-	i := c.VoteTarget
-	if c.VoteDone {
-		if len(c.VoteAnswer) > 0 {
-			picks = append(picks, c.VoteAnswer[0])
-		} else {
-			picks = append(picks, state.Target{})
-		}
-		c.VoteDone, c.VoteAnswer = false, nil
-		i++
-	}
+	picks := append([]state.Target(nil), ([]state.Target)(nil)...)
+	i := int(0)
+
 	for ; i < len(voters); i++ {
 		voter := voters[i]
 		min := 1
@@ -329,7 +259,7 @@ func askCardVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams, options []state.O
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "card vote resolved as the first ballot entry (no engine host to ask)"})
 		picks = append(picks, state.Target{Obj: options[0]})
 	}
-	c.VotePicks, c.VoteTarget, c.VoteDone, c.VoteAnswer = nil, 0, false, nil
+
 	out := make([]state.ObjID, len(picks))
 	for j, p := range picks {
 		out[j] = p.Obj
@@ -351,28 +281,24 @@ func effCardVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams, ballot string) {
 	max := 0
 	voters := definedPlayers(h, c, sa)
 	var picks []int
-	if c.Votes != nil {
-		// Direct seam retained for effects tests and replay-independent callers.
-		picks = append([]int(nil), c.Votes...)
-		c.Votes = nil
-	} else {
-		answered, complete := askCardVote(h, c, sa, vp, options, voters)
-		if !complete {
-			return
-		}
-		picks = make([]int, len(answered))
-		for i, id := range answered {
-			picks[i] = -1
-			if id != 0 {
-				for j, option := range options {
-					if option == id {
-						picks[i] = j
-						break
-					}
+
+	answered, complete := askCardVote(h, c, sa, vp, options, voters)
+	if !complete {
+		return
+	}
+	picks = make([]int, len(answered))
+	for i, id := range answered {
+		picks[i] = -1
+		if id != 0 {
+			for j, option := range options {
+				if option == id {
+					picks[i] = j
+					break
 				}
 			}
 		}
 	}
+
 	for i, t := range voters {
 		label := "nothing"
 		if i < len(picks) && picks[i] >= 0 && picks[i] < len(options) {

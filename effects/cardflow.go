@@ -444,21 +444,19 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 	// multi-target discard sees the SAME answered list, which is exactly what
 	// the old per-target c.Discard read produced. Ctx.Discard's only reader is
 	// this primitive, so clearing here is safe.
-	answers := c.Discard
-	answerTarget := c.DiscardTarget
-	vote := c.DiscardVote
+	answers := ([]state.ObjID)(nil)
+
+	answerTarget := int(0)
+
+	vote := string("")
+
 	answered := answers != nil
 	voted := vote != ""
 	// The UnlessType$ election's cursor: an answered "discard_unless"
 	// re-entry carries the asking target's index in Ctx.DiscardTarget, and
 	// the targets before it were fully processed on the pass that asked.
 	electedTarget := -1
-	if c.UnlessElected != "" {
-		electedTarget = answerTarget
-	}
-	c.Discard = nil
-	c.DiscardTarget = 0
-	c.DiscardVote = ""
+
 	// Discard-batch bracket (Mode$ DiscardedAll): one api:Discard resolution
 	// is ONE discard action, so the batch trigger fires once for the whole
 	// resolution rather than once per discarded card. The open must span a
@@ -473,7 +471,7 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 	// rather than failing to compile (the mill bracket's shape), and a
 	// non-api:Discard producer (a cost or cleanup discard) never opens the
 	// bracket, so each is its own batch-of-one exactly as before this gate.
-	firstPass := !answered && !voted && c.UnlessElected == ""
+	firstPass := !answered && !voted
 	suspended := false
 	if b, ok := h.(interface {
 		BeginDiscardBatch()
@@ -626,8 +624,8 @@ func effDiscard(h Host, c *Ctx, sa *cards.SA) {
 			// arm's own multi-candidate pick re-uses the ordinary "discard"
 			// arm (Min == Max == 1). fx42 scoping: the election is consumed and
 			// cleared before any further ask this walk poses.
-			elected := c.UnlessElected
-			c.UnlessElected = ""
+			elected := string("")
+
 			if tapeElected != "" {
 				elected = tapeElected
 			}
@@ -1229,21 +1227,23 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 	// PeekAndReveal arm above takes the peek window from PeekAmount$; the
 	// RevealValid$ filter below narrows the may-reveal to the matching
 	// subset for every API in this row).
-	answer := c.RevealOpt
+	answer := string("")
+
 	// optTarget is the Defined$ target index whose yes/no answer this is (the
 	// decision's ResumeTarget); it travels with the answer exactly as
 	// pickTarget travels with RevealPick. An answer applies to its cursor
 	// target alone and every later target poses its own ask.
-	optTarget := c.RevealOptTarget
-	c.RevealOpt, c.RevealOptTarget = "", 0
+	optTarget := int(0)
+
 	// The answered hand-reveal pick (task infernaltutor1), consumed once per
 	// walk exactly as RevealOpt is: a nested Reveal-family effect below this
 	// one must pose its own ask instead of inheriting this walk's answer.
 	// Non-nil means answered (the resume arm always builds the slice, so an
 	// empty "reveal none" answer is non-nil), mirroring Ctx.Discard.
-	picks := c.RevealPick
-	pickTarget := c.RevealPickTarget
-	c.RevealPick, c.RevealPickTarget = nil, 0
+	picks := ([]state.ObjID)(nil)
+
+	pickTarget := int(0)
+
 	// The bare-look ack (lookack): consumed once per WALK, together with its
 	// per-target cursor — the answer attaches to the exact Defined$ target
 	// that asked (the decision's ResumeTarget). Targets before the cursor
@@ -1252,9 +1252,9 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 	// the walk poses its own ack. Consuming at walk entry (fx42) also keeps
 	// a nested bare look below this walk posing its own instead of
 	// inheriting the answer.
-	lookAck := c.LookAck
-	lookAckTarget := c.LookAckTarget
-	c.LookAck, c.LookAckTarget = false, 0
+	lookAck := false
+	lookAckTarget := int(0)
+
 	look := strings.EqualFold(strings.TrimSpace(sa.Params["Look"]), "True")
 	revealType := strings.TrimSpace(sa.Params["RevealType"])
 	// The may-reveal ask: PeekAndReveal poses it through RevealOptional$
@@ -1803,36 +1803,7 @@ func effRearrangeTopOfLibrary(h Host, c *Ctx, sa *cards.SA) {
 	// post-arrange shuffle election. In both cases the walk then continues to
 	// later libraries.
 	start := 0
-	if c.Arrange {
-		start = c.LibraryTarget
-		c.Arrange = false
-		if mayShuffle && c.MayShuffle == "" {
-			players := actingPlayers(h, c, sa)
-			if start >= 0 && start < len(players) {
-				p := players[start]
-				d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 1, Max: 1,
-					Source: c.Source, ResumeKind: "arrange_mayshuffle", ResumeSA: sa,
-					ResumeTarget: start, Prompt: "Shuffle your library?",
-					Options: []decision.Option{
-						{Index: 0, Kind: "yes", Label: "Yes — shuffle", Player: p},
-						{Index: 1, Kind: "no", Label: "No — keep the order", Player: p},
-					}}
-				if ans, ok := AskTape(h, d); ok {
-					// The resolution kernel's answer in hand: the shuffle the
-					// "arrange_mayshuffle" arm emits, then the walk goes on.
-					if len(ans) > 0 && ans[0].Kind == "yes" {
-						shuffleLibraryOrder(h, p)
-					}
-				} else if Ask(h, d) == AskAsked {
-					return // resolution suspended; the answer re-enters with Ctx.MayShuffle set.
-				}
-			}
-		}
-		if mayShuffle {
-			c.MayShuffle = ""
-		}
-		start++
-	}
+
 	n := Num(h, c, sa, "NumCards", 1)
 	if n < 0 {
 		n = 0
@@ -1972,9 +1943,9 @@ func effSurveil(h Host, c *Ctx, sa *cards.SA) {
 	// and re-posing the election here would ping-pong election -> arrange ->
 	// election forever (the may-look answer belongs to the pass that posed
 	// the KArrange, which already priced the extra cards into its window).
-	arranging := c.Arrange
-	ans := c.SurveilLookOpt
-	c.SurveilLookOpt = ""
+	arranging := false
+	ans := string("")
+
 	if ans == "" && !arranging {
 		// First pass: pose the election once, for the FIRST acting player
 		// carrying optionals. The answer belongs to that player and is carried
@@ -2092,12 +2063,7 @@ func effLookAndArrange(h Host, c *Ctx, sa *cards.SA, n int32, kind, verb string,
 	// cursor is shared with RearrangeTopOfLibrary, so every Defined$/targeted
 	// Scry or Surveil library gets its own ask.
 	start := 0
-	if c.Arrange {
-		start = c.LibraryTarget + 1
-		c.Arrange = false
-	} else if c.ScryReplacement {
-		start = c.LibraryTarget
-	}
+
 	if n < 0 {
 		n = 0
 	}
@@ -2109,8 +2075,8 @@ func effLookAndArrange(h Host, c *Ctx, sa *cards.SA, n int32, kind, verb string,
 		c.LibraryTarget = targetIndex
 		p := t
 		if !markSurveil && strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True") {
-			opt := c.ScryOpt
-			c.ScryOpt = ""
+			opt := string("")
+
 			if opt == "" {
 				d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 1, Max: 1,
 					Source: c.Source, ResumeKind: "scry_optional", ResumeSA: sa, ResumeTarget: targetIndex,
@@ -2148,16 +2114,13 @@ func effLookAndArrange(h Host, c *Ctx, sa *cards.SA, n int32, kind, verb string,
 			// The order choice parks the proposal before inspecting the library.
 			// On re-entry consume its result once rather than replacing it again.
 			proceed := true
-			if c.ScryReplacement && c.LibraryTarget == targetIndex {
-				k, proceed = c.ScryCount, c.ScryProceed
-				c.ScryReplacement = false
-			} else {
-				var pending bool
-				k, proceed, pending = h.Scry(p, c.Source, k, sa, targetIndex)
-				if pending {
-					return
-				}
+
+			var pending bool
+			k, proceed, pending = h.Scry(p, c.Source, k, sa, targetIndex)
+			if pending {
+				return
 			}
+
 			if !proceed {
 				continue
 			}
@@ -2252,21 +2215,9 @@ func destinationPhrase(kind string) string {
 // the rest on the bottom in the order they chose. Exile provenance is carried
 // by MoveZone, so a later Play resolves Defined$ ExiledWith by identity.
 func effHideaway(h Host, c *Ctx, sa *cards.SA) {
-	if c.HideawayArranged {
-		c.HideawayArranged = false
-		return
-	}
+
 	g := h.Game()
-	if c.HideawayPicked {
-		// The choice was recorded by rules' hideaway_pick resume arm. Move the
-		// selected card before arranging: that leaves precisely the remaining
-		// cards at the top of the library for the KArrange handler.
-		id := c.Hideaway
-		c.Hideaway = 0
-		c.HideawayPicked = false
-		hideawayPicked(h, c, sa, id)
-		return
-	}
+
 	n := int(Num(h, c, sa, "Amount", 4))
 	if n < 0 {
 		n = 0

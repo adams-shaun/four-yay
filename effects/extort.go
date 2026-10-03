@@ -24,8 +24,8 @@ func init() { Register("Extort", effExtort) }
 // actually happens on a pay.
 func effExtort(h Host, c *Ctx, sa *cards.SA) {
 
-	ans := c.Extort
-	c.Extort = ""
+	ans := string("")
+
 	switch ans {
 	case "pay":
 		// Re-entry, paid: drain each opponent 1 life and gain that much.

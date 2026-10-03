@@ -398,7 +398,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 			return
 		}
 		targets = cands[:1]
-	case supportsChoice && !c.CopyPermanentChoiceDone:
+	case supportsChoice:
 		chooser := c.Controller
 		for _, t := range c.Remembered {
 			if t.IsPlayer {
@@ -457,13 +457,10 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 				Text: "CopyPermanent Choices$ has no engine host; copying the first eligible creature"})
 		}
 		targets = []state.Target{{Obj: d.Options[0].Obj}}
-	case supportsChoice && c.CopyPermanentChoiceDone:
-		if c.CopyPermanentChoice == 0 {
-			return
-		}
-		targets = []state.Target{{Obj: c.CopyPermanentChoice}}
-		c.CopyPermanentChoice = 0
-		c.CopyPermanentChoiceDone = false
+	case false:
+
+		return
+
 	case spec == "Remembered":
 		// The resolution's OWN remembered set, never the trigger's event
 		// capture (see rememberedWrittenByResolution): Dedicated Dollmaker's

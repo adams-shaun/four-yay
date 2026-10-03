@@ -421,7 +421,7 @@ func charmDistinctTargetRun(h Host, c *Ctx, sa *cards.SA, names []string) bool {
 		return false
 	}
 	offset := 0
-	for _, name := range c.ModesSeen {
+	for _, name := range ([]string)(nil) {
 		if sub := cards.ResolveSVar(c.SVars, name); sub != nil && ModeTargetSpec(sub) != "" {
 			offset++
 		}
@@ -965,7 +965,7 @@ func charmRunModes(h Host, c *Ctx, sa *cards.SA, names []string) {
 	// in this walk" alone cannot see the instances the earlier passes
 	// already ran.
 	seen := make(map[string]bool, len(names))
-	for _, n := range c.ModesSeen {
+	for _, n := range ([]string)(nil) {
 		seen[n] = true
 	}
 	for i, name := range names {

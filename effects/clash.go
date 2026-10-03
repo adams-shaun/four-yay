@@ -55,8 +55,7 @@ func init() {
 // answer never repeats a reveal, comparison, earlier placement, marker, or branch.
 func effClash(h Host, c *Ctx, sa *cards.SA) {
 	// Consume the answered snapshot before nested effects can run another Clash.
-	continuation, top := c.ClashContinuation, c.ClashTop
-	c.ClashContinuation, c.ClashTop = nil, false
+	continuation, top := (*decision.ClashResume)(nil), false
 
 	var players []state.PlayerID
 	var revealed []state.ObjID

@@ -48,11 +48,12 @@ func init() {
 func effTwoPiles(h Host, c *Ctx, sa *cards.SA) {
 	// fx42 scoping: consume the answered fields BEFORE anything else, so a
 	// nested TwoPiles below this walk poses its own asks.
-	splitAns := c.TwoPiles
-	splitDone := c.TwoPilesDone
-	pickAns := c.TwoPilesPick
-	pickDone := c.TwoPilesPickDone
-	c.TwoPiles, c.TwoPilesDone, c.TwoPilesPick, c.TwoPilesPickDone = nil, false, "", false
+	splitAns := ([]state.ObjID)(nil)
+
+	splitDone := false
+	pickAns := string("")
+
+	pickDone := false
 
 	for _, p := range []struct{ name, value string }{
 		{"DefinedPiles", sa.Params["DefinedPiles"]},

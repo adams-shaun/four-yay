@@ -99,21 +99,7 @@ func chosenTargetsFor(h Host, c *Ctx, sa *cards.SA, atRoot bool) ([]state.Target
 			return ts, true
 		}
 	}
-	if c.TargetsPickDone {
-		ans := c.TargetsPick
-		c.TargetsPickDone, c.TargetsPick = false, nil
-		// Record this ask's answer so a LATER TargetUnique$ ask in the SAME
-		// Resolve walk excludes it too (Know Evil's three chained DB$ Effect
-		// "up to one target opponent" riders). The accumulator is also
-		// stamped onto EVERY decision the ask boundary poses (Engine.Ask
-		// reads the live Ctx too), so it survives a suspension of ANY kind --
-		// a Charm mode election, a ward pay window, a dig/scry/arrange ask --
-		// as well as the next rider's own ask.
-		if TargetUniqueRequested(sa) {
-			c.TargetsUnique = append(c.TargetsUnique, ans...)
-		}
-		return ans, true
-	}
+
 	if c.OfferedSA != nil && sa.Line == c.OfferedSA.Line {
 		// The placement/announcement ask covered exactly THIS SA (matched by
 		// Line: ResolveSVar parses fresh on every call, so pointer identity

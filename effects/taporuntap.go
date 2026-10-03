@@ -53,16 +53,7 @@ func effTapOrUntap(h Host, c *Ctx, sa *cards.SA) {
 		if o == nil || o.Zone != state.ZBattlefield {
 			continue
 		}
-		// The re-entry answer for THIS target (or, for a malformed answer
-		// that named no object, the first pending one). Consumed and cleared
-		// so a later target poses its own ask and a nested TapOrUntap in the
-		// same walk cannot inherit the outer answer (fx42 scoping).
-		if c.TapOrUntapDone && (c.TapOrUntapObj == t.Obj || c.TapOrUntapObj == 0) {
-			answer := c.TapOrUntap
-			c.TapOrUntap, c.TapOrUntapObj, c.TapOrUntapDone = "", 0, false
-			applyTapOrUntap(h, o, answer, tapper)
-			continue
-		}
+
 		seat := c.Controller
 		opts := []decision.Option{
 			{Kind: "tap", Label: "Tap " + o.Face().Name, Obj: o.ID, Player: seat},

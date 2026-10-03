@@ -53,10 +53,8 @@ func effRecruit(h Host, c *Ctx, sa *cards.SA) {
 	// The answered discard (re-entered through rules' generic "discard"
 	// resume arm with ResumeKind "discard"): captured and cleared before any
 	// further ask this walk poses (fx42 scoping).
-	answered := c.Discard
-	c.Discard = nil
-	c.DiscardTarget = 0
-	c.DiscardVote = ""
+	answered := ([]state.ObjID)(nil)
+
 	// The draw. A non-zero DrawDone is a Dredge resume: the draw already
 	// completed and was replaced (CR 701.9 orders draw before discard).
 	drawDone := c.DrawDone

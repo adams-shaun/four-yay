@@ -64,9 +64,10 @@ func effRemoveCounter(h Host, c *Ctx, sa *cards.SA) {
 	// PutCounter's bare pick uses, since the option lists decode identically),
 	// so capture and clear them at the very top, before any exotic check or
 	// nested RemoveCounter in the same chain can see them.
-	pickAns := c.CounterPick
-	pickDone := c.CounterPickDone
-	c.CounterPick, c.CounterPickDone = nil, false
+	pickAns := ([]state.ObjID)(nil)
+
+	pickDone := false
+
 	rp := RemoveCounterOf(sa)
 	if !pickDone {
 		// Once per call: the answered re-entry already noted on its first

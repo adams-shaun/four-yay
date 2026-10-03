@@ -378,16 +378,19 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to s
 	// fx42 scoping: capture and clear the answered pick (and the cursor that
 	// binds it to the owner that asked) BEFORE anything else, so a nested
 	// hand-move ask below cannot inherit them.
-	ans := c.HandMove
-	done := c.HandMoveDone
-	cursor := c.HandMoveTarget
-	c.HandMove, c.HandMoveDone, c.HandMoveTarget = nil, false, 0
+	ans := ([]state.ObjID)(nil)
+
+	done := false
+	cursor := int(0)
+
 	// fx42 scoping for the Optional$ confirmation answer: consumed and cleared
 	// before anything else so a nested hand move poses its own confirmation.
-	confirmDone := c.HandMoveConfirmDone
-	confirmYes := strings.EqualFold(c.HandMoveConfirm, "yes")
-	confirmTarget := c.HandMoveConfirmTarget
-	c.HandMoveConfirm, c.HandMoveConfirmDone, c.HandMoveConfirmTarget = "", false, 0
+	confirmDone := false
+	confirmYes := strings.EqualFold(string(""),
+
+		"yes")
+	confirmTarget := int(0)
+
 	withKind := cz.WithCountersType
 	var withAmt int32
 	if withKind != "" && counterDestination(to) {

@@ -105,7 +105,8 @@ func effDealDamage(h Host, c *Ctx, sa *cards.SA) {
 	var divTargets []divTarget
 	// split is the allocation the emission walk reads: the legacy re-entry's
 	// answered Ctx.DamageSplit, or the one this call fills below.
-	split := c.DamageSplit
+	split := ([]int32)(nil)
+
 	if divided {
 		for _, t := range Defined(h, c, sa) {
 			if t.IsPlayer {
@@ -268,7 +269,7 @@ func effDealDamage(h Host, c *Ctx, sa *cards.SA) {
 		// than silently reuse the first call's shares against a different
 		// target list. Reset after the walk, on every return path below.
 		defer func() {
-			c.DamageSplit = nil
+
 			c.DamageSplitDone = false
 		}()
 		for i, t := range divTargets {

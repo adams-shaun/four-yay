@@ -65,24 +65,7 @@ func effVenture(h Host, c *Ctx, sa *cards.SA) {
 	g := h.Game()
 	players := actingPlayers(h, c, sa)
 	idx := 0
-	if c.VentureEnter != "" || c.VentureRoom != "" {
-		// An answered ask rides back with the cursor it was posed for
-		// (fx42 scoping): apply it, clear the markers, and resume the walk
-		// after that player.
-		idx = int(c.VentureIdx)
-		key, room := c.VentureEnter, c.VentureRoom
-		c.VentureEnter, c.VentureRoom, c.VentureIdx = "", "", 0
-		if idx < 0 || idx >= len(players) {
-			return
-		}
-		p := players[idx]
-		if key != "" {
-			ventureEnter(h, g, p, key)
-		} else if room != "" {
-			h.Emit(events.Event{Kind: events.DungeonRoom, Player: p, Obj: g.Players[p].DungeonObj, Text: room})
-		}
-		idx++
-	}
+
 	quality := strings.TrimSpace(sa.Params["Dungeon"])
 	for i := idx; i < len(players); i++ {
 		p := players[i]

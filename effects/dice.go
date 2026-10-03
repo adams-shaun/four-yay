@@ -433,10 +433,11 @@ func effRollDice(h Host, c *Ctx, sa *cards.SA) {
 	// fx42 scoping: capture and clear the answered choose-one-result BEFORE
 	// anything else, so a nested RollDice below this walk poses its own ask
 	// instead of inheriting the outer answer.
-	rolls := c.RollResults
-	pick := c.RollPick
-	done := c.RollDone
-	c.RollResults, c.RollPick, c.RollDone = nil, nil, false
+	rolls := ([]int32)(nil)
+
+	pick := ([]int)(nil)
+
+	done := false
 
 	sides := Num(h, c, sa, "Sides", 6)
 	if sides <= 0 {

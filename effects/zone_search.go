@@ -20,21 +20,23 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to sta
 	}
 	initForgetOther(h, c, cz.Riders.ForgetOtherRemembered, players, 2)
 	searchTarget := c.LibraryTarget
-	searchDone := c.SearchDone
-	chosen := append([]state.ObjID(nil), c.Search...)
+	searchDone := false
+	chosen := append([]state.ObjID(nil), ([]state.ObjID)(nil)...)
 	shuffleAnswer := c.SearchShuffle
 	shufflePending := shuffleAnswer != ""
 	shuffleTarget := c.LibraryTarget
 	shuffleMoved := append([]state.ObjID(nil), c.SearchShuffleMoved...)
-	c.Search, c.SearchDone = nil, false
+
 	c.SearchShuffle, c.SearchShuffleMoved = "", nil
 	// fx42 scoping for the Optional$ confirmation answer: consumed and
 	// cleared before anything else so a nested search poses its own
 	// confirmation.
-	searchConfirmDone := c.SearchConfirmDone
-	searchConfirmYes := strings.EqualFold(c.SearchConfirm, "yes")
-	searchConfirmTarget := c.SearchConfirmTarget
-	c.SearchConfirm, c.SearchConfirmDone, c.SearchConfirmTarget = "", false, 0
+	searchConfirmDone := false
+	searchConfirmYes := strings.EqualFold(string(""),
+
+		"yes")
+	searchConfirmTarget := int(0)
+
 	start := 0
 	if searchDone || shufflePending {
 		start = searchTarget
@@ -683,8 +685,8 @@ func moveDefinedLibraryObjects(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParam
 	}
 
 	optional := cz.OptionalTrue
-	answer := c.DefinedLibraryMove
-	c.DefinedLibraryMove = "" // fx42 scoping: a nested fetch asks for itself.
+	answer := string("")
+
 	if optional && answer == "" {
 		prompt := cz.OptionalPrompt
 		if prompt == "" {

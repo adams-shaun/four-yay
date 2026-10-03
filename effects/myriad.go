@@ -31,19 +31,7 @@ func effMyriad(h Host, c *Ctx, sa *cards.SA) {
 	}
 	eligible := myriadOpponents(g, c)
 	start := 0
-	if c.MyriadDone {
-		if c.MyriadTarget < 0 || c.MyriadTarget >= len(eligible) {
-			return
-		}
-		if c.MyriadCreate {
-			myriadCreate(h, g, c, eligible[c.MyriadTarget])
-		}
-		start = c.MyriadTarget + 1
-		// Consume the answer before posing a later choice. A nested myriad (or
-		// another asking sub-ability) must never inherit this answer.
-		c.MyriadDone = false
-		c.MyriadCreate = false
-	}
+
 	for ; start < len(eligible); start++ {
 		q := eligible[start]
 		d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose,

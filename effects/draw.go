@@ -79,8 +79,8 @@ func effDraw(h Host, c *Ctx, sa *cards.SA) {
 	// question is posed and nothing is drawn (an empty-library draw event is
 	// a no-op either way).
 	if decider := dp.OptionalDecider; decider != "" && total > 0 {
-		answered := c.DrawOpt
-		c.DrawOpt = "" // fx42 scoping: consumed once; a nested optional draw poses its own ask
+		answered := string("")
+
 		if answered == "" && c.DrawDone > 0 {
 			// A Dredge re-entry mid-draw (the "dredge" arm restored the draw
 			// cursor): draws happen only after the decider said yes, so the

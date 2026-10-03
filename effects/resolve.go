@@ -128,8 +128,8 @@ func hasChosenPlayers(ts []state.Target) bool {
 func effSetState(h Host, c *Ctx, sa *cards.SA) {
 	// fx42 scoping: consume and clear the answered Optional$ election at the
 	// top, so a nested SetState in the same chain poses its own ask.
-	optAns := c.SetStateOpt
-	c.SetStateOpt = ""
+	optAns := string("")
+
 	mode := sa.ParamStr(cards.PKMode)
 	turnUp := strings.EqualFold(strings.TrimSpace(mode), "TurnFaceUp")
 	turnDown := strings.EqualFold(strings.TrimSpace(mode), "TurnFaceDown")
@@ -464,8 +464,8 @@ func effRepeat(h Host, c *Ctx, sa *cards.SA) {
 	// consume it here, so a later Repeat on the same Ctx -- the next link of
 	// the chain, or one nested in the body -- never reads this election's
 	// answer as its own (a "Stop" used to stop the chained Repeat too).
-	cont := c.RepeatResume
-	c.RepeatResume = nil
+	cont := (*RepeatContinuation)(nil)
+
 	check := strings.TrimSpace(sa.Params["RepeatCheckSVar"])
 	cmp := strings.TrimSpace(sa.Params["RepeatSVarCompare"])
 	defined := strings.TrimSpace(sa.Params["RepeatDefined"])

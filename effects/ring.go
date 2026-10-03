@@ -35,9 +35,9 @@ func effRingTemptsYou(h Host, c *Ctx, sa *cards.SA) {
 	// fx42 scoping (the BlightPicks discipline): consume and clear the
 	// answered pick BEFORE any walk, so a nested Ring tempts below this one
 	// poses its own ask instead of inheriting the outer answer.
-	pick := c.RingBearerPick
-	pickDone := c.RingBearerDone
-	c.RingBearerPick, c.RingBearerDone = 0, false
+	pick := state.ObjID(0)
+
+	pickDone := false
 
 	// Measured corpus: none of the 49 raw RingTemptsYou SA lines carries
 	// Defined$/ValidTgts$, so the tempted player is always the resolving

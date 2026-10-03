@@ -79,7 +79,7 @@ func effInvestigate(h Host, c *Ctx, sa *cards.SA) {
 			}
 			return
 		}
-		c.InvestigateOpt, c.InvestigateOptIdx = "", int32(idx+1)
+		c.InvestigateOptIdx = int32(idx + 1)
 		investigateOptionalWalk(h, c, sa, players, n,
 			strings.EqualFold(strings.TrimSpace(sa.Params["RememberInvestigatingPlayers"]), "True"))
 		return
@@ -124,38 +124,38 @@ func investigateOptionalWalk(h Host, c *Ctx, sa *cards.SA, players []state.Playe
 		p := players[idx]
 		// The re-entry's answered election (the "investigate_optional"
 		// arm's InvestigateOpt), or this pass's own ask below.
-		accepted := c.InvestigateOpt == "yes"
-		if c.InvestigateOpt == "" {
-			d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 1, Max: 1,
-				ResumeKind: "investigate_optional", ResumeSA: sa, ResumeTarget: idx,
-				// The walk's Remembered rides the ask (the draw_upto
-				// precedent): the re-entered body re-derives the player list
-				// from Defined$, and a Remembered-valued selector must see
-				// the set the first pass read, or the cursor would index a
-				// DIFFERENT list than the one the election was posed for.
-				ResumeRemembered: append([]state.Target(nil), c.Remembered...),
-				Source:           c.Source,
-				Prompt:           "Investigate?"}
-			d.Options = []decision.Option{
-				{Index: 0, Kind: "yes", Label: "Yes — investigate", Player: p},
-				{Index: 1, Kind: "no", Label: "No", Player: p},
-			}
-			if ans, ok := AskTape(h, d); ok {
-				// The answer in hand: a malformed or empty answer keeps the
-				// decline, as the arm reads it.
-				accepted = len(ans) > 0 && ans[0].Kind == "yes"
-			} else if Ask(h, d) == AskAsked {
-				return
-			} else {
-				accepted = true
-				if !noted {
-					noted = true
-					h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-						Text: "Investigate: no host to ask the election; investigates (R-9 stand-in)"})
-				}
+		accepted := string("") ==
+			"yes"
+
+		d := &decision.Decision{Player: p, Kind: decision.KChoose, Min: 1, Max: 1,
+			ResumeKind: "investigate_optional", ResumeSA: sa, ResumeTarget: idx,
+			// The walk's Remembered rides the ask (the draw_upto
+			// precedent): the re-entered body re-derives the player list
+			// from Defined$, and a Remembered-valued selector must see
+			// the set the first pass read, or the cursor would index a
+			// DIFFERENT list than the one the election was posed for.
+			ResumeRemembered: append([]state.Target(nil), c.Remembered...),
+			Source:           c.Source,
+			Prompt:           "Investigate?"}
+		d.Options = []decision.Option{
+			{Index: 0, Kind: "yes", Label: "Yes — investigate", Player: p},
+			{Index: 1, Kind: "no", Label: "No", Player: p},
+		}
+		if ans, ok := AskTape(h, d); ok {
+			// The answer in hand: a malformed or empty answer keeps the
+			// decline, as the arm reads it.
+			accepted = len(ans) > 0 && ans[0].Kind == "yes"
+		} else if Ask(h, d) == AskAsked {
+			return
+		} else {
+			accepted = true
+			if !noted {
+				noted = true
+				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
+					Text: "Investigate: no host to ask the election; investigates (R-9 stand-in)"})
 			}
 		}
-		c.InvestigateOpt = "" // fx42 scoping: consumed once; the next player poses its own ask
+
 		c.InvestigateOptIdx = int32(idx + 1)
 		if accepted {
 			if remember {

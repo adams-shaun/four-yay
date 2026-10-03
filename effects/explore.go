@@ -71,20 +71,9 @@ func effExplore(h Host, c *Ctx, sa *cards.SA) {
 		// zero posed a fresh election after every applied one, so an
 		// "explores X times" never finished while its reveals were nonland.
 		i := int32(0)
-		if c.ExploreDone && c.ExploreObj == t.Obj {
-			i = c.ExploreCount
-		}
+
 		for ; i < n; i++ {
-			if c.ExploreDone && c.ExploreCard != 0 && c.ExploreObj == t.Obj {
-				// The resumed destination election for THIS explorer. Consumed
-				// and cleared at the point of application (fx42 scoping), so
-				// this explorer's remaining explores and every later target
-				// pose their own fresh path.
-				card, toGrave := c.ExploreCard, c.ExploreChoice != "top"
-				c.ExploreObj, c.ExploreCard, c.ExploreChoice, c.ExploreDone, c.ExploreCount = 0, 0, "", false, 0
-				applyNonlandExplore(h, t.Obj, card, toGrave)
-				continue
-			}
+
 			if exploreOnce(h, c, sa, t.Obj, i) {
 				// The election was posted; the resolution is suspended. Nothing
 				// after the ask may run on this pass — the answer re-enters
@@ -95,7 +84,7 @@ func effExplore(h Host, c *Ctx, sa *cards.SA) {
 	}
 	// Leftover pending state that no target consumed (the pending explorer
 	// left play, a malformed resume): consumed and cleared, never inherited.
-	c.ExploreObj, c.ExploreCard, c.ExploreChoice, c.ExploreDone, c.ExploreCount = 0, 0, "", false, 0
+	c.ExploreObj, c.ExploreCard = 0, 0
 }
 
 // exploreOnce runs one explore process for explorer and reports whether the

@@ -37,8 +37,8 @@ func init() { Register("EndTurn", effEndTurn) }
 // ConditionPlayerTurn$ is handled by the shared condition gate; Sundial's
 // PlayerTurn$ True is an activation restriction outside this primitive.
 func effEndTurn(h Host, c *Ctx, sa *cards.SA) {
-	answer := c.EndTurnOpt
-	c.EndTurnOpt = "" // a chained EndTurn must pose its own election
+	answer := string("")
+
 	g := h.Game()
 	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True") {
 		if answer == "" {

@@ -733,11 +733,12 @@ type TokenRest struct {
 // resumingMint consumes and returns c's TokenRest when this pass re-enters sa
 // after a parked mint's answer, else nil.
 func resumingMint(c *Ctx, sa *cards.SA) *TokenRest {
-	rest := c.TokenRest
+	rest := (*TokenRest)(nil)
+
 	if rest == nil || rest.SA != sa {
 		return nil
 	}
-	c.TokenRest = nil
+
 	return rest
 }
 

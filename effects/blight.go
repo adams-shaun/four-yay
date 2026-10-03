@@ -35,10 +35,10 @@ func effBlight(h Host, c *Ctx, sa *cards.SA) {
 	// fx42 scoping: capture and clear the answered per-player pick BEFORE the
 	// target walk, so a nested blight below this walk poses its own ask
 	// instead of inheriting the outer answer (the SacPicks discipline).
-	blightPicks := c.BlightPicks
-	blightDone := c.BlightDone
-	blightTarget := c.BlightTarget
-	c.BlightPicks, c.BlightDone, c.BlightTarget = nil, false, 0
+	blightPicks := ([]state.ObjID)(nil)
+
+	blightDone := false
+	blightTarget := int(0)
 
 	// Loud-fail-closed on any parameter outside the whitelist (the census
 	// case-whitelist shape): Defined$/Num$ read here, ValidTgts$ through the

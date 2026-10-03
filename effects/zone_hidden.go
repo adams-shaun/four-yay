@@ -25,17 +25,20 @@ func effHiddenPick(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.
 	// fx42 scoping: capture and clear the answered pick (and the cursor that
 	// binds it to the fetch player that asked) before anything else, so a
 	// nested pick below cannot inherit them.
-	ans := c.HiddenPick
-	done := c.HiddenPickDone
-	cursor := c.HiddenPickTarget
-	c.HiddenPick, c.HiddenPickDone, c.HiddenPickTarget = nil, false, 0
+	ans := ([]state.ObjID)(nil)
+
+	done := false
+	cursor := int(0)
+
 	// fx42 scoping for the Optional$ confirmation answer: consumed and cleared
 	// before anything else so a nested pick poses its own confirmation (the
 	// same discipline the hand walk's HandMoveConfirm answer follows).
-	confirmDone := c.HiddenPickConfirmDone
-	confirmYes := strings.EqualFold(c.HiddenPickConfirm, "yes")
-	confirmTarget := c.HiddenPickConfirmTarget
-	c.HiddenPickConfirm, c.HiddenPickConfirmDone, c.HiddenPickConfirmTarget = "", false, 0
+	confirmDone := false
+	confirmYes := strings.EqualFold(string(""),
+
+		"yes")
+	confirmTarget := int(0)
+
 	hiddenPickOriginNote(h, c, originValid, from)
 	players := hiddenPickPlayers(h, c, cz.fetch())
 	if c.ForgetOtherReady {

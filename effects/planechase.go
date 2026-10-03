@@ -51,8 +51,8 @@ func effPlaneswalk(h Host, c *Ctx, sa *cards.SA) {
 	// visible to a host and a decline must still let Resolve walk the chained
 	// SubAbility.  The answer is scoped to this SA and consumed on re-entry.
 	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True") {
-		answer := c.PlaneswalkOpt
-		c.PlaneswalkOpt = ""
+		answer := string("")
+
 		if answer == "" {
 			d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: 1, Max: 1,
 				Source: c.Source, ResumeKind: "planeswalk_optional", ResumeSA: sa,

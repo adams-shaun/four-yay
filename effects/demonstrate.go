@@ -81,13 +81,11 @@ func effDemonstrate(h Host, c *Ctx, sa *cards.SA) {
 		name = f.Name
 	}
 
-	answered := c.DemonstrateDone
-	stage := c.DemonstrateStage
-	yes := c.DemonstrateYes
-	opp := demonstratePlayer(c.DemonstrateOpp)
-	// fx42: consume and clear the answered-ask transport before anything
-	// below runs, so a nested Demonstrate never inherits it.
-	c.DemonstrateDone, c.DemonstrateStage, c.DemonstrateYes, c.DemonstrateOpp = false, 0, false, nil
+	answered := false
+	stage := int(0)
+
+	yes := false
+	opp := demonstratePlayer(([]state.Target)(nil))
 
 	if answered {
 		if stage != 1 {

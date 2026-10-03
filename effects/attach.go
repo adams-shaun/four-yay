@@ -236,13 +236,14 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 	}
 	// fx42 scoping: consume and clear the answered attach_choice fields at
 	// the top, so a nested Attach in the same chain poses its own ask.
-	answered := c.AttachChoice
-	answerDests := c.AttachDests
-	answeredDone := c.AttachChoiceDone
-	answerPlayer := c.AttachPlayer
-	answeredPlayerDone := c.AttachPlayerDone
-	c.AttachChoice, c.AttachChoiceDone, c.AttachDests = nil, false, nil
-	c.AttachPlayer, c.AttachPlayerDone = 0, false
+	answered := ([]state.ObjID)(nil)
+
+	answerDests := ([]state.ObjID)(nil)
+
+	answeredDone := false
+	answerPlayer := state.PlayerID(0)
+
+	answeredPlayerDone := false
 
 	obj := c.Source
 	// objs is the resolved Object$ list. It names one object for every
@@ -725,8 +726,8 @@ func effAttach(h Host, c *Ctx, sa *cards.SA) {
 	if ap.OptionalTrue {
 		// fx42 scoping: consume and clear the answered election at the top,
 		// so a nested Attach in the same chain poses its own ask.
-		ans := c.AttachOpt
-		c.AttachOpt = ""
+		ans := string("")
+
 		switch {
 		case ans == "yes":
 			// Answered "attach": fall through to the ordinary attach loop.

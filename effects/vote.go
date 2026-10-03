@@ -221,20 +221,9 @@ func effPlayerVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams) {
 		}
 	}
 	voters := definedPlayers(h, c, sa)
-	picks := append([]state.Target(nil), c.VotePicks...)
-	i := c.VoteTarget
-	if c.VoteDone {
-		// The answer to voter i's ask: one KChoose option naming a ballot
-		// entry, or the zero Target of a voter the no-host fallback left
-		// unanswered. Consume and clear (fx42).
-		pick := state.Target{}
-		if len(c.VoteAnswer) > 0 {
-			pick = c.VoteAnswer[0]
-		}
-		picks = append(picks, pick)
-		c.VoteDone, c.VoteAnswer = false, nil
-		i++
-	}
+	picks := append([]state.Target(nil), ([]state.Target)(nil)...)
+	i := int(0)
+
 	for ; i < len(voters); i++ {
 		voter := voters[i]
 		opts := playerBallotOptions(universe, voter, other)
@@ -273,7 +262,6 @@ func effPlayerVote(h Host, c *Ctx, sa *cards.SA, vp *VoteParams) {
 			Text: "player vote resolved as the first ballot entry (no engine host to ask)"})
 		picks = append(picks, state.Target{Player: opts[0], IsPlayer: true})
 	}
-	c.VotePicks, c.VoteTarget, c.VoteDone, c.VoteAnswer = nil, 0, false, nil
 
 	// Every ballot publishes the entry's deck identity once everyone has
 	// voted -- secret ones too: secret council votes are cast privately,

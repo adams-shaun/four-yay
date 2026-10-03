@@ -571,17 +571,8 @@ func effChooseCard(h Host, c *Ctx, sa *cards.SA) {
 	// halves across a suspension — the group count comes from the SA itself,
 	// deterministic on re-entry.
 	i := c.ChoiceTarget
-	if c.ChoiceDone {
-		answered := c.Choice
-		chooseCardRecord(h, c, sa, c.Choice)
-		c.ChoiceDone, c.Choice = false, nil
-		// c.ChoiceTarget is the asking pair's flat index, so choosers[i/groups]
-		// is who answered this.
-		if reveal && i/groups < len(choosers) {
-			emitChosenReveal(h, choosers[i/groups], answered)
-		}
-		i++
-	} else if i == 0 && c.Choice == nil {
+
+	if i == 0 {
 		// Fresh entry: Forge's ChooseCardEffect ends in host.setChosenCards(allChosen)
 		// -- the union across THIS SA's choosers REPLACING the cards a previous
 		// choice SA left. Forge's chosen player is a separate field that
@@ -799,11 +790,8 @@ func sourceChoices(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID) []state
 func effChooseSource(h Host, c *Ctx, sa *cards.SA) {
 	choosers := choiceChoosers(h, c, sa)
 	i := c.ChoiceTarget
-	if c.ChoiceDone {
-		choiceRecord(h, c, sa, c.Choice, false)
-		c.ChoiceDone, c.Choice = false, nil
-		i++
-	} else if i == 0 && c.Choice == nil {
+
+	if i == 0 {
 		// Fresh entry: mirror effChooseCard's Forge setChosenCards read. The
 		// chosen-source answer is a CARD entry (the Choose "chosen" fold
 		// REPLACES the source object's Chosen list, events/apply.go), so the
@@ -885,11 +873,7 @@ func choosePlayerSpec(sa *cards.SA) string {
 func effChoosePlayer(h Host, c *Ctx, sa *cards.SA) {
 	choosers := choiceChoosers(h, c, sa)
 	i := c.ChoiceTarget
-	if c.ChoiceDone {
-		choiceRecord(h, c, sa, c.Choice, true)
-		c.ChoiceDone, c.Choice = false, nil
-		i++
-	}
+
 	minBase, maxBase := choiceBounds(h, c, sa, false)
 	g, spec := h.Game(), choosePlayerSpec(sa)
 	// A ChoosePlayer that carries ValidTgts$ chose its player as a target when
@@ -1193,41 +1177,37 @@ func effGainControl(h Host, c *Ctx, sa *cards.SA) {
 
 	var ts []state.Target
 	if strings.TrimSpace(sa.ParamStr(cards.PKChoices)) != "" {
-		if c.ChoiceDone {
-			ts = append([]state.Target(nil), c.Choice...)
-			choiceRecord(h, c, sa, ts, false)
-			c.ChoiceDone, c.Choice = false, nil
-		} else {
-			chooser := changeTargetChooser(h, c, sa)
-			choices := cardChoices(h, c, sa, chooser)
-			if len(choices) == 0 {
-				h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "GainControl Choices$ has no eligible cards"})
-				return
+
+		chooser := changeTargetChooser(h, c, sa)
+		choices := cardChoices(h, c, sa, chooser)
+		if len(choices) == 0 {
+			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "GainControl Choices$ has no eligible cards"})
+			return
+		}
+		if len(choices) > 1 {
+			d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Source: c.Source, Min: 1, Max: 1, ResumeKind: "choice", ResumeSA: sa, ResumeChoices: append([]state.Target(nil), c.Chosen...), ResumeChosenValid: c.ChosenValid, ResumeRemembered: append([]state.Target(nil), c.Remembered...), Prompt: sa.ParamStr(cards.PKChoiceTitle)}
+			for i, t := range choices {
+				d.Options = append(d.Options, decision.Option{Index: i, Kind: "card", Obj: t.Obj, Player: chooser})
 			}
-			if len(choices) > 1 {
-				d := &decision.Decision{Player: chooser, Kind: decision.KChoose, Source: c.Source, Min: 1, Max: 1, ResumeKind: "choice", ResumeSA: sa, ResumeChoices: append([]state.Target(nil), c.Chosen...), ResumeChosenValid: c.ChosenValid, ResumeRemembered: append([]state.Target(nil), c.Remembered...), Prompt: sa.ParamStr(cards.PKChoiceTitle)}
-				for i, t := range choices {
-					d.Options = append(d.Options, decision.Option{Index: i, Kind: "card", Obj: t.Obj, Player: chooser})
-				}
-				if d.Prompt == "" {
-					d.Prompt = "Choose card"
-				}
-				ans, ok := AskTape(h, d)
-				if !ok {
-					if Ask(h, d) != AskAsked {
-						h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "GainControl Choices$ requires a player choice"})
-						return
-					}
+			if d.Prompt == "" {
+				d.Prompt = "Choose card"
+			}
+			ans, ok := AskTape(h, d)
+			if !ok {
+				if Ask(h, d) != AskAsked {
+					h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Text: "GainControl Choices$ requires a player choice"})
 					return
 				}
-				// The resolution kernel's answer in hand: the "choice"
-				// re-entry's record below, then the transfer.
-				ts = ChoiceAnswerTargets(ans)
-			} else {
-				ts = choices
+				return
 			}
-			choiceRecord(h, c, sa, ts, false)
+			// The resolution kernel's answer in hand: the "choice"
+			// re-entry's record below, then the transfer.
+			ts = ChoiceAnswerTargets(ans)
+		} else {
+			ts = choices
 		}
+		choiceRecord(h, c, sa, ts, false)
+
 	} else if spec := sa.ParamStr(cards.PKAllValid); spec != "" {
 		for i := range g.Objs {
 			o := &g.Objs[i]
@@ -1540,19 +1520,8 @@ func gainControlVariantAskLoop(h Host, c *Ctx, sa *cards.SA, base ControlGrant,
 	prompt string) {
 	i := c.ChoiceTarget
 	var picks []state.Target
-	if c.ChoiceDone {
-		// The answered re-entry: the "choice" resume arm put the answered
-		// option in Ctx.Choice and the picks gathered before the ask in
-		// Ctx.Chosen (carried via ResumeChoices).
-		picks = append([]state.Target(nil), c.Chosen...)
-		if len(c.Choice) > 0 {
-			picks = append(picks, c.Choice[0])
-		} else {
-			picks = append(picks, state.Target{})
-		}
-		c.ChoiceDone, c.Choice = false, nil
-		i++
-	} else if i > 0 {
+
+	if i > 0 {
 		picks = append([]state.Target(nil), c.Chosen...)
 	}
 	for ; i < len(recipients); i++ {
@@ -1740,12 +1709,7 @@ func effChangeTargets(h Host, c *Ctx, sa *cards.SA) {
 	if target == nil {
 		return
 	}
-	if c.ChoiceDone {
-		changeTargetsApply(h, sa, target, c.Choice)
-		c.ChoiceDone = false
-		c.Choice = nil
-		return
-	}
+
 	subject := effectSA(target)
 	if subject == nil || len(target.Targets) == 0 {
 		return
@@ -2052,11 +2016,8 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 	}); ok {
 		zoneBatcher = z
 	}
-	if cur := c.Repeat; cur != nil && cur.SA == sa {
-		// Re-entry after an iteration suspended: continue with the subjects
-		// the loop started with, after the one that asked, and keep what the
-		// completed iteration remembered.
-		c.Repeat = nil
+	if cur := (*RepeatCursor)(nil); cur != nil && cur.SA == sa {
+
 		subjects, start = cur.Subjects, cur.Next
 		if cur.HasLast && start > 0 && start <= len(subjects) {
 			prev := subjects[start-1]
@@ -2156,11 +2117,7 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 	optionalForEach := strings.EqualFold(strings.TrimSpace(sa.Params["RepeatOptionalForEachPlayer"]), "True")
 	optionalMsg := strings.TrimSpace(sa.Params["RepeatOptionalMessage"])
 	electedIdx, electedAccept := -1, false
-	if c.RepeatEachOptional != nil {
-		electedIdx = int(c.RepeatEachOptional.Next)
-		electedAccept = c.RepeatEachOptional.Accept
-		c.RepeatEachOptional = nil
-	}
+
 	for i := start; i < len(subjects); i++ {
 		t := subjects[i]
 		if optionalForEach {
@@ -2189,7 +2146,7 @@ func effRepeatEach(h Host, c *Ctx, sa *cards.SA) {
 			}
 		}
 		cc := *c
-		cc.Repeat = nil
+
 		// Forge binds the current loop subject as Remembered; the resolving
 		// source/controller remain those of the outer spell or ability.
 		base := iterationBase(c, t)

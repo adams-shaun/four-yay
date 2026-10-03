@@ -115,9 +115,10 @@ func effManifestDread(h Host, c *Ctx, sa *cards.SA) {
 	}
 	g := h.Game()
 	p := c.ManifestDreadPlayer
-	picked := c.ManifestDreadPick
-	done := c.ManifestDreadDone
-	c.ManifestDreadPick, c.ManifestDreadDone = 0, false
+	picked := state.ObjID(0)
+
+	done := false
+
 	if int(p) >= len(g.Players) {
 		p = c.Controller
 	}

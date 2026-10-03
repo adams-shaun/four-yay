@@ -2369,7 +2369,7 @@ func prefetchRememberedChangeZoneTarget(h Host, c *Ctx, sa *cards.SA) ([]state.T
 	// while using ChangeZone's normal chooser and restore it before dispatch.
 	offeredSA, targetsOffered := c.OfferedSA, c.TargetsOffered
 	previousResume := c.TargetAskResume
-	answeredEmpty := c.ChoiceDone && len(c.Choice) == 0
+	answeredEmpty := false
 	c.OfferedSA, c.TargetsOffered, c.TargetAskResume = nil, false, sa
 	ts, handled := changeZoneChosenTargets(h, c, child)
 	c.OfferedSA, c.TargetsOffered, c.TargetAskResume = offeredSA, targetsOffered, previousResume
@@ -2566,13 +2566,14 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 		// RepeatEach re-entered at its loop cursor already passed its gate
 		// when the loop began; its remaining iterations are part of that
 		// same resolution.
-		resumingLoop := c.Repeat != nil && c.Repeat.SA == sa
+		resumingLoop := false
 		// A DB$ Token re-entered after its parked mint's answer (Ctx.TokenRest)
 		// is the rest of the body that already passed its gate on the first
 		// pass: the mints it made may have changed what the condition reads.
-		resumingTokens := c.TokenRest != nil && c.TokenRest.SA == sa
-		gatePassed := c.ResumedGatePassed == sa
-		c.ResumedGatePassed = nil
+		resumingTokens := false
+		gatePassed := (*cards.SA)(nil) ==
+			sa
+
 		if !resumingLoop && !resumingTokens && !gatePassed {
 			if met, supported := conditionMet(h, c, sa); supported && !met {
 				continue

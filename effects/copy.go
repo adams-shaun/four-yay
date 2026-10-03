@@ -67,8 +67,8 @@ func effCopySpellAbility(h Host, c *Ctx, sa *cards.SA) {
 	// behaviour -- the copy is made -- the no-host stand-in the election's
 	// own branch implements below (the ask's bracket is Min == Max == 1, so
 	// Clamp and the bot answer option 0 = yes).
-	copyOpt := c.CopyOpt
-	c.CopyOpt = ""
+	copyOpt := string("")
+
 	// Resolve which spell to copy. For a trigger the remembered entry is the
 	// cast spell (the first object entry); for a direct Parent copy it is the
 	// currently resolving spell itself.

@@ -12,15 +12,14 @@ import (
 
 func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 	pc := PutCounterOf(sa)
-	if c.PutOpt == "" && !c.CounterPickDone && !c.CounterDistDone && !c.CounterKindDone &&
-		!c.CounterKindsDone && !c.CounterKindAnswerSet {
-		// Once per resolution: an answered re-entry already noted.
-		noteUnreadParams(h, c, "PutCounter", pc.Unread)
-	}
+
+	// Once per resolution: an answered re-entry already noted.
+	noteUnreadParams(h, c, "PutCounter", pc.Unread)
+
 	// fx42 scoping: consume and clear the answered Optional$ election at the
 	// top, so a nested PutCounter in the same chain poses its own ask.
-	optAns := c.PutOpt
-	c.PutOpt = ""
+	optAns := string("")
+
 	// Adapt$ (CR 702.35a; task param-adapt): an AB/DB$ PutCounter carrying
 	// Adapt$ N reads N as the count -- Pteramander's `Adapt$ 4`, Jetfire's
 	// chained `SVar:DBAdapt:DB$ PutCounter | Adapt$ 3`. The corpus writes only
@@ -50,13 +49,12 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 	// clear it before this SA can resolve a sub-ability. Resolve shares one
 	// Ctx across the chain, so leaving any of these live makes a nested
 	// PutCounter reuse the outer kind instead of asking its own question.
-	kindAns, kindDone := c.CounterKind, c.CounterKindDone
-	kindsAns, kindsDone := append([]string(nil), c.CounterKinds...), c.CounterKindsDone
-	kindAnswers := append([]string(nil), c.CounterKindAnswers...)
-	kindAnswerIndex, kindAnswerSet := c.CounterKindAnswerIndex, c.CounterKindAnswerSet
-	c.CounterKind, c.CounterKindDone = "", false
-	c.CounterKinds, c.CounterKindsDone = nil, false
-	c.CounterKindAnswers, c.CounterKindAnswerIndex, c.CounterKindAnswerSet = nil, 0, false
+	kindAns, kindDone := string(""), false
+
+	kindsAns, kindsDone := append([]string(nil), ([]string)(nil)...), false
+	kindAnswers := append([]string(nil), ([]string)(nil)...)
+	kindAnswerIndex, kindAnswerSet := int(0), false
+
 	kind := pc.Kind
 	if placer := pc.Placer; placer != "" {
 		if _, ok := putCounterPlacerFor(h, c, placer); !ok {
@@ -90,7 +88,7 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 			// consumed, so without this guard the election would re-pose over
 			// the answered pick. The Done flag names the pick, never the
 			// election: a pickDone pass is past the election by construction.
-			pickAnswered := c.CounterPickDone || c.CounterDistDone
+			pickAnswered := false
 			if n > 0 && !pickAnswered && putCounterWouldPlace(h, c, sa) {
 				d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Min: 1, Max: 1,
 					Source: c.Source, ResumeKind: "put_optional", ResumeSA: sa,
@@ -130,9 +128,10 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 	// above. fx42 scoping: consume and clear the answered tie pick first, so
 	// a nested PutCounter in the same chain cannot inherit it.
 	if pc.Bolster.Present {
-		pickAns := c.CounterPick
-		pickDone := c.CounterPickDone
-		c.CounterPick, c.CounterPickDone = nil, false
+		pickAns := ([]state.ObjID)(nil)
+
+		pickDone := false
+
 		putCounterBolster(h, c, sa, kind, pickAns, pickDone)
 		return
 	}
@@ -152,9 +151,10 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 	// consume and clear the answered pick first, so a nested PutCounter
 	// below cannot inherit it.
 	if pc.Support.Present {
-		supAns := c.CounterPick
-		supDone := c.CounterPickDone
-		c.CounterPick, c.CounterPickDone = nil, false
+		supAns := ([]state.ObjID)(nil)
+
+		supDone := false
+
 		putCounterSupport(h, c, sa, kind, supAns, supDone)
 		return
 	}
@@ -171,15 +171,17 @@ func effPutCounter(h Host, c *Ctx, sa *cards.SA) {
 	// fx45 scoping: capture and clear the answered Choices$ pick BEFORE the
 	// branch, so a nested PutCounter below cannot inherit the outer answer
 	// (the fx42 discipline every answered field follows).
-	distAns := c.CounterDist
-	distDone := c.CounterDistDone
-	c.CounterDist, c.CounterDistDone = nil, false
+	distAns := ([]state.ObjID)(nil)
+
+	distDone := false
+
 	// The bare-Choices$ pick's answer rides its own pair of fields (the
 	// divided family and the bare pick can never both ask for one SA, but
 	// each consumes and clears only its own).
-	pickAns := c.CounterPick
-	pickDone := c.CounterPickDone
-	c.CounterPick, c.CounterPickDone = nil, false
+	pickAns := ([]state.ObjID)(nil)
+
+	pickDone := false
+
 	if divided {
 		if pc.Choices != "" {
 			putCounterPickDistribute(h, c, sa, n, kind, distAns, distDone)

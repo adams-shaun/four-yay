@@ -319,13 +319,8 @@ func effManaReflected(h Host, c *Ctx, sa *cards.SA) {
 	// real host is asked, and only a host that cannot answer (or an empty
 	// option list) keeps the deterministic first-candidate stand-in with its
 	// R-9 Note.
-	if answered := c.ManaReflectedColor; answered != "" {
-		// The answered ask's re-entry. Consume and clear the transport (fx42
-		// scoping: a nested ManaReflected below poses its own ask), accept the
-		// colour only when this resolution still offers it, and degrade a
-		// malformed/off-list answer to the first candidate rather than
-		// inventing a colour the candidates never named.
-		c.ManaReflectedColor = ""
+	if answered := string(""); answered != "" {
+
 		// The answer is carried as the structured mana symbol, not the option
 		// label: labels are presentation-only (ManaSymbol on decision.Option).
 		manaReflectedAnswered(cols, answered, recipient, manaAdd)

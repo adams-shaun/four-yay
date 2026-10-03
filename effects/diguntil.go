@@ -139,12 +139,13 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 	// ask instead of inheriting the answer. moveDone also suppresses the
 	// re-emit of the reveal Note (recorded before the first-pass ask) and of
 	// the withheld-params Note.
-	moveAns := c.DigUntilMove
+	moveAns := string("")
+
 	moveDone := moveAns != ""
-	auraBearer := c.DigUntilAuraBearer
-	auraDone := c.DigUntilAuraDone
-	c.DigUntilMove = ""
-	c.DigUntilAuraBearer, c.DigUntilAuraDone = 0, false
+	auraBearer := state.ObjID(0)
+
+	auraDone := false
+
 	if moveAns == "" {
 		moveAns = "no"
 	}

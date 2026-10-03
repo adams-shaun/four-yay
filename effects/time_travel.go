@@ -32,12 +32,12 @@ func init() { Register("TimeTravel", effTimeTravel) }
 // one, which is what makes "then do it two more times" re-evaluate each
 // object's current counter count.
 func effTimeTravel(h Host, c *Ctx, sa *cards.SA) {
-	choice := c.TimeTravelChoice
-	done := c.TimeTravelDone
-	idx, round := c.TimeTravelIndex, c.TimeTravelRound
-	objects := c.TimeTravelObjects
-	c.TimeTravelChoice, c.TimeTravelDone = "", false
-	c.TimeTravelObjects = nil
+	choice := string("")
+
+	done := false
+	idx, round := int(0), int(0)
+
+	objects := ([]state.ObjID)(nil)
 
 	amount := int(Num(h, c, sa, "Amount", 1))
 	if amount < 1 {

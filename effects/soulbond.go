@@ -23,13 +23,7 @@ func effPair(h Host, c *Ctx, sa *cards.SA) {
 	if src == nil || !isBattlefieldCreature(src) || src.Paired != 0 {
 		return
 	}
-	if c.SoulbondDone {
-		partner := c.SoulbondPartner
-		c.SoulbondDone = false
-		c.SoulbondPartner = 0
-		soulbondPair(h, g, src, partner, c.Controller)
-		return
-	}
+
 	// RestrictToRemembered$ True (the "another creature enters" half of
 	// Soulbond's expansion, cards/keywords.go's k+"#other" trigger) narrows
 	// the candidate scan to the specific creature that triggered THIS

@@ -189,51 +189,48 @@ func effUntap(h Host, c *Ctx, sa *cards.SA) {
 	}
 
 	var chosen []state.ObjID
-	if c.UntapDone {
-		chosen = append(chosen, c.Untap...)
-		c.Untap, c.UntapDone = nil, false
-	} else {
-		candidates := untapTypeCandidates(h, c, sa)
-		n := int(Num(h, c, sa, "Amount", 1))
-		if n <= 0 || len(candidates) == 0 {
-			return
+
+	candidates := untapTypeCandidates(h, c, sa)
+	n := int(Num(h, c, sa, "Amount", 1))
+	if n <= 0 || len(candidates) == 0 {
+		return
+	}
+	if n > len(candidates) {
+		n = len(candidates)
+	}
+	upTo := strings.EqualFold(sa.Params["UntapUpTo"], "True")
+	needsAsk := upTo || len(candidates) > n
+	if needsAsk {
+		min := n
+		if upTo {
+			min = 0
 		}
-		if n > len(candidates) {
-			n = len(candidates)
+		d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose,
+			Min: min, Max: n, Source: c.Source, ResumeKind: "untap", ResumeSA: sa,
+			Prompt: "Choose permanents to untap"}
+		for _, id := range candidates {
+			o := h.Game().Obj(id)
+			d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "untap", Obj: id, Label: o.Face().Name})
 		}
-		upTo := strings.EqualFold(sa.Params["UntapUpTo"], "True")
-		needsAsk := upTo || len(candidates) > n
-		if needsAsk {
-			min := n
-			if upTo {
-				min = 0
-			}
-			d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose,
-				Min: min, Max: n, Source: c.Source, ResumeKind: "untap", ResumeSA: sa,
-				Prompt: "Choose permanents to untap"}
-			for _, id := range candidates {
-				o := h.Game().Obj(id)
-				d.Options = append(d.Options, decision.Option{Index: len(d.Options), Kind: "untap", Obj: id, Label: o.Face().Name})
-			}
-			if ans, ok := AskTape(h, d); ok {
-				// The resolution kernel's answer in hand: the "untap" arm's
-				// chosen permanents, untapped below exactly as the
-				// re-entry untaps Ctx.Untap.
-				chosen = make([]state.ObjID, 0, len(ans))
-				for _, o := range ans {
-					if o.Obj != 0 {
-						chosen = append(chosen, o.Obj)
-					}
+		if ans, ok := AskTape(h, d); ok {
+			// The resolution kernel's answer in hand: the "untap" arm's
+			// chosen permanents, untapped below exactly as the
+			// re-entry untaps Ctx.Untap.
+			chosen = make([]state.ObjID, 0, len(ans))
+			for _, o := range ans {
+				if o.Obj != 0 {
+					chosen = append(chosen, o.Obj)
 				}
-			} else if h.Ask(d) {
-				return
-			} else {
-				chosen = candidates[:n]
 			}
+		} else if h.Ask(d) {
+			return
 		} else {
 			chosen = candidates[:n]
 		}
+	} else {
+		chosen = candidates[:n]
 	}
+
 	for _, id := range chosen {
 		TryUntap(h, id)
 	}

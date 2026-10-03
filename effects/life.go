@@ -182,30 +182,30 @@ func effSetLife(h Host, c *Ctx, sa *cards.SA) {
 		g := h.Game()
 		i := c.ChoiceTarget - 1
 		if c.ChoiceTarget == 0 {
-			choice := c.Choice
-			if !c.ChoiceDone {
-				pool := g.AliveFrom(c.Controller)
-				d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Source: c.Source,
-					Min: 0, Max: len(pool), Prompt: sa.Params["ChoicePrompt"],
-					ResumeKind: "choice", ResumeSA: sa, ResumeTarget: 0}
-				for j, p := range pool {
-					d.Options = append(d.Options, decision.Option{Index: j, Kind: "player", Player: p, Label: g.Players[p].Name})
-				}
-				if ans, ok := AskTape(h, d); ok {
-					// The resolution kernel's answer in hand: the recipient
-					// subset the "choice" re-entry records below.
-					choice = ChoiceAnswerTargets(ans)
-				} else {
-					switch Ask(h, d) {
-					case AskAsked, AskNoHost:
-						// With no host, choose nobody: the identity permutation.
-						return
-					}
+			choice := ([]state.Target)(nil)
+
+			pool := g.AliveFrom(c.Controller)
+			d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Source: c.Source,
+				Min: 0, Max: len(pool), Prompt: sa.Params["ChoicePrompt"],
+				ResumeKind: "choice", ResumeSA: sa, ResumeTarget: 0}
+			for j, p := range pool {
+				d.Options = append(d.Options, decision.Option{Index: j, Kind: "player", Player: p, Label: g.Players[p].Name})
+			}
+			if ans, ok := AskTape(h, d); ok {
+				// The resolution kernel's answer in hand: the recipient
+				// subset the "choice" re-entry records below.
+				choice = ChoiceAnswerTargets(ans)
+			} else {
+				switch Ask(h, d) {
+				case AskAsked, AskNoHost:
+					// With no host, choose nobody: the identity permutation.
+					return
 				}
 			}
+
 			c.Chosen = nil // this effect owns the resumed choice list
 			choiceRecord(h, c, sa, choice, false)
-			c.ChoiceDone, c.Choice = false, nil
+
 			i = 0
 		} else {
 			// Before recording the answered assignment, the accumulated list
@@ -215,11 +215,7 @@ func effSetLife(h Host, c *Ctx, sa *cards.SA) {
 			}
 		}
 		subsetSize := len(c.Chosen) - i
-		if c.ChoiceTarget > 0 && c.ChoiceDone {
-			choiceRecord(h, c, sa, c.Choice, false)
-			c.ChoiceDone, c.Choice = false, nil
-			i++
-		}
+
 		for ; i < subsetSize; i++ {
 			recipient := c.Chosen[i].Player
 			d := &decision.Decision{Player: c.Controller, Kind: decision.KChoose, Source: c.Source,

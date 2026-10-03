@@ -147,10 +147,8 @@ func effImmediateTrigger(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 	start := 0
-	if cur := c.Repeat; cur != nil && cur.SA == sa {
-		// Re-entry after an instance suspended: continue with the subjects
-		// captured when the loop started, after the one that asked.
-		c.Repeat = nil
+	if cur := (*RepeatCursor)(nil); cur != nil && cur.SA == sa {
+
 		subjects, start = cur.Subjects, cur.Next
 		if eachMode && start > len(subjects) {
 			start = len(subjects)
@@ -169,7 +167,7 @@ func effImmediateTrigger(h Host, c *Ctx, sa *cards.SA) {
 	queue := start == 0 && !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKStatic)), "True")
 	for i := start; i < len(subjects); i++ {
 		cc := *c
-		cc.Repeat = nil
+
 		if eachMode {
 			// The i-th instance remembers exactly its own subject (the token
 			// DelayTriggerRememberedLKI names).

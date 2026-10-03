@@ -290,10 +290,11 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 	// completed before suspension and must be skipped, that target consumes
 	// the answer, and later targets pose their own asks (Dig's per-library
 	// ask shape).
-	sacAns := c.SacPicks
-	sacDone := c.SacDone
-	sacTarget := c.SacTarget
-	c.SacPicks, c.SacDone, c.SacTarget = nil, false, 0
+	sacAns := ([]state.ObjID)(nil)
+
+	sacDone := false
+	sacTarget := int(0)
+
 	amount := sacrificeAmount(h, c, sa)
 	// An Amount$ of zero has no legal sacrifice and, crucially, no meaningful
 	// answer. Do not produce a 0..0 KChoose merely because eligible cards
@@ -307,8 +308,8 @@ func effSacrifice(h Host, c *Ctx, sa *cards.SA) {
 	// "none, or exactly Amount". The KModes answer is consumed below before a
 	// possible exact-batch KChoose; keeping it separate prevents a partial
 	// sacrifice from taking the card's "if you do" continuation.
-	sacOptional, sacOptionalTarget := c.SacOptional, c.SacOptionalTarget
-	c.SacOptional, c.SacOptionalTarget = "", 0
+	sacOptional, sacOptionalTarget := string(""), int(0)
+
 	who := Defined(h, c, sa)
 	// ShowSacrificedCards$ True (Demonic Covenant's own sacrifice line): the
 	// sacrificed cards are REVEALED publicly — one ids-Note naming everything

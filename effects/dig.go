@@ -218,10 +218,11 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 	// the answer, and later targets retain M1's deterministic processing until
 	// chained per-library asks exist. A nested Dig below this walk therefore
 	// poses its own ask instead of inheriting any of these fields.
-	digAns := c.Dig
-	digDone := c.DigDone
-	digTarget := c.DigTarget
-	c.Dig, c.DigDone, c.DigTarget = nil, false, 0
+	digAns := ([]state.ObjID)(nil)
+
+	digDone := false
+	digTarget := int(0)
+
 	// The arrange done-marker, consumed and cleared here (fx42 scoping):
 	// handleArrange has already applied the asking target's answered bottom
 	// order (the LibraryOrder event). ArrangeTarget is the cursor -- the walk
@@ -229,11 +230,7 @@ func effDig(h Host, c *Ctx, sa *cards.SA) {
 	// the LATER ones (each may pose its own arrange, suspending again);
 	// dropping them would strand a multi-target Dig mid-walk.
 	arrangeThrough := -1
-	if c.Arrange {
-		c.Arrange = false
-		arrangeThrough = c.ArrangeTarget
-		c.ArrangeTarget = 0
-	}
+
 	// Zone-batch bracket (Mode$ ChangesZoneAll/PhaseOutAll): ONE api:Dig
 	// resolution is ONE zone-change action even when it moves several cards
 	// (Wild Wasteland's "exile the top two cards of your library"), so the

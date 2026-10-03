@@ -57,8 +57,8 @@ const empowerTokenKey = "u_empower"
 func effEmpower(h Host, c *Ctx, sa *cards.SA) {
 	// fx42 scoping: consume the answered pick first, so a nested
 	// PutCounter/Empower later in the chain cannot inherit it.
-	pickAns, pickDone := c.CounterPick, c.CounterPickDone
-	c.CounterPick, c.CounterPickDone = nil, false
+	pickAns, pickDone := ([]state.ObjID)(nil), false
+
 	g := h.Game()
 	typ := strings.TrimSpace(sa.ParamStr(cards.PKType))
 	if typ == "" {

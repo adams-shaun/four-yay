@@ -106,10 +106,11 @@ func effChangeCombatants(h Host, c *Ctx, sa *cards.SA) {
 	// earlier attackers completed before suspension and must be skipped,
 	// that attacker consumes the answer, and later attackers pose fresh
 	// asks of their own.
-	answer := c.Choice
-	answerDone := c.ChoiceDone
+	answer := ([]state.Target)(nil)
+
+	answerDone := false
 	answerIndex := c.ChoiceTarget
-	c.Choice, c.ChoiceDone, c.ChoiceTarget = nil, false, 0
+	c.ChoiceTarget = 0
 	if !answerDone && strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKOptional)), "True") {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,
 			Text: "ChangeCombatants Optional$ True read as mandatory (no may-reselect ask)"})

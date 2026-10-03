@@ -137,11 +137,13 @@ func effChangeText(h Host, c *Ctx, sa *cards.SA) {
 	}
 	forbidden := strings.TrimSpace(sa.Params["ForbiddenNewTypes"])
 
-	from := c.ChangeTextFrom
+	from := string("")
+
 	if !isTextChooser(fromTok) {
 		from = fromTok
 	}
-	to := c.ChangeTextTo
+	to := string("")
+
 	if !isTextChooser(toTok) {
 		to = toTok
 	}
@@ -153,7 +155,7 @@ func effChangeText(h Host, c *Ctx, sa *cards.SA) {
 	// shape both complete on one answer). A resumed answer is recognised by
 	// either transport being non-empty, so a malformed answer that set only
 	// one half falls back deterministically rather than re-asking forever.
-	if (fromNeeds || toNeeds) && c.ChangeTextFrom == "" && c.ChangeTextTo == "" {
+	if fromNeeds || toNeeds {
 		d := &decision.Decision{Player: chooser, Kind: decision.KChoose, ResumeKind: "changetext",
 			ResumeSA: sa, Prompt: "Choose the text word(s)", Source: c.Source}
 		if fromNeeds {
@@ -199,9 +201,6 @@ func effChangeText(h Host, c *Ctx, sa *cards.SA) {
 	if toNeeds {
 		to = deterministicTextWord(textChooserLabels(h, chooser, toTok, forbidden))
 	}
-	// The pair is resolved: clear the transports so a nested ChangeText cannot
-	// inherit this answer (fx42), then register.
-	c.ChangeTextFrom, c.ChangeTextTo = "", ""
 
 	if from == "" || to == "" {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source,

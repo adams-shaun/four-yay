@@ -1087,9 +1087,7 @@ func targetedGateGroup(c *Ctx, sa *cards.SA) []state.Target {
 			return ts
 		}
 	}
-	if c.TargetsPickDone {
-		return c.TargetsPick
-	}
+
 	return c.Targets
 }
 
@@ -1103,7 +1101,7 @@ func targetedGateGroup(c *Ctx, sa *cards.SA) []state.Target {
 // genuinely empty answered group (a real zero) from the pre-ask state that
 // must stay UNRESOLVED so the sub runs and poses its own target ask.
 func targetedAskCovered(c *Ctx, sa *cards.SA) bool {
-	if c.PickedTargets != nil || c.TargetsPickDone {
+	if c.PickedTargets != nil {
 		return true
 	}
 	if c.SubPreAsk != nil && sa != nil {
