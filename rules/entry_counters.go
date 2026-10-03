@@ -25,6 +25,7 @@ import (
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
+	"github.com/adams-shaun/gorge/rules/resolve"
 	"github.com/adams-shaun/gorge/state"
 )
 
@@ -466,6 +467,10 @@ func (e *Engine) entryPreview(ev events.Event) (*Engine, state.ObjID) {
 	// preview copies them on its first observed event rather than writing
 	// into the live engine's.
 	preview.loop.shared = true
+	// The preview is a speculative engine: an ask it logs stays private
+	// (below) and is never a tape ask of the live engine's resolution, so it
+	// carries no kernel state (a struct copy would share the live run).
+	preview.tape = resolve.Kernel{}
 	// A competing AddCounter choice can log an ask during the preview. Keep
 	// both its log and its queue private; no speculative event may leak into
 	// the real chain. Preserve prior events for log-backed counter predicates.
@@ -477,6 +482,10 @@ func (e *Engine) entryPreview(ev events.Event) (*Engine, state.ObjID) {
 	// per-entry O(log) copy (a measured top allocator of the search loop).
 	shadow := *e.L
 	shadow.Events = e.L.Events[:len(e.L.Events):len(e.L.Events)]
+	// A preview taken while the live log re-executes a tape resolution must
+	// not inherit its verify window: the preview's private appends are new
+	// history of its own, never a check against the recorded events.
+	shadow.VerifyClose()
 	preview.L = &shadow
 	preview.replChoices = append([]replChoice(nil), e.replChoices...)
 	// TokenCreate/CardToken mint in their own Apply fold rather than

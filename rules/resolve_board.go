@@ -163,6 +163,14 @@ func (b *resolveBoard) Restore(cp *resolve.Checkpoint, evEnd int) {
 	}
 	evs, ints := l.Events, l.Intents
 	l.Events, l.Intents = nil, nil
+	// The decision arena stays out of the release: Release clears its
+	// chunks for reuse, and every decision it posed must keep its Options
+	// for the engine's whole life (a host holds them past the answer).
+	arena := e.decArena
+	if arena != nil && arena.owner != e {
+		arena = nil
+	}
+	e.decArena = nil
 	sp := e.Release()
 	l.Events, l.Intents = evs, ints
 	sc := s0.CloneInto(&sp)
@@ -179,6 +187,9 @@ func (b *resolveBoard) Restore(cp *resolve.Checkpoint, evEnd int) {
 	*e = *sc
 	e.G, e.L = g, l
 	e.tape = kernel
+	if arena != nil {
+		e.decArena = arena
+	}
 	e.tapeHeldHook, e.tapeHeldStats = hook, stats
 	tapeRebindOwner(e, sc, arenaOn)
 }

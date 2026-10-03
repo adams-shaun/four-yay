@@ -59,7 +59,7 @@ func (e *Engine) settlePendingLifeExchange() {
 // re-parks the transaction on the engine whenever a replacement path
 // suspends again, so the transaction is never orphaned mid-flight.
 func (e *Engine) finishLifeExchange(tx *lifeExchangeTransaction) {
-	if tx == nil {
+	if tx == nil || tx.done {
 		return
 	}
 	if e.pendingLifeExchange == tx {
@@ -83,6 +83,7 @@ func (e *Engine) finishLifeExchange(tx *lifeExchangeTransaction) {
 		return
 	}
 	if tx.second.Kind != 0 {
+		tx.done = true
 		if len(tx.staged) != 2 {
 			e.emit(events.Event{Kind: events.Note, Obj: tx.source, Player: tx.controller,
 				Text: "ExchangeLife settled with a replaced life-change side"})
@@ -105,6 +106,7 @@ func (e *Engine) finishLifeExchange(tx *lifeExchangeTransaction) {
 		}
 		return
 	}
+	tx.done = true
 	if int(tx.player) >= len(e.G.Players) || e.G.Players[tx.player].Life == tx.lifeBefore {
 		e.emit(events.Event{Kind: events.Note, Obj: tx.source, Player: tx.player, Text: "ExchangeLifeVariant abandoned: life did not change"})
 		return
