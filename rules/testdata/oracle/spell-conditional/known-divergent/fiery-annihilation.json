@@ -1,0 +1,8 @@
+{
+  "card": "Fiery Annihilation",
+  "rows": {
+    "attached-equipment-is-exiled-too": "CR 601.2c timing only: the Equipment attached to the damaged creature is now offered as the sub-ability's own target (exactly the Equipment attached to that creature) and the chosen one is exiled, but the ask is posed at RESOLUTION as a choose instead of on CAST as a target. The scenario names Short Sword on cast, so the resolution-time ask takes the harness fallback (zero of 'up to one') and Short Sword stays. Engine-wide sub-ability pre-announcement defect, same root as Bite Down/second-target-is-chosen-on-cast (wt/cr601-subtargets).",
+    "equipment-on-a-survivor-is-still-exiled": "CR 601.2c timing only: the Dreadmaw now survives with 5 damage, and the attached Short Sword is offered as the sub-ability's own target, but at RESOLUTION as a choose instead of on CAST. The scenario names the Sword on cast, so the resolution-time ask takes the harness fallback (zero), the Sword stays and the Dreadmaw reads 7/7 (want 6/6). Same root as Bite Down/second-target-is-chosen-on-cast (wt/cr601-subtargets).",
+    "equipment-target-is-chosen-on-cast": "CR 601.2c timing only: both attached Equipment are now offered as the sub-ability's own target, but at RESOLUTION as a choose instead of on CAST as a target, so the Bonesplitter named on cast is ignored and the resolution-time ask takes the harness fallback (zero); Bonesplitter stays. Same root as Bite Down/second-target-is-chosen-on-cast (wt/cr601-subtargets)."
+  }
+}
