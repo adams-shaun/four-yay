@@ -73,7 +73,7 @@ import (
 // tasha_the_witch_queen, geths_summons) reaches its ask here.
 func chosenTargetsFor(h Host, c *Ctx, sa *cards.SA, atRoot bool) ([]state.Target, bool) {
 	defined := strings.TrimSpace(sa.ParamStr(cards.PKDefined))
-	if strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) == "" ||
+	if !TargetsOf(sa).Targeted() ||
 		(defined != "" && definedIsTargetReuse(defined) && sa.API != "Fight") {
 		return nil, false
 	}
@@ -143,9 +143,10 @@ func chosenTargetsFor(h Host, c *Ctx, sa *cards.SA, atRoot bool) ([]state.Target
 	} else if !posed {
 		chooser = ch
 	}
-	min := Num(h, c, sa, "TargetMin", 1)
-	max := Num(h, c, sa, "TargetMax", 1)
-	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKTargetsForEachPlayer)), "True") {
+	tp := TargetsOf(sa)
+	min := numText(h, c, tp.Min, 1)
+	max := numText(h, c, tp.Max, 1)
+	if tp.Has(TgtForEachPlayer) {
 		// pfpe1: OneEach is the distinct-controller count of the eligible
 		// set (Forge's TargetRestrictions.setForEachPlayer), not a literal
 		// Num can read -- and a dynamic bound (TargetMax$ X with
@@ -154,10 +155,10 @@ func chosenTargetsFor(h Host, c *Ctx, sa *cards.SA, atRoot bool) ([]state.Target
 		for _, t := range candidates {
 			owners[targetOwnerOf(h, t)] = true
 		}
-		if strings.EqualFold(sa.ParamStr(cards.PKTargetMin), "OneEach") {
+		if tp.Has(TgtMinOneEach) {
 			min = int32(len(owners))
 		}
-		if strings.EqualFold(sa.ParamStr(cards.PKTargetMax), "OneEach") {
+		if tp.Has(TgtMaxOneEach) {
 			max = int32(len(owners))
 		}
 	}
@@ -239,7 +240,8 @@ func targetOwnerOf(h Host, t state.Target) state.PlayerID {
 func poseTargetsAsk(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID,
 	candidates []state.Target, min, max int32, resumeKind string,
 ) ([]state.Target, bool) {
-	prompt := strings.TrimSpace(sa.ParamStr(cards.PKTgtPrompt))
+	tp := TargetsOf(sa)
+	prompt := tp.Prompt
 	if prompt == "" {
 		prompt = "Choose target"
 	}
@@ -298,7 +300,7 @@ func poseTargetsAsk(h Host, c *Ctx, sa *cards.SA, chooser state.PlayerID,
 	// enforces one pick per controller whatever host answers. The bot's
 	// KChoose default arm plus Clamp's group-aware top-up answers it
 	// validly (first offer, topped up one per new group).
-	forEach := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKTargetsForEachPlayer)), "True")
+	forEach := tp.Has(TgtForEachPlayer)
 	for _, t := range candidates {
 		o := decision.Option{Index: len(d.Options)}
 		owner := state.PlayerID(0)

@@ -1804,7 +1804,7 @@ func matchPositive(g *state.Game, p string, o *state.Object, sc SpecContext) (re
 		if !targetableObject(sc.TargetableObjects, o.ID) {
 			return false, true
 		}
-		return MatchesSpecCtx(g, strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)), o.ID,
+		return MatchesSpecCtx(g, TargetsOf(sa).ValidTgts, o.ID,
 			NewSpecContext(spell.Controller, spell.ID)), true
 	}
 	if p == "TriggeredNewCard" || p == "TriggeredCard" {
@@ -2530,7 +2530,7 @@ func triggeredSpellTargetSA(spell *state.Object) *cards.SA {
 		return nil
 	}
 	if spell.Ability != nil {
-		if strings.TrimSpace(spell.Ability.ParamStr(cards.PKValidTgts)) != "" {
+		if TargetsOf(spell.Ability).Targeted() {
 			return spell.Ability
 		}
 		return nil
@@ -2540,7 +2540,7 @@ func triggeredSpellTargetSA(spell *state.Object) *cards.SA {
 		return nil
 	}
 	sa := f.SpellAbility()
-	if sa == nil || strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) == "" {
+	if sa == nil || !TargetsOf(sa).Targeted() {
 		return nil
 	}
 	return sa

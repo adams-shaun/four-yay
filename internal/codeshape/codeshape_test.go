@@ -135,6 +135,7 @@ func free()          {}
 		DealDamageLeaks:        []string{},
 		PutCounterLeaks:        []string{},
 		EffectLeaks:            []string{},
+		TargetLeaks:            []string{},
 		Files:                  4,
 		LongFuncs: []Func{
 			{Name: "deep", File: "rules/sub/deep.go", Line: 6, Lines: 402},
@@ -267,5 +268,40 @@ func dig(sa *SA) {
 	}
 	if m.ChangeZoneParamLeaks != len(want) || !reflect.DeepEqual(m.ChangeZoneLeaks, want) {
 		t.Errorf("ChangeZone leaks = %d %v, want %v", m.ChangeZoneParamLeaks, m.ChangeZoneLeaks, want)
+	}
+}
+
+// TestMeasureCountsTargetParamLeaks pins the targetParamLeaks census: a
+// targeting key read anywhere in rules/ or effects/ outside the targeting
+// compiler counts (every read form), never the compiler itself, never a write,
+// never a non-targeting key.
+func TestMeasureCountsTargetParamLeaks(t *testing.T) {
+	root := writeTree(t, map[string]string{
+		"effects/registry.go": effectsSrc,
+		"effects/targets_params.go": `package effects
+
+func compile(sa *SA) { _ = sa.Params["TargetsWithSharedTypes"]; _ = sa.ParamStr(cards.PKValidTgts) }
+`,
+		"effects/damage.go": `package effects
+
+func dmg(sa *SA) {
+	_ = sa.Param(cards.PKValidTgts)
+	_ = Num(h, c, sa, "TargetMax", 1)
+	_ = sa.ParamStr(cards.PKDefined)
+	sub.Params["ValidTgts"] = "x"
+}
+`,
+		"rules/engine.go": "package rules\n\ntype resumePoint struct{ a int }\n\nfunc f(sa *SA) { _ = sa.Params[\"MaxTotalTargetPower\"] }\n",
+	})
+	m, err := Measure(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"effects/damage.go:4 ValidTgts", "effects/damage.go:5 TargetMax",
+		"rules/engine.go:5 MaxTotalTargetPower",
+	}
+	if m.TargetParamLeaks != len(want) || !reflect.DeepEqual(m.TargetLeaks, want) {
+		t.Errorf("target leaks = %d %v, want %v", m.TargetParamLeaks, m.TargetLeaks, want)
 	}
 }

@@ -244,7 +244,7 @@ func actingPlayers(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 		// remembered card's controller (Summon: Valefor's per-opponent loop).
 		return definedPlayers(h, c, sa)
 	}
-	if _, targeted := sa.Param(cards.PKValidTgts); targeted {
+	if TargetsOf(sa).Has(TgtValidPresent) {
 		return playerIDsFromTargets(h, c, "", Defined(h, c, sa))
 	}
 	return []state.PlayerID{c.Controller}
@@ -1977,7 +1977,7 @@ func effDigUntil(h Host, c *Ctx, sa *cards.SA) {
 		}
 	}
 	targets := Defined(h, c, sa)
-	if sa.ParamStr(cards.PKDefined) == "" && sa.ParamStr(cards.PKValidTgts) == "" {
+	if sa.ParamStr(cards.PKDefined) == "" && !TargetsOf(sa).Targeted() {
 		// Forge's default for a reveal-until with no Defined$ and no targets:
 		// the resolving controller's own library (Songbirds' Blessing's
 		// trigger). Defined's source-object fallback is wrong here — the
@@ -2517,7 +2517,7 @@ func effReveal(h Host, c *Ctx, sa *cards.SA) {
 	// so it applies only where the walk's subjects are those targets: a
 	// targeting SA with no Defined$/RevealDefined$ override.
 	rememberTargets := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberTargets)), "True") &&
-		sa.ParamStr(cards.PKValidTgts) != "" && sa.ParamStr(cards.PKDefined) == "" && revealDefined == ""
+		TargetsOf(sa).Targeted() && sa.ParamStr(cards.PKDefined) == "" && revealDefined == ""
 	random := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRandom)), "True")
 	g := h.Game()
 	// Forge's RevealDefined$ is the reveal family's equivalent of Defined$.

@@ -421,7 +421,7 @@ func effCopyPermanent(h Host, c *Ctx, sa *cards.SA) {
 
 	// Copy source.
 	spec := strings.TrimSpace(sa.ParamStr(cards.PKDefined))
-	_, hasTgts := sa.Param(cards.PKValidTgts)
+	hasTgts := TargetsOf(sa).Has(TgtValidPresent)
 	populate := strings.EqualFold(strings.TrimSpace(sa.Params["Populate"]), "True")
 	var targets []state.Target
 	switch {

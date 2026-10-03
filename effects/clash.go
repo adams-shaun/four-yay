@@ -184,7 +184,7 @@ func clashParticipants(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 		// still clash with an opponent: fall through to Forge's own "choose
 		// an opponent" fallback rather than clashing with nobody.
 	}
-	if _, targeted := sa.Param(cards.PKValidTgts); targeted {
+	if TargetsOf(sa).Has(TgtValidPresent) {
 		for _, t := range Defined(h, c, sa) {
 			if t.IsPlayer {
 				add(t.Player)

@@ -30,7 +30,7 @@ func charmTargetSlots(svars map[string]string, root *cards.SA, modes []string) [
 			return nil
 		}
 		seen[name] = true
-		if sub := cards.ResolveSVar(svars, name); sub != nil && strings.TrimSpace(sub.ParamStr(cards.PKValidTgts)) != "" {
+		if sub := cards.ResolveSVar(svars, name); sub != nil && effects.TargetsOf(sub).Targeted() {
 			slots = append(slots, name)
 		}
 	}
@@ -181,7 +181,7 @@ func (e *Engine) askCharmSeqSlot(p state.PlayerID, source state.ObjID, svars map
 		if max > len(cs) {
 			max = len(cs)
 		}
-		prompt := strings.TrimSpace(sa.ParamStr(cards.PKTgtPrompt))
+		prompt := effects.TargetsOf(sa).Prompt
 		if prompt == "" {
 			prompt = "Choose a target"
 		}
@@ -446,7 +446,7 @@ func (e *Engine) candidateControllerSeat(candidate targetCandidate) state.Player
 // callers can reject a mandatory ask without exposing an unsatisfiable
 // decision.
 func (e *Engine) sameControllerTargetBounds(sa *cards.SA, candidates []targetCandidate, min, max int) (int, int, int, bool) {
-	if !strings.EqualFold(sa.ParamStr(cards.PKTargetsWithSameController), "True") {
+	if !effects.TargetsOf(sa).Has(effects.TgtSameController) {
 		return min, max, 0, false
 	}
 	counts := map[state.PlayerID]int{}
@@ -485,10 +485,11 @@ func (e *Engine) oneEachTargetBounds(sa *cards.SA, candidates []targetCandidate,
 	// equivalent flags is present. Before this only the
 	// TargetsForEachPlayer$ spelling was read and Mysterious Stranger asked
 	// for ONE target (Min 1 / Max 1) instead of one per represented player.
-	if strings.EqualFold(sa.ParamStr(cards.PKTargetMin), "OneEach") {
+	tp := effects.TargetsOf(sa)
+	if tp.Has(effects.TgtMinOneEach) {
 		min = distinct
 	}
-	if strings.EqualFold(sa.ParamStr(cards.PKTargetMax), "OneEach") {
+	if tp.Has(effects.TgtMaxOneEach) {
 		max = distinct
 	}
 	// Cap the maximum at the distinct-controller count for BOTH shapes: a
@@ -531,8 +532,7 @@ func (e *Engine) narrowSameController(targets []state.Target) []state.Target {
 }
 
 func targetControllerExclusive(sa *cards.SA) bool {
-	return strings.EqualFold(sa.ParamStr(cards.PKTargetsForEachPlayer), "True") ||
-		strings.EqualFold(sa.ParamStr(cards.PKTargetsWithDifferentControllers), "True")
+	return effects.TargetsOf(sa).Flags&(effects.TgtForEachPlayer|effects.TgtDifferentControllers) != 0
 }
 
 // targetControllerGroup is the Option.Group label binding one selection slot
@@ -611,11 +611,11 @@ func (e *Engine) narrowDifferentControllers(targets []state.Target) []state.Targ
 // reaches this arm unresolvable, both carriers are the literal 10).
 
 func (e *Engine) maxTotalTargetCMC(p state.PlayerID, source state.ObjID, sa *cards.SA, x int32) (int, bool) {
-	v, ok := sa.Param(cards.PKMaxTotalTargetCMC)
-	if !ok {
+	v := effects.TargetsOf(sa).MaxTotalCMC
+	if !v.Present {
 		return 0, false
 	}
-	if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
+	if n, err := strconv.Atoi(strings.TrimSpace(v.Text)); err == nil {
 		return n, true
 	}
 	ctx, okc := e.targetBoundCtx(p, source)
@@ -623,7 +623,7 @@ func (e *Engine) maxTotalTargetCMC(p state.PlayerID, source state.ObjID, sa *car
 		return 0, false
 	}
 	ctx.X = x
-	if n, resolved := effects.NumResolved(e, ctx, sa, "MaxTotalTargetCMC", 0); resolved {
+	if n, resolved := effects.NumTextResolved(e, ctx, v, 0); resolved {
 		return int(n), true
 	}
 	return 0, false
@@ -653,11 +653,11 @@ func (e *Engine) totalCMCCappedCandidates(candidates []targetCandidate, p state.
 }
 
 func (e *Engine) maxTotalTargetPower(p state.PlayerID, source state.ObjID, sa *cards.SA, x int32) (int, bool) {
-	v, ok := sa.Params["MaxTotalTargetPower"]
-	if !ok {
+	v := effects.TargetsOf(sa).MaxTotalPower
+	if !v.Present {
 		return 0, false
 	}
-	if n, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
+	if n, err := strconv.Atoi(strings.TrimSpace(v.Text)); err == nil {
 		return n, true
 	}
 	ctx, okc := e.targetBoundCtx(p, source)
@@ -665,7 +665,7 @@ func (e *Engine) maxTotalTargetPower(p state.PlayerID, source state.ObjID, sa *c
 		return 0, false
 	}
 	ctx.X = x
-	if n, resolved := effects.NumResolved(e, ctx, sa, "MaxTotalTargetPower", 0); resolved {
+	if n, resolved := effects.NumTextResolved(e, ctx, v, 0); resolved {
 		return int(n), true
 	}
 	return 0, false
@@ -869,7 +869,7 @@ func (e *Engine) AskCopyTargets() bool {
 		return false
 	}
 	sa := decls[stage]
-	if sa == nil || strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) == "" {
+	if sa == nil || !effects.TargetsOf(sa).Targeted() {
 		return false
 	}
 	candidates := e.legalTargetCandidates(controller, o.ID, o.ID, sa)
@@ -1015,7 +1015,7 @@ func (e *Engine) copyTargetDeclarations(o *state.Object) []*cards.SA {
 		for _, hf := range []*cards.Face{ff, fa} {
 			if modes := copyCharmModes(hf, hf.SpellAbility(), o.ChosenModes); len(modes) > 0 {
 				out = append(out, modes...)
-			} else if sa := hf.SpellAbility(); sa != nil && strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) != "" {
+			} else if sa := hf.SpellAbility(); sa != nil && effects.TargetsOf(sa).Targeted() {
 				out = append(out, sa)
 			}
 		}
@@ -1032,12 +1032,12 @@ func (e *Engine) copyTargetDeclarations(o *state.Object) []*cards.SA {
 }
 
 func copyCharmModes(f *cards.Face, sa *cards.SA, names []string) []*cards.SA {
-	if f == nil || sa == nil || sa.API != "Charm" || len(names) == 0 || sa.ParamStr(cards.PKValidTgts) != "" {
+	if f == nil || sa == nil || sa.API != "Charm" || len(names) == 0 || effects.TargetsOf(sa).Targeted() {
 		return nil
 	}
 	var out []*cards.SA
 	for _, name := range names {
-		if sub := cards.ResolveSVar(f.SVars, name); sub != nil && strings.TrimSpace(sub.ParamStr(cards.PKValidTgts)) != "" {
+		if sub := cards.ResolveSVar(f.SVars, name); sub != nil && effects.TargetsOf(sub).Targeted() {
 			out = append(out, sub)
 		}
 	}
@@ -1058,7 +1058,7 @@ func (e *Engine) copyInheritedForDeclaration(o *state.Object, decls []*cards.SA,
 	if stages, ok := e.fuseTargets[o.ID]; ok {
 		index := stage
 		if ff, _ := fusedSplitFaces(o); ff != nil {
-			if sa := ff.SpellAbility(); sa == nil || strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) == "" {
+			if sa := ff.SpellAbility(); sa == nil || !effects.TargetsOf(sa).Targeted() {
 				index++ // the first fused half has no target declaration
 			}
 		}

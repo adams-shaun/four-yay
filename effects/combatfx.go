@@ -164,7 +164,7 @@ func effUntapAll(h Host, c *Ctx, sa *cards.SA) {
 func allPlayersFor(h Host, c *Ctx, sa *cards.SA) []state.PlayerID {
 	g := h.Game()
 	if strings.TrimSpace(sa.ParamStr(cards.PKDefined)) == "" {
-		if _, targeted := sa.Param(cards.PKValidTgts); !targeted {
+		if !TargetsOf(sa).Has(TgtValidPresent) {
 			return g.AliveFrom(0)
 		}
 	}
@@ -466,7 +466,7 @@ func effAnimate(h Host, c *Ctx, sa *cards.SA) {
 	// sa.getTargets() to the host's remembered list, which the chain's later
 	// `Defined$ Remembered` link (Grapple's DBDamage) reads. Only an SA that
 	// targets has targets to remember.
-	_, targeted := sa.Param(cards.PKValidTgts)
+	targeted := TargetsOf(sa).Has(TgtValidPresent)
 	rememberTargets := targeted && !rememberAnimated &&
 		strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberTargets)), "True")
 	var ateotIDs []state.ObjID

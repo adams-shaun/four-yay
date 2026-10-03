@@ -612,9 +612,7 @@ func paymentPlanSpellTargets(f *cards.Face) bool {
 		return true
 	}
 	targets := func(sa *cards.SA) bool {
-		return strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) != "" || strings.TrimSpace(sa.ParamStr(cards.PKTgtPrompt)) != "" ||
-			strings.TrimSpace(sa.ParamStr(cards.PKTargetType)) != "" || strings.TrimSpace(sa.ParamStr(cards.PKTargetMin)) != "" ||
-			strings.TrimSpace(sa.ParamStr(cards.PKTargetMax)) != "" || strings.TrimSpace(sa.ParamStr(cards.PKTgtZone)) != ""
+		return effects.TargetsOf(sa).Has(effects.TgtDeclares)
 	}
 	var walk func(sa *cards.SA, depth int) bool
 	walk = func(sa *cards.SA, depth int) bool {

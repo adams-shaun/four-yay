@@ -930,7 +930,7 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 					e.drainAwaitsModes = true
 				}
 			}
-			if !handled && pt.SA.ParamStr(cards.PKValidTgts) != "" {
+			if !handled && effects.TargetsOf(pt.SA).Targeted() {
 				e.askTarget(pt.Controller, id, pt.SA)
 			}
 		}
@@ -967,7 +967,7 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 					e.drainAwaitsModes = true
 				}
 			}
-			if !handled && pt.SA.ParamStr(cards.PKValidTgts) != "" {
+			if !handled && effects.TargetsOf(pt.SA).Targeted() {
 				e.askTarget(pt.Controller, id, pt.SA)
 			}
 		}
@@ -1053,7 +1053,7 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 					e.drainAwaitsModes = true
 				}
 			}
-			if !handled && pt.SA.ParamStr(cards.PKValidTgts) != "" {
+			if !handled && effects.TargetsOf(pt.SA).Targeted() {
 				e.askTarget(pt.Controller, id, pt.SA)
 			}
 		}
@@ -1164,7 +1164,7 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 				e.drainAwaitsModes = true
 			}
 		}
-		if !handled && pt.SA.ParamStr(cards.PKValidTgts) != "" {
+		if !handled && effects.TargetsOf(pt.SA).Targeted() {
 			e.askTarget(pt.Controller, id, pt.SA)
 		}
 		if !handled {

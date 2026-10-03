@@ -105,7 +105,7 @@ func recordParentLink(c *Ctx, sa *cards.SA, fromPreAsk []state.Target, preAsked 
 	if !answered {
 		return
 	}
-	if _, targeted := sa.Param(cards.PKValidTgts); !targeted {
+	if !TargetsOf(sa).Has(TgtValidPresent) {
 		return
 	}
 	c.parentLinks = append(c.parentLinks, copyTargets(answer))

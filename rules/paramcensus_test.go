@@ -1630,7 +1630,6 @@ var apiSpecificRulesSA = map[string][]string{
 	"manaAbilityCostPrefix":                 {"Mana"},
 	"Engine.paymentPlanRelaxedAlternatives": {"Mana"},
 	"Engine.manaActivationGateHolds":        {"Mana"},
-	"Engine.isTriggeredManaAbility":         {"Mana"},
 	"Engine.resolveManaAbilityRefOriginal":  {"Mana"},
 	"Engine.resolveManaEffect":              {"Mana"},
 	"Engine.AvailableMana":                  {"Mana"},

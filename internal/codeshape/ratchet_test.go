@@ -134,6 +134,11 @@ const (
 	// effects/effect_params.go (codeshape.EffectFiles,
 	// codeshape.EffectOnlyKeys). It landed at zero.
 	effectParamLeaks = 0
+	// targetParamLeaks is the same census for the generic targeting tier's
+	// compiler, effects/targets_params.go (codeshape.TargetOnlyKeys): no
+	// targeting key is read anywhere in rules/ or effects/ outside it. It
+	// landed at zero.
+	targetParamLeaks = 0
 )
 
 func measureRepo(t *testing.T) Metrics {
@@ -299,6 +304,10 @@ func TestCodeShapeOnlyShrinks(t *testing.T) {
 				"field to compileEffect in effects/effect_params.go) instead of reading the " +
 				"ability's Params in effects/effect.go or an Effect-only key elsewhere. " +
 				"Leaks: " + strings.Join(m.EffectLeaks, ", ")},
+		{"targetParamLeaks", m.TargetParamLeaks, targetParamLeaks,
+			"Read the targeting parameter through effects.TargetsOf's compiled TargetParams " +
+				"(add a field to compileTargets in effects/targets_params.go) instead of reading " +
+				"a targeting key from the ability's Params. Leaks: " + strings.Join(m.TargetLeaks, ", ")},
 		{"triggerContextLiterals", m.TriggerContextLiterals, triggerContextLiterals,
 			"Derive trigger referents from the firing event (rules' triggerReferents) or " +
 				"copy an existing TriggerContext and set the fields that differ; a " +

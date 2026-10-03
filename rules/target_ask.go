@@ -6,8 +6,6 @@
 package rules
 
 import (
-	"strings"
-
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
 	"github.com/adams-shaun/gorge/effects"
@@ -19,7 +17,7 @@ func (e *Engine) targetChooserCore(controller state.PlayerID, remembered []state
 	if sa == nil {
 		return controller, false, false
 	}
-	spec := strings.TrimSpace(sa.ParamStr(cards.PKTargetingPlayer))
+	spec := effects.TargetsOf(sa).TargetingPlayer
 	if spec == "" {
 		return controller, false, false
 	}
@@ -115,7 +113,7 @@ type tpCtlAnswer struct {
 // for the Opponent form: every other TargetingPlayer$ referent resolves
 // deterministically or fails closed.
 func (e *Engine) targetControlsChooser(p state.PlayerID, source state.ObjID, sa *cards.SA) (state.PlayerID, tpControlState) {
-	if sa == nil || !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKTargetingPlayerControls)), "True") {
+	if sa == nil || !effects.TargetsOf(sa).Has(effects.TgtPlayerControls) {
 		return 0, tpNone
 	}
 	// The answered ask's record first: once a target decision for this
@@ -127,7 +125,7 @@ func (e *Engine) targetControlsChooser(p state.PlayerID, source state.ObjID, sa 
 	if rec, ok := e.tpCtlChooser[source]; ok && (sa.Line == "" || rec.line == "" || rec.line == sa.Line) {
 		return rec.player, tpResolved
 	}
-	spec := strings.TrimSpace(sa.ParamStr(cards.PKTargetingPlayer))
+	spec := effects.TargetsOf(sa).TargetingPlayer
 	if spec == "Opponent" || spec == "Player.Opponent" {
 		// The mid-tier answered selection (oppPicksMid, keyed by the SA's
 		// line): present between the "opp_pick" resume arm and the
@@ -233,7 +231,7 @@ func (e *Engine) filterTargetingPlayerControls(out []targetCandidate, sa *cards.
 // leaving the stack (the zone-change clear), so the next targeting cycle on
 // a fresh object never sees a stale seat.
 func (e *Engine) recordTpControlsChooser(obj state.ObjID, sa *cards.SA, chooser state.PlayerID) {
-	if sa == nil || obj == 0 || !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKTargetingPlayerControls)), "True") {
+	if sa == nil || obj == 0 || !effects.TargetsOf(sa).Has(effects.TgtPlayerControls) {
 		return
 	}
 	if e.tpCtlChooser == nil {
@@ -928,13 +926,13 @@ func offeredTargetSA(o *state.Object, svars map[string]string) *cards.SA {
 		if len(o.ChosenModes) > 0 && effects.CharmOf(o.Ability).HasChoices {
 			for _, name := range o.ChosenModes {
 				if sub := cards.ResolveSVar(svars, name); sub != nil &&
-					strings.TrimSpace(sub.ParamStr(cards.PKValidTgts)) != "" {
+					effects.TargetsOf(sub).Targeted() {
 					return sub
 				}
 			}
 			return nil
 		}
-		if strings.TrimSpace(o.Ability.ParamStr(cards.PKValidTgts)) != "" {
+		if effects.TargetsOf(o.Ability).Targeted() {
 			return o.Ability
 		}
 		return nil
@@ -948,7 +946,7 @@ func offeredTargetSA(o *state.Object, svars map[string]string) *cards.SA {
 		return nil
 	}
 	targetSA := modalTargetSA(f, sa, o.ChosenModes)
-	if targetSA != nil && strings.TrimSpace(targetSA.ParamStr(cards.PKValidTgts)) != "" {
+	if targetSA != nil && effects.TargetsOf(targetSA).Targeted() {
 		return targetSA
 	}
 	return nil

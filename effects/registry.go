@@ -2330,7 +2330,7 @@ type targetableObjectsHost interface {
 
 func prefetchRememberedChangeZoneTarget(h Host, c *Ctx, sa *cards.SA) ([]state.Target, bool, bool) {
 	if c == nil || sa == nil || sa.API != "Effect" ||
-		strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) != "" {
+		TargetsOf(sa).Targeted() {
 		return nil, false, false
 	}
 	remembersTargeted := false
@@ -2347,7 +2347,7 @@ func prefetchRememberedChangeZoneTarget(h Host, c *Ctx, sa *cards.SA) ([]state.T
 	childName := strings.TrimSpace(sa.ParamStr(cards.PKSubAbility))
 	child := cards.ResolveSVar(c.SVars, childName)
 	if child == nil || child.API != "ChangeZone" ||
-		strings.TrimSpace(child.ParamStr(cards.PKValidTgts)) == "" {
+		!TargetsOf(child).Targeted() {
 		return nil, false, false
 	}
 	// The root Effect has no target of its own, so a generic placement marker
@@ -2681,7 +2681,7 @@ func Resolve(h Host, c *Ctx, sa *cards.SA) {
 			// so this cannot repoint a sub's explicit Defined$ Targeted away
 			// from what it meant.
 			if next := sa.Sub; len(c.Targets) == 0 && next != nil &&
-				strings.TrimSpace(next.ParamStr(cards.PKValidTgts)) == "" {
+				!TargetsOf(next).Targeted() {
 				c.Targets = append([]state.Target(nil), ts...)
 			}
 			fn(h, c, sa)

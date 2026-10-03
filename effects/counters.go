@@ -263,7 +263,7 @@ func effPutCounterAll(h Host, c *Ctx, sa *cards.SA) {
 	if strings.TrimSpace(sa.ParamStr(cards.PKPlacer)) != "" {
 		exotic = append(exotic, "Placer$")
 	}
-	if strings.TrimSpace(sa.ParamStr(cards.PKTargetUnique)) != "" {
+	if TargetsOf(sa).Has(TgtUniqueSet) {
 		exotic = append(exotic, "TargetUnique$")
 	}
 	if strings.TrimSpace(sa.Params["AmountByChosenMap"]) != "" {
@@ -276,7 +276,7 @@ func effPutCounterAll(h Host, c *Ctx, sa *cards.SA) {
 	// exotic shape: anything else (Corrosion's "Opponent", a named
 	// selector, a compound) would fall through to the whole-table branch
 	// below and sweep the WRONG-WIDE set silently. Loud instead.
-	if tgts := strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)); tgts != "" && !strings.EqualFold(tgts, "Player") {
+	if tgts := TargetsOf(sa).ValidTgts; tgts != "" && !strings.EqualFold(tgts, "Player") {
 		exotic = append(exotic, "ValidTgts$ "+tgts)
 	}
 	if len(exotic) > 0 {
@@ -310,7 +310,7 @@ func putCounterAllSweep(h Host, c *Ctx, sa *cards.SA, spec, kind string, n int32
 		return
 	}
 	players := h.Game().AliveFrom(0)
-	if strings.TrimSpace(sa.ParamStr(cards.PKValidTgts)) == "Player" {
+	if TargetsOf(sa).ValidTgts == "Player" {
 		players = nil
 		for _, t := range c.Targets {
 			if t.IsPlayer {
@@ -454,7 +454,7 @@ func effRemoveCounter(h Host, c *Ctx, sa *cards.SA) {
 	if strings.TrimSpace(sa.Params["CounterNumShared"]) != "" {
 		exotic = append(exotic, "CounterNumShared$")
 	}
-	if zone := strings.TrimSpace(sa.ParamStr(cards.PKTgtZone)); zone != "" && !strings.EqualFold(zone, "Battlefield") {
+	if zone := TargetsOf(sa).ZoneText; zone != "" && !strings.EqualFold(zone, "Battlefield") {
 		exotic = append(exotic, "TgtZone$ "+zone)
 	}
 	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberAmount)), "True") {
@@ -1028,7 +1028,7 @@ func effMoveCounter(h Host, c *Ctx, sa *cards.SA) {
 
 	// Loud-degrade the shapes the core cannot express, before anything moves.
 	var exotic []string
-	if zone := strings.TrimSpace(sa.ParamStr(cards.PKTgtZone)); zone != "" && !strings.EqualFold(zone, "Battlefield") {
+	if zone := TargetsOf(sa).ZoneText; zone != "" && !strings.EqualFold(zone, "Battlefield") {
 		exotic = append(exotic, "TgtZone$ "+zone)
 	}
 	if raw, present := sa.Param(cards.PKCounterNum); present && numParam != "" && !strings.EqualFold(numParam, "All") && !strings.EqualFold(numParam, "Any") {

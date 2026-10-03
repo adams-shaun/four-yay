@@ -1,8 +1,6 @@
 package effects
 
 import (
-	"strings"
-
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -33,7 +31,7 @@ import (
 // re-entry sets Ctx.OfferedSA so this pre-ask is skipped -- the two cannot
 // double-enforce.
 func TargetUniqueRequested(sa *cards.SA) bool {
-	return sa != nil && strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKTargetUnique)), "True")
+	return TargetsOf(sa).Has(TgtUnique)
 }
 
 // TargetsAlreadyChosen is the exclusion set a TargetUnique$ ask must not

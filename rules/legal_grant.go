@@ -75,7 +75,7 @@ func pureGrantKeywords(ab *cards.SA) []string {
 	switch ab.ParamStr(cards.PKDefined) {
 	case "Self", "Parent":
 	case "":
-		if _, targeted := ab.Param(cards.PKValidTgts); targeted {
+		if effects.TargetsOf(ab).Has(effects.TgtValidPresent) {
 			return nil
 		}
 	default:
