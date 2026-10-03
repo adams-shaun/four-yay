@@ -17,8 +17,8 @@ import (
 // that SA to the pre-existing object path
 // instead: evaluating SVar/Count$ count expressions here is a scoped-out
 // follow-up, not part of handmove1.
-func handChangeNum(sa *cards.SA) (int32, bool) {
-	v, present := sa.Param(cards.PKChangeNum)
+func handChangeNum(cz *ChangeZoneParams) (int32, bool) {
+	v, present := cz.ChangeNum.Text, cz.ChangeNum.Present
 	if !present || v == "" {
 		return 1, true
 	}
@@ -42,7 +42,12 @@ func handChangeNum(sa *cards.SA) (int32, bool) {
 // Only a literal ChangeNum$ (or its absent default 1) reaches here: the
 // routing in effChangeZone Notes a non-literal before this is ever called.
 func forgetOtherRemembered(h Host, c *Ctx, sa *cards.SA) {
-	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKForgetOtherRemembered)), "True") && !c.ForgetOtherCleared {
+	forgetOther(h, c, forgetOtherRememberedParam(sa))
+}
+
+// forgetOther is forgetOtherRemembered over a compiled ForgetOtherRemembered$.
+func forgetOther(h Host, c *Ctx, forget bool) {
+	if forget && !c.ForgetOtherCleared {
 		c.Remembered = nil
 		clearEventRemembered(h, c)
 		if c.ForgetOtherReady {
@@ -61,7 +66,13 @@ func forgetOtherRemembered(h Host, c *Ctx, sa *cards.SA) {
 // re-runs on re-entry (effDigUntil's re-scan). A walk whose answered
 // revalidation instead reads the ask's ResumeRemembered ride never arms it.
 func initForgetOtherSnapshot(h Host, c *Ctx, sa *cards.SA, owners []state.PlayerID, minOwners int) {
-	if len(owners) < minOwners || c.ForgetOtherReady || !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKForgetOtherRemembered)), "True") {
+	initForgetOther(h, c, forgetOtherRememberedParam(sa), owners, minOwners)
+}
+
+// initForgetOther is initForgetOtherSnapshot over a compiled
+// ForgetOtherRemembered$.
+func initForgetOther(h Host, c *Ctx, forget bool, owners []state.PlayerID, minOwners int) {
+	if len(owners) < minOwners || c.ForgetOtherReady || !forget {
 		return
 	}
 	c.ForgetOtherReady = true
@@ -101,9 +112,9 @@ func forgetOtherPreClearContext(sel, c *Ctx) SpecContext {
 	return sel.SpecContext(sel.Controller)
 }
 
-func effChangeZoneHand(h Host, c *Ctx, sa *cards.SA, to state.Zone) {
-	count, _ := handMoveCountOf(h, c, sa)
-	handMoveOwnersWalk(h, c, sa, to, []state.PlayerID{c.Controller}, count, false, nil, false)
+func effChangeZoneHand(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.Zone) {
+	count, _ := handMoveCountOf(h, c, cz)
+	handMoveOwnersWalk(h, c, sa, cz, to, []state.PlayerID{c.Controller}, count, false, nil, false)
 }
 
 // handMoveCount is the ChangeNum$ bound one hidden-hand walk carries: either
@@ -123,15 +134,15 @@ type handMoveCount struct {
 // CR 107.3i) resolves through the ordinary count evaluator, bound to the
 // resolving context. Anything else returns false and the caller is loud (a
 // Note) rather than degrading to a silent zero-count no-op.
-func handMoveCountOf(h Host, c *Ctx, sa *cards.SA) (handMoveCount, bool) {
-	raw := strings.TrimSpace(sa.ParamStr(cards.PKChangeNum))
+func handMoveCountOf(h Host, c *Ctx, cz *ChangeZoneParams) (handMoveCount, bool) {
+	raw := cz.ChangeNum.Text
 	if raw == "" {
 		return handMoveCount{fixed: 1}, true
 	}
 	if strings.EqualFold(raw, "NumInHand") || strings.EqualFold(raw, "HandSize") {
 		return handMoveCount{perOwner: true}, true
 	}
-	if n, ok := handChangeNum(sa); ok {
+	if n, ok := handChangeNum(cz); ok {
 		return handMoveCount{fixed: n}, true
 	}
 	resolvable := raw == "X" || strings.HasPrefix(raw, "Count$") ||
@@ -145,7 +156,7 @@ func handMoveCountOf(h Host, c *Ctx, sa *cards.SA) (handMoveCount, bool) {
 	if !resolvable {
 		return handMoveCount{}, false
 	}
-	n := Num(h, c, sa, "ChangeNum", 1)
+	n := numText(h, c, cz.ChangeNum, 1)
 	if n < 0 {
 		n = 0
 	}
@@ -167,7 +178,7 @@ func handMoveCountOf(h Host, c *Ctx, sa *cards.SA) (handMoveCount, bool) {
 // DefinedPlayer$/ValidTgts$, the chooser from Chooser$ (Forge's default is
 // the hand owner). Every shape this function cannot model emits a Note and
 // moves nothing -- the finding's floor: never a silent no-op.
-func effChangeZoneHandOwners(h Host, c *Ctx, sa *cards.SA, to state.Zone) {
+func effChangeZoneHandOwners(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.Zone) {
 	// On a resume of a multi-owner walk, the owner cursor's captured list is
 	// authoritative: the first move may have cleared the remembered set the
 	// owner selector reads (DefinedPlayer$ RememberedOwner with
@@ -178,11 +189,11 @@ func effChangeZoneHandOwners(h Host, c *Ctx, sa *cards.SA, to state.Zone) {
 	// the same list; this restores it early enough to survive the guards.
 	owners, ok := c.ForgetOtherOwners, true
 	if !c.ForgetOtherReady {
-		owners, ok = handMoveOwners(h, c, sa)
+		owners, ok = handMoveOwners(h, c, sa, cz)
 	}
 	if !ok {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-			Text: "cannot resolve the hand owner (DefinedPlayer$ " + strings.TrimSpace(sa.ParamStr(cards.PKDefinedPlayer)) +
+			Text: "cannot resolve the hand owner (DefinedPlayer$ " + cz.DefinedPlayer.Text +
 				"); no hand card moves"})
 		return
 	}
@@ -191,26 +202,26 @@ func effChangeZoneHandOwners(h Host, c *Ctx, sa *cards.SA, to state.Zone) {
 			Text: "the hand owner selector names no player this engine can resolve; no hand card moves"})
 		return
 	}
-	count, ok := handMoveCountOf(h, c, sa)
+	count, ok := handMoveCountOf(h, c, cz)
 	if !ok {
 		h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-			Text: "cannot choose ChangeNum$ " + strings.TrimSpace(sa.ParamStr(cards.PKChangeNum)) +
+			Text: "cannot choose ChangeNum$ " + cz.ChangeNum.Text +
 				" cards from a selected hand (a count this engine cannot evaluate)"})
 		return
 	}
 	choosers := make([]state.PlayerID, len(owners))
 	for i, owner := range owners {
-		ch, ok := handMoveChooserFor(h, c, sa, owner)
+		ch, ok := handMoveChooserFor(h, c, cz, owner)
 		if !ok {
 			h.Emit(events.Event{Kind: events.Note, Obj: c.Source, Player: c.Controller,
-				Text: "Chooser$ " + strings.TrimSpace(sa.ParamStr(cards.PKChooser)) +
+				Text: "Chooser$ " + cz.Chooser +
 					" is not a chooser this engine can resolve; no hand card moves"})
 			return
 		}
 		choosers[i] = ch
 	}
-	random := strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKAtRandom)), "True")
-	handMoveOwnersWalk(h, c, sa, to, owners, count, random, func(_ Host, _ *Ctx, _ *cards.SA, owner state.PlayerID) (state.PlayerID, bool) {
+	random := cz.AtRandom
+	handMoveOwnersWalk(h, c, sa, cz, to, owners, count, random, func(_ Host, _ *Ctx, _ *cards.SA, owner state.PlayerID) (state.PlayerID, bool) {
 		return choosers[ownerIndex(owners, owner)], true
 	}, true)
 }
@@ -234,14 +245,14 @@ func ownerIndex(owners []state.PlayerID, owner state.PlayerID) int {
 // caller emits its loud Note -- degrading an unmodelled selector to the
 // resolving controller's hand would move (and reveal) cards from the WRONG
 // player's hidden hand, which is worse than moving none.
-func handMoveOwners(h Host, c *Ctx, sa *cards.SA) ([]state.PlayerID, bool) {
-	if spec := strings.TrimSpace(sa.ParamStr(cards.PKDefinedPlayer)); spec != "" {
+func handMoveOwners(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams) ([]state.PlayerID, bool) {
+	if spec := cz.DefinedPlayer.Text; spec != "" {
 		if _, modelled := definedSpec(h, c, spec); !modelled {
 			return nil, false
 		}
-		return searchPlayers(h, c, sa), true
+		return searchPlayersFor(h, c, cz.fetch()), true
 	}
-	if plainRememberedSelector(sa.ParamStr(cards.PKDefined)) {
+	if plainRememberedSelector(cz.Defined) {
 		// A remembered PLAYER is a legitimate hand owner; the plain family no
 		// longer drops it just because a remembered CARD coexists in the set.
 		return definedPlayers(h, c, sa), true
@@ -274,18 +285,18 @@ func handMoveOwners(h Host, c *Ctx, sa *cards.SA) ([]state.PlayerID, bool) {
 // the causing event's bound player (Kheru Mind Eater, Widespread Panic). An
 // unmodelled value fails closed (ok=false) so the caller is loud rather than
 // handing the ask to a guessed seat.
-func handMoveChooserFor(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID) (state.PlayerID, bool) {
-	switch strings.TrimSpace(sa.ParamStr(cards.PKChooser)) {
-	case "", "Owner":
+func handMoveChooserFor(h Host, c *Ctx, cz *ChangeZoneParams, owner state.PlayerID) (state.PlayerID, bool) {
+	switch cz.handChooser {
+	case handChooserOwner:
 		return owner, true
-	case "You":
+	case handChooserYou:
 		return c.Controller, true
-	case "Targeted":
+	case handChooserTargeted:
 		if len(c.Targets) > 0 {
 			return PlayerOf(h, c, c.Targets[0]), true
 		}
 		return owner, true
-	case "TriggeredTarget":
+	case handChooserTriggeredTarget:
 		if c.TriggerTarget.IsPlayer {
 			return c.TriggerTarget.Player, true
 		}
@@ -295,12 +306,12 @@ func handMoveChooserFor(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID) (sta
 			}
 		}
 		return owner, true
-	case "TriggeredPlayer":
+	case handChooserTriggeredPlayer:
 		if c.TriggerPlayer.IsPlayer {
 			return c.TriggerPlayer.Player, true
 		}
 		return owner, true
-	case "ChosenPlayer", "Player.Chosen":
+	case handChooserChosenPlayer:
 		// The chosen player, resolved through the SAME shared read
 		// searchChooser/hiddenPickChooser use. With none bound or the seat
 		// gone, fail closed (never fall to the hand owner: a hidden-hand
@@ -340,13 +351,10 @@ func handMoveChooserFor(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID) (sta
 // a scoped-out follow-up:
 // Destination$ Hand/Sideboard oddities (2 lines), and any ConditionPresent$/
 // ConditionDefined$ gate (the engine-wide Condition* gap).
-func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []state.PlayerID,
+func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, cz *ChangeZoneParams, to state.Zone, owners []state.PlayerID,
 	count handMoveCount, random bool, chooserFor func(Host, *Ctx, *cards.SA, state.PlayerID) (state.PlayerID, bool),
 	eventPlayer bool) {
-	spec := sa.ParamStr(cards.PKChangeType)
-	if spec == "" {
-		spec = "Card" // the whole hand: Brainstorm, Jace's [0], Sawtooth Loon
-	}
+	spec := cz.ChangeType // "Card" when absent: the whole hand (Brainstorm, Jace's [0], Sawtooth Loon)
 	// A leading `Permanent` base in a HAND-origin move must read Forge's
 	// "permanent CARD" (nta1): every candidate here is a card in a hand, so
 	// the shared matcher's on-the-battlefield base reading (matchesBase)
@@ -380,10 +388,10 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 	confirmYes := strings.EqualFold(c.HandMoveConfirm, "yes")
 	confirmTarget := c.HandMoveConfirmTarget
 	c.HandMoveConfirm, c.HandMoveConfirmDone, c.HandMoveConfirmTarget = "", false, 0
-	withKind := sa.ParamStr(cards.PKWithCountersType)
+	withKind := cz.WithCountersType
 	var withAmt int32
 	if withKind != "" && counterDestination(to) {
-		withAmt = withCounterAmount(h, c, sa)
+		withAmt = withCounterAmount(h, c, cz)
 	}
 	// settleHandMove settles one chosen card: exactly the shared ChangeZone
 	// mover; on the owner-SELECTED shapes the Move event also carries the
@@ -394,14 +402,14 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 	// tail is also the one Tapped$ True entry-state emitter for every
 	// hand-origin mover, so concrete Defined$ objects and future hand-owner
 	// selectors cannot silently miss the tapped entry.
-	rider := classifyAttackingEntry(c, sa, to)
+	rider := classifyAttackingEntryText(c, cz.Riders.Attacking, to)
 	// The pre-clear remembered snapshot rides the walk's asks: owner B's
 	// candidates must still match the set the walk started with after
 	// owner A's settle cleared both halves of the remembered state. It is
 	// armed for a single owner too now that the walk clears BEFORE its first
 	// ask (an accepted Optional$ confirmation or a mandatory entry), so the
 	// answered re-entry's eligibility filter still sees the pre-clear set.
-	initForgetOtherSnapshot(h, c, sa, owners, 1)
+	initForgetOther(h, c, cz.Riders.ForgetOtherRemembered, owners, 1)
 	// Snapshot eligibility before forgetting: an IsRemembered filter must
 	// still admit an answered card after the old set has been cleared.
 	eligibleByOwner := make([][]state.ObjID, len(owners))
@@ -415,11 +423,11 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 	forgot := false
 	settleHandMove := func(id state.ObjID, owner state.PlayerID) {
 		if !forgot {
-			forgetOtherRemembered(h, c, sa)
+			forgetOther(h, c, cz.Riders.ForgetOtherRemembered)
 			forgot = true
 		}
-		settleChangeZoneMoveAs(h, c, sa, id, state.ZHand, to, withKind, withAmt, owner, eventPlayer, &rider)
-		if strings.EqualFold(sa.ParamStr(cards.PKRememberChanged), "True") {
+		settleChangeZoneMoveAs(h, c, sa, cz, id, state.ZHand, to, withKind, withAmt, owner, eventPlayer, &rider)
+		if cz.RememberChanged {
 			eventRemember(h, c, id)
 		}
 	}
@@ -443,7 +451,7 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 			// answer picked nothing (Forge clears at
 			// ChangeZoneEffect.changeHiddenOriginResolve 1103 before the
 			// choose, so an accepted search that finds nothing still clears).
-			forgetOtherRemembered(h, c, sa)
+			forgetOther(h, c, cz.Riders.ForgetOtherRemembered)
 			var moved []state.ObjID
 			for _, id := range ans {
 				if !containsID(hand, id) {
@@ -459,7 +467,7 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 				settleHandMove(id, owner)
 				moved = append(moved, id)
 			}
-			handLibraryTail(h, g, sa, c.Source, owner, moved, to)
+			handLibraryTail(h, g, cz, c.Source, owner, moved, to)
 			// AtEOT$ on the hand walk: the owner's answered batch is the
 			// affected set, scheduled per owner BEFORE the walk can suspend on a
 			// later owner's ask (a suspension must not lose this batch's
@@ -487,7 +495,7 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 			// decline an engine pick, so the fetch is entered unconditionally
 			// here and the event-backed memory is cleared even when no card can
 			// be drawn.
-			forgetOtherRemembered(h, c, sa)
+			forgetOther(h, c, cz.Riders.ForgetOtherRemembered)
 			if len(eligible) == 0 || n == 0 {
 				continue
 			}
@@ -498,7 +506,7 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 				moved = append(moved, pool[j])
 				pool = append(pool[:j], pool[j+1:]...)
 			}
-			handLibraryTail(h, g, sa, c.Source, owner, moved, to)
+			handLibraryTail(h, g, cz, c.Source, owner, moved, to)
 			scheduleAtEOT(h, c, sa, moved)
 			continue
 		}
@@ -509,7 +517,7 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 		// The markerless may-shapes handTakeOptional recognises stay
 		// confirmation-free: Forge expresses their may as a null pick, not as a
 		// confirmation, so their empty answer is an accepted fetch that clears.
-		if handMoveConfirms(sa) {
+		if handMoveConfirms(cz) {
 			if confirmDone && i < confirmTarget {
 				// This owner's confirmation was already answered on an earlier
 				// pass (declined, or accepted with its pick completed); do not
@@ -517,7 +525,7 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 				continue
 			}
 			if !confirmDone {
-				prompt := strings.TrimSpace(sa.ParamStr(cards.PKOptionalPrompt))
+				prompt := cz.OptionalPrompt
 				if prompt == "" {
 					prompt = "Proceed with moving a card from hand?"
 				}
@@ -554,8 +562,8 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 			// markerless may-shape, or an accepted Optional$ confirmation)
 			// clears its remembered set: Forge clears before the choose and
 			// does not require a nonempty fetchList.
-			if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKForgetOtherRemembered)), "True") {
-				forgetOtherRemembered(h, c, sa)
+			if cz.Riders.ForgetOtherRemembered {
+				forgetOther(h, c, true)
 			}
 			continue
 		}
@@ -564,8 +572,8 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 		// Great Aurora). Its count semantics settle optionality even when the
 		// script has neither marker nor explanatory text; preserve an explicit
 		// Optional$ marker should a future script carry one.
-		intrinsicAll := count.perOwner && strings.TrimSpace(sa.ParamStr(cards.PKOptional)) == "" && strings.TrimSpace(sa.ParamStr(cards.PKMandatory)) == ""
-		optional, optionalKnown := handTakeOptional(h, c, sa, to)
+		intrinsicAll := count.perOwner && !cz.OptionalPresent && !cz.MandatoryPresent
+		optional, optionalKnown := handTakeOptional(h, c, cz, to)
 		if intrinsicAll {
 			optional, optionalKnown = false, true
 		}
@@ -607,7 +615,7 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 					settleHandMove(id, owner)
 					moved = append(moved, id)
 				}
-				handLibraryTail(h, g, sa, c.Source, owner, moved, to)
+				handLibraryTail(h, g, cz, c.Source, owner, moved, to)
 				scheduleAtEOT(h, c, sa, moved)
 				continue
 			}
@@ -621,7 +629,7 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 				settleHandMove(id, owner)
 				moved = append(moved, id)
 			}
-			handLibraryTail(h, g, sa, c.Source, owner, moved, to)
+			handLibraryTail(h, g, cz, c.Source, owner, moved, to)
 			scheduleAtEOT(h, c, sa, moved)
 			continue
 		}
@@ -648,7 +656,7 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 			ResumeForgetOtherOwners:   append([]state.PlayerID(nil), c.ForgetOtherOwners...),
 			ResumeForgetOtherReady:    c.ForgetOtherReady,
 			ResumeForgetOtherCleared:  c.ForgetOtherCleared,
-			Prompt:                    handMovePromptFor(sa, to, int(n), chooser == owner)}
+			Prompt:                    handMovePromptFor(cz, to, int(n), chooser == owner)}
 		for _, id := range eligible {
 			name := "a card"
 			if o := g.Obj(id); o != nil && o.Face() != nil {
@@ -680,7 +688,7 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 		// remembered cards here, before the choose, so this applies even when
 		// the answer picks nothing. The decision above already captured the
 		// pre-clear Remembered, so the resumed revalidation keeps matching.
-		forgetOtherRemembered(h, c, sa)
+		forgetOther(h, c, cz.Riders.ForgetOtherRemembered)
 		// The shared ask boundary (effects.Ask): a ChangeNum$ 0 pick over a
 		// nonempty eligible hand is Min == Max == 0 -- the empty-answer-only
 		// shape -- so it is never posted; AskEmpty resolves silently through
@@ -717,7 +725,7 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 				moved = append(moved, eligible[k])
 			}
 		}
-		handLibraryTail(h, g, sa, c.Source, owner, moved, to)
+		handLibraryTail(h, g, cz, c.Source, owner, moved, to)
 		scheduleAtEOT(h, c, sa, moved)
 	}
 	// The walk completed: release the ride. A later ability in the same
@@ -738,9 +746,8 @@ func handMoveOwnersWalk(h Host, c *Ctx, sa *cards.SA, to state.Zone, owners []st
 // answer there is an accepted fetch that clears. ChoiceOptional$ is
 // deliberately NOT this marker: it names the pick's own cardinality (the
 // Min-0 may-pick default), not a yes/no gate.
-func optionalConfirmMarker(sa *cards.SA) bool {
-	o := strings.TrimSpace(sa.ParamStr(cards.PKOptional))
-	return strings.EqualFold(o, "True") || strings.EqualFold(o, "You")
+func optionalConfirmMarker(cz *ChangeZoneParams) bool {
+	return cz.OptionalYes
 }
 
 // handMoveConfirms reports whether a hidden-hand ChangeZone poses Forge's
@@ -749,8 +756,8 @@ func optionalConfirmMarker(sa *cards.SA) bool {
 // decline-vs-accept split is observable in the ask sequence itself (a decline
 // poses no card pick at all, where an accepted Min-0 pick would), which is
 // Forge's confirm-before-pick order in changeHiddenOriginResolve.
-func handMoveConfirms(sa *cards.SA) bool {
-	return optionalConfirmMarker(sa)
+func handMoveConfirms(cz *ChangeZoneParams) bool {
+	return optionalConfirmMarker(cz)
 }
 
 // hiddenPickConfirms reports whether a Hidden$ True public-origin ChangeZone
@@ -760,8 +767,8 @@ func handMoveConfirms(sa *cards.SA) bool {
 // that player's eligible pool turns out empty -- a decline skips the player
 // with the remembered set intact, and only an accepted confirmation reaches
 // the pick or the empty-pool continuation that clears.
-func hiddenPickConfirms(sa *cards.SA) bool {
-	return optionalConfirmMarker(sa)
+func hiddenPickConfirms(cz *ChangeZoneParams) bool {
+	return optionalConfirmMarker(cz)
 }
 
 // handTakeOptional reads Forge's optional-vs-mandatory markers for a
@@ -771,14 +778,14 @@ func hiddenPickConfirms(sa *cards.SA) bool {
 // markerless may-shapes are recognised from their card/script text (Burgeoning,
 // Oviya, Volcanic Spite); text we cannot classify fails closed and loudly at
 // the caller rather than granting an invented decline.
-func handTakeOptional(h Host, c *Ctx, sa *cards.SA, to state.Zone) (optional, known bool) {
-	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKMandatory)), "True") {
+func handTakeOptional(h Host, c *Ctx, cz *ChangeZoneParams, to state.Zone) (optional, known bool) {
+	if cz.Mandatory {
 		return false, true
 	}
-	if o := strings.TrimSpace(sa.ParamStr(cards.PKOptional)); o != "" {
-		return strings.EqualFold(o, "True") || strings.EqualFold(o, "You"), true
+	if cz.OptionalPresent {
+		return cz.OptionalYes, true
 	}
-	text := sa.ParamStr(cards.PKSpellDescription)
+	text := cz.SpellDescription
 	if o := h.Game().Obj(c.Source); o != nil && o.Face() != nil {
 		text += "\n" + o.Face().Oracle
 	}
@@ -945,10 +952,10 @@ func handMovePhraseMentionsHand(text, phrase string) bool {
 // WHERE matters to the chooser), and whose hand it is when the chooser is
 // not the hand's owner (Chooser$ You: the caster picks out of another
 // player's hand).
-func handMovePromptFor(sa *cards.SA, to state.Zone, n int, own bool) string {
+func handMovePromptFor(cz *ChangeZoneParams, to state.Zone, n int, own bool) string {
 	dest := handDestPhrase(to)
 	if to == state.ZLibrary {
-		if strings.TrimSpace(sa.ParamStr(cards.PKLibraryPosition)) == "-1" {
+		if cz.LibraryPositionText == "-1" {
 			dest = "the bottom of your library"
 		} else {
 			dest = "the top of your library"
@@ -958,7 +965,7 @@ func handMovePromptFor(sa *cards.SA, to state.Zone, n int, own bool) string {
 	if !own {
 		whose = "that player's hand"
 		if to == state.ZLibrary {
-			if strings.TrimSpace(sa.ParamStr(cards.PKLibraryPosition)) == "-1" {
+			if cz.LibraryPositionText == "-1" {
 				dest = "the bottom of that player's library"
 			} else {
 				dest = "the top of that player's library"
@@ -975,7 +982,7 @@ func handMovePromptFor(sa *cards.SA, to state.Zone, n int, own bool) string {
 // with Forge's absent-LibraryPosition$ default (TOP) applied for the hand
 // path -- Brainstorm and Jace's [0] name no LibraryPosition$ and their
 // oracle puts the cards on top.
-func handLibraryTail(h Host, _ *state.Game, sa *cards.SA, source state.ObjID, owner state.PlayerID, moved []state.ObjID, to state.Zone) {
+func handLibraryTail(h Host, _ *state.Game, cz *ChangeZoneParams, source state.ObjID, owner state.PlayerID, moved []state.ObjID, to state.Zone) {
 	if to != state.ZLibrary || len(moved) == 0 {
 		return
 	}
@@ -984,16 +991,15 @@ func handLibraryTail(h Host, _ *state.Game, sa *cards.SA, source state.ObjID, ow
 	// destination choice this engine cannot yet ask: the alternative is named
 	// in a Note and the primary destination/position is taken
 	// deterministically, so the unsupported shape is never silent.
-	if alt := strings.TrimSpace(sa.ParamStr(cards.PKDestinationAlternative)); alt != "" || strings.TrimSpace(sa.Params["LibraryPositionAlternative"]) != "" {
+	if alt := cz.DestinationAltText; alt != "" || cz.LibraryPositionAltText != "" {
 		h.Emit(events.Event{Kind: events.Note, Obj: source, Player: owner,
 			Text: "DestinationAlternative$ " + alt + " is not a choice this engine can ask; the cards take the primary destination"})
 	}
-	if strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKShuffle)), "True") &&
-		!strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKNoShuffle)), "True") {
-		shuffleLibraryExplicit(h, sa, owner)
+	if cz.ShuffleTrue && !cz.NoShuffle {
+		shuffleLibraryExplicit(h, cz, owner)
 		return // a shuffled library has no meaningful LibraryPosition$
 	}
-	position := strings.TrimSpace(sa.ParamStr(cards.PKLibraryPosition))
+	position := cz.LibraryPositionText
 	if position != "" && position != "0" && position != "-1" {
 		h.Emit(events.Event{Kind: events.Note, Obj: source, Player: owner,
 			Text: "LibraryPosition$ " + position + " is not implemented; the cards go on top"})
@@ -1052,16 +1058,16 @@ func counterDestination(to state.Zone) bool {
 // very move remembers (Alaundo the Seer's X:Remembered$CardManaCost under
 // RememberChanged$ True) has nothing to measure yet and keeps the loud
 // default rather than a silent zero.
-func withCounterAmount(h Host, c *Ctx, sa *cards.SA) int32 {
-	v := strings.TrimSpace(sa.ParamStr(cards.PKWithCountersAmount))
+func withCounterAmount(h Host, c *Ctx, cz *ChangeZoneParams) int32 {
+	v := cz.WithCountersAmount.Text
 	if v == "" {
 		return 1
 	}
 	if n, err := strconv.Atoi(v); err == nil {
 		return int32(n)
 	}
-	if withCounterAmountDefined(c, v) && !withCounterAmountReadsMoved(c, sa, v) {
-		if n, ok := NumResolvedStrict(h, c, sa, "WithCountersAmount", 1); ok {
+	if withCounterAmountDefined(c, v) && !withCounterAmountReadsMoved(c, cz, v) {
+		if n, ok := numResolvedStrictText(h, c, cz.WithCountersAmount, 1); ok {
 			return n
 		}
 	}
@@ -1088,8 +1094,8 @@ func withCounterAmountDefined(c *Ctx, v string) bool {
 // withCounterAmountReadsMoved reports whether the amount v measures the card
 // the move itself is about to remember: a Remembered$ body (direct, or behind
 // an SVar name) on a RememberChanged$ True line.
-func withCounterAmountReadsMoved(c *Ctx, sa *cards.SA, v string) bool {
-	if !strings.EqualFold(strings.TrimSpace(sa.ParamStr(cards.PKRememberChanged)), "True") {
+func withCounterAmountReadsMoved(c *Ctx, cz *ChangeZoneParams, v string) bool {
+	if !cz.RememberChanged {
 		return false
 	}
 	if c != nil && c.SVars != nil {

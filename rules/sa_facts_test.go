@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/adams-shaun/gorge/cards"
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/internal/testutil"
 )
 
@@ -44,15 +45,18 @@ func TestEveryConfiguredAbilityHasItsFactsRecord(t *testing.T) {
 			// first -- the corpus registry is one shared instance per process,
 			// so another test's engine may have done so.
 			f := ct.factsOf(sa)
-			if f == nil || f.sa != sa {
+			if f == nil || f.SA != sa {
 				t.Errorf("%s: %q: no own facts record", c.Path, sa.Line)
 				continue
 			}
-			if p := sa.ExtSlot().Load(); p != nil && (*saFacts)(p).sa == sa {
+			if p := effects.LoadSAFacts(sa); p != nil && p.SA == sa {
 				fromSlot++
 			}
-			if (f.mana != nil) != (sa.Kind == "AB") {
-				t.Errorf("%s: %q (Kind %s): mana half present=%v", c.Path, sa.Line, sa.Kind, f.mana != nil)
+			if (manaHalf(f) != nil) != (sa.Kind == "AB") {
+				t.Errorf("%s: %q (Kind %s): mana half present=%v", c.Path, sa.Line, sa.Kind, manaHalf(f) != nil)
+			}
+			if (f.ChangeZone != nil) != (sa.CompiledAPI() == cards.APIChangeZone || sa.API == "ChangeZone") {
+				t.Errorf("%s: %q (API %s): ChangeZone half present=%v", c.Path, sa.Line, sa.API, f.ChangeZone != nil)
 			}
 		}
 	}

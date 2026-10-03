@@ -70,7 +70,8 @@ func TestAttachedToValidGraveyardDefinedResolvesTheNamedZone(t *testing.T) {
 // first creature the walk admits.
 func TestAttachedToBareCardFilterAttachesTheFirstCreature(t *testing.T) {
 	h, c, ids := attachedToBoard(t)
-	changeZoneAttachedTo(h, c, &cards.SA{Params: map[string]string{"AttachedTo": "Creature"}}, ids["favor"])
+	attachCreature := &cards.SA{Params: map[string]string{"AttachedTo": "Creature"}}
+	changeZoneAttachedTo(h, c, attachCreature, ChangeZoneOf(attachCreature), ids["favor"])
 	var attachs []events.Event
 	for _, ev := range h.log {
 		if ev.Kind == events.Attach && ev.Obj == ids["favor"] {
@@ -91,7 +92,8 @@ func TestAttachedToBareCardFilterAttachesTheFirstCreature(t *testing.T) {
 // attach to the resolving source.
 func TestAttachedToUnresolvableFilterEmitsOneNoteLeavesUnattached(t *testing.T) {
 	h, c, ids := attachedToBoard(t)
-	changeZoneAttachedTo(h, c, &cards.SA{Params: map[string]string{"AttachedTo": "Land"}}, ids["favor"])
+	attachLand := &cards.SA{Params: map[string]string{"AttachedTo": "Land"}}
+	changeZoneAttachedTo(h, c, attachLand, ChangeZoneOf(attachLand), ids["favor"])
 	var attachs, notes []events.Event
 	for _, ev := range h.log {
 		switch ev.Kind {

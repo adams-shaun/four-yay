@@ -92,7 +92,7 @@ func TestLibrarySearchExileImprintIsRetained(t *testing.T) {
 	// The found card must leave the library for the destination this test
 	// asserts the imprint of.
 	h.g.SetZone(state.ZLibrary, 0, []state.ObjID{found})
-	applyLibrarySearch(h, c, sa, 0, state.ZExile, []state.ObjID{found}, []state.Zone{state.ZLibrary})
+	applyLibrarySearch(h, c, sa, ChangeZoneOf(sa), 0, state.ZExile, []state.ObjID{found}, []state.Zone{state.ZLibrary})
 
 	o := h.g.Obj(found)
 	if o == nil || o.Zone != state.ZExile {
@@ -136,7 +136,7 @@ func TestLibrarySearchNonExileImprintIsRetained(t *testing.T) {
 	victimCard := mkCard(t, "Name:Found Card\nTypes:Instant\nOracle:x\n")
 	h, c, found := imprintSearchBoard(t, srcCard, victimCard)
 
-	applyLibrarySearch(h, c, sa, 0, state.ZLibrary, []state.ObjID{found}, []state.Zone{state.ZLibrary})
+	applyLibrarySearch(h, c, sa, ChangeZoneOf(sa), 0, state.ZLibrary, []state.ObjID{found}, []state.Zone{state.ZLibrary})
 
 	o := h.g.Obj(found)
 	if o == nil || o.Zone != state.ZLibrary {

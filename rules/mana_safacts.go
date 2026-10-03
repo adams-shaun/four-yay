@@ -154,10 +154,10 @@ func (e *Engine) manaFactsOf(ab *cards.SA) *manaSAFacts {
 		return nil
 	}
 	sf := e.compiledText.factsOf(ab)
-	if sf == nil || sf.mana == nil {
+	if sf == nil || sf.Rules == nil {
 		return nil
 	}
-	f := sf.mana
+	f := manaHalf(sf)
 	if manaSAFactsVerify {
 		fresh := buildManaSAFactsValue(ab, e.compiledCostOf)
 		if (fresh.cost != f.cost && !sameCompiledCost(fresh.cost, f.cost)) || !sameFactsIgnoringCost(fresh, *f) {

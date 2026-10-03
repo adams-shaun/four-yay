@@ -123,6 +123,7 @@ func free()          {}
 		StringParamReads:       3,
 		StringParamKeys:        2,
 		StringCaseLiterals:     3,
+		ChangeZoneLeaks:        []string{},
 		Files:                  4,
 		LongFuncs: []Func{
 			{Name: "deep", File: "rules/sub/deep.go", Line: 6, Lines: 402},
@@ -206,5 +207,54 @@ func TestMeasureIsDeterministic(t *testing.T) {
 	b := measureRepo(t)
 	if !reflect.DeepEqual(a, b) {
 		t.Fatal("two measurements of the same tree differ")
+	}
+}
+
+// TestMeasureCountsChangeZoneParamLeaks pins the changeZoneParamLeaks census:
+// every read form in a ChangeZone file, a ChangeZone-only key in any other
+// file, never the compiler itself, never a write, never a shared key outside
+// ChangeZone's files.
+func TestMeasureCountsChangeZoneParamLeaks(t *testing.T) {
+	root := writeTree(t, map[string]string{
+		"effects/registry.go": effectsSrc,
+		// The compiler reads everything; none of it counts.
+		"effects/changezone_params.go": `package effects
+
+func compile(sa *SA) { _ = sa.Params["Hidden"]; _ = sa.ParamStr(cards.PKOrigin) }
+`,
+		// A ChangeZone file: index read, PK read, HasParam and a Num key count
+		// (4); the map write does not.
+		"effects/zone_change.go": `package effects
+
+func eff(sa *SA) {
+	_ = sa.Params["Defined"]
+	_ = sa.Param(cards.PKOrigin)
+	_ = sa.HasParam(cards.PKDestination)
+	_ = Num(h, c, sa, "ChangeNum", 1)
+	sub.Params["Defined"] = "x"
+}
+`,
+		// Elsewhere only a ChangeZone-only key counts (2), a shared key never.
+		"effects/cardflow.go": `package effects
+
+func dig(sa *SA) {
+	_ = sa.Params["Hidden"]
+	_ = sa.ParamStr(cards.PKDifferentNames)
+	_ = sa.ParamStr(cards.PKOrigin)
+}
+`,
+		"rules/engine.go": "package rules\n\ntype resumePoint struct{ a int }\n",
+	})
+	m, err := Measure(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"effects/cardflow.go:4 Hidden", "effects/cardflow.go:5 DifferentNames",
+		"effects/zone_change.go:4 Defined", "effects/zone_change.go:5 Origin",
+		"effects/zone_change.go:6 Destination", "effects/zone_change.go:7 ChangeNum",
+	}
+	if m.ChangeZoneParamLeaks != len(want) || !reflect.DeepEqual(m.ChangeZoneLeaks, want) {
+		t.Errorf("ChangeZone leaks = %d %v, want %v", m.ChangeZoneParamLeaks, m.ChangeZoneLeaks, want)
 	}
 }

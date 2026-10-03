@@ -543,8 +543,10 @@ func TestImprintedDefinedLibraryFetchFailsClosed(t *testing.T) {
 	if got := h.g.Obj(src.ID).Zone; got != state.ZLibrary {
 		t.Fatalf("Imprinted Defined$ moved source to %s, want library", got)
 	}
-	if len(h.log) != 0 {
-		t.Fatalf("Imprinted Defined$ events = %v, want a silent no-op (no move, and DBShuffle's ParentTarget binds no player here)", h.log)
+	// The one event is the compile-time unread-parameter Note for the
+	// script's Searched$ (no ChangeZone reader consumes it); nothing moves.
+	if len(h.log) != 1 || h.log[0].Kind != events.Note || h.log[0].Text != "ChangeZone ignores unread parameter(s) Searched$" {
+		t.Fatalf("Imprinted Defined$ events = %v, want only the Searched$ unread Note (no move, and DBShuffle's ParentTarget binds no player here)", h.log)
 	}
 	for _, ev := range h.log {
 		if ev.Kind == events.MoveZone || ev.Kind == events.Shuffle {
