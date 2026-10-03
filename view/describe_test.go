@@ -278,8 +278,26 @@ func TestDescribeCoversEveryKind(t *testing.T) {
 			continue
 		}
 		if got == "" || got == "unknown event" {
-			t.Errorf("kind %s (%d) has no description", k, k)
+			t.Errorf("kind %s (%d) has no description: give its events/kindinfo.go entry a Describe template, "+
+				"or a case in view/describe.go if the line needs more than the event's own fields", k, k)
 		}
+	}
+}
+
+// TestDescribeTemplateRendersEveryField holds describeTemplate to the
+// placeholder vocabulary events declares: a field added to
+// events.DescribeFields without a renderer here would print raw.
+func TestDescribeTemplateRendersEveryField(t *testing.T) {
+	g, bear, _ := describeFixture(t)
+	ev := events.Event{Player: 0, Obj: bear, Amount: 7, Text: "why"}
+	for _, f := range events.DescribeFields {
+		tmpl := "<{" + f + "}>"
+		if got := describeTemplate(g, ev, tmpl); got == tmpl || strings.Contains(got, "{") {
+			t.Errorf("placeholder {%s} is not rendered: %q", f, got)
+		}
+	}
+	if got, want := describeTemplate(g, ev, "{player} notes {amount}: {text}"), player(g, 0)+" notes 7: why"; got != want {
+		t.Fatalf("describeTemplate = %q, want %q", got, want)
 	}
 }
 

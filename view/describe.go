@@ -35,12 +35,6 @@ func firstID(ids []state.ObjID) state.ObjID {
 
 func Describe(g *state.Game, ev events.Event) string {
 	switch ev.Kind {
-	case events.GameStart:
-		return "Game starts with " + itoa(int64(ev.Amount)) + " players"
-	case events.Shuffle:
-		return player(g, ev.Player) + " shuffles their library"
-	case events.LibraryOrder:
-		return player(g, ev.Player) + " rearranges the top of their library"
 	case events.ExtraTurn:
 		if ev.Amount < 0 {
 			return ""
@@ -85,8 +79,6 @@ func Describe(g *state.Game, ev events.Event) string {
 			return player(g, ev.Player) + " gets " + itoa(int64(ev.Amount)) + " " + what + "s"
 		}
 		return player(g, ev.Player) + " gets an " + what
-	case events.DoorUnlock:
-		return obj(g, ev.Obj) + "'s locked door is unlocked"
 	case events.SpeedChange:
 		verb, n := "gains", ev.Amount
 		if n < 0 {
@@ -97,16 +89,6 @@ func Describe(g *state.Game, ev events.Event) string {
 			speed = g.Players[ev.Player].Speed
 		}
 		return player(g, ev.Player) + " " + verb + " " + itoa(int64(n)) + " speed (speed " + itoa(int64(speed)) + ")"
-	case events.MonarchChange:
-		return player(g, ev.Player) + " becomes the monarch"
-	case events.InitiativeChange:
-		return player(g, ev.Player) + " takes the initiative"
-	case events.BlessingChange:
-		return player(g, ev.Player) + " gets the city's blessing"
-	case events.EnduringStoryChange:
-		return player(g, ev.Player) + " has an enduring story"
-	case events.TurnFaceDown:
-		return obj(g, ev.Obj) + " is turned face down"
 	case events.TurnFaceUp:
 		// CR 708.6: Obj is the permanent that revealed its printed face.
 		return obj(g, ev.Obj) + " is turned face up"
@@ -157,10 +139,6 @@ func Describe(g *state.Game, ev events.Event) string {
 			return player(g, ev.Player) + " is tempted: the Ring emblem drains each opponent (the Ring tempts you)"
 		}
 		return player(g, ev.Player) + " is tempted: a Ring emblem ability"
-	case events.StartingPlayerChange:
-		return player(g, ev.Player) + " becomes the starting player"
-	case events.ControlChange:
-		return player(g, ev.Player) + " gains control of " + obj(g, ev.Obj)
 	case events.ControlPlayerChange:
 		// CR 720: Player is the controlling seat and IDs[0] the controlled
 		// seat. A +1 grant names who now controls whom; the -1 expiry is the
@@ -170,8 +148,6 @@ func Describe(g *state.Game, ev events.Event) string {
 			return player(g, ev.Player) + " no longer controls " + controlled
 		}
 		return player(g, ev.Player) + " controls " + controlled + " during their next turn"
-	case events.Goad:
-		return obj(g, ev.Obj) + " is goaded by " + player(g, ev.Player)
 	case events.PlayerCounterChange:
 		verb, n := "gets", ev.Amount
 		if n < 0 {
@@ -190,8 +166,6 @@ func Describe(g *state.Game, ev events.Event) string {
 		return obj(g, ev.Obj) + " pairs with " + obj(g, firstID(ev.IDs))
 	case events.MyriadCopy:
 		return obj(g, ev.Obj) + " creates a Myriad copy attacking " + player(g, state.PlayerID(firstID(ev.IDs)))
-	case events.MyriadCleanup:
-		return "Myriad tokens are exiled at end of combat"
 	case events.TokenAttacks:
 		// A token that entered tapped and attacking (Mobilize, Kari Zev):
 		// Obj is the minted token, IDs[0] the player it is attacking.
@@ -219,8 +193,6 @@ func Describe(g *state.Game, ev events.Event) string {
 			text += " (exiled at end of combat)"
 		}
 		return text
-	case events.CloneStatic:
-		return obj(g, ev.Obj) + " gains a copy static ability"
 	case events.DamageProvenance:
 		// Game-long damage-by-source provenance (the_fallen, diseased_vermin):
 		// Obj is the damage SOURCE and IDs[0] the recipient -- PlayerRef-
@@ -286,12 +258,6 @@ func Describe(g *state.Game, ev events.Event) string {
 			return text
 		}
 		return player(g, ev.Player) + " rolls the planar die"
-	case events.PlanarDeckShuffle:
-		return player(g, ev.Player) + " shuffles the planar deck"
-	case events.PlanarReveal:
-		return obj(g, ev.Obj) + " is revealed as the current plane"
-	case events.PlanarWalk:
-		return "Planeswalk to the next plane"
 	case events.ManaUndo:
 		// The announced payment window's undo of one mana activation (CR
 		// 733.1): the first event of a reversal names the untapped source.
@@ -330,8 +296,6 @@ func Describe(g *state.Game, ev events.Event) string {
 		// CR 309.4: the dungeon's last room was visited, so the count
 		// rises; the RemoveDungeon transition moves the token itself.
 		return player(g, ev.Player) + " completes the dungeon"
-	case events.DungeonRemove:
-		return obj(g, ev.Obj) + " is removed from the command zone"
 	case events.RollDice:
 		// The roll-action PROPOSAL (task rolldice-repl) is never logged -- the
 		// per-die Notes are the roll's transcript lines -- but the Describe-
@@ -352,12 +316,6 @@ func Describe(g *state.Game, ev events.Event) string {
 			return player(g, ev.Player) + " would cascade into 1 exiled card"
 		}
 		return player(g, ev.Player) + " would cascade into " + itoa(int64(len(ev.IDs))) + " exiled cards"
-	case events.NoteNumber:
-		return obj(g, ev.Obj) + " notes " + itoa(int64(ev.Amount))
-	case events.PlayerNoted:
-		return player(g, ev.Player) + " is noted for " + ev.Text
-	case events.PlayerNoteCleared:
-		return player(g, ev.Player) + " is no longer noted for " + ev.Text
 	case events.CardNoted:
 		// The card-notation sibling of PlayerNoted (NoteCards$ Remembered /
 		// TriggeredSource with NoteCardsFor$): Obj is the noted card, Text the
@@ -389,27 +347,13 @@ func Describe(g *state.Game, ev events.Event) string {
 			return obj(g, ev.Obj) + " takes " + itoa(int64(ev.Amount)) + " damage"
 		}
 		return player(g, ev.Player) + " takes " + itoa(int64(ev.Amount)) + " damage"
-	case events.Tap:
-		return obj(g, ev.Obj) + " taps"
-	case events.Untap:
-		return obj(g, ev.Obj) + " untaps"
 	case events.StepChange:
 		return "Step: " + ev.Step.String()
-	case events.TurnChange:
-		return "Turn " + itoa(int64(ev.Amount)) + ": " + player(g, ev.Player)
-	case events.Priority:
-		return player(g, ev.Player) + " has priority"
-	case events.PutOnStack:
-		return player(g, ev.Player) + " casts " + obj(g, ev.Obj)
-	case events.Resolve:
-		return obj(g, ev.Obj) + " resolves"
 	case events.ManaAdd:
 		if ev.Amount < 0 {
 			return player(g, ev.Player) + " spends " + mana(ev.Counter, -ev.Amount)
 		}
 		return player(g, ev.Player) + " adds " + mana(ev.Counter, ev.Amount)
-	case events.ManaClear:
-		return player(g, ev.Player) + "'s mana pool empties"
 	case events.CounterChange:
 		verb, n := "gets", ev.Amount
 		if n < 0 {
@@ -551,17 +495,11 @@ func Describe(g *state.Game, ev events.Event) string {
 			parts = append(parts, obj(g, p[1])+" blocks "+obj(g, p[0]))
 		}
 		return strings.Join(parts, "; ")
-	case events.PlayerLost:
-		return player(g, ev.Player) + " loses the game"
 	case events.GameOver:
 		if ev.Amount == 1 {
 			return "The game is a draw"
 		}
 		return player(g, ev.Player) + " wins the game"
-	case events.DecisionAsk:
-		return player(g, ev.Player) + " is asked: " + ev.Text
-	case events.DecisionMade:
-		return player(g, ev.Player) + " answers " + ev.Text
 	case events.Note:
 		if ev.Text == "" && len(ev.IDs) > 0 && !ev.Secret {
 			// effReveal's reveal (task fb-3f1cc033): the Note carries the
@@ -609,8 +547,6 @@ func Describe(g *state.Game, ev events.Event) string {
 		// exact shape). "" is reserved for ClockTick alone, so this still
 		// needs a word.
 		return "Note"
-	case events.LandPlayed:
-		return player(g, ev.Player) + " plays a land"
 	case events.TargetsChosen:
 		// Amount 1 replaces with, and 3 appends, a PLAYER target; a chain
 		// link's cast-time target (events.SubTargetNotice) uses the append
@@ -619,16 +555,8 @@ func Describe(g *state.Game, ev events.Event) string {
 			return obj(g, ev.Obj) + " targets " + player(g, ev.Player)
 		}
 		return obj(g, ev.Obj) + " targets " + objs(g, ev.IDs)
-	case events.FlipFace:
-		return obj(g, ev.Obj) + " turns to face " + itoa(int64(ev.Amount))
 	case events.ClockTick:
 		return ""
-	case events.TriggerPush:
-		return obj(g, ev.Obj) + " triggers"
-	case events.EndCombatReset:
-		return "Combat ends"
-	case events.EndTurn:
-		return "The turn ends"
 	case events.CastInfo:
 		// Records how a spell was cast, right before the PutOnStack line
 		// (Task 4): Amount is the value chosen for {X}, Counter the comma-
@@ -777,8 +705,6 @@ func Describe(g *state.Game, ev events.Event) string {
 			s += " (" + itoa(int64(total)) + " total; 21 is lethal)"
 		}
 		return s
-	case events.DelayedRemove:
-		return "delayed trigger registration removed"
 	case events.DelayedForget:
 		// One remembered card was dropped from a delayed registration (the
 		// ForgetOnMoved$/ForgetCounter$ trim), not the whole promise -- so it
@@ -845,7 +771,46 @@ func Describe(g *state.Game, ev events.Event) string {
 		// the new value.
 		return obj(g, ev.Obj) + " has its X set to " + itoa(int64(ev.Amount))
 	}
+	if tmpl := ev.Kind.DescribeTemplate(); tmpl != "" {
+		return describeTemplate(g, ev, tmpl)
+	}
 	return "unknown event"
+}
+
+// describeTemplate renders a kind's events.KindInfo.Describe template: each
+// {name} placeholder (events.DescribeFields) becomes the same helper call a
+// hand-written case would make, and everything else is copied verbatim. The
+// events descriptor test rejects a template with any other placeholder, so
+// an unrecognised one is left as written rather than guessed at.
+func describeTemplate(g *state.Game, ev events.Event, tmpl string) string {
+	var b strings.Builder
+	for {
+		open := strings.IndexByte(tmpl, '{')
+		if open < 0 {
+			b.WriteString(tmpl)
+			return b.String()
+		}
+		end := strings.IndexByte(tmpl[open:], '}')
+		if end < 0 {
+			b.WriteString(tmpl)
+			return b.String()
+		}
+		b.WriteString(tmpl[:open])
+		field := tmpl[open+1 : open+end]
+		switch field {
+		case "player":
+			b.WriteString(player(g, ev.Player))
+		case "obj":
+			b.WriteString(obj(g, ev.Obj))
+		case "amount":
+			b.WriteString(itoa(int64(ev.Amount)))
+		case "text":
+			b.WriteString(ev.Text)
+		default:
+			b.WriteString(tmpl[open : open+end+1])
+		}
+		tmpl = tmpl[open+end+1:]
+	}
 }
 
 // obj names an object as "Name #id", "<Name>'s ability #id" for a faceless
