@@ -346,6 +346,14 @@ func AttackCandidates(d *decision.Decision, bot decision.Intent, limit int) []de
 		choices := choiceBuf[:0]
 		for i, o := range d.Options {
 			if bitHas(set, i) {
+				// A creature attacks one defender (the engine rejects a
+				// declaration naming it twice, which Decision.Validate does
+				// not catch): never offer one.
+				for j := 0; j < i; j++ {
+					if bitHas(set, j) && d.Options[j].Obj == o.Obj {
+						return
+					}
+				}
 				choices = append(choices, o.Index)
 			}
 		}
@@ -387,8 +395,21 @@ func AttackCandidates(d *decision.Decision, bot decision.Intent, limit int) []de
 	for _, o := range d.Options {
 		copy(t, chosen)
 		for i := range d.Options {
-			if d.Options[i].Index == o.Index {
-				t[i>>6] ^= 1 << (uint(i) & 63)
+			if d.Options[i].Index != o.Index {
+				continue
+			}
+			on := !bitHas(t, i)
+			t[i>>6] ^= 1 << (uint(i) & 63)
+			if !on {
+				continue
+			}
+			// Toggling on an attacker's option for another defender (a
+			// planeswalker or battle beside the player) moves the creature
+			// there: its other option leaves the declaration.
+			for j := range d.Options {
+				if j != i && d.Options[j].Obj == d.Options[i].Obj && bitHas(t, j) {
+					t[j>>6] &^= 1 << (uint(j) & 63)
+				}
 			}
 		}
 		add(t)

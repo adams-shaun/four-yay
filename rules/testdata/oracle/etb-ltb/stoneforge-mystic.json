@@ -1,0 +1,108 @@
+{
+ "card": "Stoneforge Mystic",
+ "family": "etb-ltb",
+ "author": "cli-20261002T030326Z-79066444 (Oracle + CR only)",
+ "oracle_sha": "edb243762303",
+ "scenarios": [
+  {
+   "name": "enters-searches-equipment-to-hand",
+   "cr": [
+    "603.6a",
+    "701.18"
+   ],
+   "why": "When Stoneforge Mystic enters, you may search your library for an Equipment card and put it into your hand; accepting must put Bonesplitter into hand.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Stoneforge Mystic"
+     ],
+     "library": [
+      "Bonesplitter"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Stoneforge Mystic",
+     "mana": "CW"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Bonesplitter"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Stoneforge Mystic",
+     "zone": "battlefield",
+     "pt": "1/2"
+    },
+    {
+     "card": "p0:Bonesplitter",
+     "zone": "hand"
+    }
+   ]
+  },
+  {
+   "name": "activation-puts-equipment-onto-battlefield",
+   "cr": [
+    "602.2a"
+   ],
+   "why": "{1}{W}, {T}: You may put an Equipment card from your hand onto the battlefield; activating it with Bonesplitter in hand puts it onto the battlefield untapped.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Stoneforge Mystic"
+     ],
+     "hand": [
+      "Bonesplitter"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Stoneforge Mystic",
+     "mana": "CW",
+     "ability": "put an Equipment"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "Bonesplitter"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Bonesplitter",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Stoneforge Mystic",
+     "tapped": true
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  }
+ ]
+}

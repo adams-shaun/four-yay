@@ -85,6 +85,14 @@ func (e *Engine) targetBoundCtx(p state.PlayerID, source state.ObjID) (*effects.
 	// names a Count$ body targetBoundCtx's SVar table already resolves.
 	if tc, ok := e.triggerContexts[source]; ok {
 		ctx.TriggerContext = tc
+		if tc.Reflexive {
+			// A reflexive ability's bound may count what its spawning
+			// resolution remembered ("return up to THAT MANY target cards":
+			// TargetMax$ X over TriggerRemembered$Amount), which rides the
+			// minted object's own Remembered (rules/reflexive.go).
+			ctx.Remembered = append([]state.Target(nil), o.Remembered...)
+			reflexiveCaptured(ctx)
+		}
 	}
 	// The pending cast's own multikicker count (rules/cast.go's multikickAsk):
 	// at the CR 601.2c announcement ask the pay-time CastInfo has not run

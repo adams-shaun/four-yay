@@ -1,0 +1,29 @@
+{
+  "card": "Spawnbed Protector",
+  "family": "newest-mechanics",
+  "author": "cli-20261002T230428Z-067d6538 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "printed-characteristics",
+      "cr": [
+        "208.3"
+      ],
+      "why": "Oracle gives Spawnbed Protector printed power/toughness 6/8. Those characteristics apply to this battlefield creature.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Spawnbed Protector"
+          ]
+        }
+      },
+      "steps": [],
+      "expect": [
+        {
+          "card": "p0:Spawnbed Protector",
+          "zone": "battlefield",
+          "pt": "6/8"
+        }
+      ]
+    }
+  ]
+}

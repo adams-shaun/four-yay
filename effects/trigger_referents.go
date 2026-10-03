@@ -42,6 +42,14 @@ type TriggerContext struct {
 	// capture a printed trigger of that mode makes -- so the two referents
 	// cannot share one slot.
 	DelayedRemembered []state.Target
+	// Reflexive marks a CR 603.12 reflexive triggered ability ("When you do,
+	// ...") minted by effImmediateTrigger through Host.QueueReflexiveTrigger.
+	// Its stack object's Remembered is the instance's OWN remembered set --
+	// real memory, not a fire-time event capture -- so the resolution binds
+	// Ctx.Captured from SpawnerCaptured (the spawning ability's capture, what
+	// the Spawner> chain reads) instead of from the object's Remembered.
+	Reflexive       bool
+	SpawnerCaptured []state.Target
 	// OptionalSpec is the OptionalDecider$ spec an api:Effect Triggers$
 	// body registered its delayed trigger with (state.DelayedTrigger.
 	// OptionalSpec). The registration carries it because a Mode$ Phase
@@ -576,7 +584,7 @@ func (c *Ctx) SpecContext(you state.PlayerID) SpecContext {
 		// resolving effect's ordinary type filter (target offer, Count$Valid,
 		// CantTarget) agrees with the layer walk. Also a field copy of
 		// immutable data.
-		DerivedTypes: c.EffectiveTypes, StaticGoads: c.StaticGoads, DerivedColors: c.EffectiveColors,
+		DerivedTypes: c.EffectiveTypes, StaticGoads: c.StaticGoads, LayerTables: c.LayerTables,
 		TargetableObjects:           c.TargetableObjects,
 		ExcludeFromBattlefieldCount: c.ExcludeFromBattlefieldCount}
 	// Numeric-RHS resolution for a resolution-time filter spec, in priority
@@ -630,7 +638,7 @@ func (c *Ctx) SpecContext(you state.PlayerID) SpecContext {
 func (c *Ctx) MatchSpec(g *state.Game, spec string, id state.ObjID, you state.PlayerID) bool {
 	return MatchesSpecCtx(g, spec, id, SpecContext{You: you, Source: c.Source,
 		EffectiveNames: c.EffectiveNames, DerivedTypes: c.EffectiveTypes, StaticGoads: c.StaticGoads,
-		DerivedColors: c.EffectiveColors})
+		LayerTables: c.LayerTables})
 }
 
 // resolveNumericRHS is the numeric-RHS resolver the gate in (*Ctx).SpecContext

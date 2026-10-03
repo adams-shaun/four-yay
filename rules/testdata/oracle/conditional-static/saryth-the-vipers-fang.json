@@ -1,0 +1,249 @@
+{
+ "card": "Saryth, the Viper's Fang",
+ "family": "conditional-static",
+ "author": "cli-20261002T210434Z-cc1de00a (Oracle + CR only) + cli-20261002T202458Z-c8f54b81 (Oracle + CR only)",
+ "oracle_sha": "6bb785733155",
+ "scenarios": [
+  {
+   "name": "tapped-attacker-gains-deathtouch",
+   "cr": [
+    "613.1f",
+    "604.3",
+    "702.2b"
+   ],
+   "why": "'Other tapped creatures you control have deathtouch': an attacking (and therefore tapped) creature you control has deathtouch during combat.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Saryth, the Viper's Fang",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p0"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "tapped": true,
+     "keywords": [
+      "Deathtouch"
+     ]
+    },
+    {
+     "card": "p0:Saryth, the Viper's Fang",
+     "no_keywords": [
+      "Deathtouch"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "untapped-creature-gets-no-deathtouch",
+   "cr": [
+    "613.1f"
+   ],
+   "why": "The deathtouch grant is only to tapped creatures: a non-attacking, untapped creature you control has no deathtouch. Saryth is tapped while attacking but the grant says 'Other', so it does not pump itself either.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Saryth, the Viper's Fang",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p0"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Saryth, the Viper's Fang"
+     ],
+     "defender": "p1"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "tapped": false,
+     "no_keywords": [
+      "Deathtouch"
+     ]
+    },
+    {
+     "card": "p0:Saryth, the Viper's Fang",
+     "tapped": true,
+     "no_keywords": [
+      "Deathtouch"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "activation-untaps-a-tapped-creature",
+   "cr": [
+    "701.26a",
+    "602.1"
+   ],
+   "why": "{1}, {T}: untap another target creature or land you control. A creature that attacked is tapped after combat; activating the ability in the postcombat main phase untaps it.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Saryth, the Viper's Fang",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "upkeep",
+     "active": "p0"
+    },
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1"
+    },
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "active": "p0"
+    },
+    {
+     "op": "mana",
+     "seat": 0,
+     "mana": "C"
+    },
+    {
+     "op": "activate",
+     "seat": 0,
+     "card": "p0:Saryth, the Viper's Fang",
+     "ability": "Untap another target",
+     "targets": [
+      "p0:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "tapped": false
+    },
+    {
+     "card": "p0:Saryth, the Viper's Fang",
+     "tapped": true
+    }
+   ]
+  },
+  {
+   "name": "untapped-creatures-have-hexproof",
+   "cr": [
+    "611.3a",
+    "702.11a"
+   ],
+   "why": "Other untapped creatures its controller controls have hexproof. Saryth is not 'other', and an untapped Grizzly Bears gains hexproof.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Saryth, the Viper's Fang",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "pass_to",
+     "step": "main2",
+     "active": "p0"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "keywords": [
+      "Hexproof"
+     ]
+    },
+    {
+     "card": "p0:Saryth, the Viper's Fang",
+     "pt": "3/4"
+    }
+   ]
+  },
+  {
+   "name": "attacking-tapped-creature-has-deathtouch",
+   "cr": [
+    "611.3a",
+    "702.2a"
+   ],
+   "why": "Other tapped creatures its controller controls have deathtouch. An attacking Grizzly Bears is tapped, so it gains deathtouch while attacking.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Saryth, the Viper's Fang",
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "defender": "p1",
+     "expect": [
+      {
+       "card": "p0:Grizzly Bears",
+       "zone": "battlefield",
+       "keywords": [
+        "Deathtouch"
+       ],
+       "tapped": true
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p1": 18
+     }
+    }
+   ]
+  }
+ ]
+}

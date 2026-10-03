@@ -270,6 +270,7 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 		// resolves the entries it names.
 		TargetControllerLKI: effects.CloneTargetControllerLKI(rp.targetControllerLKI),
 		TargetCountersLKI:   effects.CloneTargetCountersLKI(rp.targetCountersLKI),
+		TargetPTLKI:         effects.CloneTargetPTLKI(rp.targetPTLKI),
 		TargetSpellLKI:      effects.CloneTargetSpellLKI(rp.targetSpellLKI),
 		// The resolving stack-object wrapper, same anchor resolveTop's
 		// branches set: a SUSPENDED-then-resumed ability (Ulalek's pay ask is
@@ -395,6 +396,7 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 		}
 		ctx.Remembered = o.Remembered
 		ctx.Captured = o.Remembered
+		reflexiveCaptured(ctx)
 		if lki, ok := e.triggerLKI[rp.obj]; ok {
 			ctx.LKI = lki.object
 			ctx.LKIPower, ctx.LKIToughness, ctx.LKIPTValid =
@@ -676,6 +678,20 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			// effects twice) and helper2's default would clobber Ctx.Modes.
 			e.resumeAnswerBindingRest(rp, o, ctx, chosen)
 		}
+		// CR 608.2g: an Amount$ Play whose earlier cast parked on its own
+		// question left the rest of its chosen cards queued. The resolution
+		// waits for those casts: its continuation (the re-entered Play and
+		// everything after it) parks on the queue and startQueuedPlay
+		// resumes it once the last chosen card's cast is complete, so a
+		// chained "put the cards that weren't cast into your graveyard"
+		// (Epic Experiment) never buries a card still to be cast.
+		if rp.kind == "play" && e.queuedPlays != nil && e.queuedPlays.cont == nil {
+			cont := cloneResume(rp)
+			cont.kind = "play_resume"
+			cont.playFirst = ctx.Play
+			e.queuedPlays.cont = cont
+			return
+		}
 		src := rp.obj
 		if o.Ability != nil {
 			src = o.Source
@@ -896,6 +912,17 @@ func (e *Engine) resumeResolution(rp *resumePoint, chosen []decision.Option) {
 			// resolution continues -- dropping it here left the resolving
 			// object on the stack for resolveTop to re-resolve from the top.
 			e.resumeResolution(rp.outer, nil)
+			return
+		}
+		if rp.ownResolution {
+			// The entering permanent WAS the resolving spell (Banner of
+			// Kinship's "as this enters, choose a creature type"): its
+			// resolution suspended on this body's ask, so handlePriority
+			// deferred the CR 117.3b reset to here, the resolution's true end.
+			// Without it the next priority round went to whoever held
+			// priority when the spell began resolving -- the non-active
+			// player who passed last -- with that pass still counted.
+			e.emit(events.Event{Kind: events.Priority, Player: e.G.Active})
 		}
 		return
 	}

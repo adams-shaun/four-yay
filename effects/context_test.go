@@ -259,6 +259,9 @@ func (h *fakeHost) TriggerModeSupported(mode string) bool { return false }
 func (h *fakeHost) RegisterControl(gr ControlGrant) {
 	h.controls = append(h.controls, gr)
 }
+func (h *fakeHost) QueueReflexiveTrigger(c *Ctx, execute string, body *cards.SA, remembered []state.Target) bool {
+	return false
+}
 func (h *fakeHost) LegalSubTargets(chooser state.PlayerID, source state.ObjID, sa *cards.SA, parent []state.Target) []state.Target {
 	return h.LegalTargets(chooser, source, sa)
 }

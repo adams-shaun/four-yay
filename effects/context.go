@@ -331,18 +331,52 @@ func attachedToDefinedSelector(h Host, c *Ctx, spec string) ([]state.Target, boo
 // bool and fails closed to its own conservative default instead of silently
 // redirecting at the chosen targets.
 // exiledWithSet is the card set the `ExiledWith` referent family reads:
-// every card in the resolving controller's exile zone whose ExiledWith
-// association names the resolving source. The BARE `ExiledWith` case and the
-// DOTTED `ExiledWith <qualifier>` selector in definedSpec both consume it, so
-// the two spellings of one referent cannot drift.
+// every card in ANY player's exile zone whose exiled-by-source association
+// names the resolving source. The scan is over every seat because a source
+// controlled by one player commonly exiles a permanent owned by another
+// (Oblivion Ring exiling an opponent's creature), so the exiled card does
+// not sit in the controller's own exile zone. The BARE `ExiledWith` case and
+// the DOTTED `ExiledWith <qualifier>` selector in definedSpec both consume
+// it, so the two spellings of one referent cannot drift.
 func exiledWithSet(g *state.Game, c *Ctx) []state.Target {
 	var out []state.Target
-	for _, id := range g.Zone(state.ZExile, c.Controller) {
-		if o := g.Obj(id); o != nil && o.ExiledWith == c.Source {
-			out = append(out, state.Target{Obj: id})
+	for p := state.PlayerID(0); p < state.PlayerID(len(g.Players)); p++ {
+		for _, id := range g.Zone(state.ZExile, p) {
+			if exiledBySource(g, g.Obj(id), c.Source) {
+				out = append(out, state.Target{Obj: id})
+			}
 		}
 	}
 	return out
+}
+
+// exiledBySource is the shared reader for the "this card was exiled by that
+// source" association: the reverse scalar Object.ExiledWith (a MoveZone IDs
+// payload) OR the source's forward Object.ExiledCards list (Forge's
+// hostCard.exiledCards, written by exiledWithAssociation). `Defined$
+// ExiledWith` (via exiledWithSet) and the `Card.ExiledWithSource` filter
+// family both consume it so those two spellings cannot disagree. A few
+// narrower consumers of the same association still read only the reverse
+// scalar (count_ref.go's `ExiledWith$`, mana_reflected.go's "ExiledWith",
+// type_choices.go's SharedTypeLabels); routing them here too is a follow-up,
+// not part of this fix.
+func exiledBySource(g *state.Game, o *state.Object, src state.ObjID) bool {
+	if o == nil || src == 0 {
+		return false
+	}
+	if o.ExiledWith == src {
+		return true
+	}
+	s := g.Obj(src)
+	if s == nil {
+		return false
+	}
+	for _, id := range s.ExiledCards {
+		if id == o.ID {
+			return true
+		}
+	}
+	return false
 }
 
 // paidCostTargets is the ONE home for the cast-cost PAID lists the
@@ -431,7 +465,17 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 	switch spec {
 	case "":
 		return nil, false
-	case "Self", "Parent", "EffectSource", "OriginalHost", "CorrectedSelf":
+	case "OriginalHost":
+		// The card that originally generated the ability: for a granted
+		// activated ability (Fishing Pole's bait counter, Blazing Torch's
+		// damage source) that is the GRANTOR, not the recipient the ability
+		// was activated from; for an ability of the source itself it is
+		// the source, like Self.
+		if c.Grantor != 0 {
+			return []state.Target{{Obj: c.Grantor}}, true
+		}
+		return []state.Target{{Obj: c.Source}}, true
+	case "Self", "Parent", "EffectSource", "CorrectedSelf":
 		// EffectSource/OriginalHost name the ability's own source object --
 		// the permanent that pushed the resolving ability, or the card that
 		// originally generated it before any copies. newDamageRider unwraps
@@ -879,7 +923,7 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 			return []state.Target{c.TriggerTarget}, true
 		}
 		return copyTargets(c.Targets), true
-	case "TriggeredSource", "TriggeredSources":
+	case "TriggeredSource", "TriggeredSources", "TriggeredSourceLKICopy":
 		// The damage source the causing event recorded (pg2's
 		// TriggerContext.TriggerSource): a DamageDone execute's "that source
 		// deals ..." reading, and its PLURAL batch spelling (Zurgo and
@@ -889,8 +933,13 @@ func definedSpec(h Host, c *Ctx, spec string) ([]state.Target, bool) {
 		// Prefer the event role when the firing trigger captured one -- for a
 		// DamageDone trigger Remembered holds the
 		// DAMAGED object, so the old objectsOf fallback names the recipient,
-		// not the dealer. No corpus card uses Defined$ TriggeredSource (the
-		// 6 DamageSource$ TriggeredSource lines are the only users), and the
+		// not the dealer. TriggeredSourceLKICopy is the LKI spelling of the
+		// same role (47 corpus Defined$ lines over 42 files: Quilled
+		// Greatwurm's "put that many +1/+1 counters on it", the DamageDone
+		// "destroy that creature" family). It used to be unrecognised, so
+		// Defined fell back to the ability's SOURCE and the counters or the
+		// destroy landed on the trigger's host instead of the dealer; M1 reads
+		// the live object, as the TriggeredCardLKICopy spelling does. The
 		// fallback keeps a non-trigger context behaving exactly as before.
 		if c.TriggerSource != 0 {
 			return []state.Target{{Obj: c.TriggerSource}}, true

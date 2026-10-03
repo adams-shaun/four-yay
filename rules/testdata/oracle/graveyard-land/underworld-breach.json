@@ -1,0 +1,113 @@
+{
+ "card": "Underworld Breach",
+ "family": "graveyard-land",
+ "author": "cli-20261002T030326Z-79066444 (Oracle + CR only)",
+ "oracle_sha": "26dc329747c0",
+ "scenarios": [
+  {
+   "name": "end-step-sacrifice",
+   "cr": [
+    "603.2",
+    "513.1"
+   ],
+   "why": "At the beginning of the end step, sacrifice Underworld Breach; by the end of turn 1 it must be in the graveyard.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Underworld Breach"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Underworld Breach",
+     "mana": "CR"
+    },
+    {
+     "op": "resolve"
+    },
+    {
+     "op": "pass_to",
+     "step": "end"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Underworld Breach",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "escape-casts-from-graveyard-exiling-three",
+   "cr": [
+    "702.139a",
+    "601.2h"
+   ],
+   "why": "Each nonland card in your graveyard has escape for its mana cost plus exiling three other cards from your graveyard: the Lightning Bolt can be cast from the graveyard for {R} plus three exiles. Escape does NOT exile the spell on resolution (unlike flashback), so the Bolt goes to the graveyard while the three cost cards stay exiled.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Underworld Breach"
+     ],
+     "graveyard": [
+      "Lightning Bolt",
+      "Grizzly Bears",
+      "Savannah Lions",
+      "Centaur Courser"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Lightning Bolt",
+     "mana": "R",
+     "cast_mode": "escape",
+     "targets": [
+      "p1"
+     ],
+     "answers": [
+      {
+       "kind": "choose",
+       "pick": [
+        "p0:Grizzly Bears",
+        "p0:Savannah Lions",
+        "p0:Centaur Courser"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Lightning Bolt",
+     "zone": "graveyard"
+    },
+    {
+     "life": {
+      "p1": 17
+     }
+    },
+    {
+     "count": {
+      "seat": 0,
+      "zone": "exile",
+      "name": ""
+     },
+     "eq": 3
+    }
+   ]
+  }
+ ]
+}

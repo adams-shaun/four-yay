@@ -1,0 +1,14 @@
+{"code":"PAL01","name":"Arena League 2001","released":"2001-01-01","set_type":"PROMOTIONAL","xmage_ref":"6b602a1c85e8ed738a4b40b1ef44c54845b57f68",
+"cards": [
+{"name":"Creeping Mold","numbers":["2"],"rarity":"RARE"},
+{"name":"Diabolic Edict","numbers":["10"],"rarity":"RARE"},
+{"name":"Dismiss","numbers":["4"],"rarity":"RARE"},
+{"name":"Empyrial Armor","numbers":["8"],"rarity":"RARE"},
+{"name":"Fling","numbers":["6"],"rarity":"RARE"},
+{"name":"Forest","numbers":["1","11"],"rarity":"LAND"},
+{"name":"Gaea's Blessing","numbers":["12"],"rarity":"RARE"},
+{"name":"Island","numbers":["3"],"rarity":"LAND"},
+{"name":"Mountain","numbers":["5"],"rarity":"LAND"},
+{"name":"Plains","numbers":["7"],"rarity":"LAND"},
+{"name":"Swamp","numbers":["9"],"rarity":"LAND"}
+]}

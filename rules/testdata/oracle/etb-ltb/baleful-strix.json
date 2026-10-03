@@ -1,0 +1,39 @@
+{
+  "card": "Baleful Strix",
+  "family": "etb-ltb",
+  "oracle_sha": "5c73bbaca5d5",
+  "author": "cli-20261003T014432Z-24102604 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enters-draws-a-card",
+      "cr": ["603.2", "121.1"],
+      "why": "The enters trigger draws its controller a card; the cast one-card hand is emptied by the cast and the drawn card is the top of library.",
+      "setup": {
+        "p0": {"hand": ["Baleful Strix"], "library_top": ["Forest"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Baleful Strix", "mana": "UB"},
+        {"op": "resolve"}
+      ],
+      "expect": [
+        {"card": "p0:Baleful Strix", "zone": "battlefield", "pt": "1/1"},
+        {"hand_size": {"p0": 1}},
+        {"card": "p0:Forest", "zone": "hand"}
+      ]
+    },
+    {
+      "name": "flying-and-deathtouch",
+      "cr": ["702.9b", "702.2b"],
+      "why": "The printed keyword line gives the Strix flying and deathtouch; both must be present on the battlefield permanent.",
+      "setup": {
+        "p0": {"battlefield": ["Baleful Strix"]},
+        "p1": {}
+      },
+      "steps": [],
+      "expect": [
+        {"card": "p0:Baleful Strix", "keywords": ["Flying", "Deathtouch"], "pt": "1/1"}
+      ]
+    }
+  ]
+}

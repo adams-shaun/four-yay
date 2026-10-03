@@ -1,0 +1,98 @@
+{
+ "card": "Forked Bolt",
+ "family": "spell-conditional",
+ "author": "cli-20261003T024459Z-db45bede (Oracle + CR only)",
+ "oracle_sha": "0ddbd06cb254",
+ "scenarios": [
+  {
+   "name": "two-damage-to-one-target-kills",
+   "cr": [
+    "601.2d",
+    "120.3"
+   ],
+   "why": "Forked Bolt deals 2 damage divided as you choose among one or two targets. With one target chosen it deals all 2 to that Grizzly Bears (2/2), which dies.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Forked Bolt"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Forked Bolt",
+     "mana": "R",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p0:Forked Bolt",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "two-damage-split-kills-two-ones",
+   "cr": [
+    "601.2d",
+    "120.3"
+   ],
+   "why": "The 2 damage may be divided one to each of two targets. Each Savannah Lions is 2/1, so 1 damage is lethal and both die.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Forked Bolt"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Savannah Lions",
+      "Savannah Lions"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Forked Bolt",
+     "mana": "R",
+     "targets": [
+      "p1:Savannah Lions",
+      "p1:Savannah Lions#2"
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Savannah Lions",
+     "zone": "graveyard"
+    },
+    {
+     "card": "p1:Savannah Lions#2",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

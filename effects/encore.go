@@ -55,33 +55,58 @@ func effEncore(h Host, c *Ctx, sa *cards.SA) {
 			}
 		}
 	}
-	for i := start; i < len(opponents); i++ {
-		p := opponents[i]
-		var minted []state.ObjID
-		if rest != nil && i == start {
-			minted = parked
-		} else {
-			want := g.NextID
-			wasSuspended := h.Suspended()
-			// Amount encodes defender+1 for events.Apply: the token's required
-			// opponent is replay-derived state, not an effects-side mutation.
-			minted = h.EmitTokenCreate(events.Event{Kind: events.CardToken, Obj: c.Source, Player: c.Controller,
-				Amount: int32(p) + 1})
-			if !wasSuspended && h.Suspended() {
-				// The copy parked the resolution: what landed takes its
-				// haste now, and the parked copy, the opponents after it and
-				// the group registration resume with the answer.
-				tokens = encoreGrantHaste(h, c, minted, tokens)
-				if suspendMint(h, c, TokenRest{SA: sa, Next: i, Minted: tokens, Players: opponents}) {
-					return
-				}
-				continue
-			}
-			if len(minted) == 0 {
-				minted = []state.ObjID{want}
+	// The CreateToken replacements size each opponent's creation (Doubling
+	// Season's "twice that many"), proposed once on the first pass and frozen
+	// in the TokenRest so a resumed pass mints the same copies (Count is the
+	// parked copy's index within its opponent's creation).
+	var counts []int32
+	inner := 0
+	if rest != nil {
+		counts, inner = rest.Counts, int(rest.Count)
+	}
+	if len(counts) != len(opponents) {
+		counts = make([]int32, len(opponents))
+		for i := range counts {
+			counts[i] = 1
+			if rest == nil {
+				counts[i] = proposeCopyTokens(h, c.Controller, c.Source, 1)
 			}
 		}
-		tokens = encoreGrantHaste(h, c, minted, tokens)
+	}
+	for i := start; i < len(opponents); i++ {
+		p := opponents[i]
+		for k := 0; k < int(counts[i]); k++ {
+			var minted []state.ObjID
+			resumed := rest != nil && i == start
+			if resumed && k < inner {
+				continue
+			}
+			if resumed && k == inner {
+				minted = parked
+			} else {
+				want := g.NextID
+				wasSuspended := h.Suspended()
+				// Amount encodes defender+1 for events.Apply: the token's required
+				// opponent is replay-derived state, not an effects-side mutation.
+				minted = h.EmitTokenCreate(events.Event{Kind: events.CardToken, Obj: c.Source, Player: c.Controller,
+					Amount: int32(p) + 1})
+				if !wasSuspended && h.Suspended() {
+					// The copy parked the resolution: what landed takes its
+					// haste now, and the parked copy, the copies and opponents
+					// after it and the group registration resume with the answer.
+					tokens = encoreGrantHaste(h, c, minted, tokens)
+					if suspendMint(h, c, TokenRest{SA: sa, Next: i, Count: int32(k), Counts: counts,
+						Minted: tokens, Players: opponents}) {
+						return
+					}
+					continue
+				}
+				if len(minted) == 0 {
+					minted = []state.ObjID{want}
+				}
+			}
+			tokens = encoreGrantHaste(h, c, minted, tokens)
+		}
 	}
 	// One activation creates one delayed triggered ability, remembering all
 	// token identities. DelayedPush carries the group into the builtin

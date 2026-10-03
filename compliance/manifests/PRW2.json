@@ -1,0 +1,8 @@
+{"code":"PRW2","name":"RNA Ravnica Weekend","released":"2019-02-16","set_type":"PROMOTIONAL","xmage_ref":"6b602a1c85e8ed738a4b40b1ef44c54845b57f68",
+"cards": [
+{"name":"Forest","numbers":["B08","B09"],"rarity":"LAND"},
+{"name":"Island","numbers":["B02","B10"],"rarity":"LAND"},
+{"name":"Mountain","numbers":["B06","B07"],"rarity":"LAND"},
+{"name":"Plains","numbers":["B01","B03"],"rarity":"LAND"},
+{"name":"Swamp","numbers":["B04","B05"],"rarity":"LAND"}
+]}

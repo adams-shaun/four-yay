@@ -1,0 +1,68 @@
+{
+ "card": "Victimize",
+ "family": "spell-conditional",
+ "author": "cli-20261003T024459Z-db45bede (Oracle + CR only)",
+ "oracle_sha": "6f6437f9c466",
+ "scenarios": [
+  {
+   "name": "sacrifices-one-to-return-two-tapped",
+   "cr": [
+    "601.2b",
+    "701.16a",
+    "608.2c"
+   ],
+   "why": "Victimize requires sacrificing a creature; the two chosen creature cards return tapped only if the sacrifice is made. p0 sacrifices its only creature (Elite Vanguard) and returns Grizzly Bears and Centaur Courser tapped.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Victimize"
+     ],
+     "battlefield": [
+      "Elite Vanguard"
+     ],
+     "graveyard": [
+      "Grizzly Bears",
+      "Centaur Courser"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Victimize",
+     "mana": "CBB"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "p0:Grizzly Bears",
+        "p0:Centaur Courser"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield",
+     "tapped": true
+    },
+    {
+     "card": "p0:Centaur Courser",
+     "zone": "battlefield",
+     "tapped": true
+    },
+    {
+     "card": "p0:Elite Vanguard",
+     "zone": "graveyard"
+    }
+   ]
+  }
+ ]
+}

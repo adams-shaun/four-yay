@@ -1,0 +1,28 @@
+{
+ "card": "Mechanized Production",
+ "family": "replacement",
+ "author": "cli-20261002T210434Z-cc1de00a (Oracle + CR only)",
+ "oracle_sha": "fd201c118100",
+ "scenarios": [
+  {
+   "name": "upkeep-creates-a-token-copy-of-the-enchanted-artifact",
+   "cr": ["603.2", "608.2b", "111.1"],
+   "why": "Mechanized Production is an Aura enchanting an artifact; at the beginning of your upkeep you create a token that's a copy of the enchanted artifact, so the controller ends with two Sol Rings (one real, one token).",
+   "setup": {
+    "p0": {"hand": ["Mechanized Production"], "battlefield": ["Sol Ring"]},
+    "p1": {}
+   },
+   "steps": [
+    {"op": "cast", "seat": 0, "card": "p0:Mechanized Production", "mana": "CCUU", "targets": ["p0:Sol Ring"]},
+    {"op": "resolve"},
+    {"op": "pass_to", "step": "upkeep", "active": "p0"},
+    {"op": "resolve"}
+   ],
+   "expect": [
+    {"count": {"seat": 0, "zone": "battlefield", "name": "Sol Ring"}, "eq": 2},
+    {"count": {"seat": 0, "zone": "battlefield", "name": "Sol Ring", "token": true}, "eq": 1},
+    {"card": "p0:Mechanized Production", "zone": "battlefield"}
+   ]
+  }
+ ]
+}

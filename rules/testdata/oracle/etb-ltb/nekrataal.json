@@ -1,0 +1,97 @@
+{
+ "card": "Nekrataal",
+ "family": "etb-ltb",
+ "author": "cli-20261002T202458Z-c8f54b81 (Oracle + CR only)",
+ "oracle_sha": "4c9317975084",
+ "scenarios": [
+  {
+   "name": "etb-destroys-nonblack-nonartifact-creature",
+   "cr": [
+    "603.2",
+    "701.7a"
+   ],
+   "why": "The enters trigger destroys target nonartifact, nonblack creature: the green Grizzly Bears is destroyed and cannot be regenerated.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Nekrataal"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Nekrataal",
+     "mana": "BBCC"
+    },
+    {
+     "op": "resolve",
+     "targets": [
+      "p1:Grizzly Bears"
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Nekrataal",
+     "zone": "battlefield",
+     "pt": "2/1",
+     "keywords": [
+      "First strike"
+     ]
+    },
+    {
+     "card": "p1:Grizzly Bears",
+     "zone": "graveyard"
+    }
+   ]
+  },
+  {
+   "name": "black-creature-is-not-a-legal-target",
+   "cr": [
+    "115.1",
+    "608.2b"
+   ],
+   "why": "A black creature is not a legal target for the trigger. With only a black creature available the trigger has no legal target and is removed from the stack; the black creature survives.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Nekrataal"
+     ]
+    },
+    "p1": {
+     "battlefield": [
+      "Black Knight"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Nekrataal",
+     "mana": "BBCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p1:Black Knight",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Nekrataal",
+     "zone": "battlefield"
+    }
+   ]
+  }
+ ]
+}

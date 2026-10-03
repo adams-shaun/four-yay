@@ -49,6 +49,40 @@ func TestAttackCandidatesBotFirstDedupedAndValid(t *testing.T) {
 	}
 }
 
+// TestAttackCandidatesOneDefenderPerAttacker: with a planeswalker beside the
+// player, a creature has one option per defender. No candidate may name it
+// twice (the engine rejects "attacker declared against more than one
+// defender" and Decision.Validate does not catch it); toggling on its other
+// option moves it to that defender. Before the fix the toggles produced the
+// double declaration, and a search that kept picking that never-visitable
+// candidate discarded almost every simulation.
+func TestAttackCandidatesOneDefenderPerAttacker(t *testing.T) {
+	d := &decision.Decision{Kind: decision.KAttackers, Player: 0, Min: 0, Max: 4, Options: []decision.Option{
+		{Index: 0, Kind: "attacker", Obj: 10, Player: 1},
+		{Index: 1, Kind: "attacker", Obj: 10, Player: 1, Battle: 77},
+		{Index: 2, Kind: "attacker", Obj: 11, Player: 1},
+		{Index: 3, Kind: "attacker", Obj: 11, Player: 1, Battle: 77},
+	}}
+	got := AttackCandidates(d, decision.Intent{Player: 0, Choices: []int{0, 2}}, 16)
+	moved := false
+	for _, in := range got {
+		objs := map[state.ObjID]bool{}
+		for _, c := range in.Choices {
+			o := d.Options[c].Obj
+			if objs[o] {
+				t.Fatalf("candidate %v declares attacker %d twice", in.Choices, o)
+			}
+			objs[o] = true
+		}
+		if len(in.Choices) == 2 && in.Choices[0] == 1 && in.Choices[1] == 2 {
+			moved = true
+		}
+	}
+	if !moved {
+		t.Fatalf("no candidate moves attacker 10 onto the planeswalker: %+v", got)
+	}
+}
+
 func TestLeafValueTerminalAndSquashed(t *testing.T) {
 	w := state.PlayerID(0)
 	if LeafValue(view.View{Over: true, Winner: &w}, 0) != 1 || LeafValue(view.View{Over: true, Winner: &w}, 1) != 0 || LeafValue(view.View{Over: true, Draw: true}, 0) != 0.5 {

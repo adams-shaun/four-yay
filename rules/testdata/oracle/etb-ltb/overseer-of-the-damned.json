@@ -1,0 +1,43 @@
+{
+  "card": "Overseer of the Damned",
+  "family": "etb-ltb",
+  "oracle_sha": "68d353bd935e",
+  "author": "cli-20261003T014432Z-24102604 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "enters-may-destroy-target-creature",
+      "cr": ["603.2", "701.7a"],
+      "why": "The optional enters trigger destroys a target creature; here it destroys the opponent's Centaur Courser, and because that is a nontoken creature an opponent controlled, the second ability makes a tapped 2/2 Zombie.",
+      "setup": {
+        "p0": {"hand": ["Overseer of the Damned"]},
+        "p1": {"battlefield": ["Centaur Courser"]}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Overseer of the Damned", "mana": "BBCCCCC"},
+        {"op": "resolve", "targets": ["p1:Centaur Courser"]}
+      ],
+      "expect": [
+        {"card": "p0:Overseer of the Damned", "zone": "battlefield", "pt": "5/5", "keywords": ["Flying"]},
+        {"card": "p1:Centaur Courser", "zone": "graveyard"},
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Zombie", "token": true}, "eq": 1}
+      ]
+    },
+    {
+      "name": "own-creature-death-does-not-make-a-zombie",
+      "cr": ["603.6c"],
+      "why": "The Zombie trigger watches nontoken creatures an OPPONENT controls; when the Overseer's enters trigger destroys its controller's own Grizzly Bears, no Zombie token is created.",
+      "setup": {
+        "p0": {"hand": ["Overseer of the Damned"], "battlefield": ["Grizzly Bears"]},
+        "p1": {}
+      },
+      "steps": [
+        {"op": "cast", "seat": 0, "card": "p0:Overseer of the Damned", "mana": "BBCCCCC"},
+        {"op": "resolve", "targets": ["p0:Grizzly Bears"]}
+      ],
+      "expect": [
+        {"card": "p0:Grizzly Bears", "zone": "graveyard"},
+        {"count": {"seat": 0, "zone": "battlefield", "name": "Zombie", "token": true}, "eq": 0}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "card": "Hoard-Smelter Dragon",
+  "family": "newest-mechanics",
+  "author": "cli-20261002T230428Z-067d6538 (Oracle + CR only)",
+  "scenarios": [
+    {
+      "name": "printed-characteristics",
+      "cr": [
+        "208.3",
+        "702.9"
+      ],
+      "why": "Oracle gives Hoard-Smelter Dragon printed power/toughness 5/5 and Flying. Those characteristics apply to this battlefield creature.",
+      "setup": {
+        "p0": {
+          "battlefield": [
+            "Hoard-Smelter Dragon"
+          ]
+        }
+      },
+      "steps": [],
+      "expect": [
+        {
+          "card": "p0:Hoard-Smelter Dragon",
+          "zone": "battlefield",
+          "pt": "5/5",
+          "keywords": [
+            "Flying"
+          ]
+        }
+      ]
+    }
+  ]
+}

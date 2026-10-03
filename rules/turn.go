@@ -254,6 +254,20 @@ func (e *Engine) finishUntapStep(next int) bool {
 			e.emit(events.Event{Kind: events.Exert, Obj: ids[i], Amount: -1})
 			continue
 		}
+		if o.CantUntapNextStep {
+			// CR 611.2b (Frost Lynx): the runtime keyword grant "This card
+			// doesn't untap during your next untap step" is a one-shot
+			// window consumed at use, the same lifetime as exert's
+			// ExertSkipUntap above -- the Amount -1 AlterAttribute clears the
+			// flag in the fold, and replay re-derives both the skip and the
+			// consume from this one scan. Untap EFFECTS are deliberately
+			// untouched: CR 611.2b names only the untap step, so the gate
+			// lives here and never in effects.TryUntap. An already-untapped
+			// permanent's window is consumed just the same: its next untap
+			// step has passed either way.
+			e.emit(events.Event{Kind: events.AlterAttribute, Obj: ids[i], Text: "CantUntapNextStep", Amount: -1})
+			continue
+		}
 		if !o.Tapped {
 			continue
 		}
@@ -617,6 +631,11 @@ func (e *Engine) step() {
 	// exiled queues its owner's "cast it transformed without paying its mana
 	// cost" offer, drained here before priority like the suspend cast above.
 	if e.startDefeatedCast() {
+		return
+	}
+	// CR 608.2g: the rest of an Amount$ Play answer whose earlier cast
+	// parked on its own question (rules/play_queue.go).
+	if e.startQueuedPlay() {
 		return
 	}
 	if e.G.Over {

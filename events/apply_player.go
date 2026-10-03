@@ -316,6 +316,15 @@ func foldAlterAttribute(g *state.Game, e *Event) {
 			} else {
 				o.PlottedTurn = 0
 			}
+		case "CantUntapNextStep":
+			// CR 611.2b: the one-shot "doesn't untap during its controller's
+			// next untap step" window stamped at grant time (Frost Lynx's
+			// runtime `KW$ HIDDEN ...` Pump). Amount >= 1 grants, -1 is the
+			// untap step's consume (rules/turn.go finishUntapStep). Like
+			// ExertSkipUntap it spans the turn boundary and is therefore NOT
+			// reset at TurnChange; it is cleared on leaving the battlefield
+			// with ExertSkipUntap (events/apply_zone.go).
+			o.CantUntapNextStep = e.Amount >= 1
 		}
 	}
 }

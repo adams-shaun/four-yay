@@ -582,6 +582,23 @@ func registerPumpEffects(h Host, c *Ctx, id state.ObjID, att, def int32, doubleP
 			h.Emit(events.Event{Kind: events.AlterAttribute, Obj: id, Text: "Suspend", Amount: 1})
 		}
 	}
+	// CR 611.2b's next-untap-step restriction travels as runtime keyword TEXT
+	// (Frost Lynx: `KW$ HIDDEN This card doesn't untap during your next untap
+	// step.`), so the layer-6 AddKeywords grant below records it in the
+	// derived keyword list but nothing would consume it. Stamp the one-shot
+	// state flag here, at grant time, using the ONE shared reader
+	// (cards.IsHiddenUntapNextStepKeyword) so the grant site and the untap
+	// step cannot drift. The flag is consumed at the untap step, not reset at
+	// TurnChange -- the window spans the turn boundary, the ExertSkipUntap
+	// lifetime exactly.
+	for _, kw := range kws {
+		if cards.IsHiddenUntapNextStepKeyword(kw) {
+			if o := h.Game().Obj(id); o != nil && o.Zone == state.ZBattlefield && !o.CantUntapNextStep {
+				h.Emit(events.Event{Kind: events.AlterAttribute, Obj: id, Text: "CantUntapNextStep", Amount: 1})
+			}
+			break
+		}
+	}
 	permanent, untilEOT := durationTiming(sa.Params["Duration"])
 	// The move-driven lifetime of a Duration$ Permanent pump: when the pumped
 	// object leaves the zone it was pumped in, the grant ends (CR 400.7 -- it
@@ -1138,6 +1155,24 @@ func registerAnimateEffects(h Host, c *Ctx, id state.ObjID, ag animateGrant) {
 	kws := ag.kws
 	if len(ag.hiddenKws) > 0 {
 		kws = append(append([]string(nil), ag.kws...), ag.hiddenKws...)
+	}
+	// CR 611.2b's next-untap-step restriction travels as runtime keyword TEXT
+	// through the SAME HiddenKeywords$ grammar as the layer-6 AddKeywords list
+	// above (Frost Lynx delivers it from a Pump; an `Animate | HiddenKeywords$
+	// This card doesn't untap during your next untap step.` delivers it here).
+	// The derived keyword alone is inert -- the untap step consumes only the
+	// one-shot state flag -- so stamp it at grant time using the ONE shared
+	// reader (cards.IsHiddenUntapNextStepKeyword), exactly as registerPumpEffects
+	// does, so the two grant sites cannot drift. The battlefield guard matches
+	// the Pump site: an Animate can target a card outside the battlefield, and
+	// the flag is cleared on leaving the battlefield.
+	for _, kw := range ag.hiddenKws {
+		if cards.IsHiddenUntapNextStepKeyword(kw) {
+			if o := h.Game().Obj(id); o != nil && o.Zone == state.ZBattlefield && !o.CantUntapNextStep {
+				h.Emit(events.Event{Kind: events.AlterAttribute, Obj: id, Text: "CantUntapNextStep", Amount: 1})
+			}
+			break
+		}
 	}
 	if ag.removeAbilities || len(kws) > 0 || len(ag.removeKeywords) > 0 {
 		// CR 613.1f: RemoveAllAbilities$, RemoveKeywords$ and the keyword grant

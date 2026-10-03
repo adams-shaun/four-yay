@@ -1,0 +1,240 @@
+{
+ "card": "Lifecrafter's Bestiary",
+ "family": "triggered-ability",
+ "author": "cli-20261002T210434Z-cc1de00a (Oracle + CR only) + cli-20261002T202458Z-c8f54b81 (Oracle + CR only)",
+ "oracle_sha": "29d5d5ce0b27",
+ "scenarios": [
+  {
+   "name": "casting-a-creature-and-paying-green-draws-a-card",
+   "cr": [
+    "603.2",
+    "118.12a"
+   ],
+   "why": "'Whenever you cast a creature spell, you may pay {G}. If you do, draw a card': casting Grizzly Bears and paying {G} draws one card, so the hand keeps the drawn card.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Grizzly Bears"
+     ],
+     "battlefield": [
+      "Lifecrafter's Bestiary"
+     ],
+     "library_top": [
+      "Forest"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "CGG"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "trigger_optional",
+       "pick": [
+        "yes"
+       ]
+      },
+      {
+       "kind": "choose",
+       "pick": [
+        "{G}"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    },
+    {
+     "pool": {
+      "p0": ""
+     }
+    }
+   ]
+  },
+  {
+   "name": "declining-the-payment-draws-nothing",
+   "cr": [
+    "603.2"
+   ],
+   "why": "The {G} payment is optional: declining leaves the hand empty and the Grizzly Bears on the battlefield.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Grizzly Bears"
+     ],
+     "battlefield": [
+      "Lifecrafter's Bestiary"
+     ],
+     "library_top": [
+      "Forest"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "CG",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "no"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  },
+  {
+   "name": "creature-spell-may-pay-green-to-draw",
+   "cr": [
+    "603.2",
+    "603.3b",
+    "118.12"
+   ],
+   "why": "Whenever its controller casts a creature spell they may pay {G}; if they do they draw a card. With a green source and accepting the optional pay, casting a creature draws one: the named Forest on top of the library lands in hand.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Lifecrafter's Bestiary"
+     ],
+     "hand": [
+      "Grizzly Bears"
+     ],
+     "library_top": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "GGCC"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "yes"
+       ]
+      },
+      {
+       "kind": "choose",
+       "pick": [
+        "trigger_cost_pay"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "hand"
+    },
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "creature-spell-decline-pay-draws-nothing",
+   "cr": [
+    "603.2",
+    "603.3b",
+    "118.12"
+   ],
+   "why": "The {G} payment is optional: declining it means no card is drawn, so the named Forest stays on top of the library and the hand holds only the cast creature.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Lifecrafter's Bestiary"
+     ],
+     "hand": [
+      "Grizzly Bears"
+     ],
+     "library_top": [
+      "Forest"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "GCC"
+    },
+    {
+     "op": "resolve",
+     "answers": [
+      {
+       "kind": "any",
+       "pick": [
+        "no"
+       ]
+      }
+     ]
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "card": "p0:Forest",
+     "zone": "library"
+    },
+    {
+     "hand_size": {
+      "p0": 0
+     }
+    }
+   ]
+  }
+ ]
+}

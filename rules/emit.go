@@ -348,6 +348,11 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		e.rechooseDepartedBattleProtector(stored.Player)
 	}
 	e.publishTokenEntry(stored, tokenMintWant)
+	if (stored.Kind == events.TokenCreate || stored.Kind == events.CardToken) && tokenMintWant != 0 {
+		// Other permanents' "enters tapped / with a counter" replacements
+		// apply to a token's entry too (rules/token_entry_replacements.go).
+		e.applyTokenEntryUpdates(tokenMintWant)
+	}
 	e.recordTurnLedgers(stored, abilityMintWant)
 	if stackCopyMintWant != 0 && e.G.Obj(stackCopyMintWant) != nil {
 		*e.stackCopyMintSink = append(*e.stackCopyMintSink, stackCopyMintWant)
@@ -508,6 +513,9 @@ func (e *Engine) emit(ev events.Event) events.Event {
 			}
 			e.sourceControllerLKI[copyID] = controller
 		}
+		if snap, ok := e.sourceCharLKI[ev.Obj]; ok {
+			e.setSourceCharLKI(copyID, snap)
+		}
 		if lki := e.damageSourceLKI[ev.Obj]; lki != nil {
 			if e.damageSourceLKI == nil {
 				e.damageSourceLKI = make(map[state.ObjID]map[state.ObjID]effects.DamageSourceLKI)
@@ -542,6 +550,7 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		delete(e.charmTargets, ev.Obj)
 		delete(e.sourceLifelinkLKI, ev.Obj)
 		delete(e.sourceControllerLKI, ev.Obj)
+		delete(e.sourceCharLKI, ev.Obj)
 		delete(e.damageSourceLKI, ev.Obj)
 	}
 	if ev.Kind == events.MoveZone && lki != nil && lki.Zone == state.ZBattlefield {

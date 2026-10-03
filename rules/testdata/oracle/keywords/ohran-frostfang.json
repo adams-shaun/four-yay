@@ -1,0 +1,96 @@
+{
+ "card": "Ohran Frostfang",
+ "family": "keywords",
+ "author": "cli-20261002T030326Z-79066444 (Oracle + CR only)",
+ "oracle_sha": "4ae05583bba2",
+ "scenarios": [
+  {
+   "name": "attacking-creature-gets-deathtouch-and-draws-on-damage",
+   "cr": [
+    "613.1f",
+    "702.2a",
+    "510.2",
+    "603.2"
+   ],
+   "why": "Attacking creatures you control have deathtouch, so the 2/2 Grizzly Bears has deathtouch while attacking; unblocked it deals combat damage to p1, and 'whenever a creature you control deals combat damage to a player' draws a card -- the deathtouch control is asserted at declare-attackers.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ohran Frostfang",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "defender": "p1",
+     "attackers": [
+      "p0:Grizzly Bears"
+     ],
+     "expect": [
+      {
+       "card": "p0:Grizzly Bears",
+       "keywords": [
+        "Deathtouch"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": [
+    {
+     "hand_size": {
+      "p0": 1
+     }
+    }
+   ]
+  },
+  {
+   "name": "nonattacker-has-no-deathtouch",
+   "cr": [
+    "613.1f",
+    "702.2a"
+   ],
+   "why": "The deathtouch grant reaches only ATTACKING creatures; a creature that stays home does not have deathtouch.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Ohran Frostfang",
+      "Grizzly Bears"
+     ]
+    },
+    "p1": {}
+   },
+   "steps": [
+    {
+     "op": "attack",
+     "seat": 0,
+     "defender": "p1",
+     "attackers": [
+      "p0:Ohran Frostfang"
+     ],
+     "expect": [
+      {
+       "card": "p0:Grizzly Bears",
+       "no_keywords": [
+        "Deathtouch"
+       ]
+      }
+     ]
+    },
+    {
+     "op": "pass_to",
+     "step": "main2"
+    }
+   ],
+   "expect": []
+  }
+ ]
+}

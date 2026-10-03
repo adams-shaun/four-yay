@@ -1044,6 +1044,7 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 				}
 				e.triggerEffectFrames[id] = pt.Ctx.EffectFrame
 			}
+			e.bindReflexiveContext(id, &pt)
 			e.recordTriggerLine(id, pt)
 			handled := false
 			if pt.SA.Params["Choices"] != "" {
@@ -1118,6 +1119,9 @@ func (e *Engine) pushTrigger(pt pendingTrigger) {
 				e.sourceControllerLKI = make(map[state.ObjID]state.PlayerID)
 			}
 			e.sourceControllerLKI[id] = pt.Ctx.SourceControllerLKI
+		}
+		if pt.sourceCharLKIValid {
+			e.setSourceCharLKI(id, pt.sourceCharLKI)
 		}
 		if pt.Ctx.DamageSourceLKI != nil {
 			if e.damageSourceLKI == nil {
@@ -1252,6 +1256,12 @@ func (e *Engine) triggerOf(pt pendingTrigger) (cards.Trigger, bool) {
 func (e *Engine) triggerPaidX(stack state.ObjID, o *state.Object) int32 {
 	if o == nil || o.Ability == nil {
 		return 0
+	}
+	if tc, ok := e.triggerContexts[stack]; ok && tc.Reflexive {
+		// A reflexive ability (CR 603.12) reads the X its SPAWNING ability
+		// was paid ("you may pay {X}. When you do, it deals X damage"),
+		// captured by QueueReflexiveTrigger (rules/reflexive.go).
+		return tc.TriggerPaidX
 	}
 	if _, ok := e.triggerForAbilityObject(stack, o); !ok {
 		return 0
@@ -1495,7 +1505,7 @@ func (e *Engine) optionalDecider(pt pendingTrigger) (who state.PlayerID, optiona
 	if !ok {
 		return 0, false, false
 	}
-	spec := t.ParamStr(cards.PKOptionalDecider)
+	spec := triggerOptionalSpec(t)
 	if spec == "" {
 		return 0, false, false
 	}
@@ -1629,7 +1639,7 @@ func (e *Engine) StackOptional(id state.ObjID) (optional bool, decider state.Pla
 	}
 	spec := ""
 	if t, ok := e.findTriggerForAbility(o.Source, o.Ability); ok {
-		spec = t.Params["OptionalDecider"]
+		spec = triggerOptionalSpec(t)
 	} else {
 		// An Effect-created delayed trigger: no face T: line, so its
 		// OptionalDecider$ spec rides the registration's referent context

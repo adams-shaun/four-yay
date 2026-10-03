@@ -1,0 +1,121 @@
+{
+ "card": "Soul Warden",
+ "family": "triggered-ability",
+ "author": "cli-20261002T202458Z-c8f54b81 (Oracle + CR only)",
+ "oracle_sha": "d3938d0dcd6c",
+ "scenarios": [
+  {
+   "name": "another-creature-entering-gains-one",
+   "cr": [
+    "603.2",
+    "603.6a"
+   ],
+   "why": "Whenever ANOTHER creature enters, the Warden's controller gains 1 life. The Warden itself entering is not 'another' creature.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Soul Warden"
+     ],
+     "hand": [
+      "Grizzly Bears"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Grizzly Bears",
+     "mana": "GCC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Grizzly Bears",
+     "zone": "battlefield"
+    },
+    {
+     "life": {
+      "p0": 21,
+      "p1": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "warden-entering-does-not-gain",
+   "cr": [
+    "603.6a"
+   ],
+   "why": "The Warden entering does not trigger its own ability (it is not 'another' creature), so the controller stays at 20.",
+   "setup": {
+    "p0": {
+     "hand": [
+      "Soul Warden"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Soul Warden",
+     "mana": "WC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "card": "p0:Soul Warden",
+     "zone": "battlefield"
+    },
+    {
+     "life": {
+      "p0": 20
+     }
+    }
+   ]
+  },
+  {
+   "name": "a-token-entering-also-gains",
+   "cr": [
+    "603.2",
+    "111.1"
+   ],
+   "why": "A token creature entering is a creature entering, so the Warden's controller gains 1 life.",
+   "setup": {
+    "p0": {
+     "battlefield": [
+      "Soul Warden"
+     ],
+     "hand": [
+      "Dragon Fodder"
+     ]
+    }
+   },
+   "steps": [
+    {
+     "op": "cast",
+     "seat": 0,
+     "card": "p0:Dragon Fodder",
+     "mana": "RC"
+    },
+    {
+     "op": "resolve"
+    }
+   ],
+   "expect": [
+    {
+     "life": {
+      "p0": 22
+     }
+    }
+   ]
+  }
+ ]
+}

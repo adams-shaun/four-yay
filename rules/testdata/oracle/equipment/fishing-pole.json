@@ -182,7 +182,8 @@
      "count": {
       "seat": 0,
       "zone": "battlefield",
-      "name": "Fish"
+      "name": "Fish",
+      "token": true
      },
      "eq": 0
     }

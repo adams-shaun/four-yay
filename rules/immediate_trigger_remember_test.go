@@ -202,23 +202,51 @@ func TestImmediateTriggerRememberObjectsTargetedWithoutCost(t *testing.T) {
 	}
 	submitChoices(t, e, pick)
 	// Both seats pass and the spell resolves: the ChangeZone returns the
-	// creature, then the ImmediateTrigger's "when you do" body runs. That
-	// body is a Fight whose second target is optional ("up to one"), and the
-	// engine poses no ask for an optional target that can legally be declined
-	// with zero (the same front-door rule the stack entry uses), so the
-	// observable proof of the fix here is that the body was ENTERED with the
-	// returned creature: without the fix effImmediateTrigger fell into its
-	// catch-all arm and emitted its loud Note instead, and DelayTriggerRemembered
-	// resolved to nobody.
-	passUntilStackEmpty(t, e, 40)
-
+	// creature, then the ImmediateTrigger's "when you do" half goes on the
+	// stack as a reflexive triggered ability (CR 603.12). Its body is a Fight
+	// with "up to one target creature you don't control", asked as the
+	// ability is put on the stack. Without the RememberObjects$ Targeted fix
+	// effImmediateTrigger fell into its catch-all arm and emitted its loud
+	// Note instead, and DelayTriggerRemembered resolved to nobody.
+	var ask *decision.Decision
+	for i := 0; i < 40 && ask == nil; i++ {
+		d = e.Pending()
+		if d == nil {
+			t.Fatal("no decision while the spell resolves")
+		}
+		if d.Kind == decision.KPriority {
+			if len(e.G.Stack) == 0 {
+				break
+			}
+			passPriority(t, e)
+			continue
+		}
+		ask = d
+	}
+	if ask == nil || ask.Kind != decision.KTarget || ask.Min != 0 || ask.Max != 1 {
+		t.Fatalf("after the spell resolved: %+v, want the reflexive Fight's up-to-one target ask", ask)
+	}
 	if o := e.G.Obj(gyCard); o == nil || o.Zone != state.ZBattlefield {
 		t.Fatalf("returned creature zone = %+v, want the battlefield", o)
 	}
-	// Precondition: a legal fight target the body's own Defined$ would face
-	// really exists, so the body was not entered against an empty board.
-	if o := e.G.Obj(victim); o == nil || o.Zone != state.ZBattlefield {
-		t.Fatalf("precondition: the opponent's fight target left the battlefield: %+v", o)
+	pick = -1
+	for _, o := range ask.Options {
+		if o.Obj == victim {
+			pick = o.Index
+		}
+	}
+	if pick < 0 {
+		t.Fatalf("the opponent's creature is not offered as the fight target: %+v", ask.Options)
+	}
+	submitChoices(t, e, pick)
+	passUntilStackEmpty(t, e, 40)
+	// The fight happened between the RETURNED creature (the instance's
+	// remembered object) and the target: two 2/2s, both dead.
+	if o := e.G.Obj(gyCard); o == nil || o.Zone != state.ZGraveyard {
+		t.Fatalf("returned creature zone = %+v, want the graveyard (it fought a 2/2)", o)
+	}
+	if o := e.G.Obj(victim); o == nil || o.Zone != state.ZGraveyard {
+		t.Fatalf("fight target zone = %+v, want the graveyard (it fought a 2/2)", o)
 	}
 	for _, ev := range e.L.Events {
 		if ev.Kind == events.Note && strings.Contains(ev.Text, "ImmediateTrigger RememberObjects$ Targeted is not implemented") {

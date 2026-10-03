@@ -32,7 +32,7 @@ Part of the [repo map](repo-map.md) index. The engine chain is in
 | `orchestrator/hooks.py` | agentctl pipeline hooks. Stdlib-only Python; the old daemon is gone. |
 | `.agentctl/config.toml` | agentctl pipeline config: tiers, gates, landing. |
 | `.githooks/` | pre-commit, commit-msg, pre-push (`core.hooksPath=.githooks`). |
-| `scripts/` | `agent-worktree.sh` (the only sanctioned worktree creator), `fleet.sh` (port allocation), `smoke.sh`, `gate-ws.sh`, `cleanup.sh`, `deploy-demo.sh` (operator only). |
+| `scripts/` | `agent-worktree.sh` (the only sanctioned worktree creator), `fleet.sh` (port allocation), `smoke.sh`, `cleanup.sh`, `deploy-demo.sh` (operator only). |
 | `.github/workflows/coverage.yml` | On push to main: regenerates the README coverage block and `docs/coverage.md`. |
 | `TEST_HISTORY.md`, `ALLOC_HISTORY.md` (per package) | Test-time and allocation budgets. |
 

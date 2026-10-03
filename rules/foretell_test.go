@@ -5,6 +5,7 @@ import (
 
 	"github.com/adams-shaun/gorge/cards"
 	"github.com/adams-shaun/gorge/decision"
+	"github.com/adams-shaun/gorge/effects"
 	"github.com/adams-shaun/gorge/events"
 	"github.com/adams-shaun/gorge/state"
 )
@@ -214,7 +215,8 @@ func TestHauntingVoyageForetellUnlocksTheReturnAllHalf(t *testing.T) {
 	// unchanged.
 	passUntilAsk(t, e)
 	d := e.Pending()
-	if d == nil || d.Kind != decision.KChoose || d.ResumeKind != "choosetype" || len(d.Options) != 2 {
+	if d == nil || d.Kind != decision.KChoose || d.ResumeKind != "choosetype" ||
+		len(d.Options) != len(effects.CreatureTypeWordList()) {
 		t.Fatalf("expected the mid-resolution creature-type ask, got %+v", d)
 	}
 	idx := optionByLabel(d.Options, "Elf")
@@ -271,7 +273,8 @@ func TestHauntingVoyageOrdinaryCastReturnsUpToTwo(t *testing.T) {
 	// (ct1); answer it "Elf".
 	resolveOffStack(t, e, id)
 	d := e.Pending()
-	if d == nil || d.Kind != decision.KChoose || d.ResumeKind != "choosetype" || len(d.Options) != 2 {
+	if d == nil || d.Kind != decision.KChoose || d.ResumeKind != "choosetype" ||
+		len(d.Options) != len(effects.CreatureTypeWordList()) {
 		t.Fatalf("expected the mid-resolution creature-type ask, got %+v", d)
 	}
 	tidx := optionByLabel(d.Options, "Elf")

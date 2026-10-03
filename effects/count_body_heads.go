@@ -61,14 +61,11 @@ func evalCountBodyObjHeads(h Host, c *Ctx, g *state.Game, head, arg string, dept
 	// ORed with the object's FlagKicked; at resolution no pending cast exists
 	// and the object read is authoritative.
 	if rest, ok := strings.CutPrefix(head, "Kicked."); ok {
-		yes, no := splitDot(rest)
-		if c.PendingKicked {
-			return yes, true, true
-		}
+		kicked := c.PendingKicked
 		if o := g.Obj(c.Source); o != nil && o.CastFlags&state.FlagKicked != 0 {
-			return yes, true, true
+			kicked = true
 		}
-		return no, true, true
+		return dotBranch(h, c, rest, kicked, depth), true, true
 	}
 	// PromisedGift.<yes>.<no> is <yes> when the source's cast promised an
 	// opponent a gift (CR 702.168), else <no> -- Forge's
@@ -136,11 +133,7 @@ func evalCountBodyObjHeads(h Host, c *Ctx, g *state.Game, head, arg string, dept
 	// hyphenated -- the card Name's "Urza's Power Plant" is a different
 	// string and matching it would be exactly the defect this head fixes.
 	if rest, ok := strings.CutPrefix(head, "UrzaLands."); ok {
-		assembled, notAssembled := splitDot(rest)
-		if controlsAllUrzaLands(g, c.Controller) {
-			return assembled, true, true
-		}
-		return notAssembled, true, true
+		return dotBranch(h, c, rest, controlsAllUrzaLands(g, c.Controller), depth), true, true
 	}
 
 	// Count$ThisTurnEntered_<Dest>[_from_<Origin>]_<Valid> counts the cards
@@ -360,7 +353,6 @@ func evalCountBodyDotted(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 			}
 			return n, true, true
 		case "Morbid", "Monarch":
-			y, n := splitDot(head[dot+1:])
 			holds := false
 			if head[:dot] == "Monarch" {
 				holds = g.IsMonarch(c.Controller)
@@ -375,10 +367,7 @@ func evalCountBodyDotted(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 					}
 				}
 			}
-			if holds {
-				return y, true, true
-			}
-			return n, true, true
+			return dotBranch(h, c, head[dot+1:], holds, depth), true, true
 		case "Revolt":
 			// CR 702.38's branch head (the corpus's two carriers: Lifecraft
 			// Cavalry's SVar:Revolt:Count$Revolt.1.0 etbCounter gate and
@@ -388,11 +377,7 @@ func evalCountBodyDotted(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 			// the bare Condition$ Revolt gate and the rules-side Revolt$
 			// clauses share, so the spellings cannot drift apart. Literal
 			// branches, the Morbid/Monarch precedent.
-			y, n := splitDot(head[dot+1:])
-			if h.RevoltHolds(c.Controller) {
-				return y, true, true
-			}
-			return n, true, true
+			return dotBranch(h, c, head[dot+1:], h.RevoltHolds(c.Controller), depth), true, true
 		case "Blessing":
 			// CR 702.131's city's-blessing branch head (10 corpus carriers:
 			// Golden Demise's SVar:X:Count$Blessing.1.0 pump fork, Kumena's
@@ -407,11 +392,8 @@ func evalCountBodyDotted(h Host, c *Ctx, g *state.Game, head, arg string, depth 
 			// spellings cannot drift apart. Literal-branch read via
 			// splitDot, the Revolt/Morbid precedent; an out-of-range
 			// controller denies, the fail-closed direction its siblings take.
-			y, n := splitDot(head[dot+1:])
-			if int(c.Controller) < len(g.Players) && g.Players[c.Controller].Blessing {
-				return y, true, true
-			}
-			return n, true, true
+			blessed := int(c.Controller) < len(g.Players) && g.Players[c.Controller].Blessing
+			return dotBranch(h, c, head[dot+1:], blessed, depth), true, true
 		case "Threshold":
 			// CR 702.24's Threshold branch head (7 corpus carriers: Cabal
 			// Ritual's Count$Threshold.5.3 mana ritual, Thermal Blast and
