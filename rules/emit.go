@@ -348,6 +348,11 @@ func (e *Engine) emit(ev events.Event) events.Event {
 		e.rechooseDepartedBattleProtector(stored.Player)
 	}
 	e.publishTokenEntry(stored, tokenMintWant)
+	if (stored.Kind == events.TokenCreate || stored.Kind == events.CardToken) && tokenMintWant != 0 {
+		// Other permanents' "enters tapped / with a counter" replacements
+		// apply to a token's entry too (rules/token_entry_replacements.go).
+		e.applyTokenEntryUpdates(tokenMintWant)
+	}
 	e.recordTurnLedgers(stored, abilityMintWant)
 	if stackCopyMintWant != 0 && e.G.Obj(stackCopyMintWant) != nil {
 		*e.stackCopyMintSink = append(*e.stackCopyMintSink, stackCopyMintWant)
