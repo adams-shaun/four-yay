@@ -250,23 +250,9 @@ env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "4" }
 # The higher limit is faster AND lower-RSS; `seat`, `rules` and
 # spellbench/v2engine sit under 1.2G RSS and are unaffected by either value,
 # so no package that previously fit the 8G MemoryMax scope grows into it.
-#
-# CPUQuota raised 400% -> 800% (2026-10-03, agent-20261003T050107Z-b8073773),
-# module gate ONLY; -p, MemoryMax and the -skip pattern are untouched.
-# `go test` parallelises the build/compile phase to NumCPU regardless of the
-# test -p, so the 400% quota throttled ~50s of that phase while -p=4 -- which
-# sets how many large package test binaries overlap, and so the scope peak --
-# stayed at 4. Measured gate-shaped at -p=4 (two runs each arm on a shared
-# box):
-#   CPUQuota=400%  233s/187s wall, 373%/376% CPU, 7.4G/7.9G peak, swap 42M/9M
-#   CPUQuota=800%  140s/144s wall, 481%/479% CPU, 7.6G/7.9G peak, swap 0/0
-# The wall win is real (~25-40%); the cgroup peak does NOT move with the quota
-# (both arms range 7.4-7.9G -- it is -p=4-bounded package overlap, e.g. `host`
-# alone peaks 6.3-6.6G), and at 800% the scope stops swapping. -p=8/-p=12 are
-# the forbidden class (8.0G peak + swap + a failing host test) and stay out.
 [[gates]]
 name = "go test (module)"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=800%", "go", "test", "-p=4", "-skip", "^(TestHeads|TestInvariantsUnderSeedFuzz|TestLargeEliminationSweepDoesNotTripLivelockWatcher)$", "./..."]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=400%", "go", "test", "-p=4", "-skip", "^(TestHeads|TestInvariantsUnderSeedFuzz|TestLargeEliminationSweepDoesNotTripLivelockWatcher)$", "./..."]
 timeout = 1200
 env = { GOMEMLIMIT = "4GiB", GOMAXPROCS = "4" }
 
