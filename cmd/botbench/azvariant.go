@@ -247,10 +247,14 @@ func (v *azVariant) displayName() string {
 	if v.cfg.PriorOnly {
 		return "az-prior-" + v.name
 	}
+	suffix := ""
 	if v.cfg.Search.OpponentNodes {
-		return fmt.Sprintf("az-%s-sims%d%s-%s", world, v.cfg.Search.Sims, azOppLedgerSuffix, v.name)
+		suffix += azOppLedgerSuffix
 	}
-	return fmt.Sprintf("az-%s-sims%d-%s", world, v.cfg.Search.Sims, v.name)
+	if v.cfg.Search.ReuseTree {
+		suffix += azReuseLedgerSuffix
+	}
+	return fmt.Sprintf("az-%s-sims%d%s-%s", world, v.cfg.Search.Sims, suffix, v.name)
 }
 
 // azVariantRecorders installs a recorder on every seat of g that is a
@@ -347,6 +351,9 @@ func azRunRecord() map[string]any {
 		if azCfg.Search.OpponentLimit != 0 {
 			rec["opponent_candidates"] = azCfg.Search.OpponentLimit
 		}
+	}
+	if azCfg.Search.ReuseTree {
+		rec["reuse_tree"] = true
 	}
 	return rec
 }

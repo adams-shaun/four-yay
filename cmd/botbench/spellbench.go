@@ -246,6 +246,9 @@ func sbDisplayName(policy string) string {
 	if cfg.Search.OpponentNodes {
 		name += azOppLedgerSuffix
 	}
+	if cfg.Search.ReuseTree {
+		name += azReuseLedgerSuffix
+	}
 	if rest := strings.TrimPrefix(policy, base); rest != "" {
 		name += rest
 	}
@@ -256,6 +259,10 @@ func sbDisplayName(policy string) string {
 // (-az-opponent-nodes) in its ledger name, ahead of any decorator, so the
 // two searches never share a rating.
 const azOppLedgerSuffix = "-opp"
+
+// azReuseLedgerSuffix marks an az seat that keeps its tree between
+// decisions (-az-reuse-tree), after -opp and ahead of any decorator.
+const azReuseLedgerSuffix = "-reuse"
 
 // basePolicy is a registry spec's base policy, dropping its decorators
 // ("az+passguard" -> "az"); az classification uses it so a decorated az
