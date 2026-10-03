@@ -64,7 +64,11 @@ type oracleSeat struct {
 	Command     []string `json:"command,omitempty"`
 	// LibraryTop puts these cards on top of the library, first = top.
 	LibraryTop []string `json:"library_top,omitempty"`
-	Life       *int32   `json:"life,omitempty"`
+	// Sideboard is the seat's cards outside the game (Config.Sideboards),
+	// for "from outside the game" effects. They are genesis configuration,
+	// not dealt from the deck, and are bound as "pN:Name" refs like the rest.
+	Sideboard []string `json:"sideboard,omitempty"`
+	Life      *int32   `json:"life,omitempty"`
 }
 
 type oracleStep struct {
@@ -179,7 +183,7 @@ func (r *oracleRun) logf(format string, a ...any) {
 var oracleZones = map[string]state.Zone{
 	"library": state.ZLibrary, "hand": state.ZHand, "battlefield": state.ZBattlefield,
 	"graveyard": state.ZGraveyard, "exile": state.ZExile, "stack": state.ZStack,
-	"command": state.ZCommand,
+	"command": state.ZCommand, "sideboard": state.ZSideboard,
 }
 
 // oracleFiller pads every library to 40 cards. Wastes has no colour, no
@@ -286,6 +290,7 @@ func (r *oracleRun) build(sc oracleScenario) error {
 		top  bool
 	}
 	decks := make([][]*cards.Card, seats)
+	sideboards := make([][]*cards.Card, seats)
 	commanders := make([][]int, seats)
 	places := make([][]placement, seats)
 	for key := range sc.Setup {
@@ -319,8 +324,23 @@ func (r *oracleRun) build(sc oracleScenario) error {
 		for len(decks[p]) < 40 {
 			decks[p] = append(decks[p], filler)
 		}
+		for _, n := range s.Sideboard {
+			c, err := lookup(n)
+			if err != nil {
+				return err
+			}
+			sideboards[p] = append(sideboards[p], c)
+		}
 	}
 	cfg := Config{Seed: 42, Names: []string{"a", "b"}, Decks: decks, Tokens: r.reg.Tokens}
+	for p := range sideboards {
+		if len(sideboards[p]) > 0 {
+			// Only a scenario that names a sideboard sets the field, so every
+			// other scenario's Config (and its replay) is unchanged.
+			cfg.Sideboards = sideboards
+			break
+		}
+	}
 	switch sc.Format {
 	case "", "constructed":
 	case "commander":
@@ -379,6 +399,27 @@ func (r *oracleRun) build(sc oracleScenario) error {
 			if pl.top {
 				tops = append(tops, id)
 			}
+		}
+		// Sideboard cards were minted straight into the sideboard at genesis;
+		// bind them in setup order, continuing the per-name ordinals.
+		for _, n := range sc.Setup[fmt.Sprintf("p%d", p)].Sideboard {
+			var id state.ObjID
+			for _, cand := range e.G.Zone(state.ZSideboard, pid) {
+				if o := e.G.Obj(cand); !bound[cand] && r.objName(o) == n {
+					id = cand
+					break
+				}
+			}
+			if id == 0 {
+				return harnessf("setup: p%d's sideboard %q was not minted", p, n)
+			}
+			bound[id] = true
+			counts[n]++
+			ref := fmt.Sprintf("p%d:%s", p, n)
+			if counts[n] > 1 {
+				ref = fmt.Sprintf("%s#%d", ref, counts[n])
+			}
+			r.refs[ref] = id
 		}
 		if len(tops) > 0 {
 			// LibraryOrder's IDs are the complete new order, top first.

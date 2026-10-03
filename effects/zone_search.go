@@ -235,8 +235,33 @@ func effSearchLibrary(h Host, c *Ctx, sa *cards.SA, to state.Zone, zones []state
 		if max < 0 {
 			max = 0
 		}
+		requested := max
 		if max > int32(len(budgetEligible)) {
 			max = int32(len(budgetEligible))
+		}
+		// DifferentNames$ True: one card per name can ever be found, so max is
+		// at most the number of distinct names in the pool. Without the clamp a
+		// quantity-only search (Extrapolate the Impossible's Card.YouOwn) forces
+		// Min = Max over a pool whose every full answer repeats a name -- a
+		// decision Validate's Group exclusivity refuses for EVERY answer, and the
+		// match wedges. Exactly$ True ("exactly two cards ... with different
+		// names": Extrapolate the Impossible, Burning-Rune Demon, Turtles
+		// Forever) is all-or-nothing: when fewer than the requested number of
+		// distinct names exist, the player cannot find exactly that many, so
+		// none is found (the fail-to-find tail below).
+		if differentNamesEnabled(sa) {
+			names := make(map[string]bool, len(budgetEligible))
+			for _, id := range budgetEligible {
+				if o := g.Obj(id); o != nil && o.Face() != nil {
+					names[o.Face().Name] = true
+				}
+			}
+			if distinct := int32(len(names)); max > distinct {
+				max = distinct
+			}
+			if strings.EqualFold(strings.TrimSpace(sa.Params["Exactly"]), "True") && max < requested {
+				max = 0
+			}
 		}
 		// CR 701.23b/701.23d decide the minimum: a search whose card filter states
 		// only a quantity must find that many (or as many as the zone holds), so
@@ -1164,6 +1189,24 @@ func applyLibrarySearch(h Host, c *Ctx, sa *cards.SA, owner state.PlayerID, to s
 	// was rechecked against the pre-clear snapshot, so a formerly remembered
 	// card remains admitted here.
 	forgetOtherRemembered(h, c, sa)
+	// A hidden search with NO Destination$ (Extrapolate the Impossible's and
+	// Turtles Forever's heads, the corpus's only two: "reveal exactly two
+	// cards you own ... from outside the game. An opponent chooses one of
+	// them.") finds, reveals and remembers the cards for the chained sub that
+	// moves the chosen ones -- whose own Origin$ names the SAME zones, so the
+	// found cards must still be there. ParseZone's Graveyard default would
+	// instead bin every found card before the opponent chooses. They stay put:
+	// "moved" here is the found set the reveal and RememberChanged$ read.
+	if strings.TrimSpace(sa.ParamStr(cards.PKDestination)) == "" {
+		for _, id := range valid {
+			moved = append(moved, id)
+			if strings.EqualFold(sa.Params["RememberChanged"], "True") {
+				c.Remembered = append(c.Remembered, state.Target{Obj: id})
+				eventRemember(h, c, id)
+			}
+		}
+		valid = nil
+	}
 	for _, id := range valid {
 		o := g.Obj(id)
 		if o == nil || !zoneIn(zones, o.Zone) {

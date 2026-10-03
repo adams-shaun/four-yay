@@ -1,0 +1,6 @@
+{
+  "card": "Extrapolate the Impossible",
+  "rows": {
+    "caster-may-decline-to-reveal": "Oracle 'You may reveal exactly two cards' is optional (0 or exactly 2), but the engine poses the reveal as a mandatory Min 2..Max 2 choose (the quantity-only Card.YouOwn search forces Min = Max, CR 701.23d), so declining is refused: observed 'submit choose []: expected 2..2 choices'; expected no card revealed, both cards still outside the game, hand empty. Needs a '0 or exactly N' decision shape for Exactly$ True."
+  }
+}
