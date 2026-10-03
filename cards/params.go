@@ -88,8 +88,16 @@ const (
 	PKCombatDamage
 	PKCondition
 	PKConditionActivationLimit
+	PKConditionCheckSVar
 	PKConditionCompare
 	PKConditionDefined
+	PKConditionFirstCombat
+	PKConditionNotPresent
+	PKConditionPhases
+	PKConditionPlayerTurn
+	PKConditionPresent
+	PKConditionSVarCompare
+	PKConditionZone
 	PKController
 	PKCost
 	PKCounterNum
@@ -130,6 +138,7 @@ const (
 	PKImprint
 	PKImprintCards
 	PKImprintLast
+	PKInstantSpeed
 	PKIntoPlayTapped
 	PKIsPresent
 	PKIsPresent2
@@ -244,6 +253,7 @@ const (
 	PKTypes
 	PKUnattach
 	PKUnlessCost
+	PKUnlessPayer
 	PKUnlessSwitched
 	PKUpTo
 	PKValid
@@ -368,8 +378,16 @@ var paramKeyNames = [paramKeyCount]string{
 	PKCombatDamage:                    "CombatDamage",
 	PKCondition:                       "Condition",
 	PKConditionActivationLimit:        "ConditionActivationLimit",
+	PKConditionCheckSVar:              "ConditionCheckSVar",
 	PKConditionCompare:                "ConditionCompare",
 	PKConditionDefined:                "ConditionDefined",
+	PKConditionFirstCombat:            "ConditionFirstCombat",
+	PKConditionNotPresent:             "ConditionNotPresent",
+	PKConditionPhases:                 "ConditionPhases",
+	PKConditionPlayerTurn:             "ConditionPlayerTurn",
+	PKConditionPresent:                "ConditionPresent",
+	PKConditionSVarCompare:            "ConditionSVarCompare",
+	PKConditionZone:                   "ConditionZone",
 	PKController:                      "Controller",
 	PKCost:                            "Cost",
 	PKCounterNum:                      "CounterNum",
@@ -410,6 +428,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKImprint:                         "Imprint",
 	PKImprintCards:                    "ImprintCards",
 	PKImprintLast:                     "ImprintLast",
+	PKInstantSpeed:                    "InstantSpeed",
 	PKIntoPlayTapped:                  "IntoPlayTapped",
 	PKIsPresent:                       "IsPresent",
 	PKIsPresent2:                      "IsPresent2",
@@ -524,6 +543,7 @@ var paramKeyNames = [paramKeyCount]string{
 	PKTypes:                           "Types",
 	PKUnattach:                        "Unattach",
 	PKUnlessCost:                      "UnlessCost",
+	PKUnlessPayer:                     "UnlessPayer",
 	PKUnlessSwitched:                  "UnlessSwitched",
 	PKUpTo:                            "UpTo",
 	PKValid:                           "Valid",
