@@ -280,11 +280,34 @@ env = { GOMEMLIMIT = "1GiB", GOMAXPROCS = "6" }
 # The higher limit is faster AND lower-RSS; `seat`, `rules` and
 # spellbench/v2engine sit under 1.2G RSS and are unaffected by either value,
 # so no package that previously fit the 8G MemoryMax scope grows into it.
+#
+# CPUQuota 800% -> 1600% and -p 4 -> 8 (2026-10-03,
+# cli-20261003T074330Z-1a867e88). After the 800% raise the gate was no
+# longer quota-bound at the tail: a `go test -json ./...` schedule showed
+# rules starting only at t=60.9s (behind v2engine/paymirror/sbsearch) and
+# then setting the wall at 60.9 -> 111.4s, with the 8-core quota 95% busy
+# (844s user / 111s wall). The box has 32 cores and the broker's gate-begin
+# pauses heavy/probe for the whole suite, and gate runs never overlap
+# themselves (measured: 0 overlapping spans in the last 1684 gate runs), so
+# the extra cores are free during a gate. Measured on this tree, forced
+# fresh (`go test -count=1 -skip ... ./...` in the gate's own systemd scope,
+# `MemoryMax=8G GOMEMLIMIT=4GiB`, both 0 FAIL):
+#   CPUQuota=800%  GOMAXPROCS=8  -p=4 -> 112.6s wall, 708.7s user, 6.16G maxRSS
+#   CPUQuota=1200% GOMAXPROCS=12 -p=4 -> 101.8s wall, 784.1s user, 6.23G maxRSS
+#   CPUQuota=1600% GOMAXPROCS=16 -p=4 ->  99.1s wall, 871.0s user, 6.03G maxRSS
+#   CPUQuota=1600% GOMAXPROCS=16 -p=6 ->  84.5s wall, 903.7s user, 6.00G maxRSS
+#   CPUQuota=1600% GOMAXPROCS=16 -p=8 ->  82.6s wall, 978.8s user, 5.87G maxRSS
+#   CPUQuota=1200% GOMAXPROCS=12 -p=8 ->  92.5s wall, 896.3s user, 5.94G maxRSS
+# 1600%/-p=8 is the knee: -p=6 buys nearly all of it (84.5s) and -p=8 the
+# last 2s; 1200% leaves 10s on the table. Peak RSS FALLS (5.87G vs 6.16G)
+# because a faster gate holds fewer test binaries' heaps at once, so the
+# unchanged 8G MemoryMax still bounds it. Net module gate: ~113s -> ~83s
+# (-30s, -27%). The other gates are unchanged.
 [[gates]]
 name = "go test (module)"
-cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=800%", "go", "test", "-p=4", "-skip", "^(TestHeads|TestInvariantsUnderSeedFuzz|TestLargeEliminationSweepDoesNotTripLivelockWatcher)$", "./..."]
+cmd = ["systemd-run", "--user", "--scope", "-q", "-p", "MemoryMax=8G", "-p", "CPUQuota=1600%", "go", "test", "-p=8", "-skip", "^(TestHeads|TestInvariantsUnderSeedFuzz|TestLargeEliminationSweepDoesNotTripLivelockWatcher)$", "./..."]
 timeout = 1200
-env = { GOMEMLIMIT = "4GiB", GOMAXPROCS = "8" }
+env = { GOMEMLIMIT = "4GiB", GOMAXPROCS = "16" }
 
 [[gates]]
 name = "CR conformance"
