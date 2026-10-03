@@ -192,6 +192,11 @@ func submitValidate(e *Engine, d *decision.Decision, in decision.Intent) error {
 	if err := d.Validate(in); err != nil {
 		return err
 	}
+	// The wire contract above is the ANSWERING seat's (d.Player); every
+	// engine-side check below acts for the seat the decision is asked OF.
+	// They differ only under a CR 722 redirect (actingView); submitCommit
+	// logs the answering seat's intent exactly as submitted.
+	d, in = actingView(d, in)
 	if d.Kind == decision.KAttackers {
 		// Ruling m34: the KAttackers option list offers every (attacker,
 		// defender) pair, so an intent naming the same creature twice --
@@ -269,6 +274,10 @@ func submitValidate(e *Engine, d *decision.Decision, in decision.Intent) error {
 // a pure read; from here the Submit commits, which ends the posed decision's
 // rest window (potential_walk_cache.go).
 func submitCommit(e *Engine, d *decision.Decision, in decision.Intent) {
+	// The handlers act for the seat the decision is asked OF (actingView, a
+	// CR 722 redirect); the log keeps the answering seat's intent.
+	logged := in
+	d, _ = actingView(d, in)
 	e.potentialAskSerial++
 	if e.L.Intents == nil && e.intentBuf != nil {
 		// A recycled intent array (Config.Spare) backs the log from its first
@@ -278,13 +287,17 @@ func submitCommit(e *Engine, d *decision.Decision, in decision.Intent) {
 	}
 	// The caller owns its intent. Keep a private witness before it becomes
 	// replay history, so a client-side mutation after Submit cannot alter it.
-	in = cloneIntentForLog(in)
-	e.tape.LogIntent(e.L, in)
+	logged = cloneIntentForLog(logged)
+	e.tape.LogIntent(e.L, logged)
+	// The handlers read the same private witness, re-seated on the acting
+	// seat (d is the acting view, so d.Player is that seat either way).
+	in = logged
+	in.Player = d.Player
 	made := decisionMadePaymentText(d.Kind, in.Choices, in.Payment)
 	if in.Announce != nil {
 		made = decisionMadeAnnounceText(d.Kind, in.Choices, in.Announce)
 	}
-	e.emit(events.Event{Kind: events.DecisionMade, Player: in.Player, Text: made})
+	e.emit(events.Event{Kind: events.DecisionMade, Player: logged.Player, Text: made})
 	e.pending = nil
 	if in.Announce != nil {
 		action, _ := paymentActionFor(d, in.Announce.ActionID)
