@@ -366,7 +366,6 @@ func TestOracleAudit(t *testing.T) {
 	}
 	sort.Strings(paths)
 	seen := map[string]bool{}
-	seenUnconsumed := map[string]bool{}
 	for _, p := range paths {
 		f := files[p]
 		c, ok := reg.Lookup(f.Card)
@@ -411,7 +410,6 @@ func TestOracleAudit(t *testing.T) {
 					}
 				}
 				uncReason, isUnc := unconsumed[key]
-				seenUnconsumed[key] = true
 				if isUnc && len(leftovers) == 0 {
 					t.Errorf("stale unconsumed-answer row (the scenario now consumes every step answer; delete its row from %s): %s", oracleUnconsumedFile, uncReason)
 				}
@@ -443,7 +441,7 @@ func TestOracleAudit(t *testing.T) {
 		}
 	}
 	for key := range unconsumed {
-		if !seenUnconsumed[key] {
+		if !seen[key] {
 			t.Errorf("%s row %q names no scenario", oracleUnconsumedFile, key)
 		}
 	}
